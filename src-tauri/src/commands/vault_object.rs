@@ -260,6 +260,172 @@ pub fn refile_into_folder<T: VaultObject>(
     Ok(())
 }
 
+// ── The four command bodies every module spells identically ──────────────────
+//
+// `update` is deliberately absent: no two entities merge their fields the same
+// way, and `merge_fields!` already carries the mechanical part of it.
+//
+// Each macro forwards leading attributes so a call site keeps its own doc
+// comment, and takes the loader/saver as paths so the entity's storage module
+// stays visible at the call site.
+
+/// `Ok(live(load()))` — the whole body of every `*_list`.
+macro_rules! vault_list_command {
+    ($(#[$meta:meta])* $name:ident, $ty:ty, $load:path) => {
+        $(#[$meta])*
+        #[tauri::command]
+        pub fn $name() -> Result<Vec<$ty>, String> {
+            Ok($crate::commands::vault_object::live($load()))
+        }
+    };
+}
+pub(crate) use vault_list_command;
+
+/// Create under a fresh id, after authorizing the vault the form asked for.
+macro_rules! vault_create_command {
+    ($(#[$meta:meta])* $name:ident, $ty:ty, $form:ty, $build:ident, $load:path, $save:path) => {
+        $(#[$meta])*
+        #[tauri::command]
+        pub fn $name(data: $form) -> Result<$ty, String> {
+            let mut items = $load();
+            let now = chrono::Utc::now().to_rfc3339();
+            $crate::vault_auth::check_vault_write(
+                &$crate::commands::vault_object::requested_vault(&data.vault_id),
+            )?;
+            let created = $build(uuid::Uuid::new_v4().to_string(), data, &now, None);
+            items.push(created.clone());
+            $save(&items)?;
+            Ok(created)
+        }
+    };
+}
+pub(crate) use vault_create_command;
+
+/// Insert under a caller-supplied id, replacing any local row carrying it and
+/// preserving that row's `created_at`. Migration-only: see `connection_adopt`.
+macro_rules! vault_adopt_command {
+    ($(#[$meta:meta])* $name:ident, $ty:ty, $form:ty, $build:ident, $load:path, $save:path) => {
+        $(#[$meta])*
+        #[tauri::command]
+        pub fn $name(id: String, data: $form) -> Result<$ty, String> {
+            let mut items = $load();
+            let now = chrono::Utc::now().to_rfc3339();
+            $crate::vault_auth::check_vault_write(
+                &$crate::commands::vault_object::requested_vault(&data.vault_id),
+            )?;
+            let created_at = $crate::commands::vault_object::created_at_of(&items, &id);
+            let adopted = $build(id, data, &now, created_at);
+            $crate::commands::vault_object::adopt_into(&mut items, adopted.clone());
+            $save(&items)?;
+            Ok(adopted)
+        }
+    };
+}
+pub(crate) use vault_adopt_command;
+
+/// Soft-delete one row, after authorizing the vault it actually sits in.
+macro_rules! vault_delete_command {
+    ($(#[$meta:meta])* $name:ident, $load:path, $save:path) => {
+        $(#[$meta])*
+        #[tauri::command]
+        pub fn $name(id: String) -> Result<(), String> {
+            let mut items = $load();
+            let now = chrono::Utc::now().to_rfc3339();
+            let item = $crate::commands::vault_object::find_mut(&mut items, &id)?;
+            $crate::vault_auth::check_vault_write(std::slice::from_ref(&item.vault_id))?;
+            $crate::commands::vault_object::tombstone(item, &now);
+            $save(&items)
+        }
+    };
+}
+pub(crate) use vault_delete_command;
+
+/// The whole command set of an entity that spells all four verbs the standard
+/// way. Each verb is optional: an entity whose delete cascades, or whose builder
+/// takes more than the four standard arguments, simply omits that key and keeps
+/// its own function.
+macro_rules! vault_object_commands {
+    (
+        $ty:ty, $form:ty, $build:ident, $load:path, $save:path,
+        $(list = $list:ident,)?
+        $(create = $create:ident,)?
+        $(adopt = $adopt:ident, adopt_doc = $adopt_doc:literal,)?
+        $(delete = $delete:ident,)?
+    ) => {
+        $($crate::commands::vault_object::vault_list_command!($list, $ty, $load);)?
+        $($crate::commands::vault_object::vault_create_command!(
+            $create, $ty, $form, $build, $load, $save
+        );)?
+        $($crate::commands::vault_object::vault_adopt_command!(
+            #[doc = $adopt_doc]
+            $adopt, $ty, $form, $build, $load, $save
+        );)?
+        $($crate::commands::vault_object::vault_delete_command!($delete, $load, $save);)?
+    };
+}
+pub(crate) use vault_object_commands;
+
+/// The characterisation tests every `build_*` shares: it stamps exactly the
+/// synced fields at `now`, defaults an absent vault to personal, keeps an
+/// explicit one, carries a supplied `created_at`, and is never born deleted.
+///
+/// `form` is the module's own form-data fixture; `extra` gets the built object
+/// for whatever else that entity promises.
+#[cfg(test)]
+macro_rules! vault_build_tests {
+    (
+        $build:ident, $form:ident, $id:literal, [$($field:literal),* $(,)?]
+        $(, extra = |$built:ident| $extra:block)? $(,)?
+    ) => {
+        const NOW: &str = "2026-01-01T00:00:00Z";
+
+        #[test]
+        fn build_stamps_every_synced_field_at_now() {
+            let built = $build($id.into(), $form(), NOW, None);
+            let mut fields: Vec<&str> = built.clocks.keys().map(String::as_str).collect();
+            fields.sort();
+            assert_eq!(fields, [$($field),*]);
+            assert!(built.clocks.values().all(|v| v == NOW));
+        }
+
+        #[test]
+        fn build_defaults_an_absent_vault_to_personal() {
+            assert_eq!($build($id.into(), $form(), NOW, None).vault_id, "personal");
+        }
+
+        #[test]
+        fn build_keeps_an_explicit_vault() {
+            let mut data = $form();
+            data.vault_id = Some("team-a".into());
+            assert_eq!($build($id.into(), data, NOW, None).vault_id, "team-a");
+        }
+
+        #[test]
+        fn build_carries_a_supplied_created_at_and_otherwise_uses_now() {
+            let carried = $build(
+                $id.into(),
+                $form(),
+                "2026-02-01T00:00:00Z",
+                Some("2020-01-01T00:00:00Z".into()),
+            );
+            assert_eq!(carried.created_at, "2020-01-01T00:00:00Z");
+            let fresh = $build($id.into(), $form(), "2026-02-01T00:00:00Z", None);
+            assert_eq!(fresh.created_at, "2026-02-01T00:00:00Z");
+        }
+
+        #[test]
+        fn build_is_never_born_deleted_and_updates_at_now() {
+            let built = $build($id.into(), $form(), NOW, None);
+            assert_eq!(built.deleted_at, None);
+            assert_eq!(built.updated_at, NOW);
+            assert_eq!(built.id, $id);
+            $(let $built = built; $extra)?
+        }
+    };
+}
+#[cfg(test)]
+pub(crate) use vault_build_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;

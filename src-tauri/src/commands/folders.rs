@@ -1,7 +1,7 @@
 use crate::commands::vault_object::{
-    adopt_into, bump, cascade_tombstone, created_at_of, effective_vault, find_mut, finish_update,
-    impl_vault_object, initial_clocks, live, merge_fields, refile_into_folder, requested_vault,
-    subtree_ids, tombstone, vaults_of,
+    bump, cascade_tombstone, effective_vault, find_mut, finish_update, impl_vault_object,
+    initial_clocks, merge_fields, refile_into_folder, requested_vault, subtree_ids, tombstone,
+    vault_object_commands, vaults_of,
 };
 use crate::storage::config::{
     load_connections, load_folders, load_identities, load_keys, load_port_forwarding_rules,
@@ -11,17 +11,26 @@ use crate::storage::config::{
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
 use std::collections::HashSet;
-use uuid::Uuid;
 
 impl_vault_object!(Folder, "Folder");
 
 /// The fields whose edits are stamped and synced.
 const CLOCK_FIELDS: &[&str] = &["name", "parent_folder_id", "object_type", "vault_id"];
 
-#[tauri::command]
-pub fn folder_list() -> Result<Vec<Folder>, String> {
-    Ok(live(load_folders()))
-}
+// `folder_save` authorized the vault before loading; the macro loads first. Both
+// reads are pure, so only the order of two side-effect-free calls changes.
+vault_object_commands!(
+    Folder,
+    FolderFormData,
+    build_folder,
+    load_folders,
+    save_folders,
+    list = folder_list,
+    create = folder_save,
+    adopt = folder_adopt,
+    adopt_doc = "The id must survive because every object filed in the folder references it \
+                 by `folder_id`.",
+);
 
 fn build_folder(id: String, data: FolderFormData, now: &str, created_at: Option<String>) -> Folder {
     Folder {
@@ -36,32 +45,6 @@ fn build_folder(id: String, data: FolderFormData, now: &str, created_at: Option<
         deleted_at: None,
         clocks: initial_clocks(CLOCK_FIELDS, now),
     }
-}
-
-#[tauri::command]
-pub fn folder_save(data: FolderFormData) -> Result<Folder, String> {
-    check_vault_write(&requested_vault(&data.vault_id))?;
-    let mut folders = load_folders();
-    let now = Utc::now().to_rfc3339();
-    let folder = build_folder(Uuid::new_v4().to_string(), data, &now, None);
-    folders.push(folder.clone());
-    save_folders(&folders)?;
-    Ok(folder)
-}
-
-/// Inserts a folder under a caller-supplied `id`, replacing any local row with
-/// that id. Migration-only: see `connection_adopt`. The id must survive because
-/// every object filed in the folder references it by `folder_id`.
-#[tauri::command]
-pub fn folder_adopt(id: String, data: FolderFormData) -> Result<Folder, String> {
-    check_vault_write(&requested_vault(&data.vault_id))?;
-    let mut folders = load_folders();
-    let now = Utc::now().to_rfc3339();
-    let created_at = created_at_of(&folders, &id);
-    let adopted = build_folder(id, data, &now, created_at);
-    adopt_into(&mut folders, adopted.clone());
-    save_folders(&folders)?;
-    Ok(adopted)
 }
 
 /// Unlike the sibling entities, a folder stamps `pinned` — it is a synced field

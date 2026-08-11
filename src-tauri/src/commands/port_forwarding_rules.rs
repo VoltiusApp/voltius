@@ -1,7 +1,9 @@
 use crate::commands::crdt::{is_alive, max_clock};
+#[cfg(test)]
+use crate::commands::vault_object::vault_build_tests;
 use crate::commands::vault_object::{
-    adopt_into, created_at_of, find_mut, finish_update, impl_vault_object, initial_clocks, live,
-    merge_fields, requested_vault, retarget_vault, tombstone,
+    find_mut, finish_update, impl_vault_object, initial_clocks, merge_fields, requested_vault,
+    retarget_vault, vault_object_commands,
 };
 use crate::storage::config::{
     load_port_forwarding_rules, save_port_forwarding_rules, PortForwardingRule,
@@ -9,7 +11,6 @@ use crate::storage::config::{
 };
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
-use uuid::Uuid;
 
 impl_vault_object!(PortForwardingRule, "Rule");
 
@@ -28,10 +29,18 @@ const CLOCK_FIELDS: &[&str] = &[
     "vault_id",
 ];
 
-#[tauri::command]
-pub fn pf_rule_list() -> Result<Vec<PortForwardingRule>, String> {
-    Ok(live(load_port_forwarding_rules()))
-}
+vault_object_commands!(
+    PortForwardingRule,
+    PortForwardingRuleFormData,
+    build_pf_rule,
+    load_port_forwarding_rules,
+    save_port_forwarding_rules,
+    list = pf_rule_list,
+    create = pf_rule_create,
+    adopt = pf_rule_adopt,
+    adopt_doc = "The id must survive because sync preferences and undo entries key on it.",
+    delete = pf_rule_delete,
+);
 
 fn build_pf_rule(
     id: String,
@@ -57,35 +66,6 @@ fn build_pf_rule(
         deleted_at: None,
         clocks: initial_clocks(CLOCK_FIELDS, now),
     }
-}
-
-#[tauri::command]
-pub fn pf_rule_create(data: PortForwardingRuleFormData) -> Result<PortForwardingRule, String> {
-    let mut rules = load_port_forwarding_rules();
-    let now = Utc::now().to_rfc3339();
-    check_vault_write(&requested_vault(&data.vault_id))?;
-    let rule = build_pf_rule(Uuid::new_v4().to_string(), data, &now, None);
-    rules.push(rule.clone());
-    save_port_forwarding_rules(&rules)?;
-    Ok(rule)
-}
-
-/// Inserts a rule under a caller-supplied `id`, replacing any local row with that
-/// id. Migration-only: see `connection_adopt`. The id must survive because sync
-/// preferences and undo entries key on it.
-#[tauri::command]
-pub fn pf_rule_adopt(
-    id: String,
-    data: PortForwardingRuleFormData,
-) -> Result<PortForwardingRule, String> {
-    let mut rules = load_port_forwarding_rules();
-    let now = Utc::now().to_rfc3339();
-    check_vault_write(&requested_vault(&data.vault_id))?;
-    let created_at = created_at_of(&rules, &id);
-    let adopted = build_pf_rule(id, data, &now, created_at);
-    adopt_into(&mut rules, adopted.clone());
-    save_port_forwarding_rules(&rules)?;
-    Ok(adopted)
 }
 
 #[tauri::command]
@@ -119,16 +99,6 @@ pub fn pf_rule_update(
     let updated = rule.clone();
     save_port_forwarding_rules(&rules)?;
     Ok(updated)
-}
-
-#[tauri::command]
-pub fn pf_rule_delete(id: String) -> Result<(), String> {
-    let mut rules = load_port_forwarding_rules();
-    let now = Utc::now().to_rfc3339();
-    let rule = find_mut(&mut rules, &id)?;
-    check_vault_write(std::slice::from_ref(&rule.vault_id))?;
-    tombstone(rule, &now);
-    save_port_forwarding_rules(&rules)
 }
 
 #[tauri::command]
@@ -187,61 +157,22 @@ mod tests {
         }
     }
 
-    #[test]
-    fn build_stamps_every_synced_field_at_now() {
-        let built = build_pf_rule("r-1".into(), form(), "2026-01-01T00:00:00Z", None);
-        let mut fields: Vec<&str> = built.clocks.keys().map(String::as_str).collect();
-        fields.sort();
-        assert_eq!(
-            fields,
-            [
-                "bind_host",
-                "connection_ids",
-                "description",
-                "folder_id",
-                "local_port",
-                "name",
-                "remote_host",
-                "remote_port",
-                "target_host",
-                "tunnel_type",
-                "vault_id",
-            ]
-        );
-        assert!(built.clocks.values().all(|v| v == "2026-01-01T00:00:00Z"));
-    }
-
-    #[test]
-    fn build_defaults_an_absent_vault_to_personal() {
-        let built = build_pf_rule("r-1".into(), form(), "2026-01-01T00:00:00Z", None);
-        assert_eq!(built.vault_id, "personal");
-    }
-
-    #[test]
-    fn build_keeps_an_explicit_vault() {
-        let mut data = form();
-        data.vault_id = Some("team-a".into());
-        let built = build_pf_rule("r-1".into(), data, "2026-01-01T00:00:00Z", None);
-        assert_eq!(built.vault_id, "team-a");
-    }
-
-    #[test]
-    fn build_carries_a_supplied_created_at_and_otherwise_uses_now() {
-        let carried = build_pf_rule(
-            "r-1".into(),
-            form(),
-            "2026-02-01T00:00:00Z",
-            Some("2020-01-01T00:00:00Z".into()),
-        );
-        assert_eq!(carried.created_at, "2020-01-01T00:00:00Z");
-        let fresh = build_pf_rule("r-1".into(), form(), "2026-02-01T00:00:00Z", None);
-        assert_eq!(fresh.created_at, "2026-02-01T00:00:00Z");
-    }
-
-    #[test]
-    fn build_is_never_born_deleted_and_updates_at_now() {
-        let built = build_pf_rule("r-1".into(), form(), "2026-01-01T00:00:00Z", None);
-        assert_eq!(built.deleted_at, None);
-        assert_eq!(built.updated_at, "2026-01-01T00:00:00Z");
-    }
+    vault_build_tests!(
+        build_pf_rule,
+        form,
+        "r-1",
+        [
+            "bind_host",
+            "connection_ids",
+            "description",
+            "folder_id",
+            "local_port",
+            "name",
+            "remote_host",
+            "remote_port",
+            "target_host",
+            "tunnel_type",
+            "vault_id",
+        ],
+    );
 }

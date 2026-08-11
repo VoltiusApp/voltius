@@ -1,6 +1,6 @@
 use crate::commands::vault_object::{
-    adopt_into, bump, created_at_of, find_mut, finish_update, impl_vault_object, initial_clocks,
-    live, merge_fields, requested_vault, retarget_vault, subtree_ids, tombstone,
+    bump, find_mut, finish_update, impl_vault_object, initial_clocks, merge_fields,
+    requested_vault, retarget_vault, subtree_ids, tombstone, vault_object_commands,
 };
 use crate::local::session::LocalSessionManager;
 use crate::ssh::session::SessionManager;
@@ -11,7 +11,6 @@ use crate::storage::config::{
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
 use std::collections::HashSet;
-use uuid::Uuid;
 
 impl_vault_object!(Snippet, "Snippet");
 impl_vault_object!(SnippetFolder, "SnippetFolder");
@@ -37,10 +36,19 @@ const CLOCK_FIELDS: &[&str] = &[
 
 const FOLDER_CLOCK_FIELDS: &[&str] = &["name", "parent_id", "color", "icon", "vault_id"];
 
-#[tauri::command]
-pub fn snippet_list() -> Result<Vec<Snippet>, String> {
-    Ok(live(load_snippets()))
-}
+vault_object_commands!(
+    Snippet,
+    SnippetFormData,
+    build_snippet,
+    load_snippets,
+    save_snippets,
+    list = snippet_list,
+    create = snippet_create,
+    adopt = snippet_adopt,
+    adopt_doc = "The id must survive because connections reference snippets by \
+                 `pre_snippet_id` / `post_snippet_id`.",
+    delete = snippet_delete,
+);
 
 fn build_snippet(
     id: String,
@@ -65,32 +73,6 @@ fn build_snippet(
         vault_id: requested_vault(&data.vault_id)[0].clone(),
         clocks: initial_clocks(CLOCK_FIELDS, now),
     }
-}
-
-#[tauri::command]
-pub fn snippet_create(data: SnippetFormData) -> Result<Snippet, String> {
-    let mut snippets = load_snippets();
-    let now = Utc::now().to_rfc3339();
-    check_vault_write(&requested_vault(&data.vault_id))?;
-    let snippet = build_snippet(Uuid::new_v4().to_string(), data, &now, None);
-    snippets.push(snippet.clone());
-    save_snippets(&snippets)?;
-    Ok(snippet)
-}
-
-/// Inserts a snippet under a caller-supplied `id`, replacing any local row with
-/// that id. Migration-only: see `connection_adopt`. The id must survive because
-/// connections reference snippets by `pre_snippet_id` / `post_snippet_id`.
-#[tauri::command]
-pub fn snippet_adopt(id: String, data: SnippetFormData) -> Result<Snippet, String> {
-    let mut snippets = load_snippets();
-    let now = Utc::now().to_rfc3339();
-    check_vault_write(&requested_vault(&data.vault_id))?;
-    let created_at = created_at_of(&snippets, &id);
-    let adopted = build_snippet(id, data, &now, created_at);
-    adopt_into(&mut snippets, adopted.clone());
-    save_snippets(&snippets)?;
-    Ok(adopted)
 }
 
 #[tauri::command]
@@ -126,16 +108,6 @@ pub fn snippet_update(id: String, data: SnippetFormData) -> Result<Snippet, Stri
     Ok(updated)
 }
 
-#[tauri::command]
-pub fn snippet_delete(id: String) -> Result<(), String> {
-    let mut snippets = load_snippets();
-    let now = Utc::now().to_rfc3339();
-    let snippet = find_mut(&mut snippets, &id)?;
-    check_vault_write(std::slice::from_ref(&snippet.vault_id))?;
-    tombstone(snippet, &now);
-    save_snippets(&snippets)
-}
-
 /// Inject text into the active terminal session.
 /// Handles both SSH and local sessions. Appends \n when execute=true.
 /// Multiplayer injection must be gated by the caller (frontend checks controller status).
@@ -159,10 +131,17 @@ pub async fn snippet_inject(
 
 // ─── Snippet folder CRUD ──────────────────────────────────────────────────────
 
-#[tauri::command]
-pub fn snippet_folder_list() -> Result<Vec<SnippetFolder>, String> {
-    Ok(live(load_snippet_folders()))
-}
+vault_object_commands!(
+    SnippetFolder,
+    SnippetFolderFormData,
+    build_snippet_folder,
+    load_snippet_folders,
+    save_snippet_folders,
+    list = snippet_folder_list,
+    create = snippet_folder_create,
+    adopt = snippet_folder_adopt,
+    adopt_doc = "The id must survive because snippets reference their folder by `folder_id`.",
+);
 
 fn build_snippet_folder(
     id: String,
@@ -182,35 +161,6 @@ fn build_snippet_folder(
         vault_id: requested_vault(&data.vault_id)[0].clone(),
         clocks: initial_clocks(FOLDER_CLOCK_FIELDS, now),
     }
-}
-
-#[tauri::command]
-pub fn snippet_folder_create(data: SnippetFolderFormData) -> Result<SnippetFolder, String> {
-    let mut folders = load_snippet_folders();
-    let now = Utc::now().to_rfc3339();
-    check_vault_write(&requested_vault(&data.vault_id))?;
-    let folder = build_snippet_folder(Uuid::new_v4().to_string(), data, &now, None);
-    folders.push(folder.clone());
-    save_snippet_folders(&folders)?;
-    Ok(folder)
-}
-
-/// Inserts a snippet folder under a caller-supplied `id`, replacing any local row
-/// with that id. Migration-only: see `connection_adopt`. The id must survive
-/// because snippets reference their folder by `folder_id`.
-#[tauri::command]
-pub fn snippet_folder_adopt(
-    id: String,
-    data: SnippetFolderFormData,
-) -> Result<SnippetFolder, String> {
-    let mut folders = load_snippet_folders();
-    let now = Utc::now().to_rfc3339();
-    check_vault_write(&requested_vault(&data.vault_id))?;
-    let created_at = created_at_of(&folders, &id);
-    let adopted = build_snippet_folder(id, data, &now, created_at);
-    adopt_into(&mut folders, adopted.clone());
-    save_snippet_folders(&folders)?;
-    Ok(adopted)
 }
 
 /// Unlike every sibling update, this one neither retargets nor authorizes the
