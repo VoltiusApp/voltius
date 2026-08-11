@@ -70,7 +70,7 @@ jobs:
       catalog-artifact: plugin-catalog-${{ github.run_id }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
 
@@ -85,7 +85,7 @@ jobs:
       # previously-safe re-run of an already-released tag into a hard failure that
       # has nothing to do with the plugin's actual source.
       - name: Setup node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -125,7 +125,7 @@ jobs:
           node scripts/build-plugins.mjs $PLUGIN_IDS $catalog_flag --stage-assets=dist/plugin-release-assets
 
       - name: Upload catalogue fragment as a build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: plugin-catalog-${{ github.run_id }}
           path: dist/plugin-catalog.json
