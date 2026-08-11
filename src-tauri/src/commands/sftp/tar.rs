@@ -74,6 +74,19 @@ fn rm_remote_cmd(path: &str) -> String {
     format!("rm -f {}", shell_quote(path))
 }
 
+/// Remote path of a transfer's temp archive. The destination end gets a name of
+/// its own: when both ends are the *same* host, one shared name means the
+/// source's clean-up `rm -f` — which runs before the destination extracts —
+/// deletes the very archive the extraction is waiting for.
+fn remote_archive(transfer_id: &str, dst: bool) -> String {
+    let name = if dst {
+        temp_archive_name(&format!("{transfer_id}_dst"))
+    } else {
+        temp_archive_name(transfer_id)
+    };
+    format!("/tmp/{name}")
+}
+
 /// Archive `names` (all relative to `parent`) into `archive` with the local tar.
 async fn local_tar_create(archive: &Path, parent: &str, names: &[String]) -> Result<(), String> {
     let mut cmd = tokio::process::Command::new("tar");
@@ -142,11 +155,14 @@ impl<'a> TarJob<'a> {
         }
     }
 
-    /// The archive both ends of a transfer name, under the system temp dir
-    /// locally and `/tmp` remotely.
+    /// This transfer's temp archive, under the system temp dir locally and
+    /// `/tmp` remotely.
     fn temp_paths(&self) -> (std::path::PathBuf, String) {
         let name = temp_archive_name(self.transfer_id);
-        (std::env::temp_dir().join(&name), format!("/tmp/{}", name))
+        (
+            std::env::temp_dir().join(&name),
+            remote_archive(self.transfer_id, false),
+        )
     }
 
     async fn exec(&self, cmd: &str) -> Result<(), String> {
@@ -324,15 +340,17 @@ async fn transfer_tar(
     dst_dir: &str,
     strip: bool,
 ) -> Result<(), String> {
-    // Both ends name the archive the same way; `job.sftp_id` is the source.
-    let (_, tmp) = job.temp_paths();
+    // `job.sftp_id` is the source; the destination archive is named apart so a
+    // same-host transfer survives the source clean-up below.
+    let (_, src_tmp) = job.temp_paths();
+    let dst_tmp = remote_archive(job.transfer_id, true);
 
     // 1. Archive on source
-    job.exec(&tar_create_cmd(&tmp, false, src_parent, items))
+    job.exec(&tar_create_cmd(&src_tmp, false, src_parent, items))
         .await?;
 
     if job.token.is_cancelled() {
-        job.rm_remote(&tmp).await;
+        job.rm_remote(&src_tmp).await;
         return Err("Transfer cancelled".into());
     }
 
@@ -340,19 +358,19 @@ async fn transfer_tar(
     let streamed = sftp_rr_file_inner(
         job.app,
         src_session,
-        &tmp,
+        &src_tmp,
         dst_session,
-        &tmp,
+        &dst_tmp,
         job.transfer_id,
         job.token,
     )
     .await;
     // Clean up source temp regardless
-    job.rm_remote(&tmp).await;
+    job.rm_remote(&src_tmp).await;
     streamed?;
 
     // 3. Extract on destination and clean up
-    let cmd = tar_extract_cmd(dst_dir, &tmp, strip, true);
+    let cmd = tar_extract_cmd(dst_dir, &dst_tmp, strip, true);
     job.manager.exec_command(dst_sftp_id, &cmd).await
 }
 
@@ -618,6 +636,21 @@ mod tests {
             "mkdir -p '/dest' && tar -xzf '/tmp/a' -C '/dest' 2>&1; \
              RC=$?; rm -f '/tmp/a'; echo __TF_EXIT__:$RC"
         );
+    }
+
+    #[test]
+    fn the_two_ends_of_a_transfer_never_name_the_same_archive() {
+        let src = remote_archive("t1", false);
+        let dst = remote_archive("t1", true);
+        assert_eq!(src, "/tmp/tf_t1.tar.gz");
+        assert_eq!(dst, "/tmp/tf_t1_dst.tar.gz");
+        assert_ne!(src, dst);
+    }
+
+    #[test]
+    fn removing_the_source_archive_leaves_the_destination_one_alone() {
+        let dst = remote_archive("t1", true);
+        assert!(!rm_remote_cmd(&remote_archive("t1", false)).contains(&dst));
     }
 
     #[test]
