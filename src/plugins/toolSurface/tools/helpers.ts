@@ -16,6 +16,19 @@ export function makeGate(ports: ToolSurfacePorts) {
   };
 }
 
+/**
+ * A partial patch from a verb's parsed arguments: everything the caller sent,
+ * minus the id that addressed the object.
+ *
+ * Zod drops absent optionals rather than filling them with undefined, so what is
+ * left is exactly the fields to change — which is what the object domains need
+ * to leave the rest of a record alone.
+ */
+export function toPatch<T>(args: Record<string, unknown>): Partial<T> {
+  const { id: _id, ...rest } = args;
+  return rest as Partial<T>;
+}
+
 /** A currently-open session of any kind, including ones the user opened. */
 export function makeLiveSession(ports: ToolSurfacePorts) {
   return (sessionId: string): PluginSession | undefined =>

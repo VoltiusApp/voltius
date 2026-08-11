@@ -45,6 +45,7 @@ import {
   publishKeySecrets,
   withdrawOrWarn,
 } from "@/services/vaultObjectSecrets";
+import { vaultOf } from "./vaultOf";
 
 export type ObjectTab = "hosts" | "keychain" | "port_forwarding" | "snippets";
 
@@ -151,9 +152,6 @@ const TAB_OF_FOLDER_TYPE: Record<string, ObjectTab> = {
   port_forwarding: "port_forwarding",
   snippet: "snippets",
 };
-
-/** An object with no vault_id is in Personal, matching the vault filters everywhere else. */
-const vaultOf = (o: { vault_id?: string | null }): string => o.vault_id ?? "personal";
 
 // ─── Tab and kind resolution ──────────────────────────────────────────────
 

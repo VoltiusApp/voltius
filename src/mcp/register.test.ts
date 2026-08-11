@@ -51,7 +51,7 @@ describe("MCP bridge listener", () => {
     const [cmd, args] = replyCall();
     expect(cmd).toBe("mcp_bridge_reply");
     expect(args.id).toBe("r1");
-    expect(args.result.tools).toHaveLength(37);
+    expect(args.result.tools).toHaveLength(48);
   });
 
   it("answers a tools/call request with the tool's real result", async () => {

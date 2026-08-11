@@ -73,6 +73,76 @@ export interface PluginIdentity extends PluginObjectPlacement {
   tags: string[];
 }
 
+export interface PluginSnippet extends PluginObjectPlacement {
+  id: string;
+  name: string;
+  steps: import("@/types").SnippetStep[];
+  description?: string;
+  tags: string[];
+  favorite: boolean;
+  /** Empty means the snippet offers itself everywhere. */
+  only_for_connection_tags: string[];
+  only_for_distros: string[];
+}
+
+export interface PluginSnippetInput {
+  name: string;
+  steps: import("@/types").SnippetStep[];
+  description?: string;
+  tags?: string[];
+  favorite?: boolean;
+  only_for_connection_tags?: string[];
+  only_for_distros?: string[];
+  folder_id?: string;
+  vault_id?: string;
+}
+
+/**
+ * A SAVED port-forwarding rule: a shape, not a live listener. Opening one is
+ * `portForwards.start`, which needs an open session to hang the tunnel on.
+ */
+export interface PluginPortForward extends PluginObjectPlacement {
+  id: string;
+  name: string;
+  local_port: number;
+  remote_port: number;
+  remote_host: string;
+  tunnel_type: import("@/types").TunnelType;
+  bind_host: string;
+  target_host: string;
+  description?: string;
+  /** Connections this rule offers itself on. Empty means all of them. */
+  connection_ids: string[];
+}
+
+export interface PluginPortForwardInput {
+  name: string;
+  local_port: number;
+  remote_port: number;
+  remote_host: string;
+  tunnel_type: import("@/types").TunnelType;
+  bind_host?: string;
+  target_host?: string;
+  description?: string;
+  connection_ids?: string[];
+  folder_id?: string;
+  vault_id?: string;
+}
+
+/** A tunnel that is open right now on one session. Dies with the session. */
+export interface PluginActiveTunnel {
+  id: string;
+  tunnel_type: import("@/types").TunnelType;
+  local_port: number;
+  remote_port: number;
+  remote_host: string;
+  bind_host?: string;
+  target_host?: string;
+  /** "active", or the error it failed with. */
+  state: import("@/types").TunnelState;
+  bytes_transferred: number;
+}
+
 /** A vault the user organizes objects into. Unrelated to `api.vault`, which is plugin storage. */
 export interface PluginVault {
   id: string;
@@ -639,6 +709,38 @@ export interface PluginAPI {
      * deleted with it.
      */
     delete(id: string, opts?: { cascade?: boolean }): Promise<void>;
+  };
+
+  // Saved snippets (requires snippets:read / snippets:write)
+  snippets: {
+    list(): Promise<PluginSnippet[]>;
+    create(input: PluginSnippetInput): Promise<PluginSnippet>;
+    /** Only the fields given are altered. Rejects a team vault. */
+    update(id: string, patch: Partial<PluginSnippetInput>): Promise<void>;
+    /** Rejects a team vault. */
+    delete(id: string): Promise<void>;
+  };
+
+  /**
+   * Saved port-forwarding rules, and the tunnels open right now.
+   *
+   * A rule is a vault object; a tunnel is a live listening socket bound to one
+   * SSH session and gone when that session closes. `start` is what turns the
+   * first into the second (requires port_forwarding:read / port_forwarding:write,
+   * and sessions:read for the tunnel methods).
+   */
+  portForwards: {
+    list(): Promise<PluginPortForward[]>;
+    create(input: PluginPortForwardInput): Promise<PluginPortForward>;
+    /** Only the fields given are altered. Rejects a team vault. */
+    update(id: string, patch: Partial<PluginPortForwardInput>): Promise<void>;
+    /** Rejects a team vault. */
+    delete(id: string): Promise<void>;
+    /** Tunnels open on one session. */
+    tunnels(sessionId: string): Promise<PluginActiveTunnel[]>;
+    /** Opens a saved rule's tunnel on an open session. */
+    start(ruleId: string, sessionId: string): Promise<PluginActiveTunnel>;
+    stop(sessionId: string, tunnelId: string): Promise<void>;
   };
 
   // Folders across all four trees (requires the gated folders:*)
