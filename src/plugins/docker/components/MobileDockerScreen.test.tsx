@@ -113,4 +113,19 @@ describe("MobileDockerScreen row", () => {
     await userEvent.keyboard(" ");
     expect(screen.getByText("hostStop")).toBeTruthy();
   });
+
+  test("pressing Enter on a port chip inside the row activates the chip, not the row", async () => {
+    h.containers = [container()];
+    const Screen = createMobileDockerScreen(makeApi());
+    render(<Screen sessionId="s1" onBack={vi.fn()} />);
+    await settle();
+
+    const row = document.querySelector('[data-mobile-docker-container="c1"]')!;
+    const chip = row.querySelector("button") as HTMLButtonElement;
+    chip.focus();
+    await userEvent.keyboard("{Enter}");
+    // The row's own Enter handler opens the action sheet — if the chip's keydown
+    // bubbled through unguarded, this would be true instead.
+    expect(screen.queryByText("hostStop")).toBeNull();
+  });
 });

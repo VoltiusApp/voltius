@@ -110,6 +110,10 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
                 tabIndex={0}
                 onClick={onOpen}
                 onKeyDown={(e) => {
+                  // A keydown on the port-chip button inside this row bubbles up
+                  // here; without this guard, preventDefault() on Enter/Space kills
+                  // the chip's own activation and reopens the action sheet instead.
+                  if (e.target !== e.currentTarget) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     onOpen();
