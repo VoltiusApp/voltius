@@ -113,6 +113,7 @@
       "sectionKeyExport": "Экспорт ключа",
       "unknownType": "Неизвестный тип",
       "invalidKey": "Недействительный ключ",
+      "invalidPublicKey": "Это не открытый ключ SSH — ожидается «ssh-ed25519 AAAA… комментарий» в одну строку. Он не будет сохранён и не может быть добавлен на хост.",
       "keyPassphrasePlaceholder": "Кодовая фраза ключа"
     },
     "identityForm": {

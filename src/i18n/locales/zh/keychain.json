@@ -97,6 +97,7 @@
       "sectionKeyExport": "密钥导出",
       "unknownType": "未知类型",
       "invalidKey": "无效密钥",
+      "invalidPublicKey": "这不是 SSH 公钥 —— 应为单行的「ssh-ed25519 AAAA… 注释」格式。它不会被保存，也无法添加到主机。",
       "keyPassphrasePlaceholder": "密钥口令"
     },
     "identityForm": {
