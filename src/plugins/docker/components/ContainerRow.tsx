@@ -6,6 +6,7 @@ import { getDockerApi } from "../runtime";
 import { pullAndMaybeRecreate } from "../updateActions";
 import type { ContainerAction, DockerContainer, ImageUpdateStatus } from "../types";
 import { UpdateBadge } from "./UpdateBadge";
+import { useRowAction } from "./resourceList";
 
 interface Props {
   container: DockerContainer;
@@ -46,7 +47,12 @@ export function ContainerRow({
   onUpdated,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { busy, act } = useRowAction(
+    (action: ContainerAction) =>
+      dockerContainerAction({ sessionId, isRemote, localShell }, container.id, action),
+    onRefresh,
+    "action",
+  );
   const [copied, setCopied] = useState(false);
   const [updating, setUpdating] = useState(false);
 
@@ -84,17 +90,6 @@ export function ContainerRow({
     }
   };
 
-  const act = async (action: ContainerAction) => {
-    setBusy(true);
-    try {
-      await dockerContainerAction({ sessionId, isRemote, localShell }, container.id, action);
-      onRefresh();
-    } catch (e) {
-      console.error("[docker] action failed:", e);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const name = displayName(container.names);
   const running = container.state === "running";
