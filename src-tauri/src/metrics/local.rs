@@ -1,4 +1,5 @@
 use super::{DiskInfo, MetricsSnapshot};
+use crate::clock::now_ms;
 use sysinfo::{Disks, Networks, System};
 
 pub struct LocalMetrics {
@@ -71,11 +72,4 @@ fn collect_disks(disks: &Disks) -> Vec<DiskInfo> {
             total_kb: d.total_space() / 1024,
         })
         .collect()
-}
-
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }

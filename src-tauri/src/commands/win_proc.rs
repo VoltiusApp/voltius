@@ -13,3 +13,13 @@ pub fn prevent_visible_child_window(command: &mut tokio::process::Command) {
 
 #[cfg(not(target_os = "windows"))]
 pub fn prevent_visible_child_window(_command: &mut tokio::process::Command) {}
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn windows_child_processes_are_configured_without_visible_windows() {
+        assert_eq!(WINDOWS_CREATE_NO_WINDOW, 0x08000000);
+    }
+}

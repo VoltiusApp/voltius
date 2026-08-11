@@ -6,6 +6,7 @@
 
 #[cfg(target_os = "android")]
 mod android_ctx;
+mod clock;
 mod commands;
 mod crypto;
 mod docker;

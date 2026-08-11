@@ -1,13 +1,6 @@
 use bollard::Docker;
 use tokio::process::Command;
 
-pub(super) fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
-
 pub(super) fn connect() -> Result<Docker, String> {
     Docker::connect_with_local_defaults().map_err(|e| format!("Docker not available: {e}"))
 }
@@ -19,21 +12,7 @@ pub(super) fn should_use_wsl_cli(local_shell: Option<&str>) -> bool {
         .unwrap_or(false)
 }
 
-#[cfg(target_os = "windows")]
-const WINDOWS_CREATE_NO_WINDOW: u32 = 0x08000000;
-
-#[cfg(target_os = "windows")]
-fn windows_hidden_child_process_flags() -> u32 {
-    WINDOWS_CREATE_NO_WINDOW
-}
-
-#[cfg(target_os = "windows")]
-pub(super) fn prevent_visible_child_window(command: &mut Command) {
-    command.creation_flags(windows_hidden_child_process_flags());
-}
-
-#[cfg(not(target_os = "windows"))]
-pub(super) fn prevent_visible_child_window(_command: &mut Command) {}
+pub(super) use crate::commands::win_proc::prevent_visible_child_window;
 
 pub(super) async fn run_wsl_docker(
     local_shell: Option<&str>,
@@ -110,11 +89,5 @@ mod tests {
         assert!(should_use_wsl_cli(Some(r"C:\Windows\Sysnative\wsl.exe")));
         assert!(!should_use_wsl_cli(Some(r"C:\Windows\System32\cmd.exe")));
         assert!(!should_use_wsl_cli(None));
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn windows_wsl_child_processes_are_configured_without_visible_windows() {
-        assert_eq!(windows_hidden_child_process_flags(), 0x08000000);
     }
 }
