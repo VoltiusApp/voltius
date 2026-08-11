@@ -26,7 +26,10 @@ vi.mock("@/services/sftp", () => ({
   sftpDelete: (...a: unknown[]) => sftpDelete(...a),
   sftpTransfer: (...a: unknown[]) => sftpTransfer(...a),
 }));
-vi.mock("@/components/filetransfer/SFTPTypes", () => ({ genId: () => "tid" }));
+vi.mock("@/components/filetransfer/SFTPTypes", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/filetransfer/SFTPTypes")>()),
+  genId: () => "tid",
+}));
 
 const resolveSftpIdForTarget = vi.fn(async (..._a: unknown[]) => "fake-sftp-id");
 vi.mock("@/services/sftpTarget", () => ({
