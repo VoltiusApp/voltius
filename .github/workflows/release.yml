@@ -116,7 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       # Builds run concurrently. The shared-file race that forced serialization
-      # is gone: each job sets includeUpdaterJson:false (below), so no job touches
+      # is gone: each job turns the updater JSON off (below), so no job touches
       # latest.json. Per-platform installers + .sig files have unique names and
       # never collide. The updater-manifest job assembles latest.json once, after
       # all builds — single writer, no race.
@@ -216,9 +216,9 @@ jobs:
           # Don't write latest.json here — concurrent jobs would race on the
           # shared file. The .sig files still upload as bundle artifacts; the
           # updater-manifest job builds latest.json from them once all builds
-          # finish. The input is `uploadUpdaterJson`; this was spelled
-          # `includeUpdaterJson` until 0.21.1, which the action silently ignored,
-          # so every build really was racing to write latest.json.
+          # finish. The input is named `includeUpdaterJson` in tauri-action v0
+          # and `uploadUpdaterJson` in v1 — it must match the pinned major above,
+          # or the action ignores it and defaults back to writing the file.
           uploadUpdaterJson: false
 
   # Experimental Android build — sideload APK, not Play Store. Release-signed
