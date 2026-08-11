@@ -7,6 +7,7 @@
       "newRule": "Новое правило",
       "newFolder": "Новая папка"
     },
+    "reach": { "copied": "{{address}} скопировано в буфер обмена" },
     "page": {
       "all": "Все",
       "folders": "Папки",

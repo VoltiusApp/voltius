@@ -438,6 +438,35 @@ export interface DockerAPI {
   };
 }
 
+export interface ReachPortRequest {
+  sessionId: string;
+  isRemote: boolean;
+  /** Published host port on the Docker host. */
+  hostPort: number;
+  /** The publish's bind address; wildcard binds collapse to loopback. */
+  hostIp?: string | null;
+  scheme?: "http" | "https";
+  action: "browser" | "copy";
+}
+
+export interface ReachPortResponse {
+  /** Full URL for "browser", bare host:port for "copy". */
+  address: string;
+  localPort: number;
+  /** True when this call opened a new tunnel (as opposed to reusing or not needing one). */
+  tunneled: boolean;
+}
+
+/**
+ * GATED (ports:forward). One verb: make a published port reachable from this
+ * machine and act on it. Deliberately host-executed — a plugin never receives a
+ * raw URL-opener or raw tunnel control, both of which are larger grants than
+ * this needs.
+ */
+export interface PortsAPI {
+  reach(req: ReachPortRequest): Promise<ReachPortResponse>;
+}
+
 /** A local audit row, projected. Drops the internal id, actor id, team/vault
  *  ids and IP — none of which a plugin or an external client has any use for. */
 export interface PluginAuditRow {
@@ -708,6 +737,9 @@ export interface PluginAPI {
   // Docker container/image/volume/network/stack management — GATED, split
   // docker:read (list/services/checkUpdate/logs.*) / docker:manage (everything else).
   docker: DockerAPI;
+
+  // Reach a published Docker port from this machine — GATED (ports:forward).
+  ports: PortsAPI;
 
   // Lifecycle hooks (always available)
   lifecycle: {

@@ -1,4 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { getPfState, openPfTunnel } from "@/services/portForwardingTunnels";
+import { resolvePort } from "@/plugins/domains/ports";
+import { writeClipboard } from "@/utils/clipboard";
+import i18n from "@/i18n";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
@@ -1441,6 +1446,33 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           }
           return newSessionId;
         },
+      },
+    },
+
+    ports: {
+      reach: async (req) => {
+        requireGated("ports:forward");
+        const result = await resolvePort(
+          {
+            getState: (sessionId) => getPfState(sessionId),
+            openTunnel: (o) => openPfTunnel(o),
+          },
+          req,
+        );
+        if (req.action === "browser") {
+          await openUrl(result.address);
+        } else {
+          await writeClipboard(result.address);
+          useNotificationStore.getState().addToast({
+            pluginId: id,
+            pluginName: manifest.name.slice(0, 20),
+            type: "toast",
+            message: i18n.t("portForwarding.reach.copied", { address: result.address }),
+            severity: "info",
+            duration: 2500,
+          });
+        }
+        return result;
       },
     },
 
