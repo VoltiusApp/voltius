@@ -6,38 +6,12 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { useTeamStore } from "@/stores/teamStore";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
-
-// ─── Team vault helpers ───────────────────────────────────────────────────────
-
-function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
-  if (!vaultId) return false;
-  return useTeamStore.getState().teams.some((t) => t.id === vaultId);
-}
-
-function upsertConn(arr: Connection[], item: Connection): Connection[] {
-  const idx = arr.findIndex((x) => x.id === item.id);
-  if (idx === -1) return [...arr, item];
-  const next = [...arr];
-  next[idx] = item;
-  return next;
-}
-
-function findTeamConn(
-  teamMap: Record<string, Connection[]>,
-  id: string,
-): { teamId: string; conn: Connection } | null {
-  for (const [teamId, conns] of Object.entries(teamMap)) {
-    const conn = conns.find((c) => c.id === id);
-    if (conn) return { teamId, conn };
-  }
-  return null;
-}
 
 /**
  * Canonical Connection → ConnectionFormData mapper. Exhaustive against every
@@ -96,15 +70,10 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   setTeamConnections: (teamId, items) =>
-    set((s) => ({ teamConnections: { ...s.teamConnections, [teamId]: items } })),
+    set((s) => ({ teamConnections: setTeamMapEntry(s.teamConnections, teamId, items) })),
 
   clearTeamConnections: (teamId) =>
-    set((s) => {
-      if (teamId === undefined) return { teamConnections: {} };
-      const next = { ...s.teamConnections };
-      delete next[teamId];
-      return { teamConnections: next };
-    }),
+    set((s) => ({ teamConnections: clearTeamMapEntry(s.teamConnections, teamId) })),
 
   saveConnection: async (data) => {
     if (isTeamVaultId(data.vault_id)) {
@@ -153,12 +122,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       };
       const vaultId = data.vault_id!;
       await saveTeamVaultObject(vaultId, "connection", conn);
-      set((s) => ({
-        teamConnections: {
-          ...s.teamConnections,
-          [vaultId]: upsertConn(s.teamConnections[vaultId] ?? [], conn),
-        },
-      }));
+      set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, vaultId, conn) }));
       reportAuditMutation("connection", "created", { id: conn.id, name: conn.name ?? conn.host, vault_id: conn.vault_id });
       pushCreateHistory({
         label: `Created connection "${data.name ?? data.host}"`,
@@ -187,10 +151,10 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   updateConnection: async (id, data) => {
-    const teamEntry = findTeamConn(get().teamConnections, id);
+    const teamEntry = findTeamEntry(get().teamConnections, id);
     if (teamEntry) {
       const now = new Date().toISOString();
-      const prev = teamEntry.conn;
+      const prev = teamEntry.item;
       const payload = withPin(data, prev);
       const updated: Connection = {
         ...prev,
@@ -246,18 +210,8 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
       const connections = transition.kind === "team-to-local" ? await api.listConnections() : undefined;
       set((s) => {
-        const teamConnections = { ...s.teamConnections };
-        if (transition.kind === "team-to-team") {
-          teamConnections[transition.sourceTeamId] = (teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id);
-          teamConnections[transition.destinationTeamId] = upsertConn(teamConnections[transition.destinationTeamId] ?? [], migrated);
-          return { teamConnections };
-        }
-        if (transition.kind === "team-to-local") {
-          teamConnections[transition.sourceTeamId] = (teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id);
-          return { connections, teamConnections };
-        }
-        teamConnections[teamId] = upsertConn(teamConnections[teamId] ?? [], migrated);
-        return { teamConnections };
+        const next = applyVaultTransition(s.teamConnections, transition, id, migrated, teamId);
+        return connections ? { connections, teamConnections: next } : { teamConnections: next };
       });
       reportAuditMutation("connection", "updated", { id: updated.id, name: updated.name ?? updated.host, vault_id: updated.vault_id });
       const prevData: ConnectionFormData = connectionToFormData(prev);
@@ -326,44 +280,13 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     });
     const connections = await api.listConnections();
     const transition = classifyVaultTransition(prev?.vault_id, updated.vault_id, isTeamVaultId);
-    set((s) => {
-      if (transition.kind === "local-to-team") {
-        return {
-          connections,
-          teamConnections: {
-            ...s.teamConnections,
-            [transition.destinationTeamId]: upsertConn(s.teamConnections[transition.destinationTeamId] ?? [], updated),
-          },
-        };
-      }
-      if (transition.kind === "team-to-team") {
-        const teamConnections = { ...s.teamConnections };
-        teamConnections[transition.sourceTeamId] = (teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id);
-        teamConnections[transition.destinationTeamId] = upsertConn(teamConnections[transition.destinationTeamId] ?? [], updated);
-        return { connections, teamConnections };
-      }
-      if (transition.kind === "team-to-local") {
-        return {
-          connections,
-          teamConnections: {
-            ...s.teamConnections,
-            [transition.sourceTeamId]: (s.teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id),
-          },
-        };
-      }
-      if (isTeamVaultId(updated.vault_id)) {
-        return {
-          connections,
-          teamConnections: {
-            ...s.teamConnections,
-            [updated.vault_id]: upsertConn(s.teamConnections[updated.vault_id] ?? [], updated),
-          },
-        };
-      }
-      return {
-        connections,
-      };
-    });
+    // A same-scope move can still land in a team vault: an object already filed
+    // in one but tracked in the local list re-saves there rather than nowhere.
+    const stayTeamId = isTeamVaultId(updated.vault_id) ? updated.vault_id : undefined;
+    set((s) => ({
+      connections,
+      teamConnections: applyVaultTransition(s.teamConnections, transition, id, updated, stayTeamId),
+    }));
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
     if (prev) reportAuditMutation("connection", "updated", { id, name: data.name ?? prev.name ?? prev.host, vault_id: data.vault_id ?? prev.vault_id });
@@ -378,16 +301,11 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   deleteConnection: async (id) => {
-    const teamEntry = findTeamConn(get().teamConnections, id);
+    const teamEntry = findTeamEntry(get().teamConnections, id);
     if (teamEntry) {
-      const { teamId, conn: prev } = teamEntry;
+      const { teamId, item: prev } = teamEntry;
       await removeTeamVaultObject(teamId, id);
-      set((s) => ({
-        teamConnections: {
-          ...s.teamConnections,
-          [teamId]: (s.teamConnections[teamId] ?? []).filter((c) => c.id !== id),
-        },
-      }));
+      set((s) => ({ teamConnections: removeFromTeamMap(s.teamConnections, teamId, id) }));
       reportAuditMutation("connection", "deleted", { id: prev.id, name: prev.name ?? prev.host, vault_id: prev.vault_id });
       const prevData: ConnectionFormData = connectionToFormData(prev);
       pushDeleteHistory({
@@ -420,18 +338,11 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   setDistro: async (id, distro) => {
-    const teamEntry = findTeamConn(get().teamConnections, id);
+    const teamEntry = findTeamEntry(get().teamConnections, id);
     if (teamEntry) {
-      const { teamId, conn: prev } = teamEntry;
-      const now = new Date().toISOString();
-      const updated: Connection = { ...prev, distro, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-      await saveTeamVaultObject(teamId, "connection", updated);
-      set((s) => ({
-        teamConnections: {
-          ...s.teamConnections,
-          [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
-        },
-      }));
+      const { teamId, item: prev } = teamEntry;
+      const updated = await saveStampedTeamObject(teamId, "connection", prev, { distro });
+      set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
       const prevDistro = prev.distro ?? "";
       useHistoryStore.getState().push({
         label: `Changed distro for "${prev.name ?? prev.host}"`,
@@ -462,17 +373,12 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
 
   setLastUsed: async (id) => {
     const now = new Date().toISOString();
-    const teamEntry = findTeamConn(get().teamConnections, id);
+    const teamEntry = findTeamEntry(get().teamConnections, id);
     if (teamEntry) {
-      const { teamId, conn: prev } = teamEntry;
-      const updated = { ...prev, last_used_at: now };
+      const { teamId, item: prev } = teamEntry;
+      const updated: Connection = { ...prev, last_used_at: now };
       await saveTeamVaultObject(teamId, "connection", updated);
-      set((s) => ({
-        teamConnections: {
-          ...s.teamConnections,
-          [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
-        },
-      }));
+      set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
       return;
     }
 
@@ -581,7 +487,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   pinConnection: async (id, pinned) => {
-    const teamEntry = findTeamConn(get().teamConnections, id);
+    const teamEntry = findTeamEntry(get().teamConnections, id);
     if (teamEntry) {
       await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
       return;
@@ -597,17 +503,10 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   pinConnectionForTeam: async (id, pinned) => {
-    const teamEntry = findTeamConn(get().teamConnections, id);
+    const teamEntry = findTeamEntry(get().teamConnections, id);
     if (!teamEntry) return;
-    const { teamId, conn: prev } = teamEntry;
-    const now = new Date().toISOString();
-    const updated: Connection = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-    await saveTeamVaultObject(teamId, "connection", updated);
-    set((s) => ({
-      teamConnections: {
-        ...s.teamConnections,
-        [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
-      },
-    }));
+    const { teamId } = teamEntry;
+    const updated = await saveStampedTeamObject(teamId, "connection", teamEntry.item, { pinned });
+    set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
   },
 }));

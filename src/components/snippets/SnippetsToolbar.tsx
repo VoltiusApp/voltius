@@ -109,7 +109,7 @@ export function SnippetsToolbar({
         <div className="relative flex items-center gap-px" ref={wrapperRef}>
           <button
             onClick={onNewSnippet}
-            onMouseDown={createRipple}
+            onPointerDown={createRipple}
             title={compact ? t("snippets.toolbar.newSnippet") : undefined}
             type="button"
             className="flex items-center gap-2 px-3 h-8 text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap relative overflow-hidden rounded-tl-[0.533rem] rounded-bl-[0.533rem]"
@@ -124,7 +124,7 @@ export function SnippetsToolbar({
 
           <button
             onClick={openMenu}
-            onMouseDown={rippleChevron}
+            onPointerDown={rippleChevron}
             type="button"
             aria-label={t("snippets.toolbar.newSnippetOptions")}
             className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden rounded-tr-[0.533rem] rounded-br-[0.533rem]"

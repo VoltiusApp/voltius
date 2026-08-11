@@ -8,10 +8,10 @@ import type {
   DockerStack,
   DockerStackService,
   ImageUpdateStatus,
-  PortMapping,
   StackAction,
 } from "../types";
 import { UpdateBadge } from "./UpdateBadge";
+import { PortChips } from "./PortChips";
 
 interface Props {
   stacks: DockerStack[];
@@ -25,16 +25,6 @@ interface Props {
   onStackLogs: (name: string) => void;
   onTerminal: (id: string, name: string) => void;
   onRefresh: () => void;
-}
-
-function fmtPorts(ports: PortMapping[]): string {
-  if (ports.length === 0) return "";
-  return ports
-    .map((p) => {
-      const target = `${p.container_port}/${p.protocol}`;
-      return p.host_port ? `${p.host_port}->${target}` : target;
-    })
-    .join(", ");
 }
 
 export function StackList({
@@ -306,9 +296,7 @@ function ServiceRow({
           <p className="text-[10px] text-(--t-text-muted) truncate font-mono">{service.image}</p>
           <UpdateBadge status={status} checking={checking} />
         </div>
-        {service.ports.length > 0 && (
-          <p className="text-[10px] text-(--t-text-muted) truncate font-mono">{fmtPorts(service.ports)}</p>
-        )}
+        <PortChips ports={service.ports} sessionId={sessionId} isRemote={isRemote} limit={2} />
       </div>
       <div className="flex items-center gap-0.5 shrink-0">
         {state === "running" && (

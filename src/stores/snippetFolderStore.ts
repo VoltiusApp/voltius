@@ -5,34 +5,10 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
-import { useTeamStore } from "@/stores/teamStore";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { folderSubtreeIds } from "@/utils/folderTree";
-
-function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
-  if (!vaultId) return false;
-  return useTeamStore.getState().teams.some((t) => t.id === vaultId);
-}
-
-function upsert(arr: Folder[], item: Folder): Folder[] {
-  const idx = arr.findIndex((x) => x.id === item.id);
-  if (idx === -1) return [...arr, item];
-  const next = [...arr];
-  next[idx] = item;
-  return next;
-}
-
-function findTeamEntry(
-  teamMap: Record<string, Folder[]>,
-  id: string,
-): { teamId: string; item: Folder } | null {
-  for (const [teamId, items] of Object.entries(teamMap)) {
-    const item = items.find((x) => x.id === id);
-    if (item) return { teamId, item };
-  }
-  return null;
-}
 
 interface SnippetFolderStore {
   folders: Folder[];
@@ -61,41 +37,28 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
   },
 
   setTeamSnippetFolders: (teamId, items) =>
-    set((s) => ({ teamSnippetFolders: { ...s.teamSnippetFolders, [teamId]: items } })),
+    set((s) => ({ teamSnippetFolders: setTeamMapEntry(s.teamSnippetFolders, teamId, items) })),
 
   clearTeamSnippetFolders: (teamId) =>
-    set((s) => {
-      if (teamId === undefined) return { teamSnippetFolders: {} };
-      const next = { ...s.teamSnippetFolders };
-      delete next[teamId];
-      return { teamSnippetFolders: next };
-    }),
+    set((s) => ({ teamSnippetFolders: clearTeamMapEntry(s.teamSnippetFolders, teamId) })),
 
   saveFolder: async (data) => {
-    if (data.vault_id) {
-      const { useTeamStore } = await import("@/stores/teamStore");
-      if (useTeamStore.getState().teams.some((t) => t.id === data.vault_id)) {
-        const now = new Date().toISOString();
-        const folder: Folder = {
-          id: crypto.randomUUID(),
-          name: data.name,
-          object_type: data.object_type,
-          parent_folder_id: data.parent_folder_id,
-          vault_id: data.vault_id,
-          created_at: now,
-          updated_at: now,
-          clocks: { created_at: now, updated_at: now },
-        };
-        const vaultId = data.vault_id;
-        await saveTeamVaultObject(vaultId, "snippet_folder", folder);
-        set((s) => ({
-          teamSnippetFolders: {
-            ...s.teamSnippetFolders,
-            [vaultId]: upsert(s.teamSnippetFolders[vaultId] ?? [], folder),
-          },
-        }));
-        return folder;
-      }
+    if (isTeamVaultId(data.vault_id)) {
+      const now = new Date().toISOString();
+      const folder: Folder = {
+        id: crypto.randomUUID(),
+        name: data.name,
+        object_type: data.object_type,
+        parent_folder_id: data.parent_folder_id,
+        vault_id: data.vault_id,
+        created_at: now,
+        updated_at: now,
+        clocks: { created_at: now, updated_at: now },
+      };
+      const vaultId = data.vault_id;
+      await saveTeamVaultObject(vaultId, "snippet_folder", folder);
+      set((s) => ({ teamSnippetFolders: upsertInTeamMap(s.teamSnippetFolders, vaultId, folder) }));
+      return folder;
     }
 
     const folder = await api.createSnippetFolder(data);
@@ -132,18 +95,8 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
       const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
       const localFolders = transition.kind === "team-to-local" ? await api.listSnippetFolders() : undefined;
       set((s) => {
-        const nextTeamSnippetFolders = { ...s.teamSnippetFolders };
-        if (transition.kind === "team-to-team") {
-          nextTeamSnippetFolders[transition.sourceTeamId] = (nextTeamSnippetFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamSnippetFolders[transition.destinationTeamId] = upsert(nextTeamSnippetFolders[transition.destinationTeamId] ?? [], migrated);
-          return { teamSnippetFolders: nextTeamSnippetFolders };
-        }
-        if (transition.kind === "team-to-local") {
-          nextTeamSnippetFolders[transition.sourceTeamId] = (nextTeamSnippetFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          return { folders: localFolders, teamSnippetFolders: nextTeamSnippetFolders };
-        }
-        nextTeamSnippetFolders[teamId] = upsert(nextTeamSnippetFolders[teamId] ?? [], migrated);
-        return { teamSnippetFolders: nextTeamSnippetFolders };
+        const next = applyVaultTransition(s.teamSnippetFolders, transition, id, migrated, teamId);
+        return localFolders ? { folders: localFolders, teamSnippetFolders: next } : { teamSnippetFolders: next };
       });
       return;
     }
@@ -166,21 +119,12 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
       await api.updateSnippetFolder(id, data);
     }
     const folders = await api.listSnippetFolders();
-    set((s) => {
-      const nextTeamSnippetFolders = { ...s.teamSnippetFolders };
-      if (prev && updatedLocal) {
-        const transition = classifyVaultTransition(prev.vault_id, updatedLocal.vault_id, isTeamVaultId);
-        if (transition.kind === "local-to-team") {
-          nextTeamSnippetFolders[transition.destinationTeamId] = upsert(nextTeamSnippetFolders[transition.destinationTeamId] ?? [], updatedLocal);
-        } else if (transition.kind === "team-to-team") {
-          nextTeamSnippetFolders[transition.sourceTeamId] = (nextTeamSnippetFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamSnippetFolders[transition.destinationTeamId] = upsert(nextTeamSnippetFolders[transition.destinationTeamId] ?? [], updatedLocal);
-        } else if (transition.kind === "team-to-local") {
-          nextTeamSnippetFolders[transition.sourceTeamId] = (nextTeamSnippetFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-        }
-      }
-      return { folders, teamSnippetFolders: nextTeamSnippetFolders };
-    });
+    set((s) => ({
+      folders,
+      teamSnippetFolders: prev && updatedLocal
+        ? applyVaultTransition(s.teamSnippetFolders, classifyVaultTransition(prev.vault_id, updatedLocal.vault_id, isTeamVaultId), id, updatedLocal)
+        : s.teamSnippetFolders,
+    }));
     isServerMode().then((s) => { if (s) scheduleSync(); });
   },
 
@@ -225,20 +169,10 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     if (teamEntry) {
       const { teamId, item: folder } = teamEntry;
-      const now = new Date().toISOString();
-      const updated: Folder = {
-        ...folder,
+      const updated = await saveStampedTeamObject(teamId, "snippet_folder", folder, {
         parent_folder_id: parentFolderId ?? undefined,
-        updated_at: now,
-        clocks: { ...folder.clocks, updated_at: now },
-      };
-      await saveTeamVaultObject(teamId, "snippet_folder", updated);
-      set((s) => ({
-        teamSnippetFolders: {
-          ...s.teamSnippetFolders,
-          [teamId]: upsert(s.teamSnippetFolders[teamId] ?? [], updated),
-        },
-      }));
+      });
+      set((s) => ({ teamSnippetFolders: upsertInTeamMap(s.teamSnippetFolders, teamId, updated) }));
       return;
     }
 
@@ -277,15 +211,8 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
   pinSnippetFolderForTeam: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     if (!teamEntry) return;
-    const { teamId, item: prev } = teamEntry;
-    const now = new Date().toISOString();
-    const updated: Folder = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-    await saveTeamVaultObject(teamId, "snippet_folder", updated);
-    set((s) => ({
-      teamSnippetFolders: {
-        ...s.teamSnippetFolders,
-        [teamId]: upsert(s.teamSnippetFolders[teamId] ?? [], updated),
-      },
-    }));
+    const { teamId } = teamEntry;
+    const updated = await saveStampedTeamObject(teamId, "snippet_folder", teamEntry.item, { pinned });
+    set((s) => ({ teamSnippetFolders: upsertInTeamMap(s.teamSnippetFolders, teamId, updated) }));
   },
 }));

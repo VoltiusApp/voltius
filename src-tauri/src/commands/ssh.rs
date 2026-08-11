@@ -71,13 +71,17 @@ pub async fn ssh_connect(
     let cid = connection_id.as_deref().unwrap_or("");
     pf.register_session(&session_id, cid).await;
 
-    if let Ok(handle) = state.get_handle(&session_id).await {
+    if let Ok(handle) = state.get_session_handle(&session_id).await {
         let routes = state
             .get_remote_routes(&session_id)
             .await
             .unwrap_or_else(|_| {
                 Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()))
             });
+        // No-op for a first connect (nothing to re-arm) and for a reconnect with
+        // only local/dynamic tunnels, which follow the new handle by themselves.
+        pf.rearm_after_reconnect(&session_id, Arc::clone(&handle), Arc::clone(&routes))
+            .await;
         pf.auto_activate_rules(&session_id, cid, Arc::clone(&handle), routes)
             .await;
         let _ = pf.set_auto_detect(&session_id, auto_forward, handle).await;
@@ -94,26 +98,34 @@ pub async fn ssh_disconnect(
     post_command: Option<String>,
     kill_persistent: Option<bool>,
     attached: Option<bool>,
+    reconnecting: Option<bool>,
 ) -> Result<bool, String> {
-    // Host-scoped port forwarding: only tear down when the last terminal of the
-    // host closes. If the terminal that owned the forwards leaves while siblings
-    // remain, hand the forwards off to a surviving terminal's SSH handle so they
-    // keep working.
-    let (key, remaining, was_owner) = pf.detach_session(&session_id).await;
-    if remaining.is_empty() {
-        pf.teardown_key(&key).await;
-    } else {
-        if was_owner {
-            if let Some(survivor) = remaining.first() {
-                if let Ok(handle) = state.get_handle(survivor).await {
-                    let routes = state.get_remote_routes(survivor).await.unwrap_or_else(|_| {
-                        Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()))
-                    });
-                    pf.rebind_to_handle(&key, survivor, handle, routes).await;
+    // A reconnect drops the SSH connection and immediately dials again under the
+    // same session id, so the terminal is not leaving its host — the forwards
+    // stay up and `ssh_connect` re-arms them. Tearing them down here is what used
+    // to lose every ad-hoc tunnel across a reconnect, since only rule-backed ones
+    // were rebuilt afterwards.
+    if !reconnecting.unwrap_or(false) {
+        // Host-scoped port forwarding: only tear down when the last terminal of the
+        // host closes. If the terminal that owned the forwards leaves while siblings
+        // remain, hand the forwards off to a surviving terminal's SSH handle so they
+        // keep working.
+        let (key, remaining, was_owner) = pf.detach_session(&session_id).await;
+        if remaining.is_empty() {
+            pf.teardown_key(&key).await;
+        } else {
+            if was_owner {
+                if let Some(survivor) = remaining.first() {
+                    if let Ok(handle) = state.get_session_handle(survivor).await {
+                        let routes = state.get_remote_routes(survivor).await.unwrap_or_else(|_| {
+                            Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()))
+                        });
+                        pf.rebind_to_handle(&key, survivor, handle, routes).await;
+                    }
                 }
             }
+            pf.clear_session_panel(&session_id).await;
         }
-        pf.clear_session_panel(&session_id).await;
     }
 
     state
@@ -161,6 +173,15 @@ pub async fn ssh_resize(
     state.resize(&session_id, cols, rows).await
 }
 
+#[derive(serde::Serialize)]
+pub struct SshExecResult {
+    pub stdout: String,
+    pub stderr: String,
+    /// None when the channel closed without ever sending an exit status —
+    /// distinct from `Some(0)`, so a caller can't mistake "unknown" for "ok".
+    pub exit_code: Option<i32>,
+}
+
 #[tauri::command]
 pub async fn ssh_exec_command(
     known_hosts: tauri::State<'_, Arc<KnownHostsStore>>,
@@ -171,9 +192,8 @@ pub async fn ssh_exec_command(
     private_key: Option<String>,
     passphrase: Option<String>,
     command: String,
-) -> Result<String, String> {
+) -> Result<SshExecResult, String> {
     use russh::client as russh_client;
-    use tokio::io::AsyncReadExt;
     use tokio::time::{timeout, Duration};
 
     let config = russh_client::Config {
@@ -214,7 +234,7 @@ pub async fn ssh_exec_command(
         return Err("Authentication failed".into());
     }
 
-    let channel = handle
+    let mut channel = handle
         .channel_open_session()
         .await
         .map_err(|e| format!("Channel error: {}", e))?;
@@ -224,25 +244,43 @@ pub async fn ssh_exec_command(
         .await
         .map_err(|e| format!("Exec error: {}", e))?;
 
-    let mut stream = channel.into_stream();
-    let mut output = Vec::new();
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let mut exit_code: Option<i32> = None;
 
-    let _ = timeout(Duration::from_secs(30), async {
-        let mut buf = [0u8; 4096];
-        loop {
-            match stream.read(&mut buf).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => output.extend_from_slice(&buf[..n]),
+    // Read to Close rather than Eof: the exit status usually follows Eof, and
+    // breaking there is what loses it.
+    let timed_out = timeout(Duration::from_secs(30), async {
+        while let Some(msg) = channel.wait().await {
+            match msg {
+                russh::ChannelMsg::Data { data } => stdout.extend_from_slice(&data),
+                russh::ChannelMsg::ExtendedData { data, .. } => stderr.extend_from_slice(&data),
+                russh::ChannelMsg::ExitStatus { exit_status } => {
+                    exit_code = Some(exit_status as i32)
+                }
+                russh::ChannelMsg::Close => break,
+                _ => {}
             }
         }
     })
-    .await;
+    .await
+    .is_err();
 
     let _ = handle
         .disconnect(russh::Disconnect::ByApplication, "Done", "en")
         .await;
 
-    Ok(String::from_utf8_lossy(&output).to_string())
+    // A hard 30s timeout means the remote command never finished: "exit 0,
+    // partial stdout" would misreport that as a success.
+    if timed_out {
+        return Err("Remote command timed out after 30s".to_string());
+    }
+
+    Ok(SshExecResult {
+        stdout: String::from_utf8_lossy(&stdout).to_string(),
+        stderr: String::from_utf8_lossy(&stderr).to_string(),
+        exit_code,
+    })
 }
 
 #[tauri::command]

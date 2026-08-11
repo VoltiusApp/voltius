@@ -48,6 +48,10 @@ export const MCP_TEXT = {
     key_delete:
       "Delete a saved SSH key by id. Runs immediately and cannot be undone; any connection using "
       + "the key will stop authenticating. Your own client is responsible for approval.",
+    key_add_to_host:
+      "Append an SSH key's public half to a host's authorized_keys over SSH, using the "
+      + "connection's stored credentials. This writes to the remote machine. Runs immediately; "
+      + "your own client is responsible for approval.",
     identity_create:
       "Create an identity: a username, and optionally the id of a key from key_list. Runs "
       + "immediately; your own client is responsible for approval.",
@@ -64,6 +68,18 @@ export const MCP_TEXT = {
       + "responsible for approval. A connection owned by a team vault cannot be deleted.",
     connection_bulk_import:
       "Save many connections at once. Runs immediately; your own client is responsible for approval.",
+    object_move:
+      "Move objects — connections, keys, identities, snippets or port forwarding rules, folders "
+      + "included — into another folder and/or vault, using the same paste path as the app's UI. "
+      + "Moving into a vault other than the objects' own is refused unless allow_cross_vault is "
+      + "true; the refusal names what would move and where. Runs immediately; your own client is "
+      + "responsible for approval.",
+    object_copy:
+      "Duplicate objects — connections, keys, identities, snippets or port forwarding rules, "
+      + "folders included — into another folder and/or vault, using the same paste path as the "
+      + "app's UI. Copying out of a team vault is refused, and copying into a vault other than the "
+      + "objects' own is refused unless allow_cross_vault is true; the refusal names what would be "
+      + "copied and where. Runs immediately; your own client is responsible for approval.",
     audit_query:
       "Read this device's activity log, newest first — including the rows your own calls "
       + "produced. `action` filters to one exact action name as it appears in a row's `action` "
@@ -161,8 +177,34 @@ export async function callTool(
   const parsed = tool.schema.safeParse(args);
   if (!parsed.success) return { ok: false, error: `invalid arguments for "${name}": ${parsed.error.message}` };
   try {
-    return { ok: true, result: await tool.execute(parsed.data as Record<string, unknown>) };
+    const result = await tool.execute(parsed.data as Record<string, unknown>);
+    const refusal = refusalMessage(result);
+    return refusal === null ? { ok: true, result } : { ok: false, error: refusal };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/**
+ * The refusal message of a `{ error }` result, or null when the result is data.
+ *
+ * `objectOp` and `makeFileOp` catch a refusal and hand back `{ error }` inside a
+ * successful call, which the transport then reports as `isError: false` — a
+ * client that trusts the envelope reads "the vault was deleted" when it was
+ * refused and is still there.
+ *
+ * The test is the `error` string itself, not the number of keys: `makeGate`'s
+ * rejection carries a `reason` beside it, and counting keys let that shape —
+ * a user's own denial — through as a success. `reason` is the only companion a
+ * refusal has; anything else beside `error` is a payload, and a verb that
+ * returns an error field alongside real data stays a success.
+ */
+const REFUSAL_COMPANION_KEYS = new Set(["error", "reason"]);
+
+function refusalMessage(result: unknown): string | null {
+  if (typeof result !== "object" || result === null) return null;
+  const record = result as Record<string, unknown>;
+  if (typeof record.error !== "string") return null;
+  if (Object.keys(record).some((k) => !REFUSAL_COMPANION_KEYS.has(k))) return null;
+  return record.error;
 }

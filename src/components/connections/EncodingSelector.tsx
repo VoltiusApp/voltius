@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { PickerSurface } from "@/components/shared/PickerSurface";
+import { PickerDivider, PickerOption, PickerTrigger } from "@/components/shared/pickerParts";
 
 const ENCODING_GROUPS: { groupKey: string; options: string[] }[] = [
   { groupKey: "unicode", options: ["utf-16le", "utf-16be"] },
@@ -39,50 +39,36 @@ export default function EncodingSelector({ value, onChange }: Props) {
 
   return (
     <div>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors"
-        style={{
-          background: "var(--t-bg-base)",
-          border: "1px solid var(--t-border)",
-          color: value ? "var(--t-text-primary)" : "var(--t-text-dim)",
-        }}
-      >
-        <Icon icon="lucide:binary" width={14} className="text-(--t-text-dim) shrink-0" />
-        <span className="flex-1 text-left truncate text-xs">{selectedLabel}</span>
-        <span className="[&_path]:stroke-[2.5]">
-          <Icon
-            icon="lucide:chevron-down"
-            width={14}
-            className="text-(--t-text-dim) shrink-0"
-            style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
-          />
-        </span>
-      </button>
+      <PickerTrigger
+        buttonRef={buttonRef}
+        icon="lucide:binary"
+        label={selectedLabel}
+        filled={!!value}
+        open={open}
+        onToggle={() => setOpen((o) => !o)}
+      />
 
       <PickerSurface open={open} onClose={() => setOpen(false)} anchorRef={buttonRef} title={t("connections.encodingSelector.title")}>
         {/* UTF-8 default */}
-        <OptionButton
+        <PickerOption
           icon="lucide:binary"
           label={t("connections.encodingSelector.utf8Default")}
-          selected={!value}
+          active={!value}
           onClick={() => { onChange(""); setOpen(false); }}
         />
 
         {ENCODING_GROUPS.map((group) => (
           <div key={group.groupKey}>
-            <div className="my-1 border-t border-t-(--t-bg-card-hover)" />
+            <PickerDivider />
             <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-(--t-text-dim)">
               {t(`connections.encodingSelector.groups.${group.groupKey}`)}
             </p>
             {group.options.map((opt) => (
-              <OptionButton
+              <PickerOption
                 key={opt}
                 icon="lucide:binary"
                 label={optionLabel(opt)}
-                selected={value === opt}
+                active={value === opt}
                 onClick={() => { onChange(opt); setOpen(false); }}
               />
             ))}
@@ -90,26 +76,5 @@ export default function EncodingSelector({ value, onChange }: Props) {
         ))}
       </PickerSurface>
     </div>
-  );
-}
-
-function OptionButton({ icon, label, selected, onClick }: { icon: string; label: string; selected: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors w-full"
-      style={{ color: selected ? "var(--t-accent)" : "var(--t-text-secondary)" }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-    >
-      <Icon icon={icon} width={13} className="shrink-0" />
-      <span className="flex-1 text-left">{label}</span>
-      {selected && (
-        <span className="[&_path]:stroke-[2.5]">
-          <Icon icon="lucide:check" width={13} />
-        </span>
-      )}
-    </button>
   );
 }

@@ -6,35 +6,21 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { useTeamStore } from "@/stores/teamStore";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
-function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
-  if (!vaultId) return false;
-  return useTeamStore.getState().teams.some((t) => t.id === vaultId);
-}
-
-function upsert(arr: Identity[], item: Identity): Identity[] {
-  const idx = arr.findIndex((x) => x.id === item.id);
-  if (idx === -1) return [...arr, item];
-  const next = [...arr];
-  next[idx] = item;
-  return next;
-}
-
-function findTeamEntry(
-  teamMap: Record<string, Identity[]>,
-  id: string,
-): { teamId: string; item: Identity } | null {
-  for (const [teamId, items] of Object.entries(teamMap)) {
-    const item = items.find((x) => x.id === id);
-    if (item) return { teamId, item };
-  }
-  return null;
+/** Rebuilds a full IdentityFormData from a stored identity: `identity_update`
+ *  replaces rather than merges, so a partial payload must spread this. */
+function identityToFormData(i: Identity): IdentityFormData {
+  return {
+    name: i.name, username: i.username, key_id: i.key_id,
+    tags: i.tags,
+    folder_id: i.folder_id, vault_id: i.vault_id,
+  };
 }
 
 interface IdentityStore {
@@ -60,15 +46,10 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
   },
 
   setTeamIdentities: (teamId, items) =>
-    set((s) => ({ teamIdentities: { ...s.teamIdentities, [teamId]: items } })),
+    set((s) => ({ teamIdentities: setTeamMapEntry(s.teamIdentities, teamId, items) })),
 
   clearTeamIdentities: (teamId) =>
-    set((s) => {
-      if (teamId === undefined) return { teamIdentities: {} };
-      const next = { ...s.teamIdentities };
-      delete next[teamId];
-      return { teamIdentities: next };
-    }),
+    set((s) => ({ teamIdentities: clearTeamMapEntry(s.teamIdentities, teamId) })),
 
   saveIdentity: async (data) => {
     if (isTeamVaultId(data.vault_id)) {
@@ -88,12 +69,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
       };
       const vaultId = data.vault_id!;
       await saveTeamVaultObject(vaultId, "identity", identity);
-      set((s) => ({
-        teamIdentities: {
-          ...s.teamIdentities,
-          [vaultId]: upsert(s.teamIdentities[vaultId] ?? [], identity),
-        },
-      }));
+      set((s) => ({ teamIdentities: upsertInTeamMap(s.teamIdentities, vaultId, identity) }));
       reportAuditMutation("identity", "created", { id: identity.id, name: identity.name ?? identity.username, vault_id: identity.vault_id });
       pushCreateHistory({
         label: `Created identity "${identity.name ?? identity.username}"`,
@@ -152,25 +128,11 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
       const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
       const localIdentities = transition.kind === "team-to-local" ? await api.listIdentities() : undefined;
       set((s) => {
-        const nextTeamIdentities = { ...s.teamIdentities };
-        if (transition.kind === "team-to-team") {
-          nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamIdentities[transition.destinationTeamId] = upsert(nextTeamIdentities[transition.destinationTeamId] ?? [], migrated);
-          return { teamIdentities: nextTeamIdentities };
-        }
-        if (transition.kind === "team-to-local") {
-          nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          return { identities: localIdentities, teamIdentities: nextTeamIdentities };
-        }
-        nextTeamIdentities[teamId] = upsert(nextTeamIdentities[teamId] ?? [], migrated);
-        return { teamIdentities: nextTeamIdentities };
+        const next = applyVaultTransition(s.teamIdentities, transition, id, migrated, teamId);
+        return localIdentities ? { identities: localIdentities, teamIdentities: next } : { teamIdentities: next };
       });
       reportAuditMutation("identity", "updated", { id: migrated.id, name: migrated.name ?? migrated.username, vault_id: migrated.vault_id });
-      const prevData: IdentityFormData = {
-        name: prev.name, username: prev.username, key_id: prev.key_id,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = identityToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated identity "${prev.name ?? prev.username}"`,
         undo: async () => { await useIdentityStore.getState().updateIdentity(id, prevData); },
@@ -198,30 +160,17 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
       await api.updateIdentity(id, data);
     }
     const identities = await api.listIdentities();
-    set((s) => {
-      const nextTeamIdentities = { ...s.teamIdentities };
-      if (prev && updated) {
-        const transition = classifyVaultTransition(prev.vault_id, updated.vault_id, isTeamVaultId);
-        if (transition.kind === "local-to-team") {
-          nextTeamIdentities[transition.destinationTeamId] = upsert(nextTeamIdentities[transition.destinationTeamId] ?? [], updated);
-        } else if (transition.kind === "team-to-team") {
-          nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamIdentities[transition.destinationTeamId] = upsert(nextTeamIdentities[transition.destinationTeamId] ?? [], updated);
-        } else if (transition.kind === "team-to-local") {
-          nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-        }
-      }
-      return { identities, teamIdentities: nextTeamIdentities };
-    });
+    set((s) => ({
+      identities,
+      teamIdentities: prev && updated
+        ? applyVaultTransition(s.teamIdentities, classifyVaultTransition(prev.vault_id, updated.vault_id, isTeamVaultId), id, updated)
+        : s.teamIdentities,
+    }));
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "identity")) scheduleSync(); });
     if (prev) reportAuditMutation("identity", "updated", { id, name: data.name ?? prev.name ?? prev.username, vault_id: data.vault_id ?? prev.vault_id });
     if (prev) {
-      const prevData: IdentityFormData = {
-        name: prev.name, username: prev.username, key_id: prev.key_id,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = identityToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated identity "${prev.name ?? prev.username}"`,
         undo: async () => { await useIdentityStore.getState().updateIdentity(id, prevData); },
@@ -240,11 +189,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     const identity = get().identities.find((i) => i.id === id);
     if (!identity) return;
     const nextPinned = pinned ?? false;
-    await api.updateIdentity(id, {
-      name: identity.name, username: identity.username, key_id: identity.key_id,
-      tags: identity.tags,
-      folder_id: identity.folder_id, vault_id: identity.vault_id, pinned: nextPinned,
-    });
+    await api.updateIdentity(id, { ...identityToFormData(identity), pinned: nextPinned });
     const identities = await api.listIdentities();
     set({ identities });
     const prefs = useSyncPrefsStore.getState();
@@ -254,16 +199,9 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
   pinIdentityForTeam: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamIdentities, id);
     if (!teamEntry) return;
-    const { teamId, item: prev } = teamEntry;
-    const now = new Date().toISOString();
-    const updated: Identity = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-    await saveTeamVaultObject(teamId, "identity", updated);
-    set((s) => ({
-      teamIdentities: {
-        ...s.teamIdentities,
-        [teamId]: upsert(s.teamIdentities[teamId] ?? [], updated),
-      },
-    }));
+    const { teamId } = teamEntry;
+    const updated = await saveStampedTeamObject(teamId, "identity", teamEntry.item, { pinned });
+    set((s) => ({ teamIdentities: upsertInTeamMap(s.teamIdentities, teamId, updated) }));
   },
 
   deleteIdentity: async (id) => {
@@ -271,18 +209,9 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
       await removeTeamVaultObject(teamId, id);
-      set((s) => ({
-        teamIdentities: {
-          ...s.teamIdentities,
-          [teamId]: (s.teamIdentities[teamId] ?? []).filter((x) => x.id !== id),
-        },
-      }));
+      set((s) => ({ teamIdentities: removeFromTeamMap(s.teamIdentities, teamId, id) }));
       reportAuditMutation("identity", "deleted", { id: prev.id, name: prev.name ?? prev.username, vault_id: prev.vault_id });
-      const prevData: IdentityFormData = {
-        name: prev.name, username: prev.username, key_id: prev.key_id,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = identityToFormData(prev);
       pushDeleteHistory({
         label: `Deleted identity "${prev.name ?? prev.username}"`,
         id,
@@ -301,11 +230,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "identity")) scheduleSync(); });
     if (prev) reportAuditMutation("identity", "deleted", { id: prev.id, name: prev.name ?? prev.username, vault_id: prev.vault_id });
     if (prev) {
-      const prevData: IdentityFormData = {
-        name: prev.name, username: prev.username, key_id: prev.key_id,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = identityToFormData(prev);
       pushDeleteHistory({
         label: `Deleted identity "${prev.name ?? prev.username}"`,
         id,

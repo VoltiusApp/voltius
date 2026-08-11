@@ -19,6 +19,7 @@ export const GATED_PERMISSIONS = new Set<string>([
   "processes:manage",
   "docker:read",
   "docker:manage",
+  "ports:forward",
   "proxmox:read",
   "proxmox:manage",
   "sftp:read",
@@ -26,6 +27,12 @@ export const GATED_PERMISSIONS = new Set<string>([
   "audit",
   "audit:read",
   "mcp:contribute",
+  // The user's vaults and folders. Distinct from the singular "vault:read" /
+  // "vault:write" above, which are this plugin's own secret storage.
+  "vaults:read",
+  "vaults:write",
+  "folders:read",
+  "folders:write",
 ]);
 
 /**
@@ -46,6 +53,8 @@ export const NON_DANGER_GATED_PERMISSIONS = new Set<string>([
   "processes:read",
   "docker:read",
   "proxmox:read",
+  "vaults:read",
+  "folders:read",
 ]);
 
 export function isGatedPermission(perm: string): boolean {
@@ -87,6 +96,7 @@ const PERMISSION_COPY: Record<string, string> = {
   "processes:manage": "processesManage",
   "docker:read": "dockerRead",
   "docker:manage": "dockerManage",
+  "ports:forward": "portsForward",
   "proxmox:read": "proxmoxRead",
   "proxmox:manage": "proxmoxManage",
   "sftp:read": "sftpRead",
@@ -102,8 +112,14 @@ const PERMISSION_COPY: Record<string, string> = {
   "keys:write": "keysWrite",
   "identities:read": "identitiesRead",
   "identities:write": "identitiesWrite",
+  "snippets:write": "snippetsWrite",
+  "port_forwarding:write": "portForwardingWrite",
   "vault:read": "vaultRead",
   "vault:write": "vaultWrite",
+  "vaults:read": "vaultsRead",
+  "vaults:write": "vaultsWrite",
+  "folders:read": "foldersRead",
+  "folders:write": "foldersWrite",
   "sync:read": "syncRead",
   "sync:write": "syncWrite",
   storage: "storage",

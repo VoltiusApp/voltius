@@ -15,7 +15,7 @@ export interface ConnectRetryOverride {
   privateKey?: string;
   passphrase?: string;
 }
-import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
+import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { getGlobalKeepalivePreset, resolvePersistSession } from "@/stores/connectivitySettingsStore";
 import { localConnect, localDisconnect } from "@/services/local";
@@ -908,7 +908,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
     try {
       await withSessionConnectLock(sessionId, async () => {
-        await sshDisconnect(sessionId).catch(() => {});
+        await sshDisconnectForReconnect(sessionId);
         const credentials = await resolveConnectionCredentials(connection);
         const opts = await buildSshConnectOptions(connection, sessionId);
         await sshConnect({
@@ -964,7 +964,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       // restore:false — the xterm buffer still holds prior output, so the
       // re-attach redraw repaints the live screen without duplicating scrollback.
       await withSessionConnectLock(sessionId, async () => {
-        await sshDisconnect(sessionId).catch(() => {});
+        await sshDisconnectForReconnect(sessionId);
         const credentials = await resolveConnectionCredentials(connection);
         const opts = await buildSshConnectOptions(connection, sessionId);
         await sshConnect({
@@ -1002,7 +1002,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
     try {
       await withSessionConnectLock(sessionId, async () => {
-        await sshDisconnect(sessionId).catch(() => {});
+        await sshDisconnectForReconnect(sessionId);
         const credentials = await resolveConnectionCredentials(connection);
 
         if (save) {
@@ -1072,7 +1072,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }));
 
     try {
-      await sshDisconnect(sessionId).catch(() => {});
+      await sshDisconnectForReconnect(sessionId);
       const { username, password, privateKey, passphrase } = await resolveOverrideAuth(connection, merged);
 
       // Still missing something — re-surface the appropriate prompt and keep the

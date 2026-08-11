@@ -1,11 +1,11 @@
-use super::{get_backend, get_session, TransferProgress, CHUNK_SIZE};
+use super::{get_session, pump_chunks, run_backend_transfer};
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
 use std::path::Path;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, State};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tauri::{AppHandle, State};
+use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -20,17 +20,18 @@ pub async fn sftp_upload(
     remote_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let token = sftp_state.register_transfer(&transfer_id).await;
-    let result = match get_backend(&sftp_state, &sftp_id).await {
-        Ok(backend) => {
+    let tid = transfer_id.clone();
+    run_backend_transfer(
+        &sftp_state,
+        &sftp_id,
+        &transfer_id,
+        |backend, token| async move {
             backend
-                .upload_file(&app, &local_path, &remote_path, &transfer_id, &token)
+                .upload_file(&app, &local_path, &remote_path, &tid, &token)
                 .await
-        }
-        Err(e) => Err(e),
-    };
-    sftp_state.finish_transfer(&transfer_id).await;
-    result
+        },
+    )
+    .await
 }
 
 pub(crate) async fn sftp_upload_inner(
@@ -56,29 +57,17 @@ pub(crate) async fn sftp_upload_inner(
         .map_err(|e| format!("Cannot create remote file: {e}"))?
     };
 
-    let mut buf = vec![0u8; CHUNK_SIZE];
     let mut transferred = 0u64;
-    loop {
-        if token.is_cancelled() {
-            return Err("Transfer cancelled".into());
-        }
-        let n = local_file
-            .read(&mut buf)
-            .await
-            .map_err(|e| format!("Read error: {e}"))?;
-        if n == 0 {
-            break;
-        }
-        remote_file
-            .write_all(&buf[..n])
-            .await
-            .map_err(|e| format!("Write error: {e}"))?;
-        transferred += n as u64;
-        let _ = app.emit(
-            &format!("sftp-progress-{}", transfer_id),
-            TransferProgress { transferred, total },
-        );
-    }
+    pump_chunks(
+        app,
+        &mut local_file,
+        &mut remote_file,
+        transfer_id,
+        token,
+        &mut transferred,
+        total,
+    )
+    .await?;
     remote_file
         .shutdown()
         .await
@@ -95,17 +84,18 @@ pub async fn sftp_download(
     local_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let token = sftp_state.register_transfer(&transfer_id).await;
-    let result = match get_backend(&sftp_state, &sftp_id).await {
-        Ok(backend) => {
+    let tid = transfer_id.clone();
+    run_backend_transfer(
+        &sftp_state,
+        &sftp_id,
+        &transfer_id,
+        |backend, token| async move {
             backend
-                .download_file(&app, &remote_path, &local_path, &transfer_id, &token)
+                .download_file(&app, &remote_path, &local_path, &tid, &token)
                 .await
-        }
-        Err(e) => Err(e),
-    };
-    sftp_state.finish_transfer(&transfer_id).await;
-    result
+        },
+    )
+    .await
 }
 
 pub(crate) async fn sftp_download_inner(
@@ -136,29 +126,17 @@ pub(crate) async fn sftp_download_inner(
         .await
         .map_err(|e| format!("Cannot create local file: {e}"))?;
 
-    let mut buf = vec![0u8; CHUNK_SIZE];
     let mut transferred = 0u64;
-    loop {
-        if token.is_cancelled() {
-            return Err("Transfer cancelled".into());
-        }
-        let n = remote_file
-            .read(&mut buf)
-            .await
-            .map_err(|e| format!("Read error: {e}"))?;
-        if n == 0 {
-            break;
-        }
-        local_file
-            .write_all(&buf[..n])
-            .await
-            .map_err(|e| format!("Write error: {e}"))?;
-        transferred += n as u64;
-        let _ = app.emit(
-            &format!("sftp-progress-{}", transfer_id),
-            TransferProgress { transferred, total },
-        );
-    }
+    pump_chunks(
+        app,
+        &mut remote_file,
+        &mut local_file,
+        transfer_id,
+        token,
+        &mut transferred,
+        total,
+    )
+    .await?;
     // Properly close the remote read handle; `Drop` alone leaks the client-side
     // open-handle counter in russh-sftp (fire-and-forget close).
     remote_file
@@ -262,31 +240,16 @@ pub(super) async fn sftp_rr_file_inner_accum(
         .map_err(|e| format!("Cannot create destination {dst_path}: {e}"))?
     };
 
-    let mut buf = vec![0u8; CHUNK_SIZE];
-    loop {
-        if token.is_cancelled() {
-            return Err("Transfer cancelled".into());
-        }
-        let n = src_file
-            .read(&mut buf)
-            .await
-            .map_err(|e| format!("Read error: {e}"))?;
-        if n == 0 {
-            break;
-        }
-        dst_file
-            .write_all(&buf[..n])
-            .await
-            .map_err(|e| format!("Write error: {e}"))?;
-        *transferred += n as u64;
-        let _ = app.emit(
-            &format!("sftp-progress-{}", transfer_id),
-            TransferProgress {
-                transferred: *transferred,
-                total,
-            },
-        );
-    }
+    pump_chunks(
+        app,
+        &mut src_file,
+        &mut dst_file,
+        transfer_id,
+        token,
+        transferred,
+        total,
+    )
+    .await?;
     dst_file
         .shutdown()
         .await

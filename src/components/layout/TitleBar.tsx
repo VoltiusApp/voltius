@@ -175,6 +175,9 @@ export default function TitleBar() {
   };
 
   const handleDragRegionMouseDown = (e: React.MouseEvent) => {
+    // Left button only — other buttons handed the gesture to the window manager,
+    // which swallowed the release.
+    if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (!target.closest('button, a, input, [role="button"]')) {
       appWindow.startDragging();
@@ -305,7 +308,7 @@ export default function TitleBar() {
                 <button
                   data-titlebar-key={item.key}
                   onClick={() => handleUnifiedTabClick(tab.id)}
-                  onMouseDown={(e) => {
+                  onPointerDown={(e) => {
                     if (e.button === 0) useDragStore.getState().beginSplitTabDrag(tab.id, e.clientX, e.clientY);
                     if (e.button === 1) { e.preventDefault(); handleUnifiedTabClose(e, tab.id); }
                   }}
@@ -355,7 +358,7 @@ export default function TitleBar() {
               <button
                 data-titlebar-key={item.key}
                 onClick={() => handleTabClick(session.id)}
-                onMouseDown={(e) => {
+                onPointerDown={(e) => {
                   if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, item.key);
                   if (e.button === 1) { e.preventDefault(); handleTabClose(e, session.id); }
                 }}
@@ -582,7 +585,7 @@ function NewTabButton() {
       <button
         ref={buttonRef}
         onClick={() => setOpen((o) => !o)}
-        onMouseDown={createRipple}
+        onPointerDown={createRipple}
         className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 transition-colors relative overflow-hidden"
         style={{
           color: open ? "var(--t-tab-active-text)" : "var(--t-text-dim)",
@@ -664,7 +667,7 @@ function TitleBarBtn({ onClick, title, children }: {
   return (
     <button
       onClick={onClick}
-      onMouseDown={createRipple}
+      onPointerDown={createRipple}
       title={title}
       className="flex items-center justify-center size-8 rounded-md transition-colors text-(--t-text-dim) bg-transparent relative overflow-hidden"
       onMouseEnter={(e) => {
@@ -767,7 +770,7 @@ function SyncIndicator({
       <button
         ref={anchorRef}
         onClick={onClick}
-        onMouseDown={createRipple}
+        onPointerDown={createRipple}
         className="flex items-center justify-center w-8 h-8 rounded-xl transition-colors relative overflow-hidden cursor-pointer"
         style={{
           color: active ? "var(--t-tab-active-text)" : color,

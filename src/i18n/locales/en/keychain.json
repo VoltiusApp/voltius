@@ -125,7 +125,13 @@
       "exportScriptLabel": "Export script",
       "successMessage": "Key exported successfully",
       "exportingLabel": "Exporting…",
-      "publicKeyNotFoundError": "Public key not found"
+      "publicKeyNotFoundError": "Public key not found",
+      "multilinePublicKeyError": "Public key is not valid — it must be a single line",
+      "invalidPublicKeyError": "Public key is not valid — it must be an SSH public key in \"type base64 [comment]\" form",
+      "invalidLocationError": "Location must be a path under the remote home, with no \"..\" segment",
+      "invalidFilenameError": "Filename must not contain a path separator",
+      "remoteCommandFailedError": "Remote command failed: {{detail}}",
+      "remoteCommandFailedUnknownError": "Remote command failed (exit code {{code}})"
     },
     "dropZone": {
       "loaded": "Key file loaded",

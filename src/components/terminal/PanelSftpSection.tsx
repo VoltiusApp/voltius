@@ -57,6 +57,22 @@ export default function PanelSftpSection() {
     void ensureConnected(session);
   }, [session, ensureConnected]);
 
+  // The SFTP channel dies with the SSH link (sleep, network drop). The backend
+  // re-opens it on the next operation against the reconnected session, so a
+  // refresh once the terminal is back is all that's needed to repaint the pane.
+  const sessionStatus = session?.status;
+  const wasDisconnected = useRef(false);
+  useEffect(() => {
+    if (sessionStatus !== "connected") {
+      wasDisconnected.current = true;
+      return;
+    }
+    if (wasDisconnected.current) {
+      wasDisconnected.current = false;
+      setRefreshTick((n) => n + 1);
+    }
+  }, [sessionStatus]);
+
   // Reset selection when switching sessions to avoid stale entries belonging
   // to a different host.
   useEffect(() => { setSelected([]); }, [activeSessionId]);

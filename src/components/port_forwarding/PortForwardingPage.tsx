@@ -30,10 +30,11 @@ import { useRuleTunnels } from "@/hooks/useRuleTunnels";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
 import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
-import { nameIsFree } from "@/utils/cloneName";
+import { ruleToForm } from "@/utils/portForwardingForm";
+import { portForwardingClipboardHalf } from "@/services/clipboard/portForwarding";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
-import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
+import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { PortForwardingToolbar } from "./PortForwardingToolbar";
@@ -61,26 +62,6 @@ function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingR
       default: return b.created_at.localeCompare(a.created_at);
     }
   });
-}
-
-function ruleToForm(
-  rule: PortForwardingRule,
-  over: Partial<PortForwardingRuleFormData> = {},
-): PortForwardingRuleFormData {
-  return {
-    name: rule.name,
-    local_port: rule.local_port,
-    remote_port: rule.remote_port,
-    remote_host: rule.remote_host,
-    tunnel_type: rule.tunnel_type ?? "local",
-    bind_host: rule.bind_host ?? "127.0.0.1",
-    target_host: rule.target_host ?? "127.0.0.1",
-    description: rule.description,
-    connection_ids: [...rule.connection_ids],
-    folder_id: rule.folder_id,
-    vault_id: rule.vault_id,
-    ...over,
-  };
 }
 
 export function PortForwardingPage() {
@@ -429,51 +410,10 @@ export function PortForwardingPage() {
   // Rules own no secrets, so nothing has to be republished on a cross-vault write.
   usePageClipboard({
     ...clipboardBase,
-    folderContentKinds: (folderId): VaultClipboardKind[] =>
-      getRulesInFolderTree(folderId).length > 0 ? ["port_forward"] : [],
-    // A migrated rule keeps pointing at the hosts it tunnels through, which this
-    // path does not move. Unlike Hosts and Keychain this cannot be expressed as a
-    // missing permission — a rule and a connection share EDIT_CONNECTIONS, so
-    // anyone allowed to paste the rule is already allowed the connection.
-    danglingKinds: (items, folderIds, destination): VaultClipboardKind[] => {
-      const moved = [
-        ...items.map((i) => rules.find((r) => r.id === i.id)).filter((r) => !!r),
-        ...folderIds.flatMap((id) => getRulesInFolderTree(id)),
-      ];
-      const linked = moved
-        .flatMap((r) => r.connection_ids)
-        .map((id) => connections.find((c) => c.id === id))
-        .filter((c) => !!c);
-      return linked.some((c) => (c.vault_id ?? "personal") !== destination) ? ["connection"] : [];
-    },
-    // A same-vault move only rewrites folder_id; a cross-vault one has to go through
-    // updateRule so the object actually changes vault, otherwise it would keep a
-    // stale vault_id alongside its new folder's.
-    moveItems: async (ids, folderId, vaultId) => {
-      for (const id of ids) {
-        const rule = rules.find((r) => r.id === id);
-        if (!rule) continue;
-        if (vaultId === null || (rule.vault_id ?? "personal") === vaultId) {
-          await moveRuleFolder(id, folderId);
-          continue;
-        }
-        await updateRule(id, ruleToForm(rule, { folder_id: folderId ?? undefined, vault_id: vaultId }));
-      }
-    },
-    duplicateItems: async (ids, folderId) => {
-      const targetVault = vaultForFolder(folderId) ?? undefined;
-      const created: string[] = [];
-      for (const id of ids) {
-        const rule = rules.find((r) => r.id === id);
-        if (!rule) continue;
-        created.push((await duplicateRuleInto(rule, folderId, {
-          vaultId: targetVault,
-          keepName: nameIsFree(rules, rule.name, targetVault ?? rule.vault_id ?? "personal", folderId),
-        })).id);
-      }
-      return created;
-    },
-    deleteItems: async (ids) => { for (const id of ids) await deleteRule(id); },
+    ...portForwardingClipboardHalf({
+      rules, connections, getRulesInFolderTree, vaultForFolder,
+      moveRuleFolder, updateRule, duplicateRuleInto, deleteRule,
+    }),
   });
 
   const filteredRuleIdSet = useMemo(() => new Set(filtered.map((r) => r.id)), [filtered]);

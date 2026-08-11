@@ -59,7 +59,7 @@ pub async fn sftp_open(
     sftp_state: State<'_, SftpManager>,
     session_id: String,
 ) -> Result<String, String> {
-    let handle = ssh_state.get_handle(&session_id).await?;
+    let handle = ssh_state.get_session_handle(&session_id).await?;
     sftp_state.open(handle).await
 }
 

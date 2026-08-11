@@ -168,7 +168,7 @@ export function KeyGenFields({
 
       <button
         onClick={handleGenerate}
-        onMouseDown={generating ? undefined : rippleGenerate}
+        onPointerDown={generating ? undefined : rippleGenerate}
         disabled={generating}
         className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors relative overflow-hidden"
         style={{

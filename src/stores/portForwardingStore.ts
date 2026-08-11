@@ -5,32 +5,8 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { useTeamStore } from "@/stores/teamStore";
+import { isTeamVaultId, upsertById, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap } from "@/stores/teamVaultMap";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
-
-function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
-  if (!vaultId) return false;
-  return useTeamStore.getState().teams.some((t) => t.id === vaultId);
-}
-
-function upsert(arr: PortForwardingRule[], item: PortForwardingRule): PortForwardingRule[] {
-  const idx = arr.findIndex((x) => x.id === item.id);
-  if (idx === -1) return [...arr, item];
-  const next = [...arr];
-  next[idx] = item;
-  return next;
-}
-
-function findTeamEntry(
-  teamMap: Record<string, PortForwardingRule[]>,
-  id: string,
-): { teamId: string; rule: PortForwardingRule } | null {
-  for (const [teamId, rules] of Object.entries(teamMap)) {
-    const rule = rules.find((r) => r.id === id);
-    if (rule) return { teamId, rule };
-  }
-  return null;
-}
 
 function toFormData(rule: PortForwardingRule, vaultId = rule.vault_id): PortForwardingRuleFormData {
   return {
@@ -79,15 +55,10 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
   },
 
   setTeamRules: (teamId, items) =>
-    set((s) => ({ teamRules: { ...s.teamRules, [teamId]: items } })),
+    set((s) => ({ teamRules: setTeamMapEntry(s.teamRules, teamId, items) })),
 
   clearTeamRules: (teamId) =>
-    set((s) => {
-      if (teamId === undefined) return { teamRules: {} };
-      const next = { ...s.teamRules };
-      delete next[teamId];
-      return { teamRules: next };
-    }),
+    set((s) => ({ teamRules: clearTeamMapEntry(s.teamRules, teamId) })),
 
   createRule: async (data, id) => {
     if (isTeamVaultId(data.vault_id)) {
@@ -123,7 +94,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
       };
       const vaultId = data.vault_id;
       await saveTeamVaultObject(vaultId, "port_forwarding_rule", rule);
-      set((s) => ({ teamRules: { ...s.teamRules, [vaultId]: upsert(s.teamRules[vaultId] ?? [], rule) } }));
+      set((s) => ({ teamRules: upsertInTeamMap(s.teamRules, vaultId, rule) }));
       reportAuditMutation("port_forward", "created", { id: rule.id, name: rule.name, vault_id: rule.vault_id }, { tunnel_type: rule.tunnel_type });
       return rule;
     }
@@ -139,13 +110,13 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
   updateRule: async (id, data) => {
     const teamEntry = findTeamEntry(get().teamRules, id);
     if (teamEntry) {
-      const { teamId, rule: prev } = teamEntry;
+      const { teamId, item: prev } = teamEntry;
       if (!isTeamVaultId(data.vault_id)) {
         // Adopt, not create: the rule only exists server-side and its id is
         // referenced by sync prefs and undo entries.
         await api.adoptPfRule(id, data);
         await removeTeamVaultObject(teamId, id);
-        set((s) => ({ teamRules: { ...s.teamRules, [teamId]: (s.teamRules[teamId] ?? []).filter((r) => r.id !== id) } }));
+        set((s) => ({ teamRules: removeFromTeamMap(s.teamRules, teamId, id) }));
         const rules = await api.listPfRules();
         set({ rules });
         isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isTypeSynced("port-forwarding-rule")) scheduleSync(); });
@@ -179,7 +150,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
       set((s) => {
         const next = { ...s.teamRules };
         next[teamId] = (next[teamId] ?? []).filter((r) => r.id !== id);
-        next[nextTeamId] = upsert(next[nextTeamId] ?? [], updated);
+        next[nextTeamId] = upsertById(next[nextTeamId] ?? [], updated);
         return { teamRules: next };
       });
       reportAuditMutation("port_forward", "updated", { id: updated.id, name: updated.name, vault_id: updated.vault_id }, { tunnel_type: updated.tunnel_type });
@@ -207,8 +178,8 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
     const teamEntry = findTeamEntry(get().teamRules, id);
     if (teamEntry) {
       await removeTeamVaultObject(teamEntry.teamId, id);
-      set((s) => ({ teamRules: { ...s.teamRules, [teamEntry.teamId]: (s.teamRules[teamEntry.teamId] ?? []).filter((r) => r.id !== id) } }));
-      reportAuditMutation("port_forward", "deleted", { id: teamEntry.rule.id, name: teamEntry.rule.name, vault_id: teamEntry.rule.vault_id }, { tunnel_type: teamEntry.rule.tunnel_type });
+      set((s) => ({ teamRules: removeFromTeamMap(s.teamRules, teamEntry.teamId, id) }));
+      reportAuditMutation("port_forward", "deleted", { id: teamEntry.item.id, name: teamEntry.item.name, vault_id: teamEntry.item.vault_id }, { tunnel_type: teamEntry.item.tunnel_type });
       return;
     }
 
@@ -223,7 +194,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
   duplicateRule: async (id) => {
     const teamEntry = findTeamEntry(get().teamRules, id);
     if (teamEntry) {
-      return get().createRule({ ...toFormData(teamEntry.rule), name: `${teamEntry.rule.name} (copy)` });
+      return get().createRule({ ...toFormData(teamEntry.item), name: `${teamEntry.item.name} (copy)` });
     }
 
     const rule = await api.duplicatePfRule(id);
@@ -236,7 +207,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
   moveRuleFolder: async (id, folderId) => {
     const teamEntry = findTeamEntry(get().teamRules, id);
     if (teamEntry) {
-      await get().updateRule(id, { ...toFormData(teamEntry.rule), folder_id: folderId ?? undefined });
+      await get().updateRule(id, { ...toFormData(teamEntry.item), folder_id: folderId ?? undefined });
       return;
     }
 

@@ -6,6 +6,8 @@ import { getDockerApi } from "../runtime";
 import { pullAndMaybeRecreate } from "../updateActions";
 import type { ContainerAction, DockerContainer, ImageUpdateStatus } from "../types";
 import { UpdateBadge } from "./UpdateBadge";
+import { PortChips } from "./PortChips";
+import { useRowAction } from "./resourceList";
 
 interface Props {
   container: DockerContainer;
@@ -46,7 +48,12 @@ export function ContainerRow({
   onUpdated,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { busy, act } = useRowAction(
+    (action: ContainerAction) =>
+      dockerContainerAction({ sessionId, isRemote, localShell }, container.id, action),
+    onRefresh,
+    "action",
+  );
   const [copied, setCopied] = useState(false);
   const [updating, setUpdating] = useState(false);
 
@@ -84,17 +91,6 @@ export function ContainerRow({
     }
   };
 
-  const act = async (action: ContainerAction) => {
-    setBusy(true);
-    try {
-      await dockerContainerAction({ sessionId, isRemote, localShell }, container.id, action);
-      onRefresh();
-    } catch (e) {
-      console.error("[docker] action failed:", e);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const name = displayName(container.names);
   const running = container.state === "running";
@@ -114,6 +110,13 @@ export function ContainerRow({
             <p className="text-[10px] text-(--t-text-muted) truncate">{container.image}</p>
             <UpdateBadge status={status} checking={checking} />
           </div>
+          <PortChips
+            ports={container.ports}
+            sessionId={sessionId}
+            isRemote={isRemote}
+            limit={2}
+            onOverflow={() => setExpanded(true)}
+          />
         </div>
         <span className="text-[10px] text-(--t-text-muted) shrink-0">
           {container.status.split(" ").slice(0, 2).join(" ")}
@@ -195,16 +198,7 @@ export function ContainerRow({
       {expanded && (
         <div className="px-3 pb-2 text-[10px] text-(--t-text-muted) space-y-0.5">
           <p className="font-mono">{container.id.slice(0, 12)}</p>
-          {container.ports.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              {container.ports.map((p, i) => (
-                <span key={i} className="bg-(--t-bg-card-hover) rounded-sm px-1 font-mono">
-                  {p.host_port ? `${p.host_port}→` : ""}
-                  {p.container_port}/{p.protocol}
-                </span>
-              ))}
-            </div>
-          )}
+          <PortChips ports={container.ports} sessionId={sessionId} isRemote={isRemote} />
         </div>
       )}
     </div>

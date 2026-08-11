@@ -41,19 +41,14 @@ import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
-import {
-  publishIdentitySecrets,
-  publishKeySecrets,
-  unpublishIdentitySecrets,
-  unpublishKeySecrets,
-  withdrawOrWarn,
-} from "@/services/vaultObjectSecrets";
+import { publishIdentitySecrets, publishKeySecrets } from "@/services/vaultObjectSecrets";
+import { transferKeySecrets, transferIdentitySecrets } from "@/services/vaultSecrets";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
 import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
-import { nameIsFree } from "@/utils/cloneName";
+import { keychainClipboardHalf } from "@/services/clipboard/keychain";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
-import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
+import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
@@ -419,112 +414,22 @@ export default function KeychainPage() {
   // Every mutation below goes through a store method so vault permission checks apply.
   usePageClipboard({
     ...clipboardBase,
-    folderContentKinds: (folderId) => {
-      const kinds: VaultClipboardKind[] = [];
-      if (keysInFolderTree(folderId).length > 0) kinds.push("key");
-      if (identitiesInFolderTree(folderId).length > 0) kinds.push("identity");
-      return kinds;
-    },
-    // A migrated identity keeps pointing at its key, which this path does not move —
-    // only the vault move/copy menu cascades that, behind VaultCascadeModal. A key
-    // travelling in the same paste is not dangling, so it is excluded first.
-    danglingKinds: (items, folderIds, destination) => {
-      const movedKeyIds = new Set([
-        ...items.filter((i) => i.kind === "key").map((i) => i.id),
-        ...folderIds.flatMap((id) => keysInFolderTree(id).map((k) => k.id)),
-      ]);
-      const movedIdentities = [
-        ...items
-          .filter((i) => i.kind === "identity")
-          .map((i) => identities.find((x) => x.id === i.id))
-          .filter((i) => !!i),
-        ...folderIds.flatMap((id) => identitiesInFolderTree(id)),
-      ];
-      const linkedKeys = movedIdentities
-        .map((i) => i.key_id && !movedKeyIds.has(i.key_id) && keys.find((k) => k.id === i.key_id))
-        .filter((k) => !!k);
-      return linkedKeys.some((k) => (k.vault_id ?? "personal") !== destination) ? ["key"] : [];
-    },
-    // moveObjectsToFolder takes a single object_type, so the ids are partitioned by
-    // kind. A same-vault move only rewrites folder_id; a cross-vault one has to go
-    // through updateKey/updateIdentity so the object actually changes vault, otherwise
-    // it would keep a stale vault_id alongside its new folder's.
-    moveItems: async (ids, folderId, vaultId) => {
-      const sameVaultKeys: string[] = [];
-      const sameVaultIdentities: string[] = [];
-      for (const id of ids) {
-        const key = keys.find((k) => k.id === id);
-        if (key) {
-          if (vaultId === null || (key.vault_id ?? "personal") === vaultId) {
-            sameVaultKeys.push(id);
-            continue;
-          }
-          await updateKey(id, {
-            name: key.name, key_type: key.key_type, tags: key.tags,
-            folder_id: folderId ?? undefined, vault_id: vaultId,
-          });
-          await transferKeySecrets(id, key.vault_id ?? "personal", vaultId);
-          continue;
-        }
-        const identity = identities.find((i) => i.id === id);
-        if (!identity) continue;
-        if (vaultId === null || (identity.vault_id ?? "personal") === vaultId) {
-          sameVaultIdentities.push(id);
-          continue;
-        }
-        await updateIdentity(id, {
-          name: identity.name, username: identity.username, key_id: identity.key_id,
-          tags: identity.tags, folder_id: folderId ?? undefined, vault_id: vaultId,
-        });
-        await transferIdentitySecrets(id, identity.vault_id ?? "personal", vaultId);
-      }
-      // moveObjectsToFolder writes through to the DB without touching the key/identity
-      // stores, so each touched store is reloaded — as in `dropHandler`.
-      if (sameVaultKeys.length > 0) {
-        await moveObjectsToFolder(sameVaultKeys, "key", folderId);
-        await loadKeys();
-      }
-      if (sameVaultIdentities.length > 0) {
-        await moveObjectsToFolder(sameVaultIdentities, "identity", folderId);
-        await loadIdentities();
-      }
-    },
-    duplicateItems: async (ids, folderId) => {
-      const targetVault = vaultForFolder(folderId) ?? undefined;
-      const created = new Map<string, string>();
-      // Keys first, as in copyFolderInto: an identity cloned alongside its key must
-      // point at the clone, not back at the original in the source vault.
-      const keyIdMap = new Map<string, string>();
-      for (const id of ids) {
-        const key = keys.find((k) => k.id === id);
-        if (!key) continue;
-        const dup = await duplicateKeyInto(key, folderId, {
-          vaultId: targetVault,
-          keepName: nameIsFree(keys, key.name, targetVault ?? key.vault_id ?? "personal", folderId),
-        });
-        keyIdMap.set(key.id, dup.id);
-        created.set(id, dup.id);
-      }
-      for (const id of ids) {
-        const identity = identities.find((i) => i.id === id);
-        if (!identity) continue;
-        const dup = await duplicateIdentityInto(identity, folderId, {
-          vaultId: targetVault,
-          keepName: nameIsFree(identities, identity.name, targetVault ?? identity.vault_id ?? "personal", folderId),
-          keyId: identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined,
-        });
-        created.set(id, dup.id);
-      }
-      return ids.map((id) => created.get(id)).filter((id): id is string => !!id);
-    },
-    // The store methods directly, not handleDeleteKey/handleDeleteIdentity: those
-    // swallow the error into the banner, which would let a failed undo report success.
-    deleteItems: async (ids) => {
-      for (const id of ids) {
-        if (keys.some((k) => k.id === id)) await deleteKey(id);
-        else if (identities.some((i) => i.id === id)) await deleteIdentity(id);
-      }
-    },
+    ...keychainClipboardHalf({
+      keys,
+      identities,
+      keysInFolderTree,
+      identitiesInFolderTree,
+      vaultForFolder,
+      updateKey,
+      updateIdentity,
+      moveObjectsToFolder,
+      loadKeys,
+      loadIdentities,
+      duplicateKeyInto,
+      duplicateIdentityInto,
+      deleteKey,
+      deleteIdentity,
+    }),
   });
 
   useEffect(() => {
@@ -797,12 +702,14 @@ export default function KeychainPage() {
   const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(scopedFolders, folderId);
 
   /** Keys nested anywhere under folderId. */
-  const keysInFolderTree = (folderId: string): SshKey[] =>
-    itemsInFolderSubtree(keys, scopedFolders, folderId);
+  function keysInFolderTree(folderId: string): SshKey[] {
+    return itemsInFolderSubtree(keys, scopedFolders, folderId);
+  }
 
   /** Identities nested anywhere under folderId. */
-  const identitiesInFolderTree = (folderId: string): Identity[] =>
-    itemsInFolderSubtree(identities, scopedFolders, folderId);
+  function identitiesInFolderTree(folderId: string): Identity[] {
+    return itemsInFolderSubtree(identities, scopedFolders, folderId);
+  }
 
   /** Keys and identities nested anywhere under folderId. */
   const getItemsInFolderTree = (folderId: string): string[] => [
@@ -893,31 +800,15 @@ export default function KeychainPage() {
   // ── Clipboard paste helpers ───────────────────────────────────────────────
 
   /**
-   * Moves a key's material with it: published for the vault it now lives in —
-   * without this a key pasted into a team vault reaches every teammate as an object
-   * with no private key behind it — and withdrawn from the one it left, where it
-   * would otherwise stay readable. Both no-op for a personal vault.
-   */
-  const transferKeySecrets = async (keyId: string, fromVaultId: string, toVaultId: string) => {
-    await publishKeySecrets(keyId, toVaultId);
-    if (fromVaultId !== toVaultId) await withdrawOrWarn(unpublishKeySecrets(keyId, fromVaultId));
-  };
-
-  const transferIdentitySecrets = async (identityId: string, fromVaultId: string, toVaultId: string) => {
-    await publishIdentitySecrets(identityId, toVaultId);
-    if (fromVaultId !== toVaultId) await withdrawOrWarn(unpublishIdentitySecrets(identityId, fromVaultId));
-  };
-
-  /**
    * Duplicates `key` into `folderId`, optionally into another vault. `keepName` is
    * for members of a subtree being cloned wholesale — only the root of such a clone
    * carries the "(copy)" suffix. Throws; callers surface the error.
    */
-  const duplicateKeyInto = async (
+  async function duplicateKeyInto(
     key: SshKey,
     folderId: string | null,
     opts: { vaultId?: string; keepName?: boolean } = {},
-  ) => {
+  ) {
     const vaultId = opts.vaultId ?? key.vault_id ?? "personal";
     const newKey = await saveKey({
       // default name kept in English until all creation sites are localized together (see i18n issue #14)
@@ -935,14 +826,14 @@ export default function KeychainPage() {
       await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
     }
     return newKey;
-  };
+  }
 
   /** `keyId` overrides the link when the referenced key was cloned alongside it. */
-  const duplicateIdentityInto = async (
+  async function duplicateIdentityInto(
     identity: Identity,
     folderId: string | null,
     opts: { vaultId?: string; keepName?: boolean; keyId?: string } = {},
-  ) => {
+  ) {
     const vaultId = opts.vaultId ?? identity.vault_id ?? "personal";
     const newIdentity = await saveIdentity({
       // default name kept in English until all creation sites are localized together (see i18n issue #14)
@@ -960,7 +851,7 @@ export default function KeychainPage() {
       await saveTeamVaultSecretForVault(vaultId, localKey, pwd).catch(() => {});
     }
     return newIdentity;
-  };
+  }
 
   /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */
   const copyFolderInto = async (

@@ -88,7 +88,7 @@ export function SidebarAccountButton() {
       <button
         ref={buttonRef}
         onClick={() => void openDropdown()}
-        onMouseDown={createRipple}
+        onPointerDown={createRipple}
         title={t("layout.sidebarAccount.accountTitle")}
         className="flex items-center justify-center relative overflow-hidden transition-all shrink-0"
         style={{

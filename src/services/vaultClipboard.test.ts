@@ -1,5 +1,5 @@
 import { test, expect, vi } from "vitest";
-import { pasteFromClipboard, type ClipboardAdapter } from "./vaultClipboard";
+import { pasteFromClipboard, runPaste, type ClipboardAdapter } from "./vaultClipboard";
 import type { VaultClipboard } from "@/stores/vaultClipboardStore";
 
 function adapter(over: Partial<ClipboardAdapter> = {}): ClipboardAdapter {
@@ -433,4 +433,41 @@ test("a root paste skips the dangling check", async () => {
   await pasteFromClipboard(cut, a);
 
   expect(dangling).not.toHaveBeenCalled();
+});
+
+/** A paste whose store call takes long enough for a second one to overlap it. */
+function slowAdapter() {
+  return adapter({ moveItems: vi.fn(() => new Promise<void>((r) => setTimeout(r, 10))) });
+}
+
+const otherCut: VaultClipboard = {
+  tab: "hosts", mode: "cut",
+  items: [{ id: "c2", kind: "connection" }], folderIds: [], sourceVaultIds: ["personal"],
+};
+
+
+test("two overlapping pastes each keep their history entry when serialized", async () => {
+  resetHistory();
+  await Promise.all([
+    runPaste(() => pasteFromClipboard(cut, slowAdapter())),
+    runPaste(() => pasteFromClipboard(otherCut, slowAdapter())),
+  ]);
+  expect(useHistoryStore.getState().past).toHaveLength(2);
+});
+
+test("unserialized, one of the two loses its entry to the other's withoutHistory window", async () => {
+  // Why runPaste exists: the window is a depth counter, so a paste that starts
+  // while another holds it open has its push silently dropped.
+  resetHistory();
+  await Promise.all([
+    pasteFromClipboard(cut, slowAdapter()),
+    pasteFromClipboard(otherCut, slowAdapter()),
+  ]);
+  expect(useHistoryStore.getState().past).toHaveLength(1);
+});
+
+test("a rejected paste does not stall the pastes queued behind it", async () => {
+  resetHistory();
+  await expect(runPaste(async () => { throw new Error("boom"); })).rejects.toThrow("boom");
+  await expect(runPaste(() => pasteFromClipboard(cut, adapter()))).resolves.toMatchObject({ moved: 1 });
 });

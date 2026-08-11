@@ -64,7 +64,7 @@ export function KeychainToolbar({
         <div ref={rightRef} className="ml-auto flex items-center gap-px shrink-0">
           <button
             onClick={onImportKey}
-            onMouseDown={rippleKey}
+            onPointerDown={rippleKey}
             disabled={!onImportKey}
             title={compact ? t("keychain.toolbar.newKey") : undefined}
             className="flex items-center gap-2 px-3 h-8 text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap relative overflow-hidden rounded-tl-[0.533rem] rounded-bl-[0.533rem]"
@@ -116,7 +116,7 @@ function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onI
     <div ref={wrapperRef}>
       <button
         onClick={handleClick}
-        onMouseDown={createRipple}
+        onPointerDown={createRipple}
         className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden rounded-tr-[0.533rem] rounded-br-[0.533rem]"
         style={{ background: accent ? "var(--t-accent)" : "var(--t-bg-input)" }}
         onMouseEnter={(e) => (e.currentTarget.style.background = accent ? "var(--t-accent-hover)" : "var(--t-bg-input-hover)")}

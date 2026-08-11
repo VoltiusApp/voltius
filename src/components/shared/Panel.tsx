@@ -45,7 +45,7 @@ export function PanelHeaderIconButton({
     <button
       type="button"
       onClick={onClick}
-      onMouseDown={createRipple}
+      onPointerDown={createRipple}
       title={title}
       className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors text-(--t-text-dim) relative overflow-hidden"
       onMouseEnter={(e) => {

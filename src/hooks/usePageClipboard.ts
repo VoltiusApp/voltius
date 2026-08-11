@@ -5,6 +5,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import {
   pasteFromClipboard,
+  runPaste,
   type CascadeEntry,
   type ClipboardAdapter,
   type PasteResult,
@@ -59,12 +60,6 @@ function reportPasteResult(result: PasteResult) {
   }
 }
 
-// Serializes pastes so a second Ctrl+V queues behind an in-flight one instead of
-// racing it (each still re-reads the clipboard when it runs). Shared by every page,
-// not per hook: a paste started on another page mid-flight would otherwise overlap
-// the first one's `withoutHistory` window and lose its history entry to it.
-let pasteChain: Promise<void> = Promise.resolve();
-
 export function usePageClipboard(adapter: PageClipboardAdapter): void {
   const ref = useRef(adapter);
   ref.current = adapter;
@@ -73,8 +68,8 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
   useEffect(() => {
     const isActive = () => useUIStore.getState().activeNav === navItem;
 
-    // pasteChain is shared by every page, so a confirmation whose UI is torn down
-    // mid-prompt would wedge Ctrl+V on all of them. Losing this hook declines it.
+    // The paste chain is shared by every page, so a confirmation whose UI is torn
+    // down mid-prompt would wedge Ctrl+V on all of them. Losing this hook declines it.
     let abortConfirm!: () => void;
     const aborted = new Promise<false>((resolve) => {
       abortConfirm = () => resolve(false);
@@ -141,7 +136,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
 
     const handlePaste = () => {
       if (!isActive()) return;
-      pasteChain = pasteChain.then(async () => {
+      void runPaste(async () => {
         const clipboard = useVaultClipboardStore.getState().clipboard;
         try {
           // Inside the queued work, not before it: the confirmation must not run
@@ -180,7 +175,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
           }
         } catch (e) {
           // Caught here so a rejected paste (IPC/network/permission failure)
-          // can't poison pasteChain and stall every later paste on this page.
+          // can't stall every later paste on this page.
           // Said out loud too: a swallowed rejection is a Ctrl+V that does nothing.
           console.error("clipboard paste failed:", e);
           toast(

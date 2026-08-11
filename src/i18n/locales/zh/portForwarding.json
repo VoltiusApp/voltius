@@ -7,6 +7,7 @@
       "newRule": "新建规则",
       "newFolder": "新建文件夹"
     },
+    "reach": { "copied": "已复制 {{address}} 到剪贴板" },
     "page": {
       "all": "全部",
       "folders": "文件夹",

@@ -6,35 +6,21 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { useTeamStore } from "@/stores/teamStore";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 
-function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
-  if (!vaultId) return false;
-  return useTeamStore.getState().teams.some((t) => t.id === vaultId);
-}
-
-function upsert(arr: SshKey[], item: SshKey): SshKey[] {
-  const idx = arr.findIndex((x) => x.id === item.id);
-  if (idx === -1) return [...arr, item];
-  const next = [...arr];
-  next[idx] = item;
-  return next;
-}
-
-function findTeamEntry(
-  teamMap: Record<string, SshKey[]>,
-  id: string,
-): { teamId: string; item: SshKey } | null {
-  for (const [teamId, items] of Object.entries(teamMap)) {
-    const item = items.find((x) => x.id === id);
-    if (item) return { teamId, item };
-  }
-  return null;
+/** Rebuilds a full SshKeyFormData from a stored key: `key_update` replaces
+ *  rather than merges, so a partial payload must spread this. */
+function keyToFormData(k: SshKey): SshKeyFormData {
+  return {
+    name: k.name, key_type: k.key_type,
+    tags: k.tags,
+    folder_id: k.folder_id, vault_id: k.vault_id,
+  };
 }
 
 interface KeyStore {
@@ -60,15 +46,10 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
   },
 
   setTeamKeys: (teamId, items) =>
-    set((s) => ({ teamKeys: { ...s.teamKeys, [teamId]: items } })),
+    set((s) => ({ teamKeys: setTeamMapEntry(s.teamKeys, teamId, items) })),
 
   clearTeamKeys: (teamId) =>
-    set((s) => {
-      if (teamId === undefined) return { teamKeys: {} };
-      const next = { ...s.teamKeys };
-      delete next[teamId];
-      return { teamKeys: next };
-    }),
+    set((s) => ({ teamKeys: clearTeamMapEntry(s.teamKeys, teamId) })),
 
   saveKey: async (data) => {
     if (isTeamVaultId(data.vault_id)) {
@@ -87,12 +68,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       };
       const vaultId = data.vault_id!;
       await saveTeamVaultObject(vaultId, "key", key);
-      set((s) => ({
-        teamKeys: {
-          ...s.teamKeys,
-          [vaultId]: upsert(s.teamKeys[vaultId] ?? [], key),
-        },
-      }));
+      set((s) => ({ teamKeys: upsertInTeamMap(s.teamKeys, vaultId, key) }));
       reportAuditMutation("key", "created", { id: key.id, name: key.name ?? "unnamed", vault_id: key.vault_id }, { key_type: key.key_type });
       pushCreateHistory({
         label: `Saved key "${key.name ?? "unnamed"}"`,
@@ -150,25 +126,11 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
       const localKeys = transition.kind === "team-to-local" ? await api.listKeys() : undefined;
       set((s) => {
-        const nextTeamKeys = { ...s.teamKeys };
-        if (transition.kind === "team-to-team") {
-          nextTeamKeys[transition.sourceTeamId] = (nextTeamKeys[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamKeys[transition.destinationTeamId] = upsert(nextTeamKeys[transition.destinationTeamId] ?? [], migrated);
-          return { teamKeys: nextTeamKeys };
-        }
-        if (transition.kind === "team-to-local") {
-          nextTeamKeys[transition.sourceTeamId] = (nextTeamKeys[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          return { keys: localKeys, teamKeys: nextTeamKeys };
-        }
-        nextTeamKeys[teamId] = upsert(nextTeamKeys[teamId] ?? [], migrated);
-        return { teamKeys: nextTeamKeys };
+        const next = applyVaultTransition(s.teamKeys, transition, id, migrated, teamId);
+        return localKeys ? { keys: localKeys, teamKeys: next } : { teamKeys: next };
       });
       reportAuditMutation("key", "updated", { id: migrated.id, name: migrated.name ?? "unnamed", vault_id: migrated.vault_id }, { key_type: migrated.key_type });
-      const prevData: SshKeyFormData = {
-        name: prev.name, key_type: prev.key_type,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = keyToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated key "${prev.name ?? "unnamed"}"`,
         undo: async () => { await useKeyStore.getState().updateKey(id, prevData); },
@@ -196,30 +158,17 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       key = await api.updateKey(id, data);
     }
     const keys = await api.listKeys();
-    set((s) => {
-      const nextTeamKeys = { ...s.teamKeys };
-      if (prev) {
-        const transition = classifyVaultTransition(prev.vault_id, key.vault_id, isTeamVaultId);
-        if (transition.kind === "local-to-team") {
-          nextTeamKeys[transition.destinationTeamId] = upsert(nextTeamKeys[transition.destinationTeamId] ?? [], key);
-        } else if (transition.kind === "team-to-team") {
-          nextTeamKeys[transition.sourceTeamId] = (nextTeamKeys[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamKeys[transition.destinationTeamId] = upsert(nextTeamKeys[transition.destinationTeamId] ?? [], key);
-        } else if (transition.kind === "team-to-local") {
-          nextTeamKeys[transition.sourceTeamId] = (nextTeamKeys[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-        }
-      }
-      return { keys, teamKeys: nextTeamKeys };
-    });
+    set((s) => ({
+      keys,
+      teamKeys: prev
+        ? applyVaultTransition(s.teamKeys, classifyVaultTransition(prev.vault_id, key.vault_id, isTeamVaultId), id, key)
+        : s.teamKeys,
+    }));
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
     if (prev) reportAuditMutation("key", "updated", { id, name: data.name ?? prev.name ?? "unnamed", vault_id: data.vault_id ?? prev.vault_id }, { key_type: data.key_type ?? prev.key_type });
     if (prev) {
-      const prevData: SshKeyFormData = {
-        name: prev.name, key_type: prev.key_type,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = keyToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated key "${prev.name ?? "unnamed"}"`,
         undo: async () => { await useKeyStore.getState().updateKey(id, prevData); },
@@ -239,11 +188,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     const key = get().keys.find((k) => k.id === id);
     if (!key) return;
     const nextPinned = pinned ?? false;
-    await api.updateKey(id, {
-      name: key.name, key_type: key.key_type,
-      tags: key.tags,
-      folder_id: key.folder_id, vault_id: key.vault_id, pinned: nextPinned,
-    });
+    await api.updateKey(id, { ...keyToFormData(key), pinned: nextPinned });
     const keys = await api.listKeys();
     set({ keys });
     const prefs = useSyncPrefsStore.getState();
@@ -253,16 +198,9 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
   pinKeyForTeam: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamKeys, id);
     if (!teamEntry) return;
-    const { teamId, item: prev } = teamEntry;
-    const now = new Date().toISOString();
-    const updated: SshKey = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-    await saveTeamVaultObject(teamId, "key", updated);
-    set((s) => ({
-      teamKeys: {
-        ...s.teamKeys,
-        [teamId]: upsert(s.teamKeys[teamId] ?? [], updated),
-      },
-    }));
+    const { teamId } = teamEntry;
+    const updated = await saveStampedTeamObject(teamId, "key", teamEntry.item, { pinned });
+    set((s) => ({ teamKeys: upsertInTeamMap(s.teamKeys, teamId, updated) }));
   },
 
   deleteKey: async (id) => {
@@ -270,18 +208,9 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
       await removeTeamVaultObject(teamId, id);
-      set((s) => ({
-        teamKeys: {
-          ...s.teamKeys,
-          [teamId]: (s.teamKeys[teamId] ?? []).filter((x) => x.id !== id),
-        },
-      }));
+      set((s) => ({ teamKeys: removeFromTeamMap(s.teamKeys, teamId, id) }));
       reportAuditMutation("key", "deleted", { id: prev.id, name: prev.name ?? "unnamed", vault_id: prev.vault_id }, { key_type: prev.key_type });
-      const prevData: SshKeyFormData = {
-        name: prev.name, key_type: prev.key_type,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = keyToFormData(prev);
       pushDeleteHistory({
         label: `Deleted key "${prev.name ?? "unnamed"}"`,
         id,
@@ -300,11 +229,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
     if (prev) reportAuditMutation("key", "deleted", { id: prev.id, name: prev.name ?? "unnamed", vault_id: prev.vault_id }, { key_type: prev.key_type });
     if (prev) {
-      const prevData: SshKeyFormData = {
-        name: prev.name, key_type: prev.key_type,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = keyToFormData(prev);
       pushDeleteHistory({
         label: `Deleted key "${prev.name ?? "unnamed"}"`,
         id,
