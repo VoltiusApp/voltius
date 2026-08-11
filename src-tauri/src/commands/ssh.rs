@@ -255,7 +255,9 @@ pub async fn ssh_exec_command(
             match msg {
                 russh::ChannelMsg::Data { data } => stdout.extend_from_slice(&data),
                 russh::ChannelMsg::ExtendedData { data, .. } => stderr.extend_from_slice(&data),
-                russh::ChannelMsg::ExitStatus { exit_status } => exit_code = Some(exit_status as i32),
+                russh::ChannelMsg::ExitStatus { exit_status } => {
+                    exit_code = Some(exit_status as i32)
+                }
                 russh::ChannelMsg::Close => break,
                 _ => {}
             }
