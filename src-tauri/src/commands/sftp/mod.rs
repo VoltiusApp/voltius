@@ -91,6 +91,11 @@ where
 
 /// The four single-object transfer commands differ only in which `FileBackend`
 /// method they call and which way round their two path arguments read.
+///
+/// `rustfmt::skip` because rustfmt is not idempotent on this body: it re-indents
+/// the `run_backend_transfer` call one level further on every run, so a
+/// `cargo fmt --check` would drift after each `cargo fmt`.
+#[rustfmt::skip]
 macro_rules! backend_transfer_command {
     ($name:ident, $method:ident, $from:ident, $to:ident) => {
         #[tauri::command]
@@ -104,14 +109,14 @@ macro_rules! backend_transfer_command {
         ) -> Result<(), String> {
             let tid = transfer_id.clone();
             $crate::commands::sftp::run_backend_transfer(
-                        &sftp_state,
-                        &sftp_id,
-                        &transfer_id,
-                        |backend, token| async move {
-                            backend.$method(&app, &$from, &$to, &tid, &token).await
-                        },
-                    )
-                    .await
+                &sftp_state,
+                &sftp_id,
+                &transfer_id,
+                |backend, token| async move {
+                    backend.$method(&app, &$from, &$to, &tid, &token).await
+                },
+            )
+            .await
         }
     };
 }
