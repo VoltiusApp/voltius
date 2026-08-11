@@ -14,7 +14,11 @@ import {
   type RemoteFile, type LocalFile,
 } from "@/services/sftp";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { type FileEntry, type SortCol, type SortDir, type VisibleCols, formatSize, formatPermissions, formatDate } from "./SFTPTypes";
+import {
+  type FileEntry, type SortCol, type SortDir, type VisibleCols, type ColumnWidths, type FileColumn,
+  DEFAULT_VISIBLE_COLS, COLUMN_MIN_WIDTHS, columnGrid, visibleDataColumns,
+  formatSize, formatPermissions, formatDate,
+} from "./SFTPTypes";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
@@ -61,8 +65,6 @@ export function IconBtn({ icon, title, onClick }: { icon: string; title: string;
 }
 
 // ── FilePane ──────────────────────────────────────────────────────────────────
-
-const DEFAULT_VISIBLE_COLS: VisibleCols = { size: true, modified: true, permissions: true };
 
 export function FilePane({
   sftpId, isLocal, cwd, homeCwd, hostLabel,
@@ -116,8 +118,18 @@ export function FilePane({
   const [error, setError] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<SortCol>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [colWidths, setColWidths] = useState<ColumnWidths>(DEFAULT_COLUMN_WIDTHS);
-  const [visibleCols, setVisibleCols] = useState<VisibleCols>(initialVisibleCols ?? DEFAULT_VISIBLE_COLS);
+  // Widths live in the store, not local state, so a pane remount (disconnect,
+  // host switch) no longer throws them away and both panes stay in step.
+  const colWidths = useSftpSettingsStore((s) => s.columnWidths);
+  const setColWidths = useSftpSettingsStore((s) => s.setColumnWidths);
+  // Column visibility is shared the same way, except for narrow embeddings that
+  // force their own set — those stay pane-local so they can't leak to the store.
+  const storeVisibleCols = useSftpSettingsStore((s) => s.visibleColumns);
+  const setStoreVisibleCols = useSftpSettingsStore((s) => s.setVisibleColumns);
+  const [localVisibleCols, setLocalVisibleCols] = useState<VisibleCols>(initialVisibleCols ?? DEFAULT_VISIBLE_COLS);
+  const visibleCols = initialVisibleCols ? localVisibleCols : storeVisibleCols;
+  const setVisibleCols = initialVisibleCols ? setLocalVisibleCols : setStoreVisibleCols;
+  const [viewport, setViewport] = useState<Viewport>({ scrollLeft: 0, gutter: 0 });
   // Persisted + shared across every pane so enabling it once sticks (matches
   // mainstream SFTP clients). Lives in the store, not local state, so it no
   // longer resets on remount/navigation.
@@ -496,6 +508,7 @@ export function FilePane({
 
       <ColumnHeaders
         sortCol={sortCol} sortDir={sortDir} isLocal={isLocal} colWidths={colWidths} visibleCols={visibleCols}
+        viewport={viewport}
         onSort={(col) => { if (col === sortCol) setSortDir((d) => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } }}
         onResize={(col, w) => setColWidths((prev) => ({ ...prev, [col]: w }))}
       />
@@ -515,6 +528,7 @@ export function FilePane({
           cutPathSet={cutPathSet}
           side={side} isLocal={isLocal} selectedEntries={selectedEntries}
           colWidths={colWidths} visibleCols={visibleCols}
+          onViewport={(v) => setViewport((prev) => prev.scrollLeft === v.scrollLeft && prev.gutter === v.gutter ? prev : v)}
           onCommitRename={commitRename} onCancelRename={() => setRenaming(null)}
           onItemSelect={handleItemSelect}
           onNavigate={onNavigate} onSetSelection={setSelection}
@@ -844,24 +858,22 @@ function CrumbSegment({ label, isLast, isDropTarget, dropPath, onClick }: { labe
 
 // ── ColumnHeaders ─────────────────────────────────────────────────────────────
 
-export type ColumnWidths = { name: number; size: number; modified: number; permissions: number };
-export const DEFAULT_COLUMN_WIDTHS: ColumnWidths = { name: 260, size: 72, modified: 128, permissions: 88 };
+/** What the row viewport currently looks like: how far it is scrolled sideways,
+ *  and how much width its vertical scrollbar takes. The header needs both to
+ *  stay aligned with the rows. */
+export type Viewport = { scrollLeft: number; gutter: number };
 
-const COLUMN_MIN_WIDTHS: ColumnWidths = { name: 120, size: 56, modified: 96, permissions: 72 };
-type FileColumn = keyof ColumnWidths;
-
-function visibleDataColumns(isLocal: boolean, visibleCols: VisibleCols): FileColumn[] {
-  return (["size", "modified", ...(!isLocal ? ["permissions"] : [])] as FileColumn[]).filter((col) => visibleCols[col as keyof VisibleCols]);
-}
-
-function ResizeHandle({ column, width, onWidth }: { column: FileColumn; width: number; onWidth: (w: number) => void }) {
+function ResizeHandle({ column, onWidth }: { column: FileColumn; onWidth: (w: number) => void }) {
   const startRef = useRef<{ x: number; width: number } | null>(null);
   const [isActive, setIsActive] = useState(false);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    startRef.current = { x: e.clientX, width };
+    // Seed from the width the column actually has on screen, not the stored one:
+    // the name column grows past its stored width to fill the pane, and starting
+    // from the stored value made the divider jump away from the cursor.
+    startRef.current = { x: e.clientX, width: e.currentTarget.parentElement!.getBoundingClientRect().width };
     setIsActive(true);
     e.currentTarget.setPointerCapture(e.pointerId);
     document.body.style.cursor = "col-resize";
@@ -919,9 +931,10 @@ function ResizeHandle({ column, width, onWidth }: { column: FileColumn; width: n
   );
 }
 
-function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, onSort, onResize }: {
+function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, viewport, onSort, onResize }: {
   sortCol: SortCol; sortDir: SortDir; isLocal: boolean;
   colWidths: ColumnWidths; visibleCols: VisibleCols;
+  viewport: Viewport;
   onSort: (col: SortCol) => void;
   onResize: (col: FileColumn, w: number) => void;
 }) {
@@ -930,42 +943,44 @@ function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, onSo
     ? <Icon icon={sortDir === "asc" ? "lucide:chevron-up" : "lucide:chevron-down"} width={9} className="shrink-0" style={{ opacity: 0.7 }} />
     : null;
 
-  const nameActive = sortCol === "name";
   const dataColumns = visibleDataColumns(isLocal, visibleCols);
+  const { template, minWidth } = columnGrid(isLocal, visibleCols, colWidths);
   const labelStyle: React.CSSProperties = { fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.055em", textTransform: "uppercase" };
 
-  return (
-    <div className="flex items-stretch gap-2 h-7 pl-5 pr-3 shrink-0 overflow-hidden" style={{ borderBottom: "1px solid var(--t-border)" }}>
+  const headerCell = (col: FileColumn, label: string) => {
+    const active = sortCol === (col as SortCol);
+    const color = () => active ? "var(--t-text-secondary)" : "var(--t-text-dim)";
+    // Data columns are inset on both sides (rows carry the same inset) so the
+    // label starts where its values do and never touches the resize divider
+    // sitting on the column edge — the file-manager convention.
+    return (
       <button
-        onClick={() => onSort("name")}
-        className="relative flex-1 min-w-0 flex h-full items-center gap-0.5 text-left transition-colors"
-        style={{ minWidth: colWidths.name, color: nameActive ? "var(--t-text-secondary)" : "var(--t-text-dim)" }}
+        key={col}
+        onClick={() => onSort(col as SortCol)}
+        className={`relative min-w-0 flex h-full items-center gap-0.5 justify-start transition-colors ${col === "name" ? "" : "px-2"}`}
+        style={{ color: color() }}
         onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-secondary)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = nameActive ? "var(--t-text-secondary)" : "var(--t-text-dim)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = color(); }}
       >
-        <span className="truncate" style={labelStyle}>{t("fileTransfer.pane.columns.name")}</span>
-        {chevron("name")}
-        <ResizeHandle column="name" width={colWidths.name} onWidth={(w) => onResize("name", w)} />
+        <span className="truncate" style={labelStyle}>{label}</span>
+        {chevron(col as SortCol)}
+        <ResizeHandle column={col} onWidth={(w) => onResize(col, w)} />
       </button>
+    );
+  };
 
-      {dataColumns.map((col) => {
-        const label = col === "size" ? t("fileTransfer.pane.columns.size") : col === "modified" ? t("fileTransfer.pane.columns.modified") : t("fileTransfer.pane.columns.permissions");
-        const active = sortCol === (col as SortCol);
-        return (
-          <button
-            key={col}
-            onClick={() => onSort(col as SortCol)}
-            className="relative flex h-full items-center justify-start gap-0.5 pl-2 pr-2 shrink-0 text-left transition-colors"
-            style={{ width: colWidths[col], color: active ? "var(--t-text-secondary)" : "var(--t-text-dim)" }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-secondary)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = active ? "var(--t-text-secondary)" : "var(--t-text-dim)"; }}
-          >
-            {chevron(col as SortCol)}
-            <span className="truncate" style={labelStyle}>{label}</span>
-            <ResizeHandle column={col} width={colWidths[col]} onWidth={(w) => onResize(col, w)} />
-          </button>
-        );
-      })}
+  return (
+    // The rows scroll horizontally inside their own viewport; the header is a
+    // sibling, so it mirrors that scroll and reserves the scrollbar gutter to
+    // stay glued to the columns underneath it.
+    <div className="h-7 pl-5 shrink-0 overflow-hidden" style={{ borderBottom: "1px solid var(--t-border)", paddingRight: 12 + viewport.gutter }}>
+      <div className="grid items-stretch gap-2 h-full" style={{ gridTemplateColumns: template, minWidth, transform: `translateX(${-viewport.scrollLeft}px)` }}>
+        {headerCell("name", t("fileTransfer.pane.columns.name"))}
+        {dataColumns.map((col) => headerCell(
+          col,
+          col === "size" ? t("fileTransfer.pane.columns.size") : col === "modified" ? t("fileTransfer.pane.columns.modified") : t("fileTransfer.pane.columns.permissions"),
+        ))}
+      </div>
     </div>
   );
 }
@@ -980,7 +995,7 @@ function VirtualFileList({
   selectedIdSet, dropFolderPath,
   focusIndex, itemAreaRef, scrollToIndexRef,
   cutPathSet,
-  side, isLocal, selectedEntries, colWidths, visibleCols,
+  side, isLocal, selectedEntries, colWidths, visibleCols, onViewport,
   onCommitRename, onCancelRename,
   onItemSelect, onNavigate, onSetSelection,
   onInternalDrop,
@@ -997,6 +1012,7 @@ function VirtualFileList({
   scrollToIndexRef: React.MutableRefObject<((index: number) => void) | null>;
   cutPathSet: Set<string> | null;
   side: "left" | "right" | "panel"; isLocal: boolean; selectedEntries: FileEntry[]; colWidths: ColumnWidths; visibleCols: VisibleCols;
+  onViewport: (v: Viewport) => void;
   onCommitRename: (f: FileEntry) => void; onCancelRename: () => void;
   onItemSelect: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
   onNavigate: (p: string) => void; onSetSelection: (ids: string[]) => void;
@@ -1018,6 +1034,14 @@ function VirtualFileList({
     scrollToIndexRef.current = (index: number) => rowVirtualizer.scrollToIndex(index, { align: "auto" });
     return () => { scrollToIndexRef.current = null; };
   });
+
+  const reportViewport = () => {
+    const el = itemAreaRef.current;
+    if (el) onViewport({ scrollLeft: el.scrollLeft, gutter: el.offsetWidth - el.clientWidth });
+  };
+  // Runs after every render: a column resize, a directory change or a window
+  // resize can all make the scrollbar appear or disappear.
+  useEffect(reportViewport);
 
   const commitCreate = creatingFolder ? onCommitCreateFolder : onCommitCreateFile;
   const inlineCreateRow = (creatingFolder || creatingFile) && (
@@ -1064,7 +1088,7 @@ function VirtualFileList({
   }
 
   return (
-    <div ref={itemAreaRef} data-drag-surface="true" className="h-full overflow-y-auto">
+    <div ref={itemAreaRef} data-drag-surface="true" className="h-full overflow-y-auto overflow-x-auto" onScroll={reportViewport}>
       {inlineCreateRow}
       <div data-drag-surface="true" className="relative w-full" style={{ height: rowVirtualizer.getTotalSize() }}>
         {rowVirtualizer.getVirtualItems().map((virtualItem) => {
@@ -1151,6 +1175,7 @@ function FileRow({ file, isSelected, isCut, isDragHover, isLocal, colWidths, vis
   const [hovered, setHovered] = useState(false);
   const dimColor = isSelected ? "var(--t-text-secondary)" : "var(--t-text-dim)";
   const dataColumns = visibleDataColumns(isLocal, visibleCols);
+  const { template, minWidth } = columnGrid(isLocal, visibleCols, colWidths);
 
   let bg = "transparent";
   let border = "1px solid transparent";
@@ -1161,8 +1186,8 @@ function FileRow({ file, isSelected, isCut, isDragHover, isLocal, colWidths, vis
   return (
     <div
       data-selectable-id={selectableId}
-      className="flex items-center gap-2 px-2 py-1.5 my-px mr-1 ml-3 rounded-sm transition-colors cursor-default select-none relative"
-      style={{ background: bg, border, opacity: isCut ? 0.5 : undefined }}
+      className="grid items-center gap-2 px-2 py-1.5 my-px mr-1 ml-3 rounded-sm transition-colors cursor-default select-none relative"
+      style={{ background: bg, border, opacity: isCut ? 0.5 : undefined, gridTemplateColumns: template, minWidth }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onMouseEnter={() => setHovered(true)}
@@ -1170,14 +1195,18 @@ function FileRow({ file, isSelected, isCut, isDragHover, isLocal, colWidths, vis
       onPointerDown={onPointerDown}
       onContextMenu={(e) => { e.stopPropagation(); if (contextActions?.length) { if (!isSelected) onClick(e); open(e); } else { e.preventDefault(); } }}
     >
-      <Icon
-        icon={file.isSymlink ? "lucide:square-arrow-out-up-right" : file.isDir ? "lucide:folder" : "lucide:file"}
-        width={15} className="shrink-0"
-        style={{ color: file.isDir ? "#f0c050" : file.isSymlink ? "var(--t-accent)" : "var(--t-text-dim)" }}
-      />
-      <span className="text-sm truncate text-(--t-text-primary) min-w-0 flex-1">{file.name}</span>
+      {/* Icon and name share the name track so the row's grid matches the header's. */}
+      <span className="flex items-center gap-2 min-w-0">
+        <Icon
+          icon={file.isSymlink ? "lucide:square-arrow-out-up-right" : file.isDir ? "lucide:folder" : "lucide:file"}
+          width={15} className="shrink-0"
+          style={{ color: file.isDir ? "#f0c050" : file.isSymlink ? "var(--t-accent)" : "var(--t-text-dim)" }}
+        />
+        <span className="text-sm truncate text-(--t-text-primary) min-w-0">{file.name}</span>
+      </span>
+      {/* Size reads as a number (right-aligned); date and mode read as text and sit under their header label. */}
       {dataColumns.map((col) => (
-        <span key={col} className="text-xs text-right shrink-0 truncate font-mono" style={{ width: colWidths[col], color: dimColor }}>
+        <span key={col} className={`text-xs truncate font-mono min-w-0 px-2 ${col === "size" ? "text-right" : "text-left"}`} style={{ color: dimColor }}>
           {col === "size" ? (!file.isDir ? formatSize(file.size) : "") : col === "modified" ? (file.modified != null ? formatDate(file.modified) : "") : (file.permissions != null ? formatPermissions(file.permissions) : "")}
         </span>
       ))}

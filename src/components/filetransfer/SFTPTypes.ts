@@ -10,6 +10,32 @@ export type SortCol = "name" | "size" | "modified" | "permissions";
 export type SortDir = "asc" | "desc";
 
 export type VisibleCols = { size: boolean; modified: boolean; permissions: boolean };
+export const DEFAULT_VISIBLE_COLS: VisibleCols = { size: true, modified: true, permissions: true };
+
+export type ColumnWidths = { name: number; size: number; modified: number; permissions: number };
+export type FileColumn = keyof ColumnWidths;
+
+export const DEFAULT_COLUMN_WIDTHS: ColumnWidths = { name: 260, size: 72, modified: 128, permissions: 88 };
+export const COLUMN_MIN_WIDTHS: ColumnWidths = { name: 120, size: 56, modified: 96, permissions: 72 };
+
+/** Gap between columns, in px — must match the `gap-2` on the header and row grids. */
+const COLUMN_GAP = 8;
+
+export function visibleDataColumns(isLocal: boolean, visibleCols: VisibleCols): FileColumn[] {
+  return (["size", "modified", ...(!isLocal ? ["permissions"] : [])] as FileColumn[])
+    .filter((col) => visibleCols[col as keyof VisibleCols]);
+}
+
+/** The single source of truth for the column geometry: the header row and every
+ *  file row lay themselves out from this same grid template, so they cannot
+ *  drift apart. `minWidth` is what makes the pane scroll horizontally instead of
+ *  clipping the right-hand columns (and their resize handles) out of reach. */
+export function columnGrid(isLocal: boolean, visibleCols: VisibleCols, colWidths: ColumnWidths): { template: string; minWidth: number } {
+  const dataColumns = visibleDataColumns(isLocal, visibleCols);
+  const template = [`minmax(${colWidths.name}px, 1fr)`, ...dataColumns.map((col) => `${colWidths[col]}px`)].join(" ");
+  const minWidth = dataColumns.reduce((sum, col) => sum + colWidths[col] + COLUMN_GAP, colWidths.name);
+  return { template, minWidth };
+}
 
 export type SidePhase =
   | { tag: "picking" }
