@@ -7,6 +7,9 @@ use tokio::sync::{broadcast, watch};
 
 pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(120);
 pub(crate) const MAX_LINE_BYTES: usize = 1024 * 1024;
+/// Display-only, and chosen by the client, so it is length-capped before it
+/// ever reaches the UI.
+const MAX_CLIENT_NAME: usize = 40;
 
 #[cfg(unix)]
 fn mcp_dir() -> PathBuf {
@@ -28,7 +31,12 @@ pub fn socket_path() -> PathBuf {
 /// keeps the protocol path unit-testable without a running webview.
 type Ctx<'a> = Option<(&'a tauri::AppHandle, &'a Arc<McpState>)>;
 
-pub async fn dispatch_line(ctx: Ctx<'_>, client_id: &str, line: &str) -> Option<Value> {
+pub async fn dispatch_line(
+    ctx: Ctx<'_>,
+    client_id: &str,
+    client_name: &mut Option<String>,
+    line: &str,
+) -> Option<Value> {
     let req = match protocol::parse_request(line) {
         Ok(r) => r,
         Err(resp) => return Some(resp),
@@ -37,17 +45,30 @@ pub async fn dispatch_line(ctx: Ctx<'_>, client_id: &str, line: &str) -> Option<
     let id = req.id.clone()?;
 
     match req.method.as_str() {
-        "initialize" => Some(protocol::success(Some(id), protocol::initialize_result())),
+        "initialize" => {
+            if let Some(n) = req
+                .params
+                .get("clientInfo")
+                .and_then(|c| c.get("name"))
+                .and_then(|n| n.as_str())
+                .filter(|n| !n.trim().is_empty())
+            {
+                *client_name = Some(n.chars().take(MAX_CLIENT_NAME).collect());
+            }
+            Some(protocol::success(Some(id), protocol::initialize_result()))
+        }
         "tools/list" | "tools/call" => {
             let Some((app, state)) = ctx else {
                 return Some(protocol::error(Some(id), -32603, "app unavailable"));
             };
+            let name = client_name.clone().unwrap_or_default();
             let payload = if req.method == "tools/list" {
-                json!({ "op": "tools/list", "clientId": client_id })
+                json!({ "op": "tools/list", "clientId": client_id, "clientName": name })
             } else {
                 json!({
                     "op": "tools/call",
                     "clientId": client_id,
+                    "clientName": name,
                     "name": req.params.get("name").and_then(|n| n.as_str()).unwrap_or(""),
                     "args": req.params.get("arguments").cloned().unwrap_or_else(|| json!({})),
                 })
@@ -150,6 +171,7 @@ pub(crate) async fn handle_connection_stream<S>(
     // has to be disabled rather than `continue`d past, or the loop busy-waits.
     let mut changed_open = true;
     let mut pending = Vec::new();
+    let mut client_name: Option<String> = None;
     loop {
         let line = tokio::select! {
             biased;
@@ -195,7 +217,7 @@ pub(crate) async fn handle_connection_stream<S>(
                         if changed.is_err() || !*shutdown.borrow() { break; }
                         continue;
                     }
-                    resp = dispatch_line(ctx, &client_id, &line) => resp,
+                    resp = dispatch_line(ctx, &client_id, &mut client_name, &line) => resp,
                 }
             }
             Err(_) => Some(protocol::error(None, -32600, "line too long")),
@@ -256,10 +278,50 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn initialize_records_the_client_name_for_later_payloads() {
+        let mut name = None;
+        dispatch_line(
+            None,
+            "test",
+            &mut name,
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"Claude Code"}}}"#,
+        )
+        .await;
+        assert_eq!(name.as_deref(), Some("Claude Code"));
+    }
+
+    #[tokio::test]
+    async fn a_client_name_is_capped_and_a_missing_one_stays_none() {
+        let mut long = None;
+        dispatch_line(
+            None,
+            "test",
+            &mut long,
+            &format!(
+                r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"clientInfo":{{"name":"{}"}}}}}}"#,
+                "x".repeat(200)
+            ),
+        )
+        .await;
+        assert_eq!(long.as_deref().map(str::len), Some(40));
+
+        let mut absent = None;
+        dispatch_line(
+            None,
+            "test",
+            &mut absent,
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
+        )
+        .await;
+        assert!(absent.is_none());
+    }
+
+    #[tokio::test]
     async fn dispatch_answers_initialize_without_touching_the_webview() {
         let out = dispatch_line(
             None,
             "test",
+            &mut None,
             r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
         )
         .await;
@@ -275,6 +337,7 @@ mod tests {
         let out = dispatch_line(
             None,
             "test",
+            &mut None,
             r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
         )
         .await;
@@ -286,6 +349,7 @@ mod tests {
         let out = dispatch_line(
             None,
             "test",
+            &mut None,
             r#"{"jsonrpc":"2.0","id":9,"method":"resources/list"}"#,
         )
         .await;
@@ -294,7 +358,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_malformed_line_still_produces_a_well_formed_error() {
-        let out = dispatch_line(None, "test", "garbage").await;
+        let out = dispatch_line(None, "test", &mut None, "garbage").await;
         assert_eq!(out.unwrap()["error"]["code"], serde_json::json!(-32700));
     }
 
@@ -303,6 +367,7 @@ mod tests {
         let out = dispatch_line(
             None,
             "test",
+            &mut None,
             r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"x"}}"#,
         )
         .await;
