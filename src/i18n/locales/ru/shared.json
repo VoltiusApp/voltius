@@ -83,7 +83,6 @@
     },
     "hostPicker": {
       "selectHostTitle": "Выбрать хост",
-      "newHostButton": "НОВЫЙ ХОСТ",
       "filterPlaceholder": "Фильтр хостов...",
       "localMachineName": "Локальная машина",
       "wslSub": "WSL",

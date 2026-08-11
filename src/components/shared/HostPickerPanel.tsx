@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { useUIStore } from "@/stores/uiStore";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { ToolbarDropdown } from "./ToolbarDropdown";
@@ -39,8 +38,6 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
   const isAndroid = useIsAndroid();
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
-  const setActiveNav = useUIStore((s) => s.setActiveNav);
-  const setHomePendingAction = useUIStore((s) => s.setHomePendingAction);
 
   const filtered = useMemo(
     () => connections
@@ -76,17 +73,6 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
       <div
         className="flex items-center gap-2 px-3 py-2 shrink-0 bg-(--t-bg-toolbar) border-b border-b-(--t-bg-terminal)"
       >
-        <button
-          onClick={() => { setHomePendingAction({ action: "create" }); setActiveNav("hosts"); }}
-          className="flex items-center gap-1.5 px-3 h-8 text-xs font-bold tracking-wider transition-colors shrink-0 rounded-lg whitespace-nowrap bg-(--t-bg-input) text-(--t-text-primary)"
-          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-input-hover)")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-input)")}
-          type="button"
-        >
-          <Icon icon="lucide:server" width={14} />
-          {t("shared.hostPicker.newHostButton")}
-        </button>
-
         <div className="flex-1 relative">
           <Icon icon="lucide:filter" width={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-(--t-text-dim)" />
           <input

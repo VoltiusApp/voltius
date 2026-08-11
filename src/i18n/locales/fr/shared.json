@@ -77,7 +77,6 @@
     },
     "hostPicker": {
       "selectHostTitle": "Sélectionner un hôte",
-      "newHostButton": "NOUVEL HÔTE",
       "filterPlaceholder": "Filtrer les hôtes...",
       "localMachineName": "Machine locale",
       "wslSub": "WSL",

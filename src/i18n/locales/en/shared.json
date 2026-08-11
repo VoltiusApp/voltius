@@ -77,7 +77,6 @@
     },
     "hostPicker": {
       "selectHostTitle": "Select Host",
-      "newHostButton": "NEW HOST",
       "filterPlaceholder": "Filter hosts...",
       "localMachineName": "Local Machine",
       "wslSub": "WSL",
