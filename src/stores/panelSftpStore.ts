@@ -1,13 +1,8 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
-import { sftpConnect, sftpClose, sftpCanonicalize, sftpOpen, fsHomeDir } from "@/services/sftp";
-import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
-import { resolveKeepalive } from "@/utils/keepalive";
-import { getGlobalKeepalivePreset } from "./connectivitySettingsStore";
-import { genId } from "@/components/filetransfer/SFTPTypes";
-import type { Connection, TerminalSession } from "@/types";
-import { useConnectionStore } from "./connectionStore";
+import { sftpClose, sftpCanonicalize, sftpOpen, fsHomeDir } from "@/services/sftp";
+import type { TerminalSession } from "@/types";
 
 // Per-session SFTP connection state for the right-panel SFTP tab. Independent
 // of SFTPPage's own connections so opening the panel never disturbs an
@@ -28,14 +23,6 @@ interface PanelSftpStore {
   setCwd: (sessionId: string, cwd: string) => void;
   setFollowCwd: (sessionId: string, follow: boolean) => void;
   closeSession: (sessionId: string) => void;
-}
-
-function findConnection(connectionId: string): Connection | undefined {
-  const { connections, teamConnections } = useConnectionStore.getState();
-  return (
-    connections.find((c) => c.id === connectionId) ??
-    Object.values(teamConnections).flat().find((c) => c.id === connectionId)
-  );
 }
 
 export const usePanelSftpStore = create<PanelSftpStore>((set, get) => ({
@@ -83,31 +70,13 @@ export const usePanelSftpStore = create<PanelSftpStore>((set, get) => ({
         return;
       }
 
-      const conn = findConnection(session.connectionId);
-      if (!conn) {
-        // Quick-connect / ad-hoc session: no saved Connection to dial. Ride the
-        // terminal's already-authenticated SSH connection via sftp_open.
-        const sftpId = await sftpOpen(session.id);
-        const cwd = await sftpCanonicalize(sftpId, ".");
-        set((s) => ({
-          sessions: { ...s.sessions, [session.id]: { tag: "connected", sftpId, isLocal: false, cwd, followCwd: true } },
-        }));
-        return;
-      }
-
-      const [creds, jumpHosts] = await Promise.all([
-        resolveConnectionCredentials(conn),
-        resolveJumpHosts(conn),
-      ]);
-      const ka = resolveKeepalive(conn.keepalive_preset ?? getGlobalKeepalivePreset());
-      const sftpId = await sftpConnect({
-        connectId: genId(),
-        host: conn.host, port: conn.port,
-        username: creds.username, password: creds.password,
-        privateKey: creds.privateKey, passphrase: creds.passphrase,
-        jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
-        keepaliveIntervalSecs: ka.intervalSecs, keepaliveMax: ka.max,
-      });
+      // Ride the terminal's already-authenticated SSH connection. Dialing a
+      // second one for saved connections cost an extra auth and, worse, gave the
+      // panel a handle nothing swaps on reconnect (sftp/mod.rs own_cell): after
+      // a sleep the terminal came back while the panel stayed pinned to the dead
+      // link, failing every operation with "Channel send error" until restart.
+      // sftp_open hands over the session's live handle cell instead.
+      const sftpId = await sftpOpen(session.id);
       const cwd = await sftpCanonicalize(sftpId, ".");
       set((s) => ({
         sessions: { ...s.sessions, [session.id]: { tag: "connected", sftpId, isLocal: false, cwd, followCwd: true } },

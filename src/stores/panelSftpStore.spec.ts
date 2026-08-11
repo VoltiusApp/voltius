@@ -16,15 +16,6 @@ vi.mock("@/services/sftp", () => ({
   fsHomeDir: (...a: unknown[]) => fsHomeDir(...a),
 }));
 
-const getConnState = vi.fn<() => { connections: unknown[]; teamConnections: Record<string, unknown[]> }>(
-  () => ({ connections: [], teamConnections: {} }),
-);
-vi.mock("./connectionStore", () => ({ useConnectionStore: { getState: () => getConnState() } }));
-vi.mock("./connectivitySettingsStore", () => ({ getGlobalKeepalivePreset: () => "default" }));
-vi.mock("@/services/credentials", () => ({ resolveConnectionCredentials: vi.fn(), resolveJumpHosts: vi.fn() }));
-vi.mock("@/utils/keepalive", () => ({ resolveKeepalive: () => ({ intervalSecs: 30, max: 3 }) }));
-vi.mock("@/components/filetransfer/SFTPTypes", () => ({ genId: () => "id" }));
-
 import { usePanelSftpStore } from "./panelSftpStore";
 import type { TerminalSession } from "@/types";
 
@@ -37,10 +28,9 @@ describe("panelSftpStore.ensureConnected", () => {
     usePanelSftpStore.setState({ sessions: {} });
     invoke.mockReset(); sftpOpen.mockReset(); sftpConnect.mockReset();
     sftpCanonicalize.mockReset(); fsHomeDir.mockReset();
-    getConnState.mockReturnValue({ connections: [], teamConnections: {} });
   });
 
-  it("falls back to sftp_open when no saved connection exists", async () => {
+  it("rides the terminal session via sftp_open when no saved connection exists", async () => {
     sftpOpen.mockResolvedValue("sftp-1");
     sftpCanonicalize.mockResolvedValue("/home/u");
     await usePanelSftpStore.getState().ensureConnected(sshSession());
@@ -51,16 +41,14 @@ describe("panelSftpStore.ensureConnected", () => {
     expect(st.tag === "connected" && st.isLocal).toBe(false);
   });
 
-  it("uses sftpConnect when a saved connection exists", async () => {
-    getConnState.mockReturnValue({ connections: [{ id: "c1", host: "h", port: 22, username: "u" }], teamConnections: {} });
-    sftpConnect.mockResolvedValue("sftp-2");
+  // A second dial gave the panel a handle nothing swaps on reconnect, so it
+  // stayed pinned to the dead link after a sleep while the terminal came back.
+  it("rides the terminal session too when the session has a saved connection", async () => {
+    sftpOpen.mockResolvedValue("sftp-2");
     sftpCanonicalize.mockResolvedValue("/home/u");
-    const { resolveConnectionCredentials, resolveJumpHosts } = await import("@/services/credentials");
-    (resolveConnectionCredentials as ReturnType<typeof vi.fn>).mockResolvedValue({ username: "u" });
-    (resolveJumpHosts as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     await usePanelSftpStore.getState().ensureConnected(sshSession({ connectionId: "c1" }));
-    expect(sftpConnect).toHaveBeenCalled();
-    expect(sftpOpen).not.toHaveBeenCalled();
+    expect(sftpOpen).toHaveBeenCalledWith("sess1");
+    expect(sftpConnect).not.toHaveBeenCalled();
     const st = usePanelSftpStore.getState().sessions["sess1"];
     expect(st.tag === "connected" && st.sftpId).toBe("sftp-2");
   });
