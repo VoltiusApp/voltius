@@ -139,29 +139,6 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
             );
           })}
 
-        {wslDistros
-          .filter((d) => d.toLowerCase().includes(search.toLowerCase()))
-          .map((d) => {
-            const icon = getConnectionIcon(d.split(/[-_ ]/)[0]);
-            return (
-              <HostRow
-                key={`wsl:${d}`}
-                avatar={
-                  <AvatarTile
-                    base={getConnectionIconColor(d.split(/[-_ ]/)[0]) ?? "var(--t-bg-card-avatar)"}
-                    icon={icon}
-                    iconSize={14}
-                    className="w-[1.867rem] h-[1.867rem] rounded-lg text-white"
-                  />
-                }
-                name={d}
-                sub={t("shared.hostPicker.wslSub")}
-                isSelected={false}
-                onClick={() => onPick({ kind: "local", wslDistro: d })}
-              />
-            );
-          })}
-
         {connections.length === 0 && (
           <p className="px-3 py-4 text-xs text-center text-(--t-text-muted)">{t("shared.hostPicker.noHostsConfigured")}</p>
         )}
