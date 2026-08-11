@@ -46,6 +46,33 @@ describe("classifyPorts", () => {
     ]).map((c) => c.short);
     expect(order).toEqual(["3000", "9000", "5432", "27017", "9/tcp"]);
   });
+
+  test("dedupes a port published on both 0.0.0.0 and :: into a single chip", () => {
+    const result = classifyPorts([
+      p({ host_ip: "0.0.0.0", host_port: 8080, container_port: 80 }),
+      p({ host_ip: "::", host_port: 8080, container_port: 80 }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].port.host_ip).toBe("0.0.0.0");
+  });
+
+  test("keeps ports that differ in host_port, container_port, or protocol", () => {
+    const result = classifyPorts([
+      p({ host_port: 8080, container_port: 80 }),
+      p({ host_port: 8081, container_port: 80 }),
+      p({ host_port: 8081, container_port: 81 }),
+      p({ host_port: 8081, container_port: 81, protocol: "udp" }),
+    ]);
+    expect(result).toHaveLength(4);
+  });
+
+  test("keeps unpublished mappings that differ only by container port", () => {
+    const result = classifyPorts([
+      p({ host_ip: "0.0.0.0", host_port: null, container_port: 80 }),
+      p({ host_ip: "::", host_port: null, container_port: 81 }),
+    ]);
+    expect(result).toHaveLength(2);
+  });
 });
 
 describe("actionFor", () => {

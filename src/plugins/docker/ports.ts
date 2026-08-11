@@ -40,9 +40,22 @@ function classify(port: PortMapping): ClassifiedPort {
 const RANK: Record<PortKind, number> = { http: 0, tcp: 1, inert: 2 };
 
 export function classifyPorts(ports: PortMapping[]): ClassifiedPort[] {
-  return ports
+  const sorted = ports
     .map(classify)
     .sort((a, b) => RANK[a.kind] - RANK[b.kind] || (a.port.host_port ?? a.port.container_port) - (b.port.host_port ?? b.port.container_port));
+
+  // `docker ps` reports one PortMapping per bind family (0.0.0.0 and ::) for the
+  // same published port. Sort is stable and docker lists 0.0.0.0 before :: for a
+  // given port, so keeping the first occurrence per (host_port, container_port,
+  // protocol) also keeps the IPv4/wildcard host_ip, which is what gets used as
+  // the tunnel's remote host.
+  const seen = new Set<string>();
+  return sorted.filter((c) => {
+    const key = `${c.port.host_port}/${c.port.container_port}/${c.port.protocol}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function actionFor(kind: PortKind): "browser" | "copy" | null {
