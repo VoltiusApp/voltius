@@ -87,6 +87,22 @@ describe("resolvePort", () => {
     expect(r.localPort).toBe(8080);
   });
 
+  test("a live tunnel to a different remote_host is not reused, even with a matching port", async () => {
+    const d = deps({
+      // A rule-started tunnel pointed at some other machine reachable from the
+      // SSH box — not the Docker host this reach is for.
+      getState: vi.fn(async () => ({
+        tunnels: [tunnel({ id: "a", remote_port: 5432, local_port: 15432, remote_host: "10.0.0.7" })],
+      })),
+      openTunnel: vi.fn(async () => tunnel({ local_port: 25432, remote_port: 5432, remote_host: "127.0.0.1" })),
+    });
+    const r = await resolvePort(d, { sessionId: "s1", isRemote: true, hostPort: 5432, hostIp: "127.0.0.1", action: "copy" });
+    expect(d.openTunnel).toHaveBeenCalledWith(
+      expect.objectContaining({ remoteHost: "127.0.0.1", remotePort: 5432 }),
+    );
+    expect(r.localPort).toBe(25432);
+  });
+
   test("the copy action returns a bare host:port with no scheme", async () => {
     const d = deps({ openTunnel: vi.fn(async () => tunnel({ local_port: 5432, remote_port: 5432 })) });
     const r = await resolvePort(d, { sessionId: "s1", isRemote: true, hostPort: 5432, action: "copy" });
@@ -96,5 +112,17 @@ describe("resolvePort", () => {
   test("the https scheme is honoured for browser actions", async () => {
     const r = await resolvePort(deps(), { sessionId: "s1", isRemote: false, hostPort: 8443, scheme: "https", action: "browser" });
     expect(r.address).toBe("https://localhost:8443");
+  });
+
+  test("a hostile scheme value is coerced to http", async () => {
+    const r = await resolvePort(deps(), {
+      sessionId: "s1",
+      isRemote: false,
+      hostPort: 8080,
+      // A third-party plugin bundle is not bound by the "http" | "https" type at runtime.
+      scheme: "https://evil.example/x#" as unknown as "https",
+      action: "browser",
+    });
+    expect(r.address).toBe("http://localhost:8080");
   });
 });
