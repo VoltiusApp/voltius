@@ -3,6 +3,7 @@ import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { makeGate, objectOp } from "./helpers";
 import { isSafeFilename, isSafeRelativeDir } from "@/services/sshKeyPath";
+import { placement } from "../placement";
 
 export const KEY_PERMISSIONS = ["keys:read", "keys:write", "connections:read", "audit"] as const;
 
@@ -15,6 +16,7 @@ const safeFilename = z.string().refine(isSafeFilename, "must be a filename with 
 /** Project a raw Key record down to the PluginKey contract. */
 const toPluginKey = (k: Record<string, unknown>) => ({
   id: k.id, name: k.name, key_type: k.key_type, tags: k.tags,
+  ...placement(k),
 });
 
 export function buildKeyTools(ports: ToolSurfacePorts): Tool[] {
@@ -24,8 +26,8 @@ export function buildKeyTools(ports: ToolSurfacePorts): Tool[] {
     {
       name: "key_list",
       description:
-        "List the SSH keys saved in the vault (id, name, type, tags). Private key material is never "
-        + "returned.",
+        "List the SSH keys saved in the vault (id, name, type, tags, and the vault and folder each "
+        + "is filed in). Private key material is never returned.",
       risk: "auto",
       schema: z.object({}),
       execute: async () => {

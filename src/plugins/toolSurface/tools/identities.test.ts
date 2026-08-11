@@ -28,7 +28,7 @@ describe("identity verbs", () => {
   it("lists identities", async () => {
     const { ports } = makePorts();
     expect(await tool(ports, "identity_list").execute({})).toEqual([
-      { id: "i1", name: "root", username: "root", tags: [] },
+      { id: "i1", name: "root", username: "root", tags: [], vault_id: "personal", folder_id: null },
     ]);
   });
 
@@ -46,14 +46,14 @@ describe("identity verbs", () => {
       { tool: "identity_create", approval: "granted", objectType: "identity" },
       undefined,
     );
-    expect(result).toEqual({ ok: true, result: { id: "i2", name: "deploy", username: "deploy", tags: [] } });
+    expect(result).toEqual({ ok: true, result: { id: "i2", name: "deploy", username: "deploy", tags: [], vault_id: "personal", folder_id: null } });
   });
 
   it("projects away internal fields from a newly created identity", async () => {
-    const RAW = { id: "i2", name: "deploy", username: "deploy", tags: [], vault_id: "v1", clocks: { created: 1 } };
+    const RAW = { id: "i2", name: "deploy", username: "deploy", tags: [], vault_id: "v1", folder_id: "f1", clocks: { created: 1 } };
     const { ports } = makePorts({ create: vi.fn(async () => RAW) });
     const result = await tool(ports, "identity_create").execute({ name: "deploy", username: "deploy" });
-    expect(result).toEqual({ ok: true, result: { id: "i2", name: "deploy", username: "deploy", tags: [] } });
+    expect(result).toEqual({ ok: true, result: { id: "i2", name: "deploy", username: "deploy", tags: [], vault_id: "v1", folder_id: "f1" } });
   });
 
   it("requires a username", () => {

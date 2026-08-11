@@ -29,7 +29,7 @@ describe("key verbs", () => {
   it("lists keys as PluginKey records", async () => {
     const { ports } = makePorts();
     const result = await tool(ports, "key_list").execute({});
-    expect(result).toEqual([{ id: "k1", name: "laptop", key_type: "ed25519", tags: [] }]);
+    expect(result).toEqual([{ id: "k1", name: "laptop", key_type: "ed25519", tags: [], vault_id: "personal", folder_id: null }]);
   });
 
   it("creates a key and records an object_created row before returning", async () => {
@@ -48,14 +48,14 @@ describe("key verbs", () => {
       { tool: "key_create", approval: "granted", objectType: "key" },
       undefined,
     );
-    expect(result).toEqual({ ok: true, result: { id: "k2", name: "new", key_type: "ed25519", tags: [] } });
+    expect(result).toEqual({ ok: true, result: { id: "k2", name: "new", key_type: "ed25519", tags: [], vault_id: "personal", folder_id: null } });
   });
 
   it("projects away internal fields from a newly created key", async () => {
-    const RAW = { id: "k2", name: "new", key_type: "ed25519", tags: [], vault_id: "v1", clocks: { created: 1 } };
+    const RAW = { id: "k2", name: "new", key_type: "ed25519", tags: [], vault_id: "v1", folder_id: "f1", clocks: { created: 1 } };
     const { ports } = makePorts({ keys: { create: vi.fn(async () => RAW) } });
     const result = await tool(ports, "key_create").execute({ name: "ci", keyType: "ed25519", privateKey: "-----BEGIN-----" });
-    expect(result).toEqual({ ok: true, result: { id: "k2", name: "new", key_type: "ed25519", tags: [] } });
+    expect(result).toEqual({ ok: true, result: { id: "k2", name: "new", key_type: "ed25519", tags: [], vault_id: "v1", folder_id: "f1" } });
   });
 
   it("never puts private key material in the audit metadata", async () => {

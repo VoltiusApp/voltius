@@ -25,8 +25,12 @@ const ALL_TOOLS = [
   "identity_create", "identity_delete", "identity_list",
   "key_add_to_host", "key_create", "key_delete", "key_list",
   "list_connections", "list_files", "list_sessions",
-  "make_dir", "object_copy", "object_move", "open_session", "read_file", "read_terminal", "rename_path",
-  "run_command", "stat_file", "transfer_file",
+  "make_dir", "object_copy", "object_move", "open_session",
+  "port_forward_create", "port_forward_delete", "port_forward_list", "port_forward_start",
+  "port_forward_stop", "port_forward_tunnels", "port_forward_update",
+  "read_file", "read_terminal", "rename_path", "run_command",
+  "snippet_create", "snippet_delete", "snippet_list", "snippet_update",
+  "stat_file", "transfer_file",
   "vault_create", "vault_delete", "vault_list", "vault_rename",
   "write_file",
 ];
@@ -155,7 +159,7 @@ describe("MCP consumer", () => {
   it("runs a tool and returns its real result", async () => {
     const tools = buildMcpTools(api(), new Set());
     const out = await callTool(tools, "list_connections", {});
-    expect(out).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1", team: true }] });
+    expect(out).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1", vault_id: "personal", folder_id: null, team: true }] });
   });
 
   it("rejects invalid arguments before they reach the vault", async () => {

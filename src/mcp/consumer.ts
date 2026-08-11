@@ -72,14 +72,48 @@ export const MCP_TEXT = {
       "Move objects — connections, keys, identities, snippets or port forwarding rules, folders "
       + "included — into another folder and/or vault, using the same paste path as the app's UI. "
       + "Moving into a vault other than the objects' own is refused unless allow_cross_vault is "
-      + "true; the refusal names what would move and where. Runs immediately; your own client is "
-      + "responsible for approval.",
+      + "true; the refusal names what would move and where. Returns the destination vault and "
+      + "folder it wrote to. Runs immediately; your own client is responsible for approval.",
     object_copy:
       "Duplicate objects — connections, keys, identities, snippets or port forwarding rules, "
       + "folders included — into another folder and/or vault, using the same paste path as the "
       + "app's UI. Copying out of a team vault is refused, and copying into a vault other than the "
       + "objects' own is refused unless allow_cross_vault is true; the refusal names what would be "
-      + "copied and where. Runs immediately; your own client is responsible for approval.",
+      + "copied and where. Returns the destination vault and folder it wrote to. Runs "
+      + "immediately; your own client is responsible for approval.",
+    snippet_create:
+      "Save a new snippet. `steps` run in order: a \"script\" step is shell text, a \"transfer\" "
+      + "step copies a path between local and remote, and a \"snippet\" step runs another saved "
+      + "snippet by id. Runs immediately; your own client is responsible for approval.",
+    snippet_update:
+      "Change fields on a saved snippet. Only the fields given are altered; `steps` replaces the "
+      + "whole sequence. Runs immediately; your own client is responsible for approval. A snippet "
+      + "in a team vault cannot be changed.",
+    snippet_delete:
+      "Delete a saved snippet by id. Runs immediately and cannot be undone; your own client is "
+      + "responsible for approval. A snippet in a team vault cannot be deleted.",
+    port_forward_create:
+      "Save a new port forwarding rule. `tunnel_type` is \"local\" (a port on this machine reaches "
+      + "a remote address), \"remote\" (the reverse) or \"dynamic\" (a SOCKS proxy). Saving does not "
+      + "open anything — use port_forward_start. Runs immediately; your own client is responsible "
+      + "for approval.",
+    port_forward_update:
+      "Change fields on a saved port forwarding rule. Only the fields given are altered. Runs "
+      + "immediately; your own client is responsible for approval. A rule in a team vault cannot be "
+      + "changed, and a tunnel already open keeps the shape it started with.",
+    port_forward_delete:
+      "Delete a saved port forwarding rule by id. Runs immediately and cannot be undone; your own "
+      + "client is responsible for approval. A rule in a team vault cannot be deleted, and a tunnel "
+      + "already open from it keeps running.",
+    port_forward_start:
+      "Open a saved rule's tunnel on an open session. This binds a listening socket on the user's "
+      + "machine (or on the remote host for a \"remote\" rule) until the tunnel is stopped or the "
+      + "session closes. `sessionId` is an id from list_sessions. Runs immediately; your own client "
+      + "is responsible for approval. Returns the tunnel, including the id port_forward_stop takes.",
+    port_forward_stop:
+      "Close a tunnel that is open on a session. `tunnelId` is an id from port_forward_tunnels; the "
+      + "saved rule it came from is untouched. Runs immediately; your own client is responsible for "
+      + "approval.",
     audit_query:
       "Read this device's activity log, newest first — including the rows your own calls "
       + "produced. `action` filters to one exact action name as it appears in a row's `action` "

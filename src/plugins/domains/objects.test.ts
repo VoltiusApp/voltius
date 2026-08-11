@@ -173,6 +173,18 @@ describe("createObjectsAPI", () => {
     expect(ports.updateConnection).toHaveBeenCalledWith(
       "c1", expect.objectContaining({ vault_id: "vault-2" }),
     );
+    // The outcome names where it wrote, so a move confirms itself: no verb
+    // returned an object's vault or folder, and callers had to read the app's
+    // own stores to find out whether a move landed.
+    expect(out).toMatchObject({ vault_id: "vault-2", folder_id: null });
+  });
+
+  it("names no destination vault when the call named none", async () => {
+    const ports = fakePorts();
+    const out = await objects(ports).move({ ids: ["c1"], folderId: null, vaultId: null });
+    // null is not "unknown": every object kept the vault it had, so there is no
+    // single id to report.
+    expect(out.vault_id).toBe(null);
   });
 
   it("refuses a team-vault destination", async () => {

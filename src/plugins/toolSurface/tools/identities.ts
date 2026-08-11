@@ -2,12 +2,14 @@ import { z } from "zod";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { makeGate, objectOp } from "./helpers";
+import { placement } from "../placement";
 
 export const IDENTITY_PERMISSIONS = ["identities:read", "identities:write", "audit"] as const;
 
 /** Project a raw Identity record down to the PluginIdentity contract. */
 const toPluginIdentity = (i: Record<string, unknown>) => ({
   id: i.id, name: i.name, username: i.username, key_id: i.key_id, tags: i.tags,
+  ...placement(i),
 });
 
 export function buildIdentityTools(ports: ToolSurfacePorts): Tool[] {
@@ -18,7 +20,7 @@ export function buildIdentityTools(ports: ToolSurfacePorts): Tool[] {
       name: "identity_list",
       description:
         "List the saved identities (a username plus an optional key) that connections authenticate "
-        + "with.",
+        + "with, and the vault and folder each is filed in.",
       risk: "auto",
       schema: z.object({}),
       execute: async () => {
