@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-08-11
+
+### Fixed
+
+- Republishes 0.21.0, whose release only carried the Windows x64 installers and
+  the Android APK. A network failure part-way through the build split the
+  release in two, so the macOS, Linux and Windows ARM downloads never appeared
+  and the updater manifest offered an update to Windows x64 only. No
+  application code changed between 0.21.0 and 0.21.1.
+
 ## [0.21.0] - 2026-08-11
 
 ### Added
