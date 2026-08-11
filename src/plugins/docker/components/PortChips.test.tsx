@@ -7,6 +7,7 @@ import type { PluginAPI } from "@/plugins/api";
 import type { PortMapping } from "../types";
 
 const reach = vi.fn(async () => ({ address: "http://localhost:8080", localPort: 8080, tunneled: true }));
+const toast = vi.fn();
 
 function p(over: Partial<PortMapping>): PortMapping {
   return { host_ip: "0.0.0.0", host_port: 8080, container_port: 80, protocol: "tcp", ...over };
@@ -14,7 +15,7 @@ function p(over: Partial<PortMapping>): PortMapping {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  initDockerRuntime({ ports: { reach }, notifications: { toast: vi.fn() } } as unknown as PluginAPI);
+  initDockerRuntime({ ports: { reach }, notifications: { toast } } as unknown as PluginAPI);
 });
 afterEach(cleanup);
 
@@ -69,6 +70,7 @@ describe("PortChips", () => {
     render(<PortChips ports={[p({ host_port: 8080 })]} sessionId="s1" isRemote />);
     const chip = screen.getByRole("button", { name: /8080/ }) as HTMLButtonElement;
     await userEvent.click(chip);
-    await waitFor(() => expect(chip.disabled).toBe(false));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.stringContaining("session gone"), { severity: "error" }));
+    expect(chip.disabled).toBe(false);
   });
 });
