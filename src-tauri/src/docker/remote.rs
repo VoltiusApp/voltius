@@ -289,13 +289,7 @@ async fn recreate_standalone(
     let run_args = build_run_args(&parsed, image);
     let connects = build_network_connects(&parsed, name);
 
-    let backup = format!(
-        "{name}-old-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0)
-    );
+    let backup = format!("{name}-old-{}", crate::clock::now_ms());
 
     let id_q = shell_quote(container_id);
     let backup_q = shell_quote(&backup);
