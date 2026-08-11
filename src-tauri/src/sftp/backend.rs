@@ -8,6 +8,7 @@
 use crate::commands::sftp::RemoteFile;
 use async_trait::async_trait;
 use russh_sftp::client::SftpSession;
+use std::path::Path;
 use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::sync::Mutex;
@@ -63,6 +64,10 @@ pub trait FileBackend: Send + Sync {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), String>;
+    /// Per-item fallback: walk the selection and transfer each entry on its own.
+    /// Backends with a bulk fast path (tar over `docker exec`) override it;
+    /// real SFTP takes the tar path through `as_sftp_session` and only lands
+    /// here as a safety net.
     async fn upload_batch(
         &self,
         app: &AppHandle,
@@ -70,7 +75,27 @@ pub trait FileBackend: Send + Sync {
         remote_dir: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String>;
+    ) -> Result<(), String> {
+        let base = remote_dir.trim_end_matches('/');
+        let _ = self.mkdir(base).await;
+        for p in local_paths {
+            if token.is_cancelled() {
+                return Err("Transfer cancelled".into());
+            }
+            // Local paths, so let `Path` handle the platform's separator.
+            let Some(name) = Path::new(p).file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            let remote = format!("{base}/{name}");
+            if Path::new(p).is_dir() {
+                self.upload_dir(app, p, &remote, transfer_id, token).await?;
+            } else {
+                self.upload_file(app, p, &remote, transfer_id, token)
+                    .await?;
+            }
+        }
+        Ok(())
+    }
     async fn download_batch(
         &self,
         app: &AppHandle,
@@ -78,7 +103,26 @@ pub trait FileBackend: Send + Sync {
         local_dir: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String>;
+    ) -> Result<(), String> {
+        for p in remote_paths {
+            if token.is_cancelled() {
+                return Err("Transfer cancelled".into());
+            }
+            // Remote paths are always POSIX, whatever the host runs.
+            let name = p.trim_end_matches('/').rsplit('/').next().unwrap_or(p);
+            let local = Path::new(local_dir).join(name);
+            let local_str = local.to_string_lossy();
+            let is_dir = self.stat(p).await?.unwrap_or(false);
+            if is_dir {
+                self.download_dir(app, p, &local_str, transfer_id, token)
+                    .await?;
+            } else {
+                self.download_file(app, p, &local_str, transfer_id, token)
+                    .await?;
+            }
+        }
+        Ok(())
+    }
 
     /// Raw SFTP session, for server-to-server transfer and tar fast paths.
     /// None for transports that don't speak real SFTP.

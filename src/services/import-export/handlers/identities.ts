@@ -1,11 +1,10 @@
-import i18n from "@/i18n";
 import type { Identity } from "@/types";
 import { getSecret, storeSecret } from "@/services/vault";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, IdentityExport } from "../formats";
-import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
-import { handlerActive, isSingleSelection, selectedIds } from "../context";
+import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
+import { liveInVault, selectionMethods } from "../context";
 import { fetchIdentitySecrets, storeIdentitySecrets } from "../secretsLogic";
 
 export const identitiesHandler: DataTypeHandler = {
@@ -13,31 +12,7 @@ export const identitiesHandler: DataTypeHandler = {
   label: "Identities",
   jsonOnly: true,
 
-  isActive(s: SelectionProps) {
-    return handlerActive("identities", s);
-  },
-
-  checkboxLabel(s: SelectionProps, count: number) {
-    if (isSingleSelection("identities", s)) return i18n.t("importExport.export.checkboxLabel.identities", { count: 1 });
-    const ids = selectedIds("identities", s);
-    return i18n.t("importExport.export.checkboxLabel.identities", { count: ids ? ids.length : count });
-  },
-
-  countAvailable(stores: StoreSlices, vaultIds: string[]) {
-    return stores.identities.filter(i => !i.deleted_at && vaultIds.includes(i.vault_id ?? "personal")).length;
-  },
-
-  selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
-    const ids = selectedIds("identities", s);
-    return stores.identities.filter(i =>
-      (ids === null || ids.includes(i.id)) && vaultIds.includes(i.vault_id ?? "personal"));
-  },
-
-  accumulateFolderIds(items: unknown[], main: Set<string>) {
-    for (const i of items as Identity[]) {
-      if (i.folder_id) main.add(i.folder_id);
-    }
-  },
+  ...selectionMethods<Identity>("identities", "identities", s => s.identities),
 
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     // Cascade: pull in identities referenced by connections too
@@ -63,16 +38,13 @@ export const identitiesHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
-    const existingNames = new Set(
-      ctx.existingIdentities
-        .filter(i => !i.deleted_at && (i.vault_id ?? "personal") === ctx.vault_id)
-        .map(i => i.name),
-    );
+    const existing = liveInVault(ctx.existingIdentities, ctx.vault_id);
+    const existingNames = new Set(existing.map(i => i.name));
     for (const identity of bundle.identities) {
       if (ctx.skipDupes && identity.name && existingNames.has(identity.name)) {
         if (identity._eid) {
-          const existing = ctx.existingIdentities.find(i => !i.deleted_at && (i.vault_id ?? "personal") === ctx.vault_id && i.name === identity.name);
-          if (existing) ctx.identityEidMap.set(identity._eid, existing.id);
+          const match = existing.find(i => i.name === identity.name);
+          if (match) ctx.identityEidMap.set(identity._eid, match.id);
         }
         continue;
       }

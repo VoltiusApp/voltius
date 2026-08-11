@@ -57,10 +57,10 @@ function makePorts(over: Partial<ToolSurfacePorts> = {}): ToolSurfacePorts {
 }
 
 describe("core tool surface", () => {
-  test("exposes 37 tools and no planning tool", () => {
+  test("exposes 48 tools and no planning tool", () => {
     const ports = makePorts();
     const names = buildCoreTools(ports).map((t) => t.name);
-    expect(names).toHaveLength(37);
+    expect(names).toHaveLength(48);
     expect(names).not.toContain("propose_plan");
   });
 });
@@ -88,7 +88,7 @@ describe("core tools", () => {
     const { ports: c } = basePorts();
     const t = tool(c, "list_connections");
     expect(t.risk).toBe("auto");
-    expect(await t.execute({})).toEqual([{ id: "c1", name: "srv", host: "h1" }]);
+    expect(await t.execute({})).toEqual([{ id: "c1", name: "srv", host: "h1", vault_id: "personal", folder_id: null }]);
   });
 
   test("read_terminal is auto-risk and reads a snapshot", async () => {
@@ -415,7 +415,7 @@ describe("the text port", () => {
   it("uses a consumer's not-owned error in close_session", async () => {
     const tools = buildCoreTools(makePorts({ text: { notOwnedError: "not yours" } }));
     const out = await tools.find((t) => t.name === "close_session")!.execute({ sessionId: "nope" });
-    expect(out).toEqual({ error: "not yours" });
+    expect(out).toEqual({ refused: true, error: "not yours" });
   });
 
   it("uses a consumer's not-owned error in close_session's post-approval check", async () => {
@@ -424,6 +424,6 @@ describe("the text port", () => {
     const tools = buildCoreTools(ports);
     await tools.find((t) => t.name === "open_session")!.execute({ connectionId: "conn-A" }); // owns sess-1, not "not-owned"
     const out = await tools.find((t) => t.name === "close_session")!.execute({ sessionId: "sess-1" });
-    expect(out).toEqual({ error: "not yours" });
+    expect(out).toEqual({ refused: true, error: "not yours" });
   });
 });

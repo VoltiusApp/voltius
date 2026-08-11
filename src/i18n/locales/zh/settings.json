@@ -704,9 +704,17 @@
             "label": "管理您的身份",
             "description": "代表您创建和删除身份。"
           },
+          "snippetsRead": {
+            "label": "读取您的代码片段",
+            "description": "列出您保存的代码片段及其执行的命令。"
+          },
           "snippetsWrite": {
             "label": "管理您的代码片段",
             "description": "创建、编辑、移动和删除您保存的代码片段。"
+          },
+          "portForwardingRead": {
+            "label": "读取您的端口转发",
+            "description": "列出您保存的端口转发规则以及当前打开的隧道。"
           },
           "portForwardingWrite": {
             "label": "管理您的端口转发",

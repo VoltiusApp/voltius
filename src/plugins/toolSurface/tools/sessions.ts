@@ -4,11 +4,19 @@ import type { ToolSurfacePorts } from "../coreTools";
 import { captureCommand, sendSerialCommand } from "../capture";
 import { guardConnectionId } from "../connectionGuard";
 import { makeGate, makeLiveSession } from "./helpers";
+import { refusal } from "../refusal";
 
 export const SESSION_PERMISSIONS = [
   "sessions:read", "sessions:write", "terminal:read", "terminal:stream", "terminal:write",
   "connections:read", "audit",
 ] as const;
+
+// Both are checked twice — once before the gate so a doomed call never asks for
+// approval, once after so a session closed while the approval sat pending is
+// caught — so the refusal is built in one place rather than four.
+const NO_SUCH_SESSION = () => refusal("no such open session; call list_sessions for the current ids");
+const notOwned = (ports: ToolSurfacePorts) =>
+  refusal(ports.text?.notOwnedError ?? "session not owned by agent; call open_session first");
 
 export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
@@ -71,7 +79,7 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         // matching nothing open can never run, so carding it would ask the user
         // to authorize an action that is already doomed.
         if (!liveSession(String(raw.sessionId))) {
-          return { error: "no such open session; call list_sessions for the current ids" };
+          return NO_SUCH_SESSION();
         }
         const g = await gate("run_command", raw);
         if (!g.ok) return g.result;
@@ -81,7 +89,7 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         // the user may have closed the session in the meantime.
         const session = liveSession(sessionId);
         if (!session) {
-          return { error: "no such open session; call list_sessions for the current ids" };
+          return NO_SUCH_SESSION();
         }
         // Recorded BEFORE dispatch, deliberately: the command reaches the
         // shell whether or not the capture comes back, and a crash mid-capture
@@ -122,13 +130,13 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
       schema: z.object({ sessionId: z.string() }),
       execute: async (raw) => {
         if (!ports.owned.has(String(raw.sessionId))) {
-          return { error: ports.text?.notOwnedError ?? "session not owned by agent; call open_session first" };
+          return notOwned(ports);
         }
         const g = await gate("close_session", raw);
         if (!g.ok) return g.result;
         const sessionId = String(g.args.sessionId);
         if (!ports.owned.has(sessionId)) {
-          return { error: ports.text?.notOwnedError ?? "session not owned by agent; call open_session first" };
+          return notOwned(ports);
         }
         await ports.api.sessions.close(sessionId);
         ports.owned.delete(sessionId);

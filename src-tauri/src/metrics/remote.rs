@@ -3,6 +3,7 @@ use tokio::io::AsyncReadExt;
 use tokio::time::{timeout, Duration};
 
 use super::{DiskInfo, MetricsSnapshot};
+use crate::clock::now_ms;
 
 const METRICS_CMD: &str = "cat /proc/stat | head -1; \
      awk '/MemTotal|MemAvailable/{print}' /proc/meminfo; \
@@ -151,11 +152,4 @@ impl RemoteMetricsState {
             disks,
         })
     }
-}
-
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }

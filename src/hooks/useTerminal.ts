@@ -57,6 +57,14 @@ function isHttpUrl(uri: string) {
   }
 }
 
+// Single opener for every link path in a terminal: the regex matcher
+// (WebLinksAddon), OSC 8 hyperlinks (linkHandler), and the alt+click capture
+// that runs while a TUI holds the mouse.
+function openTerminalLink(event: MouseEvent, uri: string) {
+  if (!event.altKey || !isHttpUrl(uri)) return;
+  openUrl(uri).catch(() => {});
+}
+
 function focusPaneInDirection(direction: "left" | "right" | "up" | "down") {
   const layout = useLayoutStore.getState();
   if (!layout.activePaneId) return;
@@ -717,12 +725,17 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       term.loadAddon(searchAddon);
 
       let linkTooltip: HTMLDivElement | null = null;
+      // The link under the cursor, mirrored out of the hover callbacks so the
+      // alt+click capture below knows whether the click lands on one.
+      let hoveredLink: string | null = null;
       const hideLinkTooltip = () => {
+        hoveredLink = null;
         linkTooltip?.remove();
         linkTooltip = null;
       };
       const showLinkTooltip = (event: MouseEvent, uri: string) => {
         if (!isHttpUrl(uri)) return;
+        hoveredLink = uri;
         if (!linkTooltip) {
           linkTooltip = document.createElement("div");
           linkTooltip.className = "xterm-hover";
@@ -757,13 +770,21 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         linkTooltip.style.top = `${event.clientY + 12}px`;
       };
 
-      term.loadAddon(new WebLinksAddon((event, uri) => {
-        if (!event.altKey || !isHttpUrl(uri)) return;
-        openUrl(uri).catch(() => {});
-      }, {
+      term.loadAddon(new WebLinksAddon(openTerminalLink, {
         hover: showLinkTooltip,
         leave: hideLinkTooltip,
       }));
+
+      // xterm always registers its own OSC 8 provider, which outranks the addon
+      // above on hyperlinked text. Without a handler it falls back to xterm's
+      // default: a confirm() that Tauri turns async (so its Promise always reads
+      // truthy) followed by a window.open() the webview refuses — the click was
+      // swallowed and nothing opened. Route it through the same policy instead.
+      term.options.linkHandler = {
+        activate: openTerminalLink,
+        hover: showLinkTooltip,
+        leave: hideLinkTooltip,
+      };
 
       const encoder = new TextEncoder();
       const decoder = encoding ? new TextDecoder(encoding) : null;
@@ -919,6 +940,24 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       });
 
       term.open(container);
+
+      // While a TUI holds the mouse, xterm only keeps a click for itself when
+      // Shift is down (Alt on macOS) — so on Windows/Linux our alt+click was
+      // *both* reported to the app and matched locally, and an app that opens
+      // URLs itself (Claude Code) opened a second copy. Claim alt+click over a
+      // link before xterm's own listeners see it, and open it ourselves since
+      // stopping propagation also stops xterm's link activation.
+      if (term.element) {
+        const claimAltClickOnLink = (e: MouseEvent) => {
+          if (e.button !== 0 || !e.altKey || !hoveredLink) return;
+          if (term.modes.mouseTrackingMode === "none") return;
+          e.stopPropagation();
+          if (e.type === "mouseup") openTerminalLink(e, hoveredLink);
+        };
+        for (const type of ["mousedown", "mouseup", "click"] as const) {
+          term.element.addEventListener(type, claimAltClickOnLink, true);
+        }
+      }
 
       // Android: stop xterm's hidden textarea from summoning the WebView's own (broken) IME —
       // a native overlay owns the soft keyboard instead (see services/androidKeyboard.ts, #34).

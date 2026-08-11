@@ -6,7 +6,7 @@
 //! `suppaftp`'s `list::File` parser (POSIX/DOS/MLSx); permissions and symlink
 //! info are best-effort.
 
-use crate::commands::sftp::{RemoteFile, TransferProgress};
+use crate::commands::sftp::{pump_chunks, RemoteFile};
 use crate::sftp::FileBackend;
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
@@ -16,7 +16,7 @@ use suppaftp::list::File as FtpFile;
 use suppaftp::tokio::{AsyncRustlsConnector, AsyncRustlsFtpStream};
 use suppaftp::types::FileType;
 use suppaftp::Mode;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
@@ -24,7 +24,6 @@ use tokio_rustls::rustls::{ClientConfig, RootCertStore};
 use tokio_rustls::TlsConnector;
 use tokio_util::sync::CancellationToken;
 
-const CHUNK_SIZE: usize = 256 * 1024;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Anonymous logins need a non-empty password on many servers (the RFC convention
@@ -99,11 +98,6 @@ fn build_tls_config() -> Result<ClientConfig, String> {
         .with_root_certificates(roots)
         .with_no_client_auth();
     Ok(config)
-}
-
-fn file_name(path: &str) -> &str {
-    let trimmed = path.trim_end_matches('/');
-    trimmed.rsplit('/').next().unwrap_or(trimmed)
 }
 
 fn collect_local(
@@ -318,28 +312,22 @@ impl FileBackend for FtpBackend {
             .await
             .map_err(|e| format!("Cannot create remote file: {e}"))?;
 
-        let mut buf = vec![0u8; CHUNK_SIZE];
         let mut transferred = 0u64;
-        loop {
-            if token.is_cancelled() {
-                let _ = ftp.abort(data).await;
-                return Err("Transfer cancelled".into());
-            }
-            let n = local
-                .read(&mut buf)
-                .await
-                .map_err(|e| format!("Read error: {e}"))?;
-            if n == 0 {
-                break;
-            }
-            data.write_all(&buf[..n])
-                .await
-                .map_err(|e| format!("Write error: {e}"))?;
-            transferred += n as u64;
-            let _ = app.emit(
-                &format!("sftp-progress-{transfer_id}"),
-                TransferProgress { transferred, total },
-            );
+        // Any failure, cancellation included, has to abort the data connection
+        // rather than finalize it.
+        if let Err(e) = pump_chunks(
+            app,
+            &mut local,
+            &mut data,
+            transfer_id,
+            token,
+            &mut transferred,
+            total,
+        )
+        .await
+        {
+            let _ = ftp.abort(data).await;
+            return Err(e);
         }
         ftp.finalize_put_stream(data)
             .await
@@ -370,29 +358,22 @@ impl FileBackend for FtpBackend {
             .await
             .map_err(|e| format!("Cannot open remote file: {e}"))?;
 
-        let mut buf = vec![0u8; CHUNK_SIZE];
         let mut transferred = 0u64;
-        loop {
-            if token.is_cancelled() {
-                drop(stream);
-                return Err("Transfer cancelled".into());
-            }
-            let n = stream
-                .read(&mut buf)
-                .await
-                .map_err(|e| format!("Read error: {e}"))?;
-            if n == 0 {
-                break;
-            }
-            local
-                .write_all(&buf[..n])
-                .await
-                .map_err(|e| format!("Write error: {e}"))?;
-            transferred += n as u64;
-            let _ = app.emit(
-                &format!("sftp-progress-{transfer_id}"),
-                TransferProgress { transferred, total },
-            );
+        // A failed or cancelled read drops the data connection instead of
+        // finalizing it.
+        if let Err(e) = pump_chunks(
+            app,
+            &mut stream,
+            &mut local,
+            transfer_id,
+            token,
+            &mut transferred,
+            total,
+        )
+        .await
+        {
+            drop(stream);
+            return Err(e);
         }
         ftp.finalize_retr_stream(stream)
             .await
@@ -461,55 +442,7 @@ impl FileBackend for FtpBackend {
         Ok(())
     }
 
-    async fn upload_batch(
-        &self,
-        app: &AppHandle,
-        local_paths: &[String],
-        remote_dir: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        let base = remote_dir.trim_end_matches('/');
-        let _ = self.mkdir(base).await;
-        for p in local_paths {
-            if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
-            }
-            let remote = format!("{}/{}", base, file_name(p));
-            if Path::new(p).is_dir() {
-                self.upload_dir(app, p, &remote, transfer_id, token).await?;
-            } else {
-                self.upload_file(app, p, &remote, transfer_id, token)
-                    .await?;
-            }
-        }
-        Ok(())
-    }
-
-    async fn download_batch(
-        &self,
-        app: &AppHandle,
-        remote_paths: &[String],
-        local_dir: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        for p in remote_paths {
-            if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
-            }
-            let local = Path::new(local_dir).join(file_name(p));
-            let is_dir = self.stat(p).await?.unwrap_or(false);
-            if is_dir {
-                self.download_dir(app, p, &local.to_string_lossy(), transfer_id, token)
-                    .await?;
-            } else {
-                self.download_file(app, p, &local.to_string_lossy(), transfer_id, token)
-                    .await?;
-            }
-        }
-        Ok(())
-    }
+    // upload_batch / download_batch: the FileBackend per-item defaults.
 }
 
 #[cfg(test)]

@@ -89,7 +89,7 @@
     "rightPanel": {
       "font": "Police",
       "themes": "Thèmes",
-      "themeActive": "∞ actif",
+      "themeActive": "actif",
       "themeBuiltin": "intégré",
       "themeCustom": "personnalisé",
       "createNewTheme": "Créer un nouveau thème",

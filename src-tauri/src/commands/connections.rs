@@ -1,7 +1,7 @@
 use crate::commands::crdt::max_clock;
 use crate::commands::vault_object::{
-    adopt_into, created_at_of, effective_vault, find_mut, impl_vault_object, live, requested_vault,
-    tombstone,
+    adopt_into, created_at_of, effective_vault, find_mut, impl_vault_object, requested_vault,
+    vault_delete_command, vault_list_command,
 };
 use crate::storage::config::{load_connections, save_connections, Connection, ConnectionFormData};
 use crate::vault_auth::check_vault_write;
@@ -129,10 +129,10 @@ fn initial_clocks(now: &str) -> HashMap<String, String> {
     crate::commands::vault_object::initial_clocks(CLOCK_FIELDS, now)
 }
 
-#[tauri::command]
-pub fn connection_list() -> Result<Vec<Connection>, String> {
-    Ok(live(load_connections()))
-}
+vault_list_command!(connection_list, Connection, load_connections);
+
+// `connection_save` and `connection_adopt` stay spelled out: `build_connection`
+// takes a fifth argument, and the adopt has to carry the stored `last_used_at`.
 
 /// Builds a fresh `Connection` from form data under an explicit `id`.
 /// Shared by `connection_save` (random id) and `connection_adopt` (migrated id).
@@ -267,15 +267,7 @@ pub fn connection_set_last_used(id: String) -> Result<(), String> {
     save_connections(&connections)
 }
 
-#[tauri::command]
-pub fn connection_delete(id: String) -> Result<(), String> {
-    let mut connections = load_connections();
-    let now = Utc::now().to_rfc3339();
-    let conn = find_mut(&mut connections, &id)?;
-    check_vault_write(std::slice::from_ref(&conn.vault_id))?;
-    tombstone(conn, &now);
-    save_connections(&connections)
-}
+vault_delete_command!(connection_delete, load_connections, save_connections);
 
 #[cfg(test)]
 mod tests {

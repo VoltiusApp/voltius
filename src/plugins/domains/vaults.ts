@@ -1,4 +1,5 @@
 import type { PluginVault } from "../api";
+import { vaultOf } from "./vaultOf";
 
 interface VaultRecord {
   id: string;
@@ -35,9 +36,6 @@ export interface VaultPorts {
     snippetFolder(id: string): Promise<void>;
   };
 }
-
-/** An object with no vault_id sits in Personal, matching the vault filters everywhere else. */
-const vaultOf = (o: { vault_id?: string }): string => o.vault_id ?? "personal";
 
 /** Ordered so the error names kinds the way the Vaults settings page lists them. */
 const KINDS = [

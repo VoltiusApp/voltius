@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { getPfState, openPfTunnel } from "@/services/portForwardingTunnels";
+import { closePfTunnel, getPfState, openPfTunnel } from "@/services/portForwardingTunnels";
 import { resolvePort } from "@/plugins/domains/ports";
 import { writeClipboard } from "@/utils/clipboard";
 import i18n from "@/i18n";
@@ -76,6 +76,8 @@ import { createDockerAPI } from "./domains/docker";
 import { createVaultsAPI, type VaultPorts } from "./domains/vaults";
 import { createFoldersAPI, type FolderPorts } from "./domains/folders";
 import { createObjectsAPI, type ObjectPorts } from "./domains/objects";
+import { createSnippetsAPI, type SnippetPorts } from "./domains/snippets";
+import { createPortForwardsAPI, type PortForwardPorts } from "./domains/portForwarding";
 import { resolveCan, type Permission } from "@/services/permissions";
 import { getMyUserId } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
@@ -641,6 +643,42 @@ const objectPorts: ObjectPorts = {
     useSnippetFolderStore.getState().moveFolder(id, parentFolderId),
 };
 
+// ─── Snippet and port-forwarding ports ────────────────────────────────────
+
+/**
+ * Reads span the team maps, same as the object ports above: a team-vault snippet
+ * or rule the user can see in the app must not read as missing here. The write
+ * verbs refuse a team vault anyway.
+ */
+const snippetPorts: SnippetPorts = {
+  hydrate: () => useSnippetStore.getState().loadSnippets(),
+  list: () => {
+    const s = useSnippetStore.getState();
+    return [...s.snippets, ...Object.values(s.teamSnippets).flat()];
+  },
+  create: (data) => useSnippetStore.getState().createSnippet(data),
+  update: (id, data) => useSnippetStore.getState().updateSnippet(id, data),
+  remove: (id) => useSnippetStore.getState().deleteSnippet(id),
+  isTeamVault: isTeamVaultId,
+};
+
+const portForwardPorts: PortForwardPorts = {
+  hydrate: () => usePortForwardingStore.getState().loadRules(),
+  list: () => {
+    const s = usePortForwardingStore.getState();
+    return [...s.rules, ...Object.values(s.teamRules).flat()];
+  },
+  create: (data) => usePortForwardingStore.getState().createRule(data),
+  update: (id, data) => usePortForwardingStore.getState().updateRule(id, data),
+  remove: (id) => usePortForwardingStore.getState().deleteRule(id),
+  isTeamVault: isTeamVaultId,
+  sessionExists: (sessionId) =>
+    useSessionStore.getState().sessions.some((s) => s.id === sessionId),
+  tunnels: async (sessionId) => (await getPfState(sessionId)).tunnels,
+  open: (opts) => openPfTunnel(opts),
+  close: (sessionId, tunnelId) => closePfTunnel(sessionId, tunnelId),
+};
+
 // ─── Store reload map ─────────────────────────────────────────────────────
 
 const RELOADABLE_STORES: Record<string, () => Promise<void>> = {
@@ -842,6 +880,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const vaultsApi = createVaultsAPI(vaultPorts);
   const foldersApi = createFoldersAPI(folderPorts);
   const objectsApi = createObjectsAPI(objectPorts);
+  const snippetsApi = createSnippetsAPI(snippetPorts);
+  const portForwardsApi = createPortForwardsAPI(portForwardPorts);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -992,6 +1032,62 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       async delete(vaultId, opts) {
         requireGated("vaults:write");
         await vaultsApi.delete(vaultId, opts);
+      },
+    },
+
+    snippets: {
+      list() {
+        requirePerm(manifest, "snippets:read");
+        return snippetsApi.list();
+      },
+      create(input) {
+        requirePerm(manifest, "snippets:write");
+        return snippetsApi.create(input);
+      },
+      update(snippetId, patch) {
+        requirePerm(manifest, "snippets:write");
+        return snippetsApi.update(snippetId, patch);
+      },
+      delete(snippetId) {
+        requirePerm(manifest, "snippets:write");
+        return snippetsApi.delete(snippetId);
+      },
+    },
+
+    portForwards: {
+      list() {
+        requirePerm(manifest, "port_forwarding:read");
+        return portForwardsApi.list();
+      },
+      create(input) {
+        requirePerm(manifest, "port_forwarding:write");
+        return portForwardsApi.create(input);
+      },
+      update(ruleId, patch) {
+        requirePerm(manifest, "port_forwarding:write");
+        return portForwardsApi.update(ruleId, patch);
+      },
+      delete(ruleId) {
+        requirePerm(manifest, "port_forwarding:write");
+        return portForwardsApi.delete(ruleId);
+      },
+      // A tunnel is a listening socket on the user's machine, not a stored
+      // object: the gated "ports:forward" grant is what opens one, and
+      // sessions:read is what makes a session id nameable at all.
+      tunnels(sessionId) {
+        requirePerm(manifest, "port_forwarding:read");
+        requirePerm(manifest, "sessions:read");
+        return portForwardsApi.tunnels(sessionId);
+      },
+      start(ruleId, sessionId) {
+        requireGated("ports:forward");
+        requirePerm(manifest, "sessions:read");
+        return portForwardsApi.start(ruleId, sessionId);
+      },
+      stop(sessionId, tunnelId) {
+        requireGated("ports:forward");
+        requirePerm(manifest, "sessions:read");
+        return portForwardsApi.stop(sessionId, tunnelId);
       },
     },
 

@@ -24,6 +24,7 @@ import { buildKeychainMenuItems } from "@/utils/keychainMenuItems";
 import { detectKeyInfo } from "./keyDetection";
 import { KeyFileDropZone } from "./KeyFileDropZone";
 import { KeyGenFields } from "./KeyGenFields";
+import { PublicKeyField, isPublicKeyInvalid } from "./PublicKeyField";
 
 // Re-exported for back-compat (IdentityForm imports KeyFileDropZone from here).
 export { KeyFileDropZone } from "./KeyFileDropZone";
@@ -123,7 +124,9 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
       publicKeyDirty.current ? publicKey : null,
       passphraseDirty.current ? passphrase : null,
     ) ?? undefined,
-    canSave: () => !!privateKey.trim(),
+    // A public half that is not a key is never persisted: autosave holds until
+    // the field is emptied or corrected, and the inline error says why.
+    canSave: () => !!privateKey.trim() && !isPublicKeyInvalid(publicKey),
   });
   const markDirty = useCallback(() => {
     if (isDirtyRef) isDirtyRef.current = true;
@@ -261,18 +264,11 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
                 autoComplete="new-password"
               />
             </div>
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>
-                {t("keychain.common.publicKey")} <span className="text-(--t-text-dim) font-normal">{t("keychain.common.optional")}</span>
-              </label>
-              <textarea
-                className={`${formInputClass} font-mono text-xs h-20 resize-none`}
-                style={formInputStyle}
-                value={publicKey}
-                onChange={(e) => { markDirty(); publicKeyDirty.current = true; setPublicKey(e.target.value); }}
-                placeholder="ssh-ed25519 AAAA..."
-              />
-            </div>
+            <PublicKeyField
+              value={publicKey}
+              onChange={(v) => { markDirty(); publicKeyDirty.current = true; setPublicKey(v); }}
+              heightClass="h-20"
+            />
           </FormSection>
 
           <FormSection label={t("keychain.keyForm.sectionImportFromFile")}>

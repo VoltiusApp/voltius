@@ -530,6 +530,7 @@ pub fn save_known_hosts(entries: &[KnownHost]) -> Result<(), String> {
 
 // ─── Snippets ────────────────────────────────────────────────────────────────
 
+/// Only ever read: the legacy transfer step shape, migrated away on load.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TransferDirection {
@@ -537,21 +538,99 @@ pub enum TransferDirection {
     Download,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TransferEndpoint {
+    Local,
+    Remote,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TransferMode {
+    Copy,
+    Move,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TransferConflict {
+    Overwrite,
+    Skip,
+    Fail,
+}
+
+fn default_transfer_mode() -> TransferMode {
+    TransferMode::Copy
+}
+
+fn default_transfer_conflict() -> TransferConflict {
+    TransferConflict::Overwrite
+}
+
+/// The symmetric transfer step the app produces. Deserializing goes through
+/// [`TransferStepRaw`] so the legacy `{direction,local_path,remote_path}` shape
+/// still loads; it is rewritten to from/to on the way in and never written back.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(from = "TransferStepRaw")]
+pub struct TransferStep {
+    pub from: TransferEndpoint,
+    pub to: TransferEndpoint,
+    pub from_path: String,
+    pub to_path: String,
+    pub is_dir: bool,
+    pub mode: TransferMode,
+    pub on_conflict: TransferConflict,
+}
+
+#[derive(Deserialize)]
+struct TransferStepRaw {
+    from: Option<TransferEndpoint>,
+    to: Option<TransferEndpoint>,
+    from_path: Option<String>,
+    to_path: Option<String>,
+    #[serde(default)]
+    is_dir: bool,
+    #[serde(default = "default_transfer_mode")]
+    mode: TransferMode,
+    #[serde(default = "default_transfer_conflict")]
+    on_conflict: TransferConflict,
+    direction: Option<TransferDirection>,
+    local_path: Option<String>,
+    remote_path: Option<String>,
+}
+
+impl From<TransferStepRaw> for TransferStep {
+    fn from(raw: TransferStepRaw) -> Self {
+        let upload = raw.direction != Some(TransferDirection::Download);
+        let (legacy_from, legacy_to) = if upload {
+            (raw.local_path.clone(), raw.remote_path.clone())
+        } else {
+            (raw.remote_path.clone(), raw.local_path.clone())
+        };
+        let (legacy_from_end, legacy_to_end) = if upload {
+            (TransferEndpoint::Local, TransferEndpoint::Remote)
+        } else {
+            (TransferEndpoint::Remote, TransferEndpoint::Local)
+        };
+        Self {
+            from: raw.from.unwrap_or(legacy_from_end),
+            to: raw.to.unwrap_or(legacy_to_end),
+            from_path: raw.from_path.or(legacy_from).unwrap_or_default(),
+            to_path: raw.to_path.or(legacy_to).unwrap_or_default(),
+            is_dir: raw.is_dir,
+            mode: raw.mode,
+            on_conflict: raw.on_conflict,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum SnippetStep {
-    Script {
-        content: String,
-    },
-    Transfer {
-        direction: TransferDirection,
-        local_path: String,
-        remote_path: String,
-        is_dir: bool,
-    },
-    Snippet {
-        snippet_id: String,
-    },
+    Script { content: String },
+    Transfer(TransferStep),
+    Snippet { snippet_id: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -806,6 +885,71 @@ mod tests {
                 "legacy key must not survive: {input}"
             );
         }
+    }
+
+    #[test]
+    fn transfer_step_accepts_the_shape_the_app_sends() {
+        let json = r#"{"kind":"transfer","from":"remote","to":"local",
+            "from_path":"/srv/app.log","to_path":"/tmp/app.log","is_dir":false,
+            "mode":"move","on_conflict":"skip"}"#;
+        let step: SnippetStep = serde_json::from_str(json).expect("deserialize");
+        let SnippetStep::Transfer(t) = step else {
+            panic!("wrong variant");
+        };
+        assert_eq!(t.from, TransferEndpoint::Remote);
+        assert_eq!(t.to, TransferEndpoint::Local);
+        assert_eq!(t.from_path, "/srv/app.log");
+        assert_eq!(t.to_path, "/tmp/app.log");
+        assert_eq!(t.mode, TransferMode::Move);
+        assert_eq!(t.on_conflict, TransferConflict::Skip);
+    }
+
+    #[test]
+    fn transfer_step_migrates_the_legacy_direction_shape() {
+        let cases = [
+            (
+                r#"{"kind":"transfer","direction":"upload","local_path":"/l","remote_path":"/r","is_dir":true}"#,
+                TransferEndpoint::Local,
+                TransferEndpoint::Remote,
+                "/l",
+                "/r",
+                true,
+            ),
+            (
+                r#"{"kind":"transfer","direction":"download","local_path":"/l","remote_path":"/r","is_dir":false}"#,
+                TransferEndpoint::Remote,
+                TransferEndpoint::Local,
+                "/r",
+                "/l",
+                false,
+            ),
+        ];
+        for (json, from, to, from_path, to_path, is_dir) in cases {
+            let step: SnippetStep = serde_json::from_str(json).expect("deserialize");
+            let SnippetStep::Transfer(t) = step else {
+                panic!("wrong variant");
+            };
+            assert_eq!((t.from, t.to), (from, to), "{json}");
+            assert_eq!((&t.from_path[..], &t.to_path[..]), (from_path, to_path));
+            assert_eq!(t.is_dir, is_dir);
+            // a legacy step had no mode/conflict: it copied and overwrote
+            assert_eq!(t.mode, TransferMode::Copy);
+            assert_eq!(t.on_conflict, TransferConflict::Overwrite);
+        }
+    }
+
+    #[test]
+    fn transfer_step_writes_back_only_the_new_shape() {
+        let step: SnippetStep = serde_json::from_str(
+            r#"{"kind":"transfer","direction":"upload","local_path":"/l","remote_path":"/r"}"#,
+        )
+        .expect("deserialize");
+        let v = serde_json::to_value(&step).expect("serialize");
+        assert_eq!(v["kind"], "transfer");
+        assert_eq!(v["from_path"], "/l");
+        assert!(v.get("direction").is_none());
+        assert!(v.get("local_path").is_none());
+        assert_json_round_trip(&step);
     }
 
     fn clocks() -> HashMap<String, String> {

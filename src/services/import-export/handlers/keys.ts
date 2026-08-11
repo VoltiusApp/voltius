@@ -1,10 +1,9 @@
-import i18n from "@/i18n";
 import { getSecret, storeSecret } from "@/services/vault";
 import type { SshKey } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, KeyExport } from "../formats";
-import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
-import { handlerActive, isSingleSelection, selectedIds } from "../context";
+import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
+import { liveInVault, selectionMethods } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { fetchKeySecrets, storeKeySecrets } from "../secretsLogic";
 
@@ -13,31 +12,7 @@ export const keysHandler: DataTypeHandler = {
   label: "SSH Keys",
   jsonOnly: true,
 
-  isActive(s: SelectionProps) {
-    return handlerActive("keys", s);
-  },
-
-  checkboxLabel(s: SelectionProps, count: number) {
-    if (isSingleSelection("keys", s)) return i18n.t("importExport.export.checkboxLabel.keys", { count: 1 });
-    const ids = selectedIds("keys", s);
-    return i18n.t("importExport.export.checkboxLabel.keys", { count: ids ? ids.length : count });
-  },
-
-  countAvailable(stores: StoreSlices, vaultIds: string[]) {
-    return stores.keys.filter(k => !k.deleted_at && vaultIds.includes(k.vault_id ?? "personal")).length;
-  },
-
-  selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
-    const ids = selectedIds("keys", s);
-    return stores.keys.filter(k =>
-      (ids === null || ids.includes(k.id)) && vaultIds.includes(k.vault_id ?? "personal"));
-  },
-
-  accumulateFolderIds(items: unknown[], main: Set<string>) {
-    for (const k of items as SshKey[]) {
-      if (k.folder_id) main.add(k.folder_id);
-    }
-  },
+  ...selectionMethods<SshKey>("keys", "keys", s => s.keys),
 
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     const keys = items as SshKey[];
@@ -55,16 +30,13 @@ export const keysHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
-    const existingNames = new Set(
-      ctx.existingKeys
-        .filter(k => !k.deleted_at && (k.vault_id ?? "personal") === ctx.vault_id)
-        .map(k => k.name),
-    );
+    const existing = liveInVault(ctx.existingKeys, ctx.vault_id);
+    const existingNames = new Set(existing.map(k => k.name));
     for (const key of bundle.keys) {
       if (ctx.skipDupes && key.name && existingNames.has(key.name)) {
         if (key._eid) {
-          const existing = ctx.existingKeys.find(k => !k.deleted_at && (k.vault_id ?? "personal") === ctx.vault_id && k.name === key.name);
-          if (existing) ctx.keyEidMap.set(key._eid, existing.id);
+          const match = existing.find(k => k.name === key.name);
+          if (match) ctx.keyEidMap.set(key._eid, match.id);
         }
         continue;
       }

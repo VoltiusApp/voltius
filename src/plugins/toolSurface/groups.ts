@@ -9,6 +9,8 @@ import { buildAuditTools, AUDIT_PERMISSIONS } from "./tools/audit";
 import { buildVaultTools, VAULT_PERMISSIONS } from "./tools/vaults";
 import { buildFolderTools, FOLDER_PERMISSIONS } from "./tools/folders";
 import { buildObjectTools, OBJECT_PERMISSIONS } from "./tools/objects";
+import { buildSnippetTools, SNIPPET_PERMISSIONS } from "./tools/snippets";
+import { buildPortForwardTools, PORT_FORWARD_PERMISSIONS } from "./tools/portForwards";
 
 /** One entry per domain: builder and permissions travel together so they cannot drift. */
 const GROUPS = [
@@ -21,6 +23,8 @@ const GROUPS = [
   { build: buildVaultTools, permissions: VAULT_PERMISSIONS },
   { build: buildFolderTools, permissions: FOLDER_PERMISSIONS },
   { build: buildObjectTools, permissions: OBJECT_PERMISSIONS },
+  { build: buildSnippetTools, permissions: SNIPPET_PERMISSIONS },
+  { build: buildPortForwardTools, permissions: PORT_FORWARD_PERMISSIONS },
 ] as const;
 
 export const ALL_PERMISSIONS: readonly string[] = [

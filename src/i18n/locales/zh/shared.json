@@ -77,7 +77,6 @@
     },
     "hostPicker": {
       "selectHostTitle": "选择主机",
-      "newHostButton": "新建主机",
       "filterPlaceholder": "筛选主机...",
       "localMachineName": "本地计算机",
       "wslSub": "WSL",

@@ -1,7 +1,9 @@
-use super::{get_session, pump_chunks, run_backend_transfer};
+use super::{
+    backend_transfer_command, get_session, open_remote_read, open_remote_write, pump_chunks,
+    remote_size,
+};
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
-use russh_sftp::protocol::OpenFlags;
 use std::path::Path;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
@@ -11,28 +13,7 @@ use tokio_util::sync::CancellationToken;
 
 // ── Single file transfer ──────────────────────────────────────────────────────
 
-#[tauri::command]
-pub async fn sftp_upload(
-    app: AppHandle,
-    sftp_state: State<'_, SftpManager>,
-    sftp_id: String,
-    local_path: String,
-    remote_path: String,
-    transfer_id: String,
-) -> Result<(), String> {
-    let tid = transfer_id.clone();
-    run_backend_transfer(
-        &sftp_state,
-        &sftp_id,
-        &transfer_id,
-        |backend, token| async move {
-            backend
-                .upload_file(&app, &local_path, &remote_path, &tid, &token)
-                .await
-        },
-    )
-    .await
-}
+backend_transfer_command!(sftp_upload, upload_file, local_path, remote_path);
 
 pub(crate) async fn sftp_upload_inner(
     app: &AppHandle,
@@ -47,15 +28,7 @@ pub(crate) async fn sftp_upload_inner(
         .map_err(|e| format!("Cannot open local file: {e}"))?;
     let total = local_file.metadata().await.map(|m| m.len()).unwrap_or(0);
 
-    let mut remote_file = {
-        let sftp = session.lock().await;
-        sftp.open_with_flags(
-            remote_path,
-            OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
-        )
-        .await
-        .map_err(|e| format!("Cannot create remote file: {e}"))?
-    };
+    let mut remote_file = open_remote_write(&session, remote_path).await?;
 
     let mut transferred = 0u64;
     pump_chunks(
@@ -75,28 +48,7 @@ pub(crate) async fn sftp_upload_inner(
     Ok(())
 }
 
-#[tauri::command]
-pub async fn sftp_download(
-    app: AppHandle,
-    sftp_state: State<'_, SftpManager>,
-    sftp_id: String,
-    remote_path: String,
-    local_path: String,
-    transfer_id: String,
-) -> Result<(), String> {
-    let tid = transfer_id.clone();
-    run_backend_transfer(
-        &sftp_state,
-        &sftp_id,
-        &transfer_id,
-        |backend, token| async move {
-            backend
-                .download_file(&app, &remote_path, &local_path, &tid, &token)
-                .await
-        },
-    )
-    .await
-}
+backend_transfer_command!(sftp_download, download_file, remote_path, local_path);
 
 pub(crate) async fn sftp_download_inner(
     app: &AppHandle,
@@ -106,16 +58,7 @@ pub(crate) async fn sftp_download_inner(
     transfer_id: &str,
     token: &CancellationToken,
 ) -> Result<(), String> {
-    let (total, mut remote_file) = {
-        let sftp = session.lock().await;
-        let meta = sftp.metadata(remote_path).await.ok();
-        let total = meta.and_then(|m| m.size).unwrap_or(0);
-        let file = sftp
-            .open(remote_path)
-            .await
-            .map_err(|e| format!("Cannot open remote file: {e}"))?;
-        (total, file)
-    };
+    let (total, mut remote_file) = open_remote_read(&session, remote_path).await?;
 
     if let Some(parent) = Path::new(local_path).parent() {
         tokio::fs::create_dir_all(parent)
@@ -188,15 +131,9 @@ pub(super) async fn sftp_rr_file_inner(
     token: &CancellationToken,
 ) -> Result<(), String> {
     let mut transferred = 0u64;
-    let (total, _) = {
+    let total = {
         let sftp = src_session.lock().await;
-        let size = sftp
-            .metadata(src_path)
-            .await
-            .ok()
-            .and_then(|m| m.size)
-            .unwrap_or(0);
-        (size, ())
+        remote_size(&sftp, src_path).await
     };
     sftp_rr_file_inner_accum(
         app,
@@ -224,21 +161,8 @@ pub(super) async fn sftp_rr_file_inner_accum(
     transferred: &mut u64,
     total: u64,
 ) -> Result<(), String> {
-    let mut src_file = {
-        let sftp = src_session.lock().await;
-        sftp.open(src_path)
-            .await
-            .map_err(|e| format!("Cannot open source {src_path}: {e}"))?
-    };
-    let mut dst_file = {
-        let sftp = dst_session.lock().await;
-        sftp.open_with_flags(
-            dst_path,
-            OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
-        )
-        .await
-        .map_err(|e| format!("Cannot create destination {dst_path}: {e}"))?
-    };
+    let (_, mut src_file) = open_remote_read(&src_session, src_path).await?;
+    let mut dst_file = open_remote_write(&dst_session, dst_path).await?;
 
     pump_chunks(
         app,

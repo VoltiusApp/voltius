@@ -1,4 +1,5 @@
-use super::exec::{now_ms, run_docker};
+use super::exec::run_docker;
+use crate::clock::now_ms;
 use crate::docker::recreate::{build_network_connects, build_run_args, parse_inspect};
 use crate::docker::types::*;
 

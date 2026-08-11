@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
 import { buildMcpTools, listToolDescriptors, callTool, MCP_TEXT } from "./consumer";
 import * as toolSurface from "@voltius/tools";
+import { refusal } from "@voltius/tools";
 import { registerContributions, clearContributions } from "./contributions";
 import { buildDockerMcpTools } from "@/plugins/docker/mcpTools";
 import { buildProxmoxMcpTools } from "@/plugins/proxmox/mcpTools";
@@ -24,8 +25,12 @@ const ALL_TOOLS = [
   "identity_create", "identity_delete", "identity_list",
   "key_add_to_host", "key_create", "key_delete", "key_list",
   "list_connections", "list_files", "list_sessions",
-  "make_dir", "object_copy", "object_move", "open_session", "read_file", "read_terminal", "rename_path",
-  "run_command", "stat_file", "transfer_file",
+  "make_dir", "object_copy", "object_move", "open_session",
+  "port_forward_create", "port_forward_delete", "port_forward_list", "port_forward_start",
+  "port_forward_stop", "port_forward_tunnels", "port_forward_update",
+  "read_file", "read_terminal", "rename_path", "run_command",
+  "snippet_create", "snippet_delete", "snippet_list", "snippet_update",
+  "stat_file", "transfer_file",
   "vault_create", "vault_delete", "vault_list", "vault_rename",
   "write_file",
 ];
@@ -88,42 +93,53 @@ describe("MCP consumer", () => {
     expect(out).toEqual({ ok: false, error: MCP_TEXT.notOwnedError });
   });
 
-  it("a refusal returned as { error } becomes a failed call, not a successful one", async () => {
-    const tools = [{
-      name: "refuser",
-      description: "d",
-      schema: z.object({}),
-      execute: async () => ({ error: "Vault \"x\" still holds 2 connections" }),
-    }] as unknown as Parameters<typeof callTool>[0];
-    expect(await callTool(tools, "refuser", {})).toEqual({
-      ok: false, error: 'Vault "x" still holds 2 connections',
-    });
+  const refusingTool = (result: unknown) => [{
+    name: "refuser",
+    description: "d",
+    schema: z.object({}),
+    execute: async () => result,
+  }] as unknown as Parameters<typeof callTool>[0];
+
+  it("a marked refusal becomes a failed call, not a successful one", async () => {
+    const result = await callTool(
+      refusingTool(refusal('Vault "x" still holds 2 connections')),
+      "refuser",
+      {},
+    );
+    expect(result).toEqual({ ok: false, error: 'Vault "x" still holds 2 connections' });
   });
 
-  it("makeGate's { error, reason } denial is a failed call too, not a success", async () => {
-    // The gate's rejection carries a reason beside the error; counting keys let
-    // this shape — a user's own denial — through as ok:true/isError:false.
-    const tools = [{
-      name: "denied",
-      description: "d",
-      schema: z.object({}),
-      execute: async () => ({ error: "rejected by user", reason: "not this host" }),
-    }] as unknown as Parameters<typeof callTool>[0];
-    expect(await callTool(tools, "denied", {})).toEqual({
-      ok: false, error: "rejected by user",
-    });
+  it("makeGate's denial is a failed call too, not a success", async () => {
+    const result = await callTool(
+      refusingTool(refusal("rejected by user", { reason: "not this host" })),
+      "refuser",
+      {},
+    );
+    expect(result).toEqual({ ok: false, error: "rejected by user" });
+  });
+
+  it("a refusal carrying a recovery payload stays a refusal", async () => {
+    // guardConnectionId's rejection lists the real connections beside `error`.
+    // Recognising refusals by which keys sit beside `error` reported this to the
+    // client as ok:true — a call that opened nothing, read as one that worked.
+    const result = await callTool(
+      refusingTool(refusal("no connection with id \"prod\"", { connections: [{ id: "c1" }] })),
+      "refuser",
+      {},
+    );
+    expect(result).toEqual({ ok: false, error: 'no connection with id "prod"' });
   });
 
   it("a result that merely carries an error field alongside data stays a success", async () => {
-    const tools = [{
-      name: "mixed",
-      description: "d",
-      schema: z.object({}),
-      execute: async () => ({ error: "partial", items: [1] }),
-    }] as unknown as Parameters<typeof callTool>[0];
-    expect(await callTool(tools, "mixed", {})).toEqual({
-      ok: true, result: { error: "partial", items: [1] },
-    });
+    const result = await callTool(refusingTool({ error: "partial", items: [1] }), "refuser", {});
+    expect(result).toEqual({ ok: true, result: { error: "partial", items: [1] } });
+  });
+
+  it("an unmarked bare { error } result is data, not a refusal", async () => {
+    // A contributed (third-party) tool does not go through `refusal()`; its
+    // payload is its own, and the host does not guess at its meaning.
+    const result = await callTool(refusingTool({ error: "container not found" }), "refuser", {});
+    expect(result).toEqual({ ok: true, result: { error: "container not found" } });
   });
 
   it("converts each tool's zod schema to a JSON Schema object for tools/list", () => {
@@ -143,7 +159,7 @@ describe("MCP consumer", () => {
   it("runs a tool and returns its real result", async () => {
     const tools = buildMcpTools(api(), new Set());
     const out = await callTool(tools, "list_connections", {});
-    expect(out).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1", team: true }] });
+    expect(out).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1", vault_id: "personal", folder_id: null, team: true }] });
   });
 
   it("rejects invalid arguments before they reach the vault", async () => {

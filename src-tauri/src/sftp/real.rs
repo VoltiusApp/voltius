@@ -15,7 +15,6 @@ use russh_sftp::client::error::Error as SftpError;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
 use std::future::Future;
-use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 use tauri::AppHandle;
@@ -291,62 +290,9 @@ impl FileBackend for RealSftp {
         .await
     }
 
-    /// Per-item fallback. Real SFTP always takes the tar fast path (it exposes
-    /// `as_sftp_session`), so this is only a safety net.
-    async fn upload_batch(
-        &self,
-        app: &AppHandle,
-        local_paths: &[String],
-        remote_dir: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        let base = remote_dir.trim_end_matches('/');
-        let _ = self.mkdir(base).await;
-        for p in local_paths {
-            if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
-            }
-            let Some(name) = Path::new(p).file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            let remote = format!("{base}/{name}");
-            if Path::new(p).is_dir() {
-                self.upload_dir(app, p, &remote, transfer_id, token).await?;
-            } else {
-                self.upload_file(app, p, &remote, transfer_id, token)
-                    .await?;
-            }
-        }
-        Ok(())
-    }
-
-    async fn download_batch(
-        &self,
-        app: &AppHandle,
-        remote_paths: &[String],
-        local_dir: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        for p in remote_paths {
-            if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
-            }
-            let name = p.trim_end_matches('/').rsplit('/').next().unwrap_or(p);
-            let local = Path::new(local_dir).join(name);
-            let local_str = local.to_string_lossy();
-            let is_dir = self.stat(p).await?.unwrap_or(false);
-            if is_dir {
-                self.download_dir(app, p, &local_str, transfer_id, token)
-                    .await?;
-            } else {
-                self.download_file(app, p, &local_str, transfer_id, token)
-                    .await?;
-            }
-        }
-        Ok(())
-    }
+    // upload_batch / download_batch: the FileBackend per-item defaults, which
+    // real SFTP only reaches if the tar fast path behind `as_sftp_session`
+    // is unavailable.
 
     fn as_sftp_session(&self) -> Option<Arc<Mutex<SftpSession>>> {
         Some(Arc::clone(&self.session))

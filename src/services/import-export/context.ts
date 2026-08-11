@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import type {
   Connection, ConnectionFormData,
   Folder, FolderFormData,
@@ -125,4 +126,56 @@ export interface ImportCtx {
 
 export function existingConnectionsForVault<T extends { vault_id?: string }>(connections: T[], vault_id: string): T[] {
   return connections.filter((connection) => (connection.vault_id ?? "personal") === vault_id);
+}
+
+// ─── Shared handler methods ───────────────────────────────────────────────────
+
+interface VaultItem {
+  id: string;
+  deleted_at?: string | null;
+  vault_id?: string;
+  folder_id?: string;
+}
+
+export function inVaults<T extends VaultItem>(items: T[], vaultIds: string[]): T[] {
+  return items.filter((i) => !i.deleted_at && vaultIds.includes(i.vault_id ?? "personal"));
+}
+
+// The five selection/count methods every DataTypeHandler spells identically.
+// `labelKey` is the i18n suffix (only portForwarding differs from the handler
+// key) and `folderSet` picks which eid set the type's folders belong to.
+export function selectionMethods<T extends VaultItem>(
+  key: string,
+  labelKey: string,
+  slice: (stores: StoreSlices) => T[],
+  folderSet: "main" | "snippet" = "main",
+) {
+  return {
+    isActive(s: SelectionProps) {
+      return handlerActive(key, s);
+    },
+    checkboxLabel(s: SelectionProps, count: number) {
+      const ids = selectedIds(key, s);
+      return i18n.t(`importExport.export.checkboxLabel.${labelKey}`, { count: ids ? ids.length : count });
+    },
+    countAvailable(stores: StoreSlices, vaultIds: string[]) {
+      return inVaults(slice(stores), vaultIds).length;
+    },
+    selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
+      const ids = selectedIds(key, s);
+      return inVaults(slice(stores), vaultIds).filter((i) => ids === null || ids.includes(i.id));
+    },
+    accumulateFolderIds(items: unknown[], main: Set<string>, snippet: Set<string>) {
+      const target = folderSet === "snippet" ? snippet : main;
+      for (const i of items as T[]) if (i.folder_id) target.add(i.folder_id);
+    },
+  };
+}
+
+// The live (non-tombstoned) items of one vault, for the import duplicate check.
+export function liveInVault<T extends { deleted_at?: string | null; vault_id?: string }>(
+  items: T[],
+  vault_id: string,
+): T[] {
+  return items.filter((i) => !i.deleted_at && (i.vault_id ?? "personal") === vault_id);
 }

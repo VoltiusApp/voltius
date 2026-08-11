@@ -1,10 +1,9 @@
-import i18n from "@/i18n";
 import { getSecret, storeSecret } from "@/services/vault";
 import type { Connection, JumpHost } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats";
-import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
-import { existingConnectionsForVault, handlerActive, isSingleSelection, selectedIds } from "../context";
+import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
+import { existingConnectionsForVault, selectionMethods } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { fetchConnectionSecrets, storeConnectionSecrets, resolveConnectionKeyEid, resolveConnectionKeyId } from "../secretsLogic";
 
@@ -13,31 +12,7 @@ export const connectionsHandler: DataTypeHandler = {
   label: "Connections",
   jsonOnly: false,
 
-  isActive(s: SelectionProps) {
-    return handlerActive("connections", s);
-  },
-
-  checkboxLabel(s: SelectionProps, count: number) {
-    if (isSingleSelection("connections", s)) return i18n.t("importExport.export.checkboxLabel.connections", { count: 1 });
-    const ids = selectedIds("connections", s);
-    return i18n.t("importExport.export.checkboxLabel.connections", { count: ids ? ids.length : count });
-  },
-
-  countAvailable(stores: StoreSlices, vaultIds: string[]) {
-    return stores.connections.filter(c => !c.deleted_at && vaultIds.includes(c.vault_id ?? "personal")).length;
-  },
-
-  selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
-    const ids = selectedIds("connections", s);
-    return stores.connections.filter(c =>
-      (ids === null || ids.includes(c.id)) && vaultIds.includes(c.vault_id ?? "personal"));
-  },
-
-  accumulateFolderIds(items: unknown[], main: Set<string>) {
-    for (const c of items as Connection[]) {
-      if (c.folder_id) main.add(c.folder_id);
-    }
-  },
+  ...selectionMethods<Connection>("connections", "connections", s => s.connections),
 
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     const connections = items as Connection[];

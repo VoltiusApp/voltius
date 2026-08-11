@@ -1,7 +1,9 @@
-use super::{get_session, pump_chunks, run_backend_transfer, sftp_rr_file_inner_accum};
+use super::{
+    backend_transfer_command, get_session, open_remote_read, open_remote_write, pump_chunks,
+    sftp_rr_file_inner_accum,
+};
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
-use russh_sftp::protocol::OpenFlags;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -20,28 +22,7 @@ type DirWalkFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, String>> + Sen
 
 // ── Directory transfer ────────────────────────────────────────────────────────
 
-#[tauri::command]
-pub async fn sftp_upload_dir(
-    app: AppHandle,
-    sftp_state: State<'_, SftpManager>,
-    sftp_id: String,
-    local_path: String,
-    remote_path: String,
-    transfer_id: String,
-) -> Result<(), String> {
-    let tid = transfer_id.clone();
-    run_backend_transfer(
-        &sftp_state,
-        &sftp_id,
-        &transfer_id,
-        |backend, token| async move {
-            backend
-                .upload_dir(&app, &local_path, &remote_path, &tid, &token)
-                .await
-        },
-    )
-    .await
-}
+backend_transfer_command!(sftp_upload_dir, upload_dir, local_path, remote_path);
 
 /// Recursively upload a local directory over a real SFTP session.
 pub(crate) async fn sftp_upload_dir_inner(
@@ -100,15 +81,7 @@ pub(crate) async fn sftp_upload_dir_inner(
             .await
             .map_err(|e| format!("Cannot open {}: {e}", local_abs.display()))?;
 
-        let mut remote_file = {
-            let sftp = session.lock().await;
-            sftp.open_with_flags(
-                &remote_file_path,
-                OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
-            )
-            .await
-            .map_err(|e| format!("Cannot create remote file {remote_file_path}: {e}"))?
-        };
+        let mut remote_file = open_remote_write(&session, &remote_file_path).await?;
 
         pump_chunks(
             app,
@@ -128,28 +101,7 @@ pub(crate) async fn sftp_upload_dir_inner(
     Ok(())
 }
 
-#[tauri::command]
-pub async fn sftp_download_dir(
-    app: AppHandle,
-    sftp_state: State<'_, SftpManager>,
-    sftp_id: String,
-    remote_path: String,
-    local_path: String,
-    transfer_id: String,
-) -> Result<(), String> {
-    let tid = transfer_id.clone();
-    run_backend_transfer(
-        &sftp_state,
-        &sftp_id,
-        &transfer_id,
-        |backend, token| async move {
-            backend
-                .download_dir(&app, &remote_path, &local_path, &tid, &token)
-                .await
-        },
-    )
-    .await
-}
+backend_transfer_command!(sftp_download_dir, download_dir, remote_path, local_path);
 
 /// Recursively download a remote directory over a real SFTP session.
 pub(crate) async fn sftp_download_dir_inner(
@@ -178,16 +130,7 @@ pub(crate) async fn sftp_download_dir_inner(
                 .map_err(|e| format!("Cannot create directory: {e}"))?;
         }
 
-        let (_, mut remote_file) = {
-            let sftp = session.lock().await;
-            let meta = sftp.metadata(remote_abs).await.ok();
-            let size = meta.and_then(|m| m.size).unwrap_or(0);
-            let file = sftp
-                .open(remote_abs)
-                .await
-                .map_err(|e| format!("Cannot open remote file {remote_abs}: {e}"))?;
-            (size, file)
-        };
+        let (_, mut remote_file) = open_remote_read(&session, remote_abs).await?;
 
         let mut local_file = tokio::fs::File::create(&local_abs)
             .await

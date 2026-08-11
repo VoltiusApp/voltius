@@ -1,5 +1,6 @@
 use crate::sftp::{FileBackend, SftpManager};
 use russh_sftp::client::SftpSession;
+use russh_sftp::protocol::OpenFlags;
 use serde::Serialize;
 use std::future::Future;
 use std::sync::Arc;
@@ -88,6 +89,78 @@ where
     result
 }
 
+/// The four single-object transfer commands differ only in which `FileBackend`
+/// method they call and which way round their two path arguments read.
+///
+/// `rustfmt::skip` because rustfmt is not idempotent on this body: it re-indents
+/// the `run_backend_transfer` call one level further on every run, so a
+/// `cargo fmt --check` would drift after each `cargo fmt`.
+#[rustfmt::skip]
+macro_rules! backend_transfer_command {
+    ($name:ident, $method:ident, $from:ident, $to:ident) => {
+        #[tauri::command]
+        pub async fn $name(
+            app: AppHandle,
+            sftp_state: tauri::State<'_, SftpManager>,
+            sftp_id: String,
+            $from: String,
+            $to: String,
+            transfer_id: String,
+        ) -> Result<(), String> {
+            let tid = transfer_id.clone();
+            $crate::commands::sftp::run_backend_transfer(
+                &sftp_state,
+                &sftp_id,
+                &transfer_id,
+                |backend, token| async move {
+                    backend.$method(&app, &$from, &$to, &tid, &token).await
+                },
+            )
+            .await
+        }
+    };
+}
+
+pub(super) use backend_transfer_command;
+
+/// Open a remote file for writing (create + truncate), holding the session lock
+/// for the open alone.
+pub(super) async fn open_remote_write(
+    session: &Mutex<SftpSession>,
+    path: &str,
+) -> Result<russh_sftp::client::fs::File, String> {
+    let sftp = session.lock().await;
+    sftp.open_with_flags(
+        path,
+        OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
+    )
+    .await
+    .map_err(|e| format!("Cannot create remote file {path}: {e}"))
+}
+
+/// Open a remote file for reading, returning its size alongside the handle.
+/// A missing or unreadable size is reported as 0 — progress only needs a bound.
+pub(super) async fn open_remote_read(
+    session: &Mutex<SftpSession>,
+    path: &str,
+) -> Result<(u64, russh_sftp::client::fs::File), String> {
+    let sftp = session.lock().await;
+    let total = remote_size(&sftp, path).await;
+    let file = sftp
+        .open(path)
+        .await
+        .map_err(|e| format!("Cannot open remote file {path}: {e}"))?;
+    Ok((total, file))
+}
+
+pub(super) async fn remote_size(sftp: &SftpSession, path: &str) -> u64 {
+    sftp.metadata(path)
+        .await
+        .ok()
+        .and_then(|m| m.size)
+        .unwrap_or(0)
+}
+
 /// What a tar-based command found behind an sftp id: a real SFTP session it can
 /// drive itself, or a backend that has to run its own implementation.
 pub(super) enum TarBackend {
@@ -109,7 +182,7 @@ pub(super) async fn tar_backend(
 /// Copy `reader` into `writer` in `CHUNK_SIZE` chunks, emitting transfer
 /// progress after every chunk and honouring cancellation between them.
 /// Neither side is shut down — the caller owns the close, and its wording.
-pub(super) async fn pump_chunks<R, W>(
+pub(crate) async fn pump_chunks<R, W>(
     app: &AppHandle,
     reader: &mut R,
     writer: &mut W,
