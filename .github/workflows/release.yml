@@ -61,8 +61,56 @@ jobs:
           echo "Extracted release notes for $version:"
           printf '%s\n' "$notes"
 
-  publish-tauri:
+  # Creates the draft release exactly once, and hands its id to every job that
+  # uploads. Before this job existed, each publish-tauri job asked tauri-action
+  # to "create or upload to" the tag: the action looks the release up by tag and
+  # creates one when the lookup comes back empty. In 0.21.0 a transient TLS
+  # failure on one runner made that lookup return nothing, so the job created a
+  # SECOND release object on the same tag and the matrix split its uploads
+  # across the two — the published release ended up with the Windows x64
+  # bundles and the APK, the orphaned draft with macOS, Linux and Windows ARM.
+  # A published release is immutable, so that is unrepairable: it cost a 0.21.1
+  # recut. Handing out an id removes the lookup, and therefore the race.
+  create-release:
     needs: changelog
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      id: ${{ steps.create.outputs.id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Create or reuse the draft release
+        id: create
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+          NOTES: ${{ needs.changelog.outputs.notes }}
+        run: |
+          # Reuses on a re-run; the lookup includes drafts, since the token has
+          # write access.
+          id=$(bash scripts/release-id.sh "$REPO" "$TAG")
+          if [ -n "$id" ]; then
+            echo "Reusing existing release $id for $TAG"
+          else
+            id=$(gh api -X POST "repos/$REPO/releases" \
+              -f "tag_name=$TAG" \
+              -f "name=Voltius $TAG" \
+              -f "body=$NOTES" \
+              -F draft=true \
+              -F prerelease=false \
+              --jq .id)
+            echo "Created draft release $id for $TAG"
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  publish-tauri:
+    needs: [changelog, create-release]
     permissions:
       contents: write
     strategy:
@@ -159,19 +207,19 @@ jobs:
           # the debug profile where the assertion would otherwise be disabled.
           VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
         with:
-          tagName: ${{ inputs.tag }}
-          releaseName: 'Voltius ${{ inputs.tag }}'
-          releaseBody: ${{ needs.changelog.outputs.notes }}
-          releaseDraft: true
-          prerelease: false
+          # An id, not a tag: the action then uploads to exactly this release and
+          # never looks one up or creates one. See the create-release job.
+          releaseId: ${{ needs.create-release.outputs.id }}
           args: ${{ matrix.args }}
           uploadPlainBinary: true
           updaterJsonPreferNsis: true
           # Don't write latest.json here — concurrent jobs would race on the
           # shared file. The .sig files still upload as bundle artifacts; the
           # updater-manifest job builds latest.json from them once all builds
-          # finish.
-          includeUpdaterJson: false
+          # finish. The input is `uploadUpdaterJson`; this was spelled
+          # `includeUpdaterJson` until 0.21.1, which the action silently ignored,
+          # so every build really was racing to write latest.json.
+          uploadUpdaterJson: false
 
   # Experimental Android build — sideload APK, not Play Store. Release-signed
   # arm64-v8a only (covers ~all modern phones). tauri-action's `mobile: android`
@@ -179,9 +227,10 @@ jobs:
   # rely on it — we set up the toolchain + signing, run `tauri android build`
   # directly, and upload the APK to the same draft release publish-tauri created.
   publish-android:
-    # Runs after publish-tauri so the draft release already exists — avoids two
-    # jobs racing to create the same draft.
-    needs: [changelog, publish-tauri]
+    # Only needs the draft to exist to upload into, which create-release now
+    # guarantees — it used to wait on the whole publish-tauri matrix purely so
+    # that some job had created the draft first.
+    needs: create-release
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -423,6 +472,21 @@ jobs:
     outputs:
       published: ${{ steps.publish.outputs.published }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+
+      # Last point at which a split is still fixable: a draft can be edited and
+      # its assets moved, a published release is immutable. Fail here rather
+      # than publish half a release.
+      - name: Refuse to publish a tag carrying more than one release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: bash scripts/release-id.sh "$REPO" "$TAG" --require > /dev/null
+
       - name: Publish the release
         id: publish
         env:
