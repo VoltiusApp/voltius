@@ -292,10 +292,11 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/voltius-release.keystore"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/voltius-release.keystore" >> "$GITHUB_ENV"
 
-      # The pinned tauri-action@v0 has no `mobile` input (Android support is
-      # unreleased, default branch only), so it ignored `mobile: android` and ran
-      # `tauri build --apk` — but `--apk` is only valid on `tauri android build`.
-      # Build the signed APK directly and upload it to the draft release.
+      # tauri-action@v1 does expose a `mobile` input, but this job predates it:
+      # under the old v0 pin the input did not exist, so `mobile: android` was
+      # ignored and the action ran `tauri build --apk`, which is only valid on
+      # `tauri android build`. Building the signed APK directly still works and
+      # has shipped every release, so it stays until someone tests the input.
       - name: Build Android APK
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -442,7 +443,13 @@ jobs:
     secrets: inherit
 
   checksums:
-    needs: [publish-tauri, publish-android]
+    # attach-plugin-catalog is in here so its asset is hashed with the rest, and
+    # so that publish-release — which needs checksums — cannot make the release
+    # immutable before the catalogue is attached. Without that edge the two jobs
+    # are siblings: a single pass happens to attach first, but a rerun does not,
+    # and 0.22.0 lost plugin-catalog.json to `HTTP 422: Cannot upload assets to
+    # an immutable release`.
+    needs: [publish-tauri, publish-android, attach-plugin-catalog]
     runs-on: ubuntu-latest
     permissions:
       contents: write
