@@ -1,4 +1,5 @@
 import type { PluginAPI } from "@/plugins/api";
+import { refusal } from "./refusal";
 
 /** How many connections the model-facing error will enumerate before telling
  *  the model to call `list_connections` itself. */
@@ -40,10 +41,10 @@ export async function guardConnectionId(
   if (conns?.some((c) => c.id === connectionId)) return { ok: true };
   return {
     ok: false,
-    result: {
-      error: `no connection with id ${JSON.stringify(connectionId)}; ${FIX_IT}`,
-      ...connectionsField(conns),
-    },
+    result: refusal(
+      `no connection with id ${JSON.stringify(connectionId)}; ${FIX_IT}`,
+      connectionsField(conns),
+    ),
   };
 }
 
@@ -63,10 +64,9 @@ export async function guardPlanConnectionIds(
   if (unknown.length === 0) return { ok: true };
   return {
     ok: false,
-    result: {
-      error: `plan not shown to the user: ${unknown.length} step connection id(s) match no saved connection; ${FIX_IT}, then propose the plan again`,
-      unknownConnectionIds: unknown,
-      ...connectionsField(conns),
-    },
+    result: refusal(
+      `plan not shown to the user: ${unknown.length} step connection id(s) match no saved connection; ${FIX_IT}, then propose the plan again`,
+      { unknownConnectionIds: unknown, ...connectionsField(conns) },
+    ),
   };
 }

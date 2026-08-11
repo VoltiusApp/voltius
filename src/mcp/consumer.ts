@@ -186,25 +186,24 @@ export async function callTool(
 }
 
 /**
- * The refusal message of a `{ error }` result, or null when the result is data.
+ * The refusal message of a refused result, or null when the result is data.
  *
- * `objectOp` and `makeFileOp` catch a refusal and hand back `{ error }` inside a
- * successful call, which the transport then reports as `isError: false` — a
- * client that trusts the envelope reads "the vault was deleted" when it was
- * refused and is still there.
+ * The gate, `objectOp` and `makeFileOp` catch a refusal and hand it back inside
+ * a successful call, which the transport would otherwise report as
+ * `isError: false` — a client that trusts the envelope reads "the vault was
+ * deleted" when it was refused and is still there.
  *
- * The test is the `error` string itself, not the number of keys: `makeGate`'s
- * rejection carries a `reason` beside it, and counting keys let that shape —
- * a user's own denial — through as a success. `reason` is the only companion a
- * refusal has; anything else beside `error` is a payload, and a verb that
- * returns an error field alongside real data stays a success.
+ * The test is the explicit `refused: true` marker `refusal()` stamps, never the
+ * shape of the result. Recognising a refusal by which keys sit beside `error`
+ * needs a complete list of them, and that list was already wrong: a
+ * `guardConnectionId` rejection carries `connections`, so an unknown
+ * `connectionId` was reported to the client as a successful call. A refusal that
+ * grows a field now stays a refusal, and the deliberate distinction is kept —
+ * an `error` field ALONGSIDE real data, with no marker, is still a success.
  */
-const REFUSAL_COMPANION_KEYS = new Set(["error", "reason"]);
-
 function refusalMessage(result: unknown): string | null {
   if (typeof result !== "object" || result === null) return null;
   const record = result as Record<string, unknown>;
-  if (typeof record.error !== "string") return null;
-  if (Object.keys(record).some((k) => !REFUSAL_COMPANION_KEYS.has(k))) return null;
+  if (record.refused !== true || typeof record.error !== "string") return null;
   return record.error;
 }

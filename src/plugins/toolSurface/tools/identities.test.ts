@@ -75,7 +75,7 @@ describe("identity verbs", () => {
 
   it("returns the error instead of throwing when the store rejects", async () => {
     const { ports } = makePorts({ delete: vi.fn(async () => { throw new Error("referenced"); }) });
-    expect(await tool(ports, "identity_delete").execute({ id: "i1" })).toEqual({ error: "referenced" });
+    expect(await tool(ports, "identity_delete").execute({ id: "i1" })).toEqual({ refused: true, error: "referenced" });
   });
 
   it("declares exactly the permissions its verbs reach", () => {
