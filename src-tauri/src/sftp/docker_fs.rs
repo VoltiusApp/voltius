@@ -152,118 +152,6 @@ impl DockerFs {
         ))
     }
 
-    // ── Browse ──────────────────────────────────────────────────────────────
-
-    pub async fn canonicalize(&self, path: &str) -> Result<String, String> {
-        // readlink -f resolves "." and relative paths to an absolute path; fall
-        // back to `cd && pwd` for shells whose readlink lacks -f.
-        let script = "readlink -f \"$1\" 2>/dev/null || { cd \"$1\" 2>/dev/null && pwd; }";
-        let (out, err, code) = self.run(&self.dexec(script, &[path])).await?;
-        let resolved = out.trim();
-        if code != 0 || resolved.is_empty() {
-            return Err(if err.trim().is_empty() {
-                format!("Cannot resolve path: {path}")
-            } else {
-                err.trim().to_string()
-            });
-        }
-        Ok(resolved.to_string())
-    }
-
-    pub async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String> {
-        // For each entry emit: is_symlink \t is_dir \t size \t mtime \t mode \t name
-        // `./$e` everywhere so filenames beginning with '-' aren't parsed as test flags.
-        let script = "cd \"$1\" || exit 3; \
-             for e in * .*; do \
-               [ \"$e\" = \".\" ] && continue; \
-               [ \"$e\" = \"..\" ] && continue; \
-               { [ -e \"./$e\" ] || [ -L \"./$e\" ]; } || continue; \
-               if [ -L \"./$e\" ]; then L=1; else L=0; fi; \
-               if [ -d \"./$e\" ]; then D=1; else D=0; fi; \
-               S=$(stat -c %s \"./$e\" 2>/dev/null || echo 0); \
-               M=$(stat -c %Y \"./$e\" 2>/dev/null || echo 0); \
-               P=$(stat -c %a \"./$e\" 2>/dev/null || echo 0); \
-               printf '%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \"$L\" \"$D\" \"$S\" \"$M\" \"$P\" \"$e\"; \
-             done";
-        let (out, err, code) = self.run(&self.dexec(script, &[path])).await?;
-        if code != 0 {
-            return Err(format!(
-                "read_dir failed: {}",
-                if err.trim().is_empty() {
-                    format!("cannot access {path}")
-                } else {
-                    err.trim().to_string()
-                }
-            ));
-        }
-        let base = path.trim_end_matches('/');
-        let mut files: Vec<RemoteFile> = Vec::new();
-        for line in out.lines() {
-            let mut parts = line.splitn(6, '\t');
-            let (Some(l), Some(d), Some(s), Some(m), Some(p), Some(name)) = (
-                parts.next(),
-                parts.next(),
-                parts.next(),
-                parts.next(),
-                parts.next(),
-                parts.next(),
-            ) else {
-                continue;
-            };
-            if name.is_empty() {
-                continue;
-            }
-            let entry_path = if base.is_empty() {
-                format!("/{name}")
-            } else {
-                format!("{base}/{name}")
-            };
-            files.push(RemoteFile {
-                path: entry_path,
-                name: name.to_string(),
-                size: s.parse().unwrap_or(0),
-                is_dir: d == "1",
-                is_symlink: l == "1",
-                modified: m.parse::<u64>().ok().filter(|&t| t > 0),
-                permissions: u32::from_str_radix(p.trim(), 8).ok(),
-            });
-        }
-        files.sort_by(|a, b| {
-            b.is_dir
-                .cmp(&a.is_dir)
-                .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-        });
-        Ok(files)
-    }
-
-    /// Returns Some(is_dir) if path exists, None if it doesn't.
-    pub async fn stat(&self, path: &str) -> Result<Option<bool>, String> {
-        let script = "{ [ -e \"$1\" ] || [ -L \"$1\" ]; } || exit 7; \
-             if [ -d \"$1\" ]; then echo d; else echo f; fi";
-        let (out, _err, code) = self.run(&self.dexec(script, &[path])).await?;
-        if code == 7 {
-            return Ok(None);
-        }
-        Ok(Some(out.trim() == "d"))
-    }
-
-    pub async fn mkdir(&self, path: &str) -> Result<(), String> {
-        self.simple("mkdir \"$1\"", &[path], "mkdir failed").await
-    }
-
-    pub async fn touch(&self, path: &str) -> Result<(), String> {
-        self.simple("touch \"$1\"", &[path], "touch failed").await
-    }
-
-    pub async fn rename(&self, from: &str, to: &str) -> Result<(), String> {
-        self.simple("mv \"$1\" \"$2\"", &[from, to], "rename failed")
-            .await
-    }
-
-    pub async fn delete(&self, path: &str) -> Result<(), String> {
-        self.simple("rm -rf \"$1\"", &[path], "delete failed").await
-    }
-
     async fn simple(&self, script: &str, args: &[&str], label: &str) -> Result<(), String> {
         let (_out, err, code) = self.run(&self.dexec(script, args)).await?;
         if code != 0 {
@@ -275,136 +163,6 @@ impl DockerFs {
                     err.trim().to_string()
                 }
             ));
-        }
-        Ok(())
-    }
-
-    pub async fn file_size(&self, path: &str) -> u64 {
-        let script = "stat -c %s \"$1\" 2>/dev/null || echo 0";
-        self.run(&self.dexec(script, &[path]))
-            .await
-            .ok()
-            .and_then(|(out, _, _)| out.trim().parse().ok())
-            .unwrap_or(0)
-    }
-
-    pub async fn read_file(&self, path: &str) -> Result<Vec<u8>, String> {
-        let (out, err, code) = self.run(&self.dexec("base64 \"$1\"", &[path])).await?;
-        if code != 0 {
-            return Err(format!("read failed: {err}"));
-        }
-        use base64::Engine;
-        base64::engine::general_purpose::STANDARD
-            .decode(out.trim().replace('\n', ""))
-            .map_err(|e| format!("decode failed: {e}"))
-    }
-
-    pub async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
-        let cmd = self.dexec("cat > \"$1\"", &[path]);
-        let mut channel = self
-            .ssh()
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("channel error: {e}"))?;
-        channel
-            .exec(true, cmd.as_str())
-            .await
-            .map_err(|e| format!("exec error: {e}"))?;
-        let mut writer = channel.make_writer();
-        writer
-            .write_all(content.as_bytes())
-            .await
-            .map_err(|e| format!("Write error: {e}"))?;
-        writer.flush().await.ok();
-        drop(writer);
-        channel.eof().await.ok();
-        self.drain_exit(&mut channel, "write").await
-    }
-
-    // ── Single file transfer ──────────────────────────────────────────────────
-
-    pub async fn upload_file(
-        &self,
-        app: &AppHandle,
-        local_path: &str,
-        remote_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        let mut local = tokio::fs::File::open(local_path)
-            .await
-            .map_err(|e| format!("Cannot open local file: {e}"))?;
-        let total = local.metadata().await.map(|m| m.len()).unwrap_or(0);
-
-        let cmd = self.dexec("cat > \"$1\"", &[remote_path]);
-        let mut channel = self
-            .ssh()
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("channel error: {e}"))?;
-        channel
-            .exec(true, cmd.as_str())
-            .await
-            .map_err(|e| format!("exec error: {e}"))?;
-        let mut writer = channel.make_writer();
-
-        let mut transferred = 0u64;
-        pump_chunks(
-            app,
-            &mut local,
-            &mut writer,
-            transfer_id,
-            token,
-            &mut transferred,
-            total,
-        )
-        .await?;
-        writer.flush().await.ok();
-        drop(writer);
-        channel.eof().await.ok();
-        self.drain_exit(&mut channel, "upload").await
-    }
-
-    pub async fn download_file(
-        &self,
-        app: &AppHandle,
-        remote_path: &str,
-        local_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        let total = self.file_size(remote_path).await;
-        if let Some(parent) = Path::new(local_path).parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .map_err(|e| format!("Cannot create local dir: {e}"))?;
-        }
-        let mut local = tokio::fs::File::create(local_path)
-            .await
-            .map_err(|e| format!("Cannot create local file: {e}"))?;
-
-        let cmd = self.dexec("cat \"$1\"", &[remote_path]);
-        let mut channel = self
-            .ssh()
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("channel error: {e}"))?;
-        channel
-            .exec(true, cmd.as_str())
-            .await
-            .map_err(|e| format!("exec error: {e}"))?;
-
-        let (code, err) = drain_channel(
-            &mut channel,
-            &mut local,
-            Some((app, transfer_id, total)),
-            Some(token),
-        )
-        .await?;
-        local.flush().await.ok();
-        if code != 0 {
-            let msg = String::from_utf8_lossy(&err);
-            return Err(format!("download failed: {}", msg.trim()));
         }
         Ok(())
     }
@@ -422,129 +180,6 @@ impl DockerFs {
             return Err(format!("{label} failed: {}", msg.trim()));
         }
         Ok(())
-    }
-
-    // ── Directory / batch transfer (tar streaming) ─────────────────────────────
-
-    /// Upload a local directory: `tar -c` locally → pipe into the container,
-    /// where `tar -x --strip-components=1` lands the directory's contents in
-    /// `remote_path` (mirrors the SFTP `*_dir_tar` semantics).
-    pub async fn upload_dir(
-        &self,
-        app: &AppHandle,
-        local_path: &str,
-        remote_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        let parent = Path::new(local_path)
-            .parent()
-            .and_then(|p| p.to_str())
-            .unwrap_or(".");
-        let base = Path::new(local_path)
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
-        let remote_script = "mkdir -p \"$1\" && tar -C \"$1\" --strip-components=1 -xzf -";
-        self.tar_into_container(
-            app,
-            &["-C", parent, "-czf", "-", base],
-            &self.dexec(remote_script, &[remote_path]),
-            transfer_id,
-            token,
-        )
-        .await
-    }
-
-    /// Upload several local items that share a parent directory into `remote_dir`.
-    pub async fn upload_batch(
-        &self,
-        app: &AppHandle,
-        local_paths: &[String],
-        remote_dir: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        if local_paths.is_empty() {
-            return Ok(());
-        }
-        let parent = Path::new(&local_paths[0])
-            .parent()
-            .and_then(|p| p.to_str())
-            .unwrap_or(".");
-        let mut args: Vec<&str> = vec!["-C", parent, "-czf", "-"];
-        for p in local_paths {
-            if let Some(name) = Path::new(p).file_name().and_then(|n| n.to_str()) {
-                args.push(name);
-            }
-        }
-        let remote_script = "mkdir -p \"$1\" && tar -C \"$1\" -xzf -";
-        self.tar_into_container(
-            app,
-            &args,
-            &self.dexec(remote_script, &[remote_dir]),
-            transfer_id,
-            token,
-        )
-        .await
-    }
-
-    /// Download a container directory: `tar -c` in the container → pipe to local
-    /// `tar -x --strip-components=1` so the directory's contents land in `local_path`.
-    pub async fn download_dir(
-        &self,
-        app: &AppHandle,
-        remote_path: &str,
-        local_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        let parent = parent_of(remote_path).to_string();
-        let base = basename_of(remote_path).to_string();
-        let remote_cmd = self.dexec("tar -C \"$1\" -czf - \"$2\"", &[&parent, &base]);
-        self.tar_from_container(
-            app,
-            &remote_cmd,
-            local_path,
-            &["-C", local_path, "--strip-components=1", "-xzf", "-"],
-            transfer_id,
-            token,
-        )
-        .await
-    }
-
-    /// Download several container items that share a parent into `local_dir`.
-    pub async fn download_batch(
-        &self,
-        app: &AppHandle,
-        remote_paths: &[String],
-        local_dir: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        if remote_paths.is_empty() {
-            return Ok(());
-        }
-        let parent = parent_of(&remote_paths[0]).to_string();
-        // sh -c 'cd "$1"; shift; tar -czf - "$@"' x <parent> <base…>
-        let mut args: Vec<&str> = vec![&parent];
-        let basenames: Vec<String> = remote_paths
-            .iter()
-            .map(|p| basename_of(p).to_string())
-            .collect();
-        for b in &basenames {
-            args.push(b);
-        }
-        let remote_cmd = self.dexec("cd \"$1\" || exit 3; shift; tar -czf - \"$@\"", &args);
-        self.tar_from_container(
-            app,
-            &remote_cmd,
-            local_dir,
-            &["-C", local_dir, "-xzf", "-"],
-            transfer_id,
-            token,
-        )
-        .await
     }
 
     /// Spawn a local `tar` producer and stream its stdout into a container command's stdin.
@@ -672,38 +307,166 @@ impl DockerFs {
     }
 }
 
+/// The docker-exec backend implements every `FileBackend` operation
+/// directly; the private helpers above are the shell plumbing they share.
 #[async_trait]
 impl FileBackend for DockerFs {
-    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String> {
-        DockerFs::list_dir(self, path).await
-    }
-    async fn stat(&self, path: &str) -> Result<Option<bool>, String> {
-        DockerFs::stat(self, path).await
-    }
+    // ── Browse ──────────────────────────────────────────────────────────────
+
     async fn canonicalize(&self, path: &str) -> Result<String, String> {
-        DockerFs::canonicalize(self, path).await
+        // readlink -f resolves "." and relative paths to an absolute path; fall
+        // back to `cd && pwd` for shells whose readlink lacks -f.
+        let script = "readlink -f \"$1\" 2>/dev/null || { cd \"$1\" 2>/dev/null && pwd; }";
+        let (out, err, code) = self.run(&self.dexec(script, &[path])).await?;
+        let resolved = out.trim();
+        if code != 0 || resolved.is_empty() {
+            return Err(if err.trim().is_empty() {
+                format!("Cannot resolve path: {path}")
+            } else {
+                err.trim().to_string()
+            });
+        }
+        Ok(resolved.to_string())
     }
+
+    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String> {
+        // For each entry emit: is_symlink \t is_dir \t size \t mtime \t mode \t name
+        // `./$e` everywhere so filenames beginning with '-' aren't parsed as test flags.
+        let script = "cd \"$1\" || exit 3; \
+             for e in * .*; do \
+               [ \"$e\" = \".\" ] && continue; \
+               [ \"$e\" = \"..\" ] && continue; \
+               { [ -e \"./$e\" ] || [ -L \"./$e\" ]; } || continue; \
+               if [ -L \"./$e\" ]; then L=1; else L=0; fi; \
+               if [ -d \"./$e\" ]; then D=1; else D=0; fi; \
+               S=$(stat -c %s \"./$e\" 2>/dev/null || echo 0); \
+               M=$(stat -c %Y \"./$e\" 2>/dev/null || echo 0); \
+               P=$(stat -c %a \"./$e\" 2>/dev/null || echo 0); \
+               printf '%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \"$L\" \"$D\" \"$S\" \"$M\" \"$P\" \"$e\"; \
+             done";
+        let (out, err, code) = self.run(&self.dexec(script, &[path])).await?;
+        if code != 0 {
+            return Err(format!(
+                "read_dir failed: {}",
+                if err.trim().is_empty() {
+                    format!("cannot access {path}")
+                } else {
+                    err.trim().to_string()
+                }
+            ));
+        }
+        let base = path.trim_end_matches('/');
+        let mut files: Vec<RemoteFile> = Vec::new();
+        for line in out.lines() {
+            let mut parts = line.splitn(6, '\t');
+            let (Some(l), Some(d), Some(s), Some(m), Some(p), Some(name)) = (
+                parts.next(),
+                parts.next(),
+                parts.next(),
+                parts.next(),
+                parts.next(),
+                parts.next(),
+            ) else {
+                continue;
+            };
+            if name.is_empty() {
+                continue;
+            }
+            let entry_path = if base.is_empty() {
+                format!("/{name}")
+            } else {
+                format!("{base}/{name}")
+            };
+            files.push(RemoteFile {
+                path: entry_path,
+                name: name.to_string(),
+                size: s.parse().unwrap_or(0),
+                is_dir: d == "1",
+                is_symlink: l == "1",
+                modified: m.parse::<u64>().ok().filter(|&t| t > 0),
+                permissions: u32::from_str_radix(p.trim(), 8).ok(),
+            });
+        }
+        files.sort_by(|a, b| {
+            b.is_dir
+                .cmp(&a.is_dir)
+                .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        });
+        Ok(files)
+    }
+
+    /// Returns Some(is_dir) if path exists, None if it doesn't.
+    async fn stat(&self, path: &str) -> Result<Option<bool>, String> {
+        let script = "{ [ -e \"$1\" ] || [ -L \"$1\" ]; } || exit 7; \
+             if [ -d \"$1\" ]; then echo d; else echo f; fi";
+        let (out, _err, code) = self.run(&self.dexec(script, &[path])).await?;
+        if code == 7 {
+            return Ok(None);
+        }
+        Ok(Some(out.trim() == "d"))
+    }
+
     async fn mkdir(&self, path: &str) -> Result<(), String> {
-        DockerFs::mkdir(self, path).await
+        self.simple("mkdir \"$1\"", &[path], "mkdir failed").await
     }
+
     async fn touch(&self, path: &str) -> Result<(), String> {
-        DockerFs::touch(self, path).await
+        self.simple("touch \"$1\"", &[path], "touch failed").await
     }
+
     async fn rename(&self, from: &str, to: &str) -> Result<(), String> {
-        DockerFs::rename(self, from, to).await
+        self.simple("mv \"$1\" \"$2\"", &[from, to], "rename failed")
+            .await
     }
+
     async fn delete(&self, path: &str) -> Result<(), String> {
-        DockerFs::delete(self, path).await
+        self.simple("rm -rf \"$1\"", &[path], "delete failed").await
     }
+
     async fn file_size(&self, path: &str) -> u64 {
-        DockerFs::file_size(self, path).await
+        let script = "stat -c %s \"$1\" 2>/dev/null || echo 0";
+        self.run(&self.dexec(script, &[path]))
+            .await
+            .ok()
+            .and_then(|(out, _, _)| out.trim().parse().ok())
+            .unwrap_or(0)
     }
+
     async fn read_file(&self, path: &str) -> Result<Vec<u8>, String> {
-        DockerFs::read_file(self, path).await
+        let (out, err, code) = self.run(&self.dexec("base64 \"$1\"", &[path])).await?;
+        if code != 0 {
+            return Err(format!("read failed: {err}"));
+        }
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD
+            .decode(out.trim().replace('\n', ""))
+            .map_err(|e| format!("decode failed: {e}"))
     }
+
     async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
-        DockerFs::write_file(self, path, content).await
+        let cmd = self.dexec("cat > \"$1\"", &[path]);
+        let mut channel = self
+            .ssh()
+            .channel_open_session()
+            .await
+            .map_err(|e| format!("channel error: {e}"))?;
+        channel
+            .exec(true, cmd.as_str())
+            .await
+            .map_err(|e| format!("exec error: {e}"))?;
+        let mut writer = channel.make_writer();
+        writer
+            .write_all(content.as_bytes())
+            .await
+            .map_err(|e| format!("Write error: {e}"))?;
+        writer.flush().await.ok();
+        drop(writer);
+        channel.eof().await.ok();
+        self.drain_exit(&mut channel, "write").await
     }
+
+    // ── Single file transfer ──────────────────────────────────────────────────
+
     async fn upload_file(
         &self,
         app: &AppHandle,
@@ -712,8 +475,40 @@ impl FileBackend for DockerFs {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), String> {
-        DockerFs::upload_file(self, app, local_path, remote_path, transfer_id, token).await
+        let mut local = tokio::fs::File::open(local_path)
+            .await
+            .map_err(|e| format!("Cannot open local file: {e}"))?;
+        let total = local.metadata().await.map(|m| m.len()).unwrap_or(0);
+
+        let cmd = self.dexec("cat > \"$1\"", &[remote_path]);
+        let mut channel = self
+            .ssh()
+            .channel_open_session()
+            .await
+            .map_err(|e| format!("channel error: {e}"))?;
+        channel
+            .exec(true, cmd.as_str())
+            .await
+            .map_err(|e| format!("exec error: {e}"))?;
+        let mut writer = channel.make_writer();
+
+        let mut transferred = 0u64;
+        pump_chunks(
+            app,
+            &mut local,
+            &mut writer,
+            transfer_id,
+            token,
+            &mut transferred,
+            total,
+        )
+        .await?;
+        writer.flush().await.ok();
+        drop(writer);
+        channel.eof().await.ok();
+        self.drain_exit(&mut channel, "upload").await
     }
+
     async fn download_file(
         &self,
         app: &AppHandle,
@@ -722,8 +517,47 @@ impl FileBackend for DockerFs {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), String> {
-        DockerFs::download_file(self, app, remote_path, local_path, transfer_id, token).await
+        let total = self.file_size(remote_path).await;
+        if let Some(parent) = Path::new(local_path).parent() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| format!("Cannot create local dir: {e}"))?;
+        }
+        let mut local = tokio::fs::File::create(local_path)
+            .await
+            .map_err(|e| format!("Cannot create local file: {e}"))?;
+
+        let cmd = self.dexec("cat \"$1\"", &[remote_path]);
+        let mut channel = self
+            .ssh()
+            .channel_open_session()
+            .await
+            .map_err(|e| format!("channel error: {e}"))?;
+        channel
+            .exec(true, cmd.as_str())
+            .await
+            .map_err(|e| format!("exec error: {e}"))?;
+
+        let (code, err) = drain_channel(
+            &mut channel,
+            &mut local,
+            Some((app, transfer_id, total)),
+            Some(token),
+        )
+        .await?;
+        local.flush().await.ok();
+        if code != 0 {
+            let msg = String::from_utf8_lossy(&err);
+            return Err(format!("download failed: {}", msg.trim()));
+        }
+        Ok(())
     }
+
+    // ── Directory / batch transfer (tar streaming) ─────────────────────────────
+
+    /// Upload a local directory: `tar -c` locally → pipe into the container,
+    /// where `tar -x --strip-components=1` lands the directory's contents in
+    /// `remote_path` (mirrors the SFTP `*_dir_tar` semantics).
     async fn upload_dir(
         &self,
         app: &AppHandle,
@@ -732,18 +566,26 @@ impl FileBackend for DockerFs {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), String> {
-        DockerFs::upload_dir(self, app, local_path, remote_path, transfer_id, token).await
+        let parent = Path::new(local_path)
+            .parent()
+            .and_then(|p| p.to_str())
+            .unwrap_or(".");
+        let base = Path::new(local_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
+        let remote_script = "mkdir -p \"$1\" && tar -C \"$1\" --strip-components=1 -xzf -";
+        self.tar_into_container(
+            app,
+            &["-C", parent, "-czf", "-", base],
+            &self.dexec(remote_script, &[remote_path]),
+            transfer_id,
+            token,
+        )
+        .await
     }
-    async fn download_dir(
-        &self,
-        app: &AppHandle,
-        remote_path: &str,
-        local_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        DockerFs::download_dir(self, app, remote_path, local_path, transfer_id, token).await
-    }
+
+    /// Upload several local items that share a parent directory into `remote_dir`.
     async fn upload_batch(
         &self,
         app: &AppHandle,
@@ -752,8 +594,55 @@ impl FileBackend for DockerFs {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), String> {
-        DockerFs::upload_batch(self, app, local_paths, remote_dir, transfer_id, token).await
+        if local_paths.is_empty() {
+            return Ok(());
+        }
+        let parent = Path::new(&local_paths[0])
+            .parent()
+            .and_then(|p| p.to_str())
+            .unwrap_or(".");
+        let mut args: Vec<&str> = vec!["-C", parent, "-czf", "-"];
+        for p in local_paths {
+            if let Some(name) = Path::new(p).file_name().and_then(|n| n.to_str()) {
+                args.push(name);
+            }
+        }
+        let remote_script = "mkdir -p \"$1\" && tar -C \"$1\" -xzf -";
+        self.tar_into_container(
+            app,
+            &args,
+            &self.dexec(remote_script, &[remote_dir]),
+            transfer_id,
+            token,
+        )
+        .await
     }
+
+    /// Download a container directory: `tar -c` in the container → pipe to local
+    /// `tar -x --strip-components=1` so the directory's contents land in `local_path`.
+    async fn download_dir(
+        &self,
+        app: &AppHandle,
+        remote_path: &str,
+        local_path: &str,
+        transfer_id: &str,
+        token: &CancellationToken,
+    ) -> Result<(), String> {
+        let parent = parent_of(remote_path).to_string();
+        let base = basename_of(remote_path).to_string();
+        let remote_cmd = self.dexec("tar -C \"$1\" -czf - \"$2\"", &[&parent, &base]);
+        self.tar_from_container(
+            app,
+            &remote_cmd,
+            local_path,
+            &["-C", local_path, "--strip-components=1", "-xzf", "-"],
+            transfer_id,
+            token,
+        )
+        .await
+    }
+
+    /// Download several container items that share a parent into `local_dir`.
     async fn download_batch(
         &self,
         app: &AppHandle,
@@ -762,6 +651,28 @@ impl FileBackend for DockerFs {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), String> {
-        DockerFs::download_batch(self, app, remote_paths, local_dir, transfer_id, token).await
+        if remote_paths.is_empty() {
+            return Ok(());
+        }
+        let parent = parent_of(&remote_paths[0]).to_string();
+        // sh -c 'cd "$1"; shift; tar -czf - "$@"' x <parent> <base…>
+        let mut args: Vec<&str> = vec![&parent];
+        let basenames: Vec<String> = remote_paths
+            .iter()
+            .map(|p| basename_of(p).to_string())
+            .collect();
+        for b in &basenames {
+            args.push(b);
+        }
+        let remote_cmd = self.dexec("cd \"$1\" || exit 3; shift; tar -czf - \"$@\"", &args);
+        self.tar_from_container(
+            app,
+            &remote_cmd,
+            local_dir,
+            &["-C", local_dir, "-xzf", "-"],
+            transfer_id,
+            token,
+        )
+        .await
     }
 }
