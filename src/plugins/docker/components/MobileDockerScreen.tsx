@@ -5,21 +5,12 @@ import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
 import { createMobileDockerListService } from "../services";
 import { useDockerList } from "../useDockerList";
 import type { ContainerAction, DockerContainer } from "../types";
+import { PortChips } from "./PortChips";
 
 function stateColor(state: string): string {
   if (state === "running") return "var(--t-status-connected)";
   if (state === "paused") return "var(--t-status-warning)";
   return "var(--t-text-dim)";
-}
-
-function portsSummary(ports: DockerContainer["ports"]): string {
-  const parts = ports
-    .filter((p) => p.host_port != null)
-    .map((p) => {
-      const proto = p.protocol && p.protocol !== "tcp" ? `/${p.protocol}` : "";
-      return `${p.host_port}:${p.container_port}${proto}`;
-    });
-  return parts.join(", ");
 }
 
 function containerName(c: DockerContainer): string {
@@ -110,22 +101,34 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
       body = (
         <div className="flex-1 overflow-y-auto">
           {visible.map((c) => {
-            const ports = portsSummary(c.ports);
+            const onOpen = () => ready && setSheetFor(c);
             return (
-              <button
+              <div
                 key={c.id}
                 data-mobile-docker-container={c.id}
-                onClick={() => ready && setSheetFor(c)}
+                role="button"
+                tabIndex={0}
+                onClick={onOpen}
+                onKeyDown={(e) => {
+                  // A keydown on the port-chip button inside this row bubbles up
+                  // here; without this guard, preventDefault() on Enter/Space kills
+                  // the chip's own activation and reopens the action sheet instead.
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onOpen();
+                  }
+                }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-(--t-bg-card) min-w-0"
               >
                 <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: stateColor(c.state) }} />
                 <span className="flex flex-col min-w-0 flex-1">
                   <span className="text-sm font-medium text-(--t-text-primary) truncate">{containerName(c)}</span>
                   <span className="text-xs text-(--t-text-dim) truncate">{c.image}</span>
-                  {ports && <span className="text-[11px] font-mono text-(--t-text-dim) truncate">{ports}</span>}
+                  <PortChips ports={c.ports} sessionId={sessionId} isRemote size="md" />
                 </span>
                 <span className="shrink-0 text-[11px] text-(--t-text-dim) truncate max-w-[40%]">{c.status}</span>
-              </button>
+              </div>
             );
           })}
         </div>

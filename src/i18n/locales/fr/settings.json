@@ -782,6 +782,7 @@
           "processesRead": { "label": "Lire les informations sur les processus", "description": "Lister les processus en cours sur vos hôtes connectés." },
           "processesManage": { "label": "Gérer les processus", "description": "Lister et arrêter les processus en cours sur vos hôtes connectés." },
           "dockerManage": { "label": "Gérer Docker", "description": "Lister, démarrer, arrêter et supprimer conteneurs, images, volumes, réseaux et stacks. Cela peut détruire définitivement des données." },
+          "portsForward": { "label": "Rediriger des ports vers cet ordinateur", "description": "Ouvrir des tunnels SSH depuis vos hôtes connectés vers des ports locaux de cet ordinateur, et ouvrir l'adresse obtenue dans votre navigateur ou votre presse-papiers." },
           "proxmoxRead": { "label": "Lire les informations Proxmox", "description": "Lister les conteneurs LXC et leurs snapshots." },
           "proxmoxManage": { "label": "Gérer Proxmox", "description": "Lister et contrôler les conteneurs LXC, y compris créer, supprimer et restaurer des snapshots. Cela peut détruire définitivement des données." },
           "sftpRead": { "label": "Lire les fichiers", "description": "Parcourir et lire les fichiers de vos hôtes SSH/FTP enregistrés et de cet ordinateur." },

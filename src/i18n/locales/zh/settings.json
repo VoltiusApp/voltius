@@ -633,6 +633,7 @@
             "label": "管理 Docker",
             "description": "列出、启动、停止和删除容器、镜像、卷、网络和堆栈。这可能会永久销毁数据。"
           },
+          "portsForward": { "label": "将端口转发到本机", "description": "从已连接的主机打开 SSH 隧道到本机的本地端口，并在浏览器或剪贴板中打开得到的地址。" },
           "proxmoxRead": {
             "label": "读取 Proxmox 信息",
             "description": "列出 LXC 容器及其快照。"

@@ -782,6 +782,7 @@
           "processesRead": { "label": "Read process information", "description": "List running processes on your connected hosts." },
           "processesManage": { "label": "Manage processes", "description": "List and kill running processes on your connected hosts." },
           "dockerManage": { "label": "Manage Docker", "description": "List, start, stop and delete containers, images, volumes, networks and stacks. This can permanently destroy data." },
+          "portsForward": { "label": "Forward ports to this computer", "description": "Open SSH tunnels from your connected hosts to local ports on this computer, and open the resulting address in your browser or clipboard." },
           "proxmoxRead": { "label": "Read Proxmox information", "description": "List LXC containers and their snapshots." },
           "proxmoxManage": { "label": "Manage Proxmox", "description": "List and control LXC containers, including creating, deleting and rolling back snapshots. This can permanently destroy data." },
           "sftpRead": { "label": "Read files", "description": "Browse and read files on your saved SSH/FTP hosts and on this computer." },
