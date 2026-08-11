@@ -54,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Pinned js-yaml to 4.3.1 or later, clearing CVE-2026-59870.
 
+## [0.20.0] - 2026-08-10
+
 ### Added
 
 - A host's Shell integration override is now three-state — Inherit, On, Off —
