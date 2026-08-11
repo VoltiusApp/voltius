@@ -8,7 +8,21 @@ export type { PluginAuditAction } from "@/services/auditContext";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
-export interface PluginConnection {
+/**
+ * Where a vault object is filed. Carried by every object a read verb returns and
+ * by everything the create verbs hand back, so a caller that relocated something
+ * with `objects.move` can observe where it landed — before this nothing could.
+ *
+ * `vault_id` is a `vaults.list()` id, "personal" when the object is in no other
+ * vault; `folder_id` is null at that vault's root. Both feed straight back into
+ * `PluginObjectMoveInput`.
+ */
+export interface PluginObjectPlacement {
+  vault_id?: string;
+  folder_id?: string | null;
+}
+
+export interface PluginConnection extends PluginObjectPlacement {
   id: string;
   name?: string;
   host: string;
@@ -44,14 +58,14 @@ export interface PluginConnectionInput {
   jump_hosts?: import("@/types").JumpHost[];
 }
 
-export interface PluginKey {
+export interface PluginKey extends PluginObjectPlacement {
   id: string;
   name?: string;
   key_type?: string;
   tags: string[];
 }
 
-export interface PluginIdentity {
+export interface PluginIdentity extends PluginObjectPlacement {
   id: string;
   name?: string;
   username: string;
@@ -103,6 +117,17 @@ export interface PluginObjectMoveOutcome {
   created: number;
   /** Ids that no longer exist, or objects already where the call would put them. */
   skipped: number;
+  /**
+   * Where the objects ended up, so a move confirms itself without a follow-up
+   * read. `folder_id` is null at the destination vault's root.
+   *
+   * `vault_id` is null only when the call named no destination vault and no
+   * destination folder to take one from — every object kept the vault it had,
+   * and there is no single id to report. It is the adapter's own resolved
+   * target, not an echo of the request.
+   */
+  vault_id: string | null;
+  folder_id: string | null;
 }
 
 export interface OmniCommand {

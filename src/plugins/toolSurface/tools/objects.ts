@@ -33,8 +33,8 @@ export function buildObjectTools(ports: ToolSurfacePorts): Tool[] {
         "Move objects — connections, keys, identities, snippets or port forwarding rules, folders "
         + "included — into another folder and/or vault, using the same paste path as the app's UI. "
         + "Moving into a vault other than the objects' own is refused unless allow_cross_vault is "
-        + "true; the refusal names what would move and where. Runs immediately; your own client is "
-        + "responsible for approval.",
+        + "true; the refusal names what would move and where. Returns the destination vault and "
+        + "folder it wrote to. Runs immediately; your own client is responsible for approval.",
       risk: "prompt",
       schema,
       execute: async (raw) =>
@@ -48,7 +48,8 @@ export function buildObjectTools(ports: ToolSurfacePorts): Tool[] {
         + "folders included — into another folder and/or vault, using the same paste path as the "
         + "app's UI. Copying out of a team vault is refused, and copying into a vault other than the "
         + "objects' own is refused unless allow_cross_vault is true; the refusal names what would be "
-        + "copied and where. Runs immediately; your own client is responsible for approval.",
+        + "copied and where. Returns the destination vault and folder it wrote to. Runs "
+        + "immediately; your own client is responsible for approval.",
       risk: "prompt",
       schema,
       execute: async (raw) =>

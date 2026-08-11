@@ -60,7 +60,7 @@ describe("MCP bridge listener", () => {
     await fire({ id: "r2", payload: { op: "tools/call", name: "list_connections", args: {}, clientId: "t2" } });
 
     const [, args] = replyCall();
-    expect(args.result).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1" }] });
+    expect(args.result).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1", vault_id: "personal", folder_id: null }] });
   });
 
   it("always replies, even for an unrecognised op — an unanswered request hangs the client", async () => {

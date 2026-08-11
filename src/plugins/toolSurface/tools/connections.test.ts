@@ -4,6 +4,8 @@ import type { ToolSurfacePorts } from "../coreTools";
 
 const TEAM = { id: "t1", name: "team box", host: "t.example", port: 22, username: "u", auth_type: "key", tags: [], team: true };
 const MINE = { id: "c1", name: "mine", host: "m.example", port: 22, username: "u", auth_type: "key", tags: [] };
+/** What a record with no vault or folder of its own projects to. */
+const AT_ROOT = { vault_id: "personal", folder_id: null };
 
 function makePorts(overrides: Record<string, unknown> = {}) {
   const audit = vi.fn();
@@ -38,7 +40,8 @@ const tool = (ports: ToolSurfacePorts, name: string) =>
 describe("connection mutation verbs", () => {
   it("gets one connection by id", async () => {
     const { ports } = makePorts();
-    expect(await tool(ports, "connection_get").execute({ connectionId: "c1" })).toEqual(MINE);
+    expect(await tool(ports, "connection_get").execute({ connectionId: "c1" }))
+      .toEqual({ ...MINE, ...AT_ROOT });
   });
 
   it("returns null for an unknown id rather than throwing", async () => {
@@ -50,7 +53,7 @@ describe("connection mutation verbs", () => {
     const RAW = {
       ...MINE, id: "c3",
       env_vars: { TOKEN: "secret" }, notes: "private notes", pre_command: "echo pre",
-      post_command: "echo post", vault_id: "v1", clocks: { created: 1 }, deleted_at: null,
+      post_command: "echo post", vault_id: "v1", folder_id: "f1", clocks: { created: 1 }, deleted_at: null,
     };
     const { ports } = makePorts({ get: vi.fn(async () => RAW) });
     const result = await tool(ports, "connection_get").execute({ connectionId: "c3" });
@@ -58,10 +61,11 @@ describe("connection mutation verbs", () => {
     expect(result).not.toHaveProperty("notes");
     expect(result).not.toHaveProperty("pre_command");
     expect(result).not.toHaveProperty("post_command");
-    expect(result).not.toHaveProperty("vault_id");
     expect(result).not.toHaveProperty("clocks");
     expect(result).not.toHaveProperty("deleted_at");
-    expect(result).toEqual({ ...MINE, id: "c3" });
+    // Placement IS part of the contract: a caller that moved this connection has
+    // no other way to see where it landed.
+    expect(result).toEqual({ ...MINE, id: "c3", vault_id: "v1", folder_id: "f1" });
   });
 
   it("creates a connection and audits it against the new id", async () => {
@@ -79,20 +83,20 @@ describe("connection mutation verbs", () => {
       { tool: "connection_create", approval: "granted", objectType: "connection" },
       undefined,
     );
-    expect(result).toEqual({ ok: true, result: { ...MINE, id: "c2" } });
+    expect(result).toEqual({ ok: true, result: { ...MINE, id: "c2", ...AT_ROOT } });
   });
 
   it("projects away internal fields from a newly created connection", async () => {
     const RAW = {
       ...MINE, id: "c2",
       env_vars: { TOKEN: "secret" }, notes: "private notes", pre_command: "echo pre",
-      post_command: "echo post", vault_id: "v1", clocks: { created: 1 }, deleted_at: null,
+      post_command: "echo post", vault_id: "v1", folder_id: "f1", clocks: { created: 1 }, deleted_at: null,
     };
     const { ports } = makePorts({ create: vi.fn(async () => RAW) });
     const result = await tool(ports, "connection_create").execute({
       name: "web", host: "web.example", port: 22, username: "deploy", authType: "key",
     });
-    expect(result).toEqual({ ok: true, result: { ...MINE, id: "c2" } });
+    expect(result).toEqual({ ok: true, result: { ...MINE, id: "c2", vault_id: "v1", folder_id: "f1" } });
   });
 
   it("forwards an empty name and an empty tag list rather than skipping them", async () => {

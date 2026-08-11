@@ -88,7 +88,7 @@ describe("core tools", () => {
     const { ports: c } = basePorts();
     const t = tool(c, "list_connections");
     expect(t.risk).toBe("auto");
-    expect(await t.execute({})).toEqual([{ id: "c1", name: "srv", host: "h1" }]);
+    expect(await t.execute({})).toEqual([{ id: "c1", name: "srv", host: "h1", vault_id: "personal", folder_id: null }]);
   });
 
   test("read_terminal is auto-risk and reads a snapshot", async () => {

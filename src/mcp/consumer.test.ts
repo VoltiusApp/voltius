@@ -155,7 +155,7 @@ describe("MCP consumer", () => {
   it("runs a tool and returns its real result", async () => {
     const tools = buildMcpTools(api(), new Set());
     const out = await callTool(tools, "list_connections", {});
-    expect(out).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1", team: true }] });
+    expect(out).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1", vault_id: "personal", folder_id: null, team: true }] });
   });
 
   it("rejects invalid arguments before they reach the vault", async () => {

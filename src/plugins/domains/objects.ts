@@ -768,7 +768,16 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
     if (result.crossVaultAtRoot && result.moved === 0 && result.created === 0) {
       throw new Error("Refused: the destination root does not show the source vault");
     }
-    return { moved: result.moved, created: result.created, skipped: result.skipped };
+    return {
+      moved: result.moved,
+      created: result.created,
+      skipped: result.skipped,
+      // `destination` is the adapter's resolved target, the same value the
+      // cross-vault refusal above is decided on, so the outcome cannot name a
+      // vault the paste did not actually write to.
+      vault_id: destination,
+      folder_id: adapter.targetFolderId(),
+    };
   };
 
   return {

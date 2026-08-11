@@ -128,7 +128,7 @@ describe("api.objects permission gate", () => {
     const api = createHostPluginAPI("test:objects-crossvault", HOSTS_GRANT);
     await expect(api.objects.move({
       ids: ["c1"], folderId: null, vaultId: "v2", allowCrossVault: true,
-    })).resolves.toEqual({ moved: 1, created: 0, skipped: 0 });
+    })).resolves.toEqual({ moved: 1, created: 0, skipped: 0, vault_id: "v2", folder_id: null });
     expect(update).toHaveBeenCalledWith("c1", expect.objectContaining({ vault_id: "v2" }));
   });
 
@@ -164,14 +164,14 @@ describe("api.objects against the real stores", () => {
     const move = vi.spyOn(useFolderStore.getState(), "moveObjectsToFolder").mockResolvedValue();
     const api = createHostPluginAPI("test:objects-move", HOSTS_GRANT);
     const out = await api.objects.move({ ids: ["c1"], folderId: "f1", vaultId: null });
-    expect(out).toEqual({ moved: 1, created: 0, skipped: 0 });
+    expect(out).toEqual({ moved: 1, created: 0, skipped: 0, vault_id: "personal", folder_id: "f1" });
     expect(move).toHaveBeenCalledWith(["c1"], "connection", "f1");
   });
 
   it("reports an object already where the call would put it as a no-op, moving nothing", async () => {
     const api = createHostPluginAPI("test:objects-noop", HOSTS_GRANT);
     expect(await api.objects.move({ ids: ["c1"], folderId: null, vaultId: null }))
-      .toEqual({ moved: 0, created: 0, skipped: 0 });
+      .toEqual({ moved: 0, created: 0, skipped: 0, vault_id: null, folder_id: null });
   });
 
   it("gates against hydrated stores, not the empty ones a fresh app starts with", async () => {
@@ -190,7 +190,7 @@ describe("api.objects against the real stores", () => {
 
     const api = createHostPluginAPI("test:objects-cold", ["snippets:write"]);
     expect(await api.objects.move({ ids: ["s1"], folderId: "sf1", vaultId: null }))
-      .toEqual({ moved: 1, created: 0, skipped: 0 });
+      .toEqual({ moved: 1, created: 0, skipped: 0, vault_id: "personal", folder_id: "sf1" });
     expect(update).toHaveBeenCalledWith("s1", expect.objectContaining({ folder_id: "sf1" }));
   });
 
