@@ -18,11 +18,11 @@ jobs:
     steps:
       # fetch-depth: 0 — the check reads the plugin-*-v* release tags, and a
       # shallow checkout has none of them.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: lts/*
 
@@ -37,13 +37,13 @@ jobs:
   frontend-build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
         with:
           version: 10
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: 'pnpm'
@@ -75,13 +75,13 @@ jobs:
           sudo rm -rf /usr/local/lib/android /usr/local/share/dotnet /opt/ghc /usr/share/dotnet /opt/hostedtoolcache/CodeQL
           df -h
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
         with:
           version: 10
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: 'pnpm'
