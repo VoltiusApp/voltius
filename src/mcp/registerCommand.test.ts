@@ -30,7 +30,7 @@ describe("buildMcpRegisterCommand", () => {
 describe("buildAddMcpCommand", () => {
   it("matches the verified add-mcp v2 invocation exactly", () => {
     expect(buildAddMcpCommand("/usr/bin/voltius")).toBe(
-      "npx add-mcp@2 '/usr/bin/voltius' --args mcp -n voltius -g",
+      "npx -y add-mcp@2 '/usr/bin/voltius' --args mcp -n voltius -g",
     );
   });
 
@@ -42,8 +42,13 @@ describe("buildAddMcpCommand", () => {
     expect(buildAddMcpCommand("/usr/bin/voltius")).toMatch(/(^|\s)-g(\s|$)/);
   });
 
-  it("never passes -y — the confirmation prompt is deliberate on a host holding SSH credentials", () => {
-    expect(buildAddMcpCommand("/usr/bin/voltius")).not.toMatch(/(^|\s)-y(\s|$)/);
+  it("passes npx's -y — the install-consent prompt guards nothing the command has not already named", () => {
+    expect(buildAddMcpCommand("/usr/bin/voltius").startsWith("npx -y add-mcp@2 ")).toBe(true);
+  });
+
+  it("never passes add-mcp's own -y — the agent confirmation is deliberate on a host holding SSH credentials", () => {
+    const afterPackage = buildAddMcpCommand("/usr/bin/voltius").split("add-mcp@2 ")[1];
+    expect(afterPackage).not.toMatch(/(^|\s)-y(\s|$)/);
   });
 
   it("keeps mcp as a separate --args token, not concatenated into the path", () => {
@@ -52,13 +57,13 @@ describe("buildAddMcpCommand", () => {
 
   it("shell-quotes a spaced unix path so it survives as one argv token", () => {
     expect(buildAddMcpCommand("/Applications/My Voltius.app/Contents/MacOS/voltius")).toBe(
-      "npx add-mcp@2 '/Applications/My Voltius.app/Contents/MacOS/voltius' --args mcp -n voltius -g",
+      "npx -y add-mcp@2 '/Applications/My Voltius.app/Contents/MacOS/voltius' --args mcp -n voltius -g",
     );
   });
 
   it("shell-quotes a spaced Windows path", () => {
     expect(buildAddMcpCommand("C:\\Program Files\\Voltius\\voltius.exe")).toBe(
-      'npx add-mcp@2 "C:\\Program Files\\Voltius\\voltius.exe" --args mcp -n voltius -g',
+      'npx -y add-mcp@2 "C:\\Program Files\\Voltius\\voltius.exe" --args mcp -n voltius -g',
     );
   });
 });

@@ -50,7 +50,7 @@ test("renders the one-liner add-mcp command with the backend-supplied exe path, 
   await act(async () => {
     render(<IntegrationsSection />);
   });
-  screen.getByDisplayValue("npx add-mcp@2 '/home/user/Voltius Apps/voltius' --args mcp -n voltius -g");
+  screen.getByDisplayValue("npx -y add-mcp@2 '/home/user/Voltius Apps/voltius' --args mcp -n voltius -g");
 });
 
 test("shows the setup command even when the server toggle is off", async () => {
@@ -63,7 +63,7 @@ test("shows the setup command even when the server toggle is off", async () => {
   await act(async () => {
     render(<IntegrationsSection />);
   });
-  screen.getByDisplayValue('npx add-mcp@2 "C:\\Program Files\\Voltius\\voltius.exe" --args mcp -n voltius -g');
+  screen.getByDisplayValue('npx -y add-mcp@2 "C:\\Program Files\\Voltius\\voltius.exe" --args mcp -n voltius -g');
 });
 
 test("manual setup is collapsed by default and reveals the socket path and per-client snippet once opened", async () => {
