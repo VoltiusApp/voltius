@@ -143,3 +143,13 @@ describe("mcp:contribute permission", () => {
     expect(d.labelKey).toBe("settings.plugins.permissionModal.permissions.mcpContribute.label");
   });
 });
+
+describe("ports:forward", () => {
+  test("is gated and danger-styled", () => {
+    const [d] = describePermissions(["ports:forward"]);
+    expect(d.gated).toBe(true);
+    expect(d.danger).toBe(true);
+    expect(d.known).toBe(true);
+    expect(d.labelKey).toBe("settings.plugins.permissionModal.permissions.portsForward.label");
+  });
+});
