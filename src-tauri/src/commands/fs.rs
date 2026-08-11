@@ -247,6 +247,8 @@ pub async fn fs_copy(
                 }
                 let mut reader = std::fs::File::open(src)?;
                 let mut writer = std::fs::File::create(dst)?;
+                // Deliberately not `commands::sftp::pump_chunks`: this runs
+                // blocking std::io inside spawn_blocking, not AsyncRead/Write.
                 let mut buf = vec![0u8; COPY_CHUNK_SIZE];
                 loop {
                     if token.is_cancelled() {

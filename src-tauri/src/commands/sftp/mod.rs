@@ -109,7 +109,7 @@ pub(super) async fn tar_backend(
 /// Copy `reader` into `writer` in `CHUNK_SIZE` chunks, emitting transfer
 /// progress after every chunk and honouring cancellation between them.
 /// Neither side is shut down — the caller owns the close, and its wording.
-pub(super) async fn pump_chunks<R, W>(
+pub(crate) async fn pump_chunks<R, W>(
     app: &AppHandle,
     reader: &mut R,
     writer: &mut W,

@@ -9,7 +9,7 @@
 //! user data. Listing/parsing assumes filenames contain no tab or newline
 //! characters (acceptable for a file manager).
 
-use crate::commands::sftp::{RemoteFile, TransferProgress};
+use crate::commands::sftp::{pump_chunks, RemoteFile, TransferProgress};
 use crate::sftp::backend::FileBackend;
 use crate::ssh::client::SshClient;
 use crate::ssh::live_cells::read_cell;
@@ -21,14 +21,53 @@ use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::sync::CancellationToken;
-
-const CHUNK_SIZE: usize = 256 * 1024;
 
 /// Single-quote a string for the host POSIX shell.
 fn q(s: &str) -> String {
     format!("'{}'", s.replace('\'', r"'\''"))
+}
+
+/// Drain a russh channel until it closes: stdout goes to `out`, stderr is
+/// collected, and the exit status is returned alongside it — turning that into
+/// an error message is the caller's business, because each caller words it
+/// differently. `progress` is `(app, transfer_id, total)` for the callers that
+/// stream a transfer; with `token` set, a cancellation between messages aborts
+/// the drain.
+async fn drain_channel<W: AsyncWrite + Unpin>(
+    channel: &mut russh::Channel<russh::client::Msg>,
+    out: &mut W,
+    progress: Option<(&AppHandle, &str, u64)>,
+    token: Option<&CancellationToken>,
+) -> Result<(i32, Vec<u8>), String> {
+    let mut transferred = 0u64;
+    let mut err = Vec::new();
+    let mut code = 0i32;
+    loop {
+        if token.is_some_and(|t| t.is_cancelled()) {
+            return Err("Transfer cancelled".into());
+        }
+        match channel.wait().await {
+            Some(ChannelMsg::Data { data }) => {
+                out.write_all(&data)
+                    .await
+                    .map_err(|e| format!("Write error: {e}"))?;
+                transferred += data.len() as u64;
+                if let Some((app, transfer_id, total)) = progress {
+                    let _ = app.emit(
+                        &format!("sftp-progress-{transfer_id}"),
+                        TransferProgress { transferred, total },
+                    );
+                }
+            }
+            Some(ChannelMsg::ExtendedData { data, .. }) => err.extend_from_slice(&data),
+            Some(ChannelMsg::ExitStatus { exit_status }) => code = exit_status as i32,
+            Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
+            _ => {}
+        }
+    }
+    Ok((code, err))
 }
 
 fn parent_of(path: &str) -> &str {
@@ -309,29 +348,17 @@ impl DockerFs {
             .map_err(|e| format!("exec error: {e}"))?;
         let mut writer = channel.make_writer();
 
-        let mut buf = vec![0u8; CHUNK_SIZE];
         let mut transferred = 0u64;
-        loop {
-            if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
-            }
-            let n = local
-                .read(&mut buf)
-                .await
-                .map_err(|e| format!("Read error: {e}"))?;
-            if n == 0 {
-                break;
-            }
-            writer
-                .write_all(&buf[..n])
-                .await
-                .map_err(|e| format!("Write error: {e}"))?;
-            transferred += n as u64;
-            let _ = app.emit(
-                &format!("sftp-progress-{transfer_id}"),
-                TransferProgress { transferred, total },
-            );
-        }
+        pump_chunks(
+            app,
+            &mut local,
+            &mut writer,
+            transfer_id,
+            token,
+            &mut transferred,
+            total,
+        )
+        .await?;
         writer.flush().await.ok();
         drop(writer);
         channel.eof().await.ok();
@@ -367,31 +394,13 @@ impl DockerFs {
             .await
             .map_err(|e| format!("exec error: {e}"))?;
 
-        let mut transferred = 0u64;
-        let mut err = Vec::new();
-        let mut code = 0i32;
-        loop {
-            if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
-            }
-            match channel.wait().await {
-                Some(ChannelMsg::Data { data }) => {
-                    local
-                        .write_all(&data)
-                        .await
-                        .map_err(|e| format!("Write error: {e}"))?;
-                    transferred += data.len() as u64;
-                    let _ = app.emit(
-                        &format!("sftp-progress-{transfer_id}"),
-                        TransferProgress { transferred, total },
-                    );
-                }
-                Some(ChannelMsg::ExtendedData { data, .. }) => err.extend_from_slice(&data),
-                Some(ChannelMsg::ExitStatus { exit_status }) => code = exit_status as i32,
-                Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
-                _ => {}
-            }
-        }
+        let (code, err) = drain_channel(
+            &mut channel,
+            &mut local,
+            Some((app, transfer_id, total)),
+            Some(token),
+        )
+        .await?;
         local.flush().await.ok();
         if code != 0 {
             let msg = String::from_utf8_lossy(&err);
@@ -401,21 +410,13 @@ impl DockerFs {
     }
 
     /// Wait for a streaming-upload command to finish and report any error.
+    /// The channel produces no stdout here, so it drains into a sink.
     async fn drain_exit(
         &self,
         channel: &mut russh::Channel<russh::client::Msg>,
         label: &str,
     ) -> Result<(), String> {
-        let mut err = Vec::new();
-        let mut code = 0i32;
-        loop {
-            match channel.wait().await {
-                Some(ChannelMsg::ExtendedData { data, .. }) => err.extend_from_slice(&data),
-                Some(ChannelMsg::ExitStatus { exit_status }) => code = exit_status as i32,
-                Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
-                _ => {}
-            }
-        }
+        let (code, err) = drain_channel(channel, &mut tokio::io::sink(), None, None).await?;
         if code != 0 {
             let msg = String::from_utf8_lossy(&err);
             return Err(format!("{label} failed: {}", msg.trim()));
@@ -575,32 +576,21 @@ impl DockerFs {
             .map_err(|e| format!("exec error: {e}"))?;
         let mut writer = channel.make_writer();
 
-        let mut buf = vec![0u8; CHUNK_SIZE];
         let mut transferred = 0u64;
-        loop {
-            if token.is_cancelled() {
-                let _ = child.kill().await;
-                return Err("Transfer cancelled".into());
-            }
-            let n = tar_out
-                .read(&mut buf)
-                .await
-                .map_err(|e| format!("tar read error: {e}"))?;
-            if n == 0 {
-                break;
-            }
-            writer
-                .write_all(&buf[..n])
-                .await
-                .map_err(|e| format!("Write error: {e}"))?;
-            transferred += n as u64;
-            let _ = app.emit(
-                &format!("sftp-progress-{transfer_id}"),
-                TransferProgress {
-                    transferred,
-                    total: 0,
-                },
-            );
+        // Any failure, cancellation included, must reap the local tar first.
+        if let Err(e) = pump_chunks(
+            app,
+            &mut tar_out,
+            &mut writer,
+            transfer_id,
+            token,
+            &mut transferred,
+            0,
+        )
+        .await
+        {
+            let _ = child.kill().await;
+            return Err(e);
         }
         writer.flush().await.ok();
         drop(writer);
@@ -649,35 +639,21 @@ impl DockerFs {
             .await
             .map_err(|e| format!("exec error: {e}"))?;
 
-        let mut transferred = 0u64;
-        let mut err = Vec::new();
-        let mut code = 0i32;
-        loop {
-            if token.is_cancelled() {
+        // Any failure, cancellation included, must reap the local tar first.
+        let drained = drain_channel(
+            &mut channel,
+            &mut tar_in,
+            Some((app, transfer_id, 0)),
+            Some(token),
+        )
+        .await;
+        let (code, err) = match drained {
+            Ok(v) => v,
+            Err(e) => {
                 let _ = child.kill().await;
-                return Err("Transfer cancelled".into());
+                return Err(e);
             }
-            match channel.wait().await {
-                Some(ChannelMsg::Data { data }) => {
-                    tar_in
-                        .write_all(&data)
-                        .await
-                        .map_err(|e| format!("tar write error: {e}"))?;
-                    transferred += data.len() as u64;
-                    let _ = app.emit(
-                        &format!("sftp-progress-{transfer_id}"),
-                        TransferProgress {
-                            transferred,
-                            total: 0,
-                        },
-                    );
-                }
-                Some(ChannelMsg::ExtendedData { data, .. }) => err.extend_from_slice(&data),
-                Some(ChannelMsg::ExitStatus { exit_status }) => code = exit_status as i32,
-                Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
-                _ => {}
-            }
-        }
+        };
         drop(tar_in); // close stdin so local tar finishes
         let status = child
             .wait()
