@@ -100,11 +100,6 @@ fn build_tls_config() -> Result<ClientConfig, String> {
     Ok(config)
 }
 
-fn file_name(path: &str) -> &str {
-    let trimmed = path.trim_end_matches('/');
-    trimmed.rsplit('/').next().unwrap_or(trimmed)
-}
-
 fn collect_local(
     base: &Path,
     current: &Path,
@@ -447,55 +442,7 @@ impl FileBackend for FtpBackend {
         Ok(())
     }
 
-    async fn upload_batch(
-        &self,
-        app: &AppHandle,
-        local_paths: &[String],
-        remote_dir: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        let base = remote_dir.trim_end_matches('/');
-        let _ = self.mkdir(base).await;
-        for p in local_paths {
-            if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
-            }
-            let remote = format!("{}/{}", base, file_name(p));
-            if Path::new(p).is_dir() {
-                self.upload_dir(app, p, &remote, transfer_id, token).await?;
-            } else {
-                self.upload_file(app, p, &remote, transfer_id, token)
-                    .await?;
-            }
-        }
-        Ok(())
-    }
-
-    async fn download_batch(
-        &self,
-        app: &AppHandle,
-        remote_paths: &[String],
-        local_dir: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        for p in remote_paths {
-            if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
-            }
-            let local = Path::new(local_dir).join(file_name(p));
-            let is_dir = self.stat(p).await?.unwrap_or(false);
-            if is_dir {
-                self.download_dir(app, p, &local.to_string_lossy(), transfer_id, token)
-                    .await?;
-            } else {
-                self.download_file(app, p, &local.to_string_lossy(), transfer_id, token)
-                    .await?;
-            }
-        }
-        Ok(())
-    }
+    // upload_batch / download_batch: the FileBackend per-item defaults.
 }
 
 #[cfg(test)]
