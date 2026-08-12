@@ -27,8 +27,6 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - uses: pnpm/action-setup@v6
-        with:
-          version: latest
 
       - name: Publish to npm
         run: cd crates/voltius-crypto-wasm/pkg && pnpm publish --access public --no-git-checks
