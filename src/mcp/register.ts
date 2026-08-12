@@ -59,9 +59,9 @@ function stateFor(clientId: string, clientName: string): ClientState {
   const existing = _clients.get(clientId);
   if (existing) existing.clientName = clientName || existing.clientName;
   if (existing && existing.version === version) return existing;
-  // The facade is hoisted out of the build for the same reason the Set was:
-  // rebuilding it with the tools would orphan every session this client opened.
-  const owned = existing?.owned ?? ownedSessionsFor(clientId, () => _clients.get(clientId)?.clientName ?? "");
+  // Stateless — reads live off the store by clientId — so a fresh instance
+  // behaves identically to the previous one; no reuse needed to avoid orphaning.
+  const owned = ownedSessionsFor(clientId, () => _clients.get(clientId)?.clientName ?? "");
   const next: ClientState = {
     owned,
     clientName: clientName || existing?.clientName || "",
