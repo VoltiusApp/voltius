@@ -79,6 +79,18 @@ export function createSftpAPI(
     return opening;
   };
 
+  /** Close and drop a cached handle, e.g. after a transfer fails on it —
+   *  otherwise a retry re-dispatches on a dead handle, and the live backend
+   *  session it pointed at is never closed. A failed close is swallowed:
+   *  the handle is coming out of the cache either way, and the original
+   *  error (the caller's, not this cleanup's) is what should surface. */
+  const evictHandle = async (target: string): Promise<void> => {
+    const handle = handles.get(target);
+    if (!handle) return;
+    handles.delete(target);
+    await sftpClose(await handle).catch(() => {});
+  };
+
   const isLocal = (target: string) => target === LOCAL_TARGET;
 
   /**
@@ -216,17 +228,13 @@ export function createSftpAPI(
         const params = { srcSftpId, srcPath: src.path, dstSftpId, dstPath: dst.path, transferId };
         return await (dir ? sftpTransferDir(params) : sftpTransfer(params));
       } catch (err) {
-        handles.delete(src.target);
-        handles.delete(dst.target);
+        await Promise.all([evictHandle(src.target), evictHandle(dst.target)]);
         throw err;
       }
     },
 
     async disconnect(target) {
-      const handle = handles.get(target);
-      if (!handle) return;
-      handles.delete(target);
-      await sftpClose(await handle).catch(() => {});
+      await evictHandle(target);
     },
 
     dispose() {
