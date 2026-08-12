@@ -65,7 +65,13 @@ function stateFor(clientId: string, clientName: string): ClientState {
   const next: ClientState = {
     owned,
     clientName: clientName || existing?.clientName || "",
-    tools: buildMcpTools(getMcpHostApi(), owned),
+    tools: buildMcpTools(getMcpHostApi(), owned, () => {
+      const name = _clients.get(clientId)?.clientName ?? "";
+      // `since` is read here fresh per transfer, not per client: for a
+      // transfer owner it means "started at", unlike a session owner where
+      // it means "owned since". Nothing currently reads it for transfers.
+      return { clientId, clientName: name, since: Date.now() };
+    }),
     version,
   };
   _clients.set(clientId, next);

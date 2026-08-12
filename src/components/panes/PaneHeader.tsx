@@ -9,6 +9,7 @@ import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/
 import { useDragStore } from "@/stores/dragStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
+import { McpMark, mcpOwnerTitle, mcpTint } from "@/components/shared/McpMark";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore, type SplitPosition } from "@/stores/layoutStore";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -302,7 +303,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
       className="h-7 shrink-0 flex items-stretch gap-2 px-2 text-xs border-b"
       style={{
         background: mcpOwner
-          ? "color-mix(in srgb, var(--t-mcp) 10%, var(--t-bg-card))"
+          ? mcpTint("var(--t-bg-card)")
           : broadcastActive
             ? "color-mix(in srgb, var(--t-accent) 12%, var(--t-bg-card))"
             : active
@@ -345,17 +346,14 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
           {sessionBadge(session, t)}
         </span>
         {mcpOwner && (
-          <span
-            data-testid="mcp-chip"
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold"
-            style={{ background: "color-mix(in srgb, var(--t-mcp) 22%, transparent)", color: "var(--t-mcp)" }}
-            title={mcpOwner.clientName
-              ? t("panes.header.mcpTooltip", { client: mcpOwner.clientName })
-              : t("panes.header.mcpTooltipUnknown")}
-          >
-            <Icon icon="lucide:bot" width={11} />
-            {t("panes.header.mcpBadge")}
-          </span>
+          <McpMark
+            variant="chip"
+            title={mcpOwnerTitle(mcpOwner, t, {
+              known: "panes.header.mcpTooltip",
+              unknown: "panes.header.mcpTooltipUnknown",
+            })}
+            label={t("panes.header.mcpBadge")}
+          />
         )}
         <span className="size-1.5 rounded-full" style={{ background: statusColor(session.status) }} />
         {pingEnabled && session.type === "ssh" && pingStatus === "up" && latencyMs !== undefined && (

@@ -117,6 +117,9 @@
       "cancelAll": "Cancel all transfers",
       "clearFinished": "Clear finished transfers",
       "cancelTransfer": "Cancel transfer",
+      "retryTransfer": "Retry transfer",
+      "mcpTooltip": "Started by {{client}}",
+      "mcpTooltipUnknown": "Started by an MCP client",
       "status": {
         "done": "Done",
         "error": "Error",

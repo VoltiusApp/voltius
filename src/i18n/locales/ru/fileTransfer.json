@@ -142,6 +142,9 @@
       "cancelAll": "Отменить все передачи",
       "clearFinished": "Очистить завершённые передачи",
       "cancelTransfer": "Отменить передачу",
+      "retryTransfer": "Повторить передачу",
+      "mcpTooltip": "Запущено клиентом {{client}}",
+      "mcpTooltipUnknown": "Запущено MCP-клиентом",
       "status": {
         "done": "Готово",
         "error": "Ошибка",

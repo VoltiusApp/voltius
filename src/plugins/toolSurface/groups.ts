@@ -14,6 +14,8 @@ import { buildPortForwardTools, PORT_FORWARD_PERMISSIONS } from "./tools/portFor
 import { buildKnownHostTools, KNOWN_HOST_PERMISSIONS } from "./tools/knownHosts";
 import { buildHistoryTools, HISTORY_PERMISSIONS } from "./tools/history";
 import { buildSnippetRunTools, SNIPPET_RUN_PERMISSIONS } from "./tools/snippetRun";
+import { buildTransferTools, TRANSFER_PERMISSIONS } from "./tools/transfers";
+import { buildTelemetryTools, TELEMETRY_PERMISSIONS } from "./tools/telemetry";
 
 /** One entry per domain: builder and permissions travel together so they cannot drift. */
 const GROUPS = [
@@ -31,6 +33,8 @@ const GROUPS = [
   { build: buildKnownHostTools, permissions: KNOWN_HOST_PERMISSIONS },
   { build: buildHistoryTools, permissions: HISTORY_PERMISSIONS },
   { build: buildSnippetRunTools, permissions: SNIPPET_RUN_PERMISSIONS },
+  { build: buildTransferTools, permissions: TRANSFER_PERMISSIONS },
+  { build: buildTelemetryTools, permissions: TELEMETRY_PERMISSIONS },
 ] as const;
 
 export const ALL_PERMISSIONS: readonly string[] = [

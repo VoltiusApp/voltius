@@ -79,6 +79,18 @@ export function createSftpAPI(
     return opening;
   };
 
+  /** Close and drop a cached handle, e.g. after a transfer fails on it —
+   *  otherwise a retry re-dispatches on a dead handle, and the live backend
+   *  session it pointed at is never closed. A failed close is swallowed:
+   *  the handle is coming out of the cache either way, and the original
+   *  error (the caller's, not this cleanup's) is what should surface. */
+  const evictHandle = async (target: string): Promise<void> => {
+    const handle = handles.get(target);
+    if (!handle) return;
+    handles.delete(target);
+    await sftpClose(await handle).catch(() => {});
+  };
+
   const isLocal = (target: string) => target === LOCAL_TARGET;
 
   /**
@@ -177,44 +189,52 @@ export function createSftpAPI(
       return sftpDelete(await handleFor(target), path);
     },
 
-    async transfer(src: FileEndpoint, dst: FileEndpoint) {
+    async transfer(src: FileEndpoint, dst: FileEndpoint, callerTransferId?: string) {
       assertTarget(src.target);
       assertTarget(dst.target);
-      const transferId = crypto.randomUUID();
+      const transferId = callerTransferId ?? crypto.randomUUID();
       const dir = await isDirAt(src.target, src.path);
 
-      if (isLocal(src.target) && isLocal(dst.target)) {
-        return fsCopy(src.path, dst.path, transferId);
-      }
-      if (isLocal(src.target)) {
-        const sftpId = await handleFor(dst.target);
-        const params = { sftpId, localPath: src.path, remotePath: dst.path, transferId };
-        return dir ? sftpUploadDir(params) : sftpUpload(params);
-      }
-      if (isLocal(dst.target)) {
-        const sftpId = await handleFor(src.target);
-        const params = { sftpId, remotePath: src.path, localPath: dst.path, transferId };
-        return dir ? sftpDownloadDir(params) : sftpDownload(params);
-      }
-      const [srcSftpId, dstSftpId] = await Promise.all([
-        handleFor(src.target),
-        handleFor(dst.target),
-      ]);
+      // A dropped connection is the usual reason a transfer fails, and a
+      // cached handle survives a dead socket — sftp_transfer errors, but the
+      // stale id stays cached and the next call (e.g. transfer_retry) keeps
+      // dispatching on it. Evict both ends on any failure so a retry reopens
+      // the connection; the cost is an occasional unneeded reconnect when the
+      // failure was really a per-file error on a still-healthy connection.
+      try {
+        if (isLocal(src.target) && isLocal(dst.target)) {
+          return await fsCopy(src.path, dst.path, transferId);
+        }
+        if (isLocal(src.target)) {
+          const sftpId = await handleFor(dst.target);
+          const params = { sftpId, localPath: src.path, remotePath: dst.path, transferId };
+          return await (dir ? sftpUploadDir(params) : sftpUpload(params));
+        }
+        if (isLocal(dst.target)) {
+          const sftpId = await handleFor(src.target);
+          const params = { sftpId, remotePath: src.path, localPath: dst.path, transferId };
+          return await (dir ? sftpDownloadDir(params) : sftpDownload(params));
+        }
+        const [srcSftpId, dstSftpId] = await Promise.all([
+          handleFor(src.target),
+          handleFor(dst.target),
+        ]);
 
-      // `sftp_transfer` used to resolve both ids with `get_session`, which
-      // downcasts to a real SFTP session, so an FTP end forced a stage through
-      // this machine's cache directory. It now pipes through `FileBackend`
-      // whenever either end is not real SFTP, and the bytes never touch local
-      // disk regardless of the pairing.
-      const params = { srcSftpId, srcPath: src.path, dstSftpId, dstPath: dst.path, transferId };
-      return dir ? sftpTransferDir(params) : sftpTransfer(params);
+        // `sftp_transfer` used to resolve both ids with `get_session`, which
+        // downcasts to a real SFTP session, so an FTP end forced a stage through
+        // this machine's cache directory. It now pipes through `FileBackend`
+        // whenever either end is not real SFTP, and the bytes never touch local
+        // disk regardless of the pairing.
+        const params = { srcSftpId, srcPath: src.path, dstSftpId, dstPath: dst.path, transferId };
+        return await (dir ? sftpTransferDir(params) : sftpTransfer(params));
+      } catch (err) {
+        await Promise.all([evictHandle(src.target), evictHandle(dst.target)]);
+        throw err;
+      }
     },
 
     async disconnect(target) {
-      const handle = handles.get(target);
-      if (!handle) return;
-      handles.delete(target);
-      await sftpClose(await handle).catch(() => {});
+      await evictHandle(target);
     },
 
     dispose() {

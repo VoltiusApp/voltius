@@ -3,6 +3,9 @@ import type { PluginAPI } from "@/plugins/api";
 import { buildCoreTools, deriveScope, type ToolSurfacePorts, type OwnedSessions } from "@voltius/tools";
 import { listContributions } from "./contributions";
 import { isPluginExposed } from "@/stores/mcpContributionStore";
+import { useTransferQueueStore } from "@/stores/transferQueueStore";
+import type { McpOwner } from "@/stores/mcpOwnershipStore";
+import { setTransferId, takeTransferId } from "./transferIdByArgs";
 
 /** The built-in strings describe the agent's approval policy. Over MCP nothing
  *  prompts, so repeating them would misinform the model about the gate. */
@@ -27,8 +30,10 @@ export const MCP_TEXT = {
       + "own client is responsible for approval.",
     transfer_file:
       "Copy a file or directory between any two file targets — host to host, or to and from "
-      + "\"local\". Host-to-host streams directly and never lands on the user's machine. A large "
-      + "transfer can exceed the call timeout and keep running after the error returns.",
+      + "\"local\". Host-to-host streams directly and never lands on the user's machine. The "
+      + "transfer appears in the user's transfer queue, marked as yours, and can be followed with "
+      + "transfer_list. A large transfer can exceed the call timeout and keep running after the "
+      + "error returns; use transfer_list to see how it ended.",
     open_session:
       "Open a new terminal session on a connection. `connectionId` must be an \"id\" from "
       + "list_connections, not a name or a hostname. The session appears as a real tab in the app.",
@@ -130,7 +135,11 @@ export interface McpTool {
   execute(args: Record<string, unknown>): Promise<unknown>;
 }
 
-export function buildMcpTools(api: PluginAPI, owned: OwnedSessions): McpTool[] {
+export function buildMcpTools(
+  api: PluginAPI,
+  owned: OwnedSessions,
+  owner?: () => McpOwner | undefined,
+): McpTool[] {
   const ports: ToolSurfacePorts = {
     api,
     // The MCP client's own permission prompt is the gate; Voltius performs no
@@ -145,6 +154,7 @@ export function buildMcpTools(api: PluginAPI, owned: OwnedSessions): McpTool[] {
     audit: (scope, action, metadata, localMetadata) =>
       api.audit?.record?.(scope, action, { ...metadata, via: "mcp" }, localMetadata),
     owned,
+    transferId: takeTransferId,
     text: MCP_TEXT,
   };
   const core = buildCoreTools(ports).map((t) => ({
@@ -152,9 +162,63 @@ export function buildMcpTools(api: PluginAPI, owned: OwnedSessions): McpTool[] {
     description: t.description,
     inputSchema: z.toJSONSchema(t.schema),
     schema: t.schema,
-    execute: (args: Record<string, unknown>) => t.execute(args),
+    execute: t.name === "transfer_file"
+      ? (args: Record<string, unknown>) => queueTransfer(args, owner?.(), () => t.execute(args))
+      : (args: Record<string, unknown>) => t.execute(args),
   }));
   return [...core, ...buildContributedTools(ports)];
+}
+
+/**
+ * Put an MCP-started transfer in the app's own queue so the user can see and
+ * cancel it, and so transfer_list/cancel/retry cover it. The ownership stamp
+ * happens here rather than in PluginAPI: the client's identity only exists at
+ * this layer, and a caller-supplied owner on the plugin API would let any
+ * plugin forge MCP provenance.
+ */
+function queueTransfer(
+  args: Record<string, unknown>,
+  owner: McpOwner | undefined,
+  run: () => Promise<unknown>,
+): Promise<unknown> {
+  const label = `${String(args.fromPath ?? "")} → ${String(args.toPath ?? "")}`;
+  // Host-to-host also renders "→" — the queue's arrow only distinguishes
+  // "lands on this machine" from everything else, it has no third glyph for
+  // "neither end is local".
+  const direction = args.toTarget === "local" ? "←" : "→";
+  let out: unknown;
+  let thrown: unknown;
+  let failed = false;
+  return useTransferQueueStore
+    .getState()
+    .runTransfer(label, direction, async (tid) => {
+      // The tool's execute() reads this back to pass the queue row's own id
+      // into ports.api.sftp.transfer, so the backend emits progress on the
+      // channel this row is subscribed to instead of one nobody listens on.
+      setTransferId(args, tid);
+      try {
+        out = await run();
+      } catch (err) {
+        // Outside makeFileOp's own try/catch (e.g. gate()/audit() throwing):
+        // a genuine exception, as opposed to a caught-and-returned refusal.
+        // Captured so it can be rethrown below — runTransfer's catch marks
+        // the row "error" but never rethrows, so without this the caller
+        // would see a silent `undefined` success instead of the failure.
+        thrown = err;
+        failed = true;
+        throw err;
+      }
+      // makeFileOp never throws — it catches and resolves with a refusal object —
+      // so runTransfer's own catch (which marks the row "error") never fires
+      // unless we surface the refusal as a throw here. `out` is already captured,
+      // so the caller still gets the refusal back untouched below.
+      const refusal = refusalMessage(out);
+      if (refusal !== null) throw new Error(refusal);
+    }, undefined, false, owner)
+    .then(() => {
+      if (failed) throw thrown;
+      return out;
+    });
 }
 
 /**

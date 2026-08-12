@@ -20,6 +20,7 @@ import { SyncDropdown } from "@/components/layout/SyncDropdown";
 import { NewSessionPopover } from "@/components/layout/NewSessionPopover";
 import { useDragStore } from "@/stores/dragStore";
 import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
+import { McpMark, mcpOwnerTitle } from "@/components/shared/McpMark";
 import { findLeaf, firstLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { shouldSuppressDragClick } from "@/components/panes/usePaneDragController";
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
@@ -207,22 +208,15 @@ export default function TitleBar() {
     const owned = sessionIds.some((id) => id in mcpOwners);
     const busy = sessionIds.some((id) => (mcpBusy[id] ?? 0) > 0);
     if (!owned && !busy) return null;
-    return (
-      <span
-        data-testid={`mcp-bar-${key}`}
-        className={`absolute left-0 top-0 bottom-0 w-[3px] ${busy ? "mcp-pulse" : ""}`}
-        style={{ background: "var(--t-mcp)" }}
-      />
-    );
+    return <McpMark variant="rail" testId={`mcp-bar-${key}`} busy={busy} />;
   };
 
-  const mcpTooltip = (sessionIds: string[]): string | undefined => {
-    const owner = sessionIds.map((id) => mcpOwners[id]).find((o) => o !== undefined);
-    if (!owner) return undefined;
-    return owner.clientName
-      ? t("panes.header.mcpTooltip", { client: owner.clientName })
-      : t("panes.header.mcpTooltipUnknown");
-  };
+  const mcpTooltip = (sessionIds: string[]): string | undefined =>
+    mcpOwnerTitle(
+      sessionIds.map((id) => mcpOwners[id]).find((o) => o !== undefined),
+      t,
+      { known: "panes.header.mcpTooltip", unknown: "panes.header.mcpTooltipUnknown" },
+    );
 
   const renderTitlebarDropCue = (itemKey: string | null, placement: "before" | "after") => {
     if (dropTarget?.type !== "titlebar" || dropTarget.targetKey !== itemKey || (dropTarget.placement ?? "after") !== placement) return null;

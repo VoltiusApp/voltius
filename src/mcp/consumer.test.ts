@@ -22,7 +22,7 @@ const ALL_TOOLS = [
   "connection_bulk_import", "connection_create", "connection_delete", "connection_get", "connection_update",
   "delete_path",
   "folder_create", "folder_delete", "folder_list", "folder_rename",
-  "history_search",
+  "history_search", "host_ping_status",
   "identity_create", "identity_delete", "identity_list",
   "key_add_to_host", "key_create", "key_delete", "key_list",
   "known_host_delete", "known_host_list", "known_host_trust",
@@ -32,7 +32,8 @@ const ALL_TOOLS = [
   "port_forward_stop", "port_forward_tunnels", "port_forward_update",
   "read_file", "read_terminal", "rename_path", "run_command",
   "snippet_create", "snippet_delete", "snippet_list", "snippet_run", "snippet_update",
-  "stat_file", "transfer_file",
+  "stat_file", "sync_status",
+  "transfer_cancel", "transfer_file", "transfer_list", "transfer_retry",
   "vault_create", "vault_delete", "vault_list", "vault_rename",
   "write_file",
 ];

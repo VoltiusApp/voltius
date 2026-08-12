@@ -140,6 +140,34 @@ export interface PluginHistoryEntry {
   connection_id: string;
 }
 
+export interface PluginTransfer {
+  id: string;
+  label: string;
+  direction: "→" | "←";
+  status: "running" | "done" | "cancelled" | "error";
+  transferred: number;
+  total: number;
+  speed?: number;
+  eta?: number;
+  error?: string;
+  /** Name of the MCP client that started it; absent for the user's own. */
+  owner?: string;
+}
+
+export interface PluginSyncState {
+  status: "idle" | "syncing" | "success" | "error" | "offline";
+  lastSync: string | null;
+  error: string | null;
+  cloudActive: boolean;
+  blobSizeBytes: number | null;
+}
+
+export interface PluginHostPing {
+  connectionId: string;
+  status: "up" | "down" | "unknown";
+  latencyMs?: number;
+}
+
 /**
  * A SAVED port-forwarding rule: a shape, not a live listener. Opening one is
  * `portForwards.start`, which needs an open session to hang the tunnel on.
@@ -384,8 +412,11 @@ export interface SftpAPI {
   rename(target: FileTarget, from: string, to: string): Promise<void>;
   delete(target: FileTarget, path: string): Promise<void>;
   /** Copy one path between any two targets, in any direction, files or
-   *  directories. Host→host streams directly and never lands on this machine. */
-  transfer(src: FileEndpoint, dst: FileEndpoint): Promise<void>;
+   *  directories. Host→host streams directly and never lands on this machine.
+   *  `transferId` defaults to a fresh one; a caller that already has an id to
+   *  subscribe progress under (the transfer queue) can pass its own so the
+   *  backend's `sftp-progress-<id>` events reach it instead of going nowhere. */
+  transfer(src: FileEndpoint, dst: FileEndpoint, transferId?: string): Promise<void>;
   /** Release the handle held for `target`, if any. */
   disconnect(target: FileTarget): Promise<void>;
 }
@@ -806,6 +837,38 @@ export interface PluginAPI {
     search(filter: {
       query?: string; connectionId?: string; sessionId?: string; limit?: number;
     }): PluginHistoryEntry[];
+  };
+
+  /**
+   * File transfers in the app's queue — the user's own and any an MCP client
+   * started (requires the gated transfers:read / transfers:write). The list is
+   * capped at 30 entries by the store and is not persisted across restarts.
+   */
+  transfers: {
+    list(): PluginTransfer[];
+    /** False when the id is unknown, or the transfer is not currently running. */
+    cancel(id: string): boolean;
+    /** False when the id is unknown, or the transfer is still running, already done,
+     *  or not yet settled (a just-cancelled row still winding down). */
+    retry(id: string): boolean;
+  };
+
+  /**
+   * Host reachability as last observed by the app's own polling (requires the
+   * gated health:read). Reading NEVER triggers a probe: issue #90 was a probe
+   * storm that tripped `ufw limit` and locked users out of their own hosts.
+   */
+  health: {
+    pingStatus(): PluginHostPing[];
+  };
+
+  /**
+   * The state of the user's own configuration sync (requires sync:read).
+   * Distinct from the plugin-scoped `sync` domain above, which is a plugin's
+   * own blob storage and gist sync — this is the app's own cross-device sync.
+   */
+  appSync: {
+    status(): PluginSyncState;
   };
 
   /**
