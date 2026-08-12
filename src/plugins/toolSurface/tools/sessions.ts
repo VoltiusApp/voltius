@@ -107,6 +107,7 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         sessionId: z.string(),
         keys: z.array(z.string()),
         quietMs: z.number().int().positive().optional(),
+        firstOutputMs: z.number().int().positive().optional(),
         timeoutMs: z.number().int().positive().optional(),
         maxLines: z.number().int().positive().optional(),
       }),
@@ -141,6 +142,7 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         );
         const result = await sendKeysToSession(ports.api, sessionId, encoded.text, {
           quietMs: g.args.quietMs as number | undefined,
+          firstOutputMs: g.args.firstOutputMs as number | undefined,
           timeoutMs: g.args.timeoutMs as number | undefined,
           maxLines: g.args.maxLines as number | undefined,
         });

@@ -275,7 +275,7 @@ describe("sendKeysToSession", () => {
     const { api } = fakeApi();
     api.terminal.onOutput = vi.fn(async () => { order.push("subscribe"); return () => {}; });
     api.sessions.sendInput = vi.fn(async () => { order.push("write"); });
-    await sendKeysToSession(api, "s1", "\x1b[B", { quietMs: 5, timeoutMs: 50 });
+    await sendKeysToSession(api, "s1", "\x1b[B", { quietMs: 5, firstOutputMs: 10, timeoutMs: 50 });
     expect(order).toEqual(["subscribe", "write"]);
   });
 
@@ -287,7 +287,24 @@ describe("sendKeysToSession", () => {
     const p = sendKeysToSession(api, "s1", "top\r", { quietMs: 20, timeoutMs: 500 });
     setTimeout(() => emit("redraw"), 5);
     const r = await p;
-    expect(r).toMatchObject({ settled: true, timedOut: false, screen: "  1  top - load average" });
+    expect(r).toMatchObject({ settled: true, outputSeen: true, timedOut: false, screen: "  1  top - load average" });
+  });
+
+  // Regression guard: the quiet timer must arm on the FIRST byte, never before
+  // the write. Armed up front, this call would settle at 300ms on the stale
+  // pre-keystroke screen and report settled: true.
+  it("does not arm the quiet timer before output arrives: late output still wins", async () => {
+    const { api } = fakeApi();
+    let emit: (t: string) => void = () => {};
+    api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => { emit = cb; return () => {}; });
+    let screen = "root@host:~# ";
+    api.terminal.readSnapshot = vi.fn(() => screen);
+    // quietMs left at its 300ms default; the first byte lands well after it.
+    const p = sendKeysToSession(api, "s1", "top\r", { firstOutputMs: 2000, timeoutMs: 5000 });
+    setTimeout(() => { screen = "top - 12:00:00 up 1 day"; emit("redraw"); }, 400);
+    const r = await p;
+    expect(r).toMatchObject({ settled: true, outputSeen: true, timedOut: false });
+    expect(r.screen).toBe("top - 12:00:00 up 1 day");
   });
 
   it("resolves timedOut when output never goes quiet", async () => {
@@ -295,29 +312,43 @@ describe("sendKeysToSession", () => {
     let emit: (t: string) => void = () => {};
     api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => { emit = cb; return () => {}; });
     const noise = setInterval(() => emit("."), 5);
-    const r = await sendKeysToSession(api, "s1", "x", { quietMs: 50, timeoutMs: 120 });
+    const r = await sendKeysToSession(api, "s1", "x", { quietMs: 50, firstOutputMs: 1000, timeoutMs: 120 });
     clearInterval(noise);
-    expect(r).toMatchObject({ settled: false, timedOut: true });
+    expect(r).toMatchObject({ settled: false, outputSeen: true, timedOut: true });
   });
 
-  it("still returns a screen when no output ever arrives", async () => {
+  it("resolves at firstOutputMs, not the deadline, when the keys produce nothing", async () => {
     const { api } = fakeApi();
     api.terminal.readSnapshot = vi.fn(() => "$ ");
-    const r = await sendKeysToSession(api, "s1", "\x03", { quietMs: 10, timeoutMs: 60 });
-    expect(r.screen).toBe("$ ");
+    const started = Date.now();
+    const r = await sendKeysToSession(api, "s1", "\x03", { quietMs: 10, firstOutputMs: 40, timeoutMs: 5000 });
+    expect(r).toMatchObject({ settled: true, outputSeen: false, timedOut: false, screen: "$ " });
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  it("keeps its defaults when a caller forwards explicit undefined options", async () => {
+    const { api } = fakeApi();
+    let emit: (t: string) => void = () => {};
+    api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => { emit = cb; return () => {}; });
+    let screen = "before";
+    api.terminal.readSnapshot = vi.fn(() => screen);
+    const p = sendKeysToSession(api, "s1", "x", { quietMs: undefined, timeoutMs: undefined, firstOutputMs: 800 });
+    setTimeout(() => { screen = "after"; emit("redraw"); }, 30);
+    const r = await p;
+    expect(r).toMatchObject({ settled: true, outputSeen: true, timedOut: false, screen: "after" });
   });
 
   it("unsubscribes exactly once", async () => {
     const { api } = fakeApi();
     const unsub = vi.fn();
     api.terminal.onOutput = vi.fn(async () => unsub);
-    await sendKeysToSession(api, "s1", "x", { quietMs: 5, timeoutMs: 50 });
+    await sendKeysToSession(api, "s1", "x", { quietMs: 5, firstOutputMs: 10, timeoutMs: 50 });
     expect(unsub).toHaveBeenCalledTimes(1);
   });
 
   it("propagates a failed write instead of reporting a settled screen", async () => {
     const { api } = fakeApi();
     api.sessions.sendInput = vi.fn(async () => { throw new Error("channel closed"); });
-    await expect(sendKeysToSession(api, "s1", "x", { quietMs: 5, timeoutMs: 50 })).rejects.toThrow("channel closed");
+    await expect(sendKeysToSession(api, "s1", "x", { quietMs: 5, firstOutputMs: 10, timeoutMs: 50 })).rejects.toThrow("channel closed");
   });
 });

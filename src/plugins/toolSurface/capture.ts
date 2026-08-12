@@ -10,6 +10,20 @@ export function buildMarkerCommand(command: string, nonce: string): string {
 
 const DEFAULTS = { timeoutMs: 30_000, quietPeriodMs: 10_000, maxChars: 16_000 };
 
+/**
+ * Apply option overrides, ignoring keys explicitly set to `undefined`. A plain
+ * `{ ...defaults, ...opts }` lets `{ timeoutMs: undefined }` — exactly what a
+ * tool forwarding optional args produces — erase the default and turn every
+ * `setTimeout(fn, timeoutMs)` into a zero-delay fire.
+ */
+function withDefaults<T extends object>(defaults: T, opts: Partial<T>): T {
+  const out = { ...defaults };
+  for (const [k, v] of Object.entries(opts)) {
+    if (v !== undefined) (out as Record<string, unknown>)[k] = v;
+  }
+  return out;
+}
+
 // OSC: ESC ] ... terminated by BEL or ST (ESC \).
 const OSC_RE = /\x1b\][\s\S]*?(?:\x07|\x1b\\)/g;
 // CSI: ESC [ + parameter bytes (0x30-0x3F, incl. private markers like `?`) +
@@ -96,7 +110,7 @@ export async function captureCommand(
   command: string,
   opts: CaptureOptions = {},
 ): Promise<RunCommandResult> {
-  const { timeoutMs, quietPeriodMs, maxChars } = { ...DEFAULTS, ...opts };
+  const { timeoutMs, quietPeriodMs, maxChars } = withDefaults(DEFAULTS, opts);
   const nonce = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
   const markerRe = new RegExp(`${MARKER_PREFIX}${nonce}__:(-?\\d+)`);
 
@@ -172,7 +186,7 @@ export async function sendSerialCommand(
   text: string,
   opts: CaptureOptions = {},
 ): Promise<RunCommandResult> {
-  const { timeoutMs, quietPeriodMs, maxChars } = { ...DEFAULTS, ...opts };
+  const { timeoutMs, quietPeriodMs, maxChars } = withDefaults(DEFAULTS, opts);
 
   let buffer = "";
   let resolved = false;
@@ -221,7 +235,7 @@ export async function sendSerialCommand(
   });
 }
 
-const KEY_DEFAULTS = { quietMs: 300, timeoutMs: 5_000, maxLines: 200 };
+const KEY_DEFAULTS = { quietMs: 300, firstOutputMs: 1_500, timeoutMs: 5_000, maxLines: 200 };
 
 /**
  * Write keystrokes to a session and return the screen once it stops changing.
@@ -236,6 +250,11 @@ const KEY_DEFAULTS = { quietMs: 300, timeoutMs: 5_000, maxLines: 200 };
  * TUI's raw stream is cursor-positioning escapes that survive no useful
  * stripping, while the buffer is the rendered result.
  *
+ * Three resolution paths:
+ * - output arrived, then quiet for quietMs → { settled: true, outputSeen: true }
+ * - no output at all within firstOutputMs  → { settled: true, outputSeen: false }
+ * - output still arriving at timeoutMs     → { settled: false, timedOut: true }
+ *
  * A write failure rejects rather than resolving with an empty screen — a caller
  * must never read "nothing changed" as "the keys landed and did nothing".
  */
@@ -245,33 +264,56 @@ export async function sendKeysToSession(
   text: string,
   opts: SendKeysOptions = {},
 ): Promise<SendKeysResult> {
-  const { quietMs, timeoutMs, maxLines } = { ...KEY_DEFAULTS, ...opts };
-  const unsub = await api.terminal.onOutput(sessionId, () => armQuiet());
+  const { quietMs, firstOutputMs, timeoutMs, maxLines } = withDefaults(KEY_DEFAULTS, opts);
+  let outputSeen = false;
+  // `armQuiet` is referenced before its `const` initialises (temporal dead
+  // zone), so the callback must stay wrapped in an arrow, not passed directly.
+  const unsub = await api.terminal.onOutput(sessionId, () => onOutput());
 
   let settle: (settled: boolean) => void = () => {};
   const done = new Promise<boolean>((resolve) => { settle = resolve; });
   let quietTimer: ReturnType<typeof setTimeout> | null = null;
+  let firstTimer: ReturnType<typeof setTimeout> | null = null;
 
   const armQuiet = () => {
     if (quietTimer) clearTimeout(quietTimer);
     quietTimer = setTimeout(() => settle(true), quietMs);
   };
 
+  // The quiet timer arms on the FIRST byte of output, never before the write.
+  // Arming it up front makes "no output has arrived yet" indistinguishable from
+  // "output arrived and then stopped", so anything slower than quietMs to its
+  // first byte settled instantly on the PRE-keystroke screen while reporting
+  // settled: true. Do not hoist this back to the top.
+  const onOutput = () => {
+    if (!outputSeen) {
+      outputSeen = true;
+      if (firstTimer) clearTimeout(firstTimer);
+    }
+    armQuiet();
+  };
+
+  const clearTimers = () => {
+    clearTimeout(hardTimer);
+    if (firstTimer) clearTimeout(firstTimer);
+    if (quietTimer) clearTimeout(quietTimer);
+  };
+
   const hardTimer = setTimeout(() => settle(false), timeoutMs);
-  armQuiet();
 
   try {
     await api.sessions.sendInput(sessionId, text);
   } catch (err) {
-    clearTimeout(hardTimer);
-    if (quietTimer) clearTimeout(quietTimer);
+    clearTimers();
     unsub();
     throw err;
   }
+  // Keys that legitimately produce nothing (C-c on an idle shell) must not sit
+  // until the hard deadline.
+  if (!outputSeen) firstTimer = setTimeout(() => settle(true), firstOutputMs);
 
   const settled = await done;
-  clearTimeout(hardTimer);
-  if (quietTimer) clearTimeout(quietTimer);
+  clearTimers();
   unsub();
-  return { screen: api.terminal.readSnapshot(sessionId, maxLines), settled, timedOut: !settled };
+  return { screen: api.terminal.readSnapshot(sessionId, maxLines), settled, outputSeen, timedOut: !settled };
 }

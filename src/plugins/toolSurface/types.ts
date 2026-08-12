@@ -55,13 +55,20 @@ export interface SendKeysResult {
   /** The rendered screen after the output settled. Empty when the session has
    *  no mounted terminal — the write still happened. */
   screen: string;
-  /** Output stopped for the quiet period. False means the deadline won. */
+  /** Output stopped for the quiet period, or never started. False means the
+   *  deadline won. */
   settled: boolean;
+  /** Any output at all arrived after the write. False distinguishes "the keys
+   *  produced nothing" from "the screen settled". */
+  outputSeen: boolean;
   timedOut: boolean;
 }
 
 export interface SendKeysOptions {
   quietMs?: number;
+  /** How long to wait for the FIRST byte before concluding the keys produced
+   *  no output (e.g. C-c on an idle shell). */
+  firstOutputMs?: number;
   timeoutMs?: number;
   maxLines?: number;
 }

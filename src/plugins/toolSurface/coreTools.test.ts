@@ -444,9 +444,21 @@ describe("send_keys", () => {
   it("writes the mapped bytes and returns the settled screen", async () => {
     const ports = makePorts();
     ports.api.terminal.readSnapshot = vi.fn(() => "menu row");
-    const r: any = await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Down", "Enter"] });
+    const r: any = await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Down", "Enter"], firstOutputMs: 5 });
     expect(ports.api.sessions.sendInput).toHaveBeenCalledWith("sess-1", "\x1b[B\r");
-    expect(r).toMatchObject({ sent: 2, screen: "menu row" });
+    expect(r).toMatchObject({ sent: 2, screen: "menu row", settled: true, outputSeen: false, timedOut: false });
+  });
+
+  it("accepts and passes through firstOutputMs", async () => {
+    const ports = makePorts();
+    const schema: any = tool(ports, "send_keys").schema;
+    expect(schema.safeParse({ sessionId: "sess-1", keys: ["Enter"], firstOutputMs: 900 }).success).toBe(true);
+    expect(schema.safeParse({ sessionId: "sess-1", keys: ["Enter"], firstOutputMs: 0 }).success).toBe(false);
+    // The fake terminal never emits; resolving fast proves the option reached
+    // sendKeysToSession rather than falling back to the 1500ms default.
+    const started = Date.now();
+    await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Enter"], firstOutputMs: 5 });
+    expect(Date.now() - started).toBeLessThan(500);
   });
 
   it("refuses an unknown session without asking for approval", async () => {
@@ -468,7 +480,7 @@ describe("send_keys", () => {
     const order: string[] = [];
     ports.audit = vi.fn(() => { order.push("audit"); });
     ports.api.sessions.sendInput = vi.fn(async () => { order.push("write"); });
-    await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["C-c"] });
+    await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["C-c"], firstOutputMs: 5 });
     expect(order).toEqual(["audit", "write"]);
     const [, action, metadata, localMetadata] = vi.mocked(ports.audit).mock.calls[0];
     expect(action).toBe("agent.keys_sent");
@@ -480,7 +492,7 @@ describe("send_keys", () => {
   it("uses application-cursor form when the session is in that mode", async () => {
     const ports = makePorts();
     ports.api.terminal.appCursorMode = vi.fn(() => true);
-    await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Up"] });
+    await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Up"], firstOutputMs: 5 });
     expect(ports.api.sessions.sendInput).toHaveBeenCalledWith("sess-1", "\x1bOA");
   });
 });
