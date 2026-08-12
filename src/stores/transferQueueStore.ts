@@ -132,6 +132,14 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
   retryTransfer: (id) => {
     const tr = get().transfers.find((t) => t.id === id);
     if (!tr?.rerun || (tr.status !== "error" && tr.status !== "cancelled")) return;
+    // runTransfer's cap logic evicts whatever is currently last. If the row being
+    // retried sits there (a full queue, oldest-first at the tail), bump it forward
+    // so the prepend-and-slice below drops a different row instead of this one.
+    set((s) => {
+      if (s.transfers.length < MAX_TRANSFERS || s.transfers[s.transfers.length - 1]?.id !== id) return s;
+      const rest = s.transfers.filter((t) => t.id !== id);
+      return { transfers: [rest[0], tr, ...rest.slice(1)] };
+    });
     void get().runTransfer(tr.label, tr.direction, tr.rerun.fn, tr.rerun.onDone, tr.accelerated, tr.owner);
   },
 }));

@@ -69,6 +69,23 @@ describe("retryTransfer", () => {
     store().retryTransfer("nope");
     expect(store().transfers).toHaveLength(1);
   });
+
+  it("survives cap eviction when it is the oldest row in a full queue", async () => {
+    const fn = vi.fn().mockRejectedValue(new Error("x"));
+    await store().runTransfer("oldest.txt", "→", fn);
+    const oldest = store().transfers[0];
+    for (let i = 0; i < 29; i++) {
+      await store().runTransfer(`f${i}.txt`, "→", async () => {});
+    }
+    expect(store().transfers).toHaveLength(30);
+    expect(store().transfers[store().transfers.length - 1].id).toBe(oldest.id);
+
+    store().retryTransfer(oldest.id);
+    await vi.waitFor(() => expect(store().transfers.some((t) => t.label === "oldest.txt" && t.id !== oldest.id)).toBe(true));
+
+    expect(store().transfers).toHaveLength(30);
+    expect(store().transfers.find((t) => t.id === oldest.id)).toBeDefined();
+  });
 });
 
 describe("canRetry", () => {
