@@ -13,7 +13,7 @@ import { onSshOutput } from "@/services/ssh";
 import { onLocalOutput, localConnect, localSendInput } from "@/services/local";
 import { onSerialOutput } from "@/services/serial";
 import { sendSessionInput } from "@/services/sessionInput";
-import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
+import { readTerminalSnapshot, readTerminalSelection, getAppCursorMode } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -1638,6 +1638,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         // sendInput writes verbatim.
         return writeSessionBytes(sessionId, cmd + "\n");
       },
+      async sendInput(sessionId, data) {
+        requireGated("terminal:write");
+        return writeSessionBytes(sessionId, data);
+      },
       async open(connectionId, options) {
         requirePerm(manifest, "sessions:write");
         return useSessionStore.getState().connect(connectionId, options);
@@ -1656,6 +1660,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       readSelection(sessionId) {
         requireGated("terminal:read");
         return readTerminalSelection(sessionId);
+      },
+      appCursorMode(sessionId) {
+        requireGated("terminal:read");
+        return getAppCursorMode(sessionId);
       },
       async onOutput(sessionId, cb) {
         requireGated("terminal:stream");
