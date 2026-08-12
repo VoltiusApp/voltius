@@ -1,5 +1,5 @@
 import type { PluginAPI } from "@/plugins/api";
-import type { CaptureOptions, RunCommandResult } from "./types";
+import type { CaptureOptions, RunCommandResult, SendKeysOptions, SendKeysResult } from "./types";
 
 export const MARKER_PREFIX = "__VLT_END_";
 
@@ -219,4 +219,59 @@ export async function sendSerialCommand(
         finish(false);
       });
   });
+}
+
+const KEY_DEFAULTS = { quietMs: 300, timeoutMs: 5_000, maxLines: 200 };
+
+/**
+ * Write keystrokes to a session and return the screen once it stops changing.
+ *
+ * A TUI has no completion signal — no sentinel, no exit code — so the only
+ * honest stop condition is "the screen stopped changing". The subscription is
+ * established BEFORE the write: a fast redraw landing between write and
+ * subscribe would otherwise be invisible and every call would run to the
+ * deadline.
+ *
+ * The screen comes from the xterm buffer, not from the accumulated output: a
+ * TUI's raw stream is cursor-positioning escapes that survive no useful
+ * stripping, while the buffer is the rendered result.
+ *
+ * A write failure rejects rather than resolving with an empty screen — a caller
+ * must never read "nothing changed" as "the keys landed and did nothing".
+ */
+export async function sendKeysToSession(
+  api: Pick<PluginAPI, "sessions" | "terminal">,
+  sessionId: string,
+  text: string,
+  opts: SendKeysOptions = {},
+): Promise<SendKeysResult> {
+  const { quietMs, timeoutMs, maxLines } = { ...KEY_DEFAULTS, ...opts };
+  const unsub = await api.terminal.onOutput(sessionId, () => armQuiet());
+
+  let settle: (settled: boolean) => void = () => {};
+  const done = new Promise<boolean>((resolve) => { settle = resolve; });
+  let quietTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const armQuiet = () => {
+    if (quietTimer) clearTimeout(quietTimer);
+    quietTimer = setTimeout(() => settle(true), quietMs);
+  };
+
+  const hardTimer = setTimeout(() => settle(false), timeoutMs);
+  armQuiet();
+
+  try {
+    await api.sessions.sendInput(sessionId, text);
+  } catch (err) {
+    clearTimeout(hardTimer);
+    if (quietTimer) clearTimeout(quietTimer);
+    unsub();
+    throw err;
+  }
+
+  const settled = await done;
+  clearTimeout(hardTimer);
+  if (quietTimer) clearTimeout(quietTimer);
+  unsub();
+  return { screen: api.terminal.readSnapshot(sessionId, maxLines), settled, timedOut: !settled };
 }

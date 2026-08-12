@@ -50,3 +50,18 @@ export interface CaptureOptions {
   quietPeriodMs?: number;
   maxChars?: number;
 }
+
+export interface SendKeysResult {
+  /** The rendered screen after the output settled. Empty when the session has
+   *  no mounted terminal — the write still happened. */
+  screen: string;
+  /** Output stopped for the quiet period. False means the deadline won. */
+  settled: boolean;
+  timedOut: boolean;
+}
+
+export interface SendKeysOptions {
+  quietMs?: number;
+  timeoutMs?: number;
+  maxLines?: number;
+}

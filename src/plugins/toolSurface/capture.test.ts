@@ -1,11 +1,13 @@
-import { describe, test, expect, vi } from "vitest";
-import { captureCommand, buildMarkerCommand, cleanCapturedOutput, MARKER_PREFIX } from "./capture";
+import { describe, test, it, expect, vi } from "vitest";
+import { captureCommand, sendKeysToSession, buildMarkerCommand, cleanCapturedOutput, MARKER_PREFIX } from "./capture";
 
 /**
  * Fake terminal: captures the onOutput callback so the test can feed decoded
  * output back, simulating the shell. sendCommand triggers the scripted output.
+ * `script` is optional for tests that drive the callback and sendInput
+ * directly instead (e.g. sendKeysToSession).
  */
-function fakeApi(script: (emit: (s: string) => void, sent: string) => void) {
+function fakeApi(script: (emit: (s: string) => void, sent: string) => void = () => {}) {
   let cb: ((t: string) => void) | null = null;
   const unsub = vi.fn();
   const api = {
@@ -14,12 +16,15 @@ function fakeApi(script: (emit: (s: string) => void, sent: string) => void) {
         // emit asynchronously, after onOutput is subscribed
         queueMicrotask(() => cb && script((s) => cb!(s), sent));
       }),
+      sendInput: vi.fn(async () => {}),
     },
     terminal: {
       onOutput: vi.fn(async (_id: string, fn: (t: string) => void) => {
         cb = fn;
         return unsub;
       }),
+      readSnapshot: vi.fn(() => ""),
+      appCursorMode: vi.fn(() => false),
     },
   } as any;
   return { api, unsub };
@@ -261,5 +266,58 @@ describe("captureCommand", () => {
     const res = await p;
     expect(res.truncated).toBe(true);
     expect(res.output.length).toBeLessThanOrEqual(10);
+  });
+});
+
+describe("sendKeysToSession", () => {
+  it("subscribes to output BEFORE writing, so a fast redraw is not missed", async () => {
+    const order: string[] = [];
+    const { api } = fakeApi();
+    api.terminal.onOutput = vi.fn(async () => { order.push("subscribe"); return () => {}; });
+    api.sessions.sendInput = vi.fn(async () => { order.push("write"); });
+    await sendKeysToSession(api, "s1", "\x1b[B", { quietMs: 5, timeoutMs: 50 });
+    expect(order).toEqual(["subscribe", "write"]);
+  });
+
+  it("resolves settled once output goes quiet, returning the screen", async () => {
+    const { api } = fakeApi();
+    let emit: (t: string) => void = () => {};
+    api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => { emit = cb; return () => {}; });
+    api.terminal.readSnapshot = vi.fn(() => "  1  top - load average");
+    const p = sendKeysToSession(api, "s1", "top\r", { quietMs: 20, timeoutMs: 500 });
+    setTimeout(() => emit("redraw"), 5);
+    const r = await p;
+    expect(r).toMatchObject({ settled: true, timedOut: false, screen: "  1  top - load average" });
+  });
+
+  it("resolves timedOut when output never goes quiet", async () => {
+    const { api } = fakeApi();
+    let emit: (t: string) => void = () => {};
+    api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => { emit = cb; return () => {}; });
+    const noise = setInterval(() => emit("."), 5);
+    const r = await sendKeysToSession(api, "s1", "x", { quietMs: 50, timeoutMs: 120 });
+    clearInterval(noise);
+    expect(r).toMatchObject({ settled: false, timedOut: true });
+  });
+
+  it("still returns a screen when no output ever arrives", async () => {
+    const { api } = fakeApi();
+    api.terminal.readSnapshot = vi.fn(() => "$ ");
+    const r = await sendKeysToSession(api, "s1", "\x03", { quietMs: 10, timeoutMs: 60 });
+    expect(r.screen).toBe("$ ");
+  });
+
+  it("unsubscribes exactly once", async () => {
+    const { api } = fakeApi();
+    const unsub = vi.fn();
+    api.terminal.onOutput = vi.fn(async () => unsub);
+    await sendKeysToSession(api, "s1", "x", { quietMs: 5, timeoutMs: 50 });
+    expect(unsub).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates a failed write instead of reporting a settled screen", async () => {
+    const { api } = fakeApi();
+    api.sessions.sendInput = vi.fn(async () => { throw new Error("channel closed"); });
+    await expect(sendKeysToSession(api, "s1", "x", { quietMs: 5, timeoutMs: 50 })).rejects.toThrow("channel closed");
   });
 });
