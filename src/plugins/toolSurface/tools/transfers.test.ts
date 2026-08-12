@@ -60,8 +60,9 @@ describe("transfer_retry", () => {
 
   it("refuses rather than silently succeeding when the transfer cannot be retried", async () => {
     const { ports } = makePorts({ retry: vi.fn(() => false) });
-    expect(await tool(ports, "transfer_retry").execute({ id: "t-1" })).toMatchObject({
-      ok: false,
-    });
+    const result = await tool(ports, "transfer_retry").execute({ id: "t-1" }) as { refused: true; error: string };
+    expect(result.refused).toBe(true);
+    expect(result.error).toEqual(expect.any(String));
+    expect(result.error.length).toBeGreaterThan(0);
   });
 });

@@ -20,7 +20,7 @@ export function buildTransferTools(ports: ToolSurfacePorts): Tool[] {
     ports.audit(g.scope, "agent.file_transferred", { tool, approval: g.via, id: g.args.id }, undefined);
     return run(String(g.args.id))
       ? { ok: true, result: null }
-      : { ok: false, ...refusal("no such transfer, or it is not in a state that allows this; call transfer_list") };
+      : refusal("no such transfer, or it is not in a state that allows this; call transfer_list");
   };
 
   return [
