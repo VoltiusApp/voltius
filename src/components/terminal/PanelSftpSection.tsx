@@ -41,6 +41,7 @@ export default function PanelSftpSection() {
   const clearCompleted = useTransferQueueStore((s) => s.clearCompleted);
   const cancelTransfer = useTransferQueueStore((s) => s.cancelTransfer);
   const cancelAll = useTransferQueueStore((s) => s.cancelAll);
+  const retryTransfer = useTransferQueueStore((s) => s.retryTransfer);
   const setPending = useTransferQueueStore((s) => s.setPending);
 
   const [selected, setSelected] = useState<FileEntry[]>([]);
@@ -352,7 +353,7 @@ export default function PanelSftpSection() {
           than the panel and overflows it). */}
       {transfers.length > 0 && (
         <div className="rounded-t-xl overflow-hidden">
-          <TransferQueue transfers={transfers} onClear={clearCompleted} onCancel={cancelTransfer} onCancelAll={cancelAll} collapsible />
+          <TransferQueue transfers={transfers} onClear={clearCompleted} onCancel={cancelTransfer} onCancelAll={cancelAll} onRetry={retryTransfer} collapsible />
         </div>
       )}
     </div>

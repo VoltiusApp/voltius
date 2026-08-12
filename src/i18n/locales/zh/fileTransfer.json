@@ -117,6 +117,9 @@
       "cancelAll": "取消所有传输",
       "clearFinished": "清除已完成的传输",
       "cancelTransfer": "取消传输",
+      "retryTransfer": "重试传输",
+      "mcpTooltip": "由 {{client}} 启动",
+      "mcpTooltipUnknown": "由 MCP 客户端启动",
       "status": {
         "done": "完成",
         "error": "错误",
