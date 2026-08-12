@@ -838,9 +838,8 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
  * the terminal never echoes), plus the markers boundLocalMetadata adds for them.
  * api.audit.query is a second wire, so they are stripped here too.
  *
- * `keys_truncated` cannot appear today — boundLocalMetadata only truncates
- * string values and `keys` is an array — and is listed so the pair stays
- * stripped if that payload ever becomes a string.
+ * `keys` rides as a JSON string, so boundLocalMetadata's per-field
+ * truncation applies and can add `keys_truncated`; both are stripped here.
  */
 const LOCAL_ONLY_METADATA_KEYS = [
   "command",
