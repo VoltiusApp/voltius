@@ -24,7 +24,6 @@ function fakeApi(script: (emit: (s: string) => void, sent: string) => void = () 
         return unsub;
       }),
       readSnapshot: vi.fn(() => ""),
-      appCursorMode: vi.fn(() => false),
     },
   } as any;
   return { api, unsub };
@@ -312,7 +311,7 @@ describe("sendKeysToSession", () => {
     let emit: (t: string) => void = () => {};
     api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => { emit = cb; return () => {}; });
     const noise = setInterval(() => emit("."), 5);
-    const r = await sendKeysToSession(api, "s1", "x", { quietMs: 50, firstOutputMs: 1000, timeoutMs: 120 });
+    const r = await sendKeysToSession(api, "s1", "x", { quietMs: 200, firstOutputMs: 1000, timeoutMs: 400 });
     clearInterval(noise);
     expect(r).toMatchObject({ settled: false, outputSeen: true, timedOut: true });
   });
@@ -344,6 +343,22 @@ describe("sendKeysToSession", () => {
     api.terminal.onOutput = vi.fn(async () => unsub);
     await sendKeysToSession(api, "s1", "x", { quietMs: 5, firstOutputMs: 10, timeoutMs: 50 });
     expect(unsub).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression guard: the real listen() registers the handler synchronously, so
+  // output can arrive while the subscribe await is still suspended. Handler
+  // state declared below that await would be in its temporal dead zone and the
+  // ReferenceError would escape as an uncaught error inside a Tauri callback.
+  it("survives output delivered before the subscription promise resolves", async () => {
+    const { api } = fakeApi();
+    api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => {
+      await Promise.resolve();
+      cb("redraw");
+      return () => {};
+    });
+    api.terminal.readSnapshot = vi.fn(() => "top - 12:00:00");
+    const r = await sendKeysToSession(api, "s1", "x", { quietMs: 20, firstOutputMs: 1000, timeoutMs: 500 });
+    expect(r).toMatchObject({ settled: true, outputSeen: true, timedOut: false, screen: "top - 12:00:00" });
   });
 
   it("propagates a failed write instead of reporting a settled screen", async () => {

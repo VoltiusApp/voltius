@@ -266,10 +266,6 @@ export async function sendKeysToSession(
 ): Promise<SendKeysResult> {
   const { quietMs, firstOutputMs, timeoutMs, maxLines } = withDefaults(KEY_DEFAULTS, opts);
   let outputSeen = false;
-  // `armQuiet` is referenced before its `const` initialises (temporal dead
-  // zone), so the callback must stay wrapped in an arrow, not passed directly.
-  const unsub = await api.terminal.onOutput(sessionId, () => onOutput());
-
   let settle: (settled: boolean) => void = () => {};
   const done = new Promise<boolean>((resolve) => { settle = resolve; });
   let quietTimer: ReturnType<typeof setTimeout> | null = null;
@@ -292,6 +288,15 @@ export async function sendKeysToSession(
     }
     armQuiet();
   };
+
+  // Everything the handler touches is initialised ABOVE this line: `listen()`
+  // registers the handler synchronously, before its promise resolves, so
+  // output can reach `onOutput` while this `await` is still suspended. A
+  // binding declared below would be in its temporal dead zone at that point
+  // and the ReferenceError would escape as an uncaught error inside a Tauri
+  // callback. Wrapping the handler in an arrow defers the TDZ, it does not
+  // remove it.
+  const unsub = await api.terminal.onOutput(sessionId, onOutput);
 
   const clearTimers = () => {
     clearTimeout(hardTimer);
