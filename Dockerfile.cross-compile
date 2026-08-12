@@ -15,6 +15,16 @@ RUN apt-get update && apt-get install -y \
 # Node & PNPM — pnpm is pinned: unversioned `corepack prepare` takes the `latest`
 # dist-tag at image-build time, which has resolved to a 12.x alpha whose bin layout
 # corepack cannot launch, breaking the image on a rebuild alone.
+#
+# Keep in step with `packageManager` in package.json so corepack does not fetch
+# a second pnpm once the build reaches the mounted repo.
+#
+# Separately: this container resolves storeDir to /project/.pnpm-store, while a
+# host install uses ~/.local/share/pnpm/store. pnpm reads that as an
+# incompatible node_modules and asks to purge it — fatal with no TTY, and
+# destructive to the host's tree under CI=true. Give the build its own
+# node_modules instead:
+#   docker run ... -v "$PWD:/project" -v <a-named-volume>:/project/node_modules ...
 ARG PNPM_VERSION=11.5.2
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
