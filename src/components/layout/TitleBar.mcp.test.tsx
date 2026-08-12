@@ -16,7 +16,9 @@ vi.mock("@tauri-apps/api/window", () => ({
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, string>) => (opts ? `${key} ${opts.client}` : key),
+  }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
@@ -76,5 +78,27 @@ describe("MCP marking in the tab strip", () => {
     useMcpOwnershipStore.getState().endActivity("s1");
     rerender(<TitleBar />);
     expect(screen.queryByTestId("mcp-bar-s1")).toBeNull();
+  });
+
+  it("names the client in an owned session tab's title", () => {
+    useMcpOwnershipStore.getState().claim("s2", { clientId: "c1", clientName: "Claude Code" });
+    render(<TitleBar />);
+    expect(screen.getByTestId("mcp-bar-s2").closest("button")?.getAttribute("title")).toContain("Claude Code");
+  });
+
+  it("leaves an unowned session tab without an MCP title", () => {
+    render(<TitleBar />);
+    const button = screen.getByText("s1").closest("button");
+    expect(button?.getAttribute("title")).toBeNull();
+  });
+
+  it("keeps the split-tab title and adds the client name when a pane is owned", () => {
+    useLayoutStore.getState().createSplitTab("s1", "s2", "right");
+    useMcpOwnershipStore.getState().claim("s2", { clientId: "c1", clientName: "Claude Code" });
+    render(<TitleBar />);
+    const tabId = useLayoutStore.getState().splitTabs[0].id;
+    const title = screen.getByTestId(`mcp-bar-${tabId}`).closest("button")?.getAttribute("title") ?? "";
+    expect(title).toContain("layout.titleBar.unifiedSplitTab");
+    expect(title).toContain("Claude Code");
   });
 });

@@ -216,6 +216,14 @@ export default function TitleBar() {
     );
   };
 
+  const mcpTooltip = (sessionIds: string[]): string | undefined => {
+    const owner = sessionIds.map((id) => mcpOwners[id]).find((o) => o !== undefined);
+    if (!owner) return undefined;
+    return owner.clientName
+      ? t("panes.header.mcpTooltip", { client: owner.clientName })
+      : t("panes.header.mcpTooltipUnknown");
+  };
+
   const renderTitlebarDropCue = (itemKey: string | null, placement: "before" | "after") => {
     if (dropTarget?.type !== "titlebar" || dropTarget.targetKey !== itemKey || (dropTarget.placement ?? "after") !== placement) return null;
     if (titlebarDropActive && draggedSession) return <DetachedPanePreview key={`preview-${itemKey ?? "end"}-${placement}`} session={draggedSession} />;
@@ -317,6 +325,8 @@ export default function TitleBar() {
             const tabActiveLeaf = findLeaf(tab.root, tab.activePaneId) ?? firstLeaf(tab.root);
             const tabActiveSession = tabActiveLeaf ? sessions.find((session) => session.id === tabActiveLeaf.sessionId) : null;
             const isActiveSplitTab = splitTabActive && activeSplitTabId === tab.id && activeNav === "terminal" && !sftpPanelOpen;
+            const splitTabTitle = t("layout.titleBar.unifiedSplitTab");
+            const splitTabMcpTooltip = mcpTooltip(tabSessionIds);
 
             return (
               <div key={item.key} className="contents">
@@ -329,7 +339,7 @@ export default function TitleBar() {
                     if (e.button === 1) { e.preventDefault(); handleUnifiedTabClose(e, tab.id); }
                   }}
                   className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
-                  title={t("layout.titleBar.unifiedSplitTab")}
+                  title={splitTabMcpTooltip ? `${splitTabTitle}\n${splitTabMcpTooltip}` : splitTabTitle}
                   style={{
                     background: isActiveSplitTab ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
                     color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
@@ -380,6 +390,7 @@ export default function TitleBar() {
                   if (e.button === 1) { e.preventDefault(); handleTabClose(e, session.id); }
                 }}
                 className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
+                title={mcpTooltip([session.id])}
                 style={{
                   background: isActive ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
                   color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
