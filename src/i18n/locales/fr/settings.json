@@ -806,6 +806,8 @@
           "snippetsWrite": { "label": "Gérer vos snippets", "description": "Créer, modifier, déplacer et supprimer vos snippets enregistrés." },
           "portForwardingRead": { "label": "Lire vos redirections de ports", "description": "Lister vos règles de redirection de ports enregistrées et les tunnels actuellement ouverts." },
           "portForwardingWrite": { "label": "Gérer vos redirections de ports", "description": "Créer, modifier, déplacer et supprimer vos règles de redirection de ports enregistrées." },
+          "knownHostsRead": { "label": "Lire vos hôtes connus", "description": "Lister les clés d'hôte SSH que vous avez approuvées, avec leurs empreintes." },
+          "knownHostsWrite": { "label": "Approuver et supprimer des clés d'hôte", "description": "Autoriser une clé d'hôte SSH, ou supprimer une clé approuvée. Une clé approuvée signifie que les connexions à cet hôte sont acceptées sans vous le demander." },
           "vaultRead": { "label": "Lire votre coffre", "description": "Lire les données stockées dans votre coffre." },
           "vaultWrite": { "label": "Écrire dans votre coffre", "description": "Stocker et modifier des données dans votre coffre." },
           "syncRead": { "label": "Lire les données de synchronisation", "description": "Lire les données synchronisées entre vos appareils." },

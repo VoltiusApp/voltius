@@ -33,6 +33,8 @@ export const GATED_PERMISSIONS = new Set<string>([
   "vaults:write",
   "folders:read",
   "folders:write",
+  "known_hosts:read",
+  "known_hosts:write",
 ]);
 
 /**
@@ -55,6 +57,7 @@ export const NON_DANGER_GATED_PERMISSIONS = new Set<string>([
   "proxmox:read",
   "vaults:read",
   "folders:read",
+  "known_hosts:read",
 ]);
 
 export function isGatedPermission(perm: string): boolean {
@@ -122,6 +125,8 @@ const PERMISSION_COPY: Record<string, string> = {
   "vaults:write": "vaultsWrite",
   "folders:read": "foldersRead",
   "folders:write": "foldersWrite",
+  "known_hosts:read": "knownHostsRead",
+  "known_hosts:write": "knownHostsWrite",
   "sync:read": "syncRead",
   "sync:write": "syncWrite",
   storage: "storage",

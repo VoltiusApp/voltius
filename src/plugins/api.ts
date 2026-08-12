@@ -97,6 +97,22 @@ export interface PluginSnippetInput {
   vault_id?: string;
 }
 
+export interface PluginKnownHost {
+  id: string;
+  host: string;
+  port: number;
+  fingerprint: string;
+  vault_id: string;
+  created_at: string;
+}
+
+export interface PluginTrustResult {
+  entry: PluginKnownHost;
+  superseded: PluginKnownHost[];
+  /** True when `replace` soft-deleted existing entries for this host:port. */
+  replaced: boolean;
+}
+
 /**
  * A SAVED port-forwarding rule: a shape, not a live listener. Opening one is
  * `portForwards.start`, which needs an open session to hang the tunnel on.
@@ -719,6 +735,19 @@ export interface PluginAPI {
     update(id: string, patch: Partial<PluginSnippetInput>): Promise<void>;
     /** Rejects a team vault. */
     delete(id: string): Promise<void>;
+  };
+
+  /**
+   * The trust-on-first-use host key store (requires the gated
+   * known_hosts:read / known_hosts:write).
+   */
+  knownHosts: {
+    list(filter?: { host?: string; port?: number }): Promise<PluginKnownHost[]>;
+    delete(id: string): Promise<void>;
+    /** `replace` supersedes the stored keys for this host:port. Rejects a team vault. */
+    trust(input: {
+      host: string; port: number; fingerprint: string; vaultId?: string; replace?: boolean;
+    }): Promise<PluginTrustResult>;
   };
 
   /**

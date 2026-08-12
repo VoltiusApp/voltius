@@ -806,6 +806,8 @@
           "snippetsWrite": { "label": "Manage your snippets", "description": "Create, edit, move and delete your saved snippets." },
           "portForwardingRead": { "label": "Read your port forwards", "description": "List your saved port forwarding rules and the tunnels open right now." },
           "portForwardingWrite": { "label": "Manage your port forwards", "description": "Create, edit, move and delete your saved port forwarding rules." },
+          "knownHostsRead": { "label": "Read your known hosts", "description": "List the SSH host keys you have trusted, with their fingerprints." },
+          "knownHostsWrite": { "label": "Trust and remove host keys", "description": "Authorise an SSH host key, or delete one you trusted. A trusted key means connections to that host are accepted without asking you." },
           "vaultRead": { "label": "Read your vault", "description": "Read data stored in your vault." },
           "vaultWrite": { "label": "Write to your vault", "description": "Store and change data in your vault." },
           "syncRead": { "label": "Read sync data", "description": "Read data synced across your devices." },

@@ -78,6 +78,8 @@ import { createFoldersAPI, type FolderPorts } from "./domains/folders";
 import { createObjectsAPI, type ObjectPorts } from "./domains/objects";
 import { createSnippetsAPI, type SnippetPorts } from "./domains/snippets";
 import { createPortForwardsAPI, type PortForwardPorts } from "./domains/portForwarding";
+import { createKnownHostsAPI, type KnownHostPorts } from "./domains/knownHosts";
+import { listKnownHosts, deleteKnownHost, trustKnownHost } from "@/services/knownHosts";
 import { resolveCan, type Permission } from "@/services/permissions";
 import { getMyUserId } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
@@ -679,6 +681,13 @@ const portForwardPorts: PortForwardPorts = {
   close: (sessionId, tunnelId) => closePfTunnel(sessionId, tunnelId),
 };
 
+const knownHostPorts: KnownHostPorts = {
+  list: () => listKnownHosts(),
+  remove: (id) => deleteKnownHost(id),
+  trust: (input) => trustKnownHost(input),
+  isTeamVault: isTeamVaultId,
+};
+
 // ─── Store reload map ─────────────────────────────────────────────────────
 
 const RELOADABLE_STORES: Record<string, () => Promise<void>> = {
@@ -882,6 +891,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const objectsApi = createObjectsAPI(objectPorts);
   const snippetsApi = createSnippetsAPI(snippetPorts);
   const portForwardsApi = createPortForwardsAPI(portForwardPorts);
+  const knownHostsApi = createKnownHostsAPI(knownHostPorts);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -1088,6 +1098,21 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requireGated("ports:forward");
         requirePerm(manifest, "sessions:read");
         return portForwardsApi.stop(sessionId, tunnelId);
+      },
+    },
+
+    knownHosts: {
+      list(filter) {
+        requirePerm(manifest, "known_hosts:read");
+        return knownHostsApi.list(filter);
+      },
+      delete(id) {
+        requirePerm(manifest, "known_hosts:write");
+        return knownHostsApi.delete(id);
+      },
+      trust(input) {
+        requirePerm(manifest, "known_hosts:write");
+        return knownHostsApi.trust(input);
       },
     },
 
