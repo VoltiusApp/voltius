@@ -1191,6 +1191,20 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
     },
 
+    appSync: {
+      status() {
+        requirePerm(manifest, "sync:read");
+        const s = getSyncState();
+        return {
+          status: s.status,
+          lastSync: s.lastSync ? s.lastSync.toISOString() : null,
+          error: s.error,
+          cloudActive: s.cloudActive,
+          blobSizeBytes: s.blobSizeBytes,
+        };
+      },
+    },
+
     folders: {
       list(kind) {
         requireGated("folders:read");
@@ -2013,17 +2027,6 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     },
 
     sync: {
-      status() {
-        requirePerm(manifest, "sync:read");
-        const s = getSyncState();
-        return {
-          status: s.status,
-          lastSync: s.lastSync ? s.lastSync.toISOString() : null,
-          error: s.error,
-          cloudActive: s.cloudActive,
-          blobSizeBytes: s.blobSizeBytes,
-        };
-      },
       async getBlob(key) {
         requirePerm(manifest, "sync:read");
         const raw = await storageGet<string>(id, `__sync__${key}`);

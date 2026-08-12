@@ -758,7 +758,7 @@
           },
           "syncRead": {
             "label": "读取同步数据",
-            "description": "读取在您各设备间同步的数据。"
+            "description": "读取该插件在您各设备间同步的自有数据，并查看您配置同步的状态。"
           },
           "syncWrite": {
             "label": "写入同步数据",

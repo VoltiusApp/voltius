@@ -858,6 +858,15 @@ export interface PluginAPI {
   };
 
   /**
+   * The state of the user's own configuration sync (requires sync:read).
+   * Distinct from the plugin-scoped `sync` domain above, which is a plugin's
+   * own blob storage and gist sync — this is the app's own cross-device sync.
+   */
+  appSync: {
+    status(): PluginSyncState;
+  };
+
+  /**
    * Saved port-forwarding rules, and the tunnels open right now.
    *
    * A rule is a vault object; a tunnel is a live listening socket bound to one
@@ -1113,8 +1122,6 @@ export interface PluginAPI {
 
   // Sync / blob storage (requires sync:read / sync:write)
   sync: {
-    /** The state of the user's own configuration sync, distinct from the plugin-scoped blob storage below. */
-    status(): PluginSyncState;
     /** Read a plugin-scoped blob from local storage. Returns null if not set. */
     getBlob(key: string): Promise<Uint8Array | null>;
     /** Write a plugin-scoped blob to local storage. Max 1 MB. */

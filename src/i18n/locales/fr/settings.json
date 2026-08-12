@@ -815,7 +815,7 @@
           "healthRead": { "label": "Voir l'accessibilité des hôtes", "description": "Voir quels hôtes enregistrés ont répondu au dernier test d'accessibilité, et à quelle vitesse." },
           "vaultRead": { "label": "Lire votre coffre", "description": "Lire les données stockées dans votre coffre." },
           "vaultWrite": { "label": "Écrire dans votre coffre", "description": "Stocker et modifier des données dans votre coffre." },
-          "syncRead": { "label": "Lire les données de synchronisation", "description": "Lire les données synchronisées entre vos appareils." },
+          "syncRead": { "label": "Lire les données de synchronisation", "description": "Lire les données propres à ce plugin synchronisées entre vos appareils, et consulter l'état de la synchronisation de votre configuration." },
           "syncWrite": { "label": "Écrire les données de synchronisation", "description": "Stocker et modifier les données synchronisées entre vos appareils." },
           "storage": { "label": "Stocker les données du plugin", "description": "Enregistrer les réglages et données propres à ce plugin sur votre appareil." },
           "http": { "label": "Accéder au réseau", "description": "Effectuer des requêtes réseau vers des services externes." },

@@ -815,7 +815,7 @@
           "healthRead": { "label": "See host reachability", "description": "See which of your saved hosts last answered a reachability check, and how quickly." },
           "vaultRead": { "label": "Read your vault", "description": "Read data stored in your vault." },
           "vaultWrite": { "label": "Write to your vault", "description": "Store and change data in your vault." },
-          "syncRead": { "label": "Read sync data", "description": "Read data synced across your devices." },
+          "syncRead": { "label": "Read sync data", "description": "Read this plugin's own data synced across your devices, and see the status of your own configuration sync." },
           "syncWrite": { "label": "Write sync data", "description": "Store and change data synced across your devices." },
           "storage": { "label": "Store plugin data", "description": "Save this plugin's own settings and data on your device." },
           "http": { "label": "Access the network", "description": "Make network requests to external services." },
