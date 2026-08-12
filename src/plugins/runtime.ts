@@ -2,8 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { closePfTunnel, getPfState, openPfTunnel } from "@/services/portForwardingTunnels";
 import { resolvePort } from "@/plugins/domains/ports";
-import { runSnippetSequence } from "@/services/snippetSequence";
-import { flattenSnippetSteps } from "@/services/snippetFlatten";
+import { runSnippetSequence, previewSnippetSequence } from "@/services/snippetSequence";
 import type { RunTarget } from "@/services/sftpTarget";
 import { writeClipboard } from "@/utils/clipboard";
 import i18n from "@/i18n";
@@ -685,7 +684,7 @@ const snippetPorts: SnippetPorts = {
   },
   run: (snippet, targets, onPrompt, variables) =>
     runSnippetSequence(snippet, targets, onPrompt, variables),
-  flatten: (snippet) => flattenSnippetSteps(snippet, new Map(snippetPorts.list().map((s) => [s.id, s]))),
+  preview: (snippet, targets, variables) => previewSnippetSequence(snippet, targets, variables),
 };
 
 const portForwardPorts: PortForwardPorts = {

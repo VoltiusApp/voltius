@@ -174,6 +174,22 @@ describe("mcp:contribute permission", () => {
   });
 });
 
+describe("snippets:run", () => {
+  test("is gated and danger-styled — it executes commands on the user's hosts", () => {
+    const [d] = describePermissions(["snippets:run"]);
+    expect(d.gated).toBe(true);
+    expect(d.danger).toBe(true);
+    expect(d.known).toBe(true);
+    expect(d.labelKey).toBe("settings.plugins.permissionModal.permissions.snippetsRun.label");
+  });
+
+  test("reading or editing snippets stays ungated — only running is", () => {
+    const [read, write] = describePermissions(["snippets:read", "snippets:write"]);
+    expect(read.gated).toBe(false);
+    expect(write.gated).toBe(false);
+  });
+});
+
 describe("ports:forward", () => {
   test("is gated and danger-styled", () => {
     const [d] = describePermissions(["ports:forward"]);

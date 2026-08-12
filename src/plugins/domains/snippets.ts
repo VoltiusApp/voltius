@@ -1,7 +1,6 @@
 import type { Snippet, SnippetFormData } from "@/types";
 import type { RunTarget } from "@/services/sftpTarget";
-import type { SequencePrompt, SequenceRunResult } from "@/services/snippetSequence";
-import type { LeafStep } from "@/services/snippetFlatten";
+import type { SequencePreview, SequencePrompt, SequenceRunResult } from "@/services/snippetSequence";
 import type { PluginSnippet, PluginSnippetInput, PluginSnippetRunResult, PluginSnippetTargetRef } from "../api";
 import { vaultOf } from "./vaultOf";
 
@@ -28,8 +27,12 @@ export interface SnippetPorts {
     onPrompt: (p: SequencePrompt) => void,
     variables?: Record<string, string>,
   ): Promise<SequenceRunResult | "prompting">;
-  /** Flatten nested snippets to leaf steps, for dry runs. */
-  flatten(snippet: Snippet): { steps: LeafStep[]; errors: string[] };
+  /** The steps a run would execute per target, resolved but not executed. */
+  preview(
+    snippet: Snippet,
+    targets: RunTarget[],
+    variables?: Record<string, string>,
+  ): SequencePreview;
 }
 
 const project = (s: Snippet): PluginSnippet => ({
@@ -63,11 +66,6 @@ const formFrom = (base: Snippet | null, input: Partial<PluginSnippetInput>): Sni
   folder_id: input.folder_id ?? base?.folder_id,
   vault_id: input.vault_id ?? (base ? vaultOf(base) : undefined),
 });
-
-/** Dry-run label. The engine labels real runs itself, from the session store;
- *  this one stays store-free so the domain remains headless-testable. */
-const labelOf = (t: RunTarget): string =>
-  t.kind === "connection" ? t.connection.name ?? t.connection.host : t.label ?? t.sessionId;
 
 export function createSnippetsAPI(ports: SnippetPorts) {
   const find = async (id: string): Promise<Snippet> => {
@@ -131,12 +129,12 @@ export function createSnippetsAPI(ports: SnippetPorts) {
       if (targets.length === 0) throw new Error("No targets given");
 
       if (input.dryRun) {
-        const flat = ports.flatten(snippet);
+        const preview = ports.preview(snippet, targets, input.variables);
         return {
           targets: [],
-          flatten_errors: flat.errors,
+          flatten_errors: preview.errors,
           opened_session_ids: [],
-          steps: targets.map((t) => ({ label: labelOf(t), steps: flat.steps })),
+          steps: preview.targets,
         };
       }
 

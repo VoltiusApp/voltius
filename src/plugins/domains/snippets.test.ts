@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Snippet } from "@/types";
+import type { RunTarget } from "@/services/sftpTarget";
 import { createSnippetsAPI, type SnippetPorts } from "./snippets";
 
 const snippet = (over: Partial<Snippet> = {}): Snippet => ({
@@ -27,7 +28,14 @@ function makePorts(over: Partial<SnippetPorts> = {}, items: Snippet[] = [snippet
       unknown: [],
     })),
     run: vi.fn(async () => ({ targets: [{ label: "web-01", ok: true }], flattenErrors: [] })),
-    flatten: vi.fn(() => ({ steps: [{ kind: "script" as const, content: "echo {{svc}}" }], errors: [] })),
+    // Mirrors the engine: the preview resolves the variables it was given.
+    preview: vi.fn((_s: Snippet, ts: RunTarget[], variables?: Record<string, string>) => ({
+      targets: ts.map((t: RunTarget) => ({
+        label: t.kind === "connection" ? t.connection.host : t.sessionId,
+        steps: [{ kind: "script" as const, content: `echo ${variables?.svc ?? "{{svc}}"}` }],
+      })),
+      errors: [],
+    })),
     ...over,
   };
   return { ports, api: createSnippetsAPI(ports) };
@@ -138,10 +146,19 @@ describe("snippets domain — run", () => {
       .rejects.toThrow(/Missing variables: svc/);
   });
 
-  it("dry runs without running anything", async () => {
+  it("dry runs the resolved steps, per target, without running anything", async () => {
     const { api, ports } = makePorts();
-    const res = await api.run({ snippetId: "s1", targets: [{ session_id: "sess-1" }], dryRun: true });
-    expect(res.steps).toEqual([{ label: "web-01", steps: [{ kind: "script", content: "echo {{svc}}" }] }]);
+    const res = await api.run({
+      snippetId: "s1",
+      targets: [{ session_id: "sess-1" }],
+      variables: { svc: "nginx" },
+      dryRun: true,
+    });
+    // Resolved, not the raw template: a dry run reports what would actually run.
+    expect(res.steps).toEqual([{ label: "sess-1", steps: [{ kind: "script", content: "echo nginx" }] }]);
+    expect(ports.preview).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "s1" }), expect.any(Array), { svc: "nginx" },
+    );
     expect(ports.run).not.toHaveBeenCalled();
   });
 

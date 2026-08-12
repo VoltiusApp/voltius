@@ -109,8 +109,8 @@ export interface PluginSnippetRunResult {
   flatten_errors: string[];
   /** Sessions this run opened for saved-connection targets, for reading back. */
   opened_session_ids: string[];
-  /** Only on a dry run: the steps that would execute, per target, with their
-   *  variable templates left unresolved. */
+  /** Only on a dry run: the steps that would execute, per target, with the
+   *  variables resolved. A variable nobody supplied stays as its `{{name}}`. */
   steps?: { label: string; steps: unknown[] }[];
 }
 
@@ -772,6 +772,9 @@ export interface PluginAPI {
     run(input: {
       snippetId: string;
       targets: PluginSnippetTargetRef[];
+      /** The snippet's own user variables. Keys that name a dynamic variable
+       *  ({{connection.host}}, {{clipboard}}, …) are ignored — those resolve per
+       *  target and cannot be supplied. */
       variables?: Record<string, string>;
       /** Report the steps that would run, without running anything. */
       dryRun?: boolean;
