@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { type Transfer, formatSize, formatTransferProgress } from "./SFTPTypes";
+import { canRetryTransfer } from "@/stores/transferQueueStore";
 import { AcceleratedBadge } from "./AcceleratedBadge";
 import { McpMark, mcpOwnerTitle, mcpTint } from "@/components/shared/McpMark";
 
@@ -146,7 +147,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className="text-xs text-(--t-text-dim)">{statusLabel(tr)}</span>
-                      {(tr.status === "error" || tr.status === "cancelled") && (
+                      {canRetryTransfer(tr) && (
                         <button
                           onClick={() => onRetry(tr.id)}
                           title={t("fileTransfer.queue.retryTransfer")}

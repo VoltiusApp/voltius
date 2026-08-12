@@ -17,6 +17,7 @@ vi.mock("react-i18next", () => ({
 
 const base: Transfer = {
   id: "t-1", label: "a.txt", direction: "→", transferred: 0, total: 100, status: "running",
+  rerun: { fn: async () => {} }, settled: true,
 };
 
 const renderQueue = (transfers: Transfer[], onRetry = vi.fn()) => {
@@ -67,5 +68,10 @@ describe("retry button", () => {
   it("appears on a cancelled row", () => {
     renderQueue([{ ...base, status: "cancelled" }]);
     expect(screen.getByTitle("fileTransfer.queue.retryTransfer")).toBeTruthy();
+  });
+
+  it("is absent on a cancelled row that has not settled yet", () => {
+    renderQueue([{ ...base, status: "cancelled", settled: false }]);
+    expect(screen.queryByTitle("fileTransfer.queue.retryTransfer")).toBeNull();
   });
 });

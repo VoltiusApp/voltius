@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { makeGate, makeFileOp } from "./helpers";
-import { takeTransferId } from "@/mcp/transferIdByArgs";
 
 export const FILE_PERMISSIONS = ["sftp:read", "sftp:write", "audit"] as const;
 
@@ -83,14 +82,15 @@ export function buildFileTools(ports: ToolSurfacePorts): Tool[] {
         fromTarget: z.string(), fromPath: z.string(),
         toTarget: z.string(), toPath: z.string(),
       }),
-      // `raw` is the same args object queueTransfer (src/mcp/consumer.ts) holds a
-      // reference to, so the id it stashed there — the queue row's own id — comes
-      // back out here and progress events land on the row that's listening.
+      // `raw` is the same args object a consumer's transferId port keyed a
+      // caller-supplied id against, so the id it stashed there — the queue
+      // row's own id — comes back out here and progress events land on the
+      // row that's listening.
       execute: async (raw) => fileOp("transfer_file", raw, (a) =>
         ports.api.sftp.transfer(
           { target: String(a.fromTarget), path: String(a.fromPath) },
           { target: String(a.toTarget), path: String(a.toPath) },
-          takeTransferId(raw),
+          ports.transferId?.(raw),
         )),
     },
   ];

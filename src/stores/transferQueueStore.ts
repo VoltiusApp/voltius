@@ -3,6 +3,13 @@ import { sftpCancelTransfer, onTransferProgress } from "@/services/sftp";
 import { type Transfer, type FileEntry, type ConflictResolution, genId } from "@/components/filetransfer/SFTPTypes";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
 
+/** True for a settled transfer that ended in `cancelled` or `error` and kept
+ *  its descriptor. Exported so the queue UI can gate the retry button on the
+ *  same rule the store enforces, rather than a looser copy of it. */
+export function canRetryTransfer(tr: Pick<Transfer, "rerun" | "settled" | "status"> | undefined): boolean {
+  return !!tr?.rerun && !!tr.settled && (tr.status === "error" || tr.status === "cancelled");
+}
+
 // A pending transfer is queued whenever the destination already contains files
 // that would be overwritten. The `execute` callback is invoked once the user
 // resolves all conflicts; it receives the final set of files to transfer
@@ -27,10 +34,11 @@ interface TransferQueueStore {
     accelerated?: boolean,
     owner?: McpOwner,
   ) => Promise<void>;
-  cancelTransfer: (id: string) => void;
+  /** False when the id is unknown or the row is not currently running. */
+  cancelTransfer: (id: string) => boolean;
   cancelAll: () => void;
   clearCompleted: () => void;
-  /** True for a transfer that ended in `cancelled` or `error` and kept its descriptor. */
+  /** True for a settled transfer that ended in `cancelled` or `error` and kept its descriptor. */
   canRetry: (id: string) => boolean;
   /** Re-runs a failed transfer under a NEW id; the original row stays as history. */
   retryTransfer: (id: string) => void;
@@ -102,15 +110,21 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
         }),
       }));
     } finally {
+      set((s) => ({
+        transfers: s.transfers.map((t) => (t.id === tid ? { ...t, settled: true } : t)),
+      }));
       unlisten();
     }
   },
 
   cancelTransfer: (id) => {
+    const tr = get().transfers.find((t) => t.id === id);
+    if (!tr || tr.status !== "running") return false;
     sftpCancelTransfer(id).catch(() => {});
     set((s) => ({
       transfers: s.transfers.map((t) => (t.id === id ? { ...t, status: "cancelled" } : t)),
     }));
+    return true;
   },
 
   cancelAll: () => {
@@ -124,14 +138,11 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
   clearCompleted: () =>
     set((s) => ({ transfers: s.transfers.filter((t) => t.status === "running") })),
 
-  canRetry: (id) => {
-    const tr = get().transfers.find((t) => t.id === id);
-    return !!tr?.rerun && (tr.status === "error" || tr.status === "cancelled");
-  },
+  canRetry: (id) => canRetryTransfer(get().transfers.find((t) => t.id === id)),
 
   retryTransfer: (id) => {
-    const tr = get().transfers.find((t) => t.id === id);
-    if (!tr?.rerun || (tr.status !== "error" && tr.status !== "cancelled")) return;
+    if (!get().canRetry(id)) return;
+    const tr = get().transfers.find((t) => t.id === id)!;
     // runTransfer's cap logic evicts whatever is currently last. If the row being
     // retried sits there (a full queue, oldest-first at the tail), bump it forward
     // so the prepend-and-slice below drops a different row instead of this one.
@@ -140,6 +151,6 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
       const rest = s.transfers.filter((t) => t.id !== id);
       return { transfers: [rest[0], tr, ...rest.slice(1)] };
     });
-    void get().runTransfer(tr.label, tr.direction, tr.rerun.fn, tr.rerun.onDone, tr.accelerated, tr.owner);
+    void get().runTransfer(tr.label, tr.direction, tr.rerun!.fn, tr.rerun!.onDone, tr.accelerated, tr.owner);
   },
 }));

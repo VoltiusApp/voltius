@@ -846,8 +846,10 @@ export interface PluginAPI {
    */
   transfers: {
     list(): PluginTransfer[];
-    cancel(id: string): void;
-    /** False when the id is unknown, or the transfer is still running or already done. */
+    /** False when the id is unknown, or the transfer is not currently running. */
+    cancel(id: string): boolean;
+    /** False when the id is unknown, or the transfer is still running, already done,
+     *  or not yet settled (a just-cancelled row still winding down). */
     retry(id: string): boolean;
   };
 

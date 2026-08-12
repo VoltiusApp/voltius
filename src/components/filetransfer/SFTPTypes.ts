@@ -60,6 +60,11 @@ export type Transfer = {
   /** Everything needed to run this transfer again. Never leaves the app: it
    *  holds a closure, so it is not projected over any API. */
   rerun?: { fn: (transferId: string) => Promise<void>; onDone?: () => void };
+  /** True once runTransfer's finally has run. A cancelled/errored row is not
+   *  retryable until it settles — otherwise a retry issued right after a
+   *  cancel can start writing the destination while the cancelled transfer
+   *  is still flushing. Internal, like `rerun`: never projected over any API. */
+  settled?: boolean;
 };
 
 export type ConflictResolution = "overwrite" | "overwrite-all" | "skip" | "skip-all" | "cancel";

@@ -5,7 +5,7 @@ import { listContributions } from "./contributions";
 import { isPluginExposed } from "@/stores/mcpContributionStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
-import { setTransferId } from "./transferIdByArgs";
+import { setTransferId, takeTransferId } from "./transferIdByArgs";
 
 /** The built-in strings describe the agent's approval policy. Over MCP nothing
  *  prompts, so repeating them would misinform the model about the gate. */
@@ -154,6 +154,7 @@ export function buildMcpTools(
     audit: (scope, action, metadata, localMetadata) =>
       api.audit?.record?.(scope, action, { ...metadata, via: "mcp" }, localMetadata),
     owned,
+    transferId: takeTransferId,
     text: MCP_TEXT,
   };
   const core = buildCoreTools(ports).map((t) => ({
@@ -187,6 +188,7 @@ function queueTransfer(
   const direction = args.toTarget === "local" ? "←" : "→";
   let out: unknown;
   let thrown: unknown;
+  let failed = false;
   return useTransferQueueStore
     .getState()
     .runTransfer(label, direction, async (tid) => {
@@ -203,6 +205,7 @@ function queueTransfer(
         // the row "error" but never rethrows, so without this the caller
         // would see a silent `undefined` success instead of the failure.
         thrown = err;
+        failed = true;
         throw err;
       }
       // makeFileOp never throws — it catches and resolves with a refusal object —
@@ -213,7 +216,7 @@ function queueTransfer(
       if (refusal !== null) throw new Error(refusal);
     }, undefined, false, owner)
     .then(() => {
-      if (thrown !== undefined) throw thrown;
+      if (failed) throw thrown;
       return out;
     });
 }

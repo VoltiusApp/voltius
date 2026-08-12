@@ -1170,7 +1170,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       cancel(id) {
         requireGated("transfers:write");
-        useTransferQueueStore.getState().cancelTransfer(id);
+        return useTransferQueueStore.getState().cancelTransfer(id);
       },
       retry(id) {
         requireGated("transfers:write");

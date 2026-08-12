@@ -41,10 +41,7 @@ export function buildTransferTools(ports: ToolSurfacePorts): Tool[] {
         + "started themselves. Partially written files are left in place.",
       risk: "prompt",
       schema: z.object({ id: z.string() }),
-      execute: async (raw) => act("transfer_cancel", raw, (id) => {
-        ports.api.transfers.cancel(id);
-        return true;
-      }),
+      execute: async (raw) => act("transfer_cancel", raw, (id) => ports.api.transfers.cancel(id)),
     },
     {
       name: "transfer_retry",

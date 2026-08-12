@@ -16,6 +16,10 @@ export interface ToolSurfacePorts {
     localMetadata?: Record<string, unknown>,
   ): void;
   owned: OwnedSessions;
+  /** Recovers a caller-supplied transfer id stashed against this exact `args`
+   *  object, so transfer_file can dispatch under the queue row's own id.
+   *  Absent for consumers with no such concept (e.g. no MCP transport). */
+  transferId?(args: object): string | undefined;
   /** Consumer-specific model-facing text. Absent means the built-in strings,
    *  which describe the agent's approval policy. */
   text?: {

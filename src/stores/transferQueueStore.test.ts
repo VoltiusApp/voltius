@@ -95,3 +95,54 @@ describe("canRetry", () => {
     expect(store().canRetry("nope")).toBe(false);
   });
 });
+
+describe("cancelTransfer", () => {
+  it("refuses on a done transfer and leaves it done", async () => {
+    await store().runTransfer("a.txt", "→", async () => {});
+    const [tr] = store().transfers;
+    expect(tr.status).toBe("done");
+
+    expect(store().cancelTransfer(tr.id)).toBe(false);
+    expect(store().transfers[0].status).toBe("done");
+  });
+
+  it("refuses on an unknown id", () => {
+    expect(store().cancelTransfer("nope")).toBe(false);
+  });
+
+  it("cancels a running transfer and returns true", async () => {
+    let releaseTransfer!: () => void;
+    const gate = new Promise<void>((_, reject) => (releaseTransfer = () => reject(new Error("cancelled by user"))));
+    const done = store().runTransfer("a.txt", "→", async () => gate);
+    const [tr] = store().transfers;
+    expect(tr.status).toBe("running");
+
+    expect(store().cancelTransfer(tr.id)).toBe(true);
+    expect(store().transfers[0].status).toBe("cancelled");
+    releaseTransfer();
+    await done;
+  });
+});
+
+describe("canRetry after a cancel", () => {
+  it("stays false until the transfer has settled", async () => {
+    // Mirrors what the backend actually does on cancel: the in-flight fn
+    // rejects with a "cancelled" error once released, same as cancelTransfer
+    // itself never resolves the row directly.
+    let releaseTransfer!: () => void;
+    const gate = new Promise<void>((_, reject) => (releaseTransfer = () => reject(new Error("cancelled by user"))));
+    const done = store().runTransfer("a.txt", "→", async () => gate);
+    const [tr] = store().transfers;
+
+    store().cancelTransfer(tr.id);
+    // The row is labelled "cancelled" synchronously, but runTransfer's
+    // finally hasn't run yet — the row is not settled, so it must not be
+    // retryable while a writer could still be flushing to the destination.
+    expect(store().transfers[0].status).toBe("cancelled");
+    expect(store().canRetry(tr.id)).toBe(false);
+
+    releaseTransfer();
+    await done;
+    expect(store().canRetry(tr.id)).toBe(true);
+  });
+});

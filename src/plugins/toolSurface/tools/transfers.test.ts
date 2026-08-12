@@ -9,7 +9,7 @@ function makePorts(overrides: Record<string, unknown> = {}) {
       list: vi.fn(() => [
         { id: "t-1", label: "a.txt", direction: "→", status: "running", transferred: 5, total: 10 },
       ]),
-      cancel: vi.fn(),
+      cancel: vi.fn(() => true),
       retry: vi.fn(() => true),
       ...overrides,
     },
@@ -48,6 +48,13 @@ describe("transfer_cancel", () => {
     expect(await tool(ports, "transfer_cancel").execute({ id: "t-1" })).toEqual({ ok: true, result: null });
     expect(api.transfers.cancel).toHaveBeenCalledWith("t-1");
     expect(audit).toHaveBeenCalled();
+  });
+
+  it("refuses rather than relabelling a transfer that is not running", async () => {
+    const { ports } = makePorts({ cancel: vi.fn(() => false) });
+    const result = await tool(ports, "transfer_cancel").execute({ id: "t-1" }) as { refused: true; error: string };
+    expect(result.refused).toBe(true);
+    expect(result.error.length).toBeGreaterThan(0);
   });
 });
 
