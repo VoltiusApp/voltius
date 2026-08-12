@@ -1,5 +1,5 @@
 import type { PluginAPI, PluginAuditAction } from "@/plugins/api";
-import type { ToolDecision } from "./types";
+import type { ToolDecision, OwnedSessions } from "./types";
 
 export interface ToolSurfacePorts {
   api: PluginAPI;
@@ -15,7 +15,7 @@ export interface ToolSurfacePorts {
     metadata?: Record<string, unknown>,
     localMetadata?: Record<string, unknown>,
   ): void;
-  owned: Set<string>;
+  owned: OwnedSessions;
   /** Consumer-specific model-facing text. Absent means the built-in strings,
    *  which describe the agent's approval policy. */
   text?: {

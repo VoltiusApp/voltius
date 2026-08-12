@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { PluginAPI } from "@/plugins/api";
-import { buildCoreTools, deriveScope, type ToolSurfacePorts } from "@voltius/tools";
+import { buildCoreTools, deriveScope, type ToolSurfacePorts, type OwnedSessions } from "@voltius/tools";
 import { listContributions } from "./contributions";
 import { isPluginExposed } from "@/stores/mcpContributionStore";
 
@@ -130,7 +130,7 @@ export interface McpTool {
   execute(args: Record<string, unknown>): Promise<unknown>;
 }
 
-export function buildMcpTools(api: PluginAPI, owned: Set<string>): McpTool[] {
+export function buildMcpTools(api: PluginAPI, owned: OwnedSessions): McpTool[] {
   const ports: ToolSurfacePorts = {
     api,
     // The MCP client's own permission prompt is the gate; Voltius performs no
