@@ -31,6 +31,7 @@ const ALL_TOOLS = [
   "port_forward_create", "port_forward_delete", "port_forward_list", "port_forward_start",
   "port_forward_stop", "port_forward_tunnels", "port_forward_update",
   "read_file", "read_terminal", "rename_path", "run_command",
+  "send_keys",
   "snippet_create", "snippet_delete", "snippet_list", "snippet_run", "snippet_update",
   "stat_file", "sync_status",
   "transfer_cancel", "transfer_file", "transfer_list", "transfer_retry",

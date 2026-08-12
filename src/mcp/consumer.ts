@@ -42,6 +42,15 @@ export const MCP_TEXT = {
       + "from list_sessions — and capture its output + exit code. Runs immediately; your own "
       + "client is responsible for approval. On a serial session the text is sent to the device "
       + "verbatim and there is no exit code.",
+    send_keys:
+      "Send real keystrokes to an open session and return the screen once it settles. Use this for "
+      + "full-screen terminal programs (top, less, fzf, vim, whiptail) that run_command cannot "
+      + "drive: run_command wraps its input so it can read an exit code, and that wrapper is typed "
+      + "into such a program as literal text. Each item of `keys` is either literal text or one key "
+      + "name: Enter, Tab, Escape, Space, Backspace, Delete, Insert, Up, Down, Left, Right, Home, "
+      + "End, PageUp, PageDown, ShiftTab, F1-F12, C-<char> for control, M-<char> for meta. Names "
+      + "match exactly and are case-sensitive; prefix a literal that collides with a name as "
+      + "\"lit:Enter\". Runs immediately; your own client is responsible for approval.",
     read_terminal:
       "Read the last N lines of a terminal session's buffer — any open session, including the "
       + "user's own.",

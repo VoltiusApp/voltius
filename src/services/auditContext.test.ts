@@ -10,6 +10,7 @@ const _cover: Record<PluginAuditAction, true> = {
   "agent.session_opened": true,
   "agent.session_closed": true,
   "agent.command_run": true,
+  "agent.keys_sent": true,
   "agent.action_denied": true,
   "agent.file_created": true,
   "agent.file_written": true,

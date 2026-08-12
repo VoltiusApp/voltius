@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
-import { captureCommand, sendSerialCommand } from "../capture";
+import { captureCommand, sendKeysToSession, sendSerialCommand } from "../capture";
+import { tokensToBytes } from "../keyTokens";
 import { guardConnectionId } from "../connectionGuard";
 import { makeGate, makeLiveSession } from "./helpers";
 import { refusal } from "../refusal";
@@ -116,6 +117,68 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         return session.type === "serial"
           ? sendSerialCommand(ports.api, sessionId, command, {})
           : captureCommand(ports.api, sessionId, command, {});
+      },
+    },
+    {
+      name: "send_keys",
+      description:
+        "Send real keystrokes to an open session and return the screen once it settles. Use this "
+        + "for full-screen terminal programs (top, less, fzf, vim, whiptail) that run_command "
+        + "cannot drive: run_command wraps its input so it can read an exit code, and that wrapper "
+        + "is typed into such a program as literal text. Each item of `keys` is either literal "
+        + "text or one key name: Enter, Tab, Escape, Space, Backspace, Delete, Insert, Up, Down, "
+        + "Left, Right, Home, End, PageUp, PageDown, ShiftTab, F1-F12, C-<char> for control, "
+        + "M-<char> for meta. Names match exactly and are case-sensitive; prefix a literal that "
+        + "collides with a name as \"lit:Enter\".",
+      risk: "prompt",
+      schema: z.object({
+        sessionId: z.string(),
+        keys: z.array(z.string()),
+        quietMs: z.number().int().positive().optional(),
+        timeoutMs: z.number().int().positive().optional(),
+        maxLines: z.number().int().positive().optional(),
+      }),
+      execute: async (raw) => {
+        // Before the gate, like run_command: a call that can never run must not
+        // ask the user to authorise it.
+        if (!liveSession(String(raw.sessionId))) {
+          return NO_SUCH_SESSION();
+        }
+        const keys = (raw.keys as string[]) ?? [];
+        // Parsed before the gate too, so a typo is refused rather than carded.
+        // The cursor mode is read here only to validate; it is re-read after
+        // the gate because a TUI can start or exit while approval is pending.
+        const dryRun = tokensToBytes(keys, false);
+        if (!dryRun.ok) return refusal(dryRun.error);
+
+        const g = await gate("send_keys", raw);
+        if (!g.ok) return g.result;
+        const sessionId = String(g.args.sessionId);
+        const session = liveSession(sessionId);
+        if (!session) {
+          return NO_SUCH_SESSION();
+        }
+        const finalKeys = (g.args.keys as string[]) ?? keys;
+        const encoded = tokensToBytes(finalKeys, ports.api.terminal.appCursorMode(sessionId));
+        if (!encoded.ok) return refusal(encoded.error);
+
+        // Recorded BEFORE dispatch, like run_command: the keys reach the PTY
+        // whether or not the settle returns, and a crash mid-settle must not
+        // erase the record of what was typed. The tokens themselves stay in
+        // localMetadata — a key stream can contain a typed password, and only
+        // localMetadata is on-device.
+        ports.audit(
+          g.scope,
+          "agent.keys_sent",
+          { tool: "send_keys", approval: g.via, sessionType: session.type, ownedByCaller: ports.owned.has(sessionId) },
+          { keys: finalKeys },
+        );
+        const result = await sendKeysToSession(ports.api, sessionId, encoded.text, {
+          quietMs: g.args.quietMs as number | undefined,
+          timeoutMs: g.args.timeoutMs as number | undefined,
+          maxLines: g.args.maxLines as number | undefined,
+        });
+        return { sent: finalKeys.length, ...result };
       },
     },
     {

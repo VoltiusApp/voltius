@@ -35,6 +35,9 @@ export type PluginAuditAction =
   | "agent.session_opened"
   | "agent.session_closed"
   | "agent.command_run"
+  // Real keystrokes, not a shell line: a TUI interaction is not a command run,
+  // and a reviewer must be able to tell a C-c from an rm -rf.
+  | "agent.keys_sent"
   | "agent.action_denied"
   | "agent.file_created"
   | "agent.file_written"
@@ -53,7 +56,7 @@ export type PluginAuditAction =
 
 export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.grant_created", "agent.grant_revoked", "agent.mode_changed",
-  "agent.session_opened", "agent.session_closed", "agent.command_run",
+  "agent.session_opened", "agent.session_closed", "agent.command_run", "agent.keys_sent",
   "agent.action_denied",
   "agent.file_created", "agent.file_written", "agent.file_renamed",
   "agent.file_deleted", "agent.file_transferred",
