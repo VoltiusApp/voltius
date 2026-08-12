@@ -1,4 +1,5 @@
 import type { HostChoice } from "@/components/shared/HostPickerPanel";
+import type { McpOwner } from "@/stores/mcpOwnershipStore";
 export type { HostChoice };
 
 export type FileEntry = {
@@ -50,6 +51,15 @@ export type Transfer = {
   eta?: number;     // seconds remaining
   status: "running" | "done" | "cancelled" | "error"; error?: string;
   accelerated?: boolean; // ran via tar acceleration
+  /** Set when an MCP client started this transfer; absent for the user's own.
+   *  Deliberately NOT mcpOwnershipStore: that store's keepOnly() reaper filters
+   *  its records against live SESSION ids and would sweep every transfer, and
+   *  the two differ in kind — session ownership is claimed, released and reaped,
+   *  transfer ownership is a birth attribute on a self-expiring capped list. */
+  owner?: McpOwner;
+  /** Everything needed to run this transfer again. Never leaves the app: it
+   *  holds a closure, so it is not projected over any API. */
+  rerun?: { fn: (transferId: string) => Promise<void>; onDone?: () => void };
 };
 
 export type ConflictResolution = "overwrite" | "overwrite-all" | "skip" | "skip-all" | "cancel";
