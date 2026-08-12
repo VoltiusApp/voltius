@@ -65,7 +65,10 @@ function stateFor(clientId: string, clientName: string): ClientState {
   const next: ClientState = {
     owned,
     clientName: clientName || existing?.clientName || "",
-    tools: buildMcpTools(getMcpHostApi(), owned),
+    tools: buildMcpTools(getMcpHostApi(), owned, () => {
+      const name = _clients.get(clientId)?.clientName ?? "";
+      return { clientId, clientName: name, since: Date.now() };
+    }),
     version,
   };
   _clients.set(clientId, next);
