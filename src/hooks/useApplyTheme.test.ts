@@ -24,3 +24,20 @@ describe("--t-on-accent", () => {
     expect(document.documentElement.style.getPropertyValue("--t-on-accent")).toBe("#000000");
   });
 });
+
+describe("--t-mcp", () => {
+  const withBase = (bgBase: string): AppTheme => ({
+    ...BUILT_IN_THEMES[0],
+    ui: { ...BUILT_IN_THEMES[0].ui, bgBase },
+  });
+
+  it("is the light-theme violet on a light background", () => {
+    applyThemeToDom(withBase("#ffffff"));
+    expect(document.documentElement.style.getPropertyValue("--t-mcp")).toBe("#7c3aed");
+  });
+
+  it("is the dark-theme violet on a dark background", () => {
+    applyThemeToDom(withBase("#0b0d12"));
+    expect(document.documentElement.style.getPropertyValue("--t-mcp")).toBe("#a78bfa");
+  });
+});

@@ -36,6 +36,10 @@ export function applyThemeToDom(theme: AppTheme) {
   // white, mirroring appearanceFromColor's "dark" fallback.
   const accentLuminance = luminanceFromHex(ui.accent);
   root.style.setProperty("--t-on-accent", accentLuminance !== null && accentLuminance >= 0.179 ? "#000000" : "#ffffff");
+  // MCP provenance marking. Deliberately not --t-accent: that already means
+  // active tab, active pane, and broadcast.
+  const baseLuminance = luminanceFromHex(ui.bgBase);
+  root.style.setProperty("--t-mcp", baseLuminance !== null && baseLuminance >= 0.5 ? "#7c3aed" : "#a78bfa");
   root.style.setProperty("--t-accent-hover", ui.accentHover);
   root.style.setProperty("--t-tab-bg", ui.tabBg);
   root.style.setProperty("--t-tab-active-bg", ui.tabActiveBg);

@@ -1,4 +1,4 @@
-export type { Tool, ToolDecision, ToolRisk, ApprovalVia } from "./types";
+export type { Tool, ToolDecision, ToolRisk, ApprovalVia, OwnedSessions } from "./types";
 export {
   MARKER_PREFIX,
   buildMarkerCommand,

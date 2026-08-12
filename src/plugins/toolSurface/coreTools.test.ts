@@ -73,7 +73,7 @@ describe("core tools", () => {
     expect(res.connections).toEqual([{ id: "conn-A", name: "srv", host: "h1" }]);
     expect(c.approve).not.toHaveBeenCalled();
     expect(c.api.sessions.open).not.toHaveBeenCalled();
-    expect(c.owned.size).toBe(0);
+    expect(c.owned.has("sess-1")).toBe(false);
   });
 
   test("open_session still opens on a real id (non-vacuity partner)", async () => {

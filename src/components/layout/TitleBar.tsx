@@ -19,6 +19,7 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { SyncDropdown } from "@/components/layout/SyncDropdown";
 import { NewSessionPopover } from "@/components/layout/NewSessionPopover";
 import { useDragStore } from "@/stores/dragStore";
+import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
 import { findLeaf, firstLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { shouldSuppressDragClick } from "@/components/panes/usePaneDragController";
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
@@ -57,6 +58,8 @@ export default function TitleBar() {
   const dropTarget = useDragStore((s) => s.dropTarget);
   const titlebarDropActive = isDraggingPane && dropTarget?.type === "titlebar";
   const titleBarItems = useStatusBarContributions("titlebar.right");
+  const mcpOwners = useMcpOwnershipStore((s) => s.owners);
+  const mcpBusy = useMcpOwnershipStore((s) => s.busy);
 
   usePfToastBridge();
 
@@ -200,6 +203,27 @@ export default function TitleBar() {
     });
   };
 
+  const renderMcpBar = (key: string, sessionIds: string[]) => {
+    const owned = sessionIds.some((id) => id in mcpOwners);
+    const busy = sessionIds.some((id) => (mcpBusy[id] ?? 0) > 0);
+    if (!owned && !busy) return null;
+    return (
+      <span
+        data-testid={`mcp-bar-${key}`}
+        className={`absolute left-0 top-0 bottom-0 w-[3px] ${busy ? "mcp-pulse" : ""}`}
+        style={{ background: "var(--t-mcp)" }}
+      />
+    );
+  };
+
+  const mcpTooltip = (sessionIds: string[]): string | undefined => {
+    const owner = sessionIds.map((id) => mcpOwners[id]).find((o) => o !== undefined);
+    if (!owner) return undefined;
+    return owner.clientName
+      ? t("panes.header.mcpTooltip", { client: owner.clientName })
+      : t("panes.header.mcpTooltipUnknown");
+  };
+
   const renderTitlebarDropCue = (itemKey: string | null, placement: "before" | "after") => {
     if (dropTarget?.type !== "titlebar" || dropTarget.targetKey !== itemKey || (dropTarget.placement ?? "after") !== placement) return null;
     if (titlebarDropActive && draggedSession) return <DetachedPanePreview key={`preview-${itemKey ?? "end"}-${placement}`} session={draggedSession} />;
@@ -301,6 +325,8 @@ export default function TitleBar() {
             const tabActiveLeaf = findLeaf(tab.root, tab.activePaneId) ?? firstLeaf(tab.root);
             const tabActiveSession = tabActiveLeaf ? sessions.find((session) => session.id === tabActiveLeaf.sessionId) : null;
             const isActiveSplitTab = splitTabActive && activeSplitTabId === tab.id && activeNav === "terminal" && !sftpPanelOpen;
+            const splitTabTitle = t("layout.titleBar.unifiedSplitTab");
+            const splitTabMcpTooltip = mcpTooltip(tabSessionIds);
 
             return (
               <div key={item.key} className="contents">
@@ -312,14 +338,15 @@ export default function TitleBar() {
                     if (e.button === 0) useDragStore.getState().beginSplitTabDrag(tab.id, e.clientX, e.clientY);
                     if (e.button === 1) { e.preventDefault(); handleUnifiedTabClose(e, tab.id); }
                   }}
-                  className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
-                  title={t("layout.titleBar.unifiedSplitTab")}
+                  className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
+                  title={splitTabMcpTooltip ? `${splitTabTitle}\n${splitTabMcpTooltip}` : splitTabTitle}
                   style={{
                     background: isActiveSplitTab ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
                     color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
                     border: isActiveSplitTab ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
                   }}
                 >
+                  {renderMcpBar(tab.id, tabSessionIds)}
                   <Icon icon="lucide:layout-dashboard" width={18} />
                   <span className="max-w-[140px] truncate">
                     {tabActiveSession?.connectionName ?? t("layout.titleBar.splitFallback")}{tabSessionIds.length > 1 ? t("layout.titleBar.splitCountSuffix", { count: tabSessionIds.length - 1 }) : ""}
@@ -362,7 +389,8 @@ export default function TitleBar() {
                   if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, item.key);
                   if (e.button === 1) { e.preventDefault(); handleTabClose(e, session.id); }
                 }}
-                className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
+                className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
+                title={mcpTooltip([session.id])}
                 style={{
                   background: isActive ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
                   color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
@@ -381,6 +409,7 @@ export default function TitleBar() {
                   }
                 }}
               >
+                {renderMcpBar(session.id, [session.id])}
                 {distroIcon ? (
                   <span
                     className="flex items-center justify-center size-6 rounded-md shrink-0"

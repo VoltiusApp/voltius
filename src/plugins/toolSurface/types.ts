@@ -19,6 +19,15 @@ export type ToolDecision =
   | { approve: true; scope: string; via: ApprovalVia; args?: Record<string, unknown> }
   | { approve: false; reason?: string };
 
+/** The subset of `Set` the tool surface needs for ownership tracking. Lets a
+ *  consumer back it with something other than a plain Set — the MCP bridge
+ *  backs it with a reactive store so the UI can see provenance. */
+export interface OwnedSessions {
+  has(sessionId: string): boolean;
+  add(sessionId: string): void;
+  delete(sessionId: string): boolean;
+}
+
 export interface Tool {
   name: string;
   description: string;

@@ -210,10 +210,10 @@
     animation-duration: 2000ms;
   }
 
-  @keyframes statusbar-connecting-pulse {
+  @keyframes opacity-pulse {
     0%,
     100% {
-      opacity: 0.5;
+      opacity: var(--pulse-min-opacity);
     }
     50% {
       opacity: 1;
@@ -221,7 +221,13 @@
   }
 
   .statusbar-connecting-pulse {
-    animation: statusbar-connecting-pulse 1s ease-in-out infinite;
+    --pulse-min-opacity: 0.5;
+    animation: opacity-pulse 1s ease-in-out infinite;
+  }
+
+  .mcp-pulse {
+    --pulse-min-opacity: 0.4;
+    animation: opacity-pulse 1s ease-in-out infinite;
   }
 
   @keyframes cpu-alert-pulse {
