@@ -4,6 +4,7 @@ export {
   buildMarkerCommand,
   cleanCapturedOutput,
   captureCommand,
+  sendKeysToSession,
   sendSerialCommand,
 } from "./capture";
 export {

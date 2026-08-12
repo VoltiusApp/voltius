@@ -101,15 +101,18 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         + "text or one key name: Enter, Tab, Escape, Space, Backspace, Delete, Insert, Up, Down, "
         + "Left, Right, Home, End, PageUp, PageDown, ShiftTab, F1-F12, C-<char> for control, "
         + "M-<char> for meta. Names match exactly and are case-sensitive; prefix a literal that "
-        + "collides with a name as \"lit:Enter\".",
+        + "collides with a name as \"lit:Enter\". Prompts for every send.",
       risk: "prompt",
+      // The deadlines are caller-chosen, so they are capped: an unbounded
+      // timeoutMs would hold the output subscription and the session's MCP
+      // activity marker for as long as the caller asked for.
       schema: z.object({
         sessionId: z.string(),
         keys: z.array(z.string()),
-        quietMs: z.number().int().positive().optional(),
-        firstOutputMs: z.number().int().positive().optional(),
-        timeoutMs: z.number().int().positive().optional(),
-        maxLines: z.number().int().positive().optional(),
+        quietMs: z.number().int().positive().max(60_000).optional(),
+        firstOutputMs: z.number().int().positive().max(60_000).optional(),
+        timeoutMs: z.number().int().positive().max(60_000).optional(),
+        maxLines: z.number().int().positive().max(2000).optional(),
       }),
       execute: async (raw) => {
         const keys = (raw.keys as string[]) ?? [];
@@ -134,11 +137,15 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         // localMetadata — a key stream can contain a password typed at a prompt
         // the terminal never echoes, so it must not reach the team wire, nor
         // come back out of api.audit.query (see LOCAL_ONLY_METADATA_KEYS).
+        // Serialized rather than passed as an array: boundLocalMetadata only
+        // truncates string fields, and an oversized array instead trips the
+        // whole-payload cap, which replaces the entire row's metadata with
+        // `{ localMetadata_dropped: true }`.
         ports.audit(
           g.scope,
           "agent.keys_sent",
           sessionAuditMeta(ports, sg, "send_keys"),
-          { keys: finalKeys },
+          { keys: JSON.stringify(finalKeys) },
         );
         const result = await sendKeysToSession(ports.api, sessionId, encoded.text, {
           quietMs: g.args.quietMs as number | undefined,

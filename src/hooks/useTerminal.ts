@@ -10,6 +10,7 @@ import { sshResize, onSshOutput, onSshClosed, onSshCwd } from "@/services/ssh";
 import { localResize, onLocalOutput, onLocalClosed } from "@/services/local";
 import { onSerialOutput, onSerialClosed } from "@/services/serial";
 import { sendSessionInput as sendSessionInputRaw } from "@/services/sessionInput";
+import { log } from "@/lib/logger";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
@@ -40,9 +41,12 @@ interface UseTerminalOptions {
 }
 
 /** The interactive terminal must never reject on a dropped keystroke; the
- *  shared helper rejects, so the swallow lives here at the call site. */
+ *  shared helper rejects, so the swallow lives here at the call site — logged,
+ *  not silent, since a rejected transport write is a real symptom. */
 function sendSessionInput(sessionId: string, sessionType: "ssh" | "local" | "serial", data: Uint8Array) {
-  void sendSessionInputRaw(sessionId, sessionType, data).catch(() => {});
+  void sendSessionInputRaw(sessionId, sessionType, data).catch((err) => {
+    log.debug(`terminal input write failed for ${sessionType} session ${sessionId}`, err);
+  });
 }
 
 function isHttpUrl(uri: string) {

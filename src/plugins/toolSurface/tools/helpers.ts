@@ -16,7 +16,7 @@ export function makeGate(ports: ToolSurfacePorts) {
   };
 }
 
-export const NO_SUCH_SESSION = () =>
+const NO_SUCH_SESSION = () =>
   refusal("no such open session; call list_sessions for the current ids");
 
 type ApprovedGate = Extract<GateResult, { ok: true }>;

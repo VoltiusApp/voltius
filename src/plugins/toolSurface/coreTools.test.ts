@@ -486,7 +486,16 @@ describe("send_keys", () => {
     expect(action).toBe("agent.keys_sent");
     expect(metadata).toMatchObject({ tool: "send_keys" });
     expect(JSON.stringify(metadata)).not.toContain("C-c");
-    expect(localMetadata).toMatchObject({ keys: ["C-c"] });
+    // Serialized, not an array: boundLocalMetadata truncates strings but drops
+    // the whole payload when an array pushes it over the total budget.
+    expect(localMetadata).toMatchObject({ keys: JSON.stringify(["C-c"]) });
+  });
+
+  it("keeps the key stream as a single string, so the audit bounder can truncate it", async () => {
+    const ports = makePorts();
+    await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["x".repeat(4000)], firstOutputMs: 5 });
+    const [, , , localMetadata] = vi.mocked(ports.audit).mock.calls[0];
+    expect(typeof localMetadata!.keys).toBe("string");
   });
 
   it("uses application-cursor form when the session is in that mode", async () => {
