@@ -32,6 +32,7 @@ const session = (id: string) => ({
 beforeEach(() => {
   useMcpOwnershipStore.setState({ owners: {}, busy: {} });
   useSessionStore.setState({ sessions: [session("s1"), session("s2")], activeSessionId: "s1" });
+  useLayoutStore.setState({ splitTabs: [] });
 });
 afterEach(cleanup);
 
@@ -58,5 +59,22 @@ describe("MCP marking in the tab strip", () => {
     render(<TitleBar />);
     const tabId = useLayoutStore.getState().splitTabs[0].id;
     expect(screen.getByTestId(`mcp-bar-${tabId}`)).toBeTruthy();
+  });
+
+  it("shows a pulsing bar on a user-opened (unowned) session while a call is in flight", () => {
+    const { rerender } = render(<TitleBar />);
+    expect(screen.queryByTestId("mcp-bar-s1")).toBeNull();
+    useMcpOwnershipStore.getState().beginActivity("s1");
+    rerender(<TitleBar />);
+    expect(screen.getByTestId("mcp-bar-s1").className).toContain("mcp-pulse");
+  });
+
+  it("removes the bar from an unowned session once the call ends", () => {
+    useMcpOwnershipStore.getState().beginActivity("s1");
+    const { rerender } = render(<TitleBar />);
+    expect(screen.getByTestId("mcp-bar-s1")).toBeTruthy();
+    useMcpOwnershipStore.getState().endActivity("s1");
+    rerender(<TitleBar />);
+    expect(screen.queryByTestId("mcp-bar-s1")).toBeNull();
   });
 });

@@ -45,6 +45,11 @@ describe("mcpOwnershipStore", () => {
     expect(store().busy.s1).toBeUndefined();
   });
 
+  it("claim caps clientName at 40 characters", () => {
+    store().claim("s1", { clientId: "c1", clientName: "a".repeat(50) });
+    expect(store().owners.s1.clientName).toBe("a".repeat(40));
+  });
+
   it("release keeps the busy counter alone so an in-flight call still resolves", () => {
     store().claim("s1", { clientId: "c1", clientName: "A" });
     store().beginActivity("s1");

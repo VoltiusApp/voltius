@@ -204,8 +204,9 @@ export default function TitleBar() {
   };
 
   const renderMcpBar = (key: string, sessionIds: string[]) => {
-    if (!sessionIds.some((id) => id in mcpOwners)) return null;
+    const owned = sessionIds.some((id) => id in mcpOwners);
     const busy = sessionIds.some((id) => (mcpBusy[id] ?? 0) > 0);
+    if (!owned && !busy) return null;
     return (
       <span
         data-testid={`mcp-bar-${key}`}

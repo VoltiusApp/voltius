@@ -6,6 +6,9 @@ export interface McpOwner {
   since: number;
 }
 
+/** Mirrors Rust's `chars().take(40)` clamp so the invariant holds on both sides. */
+const MAX_CLIENT_NAME = 40;
+
 interface McpOwnershipStore {
   /** Sessions an MCP client opened, by session id. */
   owners: Record<string, McpOwner>;
@@ -26,7 +29,10 @@ export const useMcpOwnershipStore = create<McpOwnershipStore>((set) => ({
 
   claim: (sessionId, owner) =>
     set((s) => ({
-      owners: { ...s.owners, [sessionId]: { ...owner, since: Date.now() } },
+      owners: {
+        ...s.owners,
+        [sessionId]: { ...owner, clientName: Array.from(owner.clientName).slice(0, MAX_CLIENT_NAME).join(""), since: Date.now() },
+      },
     })),
 
   release: (sessionId) =>
@@ -70,7 +76,3 @@ export const useMcpOwnershipStore = create<McpOwnershipStore>((set) => ({
       return { busy };
     }),
 }));
-
-export function isMcpOwned(sessionId: string): boolean {
-  return sessionId in useMcpOwnershipStore.getState().owners;
-}
