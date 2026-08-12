@@ -35,6 +35,7 @@ export const GATED_PERMISSIONS = new Set<string>([
   "folders:write",
   "known_hosts:read",
   "known_hosts:write",
+  "history:read",
 ]);
 
 /**
@@ -127,6 +128,7 @@ const PERMISSION_COPY: Record<string, string> = {
   "folders:write": "foldersWrite",
   "known_hosts:read": "knownHostsRead",
   "known_hosts:write": "knownHostsWrite",
+  "history:read": "historyRead",
   "sync:read": "syncRead",
   "sync:write": "syncWrite",
   storage: "storage",

@@ -808,6 +808,7 @@
           "portForwardingWrite": { "label": "Gérer vos redirections de ports", "description": "Créer, modifier, déplacer et supprimer vos règles de redirection de ports enregistrées." },
           "knownHostsRead": { "label": "Lire vos hôtes connus", "description": "Lister les clés d'hôte SSH que vous avez approuvées, avec leurs empreintes." },
           "knownHostsWrite": { "label": "Approuver et supprimer des clés d'hôte", "description": "Autoriser une clé d'hôte SSH, ou supprimer une clé approuvée. Une clé approuvée signifie que les connexions à cet hôte sont acceptées sans vous le demander." },
+          "historyRead": { "label": "Lire votre historique de commandes", "description": "Rechercher dans les commandes que vous avez saisies dans les terminaux. Elles peuvent contenir des mots de passe ou des jetons saisis en clair." },
           "vaultRead": { "label": "Lire votre coffre", "description": "Lire les données stockées dans votre coffre." },
           "vaultWrite": { "label": "Écrire dans votre coffre", "description": "Stocker et modifier des données dans votre coffre." },
           "syncRead": { "label": "Lire les données de synchronisation", "description": "Lire les données synchronisées entre vos appareils." },

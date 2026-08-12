@@ -80,6 +80,8 @@ import { createSnippetsAPI, type SnippetPorts } from "./domains/snippets";
 import { createPortForwardsAPI, type PortForwardPorts } from "./domains/portForwarding";
 import { createKnownHostsAPI, type KnownHostPorts } from "./domains/knownHosts";
 import { listKnownHosts, deleteKnownHost, trustKnownHost } from "@/services/knownHosts";
+import { createHistoryAPI, type HistoryPorts } from "./domains/history";
+import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
 import { resolveCan, type Permission } from "@/services/permissions";
 import { getMyUserId } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
@@ -688,6 +690,10 @@ const knownHostPorts: KnownHostPorts = {
   isTeamVault: isTeamVaultId,
 };
 
+const historyPorts: HistoryPorts = {
+  list: () => useCommandHistoryStore.getState().entries,
+};
+
 // ─── Store reload map ─────────────────────────────────────────────────────
 
 const RELOADABLE_STORES: Record<string, () => Promise<void>> = {
@@ -892,6 +898,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const snippetsApi = createSnippetsAPI(snippetPorts);
   const portForwardsApi = createPortForwardsAPI(portForwardPorts);
   const knownHostsApi = createKnownHostsAPI(knownHostPorts);
+  const historyApi = createHistoryAPI(historyPorts);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -1113,6 +1120,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       trust(input) {
         requirePerm(manifest, "known_hosts:write");
         return knownHostsApi.trust(input);
+      },
+    },
+
+    history: {
+      search(filter) {
+        requirePerm(manifest, "history:read");
+        return historyApi.search(filter);
       },
     },
 

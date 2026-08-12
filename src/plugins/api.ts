@@ -113,6 +113,16 @@ export interface PluginTrustResult {
   replaced: boolean;
 }
 
+export interface PluginHistoryEntry {
+  id: string;
+  command: string;
+  /** Epoch milliseconds. */
+  timestamp: number;
+  session_id: string;
+  session_name: string;
+  connection_id: string;
+}
+
 /**
  * A SAVED port-forwarding rule: a shape, not a live listener. Opening one is
  * `portForwards.start`, which needs an open session to hang the tunnel on.
@@ -748,6 +758,16 @@ export interface PluginAPI {
     trust(input: {
       host: string; port: number; fingerprint: string; vaultId?: string; replace?: boolean;
     }): Promise<PluginTrustResult>;
+  };
+
+  /**
+   * Command lines the user typed in a terminal (requires the gated history:read).
+   * Persisted, capped at 500 entries by the store.
+   */
+  history: {
+    search(filter: {
+      query?: string; connectionId?: string; sessionId?: string; limit?: number;
+    }): PluginHistoryEntry[];
   };
 
   /**
