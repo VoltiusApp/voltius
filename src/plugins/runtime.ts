@@ -9,10 +9,11 @@ import i18n from "@/i18n";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
-import { sshSendInput, onSshOutput } from "@/services/ssh";
+import { onSshOutput } from "@/services/ssh";
 import { onLocalOutput, localConnect, localSendInput } from "@/services/local";
-import { onSerialOutput, serialWrite } from "@/services/serial";
-import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
+import { onSerialOutput } from "@/services/serial";
+import { sendSessionInput } from "@/services/sessionInput";
+import { readTerminalSnapshot, readTerminalSelection, getAppCursorMode } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -831,16 +832,22 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
 
 /**
  * Metadata keys that reach the local sink through `localMetadata`, which is
- * defined as never leaving the device: `command` (run_command's shell text) and
- * `args` (makeFileOp's stringified arguments, i.e. every path touched), plus the
- * markers boundLocalMetadata adds for them. api.audit.query is a second wire, so
- * they are stripped here too.
+ * defined as never leaving the device: `command` (run_command's shell text),
+ * `args` (makeFileOp's stringified arguments, i.e. every path touched) and
+ * `keys` (send_keys' key tokens, which can carry a password typed at a prompt
+ * the terminal never echoes), plus the markers boundLocalMetadata adds for them.
+ * api.audit.query is a second wire, so they are stripped here too.
+ *
+ * `keys` rides as a JSON string, so boundLocalMetadata's per-field
+ * truncation applies and can add `keys_truncated`; both are stripped here.
  */
 const LOCAL_ONLY_METADATA_KEYS = [
   "command",
   "command_truncated",
   "args",
   "args_truncated",
+  "keys",
+  "keys_truncated",
   "localMetadata_dropped",
 ];
 
@@ -868,6 +875,14 @@ const toPluginAuditRow = (l: AuditLog): PluginAuditRow => ({
 
 /** Ids belonging to host APIs rather than plugins. See `whileActive`. */
 const _hostApiIds = new Set<string>();
+
+/** Resolve a session and write text to its transport. Throws on an unknown id,
+ *  so a caller never mistakes "no such session" for a successful write. */
+async function writeSessionBytes(sessionId: string, text: string): Promise<void> {
+  const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+  if (!session) throw new Error(`Session "${sessionId}" not found`);
+  await sendSessionInput(sessionId, session.type as "ssh" | "local" | "serial", new TextEncoder().encode(text));
+}
 
 function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const id = manifest.id;
@@ -1625,21 +1640,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async sendCommand(sessionId, cmd) {
         requireGated("terminal:write");
-        const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-        if (!session) throw new Error(`Session "${sessionId}" not found`);
-        // Three transports, mirroring onOutput above and sendSessionInput in
-        // useTerminal.ts. Serial used to fall through to the SSH branch, which
-        // writes to a channel a serial session does not have — so every write to
-        // a serial device was silently dropped.
-        const encoded = new TextEncoder().encode(cmd + "\n");
-        if (session.type === "local") {
-          const { invoke } = await import("@tauri-apps/api/core");
-          await invoke("local_send_input", { sessionId, data: Array.from(encoded) });
-        } else if (session.type === "serial") {
-          await serialWrite(sessionId, encoded);
-        } else {
-          await sshSendInput(sessionId, encoded);
-        }
+        // The newline is this method's contract: sendCommand runs a line,
+        // sendInput writes verbatim.
+        return writeSessionBytes(sessionId, cmd + "\n");
+      },
+      async sendInput(sessionId, data) {
+        requireGated("terminal:write");
+        return writeSessionBytes(sessionId, data);
       },
       async open(connectionId, options) {
         requirePerm(manifest, "sessions:write");
@@ -1659,6 +1666,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       readSelection(sessionId) {
         requireGated("terminal:read");
         return readTerminalSelection(sessionId);
+      },
+      appCursorMode(sessionId) {
+        requireGated("terminal:read");
+        return getAppCursorMode(sessionId);
       },
       async onOutput(sessionId, cb) {
         requireGated("terminal:stream");

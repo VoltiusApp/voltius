@@ -45,8 +45,13 @@ function makePorts(over: Partial<ToolSurfacePorts> = {}): ToolSurfacePorts {
       open: vi.fn(async () => "sess-1"),
       close: vi.fn(async (id: string) => { live = live.filter((s) => s.id !== id); }),
       list: vi.fn(() => live),
+      sendInput: vi.fn(async () => {}),
     },
-    terminal: { readSnapshot: vi.fn(() => "last lines") },
+    terminal: {
+      readSnapshot: vi.fn(() => "last lines"),
+      onOutput: vi.fn(async () => vi.fn()),
+      appCursorMode: vi.fn(() => false),
+    },
   } as unknown as ToolSurfacePorts["api"];
   const approve: ToolSurfacePorts["approve"] = vi.fn(async () => ({
     approve: true as const,
@@ -57,10 +62,10 @@ function makePorts(over: Partial<ToolSurfacePorts> = {}): ToolSurfacePorts {
 }
 
 describe("core tool surface", () => {
-  test("exposes 53 tools and no planning tool", () => {
+  test("exposes 59 tools and no planning tool", () => {
     const ports = makePorts();
     const names = buildCoreTools(ports).map((t) => t.name);
-    expect(names).toHaveLength(58);
+    expect(names).toHaveLength(59);
     expect(names).not.toContain("propose_plan");
   });
 });
@@ -432,5 +437,108 @@ describe("the text port", () => {
     await tools.find((t) => t.name === "open_session")!.execute({ connectionId: "conn-A" }); // owns sess-1, not "not-owned"
     const out = await tools.find((t) => t.name === "close_session")!.execute({ sessionId: "sess-1" });
     expect(out).toEqual({ refused: true, error: "not yours" });
+  });
+});
+
+describe("send_keys", () => {
+  it("writes the mapped bytes and returns the settled screen", async () => {
+    const ports = makePorts();
+    ports.api.terminal.readSnapshot = vi.fn(() => "menu row");
+    const r: any = await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Down", "Enter"], firstOutputMs: 5 });
+    expect(ports.api.sessions.sendInput).toHaveBeenCalledWith("sess-1", "\x1b[B\r");
+    expect(r).toMatchObject({ sent: 2, screen: "menu row", settled: true, outputSeen: false, timedOut: false });
+  });
+
+  it("accepts and passes through firstOutputMs", async () => {
+    const ports = makePorts();
+    const schema: any = tool(ports, "send_keys").schema;
+    expect(schema.safeParse({ sessionId: "sess-1", keys: ["Enter"], firstOutputMs: 900 }).success).toBe(true);
+    expect(schema.safeParse({ sessionId: "sess-1", keys: ["Enter"], firstOutputMs: 0 }).success).toBe(false);
+    // The fake terminal never emits; resolving fast proves the option reached
+    // sendKeysToSession rather than falling back to the 1500ms default.
+    const started = Date.now();
+    await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Enter"], firstOutputMs: 5 });
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+
+  it("refuses an unknown session without asking for approval", async () => {
+    const ports = makePorts();
+    const r = await tool(ports, "send_keys").execute({ sessionId: "nope", keys: ["Enter"] });
+    expect(r).toMatchObject({ refused: true });
+    expect(ports.approve).not.toHaveBeenCalled();
+  });
+
+  it("refuses a bad token before writing anything", async () => {
+    const ports = makePorts();
+    const r = await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Ctrl-c"] });
+    expect(r).toMatchObject({ refused: true });
+    expect(ports.api.sessions.sendInput).not.toHaveBeenCalled();
+  });
+
+  it("records agent.keys_sent BEFORE the write, with the keys on-device only", async () => {
+    const ports = makePorts();
+    const order: string[] = [];
+    ports.audit = vi.fn(() => { order.push("audit"); });
+    ports.api.sessions.sendInput = vi.fn(async () => { order.push("write"); });
+    await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["C-c"], firstOutputMs: 5 });
+    expect(order).toEqual(["audit", "write"]);
+    const [, action, metadata, localMetadata] = vi.mocked(ports.audit).mock.calls[0];
+    expect(action).toBe("agent.keys_sent");
+    expect(metadata).toMatchObject({ tool: "send_keys" });
+    expect(JSON.stringify(metadata)).not.toContain("C-c");
+    // Serialized, not an array: boundLocalMetadata truncates strings but drops
+    // the whole payload when an array pushes it over the total budget.
+    expect(localMetadata).toMatchObject({ keys: JSON.stringify(["C-c"]) });
+  });
+
+  it("keeps the key stream as a single string, so the audit bounder can truncate it", async () => {
+    const ports = makePorts();
+    await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["x".repeat(4000)], firstOutputMs: 5 });
+    const [, , , localMetadata] = vi.mocked(ports.audit).mock.calls[0];
+    expect(typeof localMetadata!.keys).toBe("string");
+  });
+
+  it("uses application-cursor form when the session is in that mode", async () => {
+    const ports = makePorts();
+    ports.api.terminal.appCursorMode = vi.fn(() => true);
+    await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Up"], firstOutputMs: 5 });
+    expect(ports.api.sessions.sendInput).toHaveBeenCalledWith("sess-1", "\x1bOA");
+  });
+});
+
+describe("send_keys after the gate", () => {
+  it("refuses when the session is closed while the approval sits pending, and records nothing", async () => {
+    const ports = makePorts();
+    ports.approve = vi.fn(async () => {
+      await ports.api.sessions.close("sess-1");
+      return { approve: true as const, scope: "conn-A", via: "granted" as const };
+    });
+    const r = await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Enter"] });
+    expect(r).toMatchObject({ error: expect.stringContaining("no such open session") });
+    expect(ports.audit).not.toHaveBeenCalled();
+    expect(ports.api.sessions.sendInput).not.toHaveBeenCalled();
+  });
+
+  it("refuses when the decision rewrites keys to an invalid token, and records nothing", async () => {
+    const ports = makePorts({
+      approve: vi.fn(async () => ({
+        approve: true as const,
+        scope: "conn-A",
+        via: "prompted" as const,
+        args: { sessionId: "sess-1", keys: ["Ctrl-c"] },
+      })),
+    });
+    const r = await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Enter"] });
+    expect(r).toMatchObject({ refused: true });
+    expect(ports.audit).not.toHaveBeenCalled();
+    expect(ports.api.sessions.sendInput).not.toHaveBeenCalled();
+  });
+
+  it("refuses an empty key list", async () => {
+    const ports = makePorts();
+    const r: any = await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: [] });
+    expect(r).toMatchObject({ refused: true });
+    expect(String(r.error)).toContain("keys must not be empty");
+    expect(ports.approve).not.toHaveBeenCalled();
   });
 });

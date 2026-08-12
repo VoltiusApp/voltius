@@ -14,7 +14,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { writeToSession } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
-import type { SpecialKey } from "@/stores/terminalKeyCore";
+import type { SpecialKey } from "@/services/terminalKeyCore";
 
 /** Session whose terminal currently owns the native keyboard. */
 let activeSession: string | null = null;

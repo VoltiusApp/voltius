@@ -1051,6 +1051,10 @@ export interface PluginAPI {
     onActivated(cb: (session: PluginSession) => void): () => void;
     /** Send a command to a session. Runtime appends \n. Requires sessions:write. */
     sendCommand(sessionId: string, cmd: string): Promise<void>;
+    /** Write text to a session's terminal VERBATIM — no newline, no wrapper.
+     *  Use for keystrokes and control bytes; use sendCommand to run a line.
+     *  Requires terminal:write. */
+    sendInput(sessionId: string, data: string): Promise<void>;
     /** Open (connect) a saved connection by id. Resolves to the new sessionId. Requires sessions:write.
      *  `background: true` opens the tab without stealing the user's active one. */
     open(connectionId: string, options?: { background?: boolean }): Promise<string>;
@@ -1066,6 +1070,10 @@ export interface PluginAPI {
     readSelection(sessionId: string): string;
     /** Subscribe to live decoded output for a session. Resolves to an unsubscribe fn. */
     onOutput(sessionId: string, cb: (text: string) => void): Promise<() => void>;
+    /** Whether the session's terminal is in application-cursor-keys mode
+     *  (DECCKM): arrows must be sent as ESC O x rather than ESC [ x.
+     *  False when the session has no mounted terminal. Requires terminal:read. */
+    appCursorMode(sessionId: string): boolean;
   };
 
   // Keychain — GATED (first-party only). OS-local, never synced.

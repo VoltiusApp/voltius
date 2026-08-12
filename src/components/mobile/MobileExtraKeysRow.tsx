@@ -4,7 +4,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { isActive, type Modifier } from "@/stores/modifierLatchCore";
 import { useModifierLatchStore } from "@/stores/modifierLatchStore";
 import { sendSpecialKey } from "@/services/terminalInput";
-import type { SpecialKey } from "@/stores/terminalKeyCore";
+import type { SpecialKey } from "@/services/terminalKeyCore";
 import { useUIStore } from "@/stores/uiStore";
 
 type KeyDef = { key: SpecialKey; label?: string; icon?: string };

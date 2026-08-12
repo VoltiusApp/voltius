@@ -7,9 +7,9 @@ import { PERMISSIONS } from "./hostApi";
 const isPermissionError = (err: unknown) => err instanceof Error && /requires permission/.test(err.message);
 
 describe("MCP host API surface", () => {
-  it("builds all 58 MCP tools over the real createHostPluginAPI", () => {
+  it("builds all 59 MCP tools over the real createHostPluginAPI", () => {
     const api = createHostPluginAPI("__mcp_hostapi_test__", PERMISSIONS);
-    expect(buildMcpTools(api, new Set()).map((t) => t.name).sort()).toHaveLength(58);
+    expect(buildMcpTools(api, new Set()).map((t) => t.name).sort()).toHaveLength(59);
   });
 
   // Each gated PluginAPI call the tools reach into must clear its permission
@@ -38,7 +38,9 @@ describe("MCP host API surface", () => {
       () => api.sftp.transfer({ target: "local", path: "/x" }, { target: "local", path: "/y" }),
       () => api.sessions.open("c1"),
       () => api.sessions.sendCommand("s1", "echo hi"),
+      () => api.sessions.sendInput("s1", "x"),
       () => api.terminal.onOutput("s1", () => {}),
+      () => api.terminal.appCursorMode("s1"),
       () => api.terminal.readSnapshot("s1"),
       () => api.sessions.close("s1"),
       () => api.keys.list(),

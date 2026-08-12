@@ -127,6 +127,14 @@ describe("boundLocalMetadata", () => {
     expect(boundLocalMetadata({ blob: { a: "x".repeat(600_000) } })).toEqual({ localMetadata_dropped: true });
   });
 
+  test("truncates a huge serialized key stream and keeps the rest of the row", () => {
+    const bounded = boundLocalMetadata({ keys: JSON.stringify(["x".repeat(4096)]), tool: "send_keys" })!;
+    expect(bounded.keys).toHaveLength(2000);
+    expect(bounded.keys_truncated).toBe(true);
+    expect(bounded.tool).toBe("send_keys");
+    expect(bounded.localMetadata_dropped).toBeUndefined();
+  });
+
   test("drops an array of many medium strings that exceeds the budget", () => {
     const items = Array.from({ length: 400 }, () => "x".repeat(1999));
     expect(boundLocalMetadata({ items })).toEqual({ localMetadata_dropped: true });
