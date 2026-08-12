@@ -224,6 +224,20 @@
     animation: statusbar-connecting-pulse 1s ease-in-out infinite;
   }
 
+  @keyframes mcp-pulse {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .mcp-pulse {
+    animation: mcp-pulse 1s ease-in-out infinite;
+  }
+
   @keyframes cpu-alert-pulse {
     0%,
     100% {
