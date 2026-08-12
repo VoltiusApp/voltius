@@ -54,4 +54,23 @@ describe("transfer_file over MCP", () => {
     const [tr] = useTransferQueueStore.getState().transfers;
     expect(tr.owner).toBeUndefined();
   });
+
+  it("rejects instead of silently resolving when the tool throws outside its own refusal handling", async () => {
+    const api = {
+      sftp: { transfer: vi.fn(async () => {}) },
+      sessions: { list: () => [] },
+      audit: {
+        record: vi.fn(() => {
+          throw new Error("audit sink down");
+        }),
+      },
+    } as unknown as PluginAPI;
+    await expect(
+      transferFile(api).execute({
+        fromTarget: "local", fromPath: "/tmp/a.txt", toTarget: "c-1", toPath: "/tmp/a.txt",
+      }),
+    ).rejects.toThrow("audit sink down");
+    const [tr] = useTransferQueueStore.getState().transfers;
+    expect(tr.status).toBe("error");
+  });
 });

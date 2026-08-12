@@ -180,12 +180,26 @@ function queueTransfer(
   run: () => Promise<unknown>,
 ): Promise<unknown> {
   const label = `${String(args.fromPath ?? "")} → ${String(args.toPath ?? "")}`;
+  // Host-to-host also renders "→" — the queue's arrow only distinguishes
+  // "lands on this machine" from everything else, it has no third glyph for
+  // "neither end is local".
   const direction = args.toTarget === "local" ? "←" : "→";
   let out: unknown;
+  let thrown: unknown;
   return useTransferQueueStore
     .getState()
     .runTransfer(label, direction, async () => {
-      out = await run();
+      try {
+        out = await run();
+      } catch (err) {
+        // Outside makeFileOp's own try/catch (e.g. gate()/audit() throwing):
+        // a genuine exception, as opposed to a caught-and-returned refusal.
+        // Captured so it can be rethrown below — runTransfer's catch marks
+        // the row "error" but never rethrows, so without this the caller
+        // would see a silent `undefined` success instead of the failure.
+        thrown = err;
+        throw err;
+      }
       // makeFileOp never throws — it catches and resolves with a refusal object —
       // so runTransfer's own catch (which marks the row "error") never fires
       // unless we surface the refusal as a throw here. `out` is already captured,
@@ -193,7 +207,10 @@ function queueTransfer(
       const refusal = refusalMessage(out);
       if (refusal !== null) throw new Error(refusal);
     }, undefined, false, owner)
-    .then(() => out);
+    .then(() => {
+      if (thrown !== undefined) throw thrown;
+      return out;
+    });
 }
 
 /**
