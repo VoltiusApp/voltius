@@ -327,7 +327,7 @@ export default function TitleBar() {
                     if (e.button === 0) useDragStore.getState().beginSplitTabDrag(tab.id, e.clientX, e.clientY);
                     if (e.button === 1) { e.preventDefault(); handleUnifiedTabClose(e, tab.id); }
                   }}
-                  className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
+                  className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
                   title={t("layout.titleBar.unifiedSplitTab")}
                   style={{
                     background: isActiveSplitTab ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
@@ -378,7 +378,7 @@ export default function TitleBar() {
                   if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, item.key);
                   if (e.button === 1) { e.preventDefault(); handleTabClose(e, session.id); }
                 }}
-                className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
+                className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
                 style={{
                   background: isActive ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
                   color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
