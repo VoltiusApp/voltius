@@ -8,6 +8,7 @@ import type { TFunction } from "i18next";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useDragStore } from "@/stores/dragStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore, type SplitPosition } from "@/stores/layoutStore";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -107,6 +108,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const reconnect = useSessionStore((s) => s.reconnect);
   const sessions = useSessionStore((s) => s.sessions);
   const mpState = useTeamSessionStore((s) => s.connections[session.id]);
+  const mcpOwner = useMcpOwnershipStore((s) => s.owners[session.id]);
   const { pos, open, close } = useContextMenu();
 
   // Copy user@host
@@ -299,11 +301,13 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
       onContextMenu={open}
       className="h-7 shrink-0 flex items-stretch gap-2 px-2 text-xs border-b"
       style={{
-        background: broadcastActive
-          ? "color-mix(in srgb, var(--t-accent) 12%, var(--t-bg-card))"
-          : active
-            ? "var(--t-bg-card)"
-            : "color-mix(in srgb, var(--t-bg-card) 70%, var(--t-bg-terminal))",
+        background: mcpOwner
+          ? "color-mix(in srgb, var(--t-mcp) 10%, var(--t-bg-card))"
+          : broadcastActive
+            ? "color-mix(in srgb, var(--t-accent) 12%, var(--t-bg-card))"
+            : active
+              ? "var(--t-bg-card)"
+              : "color-mix(in srgb, var(--t-bg-card) 70%, var(--t-bg-terminal))",
         borderColor: "var(--t-border)",
         color: active ? "var(--t-text-primary)" : "var(--t-text-secondary)",
       }}
@@ -340,6 +344,19 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
         <span className="px-1.5 py-0.5 rounded-sm border border-(--t-border) bg-(--t-bg-elevated) text-[10px] font-semibold">
           {sessionBadge(session, t)}
         </span>
+        {mcpOwner && (
+          <span
+            data-testid="mcp-chip"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold"
+            style={{ background: "color-mix(in srgb, var(--t-mcp) 22%, transparent)", color: "var(--t-mcp)" }}
+            title={mcpOwner.clientName
+              ? t("panes.header.mcpTooltip", { client: mcpOwner.clientName })
+              : t("panes.header.mcpTooltipUnknown")}
+          >
+            <Icon icon="lucide:bot" width={11} />
+            {t("panes.header.mcpBadge")}
+          </span>
+        )}
         <span className="size-1.5 rounded-full" style={{ background: statusColor(session.status) }} />
         {pingEnabled && session.type === "ssh" && pingStatus === "up" && latencyMs !== undefined && (
           <div
