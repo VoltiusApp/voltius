@@ -32,15 +32,17 @@ export function buildKnownHostTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: z.object({ id: z.string() }),
       execute: async (raw) =>
-        op("known_host_delete", "agent.object_deleted", { objectType: "known_host" }, raw, (a) =>
+        op("known_host_delete", "agent.object_deleted", { objectType: "known_host", objectId: String(raw.id) }, raw, (a) =>
           ports.api.knownHosts.delete(a.id as string)),
     },
     {
       name: "known_host_trust",
       description:
-        "Trust an SSH host key. Without `replace` this adds a key for a host that has none; with "
-        + "`replace` it supersedes the keys already stored for that host and port. The result "
-        + "always names what was superseded, so a replaced key is never reported as a fresh trust.",
+        "Trust an SSH host key. Without `replace` this only trusts a host that has no key stored "
+        + "yet: a host that already has one is refused, naming the stored fingerprints, because a "
+        + "second key would be accepted alongside the first. `replace: true` supersedes the keys "
+        + "already stored for that host and port. The result always names what was superseded, so "
+        + "a replaced key is never reported as a fresh trust.",
       risk: "prompt",
       schema: z.object({
         host: z.string(),
@@ -50,7 +52,13 @@ export function buildKnownHostTools(ports: ToolSurfacePorts): Tool[] {
         replace: z.boolean().optional(),
       }),
       execute: async (raw) =>
-        op("known_host_trust", "agent.object_created", { objectType: "known_host" }, raw, (a) =>
+        // No id exists yet, so host:port identifies the entry; the fingerprint
+        // stays out of the row.
+        op("known_host_trust", "agent.object_created", {
+          objectType: "known_host",
+          objectId: `${String(raw.host)}:${String(raw.port)}`,
+          replace: raw.replace === true,
+        }, raw, (a) =>
           ports.api.knownHosts.trust({
             host: a.host as string,
             port: a.port as number,

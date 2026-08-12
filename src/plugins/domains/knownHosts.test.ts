@@ -47,6 +47,17 @@ describe("knownHosts domain", () => {
     expect(res.superseded.map((s) => s.fingerprint)).toEqual(["SHA256:old"]);
   });
 
+  it("surfaces the store's refusal of a second key for an already-trusted host", async () => {
+    const ports = makePorts({
+      trust: vi.fn(async () => {
+        throw new Error("h1:22 already trusts SHA256:aaa. Superseding a stored key requires replace: true.");
+      }),
+    });
+    const api = createKnownHostsAPI(ports);
+    await expect(api.trust({ host: "h1", port: 22, fingerprint: "SHA256:evil" }))
+      .rejects.toThrow(/already trusts SHA256:aaa.*replace: true/);
+  });
+
   it("refuses a team vault", async () => {
     const ports = makePorts({ isTeamVault: vi.fn(() => true) });
     const api = createKnownHostsAPI(ports);

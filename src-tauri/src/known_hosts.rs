@@ -181,6 +181,38 @@ impl KnownHostsStore {
         self.add_new(host, port, fingerprint, vault_id).await
     }
 
+    /// Trust `fingerprint` for host:port.
+    ///
+    /// Without `replace`, a host that already has live entries is refused:
+    /// `check` returns `Known` on ANY matching entry, so adding a second key
+    /// leaves the old one accepted too and the host authenticates with either.
+    pub async fn trust(
+        &self,
+        host: &str,
+        port: u16,
+        fingerprint: String,
+        vault_id: &str,
+        replace: bool,
+    ) -> Result<(KnownHost, Vec<KnownHost>), String> {
+        let existing = self.entries_for(host, port).await;
+        if replace {
+            let entry = self.replace_all(host, port, fingerprint, vault_id).await;
+            return Ok((entry, existing));
+        }
+        if !existing.is_empty() {
+            let stored = existing
+                .iter()
+                .map(|e| e.fingerprint.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(format!(
+                "{}:{} already trusts {}. Superseding a stored key requires replace: true.",
+                host, port, stored
+            ));
+        }
+        Ok((self.add_new(host, port, fingerprint, vault_id).await, vec![]))
+    }
+
     /// Soft-delete an entry by id.
     pub async fn delete(&self, id: &str) {
         let now = Utc::now().to_rfc3339();
@@ -266,5 +298,50 @@ mod trust_tests {
         let live = store.entries_for("h1", 22).await;
         assert_eq!(live.len(), 1, "the old entry must be soft-deleted, not left alongside");
         assert_eq!(live[0].fingerprint, "SHA256:new");
+    }
+
+    #[tokio::test]
+    async fn trust_without_replace_refuses_a_host_that_already_has_a_key() {
+        let store = KnownHostsStore::new();
+        store.add_new("h1", 22, "SHA256:old".into(), "personal").await;
+
+        let err = store
+            .trust("h1", 22, "SHA256:evil".into(), "personal", false)
+            .await
+            .expect_err("a second accepted key must not be added silently");
+        assert!(err.contains("SHA256:old"), "the error names the stored key: {}", err);
+        assert!(err.contains("replace"), "the error names the way forward: {}", err);
+
+        let live = store.entries_for("h1", 22).await;
+        assert_eq!(live.len(), 1);
+        assert_eq!(live[0].fingerprint, "SHA256:old");
+        assert!(matches!(
+            store.check("h1", 22, "SHA256:evil").await,
+            HostKeyStatus::Changed { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn trust_without_replace_adds_when_the_host_has_none() {
+        let store = KnownHostsStore::new();
+        let (entry, superseded) = store
+            .trust("h1", 22, "SHA256:new".into(), "personal", false)
+            .await
+            .expect("a host with no stored key is trust-on-first-use");
+        assert_eq!(entry.fingerprint, "SHA256:new");
+        assert!(superseded.is_empty());
+    }
+
+    #[tokio::test]
+    async fn trust_with_replace_reports_what_it_superseded() {
+        let store = KnownHostsStore::new();
+        store.add_new("h1", 22, "SHA256:old".into(), "personal").await;
+        let (entry, superseded) = store
+            .trust("h1", 22, "SHA256:new".into(), "personal", true)
+            .await
+            .expect("replace supersedes");
+        assert_eq!(entry.fingerprint, "SHA256:new");
+        assert_eq!(superseded.len(), 1);
+        assert_eq!(superseded[0].fingerprint, "SHA256:old");
     }
 }

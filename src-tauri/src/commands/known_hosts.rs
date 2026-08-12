@@ -60,14 +60,10 @@ pub async fn known_host_trust(
     replace: Option<bool>,
 ) -> Result<TrustOutcome, String> {
     let vault = vault_id.unwrap_or_else(|| "personal".to_string());
-    if replace.unwrap_or(false) {
-        let superseded = known_hosts.entries_for(&host, port).await;
-        let entry = known_hosts.replace_all(&host, port, fingerprint, &vault).await;
-        Ok(TrustOutcome { entry, superseded })
-    } else {
-        let entry = known_hosts.add_new(&host, port, fingerprint, &vault).await;
-        Ok(TrustOutcome { entry, superseded: vec![] })
-    }
+    let (entry, superseded) = known_hosts
+        .trust(&host, port, fingerprint, &vault, replace.unwrap_or(false))
+        .await?;
+    Ok(TrustOutcome { entry, superseded })
 }
 
 #[tauri::command]

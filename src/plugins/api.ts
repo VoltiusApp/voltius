@@ -754,7 +754,7 @@ export interface PluginAPI {
     delete(id: string, opts?: { cascade?: boolean }): Promise<void>;
   };
 
-  // Saved snippets (requires snippets:read / snippets:write)
+  // Saved snippets (requires snippets:read / snippets:write, and snippets:run for `run`)
   snippets: {
     list(): Promise<PluginSnippet[]>;
     create(input: PluginSnippetInput): Promise<PluginSnippet>;
@@ -788,7 +788,11 @@ export interface PluginAPI {
   knownHosts: {
     list(filter?: { host?: string; port?: number }): Promise<PluginKnownHost[]>;
     delete(id: string): Promise<void>;
-    /** `replace` supersedes the stored keys for this host:port. Rejects a team vault. */
+    /**
+     * `replace` supersedes the stored keys for this host:port. Without it, a
+     * host that already has a stored key is rejected — a second key would be
+     * accepted alongside the first. Rejects a team vault.
+     */
     trust(input: {
       host: string; port: number; fingerprint: string; vaultId?: string; replace?: boolean;
     }): Promise<PluginTrustResult>;
