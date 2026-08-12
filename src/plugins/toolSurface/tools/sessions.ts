@@ -58,7 +58,9 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         const g = await gate("open_session", raw);
         if (!g.ok) return g.result;
         const connectionId = String(g.args.connectionId);
-        const sessionId = await ports.api.sessions.open(connectionId);
+        // Background: an agent opening a workbench must not pull the user out of
+        // the tab they are working in.
+        const sessionId = await ports.api.sessions.open(connectionId, { background: true });
         ports.owned.add(sessionId);
         // After the open succeeds: a failed open produced no session, so there
         // is nothing to record.

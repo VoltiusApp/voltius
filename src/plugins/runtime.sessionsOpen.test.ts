@@ -26,6 +26,13 @@ describe("sessions.open returns the new sessionId", () => {
     connect.mockResolvedValue("sess-123");
     loadPlugin(manifest(["sessions:write"]), register, true, true);
     await expect(captured.sessions.open("conn-1")).resolves.toBe("sess-123");
-    expect(connect).toHaveBeenCalledWith("conn-1");
+    expect(connect).toHaveBeenCalledWith("conn-1", undefined);
+  });
+
+  test("passes the background flag through to the store", async () => {
+    connect.mockResolvedValue("sess-123");
+    loadPlugin(manifest(["sessions:write"]), register, true, true);
+    await captured.sessions.open("conn-1", { background: true });
+    expect(connect).toHaveBeenCalledWith("conn-1", { background: true });
   });
 });

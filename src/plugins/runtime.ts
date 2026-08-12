@@ -1592,9 +1592,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           await sshSendInput(sessionId, encoded);
         }
       },
-      async open(connectionId) {
+      async open(connectionId, options) {
         requirePerm(manifest, "sessions:write");
-        return useSessionStore.getState().connect(connectionId);
+        return useSessionStore.getState().connect(connectionId, options);
       },
       async close(sessionId) {
         requirePerm(manifest, "sessions:write");

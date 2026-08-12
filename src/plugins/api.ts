@@ -988,8 +988,9 @@ export interface PluginAPI {
     onActivated(cb: (session: PluginSession) => void): () => void;
     /** Send a command to a session. Runtime appends \n. Requires sessions:write. */
     sendCommand(sessionId: string, cmd: string): Promise<void>;
-    /** Open (connect) a saved connection by id. Resolves to the new sessionId. Requires sessions:write. */
-    open(connectionId: string): Promise<string>;
+    /** Open (connect) a saved connection by id. Resolves to the new sessionId. Requires sessions:write.
+     *  `background: true` opens the tab without stealing the user's active one. */
+    open(connectionId: string, options?: { background?: boolean }): Promise<string>;
     /** Close (disconnect) a session by id. Requires sessions:write. */
     close(sessionId: string): Promise<void>;
   };

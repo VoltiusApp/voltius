@@ -76,6 +76,12 @@ describe("core tools", () => {
     expect(c.owned.has("sess-1")).toBe(false);
   });
 
+  test("open_session opens in the background so the user's active tab is not stolen", async () => {
+    const c = makePorts();
+    await buildCoreTools(c).find((t) => t.name === "open_session")!.execute({ connectionId: "conn-A" });
+    expect(c.api.sessions.open).toHaveBeenCalledWith("conn-A", { background: true });
+  });
+
   test("open_session still opens on a real id (non-vacuity partner)", async () => {
     const c = makePorts();
     const res: any = await buildCoreTools(c).find((t) => t.name === "open_session")!.execute({ connectionId: "conn-A" });
