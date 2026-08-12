@@ -51,6 +51,14 @@ pub struct KnownHostsStore {
 }
 
 impl KnownHostsStore {
+    /// An empty in-memory store, no disk I/O. For tests.
+    #[cfg(test)]
+    pub fn new() -> Self {
+        Self {
+            entries: Mutex::new(Vec::new()),
+        }
+    }
+
     /// Load from disk, migrating the old HashMap-based format if present.
     pub fn load() -> Arc<Self> {
         let mut entries = load_known_hosts();
@@ -195,6 +203,17 @@ impl KnownHostsStore {
             .collect()
     }
 
+    /// Live (not soft-deleted) entries for one host:port.
+    pub async fn entries_for(&self, host: &str, port: u16) -> Vec<KnownHost> {
+        self.entries
+            .lock()
+            .await
+            .iter()
+            .filter(|e| e.deleted_at.is_none() && e.host == host && e.port == port)
+            .cloned()
+            .collect()
+    }
+
     /// Move an entry to a different vault.
     pub async fn move_vault(&self, id: &str, vault_id: &str) {
         let now = Utc::now().to_rfc3339();
@@ -226,5 +245,26 @@ impl KnownHostsStore {
         entries.push(copy.clone());
         save_known_hosts(&entries).ok();
         Some(copy)
+    }
+}
+
+#[cfg(test)]
+mod trust_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn replace_supersedes_the_previous_entry_for_the_same_host_port() {
+        let store = KnownHostsStore::new();
+        store.add_new("h1", 22, "SHA256:old".into(), "personal").await;
+
+        let superseded = store.entries_for("h1", 22).await;
+        assert_eq!(superseded.len(), 1);
+        assert_eq!(superseded[0].fingerprint, "SHA256:old");
+
+        store.replace_all("h1", 22, "SHA256:new".into(), "personal").await;
+
+        let live = store.entries_for("h1", 22).await;
+        assert_eq!(live.len(), 1, "the old entry must be soft-deleted, not left alongside");
+        assert_eq!(live[0].fingerprint, "SHA256:new");
     }
 }
