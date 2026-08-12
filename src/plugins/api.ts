@@ -97,6 +97,23 @@ export interface PluginSnippetInput {
   vault_id?: string;
 }
 
+/** One target for a snippet run: an open session, or a saved connection the run
+ *  connects on the fly. */
+export interface PluginSnippetTargetRef {
+  session_id?: string;
+  connection_id?: string;
+}
+
+export interface PluginSnippetRunResult {
+  targets: { label: string; ok: boolean; error?: string }[];
+  flatten_errors: string[];
+  /** Sessions this run opened for saved-connection targets, for reading back. */
+  opened_session_ids: string[];
+  /** Only on a dry run: the steps that would execute, per target, with their
+   *  variable templates left unresolved. */
+  steps?: { label: string; steps: unknown[] }[];
+}
+
 export interface PluginKnownHost {
   id: string;
   host: string;
@@ -745,6 +762,20 @@ export interface PluginAPI {
     update(id: string, patch: Partial<PluginSnippetInput>): Promise<void>;
     /** Rejects a team vault. */
     delete(id: string): Promise<void>;
+    /**
+     * Run a saved snippet against open sessions or saved connections (requires
+     * the gated snippets:run). Script steps are injected into a terminal, so the
+     * result carries per-target ok/error, not command output — read that with
+     * the session verbs, including on `opened_session_ids`. A user variable the
+     * snippet needs and `variables` does not supply is a rejection, not a prompt.
+     */
+    run(input: {
+      snippetId: string;
+      targets: PluginSnippetTargetRef[];
+      variables?: Record<string, string>;
+      /** Report the steps that would run, without running anything. */
+      dryRun?: boolean;
+    }): Promise<PluginSnippetRunResult>;
   };
 
   /**

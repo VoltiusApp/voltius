@@ -111,7 +111,13 @@ export async function runTransferStep(
 // ─── Sequence aggregation core ──────────────────────────────────────────────
 
 export interface TargetRunResult { label: string; ok: boolean; error?: string }
-export interface SequenceRunResult { targets: TargetRunResult[]; flattenErrors: string[] }
+export interface SequenceRunResult {
+  targets: TargetRunResult[];
+  flattenErrors: string[];
+  /** Sessions this run connected on the fly for saved-host targets. Only set by
+   *  the orchestrator; headless callers read them back to reach those terminals. */
+  openedSessionIds?: string[];
+}
 
 export interface TargetExec {
   runScript(content: string): Promise<void>;
@@ -307,11 +313,16 @@ async function prepareTarget(target: RunTarget, steps: LeafStep[]): Promise<Prep
  * Run a snippet sequence against targets. If the flattened sequence has
  * unfilled user variables, invokes onPrompt (which must eventually call
  * prompt.resume(values)) and returns "prompting". Otherwise runs immediately.
+ *
+ * `initialValues` pre-fills user variables by name, so a caller that already
+ * holds them (a headless one, which has nobody to answer a prompt) runs straight
+ * through. Values given here are not prompted for.
  */
 export async function runSnippetSequence(
   snippet: Snippet,
   targets: RunTarget[],
   onPrompt: (p: SequencePrompt) => void,
+  initialValues?: Record<string, string>,
 ): Promise<SequenceRunResult | "prompting"> {
   const snippetState = useSnippetStore.getState();
   const all = [...snippetState.snippets, ...Object.values(snippetState.teamSnippets).flat()];
@@ -339,6 +350,7 @@ export async function runSnippetSequence(
     // Script steps need a live terminal: connect saved-host targets on the fly.
     // Transfer-only sequences skip this and connect SFTP directly per target.
     let effectiveTargets = targets;
+    let opened: string[] = [];
     const preFailures: TargetRunResult[] = [];
     if (needsTerminal(flat.steps)) {
       const { resolutions, openedSessionIds } = await resolveTerminalTargets(targets, {
@@ -347,6 +359,7 @@ export async function runSnippetSequence(
         subscribe: (listener) => useSessionStore.subscribe(listener),
       });
       if (openedSessionIds.length > 0) surfaceSessions(openedSessionIds);
+      opened = openedSessionIds;
       effectiveTargets = [];
       for (const r of resolutions) {
         if (r.kind === "target") effectiveTargets.push(r.target);
@@ -379,20 +392,27 @@ export async function runSnippetSequence(
       }),
     );
     const result = await executeSequenceForTargets(prepared, flat.errors);
-    return { targets: [...result.targets, ...preFailures], flattenErrors: result.flattenErrors };
+    return {
+      targets: [...result.targets, ...preFailures],
+      flattenErrors: result.flattenErrors,
+      openedSessionIds: opened,
+    };
   };
 
-  if (vars.missing.length > 0) {
+  const seeded = { ...vars.initialValues, ...initialValues };
+  const stillMissing = vars.missing.filter((v) => seeded[v.name] === undefined);
+
+  if (stillMissing.length > 0) {
     onPrompt({
       snippet,
       userVars: vars.userVars,
       partialTemplate: vars.partialTemplate,
-      initialValues: vars.initialValues,
+      initialValues: seeded,
       resume: runWith,
     });
     return "prompting";
   }
-  return runWith(vars.initialValues);
+  return runWith(seeded);
 }
 
 // ─── Run-summary reporting ──────────────────────────────────────────────────

@@ -365,6 +365,8 @@ describe("runSnippetSequence — saved-host script target", () => {
     expect(r.targets).toHaveLength(1);
     expect(r.targets[0].ok).toBe(false);
     expect(r.targets[0].label).toBe("web-1");
+    // Nothing connected, so nothing to hand back to a headless caller.
+    expect(r.openedSessionIds).toEqual([]);
   });
 });
 
@@ -399,6 +401,40 @@ describe("runSnippetSequence — clipboard", () => {
       () => {},
     );
     expect(readClipboard).not.toHaveBeenCalled();
+  });
+});
+
+describe("runSnippetSequence — seeded user variables", () => {
+  function varSnippet(): Snippet {
+    return {
+      id: "s1", name: "xfer",
+      steps: [{ kind: "transfer", from: "local", to: "remote", from_path: "/tmp/{{name}}", to_path: "/r", is_dir: false, mode: "copy", on_conflict: "overwrite" }],
+      tags: [], favorite: false, only_for_connection_tags: [], only_for_distros: [],
+      created_at: "", updated_at: "", vault_id: "personal", clocks: {},
+    } as Snippet;
+  }
+  const target = { kind: "session" as const, sessionId: "s1", sessionType: "ssh" };
+
+  it("prompts when the caller supplies nothing", async () => {
+    const onPrompt = vi.fn();
+    expect(await runSnippetSequence(varSnippet(), [target], onPrompt)).toBe("prompting");
+    expect(onPrompt).toHaveBeenCalled();
+  });
+
+  it("runs straight through on supplied values, never prompting", async () => {
+    const onPrompt = vi.fn();
+    const res = await runSnippetSequence(varSnippet(), [target], onPrompt, { name: "hi" });
+    expect(onPrompt).not.toHaveBeenCalled();
+    expect(res).not.toBe("prompting");
+    expect(sftpUpload).toHaveBeenCalledWith(expect.objectContaining({ localPath: "/tmp/hi" }));
+  });
+
+  it("still prompts for what the caller did not supply, seeding what it did", async () => {
+    const onPrompt = vi.fn();
+    const two = varSnippet();
+    two.steps = [{ ...(two.steps[0] as Extract<LeafStep, { kind: "transfer" }>), to_path: "/r/{{other}}" }];
+    expect(await runSnippetSequence(two, [target], onPrompt, { name: "hi" })).toBe("prompting");
+    expect(onPrompt.mock.calls[0][0].initialValues).toMatchObject({ name: "hi" });
   });
 });
 

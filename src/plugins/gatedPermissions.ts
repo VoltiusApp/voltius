@@ -36,6 +36,9 @@ export const GATED_PERMISSIONS = new Set<string>([
   "known_hosts:read",
   "known_hosts:write",
   "history:read",
+  // Running a snippet executes the user's own commands on a host — danger tier,
+  // above the snippets:read/write pair that only reads and edits the text.
+  "snippets:run",
 ]);
 
 /**
@@ -118,6 +121,7 @@ const PERMISSION_COPY: Record<string, string> = {
   "identities:write": "identitiesWrite",
   "snippets:read": "snippetsRead",
   "snippets:write": "snippetsWrite",
+  "snippets:run": "snippetsRun",
   "port_forwarding:read": "portForwardingRead",
   "port_forwarding:write": "portForwardingWrite",
   "vault:read": "vaultRead",

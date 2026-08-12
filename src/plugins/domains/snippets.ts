@@ -1,5 +1,8 @@
 import type { Snippet, SnippetFormData } from "@/types";
-import type { PluginSnippet, PluginSnippetInput } from "../api";
+import type { RunTarget } from "@/services/sftpTarget";
+import type { SequencePrompt, SequenceRunResult } from "@/services/snippetSequence";
+import type { LeafStep } from "@/services/snippetFlatten";
+import type { PluginSnippet, PluginSnippetInput, PluginSnippetRunResult, PluginSnippetTargetRef } from "../api";
 import { vaultOf } from "./vaultOf";
 
 export interface SnippetPorts {
@@ -14,6 +17,19 @@ export interface SnippetPorts {
   update(id: string, data: SnippetFormData): Promise<void>;
   remove(id: string): Promise<void>;
   isTeamVault(vaultId: string): boolean;
+  /** Resolve target references to the engine's RunTargets. `unknown` names the
+   *  references that matched nothing, so the caller can refuse by name. */
+  resolveTargets(refs: PluginSnippetTargetRef[]): { targets: RunTarget[]; unknown: string[] };
+  /** The app's own sequence engine. Returns "prompting" when user variables are
+   *  still unfilled after `variables` is applied. */
+  run(
+    snippet: Snippet,
+    targets: RunTarget[],
+    onPrompt: (p: SequencePrompt) => void,
+    variables?: Record<string, string>,
+  ): Promise<SequenceRunResult | "prompting">;
+  /** Flatten nested snippets to leaf steps, for dry runs. */
+  flatten(snippet: Snippet): { steps: LeafStep[]; errors: string[] };
 }
 
 const project = (s: Snippet): PluginSnippet => ({
@@ -47,6 +63,11 @@ const formFrom = (base: Snippet | null, input: Partial<PluginSnippetInput>): Sni
   folder_id: input.folder_id ?? base?.folder_id,
   vault_id: input.vault_id ?? (base ? vaultOf(base) : undefined),
 });
+
+/** Dry-run label. The engine labels real runs itself, from the session store;
+ *  this one stays store-free so the domain remains headless-testable. */
+const labelOf = (t: RunTarget): string =>
+  t.kind === "connection" ? t.connection.name ?? t.connection.host : t.label ?? t.sessionId;
 
 export function createSnippetsAPI(ports: SnippetPorts) {
   const find = async (id: string): Promise<Snippet> => {
@@ -96,6 +117,52 @@ export function createSnippetsAPI(ports: SnippetPorts) {
     delete: async (id: string): Promise<void> => {
       refuseTeam(await find(id), "deleted");
       await ports.remove(id);
+    },
+
+    run: async (input: {
+      snippetId: string;
+      targets: PluginSnippetTargetRef[];
+      variables?: Record<string, string>;
+      dryRun?: boolean;
+    }): Promise<PluginSnippetRunResult> => {
+      const snippet = await find(input.snippetId);
+      const { targets, unknown } = ports.resolveTargets(input.targets ?? []);
+      if (unknown.length > 0) throw new Error(`No session or connection for: ${unknown.join(", ")}`);
+      if (targets.length === 0) throw new Error("No targets given");
+
+      if (input.dryRun) {
+        const flat = ports.flatten(snippet);
+        return {
+          targets: [],
+          flatten_errors: flat.errors,
+          opened_session_ids: [],
+          steps: targets.map((t) => ({ label: labelOf(t), steps: flat.steps })),
+        };
+      }
+
+      // The engine prompts for user variables it still lacks. There is no UI on
+      // this path, so a prompt is a refusal naming what is missing — never a
+      // modal nobody is there to answer.
+      let missing: string[] = [];
+      const outcome = await ports.run(
+        snippet,
+        targets,
+        (p) => {
+          // The prompt's initialValues already carry the caller's variables, so
+          // a user var absent from them is one nobody supplied.
+          missing = p.userVars.filter((v) => p.initialValues[v.name] === undefined).map((v) => v.name);
+          if (missing.length === 0) missing = p.userVars.map((v) => v.name);
+        },
+        input.variables,
+      );
+      if (outcome === "prompting") {
+        throw new Error(`Missing variables: ${missing.join(", ")}. Pass them in \`variables\`.`);
+      }
+      return {
+        targets: outcome.targets.map((t) => ({ label: t.label, ok: t.ok, error: t.error })),
+        flatten_errors: outcome.flattenErrors,
+        opened_session_ids: outcome.openedSessionIds ?? [],
+      };
     },
   };
 }

@@ -804,6 +804,7 @@
           "identitiesWrite": { "label": "Manage your identities", "description": "Create and delete identities on your behalf." },
           "snippetsRead": { "label": "Read your snippets", "description": "List your saved snippets and the commands they run." },
           "snippetsWrite": { "label": "Manage your snippets", "description": "Create, edit, move and delete your saved snippets." },
+          "snippetsRun": { "label": "Run your snippets on your hosts", "description": "Execute a saved snippet against a host, connecting to it if needed. Its commands run with your own access, exactly as if you ran them yourself." },
           "portForwardingRead": { "label": "Read your port forwards", "description": "List your saved port forwarding rules and the tunnels open right now." },
           "portForwardingWrite": { "label": "Manage your port forwards", "description": "Create, edit, move and delete your saved port forwarding rules." },
           "knownHostsRead": { "label": "Read your known hosts", "description": "List the SSH host keys you have trusted, with their fingerprints." },

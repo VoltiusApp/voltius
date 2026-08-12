@@ -2,6 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { closePfTunnel, getPfState, openPfTunnel } from "@/services/portForwardingTunnels";
 import { resolvePort } from "@/plugins/domains/ports";
+import { runSnippetSequence } from "@/services/snippetSequence";
+import { flattenSnippetSteps } from "@/services/snippetFlatten";
+import type { RunTarget } from "@/services/sftpTarget";
 import { writeClipboard } from "@/utils/clipboard";
 import i18n from "@/i18n";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -664,6 +667,25 @@ const snippetPorts: SnippetPorts = {
   update: (id, data) => useSnippetStore.getState().updateSnippet(id, data),
   remove: (id) => useSnippetStore.getState().deleteSnippet(id),
   isTeamVault: isTeamVaultId,
+  resolveTargets: (refs) => {
+    const targets: RunTarget[] = [];
+    const unknown: string[] = [];
+    for (const ref of refs) {
+      if (ref.session_id) {
+        const s = useSessionStore.getState().sessions.find((x) => x.id === ref.session_id);
+        if (s) targets.push({ kind: "session", sessionId: s.id, sessionType: s.type, label: s.connectionName });
+        else unknown.push(ref.session_id);
+      } else if (ref.connection_id) {
+        const c = findConnection(ref.connection_id);
+        if (c) targets.push({ kind: "connection", connection: c });
+        else unknown.push(ref.connection_id);
+      }
+    }
+    return { targets, unknown };
+  },
+  run: (snippet, targets, onPrompt, variables) =>
+    runSnippetSequence(snippet, targets, onPrompt, variables),
+  flatten: (snippet) => flattenSnippetSteps(snippet, new Map(snippetPorts.list().map((s) => [s.id, s]))),
 };
 
 const portForwardPorts: PortForwardPorts = {
@@ -1068,6 +1090,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       delete(snippetId) {
         requirePerm(manifest, "snippets:write");
         return snippetsApi.delete(snippetId);
+      },
+      run(input) {
+        requirePerm(manifest, "snippets:read");
+        requirePerm(manifest, "snippets:run");
+        return snippetsApi.run(input);
       },
     },
 

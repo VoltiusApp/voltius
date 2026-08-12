@@ -804,6 +804,7 @@
           "identitiesWrite": { "label": "Gérer vos identités", "description": "Créer et supprimer des identités en votre nom." },
           "snippetsRead": { "label": "Lire vos snippets", "description": "Lister vos snippets enregistrés et les commandes qu'ils exécutent." },
           "snippetsWrite": { "label": "Gérer vos snippets", "description": "Créer, modifier, déplacer et supprimer vos snippets enregistrés." },
+          "snippetsRun": { "label": "Exécuter vos snippets sur vos hôtes", "description": "Exécuter un snippet enregistré sur un hôte, en s'y connectant si nécessaire. Ses commandes s'exécutent avec vos propres accès, exactement comme si vous les lanciez vous-même." },
           "portForwardingRead": { "label": "Lire vos redirections de ports", "description": "Lister vos règles de redirection de ports enregistrées et les tunnels actuellement ouverts." },
           "portForwardingWrite": { "label": "Gérer vos redirections de ports", "description": "Créer, modifier, déplacer et supprimer vos règles de redirection de ports enregistrées." },
           "knownHostsRead": { "label": "Lire vos hôtes connus", "description": "Lister les clés d'hôte SSH que vous avez approuvées, avec leurs empreintes." },
