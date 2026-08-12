@@ -36,6 +36,11 @@ export const GATED_PERMISSIONS = new Set<string>([
   "known_hosts:read",
   "known_hosts:write",
   "history:read",
+  // Transfer labels are the user's own file paths, and cancelling one destroys
+  // in-flight work — the same tier as the sftp:* pair they belong to.
+  "transfers:read",
+  "transfers:write",
+  "health:read",
   // Running a snippet executes the user's own commands on a host — danger tier,
   // above the snippets:read/write pair that only reads and edits the text.
   "snippets:run",
@@ -62,6 +67,8 @@ export const NON_DANGER_GATED_PERMISSIONS = new Set<string>([
   "vaults:read",
   "folders:read",
   "known_hosts:read",
+  "transfers:read",
+  "health:read",
 ]);
 
 export function isGatedPermission(perm: string): boolean {
@@ -133,6 +140,9 @@ const PERMISSION_COPY: Record<string, string> = {
   "known_hosts:read": "knownHostsRead",
   "known_hosts:write": "knownHostsWrite",
   "history:read": "historyRead",
+  "transfers:read": "transfersRead",
+  "transfers:write": "transfersWrite",
+  "health:read": "healthRead",
   "sync:read": "syncRead",
   "sync:write": "syncWrite",
   storage: "storage",

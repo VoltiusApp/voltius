@@ -736,6 +736,18 @@
             "label": "读取您的命令历史",
             "description": "搜索您在终端中输入过的命令。其中可能包含以明文输入的密码或令牌。"
           },
+          "transfersRead": {
+            "label": "查看文件传输",
+            "description": "查看正在进行的文件传输，包括文件名、进度和错误。"
+          },
+          "transfersWrite": {
+            "label": "取消和重试传输",
+            "description": "取消正在进行的文件传输，或重新开始失败的传输——包括你自己发起的传输。"
+          },
+          "healthRead": {
+            "label": "查看主机可达性",
+            "description": "查看哪些已保存的主机响应了最近一次可达性检查，以及响应速度。"
+          },
           "vaultRead": {
             "label": "读取您的保险库",
             "description": "读取存储在您保险库中的数据。"

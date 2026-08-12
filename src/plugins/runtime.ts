@@ -27,6 +27,8 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useTransferQueueStore } from "@/stores/transferQueueStore";
+import { useHostPingStore } from "@/stores/hostPingStore";
 import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
@@ -1156,6 +1158,39 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
     },
 
+    transfers: {
+      list() {
+        requireGated("transfers:read");
+        return useTransferQueueStore.getState().transfers.map((t) => ({
+          id: t.id, label: t.label, direction: t.direction, status: t.status,
+          transferred: t.transferred, total: t.total,
+          speed: t.speed, eta: t.eta, error: t.error,
+          owner: t.owner?.clientName || undefined,
+        }));
+      },
+      cancel(id) {
+        requireGated("transfers:write");
+        useTransferQueueStore.getState().cancelTransfer(id);
+      },
+      retry(id) {
+        requireGated("transfers:write");
+        const store = useTransferQueueStore.getState();
+        if (!store.canRetry(id)) return false;
+        store.retryTransfer(id);
+        return true;
+      },
+    },
+
+    health: {
+      pingStatus() {
+        requireGated("health:read");
+        const { statuses, latencies } = useHostPingStore.getState();
+        return Object.entries(statuses).map(([connectionId, status]) => ({
+          connectionId, status, latencyMs: latencies[connectionId],
+        }));
+      },
+    },
+
     folders: {
       list(kind) {
         requireGated("folders:read");
@@ -1978,6 +2013,17 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     },
 
     sync: {
+      status() {
+        requirePerm(manifest, "sync:read");
+        const s = getSyncState();
+        return {
+          status: s.status,
+          lastSync: s.lastSync ? s.lastSync.toISOString() : null,
+          error: s.error,
+          cloudActive: s.cloudActive,
+          blobSizeBytes: s.blobSizeBytes,
+        };
+      },
       async getBlob(key) {
         requirePerm(manifest, "sync:read");
         const raw = await storageGet<string>(id, `__sync__${key}`);

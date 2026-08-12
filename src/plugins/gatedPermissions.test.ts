@@ -199,3 +199,12 @@ describe("ports:forward", () => {
     expect(d.labelKey).toBe("settings.plugins.permissionModal.permissions.portsForward.label");
   });
 });
+
+describe("P5 permissions", () => {
+  test("gates all three, with only the write tier danger-styled", () => {
+    const [read, write, health] = describePermissions(["transfers:read", "transfers:write", "health:read"]);
+    expect(read).toMatchObject({ gated: true, danger: false, known: true });
+    expect(write).toMatchObject({ gated: true, danger: true, known: true });
+    expect(health).toMatchObject({ gated: true, danger: false, known: true });
+  });
+});

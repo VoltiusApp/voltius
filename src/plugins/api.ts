@@ -140,6 +140,34 @@ export interface PluginHistoryEntry {
   connection_id: string;
 }
 
+export interface PluginTransfer {
+  id: string;
+  label: string;
+  direction: "→" | "←";
+  status: "running" | "done" | "cancelled" | "error";
+  transferred: number;
+  total: number;
+  speed?: number;
+  eta?: number;
+  error?: string;
+  /** Name of the MCP client that started it; absent for the user's own. */
+  owner?: string;
+}
+
+export interface PluginSyncState {
+  status: "idle" | "syncing" | "success" | "error" | "offline";
+  lastSync: string | null;
+  error: string | null;
+  cloudActive: boolean;
+  blobSizeBytes: number | null;
+}
+
+export interface PluginHostPing {
+  connectionId: string;
+  status: "up" | "down" | "unknown";
+  latencyMs?: number;
+}
+
 /**
  * A SAVED port-forwarding rule: a shape, not a live listener. Opening one is
  * `portForwards.start`, which needs an open session to hang the tunnel on.
@@ -809,6 +837,27 @@ export interface PluginAPI {
   };
 
   /**
+   * File transfers in the app's queue — the user's own and any an MCP client
+   * started (requires the gated transfers:read / transfers:write). The list is
+   * capped at 30 entries by the store and is not persisted across restarts.
+   */
+  transfers: {
+    list(): PluginTransfer[];
+    cancel(id: string): void;
+    /** False when the id is unknown, or the transfer is still running or already done. */
+    retry(id: string): boolean;
+  };
+
+  /**
+   * Host reachability as last observed by the app's own polling (requires the
+   * gated health:read). Reading NEVER triggers a probe: issue #90 was a probe
+   * storm that tripped `ufw limit` and locked users out of their own hosts.
+   */
+  health: {
+    pingStatus(): PluginHostPing[];
+  };
+
+  /**
    * Saved port-forwarding rules, and the tunnels open right now.
    *
    * A rule is a vault object; a tunnel is a live listening socket bound to one
@@ -1064,6 +1113,8 @@ export interface PluginAPI {
 
   // Sync / blob storage (requires sync:read / sync:write)
   sync: {
+    /** The state of the user's own configuration sync, distinct from the plugin-scoped blob storage below. */
+    status(): PluginSyncState;
     /** Read a plugin-scoped blob from local storage. Returns null if not set. */
     getBlob(key: string): Promise<Uint8Array | null>;
     /** Write a plugin-scoped blob to local storage. Max 1 MB. */
