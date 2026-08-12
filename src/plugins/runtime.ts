@@ -832,16 +832,23 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
 
 /**
  * Metadata keys that reach the local sink through `localMetadata`, which is
- * defined as never leaving the device: `command` (run_command's shell text) and
- * `args` (makeFileOp's stringified arguments, i.e. every path touched), plus the
- * markers boundLocalMetadata adds for them. api.audit.query is a second wire, so
- * they are stripped here too.
+ * defined as never leaving the device: `command` (run_command's shell text),
+ * `args` (makeFileOp's stringified arguments, i.e. every path touched) and
+ * `keys` (send_keys' key tokens, which can carry a password typed at a prompt
+ * the terminal never echoes), plus the markers boundLocalMetadata adds for them.
+ * api.audit.query is a second wire, so they are stripped here too.
+ *
+ * `keys_truncated` cannot appear today — boundLocalMetadata only truncates
+ * string values and `keys` is an array — and is listed so the pair stays
+ * stripped if that payload ever becomes a string.
  */
 const LOCAL_ONLY_METADATA_KEYS = [
   "command",
   "command_truncated",
   "args",
   "args_truncated",
+  "keys",
+  "keys_truncated",
   "localMetadata_dropped",
 ];
 

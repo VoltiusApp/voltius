@@ -4,7 +4,7 @@ import type { ToolSurfacePorts } from "../coreTools";
 import { captureCommand, sendKeysToSession, sendSerialCommand } from "../capture";
 import { tokensToBytes } from "../keyTokens";
 import { guardConnectionId } from "../connectionGuard";
-import { makeGate, makeLiveSession } from "./helpers";
+import { makeGate, sessionAuditMeta, sessionGate } from "./helpers";
 import { refusal } from "../refusal";
 
 export const SESSION_PERMISSIONS = [
@@ -12,16 +12,11 @@ export const SESSION_PERMISSIONS = [
   "connections:read", "audit",
 ] as const;
 
-// Both are checked twice — once before the gate so a doomed call never asks for
-// approval, once after so a session closed while the approval sat pending is
-// caught — so the refusal is built in one place rather than four.
-const NO_SUCH_SESSION = () => refusal("no such open session; call list_sessions for the current ids");
 const notOwned = (ports: ToolSurfacePorts) =>
   refusal(ports.text?.notOwnedError ?? "session not owned by agent; call open_session first");
 
 export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
-  const liveSession = makeLiveSession(ports);
 
   return [
     {
@@ -78,40 +73,17 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: z.object({ sessionId: z.string(), command: z.string() }),
       execute: async (raw) => {
-        // Before the gate, like open_session's guardConnectionId: a sessionId
-        // matching nothing open can never run, so carding it would ask the user
-        // to authorize an action that is already doomed.
-        if (!liveSession(String(raw.sessionId))) {
-          return NO_SUCH_SESSION();
-        }
-        const g = await gate("run_command", raw);
-        if (!g.ok) return g.result;
-        const sessionId = String(g.args.sessionId);
+        const sg = await sessionGate(ports, gate, "run_command", raw);
+        if (!sg.ok) return sg.result;
+        const { g, sessionId, session } = sg;
         const command = String(g.args.command);
-        // Re-read after the gate: an approval can sit pending indefinitely, and
-        // the user may have closed the session in the meantime.
-        const session = liveSession(sessionId);
-        if (!session) {
-          return NO_SUCH_SESSION();
-        }
         // Recorded BEFORE dispatch, deliberately: the command reaches the
         // shell whether or not the capture comes back, and a crash mid-capture
         // must not erase the record of something that actually ran.
-        //
-        // `g.scope` is derived from `raw.sessionId` (the ORIGINAL args passed
-        // to `gate`), not from `g.args.sessionId` (what actually executes,
-        // below). Those are the same value today only because nothing lets a
-        // decision rewrite `sessionId`: the approval card's edit form offers
-        // inputs for `command` and `connectionId` only. If `sessionId` ever
-        // becomes editable, this line must re-derive scope from the executed
-        // session, or the audit record could name a different connection than
-        // the one the command actually ran on.
         ports.audit(
           g.scope,
           "agent.command_run",
-          // sessionType rides on the wire metadata so the trail distinguishes a
-          // command run in the user's own terminal from one in an agent workbench.
-          { tool: "run_command", approval: g.via, sessionType: session.type, ownedByCaller: ports.owned.has(sessionId) },
+          sessionAuditMeta(ports, sg, "run_command"),
           { command },
         );
         return session.type === "serial"
@@ -139,25 +111,18 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         maxLines: z.number().int().positive().optional(),
       }),
       execute: async (raw) => {
-        // Before the gate, like run_command: a call that can never run must not
-        // ask the user to authorise it.
-        if (!liveSession(String(raw.sessionId))) {
-          return NO_SUCH_SESSION();
-        }
         const keys = (raw.keys as string[]) ?? [];
-        // Parsed before the gate too, so a typo is refused rather than carded.
-        // The cursor mode is read here only to validate; it is re-read after
-        // the gate because a TUI can start or exit while approval is pending.
-        const dryRun = tokensToBytes(keys, false);
-        if (!dryRun.ok) return refusal(dryRun.error);
-
-        const g = await gate("send_keys", raw);
-        if (!g.ok) return g.result;
-        const sessionId = String(g.args.sessionId);
-        const session = liveSession(sessionId);
-        if (!session) {
-          return NO_SUCH_SESSION();
-        }
+        const sg = await sessionGate(ports, gate, "send_keys", raw, () => {
+          // Parsed before the gate, so a typo is refused rather than carded.
+          // The cursor mode is passed as false here because this parse only
+          // validates; the bytes that get written are encoded after the gate,
+          // where the live mode is read — a TUI can start or exit while an
+          // approval sits pending.
+          const dryRun = tokensToBytes(keys, false);
+          return dryRun.ok ? undefined : refusal(dryRun.error);
+        });
+        if (!sg.ok) return sg.result;
+        const { g, sessionId } = sg;
         const finalKeys = (g.args.keys as string[]) ?? keys;
         const encoded = tokensToBytes(finalKeys, ports.api.terminal.appCursorMode(sessionId));
         if (!encoded.ok) return refusal(encoded.error);
@@ -165,12 +130,13 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         // Recorded BEFORE dispatch, like run_command: the keys reach the PTY
         // whether or not the settle returns, and a crash mid-settle must not
         // erase the record of what was typed. The tokens themselves stay in
-        // localMetadata — a key stream can contain a typed password, and only
-        // localMetadata is on-device.
+        // localMetadata — a key stream can contain a password typed at a prompt
+        // the terminal never echoes, so it must not reach the team wire, nor
+        // come back out of api.audit.query (see LOCAL_ONLY_METADATA_KEYS).
         ports.audit(
           g.scope,
           "agent.keys_sent",
-          { tool: "send_keys", approval: g.via, sessionType: session.type, ownedByCaller: ports.owned.has(sessionId) },
+          sessionAuditMeta(ports, sg, "send_keys"),
           { keys: finalKeys },
         );
         const result = await sendKeysToSession(ports.api, sessionId, encoded.text, {

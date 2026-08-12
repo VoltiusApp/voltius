@@ -72,6 +72,30 @@ describe("api.audit.query", () => {
     expect(logs[0].metadata).toEqual({ via: "mcp", tool: "run_command" });
   });
 
+  // A key stream can carry a password typed at a prompt the terminal never
+  // echoes, so read_terminal cannot see it — audit.query must not be the way
+  // back to it either.
+  it("strips send_keys' key tokens, which the terminal buffer never showed", async () => {
+    fetchLocalAuditLogs.mockResolvedValue({
+      logs: [{
+        ...ROW,
+        action: "agent.keys_sent",
+        metadata: {
+          via: "mcp",
+          tool: "send_keys",
+          keys: ["lit:hunter2", "Enter"],
+          keys_truncated: true,
+          localMetadata_dropped: true,
+        },
+      }],
+      total: 1,
+    });
+    const api = createHostPluginAPI("test:local-only", ["audit:read"]);
+    const { logs } = await api.audit.query({});
+    expect(logs[0].metadata).toEqual({ via: "mcp", tool: "send_keys" });
+    expect(JSON.stringify(logs)).not.toContain("hunter2");
+  });
+
   it("reads the personal local vault and clamps the page size to 100", async () => {
     const api = createHostPluginAPI("test:clamp", ["audit:read"]);
     await api.audit.query({ perPage: 5000, actions: ["agent.command_run"] });

@@ -16,6 +16,82 @@ export function makeGate(ports: ToolSurfacePorts) {
   };
 }
 
+export const NO_SUCH_SESSION = () =>
+  refusal("no such open session; call list_sessions for the current ids");
+
+type ApprovedGate = Extract<GateResult, { ok: true }>;
+
+export type SessionGateResult =
+  | { ok: true; g: ApprovedGate; sessionId: string; session: PluginSession }
+  | { ok: false; result: unknown };
+
+/**
+ * Approve a verb that acts on an already-open session, checking the session is
+ * live on both sides of the gate.
+ *
+ * Checked twice, deliberately: before the gate, like open_session's
+ * guardConnectionId, so a sessionId matching nothing open never raises an
+ * approval card for an action that is already doomed; and after it, because an
+ * approval can sit pending indefinitely and the user may have closed the
+ * session in the meantime.
+ *
+ * `precheck` runs between the two, for a caller that has its own doomed-call
+ * test to make before the card is raised (send_keys parses its key tokens
+ * there, so a typo is refused rather than carded). Returning anything truthy
+ * short-circuits with that value as the verb's result.
+ *
+ * HAZARD, and it governs every caller: the returned `g.scope` derives from the
+ * ORIGINAL `raw.sessionId` passed to `gate`, not from `g.args.sessionId`, which
+ * is the session that actually gets acted on. Those are the same value today
+ * only because nothing lets a decision rewrite `sessionId`: the approval card's
+ * edit form offers inputs for `command` and `connectionId` only. If `sessionId`
+ * ever becomes editable, this must re-derive the scope from the executed
+ * session, or a caller's audit record could name a different connection than
+ * the one it actually acted on.
+ */
+export async function sessionGate(
+  ports: ToolSurfacePorts,
+  gate: ReturnType<typeof makeGate>,
+  tool: string,
+  raw: Record<string, unknown>,
+  precheck?: () => unknown,
+): Promise<SessionGateResult> {
+  const liveSession = makeLiveSession(ports);
+  if (!liveSession(String(raw.sessionId))) {
+    return { ok: false, result: NO_SUCH_SESSION() };
+  }
+  const refused = precheck?.();
+  if (refused) return { ok: false, result: refused };
+
+  const g = await gate(tool, raw);
+  if (!g.ok) return { ok: false, result: g.result };
+  const sessionId = String(g.args.sessionId);
+  const session = liveSession(sessionId);
+  if (!session) {
+    return { ok: false, result: NO_SUCH_SESSION() };
+  }
+  return { ok: true, g, sessionId, session };
+}
+
+/**
+ * The wire metadata every session verb's audit row carries. `sessionType` rides
+ * on it so the trail distinguishes an action in the user's own terminal from
+ * one in an agent workbench; anything that must not leave the device (the shell
+ * text, the key tokens) belongs in localMetadata instead.
+ */
+export function sessionAuditMeta(
+  ports: ToolSurfacePorts,
+  sg: Extract<SessionGateResult, { ok: true }>,
+  tool: string,
+): Record<string, unknown> {
+  return {
+    tool,
+    approval: sg.g.via,
+    sessionType: sg.session.type,
+    ownedByCaller: ports.owned.has(sg.sessionId),
+  };
+}
+
 /**
  * A partial patch from a verb's parsed arguments: everything the caller sent,
  * minus the id that addressed the object.

@@ -62,7 +62,7 @@ function makePorts(over: Partial<ToolSurfacePorts> = {}): ToolSurfacePorts {
 }
 
 describe("core tool surface", () => {
-  test("exposes 53 tools and no planning tool", () => {
+  test("exposes 59 tools and no planning tool", () => {
     const ports = makePorts();
     const names = buildCoreTools(ports).map((t) => t.name);
     expect(names).toHaveLength(59);
@@ -482,5 +482,42 @@ describe("send_keys", () => {
     ports.api.terminal.appCursorMode = vi.fn(() => true);
     await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Up"] });
     expect(ports.api.sessions.sendInput).toHaveBeenCalledWith("sess-1", "\x1bOA");
+  });
+});
+
+describe("send_keys after the gate", () => {
+  it("refuses when the session is closed while the approval sits pending, and records nothing", async () => {
+    const ports = makePorts();
+    ports.approve = vi.fn(async () => {
+      await ports.api.sessions.close("sess-1");
+      return { approve: true as const, scope: "conn-A", via: "granted" as const };
+    });
+    const r = await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Enter"] });
+    expect(r).toMatchObject({ error: expect.stringContaining("no such open session") });
+    expect(ports.audit).not.toHaveBeenCalled();
+    expect(ports.api.sessions.sendInput).not.toHaveBeenCalled();
+  });
+
+  it("refuses when the decision rewrites keys to an invalid token, and records nothing", async () => {
+    const ports = makePorts({
+      approve: vi.fn(async () => ({
+        approve: true as const,
+        scope: "conn-A",
+        via: "prompted" as const,
+        args: { sessionId: "sess-1", keys: ["Ctrl-c"] },
+      })),
+    });
+    const r = await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: ["Enter"] });
+    expect(r).toMatchObject({ refused: true });
+    expect(ports.audit).not.toHaveBeenCalled();
+    expect(ports.api.sessions.sendInput).not.toHaveBeenCalled();
+  });
+
+  it("refuses an empty key list", async () => {
+    const ports = makePorts();
+    const r: any = await tool(ports, "send_keys").execute({ sessionId: "sess-1", keys: [] });
+    expect(r).toMatchObject({ refused: true });
+    expect(String(r.error)).toContain("keys must not be empty");
+    expect(ports.approve).not.toHaveBeenCalled();
   });
 });
