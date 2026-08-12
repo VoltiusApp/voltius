@@ -56,7 +56,22 @@ describe("known host verbs", () => {
     expect(res).toEqual({ ok: true, result: null });
     const [, action, meta] = audit.mock.calls[0];
     expect(action).toBe("agent.object_deleted");
-    expect(meta).toMatchObject({ tool: "known_host_delete", objectType: "known_host" });
+    expect(meta).toEqual({
+      tool: "known_host_delete", approval: "granted", objectType: "known_host", objectId: "kh-1",
+    });
+  });
+
+  it("audits a trust by host:port, without the fingerprint", async () => {
+    const { ports, audit } = makePorts();
+    await tool(ports, "known_host_trust").execute({
+      host: "h1", port: 22, fingerprint: "SHA256:new", replace: true,
+    });
+    const [, action, meta] = audit.mock.calls[0];
+    expect(action).toBe("agent.object_created");
+    expect(meta).toEqual({
+      tool: "known_host_trust", approval: "granted", objectType: "known_host",
+      objectId: "h1:22", replace: true,
+    });
   });
 
   it("reports what a replace superseded", async () => {

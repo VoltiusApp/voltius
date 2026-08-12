@@ -33,7 +33,16 @@ export function buildSnippetRunTools(ports: ToolSurfacePorts): Tool[] {
         dry_run: z.boolean().optional(),
       }),
       execute: async (raw) =>
-        op("snippet_run", "agent.command_run", {}, raw, (a) =>
+        // The ids only: `variables` and the resolved steps can carry secrets,
+        // and the row has to say what ran and where without becoming one.
+        op("snippet_run", "agent.command_run", {
+          objectType: "snippet",
+          objectId: String(raw.snippet_id),
+          targets: (raw.targets as z.infer<typeof target>[]).map(
+            (t) => (t.session_id ? `session:${t.session_id}` : `connection:${t.connection_id}`),
+          ),
+          dryRun: raw.dry_run === true,
+        }, raw, (a) =>
           ports.api.snippets.run({
             snippetId: a.snippet_id as string,
             targets: a.targets as { session_id?: string; connection_id?: string }[],

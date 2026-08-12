@@ -34,7 +34,34 @@ describe("snippet_run", () => {
     expect(res).toMatchObject({ ok: true });
     const [, action, meta] = audit.mock.calls[0];
     expect(action).toBe("agent.command_run");
-    expect(meta).toMatchObject({ tool: "snippet_run" });
+    // Exact: a variable or a step leaking into the row must fail here.
+    expect(meta).toEqual({
+      tool: "snippet_run",
+      approval: "granted",
+      objectType: "snippet",
+      objectId: "s-1",
+      targets: ["session:s-9"],
+      dryRun: false,
+    });
+  });
+
+  it("records the targets and marks a dry run as a preview", async () => {
+    const { ports, audit } = makePorts();
+    await tool(ports).execute({
+      snippet_id: "s-1",
+      targets: [{ session_id: "s-9" }, { connection_id: "c-2" }],
+      variables: { pw: "hunter2" },
+      dry_run: true,
+    });
+    const [, , meta] = audit.mock.calls[0];
+    expect(meta).toEqual({
+      tool: "snippet_run",
+      approval: "granted",
+      objectType: "snippet",
+      objectId: "s-1",
+      targets: ["session:s-9", "connection:c-2"],
+      dryRun: true,
+    });
   });
 
   it("returns a refusal, not a throw, when the engine reports missing variables", async () => {
