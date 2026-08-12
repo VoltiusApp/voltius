@@ -210,7 +210,10 @@ impl KnownHostsStore {
                 host, port, stored
             ));
         }
-        Ok((self.add_new(host, port, fingerprint, vault_id).await, vec![]))
+        Ok((
+            self.add_new(host, port, fingerprint, vault_id).await,
+            vec![],
+        ))
     }
 
     /// Soft-delete an entry by id.
@@ -287,30 +290,48 @@ mod trust_tests {
     #[tokio::test]
     async fn replace_supersedes_the_previous_entry_for_the_same_host_port() {
         let store = KnownHostsStore::new();
-        store.add_new("h1", 22, "SHA256:old".into(), "personal").await;
+        store
+            .add_new("h1", 22, "SHA256:old".into(), "personal")
+            .await;
 
         let superseded = store.entries_for("h1", 22).await;
         assert_eq!(superseded.len(), 1);
         assert_eq!(superseded[0].fingerprint, "SHA256:old");
 
-        store.replace_all("h1", 22, "SHA256:new".into(), "personal").await;
+        store
+            .replace_all("h1", 22, "SHA256:new".into(), "personal")
+            .await;
 
         let live = store.entries_for("h1", 22).await;
-        assert_eq!(live.len(), 1, "the old entry must be soft-deleted, not left alongside");
+        assert_eq!(
+            live.len(),
+            1,
+            "the old entry must be soft-deleted, not left alongside"
+        );
         assert_eq!(live[0].fingerprint, "SHA256:new");
     }
 
     #[tokio::test]
     async fn trust_without_replace_refuses_a_host_that_already_has_a_key() {
         let store = KnownHostsStore::new();
-        store.add_new("h1", 22, "SHA256:old".into(), "personal").await;
+        store
+            .add_new("h1", 22, "SHA256:old".into(), "personal")
+            .await;
 
         let err = store
             .trust("h1", 22, "SHA256:evil".into(), "personal", false)
             .await
             .expect_err("a second accepted key must not be added silently");
-        assert!(err.contains("SHA256:old"), "the error names the stored key: {}", err);
-        assert!(err.contains("replace"), "the error names the way forward: {}", err);
+        assert!(
+            err.contains("SHA256:old"),
+            "the error names the stored key: {}",
+            err
+        );
+        assert!(
+            err.contains("replace"),
+            "the error names the way forward: {}",
+            err
+        );
 
         let live = store.entries_for("h1", 22).await;
         assert_eq!(live.len(), 1);
@@ -335,7 +356,9 @@ mod trust_tests {
     #[tokio::test]
     async fn trust_with_replace_reports_what_it_superseded() {
         let store = KnownHostsStore::new();
-        store.add_new("h1", 22, "SHA256:old".into(), "personal").await;
+        store
+            .add_new("h1", 22, "SHA256:old".into(), "personal")
+            .await;
         let (entry, superseded) = store
             .trust("h1", 22, "SHA256:new".into(), "personal", true)
             .await
