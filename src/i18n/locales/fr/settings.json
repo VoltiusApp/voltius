@@ -373,7 +373,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "Permet aux clients MCP locaux (comme Claude Code) d'exécuter des commandes, de lire, écrire et supprimer des fichiers sur tous les hôtes de votre coffre ainsi que sur cet ordinateur, et de créer, modifier ou supprimer des connexions, clés et identités enregistrées, via un socket privé. L'approbation a lieu dans ce client, pas dans Voltius. Désactivé par défaut.",
+        "sub": "Permet aux clients MCP locaux (comme Claude Code) d'exécuter des commandes, de lire, écrire et supprimer des fichiers sur tous les hôtes de votre coffre ainsi que sur cet ordinateur, de créer, modifier ou supprimer des connexions, clés et identités enregistrées, d'exécuter vos snippets enregistrés sur ces hôtes, d'autoriser des clés d'hôte SSH et de lire les commandes que vous avez saisies, via un socket privé. L'approbation a lieu dans ce client, pas dans Voltius. Désactivé par défaut.",
         "running": "Actif",
         "quickSetup": {
           "title": "Configuration rapide",
