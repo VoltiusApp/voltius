@@ -6,9 +6,10 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { sshSendInput, sshResize, onSshOutput, onSshClosed, onSshCwd } from "@/services/ssh";
-import { localSendInput, localResize, onLocalOutput, onLocalClosed } from "@/services/local";
-import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";
+import { sshResize, onSshOutput, onSshClosed, onSshCwd } from "@/services/ssh";
+import { localResize, onLocalOutput, onLocalClosed } from "@/services/local";
+import { onSerialOutput, onSerialClosed } from "@/services/serial";
+import { sendSessionInput as sendSessionInputRaw } from "@/services/sessionInput";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
@@ -38,14 +39,10 @@ interface UseTerminalOptions {
   onResize?: (cols: number, rows: number) => void;
 }
 
+/** The interactive terminal must never reject on a dropped keystroke; the
+ *  shared helper rejects, so the swallow lives here at the call site. */
 function sendSessionInput(sessionId: string, sessionType: "ssh" | "local" | "serial", data: Uint8Array) {
-  if (sessionType === "local") {
-    localSendInput(sessionId, data);
-  } else if (sessionType === "serial") {
-    serialWrite(sessionId, data).catch(() => {});
-  } else {
-    sshSendInput(sessionId, data);
-  }
+  void sendSessionInputRaw(sessionId, sessionType, data).catch(() => {});
 }
 
 function isHttpUrl(uri: string) {
