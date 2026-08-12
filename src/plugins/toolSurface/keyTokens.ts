@@ -22,11 +22,25 @@ export const KEY_NAMES: readonly string[] = [
 const MAX_TOKENS = 64;
 const MAX_LITERAL_CHARS = 4096;
 
-// A token the caller probably MEANT as a key: capitalised single word, or a
-// two-part chord. Typing "Esc" or "Ctrl-c" into a TUI as literal text leaves
-// the caller reading a screen it cannot explain, so these are refused rather
-// than typed.
-const LOOKS_LIKE_KEY = /^([A-Z][A-Za-z0-9]+|[A-Za-z]+-.)$/;
+// Every spelling a caller might type for a key, including terminalKeyCore's own
+// short SpecialKey forms ("Esc", "PgUp", "PgDn", "ShiftTab"), lowercased for a
+// case-insensitive near-miss check.
+const KNOWN_KEY_SPELLINGS_LOWER = new Set(
+  [...Object.keys(DELEGATED), ...Object.values(DELEGATED), ...Object.keys(EXTRA)].map((k) => k.toLowerCase()),
+);
+
+// A chord with a spelled-out modifier name instead of the C-/M- shorthand.
+const SPELLED_MODIFIER_CHORD = /^(ctrl|control|alt|shift|meta|cmd|super)-./i;
+
+// A token the caller probably MEANT as a key but mistyped: a case-insensitive
+// near-miss of a known key name ("Esc", "pagedown", "ENTER"), or a chord using
+// a spelled-out modifier ("Ctrl-c", "Alt-x"). Typing these as literal text
+// leaves the caller reading a screen it cannot explain, so they are refused
+// rather than typed. Ordinary words and hyphenated text ("Yes", "git-x") are
+// not near-misses and pass through.
+function looksLikeMistypedKey(token: string): boolean {
+  return KNOWN_KEY_SPELLINGS_LOWER.has(token.toLowerCase()) || SPELLED_MODIFIER_CHORD.test(token);
+}
 
 export type TokenResult = { ok: true; text: string } | { ok: false; error: string };
 
@@ -75,7 +89,7 @@ export function tokensToBytes(keys: string[], appCursor: boolean): TokenResult {
       }
       continue;
     }
-    if (LOOKS_LIKE_KEY.test(token)) {
+    if (looksLikeMistypedKey(token)) {
       return fail(
         `"${token}" is not a key name. Known keys: ${KEY_NAMES.join(", ")}. `
         + `To type it as text, send "lit:${token}".`,

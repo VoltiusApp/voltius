@@ -57,6 +57,39 @@ describe("tokensToBytes", () => {
     expect(tokensToBytes(["Ctrl-c"], false)).toMatchObject({ ok: false });
   });
 
+  it("refuses a case-insensitive near-miss of a short key name", () => {
+    expect(tokensToBytes(["PgDn"], false)).toMatchObject({ ok: false });
+  });
+
+  it("refuses a lowercase near-miss of a key name", () => {
+    expect(tokensToBytes(["escape"], false)).toMatchObject({ ok: false });
+  });
+
+  it("refuses an uppercase near-miss of a key name", () => {
+    expect(tokensToBytes(["ENTER"], false)).toMatchObject({ ok: false });
+  });
+
+  it("refuses a spelled-out Alt chord", () => {
+    expect(tokensToBytes(["Alt-x"], false)).toMatchObject({ ok: false });
+  });
+
+  it("refuses a spelled-out Shift chord", () => {
+    expect(tokensToBytes(["Shift-Tab"], false)).toMatchObject({ ok: false });
+  });
+
+  it("types ordinary capitalised words as literal text", () => {
+    expect(ok(tokensToBytes(["Yes"], false))).toBe("Yes");
+  });
+
+  it("types hyphenated words that are not chords as literal text", () => {
+    expect(ok(tokensToBytes(["git-x"], false))).toBe("git-x");
+    expect(ok(tokensToBytes(["file-a"], false))).toBe("file-a");
+  });
+
+  it("types mixed-case words with digits as literal text", () => {
+    expect(ok(tokensToBytes(["Password123"], false))).toBe("Password123");
+  });
+
   it("refuses an empty token list", () => {
     expect(tokensToBytes([], false)).toMatchObject({ ok: false });
   });
