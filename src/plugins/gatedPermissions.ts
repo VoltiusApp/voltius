@@ -33,6 +33,12 @@ export const GATED_PERMISSIONS = new Set<string>([
   "vaults:write",
   "folders:read",
   "folders:write",
+  "known_hosts:read",
+  "known_hosts:write",
+  "history:read",
+  // Running a snippet executes the user's own commands on a host — danger tier,
+  // above the snippets:read/write pair that only reads and edits the text.
+  "snippets:run",
 ]);
 
 /**
@@ -55,6 +61,7 @@ export const NON_DANGER_GATED_PERMISSIONS = new Set<string>([
   "proxmox:read",
   "vaults:read",
   "folders:read",
+  "known_hosts:read",
 ]);
 
 export function isGatedPermission(perm: string): boolean {
@@ -114,6 +121,7 @@ const PERMISSION_COPY: Record<string, string> = {
   "identities:write": "identitiesWrite",
   "snippets:read": "snippetsRead",
   "snippets:write": "snippetsWrite",
+  "snippets:run": "snippetsRun",
   "port_forwarding:read": "portForwardingRead",
   "port_forwarding:write": "portForwardingWrite",
   "vault:read": "vaultRead",
@@ -122,6 +130,9 @@ const PERMISSION_COPY: Record<string, string> = {
   "vaults:write": "vaultsWrite",
   "folders:read": "foldersRead",
   "folders:write": "foldersWrite",
+  "known_hosts:read": "knownHostsRead",
+  "known_hosts:write": "knownHostsWrite",
+  "history:read": "historyRead",
   "sync:read": "syncRead",
   "sync:write": "syncWrite",
   storage: "storage",

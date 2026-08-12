@@ -592,6 +592,7 @@ pub fn run() {
             commands::known_hosts::known_host_move_vault,
             commands::known_hosts::known_host_copy_vault,
             commands::known_hosts::known_host_resolve,
+            commands::known_hosts::known_host_trust,
             commands::local::local_list_shells,
             commands::local::local_connect,
             commands::local::local_disconnect,

@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { closePfTunnel, getPfState, openPfTunnel } from "@/services/portForwardingTunnels";
 import { resolvePort } from "@/plugins/domains/ports";
+import { runSnippetSequence, previewSnippetSequence } from "@/services/snippetSequence";
+import type { RunTarget } from "@/services/sftpTarget";
 import { writeClipboard } from "@/utils/clipboard";
 import i18n from "@/i18n";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -78,6 +80,10 @@ import { createFoldersAPI, type FolderPorts } from "./domains/folders";
 import { createObjectsAPI, type ObjectPorts } from "./domains/objects";
 import { createSnippetsAPI, type SnippetPorts } from "./domains/snippets";
 import { createPortForwardsAPI, type PortForwardPorts } from "./domains/portForwarding";
+import { createKnownHostsAPI, type KnownHostPorts } from "./domains/knownHosts";
+import { listKnownHosts, deleteKnownHost, trustKnownHost } from "@/services/knownHosts";
+import { createHistoryAPI, type HistoryPorts } from "./domains/history";
+import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
 import { resolveCan, type Permission } from "@/services/permissions";
 import { getMyUserId } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
@@ -660,6 +666,25 @@ const snippetPorts: SnippetPorts = {
   update: (id, data) => useSnippetStore.getState().updateSnippet(id, data),
   remove: (id) => useSnippetStore.getState().deleteSnippet(id),
   isTeamVault: isTeamVaultId,
+  resolveTargets: (refs) => {
+    const targets: RunTarget[] = [];
+    const unknown: string[] = [];
+    for (const ref of refs) {
+      if (ref.session_id) {
+        const s = useSessionStore.getState().sessions.find((x) => x.id === ref.session_id);
+        if (s) targets.push({ kind: "session", sessionId: s.id, sessionType: s.type, label: s.connectionName });
+        else unknown.push(ref.session_id);
+      } else if (ref.connection_id) {
+        const c = findConnection(ref.connection_id);
+        if (c) targets.push({ kind: "connection", connection: c });
+        else unknown.push(ref.connection_id);
+      }
+    }
+    return { targets, unknown };
+  },
+  run: (snippet, targets, onPrompt, variables) =>
+    runSnippetSequence(snippet, targets, onPrompt, variables),
+  preview: (snippet, targets, variables) => previewSnippetSequence(snippet, targets, variables),
 };
 
 const portForwardPorts: PortForwardPorts = {
@@ -677,6 +702,17 @@ const portForwardPorts: PortForwardPorts = {
   tunnels: async (sessionId) => (await getPfState(sessionId)).tunnels,
   open: (opts) => openPfTunnel(opts),
   close: (sessionId, tunnelId) => closePfTunnel(sessionId, tunnelId),
+};
+
+const knownHostPorts: KnownHostPorts = {
+  list: () => listKnownHosts(),
+  remove: (id) => deleteKnownHost(id),
+  trust: (input) => trustKnownHost(input),
+  isTeamVault: isTeamVaultId,
+};
+
+const historyPorts: HistoryPorts = {
+  list: () => useCommandHistoryStore.getState().entries,
 };
 
 // ─── Store reload map ─────────────────────────────────────────────────────
@@ -882,6 +918,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const objectsApi = createObjectsAPI(objectPorts);
   const snippetsApi = createSnippetsAPI(snippetPorts);
   const portForwardsApi = createPortForwardsAPI(portForwardPorts);
+  const knownHostsApi = createKnownHostsAPI(knownHostPorts);
+  const historyApi = createHistoryAPI(historyPorts);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -1052,6 +1090,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "snippets:write");
         return snippetsApi.delete(snippetId);
       },
+      run(input) {
+        requirePerm(manifest, "snippets:read");
+        requirePerm(manifest, "snippets:run");
+        return snippetsApi.run(input);
+      },
     },
 
     portForwards: {
@@ -1088,6 +1131,28 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requireGated("ports:forward");
         requirePerm(manifest, "sessions:read");
         return portForwardsApi.stop(sessionId, tunnelId);
+      },
+    },
+
+    knownHosts: {
+      list(filter) {
+        requirePerm(manifest, "known_hosts:read");
+        return knownHostsApi.list(filter);
+      },
+      delete(id) {
+        requirePerm(manifest, "known_hosts:write");
+        return knownHostsApi.delete(id);
+      },
+      trust(input) {
+        requirePerm(manifest, "known_hosts:write");
+        return knownHostsApi.trust(input);
+      },
+    },
+
+    history: {
+      search(filter) {
+        requirePerm(manifest, "history:read");
+        return historyApi.search(filter);
       },
     },
 

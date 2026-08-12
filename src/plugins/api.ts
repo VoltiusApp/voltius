@@ -97,6 +97,49 @@ export interface PluginSnippetInput {
   vault_id?: string;
 }
 
+/** One target for a snippet run: an open session, or a saved connection the run
+ *  connects on the fly. */
+export interface PluginSnippetTargetRef {
+  session_id?: string;
+  connection_id?: string;
+}
+
+export interface PluginSnippetRunResult {
+  targets: { label: string; ok: boolean; error?: string }[];
+  flatten_errors: string[];
+  /** Sessions this run opened for saved-connection targets, for reading back. */
+  opened_session_ids: string[];
+  /** Only on a dry run: the steps that would execute, per target, with the
+   *  variables resolved. A variable nobody supplied stays as its `{{name}}`. */
+  steps?: { label: string; steps: unknown[] }[];
+}
+
+export interface PluginKnownHost {
+  id: string;
+  host: string;
+  port: number;
+  fingerprint: string;
+  vault_id: string;
+  created_at: string;
+}
+
+export interface PluginTrustResult {
+  entry: PluginKnownHost;
+  superseded: PluginKnownHost[];
+  /** True when `replace` soft-deleted existing entries for this host:port. */
+  replaced: boolean;
+}
+
+export interface PluginHistoryEntry {
+  id: string;
+  command: string;
+  /** Epoch milliseconds. */
+  timestamp: number;
+  session_id: string;
+  session_name: string;
+  connection_id: string;
+}
+
 /**
  * A SAVED port-forwarding rule: a shape, not a live listener. Opening one is
  * `portForwards.start`, which needs an open session to hang the tunnel on.
@@ -711,7 +754,7 @@ export interface PluginAPI {
     delete(id: string, opts?: { cascade?: boolean }): Promise<void>;
   };
 
-  // Saved snippets (requires snippets:read / snippets:write)
+  // Saved snippets (requires snippets:read / snippets:write, and snippets:run for `run`)
   snippets: {
     list(): Promise<PluginSnippet[]>;
     create(input: PluginSnippetInput): Promise<PluginSnippet>;
@@ -719,6 +762,50 @@ export interface PluginAPI {
     update(id: string, patch: Partial<PluginSnippetInput>): Promise<void>;
     /** Rejects a team vault. */
     delete(id: string): Promise<void>;
+    /**
+     * Run a saved snippet against open sessions or saved connections (requires
+     * the gated snippets:run). Script steps are injected into a terminal, so the
+     * result carries per-target ok/error, not command output — read that with
+     * the session verbs, including on `opened_session_ids`. A user variable the
+     * snippet needs and `variables` does not supply is a rejection, not a prompt.
+     */
+    run(input: {
+      snippetId: string;
+      targets: PluginSnippetTargetRef[];
+      /** The snippet's own user variables. Keys that name a dynamic variable
+       *  ({{connection.host}}, {{clipboard}}, …) are ignored — those resolve per
+       *  target and cannot be supplied. */
+      variables?: Record<string, string>;
+      /** Report the steps that would run, without running anything. */
+      dryRun?: boolean;
+    }): Promise<PluginSnippetRunResult>;
+  };
+
+  /**
+   * The trust-on-first-use host key store (requires the gated
+   * known_hosts:read / known_hosts:write).
+   */
+  knownHosts: {
+    list(filter?: { host?: string; port?: number }): Promise<PluginKnownHost[]>;
+    delete(id: string): Promise<void>;
+    /**
+     * `replace` supersedes the stored keys for this host:port. Without it, a
+     * host that already has a stored key is rejected — a second key would be
+     * accepted alongside the first. Rejects a team vault.
+     */
+    trust(input: {
+      host: string; port: number; fingerprint: string; vaultId?: string; replace?: boolean;
+    }): Promise<PluginTrustResult>;
+  };
+
+  /**
+   * Command lines the user typed in a terminal (requires the gated history:read).
+   * Persisted, capped at 500 entries by the store.
+   */
+  history: {
+    search(filter: {
+      query?: string; connectionId?: string; sessionId?: string; limit?: number;
+    }): PluginHistoryEntry[];
   };
 
   /**

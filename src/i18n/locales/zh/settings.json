@@ -260,7 +260,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 在您保险库中的所有主机以及本机上执行命令，读取、写入和删除文件，并创建、修改或删除已保存的连接、密钥和身份。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。",
+        "sub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 在您保险库中的所有主机以及本机上执行命令，读取、写入和删除文件，创建、修改或删除已保存的连接、密钥和身份，在这些主机上运行您保存的代码片段，信任 SSH 主机密钥，以及读取您输入过的命令。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。",
         "running": "运行中",
         "quickSetup": {
           "title": "快速设置",
@@ -712,6 +712,10 @@
             "label": "管理您的代码片段",
             "description": "创建、编辑、移动和删除您保存的代码片段。"
           },
+          "snippetsRun": {
+            "label": "在您的主机上运行您的代码片段",
+            "description": "在主机上执行已保存的代码片段，必要时会先连接该主机。其命令将以您本人的权限运行，与您亲自执行完全相同。"
+          },
           "portForwardingRead": {
             "label": "读取您的端口转发",
             "description": "列出您保存的端口转发规则以及当前打开的隧道。"
@@ -719,6 +723,18 @@
           "portForwardingWrite": {
             "label": "管理您的端口转发",
             "description": "创建、编辑、移动和删除您保存的端口转发规则。"
+          },
+          "knownHostsRead": {
+            "label": "读取您信任的主机",
+            "description": "列出您已信任的 SSH 主机密钥及其指纹。"
+          },
+          "knownHostsWrite": {
+            "label": "信任和删除主机密钥",
+            "description": "授权一个 SSH 主机密钥，或删除您已信任的密钥。信任的密钥意味着与该主机的连接将被自动接受，不再询问您。"
+          },
+          "historyRead": {
+            "label": "读取您的命令历史",
+            "description": "搜索您在终端中输入过的命令。其中可能包含以明文输入的密码或令牌。"
           },
           "vaultRead": {
             "label": "读取您的保险库",

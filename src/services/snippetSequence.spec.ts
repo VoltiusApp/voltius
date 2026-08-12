@@ -39,7 +39,7 @@ vi.mock("@/services/sftpTarget", () => ({
 const readClipboard = vi.fn(async (..._a: unknown[]) => "PASTED");
 vi.mock("@/utils/clipboard", () => ({ readClipboard: (...a: unknown[]) => readClipboard(...a) }));
 
-import { runTransferStep, defaultTransferOps, transferRemoteNeeds, executeSequenceForTargets, runSnippetSequence, buildSummaryMessage, buildTargetContext, resolveTerminalTargets } from "./snippetSequence";
+import { runTransferStep, defaultTransferOps, transferRemoteNeeds, executeSequenceForTargets, runSnippetSequence, previewSnippetSequence, buildSummaryMessage, buildTargetContext, resolveTerminalTargets } from "./snippetSequence";
 import type { SequenceRunResult } from "./snippetSequence";
 import type { Connection, TerminalSession } from "@/types";
 import type { Snippet } from "@/types";
@@ -365,6 +365,8 @@ describe("runSnippetSequence — saved-host script target", () => {
     expect(r.targets).toHaveLength(1);
     expect(r.targets[0].ok).toBe(false);
     expect(r.targets[0].label).toBe("web-1");
+    // Nothing connected, so nothing to hand back to a headless caller.
+    expect(r.openedSessionIds).toEqual([]);
   });
 });
 
@@ -398,6 +400,91 @@ describe("runSnippetSequence — clipboard", () => {
       [{ kind: "session", sessionId: "s1", sessionType: "ssh" }],
       () => {},
     );
+    expect(readClipboard).not.toHaveBeenCalled();
+  });
+});
+
+describe("runSnippetSequence — seeded user variables", () => {
+  function varSnippet(): Snippet {
+    return {
+      id: "s1", name: "xfer",
+      steps: [{ kind: "transfer", from: "local", to: "remote", from_path: "/tmp/{{name}}", to_path: "/r", is_dir: false, mode: "copy", on_conflict: "overwrite" }],
+      tags: [], favorite: false, only_for_connection_tags: [], only_for_distros: [],
+      created_at: "", updated_at: "", vault_id: "personal", clocks: {},
+    } as Snippet;
+  }
+  const target = { kind: "session" as const, sessionId: "s1", sessionType: "ssh" };
+
+  it("prompts when the caller supplies nothing", async () => {
+    const onPrompt = vi.fn();
+    expect(await runSnippetSequence(varSnippet(), [target], onPrompt)).toBe("prompting");
+    expect(onPrompt).toHaveBeenCalled();
+  });
+
+  it("runs straight through on supplied values, never prompting", async () => {
+    const onPrompt = vi.fn();
+    const res = await runSnippetSequence(varSnippet(), [target], onPrompt, { name: "hi" });
+    expect(onPrompt).not.toHaveBeenCalled();
+    expect(res).not.toBe("prompting");
+    expect(sftpUpload).toHaveBeenCalledWith(expect.objectContaining({ localPath: "/tmp/hi" }));
+  });
+
+  it("ignores a supplied value that names a dynamic variable", async () => {
+    // {{connection.*}} resolves per target; a caller must not be able to shadow
+    // every target's with one uniform string.
+    const dyn = varSnippet();
+    dyn.steps = [{ ...(dyn.steps[0] as Extract<LeafStep, { kind: "transfer" }>), from_path: "/tmp/{{connection.host}}" }];
+    const res = await runSnippetSequence(dyn, [target], () => {}, { "connection.host": "evil" });
+    expect(res).not.toBe("prompting");
+    expect(sftpUpload).not.toHaveBeenCalledWith(expect.objectContaining({ localPath: "/tmp/evil" }));
+  });
+
+  it("still prompts for what the caller did not supply, seeding what it did", async () => {
+    const onPrompt = vi.fn();
+    const two = varSnippet();
+    two.steps = [{ ...(two.steps[0] as Extract<LeafStep, { kind: "transfer" }>), to_path: "/r/{{other}}" }];
+    expect(await runSnippetSequence(two, [target], onPrompt, { name: "hi" })).toBe("prompting");
+    expect(onPrompt.mock.calls[0][0].initialValues).toMatchObject({ name: "hi" });
+  });
+});
+
+describe("previewSnippetSequence", () => {
+  function previewSnippet(): Snippet {
+    return {
+      id: "s1", name: "restart",
+      steps: [{ kind: "script", content: "echo {{svc}} on {{connection.host}} {{other}}" }],
+      tags: [], favorite: false, only_for_connection_tags: [], only_for_distros: [],
+      created_at: "", updated_at: "", vault_id: "personal", clocks: {},
+    } as Snippet;
+  }
+
+  it("resolves user and per-target dynamic variables, per target", () => {
+    const p = previewSnippetSequence(
+      previewSnippet(),
+      [
+        { kind: "connection", connection: mkConn({ id: "c1", name: "web-1", host: "10.0.0.1" }) },
+        { kind: "connection", connection: mkConn({ id: "c2", name: "web-2", host: "10.0.0.2" }) },
+      ],
+      { svc: "nginx" },
+    );
+    expect(p.targets.map((t) => t.label)).toEqual(["web-1", "web-2"]);
+    // Dynamic vars differ per target; a variable nobody supplied stays a template.
+    expect(p.targets[0].steps[0]).toMatchObject({ content: "echo nginx on 10.0.0.1 {{other}}" });
+    expect(p.targets[1].steps[0]).toMatchObject({ content: "echo nginx on 10.0.0.2 {{other}}" });
+  });
+
+  it("ignores a supplied value that names a dynamic variable", () => {
+    const p = previewSnippetSequence(
+      previewSnippet(),
+      [{ kind: "connection", connection: mkConn({ id: "c1", name: "web-1", host: "10.0.0.1" }) }],
+      { "connection.host": "evil" },
+    );
+    expect(p.targets[0].steps[0]).toMatchObject({ content: "echo {{svc}} on 10.0.0.1 {{other}}" });
+  });
+
+  it("connects nothing and injects nothing", () => {
+    previewSnippetSequence(previewSnippet(), [{ kind: "session", sessionId: "s1", sessionType: "ssh" }]);
+    expect(resolveSftpIdForTarget).not.toHaveBeenCalled();
     expect(readClipboard).not.toHaveBeenCalled();
   });
 });
