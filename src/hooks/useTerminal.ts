@@ -657,9 +657,44 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     }
   });
 
+  // Container-specific listeners, registered on each mount and torn down when
+  // the ref detaches. The teardown also pulls the terminal element out of the
+  // container: a pane that switches session keeps the same container node, so
+  // leaving the old element behind would show the previous session's buffer.
+  const bindContainer = useCallback((terminal: Terminal, fitAddon: FitAddon, container: HTMLDivElement) => {
+    const clip = attachTerminalClipboard(terminal, container, { osc52: true });
+    clipRef.current = clip;
+
+    const handleWindowResize = () => fitAddon.fit();
+    window.addEventListener("resize", handleWindowResize);
+
+    let fitTimer: ReturnType<typeof setTimeout> | null = null;
+    const resizeObserver = new ResizeObserver(() => {
+      if (fitTimer !== null) clearTimeout(fitTimer);
+      fitTimer = setTimeout(() => { fitTimer = null; fitAddon.fit(); }, 50);
+    });
+    resizeObserver.observe(container);
+
+    mountCleanupRef.current = () => {
+      clip.dispose();
+      if (clipRef.current === clip) clipRef.current = null;
+      window.removeEventListener("resize", handleWindowResize);
+      resizeObserver.disconnect();
+      if (fitTimer !== null) clearTimeout(fitTimer);
+      terminal.element?.remove();
+      mountCleanupRef.current = null;
+    };
+  }, []);
+
   const attach = useCallback(
     (container: HTMLDivElement | null) => {
-      if (!container || mountCleanupRef.current) return;
+      // React hands the ref a null when the callback identity changes (session
+      // switch on a live pane) as well as on unmount — both mean "detach".
+      if (!container) {
+        mountCleanupRef.current?.();
+        return;
+      }
+      if (mountCleanupRef.current) return;
 
       const existing = terminalCache.get(sessionId);
 
@@ -674,28 +709,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
         fitAddon.fit();
 
-        // Container-specific listeners (re-registered on each mount)
-        const clip = attachTerminalClipboard(terminal, container, { osc52: true });
-        clipRef.current = clip;
-
-        const handleWindowResize = () => fitAddon.fit();
-        window.addEventListener("resize", handleWindowResize);
-
-        let fitTimer: ReturnType<typeof setTimeout> | null = null;
-        const resizeObserver = new ResizeObserver(() => {
-          if (fitTimer !== null) clearTimeout(fitTimer);
-          fitTimer = setTimeout(() => { fitTimer = null; fitAddon.fit(); }, 50);
-        });
-        resizeObserver.observe(container);
-
-        mountCleanupRef.current = () => {
-          clip.dispose();
-          if (clipRef.current === clip) clipRef.current = null;
-          window.removeEventListener("resize", handleWindowResize);
-          resizeObserver.disconnect();
-          if (fitTimer !== null) clearTimeout(fitTimer);
-          mountCleanupRef.current = null;
-        };
+        bindContainer(terminal, fitAddon, container);
         return;
       }
 
@@ -1104,28 +1118,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         term.dispose();
       };
 
-      // Container-specific listeners (registered on each mount, torn down on unmount)
-      const clip = attachTerminalClipboard(term, container, { osc52: true });
-      clipRef.current = clip;
-
-      const handleWindowResize = () => fitAddon.fit();
-      window.addEventListener("resize", handleWindowResize);
-
-      let fitTimer: ReturnType<typeof setTimeout> | null = null;
-      const resizeObserver = new ResizeObserver(() => {
-        if (fitTimer !== null) clearTimeout(fitTimer);
-        fitTimer = setTimeout(() => { fitTimer = null; fitAddon.fit(); }, 50);
-      });
-      resizeObserver.observe(container);
-
-      mountCleanupRef.current = () => {
-        clip.dispose();
-        if (clipRef.current === clip) clipRef.current = null;
-        window.removeEventListener("resize", handleWindowResize);
-        resizeObserver.disconnect();
-        if (fitTimer !== null) clearTimeout(fitTimer);
-        mountCleanupRef.current = null;
-      };
+      bindContainer(term, fitAddon, container);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sessionId, sessionType, encoding],
