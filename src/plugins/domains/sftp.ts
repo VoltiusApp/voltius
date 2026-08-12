@@ -177,10 +177,10 @@ export function createSftpAPI(
       return sftpDelete(await handleFor(target), path);
     },
 
-    async transfer(src: FileEndpoint, dst: FileEndpoint) {
+    async transfer(src: FileEndpoint, dst: FileEndpoint, callerTransferId?: string) {
       assertTarget(src.target);
       assertTarget(dst.target);
-      const transferId = crypto.randomUUID();
+      const transferId = callerTransferId ?? crypto.randomUUID();
       const dir = await isDirAt(src.target, src.path);
 
       if (isLocal(src.target) && isLocal(dst.target)) {

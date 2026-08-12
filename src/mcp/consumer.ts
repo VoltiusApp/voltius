@@ -5,6 +5,7 @@ import { listContributions } from "./contributions";
 import { isPluginExposed } from "@/stores/mcpContributionStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
+import { setTransferId } from "./transferIdByArgs";
 
 /** The built-in strings describe the agent's approval policy. Over MCP nothing
  *  prompts, so repeating them would misinform the model about the gate. */
@@ -188,7 +189,11 @@ function queueTransfer(
   let thrown: unknown;
   return useTransferQueueStore
     .getState()
-    .runTransfer(label, direction, async () => {
+    .runTransfer(label, direction, async (tid) => {
+      // The tool's execute() reads this back to pass the queue row's own id
+      // into ports.api.sftp.transfer, so the backend emits progress on the
+      // channel this row is subscribed to instead of one nobody listens on.
+      setTransferId(args, tid);
       try {
         out = await run();
       } catch (err) {

@@ -384,6 +384,7 @@ describe("file tools", () => {
     expect(sftpOf(c).transfer).toHaveBeenCalledWith(
       { target: "conn-A", path: "/srv/a.txt" },
       { target: "local", path: "/home/u/a.txt" },
+      undefined,
     );
   });
 

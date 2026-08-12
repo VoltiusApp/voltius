@@ -412,8 +412,11 @@ export interface SftpAPI {
   rename(target: FileTarget, from: string, to: string): Promise<void>;
   delete(target: FileTarget, path: string): Promise<void>;
   /** Copy one path between any two targets, in any direction, files or
-   *  directories. Host→host streams directly and never lands on this machine. */
-  transfer(src: FileEndpoint, dst: FileEndpoint): Promise<void>;
+   *  directories. Host→host streams directly and never lands on this machine.
+   *  `transferId` defaults to a fresh one; a caller that already has an id to
+   *  subscribe progress under (the transfer queue) can pass its own so the
+   *  backend's `sftp-progress-<id>` events reach it instead of going nowhere. */
+  transfer(src: FileEndpoint, dst: FileEndpoint, transferId?: string): Promise<void>;
   /** Release the handle held for `target`, if any. */
   disconnect(target: FileTarget): Promise<void>;
 }

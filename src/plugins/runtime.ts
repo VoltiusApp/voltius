@@ -1776,7 +1776,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       mkdir: (target, path) => { requireGated("sftp:write"); return sftpApi.mkdir(target, path); },
       rename: (target, from, to) => { requireGated("sftp:write"); return sftpApi.rename(target, from, to); },
       delete: (target, path) => { requireGated("sftp:write"); return sftpApi.delete(target, path); },
-      transfer: (src, dst) => { requireGated("sftp:write"); return sftpApi.transfer(src, dst); },
+      transfer: (src, dst, transferId) => {
+        requireGated("sftp:write");
+        return sftpApi.transfer(src, dst, transferId);
+      },
       // Ungated: releasing a handle this plugin opened cannot expose or change
       // anything, and a plugin must always be able to let go of its own resources.
       disconnect: (target) => sftpApi.disconnect(target),
