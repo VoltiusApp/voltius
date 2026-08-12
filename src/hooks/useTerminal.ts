@@ -23,7 +23,7 @@ import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
 import { wheelToRows } from "@/components/terminal/terminalWheelCore";
-import { keyToBytes } from "@/stores/terminalKeyCore";
+import { keyToBytes } from "@/services/terminalKeyCore";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { reduceLatch, initialLatch, isActive, type LatchState, type Modifier } from "./modifierLatchCore";
-import { applyLatchToChar } from "./terminalKeyCore";
+import { applyLatchToChar } from "@/services/terminalKeyCore";
 
 /** Shared Ctrl/Alt latch for the mobile extra-keys row. Lifted out of the row component so the
  *  terminal onData path (soft-keyboard input) can read + consume it — letting a latched Ctrl/Alt
