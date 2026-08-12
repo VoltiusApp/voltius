@@ -19,6 +19,7 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { SyncDropdown } from "@/components/layout/SyncDropdown";
 import { NewSessionPopover } from "@/components/layout/NewSessionPopover";
 import { useDragStore } from "@/stores/dragStore";
+import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
 import { findLeaf, firstLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { shouldSuppressDragClick } from "@/components/panes/usePaneDragController";
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
@@ -57,6 +58,8 @@ export default function TitleBar() {
   const dropTarget = useDragStore((s) => s.dropTarget);
   const titlebarDropActive = isDraggingPane && dropTarget?.type === "titlebar";
   const titleBarItems = useStatusBarContributions("titlebar.right");
+  const mcpOwners = useMcpOwnershipStore((s) => s.owners);
+  const mcpBusy = useMcpOwnershipStore((s) => s.busy);
 
   usePfToastBridge();
 
@@ -200,6 +203,18 @@ export default function TitleBar() {
     });
   };
 
+  const renderMcpBar = (key: string, sessionIds: string[]) => {
+    if (!sessionIds.some((id) => id in mcpOwners)) return null;
+    const busy = sessionIds.some((id) => (mcpBusy[id] ?? 0) > 0);
+    return (
+      <span
+        data-testid={`mcp-bar-${key}`}
+        className={`absolute left-0 top-0 bottom-0 w-[3px] ${busy ? "mcp-pulse" : ""}`}
+        style={{ background: "var(--t-mcp)" }}
+      />
+    );
+  };
+
   const renderTitlebarDropCue = (itemKey: string | null, placement: "before" | "after") => {
     if (dropTarget?.type !== "titlebar" || dropTarget.targetKey !== itemKey || (dropTarget.placement ?? "after") !== placement) return null;
     if (titlebarDropActive && draggedSession) return <DetachedPanePreview key={`preview-${itemKey ?? "end"}-${placement}`} session={draggedSession} />;
@@ -320,6 +335,7 @@ export default function TitleBar() {
                     border: isActiveSplitTab ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
                   }}
                 >
+                  {renderMcpBar(tab.id, tabSessionIds)}
                   <Icon icon="lucide:layout-dashboard" width={18} />
                   <span className="max-w-[140px] truncate">
                     {tabActiveSession?.connectionName ?? t("layout.titleBar.splitFallback")}{tabSessionIds.length > 1 ? t("layout.titleBar.splitCountSuffix", { count: tabSessionIds.length - 1 }) : ""}
@@ -381,6 +397,7 @@ export default function TitleBar() {
                   }
                 }}
               >
+                {renderMcpBar(session.id, [session.id])}
                 {distroIcon ? (
                   <span
                     className="flex items-center justify-center size-6 rounded-md shrink-0"
