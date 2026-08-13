@@ -373,7 +373,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "Lets local MCP clients (like Claude Code) run commands, read, write and delete files on every host in your vault and on this computer, create, change or delete saved connections, keys and identities, run your saved snippets on those hosts, authorise SSH host keys, read the commands you have typed, see, cancel or retry your file transfers, see which of your saved hosts are reachable, and rearrange your terminal tabs and split panes, over a private socket. Approval happens in that client, not in Voltius. Off by default.",
+        "sub": "Lets local MCP clients (like Claude Code) run commands, read, write and delete files on every host in your vault and on this computer, create, change or delete saved connections, keys and identities, run your saved snippets on those hosts, authorise SSH host keys, read the commands you have typed, see, cancel or retry your file transfers, see which of your saved hosts are reachable, rearrange your terminal tabs and split panes, manage your team's membership and invitations, and share your terminal sessions with your team or hand off control of them, over a private socket. Approval happens in that client, not in Voltius. Off by default.",
         "running": "Running",
         "quickSetup": {
           "title": "Quick setup",

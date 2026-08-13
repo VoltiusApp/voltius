@@ -148,6 +148,28 @@ export const MCP_TEXT = {
       "Bring a session's pane to the front so the user sees it, optionally maximizing it within its "
       + "tab. Works on any open session and changes only what is visible. Runs immediately; your "
       + "own client is responsible for approval.",
+    member_invite:
+      "Invite someone to a team by email, or add an existing user by id — exactly one of the two. "
+      + "Requires your team role to allow it. Runs immediately; your own client is responsible for "
+      + "approval.",
+    member_remove:
+      "Remove a member from a team. They lose access to the team vault. Runs immediately; your own "
+      + "client is responsible for approval.",
+    member_set_role:
+      "Replace a member's roles in a team with one role. Call team_list for role names. Runs "
+      + "immediately; your own client is responsible for approval.",
+    share_session:
+      "Share a session you opened with one or more team vaults, so their members can watch it and "
+      + "request control. Refused for a tab with broadcast typing enabled, because the user's own "
+      + "keystrokes would reach every participant. Invite links are not offered here — sharing is "
+      + "scoped to named team members. Runs immediately; your own client is responsible for approval.",
+    unshare_session:
+      "Stop sharing a session you opened. Every participant is disconnected from it. Runs "
+      + "immediately; your own client is responsible for approval.",
+    handoff_control:
+      "Give terminal control to a participant who has requested it. Refused when that user has no "
+      + "pending request — control is never handed to someone who did not ask for it. Runs "
+      + "immediately; your own client is responsible for approval.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };
