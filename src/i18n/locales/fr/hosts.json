@@ -110,6 +110,7 @@
     "teamSessions": {
       "title": "Sessions d'équipe",
       "joinByCode": "Rejoindre avec un code",
+      "emptyHint": "Les terminaux partagés par vos coéquipiers apparaissent ici. Vous avez un code d'invitation ? Collez-le dans la recherche pour rejoindre.",
       "live": "EN DIRECT",
       "pasteInviteCode": "Collez un code d'invitation pour rejoindre une session privée :",
       "inviteCodePlaceholder": "sessionId:token",

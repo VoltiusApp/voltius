@@ -13,6 +13,24 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { parseInviteCode } from "@/services/inviteCode";
 
+function JoinByCodeButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
+      style={{
+        color: "var(--t-accent)",
+        background: "color-mix(in srgb, var(--t-accent) 10%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)",
+      }}
+      onClick={onClick}
+    >
+      <Icon icon="lucide:link" width={12} />
+      {t("hosts.teamSessions.joinByCode")}
+    </button>
+  );
+}
+
 export function TeamSessions() {
   const { t } = useTranslation();
   const { activeSessions: rawSessions, fetchActiveSessions, joinSession } = useTeamSessionStore();
@@ -137,17 +155,11 @@ export function TeamSessions() {
           <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
             {t("hosts.teamSessions.title")}
           </p>
-          <button
-            className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors"
-            style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)")}
-            onClick={() => setShowJoinModal(true)}
-          >
-            <Icon icon="lucide:link" width={11} />
-            {t("hosts.teamSessions.joinByCode")}
-          </button>
+          <JoinByCodeButton onClick={() => setShowJoinModal(true)} />
         </div>
+        <p className="text-xs mb-3 text-(--t-text-dim)">
+          {t("hosts.teamSessions.emptyHint")}
+        </p>
         {showJoinModal && <JoinByCodeModal />}
       </div>
     );
@@ -222,16 +234,9 @@ export function TeamSessions() {
           />
           {t("hosts.teamSessions.live")}
         </span>
-        <button
-          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors"
-          style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)")}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)")}
-          onClick={() => setShowJoinModal((v) => !v)}
-        >
-          <Icon icon="lucide:link" width={11} />
-          {t("hosts.teamSessions.joinByCode")}
-        </button>
+        <div className="ml-auto">
+          <JoinByCodeButton onClick={() => setShowJoinModal((v) => !v)} />
+        </div>
       </div>
 
       {showJoinModal && <JoinByCodeModal />}
