@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { DomainResult, PluginAuditAction } from "@/plugins/api";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { makeGate, objectOp, unwrapDomain } from "./helpers";
@@ -10,6 +11,19 @@ const optionalString = (value: unknown): string | undefined => (value === undefi
 export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
   const op = objectOp(ports, gate);
+
+  /**
+   * Approve, record, then run a team write. Every one of them is scoped by
+   * teamId and declines by returning rather than throwing, so the audit meta
+   * and the unwrap are the same for all three.
+   */
+  const teamOp = (
+    tool: string,
+    action: PluginAuditAction,
+    raw: Record<string, unknown>,
+    run: (args: Record<string, unknown>) => Promise<DomainResult<unknown>>,
+  ): Promise<unknown> =>
+    op(tool, action, { teamId: String(raw.teamId) }, raw, async (a) => unwrapDomain(await run(a)));
 
   return [
     {
@@ -55,13 +69,13 @@ export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
           message: "give exactly one of email or userId",
         }),
       execute: async (raw) =>
-        op("member_invite", "agent.member_invited", { teamId: String(raw.teamId) }, raw, async (a) =>
-          unwrapDomain(await ports.api.team.invite({
+        teamOp("member_invite", "agent.member_invited", raw, (a) =>
+          ports.api.team.invite({
             teamId: String(a.teamId),
             email: optionalString(a.email),
             userId: optionalString(a.userId),
             role: optionalString(a.role),
-          }))),
+          })),
     },
     {
       name: "member_remove",
@@ -70,8 +84,8 @@ export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: z.object({ teamId: z.string(), userId: z.string() }),
       execute: async (raw) =>
-        op("member_remove", "agent.member_removed", { teamId: String(raw.teamId) }, raw, async (a) =>
-          unwrapDomain(await ports.api.team.removeMember(String(a.teamId), String(a.userId)))),
+        teamOp("member_remove", "agent.member_removed", raw, (a) =>
+          ports.api.team.removeMember(String(a.teamId), String(a.userId))),
     },
     {
       name: "member_set_role",
@@ -81,8 +95,8 @@ export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: z.object({ teamId: z.string(), userId: z.string(), roleId: z.string() }),
       execute: async (raw) =>
-        op("member_set_role", "agent.member_role_changed", { teamId: String(raw.teamId) }, raw, async (a) =>
-          unwrapDomain(await ports.api.team.setMemberRole(String(a.teamId), String(a.userId), String(a.roleId)))),
+        teamOp("member_set_role", "agent.member_role_changed", raw, (a) =>
+          ports.api.team.setMemberRole(String(a.teamId), String(a.userId), String(a.roleId))),
     },
   ];
 }

@@ -1,6 +1,7 @@
 import type { ActiveSession, Participant } from "@/services/multiplayerService";
 import type { MultiplayerSessionState } from "@/stores/teamSessionStore";
 import type { TeamMember } from "@/services/teamService";
+import { failed, type DomainResult } from "./result";
 
 /**
  * The terminal-sharing operations this domain needs, as plain functions.
@@ -31,8 +32,6 @@ export interface SharingPorts {
   myUserId(): Promise<string | null>;
 }
 
-export type SharingResult<T> = { ok: true; result: T } | { ok: false; error: string };
-
 export interface PluginSharedSession {
   multiplayerSessionId: string;
   localSessionId: string | null;
@@ -42,9 +41,6 @@ export interface PluginSharedSession {
   controlHolder: string;
   controlRequester: string | null;
 }
-
-const failed = (err: unknown): { ok: false; error: string } =>
-  ({ ok: false, error: err instanceof Error ? err.message : String(err) });
 
 const BROADCAST_REFUSAL =
   "that tab has broadcast typing enabled; your own keystrokes would reach every participant — turn broadcast off before sharing";
@@ -78,7 +74,7 @@ export async function listSharedSessions(ports: SharingPorts): Promise<PluginSha
 export async function shareSession(
   ports: SharingPorts,
   input: { sessionId: string; vaultIds: string[]; allowedRoles?: string[] },
-): Promise<SharingResult<{ multiplayerSessionId: string }>> {
+): Promise<DomainResult<{ multiplayerSessionId: string }>> {
   if (ports.state(input.sessionId)) return { ok: false, error: "that session is already shared" };
   if (input.vaultIds.length === 0) return { ok: false, error: "name at least one team vault to share with" };
   // routeInputBytes (useTerminal.ts) fans typed input to every session in an
@@ -98,7 +94,7 @@ export async function shareSession(
   }
 }
 
-export async function unshareSession(ports: SharingPorts, sessionId: string): Promise<SharingResult<null>> {
+export async function unshareSession(ports: SharingPorts, sessionId: string): Promise<DomainResult<null>> {
   const live = ports.state(sessionId);
   if (!live) return { ok: false, error: "that session is not shared" };
   if (live.role !== "host") return { ok: false, error: "only the host can stop sharing that session" };
@@ -117,7 +113,7 @@ export async function unshareSession(ports: SharingPorts, sessionId: string): Pr
  */
 export async function handoffControl(
   ports: SharingPorts, sessionId: string, userId: string,
-): Promise<SharingResult<null>> {
+): Promise<DomainResult<null>> {
   const live = ports.state(sessionId);
   if (!live) return { ok: false, error: "that session is not shared" };
   if (live.role !== "host") return { ok: false, error: "only the host can hand off control" };

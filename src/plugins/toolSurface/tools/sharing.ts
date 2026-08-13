@@ -1,8 +1,8 @@
 import { z } from "zod";
-import type { PluginAuditAction } from "@/plugins/api";
+import type { DomainResult, PluginAuditAction } from "@/plugins/api";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
-import { makeGate, mayAct, objectOp, unwrapDomain, type DomainWriteResult } from "./helpers";
+import { makeGate, mayAct, objectOp, unwrapDomain } from "./helpers";
 import { refusal } from "../refusal";
 
 export const SHARING_PERMISSIONS = ["sharing:read", "sharing:write"] as const;
@@ -31,7 +31,7 @@ export function buildSharingTools(ports: ToolSurfacePorts): Tool[] {
     action: PluginAuditAction,
     raw: Record<string, unknown>,
     meta: Record<string, unknown>,
-    run: (args: Record<string, unknown>) => Promise<DomainWriteResult<unknown>>,
+    run: (args: Record<string, unknown>) => Promise<DomainResult<unknown>>,
   ): Promise<unknown> => {
     if (!mayAct(ports, String(raw.sessionId))) return notOwned();
     // sessionId comes from the pre-gate args, same hazard as sessionGate's

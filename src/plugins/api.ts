@@ -4,16 +4,18 @@ import type { AppTheme } from "@/themes/types";
 import type { Locale } from "@/stores/localeStore";
 import type { PluginAuditAction } from "@/services/auditContext";
 import type { PaneNode } from "@/stores/layoutStore";
+import type { DomainResult } from "./domains/result";
 import type {
-  PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState, TeamWriteResult,
+  PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState,
 } from "./domains/team";
-import type { PluginSharedSession, SharingResult } from "./domains/sharing";
+import type { PluginSharedSession } from "./domains/sharing";
 
 export type { PluginAuditAction } from "@/services/auditContext";
+export type { DomainResult } from "./domains/result";
 export type {
-  PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState, TeamWriteResult,
+  PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState,
 } from "./domains/team";
-export type { PluginSharedSession, SharingResult } from "./domains/sharing";
+export type { PluginSharedSession } from "./domains/sharing";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
@@ -928,25 +930,25 @@ export interface PluginAPI {
     keyStatus(teamId?: string): Promise<PluginTeamKeyStatus[]>;
     /** Exactly one of `email` or `userId`. */
     invite(input: { teamId: string; email?: string; userId?: string; role?: string }):
-      Promise<TeamWriteResult<{ status: "pending" | "already_member" | "invited"; key: PluginMemberKeyState | null }>>;
-    removeMember(teamId: string, userId: string): Promise<TeamWriteResult<null>>;
+      Promise<DomainResult<{ status: "pending" | "already_member" | "invited"; key: PluginMemberKeyState | null }>>;
+    removeMember(teamId: string, userId: string): Promise<DomainResult<null>>;
     /** Replaces every role the member holds with `roleId`. */
-    setMemberRole(teamId: string, userId: string, roleId: string): Promise<TeamWriteResult<null>>;
+    setMemberRole(teamId: string, userId: string, roleId: string): Promise<DomainResult<null>>;
   };
 
   /**
    * Live terminal sharing (requires sharing:read / sharing:write).
    *
    * Team-scoped only: the invite-link path mints a bearer token and is not
-   * exposed. Writes return a SharingResult rather than throwing.
+   * exposed. Writes return a DomainResult rather than throwing.
    */
   sharing: {
     list(): Promise<PluginSharedSession[]>;
     share(input: { sessionId: string; vaultIds: string[]; allowedRoles?: string[] }):
-      Promise<SharingResult<{ multiplayerSessionId: string }>>;
-    unshare(sessionId: string): Promise<SharingResult<null>>;
+      Promise<DomainResult<{ multiplayerSessionId: string }>>;
+    unshare(sessionId: string): Promise<DomainResult<null>>;
     /** Only approves a control request the participant already made. */
-    handoffControl(sessionId: string, userId: string): Promise<SharingResult<null>>;
+    handoffControl(sessionId: string, userId: string): Promise<DomainResult<null>>;
   };
 
   /**

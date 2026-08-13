@@ -1,5 +1,6 @@
 import type { Team, TeamMember, TeamRole, PendingInvitation } from "@/services/teamService";
 import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
+import { failed, type DomainResult } from "./result";
 
 /**
  * The team operations this domain needs, as plain functions. Every `load*` is
@@ -26,11 +27,15 @@ export interface TeamPorts {
   removeMemberRole(teamId: string, userId: string, roleId: string): Promise<void>;
 }
 
-export interface PluginTeam { id: string; name: string; ownerTier: string; myRoles: string[]; vaultStatus: string }
+export interface PluginTeam {
+  id: string; name: string; ownerTier: string; myRoles: string[]; vaultStatus: string;
+}
 export interface PluginTeamMember {
   userId: string; displayName: string; roles: string[]; isOnline: boolean; state: "member" | "pending";
 }
-export interface PluginMemberKeyState { userId: string; displayName: string; hasPublicKey: boolean; hasWrappedKey: boolean }
+export interface PluginMemberKeyState {
+  userId: string; displayName: string; hasPublicKey: boolean; hasWrappedKey: boolean;
+}
 export interface PluginTeamKeyStatus {
   teamId: string; vaultStatus: string; iHoldKey: boolean; members: PluginMemberKeyState[];
 }
@@ -97,11 +102,6 @@ export async function keyStatus(ports: TeamPorts, teamId?: string): Promise<Plug
   }));
 }
 
-export type TeamWriteResult<T> = { ok: true; result: T } | { ok: false; error: string };
-
-const failed = (err: unknown): { ok: false; error: string } =>
-  ({ ok: false, error: err instanceof Error ? err.message : String(err) });
-
 /** One member's key row, or null when the team's key state cannot be read. */
 async function memberKey(ports: TeamPorts, teamId: string, userId: string): Promise<PluginMemberKeyState | null> {
   const [status] = await keyStatus(ports, teamId);
@@ -111,7 +111,7 @@ async function memberKey(ports: TeamPorts, teamId: string, userId: string): Prom
 export async function inviteMember(
   ports: TeamPorts,
   input: { teamId: string; email?: string; userId?: string; role?: string },
-): Promise<TeamWriteResult<{ status: "pending" | "already_member" | "invited"; key: PluginMemberKeyState | null }>> {
+): Promise<DomainResult<{ status: "pending" | "already_member" | "invited"; key: PluginMemberKeyState | null }>> {
   if (Boolean(input.email) === Boolean(input.userId)) {
     return { ok: false, error: "give exactly one of email or userId" };
   }
@@ -130,7 +130,7 @@ export async function inviteMember(
   }
 }
 
-export async function removeMember(ports: TeamPorts, teamId: string, userId: string): Promise<TeamWriteResult<null>> {
+export async function removeMember(ports: TeamPorts, teamId: string, userId: string): Promise<DomainResult<null>> {
   try {
     await ports.removeMember(teamId, userId);
     return { ok: true, result: null };
@@ -146,7 +146,7 @@ export async function removeMember(ports: TeamPorts, teamId: string, userId: str
  */
 export async function setMemberRole(
   ports: TeamPorts, teamId: string, userId: string, roleId: string,
-): Promise<TeamWriteResult<null>> {
+): Promise<DomainResult<null>> {
   try {
     await ports.loadMembers(teamId);
   } catch (err) {
