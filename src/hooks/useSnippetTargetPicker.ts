@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useMemo, useState } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -7,11 +6,7 @@ import { useLayoutStore } from "@/stores/layoutStore";
 import { matchesSearch } from "@/utils/connectionFilter";
 import { useIsAndroid } from "@/utils/platform";
 import { getSnippetInjectionTargetIds, waitForConnectedSessionIds } from "@/components/shared/sessionPickerTargets";
-
-export interface ShellOption {
-  name: string;
-  path: string;
-}
+import { useLocalShells } from "@/hooks/useLocalShells";
 
 export function useSnippetTargetPicker() {
   const sessions = useSessionStore((s) => s.sessions);
@@ -20,12 +15,8 @@ export function useSnippetTargetPicker() {
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
   const [localShell, setLocalShell] = useState<string | null>(null);
-  const [shells, setShells] = useState<ShellOption[]>([]);
+  const shells = useLocalShells();
   const isAndroid = useIsAndroid();
-
-  useEffect(() => {
-    invoke<ShellOption[]>("local_list_shells").then(setShells).catch(() => {});
-  }, []);
 
   const activeSessions = useMemo(
     () => sessions.filter((s) => s.status === "connected" && s.type !== "multiplayer"),
