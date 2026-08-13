@@ -1,9 +1,9 @@
 import {
   findLeafBySession,
   getPaneSessionIds,
+  splitGeometry,
   type LeafNode,
   type PaneNode,
-  type SplitDirection,
   type SplitNode,
   type SplitPosition,
   type SplitTab,
@@ -192,7 +192,7 @@ function findParentSplit(root: PaneNode, leafId: string): SplitNode | null {
 /**
  * Re-read the layout and confirm the postcondition a same-tab move implies:
  * the two leaves are siblings under one split node, with the direction and
- * first/second order `position` implies (`splitLeaf`, `layoutStore.ts:111`).
+ * first/second order `position` implies (`splitGeometry`, `layoutStore.ts`).
  * Checking only "both sessions share a tab" (`verifyTogether`) proves nothing
  * here — that is already true before the move runs, so a silent store no-op
  * would still read as success.
@@ -201,8 +201,7 @@ function verifySameTabMove(ports: PanePorts, input: PairInput): PaneResult {
   const placed = locate(ports, input.sessionId);
   if (!placed) return { ok: false, error: PANE_ERRORS.unchanged };
   const parent = findParentSplit(placed.tab.root, placed.leaf.id);
-  const direction: SplitDirection = input.position === "left" || input.position === "right" ? "h" : "v";
-  const incomingFirst = input.position === "left" || input.position === "top";
+  const { direction, incomingFirst } = splitGeometry(input.position);
   const [expectedFirst, expectedSecond] = incomingFirst
     ? [input.sessionId, input.targetSessionId]
     : [input.targetSessionId, input.sessionId];

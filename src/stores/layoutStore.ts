@@ -108,9 +108,19 @@ function replaceLeaf(root: PaneNode, targetPaneId: string, replacement: PaneNode
   };
 }
 
+/** Where a split places the incoming leaf: which axis, and which side. */
+export function splitGeometry(position: SplitPosition): {
+  direction: SplitDirection;
+  incomingFirst: boolean;
+} {
+  return {
+    direction: position === "left" || position === "right" ? "h" : "v",
+    incomingFirst: position === "left" || position === "top",
+  };
+}
+
 function splitLeaf(target: LeafNode, leaf: LeafNode, position: SplitPosition): SplitNode {
-  const direction: SplitDirection = position === "left" || position === "right" ? "h" : "v";
-  const incomingFirst = position === "left" || position === "top";
+  const { direction, incomingFirst } = splitGeometry(position);
   return {
     type: "split",
     id: newSplitId(),
