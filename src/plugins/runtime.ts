@@ -95,10 +95,29 @@ import {
   splitWith,
   type PanePorts,
 } from "./domains/panes";
-import { useLayoutStore } from "@/stores/layoutStore";
+import {
+  keyStatus,
+  inviteMember,
+  listMembers,
+  listTeams,
+  removeMember,
+  setMemberRole,
+  type TeamPorts,
+} from "./domains/team";
+import {
+  handoffControl,
+  listSharedSessions,
+  shareSession,
+  unshareSession,
+  type SharingPorts,
+} from "./domains/sharing";
+import { broadcastActiveForSession, useLayoutStore } from "@/stores/layoutStore";
+import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
 import { getPlatformSync } from "@/utils/platform";
 import { resolveCan, type Permission } from "@/services/permissions";
-import { getMyUserId } from "@/services/teamService";
+import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId, isValidPluginId } from "./pluginId";
@@ -759,6 +778,43 @@ const panePorts: PanePorts = {
   isMobile: () => getPlatformSync() === "android",
 };
 
+const teamPorts: TeamPorts = {
+  teams: () => useTeamStore.getState().teams,
+  loadTeams: () => useTeamStore.getState().loadTeams(),
+  members: (teamId) => useTeamStore.getState().membersByTeam[teamId] ?? [],
+  loadMembers: (teamId) => useTeamStore.getState().loadMembers(teamId),
+  pendingInvitations: (teamId) => useTeamStore.getState().pendingInvitationsByTeam[teamId] ?? [],
+  loadPendingInvitations: (teamId) => useTeamStore.getState().loadPendingInvitations(teamId),
+  roles: (teamId) => useTeamStore.getState().rolesByTeam[teamId] ?? [],
+  loadRoles: (teamId) => useTeamStore.getState().loadRoles(teamId),
+  vaultStatus: (teamId) => useTeamVaultStateStore.getState().statusByTeamId[teamId] ?? "idle",
+  keyHolders: (teamId) => getVaultKeyHolders(teamId),
+  myUserId: () => getMyUserId(),
+  addMember: (teamId, email, role) => useTeamStore.getState().addMember(teamId, email, role),
+  addMemberById: (teamId, userId, role) => useTeamStore.getState().addMemberById(teamId, userId, role),
+  removeMember: (teamId, userId) => useTeamStore.getState().removeMember(teamId, userId),
+  assignMemberRole: (t, u, r) => useTeamStore.getState().assignMemberRole(t, u, r),
+  removeMemberRole: (t, u, r) => useTeamStore.getState().removeMemberRole(t, u, r),
+};
+
+const sharingPorts: SharingPorts = {
+  activeSessions: () => useTeamSessionStore.getState().activeSessions,
+  fetchActiveSessions: () => useTeamSessionStore.getState().fetchActiveSessions(),
+  localSessions: () => Object.keys(useTeamSessionStore.getState().connections),
+  state: (id) => useTeamSessionStore.getState().getState(id),
+  startSharing: (id, vaultIds, roles, name, members, tier) =>
+    useTeamSessionStore.getState().startSharing(id, vaultIds, roles, name, members, tier),
+  stopSharing: (id) => useTeamSessionStore.getState().stopSharing(id),
+  grantControl: (id, userId) => useTeamSessionStore.getState().grantControl(id, userId),
+  broadcastActiveForSession,
+  connectionName: (id) => useSessionStore.getState().sessions.find((s) => s.id === id)?.connectionName,
+  teamMembers: (teamIds) => membersOfTeams(teamIds),
+  ownerTier: (teamIds) => highestOwnerTier(teamIds),
+  // Every live multiplayer connection carries the same local user, so any one of
+  // them answers; with none open there is nothing to attribute anyway.
+  myUserId: () => Object.values(useTeamSessionStore.getState().connections)[0]?.myUserId ?? null,
+};
+
 // ─── Store reload map ─────────────────────────────────────────────────────
 
 const RELOADABLE_STORES: Record<string, () => Promise<void>> = {
@@ -1267,6 +1323,52 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       focus(sessionId, maximize) {
         requirePerm(manifest, "panes:write");
         return focusPaneOf(panePorts, sessionId, maximize);
+      },
+    },
+
+    team: {
+      async list() {
+        requirePerm(manifest, "team:read");
+        return listTeams(teamPorts);
+      },
+      async members(teamId) {
+        requirePerm(manifest, "team:read");
+        return listMembers(teamPorts, teamId);
+      },
+      async keyStatus(teamId) {
+        requirePerm(manifest, "team:read");
+        return keyStatus(teamPorts, teamId);
+      },
+      async invite(input) {
+        requirePerm(manifest, "team:write");
+        return inviteMember(teamPorts, input);
+      },
+      async removeMember(teamId, userId) {
+        requirePerm(manifest, "team:write");
+        return removeMember(teamPorts, teamId, userId);
+      },
+      async setMemberRole(teamId, userId, roleId) {
+        requirePerm(manifest, "team:write");
+        return setMemberRole(teamPorts, teamId, userId, roleId);
+      },
+    },
+
+    sharing: {
+      async list() {
+        requirePerm(manifest, "sharing:read");
+        return listSharedSessions(sharingPorts);
+      },
+      async share(input) {
+        requirePerm(manifest, "sharing:write");
+        return shareSession(sharingPorts, input);
+      },
+      async unshare(sessionId) {
+        requirePerm(manifest, "sharing:write");
+        return unshareSession(sharingPorts, sessionId);
+      },
+      async handoffControl(sessionId, userId) {
+        requirePerm(manifest, "sharing:write");
+        return handoffControl(sharingPorts, sessionId, userId);
       },
     },
 

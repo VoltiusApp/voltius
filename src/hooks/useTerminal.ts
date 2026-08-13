@@ -18,7 +18,7 @@ import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore"
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
-import { findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
+import { broadcastActiveForSession, findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
@@ -918,9 +918,8 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       // when split-pane broadcast is active. Shared by typed input (onData) and
       // synthesized alt-screen scroll arrows so both honor broadcast identically.
       const routeInputBytes = (bytes: Uint8Array) => {
-        const layout = useLayoutStore.getState();
-        const paneSessionIds = getPaneSessionIds(layout.root);
-        if (layout.broadcastActive && layout.splitTabActive && paneSessionIds.includes(sessionId)) {
+        if (broadcastActiveForSession(sessionId)) {
+          const paneSessionIds = getPaneSessionIds(useLayoutStore.getState().root);
           const sessions = useSessionStore.getState().sessions;
           const mpConnections = useTeamSessionStore.getState().connections;
           for (const targetId of paneSessionIds) {

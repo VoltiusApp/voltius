@@ -4,8 +4,16 @@ import type { AppTheme } from "@/themes/types";
 import type { Locale } from "@/stores/localeStore";
 import type { PluginAuditAction } from "@/services/auditContext";
 import type { PaneNode } from "@/stores/layoutStore";
+import type {
+  PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState, TeamWriteResult,
+} from "./domains/team";
+import type { PluginSharedSession, SharingResult } from "./domains/sharing";
 
 export type { PluginAuditAction } from "@/services/auditContext";
+export type {
+  PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState, TeamWriteResult,
+} from "./domains/team";
+export type { PluginSharedSession, SharingResult } from "./domains/sharing";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
@@ -903,6 +911,42 @@ export interface PluginAPI {
     move(input: { sessionId: string; targetSessionId: string; position: PluginPanePosition }): PluginPaneResult;
     detach(sessionId: string): PluginPaneResult;
     focus(sessionId: string, maximize?: boolean): PluginPaneResult;
+  };
+
+  /**
+   * Teams, members and vault-key distribution (requires team:read / team:write).
+   *
+   * Writes are bounded by the caller's own server-side role bits: a member
+   * without PERM_MANAGE_MEMBERS is refused by the server, not by this layer.
+   * `keyStatus` reports the window where a member can be keyed but has not
+   * been yet, and never repairs it.
+   */
+  team: {
+    list(): Promise<PluginTeam[]>;
+    members(teamId: string): Promise<PluginTeamMember[]>;
+    /** Every team the caller can see when `teamId` is omitted. */
+    keyStatus(teamId?: string): Promise<PluginTeamKeyStatus[]>;
+    /** Exactly one of `email` or `userId`. */
+    invite(input: { teamId: string; email?: string; userId?: string; role?: string }):
+      Promise<TeamWriteResult<{ status: "pending" | "already_member" | "invited"; key: PluginMemberKeyState | null }>>;
+    removeMember(teamId: string, userId: string): Promise<TeamWriteResult<null>>;
+    /** Replaces every role the member holds with `roleId`. */
+    setMemberRole(teamId: string, userId: string, roleId: string): Promise<TeamWriteResult<null>>;
+  };
+
+  /**
+   * Live terminal sharing (requires sharing:read / sharing:write).
+   *
+   * Team-scoped only: the invite-link path mints a bearer token and is not
+   * exposed. Writes return a SharingResult rather than throwing.
+   */
+  sharing: {
+    list(): Promise<PluginSharedSession[]>;
+    share(input: { sessionId: string; vaultIds: string[]; allowedRoles?: string[] }):
+      Promise<SharingResult<{ multiplayerSessionId: string }>>;
+    unshare(sessionId: string): Promise<SharingResult<null>>;
+    /** Only approves a control request the participant already made. */
+    handoffControl(sessionId: string, userId: string): Promise<SharingResult<null>>;
   };
 
   /**

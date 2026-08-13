@@ -6,6 +6,7 @@ import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { buildInviteCode } from "@/services/inviteCode";
+import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
 
 const ROLES = ["owner", "manager", "editor", "member"] as const;
 
@@ -35,7 +36,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const [inviteLinkToken, setInviteLinkToken] = useState<string | null>(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
 
-  const { teams, loading: teamsLoading, loadTeams, loadMembers, membersByTeam } = useTeamStore();
+  const { teams, loading: teamsLoading, loadTeams } = useTeamStore();
   const mpConnections = useTeamSessionStore((s) => s.connections);
   const startSharing = useTeamSessionStore((s) => s.startSharing);
   const startSharingInviteLink = useTeamSessionStore((s) => s.startSharingInviteLink);
@@ -122,16 +123,12 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     setError(null);
     try {
       const vaultIds = Array.from(selectedVaultIds);
-      await Promise.all(vaultIds.map((id) => !membersByTeam[id] ? loadMembers(id) : Promise.resolve()));
-      const state = useTeamStore.getState();
-      const allMembers = vaultIds.flatMap((id) => state.membersByTeam[id] ?? []);
+      const allMembers = await membersOfTeams(vaultIds);
       const allowedRoles = Array.from(new Set(vaultIds.flatMap((id) => Array.from(vaultRoles[id] ?? []))));
-      // Derive highest-tier owner across selected vaults so ActiveSharingView shows the correct cap
-      const ownerTierRank = (t: string) => t === "business" ? 2 : t === "teams" ? 1 : 0;
-      const vaultOwnerTier = vaultIds
-        .map((id) => teams.find((t) => t.id === id)?.owner_tier ?? "free")
-        .reduce((best, t) => ownerTierRank(t) > ownerTierRank(best) ? t : best, "free");
-      await startSharing(activeSessionId, vaultIds, allowedRoles, sessionName || connectionName, allMembers, vaultOwnerTier);
+      await startSharing(
+        activeSessionId, vaultIds, allowedRoles, sessionName || connectionName,
+        allMembers, highestOwnerTier(vaultIds),
+      );
       onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
