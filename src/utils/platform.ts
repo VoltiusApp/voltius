@@ -10,10 +10,24 @@ import { invoke } from "@tauri-apps/api/core";
  * already fails those operations cleanly; never rely on it for security.
  */
 let cached: Promise<string> | null = null;
+let resolved: string | null = null;
 
 export function getPlatform(): Promise<string> {
-  if (!cached) cached = invoke<string>("get_platform").catch(() => "unknown");
+  if (!cached) {
+    cached = invoke<string>("get_platform")
+      .catch(() => "unknown")
+      .then((p) => {
+        resolved = p;
+        return p;
+      });
+  }
   return cached;
+}
+
+/** The platform if `get_platform` has already resolved, else null. For sync
+ *  callers (the plugin runtime) that cannot await; never a security gate. */
+export function getPlatformSync(): string | null {
+  return resolved;
 }
 
 /** React hook: the OS string, or `null` until it resolves. */

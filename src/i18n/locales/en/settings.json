@@ -373,7 +373,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "Lets local MCP clients (like Claude Code) run commands, read, write and delete files on every host in your vault and on this computer, create, change or delete saved connections, keys and identities, run your saved snippets on those hosts, authorise SSH host keys, read the commands you have typed, see, cancel or retry your file transfers, and see which of your saved hosts are reachable, over a private socket. Approval happens in that client, not in Voltius. Off by default.",
+        "sub": "Lets local MCP clients (like Claude Code) run commands, read, write and delete files on every host in your vault and on this computer, create, change or delete saved connections, keys and identities, run your saved snippets on those hosts, authorise SSH host keys, read the commands you have typed, see, cancel or retry your file transfers, see which of your saved hosts are reachable, and rearrange your terminal tabs and split panes, over a private socket. Approval happens in that client, not in Voltius. Off by default.",
         "running": "Running",
         "quickSetup": {
           "title": "Quick setup",
@@ -817,6 +817,8 @@
           "vaultWrite": { "label": "Write to your vault", "description": "Store and change data in your vault." },
           "syncRead": { "label": "Read sync data", "description": "Read this plugin's own data synced across your devices, and see the status of your own configuration sync." },
           "syncWrite": { "label": "Write sync data", "description": "Store and change data synced across your devices." },
+          "panesRead": { "label": "Read the terminal layout", "description": "See your open tabs and split panes, and which session is in each." },
+          "panesWrite": { "label": "Arrange terminal panes", "description": "Split, move, detach and focus terminal panes. Sessions stay open; nothing is closed." },
           "storage": { "label": "Store plugin data", "description": "Save this plugin's own settings and data on your device." },
           "http": { "label": "Access the network", "description": "Make network requests to external services." },
           "cryptoDerive": { "label": "Derive encryption keys", "description": "Derive an encryption key from a passphrase you provide. Does not grant access to your stored secrets." },

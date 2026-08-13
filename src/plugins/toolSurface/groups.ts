@@ -16,11 +16,13 @@ import { buildHistoryTools, HISTORY_PERMISSIONS } from "./tools/history";
 import { buildSnippetRunTools, SNIPPET_RUN_PERMISSIONS } from "./tools/snippetRun";
 import { buildTransferTools, TRANSFER_PERMISSIONS } from "./tools/transfers";
 import { buildTelemetryTools, TELEMETRY_PERMISSIONS } from "./tools/telemetry";
+import { buildPaneTools, PANE_PERMISSIONS } from "./tools/panes";
 
 /** One entry per domain: builder and permissions travel together so they cannot drift. */
 const GROUPS = [
   { build: buildConnectionTools, permissions: CONNECTION_PERMISSIONS },
   { build: buildSessionTools, permissions: SESSION_PERMISSIONS },
+  { build: buildPaneTools, permissions: PANE_PERMISSIONS },
   { build: buildFileTools, permissions: FILE_PERMISSIONS },
   { build: buildKeyTools, permissions: KEY_PERMISSIONS },
   { build: buildIdentityTools, permissions: IDENTITY_PERMISSIONS },
