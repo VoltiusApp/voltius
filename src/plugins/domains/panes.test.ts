@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PanePorts } from "./panes";
-import { listTabs, moveToPane, PANE_ERRORS, splitWith } from "./panes";
+import { detach, focus, listTabs, moveToPane, PANE_ERRORS, splitWith } from "./panes";
 import type { SplitTab } from "@/stores/layoutStore";
 
 export const splitTab = (over: Partial<SplitTab> = {}): SplitTab => ({
@@ -166,6 +166,82 @@ describe("moveToPane", () => {
   it("refuses a source that is in no split tab", () => {
     expect(moveToPane(makePorts(), { sessionId: "sess-c", targetSessionId: "sess-a", position: "right" }))
       .toEqual({ ok: false, error: PANE_ERRORS.notSplit });
+  });
+});
+
+describe("detach", () => {
+  it("removes the leaf and reports the surviving tab", () => {
+    const tabs = [splitTab()];
+    const ports = makePorts({
+      splitTabs: vi.fn(() => tabs),
+      detachPane: vi.fn(() => {
+        tabs[0] = splitTab({
+          root: { type: "leaf", id: "p-2", sessionId: "sess-b" },
+          activePaneId: "p-2",
+        });
+        return "sess-a";
+      }),
+    });
+    const result = detach(ports, "sess-a");
+    expect(ports.activateSplitTab).toHaveBeenCalledWith("tab-1");
+    expect(ports.detachPane).toHaveBeenCalledWith("p-1");
+    expect(result.ok && result.tab?.panes.map((p) => p.sessionId)).toEqual(["sess-b"]);
+  });
+
+  it("reports a null tab when the split tab collapsed", () => {
+    const tabs: SplitTab[] = [splitTab()];
+    const ports = makePorts({
+      splitTabs: vi.fn(() => tabs),
+      detachPane: vi.fn(() => { tabs.length = 0; return "sess-a"; }),
+    });
+    expect(detach(ports, "sess-a")).toEqual({ ok: true, tab: null });
+  });
+
+  it("refuses a session that is in no split tab, an unknown id, and mobile", () => {
+    expect(detach(makePorts(), "sess-c")).toEqual({ ok: false, error: PANE_ERRORS.notSplit });
+    expect(detach(makePorts(), "nope")).toEqual({ ok: false, error: PANE_ERRORS.noSession });
+    expect(detach(makePorts({ isMobile: vi.fn(() => true) }), "sess-a"))
+      .toEqual({ ok: false, error: PANE_ERRORS.mobile });
+  });
+
+  it("refuses when the store ignored the detach", () => {
+    expect(detach(makePorts(), "sess-a")).toEqual({ ok: false, error: PANE_ERRORS.unchanged });
+  });
+});
+
+describe("focus", () => {
+  it("activates the owning tab and pane, and reveals it", () => {
+    const ports = makePorts({ splitTabs: vi.fn(() => [splitTab({ activePaneId: "p-2" })]) });
+    const result = focus(ports, "sess-b");
+    expect(ports.activateSplitTab).toHaveBeenCalledWith("tab-1");
+    expect(ports.setActivePane).toHaveBeenCalledWith("p-2");
+    expect(ports.revealActiveTab).toHaveBeenCalledWith("sess-b");
+    expect(ports.setMaximized).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+  });
+
+  it("maximizes and un-maximizes only when asked", () => {
+    const maxTab = () => splitTab({ activePaneId: "p-1", maximizedPaneId: "p-1" });
+    const on = makePorts({ splitTabs: vi.fn(() => [maxTab()]) });
+    focus(on, "sess-a", true);
+    expect(on.setMaximized).toHaveBeenCalledWith("p-1");
+
+    const off = makePorts({ splitTabs: vi.fn(() => [maxTab()]) });
+    focus(off, "sess-a", false);
+    expect(off.setMaximized).toHaveBeenCalledWith(null);
+  });
+
+  it("focuses a standalone session through the titlebar path", () => {
+    const ports = makePorts({ splitTabActive: vi.fn(() => false), activeSessionId: vi.fn(() => "sess-c") });
+    const result = focus(ports, "sess-c");
+    expect(ports.focusStandaloneTab).toHaveBeenCalledWith("sess-c");
+    expect(result.ok && result.tab?.kind).toBe("session");
+  });
+
+  it("refuses an unknown session and the mobile shell", () => {
+    expect(focus(makePorts(), "nope")).toEqual({ ok: false, error: PANE_ERRORS.noSession });
+    expect(focus(makePorts({ isMobile: vi.fn(() => true) }), "sess-a"))
+      .toEqual({ ok: false, error: PANE_ERRORS.mobile });
   });
 });
 

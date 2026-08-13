@@ -197,3 +197,46 @@ export function moveToPane(ports: PanePorts, input: PairInput): PaneResult {
   }
   return verifyTogether(ports, input);
 }
+
+export function detach(ports: PanePorts, sessionId: string): PaneResult {
+  if (ports.isMobile()) return { ok: false, error: PANE_ERRORS.mobile };
+  if (!exists(ports, sessionId)) return { ok: false, error: PANE_ERRORS.noSession };
+  const source = locate(ports, sessionId);
+  if (!source) return { ok: false, error: PANE_ERRORS.notSplit };
+
+  ports.activateSplitTab(source.tab.id);
+  ports.detachPane(source.leaf.id);
+
+  if (locate(ports, sessionId)) return { ok: false, error: PANE_ERRORS.unchanged };
+  // A tab that lost its second-to-last leaf is gone; the session it held is a
+  // standalone tab again, which the titlebar derives on its own.
+  const survivor = ports.splitTabs().find((tab) => tab.id === source.tab.id) ?? null;
+  return { ok: true, tab: survivor ? projectSplitTab(ports, survivor) : null };
+}
+
+export function focus(ports: PanePorts, sessionId: string, maximize?: boolean): PaneResult {
+  if (ports.isMobile()) return { ok: false, error: PANE_ERRORS.mobile };
+  const session = ports.sessions().find((s) => s.id === sessionId);
+  if (!session) return { ok: false, error: PANE_ERRORS.noSession };
+
+  const found = locate(ports, sessionId);
+  if (!found) {
+    ports.focusStandaloneTab(sessionId);
+    if (ports.splitTabActive() || ports.activeSessionId() !== sessionId) {
+      return { ok: false, error: PANE_ERRORS.unchanged };
+    }
+    return { ok: true, tab: projectSessionTab(ports, session) };
+  }
+
+  ports.activateSplitTab(found.tab.id);
+  ports.setActivePane(found.leaf.id);
+  if (maximize === true) ports.setMaximized(found.leaf.id);
+  if (maximize === false) ports.setMaximized(null);
+  ports.revealActiveTab(sessionId);
+
+  const after = ports.splitTabs().find((tab) => tab.id === found.tab.id);
+  if (!after || ports.activeSplitTabId() !== found.tab.id) {
+    return { ok: false, error: PANE_ERRORS.unchanged };
+  }
+  return { ok: true, tab: projectSplitTab(ports, after) };
+}
