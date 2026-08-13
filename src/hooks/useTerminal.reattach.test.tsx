@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { useTerminal } from "@/hooks/useTerminal";
+import { localReady, onLocalClosed, onLocalOutput } from "@/services/local";
 
 vi.mock("@xterm/xterm", () => {
   class FakeTerminal {
@@ -52,7 +53,7 @@ vi.mock("@/services/ssh", () => ({
   onSshOutput: vi.fn(async () => () => {}), onSshClosed: vi.fn(async () => () => {}), onSshCwd: vi.fn(async () => () => {}),
 }));
 vi.mock("@/services/local", () => ({
-  localSendInput: vi.fn(), localResize: vi.fn(),
+  localSendInput: vi.fn(), localResize: vi.fn(), localReady: vi.fn(async () => {}),
   onLocalOutput: vi.fn(async () => () => {}), onLocalClosed: vi.fn(async () => () => {}),
 }));
 vi.mock("@/services/serial", () => ({
@@ -85,5 +86,21 @@ describe("useTerminal re-attach on session change", () => {
     const secondTerm = host.firstElementChild;
     expect(host.childElementCount).toBe(1);
     expect(secondTerm).not.toBe(firstTerm);
+  });
+});
+
+describe("local startup gate", () => {
+  it("acks readiness only once both output listeners are registered", async () => {
+    vi.mocked(localReady).mockClear();
+    let releaseOutput: (fn: () => void) => void;
+    vi.mocked(onLocalOutput).mockReturnValueOnce(new Promise((r) => { releaseOutput = r; }));
+    vi.mocked(onLocalClosed).mockResolvedValueOnce(() => {});
+
+    render(<Harness sessionId="gated-session" />);
+    await Promise.resolve();
+    expect(localReady).not.toHaveBeenCalled();
+
+    releaseOutput!(() => {});
+    await vi.waitFor(() => expect(localReady).toHaveBeenCalledWith("gated-session"));
   });
 });

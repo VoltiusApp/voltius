@@ -1,6 +1,6 @@
-import { localSendInput } from "@/services/local";
+import { localResize, localSendInput } from "@/services/local";
 import { serialWrite } from "@/services/serial";
-import { sshSendInput } from "@/services/ssh";
+import { sshResize, sshSendInput } from "@/services/ssh";
 
 /**
  * Write raw bytes to a session's transport. The single fan-out: the terminal's
@@ -19,4 +19,22 @@ export async function sendSessionInput(
   if (sessionType === "local") return localSendInput(sessionId, data);
   if (sessionType === "serial") return serialWrite(sessionId, data);
   return sshSendInput(sessionId, data);
+}
+
+/**
+ * Push a terminal's dimensions to its transport. Same fan-out rationale as
+ * `sendSessionInput`: every resize path (xterm's onResize, the force-fit after
+ * a session becomes active, the connect transition) routes through here.
+ *
+ * Serial has no window size — it resolves to a no-op rather than a throw, so
+ * callers never need to special-case the transport.
+ */
+export async function sendSessionResize(
+  sessionId: string,
+  sessionType: "ssh" | "local" | "serial",
+  cols: number,
+  rows: number,
+): Promise<void> {
+  if (sessionType === "local") return localResize(sessionId, cols, rows);
+  if (sessionType === "ssh") return sshResize(sessionId, cols, rows);
 }

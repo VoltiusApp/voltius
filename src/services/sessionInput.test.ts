@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/services/local", () => ({ localSendInput: vi.fn(async () => {}) }));
+vi.mock("@/services/local", () => ({ localSendInput: vi.fn(async () => {}), localResize: vi.fn(async () => {}) }));
 vi.mock("@/services/serial", () => ({ serialWrite: vi.fn(async () => {}) }));
-vi.mock("@/services/ssh", () => ({ sshSendInput: vi.fn(async () => {}) }));
+vi.mock("@/services/ssh", () => ({ sshSendInput: vi.fn(async () => {}), sshResize: vi.fn(async () => {}) }));
 
-import { sendSessionInput } from "./sessionInput";
-import { localSendInput } from "@/services/local";
+import { sendSessionInput, sendSessionResize } from "./sessionInput";
+import { localSendInput, localResize } from "@/services/local";
 import { serialWrite } from "@/services/serial";
-import { sshSendInput } from "@/services/ssh";
+import { sshSendInput, sshResize } from "@/services/ssh";
 
 const bytes = new TextEncoder().encode("hi");
 
@@ -35,5 +35,27 @@ describe("sendSessionInput", () => {
   it("rejects when the transport rejects, rather than swallowing", async () => {
     vi.mocked(sshSendInput).mockRejectedValueOnce(new Error("channel closed"));
     await expect(sendSessionInput("s3", "ssh", bytes)).rejects.toThrow("channel closed");
+  });
+});
+
+describe("sendSessionResize", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("routes a local session to local_resize", async () => {
+    await sendSessionResize("s1", "local", 120, 40);
+    expect(localResize).toHaveBeenCalledWith("s1", 120, 40);
+    expect(sshResize).not.toHaveBeenCalled();
+  });
+
+  it("routes an ssh session to ssh_resize", async () => {
+    await sendSessionResize("s3", "ssh", 120, 40);
+    expect(sshResize).toHaveBeenCalledWith("s3", 120, 40);
+    expect(localResize).not.toHaveBeenCalled();
+  });
+
+  it("no-ops for serial, which has no window size", async () => {
+    await expect(sendSessionResize("s2", "serial", 120, 40)).resolves.toBeUndefined();
+    expect(localResize).not.toHaveBeenCalled();
+    expect(sshResize).not.toHaveBeenCalled();
   });
 });

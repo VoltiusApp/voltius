@@ -64,6 +64,7 @@ rustls-native-certs = "0.8"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
+tauri-plugin-single-instance = "2"
 # machine-uid 0.6 has no Android/iOS backend (its lib.rs fails to compile there).
 # Desktop reads it via raw_machine_id(); mobile uses ANDROID_ID instead (see vault.rs).
 machine-uid = "0.6"
