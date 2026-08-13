@@ -46,6 +46,8 @@ interface SessionStore {
   sessions: TerminalSession[];
   activeSessionId: string | null;
   connect: (connectionId: string, options?: OpenOptions) => Promise<string>;
+  /** connect() without the wait: the session appears now, connects in the background. */
+  beginSession: (connectionId: string) => string;
   connectMany: (connectionIds: string[]) => Promise<string[]>;
   connectDirect: (connection: Connection) => Promise<void>;
   connectLocal: () => Promise<void>;
@@ -569,6 +571,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   connect: async (connectionId, options) => {
     return connectConnection(set as SessionSetter, connectionId, options);
   },
+
+  beginSession: (connectionId) => beginConnection(set as SessionSetter, connectionId),
 
   connectMany: async (connectionIds) => {
     const uniqueIds = [...new Set(connectionIds)];
@@ -1165,8 +1169,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     cancelBackoff(sessionId);
     const state = get();
     const closing = state.sessions.find((s) => s.id === sessionId);
-    if (closing) ephemeralConnections.delete(closing.connectionId);
     const remaining = state.sessions.filter((s) => s.id !== sessionId);
+    // Duplicates share a connectionId: only the last session may drop the ephemeral connection.
+    if (closing && !remaining.some((s) => s.connectionId === closing.connectionId)) {
+      ephemeralConnections.delete(closing.connectionId);
+    }
     connectOverrides.delete(sessionId);
     set({
       sessions: remaining,

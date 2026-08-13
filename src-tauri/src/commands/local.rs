@@ -22,121 +22,118 @@ fn find_in_path(name: &str) -> Option<String> {
         })
 }
 
+#[cfg(windows)]
+fn first_existing<'a>(paths: impl IntoIterator<Item = &'a str>) -> Option<String> {
+    paths
+        .into_iter()
+        .find(|p| std::path::Path::new(p).exists())
+        .map(|p| p.to_string())
+}
+
+/// `rel` resolved against the directory of `exe` as found on PATH. Git Bash,
+/// Cygwin and Cmder each ship a distinctive launcher next to their `bash.exe`,
+/// so we locate that instead of `bash.exe` itself — a bare `bash.exe` on PATH
+/// is usually WSL's System32 stub, which would be mislabelled.
+#[cfg(windows)]
+fn relative_to_path_exe(exe: &str, rel: &str) -> Option<String> {
+    let exe_path = find_in_path(exe)?;
+    let candidate = std::path::Path::new(&exe_path).parent()?.join(rel);
+    candidate
+        .exists()
+        .then(|| candidate.to_string_lossy().into_owned())
+}
+
+#[cfg(windows)]
+fn push_shell(shells: &mut Vec<ShellOption>, name: &str, path: Option<String>) {
+    if let Some(path) = path {
+        shells.push(ShellOption {
+            name: name.into(),
+            path,
+        });
+    }
+}
+
 #[tauri::command]
-pub fn local_list_shells() -> Vec<ShellOption> {
+pub async fn local_list_shells() -> Vec<ShellOption> {
     let mut shells: Vec<ShellOption> = Vec::new();
 
     #[cfg(windows)]
     {
-        // PowerShell Core (pwsh.exe) — check common install paths then PATH
-        let pwsh_paths = [
-            r"C:\Program Files\PowerShell\7\pwsh.exe",
-            r"C:\Program Files\PowerShell\6\pwsh.exe",
-        ];
-        let mut found_pwsh = false;
-        for p in &pwsh_paths {
-            if std::path::Path::new(p).exists() {
-                shells.push(ShellOption {
-                    name: "PowerShell 7+".into(),
-                    path: p.to_string(),
-                });
-                found_pwsh = true;
-                break;
-            }
-        }
-        if !found_pwsh {
-            if let Some(p) = find_in_path("pwsh.exe") {
-                shells.push(ShellOption {
-                    name: "PowerShell 7+".into(),
-                    path: p,
-                });
-            }
+        push_shell(
+            &mut shells,
+            "PowerShell 7+",
+            first_existing([
+                r"C:\Program Files\PowerShell\7\pwsh.exe",
+                r"C:\Program Files\PowerShell\6\pwsh.exe",
+            ])
+            .or_else(|| find_in_path("pwsh.exe")),
+        );
+
+        push_shell(
+            &mut shells,
+            "Windows PowerShell",
+            first_existing([r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"])
+                .or_else(|| find_in_path("powershell.exe")),
+        );
+
+        push_shell(
+            &mut shells,
+            "Git Bash",
+            first_existing([
+                r"C:\Program Files\Git\bin\bash.exe",
+                r"C:\Program Files (x86)\Git\bin\bash.exe",
+            ])
+            .or_else(|| relative_to_path_exe("git.exe", r"..\bin\bash.exe")),
+        );
+
+        // wsl.exe ships with stock Windows 10/11 even when the feature is off,
+        // so its presence proves nothing — require an installed distro. The
+        // probe spawns wsl.exe, so cache it: every surface listing shells calls
+        // this command on mount.
+        static HAS_DISTRO: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        if *HAS_DISTRO.get_or_init(|| !crate::commands::wsl::list_distros().is_empty()) {
+            push_shell(
+                &mut shells,
+                "WSL",
+                first_existing([r"C:\Windows\System32\wsl.exe"])
+                    .or_else(|| find_in_path("wsl.exe")),
+            );
         }
 
-        // Windows PowerShell (powershell.exe)
-        let ps = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe";
-        if std::path::Path::new(ps).exists() {
-            shells.push(ShellOption {
-                name: "Windows PowerShell".into(),
-                path: ps.into(),
-            });
-        } else if let Some(p) = find_in_path("powershell.exe") {
-            shells.push(ShellOption {
-                name: "Windows PowerShell".into(),
-                path: p,
-            });
-        }
+        push_shell(
+            &mut shells,
+            "Cygwin",
+            first_existing([r"C:\cygwin64\bin\bash.exe", r"C:\cygwin\bin\bash.exe"])
+                .or_else(|| relative_to_path_exe("cygpath.exe", "bash.exe")),
+        );
 
-        // Git Bash (common install)
-        let git_bash_paths = [
-            r"C:\Program Files\Git\bin\bash.exe",
-            r"C:\Program Files (x86)\Git\bin\bash.exe",
-        ];
-        for p in &git_bash_paths {
-            if std::path::Path::new(p).exists() {
-                shells.push(ShellOption {
-                    name: "Git Bash".into(),
-                    path: p.to_string(),
-                });
-                break;
-            }
-        }
-
-        // WSL
-        let wsl = r"C:\Windows\System32\wsl.exe";
-        if std::path::Path::new(wsl).exists() {
-            shells.push(ShellOption {
-                name: "WSL".into(),
-                path: wsl.into(),
-            });
-        } else if let Some(p) = find_in_path("wsl.exe") {
-            shells.push(ShellOption {
-                name: "WSL".into(),
-                path: p,
-            });
-        }
-
-        // Cygwin
-        let cygwin_paths = [r"C:\cygwin64\bin\bash.exe", r"C:\cygwin\bin\bash.exe"];
-        for p in &cygwin_paths {
-            if std::path::Path::new(p).exists() {
-                shells.push(ShellOption {
-                    name: "Cygwin".into(),
-                    path: p.to_string(),
-                });
-                break;
-            }
-        }
-
-        // Cmder — detect via CMDER_ROOT env or common install paths
-        let cmder_bash = std::env::var("CMDER_ROOT")
+        let cmder_root_bash = std::env::var("CMDER_ROOT")
             .ok()
-            .map(|root| format!(r"{}\vendor\git-for-windows\bin\bash.exe", root))
-            .filter(|p| std::path::Path::new(p).exists())
-            .or_else(|| {
-                let common = [
-                    r"C:\tools\cmder\vendor\git-for-windows\bin\bash.exe",
-                    r"C:\cmder\vendor\git-for-windows\bin\bash.exe",
-                ];
-                common
-                    .iter()
-                    .find(|p| std::path::Path::new(p).exists())
-                    .map(|p| p.to_string())
-            });
-        if let Some(p) = cmder_bash {
-            shells.push(ShellOption {
-                name: "Cmder".into(),
-                path: p,
-            });
-        }
+            .map(|root| format!(r"{root}\vendor\git-for-windows\bin\bash.exe"))
+            .filter(|p| std::path::Path::new(p).exists());
+        push_shell(
+            &mut shells,
+            "Cmder",
+            cmder_root_bash
+                .or_else(|| {
+                    first_existing([
+                        r"C:\tools\cmder\vendor\git-for-windows\bin\bash.exe",
+                        r"C:\cmder\vendor\git-for-windows\bin\bash.exe",
+                    ])
+                })
+                .or_else(|| {
+                    relative_to_path_exe("cmder.exe", r"vendor\git-for-windows\bin\bash.exe")
+                }),
+        );
 
-        // Command Prompt
-        let cmd =
-            std::env::var("COMSPEC").unwrap_or_else(|_| r"C:\Windows\System32\cmd.exe".into());
-        shells.push(ShellOption {
-            name: "Command Prompt".into(),
-            path: cmd,
-        });
+        // Command Prompt always exists.
+        push_shell(
+            &mut shells,
+            "Command Prompt",
+            Some(
+                std::env::var("COMSPEC").unwrap_or_else(|_| r"C:\Windows\System32\cmd.exe".into()),
+            ),
+        );
     }
 
     #[cfg(not(windows))]

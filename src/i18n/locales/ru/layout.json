@@ -161,6 +161,7 @@
       "maximize": "Развернуть",
       "close": "Закрыть",
       "newSession": "Новая сессия",
+      "closeTab": "Закрыть вкладку",
       "plan": {
         "proTrial": "Pro триал — осталось {{daysLeft}} дн.",
         "teams": "Teams",

@@ -18,6 +18,8 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { getConnectionIcon, getConnectionIconColor, getDistroColor, getDistroIcon, getDistroLabel } from "@/utils/icons";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
+import { closeSession } from "@/services/closeSession";
+import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import type { TerminalSession } from "@/types";
 
 function latencyColor(ms: number): string {
@@ -106,7 +108,6 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const setMaximized = useLayoutStore((s) => s.setMaximized);
   const broadcastActive = useLayoutStore((s) => s.broadcastActive);
   const toggleBroadcast = useLayoutStore((s) => s.toggleBroadcast);
-  const reconnect = useSessionStore((s) => s.reconnect);
   const sessions = useSessionStore((s) => s.sessions);
   const mpState = useTeamSessionStore((s) => s.connections[session.id]);
   const mcpOwner = useMcpOwnershipStore((s) => s.owners[session.id]);
@@ -225,15 +226,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   };
 
   const handleClosePane = () => {
-    if (mpState) {
-      if (mpState.role === "host") useTeamSessionStore.getState().stopSharing(session.id).catch(() => {});
-      else useTeamSessionStore.getState().leaveSession(session.id);
-    }
-    // disconnect() is async; removeSession() drops it synchronously so it can't linger as an ungrouped tab
-    if (session.type !== "multiplayer" && (session.status === "connected" || session.status === "connecting")) {
-      void useSessionStore.getState().disconnect(session.id);
-    }
-    useSessionStore.getState().removeSession(session.id);
+    closeSession(session.id);
     const layout = useLayoutStore.getState();
     const nextLeaf = findLeaf(layout.root, layout.activePaneId);
     if (nextLeaf) useSessionStore.getState().setActive(nextLeaf.sessionId);
@@ -262,21 +255,25 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
     useSessionStore.getState().setActive(candidate.id);
   };
 
-  const menuItems: ContextMenuItem[] = [
-    { label: t("panes.header.reconnect"), icon: "lucide:rotate-cw", onClick: () => void reconnect(session.id) },
-    {
-      label: t("panes.header.split"),
-      icon: "lucide:columns-3",
-      children: [
-        { label: t("panes.header.splitLeft"), icon: "lucide:arrow-left-to-line", onClick: () => handleContextSplit("left") },
-        { label: t("panes.header.splitRight"), icon: "lucide:arrow-right-to-line", onClick: () => handleContextSplit("right") },
-        { label: t("panes.header.splitTop"), icon: "lucide:arrow-up-to-line", onClick: () => handleContextSplit("top") },
-        { label: t("panes.header.splitBottom"), icon: "lucide:arrow-down-to-line", onClick: () => handleContextSplit("bottom") },
-      ],
-    },
-    { label: t("panes.header.detachPane"), icon: "lucide:square-arrow-out-up-right", onClick: handleDetachPane },
-    { label: t("panes.header.closePane"), icon: "lucide:x", danger: true, onClick: handleClosePane },
-  ];
+  const menuItems: ContextMenuItem[] = sessionMenuItems({
+    session,
+    t,
+    closeLabel: t("panes.header.closePane"),
+    onClose: handleClosePane,
+    extras: [
+      {
+        label: t("panes.header.split"),
+        icon: "lucide:columns-3",
+        children: [
+          { label: t("panes.header.splitLeft"), icon: "lucide:arrow-left-to-line", onClick: () => handleContextSplit("left") },
+          { label: t("panes.header.splitRight"), icon: "lucide:arrow-right-to-line", onClick: () => handleContextSplit("right") },
+          { label: t("panes.header.splitTop"), icon: "lucide:arrow-up-to-line", onClick: () => handleContextSplit("top") },
+          { label: t("panes.header.splitBottom"), icon: "lucide:arrow-down-to-line", onClick: () => handleContextSplit("bottom") },
+        ],
+      },
+      { label: t("panes.header.detachPane"), icon: "lucide:square-arrow-out-up-right", onClick: handleDetachPane },
+    ],
+  });
 
   const beginDrag = (e: React.MouseEvent) => {
     if (e.button === 1) {

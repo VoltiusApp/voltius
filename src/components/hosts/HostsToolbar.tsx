@@ -1,20 +1,14 @@
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { invoke } from "@tauri-apps/api/core";
 import { ToolbarViewControls, type LayoutMode, type SortMode } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { useRipple } from "@/hooks/useRipple";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useUIContributions } from "@/hooks/useUIContributions";
+import { useLocalShells } from "@/hooks/useLocalShells";
 import { IMPORTERS } from "@/services/import-export/importers";
 import { useIsAndroid } from "@/utils/platform";
-
-interface ShellOption {
-  name: string;
-  path: string;
-}
 
 interface HomeToolbarProps {
   search: string;
@@ -72,14 +66,10 @@ export function HomeToolbar({
     ...pluginHostMenuItems,
   ];
 
-  const [shells, setShells] = useState<ShellOption[]>([]);
+  const shells = useLocalShells();
   const { preferredShell, setPreferredShell } = useTerminalSettingsStore();
   // Android sandbox can't spawn a local PTY — hide the local-terminal launcher.
   const isAndroid = useIsAndroid();
-
-  useEffect(() => {
-    invoke<ShellOption[]>("local_list_shells").then(setShells).catch(() => {});
-  }, []);
 
   return (
     <>

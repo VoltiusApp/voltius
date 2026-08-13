@@ -22,6 +22,8 @@
       "closePane": "关闭面板",
       "latencyTooltip": "{{ms}}ms — 点击复制",
       "reconnect": "重连",
+      "duplicate": "复制会话",
+      "duplicateSplit": "复制到分屏",
       "split": "分屏",
       "splitLeft": "向左分屏",
       "splitRight": "向右分屏",
@@ -41,7 +43,8 @@
     },
     "dragToast": {
       "alreadyVisible": "该会话已在分屏工作区中可见。",
-      "invalidDropTarget": "拖到活动终端或分屏面板上以创建分屏。"
+      "invalidDropTarget": "拖到活动终端或分屏面板上以创建分屏。",
+      "cannotDuplicate": "此会话无法复制。"
     }
   }
 }

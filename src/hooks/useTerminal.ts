@@ -25,6 +25,7 @@ import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
 import { wheelToRows } from "@/components/terminal/terminalWheelCore";
 import { keyToBytes } from "@/services/terminalKeyCore";
+import { handleDuplicateShortcut } from "@/services/duplicateSession";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
@@ -909,6 +910,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel("themes");
           return false;
         }
+        if (handleDuplicateShortcut(e, sessionId)) return false;
         return true;
       });
 
