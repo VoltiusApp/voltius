@@ -6,6 +6,7 @@ import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { buildInviteCode } from "@/services/inviteCode";
+import { InviteCodeField } from "./InviteCodeField";
 
 const ROLES = ["owner", "manager", "editor", "member"] as const;
 
@@ -33,7 +34,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inviteLinkToken, setInviteLinkToken] = useState<string | null>(null);
-  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [autoCopied, setAutoCopied] = useState(false);
 
   const { teams, loading: teamsLoading, loadTeams, loadMembers, membersByTeam } = useTeamStore();
   const mpConnections = useTeamSessionStore((s) => s.connections);
@@ -83,7 +84,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     setError(null);
     if (!isSharing) {
       setInviteLinkToken(null);
-      setInviteLinkCopied(false);
+      setAutoCopied(false);
     }
   }, [open]);
 
@@ -149,8 +150,14 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     setLoading(true);
     setError(null);
     try {
-      const { inviteToken } = await startSharingInviteLink(activeSessionId, sessionName || connectionName);
+      const { multiplayerSessionId, inviteToken } = await startSharingInviteLink(activeSessionId, sessionName || connectionName);
       setInviteLinkToken(inviteToken);
+      try {
+        await writeClipboard(buildInviteCode(multiplayerSessionId, inviteToken));
+        setAutoCopied(true);
+      } catch {
+        setAutoCopied(false);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       setError(
@@ -161,14 +168,6 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCopyInviteLink = async () => {
-    if (!inviteLinkToken) return;
-    const sessionId = activeMp?.multiplayerSessionId ?? "";
-    await writeClipboard(buildInviteCode(sessionId, inviteLinkToken));
-    setInviteLinkCopied(true);
-    setTimeout(() => setInviteLinkCopied(false), 2000);
   };
 
   const handleStopSharing = async () => {
@@ -333,11 +332,11 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
             <InviteLinkTab
               loading={loading}
               inviteLinkToken={inviteLinkToken}
-              inviteLinkCopied={inviteLinkCopied}
+              sessionId={activeMp?.multiplayerSessionId ?? ""}
+              autoCopied={autoCopied}
               guestCap={guestCap}
               tier={tier}
               onGenerate={handleGenerateInviteLink}
-              onCopy={handleCopyInviteLink}
               onUpgrade={onUpgrade}
             />
           )}
@@ -370,16 +369,8 @@ function ActiveSharingView({
   onUpgrade: () => void;
 }) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
   const participantCount = activeMp.participants.filter((p) => p.user_id !== activeMp.myUserId).length;
   const atCap = participantCount >= guestCap;
-
-  const handleCopy = async () => {
-    if (!inviteLinkToken) return;
-    await writeClipboard(buildInviteCode(activeMp.multiplayerSessionId, inviteLinkToken));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div className="p-3">
@@ -429,31 +420,15 @@ function ActiveSharingView({
         </div>
       )}
 
+      {activeMp.participants.length === 0 && (
+        <p className="text-[11px] mb-3" style={{ color: "var(--t-text-dim)" }}>
+          {t("terminal.share.waitingForGuests")}
+        </p>
+      )}
+
       {inviteLinkToken && (
-        <div className="flex items-center gap-2 mb-3">
-          <input
-            readOnly
-            className="flex-1 text-[11px] px-2.5 py-1.5 rounded-md outline-hidden font-mono"
-            style={{
-              background: "var(--t-bg-elevated)",
-              border: "1px solid var(--t-border)",
-              color: "var(--t-text-primary)",
-            }}
-            value={inviteLinkToken}
-            onFocus={(e) => e.target.select()}
-          />
-          <button
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs shrink-0 transition-colors"
-            style={{
-              background: copied ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
-              color: copied ? "var(--t-accent)" : "var(--t-text-secondary)",
-              border: "1px solid var(--t-border)",
-            }}
-            onClick={handleCopy}
-          >
-            <Icon icon={copied ? "lucide:check" : "lucide:copy"} width={12} />
-            {copied ? t("terminal.shared.copied") : t("common.action.copy")}
-          </button>
+        <div className="mb-3">
+          <InviteCodeField code={buildInviteCode(activeMp.multiplayerSessionId, inviteLinkToken)} />
         </div>
       )}
 
@@ -591,20 +566,20 @@ function TeamTab({
 function InviteLinkTab({
   loading,
   inviteLinkToken,
-  inviteLinkCopied,
+  sessionId,
+  autoCopied,
   guestCap,
   tier,
   onGenerate,
-  onCopy,
   onUpgrade,
 }: {
   loading: boolean;
   inviteLinkToken: string | null;
-  inviteLinkCopied: boolean;
+  sessionId: string;
+  autoCopied: boolean;
   guestCap: number;
   tier: "free" | "pro" | "teams" | "business";
   onGenerate: () => void;
-  onCopy: () => void;
   onUpgrade: () => void;
 }) {
   const { t } = useTranslation();
@@ -615,33 +590,7 @@ function InviteLinkTab({
           <p className="text-[11px] mb-2" style={{ color: "var(--t-text-secondary)" }}>
             {t("terminal.share.shareCodeDescription")}
           </p>
-          <div className="flex items-center gap-2">
-            <input
-              readOnly
-              className="flex-1 text-[11px] px-2.5 py-1.5 rounded-md outline-hidden font-mono"
-              style={{
-                background: "var(--t-bg-elevated)",
-                border: "1px solid var(--t-border)",
-                color: "var(--t-text-primary)",
-              }}
-              value={inviteLinkToken}
-              onFocus={(e) => e.target.select()}
-            />
-            <button
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs shrink-0 transition-colors"
-              style={{
-                background: inviteLinkCopied
-                  ? "color-mix(in srgb, var(--t-accent) 15%, transparent)"
-                  : "var(--t-bg-elevated)",
-                color: inviteLinkCopied ? "var(--t-accent)" : "var(--t-text-secondary)",
-                border: "1px solid var(--t-border)",
-              }}
-              onClick={onCopy}
-            >
-              <Icon icon={inviteLinkCopied ? "lucide:check" : "lucide:copy"} width={12} />
-              {inviteLinkCopied ? t("terminal.shared.copied") : t("common.action.copy")}
-            </button>
-          </div>
+          <InviteCodeField code={buildInviteCode(sessionId, inviteLinkToken)} autoCopied={autoCopied} />
         </>
       ) : (
         <>

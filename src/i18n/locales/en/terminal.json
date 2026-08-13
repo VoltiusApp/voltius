@@ -132,6 +132,7 @@
       "upToParticipants_other": "Up to {{count}} participants",
       "upgradeToTeamsForParticipants": "Upgrade to Teams for 10 participants + shared vaults",
       "live": "Live",
+      "waitingForGuests": "Waiting for someone to join…",
       "participantsRatio_one": "{{participantCount}} / {{guestCap}} participant",
       "participantsRatio_other": "{{participantCount}} / {{guestCap}} participants",
       "upgradeToTeams": "Upgrade to Teams",
