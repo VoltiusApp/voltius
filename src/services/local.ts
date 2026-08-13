@@ -10,6 +10,13 @@ export async function localConnect(sessionId: string, cols: number, rows: number
   });
 }
 
+/** Acknowledge that this session's output listeners are registered. Releases
+ *  the backend's startup gate, which replays what the shell wrote before the
+ *  listeners existed. */
+export async function localReady(sessionId: string): Promise<void> {
+  return invoke("local_ready", { sessionId });
+}
+
 export async function localDisconnect(sessionId: string): Promise<void> {
   return invoke("local_disconnect", { sessionId });
 }

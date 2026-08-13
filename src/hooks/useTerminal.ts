@@ -6,10 +6,10 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { sshResize, onSshOutput, onSshClosed, onSshCwd } from "@/services/ssh";
-import { localResize, onLocalOutput, onLocalClosed } from "@/services/local";
+import { onSshOutput, onSshClosed, onSshCwd } from "@/services/ssh";
+import { localReady, onLocalOutput, onLocalClosed } from "@/services/local";
 import { onSerialOutput, onSerialClosed } from "@/services/serial";
-import { sendSessionInput as sendSessionInputRaw } from "@/services/sessionInput";
+import { sendSessionInput as sendSessionInputRaw, sendSessionResize } from "@/services/sessionInput";
 import { log } from "@/lib/logger";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -46,6 +46,15 @@ interface UseTerminalOptions {
 function sendSessionInput(sessionId: string, sessionType: "ssh" | "local" | "serial", data: Uint8Array) {
   void sendSessionInputRaw(sessionId, sessionType, data).catch((err) => {
     log.debug(`terminal input write failed for ${sessionType} session ${sessionId}`, err);
+  });
+}
+
+/** Same contract as `sendSessionInput` for the resize path: a resize aimed at a
+ *  session the backend hasn't registered yet (the terminal mounts while the
+ *  transport is still connecting) must not surface as an unhandled rejection. */
+function sendResize(sessionId: string, sessionType: "ssh" | "local" | "serial", cols: number, rows: number) {
+  void sendSessionResize(sessionId, sessionType, cols, rows).catch((err) => {
+    log.debug(`terminal resize failed for ${sessionType} session ${sessionId}`, err);
   });
 }
 
@@ -628,14 +637,18 @@ useSessionStore.subscribe((state) => {
     }
   }
 
+  // Local sessions ride the same transition as SSH: the terminal mounts while
+  // the session is still "connecting", so treating it as connected before the
+  // backend registered it sent resizes at a session id the backend answered
+  // with "Session not found".
   for (const [id, entry] of terminalCache) {
-    if (entry.sessionType !== "ssh") continue;
+    if (entry.sessionType === "serial") continue;
     const session = state.sessions.find((s) => s.id === id);
     const nowConnected = session?.status === "connected";
     if (nowConnected && !entry.connectedRef.current) {
       entry.connectedRef.current = true;
       entry.fitAddon.fit();
-      sshResize(id, entry.terminal.cols, entry.terminal.rows).catch(() => {});
+      sendResize(id, entry.sessionType, entry.terminal.cols, entry.terminal.rows);
     } else if (!nowConnected) {
       entry.connectedRef.current = false;
     }
@@ -816,7 +829,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           frame: null,
         },
         sessionType,
-        connectedRef: { current: sessionType === "local" || sessionType === "serial" },
+        // Serial is live the moment its port opens (the store marks it
+        // connected before the terminal mounts); ssh and local flip in the
+        // store subscription above, once the backend owns the session.
+        connectedRef: { current: sessionType === "serial" },
         inputGateRef: { current: inputGate?.current },
         onClosedRef: { current: onClosed },
         onResizeRef: { current: onResize },
@@ -1050,15 +1066,21 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const unlistenPromises: Promise<UnlistenFn>[] = [];
 
       if (sessionType === "local") {
-        unlistenPromises.push(
+        const localListeners = [
           onLocalOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
-        );
-        unlistenPromises.push(
           onLocalClosed(sessionId, () => {
             term.write("\r\n\x1b[90m--- Session closed ---\x1b[0m\r\n");
             entry.onClosedRef.current?.();
           }),
-        );
+        ];
+        unlistenPromises.push(...localListeners);
+        // A PTY writes its banner and first prompt before these listeners are
+        // registered — Tauri drops an emit with no listener, which left the
+        // terminal blank behind a live shell. The backend holds that output
+        // until this ack, then replays it.
+        void Promise.all(localListeners)
+          .then(() => localReady(sessionId))
+          .catch((err) => log.debug(`local session ${sessionId} readiness ack failed`, err));
       } else if (sessionType === "serial") {
         unlistenPromises.push(
           onSerialOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
@@ -1094,11 +1116,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         entry.onResizeRef.current?.(cols, rows);
         scheduleMinimapNotify(entry);
         if (!entry.connectedRef.current) return;
-        if (sessionType === "local") {
-          localResize(sessionId, cols, rows);
-        } else if (sessionType === "ssh") {
-          sshResize(sessionId, cols, rows);
-        }
+        sendResize(sessionId, sessionType, cols, rows);
       });
 
       fitAddon.fit();
@@ -1188,11 +1206,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     // haven't changed, which causes the PTY to stay at its initial 80x24 when
     // the session becomes active after connecting.
     if (!entry.connectedRef.current) return;
-    if (sessionType === "local") {
-      localResize(sessionId, term.cols, term.rows);
-    } else if (sessionType === "ssh") {
-      sshResize(sessionId, term.cols, term.rows);
-    }
+    sendResize(sessionId, sessionType, term.cols, term.rows);
   }, [sessionId, sessionType]);
 
   return { attach, focus, fit };
