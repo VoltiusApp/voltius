@@ -6,6 +6,7 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { openTerminalSearch, getTerminalSearchController } from "@/hooks/useTerminal";
+import { handleDuplicateShortcut } from "@/services/duplicateSession";
 
 const CLIPBOARD_TABS = new Set(["hosts", "keychain", "port-forwarding", "snippets"]);
 
@@ -80,6 +81,11 @@ export function useKeyboard() {
       }
 
       if (isInput) return;
+
+      if (handleDuplicateShortcut(e, useSessionStore.getState().activeSessionId)) {
+        e.preventDefault();
+        return;
+      }
 
       // Vault tabs only. In the terminal Ctrl+C must stay SIGINT.
       if (CLIPBOARD_TABS.has(useUIStore.getState().activeNav)) {

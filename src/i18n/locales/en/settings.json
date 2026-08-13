@@ -1028,6 +1028,14 @@
           "label": "New Tab",
           "desc": "Go to hosts view"
         },
+        "duplicateSession": {
+          "label": "Duplicate Session",
+          "desc": "Open a second terminal on the same host"
+        },
+        "duplicateSessionSplit": {
+          "label": "Duplicate Into Split",
+          "desc": "Open a second terminal beside the current one"
+        },
         "closeTab": {
           "label": "Close Tab",
           "desc": "Close active session"

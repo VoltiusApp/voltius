@@ -161,6 +161,7 @@
       "maximize": "Agrandir",
       "close": "Fermer",
       "newSession": "Nouvelle session",
+      "closeTab": "Fermer l'onglet",
       "plan": {
         "proTrial": "Essai Pro — {{daysLeft}}j restants",
         "teams": "Teams",

@@ -22,6 +22,8 @@
       "closePane": "Fermer le panneau",
       "latencyTooltip": "{{ms}}ms — cliquer pour copier",
       "reconnect": "Reconnecter",
+      "duplicate": "Dupliquer",
+      "duplicateSplit": "Dupliquer dans une division",
       "split": "Diviser",
       "splitLeft": "Diviser à gauche",
       "splitRight": "Diviser à droite",
@@ -41,7 +43,8 @@
     },
     "dragToast": {
       "alreadyVisible": "Cette session est déjà visible dans l'espace de travail divisé.",
-      "invalidDropTarget": "Déposez sur le terminal actif ou un panneau divisé pour créer une division."
+      "invalidDropTarget": "Déposez sur le terminal actif ou un panneau divisé pour créer une division.",
+      "cannotDuplicate": "Cette session ne peut pas être dupliquée."
     }
   }
 }

@@ -22,6 +22,8 @@
       "closePane": "Close pane",
       "latencyTooltip": "{{ms}}ms — click to copy",
       "reconnect": "Reconnect",
+      "duplicate": "Duplicate",
+      "duplicateSplit": "Duplicate into split",
       "split": "Split",
       "splitLeft": "Split left",
       "splitRight": "Split right",
@@ -41,7 +43,8 @@
     },
     "dragToast": {
       "alreadyVisible": "That session is already visible in the split workspace.",
-      "invalidDropTarget": "Drop onto the active terminal or a split pane to create a split."
+      "invalidDropTarget": "Drop onto the active terminal or a split pane to create a split.",
+      "cannotDuplicate": "This session can't be duplicated."
     }
   }
 }

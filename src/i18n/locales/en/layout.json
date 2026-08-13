@@ -161,6 +161,7 @@
       "maximize": "Maximize",
       "close": "Close",
       "newSession": "New session",
+      "closeTab": "Close tab",
       "plan": {
         "proTrial": "Pro Trial — {{daysLeft}}d left",
         "teams": "Teams",

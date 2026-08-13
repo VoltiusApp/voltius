@@ -46,6 +46,8 @@ const DEFAULTS: Omit<Shortcut, "key">[] = [
   { id: "shortcuts",       labelKey: "settings.shortcuts.items.shortcuts.label",       descriptionKey: "settings.shortcuts.items.shortcuts.desc",       defaultKey: " ",      ctrl: true,  shift: false, alt: false },
   { id: "themes",          labelKey: "settings.shortcuts.items.themes.label",          descriptionKey: "settings.shortcuts.items.themes.desc",          defaultKey: ",",      ctrl: true,  shift: false, alt: false },
   { id: "new-tab",         labelKey: "settings.shortcuts.items.newTab.label",          descriptionKey: "settings.shortcuts.items.newTab.desc",          defaultKey: "t",      ctrl: true,  shift: false, alt: false },
+  { id: "duplicate-session",       labelKey: "settings.shortcuts.items.duplicateSession.label",      descriptionKey: "settings.shortcuts.items.duplicateSession.desc",      defaultKey: "d", ctrl: true, shift: true,  alt: false },
+  { id: "duplicate-session-split", labelKey: "settings.shortcuts.items.duplicateSessionSplit.label", descriptionKey: "settings.shortcuts.items.duplicateSessionSplit.desc", defaultKey: "d", ctrl: true, shift: false, alt: true },
   { id: "close-tab",       labelKey: "settings.shortcuts.items.closeTab.label",        descriptionKey: "settings.shortcuts.items.closeTab.desc",        defaultKey: "w",      ctrl: true,  shift: false, alt: false },
   { id: "next-tab",        labelKey: "settings.shortcuts.items.nextTab.label",         descriptionKey: "settings.shortcuts.items.nextTab.desc",         defaultKey: "Tab",    ctrl: true,  shift: false, alt: false },
   { id: "prev-tab",        labelKey: "settings.shortcuts.items.prevTab.label",         descriptionKey: "settings.shortcuts.items.prevTab.desc",         defaultKey: "Tab",    ctrl: true,  shift: true,  alt: false },
@@ -105,7 +107,8 @@ export const useShortcutStore = create<ShortcutStore>()(
     }),
     {
       name: "voltius-shortcuts",
-      version: 6,
+      // Bump on every DEFAULTS addition: migrate is what merges new entries into a persisted set.
+      version: 7,
       // v5: label/description (literal English strings) → labelKey/descriptionKey
       // (i18n keys resolved at render time). Re-derive keys from `id`; drop the
       // stale literal fields so old English text can't linger in persisted state.

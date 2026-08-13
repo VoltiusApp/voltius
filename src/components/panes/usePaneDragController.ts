@@ -4,6 +4,7 @@ import { shouldSuppressDragClick, useDragStore } from "@/stores/dragStore";
 import { findLeafBySession, useLayoutStore } from "@/stores/layoutStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { duplicateSession } from "@/services/duplicateSession";
 
 export function usePaneDragController() {
   const isPointerDown = useDragStore((s) => s.isPointerDown);
@@ -25,10 +26,29 @@ export function usePaneDragController() {
       useDragStore.getState().updatePointer(e.clientX, e.clientY);
     };
 
-    const onUp = () => {
+    const onUp = (e: MouseEvent | PointerEvent) => {
       const drag = useDragStore.getState();
       const layout = useLayoutStore.getState();
       if (drag.isDragging && drag.dropTarget) {
+        // Ctrl+drag a tab onto a drop zone duplicates the session instead of moving it.
+        if (drag.dragType === "tab" && e.ctrlKey && drag.sessionId && drag.dropTarget.type !== "titlebar") {
+          const anchor = drag.dropTarget.type === "pane"
+            ? { paneId: drag.dropTarget.paneId }
+            : { sessionId: drag.dropTarget.sessionId };
+          const duplicated = duplicateSession(drag.sessionId, drag.dropTarget.position, anchor);
+          if (!duplicated) {
+            useNotificationStore.getState().addToast({
+              pluginId: "core",
+              pluginName: "Voltius",
+              type: "toast",
+              message: i18n.t("panes.dragToast.cannotDuplicate"),
+              severity: "info",
+              duration: 2500,
+            });
+          }
+          useDragStore.getState().endDrag();
+          return;
+        }
         if (drag.dragType === "tab") {
           if (drag.sourceTitlebarKey && drag.dropTarget.type === "titlebar") {
             layout.reorderTitlebarItem(drag.sourceTitlebarKey, drag.dropTarget.targetKey ?? null, drag.dropTarget.placement ?? "after");
