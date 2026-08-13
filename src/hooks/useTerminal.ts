@@ -19,7 +19,7 @@ import { matchShortcut } from "@/stores/shortcutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { broadcastActiveForSession, findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
-import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { broadcastTargets } from "@/services/broadcast";
 import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
@@ -919,14 +919,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       // synthesized alt-screen scroll arrows so both honor broadcast identically.
       const routeInputBytes = (bytes: Uint8Array) => {
         if (broadcastActiveForSession(sessionId)) {
-          const paneSessionIds = getPaneSessionIds(useLayoutStore.getState().root);
-          const sessions = useSessionStore.getState().sessions;
-          const mpConnections = useTeamSessionStore.getState().connections;
-          for (const targetId of paneSessionIds) {
-            const target = sessions.find((s) => s.id === targetId);
-            if (!target || target.status !== "connected" || target.type === "multiplayer") continue;
-            const mpState = mpConnections[target.id];
-            if (mpState && mpState.controlHolder !== "" && mpState.controlHolder !== mpState.myUserId) continue;
+          for (const target of broadcastTargets()) {
             sendSessionInput(target.id, target.type === "serial" ? "serial" : target.type as "ssh" | "local", bytes);
           }
           return;

@@ -44,6 +44,14 @@ export const GATED_PERMISSIONS = new Set<string>([
   // Running a snippet executes the user's own commands on a host — danger tier,
   // above the snippets:read/write pair that only reads and edits the text.
   "snippets:run",
+  // Other people. `team:read` exposes colleagues' identities and who holds a
+  // vault key; `team:write` removes members and rewrites their roles.
+  "team:read",
+  "team:write",
+  // `sharing:write` streams a live terminal to remote users — the most exposing
+  // grant on the list, since everything typed after it is watched.
+  "sharing:read",
+  "sharing:write",
 ]);
 
 /**
@@ -69,6 +77,10 @@ export const NON_DANGER_GATED_PERMISSIONS = new Set<string>([
   "known_hosts:read",
   "transfers:read",
   "health:read",
+  // Membership rosters and the list of already-shared sessions: inventory the
+  // user's team already shows them. Their :write halves stay danger.
+  "team:read",
+  "sharing:read",
 ]);
 
 export function isGatedPermission(perm: string): boolean {
@@ -147,6 +159,10 @@ const PERMISSION_COPY: Record<string, string> = {
   "sync:write": "syncWrite",
   "panes:read": "panesRead",
   "panes:write": "panesWrite",
+  "team:read": "teamRead",
+  "team:write": "teamWrite",
+  "sharing:read": "sharingRead",
+  "sharing:write": "sharingWrite",
   storage: "storage",
   http: "http",
   "crypto:derive": "cryptoDerive",

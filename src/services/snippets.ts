@@ -1,8 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Snippet, SnippetFormData, Folder, FolderFormData } from "@/types";
-import { getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
-import { useSessionStore } from "@/stores/sessionStore";
-import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { broadcastActiveForSession } from "@/stores/layoutStore";
+import { broadcastTargets } from "@/services/broadcast";
 
 // ─── Snippets ─────────────────────────────────────────────────────────────────
 
@@ -42,21 +41,10 @@ export async function broadcastSnippetInject(
   text: string,
   execute: boolean,
 ): Promise<void> {
-  const layout = useLayoutStore.getState();
-  const paneSessionIds = getPaneSessionIds(layout.root);
-
-  if (layout.broadcastActive && layout.splitTabActive && paneSessionIds.includes(activeSessionId)) {
-    const sessions = useSessionStore.getState().sessions;
-    const mpConnections = useTeamSessionStore.getState().connections;
-    const injects: Promise<void>[] = [];
-    for (const targetId of paneSessionIds) {
-      const target = sessions.find((s) => s.id === targetId);
-      if (!target || target.status !== "connected" || target.type === "multiplayer") continue;
-      const mpState = mpConnections[target.id];
-      if (mpState && mpState.controlHolder !== "" && mpState.controlHolder !== mpState.myUserId) continue;
-      injects.push(snippetInject(target.id, target.type, text, execute));
-    }
-    await Promise.all(injects);
+  if (broadcastActiveForSession(activeSessionId)) {
+    await Promise.all(
+      broadcastTargets().map((target) => snippetInject(target.id, target.type, text, execute)),
+    );
     return;
   }
 

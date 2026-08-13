@@ -23,7 +23,12 @@ export interface SharingPorts {
   connectionName(localSessionId: string): string | undefined;
   teamMembers(teamIds: string[]): Promise<TeamMember[]>;
   ownerTier(teamIds: string[]): string;
-  myUserId(): string | null;
+  /**
+   * The signed-in user, from the account — NOT from a live multiplayer
+   * connection. `isHost` must stay correct for a session hosted from another
+   * device or a previous run of the app, when no connection is open here.
+   */
+  myUserId(): Promise<string | null>;
 }
 
 export type SharingResult<T> = { ok: true; result: T } | { ok: false; error: string };
@@ -51,7 +56,7 @@ export async function listSharedSessions(ports: SharingPorts): Promise<PluginSha
       .map((localId) => [ports.state(localId)?.multiplayerSessionId, localId] as const)
       .filter((pair): pair is readonly [string, string] => Boolean(pair[0])),
   );
-  const me = ports.myUserId();
+  const me = await ports.myUserId();
   return ports.activeSessions().map((s: ActiveSession) => {
     const localId = localByMultiplayer.get(s.id) ?? null;
     const live = localId ? ports.state(localId) : undefined;

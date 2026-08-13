@@ -810,9 +810,7 @@ const sharingPorts: SharingPorts = {
   connectionName: (id) => useSessionStore.getState().sessions.find((s) => s.id === id)?.connectionName,
   teamMembers: (teamIds) => membersOfTeams(teamIds),
   ownerTier: (teamIds) => highestOwnerTier(teamIds),
-  // Every live multiplayer connection carries the same local user, so any one of
-  // them answers; with none open there is nothing to attribute anyway.
-  myUserId: () => Object.values(useTeamSessionStore.getState().connections)[0]?.myUserId ?? null,
+  myUserId: () => getMyUserId(),
 };
 
 // ─── Store reload map ─────────────────────────────────────────────────────

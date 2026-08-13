@@ -26,7 +26,7 @@ function ports(over: Partial<SharingPorts> = {}): SharingPorts {
     connectionName: () => "web-1",
     teamMembers: async () => [],
     ownerTier: () => "teams",
-    myUserId: () => "u0",
+    myUserId: async () => "u0",
     ...over,
   } as SharingPorts;
 }
