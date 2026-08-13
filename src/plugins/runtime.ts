@@ -744,6 +744,7 @@ const panePorts: PanePorts = {
   detachPane: (paneId) => useLayoutStore.getState().detachPane(paneId),
   setActivePane: (paneId) => useLayoutStore.getState().setActivePane(paneId),
   setMaximized: (paneId) => useLayoutStore.getState().setMaximized(paneId),
+  toggleBroadcast: () => useLayoutStore.getState().toggleBroadcast(),
   focusStandaloneTab: (sessionId) => {
     useUIStore.getState().setSftpPanelOpen(false);
     useLayoutStore.getState().setSplitTabActive(false);
