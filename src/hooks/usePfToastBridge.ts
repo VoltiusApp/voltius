@@ -44,8 +44,7 @@ export function usePfToastBridge() {
         });
       } else {
         const id = addToast({
-          pluginId: "__pf__",
-          pluginName: "Port Forwarding",
+          source: { kind: "plugin", id: "__pf__", name: "Port Forwarding" },
           type: "toast",
           message,
           severity: "info",

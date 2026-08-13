@@ -42,8 +42,7 @@ export async function withdrawOrWarn(withdrawal: Promise<void>): Promise<void> {
     await withdrawal;
   } catch (e) {
     useNotificationStore.getState().addToast({
-      pluginId: "system",
-      pluginName: "Voltius",
+      source: { kind: "plugin", id: "system", name: "Voltius" },
       type: "toast",
       message: i18n.t("common.error.secretsLeftInSourceVault", {
         error: e instanceof Error ? e.message : String(e),

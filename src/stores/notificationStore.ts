@@ -1,10 +1,17 @@
 import { create } from "zustand";
 import type { ToastSeverity } from "@/plugins/api";
 
+export type NotificationSource =
+  | { kind: "plugin"; id: string; name: string }
+  | { kind: "app"; area: "team" };
+
+export function sourceKey(source: NotificationSource): string {
+  return source.kind === "plugin" ? source.id : "app";
+}
+
 export interface ToastEntry {
   id: string;
-  pluginId: string;
-  pluginName: string;
+  source: NotificationSource;
   type: "toast" | "progress";
   message: string;
   severity: ToastSeverity;
@@ -23,8 +30,7 @@ export interface ToastEntry {
 
 export interface BannerEntry {
   id: string;
-  pluginId: string;
-  pluginName: string;
+  source: NotificationSource;
   message: string;
   severity: ToastSeverity;
   actions: Array<{ label: string; onClick: () => void }>;
@@ -34,8 +40,7 @@ export interface BannerEntry {
 
 export interface HistoryEntry {
   id: string;
-  pluginId: string;
-  pluginName: string;
+  source: NotificationSource;
   message: string;
   severity: ToastSeverity;
   dismissedAt: number;
@@ -71,7 +76,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
   unreadCount: 0,
 
   addToast(entry) {
-    const id = `${entry.pluginId}:${crypto.randomUUID()}`;
+    const id = `${sourceKey(entry.source)}:${crypto.randomUUID()}`;
     const toast: ToastEntry = { ...entry, id, createdAt: Date.now() };
 
     set((s) => {
@@ -109,8 +114,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
       if (!toast) return s;
       const historyEntry: HistoryEntry = {
         id: toast.id,
-        pluginId: toast.pluginId,
-        pluginName: toast.pluginName,
+        source: toast.source,
         message: toast.message,
         severity: toast.finishedSeverity ?? toast.severity,
         dismissedAt: Date.now(),
@@ -124,7 +128,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
   },
 
   addBanner(entry) {
-    const id = `${entry.pluginId}:${crypto.randomUUID()}`;
+    const id = `${sourceKey(entry.source)}:${crypto.randomUUID()}`;
     const banner: BannerEntry = { ...entry, id, createdAt: Date.now() };
 
     set((s) => {
@@ -154,9 +158,11 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
   },
 
   dismissAllForPlugin(pluginId) {
+    const belongsToPlugin = (e: { source: NotificationSource }) =>
+      e.source.kind === "plugin" && e.source.id === pluginId;
     set((s) => ({
-      toasts: s.toasts.filter((t) => t.pluginId !== pluginId),
-      banners: s.banners.filter((b) => b.pluginId !== pluginId),
+      toasts: s.toasts.filter((t) => !belongsToPlugin(t)),
+      banners: s.banners.filter((b) => !belongsToPlugin(b)),
     }));
   },
 

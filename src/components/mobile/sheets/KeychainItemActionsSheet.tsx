@@ -22,7 +22,7 @@ type Props =
   | { kind: "identity"; item: Identity; onClose: () => void };
 
 function toast(message: string, severity: "success" | "error") {
-  useNotificationStore.getState().addToast({ pluginId: "core", pluginName: "Voltius", type: "toast", message, severity, duration: 2000 });
+  useNotificationStore.getState().addToast({ source: { kind: "plugin", id: "core", name: "Voltius" }, type: "toast", message, severity, duration: 2000 });
 }
 
 export default function KeychainItemActionsSheet(props: Props) {

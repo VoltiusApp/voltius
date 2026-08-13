@@ -47,13 +47,15 @@ export function ProgressToast({ toast, onDismiss, pluginUnloaded }: Props) {
             style={{ color: "var(--t-text-muted)", flexShrink: 0 }}
           />
         )}
-        <span
-          className="text-xs shrink-0"
-          style={{ color: "var(--t-text-dim)" }}
-          title={toast.pluginName}
-        >
-          [{toast.pluginName.slice(0, 20)}]
-        </span>
+        {toast.source.kind === "plugin" && (
+          <span
+            className="text-xs shrink-0"
+            style={{ color: "var(--t-text-dim)" }}
+            title={toast.source.name}
+          >
+            [{toast.source.name.slice(0, 20)}]
+          </span>
+        )}
         <span className="flex-1 text-(--t-text-primary) font-medium truncate">{toast.message}</span>
         {(isFinished || toast.cancellable) && (
           <button

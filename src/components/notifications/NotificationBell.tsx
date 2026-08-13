@@ -43,9 +43,11 @@ function BannerRow({ banner, onDismiss }: { banner: BannerEntry; onDismiss: () =
       <div className="flex items-start gap-2">
         <Icon icon={icon} width={13} style={{ color, flexShrink: 0, marginTop: 2 }} />
         <div className="flex-1 min-w-0">
-          <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
-            [{banner.pluginName.slice(0, 20)}]
-          </span>
+          {banner.source.kind === "plugin" && (
+            <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
+              [{banner.source.name.slice(0, 20)}]
+            </span>
+          )}
           <p className="text-sm text-(--t-text-primary) leading-snug">{banner.message}</p>
         </div>
         {banner.dismissable && (
@@ -88,9 +90,11 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
     <div className="flex items-start gap-2 px-3 py-2 rounded-lg opacity-60">
       <Icon icon={icon} width={12} style={{ color, flexShrink: 0, marginTop: 2 }} />
       <div className="flex-1 min-w-0">
-        <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
-          [{entry.pluginName.slice(0, 20)}]
-        </span>
+        {entry.source.kind === "plugin" && (
+          <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
+            [{entry.source.name.slice(0, 20)}]
+          </span>
+        )}
         <p className="text-xs text-(--t-text-secondary) truncate">{entry.message}</p>
       </div>
       <span className="text-xs shrink-0" style={{ color: "var(--t-text-dim)" }}>

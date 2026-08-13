@@ -163,7 +163,10 @@ describe("loadSeededPlugins", () => {
       seeded(["docker", "monitoring"], true);
       await loadSeededPlugins();
       expect(addBanner).toHaveBeenCalledOnce();
-      expect(addBanner.mock.calls[0][0]).toMatchObject({ severity: "error", pluginId: "core" });
+      expect(addBanner.mock.calls[0][0]).toMatchObject({
+        severity: "error",
+        source: { kind: "plugin", id: "core" },
+      });
     });
 
     test("stays quiet when at least one loads", async () => {

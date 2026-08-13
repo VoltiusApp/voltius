@@ -180,8 +180,7 @@ function usePluginInstaller() {
 
   const notifyError = (e: unknown) => {
     useNotificationStore.getState().addToast({
-      pluginId: "system",
-      pluginName: "Voltius",
+      source: { kind: "plugin", id: "system", name: "Voltius" },
       type: "toast",
       severity: "error",
       message: e instanceof PluginHashMismatchError
