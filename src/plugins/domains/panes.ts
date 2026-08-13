@@ -127,3 +127,73 @@ export function locate(ports: PanePorts, sessionId: string): { tab: SplitTab; le
   }
   return null;
 }
+
+interface PairInput {
+  sessionId: string;
+  targetSessionId: string;
+  position: SplitPosition;
+}
+
+function exists(ports: PanePorts, sessionId: string): boolean {
+  return ports.sessions().some((s) => s.id === sessionId);
+}
+
+/** The checks both pair verbs share; null when the call may proceed. */
+function preflight(ports: PanePorts, input: PairInput): PaneResult | null {
+  if (ports.isMobile()) return { ok: false, error: PANE_ERRORS.mobile };
+  if (input.sessionId === input.targetSessionId) return { ok: false, error: PANE_ERRORS.same };
+  if (!exists(ports, input.sessionId) || !exists(ports, input.targetSessionId)) {
+    return { ok: false, error: PANE_ERRORS.noSession };
+  }
+  return null;
+}
+
+/** Place a session beside a target, hiding the store's two entry points: a
+ *  standalone target needs a new split tab, one already in a tab needs a split
+ *  of its own pane. */
+function attach(ports: PanePorts, input: PairInput): void {
+  const target = locate(ports, input.targetSessionId);
+  if (target) {
+    ports.activateSplitTab(target.tab.id);
+    ports.splitPane(target.leaf.id, input.sessionId, input.position);
+  } else {
+    ports.createSplitTab(input.targetSessionId, input.sessionId, input.position);
+  }
+}
+
+/** Re-read the layout and confirm both sessions ended up in one tab. */
+function verifyTogether(ports: PanePorts, input: PairInput): PaneResult {
+  const placed = locate(ports, input.sessionId);
+  if (!placed || !findLeafBySession(placed.tab.root, input.targetSessionId)) {
+    return { ok: false, error: PANE_ERRORS.unchanged };
+  }
+  return { ok: true, tab: projectSplitTab(ports, placed.tab) };
+}
+
+export function splitWith(ports: PanePorts, input: PairInput): PaneResult {
+  const refused = preflight(ports, input);
+  if (refused) return refused;
+  // The store would silently just focus an already-split session
+  // (`layoutStore.ts:297`), which would report success for a no-op.
+  if (locate(ports, input.sessionId)) return { ok: false, error: PANE_ERRORS.alreadySplit };
+  attach(ports, input);
+  return verifyTogether(ports, input);
+}
+
+export function moveToPane(ports: PanePorts, input: PairInput): PaneResult {
+  const refused = preflight(ports, input);
+  if (refused) return refused;
+  const source = locate(ports, input.sessionId);
+  if (!source) return { ok: false, error: PANE_ERRORS.notSplit };
+
+  const target = locate(ports, input.targetSessionId);
+  if (target && target.tab.id === source.tab.id) {
+    ports.activateSplitTab(source.tab.id);
+    ports.movePane(source.leaf.id, target.leaf.id, input.position);
+  } else {
+    ports.activateSplitTab(source.tab.id);
+    ports.detachPane(source.leaf.id);
+    attach(ports, input);
+  }
+  return verifyTogether(ports, input);
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PanePorts } from "./panes";
-import { listTabs } from "./panes";
+import { listTabs, moveToPane, PANE_ERRORS, splitWith } from "./panes";
 import type { SplitTab } from "@/stores/layoutStore";
 
 export const splitTab = (over: Partial<SplitTab> = {}): SplitTab => ({
@@ -84,3 +84,88 @@ describe("listTabs", () => {
     expect(listTabs(ports)[0].panes.map((p) => p.maximized)).toEqual([false, true]);
   });
 });
+
+const soloTab = (id: string, paneId: string, sessionId: string): SplitTab => ({
+  id, root: { type: "leaf", id: paneId, sessionId },
+  activePaneId: paneId, maximizedPaneId: null, broadcastActive: false,
+});
+
+describe("splitWith", () => {
+  it("creates a split tab when the target is standalone", () => {
+    const ports = makePorts({ splitTabs: vi.fn(() => []) });
+    const result = splitWith(ports, { sessionId: "sess-a", targetSessionId: "sess-c", position: "right" });
+    expect(ports.createSplitTab).toHaveBeenCalledWith("sess-c", "sess-a", "right");
+    expect(ports.splitPane).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: false, error: PANE_ERRORS.unchanged });
+  });
+
+  it("splits against the target's own pane when the target is already in a tab", () => {
+    const tabs = [splitTab()];
+    const ports = makePorts({
+      splitTabs: vi.fn(() => tabs),
+      splitPane: vi.fn((_t: string, sessionId: string) => {
+        tabs[0] = splitTab({
+          root: {
+            type: "split", id: "s-2", direction: "h", ratio: 0.5,
+            first: splitTab().root,
+            second: { type: "leaf", id: "p-3", sessionId },
+          },
+        });
+      }),
+    });
+    const result = splitWith(ports, { sessionId: "sess-c", targetSessionId: "sess-b", position: "bottom" });
+    expect(ports.activateSplitTab).toHaveBeenCalledWith("tab-1");
+    expect(ports.splitPane).toHaveBeenCalledWith("p-2", "sess-c", "bottom");
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.tab?.panes.map((p) => p.sessionId)).toEqual(["sess-a", "sess-b", "sess-c"]);
+  });
+
+  it("refuses a session that is already in a split tab", () => {
+    const ports = makePorts();
+    expect(splitWith(ports, { sessionId: "sess-a", targetSessionId: "sess-c", position: "right" }))
+      .toEqual({ ok: false, error: PANE_ERRORS.alreadySplit });
+    expect(ports.splitPane).not.toHaveBeenCalled();
+  });
+
+  it("refuses unknown sessions, self-splits, and the mobile shell", () => {
+    expect(splitWith(makePorts(), { sessionId: "nope", targetSessionId: "sess-b", position: "right" }))
+      .toEqual({ ok: false, error: PANE_ERRORS.noSession });
+    expect(splitWith(makePorts(), { sessionId: "sess-c", targetSessionId: "nope", position: "right" }))
+      .toEqual({ ok: false, error: PANE_ERRORS.noSession });
+    expect(splitWith(makePorts(), { sessionId: "sess-c", targetSessionId: "sess-c", position: "right" }))
+      .toEqual({ ok: false, error: PANE_ERRORS.same });
+    expect(splitWith(makePorts({ isMobile: vi.fn(() => true) }), { sessionId: "sess-c", targetSessionId: "sess-b", position: "right" }))
+      .toEqual({ ok: false, error: PANE_ERRORS.mobile });
+  });
+});
+
+describe("moveToPane", () => {
+  it("moves within one tab with movePane", () => {
+    const ports = makePorts();
+    moveToPane(ports, { sessionId: "sess-a", targetSessionId: "sess-b", position: "top" });
+    expect(ports.activateSplitTab).toHaveBeenCalledWith("tab-1");
+    expect(ports.movePane).toHaveBeenCalledWith("p-1", "p-2", "top");
+    expect(ports.detachPane).not.toHaveBeenCalled();
+  });
+
+  it("composes detach + attach across tabs, since the store has no cross-tab move", () => {
+    const tabs = [splitTab(), soloTab("tab-2", "p-9", "sess-z")];
+    const ports = makePorts({
+      splitTabs: vi.fn(() => tabs),
+      sessions: vi.fn(() => [
+        { id: "sess-a", connectionName: "web-01" },
+        { id: "sess-b", connectionName: "db-01" },
+        { id: "sess-z", connectionName: "far" },
+      ]),
+    });
+    moveToPane(ports, { sessionId: "sess-a", targetSessionId: "sess-z", position: "left" });
+    expect(ports.detachPane).toHaveBeenCalledWith("p-1");
+    expect(ports.splitPane).toHaveBeenCalledWith("p-9", "sess-a", "left");
+  });
+
+  it("refuses a source that is in no split tab", () => {
+    expect(moveToPane(makePorts(), { sessionId: "sess-c", targetSessionId: "sess-a", position: "right" }))
+      .toEqual({ ok: false, error: PANE_ERRORS.notSplit });
+  });
+});
+
