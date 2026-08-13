@@ -39,6 +39,14 @@
     "seededPluginsFailed": {
       "message": "Built-in plugins failed to load, so the app is running without them. This is a bug — please report it.",
       "action": "Diagnostics"
+    },
+    "inbox": {
+      "someone": "Someone",
+      "invite": {
+        "message": "{{inviter}} invited you to {{team}}",
+        "accept": "Accept",
+        "decline": "Decline"
+      }
     }
   }
 }

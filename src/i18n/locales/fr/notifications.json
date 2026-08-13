@@ -39,6 +39,14 @@
     "seededPluginsFailed": {
       "message": "Les plugins intégrés n'ont pas pu être chargés, l'application fonctionne donc sans eux. Ceci est un bug — merci de le signaler.",
       "action": "Diagnostics"
+    },
+    "inbox": {
+      "someone": "Quelqu'un",
+      "invite": {
+        "message": "{{inviter}} vous a invité à rejoindre {{team}}",
+        "accept": "Accepter",
+        "decline": "Refuser"
+      }
     }
   }
 }
