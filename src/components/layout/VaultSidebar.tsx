@@ -14,10 +14,7 @@ import { CreateVaultModal } from "@/components/shared/CreateVaultModal";
 import { Modal } from "@/components/shared/Modal";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { getUpdaterState, onUpdaterStateChange, type UpdaterStatus } from "@/services/updater";
-import {
-  acceptMyPendingInvitation,
-  declineMyPendingInvitation,
-} from "@/services/teamService";
+import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import type { MyPendingInvitation } from "@/stores/teamStore";
 
 function getInitials(name: string) {
@@ -150,25 +147,14 @@ export default function VaultSidebar() {
         <PendingInviteModal
           invite={selectedInvite}
           onAccept={async () => {
-            await acceptMyPendingInvitation(selectedInvite.id);
-            const acceptedTeamId = selectedInvite.team_id;
+            const { id, team_id } = selectedInvite;
             setSelectedInvite(null);
-            // loadTeams() + loadMyPendingInvitations() run in parallel with vault load.
-            // We also call joinAndLoadTeamVault directly because loadTeams() below will
-            // add the team to the store before the SSE membership_changed event is
-            // processed — causing handleMembershipChangedEvent to see a zero delta and
-            // skip onTeamAdded entirely, leaving status stuck at "forbidden".
-            const { joinAndLoadTeamVault } = await import("@/services/teamDataManager");
-            await Promise.all([
-              useTeamStore.getState().loadTeams(),
-              useTeamStore.getState().loadMyPendingInvitations(),
-              joinAndLoadTeamVault(acceptedTeamId),
-            ]);
+            await acceptInvitation(id, team_id);
           }}
           onDecline={async () => {
-            await declineMyPendingInvitation(selectedInvite.id);
+            const { id } = selectedInvite;
             setSelectedInvite(null);
-            await useTeamStore.getState().loadMyPendingInvitations();
+            await declineInvitation(id);
           }}
           onClose={() => setSelectedInvite(null)}
         />
