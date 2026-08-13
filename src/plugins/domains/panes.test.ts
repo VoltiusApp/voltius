@@ -211,7 +211,13 @@ describe("detach", () => {
 
 describe("focus", () => {
   it("activates the owning tab and pane, and reveals it", () => {
-    const ports = makePorts({ splitTabs: vi.fn(() => [splitTab({ activePaneId: "p-2" })]) });
+    let tab = splitTab({ activePaneId: "p-1" });
+    const ports = makePorts({
+      splitTabs: vi.fn(() => [tab]),
+      setActivePane: vi.fn((paneId: string) => {
+        tab = { ...tab, activePaneId: paneId };
+      }),
+    });
     const result = focus(ports, "sess-b");
     expect(ports.activateSplitTab).toHaveBeenCalledWith("tab-1");
     expect(ports.setActivePane).toHaveBeenCalledWith("p-2");
@@ -221,12 +227,29 @@ describe("focus", () => {
   });
 
   it("maximizes and un-maximizes only when asked", () => {
-    const maxTab = () => splitTab({ activePaneId: "p-1", maximizedPaneId: "p-1" });
-    const on = makePorts({ splitTabs: vi.fn(() => [maxTab()]) });
+    let onTab = splitTab({ activePaneId: "p-1", maximizedPaneId: null });
+    const on = makePorts({
+      splitTabs: vi.fn(() => [onTab]),
+      setActivePane: vi.fn((paneId: string) => {
+        onTab = { ...onTab, activePaneId: paneId };
+      }),
+      setMaximized: vi.fn((paneId: string | null) => {
+        onTab = { ...onTab, maximizedPaneId: paneId };
+      }),
+    });
     focus(on, "sess-a", true);
     expect(on.setMaximized).toHaveBeenCalledWith("p-1");
 
-    const off = makePorts({ splitTabs: vi.fn(() => [maxTab()]) });
+    let offTab = splitTab({ activePaneId: "p-1", maximizedPaneId: "p-1" });
+    const off = makePorts({
+      splitTabs: vi.fn(() => [offTab]),
+      setActivePane: vi.fn((paneId: string) => {
+        offTab = { ...offTab, activePaneId: paneId };
+      }),
+      setMaximized: vi.fn((paneId: string | null) => {
+        offTab = { ...offTab, maximizedPaneId: paneId };
+      }),
+    });
     focus(off, "sess-a", false);
     expect(off.setMaximized).toHaveBeenCalledWith(null);
   });
@@ -242,6 +265,16 @@ describe("focus", () => {
     expect(focus(makePorts(), "nope")).toEqual({ ok: false, error: PANE_ERRORS.noSession });
     expect(focus(makePorts({ isMobile: vi.fn(() => true) }), "sess-a"))
       .toEqual({ ok: false, error: PANE_ERRORS.mobile });
+  });
+
+  it("refuses when the store ignores setActivePane", () => {
+    let tab = splitTab({ activePaneId: "p-1" });
+    const ports = makePorts({
+      splitTabs: vi.fn(() => [tab]),
+      setActivePane: vi.fn(() => {
+      }),
+    });
+    expect(focus(ports, "sess-b")).toEqual({ ok: false, error: PANE_ERRORS.unchanged });
   });
 });
 

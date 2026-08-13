@@ -238,5 +238,14 @@ export function focus(ports: PanePorts, sessionId: string, maximize?: boolean): 
   if (!after || ports.activeSplitTabId() !== found.tab.id) {
     return { ok: false, error: PANE_ERRORS.unchanged };
   }
+  if (after.activePaneId !== found.leaf.id) {
+    return { ok: false, error: PANE_ERRORS.unchanged };
+  }
+  if (maximize === true && after.maximizedPaneId !== found.leaf.id) {
+    return { ok: false, error: PANE_ERRORS.unchanged };
+  }
+  if (maximize === false && after.maximizedPaneId !== null) {
+    return { ok: false, error: PANE_ERRORS.unchanged };
+  }
   return { ok: true, tab: projectSplitTab(ports, after) };
 }
