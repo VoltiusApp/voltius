@@ -110,6 +110,7 @@
     "teamSessions": {
       "title": "Team Sessions",
       "joinByCode": "Join by code",
+      "emptyHint": "Terminals your teammates share appear here. Got an invite code? Paste it into search to join.",
       "live": "LIVE",
       "pasteInviteCode": "Paste an invite code to join a private session:",
       "inviteCodePlaceholder": "sessionId:token",

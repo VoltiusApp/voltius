@@ -132,6 +132,7 @@
       "upToParticipants_other": "Jusqu'à {{count}} participants",
       "upgradeToTeamsForParticipants": "Passez à Teams pour 10 participants + coffres partagés",
       "live": "En direct",
+      "waitingForGuests": "En attente d'un participant…",
       "participantsRatio_one": "{{participantCount}} / {{guestCap}} participant",
       "participantsRatio_other": "{{participantCount}} / {{guestCap}} participants",
       "upgradeToTeams": "Passer à Teams",
