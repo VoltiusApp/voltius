@@ -145,6 +145,8 @@ const PERMISSION_COPY: Record<string, string> = {
   "health:read": "healthRead",
   "sync:read": "syncRead",
   "sync:write": "syncWrite",
+  "panes:read": "panesRead",
+  "panes:write": "panesWrite",
   storage: "storage",
   http: "http",
   "crypto:derive": "cryptoDerive",

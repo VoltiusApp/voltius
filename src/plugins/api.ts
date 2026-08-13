@@ -168,6 +168,32 @@ export interface PluginHostPing {
   latencyMs?: number;
 }
 
+export type PluginPanePosition = "left" | "right" | "top" | "bottom";
+
+export interface PluginPane {
+  paneId: string;
+  sessionId: string;
+  connectionName: string;
+  active: boolean;
+  maximized: boolean;
+}
+
+/** A titlebar item: a split tab with one entry per pane, or a standalone
+ *  session projected as a single-pane tab so callers read one uniform list. */
+export interface PluginPaneTab {
+  tabId: string;
+  kind: "split" | "session";
+  active: boolean;
+  panes: PluginPane[];
+  broadcastActive: boolean;
+  layout: unknown;
+}
+
+/** `tab` is null when the write left no tab behind (the last split collapsed). */
+export type PluginPaneResult =
+  | { ok: true; tab: PluginPaneTab | null }
+  | { ok: false; error: string };
+
 /**
  * A SAVED port-forwarding rule: a shape, not a live listener. Opening one is
  * `portForwards.start`, which needs an open session to hang the tunnel on.
@@ -860,6 +886,22 @@ export interface PluginAPI {
    */
   health: {
     pingStatus(): PluginHostPing[];
+  };
+
+  /**
+   * The terminal tab and pane layout (requires panes:read / panes:write).
+   *
+   * Ungated deliberately: these rearrange tabs and destroy nothing, which is
+   * strictly less than the ungated sessions:write, and detaching a pane leaves
+   * the session open. Writes never throw — they return a PluginPaneResult whose
+   * `error` says why, because every underlying store method fails silently.
+   */
+  panes: {
+    list(): PluginPaneTab[];
+    split(input: { sessionId: string; targetSessionId: string; position: PluginPanePosition }): PluginPaneResult;
+    move(input: { sessionId: string; targetSessionId: string; position: PluginPanePosition }): PluginPaneResult;
+    detach(sessionId: string): PluginPaneResult;
+    focus(sessionId: string, maximize?: boolean): PluginPaneResult;
   };
 
   /**

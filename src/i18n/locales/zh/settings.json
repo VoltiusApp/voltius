@@ -764,6 +764,14 @@
             "label": "写入同步数据",
             "description": "存储和修改在您各设备间同步的数据。"
           },
+          "panesRead": {
+            "label": "读取终端布局",
+            "description": "查看您打开的标签页和分屏面板，以及每个面板中的会话。"
+          },
+          "panesWrite": {
+            "label": "调整终端面板",
+            "description": "拆分、移动、分离和聚焦终端面板。会话保持打开，不会关闭任何内容。"
+          },
           "storage": {
             "label": "存储插件数据",
             "description": "在您的设备上保存此插件自身的设置和数据。"

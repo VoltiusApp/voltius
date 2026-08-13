@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, it, expect } from "vitest";
 import {
   GATED_PERMISSIONS, NON_DANGER_GATED_PERMISSIONS, isGatedPermission,
   isNonDangerGatedPermission,
@@ -206,5 +206,16 @@ describe("P5 permissions", () => {
     expect(read).toMatchObject({ gated: true, danger: false, known: true });
     expect(write).toMatchObject({ gated: true, danger: true, known: true });
     expect(health).toMatchObject({ gated: true, danger: false, known: true });
+  });
+});
+
+describe("pane permissions", () => {
+  it("are described in plain language but never gated", () => {
+    const [read, write] = describePermissions(["panes:read", "panes:write"]);
+    expect(read.known).toBe(true);
+    expect(read.labelKey).toBe("settings.plugins.permissionModal.permissions.panesRead.label");
+    expect(read.gated).toBe(false);
+    expect(write.known).toBe(true);
+    expect(write.gated).toBe(false);
   });
 });

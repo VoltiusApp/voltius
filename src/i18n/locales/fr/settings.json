@@ -817,6 +817,8 @@
           "vaultWrite": { "label": "Écrire dans votre coffre", "description": "Stocker et modifier des données dans votre coffre." },
           "syncRead": { "label": "Lire les données de synchronisation", "description": "Lire les données propres à ce plugin synchronisées entre vos appareils, et consulter l'état de la synchronisation de votre configuration." },
           "syncWrite": { "label": "Écrire les données de synchronisation", "description": "Stocker et modifier les données synchronisées entre vos appareils." },
+          "panesRead": { "label": "Lire la disposition du terminal", "description": "Voir vos onglets ouverts et vos panneaux divisés, et quelle session se trouve dans chacun." },
+          "panesWrite": { "label": "Organiser les panneaux du terminal", "description": "Diviser, déplacer, détacher et activer des panneaux. Les sessions restent ouvertes ; rien n'est fermé." },
           "storage": { "label": "Stocker les données du plugin", "description": "Enregistrer les réglages et données propres à ce plugin sur votre appareil." },
           "http": { "label": "Accéder au réseau", "description": "Effectuer des requêtes réseau vers des services externes." },
           "cryptoDerive": { "label": "Dériver des clés de chiffrement", "description": "Dériver une clé de chiffrement à partir d'une phrase secrète que vous fournissez. Ne donne pas accès à vos secrets stockés." },

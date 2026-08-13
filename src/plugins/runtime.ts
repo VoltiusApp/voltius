@@ -87,6 +87,16 @@ import { createKnownHostsAPI, type KnownHostPorts } from "./domains/knownHosts";
 import { listKnownHosts, deleteKnownHost, trustKnownHost } from "@/services/knownHosts";
 import { createHistoryAPI, type HistoryPorts } from "./domains/history";
 import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
+import {
+  detach as detachPaneOf,
+  focus as focusPaneOf,
+  listTabs,
+  moveToPane,
+  splitWith,
+  type PanePorts,
+} from "./domains/panes";
+import { useLayoutStore } from "@/stores/layoutStore";
+import { getPlatformSync } from "@/utils/platform";
 import { resolveCan, type Permission } from "@/services/permissions";
 import { getMyUserId } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
@@ -718,6 +728,36 @@ const historyPorts: HistoryPorts = {
   list: () => useCommandHistoryStore.getState().entries,
 };
 
+// Mirrors the titlebar's own click handlers (TitleBar.tsx:130 and :162): a
+// focused pane that leaves the SFTP panel open or the nav on Vaults is focused
+// in the store and invisible on screen.
+const panePorts: PanePorts = {
+  splitTabs: () => useLayoutStore.getState().splitTabs,
+  activeSplitTabId: () => useLayoutStore.getState().activeSplitTabId,
+  splitTabActive: () => useLayoutStore.getState().splitTabActive,
+  sessions: () => useSessionStore.getState().sessions.map((s) => ({ id: s.id, connectionName: s.connectionName })),
+  activeSessionId: () => useSessionStore.getState().activeSessionId,
+  activateSplitTab: (tabId) => useLayoutStore.getState().activateSplitTab(tabId),
+  createSplitTab: (target, incoming, position) => useLayoutStore.getState().createSplitTab(target, incoming, position),
+  splitPane: (paneId, sessionId, position) => useLayoutStore.getState().splitPane(paneId, sessionId, position),
+  movePane: (source, target, position) => useLayoutStore.getState().movePane(source, target, position),
+  detachPane: (paneId) => useLayoutStore.getState().detachPane(paneId),
+  setActivePane: (paneId) => useLayoutStore.getState().setActivePane(paneId),
+  setMaximized: (paneId) => useLayoutStore.getState().setMaximized(paneId),
+  focusStandaloneTab: (sessionId) => {
+    useUIStore.getState().setSftpPanelOpen(false);
+    useLayoutStore.getState().setSplitTabActive(false);
+    useSessionStore.getState().setActive(sessionId);
+    useUIStore.getState().setActiveNav("terminal");
+  },
+  revealActiveTab: (sessionId) => {
+    useUIStore.getState().setSftpPanelOpen(false);
+    useSessionStore.getState().setActive(sessionId);
+    useUIStore.getState().setActiveNav("terminal");
+  },
+  isMobile: () => getPlatformSync() === "android",
+};
+
 // ─── Store reload map ─────────────────────────────────────────────────────
 
 const RELOADABLE_STORES: Record<string, () => Promise<void>> = {
@@ -1203,6 +1243,29 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         return Object.entries(statuses).map(([connectionId, status]) => ({
           connectionId, status, latencyMs: latencies[connectionId],
         }));
+      },
+    },
+
+    panes: {
+      list() {
+        requirePerm(manifest, "panes:read");
+        return listTabs(panePorts);
+      },
+      split(input) {
+        requirePerm(manifest, "panes:write");
+        return splitWith(panePorts, input);
+      },
+      move(input) {
+        requirePerm(manifest, "panes:write");
+        return moveToPane(panePorts, input);
+      },
+      detach(sessionId) {
+        requirePerm(manifest, "panes:write");
+        return detachPaneOf(panePorts, sessionId);
+      },
+      focus(sessionId, maximize) {
+        requirePerm(manifest, "panes:write");
+        return focusPaneOf(panePorts, sessionId, maximize);
       },
     },
 
