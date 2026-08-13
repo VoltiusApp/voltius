@@ -35,6 +35,9 @@ export async function sshConnect(params: {
   attachOnly?: boolean;
   cols?: number;
   rows?: number;
+  /** Directory the shell starts in. First connect only — a reconnect must not
+   * move a session the user has since navigated elsewhere. */
+  initialCwd?: string;
 }): Promise<void> {
   return invoke("ssh_connect", {
     sessionId: params.sessionId,
@@ -59,6 +62,7 @@ export async function sshConnect(params: {
     attachOnly: params.attachOnly ?? null,
     cols: params.cols ?? null,
     rows: params.rows ?? null,
+    initialCwd: params.initialCwd ?? null,
   });
 }
 

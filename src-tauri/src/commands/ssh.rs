@@ -36,6 +36,7 @@ pub async fn ssh_connect(
     cols: Option<u32>,
     rows: Option<u32>,
     legacy_algorithms: Option<bool>,
+    initial_cwd: Option<String>,
 ) -> Result<(), String> {
     let connected = client::connect(
         app,
@@ -61,6 +62,7 @@ pub async fn ssh_connect(
         cols.filter(|c| *c > 0).unwrap_or(80),
         rows.filter(|r| *r > 0).unwrap_or(24),
         legacy_algorithms.unwrap_or(false),
+        initial_cwd,
     )
     .await?;
 

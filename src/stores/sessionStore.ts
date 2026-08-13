@@ -47,12 +47,12 @@ interface SessionStore {
   activeSessionId: string | null;
   connect: (connectionId: string, options?: OpenOptions) => Promise<string>;
   /** connect() without the wait: the session appears now, connects in the background. */
-  beginSession: (connectionId: string) => string;
+  beginSession: (connectionId: string, initialCwd?: string) => string;
   connectMany: (connectionIds: string[]) => Promise<string[]>;
   connectDirect: (connection: Connection) => Promise<void>;
   connectLocal: () => Promise<void>;
   connectLocalAt: (cwd: string) => Promise<void>;
-  beginLocalSession: (shell?: string) => string;
+  beginLocalSession: (shell?: string, cwd?: string) => string;
   connectAt: (connectionId: string, cwd: string) => Promise<void>;
   connectSerial: (connectionId: string) => Promise<void>;
   connectSerialEphemeral: (initialPort?: string) => Promise<void>;
@@ -239,6 +239,7 @@ async function connectSshSession(
   password?: string,
   privateKey?: string,
   passphrase?: string,
+  initialCwd?: string,
 ) {
   const hasConfiguredAuth = !!connection.identity_id || !!connection.key_id;
   const preflightError = preflightConnect(connection.username, password, privateKey, hasConfiguredAuth);
@@ -264,6 +265,7 @@ async function connectSshSession(
         privateKey,
         passphrase,
         connectionId: connection.id,
+        initialCwd,
         ...opts,
       }),
     );
@@ -489,7 +491,7 @@ async function materializeSavedConnection(
   return target;
 }
 
-function beginConnection(set: SessionSetter, connectionId: string): string {
+function beginConnection(set: SessionSetter, connectionId: string, initialCwd?: string): string {
   const connection = findConnection(connectionId);
   if (!connection) throw new Error(i18n.t("common.error.connectionNotFound"));
 
@@ -511,7 +513,7 @@ function beginConnection(set: SessionSetter, connectionId: string): string {
   void resolveConnectionCredentials(connection)
     .then((credentials) => {
       const resolvedConnection = { ...connection, username: credentials.username };
-      return connectSshSession(set, resolvedConnection, sessionId, credentials.password, credentials.privateKey, credentials.passphrase);
+      return connectSshSession(set, resolvedConnection, sessionId, credentials.password, credentials.privateKey, credentials.passphrase, initialCwd);
     })
     .catch((err) => markSessionError(set, sessionId, err));
 
@@ -572,7 +574,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     return connectConnection(set as SessionSetter, connectionId, options);
   },
 
-  beginSession: (connectionId) => beginConnection(set as SessionSetter, connectionId),
+  beginSession: (connectionId, initialCwd) => beginConnection(set as SessionSetter, connectionId, initialCwd),
 
   connectMany: async (connectionIds) => {
     const uniqueIds = [...new Set(connectionIds)];
@@ -649,7 +651,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
-  beginLocalSession: (shell) => {
+  beginLocalSession: (shell, cwd) => {
     const sessionId = crypto.randomUUID();
     const session: TerminalSession = {
       id: sessionId,
@@ -660,7 +662,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       localShell: shell ?? undefined,
     };
     addSession(set as SessionSetter, session);
-    void localConnect(sessionId, 80, 24, shell, undefined, getToggle("shell-integration")).then(() => {
+    void localConnect(sessionId, 80, 24, shell, cwd, getToggle("shell-integration")).then(() => {
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,

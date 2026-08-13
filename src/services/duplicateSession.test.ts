@@ -1,8 +1,8 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import type { TerminalSession } from "@/types";
 
-const beginSession = vi.fn((connectionId: string) => `sess-of-${connectionId}`);
-const beginLocalSession = vi.fn((shell?: string) => `local-of-${shell ?? "default"}`);
+const beginSession = vi.fn((connectionId: string, _cwd?: string) => `sess-of-${connectionId}`);
+const beginLocalSession = vi.fn((shell?: string, _cwd?: string) => `local-of-${shell ?? "default"}`);
 const setActive = vi.fn();
 
 let sessions: TerminalSession[] = [];
@@ -15,6 +15,7 @@ vi.mock("@/stores/sessionStore", () => ({
 vi.mock("@/services/launch", () => ({ goToTerminal: vi.fn() }));
 
 import { useLayoutStore, getPaneSessionIds, findLeafBySession } from "@/stores/layoutStore";
+import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { canDuplicateSession, duplicateSession, findSessionPane, handleDuplicateShortcut } from "./duplicateSession";
 
 const ssh: TerminalSession = { id: "s1", connectionId: "c1", connectionName: "srv", status: "connected", type: "ssh" };
@@ -22,6 +23,7 @@ const ssh: TerminalSession = { id: "s1", connectionId: "c1", connectionName: "sr
 beforeEach(() => {
   vi.clearAllMocks();
   sessions = [ssh];
+  useTerminalCwdStore.setState({ cwds: {} });
   useLayoutStore.setState({
     root: null, activePaneId: null, maximizedPaneId: null, broadcastActive: false,
     splitTabActive: false, splitTabs: [], activeSplitTabId: null, titlebarOrder: [],
@@ -45,7 +47,7 @@ describe("canDuplicateSession", () => {
 describe("duplicateSession", () => {
   test("tab target opens a second session on the same connection and activates it", () => {
     const id = duplicateSession("s1", "tab");
-    expect(beginSession).toHaveBeenCalledWith("c1");
+    expect(beginSession).toHaveBeenCalledWith("c1", undefined);
     expect(id).toBe("sess-of-c1");
     expect(setActive).toHaveBeenCalledWith("sess-of-c1");
     expect(useLayoutStore.getState().splitTabs).toHaveLength(0);
@@ -54,9 +56,34 @@ describe("duplicateSession", () => {
   test("local sessions duplicate their own shell rather than a connection", () => {
     sessions = [{ ...ssh, type: "local", connectionId: "local", localShell: "/bin/zsh" }];
     const id = duplicateSession("s1", "tab");
-    expect(beginLocalSession).toHaveBeenCalledWith("/bin/zsh");
+    expect(beginLocalSession).toHaveBeenCalledWith("/bin/zsh", undefined);
     expect(id).toBe("local-of-/bin/zsh");
     expect(beginSession).not.toHaveBeenCalled();
+  });
+
+  test("opens in the source session's directory", () => {
+    useTerminalCwdStore.getState().setCwd("s1", "/srv/app");
+    duplicateSession("s1", "tab");
+    expect(beginSession).toHaveBeenCalledWith("c1", "/srv/app");
+  });
+
+  test("local duplicates carry the directory too", () => {
+    sessions = [{ ...ssh, type: "local", connectionId: "local", localShell: "/bin/zsh" }];
+    useTerminalCwdStore.getState().setCwd("s1", "/home/kipavy/work");
+    duplicateSession("s1", "tab");
+    expect(beginLocalSession).toHaveBeenCalledWith("/bin/zsh", "/home/kipavy/work");
+  });
+
+  test("falls back to the default directory when the source never reported one", () => {
+    duplicateSession("s1", "tab");
+    expect(beginSession).toHaveBeenCalledWith("c1", undefined);
+  });
+
+  test("takes the source session's directory, not the anchor pane's", () => {
+    useTerminalCwdStore.getState().setCwd("s1", "/srv/app");
+    useTerminalCwdStore.getState().setCwd("s9", "/tmp");
+    duplicateSession("s1", "right", { sessionId: "s9" });
+    expect(beginSession).toHaveBeenCalledWith("c1", "/srv/app");
   });
 
   test("refuses a session that cannot be duplicated", () => {
@@ -124,7 +151,7 @@ describe("handleDuplicateShortcut", () => {
 
   test("claims and runs the tab shortcut on keydown", () => {
     expect(handleDuplicateShortcut(event(), "s1")).toBe(true);
-    expect(beginSession).toHaveBeenCalledWith("c1");
+    expect(beginSession).toHaveBeenCalledWith("c1", undefined);
   });
 
   test("claims keyup without duplicating, so the key never reaches the PTY twice", () => {
