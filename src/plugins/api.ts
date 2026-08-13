@@ -3,6 +3,7 @@ import type { SerialConnectParams } from "@/types";
 import type { AppTheme } from "@/themes/types";
 import type { Locale } from "@/stores/localeStore";
 import type { PluginAuditAction } from "@/services/auditContext";
+import type { PaneNode } from "@/stores/layoutStore";
 
 export type { PluginAuditAction } from "@/services/auditContext";
 
@@ -186,7 +187,7 @@ export interface PluginPaneTab {
   active: boolean;
   panes: PluginPane[];
   broadcastActive: boolean;
-  layout: unknown;
+  layout: PaneNode | null;
 }
 
 /** `tab` is null when the write left no tab behind (the last split collapsed). */
