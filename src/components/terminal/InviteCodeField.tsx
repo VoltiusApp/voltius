@@ -1,16 +1,29 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { writeClipboard } from "@/utils/clipboard";
 
 export function InviteCodeField({ code, autoCopied = false }: { code: string; autoCopied?: boolean }) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(autoCopied);
+  const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showCopied = () => {
+    setCopied(true);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setCopied(false), 2000);
+  };
+
+  // React to autoCopied flipping true after mount, not just its value at mount time.
+  useEffect(() => {
+    if (autoCopied) showCopied();
+  }, [autoCopied]);
+
+  useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
 
   const handleCopy = async () => {
     await writeClipboard(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    showCopied();
   };
 
   return (

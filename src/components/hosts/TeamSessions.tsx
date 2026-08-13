@@ -23,6 +23,8 @@ function JoinByCodeButton({ onClick }: { onClick: () => void }) {
         background: "color-mix(in srgb, var(--t-accent) 10%, transparent)",
         border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)",
       }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-accent) 18%, transparent)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-accent) 10%, transparent)"; }}
       onClick={onClick}
     >
       <Icon icon="lucide:link" width={12} />

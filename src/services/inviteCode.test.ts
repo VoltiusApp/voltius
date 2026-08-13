@@ -29,3 +29,19 @@ test("isInviteCode rejects malformed codes", () => {
 test("parseInviteCode keeps colons inside the token", () => {
   expect(parseInviteCode(`${SESSION}:a:b`)).toEqual({ sessionId: SESSION, token: "a:b" });
 });
+
+test("build then parse round-trips", () => {
+  const code = buildInviteCode(SESSION, TOKEN);
+  expect(code).toBe(`${SESSION}:${TOKEN}`);
+  expect(parseInviteCode(code)).toEqual({ sessionId: SESSION, token: TOKEN });
+});
+
+test("parseInviteCode returns null for codes with no colon", () => {
+  expect(parseInviteCode("nocolon")).toBeNull();
+});
+
+test("parseInviteCode returns null when session id or token is empty", () => {
+  expect(parseInviteCode(`:${TOKEN}`)).toBeNull();
+  expect(parseInviteCode(`${SESSION}:`)).toBeNull();
+  expect(parseInviteCode("")).toBeNull();
+});

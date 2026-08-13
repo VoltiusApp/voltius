@@ -226,7 +226,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     if (category === "marketplace") return [];
     if (category === "join") {
       if (isInviteCode(q)) {
-        return [{ kind: "join-code", id: "", label: "", icon: "", code: q }];
+        return [{ kind: "join-code", id: "", label: "", icon: "", code: query.trim() }];
       }
       const sessionItems = teamSessions
         .filter((s) => !q || s.connection_name.toLowerCase().includes(q))
@@ -892,7 +892,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       );
     }
 
-    // join-code (entered via "join " prefix)
+    // join-code (an invite code, typed directly or via "join " prefix)
     if (item.kind === "join-code") {
       return (
         <button

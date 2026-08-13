@@ -266,6 +266,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           loading={loading}
           guestCap={guestCap}
           inviteLinkToken={inviteLinkToken}
+          autoCopied={autoCopied}
           tier={tier}
           onStop={handleStopSharing}
           onUpgrade={onUpgrade}
@@ -355,6 +356,7 @@ function ActiveSharingView({
   loading,
   guestCap,
   inviteLinkToken,
+  autoCopied,
   tier,
   onStop,
   onUpgrade,
@@ -364,6 +366,7 @@ function ActiveSharingView({
   loading: boolean;
   guestCap: number;
   inviteLinkToken: string | null;
+  autoCopied: boolean;
   tier: "free" | "pro" | "teams" | "business";
   onStop: () => void;
   onUpgrade: () => void;
@@ -428,7 +431,7 @@ function ActiveSharingView({
 
       {inviteLinkToken && (
         <div className="mb-3">
-          <InviteCodeField code={buildInviteCode(activeMp.multiplayerSessionId, inviteLinkToken)} />
+          <InviteCodeField code={buildInviteCode(activeMp.multiplayerSessionId, inviteLinkToken)} autoCopied={autoCopied} />
         </div>
       )}
 
