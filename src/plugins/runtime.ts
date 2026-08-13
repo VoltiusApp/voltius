@@ -1584,10 +1584,23 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         if (!whileActive("audit.record")) return;
 
         const conn = connectionId ? findConnection(connectionId) : undefined;
-        const context = conn ? auditContextForVaultId(conn.vault_id) : { kind: "local" as const, vaultId: "personal" };
+        // A scope matching no connection may still be a team id: the membership
+        // verbs scope on the team, and only a team context is forwarded to the
+        // team server. Promote ONLY on kind === "team" — for an unknown id
+        // auditContextForVaultId returns { kind: "local", vaultId: <id> }, which
+        // would file the row outside the "personal" sink audit.query reads.
+        const resolved = !conn && connectionId ? auditContextForVaultId(connectionId) : undefined;
+        const context = conn
+          ? auditContextForVaultId(conn.vault_id)
+          : resolved?.kind === "team"
+            ? resolved
+            : { kind: "local" as const, vaultId: "personal" };
+        const teamName = context.kind === "team" && !conn
+          ? useTeamStore.getState().teams.find((t) => t.id === context.teamId)?.name?.trim()
+          : undefined;
         const targetName = conn
           ? conn.name?.trim() || `${conn.username}@${conn.host}:${conn.port}`
-          : (connectionId ?? "local");
+          : (teamName || connectionId || "local");
 
         reportPluginAuditEvent(context, action, {
           target_type: "plugin",
