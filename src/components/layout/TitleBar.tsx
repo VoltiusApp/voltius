@@ -26,6 +26,9 @@ import { shouldSuppressDragClick } from "@/components/panes/usePaneDragControlle
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
+import { ContextMenu, useContextMenu } from "@/components/shared/ContextMenu";
+import { closeSession } from "@/services/closeSession";
+import { sessionMenuItems } from "@/utils/sessionMenuItems";
 
 const appWindow = getCurrentWindow();
 
@@ -43,7 +46,7 @@ export default function TitleBar() {
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
   const setSftpPanelOpen = useUIStore((s) => s.setSftpPanelOpen);
   const activeThemeName = useThemeStore((s) => s.getActiveTheme().name);
-  const { sessions, activeSessionId, setActive, disconnect, removeSession } = useSessionStore();
+  const { sessions, activeSessionId, setActive } = useSessionStore();
   const connections = useAllConnections();
   const splitTabs = useLayoutStore((s) => s.splitTabs);
   const activeSplitTabId = useLayoutStore((s) => s.activeSplitTabId);
@@ -80,6 +83,10 @@ export default function TitleBar() {
     error: effectiveError,
   } = selectEffectiveSyncStatus({ voltius: syncState, gist: gistSyncState, accountMode, isPro, gistPluginEnabled });
 
+  const { pos: tabMenuPos, open: openTabMenu, close: closeTabMenu } = useContextMenu();
+  const [menuSessionId, setMenuSessionId] = useState<string | null>(null);
+  const menuSession = sessions.find((s) => s.id === menuSessionId) ?? null;
+
   const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
   const syncButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -88,7 +95,6 @@ export default function TitleBar() {
   const isVaultCompact = !isVaultsActive && sessions.length > 0;
 
   const mpConnections = useTeamSessionStore((s) => s.connections);
-  const leaveMultiplayerSession = useTeamSessionStore((s) => s.leaveSession);
   const [shareDropdownOpen, setShareDropdownOpen] = useState(false);
   const shareButtonRef = useRef<HTMLButtonElement>(null);
   const tier = useSubscriptionStore((s) => s.tier);
@@ -135,28 +141,15 @@ export default function TitleBar() {
     setActiveNav("terminal");
   };
 
-  const closeSessionById = (sessionId: string) => {
-    const session = sessions.find((s) => s.id === sessionId);
-    const mpConn = useTeamSessionStore.getState().connections[sessionId];
-    if (mpConn) {
-      if (mpConn.role === "host") {
-        useTeamSessionStore.getState().stopSharing(sessionId).catch(() => {});
-      } else {
-        leaveMultiplayerSession(sessionId);
-      }
-    }
-    // disconnect() is async; remove synchronously so the session can't linger as an ungrouped tab
-    if (session?.type !== "multiplayer" && (session?.status === "connected" || session?.status === "connecting")) {
-      disconnect(sessionId);
-    }
-    removeSession(sessionId);
+  const closeTabById = (sessionId: string) => {
+    closeSession(sessionId);
+    useLayoutStore.getState().removeSession(sessionId);
+    if (sessions.length <= 1) setActiveNav("hosts");
   };
 
   const handleTabClose = (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
-    closeSessionById(sessionId);
-    useLayoutStore.getState().removeSession(sessionId);
-    if (sessions.length <= 1) setActiveNav("hosts");
+    closeTabById(sessionId);
   };
 
   const handleUnifiedTabClick = (tabId: string) => {
@@ -174,7 +167,7 @@ export default function TitleBar() {
     const tab = useLayoutStore.getState().splitTabs.find((candidate) => candidate.id === tabId);
     const ids = tab ? getPaneSessionIds(tab.root) : [];
     closeSplitTab(tabId);
-    ids.forEach(closeSessionById);
+    ids.forEach(closeSession);
     if (sessions.length <= ids.length) setActiveNav("hosts");
   };
 
@@ -379,6 +372,7 @@ export default function TitleBar() {
               <button
                 data-titlebar-key={item.key}
                 onClick={() => handleTabClick(session.id)}
+                onContextMenu={(e) => { setMenuSessionId(session.id); openTabMenu(e); }}
                 onPointerDown={(e) => {
                   if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, item.key);
                   if (e.button === 1) { e.preventDefault(); handleTabClose(e, session.id); }
@@ -448,6 +442,19 @@ export default function TitleBar() {
         <NewTabButton />
         </div>
       </div>
+
+      {tabMenuPos && menuSession && (
+        <ContextMenu
+          items={sessionMenuItems({
+            session: menuSession,
+            t,
+            closeLabel: t("layout.titleBar.closeTab"),
+            onClose: () => closeTabById(menuSession.id),
+          })}
+          pos={tabMenuPos}
+          onClose={closeTabMenu}
+        />
+      )}
 
       {accountMode === "server" && <SubscriptionBadge />}
 

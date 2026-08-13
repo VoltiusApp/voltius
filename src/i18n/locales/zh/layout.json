@@ -161,6 +161,7 @@
       "maximize": "最大化",
       "close": "关闭",
       "newSession": "新建会话",
+      "closeTab": "关闭标签页",
       "plan": {
         "proTrial": "Pro 试用——剩余 {{daysLeft}} 天",
         "teams": "Teams",

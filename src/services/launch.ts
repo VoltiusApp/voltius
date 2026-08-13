@@ -2,7 +2,8 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { buildQuickConnectConnection, type QuickConnectIntent } from "@/services/quickConnect";
 
-function goToTerminal(): void {
+/** Bring the terminal view forward, closing the panels that would cover it. */
+export function goToTerminal(): void {
   const ui = useUIStore.getState();
   ui.setSidebarOpen(false);
   ui.setSftpPanelOpen(false);

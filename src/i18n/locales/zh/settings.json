@@ -955,6 +955,8 @@
         "shortcuts":      { "label": "键盘快捷键", "desc": "打开快捷键设置" },
         "themes":         { "label": "设置",         "desc": "打开设置" },
         "newTab":         { "label": "新建标签页",          "desc": "前往主机视图" },
+        "duplicateSession":      { "label": "复制会话",   "desc": "在同一主机上打开第二个终端" },
+        "duplicateSessionSplit": { "label": "复制到分屏", "desc": "在当前终端旁打开第二个终端" },
         "closeTab":       { "label": "关闭标签页",        "desc": "关闭活跃会话" },
         "nextTab":        { "label": "下一个标签页",         "desc": "切换到下一个标签页" },
         "prevTab":        { "label": "上一个标签页",     "desc": "切换到上一个标签页" },

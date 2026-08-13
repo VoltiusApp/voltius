@@ -1028,6 +1028,14 @@
           "label": "Nouvel onglet",
           "desc": "Aller à la vue des hôtes"
         },
+        "duplicateSession": {
+          "label": "Dupliquer la session",
+          "desc": "Ouvrir un second terminal sur le même hôte"
+        },
+        "duplicateSessionSplit": {
+          "label": "Dupliquer en division",
+          "desc": "Ouvrir un second terminal à côté de l'actuel"
+        },
         "closeTab": {
           "label": "Fermer l'onglet",
           "desc": "Fermer la session active"
