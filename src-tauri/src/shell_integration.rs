@@ -166,7 +166,7 @@ function global:prompt {\n\
 
 /// POSIX wrapper that detects $SHELL at runtime, writes a per-session rcfile
 /// under /tmp, and execs into a hooked interactive shell. NOT invoked
-/// directly — `ssh_exec_command()` wraps it in a base64 bootstrap so it's
+/// directly — `ssh_exec_command` wraps it in a base64 bootstrap so it's
 /// safe to send regardless of the remote login shell's syntax (fish/csh
 /// would otherwise choke on POSIX case/heredoc).
 ///
@@ -254,8 +254,12 @@ pub const MOTD_PREAMBLE: &str = "[ ! -e $HOME/.hushlogin ] && { [ -r /run/motd.d
 /// sh` — a syntax common to every Unix shell. The decoded POSIX wrapper then
 /// runs under /bin/sh and execs into the user's actual shell with OSC 7
 /// emission hooked.
-pub fn ssh_exec_command() -> String {
-    encode_wrapper(&format!("{MOTD_PREAMBLE}\n{SSH_WRAPPER}"))
+///
+/// `prefix` (a `cd` into the session's starting directory, or empty) runs
+/// inside the decoded wrapper. Prefixing the outer payload instead would put it
+/// in front of the login shell, which may be csh or fish; inside, it is /bin/sh.
+pub fn ssh_exec_command(prefix: &str) -> String {
+    encode_wrapper(&format!("{prefix}\n{MOTD_PREAMBLE}\n{SSH_WRAPPER}"))
 }
 
 /// Longest `exec` payload we will put on the wire. dropbear's `MAX_STRING_LEN`
@@ -632,7 +636,7 @@ mod tests {
 
     #[test]
     fn persistent_wrapper_embeds_inner_and_all_branches() {
-        let inner = ssh_exec_command();
+        let inner = ssh_exec_command("");
         let cmd = persistent_exec_command("voltius_s1", &inner);
         let script = decode_bootstrap(&cmd);
         assert!(script.contains("command -v tmux"));
@@ -657,12 +661,23 @@ mod tests {
 
     #[test]
     fn ssh_wrapper_reproduces_motd() {
-        let decoded = decode_bootstrap(&ssh_exec_command());
+        let decoded = decode_bootstrap(&ssh_exec_command(""));
         assert!(decoded.contains("/run/motd.dynamic"));
         assert!(decoded.contains("/etc/motd"));
         assert!(decoded.contains(".hushlogin"));
         // Quote-free so it can also be embedded in the persist inner.
         assert!(!MOTD_PREAMBLE.contains('"'));
+    }
+
+    #[test]
+    fn ssh_wrapper_runs_the_cd_prefix_before_the_shell() {
+        let decoded = decode_bootstrap(&ssh_exec_command("cd '/srv/app' 2>/dev/null; "));
+        let cd = decoded
+            .find("cd '/srv/app'")
+            .expect("prefix is in the wrapper");
+        // Inside the decoded /bin/sh wrapper, and before it execs the login shell.
+        assert!(cd < decoded.find(SSH_WRAPPER).unwrap());
+        assert!(!decode_bootstrap(&ssh_exec_command("")).contains("cd '"));
     }
 
     #[test]
@@ -717,7 +732,7 @@ mod tests {
 
     #[test]
     fn persistent_wrapper_keeps_pty_redirects() {
-        let inner = ssh_exec_command();
+        let inner = ssh_exec_command("");
         let cmd = persistent_exec_command("voltius_s1", &inner);
         let script = decode_bootstrap(&cmd);
         // The multiplexer re-attaches over the stderr pty (`<&2`), not `/dev/tty`.
@@ -728,7 +743,7 @@ mod tests {
 
     #[test]
     fn ssh_wrapper_zsh_uses_zshenv_trampoline() {
-        let decoded = decode_bootstrap(&ssh_exec_command());
+        let decoded = decode_bootstrap(&ssh_exec_command(""));
         assert!(
             decoded.contains("$ZDOTDIR_TMP/.zshenv"),
             "SSH wrapper zsh branch must write .zshenv, got:\n{decoded}"
@@ -925,7 +940,7 @@ mod tests {
         // each branch put this at ~21.7 KB against OpenWrt/ImmortalWrt routers.
         let key = tmux_session_key("0f8b1c22-4d7e-4a19-9f3b-2c6d5e8a7b41");
         for inner in [
-            ssh_exec_command(),
+            ssh_exec_command(""),
             format!("{MOTD_PREAMBLE}; exec ${{SHELL:-/bin/sh}} -l"),
         ] {
             let cmd = persistent_exec_command(&key, &inner);

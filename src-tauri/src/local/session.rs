@@ -139,7 +139,9 @@ impl LocalSessionManager {
             CommandBuilder::new(&shell)
         };
         cmd.env("TERM", "xterm-256color");
-        if let Some(dir) = cwd {
+        // A directory that has since been removed would fail the spawn outright;
+        // starting in the default one beats not starting at all.
+        if let Some(dir) = cwd.filter(|d| std::path::Path::new(d).is_dir()) {
             cmd.cwd(dir);
         }
 

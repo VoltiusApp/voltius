@@ -563,6 +563,7 @@ pub async fn connect(
     pty_cols: u32,
     pty_rows: u32,
     legacy_algorithms: bool,
+    initial_cwd: Option<String>,
 ) -> Result<ConnectedSession, String> {
     let config = Arc::new(client::Config {
         // interval 0 = keepalive disabled.
@@ -884,13 +885,24 @@ pub async fn connect(
         }
     }
 
+    // `cd` into the starting directory from inside the exec'd command rather than
+    // by writing to the shell's stdin: no line in the scrollback, no entry in the
+    // shell's history, and no race with the shell (or the multiplexer) coming up.
+    // The persistent wrappers embed their inner command in a double-quoted
+    // assignment, so a path the outer shell would expand is dropped rather than
+    // mangled — the session then just starts in the default directory.
+    let cd_prefix = initial_cwd
+        .filter(|p| !p.is_empty() && !p.contains(['"', '$', '`', '\\', '\n', '\r']))
+        .map(|p| format!("cd {} 2>/dev/null; ", shell_escape(&p)))
+        .unwrap_or_default();
+
     // When shell integration is enabled we replace the standard shell channel
     // request with an exec of our wrapper script. The wrapper detects the
     // remote $SHELL and execs into it with OSC 7 emission already hooked
     // (writes a temp rcfile under /tmp). Falling back to request_shell keeps
     // the historical behavior available via the setting.
     let exec_cmd = if shell_integration {
-        let inner = crate::shell_integration::ssh_exec_command();
+        let inner = crate::shell_integration::ssh_exec_command(&cd_prefix);
         Some(if persist {
             let key = crate::shell_integration::tmux_session_key(&session_id);
             if attach_only {
@@ -908,7 +920,8 @@ pub async fn connect(
         // on attach doesn't wipe it.
         let key = crate::shell_integration::tmux_session_key(&session_id);
         let inner = format!(
-            "{}; exec ${{SHELL:-/bin/sh}} -l",
+            "{}{}; exec ${{SHELL:-/bin/sh}} -l",
+            cd_prefix,
             crate::shell_integration::MOTD_PREAMBLE
         );
         Some(if attach_only {
@@ -924,7 +937,11 @@ pub async fn connect(
     // string passes its 9000-byte MAX_STRING_LEN, which reads as a hang right
     // after authentication rather than an error (#85). Servers that small are
     // better served by a plain shell than by a session that never opens.
-    match exec_cmd.filter(|c| c.len() <= crate::shell_integration::MAX_EXEC_COMMAND_LEN) {
+    let exec_cmd = exec_cmd.filter(|c| c.len() <= crate::shell_integration::MAX_EXEC_COMMAND_LEN);
+    // A plain `request_shell` has nowhere to carry the prefix, so it goes in over
+    // stdin below instead.
+    let cd_over_stdin = exec_cmd.is_none() && !cd_prefix.is_empty();
+    match exec_cmd {
         Some(cmd) => channel
             .exec(false, cmd.as_bytes())
             .await
@@ -947,6 +964,12 @@ pub async fn connect(
             exports.push_str(&format!("export {}={}\n", key, shell_escape(value)));
         }
         let _ = writer.write_all(exports.as_bytes()).await;
+    }
+
+    // Before pre_command: a host command that changes directory itself must win.
+    if cd_over_stdin && !remote_is_windows {
+        let _ = writer.write_all(cd_prefix.trim_end().as_bytes()).await;
+        let _ = writer.write_all(b"\n").await;
     }
 
     if let Some(cmd) = pre_command {
