@@ -104,4 +104,10 @@ describe("pane tools", () => {
     await tool(ports, "pane_detach").execute({ sessionId: "sess-a" });
     expect(ports.audit).not.toHaveBeenCalled();
   });
+
+  it("uses a consumer's not-owned error in pane_detach", async () => {
+    const { ports } = makePorts({ text: { notOwnedError: "not yours" } });
+    const result = await tool(ports, "pane_detach").execute({ sessionId: "sess-b" });
+    expect(result).toMatchObject({ refused: true, error: "not yours" });
+  });
 });

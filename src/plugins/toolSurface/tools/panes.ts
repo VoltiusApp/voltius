@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PluginPaneResult } from "@/plugins/api";
+import type { PluginPanePosition, PluginPaneResult } from "@/plugins/api";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { makeGate } from "./helpers";
@@ -10,11 +10,19 @@ export const PANE_PERMISSIONS = ["panes:read", "panes:write"] as const;
 const position = z.enum(["left", "right", "top", "bottom"]);
 const pair = z.object({ sessionId: z.string(), targetSessionId: z.string(), position });
 
+/** The `{ sessionId, targetSessionId, position }` args both pair verbs project onto their API call. */
+const pairArgs = (args: Record<string, unknown>) => ({
+  sessionId: String(args.sessionId),
+  targetSessionId: String(args.targetSessionId),
+  position: args.position as PluginPanePosition,
+});
+
 export function buildPaneTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
 
   const notOwned = () =>
-    refusal("that session was not opened by you; only pane_focus and pane_list accept another session");
+    refusal(ports.text?.notOwnedError
+      ?? "that session was not opened by you; only pane_focus and pane_list accept another session");
 
   /**
    * Approve, then run a layout write and translate the domain's refusal.
@@ -63,11 +71,7 @@ export function buildPaneTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: pair,
       execute: async (raw) =>
-        write("pane_split", raw, (args) => ports.api.panes.split({
-          sessionId: String(args.sessionId),
-          targetSessionId: String(args.targetSessionId),
-          position: args.position as "left" | "right" | "top" | "bottom",
-        })),
+        write("pane_split", raw, (args) => ports.api.panes.split(pairArgs(args))),
     },
     {
       name: "session_move_to_pane",
@@ -77,11 +81,7 @@ export function buildPaneTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: pair,
       execute: async (raw) =>
-        write("session_move_to_pane", raw, (args) => ports.api.panes.move({
-          sessionId: String(args.sessionId),
-          targetSessionId: String(args.targetSessionId),
-          position: args.position as "left" | "right" | "top" | "bottom",
-        })),
+        write("session_move_to_pane", raw, (args) => ports.api.panes.move(pairArgs(args))),
     },
     {
       name: "pane_detach",
