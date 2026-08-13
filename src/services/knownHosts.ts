@@ -23,3 +23,24 @@ export async function resolveKnownHostConflict(
 ): Promise<void> {
   return invoke("known_host_resolve", { sessionId, action });
 }
+
+export interface TrustOutcome {
+  entry: KnownHost;
+  superseded: KnownHost[];
+}
+
+export async function trustKnownHost(input: {
+  host: string;
+  port: number;
+  fingerprint: string;
+  vaultId?: string;
+  replace?: boolean;
+}): Promise<TrustOutcome> {
+  return invoke("known_host_trust", {
+    host: input.host,
+    port: input.port,
+    fingerprint: input.fingerprint,
+    vaultId: input.vaultId,
+    replace: input.replace,
+  });
+}

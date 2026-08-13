@@ -2,15 +2,18 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { closePfTunnel, getPfState, openPfTunnel } from "@/services/portForwardingTunnels";
 import { resolvePort } from "@/plugins/domains/ports";
+import { runSnippetSequence, previewSnippetSequence } from "@/services/snippetSequence";
+import type { RunTarget } from "@/services/sftpTarget";
 import { writeClipboard } from "@/utils/clipboard";
 import i18n from "@/i18n";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
-import { sshSendInput, onSshOutput } from "@/services/ssh";
+import { onSshOutput } from "@/services/ssh";
 import { onLocalOutput, localConnect, localSendInput } from "@/services/local";
-import { onSerialOutput, serialWrite } from "@/services/serial";
-import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
+import { onSerialOutput } from "@/services/serial";
+import { sendSessionInput } from "@/services/sessionInput";
+import { readTerminalSnapshot, readTerminalSelection, getAppCursorMode } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -25,6 +28,8 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useTransferQueueStore } from "@/stores/transferQueueStore";
+import { useHostPingStore } from "@/stores/hostPingStore";
 import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
@@ -78,6 +83,10 @@ import { createFoldersAPI, type FolderPorts } from "./domains/folders";
 import { createObjectsAPI, type ObjectPorts } from "./domains/objects";
 import { createSnippetsAPI, type SnippetPorts } from "./domains/snippets";
 import { createPortForwardsAPI, type PortForwardPorts } from "./domains/portForwarding";
+import { createKnownHostsAPI, type KnownHostPorts } from "./domains/knownHosts";
+import { listKnownHosts, deleteKnownHost, trustKnownHost } from "@/services/knownHosts";
+import { createHistoryAPI, type HistoryPorts } from "./domains/history";
+import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
 import { resolveCan, type Permission } from "@/services/permissions";
 import { getMyUserId } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
@@ -660,6 +669,25 @@ const snippetPorts: SnippetPorts = {
   update: (id, data) => useSnippetStore.getState().updateSnippet(id, data),
   remove: (id) => useSnippetStore.getState().deleteSnippet(id),
   isTeamVault: isTeamVaultId,
+  resolveTargets: (refs) => {
+    const targets: RunTarget[] = [];
+    const unknown: string[] = [];
+    for (const ref of refs) {
+      if (ref.session_id) {
+        const s = useSessionStore.getState().sessions.find((x) => x.id === ref.session_id);
+        if (s) targets.push({ kind: "session", sessionId: s.id, sessionType: s.type, label: s.connectionName });
+        else unknown.push(ref.session_id);
+      } else if (ref.connection_id) {
+        const c = findConnection(ref.connection_id);
+        if (c) targets.push({ kind: "connection", connection: c });
+        else unknown.push(ref.connection_id);
+      }
+    }
+    return { targets, unknown };
+  },
+  run: (snippet, targets, onPrompt, variables) =>
+    runSnippetSequence(snippet, targets, onPrompt, variables),
+  preview: (snippet, targets, variables) => previewSnippetSequence(snippet, targets, variables),
 };
 
 const portForwardPorts: PortForwardPorts = {
@@ -677,6 +705,17 @@ const portForwardPorts: PortForwardPorts = {
   tunnels: async (sessionId) => (await getPfState(sessionId)).tunnels,
   open: (opts) => openPfTunnel(opts),
   close: (sessionId, tunnelId) => closePfTunnel(sessionId, tunnelId),
+};
+
+const knownHostPorts: KnownHostPorts = {
+  list: () => listKnownHosts(),
+  remove: (id) => deleteKnownHost(id),
+  trust: (input) => trustKnownHost(input),
+  isTeamVault: isTeamVaultId,
+};
+
+const historyPorts: HistoryPorts = {
+  list: () => useCommandHistoryStore.getState().entries,
 };
 
 // ─── Store reload map ─────────────────────────────────────────────────────
@@ -793,16 +832,22 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
 
 /**
  * Metadata keys that reach the local sink through `localMetadata`, which is
- * defined as never leaving the device: `command` (run_command's shell text) and
- * `args` (makeFileOp's stringified arguments, i.e. every path touched), plus the
- * markers boundLocalMetadata adds for them. api.audit.query is a second wire, so
- * they are stripped here too.
+ * defined as never leaving the device: `command` (run_command's shell text),
+ * `args` (makeFileOp's stringified arguments, i.e. every path touched) and
+ * `keys` (send_keys' key tokens, which can carry a password typed at a prompt
+ * the terminal never echoes), plus the markers boundLocalMetadata adds for them.
+ * api.audit.query is a second wire, so they are stripped here too.
+ *
+ * `keys` rides as a JSON string, so boundLocalMetadata's per-field
+ * truncation applies and can add `keys_truncated`; both are stripped here.
  */
 const LOCAL_ONLY_METADATA_KEYS = [
   "command",
   "command_truncated",
   "args",
   "args_truncated",
+  "keys",
+  "keys_truncated",
   "localMetadata_dropped",
 ];
 
@@ -830,6 +875,14 @@ const toPluginAuditRow = (l: AuditLog): PluginAuditRow => ({
 
 /** Ids belonging to host APIs rather than plugins. See `whileActive`. */
 const _hostApiIds = new Set<string>();
+
+/** Resolve a session and write text to its transport. Throws on an unknown id,
+ *  so a caller never mistakes "no such session" for a successful write. */
+async function writeSessionBytes(sessionId: string, text: string): Promise<void> {
+  const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+  if (!session) throw new Error(`Session "${sessionId}" not found`);
+  await sendSessionInput(sessionId, session.type as "ssh" | "local" | "serial", new TextEncoder().encode(text));
+}
 
 function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const id = manifest.id;
@@ -882,6 +935,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const objectsApi = createObjectsAPI(objectPorts);
   const snippetsApi = createSnippetsAPI(snippetPorts);
   const portForwardsApi = createPortForwardsAPI(portForwardPorts);
+  const knownHostsApi = createKnownHostsAPI(knownHostPorts);
+  const historyApi = createHistoryAPI(historyPorts);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -1052,6 +1107,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "snippets:write");
         return snippetsApi.delete(snippetId);
       },
+      run(input) {
+        requirePerm(manifest, "snippets:read");
+        requirePerm(manifest, "snippets:run");
+        return snippetsApi.run(input);
+      },
     },
 
     portForwards: {
@@ -1088,6 +1148,75 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requireGated("ports:forward");
         requirePerm(manifest, "sessions:read");
         return portForwardsApi.stop(sessionId, tunnelId);
+      },
+    },
+
+    knownHosts: {
+      list(filter) {
+        requirePerm(manifest, "known_hosts:read");
+        return knownHostsApi.list(filter);
+      },
+      delete(id) {
+        requirePerm(manifest, "known_hosts:write");
+        return knownHostsApi.delete(id);
+      },
+      trust(input) {
+        requirePerm(manifest, "known_hosts:write");
+        return knownHostsApi.trust(input);
+      },
+    },
+
+    history: {
+      search(filter) {
+        requirePerm(manifest, "history:read");
+        return historyApi.search(filter);
+      },
+    },
+
+    transfers: {
+      list() {
+        requireGated("transfers:read");
+        return useTransferQueueStore.getState().transfers.map((t) => ({
+          id: t.id, label: t.label, direction: t.direction, status: t.status,
+          transferred: t.transferred, total: t.total,
+          speed: t.speed, eta: t.eta, error: t.error,
+          owner: t.owner?.clientName || undefined,
+        }));
+      },
+      cancel(id) {
+        requireGated("transfers:write");
+        return useTransferQueueStore.getState().cancelTransfer(id);
+      },
+      retry(id) {
+        requireGated("transfers:write");
+        const store = useTransferQueueStore.getState();
+        if (!store.canRetry(id)) return false;
+        store.retryTransfer(id);
+        return true;
+      },
+    },
+
+    health: {
+      pingStatus() {
+        requireGated("health:read");
+        const { statuses, latencies } = useHostPingStore.getState();
+        return Object.entries(statuses).map(([connectionId, status]) => ({
+          connectionId, status, latencyMs: latencies[connectionId],
+        }));
+      },
+    },
+
+    appSync: {
+      status() {
+        requirePerm(manifest, "sync:read");
+        const s = getSyncState();
+        return {
+          status: s.status,
+          lastSync: s.lastSync ? s.lastSync.toISOString() : null,
+          error: s.error,
+          cloudActive: s.cloudActive,
+          blobSizeBytes: s.blobSizeBytes,
+        };
       },
     },
 
@@ -1511,25 +1640,17 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async sendCommand(sessionId, cmd) {
         requireGated("terminal:write");
-        const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-        if (!session) throw new Error(`Session "${sessionId}" not found`);
-        // Three transports, mirroring onOutput above and sendSessionInput in
-        // useTerminal.ts. Serial used to fall through to the SSH branch, which
-        // writes to a channel a serial session does not have — so every write to
-        // a serial device was silently dropped.
-        const encoded = new TextEncoder().encode(cmd + "\n");
-        if (session.type === "local") {
-          const { invoke } = await import("@tauri-apps/api/core");
-          await invoke("local_send_input", { sessionId, data: Array.from(encoded) });
-        } else if (session.type === "serial") {
-          await serialWrite(sessionId, encoded);
-        } else {
-          await sshSendInput(sessionId, encoded);
-        }
+        // The newline is this method's contract: sendCommand runs a line,
+        // sendInput writes verbatim.
+        return writeSessionBytes(sessionId, cmd + "\n");
       },
-      async open(connectionId) {
+      async sendInput(sessionId, data) {
+        requireGated("terminal:write");
+        return writeSessionBytes(sessionId, data);
+      },
+      async open(connectionId, options) {
         requirePerm(manifest, "sessions:write");
-        return useSessionStore.getState().connect(connectionId);
+        return useSessionStore.getState().connect(connectionId, options);
       },
       async close(sessionId) {
         requirePerm(manifest, "sessions:write");
@@ -1545,6 +1666,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       readSelection(sessionId) {
         requireGated("terminal:read");
         return readTerminalSelection(sessionId);
+      },
+      appCursorMode(sessionId) {
+        requireGated("terminal:read");
+        return getAppCursorMode(sessionId);
       },
       async onOutput(sessionId, cb) {
         requireGated("terminal:stream");
@@ -1662,7 +1787,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       mkdir: (target, path) => { requireGated("sftp:write"); return sftpApi.mkdir(target, path); },
       rename: (target, from, to) => { requireGated("sftp:write"); return sftpApi.rename(target, from, to); },
       delete: (target, path) => { requireGated("sftp:write"); return sftpApi.delete(target, path); },
-      transfer: (src, dst) => { requireGated("sftp:write"); return sftpApi.transfer(src, dst); },
+      transfer: (src, dst, transferId) => {
+        requireGated("sftp:write");
+        return sftpApi.transfer(src, dst, transferId);
+      },
       // Ungated: releasing a handle this plugin opened cannot expose or change
       // anything, and a plugin must always be able to let go of its own resources.
       disconnect: (target) => sftpApi.disconnect(target),

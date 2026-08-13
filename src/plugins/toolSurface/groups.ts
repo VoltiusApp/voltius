@@ -11,6 +11,11 @@ import { buildFolderTools, FOLDER_PERMISSIONS } from "./tools/folders";
 import { buildObjectTools, OBJECT_PERMISSIONS } from "./tools/objects";
 import { buildSnippetTools, SNIPPET_PERMISSIONS } from "./tools/snippets";
 import { buildPortForwardTools, PORT_FORWARD_PERMISSIONS } from "./tools/portForwards";
+import { buildKnownHostTools, KNOWN_HOST_PERMISSIONS } from "./tools/knownHosts";
+import { buildHistoryTools, HISTORY_PERMISSIONS } from "./tools/history";
+import { buildSnippetRunTools, SNIPPET_RUN_PERMISSIONS } from "./tools/snippetRun";
+import { buildTransferTools, TRANSFER_PERMISSIONS } from "./tools/transfers";
+import { buildTelemetryTools, TELEMETRY_PERMISSIONS } from "./tools/telemetry";
 
 /** One entry per domain: builder and permissions travel together so they cannot drift. */
 const GROUPS = [
@@ -25,6 +30,11 @@ const GROUPS = [
   { build: buildObjectTools, permissions: OBJECT_PERMISSIONS },
   { build: buildSnippetTools, permissions: SNIPPET_PERMISSIONS },
   { build: buildPortForwardTools, permissions: PORT_FORWARD_PERMISSIONS },
+  { build: buildKnownHostTools, permissions: KNOWN_HOST_PERMISSIONS },
+  { build: buildHistoryTools, permissions: HISTORY_PERMISSIONS },
+  { build: buildSnippetRunTools, permissions: SNIPPET_RUN_PERMISSIONS },
+  { build: buildTransferTools, permissions: TRANSFER_PERMISSIONS },
+  { build: buildTelemetryTools, permissions: TELEMETRY_PERMISSIONS },
 ] as const;
 
 export const ALL_PERMISSIONS: readonly string[] = [

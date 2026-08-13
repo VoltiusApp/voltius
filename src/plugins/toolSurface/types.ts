@@ -19,6 +19,15 @@ export type ToolDecision =
   | { approve: true; scope: string; via: ApprovalVia; args?: Record<string, unknown> }
   | { approve: false; reason?: string };
 
+/** The subset of `Set` the tool surface needs for ownership tracking. Lets a
+ *  consumer back it with something other than a plain Set — the MCP bridge
+ *  backs it with a reactive store so the UI can see provenance. */
+export interface OwnedSessions {
+  has(sessionId: string): boolean;
+  add(sessionId: string): void;
+  delete(sessionId: string): boolean;
+}
+
 export interface Tool {
   name: string;
   description: string;
@@ -40,4 +49,26 @@ export interface CaptureOptions {
   timeoutMs?: number;
   quietPeriodMs?: number;
   maxChars?: number;
+}
+
+export interface SendKeysResult {
+  /** The rendered screen after the output settled. Empty when the session has
+   *  no mounted terminal — the write still happened. */
+  screen: string;
+  /** Output stopped for the quiet period, or never started. False means the
+   *  deadline won. */
+  settled: boolean;
+  /** Any output at all arrived after the write. False distinguishes "the keys
+   *  produced nothing" from "the screen settled". */
+  outputSeen: boolean;
+  timedOut: boolean;
+}
+
+export interface SendKeysOptions {
+  quietMs?: number;
+  /** How long to wait for the FIRST byte before concluding the keys produced
+   *  no output (e.g. C-c on an idle shell). */
+  firstOutputMs?: number;
+  timeoutMs?: number;
+  maxLines?: number;
 }

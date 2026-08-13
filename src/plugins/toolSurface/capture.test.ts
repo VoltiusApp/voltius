@@ -1,11 +1,13 @@
-import { describe, test, expect, vi } from "vitest";
-import { captureCommand, buildMarkerCommand, cleanCapturedOutput, MARKER_PREFIX } from "./capture";
+import { describe, test, it, expect, vi } from "vitest";
+import { captureCommand, sendKeysToSession, buildMarkerCommand, cleanCapturedOutput, MARKER_PREFIX } from "./capture";
 
 /**
  * Fake terminal: captures the onOutput callback so the test can feed decoded
  * output back, simulating the shell. sendCommand triggers the scripted output.
+ * `script` is optional for tests that drive the callback and sendInput
+ * directly instead (e.g. sendKeysToSession).
  */
-function fakeApi(script: (emit: (s: string) => void, sent: string) => void) {
+function fakeApi(script: (emit: (s: string) => void, sent: string) => void = () => {}) {
   let cb: ((t: string) => void) | null = null;
   const unsub = vi.fn();
   const api = {
@@ -14,12 +16,14 @@ function fakeApi(script: (emit: (s: string) => void, sent: string) => void) {
         // emit asynchronously, after onOutput is subscribed
         queueMicrotask(() => cb && script((s) => cb!(s), sent));
       }),
+      sendInput: vi.fn(async () => {}),
     },
     terminal: {
       onOutput: vi.fn(async (_id: string, fn: (t: string) => void) => {
         cb = fn;
         return unsub;
       }),
+      readSnapshot: vi.fn(() => ""),
     },
   } as any;
   return { api, unsub };
@@ -261,5 +265,105 @@ describe("captureCommand", () => {
     const res = await p;
     expect(res.truncated).toBe(true);
     expect(res.output.length).toBeLessThanOrEqual(10);
+  });
+});
+
+describe("sendKeysToSession", () => {
+  it("subscribes to output BEFORE writing, so a fast redraw is not missed", async () => {
+    const order: string[] = [];
+    const { api } = fakeApi();
+    api.terminal.onOutput = vi.fn(async () => { order.push("subscribe"); return () => {}; });
+    api.sessions.sendInput = vi.fn(async () => { order.push("write"); });
+    await sendKeysToSession(api, "s1", "\x1b[B", { quietMs: 5, firstOutputMs: 10, timeoutMs: 50 });
+    expect(order).toEqual(["subscribe", "write"]);
+  });
+
+  it("resolves settled once output goes quiet, returning the screen", async () => {
+    const { api } = fakeApi();
+    let emit: (t: string) => void = () => {};
+    api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => { emit = cb; return () => {}; });
+    api.terminal.readSnapshot = vi.fn(() => "  1  top - load average");
+    const p = sendKeysToSession(api, "s1", "top\r", { quietMs: 20, timeoutMs: 500 });
+    setTimeout(() => emit("redraw"), 5);
+    const r = await p;
+    expect(r).toMatchObject({ settled: true, outputSeen: true, timedOut: false, screen: "  1  top - load average" });
+  });
+
+  // Regression guard: the quiet timer must arm on the FIRST byte, never before
+  // the write. Armed up front, this call would settle at 300ms on the stale
+  // pre-keystroke screen and report settled: true.
+  it("does not arm the quiet timer before output arrives: late output still wins", async () => {
+    const { api } = fakeApi();
+    let emit: (t: string) => void = () => {};
+    api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => { emit = cb; return () => {}; });
+    let screen = "root@host:~# ";
+    api.terminal.readSnapshot = vi.fn(() => screen);
+    // quietMs left at its 300ms default; the first byte lands well after it.
+    const p = sendKeysToSession(api, "s1", "top\r", { firstOutputMs: 2000, timeoutMs: 5000 });
+    setTimeout(() => { screen = "top - 12:00:00 up 1 day"; emit("redraw"); }, 400);
+    const r = await p;
+    expect(r).toMatchObject({ settled: true, outputSeen: true, timedOut: false });
+    expect(r.screen).toBe("top - 12:00:00 up 1 day");
+  });
+
+  it("resolves timedOut when output never goes quiet", async () => {
+    const { api } = fakeApi();
+    let emit: (t: string) => void = () => {};
+    api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => { emit = cb; return () => {}; });
+    const noise = setInterval(() => emit("."), 5);
+    const r = await sendKeysToSession(api, "s1", "x", { quietMs: 200, firstOutputMs: 1000, timeoutMs: 400 });
+    clearInterval(noise);
+    expect(r).toMatchObject({ settled: false, outputSeen: true, timedOut: true });
+  });
+
+  it("resolves at firstOutputMs, not the deadline, when the keys produce nothing", async () => {
+    const { api } = fakeApi();
+    api.terminal.readSnapshot = vi.fn(() => "$ ");
+    const started = Date.now();
+    const r = await sendKeysToSession(api, "s1", "\x03", { quietMs: 10, firstOutputMs: 40, timeoutMs: 5000 });
+    expect(r).toMatchObject({ settled: true, outputSeen: false, timedOut: false, screen: "$ " });
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  it("keeps its defaults when a caller forwards explicit undefined options", async () => {
+    const { api } = fakeApi();
+    let emit: (t: string) => void = () => {};
+    api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => { emit = cb; return () => {}; });
+    let screen = "before";
+    api.terminal.readSnapshot = vi.fn(() => screen);
+    const p = sendKeysToSession(api, "s1", "x", { quietMs: undefined, timeoutMs: undefined, firstOutputMs: 800 });
+    setTimeout(() => { screen = "after"; emit("redraw"); }, 30);
+    const r = await p;
+    expect(r).toMatchObject({ settled: true, outputSeen: true, timedOut: false, screen: "after" });
+  });
+
+  it("unsubscribes exactly once", async () => {
+    const { api } = fakeApi();
+    const unsub = vi.fn();
+    api.terminal.onOutput = vi.fn(async () => unsub);
+    await sendKeysToSession(api, "s1", "x", { quietMs: 5, firstOutputMs: 10, timeoutMs: 50 });
+    expect(unsub).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression guard: the real listen() registers the handler synchronously, so
+  // output can arrive while the subscribe await is still suspended. Handler
+  // state declared below that await would be in its temporal dead zone and the
+  // ReferenceError would escape as an uncaught error inside a Tauri callback.
+  it("survives output delivered before the subscription promise resolves", async () => {
+    const { api } = fakeApi();
+    api.terminal.onOutput = vi.fn(async (_id: string, cb: (t: string) => void) => {
+      await Promise.resolve();
+      cb("redraw");
+      return () => {};
+    });
+    api.terminal.readSnapshot = vi.fn(() => "top - 12:00:00");
+    const r = await sendKeysToSession(api, "s1", "x", { quietMs: 20, firstOutputMs: 1000, timeoutMs: 500 });
+    expect(r).toMatchObject({ settled: true, outputSeen: true, timedOut: false, screen: "top - 12:00:00" });
+  });
+
+  it("propagates a failed write instead of reporting a settled screen", async () => {
+    const { api } = fakeApi();
+    api.sessions.sendInput = vi.fn(async () => { throw new Error("channel closed"); });
+    await expect(sendKeysToSession(api, "s1", "x", { quietMs: 5, firstOutputMs: 10, timeoutMs: 50 })).rejects.toThrow("channel closed");
   });
 });

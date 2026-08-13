@@ -2,13 +2,16 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { type Transfer, formatSize, formatTransferProgress } from "./SFTPTypes";
+import { canRetryTransfer } from "@/stores/transferQueueStore";
 import { AcceleratedBadge } from "./AcceleratedBadge";
+import { McpMark, mcpOwnerTitle, mcpTint } from "@/components/shared/McpMark";
 
-export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, collapsible = false }: {
+export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRetry, collapsible = false }: {
   transfers: Transfer[];
   onClear: () => void;
   onCancel: (id: string) => void;
   onCancelAll: () => void;
+  onRetry: (id: string) => void;
   /** When true the list collapses to a compact header and expands on hover. */
   collapsible?: boolean;
 }) {
@@ -126,7 +129,16 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
             {transfers.map((tr) => {
               const { icon, color, spin } = statusIcon(tr);
               return (
-                <div key={tr.id}>
+                <div
+                  key={tr.id}
+                  className="relative"
+                  style={tr.owner ? { background: mcpTint("transparent"), borderRadius: "0.25rem", paddingLeft: "0.5rem" } : undefined}
+                  title={mcpOwnerTitle(tr.owner, t, {
+                    known: "fileTransfer.queue.mcpTooltip",
+                    unknown: "fileTransfer.queue.mcpTooltipUnknown",
+                  })}
+                >
+                  {tr.owner && <McpMark variant="rail" testId={`mcp-bar-${tr.id}`} busy={tr.status === "running"} />}
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Icon icon={icon} width={12} className={`${spin ? "animate-spin" : ""} shrink-0`} style={{ color }} />
@@ -135,6 +147,17 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className="text-xs text-(--t-text-dim)">{statusLabel(tr)}</span>
+                      {canRetryTransfer(tr) && (
+                        <button
+                          onClick={() => onRetry(tr.id)}
+                          title={t("fileTransfer.queue.retryTransfer")}
+                          className="flex items-center justify-center w-4 h-4 rounded-sm transition-colors text-(--t-text-dim)"
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
+                        >
+                          <Icon icon="lucide:rotate-cw" width={10} />
+                        </button>
+                      )}
                       {tr.status === "running" && (
                         <button
                           onClick={() => onCancel(tr.id)}

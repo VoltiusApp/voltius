@@ -1,5 +1,6 @@
 use crate::known_hosts::{ConflictAction, KnownHostsStore, PendingConflicts};
 use crate::storage::config::KnownHost;
+use serde::Serialize;
 use std::sync::Arc;
 
 #[tauri::command]
@@ -38,6 +39,31 @@ pub async fn known_host_copy_vault(
         .copy_to_vault(&id, &vault_id)
         .await
         .ok_or_else(|| format!("Known host {} not found", id))
+}
+
+/// What a trust call actually did. `superseded` is empty for a plain add, and
+/// carries the entries `replace` soft-deleted — an agent must not be able to
+/// overwrite a changed key and report it as a fresh trust.
+#[derive(Serialize)]
+pub struct TrustOutcome {
+    pub entry: KnownHost,
+    pub superseded: Vec<KnownHost>,
+}
+
+#[tauri::command]
+pub async fn known_host_trust(
+    known_hosts: tauri::State<'_, Arc<KnownHostsStore>>,
+    host: String,
+    port: u16,
+    fingerprint: String,
+    vault_id: Option<String>,
+    replace: Option<bool>,
+) -> Result<TrustOutcome, String> {
+    let vault = vault_id.unwrap_or_else(|| "personal".to_string());
+    let (entry, superseded) = known_hosts
+        .trust(&host, port, fingerprint, &vault, replace.unwrap_or(false))
+        .await?;
+    Ok(TrustOutcome { entry, superseded })
 }
 
 #[tauri::command]

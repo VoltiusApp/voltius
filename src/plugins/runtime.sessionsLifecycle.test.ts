@@ -25,7 +25,7 @@ describe("sessions open/close", () => {
   test("open with sessions:write calls store.connect", async () => {
     loadPlugin(m(["sessions:write"]), register, true, false);
     await api.sessions.open("conn-1");
-    expect(connect).toHaveBeenCalledWith("conn-1");
+    expect(connect).toHaveBeenCalledWith("conn-1", undefined);
   });
 
   test("close with sessions:write calls store.disconnect", async () => {

@@ -39,10 +39,13 @@ import { cancelBackoff } from "./reconnectBackoffCore";
 import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostCommand";
 import { runHostCommand } from "@/services/hostCommandRun";
 
+/** `background: true` opens the session without taking the user's active tab. */
+export type OpenOptions = { background?: boolean };
+
 interface SessionStore {
   sessions: TerminalSession[];
   activeSessionId: string | null;
-  connect: (connectionId: string) => Promise<string>;
+  connect: (connectionId: string, options?: OpenOptions) => Promise<string>;
   connectMany: (connectionIds: string[]) => Promise<string[]>;
   connectDirect: (connection: Connection) => Promise<void>;
   connectLocal: () => Promise<void>;
@@ -139,6 +142,20 @@ async function buildSshConnectOptions(
   };
 }
 
+/**
+ * Append a session to the store. A background open (agent / MCP) must not steal
+ * the tab the user is working in, so it leaves both the active session and the
+ * split view untouched — unless there is no active session to preserve.
+ */
+function addSession(set: SessionSetter, session: TerminalSession, options: OpenOptions = {}) {
+  const focus = !options.background || useSessionStore.getState().activeSessionId === null;
+  set((s) => ({
+    sessions: [...s.sessions, session],
+    activeSessionId: focus ? session.id : s.activeSessionId,
+  }));
+  if (focus) useLayoutStore.getState().setSplitTabActive(false);
+}
+
 async function startSession(
   set: SessionSetter,
   connection: Connection,
@@ -155,6 +172,7 @@ function createSshSession(
   set: SessionSetter,
   connection: Connection,
   sessionId: string,
+  options: OpenOptions = {},
 ) {
   const session: TerminalSession = {
     id: sessionId,
@@ -166,8 +184,7 @@ function createSshSession(
     encoding: connection.terminal_encoding,
   };
 
-  set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
-  useLayoutStore.getState().setSplitTabActive(false);
+  addSession(set, session, options);
 }
 
 /**
@@ -278,8 +295,9 @@ async function startSerialSession(
   set: SessionSetter,
   connection: Connection,
   sessionId: string,
+  options: OpenOptions = {},
 ) {
-  const serialParams = createSerialSession(set, connection, sessionId);
+  const serialParams = createSerialSession(set, connection, sessionId, options);
   await connectSerialSession(set, connection, sessionId, serialParams);
 }
 
@@ -287,6 +305,7 @@ function createSerialSession(
   set: SessionSetter,
   connection: Connection,
   sessionId: string,
+  options: OpenOptions = {},
 ) {
   const serialParams: SerialConnectParams = {
     sessionId,
@@ -307,8 +326,7 @@ function createSerialSession(
     serialConfig: serialParams,
   };
 
-  set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
-  useLayoutStore.getState().setSplitTabActive(false);
+  addSession(set, session, options);
 
   return serialParams;
 }
@@ -501,7 +519,7 @@ function beginConnection(set: SessionSetter, connectionId: string): string {
 async function connectConnection(
   set: SessionSetter,
   connectionId: string,
-  options: { keepFailedSession?: boolean } = {},
+  options: OpenOptions & { keepFailedSession?: boolean } = {},
 ): Promise<string> {
   const connection = findConnection(connectionId);
   if (!connection) throw new Error(i18n.t("common.error.connectionNotFound"));
@@ -515,14 +533,14 @@ async function connectConnection(
   }
 
   if (connection.connection_type === "serial") {
-    await startSerialSession(set, connection, sessionId);
+    await startSerialSession(set, connection, sessionId, options);
     return sessionId;
   }
 
   // Add the session synchronously before awaiting credentials so the TitleBar
   // guard (sessions.length === 0 → redirect to hosts) doesn't fire during the
   // async credential resolution window.
-  createSshSession(set, connection, sessionId);
+  createSshSession(set, connection, sessionId, options);
 
   try {
     const credentials = await resolveConnectionCredentials(connection);
@@ -548,8 +566,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   sessions: [],
   activeSessionId: null,
 
-  connect: async (connectionId) => {
-    return connectConnection(set as SessionSetter, connectionId);
+  connect: async (connectionId, options) => {
+    return connectConnection(set as SessionSetter, connectionId, options);
   },
 
   connectMany: async (connectionIds) => {
@@ -576,8 +594,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       type: "local",
       localShell: preferredShell ?? undefined,
     };
-    set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
-    useLayoutStore.getState().setSplitTabActive(false);
+    addSession(set as SessionSetter, session);
     try {
       await localConnect(sessionId, 80, 24, preferredShell ?? undefined, undefined, getToggle("shell-integration"));
       set((s) => ({
@@ -608,8 +625,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       type: "local",
       localShell: preferredShell ?? undefined,
     };
-    set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
-    useLayoutStore.getState().setSplitTabActive(false);
+    addSession(set as SessionSetter, session);
     try {
       await localConnect(sessionId, 80, 24, preferredShell ?? undefined, cwd, getToggle("shell-integration"));
       set((s) => ({
@@ -639,8 +655,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       type: "local",
       localShell: shell ?? undefined,
     };
-    set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
-    useLayoutStore.getState().setSplitTabActive(false);
+    addSession(set as SessionSetter, session);
     void localConnect(sessionId, 80, 24, shell, undefined, getToggle("shell-integration")).then(() => {
       set((s) => ({
         sessions: s.sessions.map((sess) =>
@@ -690,8 +705,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       type: "serial",
       initialSerialPort: initialPort,
     };
-    set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
-    useLayoutStore.getState().setSplitTabActive(false);
+    addSession(set as SessionSetter, session);
     useUIStore.getState().setActiveNav("terminal");
     useUIStore.getState().setSidebarOpen(false);
   },

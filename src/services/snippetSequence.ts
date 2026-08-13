@@ -111,7 +111,13 @@ export async function runTransferStep(
 // ─── Sequence aggregation core ──────────────────────────────────────────────
 
 export interface TargetRunResult { label: string; ok: boolean; error?: string }
-export interface SequenceRunResult { targets: TargetRunResult[]; flattenErrors: string[] }
+export interface SequenceRunResult {
+  targets: TargetRunResult[];
+  flattenErrors: string[];
+  /** Sessions this run connected on the fly for saved-host targets. Only set by
+   *  the orchestrator; headless callers read them back to reach those terminals. */
+  openedSessionIds?: string[];
+}
 
 export interface TargetExec {
   runScript(content: string): Promise<void>;
@@ -303,20 +309,92 @@ async function prepareTarget(target: RunTarget, steps: LeafStep[]): Promise<Prep
   return { label: targetLabel(target), steps, exec };
 }
 
+function flattenFromStore(snippet: Snippet) {
+  const s = useSnippetStore.getState();
+  const all = [...s.snippets, ...Object.values(s.teamSnippets).flat()];
+  return flattenSnippetSteps(snippet, new Map(all.map((x) => [x.id, x])));
+}
+
+const EMPTY_CONTEXT: DynamicContext = {
+  connectionHost: "", connectionUsername: "", connectionName: "", clipboard: "",
+};
+
+/**
+ * Keep only the sequence's own user variables. A caller must not be able to
+ * supply `connection.host` or `clipboard`: those are dynamic variables the run
+ * resolves per target, and a supplied value would shadow every target's with one
+ * uniform string. The UI path cannot do this — its modal only yields userVars.
+ */
+function pickUserValues(
+  userVars: ParsedVariable[],
+  supplied: Record<string, string> | undefined,
+): Record<string, string> {
+  if (!supplied) return {};
+  const out: Record<string, string> = {};
+  for (const v of userVars) {
+    if (supplied[v.name] !== undefined) out[v.name] = supplied[v.name];
+  }
+  return out;
+}
+
+/** The steps a target would actually execute: dynamic vars resolved against that
+ *  target, user values applied last. The one place that ordering is decided. */
+function stepsForTarget(
+  steps: LeafStep[],
+  target: RunTarget,
+  userValues: Record<string, string>,
+  clipboard: string,
+): LeafStep[] {
+  const dyn = collectSequenceVars(steps, buildTargetContext(target, clipboard)).dynValues;
+  return resolveLeafSteps(steps, { ...dyn, ...userValues });
+}
+
+export interface SequencePreview {
+  targets: { label: string; steps: LeafStep[] }[];
+  errors: string[];
+}
+
+/**
+ * The steps a run would execute, per target, without executing or connecting
+ * anything — the same flatten → per-target dynamic vars → user values path
+ * `runSnippetSequence` takes. A user variable nobody supplied is left as its
+ * `{{name}}` template. `{{clipboard}}` resolves empty: a preview must not
+ * trigger a clipboard-permission prompt.
+ */
+export function previewSnippetSequence(
+  snippet: Snippet,
+  targets: RunTarget[],
+  variables?: Record<string, string>,
+): SequencePreview {
+  const flat = flattenFromStore(snippet);
+  const vars = collectSequenceVars(flat.steps, EMPTY_CONTEXT);
+  const userValues = { ...vars.initialValues, ...pickUserValues(vars.userVars, variables) };
+  return {
+    targets: targets.map((t) => ({
+      label: targetLabel(t),
+      steps: stepsForTarget(flat.steps, t, userValues, ""),
+    })),
+    errors: flat.errors,
+  };
+}
+
 /**
  * Run a snippet sequence against targets. If the flattened sequence has
  * unfilled user variables, invokes onPrompt (which must eventually call
  * prompt.resume(values)) and returns "prompting". Otherwise runs immediately.
+ *
+ * `initialValues` pre-fills user variables by name, so a caller that already
+ * holds them (a headless one, which has nobody to answer a prompt) runs straight
+ * through. Values given here are not prompted for; keys that are not user
+ * variables of this sequence are ignored.
  */
 export async function runSnippetSequence(
   snippet: Snippet,
   targets: RunTarget[],
   onPrompt: (p: SequencePrompt) => void,
+  initialValues?: Record<string, string>,
 ): Promise<SequenceRunResult | "prompting"> {
-  const snippetState = useSnippetStore.getState();
-  const all = [...snippetState.snippets, ...Object.values(snippetState.teamSnippets).flat()];
-  const byId = new Map(all.map((s) => [s.id, s]));
-  const flat = flattenSnippetSteps(snippet, byId);
+  const flat = flattenFromStore(snippet);
 
   // User-variable pass is one-shot (which vars prompt, modal preview): dynamic
   // vars never prompt and user vars are target-independent. Context here is only
@@ -332,13 +410,14 @@ export async function runSnippetSequence(
   const firstTarget = targets[0];
   const previewCtx = firstTarget
     ? buildTargetContext(firstTarget, clipboard)
-    : { connectionHost: "", connectionUsername: "", connectionName: "", clipboard };
+    : { ...EMPTY_CONTEXT, clipboard };
   const vars = collectSequenceVars(flat.steps, previewCtx);
 
   const runWith = async (userValues: Record<string, string>): Promise<SequenceRunResult> => {
     // Script steps need a live terminal: connect saved-host targets on the fly.
     // Transfer-only sequences skip this and connect SFTP directly per target.
     let effectiveTargets = targets;
+    let opened: string[] = [];
     const preFailures: TargetRunResult[] = [];
     if (needsTerminal(flat.steps)) {
       const { resolutions, openedSessionIds } = await resolveTerminalTargets(targets, {
@@ -347,6 +426,7 @@ export async function runSnippetSequence(
         subscribe: (listener) => useSessionStore.subscribe(listener),
       });
       if (openedSessionIds.length > 0) surfaceSessions(openedSessionIds);
+      opened = openedSessionIds;
       effectiveTargets = [];
       for (const r of resolutions) {
         if (r.kind === "target") effectiveTargets.push(r.target);
@@ -361,14 +441,13 @@ export async function runSnippetSequence(
     const prepared = await Promise.all(
       effectiveTargets.map(async (t): Promise<PreparedTarget> => {
         // Resolve dynamic vars PER TARGET so {{connection.*}} differs per host.
-        const targetDyn = collectSequenceVars(flat.steps, buildTargetContext(t, clipboard)).dynValues;
-        const stepsForTarget = resolveLeafSteps(flat.steps, { ...targetDyn, ...userValues });
+        const resolved = stepsForTarget(flat.steps, t, userValues, clipboard);
         try {
-          return await prepareTarget(t, stepsForTarget);
+          return await prepareTarget(t, resolved);
         } catch (e) {
           return {
             label: targetLabel(t),
-            steps: stepsForTarget,
+            steps: resolved,
             exec: {
               runScript: async () => { throw e; },
               runTransfer: async () => { throw e; },
@@ -379,20 +458,27 @@ export async function runSnippetSequence(
       }),
     );
     const result = await executeSequenceForTargets(prepared, flat.errors);
-    return { targets: [...result.targets, ...preFailures], flattenErrors: result.flattenErrors };
+    return {
+      targets: [...result.targets, ...preFailures],
+      flattenErrors: result.flattenErrors,
+      openedSessionIds: opened,
+    };
   };
 
-  if (vars.missing.length > 0) {
+  const seeded = { ...vars.initialValues, ...pickUserValues(vars.userVars, initialValues) };
+  const stillMissing = vars.missing.filter((v) => seeded[v.name] === undefined);
+
+  if (stillMissing.length > 0) {
     onPrompt({
       snippet,
       userVars: vars.userVars,
       partialTemplate: vars.partialTemplate,
-      initialValues: vars.initialValues,
+      initialValues: seeded,
       resume: runWith,
     });
     return "prompting";
   }
-  return runWith(vars.initialValues);
+  return runWith(seeded);
 }
 
 // ─── Run-summary reporting ──────────────────────────────────────────────────

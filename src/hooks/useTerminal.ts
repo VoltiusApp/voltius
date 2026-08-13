@@ -6,9 +6,11 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { sshSendInput, sshResize, onSshOutput, onSshClosed, onSshCwd } from "@/services/ssh";
-import { localSendInput, localResize, onLocalOutput, onLocalClosed } from "@/services/local";
-import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";
+import { onSshOutput, onSshClosed, onSshCwd } from "@/services/ssh";
+import { localReady, onLocalOutput, onLocalClosed } from "@/services/local";
+import { onSerialOutput, onSerialClosed } from "@/services/serial";
+import { sendSessionInput as sendSessionInputRaw, sendSessionResize } from "@/services/sessionInput";
+import { log } from "@/lib/logger";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
@@ -22,7 +24,7 @@ import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
 import { wheelToRows } from "@/components/terminal/terminalWheelCore";
-import { keyToBytes } from "@/stores/terminalKeyCore";
+import { keyToBytes } from "@/services/terminalKeyCore";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
@@ -38,14 +40,22 @@ interface UseTerminalOptions {
   onResize?: (cols: number, rows: number) => void;
 }
 
+/** The interactive terminal must never reject on a dropped keystroke; the
+ *  shared helper rejects, so the swallow lives here at the call site — logged,
+ *  not silent, since a rejected transport write is a real symptom. */
 function sendSessionInput(sessionId: string, sessionType: "ssh" | "local" | "serial", data: Uint8Array) {
-  if (sessionType === "local") {
-    localSendInput(sessionId, data);
-  } else if (sessionType === "serial") {
-    serialWrite(sessionId, data).catch(() => {});
-  } else {
-    sshSendInput(sessionId, data);
-  }
+  void sendSessionInputRaw(sessionId, sessionType, data).catch((err) => {
+    log.debug(`terminal input write failed for ${sessionType} session ${sessionId}`, err);
+  });
+}
+
+/** Same contract as `sendSessionInput` for the resize path: a resize aimed at a
+ *  session the backend hasn't registered yet (the terminal mounts while the
+ *  transport is still connecting) must not surface as an unhandled rejection. */
+function sendResize(sessionId: string, sessionType: "ssh" | "local" | "serial", cols: number, rows: number) {
+  void sendSessionResize(sessionId, sessionType, cols, rows).catch((err) => {
+    log.debug(`terminal resize failed for ${sessionType} session ${sessionId}`, err);
+  });
 }
 
 function isHttpUrl(uri: string) {
@@ -627,14 +637,18 @@ useSessionStore.subscribe((state) => {
     }
   }
 
+  // Local sessions ride the same transition as SSH: the terminal mounts while
+  // the session is still "connecting", so treating it as connected before the
+  // backend registered it sent resizes at a session id the backend answered
+  // with "Session not found".
   for (const [id, entry] of terminalCache) {
-    if (entry.sessionType !== "ssh") continue;
+    if (entry.sessionType === "serial") continue;
     const session = state.sessions.find((s) => s.id === id);
     const nowConnected = session?.status === "connected";
     if (nowConnected && !entry.connectedRef.current) {
       entry.connectedRef.current = true;
       entry.fitAddon.fit();
-      sshResize(id, entry.terminal.cols, entry.terminal.rows).catch(() => {});
+      sendResize(id, entry.sessionType, entry.terminal.cols, entry.terminal.rows);
     } else if (!nowConnected) {
       entry.connectedRef.current = false;
     }
@@ -657,9 +671,44 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     }
   });
 
+  // Container-specific listeners, registered on each mount and torn down when
+  // the ref detaches. The teardown also pulls the terminal element out of the
+  // container: a pane that switches session keeps the same container node, so
+  // leaving the old element behind would show the previous session's buffer.
+  const bindContainer = useCallback((terminal: Terminal, fitAddon: FitAddon, container: HTMLDivElement) => {
+    const clip = attachTerminalClipboard(terminal, container, { osc52: true });
+    clipRef.current = clip;
+
+    const handleWindowResize = () => fitAddon.fit();
+    window.addEventListener("resize", handleWindowResize);
+
+    let fitTimer: ReturnType<typeof setTimeout> | null = null;
+    const resizeObserver = new ResizeObserver(() => {
+      if (fitTimer !== null) clearTimeout(fitTimer);
+      fitTimer = setTimeout(() => { fitTimer = null; fitAddon.fit(); }, 50);
+    });
+    resizeObserver.observe(container);
+
+    mountCleanupRef.current = () => {
+      clip.dispose();
+      if (clipRef.current === clip) clipRef.current = null;
+      window.removeEventListener("resize", handleWindowResize);
+      resizeObserver.disconnect();
+      if (fitTimer !== null) clearTimeout(fitTimer);
+      terminal.element?.remove();
+      mountCleanupRef.current = null;
+    };
+  }, []);
+
   const attach = useCallback(
     (container: HTMLDivElement | null) => {
-      if (!container || mountCleanupRef.current) return;
+      // React hands the ref a null when the callback identity changes (session
+      // switch on a live pane) as well as on unmount — both mean "detach".
+      if (!container) {
+        mountCleanupRef.current?.();
+        return;
+      }
+      if (mountCleanupRef.current) return;
 
       const existing = terminalCache.get(sessionId);
 
@@ -674,28 +723,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
         fitAddon.fit();
 
-        // Container-specific listeners (re-registered on each mount)
-        const clip = attachTerminalClipboard(terminal, container, { osc52: true });
-        clipRef.current = clip;
-
-        const handleWindowResize = () => fitAddon.fit();
-        window.addEventListener("resize", handleWindowResize);
-
-        let fitTimer: ReturnType<typeof setTimeout> | null = null;
-        const resizeObserver = new ResizeObserver(() => {
-          if (fitTimer !== null) clearTimeout(fitTimer);
-          fitTimer = setTimeout(() => { fitTimer = null; fitAddon.fit(); }, 50);
-        });
-        resizeObserver.observe(container);
-
-        mountCleanupRef.current = () => {
-          clip.dispose();
-          if (clipRef.current === clip) clipRef.current = null;
-          window.removeEventListener("resize", handleWindowResize);
-          resizeObserver.disconnect();
-          if (fitTimer !== null) clearTimeout(fitTimer);
-          mountCleanupRef.current = null;
-        };
+        bindContainer(terminal, fitAddon, container);
         return;
       }
 
@@ -801,7 +829,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           frame: null,
         },
         sessionType,
-        connectedRef: { current: sessionType === "local" || sessionType === "serial" },
+        // Serial is live the moment its port opens (the store marks it
+        // connected before the terminal mounts); ssh and local flip in the
+        // store subscription above, once the backend owns the session.
+        connectedRef: { current: sessionType === "serial" },
         inputGateRef: { current: inputGate?.current },
         onClosedRef: { current: onClosed },
         onResizeRef: { current: onResize },
@@ -1035,15 +1066,21 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const unlistenPromises: Promise<UnlistenFn>[] = [];
 
       if (sessionType === "local") {
-        unlistenPromises.push(
+        const localListeners = [
           onLocalOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
-        );
-        unlistenPromises.push(
           onLocalClosed(sessionId, () => {
             term.write("\r\n\x1b[90m--- Session closed ---\x1b[0m\r\n");
             entry.onClosedRef.current?.();
           }),
-        );
+        ];
+        unlistenPromises.push(...localListeners);
+        // A PTY writes its banner and first prompt before these listeners are
+        // registered — Tauri drops an emit with no listener, which left the
+        // terminal blank behind a live shell. The backend holds that output
+        // until this ack, then replays it.
+        void Promise.all(localListeners)
+          .then(() => localReady(sessionId))
+          .catch((err) => log.debug(`local session ${sessionId} readiness ack failed`, err));
       } else if (sessionType === "serial") {
         unlistenPromises.push(
           onSerialOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
@@ -1079,11 +1116,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         entry.onResizeRef.current?.(cols, rows);
         scheduleMinimapNotify(entry);
         if (!entry.connectedRef.current) return;
-        if (sessionType === "local") {
-          localResize(sessionId, cols, rows);
-        } else if (sessionType === "ssh") {
-          sshResize(sessionId, cols, rows);
-        }
+        sendResize(sessionId, sessionType, cols, rows);
       });
 
       fitAddon.fit();
@@ -1104,28 +1137,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         term.dispose();
       };
 
-      // Container-specific listeners (registered on each mount, torn down on unmount)
-      const clip = attachTerminalClipboard(term, container, { osc52: true });
-      clipRef.current = clip;
-
-      const handleWindowResize = () => fitAddon.fit();
-      window.addEventListener("resize", handleWindowResize);
-
-      let fitTimer: ReturnType<typeof setTimeout> | null = null;
-      const resizeObserver = new ResizeObserver(() => {
-        if (fitTimer !== null) clearTimeout(fitTimer);
-        fitTimer = setTimeout(() => { fitTimer = null; fitAddon.fit(); }, 50);
-      });
-      resizeObserver.observe(container);
-
-      mountCleanupRef.current = () => {
-        clip.dispose();
-        if (clipRef.current === clip) clipRef.current = null;
-        window.removeEventListener("resize", handleWindowResize);
-        resizeObserver.disconnect();
-        if (fitTimer !== null) clearTimeout(fitTimer);
-        mountCleanupRef.current = null;
-      };
+      bindContainer(term, fitAddon, container);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sessionId, sessionType, encoding],
@@ -1194,11 +1206,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     // haven't changed, which causes the PTY to stay at its initial 80x24 when
     // the session becomes active after connecting.
     if (!entry.connectedRef.current) return;
-    if (sessionType === "local") {
-      localResize(sessionId, term.cols, term.rows);
-    } else if (sessionType === "ssh") {
-      sshResize(sessionId, term.cols, term.rows);
-    }
+    sendResize(sessionId, sessionType, term.cols, term.rows);
   }, [sessionId, sessionType]);
 
   return { attach, focus, fit };

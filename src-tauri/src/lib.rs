@@ -381,7 +381,27 @@ pub fn run() {
     }
 
     #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    // Must be the first plugin registered (the plugin's own requirement).
+    // Without it a second launch — the user clicking the icon while Voltius is
+    // already running — spawns a process that cannot create its webview,
+    // because WebView2 refuses the user-data folder the live instance holds
+    // ("failed to create webview: 0x800700AA, resource in use"), leaving a dead
+    // window. Raise the running window instead.
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            use tauri::Manager;
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }));
+    }
+
+    builder = builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -592,8 +612,10 @@ pub fn run() {
             commands::known_hosts::known_host_move_vault,
             commands::known_hosts::known_host_copy_vault,
             commands::known_hosts::known_host_resolve,
+            commands::known_hosts::known_host_trust,
             commands::local::local_list_shells,
             commands::local::local_connect,
+            commands::local::local_ready,
             commands::local::local_disconnect,
             commands::local::local_send_input,
             commands::local::local_resize,

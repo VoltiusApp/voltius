@@ -1,10 +1,11 @@
+use crate::local::gate::OutputGate;
 use crate::shell_integration;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use tokio::sync;
 
 pub struct LocalSession {
@@ -16,6 +17,10 @@ pub struct LocalSession {
 
 pub struct LocalSessionManager {
     sessions: Arc<sync::Mutex<HashMap<String, LocalSession>>>,
+    /// Startup-output gates, keyed by session id. Created by whichever of
+    /// `spawn` and `mark_ready` runs first — the frontend registers its
+    /// listeners concurrently with the spawn, so either order happens.
+    gates: Mutex<HashMap<String, Arc<OutputGate>>>,
 }
 
 /// Boot the default WSL distro synchronously so an interactive session doesn't
@@ -34,7 +39,31 @@ impl LocalSessionManager {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(sync::Mutex::new(HashMap::new())),
+            gates: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// The gate for a session id, creating it on first use. Both event names
+    /// are derived here so the spawn and the readiness ack can never disagree.
+    fn gate(&self, session_id: &str) -> Arc<OutputGate> {
+        Arc::clone(
+            self.gates
+                .lock()
+                .unwrap()
+                .entry(session_id.to_string())
+                .or_insert_with(|| {
+                    Arc::new(OutputGate::new(
+                        format!("local-output-{}", session_id),
+                        format!("local-closed-{}", session_id),
+                    ))
+                }),
+        )
+    }
+
+    /// The frontend has registered its output listeners: replay whatever the
+    /// shell wrote before that and go live.
+    pub fn mark_ready(&self, app: &AppHandle, session_id: &str) {
+        self.gate(session_id).release(app);
     }
 
     pub async fn spawn(
@@ -137,22 +166,20 @@ impl LocalSessionManager {
 
         let (input_tx, input_rx) = std::sync::mpsc::sync_channel::<Vec<u8>>(256);
 
-        let output_event = format!("local-output-{}", session_id);
-        let close_event = format!("local-closed-{}", session_id);
-
-        // Reader thread — PTY output → Tauri event
+        // Reader thread — PTY output → Tauri event, through the startup gate so
+        // the banner and first prompt survive a listener that isn't up yet.
+        let gate = self.gate(&session_id);
         let app_r = app.clone();
-        let close_event_r = close_event.clone();
         std::thread::spawn(move || {
             let mut buf = vec![0u8; 8192];
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) | Err(_) => {
-                        let _ = app_r.emit(&close_event_r, ());
+                        gate.closed(&app_r);
                         break;
                     }
                     Ok(n) => {
-                        let _ = app_r.emit(&output_event, &buf[..n]);
+                        gate.output(&app_r, &buf[..n]);
                     }
                 }
             }
@@ -210,6 +237,7 @@ impl LocalSessionManager {
             let mut sessions = self.sessions.lock().await;
             sessions.remove(id)
         };
+        self.gates.lock().unwrap().remove(id);
         if let Some(s) = removed {
             let _ = s.child.lock().unwrap().kill();
             shell_integration::cleanup(&s.tempfiles);

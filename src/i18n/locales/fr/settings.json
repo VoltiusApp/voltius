@@ -373,7 +373,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "Permet aux clients MCP locaux (comme Claude Code) d'exécuter des commandes, de lire, écrire et supprimer des fichiers sur tous les hôtes de votre coffre ainsi que sur cet ordinateur, et de créer, modifier ou supprimer des connexions, clés et identités enregistrées, via un socket privé. L'approbation a lieu dans ce client, pas dans Voltius. Désactivé par défaut.",
+        "sub": "Permet aux clients MCP locaux (comme Claude Code) d'exécuter des commandes, de lire, écrire et supprimer des fichiers sur tous les hôtes de votre coffre ainsi que sur cet ordinateur, de créer, modifier ou supprimer des connexions, clés et identités enregistrées, d'exécuter vos snippets enregistrés sur ces hôtes, d'autoriser des clés d'hôte SSH, de lire les commandes que vous avez saisies, de voir, annuler ou relancer vos transferts de fichiers, et de voir lesquels de vos hôtes enregistrés sont joignables, via un socket privé. L'approbation a lieu dans ce client, pas dans Voltius. Désactivé par défaut.",
         "running": "Actif",
         "quickSetup": {
           "title": "Configuration rapide",
@@ -804,11 +804,18 @@
           "identitiesWrite": { "label": "Gérer vos identités", "description": "Créer et supprimer des identités en votre nom." },
           "snippetsRead": { "label": "Lire vos snippets", "description": "Lister vos snippets enregistrés et les commandes qu'ils exécutent." },
           "snippetsWrite": { "label": "Gérer vos snippets", "description": "Créer, modifier, déplacer et supprimer vos snippets enregistrés." },
+          "snippetsRun": { "label": "Exécuter vos snippets sur vos hôtes", "description": "Exécuter un snippet enregistré sur un hôte, en s'y connectant si nécessaire. Ses commandes s'exécutent avec vos propres accès, exactement comme si vous les lanciez vous-même." },
           "portForwardingRead": { "label": "Lire vos redirections de ports", "description": "Lister vos règles de redirection de ports enregistrées et les tunnels actuellement ouverts." },
           "portForwardingWrite": { "label": "Gérer vos redirections de ports", "description": "Créer, modifier, déplacer et supprimer vos règles de redirection de ports enregistrées." },
+          "knownHostsRead": { "label": "Lire vos hôtes connus", "description": "Lister les clés d'hôte SSH que vous avez approuvées, avec leurs empreintes." },
+          "knownHostsWrite": { "label": "Approuver et supprimer des clés d'hôte", "description": "Autoriser une clé d'hôte SSH, ou supprimer une clé approuvée. Une clé approuvée signifie que les connexions à cet hôte sont acceptées sans vous le demander." },
+          "historyRead": { "label": "Lire votre historique de commandes", "description": "Rechercher dans les commandes que vous avez saisies dans les terminaux. Elles peuvent contenir des mots de passe ou des jetons saisis en clair." },
+          "transfersRead": { "label": "Voir les transferts de fichiers", "description": "Voir les transferts de fichiers en cours, y compris les noms de fichiers, la progression et les erreurs." },
+          "transfersWrite": { "label": "Annuler et relancer des transferts", "description": "Annuler un transfert de fichiers en cours, ou relancer un transfert échoué — y compris les transferts que vous avez lancés vous-même." },
+          "healthRead": { "label": "Voir l'accessibilité des hôtes", "description": "Voir quels hôtes enregistrés ont répondu au dernier test d'accessibilité, et à quelle vitesse." },
           "vaultRead": { "label": "Lire votre coffre", "description": "Lire les données stockées dans votre coffre." },
           "vaultWrite": { "label": "Écrire dans votre coffre", "description": "Stocker et modifier des données dans votre coffre." },
-          "syncRead": { "label": "Lire les données de synchronisation", "description": "Lire les données synchronisées entre vos appareils." },
+          "syncRead": { "label": "Lire les données de synchronisation", "description": "Lire les données propres à ce plugin synchronisées entre vos appareils, et consulter l'état de la synchronisation de votre configuration." },
           "syncWrite": { "label": "Écrire les données de synchronisation", "description": "Stocker et modifier les données synchronisées entre vos appareils." },
           "storage": { "label": "Stocker les données du plugin", "description": "Enregistrer les réglages et données propres à ce plugin sur votre appareil." },
           "http": { "label": "Accéder au réseau", "description": "Effectuer des requêtes réseau vers des services externes." },

@@ -76,8 +76,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 10
 
       # Pinned, not lts/*: the hash guard below compares this job's freshly built
       # bytes against what an existing release tag already carries. An unrelated

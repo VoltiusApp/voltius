@@ -1,5 +1,7 @@
 import type { Snippet, SnippetFormData } from "@/types";
-import type { PluginSnippet, PluginSnippetInput } from "../api";
+import type { RunTarget } from "@/services/sftpTarget";
+import type { SequencePreview, SequencePrompt, SequenceRunResult } from "@/services/snippetSequence";
+import type { PluginSnippet, PluginSnippetInput, PluginSnippetRunResult, PluginSnippetTargetRef } from "../api";
 import { vaultOf } from "./vaultOf";
 
 export interface SnippetPorts {
@@ -14,6 +16,23 @@ export interface SnippetPorts {
   update(id: string, data: SnippetFormData): Promise<void>;
   remove(id: string): Promise<void>;
   isTeamVault(vaultId: string): boolean;
+  /** Resolve target references to the engine's RunTargets. `unknown` names the
+   *  references that matched nothing, so the caller can refuse by name. */
+  resolveTargets(refs: PluginSnippetTargetRef[]): { targets: RunTarget[]; unknown: string[] };
+  /** The app's own sequence engine. Returns "prompting" when user variables are
+   *  still unfilled after `variables` is applied. */
+  run(
+    snippet: Snippet,
+    targets: RunTarget[],
+    onPrompt: (p: SequencePrompt) => void,
+    variables?: Record<string, string>,
+  ): Promise<SequenceRunResult | "prompting">;
+  /** The steps a run would execute per target, resolved but not executed. */
+  preview(
+    snippet: Snippet,
+    targets: RunTarget[],
+    variables?: Record<string, string>,
+  ): SequencePreview;
 }
 
 const project = (s: Snippet): PluginSnippet => ({
@@ -96,6 +115,52 @@ export function createSnippetsAPI(ports: SnippetPorts) {
     delete: async (id: string): Promise<void> => {
       refuseTeam(await find(id), "deleted");
       await ports.remove(id);
+    },
+
+    run: async (input: {
+      snippetId: string;
+      targets: PluginSnippetTargetRef[];
+      variables?: Record<string, string>;
+      dryRun?: boolean;
+    }): Promise<PluginSnippetRunResult> => {
+      const snippet = await find(input.snippetId);
+      const { targets, unknown } = ports.resolveTargets(input.targets ?? []);
+      if (unknown.length > 0) throw new Error(`No session or connection for: ${unknown.join(", ")}`);
+      if (targets.length === 0) throw new Error("No targets given");
+
+      if (input.dryRun) {
+        const preview = ports.preview(snippet, targets, input.variables);
+        return {
+          targets: [],
+          flatten_errors: preview.errors,
+          opened_session_ids: [],
+          steps: preview.targets,
+        };
+      }
+
+      // The engine prompts for user variables it still lacks. There is no UI on
+      // this path, so a prompt is a refusal naming what is missing — never a
+      // modal nobody is there to answer.
+      let missing: string[] = [];
+      const outcome = await ports.run(
+        snippet,
+        targets,
+        (p) => {
+          // The prompt's initialValues already carry the caller's variables, so
+          // a user var absent from them is one nobody supplied.
+          missing = p.userVars.filter((v) => p.initialValues[v.name] === undefined).map((v) => v.name);
+          if (missing.length === 0) missing = p.userVars.map((v) => v.name);
+        },
+        input.variables,
+      );
+      if (outcome === "prompting") {
+        throw new Error(`Missing variables: ${missing.join(", ")}. Pass them in \`variables\`.`);
+      }
+      return {
+        targets: outcome.targets.map((t) => ({ label: t.label, ok: t.ok, error: t.error })),
+        flatten_errors: outcome.flattenErrors,
+        opened_session_ids: outcome.openedSessionIds ?? [],
+      };
     },
   };
 }

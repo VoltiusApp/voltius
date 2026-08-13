@@ -22,6 +22,7 @@ vi.mock("./hostApi", () => ({
 }));
 
 import { registerMcpConsumer } from "./register";
+import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
 
 const replyCall = () => invoke.mock.calls.find((c) => c[0] === "mcp_bridge_reply") as
   [string, { id: string; result: { tools?: unknown[]; ok?: boolean; result?: unknown; error?: string } }];
@@ -40,7 +41,11 @@ const fireAndWaitFor = async (id: string, payload: unknown) => {
   await vi.waitFor(() => expect(replyFor(id)).toBeTruthy());
 };
 
-beforeEach(() => { listeners.clear(); invoke.mockClear(); });
+beforeEach(() => {
+  listeners.clear();
+  invoke.mockClear();
+  useMcpOwnershipStore.setState({ owners: {}, busy: {} });
+});
 
 describe("MCP bridge listener", () => {
   it("answers a tools/list request with the tool descriptors", async () => {
@@ -51,7 +56,7 @@ describe("MCP bridge listener", () => {
     const [cmd, args] = replyCall();
     expect(cmd).toBe("mcp_bridge_reply");
     expect(args.id).toBe("r1");
-    expect(args.result.tools).toHaveLength(48);
+    expect(args.result.tools).toHaveLength(59);
   });
 
   it("answers a tools/call request with the tool's real result", async () => {

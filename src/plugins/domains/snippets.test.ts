@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Snippet } from "@/types";
+import type { RunTarget } from "@/services/sftpTarget";
 import { createSnippetsAPI, type SnippetPorts } from "./snippets";
 
 const snippet = (over: Partial<Snippet> = {}): Snippet => ({
@@ -22,6 +23,19 @@ function makePorts(over: Partial<SnippetPorts> = {}, items: Snippet[] = [snippet
     update: vi.fn(async () => {}),
     remove: vi.fn(async () => {}),
     isTeamVault: (id) => id === "team-1",
+    resolveTargets: vi.fn(() => ({
+      targets: [{ kind: "session" as const, sessionId: "sess-1", sessionType: "ssh", label: "web-01" }],
+      unknown: [],
+    })),
+    run: vi.fn(async () => ({ targets: [{ label: "web-01", ok: true }], flattenErrors: [] })),
+    // Mirrors the engine: the preview resolves the variables it was given.
+    preview: vi.fn((_s: Snippet, ts: RunTarget[], variables?: Record<string, string>) => ({
+      targets: ts.map((t: RunTarget) => ({
+        label: t.kind === "connection" ? t.connection.host : t.sessionId,
+        steps: [{ kind: "script" as const, content: `echo ${variables?.svc ?? "{{svc}}"}` }],
+      })),
+      errors: [],
+    })),
     ...over,
   };
   return { ports, api: createSnippetsAPI(ports) };
@@ -88,5 +102,77 @@ describe("snippets domain", () => {
   it("names the id when it matches nothing", async () => {
     const { api } = makePorts({}, []);
     await expect(api.delete("nope")).rejects.toThrow('Snippet "nope" not found');
+  });
+});
+
+describe("snippets domain — run", () => {
+  it("runs and projects the per-target outcome", async () => {
+    const { api, ports } = makePorts();
+    const res = await api.run({
+      snippetId: "s1",
+      targets: [{ session_id: "sess-1" }],
+      variables: { svc: "nginx" },
+    });
+    expect(res.targets).toEqual([{ label: "web-01", ok: true, error: undefined }]);
+    expect(res.flatten_errors).toEqual([]);
+    // The caller's variables must reach the engine, not a prompt.
+    expect(ports.run).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "s1" }),
+      expect.any(Array),
+      expect.any(Function),
+      { svc: "nginx" },
+    );
+  });
+
+  it("reports the sessions the run opened, so they can be read back", async () => {
+    const { api } = makePorts({
+      run: vi.fn(async () => ({ targets: [], flattenErrors: [], openedSessionIds: ["sess-9"] })),
+    });
+    const res = await api.run({ snippetId: "s1", targets: [{ connection_id: "c-1" }] });
+    expect(res.opened_session_ids).toEqual(["sess-9"]);
+  });
+
+  it("refuses when a user variable is still missing, naming it", async () => {
+    const { api } = makePorts({
+      run: vi.fn(async (_s, _t, onPrompt) => {
+        onPrompt({
+          userVars: [{ name: "svc" }, { name: "region" }],
+          initialValues: { region: "eu" },
+        } as never);
+        return "prompting" as const;
+      }),
+    });
+    await expect(api.run({ snippetId: "s1", targets: [{ session_id: "sess-1" }] }))
+      .rejects.toThrow(/Missing variables: svc/);
+  });
+
+  it("dry runs the resolved steps, per target, without running anything", async () => {
+    const { api, ports } = makePorts();
+    const res = await api.run({
+      snippetId: "s1",
+      targets: [{ session_id: "sess-1" }],
+      variables: { svc: "nginx" },
+      dryRun: true,
+    });
+    // Resolved, not the raw template: a dry run reports what would actually run.
+    expect(res.steps).toEqual([{ label: "sess-1", steps: [{ kind: "script", content: "echo nginx" }] }]);
+    expect(ports.preview).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "s1" }), expect.any(Array), { svc: "nginx" },
+    );
+    expect(ports.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a target reference that resolves to nothing, by name", async () => {
+    const { api, ports } = makePorts({
+      resolveTargets: vi.fn(() => ({ targets: [], unknown: ["c-9"] })),
+    });
+    await expect(api.run({ snippetId: "s1", targets: [{ connection_id: "c-9" }] }))
+      .rejects.toThrow(/c-9/);
+    expect(ports.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a run with no targets rather than reporting a silent success", async () => {
+    const { api } = makePorts({ resolveTargets: vi.fn(() => ({ targets: [], unknown: [] })) });
+    await expect(api.run({ snippetId: "s1", targets: [] })).rejects.toThrow(/No targets/);
   });
 });

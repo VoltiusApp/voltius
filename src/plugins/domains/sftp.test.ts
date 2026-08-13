@@ -145,6 +145,40 @@ describe("createSftpAPI", () => {
     expect(svc.fsDelete).not.toHaveBeenCalled();
   });
 
+  it("mints its own transfer id when the caller supplies none, unaffected by the new optional parameter", async () => {
+    const api = createSftpAPI(find);
+    await api.transfer({ target: "local", path: "/home/u/a.txt" }, { target: "c-ssh", path: "/srv/a.txt" });
+    expect(svc.sftpUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ transferId: expect.stringMatching(/.+/) }),
+    );
+  });
+
+  it("uses the caller-supplied transfer id instead of minting one, so progress lands on the caller's own subscription", async () => {
+    const api = createSftpAPI(find);
+    await api.transfer(
+      { target: "local", path: "/home/u/a.txt" },
+      { target: "c-ssh", path: "/srv/a.txt" },
+      "queue-row-42",
+    );
+    expect(svc.sftpUpload).toHaveBeenCalledWith(expect.objectContaining({ transferId: "queue-row-42" }));
+  });
+
+  it("closes the backend handle(s) it evicts after a failed transfer, not just drops them from the cache", async () => {
+    svc.sftpTransfer.mockRejectedValueOnce(new Error("connection reset"));
+    const api = createSftpAPI(find);
+    await expect(
+      api.transfer({ target: "c-ssh", path: "/srv/a.txt" }, { target: "c-ssh2", path: "/srv/b.txt" }),
+    ).rejects.toThrow("connection reset");
+    // Both ends were opened (distinct sftpIds, per the host→host test above);
+    // a plain cache drop would leave both live sessions open on the backend.
+    expect(svc.sftpClose).toHaveBeenCalledTimes(2);
+
+    // The evicted handles are gone, so the next call reopens rather than
+    // reusing a handle that points at a session already closed.
+    await api.list("c-ssh", "/");
+    expect(svc.sftpConnect).toHaveBeenCalledTimes(3);
+  });
+
   it("dispose closes every open handle so an unloaded plugin leaves no connections", async () => {
     const api = createSftpAPI(find);
     await api.list("c-ssh", "/");

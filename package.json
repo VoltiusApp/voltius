@@ -1,6 +1,7 @@
 {
   "name": "voltius",
   "version": "0.22.0",
+  "packageManager": "pnpm@11.5.2",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
