@@ -110,4 +110,10 @@ describe("pane tools", () => {
     const result = await tool(ports, "pane_detach").execute({ sessionId: "sess-b" });
     expect(result).toMatchObject({ refused: true, error: "not yours" });
   });
+
+  it("pane_focus documents that maximize needs a split tab", () => {
+    const { ports } = makePorts();
+    expect(tool(ports, "pane_focus").description).toContain("maximize");
+    expect(tool(ports, "pane_focus").description).toMatch(/not in a split tab/);
+  });
 });

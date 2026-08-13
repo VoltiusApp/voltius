@@ -97,7 +97,9 @@ export function buildPaneTools(ports: ToolSurfacePorts): Tool[] {
       name: "pane_focus",
       description:
         "Bring a session's pane to the front so the user sees it, optionally maximizing it within "
-        + "its tab. Works on any open session, changes only what is visible. Prompts the user.",
+        + "its tab. Works on any open session, changes only what is visible. `maximize: true` is "
+        + "refused for a session that is not in a split tab, because there is no pane to maximize. "
+        + "Prompts the user.",
       risk: "prompt",
       schema: z.object({ sessionId: z.string(), maximize: z.boolean().optional() }),
       execute: async (raw) =>

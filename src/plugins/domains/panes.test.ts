@@ -265,8 +265,52 @@ describe("moveToPane", () => {
   it("refuses when the target's tab has broadcast typing enabled", () => {
     const ports = makePorts({ splitTabs: vi.fn(() => [splitTab({ broadcastActive: true })]) });
     const result = moveToPane(ports, { sessionId: "sess-a", targetSessionId: "sess-b", position: "top" });
-    expect(result).toEqual({ ok: false, error: PANE_ERRORS.broadcastActive });
+    expect(result).toEqual({ ok: false, error: PANE_ERRORS.broadcastActiveSameTab });
     expect(ports.movePane).not.toHaveBeenCalled();
+  });
+});
+
+describe("broadcast refusals name the right action", () => {
+  const broadcasting = () =>
+    makePorts({ splitTabs: vi.fn(() => [splitTab({ broadcastActive: true })]) });
+
+  it("a move inside a broadcasting tab talks about moving, not placing", () => {
+    const result = moveToPane(broadcasting(), {
+      sessionId: "sess-a", targetSessionId: "sess-b", position: "right",
+    });
+    expect(result).toEqual({ ok: false, error: PANE_ERRORS.broadcastActiveSameTab });
+  });
+
+  it("a split into a broadcasting tab keeps the placement wording", () => {
+    const result = splitWith(broadcasting(), {
+      sessionId: "sess-c", targetSessionId: "sess-a", position: "right",
+    });
+    expect(result).toEqual({ ok: false, error: PANE_ERRORS.broadcastActive });
+  });
+
+  it("a cross-tab move into a broadcasting tab keeps the placement wording", () => {
+    const source = splitTab({
+      id: "tab-2",
+      root: {
+        type: "split", id: "s-2", direction: "h", ratio: 0.5,
+        first: { type: "leaf", id: "p-3", sessionId: "sess-c" },
+        second: { type: "leaf", id: "p-4", sessionId: "sess-d" },
+      },
+      broadcastActive: false,
+    });
+    const ports = makePorts({
+      splitTabs: vi.fn(() => [splitTab({ broadcastActive: true }), source]),
+      sessions: vi.fn(() => [
+        { id: "sess-a", connectionName: "web-01" },
+        { id: "sess-b", connectionName: "db-01" },
+        { id: "sess-c", connectionName: "lonely" },
+        { id: "sess-d", connectionName: "other" },
+      ]),
+    });
+    const result = moveToPane(ports, {
+      sessionId: "sess-c", targetSessionId: "sess-a", position: "right",
+    });
+    expect(result).toEqual({ ok: false, error: PANE_ERRORS.broadcastActive });
   });
 });
 
