@@ -198,17 +198,24 @@ export default function TitleBar() {
   };
 
   const renderMcpBar = (key: string, sessionIds: string[]) => {
-    const owned = sessionIds.some((id) => id in mcpOwners);
+    const owners = sessionIds.map((id) => mcpOwners[id]).filter((o) => o !== undefined);
     const busy = sessionIds.some((id) => (mcpBusy[id] ?? 0) > 0);
-    if (!owned && !busy) return null;
-    return <McpMark variant="rail" testId={`mcp-bar-${key}`} busy={busy} />;
+    if (owners.length === 0 && !busy) return null;
+    // Orphaned only if every owned session in this tab lost its client; an unowned,
+    // merely-busy session (a live call against a user-opened session) is not an orphan.
+    const disconnected = owners.length > 0 && owners.every((o) => o.clientId === null);
+    return <McpMark variant="rail" testId={`mcp-bar-${key}`} busy={busy} disconnected={disconnected} />;
   };
 
   const mcpTooltip = (sessionIds: string[]): string | undefined =>
     mcpOwnerTitle(
       sessionIds.map((id) => mcpOwners[id]).find((o) => o !== undefined),
       t,
-      { known: "panes.header.mcpTooltip", unknown: "panes.header.mcpTooltipUnknown" },
+      {
+        known: "panes.header.mcpTooltip",
+        unknown: "panes.header.mcpTooltipUnknown",
+        disconnected: "panes.header.mcpTooltipDisconnected",
+      },
     );
 
   const renderTitlebarDropCue = (itemKey: string | null, placement: "before" | "after") => {
