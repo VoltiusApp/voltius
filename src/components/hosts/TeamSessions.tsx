@@ -17,17 +17,13 @@ function JoinByCodeButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
   return (
     <button
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
-      style={{
-        color: "var(--t-accent)",
-        background: "color-mix(in srgb, var(--t-accent) 10%, transparent)",
-        border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)",
-      }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-accent) 18%, transparent)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-accent) 10%, transparent)"; }}
+      className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors"
+      style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
+      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)")}
+      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)")}
       onClick={onClick}
     >
-      <Icon icon="lucide:link" width={12} />
+      <Icon icon="lucide:link" width={11} />
       {t("hosts.teamSessions.joinByCode")}
     </button>
   );
