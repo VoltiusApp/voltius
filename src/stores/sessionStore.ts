@@ -21,6 +21,7 @@ import { getGlobalKeepalivePreset, resolvePersistSession } from "@/stores/connec
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/ephemeralCredentials";
 import { storeSecret, getSecret } from "@/services/vault";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -82,6 +83,12 @@ type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: st
 // otherwise fail to find them. Registered on connectDirect, cleared on
 // removeSession.
 const ephemeralConnections = new Map<string, Connection>();
+
+/** Forget an ephemeral host: both its record and the auth cached against it. */
+function dropEphemeralConnection(connectionId: string): void {
+  ephemeralConnections.delete(connectionId);
+  clearEphemeralCredentials(connectionId);
+}
 
 function findConnection(connectionId: string): Connection | undefined {
   const { connections, teamConnections } = useConnectionStore.getState();
@@ -1125,7 +1132,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
                 : sess,
             ),
           }));
-          ephemeralConnections.delete(oldId);
+          dropEphemeralConnection(oldId);
           connection = target;
         } else {
           await persistConnectAuth(connection, merged).catch(() => {});
@@ -1149,6 +1156,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         }),
       );
       connectOverrides.delete(sessionId);
+      // The overrides map is session-scoped and just went away. For an unsaved
+      // quick-connect host nothing else holds this auth, so hand it to the
+      // connection-scoped memory cache: duplicate and reconnect resolve
+      // credentials by connection id and would otherwise dial with none.
+      if (ephemeralConnections.has(conn.id)) {
+        setEphemeralCredentials(conn.id, { username, password, privateKey, passphrase });
+      }
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
@@ -1174,7 +1188,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const remaining = state.sessions.filter((s) => s.id !== sessionId);
     // Duplicates share a connectionId: only the last session may drop the ephemeral connection.
     if (closing && !remaining.some((s) => s.connectionId === closing.connectionId)) {
-      ephemeralConnections.delete(closing.connectionId);
+      dropEphemeralConnection(closing.connectionId);
     }
     connectOverrides.delete(sessionId);
     set({
