@@ -186,3 +186,8 @@ export function objectOp(ports: ToolSurfacePorts, gate: ReturnType<typeof makeGa
     }
   };
 }
+
+/** The ownership check every MCP write gate uses. */
+export function mayAct(ports: ToolSurfacePorts, sessionId: string): boolean {
+  return ports.owned.acquire?.(sessionId) ?? ports.owned.has(sessionId);
+}

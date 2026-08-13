@@ -116,4 +116,21 @@ describe("pane tools", () => {
     expect(tool(ports, "pane_focus").description).toContain("maximize");
     expect(tool(ports, "pane_focus").description).toMatch(/not in a split tab/);
   });
+
+  it("a pane write adopts through acquire when the double provides one", async () => {
+    const acquire = vi.fn(() => true);
+    const { ports, panes } = makePorts();
+    const withAcquire = { ...ports, owned: { ...ports.owned, acquire } } as ToolSurfacePorts;
+    await tool(withAcquire, "pane_detach").execute({ sessionId: "orphan" });
+    expect(acquire).toHaveBeenCalledWith("orphan");
+    expect(panes.detach).toHaveBeenCalledWith("orphan");
+  });
+
+  it("pane_list never adopts", async () => {
+    const acquire = vi.fn(() => true);
+    const { ports } = makePorts();
+    const withAcquire = { ...ports, owned: { ...ports.owned, acquire } } as ToolSurfacePorts;
+    await tool(withAcquire, "pane_list").execute({});
+    expect(acquire).not.toHaveBeenCalled();
+  });
 });

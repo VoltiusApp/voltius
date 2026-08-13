@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { PluginPanePosition, PluginPaneResult } from "@/plugins/api";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
-import { makeGate } from "./helpers";
+import { makeGate, mayAct } from "./helpers";
 import { refusal } from "../refusal";
 
 export const PANE_PERMISSIONS = ["panes:read", "panes:write"] as const;
@@ -38,10 +38,10 @@ export function buildPaneTools(ports: ToolSurfacePorts): Tool[] {
     run: (args: Record<string, unknown>) => PluginPaneResult,
     requireOwned = true,
   ): Promise<unknown> => {
-    if (requireOwned && !ports.owned.has(String(raw.sessionId))) return notOwned();
+    if (requireOwned && !mayAct(ports, String(raw.sessionId))) return notOwned();
     const g = await gate(tool, raw);
     if (!g.ok) return g.result;
-    if (requireOwned && !ports.owned.has(String(g.args.sessionId))) return notOwned();
+    if (requireOwned && !mayAct(ports, String(g.args.sessionId))) return notOwned();
     const result = run(g.args);
     return result.ok ? { ok: true, result: result.tab } : refusal(result.error);
   };
