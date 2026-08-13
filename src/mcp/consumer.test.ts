@@ -218,4 +218,13 @@ describe("MCP consumer", () => {
     for (const { decision } of seen) expect(decision).toMatchObject({ approve: true, via: "granted" });
     vi.restoreAllMocks();
   });
+
+  it("describes the pane verbs without naming an approval that MCP does not do", () => {
+    const paneTools = buildMcpTools(api(), new Set()).filter((t) => t.name.startsWith("pane_") || t.name === "session_move_to_pane");
+    expect(paneTools).toHaveLength(5);
+    for (const t of paneTools) {
+      expect(t.description.toLowerCase()).not.toContain("prompt");
+      expect(t.description).not.toBe("");
+    }
+  });
 });

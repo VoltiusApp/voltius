@@ -132,6 +132,22 @@ export const MCP_TEXT = {
       "Read this device's activity log, newest first — including the rows your own calls "
       + "produced. `action` filters to one exact action name as it appears in a row's `action` "
       + "field. Local rows only; team-vault activity is not returned.",
+    pane_split:
+      "Put a session you opened into a split pane beside another session, which may be one of the "
+      + "user's own. `position` is where the incoming session lands relative to the target. Use "
+      + "session_move_to_pane for a session already in a split tab. Runs immediately; your own "
+      + "client is responsible for approval.",
+    session_move_to_pane:
+      "Move a session you opened next to another session, within the same split tab or across tabs. "
+      + "Runs immediately; your own client is responsible for approval.",
+    pane_detach:
+      "Take a session you opened out of its split tab. The session stays open and becomes its own "
+      + "tab; use close_session to end it. Runs immediately; your own client is responsible for "
+      + "approval.",
+    pane_focus:
+      "Bring a session's pane to the front so the user sees it, optionally maximizing it within its "
+      + "tab. Works on any open session and changes only what is visible. Runs immediately; your "
+      + "own client is responsible for approval.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };
