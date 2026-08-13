@@ -18,6 +18,7 @@ import { buildTransferTools, TRANSFER_PERMISSIONS } from "./tools/transfers";
 import { buildTelemetryTools, TELEMETRY_PERMISSIONS } from "./tools/telemetry";
 import { buildPaneTools, PANE_PERMISSIONS } from "./tools/panes";
 import { buildTeamTools, TEAM_PERMISSIONS } from "./tools/team";
+import { buildSharingTools, SHARING_PERMISSIONS } from "./tools/sharing";
 
 /** One entry per domain: builder and permissions travel together so they cannot drift. */
 const GROUPS = [
@@ -39,6 +40,7 @@ const GROUPS = [
   { build: buildTransferTools, permissions: TRANSFER_PERMISSIONS },
   { build: buildTelemetryTools, permissions: TELEMETRY_PERMISSIONS },
   { build: buildTeamTools, permissions: TEAM_PERMISSIONS },
+  { build: buildSharingTools, permissions: SHARING_PERMISSIONS },
 ] as const;
 
 export const ALL_PERMISSIONS: readonly string[] = [

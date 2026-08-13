@@ -1,15 +1,9 @@
 import { z } from "zod";
-import type { TeamWriteResult } from "@/plugins/api";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
-import { makeGate, objectOp } from "./helpers";
-import { refusal } from "../refusal";
+import { makeGate, objectOp, unwrapDomain } from "./helpers";
 
 export const TEAM_PERMISSIONS = ["team:read", "team:write"] as const;
-
-/** The team domain declines by returning, not throwing; objectOp passes the
- *  refusal through and wraps only the success. */
-const unwrap = <T>(r: TeamWriteResult<T>): unknown => (r.ok ? r.result : refusal(r.error));
 
 const optionalString = (value: unknown): string | undefined => (value === undefined ? undefined : String(value));
 
@@ -62,7 +56,7 @@ export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
         }),
       execute: async (raw) =>
         op("member_invite", "agent.member_invited", { teamId: String(raw.teamId) }, raw, async (a) =>
-          unwrap(await ports.api.team.invite({
+          unwrapDomain(await ports.api.team.invite({
             teamId: String(a.teamId),
             email: optionalString(a.email),
             userId: optionalString(a.userId),
@@ -77,7 +71,7 @@ export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
       schema: z.object({ teamId: z.string(), userId: z.string() }),
       execute: async (raw) =>
         op("member_remove", "agent.member_removed", { teamId: String(raw.teamId) }, raw, async (a) =>
-          unwrap(await ports.api.team.removeMember(String(a.teamId), String(a.userId)))),
+          unwrapDomain(await ports.api.team.removeMember(String(a.teamId), String(a.userId)))),
     },
     {
       name: "member_set_role",
@@ -88,7 +82,7 @@ export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
       schema: z.object({ teamId: z.string(), userId: z.string(), roleId: z.string() }),
       execute: async (raw) =>
         op("member_set_role", "agent.member_role_changed", { teamId: String(raw.teamId) }, raw, async (a) =>
-          unwrap(await ports.api.team.setMemberRole(String(a.teamId), String(a.userId), String(a.roleId)))),
+          unwrapDomain(await ports.api.team.setMemberRole(String(a.teamId), String(a.userId), String(a.roleId)))),
     },
   ];
 }

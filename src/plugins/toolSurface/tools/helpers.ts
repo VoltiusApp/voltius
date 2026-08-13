@@ -193,6 +193,17 @@ export function objectOp(ports: ToolSurfacePorts, gate: ReturnType<typeof makeGa
   };
 }
 
+/**
+ * The shape every returning domain declines with (`TeamWriteResult`,
+ * `SharingResult`). Declared here rather than imported from one of them so a
+ * third domain does not have to pick a sibling to borrow from.
+ */
+export type DomainWriteResult<T> = { ok: true; result: T } | { ok: false; error: string };
+
+/** Unwrap such a result for `objectOp`, which wraps the success and passes the
+ *  refusal through untouched. */
+export const unwrapDomain = <T>(r: DomainWriteResult<T>): unknown => (r.ok ? r.result : refusal(r.error));
+
 /** The ownership check every MCP write gate uses. */
 export function mayAct(ports: ToolSurfacePorts, sessionId: string): boolean {
   return ports.owned.acquire?.(sessionId) ?? ports.owned.has(sessionId);
