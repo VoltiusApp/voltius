@@ -46,6 +46,29 @@ export interface HistoryEntry {
   dismissedAt: number;
 }
 
+export type InboxKind =
+  | "invite"
+  | "sessionShared"
+  | "controlRequest"
+  | "controlGranted"
+  | "awaitingKey";
+
+export interface InboxAction {
+  label: string;
+  run: () => Promise<void>;
+}
+
+export interface InboxEntry {
+  id: string;
+  source: NotificationSource;
+  kind: InboxKind;
+  message: string;
+  actions: InboxAction[];
+  state: "pending" | "acting" | "resolved";
+  resolution?: string;
+  createdAt: number;
+}
+
 const MAX_TOASTS = 5;
 const MAX_BANNERS = 10;
 const MAX_HISTORY = 50;
@@ -54,7 +77,7 @@ interface NotificationStore {
   toasts: ToastEntry[];
   banners: BannerEntry[];
   history: HistoryEntry[];
-  unreadCount: number;
+  inbox: InboxEntry[];
 
   addToast(entry: Omit<ToastEntry, "id" | "createdAt">): string;
   updateToast(id: string, patch: Partial<ToastEntry>): void;
@@ -64,16 +87,21 @@ interface NotificationStore {
   updateBanner(id: string, patch: Partial<BannerEntry>): void;
   dismissBanner(id: string): void;
 
+  upsertInbox(entry: Omit<InboxEntry, "state" | "createdAt"> & { state?: InboxEntry["state"] }): void;
+  retractInbox(id: string): void;
+  resolveInbox(id: string, resolution: string): void;
+  runInboxAction(id: string, index: number): Promise<void>;
+
   dismissAllForPlugin(pluginId: string): void;
-  markAllRead(): void;
+  unreadCount(): number;
   clearHistory(): void;
 }
 
-export const useNotificationStore = create<NotificationStore>((set) => ({
+export const useNotificationStore = create<NotificationStore>((set, get) => ({
   toasts: [],
   banners: [],
   history: [],
-  unreadCount: 0,
+  inbox: [],
 
   addToast(entry) {
     const id = `${sourceKey(entry.source)}:${crypto.randomUUID()}`;
@@ -93,7 +121,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
           return s;
         }
       }
-      return { toasts, unreadCount: s.unreadCount + 1 };
+      return { toasts };
     });
 
     return id;
@@ -141,7 +169,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
           return s;
         }
       }
-      return { banners, unreadCount: s.unreadCount + 1 };
+      return { banners };
     });
 
     return id;
@@ -166,8 +194,54 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
     }));
   },
 
-  markAllRead() {
-    set({ unreadCount: 0 });
+  upsertInbox(entry) {
+    set((s) => {
+      const existing = s.inbox.find((e) => e.id === entry.id);
+      if (!existing) {
+        return {
+          inbox: [...s.inbox, { ...entry, state: entry.state ?? "pending", createdAt: Date.now() }],
+        };
+      }
+      return {
+        inbox: s.inbox.map((e) =>
+          e.id === entry.id ? { ...e, ...entry, state: entry.state ?? e.state, createdAt: e.createdAt } : e,
+        ),
+      };
+    });
+  },
+
+  retractInbox(id) {
+    set((s) => ({ inbox: s.inbox.filter((e) => e.id !== id) }));
+  },
+
+  resolveInbox(id, resolution) {
+    set((s) => ({
+      inbox: s.inbox.map((e) => (e.id === id ? { ...e, state: "resolved", resolution } : e)),
+    }));
+  },
+
+  async runInboxAction(id, index) {
+    const entry = get().inbox.find((e) => e.id === id);
+    if (!entry || entry.state !== "pending") return;
+    const action = entry.actions[index];
+    if (!action) return;
+    set((s) => ({
+      inbox: s.inbox.map((e) => (e.id === id ? { ...e, state: "acting" } : e)),
+    }));
+    try {
+      await action.run();
+      // Deliberately no retract here: the reconciler owns retraction when the
+      // source row disappears, so success alone must not remove the entry.
+    } catch {
+      set((s) => ({
+        inbox: s.inbox.map((e) => (e.id === id ? { ...e, state: "pending" } : e)),
+      }));
+    }
+  },
+
+  unreadCount() {
+    const s = get();
+    return s.banners.length + s.inbox.filter((e) => e.state !== "resolved").length;
   },
 
   clearHistory() {

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { Icon } from "@iconify/react";
 import { useNotificationStore } from "@/stores/notificationStore";
-import type { BannerEntry, HistoryEntry } from "@/stores/notificationStore";
+import type { BannerEntry, HistoryEntry, InboxEntry } from "@/stores/notificationStore";
 
 const SEVERITY_ICONS: Record<string, string> = {
   info: "lucide:info",
@@ -26,6 +26,45 @@ function relativeTime(ms: number): string {
   if (diff < 3_600_000) return i18n.t("notifications.bell.relativeTime.minutesAgo", { count: Math.floor(diff / 60_000) });
   if (diff < 86_400_000) return i18n.t("notifications.bell.relativeTime.hoursAgo", { count: Math.floor(diff / 3_600_000) });
   return i18n.t("notifications.bell.relativeTime.daysAgo", { count: Math.floor(diff / 86_400_000) });
+}
+
+function InboxRow({ entry, onAction }: { entry: InboxEntry; onAction: (i: number) => void }) {
+  const resolved = entry.state === "resolved";
+  return (
+    <div
+      className="flex flex-col gap-1 px-3 py-2.5 rounded-lg"
+      style={{
+        background: "var(--t-bg-elevated)",
+        borderLeft: `2px solid ${resolved ? "var(--t-text-dim)" : "var(--t-accent)"}`,
+        opacity: resolved ? 0.6 : 1,
+      }}
+    >
+      <p className="text-sm text-(--t-text-primary) leading-snug">{entry.message}</p>
+      {resolved ? (
+        <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>{entry.resolution}</span>
+      ) : (
+        entry.actions.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            {entry.actions.map((a, i) => (
+              <button
+                key={a.label}
+                disabled={entry.state === "acting"}
+                onClick={() => onAction(i)}
+                className="text-xs px-2 py-0.5 rounded-sm transition-colors"
+                style={{
+                  background: "var(--t-bg-input)",
+                  color: "var(--t-text-primary)",
+                  opacity: entry.state === "acting" ? 0.5 : 1,
+                }}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  );
 }
 
 function BannerRow({ banner, onDismiss }: { banner: BannerEntry; onDismiss: () => void }) {
@@ -108,9 +147,10 @@ export function NotificationBell() {
   const { t } = useTranslation();
   const banners = useNotificationStore((s) => s.banners);
   const history = useNotificationStore((s) => s.history);
-  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const inbox = useNotificationStore((s) => s.inbox);
+  const unreadCount = useNotificationStore((s) => s.unreadCount());
   const dismissBanner = useNotificationStore((s) => s.dismissBanner);
-  const markAllRead = useNotificationStore((s) => s.markAllRead);
+  const runInboxAction = useNotificationStore((s) => s.runInboxAction);
   const clearHistory = useNotificationStore((s) => s.clearHistory);
 
   const [open, setOpen] = useState(false);
@@ -137,12 +177,11 @@ export function NotificationBell() {
       const rect = buttonRef.current.getBoundingClientRect();
       setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
     }
-    markAllRead();
     setOpen((o) => !o);
   };
 
   const displayCount = Math.min(unreadCount, 9);
-  const hasItems = banners.length > 0 || history.length > 0;
+  const hasItems = inbox.length > 0 || banners.length > 0 || history.length > 0;
 
   return (
     <>
@@ -228,6 +267,19 @@ export function NotificationBell() {
               </div>
             ) : (
               <div className="flex flex-col gap-0.5 p-2">
+                {inbox.length > 0 && (
+                  <>
+                    {inbox.map((e) => (
+                      <InboxRow key={e.id} entry={e} onAction={(i) => runInboxAction(e.id, i)} />
+                    ))}
+                    {(banners.length > 0 || history.length > 0) && (
+                      <div
+                        className="my-1 h-px"
+                        style={{ background: "var(--t-border)" }}
+                      />
+                    )}
+                  </>
+                )}
                 {banners.length > 0 && (
                   <>
                     {banners.map((b) => (
