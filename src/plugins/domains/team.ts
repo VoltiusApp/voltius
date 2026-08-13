@@ -164,9 +164,18 @@ export async function removeMember(ports: TeamPorts, teamId: string, userId: str
  * Resolve a caller-supplied role to a role id, accepting either the id or the
  * name the read verbs report. Names are the model-visible half of a role, so a
  * verb that took ids only was uncallable without one.
+ *
+ * The load is NOT optional here, unlike the read verbs': resolving against a
+ * stale cache can yield a since-deleted id, and the removes run before the
+ * assign — which would strip the member of every role, the exact end state
+ * accepting a name was meant to prevent.
  */
 async function resolveRoleId(ports: TeamPorts, teamId: string, role: string): Promise<DomainResult<string>> {
-  await optionalLoad(ports.loadRoles(teamId));
+  try {
+    await ports.loadRoles(teamId);
+  } catch (err) {
+    return failed(err);
+  }
   const roles = ports.roles(teamId);
   if (roles.some((r: TeamRole) => r.id === role)) return { ok: true, result: role };
   const named = roles.filter((r: TeamRole) => r.name.toLowerCase() === role.toLowerCase());

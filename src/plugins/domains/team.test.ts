@@ -203,6 +203,20 @@ test("setMemberRole refuses an ambiguous role name and asks for the id", async (
   expect(removeMemberRole).not.toHaveBeenCalled();
 });
 
+test("setMemberRole refuses when the roles cannot be reloaded, without removing anything", async () => {
+  const removeMemberRole = vi.fn(async () => {});
+  const assignMemberRole = vi.fn(async () => {});
+  const p = ports({
+    members: () => [member({ user_id: "u2", role_ids: ["r1"] })],
+    loadRoles: vi.fn(async () => { throw new Error("403 Forbidden"); }),
+    removeMemberRole,
+    assignMemberRole,
+  });
+  expect(await setMemberRole(p, "t1", "u2", "manager")).toEqual({ ok: false, error: "403 Forbidden" });
+  expect(removeMemberRole).not.toHaveBeenCalled();
+  expect(assignMemberRole).not.toHaveBeenCalled();
+});
+
 test("listTeams still reports a team whose roles cannot be read", async () => {
   const p = ports({
     loadRoles: vi.fn(async () => { throw new Error("403 Forbidden"); }),
