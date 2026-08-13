@@ -73,6 +73,14 @@ const MAX_TOASTS = 5;
 const MAX_BANNERS = 10;
 const MAX_HISTORY = 50;
 
+function updateById<T extends { id: string }>(list: T[], id: string, patch: Partial<T>): T[] {
+  return list.map((item) => (item.id === id ? { ...item, ...patch } : item));
+}
+
+function removeById<T extends { id: string }>(list: T[], id: string): T[] {
+  return list.filter((item) => item.id !== id);
+}
+
 interface NotificationStore {
   toasts: ToastEntry[];
   banners: BannerEntry[];
@@ -130,9 +138,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   updateToast(id, patch) {
     set((s) => {
       if (!s.toasts.find((t) => t.id === id)) return s;
-      return {
-        toasts: s.toasts.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-      };
+      return { toasts: updateById(s.toasts, id, patch) };
     });
   },
 
@@ -149,7 +155,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       };
       const history = [historyEntry, ...s.history].slice(0, MAX_HISTORY);
       return {
-        toasts: s.toasts.filter((t) => t.id !== id),
+        toasts: removeById(s.toasts, id),
         history,
       };
     });
@@ -176,13 +182,11 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   },
 
   updateBanner(id, patch) {
-    set((s) => ({
-      banners: s.banners.map((b) => (b.id === id ? { ...b, ...patch } : b)),
-    }));
+    set((s) => ({ banners: updateById(s.banners, id, patch) }));
   },
 
   dismissBanner(id) {
-    set((s) => ({ banners: s.banners.filter((b) => b.id !== id) }));
+    set((s) => ({ banners: removeById(s.banners, id) }));
   },
 
   dismissAllForPlugin(pluginId) {
@@ -211,13 +215,11 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   },
 
   retractInbox(id) {
-    set((s) => ({ inbox: s.inbox.filter((e) => e.id !== id) }));
+    set((s) => ({ inbox: removeById(s.inbox, id) }));
   },
 
   resolveInbox(id, resolution) {
-    set((s) => ({
-      inbox: s.inbox.map((e) => (e.id === id ? { ...e, state: "resolved", resolution } : e)),
-    }));
+    set((s) => ({ inbox: updateById(s.inbox, id, { state: "resolved", resolution }) }));
   },
 
   async runInboxAction(id, index) {
@@ -225,17 +227,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     if (!entry || entry.state !== "pending") return;
     const action = entry.actions[index];
     if (!action) return;
-    set((s) => ({
-      inbox: s.inbox.map((e) => (e.id === id ? { ...e, state: "acting" } : e)),
-    }));
+    set((s) => ({ inbox: updateById(s.inbox, id, { state: "acting" }) }));
     try {
       await action.run();
       // Deliberately no retract here: the reconciler owns retraction when the
       // source row disappears, so success alone must not remove the entry.
     } catch {
-      set((s) => ({
-        inbox: s.inbox.map((e) => (e.id === id ? { ...e, state: "pending" } : e)),
-      }));
+      set((s) => ({ inbox: updateById(s.inbox, id, { state: "pending" }) }));
     }
   },
 
