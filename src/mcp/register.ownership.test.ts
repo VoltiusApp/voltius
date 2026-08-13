@@ -47,10 +47,10 @@ describe("bridge ownership", () => {
     expect(useMcpOwnershipStore.getState().owners.s1.clientName).toBe("");
   });
 
-  it("client_closed clears that client's claims", async () => {
+  it("client_closed orphans that client's claims rather than dropping them", async () => {
     await handleBridgePayload({ op: "tools/call", name: "open_session", args: {}, clientId: "c1" });
     await handleBridgePayload({ op: "client_closed", clientId: "c1" });
-    expect(useMcpOwnershipStore.getState().owners.s1).toBeUndefined();
+    expect(useMcpOwnershipStore.getState().owners.s1).toMatchObject({ clientId: null });
   });
 
   it("marks the session busy for the duration of a call and clears it after", async () => {
