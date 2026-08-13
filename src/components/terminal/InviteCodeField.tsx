@@ -8,22 +8,24 @@ export function InviteCodeField({ code, autoCopied = false }: { code: string; au
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showCopied = () => {
+  // Manual copy flashes for 2s (the click itself is the feedback). Auto-copy has no
+  // click to anchor to, so it must persist until something else changes it.
+  const showCopied = (persist: boolean) => {
     setCopied(true);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => setCopied(false), 2000);
+    if (!persist) timeoutRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   // React to autoCopied flipping true after mount, not just its value at mount time.
   useEffect(() => {
-    if (autoCopied) showCopied();
+    if (autoCopied) showCopied(true);
   }, [autoCopied]);
 
   useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
 
   const handleCopy = async () => {
     await writeClipboard(code);
-    showCopied();
+    showCopied(false);
   };
 
   return (

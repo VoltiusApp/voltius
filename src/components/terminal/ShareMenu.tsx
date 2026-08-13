@@ -401,7 +401,7 @@ function ActiveSharingView({
         )}
       </div>
 
-      {activeMp.participants.length > 0 && (
+      {participantCount > 0 && (
         <div className="flex flex-wrap gap-1 mb-3">
           {activeMp.participants.map((p) => (
             <div
@@ -423,7 +423,7 @@ function ActiveSharingView({
         </div>
       )}
 
-      {activeMp.participants.length === 0 && (
+      {participantCount === 0 && (
         <p className="text-[11px] mb-3" style={{ color: "var(--t-text-dim)" }}>
           {t("terminal.share.waitingForGuests")}
         </p>

@@ -111,6 +111,32 @@ test("generating an invite link copies the code to the clipboard and shows the c
   expect(input.value).toBe("mp-1:tok-abc");
 });
 
+test("with only the host in participants, the waiting line renders and no lone self-chip appears", () => {
+  mpState.connections = {
+    "local-1": { multiplayerSessionId: "mp-1", ended: false, participants: [{ user_id: "me", display_name: "Me" }], myUserId: "me", controlHolder: "me" },
+  };
+  renderMenu();
+
+  expect(screen.getByText("terminal.share.waitingForGuests")).toBeTruthy();
+  expect(screen.queryByText("Me")).toBeNull();
+});
+
+test("with a guest present, the chips render and the waiting line does not", () => {
+  mpState.connections = {
+    "local-1": {
+      multiplayerSessionId: "mp-1",
+      ended: false,
+      participants: [{ user_id: "me", display_name: "Me" }, { user_id: "guest-1", display_name: "Guest" }],
+      myUserId: "me",
+      controlHolder: "me",
+    },
+  };
+  renderMenu();
+
+  expect(screen.getByText("Guest")).toBeTruthy();
+  expect(screen.queryByText("terminal.share.waitingForGuests")).toBeNull();
+});
+
 test("a rejecting writeClipboard leaves the share successful and the field uncopied", async () => {
   writeClipboard.mockRejectedValue(new Error("denied"));
 

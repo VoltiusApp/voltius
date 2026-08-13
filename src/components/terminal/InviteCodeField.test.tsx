@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -32,4 +32,32 @@ test("shows the copied state when the code arrived pre-copied", () => {
 test("shows the idle copy label otherwise", () => {
   render(<InviteCodeField code={CODE} />);
   expect(screen.getByText("common.action.copy")).toBeTruthy();
+});
+
+test("auto-copied state persists past the manual-copy timer duration", () => {
+  vi.useFakeTimers();
+  try {
+    render(<InviteCodeField code={CODE} autoCopied />);
+    expect(screen.getByText("terminal.shared.copied")).toBeTruthy();
+    vi.advanceTimersByTime(2000);
+    expect(screen.getByText("terminal.shared.copied")).toBeTruthy();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a manual copy reverts to the idle label after its 2-second timer", async () => {
+  vi.useFakeTimers();
+  try {
+    render(<InviteCodeField code={CODE} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button"));
+      await Promise.resolve(); // flush the awaited writeClipboard() microtask
+    });
+    expect(screen.getByText("terminal.shared.copied")).toBeTruthy();
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.getByText("common.action.copy")).toBeTruthy();
+  } finally {
+    vi.useRealTimers();
+  }
 });
