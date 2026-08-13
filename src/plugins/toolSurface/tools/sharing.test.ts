@@ -19,6 +19,7 @@ function makePorts(
   const audit = vi.fn();
   const sharing = {
     list: vi.fn(async () => [SHARED]),
+    shareRefusal: vi.fn(() => null as string | null),
     share: vi.fn(async () => ({ ok: true as const, result: { multiplayerSessionId: "m1" } })),
     unshare: vi.fn(async () => ({ ok: true as const, result: null })),
     handoffControl: vi.fn(async () => ({ ok: true as const, result: null })),
@@ -67,12 +68,43 @@ describe("sharing verbs", () => {
     });
   });
 
-  it("list_shared_sessions returns the rows bare, raising no card and writing no audit row", async () => {
+  it("list_shared_sessions returns the rows, raising no card and writing no audit row", async () => {
     const { ports, audit, approve, sharing } = makePorts({}, { owned: new Set() as unknown as ToolSurfacePorts["owned"] });
-    expect(await tool(ports, "list_shared_sessions").execute({})).toEqual([SHARED]);
+    expect(await tool(ports, "list_shared_sessions").execute({})).toEqual([{ ...SHARED, agentOwned: false }]);
     expect(sharing.list).toHaveBeenCalled();
     expect(approve).not.toHaveBeenCalled();
     expect(audit).not.toHaveBeenCalled();
+  });
+
+  it("list_shared_sessions marks the rows the agent may act on, by the pure ownership read", async () => {
+    const acquire = vi.fn(() => true);
+    const owned = {
+      has: (id: string) => id === "s1", add: () => {}, delete: () => false, acquire,
+    } as unknown as ToolSurfacePorts["owned"];
+    const { ports } = makePorts({
+      list: vi.fn(async () => [
+        SHARED,
+        { ...SHARED, multiplayerSessionId: "m2", localSessionId: "s2" },
+        { ...SHARED, multiplayerSessionId: "m3", localSessionId: null },
+      ]),
+    }, { owned });
+    const rows = await tool(ports, "list_shared_sessions").execute({}) as { agentOwned: boolean }[];
+    expect(rows.map((r) => r.agentOwned)).toEqual([true, false, false]);
+    // A read must never adopt: acquire is mayAct's side effect and belongs to
+    // the write path only.
+    expect(acquire).not.toHaveBeenCalled();
+  });
+
+  it("share_session refuses a broadcasting tab before the card is raised and before the audit row", async () => {
+    const { ports, sharing, audit, approve } = makePorts({
+      shareRefusal: vi.fn(() => "that tab has broadcast typing enabled" as string | null),
+    });
+    expect(await tool(ports, "share_session").execute({ sessionId: "s1", vaultIds: ["t1"] }))
+      .toEqual({ refused: true, error: "that tab has broadcast typing enabled" });
+    expect(sharing.shareRefusal).toHaveBeenCalledWith("s1");
+    expect(approve).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
+    expect(sharing.share).not.toHaveBeenCalled();
   });
 
   it("share_session audits before dispatch and wraps the domain result", async () => {

@@ -6,6 +6,7 @@ test("api.team and api.sharing refuse a plugin without the permission", async ()
   await expect(api.team.list()).rejects.toThrow(/team:read/);
   await expect(api.team.removeMember("t1", "u1")).rejects.toThrow(/team:write/);
   await expect(api.sharing.list()).rejects.toThrow(/sharing:read/);
+  expect(() => api.sharing.shareRefusal("s1")).toThrow(/sharing:read/);
   await expect(api.sharing.unshare("s1")).rejects.toThrow(/sharing:write/);
 });
 

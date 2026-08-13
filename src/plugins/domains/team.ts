@@ -28,11 +28,17 @@ export interface TeamPorts {
 }
 
 export interface PluginTeam {
-  id: string; name: string; ownerTier: string; myRoles: string[]; vaultStatus: string;
+  id: string; name: string; ownerTier: string; myRoles: string[]; myRoleIds: string[]; vaultStatus: string;
 }
-export interface PluginTeamMember {
-  userId: string; displayName: string; roles: string[]; isOnline: boolean; state: "member" | "pending";
-}
+/**
+ * A joined member and a pending invitation are NOT interchangeable: the id on a
+ * pending row identifies the invitation, not a user, and passing it where a user
+ * id is expected addresses nothing. The two carry different id fields so a
+ * caller cannot confuse them.
+ */
+export type PluginTeamMember =
+  | { state: "member"; userId: string; displayName: string; roles: string[]; roleIds: string[]; isOnline: boolean }
+  | { state: "pending"; invitationId: string; displayName: string; roles: string[]; isOnline: false };
 export interface PluginMemberKeyState {
   userId: string; displayName: string; hasPublicKey: boolean; hasWrappedKey: boolean;
 }
@@ -45,35 +51,49 @@ const roleNames = (ports: TeamPorts, teamId: string, ids: string[]): string[] =>
   return ids.map((id) => byId.get(id) ?? id);
 };
 
+/**
+ * A per-team load the caller may not be allowed to make. A team whose members
+ * or roles answer 403 still belongs in the result — its vault status says why
+ * it is empty — so one unreadable team never fails the whole read.
+ */
+const optionalLoad = (p: Promise<void>): Promise<void> => p.catch(() => {});
+
 export async function listTeams(ports: TeamPorts): Promise<PluginTeam[]> {
   await ports.loadTeams();
   const teams = ports.teams();
-  await Promise.all(teams.map((t: Team) => ports.loadRoles(t.id)));
+  await Promise.all(teams.map((t: Team) => optionalLoad(ports.loadRoles(t.id))));
   return teams.map((t: Team) => ({
     id: t.id,
     name: t.name,
     ownerTier: t.owner_tier,
     myRoles: roleNames(ports, t.id, t.role_ids),
+    myRoleIds: t.role_ids,
     vaultStatus: ports.vaultStatus(t.id),
   }));
 }
 
 export async function listMembers(ports: TeamPorts, teamId: string): Promise<PluginTeamMember[]> {
-  await Promise.all([ports.loadMembers(teamId), ports.loadPendingInvitations(teamId), ports.loadRoles(teamId)]);
+  await Promise.all([
+    optionalLoad(ports.loadMembers(teamId)),
+    optionalLoad(ports.loadPendingInvitations(teamId)),
+    optionalLoad(ports.loadRoles(teamId)),
+  ]);
   const joined = ports.members(teamId).map((m: TeamMember) => ({
     userId: m.user_id,
     displayName: m.display_name,
     roles: roleNames(ports, teamId, m.role_ids),
+    roleIds: m.role_ids,
     isOnline: m.is_online ?? false,
     state: "member" as const,
   }));
   // An invitation carries a role NAME, not an id, and no online state: an
-  // invitee has no client in the team yet.
+  // invitee has no client in the team yet. Its id is the INVITATION's, which is
+  // why it is not called userId.
   const pending = ports.pendingInvitations(teamId).map((p: PendingInvitation) => ({
-    userId: p.id,
+    invitationId: p.id,
     displayName: p.display_name,
     roles: [p.role],
-    isOnline: false,
+    isOnline: false as const,
     state: "pending" as const,
   }));
   return [...joined, ...pending];
@@ -84,9 +104,10 @@ export async function keyStatus(ports: TeamPorts, teamId?: string): Promise<Plug
   const ids = teamId ? [teamId] : ports.teams().map((t: Team) => t.id);
   const me = await ports.myUserId();
   return Promise.all(ids.map(async (id) => {
-    await ports.loadMembers(id);
-    // A team the caller cannot read answers 403 here. That is data, not a
-    // failure: report an empty holder set beside the vault status that says why.
+    // A team the caller cannot read answers 403 to both of these. That is data,
+    // not a failure: report an empty member and holder set beside the vault
+    // status that says why.
+    await optionalLoad(ports.loadMembers(id));
     const holders = new Set(await ports.keyHolders(id).catch(() => [] as string[]));
     return {
       teamId: id,
@@ -140,12 +161,32 @@ export async function removeMember(ports: TeamPorts, teamId: string, userId: str
 }
 
 /**
+ * Resolve a caller-supplied role to a role id, accepting either the id or the
+ * name the read verbs report. Names are the model-visible half of a role, so a
+ * verb that took ids only was uncallable without one.
+ */
+async function resolveRoleId(ports: TeamPorts, teamId: string, role: string): Promise<DomainResult<string>> {
+  await optionalLoad(ports.loadRoles(teamId));
+  const roles = ports.roles(teamId);
+  if (roles.some((r: TeamRole) => r.id === role)) return { ok: true, result: role };
+  const named = roles.filter((r: TeamRole) => r.name.toLowerCase() === role.toLowerCase());
+  if (named.length === 1) return { ok: true, result: named[0].id };
+  const known = roles.map((r: TeamRole) => `${r.name} (${r.id})`).join(", ") || "none";
+  if (named.length > 1) {
+    return { ok: false, error: `"${role}" names more than one role in that team; give the role id instead: ${known}` };
+  }
+  return { ok: false, error: `no role "${role}" in that team; known roles: ${known}` };
+}
+
+/**
  * There is no set-role primitive: the store only adds and removes. The removes
  * run first so a role cap on the server cannot reject the assign, which means a
- * failed assign leaves the member with nothing — reported, never swallowed.
+ * failed assign leaves the member with nothing — reported, never swallowed. The
+ * role is therefore resolved BEFORE the first remove: an unresolvable one must
+ * not strip the member of what they already hold.
  */
 export async function setMemberRole(
-  ports: TeamPorts, teamId: string, userId: string, roleId: string,
+  ports: TeamPorts, teamId: string, userId: string, role: string,
 ): Promise<DomainResult<null>> {
   try {
     await ports.loadMembers(teamId);
@@ -154,6 +195,9 @@ export async function setMemberRole(
   }
   const target = ports.members(teamId).find((m) => m.user_id === userId);
   if (!target) return { ok: false, error: "no such member in that team" };
+  const resolved = await resolveRoleId(ports, teamId, role);
+  if (!resolved.ok) return resolved;
+  const roleId = resolved.result;
   try {
     for (const existing of target.role_ids) {
       if (existing !== roleId) await ports.removeMemberRole(teamId, userId, existing);

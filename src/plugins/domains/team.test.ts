@@ -15,7 +15,10 @@ function ports(over: Partial<TeamPorts> = {}): TeamPorts {
     loadMembers: vi.fn(async () => {}),
     pendingInvitations: () => [],
     loadPendingInvitations: vi.fn(async () => {}),
-    roles: () => [{ id: "r1", team_id: "t1", name: "manager", permissions: 512, is_builtin: true, position: 1, created_at: "" }],
+    roles: () => [
+      { id: "r1", team_id: "t1", name: "manager", permissions: 512, is_builtin: true, position: 1, created_at: "" },
+      { id: "r3", team_id: "t1", name: "operator", permissions: 0, is_builtin: false, position: 2, created_at: "" },
+    ],
     loadRoles: vi.fn(async () => {}),
     vaultStatus: () => "loaded",
     keyHolders: async () => ["u1"],
@@ -32,7 +35,7 @@ function ports(over: Partial<TeamPorts> = {}): TeamPorts {
 test("listTeams resolves role ids to names and carries the vault status", async () => {
   const teams = await listTeams(ports());
   expect(teams).toEqual([
-    { id: "t1", name: "Team One", ownerTier: "teams", myRoles: ["manager"], vaultStatus: "loaded" },
+    { id: "t1", name: "Team One", ownerTier: "teams", myRoles: ["manager"], myRoleIds: ["r1"], vaultStatus: "loaded" },
   ]);
 });
 
@@ -45,8 +48,10 @@ test("listMembers merges pending invitations, tagged by state", async () => {
   });
   const rows = await listMembers(p, "t1");
   expect(rows).toEqual([
-    { userId: "u1", displayName: "One", roles: ["manager"], isOnline: true, state: "member" },
-    { userId: "u9", displayName: "Nine", roles: ["member"], isOnline: false, state: "pending" },
+    { userId: "u1", displayName: "One", roles: ["manager"], roleIds: ["r1"], isOnline: true, state: "member" },
+    // The pending row carries the INVITATION id, under a name no caller can
+    // mistake for a user id: member_remove(teamId, "u9") would address nothing.
+    { invitationId: "u9", displayName: "Nine", roles: ["member"], isOnline: false, state: "pending" },
   ]);
 });
 
@@ -158,4 +163,79 @@ test("setMemberRole refuses an unknown member without touching any role", async 
   const p = ports({ members: () => [], assignMemberRole });
   expect(await setMemberRole(p, "t1", "u9", "r3")).toEqual({ ok: false, error: "no such member in that team" });
   expect(assignMemberRole).not.toHaveBeenCalled();
+});
+
+test("setMemberRole accepts a role NAME, which is all the read verbs report as a label", async () => {
+  const assignMemberRole = vi.fn(async () => {});
+  const p = ports({ members: () => [member({ user_id: "u2", role_ids: ["r1"] })], assignMemberRole });
+  expect(await setMemberRole(p, "t1", "u2", "operator")).toEqual({ ok: true, result: null });
+  expect(assignMemberRole).toHaveBeenCalledWith("t1", "u2", "r3");
+});
+
+test("setMemberRole refuses an unresolvable role BEFORE removing anything", async () => {
+  const removeMemberRole = vi.fn(async () => {});
+  const assignMemberRole = vi.fn(async () => {});
+  const p = ports({
+    members: () => [member({ user_id: "u2", role_ids: ["r1"] })], removeMemberRole, assignMemberRole,
+  });
+  expect(await setMemberRole(p, "t1", "u2", "nope")).toEqual({
+    ok: false,
+    error: 'no role "nope" in that team; known roles: manager (r1), operator (r3)',
+  });
+  expect(removeMemberRole).not.toHaveBeenCalled();
+  expect(assignMemberRole).not.toHaveBeenCalled();
+});
+
+test("setMemberRole refuses an ambiguous role name and asks for the id", async () => {
+  const removeMemberRole = vi.fn(async () => {});
+  const p = ports({
+    members: () => [member({ user_id: "u2", role_ids: ["r1"] })],
+    roles: () => [
+      { id: "r1", team_id: "t1", name: "ops", permissions: 0, is_builtin: false, position: 1, created_at: "" },
+      { id: "r2", team_id: "t1", name: "Ops", permissions: 0, is_builtin: false, position: 2, created_at: "" },
+    ],
+    removeMemberRole,
+  });
+  expect(await setMemberRole(p, "t1", "u2", "ops")).toEqual({
+    ok: false,
+    error: '"ops" names more than one role in that team; give the role id instead: ops (r1), Ops (r2)',
+  });
+  expect(removeMemberRole).not.toHaveBeenCalled();
+});
+
+test("listTeams still reports a team whose roles cannot be read", async () => {
+  const p = ports({
+    loadRoles: vi.fn(async () => { throw new Error("403 Forbidden"); }),
+    roles: () => [],
+    vaultStatus: () => "forbidden",
+  });
+  expect(await listTeams(p)).toEqual([
+    { id: "t1", name: "Team One", ownerTier: "teams", myRoles: ["r1"], myRoleIds: ["r1"], vaultStatus: "forbidden" },
+  ]);
+});
+
+test("listMembers degrades to what is cached when the member load is forbidden", async () => {
+  const p = ports({
+    loadMembers: vi.fn(async () => { throw new Error("403 Forbidden"); }),
+    loadPendingInvitations: vi.fn(async () => { throw new Error("403 Forbidden"); }),
+    members: () => [],
+    pendingInvitations: () => [],
+  });
+  expect(await listMembers(p, "t1")).toEqual([]);
+});
+
+test("keyStatus keeps a team whose member load rejects, explained by its vault status", async () => {
+  const p = ports({
+    teams: () => [
+      { id: "t1", name: "One", owner_id: "u0", owner_tier: "teams", created_at: "", role_ids: [] },
+      { id: "t2", name: "Two", owner_id: "u9", owner_tier: "teams", created_at: "", role_ids: [] },
+    ],
+    loadMembers: vi.fn(async (id: string) => { if (id === "t2") throw new Error("403 Forbidden"); }),
+    members: (id: string) => (id === "t2" ? [] : [member()]),
+    vaultStatus: (id: string) => (id === "t2" ? "forbidden" : "loaded"),
+  });
+  const rows = await keyStatus(p);
+  expect(rows.map((r) => [r.teamId, r.vaultStatus, r.members.length])).toEqual([
+    ["t1", "loaded", 1], ["t2", "forbidden", 0],
+  ]);
 });

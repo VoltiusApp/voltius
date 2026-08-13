@@ -156,8 +156,13 @@ export const MCP_TEXT = {
       "Remove a member from a team. They lose access to the team vault. Runs immediately; your own "
       + "client is responsible for approval.",
     member_set_role:
-      "Replace a member's roles in a team with one role. Call team_list for role names. Runs "
-      + "immediately; your own client is responsible for approval.",
+      "Replace a member's roles in a team with one role, given as either a role id or a role name "
+      + "— member_list reports both for every member. A role that matches neither is refused before "
+      + "any role is removed. Runs immediately; your own client is responsible for approval.",
+    list_shared_sessions:
+      "List the terminal sessions shared with or by you: each one's participants, who currently "
+      + "holds control, and who is asking for it. Each row says whether this MCP server opened that "
+      + "session itself; share_session, unshare_session and handoff_control act only on those.",
     share_session:
       "Share a session you opened with one or more team vaults, so their members can watch it and "
       + "request control. Refused for a tab with broadcast typing enabled, because the user's own "

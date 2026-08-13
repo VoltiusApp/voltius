@@ -45,6 +45,21 @@ export interface PluginSharedSession {
 const BROADCAST_REFUSAL =
   "that tab has broadcast typing enabled; your own keystrokes would reach every participant — turn broadcast off before sharing";
 
+/**
+ * Why `share_session` must refuse this session, or null when it may proceed.
+ *
+ * Split out of `shareSession` so the tool layer can make the same call before
+ * it raises an approval card or writes an audit row: a share refused for
+ * broadcast must leave neither behind. The predicate itself still lives once,
+ * in layoutStore, behind `broadcastActiveForSession`.
+ */
+export function shareRefusalReason(ports: SharingPorts, sessionId: string): string | null {
+  // routeInputBytes (useTerminal.ts) fans typed input to every session in an
+  // active broadcast split tab. Sharing one would send the user's own
+  // keystrokes to remote participants.
+  return ports.broadcastActiveForSession(sessionId) ? BROADCAST_REFUSAL : null;
+}
+
 export async function listSharedSessions(ports: SharingPorts): Promise<PluginSharedSession[]> {
   await ports.fetchActiveSessions();
   const localByMultiplayer = new Map(
@@ -77,10 +92,11 @@ export async function shareSession(
 ): Promise<DomainResult<{ multiplayerSessionId: string }>> {
   if (ports.state(input.sessionId)) return { ok: false, error: "that session is already shared" };
   if (input.vaultIds.length === 0) return { ok: false, error: "name at least one team vault to share with" };
-  // routeInputBytes (useTerminal.ts) fans typed input to every session in an
-  // active broadcast split tab. Sharing one would send the user's own
-  // keystrokes to remote participants.
-  if (ports.broadcastActiveForSession(input.sessionId)) return { ok: false, error: BROADCAST_REFUSAL };
+  // Defence in depth: the tool layer refuses this before the gate, but a caller
+  // reaching the domain directly (a plugin, a test) gets the same refusal, and
+  // broadcast can be switched on while an approval card sits pending.
+  const blocked = shareRefusalReason(ports, input.sessionId);
+  if (blocked) return { ok: false, error: blocked };
   try {
     const members = await ports.teamMembers(input.vaultIds);
     const id = await ports.startSharing(

@@ -16,6 +16,11 @@ export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
    * Approve, record, then run a team write. Every one of them is scoped by
    * teamId and declines by returning rather than throwing, so the audit meta
    * and the unwrap are the same for all three.
+   *
+   * The target user rides on the row when the call names one: a membership
+   * trail that cannot say who was removed or re-roled records nothing worth
+   * reviewing. An invite by EMAIL names no user id here, and the address itself
+   * stays off the row — it is PII, and the team ingest is not the place for it.
    */
   const teamOp = (
     tool: string,
@@ -23,7 +28,13 @@ export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
     raw: Record<string, unknown>,
     run: (args: Record<string, unknown>) => Promise<DomainResult<unknown>>,
   ): Promise<unknown> =>
-    op(tool, action, { teamId: String(raw.teamId) }, raw, async (a) => unwrapDomain(await run(a)));
+    op(
+      tool,
+      action,
+      { teamId: String(raw.teamId), ...(raw.userId === undefined ? {} : { userId: String(raw.userId) }) },
+      raw,
+      async (a) => unwrapDomain(await run(a)),
+    );
 
   return [
     {
@@ -37,7 +48,10 @@ export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
     {
       name: "member_list",
       description:
-        "List a team's members and its pending invitations. Each row is tagged state: member or pending.",
+        "List a team's members and its pending invitations, with each member's role ids and role "
+        + "names. Each row is tagged state: member or pending. A member row carries userId; a "
+        + "pending row carries invitationId instead, which is not a user id and cannot be passed "
+        + "to member_remove or member_set_role.",
       risk: "auto",
       schema: z.object({ teamId: z.string() }),
       execute: async (raw) => ports.api.team.members(String(raw.teamId)),
@@ -90,13 +104,14 @@ export function buildTeamTools(ports: ToolSurfacePorts): Tool[] {
     {
       name: "member_set_role",
       description:
-        "Replace a member's roles in a team with one role. Call team_list for role names. "
-        + "Prompts the user.",
+        "Replace a member's roles in a team with one role, given as either a role id or a role "
+        + "name — member_list reports both for every member. A role that matches neither is "
+        + "refused before any role is removed. Prompts the user.",
       risk: "prompt",
-      schema: z.object({ teamId: z.string(), userId: z.string(), roleId: z.string() }),
+      schema: z.object({ teamId: z.string(), userId: z.string(), role: z.string() }),
       execute: async (raw) =>
         teamOp("member_set_role", "agent.member_role_changed", raw, (a) =>
-          ports.api.team.setMemberRole(String(a.teamId), String(a.userId), String(a.roleId))),
+          ports.api.team.setMemberRole(String(a.teamId), String(a.userId), String(a.role))),
     },
   ];
 }

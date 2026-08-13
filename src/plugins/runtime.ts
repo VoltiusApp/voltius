@@ -107,6 +107,7 @@ import {
 import {
   handoffControl,
   listSharedSessions,
+  shareRefusalReason,
   shareSession,
   unshareSession,
   type SharingPorts,
@@ -1345,9 +1346,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "team:write");
         return removeMember(teamPorts, teamId, userId);
       },
-      async setMemberRole(teamId, userId, roleId) {
+      async setMemberRole(teamId, userId, role) {
         requirePerm(manifest, "team:write");
-        return setMemberRole(teamPorts, teamId, userId, roleId);
+        return setMemberRole(teamPorts, teamId, userId, role);
       },
     },
 
@@ -1355,6 +1356,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       async list() {
         requirePerm(manifest, "sharing:read");
         return listSharedSessions(sharingPorts);
+      },
+      shareRefusal(sessionId) {
+        requirePerm(manifest, "sharing:read");
+        return shareRefusalReason(sharingPorts, sessionId);
       },
       async share(input) {
         requirePerm(manifest, "sharing:write");

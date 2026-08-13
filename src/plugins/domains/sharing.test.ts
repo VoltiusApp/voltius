@@ -1,6 +1,8 @@
 import { expect, test, vi } from "vitest";
 import type { MultiplayerConnection } from "@/services/multiplayerService";
-import { listSharedSessions, shareSession, unshareSession, handoffControl, type SharingPorts } from "./sharing";
+import {
+  listSharedSessions, shareSession, unshareSession, handoffControl, shareRefusalReason, type SharingPorts,
+} from "./sharing";
 
 const hostState = (over: Record<string, unknown> = {}) => ({
   multiplayerSessionId: "m1", role: "host" as const, myUserId: "u0",
@@ -106,4 +108,10 @@ test("listSharedSessions marks which local session each shared session belongs t
     multiplayerSessionId: "m1", localSessionId: "s1", connectionName: "web-1", isHost: true,
     participants: [{ userId: "u2", displayName: "Two" }], controlHolder: "u0", controlRequester: null,
   }]);
+});
+
+test("shareRefusalReason is the single broadcast verdict the tool layer prechecks with", () => {
+  expect(shareRefusalReason(ports(), "s1")).toBeNull();
+  expect(shareRefusalReason(ports({ broadcastActiveForSession: () => true }), "s1"))
+    .toBe("that tab has broadcast typing enabled; your own keystrokes would reach every participant — turn broadcast off before sharing");
 });

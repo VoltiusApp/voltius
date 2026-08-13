@@ -932,8 +932,10 @@ export interface PluginAPI {
     invite(input: { teamId: string; email?: string; userId?: string; role?: string }):
       Promise<DomainResult<{ status: "pending" | "already_member" | "invited"; key: PluginMemberKeyState | null }>>;
     removeMember(teamId: string, userId: string): Promise<DomainResult<null>>;
-    /** Replaces every role the member holds with `roleId`. */
-    setMemberRole(teamId: string, userId: string, roleId: string): Promise<DomainResult<null>>;
+    /** Replaces every role the member holds with `role`, a role id or role name
+     *  as reported by `list` and `members`. An unresolvable role is refused
+     *  before any role is removed. */
+    setMemberRole(teamId: string, userId: string, role: string): Promise<DomainResult<null>>;
   };
 
   /**
@@ -944,6 +946,10 @@ export interface PluginAPI {
    */
   sharing: {
     list(): Promise<PluginSharedSession[]>;
+    /** Why `share` would refuse this session, or null when it may proceed —
+     *  callable before an approval is asked for, so a doomed share raises no
+     *  card and records nothing. */
+    shareRefusal(sessionId: string): string | null;
     share(input: { sessionId: string; vaultIds: string[]; allowedRoles?: string[] }):
       Promise<DomainResult<{ multiplayerSessionId: string }>>;
     unshare(sessionId: string): Promise<DomainResult<null>>;

@@ -32,8 +32,13 @@ export function buildSharingTools(ports: ToolSurfacePorts): Tool[] {
     raw: Record<string, unknown>,
     meta: Record<string, unknown>,
     run: (args: Record<string, unknown>) => Promise<DomainResult<unknown>>,
+    /** A doomed-call test made before the card is raised, like sessionGate's.
+     *  Anything truthy it returns is the verb's result. */
+    precheck?: (sessionId: string) => unknown,
   ): Promise<unknown> => {
     if (!mayAct(ports, String(raw.sessionId))) return notOwned();
+    const refused = precheck?.(String(raw.sessionId));
+    if (refused) return refused;
     // sessionId comes from the pre-gate args, same hazard as sessionGate's
     // scope (helpers.ts): correct only while no decision can rewrite it.
     return op(tool, action, { sessionId: String(raw.sessionId), ...meta }, raw, async (a) => {
@@ -47,10 +52,16 @@ export function buildSharingTools(ports: ToolSurfacePorts): Tool[] {
       name: "list_shared_sessions",
       description:
         "List the terminal sessions shared with or by you: each one's participants, who currently "
-        + "holds control, and who is asking for it.",
+        + "holds control, and who is asking for it. agentOwned says whether you opened that "
+        + "session yourself — the sharing writes act only on those.",
       risk: "auto",
       schema: z.object({}),
-      execute: async () => ports.api.sharing.list(),
+      // `owned.has`, never `mayAct`: this is a read, and `mayAct` adopts the
+      // session as a side effect.
+      execute: async () => (await ports.api.sharing.list()).map((s) => ({
+        ...s,
+        agentOwned: s.localSessionId !== null && ports.owned.has(s.localSessionId),
+      })),
     },
     {
       name: "share_session",
@@ -66,12 +77,21 @@ export function buildSharingTools(ports: ToolSurfacePorts): Tool[] {
         allowedRoles: z.array(z.string()).optional(),
       }),
       execute: async (raw) =>
-        ownedOp("share_session", "agent.session_shared", raw, { vaultIds: raw.vaultIds }, (a) =>
-          ports.api.sharing.share({
+        ownedOp(
+          "share_session", "agent.session_shared", raw, { vaultIds: raw.vaultIds },
+          (a) => ports.api.sharing.share({
             sessionId: String(a.sessionId),
             vaultIds: a.vaultIds as string[],
             allowedRoles: a.allowedRoles as string[] | undefined,
-          })),
+          }),
+          // Before the gate and before the audit row: a share refused for
+          // broadcast must raise no approval card and record no act that never
+          // happened. The predicate stays single, in the sharing domain.
+          (sessionId) => {
+            const reason = ports.api.sharing.shareRefusal(sessionId);
+            return reason ? refusal(reason) : undefined;
+          },
+        ),
     },
     {
       name: "unshare_session",

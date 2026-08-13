@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { buildTeamTools, TEAM_PERMISSIONS } from "./team";
 import type { ToolSurfacePorts } from "../coreTools";
 
-const TEAM = { id: "t1", name: "Ops", ownerTier: "pro", myRoles: ["owner"], vaultStatus: "ready" };
-const MEMBER = { userId: "u2", displayName: "Bo", roles: ["member"], isOnline: true, state: "member" as const };
+const TEAM = { id: "t1", name: "Ops", ownerTier: "pro", myRoles: ["owner"], myRoleIds: ["r0"], vaultStatus: "ready" };
+const MEMBER = {
+  userId: "u2", displayName: "Bo", roles: ["member"], roleIds: ["r1"], isOnline: true, state: "member" as const,
+};
 const KEY_STATUS = {
   teamId: "t1",
   vaultStatus: "ready",
@@ -108,10 +110,18 @@ describe("team verbs", () => {
     expect(team.removeMember).toHaveBeenCalledWith("t1", "u2");
     expect(audit.mock.calls[0][1]).toBe("agent.member_removed");
 
-    expect(await tool(ports, "member_set_role").execute({ teamId: "t1", userId: "u2", roleId: "r1" }))
+    expect(await tool(ports, "member_set_role").execute({ teamId: "t1", userId: "u2", role: "r1" }))
       .toEqual({ ok: true, result: null });
     expect(team.setMemberRole).toHaveBeenCalledWith("t1", "u2", "r1");
     expect(audit.mock.calls[1][1]).toBe("agent.member_role_changed");
+    // The target user is on both rows: a membership trail that cannot say who
+    // was removed or re-roled records nothing worth reviewing.
+    expect(audit.mock.calls[0][2]).toEqual({
+      tool: "member_remove", approval: "granted", teamId: "t1", userId: "u2",
+    });
+    expect(audit.mock.calls[1][2]).toEqual({
+      tool: "member_set_role", approval: "granted", teamId: "t1", userId: "u2",
+    });
   });
 
   it("a rejected approval never reaches the API and writes no audit row", async () => {
@@ -126,7 +136,7 @@ describe("team verbs", () => {
     const { ports } = makePorts({
       setMemberRole: vi.fn(async () => ({ ok: false as const, error: "no such member in that team" })),
     });
-    expect(await tool(ports, "member_set_role").execute({ teamId: "t1", userId: "u9", roleId: "r1" }))
+    expect(await tool(ports, "member_set_role").execute({ teamId: "t1", userId: "u9", role: "r1" }))
       .toEqual({ refused: true, error: "no such member in that team" });
   });
 
@@ -134,6 +144,19 @@ describe("team verbs", () => {
     const { ports } = makePorts({ removeMember: vi.fn(async () => { throw new Error("offline"); }) });
     expect(await tool(ports, "member_remove").execute({ teamId: "t1", userId: "u2" }))
       .toEqual({ refused: true, error: "offline" });
+  });
+
+  it("member_set_role takes a role id or name, and an invite by id names the user on its row", async () => {
+    const { ports, team, audit } = makePorts();
+    expect(tool(ports, "member_set_role").schema.safeParse({ teamId: "t1", userId: "u2", role: "manager" }).success)
+      .toBe(true);
+    await tool(ports, "member_set_role").execute({ teamId: "t1", userId: "u2", role: "manager" });
+    expect(team.setMemberRole).toHaveBeenCalledWith("t1", "u2", "manager");
+
+    await tool(ports, "member_invite").execute({ teamId: "t1", userId: "u3" });
+    expect(audit.mock.calls[1][2]).toEqual({
+      tool: "member_invite", approval: "granted", teamId: "t1", userId: "u3",
+    });
   });
 
   it("member_invite rejects neither-or-both of email and userId at the schema", () => {
