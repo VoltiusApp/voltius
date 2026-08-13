@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-08-13
+
+### Added
+
+- The MCP server can now send real keystrokes. `send_keys` types into any open
+  session — literal text or named keys like `Enter`, `Up`, `Escape`, `C-c`,
+  `F1`–`F12` — and returns the screen once it stops changing, so an agent can
+  drive a full-screen program (top, less, fzf, vim, whiptail) that `run_command`
+  structurally cannot: that verb wraps its input so it can read an exit code,
+  and the wrapper is typed into such a program as literal text.
+- Ten further verbs join it, taking the MCP surface from 48 to 59. Snippets can
+  be run on a host, known hosts listed, trusted and deleted, and shell history
+  searched across hosts. Transfers can be listed, cancelled and retried;
+  configuration sync state and host reachability can be read.
+- Transfers started over MCP now appear in your own transfer queue, marked with
+  the name of the client that started them, and can be cancelled from there like
+  any other transfer.
+- Tabs a connected MCP client is driving are marked in the tab strip and the
+  pane header, with the controlling client named in the tooltip, so it is always
+  visible which sessions are not being driven by you.
+- A failed transfer can be retried from the transfer queue.
+
+### Fixed
+
+- A local shell could come up blank, and starting the app a second time opened a
+  second copy instead of focusing the running one.
+- Opening a new split tab cloned the previous tab's terminals into it.
+- A session opened by an MCP client no longer steals the tab you are working in.
+- An SFTP handle evicted from the cache was dropped without being closed,
+  leaking it on the server.
+- A transfer being retried could be evicted from the queue mid-retry.
+- Editing a port-forwarding rule or a snippet over MCP no longer needs the whole
+  record restated, and a transfer that failed to start reports the real error
+  instead of silently resolving.
+
 ## [0.22.0] - 2026-08-11
 
 ### Added
