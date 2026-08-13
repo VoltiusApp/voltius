@@ -33,6 +33,7 @@ import { getCurrentUserEmail } from "@/services/account";
 import { useToggleSettings } from "@/hooks/useToggleSettings";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
+import { isInviteCode, parseInviteCode } from "@/services/inviteCode";
 import {
   selectRecentHosts,
   selectLocalShellItems,
@@ -223,7 +224,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
     if (category === "marketplace") return [];
     if (category === "join") {
-      if (q.includes(":")) {
+      if (isInviteCode(q)) {
         return [{ kind: "join-code", id: "", label: "", icon: "", code: q }];
       }
       const sessionItems = teamSessions
@@ -498,32 +499,28 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           }
         }, 0);
       } else if (item.kind === "join-code") {
-        const code = item.code;
-        const colonIdx = code.indexOf(":");
-        if (colonIdx !== -1) {
-          const sessionId = code.slice(0, colonIdx);
-          const token = code.slice(colonIdx + 1);
-          if (sessionId && token) {
-            (async () => {
-              const displayName = (await getCurrentUserEmail()) ?? "Me";
-              const localSessionId = await joinSession(sessionId, displayName, () => {}, token);
-              useSessionStore.setState((s) => ({
-                sessions: [
-                  ...s.sessions,
-                  {
-                    id: localSessionId,
-                    connectionId: sessionId,
-                    connectionName: "Shared Terminal",
-                    status: "connected" as const,
-                    type: "multiplayer" as const,
-                  },
-                ],
-                activeSessionId: localSessionId,
-              }));
-              setSidebarOpen(false);
-              setActiveNav("terminal");
-            })().catch(console.error);
-          }
+        const parsed = parseInviteCode(item.code);
+        if (parsed) {
+          const { sessionId, token } = parsed;
+          (async () => {
+            const displayName = (await getCurrentUserEmail()) ?? "Me";
+            const localSessionId = await joinSession(sessionId, displayName, () => {}, token);
+            useSessionStore.setState((s) => ({
+              sessions: [
+                ...s.sessions,
+                {
+                  id: localSessionId,
+                  connectionId: sessionId,
+                  connectionName: "Shared Terminal",
+                  status: "connected" as const,
+                  type: "multiplayer" as const,
+                },
+              ],
+              activeSessionId: localSessionId,
+            }));
+            setSidebarOpen(false);
+            setActiveNav("terminal");
+          })().catch(console.error);
         }
         onClose();
       } else if (item.kind === "local-shell") {

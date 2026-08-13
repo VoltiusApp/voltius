@@ -11,3 +11,10 @@ export function parseInviteCode(code: string): { sessionId: string; token: strin
   if (!sessionId || !token) return null;
   return { sessionId, token };
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isInviteCode(value: string): boolean {
+  const parsed = parseInviteCode(value);
+  return parsed !== null && UUID_RE.test(parsed.sessionId);
+}
