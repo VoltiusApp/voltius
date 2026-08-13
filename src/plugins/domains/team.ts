@@ -96,3 +96,75 @@ export async function keyStatus(ports: TeamPorts, teamId?: string): Promise<Plug
     };
   }));
 }
+
+export type TeamWriteResult<T> = { ok: true; result: T } | { ok: false; error: string };
+
+const failed = (err: unknown): { ok: false; error: string } =>
+  ({ ok: false, error: err instanceof Error ? err.message : String(err) });
+
+/** One member's key row, or null when the team's key state cannot be read. */
+async function memberKey(ports: TeamPorts, teamId: string, userId: string): Promise<PluginMemberKeyState | null> {
+  const [status] = await keyStatus(ports, teamId);
+  return status.members.find((m) => m.userId === userId) ?? null;
+}
+
+export async function inviteMember(
+  ports: TeamPorts,
+  input: { teamId: string; email?: string; userId?: string; role?: string },
+): Promise<TeamWriteResult<{ status: "pending" | "already_member" | "invited"; key: PluginMemberKeyState | null }>> {
+  if (Boolean(input.email) === Boolean(input.userId)) {
+    return { ok: false, error: "give exactly one of email or userId" };
+  }
+  try {
+    // An email invite creates no member row yet, so there is no key state to
+    // report; an id invite may land on someone already present, whose key
+    // state is exactly what the caller needs to see.
+    if (input.email) {
+      await ports.addMember(input.teamId, input.email, input.role);
+      return { ok: true, result: { status: "invited", key: null } };
+    }
+    const { status } = await ports.addMemberById(input.teamId, input.userId!, input.role);
+    return { ok: true, result: { status, key: await memberKey(ports, input.teamId, input.userId!) } };
+  } catch (err) {
+    return failed(err);
+  }
+}
+
+export async function removeMember(ports: TeamPorts, teamId: string, userId: string): Promise<TeamWriteResult<null>> {
+  try {
+    await ports.removeMember(teamId, userId);
+    return { ok: true, result: null };
+  } catch (err) {
+    return failed(err);
+  }
+}
+
+/**
+ * There is no set-role primitive: the store only adds and removes. The removes
+ * run first so a role cap on the server cannot reject the assign, which means a
+ * failed assign leaves the member with nothing — reported, never swallowed.
+ */
+export async function setMemberRole(
+  ports: TeamPorts, teamId: string, userId: string, roleId: string,
+): Promise<TeamWriteResult<null>> {
+  await ports.loadMembers(teamId);
+  const target = ports.members(teamId).find((m) => m.user_id === userId);
+  if (!target) return { ok: false, error: "no such member in that team" };
+  try {
+    for (const existing of target.role_ids) {
+      if (existing !== roleId) await ports.removeMemberRole(teamId, userId, existing);
+    }
+  } catch (err) {
+    return failed(err);
+  }
+  try {
+    await ports.assignMemberRole(teamId, userId, roleId);
+    return { ok: true, result: null };
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      error: `removed the previous roles but could not assign ${roleId} (${why}); ${userId} now holds no role in ${teamId}`,
+    };
+  }
+}
