@@ -147,14 +147,12 @@ export default function VaultSidebar() {
         <PendingInviteModal
           invite={selectedInvite}
           onAccept={async () => {
-            const { id, team_id } = selectedInvite;
+            await acceptInvitation(selectedInvite.id, selectedInvite.team_id);
             setSelectedInvite(null);
-            await acceptInvitation(id, team_id);
           }}
           onDecline={async () => {
-            const { id } = selectedInvite;
+            await declineInvitation(selectedInvite.id);
             setSelectedInvite(null);
-            await declineInvitation(id);
           }}
           onClose={() => setSelectedInvite(null)}
         />
