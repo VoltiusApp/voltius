@@ -1,7 +1,9 @@
 import { create } from "zustand";
 
 export interface McpOwner {
-  clientId: string;
+  /** null once the client that opened this session disconnected: the session is
+   *  an orphan, adoptable by the next MCP client that writes to it. */
+  clientId: string | null;
   clientName: string;
   since: number;
 }
@@ -45,10 +47,14 @@ export const useMcpOwnershipStore = create<McpOwnershipStore>((set) => ({
 
   clearClient: (clientId) =>
     set((s) => {
+      const hit = Object.values(s.owners).some((o) => o.clientId === clientId);
+      if (!hit) return s;
       const owners = Object.fromEntries(
-        Object.entries(s.owners).filter(([, o]) => o.clientId !== clientId),
+        Object.entries(s.owners).map(([id, o]) =>
+          [id, o.clientId === clientId ? { ...o, clientId: null } : o],
+        ),
       );
-      return Object.keys(owners).length === Object.keys(s.owners).length ? s : { owners };
+      return { owners };
     }),
 
   keepOnly: (sessionIds) =>

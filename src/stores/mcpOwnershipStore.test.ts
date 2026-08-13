@@ -15,11 +15,26 @@ describe("mcpOwnershipStore", () => {
     expect(store().owners.s1).toBeUndefined();
   });
 
-  it("clearClient drops only that client's sessions", () => {
+  it("clearClient orphans only that client's sessions and keeps the rows", () => {
     store().claim("s1", { clientId: "c1", clientName: "A" });
     store().claim("s2", { clientId: "c2", clientName: "B" });
     store().clearClient("c1");
-    expect(Object.keys(store().owners)).toEqual(["s2"]);
+    expect(store().owners.s1).toMatchObject({ clientId: null, clientName: "A" });
+    expect(store().owners.s2).toMatchObject({ clientId: "c2" });
+  });
+
+  it("clearClient leaves the state object untouched when it owns nothing", () => {
+    store().claim("s1", { clientId: "c1", clientName: "A" });
+    const before = store().owners;
+    store().clearClient("c2");
+    expect(store().owners).toBe(before);
+  });
+
+  it("keepOnly still drops orphan rows for sessions that are gone", () => {
+    store().claim("s1", { clientId: "c1", clientName: "A" });
+    store().clearClient("c1");
+    store().keepOnly([]);
+    expect(store().owners).toEqual({});
   });
 
   it("keepOnly prunes owners and busy counters for sessions that are gone", () => {

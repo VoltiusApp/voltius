@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { PluginPanePosition, PluginPaneResult } from "@/plugins/api";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
-import { makeGate } from "./helpers";
+import { makeGate, mayAct } from "./helpers";
 import { refusal } from "../refusal";
 
 export const PANE_PERMISSIONS = ["panes:read", "panes:write"] as const;
@@ -38,10 +38,10 @@ export function buildPaneTools(ports: ToolSurfacePorts): Tool[] {
     run: (args: Record<string, unknown>) => PluginPaneResult,
     requireOwned = true,
   ): Promise<unknown> => {
-    if (requireOwned && !ports.owned.has(String(raw.sessionId))) return notOwned();
+    if (requireOwned && !mayAct(ports, String(raw.sessionId))) return notOwned();
     const g = await gate(tool, raw);
     if (!g.ok) return g.result;
-    if (requireOwned && !ports.owned.has(String(g.args.sessionId))) return notOwned();
+    if (requireOwned && !mayAct(ports, String(g.args.sessionId))) return notOwned();
     const result = run(g.args);
     return result.ok ? { ok: true, result: result.tab } : refusal(result.error);
   };
@@ -97,7 +97,9 @@ export function buildPaneTools(ports: ToolSurfacePorts): Tool[] {
       name: "pane_focus",
       description:
         "Bring a session's pane to the front so the user sees it, optionally maximizing it within "
-        + "its tab. Works on any open session, changes only what is visible. Prompts the user.",
+        + "its tab. Works on any open session, changes only what is visible. `maximize: true` is "
+        + "refused for a session that is not in a split tab, because there is no pane to maximize. "
+        + "Prompts the user.",
       risk: "prompt",
       schema: z.object({ sessionId: z.string(), maximize: z.boolean().optional() }),
       execute: async (raw) =>

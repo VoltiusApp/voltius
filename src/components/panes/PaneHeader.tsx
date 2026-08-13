@@ -345,9 +345,11 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
         {mcpOwner && (
           <McpMark
             variant="chip"
+            disconnected={mcpOwner.clientId === null}
             title={mcpOwnerTitle(mcpOwner, t, {
               known: "panes.header.mcpTooltip",
               unknown: "panes.header.mcpTooltipUnknown",
+              disconnected: "panes.header.mcpTooltipDisconnected",
             })}
             label={t("panes.header.mcpBadge")}
           />

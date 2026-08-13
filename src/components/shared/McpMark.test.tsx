@@ -8,7 +8,11 @@ afterEach(() => cleanup());
 
 const t = ((key: string, opts?: Record<string, unknown>) =>
   opts?.client ? `${key}:${String(opts.client)}` : key) as never;
-const keys = { known: "panes.header.mcpTooltip", unknown: "panes.header.mcpTooltipUnknown" };
+const keys = {
+  known: "panes.header.mcpTooltip",
+  unknown: "panes.header.mcpTooltipUnknown",
+  disconnected: "panes.header.mcpTooltipDisconnected",
+};
 
 describe("mcpOwnerTitle", () => {
   it("is undefined with no owner", () => {
@@ -24,6 +28,16 @@ describe("mcpOwnerTitle", () => {
     expect(mcpOwnerTitle({ clientId: "c", clientName: "", since: 0 }, t, keys))
       .toBe("panes.header.mcpTooltipUnknown");
   });
+
+  it("picks the disconnected wording for an orphan", () => {
+    expect(mcpOwnerTitle({ clientId: null, clientName: "Claude Code", since: 0 }, t, keys))
+      .toBe("panes.header.mcpTooltipDisconnected:Claude Code");
+  });
+
+  it("falls back to the unknown wording when an orphan has no name", () => {
+    expect(mcpOwnerTitle({ clientId: null, clientName: "", since: 0 }, t, keys))
+      .toBe("panes.header.mcpTooltipUnknown");
+  });
 });
 
 describe("McpMark rail", () => {
@@ -36,6 +50,11 @@ describe("McpMark rail", () => {
   it("pulses while busy", () => {
     render(<McpMark variant="rail" testId="mcp-bar-tab-1" busy />);
     expect(screen.getByTestId("mcp-bar-tab-1").className).toContain("mcp-pulse");
+  });
+
+  it("never pulses while disconnected, even if busy", () => {
+    render(<McpMark variant="rail" testId="mcp-bar-tab-1" busy disconnected />);
+    expect(screen.getByTestId("mcp-bar-tab-1").className).not.toContain("mcp-pulse");
   });
 });
 

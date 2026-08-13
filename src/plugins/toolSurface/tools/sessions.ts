@@ -4,7 +4,7 @@ import type { ToolSurfacePorts } from "../coreTools";
 import { captureCommand, sendKeysToSession, sendSerialCommand } from "../capture";
 import { tokensToBytes } from "../keyTokens";
 import { guardConnectionId } from "../connectionGuard";
-import { makeGate, sessionAuditMeta, sessionGate } from "./helpers";
+import { makeGate, mayAct, sessionAuditMeta, sessionGate } from "./helpers";
 import { refusal } from "../refusal";
 
 export const SESSION_PERMISSIONS = [
@@ -169,13 +169,13 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: z.object({ sessionId: z.string() }),
       execute: async (raw) => {
-        if (!ports.owned.has(String(raw.sessionId))) {
+        if (!mayAct(ports, String(raw.sessionId))) {
           return notOwned(ports);
         }
         const g = await gate("close_session", raw);
         if (!g.ok) return g.result;
         const sessionId = String(g.args.sessionId);
-        if (!ports.owned.has(sessionId)) {
+        if (!mayAct(ports, sessionId)) {
           return notOwned(ports);
         }
         await ports.api.sessions.close(sessionId);

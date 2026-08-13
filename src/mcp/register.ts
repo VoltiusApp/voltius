@@ -28,6 +28,17 @@ function ownedSessionsFor(clientId: string, name: () => string): OwnedSessions {
   const store = () => useMcpOwnershipStore.getState();
   return {
     has: (id) => store().owners[id]?.clientId === clientId,
+    // An orphan — a session this or another MCP client opened, whose client has
+    // since disconnected — is adopted by the first client that writes to it. A
+    // session with no row at all is one the user opened, and stays unclaimable.
+    acquire: (id) => {
+      const owner = store().owners[id];
+      if (!owner) return false;
+      if (owner.clientId === clientId) return true;
+      if (owner.clientId !== null) return false;
+      store().claim(id, { clientId, clientName: name() });
+      return true;
+    },
     add: (id) => store().claim(id, { clientId, clientName: name() }),
     delete: (id) => {
       const had = store().owners[id]?.clientId === clientId;

@@ -136,6 +136,8 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
                   title={mcpOwnerTitle(tr.owner, t, {
                     known: "fileTransfer.queue.mcpTooltip",
                     unknown: "fileTransfer.queue.mcpTooltipUnknown",
+                    // Transfers show "started by" regardless of connection state (out of scope here).
+                    disconnected: "fileTransfer.queue.mcpTooltip",
                   })}
                 >
                   {tr.owner && <McpMark variant="rail" testId={`mcp-bar-${tr.id}`} busy={tr.status === "running"} />}

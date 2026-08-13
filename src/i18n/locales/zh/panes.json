@@ -14,6 +14,7 @@
       "mcpBadge": "MCP",
       "mcpTooltip": "由 {{client}} 打开",
       "mcpTooltipUnknown": "由 MCP 客户端打开",
+      "mcpTooltipDisconnected": "由 {{client}} 打开（已断开）",
       "disableBroadcast": "禁用广播",
       "broadcastInput": "广播输入",
       "detachPane": "分离面板",
