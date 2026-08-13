@@ -148,6 +148,11 @@ test("setMemberRole names the state left behind when the assign fails after the 
   });
 });
 
+test("setMemberRole reports a permission failure on loadMembers instead of throwing", async () => {
+  const p = ports({ loadMembers: vi.fn(async () => { throw new Error("403 Forbidden"); }) });
+  expect(await setMemberRole(p, "t1", "u2", "r3")).toEqual({ ok: false, error: "403 Forbidden" });
+});
+
 test("setMemberRole refuses an unknown member without touching any role", async () => {
   const assignMemberRole = vi.fn(async () => {});
   const p = ports({ members: () => [], assignMemberRole });

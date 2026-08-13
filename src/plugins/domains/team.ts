@@ -147,7 +147,11 @@ export async function removeMember(ports: TeamPorts, teamId: string, userId: str
 export async function setMemberRole(
   ports: TeamPorts, teamId: string, userId: string, roleId: string,
 ): Promise<TeamWriteResult<null>> {
-  await ports.loadMembers(teamId);
+  try {
+    await ports.loadMembers(teamId);
+  } catch (err) {
+    return failed(err);
+  }
   const target = ports.members(teamId).find((m) => m.user_id === userId);
   if (!target) return { ok: false, error: "no such member in that team" };
   try {
@@ -161,10 +165,9 @@ export async function setMemberRole(
     await ports.assignMemberRole(teamId, userId, roleId);
     return { ok: true, result: null };
   } catch (err) {
-    const why = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
-      error: `removed the previous roles but could not assign ${roleId} (${why}); ${userId} now holds no role in ${teamId}`,
+      error: `removed the previous roles but could not assign ${roleId} (${failed(err).error}); ${userId} now holds no role in ${teamId}`,
     };
   }
 }
