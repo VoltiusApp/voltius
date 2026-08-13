@@ -82,10 +82,13 @@ describe("sharing verbs", () => {
     expect(sharing.share).toHaveBeenCalledWith({
       sessionId: "s1", vaultIds: ["t1"], allowedRoles: ["r1"],
     });
+    // vaultIds is on the row deliberately: without it the trail says a session
+    // was shared but not with whom, which is the security content of the verb.
+    // allowedRoles stays off — it names no counterparty.
     expect(audit).toHaveBeenCalledWith(
       "share",
       "agent.session_shared",
-      { tool: "share_session", approval: "granted", sessionId: "s1" },
+      { tool: "share_session", approval: "granted", sessionId: "s1", vaultIds: ["t1"] },
       undefined,
     );
     expect(audit.mock.invocationCallOrder[0]).toBeLessThan(sharing.share.mock.invocationCallOrder[0]);
@@ -103,6 +106,14 @@ describe("sharing verbs", () => {
       .toEqual({ ok: true, result: null });
     expect(sharing.handoffControl).toHaveBeenCalledWith("s1", "u2");
     expect(audit.mock.calls[1][1]).toBe("agent.control_granted");
+    expect(audit.mock.calls[0][2]).toEqual({
+      tool: "unshare_session", approval: "granted", sessionId: "s1",
+    });
+    // The recipient of control is on the row: a trail that cannot say who was
+    // handed the shell records nothing worth reviewing.
+    expect(audit.mock.calls[1][2]).toEqual({
+      tool: "handoff_control", approval: "granted", sessionId: "s1", userId: "u2",
+    });
   });
 
   it("refuses a session the agent did not open, without raising a card or dispatching", async () => {
@@ -122,16 +133,38 @@ describe("sharing verbs", () => {
     }
   });
 
-  it("re-checks ownership after the approval, in case it lapsed while the card was pending", async () => {
+  /** Owned on the pre-gate check, lost by the post-gate one: what a session
+   *  closed or handed away while the approval card sat pending looks like. */
+  const lostAfterGate = () => {
     let first = true;
-    const owned = {
+    return {
       has: () => { const v = first; first = false; return v; },
       add: () => {},
       delete: () => false,
     } as unknown as ToolSurfacePorts["owned"];
-    const { ports, sharing } = makePorts({}, { owned });
+  };
+
+  it("share_session re-checks ownership after the approval and does not share", async () => {
+    const { ports, sharing, approve } = makePorts({}, { owned: lostAfterGate() });
+    expect(await tool(ports, "share_session").execute({ sessionId: "s1", vaultIds: ["t1"] }))
+      .toEqual(NOT_OWNED);
+    expect(approve).toHaveBeenCalled();
+    expect(sharing.share).not.toHaveBeenCalled();
+  });
+
+  it("unshare_session re-checks ownership after the approval and does not unshare", async () => {
+    const { ports, sharing, approve } = makePorts({}, { owned: lostAfterGate() });
     expect(await tool(ports, "unshare_session").execute({ sessionId: "s1" })).toEqual(NOT_OWNED);
+    expect(approve).toHaveBeenCalled();
     expect(sharing.unshare).not.toHaveBeenCalled();
+  });
+
+  it("handoff_control re-checks ownership after the approval and does not hand off", async () => {
+    const { ports, sharing, approve } = makePorts({}, { owned: lostAfterGate() });
+    expect(await tool(ports, "handoff_control").execute({ sessionId: "s1", userId: "u2" }))
+      .toEqual(NOT_OWNED);
+    expect(approve).toHaveBeenCalled();
+    expect(sharing.handoffControl).not.toHaveBeenCalled();
   });
 
   it("a rejected approval never reaches the API and writes no audit row", async () => {

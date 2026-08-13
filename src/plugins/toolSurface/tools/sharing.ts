@@ -30,10 +30,13 @@ export function buildSharingTools(ports: ToolSurfacePorts): Tool[] {
     tool: string,
     action: PluginAuditAction,
     raw: Record<string, unknown>,
+    meta: Record<string, unknown>,
     run: (args: Record<string, unknown>) => Promise<DomainWriteResult<unknown>>,
   ): Promise<unknown> => {
     if (!mayAct(ports, String(raw.sessionId))) return notOwned();
-    return op(tool, action, { sessionId: String(raw.sessionId) }, raw, async (a) => {
+    // sessionId comes from the pre-gate args, same hazard as sessionGate's
+    // scope (helpers.ts): correct only while no decision can rewrite it.
+    return op(tool, action, { sessionId: String(raw.sessionId), ...meta }, raw, async (a) => {
       if (!mayAct(ports, String(a.sessionId))) return notOwned();
       return unwrapDomain(await run(a));
     });
@@ -63,7 +66,7 @@ export function buildSharingTools(ports: ToolSurfacePorts): Tool[] {
         allowedRoles: z.array(z.string()).optional(),
       }),
       execute: async (raw) =>
-        ownedOp("share_session", "agent.session_shared", raw, (a) =>
+        ownedOp("share_session", "agent.session_shared", raw, { vaultIds: raw.vaultIds }, (a) =>
           ports.api.sharing.share({
             sessionId: String(a.sessionId),
             vaultIds: a.vaultIds as string[],
@@ -77,7 +80,7 @@ export function buildSharingTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: z.object({ sessionId: z.string() }),
       execute: async (raw) =>
-        ownedOp("unshare_session", "agent.session_unshared", raw, (a) =>
+        ownedOp("unshare_session", "agent.session_unshared", raw, {}, (a) =>
           ports.api.sharing.unshare(String(a.sessionId))),
     },
     {
@@ -88,7 +91,7 @@ export function buildSharingTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: z.object({ sessionId: z.string(), userId: z.string() }),
       execute: async (raw) =>
-        ownedOp("handoff_control", "agent.control_granted", raw, (a) =>
+        ownedOp("handoff_control", "agent.control_granted", raw, { userId: String(raw.userId) }, (a) =>
           ports.api.sharing.handoffControl(String(a.sessionId), String(a.userId))),
     },
   ];
