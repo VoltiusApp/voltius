@@ -3,6 +3,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { getSecret } from "@/services/vault";
 import { resolveCredentials, type ResolvedCredentials } from "@/services/credentialLogic";
+import { withEphemeralCredentials } from "@/services/ephemeralCredentials";
 
 export type { ResolvedCredentials } from "@/services/credentialLogic";
 
@@ -82,5 +83,6 @@ export async function resolveJumpHosts(conn: Connection): Promise<ResolvedJumpHo
 }
 
 export async function resolveConnectionCredentials(conn: Connection): Promise<ResolvedCredentials> {
-  return resolveCredentials(conn, findIdentity, (key) => getSecret(key).catch(() => null));
+  const resolved = await resolveCredentials(conn, findIdentity, (key) => getSecret(key).catch(() => null));
+  return withEphemeralCredentials(conn.id, resolved);
 }
