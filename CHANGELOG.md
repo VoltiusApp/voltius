@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-08-13
+
+### Added
+
+- A session can be duplicated straight into a new tab or a split, from the tab's
+  context menu or the command palette. The copy opens in the directory the
+  original was sitting in, and a quick-connect session keeps the credentials it
+  was opened with, so duplicating one no longer asks for a password again.
+- The MCP server gained five pane verbs, taking its surface to 64: an agent can
+  split a session into a pane, move a session between panes, detach a pane back
+  into a tab, focus or maximize one, and toggle broadcast on a pane group. Every
+  write is verified against the layout store before it reports success.
+
+### Fixed
+
+- Reconnecting a quick-connect session reused the credentials from the original
+  connection instead of failing on a missing password.
+- Windows no longer lists WSL as an available shell when no distribution is
+  installed (`wsl.exe` ships with stock Windows, so its presence proved
+  nothing).
+
 ## [0.23.0] - 2026-08-13
 
 ### Added
