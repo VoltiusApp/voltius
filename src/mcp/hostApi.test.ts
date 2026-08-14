@@ -78,12 +78,22 @@ describe("MCP host API surface", () => {
       () => exportTool!.execute({ path: "export-bundle.json" }),
       () => importTool!.execute({ path: "export-bundle.json" }),
     ]) {
+      let thrown: unknown;
+      let result: unknown;
       try {
-        const result = await call() as { error?: string };
-        if (typeof result?.error === "string") expect(isPermissionError(new Error(result.error))).toBe(false);
+        result = await call();
       } catch (err) {
-        expect(isPermissionError(err)).toBe(false);
+        thrown = err;
       }
+      // Assertions live outside the try/catch: an assertion failure inside it
+      // would itself be caught and re-checked against isPermissionError,
+      // silently passing instead of failing the test.
+      if (thrown !== undefined) expect(isPermissionError(thrown)).toBe(false);
+      const errMsg =
+        result && typeof result === "object" && typeof (result as { error?: unknown }).error === "string"
+          ? (result as { error: string }).error
+          : undefined;
+      if (errMsg !== undefined) expect(isPermissionError(new Error(errMsg))).toBe(false);
     }
   });
 
