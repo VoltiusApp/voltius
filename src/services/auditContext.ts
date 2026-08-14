@@ -52,7 +52,16 @@ export type PluginAuditAction =
   // what actually reached the host. Must be on the server's CLIENT_WHITELIST
   // before any client that emits it ships, or the team rows are 400ed and
   // silently dropped.
-  | "agent.plugin_tool_run";
+  | "agent.plugin_tool_run"
+  // Team membership and terminal sharing (P7). Membership is not an object
+  // edit, so these do not reuse agent.object_*: the trail has to stay
+  // filterable by what happened to a team.
+  | "agent.member_invited"
+  | "agent.member_removed"
+  | "agent.member_role_changed"
+  | "agent.session_shared"
+  | "agent.session_unshared"
+  | "agent.control_granted";
 
 export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.grant_created", "agent.grant_revoked", "agent.mode_changed",
@@ -62,6 +71,8 @@ export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.file_deleted", "agent.file_transferred",
   "agent.object_created", "agent.object_updated", "agent.object_deleted",
   "agent.plugin_tool_run",
+  "agent.member_invited", "agent.member_removed", "agent.member_role_changed",
+  "agent.session_shared", "agent.session_unshared", "agent.control_granted",
 ];
 
 export type AnyAuditAction = ClientAuditAction | PluginAuditAction;

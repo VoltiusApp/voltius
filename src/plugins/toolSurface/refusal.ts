@@ -17,3 +17,9 @@ export type Refusal = { refused: true; error: string } & Record<string, unknown>
 export function refusal(error: string, extra?: Record<string, unknown>): Refusal {
   return { ...extra, refused: true, error };
 }
+
+/** True for a value built by `refusal`, so a wrapper can pass it through rather
+ *  than nesting it inside a reported success. */
+export function isRefusal(value: unknown): value is Refusal {
+  return typeof value === "object" && value !== null && (value as Refusal).refused === true;
+}

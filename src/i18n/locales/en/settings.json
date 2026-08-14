@@ -373,7 +373,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "Lets local MCP clients (like Claude Code) run commands, read, write and delete files on every host in your vault and on this computer, create, change or delete saved connections, keys and identities, run your saved snippets on those hosts, authorise SSH host keys, read the commands you have typed, see, cancel or retry your file transfers, see which of your saved hosts are reachable, and rearrange your terminal tabs and split panes, over a private socket. Approval happens in that client, not in Voltius. Off by default.",
+        "sub": "Lets local MCP clients (like Claude Code) run commands, read, write and delete files on every host in your vault and on this computer, create, change or delete saved connections, keys and identities, run your saved snippets on those hosts, authorise SSH host keys, read the commands you have typed, see, cancel or retry your file transfers, see which of your saved hosts are reachable, rearrange your terminal tabs and split panes, manage your team's membership and invitations, and share your terminal sessions with your team or hand off control of them, over a private socket. Approval happens in that client, not in Voltius. Off by default.",
         "running": "Running",
         "quickSetup": {
           "title": "Quick setup",
@@ -819,6 +819,10 @@
           "syncWrite": { "label": "Write sync data", "description": "Store and change data synced across your devices." },
           "panesRead": { "label": "Read the terminal layout", "description": "See your open tabs and split panes, and which session is in each." },
           "panesWrite": { "label": "Arrange terminal panes", "description": "Split, move, detach and focus terminal panes. Sessions stay open; nothing is closed." },
+          "teamRead": { "label": "Read your teams", "description": "See your teams, who belongs to them, their roles, and which members hold the team vault key." },
+          "teamWrite": { "label": "Manage team members", "description": "Invite people to your teams, remove members, and change what role they hold." },
+          "sharingRead": { "label": "Read shared terminals", "description": "See which of your terminal sessions are shared, who is watching them, and who holds control." },
+          "sharingWrite": { "label": "Share live terminals", "description": "Stream a live terminal session to members of your teams, stop sharing, and hand control of it to a participant who asked for it." },
           "storage": { "label": "Store plugin data", "description": "Save this plugin's own settings and data on your device." },
           "http": { "label": "Access the network", "description": "Make network requests to external services." },
           "cryptoDerive": { "label": "Derive encryption keys", "description": "Derive an encryption key from a passphrase you provide. Does not grant access to your stored secrets." },

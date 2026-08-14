@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveScope, FILE_TOOLS } from "@voltius/tools";
+import { deriveScope, FILE_TOOLS, TEAM_TOOLS } from "@voltius/tools";
 
 const api = (sessions: unknown[] = [], connections: unknown[] = []) =>
   ({
@@ -59,5 +59,17 @@ describe("deriveScope, reachable from the tool-surface barrel", () => {
       },
     } as never;
     expect(await deriveScope(teamConnApi, "key_add_to_host", { connection_id: "team-c1" })).toBe("team-c1");
+  });
+
+  it("scopes each membership verb to the team it names", async () => {
+    for (const tool of TEAM_TOOLS) {
+      expect(await deriveScope(api(), tool, { teamId: "t1", userId: "u1", role: "admin" })).toBe("t1");
+    }
+    expect(TEAM_TOOLS).toEqual(new Set(["member_invite", "member_remove", "member_set_role"]));
+  });
+
+  it("fails closed on a membership verb with no usable teamId", async () => {
+    expect(await deriveScope(api(), "member_remove", { userId: "u1" })).toBeNull();
+    expect(await deriveScope(api(), "member_remove", { teamId: 42, userId: "u1" })).toBeNull();
   });
 });
