@@ -83,7 +83,9 @@
       "invitationSentToUser": "Приглашение отправлено {{name}}",
       "userAdded": "{{name}} добавлен",
       "invitingEmail": "Приглашение {{email}}...",
-      "invitationSentToEmail": "Приглашение отправлено на {{email}}"
+      "invitationSentToEmail": "Приглашение отправлено на {{email}}",
+      "invitingToSession": "Приглашение {{name}} в сессию...",
+      "invitedToSession": "{{name}} приглашён в сессию"
     },
     "error": {
       "cannotRemoveOwnerRole": "Нельзя удалить роль владельца у владельца команды",
@@ -102,6 +104,7 @@
     "contextMenu": {
       "inviteToSession": "Пригласить в сессию",
       "noActiveSessions": "Нет активных сессий",
+      "noInvitableSessions": "Ни одна сессия не может принять это приглашение",
       "assignRoleBulk": "Назначить роль ({{count}})",
       "removeRoleBulk": "Удалить роль ({{count}})",
       "kickBulk_one": "Исключить {{count}} участника",
