@@ -139,7 +139,12 @@
       "upgradeToTeams": "Passer à Teams",
       "upgradeToBusiness": "Passer à Business",
       "hasControl": "A le contrôle",
-      "stopSharing": "Arrêter le partage"
+      "stopSharing": "Arrêter le partage",
+      "invitePeople": "Inviter des personnes",
+      "inviteHasAccess": "A déjà accès",
+      "inviteSent": "Invité",
+      "inviteFailed": "Impossible d'inviter {{name}}",
+      "inviteNoTeammates": "Aucun coéquipier pour l'instant"
     },
     "snippetVariableModal": {
       "on": "Activé",
