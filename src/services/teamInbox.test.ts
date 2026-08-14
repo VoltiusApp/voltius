@@ -107,11 +107,11 @@ test("Decline runs the extracted decline action", async () => {
   expect(h.decline).toHaveBeenCalledWith("a");
 });
 
-function session(id: string): ActiveSession {
+function session(id: string, hostUserId = "host1"): ActiveSession {
   return {
     id,
     connection_name: "web-prod",
-    host_user_id: "host1",
+    host_user_id: hostUserId,
     host_public_key: "pk",
     visibility: "team",
     created_at: "2026-08-13T00:00:00Z",
@@ -120,25 +120,53 @@ function session(id: string): ActiveSession {
 }
 
 test("a shared session becomes one entry, idempotently", () => {
-  reconcileSessions([session("s1")], new Set());
-  reconcileSessions([session("s1")], new Set());
+  reconcileSessions([session("s1")], new Set(), "me");
+  reconcileSessions([session("s1")], new Set(), "me");
   expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(1);
 });
 
 test("an ended session is retracted", () => {
-  reconcileSessions([session("s1")], new Set());
-  reconcileSessions([], new Set());
+  reconcileSessions([session("s1")], new Set(), "me");
+  reconcileSessions([], new Set(), "me");
   expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(0);
 });
 
 test("a session already joined is shown as resolved rather than offering Join again", () => {
-  reconcileSessions([session("s1")], new Set(["s1"]));
+  reconcileSessions([session("s1")], new Set(["s1"]), "me");
   const entry = get().inbox.find((e) => e.id === "session:s1")!;
   expect(entry.state).toBe("resolved");
 });
 
+// Live two-account run: the host's own bell read "A teammate shared ssh-host-1"
+// about the terminal the host had just shared.
+test("a session I host is not knocked into my own inbox", () => {
+  reconcileSessions([session("s1", "me")], new Set(), "me");
+  expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(0);
+});
+
+test("a session I host is retracted once my user id resolves", () => {
+  reconcileSessions([session("s1", "me")], new Set(), null);
+  expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(1);
+  reconcileSessions([session("s1", "me")], new Set(), "me");
+  expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(0);
+});
+
+// Live two-account run: after the guest left, the entry offered Join again but
+// stayed styled as resolved, so the button never rendered and the session
+// could not be rejoined from the inbox.
+test("leaving a joined session returns its entry to pending so Join renders again", () => {
+  reconcileSessions([session("s1")], new Set(["s1"]), "me");
+  expect(get().inbox.find((e) => e.id === "session:s1")!.state).toBe("resolved");
+
+  reconcileSessions([session("s1")], new Set(), "me");
+  const entry = get().inbox.find((e) => e.id === "session:s1")!;
+  expect(entry.state).toBe("pending");
+  expect(entry.resolution).toBeUndefined();
+  expect(entry.actions).toHaveLength(1);
+});
+
 test("running the inbox Join action opens a session tab, not just a websocket", async () => {
-  reconcileSessions([session("s1")], new Set());
+  reconcileSessions([session("s1")], new Set(), "me");
   await get().runInboxAction("session:s1", 0);
 
   expect(h.joinSession).toHaveBeenCalledWith("s1", "me@x", expect.any(Function), undefined);

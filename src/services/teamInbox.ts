@@ -9,6 +9,7 @@ import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import { getCurrentUserEmail } from "@/services/account";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
+import { getMyUserId } from "@/services/teamService";
 import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
 
@@ -63,22 +64,35 @@ async function joinSharedSession(session: ActiveSession): Promise<void> {
   });
 }
 
-export function reconcileSessions(sessions: ActiveSession[], joinedSessionIds: Set<string>): void {
+export function reconcileSessions(
+  sessions: ActiveSession[],
+  joinedSessionIds: Set<string>,
+  myUserId: string | null,
+): void {
   reconcile(
     ["sessionShared"],
-    sessions.map((s) => {
-      const joined = joinedSessionIds.has(s.id);
-      return {
-        id: `session:${s.id}`,
-        kind: "sessionShared" as const,
-        message: i18n.t("notifications.inbox.session.message", { name: s.connection_name }),
-        state: joined ? ("resolved" as const) : undefined,
-        resolution: joined ? i18n.t("notifications.inbox.session.joined") : undefined,
-        actions: joined
-          ? []
-          : [{ label: i18n.t("notifications.inbox.session.join"), run: () => joinSharedSession(s) }],
-      };
-    }),
+    // A session I host is not a knock — I am the one who shared it. The rail
+    // deliberately keeps my own sessions so I don't lose track of them; the
+    // inbox must not tell me a teammate shared my own terminal.
+    sessions
+      .filter((s) => s.host_user_id !== myUserId)
+      .map((s) => {
+        const joined = joinedSessionIds.has(s.id);
+        return {
+          id: `session:${s.id}`,
+          kind: "sessionShared" as const,
+          message: i18n.t("notifications.inbox.session.message", { name: s.connection_name }),
+          // Spelled out rather than left undefined: upsertInbox keeps the
+          // previous state when it is omitted, which pinned an entry as
+          // "resolved" — hiding its Join button — after a guest left and the
+          // session became joinable again.
+          state: joined ? ("resolved" as const) : ("pending" as const),
+          resolution: joined ? i18n.t("notifications.inbox.session.joined") : undefined,
+          actions: joined
+            ? []
+            : [{ label: i18n.t("notifications.inbox.session.join"), run: () => joinSharedSession(s) }],
+        };
+      }),
   );
 }
 
@@ -154,12 +168,23 @@ export function startTeamInbox(): () => void {
     }
   });
 
+  let stopped = false;
+  let myUserId: string | null = null;
   const syncSessions = (st: ReturnType<typeof useTeamSessionStore.getState>) => {
     const joined = new Set(Object.values(st.connections).map((c) => c.multiplayerSessionId));
-    reconcileSessions(st.activeSessions, joined);
+    reconcileSessions(st.activeSessions, joined, myUserId);
     reconcileControlRequests(st.connections);
   };
   syncSessions(useTeamSessionStore.getState());
+  // Async, so the first pass above runs with a null id and cannot filter my own
+  // sessions; re-run once it lands to retract anything that slipped through.
+  getMyUserId()
+    .then((id) => {
+      if (stopped) return;
+      myUserId = id;
+      syncSessions(useTeamSessionStore.getState());
+    })
+    .catch(() => {});
   const unsubSessions = useTeamSessionStore.subscribe((s, prev) => {
     if (s.activeSessions !== prev.activeSessions || s.connections !== prev.connections) {
       syncSessions(s);
@@ -174,6 +199,7 @@ export function startTeamInbox(): () => void {
   });
 
   return () => {
+    stopped = true;
     unsubInvites();
     unsubSessions();
     unsubVaultState();
