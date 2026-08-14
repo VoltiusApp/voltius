@@ -411,6 +411,12 @@
         }
       }
     },
+    "mcp": {
+      "consequence": {
+        "pluginInstallReview": "Désactive l'écran de consentement affiché avant chaque installation de plugin.",
+        "sessionTimeout": "Désactive le verrouillage automatique du coffre après une période d'inactivité."
+      }
+    },
     "about": {
       "versionTitle": "Version",
       "loading": "Chargement…",
@@ -823,6 +829,9 @@
           "teamWrite": { "label": "Gérer les membres d'équipe", "description": "Inviter des personnes dans vos équipes, retirer des membres et modifier leur rôle." },
           "sharingRead": { "label": "Lire les terminaux partagés", "description": "Voir lesquelles de vos sessions de terminal sont partagées, qui les regarde et qui en détient le contrôle." },
           "sharingWrite": { "label": "Partager des terminaux en direct", "description": "Diffuser une session de terminal en direct aux membres de vos équipes, arrêter le partage et céder le contrôle à un participant qui l'a demandé." },
+          "settingsRead": { "label": "Lire les réglages", "description": "Voir chaque réglage de l'application et sa valeur actuelle." },
+          "settingsWrite": { "label": "Modifier les réglages", "description": "Modifier n'importe quel réglage, y compris ceux qui désactivent une protection." },
+          "accountRead": { "label": "Lire votre abonnement", "description": "Voir votre formule, votre essai, vos sièges et votre facturation." },
           "storage": { "label": "Stocker les données du plugin", "description": "Enregistrer les réglages et données propres à ce plugin sur votre appareil." },
           "http": { "label": "Accéder au réseau", "description": "Effectuer des requêtes réseau vers des services externes." },
           "cryptoDerive": { "label": "Dériver des clés de chiffrement", "description": "Dériver une clé de chiffrement à partir d'une phrase secrète que vous fournissez. Ne donne pas accès à vos secrets stockés." },

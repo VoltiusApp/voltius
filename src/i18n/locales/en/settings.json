@@ -411,6 +411,12 @@
         }
       }
     },
+    "mcp": {
+      "consequence": {
+        "pluginInstallReview": "Turns off the consent screen shown before every plugin installation.",
+        "sessionTimeout": "Turns off the automatic vault lock after a period of inactivity."
+      }
+    },
     "about": {
       "versionTitle": "Version",
       "loading": "Loading…",
@@ -823,6 +829,9 @@
           "teamWrite": { "label": "Manage team members", "description": "Invite people to your teams, remove members, and change what role they hold." },
           "sharingRead": { "label": "Read shared terminals", "description": "See which of your terminal sessions are shared, who is watching them, and who holds control." },
           "sharingWrite": { "label": "Share live terminals", "description": "Stream a live terminal session to members of your teams, stop sharing, and hand control of it to a participant who asked for it." },
+          "settingsRead": { "label": "Read app settings", "description": "See every setting in this app and its current value." },
+          "settingsWrite": { "label": "Change app settings", "description": "Change any setting in this app, including ones that turn off a safeguard." },
+          "accountRead": { "label": "Read your subscription", "description": "See your plan, trial status, seats and billing state." },
           "storage": { "label": "Store plugin data", "description": "Save this plugin's own settings and data on your device." },
           "http": { "label": "Access the network", "description": "Make network requests to external services." },
           "cryptoDerive": { "label": "Derive encryption keys", "description": "Derive an encryption key from a passphrase you provide. Does not grant access to your stored secrets." },

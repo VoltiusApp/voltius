@@ -298,6 +298,12 @@
         }
       }
     },
+    "mcp": {
+      "consequence": {
+        "pluginInstallReview": "关闭每次安装插件前显示的授权确认界面。",
+        "sessionTimeout": "关闭闲置一段时间后自动锁定保险库的功能。"
+      }
+    },
     "about": {
       "versionTitle": "版本",
       "loading": "正在加载…",
@@ -787,6 +793,18 @@
           "sharingWrite": {
             "label": "共享实时终端",
             "description": "将实时终端会话流式传输给您团队的成员、停止共享，以及将控制权交给主动请求的参与者。"
+          },
+          "settingsRead": {
+            "label": "读取应用设置",
+            "description": "查看应用的所有设置及其当前值。"
+          },
+          "settingsWrite": {
+            "label": "修改应用设置",
+            "description": "修改任意设置，包括会关闭安全防护的设置。"
+          },
+          "accountRead": {
+            "label": "读取订阅信息",
+            "description": "查看你的套餐、试用状态、席位和账单状态。"
           },
           "storage": {
             "label": "存储插件数据",
