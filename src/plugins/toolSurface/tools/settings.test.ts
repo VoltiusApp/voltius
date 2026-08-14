@@ -17,6 +17,13 @@ const ports = (over: Partial<Record<string, unknown>> = {}) => ({
             ? { key, type: "boolean", default: true, value: true, label: "Minimap",
                 section: "appearance", writable: true }
             : undefined),
+      // Le manifeste réel ne déclenche la conséquence que dans le sens qui
+      // désarme ; le double en fait autant, sinon le test du sens inverse
+      // passerait pour de mauvaises raisons.
+      consequenceOf: vi.fn((key: string, value: unknown) =>
+        key === "toggles.plugin-install-review" && value === false
+          ? "Turns off the consent screen."
+          : undefined),
       set: vi.fn(() => ({ ok: true, result: { key: "k", requested: 1, effective: 1, changed: false } })),
       ...(over.settings as object ?? {}),
     },
@@ -90,14 +97,75 @@ describe("verbes de réglages", () => {
     expect((p.api.settings as unknown as { set: ReturnType<typeof vi.fn> }).set).not.toHaveBeenCalled();
   });
 
+  test("réactiver un garde-fou n'exige aucun confirm", async () => {
+    const p = ports();
+    const res = await byName(p, "setting_set")
+      .execute({ key: "toggles.plugin-install-review", value: true });
+    expect(res).toMatchObject({ ok: true });
+  });
+
   test("une écriture enregistre une ligne d'audit avec la portée et l'approbation de la décision", async () => {
     const p = ports();
     await byName(p, "setting_set").execute({ key: "toggles.scroll-minimap", value: false });
     expect(p.audit).toHaveBeenCalledWith(
       "mcp",
       "agent.setting_changed",
-      { tool: "setting_set", approval: "granted", key: "toggles.scroll-minimap" },
+      {
+        tool: "setting_set", approval: "granted", key: "toggles.scroll-minimap",
+        guarded: false, confirmed: false, value: false,
+      },
       undefined,
     );
+  });
+
+  test("la ligne d'audit décrit la clé approuvée, pas celle demandée", async () => {
+    const p = ports({
+      rest: {
+        approve: vi.fn(async () => ({
+          approve: true as const, scope: "mcp", via: "granted" as const,
+          args: { key: "toggles.plugin-install-review", value: false, confirm: true },
+        })),
+      },
+    });
+    await byName(p, "setting_set")
+      .execute({ key: "toggles.plugin-install-review", value: false, confirm: true });
+    expect(p.audit).toHaveBeenCalledWith(
+      "mcp",
+      "agent.setting_changed",
+      expect.objectContaining({ key: "toggles.plugin-install-review", guarded: true, confirmed: true }),
+      undefined,
+    );
+  });
+
+  test("une décision qui réécrit la clé vers une clé gardée est refusée sans écrire", async () => {
+    const p = ports({
+      rest: {
+        approve: vi.fn(async () => ({
+          approve: true as const, scope: "mcp", via: "granted" as const,
+          args: { key: "toggles.plugin-install-review", value: false },
+        })),
+      },
+    });
+    const res = await byName(p, "setting_set")
+      .execute({ key: "toggles.scroll-minimap", value: false }) as Record<string, unknown>;
+
+    expect(res.refused).toBe(true);
+    expect(String(res.error)).toContain("Turns off the consent screen.");
+    expect((p.api.settings as unknown as { set: ReturnType<typeof vi.fn> }).set).not.toHaveBeenCalled();
+  });
+
+  test("la valeur n'accompagne la ligne d'audit que pour un booléen", async () => {
+    const p = ports({
+      settings: {
+        get: vi.fn(() => ({
+          key: "terminal.preferredShell", type: "string", default: null, value: null,
+          label: "Shell", section: "terminal", writable: true,
+        })),
+      },
+    });
+    await byName(p, "setting_set").execute({ key: "terminal.preferredShell", value: "/bin/zsh" });
+    const meta = (p.audit as unknown as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<string, unknown>;
+    expect(meta).not.toHaveProperty("value");
+    expect(JSON.stringify(meta)).not.toContain("/bin/zsh");
   });
 });

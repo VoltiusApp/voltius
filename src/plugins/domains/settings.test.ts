@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { getSetting, listSettings, setSetting } from "./settings";
+import { getSetting, listSettings, setSetting, settingConsequence } from "./settings";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 
@@ -84,6 +84,18 @@ describe("domaine settings", () => {
 
   test("set refuse une clé inconnue", () => {
     expect(setSetting("nope.nope", 1).ok).toBe(false);
+  });
+
+  test("la conséquence ne se déclenche que dans le sens qui désarme", () => {
+    expect(settingConsequence("toggles.plugin-install-review", false)).toBeTruthy();
+    expect(settingConsequence("toggles.plugin-install-review", true)).toBeUndefined();
+    expect(settingConsequence("updater.autoUpdate", false)).toBeTruthy();
+    expect(settingConsequence("updater.autoUpdate", true)).toBeUndefined();
+  });
+
+  test("une clé sans garde-fou, ou inconnue, n'a pas de conséquence", () => {
+    expect(settingConsequence("toggles.scroll-minimap", false)).toBeUndefined();
+    expect(settingConsequence("nope.nope", false)).toBeUndefined();
   });
 
   test("set refuse une valeur structurée", () => {

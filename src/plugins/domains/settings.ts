@@ -1,6 +1,7 @@
 import i18n from "@/i18n";
 import { settingDef, settingDefs, type SettingDef } from "./settingsManifest";
 import { failed, type DomainResult } from "./result";
+import { unknownSetting } from "../settingMessages";
 
 export interface SettingView {
   key: string;
@@ -28,8 +29,19 @@ function toView(def: SettingDef): SettingView {
     label: i18n.t(def.labelKey),
     section: def.section,
     writable: def.writable,
-    consequence: def.consequence ? i18n.t(def.consequence) : undefined,
+    consequence: def.consequence ? i18n.t(def.consequence.key) : undefined,
   };
+}
+
+/**
+ * La phrase à opposer à une écriture — seulement quand cette écriture désarme
+ * réellement le garde-fou. Réactiver une protection n'a aucune conséquence à
+ * annoncer, alors que `SettingView.consequence` décrit la clé, pas l'écriture.
+ */
+export function settingConsequence(key: string, value: unknown): string | undefined {
+  const def = settingDef(key);
+  if (!def?.consequence || !def.consequence.weakens(value, def.get())) return undefined;
+  return i18n.t(def.consequence.key);
 }
 
 export function listSettings(
@@ -47,9 +59,10 @@ export function getSetting(key: string): SettingView | undefined {
   return def ? toView(def) : undefined;
 }
 
-/** Rejette avant d'écrire ; le store garde ses propres invariants ensuite. */
+/** Rejette avant d'écrire ; le store garde ses propres invariants ensuite.
+ *  Les valeurs structurées ne passent jamais ici : `setSetting` les a déjà
+ *  refusées, faute de setter. */
 function validate(def: SettingDef, value: unknown): string | undefined {
-  if (def.type === "structured") return `Setting "${def.key}" is read-only (structured value)`;
   if (value === null) {
     return def.default === null ? undefined : `Setting "${def.key}" does not accept null`;
   }
@@ -77,8 +90,10 @@ export function setSetting(
   value: unknown,
 ): DomainResult<{ key: string; requested: unknown; effective: unknown; changed: boolean }> {
   const def = settingDef(key);
-  if (!def) return { ok: false, error: `Unknown setting "${key}"` };
-  if (!def.writable || !def.set) return { ok: false, error: `Setting "${key}" is read-only (structured value)` };
+  if (!def) return { ok: false, error: unknownSetting(key) };
+  if (!def.writable || !def.set) {
+    return { ok: false, error: `Setting "${key}" is read-only (structured value)` };
+  }
 
   const invalid = validate(def, value);
   if (invalid) return { ok: false, error: invalid };
@@ -89,8 +104,10 @@ export function setSetting(
     return failed(err);
   }
 
-  // Relecture : le setter du store a pu tronquer ou normaliser.
-  const effective = settingDef(key)!.get();
+  // Relecture : le setter du store a pu tronquer ou normaliser. Forme
+  // optionnelle : l'écriture a déjà eu lieu et a déjà été auditée, une
+  // TypeError ici rendrait un refus pour un changement bel et bien appliqué.
+  const effective = settingDef(key)?.get();
   return {
     ok: true,
     result: { key, requested: value, effective, changed: effective !== value },

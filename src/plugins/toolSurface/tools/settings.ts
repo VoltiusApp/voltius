@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { refusal } from "../refusal";
+import { unknownSetting } from "@/plugins/settingMessages";
 import { makeGate, objectOp, unwrapDomain } from "./helpers";
 
 export const SETTINGS_PERMISSIONS = ["settings:read", "settings:write"] as const;
@@ -38,15 +39,16 @@ export function buildSettingTools(ports: ToolSurfacePorts): Tool[] {
       execute: async (raw) => {
         const key = String(raw.key);
         const view = ports.api.settings.get(key);
-        return view ?? refusal(`Unknown setting "${key}"`);
+        return view ?? refusal(unknownSetting(key));
       },
     },
     {
       name: "setting_set",
       description:
         "Change one setting. The stored value may be normalised or clamped by the app, so the "
-        + "result reports the value that actually landed. A few settings turn off a safeguard; "
-        + "those refuse once, explain what would be lost, and need confirm: true to proceed. "
+        + "result reports the value that actually landed. A few settings guard something; "
+        + "writing one in the direction that turns the guard off refuses once, explains what "
+        + "would be lost, and needs confirm: true to proceed — turning it back on does not. "
         + "Setting toggles.mcp-server to false shuts down this connection and can only be "
         + "turned back on by hand in the app.",
       risk: "prompt",
@@ -56,24 +58,49 @@ export function buildSettingTools(ports: ToolSurfacePorts): Tool[] {
         confirm: z.boolean().optional(),
       }),
       execute: async (raw) => {
-        const key = String(raw.key);
-        const view = ports.api.settings.get(key);
-        if (!view) return refusal(`Unknown setting "${key}"`);
+        const confirmed = raw.confirm === true;
+        const guardOf = (key: string, value: unknown): unknown => {
+          const view = ports.api.settings.get(key);
+          if (!view) return refusal(unknownSetting(key));
+          // Only the direction that disarms the safeguard is refused: the
+          // manifest entry owns that test, so re-ENABLING a consent screen is
+          // an ordinary write. The sentence is itself the refusal — the only
+          // place it reaches a human, since the MCP client shows only the verb
+          // name and its arguments.
+          const consequence = ports.api.settings.consequenceOf(key, value);
+          if (consequence && !confirmed) {
+            return refusal(`${consequence} Call again with confirm: true to proceed.`, {
+              key,
+              requiresConfirmation: true,
+            });
+          }
+          return undefined;
+        };
 
-        // Both checks run before the gate, like sessionGate's precheck: a call
-        // that is already doomed must not raise an approval card for it. The
-        // consequence sentence is itself the refusal — the only place it
-        // reaches a human, since the MCP client shows only the verb name and
-        // its arguments.
-        if (view.consequence && raw.confirm !== true) {
-          return refusal(`${view.consequence} Call again with confirm: true to proceed.`, {
+        // Before the gate, like sessionGate's precheck: a call that is already
+        // doomed must not raise an approval card for it.
+        const doomed = guardOf(String(raw.key), raw.value);
+        if (doomed) return doomed;
+
+        return op("setting_set", "agent.setting_changed", (a) => {
+          const key = String(a.key);
+          const view = ports.api.settings.get(key);
+          return {
             key,
-            requiresConfirmation: true,
-          });
-        }
-
-        return op("setting_set", "agent.setting_changed", { key }, raw, async (a) =>
-          unwrapDomain(ports.api.settings.set(String(a.key), a.value)));
+            guarded: !!view?.consequence,
+            confirmed,
+            // Values are user content — a shell path, a theme id. Only a
+            // boolean is safe to put on a row that can leave the device.
+            ...(view?.type === "boolean" ? { value: a.value } : {}),
+          };
+        }, raw, async (a) => {
+          // The approval decision may have rewritten the arguments, so the
+          // guard is re-run on what is actually about to be written — the
+          // hazard sessionGate documents for its own scope.
+          const stillDoomed = guardOf(String(a.key), a.value);
+          if (stillDoomed) return stillDoomed;
+          return unwrapDomain(ports.api.settings.set(String(a.key), a.value));
+        });
       },
     },
   ];
