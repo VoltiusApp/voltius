@@ -196,7 +196,8 @@ export function buildMcpTools(
     api,
     // The MCP client's own permission prompt is the gate; Voltius performs no
     // per-call check by construction. `deriveScope` still runs so the audit row
-    // names the real connection rather than a constant.
+    // names its real target — a connection, or the team for the membership
+    // verbs — rather than a constant.
     approve: async ({ tool, args }) => ({
       approve: true,
       scope: (await deriveScope(api, tool, args)) ?? "mcp",
@@ -298,9 +299,10 @@ function buildContributedTools(ports: ToolSurfacePorts): McpTool[] {
       execute: async (args: Record<string, unknown>) => {
         if (c.mutating) {
           // Same audit port the core verbs use, so `via: "mcp"` is stamped in
-          // exactly one place. `scope` must be a CONNECTION id — api.audit.record
-          // resolves the team-vs-local audit context from it, and a session id
-          // resolves to nothing and fails closed to the local sink.
+          // exactly one place. `scope` must be a CONNECTION id, or a TEAM id for
+          // the membership verbs — api.audit.record resolves the team-vs-local
+          // audit context from it, and a session id resolves to nothing and
+          // fails closed to the local sink.
           ports.audit(
             connectionScope(ports, args),
             "agent.plugin_tool_run",
