@@ -38,15 +38,27 @@ describe("marketplace verbs", () => {
     expect(audit).not.toHaveBeenCalled();
   });
 
-  it("audits a source addition with the URL", async () => {
+  it("audits a source addition with the origin, not the full URL", async () => {
     const { p, audit } = ports();
     expect(await byName(p, "marketplace_source_add").execute({ url: source.url }))
       .toEqual({ ok: true, result: source });
     expect(audit).toHaveBeenCalledWith(
       "mcp", "agent.marketplace_source_changed",
-      expect.objectContaining({ tool: "marketplace_source_add", url: source.url, change: "added" }),
+      expect.objectContaining({ tool: "marketplace_source_add", url: "https://x", change: "added" }),
       undefined,
     );
+  });
+
+  it("strips the query string, keeping only the origin, when the URL carries one", async () => {
+    const { p, audit } = ports();
+    await byName(p, "marketplace_source_add").execute({ url: "https://example.com/team/plugins.json?token=abc" });
+    expect(audit).toHaveBeenCalledWith(
+      "mcp", "agent.marketplace_source_changed",
+      expect.objectContaining({ url: "https://example.com" }),
+      undefined,
+    );
+    const [, , metadata] = audit.mock.calls[0];
+    expect(String((metadata as Record<string, unknown>).url)).not.toContain("token");
   });
 
   it("passes a removal refusal through unwrapped", async () => {

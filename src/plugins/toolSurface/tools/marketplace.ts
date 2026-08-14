@@ -5,6 +5,15 @@ import { makeGate, objectOp, unwrapDomain } from "./helpers";
 
 export const MARKETPLACE_PERMISSIONS = ["plugins:manage"] as const;
 
+/** Origin only, for the audit row — never the path or query string. */
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "invalid";
+  }
+}
+
 export function buildMarketplaceTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
   const op = objectOp(ports, gate);
@@ -38,7 +47,9 @@ export function buildMarketplaceTools(ports: ToolSurfacePorts): Tool[] {
       schema: z.object({ url: z.string() }),
       execute: async (raw) =>
         op("marketplace_source_add", "agent.marketplace_source_changed",
-          (a) => ({ url: String(a.url), change: "added" }), raw, async (a) =>
+          // Origin only: a private catalog URL can carry auth material in its
+          // query string, and the audit row must not hold it in clear.
+          (a) => ({ url: originOf(String(a.url)), change: "added" }), raw, async (a) =>
             unwrapDomain(await ports.api.plugins.addSource(String(a.url)))),
     },
     {
