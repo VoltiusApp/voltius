@@ -81,7 +81,9 @@
       "invitationSentToUser": "已发送邀请给 {{name}}",
       "userAdded": "已添加 {{name}}",
       "invitingEmail": "正在邀请 {{email}}…",
-      "invitationSentToEmail": "已发送邀请给 {{email}}"
+      "invitationSentToEmail": "已发送邀请给 {{email}}",
+      "invitingToSession": "正在邀请 {{name}} 加入会话…",
+      "invitedToSession": "已邀请 {{name}} 加入会话"
     },
     "error": {
       "cannotRemoveOwnerRole": "无法从团队所有者移除所有者角色",
@@ -100,6 +102,7 @@
     "contextMenu": {
       "inviteToSession": "邀请到会话",
       "noActiveSessions": "没有活跃会话",
+      "noInvitableSessions": "没有可接收此邀请的会话",
       "assignRoleBulk": "分配角色（{{count}}）",
       "removeRoleBulk": "移除角色（{{count}}）",
       "kickBulk_one": "踢出 {{count}} 名成员",

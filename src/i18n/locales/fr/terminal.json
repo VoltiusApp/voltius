@@ -136,6 +136,8 @@
       "waitingForGuests": "En attente d'un participant…",
       "participantsRatio_one": "{{participantCount}} / {{guestCap}} participant",
       "participantsRatio_other": "{{participantCount}} / {{guestCap}} participants",
+      "seatsRatio_one": "{{participantCount}} siège sur {{guestCap}} utilisé",
+      "seatsRatio_other": "{{participantCount}} sièges sur {{guestCap}} utilisés",
       "upgradeToTeams": "Passer à Teams",
       "upgradeToBusiness": "Passer à Business",
       "hasControl": "A le contrôle",
@@ -143,6 +145,7 @@
       "invitePeople": "Inviter des personnes",
       "inviteHasAccess": "A déjà accès",
       "inviteSent": "Invité",
+      "inviteCapReached": "Limite atteinte",
       "inviteFailed": "Impossible d'inviter {{name}}",
       "inviteNoTeammates": "Aucun coéquipier pour l'instant",
       "inviteLoadFailed": "Impossible de charger les coéquipiers"

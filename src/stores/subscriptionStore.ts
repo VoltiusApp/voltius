@@ -2,9 +2,9 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { appFetch } from "@/services/http";
 import { parseJwtPayload } from "@/utils/emailVerification";
-import { deriveTierFlags } from "@/stores/subscriptionTier";
+import { deriveTierFlags, type Tier } from "@/stores/subscriptionTier";
 
-export type Tier = "free" | "pro" | "teams" | "business";
+export type { Tier };
 
 interface JwtPayload {
   tier?: string;
