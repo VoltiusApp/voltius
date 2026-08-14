@@ -1057,6 +1057,10 @@ export interface PluginAPI {
   settings: {
     list(filter?: { section?: string; prefix?: string; writableOnly?: boolean }): SettingView[];
     get(key: string): SettingView | undefined;
+    /** The sentence a guarded write must be refused with, or undefined when
+     *  writing `value` does not weaken any safeguard (re-enabling one never
+     *  does). Read-only — requires "settings:read". */
+    consequenceOf(key: string, value: unknown): string | undefined;
     /** Writes, then RE-READS: a store setter may clamp or normalise, so
      *  `effective` is the value that actually landed, not the one asked for. */
     set(key: string, value: unknown): DomainResult<{
