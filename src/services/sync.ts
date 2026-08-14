@@ -882,10 +882,11 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     await refetchActiveSessions();
   } else if (eventData !== myDeviceId) {
     syncNow().catch(() => {});
-    // The broadcast receiver lags behind and falls back to this generic "sync"
-    // event; refetch active sessions too so a lagged client doesn't keep a
-    // stale rail once the poll in TeamSessions is gone.
-    refetchActiveSessions().catch(() => {});
+    // "sync" is the server's lagged-receiver fallback: session_shared /
+    // session_ended may have been dropped, so refetch active sessions too.
+    // Scoped to that event — ordinary cross-device pushes carry a device id
+    // and must not each cost a session round-trip.
+    if (eventData === "sync") refetchActiveSessions().catch(() => {});
   }
 }
 
