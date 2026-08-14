@@ -3,13 +3,31 @@ import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import type { DomainResult } from "@/plugins/api";
 import { refusal } from "../refusal";
-import { makeGate, objectOp, unwrapDomain } from "./helpers";
+import { makeGate, objectOp, unwrapDomain, idOp } from "./helpers";
 
 export const PLUGIN_PERMISSIONS = ["plugins:manage"] as const;
+
+// Shared with the domain (src/plugins/domains/plugins.ts), which imports these
+// back so the refusal text has one source of truth: the tool layer pre-checks
+// the same doomed calls the domain guards, to avoid a false audit row, and
+// the wording must not drift between the two checks.
+export const noSuchPluginMessage = (id: string) =>
+  `no such plugin "${id}"; call plugin_list for the installed ids`;
+
+export const unknownConfigKeyMessage = (id: string, known: string[], key: string) =>
+  known.length === 0
+    ? `"${id}" declares no configuration`
+    : `"${id}" declares no setting "${key}"; it declares ${known.join(", ")}`;
 
 export function buildPluginTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
   const op = objectOp(ports, gate);
+
+  /** Doomed before the gate: an id naming no installed plugin. */
+  const requireExisting = async (id: string): Promise<unknown> => {
+    const plugins = await ports.api.plugins.list();
+    return plugins.some((p) => p.id === id) ? undefined : refusal(noSuchPluginMessage(id));
+  };
 
   /** The three lifecycle verbs differ only by id, action and store call. */
   const lifecycle = (
@@ -17,14 +35,13 @@ export function buildPluginTools(ports: ToolSurfacePorts): Tool[] {
     action: "agent.plugin_installed" | "agent.plugin_removed" | "agent.plugin_updated",
     description: string,
     run: (id: string) => Promise<DomainResult<unknown>>,
+    precheck?: (id: string) => Promise<unknown>,
   ): Tool => ({
     name,
     description,
     risk: "prompt",
     schema: z.object({ id: z.string() }),
-    execute: async (raw) =>
-      op(name, action, (a) => ({ id: String(a.id) }), raw, async (a) =>
-        unwrapDomain(await run(String(a.id)))),
+    execute: idOp(op, name, action, run, { idKey: "pluginId", precheck }),
   });
 
   const toggle = (name: string, enabled: boolean, description: string): Tool => ({
@@ -32,10 +49,11 @@ export function buildPluginTools(ports: ToolSurfacePorts): Tool[] {
     description,
     risk: "prompt",
     schema: z.object({ id: z.string() }),
-    execute: async (raw) =>
-      op(name, enabled ? "agent.plugin_enabled" : "agent.plugin_disabled",
-        (a) => ({ id: String(a.id) }), raw, async (a) =>
-          unwrapDomain(await ports.api.plugins.setEnabled(String(a.id), enabled))),
+    execute: idOp(
+      op, name, enabled ? "agent.plugin_enabled" : "agent.plugin_disabled",
+      (id) => ports.api.plugins.setEnabled(id, enabled),
+      { idKey: "pluginId", precheck: requireExisting },
+    ),
   });
 
   return [
@@ -62,6 +80,7 @@ export function buildPluginTools(ports: ToolSurfacePorts): Tool[] {
       "Remove an installed plugin. Plugins bundled with the app can be removed too and stay "
       + "reinstallable afterwards.",
       (id) => ports.api.plugins.uninstall(id),
+      requireExisting,
     ),
     toggle("plugin_enable", true,
       "Enable an installed plugin and load it. Its contributed tools appear after this."),
@@ -73,6 +92,7 @@ export function buildPluginTools(ports: ToolSurfacePorts): Tool[] {
       "Update an installed plugin to the version its marketplace source offers. Refuses, naming "
       + "the installed version, when there is nothing newer.",
       (id) => ports.api.plugins.update(id),
+      requireExisting,
     ),
     {
       name: "plugin_configure",
@@ -93,8 +113,16 @@ export function buildPluginTools(ports: ToolSurfacePorts): Tool[] {
         if (raw.key === undefined) {
           return refusal("plugin_configure needs a key when a value is given");
         }
+        const key = String(raw.key);
+        // Same doomed-call test config()'s read path applies (unknown id, no
+        // declared settings), plus the specific key: refusing here — before
+        // the gate — avoids a false "agent.plugin_configured" row and a
+        // pointless approval card for a write that was always going to fail.
+        const cfg = await ports.api.plugins.config(id);
+        if (!cfg.ok) return refusal(cfg.error);
+        if (!(key in cfg.result)) return refusal(unknownConfigKeyMessage(id, Object.keys(cfg.result), key));
         return op("plugin_configure", "agent.plugin_configured",
-          (a) => ({ id: String(a.id), key: String(a.key) }), raw, async (a) =>
+          (a) => ({ pluginId: String(a.id), key: String(a.key) }), raw, async (a) =>
             unwrapDomain(await ports.api.plugins.configure(String(a.id), String(a.key), a.value)));
       },
     },

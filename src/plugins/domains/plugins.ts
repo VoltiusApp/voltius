@@ -5,6 +5,13 @@ import { loadSeededEntries } from "@/stores/seededTombstoneStore";
 import { availableUpdate, availableSeededUpdate } from "@/plugins/updates";
 import { failed, type DomainResult } from "./result";
 import type { PluginConfigField, PluginManifest } from "@/plugins/api";
+// Declared in the tool layer, not here: the MCP verbs pre-check these same
+// doomed calls (unknown id, non-deletable source) before the approval gate,
+// so they can raise no card and write no audit row for a call that was
+// always going to be refused. Importing the message builders back keeps the
+// wording a single source of truth instead of two copies drifting apart.
+import { noSuchPluginMessage, unknownConfigKeyMessage } from "@/plugins/toolSurface/tools/plugins";
+import { noSuchSourceMessage, sourceNotDeletableMessage } from "@/plugins/toolSurface/tools/marketplace";
 
 export interface PluginView {
   id: string;
@@ -78,8 +85,7 @@ async function findView(id: string): Promise<PluginView | undefined> {
   return (await listPlugins()).find((p) => p.id === id);
 }
 
-const noSuchPlugin = (id: string) =>
-  failed(`no such plugin "${id}"; call plugin_list for the installed ids`);
+const noSuchPlugin = (id: string) => failed(noSuchPluginMessage(id));
 
 /** Runs a throwing store call and turns a rejection into a DomainResult refusal,
  *  preserving the thrown error's message (MinAppVersionError, hash/id mismatches,
@@ -121,9 +127,7 @@ export async function setPluginEnabled(id: string, enabled: boolean): Promise<Do
   setPluginActive(id, enabled);
   await usePluginRegistryStore.getState().setEnabled(id, enabled);
   const view = await findView(id);
-  return view
-    ? { ok: true, result: view }
-    : { ok: true, result: { id, name: id, version: "", enabled, loaded: false, origin: "local", hash: null, permissions: [], configurable: [], updateAvailable: null } };
+  return view ? { ok: true, result: view } : failed(`"${id}" toggled but produced no loaded plugin`);
 }
 
 export async function updatePlugin(id: string): Promise<DomainResult<PluginView>> {
@@ -151,14 +155,7 @@ export async function writePluginConfig(
   if (!m) return noSuchPlugin(id);
   const fields = configOf(m);
   const field = fields[key];
-  if (!field) {
-    const known = Object.keys(fields);
-    return failed(
-      known.length === 0
-        ? `"${id}" declares no configuration`
-        : `"${id}" declares no setting "${key}"; it declares ${known.join(", ")}`,
-    );
-  }
+  if (!field) return failed(unknownConfigKeyMessage(id, Object.keys(fields), key));
   const effective = coerce(field, value);
   if (effective === undefined) return failed(`"${key}" expects ${field.type}`);
   await pluginStorageSet(id, key, effective);
@@ -185,6 +182,7 @@ export async function listSources(): Promise<SourceView[]> {
 }
 
 export async function searchCatalog(query?: string): Promise<MarketplacePlugin[]> {
+  await market().loadSources();
   await market().fetchCatalog();
   const q = query?.trim().toLowerCase();
   const all = market().catalog;
@@ -203,8 +201,8 @@ export async function addSource(url: string): Promise<DomainResult<SourceView>> 
 
 export async function removeSource(id: string): Promise<DomainResult<{ id: string }>> {
   const source = (await listSources()).find((s) => s.id === id);
-  if (!source) return failed(`no such marketplace source "${id}"`);
-  if (!source.deletable) return failed(`"${id}" is built in and cannot be removed`);
+  if (!source) return failed(noSuchSourceMessage(id));
+  if (!source.deletable) return failed(sourceNotDeletableMessage(id));
   const attempt = await tryStoreCall(() => market().removeSource(id));
   if (!attempt.ok) return attempt;
   return { ok: true, result: { id } };

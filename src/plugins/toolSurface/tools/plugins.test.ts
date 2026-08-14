@@ -54,7 +54,7 @@ describe("plugin verbs", () => {
     expect(r).toEqual({ ok: true, result: view });
     expect(audit).toHaveBeenCalledWith(
       "mcp", "agent.plugin_installed",
-      expect.objectContaining({ tool: "plugin_install", approval: "granted", id: "acme" }),
+      expect.objectContaining({ tool: "plugin_install", approval: "granted", pluginId: "acme" }),
       undefined,
     );
   });
@@ -86,7 +86,7 @@ describe("plugin verbs", () => {
       .toEqual({ ok: true, result: { key: "autoCheck", effective: false } });
     expect(audit).toHaveBeenCalledWith(
       "mcp", "agent.plugin_configured",
-      expect.objectContaining({ tool: "plugin_configure", id: "acme", key: "autoCheck" }),
+      expect.objectContaining({ tool: "plugin_configure", pluginId: "acme", key: "autoCheck" }),
       undefined,
     );
   });
@@ -97,4 +97,34 @@ describe("plugin verbs", () => {
     expect(r.refused).toBe(true);
     expect(audit).not.toHaveBeenCalled();
   });
+
+  it("plugin_configure refuses an undeclared key before the gate, writing no audit row", async () => {
+    const { p, audit, api } = ports();
+    const r = await byName(p, "plugin_configure").execute({ id: "acme", key: "nope", value: 1 }) as Record<string, unknown>;
+    expect(r.refused).toBe(true);
+    expect(String(r.error)).toContain("nope");
+    expect(api.plugins.configure).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
+  });
+
+  // A typo'd id is doomed regardless of approval: the domain guard still
+  // refuses it, but the pre-check here must catch it first so no approval
+  // card is raised and no audit row is written for something that never ran.
+  for (const [name, action] of [
+    ["plugin_uninstall", "agent.plugin_removed"],
+    ["plugin_update", "agent.plugin_updated"],
+    ["plugin_enable", "agent.plugin_enabled"],
+    ["plugin_disable", "agent.plugin_disabled"],
+  ] as const) {
+    it(`${name} on an unknown id is refused before the gate, writing no audit row`, async () => {
+      const { p, audit, api } = ports();
+      const r = await byName(p, name).execute({ id: "no-such-plugin" }) as Record<string, unknown>;
+      expect(r.refused).toBe(true);
+      expect(String(r.error)).toContain("no-such-plugin");
+      expect(audit).not.toHaveBeenCalledWith("mcp", action, expect.anything(), expect.anything());
+      expect(api.plugins.uninstall).not.toHaveBeenCalled();
+      expect(api.plugins.update).not.toHaveBeenCalled();
+      expect(api.plugins.setEnabled).not.toHaveBeenCalled();
+    });
+  }
 });

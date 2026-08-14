@@ -3,15 +3,16 @@ import { buildMarketplaceTools } from "./marketplace";
 import type { ToolSurfacePorts } from "../coreTools";
 
 const source = { id: "custom", name: "Custom", url: "https://x/p.json", enabled: true, deletable: true };
+const builtIn = { id: "voltius", name: "Voltius", url: "https://voltius/p.json", enabled: true, deletable: false };
 
 function ports() {
   const audit = vi.fn();
   const api = {
     plugins: {
       search: vi.fn(async () => [{ id: "acme", name: "Acme", version: "1.0.0" }]),
-      sources: vi.fn(async () => [source]),
+      sources: vi.fn(async () => [source, builtIn]),
       addSource: vi.fn(async () => ({ ok: true, result: source })),
-      removeSource: vi.fn(async () => ({ ok: false, error: "built in" })),
+      removeSource: vi.fn(async () => ({ ok: true, result: { id: source.id } })),
     },
   };
   return {
@@ -61,9 +62,32 @@ describe("marketplace verbs", () => {
     expect(String((metadata as Record<string, unknown>).url)).not.toContain("token");
   });
 
-  it("passes a removal refusal through unwrapped", async () => {
-    const r = await byName(ports().p, "marketplace_source_remove").execute({ id: "voltius" }) as Record<string, unknown>;
+  it("refuses removing the built-in source before the gate, writing no audit row", async () => {
+    const { p, audit, api } = ports();
+    const r = await byName(p, "marketplace_source_remove").execute({ id: "voltius" }) as Record<string, unknown>;
     expect(r.refused).toBe(true);
-    expect(r.ok).toBeUndefined();
+    expect(String(r.error)).toContain("built in");
+    expect(api.plugins.removeSource).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
+  });
+
+  it("refuses removing an unknown source id before the gate, writing no audit row", async () => {
+    const { p, audit, api } = ports();
+    const r = await byName(p, "marketplace_source_remove").execute({ id: "no-such-source" }) as Record<string, unknown>;
+    expect(r.refused).toBe(true);
+    expect(String(r.error)).toContain("no-such-source");
+    expect(api.plugins.removeSource).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
+  });
+
+  it("removes a deletable custom source and audits the change", async () => {
+    const { p, audit } = ports();
+    const r = await byName(p, "marketplace_source_remove").execute({ id: "custom" }) as Record<string, unknown>;
+    expect(r).toEqual({ ok: true, result: { id: "custom" } });
+    expect(audit).toHaveBeenCalledWith(
+      "mcp", "agent.marketplace_source_changed",
+      expect.objectContaining({ tool: "marketplace_source_remove", sourceId: "custom", change: "removed" }),
+      undefined,
+    );
   });
 });
