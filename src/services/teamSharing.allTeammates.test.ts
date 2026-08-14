@@ -1,14 +1,15 @@
 import { test, expect, vi, beforeEach } from "vitest";
 import type { Team, TeamMember } from "@/services/teamService";
 
-const api = vi.hoisted(() => ({ getMyUserId: vi.fn() }));
+const api = vi.hoisted(() => ({ getMyUserId: vi.fn(), listMembers: vi.fn() }));
 vi.mock("@/services/teamService", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getMyUserId: api.getMyUserId,
+  listMembers: api.listMembers,
 }));
 
 import { useTeamStore } from "@/stores/teamStore";
-import { allTeammates, memberHasAccess } from "./teamSharing.ts";
+import { allTeammates, freshPublicKeys, memberHasAccess } from "./teamSharing.ts";
 
 const member = (user_id: string, overrides: Partial<TeamMember> = {}): TeamMember => ({
   team_id: "t1", user_id, display_name: user_id, public_key: "",
@@ -32,6 +33,7 @@ const onlineZoe = member("zoe", { display_name: "Zoe", is_online: true });
 beforeEach(() => {
   localStorage.clear();
   api.getMyUserId.mockReset();
+  api.listMembers.mockReset();
   useTeamStore.setState({
     teams: [], membersByTeam: {}, rolesByTeam: {}, pendingInvitationsByTeam: {},
     myPendingInvitations: [], activeTeamId: null, loading: false,
@@ -72,4 +74,23 @@ test("a shared teammate has access via any of their team_ids, not just the first
 test("an empty session grants access to nobody", () => {
   const emptySession = { vaultIds: [], participantIds: [], invitedIds: [] };
   expect(memberHasAccess({ ...alice, teamIds: ["t1"] }, emptySession)).toBe(false);
+});
+
+test("freshPublicKeys returns the server's current key, ignoring a stale public_key on the input member", async () => {
+  // The caller passes a member with a stale cached public_key (as membersOfTeams
+  // would return after a teammate joined post-cache-fill, #66). freshPublicKeys
+  // must fetch listMembers directly rather than trust the field on the input.
+  api.listMembers.mockResolvedValue([{ ...alice, public_key: "current-key" }]);
+  const keys = await freshPublicKeys([{ ...alice, public_key: "stale-cached-key" }]);
+  expect(keys.get(alice.user_id)).toBe("current-key");
+  expect(api.listMembers).toHaveBeenCalledWith(alice.team_id);
+});
+
+test("freshPublicKeys queries each distinct team_id once", async () => {
+  api.listMembers.mockImplementation(async (teamId: string) =>
+    teamId === "t1" ? [alice] : teamId === "t2" ? [bob] : [],
+  );
+  const keys = await freshPublicKeys([alice, bob, { ...alice }]);
+  expect(api.listMembers).toHaveBeenCalledTimes(2);
+  expect([...keys.keys()].sort()).toEqual(["alice", "bob"]);
 });

@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { getVaultKey } from "@/services/vault";
 import * as teamService from "@/services/teamService";
+import { freshPublicKeys } from "@/services/teamSharing";
 import { appFetch } from "@/services/http";
 import { openXChaCha20Poly1305, sealXChaCha20Poly1305 } from "@/services/crypto/xchacha";
 
@@ -145,10 +146,11 @@ async function prepareWrappedSessionKey(
     new Map(members.map((m) => [m.user_id, m])).values(),
   );
 
+  const currentKeys = await freshPublicKeys(uniqueMembers);
   const wrappedKeys = await Promise.all(
     uniqueMembers.map(async (member) => ({
       user_id: member.user_id,
-      wrapped_key: await wrapSessionKeyForUser(sessionKeyBytes, member.public_key),
+      wrapped_key: await wrapSessionKeyForUser(sessionKeyBytes, currentKeys.get(member.user_id) ?? member.public_key),
     })),
   );
 
@@ -234,7 +236,8 @@ export async function inviteUserToSession(
   member: teamService.TeamMember,
   sessionKeyBytes: Uint8Array,
 ): Promise<void> {
-  const wrappedKey = await wrapSessionKeyForUser(sessionKeyBytes, member.public_key);
+  const currentKeys = await freshPublicKeys([member]);
+  const wrappedKey = await wrapSessionKeyForUser(sessionKeyBytes, currentKeys.get(member.user_id) ?? member.public_key);
 
   const serverUrl = await teamService.getServerUrlValue();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));

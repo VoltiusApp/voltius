@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   getJwtToken: vi.fn(),
   updatePublicKey: vi.fn(),
   getVaultKey: vi.fn(),
+  freshPublicKeys: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
@@ -17,11 +18,12 @@ vi.mock("@/services/teamService", () => ({
   getJwtToken: h.getJwtToken,
   updatePublicKey: h.updatePublicKey,
 }));
+vi.mock("@/services/teamSharing", () => ({ freshPublicKeys: h.freshPublicKeys }));
 
 import { createDirectSession, inviteUserToSession, clearKeypairCache } from "./multiplayerService";
 
 function member(userId: string) {
-  return { user_id: userId, public_key: `pk-${userId}` } as any;
+  return { user_id: userId, team_id: "t1", public_key: `pk-${userId}` } as any;
 }
 
 function mockAppFetch(body: unknown, status = 200) {
@@ -39,6 +41,10 @@ beforeEach(() => {
   h.getServerUrlValue.mockResolvedValue("https://s");
   h.getJwtToken.mockResolvedValue("jwt");
   h.updatePublicKey.mockResolvedValue(undefined);
+  // Default: the server agrees with the caller-supplied public_key.
+  h.freshPublicKeys.mockImplementation(async (members: { user_id: string; public_key: string }[]) =>
+    new Map(members.map((m) => [m.user_id, m.public_key])),
+  );
 });
 
 test("posts a direct session with one wrapped key per invitee and no vaults", async () => {
@@ -56,4 +62,30 @@ test("posts one invitee to the live session endpoint", async () => {
   await inviteUserToSession("sess-1", member("u3"), new Uint8Array(32));
   expect(fetchMock.mock.calls[0][0]).toContain("/v1/terminal-sessions/sess-1/invitees");
   expect(JSON.parse(fetchMock.mock.calls[0][1].body).user_id).toBe("u3");
+});
+
+test("wraps the direct-session key to the server's current public key, not the caller's cached one", async () => {
+  mockAppFetch({ session_id: "sess-1" });
+  // The caller passes a stale cached member (as allTeammates() would after B
+  // joined post-cache-fill); the server's roster has since moved on.
+  h.freshPublicKeys.mockResolvedValue(new Map([["u1", "fresh-key"]]));
+  await createDirectSession("web-prod", [{ user_id: "u1", team_id: "t1", public_key: "stale-key" } as any]);
+  expect(h.invoke).toHaveBeenCalledWith(
+    "x25519_wrap_key",
+    expect.objectContaining({ recipientPublicKeyB64: "fresh-key" }),
+  );
+});
+
+test("wraps a live-session invite to the server's current public key, not the caller's cached one", async () => {
+  mockAppFetch(null, 204);
+  h.freshPublicKeys.mockResolvedValue(new Map([["u3", "fresh-key"]]));
+  await inviteUserToSession(
+    "sess-1",
+    { user_id: "u3", team_id: "t1", public_key: "stale-key" } as any,
+    new Uint8Array(32),
+  );
+  expect(h.invoke).toHaveBeenCalledWith(
+    "x25519_wrap_key",
+    expect.objectContaining({ recipientPublicKeyB64: "fresh-key" }),
+  );
 });
