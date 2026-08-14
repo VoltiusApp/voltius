@@ -143,6 +143,7 @@
       "invitePeople": "Invite people",
       "inviteHasAccess": "Has access",
       "inviteSent": "Invited",
+      "inviteCapReached": "Cap reached",
       "inviteFailed": "Could not invite {{name}}",
       "inviteNoTeammates": "No teammates yet",
       "inviteLoadFailed": "Could not load teammates"

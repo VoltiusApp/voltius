@@ -142,6 +142,54 @@ test("hides the invite section in the active view when no session key is retaine
   expect(screen.queryByText("terminal.share.invitePeople")).toBeNull();
 });
 
+// ─── Guest cap wired through both InvitePeopleSection render sites (#66 follow-up) ──
+
+test("setup view: a Pro host (cap 1) cannot tap a second teammate after the first invite lands", async () => {
+  // Needs two teammates so there's a "remaining" row left to prove is now blocked.
+  h.allTeammates.mockResolvedValue([
+    ...roster,
+    { user_id: "carol", team_id: "t1", display_name: "Carol", is_online: true, teamIds: ["t1"] },
+  ]);
+  renderShareMenu({ sharing: false });
+  const alice = await screen.findByRole("button", { name: /alice/i });
+  const carol = (await screen.findByRole("button", { name: /carol/i })) as HTMLButtonElement;
+  await userEvent.click(alice);
+  await screen.findByText("terminal.share.inviteSent");
+
+  expect(startSharingDirect).toHaveBeenCalledTimes(1);
+  expect(carol.disabled).toBe(true);
+  expect(screen.getByText("terminal.share.inviteCapReached")).toBeTruthy();
+});
+
+test("active view: a Pro host (cap 1) already at cap shows the remaining rows as non-tappable", async () => {
+  mpState.connections = {
+    "local-1": {
+      multiplayerSessionId: "mp-1", ended: false,
+      participants: [{ user_id: "me", display_name: "Me" }, { user_id: "guest-1", display_name: "Guest" }],
+      myUserId: "me", controlHolder: "me",
+      sessionKeyBytes: new Uint8Array([1]),
+    },
+  };
+  const anchorRef = createRef<HTMLButtonElement>();
+  render(
+    <ShareMenu
+      anchorRef={anchorRef}
+      open
+      onClose={() => {}}
+      activeSessionId="local-1"
+      connectionName="web-prod"
+      connectionVaultId="personal"
+      isLoggedIn
+      tier="pro"
+      onSignIn={() => {}}
+      onUpgrade={() => {}}
+    />,
+  );
+  const alice = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;
+  expect(alice.disabled).toBe(true);
+  expect(screen.getByText("terminal.share.inviteCapReached")).toBeTruthy();
+});
+
 test("hides the invite section in setup view for free tier", async () => {
   teamState.teams = [{ id: "vault-1", name: "Vault", owner_id: "u0", owner_tier: "teams", created_at: "", role_ids: [] }];
   const anchorRef = createRef<HTMLButtonElement>();

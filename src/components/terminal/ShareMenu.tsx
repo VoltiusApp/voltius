@@ -10,6 +10,7 @@ import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
 import type { TeamMember } from "@/services/teamService";
 import { InviteCodeField } from "./InviteCodeField";
 import { InvitePeopleSection } from "./InvitePeopleSection";
+import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 
 const ROLES = ["owner", "manager", "editor", "member"] as const;
 
@@ -57,7 +58,8 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const matchingActiveSession = activeSessions.find((s) => s.id === activeMp?.multiplayerSessionId);
   const inviteSession = {
     vaultIds: matchingActiveSession?.vault_ids ?? [],
-    participantIds: activeMp?.participants.map((p) => p.user_id) ?? [],
+    // The host is always in `participants` but never counts against their own cap.
+    participantIds: (activeMp?.participants ?? []).filter((p) => p.user_id !== activeMp?.myUserId).map((p) => p.user_id),
     invitedIds: matchingActiveSession?.invitee_ids ?? [],
   };
 
@@ -363,7 +365,9 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
 
           {/* Direct invites need at least Pro (host_tier_session_limit rejects free with 402) —
               gate here rather than let the request round-trip into a raw inline error. */}
-          {tier !== "free" && <InvitePeopleSection session={inviteSession} onInvite={handleInvite} />}
+          {tier !== "free" && (
+            <InvitePeopleSection session={inviteSession} guestCap={guestCap} tier={tier} onUpgrade={onUpgrade} onInvite={handleInvite} />
+          )}
         </>
       )}
     </div>,
@@ -399,8 +403,7 @@ function ActiveSharingView({
   onUpgrade: () => void;
 }) {
   const { t } = useTranslation();
-  const participantCount = activeMp.participants.filter((p) => p.user_id !== activeMp.myUserId).length;
-  const atCap = participantCount >= guestCap;
+  const participantCount = inviteSession.participantIds.length;
 
   return (
     <div className="p-3">
@@ -414,19 +417,7 @@ function ActiveSharingView({
         </span>
       </div>
 
-      <div className="flex items-center gap-2 mb-3 text-xs" style={{ color: atCap ? "#f59e0b" : "var(--t-text-secondary)" }}>
-        <Icon icon="lucide:users" width={13} />
-        <span>{t("terminal.share.participantsRatio", { count: guestCap, participantCount, guestCap })}</span>
-        {atCap && tier !== "business" && (
-          <button
-            className="text-[10px] underline ml-auto"
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#f59e0b" }}
-            onClick={onUpgrade}
-          >
-            {tier === "pro" ? t("terminal.share.upgradeToTeams") : t("terminal.share.upgradeToBusiness")}
-          </button>
-        )}
-      </div>
+      <ParticipantsRatioNotice count={participantCount} guestCap={guestCap} tier={tier} onUpgrade={onUpgrade} />
 
       {participantCount > 0 && (
         <div className="flex flex-wrap gap-1 mb-3">
@@ -464,7 +455,9 @@ function ActiveSharingView({
 
       {/* An invite_link session retains no per-user session key (#66) — inviting into
           it would always throw cannotInviteWithoutSessionKey, so don't offer the action. */}
-      {activeMp.sessionKeyBytes && <InvitePeopleSection session={inviteSession} onInvite={onInvite} />}
+      {activeMp.sessionKeyBytes && (
+        <InvitePeopleSection session={inviteSession} guestCap={guestCap} tier={tier} onUpgrade={onUpgrade} onInvite={onInvite} />
+      )}
 
       <button
         className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"

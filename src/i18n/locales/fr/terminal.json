@@ -143,6 +143,7 @@
       "invitePeople": "Inviter des personnes",
       "inviteHasAccess": "A déjà accès",
       "inviteSent": "Invité",
+      "inviteCapReached": "Limite atteinte",
       "inviteFailed": "Impossible d'inviter {{name}}",
       "inviteNoTeammates": "Aucun coéquipier pour l'instant",
       "inviteLoadFailed": "Impossible de charger les coéquipiers"

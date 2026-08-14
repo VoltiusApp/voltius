@@ -3,15 +3,19 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { allTeammates, memberHasAccess, type Teammate } from "@/services/teamSharing";
+import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 
 interface InvitePeopleSectionProps {
   session: { vaultIds: string[]; participantIds: string[]; invitedIds: string[] };
+  guestCap: number;
+  tier: "free" | "pro" | "teams" | "business";
+  onUpgrade: () => void;
   onInvite: (member: Teammate) => Promise<void>;
 }
 
 type RowStatus = "inviting" | "invited";
 
-export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionProps) {
+export function InvitePeopleSection({ session, guestCap, tier, onUpgrade, onInvite }: InvitePeopleSectionProps) {
   const { t } = useTranslation();
   const teams = useTeamStore((s) => s.teams);
   const [teammates, setTeammates] = useState<Teammate[] | null>(null);
@@ -43,6 +47,14 @@ export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionPr
   // Render nothing until the roster has loaded, so the section never flashes an empty header.
   if (teammates === null) return null;
 
+  // Committed seats = participants + standing invites, deduped, plus invites this
+  // menu session just sent — the server hasn't round-tripped those into `session`
+  // yet, so without this a Pro host at cap 1 could tap a second teammate right after
+  // the first invite lands.
+  const invitedThisSession = Object.entries(rowStatus).filter(([, s]) => s === "invited").map(([id]) => id);
+  const committedSeats = new Set([...session.participantIds, ...session.invitedIds, ...invitedThisSession]).size;
+  const atCap = committedSeats >= guestCap;
+
   const handleInvite = async (member: Teammate) => {
     setError(null);
     setRowStatus((prev) => ({ ...prev, [member.user_id]: "inviting" }));
@@ -64,6 +76,8 @@ export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionPr
       <p className="text-xs font-semibold mb-2" style={{ color: "var(--t-text-primary)" }}>
         {t("terminal.share.invitePeople")}
       </p>
+
+      <ParticipantsRatioNotice count={committedSeats} guestCap={guestCap} tier={tier} onUpgrade={onUpgrade} />
 
       {error && (
         <div
@@ -91,12 +105,14 @@ export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionPr
           {teammates.map((member) => {
             const hasAccess = memberHasAccess(member, session);
             const status = rowStatus[member.user_id];
+            // A row this session just invited keeps showing "Invited", not the cap notice.
+            const capBlocked = atCap && !hasAccess && status !== "invited";
             return (
               <button
                 key={member.user_id}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-md text-left disabled:cursor-default transition-colors"
                 style={{ color: "var(--t-text-primary)", background: "transparent" }}
-                disabled={hasAccess || status === "inviting"}
+                disabled={hasAccess || status === "inviting" || capBlocked}
                 onClick={() => handleInvite(member)}
               >
                 <span
@@ -113,6 +129,10 @@ export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionPr
                 ) : status === "invited" ? (
                   <span className="text-[10px]" style={{ color: "var(--t-accent)" }}>
                     {t("terminal.share.inviteSent")}
+                  </span>
+                ) : capBlocked ? (
+                  <span className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>
+                    {t("terminal.share.inviteCapReached")}
                   </span>
                 ) : null}
               </button>
