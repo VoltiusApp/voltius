@@ -26,6 +26,7 @@
       "appFont": "Police de l'application",
       "family": "Famille",
       "sizePx": "Taille (px)",
+      "lineHeight": "Hauteur de ligne",
       "terminalFont": "Police du terminal",
       "highlightUsing": "Mettre en surbrillance les éléments utilisant {{varName}}"
     },

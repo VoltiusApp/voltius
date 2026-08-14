@@ -10,6 +10,17 @@
         "desc": "Lignes conservées par session de terminal. S'applique aux nouveaux terminaux.",
         "option": "{{count}} lignes"
       },
+      "cursorStyle": {
+        "title": "Style du curseur",
+        "desc": "Forme du curseur du terminal.",
+        "bar": "Barre",
+        "block": "Bloc",
+        "underline": "Souligné"
+      },
+      "cursorBlink": {
+        "title": "Clignotement du curseur",
+        "desc": "Faire clignoter le curseur du terminal."
+      },
       "minimap": {
         "title": "Mini-carte de défilement",
         "desc": "Afficher un aperçu miniature de l'historique à côté des terminaux."
@@ -978,6 +989,9 @@
       }
     },
     "toggleDefs": {
+      "cursorBlink": {
+        "label": "Clignotement du curseur"
+      },
       "scrollMinimap": {
         "label": "Minimap de défilement"
       },
