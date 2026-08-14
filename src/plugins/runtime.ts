@@ -58,6 +58,13 @@ import { fetchAuditLogs } from "@/services/auditService";
 import { registerContributions, clearContributions } from "@/mcp/contributions";
 import { getSetting, listSettings, setSetting, settingConsequence } from "./domains/settings";
 import { subscription as subscriptionRead } from "./domains/account";
+import {
+  listPlugins, installPlugin, uninstallPlugin, setPluginEnabled, updatePlugin,
+  readPluginConfig, writePluginConfig, listSources, searchCatalog, addSource, removeSource,
+  type PluginView, type SourceView,
+} from "./domains/plugins";
+import type { MarketplacePlugin } from "@/stores/marketplaceStore";
+import type { DomainResult } from "./domains/result";
 import type { AuditLog } from "@/services/auditService";
 import type {
   PluginAPI,
@@ -1022,6 +1029,20 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     if (_registry.get(id)?.active) return true;
     console.warn(`[plugin-runtime] "${id}" called ${verb} while disabled or unloaded — ignoring`);
     return false;
+  };
+
+  /** Guards a `plugins.*` domain call with "plugins:manage" and the lifecycle
+   *  check, then delegates. `fallback` is the value the disabled/unloaded case
+   *  returns instead — an empty list for reads, a refusal DomainResult for
+   *  writes — computed once since neither depends on the call's arguments. */
+  const guardedPluginCall = <Args extends unknown[], T>(
+    verb: string, fallback: T, fn: (...args: Args) => Promise<T>,
+  ): ((...args: Args) => Promise<T>) => {
+    return async (...args: Args) => {
+      requireGated("plugins:manage");
+      if (!whileActive(`plugins.${verb}`)) return fallback;
+      return fn(...args);
+    };
   };
 
   const streamsApi = createStreamsAPI();
@@ -2438,6 +2459,24 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       getApi(pluginId) {
         return _exposedApis.get(pluginId) ?? null;
       },
+
+      // Inventory and lifecycle, distinct from expose/getApi above: gated on
+      // "plugins:manage" and lifecycle-guarded like settings.* — a plugin
+      // granted the permission and later disabled must not still be able to
+      // install one from a timer it retained. All eleven share the same
+      // guard-then-delegate shape, so they're built off one helper rather
+      // than repeating requireGated + whileActive eleven times.
+      list: guardedPluginCall("list", [] as PluginView[], listPlugins),
+      install: guardedPluginCall("install", { ok: false, error: inactiveError(id) } as DomainResult<PluginView>, installPlugin),
+      uninstall: guardedPluginCall("uninstall", { ok: false, error: inactiveError(id) } as DomainResult<{ id: string }>, uninstallPlugin),
+      setEnabled: guardedPluginCall("setEnabled", { ok: false, error: inactiveError(id) } as DomainResult<PluginView>, setPluginEnabled),
+      update: guardedPluginCall("update", { ok: false, error: inactiveError(id) } as DomainResult<PluginView>, updatePlugin),
+      config: guardedPluginCall("config", { ok: false, error: inactiveError(id) } as DomainResult<Record<string, unknown>>, readPluginConfig),
+      configure: guardedPluginCall("configure", { ok: false, error: inactiveError(id) } as DomainResult<{ key: string; effective: unknown }>, writePluginConfig),
+      sources: guardedPluginCall("sources", [] as SourceView[], listSources),
+      search: guardedPluginCall("search", [] as MarketplacePlugin[], searchCatalog),
+      addSource: guardedPluginCall("addSource", { ok: false, error: inactiveError(id) } as DomainResult<SourceView>, addSource),
+      removeSource: guardedPluginCall("removeSource", { ok: false, error: inactiveError(id) } as DomainResult<{ id: string }>, removeSource),
     },
 
     mcp: {
