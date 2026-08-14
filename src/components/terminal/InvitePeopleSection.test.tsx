@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("react-i18next", () => ({
@@ -20,9 +20,11 @@ vi.mock("@/services/teamSharing", async () => {
 });
 
 import { InvitePeopleSection } from "./InvitePeopleSection";
+import { useTeamStore } from "@/stores/teamStore";
 
 beforeEach(() => {
   h.allTeammates.mockReset().mockResolvedValue(roster);
+  useTeamStore.setState({ teams: [] });
 });
 afterEach(() => cleanup());
 
@@ -65,4 +67,23 @@ test("renders nothing while the roster is empty (no header flash)", async () => 
   );
   await screen.findByText("terminal.share.inviteNoTeammates");
   expect(container.querySelector("button")).toBeNull();
+});
+
+test("a failed roster load shows a distinct error, not the empty-roster message", async () => {
+  h.allTeammates.mockRejectedValue(new Error("network"));
+  render(<InvitePeopleSection session={{ vaultIds: [], participantIds: [], invitedIds: [] }} onInvite={vi.fn()} />);
+  await screen.findByText("terminal.share.inviteLoadFailed");
+  expect(screen.queryByText("terminal.share.inviteNoTeammates")).toBeNull();
+});
+
+test("reloads the roster when the team list changes (ShareMenu's loadTeams races the mount effect)", async () => {
+  render(<InvitePeopleSection session={{ vaultIds: [], participantIds: [], invitedIds: [] }} onInvite={vi.fn()} />);
+  await screen.findByRole("button", { name: /alice/i });
+  expect(h.allTeammates).toHaveBeenCalledTimes(1);
+
+  act(() => {
+    useTeamStore.setState({ teams: [{ id: "t1", name: "Team", owner_tier: "teams" } as never] });
+  });
+
+  await waitFor(() => expect(h.allTeammates).toHaveBeenCalledTimes(2));
 });

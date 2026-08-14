@@ -144,7 +144,8 @@
       "inviteHasAccess": "A déjà accès",
       "inviteSent": "Invité",
       "inviteFailed": "Impossible d'inviter {{name}}",
-      "inviteNoTeammates": "Aucun coéquipier pour l'instant"
+      "inviteNoTeammates": "Aucun coéquipier pour l'instant",
+      "inviteLoadFailed": "Impossible de charger les coéquipiers"
     },
     "snippetVariableModal": {
       "on": "Activé",

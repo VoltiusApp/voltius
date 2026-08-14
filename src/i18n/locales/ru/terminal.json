@@ -152,7 +152,8 @@
       "inviteHasAccess": "Уже есть доступ",
       "inviteSent": "Приглашён",
       "inviteFailed": "Не удалось пригласить {{name}}",
-      "inviteNoTeammates": "Пока нет коллег по команде"
+      "inviteNoTeammates": "Пока нет коллег по команде",
+      "inviteLoadFailed": "Не удалось загрузить список коллег"
     },
     "snippetVariableModal": {
       "on": "Вкл",

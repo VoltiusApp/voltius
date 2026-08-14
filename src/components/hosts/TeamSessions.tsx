@@ -45,11 +45,13 @@ export function TeamSessions() {
   // Scope sessions to the current vault unless we're on the home dashboard.
   // - homeView: show everything
   // - vault selected: show sessions whose vault_ids overlap accessibleVaultIds
-  // - always include sessions I host (so I never lose track of my own)
+  // - always include sessions I host, or reach through an individual grant (#66) —
+  //   a `direct` session has no vault_ids by construction, so it'd otherwise vanish
   const activeSessions = useMemo(() => {
     if (homeView) return rawSessions;
     return rawSessions.filter((s) => {
       if (myUserId && s.host_user_id === myUserId) return true;
+      if (s.invited_by) return true;
       const vids = s.vault_ids;
       if (!vids || vids.length === 0) return false;
       return vids.some((v) => accessibleVaultIds.includes(v));

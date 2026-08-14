@@ -55,8 +55,14 @@ afterEach(() => cleanup());
 
 function renderShareMenu({ sharing }: { sharing: boolean }) {
   if (sharing) {
+    // sessionKeyBytes present: a direct/vault session retains its key, so the
+    // invite section can offer to invite more people (#66 FIX4).
     mpState.connections = {
-      "local-1": { multiplayerSessionId: "mp-1", ended: false, participants: [{ user_id: "me", display_name: "Me" }], myUserId: "me", controlHolder: "me" },
+      "local-1": {
+        multiplayerSessionId: "mp-1", ended: false,
+        participants: [{ user_id: "me", display_name: "Me" }], myUserId: "me", controlHolder: "me",
+        sessionKeyBytes: new Uint8Array([1]),
+      },
     };
   }
   const anchorRef = createRef<HTMLButtonElement>();
@@ -95,4 +101,47 @@ test("an already-invited teammate renders as non-tappable Has access", async () 
   const row = await screen.findByRole("button", { name: /alice/i });
   expect((row as HTMLButtonElement).disabled).toBe(true);
   expect(row.textContent).toContain("terminal.share.inviteHasAccess");
+});
+
+test("hides the invite section in the active view when no session key is retained (invite_link)", () => {
+  // No sessionKeyBytes on the connection — mirrors an invite_link session.
+  mpState.connections = {
+    "local-1": { multiplayerSessionId: "mp-1", ended: false, participants: [{ user_id: "me", display_name: "Me" }], myUserId: "me", controlHolder: "me" },
+  };
+  const anchorRef = createRef<HTMLButtonElement>();
+  render(
+    <ShareMenu
+      anchorRef={anchorRef}
+      open
+      onClose={() => {}}
+      activeSessionId="local-1"
+      connectionName="web-prod"
+      connectionVaultId="personal"
+      isLoggedIn
+      tier="pro"
+      onSignIn={() => {}}
+      onUpgrade={() => {}}
+    />,
+  );
+  expect(screen.queryByText("terminal.share.invitePeople")).toBeNull();
+});
+
+test("hides the invite section in setup view for free tier", () => {
+  teamState.teams = [{ id: "vault-1", name: "Vault", owner_tier: "teams" }];
+  const anchorRef = createRef<HTMLButtonElement>();
+  render(
+    <ShareMenu
+      anchorRef={anchorRef}
+      open
+      onClose={() => {}}
+      activeSessionId="local-1"
+      connectionName="web-prod"
+      connectionVaultId="vault-1"
+      isLoggedIn
+      tier="free"
+      onSignIn={() => {}}
+      onUpgrade={() => {}}
+    />,
+  );
+  expect(screen.queryByText("terminal.share.invitePeople")).toBeNull();
 });

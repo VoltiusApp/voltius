@@ -144,7 +144,8 @@
       "inviteHasAccess": "Has access",
       "inviteSent": "Invited",
       "inviteFailed": "Could not invite {{name}}",
-      "inviteNoTeammates": "No teammates yet"
+      "inviteNoTeammates": "No teammates yet",
+      "inviteLoadFailed": "Could not load teammates"
     },
     "snippetVariableModal": {
       "on": "On",

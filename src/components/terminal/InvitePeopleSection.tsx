@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import { useTeamStore } from "@/stores/teamStore";
 import { allTeammates, memberHasAccess, type Teammate } from "@/services/teamSharing";
 
 interface InvitePeopleSectionProps {
@@ -12,13 +13,32 @@ type RowStatus = "inviting" | "invited";
 
 export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionProps) {
   const { t } = useTranslation();
+  const teams = useTeamStore((s) => s.teams);
   const [teammates, setTeammates] = useState<Teammate[] | null>(null);
   const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
+  // Reload whenever the team list changes — ShareMenu kicks off `loadTeams()`
+  // fire-and-forget on open, so on a fresh install/first sign-in the roster
+  // this depends on isn't populated yet when this component first mounts.
   useEffect(() => {
-    allTeammates().then(setTeammates).catch(() => setTeammates([]));
-  }, []);
+    let cancelled = false;
+    allTeammates()
+      .then((m) => {
+        if (cancelled) return;
+        setTeammates(m);
+        setLoadFailed(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTeammates([]);
+        setLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [teams]);
 
   // Render nothing until the roster has loaded, so the section never flashes an empty header.
   if (teammates === null) return null;
@@ -58,7 +78,11 @@ export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionPr
         </div>
       )}
 
-      {teammates.length === 0 ? (
+      {loadFailed ? (
+        <p className="text-xs text-center py-2" style={{ color: "var(--t-status-error)" }}>
+          {t("terminal.share.inviteLoadFailed")}
+        </p>
+      ) : teammates.length === 0 ? (
         <p className="text-xs text-center py-2" style={{ color: "var(--t-text-dim)" }}>
           {t("terminal.share.inviteNoTeammates")}
         </p>

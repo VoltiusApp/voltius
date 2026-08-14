@@ -361,7 +361,9 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
             />
           )}
 
-          <InvitePeopleSection session={inviteSession} onInvite={handleInvite} />
+          {/* Direct invites need at least Pro (host_tier_session_limit rejects free with 402) —
+              gate here rather than let the request round-trip into a raw inline error. */}
+          {tier !== "free" && <InvitePeopleSection session={inviteSession} onInvite={handleInvite} />}
         </>
       )}
     </div>,
@@ -460,7 +462,9 @@ function ActiveSharingView({
         </div>
       )}
 
-      <InvitePeopleSection session={inviteSession} onInvite={onInvite} />
+      {/* An invite_link session retains no per-user session key (#66) — inviting into
+          it would always throw cannotInviteWithoutSessionKey, so don't offer the action. */}
+      {activeMp.sessionKeyBytes && <InvitePeopleSection session={inviteSession} onInvite={onInvite} />}
 
       <button
         className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"

@@ -144,7 +144,8 @@
       "inviteHasAccess": "已有访问权限",
       "inviteSent": "已邀请",
       "inviteFailed": "无法邀请 {{name}}",
-      "inviteNoTeammates": "暂无队友"
+      "inviteNoTeammates": "暂无队友",
+      "inviteLoadFailed": "无法加载队友列表"
     },
     "snippetVariableModal": {
       "on": "开",
