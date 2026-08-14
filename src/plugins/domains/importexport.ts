@@ -39,6 +39,8 @@ export interface ImportResult {
   errors: number;
   counts: Record<string, number>;
   dryRun: boolean;
+  /** Set when the import itself succeeded but the post-import store reload failed partway. */
+  reloadWarning?: string;
 }
 
 /** Same undelete rule as useAllPortForwardingRules: a later update past deleted_at revives the rule. */
@@ -49,9 +51,14 @@ function isAlivePfRule(rule: PortForwardingRule): boolean {
 /** The React hooks' aggregation (useAllConnections and friends), without React. */
 function storeSlices(): StoreSlices {
   const teamIds = useTeamStore.getState().teams.map((t) => t.id);
-  const merge = <T extends { id: string }>(personal: T[], team: Record<string, T[]>): T[] => {
-    const map = new Map(personal.map((x) => [x.id, x]));
-    for (const tid of teamIds) for (const x of team[tid] ?? []) map.set(x.id, x);
+  // Filters before inserting, like every useAllX hook — matters only when the same
+  // id appears in both the personal and a team slice.
+  const merge = <T extends { id: string }>(
+    personal: T[], team: Record<string, T[]>, alive: (x: T) => boolean = () => true,
+  ): T[] => {
+    const map = new Map<string, T>();
+    for (const x of personal) if (alive(x)) map.set(x.id, x);
+    for (const tid of teamIds) for (const x of team[tid] ?? []) if (alive(x)) map.set(x.id, x);
     return [...map.values()];
   };
   const c = useConnectionStore.getState();
@@ -67,8 +74,8 @@ function storeSlices(): StoreSlices {
     keys: merge(k.keys, k.teamKeys ?? {}),
     folders: merge(f.folders, f.teamFolders ?? {}),
     snippets: merge(s.snippets, s.teamSnippets ?? {}),
-    snippetFolders: sf.folders,
-    pfRules: merge(pf.rules, pf.teamRules ?? {}).filter(isAlivePfRule),
+    snippetFolders: merge(sf.folders, sf.teamSnippetFolders ?? {}),
+    pfRules: merge(pf.rules, pf.teamRules ?? {}, isAlivePfRule),
   };
 }
 
@@ -146,9 +153,13 @@ export async function exportObjects(opts: {
     );
   }
 
-  const plain = opts.format === "csv" ? connectionsToCSV(bundle.connections) : toJSON(bundle);
-  if (!opts.passphrase) return { ok: true, result: { content: plain, encrypted: false, counts } };
-  return { ok: true, result: { content: await encryptText(plain, opts.passphrase), encrypted: true, counts } };
+  try {
+    const plain = opts.format === "csv" ? connectionsToCSV(bundle.connections) : toJSON(bundle);
+    if (!opts.passphrase) return { ok: true, result: { content: plain, encrypted: false, counts } };
+    return { ok: true, result: { content: await encryptText(plain, opts.passphrase), encrypted: true, counts } };
+  } catch (e) {
+    return failed(e instanceof Error ? e.message : String(e));
+  }
 }
 
 export async function importObjects(opts: {
@@ -180,22 +191,42 @@ export async function importObjects(opts: {
   if (opts.dryRun) return { ok: true, result: { imported: 0, errors: 0, counts, dryRun: true } };
 
   const slices = storeSlices();
-  const { imported, errors } = await runImport(bundle, {
-    vault_id: opts.vaultId,
-    tag: "",
-    skipDupes: false,
-    existingConnections: slices.connections,
-    existingKeys: slices.keys,
-    existingIdentities: slices.identities,
-    existingSnippets: slices.snippets,
-    existingPfRules: slices.pfRules,
-    folderEidMap: new Map(),
-    snippetFolderEidMap: new Map(),
-    keyEidMap: new Map(),
-    identityEidMap: new Map(),
-    connectionEidMap: new Map(),
-    stores: importStores(),
-  });
-  await reloadAll(reloadFns());
+  let imported: number;
+  let errors: number;
+  try {
+    ({ imported, errors } = await runImport(bundle, {
+      vault_id: opts.vaultId,
+      tag: "",
+      skipDupes: false,
+      existingConnections: slices.connections,
+      existingKeys: slices.keys,
+      existingIdentities: slices.identities,
+      existingSnippets: slices.snippets,
+      existingPfRules: slices.pfRules,
+      folderEidMap: new Map(),
+      snippetFolderEidMap: new Map(),
+      keyEidMap: new Map(),
+      identityEidMap: new Map(),
+      connectionEidMap: new Map(),
+      stores: importStores(),
+    }));
+  } catch (e) {
+    return failed(e instanceof Error ? e.message : String(e));
+  }
+
+  // The items are already written at this point — a reload failure (e.g. a
+  // network hiccup re-fetching team data) must not turn a successful import
+  // into a reported failure. Surface it as a warning alongside the real counts.
+  try {
+    await reloadAll(reloadFns());
+  } catch (e) {
+    return {
+      ok: true,
+      result: {
+        imported, errors, counts, dryRun: false,
+        reloadWarning: `import succeeded but reloading stores afterward failed: ${e instanceof Error ? e.message : String(e)}`,
+      },
+    };
+  }
   return { ok: true, result: { imported, errors, counts, dryRun: false } };
 }

@@ -21,13 +21,17 @@ vi.mock("@/stores/folderStore", () => ({
 vi.mock("@/stores/snippetStore", () => ({
   useSnippetStore: { getState: () => ({ snippets: [], teamSnippets: {}, createSnippet: vi.fn(), updateSnippet: vi.fn(), loadSnippets: vi.fn(async () => {}) }) },
 }));
+const teamSnippetFolder = { id: "sf1", name: "Team Folder" };
 vi.mock("@/stores/snippetFolderStore", () => ({
-  useSnippetFolderStore: { getState: () => ({ folders: [], saveFolder: vi.fn(), loadFolders: vi.fn(async () => {}) }) },
+  useSnippetFolderStore: { getState: () => ({
+    folders: [], teamSnippetFolders: { "team-a": [teamSnippetFolder] },
+    saveFolder: vi.fn(), loadFolders: vi.fn(async () => {}),
+  }) },
 }));
 vi.mock("@/stores/portForwardingStore", () => ({
   usePortForwardingStore: { getState: () => ({ rules: [], teamRules: {}, createRule: vi.fn(), loadRules: vi.fn(async () => {}) }) },
 }));
-vi.mock("@/stores/teamStore", () => ({ useTeamStore: { getState: () => ({ teams: [] }) } }));
+vi.mock("@/stores/teamStore", () => ({ useTeamStore: { getState: () => ({ teams: [{ id: "team-a" }] }) } }));
 
 // formats.ts and importers.ts are NOT mocked: the round-trip test below only
 // proves anything if the real encryptText/decryptText/detectFormat/fromJSON run.
@@ -72,6 +76,13 @@ describe("import/export domain", () => {
     const content = (e as { result: { content: string } }).result.content;
     const r = await importObjects({ content, vaultId: "personal", dryRun: false });
     expect(r.ok).toBe(false);
+  });
+
+  it("merges team snippet folders into the store slices passed to buildBundle", async () => {
+    const { buildBundle } = await import("@/services/import-export/registry");
+    await exportObjects({ vaultIds: ["personal"], types: ["connections"], format: "json", passphrase: "pw" });
+    const stores = vi.mocked(buildBundle).mock.calls[0][1];
+    expect(stores.snippetFolders.map((f) => f.id)).toContain(teamSnippetFolder.id);
   });
 
   it("dry_run reports counts and writes nothing", async () => {
