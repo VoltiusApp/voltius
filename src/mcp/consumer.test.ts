@@ -32,6 +32,8 @@ const ALL_TOOLS = [
   "member_invite", "member_list", "member_remove", "member_set_role",
   "object_copy", "object_move", "open_session",
   "pane_detach", "pane_focus", "pane_list", "pane_split",
+  "plugin_configure", "plugin_disable", "plugin_enable", "plugin_install", "plugin_list",
+  "plugin_uninstall", "plugin_update",
   "port_forward_create", "port_forward_delete", "port_forward_list", "port_forward_start",
   "port_forward_stop", "port_forward_tunnels", "port_forward_update",
   "read_file", "read_terminal", "rename_path", "run_command",

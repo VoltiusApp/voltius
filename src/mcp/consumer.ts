@@ -175,6 +175,27 @@ export const MCP_TEXT = {
       "Give terminal control to a participant who has requested it. Refused when that user has no "
       + "pending request — control is never handed to someone who did not ask for it. Runs "
       + "immediately; your own client is responsible for approval.",
+    plugin_install:
+      "Install a plugin from the marketplace catalog by id. Runs immediately; your own client is "
+      + "responsible for approval. The plugin's code then runs inside Voltius with the permissions "
+      + "its manifest declares — call marketplace_search first and read them.",
+    plugin_uninstall:
+      "Remove an installed plugin. Runs immediately; your own client is responsible for approval. "
+      + "Plugins bundled with the app can be removed too and stay reinstallable afterwards.",
+    plugin_enable:
+      "Enable an installed plugin and load it. Runs immediately; your own client is responsible "
+      + "for approval. The plugin's contributed tools appear after this.",
+    plugin_disable:
+      "Disable an installed plugin and unload it, without removing it. Runs immediately; your own "
+      + "client is responsible for approval. Its contributed tools stop working.",
+    plugin_update:
+      "Update an installed plugin to the version its marketplace source offers. Runs immediately; "
+      + "your own client is responsible for approval. Refuses, naming the installed version, when "
+      + "there is nothing newer.",
+    plugin_configure:
+      "Read or change a plugin's settings. Only the settings a plugin declares in its manifest are "
+      + "reachable — its internal storage is not. With an id alone, returns the declared settings "
+      + "and their values; with a key and a value, writes one, immediately.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };
