@@ -11,8 +11,8 @@ const portsWith = (query: ReturnType<typeof vi.fn>) =>
   }) as unknown as ToolSurfacePorts;
 
 describe("audit_query", () => {
-  it("declares exactly the permission it reaches", () => {
-    expect([...AUDIT_PERMISSIONS]).toEqual(["audit:read"]);
+  it("declares exactly the permissions it reaches, team included", () => {
+    expect([...AUDIT_PERMISSIONS]).toEqual(["audit:read", "team:read"]);
   });
 
   it("passes filters through and returns the rows", async () => {
@@ -60,6 +60,29 @@ describe("audit_query", () => {
     expect(query).toHaveBeenCalledWith(expect.objectContaining({
       teamId: "team-1", vaultId: "vault-9", actorId: "user-3",
     }));
+  });
+
+  it("a failing team read is refused with a sentence, not a raw Error", async () => {
+    const query = vi.fn().mockRejectedValue(new Error("Failed to fetch"));
+    const tool = buildAuditTools(portsWith(query)).find((t) => t.name === "audit_query")!;
+    const res = await tool.execute({ team_id: "team-1" }) as Record<string, unknown>;
+
+    expect(res.refused).toBe(true);
+    expect(String(res.error)).toContain("Failed to fetch");
+    expect(String(res.error)).toContain("omit team_id");
+  });
+
+  it("a failing local read is refused too", async () => {
+    const query = vi.fn().mockRejectedValue(new Error("boom"));
+    const tool = buildAuditTools(portsWith(query)).find((t) => t.name === "audit_query")!;
+    const res = await tool.execute({}) as Record<string, unknown>;
+    expect(res.refused).toBe(true);
+    expect(String(res.error)).toContain("boom");
+  });
+
+  it("the description says vault_id alone stays local", () => {
+    const tool = buildAuditTools({ api: { audit: { query: vi.fn() } } } as never)[0];
+    expect(tool.description).toContain("vault_id without team_id");
   });
 
   it("the description no longer claims team activity is absent", () => {

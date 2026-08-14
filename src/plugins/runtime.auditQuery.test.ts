@@ -34,6 +34,14 @@ describe("api.audit.query", () => {
     await expect(api.audit.query({})).rejects.toThrow(/audit:read/);
   });
 
+  // A team's log is every member's activity, which is what team:read gates
+  // everywhere else — audit:read alone must not buy it.
+  it("refuses a team read without team:read, and lets the local read through", async () => {
+    const api = createHostPluginAPI("test:no-team-perm", ["audit:read"]);
+    await expect(api.audit.query({ teamId: "team-1" })).rejects.toThrow(/team:read/);
+    await expect(api.audit.query({})).resolves.toBeDefined();
+  });
+
   it("projects rows down to the PluginAuditRow contract", async () => {
     const api = createHostPluginAPI("test:projection", ["audit:read"]);
     const { logs, total } = await api.audit.query({});
