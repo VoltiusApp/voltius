@@ -780,6 +780,11 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
   }
 }
 
+async function refetchActiveSessions(): Promise<void> {
+  const { useTeamSessionStore } = await import("@/stores/teamSessionStore");
+  await useTeamSessionStore.getState().fetchActiveSessions().catch(() => {});
+}
+
 async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promise<void> {
   if (eventData.startsWith("team:")) {
     const teamId = eventData.slice(5);
@@ -873,8 +878,14 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     }
   } else if (eventData === "token_invalidated") {
     tryRefreshJwt().catch(() => {});
+  } else if (eventData.startsWith("session_shared:") || eventData.startsWith("session_ended:")) {
+    await refetchActiveSessions();
   } else if (eventData !== myDeviceId) {
     syncNow().catch(() => {});
+    // The broadcast receiver lags behind and falls back to this generic "sync"
+    // event; refetch active sessions too so a lagged client doesn't keep a
+    // stale rail once the poll in TeamSessions is gone.
+    refetchActiveSessions().catch(() => {});
   }
 }
 

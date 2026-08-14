@@ -64,10 +64,6 @@ export function TeamSessions() {
 
   useEffect(() => {
     fetchActiveSessions().catch(() => {});
-    const interval = setInterval(() => {
-      fetchActiveSessions().catch(() => {});
-    }, 6000);
-    return () => clearInterval(interval);
   }, [fetchActiveSessions]);
 
   useEffect(() => {

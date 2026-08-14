@@ -46,6 +46,11 @@
         "message": "{{inviter}} vous a invité à rejoindre {{team}}",
         "accept": "Accepter",
         "decline": "Refuser"
+      },
+      "session": {
+        "message": "Un coéquipier a partagé {{name}}",
+        "join": "Rejoindre",
+        "joined": "Rejoint"
       }
     }
   }

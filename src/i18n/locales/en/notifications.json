@@ -46,6 +46,11 @@
         "message": "{{inviter}} invited you to {{team}}",
         "accept": "Accept",
         "decline": "Decline"
+      },
+      "session": {
+        "message": "A teammate shared {{name}}",
+        "join": "Join",
+        "joined": "Joined"
       }
     }
   }

@@ -13,8 +13,9 @@ vi.mock("@/i18n", () => ({
 }));
 
 import { useNotificationStore } from "@/stores/notificationStore";
-import { reconcileInvites } from "./teamInbox";
+import { reconcileInvites, reconcileSessions } from "./teamInbox";
 import type { MyPendingInvitation } from "@/services/teamService";
+import type { ActiveSession } from "@/services/multiplayerService";
 
 const get = () => useNotificationStore.getState();
 
@@ -71,4 +72,34 @@ test("Decline runs the extracted decline action", async () => {
   reconcileInvites([invite("a")]);
   await get().runInboxAction("invite:a", 1);
   expect(h.decline).toHaveBeenCalledWith("a");
+});
+
+function session(id: string): ActiveSession {
+  return {
+    id,
+    connection_name: "web-prod",
+    host_user_id: "host1",
+    host_public_key: "pk",
+    visibility: "team",
+    created_at: "2026-08-13T00:00:00Z",
+    participant_count: 1,
+  };
+}
+
+test("a shared session becomes one entry, idempotently", () => {
+  reconcileSessions([session("s1")], new Set());
+  reconcileSessions([session("s1")], new Set());
+  expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(1);
+});
+
+test("an ended session is retracted", () => {
+  reconcileSessions([session("s1")], new Set());
+  reconcileSessions([], new Set());
+  expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(0);
+});
+
+test("a session already joined is shown as resolved rather than offering Join again", () => {
+  reconcileSessions([session("s1")], new Set(["s1"]));
+  const entry = get().inbox.find((e) => e.id === "session:s1")!;
+  expect(entry.state).toBe("resolved");
 });

@@ -46,6 +46,11 @@
         "message": "{{inviter}} 邀请您加入 {{team}}",
         "accept": "接受",
         "decline": "拒绝"
+      },
+      "session": {
+        "message": "队友分享了 {{name}}",
+        "join": "加入",
+        "joined": "已加入"
       }
     }
   }
