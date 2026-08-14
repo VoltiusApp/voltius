@@ -5,6 +5,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import { getCurrentUserEmail } from "@/services/account";
+import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
 
@@ -52,7 +53,11 @@ export function reconcileInvites(invites: MyPendingInvitation[]): void {
 
 async function joinSharedSession(session: ActiveSession): Promise<void> {
   const displayName = (await getCurrentUserEmail()) ?? i18n.t("hosts.teamSessions.meFallback");
-  await useTeamSessionStore.getState().joinSession(session.id, displayName, () => {});
+  await joinTeamSessionAndOpenTab({
+    sessionId: session.id,
+    displayName,
+    connectionName: session.connection_name,
+  });
 }
 
 export function reconcileSessions(sessions: ActiveSession[], joinedSessionIds: Set<string>): void {
@@ -82,13 +87,16 @@ export function startTeamInbox(): () => void {
     }
   });
 
-  const syncSessions = () => {
-    const st = useTeamSessionStore.getState();
+  const syncSessions = (st: ReturnType<typeof useTeamSessionStore.getState>) => {
     const joined = new Set(Object.values(st.connections).map((c) => c.multiplayerSessionId));
     reconcileSessions(st.activeSessions, joined);
   };
-  syncSessions();
-  const unsubSessions = useTeamSessionStore.subscribe(syncSessions);
+  syncSessions(useTeamSessionStore.getState());
+  const unsubSessions = useTeamSessionStore.subscribe((s, prev) => {
+    if (s.activeSessions !== prev.activeSessions || s.connections !== prev.connections) {
+      syncSessions(s);
+    }
+  });
 
   return () => {
     unsubInvites();

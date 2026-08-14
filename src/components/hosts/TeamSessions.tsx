@@ -12,6 +12,7 @@ import { AvatarStack } from "@/components/shared/AvatarStack";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { parseInviteCode } from "@/services/inviteCode";
+import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 
 function JoinByCodeButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
@@ -31,9 +32,8 @@ function JoinByCodeButton({ onClick }: { onClick: () => void }) {
 
 export function TeamSessions() {
   const { t } = useTranslation();
-  const { activeSessions: rawSessions, fetchActiveSessions, joinSession } = useTeamSessionStore();
+  const { activeSessions: rawSessions, fetchActiveSessions } = useTeamSessionStore();
   const setActive = useSessionStore((s) => s.setActive);
-  const setActiveNav = useUIStore((s) => s.setActiveNav);
   const homeView = useUIStore((s) => s.homeView);
   const accessibleVaultIds = useAccessibleVaultIds();
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -80,27 +80,12 @@ export function TeamSessions() {
 
   const doJoinSession = async (sessionId: string, inviteToken?: string) => {
     const displayName = (await getCurrentUserEmail()) ?? t("hosts.teamSessions.meFallback");
-    const localSessionId = await joinSession(
+    await joinTeamSessionAndOpenTab({
       sessionId,
       displayName,
-      () => {}, // onControlUpdate — handled by MultiplayerBar
+      connectionName: activeSessions.find((a) => a.id === sessionId)?.connection_name ?? t("hosts.teamSessions.sharedTerminalFallback"),
       inviteToken,
-    );
-
-    useSessionStore.setState((s) => ({
-      sessions: [
-        ...s.sessions,
-        {
-          id: localSessionId,
-          connectionId: sessionId,
-          connectionName: activeSessions.find((a) => a.id === sessionId)?.connection_name ?? t("hosts.teamSessions.sharedTerminalFallback"),
-          status: "connected" as const,
-          type: "multiplayer" as const,
-        },
-      ],
-      activeSessionId: localSessionId,
-    }));
-    setActiveNav("terminal");
+    });
   };
 
   const handleJoinCard = async (session: (typeof activeSessions)[0]) => {
