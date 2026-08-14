@@ -230,8 +230,8 @@ export function NotificationBell() {
           style={{
             position: "fixed",
             top: pos.top,
-            right: pos.right,
-            width: "20rem",
+            width: "min(20rem, calc(100vw - 1rem))",
+            right: Math.max(pos.right, 8),
             zIndex: 50,
             background: "var(--t-bg-modal)",
             borderRadius: "0.75rem",

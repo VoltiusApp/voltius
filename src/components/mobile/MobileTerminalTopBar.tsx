@@ -6,6 +6,7 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import type { TerminalSession } from "@/types";
 import { terminalPanelItems } from "./terminalPanelItems";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 const DOT: Record<TerminalSession["status"], string> = {
   connected: "#3fb950",
@@ -77,6 +78,7 @@ export default function MobileTerminalTopBar() {
       >
         <Icon icon="lucide:plus" width={20} />
       </button>
+      <NotificationBell />
       <div className="relative shrink-0">
         <button
           data-mobile-terminal-menu
