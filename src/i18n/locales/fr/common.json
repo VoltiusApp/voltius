@@ -141,6 +141,7 @@
       "failedToDistributeVaultKey": "Échec de la distribution de la clé de coffre : {{status}}",
       "failedToSaveTeamData": "Échec de l'enregistrement des données d'équipe : {{status}}",
       "failedToCreateSession": "Échec de la création de la session : {{status}}",
+      "failedToInvite": "Impossible d'inviter le coéquipier ({{status}})",
       "failedToCreateInviteLinkSession": "Échec de la création du lien d'invitation de session : {{status}}",
       "failedToGetSessionKey": "Échec de la récupération de la clé de session : {{status}}",
       "invalidJson": "JSON invalide",

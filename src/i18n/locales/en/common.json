@@ -141,6 +141,7 @@
       "failedToDistributeVaultKey": "Failed to distribute vault key: {{status}}",
       "failedToSaveTeamData": "Failed to save team data: {{status}}",
       "failedToCreateSession": "Failed to create session: {{status}}",
+      "failedToInvite": "Could not invite teammate ({{status}})",
       "failedToCreateInviteLinkSession": "Failed to create invite link session: {{status}}",
       "failedToGetSessionKey": "Failed to get session key: {{status}}",
       "invalidJson": "Invalid JSON",
