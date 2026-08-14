@@ -8,70 +8,42 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
-interface TeamState {
-  teams: { id: string; name: string; owner_tier: string }[];
-  loading: boolean;
-  loadTeams: ReturnType<typeof vi.fn>;
-  loadMembers: ReturnType<typeof vi.fn>;
-  membersByTeam: Record<string, unknown[]>;
-}
-interface MpState {
-  connections: Record<string, unknown>;
-  activeSessions: unknown[];
-  startSharing: ReturnType<typeof vi.fn>;
-  startSharingInviteLink: ReturnType<typeof vi.fn>;
-  startSharingDirect: ReturnType<typeof vi.fn>;
-  inviteToActiveSession: ReturnType<typeof vi.fn>;
-  stopSharing: ReturnType<typeof vi.fn>;
-}
-
-const h = vi.hoisted(() => {
-  const teamState: TeamState = {
-    teams: [],
-    loading: false,
-    loadTeams: vi.fn(async () => {}),
-    loadMembers: vi.fn(async () => {}),
-    membersByTeam: {},
-  };
-  const useTeamStore: any = (sel?: (s: TeamState) => unknown) => (sel ? sel(teamState) : teamState);
-  useTeamStore.getState = () => teamState;
-
-  // Mirrors the real store: startSharingInviteLink writes `connections` before it
-  // resolves, so `activeMp` exists (and isSharing flips true) by the time
-  // ShareMenu re-renders — same ordering that made autoCopied miss the field.
-  const mpState: MpState = {
-    connections: {}, activeSessions: [], startSharing: vi.fn(), startSharingInviteLink: vi.fn(),
-    startSharingDirect: vi.fn(), inviteToActiveSession: vi.fn(), stopSharing: vi.fn(),
-  };
-  const resetMpState = () => {
-    mpState.connections = {};
-    mpState.activeSessions = [];
-    mpState.startSharing = vi.fn(async () => "mp-1");
-    mpState.startSharingInviteLink = vi.fn(async (localSessionId: string) => {
-      mpState.connections = {
-        ...mpState.connections,
-        [localSessionId]: { multiplayerSessionId: "mp-1", ended: false, participants: [], myUserId: "me", controlHolder: "me" },
-      };
-      return { multiplayerSessionId: "mp-1", inviteToken: "tok-abc" };
-    });
-    mpState.startSharingDirect = vi.fn(async () => "mp-1");
-    mpState.inviteToActiveSession = vi.fn(async () => {});
-    mpState.stopSharing = vi.fn(async () => {});
-  };
-  resetMpState();
-  const useTeamSessionStore: any = (sel?: (s: MpState) => unknown) => (sel ? sel(mpState) : mpState);
-  useTeamSessionStore.getState = () => mpState;
-
-  return { teamState, useTeamStore, mpState, resetMpState, useTeamSessionStore, writeClipboard: vi.fn(async (_text: string) => {}) };
+// vi.mock factories run lazily (when the mocked module is first resolved), unlike
+// vi.hoisted callbacks — so, unlike vi.hoisted, they can safely call into a normally
+// imported helper module. State is retrieved back via useX.getState() below.
+vi.mock("@/stores/teamStore", async () => {
+  const { makeTeamState, asStoreHook } = await import("./ShareMenu.testHarness");
+  return { useTeamStore: asStoreHook(makeTeamState()) };
 });
+vi.mock("@/stores/teamSessionStore", async () => {
+  const { makeMpState, asStoreHook } = await import("./ShareMenu.testHarness");
+  return { useTeamSessionStore: asStoreHook(makeMpState()) };
+});
+vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn(async (_text: string) => {}) }));
 
-vi.mock("@/stores/teamStore", () => ({ useTeamStore: h.useTeamStore }));
-vi.mock("@/stores/teamSessionStore", () => ({ useTeamSessionStore: h.useTeamSessionStore }));
-vi.mock("@/utils/clipboard", () => ({ writeClipboard: (text: string) => h.writeClipboard(text) }));
-
-const { teamState, mpState, resetMpState, writeClipboard } = h;
-
+import { useTeamStore } from "@/stores/teamStore";
+import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { writeClipboard as writeClipboardImport } from "@/utils/clipboard";
+import { makeMpState, type MpState } from "./ShareMenu.testHarness";
 import { ShareMenu } from "./ShareMenu";
+
+const teamState = useTeamStore.getState();
+const mpState = useTeamSessionStore.getState() as unknown as MpState;
+const writeClipboard = vi.mocked(writeClipboardImport);
+
+// Mirrors the real store: startSharingInviteLink writes `connections` before it
+// resolves, so `activeMp` exists (and isSharing flips true) by the time ShareMenu
+// re-renders — same ordering that made autoCopied miss the field.
+function resetMpState() {
+  Object.assign(mpState, makeMpState());
+  mpState.startSharingInviteLink = vi.fn(async (localSessionId: string) => {
+    mpState.connections = {
+      ...mpState.connections,
+      [localSessionId]: { multiplayerSessionId: "mp-1", ended: false, participants: [], myUserId: "me", controlHolder: "me" },
+    };
+    return { multiplayerSessionId: "mp-1", inviteToken: "tok-abc" };
+  });
+}
 
 beforeEach(() => {
   teamState.teams = [];

@@ -17,56 +17,29 @@ vi.mock("@/services/teamSharing", async () => {
   return { ...actual, allTeammates: h.allTeammates };
 });
 
-interface TeamState {
-  teams: { id: string; name: string; owner_tier: string }[];
-  loading: boolean;
-  loadTeams: ReturnType<typeof vi.fn>;
-  loadMembers: ReturnType<typeof vi.fn>;
-  membersByTeam: Record<string, unknown[]>;
-}
-interface MpState {
-  connections: Record<string, unknown>;
-  activeSessions: unknown[];
-  startSharing: ReturnType<typeof vi.fn>;
-  startSharingInviteLink: ReturnType<typeof vi.fn>;
-  startSharingDirect: ReturnType<typeof vi.fn>;
-  inviteToActiveSession: ReturnType<typeof vi.fn>;
-  stopSharing: ReturnType<typeof vi.fn>;
-}
-
-const s = vi.hoisted(() => {
-  const teamState: TeamState = {
-    teams: [],
-    loading: false,
-    loadTeams: vi.fn(async () => {}),
-    loadMembers: vi.fn(async () => {}),
-    membersByTeam: {},
-  };
-  const useTeamStore: any = (sel?: (s: TeamState) => unknown) => (sel ? sel(teamState) : teamState);
-  useTeamStore.getState = () => teamState;
-
-  const mpState: MpState = {
-    connections: {},
-    activeSessions: [],
-    startSharing: vi.fn(),
-    startSharingInviteLink: vi.fn(),
-    startSharingDirect: vi.fn(async () => "mp-2"),
-    inviteToActiveSession: vi.fn(async () => {}),
-    stopSharing: vi.fn(),
-  };
-  const useTeamSessionStore: any = (sel?: (s: MpState) => unknown) => (sel ? sel(mpState) : mpState);
-  useTeamSessionStore.getState = () => mpState;
-
-  return { teamState, useTeamStore, mpState, useTeamSessionStore };
+// vi.mock factories run lazily (when the mocked module is first resolved), unlike
+// vi.hoisted callbacks — so, unlike vi.hoisted, they can safely call into a normally
+// imported helper module. State is retrieved back via useX.getState() below.
+vi.mock("@/stores/teamStore", async () => {
+  const { makeTeamState, asStoreHook } = await import("./ShareMenu.testHarness");
+  return { useTeamStore: asStoreHook(makeTeamState()) };
 });
-
-vi.mock("@/stores/teamStore", () => ({ useTeamStore: s.useTeamStore }));
-vi.mock("@/stores/teamSessionStore", () => ({ useTeamSessionStore: s.useTeamSessionStore }));
+vi.mock("@/stores/teamSessionStore", async () => {
+  const { makeMpState, asStoreHook } = await import("./ShareMenu.testHarness");
+  return { useTeamSessionStore: asStoreHook(makeMpState()) };
+});
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn(async () => {}) }));
 
-const { teamState, mpState } = s;
-
+import { useTeamStore } from "@/stores/teamStore";
+import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { type MpState } from "./ShareMenu.testHarness";
 import { ShareMenu } from "./ShareMenu";
+
+const teamState = useTeamStore.getState();
+const mpState = useTeamSessionStore.getState() as unknown as MpState;
+// Kept as the same mock instances across tests (mockClear'd, not replaced) — the
+// component reads them off the live `mpState` object at render time via the store
+// selector, so replacing the function references here would desync from that read.
 const { startSharingDirect, inviteToActiveSession } = mpState;
 
 beforeEach(() => {
