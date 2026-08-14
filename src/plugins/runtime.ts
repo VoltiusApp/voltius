@@ -55,6 +55,8 @@ import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportPluginAuditEvent } from "@/services/auditReporter";
 import { fetchLocalAuditLogs } from "@/services/localAuditService";
 import { registerContributions, clearContributions } from "@/mcp/contributions";
+import { getSetting, listSettings, setSetting } from "./domains/settings";
+import { subscription as subscriptionRead } from "./domains/account";
 import type { AuditLog } from "@/services/auditService";
 import type {
   PluginAPI,
@@ -1627,6 +1629,28 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           per_page: Math.min(100, Math.max(1, filters.perPage ?? 50)),
         });
         return { logs: logs.map(toPluginAuditRow), total };
+      },
+    },
+
+    settings: {
+      list(filter) {
+        requireGated("settings:read");
+        return listSettings(filter);
+      },
+      get(key) {
+        requireGated("settings:read");
+        return getSetting(key);
+      },
+      set(key, value) {
+        requireGated("settings:write");
+        return setSetting(key, value);
+      },
+    },
+
+    account: {
+      async subscription() {
+        requireGated("account:read");
+        return subscriptionRead();
       },
     },
 

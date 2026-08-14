@@ -9,6 +9,8 @@ import type {
   PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState,
 } from "./domains/team";
 import type { PluginSharedSession } from "./domains/sharing";
+import type { SettingView } from "./domains/settings";
+import type { SubscriptionView } from "./domains/account";
 
 export type { PluginAuditAction } from "@/services/auditContext";
 export type { DomainResult } from "./domains/result";
@@ -16,6 +18,8 @@ export type {
   PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState,
 } from "./domains/team";
 export type { PluginSharedSession } from "./domains/sharing";
+export type { SettingView } from "./domains/settings";
+export type { SubscriptionView } from "./domains/account";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
@@ -1042,6 +1046,23 @@ export interface PluginAPI {
     /** This device's local rows only. Team-vault rows are server-backed and
      *  are not returned here. */
     query(filters: PluginAuditQuery): Promise<{ logs: PluginAuditRow[]; total: number }>;
+  };
+
+  // App settings — read the manifest and current values (requires the gated
+  // "settings:read"); write one (requires the gated "settings:write").
+  settings: {
+    list(filter?: { section?: string; prefix?: string; writableOnly?: boolean }): SettingView[];
+    get(key: string): SettingView | undefined;
+    /** Writes, then RE-READS: a store setter may clamp or normalise, so
+     *  `effective` is the value that actually landed, not the one asked for. */
+    set(key: string, value: unknown): DomainResult<{
+      key: string; requested: unknown; effective: unknown; changed: boolean;
+    }>;
+  };
+
+  // The user's own plan and billing state (requires the gated "account:read")
+  account: {
+    subscription(): Promise<SubscriptionView>;
   };
 
   // Themes (requires "themes")
