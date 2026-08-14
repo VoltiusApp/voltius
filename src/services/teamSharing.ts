@@ -1,9 +1,15 @@
 import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId, listMembers } from "@/services/teamService";
 import type { TeamMember } from "@/services/teamService";
+import type { Tier } from "@/stores/subscriptionTier";
 
 /** Account tier as used across the share flow (ShareMenu, InvitePeopleSection, ParticipantsRatioNotice). */
-export type ShareTier = "free" | "pro" | "teams" | "business";
+export type ShareTier = Tier;
+
+/** Guests a shared session may hold, from the tier whose plan the session runs on. */
+export function guestCapFor(tier: string | undefined): number {
+  return tier === "business" ? 50 : tier === "teams" ? 10 : 1;
+}
 
 const OWNER_TIER_RANK: Record<string, number> = { business: 2, teams: 1 };
 
@@ -66,10 +72,51 @@ export async function allTeammates(): Promise<Teammate[]> {
   });
 }
 
+/** The invite-relevant view of a hosted session, as both invite surfaces need it. */
+export interface InviteSession {
+  vaultIds: string[];
+  participantIds: string[];
+  invitedIds: string[];
+}
+
+/**
+ * Builds that view from a local multiplayer connection plus the server's record of
+ * the session, if one exists yet. The host is always in `participants` but never
+ * counts against their own cap.
+ */
+export function inviteSessionOf(
+  connection: { participants?: { user_id: string }[]; myUserId?: string } | undefined,
+  active: { vault_ids?: string[]; invitee_ids?: string[] } | undefined,
+): InviteSession {
+  return {
+    vaultIds: active?.vault_ids ?? [],
+    participantIds: (connection?.participants ?? [])
+      .filter((p) => p.user_id !== connection?.myUserId)
+      .map((p) => p.user_id),
+    invitedIds: active?.invitee_ids ?? [],
+  };
+}
+
+/**
+ * Seats a session has committed against its cap: live guests, standing invites, and
+ * invites just sent from this menu that the server has not round-tripped back into
+ * `invitedIds` yet. Without that last set a Pro host at cap 1 could invite a second
+ * teammate in the window before the session list refreshes. A pending invite holds
+ * its seat until the session ends — that is deliberate, not an oversight.
+ */
+export function seatUsage(
+  session: InviteSession,
+  invitedThisSession: Iterable<string>,
+  guestCap: number,
+): { committedSeats: number; atCap: boolean } {
+  const committedSeats = new Set([...session.participantIds, ...session.invitedIds, ...invitedThisSession]).size;
+  return { committedSeats, atCap: committedSeats >= guestCap };
+}
+
 /** Whether a member already has a route into the session: a shared vault, live participation, or a standing invite. */
 export function memberHasAccess(
-  member: Teammate,
-  session: { vaultIds: string[]; participantIds: string[]; invitedIds: string[] },
+  member: { user_id: string; teamIds: string[] },
+  session: InviteSession,
 ): boolean {
   return (
     member.teamIds.some((id) => session.vaultIds.includes(id)) ||
