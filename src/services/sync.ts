@@ -110,7 +110,7 @@ async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
     const { merged, updatedKeys } = mergeUserDataBundle(local, remote);
     if (updatedKeys.length === 0) return;
     await invoke("settings_save", { state: JSON.stringify(merged) });
-    await applyUserDataBundle(merged, updatedKeys);
+    await applyUserDataBundle(merged, updatedKeys, { remote: true });
   } catch {}
 }
 

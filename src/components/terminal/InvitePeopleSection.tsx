@@ -2,20 +2,30 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
-import { allTeammates, memberHasAccess, type Teammate } from "@/services/teamSharing";
+import { allTeammates, memberHasAccess, seatUsage, type InviteSession, type ShareTier, type Teammate } from "@/services/teamSharing";
+import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 
 interface InvitePeopleSectionProps {
-  session: { vaultIds: string[]; participantIds: string[]; invitedIds: string[] };
+  session: InviteSession;
+  /**
+   * Members invited during this menu session. Owned by ShareMenu, not here: the
+   * first invite on an unshared terminal creates the session, which flips the menu
+   * from the setup view to the active view and remounts this component. Local state
+   * would be lost exactly when the cap most needs it, since the server's
+   * `invitee_ids` round-trip has not landed yet either.
+   */
+  invitedThisSession: ReadonlySet<string>;
+  guestCap: number;
+  tier: ShareTier;
+  onUpgrade: () => void;
   onInvite: (member: Teammate) => Promise<void>;
 }
 
-type RowStatus = "inviting" | "invited";
-
-export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionProps) {
+export function InvitePeopleSection({ session, invitedThisSession, guestCap, tier, onUpgrade, onInvite }: InvitePeopleSectionProps) {
   const { t } = useTranslation();
   const teams = useTeamStore((s) => s.teams);
   const [teammates, setTeammates] = useState<Teammate[] | null>(null);
-  const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
+  const [inviting, setInviting] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -43,19 +53,24 @@ export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionPr
   // Render nothing until the roster has loaded, so the section never flashes an empty header.
   if (teammates === null) return null;
 
+  const { committedSeats, atCap } = seatUsage(session, invitedThisSession, guestCap);
+
+  const setInFlight = (userId: string, active: boolean) =>
+    setInviting((prev) => {
+      const next = new Set(prev);
+      if (active) next.add(userId); else next.delete(userId);
+      return next;
+    });
+
   const handleInvite = async (member: Teammate) => {
     setError(null);
-    setRowStatus((prev) => ({ ...prev, [member.user_id]: "inviting" }));
+    setInFlight(member.user_id, true);
     try {
       await onInvite(member);
-      setRowStatus((prev) => ({ ...prev, [member.user_id]: "invited" }));
     } catch {
-      setRowStatus((prev) => {
-        const next = { ...prev };
-        delete next[member.user_id];
-        return next;
-      });
       setError(t("terminal.share.inviteFailed", { name: member.display_name }));
+    } finally {
+      setInFlight(member.user_id, false);
     }
   };
 
@@ -64,6 +79,8 @@ export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionPr
       <p className="text-xs font-semibold mb-2" style={{ color: "var(--t-text-primary)" }}>
         {t("terminal.share.invitePeople")}
       </p>
+
+      <ParticipantsRatioNotice count={committedSeats} guestCap={guestCap} atCap={atCap} countsInvites tier={tier} onUpgrade={onUpgrade} />
 
       {error && (
         <div
@@ -90,13 +107,16 @@ export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionPr
         <div className="flex flex-col gap-0.5">
           {teammates.map((member) => {
             const hasAccess = memberHasAccess(member, session);
-            const status = rowStatus[member.user_id];
+            const inFlight = inviting.has(member.user_id);
+            const invited = invitedThisSession.has(member.user_id);
+            // A row this session just invited keeps showing "Invited", not the cap notice.
+            const capBlocked = atCap && !hasAccess && !invited;
             return (
               <button
                 key={member.user_id}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-md text-left disabled:cursor-default transition-colors"
                 style={{ color: "var(--t-text-primary)", background: "transparent" }}
-                disabled={hasAccess || status === "inviting"}
+                disabled={hasAccess || inFlight || invited || capBlocked}
                 onClick={() => handleInvite(member)}
               >
                 <span
@@ -108,11 +128,15 @@ export function InvitePeopleSection({ session, onInvite }: InvitePeopleSectionPr
                   <span className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>
                     {t("terminal.share.inviteHasAccess")}
                   </span>
-                ) : status === "inviting" ? (
+                ) : inFlight ? (
                   <Icon icon="lucide:loader-circle" width={12} className="animate-spin" style={{ color: "var(--t-text-dim)" }} />
-                ) : status === "invited" ? (
+                ) : invited ? (
                   <span className="text-[10px]" style={{ color: "var(--t-accent)" }}>
                     {t("terminal.share.inviteSent")}
+                  </span>
+                ) : capBlocked ? (
+                  <span className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>
+                    {t("terminal.share.inviteCapReached")}
                   </span>
                 ) : null}
               </button>

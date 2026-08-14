@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
 
 interface AppSettingsTimestampStore {
   updatedAt: string;
@@ -11,8 +12,8 @@ export const useAppSettingsTimestampStore = create<AppSettingsTimestampStore>()(
     (set) => ({
       updatedAt: new Date(0).toISOString(),
       touch: () => {
-        set({ updatedAt: new Date().toISOString() });
-        import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {});
+        set({ updatedAt: settingsStamp() });
+        pushSettingsChange();
       },
     }),
     { name: "voltius-app-settings-ts" },

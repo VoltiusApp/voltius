@@ -144,6 +144,10 @@
       "participantsRatio_few": "{{participantCount}} / {{guestCap}} участника",
       "participantsRatio_many": "{{participantCount}} / {{guestCap}} участников",
       "participantsRatio_other": "{{participantCount}} / {{guestCap}} участников",
+      "guestsRatio_one": "{{participantCount}} / {{guestCap}} гость",
+      "guestsRatio_few": "{{participantCount}} / {{guestCap}} гостя",
+      "guestsRatio_many": "{{participantCount}} / {{guestCap}} гостей",
+      "guestsRatio_other": "{{participantCount}} / {{guestCap}} гостей",
       "upgradeToTeams": "Перейти на Teams",
       "upgradeToBusiness": "Перейти на Business",
       "hasControl": "Управляет",
@@ -151,6 +155,7 @@
       "invitePeople": "Пригласить людей",
       "inviteHasAccess": "Уже есть доступ",
       "inviteSent": "Приглашён",
+      "inviteCapReached": "Лимит достигнут",
       "inviteFailed": "Не удалось пригласить {{name}}",
       "inviteNoTeammates": "Пока нет коллег по команде",
       "inviteLoadFailed": "Не удалось загрузить список коллег"

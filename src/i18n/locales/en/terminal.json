@@ -136,6 +136,8 @@
       "waitingForGuests": "Waiting for someone to join…",
       "participantsRatio_one": "{{participantCount}} / {{guestCap}} participant",
       "participantsRatio_other": "{{participantCount}} / {{guestCap}} participants",
+      "guestsRatio_one": "{{participantCount}} of {{guestCap}} guest",
+      "guestsRatio_other": "{{participantCount}} of {{guestCap}} guests",
       "upgradeToTeams": "Upgrade to Teams",
       "upgradeToBusiness": "Upgrade to Business",
       "hasControl": "Has control",
@@ -143,6 +145,7 @@
       "invitePeople": "Invite people",
       "inviteHasAccess": "Has access",
       "inviteSent": "Invited",
+      "inviteCapReached": "Cap reached",
       "inviteFailed": "Could not invite {{name}}",
       "inviteNoTeammates": "No teammates yet",
       "inviteLoadFailed": "Could not load teammates"

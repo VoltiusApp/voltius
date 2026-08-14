@@ -6,10 +6,11 @@ import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { buildInviteCode } from "@/services/inviteCode";
-import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
+import { guestCapFor, highestOwnerTier, inviteSessionOf, membersOfTeams, seatUsage, type InviteSession, type ShareTier } from "@/services/teamSharing";
 import type { TeamMember } from "@/services/teamService";
 import { InviteCodeField } from "./InviteCodeField";
 import { InvitePeopleSection } from "./InvitePeopleSection";
+import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 
 const ROLES = ["owner", "manager", "editor", "member"] as const;
 
@@ -21,7 +22,7 @@ interface ShareMenuProps {
   connectionName: string;
   connectionVaultId?: string;
   isLoggedIn: boolean;
-  tier: "free" | "pro" | "teams" | "business";
+  tier: ShareTier;
   onSignIn: () => void;
   onUpgrade: () => void;
 }
@@ -38,6 +39,9 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const [error, setError] = useState<string | null>(null);
   const [inviteLinkToken, setInviteLinkToken] = useState<string | null>(null);
   const [autoCopied, setAutoCopied] = useState(false);
+  // Held here rather than in InvitePeopleSection: the first direct invite creates the
+  // session, which swaps the setup view for the active view and remounts the section.
+  const [invitedThisSession, setInvitedThisSession] = useState<ReadonlySet<string>>(new Set());
 
   const { teams, loading: teamsLoading, loadTeams } = useTeamStore();
   const mpConnections = useTeamSessionStore((s) => s.connections);
@@ -55,11 +59,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   // vault scope and per-invitee grants (#66). Empty until this local session has a
   // multiplayer counterpart the server has told us about.
   const matchingActiveSession = activeSessions.find((s) => s.id === activeMp?.multiplayerSessionId);
-  const inviteSession = {
-    vaultIds: matchingActiveSession?.vault_ids ?? [],
-    participantIds: activeMp?.participants.map((p) => p.user_id) ?? [],
-    invitedIds: matchingActiveSession?.invitee_ids ?? [],
-  };
+  const inviteSession = inviteSessionOf(activeMp, matchingActiveSession);
 
   // Vaults whose owner has a qualifying plan (teams/business) — free-tier users can share to these
   const qualifyingVaults = teams.filter((t) => t.owner_tier === "teams" || t.owner_tier === "business");
@@ -73,8 +73,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     qualifyingVaults.some((v) => v.id === connectionVaultId);
 
   // Effective cap for the active session: use vault owner's tier when available
-  const effectiveTier = activeMp?.vaultOwnerTier ?? tier;
-  const guestCap = effectiveTier === "business" ? 50 : effectiveTier === "teams" ? 10 : 1;
+  const guestCap = guestCapFor(activeMp?.vaultOwnerTier ?? tier);
 
   // Tab availability:
   //   free → team only, but only when connection is in a qualifying vault
@@ -98,6 +97,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     setSelectedVaultIds(connectionVaultId && connectionVaultId !== "personal" ? new Set([connectionVaultId]) : new Set());
     setVaultRoles({});
     setError(null);
+    setInvitedThisSession(new Set());
     if (!isSharing) {
       setInviteLinkToken(null);
       setAutoCopied(false);
@@ -185,6 +185,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const handleInvite = async (member: TeamMember) => {
     if (isSharing) await inviteToActiveSession(activeSessionId, member);
     else await startSharingDirect(activeSessionId, sessionName || connectionName, [member]);
+    setInvitedThisSession((prev) => new Set(prev).add(member.user_id));
   };
 
   const handleStopSharing = async () => {
@@ -286,6 +287,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           autoCopied={autoCopied}
           tier={tier}
           inviteSession={inviteSession}
+          invitedThisSession={invitedThisSession}
           onInvite={handleInvite}
           onStop={handleStopSharing}
           onUpgrade={onUpgrade}
@@ -363,7 +365,16 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
 
           {/* Direct invites need at least Pro (host_tier_session_limit rejects free with 402) —
               gate here rather than let the request round-trip into a raw inline error. */}
-          {tier !== "free" && <InvitePeopleSection session={inviteSession} onInvite={handleInvite} />}
+          {tier !== "free" && (
+            <InvitePeopleSection
+              session={inviteSession}
+              invitedThisSession={invitedThisSession}
+              guestCap={guestCap}
+              tier={tier}
+              onUpgrade={onUpgrade}
+              onInvite={handleInvite}
+            />
+          )}
         </>
       )}
     </div>,
@@ -382,6 +393,7 @@ function ActiveSharingView({
   autoCopied,
   tier,
   inviteSession,
+  invitedThisSession,
   onInvite,
   onStop,
   onUpgrade,
@@ -392,15 +404,19 @@ function ActiveSharingView({
   guestCap: number;
   inviteLinkToken: string | null;
   autoCopied: boolean;
-  tier: "free" | "pro" | "teams" | "business";
-  inviteSession: { vaultIds: string[]; participantIds: string[]; invitedIds: string[] };
+  tier: ShareTier;
+  inviteSession: InviteSession;
+  invitedThisSession: ReadonlySet<string>;
   onInvite: (member: TeamMember) => Promise<void>;
   onStop: () => void;
   onUpgrade: () => void;
 }) {
   const { t } = useTranslation();
-  const participantCount = activeMp.participants.filter((p) => p.user_id !== activeMp.myUserId).length;
-  const atCap = participantCount >= guestCap;
+  const participantCount = inviteSession.participantIds.length;
+  // An invite_link session retains no per-user session key (#66) — inviting into it
+  // would always throw cannotInviteWithoutSessionKey, so don't offer the action.
+  const canInviteDirectly = !!activeMp.sessionKeyBytes;
+  const { committedSeats, atCap } = seatUsage(inviteSession, invitedThisSession, guestCap);
 
   return (
     <div className="p-3">
@@ -414,19 +430,13 @@ function ActiveSharingView({
         </span>
       </div>
 
-      <div className="flex items-center gap-2 mb-3 text-xs" style={{ color: atCap ? "#f59e0b" : "var(--t-text-secondary)" }}>
-        <Icon icon="lucide:users" width={13} />
-        <span>{t("terminal.share.participantsRatio", { count: guestCap, participantCount, guestCap })}</span>
-        {atCap && tier !== "business" && (
-          <button
-            className="text-[10px] underline ml-auto"
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#f59e0b" }}
-            onClick={onUpgrade}
-          >
-            {tier === "pro" ? t("terminal.share.upgradeToTeams") : t("terminal.share.upgradeToBusiness")}
-          </button>
-        )}
-      </div>
+      {/* Exactly one seats line per view. The invite roster below draws its own, which
+          also counts standing invites; a second one here would contradict it. This
+          fallback covers the invite_link case, which has no roster — and no invitees
+          either, so its seat count is just the live participants. */}
+      {!canInviteDirectly && (
+        <ParticipantsRatioNotice count={committedSeats} guestCap={guestCap} atCap={atCap} tier={tier} onUpgrade={onUpgrade} />
+      )}
 
       {participantCount > 0 && (
         <div className="flex flex-wrap gap-1 mb-3">
@@ -462,9 +472,16 @@ function ActiveSharingView({
         </div>
       )}
 
-      {/* An invite_link session retains no per-user session key (#66) — inviting into
-          it would always throw cannotInviteWithoutSessionKey, so don't offer the action. */}
-      {activeMp.sessionKeyBytes && <InvitePeopleSection session={inviteSession} onInvite={onInvite} />}
+      {canInviteDirectly && (
+        <InvitePeopleSection
+          session={inviteSession}
+          invitedThisSession={invitedThisSession}
+          guestCap={guestCap}
+          tier={tier}
+          onUpgrade={onUpgrade}
+          onInvite={onInvite}
+        />
+      )}
 
       <button
         className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
@@ -612,7 +629,7 @@ function InviteLinkTab({
   sessionId: string;
   autoCopied: boolean;
   guestCap: number;
-  tier: "free" | "pro" | "teams" | "business";
+  tier: ShareTier;
   onGenerate: () => void;
   onUpgrade: () => void;
 }) {
