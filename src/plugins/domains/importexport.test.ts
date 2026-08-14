@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const conn = { id: "c1", name: "web", host: "h", port: 22, username: "u", vault_id: "personal" };
 
+// Mutable, so a test can model "empty until the loader runs": the real
+// keyStore starts empty/stale until loadKeys() is awaited (boot, or a UI
+// action) — an MCP-only write never triggers that.
+const { keyState } = vi.hoisted(() => ({ keyState: { keys: [] as { id: string; private_key?: string }[] } }));
+const newKey = { id: "k1", private_key: "MCP-CREATED-KEY" };
+
 vi.mock("@/stores/connectionStore", () => ({
   useConnectionStore: { getState: () => ({
     connections: [conn], teamConnections: {},
@@ -13,7 +19,10 @@ vi.mock("@/stores/identityStore", () => ({
   useIdentityStore: { getState: () => ({ identities: [], teamIdentities: {}, saveIdentity: vi.fn(), loadIdentities: vi.fn(async () => {}) }) },
 }));
 vi.mock("@/stores/keyStore", () => ({
-  useKeyStore: { getState: () => ({ keys: [], teamKeys: {}, saveKey: vi.fn(), loadKeys: vi.fn(async () => {}) }) },
+  useKeyStore: { getState: () => ({
+    keys: keyState.keys, teamKeys: {}, saveKey: vi.fn(),
+    loadKeys: vi.fn(async () => { keyState.keys = [newKey]; }),
+  }) },
 }));
 vi.mock("@/stores/folderStore", () => ({
   useFolderStore: { getState: () => ({ folders: [], teamFolders: {}, saveFolder: vi.fn(), loadFolders: vi.fn(async () => {}) }) },
@@ -52,12 +61,20 @@ vi.mock("@/services/import-export/registry", () => ({
     keys: [], snippets: [], portForwardingRules: [],
   })),
   runImport: vi.fn(async () => ({ imported: 1, errors: 0 })),
-  reloadAll: vi.fn(async () => {}),
+  // Faithful to the real reloadAll (registry.ts): actually awaits the seven
+  // loaders it's given, rather than a no-op stub — otherwise no test could
+  // ever observe a store being refreshed before it's read.
+  reloadAll: vi.fn(async (r: Record<string, () => Promise<unknown>>) => {
+    await Promise.all(Object.values(r).map((fn) => fn()));
+  }),
 }));
 
 import { exportObjects, importObjects } from "./importexport";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  keyState.keys = [];
+});
 
 describe("import/export domain", () => {
   it("refuses a secret-bearing export without a passphrase, naming the types", async () => {
@@ -103,6 +120,25 @@ describe("import/export domain", () => {
     const res = (r as { result: { encrypted: boolean; counts: Record<string, number> } }).result;
     expect(res.encrypted).toBe(false);
     expect(res.counts.identities).toBe(0);
+  });
+
+  it("refreshes the key store before export reads it, so a key written over MCP is not silently omitted", async () => {
+    expect(keyState.keys).toEqual([]); // not yet loaded, like a fresh MCP session
+    const { buildBundle } = await import("@/services/import-export/registry");
+    await exportObjects({ vaultIds: ["personal"], types: ["keys"], format: "json", passphrase: "pw" });
+    const stores = vi.mocked(buildBundle).mock.calls[0][1];
+    expect(stores.keys.map((k) => k.id)).toContain(newKey.id);
+  });
+
+  it("refreshes stores before import's duplicate-detection reads them", async () => {
+    expect(keyState.keys).toEqual([]);
+    const { runImport } = await import("@/services/import-export/registry");
+    await importObjects({
+      content: JSON.stringify({ version: 1, folders: [], connections: [], identities: [], keys: [], snippets: [], portForwardingRules: [] }),
+      vaultId: "personal", dryRun: false,
+    });
+    const ctx = vi.mocked(runImport).mock.calls[0][1];
+    expect(ctx.existingKeys.map((k: { id: string }) => k.id)).toContain(newKey.id);
   });
 
   it("dry_run reports counts and writes nothing", async () => {

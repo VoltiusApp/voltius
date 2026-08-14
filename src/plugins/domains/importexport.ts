@@ -144,6 +144,17 @@ export async function exportObjects(opts: {
   const enabled: Record<string, boolean> = Object.fromEntries(
     HANDLERS.map((h) => [h.key, selected.some((t) => HANDLER_KEY[t] === h.key) && (!h.jsonOnly || !isCsv)]),
   );
+  // The in-memory stores may predate any write that came in over MCP (they are
+  // seeded at boot and refreshed only by UI actions). Refresh before reading
+  // them: a partial refresh here would silently omit objects from the bundle —
+  // the same bug this fixes — so a reload failure fails the export outright
+  // rather than degrading, unlike the post-write reload below.
+  try {
+    await reloadAll(reloadFns());
+  } catch (e) {
+    return failed(`could not refresh stores before export: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
   let bundle: ExportBundle;
   try {
     bundle = await buildBundle(enabled, storeSlices(), opts.vaultIds, {});
@@ -196,6 +207,17 @@ export async function importObjects(opts: {
 
   const counts = bundleCounts(bundle);
   if (opts.dryRun) return { ok: true, result: { imported: 0, errors: 0, counts, dryRun: true } };
+
+  // Same staleness risk as export: a stale duplicate-detection list would
+  // re-import an object that already exists over MCP as a "duplicate" and
+  // skip it, or (worse) miss a real duplicate and double it. No writes have
+  // happened yet, so a reload failure here fails outright rather than
+  // proceeding on an unknown store state.
+  try {
+    await reloadAll(reloadFns());
+  } catch (e) {
+    return failed(`could not refresh stores before import: ${e instanceof Error ? e.message : String(e)}`);
+  }
 
   const slices = storeSlices();
   let imported: number;
