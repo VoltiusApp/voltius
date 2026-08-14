@@ -1,7 +1,22 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
+
+/**
+ * `InvitePeopleSection` renders null until its `allTeammates()` roster promise
+ * resolves, so a synchronous `queryByText(...)).toBeNull()` right after `render`
+ * passes trivially — with or without a hiding fix — because the section hasn't
+ * rendered its content yet either way. Flush the already-resolved mock promise's
+ * microtasks (and the resulting effect/state-update) before asserting absence,
+ * so a regression that lets the section mount would actually have painted by
+ * the time we check.
+ */
+async function flushRoster() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, opts?: { returnObjects?: boolean }) => (opts?.returnObjects ? [] : k) }),
@@ -103,7 +118,7 @@ test("an already-invited teammate renders as non-tappable Has access", async () 
   expect(row.textContent).toContain("terminal.share.inviteHasAccess");
 });
 
-test("hides the invite section in the active view when no session key is retained (invite_link)", () => {
+test("hides the invite section in the active view when no session key is retained (invite_link)", async () => {
   // No sessionKeyBytes on the connection — mirrors an invite_link session.
   mpState.connections = {
     "local-1": { multiplayerSessionId: "mp-1", ended: false, participants: [{ user_id: "me", display_name: "Me" }], myUserId: "me", controlHolder: "me" },
@@ -123,10 +138,11 @@ test("hides the invite section in the active view when no session key is retaine
       onUpgrade={() => {}}
     />,
   );
+  await flushRoster();
   expect(screen.queryByText("terminal.share.invitePeople")).toBeNull();
 });
 
-test("hides the invite section in setup view for free tier", () => {
+test("hides the invite section in setup view for free tier", async () => {
   teamState.teams = [{ id: "vault-1", name: "Vault", owner_tier: "teams" }];
   const anchorRef = createRef<HTMLButtonElement>();
   render(
@@ -143,5 +159,6 @@ test("hides the invite section in setup view for free tier", () => {
       onUpgrade={() => {}}
     />,
   );
+  await flushRoster();
   expect(screen.queryByText("terminal.share.invitePeople")).toBeNull();
 });
