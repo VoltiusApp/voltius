@@ -189,3 +189,16 @@ test("ended hides control actions: participant+ended -> request button absent; l
   expect(screen.queryByText("terminal.multiplayerBar.requestControl")).toBeNull();
   expect(screen.getByText("terminal.multiplayerBar.leave")).toBeTruthy();
 });
+
+test("a guest who has requested control sees the waiting state, not the request button", () => {
+  state.connections = { [LOCAL_ID]: mk({ role: "guest", myUserId: "g1", controlHolder: "h1", controlRequester: "g1" }) };
+  render(<MultiplayerBar localSessionId={LOCAL_ID} />);
+  expect(screen.getByText("terminal.multiplayerBar.requestPending")).toBeTruthy();
+  expect(screen.queryByText("terminal.multiplayerBar.requestControl")).toBeNull();
+});
+
+test("a guest with no pending request still sees the request button", () => {
+  state.connections = { [LOCAL_ID]: mk({ role: "guest", myUserId: "g1", controlHolder: "h1", controlRequester: null }) };
+  render(<MultiplayerBar localSessionId={LOCAL_ID} />);
+  expect(screen.getByText("terminal.multiplayerBar.requestControl")).toBeTruthy();
+});

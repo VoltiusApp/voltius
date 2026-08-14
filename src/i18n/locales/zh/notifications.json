@@ -51,6 +51,11 @@
         "message": "队友分享了 {{name}}",
         "join": "加入",
         "joined": "已加入"
+      },
+      "control": {
+        "request": "{{requester}} 正在请求控制权",
+        "grant": "授予",
+        "deny": "拒绝"
       }
     }
   }

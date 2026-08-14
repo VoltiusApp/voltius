@@ -51,6 +51,11 @@
         "message": "Un coéquipier a partagé {{name}}",
         "join": "Rejoindre",
         "joined": "Rejoint"
+      },
+      "control": {
+        "request": "{{requester}} demande le contrôle",
+        "grant": "Accorder",
+        "deny": "Refuser"
       }
     }
   }

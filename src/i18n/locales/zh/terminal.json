@@ -28,6 +28,7 @@
       "sharing": "正在共享",
       "watching": "正在观看",
       "requestControl": "请求控制权",
+      "requestPending": "已请求 — 等待主持人",
       "youHaveControl": "您拥有控制权",
       "controlRequested": "已请求控制权",
       "grant": "授予",

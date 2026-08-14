@@ -3,6 +3,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import type { InboxEntry, InboxKind } from "@/stores/notificationStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import type { MultiplayerSessionState } from "@/stores/teamSessionStore";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import { getCurrentUserEmail } from "@/services/account";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
@@ -79,6 +80,50 @@ export function reconcileSessions(sessions: ActiveSession[], joinedSessionIds: S
   );
 }
 
+export function reconcileControlRequests(connections: Record<string, MultiplayerSessionState>): void {
+  const entries = Object.entries(connections)
+    .filter(([, c]) => c.role === "host" && c.controlRequester !== null && c.controlRequester !== c.myUserId)
+    .map(([localSessionId, c]) => {
+      const requesterId = c.controlRequester as string;
+      const requester =
+        c.participants.find((p) => p.user_id === requesterId)?.display_name ??
+        i18n.t("notifications.inbox.someone");
+      return {
+        id: `control:${localSessionId}:${requesterId}`,
+        kind: "controlRequest" as const,
+        message: i18n.t("notifications.inbox.control.request", { requester }),
+        actions: [
+          {
+            label: i18n.t("notifications.inbox.control.grant"),
+            run: async () => useTeamSessionStore.getState().grantControl(localSessionId, requesterId),
+          },
+          {
+            label: i18n.t("notifications.inbox.control.deny"),
+            run: async () => useNotificationStore.getState().retractInbox(`control:${localSessionId}:${requesterId}`),
+          },
+        ],
+      };
+    });
+
+  // Toast only for requests not already in the inbox, so repeated reconciles stay silent.
+  const known = new Set(
+    useNotificationStore.getState().inbox.filter((e) => e.kind === "controlRequest").map((e) => e.id),
+  );
+  for (const e of entries) {
+    if (!known.has(e.id)) {
+      useNotificationStore.getState().addToast({
+        source: APP_SOURCE,
+        type: "toast",
+        message: e.message,
+        severity: "info",
+        duration: 8000,
+      });
+    }
+  }
+
+  reconcile(["controlRequest"], entries);
+}
+
 export function startTeamInbox(): () => void {
   reconcileInvites(useTeamStore.getState().myPendingInvitations);
   const unsubInvites = useTeamStore.subscribe((s, prev) => {
@@ -90,6 +135,7 @@ export function startTeamInbox(): () => void {
   const syncSessions = (st: ReturnType<typeof useTeamSessionStore.getState>) => {
     const joined = new Set(Object.values(st.connections).map((c) => c.multiplayerSessionId));
     reconcileSessions(st.activeSessions, joined);
+    reconcileControlRequests(st.connections);
   };
   syncSessions(useTeamSessionStore.getState());
   const unsubSessions = useTeamSessionStore.subscribe((s, prev) => {

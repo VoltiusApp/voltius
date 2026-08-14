@@ -51,6 +51,11 @@
         "message": "A teammate shared {{name}}",
         "join": "Join",
         "joined": "Joined"
+      },
+      "control": {
+        "request": "{{requester}} is requesting control",
+        "grant": "Grant",
+        "deny": "Deny"
       }
     }
   }

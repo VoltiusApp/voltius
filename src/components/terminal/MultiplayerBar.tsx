@@ -100,7 +100,7 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
       </div>
 
       {/* Control actions — hidden when session has ended */}
-      {!mpState.ended && !isHost && !iControlHolder && (
+      {!mpState.ended && !isHost && !iControlHolder && mpState.controlRequester !== myUserId && (
         <button
           className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors"
           style={{
@@ -115,6 +115,16 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
           <Icon icon="lucide:mouse-pointer-click" width={12} />
           {t("terminal.multiplayerBar.requestControl")}
         </button>
+      )}
+
+      {!mpState.ended && !isHost && !iControlHolder && mpState.controlRequester === myUserId && (
+        <span
+          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs"
+          style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-dim)" }}
+        >
+          <Icon icon="lucide:hourglass" width={12} />
+          {t("terminal.multiplayerBar.requestPending")}
+        </span>
       )}
 
       {!mpState.ended && iControlHolder && !isHost && (

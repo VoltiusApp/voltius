@@ -10,7 +10,8 @@ const h = vi.hoisted(() => {
   const uiState = { setActiveNav: vi.fn() };
   const useUIStore = { getState: () => uiState };
   const joinSession = vi.fn(async () => "local-99");
-  const useTeamSessionStore = { getState: () => ({ joinSession }) };
+  const grantControl = vi.fn();
+  const useTeamSessionStore = { getState: () => ({ joinSession, grantControl }) };
   return {
     accept: vi.fn(async () => {}),
     decline: vi.fn(async () => {}),
@@ -20,6 +21,7 @@ const h = vi.hoisted(() => {
     uiState,
     useUIStore,
     joinSession,
+    grantControl,
     useTeamSessionStore,
   };
 });
@@ -36,7 +38,7 @@ vi.mock("@/i18n", () => ({
 }));
 
 import { useNotificationStore } from "@/stores/notificationStore";
-import { reconcileInvites, reconcileSessions } from "./teamInbox";
+import { reconcileInvites, reconcileSessions, reconcileControlRequests } from "./teamInbox";
 import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
 
@@ -60,6 +62,7 @@ beforeEach(() => {
   h.decline.mockClear();
   h.getCurrentUserEmail.mockClear().mockResolvedValue("me@x");
   h.joinSession.mockClear().mockResolvedValue("local-99");
+  h.grantControl.mockClear();
   h.uiState.setActiveNav.mockClear();
   h.sessionState.sessions = [];
   h.sessionState.activeSessionId = null;
@@ -150,4 +153,41 @@ test("running the inbox Join action opens a session tab, not just a websocket", 
   });
   expect(h.sessionState.activeSessionId).toBe("local-99");
   expect(h.uiState.setActiveNav).toHaveBeenCalledWith("terminal");
+});
+
+function conn(over: Record<string, unknown> = {}) {
+  return {
+    multiplayerSessionId: "mp1",
+    role: "host",
+    myUserId: "me",
+    participants: [{ user_id: "guest1", display_name: "Bob" }],
+    controlHolder: "me",
+    controlRequester: null,
+    connection: {},
+    ...over,
+  } as never;
+}
+
+test("a host with a pending requester gets one actionable entry", () => {
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  const e = get().inbox.find((x) => x.kind === "controlRequest")!;
+  expect(e.id).toBe("control:local1:guest1");
+  expect(e.actions).toHaveLength(2);
+});
+
+test("a guest never gets a control-request entry for their own request", () => {
+  reconcileControlRequests({ local1: conn({ role: "guest", myUserId: "guest1", controlRequester: "guest1" }) });
+  expect(get().inbox.filter((x) => x.kind === "controlRequest")).toHaveLength(0);
+});
+
+test("the entry retracts when the request clears", () => {
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  reconcileControlRequests({ local1: conn({ controlRequester: null }) });
+  expect(get().inbox.filter((x) => x.kind === "controlRequest")).toHaveLength(0);
+});
+
+test("a new control request toasts exactly once across repeated reconciles", () => {
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  expect(get().toasts).toHaveLength(1);
 });
