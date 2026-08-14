@@ -811,6 +811,18 @@
             "label": "读取订阅信息",
             "description": "查看您的套餐、试用状态、席位和账单状态。"
           },
+          "pluginsManage": {
+            "label": "管理插件",
+            "description": "安装、更新、移除、启用和禁用插件，并添加市场来源。已安装的插件会以其声明的权限在 Voltius 内运行代码。"
+          },
+          "importExportRead": {
+            "label": "导出你的数据",
+            "description": "导出连接、身份、SSH 密钥、代码片段和端口转发规则。包含密码或私钥的导出内容只能加密导出。"
+          },
+          "importExportWrite": {
+            "label": "导入数据",
+            "description": "将连接、身份、SSH 密钥、代码片段和端口转发规则导入保险库。不会覆盖已有条目。"
+          },
           "storage": {
             "label": "存储插件数据",
             "description": "在您的设备上保存此插件自身的设置和数据。"

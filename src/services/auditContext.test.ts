@@ -28,6 +28,14 @@ const _cover: Record<PluginAuditAction, true> = {
   "agent.session_unshared": true,
   "agent.control_granted": true,
   "agent.setting_changed": true,
+  "agent.plugin_installed": true,
+  "agent.plugin_removed": true,
+  "agent.plugin_enabled": true,
+  "agent.plugin_disabled": true,
+  "agent.plugin_updated": true,
+  "agent.plugin_configured": true,
+  "agent.marketplace_source_changed": true,
+  "agent.objects_imported": true,
 };
 
 describe("PLUGIN_AUDIT_ACTIONS", () => {
@@ -57,4 +65,14 @@ test("the P7 team and sharing actions are in the plugin audit vocabulary", () =>
 
 test("the settings verb's action is in the plugin audit vocabulary", () => {
   expect(PLUGIN_AUDIT_ACTIONS).toContain("agent.setting_changed");
+});
+
+it("carries the P9 plugin and import/export actions", () => {
+  for (const a of [
+    "agent.plugin_installed", "agent.plugin_removed", "agent.plugin_enabled",
+    "agent.plugin_disabled", "agent.plugin_updated", "agent.plugin_configured",
+    "agent.marketplace_source_changed", "agent.objects_imported",
+  ]) {
+    expect(PLUGIN_AUDIT_ACTIONS).toContain(a);
+  }
 });

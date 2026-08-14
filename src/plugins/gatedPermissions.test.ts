@@ -76,6 +76,27 @@ describe("gatedPermissions", () => {
       expect(d.descriptionKey).not.toBe("");
     }
   });
+
+  test("P9 permissions are gated, described, and their copy resolves in all four languages", async () => {
+    const i18n = (await import("@/i18n")).default;
+    for (const perm of ["plugins:manage", "importexport:read", "importexport:write"]) {
+      expect(hasGatedPermission([perm])).toBe(true);
+      const [d] = describePermissions([perm]);
+      expect(d.known).toBe(true);
+      for (const lng of ["en", "fr", "ru", "zh"]) {
+        for (const key of [d.labelKey, d.descriptionKey]) {
+          const text = i18n.t(key, { lng });
+          expect(text).not.toBe(key);
+          // An object node resolves to an i18next diagnostic string, not a failure.
+          expect(text.startsWith("key '")).toBe(false);
+        }
+      }
+    }
+  });
+
+  test("importexport:read is danger tier, not the read-only tier", () => {
+    expect(isNonDangerGatedPermission("importexport:read")).toBe(false);
+  });
 });
 
 describe("describePermissions / consent decision", () => {
