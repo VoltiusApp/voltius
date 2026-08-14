@@ -2,7 +2,7 @@ import type { SettingsSection } from "@/stores/uiStore";
 import { TOGGLE_DEFS, getToggle, useToggleSettingsStore, type ToggleId } from "@/stores/toggleSettingsStore";
 import { SYNC_OBJECT_TYPES, useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
-import { DEFAULT_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
+import { DEFAULT_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import {
   useSftpSettingsStore,
   DEFAULT_AUTO_REFRESH_INTERVAL_MS,
@@ -114,7 +114,7 @@ function explicitDefs(): SettingDef[] {
   return [
     {
       key: "terminal.scrollbackLines",
-      type: "number", min: 100, max: 100_000,
+      type: "number", min: MIN_SCROLLBACK_LINES, max: MAX_SCROLLBACK_LINES,
       default: DEFAULT_SCROLLBACK_LINES,
       section: "terminal", labelKey: "settings.terminal.scrollback", writable: true,
       get: () => terminal().scrollbackLines,
@@ -122,6 +122,8 @@ function explicitDefs(): SettingDef[] {
     },
     {
       key: "terminal.preferredShell",
+      // No `values`: the only source of valid shells (useLocalShells / local_list_shells) is
+      // async with no synchronous accessor, so it can't feed this manifest's synchronous read.
       type: "string", default: null,
       section: "terminal", labelKey: "settings.terminal.preferredShell", writable: true,
       get: () => terminal().preferredShell,

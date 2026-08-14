@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 import { settingDef, settingDefs } from "./settingsManifest";
 import { TOGGLE_DEFS } from "@/stores/toggleSettingsStore";
 import { SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
+import { useThemeStore } from "@/stores/themeStore";
+import { BUILT_IN_THEMES } from "@/themes/presets";
 
 describe("settingsManifest", () => {
   test("génère une entrée par bascule, depuis TOGGLE_DEFS", () => {
@@ -54,9 +56,17 @@ describe("settingsManifest", () => {
   });
 
   test("les enums dynamiques sont calculés à l'appel, pas figés", () => {
-    const def = settingDef("theme.activeThemeId")!;
-    expect(def.type).toBe("enum");
-    expect(def.values!.length).toBeGreaterThan(0);
+    const before = settingDef("theme.activeThemeId")!.values!;
+    const customThemes = useThemeStore.getState().customThemes;
+    const probe = { ...BUILT_IN_THEMES[0], id: "custom-e2e-probe" };
+    useThemeStore.setState({ customThemes: [...customThemes, probe] });
+    try {
+      const after = settingDef("theme.activeThemeId")!.values!;
+      expect(before).not.toContain("custom-e2e-probe");
+      expect(after).toContain("custom-e2e-probe");
+    } finally {
+      useThemeStore.setState({ customThemes });
+    }
   });
 
   test("keepalivePreset expose ses quatre valeurs", () => {
