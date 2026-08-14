@@ -82,14 +82,17 @@ export function reconcileSessions(sessions: ActiveSession[], joinedSessionIds: S
 
 export function reconcileControlRequests(connections: Record<string, MultiplayerSessionState>): void {
   const entries = Object.entries(connections)
-    .filter(([, c]) => c.role === "host" && c.controlRequester !== null && c.controlRequester !== c.myUserId)
+    .filter(
+      ([, c]) => !c.ended && c.role === "host" && c.controlRequester !== null && c.controlRequester !== c.myUserId,
+    )
     .map(([localSessionId, c]) => {
       const requesterId = c.controlRequester as string;
+      const id = `control:${localSessionId}:${requesterId}`;
       const requester =
         c.participants.find((p) => p.user_id === requesterId)?.display_name ??
         i18n.t("notifications.inbox.someone");
       return {
-        id: `control:${localSessionId}:${requesterId}`,
+        id,
         kind: "controlRequest" as const,
         message: i18n.t("notifications.inbox.control.request", { requester }),
         actions: [
@@ -99,7 +102,7 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
           },
           {
             label: i18n.t("notifications.inbox.control.deny"),
-            run: async () => useNotificationStore.getState().retractInbox(`control:${localSessionId}:${requesterId}`),
+            run: async () => useNotificationStore.getState().retractInbox(id),
           },
         ],
       };

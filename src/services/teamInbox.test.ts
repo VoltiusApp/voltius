@@ -191,3 +191,22 @@ test("a new control request toasts exactly once across repeated reconciles", () 
   reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
   expect(get().toasts).toHaveLength(1);
 });
+
+test("a pending request on a session that then ends is retracted, not left dangling", () => {
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1", ended: true }) });
+  expect(get().inbox.filter((x) => x.kind === "controlRequest")).toHaveLength(0);
+});
+
+test("Grant runs grantControl with the local session id and requester id", async () => {
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  await get().runInboxAction("control:local1:guest1", 0);
+  expect(h.grantControl).toHaveBeenCalledWith("local1", "guest1");
+});
+
+test("Deny retracts the entry locally and calls nothing on the connection", async () => {
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  await get().runInboxAction("control:local1:guest1", 1);
+  expect(get().inbox.filter((x) => x.kind === "controlRequest")).toHaveLength(0);
+  expect(h.grantControl).not.toHaveBeenCalled();
+});
