@@ -52,6 +52,9 @@
         "join": "加入",
         "joined": "已加入"
       },
+      "sessionInvite": {
+        "message": "{{inviter}} 邀请您加入 {{name}}"
+      },
       "control": {
         "request": "{{requester}} 正在请求控制权",
         "grant": "授予",
