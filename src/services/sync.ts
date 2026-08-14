@@ -158,8 +158,7 @@ async function tryRefreshJwt(): Promise<string | null> {
     const { useNotificationStore } = await import("@/stores/notificationStore");
     const { useUIStore } = await import("@/stores/uiStore");
     useNotificationStore.getState().addToast({
-      pluginId: "system",
-      pluginName: "Voltius",
+      source: { kind: "plugin", id: "system", name: "Voltius" },
       type: "toast",
       message: i18n.t("common.toast.proSubscriptionEnded"),
       severity: "warning",
@@ -781,6 +780,11 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
   }
 }
 
+async function refetchActiveSessions(): Promise<void> {
+  const { useTeamSessionStore } = await import("@/stores/teamSessionStore");
+  await useTeamSessionStore.getState().fetchActiveSessions().catch(() => {});
+}
+
 async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promise<void> {
   if (eventData.startsWith("team:")) {
     const teamId = eventData.slice(5);
@@ -874,8 +878,15 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     }
   } else if (eventData === "token_invalidated") {
     tryRefreshJwt().catch(() => {});
+  } else if (eventData.startsWith("session_shared:") || eventData.startsWith("session_ended:")) {
+    await refetchActiveSessions();
   } else if (eventData !== myDeviceId) {
     syncNow().catch(() => {});
+    // "sync" is the server's lagged-receiver fallback: session_shared /
+    // session_ended may have been dropped, so refetch active sessions too.
+    // Scoped to that event — ordinary cross-device pushes carry a device id
+    // and must not each cost a session round-trip.
+    if (eventData === "sync") refetchActiveSessions().catch(() => {});
   }
 }
 

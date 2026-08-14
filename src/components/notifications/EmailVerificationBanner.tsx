@@ -26,8 +26,7 @@ export function EmailVerificationBanner() {
     try {
       await resendVerificationEmail();
       addToast({
-        pluginId: "system",
-        pluginName: "Voltius",
+        source: { kind: "plugin", id: "system", name: "Voltius" },
         type: "toast",
         message: t("notifications.emailVerification.toast.sent"),
         severity: "success",
@@ -35,8 +34,7 @@ export function EmailVerificationBanner() {
       });
     } catch (e) {
       addToast({
-        pluginId: "system",
-        pluginName: "Voltius",
+        source: { kind: "plugin", id: "system", name: "Voltius" },
         type: "toast",
         message: e instanceof Error ? e.message : t("notifications.emailVerification.toast.sendFailed"),
         severity: "error",
@@ -54,8 +52,7 @@ export function EmailVerificationBanner() {
       await load();
     } catch (e) {
       addToast({
-        pluginId: "system",
-        pluginName: "Voltius",
+        source: { kind: "plugin", id: "system", name: "Voltius" },
         type: "toast",
         message: e instanceof Error ? e.message : t("notifications.emailVerification.toast.refreshFailed"),
         severity: "error",

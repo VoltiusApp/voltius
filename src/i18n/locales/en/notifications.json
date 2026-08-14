@@ -39,6 +39,28 @@
     "seededPluginsFailed": {
       "message": "Built-in plugins failed to load, so the app is running without them. This is a bug — please report it.",
       "action": "Diagnostics"
+    },
+    "inbox": {
+      "someone": "Someone",
+      "invite": {
+        "message": "{{inviter}} invited you to {{team}}",
+        "accept": "Accept",
+        "decline": "Decline"
+      },
+      "session": {
+        "message": "A teammate shared {{name}}",
+        "join": "Join",
+        "joined": "Joined"
+      },
+      "control": {
+        "request": "{{requester}} is requesting control",
+        "grant": "Grant",
+        "deny": "Deny",
+        "granted": "You have control"
+      },
+      "awaitingKey": {
+        "message": "Waiting for a {{team}} owner to grant vault access"
+      }
     }
   }
 }

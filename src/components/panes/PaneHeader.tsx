@@ -242,8 +242,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
     const candidate = sessions.find((s) => !visibleSessionIds.has(s.id));
     if (!candidate) {
       useNotificationStore.getState().addToast({
-        pluginId: "core",
-        pluginName: "Voltius",
+        source: { kind: "plugin", id: "core", name: "Voltius" },
         type: "toast",
         message: t("panes.header.noSessionToSplit"),
         severity: "info",
@@ -345,9 +344,11 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
         {mcpOwner && (
           <McpMark
             variant="chip"
+            disconnected={mcpOwner.clientId === null}
             title={mcpOwnerTitle(mcpOwner, t, {
               known: "panes.header.mcpTooltip",
               unknown: "panes.header.mcpTooltipUnknown",
+              disconnected: "panes.header.mcpTooltipDisconnected",
             })}
             label={t("panes.header.mcpBadge")}
           />

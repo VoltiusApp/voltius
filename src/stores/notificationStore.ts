@@ -1,10 +1,17 @@
 import { create } from "zustand";
 import type { ToastSeverity } from "@/plugins/api";
 
+export type NotificationSource =
+  | { kind: "plugin"; id: string; name: string }
+  | { kind: "app"; area: "team" };
+
+export function sourceKey(source: NotificationSource): string {
+  return source.kind === "plugin" ? source.id : "app";
+}
+
 export interface ToastEntry {
   id: string;
-  pluginId: string;
-  pluginName: string;
+  source: NotificationSource;
   type: "toast" | "progress";
   message: string;
   severity: ToastSeverity;
@@ -23,8 +30,7 @@ export interface ToastEntry {
 
 export interface BannerEntry {
   id: string;
-  pluginId: string;
-  pluginName: string;
+  source: NotificationSource;
   message: string;
   severity: ToastSeverity;
   actions: Array<{ label: string; onClick: () => void }>;
@@ -34,22 +40,52 @@ export interface BannerEntry {
 
 export interface HistoryEntry {
   id: string;
-  pluginId: string;
-  pluginName: string;
+  source: NotificationSource;
   message: string;
   severity: ToastSeverity;
   dismissedAt: number;
+}
+
+export type InboxKind =
+  | "invite"
+  | "sessionShared"
+  | "controlRequest"
+  | "controlGranted"
+  | "awaitingKey";
+
+export interface InboxAction {
+  label: string;
+  run: () => Promise<void>;
+}
+
+export interface InboxEntry {
+  id: string;
+  source: NotificationSource;
+  kind: InboxKind;
+  message: string;
+  actions: InboxAction[];
+  state: "pending" | "acting" | "resolved";
+  resolution?: string;
+  createdAt: number;
 }
 
 const MAX_TOASTS = 5;
 const MAX_BANNERS = 10;
 const MAX_HISTORY = 50;
 
+function updateById<T extends { id: string }>(list: T[], id: string, patch: Partial<T>): T[] {
+  return list.map((item) => (item.id === id ? { ...item, ...patch } : item));
+}
+
+function removeById<T extends { id: string }>(list: T[], id: string): T[] {
+  return list.filter((item) => item.id !== id);
+}
+
 interface NotificationStore {
   toasts: ToastEntry[];
   banners: BannerEntry[];
   history: HistoryEntry[];
-  unreadCount: number;
+  inbox: InboxEntry[];
 
   addToast(entry: Omit<ToastEntry, "id" | "createdAt">): string;
   updateToast(id: string, patch: Partial<ToastEntry>): void;
@@ -59,19 +95,23 @@ interface NotificationStore {
   updateBanner(id: string, patch: Partial<BannerEntry>): void;
   dismissBanner(id: string): void;
 
+  upsertInbox(entry: Omit<InboxEntry, "state" | "createdAt"> & { state?: InboxEntry["state"] }): void;
+  retractInbox(id: string): void;
+  runInboxAction(id: string, index: number): Promise<void>;
+
   dismissAllForPlugin(pluginId: string): void;
-  markAllRead(): void;
+  unreadCount(): number;
   clearHistory(): void;
 }
 
-export const useNotificationStore = create<NotificationStore>((set) => ({
+export const useNotificationStore = create<NotificationStore>((set, get) => ({
   toasts: [],
   banners: [],
   history: [],
-  unreadCount: 0,
+  inbox: [],
 
   addToast(entry) {
-    const id = `${entry.pluginId}:${crypto.randomUUID()}`;
+    const id = `${sourceKey(entry.source)}:${crypto.randomUUID()}`;
     const toast: ToastEntry = { ...entry, id, createdAt: Date.now() };
 
     set((s) => {
@@ -88,7 +128,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
           return s;
         }
       }
-      return { toasts, unreadCount: s.unreadCount + 1 };
+      return { toasts };
     });
 
     return id;
@@ -97,9 +137,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
   updateToast(id, patch) {
     set((s) => {
       if (!s.toasts.find((t) => t.id === id)) return s;
-      return {
-        toasts: s.toasts.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-      };
+      return { toasts: updateById(s.toasts, id, patch) };
     });
   },
 
@@ -109,22 +147,21 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
       if (!toast) return s;
       const historyEntry: HistoryEntry = {
         id: toast.id,
-        pluginId: toast.pluginId,
-        pluginName: toast.pluginName,
+        source: toast.source,
         message: toast.message,
         severity: toast.finishedSeverity ?? toast.severity,
         dismissedAt: Date.now(),
       };
       const history = [historyEntry, ...s.history].slice(0, MAX_HISTORY);
       return {
-        toasts: s.toasts.filter((t) => t.id !== id),
+        toasts: removeById(s.toasts, id),
         history,
       };
     });
   },
 
   addBanner(entry) {
-    const id = `${entry.pluginId}:${crypto.randomUUID()}`;
+    const id = `${sourceKey(entry.source)}:${crypto.randomUUID()}`;
     const banner: BannerEntry = { ...entry, id, createdAt: Date.now() };
 
     set((s) => {
@@ -137,31 +174,67 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
           return s;
         }
       }
-      return { banners, unreadCount: s.unreadCount + 1 };
+      return { banners };
     });
 
     return id;
   },
 
   updateBanner(id, patch) {
-    set((s) => ({
-      banners: s.banners.map((b) => (b.id === id ? { ...b, ...patch } : b)),
-    }));
+    set((s) => ({ banners: updateById(s.banners, id, patch) }));
   },
 
   dismissBanner(id) {
-    set((s) => ({ banners: s.banners.filter((b) => b.id !== id) }));
+    set((s) => ({ banners: removeById(s.banners, id) }));
   },
 
   dismissAllForPlugin(pluginId) {
+    const belongsToPlugin = (e: { source: NotificationSource }) =>
+      e.source.kind === "plugin" && e.source.id === pluginId;
     set((s) => ({
-      toasts: s.toasts.filter((t) => t.pluginId !== pluginId),
-      banners: s.banners.filter((b) => b.pluginId !== pluginId),
+      toasts: s.toasts.filter((t) => !belongsToPlugin(t)),
+      banners: s.banners.filter((b) => !belongsToPlugin(b)),
     }));
   },
 
-  markAllRead() {
-    set({ unreadCount: 0 });
+  upsertInbox(entry) {
+    set((s) => {
+      const existing = s.inbox.find((e) => e.id === entry.id);
+      if (!existing) {
+        return {
+          inbox: [...s.inbox, { ...entry, state: entry.state ?? "pending", createdAt: Date.now() }],
+        };
+      }
+      return {
+        inbox: s.inbox.map((e) =>
+          e.id === entry.id ? { ...e, ...entry, state: entry.state ?? e.state, createdAt: e.createdAt } : e,
+        ),
+      };
+    });
+  },
+
+  retractInbox(id) {
+    set((s) => ({ inbox: removeById(s.inbox, id) }));
+  },
+
+  async runInboxAction(id, index) {
+    const entry = get().inbox.find((e) => e.id === id);
+    if (!entry || entry.state !== "pending") return;
+    const action = entry.actions[index];
+    if (!action) return;
+    set((s) => ({ inbox: updateById(s.inbox, id, { state: "acting" }) }));
+    try {
+      await action.run();
+      // Deliberately no retract here: the reconciler owns retraction when the
+      // source row disappears, so success alone must not remove the entry.
+    } catch {
+      set((s) => ({ inbox: updateById(s.inbox, id, { state: "pending" }) }));
+    }
+  },
+
+  unreadCount() {
+    const s = get();
+    return s.banners.length + s.inbox.filter((e) => e.state !== "resolved").length;
   },
 
   clearHistory() {

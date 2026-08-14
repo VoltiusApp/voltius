@@ -1,26 +1,47 @@
 import { test, expect } from "vitest";
-import { buildInviteCode, parseInviteCode } from "./inviteCode.ts";
+import { buildInviteCode, parseInviteCode, isInviteCode } from "./inviteCode";
+
+const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
+const TOKEN = "s3cr3t-token-value";
+
+test("isInviteCode accepts a built invite code", () => {
+  expect(isInviteCode(buildInviteCode(SESSION, TOKEN))).toBe(true);
+});
+
+test("isInviteCode tolerates surrounding whitespace", () => {
+  expect(isInviteCode(`  ${SESSION}:${TOKEN}\n`)).toBe(true);
+});
+
+test("isInviteCode rejects quick-connect shapes", () => {
+  expect(isInviteCode("host:22")).toBe(false);
+  expect(isInviteCode("user@host:2222")).toBe(false);
+  expect(isInviteCode("192.168.1.10:2222")).toBe(false);
+});
+
+test("isInviteCode rejects malformed codes", () => {
+  expect(isInviteCode(SESSION)).toBe(false);
+  expect(isInviteCode(`${SESSION}:`)).toBe(false);
+  expect(isInviteCode(`:${TOKEN}`)).toBe(false);
+  expect(isInviteCode("")).toBe(false);
+  expect(isInviteCode("not-a-uuid:token")).toBe(false);
+});
+
+test("parseInviteCode keeps colons inside the token", () => {
+  expect(parseInviteCode(`${SESSION}:a:b`)).toEqual({ sessionId: SESSION, token: "a:b" });
+});
 
 test("build then parse round-trips", () => {
-  const code = buildInviteCode("sess-1", "tok-abc");
-  expect(code).toBe("sess-1:tok-abc");
-  expect(parseInviteCode(code)).toEqual({ sessionId: "sess-1", token: "tok-abc" });
+  const code = buildInviteCode(SESSION, TOKEN);
+  expect(code).toBe(`${SESSION}:${TOKEN}`);
+  expect(parseInviteCode(code)).toEqual({ sessionId: SESSION, token: TOKEN });
 });
 
-test("token containing a colon is preserved (split on FIRST colon only)", () => {
-  expect(parseInviteCode("sess-1:tok:with:colons")).toEqual({ sessionId: "sess-1", token: "tok:with:colons" });
-});
-
-test("trims surrounding whitespace before parsing", () => {
-  expect(parseInviteCode("  sess-1:tok  ")).toEqual({ sessionId: "sess-1", token: "tok" });
-});
-
-test("returns null for codes with no colon", () => {
+test("parseInviteCode returns null for codes with no colon", () => {
   expect(parseInviteCode("nocolon")).toBeNull();
 });
 
-test("returns null when session id or token is empty", () => {
-  expect(parseInviteCode(":tok")).toBeNull();
-  expect(parseInviteCode("sess:")).toBeNull();
+test("parseInviteCode returns null when session id or token is empty", () => {
+  expect(parseInviteCode(`:${TOKEN}`)).toBeNull();
+  expect(parseInviteCode(`${SESSION}:`)).toBeNull();
   expect(parseInviteCode("")).toBeNull();
 });

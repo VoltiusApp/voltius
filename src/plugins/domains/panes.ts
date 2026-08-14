@@ -1,9 +1,9 @@
 import {
   findLeafBySession,
   getPaneSessionIds,
+  splitGeometry,
   type LeafNode,
   type PaneNode,
-  type SplitDirection,
   type SplitNode,
   type SplitPosition,
   type SplitTab,
@@ -48,6 +48,7 @@ export const PANE_ERRORS = {
   alreadySplit: "that session is already in a split tab; use session_move_to_pane",
   notSplit: "that session is not in a split tab; use pane_split first",
   broadcastActive: "the target tab has broadcast typing enabled; turn broadcast off before placing a pane there",
+  broadcastActiveSameTab: "that tab has broadcast typing enabled; turn broadcast off before moving panes inside it",
   noPaneToMaximize: "that session is not in a split tab; there is no pane to maximize",
   // Every layout store method returns {} rather than throwing when it cannot
   // find its target, so a write is only known to have happened by re-reading.
@@ -144,8 +145,8 @@ function preflight(ports: PanePorts, input: PairInput): PaneResult | null {
  *  membership test is presence in the tab. Placing an owned pane into a
  *  broadcasting tab would hand the user's keystrokes, passwords included, to
  *  the agent's PTY. */
-function refuseBroadcastingTarget(tab: SplitTab | null): PaneResult | null {
-  return tab?.broadcastActive ? { ok: false, error: PANE_ERRORS.broadcastActive } : null;
+function refuseBroadcastingTarget(tab: SplitTab | null, error: string = PANE_ERRORS.broadcastActive): PaneResult | null {
+  return tab?.broadcastActive ? { ok: false, error } : null;
 }
 
 /** `createSplitTab` (`layoutStore.ts:285`) inherits `state.broadcastActive`
@@ -192,7 +193,7 @@ function findParentSplit(root: PaneNode, leafId: string): SplitNode | null {
 /**
  * Re-read the layout and confirm the postcondition a same-tab move implies:
  * the two leaves are siblings under one split node, with the direction and
- * first/second order `position` implies (`splitLeaf`, `layoutStore.ts:111`).
+ * first/second order `position` implies (`splitGeometry`, `layoutStore.ts`).
  * Checking only "both sessions share a tab" (`verifyTogether`) proves nothing
  * here — that is already true before the move runs, so a silent store no-op
  * would still read as success.
@@ -201,8 +202,7 @@ function verifySameTabMove(ports: PanePorts, input: PairInput): PaneResult {
   const placed = locate(ports, input.sessionId);
   if (!placed) return { ok: false, error: PANE_ERRORS.unchanged };
   const parent = findParentSplit(placed.tab.root, placed.leaf.id);
-  const direction: SplitDirection = input.position === "left" || input.position === "right" ? "h" : "v";
-  const incomingFirst = input.position === "left" || input.position === "top";
+  const { direction, incomingFirst } = splitGeometry(input.position);
   const [expectedFirst, expectedSecond] = incomingFirst
     ? [input.sessionId, input.targetSessionId]
     : [input.targetSessionId, input.sessionId];
@@ -244,10 +244,14 @@ export function moveToPane(ports: PanePorts, input: PairInput): PaneResult {
   if (!source) return { ok: false, error: PANE_ERRORS.notSplit };
 
   const target = locate(ports, input.targetSessionId);
-  const broadcastRefusal = refuseBroadcastingTarget(target?.tab ?? null);
+  const sameTab = target !== null && target.tab.id === source.tab.id;
+  const broadcastRefusal = refuseBroadcastingTarget(
+    target?.tab ?? null,
+    sameTab ? PANE_ERRORS.broadcastActiveSameTab : PANE_ERRORS.broadcastActive,
+  );
   if (broadcastRefusal) return broadcastRefusal;
 
-  if (target && target.tab.id === source.tab.id) {
+  if (sameTab && target) {
     ports.activateSplitTab(source.tab.id);
     ports.movePane(source.leaf.id, target.leaf.id, input.position);
     return verifySameTabMove(ports, input);

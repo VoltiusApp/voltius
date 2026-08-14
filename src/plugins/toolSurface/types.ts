@@ -23,7 +23,12 @@ export type ToolDecision =
  *  consumer back it with something other than a plain Set — the MCP bridge
  *  backs it with a reactive store so the UI can see provenance. */
 export interface OwnedSessions {
+  /** Pure: does this caller already own the session. Used by listings. */
   has(sessionId: string): boolean;
+  /** May this caller act on the session, adopting an orphan if it is one.
+   *  Optional so a bare Set still satisfies the interface in tests; `mayAct`
+   *  falls back to `has`. */
+  acquire?(sessionId: string): boolean;
   add(sessionId: string): void;
   delete(sessionId: string): boolean;
 }

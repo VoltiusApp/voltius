@@ -76,6 +76,19 @@ export function getPaneSessionIds(root: PaneNode | null): string[] {
   return [...getPaneSessionIds(root.first), ...getPaneSessionIds(root.second)];
 }
 
+/**
+ * True when typed input in this session's tab is fanned out to every pane of
+ * the active split tab. The single source of truth for that condition: it both
+ * drives the fan-out (routeInputBytes in useTerminal) and blocks terminal
+ * sharing (the sharing domain), and those two must never disagree — a session
+ * shared while broadcast is on would send the user's keystrokes to remote
+ * participants.
+ */
+export function broadcastActiveForSession(sessionId: string): boolean {
+  const layout = useLayoutStore.getState();
+  return layout.broadcastActive && layout.splitTabActive && getPaneSessionIds(layout.root).includes(sessionId);
+}
+
 export function findLeaf(root: PaneNode | null, paneId: string | null): LeafNode | null {
   if (!root || !paneId) return null;
   if (root.type === "leaf") return root.id === paneId ? root : null;
@@ -108,9 +121,19 @@ function replaceLeaf(root: PaneNode, targetPaneId: string, replacement: PaneNode
   };
 }
 
+/** Where a split places the incoming leaf: which axis, and which side. */
+export function splitGeometry(position: SplitPosition): {
+  direction: SplitDirection;
+  incomingFirst: boolean;
+} {
+  return {
+    direction: position === "left" || position === "right" ? "h" : "v",
+    incomingFirst: position === "left" || position === "top",
+  };
+}
+
 function splitLeaf(target: LeafNode, leaf: LeafNode, position: SplitPosition): SplitNode {
-  const direction: SplitDirection = position === "left" || position === "right" ? "h" : "v";
-  const incomingFirst = position === "left" || position === "top";
+  const { direction, incomingFirst } = splitGeometry(position);
   return {
     type: "split",
     id: newSplitId(),

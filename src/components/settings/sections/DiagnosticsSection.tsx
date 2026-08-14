@@ -31,7 +31,7 @@ export default function DiagnosticsSection() {
       const name = path.split(/[\\/]/).pop() ?? "report.zip";
       setReportState("done");
       addToast({
-        pluginId: "core", pluginName: "Voltius", type: "toast",
+        source: { kind: "plugin", id: "core", name: "Voltius" }, type: "toast",
         message: t("settings.diagnostics.toastSaved", { name }),
         severity: "success", duration: 4000,
       });
@@ -39,7 +39,7 @@ export default function DiagnosticsSection() {
     } catch (e) {
       setReportState("idle");
       addToast({
-        pluginId: "core", pluginName: "Voltius", type: "toast",
+        source: { kind: "plugin", id: "core", name: "Voltius" }, type: "toast",
         message: t("settings.diagnostics.toastError", { reason: String(e) }),
         severity: "error", duration: 6000,
       });

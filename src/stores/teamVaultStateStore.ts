@@ -7,7 +7,7 @@ export type TeamVaultStatus =
   | "offline"
   | "forbidden"
   | "payment_required"
-  | "not_found"
+  | "awaiting_key"
   | "error";
 
 interface TeamVaultStateStore {

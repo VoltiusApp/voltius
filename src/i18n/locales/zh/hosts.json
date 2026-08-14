@@ -110,6 +110,7 @@
     "teamSessions": {
       "title": "团队会话",
       "joinByCode": "通过代码加入",
+      "emptyHint": "队友共享的终端会显示在这里。有邀请码？粘贴到搜索框即可加入。",
       "live": "实时",
       "pasteInviteCode": "粘贴邀请码加入私有会话：",
       "inviteCodePlaceholder": "sessionId:token",

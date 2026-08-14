@@ -1,7 +1,7 @@
-import type { PluginAuditAction, PluginSession } from "@/plugins/api";
+import type { DomainResult, PluginAuditAction, PluginSession } from "@/plugins/api";
 import type { ApprovalVia } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
-import { refusal } from "../refusal";
+import { isRefusal, refusal } from "../refusal";
 
 export type GateResult =
   | { ok: true; args: Record<string, unknown>; scope: string; via: ApprovalVia }
@@ -167,6 +167,11 @@ export function makeFileOp(ports: ToolSurfacePorts, gate: ReturnType<typeof make
  * Records the audit row before dispatch, same tradeoff as makeFileOp: a
  * failed create records a creation that never happened, which is the safe
  * direction to over-record in.
+ *
+ * A `run` whose domain declines by returning a value rather than throwing
+ * (the team domain's `{ ok: false, error }`) hands back a `refusal`, which
+ * passes through unwrapped: nesting it inside `{ ok: true }` would report a
+ * refusal as a success.
  */
 export function objectOp(ports: ToolSurfacePorts, gate: ReturnType<typeof makeGate>) {
   return async (
@@ -180,9 +185,19 @@ export function objectOp(ports: ToolSurfacePorts, gate: ReturnType<typeof makeGa
     if (!g.ok) return g.result;
     ports.audit(g.scope, action, { tool, approval: g.via, ...meta }, undefined);
     try {
-      return { ok: true, result: (await run(g.args)) ?? null };
+      const result = await run(g.args);
+      return isRefusal(result) ? result : { ok: true, result: result ?? null };
     } catch (err) {
       return refusal(err instanceof Error ? err.message : String(err));
     }
   };
+}
+
+/** Unwrap a domain's `DomainResult` for `objectOp`, which wraps the success and
+ *  passes the refusal through untouched. */
+export const unwrapDomain = <T>(r: DomainResult<T>): unknown => (r.ok ? r.result : refusal(r.error));
+
+/** The ownership check every MCP write gate uses. */
+export function mayAct(ports: ToolSurfacePorts, sessionId: string): boolean {
+  return ports.owned.acquire?.(sessionId) ?? ports.owned.has(sessionId);
 }

@@ -30,9 +30,12 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
 import { getCurrentUserEmail } from "@/services/account";
+import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { useToggleSettings } from "@/hooks/useToggleSettings";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
+import { isInviteCode, parseInviteCode } from "@/services/inviteCode";
+import { computeSectionBoundaries } from "./omniSections";
 import {
   selectRecentHosts,
   selectLocalShellItems,
@@ -125,7 +128,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const keys = useKeyStore((s) => s.keys);
   const vaults = useVaultStore((s) => s.vaults);
   const teams = useTeamStore((s) => s.teams);
-  const { activeSessions: teamSessions, fetchActiveSessions, joinSession } = useTeamSessionStore();
+  const { activeSessions: teamSessions, fetchActiveSessions } = useTeamSessionStore();
   const mpConnections = useTeamSessionStore((s) => s.connections);
   const myMpSessionIds = useMemo(
     () => new Set(Object.values(mpConnections).map((c) => c.multiplayerSessionId)),
@@ -223,8 +226,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
     if (category === "marketplace") return [];
     if (category === "join") {
-      if (q.includes(":")) {
-        return [{ kind: "join-code", id: "", label: "", icon: "", code: q }];
+      if (isInviteCode(q)) {
+        return [{ kind: "join-code", id: "", label: "", icon: "", code: query.trim() }];
       }
       const sessionItems = teamSessions
         .filter((s) => !q || s.connection_name.toLowerCase().includes(q))
@@ -233,6 +236,11 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     const result: OmniItem[] = [];
+
+    // A valid invite code cannot also be a host, so it outranks quick-connect.
+    if (isInviteCode(query)) {
+      result.push({ kind: "join-code", id: "", label: "", icon: "", code: query.trim() });
+    }
 
     // Local shells are surfaced by the dedicated Local section below, so skip
     // the redundant local Quick Connect row.
@@ -471,22 +479,12 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         } else {
           (async () => {
             const displayName = (await getCurrentUserEmail()) ?? "Me";
-            const localSessionId = await joinSession(session.id, displayName, () => {});
-            useSessionStore.setState((s) => ({
-              sessions: [
-                ...s.sessions,
-                {
-                  id: localSessionId,
-                  connectionId: session.id,
-                  connectionName: session.connection_name,
-                  status: "connected" as const,
-                  type: "multiplayer" as const,
-                },
-              ],
-              activeSessionId: localSessionId,
-            }));
+            await joinTeamSessionAndOpenTab({
+              sessionId: session.id,
+              displayName,
+              connectionName: session.connection_name,
+            });
             setSidebarOpen(false);
-            setActiveNav("terminal");
           })().catch(console.error);
         }
         onClose();
@@ -498,32 +496,19 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           }
         }, 0);
       } else if (item.kind === "join-code") {
-        const code = item.code;
-        const colonIdx = code.indexOf(":");
-        if (colonIdx !== -1) {
-          const sessionId = code.slice(0, colonIdx);
-          const token = code.slice(colonIdx + 1);
-          if (sessionId && token) {
-            (async () => {
-              const displayName = (await getCurrentUserEmail()) ?? "Me";
-              const localSessionId = await joinSession(sessionId, displayName, () => {}, token);
-              useSessionStore.setState((s) => ({
-                sessions: [
-                  ...s.sessions,
-                  {
-                    id: localSessionId,
-                    connectionId: sessionId,
-                    connectionName: "Shared Terminal",
-                    status: "connected" as const,
-                    type: "multiplayer" as const,
-                  },
-                ],
-                activeSessionId: localSessionId,
-              }));
-              setSidebarOpen(false);
-              setActiveNav("terminal");
-            })().catch(console.error);
-          }
+        const parsed = parseInviteCode(item.code);
+        if (parsed) {
+          const { sessionId, token } = parsed;
+          (async () => {
+            const displayName = (await getCurrentUserEmail()) ?? "Me";
+            await joinTeamSessionAndOpenTab({
+              sessionId,
+              displayName,
+              connectionName: "Shared Terminal",
+              inviteToken: token,
+            });
+            setSidebarOpen(false);
+          })().catch(console.error);
         }
         onClose();
       } else if (item.kind === "local-shell") {
@@ -536,7 +521,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     },
     [setActive, setActiveNav, onClose, setSidebarOpen,
      openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
-     sessions, connections, trackUsed, setGlobalPendingInject, joinSession],
+     sessions, connections, trackUsed, setGlobalPendingInject],
   );
 
   useEffect(() => {
@@ -566,41 +551,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
   const sectionBoundaries = useMemo(() => {
     if (category !== "all") return null;
-    let idx = 0;
-    const quickConnectCount = items.filter((i) => i.kind === "quick-connect").length;
-    const quickConnectStart = idx; idx += quickConnectCount;
-    const activeCount = items.filter((i) => i.kind === "session").length;
-    const activeStart = idx; idx += activeCount;
-
-    const teamSessionCount = items.filter((i) => i.kind === "team-session").length;
-    const teamSessionStart = idx; idx += teamSessionCount;
-
-    const recentCount = !q ? recentConnections.length : 0;
-    const recentStart = idx; idx += recentCount;
-
-    const hostCount = items.filter((i) => i.kind === "host").length - recentCount;
-    const hostStart = idx; idx += hostCount;
-
-    const localCount = items.filter((i) => i.kind === "local-shell").length;
-    const localStart = idx; idx += localCount;
-
-    const keyCount = items.filter((i) => i.kind === "key").length;
-    const keyStart = idx; idx += keyCount;
-
-    const identityCount = items.filter((i) => i.kind === "identity").length;
-    const identityStart = idx; idx += identityCount;
-
-    const snippetCount = items.filter((i) => i.kind === "snippet").length;
-    const snippetStart = idx; idx += snippetCount;
-
-    const settingsCount = items.filter((i) => i.kind === "action" && i.id.startsWith("open-settings:")).length;
-    const actionCount = items.filter((i) => i.kind === "action" && !i.id.startsWith("open-settings:")).length;
-    const toggleCount = items.filter((i) => i.kind === "toggle").length;
-    const actionStart = idx; idx += actionCount;
-    const toggleStart = idx; idx += toggleCount;
-    const settingsStart = idx;
-
-    return { quickConnectStart, quickConnectCount, activeStart, activeCount, teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount, localStart, localCount, keyStart, keyCount, identityStart, identityCount, snippetStart, snippetCount, actionStart, actionCount, toggleStart, toggleCount, settingsStart, settingsCount };
+    return computeSectionBoundaries(items, !q ? recentConnections.length : 0);
   }, [category, items, q, recentConnections.length]);
 
   const statusColor = (s: TerminalSession) =>
@@ -923,7 +874,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       );
     }
 
-    // join-code (entered via "join " prefix)
+    // join-code (an invite code, typed directly or via "join " prefix)
     if (item.kind === "join-code") {
       return (
         <button
@@ -1089,9 +1040,17 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         <div ref={listRef} className="overflow-y-auto py-2" style={{ maxHeight: "420px" }}>
           {category === "all" && sectionBoundaries ? (
             <>
+              {sectionBoundaries.joinCodeCount > 0 && (
+                <>
+                  {sectionHeader(t("omni.sections.joinByInviteCode"), false)}
+                  {items.slice(sectionBoundaries.joinCodeStart, sectionBoundaries.joinCodeStart + sectionBoundaries.joinCodeCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
               {sectionBoundaries.quickConnectCount > 0 && (
                 <>
-                  {sectionHeader(t("omni.sections.quickConnect"), false)}
+                  {sectionHeader(t("omni.sections.quickConnect"), sectionBoundaries.joinCodeCount > 0)}
                   {items.slice(sectionBoundaries.quickConnectStart, sectionBoundaries.quickConnectStart + sectionBoundaries.quickConnectCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
@@ -1099,7 +1058,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
               {sectionBoundaries.activeCount > 0 && (
                 <>
-                  {sectionHeader(t("omni.sections.activeConnections"), sectionBoundaries.quickConnectCount > 0)}
+                  {sectionHeader(t("omni.sections.activeConnections"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount))}
                   {items.slice(sectionBoundaries.activeStart, sectionBoundaries.activeStart + sectionBoundaries.activeCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
@@ -1107,7 +1066,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
               {sectionBoundaries.teamSessionCount > 0 && (
                 <>
-                  {sectionHeader(t("omni.sections.teamSessions"), sectionBoundaries.quickConnectCount > 0 || sectionBoundaries.activeCount > 0)}
+                  {sectionHeader(t("omni.sections.teamSessions"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount))}
                   {items.slice(sectionBoundaries.teamSessionStart, sectionBoundaries.teamSessionStart + sectionBoundaries.teamSessionCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
@@ -1115,7 +1074,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
               {sectionBoundaries.recentCount > 0 && (
                 <>
-                  {sectionHeader(t("omni.sections.recent"), sectionBoundaries.quickConnectCount > 0 || sectionBoundaries.activeCount > 0)}
+                  {sectionHeader(t("omni.sections.recent"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount))}
                   {items.slice(sectionBoundaries.recentStart, sectionBoundaries.recentStart + sectionBoundaries.recentCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
@@ -1123,7 +1082,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
               {sectionBoundaries.hostCount > 0 && (
                 <>
-                  {sectionHeader(t("omni.sections.hosts"), hasAbove(sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount))}
+                  {sectionHeader(t("omni.sections.hosts"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount))}
                   {items.slice(sectionBoundaries.hostStart, sectionBoundaries.hostStart + sectionBoundaries.hostCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
@@ -1131,7 +1090,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
               {sectionBoundaries.localCount > 0 && (
                 <>
-                  {sectionHeader(t("omni.sections.local"), hasAbove(sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount))}
+                  {sectionHeader(t("omni.sections.local"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount))}
                   {items.slice(sectionBoundaries.localStart, sectionBoundaries.localStart + sectionBoundaries.localCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
@@ -1139,7 +1098,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
               {(sectionBoundaries.keyCount > 0 || sectionBoundaries.identityCount > 0) && (
                 <>
-                  {sectionHeader(t("omni.sections.keychain"), hasAbove(sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount, sectionBoundaries.localCount))}
+                  {sectionHeader(t("omni.sections.keychain"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount, sectionBoundaries.localCount))}
                   {items.slice(sectionBoundaries.keyStart, sectionBoundaries.keyStart + sectionBoundaries.keyCount)
                     .map((item) => renderItem(item, runningIdx++))}
                   {items.slice(sectionBoundaries.identityStart, sectionBoundaries.identityStart + sectionBoundaries.identityCount)

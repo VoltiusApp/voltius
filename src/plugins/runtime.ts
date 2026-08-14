@@ -21,6 +21,7 @@ import type { MobileScreen as MobileNavScreen } from "@/stores/mobileNavCore";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
+import type { NotificationSource } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -95,10 +96,30 @@ import {
   splitWith,
   type PanePorts,
 } from "./domains/panes";
-import { useLayoutStore } from "@/stores/layoutStore";
-import { getPlatformSync } from "@/utils/platform";
+import {
+  keyStatus,
+  inviteMember,
+  listMembers,
+  listTeams,
+  removeMember,
+  setMemberRole,
+  type TeamPorts,
+} from "./domains/team";
+import {
+  handoffControl,
+  listSharedSessions,
+  shareRefusalReason,
+  shareSession,
+  unshareSession,
+  type SharingPorts,
+} from "./domains/sharing";
+import { broadcastActiveForSession, useLayoutStore } from "@/stores/layoutStore";
+import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
+import { isMobileShell } from "@/utils/platform";
 import { resolveCan, type Permission } from "@/services/permissions";
-import { getMyUserId } from "@/services/teamService";
+import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId, isValidPluginId } from "./pluginId";
@@ -756,7 +777,42 @@ const panePorts: PanePorts = {
     useSessionStore.getState().setActive(sessionId);
     useUIStore.getState().setActiveNav("terminal");
   },
-  isMobile: () => getPlatformSync() === "android",
+  isMobile: () => isMobileShell(),
+};
+
+const teamPorts: TeamPorts = {
+  teams: () => useTeamStore.getState().teams,
+  loadTeams: () => useTeamStore.getState().loadTeams(),
+  members: (teamId) => useTeamStore.getState().membersByTeam[teamId] ?? [],
+  loadMembers: (teamId) => useTeamStore.getState().loadMembers(teamId),
+  pendingInvitations: (teamId) => useTeamStore.getState().pendingInvitationsByTeam[teamId] ?? [],
+  loadPendingInvitations: (teamId) => useTeamStore.getState().loadPendingInvitations(teamId),
+  roles: (teamId) => useTeamStore.getState().rolesByTeam[teamId] ?? [],
+  loadRoles: (teamId) => useTeamStore.getState().loadRoles(teamId),
+  vaultStatus: (teamId) => useTeamVaultStateStore.getState().statusByTeamId[teamId] ?? "idle",
+  keyHolders: (teamId) => getVaultKeyHolders(teamId),
+  myUserId: () => getMyUserId(),
+  addMember: (teamId, email, role) => useTeamStore.getState().addMember(teamId, email, role),
+  addMemberById: (teamId, userId, role) => useTeamStore.getState().addMemberById(teamId, userId, role),
+  removeMember: (teamId, userId) => useTeamStore.getState().removeMember(teamId, userId),
+  assignMemberRole: (t, u, r) => useTeamStore.getState().assignMemberRole(t, u, r),
+  removeMemberRole: (t, u, r) => useTeamStore.getState().removeMemberRole(t, u, r),
+};
+
+const sharingPorts: SharingPorts = {
+  activeSessions: () => useTeamSessionStore.getState().activeSessions,
+  fetchActiveSessions: () => useTeamSessionStore.getState().fetchActiveSessions(),
+  localSessions: () => Object.keys(useTeamSessionStore.getState().connections),
+  state: (id) => useTeamSessionStore.getState().getState(id),
+  startSharing: (id, vaultIds, roles, name, members, tier) =>
+    useTeamSessionStore.getState().startSharing(id, vaultIds, roles, name, members, tier),
+  stopSharing: (id) => useTeamSessionStore.getState().stopSharing(id),
+  grantControl: (id, userId) => useTeamSessionStore.getState().grantControl(id, userId),
+  broadcastActiveForSession,
+  connectionName: (id) => useSessionStore.getState().sessions.find((s) => s.id === id)?.connectionName,
+  teamMembers: (teamIds) => membersOfTeams(teamIds),
+  ownerTier: (teamIds) => highestOwnerTier(teamIds),
+  myUserId: () => getMyUserId(),
 };
 
 // ─── Store reload map ─────────────────────────────────────────────────────
@@ -1270,6 +1326,56 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
     },
 
+    team: {
+      async list() {
+        requirePerm(manifest, "team:read");
+        return listTeams(teamPorts);
+      },
+      async members(teamId) {
+        requirePerm(manifest, "team:read");
+        return listMembers(teamPorts, teamId);
+      },
+      async keyStatus(teamId) {
+        requirePerm(manifest, "team:read");
+        return keyStatus(teamPorts, teamId);
+      },
+      async invite(input) {
+        requirePerm(manifest, "team:write");
+        return inviteMember(teamPorts, input);
+      },
+      async removeMember(teamId, userId) {
+        requirePerm(manifest, "team:write");
+        return removeMember(teamPorts, teamId, userId);
+      },
+      async setMemberRole(teamId, userId, role) {
+        requirePerm(manifest, "team:write");
+        return setMemberRole(teamPorts, teamId, userId, role);
+      },
+    },
+
+    sharing: {
+      async list() {
+        requirePerm(manifest, "sharing:read");
+        return listSharedSessions(sharingPorts);
+      },
+      shareRefusal(sessionId) {
+        requirePerm(manifest, "sharing:read");
+        return shareRefusalReason(sharingPorts, sessionId);
+      },
+      async share(input) {
+        requirePerm(manifest, "sharing:write");
+        return shareSession(sharingPorts, input);
+      },
+      async unshare(sessionId) {
+        requirePerm(manifest, "sharing:write");
+        return unshareSession(sharingPorts, sessionId);
+      },
+      async handoffControl(sessionId, userId) {
+        requirePerm(manifest, "sharing:write");
+        return handoffControl(sharingPorts, sessionId, userId);
+      },
+    },
+
     appSync: {
       status() {
         requirePerm(manifest, "sync:read");
@@ -1479,10 +1585,23 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         if (!whileActive("audit.record")) return;
 
         const conn = connectionId ? findConnection(connectionId) : undefined;
-        const context = conn ? auditContextForVaultId(conn.vault_id) : { kind: "local" as const, vaultId: "personal" };
+        // A scope matching no connection may still be a team id: the membership
+        // verbs scope on the team, and only a team context is forwarded to the
+        // team server. Promote ONLY on kind === "team" — for an unknown id
+        // auditContextForVaultId returns { kind: "local", vaultId: <id> }, which
+        // would file the row outside the "personal" sink audit.query reads.
+        const resolved = !conn && connectionId ? auditContextForVaultId(connectionId) : undefined;
+        const context = conn
+          ? auditContextForVaultId(conn.vault_id)
+          : resolved?.kind === "team"
+            ? resolved
+            : { kind: "local" as const, vaultId: "personal" };
+        const teamName = context.kind === "team" && !conn
+          ? useTeamStore.getState().teams.find((t) => t.id === context.teamId)?.name?.trim()
+          : undefined;
         const targetName = conn
           ? conn.name?.trim() || `${conn.username}@${conn.host}:${conn.port}`
-          : (connectionId ?? "local");
+          : (teamName || connectionId || "local");
 
         reportPluginAuditEvent(context, action, {
           target_type: "plugin",
@@ -1580,7 +1699,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const { severity = "info", duration = 2500, action } = opts;
         const pluginName = manifest.name.slice(0, 20);
         useNotificationStore.getState().addToast({
-          pluginId: id, pluginName, type: "toast",
+          source: { kind: "plugin", id, name: pluginName }, type: "toast",
           message, severity, duration, action,
         });
       },
@@ -1595,7 +1714,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         let onCancel: (() => void) | undefined;
 
         const toastId = useNotificationStore.getState().addToast({
-          pluginId: id, pluginName, type: "progress",
+          source: { kind: "plugin", id, name: pluginName }, type: "progress",
           message: title, severity: "info", duration: 0,
           progress: indeterminate ? undefined : 0,
           cancellable,
@@ -1635,12 +1754,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const { severity = "info", actions = [], dismissable = true, flashToast = true } = opts;
         const pluginName = manifest.name.slice(0, 20);
         const notifStore = useNotificationStore.getState();
+        const source: NotificationSource = { kind: "plugin", id, name: pluginName };
         const bannerId = notifStore.addBanner({
-          pluginId: id, pluginName, message, severity, actions, dismissable,
+          source, message, severity, actions, dismissable,
         });
         if (flashToast) {
           notifStore.addToast({
-            pluginId: id, pluginName, type: "toast",
+            source, type: "toast",
             message, severity, duration: 2000,
           });
         }
@@ -2063,8 +2183,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         } else {
           await writeClipboard(result.address);
           useNotificationStore.getState().addToast({
-            pluginId: id,
-            pluginName: manifest.name.slice(0, 20),
+            source: { kind: "plugin", id, name: manifest.name.slice(0, 20) },
             type: "toast",
             message: i18n.t("portForwarding.reach.copied", { address: result.address }),
             severity: "info",

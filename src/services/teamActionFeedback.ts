@@ -15,8 +15,7 @@ export async function runTeamAction<T>({
 }: TeamActionFeedbackOptions<T>): Promise<T> {
   const store = useNotificationStore.getState();
   const toastId = store.addToast({
-    pluginId: "system",
-    pluginName: "Voltius",
+    source: { kind: "plugin", id: "system", name: "Voltius" },
     type: "progress",
     message: pending,
     severity: "info",

@@ -138,8 +138,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
         await wrap(async () => {
           await createServerAccount(email, password, normalizedUrl);
           addToast({
-            pluginId: "system",
-            pluginName: "Voltius",
+            source: { kind: "plugin", id: "system", name: "Voltius" },
             type: "toast",
             message: t("layout.auth.accountCreatedToast"),
             severity: "info",

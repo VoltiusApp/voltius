@@ -27,7 +27,7 @@ export function PendingSequenceModal() {
         shift();
         resume(values).then(reportSequenceResult).catch((e: unknown) => {
           useNotificationStore.getState().addToast({
-            pluginId: "snippets", pluginName: "Snippets", type: "toast",
+            source: { kind: "plugin", id: "snippets", name: "Snippets" }, type: "toast",
             message: i18n.t("snippets.sequence.resumeFailed", {
               error: e instanceof Error ? e.message : String(e),
             }),

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { PLUGIN_AUDIT_ACTIONS, type PluginAuditAction } from "./auditContext";
 
 // Fails to compile if PluginAuditAction gains a member missing from this map,
@@ -21,6 +21,12 @@ const _cover: Record<PluginAuditAction, true> = {
   "agent.object_updated": true,
   "agent.object_deleted": true,
   "agent.plugin_tool_run": true,
+  "agent.member_invited": true,
+  "agent.member_removed": true,
+  "agent.member_role_changed": true,
+  "agent.session_shared": true,
+  "agent.session_unshared": true,
+  "agent.control_granted": true,
 };
 
 describe("PLUGIN_AUDIT_ACTIONS", () => {
@@ -33,4 +39,17 @@ describe("PLUGIN_AUDIT_ACTIONS", () => {
   it("keeps the array in sync with the union: the runtime rejects any action not in it", () => {
     expect(new Set(PLUGIN_AUDIT_ACTIONS)).toEqual(new Set(Object.keys(_cover)));
   });
+});
+
+test("the P7 team and sharing actions are in the plugin audit vocabulary", () => {
+  for (const action of [
+    "agent.member_invited",
+    "agent.member_removed",
+    "agent.member_role_changed",
+    "agent.session_shared",
+    "agent.session_unshared",
+    "agent.control_granted",
+  ]) {
+    expect(PLUGIN_AUDIT_ACTIONS).toContain(action);
+  }
 });

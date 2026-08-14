@@ -65,13 +65,15 @@ function RegularToast({
         }}
       >
         <Icon icon={icon} width={14} style={{ color, flexShrink: 0 }} />
-        <span
-          className="text-xs shrink-0 truncate"
-          style={{ color: "var(--t-text-dim)", maxWidth: "5rem" }}
-          title={toast.pluginName}
-        >
-          [{toast.pluginName.slice(0, 20)}]
-        </span>
+        {toast.source.kind === "plugin" && (
+          <span
+            className="text-xs shrink-0 truncate"
+            style={{ color: "var(--t-text-dim)", maxWidth: "5rem" }}
+            title={toast.source.name}
+          >
+            [{toast.source.name.slice(0, 20)}]
+          </span>
+        )}
         {/* Wraps rather than truncating: a refusal that explains itself is longer
             than one line, and an ellipsis at 40 characters hides the reason. */}
         <span

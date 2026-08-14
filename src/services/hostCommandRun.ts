@@ -30,7 +30,7 @@ export function defaultHostCommandDeps(): HostCommandDeps {
     inject: snippetInject,
     notifyError: (message) =>
       useNotificationStore.getState().addToast({
-        pluginId: "snippets", pluginName: "Snippets", type: "toast",
+        source: { kind: "plugin", id: "snippets", name: "Snippets" }, type: "toast",
         message, severity: "error", duration: 8000,
       }),
   };

@@ -10,6 +10,7 @@ import { formatTransferProgress, type FileEntry } from "@/components/filetransfe
 import MobilePanelHeader from "./MobilePanelHeader";
 import MobileSftpPane from "./MobileSftpPane";
 import SftpHostPickerSheet from "../sheets/SftpHostPickerSheet";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 type PaneId = "a" | "b";
 
@@ -55,7 +56,7 @@ export default function MobileSftpScreen({ presetConnectionId, asTab }: { preset
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-      <MobilePanelHeader title={t("mobile.tabBar.sftp")} hideBack={asTab} />
+      <MobilePanelHeader title={t("mobile.tabBar.sftp")} hideBack={asTab} right={<NotificationBell />} />
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 flex flex-col">
           <MobileSftpPane controller={ctrlA} connection={connA} selected={selA}

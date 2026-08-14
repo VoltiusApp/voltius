@@ -7,6 +7,7 @@ import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useEffectiveSyncStatus } from "@/hooks/useEffectiveSyncStatus";
 import { syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?: () => void }) {
   const { t } = useTranslation();
@@ -53,6 +54,7 @@ export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?:
             />
           </span>
         )}
+        <NotificationBell />
         {onAdd && (
           <button data-mobile-add onClick={onAdd} className="p-2 -mr-2 text-(--t-text-primary)">
             <Icon icon="lucide:plus" width={22} />

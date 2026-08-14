@@ -14,6 +14,7 @@
       "mcpBadge": "MCP",
       "mcpTooltip": "Ouvert par {{client}}",
       "mcpTooltipUnknown": "Ouvert par un client MCP",
+      "mcpTooltipDisconnected": "Ouvert par {{client}} (déconnecté)",
       "disableBroadcast": "Désactiver la diffusion",
       "broadcastInput": "Diffuser la saisie",
       "detachPane": "Détacher le panneau",

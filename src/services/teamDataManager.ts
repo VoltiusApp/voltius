@@ -16,7 +16,7 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { fetchTeamData, clearTeamKeyCache, reconcileTeamVaultKeys } from "@/services/teamVaultSync";
 
 // Statuses that warrant a retry (transient — key not yet distributed)
-const TRANSIENT_STATUSES = new Set(["not_found", "error"]);
+const TRANSIENT_STATUSES = new Set(["awaiting_key", "error"]);
 
 /**
  * Load team vault data for all teams the user belongs to.

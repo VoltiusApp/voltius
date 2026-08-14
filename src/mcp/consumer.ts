@@ -148,6 +148,33 @@ export const MCP_TEXT = {
       "Bring a session's pane to the front so the user sees it, optionally maximizing it within its "
       + "tab. Works on any open session and changes only what is visible. Runs immediately; your "
       + "own client is responsible for approval.",
+    member_invite:
+      "Invite someone to a team by email, or add an existing user by id — exactly one of the two. "
+      + "Requires your team role to allow it. Runs immediately; your own client is responsible for "
+      + "approval.",
+    member_remove:
+      "Remove a member from a team. They lose access to the team vault. Runs immediately; your own "
+      + "client is responsible for approval.",
+    member_set_role:
+      "Replace a member's roles in a team with one role, given as either a role id or a role name "
+      + "— member_list reports both for every member. A role that matches neither is refused before "
+      + "any role is removed. Runs immediately; your own client is responsible for approval.",
+    list_shared_sessions:
+      "List the terminal sessions shared with or by you: each one's participants, who currently "
+      + "holds control, and who is asking for it. Each row says whether this MCP server opened that "
+      + "session itself; share_session, unshare_session and handoff_control act only on those.",
+    share_session:
+      "Share a session you opened with one or more team vaults, so their members can watch it and "
+      + "request control. Refused for a tab with broadcast typing enabled, because the user's own "
+      + "keystrokes would reach every participant. Invite links are not offered here — sharing is "
+      + "scoped to named team members. Runs immediately; your own client is responsible for approval.",
+    unshare_session:
+      "Stop sharing a session you opened. Every participant is disconnected from it. Runs "
+      + "immediately; your own client is responsible for approval.",
+    handoff_control:
+      "Give terminal control to a participant who has requested it. Refused when that user has no "
+      + "pending request — control is never handed to someone who did not ask for it. Runs "
+      + "immediately; your own client is responsible for approval.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };
@@ -169,7 +196,8 @@ export function buildMcpTools(
     api,
     // The MCP client's own permission prompt is the gate; Voltius performs no
     // per-call check by construction. `deriveScope` still runs so the audit row
-    // names the real connection rather than a constant.
+    // names its real target — a connection, or the team for the membership
+    // verbs — rather than a constant.
     approve: async ({ tool, args }) => ({
       approve: true,
       scope: (await deriveScope(api, tool, args)) ?? "mcp",
@@ -271,9 +299,10 @@ function buildContributedTools(ports: ToolSurfacePorts): McpTool[] {
       execute: async (args: Record<string, unknown>) => {
         if (c.mutating) {
           // Same audit port the core verbs use, so `via: "mcp"` is stamped in
-          // exactly one place. `scope` must be a CONNECTION id — api.audit.record
-          // resolves the team-vs-local audit context from it, and a session id
-          // resolves to nothing and fails closed to the local sink.
+          // exactly one place. `scope` must be a CONNECTION id, or a TEAM id for
+          // the membership verbs — api.audit.record resolves the team-vs-local
+          // audit context from it, and a session id resolves to nothing and
+          // fails closed to the local sink.
           ports.audit(
             connectionScope(ports, args),
             "agent.plugin_tool_run",

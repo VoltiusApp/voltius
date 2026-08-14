@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { useConnectionStore } from "@/stores/connectionStore";
+import { useTeamStore } from "@/stores/teamStore";
 import type { Connection } from "@/types";
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "./api";
 import { PLUGIN_AUDIT_ACTIONS } from "@/services/auditContext";
@@ -11,7 +12,9 @@ vi.mock("@/services/auditReporter", async (orig) => ({
 }));
 vi.mock("@/services/auditContextResolver", () => ({
   auditContextForVaultId: (vaultId?: string | null) =>
-    vaultId === "team-vault" ? { kind: "team", teamId: "t1" } : { kind: "local", vaultId: vaultId || "personal" },
+    vaultId === "team-vault" || vaultId === "t1"
+      ? { kind: "team", teamId: "t1" }
+      : { kind: "local", vaultId: vaultId || "personal" },
 }));
 
 const { loadPlugin, unloadPlugin } = await import("./runtime");
@@ -34,6 +37,7 @@ function load(id: string, perms: string[]): PluginAPI {
 beforeEach(() => {
   reportPluginAuditEvent.mockClear();
   useConnectionStore.setState({ connections: [conn("c1", "personal")], teamConnections: { t1: [conn("c2", "team-vault")] } });
+  useTeamStore.setState({ teams: [{ id: "t1", name: "Ops", role_ids: [] }] as never });
 });
 
 afterEach(() => {
@@ -63,8 +67,19 @@ describe("api.audit.record", () => {
     const api = load("agent", ["audit"]);
     api.audit.record("does-not-exist", "agent.command_run");
     api.audit.record(null, "agent.session_opened");
-    expect(reportPluginAuditEvent.mock.calls[0][0]).toEqual({ kind: "local", vaultId: "personal" });
-    expect(reportPluginAuditEvent.mock.calls[1][0]).toEqual({ kind: "local", vaultId: "personal" });
+    api.audit.record("mcp", "agent.command_run");
+    api.audit.record("c1", "agent.command_run");
+    for (const call of reportPluginAuditEvent.mock.calls) {
+      expect(call[0]).toEqual({ kind: "local", vaultId: "personal" });
+    }
+  });
+
+  test("a scope that is a team id becomes a team context named for the team", () => {
+    load("agent", ["audit"]).audit.record("t1", "agent.member_invited");
+    expect(reportPluginAuditEvent.mock.calls[0][0]).toEqual({ kind: "team", teamId: "t1" });
+    const opts = reportPluginAuditEvent.mock.calls[0][2];
+    expect(opts.target_id).toBe("t1");
+    expect(opts.target_name).toBe("Ops");
   });
 
   test("stamps plugin_id host-side over a caller-supplied value", () => {

@@ -36,10 +36,28 @@ export const CONNECTION_TOOLS = new Set([
 ]);
 
 /**
- * Resolve the connection a tool call would act on, as an allowlist scope:
- * a connection id, the literal `"local"`, or `null` when it cannot be
- * determined (unknown session, deleted or forged connection id, a lookup
- * throwing). `null` must never be treated as a real scope by the caller — the
+ * Tools that act on a team's membership rather than on any connection. Their
+ * scope is the team id: without it the scope falls back to the literal "mcp",
+ * `audit.record` resolves no connection, and the row is filed under the local
+ * personal sink instead of reaching the team server — so an administrator
+ * reading the server log cannot tell an agent made the change.
+ *
+ * The scope is also the allowlist bucket, so a grant on these verbs is keyed to
+ * one team, which is the right grain for a membership change: approving an
+ * invite to one team must not authorise one to another.
+ */
+export const TEAM_TOOLS = new Set([
+  "member_invite",
+  "member_remove",
+  "member_set_role",
+]);
+
+/**
+ * Resolve the target a tool call would act on, as an allowlist scope: a
+ * connection id, a team id for the membership verbs, the literal `"local"`, or
+ * `null` when it cannot be determined (unknown session, deleted or forged
+ * connection id, a missing team id, a lookup throwing). `null` must never be
+ * treated as a real scope by the caller — the
  * allowlist has to fail closed, not open, when the target is uncertain.
  *
  * Scoping on the connection id rather than `conn.host` is deliberate: two
@@ -56,6 +74,9 @@ export async function deriveScope(
 ): Promise<string | null> {
   try {
     let connectionId: string | undefined;
+    if (TEAM_TOOLS.has(tool)) {
+      return typeof args.teamId === "string" && args.teamId ? args.teamId : null;
+    }
     if (CONNECTION_TOOLS.has(tool)) {
       // key_add_to_host's schema is snake_case (connection_id); every other
       // member of this set is camelCase (connectionId). Read both.
