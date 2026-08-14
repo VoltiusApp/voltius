@@ -139,7 +139,7 @@ test("a Pro host at cap 1 with one participant disables every not-already-covere
   expect(screen.getAllByText("terminal.share.inviteCapReached").length).toBe(2);
   // The roster's line counts seats (participants + standing invites), not live
   // participants, and says so with its own key.
-  expect(screen.getByText("terminal.share.seatsRatio")).toBeTruthy();
+  expect(screen.getByText("terminal.share.guestsRatio")).toBeTruthy();
   expect(screen.queryByText("terminal.share.participantsRatio")).toBeNull();
 
   await userEvent.click(alice);
