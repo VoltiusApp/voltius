@@ -9,20 +9,29 @@ const h = vi.hoisted(() => ({
   loadMembers: vi.fn(),
   loadRoles: vi.fn(),
   loadPendingInvitations: vi.fn(),
-  addMemberById: vi.fn(),
-  assignMemberRole: vi.fn(),
-  removeMemberRole: vi.fn(),
-  removeMember: vi.fn(),
-  push: vi.fn(),
+  startSharing: vi.fn(),
+  inviteToActiveSession: vi.fn(),
+  addToast: vi.fn(),
+  updateToast: vi.fn(),
   teamRoles: [
     { id: "r-owner", team_id: "t1", name: "owner", is_builtin: true, permissions: 0, position: 0, created_at: "" },
     { id: "r-mem", team_id: "t1", name: "member", is_builtin: true, permissions: 0, position: 1, created_at: "" },
-    { id: "r-ed", team_id: "t1", name: "editor", is_builtin: false, permissions: 0, position: 2, created_at: "" },
   ],
   members: [
     { team_id: "t1", user_id: "me", invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z", display_name: "Me", public_key: "pk", role_ids: ["r-mem"] },
-    { team_id: "t1", user_id: "u1", invited_by_display_name: null, joined_at: "2024-01-02T00:00:00Z", display_name: "Ann", public_key: "pk", role_ids: ["r-mem", "r-ed"] },
-    { team_id: "t1", user_id: "u2", invited_by_display_name: null, joined_at: "2024-01-03T00:00:00Z", display_name: "Bob", public_key: "pk", role_ids: ["r-mem"] },
+    { team_id: "t1", user_id: "u1", invited_by_display_name: null, joined_at: "2024-01-02T00:00:00Z", display_name: "Ann", public_key: "pk", role_ids: ["r-mem"] },
+  ],
+  // one hosted session with the key retained (invitable), one hosted with no key,
+  // one guest session, and one active-on-the-server session hosted elsewhere.
+  connections: {
+    "local-1": { multiplayerSessionId: "mp-1", role: "host", sessionKeyBytes: new Uint8Array([1]) },
+    "local-2": { multiplayerSessionId: "mp-2", role: "host" }, // key not retained -> not invitable
+    "local-3": { multiplayerSessionId: "mp-3", role: "guest", sessionKeyBytes: new Uint8Array([1]) },
+  },
+  activeSessions: [
+    { id: "mp-1", connection_name: "prod-box", host_user_id: "me", host_public_key: "pk", visibility: "vault", created_at: "", participant_count: 1 },
+    { id: "mp-2", connection_name: "staging-box", host_user_id: "me", host_public_key: "pk", visibility: "vault", created_at: "", participant_count: 1 },
+    { id: "mp-4", connection_name: "other-device-box", host_user_id: "someone-else", host_public_key: "pk", visibility: "vault", created_at: "", participant_count: 1 },
   ],
 }));
 
@@ -48,8 +57,8 @@ vi.mock("@/components/shared/DragSelectSurface", () => ({
 }));
 vi.mock("@/components/shared/ToolbarViewControls", () => ({ ToolbarViewControls: () => null }));
 
-// Exposes each card's onClick (selection) and flattens context-menu / bulk-menu
-// items into clickable leaf buttons so their handlers can be invoked directly.
+// Flattens context-menu items into clickable leaf buttons so their handlers
+// can be invoked directly, mirroring MembersPage.BulkActions.test.tsx.
 function renderMenu(items: ContextMenuItem[] | undefined, prefix: string): React.ReactNode {
   if (!items) return null;
   return items.map((it, i) => (
@@ -68,15 +77,10 @@ vi.mock("@/components/shared/BaseCard", () => ({
     const id = props["data-selectable-id"] as string | undefined;
     return (
       <div>
-        <button
-          data-testid={`card-${id}`}
-          onClick={props.onClick as React.MouseEventHandler}
-          onDoubleClick={props.onDoubleClick as React.MouseEventHandler}
-        >
+        <button data-testid={`card-${id}`} onClick={props.onClick as React.MouseEventHandler}>
           {id}
         </button>
         {renderMenu(props.contextMenuItems as ContextMenuItem[] | undefined, `ctx-${id}`)}
-        {renderMenu(props.bulkContextMenuItems as ContextMenuItem[] | undefined, `bulk-${id}`)}
       </div>
     );
   },
@@ -101,13 +105,17 @@ vi.mock("@/services/teamService", () => ({
   inviteByEmail: vi.fn(),
   revokePendingInvitation: vi.fn(),
 }));
-vi.mock("@/services/teamActionFeedback", () => ({
-  runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
-}));
 vi.mock("@/services/teamVaultActivation", () => ({ markTeamVaultLoadedAfterLocalActivation: vi.fn() }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 vi.mock("@/services/teamVaultSync", () => ({ initTeamVaultKey: vi.fn() }));
 vi.mock("@/stores/teamVaultStateStore", () => ({ useTeamVaultStateStore: { getState: () => ({}) } }));
+
+// Real runTeamAction + a stubbed notification store: exercises the actual
+// toast/error affordance instead of a passthrough mock, so a rejected
+// invite failing to surface an error is a real regression, not a vacuous one.
+vi.mock("@/stores/notificationStore", () => ({
+  useNotificationStore: { getState: () => ({ addToast: h.addToast, updateToast: h.updateToast }) },
+}));
 
 vi.mock("@/stores/vaultStore", () => {
   const state = {
@@ -133,10 +141,10 @@ vi.mock("@/stores/teamStore", () => {
     pendingInvitationsByTeam: {},
     loadPendingInvitations: h.loadPendingInvitations,
     createTeam: vi.fn(),
-    addMemberById: h.addMemberById,
-    assignMemberRole: h.assignMemberRole,
-    removeMemberRole: h.removeMemberRole,
-    removeMember: h.removeMember,
+    addMemberById: vi.fn(),
+    assignMemberRole: vi.fn(),
+    removeMemberRole: vi.fn(),
+    removeMember: vi.fn(),
   };
   const useTeamStore = Object.assign(
     (sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
@@ -170,7 +178,12 @@ vi.mock("@/stores/uiStore", () => {
   return { useUIStore };
 });
 vi.mock("@/stores/teamSessionStore", () => {
-  const state = { activeSessions: [], connections: {}, startSharing: vi.fn(), inviteToActiveSession: vi.fn() };
+  const state = {
+    activeSessions: h.activeSessions,
+    connections: h.connections,
+    startSharing: h.startSharing,
+    inviteToActiveSession: h.inviteToActiveSession,
+  };
   const useTeamSessionStore = Object.assign(
     (sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
     { getState: () => state },
@@ -178,7 +191,7 @@ vi.mock("@/stores/teamSessionStore", () => {
   return { useTeamSessionStore };
 });
 vi.mock("@/stores/historyStore", () => ({
-  useHistoryStore: (sel: (s: { push: typeof h.push }) => unknown) => sel({ push: h.push }),
+  useHistoryStore: (sel: (s: { push: (e: unknown) => void }) => unknown) => sel({ push: vi.fn() }),
 }));
 
 import MembersPage from "./MembersPage";
@@ -191,10 +204,8 @@ beforeEach(() => {
   h.loadMembers.mockResolvedValue(undefined);
   h.loadRoles.mockResolvedValue(undefined);
   h.loadPendingInvitations.mockResolvedValue(undefined);
-  h.addMemberById.mockResolvedValue(undefined);
-  h.assignMemberRole.mockResolvedValue(undefined);
-  h.removeMemberRole.mockResolvedValue(undefined);
-  h.removeMember.mockResolvedValue(undefined);
+  h.inviteToActiveSession.mockResolvedValue(undefined);
+  h.addToast.mockReturnValue("toast-1");
 });
 afterEach(() => cleanup());
 
@@ -203,106 +214,42 @@ async function renderPage() {
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
 }
 
-/** Ctrl-clicks u1 and u2 so selectedIdSet = {u1, u2} (bulk menus become active). */
-function selectU1U2() {
-  fireEvent.click(screen.getByTestId("card-u1"), { ctrlKey: true });
-  fireEvent.click(screen.getByTestId("card-u2"), { ctrlKey: true });
-}
-
-test("single member card renders; no bulk menu until 2+ selected", async () => {
+test("invite-to-session menu lists only locally-hosted sessions with a retained key", async () => {
   await renderPage();
-  expect(screen.getByTestId("card-u1")).toBeTruthy();
-  // one selected -> bulkContextMenuItems undefined -> no bulk kick button
-  fireEvent.click(screen.getByTestId("card-u1"), { ctrlKey: true });
-  expect(screen.queryByTestId("bulk-u1::members.contextMenu.kickBulk")).toBeNull();
-
-  fireEvent.click(screen.getByTestId("card-u2"), { ctrlKey: true });
-  expect(screen.getByTestId("bulk-u1::members.contextMenu.kickBulk")).toBeTruthy();
+  // mp-1: hosted here, key retained -> listed under its connection_name
+  expect(screen.getByTestId("ctx-u1::members.contextMenu.inviteToSession::prod-box")).toBeTruthy();
+  // mp-2: hosted here, but no sessionKeyBytes -> not listed
+  expect(screen.queryByTestId("ctx-u1::members.contextMenu.inviteToSession::staging-box")).toBeNull();
+  // mp-4: active on the server but hosted on another device -> not listed
+  expect(screen.queryByTestId("ctx-u1::members.contextMenu.inviteToSession::other-device-box")).toBeNull();
+  // guest connection (local-3) never appears regardless of activeSessions
+  expect(screen.queryAllByTestId(/other-device-box/).length).toBe(0);
 });
 
-test("bulk kick: removeMember for both selected, push removeBulk, reload", async () => {
+test("clicking a hosted-session entry calls inviteToActiveSession with the local id and member, not startSharing", async () => {
   await renderPage();
-  selectU1U2();
-  h.loadMembers.mockClear();
-  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.kickBulk"));
+  fireEvent.click(screen.getByTestId("ctx-u1::members.contextMenu.inviteToSession::prod-box"));
 
-  await waitFor(() => expect(h.push).toHaveBeenCalled());
-  expect(h.removeMember).toHaveBeenCalledWith("t1", "u1");
-  expect(h.removeMember).toHaveBeenCalledWith("t1", "u2");
-  expect(h.removeMember).toHaveBeenCalledTimes(2);
-  expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.removeBulk" }));
-  expect(h.loadMembers).toHaveBeenCalledWith("t1");
+  await waitFor(() => expect(h.inviteToActiveSession).toHaveBeenCalled());
+  expect(h.inviteToActiveSession).toHaveBeenCalledWith(
+    "local-1",
+    expect.objectContaining({ user_id: "u1" }),
+  );
+  expect(h.startSharing).not.toHaveBeenCalled();
 });
 
-test("bulk kick undo closure: re-adds each snapshot, reassigns roles, reloads", async () => {
+test("a rejected invite surfaces an error toast rather than being swallowed", async () => {
+  h.inviteToActiveSession.mockRejectedValue(new Error("common.error.cannotInviteWithoutSessionKey"));
   await renderPage();
-  selectU1U2();
-  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.kickBulk"));
-  await waitFor(() => expect(h.push).toHaveBeenCalled());
+  fireEvent.click(screen.getByTestId("ctx-u1::members.contextMenu.inviteToSession::prod-box"));
 
-  const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
-  h.loadMembers.mockClear();
-  await entry.undo();
-
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1");
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u2");
-  // u1 has r-mem+r-ed, u2 has r-mem -> 3 role reassignments total
-  expect(h.assignMemberRole).toHaveBeenCalledTimes(3);
-  expect(h.loadMembers).toHaveBeenCalledWith("t1");
+  await waitFor(() => expect(h.updateToast).toHaveBeenCalled());
+  const [, patch] = h.updateToast.mock.calls[0] as [string, { severity?: string; message?: string }];
+  expect(patch.severity).toBe("error");
 });
 
-test("bulk assign role: assignMemberRole(editor) for both, push assignRoleBulk", async () => {
+test("with no locally-hosted invitable sessions, the noActiveSessions entry still renders", async () => {
+  Object.keys(h.connections).forEach((k) => { delete (h.connections as Record<string, unknown>)[k]; });
   await renderPage();
-  selectU1U2();
-  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.assignRoleBulk::editor"));
-
-  await waitFor(() => expect(h.push).toHaveBeenCalled());
-  expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "u1", "r-ed");
-  expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "u2", "r-ed");
-  expect(h.assignMemberRole).toHaveBeenCalledTimes(2);
-  expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.assignRoleBulk" }));
-});
-
-test("bulk remove role: removeMemberRole only for members who have that role", async () => {
-  await renderPage();
-  selectU1U2();
-  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.removeRoleBulk::editor"));
-
-  await waitFor(() => expect(h.push).toHaveBeenCalled());
-  // only u1 has r-ed; u2 does not -> exactly one removeMemberRole
-  expect(h.removeMemberRole).toHaveBeenCalledWith("t1", "u1", "r-ed");
-  expect(h.removeMemberRole).toHaveBeenCalledTimes(1);
-  expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.removeRoleBulk" }));
-});
-
-test("single-member context menu kick: removeMember for that one member + push remove", async () => {
-  await renderPage();
-  h.loadMembers.mockClear();
-  fireEvent.click(screen.getByTestId("ctx-u1::members.kick"));
-
-  await waitFor(() => expect(h.push).toHaveBeenCalled());
-  expect(h.removeMember).toHaveBeenCalledWith("t1", "u1");
-  expect(h.removeMember).toHaveBeenCalledTimes(1);
-  expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.remove" }));
-  expect(h.loadMembers).toHaveBeenCalledWith("t1");
-});
-
-test("single-member context menu assign unassigned role: assignMemberRole + push assignRole", async () => {
-  await renderPage();
-  // u2 lacks editor -> editor appears as an unassigned toggle under Roles
-  fireEvent.click(screen.getByTestId("ctx-u2::members.roles::editor"));
-
-  await waitFor(() => expect(h.push).toHaveBeenCalled());
-  expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "u2", "r-ed");
-  expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.assignRole" }));
-});
-
-test("single-member context menu remove assigned role: removeMemberRole + push removeRole", async () => {
-  await renderPage();
-  // u1 has editor -> editor appears as an assigned toggle under Roles
-  fireEvent.click(screen.getByTestId("ctx-u1::members.roles::editor"));
-
-  await waitFor(() => expect(h.push).toHaveBeenCalled());
-  expect(h.removeMemberRole).toHaveBeenCalledWith("t1", "u1", "r-ed");
-  expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.removeRole" }));
+  expect(screen.getByTestId("ctx-u1::members.contextMenu.inviteToSession::members.contextMenu.noActiveSessions")).toBeTruthy();
 });

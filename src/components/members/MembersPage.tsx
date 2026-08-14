@@ -1015,7 +1015,7 @@ export default function MembersPage() {
   const removeMemberRole = useTeamStore((s) => s.removeMemberRole);
   const removeMember = useTeamStore((s) => s.removeMember);
   const push = useHistoryStore((s) => s.push);
-  const { activeSessions } = useTeamSessionStore();
+  const { activeSessions, connections } = useTeamSessionStore();
 
   const layoutMode = useUIStore((s) => s.membersLayoutMode);
   const sortMode = useUIStore((s) => s.membersSortMode);
@@ -1176,6 +1176,16 @@ export default function MembersPage() {
     onEscape: () => { setShowDetailPanel(false); setShowInvitePanel(false); },
   });
 
+  // Sessions this client hosts with the session key still in memory — the only
+  // ones `inviteToActiveSession` can actually invite someone into (#66 follow-up).
+  // `connections` carries no display name, so join against `activeSessions` for it.
+  const hostedSessions = useMemo(() => Object.entries(connections)
+    .filter(([, c]) => c.role === "host" && c.sessionKeyBytes)
+    .flatMap(([localSessionId, c]) => {
+      const active = activeSessions.find((s) => s.id === c.multiplayerSessionId);
+      return active ? [{ localSessionId, connectionName: active.connection_name }] : [];
+    }), [connections, activeSessions]);
+
   // Context menu builders
   const buildContextMenuItems = (member: TeamMember): ContextMenuItem[] => {
     const canActOnMember = canManageMembers && !isOwnerMember(member) && member.user_id !== myUserId;
@@ -1233,17 +1243,15 @@ export default function MembersPage() {
     items.push({
       label: t("members.contextMenu.inviteToSession"),
       icon: "lucide:terminal",
-      children: activeSessions.length > 0
-        ? activeSessions.map((s) => ({
-            label: s.connection_name,
+      children: hostedSessions.length > 0
+        ? hostedSessions.map(({ localSessionId, connectionName }) => ({
+            label: connectionName,
             onClick: () => {
-              void useTeamSessionStore.getState().startSharing(
-                s.id,
-                teamId ? [teamId] : [],
-                ["owner", "manager", "editor", "member"],
-                s.connection_name,
-                [member],
-              );
+              void runTeamAction({
+                pending: t("members.toast.invitingToSession", { name: member.display_name }),
+                success: t("members.toast.invitedToSession", { name: member.display_name }),
+                run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, member),
+              }).catch(() => { /* toast already reports the failure */ });
             },
           }))
         : [{ label: t("members.contextMenu.noActiveSessions"), onClick: () => {} }],

@@ -81,7 +81,9 @@
       "invitationSentToUser": "Invitation envoyée à {{name}}",
       "userAdded": "{{name}} ajouté",
       "invitingEmail": "Invitation de {{email}}…",
-      "invitationSentToEmail": "Invitation envoyée à {{email}}"
+      "invitationSentToEmail": "Invitation envoyée à {{email}}",
+      "invitingToSession": "Invitation de {{name}} à la session…",
+      "invitedToSession": "{{name}} invité à la session"
     },
     "error": {
       "cannotRemoveOwnerRole": "Impossible de retirer le rôle de propriétaire au propriétaire de l'équipe",

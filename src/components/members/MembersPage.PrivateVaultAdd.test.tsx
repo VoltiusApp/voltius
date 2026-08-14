@@ -139,7 +139,7 @@ vi.mock("@/stores/uiStore", () => {
   return { useUIStore };
 });
 vi.mock("@/stores/teamSessionStore", () => {
-  const state = { activeSessions: [], startSharing: vi.fn() };
+  const state = { activeSessions: [], connections: {}, startSharing: vi.fn(), inviteToActiveSession: vi.fn() };
   const useTeamSessionStore = Object.assign(
     (sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
     { getState: () => state },

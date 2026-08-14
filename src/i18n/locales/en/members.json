@@ -81,7 +81,9 @@
       "invitationSentToUser": "Invitation sent to {{name}}",
       "userAdded": "{{name}} added",
       "invitingEmail": "Inviting {{email}}...",
-      "invitationSentToEmail": "Invitation sent to {{email}}"
+      "invitationSentToEmail": "Invitation sent to {{email}}",
+      "invitingToSession": "Inviting {{name}} to session...",
+      "invitedToSession": "Invited {{name}} to session"
     },
     "error": {
       "cannotRemoveOwnerRole": "Cannot remove the owner role from the team owner",
