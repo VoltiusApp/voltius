@@ -78,7 +78,8 @@ export type PluginAuditAction =
   | "agent.plugin_updated"
   | "agent.plugin_configured"
   | "agent.marketplace_source_changed"
-  | "agent.objects_imported";
+  | "agent.objects_imported"
+  | "agent.objects_exported";
 
 export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.grant_created", "agent.grant_revoked", "agent.mode_changed",
@@ -93,7 +94,7 @@ export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.setting_changed",
   "agent.plugin_installed", "agent.plugin_removed", "agent.plugin_enabled",
   "agent.plugin_disabled", "agent.plugin_updated", "agent.plugin_configured",
-  "agent.marketplace_source_changed", "agent.objects_imported",
+  "agent.marketplace_source_changed", "agent.objects_imported", "agent.objects_exported",
 ];
 
 export type AnyAuditAction = ClientAuditAction | PluginAuditAction;

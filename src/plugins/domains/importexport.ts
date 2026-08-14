@@ -14,9 +14,12 @@ import type { ExportBundle } from "@/services/import-export/formats";
 import type { ImportStores, ReloadFns, StoreSlices } from "@/services/import-export/context";
 import type { PortForwardingRule } from "@/types";
 import { failed, type DomainResult } from "./result";
-
-export const EXPORT_TYPES = ["connections", "identities", "keys", "snippets", "pf_rules"] as const;
-export type ExportType = typeof EXPORT_TYPES[number];
+// Declared in the tool layer: it is the only value toolSurface/tools/importExport.ts
+// needs from this module, and importing it by value there would drag this
+// domain's whole store graph into the MCP bundle. Re-exported here so every
+// other importer of this module is unaffected.
+import { EXPORT_TYPES, type ExportType } from "@/plugins/toolSurface/tools/importExport";
+export { EXPORT_TYPES, type ExportType };
 
 /** Caller-facing type name → DataTypeHandler key (registry.ts's HANDLERS[].key). */
 const HANDLER_KEY: Record<ExportType, string> = {

@@ -36,6 +36,7 @@ const _cover: Record<PluginAuditAction, true> = {
   "agent.plugin_configured": true,
   "agent.marketplace_source_changed": true,
   "agent.objects_imported": true,
+  "agent.objects_exported": true,
 };
 
 describe("PLUGIN_AUDIT_ACTIONS", () => {
@@ -71,7 +72,7 @@ it("carries the P9 plugin and import/export actions", () => {
   for (const a of [
     "agent.plugin_installed", "agent.plugin_removed", "agent.plugin_enabled",
     "agent.plugin_disabled", "agent.plugin_updated", "agent.plugin_configured",
-    "agent.marketplace_source_changed", "agent.objects_imported",
+    "agent.marketplace_source_changed", "agent.objects_imported", "agent.objects_exported",
   ]) {
     expect(PLUGIN_AUDIT_ACTIONS).toContain(a);
   }

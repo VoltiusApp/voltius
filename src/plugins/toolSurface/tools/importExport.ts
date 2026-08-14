@@ -3,9 +3,16 @@ import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { refusal } from "../refusal";
 import { makeGate, objectOp, unwrapDomain } from "./helpers";
-import { EXPORT_TYPES, type ExportType } from "@/plugins/domains/importexport";
 
 export const IMPORT_EXPORT_PERMISSIONS = ["importexport:read", "importexport:write", "fs"] as const;
+
+// Declared here, not in the domain: this is the only value the tool layer
+// needs from import-export, and the domain module drags in all seven object
+// stores. Anything under toolSurface/ that imports a domain module by value
+// pulls that whole graph into the MCP bundle; the domain re-exports this
+// from here instead so nothing else changes.
+export const EXPORT_TYPES = ["connections", "identities", "keys", "snippets", "pf_rules"] as const;
+export type ExportType = typeof EXPORT_TYPES[number];
 
 export function buildImportExportTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
@@ -19,9 +26,10 @@ export function buildImportExportTools(ports: ToolSurfacePorts): Tool[] {
         + "— from one or more vaults. If the selection carries any secret (a password, a private "
         + "key, a passphrase, a connection note), the call is refused unless you pass a passphrase, "
         + "and the result is then encrypted with it: you get ciphertext, not the secrets. With "
-        + "`path`, the bundle is written to that file and only the path and per-type counts come "
-        + "back; without it, the bundle is returned inline.",
-      risk: "auto",
+        + "`path`, the bundle is written to that file — which must be under the user's home "
+        + "directory — and only the path and per-type counts come back; without it, the bundle is "
+        + "returned inline.",
+      risk: "prompt",
       schema: z.object({
         vault_ids: z.array(z.string()).optional(),
         types: z.array(z.enum(EXPORT_TYPES)).optional(),
@@ -29,31 +37,39 @@ export function buildImportExportTools(ports: ToolSurfacePorts): Tool[] {
         passphrase: z.string().optional(),
         path: z.string().optional(),
       }),
-      execute: async (raw) => {
-        const result = await ports.api.importExport.export({
-          vaultIds: (raw.vault_ids as string[] | undefined) ?? ["personal"],
-          types: (raw.types as ExportType[] | undefined) ?? [...EXPORT_TYPES],
-          format: (raw.format as "json" | "csv" | undefined) ?? "json",
-          passphrase: raw.passphrase as string | undefined,
-        });
-        if (!result.ok) return refusal(result.error);
-        const { content, encrypted, counts } = result.result;
-        const path = raw.path as string | undefined;
-        if (!path) return { content, encrypted, counts };
-        await ports.api.fs.writeText(path, content ?? "");
-        // The content is deliberately withheld once it is on disk: putting it in
-        // the response too would defeat the point of asking for a path.
-        return { path, encrypted, counts };
-      },
+      execute: async (raw) =>
+        op("export_objects", "agent.objects_exported", (a) => ({
+          // The shape of the call only: never the path, the content, or the
+          // passphrase — this reads every secret the user owns in one call.
+          types: (a.types as string[] | undefined) ?? [...EXPORT_TYPES],
+          vaultIds: (a.vault_ids as string[] | undefined) ?? ["personal"],
+          encrypted: a.passphrase !== undefined,
+          destination: a.path ? "path" : "inline",
+        }), raw, async (a) => {
+          const result = await ports.api.importExport.export({
+            vaultIds: (a.vault_ids as string[] | undefined) ?? ["personal"],
+            types: (a.types as ExportType[] | undefined) ?? [...EXPORT_TYPES],
+            format: (a.format as "json" | "csv" | undefined) ?? "json",
+            passphrase: a.passphrase as string | undefined,
+          });
+          if (!result.ok) return refusal(result.error);
+          const { content, encrypted, counts } = result.result;
+          const path = a.path as string | undefined;
+          if (!path) return { content, encrypted, counts };
+          await ports.api.fs.writeText(path, content ?? "");
+          // The content is deliberately withheld once it is on disk: putting it in
+          // the response too would defeat the point of asking for a path.
+          return { path, encrypted, counts };
+        }),
     },
     {
       name: "import_objects",
       description:
         "Import a bundle produced by export_objects, or a Termius, MobaXterm or CSV export, into "
-        + "one vault. Give it `content` or a `path`. An encrypted bundle needs the passphrase it "
-        + "was exported with. Importing only ever adds: existing items are matched and skipped, "
-        + "never overwritten. With dry_run: true, nothing is written and you get the per-type "
-        + "counts the bundle contains.",
+        + "one vault. Give it `content` or a `path` — a path must be under the user's home "
+        + "directory. An encrypted bundle needs the passphrase it was exported with. Importing "
+        + "only ever adds: existing items are matched and skipped, never overwritten. With "
+        + "dry_run: true, nothing is written and you get the per-type counts the bundle contains.",
       risk: "prompt",
       schema: z.object({
         content: z.string().optional(),
@@ -68,8 +84,8 @@ export function buildImportExportTools(ports: ToolSurfacePorts): Tool[] {
           return refusal("import_objects needs either content or path");
         }
         return op("import_objects", "agent.objects_imported", (a) => ({
-          vault_id: String(a.vault_id ?? "personal"),
-          dry_run: a.dry_run === true,
+          vaultId: String(a.vault_id ?? "personal"),
+          dryRun: a.dry_run === true,
           // Bundle contents are the user's own data; only the shape of the call
           // goes on a row that can leave the device.
           source: a.path ? "path" : "inline",

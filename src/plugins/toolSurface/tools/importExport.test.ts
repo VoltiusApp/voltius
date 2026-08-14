@@ -22,25 +22,25 @@ function ports(over: { exportResult?: unknown; importResult?: unknown } = {}) {
 const byName = (p: ToolSurfacePorts, n: string) => buildImportExportTools(p).find((t) => t.name === n)!;
 
 describe("import/export verbs", () => {
-  it("exposes two verbs: a read and a write", () => {
+  it("exposes two verbs, both prompt-risk: export reads every secret the user owns", () => {
     const tools = buildImportExportTools(ports().p);
     expect(tools.map((t) => t.name)).toEqual(["export_objects", "import_objects"]);
-    expect(tools.map((t) => t.risk)).toEqual(["auto", "prompt"]);
+    expect(tools.map((t) => t.risk)).toEqual(["prompt", "prompt"]);
   });
 
   it("returns the bundle inline when no path is given", async () => {
     const { p, writeText } = ports();
-    const r = await byName(p, "export_objects").execute({ vault_ids: ["personal"], types: ["connections"] }) as Record<string, unknown>;
-    expect(r.content).toBe("{\"a\":1}");
+    const r = await byName(p, "export_objects").execute({ vault_ids: ["personal"], types: ["connections"] }) as { result: Record<string, unknown> };
+    expect(r.result.content).toBe("{\"a\":1}");
     expect(writeText).not.toHaveBeenCalled();
   });
 
   it("writes to the path and withholds the content when a path is given", async () => {
     const { p, writeText } = ports();
-    const r = await byName(p, "export_objects").execute({ vault_ids: ["personal"], types: ["connections"], path: "/tmp/b.json" }) as Record<string, unknown>;
+    const r = await byName(p, "export_objects").execute({ vault_ids: ["personal"], types: ["connections"], path: "/tmp/b.json" }) as { result: Record<string, unknown> };
     expect(writeText).toHaveBeenCalledWith("/tmp/b.json", "{\"a\":1}");
-    expect(r.path).toBe("/tmp/b.json");
-    expect(r.content).toBeUndefined();
+    expect(r.result.path).toBe("/tmp/b.json");
+    expect(r.result.content).toBeUndefined();
   });
 
   it("passes an export refusal through unwrapped", async () => {
@@ -50,13 +50,30 @@ describe("import/export verbs", () => {
     expect(String(r.error)).toContain("connections");
   });
 
+  it("export_objects audits the call's shape, never the content or passphrase", async () => {
+    const { p, audit } = ports();
+    await byName(p, "export_objects").execute({
+      vault_ids: ["personal"], types: ["connections"], passphrase: "hunter2",
+    });
+    expect(audit).toHaveBeenCalledWith(
+      "mcp", "agent.objects_exported",
+      expect.objectContaining({
+        tool: "export_objects", types: ["connections"], vaultIds: ["personal"],
+        encrypted: true, destination: "inline",
+      }),
+      undefined,
+    );
+    const meta = audit.mock.calls[0][2] as Record<string, unknown>;
+    expect(JSON.stringify(meta)).not.toContain("hunter2");
+  });
+
   it("import_objects reads the path when given one and audits the write", async () => {
     const { p, audit, readText } = ports();
     await byName(p, "import_objects").execute({ path: "/tmp/b.json", vault_id: "personal" });
     expect(readText).toHaveBeenCalledWith("/tmp/b.json");
     expect(audit).toHaveBeenCalledWith(
       "mcp", "agent.objects_imported",
-      expect.objectContaining({ tool: "import_objects", vault_id: "personal", dry_run: false }),
+      expect.objectContaining({ tool: "import_objects", vaultId: "personal", dryRun: false }),
       undefined,
     );
   });

@@ -206,8 +206,16 @@ export const MCP_TEXT = {
     import_objects:
       "Import a bundle produced by export_objects, or a Termius, MobaXterm or CSV export, into one "
       + "vault. Runs immediately; your own client is responsible for approval. Give it `content` or "
-      + "a `path`; an encrypted bundle needs its passphrase. Importing only ever adds — existing "
-      + "items are matched and skipped. With dry_run: true, nothing is written.",
+      + "a `path` — a path must be under the user's home directory. An encrypted bundle needs its "
+      + "passphrase. Importing only ever adds — existing items are matched and skipped. With "
+      + "dry_run: true, nothing is written.",
+    export_objects:
+      "Export saved objects — connections, identities, SSH keys, snippets, port-forwarding rules — "
+      + "from one or more vaults. Runs immediately; your own client is responsible for approval. If "
+      + "the selection carries any secret, the call is refused unless you pass a passphrase, and the "
+      + "result is then encrypted with it. With `path`, the bundle is written to that file — which "
+      + "must be under the user's home directory — and only the path and per-type counts come back; "
+      + "without it, the bundle is returned inline.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };
