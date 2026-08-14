@@ -63,6 +63,7 @@ import {
   readPluginConfig, writePluginConfig, listSources, searchCatalog, addSource, removeSource,
   type PluginView, type SourceView,
 } from "./domains/plugins";
+import { exportObjects, importObjects } from "./domains/importexport";
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 import type { DomainResult } from "./domains/result";
 import type { AuditLog } from "@/services/auditService";
@@ -2477,6 +2478,19 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       search: guardedPluginCall("search", [] as MarketplacePlugin[], searchCatalog),
       addSource: guardedPluginCall("addSource", { ok: false, error: inactiveError(id) } as DomainResult<SourceView>, addSource),
       removeSource: guardedPluginCall("removeSource", { ok: false, error: inactiveError(id) } as DomainResult<{ id: string }>, removeSource),
+    },
+
+    importExport: {
+      async export(opts) {
+        requireGated("importexport:read");
+        if (!whileActive("importExport.export")) return { ok: false, error: inactiveError(id) };
+        return exportObjects(opts);
+      },
+      async import(opts) {
+        requireGated("importexport:write");
+        if (!whileActive("importExport.import")) return { ok: false, error: inactiveError(id) };
+        return importObjects(opts);
+      },
     },
 
     mcp: {

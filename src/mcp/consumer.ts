@@ -203,6 +203,11 @@ export const MCP_TEXT = {
     marketplace_source_remove:
       "Remove a custom marketplace source. Runs immediately; your own client is responsible for "
       + "approval. Plugins already installed from it stay installed.",
+    import_objects:
+      "Import a bundle produced by export_objects, or a Termius, MobaXterm or CSV export, into one "
+      + "vault. Runs immediately; your own client is responsible for approval. Give it `content` or "
+      + "a `path`; an encrypted bundle needs its passphrase. Importing only ever adds — existing "
+      + "items are matched and skipped. With dry_run: true, nothing is written.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };

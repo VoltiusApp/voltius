@@ -13,6 +13,8 @@ import type { SettingView } from "./domains/settings";
 import type { SubscriptionView } from "./domains/account";
 import type { PluginView, SourceView } from "./domains/plugins";
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";
+import type { ExportResult, ExportType, ImportResult } from "./domains/importexport";
+export type { ExportResult, ExportType, ImportResult } from "./domains/importexport";
 
 export type { PluginAuditAction } from "@/services/auditContext";
 export type { DomainResult } from "./domains/result";
@@ -1310,6 +1312,18 @@ export interface PluginAPI {
     search(query?: string): Promise<MarketplacePlugin[]>;
     addSource(url: string): Promise<DomainResult<SourceView>>;
     removeSource(id: string): Promise<DomainResult<{ id: string }>>;
+  };
+
+  // Bulk export (requires the gated "importexport:read") and import (requires
+  // the gated "importexport:write"). A bundle carrying secrets is only ever
+  // returned encrypted.
+  importExport: {
+    export(opts: {
+      vaultIds: string[]; types: ExportType[]; format: "json" | "csv"; passphrase?: string;
+    }): Promise<DomainResult<ExportResult>>;
+    import(opts: {
+      content: string; vaultId: string; passphrase?: string; dryRun: boolean;
+    }): Promise<DomainResult<ImportResult>>;
   };
 
   // MCP tool contributions — GATED (mcp:contribute). Tools run with THIS
