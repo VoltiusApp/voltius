@@ -4,13 +4,17 @@ import type { ToolSurfacePorts } from "../coreTools";
 
 const source = { id: "custom", name: "Custom", url: "https://x/p.json", enabled: true, deletable: true };
 const builtIn = { id: "voltius", name: "Voltius", url: "https://voltius/p.json", enabled: true, deletable: false };
+const tokenSource = {
+  id: "http---127-0-0-1-8099-plugins-json-token-secret789",
+  name: "Team", url: "http://127.0.0.1:8099/plugins.json?token=secret789", enabled: true, deletable: true,
+};
 
 function ports() {
   const audit = vi.fn();
   const api = {
     plugins: {
       search: vi.fn(async () => [{ id: "acme", name: "Acme", version: "1.0.0" }]),
-      sources: vi.fn(async () => [source, builtIn]),
+      sources: vi.fn(async () => [source, builtIn, tokenSource]),
       addSource: vi.fn(async () => ({ ok: true, result: source })),
       removeSource: vi.fn(async () => ({ ok: true, result: { id: source.id } })),
     },
@@ -80,14 +84,22 @@ describe("marketplace verbs", () => {
     expect(audit).not.toHaveBeenCalled();
   });
 
-  it("removes a deletable custom source and audits the change", async () => {
+  it("removes a deletable custom source and audits the origin, not the raw id", async () => {
     const { p, audit } = ports();
     const r = await byName(p, "marketplace_source_remove").execute({ id: "custom" }) as Record<string, unknown>;
     expect(r).toEqual({ ok: true, result: { id: "custom" } });
     expect(audit).toHaveBeenCalledWith(
       "mcp", "agent.marketplace_source_changed",
-      expect.objectContaining({ tool: "marketplace_source_remove", sourceId: "custom", change: "removed" }),
+      expect.objectContaining({ tool: "marketplace_source_remove", sourceId: "https://x", change: "removed" }),
       undefined,
     );
+  });
+
+  it("audits a removal by origin even when the source id itself embeds a token", async () => {
+    const { p, audit } = ports();
+    await byName(p, "marketplace_source_remove").execute({ id: tokenSource.id });
+    const [, , metadata] = audit.mock.calls[0];
+    expect((metadata as Record<string, unknown>).sourceId).toBe("http://127.0.0.1:8099");
+    expect(String((metadata as Record<string, unknown>).sourceId)).not.toContain("secret789");
   });
 });

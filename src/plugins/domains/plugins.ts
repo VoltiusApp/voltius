@@ -18,7 +18,6 @@ export interface PluginView {
   name: string;
   version: string;
   enabled: boolean;
-  loaded: boolean;
   origin: "seeded" | "catalog" | "url" | "local";
   hash: string | null;
   permissions: string[];
@@ -67,7 +66,6 @@ export async function listPlugins(): Promise<PluginView[]> {
       name: m.name,
       version: m.version,
       enabled: registry.isEnabled(m.id, m.defaultEnabled ?? true),
-      loaded: true,
       origin,
       hash: meta?.hash ?? null,
       permissions: m.permissions ?? [],

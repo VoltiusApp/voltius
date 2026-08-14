@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { refusal } from "../refusal";
-import { makeGate, objectOp, unwrapDomain, idOp } from "./helpers";
+import { makeGate, objectOp, unwrapDomain } from "./helpers";
 
 export const MARKETPLACE_PERMISSIONS = ["plugins:manage"] as const;
 
@@ -28,12 +28,16 @@ export function buildMarketplaceTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
   const op = objectOp(ports, gate);
 
-  /** Doomed before the gate: an id naming no source, or the built-in one. */
-  const requireDeletableSource = async (id: string): Promise<unknown> => {
+  /**
+   * Doomed before the gate: an id naming no source, or the built-in one.
+   * Returns the source itself (not just a refusal) so the caller can reuse
+   * this lookup for the audit row's origin, instead of a second fetch.
+   */
+  const findDeletableSource = async (id: string) => {
     const source = (await ports.api.plugins.sources()).find((s) => s.id === id);
-    if (!source) return refusal(noSuchSourceMessage(id));
-    if (!source.deletable) return refusal(sourceNotDeletableMessage(id));
-    return undefined;
+    if (!source) return { ok: false as const, refusal: refusal(noSuchSourceMessage(id)) };
+    if (!source.deletable) return { ok: false as const, refusal: refusal(sourceNotDeletableMessage(id)) };
+    return { ok: true as const, source };
   };
 
   return [
@@ -77,11 +81,18 @@ export function buildMarketplaceTools(ports: ToolSurfacePorts): Tool[] {
         + "Refuses on the built-in source.",
       risk: "prompt",
       schema: z.object({ id: z.string() }),
-      execute: idOp(
-        op, "marketplace_source_remove", "agent.marketplace_source_changed",
-        (id) => ports.api.plugins.removeSource(id),
-        { idKey: "sourceId", precheck: requireDeletableSource, meta: () => ({ change: "removed" }) },
-      ),
+      execute: async (raw) => {
+        const id = String(raw.id);
+        const found = await findDeletableSource(id);
+        if (!found.ok) return found.refusal;
+        // Origin only, same rationale as marketplace_source_add: the id
+        // (and the audit row, absent this) is derived from the full URL,
+        // which can carry a private catalog's token in its query string.
+        return op(
+          "marketplace_source_remove", "agent.marketplace_source_changed",
+          () => ({ sourceId: originOf(found.source.url), change: "removed" }), raw, async (a) =>
+            unwrapDomain(await ports.api.plugins.removeSource(String(a.id))));
+      },
     },
   ];
 }

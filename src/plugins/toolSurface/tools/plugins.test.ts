@@ -3,7 +3,7 @@ import { buildPluginTools } from "./plugins";
 import type { ToolSurfacePorts } from "../coreTools";
 
 const view = {
-  id: "acme", name: "Acme", version: "1.0.0", enabled: true, loaded: true,
+  id: "acme", name: "Acme", version: "1.0.0", enabled: true,
   origin: "catalog" as const, hash: "abc", permissions: ["storage"],
   configurable: ["autoCheck"], updateAvailable: null,
 };
