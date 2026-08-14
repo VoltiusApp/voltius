@@ -154,6 +154,18 @@ describe("verbes de réglages", () => {
     expect((p.api.settings as unknown as { set: ReturnType<typeof vi.fn> }).set).not.toHaveBeenCalled();
   });
 
+  // La ligne est écrite AVANT l'envoi : le refus "expects a boolean" du
+  // domaine arrive trop tard pour la retirer, donc c'est le type réel de la
+  // valeur approuvée qui décide, pas le type déclaré de la clé.
+  test("une valeur non booléenne sur une clé booléenne n'atteint pas la ligne d'audit", async () => {
+    const p = ports();
+    await byName(p, "setting_set")
+      .execute({ key: "toggles.scroll-minimap", value: "/etc/shadow" });
+    const meta = (p.audit as unknown as ReturnType<typeof vi.fn>).mock.calls[0][2] as Record<string, unknown>;
+    expect(meta).not.toHaveProperty("value");
+    expect(JSON.stringify(meta)).not.toContain("/etc/shadow");
+  });
+
   test("la valeur n'accompagne la ligne d'audit que pour un booléen", async () => {
     const p = ports({
       settings: {

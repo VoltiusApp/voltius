@@ -91,7 +91,14 @@ export function buildSettingTools(ports: ToolSurfacePorts): Tool[] {
             confirmed,
             // Values are user content — a shell path, a theme id. Only a
             // boolean is safe to put on a row that can leave the device.
-            ...(view?.type === "boolean" ? { value: a.value } : {}),
+            //
+            // The RUNTIME type of the approved value decides, not the declared
+            // one: the row is written before dispatch, so the domain's later
+            // "expects a boolean" refusal cannot unwind a string that a
+            // boolean-typed key was handed.
+            ...(view?.type === "boolean" && typeof a.value === "boolean"
+              ? { value: a.value }
+              : {}),
           };
         }, raw, async (a) => {
           // The approval decision may have rewritten the arguments, so the
