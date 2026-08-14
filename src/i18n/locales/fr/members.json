@@ -102,6 +102,7 @@
     "contextMenu": {
       "inviteToSession": "Inviter à la session",
       "noActiveSessions": "Aucune session active",
+      "noInvitableSessions": "Aucune session ne peut accueillir cette invitation",
       "assignRoleBulk": "Attribuer un rôle ({{count}})",
       "removeRoleBulk": "Retirer le rôle ({{count}})",
       "kickBulk_one": "Expulser {{count}} membre",

@@ -35,6 +35,7 @@ import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 import { seatAvailability } from "@/services/seatMath";
+import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage } from "@/services/teamSharing";
 import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
 import { useUserSearch } from "@/hooks/useUserSearch";
@@ -1007,7 +1008,7 @@ export default function MembersPage() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const vaults = useVaultStore((s) => s.vaults);
   const { teams, loadTeams, membersByTeam, loadMembers, rolesByTeam, loadRoles, pendingInvitationsByTeam, loadPendingInvitations } = useTeamStore();
-  const { isTeams, accountMode } = useSubscriptionStore();
+  const { tier, isTeams, accountMode } = useSubscriptionStore();
   const { createTeam } = useTeamStore();
   const { setVaultTeamId } = useVaultStore();
   const addMemberById = useTeamStore((s) => s.addMemberById);
@@ -1179,12 +1180,17 @@ export default function MembersPage() {
   // Sessions this client hosts with the session key still in memory — the only
   // ones `inviteToActiveSession` can actually invite someone into (#66 follow-up).
   // `connections` carries no display name, so join against `activeSessions` for it.
+  // Each carries the same seat/cap derivation the ShareMenu roster uses, so this
+  // surface cannot hand out invites the shared session has no room for.
   const hostedSessions = useMemo(() => Object.entries(connections)
     .filter(([, c]) => c.role === "host" && c.sessionKeyBytes)
     .flatMap(([localSessionId, c]) => {
       const active = activeSessions.find((s) => s.id === c.multiplayerSessionId);
-      return active ? [{ localSessionId, connectionName: active.connection_name }] : [];
-    }), [connections, activeSessions]);
+      if (!active) return [];
+      const session = inviteSessionOf(c, active);
+      const { atCap } = seatUsage(session, [], guestCapFor(c.vaultOwnerTier ?? tier));
+      return [{ localSessionId, connectionName: active.connection_name, session, atCap }];
+    }), [connections, activeSessions, tier]);
 
   // Context menu builders
   const buildContextMenuItems = (member: TeamMember): ContextMenuItem[] => {
@@ -1240,22 +1246,31 @@ export default function MembersPage() {
     }
 
 
-    items.push({
-      label: t("members.contextMenu.inviteToSession"),
-      icon: "lucide:terminal",
-      children: hostedSessions.length > 0
-        ? hostedSessions.map(({ localSessionId, connectionName }) => ({
-            label: connectionName,
-            onClick: () => {
-              void runTeamAction({
-                pending: t("members.toast.invitingToSession", { name: member.display_name }),
-                success: t("members.toast.invitedToSession", { name: member.display_name }),
-                run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, member),
-              }).catch(() => { /* toast already reports the failure */ });
-            },
-          }))
-        : [{ label: t("members.contextMenu.noActiveSessions"), onClick: () => {} }],
-    });
+    if (member.user_id !== myUserId) {
+      // Sessions with a seat left that this member has no route into already.
+      const invitable = hostedSessions.filter(
+        (s) => !s.atCap && !memberHasAccess({ user_id: member.user_id, teamIds: [member.team_id] }, s.session),
+      );
+      items.push({
+        label: t("members.contextMenu.inviteToSession"),
+        icon: "lucide:terminal",
+        children: invitable.length > 0
+          ? invitable.map(({ localSessionId, connectionName }) => ({
+              label: connectionName,
+              onClick: () => {
+                void runTeamAction({
+                  pending: t("members.toast.invitingToSession", { name: member.display_name }),
+                  success: t("members.toast.invitedToSession", { name: member.display_name }),
+                  run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, member),
+                }).catch(() => { /* toast already reports the failure */ });
+              },
+            }))
+          : [{
+              label: t(hostedSessions.length > 0 ? "members.contextMenu.noInvitableSessions" : "members.contextMenu.noActiveSessions"),
+              onClick: () => {},
+            }],
+      });
+    }
 
     if (canActOnMember) {
       items.push({

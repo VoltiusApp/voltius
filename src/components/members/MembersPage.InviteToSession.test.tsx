@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
   members: [
     { team_id: "t1", user_id: "me", invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z", display_name: "Me", public_key: "pk", role_ids: ["r-mem"] },
     { team_id: "t1", user_id: "u1", invited_by_display_name: null, joined_at: "2024-01-02T00:00:00Z", display_name: "Ann", public_key: "pk", role_ids: ["r-mem"] },
+    { team_id: "t1", user_id: "u2", invited_by_display_name: null, joined_at: "2024-01-03T00:00:00Z", display_name: "Bob", public_key: "pk", role_ids: ["r-mem"] },
   ],
   // one hosted session with the key retained (invitable), one hosted with no key,
   // one guest session, and one active-on-the-server session hosted elsewhere.
@@ -153,7 +154,8 @@ vi.mock("@/stores/teamStore", () => {
   return { useTeamStore };
 });
 vi.mock("@/stores/subscriptionStore", () => {
-  const state = { isTeams: true, accountMode: "server", usedSeats: 1, totalSeats: 5, load: vi.fn() };
+  // Pro: guest cap 1, the tier the cap guard has to hold for.
+  const state = { tier: "pro", isTeams: true, accountMode: "server", usedSeats: 1, totalSeats: 5, load: vi.fn() };
   const useSubscriptionStore = Object.assign(
     (sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
     { getState: () => state },
@@ -196,7 +198,28 @@ vi.mock("@/stores/historyStore", () => ({
 
 import MembersPage from "./MembersPage";
 
+// The store mocks capture `h.connections` / `h.activeSessions` by reference at
+// module-factory time, so fixtures have to be edited in place, never reassigned.
+function patchConnection(localSessionId: string, patch: Record<string, unknown>) {
+  Object.assign((h.connections as Record<string, Record<string, unknown>>)[localSessionId], patch);
+}
+function patchActiveSession(id: string, patch: Record<string, unknown>) {
+  Object.assign((h.activeSessions as Record<string, unknown>[]).find((s) => s.id === id)!, patch);
+}
+const pristine = structuredClone({ connections: h.connections, activeSessions: h.activeSessions });
+function resetFixtures() {
+  const fresh = structuredClone(pristine);
+  Object.keys(h.connections).forEach((k) => { delete (h.connections as Record<string, unknown>)[k]; });
+  Object.assign(h.connections, fresh.connections);
+  // sessionKeyBytes is what marks a session invitable; structuredClone keeps the
+  // Uint8Array, but restore explicitly so the intent survives a fixture edit.
+  patchConnection("local-1", { sessionKeyBytes: new Uint8Array([1]) });
+  patchConnection("local-3", { sessionKeyBytes: new Uint8Array([1]) });
+  (h.activeSessions as unknown[]).splice(0, h.activeSessions.length, ...fresh.activeSessions);
+}
+
 beforeEach(() => {
+  resetFixtures();
   Object.values(h).forEach((v) => { if (typeof v === "function" && "mockReset" in v) (v as ReturnType<typeof vi.fn>).mockReset(); });
   h.getMyUserId.mockResolvedValue("me");
   h.getMyEmail.mockResolvedValue("me@x.com");
@@ -252,4 +275,45 @@ test("with no locally-hosted invitable sessions, the noActiveSessions entry stil
   Object.keys(h.connections).forEach((k) => { delete (h.connections as Record<string, unknown>)[k]; });
   await renderPage();
   expect(screen.getByTestId("ctx-u1::members.contextMenu.inviteToSession::members.contextMenu.noActiveSessions")).toBeTruthy();
+});
+
+// ─── Same guards the ShareMenu roster has (#66 follow-up) ─────────────────────
+
+const INVITE_PROD = "members.contextMenu.inviteToSession::prod-box";
+
+test("a session that has already spent its guest cap is not offered", async () => {
+  // Pro host, cap 1, one guest already live -> no seat left for anyone.
+  patchConnection("local-1", {
+    myUserId: "me",
+    participants: [{ user_id: "me", display_name: "Me" }, { user_id: "guest-1", display_name: "Guest" }],
+  });
+  await renderPage();
+  expect(screen.queryByTestId(`ctx-u1::${INVITE_PROD}`)).toBeNull();
+  expect(screen.getByTestId("ctx-u1::members.contextMenu.inviteToSession::members.contextMenu.noInvitableSessions")).toBeTruthy();
+});
+
+test("a member who already holds a standing invite is not offered that session", async () => {
+  patchActiveSession("mp-1", { invitee_ids: ["u1"] });
+  await renderPage();
+  expect(screen.queryByTestId(`ctx-u1::${INVITE_PROD}`)).toBeNull();
+  // The seat is spent by u1's invite, so at cap 1 nobody else is offered it either.
+  expect(screen.queryByTestId(`ctx-u2::${INVITE_PROD}`)).toBeNull();
+});
+
+test("a member already live in the session is not offered it, while others still are", async () => {
+  patchConnection("local-1", { myUserId: "me", participants: [{ user_id: "u1", display_name: "Ann" }] });
+  patchActiveSession("mp-1", { vault_ids: [] });
+  // Cap 1 spent by u1 being live; raise the cap via the session's vault-owner tier
+  // so this test isolates the dedupe guard from the cap guard.
+  patchConnection("local-1", { vaultOwnerTier: "teams" });
+  await renderPage();
+  expect(screen.queryByTestId(`ctx-u1::${INVITE_PROD}`)).toBeNull();
+  expect(screen.getByTestId(`ctx-u2::${INVITE_PROD}`)).toBeTruthy();
+});
+
+test("the invite-to-session action is not offered for yourself", async () => {
+  await renderPage();
+  expect(screen.getByTestId(`ctx-u1::${INVITE_PROD}`)).toBeTruthy();
+  expect(screen.queryByTestId(`ctx-me::${INVITE_PROD}`)).toBeNull();
+  expect(screen.queryByTestId("ctx-me::members.contextMenu.inviteToSession::members.contextMenu.noInvitableSessions")).toBeNull();
 });

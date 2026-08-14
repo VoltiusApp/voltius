@@ -102,6 +102,7 @@
     "contextMenu": {
       "inviteToSession": "Invite to Session",
       "noActiveSessions": "No active sessions",
+      "noInvitableSessions": "No session can take this invite",
       "assignRoleBulk": "Assign Role ({{count}})",
       "removeRoleBulk": "Remove Role ({{count}})",
       "kickBulk_one": "Kick {{count}} member",
