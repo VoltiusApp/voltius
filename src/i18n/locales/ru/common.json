@@ -141,6 +141,7 @@
       "failedToDistributeVaultKey": "Не удалось распространить ключ хранилища: {{status}}",
       "failedToSaveTeamData": "Не удалось сохранить данные команды: {{status}}",
       "failedToCreateSession": "Не удалось создать сессию: {{status}}",
+      "failedToInvite": "Не удалось пригласить участника ({{status}})",
       "cannotInviteWithoutSessionKey": "Невозможно пригласить участника в эту сессию — у неё нет пользовательского ключа.",
       "failedToCreateInviteLinkSession": "Не удалось создать сессию по ссылке-приглашению: {{status}}",
       "failedToGetSessionKey": "Не удалось получить ключ сессии: {{status}}",
