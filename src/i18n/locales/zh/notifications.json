@@ -55,7 +55,8 @@
       "control": {
         "request": "{{requester}} 正在请求控制权",
         "grant": "授予",
-        "deny": "拒绝"
+        "deny": "拒绝",
+        "granted": "您已获得控制权"
       },
       "awaitingKey": {
         "message": "正在等待 {{team}} 的所有者授予保险库访问权限"

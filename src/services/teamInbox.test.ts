@@ -294,6 +294,28 @@ test("a fresh request from the same guest knocks again after a deny", async () =
   expect(get().toasts).toHaveLength(1);
 });
 
+test("a guest handed control gets one confirmation toast per grant", () => {
+  const guest = (over: Record<string, unknown> = {}) =>
+    conn({ role: "guest", myUserId: "guest1", controlHolder: "me", ...over });
+
+  reconcileControlRequests({ local1: guest() });
+  expect(get().toasts).toHaveLength(0);
+
+  reconcileControlRequests({ local1: guest({ controlHolder: "guest1" }) });
+  reconcileControlRequests({ local1: guest({ controlHolder: "guest1" }) });
+  expect(get().toasts).toHaveLength(1);
+  expect(get().toasts[0].message).toContain("notifications.inbox.control.granted");
+
+  reconcileControlRequests({ local1: guest() });
+  reconcileControlRequests({ local1: guest({ controlHolder: "guest1" }) });
+  expect(get().toasts).toHaveLength(2);
+});
+
+test("the host holding control on their own session is not toasted", () => {
+  reconcileControlRequests({ local1: conn({ controlHolder: "me" }) });
+  expect(get().toasts).toHaveLength(0);
+});
+
 test("a team awaiting its vault key yields exactly one entry, and it clears once the key loads", () => {
   useTeamStore.setState({
     teams: [

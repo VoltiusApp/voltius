@@ -21,10 +21,14 @@ const APP_SOURCE = { kind: "app", area: "team" } as const;
 // re-toasts it. An id leaves the set once the source stops carrying that
 // request, so a fresh request from the same guest knocks again.
 const deniedRequests = new Set<string>();
+// Sessions whose "you have control" toast already fired, so it posts once per
+// grant instead of on every reconcile.
+const controlHeldSessions = new Set<string>();
 
 /** Clears the per-reconcile memory that has no source of truth to re-derive from. */
 export function resetTeamInboxState(): void {
   deniedRequests.clear();
+  controlHeldSessions.clear();
 }
 
 function toast(message: string, duration: number): void {
@@ -170,6 +174,21 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
 
   reconcile(["controlRequest"], entries);
 
+  // Spec C4: the guest gets a brief confirmation the moment control lands on
+  // them. Derived from the same connection state, deduped like the request
+  // toast so it fires once per grant.
+  for (const id of controlHeldSessions) {
+    if (!(id in connections)) controlHeldSessions.delete(id);
+  }
+  for (const [localSessionId, c] of Object.entries(connections)) {
+    const holdsControl = !c.ended && c.role !== "host" && c.controlHolder === c.myUserId;
+    if (!holdsControl) {
+      controlHeldSessions.delete(localSessionId);
+    } else if (!controlHeldSessions.has(localSessionId)) {
+      controlHeldSessions.add(localSessionId);
+      toast(i18n.t("notifications.inbox.control.granted"), 4000);
+    }
+  }
 }
 
 export function reconcileAwaitingKeys(statusByTeamId: Record<string, TeamVaultStatus>): void {
