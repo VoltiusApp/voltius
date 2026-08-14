@@ -2,16 +2,7 @@ import { describe, expect, test } from "vitest";
 import { createHostPluginAPI } from "@/plugins/runtime";
 import { PERMISSIONS } from "@/mcp/hostApi";
 
-// PERMISSIONS is derived from the MCP tool groups (Task 6 wires settings/account
-// into it); until then this PluginAPI-level test grants the three gated perms
-// directly so it verifies the wiring in this task without depending on that one.
-const api = () =>
-  createHostPluginAPI("__mcp_settings_test__", [
-    ...PERMISSIONS,
-    "settings:read",
-    "settings:write",
-    "account:read",
-  ]);
+const api = () => createHostPluginAPI("__mcp_settings_test__", PERMISSIONS);
 
 describe("PluginAPI settings", () => {
   test("list rend des entrées et get retrouve une clé", () => {
