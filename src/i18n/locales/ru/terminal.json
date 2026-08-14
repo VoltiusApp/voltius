@@ -138,6 +138,7 @@
       "upToParticipants_other": "Максимум {{count}} участников",
       "upgradeToTeamsForParticipants": "Перейти на Teams — 10 участников + общие хранилища",
       "live": "В эфире",
+      "waitingForGuests": "Ожидание участника…",
       "participantsRatio_one": "{{participantCount}} / {{guestCap}} участник",
       "participantsRatio_few": "{{participantCount}} / {{guestCap}} участника",
       "participantsRatio_many": "{{participantCount}} / {{guestCap}} участников",

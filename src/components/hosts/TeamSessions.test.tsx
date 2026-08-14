@@ -222,6 +222,13 @@ test("clicking a card I'm already in resumes (setActive) and does not join", asy
   expect(teamState.joinSession).not.toHaveBeenCalled();
 });
 
+test("renders exactly one join affordance and an empty-state hint when no sessions are live", () => {
+  teamState.activeSessions = [];
+  render(<TeamSessions />);
+  expect(screen.getAllByText("hosts.teamSessions.joinByCode")).toHaveLength(1);
+  expect(screen.getByText("hosts.teamSessions.emptyHint")).toBeTruthy();
+});
+
 // ── Participant resolution ──────────────────────────────────────────────────
 
 test("participant list prefers live WS connection participants over server participants", () => {

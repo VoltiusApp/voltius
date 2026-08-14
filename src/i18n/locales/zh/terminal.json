@@ -132,6 +132,7 @@
       "upToParticipants_other": "最多 {{count}} 名参与者",
       "upgradeToTeamsForParticipants": "升级到 Teams 以支持 10 名参与者 + 共享保险库",
       "live": "实时",
+      "waitingForGuests": "等待他人加入…",
       "participantsRatio_one": "{{participantCount}} / {{guestCap}} 名参与者",
       "participantsRatio_other": "{{participantCount}} / {{guestCap}} 名参与者",
       "upgradeToTeams": "升级到 Teams",
