@@ -172,18 +172,27 @@ export function makeFileOp(ports: ToolSurfacePorts, gate: ReturnType<typeof make
  * (the team domain's `{ ok: false, error }`) hands back a `refusal`, which
  * passes through unwrapped: nesting it inside `{ ok: true }` would report a
  * refusal as a success.
+ *
+ * `meta` may be a function of the APPROVED arguments, for a verb whose row
+ * must describe what was actually executed rather than what was asked for —
+ * an approval decision can rewrite the arguments.
  */
 export function objectOp(ports: ToolSurfacePorts, gate: ReturnType<typeof makeGate>) {
   return async (
     tool: string,
     action: PluginAuditAction,
-    meta: Record<string, unknown>,
+    meta: Record<string, unknown> | ((args: Record<string, unknown>) => Record<string, unknown>),
     raw: Record<string, unknown>,
     run: (args: Record<string, unknown>) => Promise<unknown>,
   ): Promise<unknown> => {
     const g = await gate(tool, raw);
     if (!g.ok) return g.result;
-    ports.audit(g.scope, action, { tool, approval: g.via, ...meta }, undefined);
+    ports.audit(
+      g.scope,
+      action,
+      { tool, approval: g.via, ...(typeof meta === "function" ? meta(g.args) : meta) },
+      undefined,
+    );
     try {
       const result = await run(g.args);
       return isRefusal(result) ? result : { ok: true, result: result ?? null };

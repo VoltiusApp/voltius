@@ -34,6 +34,14 @@ describe("api.audit.query", () => {
     await expect(api.audit.query({})).rejects.toThrow(/audit:read/);
   });
 
+  // A team's log is every member's activity, which is what team:read gates
+  // everywhere else — audit:read alone must not buy it.
+  it("refuses a team read without team:read, and lets the local read through", async () => {
+    const api = createHostPluginAPI("test:no-team-perm", ["audit:read"]);
+    await expect(api.audit.query({ teamId: "team-1" })).rejects.toThrow(/team:read/);
+    await expect(api.audit.query({})).resolves.toBeDefined();
+  });
+
   it("projects rows down to the PluginAuditRow contract", async () => {
     const api = createHostPluginAPI("test:projection", ["audit:read"]);
     const { logs, total } = await api.audit.query({});
@@ -101,10 +109,24 @@ describe("api.audit.query", () => {
     await api.audit.query({ perPage: 5000, actions: ["agent.command_run"] });
     expect(fetchLocalAuditLogs).toHaveBeenCalledWith("personal", {
       actions: ["agent.command_run"],
+      actor_id: undefined,
       from: undefined,
       to: undefined,
       page: 1,
       per_page: 100,
+    });
+  });
+
+  it("forwards actorId to the local sink too, not only the team one", async () => {
+    const api = createHostPluginAPI("test:local-actor", ["audit:read"]);
+    await api.audit.query({ actorId: "user-3" });
+    expect(fetchLocalAuditLogs).toHaveBeenCalledWith("personal", {
+      actions: undefined,
+      actor_id: "user-3",
+      from: undefined,
+      to: undefined,
+      page: 1,
+      per_page: 50,
     });
   });
 });

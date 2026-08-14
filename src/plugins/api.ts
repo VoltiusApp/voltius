@@ -9,6 +9,8 @@ import type {
   PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState,
 } from "./domains/team";
 import type { PluginSharedSession } from "./domains/sharing";
+import type { SettingView } from "./domains/settings";
+import type { SubscriptionView } from "./domains/account";
 
 export type { PluginAuditAction } from "@/services/auditContext";
 export type { DomainResult } from "./domains/result";
@@ -16,6 +18,8 @@ export type {
   PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState,
 } from "./domains/team";
 export type { PluginSharedSession } from "./domains/sharing";
+export type { SettingView } from "./domains/settings";
+export type { SubscriptionView } from "./domains/account";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
@@ -719,8 +723,9 @@ export interface PortsAPI {
   reach(req: ReachPortRequest): Promise<ReachPortResponse>;
 }
 
-/** A local audit row, projected. Drops the internal id, actor id, team/vault
- *  ids and IP — none of which a plugin or an external client has any use for. */
+/** A local or team-server audit row, projected. Drops the internal id, actor
+ *  id, team/vault ids and IP — none of which a plugin or an external client
+ *  has any use for. */
 export interface PluginAuditRow {
   action: string;
   actor_name: string;
@@ -734,6 +739,10 @@ export interface PluginAuditRow {
 
 export interface PluginAuditQuery {
   actions?: string[];
+  /** Reads that team's server-side log instead of the device's local sink. */
+  teamId?: string;
+  vaultId?: string;
+  actorId?: string;
   /** ISO 8601. */
   from?: string;
   to?: string;
@@ -1039,9 +1048,29 @@ export interface PluginAPI {
       metadata?: Record<string, unknown>,
       localMetadata?: Record<string, unknown>,
     ): void;
-    /** This device's local rows only. Team-vault rows are server-backed and
-     *  are not returned here. */
+    /** Local rows by default; pass `teamId` to read that team's server-side log instead. */
     query(filters: PluginAuditQuery): Promise<{ logs: PluginAuditRow[]; total: number }>;
+  };
+
+  // App settings — read the manifest and current values (requires the gated
+  // "settings:read"); write one (requires the gated "settings:write").
+  settings: {
+    list(filter?: { section?: string; prefix?: string; writableOnly?: boolean }): SettingView[];
+    get(key: string): SettingView | undefined;
+    /** The sentence a guarded write must be refused with, or undefined when
+     *  writing `value` does not weaken any safeguard (re-enabling one never
+     *  does). Read-only — requires "settings:read". */
+    consequenceOf(key: string, value: unknown): string | undefined;
+    /** Writes, then RE-READS: a store setter may clamp or normalise, so
+     *  `effective` is the value that actually landed, not the one asked for. */
+    set(key: string, value: unknown): DomainResult<{
+      key: string; requested: unknown; effective: unknown; changed: boolean;
+    }>;
+  };
+
+  // The user's own plan and billing state (requires the gated "account:read")
+  account: {
+    subscription(): Promise<SubscriptionView>;
   };
 
   // Themes (requires "themes")

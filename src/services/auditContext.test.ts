@@ -27,6 +27,7 @@ const _cover: Record<PluginAuditAction, true> = {
   "agent.session_shared": true,
   "agent.session_unshared": true,
   "agent.control_granted": true,
+  "agent.setting_changed": true,
 };
 
 describe("PLUGIN_AUDIT_ACTIONS", () => {
@@ -52,4 +53,8 @@ test("the P7 team and sharing actions are in the plugin audit vocabulary", () =>
   ]) {
     expect(PLUGIN_AUDIT_ACTIONS).toContain(action);
   }
+});
+
+test("the settings verb's action is in the plugin audit vocabulary", () => {
+  expect(PLUGIN_AUDIT_ACTIONS).toContain("agent.setting_changed");
 });

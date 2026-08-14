@@ -14,7 +14,7 @@
       "mcpBadge": "MCP",
       "mcpTooltip": "Открыто клиентом {{client}}",
       "mcpTooltipUnknown": "Открыто MCP-клиентом",
-      "mcpTooltipDisconnected": "Открыто клиентом {{client}} (соединение закрыто)",
+      "mcpTooltipDisconnected": "Открыто клиентом {{client}} (отключён)",
       "disableBroadcast": "Отключить трансляцию",
       "broadcastInput": "Транслировать ввод",
       "detachPane": "Отсоединить панель",

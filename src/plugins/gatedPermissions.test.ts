@@ -1,4 +1,5 @@
 import { describe, test, it, expect } from "vitest";
+import i18n from "@/i18n";
 import {
   GATED_PERMISSIONS, NON_DANGER_GATED_PERMISSIONS, isGatedPermission,
   isNonDangerGatedPermission,
@@ -207,6 +208,25 @@ describe("P5 permissions", () => {
     expect(write).toMatchObject({ gated: true, danger: true, known: true });
     expect(health).toMatchObject({ gated: true, danger: false, known: true });
   });
+});
+
+test("les permissions de P8 sont gatées et décrites", () => {
+  const [read, write, account] = describePermissions(["settings:read", "settings:write", "account:read"]);
+
+  expect(read.gated).toBe(true);
+  expect(read.danger).toBe(false);
+  expect(read.known).toBe(true);
+
+  expect(write.gated).toBe(true);
+  expect(write.danger).toBe(true);
+
+  expect(account.gated).toBe(true);
+  expect(account.danger).toBe(false);
+
+  for (const d of [read, write, account]) {
+    expect(i18n.t(d.labelKey)).not.toBe(d.labelKey);
+    expect(i18n.t(d.descriptionKey)).not.toBe(d.descriptionKey);
+  }
 });
 
 describe("pane permissions", () => {

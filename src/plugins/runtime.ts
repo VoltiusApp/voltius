@@ -54,7 +54,10 @@ import { PLUGIN_AUDIT_ACTIONS } from "@/services/auditContext";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportPluginAuditEvent } from "@/services/auditReporter";
 import { fetchLocalAuditLogs } from "@/services/localAuditService";
+import { fetchAuditLogs } from "@/services/auditService";
 import { registerContributions, clearContributions } from "@/mcp/contributions";
+import { getSetting, listSettings, setSetting, settingConsequence } from "./domains/settings";
+import { subscription as subscriptionRead } from "./domains/account";
 import type { AuditLog } from "@/services/auditService";
 import type {
   PluginAPI,
@@ -973,6 +976,9 @@ const toPluginAuditRow = (l: AuditLog): PluginAuditRow => ({
 /** Ids belonging to host APIs rather than plugins. See `whileActive`. */
 const _hostApiIds = new Set<string>();
 
+/** What a `whileActive` refusal tells a caller that has no empty value to fall back on. */
+const inactiveError = (id: string): string => `Plugin "${id}" is disabled or unloaded`;
+
 /** Resolve a session and write text to its transport. Throws on an unknown id,
  *  so a caller never mistakes "no such session" for a successful write. */
 async function writeSessionBytes(sessionId: string, text: string): Promise<void> {
@@ -1615,18 +1621,73 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       async query(filters) {
         requireGated("audit:read");
         if (!whileActive("audit.query")) return { logs: [], total: 0 };
+
+        // Two sinks. Local is per-vault and capped; server is the Logs tab's
+        // source and the only one team rows ever reach.
+        if (filters.teamId) {
+          // A team's log is every member's activity, which is what "team:read"
+          // already means everywhere else. "audit:read" alone buys the device.
+          requireGated("team:read");
+          const { logs, total } = await fetchAuditLogs(filters.teamId, filters.vaultId, {
+            actions: filters.actions,
+            actor_id: filters.actorId,
+            from: filters.from,
+            to: filters.to,
+            page: Math.max(1, filters.page ?? 1),
+            per_page: Math.min(100, Math.max(1, filters.perPage ?? 50)),
+          });
+          return { logs: logs.map(toPluginAuditRow), total };
+        }
+
         // "personal" is the local sink's vault key for every non-team row:
         // auditContextForVaultId returns { kind: "local", vaultId: "personal" }
         // when there is no team vault, and that is the key reportLocalClientEvent
         // writes under.
-        const { logs, total } = await fetchLocalAuditLogs("personal", {
+        const { logs, total } = await fetchLocalAuditLogs(filters.vaultId || "personal", {
           actions: filters.actions,
+          actor_id: filters.actorId,
           from: filters.from,
           to: filters.to,
           page: Math.max(1, filters.page ?? 1),
           per_page: Math.min(100, Math.max(1, filters.perPage ?? 50)),
         });
         return { logs: logs.map(toPluginAuditRow), total };
+      },
+    },
+
+    // Lifecycle-guarded like audit.*: a plugin granted "settings:write" and
+    // later disabled must not still be able to disarm the vault auto-lock from
+    // a timer it retained.
+    settings: {
+      list(filter) {
+        requireGated("settings:read");
+        if (!whileActive("settings.list")) return [];
+        return listSettings(filter);
+      },
+      get(key) {
+        requireGated("settings:read");
+        if (!whileActive("settings.get")) return undefined;
+        return getSetting(key);
+      },
+      consequenceOf(key, value) {
+        requireGated("settings:read");
+        if (!whileActive("settings.consequenceOf")) return undefined;
+        return settingConsequence(key, value);
+      },
+      set(key, value) {
+        requireGated("settings:write");
+        if (!whileActive("settings.set")) return { ok: false, error: inactiveError(id) };
+        return setSetting(key, value);
+      },
+    },
+
+    account: {
+      async subscription() {
+        requireGated("account:read");
+        // No empty projection to return, unlike settings.list: a fabricated
+        // plan would read as a real one.
+        if (!whileActive("account.subscription")) throw new Error(inactiveError(id));
+        return subscriptionRead();
       },
     },
 
