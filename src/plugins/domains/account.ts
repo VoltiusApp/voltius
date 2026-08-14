@@ -13,7 +13,7 @@ export interface SubscriptionView {
   subscriptionCancelled: boolean;
   renewsAt: string | null;
   endsAt: string | null;
-  /** Le rafraîchissement a échoué : la vue vient du dernier état connu. */
+  /** Billing enrichment failed: seats and billing lifecycle may be missing or out of date. */
   stale: boolean;
 }
 
@@ -22,15 +22,11 @@ const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 /**
  * Rafraîchit puis projette. Toujours `load()`, comme le fait l'écran Account à
  * l'ouverture : un verbe de lecture qui rend un cache d'âge inconnu est un piège.
- * L'échec réseau y est déjà non fatal, et `stale` le dit à l'appelant.
+ * L'enrichissement de facturation peut échouer (réseau, endpoint absent), et
+ * `stale` le dit à l'appelant via `billingLoadFailed` du store.
  */
 export async function subscription(): Promise<SubscriptionView> {
-  let stale = false;
-  try {
-    await useSubscriptionStore.getState().load();
-  } catch {
-    stale = true;
-  }
+  await useSubscriptionStore.getState().load();
   const s = useSubscriptionStore.getState();
   return {
     tier: s.tier,
@@ -45,6 +41,6 @@ export async function subscription(): Promise<SubscriptionView> {
     subscriptionCancelled: s.subscriptionCancelled,
     renewsAt: iso(s.renewsAt),
     endsAt: iso(s.endsAt),
-    stale,
+    stale: s.billingLoadFailed,
   };
 }
