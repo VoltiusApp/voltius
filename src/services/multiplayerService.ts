@@ -21,6 +21,8 @@ export interface ActiveSession {
   vault_ids?: string[];
   /** Set when this session reached me through an individual invite (#66). */
   invited_by?: string | null;
+  /** Everyone the host has individually invited (#66). Only set for the host. */
+  invitee_ids?: string[];
 }
 
 export interface Participant {

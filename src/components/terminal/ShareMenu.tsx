@@ -58,9 +58,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const inviteSession = {
     vaultIds: matchingActiveSession?.vault_ids ?? [],
     participantIds: activeMp?.participants.map((p) => p.user_id) ?? [],
-    // ActiveSession exposes invited_by (who invited *me*), not a per-invitee grant list
-    // for a session I host — there is nothing to derive this from yet.
-    invitedIds: [] as string[],
+    invitedIds: matchingActiveSession?.invitee_ids ?? [],
   };
 
   // Vaults whose owner has a qualifying plan (teams/business) — free-tier users can share to these

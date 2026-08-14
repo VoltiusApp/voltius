@@ -87,3 +87,12 @@ test("adds a teammate to the live session when already sharing", async () => {
   await userEvent.click(await screen.findByRole("button", { name: /alice/i }));
   expect(inviteToActiveSession).toHaveBeenCalledWith("local-1", expect.objectContaining({ user_id: "alice" }));
 });
+
+test("an already-invited teammate renders as non-tappable Has access", async () => {
+  mpState.activeSessions = [{ id: "mp-1", invitee_ids: ["alice"] }];
+  renderShareMenu({ sharing: true });
+
+  const row = await screen.findByRole("button", { name: /alice/i });
+  expect((row as HTMLButtonElement).disabled).toBe(true);
+  expect(row.textContent).toContain("terminal.share.inviteHasAccess");
+});
