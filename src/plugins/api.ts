@@ -738,6 +738,10 @@ export interface PluginAuditRow {
 
 export interface PluginAuditQuery {
   actions?: string[];
+  /** Reads that team's server-side log instead of the device's local sink. */
+  teamId?: string;
+  vaultId?: string;
+  actorId?: string;
   /** ISO 8601. */
   from?: string;
   to?: string;
@@ -1043,8 +1047,7 @@ export interface PluginAPI {
       metadata?: Record<string, unknown>,
       localMetadata?: Record<string, unknown>,
     ): void;
-    /** This device's local rows only. Team-vault rows are server-backed and
-     *  are not returned here. */
+    /** Local rows by default; pass `teamId` to read that team's server-side log instead. */
     query(filters: PluginAuditQuery): Promise<{ logs: PluginAuditRow[]; total: number }>;
   };
 

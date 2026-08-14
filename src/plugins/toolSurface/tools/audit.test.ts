@@ -21,6 +21,9 @@ describe("audit_query", () => {
     const res = await tool.execute({ limit: 5, action: "agent.command_run" });
     expect(query).toHaveBeenCalledWith({
       actions: ["agent.command_run"],
+      teamId: undefined,
+      vaultId: undefined,
+      actorId: undefined,
       from: undefined,
       to: undefined,
       page: 1,
@@ -35,5 +38,32 @@ describe("audit_query", () => {
     const tool = buildAuditTools(ports as ToolSurfacePorts).find((t) => t.name === "audit_query")!;
     await tool.execute({});
     expect(audit).not.toHaveBeenCalled();
+  });
+
+  it("without team_id, the read stays local", async () => {
+    const query = vi.fn(async () => ({ logs: [], total: 0 }));
+    const tool = buildAuditTools({ api: { audit: { query } } } as never)[0];
+
+    await tool.execute({ action: "agent.command_run", limit: 10 });
+
+    expect(query).toHaveBeenCalledWith(expect.objectContaining({
+      actions: ["agent.command_run"], perPage: 10, teamId: undefined,
+    }));
+  });
+
+  it("team_id, vault_id and actor_id are forwarded to the domain", async () => {
+    const query = vi.fn(async () => ({ logs: [], total: 0 }));
+    const tool = buildAuditTools({ api: { audit: { query } } } as never)[0];
+
+    await tool.execute({ team_id: "team-1", vault_id: "vault-9", actor_id: "user-3" });
+
+    expect(query).toHaveBeenCalledWith(expect.objectContaining({
+      teamId: "team-1", vaultId: "vault-9", actorId: "user-3",
+    }));
+  });
+
+  it("the description no longer claims team activity is absent", () => {
+    const tool = buildAuditTools({ api: { audit: { query: vi.fn() } } } as never)[0];
+    expect(tool.description.toLowerCase()).not.toContain("not returned");
   });
 });

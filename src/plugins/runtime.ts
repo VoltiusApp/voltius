@@ -54,6 +54,7 @@ import { PLUGIN_AUDIT_ACTIONS } from "@/services/auditContext";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportPluginAuditEvent } from "@/services/auditReporter";
 import { fetchLocalAuditLogs } from "@/services/localAuditService";
+import { fetchAuditLogs } from "@/services/auditService";
 import { registerContributions, clearContributions } from "@/mcp/contributions";
 import { getSetting, listSettings, setSetting } from "./domains/settings";
 import { subscription as subscriptionRead } from "./domains/account";
@@ -1617,11 +1618,26 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       async query(filters) {
         requireGated("audit:read");
         if (!whileActive("audit.query")) return { logs: [], total: 0 };
+
+        // Two sinks. Local is per-vault and capped; server is the Logs tab's
+        // source and the only one team rows ever reach.
+        if (filters.teamId) {
+          const { logs, total } = await fetchAuditLogs(filters.teamId, filters.vaultId, {
+            actions: filters.actions,
+            actor_id: filters.actorId,
+            from: filters.from,
+            to: filters.to,
+            page: Math.max(1, filters.page ?? 1),
+            per_page: Math.min(100, Math.max(1, filters.perPage ?? 50)),
+          });
+          return { logs: logs.map(toPluginAuditRow), total };
+        }
+
         // "personal" is the local sink's vault key for every non-team row:
         // auditContextForVaultId returns { kind: "local", vaultId: "personal" }
         // when there is no team vault, and that is the key reportLocalClientEvent
         // writes under.
-        const { logs, total } = await fetchLocalAuditLogs("personal", {
+        const { logs, total } = await fetchLocalAuditLogs(filters.vaultId || "personal", {
           actions: filters.actions,
           from: filters.from,
           to: filters.to,

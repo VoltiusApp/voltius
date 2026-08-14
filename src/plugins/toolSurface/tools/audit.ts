@@ -9,11 +9,15 @@ export function buildAuditTools(ports: ToolSurfacePorts): Tool[] {
     {
       name: "audit_query",
       description:
-        "Read this device's activity log, newest first. Records only what happened on this "
-        + "machine; team-vault activity is not returned.",
+        "Read activity, newest first. Without team_id this reads the device's own log; with "
+        + "team_id it reads that team's server-side log, which is what the app's own Logs tab "
+        + "shows and is bounded by your role on that team.",
       risk: "auto",
       schema: z.object({
         action: z.string().optional(),
+        team_id: z.string().optional(),
+        vault_id: z.string().optional(),
+        actor_id: z.string().optional(),
         from: z.string().optional(),
         to: z.string().optional(),
         page: z.number().int().min(1).optional(),
@@ -22,6 +26,9 @@ export function buildAuditTools(ports: ToolSurfacePorts): Tool[] {
       execute: async (raw) =>
         ports.api.audit.query({
           actions: raw.action ? [String(raw.action)] : undefined,
+          teamId: raw.team_id as string | undefined,
+          vaultId: raw.vault_id as string | undefined,
+          actorId: raw.actor_id as string | undefined,
           from: raw.from as string | undefined,
           to: raw.to as string | undefined,
           page: (raw.page as number | undefined) ?? 1,
