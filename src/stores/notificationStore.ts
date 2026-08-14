@@ -97,7 +97,6 @@ interface NotificationStore {
 
   upsertInbox(entry: Omit<InboxEntry, "state" | "createdAt"> & { state?: InboxEntry["state"] }): void;
   retractInbox(id: string): void;
-  resolveInbox(id: string, resolution: string): void;
   runInboxAction(id: string, index: number): Promise<void>;
 
   dismissAllForPlugin(pluginId: string): void;
@@ -216,10 +215,6 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   retractInbox(id) {
     set((s) => ({ inbox: removeById(s.inbox, id) }));
-  },
-
-  resolveInbox(id, resolution) {
-    set((s) => ({ inbox: updateById(s.inbox, id, { state: "resolved", resolution }) }));
   },
 
   async runInboxAction(id, index) {

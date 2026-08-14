@@ -34,13 +34,6 @@ test("retractInbox removes the entry entirely, leaving no history row", () => {
   expect(get().history).toHaveLength(0);
 });
 
-test("resolveInbox keeps the entry but marks it resolved with its outcome", () => {
-  get().upsertInbox(entry("invite:1"));
-  get().resolveInbox("invite:1", "Declined");
-  expect(get().inbox[0].state).toBe("resolved");
-  expect(get().inbox[0].resolution).toBe("Declined");
-});
-
 test("runInboxAction blocks a second dispatch while the first is in flight", async () => {
   let release: () => void = () => {};
   const run = vi.fn(() => new Promise<void>((r) => { release = r; }));
@@ -66,7 +59,7 @@ test("unreadCount counts pending inbox entries and banners, and falls to zero wh
   get().upsertInbox(entry("invite:1"));
   get().upsertInbox(entry("invite:2"));
   expect(get().unreadCount()).toBe(2);
-  get().resolveInbox("invite:1", "Accepted");
+  get().upsertInbox({ ...entry("invite:1"), state: "resolved" });
   get().retractInbox("invite:2");
   expect(get().unreadCount()).toBe(0);
 });
