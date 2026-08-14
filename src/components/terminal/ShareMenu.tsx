@@ -7,7 +7,9 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { buildInviteCode } from "@/services/inviteCode";
 import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
+import type { TeamMember } from "@/services/teamService";
 import { InviteCodeField } from "./InviteCodeField";
+import { InvitePeopleSection } from "./InvitePeopleSection";
 
 const ROLES = ["owner", "manager", "editor", "member"] as const;
 
@@ -39,12 +41,27 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
 
   const { teams, loading: teamsLoading, loadTeams } = useTeamStore();
   const mpConnections = useTeamSessionStore((s) => s.connections);
+  const activeSessions = useTeamSessionStore((s) => s.activeSessions);
   const startSharing = useTeamSessionStore((s) => s.startSharing);
   const startSharingInviteLink = useTeamSessionStore((s) => s.startSharingInviteLink);
+  const startSharingDirect = useTeamSessionStore((s) => s.startSharingDirect);
+  const inviteToActiveSession = useTeamSessionStore((s) => s.inviteToActiveSession);
   const stopSharing = useTeamSessionStore((s) => s.stopSharing);
 
   const activeMp = mpConnections[activeSessionId];
   const isSharing = !!activeMp && !activeMp.ended;
+
+  // The server's record of this session, if one exists yet — the source of truth for
+  // vault scope and per-invitee grants (#66). Empty until this local session has a
+  // multiplayer counterpart the server has told us about.
+  const matchingActiveSession = activeSessions.find((s) => s.id === activeMp?.multiplayerSessionId);
+  const inviteSession = {
+    vaultIds: matchingActiveSession?.vault_ids ?? [],
+    participantIds: activeMp?.participants.map((p) => p.user_id) ?? [],
+    // ActiveSession exposes invited_by (who invited *me*), not a per-invitee grant list
+    // for a session I host — there is nothing to derive this from yet.
+    invitedIds: [] as string[],
+  };
 
   // Vaults whose owner has a qualifying plan (teams/business) — free-tier users can share to these
   const qualifyingVaults = teams.filter((t) => t.owner_tier === "teams" || t.owner_tier === "business");
@@ -167,6 +184,11 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     }
   };
 
+  const handleInvite = async (member: TeamMember) => {
+    if (isSharing) await inviteToActiveSession(activeSessionId, member);
+    else await startSharingDirect(activeSessionId, sessionName || connectionName, [member]);
+  };
+
   const handleStopSharing = async () => {
     setLoading(true);
     try {
@@ -265,6 +287,8 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           inviteLinkToken={inviteLinkToken}
           autoCopied={autoCopied}
           tier={tier}
+          inviteSession={inviteSession}
+          onInvite={handleInvite}
           onStop={handleStopSharing}
           onUpgrade={onUpgrade}
         />
@@ -338,6 +362,8 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
               onUpgrade={onUpgrade}
             />
           )}
+
+          <InvitePeopleSection session={inviteSession} onInvite={handleInvite} />
         </>
       )}
     </div>,
@@ -355,6 +381,8 @@ function ActiveSharingView({
   inviteLinkToken,
   autoCopied,
   tier,
+  inviteSession,
+  onInvite,
   onStop,
   onUpgrade,
 }: {
@@ -365,6 +393,8 @@ function ActiveSharingView({
   inviteLinkToken: string | null;
   autoCopied: boolean;
   tier: "free" | "pro" | "teams" | "business";
+  inviteSession: { vaultIds: string[]; participantIds: string[]; invitedIds: string[] };
+  onInvite: (member: TeamMember) => Promise<void>;
   onStop: () => void;
   onUpgrade: () => void;
 }) {
@@ -431,6 +461,8 @@ function ActiveSharingView({
           <InviteCodeField code={buildInviteCode(activeMp.multiplayerSessionId, inviteLinkToken)} autoCopied={autoCopied} />
         </div>
       )}
+
+      <InvitePeopleSection session={inviteSession} onInvite={onInvite} />
 
       <button
         className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"

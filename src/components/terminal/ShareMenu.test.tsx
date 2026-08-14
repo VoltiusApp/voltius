@@ -17,8 +17,11 @@ interface TeamState {
 }
 interface MpState {
   connections: Record<string, unknown>;
+  activeSessions: unknown[];
   startSharing: ReturnType<typeof vi.fn>;
   startSharingInviteLink: ReturnType<typeof vi.fn>;
+  startSharingDirect: ReturnType<typeof vi.fn>;
+  inviteToActiveSession: ReturnType<typeof vi.fn>;
   stopSharing: ReturnType<typeof vi.fn>;
 }
 
@@ -36,9 +39,13 @@ const h = vi.hoisted(() => {
   // Mirrors the real store: startSharingInviteLink writes `connections` before it
   // resolves, so `activeMp` exists (and isSharing flips true) by the time
   // ShareMenu re-renders — same ordering that made autoCopied miss the field.
-  const mpState: MpState = { connections: {}, startSharing: vi.fn(), startSharingInviteLink: vi.fn(), stopSharing: vi.fn() };
+  const mpState: MpState = {
+    connections: {}, activeSessions: [], startSharing: vi.fn(), startSharingInviteLink: vi.fn(),
+    startSharingDirect: vi.fn(), inviteToActiveSession: vi.fn(), stopSharing: vi.fn(),
+  };
   const resetMpState = () => {
     mpState.connections = {};
+    mpState.activeSessions = [];
     mpState.startSharing = vi.fn(async () => "mp-1");
     mpState.startSharingInviteLink = vi.fn(async (localSessionId: string) => {
       mpState.connections = {
@@ -47,6 +54,8 @@ const h = vi.hoisted(() => {
       };
       return { multiplayerSessionId: "mp-1", inviteToken: "tok-abc" };
     });
+    mpState.startSharingDirect = vi.fn(async () => "mp-1");
+    mpState.inviteToActiveSession = vi.fn(async () => {});
     mpState.stopSharing = vi.fn(async () => {});
   };
   resetMpState();
