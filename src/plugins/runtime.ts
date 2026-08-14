@@ -312,14 +312,20 @@ async function ensureQuitHandler() {
     // A hidden window over a live process is worse than a slow close, so the
     // exit is armed up front: it survives a throw or an invoke that never lands.
     const fallback = setTimeout(quit, 6000);
+    let shouldQuit = true;
     try {
       await Promise.race([
         Promise.allSettled(callbacks.map(async (cb) => cb())),
         new Promise<void>((r) => setTimeout(r, 5000)),
       ]);
+      if (await win.isVisible().catch(() => false)) {
+        shouldQuit = false;
+      }
     } finally {
       clearTimeout(fallback);
-      quit();
+      if (shouldQuit) {
+        quit();
+      }
     }
   });
 }
