@@ -139,7 +139,13 @@
       "upgradeToTeams": "升级到 Teams",
       "upgradeToBusiness": "升级到 Business",
       "hasControl": "拥有控制权",
-      "stopSharing": "停止共享"
+      "stopSharing": "停止共享",
+      "invitePeople": "邀请队友",
+      "inviteHasAccess": "已有访问权限",
+      "inviteSent": "已邀请",
+      "inviteFailed": "无法邀请 {{name}}",
+      "inviteNoTeammates": "暂无队友",
+      "inviteLoadFailed": "无法加载队友列表"
     },
     "snippetVariableModal": {
       "on": "开",

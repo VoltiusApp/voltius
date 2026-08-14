@@ -120,32 +120,32 @@ test("Decline runs the extracted decline action", async () => {
   expect(h.decline).toHaveBeenCalledWith("a");
 });
 
-function session(id: string, hostUserId = "host1"): ActiveSession {
+function session(overrides: Partial<ActiveSession> & { id: string }): ActiveSession {
   return {
-    id,
     connection_name: "web-prod",
-    host_user_id: hostUserId,
+    host_user_id: "host1",
     host_public_key: "pk",
     visibility: "team",
     created_at: "2026-08-13T00:00:00Z",
     participant_count: 1,
+    ...overrides,
   };
 }
 
 test("a shared session becomes one entry, idempotently", () => {
-  reconcileSessions([session("s1")], new Set(), "me");
-  reconcileSessions([session("s1")], new Set(), "me");
+  reconcileSessions([session({ id: "s1" })], new Set(), "me");
+  reconcileSessions([session({ id: "s1" })], new Set(), "me");
   expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(1);
 });
 
 test("an ended session is retracted", () => {
-  reconcileSessions([session("s1")], new Set(), "me");
+  reconcileSessions([session({ id: "s1" })], new Set(), "me");
   reconcileSessions([], new Set(), "me");
   expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(0);
 });
 
 test("a session already joined is shown as resolved rather than offering Join again", () => {
-  reconcileSessions([session("s1")], new Set(["s1"]), "me");
+  reconcileSessions([session({ id: "s1" })], new Set(["s1"]), "me");
   const entry = get().inbox.find((e) => e.id === "session:s1")!;
   expect(entry.state).toBe("resolved");
 });
@@ -153,14 +153,14 @@ test("a session already joined is shown as resolved rather than offering Join ag
 // Live two-account run: the host's own bell read "A teammate shared ssh-host-1"
 // about the terminal the host had just shared.
 test("a session I host is not knocked into my own inbox", () => {
-  reconcileSessions([session("s1", "me")], new Set(), "me");
+  reconcileSessions([session({ id: "s1", host_user_id: "me" })], new Set(), "me");
   expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(0);
 });
 
 test("a session I host is retracted once my user id resolves", () => {
-  reconcileSessions([session("s1", "me")], new Set(), null);
+  reconcileSessions([session({ id: "s1", host_user_id: "me" })], new Set(), null);
   expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(1);
-  reconcileSessions([session("s1", "me")], new Set(), "me");
+  reconcileSessions([session({ id: "s1", host_user_id: "me" })], new Set(), "me");
   expect(get().inbox.filter((e) => e.kind === "sessionShared")).toHaveLength(0);
 });
 
@@ -168,10 +168,10 @@ test("a session I host is retracted once my user id resolves", () => {
 // stayed styled as resolved, so the button never rendered and the session
 // could not be rejoined from the inbox.
 test("leaving a joined session returns its entry to pending so Join renders again", () => {
-  reconcileSessions([session("s1")], new Set(["s1"]), "me");
+  reconcileSessions([session({ id: "s1" })], new Set(["s1"]), "me");
   expect(get().inbox.find((e) => e.id === "session:s1")!.state).toBe("resolved");
 
-  reconcileSessions([session("s1")], new Set(), "me");
+  reconcileSessions([session({ id: "s1" })], new Set(), "me");
   const entry = get().inbox.find((e) => e.id === "session:s1")!;
   expect(entry.state).toBe("pending");
   expect(entry.resolution).toBeUndefined();
@@ -182,11 +182,11 @@ test("leaving a joined session returns its entry to pending so Join renders agai
 // there opened a websocket and then landed the user on "No active sessions".
 // The knock stays; only the action goes.
 test("the shared-session knock offers Join on desktop but not on mobile", () => {
-  reconcileSessions([session("s1")], new Set(), "me");
+  reconcileSessions([session({ id: "s1" })], new Set(), "me");
   expect(get().inbox.find((e) => e.id === "session:s1")!.actions).toHaveLength(1);
 
   h.isMobileShell.mockReturnValue(true);
-  reconcileSessions([session("s1")], new Set(), "me");
+  reconcileSessions([session({ id: "s1" })], new Set(), "me");
   const entry = get().inbox.find((e) => e.id === "session:s1")!;
   expect(entry.actions).toEqual([]);
   // Still knocked, still unread — only the dead-end button is withheld.
@@ -194,8 +194,55 @@ test("the shared-session knock offers Join on desktop but not on mobile", () => 
   expect(entry.message).toContain("notifications.inbox.session.message");
 });
 
+test("derives an invite entry with invite wording when invited_by is set", () => {
+  reconcileSessions([session({ id: "s1", invited_by: "alice" })], new Set(), "me");
+  const entry = get().inbox.find((e) => e.id === "session:s1");
+  expect(entry?.kind).toBe("sessionInvite");
+  expect(entry?.message).toContain("notifications.inbox.sessionInvite.message");
+});
+
+test("keeps one entry when a session is both broadcast and directly invited", () => {
+  reconcileSessions([session({ id: "s1", invited_by: "alice" })], new Set(), "me");
+  reconcileSessions([session({ id: "s1", invited_by: null })], new Set(), "me");
+  const entries = get().inbox.filter((e) => e.id === "session:s1");
+  expect(entries).toHaveLength(1);
+  expect(entries[0].kind).toBe("sessionShared");
+});
+
+test("toasts an invite once across repeated reconciles", () => {
+  const sessions = [session({ id: "s1", invited_by: "alice" })];
+  reconcileSessions(sessions, new Set(), "me");
+  reconcileSessions(sessions, new Set(), "me");
+  expect(
+    get().toasts.filter((t) => t.message.includes("notifications.inbox.sessionInvite.message")),
+  ).toHaveLength(1);
+});
+
+test("does not toast a broadcast share", () => {
+  reconcileSessions([session({ id: "s2", invited_by: null })], new Set(), "me");
+  expect(get().toasts).toHaveLength(0);
+});
+
+// The inviter's display name comes from participants, which an invitee who
+// hasn't joined yet may not have — the fallback must still read sensibly.
+test("falls back to a generic inviter name when the inviter is not in participants", () => {
+  reconcileSessions([session({ id: "s1", invited_by: "alice" })], new Set(), "me");
+  const entry = get().inbox.find((e) => e.id === "session:s1");
+  expect(entry?.message).toContain("notifications.inbox.someone");
+});
+
+test("uses the inviter's display name from participants when available", () => {
+  reconcileSessions(
+    [session({ id: "s1", invited_by: "alice", participants: [{ user_id: "alice", display_name: "Alice" }] })],
+    new Set(),
+    "me",
+  );
+  const entry = get().inbox.find((e) => e.id === "session:s1");
+  expect(entry?.message).toContain("\"inviter\":\"Alice\"");
+});
+
 test("running the inbox Join action opens a session tab, not just a websocket", async () => {
-  reconcileSessions([session("s1")], new Set(), "me");
+  reconcileSessions([session({ id: "s1" })], new Set(), "me");
   await get().runInboxAction("session:s1", 0);
 
   expect(h.joinSession).toHaveBeenCalledWith("s1", "me@x", expect.any(Function), undefined);

@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { getVaultKey } from "@/services/vault";
 import * as teamService from "@/services/teamService";
+import { freshPublicKeys } from "@/services/teamSharing";
 import { appFetch } from "@/services/http";
 import { openXChaCha20Poly1305, sealXChaCha20Poly1305 } from "@/services/crypto/xchacha";
 
@@ -19,6 +20,10 @@ export interface ActiveSession {
   participants?: Participant[];
   /** Vault scope(s) this session is shared with. Absent for invite-link sessions. */
   vault_ids?: string[];
+  /** Set when this session reached me through an individual invite (#66). */
+  invited_by?: string | null;
+  /** Everyone the host has individually invited (#66). Only set for the host. */
+  invitee_ids?: string[];
 }
 
 export interface Participant {
@@ -123,6 +128,36 @@ export async function listActiveSessions(): Promise<ActiveSession[]> {
 }
 
 /**
+ * Fresh session key plus one wrapped copy per unique member, ready to embed in a
+ * terminal-session create/invite payload. Shared by createVaultSession and
+ * createDirectSession.
+ */
+async function prepareWrappedSessionKey(
+  members: teamService.TeamMember[],
+): Promise<{ sessionKey: SessionKey; sessionKeyBytes: Uint8Array; wrappedKeys: { user_id: string; wrapped_key: string }[] }> {
+  const { publicKey } = await getMyX25519Keypair();
+  await teamService.updatePublicKey(publicKey);
+
+  const sessionKeyBytes = crypto.getRandomValues(new Uint8Array(32));
+  const sessionKey = await importSessionKey(sessionKeyBytes);
+
+  // Deduplicate members by user_id (e.g. across multiple vaults)
+  const uniqueMembers = Array.from(
+    new Map(members.map((m) => [m.user_id, m])).values(),
+  );
+
+  const currentKeys = await freshPublicKeys(uniqueMembers);
+  const wrappedKeys = await Promise.all(
+    uniqueMembers.map(async (member) => ({
+      user_id: member.user_id,
+      wrapped_key: await wrapSessionKeyForUser(sessionKeyBytes, currentKeys.get(member.user_id) ?? member.public_key),
+    })),
+  );
+
+  return { sessionKey, sessionKeyBytes, wrappedKeys };
+}
+
+/**
  * Create a vault-based session (E2EE per-user key wrapping).
  * Members of the selected vaults can join; optionally filtered by role.
  */
@@ -132,23 +167,7 @@ export async function createVaultSession(
   connectionName: string,
   members: teamService.TeamMember[],
 ): Promise<{ sessionId: string; sessionKey: SessionKey; sessionKeyBytes: Uint8Array }> {
-  const { publicKey } = await getMyX25519Keypair();
-  await teamService.updatePublicKey(publicKey);
-
-  const sessionKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-  const sessionKey = await importSessionKey(sessionKeyBytes);
-
-  // Deduplicate members by user_id across multiple vaults
-  const uniqueMembers = Array.from(
-    new Map(members.map((m) => [m.user_id, m])).values(),
-  );
-
-  const participantKeys = await Promise.all(
-    uniqueMembers.map(async (member) => ({
-      user_id: member.user_id,
-      wrapped_key: await wrapSessionKeyForUser(sessionKeyBytes, member.public_key),
-    })),
-  );
+  const { sessionKey, sessionKeyBytes, wrappedKeys } = await prepareWrappedSessionKey(members);
 
   const serverUrl = await teamService.getServerUrlValue();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
@@ -165,7 +184,7 @@ export async function createVaultSession(
       vault_ids: vaultIds,
       connection_name: connectionName,
       visibility: "vault",
-      participant_keys: participantKeys,
+      participant_keys: wrappedKeys,
       allowed_roles: allowedRoles,
     }),
   });
@@ -173,6 +192,67 @@ export async function createVaultSession(
   const { session_id } = await res.json();
 
   return { sessionId: session_id, sessionKey, sessionKeyBytes };
+}
+
+/**
+ * Create a direct session (no vault scope): only the named invitees can join,
+ * each with their own wrapped session key (#66).
+ */
+export async function createDirectSession(
+  connectionName: string,
+  invitees: teamService.TeamMember[],
+): Promise<{ sessionId: string; sessionKey: SessionKey; sessionKeyBytes: Uint8Array }> {
+  const { sessionKey, sessionKeyBytes, wrappedKeys } = await prepareWrappedSessionKey(invitees);
+
+  const serverUrl = await teamService.getServerUrlValue();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const jwt = await teamService.getJwtToken();
+  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+
+  const res = await appFetch(`${serverUrl}/v1/terminal-sessions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      vault_ids: [],
+      connection_name: connectionName,
+      visibility: "direct",
+      participant_keys: [],
+      allowed_roles: [],
+      invitees: wrappedKeys,
+    }),
+  });
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToCreateSession", { status: res.status }));
+  const { session_id } = await res.json();
+
+  return { sessionId: session_id, sessionKey, sessionKeyBytes };
+}
+
+/** Grant a teammate access to a live session by wrapping the session key for them (#66). */
+export async function inviteUserToSession(
+  sessionId: string,
+  member: teamService.TeamMember,
+  sessionKeyBytes: Uint8Array,
+): Promise<void> {
+  const currentKeys = await freshPublicKeys([member]);
+  const wrappedKey = await wrapSessionKeyForUser(sessionKeyBytes, currentKeys.get(member.user_id) ?? member.public_key);
+
+  const serverUrl = await teamService.getServerUrlValue();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const jwt = await teamService.getJwtToken();
+  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+
+  const res = await appFetch(`${serverUrl}/v1/terminal-sessions/${sessionId}/invitees`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ user_id: member.user_id, wrapped_key: wrappedKey }),
+  });
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToInvite", { status: res.status }));
 }
 
 /**
