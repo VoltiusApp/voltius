@@ -23,33 +23,39 @@ export async function membersOfTeams(teamIds: string[]): Promise<TeamMember[]> {
   return teamIds.flatMap((id) => membersByTeam[id] ?? []);
 }
 
+/** A teammate merged across every team they share with the caller. */
+export type Teammate = TeamMember & { teamIds: string[] };
+
 /**
- * Every teammate across all of the caller's teams, deduped by user_id and with
- * the caller dropped, sorted online-first then alphabetically.
+ * Every teammate across all of the caller's teams, merged by user_id (with the
+ * union of shared team_ids) and with the caller dropped, sorted online-first
+ * then alphabetically.
  */
-export async function allTeammates(): Promise<TeamMember[]> {
+export async function allTeammates(): Promise<Teammate[]> {
   const { teams } = useTeamStore.getState();
   const [members, myUserId] = await Promise.all([membersOfTeams(teams.map((t) => t.id)), getMyUserId()]);
 
-  const deduped = new Map<string, TeamMember>();
+  const merged = new Map<string, Teammate>();
   for (const member of members) {
-    if (member.user_id === myUserId || deduped.has(member.user_id)) continue;
-    deduped.set(member.user_id, member);
+    if (member.user_id === myUserId) continue;
+    const existing = merged.get(member.user_id);
+    if (existing) existing.teamIds.push(member.team_id);
+    else merged.set(member.user_id, { ...member, teamIds: [member.team_id] });
   }
 
-  return [...deduped.values()].sort((a, b) => {
+  return [...merged.values()].sort((a, b) => {
     if (!!a.is_online !== !!b.is_online) return a.is_online ? -1 : 1;
     return a.display_name.localeCompare(b.display_name);
   });
 }
 
-/** Whether a member already has a route into the session: a vault they're in, live participation, or a standing invite. */
+/** Whether a member already has a route into the session: a shared vault, live participation, or a standing invite. */
 export function memberHasAccess(
-  member: TeamMember,
+  member: Teammate,
   session: { vaultIds: string[]; participantIds: string[]; invitedIds: string[] },
 ): boolean {
   return (
-    session.vaultIds.includes(member.team_id) ||
+    member.teamIds.some((id) => session.vaultIds.includes(id)) ||
     session.participantIds.includes(member.user_id) ||
     session.invitedIds.includes(member.user_id)
   );
