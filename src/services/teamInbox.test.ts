@@ -44,7 +44,13 @@ vi.mock("@/i18n", () => ({
 
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useTeamStore } from "@/stores/teamStore";
-import { reconcileInvites, reconcileSessions, reconcileControlRequests, reconcileAwaitingKeys } from "./teamInbox";
+import {
+  reconcileInvites,
+  reconcileSessions,
+  reconcileControlRequests,
+  reconcileAwaitingKeys,
+  resetTeamInboxState,
+} from "./teamInbox";
 import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
 
@@ -74,6 +80,7 @@ beforeEach(() => {
   h.sessionState.sessions = [];
   h.sessionState.activeSessionId = null;
   useTeamStore.setState({ teams: [] });
+  resetTeamInboxState();
 });
 
 test("reconciling the same invite list twice yields one entry", () => {
@@ -261,6 +268,30 @@ test("Deny retracts the entry locally and calls nothing on the connection", asyn
   await get().runInboxAction("control:local1:guest1", 1);
   expect(get().inbox.filter((x) => x.kind === "controlRequest")).toHaveLength(0);
   expect(h.grantControl).not.toHaveBeenCalled();
+});
+
+// Deny deletes no source row, so the unchanged connection re-derives the entry
+// on the next reconcile — and the toast dedupe, keyed off the inbox, saw the
+// retracted id as new and knocked again.
+test("a denied request stays gone across later reconciles of the same source", async () => {
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  await get().runInboxAction("control:local1:guest1", 1);
+  useNotificationStore.setState({ toasts: [] });
+
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  expect(get().inbox.filter((x) => x.kind === "controlRequest")).toHaveLength(0);
+  expect(get().toasts).toHaveLength(0);
+});
+
+test("a fresh request from the same guest knocks again after a deny", async () => {
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  await get().runInboxAction("control:local1:guest1", 1);
+  useNotificationStore.setState({ toasts: [] });
+
+  reconcileControlRequests({ local1: conn({ controlRequester: null }) });
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  expect(get().inbox.filter((x) => x.kind === "controlRequest")).toHaveLength(1);
+  expect(get().toasts).toHaveLength(1);
 });
 
 test("a team awaiting its vault key yields exactly one entry, and it clears once the key loads", () => {

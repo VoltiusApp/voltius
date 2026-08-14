@@ -16,6 +16,27 @@ import type { ActiveSession } from "@/services/multiplayerService";
 
 const APP_SOURCE = { kind: "app", area: "team" } as const;
 
+// Deny has no server-side state to delete: the connection still reports the
+// requester, so without this the next reconcile re-derives the entry and
+// re-toasts it. An id leaves the set once the source stops carrying that
+// request, so a fresh request from the same guest knocks again.
+const deniedRequests = new Set<string>();
+
+/** Clears the per-reconcile memory that has no source of truth to re-derive from. */
+export function resetTeamInboxState(): void {
+  deniedRequests.clear();
+}
+
+function toast(message: string, duration: number): void {
+  useNotificationStore.getState().addToast({
+    source: APP_SOURCE,
+    type: "toast",
+    message,
+    severity: "info",
+    duration,
+  });
+}
+
 /**
  * Upserts the given entries and retracts any existing entry of the same kinds that is
  * no longer present. Every reconciler below is one call to this.
@@ -103,7 +124,7 @@ export function reconcileSessions(
 }
 
 export function reconcileControlRequests(connections: Record<string, MultiplayerSessionState>): void {
-  const entries = Object.entries(connections)
+  const derived = Object.entries(connections)
     .filter(
       ([, c]) => !c.ended && c.role === "host" && c.controlRequester !== null && c.controlRequester !== c.myUserId,
     )
@@ -124,29 +145,31 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
           },
           {
             label: i18n.t("notifications.inbox.control.deny"),
-            run: async () => useNotificationStore.getState().retractInbox(id),
+            run: async () => {
+              deniedRequests.add(id);
+              useNotificationStore.getState().retractInbox(id);
+            },
           },
         ],
       };
     });
+
+  const derivedIds = new Set(derived.map((e) => e.id));
+  for (const id of deniedRequests) {
+    if (!derivedIds.has(id)) deniedRequests.delete(id);
+  }
+  const entries = derived.filter((e) => !deniedRequests.has(e.id));
 
   // Toast only for requests not already in the inbox, so repeated reconciles stay silent.
   const known = new Set(
     useNotificationStore.getState().inbox.filter((e) => e.kind === "controlRequest").map((e) => e.id),
   );
   for (const e of entries) {
-    if (!known.has(e.id)) {
-      useNotificationStore.getState().addToast({
-        source: APP_SOURCE,
-        type: "toast",
-        message: e.message,
-        severity: "info",
-        duration: 8000,
-      });
-    }
+    if (!known.has(e.id)) toast(e.message, 8000);
   }
 
   reconcile(["controlRequest"], entries);
+
 }
 
 export function reconcileAwaitingKeys(statusByTeamId: Record<string, TeamVaultStatus>): void {
@@ -167,6 +190,7 @@ export function reconcileAwaitingKeys(statusByTeamId: Record<string, TeamVaultSt
 }
 
 export function startTeamInbox(): () => void {
+  resetTeamInboxState();
   reconcileInvites(useTeamStore.getState().myPendingInvitations);
   const unsubInvites = useTeamStore.subscribe((s, prev) => {
     if (s.myPendingInvitations !== prev.myPendingInvitations) {
