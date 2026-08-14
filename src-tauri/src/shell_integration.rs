@@ -307,6 +307,15 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// never meet a session another device is attached to. Re-attach and
 /// cross-device join go through `persistent_attach_command`.
 ///
+/// Both multiplexer configs override the outer terminal's `cnorm` (cursor
+/// normal) capability to plain `\E[?25h`. xterm-256color's stock cnorm is
+/// `\E[?12l\E[?25h`, and the `?12l` half is "stop cursor blinking" — xterm.js
+/// maps DECRST 12 straight onto `options.cursorBlink = false`, so every
+/// multiplexer redraw silently turned off the user's cursor-blink setting in
+/// SSH sessions (local sessions, with no multiplexer, kept blinking). Remote
+/// apps that explicitly request a blinking cursor (cvvis / DECSCUSR) still
+/// work; only the implicit blink-off on redraw is dropped.
+///
 /// `inner` is bound once to `$V` rather than inlined at each of the five call
 /// sites. Inlining made the exec payload ~21.7 KB, over dropbear's 9000-byte
 /// `MAX_STRING_LEN`, so dropbear killed the channel with "String too long" the
@@ -325,6 +334,7 @@ set -g default-terminal "xterm-256color"
 set -g history-limit 50000
 set -sg escape-time 0
 set -g destroy-unattached off
+set -ga terminal-overrides ',*:cnorm=\E[?25h'
 EOF
     exec tmux -L {socket} -f "$TMUX_CONF" new-session -A -s {key} "$V" <&2
   fi
@@ -342,7 +352,7 @@ msgwait 0
 msgminwait 0
 vbell off
 defscrollback 50000
-termcapinfo xterm* ti@:te@
+termcapinfo xterm* ti@:te@:ve=\E[?25h
 EOF
     exec screen -c "$SCREEN_RC" -S {key} -D -R sh -c "$V" <&2
   fi
@@ -653,7 +663,10 @@ mod tests {
         assert!(script.contains("grep -F .voltius_s1"));
         assert!(script.contains("-X quit"));
         assert!(script.contains("msgwait 0"));
-        assert!(script.contains("ti@:te@"));
+        // cnorm/ve stripped of ?12l so multiplexer redraws don't disable the
+        // user's cursor-blink setting (xterm.js maps DECRST 12 to blink off).
+        assert!(script.contains("cnorm=\\E[?25h"));
+        assert!(script.contains("ti@:te@:ve=\\E[?25h"));
         assert!(script.contains("will not survive disconnects"));
         assert!(!inner.contains('"'));
         assert!(script.contains(&inner));
