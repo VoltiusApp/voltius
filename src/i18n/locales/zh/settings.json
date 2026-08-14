@@ -7,6 +7,17 @@
         "desc": "每个终端会话保留的行数。应用于新终端。",
         "option": "{{count}} 行"
       },
+      "cursorStyle": {
+        "title": "光标样式",
+        "desc": "终端光标的形状。",
+        "bar": "竖线",
+        "block": "方块",
+        "underline": "下划线"
+      },
+      "cursorBlink": {
+        "title": "光标闪烁",
+        "desc": "终端光标闪烁。"
+      },
       "minimap": {
         "title": "滚动小地图",
         "desc": "在终端旁边显示回滚概览的缩微图。"
@@ -910,6 +921,7 @@
       }
     },
     "toggleDefs": {
+      "cursorBlink": { "label": "光标闪烁" },
       "scrollMinimap": { "label": "滚动小地图" },
       "selectToCopy": { "label": "选择即复制" },
       "ignoreBracketedPaste": { "label": "纯文本粘贴（无括号粘贴）" },

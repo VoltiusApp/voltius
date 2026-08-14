@@ -7,6 +7,17 @@
         "desc": "Retained lines per terminal session. Applies to new terminals.",
         "option": "{{count}} lines"
       },
+      "cursorStyle": {
+        "title": "Cursor style",
+        "desc": "Shape of the terminal cursor.",
+        "bar": "Bar",
+        "block": "Block",
+        "underline": "Underline"
+      },
+      "cursorBlink": {
+        "title": "Cursor blink",
+        "desc": "Blink the terminal cursor."
+      },
       "minimap": {
         "title": "Scroll minimap",
         "desc": "Show a miniature scrollback overview beside terminals."
@@ -122,6 +133,7 @@
         "label": "Terminal",
         "keywords": [
           "scrollback",
+          "cursor",
           "paste",
           "bracketed",
           "copy",
@@ -933,6 +945,9 @@
       }
     },
     "toggleDefs": {
+      "cursorBlink": {
+        "label": "Cursor Blink"
+      },
       "scrollMinimap": {
         "label": "Scroll Minimap"
       },

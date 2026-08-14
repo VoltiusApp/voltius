@@ -5,8 +5,10 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { attachTerminalClipboard } from "@/components/terminal/terminalClipboard";
 import { useThemeStore } from "@/stores/themeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
+import { applyTerminalTheme } from "@/utils/terminalTheme";
 import "@xterm/xterm/css/xterm.css";
 
 interface Props {
@@ -27,11 +29,12 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
       containerRef.current = container;
 
       const activeTheme = useThemeStore.getState().getActiveTheme();
-      const scrollback = useTerminalSettingsStore.getState().scrollbackLines;
+      const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
       const term = new Terminal({
-        cursorBlink: true,
-        cursorStyle: "bar",
+        cursorBlink: getToggle("cursor-blink"),
+        cursorStyle,
         fontSize: activeTheme.terminalFontSize,
+        lineHeight: activeTheme.terminalLineHeight ?? 1,
         fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
         scrollback,
         theme: activeTheme.terminal,
@@ -132,15 +135,22 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
   useEffect(() => {
     return useThemeStore.subscribe((state) => {
       const term = termRef.current;
-      const fit = fitRef.current;
       if (!term) return;
-      const theme = state.getActiveTheme();
-      term.options.theme = theme.terminal;
-      term.options.fontFamily = withFlagEmojiFallback(theme.terminalFontFamily);
-      if (term.options.fontSize !== theme.terminalFontSize) {
-        term.options.fontSize = theme.terminalFontSize;
-        fit?.fit();
-      }
+      applyTerminalTheme(term, fitRef.current, state.getActiveTheme());
+    });
+  }, []);
+
+  // Live cursor-style updates
+  useEffect(() => {
+    return useTerminalSettingsStore.subscribe((s) => {
+      if (termRef.current) termRef.current.options.cursorStyle = s.cursorStyle;
+    });
+  }, []);
+
+  // Live cursor-blink updates
+  useEffect(() => {
+    return useToggleSettingsStore.subscribe(() => {
+      if (termRef.current) termRef.current.options.cursorBlink = getToggle("cursor-blink");
     });
   }, []);
 

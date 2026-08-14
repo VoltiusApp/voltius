@@ -26,6 +26,7 @@
       "appFont": "应用字体",
       "family": "字体族",
       "sizePx": "大小（px）",
+      "lineHeight": "行高",
       "terminalFont": "终端字体",
       "highlightUsing": "高亮使用 {{varName}} 的元素"
     },

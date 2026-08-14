@@ -26,6 +26,7 @@
       "appFont": "App Font",
       "family": "Family",
       "sizePx": "Size (px)",
+      "lineHeight": "Line height",
       "terminalFont": "Terminal Font",
       "highlightUsing": "Highlight elements using {{varName}}"
     },

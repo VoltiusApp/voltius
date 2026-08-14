@@ -381,6 +381,14 @@ function ColorEditor({
             className="form-input w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
           />
         </label>
+        <label className="block">
+          <span className="text-xs text-(--t-text-muted)">{t("themeCreator.editor.lineHeight")}</span>
+          <input
+            type="number" min={1} max={2} step={0.1} value={draft.terminalLineHeight ?? 1}
+            onChange={(e) => setDraft((d) => ({ ...d, terminalLineHeight: Number(e.target.value) }))}
+            className="form-input w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+          />
+        </label>
       </div>
 
       {terminalGroups.map((group) => (

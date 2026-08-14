@@ -52,6 +52,8 @@ export interface AppTheme {
   uiFontSize: number;
   terminalFontFamily: string;
   terminalFontSize: number;
+  /** xterm lineHeight multiplier; optional for themes saved before it existed (defaults to 1). */
+  terminalLineHeight?: number;
   ui: UITheme;
   terminal: TerminalTheme;
 }
