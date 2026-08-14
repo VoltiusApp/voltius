@@ -28,6 +28,7 @@ beforeEach(() => {
     tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false,
     isPro: false, isTeams: false, isBusiness: false, accountMode: null, usedSeats: null, totalSeats: null,
     subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true,
+    billingLoadFailed: false,
   });
 });
 
@@ -59,7 +60,7 @@ test("pro jwt derives flags and enriches seats from billing endpoint", async () 
     json: async () => ({ used_seats: 2, seats: 5, status: "active", cancelled: false }),
   });
   await get().load();
-  expect(get()).toMatchObject({ tier: "teams", isPro: true, isTeams: true, accountMode: "server", usedSeats: 2, totalSeats: 5, subscriptionStatus: "active" });
+  expect(get()).toMatchObject({ tier: "teams", isPro: true, isTeams: true, accountMode: "server", usedSeats: 2, totalSeats: 5, subscriptionStatus: "active", billingLoadFailed: false });
   expect(h.appFetch).toHaveBeenCalledWith(
     "https://api.example/v1/billing/subscription",
     expect.objectContaining({ headers: { Authorization: `Bearer ${jwt}` } }),
@@ -70,12 +71,19 @@ test("billing enrichment failure is non-fatal; tier flags still set", async () =
   keychain({ mode: "server", jwt: makeJwt({ tier: "pro" }), server_url: "https://api.example" });
   h.appFetch.mockRejectedValue(new Error("network"));
   await get().load();
-  expect(get()).toMatchObject({ tier: "pro", isPro: true, usedSeats: null, totalSeats: null });
+  expect(get()).toMatchObject({ tier: "pro", isPro: true, usedSeats: null, totalSeats: null, billingLoadFailed: true });
+});
+
+test("billing endpoint returns non-ok status: billingLoadFailed set", async () => {
+  keychain({ mode: "server", jwt: makeJwt({ tier: "pro" }), server_url: "https://api.example" });
+  h.appFetch.mockResolvedValue({ ok: false, status: 500 });
+  await get().load();
+  expect(get()).toMatchObject({ tier: "pro", isPro: true, usedSeats: null, totalSeats: null, billingLoadFailed: true });
 });
 
 test("free-tier jwt does not call the billing endpoint", async () => {
   keychain({ mode: "server", jwt: makeJwt({ tier: "free" }), server_url: "https://api.example" });
   await get().load();
-  expect(get().isPro).toBe(false);
+  expect(get()).toMatchObject({ isPro: false, billingLoadFailed: false });
   expect(h.appFetch).not.toHaveBeenCalled();
 });
