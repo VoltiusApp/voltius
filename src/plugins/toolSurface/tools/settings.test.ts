@@ -21,9 +21,10 @@ const ports = (over: Partial<Record<string, unknown>> = {}) => ({
       ...(over.settings as object ?? {}),
     },
   },
-  approve: async () => ({ approve: true as const, scope: "mcp", via: "granted" as const }),
+  approve: vi.fn(async () => ({ approve: true as const, scope: "mcp", via: "granted" as const })),
   audit: vi.fn(),
   owned: new Set<string>(),
+  ...(over.rest as object ?? {}),
 }) as unknown as ToolSurfacePorts;
 
 const byName = (p: ToolSurfacePorts, name: string) =>
@@ -42,7 +43,7 @@ describe("verbes de réglages", () => {
     expect(res).toMatchObject({ refused: true });
   });
 
-  test("une clé gardée refuse le premier appel et rend la conséquence", async () => {
+  test("une clé gardée refuse le premier appel et rend la conséquence, sans jamais approuver", async () => {
     const p = ports();
     const res = await byName(p, "setting_set")
       .execute({ key: "toggles.plugin-install-review", value: false }) as Record<string, unknown>;
@@ -51,6 +52,7 @@ describe("verbes de réglages", () => {
     expect(String(res.error)).toContain("Turns off the consent screen.");
     expect(String(res.error)).toContain("confirm");
     expect((p.api.settings as unknown as { set: ReturnType<typeof vi.fn> }).set).not.toHaveBeenCalled();
+    expect(p.approve).not.toHaveBeenCalled();
   });
 
   test("une clé gardée s'écrit avec confirm: true", async () => {
@@ -75,11 +77,27 @@ describe("verbes de réglages", () => {
     expect(String(res.error)).toContain("Unknown setting");
   });
 
-  test("une écriture enregistre une ligne d'audit", async () => {
+  test("un refus de l'approbation refuse l'écriture sans appeler le domaine", async () => {
+    const p = ports({
+      rest: {
+        approve: vi.fn(async () => ({ approve: false as const, reason: "not now" })),
+      },
+    });
+    const res = await byName(p, "setting_set")
+      .execute({ key: "toggles.scroll-minimap", value: false }) as Record<string, unknown>;
+
+    expect(res.refused).toBe(true);
+    expect((p.api.settings as unknown as { set: ReturnType<typeof vi.fn> }).set).not.toHaveBeenCalled();
+  });
+
+  test("une écriture enregistre une ligne d'audit avec la portée et l'approbation de la décision", async () => {
     const p = ports();
     await byName(p, "setting_set").execute({ key: "toggles.scroll-minimap", value: false });
-    expect(p.audit).toHaveBeenCalledWith("mcp", "agent.setting_changed", expect.objectContaining({
-      key: "toggles.scroll-minimap",
-    }));
+    expect(p.audit).toHaveBeenCalledWith(
+      "mcp",
+      "agent.setting_changed",
+      { tool: "setting_set", approval: "granted", key: "toggles.scroll-minimap" },
+      undefined,
+    );
   });
 });

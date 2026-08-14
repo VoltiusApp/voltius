@@ -2,10 +2,14 @@ import { z } from "zod";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { refusal } from "../refusal";
+import { makeGate, objectOp, unwrapDomain } from "./helpers";
 
 export const SETTINGS_PERMISSIONS = ["settings:read", "settings:write"] as const;
 
 export function buildSettingTools(ports: ToolSurfacePorts): Tool[] {
+  const gate = makeGate(ports);
+  const op = objectOp(ports, gate);
+
   return [
     {
       name: "setting_list",
@@ -56,7 +60,9 @@ export function buildSettingTools(ports: ToolSurfacePorts): Tool[] {
         const view = ports.api.settings.get(key);
         if (!view) return refusal(`Unknown setting "${key}"`);
 
-        // The consequence sentence is itself the refusal: the only place it
+        // Both checks run before the gate, like sessionGate's precheck: a call
+        // that is already doomed must not raise an approval card for it. The
+        // consequence sentence is itself the refusal — the only place it
         // reaches a human, since the MCP client shows only the verb name and
         // its arguments.
         if (view.consequence && raw.confirm !== true) {
@@ -66,10 +72,8 @@ export function buildSettingTools(ports: ToolSurfacePorts): Tool[] {
           });
         }
 
-        ports.audit("mcp", "agent.setting_changed", { key, value: raw.value });
-
-        const res = ports.api.settings.set(key, raw.value);
-        return res.ok ? res : refusal(res.error, { key });
+        return op("setting_set", "agent.setting_changed", { key }, raw, async (a) =>
+          unwrapDomain(ports.api.settings.set(String(a.key), a.value)));
       },
     },
   ];
