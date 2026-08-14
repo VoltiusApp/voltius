@@ -196,6 +196,13 @@ export const MCP_TEXT = {
       "Read or change a plugin's settings. Only the settings a plugin declares in its manifest are "
       + "reachable — its internal storage is not. With an id alone, returns the declared settings "
       + "and their values; with a key and a value, writes one, immediately.",
+    marketplace_source_add:
+      "Add a marketplace source by catalog URL. Runs immediately; your own client is responsible "
+      + "for approval. This is a lasting trust decision: every plugin installed from it afterwards "
+      + "comes from that URL.",
+    marketplace_source_remove:
+      "Remove a custom marketplace source. Runs immediately; your own client is responsible for "
+      + "approval. Plugins already installed from it stay installed.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };

@@ -29,6 +29,7 @@ const ALL_TOOLS = [
   "known_host_delete", "known_host_list", "known_host_trust",
   "list_connections", "list_files", "list_sessions", "list_shared_sessions",
   "make_dir",
+  "marketplace_search", "marketplace_source_add", "marketplace_source_list", "marketplace_source_remove",
   "member_invite", "member_list", "member_remove", "member_set_role",
   "object_copy", "object_move", "open_session",
   "pane_detach", "pane_focus", "pane_list", "pane_split",

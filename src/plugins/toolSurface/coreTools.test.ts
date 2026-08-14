@@ -62,10 +62,10 @@ function makePorts(over: Partial<ToolSurfacePorts> = {}): ToolSurfacePorts {
 }
 
 describe("core tool surface", () => {
-  test("exposes 85 tools and no planning tool", () => {
+  test("exposes 89 tools and no planning tool", () => {
     const ports = makePorts();
     const names = buildCoreTools(ports).map((t) => t.name);
-    expect(names).toHaveLength(85);
+    expect(names).toHaveLength(89);
     expect(names).not.toContain("propose_plan");
   });
 });

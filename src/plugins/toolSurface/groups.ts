@@ -22,6 +22,7 @@ import { buildSharingTools, SHARING_PERMISSIONS } from "./tools/sharing";
 import { buildSettingTools, SETTINGS_PERMISSIONS } from "./tools/settings";
 import { buildAccountTools, ACCOUNT_PERMISSIONS } from "./tools/account";
 import { buildPluginTools, PLUGIN_PERMISSIONS } from "./tools/plugins";
+import { buildMarketplaceTools, MARKETPLACE_PERMISSIONS } from "./tools/marketplace";
 
 /** One entry per domain: builder and permissions travel together so they cannot drift. */
 const GROUPS = [
@@ -47,6 +48,7 @@ const GROUPS = [
   { build: buildSettingTools, permissions: SETTINGS_PERMISSIONS },
   { build: buildAccountTools, permissions: ACCOUNT_PERMISSIONS },
   { build: buildPluginTools, permissions: PLUGIN_PERMISSIONS },
+  { build: buildMarketplaceTools, permissions: MARKETPLACE_PERMISSIONS },
 ] as const;
 
 export const ALL_PERMISSIONS: readonly string[] = [
