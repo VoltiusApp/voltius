@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import type { ShareTier } from "@/services/teamSharing";
 
 /** Seats-used/cap line shared by `ActiveSharingView` and `InvitePeopleSection`. */
 export function ParticipantsRatioNotice({
@@ -10,7 +11,7 @@ export function ParticipantsRatioNotice({
 }: {
   count: number;
   guestCap: number;
-  tier: "free" | "pro" | "teams" | "business";
+  tier: ShareTier;
   onUpgrade: () => void;
 }) {
   const { t } = useTranslation();

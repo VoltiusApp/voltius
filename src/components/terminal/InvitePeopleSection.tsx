@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
-import { allTeammates, memberHasAccess, type Teammate } from "@/services/teamSharing";
+import { allTeammates, memberHasAccess, type ShareTier, type Teammate } from "@/services/teamSharing";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 
 interface InvitePeopleSectionProps {
   session: { vaultIds: string[]; participantIds: string[]; invitedIds: string[] };
   guestCap: number;
-  tier: "free" | "pro" | "teams" | "business";
+  tier: ShareTier;
   onUpgrade: () => void;
   onInvite: (member: Teammate) => Promise<void>;
 }

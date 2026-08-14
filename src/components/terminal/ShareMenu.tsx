@@ -6,7 +6,7 @@ import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { buildInviteCode } from "@/services/inviteCode";
-import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
+import { highestOwnerTier, membersOfTeams, type ShareTier } from "@/services/teamSharing";
 import type { TeamMember } from "@/services/teamService";
 import { InviteCodeField } from "./InviteCodeField";
 import { InvitePeopleSection } from "./InvitePeopleSection";
@@ -22,7 +22,7 @@ interface ShareMenuProps {
   connectionName: string;
   connectionVaultId?: string;
   isLoggedIn: boolean;
-  tier: "free" | "pro" | "teams" | "business";
+  tier: ShareTier;
   onSignIn: () => void;
   onUpgrade: () => void;
 }
@@ -396,7 +396,7 @@ function ActiveSharingView({
   guestCap: number;
   inviteLinkToken: string | null;
   autoCopied: boolean;
-  tier: "free" | "pro" | "teams" | "business";
+  tier: ShareTier;
   inviteSession: { vaultIds: string[]; participantIds: string[]; invitedIds: string[] };
   onInvite: (member: TeamMember) => Promise<void>;
   onStop: () => void;
@@ -605,7 +605,7 @@ function InviteLinkTab({
   sessionId: string;
   autoCopied: boolean;
   guestCap: number;
-  tier: "free" | "pro" | "teams" | "business";
+  tier: ShareTier;
   onGenerate: () => void;
   onUpgrade: () => void;
 }) {

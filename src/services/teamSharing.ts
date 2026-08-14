@@ -2,6 +2,9 @@ import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId, listMembers } from "@/services/teamService";
 import type { TeamMember } from "@/services/teamService";
 
+/** Account tier as used across the share flow (ShareMenu, InvitePeopleSection, ParticipantsRatioNotice). */
+export type ShareTier = "free" | "pro" | "teams" | "business";
+
 const OWNER_TIER_RANK: Record<string, number> = { business: 2, teams: 1 };
 
 /**
