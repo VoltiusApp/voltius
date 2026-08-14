@@ -143,7 +143,7 @@ test("hides the invite section in the active view when no session key is retaine
 });
 
 test("hides the invite section in setup view for free tier", async () => {
-  teamState.teams = [{ id: "vault-1", name: "Vault", owner_tier: "teams" }];
+  teamState.teams = [{ id: "vault-1", name: "Vault", owner_id: "u0", owner_tier: "teams", created_at: "", role_ids: [] }];
   const anchorRef = createRef<HTMLButtonElement>();
   render(
     <ShareMenu
