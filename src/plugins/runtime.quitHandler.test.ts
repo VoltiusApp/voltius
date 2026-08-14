@@ -4,15 +4,17 @@ import type { PluginAPI, PluginManifest } from "./api";
 
 type CloseHandler = (event: { preventDefault: () => void }) => unknown;
 
-const { closeHandlers, hide, invoke } = vi.hoisted(() => ({
+const { closeHandlers, hide, invoke, isVisible } = vi.hoisted(() => ({
   closeHandlers: [] as CloseHandler[],
   hide: vi.fn(() => Promise.resolve()),
   invoke: vi.fn(() => Promise.resolve()),
+  isVisible: vi.fn(() => Promise.resolve(false)),
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     hide,
+    isVisible,
     onCloseRequested: (cb: CloseHandler) => {
       closeHandlers.push(cb);
       return Promise.resolve(() => {});
@@ -47,6 +49,7 @@ beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   hide.mockClear();
   invoke.mockClear();
+  isVisible.mockClear();
 });
 
 afterEach(() => {
