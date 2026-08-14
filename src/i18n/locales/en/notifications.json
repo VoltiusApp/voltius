@@ -52,6 +52,9 @@
         "join": "Join",
         "joined": "Joined"
       },
+      "sessionInvite": {
+        "message": "{{inviter}} invited you to {{name}}"
+      },
       "control": {
         "request": "{{requester}} is requesting control",
         "grant": "Grant",

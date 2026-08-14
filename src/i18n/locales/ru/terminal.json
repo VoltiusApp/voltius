@@ -147,7 +147,13 @@
       "upgradeToTeams": "Перейти на Teams",
       "upgradeToBusiness": "Перейти на Business",
       "hasControl": "Управляет",
-      "stopSharing": "Остановить совместный доступ"
+      "stopSharing": "Остановить совместный доступ",
+      "invitePeople": "Пригласить людей",
+      "inviteHasAccess": "Уже есть доступ",
+      "inviteSent": "Приглашён",
+      "inviteFailed": "Не удалось пригласить {{name}}",
+      "inviteNoTeammates": "Пока нет коллег по команде",
+      "inviteLoadFailed": "Не удалось загрузить список коллег"
     },
     "snippetVariableModal": {
       "on": "Вкл",

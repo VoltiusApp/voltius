@@ -52,6 +52,9 @@
         "join": "Присоединиться",
         "joined": "Вы в сессии"
       },
+      "sessionInvite": {
+        "message": "{{inviter}} пригласил(а) вас в {{name}}"
+      },
       "control": {
         "request": "{{requester}} запрашивает управление",
         "grant": "Разрешить",

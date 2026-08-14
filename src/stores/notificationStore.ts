@@ -49,6 +49,7 @@ export interface HistoryEntry {
 export type InboxKind =
   | "invite"
   | "sessionShared"
+  | "sessionInvite"
   | "controlRequest"
   | "controlGranted"
   | "awaitingKey";

@@ -95,36 +95,54 @@ export function reconcileSessions(
   joinedSessionIds: Set<string>,
   myUserId: string | null,
 ): void {
-  reconcile(
-    ["sessionShared"],
+  const entries = sessions
     // A session I host is not a knock — I am the one who shared it. The rail
     // deliberately keeps my own sessions so I don't lose track of them; the
     // inbox must not tell me a teammate shared my own terminal.
-    sessions
-      .filter((s) => s.host_user_id !== myUserId)
-      .map((s) => {
-        const joined = joinedSessionIds.has(s.id);
-        return {
-          id: `session:${s.id}`,
-          kind: "sessionShared" as const,
-          message: i18n.t("notifications.inbox.session.message", { name: s.connection_name }),
-          // Spelled out rather than left undefined: upsertInbox keeps the
-          // previous state when it is omitted, which pinned an entry as
-          // "resolved" — hiding its Join button — after a guest left and the
-          // session became joinable again.
-          state: joined ? ("resolved" as const) : ("pending" as const),
-          resolution: joined ? i18n.t("notifications.inbox.session.joined") : undefined,
-          // The knock is worth having everywhere, but Join is not offered on
-          // mobile: MobileSessionLayer and MobileTerminalScreen both filter out
-          // `multiplayer` sessions, so joining there opens a websocket and then
-          // lands on "No active sessions". Re-enable once mobile renders them.
-          actions:
-            joined || isMobileShell()
-              ? []
-              : [{ label: i18n.t("notifications.inbox.session.join"), run: () => joinSharedSession(s) }],
-        };
-      }),
+    .filter((s) => s.host_user_id !== myUserId)
+    .map((s) => {
+      const joined = joinedSessionIds.has(s.id);
+      // A session reached through an individual invite (#66) knocks with
+      // inviter-specific wording rather than the generic broadcast share.
+      const invited = !!s.invited_by && s.invited_by !== myUserId;
+      const inviter = invited
+        ? (s.participants?.find((p) => p.user_id === s.invited_by)?.display_name ??
+            i18n.t("notifications.inbox.someone"))
+        : "";
+      const kind: InboxKind = invited ? "sessionInvite" : "sessionShared";
+      return {
+        id: `session:${s.id}`,
+        kind,
+        message: invited
+          ? i18n.t("notifications.inbox.sessionInvite.message", { inviter, name: s.connection_name })
+          : i18n.t("notifications.inbox.session.message", { name: s.connection_name }),
+        // Spelled out rather than left undefined: upsertInbox keeps the
+        // previous state when it is omitted, which pinned an entry as
+        // "resolved" — hiding its Join button — after a guest left and the
+        // session became joinable again.
+        state: joined ? ("resolved" as const) : ("pending" as const),
+        resolution: joined ? i18n.t("notifications.inbox.session.joined") : undefined,
+        // The knock is worth having everywhere, but Join is not offered on
+        // mobile: MobileSessionLayer and MobileTerminalScreen both filter out
+        // `multiplayer` sessions, so joining there opens a websocket and then
+        // lands on "No active sessions". Re-enable once mobile renders them.
+        actions:
+          joined || isMobileShell()
+            ? []
+            : [{ label: i18n.t("notifications.inbox.session.join"), run: () => joinSharedSession(s) }],
+      };
+    });
+
+  // Toast only for invites not already in the inbox, so repeated reconciles
+  // stay silent and a broadcast share never toasts at all.
+  const known = new Set(
+    useNotificationStore.getState().inbox.filter((e) => e.kind === "sessionInvite").map((e) => e.id),
   );
+  for (const e of entries) {
+    if (e.kind === "sessionInvite" && !known.has(e.id)) toast(e.message, 8000);
+  }
+
+  reconcile(["sessionShared", "sessionInvite"], entries);
 }
 
 export function reconcileControlRequests(connections: Record<string, MultiplayerSessionState>): void {
