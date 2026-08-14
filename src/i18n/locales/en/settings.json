@@ -2,6 +2,9 @@
   "settings": {
     "terminal": {
       "heading": "Terminal behavior",
+      "preferredShell": {
+        "title": "Preferred shell"
+      },
       "scrollback": {
         "title": "Terminal scrollback",
         "desc": "Retained lines per terminal session. Applies to new terminals.",
@@ -44,6 +47,7 @@
         "reset": "Reset"
       },
       "automation": {
+        "themeMode": "Automatic theme mode",
         "title": "Automatic theme",
         "desc": "Switch between a light and dark theme automatically",
         "lightTheme": "Light theme",
@@ -413,7 +417,8 @@
     },
     "mcp": {
       "consequence": {
-        "pluginInstallReview": "Turns off the consent screen shown before every plugin installation.",
+        "autoUpdate": "Turns off automatic update downloads, so security fixes stop arriving on their own.",
+        "pluginInstallReview": "Turns off the consent screen shown before installing a plugin. A plugin that asks for a sensitive permission still shows it.",
         "sessionTimeout": "Turns off the automatic vault lock after a period of inactivity."
       }
     },
@@ -794,7 +799,7 @@
           "sftpRead": { "label": "Read files", "description": "Browse and read files on your saved SSH/FTP hosts and on this computer." },
           "sftpWrite": { "label": "Write and move files", "description": "Create, rename, overwrite and delete files on your saved SSH/FTP hosts and on this computer, and copy files between them. This can permanently destroy data." },
           "audit": { "label": "Record audit events", "description": "Add entries to your audit log describing what it did. For a host in a team vault, these entries are also sent to that team's server." },
-          "auditRead": { "label": "Read the activity log", "description": "Read this device's activity log, including which hosts were reached, which files were touched and what other plugins did." },
+          "auditRead": { "label": "Read the activity log", "description": "Read this device's activity log, including which hosts were reached, which files were touched and what other plugins did. When a team is named, it also reads that team's server-side log — every member's activity." },
           "mcpContribute": { "label": "Expose tools to external AI agents", "description": "Lets this plugin add its own commands to the Voltius MCP server, so any external AI agent you have connected can run them — using this plugin's own permissions." },
           "vaultsRead": { "label": "See your vaults", "description": "See the names of your vaults, including team vaults, and how they are organized." },
           "vaultsWrite": { "label": "Create and delete vaults", "description": "Create, rename and delete your vaults. Deleting a vault can delete everything filed in it." },
@@ -863,6 +868,9 @@
         }
       },
       "filePanel": {
+        "showHidden": {
+          "title": "Show hidden files"
+        },
         "title": "File Panel",
         "autoRefresh": {
           "title": "Auto-refresh",
@@ -875,6 +883,9 @@
         }
       },
       "editor": {
+        "maxBytes": {
+          "title": "Maximum editable file size"
+        },
         "title": "Editor",
         "autoSave": {
           "title": "Auto-save",

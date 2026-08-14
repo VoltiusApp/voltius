@@ -2,6 +2,9 @@
   "settings": {
     "terminal": {
       "heading": "终端行为",
+      "preferredShell": {
+        "title": "首选 Shell"
+      },
       "scrollback": {
         "title": "终端回滚",
         "desc": "每个终端会话保留的行数。应用于新终端。",
@@ -42,6 +45,7 @@
         "reset": "重置"
       },
       "automation": {
+        "themeMode": "自动主题模式",
         "title": "自动主题",
         "desc": "在亮色和暗色主题之间自动切换",
         "lightTheme": "亮色主题",
@@ -300,7 +304,8 @@
     },
     "mcp": {
       "consequence": {
-        "pluginInstallReview": "关闭每次安装插件前显示的授权确认界面。",
+        "autoUpdate": "关闭更新的自动下载，安全修复将不再自动送达。",
+        "pluginInstallReview": "关闭安装插件前显示的授权确认界面。请求敏感权限的插件仍会显示该界面。",
         "sessionTimeout": "关闭闲置一段时间后自动锁定保险库的功能。"
       }
     },
@@ -656,7 +661,7 @@
           },
           "auditRead": {
             "label": "读取活动日志",
-            "description": "读取本设备的活动日志，包括访问过哪些主机、改动过哪些文件，以及其他插件的操作。"
+            "description": "读取本设备的活动日志，包括访问过哪些主机、改动过哪些文件，以及其他插件的操作。指定团队后，还会读取该团队服务器端的日志——即每位成员的活动。"
           },
           "mcpContribute": {
             "label": "向外部 AI 代理开放工具",
@@ -873,6 +878,9 @@
         }
       },
       "filePanel": {
+        "showHidden": {
+          "title": "显示隐藏文件"
+        },
         "title": "文件面板",
         "autoRefresh": {
           "title": "自动刷新",
@@ -885,6 +893,9 @@
         }
       },
       "editor": {
+        "maxBytes": {
+          "title": "可编辑文件的最大大小"
+        },
         "title": "编辑器",
         "autoSave": {
           "title": "自动保存",

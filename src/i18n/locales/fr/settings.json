@@ -2,6 +2,9 @@
   "settings": {
     "terminal": {
       "heading": "Comportement du terminal",
+      "preferredShell": {
+        "title": "Shell préféré"
+      },
       "scrollback": {
         "title": "Historique du terminal",
         "desc": "Lignes conservées par session de terminal. S'applique aux nouveaux terminaux.",
@@ -44,6 +47,7 @@
         "reset": "Réinitialiser"
       },
       "automation": {
+        "themeMode": "Mode du thème automatique",
         "title": "Thème automatique",
         "desc": "Basculer automatiquement entre un thème clair et sombre",
         "lightTheme": "Thème clair",
@@ -413,7 +417,8 @@
     },
     "mcp": {
       "consequence": {
-        "pluginInstallReview": "Désactive l'écran de consentement affiché avant chaque installation de plugin.",
+        "autoUpdate": "Désactive le téléchargement automatique des mises à jour : les correctifs de sécurité n'arrivent plus d'eux-mêmes.",
+        "pluginInstallReview": "Désactive l'écran de consentement affiché avant l'installation d'un plugin. Un plugin qui demande une permission sensible l'affiche quand même.",
         "sessionTimeout": "Désactive le verrouillage automatique du coffre après une période d'inactivité."
       }
     },
@@ -794,7 +799,7 @@
           "sftpRead": { "label": "Lire les fichiers", "description": "Parcourir et lire les fichiers de vos hôtes SSH/FTP enregistrés et de cet ordinateur." },
           "sftpWrite": { "label": "Écrire et déplacer des fichiers", "description": "Créer, renommer, écraser et supprimer des fichiers sur vos hôtes SSH/FTP enregistrés et sur cet ordinateur, et les copier entre eux. Cela peut détruire définitivement des données." },
           "audit": { "label": "Enregistrer des événements d'audit", "description": "Ajouter à votre journal d'audit des entrées décrivant ses actions. Pour un hôte d'un coffre d'équipe, ces entrées sont également envoyées au serveur de cette équipe." },
-          "auditRead": { "label": "Lire le journal d'activité", "description": "Lire le journal d'activité de cet appareil, y compris les hôtes contactés, les fichiers touchés et les actions des autres plugins." },
+          "auditRead": { "label": "Lire le journal d'activité", "description": "Lire le journal d'activité de cet appareil, y compris les hôtes contactés, les fichiers touchés et les actions des autres plugins. Lorsqu'une équipe est nommée, cela lit aussi le journal côté serveur de cette équipe — l'activité de chacun de ses membres." },
           "mcpContribute": { "label": "Exposer des outils aux agents IA externes", "description": "Permet à ce plugin d'ajouter ses propres commandes au serveur MCP de Voltius, afin que tout agent IA externe connecté puisse les exécuter — avec les autorisations de ce plugin." },
           "vaultsRead": { "label": "Voir vos coffres", "description": "Voir les noms de vos coffres, y compris les coffres d'équipe, et leur organisation." },
           "vaultsWrite": { "label": "Créer et supprimer des coffres", "description": "Créer, renommer et supprimer vos coffres. Supprimer un coffre peut supprimer tout ce qu'il contient." },
@@ -863,6 +868,9 @@
         }
       },
       "filePanel": {
+        "showHidden": {
+          "title": "Afficher les fichiers cachés"
+        },
         "title": "Panneau de fichiers",
         "autoRefresh": {
           "title": "Actualisation automatique",
@@ -875,6 +883,9 @@
         }
       },
       "editor": {
+        "maxBytes": {
+          "title": "Taille maximale des fichiers éditables"
+        },
         "title": "Éditeur",
         "autoSave": {
           "title": "Sauvegarde automatique",
