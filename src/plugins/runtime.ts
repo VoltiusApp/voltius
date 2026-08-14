@@ -97,7 +97,7 @@ import {
   type PanePorts,
 } from "./domains/panes";
 import { useLayoutStore } from "@/stores/layoutStore";
-import { getPlatformSync } from "@/utils/platform";
+import { isMobileShell } from "@/utils/platform";
 import { resolveCan, type Permission } from "@/services/permissions";
 import { getMyUserId } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
@@ -757,7 +757,7 @@ const panePorts: PanePorts = {
     useSessionStore.getState().setActive(sessionId);
     useUIStore.getState().setActiveNav("terminal");
   },
-  isMobile: () => getPlatformSync() === "android",
+  isMobile: () => isMobileShell(),
 };
 
 // ─── Store reload map ─────────────────────────────────────────────────────

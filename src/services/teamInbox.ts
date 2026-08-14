@@ -9,6 +9,7 @@ import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import { getCurrentUserEmail } from "@/services/account";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
+import { getPlatform, isMobileShell } from "@/utils/platform";
 import { getMyUserId } from "@/services/teamService";
 import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
@@ -88,9 +89,14 @@ export function reconcileSessions(
           // session became joinable again.
           state: joined ? ("resolved" as const) : ("pending" as const),
           resolution: joined ? i18n.t("notifications.inbox.session.joined") : undefined,
-          actions: joined
-            ? []
-            : [{ label: i18n.t("notifications.inbox.session.join"), run: () => joinSharedSession(s) }],
+          // The knock is worth having everywhere, but Join is not offered on
+          // mobile: MobileSessionLayer and MobileTerminalScreen both filter out
+          // `multiplayer` sessions, so joining there opens a websocket and then
+          // lands on "No active sessions". Re-enable once mobile renders them.
+          actions:
+            joined || isMobileShell()
+              ? []
+              : [{ label: i18n.t("notifications.inbox.session.join"), run: () => joinSharedSession(s) }],
         };
       }),
   );
@@ -176,10 +182,12 @@ export function startTeamInbox(): () => void {
     reconcileControlRequests(st.connections);
   };
   syncSessions(useTeamSessionStore.getState());
-  // Async, so the first pass above runs with a null id and cannot filter my own
-  // sessions; re-run once it lands to retract anything that slipped through.
-  getMyUserId()
-    .then((id) => {
+  // Both are async, so the first pass above runs with a null user id (cannot
+  // filter my own sessions) and an unprimed platform (isMobileShell is false).
+  // Re-run once they land, to retract what slipped through and to drop a Join
+  // action that mobile cannot honour.
+  Promise.all([getMyUserId(), getPlatform()])
+    .then(([id]) => {
       if (stopped) return;
       myUserId = id;
       syncSessions(useTeamSessionStore.getState());

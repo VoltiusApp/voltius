@@ -30,6 +30,13 @@ export function getPlatformSync(): string | null {
   return resolved;
 }
 
+/** True when App is rendering MobileShell rather than DesktopShell. Sync, for
+ *  non-React callers; false until `get_platform` resolves, so prime it with
+ *  `await getPlatform()` first where a wrong answer on the first pass matters. */
+export function isMobileShell(): boolean {
+  return getPlatformSync() === "android";
+}
+
 /** React hook: the OS string, or `null` until it resolves. */
 export function usePlatform(): string | null {
   const [os, setOs] = useState<string | null>(null);

@@ -16,6 +16,7 @@ const h = vi.hoisted(() => {
     accept: vi.fn(async () => {}),
     decline: vi.fn(async () => {}),
     getCurrentUserEmail: vi.fn(async () => "me@x" as string | null),
+    isMobileShell: vi.fn(() => false),
     sessionState,
     useSessionStore,
     uiState,
@@ -30,6 +31,10 @@ vi.mock("@/services/invitationActions", () => ({
   declineInvitation: h.decline,
 }));
 vi.mock("@/services/account", () => ({ getCurrentUserEmail: () => h.getCurrentUserEmail() }));
+vi.mock("@/utils/platform", () => ({
+  getPlatform: async () => "linux",
+  isMobileShell: () => h.isMobileShell(),
+}));
 vi.mock("@/stores/sessionStore", () => ({ useSessionStore: h.useSessionStore }));
 vi.mock("@/stores/uiStore", () => ({ useUIStore: h.useUIStore }));
 vi.mock("@/stores/teamSessionStore", () => ({ useTeamSessionStore: h.useTeamSessionStore }));
@@ -62,6 +67,7 @@ beforeEach(() => {
   h.accept.mockClear();
   h.decline.mockClear();
   h.getCurrentUserEmail.mockClear().mockResolvedValue("me@x");
+  h.isMobileShell.mockClear().mockReturnValue(false);
   h.joinSession.mockClear().mockResolvedValue("local-99");
   h.grantControl.mockClear();
   h.uiState.setActiveNav.mockClear();
@@ -163,6 +169,22 @@ test("leaving a joined session returns its entry to pending so Join renders agai
   expect(entry.state).toBe("pending");
   expect(entry.resolution).toBeUndefined();
   expect(entry.actions).toHaveLength(1);
+});
+
+// Mobile deliberately never renders multiplayer sessions, so a Join button
+// there opened a websocket and then landed the user on "No active sessions".
+// The knock stays; only the action goes.
+test("the shared-session knock offers Join on desktop but not on mobile", () => {
+  reconcileSessions([session("s1")], new Set(), "me");
+  expect(get().inbox.find((e) => e.id === "session:s1")!.actions).toHaveLength(1);
+
+  h.isMobileShell.mockReturnValue(true);
+  reconcileSessions([session("s1")], new Set(), "me");
+  const entry = get().inbox.find((e) => e.id === "session:s1")!;
+  expect(entry.actions).toEqual([]);
+  // Still knocked, still unread — only the dead-end button is withheld.
+  expect(entry.state).toBe("pending");
+  expect(entry.message).toContain("notifications.inbox.session.message");
 });
 
 test("running the inbox Join action opens a session tab, not just a websocket", async () => {
