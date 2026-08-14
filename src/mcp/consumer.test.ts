@@ -8,6 +8,8 @@ import { buildDockerMcpTools } from "@/plugins/docker/mcpTools";
 import { buildProxmoxMcpTools } from "@/plugins/proxmox/mcpTools";
 import { buildMonitoringMcpTools } from "@/plugins/monitoring/mcpTools";
 import { buildProcessMcpTools } from "@/plugins/process-manager/mcpTools";
+import { register as registerSshConfig, manifest as sshConfigManifest } from "@/plugins/ssh-config";
+import type { PluginAPI } from "@/plugins/api";
 
 const api = () => ({
   connections: { list: vi.fn().mockResolvedValue([{ id: "c1", name: "Prod", host: "h1", team: true }]) },
@@ -66,22 +68,41 @@ describe("MCP consumer", () => {
 
   // Contributed descriptions are model-facing too, and the core-only loop above
   // never sees them.
-  it("holds for the bundled plugins' contributed descriptions as well", () => {
+  it("holds for the bundled plugins' contributed descriptions as well", async () => {
     const stub = api();
     registerContributions("plugin-docker", buildDockerMcpTools(stub));
     registerContributions("plugin-proxmox", buildProxmoxMcpTools(stub));
     registerContributions("plugin-monitoring", buildMonitoringMcpTools(stub));
     registerContributions("plugin-process-manager", buildProcessMcpTools(stub));
+    // ssh-config registers its MCP tool from inside register() rather than
+    // exporting a buildXMcpTools(api), so it needs the fuller stub its own
+    // register.test.ts uses instead of the minimal `stub` above.
+    const sshConfigApi = {
+      isActive: () => true,
+      fs: { exists: vi.fn(async () => false), readText: vi.fn(async () => ""), writeText: vi.fn(async () => {}), watch: vi.fn(() => () => {}) },
+      connections: { list: vi.fn(async () => []) },
+      keys: { list: vi.fn(async () => []) },
+      identities: { list: vi.fn(async () => []) },
+      storage: { get: vi.fn(async () => null), set: vi.fn(async () => {}), delete: vi.fn(async () => {}) },
+      events: { on: vi.fn(() => () => {}), emit: vi.fn() },
+      ui: { registerSettingsPage: vi.fn(() => () => {}) },
+      lifecycle: { waitForLoginSync: vi.fn(() => Promise.resolve()) },
+      log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      mcp: { registerTools: (tools: Parameters<typeof registerContributions>[1]) => registerContributions(sshConfigManifest.id, tools) },
+    } as unknown as PluginAPI;
+    const cleanupSshConfig = registerSshConfig(sshConfigApi);
+    await new Promise((r) => setTimeout(r, 0));
     try {
       const contributed = buildMcpTools(stub, new Set()).filter((t) => t.name.includes("__"));
-      expect(contributed).toHaveLength(15);
+      expect(contributed).toHaveLength(16);
       for (const t of contributed) {
         expect(t.description.toLowerCase()).not.toContain("prompt");
         expect(t.description.toLowerCase()).not.toContain("agent");
         expect(t.description.toLowerCase()).not.toContain("workbench");
       }
     } finally {
-      for (const id of ["plugin-docker", "plugin-proxmox", "plugin-monitoring", "plugin-process-manager"]) {
+      if (typeof cleanupSshConfig === "function") cleanupSshConfig();
+      for (const id of ["plugin-docker", "plugin-proxmox", "plugin-monitoring", "plugin-process-manager", sshConfigManifest.id]) {
         clearContributions(id);
       }
     }
