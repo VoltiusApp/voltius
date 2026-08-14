@@ -95,7 +95,7 @@ async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> 
  *   "offline"          — network error or navigator.onLine === false
  *   "forbidden"        — server returned 403 (membership revoked)
  *   "payment_required" — server returned 402 (subscription lapsed)
- *   "not_found"        — server returned 404 (key never initialised)
+ *   "awaiting_key"     — server returned 404 (no wrapped key for this member yet)
  *   "error"            — anything else
  */
 export async function getTeamVaultKey(teamId: string): Promise<number[]> {
@@ -116,7 +116,7 @@ export async function getTeamVaultKey(teamId: string): Promise<number[]> {
 
   if (res.status === 403) throw "forbidden";
   if (res.status === 402) throw "payment_required";
-  if (res.status === 404) throw "not_found";
+  if (res.status === 404) throw "awaiting_key";
   if (!res.ok) throw "error";
 
   const { wrapped_key, wrapped_by_user_id } = await res.json() as {
@@ -153,7 +153,7 @@ export async function initTeamVaultKey(
     const existingBytes = await getTeamVaultKey(teamId);
     rawKey = new Uint8Array(existingBytes);
   } catch (err) {
-    if (err !== "not_found") throw new Error(i18n.t("common.error.keyFetchFailed", { error: String(err) }));
+    if (err !== "awaiting_key") throw new Error(i18n.t("common.error.keyFetchFailed", { error: String(err) }));
     rawKey = crypto.getRandomValues(new Uint8Array(32));
   }
 
@@ -316,7 +316,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   try {
     key = await getTeamVaultKey(teamId);
   } catch (err) {
-    const validStatuses = ["offline", "forbidden", "payment_required", "not_found", "error"] as const;
+    const validStatuses = ["offline", "forbidden", "payment_required", "awaiting_key", "error"] as const;
     type S = typeof validStatuses[number];
     const status: S = validStatuses.includes(err as S) ? (err as S) : "error";
     if (options.background) return;

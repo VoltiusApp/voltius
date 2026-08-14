@@ -56,6 +56,9 @@
         "request": "{{requester}} is requesting control",
         "grant": "Grant",
         "deny": "Deny"
+      },
+      "awaitingKey": {
+        "message": "Waiting for a {{team}} owner to grant vault access"
       }
     }
   }

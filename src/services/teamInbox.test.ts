@@ -38,7 +38,8 @@ vi.mock("@/i18n", () => ({
 }));
 
 import { useNotificationStore } from "@/stores/notificationStore";
-import { reconcileInvites, reconcileSessions, reconcileControlRequests } from "./teamInbox";
+import { useTeamStore } from "@/stores/teamStore";
+import { reconcileInvites, reconcileSessions, reconcileControlRequests, reconcileAwaitingKeys } from "./teamInbox";
 import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
 
@@ -66,6 +67,7 @@ beforeEach(() => {
   h.uiState.setActiveNav.mockClear();
   h.sessionState.sessions = [];
   h.sessionState.activeSessionId = null;
+  useTeamStore.setState({ teams: [] });
 });
 
 test("reconciling the same invite list twice yields one entry", () => {
@@ -209,4 +211,21 @@ test("Deny retracts the entry locally and calls nothing on the connection", asyn
   await get().runInboxAction("control:local1:guest1", 1);
   expect(get().inbox.filter((x) => x.kind === "controlRequest")).toHaveLength(0);
   expect(h.grantControl).not.toHaveBeenCalled();
+});
+
+test("a team awaiting its vault key yields exactly one entry, and it clears once the key loads", () => {
+  useTeamStore.setState({
+    teams: [
+      { id: "t1", name: "Acme", owner_id: "o1", owner_tier: "pro", created_at: "2026-08-13T00:00:00Z", role_ids: [] },
+      { id: "t2", name: "Beta", owner_id: "o1", owner_tier: "pro", created_at: "2026-08-13T00:00:00Z", role_ids: [] },
+    ],
+  });
+
+  reconcileAwaitingKeys({ t1: "awaiting_key", t2: "loaded" });
+  expect(get().inbox.filter((e) => e.kind === "awaitingKey")).toHaveLength(1);
+  expect(get().inbox.find((e) => e.kind === "awaitingKey")?.id).toBe("awaiting-key:t1");
+  expect(get().inbox.find((e) => e.kind === "awaitingKey")?.actions).toEqual([]);
+
+  reconcileAwaitingKeys({ t1: "loaded", t2: "loaded" });
+  expect(get().inbox.filter((e) => e.kind === "awaitingKey")).toHaveLength(0);
 });

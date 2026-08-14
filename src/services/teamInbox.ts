@@ -4,6 +4,8 @@ import type { InboxEntry, InboxKind } from "@/stores/notificationStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { MultiplayerSessionState } from "@/stores/teamSessionStore";
+import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import { getCurrentUserEmail } from "@/services/account";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
@@ -127,6 +129,23 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
   reconcile(["controlRequest"], entries);
 }
 
+export function reconcileAwaitingKeys(statusByTeamId: Record<string, TeamVaultStatus>): void {
+  const teams = useTeamStore.getState().teams;
+  reconcile(
+    ["awaitingKey"],
+    Object.entries(statusByTeamId)
+      .filter(([, status]) => status === "awaiting_key")
+      .map(([teamId]) => ({
+        id: `awaiting-key:${teamId}`,
+        kind: "awaitingKey" as const,
+        message: i18n.t("notifications.inbox.awaitingKey.message", {
+          team: teams.find((t) => t.id === teamId)?.name ?? teamId,
+        }),
+        actions: [],
+      })),
+  );
+}
+
 export function startTeamInbox(): () => void {
   reconcileInvites(useTeamStore.getState().myPendingInvitations);
   const unsubInvites = useTeamStore.subscribe((s, prev) => {
@@ -147,8 +166,16 @@ export function startTeamInbox(): () => void {
     }
   });
 
+  reconcileAwaitingKeys(useTeamVaultStateStore.getState().statusByTeamId);
+  const unsubVaultState = useTeamVaultStateStore.subscribe((s, prev) => {
+    if (s.statusByTeamId !== prev.statusByTeamId) {
+      reconcileAwaitingKeys(s.statusByTeamId);
+    }
+  });
+
   return () => {
     unsubInvites();
     unsubSessions();
+    unsubVaultState();
   };
 }

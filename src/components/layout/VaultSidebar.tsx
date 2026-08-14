@@ -366,13 +366,17 @@ function TeamVaultBadge({ teamId }: { teamId: string }) {
   let spin = false;
   let opacity = 1;
 
-  const isError = status === "error" || status === "not_found" || status === "forbidden" || status === "payment_required";
+  const isError = status === "error" || status === "forbidden" || status === "payment_required";
 
   if (status === "loading") {
     icon = "lucide:loader";
     spin = true;
   } else if (status === "offline") {
     icon = "lucide:cloud-off";
+    opacity = 0.5;
+  } else if (status === "awaiting_key") {
+    // Benign, self-healing wait (issue #41) — not an error, so no alert triangle.
+    icon = "lucide:clock";
     opacity = 0.5;
   } else if (isError) {
     icon = "lucide:triangle-alert";

@@ -56,6 +56,9 @@
         "request": "{{requester}} demande le contrôle",
         "grant": "Accorder",
         "deny": "Refuser"
+      },
+      "awaitingKey": {
+        "message": "En attente qu'un propriétaire de {{team}} accorde l'accès au coffre"
       }
     }
   }
