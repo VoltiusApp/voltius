@@ -141,6 +141,7 @@
       "failedToDistributeVaultKey": "分发保险库密钥失败：{{status}}",
       "failedToSaveTeamData": "保存团队数据失败：{{status}}",
       "failedToCreateSession": "创建会话失败：{{status}}",
+      "cannotInviteWithoutSessionKey": "无法邀请成员加入此会话——该会话没有按用户密钥。",
       "failedToCreateInviteLinkSession": "创建邀请链接会话失败：{{status}}",
       "failedToGetSessionKey": "获取会话密钥失败：{{status}}",
       "invalidJson": "JSON 无效",
