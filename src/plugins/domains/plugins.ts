@@ -74,40 +74,60 @@ function loadedManifest(id: string): PluginManifest | undefined {
   return getLoadedPlugins().find((m) => m.id === id);
 }
 
+async function findView(id: string): Promise<PluginView | undefined> {
+  return (await listPlugins()).find((p) => p.id === id);
+}
+
 const noSuchPlugin = (id: string) =>
   failed(`no such plugin "${id}"; call plugin_list for the installed ids`);
+
+/** Runs a throwing store call and turns a rejection into a DomainResult refusal,
+ *  preserving the thrown error's message (MinAppVersionError, hash/id mismatches,
+ *  a bad source URL, ...) — same convention as settings.ts's setSetting. */
+async function tryStoreCall(fn: () => Promise<void>): Promise<DomainResult<void>> {
+  try {
+    await fn();
+    return { ok: true, result: undefined };
+  } catch (err) {
+    return failed(err);
+  }
+}
 
 export async function installPlugin(id: string): Promise<DomainResult<PluginView>> {
   const entry = await catalogEntry(id);
   if (!entry) return failed(`no catalog plugin "${id}"; call marketplace_search for available ids`);
-  const { manifestText } = await market().fetchManifest(entry);
-  await market().installPlugin(entry, manifestText);
-  const view = (await listPlugins()).find((p) => p.id === id);
+  const attempt = await tryStoreCall(async () => {
+    const { manifestText } = await market().fetchManifest(entry);
+    await market().installPlugin(entry, manifestText);
+  });
+  if (!attempt.ok) return attempt;
+  const view = await findView(id);
   return view ? { ok: true, result: view } : failed(`install of "${id}" produced no loaded plugin`);
 }
 
 export async function uninstallPlugin(id: string): Promise<DomainResult<{ id: string }>> {
-  const views = await listPlugins();
-  const view = views.find((p) => p.id === id);
+  const view = await findView(id);
   if (!view) return noSuchPlugin(id);
-  if (view.origin === "seeded") await market().uninstallSeededPlugin(id);
-  else await market().uninstallPlugin(id);
+  const attempt = await tryStoreCall(() =>
+    view.origin === "seeded" ? market().uninstallSeededPlugin(id) : market().uninstallPlugin(id),
+  );
+  if (!attempt.ok) return attempt;
   return { ok: true, result: { id } };
 }
 
 export async function setPluginEnabled(id: string, enabled: boolean): Promise<DomainResult<PluginView>> {
-  if (!loadedManifest(id) && !(await listPlugins()).some((p) => p.id === id)) return noSuchPlugin(id);
+  if (!loadedManifest(id)) return noSuchPlugin(id);
   // Same pair, same order, as the Settings toggle (PluginsSection handleToggle).
   setPluginActive(id, enabled);
   await usePluginRegistryStore.getState().setEnabled(id, enabled);
-  const view = (await listPlugins()).find((p) => p.id === id);
+  const view = await findView(id);
   return view
     ? { ok: true, result: view }
     : { ok: true, result: { id, name: id, version: "", enabled, loaded: false, origin: "local", hash: null, permissions: [], configurable: [], updateAvailable: null } };
 }
 
 export async function updatePlugin(id: string): Promise<DomainResult<PluginView>> {
-  const view = (await listPlugins()).find((p) => p.id === id);
+  const view = await findView(id);
   if (!view) return noSuchPlugin(id);
   if (!view.updateAvailable) return failed(`"${id}" is already at ${view.version}; no update available`);
   return installPlugin(id);
@@ -175,7 +195,8 @@ export async function searchCatalog(query?: string): Promise<MarketplacePlugin[]
 }
 
 export async function addSource(url: string): Promise<DomainResult<SourceView>> {
-  await market().addSource(url);
+  const attempt = await tryStoreCall(() => market().addSource(url));
+  if (!attempt.ok) return attempt;
   const view = (await listSources()).find((s) => s.url === url);
   return view ? { ok: true, result: view } : failed(`source "${url}" was not added`);
 }
@@ -184,6 +205,7 @@ export async function removeSource(id: string): Promise<DomainResult<{ id: strin
   const source = (await listSources()).find((s) => s.id === id);
   if (!source) return failed(`no such marketplace source "${id}"`);
   if (!source.deletable) return failed(`"${id}" is built in and cannot be removed`);
-  await market().removeSource(id);
+  const attempt = await tryStoreCall(() => market().removeSource(id));
+  if (!attempt.ok) return attempt;
   return { ok: true, result: { id } };
 }

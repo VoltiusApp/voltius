@@ -5,6 +5,7 @@ const marketplace = {
   sources: [{ id: "voltius", name: "Voltius Marketplace", url: "https://x/plugins.json", enabled: true, deletable: false }],
   catalog: [
     { id: "acme", name: "Acme", author: "a", description: "d", repo: "r", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
+    { id: "widget", name: "Widget", author: "a", description: "d", repo: "r", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
   ],
   installedMeta: [{ id: "acme", version: "1.0.0", sourceId: "voltius", hash: "abc" }],
   loadAppVersion: vi.fn(async () => {}),
@@ -20,6 +21,7 @@ const marketplace = {
 };
 vi.mock("@/stores/marketplaceStore", () => ({
   useMarketplaceStore: { getState: () => marketplace },
+  FIRST_PARTY_SOURCE: { id: "voltius", name: "Voltius Marketplace", url: "https://x/plugins.json", enabled: true, deletable: false },
 }));
 
 const registry = { isEnabled: vi.fn(() => true), setEnabled: vi.fn(async () => {}) };
@@ -35,6 +37,7 @@ vi.mock("@/plugins/runtime", () => ({
       contributes: { configuration: { autoCheck: { type: "boolean", default: true, description: "d" } } },
     },
     { id: "plain", name: "Plain", version: "1.0.0", permissions: [] },
+    { id: "widget", name: "Widget", version: "1.0.0", permissions: [] },
   ],
   setPluginActive: vi.fn(),
   pluginStorageGet: async (id: string, key: string) => storage.get(`${id}::${key}`) ?? null,
@@ -42,7 +45,10 @@ vi.mock("@/plugins/runtime", () => ({
 }));
 
 vi.mock("@/stores/seededTombstoneStore", () => ({
-  loadSeededEntries: async () => new Map([["plain", { id: "plain", version: "1.0.0" }]]),
+  loadSeededEntries: async () => new Map([
+    ["plain", { id: "plain", version: "1.0.0" }],
+    ["widget", { id: "widget", version: "1.0.0" }],
+  ]),
 }));
 
 import {
@@ -96,6 +102,13 @@ describe("plugin domain", () => {
     const r = await removeSource("voltius");
     expect(r.ok).toBe(false);
     expect(marketplace.removeSource).not.toHaveBeenCalled();
+  });
+
+  it("reports an update for a seeded plugin with no installedMeta entry", async () => {
+    const list = await listPlugins();
+    const widget = list.find((p) => p.id === "widget")!;
+    expect(widget.origin).toBe("seeded");
+    expect(widget.updateAvailable).toBe("2.0.0");
   });
 
   it("refuses an update when the catalog has nothing newer", async () => {
