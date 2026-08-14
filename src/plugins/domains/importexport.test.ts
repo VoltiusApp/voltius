@@ -36,10 +36,20 @@ vi.mock("@/stores/teamStore", () => ({ useTeamStore: { getState: () => ({ teams:
 // formats.ts and importers.ts are NOT mocked: the round-trip test below only
 // proves anything if the real encryptText/decryptText/detectFormat/fromJSON run.
 vi.mock("@/services/import-export/registry", () => ({
-  HANDLERS: [{ key: "connections" }, { key: "identities" }, { key: "keys" }, { key: "snippets" }, { key: "portForwardingRules" }],
-  buildBundle: vi.fn(async () => ({
-    version: 1, exported_at: "", folders: [], connections: [{ _eid: "e1", name: "web", password: "hunter2" }],
-    identities: [], keys: [], snippets: [], portForwardingRules: [],
+  HANDLERS: [
+    { key: "connections", jsonOnly: false },
+    { key: "identities", jsonOnly: true },
+    { key: "keys", jsonOnly: true },
+    { key: "snippets", jsonOnly: true },
+    { key: "portForwardingRules", jsonOnly: true },
+  ],
+  // Respects `enabled`, like the real buildBundle: a disabled type's slot is
+  // empty, which is what the CSV masking test below needs to be meaningful.
+  buildBundle: vi.fn(async (enabled: Record<string, boolean>) => ({
+    version: 1, exported_at: "", folders: [],
+    connections: enabled.connections ? [{ _eid: "e1", name: "web", password: "hunter2" }] : [],
+    identities: enabled.identities ? [{ _eid: "i1", username: "u", password: "hunter2" }] : [],
+    keys: [], snippets: [], portForwardingRules: [],
   })),
   runImport: vi.fn(async () => ({ imported: 1, errors: 0 })),
   reloadAll: vi.fn(async () => {}),
@@ -83,6 +93,16 @@ describe("import/export domain", () => {
     await exportObjects({ vaultIds: ["personal"], types: ["connections"], format: "json", passphrase: "pw" });
     const stores = vi.mocked(buildBundle).mock.calls[0][1];
     expect(stores.snippetFolders.map((f) => f.id)).toContain(teamSnippetFolder.id);
+  });
+
+  it("masks jsonOnly types out of a CSV export: no refusal for a passphrase, no identities in counts", async () => {
+    const r = await exportObjects({
+      vaultIds: ["personal"], types: ["identities"], format: "csv",
+    });
+    expect(r.ok).toBe(true);
+    const res = (r as { result: { encrypted: boolean; counts: Record<string, number> } }).result;
+    expect(res.encrypted).toBe(false);
+    expect(res.counts.identities).toBe(0);
   });
 
   it("dry_run reports counts and writes nothing", async () => {

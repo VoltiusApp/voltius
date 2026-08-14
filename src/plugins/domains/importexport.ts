@@ -137,8 +137,12 @@ export async function exportObjects(opts: {
   passphrase?: string;
 }): Promise<DomainResult<ExportResult>> {
   const selected = opts.types.length > 0 ? opts.types : [...EXPORT_TYPES];
+  // Mirrors ExportTab's mask: a jsonOnly handler (identities, keys, snippets,
+  // pf_rules) never appears in a CSV bundle, so counts, secret detection and
+  // the emitted content all describe the same artifact.
+  const isCsv = opts.format === "csv";
   const enabled: Record<string, boolean> = Object.fromEntries(
-    HANDLERS.map((h) => [h.key, selected.some((t) => HANDLER_KEY[t] === h.key)]),
+    HANDLERS.map((h) => [h.key, selected.some((t) => HANDLER_KEY[t] === h.key) && (!h.jsonOnly || !isCsv)]),
   );
   let bundle: ExportBundle;
   try {
