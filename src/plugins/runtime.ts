@@ -1639,6 +1639,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         // writes under.
         const { logs, total } = await fetchLocalAuditLogs(filters.vaultId || "personal", {
           actions: filters.actions,
+          actor_id: filters.actorId,
           from: filters.from,
           to: filters.to,
           page: Math.max(1, filters.page ?? 1),

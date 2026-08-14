@@ -723,8 +723,9 @@ export interface PortsAPI {
   reach(req: ReachPortRequest): Promise<ReachPortResponse>;
 }
 
-/** A local audit row, projected. Drops the internal id, actor id, team/vault
- *  ids and IP — none of which a plugin or an external client has any use for. */
+/** A local or team-server audit row, projected. Drops the internal id, actor
+ *  id, team/vault ids and IP — none of which a plugin or an external client
+ *  has any use for. */
 export interface PluginAuditRow {
   action: string;
   actor_name: string;

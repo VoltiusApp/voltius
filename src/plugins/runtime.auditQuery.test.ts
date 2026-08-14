@@ -101,10 +101,24 @@ describe("api.audit.query", () => {
     await api.audit.query({ perPage: 5000, actions: ["agent.command_run"] });
     expect(fetchLocalAuditLogs).toHaveBeenCalledWith("personal", {
       actions: ["agent.command_run"],
+      actor_id: undefined,
       from: undefined,
       to: undefined,
       page: 1,
       per_page: 100,
+    });
+  });
+
+  it("forwards actorId to the local sink too, not only the team one", async () => {
+    const api = createHostPluginAPI("test:local-actor", ["audit:read"]);
+    await api.audit.query({ actorId: "user-3" });
+    expect(fetchLocalAuditLogs).toHaveBeenCalledWith("personal", {
+      actions: undefined,
+      actor_id: "user-3",
+      from: undefined,
+      to: undefined,
+      page: 1,
+      per_page: 50,
     });
   });
 });
