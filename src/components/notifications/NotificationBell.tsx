@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { Icon } from "@iconify/react";
 import { useNotificationStore } from "@/stores/notificationStore";
-import type { BannerEntry, HistoryEntry } from "@/stores/notificationStore";
+import type { BannerEntry, HistoryEntry, InboxEntry } from "@/stores/notificationStore";
 
 const SEVERITY_ICONS: Record<string, string> = {
   info: "lucide:info",
@@ -28,6 +28,45 @@ function relativeTime(ms: number): string {
   return i18n.t("notifications.bell.relativeTime.daysAgo", { count: Math.floor(diff / 86_400_000) });
 }
 
+function InboxRow({ entry, onAction }: { entry: InboxEntry; onAction: (i: number) => void }) {
+  const resolved = entry.state === "resolved";
+  return (
+    <div
+      className="flex flex-col gap-1 px-3 py-2.5 rounded-lg"
+      style={{
+        background: "var(--t-bg-elevated)",
+        borderLeft: `2px solid ${resolved ? "var(--t-text-dim)" : "var(--t-accent)"}`,
+        opacity: resolved ? 0.6 : 1,
+      }}
+    >
+      <p className="text-sm text-(--t-text-primary) leading-snug">{entry.message}</p>
+      {resolved ? (
+        <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>{entry.resolution}</span>
+      ) : (
+        entry.actions.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            {entry.actions.map((a, i) => (
+              <button
+                key={a.label}
+                disabled={entry.state === "acting"}
+                onClick={() => onAction(i)}
+                className="text-xs px-2 py-0.5 rounded-sm transition-colors"
+                style={{
+                  background: "var(--t-bg-input)",
+                  color: "var(--t-text-primary)",
+                  opacity: entry.state === "acting" ? 0.5 : 1,
+                }}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 function BannerRow({ banner, onDismiss }: { banner: BannerEntry; onDismiss: () => void }) {
   const color = SEVERITY_COLORS[banner.severity] ?? SEVERITY_COLORS.info;
   const icon = SEVERITY_ICONS[banner.severity] ?? SEVERITY_ICONS.info;
@@ -43,9 +82,11 @@ function BannerRow({ banner, onDismiss }: { banner: BannerEntry; onDismiss: () =
       <div className="flex items-start gap-2">
         <Icon icon={icon} width={13} style={{ color, flexShrink: 0, marginTop: 2 }} />
         <div className="flex-1 min-w-0">
-          <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
-            [{banner.pluginName.slice(0, 20)}]
-          </span>
+          {banner.source.kind === "plugin" && (
+            <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
+              [{banner.source.name.slice(0, 20)}]
+            </span>
+          )}
           <p className="text-sm text-(--t-text-primary) leading-snug">{banner.message}</p>
         </div>
         {banner.dismissable && (
@@ -88,9 +129,11 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
     <div className="flex items-start gap-2 px-3 py-2 rounded-lg opacity-60">
       <Icon icon={icon} width={12} style={{ color, flexShrink: 0, marginTop: 2 }} />
       <div className="flex-1 min-w-0">
-        <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
-          [{entry.pluginName.slice(0, 20)}]
-        </span>
+        {entry.source.kind === "plugin" && (
+          <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
+            [{entry.source.name.slice(0, 20)}]
+          </span>
+        )}
         <p className="text-xs text-(--t-text-secondary) truncate">{entry.message}</p>
       </div>
       <span className="text-xs shrink-0" style={{ color: "var(--t-text-dim)" }}>
@@ -104,9 +147,10 @@ export function NotificationBell() {
   const { t } = useTranslation();
   const banners = useNotificationStore((s) => s.banners);
   const history = useNotificationStore((s) => s.history);
-  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const inbox = useNotificationStore((s) => s.inbox);
+  const unreadCount = useNotificationStore((s) => s.unreadCount());
   const dismissBanner = useNotificationStore((s) => s.dismissBanner);
-  const markAllRead = useNotificationStore((s) => s.markAllRead);
+  const runInboxAction = useNotificationStore((s) => s.runInboxAction);
   const clearHistory = useNotificationStore((s) => s.clearHistory);
 
   const [open, setOpen] = useState(false);
@@ -133,12 +177,11 @@ export function NotificationBell() {
       const rect = buttonRef.current.getBoundingClientRect();
       setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
     }
-    markAllRead();
     setOpen((o) => !o);
   };
 
   const displayCount = Math.min(unreadCount, 9);
-  const hasItems = banners.length > 0 || history.length > 0;
+  const hasItems = inbox.length > 0 || banners.length > 0 || history.length > 0;
 
   return (
     <>
@@ -187,8 +230,8 @@ export function NotificationBell() {
           style={{
             position: "fixed",
             top: pos.top,
-            right: pos.right,
-            width: "20rem",
+            width: "min(20rem, calc(100vw - 1rem))",
+            right: Math.max(pos.right, 8),
             zIndex: 50,
             background: "var(--t-bg-modal)",
             borderRadius: "0.75rem",
@@ -224,6 +267,19 @@ export function NotificationBell() {
               </div>
             ) : (
               <div className="flex flex-col gap-0.5 p-2">
+                {inbox.length > 0 && (
+                  <>
+                    {inbox.map((e) => (
+                      <InboxRow key={e.id} entry={e} onAction={(i) => runInboxAction(e.id, i)} />
+                    ))}
+                    {(banners.length > 0 || history.length > 0) && (
+                      <div
+                        className="my-1 h-px"
+                        style={{ background: "var(--t-border)" }}
+                      />
+                    )}
+                  </>
+                )}
                 {banners.length > 0 && (
                   <>
                     {banners.map((b) => (

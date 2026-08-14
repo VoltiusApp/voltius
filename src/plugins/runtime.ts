@@ -21,6 +21,7 @@ import type { MobileScreen as MobileNavScreen } from "@/stores/mobileNavCore";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
+import type { NotificationSource } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -116,7 +117,7 @@ import { broadcastActiveForSession, useLayoutStore } from "@/stores/layoutStore"
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
-import { getPlatformSync } from "@/utils/platform";
+import { isMobileShell } from "@/utils/platform";
 import { resolveCan, type Permission } from "@/services/permissions";
 import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
@@ -776,7 +777,7 @@ const panePorts: PanePorts = {
     useSessionStore.getState().setActive(sessionId);
     useUIStore.getState().setActiveNav("terminal");
   },
-  isMobile: () => getPlatformSync() === "android",
+  isMobile: () => isMobileShell(),
 };
 
 const teamPorts: TeamPorts = {
@@ -1698,7 +1699,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const { severity = "info", duration = 2500, action } = opts;
         const pluginName = manifest.name.slice(0, 20);
         useNotificationStore.getState().addToast({
-          pluginId: id, pluginName, type: "toast",
+          source: { kind: "plugin", id, name: pluginName }, type: "toast",
           message, severity, duration, action,
         });
       },
@@ -1713,7 +1714,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         let onCancel: (() => void) | undefined;
 
         const toastId = useNotificationStore.getState().addToast({
-          pluginId: id, pluginName, type: "progress",
+          source: { kind: "plugin", id, name: pluginName }, type: "progress",
           message: title, severity: "info", duration: 0,
           progress: indeterminate ? undefined : 0,
           cancellable,
@@ -1753,12 +1754,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const { severity = "info", actions = [], dismissable = true, flashToast = true } = opts;
         const pluginName = manifest.name.slice(0, 20);
         const notifStore = useNotificationStore.getState();
+        const source: NotificationSource = { kind: "plugin", id, name: pluginName };
         const bannerId = notifStore.addBanner({
-          pluginId: id, pluginName, message, severity, actions, dismissable,
+          source, message, severity, actions, dismissable,
         });
         if (flashToast) {
           notifStore.addToast({
-            pluginId: id, pluginName, type: "toast",
+            source, type: "toast",
             message, severity, duration: 2000,
           });
         }
@@ -2181,8 +2183,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         } else {
           await writeClipboard(result.address);
           useNotificationStore.getState().addToast({
-            pluginId: id,
-            pluginName: manifest.name.slice(0, 20),
+            source: { kind: "plugin", id, name: manifest.name.slice(0, 20) },
             type: "toast",
             message: i18n.t("portForwarding.reach.copied", { address: result.address }),
             severity: "info",

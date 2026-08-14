@@ -30,6 +30,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
 import { getCurrentUserEmail } from "@/services/account";
+import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { useToggleSettings } from "@/hooks/useToggleSettings";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
@@ -127,7 +128,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const keys = useKeyStore((s) => s.keys);
   const vaults = useVaultStore((s) => s.vaults);
   const teams = useTeamStore((s) => s.teams);
-  const { activeSessions: teamSessions, fetchActiveSessions, joinSession } = useTeamSessionStore();
+  const { activeSessions: teamSessions, fetchActiveSessions } = useTeamSessionStore();
   const mpConnections = useTeamSessionStore((s) => s.connections);
   const myMpSessionIds = useMemo(
     () => new Set(Object.values(mpConnections).map((c) => c.multiplayerSessionId)),
@@ -478,22 +479,12 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         } else {
           (async () => {
             const displayName = (await getCurrentUserEmail()) ?? "Me";
-            const localSessionId = await joinSession(session.id, displayName, () => {});
-            useSessionStore.setState((s) => ({
-              sessions: [
-                ...s.sessions,
-                {
-                  id: localSessionId,
-                  connectionId: session.id,
-                  connectionName: session.connection_name,
-                  status: "connected" as const,
-                  type: "multiplayer" as const,
-                },
-              ],
-              activeSessionId: localSessionId,
-            }));
+            await joinTeamSessionAndOpenTab({
+              sessionId: session.id,
+              displayName,
+              connectionName: session.connection_name,
+            });
             setSidebarOpen(false);
-            setActiveNav("terminal");
           })().catch(console.error);
         }
         onClose();
@@ -510,22 +501,13 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           const { sessionId, token } = parsed;
           (async () => {
             const displayName = (await getCurrentUserEmail()) ?? "Me";
-            const localSessionId = await joinSession(sessionId, displayName, () => {}, token);
-            useSessionStore.setState((s) => ({
-              sessions: [
-                ...s.sessions,
-                {
-                  id: localSessionId,
-                  connectionId: sessionId,
-                  connectionName: "Shared Terminal",
-                  status: "connected" as const,
-                  type: "multiplayer" as const,
-                },
-              ],
-              activeSessionId: localSessionId,
-            }));
+            await joinTeamSessionAndOpenTab({
+              sessionId,
+              displayName,
+              connectionName: "Shared Terminal",
+              inviteToken: token,
+            });
             setSidebarOpen(false);
-            setActiveNav("terminal");
           })().catch(console.error);
         }
         onClose();
@@ -539,7 +521,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     },
     [setActive, setActiveNav, onClose, setSidebarOpen,
      openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
-     sessions, connections, trackUsed, setGlobalPendingInject, joinSession],
+     sessions, connections, trackUsed, setGlobalPendingInject],
   );
 
   useEffect(() => {

@@ -38,9 +38,9 @@ test("offline (navigator.onLine false) throws 'offline'", async () => {
   await expect(getTeamVaultKey("t1")).rejects.toBe("offline");
 });
 
-test("403 → forbidden, 402 → payment_required, 404 → not_found", async () => {
+test("403 → forbidden, 402 → payment_required, 404 → awaiting_key", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
-  for (const [status, expected] of [[403, "forbidden"], [402, "payment_required"], [404, "not_found"]] as const) {
+  for (const [status, expected] of [[403, "forbidden"], [402, "payment_required"], [404, "awaiting_key"]] as const) {
     h.appFetch.mockResolvedValueOnce(res(status));
     await expect(getTeamVaultKey("t1")).rejects.toBe(expected);
   }

@@ -28,6 +28,7 @@
       "sharing": "Совместный доступ",
       "watching": "Просмотр",
       "requestControl": "Запросить управление",
+      "requestPending": "Запрошено — ожидание хоста",
       "youHaveControl": "Управление у вас",
       "controlRequested": "Запрошено управление",
       "grant": "Разрешить",

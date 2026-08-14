@@ -28,6 +28,7 @@
       "sharing": "Sharing",
       "watching": "Watching",
       "requestControl": "Request Control",
+      "requestPending": "Requested — waiting for host",
       "youHaveControl": "You have control",
       "controlRequested": "Control requested",
       "grant": "Grant",

@@ -39,6 +39,28 @@
     "seededPluginsFailed": {
       "message": "Les plugins intégrés n'ont pas pu être chargés, l'application fonctionne donc sans eux. Ceci est un bug — merci de le signaler.",
       "action": "Diagnostics"
+    },
+    "inbox": {
+      "someone": "Quelqu'un",
+      "invite": {
+        "message": "{{inviter}} vous a invité à rejoindre {{team}}",
+        "accept": "Accepter",
+        "decline": "Refuser"
+      },
+      "session": {
+        "message": "Un coéquipier a partagé {{name}}",
+        "join": "Rejoindre",
+        "joined": "Rejoint"
+      },
+      "control": {
+        "request": "{{requester}} demande le contrôle",
+        "grant": "Accorder",
+        "deny": "Refuser",
+        "granted": "Vous avez le contrôle"
+      },
+      "awaitingKey": {
+        "message": "En attente qu'un propriétaire de {{team}} accorde l'accès au coffre"
+      }
     }
   }
 }

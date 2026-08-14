@@ -14,10 +14,7 @@ import { CreateVaultModal } from "@/components/shared/CreateVaultModal";
 import { Modal } from "@/components/shared/Modal";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { getUpdaterState, onUpdaterStateChange, type UpdaterStatus } from "@/services/updater";
-import {
-  acceptMyPendingInvitation,
-  declineMyPendingInvitation,
-} from "@/services/teamService";
+import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import type { MyPendingInvitation } from "@/stores/teamStore";
 
 function getInitials(name: string) {
@@ -150,25 +147,12 @@ export default function VaultSidebar() {
         <PendingInviteModal
           invite={selectedInvite}
           onAccept={async () => {
-            await acceptMyPendingInvitation(selectedInvite.id);
-            const acceptedTeamId = selectedInvite.team_id;
+            await acceptInvitation(selectedInvite.id, selectedInvite.team_id);
             setSelectedInvite(null);
-            // loadTeams() + loadMyPendingInvitations() run in parallel with vault load.
-            // We also call joinAndLoadTeamVault directly because loadTeams() below will
-            // add the team to the store before the SSE membership_changed event is
-            // processed — causing handleMembershipChangedEvent to see a zero delta and
-            // skip onTeamAdded entirely, leaving status stuck at "forbidden".
-            const { joinAndLoadTeamVault } = await import("@/services/teamDataManager");
-            await Promise.all([
-              useTeamStore.getState().loadTeams(),
-              useTeamStore.getState().loadMyPendingInvitations(),
-              joinAndLoadTeamVault(acceptedTeamId),
-            ]);
           }}
           onDecline={async () => {
-            await declineMyPendingInvitation(selectedInvite.id);
+            await declineInvitation(selectedInvite.id);
             setSelectedInvite(null);
-            await useTeamStore.getState().loadMyPendingInvitations();
           }}
           onClose={() => setSelectedInvite(null)}
         />
@@ -382,13 +366,17 @@ function TeamVaultBadge({ teamId }: { teamId: string }) {
   let spin = false;
   let opacity = 1;
 
-  const isError = status === "error" || status === "not_found" || status === "forbidden" || status === "payment_required";
+  const isError = status === "error" || status === "forbidden" || status === "payment_required";
 
   if (status === "loading") {
     icon = "lucide:loader";
     spin = true;
   } else if (status === "offline") {
     icon = "lucide:cloud-off";
+    opacity = 0.5;
+  } else if (status === "awaiting_key") {
+    // Benign, self-healing wait (issue #41) — not an error, so no alert triangle.
+    icon = "lucide:clock";
     opacity = 0.5;
   } else if (isError) {
     icon = "lucide:triangle-alert";

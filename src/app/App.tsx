@@ -25,6 +25,7 @@ import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { restoreWorkspaceOnLaunch } from "@/stores/workspaceRestore";
 import { startLiveSessionPublisher } from "@/services/liveSessionPublisher";
 import { startCrossDeviceSessions } from "@/services/crossDeviceSessions";
+import { startTeamInbox } from "@/services/teamInbox";
 import { NotificationToastContainer } from "@/components/notifications/NotificationToastContainer";
 import ThemeCreator from "@/components/theme-creator/ThemeCreator";
 import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
@@ -47,6 +48,7 @@ function App() {
   useMcpServerSync();
   useChangelogAutoOpen();
   useEffect(() => { initUpdaterListener(); useUpdaterPrefStore.getState().load(); }, []);
+  useEffect(() => startTeamInbox(), []);
   useEffect(() => {
     if (ready) {
       void restoreWorkspaceOnLaunch().then(() => {

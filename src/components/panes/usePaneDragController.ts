@@ -38,8 +38,7 @@ export function usePaneDragController() {
           const duplicated = duplicateSession(drag.sessionId, drag.dropTarget.position, anchor);
           if (!duplicated) {
             useNotificationStore.getState().addToast({
-              pluginId: "core",
-              pluginName: "Voltius",
+              source: { kind: "plugin", id: "core", name: "Voltius" },
               type: "toast",
               message: i18n.t("panes.dragToast.cannotDuplicate"),
               severity: "info",
@@ -65,8 +64,7 @@ export function usePaneDragController() {
             layout.setActivePane(existing.id);
             useSessionStore.getState().setActive(drag.sessionId);
             useNotificationStore.getState().addToast({
-              pluginId: "core",
-              pluginName: "Voltius",
+              source: { kind: "plugin", id: "core", name: "Voltius" },
               type: "toast",
               message: i18n.t("panes.dragToast.alreadyVisible"),
               severity: "info",
@@ -80,8 +78,7 @@ export function usePaneDragController() {
             useSessionStore.getState().setActive(drag.sessionId);
           } else {
             useNotificationStore.getState().addToast({
-              pluginId: "core",
-              pluginName: "Voltius",
+              source: { kind: "plugin", id: "core", name: "Voltius" },
               type: "toast",
               message: i18n.t("panes.dragToast.invalidDropTarget"),
               severity: "info",

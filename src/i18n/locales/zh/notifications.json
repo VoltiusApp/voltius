@@ -39,6 +39,28 @@
     "seededPluginsFailed": {
       "message": "内置插件加载失败，应用正在没有它们的情况下运行。这是一个缺陷——请报告此问题。",
       "action": "诊断"
+    },
+    "inbox": {
+      "someone": "某人",
+      "invite": {
+        "message": "{{inviter}} 邀请您加入 {{team}}",
+        "accept": "接受",
+        "decline": "拒绝"
+      },
+      "session": {
+        "message": "队友分享了 {{name}}",
+        "join": "加入",
+        "joined": "已加入"
+      },
+      "control": {
+        "request": "{{requester}} 正在请求控制权",
+        "grant": "授予",
+        "deny": "拒绝",
+        "granted": "您已获得控制权"
+      },
+      "awaitingKey": {
+        "message": "正在等待 {{team}} 的所有者授予保险库访问权限"
+      }
     }
   }
 }

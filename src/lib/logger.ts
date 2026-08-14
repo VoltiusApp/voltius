@@ -55,8 +55,7 @@ export function installGlobalErrorLogging(): void {
   window.addEventListener("error", (e) => {
     log.error(`uncaught error: ${e.message}`, e.filename ? `at ${e.filename}:${e.lineno}` : "");
     useNotificationStore.getState().addToast({
-      pluginId: "core",
-      pluginName: "Voltius",
+      source: { kind: "plugin", id: "core", name: "Voltius" },
       type: "toast",
       message: i18n.t("settings.diagnostics.toastGenericError"),
       severity: "error",

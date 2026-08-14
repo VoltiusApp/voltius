@@ -503,8 +503,7 @@ export function buildSummaryMessage(result: SequenceRunResult): { message: strin
 export function reportSequenceResult(result: SequenceRunResult): void {
   const { message, severity } = buildSummaryMessage(result);
   useNotificationStore.getState().addToast({
-    pluginId: "snippets",
-    pluginName: "Snippets",
+    source: { kind: "plugin", id: "snippets", name: "Snippets" },
     type: "toast",
     message,
     severity,

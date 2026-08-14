@@ -85,7 +85,7 @@ function TeamVaultState({
     // Member has joined the team but no vault owner has distributed a key yet
     // (issue #41). Distinct from a hard error — a key-holder self-heals this on
     // their next sync, so present it as a benign waiting state, not a failure.
-    not_found: {
+    awaiting_key: {
       icon: "lucide:clock",
       title: t("layout.mainPanel.teamVault.waitingForAccessTitle"),
       body: t("layout.mainPanel.teamVault.waitingForAccessBody"),
@@ -133,7 +133,7 @@ function TeamVaultState({
             {t("layout.mainPanel.manageSubscription")}
           </button>
         )}
-        {(!status || status === "error" || status === "not_found") && (
+        {(!status || status === "error" || status === "awaiting_key") && (
           <button
             onClick={() => fetchTeamData(teamId).catch(() => {})}
             className="mt-2 text-sm px-3 py-1.5 rounded-lg"
@@ -199,7 +199,7 @@ export default function MainPanel() {
     (teamVaultStatus === "offline" ||
       teamVaultStatus === "forbidden" ||
       teamVaultStatus === "payment_required" ||
-      teamVaultStatus === "not_found" ||
+      teamVaultStatus === "awaiting_key" ||
       teamVaultStatus === "error") &&
     !homeView;
   const showSplitWorkspace = activeNav === "terminal" && splitTabActive && !sftpPanelOpen;

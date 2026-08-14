@@ -91,7 +91,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
     ...(!isSerial ? [{ icon: "lucide:folder-open", label: isFtp ? t("mobile.sheets.hostActions.openFiles") : t("mobile.panelItems.sftp"), slug: isFtp ? "open-files" : "sftp", onTap: () => { closeSheet(); push({ kind: "panel-sftp", connectionId: hostId }); } }] : []),
     ...(conn.host ? [{ icon: "lucide:clipboard-copy", label: t("mobile.sheets.hostActions.copyAddress"), slug: "copy-address", onTap: () => {
       void writeClipboard(conn.host);
-      useNotificationStore.getState().addToast({ pluginId: "core", pluginName: "Voltius", type: "toast", message: t("mobile.sheets.hostActions.copiedAddress", { host: conn.host }), severity: "success", duration: 2000 });
+      useNotificationStore.getState().addToast({ source: { kind: "plugin", id: "core", name: "Voltius" }, type: "toast", message: t("mobile.sheets.hostActions.copiedAddress", { host: conn.host }), severity: "success", duration: 2000 });
       closeSheet();
     } }] : []),
     { icon: "lucide:copy", label: t("mobile.sheets.shared.duplicate"), slug: "duplicate", onTap: () => {
