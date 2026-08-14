@@ -5,7 +5,7 @@ import { refusal } from "../refusal";
 import { makeGate, objectOp, unwrapDomain } from "./helpers";
 import { EXPORT_TYPES, type ExportType } from "@/plugins/domains/importexport";
 
-export const IMPORT_EXPORT_PERMISSIONS = ["importexport:read", "importexport:write"] as const;
+export const IMPORT_EXPORT_PERMISSIONS = ["importexport:read", "importexport:write", "fs"] as const;
 
 export function buildImportExportTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);

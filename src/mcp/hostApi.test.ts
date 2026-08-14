@@ -62,6 +62,31 @@ describe("MCP host API surface", () => {
     }
   });
 
+  // export_objects/import_objects only reach api.fs when a `path` argument is
+  // given; the two checks above run every tool with `{}` and so never exercise
+  // that branch. A permission gap reached only through an optional argument
+  // (the "fs" permission for IMPORT_EXPORT_PERMISSIONS) is invisible to them.
+  it("export_objects and import_objects with a path do not hit a permission error", async () => {
+    const api = createHostPluginAPI("__mcp_hostapi_test3__", PERMISSIONS);
+    const tools = buildMcpTools(api, new Set());
+    const exportTool = tools.find((t) => t.name === "export_objects");
+    const importTool = tools.find((t) => t.name === "import_objects");
+    expect(exportTool).toBeDefined();
+    expect(importTool).toBeDefined();
+
+    for (const call of [
+      () => exportTool!.execute({ path: "export-bundle.json" }),
+      () => importTool!.execute({ path: "export-bundle.json" }),
+    ]) {
+      try {
+        const result = await call() as { error?: string };
+        if (typeof result?.error === "string") expect(isPermissionError(new Error(result.error))).toBe(false);
+      } catch (err) {
+        expect(isPermissionError(err)).toBe(false);
+      }
+    }
+  });
+
   // Self-maintaining version of the check above: enumerates the real tool
   // list instead of a hand-copied one, so a new verb reaching an undeclared
   // permission fails this test even if nobody remembers to update the array.
