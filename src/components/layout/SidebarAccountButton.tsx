@@ -5,9 +5,10 @@ import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
-import { getAccountMode, lockVaultSession, logout } from "@/services/account";
+import { getAccountMode, getMe, lockVaultSession, logout } from "@/services/account";
 import { getSavedAccounts, saveCurrentAccount, switchToAccount, removeSavedAccount, type SavedAccount } from "@/services/savedAccounts";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
+import { useCopyHandle } from "@/hooks/useCopyHandle";
 
 export function SidebarAccountButton() {
   const { t } = useTranslation();
@@ -22,17 +23,26 @@ export function SidebarAccountButton() {
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
   const [currentAccountId, setCurrentAccountId] = useState<string | null>(null);
+  const [accountHandle, setAccountHandle] = useState<string | null>(null);
+  const { copied: handleCopied, copy: copyHandle } = useCopyHandle(accountHandle);
 
   const refreshAccountInfo = async () => {
     const { invoke: inv } = await import("@tauri-apps/api/core");
-    const [mode, email, accountId] = await Promise.all([
+    const [mode, email, accountId, handle] = await Promise.all([
       getAccountMode().catch(() => null),
       inv<string | null>("keychain_get", { key: "email" }).catch(() => null),
       inv<string | null>("keychain_get", { key: "account_id" }).catch(() => null),
+      // Cached by getMe(); an account that signed in before handles existed has
+      // none yet, so fall back to the server rather than hiding the row forever.
+      inv<string | null>("keychain_get", { key: "handle" }).catch(() => null),
     ]);
     setAccountMode(mode);
     setAccountEmail(email);
     setCurrentAccountId(accountId);
+    setAccountHandle(handle);
+    if (!handle && mode === "server") {
+      getMe().then((me) => setAccountHandle(me?.handle ?? null)).catch(() => {});
+    }
   };
 
   useEffect(() => { refreshAccountInfo(); }, []);
@@ -137,6 +147,18 @@ export function SidebarAccountButton() {
                     {accountEmail ?? t("layout.sidebarAccount.localAccountFallback")}
                   </span>
                 </div>
+                {accountHandle && (
+                  <button
+                    type="button"
+                    onClick={copyHandle}
+                    title={t("layout.sidebarAccount.copyHandle")}
+                    className="flex items-center gap-1 mt-0.5 text-xs transition-colors"
+                    style={{ color: "var(--t-text-dim)" }}
+                  >
+                    <span className="truncate">@{accountHandle}</span>
+                    <Icon icon={handleCopied ? "lucide:check" : "lucide:copy"} width={11} />
+                  </button>
+                )}
                 {accountMode && (
                   <span className="text-xs mt-0.5 block" style={{ color: "var(--t-text-dim)" }}>
                     {accountMode === "server" ? t("layout.sidebarAccount.modeCloud") : accountMode === "local" ? t("layout.sidebarAccount.modeLocalPassword") : t("layout.sidebarAccount.modeLocal")}

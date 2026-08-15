@@ -55,6 +55,12 @@
       "sessionInvite": {
         "message": "{{inviter}} vous a invité à {{name}}"
       },
+      "sessionKnock": {
+        "message": "{{inviter}} souhaite partager un terminal",
+        "join": "Rejoindre",
+        "decline": "Refuser",
+        "blockPermanently": "Bloquer définitivement"
+      },
       "control": {
         "request": "{{requester}} demande le contrôle",
         "grant": "Accorder",

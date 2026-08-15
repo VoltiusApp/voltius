@@ -55,6 +55,12 @@
       "sessionInvite": {
         "message": "{{inviter}} 邀请您加入 {{name}}"
       },
+      "sessionKnock": {
+        "message": "{{inviter}} 想要与您共享终端",
+        "join": "加入",
+        "decline": "拒绝",
+        "blockPermanently": "永久屏蔽"
+      },
       "control": {
         "request": "{{requester}} 正在请求控制权",
         "grant": "授予",

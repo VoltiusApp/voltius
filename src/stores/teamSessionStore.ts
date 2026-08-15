@@ -4,6 +4,7 @@ import * as mp from "@/services/multiplayerService";
 import type { ActiveSession, Participant, MultiplayerConnection, SessionKey } from "@/services/multiplayerService";
 import { sshSendInput } from "@/services/ssh";
 import type { TeamMember } from "@/services/teamService";
+import type { InviteTarget } from "@/services/teamSharing";
 export type { ActiveSession, Participant };
 
 interface TeamSessionStore {
@@ -22,7 +23,7 @@ interface TeamSessionStore {
     vaultIds: string[],
     allowedRoles: string[],
     connectionName: string,
-    members: import("@/services/teamService").TeamMember[],
+    members: TeamMember[],
     vaultOwnerTier?: string,
   ) => Promise<string>; // returns multiplayerSessionId
 
@@ -37,15 +38,17 @@ interface TeamSessionStore {
 
   /**
    * Host: create a direct session (no vault scope, E2EE per-invitee key wrapping) (#66).
+   * Invitees are `InviteTarget`, not `TeamMember`: any Voltius user can be invited
+   * directly, not only a teammate (#unified-invite).
    */
   startSharingDirect: (
     localSessionId: string,
     connectionName: string,
-    invitees: TeamMember[],
+    invitees: InviteTarget[],
   ) => Promise<string>; // returns multiplayerSessionId
 
-  /** Host: grant an already-live session to another teammate by wrapping the retained session key for them (#66). */
-  inviteToActiveSession: (localSessionId: string, member: TeamMember) => Promise<void>;
+  /** Host: grant an already-live session to anyone — teammate or stranger — by wrapping the retained session key for them (#66, #unified-invite). */
+  inviteToActiveSession: (localSessionId: string, target: InviteTarget) => Promise<void>;
 
   joinSession: (
     multiplayerSessionId: string,
@@ -190,10 +193,10 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
     return sessionId;
   },
 
-  inviteToActiveSession: async (localSessionId, member) => {
+  inviteToActiveSession: async (localSessionId, target) => {
     const state = get().connections[localSessionId];
     if (!state?.sessionKeyBytes) throw new Error(i18n.t("common.error.cannotInviteWithoutSessionKey"));
-    await mp.inviteUserToSession(state.multiplayerSessionId, member, state.sessionKeyBytes);
+    await mp.inviteUserToSession(state.multiplayerSessionId, target, state.sessionKeyBytes);
     get().fetchActiveSessions().catch(() => {});
   },
 

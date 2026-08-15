@@ -86,6 +86,7 @@
       "localShellFallback": "Shell local"
     },
     "sidebarAccount": {
+      "copyHandle": "Copier votre pseudo",
       "accountTitle": "Compte",
       "localAccountFallback": "Compte local",
       "modeCloud": "Compte cloud",

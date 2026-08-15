@@ -9,7 +9,7 @@ vi.mock("@/services/teamService", async (importOriginal) => ({
 }));
 
 import { useTeamStore } from "@/stores/teamStore";
-import { allTeammates, freshPublicKeys, memberHasAccess } from "./teamSharing.ts";
+import { allTeammates, freshPublicKeys, memberHasAccess, memberHasLiveAccess, seatUsage } from "./teamSharing.ts";
 
 const member = (user_id: string, overrides: Partial<TeamMember> = {}): TeamMember => ({
   team_id: "t1", user_id, display_name: user_id, public_key: "",
@@ -65,6 +65,24 @@ test("reports access through a vault, a live participation, or an existing grant
   expect(memberHasAccess({ ...dave, teamIds: ["t4"] }, session)).toBe(false);
 });
 
+// A standing invite counts against the cap but is not "Has access": the host may
+// still withdraw it, and the row must say so.
+test("a pending invite is not live access, though it still counts as access", () => {
+  const session = { vaultIds: ["t1"], participantIds: ["bob"], invitedIds: ["carla"] };
+  expect(memberHasLiveAccess({ ...alice, teamIds: ["t1"] }, session)).toBe(true);
+  expect(memberHasLiveAccess({ ...bob, teamIds: ["t2"] }, session)).toBe(true);
+  expect(memberHasLiveAccess({ ...carla, teamIds: ["t3"] }, session)).toBe(false);
+  expect(memberHasAccess({ ...carla, teamIds: ["t3"] }, session)).toBe(true);
+});
+
+test("withdrawing a pending invite frees its seat", () => {
+  const cap = 1;
+  const invited = { vaultIds: [], participantIds: [], invitedIds: ["carla"] };
+  expect(seatUsage(invited, [], cap)).toEqual({ committedSeats: 1, atCap: true });
+  // What the server reports back after DELETE .../invitees/carla.
+  expect(seatUsage({ ...invited, invitedIds: [] }, [], cap)).toEqual({ committedSeats: 0, atCap: false });
+});
+
 test("a shared teammate has access via any of their team_ids, not just the first", () => {
   const sharedAlice = { ...alice, teamIds: ["t1", "t2"] };
   expect(memberHasAccess(sharedAlice, { vaultIds: ["t2"], participantIds: [], invitedIds: [] })).toBe(true);
@@ -81,7 +99,8 @@ test("freshPublicKeys returns the server's current key, ignoring a stale public_
   // would return after a teammate joined post-cache-fill, #66). freshPublicKeys
   // must fetch listMembers directly rather than trust the field on the input.
   api.listMembers.mockResolvedValue([{ ...alice, public_key: "current-key" }]);
-  const keys = await freshPublicKeys([{ ...alice, public_key: "stale-cached-key" }]);
+  const staleCachedMember = { ...alice, public_key: "stale-cached-key" };
+  const keys = await freshPublicKeys([staleCachedMember]);
   expect(keys.get(alice.user_id)).toBe("current-key");
   expect(api.listMembers).toHaveBeenCalledWith(alice.team_id);
 });

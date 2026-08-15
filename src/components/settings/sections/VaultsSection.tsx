@@ -23,7 +23,7 @@ import { runTeamAction } from "@/services/teamActionFeedback";
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
-import { useUserSearch } from "@/hooks/useUserSearch";
+import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
 
 // ─── Vault migration helpers ──────────────────────────────────────────────────
 
@@ -155,8 +155,6 @@ function MemberRoleBadges({ member, roles }: { member: TeamMember; roles: TeamRo
 
 // ─── Invite search bar ────────────────────────────────────────────────────────
 
-interface SearchResult { user_id: string; display_name: string; public_key: string; }
-
 function isValidEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
@@ -179,7 +177,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
   const [sendingInvite, setSendingInvite] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [buySeatsFor, setBuySeatsFor] = useState<SearchResult | null | undefined>(undefined);
+  const [buySeatsFor, setBuySeatsFor] = useState<UserSearchResult | null | undefined>(undefined);
 
   const isAtSeatLimit = seatAvailability(usedSeats, totalSeats).atLimit;
 
@@ -204,7 +202,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
 
   if (!canInvite) return null;
 
-  const handleAdd = async (user: SearchResult) => {
+  const handleAdd = async (user: UserSearchResult) => {
     if (isAtSeatLimit) { setBuySeatsFor(user); setOpen(false); return; }
     setAdding(user.user_id);
     setError(""); setSuccess("");
@@ -739,7 +737,7 @@ export function PrivateVaultMembersPanel({
   const [adding, setAdding] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const handleAdd = async (user: SearchResult) => {
+  const handleAdd = async (user: UserSearchResult) => {
     setAdding(user.user_id);
     setError("");
     try {

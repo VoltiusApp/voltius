@@ -86,6 +86,7 @@
       "localShellFallback": "Local shell"
     },
     "sidebarAccount": {
+      "copyHandle": "Copy your handle",
       "accountTitle": "Account",
       "localAccountFallback": "Local Account",
       "modeCloud": "Cloud account",

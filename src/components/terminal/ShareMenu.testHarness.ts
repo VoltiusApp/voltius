@@ -20,6 +20,7 @@ export interface MpState {
   startSharingDirect: ReturnType<typeof vi.fn>;
   inviteToActiveSession: ReturnType<typeof vi.fn>;
   stopSharing: ReturnType<typeof vi.fn>;
+  fetchActiveSessions: ReturnType<typeof vi.fn>;
 }
 
 export function makeTeamState(): TeamState {
@@ -41,6 +42,7 @@ export function makeMpState(): MpState {
     startSharingDirect: vi.fn(async () => "mp-1"),
     inviteToActiveSession: vi.fn(async () => {}),
     stopSharing: vi.fn(async () => {}),
+    fetchActiveSessions: vi.fn(async () => {}),
   };
 }
 

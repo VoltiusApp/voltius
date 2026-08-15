@@ -55,6 +55,12 @@
       "sessionInvite": {
         "message": "{{inviter}} пригласил(а) вас в {{name}}"
       },
+      "sessionKnock": {
+        "message": "{{inviter}} хочет поделиться терминалом",
+        "join": "Присоединиться",
+        "decline": "Отклонить",
+        "blockPermanently": "Заблокировать навсегда"
+      },
       "control": {
         "request": "{{requester}} запрашивает управление",
         "grant": "Разрешить",

@@ -3,6 +3,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import type { InboxEntry, InboxKind } from "@/stores/notificationStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { useSessionStore } from "@/stores/sessionStore";
 import type { MultiplayerSessionState } from "@/stores/teamSessionStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
@@ -10,9 +11,10 @@ import { acceptInvitation, declineInvitation } from "@/services/invitationAction
 import { getCurrentUserEmail } from "@/services/account";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { getPlatform, isMobileShell } from "@/utils/platform";
-import { getMyUserId } from "@/services/teamService";
+import { declineSessionInvite, getMyUserId } from "@/services/teamService";
 import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
+import { sessionDisplayName } from "@/services/teamSharing";
 
 const APP_SOURCE = { kind: "app", area: "team" } as const;
 
@@ -81,13 +83,53 @@ export function reconcileInvites(invites: MyPendingInvitation[]): void {
   );
 }
 
+// The server un-redacts a knock ~100–200ms after it admits the WebSocket, which
+// a single immediate refetch loses to — a live run lost it on every attempt, so
+// the tab read "Shared terminal" permanently. Poll on a short backoff instead,
+// bounded: a session that legitimately stays redacted must keep the placeholder
+// rather than spin forever.
+const REVEAL_DELAYS_MS = [0, 150, 300, 600, 1200, 2000];
+
+async function revealJoinedSessionName(sessionId: string, localSessionId: string): Promise<void> {
+  for (const delay of REVEAL_DELAYS_MS) {
+    if (delay > 0) await new Promise<void>((r) => setTimeout(r, delay));
+    // A transient fetch failure costs this attempt, not the remaining ones.
+    await useTeamSessionStore.getState().fetchActiveSessions().catch(() => {});
+    const revealed = useTeamSessionStore
+      .getState()
+      .activeSessions.find((s) => s.id === sessionId)?.connection_name;
+    if (!revealed) continue;
+    useSessionStore.setState((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === localSessionId ? { ...sess, connectionName: revealed } : sess,
+      ),
+    }));
+    return;
+  }
+}
+
 async function joinSharedSession(session: ActiveSession): Promise<void> {
   const displayName = (await getCurrentUserEmail()) ?? i18n.t("hosts.teamSessions.meFallback");
-  await joinTeamSessionAndOpenTab({
+  const localSessionId = await joinTeamSessionAndOpenTab({
     sessionId: session.id,
     displayName,
-    connectionName: session.connection_name,
+    connectionName: sessionDisplayName(session),
   });
+
+  // Detached: the join itself is done, and the inbox entry stays in its "acting"
+  // state for as long as this promise runs.
+  if (session.connection_name === null) void revealJoinedSessionName(session.id, localSessionId);
+}
+
+/**
+ * Decline retracts locally as well as server-side: the grant row is gone, so the
+ * next reconcile would not re-derive the entry anyway — but the user tapped
+ * Decline and the entry must go now, not on the next poll.
+ */
+async function declineKnock(sessionId: string, permanent: boolean): Promise<void> {
+  await declineSessionInvite(sessionId, { permanent });
+  useNotificationStore.getState().retractInbox(`session:${sessionId}`);
+  useTeamSessionStore.getState().fetchActiveSessions().catch(() => {});
 }
 
 export function reconcileSessions(
@@ -103,19 +145,37 @@ export function reconcileSessions(
     .map((s) => {
       const joined = joinedSessionIds.has(s.id);
       // A session reached through an individual invite (#66) knocks with
-      // inviter-specific wording rather than the generic broadcast share.
+      // inviter-specific wording rather than the generic broadcast share. A
+      // null connection_name means the server has redacted the session — the
+      // inviter is a stranger the recipient hasn't accepted yet — so that
+      // case knocks as "sessionKnock" instead, built from the inviter's
+      // identity alone and never from sessionDisplayName.
       const invited = !!s.invited_by && s.invited_by !== myUserId;
-      const inviter = invited
-        ? (s.participants?.find((p) => p.user_id === s.invited_by)?.display_name ??
-            i18n.t("notifications.inbox.someone"))
-        : "";
-      const kind: InboxKind = invited ? "sessionInvite" : "sessionShared";
+      const knock = invited && s.connection_name === null;
+      // A knock renders the server-resolved handle and nothing else. Participant
+      // display names arrive in the sender's own WebSocket query string, so
+      // falling back to one here would let a stranger knock as "Voltius Support"
+      // — the exact impersonation the reserved-handle list exists to refuse.
+      // Absent (an older server, or a race before the inviter is resolvable) it
+      // degrades to "Someone", never to a name the sender chose.
+      const inviter = knock
+        ? s.invited_by_handle
+          ? `@${s.invited_by_handle}`
+          : i18n.t("notifications.inbox.someone")
+        : invited
+          ? (s.participants?.find((p) => p.user_id === s.invited_by)?.display_name ??
+              i18n.t("notifications.inbox.someone"))
+          : "";
+      const kind: InboxKind = knock ? "sessionKnock" : invited ? "sessionInvite" : "sessionShared";
+      const name = sessionDisplayName(s);
       return {
         id: `session:${s.id}`,
         kind,
-        message: invited
-          ? i18n.t("notifications.inbox.sessionInvite.message", { inviter, name: s.connection_name })
-          : i18n.t("notifications.inbox.session.message", { name: s.connection_name }),
+        message: knock
+          ? i18n.t("notifications.inbox.sessionKnock.message", { inviter })
+          : invited
+            ? i18n.t("notifications.inbox.sessionInvite.message", { inviter, name })
+            : i18n.t("notifications.inbox.session.message", { name }),
         // Spelled out rather than left undefined: upsertInbox keeps the
         // previous state when it is omitted, which pinned an entry as
         // "resolved" — hiding its Join button — after a guest left and the
@@ -129,20 +189,35 @@ export function reconcileSessions(
         actions:
           joined || isMobileShell()
             ? []
-            : [{ label: i18n.t("notifications.inbox.session.join"), run: () => joinSharedSession(s) }],
+            : knock
+              ? [
+                  { label: i18n.t("notifications.inbox.sessionKnock.join"), run: () => joinSharedSession(s) },
+                  {
+                    label: i18n.t("notifications.inbox.sessionKnock.decline"),
+                    run: () => declineKnock(s.id, false),
+                  },
+                  {
+                    label: i18n.t("notifications.inbox.sessionKnock.blockPermanently"),
+                    run: () => declineKnock(s.id, true),
+                  },
+                ]
+              : [{ label: i18n.t("notifications.inbox.session.join"), run: () => joinSharedSession(s) }],
       };
     });
 
-  // Toast only for invites not already in the inbox, so repeated reconciles
-  // stay silent and a broadcast share never toasts at all.
+  // Toast only for invites and knocks not already in the inbox, so repeated
+  // reconciles stay silent and a broadcast share never toasts at all.
   const known = new Set(
-    useNotificationStore.getState().inbox.filter((e) => e.kind === "sessionInvite").map((e) => e.id),
+    useNotificationStore
+      .getState()
+      .inbox.filter((e) => e.kind === "sessionInvite" || e.kind === "sessionKnock")
+      .map((e) => e.id),
   );
   for (const e of entries) {
-    if (e.kind === "sessionInvite" && !known.has(e.id)) toast(e.message, 8000);
+    if ((e.kind === "sessionInvite" || e.kind === "sessionKnock") && !known.has(e.id)) toast(e.message, 8000);
   }
 
-  reconcile(["sessionShared", "sessionInvite"], entries);
+  reconcile(["sessionShared", "sessionInvite", "sessionKnock"], entries);
 }
 
 export function reconcileControlRequests(connections: Record<string, MultiplayerSessionState>): void {

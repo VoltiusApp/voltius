@@ -50,6 +50,7 @@ export type InboxKind =
   | "invite"
   | "sessionShared"
   | "sessionInvite"
+  | "sessionKnock"
   | "controlRequest"
   | "controlGranted"
   | "awaitingKey";

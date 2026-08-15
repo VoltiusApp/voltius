@@ -35,10 +35,10 @@ import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 import { seatAvailability } from "@/services/seatMath";
-import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage } from "@/services/teamSharing";
+import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
 import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
-import { useUserSearch } from "@/hooks/useUserSearch";
+import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
 
 function RoleChip({ role }: { role: TeamRole }) {
   const { t } = useTranslation();
@@ -661,8 +661,6 @@ export function PendingInviteCard({
 
 // ─── Invite panel ─────────────────────────────────────────────────────────────
 
-interface SearchResult { user_id: string; display_name: string; public_key: string; }
-
 function isValidEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
@@ -687,7 +685,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
   const [sendingInvite, setSendingInvite] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [buySeatsFor, setBuySeatsFor] = useState<SearchResult | null | undefined>(undefined);
+  const [buySeatsFor, setBuySeatsFor] = useState<UserSearchResult | null | undefined>(undefined);
 
   const { atLimit: isAtSeatLimit } = seatAvailability(usedSeats, totalSeats);
 
@@ -724,7 +722,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
   useEffect(() => { void reloadSubscription(); }, []);
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  const handleAdd = async (user: SearchResult) => {
+  const handleAdd = async (user: UserSearchResult) => {
     if (isAtSeatLimit) { setBuySeatsFor(user); setOpen(false); return; }
     setAdding(user.user_id); setError(""); setSuccess("");
     try {
@@ -880,7 +878,7 @@ function PrivateVaultInvitePanel({
 }: {
   query: string;
   onQueryChange: (v: string) => void;
-  results: { user_id: string; display_name: string; public_key: string }[];
+  results: UserSearchResult[];
   searching: boolean;
   open: boolean;
   setOpen: (v: boolean) => void;
@@ -888,7 +886,7 @@ function PrivateVaultInvitePanel({
   error: string;
   inputRef: React.RefObject<HTMLInputElement | null>;
   dropdownRef: React.RefObject<HTMLDivElement | null>;
-  onAdd: (user: { user_id: string; display_name: string; public_key: string }, roleName: string) => void;
+  onAdd: (user: UserSearchResult, roleName: string) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -1105,7 +1103,7 @@ export default function MembersPage() {
     loadPendingInvitations(teamId).catch(() => {});
   }, [teamId, canManageMembers, loadPendingInvitations]);
 
-  const handlePrivateAdd = async (user: { user_id: string; display_name: string; public_key: string }, roleName: string) => {
+  const handlePrivateAdd = async (user: UserSearchResult, roleName: string) => {
     if (!localVault || !primaryVaultId) return;
     setPrivateAdding(user.user_id); setPrivateError("");
     try {
@@ -1189,7 +1187,7 @@ export default function MembersPage() {
       if (!active) return [];
       const session = inviteSessionOf(c, active);
       const { atCap } = seatUsage(session, [], guestCapFor(c.vaultOwnerTier ?? tier));
-      return [{ localSessionId, connectionName: active.connection_name, session, atCap }];
+      return [{ localSessionId, connectionName: sessionDisplayName(active), session, atCap }];
     }), [connections, activeSessions, tier]);
 
   // Context menu builders

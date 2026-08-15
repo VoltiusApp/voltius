@@ -7,8 +7,8 @@ vi.mock("@/components/shared/AvatarStack", () => ({ MiniAvatar: () => null }));
 
 import { UserSearchField } from "./UserSearchField";
 
-const zoe = { user_id: "u1", display_name: "Zoe", public_key: "pk1" };
-const ada = { user_id: "u2", display_name: "Ada", public_key: "pk2" };
+const zoe = { user_id: "u1", display_name: "Zoe", handle: "zoe", is_teammate: false };
+const ada = { user_id: "u2", display_name: "Ada", handle: "ada", is_teammate: false };
 
 function renderField(overrides: Partial<React.ComponentProps<typeof UserSearchField>> = {}) {
   const props: React.ComponentProps<typeof UserSearchField> = {

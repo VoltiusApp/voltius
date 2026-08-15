@@ -45,6 +45,8 @@ export interface TeamMember {
   public_key: string;
   role_ids: string[];
   is_online?: boolean;
+  /** Optional: an older server omits it. Never render a bare "@" when absent. */
+  handle?: string;
 }
 
 export interface TeamRole {
@@ -247,7 +249,14 @@ export async function deleteRole(teamId: string, roleId: string): Promise<void> 
   }
 }
 
-export async function searchUsers(q: string): Promise<{ user_id: string; display_name: string; public_key: string }[]> {
+export interface UserSearchResult {
+  user_id: string;
+  display_name: string;
+  handle: string;
+  is_teammate: boolean;
+}
+
+export async function searchUsers(q: string): Promise<UserSearchResult[]> {
   if (q.length < 2) return [];
   const serverUrl = await getServerUrl();
   if (!serverUrl) return [];
@@ -256,14 +265,96 @@ export async function searchUsers(q: string): Promise<{ user_id: string; display
   return res.json();
 }
 
-export async function updatePublicKey(publicKey: string): Promise<void> {
+export interface UserKeyLookup {
+  user_id: string;
+  display_name: string;
+  handle: string;
+  public_key: string;
+}
+
+/**
+ * `null` only for a genuine 404 — the user no longer resolves and the caller
+ * drops the stale row. Any other failure (5xx, 401, rate limit, no server url)
+ * throws instead: collapsing those into `null` would tell an invite flow "this
+ * person is gone" on what was really a transient network blip.
+ */
+export async function getUserPublicKey(userId: string): Promise<UserKeyLookup | null> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/auth/public-key`, {
+  const res = await fetchAuth(`${serverUrl}/v1/users/${userId}/public-key`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToFetchPublicKey", { status: res.status }));
+  return res.json();
+}
+
+export class HandleClaimError extends Error {
+  constructor(public status: number) {
+    super(`handle claim failed: ${status}`);
+  }
+}
+
+// claimHandle throws a status-carrying HandleClaimError (Task 15 branches on it per-status)
+// and getUserPublicKey resolves to null instead of throwing — both diverge from the plain
+// "throw the keyed i18n error" shape below, so they stay out of authedCall.
+export async function claimHandle(handle: string): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/users/me/handle`, {
     method: "PUT",
-    body: JSON.stringify({ public_key: publicKey }),
+    body: JSON.stringify({ handle }),
   });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToUpdatePublicKey", { status: res.status }));
+  if (!res.ok) throw new HandleClaimError(res.status);
+}
+
+/**
+ * Resolves serverUrl, calls fetchAuth, and throws the keyed i18n error on a
+ * non-ok response. `interpolate` receives the failing status for messages that
+ * name it.
+ */
+async function authedCall(
+  path: string,
+  init: RequestInit,
+  errorKey: string,
+  interpolate?: (status: number) => Record<string, unknown>,
+): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}${path}`, init);
+  if (!res.ok) throw new Error(i18n.t(errorKey, interpolate?.(res.status)));
+}
+
+export async function updateInvitePreferences(allowStrangerInvites: boolean): Promise<void> {
+  await authedCall(
+    "/v1/users/me/preferences",
+    { method: "PUT", body: JSON.stringify({ allow_stranger_invites: allowStrangerInvites }) },
+    "common.error.failedToSavePreferences",
+  );
+}
+
+export async function declineSessionInvite(sessionId: string, opts?: { permanent?: boolean }): Promise<void> {
+  const query = opts?.permanent ? "?block=permanent" : "";
+  await authedCall(
+    `/v1/terminal-sessions/${sessionId}/invitees/me${query}`,
+    { method: "DELETE" },
+    "common.error.failedToDecline",
+  );
+}
+
+export async function uninviteFromSession(sessionId: string, userId: string): Promise<void> {
+  await authedCall(
+    `/v1/terminal-sessions/${sessionId}/invitees/${userId}`,
+    { method: "DELETE" },
+    "common.error.failedToUninvite",
+  );
+}
+
+export async function updatePublicKey(publicKey: string): Promise<void> {
+  await authedCall(
+    "/v1/auth/public-key",
+    { method: "PUT", body: JSON.stringify({ public_key: publicKey }) },
+    "common.error.failedToUpdatePublicKey",
+    (status) => ({ status }),
+  );
 }
 
 export async function getJwtToken(): Promise<string | null> {

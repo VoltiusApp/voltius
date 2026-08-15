@@ -4,13 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
 
 /**
- * `InvitePeopleSection` renders null until its `allTeammates()` roster promise
- * resolves, so a synchronous `queryByText(...)).toBeNull()` right after `render`
- * passes trivially — with or without a hiding fix — because the section hasn't
- * rendered its content yet either way. Flush the already-resolved mock promise's
- * microtasks (and the resulting effect/state-update) before asserting absence,
- * so a regression that lets the section mount would actually have painted by
- * the time we check.
+ * `PeopleTab` renders its search box synchronously, but its `allTeammates()`
+ * roster promise resolving is what could reveal a regression (e.g. a row that
+ * shouldn't be there). Flush the already-resolved mock promise's microtasks
+ * (and the resulting effect/state-update) before asserting, so a regression
+ * that lets the tab mount would actually have painted by the time we check.
  */
 async function flushRoster() {
   await act(async () => {
@@ -26,7 +24,7 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
 const roster = [{ user_id: "alice", team_id: "t1", display_name: "Alice", is_online: true, teamIds: ["t1"] }];
 
-const h = vi.hoisted(() => ({ allTeammates: vi.fn() }));
+const h = vi.hoisted(() => ({ allTeammates: vi.fn(), uninviteFromSession: vi.fn() }));
 vi.mock("@/services/teamSharing", async () => {
   const actual = await vi.importActual<typeof import("@/services/teamSharing")>("@/services/teamSharing");
   return { ...actual, allTeammates: h.allTeammates };
@@ -44,6 +42,7 @@ vi.mock("@/stores/teamSessionStore", async () => {
   return { useTeamSessionStore: asStoreHook(makeMpState()) };
 });
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn(async () => {}) }));
+vi.mock("@/services/teamService", () => ({ uninviteFromSession: h.uninviteFromSession }));
 
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -65,6 +64,8 @@ beforeEach(() => {
   startSharingDirect.mockReset().mockResolvedValue("mp-1");
   inviteToActiveSession.mockReset().mockResolvedValue(undefined);
   h.allTeammates.mockReset().mockResolvedValue(roster);
+  h.uninviteFromSession.mockReset().mockResolvedValue(undefined);
+  mpState.fetchActiveSessions.mockReset().mockResolvedValue(undefined);
 });
 afterEach(() => cleanup());
 
@@ -128,20 +129,50 @@ test("adds a teammate to the live session when already sharing", async () => {
   expect(inviteToActiveSession).toHaveBeenCalledWith("local-1", expect.objectContaining({ user_id: "alice" }));
 });
 
-test("an already-invited teammate renders as non-tappable Has access", async () => {
+// A grant nobody has accepted is "Invited", not "Has access": the first is a
+// seat the host can take back, the second is someone already in the room.
+test("a pending invitee renders as non-tappable Invited, not Has access", async () => {
   mpState.activeSessions = [{ id: "mp-1", invitee_ids: ["alice"] }];
   renderShareMenu({ sharing: true });
 
   const row = await screen.findByRole("button", { name: /alice/i });
   expect((row as HTMLButtonElement).disabled).toBe(true);
+  expect(row.textContent).toContain("terminal.share.inviteSent");
+  expect(row.textContent).not.toContain("terminal.share.inviteHasAccess");
+});
+
+test("a participant already in the session still renders Has access", async () => {
+  mpState.connections = hostConnection({
+    participants: [{ user_id: "me", display_name: "Me" }, { user_id: "alice", display_name: "Alice" }],
+  });
+  render(shareMenuElement());
+
+  const row = await screen.findByRole("button", { name: /alice/i });
   expect(row.textContent).toContain("terminal.share.inviteHasAccess");
 });
 
-test("hides the invite section in the active view when no session key is retained (invite_link)", async () => {
+// A6: without this the pending invite holds the seat until the session ends,
+// which strands a Pro host at cap 1 whose invitee never arrives.
+test("withdrawing a pending invite calls the server and refreshes the seat count", async () => {
+  mpState.activeSessions = [{ id: "mp-1", invitee_ids: ["alice"] }];
+  renderShareMenu({ sharing: true });
+
+  await userEvent.click(await screen.findByRole("button", { name: "terminal.share.withdrawInvite" }));
+  expect(h.uninviteFromSession).toHaveBeenCalledWith("mp-1", "alice");
+  expect(mpState.fetchActiveSessions).toHaveBeenCalled();
+});
+
+test("a row that is neither invited nor joined offers no withdraw control", async () => {
+  renderShareMenu({ sharing: true });
+  await screen.findByRole("button", { name: /alice/i });
+  expect(screen.queryByRole("button", { name: "terminal.share.withdrawInvite" })).toBeNull();
+});
+
+test("hides the People tab's content in the active view when no session key is retained (invite_link)", async () => {
   mpState.connections = hostConnection({ sessionKeyBytes: undefined });
   render(shareMenuElement());
   await flushRoster();
-  expect(screen.queryByText("terminal.share.invitePeople")).toBeNull();
+  expect(screen.queryByPlaceholderText("terminal.share.peopleSearchPlaceholder")).toBeNull();
 });
 
 test("the active view shows exactly one seats-vs-cap line, with and without a retained session key", async () => {
@@ -159,7 +190,7 @@ test("the active view shows exactly one seats-vs-cap line, with and without a re
   expect(ratioLines().length).toBe(1);
 });
 
-// ─── Guest cap wired through both InvitePeopleSection render sites (#66 follow-up) ──
+// ─── Guest cap wired through both PeopleTab render sites (#66 follow-up) ──
 
 test("setup view: a Pro host (cap 1) cannot tap a second teammate after the first invite lands", async () => {
   // Needs two teammates so there's a "remaining" row left to prove is now blocked.
@@ -169,8 +200,8 @@ test("setup view: a Pro host (cap 1) cannot tap a second teammate after the firs
   ]);
   // The real startSharingDirect creates the session and writes `connections`, which
   // flips ShareMenu from the setup branch to ActiveSharingView — a *different*
-  // InvitePeopleSection instance. `invitee_ids` stays empty on purpose: the server
-  // list round-trip that fills it is fire-and-forget and has not landed yet.
+  // PeopleTab instance. `invitee_ids` stays empty on purpose: the server list
+  // round-trip that fills it is fire-and-forget and has not landed yet.
   startSharingDirect.mockImplementation(async () => {
     mpState.connections = hostConnection();
     mpState.activeSessions = [{ id: "mp-1", invitee_ids: [] }];
@@ -199,9 +230,10 @@ test("active view: a Pro host (cap 1) already at cap shows the remaining rows as
   expect(screen.getByText("terminal.share.inviteCapReached")).toBeTruthy();
 });
 
-test("hides the invite section in setup view for free tier", async () => {
+test("hides the People tab (and its own tab button) in setup view for free tier", async () => {
   teamState.teams = [{ id: "vault-1", name: "Vault", owner_id: "u0", owner_tier: "teams", created_at: "", role_ids: [] }];
   render(shareMenuElement({ tier: "free", connectionVaultId: "vault-1" }));
   await flushRoster();
-  expect(screen.queryByText("terminal.share.invitePeople")).toBeNull();
+  expect(screen.queryByText("terminal.share.tabPeople")).toBeNull();
+  expect(screen.queryByPlaceholderText("terminal.share.peopleSearchPlaceholder")).toBeNull();
 });
