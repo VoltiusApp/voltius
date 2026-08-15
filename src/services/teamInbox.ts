@@ -10,7 +10,7 @@ import { acceptInvitation, declineInvitation } from "@/services/invitationAction
 import { getCurrentUserEmail } from "@/services/account";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { getPlatform, isMobileShell } from "@/utils/platform";
-import { getMyUserId } from "@/services/teamService";
+import { declineSessionInvite, getMyUserId } from "@/services/teamService";
 import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
 import { sessionDisplayName } from "@/services/teamSharing";
@@ -91,6 +91,17 @@ async function joinSharedSession(session: ActiveSession): Promise<void> {
   });
 }
 
+/**
+ * Decline retracts locally as well as server-side: the grant row is gone, so the
+ * next reconcile would not re-derive the entry anyway — but the user tapped
+ * Decline and the entry must go now, not on the next poll.
+ */
+async function declineKnock(sessionId: string, permanent: boolean): Promise<void> {
+  await declineSessionInvite(sessionId, { permanent });
+  useNotificationStore.getState().retractInbox(`session:${sessionId}`);
+  useTeamSessionStore.getState().fetchActiveSessions().catch(() => {});
+}
+
 export function reconcileSessions(
   sessions: ActiveSession[],
   joinedSessionIds: Set<string>,
@@ -104,20 +115,27 @@ export function reconcileSessions(
     .map((s) => {
       const joined = joinedSessionIds.has(s.id);
       // A session reached through an individual invite (#66) knocks with
-      // inviter-specific wording rather than the generic broadcast share.
+      // inviter-specific wording rather than the generic broadcast share. A
+      // null connection_name means the server has redacted the session — the
+      // inviter is a stranger the recipient hasn't accepted yet — so that
+      // case knocks as "sessionKnock" instead, built from the inviter's
+      // identity alone and never from sessionDisplayName.
       const invited = !!s.invited_by && s.invited_by !== myUserId;
+      const knock = invited && s.connection_name === null;
       const inviter = invited
         ? (s.participants?.find((p) => p.user_id === s.invited_by)?.display_name ??
             i18n.t("notifications.inbox.someone"))
         : "";
-      const kind: InboxKind = invited ? "sessionInvite" : "sessionShared";
+      const kind: InboxKind = knock ? "sessionKnock" : invited ? "sessionInvite" : "sessionShared";
       const name = sessionDisplayName(s);
       return {
         id: `session:${s.id}`,
         kind,
-        message: invited
-          ? i18n.t("notifications.inbox.sessionInvite.message", { inviter, name })
-          : i18n.t("notifications.inbox.session.message", { name }),
+        message: knock
+          ? i18n.t("notifications.inbox.sessionKnock.message", { inviter })
+          : invited
+            ? i18n.t("notifications.inbox.sessionInvite.message", { inviter, name })
+            : i18n.t("notifications.inbox.session.message", { name }),
         // Spelled out rather than left undefined: upsertInbox keeps the
         // previous state when it is omitted, which pinned an entry as
         // "resolved" — hiding its Join button — after a guest left and the
@@ -131,20 +149,35 @@ export function reconcileSessions(
         actions:
           joined || isMobileShell()
             ? []
-            : [{ label: i18n.t("notifications.inbox.session.join"), run: () => joinSharedSession(s) }],
+            : knock
+              ? [
+                  { label: i18n.t("notifications.inbox.sessionKnock.join"), run: () => joinSharedSession(s) },
+                  {
+                    label: i18n.t("notifications.inbox.sessionKnock.decline"),
+                    run: () => declineKnock(s.id, false),
+                  },
+                  {
+                    label: i18n.t("notifications.inbox.sessionKnock.blockPermanently"),
+                    run: () => declineKnock(s.id, true),
+                  },
+                ]
+              : [{ label: i18n.t("notifications.inbox.session.join"), run: () => joinSharedSession(s) }],
       };
     });
 
-  // Toast only for invites not already in the inbox, so repeated reconciles
-  // stay silent and a broadcast share never toasts at all.
+  // Toast only for invites and knocks not already in the inbox, so repeated
+  // reconciles stay silent and a broadcast share never toasts at all.
   const known = new Set(
-    useNotificationStore.getState().inbox.filter((e) => e.kind === "sessionInvite").map((e) => e.id),
+    useNotificationStore
+      .getState()
+      .inbox.filter((e) => e.kind === "sessionInvite" || e.kind === "sessionKnock")
+      .map((e) => e.id),
   );
   for (const e of entries) {
-    if (e.kind === "sessionInvite" && !known.has(e.id)) toast(e.message, 8000);
+    if ((e.kind === "sessionInvite" || e.kind === "sessionKnock") && !known.has(e.id)) toast(e.message, 8000);
   }
 
-  reconcile(["sessionShared", "sessionInvite"], entries);
+  reconcile(["sessionShared", "sessionInvite", "sessionKnock"], entries);
 }
 
 export function reconcileControlRequests(connections: Record<string, MultiplayerSessionState>): void {
