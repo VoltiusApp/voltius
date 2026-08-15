@@ -78,7 +78,7 @@ function hostConnection(extra: Record<string, unknown> = {}) {
   return {
     "local-1": {
       multiplayerSessionId: "mp-1", ended: false,
-      participants: [{ user_id: "me", display_name: "Me" }], myUserId: "me", controlHolder: "me",
+      participants: [{ user_id: "me", handle: "Me" }], myUserId: "me", controlHolder: "me",
       sessionKeyBytes: new Uint8Array([1]),
       ...extra,
     },
@@ -143,7 +143,7 @@ test("a pending invitee renders as non-tappable Invited, not Has access", async 
 
 test("a participant already in the session still renders Has access", async () => {
   mpState.connections = hostConnection({
-    participants: [{ user_id: "me", display_name: "Me" }, { user_id: "alice", display_name: "Alice" }],
+    participants: [{ user_id: "me", handle: "Me" }, { user_id: "alice", handle: "Alice" }],
   });
   render(shareMenuElement());
 
@@ -222,7 +222,7 @@ test("setup view: a Pro host (cap 1) cannot tap a second teammate after the firs
 
 test("active view: a Pro host (cap 1) already at cap shows the remaining rows as non-tappable", async () => {
   mpState.connections = hostConnection({
-    participants: [{ user_id: "me", display_name: "Me" }, { user_id: "guest-1", display_name: "Guest" }],
+    participants: [{ user_id: "me", handle: "Me" }, { user_id: "guest-1", handle: "Guest" }],
   });
   render(shareMenuElement());
   const alice = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;

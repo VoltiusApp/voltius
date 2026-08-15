@@ -87,9 +87,9 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
                   ? "1.5px solid var(--t-accent)"
                   : "1.5px solid var(--t-border)",
             }}
-            title={p.display_name}
+            title={p.handle}
           >
-            {p.display_name.slice(0, 2).toUpperCase()}
+            {p.handle.slice(0, 2).toUpperCase()}
           </div>
         ))}
         {mpState.participants.length > 5 && (

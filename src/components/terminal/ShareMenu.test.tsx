@@ -96,7 +96,7 @@ test("generating an invite link copies the code to the clipboard and shows the c
 
 test("with only the host in participants, the waiting line renders and no lone self-chip appears", () => {
   mpState.connections = {
-    "local-1": { multiplayerSessionId: "mp-1", ended: false, participants: [{ user_id: "me", display_name: "Me" }], myUserId: "me", controlHolder: "me" },
+    "local-1": { multiplayerSessionId: "mp-1", ended: false, participants: [{ user_id: "me", handle: "Me" }], myUserId: "me", controlHolder: "me" },
   };
   renderMenu();
 
@@ -109,7 +109,7 @@ test("with a guest present, the chips render and the waiting line does not", () 
     "local-1": {
       multiplayerSessionId: "mp-1",
       ended: false,
-      participants: [{ user_id: "me", display_name: "Me" }, { user_id: "guest-1", display_name: "Guest" }],
+      participants: [{ user_id: "me", handle: "Me" }, { user_id: "guest-1", handle: "Guest" }],
       myUserId: "me",
       controlHolder: "me",
     },

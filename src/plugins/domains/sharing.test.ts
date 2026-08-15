@@ -6,7 +6,7 @@ import {
 
 const hostState = (over: Record<string, unknown> = {}) => ({
   multiplayerSessionId: "m1", role: "host" as const, myUserId: "u0",
-  participants: [{ user_id: "u2", display_name: "Two" }],
+  participants: [{ user_id: "u2", handle: "Two" }],
   controlHolder: "u0", controlRequester: null,
   connection: {} as MultiplayerConnection, ...over,
 });
@@ -16,7 +16,7 @@ function ports(over: Partial<SharingPorts> = {}): SharingPorts {
     activeSessions: () => [{
       id: "m1", connection_name: "web-1", host_user_id: "u0", host_public_key: "",
       visibility: "team", created_at: "", participant_count: 1,
-      participants: [{ user_id: "u2", display_name: "Two" }],
+      participants: [{ user_id: "u2", handle: "Two" }],
     }],
     fetchActiveSessions: vi.fn(async () => {}),
     state: (id: string) => (id === "s1" ? hostState() : undefined),

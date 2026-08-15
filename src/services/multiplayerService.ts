@@ -23,11 +23,7 @@ export interface ActiveSession {
   vault_ids?: string[];
   /** Set when this session reached me through an individual invite (#66). */
   invited_by?: string | null;
-  /**
-   * `invited_by`'s handle, resolved by the server from its own `users` table.
-   * The only inviter identity a stranger knock may render: participant
-   * `display_name` is supplied by the sender's own WebSocket query string.
-   */
+  /** `invited_by`'s handle, resolved by the server from its own `users` table. */
   invited_by_handle?: string | null;
   /** Everyone the host has individually invited (#66). Only set for the host. */
   invitee_ids?: string[];
@@ -35,7 +31,7 @@ export interface ActiveSession {
 
 export interface Participant {
   user_id: string;
-  display_name: string;
+  handle: string;
 }
 
 export interface SessionCallbacks {
@@ -410,7 +406,6 @@ export function openWebSocket(
   serverUrl: string,
   sessionId: string,
   jwt: string,
-  displayName: string,
   sessionKey: SessionKey,
   callbacks: SessionCallbacks,
   inviteToken?: string,
@@ -419,7 +414,7 @@ export function openWebSocket(
   let wsUrl = serverUrl
     .replace(/^https?/, (m) => (m === "https" ? "wss" : "ws"))
     + `/v1/terminal-sessions/${sessionId}/ws`
-    + `?token=${encodeURIComponent(jwt)}&display_name=${encodeURIComponent(displayName)}`;
+    + `?token=${encodeURIComponent(jwt)}`;
 
   if (inviteToken) {
     wsUrl += `&invite_token=${encodeURIComponent(inviteToken)}`;
@@ -454,7 +449,7 @@ export function openWebSocket(
           callbacks.onControlUpdate(msg.holder as string, (msg.requester as string | null) ?? null);
           break;
         case "participant_joined":
-          callbacks.onParticipantJoined({ user_id: msg.user_id as string, display_name: msg.display_name as string });
+          callbacks.onParticipantJoined({ user_id: msg.user_id as string, handle: msg.handle as string });
           break;
         case "participant_left":
           callbacks.onParticipantLeft(msg.user_id as string);

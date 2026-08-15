@@ -4,7 +4,6 @@ import { useUIStore } from "@/stores/uiStore";
 
 export interface JoinTeamSessionParams {
   sessionId: string;
-  displayName: string;
   connectionName: string;
   inviteToken?: string;
 }
@@ -21,7 +20,6 @@ export async function joinTeamSessionAndOpenTab(params: JoinTeamSessionParams): 
     .getState()
     .joinSession(
       params.sessionId,
-      params.displayName,
       () => {}, // onControlUpdate — handled by MultiplayerBar
       params.inviteToken,
     );

@@ -52,7 +52,7 @@ interface MpState {
   controlHolder: string;
   controlRequester: string | null;
   ended: boolean;
-  participants: Array<{ user_id: string; display_name: string }>;
+  participants: Array<{ user_id: string; handle: string }>;
 }
 
 function mk(overrides: Partial<MpState> = {}): MpState {

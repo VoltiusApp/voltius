@@ -52,7 +52,6 @@ interface TeamSessionStore {
 
   joinSession: (
     multiplayerSessionId: string,
-    displayName: string,
     onControlUpdate: (holderId: string, requesterId: string | null) => void,
     inviteToken?: string,
   ) => Promise<string>; // returns localSessionId
@@ -143,12 +142,11 @@ async function attachAsHost(
   const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
   const jwt = await import("@/services/teamService").then((m) => m.getJwtToken());
   if (!serverUrl || !jwt) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const displayName = await import("@/services/account").then((m) => m.getCurrentUserEmail()).then((e) => e ?? "Me");
 
   const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");
   const initialSnapshot = mp.drainSshOutputBuffer(localSessionId) ?? undefined;
 
-  const conn = mp.openWebSocket(serverUrl, sessionId, jwt, displayName, sessionKey, {
+  const conn = mp.openWebSocket(serverUrl, sessionId, jwt, sessionKey, {
     ...makeCallbacks(localSessionId, set, get),
     onOutput: () => {},
   }, extra.inviteToken, initialSnapshot);
@@ -200,7 +198,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
     get().fetchActiveSessions().catch(() => {});
   },
 
-  joinSession: async (multiplayerSessionId, displayName, onControlUpdate, inviteToken) => {
+  joinSession: async (multiplayerSessionId, onControlUpdate, inviteToken) => {
     const { sessionKey } = await mp.getMySessionKey(multiplayerSessionId, inviteToken);
 
     const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
@@ -210,7 +208,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
     const localSessionId = crypto.randomUUID();
     const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");
 
-    const conn = mp.openWebSocket(serverUrl, multiplayerSessionId, jwt, displayName, sessionKey, {
+    const conn = mp.openWebSocket(serverUrl, multiplayerSessionId, jwt, sessionKey, {
       onOutput: (data) => {
         const conn = get().connections[localSessionId];
         conn?._termWrite?.(data);

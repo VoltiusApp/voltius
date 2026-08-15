@@ -8,7 +8,6 @@ import type { MultiplayerSessionState } from "@/stores/teamSessionStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
-import { getCurrentUserEmail } from "@/services/account";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { getPlatform, isMobileShell } from "@/utils/platform";
 import { declineSessionInvite, getMyUserId } from "@/services/teamService";
@@ -109,10 +108,8 @@ async function revealJoinedSessionName(sessionId: string, localSessionId: string
 }
 
 async function joinSharedSession(session: ActiveSession): Promise<void> {
-  const displayName = (await getCurrentUserEmail()) ?? i18n.t("hosts.teamSessions.meFallback");
   const localSessionId = await joinTeamSessionAndOpenTab({
     sessionId: session.id,
-    displayName,
     connectionName: sessionDisplayName(session),
   });
 
@@ -163,7 +160,7 @@ export function reconcileSessions(
           ? `@${s.invited_by_handle}`
           : i18n.t("notifications.inbox.someone")
         : invited
-          ? (s.participants?.find((p) => p.user_id === s.invited_by)?.display_name ??
+          ? (s.participants?.find((p) => p.user_id === s.invited_by)?.handle ??
               i18n.t("notifications.inbox.someone"))
           : "";
       const kind: InboxKind = knock ? "sessionKnock" : invited ? "sessionInvite" : "sessionShared";
@@ -229,7 +226,7 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
       const requesterId = c.controlRequester as string;
       const id = `control:${localSessionId}:${requesterId}`;
       const requester =
-        c.participants.find((p) => p.user_id === requesterId)?.display_name ??
+        c.participants.find((p) => p.user_id === requesterId)?.handle ??
         i18n.t("notifications.inbox.someone");
       return {
         id,
