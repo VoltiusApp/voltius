@@ -10,7 +10,8 @@ import { openXChaCha20Poly1305, sealXChaCha20Poly1305 } from "@/services/crypto/
 
 export interface ActiveSession {
   id: string;
-  connection_name: string;
+  /** Null for a stranger who hasn't accepted yet — the host name is withheld until then. */
+  connection_name: string | null;
   host_user_id: string;
   host_public_key: string;
   visibility: string;

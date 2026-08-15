@@ -247,13 +247,77 @@ export async function deleteRole(teamId: string, roleId: string): Promise<void> 
   }
 }
 
-export async function searchUsers(q: string): Promise<{ user_id: string; display_name: string; public_key: string }[]> {
+export interface UserSearchResult {
+  user_id: string;
+  display_name: string;
+  handle: string;
+  is_teammate: boolean;
+}
+
+export async function searchUsers(q: string): Promise<UserSearchResult[]> {
   if (q.length < 2) return [];
   const serverUrl = await getServerUrl();
   if (!serverUrl) return [];
   const res = await fetchAuth(`${serverUrl}/v1/users/search?q=${encodeURIComponent(q)}`);
   if (!res.ok) return [];
   return res.json();
+}
+
+export interface UserKeyLookup {
+  user_id: string;
+  display_name: string;
+  handle: string;
+  public_key: string;
+}
+
+/** null when the user no longer resolves — the caller drops the stale row. */
+export async function getUserPublicKey(userId: string): Promise<UserKeyLookup | null> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) return null;
+  const res = await fetchAuth(`${serverUrl}/v1/users/${userId}/public-key`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export class HandleClaimError extends Error {
+  constructor(public status: number) {
+    super(`handle claim failed: ${status}`);
+  }
+}
+
+export async function claimHandle(handle: string): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/users/me/handle`, {
+    method: "PUT",
+    body: JSON.stringify({ handle }),
+  });
+  if (!res.ok) throw new HandleClaimError(res.status);
+}
+
+export async function updateInvitePreferences(allowStrangerInvites: boolean): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/users/me/preferences`, {
+    method: "PUT",
+    body: JSON.stringify({ allow_stranger_invites: allowStrangerInvites }),
+  });
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToSavePreferences"));
+}
+
+export async function declineSessionInvite(sessionId: string, opts?: { permanent?: boolean }): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const query = opts?.permanent ? "?block=permanent" : "";
+  const res = await fetchAuth(`${serverUrl}/v1/terminal-sessions/${sessionId}/invitees/me${query}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToDecline"));
+}
+
+export async function uninviteFromSession(sessionId: string, userId: string): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/terminal-sessions/${sessionId}/invitees/${userId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToUninvite"));
 }
 
 export async function updatePublicKey(publicKey: string): Promise<void> {
