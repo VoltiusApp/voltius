@@ -12,7 +12,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { allTeammates, freshPublicKeys, memberHasAccess, memberHasLiveAccess, seatUsage } from "./teamSharing.ts";
 
 const member = (user_id: string, overrides: Partial<TeamMember> = {}): TeamMember => ({
-  team_id: "t1", user_id, display_name: user_id, public_key: "",
+  team_id: "t1", user_id, handle: user_id, public_key: "",
   invited_by_display_name: null, joined_at: "", role_ids: [], ...overrides,
 });
 const team = (id: string): Team => ({ id, name: id, owner_id: "o", owner_tier: "team", created_at: "", role_ids: [] });
@@ -23,12 +23,12 @@ const seedStore = (opts: { teams: string[]; members: Record<string, TeamMember[]
 };
 
 const me = member("me");
-const alice = member("alice", { team_id: "t1", display_name: "Alice" });
-const bob = member("bob", { team_id: "t2", display_name: "Bob" });
-const carla = member("carla", { team_id: "t3", display_name: "Carla" });
-const dave = member("dave", { team_id: "t4", display_name: "Dave" });
-const offlineAnna = member("anna", { display_name: "Anna", is_online: false });
-const onlineZoe = member("zoe", { display_name: "Zoe", is_online: true });
+const alice = member("alice", { team_id: "t1", handle: "amber-lynx-4410" });
+const bob = member("bob", { team_id: "t2", handle: "brisk-otter-8823" });
+const carla = member("carla", { team_id: "t3", handle: "cobalt-heron-3312" });
+const dave = member("dave", { team_id: "t4", handle: "dusky-quail-5507" });
+const offlineAnna = member("anna", { handle: "amber-wren-1102", is_online: false });
+const onlineZoe = member("zoe", { handle: "zesty-otter-1180", is_online: true });
 
 beforeEach(() => {
   localStorage.clear();

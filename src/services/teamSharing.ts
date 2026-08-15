@@ -17,8 +17,7 @@ export function sessionDisplayName(session: { connection_name: string | null }):
 /** Anyone a session can be granted to: a teammate row, or a stranger from search or Recent. */
 export interface InviteTarget {
   user_id: string;
-  display_name: string;
-  handle?: string;
+  handle: string;
   /** Present only for teammates; absent for a stranger, who is in none of my teams. */
   team_id?: string;
 }
@@ -88,7 +87,7 @@ export async function allTeammates(): Promise<Teammate[]> {
 
   return [...merged.values()].sort((a, b) => {
     if (!!a.is_online !== !!b.is_online) return a.is_online ? -1 : 1;
-    return a.display_name.localeCompare(b.display_name);
+    return a.handle.localeCompare(b.handle);
   });
 }
 
@@ -166,21 +165,20 @@ export function memberHasAccess(
  * adds Elsewhere on Voltius from the server's results. A person is listed once —
  * the most specific group wins.
  */
-export function groupPeople<T extends { user_id: string; display_name: string; handle?: string }>(input: {
+export function groupPeople<T extends { user_id: string; handle: string }>(input: {
   query: string;
   teammates: T[];
   recent: RecentPerson[];
   results: UserSearchResult[];
 }): { recent: RecentPerson[]; teammates: T[]; strangers: UserSearchResult[] } {
   const q = input.query.trim().toLowerCase();
-  const matches = (...fields: (string | undefined)[]) =>
-    !q || fields.some((f) => (f ?? "").toLowerCase().includes(q));
+  const matches = (handle: string) => !q || handle.toLowerCase().includes(q);
 
   const recent = input.recent.filter((p) => matches(p.handle));
   const recentIds = new Set(recent.map((p) => p.user_id));
   // Recent is the more specific group: a person already in Recent does not repeat
   // under Your teams, even if they are also a current teammate.
-  const teammates = input.teammates.filter((p) => !recentIds.has(p.user_id) && matches(p.display_name, p.handle));
+  const teammates = input.teammates.filter((p) => !recentIds.has(p.user_id) && matches(p.handle));
   const claimed = new Set([...recentIds, ...teammates.map((p) => p.user_id)]);
   const strangers = q ? input.results.filter((r) => !claimed.has(r.user_id) && !r.is_teammate) : [];
   return { recent, teammates, strangers };

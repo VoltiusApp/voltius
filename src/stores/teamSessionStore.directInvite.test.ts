@@ -21,7 +21,7 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 import { useTeamSessionStore } from "./teamSessionStore.ts";
 
 const member = (userId: string): TeamMember => ({
-  team_id: "t1", user_id: userId, invited_by_display_name: null, joined_at: "", display_name: userId, public_key: "pk", role_ids: [],
+  team_id: "t1", user_id: userId, invited_by_display_name: null, joined_at: "", handle: userId, public_key: "pk", role_ids: [],
 });
 
 beforeEach(() => {

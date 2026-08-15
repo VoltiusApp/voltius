@@ -80,7 +80,7 @@ export async function listMembers(ports: TeamPorts, teamId: string): Promise<Plu
   ]);
   const joined = ports.members(teamId).map((m: TeamMember) => ({
     userId: m.user_id,
-    displayName: m.display_name,
+    displayName: m.handle,
     roles: roleNames(ports, teamId, m.role_ids),
     roleIds: m.role_ids,
     isOnline: m.is_online ?? false,
@@ -115,7 +115,7 @@ export async function keyStatus(ports: TeamPorts, teamId?: string): Promise<Plug
       iHoldKey: me !== null && holders.has(me),
       members: ports.members(id).map((m: TeamMember) => ({
         userId: m.user_id,
-        displayName: m.display_name,
+        displayName: m.handle,
         hasPublicKey: Boolean(m.public_key),
         hasWrappedKey: holders.has(m.user_id),
       })),

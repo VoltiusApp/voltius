@@ -40,13 +40,13 @@ test("null when only self is present", () => {
   expect(result.current).toBeNull();
 });
 
-test("single other user → primary set, overflow 0, name resolved", () => {
+test("single other user → primary set, overflow 0, handle resolved", () => {
   useConnectionPresenceStore.setState({ myUserId: "me", usageByConnection: { c1: ["me", "u1"] } } as never);
-  useTeamStore.setState({ membersByTeam: { "team-1": [{ user_id: "u1", display_name: "Alice" }] } } as never);
+  useTeamStore.setState({ membersByTeam: { "team-1": [{ user_id: "u1", handle: "amber-lynx-4410" }] } } as never);
   const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
-  expect(result.current?.primary).toEqual({ id: "u1", displayName: "Alice" });
+  expect(result.current?.primary).toEqual({ id: "u1", handle: "amber-lynx-4410" });
   expect(result.current?.overflow).toBe(0);
-  expect(result.current?.allDisplayNames).toEqual(["Alice"]);
+  expect(result.current?.allHandles).toEqual(["amber-lynx-4410"]);
 });
 
 test("two others → overflow 1, order preserved (usage order, self filtered)", () => {
@@ -54,39 +54,39 @@ test("two others → overflow 1, order preserved (usage order, self filtered)", 
   useTeamStore.setState({
     membersByTeam: {
       "team-1": [
-        { user_id: "u1", display_name: "Alice" },
-        { user_id: "u2", display_name: "Bob" },
+        { user_id: "u1", handle: "amber-lynx-4410" },
+        { user_id: "u2", handle: "brisk-otter-8823" },
       ],
     },
   } as never);
   const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
   expect(result.current?.primary.id).toBe("u1");
   expect(result.current?.overflow).toBe(1);
-  expect(result.current?.allDisplayNames).toEqual(["Alice", "Bob"]);
+  expect(result.current?.allHandles).toEqual(["amber-lynx-4410", "brisk-otter-8823"]);
 });
 
 test('unknown user id falls back to "Member"', () => {
   useConnectionPresenceStore.setState({ myUserId: null, usageByConnection: { c1: ["u9"] } } as never);
   const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
-  expect(result.current?.primary.displayName).toBe("Member");
+  expect(result.current?.primary.handle).toBe("Member");
 });
 
 test("myUserId null → no self filtering (all users are others)", () => {
   useConnectionPresenceStore.setState({ myUserId: null, usageByConnection: { c1: ["me"] } } as never);
-  useTeamStore.setState({ membersByTeam: { "team-1": [{ user_id: "me", display_name: "Self" }] } } as never);
+  useTeamStore.setState({ membersByTeam: { "team-1": [{ user_id: "me", handle: "merry-quartz-2597" }] } } as never);
   const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
   expect(result.current).not.toBeNull();
-  expect(result.current?.primary.displayName).toBe("Self");
+  expect(result.current?.primary.handle).toBe("merry-quartz-2597");
 });
 
 test("cross-team dedup: first occurrence of a user_id wins", () => {
   useConnectionPresenceStore.setState({ myUserId: null, usageByConnection: { c1: ["u1"] } } as never);
   useTeamStore.setState({
     membersByTeam: {
-      A: [{ user_id: "u1", display_name: "First" }],
-      B: [{ user_id: "u1", display_name: "Second" }],
+      A: [{ user_id: "u1", handle: "first-heron-1001" }],
+      B: [{ user_id: "u1", handle: "second-heron-2002" }],
     },
   } as never);
   const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
-  expect(result.current?.primary.displayName).toBe("First");
+  expect(result.current?.primary.handle).toBe("first-heron-1001");
 });

@@ -6,7 +6,7 @@ import {
 
 const hostState = (over: Record<string, unknown> = {}) => ({
   multiplayerSessionId: "m1", role: "host" as const, myUserId: "u0",
-  participants: [{ user_id: "u2", handle: "Two" }],
+  participants: [{ user_id: "u2", handle: "two-lynx-2222" }],
   controlHolder: "u0", controlRequester: null,
   connection: {} as MultiplayerConnection, ...over,
 });
@@ -16,7 +16,7 @@ function ports(over: Partial<SharingPorts> = {}): SharingPorts {
     activeSessions: () => [{
       id: "m1", connection_name: "web-1", host_user_id: "u0", host_public_key: "",
       visibility: "team", created_at: "", participant_count: 1,
-      participants: [{ user_id: "u2", handle: "Two" }],
+      participants: [{ user_id: "u2", handle: "two-lynx-2222" }],
     }],
     fetchActiveSessions: vi.fn(async () => {}),
     state: (id: string) => (id === "s1" ? hostState() : undefined),
@@ -45,7 +45,7 @@ test("shareSession refuses while the session's tab is broadcasting", async () =>
 
 test("shareSession passes the vault members and owner tier through to the store", async () => {
   const startSharing = vi.fn(async () => "m9");
-  const members = [{ team_id: "t1", user_id: "u2", invited_by_display_name: null, joined_at: "", display_name: "Two", public_key: "pk2", role_ids: [] }];
+  const members = [{ team_id: "t1", user_id: "u2", invited_by_display_name: null, joined_at: "", handle: "two-lynx-2222", public_key: "pk2", role_ids: [] }];
   const p = ports({ state: () => undefined, startSharing, teamMembers: async () => members, ownerTier: () => "business" });
   expect(await shareSession(p, { sessionId: "s1", vaultIds: ["t1"], allowedRoles: ["manager"] }))
     .toEqual({ ok: true, result: { multiplayerSessionId: "m9" } });
@@ -106,7 +106,7 @@ test("listSharedSessions marks which local session each shared session belongs t
   const rows = await listSharedSessions(ports());
   expect(rows).toEqual([{
     multiplayerSessionId: "m1", localSessionId: "s1", connectionName: "web-1", isHost: true,
-    participants: [{ userId: "u2", displayName: "Two" }], controlHolder: "u0", controlRequester: null,
+    participants: [{ userId: "u2", displayName: "two-lynx-2222" }], controlHolder: "u0", controlRequester: null,
   }]);
 });
 

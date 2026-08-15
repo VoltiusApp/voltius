@@ -96,13 +96,7 @@ function PersonRow({
           />
         )}
         <span className="flex-1 min-w-0 text-left">
-          <span className="text-xs truncate block">{target.display_name}</span>
-          {/* handle is optional: an older server omits it from /members */}
-          {target.handle && (
-            <span className="text-[10px] truncate block" style={{ color: "var(--t-text-dim)" }}>
-              @{target.handle}
-            </span>
-          )}
+          <span className="text-xs truncate block">@{target.handle}</span>
         </span>
         {isStranger && (
           <span
@@ -185,11 +179,11 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
       // not that they later accepted.
       useRecentPeopleStore.getState().remember({
         user_id: target.user_id,
-        handle: target.handle ?? "",
+        handle: target.handle,
         last_invited_at: new Date().toISOString(),
       });
     } catch {
-      setError(t("terminal.share.inviteFailed", { name: target.display_name }));
+      setError(t("terminal.share.inviteFailed", { name: target.handle }));
     } finally {
       setInFlight(target.user_id, false);
     }
@@ -222,7 +216,6 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
     return {
       target: {
         user_id: p.user_id,
-        display_name: p.handle,
         handle: p.handle,
         team_id: teammate?.teamIds[0],
       },
@@ -235,13 +228,13 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
     };
   });
   const teammateEntries: RowEntry[] = groups.teammates.map((m) => ({
-    target: { user_id: m.user_id, display_name: m.display_name, handle: m.handle, team_id: m.teamIds[0] },
+    target: { user_id: m.user_id, handle: m.handle, team_id: m.teamIds[0] },
     teamIds: m.teamIds,
     isStranger: false,
     isOnline: !!m.is_online,
   }));
   const strangerEntries: RowEntry[] = groups.strangers.map((s) => ({
-    target: { user_id: s.user_id, display_name: s.display_name, handle: s.handle },
+    target: { user_id: s.user_id, handle: s.handle },
     teamIds: [],
     isStranger: true,
   }));

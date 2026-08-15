@@ -98,7 +98,7 @@ export function resolveCan(
   const fakeMember: TeamMember = {
     team_id: teamId,
     user_id: snapshot.myUserId,
-    display_name: "",
+    handle: "",
     public_key: "",
     invited_by_display_name: null,
     joined_at: "",

@@ -27,7 +27,7 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 // a real handle exposes.
 const ALICE_HANDLE = "merry-quartz-2597";
 const CAROL_HANDLE = "swift-otter-4821";
-const roster = [{ user_id: "alice", team_id: "t1", display_name: ALICE_HANDLE, handle: ALICE_HANDLE, is_online: true, teamIds: ["t1"] }];
+const roster = [{ user_id: "alice", team_id: "t1", handle: ALICE_HANDLE, is_online: true, teamIds: ["t1"] }];
 
 const h = vi.hoisted(() => ({ allTeammates: vi.fn(), uninviteFromSession: vi.fn() }));
 vi.mock("@/services/teamSharing", async () => {
@@ -205,7 +205,7 @@ test("setup view: a Pro host (cap 1) cannot tap a second teammate after the firs
   // Needs two teammates so there's a "remaining" row left to prove is now blocked.
   h.allTeammates.mockResolvedValue([
     ...roster,
-    { user_id: "carol", team_id: "t1", display_name: CAROL_HANDLE, handle: CAROL_HANDLE, is_online: true, teamIds: ["t1"] },
+    { user_id: "carol", team_id: "t1", handle: CAROL_HANDLE, is_online: true, teamIds: ["t1"] },
   ]);
   // The real startSharingDirect creates the session and writes `connections`, which
   // flips ShareMenu from the setup branch to ActiveSharingView — a *different*

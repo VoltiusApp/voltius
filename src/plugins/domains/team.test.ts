@@ -4,7 +4,7 @@ import { listTeams, listMembers, keyStatus, inviteMember, removeMember, setMembe
 
 const member = (over: Partial<TeamMember> = {}): TeamMember => ({
   team_id: "t1", user_id: "u1", invited_by_display_name: null, joined_at: "",
-  display_name: "One", public_key: "pk1", role_ids: ["r1"], is_online: true, ...over,
+  handle: "one-heron-1111", public_key: "pk1", role_ids: ["r1"], is_online: true, ...over,
 });
 
 function ports(over: Partial<TeamPorts> = {}): TeamPorts {
@@ -42,35 +42,35 @@ test("listTeams resolves role ids to names and carries the vault status", async 
 test("listMembers merges pending invitations, tagged by state", async () => {
   const p = ports({
     pendingInvitations: () => [{
-      id: "u9", display_name: "Nine", role: "member",
-      invited_by_display_name: "One", created_at: "", expires_at: "",
+      id: "u9", display_name: "nine-quail-9999", role: "member",
+      invited_by_display_name: "one-heron-1111", created_at: "", expires_at: "",
     }],
   });
   const rows = await listMembers(p, "t1");
   expect(rows).toEqual([
-    { userId: "u1", displayName: "One", roles: ["manager"], roleIds: ["r1"], isOnline: true, state: "member" },
+    { userId: "u1", displayName: "one-heron-1111", roles: ["manager"], roleIds: ["r1"], isOnline: true, state: "member" },
     // The pending row carries the INVITATION id, under a name no caller can
     // mistake for a user id: member_remove(teamId, "u9") would address nothing.
-    { invitationId: "u9", displayName: "Nine", roles: ["member"], isOnline: false, state: "pending" },
+    { invitationId: "u9", displayName: "nine-quail-9999", roles: ["member"], isOnline: false, state: "pending" },
   ]);
 });
 
 test("keyStatus reports a member who can be keyed but has not been — the keyless window", async () => {
   const p = ports({
-    members: () => [member(), member({ user_id: "u2", display_name: "Two", public_key: "pk2" })],
+    members: () => [member(), member({ user_id: "u2", handle: "two-lynx-2222", public_key: "pk2" })],
     keyHolders: async () => ["u1"],
   });
   const [status] = await keyStatus(p, "t1");
   expect(status.members).toEqual([
-    { userId: "u1", displayName: "One", hasPublicKey: true, hasWrappedKey: true },
-    { userId: "u2", displayName: "Two", hasPublicKey: true, hasWrappedKey: false },
+    { userId: "u1", displayName: "one-heron-1111", hasPublicKey: true, hasWrappedKey: true },
+    { userId: "u2", displayName: "two-lynx-2222", hasPublicKey: true, hasWrappedKey: false },
   ]);
 });
 
 test("keyStatus distinguishes a member who has never published a public key", async () => {
-  const p = ports({ members: () => [member({ user_id: "u3", display_name: "Three", public_key: "" })] });
+  const p = ports({ members: () => [member({ user_id: "u3", handle: "three-otter-3333", public_key: "" })] });
   const [status] = await keyStatus(p, "t1");
-  expect(status.members[0]).toEqual({ userId: "u3", displayName: "Three", hasPublicKey: false, hasWrappedKey: false });
+  expect(status.members[0]).toEqual({ userId: "u3", displayName: "three-otter-3333", hasPublicKey: false, hasWrappedKey: false });
 });
 
 test("keyStatus reports iHoldKey false when the caller is not a key holder", async () => {
@@ -106,13 +106,13 @@ test("inviteMember by email reports invited and returns no key state yet", async
 test("inviteMember by userId returns that member's key state so the keyless window is visible", async () => {
   const p = ports({
     addMemberById: vi.fn(async () => ({ status: "pending" as const })),
-    members: () => [member({ user_id: "u2", display_name: "Two", public_key: "pk2" })],
+    members: () => [member({ user_id: "u2", handle: "two-lynx-2222", public_key: "pk2" })],
     keyHolders: async () => [],
   });
   const res = await inviteMember(p, { teamId: "t1", userId: "u2" });
   expect(res).toEqual({
     ok: true,
-    result: { status: "pending", key: { userId: "u2", displayName: "Two", hasPublicKey: true, hasWrappedKey: false } },
+    result: { status: "pending", key: { userId: "u2", displayName: "two-lynx-2222", hasPublicKey: true, hasWrappedKey: false } },
   });
 });
 

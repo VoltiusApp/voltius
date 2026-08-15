@@ -7,7 +7,7 @@ const SHARED = {
   localSessionId: "s1",
   connectionName: "prod",
   isHost: true,
-  participants: [{ userId: "u2", displayName: "Bo" }],
+  participants: [{ userId: "u2", displayName: "brisk-otter-8823" }],
   controlHolder: "u1",
   controlRequester: "u2",
 };

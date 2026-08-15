@@ -4,7 +4,7 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 
 const h = vi.hoisted(() => ({
   getMyUserId: vi.fn(),
-  getMyEmail: vi.fn(),
+  getMe: vi.fn(),
   loadTeams: vi.fn(),
   loadMembers: vi.fn(),
   loadRoles: vi.fn(),
@@ -18,9 +18,9 @@ const h = vi.hoisted(() => ({
     { id: "r-mem", team_id: "t1", name: "member", is_builtin: true, permissions: 0, position: 1, created_at: "" },
   ],
   members: [
-    { team_id: "t1", user_id: "me", invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z", display_name: "Me", public_key: "pk", role_ids: ["r-mem"] },
-    { team_id: "t1", user_id: "u1", invited_by_display_name: null, joined_at: "2024-01-02T00:00:00Z", display_name: "Ann", public_key: "pk", role_ids: ["r-mem"] },
-    { team_id: "t1", user_id: "u2", invited_by_display_name: null, joined_at: "2024-01-03T00:00:00Z", display_name: "Bob", public_key: "pk", role_ids: ["r-mem"] },
+    { team_id: "t1", user_id: "me", invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z", handle: "merry-quartz-2597", public_key: "pk", role_ids: ["r-mem"] },
+    { team_id: "t1", user_id: "u1", invited_by_display_name: null, joined_at: "2024-01-02T00:00:00Z", handle: "amber-lynx-4410", public_key: "pk", role_ids: ["r-mem"] },
+    { team_id: "t1", user_id: "u2", invited_by_display_name: null, joined_at: "2024-01-03T00:00:00Z", handle: "brisk-otter-8823", public_key: "pk", role_ids: ["r-mem"] },
   ],
   // one hosted session with the key retained (invitable), one hosted with no key,
   // one guest session, and one active-on-the-server session hosted elsewhere.
@@ -102,10 +102,10 @@ vi.mock("@/hooks/usePermission", () => ({
 vi.mock("@/services/teamService", () => ({
   searchUsers: vi.fn(),
   getMyUserId: h.getMyUserId,
-  getMyEmail: h.getMyEmail,
   inviteByEmail: vi.fn(),
   revokePendingInvitation: vi.fn(),
 }));
+vi.mock("@/services/account", () => ({ getMe: h.getMe }));
 vi.mock("@/services/teamVaultActivation", () => ({ markTeamVaultLoadedAfterLocalActivation: vi.fn() }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 vi.mock("@/services/teamVaultSync", () => ({ initTeamVaultKey: vi.fn() }));
@@ -222,7 +222,7 @@ beforeEach(() => {
   resetFixtures();
   Object.values(h).forEach((v) => { if (typeof v === "function" && "mockReset" in v) (v as ReturnType<typeof vi.fn>).mockReset(); });
   h.getMyUserId.mockResolvedValue("me");
-  h.getMyEmail.mockResolvedValue("me@x.com");
+  h.getMe.mockResolvedValue({ handle: "merry-quartz-2597" });
   h.loadTeams.mockResolvedValue(undefined);
   h.loadMembers.mockResolvedValue(undefined);
   h.loadRoles.mockResolvedValue(undefined);
@@ -285,7 +285,7 @@ test("a session that has already spent its guest cap is not offered", async () =
   // Pro host, cap 1, one guest already live -> no seat left for anyone.
   patchConnection("local-1", {
     myUserId: "me",
-    participants: [{ user_id: "me", handle: "Me" }, { user_id: "guest-1", handle: "Guest" }],
+    participants: [{ user_id: "me", handle: "merry-quartz-2597" }, { user_id: "guest-1", handle: "guest-fox-1207" }],
   });
   await renderPage();
   expect(screen.queryByTestId(`ctx-u1::${INVITE_PROD}`)).toBeNull();
@@ -301,7 +301,7 @@ test("a member who already holds a standing invite is not offered that session",
 });
 
 test("a member already live in the session is not offered it, while others still are", async () => {
-  patchConnection("local-1", { myUserId: "me", participants: [{ user_id: "u1", handle: "Ann" }] });
+  patchConnection("local-1", { myUserId: "me", participants: [{ user_id: "u1", handle: "amber-lynx-4410" }] });
   patchActiveSession("mp-1", { vault_ids: [] });
   // Cap 1 spent by u1 being live; raise the cap via the session's vault-owner tier
   // so this test isolates the dedupe guard from the cap guard.

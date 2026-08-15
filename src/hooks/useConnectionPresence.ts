@@ -4,10 +4,10 @@ import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
 import { useTeamStore } from "@/stores/teamStore";
 
 export interface ConnectionPresence {
-  primary: { id: string; displayName: string };
+  primary: { id: string; handle: string };
   overflow: number;
-  /** All non-self user IDs in usage order (primary first). Useful for tooltips. */
-  allDisplayNames: string[];
+  /** All non-self handles in usage order (primary first). Useful for tooltips. */
+  allHandles: string[];
 }
 
 /**
@@ -32,18 +32,18 @@ export function useConnectionPresence(connection: Connection): ConnectionPresenc
     if (others.length === 0) return null;
 
     // Build a flat lookup across all loaded teams (a user appears once per team).
-    const nameById = new Map<string, string>();
+    const handleById = new Map<string, string>();
     for (const members of Object.values(membersByTeam)) {
       for (const m of members) {
-        if (!nameById.has(m.user_id)) nameById.set(m.user_id, m.display_name);
+        if (!handleById.has(m.user_id)) handleById.set(m.user_id, m.handle);
       }
     }
 
-    const resolved = others.map((id) => ({ id, displayName: nameById.get(id) ?? "Member" }));
+    const resolved = others.map((id) => ({ id, handle: handleById.get(id) ?? "Member" }));
     return {
       primary: resolved[0],
       overflow: resolved.length - 1,
-      allDisplayNames: resolved.map((r) => r.displayName),
+      allHandles: resolved.map((r) => r.handle),
     };
   }, [vaultId, connection.id, userIds, myUserId, membersByTeam]);
 }

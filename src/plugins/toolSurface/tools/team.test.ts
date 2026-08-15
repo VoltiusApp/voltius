@@ -4,13 +4,13 @@ import type { ToolSurfacePorts } from "../coreTools";
 
 const TEAM = { id: "t1", name: "Ops", ownerTier: "pro", myRoles: ["owner"], myRoleIds: ["r0"], vaultStatus: "ready" };
 const MEMBER = {
-  userId: "u2", displayName: "Bo", roles: ["member"], roleIds: ["r1"], isOnline: true, state: "member" as const,
+  userId: "u2", displayName: "brisk-otter-8823", roles: ["member"], roleIds: ["r1"], isOnline: true, state: "member" as const,
 };
 const KEY_STATUS = {
   teamId: "t1",
   vaultStatus: "ready",
   iHoldKey: true,
-  members: [{ userId: "u2", displayName: "Bo", hasPublicKey: true, hasWrappedKey: false }],
+  members: [{ userId: "u2", displayName: "brisk-otter-8823", hasPublicKey: true, hasWrappedKey: false }],
 };
 
 function makePorts(overrides: Record<string, unknown> = {}, approve = true) {

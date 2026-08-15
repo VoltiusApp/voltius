@@ -39,14 +39,13 @@ export interface Team {
 export interface TeamMember {
   team_id: string;
   user_id: string;
+  /** Wire key kept for older clients; the value is the inviter's handle. */
   invited_by_display_name: string | null;
   joined_at: string;
-  display_name: string;
   public_key: string;
   role_ids: string[];
   is_online?: boolean;
-  /** Optional: an older server omits it. Never render a bare "@" when absent. */
-  handle?: string;
+  handle: string;
 }
 
 export interface TeamRole {
@@ -251,7 +250,6 @@ export async function deleteRole(teamId: string, roleId: string): Promise<void> 
 
 export interface UserSearchResult {
   user_id: string;
-  display_name: string;
   handle: string;
   is_teammate: boolean;
 }
@@ -267,7 +265,6 @@ export async function searchUsers(q: string): Promise<UserSearchResult[]> {
 
 export interface UserKeyLookup {
   user_id: string;
-  display_name: string;
   handle: string;
   public_key: string;
 }
@@ -384,8 +381,14 @@ export async function getServerUrlValue(): Promise<string | null> {
 
 export interface PendingInvitation {
   id: string;
+  /**
+   * Wire key kept for older clients — the server sends no `handle` beside it.
+   * The value is the invitee's handle, or their raw email when they have no
+   * Voltius account yet.
+   */
   display_name: string;
   role: string;
+  /** Wire key kept for older clients; the value is the inviter's handle. */
   invited_by_display_name: string | null;
   created_at: string;
   expires_at: string;
