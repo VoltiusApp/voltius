@@ -24,7 +24,7 @@ const ports = (over: Partial<Record<string, unknown>> = {}) => ({
         key === "toggles.plugin-install-review" && value === false
           ? "Turns off the consent screen."
           : undefined),
-      set: vi.fn(() => ({ ok: true, result: { key: "k", requested: 1, effective: 1, changed: false } })),
+      set: vi.fn(() => ({ ok: true, result: { key: "k", requested: 1, effective: 1, coerced: false } })),
       ...(over.settings as object ?? {}),
     },
   },

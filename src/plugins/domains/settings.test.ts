@@ -41,7 +41,7 @@ describe("domaine settings", () => {
     const res = setSetting("toggles.scroll-minimap", false);
     expect(res).toEqual({
       ok: true,
-      result: { key: "toggles.scroll-minimap", requested: false, effective: false, changed: false },
+      result: { key: "toggles.scroll-minimap", requested: false, effective: false, coerced: false },
     });
     expect(getSetting("toggles.scroll-minimap")!.value).toBe(false);
   });
@@ -58,7 +58,7 @@ describe("domaine settings", () => {
     expect(res.result.requested).toBe(50_000.6);
     expect(res.result.effective).toBe(50_001);
     expect(res.result.effective).not.toBe(50_000.6);
-    expect(res.result.changed).toBe(true);
+    expect(res.result.coerced).toBe(true);
   });
 
   test("set refuse une valeur hors bornes sans écrire", () => {
