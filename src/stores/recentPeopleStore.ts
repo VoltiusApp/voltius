@@ -70,6 +70,16 @@ export const useRecentPeopleStore = create<RecentPeopleStore>()(
           return { recent: Array.isArray(list) ? list.slice(0, MAX_RECENT).map(project) : [], recentUpdatedAt };
         }),
     }),
-    { name: "voltius-recent-people" },
+    {
+      name: "voltius-recent-people",
+      // Pre-0.26 rows can carry `handle: ""` (written before handles existed).
+      // `project()` never runs on rehydration, so a stale empty-handle row would
+      // otherwise reach the UI as a bare "@" that can never match a search.
+      onRehydrateStorage: () => (state) => {
+        if (state && state.recent.some((p) => !p.handle)) {
+          useRecentPeopleStore.setState({ recent: state.recent.filter((p) => p.handle) });
+        }
+      },
+    },
   ),
 );

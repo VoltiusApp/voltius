@@ -96,7 +96,7 @@ function PersonRow({
           />
         )}
         <span className="flex-1 min-w-0 text-left">
-          <span className="text-xs truncate block">@{target.handle}</span>
+          <span className="text-xs truncate block">{target.handle ? `@${target.handle}` : "?"}</span>
         </span>
         {isStranger && (
           <span
@@ -228,7 +228,8 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
     };
   });
   const teammateEntries: RowEntry[] = groups.teammates.map((m) => ({
-    target: { user_id: m.user_id, handle: m.handle, team_id: m.teamIds[0] },
+    // An older server (no migration 035) omits `handle`; never render a bare "@".
+    target: { user_id: m.user_id, handle: m.handle ?? "", team_id: m.teamIds[0] },
     teamIds: m.teamIds,
     isStranger: false,
     isOnline: !!m.is_online,

@@ -5,23 +5,27 @@ const AVATAR_COLORS = [
   "#f59e0b", "#10b981", "#3b82f6", "#14b8a6",
 ];
 
-export function avatarColor(name: string): string {
+export function avatarColor(name: string | undefined): string {
+  const safe = name ?? "";
   let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  for (let i = 0; i < safe.length; i++) h = safe.charCodeAt(i) + ((h << 5) - h);
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
 
 /** Initials for a handle. Generated handles are `adjective-noun-NNNN` drawn
  *  from only 20 adjectives, so a single leading letter collides constantly —
- *  every `merry-*` user would render an identical "M" across 8 colours. */
-export function handleInitials(handle: string): string {
+ *  every `merry-*` user would render an identical "M" across 8 colours.
+ *  Returns "?" for a missing or empty handle (e.g. an older server that
+ *  omits `handle` before migration 035). */
+export function handleInitials(handle: string | undefined): string {
+  if (!handle) return "?";
   const words = handle.split(/[-_]/).filter((w) => /^[a-z]/i.test(w));
   const initials = words.slice(0, 2).map((w) => w[0].toUpperCase()).join("");
   return initials || "?";
 }
 
 interface MiniAvatarProps {
-  name: string;
+  name: string | undefined;
   size?: number;
 }
 

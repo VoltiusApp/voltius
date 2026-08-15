@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, tryRefreshJwt } from "@/services/authTokens";
@@ -39,13 +38,14 @@ export interface Team {
 export interface TeamMember {
   team_id: string;
   user_id: string;
-  /** Wire key kept for older clients; the value is the inviter's handle. */
+  /** The field name is the alias, the value is not: this holds the inviter's handle. */
   invited_by_display_name: string | null;
   joined_at: string;
   public_key: string;
   role_ids: string[];
   is_online?: boolean;
-  handle: string;
+  /** An older server (no migration 035) omits this. Never render a bare "@" when absent. */
+  handle?: string;
 }
 
 export interface TeamRole {
@@ -369,10 +369,6 @@ export async function getMyUserId(): Promise<string | null> {
   }
 }
 
-export async function getMyEmail(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "email" });
-}
-
 export async function getServerUrlValue(): Promise<string | null> {
   return getServerUrl();
 }
@@ -388,7 +384,7 @@ export interface PendingInvitation {
    */
   display_name: string;
   role: string;
-  /** Wire key kept for older clients; the value is the inviter's handle. */
+  /** The field name is the alias, the value is not: this holds the inviter's handle. */
   invited_by_display_name: string | null;
   created_at: string;
   expires_at: string;

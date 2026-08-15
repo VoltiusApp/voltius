@@ -35,7 +35,7 @@ export function useConnectionPresence(connection: Connection): ConnectionPresenc
     const handleById = new Map<string, string>();
     for (const members of Object.values(membersByTeam)) {
       for (const m of members) {
-        if (!handleById.has(m.user_id)) handleById.set(m.user_id, m.handle);
+        if (m.handle && !handleById.has(m.user_id)) handleById.set(m.user_id, m.handle);
       }
     }
 

@@ -88,3 +88,24 @@ test("a remotely applied list adopts the remote timestamp", async () => {
   });
   expect(useRecentPeopleStore.getState().recentUpdatedAt).toBe(remoteAt);
 });
+
+// Pre-0.26 wrote handle: "" for rows saved before handles existed. project()
+// only runs on remember/replaceAll, never on rehydration, so a stale row like
+// this survives untouched in localStorage until this filter drops it on read.
+test("rehydration drops a legacy row with an empty handle", async () => {
+  localStorage.setItem("voltius-recent-people", JSON.stringify({
+    state: {
+      recent: [
+        { user_id: "legacy", handle: "", last_invited_at: "2026-01-01T00:00:00.000Z" },
+        { user_id: "ok", handle: "merry-quartz-2597", last_invited_at: "2026-01-02T00:00:00.000Z" },
+      ],
+      recentUpdatedAt: "2026-01-02T00:00:00.000Z",
+    },
+    version: 0,
+  }));
+
+  await useRecentPeopleStore.persist.rehydrate();
+
+  const { recent } = useRecentPeopleStore.getState();
+  expect(recent.map((p) => p.user_id)).toEqual(["ok"]);
+});

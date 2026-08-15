@@ -147,7 +147,7 @@ async function resolveStrangerPublicKey(userId: string): Promise<string> {
  * createDirectSession.
  */
 async function prepareWrappedSessionKey(
-  members: InviteTarget[],
+  members: { user_id: string; team_id?: string }[],
 ): Promise<{ sessionKey: SessionKey; sessionKeyBytes: Uint8Array; wrappedKeys: { user_id: string; wrapped_key: string }[] }> {
   const { publicKey } = await getMyX25519Keypair();
   await teamService.updatePublicKey(publicKey);
@@ -162,7 +162,7 @@ async function prepareWrappedSessionKey(
 
   // Teammates resolve in one batched request per team; a stranger has no
   // team_id to batch on, so they resolve individually by id.
-  const teammates = uniqueMembers.filter((m): m is InviteTarget & { team_id: string } => !!m.team_id);
+  const teammates = uniqueMembers.filter((m): m is { user_id: string; team_id: string } => !!m.team_id);
   const strangers = uniqueMembers.filter((m) => !m.team_id);
 
   const [teamKeys, strangerKeyList] = await Promise.all([

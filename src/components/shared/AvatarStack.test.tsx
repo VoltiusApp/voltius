@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { handleInitials } from "./AvatarStack";
+import { avatarColor, handleInitials } from "./AvatarStack";
 
 describe("handleInitials", () => {
   // Generated handles are adjective-noun-NNNN over 20 adjectives, so a single
@@ -21,9 +21,28 @@ describe("handleInitials", () => {
     expect(handleInitials("")).toBe("?");
   });
 
+  // An older server (no migration 035) omits `handle` on TeamMember entirely.
+  test("returns a question mark when the handle is missing", () => {
+    expect(handleInitials(undefined)).toBe("?");
+  });
+
   test("gives a different answer than a naive two-character slice", () => {
     // MultiplayerBar used to slice(0, 2), which yields "ME" for this handle —
     // the first two letters of one word rather than one from each word.
     expect(handleInitials("merry-quartz-2597")).not.toBe("ME");
+  });
+});
+
+describe("avatarColor", () => {
+  test("returns a stable color for a real handle", () => {
+    const color = avatarColor("merry-quartz-2597");
+    expect(color).toBe(avatarColor("merry-quartz-2597"));
+    expect(color).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  test("does not throw for a missing or empty handle", () => {
+    expect(() => avatarColor(undefined)).not.toThrow();
+    expect(() => avatarColor("")).not.toThrow();
+    expect(avatarColor(undefined)).toBe(avatarColor(""));
   });
 });

@@ -87,7 +87,7 @@ export async function allTeammates(): Promise<Teammate[]> {
 
   return [...merged.values()].sort((a, b) => {
     if (!!a.is_online !== !!b.is_online) return a.is_online ? -1 : 1;
-    return a.handle.localeCompare(b.handle);
+    return (a.handle ?? "").localeCompare(b.handle ?? "");
   });
 }
 
@@ -165,14 +165,14 @@ export function memberHasAccess(
  * adds Elsewhere on Voltius from the server's results. A person is listed once —
  * the most specific group wins.
  */
-export function groupPeople<T extends { user_id: string; handle: string }>(input: {
+export function groupPeople<T extends { user_id: string; handle?: string }>(input: {
   query: string;
   teammates: T[];
   recent: RecentPerson[];
   results: UserSearchResult[];
 }): { recent: RecentPerson[]; teammates: T[]; strangers: UserSearchResult[] } {
   const q = input.query.trim().toLowerCase();
-  const matches = (handle: string) => !q || handle.toLowerCase().includes(q);
+  const matches = (handle: string | undefined) => !q || !!handle?.toLowerCase().includes(q);
 
   const recent = input.recent.filter((p) => matches(p.handle));
   const recentIds = new Set(recent.map((p) => p.user_id));

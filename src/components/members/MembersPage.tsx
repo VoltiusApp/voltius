@@ -17,7 +17,6 @@ import {
   revokePendingInvitation,
 } from "@/services/teamService";
 import type { PendingInvitation } from "@/stores/teamStore";
-import { getMe } from "@/services/account";
 import { BaseCard } from "@/components/shared/BaseCard";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
@@ -486,7 +485,7 @@ export function MemberDetailPanel({
     <PanelShell>
       <PanelHeader
         icon="lucide:user"
-        title={member.handle}
+        title={member.handle ?? "?"}
         subtitle={<RoleBadges member={member} roles={teamRoles} />}
         onClose={onClose}
       />
@@ -1026,7 +1025,7 @@ export default function MembersPage() {
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
   const [myUserId, setMyUserId] = useState("");
-  const [myHandle, setMyHandle] = useState<string | null>(null);
+  const [cachedHandle, setCachedHandle] = useState<string | null>(null);
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string[]>([]);
@@ -1050,7 +1049,10 @@ export default function MembersPage() {
 
   useEffect(() => {
     getMyUserId().then((id) => { if (id) setMyUserId(id); }).catch(() => {});
-    getMe().then((me) => { setMyHandle(me?.handle ?? ""); }).catch(() => { setMyHandle(""); });
+    // Fallback only — the self-card prefers the handle already in `members`.
+    import("@tauri-apps/api/core").then(({ invoke: inv }) =>
+      inv<string | null>("keychain_get", { key: "handle" }).catch(() => null)
+    ).then(setCachedHandle);
     loadTeams().catch(() => {});
   }, [loadTeams]);
 
@@ -1072,6 +1074,7 @@ export default function MembersPage() {
   const members = useMemo(() => (teamId ? (membersByTeam[teamId] ?? []) : []), [teamId, membersByTeam]);
   const teamRoles = useMemo(() => (teamId ? (rolesByTeam[teamId] ?? []) : []), [teamId, rolesByTeam]);
   const myMember = members.find((m) => m.user_id === myUserId);
+  const myHandle = myMember?.handle ?? cachedHandle;
 
   // Compute effective permissions from role bits
   const myEffectivePerms = myMember ? effectivePermissions(myMember, teamRoles) : 0;
@@ -1130,7 +1133,7 @@ export default function MembersPage() {
   const searchLower = search.trim().toLowerCase();
   const filteredMembers = useMemo(() => {
     let result = members;
-    if (searchLower) result = result.filter((m) => m.handle.toLowerCase().includes(searchLower));
+    if (searchLower) result = result.filter((m) => (m.handle ?? "").toLowerCase().includes(searchLower));
     if (roleFilter.length > 0) result = result.filter((m) => roleFilter.some((rid) => m.role_ids.includes(rid)));
     return result;
   }, [members, searchLower, roleFilter]);
@@ -1138,15 +1141,15 @@ export default function MembersPage() {
   const sortedMembers = useMemo(() => {
     return [...filteredMembers].sort((a, b) => {
       switch (sortMode) {
-        case "name-asc":  return a.handle.localeCompare(b.handle);
-        case "name-desc": return b.handle.localeCompare(a.handle);
+        case "name-asc":  return (a.handle ?? "").localeCompare(b.handle ?? "");
+        case "name-desc": return (b.handle ?? "").localeCompare(a.handle ?? "");
         case "newest":    return b.joined_at.localeCompare(a.joined_at);
         case "oldest":    return a.joined_at.localeCompare(b.joined_at);
         case "role-asc": {
           const posA = Math.min(...(a.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           const posB = Math.min(...(b.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           if (posA !== posB) return posA - posB;
-          return a.handle.localeCompare(b.handle);
+          return (a.handle ?? "").localeCompare(b.handle ?? "");
         }
         default: return 0;
       }
@@ -1259,7 +1262,7 @@ export default function MembersPage() {
                 void runTeamAction({
                   pending: t("members.toast.invitingToSession", { name: member.handle }),
                   success: t("members.toast.invitedToSession", { name: member.handle }),
-                  run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, member),
+                  run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, { ...member, handle: member.handle ?? "" }),
                 }).catch(() => { /* toast already reports the failure */ });
               },
             }))

@@ -20,9 +20,12 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
 import { useTeamSessionStore } from "./teamSessionStore.ts";
 
-const member = (userId: string): TeamMember => ({
+// `satisfies` (not `: TeamMember`) keeps `handle` narrowed to `string` in the
+// inferred type, so these fixtures also satisfy `InviteTarget` at call sites
+// that pass them directly — TeamMember's `handle` is optional for a pre-035 server.
+const member = (userId: string) => ({
   team_id: "t1", user_id: userId, invited_by_display_name: null, joined_at: "", handle: userId, public_key: "pk", role_ids: [],
-});
+}) satisfies TeamMember;
 
 beforeEach(() => {
   Object.values(mp).forEach((f) => f.mockClear());
