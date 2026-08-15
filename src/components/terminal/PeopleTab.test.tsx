@@ -136,6 +136,25 @@ test("marks a covered teammate as having access and does not call onInvite", asy
   expect(onInvite).not.toHaveBeenCalled();
 });
 
+// Recent wins the dedupe, so the teammate's teamIds only reach memberHasAccess
+// if the Recent row carries them. Without that, tapping issues a real grant and
+// spends a guest seat on someone who already has access.
+test("a teammate who is also in Recent still renders as having access in their vault's session", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  useRecentPeopleStore.setState({
+    recent: [{ user_id: "u-alice", handle: "alice-h", display_name: "Alice", last_invited_at: "" }],
+    recentUpdatedAt: "",
+  });
+  const onInvite = vi.fn();
+  render(<PeopleTab {...base} session={{ vaultIds: ["t1"], participantIds: [], invitedIds: [] }} onInvite={onInvite} />);
+  const rows = await screen.findAllByRole("button", { name: /alice/i });
+  expect(rows).toHaveLength(1);
+  expect((rows[0] as HTMLButtonElement).disabled).toBe(true);
+  expect(within(rows[0]).getByText("terminal.share.inviteHasAccess")).toBeTruthy();
+  await userEvent.click(rows[0]);
+  expect(onInvite).not.toHaveBeenCalled();
+});
+
 test("disables the row while an invite is in flight and shows Invited after", async () => {
   h.allTeammates.mockResolvedValue(roster);
   let resolve: () => void;

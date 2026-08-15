@@ -181,12 +181,28 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
 
   const groups = groupPeople({ query: search.query, teammates, recent, results: search.results });
 
-  const recentEntries: RowEntry[] = groups.recent.map((p) => ({
-    target: { user_id: p.user_id, display_name: p.display_name, handle: p.handle },
-    teamIds: [],
-    isStranger: false,
-    onContextMenu: (e) => { e.preventDefault(); setMenu({ userId: p.user_id, pos: { x: e.clientX, y: e.clientY } }); },
-  }));
+  const recentEntries: RowEntry[] = groups.recent.map((p) => {
+    // Recent wins the dedupe, so a teammate listed here is dropped from the
+    // teammate group entirely — and with it their `teamIds`, which is what
+    // `memberHasAccess` tests against the session's vaults first. Without this
+    // merge the row renders as invitable, and inviting spends a guest seat on
+    // someone who already has access.
+    const teammate = teammates.find((m) => m.user_id === p.user_id);
+    return {
+      target: {
+        user_id: p.user_id,
+        display_name: p.display_name,
+        handle: p.handle,
+        team_id: teammate?.teamIds[0],
+      },
+      teamIds: teammate?.teamIds ?? [],
+      isStranger: false,
+      onContextMenu: (e: React.MouseEvent) => {
+        e.preventDefault();
+        setMenu({ userId: p.user_id, pos: { x: e.clientX, y: e.clientY } });
+      },
+    };
+  });
   const teammateEntries: RowEntry[] = groups.teammates.map((m) => ({
     target: { user_id: m.user_id, display_name: m.display_name, handle: m.handle, team_id: m.teamIds[0] },
     teamIds: m.teamIds,
