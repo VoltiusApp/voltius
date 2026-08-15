@@ -251,6 +251,30 @@
         "saving": "Saving…",
         "save": "Save"
       },
+      "handle": {
+        "title": "Handle",
+        "copy": "Copy",
+        "copied": "Copied",
+        "choose": "Choose a handle",
+        "change": "Change handle",
+        "chooseSub": "Lets people invite you by @handle instead of your email.",
+        "placeholder": "your-handle",
+        "inputLabel": "Handle",
+        "save": "Save",
+        "upsell": "Custom handles require Pro or higher.",
+        "reachableNote": "People can still reach you by your full email address.",
+        "lapsedKeepsHandle": "Your plan lapsed, but you keep your existing handle.",
+        "lapsedRenameLocked": "Renaming is locked until you resubscribe.",
+        "errorInvalid": "Handles can only contain letters, numbers, and hyphens.",
+        "errorTaken": "That handle is already taken.",
+        "errorTierRequired": "Custom handles require Pro or higher.",
+        "errorCooldown": "You can change your handle again soon.",
+        "errorGeneric": "Could not update your handle."
+      },
+      "strangerInvites": {
+        "label": "Allow invites from anyone",
+        "desc": "Let people outside your teams invite you to a shared terminal by @handle or email."
+      },
       "changeMasterPassword": {
         "label": "Change master password",
         "sub": "Update your password without re-encrypting your vault",

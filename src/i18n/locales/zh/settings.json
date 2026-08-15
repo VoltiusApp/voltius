@@ -138,6 +138,30 @@
         "saving": "正在保存…",
         "save": "保存"
       },
+      "handle": {
+        "title": "Handle",
+        "copy": "复制",
+        "copied": "已复制",
+        "choose": "选择 handle",
+        "change": "更改 handle",
+        "chooseSub": "让其他人可以通过 @handle 而不是邮箱邀请您。",
+        "placeholder": "your-handle",
+        "inputLabel": "Handle",
+        "save": "保存",
+        "upsell": "自定义 handle 需要 Pro 或更高套餐。",
+        "reachableNote": "他人仍可通过您的完整邮箱地址联系您。",
+        "lapsedKeepsHandle": "您的套餐已过期，但仍保留现有 handle。",
+        "lapsedRenameLocked": "重新订阅前无法更改 handle。",
+        "errorInvalid": "Handle 只能包含字母、数字和连字符。",
+        "errorTaken": "该 handle 已被占用。",
+        "errorTierRequired": "自定义 handle 需要 Pro 或更高套餐。",
+        "errorCooldown": "您很快就可以再次更改 handle。",
+        "errorGeneric": "无法更新您的 handle。"
+      },
+      "strangerInvites": {
+        "label": "允许任何人邀请",
+        "desc": "允许团队之外的人通过 @handle 或邮箱邀请您加入共享终端。"
+      },
       "changeMasterPassword": {
         "label": "更改主密码",
         "sub": "更新密码而无需重新加密保险库",

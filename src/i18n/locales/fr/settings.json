@@ -251,6 +251,30 @@
         "saving": "Enregistrement…",
         "save": "Enregistrer"
       },
+      "handle": {
+        "title": "Pseudo",
+        "copy": "Copier",
+        "copied": "Copié",
+        "choose": "Choisir un pseudo",
+        "change": "Changer de pseudo",
+        "chooseSub": "Permet aux autres de vous inviter par @pseudo plutôt que par e-mail.",
+        "placeholder": "votre-pseudo",
+        "inputLabel": "Pseudo",
+        "save": "Enregistrer",
+        "upsell": "Les pseudos personnalisés nécessitent l'offre Pro ou supérieure.",
+        "reachableNote": "Vous restez joignable par votre adresse e-mail complète.",
+        "lapsedKeepsHandle": "Votre offre a expiré, mais vous conservez votre pseudo actuel.",
+        "lapsedRenameLocked": "Le changement de pseudo est verrouillé jusqu'à votre réabonnement.",
+        "errorInvalid": "Un pseudo ne peut contenir que des lettres, des chiffres et des tirets.",
+        "errorTaken": "Ce pseudo est déjà pris.",
+        "errorTierRequired": "Les pseudos personnalisés nécessitent l'offre Pro ou supérieure.",
+        "errorCooldown": "Vous pourrez de nouveau changer de pseudo bientôt.",
+        "errorGeneric": "Impossible de mettre à jour votre pseudo."
+      },
+      "strangerInvites": {
+        "label": "Autoriser les invitations de tout le monde",
+        "desc": "Permet aux personnes en dehors de vos équipes de vous inviter dans un terminal partagé par @pseudo ou e-mail."
+      },
       "changeMasterPassword": {
         "label": "Changer le mot de passe maître",
         "sub": "Mettez à jour votre mot de passe sans rechiffrer votre coffre-fort",

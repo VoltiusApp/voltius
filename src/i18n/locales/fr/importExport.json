@@ -107,7 +107,8 @@
         "themes": { "label": "Thèmes" },
         "uiPreferences": { "label": "Préférences d'interface" },
         "shortcuts": { "label": "Raccourcis" },
-        "appSettings": { "label": "Paramètres de l'application" }
+        "appSettings": { "label": "Paramètres de l'application" },
+        "recentPeople": { "label": "Personnes récentes" }
       },
       "describe": {
         "themes_one": "{{count}} thème personnalisé",
@@ -117,7 +118,9 @@
         "shortcutsOverrides_other": "{{count}} personnalisations",
         "shortcutsDefaults": "Par défaut",
         "appSettingsShell": "shell : {{shell}}",
-        "appSettingsDefault": "Paramètres par défaut"
+        "appSettingsDefault": "Paramètres par défaut",
+        "recentPeople_one": "{{count}} personne récente",
+        "recentPeople_other": "{{count}} personnes récentes"
       }
     }
   }
