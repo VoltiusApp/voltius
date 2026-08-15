@@ -367,7 +367,19 @@ export async function getCurrentDisplayName(): Promise<string | null> {
   return keychainGet("display_name");
 }
 
-export async function fetchAndCacheDisplayName(): Promise<string | null> {
+export interface MeResponse {
+  display_name?: string | null;
+  handle?: string;
+  handle_is_custom?: boolean;
+  allow_stranger_invites?: boolean;
+  tier?: string;
+}
+
+/** Fetches /v1/auth/me and caches the display name and handle for offline use
+ *  (e.g. getCurrentDisplayName). Returns the full payload so callers that need
+ *  the live tier/preference fields — the settings identity UI — don't need a
+ *  second round trip. */
+export async function getMe(): Promise<MeResponse | null> {
   const [jwt, serverUrl] = await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
   if (!jwt || !serverUrl) return null;
   try {
@@ -375,12 +387,18 @@ export async function fetchAndCacheDisplayName(): Promise<string | null> {
       headers: { Authorization: `Bearer ${jwt}` },
     });
     if (!res.ok) return null;
-    const me = await res.json();
+    const me: MeResponse = await res.json();
     if (me.display_name) await keychainSet("display_name", me.display_name);
-    return me.display_name ?? null;
+    if (me.handle) await keychainSet("handle", me.handle);
+    return me;
   } catch {
     return null;
   }
+}
+
+export async function fetchAndCacheDisplayName(): Promise<string | null> {
+  const me = await getMe();
+  return me?.display_name ?? null;
 }
 
 export async function updateDisplayName(newName: string): Promise<void> {
