@@ -160,6 +160,24 @@ test("surfaces a failed invite inline and re-enables the row", async () => {
   expect(row.disabled).toBe(false);
 });
 
+// ─── Roster load failure (moved from InvitePeopleSection.test.tsx: a failed fetch
+// must never read as "this team has no one to invite") ─────────────────────────
+
+test("a failed roster load shows a distinct error, not the empty-roster message", async () => {
+  h.allTeammates.mockRejectedValue(new Error("network"));
+  render(<PeopleTab {...base} />);
+  await screen.findByText("terminal.share.inviteLoadFailed");
+  // "Your teams" only renders when there are teammate rows, so with the load
+  // failed it's simply absent — the failure banner is the only signal shown.
+  expect(screen.queryByText("terminal.share.yourTeamsLabel")).toBeNull();
+});
+
+test("does not show a load-failure message while the roster request is still pending", () => {
+  h.allTeammates.mockReturnValue(new Promise(() => {})); // never resolves
+  render(<PeopleTab {...base} />);
+  expect(screen.queryByText("terminal.share.inviteLoadFailed")).toBeNull();
+});
+
 test("reloads the roster when the team list changes (ShareMenu's loadTeams races the mount effect)", async () => {
   h.allTeammates.mockResolvedValue(roster);
   render(<PeopleTab {...base} />);

@@ -56,10 +56,10 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-function renderMenu() {
+function renderMenu(overrides: { tier?: "pro" | "teams" | "business"; connectionVaultId?: string } = {}) {
   const anchorRef = createRef<HTMLButtonElement>();
-  // tier="pro" with a personal (non-qualifying) vault means People and Link are
-  // the only tabs (no qualifying vault for Team), with People selected by default.
+  // Default: tier="pro" with a personal (non-qualifying) vault means People and Link
+  // are the only tabs (no qualifying vault for Team), with People selected by default.
   return render(
     <ShareMenu
       anchorRef={anchorRef}
@@ -67,9 +67,9 @@ function renderMenu() {
       onClose={() => {}}
       activeSessionId="local-1"
       connectionName="Prod DB"
-      connectionVaultId="personal"
+      connectionVaultId={overrides.connectionVaultId ?? "personal"}
       isLoggedIn
-      tier="pro"
+      tier={overrides.tier ?? "pro"}
       onSignIn={() => {}}
       onUpgrade={() => {}}
     />,
@@ -131,4 +131,25 @@ test("a rejecting writeClipboard leaves the share successful and the field uncop
   expect(screen.queryByText("terminal.share.failedToGenerateLink")).toBeNull();
   expect(screen.getByText("common.action.copy")).toBeTruthy();
   expect(screen.queryByText("terminal.shared.copied")).toBeNull();
+});
+
+// ─── Tab-availability matrix (the branches `renderMenu()`'s pro-without-vault
+// default never exercises) ──────────────────────────────────────────────────
+
+test("a Teams host sees all three tabs, People first, regardless of the connection's own vault", () => {
+  renderMenu({ tier: "teams", connectionVaultId: "personal" });
+  expect(screen.getByText("terminal.share.tabPeople")).toBeTruthy();
+  expect(screen.getByText("terminal.share.tabInviteLink")).toBeTruthy();
+  expect(screen.getByText("terminal.share.tabTeam")).toBeTruthy();
+  // People is the default/active tab — its content is already on screen.
+  expect(screen.getByPlaceholderText("terminal.share.peopleSearchPlaceholder")).toBeTruthy();
+});
+
+test("a Pro host whose connection is in a qualifying vault sees all three tabs too", () => {
+  teamState.teams = [{ id: "vault-1", name: "Vault", owner_id: "u0", owner_tier: "teams", created_at: "", role_ids: [] }];
+  renderMenu({ tier: "pro", connectionVaultId: "vault-1" });
+  expect(screen.getByText("terminal.share.tabPeople")).toBeTruthy();
+  expect(screen.getByText("terminal.share.tabInviteLink")).toBeTruthy();
+  expect(screen.getByText("terminal.share.tabTeam")).toBeTruthy();
+  expect(screen.getByPlaceholderText("terminal.share.peopleSearchPlaceholder")).toBeTruthy();
 });

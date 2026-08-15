@@ -42,6 +42,21 @@ interface RowEntry {
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
+function ErrorBanner({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="mb-2 px-2 py-1.5 rounded-sm text-[11px]"
+      style={{
+        background: "color-mix(in srgb, var(--t-status-error) 12%, transparent)",
+        color: "var(--t-status-error)",
+        border: "1px solid color-mix(in srgb, var(--t-status-error) 25%, transparent)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function PersonRow({
   entry,
   hasAccess,
@@ -118,6 +133,9 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
   const search = useUserSearch();
 
   const [teammates, setTeammates] = useState<Teammate[]>([]);
+  // Distinct from "loaded, zero teammates": a fetch failure must not read as an
+  // empty team, which is exactly the failure mode a teaching empty state hides.
+  const [teammatesLoadFailed, setTeammatesLoadFailed] = useState(false);
   const [inviting, setInviting] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ userId: string; pos: { x: number; y: number } } | null>(null);
@@ -126,7 +144,9 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
   // on open, so on a fresh install/first sign-in the roster isn't populated yet at mount.
   useEffect(() => {
     let cancelled = false;
-    allTeammates().then((m) => { if (!cancelled) setTeammates(m); }).catch(() => { if (!cancelled) setTeammates([]); });
+    allTeammates()
+      .then((m) => { if (!cancelled) { setTeammates(m); setTeammatesLoadFailed(false); } })
+      .catch(() => { if (!cancelled) { setTeammates([]); setTeammatesLoadFailed(true); } });
     return () => { cancelled = true; };
   }, [teams]);
 
@@ -221,18 +241,9 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
 
       <ParticipantsRatioNotice count={committedSeats} guestCap={guestCap} atCap={atCap} countsInvites tier={tier} onUpgrade={onUpgrade} />
 
-      {error && (
-        <div
-          className="mb-2 px-2 py-1.5 rounded-sm text-[11px]"
-          style={{
-            background: "color-mix(in srgb, var(--t-status-error) 12%, transparent)",
-            color: "var(--t-status-error)",
-            border: "1px solid color-mix(in srgb, var(--t-status-error) 25%, transparent)",
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+
+      {teammatesLoadFailed && <ErrorBanner>{t("terminal.share.inviteLoadFailed")}</ErrorBanner>}
 
       {searchedEmpty ? (
         <div className="text-xs text-center py-3" style={{ color: "var(--t-text-dim)" }}>

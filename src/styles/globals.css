@@ -79,6 +79,20 @@
   }
 }
 
+/* Redeclaring fadeIn/fadeOut here overrides them only while the media query
+   matches — every `.animate-fadeIn` / `.animate-fadeOut` user (e.g. the
+   ShareMenu panel) drops the translate and keeps just the opacity fade. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes fadeOut {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+}
+
 /*
   Derived UI surfaces — computed from the runtime `--t-*` theme vars so they
   adapt to every built-in and custom theme without per-theme edits.
@@ -622,16 +636,4 @@ button svg *,
   .clipboard-pill-enter { animation: fadeIn 120ms ease-out forwards; }
   .clipboard-pill-exit  { animation: none; opacity: 0; }
   .clipboard-count-pop  { animation: none; }
-
-  /* Redeclaring the same keyframe name here overrides it only while the media
-     query matches — every `.animate-fadeIn` / `.animate-fadeOut` user (e.g. the
-     ShareMenu panel) drops the translate and keeps just the opacity fade. */
-  @keyframes fadeIn {
-    0% { opacity: 0; }
-    100% { opacity: 1; }
-  }
-  @keyframes fadeOut {
-    0% { opacity: 1; }
-    100% { opacity: 0; }
-  }
 }

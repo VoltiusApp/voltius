@@ -211,12 +211,17 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   return createPortal(
     <div
       ref={menuRef}
-      className={`surface-float fixed z-9999 ${open ? "animate-fadeIn [animation-duration:140ms]" : "animate-fadeOut [animation-duration:110ms]"}`}
+      className={`surface-float fixed z-9999 ${open ? "animate-fadeIn" : "animate-fadeOut"}`}
       style={{
         top: pos.top,
         left: pos.left,
         width: 280,
         transformOrigin: `${pos.originX}px top`,
+        // `--animate-fadeIn`/`fadeOut` are the `animation` shorthand (duration baked
+        // in at 0.3s/0.25s) — a Tailwind arbitrary `[animation-duration:...]` utility
+        // competes with that shorthand on generation order, which is not something
+        // to rely on. An inline style always wins the cascade.
+        animationDuration: open ? "140ms" : "110ms",
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
