@@ -37,3 +37,8 @@ test("a 404 from the key lookup resolves to null so Recent can self-heal", async
   h.appFetch.mockResolvedValue({ ok: false, status: 404 });
   expect(await getUserPublicKey("gone")).toBeNull();
 });
+
+test("a 500 from the key lookup throws instead of masquerading as a missing user", async () => {
+  h.appFetch.mockResolvedValue({ ok: false, status: 500 });
+  await expect(getUserPublicKey("u1")).rejects.toThrow("common.error.failedToFetchPublicKey");
+});

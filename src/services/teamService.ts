@@ -270,12 +270,18 @@ export interface UserKeyLookup {
   public_key: string;
 }
 
-/** null when the user no longer resolves — the caller drops the stale row. */
+/**
+ * `null` only for a genuine 404 — the user no longer resolves and the caller
+ * drops the stale row. Any other failure (5xx, 401, rate limit, no server url)
+ * throws instead: collapsing those into `null` would tell an invite flow "this
+ * person is gone" on what was really a transient network blip.
+ */
 export async function getUserPublicKey(userId: string): Promise<UserKeyLookup | null> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) return null;
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/users/${userId}/public-key`);
-  if (!res.ok) return null;
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToFetchPublicKey", { status: res.status }));
   return res.json();
 }
 
