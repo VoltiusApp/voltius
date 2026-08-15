@@ -40,5 +40,7 @@ test("a 404 from the key lookup resolves to null so Recent can self-heal", async
 
 test("a 500 from the key lookup throws instead of masquerading as a missing user", async () => {
   h.appFetch.mockResolvedValue({ ok: false, status: 500 });
-  await expect(getUserPublicKey("u1")).rejects.toThrow("common.error.failedToFetchPublicKey");
+  // Assert on the status code, not the full translated message, so this survives
+  // the copy changing (it already broke once when the i18n key gained real text).
+  await expect(getUserPublicKey("u1")).rejects.toThrow("500");
 });
