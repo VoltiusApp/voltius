@@ -46,12 +46,14 @@ beforeEach(() => {
 // This test exists to stop the email leak being reintroduced. The WebSocket
 // used to carry a client-supplied display_name that every call site filled
 // with the user's own email address, so a stranger admitted by knock learned
-// everyone's real address. The name is resolved server-side now; if a
-// display_name parameter ever reappears on this URL, that leak is back.
-test("openWebSocket sends no display_name query parameter, and no email", async () => {
+// everyone's real address. The name is resolved server-side now; this only
+// proves openWebSocket itself sends no identity parameter on this URL — the
+// call sites that used to feed it one (teamSessionStore's attachAsHost and
+// joinSession) are covered separately by teamSessionStore.test.ts and
+// teamInbox.test.ts asserting their call signatures, not by this file.
+test("openWebSocket's URL carries only the token, no display_name or any other parameter", async () => {
   openWebSocket("https://s", "sid", "jwt", await key(), noopCallbacks());
-  expect(MockWS.last.url).not.toContain("display_name");
-  expect(MockWS.last.url).not.toContain("%40"); // no encoded @, i.e. no email anywhere in the URL
+  expect(MockWS.last.url).toBe("wss://s/v1/terminal-sessions/sid/ws?token=jwt");
 });
 
 test("openWebSocket rewrites https->wss and appends invite_token", async () => {

@@ -16,7 +16,6 @@ const svc = vi.hoisted(() => ({
 vi.mock("@/services/multiplayerService", () => mp);
 vi.mock("@/services/ssh", () => ({ sshSendInput: vi.fn(async () => {}) }));
 vi.mock("@/services/teamService", () => svc);
-vi.mock("@/services/account", () => ({ getCurrentUserEmail: vi.fn(async () => "me@x") }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
 import { useTeamSessionStore } from "./teamSessionStore.ts";

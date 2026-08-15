@@ -285,7 +285,7 @@ test("a session that has already spent its guest cap is not offered", async () =
   // Pro host, cap 1, one guest already live -> no seat left for anyone.
   patchConnection("local-1", {
     myUserId: "me",
-    participants: [{ user_id: "me", display_name: "Me" }, { user_id: "guest-1", display_name: "Guest" }],
+    participants: [{ user_id: "me", handle: "Me" }, { user_id: "guest-1", handle: "Guest" }],
   });
   await renderPage();
   expect(screen.queryByTestId(`ctx-u1::${INVITE_PROD}`)).toBeNull();
@@ -301,7 +301,7 @@ test("a member who already holds a standing invite is not offered that session",
 });
 
 test("a member already live in the session is not offered it, while others still are", async () => {
-  patchConnection("local-1", { myUserId: "me", participants: [{ user_id: "u1", display_name: "Ann" }] });
+  patchConnection("local-1", { myUserId: "me", participants: [{ user_id: "u1", handle: "Ann" }] });
   patchActiveSession("mp-1", { vault_ids: [] });
   // Cap 1 spent by u1 being live; raise the cap via the session's vault-owner tier
   // so this test isolates the dedupe guard from the cap guard.

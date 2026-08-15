@@ -50,7 +50,12 @@ test("leaveSession closes the connection and removes it from state", () => {
 
 test("joinSession wires callbacks that drive the participant/control state machine", async () => {
   let cb: any;
-  mp.openWebSocket.mockImplementation((...args: any[]) => { cb = args[4]; return connStub(); });
+  // Found by shape, not position — a positional index breaks silently if
+  // openWebSocket's parameter order ever changes again.
+  mp.openWebSocket.mockImplementation((...args: any[]) => {
+    cb = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
+    return connStub();
+  });
 
   const localId = await get().joinSession("m1", () => {});
   expect(get().connections[localId]).toMatchObject({ role: "guest", multiplayerSessionId: "m1" });

@@ -118,8 +118,7 @@
       "resume": "Resume",
       "invalidCodeFormat": "Invalid code — expected format: sessionId:token",
       "failedToJoinSession": "Failed to join session",
-      "sharedTerminalFallback": "Shared Terminal",
-      "meFallback": "Me"
+      "sharedTerminalFallback": "Shared Terminal"
     },
     "snippetPicker": {
       "title": "Execute Snippet",

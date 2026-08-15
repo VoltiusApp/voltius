@@ -118,8 +118,7 @@
       "resume": "继续",
       "invalidCodeFormat": "无效代码——格式应为：sessionId:token",
       "failedToJoinSession": "加入会话失败",
-      "sharedTerminalFallback": "共享终端",
-      "meFallback": "我"
+      "sharedTerminalFallback": "共享终端"
     },
     "snippetPicker": {
       "title": "执行代码片段",
