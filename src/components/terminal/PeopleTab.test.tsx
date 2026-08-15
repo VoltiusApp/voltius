@@ -75,3 +75,20 @@ test("inviting remembers the person", async () => {
   await userEvent.click(await screen.findByRole("button", { name: /sam/i }));
   await waitFor(() => expect(useRecentPeopleStore.getState().recent[0].user_id).toBe("s1"));
 });
+
+// The member roster carries no handle today (server follow-up), so a teammate row
+// must never render a dangling "@" with nothing after it — it shipped once already.
+test("a teammate row with no handle shows its name and renders no handle line", async () => {
+  h.allTeammates.mockResolvedValue([{ user_id: "u-alice", team_id: "t1", display_name: "Alice", is_online: true, teamIds: ["t1"] }]);
+  render(<PeopleTab {...base} />);
+  const row = await screen.findByRole("button", { name: /alice/i });
+  expect(within(row).getByText("Alice")).toBeTruthy();
+  expect(row.textContent).not.toMatch(/@/);
+});
+
+test("Recent's own empty state stands alone even while Your teams has results", async () => {
+  h.allTeammates.mockResolvedValue([{ user_id: "u-alice", team_id: "t1", display_name: "Alice", is_online: true, teamIds: ["t1"] }]);
+  render(<PeopleTab {...base} />);
+  await screen.findByRole("button", { name: /alice/i });
+  expect(screen.getByText("terminal.share.recentEmpty")).toBeTruthy();
+});

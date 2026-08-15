@@ -33,6 +33,8 @@ interface RowEntry {
   /** Teammate group memberships, for `memberHasAccess`. Empty for Recent/stranger rows. */
   teamIds: string[];
   isStranger: boolean;
+  /** Only teammates carry live presence; undefined omits the dot entirely. */
+  isOnline?: boolean;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
@@ -53,7 +55,7 @@ function PersonRow({
   onInvite: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
-  const { target, isStranger, onContextMenu } = entry;
+  const { target, isStranger, isOnline, onContextMenu } = entry;
   return (
     <button
       className="flex items-center gap-2 px-2 py-1.5 rounded-md text-left disabled:cursor-default transition-colors"
@@ -62,11 +64,20 @@ function PersonRow({
       onClick={onInvite}
       onContextMenu={onContextMenu}
     >
+      {isOnline !== undefined && (
+        <span
+          className="w-1.5 h-1.5 rounded-full shrink-0"
+          style={{ background: isOnline ? "var(--t-status-success)" : "var(--t-text-dim)" }}
+        />
+      )}
       <span className="flex-1 min-w-0 text-left">
         <span className="text-xs truncate block">{target.display_name}</span>
-        <span className="text-[10px] truncate block" style={{ color: "var(--t-text-dim)" }}>
-          @{target.handle}
-        </span>
+        {/* handle is optional: teammates carry none until the server adds it to /members */}
+        {target.handle && (
+          <span className="text-[10px] truncate block" style={{ color: "var(--t-text-dim)" }}>
+            @{target.handle}
+          </span>
+        )}
       </span>
       {isStranger && (
         <span
@@ -156,6 +167,7 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
     target: { user_id: m.user_id, display_name: m.display_name, handle: m.handle, team_id: m.teamIds[0] },
     teamIds: m.teamIds,
     isStranger: false,
+    isOnline: !!m.is_online,
   }));
   const strangerEntries: RowEntry[] = groups.strangers.map((s) => ({
     target: { user_id: s.user_id, display_name: s.display_name, handle: s.handle },

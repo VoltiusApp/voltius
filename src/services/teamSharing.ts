@@ -165,8 +165,11 @@ export function groupPeople<T extends { user_id: string; display_name: string; h
     !q || fields.some((f) => (f ?? "").toLowerCase().includes(q));
 
   const recent = input.recent.filter((p) => matches(p.display_name, p.handle));
-  const teammates = input.teammates.filter((p) => matches(p.display_name, p.handle));
-  const claimed = new Set([...recent, ...teammates].map((p) => p.user_id));
+  const recentIds = new Set(recent.map((p) => p.user_id));
+  // Recent is the more specific group: a person already in Recent does not repeat
+  // under Your teams, even if they are also a current teammate.
+  const teammates = input.teammates.filter((p) => !recentIds.has(p.user_id) && matches(p.display_name, p.handle));
+  const claimed = new Set([...recentIds, ...teammates.map((p) => p.user_id)]);
   const strangers = q ? input.results.filter((r) => !claimed.has(r.user_id) && !r.is_teammate) : [];
   return { recent, teammates, strangers };
 }

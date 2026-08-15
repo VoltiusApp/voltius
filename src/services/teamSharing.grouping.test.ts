@@ -25,3 +25,10 @@ test("a search hit that is already a teammate or already in recent is not repeat
   expect(g.teammates.map((p) => p.user_id)).toEqual(["m1"]);
   expect(g.strangers).toEqual([]);
 });
+
+test("a person in both Recent and Your teams appears once, under Recent", () => {
+  const recentMate = { user_id: "m1", handle: "quiet-otter-1", display_name: "Zoe", last_invited_at: "2026-08-15T00:00:00.000Z" };
+  const g = groupPeople({ query: "", teammates: [mate], recent: [recentMate], results: [] });
+  expect(g.recent.map((p) => p.user_id)).toEqual(["m1"]);
+  expect(g.teammates).toEqual([]);
+});
