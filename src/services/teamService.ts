@@ -306,12 +306,21 @@ export async function claimHandle(handle: string): Promise<void> {
   if (!res.ok) throw new HandleClaimError(res.status);
 }
 
-/** Resolves serverUrl, calls fetchAuth, and throws the keyed i18n error on a non-ok response. */
-async function authedCall(path: string, init: RequestInit, errorKey: string): Promise<void> {
+/**
+ * Resolves serverUrl, calls fetchAuth, and throws the keyed i18n error on a
+ * non-ok response. `interpolate` receives the failing status for messages that
+ * name it.
+ */
+async function authedCall(
+  path: string,
+  init: RequestInit,
+  errorKey: string,
+  interpolate?: (status: number) => Record<string, unknown>,
+): Promise<void> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}${path}`, init);
-  if (!res.ok) throw new Error(i18n.t(errorKey));
+  if (!res.ok) throw new Error(i18n.t(errorKey, interpolate?.(res.status)));
 }
 
 export async function updateInvitePreferences(allowStrangerInvites: boolean): Promise<void> {
@@ -340,13 +349,12 @@ export async function uninviteFromSession(sessionId: string, userId: string): Pr
 }
 
 export async function updatePublicKey(publicKey: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/auth/public-key`, {
-    method: "PUT",
-    body: JSON.stringify({ public_key: publicKey }),
-  });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToUpdatePublicKey", { status: res.status }));
+  await authedCall(
+    "/v1/auth/public-key",
+    { method: "PUT", body: JSON.stringify({ public_key: publicKey }) },
+    "common.error.failedToUpdatePublicKey",
+    (status) => ({ status }),
+  );
 }
 
 export async function getJwtToken(): Promise<string | null> {
