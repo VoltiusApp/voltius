@@ -285,6 +285,9 @@ export class HandleClaimError extends Error {
   }
 }
 
+// claimHandle throws a status-carrying HandleClaimError (Task 15 branches on it per-status)
+// and getUserPublicKey resolves to null instead of throwing — both diverge from the plain
+// "throw the keyed i18n error" shape below, so they stay out of authedCall.
 export async function claimHandle(handle: string): Promise<void> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
@@ -295,29 +298,37 @@ export async function claimHandle(handle: string): Promise<void> {
   if (!res.ok) throw new HandleClaimError(res.status);
 }
 
-export async function updateInvitePreferences(allowStrangerInvites: boolean): Promise<void> {
+/** Resolves serverUrl, calls fetchAuth, and throws the keyed i18n error on a non-ok response. */
+async function authedCall(path: string, init: RequestInit, errorKey: string): Promise<void> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/users/me/preferences`, {
-    method: "PUT",
-    body: JSON.stringify({ allow_stranger_invites: allowStrangerInvites }),
-  });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToSavePreferences"));
+  const res = await fetchAuth(`${serverUrl}${path}`, init);
+  if (!res.ok) throw new Error(i18n.t(errorKey));
+}
+
+export async function updateInvitePreferences(allowStrangerInvites: boolean): Promise<void> {
+  await authedCall(
+    "/v1/users/me/preferences",
+    { method: "PUT", body: JSON.stringify({ allow_stranger_invites: allowStrangerInvites }) },
+    "common.error.failedToSavePreferences",
+  );
 }
 
 export async function declineSessionInvite(sessionId: string, opts?: { permanent?: boolean }): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const query = opts?.permanent ? "?block=permanent" : "";
-  const res = await fetchAuth(`${serverUrl}/v1/terminal-sessions/${sessionId}/invitees/me${query}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToDecline"));
+  await authedCall(
+    `/v1/terminal-sessions/${sessionId}/invitees/me${query}`,
+    { method: "DELETE" },
+    "common.error.failedToDecline",
+  );
 }
 
 export async function uninviteFromSession(sessionId: string, userId: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/terminal-sessions/${sessionId}/invitees/${userId}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToUninvite"));
+  await authedCall(
+    `/v1/terminal-sessions/${sessionId}/invitees/${userId}`,
+    { method: "DELETE" },
+    "common.error.failedToUninvite",
+  );
 }
 
 export async function updatePublicKey(publicKey: string): Promise<void> {
