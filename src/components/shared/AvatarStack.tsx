@@ -11,6 +11,15 @@ export function avatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
 
+/** Initials for a handle. Generated handles are `adjective-noun-NNNN` drawn
+ *  from only 20 adjectives, so a single leading letter collides constantly —
+ *  every `merry-*` user would render an identical "M" across 8 colours. */
+export function handleInitials(handle: string): string {
+  const words = handle.split(/[-_]/).filter((w) => /^[a-z]/i.test(w));
+  const initials = words.slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+  return initials || "?";
+}
+
 interface MiniAvatarProps {
   name: string;
   size?: number;
@@ -25,10 +34,10 @@ export function MiniAvatar({ name, size = 26 }: MiniAvatarProps) {
         height: size,
         background: avatarColor(name),
         color: "#fff",
-        fontSize: size * 0.38,
+        fontSize: size * 0.32,
       }}
     >
-      {name[0]?.toUpperCase() ?? "?"}
+      {handleInitials(name)}
     </div>
   );
 }
