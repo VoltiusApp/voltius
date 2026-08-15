@@ -363,22 +363,16 @@ export async function getCurrentUserEmail(): Promise<string | null> {
   return keychainGet("email");
 }
 
-export async function getCurrentDisplayName(): Promise<string | null> {
-  return keychainGet("display_name");
-}
-
 export interface MeResponse {
-  display_name?: string | null;
   handle?: string;
   handle_is_custom?: boolean;
   allow_stranger_invites?: boolean;
   tier?: string;
 }
 
-/** Fetches /v1/auth/me and caches the display name and handle for offline use
- *  (e.g. getCurrentDisplayName). Returns the full payload so callers that need
- *  the live tier/preference fields — the settings identity UI — don't need a
- *  second round trip. */
+/** Fetches /v1/auth/me and caches the handle for offline use. Returns the
+ *  full payload so callers that need the live tier/preference fields — the
+ *  settings identity UI — don't need a second round trip. */
 export async function getMe(): Promise<MeResponse | null> {
   const [jwt, serverUrl] = await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
   if (!jwt || !serverUrl) return null;
@@ -388,32 +382,11 @@ export async function getMe(): Promise<MeResponse | null> {
     });
     if (!res.ok) return null;
     const me: MeResponse = await res.json();
-    if (me.display_name) await keychainSet("display_name", me.display_name);
     if (me.handle) await keychainSet("handle", me.handle);
     return me;
   } catch {
     return null;
   }
-}
-
-export async function fetchAndCacheDisplayName(): Promise<string | null> {
-  const me = await getMe();
-  return me?.display_name ?? null;
-}
-
-export async function updateDisplayName(newName: string): Promise<void> {
-  const [jwt, serverUrl] = await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
-  if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-
-  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/display-name`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-    body: JSON.stringify({ display_name: newName }),
-  });
-  if (res.status === 422) throw new Error(i18n.t("common.error.displayNameLength"));
-  if (!res.ok) throw new Error(i18n.t("common.error.updateDisplayNameFailed", { status: res.status }));
-
-  await keychainSet("display_name", newName);
 }
 
 export async function refreshSession(): Promise<void> {

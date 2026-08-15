@@ -245,12 +245,6 @@
         "save": "Save",
         "toastVerification": "Verification email sent to {{email}}."
       },
-      "displayName": {
-        "title": "Display name",
-        "cannotBeEmpty": "Cannot be empty",
-        "saving": "Saving…",
-        "save": "Save"
-      },
       "handle": {
         "title": "Handle",
         "copy": "Copy",

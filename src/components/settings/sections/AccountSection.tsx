@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import { getAccountMode, getCurrentUserEmail, getMe, updateDisplayName, setMasterPassword, logout, lockVaultSession } from "@/services/account";
+import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword, logout, lockVaultSession } from "@/services/account";
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
 import { ActionItem, FormButtons, SettingsInput } from "./shared";
@@ -17,8 +17,8 @@ import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 type AccountStep = "idle" | "set-password" | "loading" | "confirm-wipe";
 
 /**
- * Shared idle → editing → submitting → error cycle behind both the display-name
- * row and the handle-claim row below — same shape, different save/validate fns.
+ * Shared idle → editing → submitting → error cycle behind the handle-claim
+ * row below.
  */
 function useEditableField(
   save: (value: string) => Promise<void>,
@@ -99,7 +99,6 @@ export default function AccountSection() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [currentEmail, setCurrentEmail] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showEditEmail, setShowEditEmail] = useState(false);
@@ -114,10 +113,6 @@ export default function AccountSection() {
   const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
   const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
 
-  const displayNameField = useEditableField(
-    (value) => updateDisplayName(value),
-    (value) => setDisplayName(value),
-  );
   const handleField = useEditableField(
     async (value) => {
       try {
@@ -164,7 +159,6 @@ export default function AccountSection() {
     getCurrentUserEmail().then(setCurrentEmail).catch(() => {});
     getMe().then((me) => {
       if (!me) return;
-      if (me.display_name) setDisplayName(me.display_name);
       if (me.handle) setHandle(me.handle);
       setHandleIsCustom(!!me.handle_is_custom);
       setMeTier(me.tier);
@@ -374,52 +368,6 @@ export default function AccountSection() {
               sub={currentEmail}
               onClick={() => setShowEditEmail(true)}
             />
-          )}
-          {mode === "server" && (
-            displayNameField.editing ? (
-              <div
-                className="flex flex-col gap-2 rounded-lg px-4 py-3"
-                style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}
-              >
-                <p className="text-xs font-medium text-(--t-text-dim)">{t("settings.account.displayName.title")}</p>
-                <input
-                  autoFocus
-                  type="text"
-                  value={displayNameField.input}
-                  maxLength={50}
-                  onChange={(e) => displayNameField.setInput(e.target.value)}
-                  className="rounded-lg px-3 py-1.5 text-sm outline-hidden"
-                  style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
-                />
-                {displayNameField.error && <p className="text-xs text-(--t-status-error)">{displayNameField.error}</p>}
-                <div className="flex gap-2">
-                  <button
-                    className="flex-1 text-xs px-3 py-1.5 rounded-lg"
-                    style={{ background: "var(--t-bg-input)", color: "var(--t-text-muted)", border: "1px solid var(--t-border)" }}
-                    onClick={displayNameField.cancel}
-                  >
-                    {t("settings.shared.cancel")}
-                  </button>
-                  <button
-                    disabled={displayNameField.loading}
-                    className="flex-1 text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-50"
-                    style={{ background: "var(--t-accent)", color: "#fff" }}
-                    onClick={() => displayNameField.submit(
-                      (value) => (value ? null : t("settings.account.displayName.cannotBeEmpty")),
-                    )}
-                  >
-                    {displayNameField.loading ? t("settings.account.displayName.saving") : t("settings.account.displayName.save")}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <ActionItem
-                icon="lucide:user"
-                label={t("settings.account.displayName.title")}
-                sub={displayName ?? "—"}
-                onClick={() => displayNameField.start(displayName ?? "")}
-              />
-            )
           )}
           {mode === "server" && (
             <ActionItem

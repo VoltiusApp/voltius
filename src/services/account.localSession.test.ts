@@ -36,7 +36,6 @@ import {
   createLocalAccount,
   getAccountMode,
   getCurrentUserEmail,
-  getCurrentDisplayName,
   isServerMode,
 } from "./account";
 
@@ -163,13 +162,11 @@ test("createLocalAccount derives the key, sets it, and records local mode", asyn
 
 // ─── thin keychain reads ─────────────────────────────────────────────────────
 
-test("getAccountMode / getCurrentUserEmail / getCurrentDisplayName pass through keychain", async () => {
+test("getAccountMode / getCurrentUserEmail pass through keychain", async () => {
   h.store.mode = "server";
   h.store.email = "a@b.co";
-  h.store.display_name = "Ada";
   expect(await getAccountMode()).toBe("server");
   expect(await getCurrentUserEmail()).toBe("a@b.co");
-  expect(await getCurrentDisplayName()).toBe("Ada");
 });
 
 test("isServerMode is true only for server mode", async () => {

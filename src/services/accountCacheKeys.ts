@@ -12,6 +12,8 @@ export const ACCOUNT_CACHE_KEYS = [
   "account_id",
   "mode",
   "email",
+  // Nothing writes this any more — it is here to purge the key from devices
+  // that cached one before 0.26. Delete in 0.27 with the display_name alias.
   "display_name",
   "handle",
   "jwt",

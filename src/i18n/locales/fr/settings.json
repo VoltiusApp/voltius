@@ -245,12 +245,6 @@
         "save": "Enregistrer",
         "toastVerification": "E-mail de vérification envoyé à {{email}}."
       },
-      "displayName": {
-        "title": "Nom d'affichage",
-        "cannotBeEmpty": "Ne peut pas être vide",
-        "saving": "Enregistrement…",
-        "save": "Enregistrer"
-      },
       "handle": {
         "title": "Pseudo",
         "copy": "Copier",
