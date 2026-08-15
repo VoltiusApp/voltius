@@ -3,6 +3,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import type { InboxEntry, InboxKind } from "@/stores/notificationStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { useSessionStore } from "@/stores/sessionStore";
 import type { MultiplayerSessionState } from "@/stores/teamSessionStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
@@ -84,11 +85,33 @@ export function reconcileInvites(invites: MyPendingInvitation[]): void {
 
 async function joinSharedSession(session: ActiveSession): Promise<void> {
   const displayName = (await getCurrentUserEmail()) ?? i18n.t("hosts.teamSessions.meFallback");
-  await joinTeamSessionAndOpenTab({
+  const localSessionId = await joinTeamSessionAndOpenTab({
     sessionId: session.id,
     displayName,
     connectionName: sessionDisplayName(session),
   });
+
+  // A knock's name is the redacted placeholder; the server un-redacts on
+  // admission, but the tab title was fixed at join time and nothing else renames
+  // it. Refetch once and patch, or a joined knock reads "Shared terminal"
+  // forever.
+  if (session.connection_name === null) {
+    try {
+      await useTeamSessionStore.getState().fetchActiveSessions();
+      const revealed = useTeamSessionStore
+        .getState()
+        .activeSessions.find((s) => s.id === session.id)?.connection_name;
+      if (revealed) {
+        useSessionStore.setState((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.id === localSessionId ? { ...sess, connectionName: revealed } : sess,
+          ),
+        }));
+      }
+    } catch {
+      // The tab keeps the placeholder; not worth failing a successful join over.
+    }
+  }
 }
 
 /**

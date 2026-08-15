@@ -11,8 +11,14 @@ const h = vi.hoisted(() => {
   const useUIStore = { getState: () => uiState };
   const joinSession = vi.fn(async () => "local-99");
   const grantControl = vi.fn();
-  const fetchActiveSessions = vi.fn(async () => {});
-  const useTeamSessionStore = { getState: () => ({ joinSession, grantControl, fetchActiveSessions }) };
+  const teamSessionState = {
+    joinSession,
+    grantControl,
+    fetchActiveSessions: vi.fn(async () => {}),
+    activeSessions: [] as Record<string, unknown>[],
+  };
+  const fetchActiveSessions = teamSessionState.fetchActiveSessions;
+  const useTeamSessionStore = { getState: () => teamSessionState };
   return {
     accept: vi.fn(async () => {}),
     decline: vi.fn(async () => {}),
@@ -26,6 +32,7 @@ const h = vi.hoisted(() => {
     joinSession,
     grantControl,
     fetchActiveSessions,
+    teamSessionState,
     useTeamSessionStore,
   };
 });
@@ -85,6 +92,7 @@ beforeEach(() => {
   h.grantControl.mockClear();
   h.declineSessionInvite.mockClear();
   h.fetchActiveSessions.mockClear().mockResolvedValue(undefined);
+  h.teamSessionState.activeSessions = [];
   h.uiState.setActiveNav.mockClear();
   h.sessionState.sessions = [];
   h.sessionState.activeSessionId = null;
@@ -304,7 +312,32 @@ test("a knock with no handle falls back to Someone, not to the supplied name", (
   expect(entry.message).not.toContain("Voltius Support");
 });
 
+test("joining a knock renames the tab once the server un-redacts the session", async () => {
+  h.teamSessionState.activeSessions = [{ id: "mp-1", connection_name: "web-prod" }];
+  reconcileSessions(
+    [session({ connection_name: null, invited_by: "u-stranger", invited_by_handle: "kevin-p" })],
+    new Set(),
+    "me",
+  );
+  const entry = get().inbox.find((e) => e.kind === "sessionKnock")!;
+  await entry.actions[0].run();
 
+  expect(h.fetchActiveSessions).toHaveBeenCalled();
+  expect(h.sessionState.sessions).toHaveLength(1);
+  expect(h.sessionState.sessions[0].connectionName).toBe("web-prod");
+});
+
+test("a still-redacted session after join leaves the placeholder alone", async () => {
+  h.teamSessionState.activeSessions = [{ id: "mp-1", connection_name: null }];
+  reconcileSessions(
+    [session({ connection_name: null, invited_by: "u-stranger", invited_by_handle: "kevin-p" })],
+    new Set(),
+    "me",
+  );
+  await get().inbox.find((e) => e.kind === "sessionKnock")!.actions[0].run();
+  expect(h.sessionState.sessions[0].connectionName).not.toBe("");
+  expect(h.sessionState.sessions[0].connectionName).toBeTruthy();
+});
 
 test("decline calls the server and retracts the entry", async () => {
   h.declineSessionInvite.mockResolvedValue(undefined);
