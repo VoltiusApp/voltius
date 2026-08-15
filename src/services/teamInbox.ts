@@ -83,6 +83,31 @@ export function reconcileInvites(invites: MyPendingInvitation[]): void {
   );
 }
 
+// The server un-redacts a knock ~100–200ms after it admits the WebSocket, which
+// a single immediate refetch loses to — a live run lost it on every attempt, so
+// the tab read "Shared terminal" permanently. Poll on a short backoff instead,
+// bounded: a session that legitimately stays redacted must keep the placeholder
+// rather than spin forever.
+const REVEAL_DELAYS_MS = [0, 150, 300, 600, 1200, 2000];
+
+async function revealJoinedSessionName(sessionId: string, localSessionId: string): Promise<void> {
+  for (const delay of REVEAL_DELAYS_MS) {
+    if (delay > 0) await new Promise<void>((r) => setTimeout(r, delay));
+    // A transient fetch failure costs this attempt, not the remaining ones.
+    await useTeamSessionStore.getState().fetchActiveSessions().catch(() => {});
+    const revealed = useTeamSessionStore
+      .getState()
+      .activeSessions.find((s) => s.id === sessionId)?.connection_name;
+    if (!revealed) continue;
+    useSessionStore.setState((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === localSessionId ? { ...sess, connectionName: revealed } : sess,
+      ),
+    }));
+    return;
+  }
+}
+
 async function joinSharedSession(session: ActiveSession): Promise<void> {
   const displayName = (await getCurrentUserEmail()) ?? i18n.t("hosts.teamSessions.meFallback");
   const localSessionId = await joinTeamSessionAndOpenTab({
@@ -91,27 +116,9 @@ async function joinSharedSession(session: ActiveSession): Promise<void> {
     connectionName: sessionDisplayName(session),
   });
 
-  // A knock's name is the redacted placeholder; the server un-redacts on
-  // admission, but the tab title was fixed at join time and nothing else renames
-  // it. Refetch once and patch, or a joined knock reads "Shared terminal"
-  // forever.
-  if (session.connection_name === null) {
-    try {
-      await useTeamSessionStore.getState().fetchActiveSessions();
-      const revealed = useTeamSessionStore
-        .getState()
-        .activeSessions.find((s) => s.id === session.id)?.connection_name;
-      if (revealed) {
-        useSessionStore.setState((s) => ({
-          sessions: s.sessions.map((sess) =>
-            sess.id === localSessionId ? { ...sess, connectionName: revealed } : sess,
-          ),
-        }));
-      }
-    } catch {
-      // The tab keeps the placeholder; not worth failing a successful join over.
-    }
-  }
+  // Detached: the join itself is done, and the inbox entry stays in its "acting"
+  // state for as long as this promise runs.
+  if (session.connection_name === null) void revealJoinedSessionName(session.id, localSessionId);
 }
 
 /**

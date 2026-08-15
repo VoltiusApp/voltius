@@ -322,21 +322,54 @@ test("joining a knock renames the tab once the server un-redacts the session", a
   const entry = get().inbox.find((e) => e.kind === "sessionKnock")!;
   await entry.actions[0].run();
 
-  expect(h.fetchActiveSessions).toHaveBeenCalled();
-  expect(h.sessionState.sessions).toHaveLength(1);
-  expect(h.sessionState.sessions[0].connectionName).toBe("web-prod");
+  await vi.waitFor(() => {
+    expect(h.fetchActiveSessions).toHaveBeenCalled();
+    expect(h.sessionState.sessions).toHaveLength(1);
+    expect(h.sessionState.sessions[0].connectionName).toBe("web-prod");
+  });
 });
 
-test("a still-redacted session after join leaves the placeholder alone", async () => {
+// The reveal lands ~100–200ms after the socket is admitted, so the first fetch
+// legitimately comes back still-redacted; the retry is what makes the rename
+// happen at all.
+test("the rename retries until the server un-redacts", async () => {
   h.teamSessionState.activeSessions = [{ id: "mp-1", connection_name: null }];
+  h.fetchActiveSessions.mockImplementation(async () => {
+    if (h.fetchActiveSessions.mock.calls.length >= 3) {
+      h.teamSessionState.activeSessions = [{ id: "mp-1", connection_name: "web-prod" }];
+    }
+  });
   reconcileSessions(
     [session({ connection_name: null, invited_by: "u-stranger", invited_by_handle: "kevin-p" })],
     new Set(),
     "me",
   );
   await get().inbox.find((e) => e.kind === "sessionKnock")!.actions[0].run();
-  expect(h.sessionState.sessions[0].connectionName).not.toBe("");
-  expect(h.sessionState.sessions[0].connectionName).toBeTruthy();
+
+  await vi.waitFor(() => expect(h.sessionState.sessions[0].connectionName).toBe("web-prod"));
+  expect(h.fetchActiveSessions.mock.calls.length).toBeGreaterThan(1);
+});
+
+test("a still-redacted session gives up and leaves the placeholder alone", async () => {
+  vi.useFakeTimers();
+  try {
+    h.teamSessionState.activeSessions = [{ id: "mp-1", connection_name: null }];
+    reconcileSessions(
+      [session({ connection_name: null, invited_by: "u-stranger", invited_by_handle: "kevin-p" })],
+      new Set(),
+      "me",
+    );
+    await get().inbox.find((e) => e.kind === "sessionKnock")!.actions[0].run();
+    // Well past the whole backoff: the loop must stop, not spin forever.
+    await vi.advanceTimersByTimeAsync(30_000);
+    const calls = h.fetchActiveSessions.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(h.fetchActiveSessions.mock.calls.length).toBe(calls);
+    expect(h.sessionState.sessions[0].connectionName).toBeTruthy();
+    expect(h.sessionState.sessions[0].connectionName).not.toBe("");
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test("decline calls the server and retracts the entry", async () => {
