@@ -1,5 +1,6 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
+import { render, screen, cleanup, waitFor, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("react-i18next", () => ({
@@ -76,8 +77,8 @@ test("inviting remembers the person", async () => {
   await waitFor(() => expect(useRecentPeopleStore.getState().recent[0].user_id).toBe("s1"));
 });
 
-// The member roster carries no handle today (server follow-up), so a teammate row
-// must never render a dangling "@" with nothing after it — it shipped once already.
+// An older server omits `handle` from /members, so a teammate row must never
+// render a dangling "@" with nothing after it — it shipped once already.
 test("a teammate row with no handle shows its name and renders no handle line", async () => {
   h.allTeammates.mockResolvedValue([{ user_id: "u-alice", team_id: "t1", display_name: "Alice", is_online: true, teamIds: ["t1"] }]);
   render(<PeopleTab {...base} />);
@@ -91,4 +92,160 @@ test("Recent's own empty state stands alone even while Your teams has results", 
   render(<PeopleTab {...base} />);
   await screen.findByRole("button", { name: /alice/i });
   expect(screen.getByText("terminal.share.recentEmpty")).toBeTruthy();
+});
+
+// ─── Moved from InvitePeopleSection.test.tsx (that component was deleted; PeopleTab
+// replaced it as ShareMenu's only invite surface) ───────────────────────────────
+
+const roster = [
+  { user_id: "u-alice", team_id: "t1", display_name: "Alice", is_online: true, teamIds: ["t1"] },
+  { user_id: "u-bob", team_id: "t2", display_name: "Bob", is_online: false, teamIds: ["t2"] },
+];
+
+type TabProps = Parameters<typeof PeopleTab>[0];
+
+/**
+ * Mirrors ShareMenu's ownership of `invitedThisSession`: it lives in the parent
+ * because it has to outlive any single PeopleTab instance (the first invite on
+ * an unshared terminal flips the setup view to the active view, remounting it).
+ */
+function Harness({ onInvite, ...props }: Omit<TabProps, "invitedThisSession">) {
+  const [invited, setInvited] = useState<ReadonlySet<string>>(new Set());
+  const handleInvite = async (target: Parameters<TabProps["onInvite"]>[0]) => {
+    await onInvite(target);
+    setInvited((prev) => new Set(prev).add(target.user_id));
+  };
+  return <PeopleTab {...props} invitedThisSession={invited} onInvite={handleInvite} />;
+}
+
+test("a teammate row shows its handle when present", async () => {
+  h.allTeammates.mockResolvedValue([{ user_id: "u-alice", team_id: "t1", display_name: "Alice", handle: "alice-h", is_online: true, teamIds: ["t1"] }]);
+  render(<PeopleTab {...base} />);
+  const row = await screen.findByRole("button", { name: /alice/i });
+  expect(within(row).getByText("@alice-h")).toBeTruthy();
+});
+
+test("marks a covered teammate as having access and does not call onInvite", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  const onInvite = vi.fn();
+  render(<PeopleTab {...base} session={{ vaultIds: ["t1"], participantIds: [], invitedIds: [] }} onInvite={onInvite} />);
+  const row = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;
+  expect(row.disabled).toBe(true);
+  expect(within(row).getByText("terminal.share.inviteHasAccess")).toBeTruthy();
+  await userEvent.click(row);
+  expect(onInvite).not.toHaveBeenCalled();
+});
+
+test("disables the row while an invite is in flight and shows Invited after", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  let resolve: () => void;
+  const onInvite = vi.fn(() => new Promise<void>((r) => { resolve = r; }));
+  render(<Harness {...base} onInvite={onInvite} />);
+  const row = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;
+  await userEvent.click(row);
+  expect(row.disabled).toBe(true);
+  await userEvent.click(row);
+  expect(onInvite).toHaveBeenCalledTimes(1);
+  resolve!();
+  expect(await screen.findByText("terminal.share.inviteSent")).toBeTruthy();
+});
+
+test("surfaces a failed invite inline and re-enables the row", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  const onInvite = vi.fn().mockRejectedValue(new Error("boom"));
+  render(<PeopleTab {...base} onInvite={onInvite} />);
+  const row = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;
+  await userEvent.click(row);
+  expect(await screen.findByText("terminal.share.inviteFailed")).toBeTruthy();
+  expect(row.disabled).toBe(false);
+});
+
+test("reloads the roster when the team list changes (ShareMenu's loadTeams races the mount effect)", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  render(<PeopleTab {...base} />);
+  await screen.findByRole("button", { name: /alice/i });
+  expect(h.allTeammates).toHaveBeenCalledTimes(1);
+
+  act(() => {
+    useTeamStore.setState({ teams: [{ id: "t1", name: "Team", owner_tier: "teams" } as never] });
+  });
+
+  await waitFor(() => expect(h.allTeammates).toHaveBeenCalledTimes(2));
+});
+
+// ─── Guest cap (#66 follow-up: the cap was invisible in the direct-invite roster) ──
+
+test("a Pro host at cap 1 with one participant disables every not-already-covered row and shows the cap notice", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  const onInvite = vi.fn();
+  render(
+    <PeopleTab
+      {...base}
+      session={{ vaultIds: [], participantIds: ["u-existing"], invitedIds: [] }}
+      guestCap={1}
+      tier="pro"
+      onInvite={onInvite}
+    />,
+  );
+  const alice = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;
+  const bob = (await screen.findByRole("button", { name: /bob/i })) as HTMLButtonElement;
+  expect(alice.disabled).toBe(true);
+  expect(bob.disabled).toBe(true);
+  expect(screen.getAllByText("terminal.share.inviteCapReached").length).toBe(2);
+  expect(screen.getByText("terminal.share.guestsRatio")).toBeTruthy();
+  expect(screen.queryByText("terminal.share.participantsRatio")).toBeNull();
+
+  await userEvent.click(alice);
+  expect(onInvite).not.toHaveBeenCalled();
+});
+
+test("a Teams host at cap 10 with two participants leaves rows tappable", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  render(
+    <PeopleTab {...base} session={{ vaultIds: [], participantIds: ["u1", "u2"], invitedIds: [] }} guestCap={10} tier="teams" />,
+  );
+  const alice = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;
+  expect(alice.disabled).toBe(false);
+  expect(screen.queryByText("terminal.share.inviteCapReached")).toBeNull();
+});
+
+test("a teammate in both participantIds and invitedIds counts once, not twice", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  render(
+    <PeopleTab {...base} session={{ vaultIds: [], participantIds: ["dup"], invitedIds: ["dup"] }} guestCap={2} tier="teams" />,
+  );
+  // Committed seats = 1 (deduped). If counted twice, this would read 2 and hit the cap.
+  const alice = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;
+  expect(alice.disabled).toBe(false);
+});
+
+test("after inviting one teammate at cap 1 with no participants, the remaining rows go non-tappable", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  const onInvite = vi.fn().mockResolvedValue(undefined);
+  render(<Harness {...base} guestCap={1} tier="pro" onInvite={onInvite} />);
+  const alice = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;
+  const bob = (await screen.findByRole("button", { name: /bob/i })) as HTMLButtonElement;
+  expect(bob.disabled).toBe(false);
+
+  await userEvent.click(alice);
+  await screen.findByText("terminal.share.inviteSent");
+
+  expect(bob.disabled).toBe(true);
+  expect(screen.getByText("terminal.share.inviteCapReached")).toBeTruthy();
+});
+
+test("an already-invited row cannot be tapped a second time", async () => {
+  // Cap high enough that the cap guard is not what blocks the row — at cap 1 the
+  // invited row is deliberately exempt from `capBlocked`, which is exactly why it
+  // needs its own guard.
+  h.allTeammates.mockResolvedValue(roster);
+  const onInvite = vi.fn().mockResolvedValue(undefined);
+  render(<Harness {...base} onInvite={onInvite} />);
+  const alice = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;
+  await userEvent.click(alice);
+  await screen.findByText("terminal.share.inviteSent");
+
+  expect(alice.disabled).toBe(true);
+  await userEvent.click(alice);
+  expect(onInvite).toHaveBeenCalledTimes(1);
 });

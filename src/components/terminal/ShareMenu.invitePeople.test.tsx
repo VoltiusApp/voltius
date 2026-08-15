@@ -4,13 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
 
 /**
- * `InvitePeopleSection` renders null until its `allTeammates()` roster promise
- * resolves, so a synchronous `queryByText(...)).toBeNull()` right after `render`
- * passes trivially — with or without a hiding fix — because the section hasn't
- * rendered its content yet either way. Flush the already-resolved mock promise's
- * microtasks (and the resulting effect/state-update) before asserting absence,
- * so a regression that lets the section mount would actually have painted by
- * the time we check.
+ * `PeopleTab` renders its search box synchronously, but its `allTeammates()`
+ * roster promise resolving is what could reveal a regression (e.g. a row that
+ * shouldn't be there). Flush the already-resolved mock promise's microtasks
+ * (and the resulting effect/state-update) before asserting, so a regression
+ * that lets the tab mount would actually have painted by the time we check.
  */
 async function flushRoster() {
   await act(async () => {
@@ -137,11 +135,11 @@ test("an already-invited teammate renders as non-tappable Has access", async () 
   expect(row.textContent).toContain("terminal.share.inviteHasAccess");
 });
 
-test("hides the invite section in the active view when no session key is retained (invite_link)", async () => {
+test("hides the People tab's content in the active view when no session key is retained (invite_link)", async () => {
   mpState.connections = hostConnection({ sessionKeyBytes: undefined });
   render(shareMenuElement());
   await flushRoster();
-  expect(screen.queryByText("terminal.share.invitePeople")).toBeNull();
+  expect(screen.queryByPlaceholderText("terminal.share.peopleSearchPlaceholder")).toBeNull();
 });
 
 test("the active view shows exactly one seats-vs-cap line, with and without a retained session key", async () => {
@@ -159,7 +157,7 @@ test("the active view shows exactly one seats-vs-cap line, with and without a re
   expect(ratioLines().length).toBe(1);
 });
 
-// ─── Guest cap wired through both InvitePeopleSection render sites (#66 follow-up) ──
+// ─── Guest cap wired through both PeopleTab render sites (#66 follow-up) ──
 
 test("setup view: a Pro host (cap 1) cannot tap a second teammate after the first invite lands", async () => {
   // Needs two teammates so there's a "remaining" row left to prove is now blocked.
@@ -169,8 +167,8 @@ test("setup view: a Pro host (cap 1) cannot tap a second teammate after the firs
   ]);
   // The real startSharingDirect creates the session and writes `connections`, which
   // flips ShareMenu from the setup branch to ActiveSharingView — a *different*
-  // InvitePeopleSection instance. `invitee_ids` stays empty on purpose: the server
-  // list round-trip that fills it is fire-and-forget and has not landed yet.
+  // PeopleTab instance. `invitee_ids` stays empty on purpose: the server list
+  // round-trip that fills it is fire-and-forget and has not landed yet.
   startSharingDirect.mockImplementation(async () => {
     mpState.connections = hostConnection();
     mpState.activeSessions = [{ id: "mp-1", invitee_ids: [] }];
@@ -199,9 +197,10 @@ test("active view: a Pro host (cap 1) already at cap shows the remaining rows as
   expect(screen.getByText("terminal.share.inviteCapReached")).toBeTruthy();
 });
 
-test("hides the invite section in setup view for free tier", async () => {
+test("hides the People tab (and its own tab button) in setup view for free tier", async () => {
   teamState.teams = [{ id: "vault-1", name: "Vault", owner_id: "u0", owner_tier: "teams", created_at: "", role_ids: [] }];
   render(shareMenuElement({ tier: "free", connectionVaultId: "vault-1" }));
   await flushRoster();
-  expect(screen.queryByText("terminal.share.invitePeople")).toBeNull();
+  expect(screen.queryByText("terminal.share.tabPeople")).toBeNull();
+  expect(screen.queryByPlaceholderText("terminal.share.peopleSearchPlaceholder")).toBeNull();
 });

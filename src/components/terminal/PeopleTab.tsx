@@ -19,7 +19,11 @@ import { ContextMenu } from "@/components/shared/ContextMenu";
 
 interface PeopleTabProps {
   session: InviteSession;
-  /** Owned by ShareMenu — see InvitePeopleSection for why this outlives a single mount. */
+  /**
+   * Owned by ShareMenu, not here: the first invite on an unshared terminal creates
+   * the session, which flips the setup view to the active view and remounts this
+   * component. Local state would be lost exactly when the cap most needs it.
+   */
   invitedThisSession: ReadonlySet<string>;
   guestCap: number;
   tier: ShareTier;
@@ -72,7 +76,7 @@ function PersonRow({
       )}
       <span className="flex-1 min-w-0 text-left">
         <span className="text-xs truncate block">{target.display_name}</span>
-        {/* handle is optional: teammates carry none until the server adds it to /members */}
+        {/* handle is optional: an older server omits it from /members */}
         {target.handle && (
           <span className="text-[10px] truncate block" style={{ color: "var(--t-text-dim)" }}>
             @{target.handle}

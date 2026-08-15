@@ -58,8 +58,8 @@ afterEach(() => cleanup());
 
 function renderMenu() {
   const anchorRef = createRef<HTMLButtonElement>();
-  // tier="pro" with a personal (non-qualifying) vault means the invite-link tab
-  // is the only tab, so it renders directly without a tab click.
+  // tier="pro" with a personal (non-qualifying) vault means People and Link are
+  // the only tabs (no qualifying vault for Team), with People selected by default.
   return render(
     <ShareMenu
       anchorRef={anchorRef}
@@ -78,6 +78,8 @@ function renderMenu() {
 
 async function generateInviteLink() {
   renderMenu();
+  // People is the default tab now; switch to Link before generating.
+  fireEvent.click(screen.getByText("terminal.share.tabInviteLink"));
   fireEvent.click(screen.getByText("terminal.share.generateInviteLink"));
   await waitFor(() => expect(mpState.startSharingInviteLink).toHaveBeenCalled());
 }

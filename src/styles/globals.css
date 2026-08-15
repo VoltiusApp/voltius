@@ -622,4 +622,16 @@ button svg *,
   .clipboard-pill-enter { animation: fadeIn 120ms ease-out forwards; }
   .clipboard-pill-exit  { animation: none; opacity: 0; }
   .clipboard-count-pop  { animation: none; }
+
+  /* Redeclaring the same keyframe name here overrides it only while the media
+     query matches — every `.animate-fadeIn` / `.animate-fadeOut` user (e.g. the
+     ShareMenu panel) drops the translate and keeps just the opacity fade. */
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes fadeOut {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
 }

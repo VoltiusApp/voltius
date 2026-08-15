@@ -225,7 +225,7 @@ export async function createVaultSession(
  */
 export async function createDirectSession(
   connectionName: string,
-  invitees: teamService.TeamMember[],
+  invitees: InviteTarget[],
 ): Promise<{ sessionId: string; sessionKey: SessionKey; sessionKeyBytes: Uint8Array }> {
   const { sessionKey, sessionKeyBytes, wrappedKeys } = await prepareWrappedSessionKey(invitees);
 

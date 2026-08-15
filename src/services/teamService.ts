@@ -45,6 +45,8 @@ export interface TeamMember {
   public_key: string;
   role_ids: string[];
   is_online?: boolean;
+  /** Optional: an older server omits it. Never render a bare "@" when absent. */
+  handle?: string;
 }
 
 export interface TeamRole {

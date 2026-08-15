@@ -23,7 +23,7 @@ export interface InviteTarget {
   team_id?: string;
 }
 
-/** Account tier as used across the share flow (ShareMenu, InvitePeopleSection, ParticipantsRatioNotice). */
+/** Account tier as used across the share flow (ShareMenu, PeopleTab, ParticipantsRatioNotice). */
 export type ShareTier = Tier;
 
 /** Guests a shared session may hold, from the tier whose plan the session runs on. */
@@ -66,12 +66,8 @@ export async function freshPublicKeys(members: { team_id: string; user_id: strin
   return new Map(fresh.map((m) => [m.user_id, m.public_key]));
 }
 
-/**
- * A teammate merged across every team they share with the caller. `handle` is
- * optional: the member roster does not carry it today, so it is left undefined
- * rather than adding it to `/members` in this pass.
- */
-export type Teammate = TeamMember & { teamIds: string[]; handle?: string };
+/** A teammate merged across every team they share with the caller. */
+export type Teammate = TeamMember & { teamIds: string[] };
 
 /**
  * Every teammate across all of the caller's teams, merged by user_id (with the
