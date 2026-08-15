@@ -122,10 +122,20 @@ export function reconcileSessions(
       // identity alone and never from sessionDisplayName.
       const invited = !!s.invited_by && s.invited_by !== myUserId;
       const knock = invited && s.connection_name === null;
-      const inviter = invited
-        ? (s.participants?.find((p) => p.user_id === s.invited_by)?.display_name ??
-            i18n.t("notifications.inbox.someone"))
-        : "";
+      // A knock renders the server-resolved handle and nothing else. Participant
+      // display names arrive in the sender's own WebSocket query string, so
+      // falling back to one here would let a stranger knock as "Voltius Support"
+      // — the exact impersonation the reserved-handle list exists to refuse.
+      // Absent (an older server, or a race before the inviter is resolvable) it
+      // degrades to "Someone", never to a name the sender chose.
+      const inviter = knock
+        ? s.invited_by_handle
+          ? `@${s.invited_by_handle}`
+          : i18n.t("notifications.inbox.someone")
+        : invited
+          ? (s.participants?.find((p) => p.user_id === s.invited_by)?.display_name ??
+              i18n.t("notifications.inbox.someone"))
+          : "";
       const kind: InboxKind = knock ? "sessionKnock" : invited ? "sessionInvite" : "sessionShared";
       const name = sessionDisplayName(s);
       return {

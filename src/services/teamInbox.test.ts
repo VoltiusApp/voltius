@@ -253,13 +253,7 @@ test("uses the inviter's display name from participants when available", () => {
 
 test("a redacted invite renders as a knock from the inviter alone", () => {
   reconcileSessions(
-    [
-      session({
-        connection_name: null,
-        invited_by: "u-stranger",
-        participants: [{ user_id: "u-stranger", display_name: "@kevin-p" }],
-      }),
-    ],
+    [session({ connection_name: null, invited_by: "u-stranger", invited_by_handle: "kevin-p" })],
     new Set(),
     "me",
   );
@@ -272,6 +266,45 @@ test("a redacted invite renders as a knock from the inviter alone", () => {
     "notifications.inbox.sessionKnock.blockPermanently",
   ]);
 });
+
+// The handle is server-owned; a participant display_name arrives in the sender's
+// own WebSocket query string, so honouring it here is an impersonation vector.
+test("a knock renders the server handle and never a participant display name", () => {
+  reconcileSessions(
+    [
+      session({
+        connection_name: null,
+        invited_by: "u-stranger",
+        invited_by_handle: "kevin-p",
+        participants: [{ user_id: "u-stranger", display_name: "Voltius Support" }],
+      }),
+    ],
+    new Set(),
+    "me",
+  );
+  const entry = get().inbox.find((e) => e.kind === "sessionKnock")!;
+  expect(entry.message).toContain("@kevin-p");
+  expect(entry.message).not.toContain("Voltius Support");
+});
+
+test("a knock with no handle falls back to Someone, not to the supplied name", () => {
+  reconcileSessions(
+    [
+      session({
+        connection_name: null,
+        invited_by: "u-stranger",
+        participants: [{ user_id: "u-stranger", display_name: "Voltius Support" }],
+      }),
+    ],
+    new Set(),
+    "me",
+  );
+  const entry = get().inbox.find((e) => e.kind === "sessionKnock")!;
+  expect(entry.message).toContain("notifications.inbox.someone");
+  expect(entry.message).not.toContain("Voltius Support");
+});
+
+
 
 test("decline calls the server and retracts the entry", async () => {
   h.declineSessionInvite.mockResolvedValue(undefined);
