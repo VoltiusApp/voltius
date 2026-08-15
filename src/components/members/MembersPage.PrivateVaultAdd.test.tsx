@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-libra
 
 const h = vi.hoisted(() => ({
   getMyUserId: vi.fn(),
-  getMe: vi.fn(),
+  getMyHandle: vi.fn(),
   searchUsers: vi.fn(),
   loadTeams: vi.fn(),
   loadMembers: vi.fn(),
@@ -60,7 +60,7 @@ vi.mock("@/services/teamService", () => ({
   inviteByEmail: vi.fn(),
   revokePendingInvitation: vi.fn(),
 }));
-vi.mock("@/services/account", () => ({ getMe: h.getMe }));
+vi.mock("@/services/account", () => ({ getMyHandle: h.getMyHandle }));
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
@@ -157,7 +157,7 @@ const foundUser = { user_id: "u1", handle: "zesty-otter-1180", public_key: "pk1"
 beforeEach(() => {
   Object.values(h).forEach((v) => { if (typeof v === "function" && "mockReset" in v) (v as ReturnType<typeof vi.fn>).mockReset(); });
   h.getMyUserId.mockResolvedValue("me");
-  h.getMe.mockResolvedValue({ handle: "merry-quartz-2597" });
+  h.getMyHandle.mockResolvedValue("merry-quartz-2597");
   h.loadTeams.mockResolvedValue(undefined);
   h.createTeam.mockResolvedValue({ id: "newteam", name: "V" });
   h.addMemberById.mockResolvedValue(undefined);

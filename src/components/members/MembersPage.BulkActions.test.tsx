@@ -4,7 +4,7 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 
 const h = vi.hoisted(() => ({
   getMyUserId: vi.fn(),
-  getMe: vi.fn(),
+  getMyHandle: vi.fn(),
   loadTeams: vi.fn(),
   loadMembers: vi.fn(),
   loadRoles: vi.fn(),
@@ -100,7 +100,7 @@ vi.mock("@/services/teamService", () => ({
   inviteByEmail: vi.fn(),
   revokePendingInvitation: vi.fn(),
 }));
-vi.mock("@/services/account", () => ({ getMe: h.getMe }));
+vi.mock("@/services/account", () => ({ getMyHandle: h.getMyHandle }));
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
@@ -186,7 +186,7 @@ import MembersPage from "./MembersPage";
 beforeEach(() => {
   Object.values(h).forEach((v) => { if (typeof v === "function" && "mockReset" in v) (v as ReturnType<typeof vi.fn>).mockReset(); });
   h.getMyUserId.mockResolvedValue("me");
-  h.getMe.mockResolvedValue({ handle: "merry-quartz-2597" });
+  h.getMyHandle.mockResolvedValue("merry-quartz-2597");
   h.loadTeams.mockResolvedValue(undefined);
   h.loadMembers.mockResolvedValue(undefined);
   h.loadRoles.mockResolvedValue(undefined);

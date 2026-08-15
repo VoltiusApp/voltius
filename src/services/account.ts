@@ -389,6 +389,23 @@ export async function getMe(): Promise<MeResponse | null> {
   }
 }
 
+/**
+ * The caller's own handle: keychain-cached first, falling back to the server
+ * only in "server" mode. An account that signed in before handles existed
+ * has none cached yet — that is the one case worth a fetch rather than
+ * leaving the row blank forever; a local-only account has no server to ask.
+ * Resolves to "" (never null) on any miss, so a caller can tell "no handle"
+ * from "still loading" by its own pending state, not by this return value.
+ */
+export async function getMyHandle(): Promise<string> {
+  const cached = await keychainGet("handle");
+  if (cached) return cached;
+  const mode = await getAccountMode();
+  if (mode !== "server") return "";
+  const me = await getMe();
+  return me?.handle ?? "";
+}
+
 export async function refreshSession(): Promise<void> {
   const [refreshToken, serverUrl] = await Promise.all([
     keychainGet("refresh_token"),

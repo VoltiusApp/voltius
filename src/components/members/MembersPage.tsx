@@ -17,6 +17,7 @@ import {
   revokePendingInvitation,
 } from "@/services/teamService";
 import type { PendingInvitation } from "@/stores/teamStore";
+import { getMyHandle } from "@/services/account";
 import { BaseCard } from "@/components/shared/BaseCard";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
@@ -1025,7 +1026,7 @@ export default function MembersPage() {
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
   const [myUserId, setMyUserId] = useState("");
-  const [cachedHandle, setCachedHandle] = useState<string | null>(null);
+  const [myHandle, setMyHandle] = useState<string | null>(null);
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string[]>([]);
@@ -1049,10 +1050,9 @@ export default function MembersPage() {
 
   useEffect(() => {
     getMyUserId().then((id) => { if (id) setMyUserId(id); }).catch(() => {});
-    // Fallback only — the self-card prefers the handle already in `members`.
-    import("@tauri-apps/api/core").then(({ invoke: inv }) =>
-      inv<string | null>("keychain_get", { key: "handle" }).catch(() => null)
-    ).then(setCachedHandle);
+    // getMyHandle() resolves to "" (never rejects) on a keychain miss with no
+    // server to fall back to, so this always settles the loading skeleton.
+    getMyHandle().then(setMyHandle).catch(() => setMyHandle(""));
     loadTeams().catch(() => {});
   }, [loadTeams]);
 
@@ -1074,7 +1074,6 @@ export default function MembersPage() {
   const members = useMemo(() => (teamId ? (membersByTeam[teamId] ?? []) : []), [teamId, membersByTeam]);
   const teamRoles = useMemo(() => (teamId ? (rolesByTeam[teamId] ?? []) : []), [teamId, rolesByTeam]);
   const myMember = members.find((m) => m.user_id === myUserId);
-  const myHandle = myMember?.handle ?? cachedHandle;
 
   // Compute effective permissions from role bits
   const myEffectivePerms = myMember ? effectivePermissions(myMember, teamRoles) : 0;

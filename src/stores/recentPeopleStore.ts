@@ -72,13 +72,19 @@ export const useRecentPeopleStore = create<RecentPeopleStore>()(
     }),
     {
       name: "voltius-recent-people",
-      // Pre-0.26 rows can carry `handle: ""` (written before handles existed).
-      // `project()` never runs on rehydration, so a stale empty-handle row would
-      // otherwise reach the UI as a bare "@" that can never match a search.
-      onRehydrateStorage: () => (state) => {
-        if (state && state.recent.some((p) => !p.handle)) {
-          useRecentPeopleStore.setState({ recent: state.recent.filter((p) => p.handle) });
-        }
+      // Bumped from the unversioned (pre-0.26) shape: those rows can carry
+      // `handle: ""` (written before handles existed), and `project()` never
+      // runs on rehydration. `migrate` runs synchronously inside `create()`,
+      // before this module's own top-level bindings exist — unlike
+      // `onRehydrateStorage`, which closes over `useRecentPeopleStore` and so
+      // silently no-ops at real app startup (ReferenceError, swallowed).
+      version: 1,
+      migrate: (persistedState) => {
+        const state = persistedState as { recent?: RecentPerson[]; recentUpdatedAt?: string } | undefined;
+        return {
+          recent: (state?.recent ?? []).filter((p) => p.handle),
+          recentUpdatedAt: state?.recentUpdatedAt ?? new Date(0).toISOString(),
+        };
       },
     },
   ),

@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({
   add: vi.fn(),
   assign: vi.fn(),
   reload: vi.fn(),
-  getMe: vi.fn(async () => ({ handle: "merry-quartz-2597" })),
+  getMyHandle: vi.fn(async () => "merry-quartz-2597"),
   usedSeats: 2,
   totalSeats: 3,
 }));
@@ -30,7 +30,7 @@ vi.mock("@/services/teamService", () => ({
   inviteByEmail: h.inviteByEmail,
   revokePendingInvitation: vi.fn(),
 }));
-vi.mock("@/services/account", () => ({ getMe: h.getMe }));
+vi.mock("@/services/account", () => ({ getMyHandle: h.getMyHandle }));
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
