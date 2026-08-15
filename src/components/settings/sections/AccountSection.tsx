@@ -10,7 +10,7 @@ import { openPortal } from "@/utils/billing";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { claimHandle, updateInvitePreferences, HandleClaimError } from "@/services/teamService";
 import { Toggle } from "@/components/shared/Toggle";
-import { writeClipboard } from "@/utils/clipboard";
+import { useCopyHandle } from "@/hooks/useCopyHandle";
 import EditEmailModal from "./EditEmailModal";
 import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 
@@ -108,7 +108,6 @@ export default function AccountSection() {
   const [handleIsCustom, setHandleIsCustom] = useState(false);
   const [meTier, setMeTier] = useState<string | undefined>(undefined);
   const [tierKnown, setTierKnown] = useState(false);
-  const [handleCopied, setHandleCopied] = useState(false);
   const [allowStrangerInvites, setAllowStrangerInvites] = useState(true);
   const [strangerInvitesError, setStrangerInvitesError] = useState("");
   const [strangerInvitesLoading, setStrangerInvitesLoading] = useState(false);
@@ -135,14 +134,7 @@ export default function AccountSection() {
   // already has exactly that.
   const isFreeTier = tierKnown && (!meTier || meTier === "free");
   const isLapsedCustom = isFreeTier && handleIsCustom;
-
-  const handleCopyHandle = () => {
-    if (!handle) return;
-    writeClipboard(`@${handle}`).then(() => {
-      setHandleCopied(true);
-      setTimeout(() => setHandleCopied(false), 1500);
-    }).catch(() => {});
-  };
+  const { copied: handleCopied, copy: handleCopyHandle } = useCopyHandle(handle);
 
   const toggleStrangerInvites = async (next: boolean) => {
     setStrangerInvitesLoading(true); // blocks the switch until this round trip resolves — a second click mid-flight can't race the first

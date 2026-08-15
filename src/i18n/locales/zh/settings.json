@@ -149,7 +149,7 @@
         "inputLabel": "Handle",
         "save": "保存",
         "upsell": "自定义 handle 需要 Pro 或更高套餐。",
-        "reachableNote": "他人仍可通过您的完整邮箱地址联系您。",
+        "reachableNote": "他人仍可通过您的 @handle 联系您 — 自定义 handle 只是让您可被搜索到。",
         "lapsedKeepsHandle": "您的套餐已过期，但仍保留现有 handle。",
         "lapsedRenameLocked": "重新订阅前无法更改 handle。",
         "errorInvalid": "Handle 只能包含字母、数字和连字符。",

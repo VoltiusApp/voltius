@@ -262,7 +262,7 @@
         "inputLabel": "Handle",
         "save": "Save",
         "upsell": "Custom handles require Pro or higher.",
-        "reachableNote": "People can still reach you by your full email address.",
+        "reachableNote": "People can still reach you by your @handle — a custom one just makes you searchable.",
         "lapsedKeepsHandle": "Your plan lapsed, but you keep your existing handle.",
         "lapsedRenameLocked": "Renaming is locked until you resubscribe.",
         "errorInvalid": "Handles can only contain letters, numbers, and hyphens.",

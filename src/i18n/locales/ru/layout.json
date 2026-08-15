@@ -86,6 +86,7 @@
       "localShellFallback": "Локальная оболочка"
     },
     "sidebarAccount": {
+      "copyHandle": "Скопировать псевдоним",
       "accountTitle": "Учётная запись",
       "localAccountFallback": "Локальная учётная запись",
       "modeCloud": "Облачная учётная запись",

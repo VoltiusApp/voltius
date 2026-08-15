@@ -262,7 +262,7 @@
         "inputLabel": "Pseudo",
         "save": "Enregistrer",
         "upsell": "Les pseudos personnalisés nécessitent l'offre Pro ou supérieure.",
-        "reachableNote": "Vous restez joignable par votre adresse e-mail complète.",
+        "reachableNote": "Vous restez joignable par votre @pseudo — un pseudo personnalisé vous rend simplement trouvable.",
         "lapsedKeepsHandle": "Votre offre a expiré, mais vous conservez votre pseudo actuel.",
         "lapsedRenameLocked": "Le changement de pseudo est verrouillé jusqu'à votre réabonnement.",
         "errorInvalid": "Un pseudo ne peut contenir que des lettres, des chiffres et des tirets.",
