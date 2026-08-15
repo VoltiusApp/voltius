@@ -60,8 +60,17 @@ export const useRecentPeopleStore = create<RecentPeopleStore>()(
           return { recent: s.recent.filter((p) => p.user_id !== userId), recentUpdatedAt };
         }),
 
+      // Stamps like every other write path: a list arriving through the sync
+      // blob or the import UI must carry a timestamp, or `lastWriteWins` dates
+      // it at the epoch and the next pull discards what was just applied. Under
+      // a remote apply `settingsStamp()` adopts the remote section's timestamp
+      // and `pushSettingsChange()` is a no-op, so this cannot bounce back.
       replaceAll: (list) =>
-        set({ recent: Array.isArray(list) ? list.slice(0, MAX_RECENT).map(project) : [] }),
+        set(() => {
+          const recentUpdatedAt = settingsStamp();
+          pushSettingsChange();
+          return { recent: Array.isArray(list) ? list.slice(0, MAX_RECENT).map(project) : [], recentUpdatedAt };
+        }),
     }),
     { name: "voltius-recent-people" },
   ),
