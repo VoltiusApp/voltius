@@ -5,6 +5,7 @@ import { themesHandler } from "./handlers/themes";
 import { uiPreferencesHandler } from "./handlers/uiPreferences";
 import { shortcutsHandler } from "./handlers/shortcuts";
 import { appSettingsHandler } from "./handlers/appSettings";
+import { recentPeopleHandler } from "./handlers/recentPeople";
 
 // ─── Handler registry ─────────────────────────────────────────────────────────
 // Order matters for UI rendering. Adding a new settings domain:
@@ -16,6 +17,7 @@ export const USER_DATA_HANDLERS: UserDataHandler[] = [
   uiPreferencesHandler,
   shortcutsHandler,
   appSettingsHandler,
+  recentPeopleHandler,
 ];
 
 // ─── Build ────────────────────────────────────────────────────────────────────
