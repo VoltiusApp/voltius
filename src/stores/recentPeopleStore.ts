@@ -15,6 +15,21 @@ export interface RecentPerson {
   last_invited_at: string;
 }
 
+/**
+ * Keeps exactly the four fields a Recent row is allowed to hold. Every write
+ * path goes through this: `replaceAll` takes foreign data (the sync blob, the
+ * import UI), so enforcing the no-`public_key` invariant only on `remember`
+ * would leave it enforced on the path that never sees untrusted input.
+ */
+function project(person: RecentPerson): RecentPerson {
+  return {
+    user_id: person.user_id,
+    handle: person.handle,
+    display_name: person.display_name,
+    last_invited_at: person.last_invited_at,
+  };
+}
+
 interface RecentPeopleStore {
   recent: RecentPerson[];
   recentUpdatedAt: string;
@@ -31,12 +46,7 @@ export const useRecentPeopleStore = create<RecentPeopleStore>()(
 
       remember: (person) =>
         set((s) => {
-          const clean: RecentPerson = {
-            user_id: person.user_id,
-            handle: person.handle,
-            display_name: person.display_name,
-            last_invited_at: person.last_invited_at,
-          };
+          const clean = project(person);
           const recent = [clean, ...s.recent.filter((p) => p.user_id !== clean.user_id)].slice(0, MAX_RECENT);
           const recentUpdatedAt = settingsStamp();
           pushSettingsChange();
@@ -50,7 +60,8 @@ export const useRecentPeopleStore = create<RecentPeopleStore>()(
           return { recent: s.recent.filter((p) => p.user_id !== userId), recentUpdatedAt };
         }),
 
-      replaceAll: (list) => set({ recent: list.slice(0, MAX_RECENT) }),
+      replaceAll: (list) =>
+        set({ recent: Array.isArray(list) ? list.slice(0, MAX_RECENT).map(project) : [] }),
     }),
     { name: "voltius-recent-people" },
   ),

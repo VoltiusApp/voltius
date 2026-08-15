@@ -36,3 +36,22 @@ test("no key material is ever stored", () => {
   useRecentPeopleStore.getState().remember({ ...person("a"), public_key: "leak" } as never);
   expect(JSON.stringify(useRecentPeopleStore.getState().recent)).not.toContain("leak");
 });
+
+// replaceAll is the path that takes foreign data — the sync blob and the import
+// UI — so it needs the projection more than remember does.
+test("replaceAll strips fields remember would have dropped", () => {
+  useRecentPeopleStore.getState().replaceAll([{ ...person("a"), public_key: "leak" }] as never);
+  const { recent } = useRecentPeopleStore.getState();
+  expect(JSON.stringify(recent)).not.toContain("leak");
+  expect(Object.keys(recent[0]).sort()).toEqual(["display_name", "handle", "last_invited_at", "user_id"]);
+});
+
+test("replaceAll caps the list and rejects a non-array", () => {
+  useRecentPeopleStore.getState().replaceAll(
+    Array.from({ length: MAX_RECENT + 5 }, (_, i) => person(`u${i}`)),
+  );
+  expect(useRecentPeopleStore.getState().recent.length).toBe(MAX_RECENT);
+
+  useRecentPeopleStore.getState().replaceAll({ not: "an array" } as never);
+  expect(useRecentPeopleStore.getState().recent).toEqual([]);
+});
