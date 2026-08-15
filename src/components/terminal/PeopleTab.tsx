@@ -1,0 +1,270 @@
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Icon } from "@iconify/react";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  allTeammates,
+  groupPeople,
+  memberHasAccess,
+  seatUsage,
+  type InviteSession,
+  type InviteTarget,
+  type ShareTier,
+  type Teammate,
+} from "@/services/teamSharing";
+import { useUserSearch } from "@/hooks/useUserSearch";
+import { useRecentPeopleStore } from "@/stores/recentPeopleStore";
+import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
+import { ContextMenu } from "@/components/shared/ContextMenu";
+
+interface PeopleTabProps {
+  session: InviteSession;
+  /** Owned by ShareMenu — see InvitePeopleSection for why this outlives a single mount. */
+  invitedThisSession: ReadonlySet<string>;
+  guestCap: number;
+  tier: ShareTier;
+  onUpgrade: () => void;
+  onInvite: (target: InviteTarget) => Promise<void>;
+}
+
+/** A normalized row: whichever group it came from, the row itself doesn't care. */
+interface RowEntry {
+  target: InviteTarget;
+  /** Teammate group memberships, for `memberHasAccess`. Empty for Recent/stranger rows. */
+  teamIds: string[];
+  isStranger: boolean;
+  onContextMenu?: (e: React.MouseEvent) => void;
+}
+
+function PersonRow({
+  entry,
+  hasAccess,
+  inFlight,
+  invited,
+  capBlocked,
+  onInvite,
+  t,
+}: {
+  entry: RowEntry;
+  hasAccess: boolean;
+  inFlight: boolean;
+  invited: boolean;
+  capBlocked: boolean;
+  onInvite: () => void;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}) {
+  const { target, isStranger, onContextMenu } = entry;
+  return (
+    <button
+      className="flex items-center gap-2 px-2 py-1.5 rounded-md text-left disabled:cursor-default transition-colors"
+      style={{ color: "var(--t-text-primary)", background: "transparent" }}
+      disabled={hasAccess || inFlight || invited || capBlocked}
+      onClick={onInvite}
+      onContextMenu={onContextMenu}
+    >
+      <span className="flex-1 min-w-0 text-left">
+        <span className="text-xs truncate block">{target.display_name}</span>
+        <span className="text-[10px] truncate block" style={{ color: "var(--t-text-dim)" }}>
+          @{target.handle}
+        </span>
+      </span>
+      {isStranger && (
+        <span
+          className="text-[10px] px-1 py-0.5 rounded-sm shrink-0"
+          style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
+        >
+          {t("terminal.share.notInYourTeams")}
+        </span>
+      )}
+      {hasAccess ? (
+        <span className="text-[10px] shrink-0" style={{ color: "var(--t-text-dim)" }}>
+          {t("terminal.share.inviteHasAccess")}
+        </span>
+      ) : inFlight ? (
+        <Icon icon="lucide:loader-circle" width={12} className="animate-spin" style={{ color: "var(--t-text-dim)" }} />
+      ) : invited ? (
+        <span className="text-[10px] shrink-0" style={{ color: "var(--t-accent)" }}>
+          {t("terminal.share.inviteSent")}
+        </span>
+      ) : capBlocked ? (
+        <span className="text-[10px] shrink-0" style={{ color: "var(--t-text-dim)" }}>
+          {t("terminal.share.inviteCapReached")}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgrade, onInvite }: PeopleTabProps) {
+  const { t } = useTranslation();
+  const teams = useTeamStore((s) => s.teams);
+  const recent = useRecentPeopleStore((s) => s.recent);
+  const forget = useRecentPeopleStore((s) => s.forget);
+  const search = useUserSearch();
+
+  const [teammates, setTeammates] = useState<Teammate[]>([]);
+  const [inviting, setInviting] = useState<ReadonlySet<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ userId: string; pos: { x: number; y: number } } | null>(null);
+
+  // Reload whenever the team list changes — ShareMenu kicks off `loadTeams()` fire-and-forget
+  // on open, so on a fresh install/first sign-in the roster isn't populated yet at mount.
+  useEffect(() => {
+    let cancelled = false;
+    allTeammates().then((m) => { if (!cancelled) setTeammates(m); }).catch(() => { if (!cancelled) setTeammates([]); });
+    return () => { cancelled = true; };
+  }, [teams]);
+
+  const { committedSeats, atCap } = seatUsage(session, invitedThisSession, guestCap);
+
+  const setInFlight = (userId: string, active: boolean) =>
+    setInviting((prev) => {
+      const next = new Set(prev);
+      if (active) next.add(userId); else next.delete(userId);
+      return next;
+    });
+
+  const handleInvite = async (target: InviteTarget) => {
+    setError(null);
+    setInFlight(target.user_id, true);
+    try {
+      await onInvite(target);
+      // Recent is written on a successful invite — the signal is "I chose this person",
+      // not that they later accepted.
+      useRecentPeopleStore.getState().remember({
+        user_id: target.user_id,
+        handle: target.handle ?? "",
+        display_name: target.display_name,
+        last_invited_at: new Date().toISOString(),
+      });
+    } catch {
+      setError(t("terminal.share.inviteFailed", { name: target.display_name }));
+    } finally {
+      setInFlight(target.user_id, false);
+    }
+  };
+
+  const groups = groupPeople({ query: search.query, teammates, recent, results: search.results });
+
+  const recentEntries: RowEntry[] = groups.recent.map((p) => ({
+    target: { user_id: p.user_id, display_name: p.display_name, handle: p.handle },
+    teamIds: [],
+    isStranger: false,
+    onContextMenu: (e) => { e.preventDefault(); setMenu({ userId: p.user_id, pos: { x: e.clientX, y: e.clientY } }); },
+  }));
+  const teammateEntries: RowEntry[] = groups.teammates.map((m) => ({
+    target: { user_id: m.user_id, display_name: m.display_name, handle: m.handle, team_id: m.teamIds[0] },
+    teamIds: m.teamIds,
+    isStranger: false,
+  }));
+  const strangerEntries: RowEntry[] = groups.strangers.map((s) => ({
+    target: { user_id: s.user_id, display_name: s.display_name, handle: s.handle },
+    teamIds: [],
+    isStranger: true,
+  }));
+
+  const renderRow = (entry: RowEntry) => {
+    const hasAccess = memberHasAccess({ user_id: entry.target.user_id, teamIds: entry.teamIds }, session);
+    const inFlight = inviting.has(entry.target.user_id);
+    const invited = invitedThisSession.has(entry.target.user_id);
+    // A row this session just invited keeps showing "Invited", not the cap notice.
+    const capBlocked = atCap && !hasAccess && !invited;
+    return (
+      <PersonRow
+        key={entry.target.user_id}
+        entry={entry}
+        hasAccess={hasAccess}
+        inFlight={inFlight}
+        invited={invited}
+        capBlocked={capBlocked}
+        onInvite={() => handleInvite(entry.target)}
+        t={t}
+      />
+    );
+  };
+
+  const searchedEmpty =
+    search.query.trim().length > 0 && recentEntries.length === 0 && teammateEntries.length === 0 && strangerEntries.length === 0;
+
+  return (
+    <div className="px-3 pb-3">
+      <div
+        className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg border"
+        style={{ background: "var(--t-bg-input)", borderColor: "var(--t-border)" }}
+      >
+        <Icon icon="lucide:search" width={13} className="shrink-0" style={{ color: "var(--t-text-dim)" }} />
+        <input
+          type="text"
+          placeholder={t("terminal.share.peopleSearchPlaceholder")}
+          value={search.query}
+          onChange={(e) => search.setQuery(e.target.value)}
+          className="flex-1 bg-transparent outline-hidden text-sm"
+          style={{ color: "var(--t-text-primary)" }}
+        />
+      </div>
+
+      <ParticipantsRatioNotice count={committedSeats} guestCap={guestCap} atCap={atCap} countsInvites tier={tier} onUpgrade={onUpgrade} />
+
+      {error && (
+        <div
+          className="mb-2 px-2 py-1.5 rounded-sm text-[11px]"
+          style={{
+            background: "color-mix(in srgb, var(--t-status-error) 12%, transparent)",
+            color: "var(--t-status-error)",
+            border: "1px solid color-mix(in srgb, var(--t-status-error) 25%, transparent)",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {searchedEmpty ? (
+        <div className="text-xs text-center py-3" style={{ color: "var(--t-text-dim)" }}>
+          <p>{t("terminal.share.peopleNoMatch", { query: search.query.trim() })}</p>
+          <p className="mt-1">{t("terminal.share.peopleFindRule")}</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase mb-0.5 px-2" style={{ color: "var(--t-text-dim)" }}>
+              {t("terminal.share.recentLabel")}
+            </p>
+            {recentEntries.length > 0 ? (
+              <div className="flex flex-col gap-0.5">{recentEntries.map(renderRow)}</div>
+            ) : (
+              <p className="text-xs px-2 py-1" style={{ color: "var(--t-text-dim)" }}>
+                {t("terminal.share.recentEmpty")}
+              </p>
+            )}
+          </div>
+
+          {teammateEntries.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase mb-0.5 px-2" style={{ color: "var(--t-text-dim)" }}>
+                {t("terminal.share.yourTeamsLabel")}
+              </p>
+              <div className="flex flex-col gap-0.5">{teammateEntries.map(renderRow)}</div>
+            </div>
+          )}
+
+          {strangerEntries.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase mb-0.5 px-2" style={{ color: "var(--t-text-dim)" }}>
+                {t("terminal.share.elsewhereLabel")}
+              </p>
+              <div className="flex flex-col gap-0.5">{strangerEntries.map(renderRow)}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {menu && (
+        <ContextMenu
+          pos={menu.pos}
+          onClose={() => setMenu(null)}
+          items={[{ label: t("terminal.share.forgetPerson"), danger: true, onClick: () => forget(menu.userId) }]}
+        />
+      )}
+    </div>
+  );
+}

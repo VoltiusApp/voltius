@@ -1,8 +1,9 @@
 import i18n from "@/i18n";
 import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId, listMembers } from "@/services/teamService";
-import type { TeamMember } from "@/services/teamService";
+import type { TeamMember, UserSearchResult } from "@/services/teamService";
 import type { Tier } from "@/stores/subscriptionTier";
+import type { RecentPerson } from "@/stores/recentPeopleStore";
 
 /**
  * The name to show for a session. `connection_name` is null when the server has
@@ -65,8 +66,12 @@ export async function freshPublicKeys(members: { team_id: string; user_id: strin
   return new Map(fresh.map((m) => [m.user_id, m.public_key]));
 }
 
-/** A teammate merged across every team they share with the caller. */
-export type Teammate = TeamMember & { teamIds: string[] };
+/**
+ * A teammate merged across every team they share with the caller. `handle` is
+ * optional: the member roster does not carry it today, so it is left undefined
+ * rather than adding it to `/members` in this pass.
+ */
+export type Teammate = TeamMember & { teamIds: string[]; handle?: string };
 
 /**
  * Every teammate across all of the caller's teams, merged by user_id (with the
@@ -142,4 +147,26 @@ export function memberHasAccess(
     session.participantIds.includes(member.user_id) ||
     session.invitedIds.includes(member.user_id)
   );
+}
+
+/**
+ * Groups are labels, not modes: typing filters Recent and Your teams locally and
+ * adds Elsewhere on Voltius from the server's results. A person is listed once —
+ * the most specific group wins.
+ */
+export function groupPeople<T extends { user_id: string; display_name: string; handle?: string }>(input: {
+  query: string;
+  teammates: T[];
+  recent: RecentPerson[];
+  results: UserSearchResult[];
+}): { recent: RecentPerson[]; teammates: T[]; strangers: UserSearchResult[] } {
+  const q = input.query.trim().toLowerCase();
+  const matches = (...fields: (string | undefined)[]) =>
+    !q || fields.some((f) => (f ?? "").toLowerCase().includes(q));
+
+  const recent = input.recent.filter((p) => matches(p.display_name, p.handle));
+  const teammates = input.teammates.filter((p) => matches(p.display_name, p.handle));
+  const claimed = new Set([...recent, ...teammates].map((p) => p.user_id));
+  const strangers = q ? input.results.filter((r) => !claimed.has(r.user_id) && !r.is_teammate) : [];
+  return { recent, teammates, strangers };
 }
