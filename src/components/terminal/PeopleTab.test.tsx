@@ -60,10 +60,10 @@ test("a stranger row is marked and shows its handle", async () => {
 });
 
 test("a recent row already in the session renders as having access and cannot be invited", async () => {
-  useRecentPeopleStore.setState({ recent: [{ user_id: "r1", handle: "kev", display_name: "Kevin", last_invited_at: "" }], recentUpdatedAt: "" });
+  useRecentPeopleStore.setState({ recent: [{ user_id: "r1", handle: "kev", last_invited_at: "" }], recentUpdatedAt: "" });
   const onInvite = vi.fn();
   render(<PeopleTab {...base} session={{ vaultIds: [], participantIds: ["r1"], invitedIds: [] }} onInvite={onInvite} />);
-  const row = await screen.findByRole("button", { name: /kevin/i });
+  const row = await screen.findByRole("button", { name: /kev/i });
   expect((row as HTMLButtonElement).disabled).toBe(true);
   await userEvent.click(row);
   expect(onInvite).not.toHaveBeenCalled();
@@ -142,7 +142,7 @@ test("marks a covered teammate as having access and does not call onInvite", asy
 test("a teammate who is also in Recent still renders as having access in their vault's session", async () => {
   h.allTeammates.mockResolvedValue(roster);
   useRecentPeopleStore.setState({
-    recent: [{ user_id: "u-alice", handle: "alice-h", display_name: "Alice", last_invited_at: "" }],
+    recent: [{ user_id: "u-alice", handle: "alice-h", last_invited_at: "" }],
     recentUpdatedAt: "",
   });
   const onInvite = vi.fn();

@@ -1,9 +1,9 @@
 import { test, expect, beforeEach } from "vitest";
-import { useRecentPeopleStore, MAX_RECENT } from "./recentPeopleStore";
+import { useRecentPeopleStore, MAX_RECENT, type RecentPerson } from "./recentPeopleStore";
 import { withRemoteApply } from "./remoteApplyGuard";
 
 const person = (id: string, at = "2026-08-15T00:00:00.000Z") => ({
-  user_id: id, handle: `h-${id}`, display_name: id, last_invited_at: at,
+  user_id: id, handle: `h-${id}`, last_invited_at: at,
 });
 
 beforeEach(() => useRecentPeopleStore.setState({ recent: [], recentUpdatedAt: new Date(0).toISOString() }));
@@ -44,7 +44,25 @@ test("replaceAll strips fields remember would have dropped", () => {
   useRecentPeopleStore.getState().replaceAll([{ ...person("a"), public_key: "leak" }] as never);
   const { recent } = useRecentPeopleStore.getState();
   expect(JSON.stringify(recent)).not.toContain("leak");
-  expect(Object.keys(recent[0]).sort()).toEqual(["display_name", "handle", "last_invited_at", "user_id"]);
+  expect(Object.keys(recent[0]).sort()).toEqual(["handle", "last_invited_at", "user_id"]);
+});
+
+// A device that has not updated keeps writing display_name into the E2EE sync
+// blob. project() runs on replaceAll — the path that takes the blob and the
+// import UI — so the stale field is dropped on arrival and no migration is
+// needed. See E4 in the design.
+test("replaceAll drops a display_name carried by an older device's blob", () => {
+  useRecentPeopleStore.getState().replaceAll([
+    { user_id: "u1", handle: "merry-quartz-2597", last_invited_at: "2026-08-15T00:00:00.000Z",
+      display_name: "ada" } as unknown as RecentPerson,
+  ]);
+  const [row] = useRecentPeopleStore.getState().recent;
+  expect(row).toEqual({
+    user_id: "u1",
+    handle: "merry-quartz-2597",
+    last_invited_at: "2026-08-15T00:00:00.000Z",
+  });
+  expect("display_name" in row).toBe(false);
 });
 
 test("replaceAll caps the list and rejects a non-array", () => {

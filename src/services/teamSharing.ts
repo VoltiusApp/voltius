@@ -176,7 +176,7 @@ export function groupPeople<T extends { user_id: string; display_name: string; h
   const matches = (...fields: (string | undefined)[]) =>
     !q || fields.some((f) => (f ?? "").toLowerCase().includes(q));
 
-  const recent = input.recent.filter((p) => matches(p.display_name, p.handle));
+  const recent = input.recent.filter((p) => matches(p.handle));
   const recentIds = new Set(recent.map((p) => p.user_id));
   // Recent is the more specific group: a person already in Recent does not repeat
   // under Your teams, even if they are also a current teammate.

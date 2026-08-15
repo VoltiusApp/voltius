@@ -11,12 +11,11 @@ export const MAX_RECENT = 20;
 export interface RecentPerson {
   user_id: string;
   handle: string;
-  display_name: string;
   last_invited_at: string;
 }
 
 /**
- * Keeps exactly the four fields a Recent row is allowed to hold. Every write
+ * Keeps exactly the three fields a Recent row is allowed to hold. Every write
  * path goes through this: `replaceAll` takes foreign data (the sync blob, the
  * import UI), so enforcing the no-`public_key` invariant only on `remember`
  * would leave it enforced on the path that never sees untrusted input.
@@ -25,7 +24,6 @@ function project(person: RecentPerson): RecentPerson {
   return {
     user_id: person.user_id,
     handle: person.handle,
-    display_name: person.display_name,
     last_invited_at: person.last_invited_at,
   };
 }

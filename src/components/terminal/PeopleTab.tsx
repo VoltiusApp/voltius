@@ -186,7 +186,6 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
       useRecentPeopleStore.getState().remember({
         user_id: target.user_id,
         handle: target.handle ?? "",
-        display_name: target.display_name,
         last_invited_at: new Date().toISOString(),
       });
     } catch {
@@ -223,7 +222,7 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
     return {
       target: {
         user_id: p.user_id,
-        display_name: p.display_name,
+        display_name: p.handle,
         handle: p.handle,
         team_id: teammate?.teamIds[0],
       },
