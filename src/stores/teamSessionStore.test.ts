@@ -24,6 +24,21 @@ const connStub = () => ({
 });
 const get = () => useTeamSessionStore.getState();
 
+/**
+ * Guards against the identity-string leak (display_name/email) reaching
+ * openWebSocket via any argument, at any position. Finds the callbacks
+ * object by its onParticipantList shape rather than a fixed index, then
+ * asserts every string-typed argument is exactly the expected non-identity
+ * set — an unexpected extra string (an email, a handle passed where it
+ * shouldn't be) fails the match immediately, regardless of position.
+ */
+function assertOpenWebSocketArgsCarryNoIdentity(args: unknown[], expectedStrings: string[]) {
+  const callbacks = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
+  expect(callbacks).toBeTruthy();
+  const strings = args.filter((a): a is string => typeof a === "string");
+  expect(strings).toEqual(expectedStrings);
+}
+
 beforeEach(() => {
   Object.values(mp).forEach((f) => f.mockClear());
   useTeamSessionStore.setState({ activeSessions: [], connections: {} });
@@ -77,4 +92,38 @@ test("joinSession wires callbacks that drive the participant/control state machi
 
   cb.onSessionEnded(); // guest → marked ended, not removed
   expect(get().connections[localId].ended).toBe(true);
+});
+
+// Regression guard: attachAsHost (the host-side path shared by startSharing,
+// startSharingInviteLink and startSharingDirect) used to resolve
+// getCurrentUserEmail() into a displayName and forward it into openWebSocket.
+// That leak point is gone; this proves it stays gone by inspecting every
+// argument openWebSocket actually receives, not just this call site's own
+// (now email-free) signature.
+test("startSharing's attachAsHost calls openWebSocket with no identity string among its arguments", async () => {
+  mp.openWebSocket.mockImplementation(() => connStub());
+  const sessionKey = new Uint8Array([7]);
+  mp.createVaultSession.mockResolvedValueOnce({ sessionId: "m9", sessionKey, sessionKeyBytes: new Uint8Array(32) });
+
+  await get().startSharing("local-1", ["v1"], [], "conn-name", [], "teams");
+
+  expect(mp.openWebSocket).toHaveBeenCalledTimes(1);
+  const args = mp.openWebSocket.mock.calls[0];
+  expect(args).toContain(sessionKey);
+  assertOpenWebSocketArgsCarryNoIdentity(args, ["https://s", "m9", "jwt"]);
+});
+
+// Same regression guard for the guest path: joinSession forwards whatever
+// teamSessionJoin.ts passes it straight into openWebSocket.
+test("joinSession calls openWebSocket with no identity string among its arguments", async () => {
+  mp.openWebSocket.mockImplementation(() => connStub());
+  const sessionKey = new Uint8Array([3]);
+  mp.getMySessionKey.mockResolvedValueOnce({ sessionKey });
+
+  await get().joinSession("m1", () => {});
+
+  expect(mp.openWebSocket).toHaveBeenCalledTimes(1);
+  const args = mp.openWebSocket.mock.calls[0];
+  expect(args).toContain(sessionKey);
+  assertOpenWebSocketArgsCarryNoIdentity(args, ["https://s", "m1", "jwt"]);
 });

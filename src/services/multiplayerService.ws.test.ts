@@ -46,11 +46,12 @@ beforeEach(() => {
 // This test exists to stop the email leak being reintroduced. The WebSocket
 // used to carry a client-supplied display_name that every call site filled
 // with the user's own email address, so a stranger admitted by knock learned
-// everyone's real address. The name is resolved server-side now; this only
-// proves openWebSocket itself sends no identity parameter on this URL — the
-// call sites that used to feed it one (teamSessionStore's attachAsHost and
-// joinSession) are covered separately by teamSessionStore.test.ts and
-// teamInbox.test.ts asserting their call signatures, not by this file.
+// everyone's real address. The name is resolved server-side now; this proves
+// openWebSocket itself sends no identity parameter on the URL or in any sent
+// frame (below). The two call sites that used to feed it an identity string —
+// teamSessionStore's attachAsHost and joinSession — are covered by dedicated
+// "no identity string reaches openWebSocket" tests in teamSessionStore.test.ts,
+// which assert the full argument list, not just the call-site's own signature.
 test("openWebSocket's URL carries only the token, no display_name or any other parameter", async () => {
   openWebSocket("https://s", "sid", "jwt", await key(), noopCallbacks());
   expect(MockWS.last.url).toBe("wss://s/v1/terminal-sessions/sid/ws?token=jwt");
@@ -60,6 +61,21 @@ test("openWebSocket rewrites https->wss and appends invite_token", async () => {
   openWebSocket("https://s", "sid", "jwt", await key(), noopCallbacks(), "tok");
   expect(MockWS.last.url).toMatch(/^wss:\/\/s\/v1\/terminal-sessions\/sid\/ws\?/);
   expect(MockWS.last.url).toContain("invite_token=tok");
+});
+
+test("sent frames never carry an identity string", async () => {
+  const conn = openWebSocket("https://s", "sid", "jwt", await key(), noopCallbacks());
+  await conn.sendOutput(new Uint8Array([1]));
+  await conn.sendInput(new Uint8Array([2]));
+  conn.requestControl();
+  conn.grantControl("u9");
+  conn.revokeControl();
+
+  expect(MockWS.last.sent.length).toBeGreaterThan(0);
+  for (const frame of MockWS.last.sent) {
+    expect(frame).not.toContain("display_name");
+    expect(frame).not.toContain("@"); // no raw or encoded email in any frame
+  }
 });
 
 test("a participant is named by the handle the server resolved", async () => {
