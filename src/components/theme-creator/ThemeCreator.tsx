@@ -7,6 +7,12 @@ import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import { applyThemeToDom } from "@/hooks/useApplyTheme";
 import type { AppTheme, UITheme, TerminalTheme } from "@/themes/types";
+import {
+  clampTerminalLineHeight,
+  DEFAULT_TERMINAL_LINE_HEIGHT,
+  MAX_TERMINAL_LINE_HEIGHT,
+  MIN_TERMINAL_LINE_HEIGHT,
+} from "@/utils/terminalTheme";
 import { getUiGroups, getTerminalGroups, getFieldLabels } from "./colorGroups";
 import { ColorPicker } from "./ColorPicker";
 
@@ -383,9 +389,18 @@ function ColorEditor({
         </label>
         <label className="block">
           <span className="text-xs text-(--t-text-muted)">{t("themeCreator.editor.lineHeight")}</span>
+          {/* Clamped on blur, not on change: clamping each keystroke rewrites the
+              field mid-decimal ("1." → "1") and makes 1.5 untypable. Every consumer
+              clamps on read, so an out-of-range draft never reaches xterm. */}
           <input
-            type="number" min={1} max={2} step={0.1} value={draft.terminalLineHeight ?? 1}
-            onChange={(e) => setDraft((d) => ({ ...d, terminalLineHeight: Number(e.target.value) }))}
+            type="number"
+            min={MIN_TERMINAL_LINE_HEIGHT} max={MAX_TERMINAL_LINE_HEIGHT} step={0.1}
+            value={draft.terminalLineHeight ?? DEFAULT_TERMINAL_LINE_HEIGHT}
+            onChange={(e) => setDraft((d) => ({
+              ...d,
+              terminalLineHeight: e.target.value === "" ? undefined : Number(e.target.value),
+            }))}
+            onBlur={() => setDraft((d) => ({ ...d, terminalLineHeight: clampTerminalLineHeight(d.terminalLineHeight) }))}
             className="form-input w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
           />
         </label>

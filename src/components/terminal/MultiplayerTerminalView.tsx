@@ -5,10 +5,10 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { attachTerminalClipboard } from "@/components/terminal/terminalClipboard";
 import { useThemeStore } from "@/stores/themeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
-import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
+import { getToggle } from "@/stores/toggleSettingsStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
-import { applyTerminalTheme } from "@/utils/terminalTheme";
+import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor } from "@/utils/terminalTheme";
 import "@xterm/xterm/css/xterm.css";
 
 interface Props {
@@ -34,7 +34,7 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
         cursorBlink: getToggle("cursor-blink"),
         cursorStyle,
         fontSize: activeTheme.terminalFontSize,
-        lineHeight: activeTheme.terminalLineHeight ?? 1,
+        lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
         fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
         scrollback,
         theme: activeTheme.terminal,
@@ -140,18 +140,9 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
     });
   }, []);
 
-  // Live cursor-style updates
+  // Live cursor style/blink updates
   useEffect(() => {
-    return useTerminalSettingsStore.subscribe((s) => {
-      if (termRef.current) termRef.current.options.cursorStyle = s.cursorStyle;
-    });
-  }, []);
-
-  // Live cursor-blink updates
-  useEffect(() => {
-    return useToggleSettingsStore.subscribe(() => {
-      if (termRef.current) termRef.current.options.cursorBlink = getToggle("cursor-blink");
-    });
+    return subscribeTerminalCursor(() => termRef.current);
   }, []);
 
   return (

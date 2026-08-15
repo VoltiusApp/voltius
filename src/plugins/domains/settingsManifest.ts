@@ -1,7 +1,12 @@
 import type { SettingsSection } from "@/stores/uiStore";
 import { TOGGLE_DEFS, getToggle, useToggleSettingsStore, type ToggleId } from "@/stores/toggleSettingsStore";
 import { SYNC_OBJECT_TYPES, useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import {
+  CURSOR_STYLES,
+  DEFAULT_CURSOR_STYLE,
+  useTerminalSettingsStore,
+  type TerminalCursorStyle,
+} from "@/stores/terminalSettingsStore";
 import { DEFAULT_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import {
   useSftpSettingsStore,
@@ -156,6 +161,14 @@ function explicitDefs(): SettingDef[] {
       section: "terminal", labelKey: "settings.terminal.scrollback.title", writable: true,
       get: () => terminal().scrollbackLines,
       set: (v) => terminal().setScrollbackLines(v as number),
+    },
+    {
+      key: "terminal.cursorStyle",
+      type: "enum", values: CURSOR_STYLES,
+      default: DEFAULT_CURSOR_STYLE,
+      section: "terminal", labelKey: "settings.terminal.cursorStyle.title", writable: true,
+      get: () => terminal().cursorStyle,
+      set: (v) => terminal().setCursorStyle(v as TerminalCursorStyle),
     },
     {
       key: "terminal.preferredShell",

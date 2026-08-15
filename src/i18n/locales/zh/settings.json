@@ -82,7 +82,7 @@
       "vaults":         { "label": "保险库",          "keywords": ["密钥", "密码", "存储", "密钥链"] },
       "plugins":        { "label": "插件",         "keywords": ["扩展", "附加组件", "市场"] },
       "integrations":   { "label": "集成",         "keywords": ["mcp", "claude", "claude code", "服务器", "socket", "代理"] },
-      "terminal":       { "label": "终端",        "keywords": ["回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
+      "terminal":       { "label": "终端",        "keywords": ["光标", "回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
       "sftp":           { "label": "SFTP",            "keywords": ["文件", "传输", "ftp", "文件"] },
       "portForwarding": { "label": "端口转发", "keywords": ["隧道", "转发", "端口", "ssh", "自动"] },
       "hosts":          { "label": "主机",           "keywords": ["ping", "可达性", "连接性", "状态"] },

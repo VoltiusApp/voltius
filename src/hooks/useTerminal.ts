@@ -29,7 +29,7 @@ import { handleDuplicateShortcut } from "@/services/duplicateSession";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
-import { applyTerminalTheme } from "@/utils/terminalTheme";
+import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor } from "@/utils/terminalTheme";
 import { getPlatform } from "@/utils/platform";
 
 interface UseTerminalOptions {
@@ -737,7 +737,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         cursorBlink: getToggle("cursor-blink"),
         cursorStyle,
         fontSize: activeTheme.terminalFontSize,
-        lineHeight: activeTheme.terminalLineHeight ?? 1,
+        lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
         fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
         scrollback,
         theme: activeTheme.terminal,
@@ -1158,20 +1158,9 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     });
   }, [sessionId]);
 
-  // Live cursor-style updates
+  // Live cursor style/blink updates
   useEffect(() => {
-    return useTerminalSettingsStore.subscribe((s) => {
-      const entry = terminalCache.get(sessionId);
-      if (entry) entry.terminal.options.cursorStyle = s.cursorStyle;
-    });
-  }, [sessionId]);
-
-  // Live cursor-blink updates
-  useEffect(() => {
-    return useToggleSettingsStore.subscribe(() => {
-      const entry = terminalCache.get(sessionId);
-      if (entry) entry.terminal.options.cursorBlink = getToggle("cursor-blink");
-    });
+    return subscribeTerminalCursor(() => terminalCache.get(sessionId)?.terminal);
   }, [sessionId]);
 
   // Live theme preview
