@@ -1,5 +1,6 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
-import { register } from "./index";
+import { describe, test, it, expect, vi, beforeEach } from "vitest";
+import { register, manifest } from "./index";
+import { registerContributions, listContributions, clearContributions } from "@/mcp/contributions";
 import type { PluginAPI } from "@/plugins/api";
 
 // ─── Mock API builder ──────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ function makeApi(active: boolean) {
     ui: { registerSettingsPage },
     lifecycle: { waitForLoginSync: vi.fn(() => Promise.resolve()) },
     log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    mcp: { registerTools: (tools: Parameters<typeof registerContributions>[1]) => registerContributions(manifest.id, tools) },
   } as unknown as PluginAPI;
 
   return { api, watch, registerSettingsPage, connectionsList };
@@ -66,6 +68,19 @@ describe("ssh-config register honors isActive()", () => {
     await flush();
 
     expect(watch).toHaveBeenCalled();
+
+    if (typeof cleanup === "function") cleanup();
+  });
+
+  it("contributes a sync tool to MCP", async () => {
+    clearContributions(manifest.id);
+    const { api } = makeApi(true);
+    const cleanup = register(api);
+    await flush();
+    await flush();
+
+    // namespaceFor() strips the "plugin-" id prefix, so the verb is "ssh-config__sync".
+    expect(listContributions().map((t) => t.name)).toContain("ssh-config__sync");
 
     if (typeof cleanup === "function") cleanup();
   });

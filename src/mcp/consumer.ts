@@ -175,6 +175,47 @@ export const MCP_TEXT = {
       "Give terminal control to a participant who has requested it. Refused when that user has no "
       + "pending request — control is never handed to someone who did not ask for it. Runs "
       + "immediately; your own client is responsible for approval.",
+    plugin_install:
+      "Install a plugin from the marketplace catalog by id. Runs immediately; your own client is "
+      + "responsible for approval. The plugin's code then runs inside Voltius with the permissions "
+      + "its manifest declares — call marketplace_search first and read them.",
+    plugin_uninstall:
+      "Remove an installed plugin. Runs immediately; your own client is responsible for approval. "
+      + "Plugins bundled with the app can be removed too and stay reinstallable afterwards.",
+    plugin_enable:
+      "Enable an installed plugin and load it. Runs immediately; your own client is responsible "
+      + "for approval. The plugin's contributed tools appear after this.",
+    plugin_disable:
+      "Disable an installed plugin and unload it, without removing it. Runs immediately; your own "
+      + "client is responsible for approval. Its contributed tools stop working.",
+    plugin_update:
+      "Update an installed plugin to the version its marketplace source offers. Runs immediately; "
+      + "your own client is responsible for approval. Refuses, naming the installed version, when "
+      + "there is nothing newer.",
+    plugin_configure:
+      "Read or change a plugin's settings. Only the settings a plugin declares in its manifest are "
+      + "reachable — its internal storage is not. With an id alone, returns the declared settings "
+      + "and their values; with a key and a value, writes one, immediately.",
+    marketplace_source_add:
+      "Add a marketplace source by catalog URL. Runs immediately; your own client is responsible "
+      + "for approval. This is a lasting trust decision: every plugin installed from it afterwards "
+      + "comes from that URL.",
+    marketplace_source_remove:
+      "Remove a custom marketplace source. Runs immediately; your own client is responsible for "
+      + "approval. Plugins already installed from it stay installed.",
+    import_objects:
+      "Import a bundle produced by export_objects, or a Termius, MobaXterm or CSV export, into one "
+      + "vault. Runs immediately; your own client is responsible for approval. Give it `content` or "
+      + "a `path` — a path must be under the user's home directory. An encrypted bundle needs its "
+      + "passphrase. Importing only ever adds — existing items are matched and skipped. With "
+      + "dry_run: true, nothing is written.",
+    export_objects:
+      "Export saved objects — connections, identities, SSH keys, snippets, port-forwarding rules — "
+      + "from one or more vaults. Runs immediately; your own client is responsible for approval. If "
+      + "the selection carries any secret, the call is refused unless you pass a passphrase, and the "
+      + "result is then encrypted with it. With `path`, the bundle is written to that file — which "
+      + "must be under the user's home directory — and only the path and per-type counts come back; "
+      + "without it, the bundle is returned inline.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };

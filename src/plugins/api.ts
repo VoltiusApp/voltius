@@ -11,6 +11,10 @@ import type {
 import type { PluginSharedSession } from "./domains/sharing";
 import type { SettingView } from "./domains/settings";
 import type { SubscriptionView } from "./domains/account";
+import type { PluginView, SourceView } from "./domains/plugins";
+import type { MarketplacePlugin } from "@/stores/marketplaceStore";
+import type { ExportResult, ExportType, ImportResult } from "./domains/importexport";
+export type { ExportResult, ExportType, ImportResult } from "./domains/importexport";
 
 export type { PluginAuditAction } from "@/services/auditContext";
 export type { DomainResult } from "./domains/result";
@@ -20,6 +24,7 @@ export type {
 export type { PluginSharedSession } from "./domains/sharing";
 export type { SettingView } from "./domains/settings";
 export type { SubscriptionView } from "./domains/account";
+export type { PluginView, SourceView } from "./domains/plugins";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
@@ -1286,12 +1291,39 @@ export interface PluginAPI {
     importStates(encKey: string, blobs: string[]): Promise<void>;
   };
 
-  // Inter-plugin communication (always available)
+  // Inter-plugin communication (always available), plus plugin inventory and
+  // lifecycle (requires the gated "plugins:manage"). Configuration is limited
+  // to keys the target plugin declares in `contributes.configuration`; raw
+  // api.storage is deliberately not reachable.
   plugins: {
     /** Publish this plugin's public API surface so other plugins can consume it. */
     expose(publicApi: unknown): void;
     /** Get another plugin's exposed API. Returns null if not loaded or not exposed. */
     getApi(pluginId: string): unknown | null;
+
+    list(): Promise<PluginView[]>;
+    install(id: string): Promise<DomainResult<PluginView>>;
+    uninstall(id: string): Promise<DomainResult<{ id: string }>>;
+    setEnabled(id: string, enabled: boolean): Promise<DomainResult<PluginView>>;
+    update(id: string): Promise<DomainResult<PluginView>>;
+    config(id: string): Promise<DomainResult<Record<string, unknown>>>;
+    configure(id: string, key: string, value: unknown): Promise<DomainResult<{ key: string; effective: unknown }>>;
+    sources(): Promise<SourceView[]>;
+    search(query?: string): Promise<MarketplacePlugin[]>;
+    addSource(url: string): Promise<DomainResult<SourceView>>;
+    removeSource(id: string): Promise<DomainResult<{ id: string }>>;
+  };
+
+  // Bulk export (requires the gated "importexport:read") and import (requires
+  // the gated "importexport:write"). A bundle carrying secrets is only ever
+  // returned encrypted.
+  importExport: {
+    export(opts: {
+      vaultIds: string[]; types: ExportType[]; format: "json" | "csv"; passphrase?: string;
+    }): Promise<DomainResult<ExportResult>>;
+    import(opts: {
+      content: string; vaultId: string; passphrase?: string; dryRun: boolean;
+    }): Promise<DomainResult<ImportResult>>;
   };
 
   // MCP tool contributions — GATED (mcp:contribute). Tools run with THIS

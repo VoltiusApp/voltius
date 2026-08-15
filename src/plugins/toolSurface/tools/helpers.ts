@@ -206,6 +206,44 @@ export function objectOp(ports: ToolSurfacePorts, gate: ReturnType<typeof makeGa
  *  passes the refusal through untouched. */
 export const unwrapDomain = <T>(r: DomainResult<T>): unknown => (r.ok ? r.result : refusal(r.error));
 
+/**
+ * A verb whose schema is `{ id }` (possibly plus other fields), whose audit
+ * metadata is `{ id }` plus an optional extra, and whose body is
+ * `unwrapDomain(await run(id))` — plugin lifecycle/toggle and
+ * marketplace_source_remove all share this shape.
+ *
+ * `precheck`, if given, runs on the raw id BEFORE the gate: for a call that
+ * is doomed regardless of approval (an id that names nothing), refusing here
+ * raises no approval card and writes no audit row for an action that never
+ * happened. Returning anything short-circuits with that value as the result.
+ *
+ * `meta`, if given, adds fields to the audit row beyond the id — computed from
+ * the APPROVED id, same as objectOp's own function-form `meta`.
+ *
+ * `idKey` names the id in the audit row: callers share this helper across
+ * different kinds of id (a plugin, a marketplace source), and a bare `id`
+ * would leave the row ambiguous about which.
+ */
+export function idOp(
+  op: ReturnType<typeof objectOp>,
+  name: string,
+  action: PluginAuditAction,
+  run: (id: string) => Promise<DomainResult<unknown>>,
+  opts: {
+    idKey: string;
+    precheck?: (id: string) => Promise<unknown>;
+    meta?: (id: string) => Record<string, unknown>;
+  },
+) {
+  return async (raw: Record<string, unknown>): Promise<unknown> => {
+    const id = String(raw.id);
+    const refused = await opts.precheck?.(id);
+    if (refused) return refused;
+    return op(name, action, (a) => ({ [opts.idKey]: String(a.id), ...opts.meta?.(String(a.id)) }), raw, async (a) =>
+      unwrapDomain(await run(String(a.id))));
+  };
+}
+
 /** The ownership check every MCP write gate uses. */
 export function mayAct(ports: ToolSurfacePorts, sessionId: string): boolean {
   return ports.owned.acquire?.(sessionId) ?? ports.owned.has(sessionId);
