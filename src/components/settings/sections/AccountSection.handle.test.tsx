@@ -1,5 +1,5 @@
 import { test, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { MeResponse } from "@/services/account";
 
@@ -113,4 +113,38 @@ test("a pro account sees distinct copy for each claim-failure status", async () 
     expect(await screen.findByText(key)).toBeTruthy();
     cleanup();
   }
+});
+
+test("a lapsed pro user keeps the custom-handle message, not the upsell", async () => {
+  h.getMe.mockResolvedValue({ handle: "kevin-p", handle_is_custom: true, tier: "free", allow_stranger_invites: true });
+  render(<AccountSection />);
+  await screen.findByText("@kevin-p");
+  expect(screen.getByText("settings.account.handle.lapsedKeepsHandle")).toBeTruthy();
+  expect(screen.queryByText("settings.account.handle.upsell")).toBeNull();
+});
+
+test("no upsell flash before the tier is known", async () => {
+  let resolveMe!: (v: MeResponse) => void;
+  h.getMe.mockReturnValue(new Promise<MeResponse>((resolve) => { resolveMe = resolve; }));
+  render(<AccountSection />);
+  // Wait for mode ("server") to resolve and the handle block to mount, while
+  // getMe (and so the tier) is still pending — this is the exact window a
+  // paying user would otherwise see the free-tier upsell flash in.
+  await screen.findByText("settings.account.handle.title");
+  expect(screen.queryByText("settings.account.handle.upsell")).toBeNull();
+  expect(screen.queryByRole("button", { name: "settings.account.handle.choose" })).toBeNull();
+  resolveMe({ handle: "swift-otter-4821", handle_is_custom: false, tier: "pro", allow_stranger_invites: true });
+  expect(await screen.findByRole("button", { name: "settings.account.handle.choose" })).toBeTruthy();
+});
+
+test("the stranger-invite toggle disables itself mid-flight so a second click can't race it", async () => {
+  h.getMe.mockResolvedValue({ handle: "h", handle_is_custom: false, tier: "pro", allow_stranger_invites: true });
+  let resolveUpdate!: () => void;
+  h.updateInvitePreferences.mockReturnValue(new Promise<void>((resolve) => { resolveUpdate = resolve; }));
+  render(<AccountSection />);
+  const toggle = await screen.findByRole("switch", { name: "settings.account.strangerInvites.label" });
+  await userEvent.click(toggle);
+  expect(toggle.hasAttribute("disabled")).toBe(true);
+  resolveUpdate();
+  await waitFor(() => expect(toggle.hasAttribute("disabled")).toBe(false));
 });

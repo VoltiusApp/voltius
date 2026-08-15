@@ -107,9 +107,11 @@ export default function AccountSection() {
   const [handle, setHandle] = useState<string | null>(null);
   const [handleIsCustom, setHandleIsCustom] = useState(false);
   const [meTier, setMeTier] = useState<string | undefined>(undefined);
+  const [tierKnown, setTierKnown] = useState(false);
   const [handleCopied, setHandleCopied] = useState(false);
   const [allowStrangerInvites, setAllowStrangerInvites] = useState(true);
   const [strangerInvitesError, setStrangerInvitesError] = useState("");
+  const [strangerInvitesLoading, setStrangerInvitesLoading] = useState(false);
   const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
   const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
 
@@ -127,7 +129,12 @@ export default function AccountSection() {
     },
     (value) => { setHandle(value); setHandleIsCustom(true); },
   );
-  const isFreeTier = !meTier || meTier === "free";
+  // Lapsing from Pro drops back to "free" but keeps a custom handle and its
+  // searchability — only the ability to rename is gated on tier. That account
+  // must never see the "upgrade to get a searchable handle" upsell, since it
+  // already has exactly that.
+  const isFreeTier = tierKnown && (!meTier || meTier === "free");
+  const isLapsedCustom = isFreeTier && handleIsCustom;
 
   const handleCopyHandle = () => {
     if (!handle) return;
@@ -138,6 +145,7 @@ export default function AccountSection() {
   };
 
   const toggleStrangerInvites = async (next: boolean) => {
+    setStrangerInvitesLoading(true); // blocks the switch until this round trip resolves — a second click mid-flight can't race the first
     setAllowStrangerInvites(next);
     setStrangerInvitesError("");
     try {
@@ -145,6 +153,8 @@ export default function AccountSection() {
     } catch (e) {
       setAllowStrangerInvites(!next); // revert — the toggle can't silently drift from the server's stored value
       setStrangerInvitesError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStrangerInvitesLoading(false);
     }
   };
 
@@ -166,6 +176,7 @@ export default function AccountSection() {
       if (me.handle) setHandle(me.handle);
       setHandleIsCustom(!!me.handle_is_custom);
       setMeTier(me.tier);
+      setTierKnown(true);
       if (typeof me.allow_stranger_invites === "boolean") setAllowStrangerInvites(me.allow_stranger_invites);
     }).catch(() => {});
     setStep("idle");
@@ -259,7 +270,12 @@ export default function AccountSection() {
               </button>
             </div>
 
-            {isFreeTier ? (
+            {!tierKnown ? null : isLapsedCustom ? (
+              <div className="space-y-1">
+                <p className="text-xs text-(--t-text-dim)">{t("settings.account.handle.lapsedKeepsHandle")}</p>
+                <p className="text-xs text-(--t-text-muted)">{t("settings.account.handle.lapsedRenameLocked")}</p>
+              </div>
+            ) : isFreeTier ? (
               <div className="space-y-1">
                 <p className="text-xs text-(--t-text-dim)">{t("settings.account.handle.upsell")}</p>
                 <p className="text-xs text-(--t-text-muted)">{t("settings.account.handle.reachableNote")}</p>
@@ -309,6 +325,7 @@ export default function AccountSection() {
             <Toggle
               checked={allowStrangerInvites}
               onChange={toggleStrangerInvites}
+              disabled={strangerInvitesLoading}
               aria-label={t("settings.account.strangerInvites.label")}
             />
           </div>
