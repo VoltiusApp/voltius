@@ -302,6 +302,14 @@ function ensureLifecycleSetup() {
   });
 }
 
+/** Resolves with `p`, or with `orElse` if `p` rejects or outlasts `ms`. */
+function settleWithin<T>(p: Promise<T>, ms: number, orElse: T): Promise<T> {
+  return Promise.race([
+    p.catch(() => orElse),
+    new Promise<T>((r) => setTimeout(() => r(orElse), ms)),
+  ]);
+}
+
 async function ensureQuitHandler() {
   if (_quitHandlerRegistered) return;
   _quitHandlerRegistered = true;
@@ -318,12 +326,14 @@ async function ensureQuitHandler() {
       quit();
       return;
     }
-    // Without this the window stays up for the whole wait, which reads as a
-    // hang when a quit hook does network work (gist-sync pushes on exit).
-    win.hide().catch(() => {});
     // A hidden window over a live process is worse than a slow close, so the
     // exit is armed up front: it survives a throw or an invoke that never lands.
     const fallback = setTimeout(quit, 6000);
+    // Without this the window stays up for the whole wait, which reads as a
+    // hang when a quit hook does network work (gist-sync pushes on exit).
+    // Awaited, because a window the user reopened is only distinguishable from
+    // a hide that failed once the hide itself has landed.
+    const hidden = await settleWithin(win.hide().then(() => true), 1000, false);
     try {
       await Promise.race([
         Promise.allSettled(callbacks.map(async (cb) => cb())),
@@ -331,7 +341,10 @@ async function ensureQuitHandler() {
       ]);
     } finally {
       clearTimeout(fallback);
-      quit();
+      // Single-instance raises the window when the user relaunches Voltius
+      // mid-wait. Exiting then would close an app the user just reopened.
+      const reopened = hidden && (await settleWithin(win.isVisible(), 1000, false));
+      if (!reopened) quit();
     }
   });
 }
