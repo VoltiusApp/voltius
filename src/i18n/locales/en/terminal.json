@@ -147,6 +147,8 @@
       "inviteSent": "Invited",
       "inviteCapReached": "Cap reached",
       "inviteFailed": "Could not invite {{name}}",
+      "withdrawInvite": "Withdraw",
+      "uninviteFailed": "Could not withdraw the invite",
       "inviteNoTeammates": "No teammates yet",
       "inviteLoadFailed": "Could not load teammates",
       "peopleSearchPlaceholder": "Search by name, @handle, or email…",

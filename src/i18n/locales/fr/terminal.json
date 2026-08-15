@@ -147,6 +147,8 @@
       "inviteSent": "Invité",
       "inviteCapReached": "Limite atteinte",
       "inviteFailed": "Impossible d'inviter {{name}}",
+      "withdrawInvite": "Retirer",
+      "uninviteFailed": "Impossible de retirer l'invitation",
       "inviteNoTeammates": "Aucun coéquipier pour l'instant",
       "inviteLoadFailed": "Impossible de charger les coéquipiers",
       "peopleSearchPlaceholder": "Rechercher par nom, @pseudo ou e-mail…",

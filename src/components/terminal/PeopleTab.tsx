@@ -5,7 +5,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import {
   allTeammates,
   groupPeople,
-  memberHasAccess,
+  memberHasLiveAccess,
   seatUsage,
   type InviteSession,
   type InviteTarget,
@@ -29,6 +29,8 @@ interface PeopleTabProps {
   tier: ShareTier;
   onUpgrade: () => void;
   onInvite: (target: InviteTarget) => Promise<void>;
+  /** Withdraws a standing invite. Absent before the session exists, when no row can be invited yet. */
+  onUninvite?: (userId: string) => Promise<void>;
 }
 
 /** A normalized row: whichever group it came from, the row itself doesn't care. */
@@ -64,6 +66,7 @@ function PersonRow({
   invited,
   capBlocked,
   onInvite,
+  onUninvite,
   t,
 }: {
   entry: RowEntry;
@@ -72,60 +75,74 @@ function PersonRow({
   invited: boolean;
   capBlocked: boolean;
   onInvite: () => void;
+  /** Offered only on a standing invite: the seat it holds is the one A6 exists to free. */
+  onUninvite?: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const { target, isStranger, isOnline, onContextMenu } = entry;
   return (
-    <button
-      className="flex items-center gap-2 px-2 py-1.5 rounded-md text-left disabled:cursor-default transition-colors"
-      style={{ color: "var(--t-text-primary)", background: "transparent" }}
-      disabled={hasAccess || inFlight || invited || capBlocked}
-      onClick={onInvite}
-      onContextMenu={onContextMenu}
-    >
-      {isOnline !== undefined && (
-        <span
-          className="w-1.5 h-1.5 rounded-full shrink-0"
-          style={{ background: isOnline ? "var(--t-status-success)" : "var(--t-text-dim)" }}
-        />
-      )}
-      <span className="flex-1 min-w-0 text-left">
-        <span className="text-xs truncate block">{target.display_name}</span>
-        {/* handle is optional: an older server omits it from /members */}
-        {target.handle && (
-          <span className="text-[10px] truncate block" style={{ color: "var(--t-text-dim)" }}>
-            @{target.handle}
+    <div className="flex items-center gap-1">
+      <button
+        className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 rounded-md text-left disabled:cursor-default transition-colors"
+        style={{ color: "var(--t-text-primary)", background: "transparent" }}
+        disabled={hasAccess || inFlight || invited || capBlocked}
+        onClick={onInvite}
+        onContextMenu={onContextMenu}
+      >
+        {isOnline !== undefined && (
+          <span
+            className="w-1.5 h-1.5 rounded-full shrink-0"
+            style={{ background: isOnline ? "var(--t-status-success)" : "var(--t-text-dim)" }}
+          />
+        )}
+        <span className="flex-1 min-w-0 text-left">
+          <span className="text-xs truncate block">{target.display_name}</span>
+          {/* handle is optional: an older server omits it from /members */}
+          {target.handle && (
+            <span className="text-[10px] truncate block" style={{ color: "var(--t-text-dim)" }}>
+              @{target.handle}
+            </span>
+          )}
+        </span>
+        {isStranger && (
+          <span
+            className="text-[10px] px-1 py-0.5 rounded-sm shrink-0"
+            style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
+          >
+            {t("terminal.share.notInYourTeams")}
           </span>
         )}
-      </span>
-      {isStranger && (
-        <span
-          className="text-[10px] px-1 py-0.5 rounded-sm shrink-0"
-          style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
+        {hasAccess ? (
+          <span className="text-[10px] shrink-0" style={{ color: "var(--t-text-dim)" }}>
+            {t("terminal.share.inviteHasAccess")}
+          </span>
+        ) : inFlight ? (
+          <Icon icon="lucide:loader-circle" width={12} className="animate-spin" style={{ color: "var(--t-text-dim)" }} />
+        ) : invited ? (
+          <span className="text-[10px] shrink-0" style={{ color: "var(--t-accent)" }}>
+            {t("terminal.share.inviteSent")}
+          </span>
+        ) : capBlocked ? (
+          <span className="text-[10px] shrink-0" style={{ color: "var(--t-text-dim)" }}>
+            {t("terminal.share.inviteCapReached")}
+          </span>
+        ) : null}
+      </button>
+      {invited && onUninvite && (
+        <button
+          className="text-[10px] px-1.5 py-1 rounded-md shrink-0 transition-colors"
+          style={{ color: "var(--t-text-dim)" }}
+          title={t("terminal.share.withdrawInvite")}
+          onClick={onUninvite}
         >
-          {t("terminal.share.notInYourTeams")}
-        </span>
+          {t("terminal.share.withdrawInvite")}
+        </button>
       )}
-      {hasAccess ? (
-        <span className="text-[10px] shrink-0" style={{ color: "var(--t-text-dim)" }}>
-          {t("terminal.share.inviteHasAccess")}
-        </span>
-      ) : inFlight ? (
-        <Icon icon="lucide:loader-circle" width={12} className="animate-spin" style={{ color: "var(--t-text-dim)" }} />
-      ) : invited ? (
-        <span className="text-[10px] shrink-0" style={{ color: "var(--t-accent)" }}>
-          {t("terminal.share.inviteSent")}
-        </span>
-      ) : capBlocked ? (
-        <span className="text-[10px] shrink-0" style={{ color: "var(--t-text-dim)" }}>
-          {t("terminal.share.inviteCapReached")}
-        </span>
-      ) : null}
-    </button>
+    </div>
   );
 }
 
-export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgrade, onInvite }: PeopleTabProps) {
+export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgrade, onInvite, onUninvite }: PeopleTabProps) {
   const { t } = useTranslation();
   const teams = useTeamStore((s) => s.teams);
   const recent = useRecentPeopleStore((s) => s.recent);
@@ -179,6 +196,21 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
     }
   };
 
+  // A6: a standing invite holds a guest seat until the session ends, so a Pro
+  // host at cap 1 whose invitee never arrives has no way forward without this.
+  const handleUninvite = async (userId: string) => {
+    if (!onUninvite) return;
+    setError(null);
+    setInFlight(userId, true);
+    try {
+      await onUninvite(userId);
+    } catch {
+      setError(t("terminal.share.uninviteFailed"));
+    } finally {
+      setInFlight(userId, false);
+    }
+  };
+
   const groups = groupPeople({ query: search.query, teammates, recent, results: search.results });
 
   const recentEntries: RowEntry[] = groups.recent.map((p) => {
@@ -216,9 +248,15 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
   }));
 
   const renderRow = (entry: RowEntry) => {
-    const hasAccess = memberHasAccess({ user_id: entry.target.user_id, teamIds: entry.teamIds }, session);
+    // "Has access" is being in the room — a shared vault or live participation.
+    // A grant nobody has accepted yet is "Invited", the state a host may still
+    // withdraw. It still counts against the cap (`memberHasAccess`), which is
+    // why the two questions are asked separately.
+    const hasAccess = memberHasLiveAccess({ user_id: entry.target.user_id, teamIds: entry.teamIds }, session);
     const inFlight = inviting.has(entry.target.user_id);
-    const invited = invitedThisSession.has(entry.target.user_id);
+    const invited =
+      !hasAccess &&
+      (invitedThisSession.has(entry.target.user_id) || session.invitedIds.includes(entry.target.user_id));
     // A row this session just invited keeps showing "Invited", not the cap notice.
     const capBlocked = atCap && !hasAccess && !invited;
     return (
@@ -230,6 +268,7 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
         invited={invited}
         capBlocked={capBlocked}
         onInvite={() => handleInvite(entry.target)}
+        onUninvite={onUninvite ? () => handleUninvite(entry.target.user_id) : undefined}
         t={t}
       />
     );

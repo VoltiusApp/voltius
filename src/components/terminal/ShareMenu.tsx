@@ -6,6 +6,7 @@ import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { buildInviteCode } from "@/services/inviteCode";
+import { uninviteFromSession } from "@/services/teamService";
 import { guestCapFor, highestOwnerTier, inviteSessionOf, membersOfTeams, seatUsage, type InviteSession, type InviteTarget, type ShareTier } from "@/services/teamSharing";
 import { useDelayedUnmount } from "@/hooks/useDelayedUnmount";
 import { InviteCodeField } from "./InviteCodeField";
@@ -196,6 +197,21 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     setInvitedThisSession((prev) => new Set(prev).add(target.user_id));
   };
 
+  // Withdraws a standing invite (A6). The refetch is what frees the seat in the
+  // UI: `invitedIds` comes from the server's session record, and without it the
+  // host stays at "1 of 1 guest" with the invite already gone server-side.
+  const handleUninvite = async (userId: string) => {
+    const sessionId = activeMp?.multiplayerSessionId;
+    if (!sessionId) return;
+    await uninviteFromSession(sessionId, userId);
+    setInvitedThisSession((prev) => {
+      const next = new Set(prev);
+      next.delete(userId);
+      return next;
+    });
+    await useTeamSessionStore.getState().fetchActiveSessions();
+  };
+
   const handleStopSharing = async () => {
     setLoading(true);
     try {
@@ -303,6 +319,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           inviteSession={inviteSession}
           invitedThisSession={invitedThisSession}
           onInvite={handleInvite}
+          onUninvite={handleUninvite}
           onStop={handleStopSharing}
           onUpgrade={onUpgrade}
         />
@@ -406,6 +423,7 @@ function ActiveSharingView({
   inviteSession,
   invitedThisSession,
   onInvite,
+  onUninvite,
   onStop,
   onUpgrade,
 }: {
@@ -419,6 +437,7 @@ function ActiveSharingView({
   inviteSession: InviteSession;
   invitedThisSession: ReadonlySet<string>;
   onInvite: (target: InviteTarget) => Promise<void>;
+  onUninvite: (userId: string) => Promise<void>;
   onStop: () => void;
   onUpgrade: () => void;
 }) {
@@ -491,6 +510,7 @@ function ActiveSharingView({
           tier={tier}
           onUpgrade={onUpgrade}
           onInvite={onInvite}
+          onUninvite={onUninvite}
         />
       )}
 

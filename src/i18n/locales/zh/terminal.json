@@ -147,6 +147,8 @@
       "inviteSent": "已邀请",
       "inviteCapReached": "已达上限",
       "inviteFailed": "无法邀请 {{name}}",
+      "withdrawInvite": "撤回",
+      "uninviteFailed": "无法撤回邀请",
       "inviteNoTeammates": "暂无队友",
       "inviteLoadFailed": "无法加载队友列表",
       "peopleSearchPlaceholder": "按姓名、@handle 或邮箱搜索…",

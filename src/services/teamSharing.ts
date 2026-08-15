@@ -133,16 +133,32 @@ export function seatUsage(
   return { committedSeats, atCap: committedSeats >= guestCap };
 }
 
-/** Whether a member already has a route into the session: a shared vault, live participation, or a standing invite. */
-export function memberHasAccess(
+/**
+ * Whether a member is *in* the session already: a shared vault or live
+ * participation. A standing invite is deliberately not this — it is the
+ * `Invited` row state, which the host may still withdraw.
+ */
+export function memberHasLiveAccess(
   member: { user_id: string; teamIds: string[] },
   session: InviteSession,
 ): boolean {
   return (
     member.teamIds.some((id) => session.vaultIds.includes(id)) ||
-    session.participantIds.includes(member.user_id) ||
-    session.invitedIds.includes(member.user_id)
+    session.participantIds.includes(member.user_id)
   );
+}
+
+/**
+ * Whether a member already has a route into the session: a shared vault, live
+ * participation, or a standing invite. This is the seat-arithmetic question —
+ * a pending invite counts — so it is not the same as the row's label; see
+ * `memberHasLiveAccess`.
+ */
+export function memberHasAccess(
+  member: { user_id: string; teamIds: string[] },
+  session: InviteSession,
+): boolean {
+  return memberHasLiveAccess(member, session) || session.invitedIds.includes(member.user_id);
 }
 
 /**

@@ -24,7 +24,7 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
 const roster = [{ user_id: "alice", team_id: "t1", display_name: "Alice", is_online: true, teamIds: ["t1"] }];
 
-const h = vi.hoisted(() => ({ allTeammates: vi.fn() }));
+const h = vi.hoisted(() => ({ allTeammates: vi.fn(), uninviteFromSession: vi.fn() }));
 vi.mock("@/services/teamSharing", async () => {
   const actual = await vi.importActual<typeof import("@/services/teamSharing")>("@/services/teamSharing");
   return { ...actual, allTeammates: h.allTeammates };
@@ -42,6 +42,7 @@ vi.mock("@/stores/teamSessionStore", async () => {
   return { useTeamSessionStore: asStoreHook(makeMpState()) };
 });
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn(async () => {}) }));
+vi.mock("@/services/teamService", () => ({ uninviteFromSession: h.uninviteFromSession }));
 
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -63,6 +64,8 @@ beforeEach(() => {
   startSharingDirect.mockReset().mockResolvedValue("mp-1");
   inviteToActiveSession.mockReset().mockResolvedValue(undefined);
   h.allTeammates.mockReset().mockResolvedValue(roster);
+  h.uninviteFromSession.mockReset().mockResolvedValue(undefined);
+  mpState.fetchActiveSessions.mockReset().mockResolvedValue(undefined);
 });
 afterEach(() => cleanup());
 
@@ -126,13 +129,43 @@ test("adds a teammate to the live session when already sharing", async () => {
   expect(inviteToActiveSession).toHaveBeenCalledWith("local-1", expect.objectContaining({ user_id: "alice" }));
 });
 
-test("an already-invited teammate renders as non-tappable Has access", async () => {
+// A grant nobody has accepted is "Invited", not "Has access": the first is a
+// seat the host can take back, the second is someone already in the room.
+test("a pending invitee renders as non-tappable Invited, not Has access", async () => {
   mpState.activeSessions = [{ id: "mp-1", invitee_ids: ["alice"] }];
   renderShareMenu({ sharing: true });
 
   const row = await screen.findByRole("button", { name: /alice/i });
   expect((row as HTMLButtonElement).disabled).toBe(true);
+  expect(row.textContent).toContain("terminal.share.inviteSent");
+  expect(row.textContent).not.toContain("terminal.share.inviteHasAccess");
+});
+
+test("a participant already in the session still renders Has access", async () => {
+  mpState.connections = hostConnection({
+    participants: [{ user_id: "me", display_name: "Me" }, { user_id: "alice", display_name: "Alice" }],
+  });
+  render(shareMenuElement());
+
+  const row = await screen.findByRole("button", { name: /alice/i });
   expect(row.textContent).toContain("terminal.share.inviteHasAccess");
+});
+
+// A6: without this the pending invite holds the seat until the session ends,
+// which strands a Pro host at cap 1 whose invitee never arrives.
+test("withdrawing a pending invite calls the server and refreshes the seat count", async () => {
+  mpState.activeSessions = [{ id: "mp-1", invitee_ids: ["alice"] }];
+  renderShareMenu({ sharing: true });
+
+  await userEvent.click(await screen.findByRole("button", { name: "terminal.share.withdrawInvite" }));
+  expect(h.uninviteFromSession).toHaveBeenCalledWith("mp-1", "alice");
+  expect(mpState.fetchActiveSessions).toHaveBeenCalled();
+});
+
+test("a row that is neither invited nor joined offers no withdraw control", async () => {
+  renderShareMenu({ sharing: true });
+  await screen.findByRole("button", { name: /alice/i });
+  expect(screen.queryByRole("button", { name: "terminal.share.withdrawInvite" })).toBeNull();
 });
 
 test("hides the People tab's content in the active view when no session key is retained (invite_link)", async () => {
