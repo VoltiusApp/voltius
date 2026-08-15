@@ -35,7 +35,7 @@ import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 import { seatAvailability } from "@/services/seatMath";
-import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage } from "@/services/teamSharing";
+import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
 import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
@@ -1187,7 +1187,7 @@ export default function MembersPage() {
       if (!active) return [];
       const session = inviteSessionOf(c, active);
       const { atCap } = seatUsage(session, [], guestCapFor(c.vaultOwnerTier ?? tier));
-      return [{ localSessionId, connectionName: active.connection_name, session, atCap }];
+      return [{ localSessionId, connectionName: sessionDisplayName(active), session, atCap }];
     }), [connections, activeSessions, tier]);
 
   // Context menu builders

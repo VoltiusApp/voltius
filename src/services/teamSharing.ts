@@ -1,7 +1,26 @@
+import i18n from "@/i18n";
 import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId, listMembers } from "@/services/teamService";
 import type { TeamMember } from "@/services/teamService";
 import type { Tier } from "@/stores/subscriptionTier";
+
+/**
+ * The name to show for a session. `connection_name` is null when the server has
+ * redacted it — an unaccepted stranger knock leaks a handle, never a hostname —
+ * so every display site goes through here rather than spelling out a fallback.
+ */
+export function sessionDisplayName(session: { connection_name: string | null }): string {
+  return session.connection_name ?? i18n.t("hosts.teamSessions.sharedTerminalFallback");
+}
+
+/** Anyone a session can be granted to: a teammate row, or a stranger from search or Recent. */
+export interface InviteTarget {
+  user_id: string;
+  display_name: string;
+  handle?: string;
+  /** Present only for teammates; absent for a stranger, who is in none of my teams. */
+  team_id?: string;
+}
 
 /** Account tier as used across the share flow (ShareMenu, InvitePeopleSection, ParticipantsRatioNotice). */
 export type ShareTier = Tier;
@@ -40,7 +59,7 @@ export async function membersOfTeams(teamIds: string[]): Promise<TeamMember[]> {
  * can't unwrap. Used at the point of wrapping by both the direct-invite and
  * vault-share paths; the cached roster remains fine for display.
  */
-export async function freshPublicKeys(members: TeamMember[]): Promise<Map<string, string>> {
+export async function freshPublicKeys(members: { team_id: string; user_id: string }[]): Promise<Map<string, string>> {
   const teamIds = [...new Set(members.map((m) => m.team_id))];
   const fresh = (await Promise.all(teamIds.map((id) => listMembers(id)))).flat();
   return new Map(fresh.map((m) => [m.user_id, m.public_key]));

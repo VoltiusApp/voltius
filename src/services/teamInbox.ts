@@ -13,6 +13,7 @@ import { getPlatform, isMobileShell } from "@/utils/platform";
 import { getMyUserId } from "@/services/teamService";
 import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
+import { sessionDisplayName } from "@/services/teamSharing";
 
 const APP_SOURCE = { kind: "app", area: "team" } as const;
 
@@ -86,7 +87,7 @@ async function joinSharedSession(session: ActiveSession): Promise<void> {
   await joinTeamSessionAndOpenTab({
     sessionId: session.id,
     displayName,
-    connectionName: session.connection_name,
+    connectionName: sessionDisplayName(session),
   });
 }
 
@@ -110,12 +111,13 @@ export function reconcileSessions(
             i18n.t("notifications.inbox.someone"))
         : "";
       const kind: InboxKind = invited ? "sessionInvite" : "sessionShared";
+      const name = sessionDisplayName(s);
       return {
         id: `session:${s.id}`,
         kind,
         message: invited
-          ? i18n.t("notifications.inbox.sessionInvite.message", { inviter, name: s.connection_name })
-          : i18n.t("notifications.inbox.session.message", { name: s.connection_name }),
+          ? i18n.t("notifications.inbox.sessionInvite.message", { inviter, name })
+          : i18n.t("notifications.inbox.session.message", { name }),
         // Spelled out rather than left undefined: upsertInbox keeps the
         // previous state when it is omitted, which pinned an entry as
         // "resolved" — hiding its Join button — after a guest left and the

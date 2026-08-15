@@ -13,6 +13,7 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { parseInviteCode } from "@/services/inviteCode";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
+import { sessionDisplayName } from "@/services/teamSharing";
 
 function JoinByCodeButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
@@ -85,7 +86,10 @@ export function TeamSessions() {
     await joinTeamSessionAndOpenTab({
       sessionId,
       displayName,
-      connectionName: activeSessions.find((a) => a.id === sessionId)?.connection_name ?? t("hosts.teamSessions.sharedTerminalFallback"),
+      // Session not found (not yet loaded) collapses to the same redacted state as a null name.
+      connectionName: sessionDisplayName({
+        connection_name: activeSessions.find((a) => a.id === sessionId)?.connection_name ?? null,
+      }),
       inviteToken,
     });
   };
@@ -260,7 +264,7 @@ export function TeamSessions() {
 
                   <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                     <p className="text-sm font-bold truncate text-(--t-text-bright)">
-                      {session.connection_name}
+                      {sessionDisplayName(session)}
                     </p>
 
                     {/* Avatar stack — where tags sit on host cards */}

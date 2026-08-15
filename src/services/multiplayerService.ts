@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { getVaultKey } from "@/services/vault";
 import * as teamService from "@/services/teamService";
-import { freshPublicKeys } from "@/services/teamSharing";
+import { freshPublicKeys, type InviteTarget } from "@/services/teamSharing";
 import { appFetch } from "@/services/http";
 import { openXChaCha20Poly1305, sealXChaCha20Poly1305 } from "@/services/crypto/xchacha";
 
@@ -129,12 +129,23 @@ export async function listActiveSessions(): Promise<ActiveSession[]> {
 }
 
 /**
+ * A stranger's current public key by id — used when there is no team roster to
+ * batch through (#unified-invite). Fresh at call time, same as freshPublicKeys:
+ * wrapping to a stale key fails on the recipient with aead::Error (#66).
+ */
+async function resolveStrangerPublicKey(userId: string): Promise<string> {
+  const fresh = await teamService.getUserPublicKey(userId);
+  if (!fresh) throw new Error(i18n.t("common.error.userNoLongerAvailable"));
+  return fresh.public_key;
+}
+
+/**
  * Fresh session key plus one wrapped copy per unique member, ready to embed in a
  * terminal-session create/invite payload. Shared by createVaultSession and
  * createDirectSession.
  */
 async function prepareWrappedSessionKey(
-  members: teamService.TeamMember[],
+  members: InviteTarget[],
 ): Promise<{ sessionKey: SessionKey; sessionKeyBytes: Uint8Array; wrappedKeys: { user_id: string; wrapped_key: string }[] }> {
   const { publicKey } = await getMyX25519Keypair();
   await teamService.updatePublicKey(publicKey);
@@ -147,12 +158,25 @@ async function prepareWrappedSessionKey(
     new Map(members.map((m) => [m.user_id, m])).values(),
   );
 
-  const currentKeys = await freshPublicKeys(uniqueMembers);
+  // Teammates resolve in one batched request per team; a stranger has no
+  // team_id to batch on, so they resolve individually by id.
+  const teammates = uniqueMembers.filter((m): m is InviteTarget & { team_id: string } => !!m.team_id);
+  const strangers = uniqueMembers.filter((m) => !m.team_id);
+
+  const [teamKeys, strangerKeyList] = await Promise.all([
+    freshPublicKeys(teammates),
+    Promise.all(strangers.map((m) => resolveStrangerPublicKey(m.user_id))),
+  ]);
+  const strangerKeys = new Map(strangers.map((m, i) => [m.user_id, strangerKeyList[i]]));
+
   const wrappedKeys = await Promise.all(
-    uniqueMembers.map(async (member) => ({
-      user_id: member.user_id,
-      wrapped_key: await wrapSessionKeyForUser(sessionKeyBytes, currentKeys.get(member.user_id) ?? member.public_key),
-    })),
+    uniqueMembers.map(async (member) => {
+      const publicKey = teamKeys.get(member.user_id) ?? strangerKeys.get(member.user_id);
+      // Missing only if the server's roster no longer has this teammate —
+      // treat that the same as an unresolved stranger.
+      if (!publicKey) throw new Error(i18n.t("common.error.userNoLongerAvailable"));
+      return { user_id: member.user_id, wrapped_key: await wrapSessionKeyForUser(sessionKeyBytes, publicKey) };
+    }),
   );
 
   return { sessionKey, sessionKeyBytes, wrappedKeys };
@@ -231,14 +255,16 @@ export async function createDirectSession(
   return { sessionId: session_id, sessionKey, sessionKeyBytes };
 }
 
-/** Grant a teammate access to a live session by wrapping the session key for them (#66). */
+/** Grant anyone — teammate or stranger — access to a live session by wrapping the session key for them (#66). */
 export async function inviteUserToSession(
   sessionId: string,
-  member: teamService.TeamMember,
+  target: InviteTarget,
   sessionKeyBytes: Uint8Array,
 ): Promise<void> {
-  const currentKeys = await freshPublicKeys([member]);
-  const wrappedKey = await wrapSessionKeyForUser(sessionKeyBytes, currentKeys.get(member.user_id) ?? member.public_key);
+  // By user id, not by team roster: a stranger is in none of my teams, so
+  // freshPublicKeys has nothing to read. Still a fresh read at wrap time —
+  // wrapping to a cached key fails with aead::Error on the recipient (#66).
+  const wrappedKey = await wrapSessionKeyForUser(sessionKeyBytes, await resolveStrangerPublicKey(target.user_id));
 
   const serverUrl = await teamService.getServerUrlValue();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
@@ -251,7 +277,7 @@ export async function inviteUserToSession(
       Authorization: `Bearer ${jwt}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ user_id: member.user_id, wrapped_key: wrappedKey }),
+    body: JSON.stringify({ user_id: target.user_id, wrapped_key: wrappedKey }),
   });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToInvite", { status: res.status }));
 }

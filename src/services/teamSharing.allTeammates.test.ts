@@ -81,7 +81,8 @@ test("freshPublicKeys returns the server's current key, ignoring a stale public_
   // would return after a teammate joined post-cache-fill, #66). freshPublicKeys
   // must fetch listMembers directly rather than trust the field on the input.
   api.listMembers.mockResolvedValue([{ ...alice, public_key: "current-key" }]);
-  const keys = await freshPublicKeys([{ ...alice, public_key: "stale-cached-key" }]);
+  const staleCachedMember = { ...alice, public_key: "stale-cached-key" };
+  const keys = await freshPublicKeys([staleCachedMember]);
   expect(keys.get(alice.user_id)).toBe("current-key");
   expect(api.listMembers).toHaveBeenCalledWith(alice.team_id);
 });
