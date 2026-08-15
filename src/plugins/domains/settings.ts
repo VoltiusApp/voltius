@@ -88,7 +88,7 @@ function validate(def: SettingDef, value: unknown): string | undefined {
 export function setSetting(
   key: string,
   value: unknown,
-): DomainResult<{ key: string; requested: unknown; effective: unknown; changed: boolean }> {
+): DomainResult<{ key: string; requested: unknown; effective: unknown; coerced: boolean }> {
   const def = settingDef(key);
   if (!def) return { ok: false, error: unknownSetting(key) };
   if (!def.writable || !def.set) {
@@ -110,6 +110,6 @@ export function setSetting(
   const effective = settingDef(key)?.get();
   return {
     ok: true,
-    result: { key, requested: value, effective, changed: effective !== value },
+    result: { key, requested: value, effective, coerced: effective !== value },
   };
 }

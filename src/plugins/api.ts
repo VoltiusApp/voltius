@@ -1067,9 +1067,12 @@ export interface PluginAPI {
      *  does). Read-only — requires "settings:read". */
     consequenceOf(key: string, value: unknown): string | undefined;
     /** Writes, then RE-READS: a store setter may clamp or normalise, so
-     *  `effective` is the value that actually landed, not the one asked for. */
+     *  `effective` is the value that actually landed, not the one asked for,
+     *  and `coerced` says whether the two differ. Neither reports whether the
+     *  setting's value moved — writing the value it already held is a
+     *  successful write with `coerced: false`. */
     set(key: string, value: unknown): DomainResult<{
-      key: string; requested: unknown; effective: unknown; changed: boolean;
+      key: string; requested: unknown; effective: unknown; coerced: boolean;
     }>;
   };
 
