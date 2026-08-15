@@ -65,6 +65,17 @@ test("replaceAll drops a display_name carried by an older device's blob", () => 
   expect("display_name" in row).toBe(false);
 });
 
+// A peer device's synced list or an old export file can carry a pre-handle
+// row with handle: "". replaceAll must filter it out, not just migrate().
+test("replaceAll drops a row with an empty handle", () => {
+  useRecentPeopleStore.getState().replaceAll([
+    { user_id: "u1", handle: "", last_invited_at: "2026-08-15T00:00:00.000Z" },
+    person("u2"),
+  ]);
+  const { recent } = useRecentPeopleStore.getState();
+  expect(recent.map((p) => p.user_id)).toEqual(["u2"]);
+});
+
 test("replaceAll caps the list and rejects a non-array", () => {
   useRecentPeopleStore.getState().replaceAll(
     Array.from({ length: MAX_RECENT + 5 }, (_, i) => person(`u${i}`)),

@@ -67,7 +67,7 @@ export const useRecentPeopleStore = create<RecentPeopleStore>()(
         set(() => {
           const recentUpdatedAt = settingsStamp();
           pushSettingsChange();
-          return { recent: Array.isArray(list) ? list.slice(0, MAX_RECENT).map(project) : [], recentUpdatedAt };
+          return { recent: Array.isArray(list) ? list.filter((p) => p.handle).slice(0, MAX_RECENT).map(project) : [], recentUpdatedAt };
         }),
     }),
     {

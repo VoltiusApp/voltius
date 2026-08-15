@@ -28,16 +28,15 @@ export function SidebarAccountButton() {
 
   const refreshAccountInfo = async () => {
     const { invoke: inv } = await import("@tauri-apps/api/core");
-    const [mode, email, accountId, handle] = await Promise.all([
+    const [mode, email, accountId] = await Promise.all([
       getAccountMode().catch(() => null),
       inv<string | null>("keychain_get", { key: "email" }).catch(() => null),
       inv<string | null>("keychain_get", { key: "account_id" }).catch(() => null),
-      getMyHandle().catch(() => ""),
     ]);
     setAccountMode(mode);
     setAccountEmail(email);
     setCurrentAccountId(accountId);
-    setAccountHandle(handle || null);
+    void getMyHandle().then((handle) => setAccountHandle(handle || null)).catch(() => {});
   };
 
   useEffect(() => { refreshAccountInfo(); }, []);
