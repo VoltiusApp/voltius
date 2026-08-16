@@ -347,6 +347,15 @@ export async function autoLogin(): Promise<boolean> {
  *  app starts fresh on next launch (same as first-launch home screen). */
 export async function logout(): Promise<void> {
   useVaultKeysStore.getState().clear();
+  // Signing out has to drop this account from the quick switcher too, or its
+  // master password stays on the machine and anyone can walk back in from the
+  // account menu without one. Locking the vault deliberately does not: it is a
+  // temporary lock, and the switcher is unreachable until the vault reopens.
+  const accountId = await keychainGet("account_id");
+  if (accountId) {
+    const { removeSavedAccount } = await import("@/services/savedAccounts");
+    await removeSavedAccount(accountId).catch(() => {});
+  }
   const { stopRealtimeSync } = await import("@/services/sync");
   stopRealtimeSync();
   const { onSessionEnd } = await import("@/services/teamDataManager");
