@@ -159,7 +159,12 @@
       "yourTeamsLabel": "Vos équipes",
       "elsewhereLabel": "Ailleurs sur Voltius",
       "notInYourTeams": "Pas dans vos équipes",
-      "forgetPerson": "Retirer des récents"
+      "forgetPerson": "Retirer des récents",
+      "deepLinkJoinTitle": "Rejoindre le terminal partagé ?",
+      "deepLinkJoinBody": "Quelqu'un a partagé une session de terminal en direct avec vous. En rejoignant, vous vous y connectez immédiatement.",
+      "deepLinkJoinUnknownHost": "Voltius ne peut pas identifier l'expéditeur avant que vous rejoigniez la session.",
+      "deepLinkJoinAction": "Rejoindre la session",
+      "deepLinkJoinFailed": "Impossible de rejoindre cette session — le lien a peut-être expiré."
     },
     "snippetVariableModal": {
       "on": "Activé",

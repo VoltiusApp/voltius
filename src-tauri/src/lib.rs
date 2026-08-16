@@ -391,17 +391,23 @@ pub fn run() {
     // window. Raise the running window instead.
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             use tauri::Manager;
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
             }
+            // Windows and Linux deliver a warm deep link as an argument to the
+            // second process, which single-instance kills — without this the
+            // URL dies with it.
+            use tauri_plugin_deep_link::DeepLinkExt;
+            app.deep_link().handle_cli_arguments(argv.into_iter());
         }));
     }
 
     builder = builder
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -474,6 +480,16 @@ pub fn run() {
             #[cfg(target_os = "android")]
             if let Ok(dir) = app.path().app_data_dir() {
                 crate::storage::config::set_config_dir(dir.join("voltius"));
+            }
+
+            // Dev builds never ran an installer, so the OS has no scheme
+            // registration; release registration is the installer's job.
+            #[cfg(all(desktop, debug_assertions))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(e) = app.deep_link().register("voltius") {
+                    log::warn!("dev deep-link registration failed: {e}");
+                }
             }
 
             #[cfg(desktop)]

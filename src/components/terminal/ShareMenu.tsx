@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
-import { buildInviteCode } from "@/services/inviteCode";
+import { buildInviteLink } from "@/services/inviteCode";
 import { uninviteFromSession } from "@/services/teamService";
 import { guestCapFor, highestOwnerTier, inviteSessionOf, membersOfTeams, seatUsage, type InviteSession, type InviteTarget, type ShareTier } from "@/services/teamSharing";
 import { useDelayedUnmount } from "@/hooks/useDelayedUnmount";
@@ -174,7 +174,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
       const { multiplayerSessionId, inviteToken } = await startSharingInviteLink(activeSessionId, sessionName || connectionName);
       setInviteLinkToken(inviteToken);
       try {
-        await writeClipboard(buildInviteCode(multiplayerSessionId, inviteToken));
+        await writeClipboard(buildInviteLink(multiplayerSessionId, inviteToken));
         setAutoCopied(true);
       } catch {
         setAutoCopied(false);
@@ -498,7 +498,7 @@ function ActiveSharingView({
 
       {inviteLinkToken && (
         <div className="mb-3">
-          <InviteCodeField code={buildInviteCode(activeMp.multiplayerSessionId, inviteLinkToken)} autoCopied={autoCopied} />
+          <InviteCodeField code={buildInviteLink(activeMp.multiplayerSessionId, inviteLinkToken)} autoCopied={autoCopied} />
         </div>
       )}
 
@@ -672,7 +672,7 @@ function InviteLinkTab({
           <p className="text-[11px] mb-2" style={{ color: "var(--t-text-secondary)" }}>
             {t("terminal.share.shareCodeDescription")}
           </p>
-          <InviteCodeField code={buildInviteCode(sessionId, inviteLinkToken)} autoCopied={autoCopied} />
+          <InviteCodeField code={buildInviteLink(sessionId, inviteLinkToken)} autoCopied={autoCopied} />
         </>
       ) : (
         <>

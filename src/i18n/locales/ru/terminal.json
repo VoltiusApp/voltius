@@ -169,7 +169,12 @@
       "yourTeamsLabel": "Ваши команды",
       "elsewhereLabel": "Другие пользователи Voltius",
       "notInYourTeams": "Не в ваших командах",
-      "forgetPerson": "Убрать из недавних"
+      "forgetPerson": "Убрать из недавних",
+      "deepLinkJoinTitle": "Присоединиться к общему терминалу?",
+      "deepLinkJoinBody": "Кто-то поделился с вами активной сессией терминала. Присоединение подключит вас к ней сейчас.",
+      "deepLinkJoinUnknownHost": "Voltius не сможет определить отправителя, пока вы не присоединитесь.",
+      "deepLinkJoinAction": "Присоединиться",
+      "deepLinkJoinFailed": "Не удалось присоединиться к сессии — возможно, срок действия ссылки истёк."
     },
     "snippetVariableModal": {
       "on": "Вкл",
