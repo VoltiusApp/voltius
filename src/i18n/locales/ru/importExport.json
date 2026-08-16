@@ -136,7 +136,8 @@
         "uiPreferences": { "label": "Настройки интерфейса" },
         "shortcuts": { "label": "Сочетания клавиш" },
         "appSettings": { "label": "Настройки приложения" },
-        "recentPeople": { "label": "Недавние люди" }
+        "recentPeople": { "label": "Недавние люди" },
+        "vaults": { "label": "Хранилища" }
       },
       "describe": {
         "themes_one": "{{count}} пользовательская тема",
@@ -154,7 +155,11 @@
         "recentPeople_one": "{{count}} недавний контакт",
         "recentPeople_few": "{{count}} недавних контакта",
         "recentPeople_many": "{{count}} недавних контактов",
-        "recentPeople_other": "{{count}} недавних контактов"
+        "recentPeople_other": "{{count}} недавних контактов",
+        "vaults_one": "{{count}} хранилище",
+        "vaults_few": "{{count}} хранилища",
+        "vaults_many": "{{count}} хранилищ",
+        "vaults_other": "{{count}} хранилищ"
       }
     }
   }

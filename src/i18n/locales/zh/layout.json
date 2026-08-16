@@ -199,6 +199,7 @@
     },
     "vaultSidebar": {
       "cloudVaultLabel": "{{name}} (云保险库)",
+      "unknownVaultLabel": "未知保险库 {{id}} — 其名称尚未同步到此设备",
       "vaultInviteTitle": "保险库邀请：{{name}}",
       "vaultInvitation": "保险库邀请",
       "inviterFallback": "某人",

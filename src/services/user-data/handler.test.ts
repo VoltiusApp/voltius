@@ -21,10 +21,14 @@ describe("lastWriteWins", () => {
 });
 
 describe("registered handlers", () => {
-  test("every handler merges last-write-wins", () => {
+  // `vaults` is a keyed map merged row by row; every other section is taken whole.
+  const CUSTOM_MERGE = ["vaults"];
+
+  test("every handler merges last-write-wins, bar the documented exceptions", () => {
     expect(USER_DATA_HANDLERS.length).toBeGreaterThan(0);
     for (const h of USER_DATA_HANDLERS) {
-      expect(h.merge, h.key).toBe(lastWriteWins);
+      if (CUSTOM_MERGE.includes(h.key)) expect(h.merge, h.key).not.toBe(lastWriteWins);
+      else expect(h.merge, h.key).toBe(lastWriteWins);
     }
   });
 });

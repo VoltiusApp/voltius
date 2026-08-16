@@ -5,10 +5,11 @@ interface PersistedAccountStorage {
 }
 
 /**
- * Zustand stores whose persisted state belongs to one account. They are never
- * synced to the server, so switching accounts has to move them by hand: cleared
- * for the incoming account, and stashed for the outgoing one — dropping them
- * outright would hide every host filed under a user-created vault.
+ * Zustand stores whose persisted state belongs to one account. Their contents
+ * are not, by themselves, restored from the server, so switching accounts has to
+ * move them by hand: cleared for the incoming account, and stashed for the
+ * outgoing one — dropping them outright would hide every host filed under a
+ * user-created vault.
  *
  * A store belongs here when its contents name the account's own things — its
  * vaults, teams, hosts, teammates, sessions. Device preferences (UI scale,
@@ -16,6 +17,8 @@ interface PersistedAccountStorage {
  * the machine, not the person signed in on it.
  */
 export const ACCOUNT_SCOPED_STORAGE_KEYS = [
+  // The vault list rides the sync blob now, so parking it only spares the sidebar
+  // a pull's worth of emptiness — but `selectedVaultIds` has no other way home.
   "voltius-vaults",
   "voltius-teams",
   // Teammates this account invited, by handle.

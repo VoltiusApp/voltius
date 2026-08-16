@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { useOrphanVaultIds } from "@/hooks/useAccessibleVaultIds";
+import { unknownVaultLabel } from "@/hooks/accessibleVaults";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { onVaultSelect } from "@/services/teamDataManager";
 import LogoBadge from "./LogoBadge";
@@ -32,6 +34,8 @@ export default function VaultSidebar() {
   const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const openWhatsNew = useUIStore((s) => s.openWhatsNew);
+
+  const orphanVaultIds = useOrphanVaultIds();
 
   const teams = useTeamStore((s) => s.teams);
   const pendingInvites = useTeamStore((s) => s.myPendingInvitations);
@@ -128,6 +132,24 @@ export default function VaultSidebar() {
                 }}
               />
               <TeamVaultBadge teamId={team.id} />
+            </div>
+          );
+        })}
+
+        {/* Unnamed vaults, kept visible so their hosts stay reachable */}
+        {orphanVaultIds.map((id) => {
+          const isActive = selectedVaultIds.includes(id) && !homeView;
+          return (
+            <div key={id} className="relative flex items-center justify-center w-full shrink-0">
+              <VaultButton
+                initial="?"
+                label={unknownVaultLabel(id)}
+                isActive={isActive}
+                onClick={() => {
+                  selectVaultOnly(id);
+                  setHomeView(false);
+                }}
+              />
             </div>
           );
         })}

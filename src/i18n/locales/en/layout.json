@@ -199,6 +199,7 @@
     },
     "vaultSidebar": {
       "cloudVaultLabel": "{{name}} (Cloud vault)",
+      "unknownVaultLabel": "Unknown vault {{id}} — its name has not reached this device",
       "vaultInviteTitle": "Vault invite: {{name}}",
       "vaultInvitation": "Vault invitation",
       "inviterFallback": "Someone",
