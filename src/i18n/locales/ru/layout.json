@@ -201,6 +201,7 @@
     },
     "vaultSidebar": {
       "cloudVaultLabel": "{{name}} (облачное хранилище)",
+      "unknownVaultLabel": "Неизвестное хранилище {{id}} — его имя не дошло до этого устройства",
       "vaultInviteTitle": "Приглашение в хранилище: {{name}}",
       "vaultInvitation": "Приглашение в хранилище",
       "inviterFallback": "Кто-то",

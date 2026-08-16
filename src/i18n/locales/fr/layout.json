@@ -199,6 +199,7 @@
     },
     "vaultSidebar": {
       "cloudVaultLabel": "{{name}} (Coffre cloud)",
+      "unknownVaultLabel": "Coffre inconnu {{id}} — son nom n'est pas parvenu à cet appareil",
       "vaultInviteTitle": "Invitation au coffre : {{name}}",
       "vaultInvitation": "Invitation au coffre",
       "inviterFallback": "Quelqu'un",
