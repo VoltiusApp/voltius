@@ -159,7 +159,12 @@
       "yourTeamsLabel": "Your teams",
       "elsewhereLabel": "Elsewhere on Voltius",
       "notInYourTeams": "Not in your teams",
-      "forgetPerson": "Remove from recent"
+      "forgetPerson": "Remove from recent",
+      "deepLinkJoinTitle": "Join shared terminal?",
+      "deepLinkJoinBody": "Someone shared a live terminal session with you. Joining connects you to it now.",
+      "deepLinkJoinUnknownHost": "Voltius can't identify who shared it until you join.",
+      "deepLinkJoinAction": "Join session",
+      "deepLinkJoinFailed": "Couldn't join that session — the link may have expired."
     },
     "snippetVariableModal": {
       "on": "On",
