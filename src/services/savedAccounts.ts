@@ -119,10 +119,12 @@ export async function removeSavedAccount(account_id: string): Promise<void> {
 }
 
 /**
- * Switch to a saved account: lock vault, overwrite active keychain entries,
- * then reload the window so autoLogin picks up the new account.
+ * End the current account's session without touching the saved list: flush its
+ * work to the server, park its UI state, and leave the machine with no active
+ * account. Shared by the switch and by "add another account", which differ only
+ * in what they put back afterwards.
  */
-export async function switchToAccount(account: SavedAccount): Promise<void> {
+async function tearDownSession(): Promise<void> {
   await stashUiStateForCurrentAccount().catch(() => {});
   const { stopRealtimeSync, push } = await import("@/services/sync");
   // Flush any pending local changes before wiping — the debounced sync may not
@@ -146,17 +148,37 @@ export async function switchToAccount(account: SavedAccount): Promise<void> {
   for (const key of ACCOUNT_CACHE_KEYS) {
     await keychainDelete(key).catch(() => {});
   }
+
+  // Tell SplashScreen to use replace-mode sync after reload so the old
+  // account's local state is never merged into the next account's cloud data.
+  sessionStorage.setItem("voltius.replace-sync-on-login", "1");
+  clearPersistedAccountUiState();
+}
+
+/**
+ * Switch to a saved account: end the current session, write the target's
+ * keychain entries and UI state, then reload so autoLogin picks it up.
+ */
+export async function switchToAccount(account: SavedAccount): Promise<void> {
+  await tearDownSession();
   for (const key of SESSION_KEYS) {
     const value = account[key];
     if (value) await keychainSet(key, value);
   }
-
-  // Tell SplashScreen to use replace-mode sync after reload so the old
-  // account's local state is never merged into the new account's cloud data.
-  sessionStorage.setItem("voltius.replace-sync-on-login", "1");
-  // Swap the persisted UI state (teams, vaults) for the incoming account's, so
-  // the new account never sees the old one's — and gets its own back.
-  clearPersistedAccountUiState();
   restorePersistedAccountUiState(account.ui_state);
+  window.location.reload();
+}
+
+/**
+ * Leave the current account signed in to the switcher and land on the auth
+ * screen, so a second account can be added.
+ *
+ * Sign-out cannot do this job: it forgets the account on the way out, by
+ * design. Without this the switcher could never hold more than one account,
+ * because signing out is otherwise the only way to reach the auth screen.
+ */
+export async function signOutToAddAccount(): Promise<void> {
+  await saveCurrentAccount();
+  await tearDownSession();
   window.location.reload();
 }

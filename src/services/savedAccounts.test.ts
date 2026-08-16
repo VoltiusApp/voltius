@@ -22,7 +22,7 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
   restorePersistedAccountUiState: h.restorePersistedAccountUiState,
 }));
 
-import { getSavedAccounts, saveCurrentAccount, removeSavedAccount, switchToAccount, type SavedAccount } from "./savedAccounts";
+import { getSavedAccounts, saveCurrentAccount, removeSavedAccount, signOutToAddAccount, switchToAccount, type SavedAccount } from "./savedAccounts";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 
 const LIST_KEY = "voltius.saved_accounts";
@@ -173,4 +173,30 @@ test("switchToAccount tears the old session down before reloading", async () => 
   expect(h.clearPersistedAccountUiState).toHaveBeenCalled();
   expect(sessionStorage.setItem).toHaveBeenCalledWith("voltius.replace-sync-on-login", "1");
   expect(h.reload).toHaveBeenCalled();
+});
+
+/**
+ * Sign-out forgets the account by design, and it is otherwise the only way to
+ * reach the auth screen — so without this the switcher could never hold a
+ * second account.
+ */
+test("adding another account keeps the current one in the switcher", async () => {
+  activate(CLOUD_A);
+  h.store.handle = "alice";
+
+  await signOutToAddAccount();
+
+  expect((await getSavedAccounts()).map((a) => a.account_id)).toEqual(["a"]);
+  expect(h.store.master_password).toBeUndefined();
+  expect(h.store.handle).toBeUndefined();
+  expect(h.wipeLocalConfig).toHaveBeenCalled();
+  expect(h.clearPersistedAccountUiState).toHaveBeenCalled();
+  expect(h.reload).toHaveBeenCalled();
+});
+
+test("adding another account parks the outgoing account's UI state", async () => {
+  activate(CLOUD_A);
+  await signOutToAddAccount();
+  const parked = (await getSavedAccounts()).find((a) => a.account_id === "a");
+  expect(parked?.ui_state).toEqual({ "voltius-vaults": "VAULTS_OF_CURRENT" });
 });

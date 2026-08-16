@@ -6,7 +6,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
 import { getAccountMode, getMyHandle, lockVaultSession, logout } from "@/services/account";
-import { getSavedAccounts, saveCurrentAccount, switchToAccount, removeSavedAccount, type SavedAccount } from "@/services/savedAccounts";
+import { getSavedAccounts, saveCurrentAccount, signOutToAddAccount, switchToAccount, removeSavedAccount, type SavedAccount } from "@/services/savedAccounts";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
@@ -89,6 +89,11 @@ export function SidebarAccountButton() {
     setOpen(false);
     await logout();
     window.location.reload();
+  };
+
+  const handleAddAccount = async () => {
+    setOpen(false);
+    await signOutToAddAccount();
   };
 
   const handleSwitchAccount = async (account: SavedAccount) => {
@@ -246,6 +251,14 @@ export function SidebarAccountButton() {
               icon="lucide:log-in"
               label={t("layout.sidebarAccount.signInSignUp")}
               onClick={() => { openCloudAuth("signin"); setOpen(false); }}
+            />
+          )}
+
+          {accountMode === "server" && (
+            <DropdownMenuItem
+              icon="lucide:user-plus"
+              label={t("layout.sidebarAccount.addAccount")}
+              onClick={() => void handleAddAccount()}
             />
           )}
 

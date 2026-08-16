@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   getSavedAccounts: vi.fn(async (): Promise<SavedAccount[]> => []),
   saveCurrentAccount: vi.fn(async () => {}),
   switchToAccount: vi.fn(async () => {}),
+  signOutToAddAccount: vi.fn(async () => {}),
   removeSavedAccount: vi.fn(async () => {}),
   keychain: {} as Record<string, string | null>,
 }));
@@ -30,6 +31,7 @@ vi.mock("@/services/savedAccounts", () => ({
   getSavedAccounts: h.getSavedAccounts,
   saveCurrentAccount: h.saveCurrentAccount,
   switchToAccount: h.switchToAccount,
+  signOutToAddAccount: h.signOutToAddAccount,
   removeSavedAccount: h.removeSavedAccount,
 }));
 
@@ -139,4 +141,16 @@ test("the auto-lock row opens the account settings section", async () => {
   await userEvent.click(await screen.findByText("layout.sidebarAccount.autoLock"));
   expect(useUIStore.getState().settingsOpen).toBe(true);
   expect(useUIStore.getState().settingsSection).toBe("account");
+});
+
+test("a cloud account can add another one without signing out", async () => {
+  await openMenu();
+  await userEvent.click(await screen.findByText("layout.sidebarAccount.addAccount"));
+  expect(h.signOutToAddAccount).toHaveBeenCalled();
+});
+
+test("a local account is not offered the add-account route", async () => {
+  h.accountMode = "local";
+  await openMenu();
+  expect(screen.queryByText("layout.sidebarAccount.addAccount")).toBeNull();
 });

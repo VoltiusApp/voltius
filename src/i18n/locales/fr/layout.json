@@ -107,7 +107,8 @@
       "leaveLocalConfirm": "Effacer et changer",
       "autoLock": "Réglages du verrouillage auto…",
       "autoLockOff": "Verrouillage auto désactivé",
-      "autoLockAfter": "Verrouillage auto après {{duration}}"
+      "autoLockAfter": "Verrouillage auto après {{duration}}",
+      "addAccount": "Ajouter un autre compte…"
     },
     "splash": {
       "steps": {
