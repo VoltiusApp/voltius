@@ -11,6 +11,9 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { useSecurityStore } from "@/stores/securityStore";
+import { canLockVault } from "@/utils/accountMode";
+import { sessionTimeoutLabel, sessionTimeoutValue } from "@/utils/sessionTimeout";
 
 export function SidebarAccountButton() {
   const { t } = useTranslation();
@@ -28,6 +31,7 @@ export function SidebarAccountButton() {
   const [accountHandle, setAccountHandle] = useState<string | null>(null);
   const [pendingSwitch, setPendingSwitch] = useState<SavedAccount | null>(null);
   const { copied: handleCopied, copy: copyHandle } = useCopyHandle(accountHandle);
+  const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
 
   const refreshAccountInfo = async () => {
     const { invoke: inv } = await import("@tauri-apps/api/core");
@@ -114,6 +118,11 @@ export function SidebarAccountButton() {
     setPendingSwitch(account);
   };
 
+  const canLock = canLockVault(accountMode);
+  const autoLockSublabel = sessionTimeoutMinutes === null
+    ? t("layout.sidebarAccount.autoLockOff")
+    : t("layout.sidebarAccount.autoLockAfter", { duration: sessionTimeoutLabel(t, sessionTimeoutValue(sessionTimeoutMinutes)) });
+
   const switchTargets = savedAccounts.filter((a) => a.account_id !== currentAccountId);
 
   const handleRemoveSavedAccount = async (e: React.MouseEvent, account_id: string) => {
@@ -198,7 +207,22 @@ export function SidebarAccountButton() {
             </>
           )}
 
-          <DropdownMenuItem icon="lucide:lock" label={t("layout.sidebarAccount.lockVault")} onClick={() => void handleLockVault()} />
+          {canLock && (
+            <DropdownMenuItem
+              icon="lucide:lock"
+              label={t("layout.sidebarAccount.lockVault")}
+              sublabel={autoLockSublabel}
+              onClick={() => void handleLockVault()}
+            />
+          )}
+
+          {canLock && (
+            <DropdownMenuItem
+              icon="lucide:timer"
+              label={t("layout.sidebarAccount.autoLock")}
+              onClick={() => { setOpen(false); useUIStore.getState().openSettings("account"); }}
+            />
+          )}
 
           <DropdownMenuItem
             icon="lucide:bug"
