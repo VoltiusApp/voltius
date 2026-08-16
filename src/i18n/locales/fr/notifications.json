@@ -43,7 +43,7 @@
     "inbox": {
       "someone": "Quelqu'un",
       "invite": {
-        "message": "{{inviter}} vous a invité à rejoindre {{team}}",
+        "message": "{{inviter}} vous invite à rejoindre {{team}}",
         "accept": "Accepter",
         "decline": "Refuser"
       },
@@ -53,7 +53,7 @@
         "joined": "Rejoint"
       },
       "sessionInvite": {
-        "message": "{{inviter}} vous a invité à {{name}}"
+        "message": "{{inviter}} vous invite à rejoindre {{name}}"
       },
       "sessionKnock": {
         "message": "{{inviter}} souhaite partager un terminal",
@@ -68,7 +68,7 @@
         "granted": "Vous avez le contrôle"
       },
       "awaitingKey": {
-        "message": "En attente qu'un propriétaire de {{team}} accorde l'accès au coffre"
+        "message": "En attente qu'un propriétaire de {{team}} vous donne accès au coffre"
       }
     }
   }

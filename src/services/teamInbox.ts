@@ -32,13 +32,19 @@ export function resetTeamInboxState(): void {
   controlHeldSessions.clear();
 }
 
-function toast(message: string, duration: number): void {
+/**
+ * `inboxId` marks the toast as an echo of an inbox entry, which keeps it out of
+ * the dismissed-notification history — see `ToastEntry.inboxId`. Omit it only
+ * for toasts that have no inbox entry behind them.
+ */
+function toast(message: string, duration: number, inboxId?: string): void {
   useNotificationStore.getState().addToast({
     source: APP_SOURCE,
     type: "toast",
     message,
     severity: "info",
     duration,
+    inboxId,
   });
 }
 
@@ -212,7 +218,7 @@ export function reconcileSessions(
       .map((e) => e.id),
   );
   for (const e of entries) {
-    if ((e.kind === "sessionInvite" || e.kind === "sessionKnock") && !known.has(e.id)) toast(e.message, 8000);
+    if ((e.kind === "sessionInvite" || e.kind === "sessionKnock") && !known.has(e.id)) toast(e.message, 8000, e.id);
   }
 
   reconcile(["sessionShared", "sessionInvite", "sessionKnock"], entries);
@@ -260,7 +266,7 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
     useNotificationStore.getState().inbox.filter((e) => e.kind === "controlRequest").map((e) => e.id),
   );
   for (const e of entries) {
-    if (!known.has(e.id)) toast(e.message, 8000);
+    if (!known.has(e.id)) toast(e.message, 8000, e.id);
   }
 
   reconcile(["controlRequest"], entries);

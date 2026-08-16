@@ -151,7 +151,7 @@
       "uninviteFailed": "无法撤回邀请",
       "inviteNoTeammates": "暂无队友",
       "inviteLoadFailed": "无法加载队友列表",
-      "peopleSearchPlaceholder": "按姓名、@handle 或邮箱搜索…",
+      "peopleSearchPlaceholder": "按 @handle 或邮箱搜索…",
       "peopleNoMatch": "您的团队中没有人与“{{query}}”匹配。",
       "peopleFindRule": "团队之外的用户可通过其 @handle 或完整邮箱地址找到。",
       "recentLabel": "最近",

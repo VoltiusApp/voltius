@@ -82,6 +82,7 @@
       "emailAlreadyRegistered": "Email already registered",
       "registrationFailed": "Registration failed: {{status}}",
       "accountNotFound": "Account not found",
+      "tooManyAttempts": "Too many attempts — wait a minute and try again",
       "noAccountFoundCreateOne": "No account found. Please create one first.",
       "serverLoginFailed": "Server login failed",
       "sessionRefreshFailed": "Session refresh failed",

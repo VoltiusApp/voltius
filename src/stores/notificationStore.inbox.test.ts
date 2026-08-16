@@ -63,3 +63,37 @@ test("unreadCount counts pending inbox entries and banners, and falls to zero wh
   get().retractInbox("invite:2");
   expect(get().unreadCount()).toBe(0);
 });
+
+test("a toast echoing an inbox entry is dropped, not archived to history", () => {
+  get().upsertInbox(entry("session:abc", "@ada wants to share a terminal"));
+  const toastId = get().addToast({
+    source: APP,
+    type: "toast",
+    message: "@ada wants to share a terminal",
+    severity: "info",
+    duration: 8000,
+    inboxId: "session:abc",
+  });
+
+  get().dismissToast(toastId);
+
+  expect(get().toasts).toHaveLength(0);
+  // A history row would render the same knock a second time with no Join or
+  // Decline on it — the inbox entry is the only copy that owns the actions.
+  expect(get().history).toHaveLength(0);
+  expect(get().inbox).toHaveLength(1);
+});
+
+test("a toast with no inbox entry behind it is still archived", () => {
+  const toastId = get().addToast({
+    source: APP,
+    type: "toast",
+    message: "You have control",
+    severity: "info",
+    duration: 4000,
+  });
+
+  get().dismissToast(toastId);
+
+  expect(get().history).toHaveLength(1);
+});

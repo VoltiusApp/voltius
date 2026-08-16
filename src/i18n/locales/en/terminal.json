@@ -151,7 +151,7 @@
       "uninviteFailed": "Could not withdraw the invite",
       "inviteNoTeammates": "No teammates yet",
       "inviteLoadFailed": "Could not load teammates",
-      "peopleSearchPlaceholder": "Search by name, @handle, or email…",
+      "peopleSearchPlaceholder": "Search by @handle or email…",
       "peopleNoMatch": "No one in your teams matches \"{{query}}\".",
       "peopleFindRule": "People outside your teams are found by their @handle or their full email address.",
       "recentLabel": "Recent",

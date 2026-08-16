@@ -2,6 +2,15 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# The container writes into the bind-mounted worktree (pnpm install, and any
+# cargo output that still lands there). Running as root left ~30k root-owned
+# files the host user could not clean up, so the build user is created with the
+# host's uid/gid:
+#   docker build -f Dockerfile.tauri-headless \
+#     --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" -t tauri-mcp .
+ARG UID=1000
+ARG GID=1000
+
 # System dependencies: Xvfb + WebKit + compilers + mold (fast linker) + keyutils
 # (the app's OS keychain talks to the kernel keyutils keyring at startup) + ffmpeg
 # (records the Xvfb framebuffer for headless UI screen-capture / video) + xdotool
@@ -25,14 +34,28 @@ RUN apt-get update && apt-get install -y \
     python3-pil \
     && rm -rf /var/lib/apt/lists/*
 
+# ubuntu:24.04 ships a stock `ubuntu` user at 1000:1000, which collides with the
+# common host uid. Drop it first so the requested ids are always free.
+RUN userdel -r ubuntu 2>/dev/null || true; \
+    groupadd -g "${GID}" builder 2>/dev/null || true; \
+    useradd -m -u "${UID}" -g "${GID}" -s /bin/bash builder
+
 # Install Node.js and enable pnpm
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     npm install -g pnpm
 
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+# Rust lives outside root's home so the build user can reach it, and cargo's
+# output lives OUTSIDE the bind mount at /app. A target dir anywhere under
+# vite's root makes vite's watcher crawl it — the dev server climbs to ~15GB RSS
+# and the webview never loads, which presents as every WebDriver call hanging
+# with no error. Mount a host dir at /target to keep the cache across rebuilds.
+ENV CARGO_HOME=/opt/cargo \
+    RUSTUP_HOME=/opt/rustup \
+    CARGO_TARGET_DIR=/target \
+    PATH=/opt/cargo/bin:${PATH}
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
 # Install tauri-driver
 RUN cargo install tauri-driver
@@ -41,12 +64,15 @@ RUN cargo install tauri-driver
 # RUSTFLAGS env) keeps the build fingerprint constant so the target/ cache is
 # reused across rebuilds. The host triple is detected at build time so this
 # works on any arch (arm64 / x86_64) without hardcoding.
-RUN mkdir -p /root/.cargo && \
-    TRIPLE="$(rustc -vV | sed -n 's/^host: //p')" && \
+RUN TRIPLE="$(rustc -vV | sed -n 's/^host: //p')" && \
     printf '[target.%s]\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]\n' "$TRIPLE" \
-    > /root/.cargo/config.toml
+    > "${CARGO_HOME}/config.toml"
+
+RUN mkdir -p /target /app && \
+    chown -R "${UID}:${GID}" /opt/cargo /opt/rustup /target /app
 
 WORKDIR /app
+USER builder
 
 # Dev / hot-reload workflow:
 #  1. install JS deps
@@ -63,16 +89,22 @@ CMD bash -c "CI=true pnpm install && \
              (pnpm dev > /tmp/vite.log 2>&1 &) && \
              keyctl session - xvfb-run --auto-servernum tauri-driver --port 4444"
 
-# docker build -f Dockerfile.tauri-headless -t tauri-mcp .
+# docker build -f Dockerfile.tauri-headless \
+#   --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" -t tauri-mcp .
 #
 # IMPORTANT: --security-opt seccomp=unconfined is REQUIRED. The app's OS keychain
 # uses the kernel keyutils keyring; the default Docker seccomp profile blocks
 # those syscalls, which makes keychain_get fail and the app hang on its splash.
-# docker run -d --name tauri-headless --security-opt seccomp=unconfined -v "$(pwd):/app" tauri-mcp
+# docker run -d --name tauri-headless --security-opt seccomp=unconfined \
+#   -v "$(pwd):/app" -v voltius-target:/target tauri-mcp
 #
 # docker logs -f tauri-headless
 # claude mcp add tauri-docker -- docker exec -i tauri-headless npx -y github:VoltiusApp/mcp-tauri-automation
 #
 # Then, in Claude Code, drive the live dev build via the MCP:
-#   launch_app  appPath=/app/target/debug/voltius
+#   launch_app  appPath=/target/debug/voltius
 #   capture_screenshot / click_element / type_text / ...
+#
+# NEVER run cargo against this repo mounted anywhere but /app: the absolute path
+# is baked into the target dir's fingerprints, and a later build at /app then
+# fails to read plugin permissions from the stale path.

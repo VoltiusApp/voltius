@@ -160,6 +160,24 @@ test("signInToCloud maps a failed login to invalidEmailOrPassword", async () => 
   await expect(signInToCloud("a@b.co", "pw", S)).rejects.toThrow("common.error.invalidEmailOrPassword");
 });
 
+test("signInToCloud reports a rate-limited challenge as such, not as a missing account", async () => {
+  // The auth limiter is a hardcoded 10/min per IP. Rendering its 429 as
+  // "Account not found" sends people off to create a second account.
+  h.http["/auth/challenge"] = err(429);
+  await expect(signInToCloud("a@b.co", "pw", S)).rejects.toThrow("common.error.tooManyAttempts");
+});
+
+test("signInToCloud reports a rate-limited login as such, not as a bad password", async () => {
+  h.http["/auth/challenge"] = ok({ account_id: "acc" });
+  h.http["/auth/login"] = err(429);
+  await expect(signInToCloud("a@b.co", "pw", S)).rejects.toThrow("common.error.tooManyAttempts");
+});
+
+test("signInToCloud names the status on a server fault rather than blaming the account", async () => {
+  h.http["/auth/challenge"] = err(503);
+  await expect(signInToCloud("a@b.co", "pw", S)).rejects.toThrow("common.error.serverError");
+});
+
 test("signInToCloud wipes the previous local vault on success", async () => {
   h.http["/auth/challenge"] = ok({ account_id: "acc" });
   h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });

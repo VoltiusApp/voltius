@@ -25,6 +25,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.tauri-headless
+      args:
+        # Matches the container's build user to the host's, so pnpm install and
+        # cargo stop leaving root-owned files in the mounted worktree. Export
+        # UID/GID before `up` if your host ids are not 1000.
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
     image: tauri-mcp
     container_name: tauri-headless
     security_opt:
@@ -38,6 +44,10 @@ services:
       - WEBKIT_DISABLE_COMPOSITING_MODE=1
     volumes:
       - .:/app
+      # CARGO_TARGET_DIR. Deliberately not inside /app: vite's watcher crawls a
+      # target dir under its root, climbs to ~15GB RSS, and the webview then
+      # never loads — which presents as every WebDriver call hanging.
+      - voltius-target:/target
     networks:
       - voltius-test
 
@@ -68,3 +78,6 @@ services:
 networks:
   voltius-test:
     driver: bridge
+
+volumes:
+  voltius-target:

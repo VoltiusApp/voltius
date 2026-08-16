@@ -82,6 +82,7 @@
       "emailAlreadyRegistered": "Этот email уже зарегистрирован",
       "registrationFailed": "Не удалось зарегистрироваться: {{status}}",
       "accountNotFound": "Учётная запись не найдена",
+      "tooManyAttempts": "Слишком много попыток — подождите минуту и попробуйте снова",
       "noAccountFoundCreateOne": "Учётная запись не найдена. Сначала создайте её.",
       "serverLoginFailed": "Не удалось войти на сервер",
       "sessionRefreshFailed": "Не удалось обновить сессию",
