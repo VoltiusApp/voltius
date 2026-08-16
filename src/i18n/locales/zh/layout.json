@@ -104,7 +104,10 @@
       "switchFailed": "切换账户失败：{{error}}",
       "leaveLocalTitle": "离开此本地账户？",
       "leaveLocalMessage": "此账户的主机、密钥和代码片段仅存储在本机。切换到 {{account}} 将永久删除它们。",
-      "leaveLocalConfirm": "删除并切换"
+      "leaveLocalConfirm": "删除并切换",
+      "autoLock": "自动锁定设置…",
+      "autoLockOff": "自动锁定已关闭",
+      "autoLockAfter": "{{duration}}后自动锁定"
     },
     "splash": {
       "steps": {

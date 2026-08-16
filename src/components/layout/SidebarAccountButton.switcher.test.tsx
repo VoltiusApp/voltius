@@ -34,6 +34,8 @@ vi.mock("@/services/savedAccounts", () => ({
 }));
 
 import { SidebarAccountButton } from "./SidebarAccountButton";
+import { useUIStore } from "@/stores/uiStore";
+import { useSecurityStore } from "@/stores/securityStore";
 
 const CURRENT = {
   account_id: "current", mode: "server", master_password: ["master", "for", "current"].join("-"),
@@ -112,4 +114,29 @@ test("cancelling the local-account warning leaves the session alone", async () =
   await userEvent.click(await screen.findByText("common.action.cancel"));
   expect(h.switchToAccount).not.toHaveBeenCalled();
   expect(screen.queryByText("layout.sidebarAccount.leaveLocalTitle")).toBeNull();
+});
+
+test("a no-password local account is not offered a lock it cannot perform", async () => {
+  h.accountMode = "local-nopassword";
+  await openMenu();
+  expect(screen.queryByText("layout.sidebarAccount.lockVault")).toBeNull();
+  expect(screen.queryByText("layout.sidebarAccount.autoLock")).toBeNull();
+});
+
+test("the lock row reports the current auto-lock setting", async () => {
+  useSecurityStore.getState().setSessionTimeoutMinutes(15);
+  await openMenu();
+  await screen.findByText("layout.sidebarAccount.lockVault");
+  expect(screen.getByText("layout.sidebarAccount.autoLockAfter")).toBeTruthy();
+
+  useSecurityStore.getState().setSessionTimeoutMinutes(null);
+});
+
+test("the auto-lock row opens the account settings section", async () => {
+  useUIStore.setState({ settingsOpen: false, settingsSection: "appearance" });
+  await openMenu();
+
+  await userEvent.click(await screen.findByText("layout.sidebarAccount.autoLock"));
+  expect(useUIStore.getState().settingsOpen).toBe(true);
+  expect(useUIStore.getState().settingsSection).toBe("account");
 });

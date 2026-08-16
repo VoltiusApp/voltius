@@ -104,7 +104,10 @@
       "switchFailed": "Échec du changement de compte : {{error}}",
       "leaveLocalTitle": "Quitter ce compte local ?",
       "leaveLocalMessage": "Les hôtes, clés et snippets de ce compte sont stockés uniquement sur cette machine. Passer à {{account}} les efface définitivement.",
-      "leaveLocalConfirm": "Effacer et changer"
+      "leaveLocalConfirm": "Effacer et changer",
+      "autoLock": "Réglages du verrouillage auto…",
+      "autoLockOff": "Verrouillage auto désactivé",
+      "autoLockAfter": "Verrouillage auto après {{duration}}"
     },
     "splash": {
       "steps": {

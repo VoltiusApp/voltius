@@ -104,7 +104,10 @@
       "switchFailed": "Account switch failed: {{error}}",
       "leaveLocalTitle": "Leave this local account?",
       "leaveLocalMessage": "This account's hosts, keys and snippets are stored only on this machine. Switching to {{account}} erases them and they cannot be recovered.",
-      "leaveLocalConfirm": "Erase and switch"
+      "leaveLocalConfirm": "Erase and switch",
+      "autoLock": "Auto-lock settings…",
+      "autoLockOff": "Auto-lock off",
+      "autoLockAfter": "Auto-locks after {{duration}}"
     },
     "splash": {
       "steps": {
