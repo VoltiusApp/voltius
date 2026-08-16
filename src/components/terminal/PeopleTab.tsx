@@ -41,8 +41,17 @@ interface RowEntry {
   isStranger: boolean;
   /** Only teammates carry live presence; undefined omits the dot entirely. */
   isOnline?: boolean;
+  /** Only Recent rows: the roster and search hits aren't ours to delete. */
+  canForget?: boolean;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
+
+/**
+ * Row controls stay out of the way until the row is aimed at. Coarse pointers
+ * have no hover to reveal them with, so there they're simply always visible.
+ */
+const REVEAL =
+  "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
 
 function ErrorBanner({ children }: { children: React.ReactNode }) {
   return (
@@ -67,6 +76,7 @@ function PersonRow({
   capBlocked,
   onInvite,
   onUninvite,
+  onForget,
   t,
 }: {
   entry: RowEntry;
@@ -77,15 +87,18 @@ function PersonRow({
   onInvite: () => void;
   /** Offered only on a standing invite: the seat it holds is the one A6 exists to free. */
   onUninvite?: () => void;
+  /** Drops the person from Recent. Absent on rows that aren't ours to delete. */
+  onForget?: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const { target, isStranger, isOnline, onContextMenu } = entry;
+  const actionable = !hasAccess && !inFlight && !invited && !capBlocked;
   return (
-    <div className="flex items-center gap-1">
+    <div className={`group flex items-center gap-1 rounded-md transition-colors ${actionable ? "hover:bg-(--t-bg-elevated)" : ""}`}>
       <button
-        className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 rounded-md text-left disabled:cursor-default transition-colors"
+        className={`flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors focus-visible:outline-1 focus-visible:outline-(--t-accent) ${actionable ? "cursor-pointer" : "cursor-default"}`}
         style={{ color: "var(--t-text-primary)", background: "transparent" }}
-        disabled={hasAccess || inFlight || invited || capBlocked}
+        disabled={!actionable}
         onClick={onInvite}
         onContextMenu={onContextMenu}
       >
@@ -120,16 +133,32 @@ function PersonRow({
           <span className="text-[10px] shrink-0" style={{ color: "var(--t-text-dim)" }}>
             {t("terminal.share.inviteCapReached")}
           </span>
-        ) : null}
+        ) : (
+          // Names the action rather than only hinting the row is live: an
+          // untouched row is otherwise indistinguishable from static text.
+          <Icon icon="lucide:user-plus" width={12} className={`shrink-0 ${REVEAL}`} style={{ color: "var(--t-text-dim)" }} />
+        )}
       </button>
       {invited && onUninvite && (
         <button
-          className="text-[10px] px-1.5 py-1 rounded-md shrink-0 transition-colors"
+          className="text-[10px] px-1.5 py-1 rounded-md shrink-0 transition-colors cursor-pointer"
           style={{ color: "var(--t-text-dim)" }}
           title={t("terminal.share.withdrawInvite")}
           onClick={onUninvite}
         >
           {t("terminal.share.withdrawInvite")}
+        </button>
+      )}
+      {onForget && (
+        <button
+          // Colour lives in classes, not `style`: an inline colour outranks the
+          // hover variant and the red-on-hover never lands.
+          className={`p-1 mr-1 rounded-md shrink-0 cursor-pointer text-(--t-text-dim) hover:text-(--t-status-error) ${REVEAL}`}
+          title={t("terminal.share.forgetPerson")}
+          aria-label={t("terminal.share.forgetPerson")}
+          onClick={onForget}
+        >
+          <Icon icon="lucide:x" width={12} />
         </button>
       )}
     </div>
@@ -221,6 +250,7 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
       },
       teamIds: teammate?.teamIds ?? [],
       isStranger: false,
+      canForget: true,
       onContextMenu: (e: React.MouseEvent) => {
         e.preventDefault();
         setMenu({ userId: p.user_id, pos: { x: e.clientX, y: e.clientY } });
@@ -262,6 +292,7 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
         capBlocked={capBlocked}
         onInvite={() => handleInvite(entry.target)}
         onUninvite={onUninvite ? () => handleUninvite(entry.target.user_id) : undefined}
+        onForget={entry.canForget ? () => forget(entry.target.user_id) : undefined}
         t={t}
       />
     );
