@@ -270,6 +270,20 @@ pub const MAX_EXEC_COMMAND_LEN: usize = 8192;
 
 const TMUX_SOCKET: &str = "voltius";
 
+/// Shown once, inside the new window, when a session lands on a GNU screen
+/// older than 5.0. Those parse `ESC[38;2;r;g;b` and emit nothing, so TrueColor
+/// TUIs (btop) draw solid blocks instead of shaded braille (#118) — there is no
+/// termcap/terminfo setting that recovers it. screen 5.0 added a `truecolor`
+/// command (off by default) which does pass RGB through; the rc below enables
+/// it, so 5.x reaches this notice only when mktemp gave us no rc to write.
+const SCREEN_DEGRADED_NOTICE: &str = "[voltius] tmux not found - using GNU screen without TrueColor. TUIs like btop may render as solid blocks. Install tmux or GNU screen 5.0+, or turn off persistent sessions for this host to connect without a multiplexer.";
+
+/// Notice printed on the raw pty: CR before each LF because the terminal is
+/// still in raw mode at this point, so a bare LF would stair-step.
+fn notice_printf(message: &str) -> String {
+    format!("printf '\\r\\n{message}\\r\\n'")
+}
+
 /// tmux/screen session name for a session id, sanitized to `[A-Za-z0-9_-]`.
 /// Stable across reconnect so the multiplexer re-attaches the live session.
 pub fn tmux_session_key(session_id: &str) -> String {
@@ -302,6 +316,12 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// has no name-collision protection — concurrent connects can create duplicates,
 /// and once two exist `-D -R` refuses to attach ("several suitable screens"),
 /// which closes the channel and feeds the reconnect loop into spawning more.
+///
+/// It then version-gates `truecolor on`, which only screen 5.0+ understands:
+/// older screens print `unknown command 'truecolor'` and get
+/// `SCREEN_DEGRADED_NOTICE` instead. `persistent_attach_command` needs no such
+/// gate — `screen -x` joins the running server, which keeps the setting this rc
+/// gave it at create time.
 ///
 /// Create path only: session keys derive from fresh UUIDs, so `-A`/`-D -R`
 /// never meet a session another device is attached to. Re-attach and
@@ -354,17 +374,26 @@ vbell off
 defscrollback 50000
 termcapinfo xterm* ti@:te@:ve=\E[?25h
 EOF
+    case "$(screen --version 2>/dev/null)" in
+      *"Screen version "[5-9]*|*"Screen version "[1-9][0-9]*)
+        echo truecolor on >> "$SCREEN_RC" ;;
+      *) V="{screen_notice}; $V" ;;
+    esac
     exec screen -c "$SCREEN_RC" -S {key} -D -R sh -c "$V" <&2
   fi
+  V="{screen_notice}; $V"
   exec screen -S {key} -D -R sh -c "$V" <&2
 else
-  printf '\r\n[voltius] tmux/screen not found - session will not survive disconnects\r\n'
+  {no_mux_notice}
   exec sh -c "$V" <&2
 fi
 "#,
         socket = TMUX_SOCKET,
         key = session_key,
         inner = inner,
+        screen_notice = notice_printf(SCREEN_DEGRADED_NOTICE),
+        no_mux_notice =
+            notice_printf("[voltius] tmux/screen not found - session will not survive disconnects"),
     );
     encode_wrapper(&script)
 }
@@ -657,6 +686,17 @@ mod tests {
         assert!(script.contains("command -v screen"));
         assert!(script.contains("screen -S voltius_s1"));
         assert!(script.contains("screen -c"));
+        // #118: screen 5.0+ passes RGB through once `truecolor` is on; older
+        // screens drop `ESC[38;2;r;g;b` entirely and get the warning instead.
+        // It is prepended to $V so it prints inside the window — screen's
+        // startup clear would wipe anything written before the exec.
+        assert!(script.contains(r#"echo truecolor on >> "$SCREEN_RC""#));
+        assert!(script.contains(r#"*"Screen version "[5-9]*"#));
+        assert!(script.contains(&format!(
+            r#"V="{}; $V""#,
+            notice_printf(SCREEN_DEGRADED_NOTICE)
+        )));
+        assert!(script.contains("without TrueColor"));
         // Self-heal: wipe dead entries and collapse same-named duplicates so
         // -D -R can't fail into the "several suitable screens" reconnect loop.
         assert!(script.contains("screen -wipe"));
