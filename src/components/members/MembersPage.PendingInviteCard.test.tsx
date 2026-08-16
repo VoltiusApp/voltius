@@ -21,7 +21,7 @@ import { PendingInviteCard } from "./MembersPage";
 
 const inv = {
   id: "inv1",
-  display_name: "Jane Doe",
+  display_name: "jade-heron-7715",
   role: "member",
   invited_by_display_name: null,
   created_at: "2024-01-01",
@@ -41,9 +41,9 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-test("renders display_name and role", () => {
+test("renders the invitee handle and role", () => {
   render(<PendingInviteCard {...props} />);
-  expect(screen.getByText("Jane Doe")).toBeTruthy();
+  expect(screen.getByText("jade-heron-7715")).toBeTruthy();
   expect(screen.getByText("member")).toBeTruthy();
 });
 

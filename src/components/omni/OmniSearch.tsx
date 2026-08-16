@@ -29,7 +29,6 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
-import { getCurrentUserEmail } from "@/services/account";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { useToggleSettings } from "@/hooks/useToggleSettings";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
@@ -479,10 +478,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           }
         } else {
           (async () => {
-            const displayName = (await getCurrentUserEmail()) ?? "Me";
             await joinTeamSessionAndOpenTab({
               sessionId: session.id,
-              displayName,
               connectionName: sessionDisplayName(session),
             });
             setSidebarOpen(false);
@@ -501,10 +498,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         if (parsed) {
           const { sessionId, token } = parsed;
           (async () => {
-            const displayName = (await getCurrentUserEmail()) ?? "Me";
             await joinTeamSessionAndOpenTab({
               sessionId,
-              displayName,
               connectionName: "Shared Terminal",
               inviteToken: token,
             });

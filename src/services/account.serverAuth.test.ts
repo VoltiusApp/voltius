@@ -40,8 +40,7 @@ import {
   changeMasterPassword,
   changeEmail,
   refreshSession,
-  updateDisplayName,
-  fetchAndCacheDisplayName,
+  getMe,
   resendVerificationEmail,
 } from "./account";
 
@@ -285,39 +284,18 @@ test("refreshSession stores the new jwt and reloads subscription", async () => {
   expect(h.load).toHaveBeenCalled();
 });
 
-// ─── updateDisplayName ───────────────────────────────────────────────────────
+// ─── getMe ───────────────────────────────────────────────────────────────────
 
-test("updateDisplayName requires a connected server session", async () => {
-  await expect(updateDisplayName("Ada")).rejects.toThrow("common.error.notConnectedToServer");
-});
-
-test("updateDisplayName maps 422 to displayNameLength", async () => {
+test("getMe caches the handle and no display name", async () => {
   h.store.jwt = "JWT";
   h.store.server_url = S;
-  h.http["/auth/display-name"] = err(422);
-  await expect(updateDisplayName("")).rejects.toThrow("common.error.displayNameLength");
-});
-
-test("updateDisplayName caches the new name on success", async () => {
-  h.store.jwt = "JWT";
-  h.store.server_url = S;
-  h.http["/auth/display-name"] = ok();
-  await updateDisplayName("Ada");
-  expect(h.store.display_name).toBe("Ada");
-});
-
-// ─── fetchAndCacheDisplayName ────────────────────────────────────────────────
-
-test("fetchAndCacheDisplayName returns null when not connected", async () => {
-  expect(await fetchAndCacheDisplayName()).toBeNull();
-});
-
-test("fetchAndCacheDisplayName caches and returns the fetched name", async () => {
-  h.store.jwt = "JWT";
-  h.store.server_url = S;
-  h.http["/auth/me"] = ok({ display_name: "Ada" });
-  expect(await fetchAndCacheDisplayName()).toBe("Ada");
-  expect(h.store.display_name).toBe("Ada");
+  // An old/misbehaving server sending the retired alias must still be ignored.
+  h.http["/auth/me"] = ok({ handle: "merry-quartz-2597", display_name: "Ada", tier: "free" });
+  const me = await getMe();
+  expect(me?.handle).toBe("merry-quartz-2597");
+  expect(h.store.handle).toBe("merry-quartz-2597");
+  // There is no display_name to cache: the field is gone from the client.
+  expect(h.store.display_name).toBeUndefined();
 });
 
 // ─── resendVerificationEmail ─────────────────────────────────────────────────

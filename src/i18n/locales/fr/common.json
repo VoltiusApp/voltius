@@ -84,8 +84,6 @@
       "accountNotFound": "Compte introuvable",
       "noAccountFoundCreateOne": "Aucun compte trouvé. Veuillez d'abord en créer un.",
       "serverLoginFailed": "Échec de la connexion au serveur",
-      "displayNameLength": "Le nom affiché doit contenir entre 1 et 50 caractères",
-      "updateDisplayNameFailed": "Échec de la mise à jour du nom affiché : {{status}}",
       "sessionRefreshFailed": "Échec du renouvellement de la session",
       "resendVerificationFailed": "Impossible de renvoyer l'e-mail de vérification",
       "noAccountFound": "Aucun compte trouvé",

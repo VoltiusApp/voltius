@@ -132,12 +132,6 @@
         "save": "保存",
         "toastVerification": "验证邮件已发送到 {{email}}。"
       },
-      "displayName": {
-        "title": "显示名称",
-        "cannotBeEmpty": "不能为空",
-        "saving": "正在保存…",
-        "save": "保存"
-      },
       "handle": {
         "title": "Handle",
         "copy": "复制",

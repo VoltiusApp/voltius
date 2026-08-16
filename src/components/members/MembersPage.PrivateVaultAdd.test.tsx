@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-libra
 
 const h = vi.hoisted(() => ({
   getMyUserId: vi.fn(),
-  getMyEmail: vi.fn(),
+  getMyHandle: vi.fn(),
   searchUsers: vi.fn(),
   loadTeams: vi.fn(),
   loadMembers: vi.fn(),
@@ -57,10 +57,10 @@ vi.mock("@/hooks/usePermission", () => ({
 vi.mock("@/services/teamService", () => ({
   searchUsers: h.searchUsers,
   getMyUserId: h.getMyUserId,
-  getMyEmail: h.getMyEmail,
   inviteByEmail: vi.fn(),
   revokePendingInvitation: vi.fn(),
 }));
+vi.mock("@/services/account", () => ({ getMyHandle: h.getMyHandle }));
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
@@ -152,12 +152,12 @@ vi.mock("@/stores/historyStore", () => ({
 
 import MembersPage from "./MembersPage";
 
-const foundUser = { user_id: "u1", display_name: "Zoe", public_key: "pk1" };
+const foundUser = { user_id: "u1", handle: "zesty-otter-1180", public_key: "pk1" };
 
 beforeEach(() => {
   Object.values(h).forEach((v) => { if (typeof v === "function" && "mockReset" in v) (v as ReturnType<typeof vi.fn>).mockReset(); });
   h.getMyUserId.mockResolvedValue("me");
-  h.getMyEmail.mockResolvedValue("me@x.com");
+  h.getMyHandle.mockResolvedValue("merry-quartz-2597");
   h.loadTeams.mockResolvedValue(undefined);
   h.createTeam.mockResolvedValue({ id: "newteam", name: "V" });
   h.addMemberById.mockResolvedValue(undefined);
@@ -177,7 +177,7 @@ afterEach(() => {
 /** Renders the page (private-vault branch) and opens the invite panel. */
 async function renderAndOpenInvite() {
   render(<MembersPage />);
-  // flush getMyUserId/getMyEmail/loadTeams so canPrivateInvite becomes true
+  // flush getMyUserId/getMe/loadTeams so canPrivateInvite becomes true
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   fireEvent.click(screen.getByRole("button", { name: /members.toolbar.inviteBtn/ }));
 }
@@ -212,7 +212,7 @@ test("handlePrivateAdd: ordered createTeam -> setVaultTeamId -> initTeamVaultKey
   await act(async () => { await vi.advanceTimersByTimeAsync(250); });
   vi.useRealTimers();
 
-  fireEvent.click(screen.getByText("Zoe"));
+  fireEvent.click(screen.getByText("zesty-otter-1180"));
 
   await waitFor(() => expect(h.assignMemberRole).toHaveBeenCalled());
 
@@ -242,7 +242,7 @@ test("handlePrivateAdd: role not found in reloaded roles -> assignMemberRole NOT
   await act(async () => { await vi.advanceTimersByTimeAsync(250); });
   vi.useRealTimers();
 
-  fireEvent.click(screen.getByText("Zoe"));
+  fireEvent.click(screen.getByText("zesty-otter-1180"));
 
   await waitFor(() => expect(h.addMemberById).toHaveBeenCalledWith("newteam", "u1"));
   await waitFor(() => expect(h.loadRoles).toHaveBeenCalled());
@@ -258,7 +258,7 @@ test("handlePrivateAdd: createTeam rejects -> error shown, addMemberById never c
   await act(async () => { await vi.advanceTimersByTimeAsync(250); });
   vi.useRealTimers();
 
-  fireEvent.click(screen.getByText("Zoe"));
+  fireEvent.click(screen.getByText("zesty-otter-1180"));
 
   expect(await screen.findByText("boom")).toBeTruthy();
   expect(h.addMemberById).not.toHaveBeenCalled();

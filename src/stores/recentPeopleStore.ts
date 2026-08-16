@@ -11,12 +11,11 @@ export const MAX_RECENT = 20;
 export interface RecentPerson {
   user_id: string;
   handle: string;
-  display_name: string;
   last_invited_at: string;
 }
 
 /**
- * Keeps exactly the four fields a Recent row is allowed to hold. Every write
+ * Keeps exactly the three fields a Recent row is allowed to hold. Every write
  * path goes through this: `replaceAll` takes foreign data (the sync blob, the
  * import UI), so enforcing the no-`public_key` invariant only on `remember`
  * would leave it enforced on the path that never sees untrusted input.
@@ -25,7 +24,6 @@ function project(person: RecentPerson): RecentPerson {
   return {
     user_id: person.user_id,
     handle: person.handle,
-    display_name: person.display_name,
     last_invited_at: person.last_invited_at,
   };
 }
@@ -69,9 +67,25 @@ export const useRecentPeopleStore = create<RecentPeopleStore>()(
         set(() => {
           const recentUpdatedAt = settingsStamp();
           pushSettingsChange();
-          return { recent: Array.isArray(list) ? list.slice(0, MAX_RECENT).map(project) : [], recentUpdatedAt };
+          return { recent: Array.isArray(list) ? list.filter((p) => p.handle).slice(0, MAX_RECENT).map(project) : [], recentUpdatedAt };
         }),
     }),
-    { name: "voltius-recent-people" },
+    {
+      name: "voltius-recent-people",
+      // Bumped from the unversioned (pre-0.26) shape: those rows can carry
+      // `handle: ""` (written before handles existed), and `project()` never
+      // runs on rehydration. `migrate` runs synchronously inside `create()`,
+      // before this module's own top-level bindings exist — unlike
+      // `onRehydrateStorage`, which closes over `useRecentPeopleStore` and so
+      // silently no-ops at real app startup (ReferenceError, swallowed).
+      version: 1,
+      migrate: (persistedState) => {
+        const state = persistedState as { recent?: RecentPerson[]; recentUpdatedAt?: string } | undefined;
+        return {
+          recent: (state?.recent ?? []).filter((p) => p.handle),
+          recentUpdatedAt: state?.recentUpdatedAt ?? new Date(0).toISOString(),
+        };
+      },
+    },
   ),
 );

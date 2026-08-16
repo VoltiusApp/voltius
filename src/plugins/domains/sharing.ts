@@ -79,7 +79,7 @@ export async function listSharedSessions(ports: SharingPorts): Promise<PluginSha
       isHost: s.host_user_id === me,
       participants: (live?.participants ?? s.participants ?? []).map((p: Participant) => ({
         userId: p.user_id,
-        displayName: p.display_name,
+        displayName: p.handle,
       })),
       controlHolder: live?.controlHolder ?? s.host_user_id,
       controlRequester: live?.controlRequester ?? null,

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
-import { getAccountMode, getMe, lockVaultSession, logout } from "@/services/account";
+import { getAccountMode, getMyHandle, lockVaultSession, logout } from "@/services/account";
 import { getSavedAccounts, saveCurrentAccount, switchToAccount, removeSavedAccount, type SavedAccount } from "@/services/savedAccounts";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
@@ -28,21 +28,15 @@ export function SidebarAccountButton() {
 
   const refreshAccountInfo = async () => {
     const { invoke: inv } = await import("@tauri-apps/api/core");
-    const [mode, email, accountId, handle] = await Promise.all([
+    const [mode, email, accountId] = await Promise.all([
       getAccountMode().catch(() => null),
       inv<string | null>("keychain_get", { key: "email" }).catch(() => null),
       inv<string | null>("keychain_get", { key: "account_id" }).catch(() => null),
-      // Cached by getMe(); an account that signed in before handles existed has
-      // none yet, so fall back to the server rather than hiding the row forever.
-      inv<string | null>("keychain_get", { key: "handle" }).catch(() => null),
     ]);
     setAccountMode(mode);
     setAccountEmail(email);
     setCurrentAccountId(accountId);
-    setAccountHandle(handle);
-    if (!handle && mode === "server") {
-      getMe().then((me) => setAccountHandle(me?.handle ?? null)).catch(() => {});
-    }
+    void getMyHandle().then((handle) => setAccountHandle(handle || null)).catch(() => {});
   };
 
   useEffect(() => { refreshAccountInfo(); }, []);

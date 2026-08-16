@@ -23,7 +23,6 @@ const h = vi.hoisted(() => {
     accept: vi.fn(async () => {}),
     decline: vi.fn(async () => {}),
     declineSessionInvite: vi.fn(async () => {}),
-    getCurrentUserEmail: vi.fn(async () => "me@x" as string | null),
     isMobileShell: vi.fn(() => false),
     sessionState,
     useSessionStore,
@@ -44,7 +43,6 @@ vi.mock("@/services/teamService", () => ({
   declineSessionInvite: h.declineSessionInvite,
   getMyUserId: vi.fn(async () => "me"),
 }));
-vi.mock("@/services/account", () => ({ getCurrentUserEmail: () => h.getCurrentUserEmail() }));
 vi.mock("@/utils/platform", () => ({
   getPlatform: async () => "linux",
   isMobileShell: () => h.isMobileShell(),
@@ -75,7 +73,7 @@ function invite(id: string): MyPendingInvitation {
     id,
     team_id: `team-${id}`,
     team_name: "Acme",
-    inviter_display_name: "Alice",
+    inviter_display_name: "amber-lynx-4410",
     role: "member",
     created_at: "2026-08-13T00:00:00Z",
     expires_at: "2026-08-20T00:00:00Z",
@@ -86,7 +84,6 @@ beforeEach(() => {
   useNotificationStore.setState({ toasts: [], banners: [], history: [], inbox: [] });
   h.accept.mockClear();
   h.decline.mockClear();
-  h.getCurrentUserEmail.mockClear().mockResolvedValue("me@x");
   h.isMobileShell.mockClear().mockReturnValue(false);
   h.joinSession.mockClear().mockResolvedValue("local-99");
   h.grantControl.mockClear();
@@ -251,7 +248,7 @@ test("falls back to a generic inviter name when the inviter is not in participan
 
 test("uses the inviter's display name from participants when available", () => {
   reconcileSessions(
-    [session({ id: "s1", invited_by: "alice", participants: [{ user_id: "alice", display_name: "Alice" }] })],
+    [session({ id: "s1", invited_by: "alice", participants: [{ user_id: "alice", handle: "Alice" }] })],
     new Set(),
     "me",
   );
@@ -275,8 +272,8 @@ test("a redacted invite renders as a knock from the inviter alone", () => {
   ]);
 });
 
-// The handle is server-owned; a participant display_name arrives in the sender's
-// own WebSocket query string, so honouring it here is an impersonation vector.
+// invited_by_handle is resolved server-side from users.handle; a participant's
+// own handle (also server-resolved) must never override it for a knock.
 test("a knock renders the server handle and never a participant display name", () => {
   reconcileSessions(
     [
@@ -284,7 +281,7 @@ test("a knock renders the server handle and never a participant display name", (
         connection_name: null,
         invited_by: "u-stranger",
         invited_by_handle: "kevin-p",
-        participants: [{ user_id: "u-stranger", display_name: "Voltius Support" }],
+        participants: [{ user_id: "u-stranger", handle: "Voltius Support" }],
       }),
     ],
     new Set(),
@@ -301,7 +298,7 @@ test("a knock with no handle falls back to Someone, not to the supplied name", (
       session({
         connection_name: null,
         invited_by: "u-stranger",
-        participants: [{ user_id: "u-stranger", display_name: "Voltius Support" }],
+        participants: [{ user_id: "u-stranger", handle: "Voltius Support" }],
       }),
     ],
     new Set(),
@@ -398,7 +395,7 @@ test("running the inbox Join action opens a session tab, not just a websocket", 
   reconcileSessions([session({ id: "s1" })], new Set(), "me");
   await get().runInboxAction("session:s1", 0);
 
-  expect(h.joinSession).toHaveBeenCalledWith("s1", "me@x", expect.any(Function), undefined);
+  expect(h.joinSession).toHaveBeenCalledWith("s1", expect.any(Function), undefined);
   // The bug this regression test guards against: joining without ever adding
   // a sessionStore tab left MultiplayerBar (keyed off that tab id) with
   // nothing to render.
@@ -419,7 +416,7 @@ function conn(over: Record<string, unknown> = {}) {
     multiplayerSessionId: "mp1",
     role: "host",
     myUserId: "me",
-    participants: [{ user_id: "guest1", display_name: "Bob" }],
+    participants: [{ user_id: "guest1", handle: "brisk-otter-8823" }],
     controlHolder: "me",
     controlRequester: null,
     connection: {},

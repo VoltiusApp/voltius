@@ -8,7 +8,6 @@ import type { MultiplayerSessionState } from "@/stores/teamSessionStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
-import { getCurrentUserEmail } from "@/services/account";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { getPlatform, isMobileShell } from "@/utils/platform";
 import { declineSessionInvite, getMyUserId } from "@/services/teamService";
@@ -109,10 +108,8 @@ async function revealJoinedSessionName(sessionId: string, localSessionId: string
 }
 
 async function joinSharedSession(session: ActiveSession): Promise<void> {
-  const displayName = (await getCurrentUserEmail()) ?? i18n.t("hosts.teamSessions.meFallback");
   const localSessionId = await joinTeamSessionAndOpenTab({
     sessionId: session.id,
-    displayName,
     connectionName: sessionDisplayName(session),
   });
 
@@ -152,18 +149,19 @@ export function reconcileSessions(
       // identity alone and never from sessionDisplayName.
       const invited = !!s.invited_by && s.invited_by !== myUserId;
       const knock = invited && s.connection_name === null;
-      // A knock renders the server-resolved handle and nothing else. Participant
-      // display names arrive in the sender's own WebSocket query string, so
+      // A knock renders the server-resolved handle and nothing else. A
+      // participant's handle names that participant, not the inviter, so
       // falling back to one here would let a stranger knock as "Voltius Support"
       // — the exact impersonation the reserved-handle list exists to refuse.
-      // Absent (an older server, or a race before the inviter is resolvable) it
-      // degrades to "Someone", never to a name the sender chose.
+      // Only invited_by_handle is authoritative for who is knocking; absent
+      // (an older server, or a race before the inviter resolves) it degrades
+      // to "Someone", never to a name the sender chose.
       const inviter = knock
         ? s.invited_by_handle
           ? `@${s.invited_by_handle}`
           : i18n.t("notifications.inbox.someone")
         : invited
-          ? (s.participants?.find((p) => p.user_id === s.invited_by)?.display_name ??
+          ? (s.participants?.find((p) => p.user_id === s.invited_by)?.handle ??
               i18n.t("notifications.inbox.someone"))
           : "";
       const kind: InboxKind = knock ? "sessionKnock" : invited ? "sessionInvite" : "sessionShared";
@@ -229,7 +227,7 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
       const requesterId = c.controlRequester as string;
       const id = `control:${localSessionId}:${requesterId}`;
       const requester =
-        c.participants.find((p) => p.user_id === requesterId)?.display_name ??
+        c.participants.find((p) => p.user_id === requesterId)?.handle ??
         i18n.t("notifications.inbox.someone");
       return {
         id,

@@ -4,7 +4,6 @@ import { Icon } from "@iconify/react";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore as useMpStore } from "@/stores/teamSessionStore";
-import { getCurrentUserEmail } from "@/services/account";
 import { getMyUserId } from "@/services/teamService";
 import { useUIStore } from "@/stores/uiStore";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
@@ -82,10 +81,8 @@ export function TeamSessions() {
   );
 
   const doJoinSession = async (sessionId: string, inviteToken?: string) => {
-    const displayName = (await getCurrentUserEmail()) ?? t("hosts.teamSessions.meFallback");
     await joinTeamSessionAndOpenTab({
       sessionId,
-      displayName,
       // Session not found (not yet loaded) collapses to the same redacted state as a null name.
       connectionName: sessionDisplayName({
         connection_name: activeSessions.find((a) => a.id === sessionId)?.connection_name ?? null,
@@ -239,7 +236,7 @@ export function TeamSessions() {
             ? useMpStore.getState().connections[liveLocalId]?.participants
             : undefined;
           const participants = (liveParticipants ?? session.participants)?.map((p) => ({
-            name: p.display_name,
+            name: p.handle,
           }));
 
           return (

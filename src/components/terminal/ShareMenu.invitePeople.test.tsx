@@ -22,7 +22,12 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
-const roster = [{ user_id: "alice", team_id: "t1", display_name: "Alice", is_online: true, teamIds: ["t1"] }];
+// Handle-shaped, not a human name: PeopleTab renders the handle now, and a
+// fixture named "Alice" would hide exactly the truncation/initials problems
+// a real handle exposes.
+const ALICE_HANDLE = "merry-quartz-2597";
+const CAROL_HANDLE = "swift-otter-4821";
+const roster = [{ user_id: "alice", team_id: "t1", handle: ALICE_HANDLE, is_online: true, teamIds: ["t1"] }];
 
 const h = vi.hoisted(() => ({ allTeammates: vi.fn(), uninviteFromSession: vi.fn() }));
 vi.mock("@/services/teamSharing", async () => {
@@ -48,6 +53,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { type MpState } from "./ShareMenu.testHarness";
 import { ShareMenu } from "./ShareMenu";
+import { useRecentPeopleStore } from "@/stores/recentPeopleStore";
 
 const teamState = useTeamStore.getState();
 const mpState = useTeamSessionStore.getState() as unknown as MpState;
@@ -66,6 +72,9 @@ beforeEach(() => {
   h.allTeammates.mockReset().mockResolvedValue(roster);
   h.uninviteFromSession.mockReset().mockResolvedValue(undefined);
   mpState.fetchActiveSessions.mockReset().mockResolvedValue(undefined);
+  // Real, unmocked store: a successful invite in one test genuinely calls
+  // remember() and would otherwise bleed a stale Recent row into the next.
+  useRecentPeopleStore.setState({ recent: [], recentUpdatedAt: new Date(0).toISOString() });
 });
 afterEach(() => cleanup());
 
@@ -78,7 +87,7 @@ function hostConnection(extra: Record<string, unknown> = {}) {
   return {
     "local-1": {
       multiplayerSessionId: "mp-1", ended: false,
-      participants: [{ user_id: "me", display_name: "Me" }], myUserId: "me", controlHolder: "me",
+      participants: [{ user_id: "me", handle: "Me" }], myUserId: "me", controlHolder: "me",
       sessionKeyBytes: new Uint8Array([1]),
       ...extra,
     },
@@ -119,13 +128,13 @@ function ratioLines() {
 
 test("starts a direct session when a teammate is tapped on an unshared terminal", async () => {
   renderShareMenu({ sharing: false });
-  await userEvent.click(await screen.findByRole("button", { name: /alice/i }));
+  await userEvent.click(await screen.findByRole("button", { name: /merry/i }));
   expect(startSharingDirect).toHaveBeenCalledWith("local-1", "web-prod", [expect.objectContaining({ user_id: "alice" })]);
 });
 
 test("adds a teammate to the live session when already sharing", async () => {
   renderShareMenu({ sharing: true });
-  await userEvent.click(await screen.findByRole("button", { name: /alice/i }));
+  await userEvent.click(await screen.findByRole("button", { name: /merry/i }));
   expect(inviteToActiveSession).toHaveBeenCalledWith("local-1", expect.objectContaining({ user_id: "alice" }));
 });
 
@@ -135,7 +144,7 @@ test("a pending invitee renders as non-tappable Invited, not Has access", async 
   mpState.activeSessions = [{ id: "mp-1", invitee_ids: ["alice"] }];
   renderShareMenu({ sharing: true });
 
-  const row = await screen.findByRole("button", { name: /alice/i });
+  const row = await screen.findByRole("button", { name: /merry/i });
   expect((row as HTMLButtonElement).disabled).toBe(true);
   expect(row.textContent).toContain("terminal.share.inviteSent");
   expect(row.textContent).not.toContain("terminal.share.inviteHasAccess");
@@ -143,11 +152,11 @@ test("a pending invitee renders as non-tappable Invited, not Has access", async 
 
 test("a participant already in the session still renders Has access", async () => {
   mpState.connections = hostConnection({
-    participants: [{ user_id: "me", display_name: "Me" }, { user_id: "alice", display_name: "Alice" }],
+    participants: [{ user_id: "me", handle: "Me" }, { user_id: "alice", handle: ALICE_HANDLE }],
   });
   render(shareMenuElement());
 
-  const row = await screen.findByRole("button", { name: /alice/i });
+  const row = await screen.findByRole("button", { name: /merry/i });
   expect(row.textContent).toContain("terminal.share.inviteHasAccess");
 });
 
@@ -164,7 +173,7 @@ test("withdrawing a pending invite calls the server and refreshes the seat count
 
 test("a row that is neither invited nor joined offers no withdraw control", async () => {
   renderShareMenu({ sharing: true });
-  await screen.findByRole("button", { name: /alice/i });
+  await screen.findByRole("button", { name: /merry/i });
   expect(screen.queryByRole("button", { name: "terminal.share.withdrawInvite" })).toBeNull();
 });
 
@@ -179,7 +188,7 @@ test("the active view shows exactly one seats-vs-cap line, with and without a re
   // With the invite roster: the roster's own line already counts standing invites,
   // so a second line above it would contradict it (e.g. "0 / 1" over "1 / 1").
   renderShareMenu({ sharing: true });
-  await screen.findByRole("button", { name: /alice/i });
+  await screen.findByRole("button", { name: /merry/i });
   expect(ratioLines().length).toBe(1);
   cleanup();
 
@@ -196,7 +205,7 @@ test("setup view: a Pro host (cap 1) cannot tap a second teammate after the firs
   // Needs two teammates so there's a "remaining" row left to prove is now blocked.
   h.allTeammates.mockResolvedValue([
     ...roster,
-    { user_id: "carol", team_id: "t1", display_name: "Carol", is_online: true, teamIds: ["t1"] },
+    { user_id: "carol", team_id: "t1", handle: CAROL_HANDLE, is_online: true, teamIds: ["t1"] },
   ]);
   // The real startSharingDirect creates the session and writes `connections`, which
   // flips ShareMenu from the setup branch to ActiveSharingView — a *different*
@@ -208,24 +217,24 @@ test("setup view: a Pro host (cap 1) cannot tap a second teammate after the firs
     return "mp-1";
   });
   const { rerender } = renderShareMenu({ sharing: false });
-  const alice = await screen.findByRole("button", { name: /alice/i });
+  const alice = await screen.findByRole("button", { name: /merry/i });
   await userEvent.click(alice);
   // Stands in for zustand notifying subscribers of the `connections` write.
   rerender(shareMenuElement());
 
   expect(startSharingDirect).toHaveBeenCalledTimes(1);
   await screen.findByText("terminal.share.inviteSent");
-  const carol = (await screen.findByRole("button", { name: /carol/i })) as HTMLButtonElement;
+  const carol = (await screen.findByRole("button", { name: /swift/i })) as HTMLButtonElement;
   expect(carol.disabled).toBe(true);
   expect(screen.getByText("terminal.share.inviteCapReached")).toBeTruthy();
 });
 
 test("active view: a Pro host (cap 1) already at cap shows the remaining rows as non-tappable", async () => {
   mpState.connections = hostConnection({
-    participants: [{ user_id: "me", display_name: "Me" }, { user_id: "guest-1", display_name: "Guest" }],
+    participants: [{ user_id: "me", handle: "Me" }, { user_id: "guest-1", handle: "Guest" }],
   });
   render(shareMenuElement());
-  const alice = (await screen.findByRole("button", { name: /alice/i })) as HTMLButtonElement;
+  const alice = (await screen.findByRole("button", { name: /merry/i })) as HTMLButtonElement;
   expect(alice.disabled).toBe(true);
   expect(screen.getByText("terminal.share.inviteCapReached")).toBeTruthy();
 });

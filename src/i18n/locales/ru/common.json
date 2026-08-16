@@ -84,8 +84,6 @@
       "accountNotFound": "Учётная запись не найдена",
       "noAccountFoundCreateOne": "Учётная запись не найдена. Сначала создайте её.",
       "serverLoginFailed": "Не удалось войти на сервер",
-      "displayNameLength": "Отображаемое имя должно содержать от 1 до 50 символов",
-      "updateDisplayNameFailed": "Не удалось обновить отображаемое имя: {{status}}",
       "sessionRefreshFailed": "Не удалось обновить сессию",
       "resendVerificationFailed": "Не удалось повторно отправить письмо для подтверждения",
       "noAccountFound": "Учётная запись не найдена",

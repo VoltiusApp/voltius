@@ -84,8 +84,6 @@
       "accountNotFound": "Account not found",
       "noAccountFoundCreateOne": "No account found. Please create one first.",
       "serverLoginFailed": "Server login failed",
-      "displayNameLength": "Display name must be 1–50 characters",
-      "updateDisplayNameFailed": "Failed to update display name: {{status}}",
       "sessionRefreshFailed": "Session refresh failed",
       "resendVerificationFailed": "Could not resend verification email",
       "noAccountFound": "No account found",

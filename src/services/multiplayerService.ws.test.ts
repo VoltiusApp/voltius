@@ -43,35 +43,63 @@ beforeEach(() => {
   MockWS.last = undefined as unknown as MockWS;
 });
 
-test("openWebSocket rewrites https->wss and appends invite_token", async () => {
-  openWebSocket("https://s", "sid", "jwt", "Dana", await key(), noopCallbacks(), "tok");
-  expect(MockWS.last.url).toMatch(/^wss:\/\/s\/v1\/terminal-sessions\/sid\/ws\?/);
-  expect(MockWS.last.url).toContain("invite_token=tok");
-  expect(MockWS.last.url).toContain("display_name=Dana");
+// This test exists to stop the email leak being reintroduced. The WebSocket
+// used to carry a client-supplied display_name that every call site filled
+// with the user's own email address, so a stranger admitted by knock learned
+// everyone's real address. The name is resolved server-side now; this proves
+// openWebSocket itself sends no identity parameter on the URL or in any sent
+// frame (below). The two call sites that used to feed it an identity string —
+// teamSessionStore's attachAsHost and joinSession — are covered by dedicated
+// "no identity string reaches openWebSocket" tests in teamSessionStore.test.ts,
+// which assert the full argument list, not just the call-site's own signature.
+test("openWebSocket's URL carries only the token, no display_name or any other parameter", async () => {
+  openWebSocket("https://s", "sid", "jwt", await key(), noopCallbacks());
+  expect(MockWS.last.url).toBe("wss://s/v1/terminal-sessions/sid/ws?token=jwt");
 });
 
-test("onmessage dispatches control/participant events to callbacks", async () => {
+test("openWebSocket rewrites https->wss and appends invite_token", async () => {
+  openWebSocket("https://s", "sid", "jwt", await key(), noopCallbacks(), "tok");
+  expect(MockWS.last.url).toMatch(/^wss:\/\/s\/v1\/terminal-sessions\/sid\/ws\?/);
+  expect(MockWS.last.url).toContain("invite_token=tok");
+});
+
+test("sent frames never carry an identity string", async () => {
+  const conn = openWebSocket("https://s", "sid", "jwt", await key(), noopCallbacks());
+  await conn.sendOutput(new Uint8Array([1]));
+  await conn.sendInput(new Uint8Array([2]));
+  conn.requestControl();
+  conn.grantControl("u9");
+  conn.revokeControl();
+
+  expect(MockWS.last.sent.length).toBeGreaterThan(0);
+  for (const frame of MockWS.last.sent) {
+    expect(frame).not.toContain("display_name");
+    expect(frame).not.toContain("@"); // no raw or encoded email in any frame
+  }
+});
+
+test("a participant is named by the handle the server resolved", async () => {
   const cb = noopCallbacks();
-  openWebSocket("https://s", "sid", "jwt", "Dana", await key(), cb);
+  openWebSocket("https://s", "sid", "jwt", await key(), cb);
   const fire = (msg: unknown) => MockWS.last.onmessage!({ data: JSON.stringify(msg) });
 
   fire({ type: "control_update", holder: "u1", requester: "u2" });
-  fire({ type: "participant_joined", user_id: "u3", display_name: "Eve" });
+  fire({ type: "participant_joined", user_id: "u3", handle: "merry-quartz-2597" });
   fire({ type: "participant_left", user_id: "u3" });
-  fire({ type: "participant_list", participants: [{ user_id: "u1", display_name: "A" }] });
+  fire({ type: "participant_list", participants: [{ user_id: "u1", handle: "A" }] });
   fire({ type: "session_ended" });
 
   expect(cb.onControlUpdate).toHaveBeenCalledWith("u1", "u2");
-  expect(cb.onParticipantJoined).toHaveBeenCalledWith({ user_id: "u3", display_name: "Eve" });
+  expect(cb.onParticipantJoined).toHaveBeenCalledWith({ user_id: "u3", handle: "merry-quartz-2597" });
   expect(cb.onParticipantLeft).toHaveBeenCalledWith("u3");
-  expect(cb.onParticipantList).toHaveBeenCalledWith([{ user_id: "u1", display_name: "A" }]);
+  expect(cb.onParticipantList).toHaveBeenCalledWith([{ user_id: "u1", handle: "A" }]);
   expect(cb.onSessionEnded).toHaveBeenCalledTimes(1);
 });
 
 test("output messages are decrypted before reaching onOutput", async () => {
   const cb = noopCallbacks();
   const k = await key();
-  openWebSocket("https://s", "sid", "jwt", "Dana", k, cb);
+  openWebSocket("https://s", "sid", "jwt", k, cb);
   const payload = new TextEncoder().encode("terminal bytes");
   const encrypted = await encryptData(k, payload);
   await MockWS.last.onmessage!({ data: JSON.stringify({ type: "output", data: encrypted }) });
@@ -82,13 +110,13 @@ test("output messages are decrypted before reaching onOutput", async () => {
 
 test("malformed message JSON is swallowed", async () => {
   const cb = noopCallbacks();
-  openWebSocket("https://s", "sid", "jwt", "Dana", await key(), cb);
+  openWebSocket("https://s", "sid", "jwt", await key(), cb);
   await MockWS.last.onmessage!({ data: "not-json{" });
   expect(cb.onOutput).not.toHaveBeenCalled();
 });
 
 test("sendOutput encrypts, send is suppressed when socket not open", async () => {
-  const conn = openWebSocket("https://s", "sid", "jwt", "Dana", await key(), noopCallbacks());
+  const conn = openWebSocket("https://s", "sid", "jwt", await key(), noopCallbacks());
   await conn.sendOutput(new Uint8Array([1, 2, 3]));
   expect(MockWS.last.sent).toHaveLength(1);
   expect(JSON.parse(MockWS.last.sent[0]).type).toBe("output");
@@ -100,7 +128,7 @@ test("sendOutput encrypts, send is suppressed when socket not open", async () =>
 
 test("initial snapshot is encrypted and sent on open", async () => {
   const k = await key();
-  openWebSocket("https://s", "sid", "jwt", "Dana", k, noopCallbacks(), undefined, new Uint8Array([5, 5]));
+  openWebSocket("https://s", "sid", "jwt", k, noopCallbacks(), undefined, new Uint8Array([5, 5]));
   await MockWS.last.onopen!();
   expect(MockWS.last.sent).toHaveLength(1);
   expect(JSON.parse(MockWS.last.sent[0]).type).toBe("output");

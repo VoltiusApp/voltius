@@ -43,7 +43,6 @@ vi.mock("@/services/account", async () => {
     getAccountMode: vi.fn(async () => "server"),
     getCurrentUserEmail: vi.fn(async () => "ada@example.com"),
     getMe: h.getMe,
-    updateDisplayName: vi.fn(async () => {}),
     setMasterPassword: vi.fn(async () => {}),
     logout: vi.fn(async () => {}),
     lockVaultSession: vi.fn(async () => {}),

@@ -484,7 +484,7 @@ function ActiveSharingView({
               title={p.user_id === activeMp.controlHolder ? t("terminal.share.hasControl") : undefined}
             >
               {p.user_id === activeMp.controlHolder && <Icon icon="lucide:pencil" width={9} />}
-              {p.display_name}
+              {p.handle}
             </div>
           ))}
         </div>

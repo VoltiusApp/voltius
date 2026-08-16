@@ -2,7 +2,7 @@ import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
 
 const h = vi.hoisted(() => ({
-  searchUsers: vi.fn(async () => [] as { user_id: string; display_name: string; public_key: string }[]),
+  searchUsers: vi.fn(async () => [] as { user_id: string; handle: string; public_key: string }[]),
   openBillingCheckout: vi.fn(async () => {}),
 }));
 
@@ -108,7 +108,7 @@ test("server + teams + user id: renders invite UI (owner row + invite search)", 
 
 test("search debounce: no search under 2 chars, one call at 250ms rendering results", async () => {
   vi.useFakeTimers();
-  h.searchUsers.mockResolvedValue([{ user_id: "u1", display_name: "Alice", public_key: "pk" }]);
+  h.searchUsers.mockResolvedValue([{ user_id: "u1", handle: "amber-lynx-4410", public_key: "pk" }]);
   render(<PrivateVaultMembersPanel {...baseProps} />);
   const input = screen.getByPlaceholderText("settings.vaults.members.searchByEmailPlaceholder");
 
@@ -120,7 +120,7 @@ test("search debounce: no search under 2 chars, one call at 250ms rendering resu
   await act(async () => { await vi.advanceTimersByTimeAsync(250); });
   expect(h.searchUsers).toHaveBeenCalledTimes(1);
   expect(h.searchUsers).toHaveBeenCalledWith("al");
-  expect(screen.getByText("Alice")).toBeTruthy();
+  expect(screen.getByText("amber-lynx-4410")).toBeTruthy();
 });
 
 test("handleAdd error: createTeam rejects → error surfaced, setVaultTeamId not reached", async () => {
@@ -130,14 +130,14 @@ test("handleAdd error: createTeam rejects → error surfaced, setVaultTeamId not
   useVaultStore.setState({ setVaultTeamId });
 
   vi.useFakeTimers();
-  h.searchUsers.mockResolvedValue([{ user_id: "u1", display_name: "Alice", public_key: "pk" }]);
+  h.searchUsers.mockResolvedValue([{ user_id: "u1", handle: "amber-lynx-4410", public_key: "pk" }]);
   render(<PrivateVaultMembersPanel {...baseProps} />);
   const input = screen.getByPlaceholderText("settings.vaults.members.searchByEmailPlaceholder");
   fireEvent.change(input, { target: { value: "al" } });
   await act(async () => { await vi.advanceTimersByTimeAsync(250); });
   vi.useRealTimers();
 
-  fireEvent.click(screen.getByText("Alice"));
+  fireEvent.click(screen.getByText("amber-lynx-4410"));
 
   expect(await screen.findByText("boom")).toBeTruthy();
   expect(createTeam).toHaveBeenCalledWith("My Vault");

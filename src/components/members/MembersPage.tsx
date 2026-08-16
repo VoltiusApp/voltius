@@ -13,11 +13,11 @@ import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
 import { UserSearchField } from "@/components/shared/UserSearchField";
 import {
   getMyUserId,
-  getMyEmail,
   inviteByEmail,
   revokePendingInvitation,
 } from "@/services/teamService";
 import type { PendingInvitation } from "@/stores/teamStore";
+import { getMyHandle } from "@/services/account";
 import { BaseCard } from "@/components/shared/BaseCard";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
@@ -276,7 +276,7 @@ interface MemberCardProps {
 function MemberAvatar({ member, size }: { member: TeamMember; size: number }) {
   return (
     <div className="relative shrink-0">
-      <MiniAvatar name={member.display_name} size={size} />
+      <MiniAvatar name={member.handle} size={size} />
       {member.is_online && (
         <StatusDot color="var(--t-status-connected)" animate size={9} />
       )}
@@ -313,7 +313,7 @@ function MemberCard({
         </div>
         <div className="w-full min-w-0 flex flex-col items-center gap-1">
           <div className="flex items-center gap-1 justify-center">
-            <p className="text-xs font-medium truncate text-(--t-text-bright) max-w-[120px]">{member.display_name}</p>
+            <p className="text-xs font-medium truncate text-(--t-text-bright) max-w-[120px]">{member.handle}</p>
             {isMe && (
               <span className="text-[9px] px-1 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>{t("members.youBadge")}</span>
             )}
@@ -338,7 +338,7 @@ function MemberCard({
       <MemberAvatar member={member} size={32} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium truncate text-(--t-text-bright)">{member.display_name}</p>
+          <p className="text-sm font-medium truncate text-(--t-text-bright)">{member.handle}</p>
           {isOwner && <Icon icon="lucide:crown" width={11} style={{ color: "#a78bfa", flexShrink: 0 }} />}
           {isMe && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>{t("members.youBadge")}</span>
@@ -394,12 +394,12 @@ export function MemberDetailPanel({
     try {
       if (hasRole) {
         await runTeamAction({
-          pending: t("members.toast.removingRoleFrom", { role: role.name, name: member.display_name }),
-          success: t("members.toast.roleRemovedFrom", { role: role.name, name: member.display_name }),
+          pending: t("members.toast.removingRoleFrom", { role: role.name, name: member.handle }),
+          success: t("members.toast.roleRemovedFrom", { role: role.name, name: member.handle }),
           run: () => removeMemberRole(teamId, member.user_id, role.id),
         });
         push({
-          label: t("members.history.removeRole", { name: member.display_name }),
+          label: t("members.history.removeRole", { name: member.handle }),
           undo: async () => {
             await useTeamStore.getState().assignMemberRole(teamId, member.user_id, role.id);
             onUpdated();
@@ -411,12 +411,12 @@ export function MemberDetailPanel({
         });
       } else {
         await runTeamAction({
-          pending: t("members.toast.assigningRoleTo", { role: role.name, name: member.display_name }),
-          success: t("members.toast.roleAssignedTo", { role: role.name, name: member.display_name }),
+          pending: t("members.toast.assigningRoleTo", { role: role.name, name: member.handle }),
+          success: t("members.toast.roleAssignedTo", { role: role.name, name: member.handle }),
           run: () => assignMemberRole(teamId, member.user_id, role.id),
         });
         push({
-          label: t("members.history.assignRole", { name: member.display_name }),
+          label: t("members.history.assignRole", { name: member.handle }),
           undo: async () => {
             await useTeamStore.getState().removeMemberRole(teamId, member.user_id, role.id);
             onUpdated();
@@ -443,12 +443,12 @@ export function MemberDetailPanel({
     setRemoving(true); setError("");
     try {
       await runTeamAction({
-        pending: t("members.toast.removingMember", { name: member.display_name }),
-        success: t("members.toast.memberRemoved", { name: member.display_name }),
+        pending: t("members.toast.removingMember", { name: member.handle }),
+        success: t("members.toast.memberRemoved", { name: member.handle }),
         run: () => removeMember(teamId, member.user_id),
       });
       push({
-        label: t("members.history.remove", { name: member.display_name }),
+        label: t("members.history.remove", { name: member.handle }),
         undo: async () => {
           await useTeamStore.getState().addMemberById(teamId, snapshot.user_id);
           for (const rid of snapshot.role_ids) {
@@ -486,7 +486,7 @@ export function MemberDetailPanel({
     <PanelShell>
       <PanelHeader
         icon="lucide:user"
-        title={member.display_name}
+        title={member.handle ?? "?"}
         subtitle={<RoleBadges member={member} roles={teamRoles} />}
         onClose={onClose}
       />
@@ -727,10 +727,10 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
     setAdding(user.user_id); setError(""); setSuccess("");
     try {
       const result = await runTeamAction({
-        pending: t("members.toast.invitingUser", { name: user.display_name }),
+        pending: t("members.toast.invitingUser", { name: user.handle }),
         success: (r) => r.status === "pending"
-          ? t("members.toast.invitationSentToUser", { name: user.display_name })
-          : t("members.toast.userAdded", { name: user.display_name }),
+          ? t("members.toast.invitationSentToUser", { name: user.handle })
+          : t("members.toast.userAdded", { name: user.handle }),
         run: () => addMemberById(teamId, user.user_id),
       });
       if (result.status === "pending") {
@@ -740,8 +740,8 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
       }
       reset();
       setSuccess(result.status === "pending"
-        ? t("members.toast.invitationSentToUser", { name: user.display_name })
-        : t("members.toast.userAdded", { name: user.display_name }));
+        ? t("members.toast.invitationSentToUser", { name: user.handle })
+        : t("members.toast.userAdded", { name: user.handle }));
       await reloadSubscription();
       onMemberAdded();
     } catch (e) {
@@ -1026,7 +1026,7 @@ export default function MembersPage() {
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
   const [myUserId, setMyUserId] = useState("");
-  const [myEmail, setMyEmail] = useState<string | null>(null);
+  const [myHandle, setMyHandle] = useState<string | null>(null);
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string[]>([]);
@@ -1050,7 +1050,9 @@ export default function MembersPage() {
 
   useEffect(() => {
     getMyUserId().then((id) => { if (id) setMyUserId(id); }).catch(() => {});
-    getMyEmail().then((email) => { setMyEmail(email ?? ""); }).catch(() => { setMyEmail(""); });
+    // getMyHandle() resolves to "" (never rejects) on a keychain miss with no
+    // server to fall back to, so this always settles the loading skeleton.
+    getMyHandle().then(setMyHandle).catch(() => setMyHandle(""));
     loadTeams().catch(() => {});
   }, [loadTeams]);
 
@@ -1130,7 +1132,7 @@ export default function MembersPage() {
   const searchLower = search.trim().toLowerCase();
   const filteredMembers = useMemo(() => {
     let result = members;
-    if (searchLower) result = result.filter((m) => m.display_name.toLowerCase().includes(searchLower));
+    if (searchLower) result = result.filter((m) => (m.handle ?? "").toLowerCase().includes(searchLower));
     if (roleFilter.length > 0) result = result.filter((m) => roleFilter.some((rid) => m.role_ids.includes(rid)));
     return result;
   }, [members, searchLower, roleFilter]);
@@ -1138,15 +1140,15 @@ export default function MembersPage() {
   const sortedMembers = useMemo(() => {
     return [...filteredMembers].sort((a, b) => {
       switch (sortMode) {
-        case "name-asc":  return a.display_name.localeCompare(b.display_name);
-        case "name-desc": return b.display_name.localeCompare(a.display_name);
+        case "name-asc":  return (a.handle ?? "").localeCompare(b.handle ?? "");
+        case "name-desc": return (b.handle ?? "").localeCompare(a.handle ?? "");
         case "newest":    return b.joined_at.localeCompare(a.joined_at);
         case "oldest":    return a.joined_at.localeCompare(b.joined_at);
         case "role-asc": {
           const posA = Math.min(...(a.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           const posB = Math.min(...(b.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           if (posA !== posB) return posA - posB;
-          return a.display_name.localeCompare(b.display_name);
+          return (a.handle ?? "").localeCompare(b.handle ?? "");
         }
         default: return 0;
       }
@@ -1208,7 +1210,7 @@ export default function MembersPage() {
         onClick: () => {
           void removeMemberRole(teamId!, member.user_id, r.id).then(() => {
             push({
-              label: t("members.history.removeRole", { name: member.display_name }),
+              label: t("members.history.removeRole", { name: member.handle }),
               undo: async () => { await assignMemberRole(teamId!, member.user_id, r.id); reload(); },
               redo: async () => { await removeMemberRole(teamId!, member.user_id, r.id); reload(); },
             });
@@ -1224,7 +1226,7 @@ export default function MembersPage() {
         onClick: () => {
           void assignMemberRole(teamId!, member.user_id, r.id).then(() => {
             push({
-              label: t("members.history.assignRole", { name: member.display_name }),
+              label: t("members.history.assignRole", { name: member.handle }),
               undo: async () => { await removeMemberRole(teamId!, member.user_id, r.id); reload(); },
               redo: async () => { await assignMemberRole(teamId!, member.user_id, r.id); reload(); },
             });
@@ -1257,9 +1259,9 @@ export default function MembersPage() {
               label: connectionName,
               onClick: () => {
                 void runTeamAction({
-                  pending: t("members.toast.invitingToSession", { name: member.display_name }),
-                  success: t("members.toast.invitedToSession", { name: member.display_name }),
-                  run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, member),
+                  pending: t("members.toast.invitingToSession", { name: member.handle }),
+                  success: t("members.toast.invitedToSession", { name: member.handle }),
+                  run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, { ...member, handle: member.handle ?? "" }),
                 }).catch(() => { /* toast already reports the failure */ });
               },
             }))
@@ -1280,7 +1282,7 @@ export default function MembersPage() {
           const snapshot = { ...member };
           void removeMember(teamId!, member.user_id).then(() => {
             push({
-              label: t("members.history.remove", { name: member.display_name }),
+              label: t("members.history.remove", { name: member.handle }),
               undo: async () => {
                 await addMemberById(teamId!, snapshot.user_id);
                 for (const rid of snapshot.role_ids) {
@@ -1518,12 +1520,12 @@ const vaultTabs = selectedVaultIds.length > 1
             >
               {layoutMode === "grid" ? (
                 <BaseCard isList={false} className="flex-col items-center text-center gap-2 py-4">
-                  <MiniAvatar name={myEmail || "?"} size={40} />
+                  <MiniAvatar name={myHandle || "?"} size={40} />
                   <div className="w-full min-w-0 flex flex-col items-center gap-1">
                     <div className="flex items-center gap-1 justify-center">
-                      {myEmail === null
+                      {myHandle === null
                         ? <div className="h-3.5 w-20 rounded-sm animate-pulse" style={{ background: "var(--t-bg-elevated)" }} />
-                        : <p className="text-xs font-medium truncate text-(--t-text-bright) max-w-[120px]">{myEmail || t("members.you")}</p>
+                        : <p className="text-xs font-medium truncate text-(--t-text-bright) max-w-[120px]">{myHandle || t("members.you")}</p>
                       }
                       <span className="text-[9px] px-1 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>{t("members.youBadge")}</span>
                     </div>
@@ -1532,12 +1534,12 @@ const vaultTabs = selectedVaultIds.length > 1
                 </BaseCard>
               ) : (
                 <BaseCard isList>
-                  <MiniAvatar name={myEmail || "?"} size={32} />
+                  <MiniAvatar name={myHandle || "?"} size={32} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      {myEmail === null
+                      {myHandle === null
                         ? <div className="h-3.5 w-40 rounded-sm animate-pulse" style={{ background: "var(--t-bg-elevated)" }} />
-                        : <p className="text-sm font-medium truncate text-(--t-text-bright)">{myEmail || t("members.you")}</p>
+                        : <p className="text-sm font-medium truncate text-(--t-text-bright)">{myHandle || t("members.you")}</p>
                       }
                       <span className="text-[10px] px-1.5 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>
                         {t("members.youBadge")}

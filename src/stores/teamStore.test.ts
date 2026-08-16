@@ -17,7 +17,7 @@ import { useTeamStore } from "./teamStore.ts";
 const team = (id: string, role_ids: string[] = []): Team =>
   ({ id, name: id, owner_id: "o", owner_tier: "team", created_at: "", role_ids });
 const member = (user_id: string, role_ids: string[] = []): TeamMember =>
-  ({ team_id: "t1", user_id, display_name: "", public_key: "", invited_by_display_name: null, joined_at: "", role_ids });
+  ({ team_id: "t1", user_id, handle: "", public_key: "", invited_by_display_name: null, joined_at: "", role_ids });
 const role = (id: string, permissions = 0): TeamRole =>
   ({ id, team_id: "t1", name: id, permissions, is_builtin: false, position: 0 } as TeamRole);
 

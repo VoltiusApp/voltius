@@ -27,7 +27,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 const role = (id: string, permissions: number, position = 100, is_builtin = false): TeamRole =>
   ({ id, team_id: "t1", name: id, permissions, is_builtin, position, created_at: "" });
 const member = (user_id: string, role_ids: string[]): TeamMember =>
-  ({ team_id: "t1", user_id, display_name: "", public_key: "", invited_by_display_name: null, joined_at: "", role_ids });
+  ({ team_id: "t1", user_id, handle: "", public_key: "", invited_by_display_name: null, joined_at: "", role_ids });
 
 const managerRole = role("mgr", PERM_BITS.MANAGE_ROLES, 0, true);
 

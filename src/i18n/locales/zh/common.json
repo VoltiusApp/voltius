@@ -84,8 +84,6 @@
       "accountNotFound": "未找到账户",
       "noAccountFoundCreateOne": "未找到账户。请先创建一个。",
       "serverLoginFailed": "服务器登录失败",
-      "displayNameLength": "显示名称必须为 1-50 个字符",
-      "updateDisplayNameFailed": "更新显示名称失败：{{status}}",
       "sessionRefreshFailed": "会话刷新失败",
       "resendVerificationFailed": "无法重新发送验证邮件",
       "noAccountFound": "未找到账户",

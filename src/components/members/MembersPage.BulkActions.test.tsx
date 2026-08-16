@@ -4,7 +4,7 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 
 const h = vi.hoisted(() => ({
   getMyUserId: vi.fn(),
-  getMyEmail: vi.fn(),
+  getMyHandle: vi.fn(),
   loadTeams: vi.fn(),
   loadMembers: vi.fn(),
   loadRoles: vi.fn(),
@@ -20,9 +20,9 @@ const h = vi.hoisted(() => ({
     { id: "r-ed", team_id: "t1", name: "editor", is_builtin: false, permissions: 0, position: 2, created_at: "" },
   ],
   members: [
-    { team_id: "t1", user_id: "me", invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z", display_name: "Me", public_key: "pk", role_ids: ["r-mem"] },
-    { team_id: "t1", user_id: "u1", invited_by_display_name: null, joined_at: "2024-01-02T00:00:00Z", display_name: "Ann", public_key: "pk", role_ids: ["r-mem", "r-ed"] },
-    { team_id: "t1", user_id: "u2", invited_by_display_name: null, joined_at: "2024-01-03T00:00:00Z", display_name: "Bob", public_key: "pk", role_ids: ["r-mem"] },
+    { team_id: "t1", user_id: "me", invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z", handle: "merry-quartz-2597", public_key: "pk", role_ids: ["r-mem"] },
+    { team_id: "t1", user_id: "u1", invited_by_display_name: null, joined_at: "2024-01-02T00:00:00Z", handle: "amber-lynx-4410", public_key: "pk", role_ids: ["r-mem", "r-ed"] },
+    { team_id: "t1", user_id: "u2", invited_by_display_name: null, joined_at: "2024-01-03T00:00:00Z", handle: "brisk-otter-8823", public_key: "pk", role_ids: ["r-mem"] },
   ],
 }));
 
@@ -97,10 +97,10 @@ vi.mock("@/hooks/usePermission", () => ({
 vi.mock("@/services/teamService", () => ({
   searchUsers: vi.fn(),
   getMyUserId: h.getMyUserId,
-  getMyEmail: h.getMyEmail,
   inviteByEmail: vi.fn(),
   revokePendingInvitation: vi.fn(),
 }));
+vi.mock("@/services/account", () => ({ getMyHandle: h.getMyHandle }));
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
@@ -186,7 +186,7 @@ import MembersPage from "./MembersPage";
 beforeEach(() => {
   Object.values(h).forEach((v) => { if (typeof v === "function" && "mockReset" in v) (v as ReturnType<typeof vi.fn>).mockReset(); });
   h.getMyUserId.mockResolvedValue("me");
-  h.getMyEmail.mockResolvedValue("me@x.com");
+  h.getMyHandle.mockResolvedValue("merry-quartz-2597");
   h.loadTeams.mockResolvedValue(undefined);
   h.loadMembers.mockResolvedValue(undefined);
   h.loadRoles.mockResolvedValue(undefined);
