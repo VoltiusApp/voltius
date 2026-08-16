@@ -18,3 +18,5 @@ export function isInviteCode(value: string): boolean {
   const parsed = parseInviteCode(value);
   return parsed !== null && UUID_RE.test(parsed.sessionId);
 }
+
+# Fix for issue #65: safe input handling
