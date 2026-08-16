@@ -84,6 +84,43 @@ test("Recent's own empty state stands alone even while Your teams has results", 
   expect(screen.getByText("terminal.share.recentEmpty")).toBeTruthy();
 });
 
+test("a recent row can be forgotten from the row itself", async () => {
+  useRecentPeopleStore.setState({ recent: [{ user_id: "r1", handle: "kevin-p-6620", last_invited_at: "" }], recentUpdatedAt: "" });
+  render(<PeopleTab {...base} />);
+  await userEvent.click(await screen.findByRole("button", { name: "terminal.share.forgetPerson" }));
+  expect(useRecentPeopleStore.getState().recent).toHaveLength(0);
+  expect(screen.queryByRole("button", { name: /kevin-p-6620/i })).toBeNull();
+});
+
+test("forgetting does not invite: the forget control is its own target", async () => {
+  useRecentPeopleStore.setState({ recent: [{ user_id: "r1", handle: "kevin-p-6620", last_invited_at: "" }], recentUpdatedAt: "" });
+  const onInvite = vi.fn();
+  render(<PeopleTab {...base} onInvite={onInvite} />);
+  await userEvent.click(await screen.findByRole("button", { name: "terminal.share.forgetPerson" }));
+  expect(onInvite).not.toHaveBeenCalled();
+});
+
+// Nothing to forget on a teammate or a search hit — the row is derived from the
+// roster/server, not from local Recent, so an X there would promise a deletion
+// the store cannot make.
+test("only recent rows offer forget", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  h.searchUsers.mockResolvedValue([{ user_id: "s1", handle: "sam-q", is_teammate: false }]);
+  render(<PeopleTab {...base} />);
+  await userEvent.type(screen.getByRole("textbox"), "sam-q");
+  await screen.findByRole("button", { name: /sam-q/i });
+  expect(screen.queryByRole("button", { name: "terminal.share.forgetPerson" })).toBeNull();
+});
+
+test("an invitable row reads as clickable and a blocked one does not", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  render(<PeopleTab {...base} session={{ vaultIds: ["t1"], participantIds: [], invitedIds: [] }} />);
+  const covered = await screen.findByRole("button", { name: /amber-lynx-4410/i });
+  const open = await screen.findByRole("button", { name: /brisk-otter-8823/i });
+  expect(open.className).toContain("cursor-pointer");
+  expect(covered.className).not.toContain("cursor-pointer");
+});
+
 // ─── Moved from InvitePeopleSection.test.tsx (that component was deleted; PeopleTab
 // replaced it as ShareMenu's only invite surface) ───────────────────────────────
 
