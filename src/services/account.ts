@@ -201,7 +201,7 @@ export async function login(password: string, email?: string, serverUrl?: string
 
   if (!accountId && email && serverUrl) {
     const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
-    if (!res.ok) throw new Error(i18n.t("common.error.accountNotFound"));
+    if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
     accountId = (await res.json()).account_id;
   }
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFoundCreateOne"));
@@ -368,6 +368,7 @@ export interface MeResponse {
   handle_is_custom?: boolean;
   allow_stranger_invites?: boolean;
   tier?: string;
+  email_verified?: boolean;
 }
 
 /** Fetches /v1/auth/me and caches the handle for offline use. Returns the
@@ -471,6 +472,19 @@ export async function setMasterPassword(password: string): Promise<void> {
   }
 }
 
+/**
+ * Turns a failed auth response into the message the status actually means.
+ * The auth limiter is a hardcoded 10/min per IP with no env override, and a
+ * retry loop can exhaust it before the user types anything — collapsing every
+ * non-ok status into `expected` rendered that 429 as "Account not found",
+ * which sends people off to create a second account they don't need.
+ */
+function authFailure(status: number, expected: string): Error {
+  if (status === 429) return new Error(i18n.t("common.error.tooManyAttempts"));
+  if (status === 404 || status === 401 || status === 403) return new Error(i18n.t(expected));
+  return new Error(i18n.t("common.error.serverError", { status }));
+}
+
 /** Sign in to an existing cloud account (any local mode — replaces local identity). */
 export async function signInToCloud(
   email: string,
@@ -479,7 +493,7 @@ export async function signInToCloud(
 ): Promise<void> {
   serverUrl = normalizeServerUrl(serverUrl);
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
-  if (!res.ok) throw new Error(i18n.t("common.error.accountNotFound"));
+  if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
   const { account_id: accountId } = await res.json();
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
@@ -489,7 +503,7 @@ export async function signInToCloud(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ account_id: accountId, auth_key }),
   });
-  if (!loginRes.ok) throw new Error(i18n.t("common.error.invalidEmailOrPassword"));
+  if (!loginRes.ok) throw authFailure(loginRes.status, "common.error.invalidEmailOrPassword");
   const data = await loginRes.json();
 
   let vaultKey = kek;

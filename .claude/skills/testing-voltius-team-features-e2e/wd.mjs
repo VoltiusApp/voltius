@@ -26,7 +26,7 @@ try {
     // (kept for reference); set VOLTIUS_KEYCHAIN_NS at `docker run -e ...` instead.
     const env = {};
     if (a[0]) env.VOLTIUS_KEYCHAIN_NS = a[0];
-    const r = await j('POST', '/session', { capabilities:{ alwaysMatch:{ 'tauri:options':{ application:'/app/target/debug/voltius', env } } } });
+    const r = await j('POST', '/session', { capabilities:{ alwaysMatch:{ 'tauri:options':{ application: process.env.VOLTIUS_APP_BIN || '/target/debug/voltius', env } } } });
     const s = r.d && r.d.value && r.d.value.sessionId;
     if (!s) { console.log('FAIL '+JSON.stringify(r.d).slice(0,300)); process.exit(1); }
     writeFileSync(SIDF, s); await j('POST', `/session/${s}/timeouts`, { implicit: 6000 });

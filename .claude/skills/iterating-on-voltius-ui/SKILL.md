@@ -24,7 +24,7 @@ docker compose -f compose.headless.yml logs tauri-headless   # wait for the driv
 
 Ready signals: log shows `Joined session keyring`, and `claude mcp list` shows
 `tauri-docker` connected. First build from a cold cache takes minutes; a warm cache
-(`target/` is host-mounted) finishes in seconds. If the MCP is registered but failing,
+(the `voltius-target` volume at `/target`) finishes in seconds. If the MCP is registered but failing,
 the cause is almost always that the container isn't up yet — bring it up and retry.
 
 Register the MCP if absent:
@@ -32,7 +32,7 @@ Register the MCP if absent:
 
 ## Loop
 
-1. `launch_app` `appPath=/app/target/debug/voltius` (check `get_app_state` first).
+1. `launch_app` `appPath=/target/debug/voltius` (check `get_app_state` first).
 2. Interact: `click_element`, `type_text` (`clear:true` to overwrite; `\n` sends Enter),
    `press_key` (Enter, arrows, chords like `["Control","l"]`), `wait_for_element`.
 3. `capture_screenshot` with `returnBase64:false` → saves to `/app/screenshots/<name>.png`

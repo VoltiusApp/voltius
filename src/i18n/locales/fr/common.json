@@ -82,6 +82,7 @@
       "emailAlreadyRegistered": "Cet e-mail est déjà enregistré",
       "registrationFailed": "Échec de l'inscription : {{status}}",
       "accountNotFound": "Compte introuvable",
+      "tooManyAttempts": "Trop de tentatives — attendez une minute puis réessayez",
       "noAccountFoundCreateOne": "Aucun compte trouvé. Veuillez d'abord en créer un.",
       "serverLoginFailed": "Échec de la connexion au serveur",
       "sessionRefreshFailed": "Échec du renouvellement de la session",

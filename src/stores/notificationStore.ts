@@ -24,6 +24,14 @@ export interface ToastEntry {
   finished?: boolean;
   finishedSeverity?: ToastSeverity;
   timedOutAt?: number;
+  /**
+   * Set when this toast is only a transient echo of an inbox entry that owns
+   * the same event. Such a toast is never archived: history rows carry no
+   * actions, so a knock whose toast timed out appeared in the panel twice —
+   * once still actionable in the inbox, once dead below it — and the dead copy
+   * is the one that reads like Join and Decline were lost.
+   */
+  inboxId?: string;
   // Meta
   createdAt: number;
 }
@@ -147,6 +155,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     set((s) => {
       const toast = s.toasts.find((t) => t.id === id);
       if (!toast) return s;
+      if (toast.inboxId) return { toasts: removeById(s.toasts, id) };
       const historyEntry: HistoryEntry = {
         id: toast.id,
         source: toast.source,
