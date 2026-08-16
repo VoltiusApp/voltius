@@ -368,6 +368,7 @@ export interface MeResponse {
   handle_is_custom?: boolean;
   allow_stranger_invites?: boolean;
   tier?: string;
+  email_verified?: boolean;
 }
 
 /** Fetches /v1/auth/me and caches the handle for offline use. Returns the

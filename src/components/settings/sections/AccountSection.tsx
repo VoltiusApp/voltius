@@ -78,11 +78,12 @@ async function openCheckout(plan: "pro" | "teams") {
 }
 
 /** Maps claimHandle's status-carrying error to the copy the server's per-status
- *  contract calls for — each status needs a distinct next step, not one generic message. */
+ *  contract calls for — each status needs a distinct next step, not one generic message.
+ *  403 is the server's only refusal here that the user can act on themselves. */
 function mapHandleClaimError(e: unknown, t: (key: string) => string): Error {
   if (e instanceof HandleClaimError) {
     const key =
-      e.status === 402 ? "settings.account.handle.errorTierRequired" :
+      e.status === 403 ? "settings.account.handle.errorEmailNotVerified" :
       e.status === 409 ? "settings.account.handle.errorTaken" :
       e.status === 422 ? "settings.account.handle.errorInvalid" :
       e.status === 429 ? "settings.account.handle.errorCooldown" :
@@ -105,8 +106,9 @@ export default function AccountSection() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [handle, setHandle] = useState<string | null>(null);
   const [handleIsCustom, setHandleIsCustom] = useState(false);
-  const [meTier, setMeTier] = useState<string | undefined>(undefined);
-  const [tierKnown, setTierKnown] = useState(false);
+  // `null` until /auth/me answers — the claim control renders in neither state
+  // until then, so a verified user never sees the "verify your email" row flash.
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [allowStrangerInvites, setAllowStrangerInvites] = useState(true);
   const [strangerInvitesError, setStrangerInvitesError] = useState("");
   const [strangerInvitesLoading, setStrangerInvitesLoading] = useState(false);
@@ -123,12 +125,6 @@ export default function AccountSection() {
     },
     (value) => { setHandle(value); setHandleIsCustom(true); },
   );
-  // Lapsing from Pro drops back to "free" but keeps a custom handle and its
-  // searchability — only the ability to rename is gated on tier. That account
-  // must never see the "upgrade to get a searchable handle" upsell, since it
-  // already has exactly that.
-  const isFreeTier = tierKnown && (!meTier || meTier === "free");
-  const isLapsedCustom = isFreeTier && handleIsCustom;
   const { copied: handleCopied, copy: handleCopyHandle } = useCopyHandle(handle);
 
   const toggleStrangerInvites = async (next: boolean) => {
@@ -161,8 +157,7 @@ export default function AccountSection() {
       if (!me) return;
       if (me.handle) setHandle(me.handle);
       setHandleIsCustom(!!me.handle_is_custom);
-      setMeTier(me.tier);
-      setTierKnown(true);
+      setEmailVerified(!!me.email_verified);
       if (typeof me.allow_stranger_invites === "boolean") setAllowStrangerInvites(me.allow_stranger_invites);
     }).catch(() => {});
     setStep("idle");
@@ -256,17 +251,7 @@ export default function AccountSection() {
               </button>
             </div>
 
-            {!tierKnown ? null : isLapsedCustom ? (
-              <div className="space-y-1">
-                <p className="text-xs text-(--t-text-dim)">{t("settings.account.handle.lapsedKeepsHandle")}</p>
-                <p className="text-xs text-(--t-text-muted)">{t("settings.account.handle.lapsedRenameLocked")}</p>
-              </div>
-            ) : isFreeTier ? (
-              <div className="space-y-1">
-                <p className="text-xs text-(--t-text-dim)">{t("settings.account.handle.upsell")}</p>
-                <p className="text-xs text-(--t-text-muted)">{t("settings.account.handle.reachableNote")}</p>
-              </div>
-            ) : handleField.editing ? (
+            {emailVerified === null ? null : handleField.editing ? (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -290,14 +275,21 @@ export default function AccountSection() {
               </form>
             ) : (
               <div>
+                {/* Disabled with the reason rather than hidden: hiding the
+                    control is what made the old tier gate unreadable. */}
                 <button
                   type="button"
+                  disabled={!emailVerified}
                   onClick={() => handleField.start(handleIsCustom ? (handle ?? "") : "")}
-                  className="text-xs px-2.5 py-1 rounded-md font-medium bg-(--t-accent) text-white hover:opacity-85 transition-opacity"
+                  className="text-xs px-2.5 py-1 rounded-md font-medium bg-(--t-accent) text-white hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
                 >
                   {handleIsCustom ? t("settings.account.handle.change") : t("settings.account.handle.choose")}
                 </button>
                 <p className="text-xs mt-1.5 text-(--t-text-dim)">{t("settings.account.handle.chooseSub")}</p>
+                <p className="text-xs mt-0.5 text-(--t-text-muted)">{t("settings.account.handle.generatedNote")}</p>
+                {!emailVerified && (
+                  <p className="text-xs mt-1.5 text-(--t-status-error)">{t("settings.account.handle.unverified")}</p>
+                )}
               </div>
             )}
           </div>
