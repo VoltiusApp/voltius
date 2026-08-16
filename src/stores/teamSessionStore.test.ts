@@ -5,15 +5,20 @@ const mp = vi.hoisted(() => ({
   getMySessionKey: vi.fn(async () => ({ sessionKey: new Uint8Array() })),
   openWebSocket: vi.fn(),
   endMultiplayerSession: vi.fn(async () => {}),
-  createVaultSession: vi.fn(), createInviteLinkSession: vi.fn(), drainSshOutputBuffer: vi.fn(() => undefined),
+  createVaultSession: vi.fn(), createInviteLinkSession: vi.fn(), drainSessionOutputBuffer: vi.fn(() => undefined),
 }));
 const svc = vi.hoisted(() => ({
   getServerUrlValue: vi.fn(async () => "https://s"),
   getJwtToken: vi.fn(async () => "jwt"),
   getMyUserId: vi.fn(async () => "u1"),
 }));
+const io = vi.hoisted(() => ({
+  sendSessionInput: vi.fn(async () => {}),
+  getSessionTransportType: vi.fn(() => "ssh"),
+}));
 vi.mock("@/services/multiplayerService", () => mp);
-vi.mock("@/services/ssh", () => ({ sshSendInput: vi.fn(async () => {}) }));
+vi.mock("@/services/sessionInput", () => ({ sendSessionInput: io.sendSessionInput }));
+vi.mock("@/stores/sessionStore", () => ({ getSessionTransportType: io.getSessionTransportType }));
 vi.mock("@/services/teamService", () => svc);
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
@@ -41,6 +46,8 @@ function assertOpenWebSocketArgsCarryNoIdentity(args: unknown[], expectedStrings
 
 beforeEach(() => {
   Object.values(mp).forEach((f) => f.mockClear());
+  io.sendSessionInput.mockClear();
+  io.getSessionTransportType.mockReset().mockReturnValue("ssh");
   useTeamSessionStore.setState({ activeSessions: [], connections: {} });
 });
 
@@ -92,6 +99,30 @@ test("joinSession wires callbacks that drive the participant/control state machi
 
   cb.onSessionEnded(); // guest → marked ended, not removed
   expect(get().connections[localId].ended).toBe(true);
+});
+
+// Regression guard: a host's callbacks used to write a guest's keystrokes with
+// sshSendInput unconditionally, so control handed to a guest on a shared local
+// shell or serial session went nowhere.
+test.each([
+  ["local", "local-1"],
+  ["serial", "serial-1"],
+  ["ssh", "ssh-1"],
+] as const)("a guest's input reaches a %s host session's own transport", async (type, localId) => {
+  io.getSessionTransportType.mockReturnValue(type);
+  let cb: any;
+  mp.openWebSocket.mockImplementation((...args: any[]) => {
+    cb = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
+    return connStub();
+  });
+  mp.createVaultSession.mockResolvedValueOnce({ sessionId: "m1", sessionKey: new Uint8Array([1]), sessionKeyBytes: new Uint8Array(32) });
+
+  await get().startSharing(localId, ["v1"], [], "conn", []);
+
+  const data = new Uint8Array([0x6c, 0x73]);
+  cb.onInput(data);
+
+  expect(io.sendSessionInput).toHaveBeenCalledWith(localId, type, data);
 });
 
 // Regression guard: attachAsHost (the host-side path shared by startSharing,
