@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-08-16
+
+### Fixed
+
+- Selecting terminal text with "Select to Copy" enabled now copies even when
+  the mouse button is released outside the terminal — in the window padding,
+  over another pane, or past the window edge. Dragging right to left and
+  overshooting the left border no longer silently loses the selection.
+
 ## [0.26.0] - 2026-08-16
 
 ### Added
