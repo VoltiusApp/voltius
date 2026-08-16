@@ -7,8 +7,10 @@ import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
 import { getAccountMode, getMyHandle, lockVaultSession, logout } from "@/services/account";
 import { getSavedAccounts, saveCurrentAccount, switchToAccount, removeSavedAccount, type SavedAccount } from "@/services/savedAccounts";
+import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 export function SidebarAccountButton() {
   const { t } = useTranslation();
@@ -24,6 +26,7 @@ export function SidebarAccountButton() {
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
   const [currentAccountId, setCurrentAccountId] = useState<string | null>(null);
   const [accountHandle, setAccountHandle] = useState<string | null>(null);
+  const [pendingSwitch, setPendingSwitch] = useState<SavedAccount | null>(null);
   const { copied: handleCopied, copy: copyHandle } = useCopyHandle(accountHandle);
 
   const refreshAccountInfo = async () => {
@@ -49,11 +52,19 @@ export function SidebarAccountButton() {
         dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
       ) setOpen(false);
     };
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
 
   const openDropdown = async () => {
+    // Close without waiting on the keychain — the refresh below only matters
+    // when the menu is about to be shown.
+    if (open) { setOpen(false); return; }
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       setPos({ bottom: window.innerHeight - rect.bottom, left: rect.right + 8 });
@@ -61,7 +72,7 @@ export function SidebarAccountButton() {
     await Promise.all([refreshAccountInfo(), saveCurrentAccount().catch(() => {})]);
     const accounts = await getSavedAccounts().catch(() => [] as SavedAccount[]);
     setSavedAccounts(accounts);
-    setOpen((o) => !o);
+    setOpen(true);
   };
 
   const handleLockVault = async () => {
@@ -78,8 +89,32 @@ export function SidebarAccountButton() {
 
   const handleSwitchAccount = async (account: SavedAccount) => {
     setOpen(false);
-    await switchToAccount(account);
+    try {
+      await switchToAccount(account);
+    } catch (e) {
+      // The switch tears the session down before it rebuilds it; a silent
+      // rejection would leave the user staring at an unchanged window.
+      useNotificationStore.getState().addToast({
+        source: { kind: "plugin", id: "system", name: "Voltius" },
+        type: "toast",
+        message: t("layout.sidebarAccount.switchFailed", { error: e instanceof Error ? e.message : String(e) }),
+        severity: "error",
+        duration: 8000,
+      });
+    }
   };
+
+  /**
+   * Leaving a local account destroys it: the switch wipes secrets.enc and the
+   * config dir, and a local vault has no cloud copy to come back from. Ask first.
+   */
+  const requestSwitch = (account: SavedAccount) => {
+    setOpen(false);
+    if (accountMode === "server") { void handleSwitchAccount(account); return; }
+    setPendingSwitch(account);
+  };
+
+  const switchTargets = savedAccounts.filter((a) => a.account_id !== currentAccountId);
 
   const handleRemoveSavedAccount = async (e: React.MouseEvent, account_id: string) => {
     e.stopPropagation();
@@ -194,7 +229,7 @@ export function SidebarAccountButton() {
             <DropdownMenuItem icon="lucide:log-out" label={t("common.action.disconnect")} onClick={() => void handleDisconnect()} />
           )}
 
-          {savedAccounts.length > 1 && (
+          {switchTargets.length > 0 && (
             <>
               <div className="h-px bg-(--t-bg-input) -mx-1.5 my-0.5" />
               <div className="px-3 pt-2 pb-1">
@@ -202,39 +237,42 @@ export function SidebarAccountButton() {
                   {t("layout.sidebarAccount.switchAccount")}
                 </span>
               </div>
-              {savedAccounts
-                .filter((a) => a.account_id !== currentAccountId)
-                .map((account) => (
-                  <button
-                    key={account.account_id}
-                    type="button"
-                    onClick={() => void handleSwitchAccount(account)}
-                    className="group flex items-center gap-2.5 p-2.5 rounded-lg text-sm transition-colors w-full text-left"
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-                  >
-                    <Icon icon="lucide:circle-user" width={16} style={{ color: "var(--t-text-dim)" }} className="shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate font-medium" style={{ color: "var(--t-text-primary)" }}>{account.display}</div>
-                      <div className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>{account.mode === "server" ? t("layout.sidebarAccount.savedAccountCloud") : t("layout.sidebarAccount.savedAccountLocal")}</div>
-                    </div>
+              {switchTargets.map((account) => (
+                <DropdownMenuItem
+                  key={account.account_id}
+                  icon="lucide:circle-user"
+                  iconSize={16}
+                  label={account.email ?? t("layout.sidebarAccount.localAccountFallback")}
+                  sublabel={account.mode === "server" ? t("layout.sidebarAccount.savedAccountCloud") : t("layout.sidebarAccount.savedAccountLocal")}
+                  onClick={() => requestSwitch(account)}
+                  trailing={
                     <button
                       type="button"
                       title={t("layout.sidebarAccount.removeSavedAccount")}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded-sm transition-opacity"
-                      style={{ color: "var(--t-text-dim)" }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded-sm transition-opacity text-(--t-text-dim) hover:text-(--t-status-error)"
                       onClick={(e) => void handleRemoveSavedAccount(e, account.account_id)}
                     >
                       <Icon icon="lucide:x" width={12} />
                     </button>
-                  </button>
-                ))}
+                  }
+                />
+              ))}
             </>
           )}
         </div>,
         document.body,
+      )}
+
+      {pendingSwitch && (
+        <ConfirmModal
+          title={t("layout.sidebarAccount.leaveLocalTitle")}
+          message={t("layout.sidebarAccount.leaveLocalMessage", {
+            account: pendingSwitch.email ?? t("layout.sidebarAccount.localAccountFallback"),
+          })}
+          confirmLabel={t("layout.sidebarAccount.leaveLocalConfirm")}
+          onConfirm={() => { const account = pendingSwitch; setPendingSwitch(null); void handleSwitchAccount(account); }}
+          onCancel={() => setPendingSwitch(null)}
+        />
       )}
     </>
   );

@@ -1,6 +1,8 @@
 import { test, expect } from "vitest";
 import accountSource from "./account.ts?raw";
 import vaultSource from "./vault.ts?raw";
+import savedAccountsSource from "./savedAccounts.ts?raw";
+import { SESSION_KEYS } from "./savedAccounts";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 
 /**
@@ -20,4 +22,18 @@ test("every keychain key account.ts caches is cleared on sign-out", () => {
 
 test("resetVault clears the account cache list, not a literal of its own", () => {
   expect(vaultSource).toContain("of ACCOUNT_CACHE_KEYS");
+});
+
+/**
+ * Account switching is the second way one account's session replaces another's,
+ * and it hits the same trap: a key the previous account cached but the switch
+ * never clears is read by the incoming account.
+ */
+test("switchToAccount clears the account cache list before writing the new session", () => {
+  expect(savedAccountsSource).toContain("of ACCOUNT_CACHE_KEYS");
+});
+
+test("every session key the switcher writes is on the account cache list", () => {
+  const missing = SESSION_KEYS.filter((key) => !ACCOUNT_CACHE_KEYS.includes(key as never));
+  expect(missing).toEqual([]);
 });

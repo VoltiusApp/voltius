@@ -100,7 +100,11 @@
       "switchAccount": "Changer de compte",
       "removeSavedAccount": "Supprimer le compte enregistré",
       "savedAccountCloud": "Cloud",
-      "savedAccountLocal": "Local"
+      "savedAccountLocal": "Local",
+      "switchFailed": "Échec du changement de compte : {{error}}",
+      "leaveLocalTitle": "Quitter ce compte local ?",
+      "leaveLocalMessage": "Les hôtes, clés et snippets de ce compte sont stockés uniquement sur cette machine. Passer à {{account}} les efface définitivement.",
+      "leaveLocalConfirm": "Effacer et changer"
     },
     "splash": {
       "steps": {

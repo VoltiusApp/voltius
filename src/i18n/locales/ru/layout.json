@@ -100,7 +100,11 @@
       "switchAccount": "Сменить учётную запись",
       "removeSavedAccount": "Удалить сохранённую учётную запись",
       "savedAccountCloud": "Облако",
-      "savedAccountLocal": "Локально"
+      "savedAccountLocal": "Локально",
+      "switchFailed": "Не удалось переключить аккаунт: {{error}}",
+      "leaveLocalTitle": "Выйти из локального аккаунта?",
+      "leaveLocalMessage": "Хосты, ключи и сниппеты этого аккаунта хранятся только на этом устройстве. Переход на {{account}} удалит их безвозвратно.",
+      "leaveLocalConfirm": "Удалить и переключиться"
     },
     "splash": {
       "steps": {
