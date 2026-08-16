@@ -8,61 +8,42 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
-interface TeamState {
-  teams: { id: string; name: string; owner_tier: string }[];
-  loading: boolean;
-  loadTeams: ReturnType<typeof vi.fn>;
-  loadMembers: ReturnType<typeof vi.fn>;
-  membersByTeam: Record<string, unknown[]>;
-}
-interface MpState {
-  connections: Record<string, unknown>;
-  startSharing: ReturnType<typeof vi.fn>;
-  startSharingInviteLink: ReturnType<typeof vi.fn>;
-  stopSharing: ReturnType<typeof vi.fn>;
-}
-
-const h = vi.hoisted(() => {
-  const teamState: TeamState = {
-    teams: [],
-    loading: false,
-    loadTeams: vi.fn(async () => {}),
-    loadMembers: vi.fn(async () => {}),
-    membersByTeam: {},
-  };
-  const useTeamStore: any = (sel?: (s: TeamState) => unknown) => (sel ? sel(teamState) : teamState);
-  useTeamStore.getState = () => teamState;
-
-  // Mirrors the real store: startSharingInviteLink writes `connections` before it
-  // resolves, so `activeMp` exists (and isSharing flips true) by the time
-  // ShareMenu re-renders — same ordering that made autoCopied miss the field.
-  const mpState: MpState = { connections: {}, startSharing: vi.fn(), startSharingInviteLink: vi.fn(), stopSharing: vi.fn() };
-  const resetMpState = () => {
-    mpState.connections = {};
-    mpState.startSharing = vi.fn(async () => "mp-1");
-    mpState.startSharingInviteLink = vi.fn(async (localSessionId: string) => {
-      mpState.connections = {
-        ...mpState.connections,
-        [localSessionId]: { multiplayerSessionId: "mp-1", ended: false, participants: [], myUserId: "me", controlHolder: "me" },
-      };
-      return { multiplayerSessionId: "mp-1", inviteToken: "tok-abc" };
-    });
-    mpState.stopSharing = vi.fn(async () => {});
-  };
-  resetMpState();
-  const useTeamSessionStore: any = (sel?: (s: MpState) => unknown) => (sel ? sel(mpState) : mpState);
-  useTeamSessionStore.getState = () => mpState;
-
-  return { teamState, useTeamStore, mpState, resetMpState, useTeamSessionStore, writeClipboard: vi.fn(async (_text: string) => {}) };
+// vi.mock factories run lazily (when the mocked module is first resolved), unlike
+// vi.hoisted callbacks — so, unlike vi.hoisted, they can safely call into a normally
+// imported helper module. State is retrieved back via useX.getState() below.
+vi.mock("@/stores/teamStore", async () => {
+  const { makeTeamState, asStoreHook } = await import("./ShareMenu.testHarness");
+  return { useTeamStore: asStoreHook(makeTeamState()) };
 });
+vi.mock("@/stores/teamSessionStore", async () => {
+  const { makeMpState, asStoreHook } = await import("./ShareMenu.testHarness");
+  return { useTeamSessionStore: asStoreHook(makeMpState()) };
+});
+vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn(async (_text: string) => {}) }));
 
-vi.mock("@/stores/teamStore", () => ({ useTeamStore: h.useTeamStore }));
-vi.mock("@/stores/teamSessionStore", () => ({ useTeamSessionStore: h.useTeamSessionStore }));
-vi.mock("@/utils/clipboard", () => ({ writeClipboard: (text: string) => h.writeClipboard(text) }));
-
-const { teamState, mpState, resetMpState, writeClipboard } = h;
-
+import { useTeamStore } from "@/stores/teamStore";
+import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { writeClipboard as writeClipboardImport } from "@/utils/clipboard";
+import { makeMpState, type MpState } from "./ShareMenu.testHarness";
 import { ShareMenu } from "./ShareMenu";
+
+const teamState = useTeamStore.getState();
+const mpState = useTeamSessionStore.getState() as unknown as MpState;
+const writeClipboard = vi.mocked(writeClipboardImport);
+
+// Mirrors the real store: startSharingInviteLink writes `connections` before it
+// resolves, so `activeMp` exists (and isSharing flips true) by the time ShareMenu
+// re-renders — same ordering that made autoCopied miss the field.
+function resetMpState() {
+  Object.assign(mpState, makeMpState());
+  mpState.startSharingInviteLink = vi.fn(async (localSessionId: string) => {
+    mpState.connections = {
+      ...mpState.connections,
+      [localSessionId]: { multiplayerSessionId: "mp-1", ended: false, participants: [], myUserId: "me", controlHolder: "me" },
+    };
+    return { multiplayerSessionId: "mp-1", inviteToken: "tok-abc" };
+  });
+}
 
 beforeEach(() => {
   teamState.teams = [];
@@ -75,10 +56,10 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-function renderMenu() {
+function renderMenu(overrides: { tier?: "pro" | "teams" | "business"; connectionVaultId?: string } = {}) {
   const anchorRef = createRef<HTMLButtonElement>();
-  // tier="pro" with a personal (non-qualifying) vault means the invite-link tab
-  // is the only tab, so it renders directly without a tab click.
+  // Default: tier="pro" with a personal (non-qualifying) vault means People and Link
+  // are the only tabs (no qualifying vault for Team), with People selected by default.
   return render(
     <ShareMenu
       anchorRef={anchorRef}
@@ -86,9 +67,9 @@ function renderMenu() {
       onClose={() => {}}
       activeSessionId="local-1"
       connectionName="Prod DB"
-      connectionVaultId="personal"
+      connectionVaultId={overrides.connectionVaultId ?? "personal"}
       isLoggedIn
-      tier="pro"
+      tier={overrides.tier ?? "pro"}
       onSignIn={() => {}}
       onUpgrade={() => {}}
     />,
@@ -97,6 +78,8 @@ function renderMenu() {
 
 async function generateInviteLink() {
   renderMenu();
+  // People is the default tab now; switch to Link before generating.
+  fireEvent.click(screen.getByText("terminal.share.tabInviteLink"));
   fireEvent.click(screen.getByText("terminal.share.generateInviteLink"));
   await waitFor(() => expect(mpState.startSharingInviteLink).toHaveBeenCalled());
 }
@@ -113,7 +96,7 @@ test("generating an invite link copies the code to the clipboard and shows the c
 
 test("with only the host in participants, the waiting line renders and no lone self-chip appears", () => {
   mpState.connections = {
-    "local-1": { multiplayerSessionId: "mp-1", ended: false, participants: [{ user_id: "me", display_name: "Me" }], myUserId: "me", controlHolder: "me" },
+    "local-1": { multiplayerSessionId: "mp-1", ended: false, participants: [{ user_id: "me", handle: "Me" }], myUserId: "me", controlHolder: "me" },
   };
   renderMenu();
 
@@ -126,7 +109,7 @@ test("with a guest present, the chips render and the waiting line does not", () 
     "local-1": {
       multiplayerSessionId: "mp-1",
       ended: false,
-      participants: [{ user_id: "me", display_name: "Me" }, { user_id: "guest-1", display_name: "Guest" }],
+      participants: [{ user_id: "me", handle: "Me" }, { user_id: "guest-1", handle: "Guest" }],
       myUserId: "me",
       controlHolder: "me",
     },
@@ -148,4 +131,25 @@ test("a rejecting writeClipboard leaves the share successful and the field uncop
   expect(screen.queryByText("terminal.share.failedToGenerateLink")).toBeNull();
   expect(screen.getByText("common.action.copy")).toBeTruthy();
   expect(screen.queryByText("terminal.shared.copied")).toBeNull();
+});
+
+// ─── Tab-availability matrix (the branches `renderMenu()`'s pro-without-vault
+// default never exercises) ──────────────────────────────────────────────────
+
+test("a Teams host sees all three tabs, People first, regardless of the connection's own vault", () => {
+  renderMenu({ tier: "teams", connectionVaultId: "personal" });
+  expect(screen.getByText("terminal.share.tabPeople")).toBeTruthy();
+  expect(screen.getByText("terminal.share.tabInviteLink")).toBeTruthy();
+  expect(screen.getByText("terminal.share.tabTeam")).toBeTruthy();
+  // People is the default/active tab — its content is already on screen.
+  expect(screen.getByPlaceholderText("terminal.share.peopleSearchPlaceholder")).toBeTruthy();
+});
+
+test("a Pro host whose connection is in a qualifying vault sees all three tabs too", () => {
+  teamState.teams = [{ id: "vault-1", name: "Vault", owner_id: "u0", owner_tier: "teams", created_at: "", role_ids: [] }];
+  renderMenu({ tier: "pro", connectionVaultId: "vault-1" });
+  expect(screen.getByText("terminal.share.tabPeople")).toBeTruthy();
+  expect(screen.getByText("terminal.share.tabInviteLink")).toBeTruthy();
+  expect(screen.getByText("terminal.share.tabTeam")).toBeTruthy();
+  expect(screen.getByPlaceholderText("terminal.share.peopleSearchPlaceholder")).toBeTruthy();
 });

@@ -28,7 +28,7 @@ export function HostAwareTerminalView({
   /** Split panes carry no status bar of their own. */
   statusBar?: boolean;
 }) {
-  useMultiplayerHostBroadcast(session.id);
+  useMultiplayerHostBroadcast(session.id, session.type);
   const mpState = useTeamSessionStore((s) => s.connections[session.id]);
   const isSharing = !!mpState;
 

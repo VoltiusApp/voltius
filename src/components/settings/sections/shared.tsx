@@ -117,12 +117,13 @@ export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
   );
 }
 
-export function SettingsInput({ type = "text", placeholder, value, onChange, autoFocus }: {
+export function SettingsInput({ type = "text", placeholder, value, onChange, autoFocus, "aria-label": ariaLabel }: {
   type?: string;
   placeholder: string;
   value: string;
   onChange: (v: string) => void;
   autoFocus?: boolean;
+  "aria-label"?: string;
 }) {
   return (
     <input
@@ -130,6 +131,7 @@ export function SettingsInput({ type = "text", placeholder, value, onChange, aut
       placeholder={placeholder}
       value={value}
       autoFocus={autoFocus}
+      aria-label={ariaLabel}
       onChange={(e) => onChange(e.target.value)}
       className="form-input w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
     />

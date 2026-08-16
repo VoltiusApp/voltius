@@ -1,6 +1,7 @@
 import type { ActiveSession, Participant } from "@/services/multiplayerService";
 import type { MultiplayerSessionState } from "@/stores/teamSessionStore";
 import type { TeamMember } from "@/services/teamService";
+import { sessionDisplayName } from "@/services/teamSharing";
 import { failed, type DomainResult } from "./result";
 
 /**
@@ -74,11 +75,11 @@ export async function listSharedSessions(ports: SharingPorts): Promise<PluginSha
     return {
       multiplayerSessionId: s.id,
       localSessionId: localId,
-      connectionName: s.connection_name,
+      connectionName: sessionDisplayName(s),
       isHost: s.host_user_id === me,
       participants: (live?.participants ?? s.participants ?? []).map((p: Participant) => ({
         userId: p.user_id,
-        displayName: p.display_name,
+        displayName: p.handle,
       })),
       controlHolder: live?.controlHolder ?? s.host_user_id,
       controlRequester: live?.controlRequester ?? null,

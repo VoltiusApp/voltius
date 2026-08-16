@@ -24,6 +24,13 @@ export interface ToggleDef {
  * value-matched for persistence and keywords are search-only, not rendered.
  */
 export const TOGGLE_DEFS = {
+  "cursor-blink": {
+    labelKey: "settings.toggleDefs.cursorBlink.label",
+    icon: "lucide:text-cursor",
+    descriptionKey: "settings.toggleDefs.category.appearance",
+    keywords: ["cursor", "blink", "terminal", "caret"],
+    default: true,
+  },
   "scroll-minimap": {
     labelKey: "settings.toggleDefs.scrollMinimap.label",
     icon: "lucide:panel-right",

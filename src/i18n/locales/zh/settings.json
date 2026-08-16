@@ -2,10 +2,24 @@
   "settings": {
     "terminal": {
       "heading": "终端行为",
+      "preferredShell": {
+        "title": "首选 Shell"
+      },
       "scrollback": {
         "title": "终端回滚",
         "desc": "每个终端会话保留的行数。应用于新终端。",
         "option": "{{count}} 行"
+      },
+      "cursorStyle": {
+        "title": "光标样式",
+        "desc": "终端光标的形状。",
+        "bar": "竖线",
+        "block": "方块",
+        "underline": "下划线"
+      },
+      "cursorBlink": {
+        "title": "光标闪烁",
+        "desc": "终端光标闪烁。"
       },
       "minimap": {
         "title": "滚动小地图",
@@ -42,6 +56,7 @@
         "reset": "重置"
       },
       "automation": {
+        "themeMode": "自动主题模式",
         "title": "自动主题",
         "desc": "在亮色和暗色主题之间自动切换",
         "lightTheme": "亮色主题",
@@ -67,7 +82,7 @@
       "vaults":         { "label": "保险库",          "keywords": ["密钥", "密码", "存储", "密钥链"] },
       "plugins":        { "label": "插件",         "keywords": ["扩展", "附加组件", "市场"] },
       "integrations":   { "label": "集成",         "keywords": ["mcp", "claude", "claude code", "服务器", "socket", "代理"] },
-      "terminal":       { "label": "终端",        "keywords": ["回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
+      "terminal":       { "label": "终端",        "keywords": ["光标", "回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
       "sftp":           { "label": "SFTP",            "keywords": ["文件", "传输", "ftp", "文件"] },
       "portForwarding": { "label": "端口转发", "keywords": ["隧道", "转发", "端口", "ssh", "自动"] },
       "hosts":          { "label": "主机",           "keywords": ["ping", "可达性", "连接性", "状态"] },
@@ -128,11 +143,27 @@
         "save": "保存",
         "toastVerification": "验证邮件已发送到 {{email}}。"
       },
-      "displayName": {
-        "title": "显示名称",
-        "cannotBeEmpty": "不能为空",
-        "saving": "正在保存…",
-        "save": "保存"
+      "handle": {
+        "title": "Handle",
+        "copy": "复制",
+        "copied": "已复制",
+        "choose": "选择 handle",
+        "change": "更改 handle",
+        "chooseSub": "自定义 handle 让您团队以外的人也能搜索到您。",
+        "generatedNote": "您当前的 handle 已经可以让任何知道它的人找到您。",
+        "unverified": "请先验证邮箱，才能选择自定义 handle。",
+        "placeholder": "your-handle",
+        "inputLabel": "Handle",
+        "save": "保存",
+        "errorInvalid": "Handle 只能包含字母、数字和连字符。",
+        "errorTaken": "该 handle 已被占用。",
+        "errorEmailNotVerified": "请先验证邮箱，然后再选择您的 handle。",
+        "errorCooldown": "您很快就可以再次更改 handle。",
+        "errorGeneric": "无法更新您的 handle。"
+      },
+      "strangerInvites": {
+        "label": "允许任何人邀请",
+        "desc": "允许团队之外的人通过 @handle 或邮箱邀请您加入共享终端。"
       },
       "changeMasterPassword": {
         "label": "更改主密码",
@@ -260,7 +291,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 在您保险库中的所有主机以及本机上执行命令，读取、写入和删除文件，创建、修改或删除已保存的连接、密钥和身份，在这些主机上运行您保存的代码片段，信任 SSH 主机密钥，读取您输入过的命令，查看、取消或重试您的文件传输，查看已保存主机的可达状态，重新排列您的终端标签页和分屏面板，管理您团队的成员和邀请，以及与团队共享终端会话或移交其控制权。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。",
+        "sub": "允许本地 MCP 客户端（如 Claude Code）在您保险库中的所有主机以及本机上执行命令，读取、写入和删除文件，创建、修改或删除已保存的连接、密钥和身份，在这些主机上运行您保存的代码片段，信任 SSH 主机密钥，读取您输入过的命令，查看、取消或重试您的文件传输，查看已保存主机的可达状态，重新排列您的终端标签页和分屏面板，管理您团队的成员和邀请，与团队共享终端会话或移交其控制权，读取和修改应用的所有设置，以及读取您的订阅信息，以上操作均通过私有 socket 进行。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。它还可以安装、更新和移除插件，并导出或导入你保存的对象。",
         "running": "运行中",
         "quickSetup": {
           "title": "快速设置",
@@ -296,6 +327,13 @@
           "count_one": "{{count}} 个工具",
           "count_other": "{{count}} 个工具"
         }
+      }
+    },
+    "mcp": {
+      "consequence": {
+        "autoUpdate": "关闭更新的自动下载，安全修复将不再自动送达。",
+        "pluginInstallReview": "关闭安装插件前显示的授权确认界面。请求敏感权限的插件仍会显示该界面。",
+        "sessionTimeout": "关闭闲置一段时间后自动锁定保险库的功能。"
       }
     },
     "about": {
@@ -551,7 +589,7 @@
         "updateTitle": "更新到 v{{version}}",
         "confirmUninstallSeeded": {
           "title": "卸载 {{name}}？",
-          "message": "{{name}} 是内置插件。卸载后会将其从列表中移除——你可以随时在“浏览”标签页中重新安装。",
+          "message": "{{name}} 是内置插件。卸载后会将其从列表中移除——您可以随时在“浏览”标签页中重新安装。",
           "confirm": "卸载"
         }
       },
@@ -650,7 +688,7 @@
           },
           "auditRead": {
             "label": "读取活动日志",
-            "description": "读取本设备的活动日志，包括访问过哪些主机、改动过哪些文件，以及其他插件的操作。"
+            "description": "读取本设备的活动日志，包括访问过哪些主机、改动过哪些文件，以及其他插件的操作。指定团队后，还会读取该团队服务器端的日志——即每位成员的活动。"
           },
           "mcpContribute": {
             "label": "向外部 AI 代理开放工具",
@@ -742,7 +780,7 @@
           },
           "transfersWrite": {
             "label": "取消和重试传输",
-            "description": "取消正在进行的文件传输，或重新开始失败的传输——包括你自己发起的传输。"
+            "description": "取消正在进行的文件传输，或重新开始失败的传输——包括您自己发起的传输。"
           },
           "healthRead": {
             "label": "查看主机可达性",
@@ -787,6 +825,30 @@
           "sharingWrite": {
             "label": "共享实时终端",
             "description": "将实时终端会话流式传输给您团队的成员、停止共享，以及将控制权交给主动请求的参与者。"
+          },
+          "settingsRead": {
+            "label": "读取应用设置",
+            "description": "查看应用的所有设置及其当前值。"
+          },
+          "settingsWrite": {
+            "label": "修改应用设置",
+            "description": "修改任意设置，包括会关闭安全防护的设置。"
+          },
+          "accountRead": {
+            "label": "读取订阅信息",
+            "description": "查看您的套餐、试用状态、席位和账单状态。"
+          },
+          "pluginsManage": {
+            "label": "管理插件",
+            "description": "安装、更新、移除、启用和禁用插件，并添加市场来源。已安装的插件会以其声明的权限在 Voltius 内运行代码。"
+          },
+          "importExportRead": {
+            "label": "导出你的数据",
+            "description": "导出连接、身份、SSH 密钥、代码片段和端口转发规则。包含密码或私钥的导出内容只能加密导出。"
+          },
+          "importExportWrite": {
+            "label": "导入数据",
+            "description": "将连接、身份、SSH 密钥、代码片段和端口转发规则导入保险库。不会覆盖已有条目。"
           },
           "storage": {
             "label": "存储插件数据",
@@ -855,6 +917,9 @@
         }
       },
       "filePanel": {
+        "showHidden": {
+          "title": "显示隐藏文件"
+        },
         "title": "文件面板",
         "autoRefresh": {
           "title": "自动刷新",
@@ -867,6 +932,9 @@
         }
       },
       "editor": {
+        "maxBytes": {
+          "title": "可编辑文件的最大大小"
+        },
         "title": "编辑器",
         "autoSave": {
           "title": "自动保存",
@@ -926,6 +994,7 @@
       }
     },
     "toggleDefs": {
+      "cursorBlink": { "label": "光标闪烁" },
       "scrollMinimap": { "label": "滚动小地图" },
       "selectToCopy": { "label": "选择即复制" },
       "ignoreBracketedPaste": { "label": "纯文本粘贴（无括号粘贴）" },

@@ -5,8 +5,10 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { attachTerminalClipboard } from "@/components/terminal/terminalClipboard";
 import { useThemeStore } from "@/stores/themeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { getToggle } from "@/stores/toggleSettingsStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
+import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor } from "@/utils/terminalTheme";
 import "@xterm/xterm/css/xterm.css";
 
 interface Props {
@@ -27,11 +29,12 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
       containerRef.current = container;
 
       const activeTheme = useThemeStore.getState().getActiveTheme();
-      const scrollback = useTerminalSettingsStore.getState().scrollbackLines;
+      const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
       const term = new Terminal({
-        cursorBlink: true,
-        cursorStyle: "bar",
+        cursorBlink: getToggle("cursor-blink"),
+        cursorStyle,
         fontSize: activeTheme.terminalFontSize,
+        lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
         fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
         scrollback,
         theme: activeTheme.terminal,
@@ -132,16 +135,14 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
   useEffect(() => {
     return useThemeStore.subscribe((state) => {
       const term = termRef.current;
-      const fit = fitRef.current;
       if (!term) return;
-      const theme = state.getActiveTheme();
-      term.options.theme = theme.terminal;
-      term.options.fontFamily = withFlagEmojiFallback(theme.terminalFontFamily);
-      if (term.options.fontSize !== theme.terminalFontSize) {
-        term.options.fontSize = theme.terminalFontSize;
-        fit?.fit();
-      }
+      applyTerminalTheme(term, fitRef.current, state.getActiveTheme());
     });
+  }, []);
+
+  // Live cursor style/blink updates
+  useEffect(() => {
+    return subscribeTerminalCursor(() => termRef.current);
   }, []);
 
   return (

@@ -7,8 +7,8 @@ vi.mock("@/components/shared/AvatarStack", () => ({ MiniAvatar: () => null }));
 
 import { UserSearchField } from "./UserSearchField";
 
-const zoe = { user_id: "u1", display_name: "Zoe", public_key: "pk1" };
-const ada = { user_id: "u2", display_name: "Ada", public_key: "pk2" };
+const zoe = { user_id: "u1", handle: "zesty-otter-1180", is_teammate: false };
+const ada = { user_id: "u2", handle: "amber-lynx-4410", is_teammate: false };
 
 function renderField(overrides: Partial<React.ComponentProps<typeof UserSearchField>> = {}) {
   const props: React.ComponentProps<typeof UserSearchField> = {
@@ -36,13 +36,13 @@ afterEach(cleanup);
 test("renders one row per result and reports the clicked user", () => {
   const props = renderField({ results: [zoe, ada] });
   expect(screen.getAllByText("Add")).toHaveLength(2);
-  fireEvent.click(screen.getByText("Ada"));
+  fireEvent.click(screen.getByText("amber-lynx-4410"));
   expect(props.onAdd).toHaveBeenCalledExactlyOnceWith(ada);
 });
 
 test("a closed dropdown renders no rows", () => {
   renderField({ open: false });
-  expect(screen.queryByText("Zoe")).toBeNull();
+  expect(screen.queryByText("zesty-otter-1180")).toBeNull();
 });
 
 test("an empty result set renders nothing without emptyLabel, and the label with it", () => {
@@ -62,8 +62,8 @@ test("the row being added shows a spinner instead of its add badge", () => {
 
 test("every result row is disabled while an add is in flight", () => {
   renderField({ results: [zoe, ada], adding: "u1" });
-  expect(screen.getByText("Zoe").closest("button")).toHaveProperty("disabled", true);
-  expect(screen.getByText("Ada").closest("button")).toHaveProperty("disabled", true);
+  expect(screen.getByText("zesty-otter-1180").closest("button")).toHaveProperty("disabled", true);
+  expect(screen.getByText("amber-lynx-4410").closest("button")).toHaveProperty("disabled", true);
 });
 
 test("searching swaps the search icon for a spinner", () => {

@@ -52,6 +52,20 @@ export const GATED_PERMISSIONS = new Set<string>([
   // grant on the list, since everything typed after it is watched.
   "sharing:read",
   "sharing:write",
+  // The app's own settings. `settings:write` stays danger: it carries the keys
+  // that disarm a safeguard (plugin-install review, vault auto-lock). Distinct
+  // from "settings-page", which is a plugin's own UI contribution.
+  "settings:read",
+  "settings:write",
+  // The user's own subscription: tier, trial, seats, billing.
+  "account:read",
+  // Plugin lifecycle: installing one runs third-party code in this process with
+  // host permissions, which is the widest grant on the list. Import/export moves
+  // whole vaults; `importexport:read` stays danger because an export bundle
+  // carries passwords, private keys and passphrases.
+  "plugins:manage",
+  "importexport:read",
+  "importexport:write",
 ]);
 
 /**
@@ -81,6 +95,8 @@ export const NON_DANGER_GATED_PERMISSIONS = new Set<string>([
   // user's team already shows them. Their :write halves stay danger.
   "team:read",
   "sharing:read",
+  "settings:read",
+  "account:read",
 ]);
 
 export function isGatedPermission(perm: string): boolean {
@@ -163,6 +179,12 @@ const PERMISSION_COPY: Record<string, string> = {
   "team:write": "teamWrite",
   "sharing:read": "sharingRead",
   "sharing:write": "sharingWrite",
+  "settings:read": "settingsRead",
+  "settings:write": "settingsWrite",
+  "account:read": "accountRead",
+  "plugins:manage": "pluginsManage",
+  "importexport:read": "importExportRead",
+  "importexport:write": "importExportWrite",
   storage: "storage",
   http: "http",
   "crypto:derive": "cryptoDerive",

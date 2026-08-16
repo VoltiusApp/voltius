@@ -26,7 +26,7 @@ import BuySeatsModal from "./BuySeatsModal";
 
 const props = {
   teamId: "t1",
-  pendingUser: null as { user_id: string; display_name: string } | null,
+  pendingUser: null as { user_id: string; handle: string } | null,
   pendingRole: "member",
   onClose: vi.fn(),
   onSuccess: vi.fn(),
@@ -70,7 +70,7 @@ test("success without pendingUser: POST /billing/seats, load, onSuccess, NO addM
 test("success WITH pendingUser: also calls addMemberById(teamId, user, role)", async () => {
   connected();
   h.appFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
-  render(<BuySeatsModal {...props} pendingUser={{ user_id: "u9", display_name: "Nine" }} pendingRole="editor" />);
+  render(<BuySeatsModal {...props} pendingUser={{ user_id: "u9", handle: "nimble-quail-9009" }} pendingRole="editor" />);
   fireEvent.click(screen.getByText("settings.account.buySeats.buyAndInvite"));
   await waitFor(() => expect(props.onSuccess).toHaveBeenCalled());
   expect(h.addMemberById).toHaveBeenCalledWith("t1", "u9", "editor");

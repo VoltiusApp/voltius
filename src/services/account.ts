@@ -201,7 +201,7 @@ export async function login(password: string, email?: string, serverUrl?: string
 
   if (!accountId && email && serverUrl) {
     const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
-    if (!res.ok) throw new Error(i18n.t("common.error.accountNotFound"));
+    if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
     accountId = (await res.json()).account_id;
   }
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFoundCreateOne"));
@@ -363,11 +363,18 @@ export async function getCurrentUserEmail(): Promise<string | null> {
   return keychainGet("email");
 }
 
-export async function getCurrentDisplayName(): Promise<string | null> {
-  return keychainGet("display_name");
+export interface MeResponse {
+  handle?: string;
+  handle_is_custom?: boolean;
+  allow_stranger_invites?: boolean;
+  tier?: string;
+  email_verified?: boolean;
 }
 
-export async function fetchAndCacheDisplayName(): Promise<string | null> {
+/** Fetches /v1/auth/me and caches the handle for offline use. Returns the
+ *  full payload so callers that need the live tier/preference fields — the
+ *  settings identity UI — don't need a second round trip. */
+export async function getMe(): Promise<MeResponse | null> {
   const [jwt, serverUrl] = await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
   if (!jwt || !serverUrl) return null;
   try {
@@ -375,27 +382,29 @@ export async function fetchAndCacheDisplayName(): Promise<string | null> {
       headers: { Authorization: `Bearer ${jwt}` },
     });
     if (!res.ok) return null;
-    const me = await res.json();
-    if (me.display_name) await keychainSet("display_name", me.display_name);
-    return me.display_name ?? null;
+    const me: MeResponse = await res.json();
+    if (me.handle) await keychainSet("handle", me.handle);
+    return me;
   } catch {
     return null;
   }
 }
 
-export async function updateDisplayName(newName: string): Promise<void> {
-  const [jwt, serverUrl] = await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
-  if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-
-  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/display-name`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-    body: JSON.stringify({ display_name: newName }),
-  });
-  if (res.status === 422) throw new Error(i18n.t("common.error.displayNameLength"));
-  if (!res.ok) throw new Error(i18n.t("common.error.updateDisplayNameFailed", { status: res.status }));
-
-  await keychainSet("display_name", newName);
+/**
+ * The caller's own handle: keychain-cached first, falling back to the server
+ * only in "server" mode. An account that signed in before handles existed
+ * has none cached yet — that is the one case worth a fetch rather than
+ * leaving the row blank forever; a local-only account has no server to ask.
+ * Resolves to "" (never null) on any miss, so a caller can tell "no handle"
+ * from "still loading" by its own pending state, not by this return value.
+ */
+export async function getMyHandle(): Promise<string> {
+  const cached = await keychainGet("handle");
+  if (cached) return cached;
+  const mode = await getAccountMode();
+  if (mode !== "server") return "";
+  const me = await getMe();
+  return me?.handle ?? "";
 }
 
 export async function refreshSession(): Promise<void> {
@@ -463,6 +472,19 @@ export async function setMasterPassword(password: string): Promise<void> {
   }
 }
 
+/**
+ * Turns a failed auth response into the message the status actually means.
+ * The auth limiter is a hardcoded 10/min per IP with no env override, and a
+ * retry loop can exhaust it before the user types anything — collapsing every
+ * non-ok status into `expected` rendered that 429 as "Account not found",
+ * which sends people off to create a second account they don't need.
+ */
+function authFailure(status: number, expected: string): Error {
+  if (status === 429) return new Error(i18n.t("common.error.tooManyAttempts"));
+  if (status === 404 || status === 401 || status === 403) return new Error(i18n.t(expected));
+  return new Error(i18n.t("common.error.serverError", { status }));
+}
+
 /** Sign in to an existing cloud account (any local mode — replaces local identity). */
 export async function signInToCloud(
   email: string,
@@ -471,7 +493,7 @@ export async function signInToCloud(
 ): Promise<void> {
   serverUrl = normalizeServerUrl(serverUrl);
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
-  if (!res.ok) throw new Error(i18n.t("common.error.accountNotFound"));
+  if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
   const { account_id: accountId } = await res.json();
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
@@ -481,7 +503,7 @@ export async function signInToCloud(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ account_id: accountId, auth_key }),
   });
-  if (!loginRes.ok) throw new Error(i18n.t("common.error.invalidEmailOrPassword"));
+  if (!loginRes.ok) throw authFailure(loginRes.status, "common.error.invalidEmailOrPassword");
   const data = await loginRes.json();
 
   let vaultKey = kek;

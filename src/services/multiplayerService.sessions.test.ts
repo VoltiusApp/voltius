@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   getJwtToken: vi.fn(),
   updatePublicKey: vi.fn(),
   getVaultKey: vi.fn(),
+  freshPublicKeys: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
@@ -17,6 +18,7 @@ vi.mock("@/services/teamService", () => ({
   getJwtToken: h.getJwtToken,
   updatePublicKey: h.updatePublicKey,
 }));
+vi.mock("@/services/teamSharing", () => ({ freshPublicKeys: h.freshPublicKeys }));
 
 import {
   createVaultSession,
@@ -37,14 +39,18 @@ beforeEach(() => {
   h.getServerUrlValue.mockResolvedValue("https://s");
   h.getJwtToken.mockResolvedValue("jwt");
   h.updatePublicKey.mockResolvedValue(undefined);
+  // Default: server agrees with the caller-supplied public_key.
+  h.freshPublicKeys.mockImplementation(async (members: { user_id: string; public_key: string }[]) =>
+    new Map(members.map((m) => [m.user_id, m.public_key])),
+  );
 });
 
 test("createVaultSession dedupes members and wraps one key each", async () => {
   h.appFetch.mockResolvedValue(okJson({ session_id: "sess-1" }));
   const members = [
-    { user_id: "u1", public_key: "pk1" },
-    { user_id: "u2", public_key: "pk2" },
-    { user_id: "u1", public_key: "pk1" }, // duplicate across vaults
+    { user_id: "u1", team_id: "v1", public_key: "pk1" },
+    { user_id: "u2", team_id: "v2", public_key: "pk2" },
+    { user_id: "u1", team_id: "v1", public_key: "pk1" }, // duplicate across vaults
   ] as any;
 
   const out = await createVaultSession(["v1", "v2"], ["admin"], "prod-box", members);
@@ -56,6 +62,16 @@ test("createVaultSession dedupes members and wraps one key each", async () => {
   expect(body).toMatchObject({ vault_ids: ["v1", "v2"], visibility: "vault", allowed_roles: ["admin"] });
   expect(body.participant_keys.map((p: any) => p.user_id).sort()).toEqual(["u1", "u2"]);
   expect(body.participant_keys).toHaveLength(2);
+});
+
+test("createVaultSession wraps to the server's current public key, not the caller's cached one", async () => {
+  h.appFetch.mockResolvedValue(okJson({ session_id: "sess-1" }));
+  h.freshPublicKeys.mockResolvedValue(new Map([["u1", "fresh-key"]]));
+  await createVaultSession(["v1"], [], "prod-box", [{ user_id: "u1", team_id: "v1", public_key: "stale-key" } as any]);
+  expect(h.invoke).toHaveBeenCalledWith(
+    "x25519_wrap_key",
+    expect.objectContaining({ recipientPublicKeyB64: "fresh-key" }),
+  );
 });
 
 test("createVaultSession throws when not connected", async () => {

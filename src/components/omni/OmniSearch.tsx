@@ -29,11 +29,11 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
-import { getCurrentUserEmail } from "@/services/account";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { useToggleSettings } from "@/hooks/useToggleSettings";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
+import { sessionDisplayName } from "@/services/teamSharing";
 import { isInviteCode, parseInviteCode } from "@/services/inviteCode";
 import { computeSectionBoundaries } from "./omniSections";
 import {
@@ -230,7 +230,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         return [{ kind: "join-code", id: "", label: "", icon: "", code: query.trim() }];
       }
       const sessionItems = teamSessions
-        .filter((s) => !q || s.connection_name.toLowerCase().includes(q))
+        .filter((s) => !q || sessionDisplayName(s).toLowerCase().includes(q))
         .map((s): OmniItem => ({ kind: "team-session", session: s, alreadyIn: myMpSessionIds.has(s.id) }));
       return [...sessionItems, { kind: "join-code-prompt", id: "", label: "", icon: "" }];
     }
@@ -259,7 +259,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     // Active team sessions
     result.push(
       ...teamSessions
-        .filter((s) => !q || s.connection_name.toLowerCase().includes(q))
+        .filter((s) => !q || sessionDisplayName(s).toLowerCase().includes(q))
         .map((s): OmniItem => ({ kind: "team-session", session: s, alreadyIn: myMpSessionIds.has(s.id) })),
     );
 
@@ -478,11 +478,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           }
         } else {
           (async () => {
-            const displayName = (await getCurrentUserEmail()) ?? "Me";
             await joinTeamSessionAndOpenTab({
               sessionId: session.id,
-              displayName,
-              connectionName: session.connection_name,
+              connectionName: sessionDisplayName(session),
             });
             setSidebarOpen(false);
           })().catch(console.error);
@@ -500,10 +498,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         if (parsed) {
           const { sessionId, token } = parsed;
           (async () => {
-            const displayName = (await getCurrentUserEmail()) ?? "Me";
             await joinTeamSessionAndOpenTab({
               sessionId,
-              displayName,
               connectionName: "Shared Terminal",
               inviteToken: token,
             });
@@ -828,7 +824,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium truncate"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {session.connection_name}
+              {sessionDisplayName(session)}
             </span>
           </div>
           <span className="text-xs shrink-0 text-(--t-text-dim)">

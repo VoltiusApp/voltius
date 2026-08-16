@@ -94,8 +94,8 @@ export function UserSearchField({
               disabled={!!adding}
               onClick={() => onAdd(user)}
             >
-              <MiniAvatar name={user.display_name} size={26} />
-              <span className="flex-1 text-sm truncate">{user.display_name}</span>
+              <MiniAvatar name={user.handle} size={26} />
+              <span className="flex-1 text-sm truncate">{user.handle}</span>
               {adding === user.user_id
                 ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
                 : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>

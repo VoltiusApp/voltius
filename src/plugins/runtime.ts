@@ -9,10 +9,8 @@ import i18n from "@/i18n";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
-import { onSshOutput } from "@/services/ssh";
-import { onLocalOutput, localConnect, localSendInput } from "@/services/local";
-import { onSerialOutput } from "@/services/serial";
-import { sendSessionInput } from "@/services/sessionInput";
+import { localConnect, localSendInput } from "@/services/local";
+import { onSessionOutput, sendSessionInput } from "@/services/sessionInput";
 import { readTerminalSnapshot, readTerminalSelection, getAppCursorMode } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
@@ -54,7 +52,18 @@ import { PLUGIN_AUDIT_ACTIONS } from "@/services/auditContext";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportPluginAuditEvent } from "@/services/auditReporter";
 import { fetchLocalAuditLogs } from "@/services/localAuditService";
+import { fetchAuditLogs } from "@/services/auditService";
 import { registerContributions, clearContributions } from "@/mcp/contributions";
+import { getSetting, listSettings, setSetting, settingConsequence } from "./domains/settings";
+import { subscription as subscriptionRead } from "./domains/account";
+import {
+  listPlugins, installPlugin, uninstallPlugin, setPluginEnabled, updatePlugin,
+  readPluginConfig, writePluginConfig, listSources, searchCatalog, addSource, removeSource,
+  type PluginView, type SourceView,
+} from "./domains/plugins";
+import { exportObjects, importObjects } from "./domains/importexport";
+import type { MarketplacePlugin } from "@/stores/marketplaceStore";
+import type { DomainResult } from "./domains/result";
 import type { AuditLog } from "@/services/auditService";
 import type {
   PluginAPI,
@@ -291,6 +300,14 @@ function ensureLifecycleSetup() {
   });
 }
 
+/** Resolves with `p`, or with `orElse` if `p` rejects or outlasts `ms`. */
+function settleWithin<T>(p: Promise<T>, ms: number, orElse: T): Promise<T> {
+  return Promise.race([
+    p.catch(() => orElse),
+    new Promise<T>((r) => setTimeout(() => r(orElse), ms)),
+  ]);
+}
+
 async function ensureQuitHandler() {
   if (_quitHandlerRegistered) return;
   _quitHandlerRegistered = true;
@@ -307,12 +324,14 @@ async function ensureQuitHandler() {
       quit();
       return;
     }
-    // Without this the window stays up for the whole wait, which reads as a
-    // hang when a quit hook does network work (gist-sync pushes on exit).
-    win.hide().catch(() => {});
     // A hidden window over a live process is worse than a slow close, so the
     // exit is armed up front: it survives a throw or an invoke that never lands.
     const fallback = setTimeout(quit, 6000);
+    // Without this the window stays up for the whole wait, which reads as a
+    // hang when a quit hook does network work (gist-sync pushes on exit).
+    // Awaited, because a window the user reopened is only distinguishable from
+    // a hide that failed once the hide itself has landed.
+    const hidden = await settleWithin(win.hide().then(() => true), 1000, false);
     try {
       await Promise.race([
         Promise.allSettled(callbacks.map(async (cb) => cb())),
@@ -320,7 +339,10 @@ async function ensureQuitHandler() {
       ]);
     } finally {
       clearTimeout(fallback);
-      quit();
+      // Single-instance raises the window when the user relaunches Voltius
+      // mid-wait. Exiting then would close an app the user just reopened.
+      const reopened = hidden && (await settleWithin(win.isVisible(), 1000, false));
+      if (!reopened) quit();
     }
   });
 }
@@ -973,6 +995,9 @@ const toPluginAuditRow = (l: AuditLog): PluginAuditRow => ({
 /** Ids belonging to host APIs rather than plugins. See `whileActive`. */
 const _hostApiIds = new Set<string>();
 
+/** What a `whileActive` refusal tells a caller that has no empty value to fall back on. */
+const inactiveError = (id: string): string => `Plugin "${id}" is disabled or unloaded`;
+
 /** Resolve a session and write text to its transport. Throws on an unknown id,
  *  so a caller never mistakes "no such session" for a successful write. */
 async function writeSessionBytes(sessionId: string, text: string): Promise<void> {
@@ -1016,6 +1041,20 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     if (_registry.get(id)?.active) return true;
     console.warn(`[plugin-runtime] "${id}" called ${verb} while disabled or unloaded — ignoring`);
     return false;
+  };
+
+  /** Guards a `plugins.*` domain call with "plugins:manage" and the lifecycle
+   *  check, then delegates. `fallback` is the value the disabled/unloaded case
+   *  returns instead — an empty list for reads, a refusal DomainResult for
+   *  writes — computed once since neither depends on the call's arguments. */
+  const guardedPluginCall = <Args extends unknown[], T>(
+    verb: string, fallback: T, fn: (...args: Args) => Promise<T>,
+  ): ((...args: Args) => Promise<T>) => {
+    return async (...args: Args) => {
+      requireGated("plugins:manage");
+      if (!whileActive(`plugins.${verb}`)) return fallback;
+      return fn(...args);
+    };
   };
 
   const streamsApi = createStreamsAPI();
@@ -1615,18 +1654,73 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       async query(filters) {
         requireGated("audit:read");
         if (!whileActive("audit.query")) return { logs: [], total: 0 };
+
+        // Two sinks. Local is per-vault and capped; server is the Logs tab's
+        // source and the only one team rows ever reach.
+        if (filters.teamId) {
+          // A team's log is every member's activity, which is what "team:read"
+          // already means everywhere else. "audit:read" alone buys the device.
+          requireGated("team:read");
+          const { logs, total } = await fetchAuditLogs(filters.teamId, filters.vaultId, {
+            actions: filters.actions,
+            actor_id: filters.actorId,
+            from: filters.from,
+            to: filters.to,
+            page: Math.max(1, filters.page ?? 1),
+            per_page: Math.min(100, Math.max(1, filters.perPage ?? 50)),
+          });
+          return { logs: logs.map(toPluginAuditRow), total };
+        }
+
         // "personal" is the local sink's vault key for every non-team row:
         // auditContextForVaultId returns { kind: "local", vaultId: "personal" }
         // when there is no team vault, and that is the key reportLocalClientEvent
         // writes under.
-        const { logs, total } = await fetchLocalAuditLogs("personal", {
+        const { logs, total } = await fetchLocalAuditLogs(filters.vaultId || "personal", {
           actions: filters.actions,
+          actor_id: filters.actorId,
           from: filters.from,
           to: filters.to,
           page: Math.max(1, filters.page ?? 1),
           per_page: Math.min(100, Math.max(1, filters.perPage ?? 50)),
         });
         return { logs: logs.map(toPluginAuditRow), total };
+      },
+    },
+
+    // Lifecycle-guarded like audit.*: a plugin granted "settings:write" and
+    // later disabled must not still be able to disarm the vault auto-lock from
+    // a timer it retained.
+    settings: {
+      list(filter) {
+        requireGated("settings:read");
+        if (!whileActive("settings.list")) return [];
+        return listSettings(filter);
+      },
+      get(key) {
+        requireGated("settings:read");
+        if (!whileActive("settings.get")) return undefined;
+        return getSetting(key);
+      },
+      consequenceOf(key, value) {
+        requireGated("settings:read");
+        if (!whileActive("settings.consequenceOf")) return undefined;
+        return settingConsequence(key, value);
+      },
+      set(key, value) {
+        requireGated("settings:write");
+        if (!whileActive("settings.set")) return { ok: false, error: inactiveError(id) };
+        return setSetting(key, value);
+      },
+    },
+
+    account: {
+      async subscription() {
+        requireGated("account:read");
+        // No empty projection to return, unlike settings.list: a fabricated
+        // plan would read as a real one.
+        if (!whileActive("account.subscription")) throw new Error(inactiveError(id));
+        return subscriptionRead();
       },
     },
 
@@ -1860,10 +1954,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (!session) throw new Error(`Session "${sessionId}" not found`);
         const decoder = new TextDecoder();
-        const handler = (data: Uint8Array) => cb(decoder.decode(data, { stream: true }));
-        if (session.type === "local") return onLocalOutput(sessionId, handler);
-        if (session.type === "serial") return onSerialOutput(sessionId, handler);
-        return onSshOutput(sessionId, handler);
+        return onSessionOutput(sessionId, session.type, (data) => cb(decoder.decode(data, { stream: true })));
       },
     },
 
@@ -2376,6 +2467,37 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       getApi(pluginId) {
         return _exposedApis.get(pluginId) ?? null;
+      },
+
+      // Inventory and lifecycle, distinct from expose/getApi above: gated on
+      // "plugins:manage" and lifecycle-guarded like settings.* — a plugin
+      // granted the permission and later disabled must not still be able to
+      // install one from a timer it retained. All eleven share the same
+      // guard-then-delegate shape, so they're built off one helper rather
+      // than repeating requireGated + whileActive eleven times.
+      list: guardedPluginCall("list", [] as PluginView[], listPlugins),
+      install: guardedPluginCall("install", { ok: false, error: inactiveError(id) } as DomainResult<PluginView>, installPlugin),
+      uninstall: guardedPluginCall("uninstall", { ok: false, error: inactiveError(id) } as DomainResult<{ id: string }>, uninstallPlugin),
+      setEnabled: guardedPluginCall("setEnabled", { ok: false, error: inactiveError(id) } as DomainResult<PluginView>, setPluginEnabled),
+      update: guardedPluginCall("update", { ok: false, error: inactiveError(id) } as DomainResult<PluginView>, updatePlugin),
+      config: guardedPluginCall("config", { ok: false, error: inactiveError(id) } as DomainResult<Record<string, unknown>>, readPluginConfig),
+      configure: guardedPluginCall("configure", { ok: false, error: inactiveError(id) } as DomainResult<{ key: string; effective: unknown }>, writePluginConfig),
+      sources: guardedPluginCall("sources", [] as SourceView[], listSources),
+      search: guardedPluginCall("search", [] as MarketplacePlugin[], searchCatalog),
+      addSource: guardedPluginCall("addSource", { ok: false, error: inactiveError(id) } as DomainResult<SourceView>, addSource),
+      removeSource: guardedPluginCall("removeSource", { ok: false, error: inactiveError(id) } as DomainResult<{ id: string }>, removeSource),
+    },
+
+    importExport: {
+      async export(opts) {
+        requireGated("importexport:read");
+        if (!whileActive("importExport.export")) return { ok: false, error: inactiveError(id) };
+        return exportObjects(opts);
+      },
+      async import(opts) {
+        requireGated("importexport:write");
+        if (!whileActive("importExport.import")) return { ok: false, error: inactiveError(id) };
+        return importObjects(opts);
       },
     },
 

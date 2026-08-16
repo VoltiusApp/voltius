@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
 import { usePluginStore } from "@/stores/pluginStore";
+import { pushSettingsChange, remoteApplyTimestamp, settingsStamp } from "./remoteApplyGuard";
 import type { ThemeMode, GeoLocation, AutomationConfig, ThemePhase } from "@/services/themeAutomation";
 
 interface ThemeDiskState {
@@ -19,11 +20,12 @@ interface ThemeDiskState {
 }
 
 async function saveToDisk(state: ThemeDiskState): Promise<void> {
+  // Read the guard BEFORE the await: by the time theme_save resolves, the
+  // remote apply that triggered this write may already have finished.
+  const isLocalEdit = remoteApplyTimestamp() === null;
   try {
     await invoke("theme_save", { state: JSON.stringify(state) });
-    // Dynamic import avoids circular dependency (sync.ts imports themeStore)
-    const { scheduleSync } = await import("@/services/sync");
-    scheduleSync();
+    if (isLocalEdit) pushSettingsChange();
   } catch {}
 }
 
@@ -69,7 +71,7 @@ export const useThemeStore = create<ThemeStore>()(
       location: null,
       resolvedPhase: "dark",
       persist: () => {
-        const now = new Date().toISOString();
+        const now = settingsStamp();
         set({ updatedAt: now });
         const s = get();
         saveToDisk({

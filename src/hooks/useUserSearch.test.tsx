@@ -6,8 +6,8 @@ vi.mock("@/services/teamService", () => ({ searchUsers: h.searchUsers }));
 
 import { useUserSearch } from "./useUserSearch";
 
-const zoe = { user_id: "u1", display_name: "Zoe", public_key: "pk1" };
-const ada = { user_id: "u2", display_name: "Ada", public_key: "pk2" };
+const zoe = { user_id: "u1", handle: "zesty-otter-1180", is_teammate: false };
+const ada = { user_id: "u2", handle: "amber-lynx-4410", is_teammate: false };
 
 beforeEach(() => {
   h.searchUsers.mockReset();

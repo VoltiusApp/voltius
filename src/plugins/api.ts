@@ -9,6 +9,12 @@ import type {
   PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState,
 } from "./domains/team";
 import type { PluginSharedSession } from "./domains/sharing";
+import type { SettingView } from "./domains/settings";
+import type { SubscriptionView } from "./domains/account";
+import type { PluginView, SourceView } from "./domains/plugins";
+import type { MarketplacePlugin } from "@/stores/marketplaceStore";
+import type { ExportResult, ExportType, ImportResult } from "./domains/importexport";
+export type { ExportResult, ExportType, ImportResult } from "./domains/importexport";
 
 export type { PluginAuditAction } from "@/services/auditContext";
 export type { DomainResult } from "./domains/result";
@@ -16,6 +22,9 @@ export type {
   PluginTeam, PluginTeamMember, PluginTeamKeyStatus, PluginMemberKeyState,
 } from "./domains/team";
 export type { PluginSharedSession } from "./domains/sharing";
+export type { SettingView } from "./domains/settings";
+export type { SubscriptionView } from "./domains/account";
+export type { PluginView, SourceView } from "./domains/plugins";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
@@ -719,8 +728,9 @@ export interface PortsAPI {
   reach(req: ReachPortRequest): Promise<ReachPortResponse>;
 }
 
-/** A local audit row, projected. Drops the internal id, actor id, team/vault
- *  ids and IP — none of which a plugin or an external client has any use for. */
+/** A local or team-server audit row, projected. Drops the internal id, actor
+ *  id, team/vault ids and IP — none of which a plugin or an external client
+ *  has any use for. */
 export interface PluginAuditRow {
   action: string;
   actor_name: string;
@@ -734,6 +744,10 @@ export interface PluginAuditRow {
 
 export interface PluginAuditQuery {
   actions?: string[];
+  /** Reads that team's server-side log instead of the device's local sink. */
+  teamId?: string;
+  vaultId?: string;
+  actorId?: string;
   /** ISO 8601. */
   from?: string;
   to?: string;
@@ -1039,9 +1053,32 @@ export interface PluginAPI {
       metadata?: Record<string, unknown>,
       localMetadata?: Record<string, unknown>,
     ): void;
-    /** This device's local rows only. Team-vault rows are server-backed and
-     *  are not returned here. */
+    /** Local rows by default; pass `teamId` to read that team's server-side log instead. */
     query(filters: PluginAuditQuery): Promise<{ logs: PluginAuditRow[]; total: number }>;
+  };
+
+  // App settings — read the manifest and current values (requires the gated
+  // "settings:read"); write one (requires the gated "settings:write").
+  settings: {
+    list(filter?: { section?: string; prefix?: string; writableOnly?: boolean }): SettingView[];
+    get(key: string): SettingView | undefined;
+    /** The sentence a guarded write must be refused with, or undefined when
+     *  writing `value` does not weaken any safeguard (re-enabling one never
+     *  does). Read-only — requires "settings:read". */
+    consequenceOf(key: string, value: unknown): string | undefined;
+    /** Writes, then RE-READS: a store setter may clamp or normalise, so
+     *  `effective` is the value that actually landed, not the one asked for,
+     *  and `coerced` says whether the two differ. Neither reports whether the
+     *  setting's value moved — writing the value it already held is a
+     *  successful write with `coerced: false`. */
+    set(key: string, value: unknown): DomainResult<{
+      key: string; requested: unknown; effective: unknown; coerced: boolean;
+    }>;
+  };
+
+  // The user's own plan and billing state (requires the gated "account:read")
+  account: {
+    subscription(): Promise<SubscriptionView>;
   };
 
   // Themes (requires "themes")
@@ -1257,12 +1294,39 @@ export interface PluginAPI {
     importStates(encKey: string, blobs: string[]): Promise<void>;
   };
 
-  // Inter-plugin communication (always available)
+  // Inter-plugin communication (always available), plus plugin inventory and
+  // lifecycle (requires the gated "plugins:manage"). Configuration is limited
+  // to keys the target plugin declares in `contributes.configuration`; raw
+  // api.storage is deliberately not reachable.
   plugins: {
     /** Publish this plugin's public API surface so other plugins can consume it. */
     expose(publicApi: unknown): void;
     /** Get another plugin's exposed API. Returns null if not loaded or not exposed. */
     getApi(pluginId: string): unknown | null;
+
+    list(): Promise<PluginView[]>;
+    install(id: string): Promise<DomainResult<PluginView>>;
+    uninstall(id: string): Promise<DomainResult<{ id: string }>>;
+    setEnabled(id: string, enabled: boolean): Promise<DomainResult<PluginView>>;
+    update(id: string): Promise<DomainResult<PluginView>>;
+    config(id: string): Promise<DomainResult<Record<string, unknown>>>;
+    configure(id: string, key: string, value: unknown): Promise<DomainResult<{ key: string; effective: unknown }>>;
+    sources(): Promise<SourceView[]>;
+    search(query?: string): Promise<MarketplacePlugin[]>;
+    addSource(url: string): Promise<DomainResult<SourceView>>;
+    removeSource(id: string): Promise<DomainResult<{ id: string }>>;
+  };
+
+  // Bulk export (requires the gated "importexport:read") and import (requires
+  // the gated "importexport:write"). A bundle carrying secrets is only ever
+  // returned encrypted.
+  importExport: {
+    export(opts: {
+      vaultIds: string[]; types: ExportType[]; format: "json" | "csv"; passphrase?: string;
+    }): Promise<DomainResult<ExportResult>>;
+    import(opts: {
+      content: string; vaultId: string; passphrase?: string; dryRun: boolean;
+    }): Promise<DomainResult<ImportResult>>;
   };
 
   // MCP tool contributions — GATED (mcp:contribute). Tools run with THIS

@@ -42,7 +42,7 @@ const role = (id: string, name: string, permissions: number, extra: Partial<Team
   ({ id, team_id: "t1", name, permissions, is_builtin: true, position: 0, created_at: "", ...extra });
 
 const member = (userId: string, roleIds: string[]): TeamMember =>
-  ({ team_id: "t1", user_id: userId, invited_by_display_name: null, joined_at: "", display_name: userId, public_key: "pk", role_ids: roleIds });
+  ({ team_id: "t1", user_id: userId, invited_by_display_name: null, joined_at: "", handle: userId, public_key: "pk", role_ids: roleIds });
 
 const invite = (id: string, name: string): PendingInvitation =>
   ({ id, display_name: name, role: "member", invited_by_display_name: null, created_at: "", expires_at: "" });
@@ -73,11 +73,11 @@ afterEach(() => cleanup());
 
 test("canManage true: listPendingInvitations loaded on mount and pending invites rendered", async () => {
   setup(MANAGE_MEMBERS);
-  h.listPendingInvitations.mockResolvedValue([invite("inv1", "Pending Pat")]);
+  h.listPendingInvitations.mockResolvedValue([invite("inv1", "pending-pat-5150")]);
   render(<TeamVaultPanel teamId="t1" myUserId="me" />);
 
   await waitFor(() => expect(h.listPendingInvitations).toHaveBeenCalledWith("t1"));
-  expect(await screen.findByText("Pending Pat")).toBeTruthy();
+  expect(await screen.findByText("pending-pat-5150")).toBeTruthy();
 });
 
 test("canManage false: listPendingInvitations NOT called", async () => {
@@ -102,13 +102,13 @@ test("canInvite false: InviteBar hidden (no invite header)", () => {
 
 test("handleRevoke: revokePendingInvitation called and invite removed optimistically", async () => {
   setup(MANAGE_MEMBERS);
-  h.listPendingInvitations.mockResolvedValue([invite("inv1", "Pending Pat")]);
+  h.listPendingInvitations.mockResolvedValue([invite("inv1", "pending-pat-5150")]);
   render(<TeamVaultPanel teamId="t1" myUserId="me" />);
 
-  const pat = await screen.findByText("Pending Pat");
+  const pat = await screen.findByText("pending-pat-5150");
   fireEvent.click(screen.getByTitle("settings.vaults.members.revokeTitle"));
 
   await waitFor(() => expect(h.revokePendingInvitation).toHaveBeenCalledWith("t1", "inv1"));
-  await waitFor(() => expect(screen.queryByText("Pending Pat")).toBeNull());
+  await waitFor(() => expect(screen.queryByText("pending-pat-5150")).toBeNull());
   void pat;
 });

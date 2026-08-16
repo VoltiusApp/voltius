@@ -172,18 +172,27 @@ export function makeFileOp(ports: ToolSurfacePorts, gate: ReturnType<typeof make
  * (the team domain's `{ ok: false, error }`) hands back a `refusal`, which
  * passes through unwrapped: nesting it inside `{ ok: true }` would report a
  * refusal as a success.
+ *
+ * `meta` may be a function of the APPROVED arguments, for a verb whose row
+ * must describe what was actually executed rather than what was asked for —
+ * an approval decision can rewrite the arguments.
  */
 export function objectOp(ports: ToolSurfacePorts, gate: ReturnType<typeof makeGate>) {
   return async (
     tool: string,
     action: PluginAuditAction,
-    meta: Record<string, unknown>,
+    meta: Record<string, unknown> | ((args: Record<string, unknown>) => Record<string, unknown>),
     raw: Record<string, unknown>,
     run: (args: Record<string, unknown>) => Promise<unknown>,
   ): Promise<unknown> => {
     const g = await gate(tool, raw);
     if (!g.ok) return g.result;
-    ports.audit(g.scope, action, { tool, approval: g.via, ...meta }, undefined);
+    ports.audit(
+      g.scope,
+      action,
+      { tool, approval: g.via, ...(typeof meta === "function" ? meta(g.args) : meta) },
+      undefined,
+    );
     try {
       const result = await run(g.args);
       return isRefusal(result) ? result : { ok: true, result: result ?? null };
@@ -196,6 +205,44 @@ export function objectOp(ports: ToolSurfacePorts, gate: ReturnType<typeof makeGa
 /** Unwrap a domain's `DomainResult` for `objectOp`, which wraps the success and
  *  passes the refusal through untouched. */
 export const unwrapDomain = <T>(r: DomainResult<T>): unknown => (r.ok ? r.result : refusal(r.error));
+
+/**
+ * A verb whose schema is `{ id }` (possibly plus other fields), whose audit
+ * metadata is `{ id }` plus an optional extra, and whose body is
+ * `unwrapDomain(await run(id))` — plugin lifecycle/toggle and
+ * marketplace_source_remove all share this shape.
+ *
+ * `precheck`, if given, runs on the raw id BEFORE the gate: for a call that
+ * is doomed regardless of approval (an id that names nothing), refusing here
+ * raises no approval card and writes no audit row for an action that never
+ * happened. Returning anything short-circuits with that value as the result.
+ *
+ * `meta`, if given, adds fields to the audit row beyond the id — computed from
+ * the APPROVED id, same as objectOp's own function-form `meta`.
+ *
+ * `idKey` names the id in the audit row: callers share this helper across
+ * different kinds of id (a plugin, a marketplace source), and a bare `id`
+ * would leave the row ambiguous about which.
+ */
+export function idOp(
+  op: ReturnType<typeof objectOp>,
+  name: string,
+  action: PluginAuditAction,
+  run: (id: string) => Promise<DomainResult<unknown>>,
+  opts: {
+    idKey: string;
+    precheck?: (id: string) => Promise<unknown>;
+    meta?: (id: string) => Record<string, unknown>;
+  },
+) {
+  return async (raw: Record<string, unknown>): Promise<unknown> => {
+    const id = String(raw.id);
+    const refused = await opts.precheck?.(id);
+    if (refused) return refused;
+    return op(name, action, (a) => ({ [opts.idKey]: String(a.id), ...opts.meta?.(String(a.id)) }), raw, async (a) =>
+      unwrapDomain(await run(String(a.id))));
+  };
+}
 
 /** The ownership check every MCP write gate uses. */
 export function mayAct(ports: ToolSurfacePorts, sessionId: string): boolean {

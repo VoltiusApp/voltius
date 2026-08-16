@@ -1,8 +1,11 @@
-import { create } from "zustand";
+import { create, type StoreApi } from "zustand";
 import i18n from "@/i18n";
 import * as mp from "@/services/multiplayerService";
-import type { ActiveSession, Participant, MultiplayerConnection } from "@/services/multiplayerService";
-import { sshSendInput } from "@/services/ssh";
+import type { ActiveSession, Participant, MultiplayerConnection, SessionKey } from "@/services/multiplayerService";
+import { sendSessionInput } from "@/services/sessionInput";
+import { getSessionTransportType } from "@/stores/sessionStore";
+import type { TeamMember } from "@/services/teamService";
+import type { InviteTarget } from "@/services/teamSharing";
 export type { ActiveSession, Participant };
 
 interface TeamSessionStore {
@@ -21,7 +24,7 @@ interface TeamSessionStore {
     vaultIds: string[],
     allowedRoles: string[],
     connectionName: string,
-    members: import("@/services/teamService").TeamMember[],
+    members: TeamMember[],
     vaultOwnerTier?: string,
   ) => Promise<string>; // returns multiplayerSessionId
 
@@ -34,9 +37,22 @@ interface TeamSessionStore {
     connectionName: string,
   ) => Promise<{ multiplayerSessionId: string; inviteToken: string }>;
 
+  /**
+   * Host: create a direct session (no vault scope, E2EE per-invitee key wrapping) (#66).
+   * Invitees are `InviteTarget`, not `TeamMember`: any Voltius user can be invited
+   * directly, not only a teammate (#unified-invite).
+   */
+  startSharingDirect: (
+    localSessionId: string,
+    connectionName: string,
+    invitees: InviteTarget[],
+  ) => Promise<string>; // returns multiplayerSessionId
+
+  /** Host: grant an already-live session to anyone — teammate or stranger — by wrapping the retained session key for them (#66, #unified-invite). */
+  inviteToActiveSession: (localSessionId: string, target: InviteTarget) => Promise<void>;
+
   joinSession: (
     multiplayerSessionId: string,
-    displayName: string,
     onControlUpdate: (holderId: string, requesterId: string | null) => void,
     inviteToken?: string,
   ) => Promise<string>; // returns localSessionId
@@ -61,6 +77,8 @@ export interface MultiplayerSessionState {
   connection: MultiplayerConnection;
   ended?: boolean;
   vaultOwnerTier?: string;
+  // Raw session key bytes, retained so a live E2EE session can invite more members later (#66).
+  sessionKeyBytes?: Uint8Array;
   // Runtime-only wiring between the terminal view and store; never persisted.
   _termWrite?: (data: Uint8Array) => void;
   _pendingOutput?: Uint8Array;
@@ -70,7 +88,11 @@ export interface MultiplayerSessionState {
 function makeCallbacks(localSessionId: string, set: any, _get: any) {
   return {
     onOutput: () => {},
-    onInput: (data: Uint8Array) => { sshSendInput(localSessionId, data).catch(() => {}); },
+    // A guest with control types into whatever the host is running — a local
+    // shell and a serial port as much as an SSH channel.
+    onInput: (data: Uint8Array) => {
+      sendSessionInput(localSessionId, getSessionTransportType(localSessionId), data).catch(() => {});
+    },
     onControlUpdate: (holderId: string, requesterId: string | null) => {
       set((s: TeamSessionStore) => ({
         connections: { ...s.connections, [localSessionId]: { ...s.connections[localSessionId]!, controlHolder: holderId, controlRequester: requesterId } },
@@ -107,6 +129,46 @@ function makeCallbacks(localSessionId: string, set: any, _get: any) {
   };
 }
 
+type SetState = StoreApi<TeamSessionStore>["setState"];
+type GetState = StoreApi<TeamSessionStore>["getState"];
+
+/**
+ * Shared tail for every host-side share-start path: resolve server/JWT/identity,
+ * carry over pre-share scrollback, open the websocket, and record the connection (#66).
+ */
+async function attachAsHost(
+  localSessionId: string,
+  sessionId: string,
+  sessionKey: SessionKey,
+  set: SetState,
+  get: GetState,
+  extra: { inviteToken?: string; vaultOwnerTier?: string; sessionKeyBytes?: Uint8Array },
+): Promise<void> {
+  const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
+  const jwt = await import("@/services/teamService").then((m) => m.getJwtToken());
+  if (!serverUrl || !jwt) throw new Error(i18n.t("common.error.notConnectedToServer"));
+
+  const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");
+  const initialSnapshot = mp.drainSessionOutputBuffer(localSessionId) ?? undefined;
+
+  const conn = mp.openWebSocket(serverUrl, sessionId, jwt, sessionKey, {
+    ...makeCallbacks(localSessionId, set, get),
+    onOutput: () => {},
+  }, extra.inviteToken, initialSnapshot);
+
+  set((s) => ({
+    connections: {
+      ...s.connections,
+      [localSessionId]: {
+        multiplayerSessionId: sessionId, role: "host", myUserId, participants: [], controlHolder: "", controlRequester: null,
+        connection: conn, vaultOwnerTier: extra.vaultOwnerTier, sessionKeyBytes: extra.sessionKeyBytes,
+      },
+    },
+  }));
+
+  get().fetchActiveSessions().catch(() => {});
+}
+
 export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
   activeSessions: [],
   connections: {},
@@ -117,60 +179,31 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
   },
 
   startSharing: async (localSessionId, vaultIds, allowedRoles, connectionName, members, vaultOwnerTier) => {
-    const { sessionId, sessionKey } = await mp.createVaultSession(vaultIds, allowedRoles, connectionName, members);
-
-    const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
-    const jwt = await import("@/services/teamService").then((m) => m.getJwtToken());
-    if (!serverUrl || !jwt) throw new Error(i18n.t("common.error.notConnectedToServer"));
-    const displayName = await import("@/services/account").then((m) => m.getCurrentUserEmail()).then((e) => e ?? "Me");
-
-    const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");
-    const initialSnapshot = mp.drainSshOutputBuffer(localSessionId) ?? undefined;
-
-    const conn = mp.openWebSocket(serverUrl, sessionId, jwt, displayName, sessionKey, {
-      ...makeCallbacks(localSessionId, set, get),
-      onOutput: () => {},
-    }, undefined, initialSnapshot);
-
-    set((s) => ({
-      connections: {
-        ...s.connections,
-        [localSessionId]: { multiplayerSessionId: sessionId, role: "host", myUserId, participants: [], controlHolder: "", controlRequester: null, connection: conn, vaultOwnerTier },
-      },
-    }));
-
-    get().fetchActiveSessions().catch(() => {});
+    const { sessionId, sessionKey, sessionKeyBytes } = await mp.createVaultSession(vaultIds, allowedRoles, connectionName, members);
+    await attachAsHost(localSessionId, sessionId, sessionKey, set, get, { vaultOwnerTier, sessionKeyBytes });
     return sessionId;
   },
 
   startSharingInviteLink: async (localSessionId, connectionName) => {
     const { sessionId, sessionKey, inviteToken } = await mp.createInviteLinkSession(connectionName);
-
-    const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
-    const jwt = await import("@/services/teamService").then((m) => m.getJwtToken());
-    if (!serverUrl || !jwt) throw new Error(i18n.t("common.error.notConnectedToServer"));
-    const displayName = await import("@/services/account").then((m) => m.getCurrentUserEmail()).then((e) => e ?? "Me");
-
-    const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");
-    const initialSnapshot = mp.drainSshOutputBuffer(localSessionId) ?? undefined;
-
-    const conn = mp.openWebSocket(serverUrl, sessionId, jwt, displayName, sessionKey, {
-      ...makeCallbacks(localSessionId, set, get),
-      onOutput: () => {},
-    }, inviteToken, initialSnapshot);
-
-    set((s) => ({
-      connections: {
-        ...s.connections,
-        [localSessionId]: { multiplayerSessionId: sessionId, role: "host", myUserId, participants: [], controlHolder: "", controlRequester: null, connection: conn },
-      },
-    }));
-
-    get().fetchActiveSessions().catch(() => {});
+    await attachAsHost(localSessionId, sessionId, sessionKey, set, get, { inviteToken });
     return { multiplayerSessionId: sessionId, inviteToken };
   },
 
-  joinSession: async (multiplayerSessionId, displayName, onControlUpdate, inviteToken) => {
+  startSharingDirect: async (localSessionId, connectionName, invitees) => {
+    const { sessionId, sessionKey, sessionKeyBytes } = await mp.createDirectSession(connectionName, invitees);
+    await attachAsHost(localSessionId, sessionId, sessionKey, set, get, { sessionKeyBytes });
+    return sessionId;
+  },
+
+  inviteToActiveSession: async (localSessionId, target) => {
+    const state = get().connections[localSessionId];
+    if (!state?.sessionKeyBytes) throw new Error(i18n.t("common.error.cannotInviteWithoutSessionKey"));
+    await mp.inviteUserToSession(state.multiplayerSessionId, target, state.sessionKeyBytes);
+    get().fetchActiveSessions().catch(() => {});
+  },
+
+  joinSession: async (multiplayerSessionId, onControlUpdate, inviteToken) => {
     const { sessionKey } = await mp.getMySessionKey(multiplayerSessionId, inviteToken);
 
     const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
@@ -180,7 +213,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
     const localSessionId = crypto.randomUUID();
     const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");
 
-    const conn = mp.openWebSocket(serverUrl, multiplayerSessionId, jwt, displayName, sessionKey, {
+    const conn = mp.openWebSocket(serverUrl, multiplayerSessionId, jwt, sessionKey, {
       onOutput: (data) => {
         const conn = get().connections[localSessionId];
         conn?._termWrite?.(data);

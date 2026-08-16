@@ -43,14 +43,23 @@
     "inbox": {
       "someone": "Кто-то",
       "invite": {
-        "message": "{{inviter}} пригласил(а) вас в {{team}}",
+        "message": "Приглашение в {{team}} от {{inviter}}",
         "accept": "Принять",
         "decline": "Отклонить"
       },
       "session": {
-        "message": "Коллега поделился сессией {{name}}",
+        "message": "Доступ к сессии {{name}} открыт коллегой",
         "join": "Присоединиться",
         "joined": "Вы в сессии"
+      },
+      "sessionInvite": {
+        "message": "Приглашение в сессию {{name}} от {{inviter}}"
+      },
+      "sessionKnock": {
+        "message": "{{inviter}} хочет поделиться терминалом",
+        "join": "Присоединиться",
+        "decline": "Отклонить",
+        "blockPermanently": "Заблокировать навсегда"
       },
       "control": {
         "request": "{{requester}} запрашивает управление",

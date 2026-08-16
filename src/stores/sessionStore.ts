@@ -1203,3 +1203,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     usePanelSftpStore.getState().closeSession(sessionId);
   },
 }));
+
+/**
+ * The transport a session's bytes travel over, for callers holding only an id —
+ * the multiplayer relay's guest-input path. An unknown id resolves to "ssh",
+ * matching the transport default everywhere else.
+ */
+export function getSessionTransportType(sessionId: string): TerminalSession["type"] {
+  return useSessionStore.getState().sessions.find((s) => s.id === sessionId)?.type ?? "ssh";
+}

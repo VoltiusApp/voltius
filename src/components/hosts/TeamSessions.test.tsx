@@ -23,7 +23,7 @@ interface TeamState {
   activeSessions: unknown[];
   fetchActiveSessions: ReturnType<typeof vi.fn>;
   joinSession: ReturnType<typeof vi.fn>;
-  connections: Record<string, { multiplayerSessionId: string; participants?: { display_name: string }[] }>;
+  connections: Record<string, { multiplayerSessionId: string; participants?: { handle: string }[] }>;
 }
 interface SessionState {
   sessions: unknown[];
@@ -65,25 +65,23 @@ const h = vi.hoisted(() => {
     uiState,
     useUIStore,
     getMyUserId: vi.fn(async () => "me" as string | null),
-    getCurrentUserEmail: vi.fn(async () => "me@x" as string | null),
     accessibleVaultIds: vi.fn(() => ["team-1"] as string[]),
   };
 });
 
 vi.mock("@/services/teamService", () => ({ getMyUserId: () => h.getMyUserId() }));
-vi.mock("@/services/account", () => ({ getCurrentUserEmail: () => h.getCurrentUserEmail() }));
 vi.mock("@/hooks/useAccessibleVaultIds", () => ({ useAccessibleVaultIds: () => h.accessibleVaultIds() }));
 vi.mock("@/stores/teamSessionStore", () => ({ useTeamSessionStore: h.useTeamSessionStore }));
 vi.mock("@/stores/sessionStore", () => ({ useSessionStore: h.useSessionStore }));
 vi.mock("@/stores/uiStore", () => ({ useUIStore: h.useUIStore }));
 
-const { teamState, sessionState, uiState, getMyUserId, getCurrentUserEmail, accessibleVaultIds } = h;
+const { teamState, sessionState, uiState, getMyUserId, accessibleVaultIds } = h;
 
 import { TeamSessions } from "./TeamSessions";
 
 const active = (o: Partial<{
   id: string; connection_name: string; host_user_id: string;
-  participant_count: number; participants: { user_id: string; display_name: string }[]; vault_ids: string[];
+  participant_count: number; participants: { user_id: string; handle: string }[]; vault_ids: string[];
 }> = {}) => ({
   id: o.id ?? "sess-1",
   connection_name: o.connection_name ?? "Prod DB",
@@ -107,7 +105,6 @@ beforeEach(() => {
   uiState.homeView = true;
   accessibleVaultIds.mockReturnValue(["team-1"]);
   getMyUserId.mockReset().mockResolvedValue("me");
-  getCurrentUserEmail.mockReset().mockResolvedValue("me@x");
 });
 afterEach(() => cleanup());
 
@@ -184,7 +181,7 @@ test("valid code calls joinSession with sessionId + token", async () => {
   fireEvent.change(input, { target: { value: "sess-9:tok-9" } });
   fireEvent.click(screen.getByText("hosts.teamSessions.join"));
   await waitFor(() =>
-    expect(teamState.joinSession).toHaveBeenCalledWith("sess-9", expect.any(String), expect.any(Function), "tok-9"),
+    expect(teamState.joinSession).toHaveBeenCalledWith("sess-9", expect.any(Function), "tok-9"),
   );
 });
 
@@ -234,12 +231,12 @@ test("renders exactly one join affordance and an empty-state hint when no sessio
 test("participant list prefers live WS connection participants over server participants", () => {
   uiState.homeView = true;
   teamState.activeSessions = [
-    active({ id: "s1", participants: [{ user_id: "u1", display_name: "ServerName" }] }),
+    active({ id: "s1", participants: [{ user_id: "u1", handle: "ServerName" }] }),
   ];
   teamState.connections = {
     "local-1": {
       multiplayerSessionId: "s1",
-      participants: [{ display_name: "LiveA" }, { display_name: "LiveB" }],
+      participants: [{ handle: "LiveA" }, { handle: "LiveB" }],
     },
   };
   render(<TeamSessions />);
@@ -252,8 +249,8 @@ test("falls back to server participants when not in the session", () => {
     active({
       id: "s1",
       participants: [
-        { user_id: "u1", display_name: "A" },
-        { user_id: "u2", display_name: "B" },
+        { user_id: "u1", handle: "A" },
+        { user_id: "u2", handle: "B" },
       ],
     }),
   ];

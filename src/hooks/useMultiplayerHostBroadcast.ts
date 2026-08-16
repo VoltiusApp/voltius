@@ -1,26 +1,27 @@
 import { useEffect } from "react";
-import { onSshOutput } from "@/services/ssh";
+import { onSessionOutput } from "@/services/sessionInput";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
-import { appendSshOutputBuffer, drainSshOutputBuffer } from "@/services/multiplayerService";
+import { appendSessionOutputBuffer, drainSessionOutputBuffer } from "@/services/multiplayerService";
+import type { TerminalSession } from "@/types";
 
 /**
- * Subscribes to SSH output events for a session.
+ * Subscribes to a session's output events, whatever its transport.
  * - Always buffers output so it can be used as a snapshot when sharing starts.
  * - Forwards live output to the multiplayer WebSocket while actively sharing as host.
  */
-export function useMultiplayerHostBroadcast(localSessionId: string) {
+export function useMultiplayerHostBroadcast(localSessionId: string, sessionType: TerminalSession["type"]) {
   useEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | null = null;
 
-    onSshOutput(localSessionId, (data) => {
+    onSessionOutput(localSessionId, sessionType, (data) => {
       const conn = useTeamSessionStore.getState().connections[localSessionId];
       if (conn?.role === "host") {
         // Sharing is active — forward live output to the relay.
         conn.connection.sendOutput(data).catch(() => {});
       } else {
         // Not sharing yet — buffer for use as initial snapshot when sharing starts.
-        appendSshOutputBuffer(localSessionId, data);
+        appendSessionOutputBuffer(localSessionId, data);
       }
     }).then((fn) => {
       if (cancelled) {
@@ -34,7 +35,7 @@ export function useMultiplayerHostBroadcast(localSessionId: string) {
       cancelled = true;
       unlisten?.();
       // Drop the buffer if the terminal closes without ever sharing.
-      drainSshOutputBuffer(localSessionId);
+      drainSessionOutputBuffer(localSessionId);
     };
-  }, [localSessionId]);
+  }, [localSessionId, sessionType]);
 }

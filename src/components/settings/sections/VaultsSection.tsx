@@ -23,7 +23,7 @@ import { runTeamAction } from "@/services/teamActionFeedback";
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
-import { useUserSearch } from "@/hooks/useUserSearch";
+import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
 
 // ─── Vault migration helpers ──────────────────────────────────────────────────
 
@@ -155,8 +155,6 @@ function MemberRoleBadges({ member, roles }: { member: TeamMember; roles: TeamRo
 
 // ─── Invite search bar ────────────────────────────────────────────────────────
 
-interface SearchResult { user_id: string; display_name: string; public_key: string; }
-
 function isValidEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
@@ -179,7 +177,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
   const [sendingInvite, setSendingInvite] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [buySeatsFor, setBuySeatsFor] = useState<SearchResult | null | undefined>(undefined);
+  const [buySeatsFor, setBuySeatsFor] = useState<UserSearchResult | null | undefined>(undefined);
 
   const isAtSeatLimit = seatAvailability(usedSeats, totalSeats).atLimit;
 
@@ -204,14 +202,14 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
 
   if (!canInvite) return null;
 
-  const handleAdd = async (user: SearchResult) => {
+  const handleAdd = async (user: UserSearchResult) => {
     if (isAtSeatLimit) { setBuySeatsFor(user); setOpen(false); return; }
     setAdding(user.user_id);
     setError(""); setSuccess("");
     try {
       await runTeamAction({
-        pending: t("settings.vaults.members.adding", { name: user.display_name }),
-        success: t("settings.vaults.members.added", { name: user.display_name }),
+        pending: t("settings.vaults.members.adding", { name: user.handle }),
+        success: t("settings.vaults.members.added", { name: user.handle }),
         run: () => addMemberById(teamId, user.user_id),
       });
       for (const roleId of selectedRoleIds) {
@@ -363,14 +361,14 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
     try {
       if (hasRole) {
         await runTeamAction({
-          pending: t("settings.vaults.members.removingRole", { role: role.name, name: member.display_name }),
-          success: t("settings.vaults.members.roleRemoved", { role: role.name, name: member.display_name }),
+          pending: t("settings.vaults.members.removingRole", { role: role.name, name: member.handle }),
+          success: t("settings.vaults.members.roleRemoved", { role: role.name, name: member.handle }),
           run: () => removeMemberRole(teamId, member.user_id, role.id),
         });
       } else {
         await runTeamAction({
-          pending: t("settings.vaults.members.assigningRole", { role: role.name, name: member.display_name }),
-          success: t("settings.vaults.members.roleAssigned", { role: role.name, name: member.display_name }),
+          pending: t("settings.vaults.members.assigningRole", { role: role.name, name: member.handle }),
+          success: t("settings.vaults.members.roleAssigned", { role: role.name, name: member.handle }),
           run: () => assignMemberRole(teamId, member.user_id, role.id),
         });
       }
@@ -386,8 +384,8 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
     setBusy(true); setError("");
     try {
       await runTeamAction({
-        pending: t("settings.vaults.members.removingMember", { name: member.display_name }),
-        success: t("settings.vaults.members.memberRemoved", { name: member.display_name }),
+        pending: t("settings.vaults.members.removingMember", { name: member.handle }),
+        success: t("settings.vaults.members.memberRemoved", { name: member.handle }),
         run: () => removeMember(teamId, member.user_id),
       });
     }
@@ -401,10 +399,10 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
   return (
     <div style={{ borderBottom: "1px solid var(--t-border)" }}>
       <div className="flex items-center gap-3 px-4 py-2.5">
-        <MiniAvatar name={member.display_name} size={30} />
+        <MiniAvatar name={member.handle} size={30} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>{member.display_name}</p>
+            <p className="text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>{member.handle}</p>
             {isMe && <span className="text-[10px] px-1.5 py-0.5 rounded-sm" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>{t("settings.vaults.members.youBadge")}</span>}
           </div>
         </div>
@@ -630,11 +628,11 @@ function TeamMembersSummary({ teamId }: { teamId: string }) {
           {preview.map((m, i) => (
             <div
               key={m.user_id}
-              title={m.display_name}
+              title={m.handle}
               style={{ marginLeft: i === 0 ? 0 : -8, zIndex: preview.length - i }}
               className="rounded-full border-2 border-(--t-bg-card)"
             >
-              <MiniAvatar name={m.display_name} size={24} />
+              <MiniAvatar name={m.handle} size={24} />
             </div>
           ))}
           {overflow > 0 && (
@@ -739,7 +737,7 @@ export function PrivateVaultMembersPanel({
   const [adding, setAdding] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const handleAdd = async (user: SearchResult) => {
+  const handleAdd = async (user: UserSearchResult) => {
     setAdding(user.user_id);
     setError("");
     try {

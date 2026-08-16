@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   add: vi.fn(),
   assign: vi.fn(),
   reload: vi.fn(),
+  getMyHandle: vi.fn(async () => "merry-quartz-2597"),
   usedSeats: 2,
   totalSeats: 3,
 }));
@@ -26,10 +27,10 @@ vi.mock("@/components/shared/Panel", () => ({
 vi.mock("@/services/teamService", () => ({
   searchUsers: h.searchUsers,
   getMyUserId: vi.fn(),
-  getMyEmail: vi.fn(),
   inviteByEmail: h.inviteByEmail,
   revokePendingInvitation: vi.fn(),
 }));
+vi.mock("@/services/account", () => ({ getMyHandle: h.getMyHandle }));
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
@@ -78,7 +79,7 @@ const baseProps = {
   onMemberAdded: vi.fn(),
 };
 
-const inA = { user_id: "inA", display_name: "Included A", public_key: "pkA" };
+const inA = { user_id: "inA", handle: "included-alpha-3140", public_key: "pkA" };
 
 beforeEach(() => {
   h.searchUsers.mockReset();
@@ -133,14 +134,14 @@ test("existingIds filter: excluded id absent from rendered results, included id 
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([
     inA,
-    { user_id: "inB", display_name: "Excluded B", public_key: "pkB" },
+    { user_id: "inB", handle: "excluded-bravo-9022", public_key: "pkB" },
   ]);
   render(<InvitePanel {...baseProps} existingIds={new Set(["inB"])} />);
 
   await typeAndDebounce("in");
 
-  expect(screen.getByText("Included A")).toBeTruthy();
-  expect(screen.queryByText("Excluded B")).toBeNull();
+  expect(screen.getByText("included-alpha-3140")).toBeTruthy();
+  expect(screen.queryByText("excluded-bravo-9022")).toBeNull();
 });
 
 test("add success (not at limit): addMemberById + assignMemberRole(default role) + reload + onMemberAdded", async () => {
@@ -153,7 +154,7 @@ test("add success (not at limit): addMemberById + assignMemberRole(default role)
   await typeAndDebounce("in");
   vi.useRealTimers();
   h.reload.mockClear();
-  fireEvent.click(screen.getByText("Included A"));
+  fireEvent.click(screen.getByText("included-alpha-3140"));
 
   await waitFor(() => expect(baseProps.onMemberAdded).toHaveBeenCalled());
   expect(h.add).toHaveBeenCalledWith("t1", "inA");
@@ -170,7 +171,7 @@ test("add at seat limit: addMemberById NOT called, BuySeatsModal shown with that
 
   await typeAndDebounce("in");
   vi.useRealTimers();
-  fireEvent.click(screen.getByText("Included A"));
+  fireEvent.click(screen.getByText("included-alpha-3140"));
 
   expect(h.add).not.toHaveBeenCalled();
   const modal = await screen.findByTestId("buy-seats-modal");
@@ -185,7 +186,7 @@ test("add rejects {code:402} (not at limit): BuySeatsModal shown, no error text"
 
   await typeAndDebounce("in");
   vi.useRealTimers();
-  fireEvent.click(screen.getByText("Included A"));
+  fireEvent.click(screen.getByText("included-alpha-3140"));
 
   const modal = await screen.findByTestId("buy-seats-modal");
   expect(modal.dataset.pendingUser).toBe("inA");
@@ -200,7 +201,7 @@ test("add rejects Error with '402' in message (no code prop): BuySeatsModal show
 
   await typeAndDebounce("in");
   vi.useRealTimers();
-  fireEvent.click(screen.getByText("Included A"));
+  fireEvent.click(screen.getByText("included-alpha-3140"));
 
   const modal = await screen.findByTestId("buy-seats-modal");
   expect(modal.dataset.pendingUser).toBe("inA");
@@ -215,7 +216,7 @@ test("add rejects generic error (no 402): error text shown, BuySeatsModal NOT re
 
   await typeAndDebounce("in");
   vi.useRealTimers();
-  fireEvent.click(screen.getByText("Included A"));
+  fireEvent.click(screen.getByText("included-alpha-3140"));
 
   expect(await screen.findByText("nope")).toBeTruthy();
   expect(screen.queryByTestId("buy-seats-modal")).toBeNull();
@@ -290,7 +291,7 @@ test("BuySeatsModal onSuccess: reloadSubscription + onMemberAdded called, modal 
 
   await typeAndDebounce("in");
   vi.useRealTimers();
-  fireEvent.click(screen.getByText("Included A"));
+  fireEvent.click(screen.getByText("included-alpha-3140"));
   await screen.findByTestId("buy-seats-modal");
   h.reload.mockClear();
 

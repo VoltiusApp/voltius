@@ -1,17 +1,65 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import { getAccountMode, getCurrentUserEmail, fetchAndCacheDisplayName, updateDisplayName, setMasterPassword, logout, lockVaultSession } from "@/services/account";
+import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword, logout, lockVaultSession } from "@/services/account";
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
 import { ActionItem, FormButtons, SettingsInput } from "./shared";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openPortal } from "@/utils/billing";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { claimHandle, updateInvitePreferences, HandleClaimError } from "@/services/teamService";
+import { Toggle } from "@/components/shared/Toggle";
+import { useCopyHandle } from "@/hooks/useCopyHandle";
 import EditEmailModal from "./EditEmailModal";
 import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 
 type AccountStep = "idle" | "set-password" | "loading" | "confirm-wipe";
+
+/**
+ * Shared idle → editing → submitting → error cycle behind the handle-claim
+ * row below.
+ */
+function useEditableField(
+  save: (value: string) => Promise<void>,
+  onSaved: (value: string) => void,
+) {
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const start = (initial: string) => {
+    setInput(initial);
+    setError("");
+    setEditing(true);
+  };
+  const cancel = () => {
+    setEditing(false);
+    setError("");
+  };
+  const submit = async (validate?: (value: string) => string | null) => {
+    const trimmed = input.trim();
+    const validationError = validate?.(trimmed);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await save(trimmed);
+      onSaved(trimmed);
+      setEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { editing, input, setInput, error, loading, start, cancel, submit };
+}
 
 const PLAN_FEATURES = [
   { id: "localVault",       free: true,  pro: true,  teams: true,  business: true  },
@@ -29,6 +77,22 @@ async function openCheckout(plan: "pro" | "teams") {
   await openBillingCheckout(plan);
 }
 
+/** Maps claimHandle's status-carrying error to the copy the server's per-status
+ *  contract calls for — each status needs a distinct next step, not one generic message.
+ *  403 is the server's only refusal here that the user can act on themselves. */
+function mapHandleClaimError(e: unknown, t: (key: string) => string): Error {
+  if (e instanceof HandleClaimError) {
+    const key =
+      e.status === 403 ? "settings.account.handle.errorEmailNotVerified" :
+      e.status === 409 ? "settings.account.handle.errorTaken" :
+      e.status === 422 ? "settings.account.handle.errorInvalid" :
+      e.status === 429 ? "settings.account.handle.errorCooldown" :
+      "settings.account.handle.errorGeneric";
+    return new Error(t(key));
+  }
+  return e instanceof Error ? e : new Error(String(e));
+}
+
 export default function AccountSection() {
   const { t } = useTranslation();
   const [mode, setMode] = useState<string | null>(null);
@@ -36,17 +100,46 @@ export default function AccountSection() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [currentEmail, setCurrentEmail] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState<string | null>(null);
-  const [editingDisplayName, setEditingDisplayName] = useState(false);
-  const [displayNameInput, setDisplayNameInput] = useState("");
-  const [displayNameError, setDisplayNameError] = useState("");
-  const [displayNameLoading, setDisplayNameLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showEditEmail, setShowEditEmail] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [handle, setHandle] = useState<string | null>(null);
+  const [handleIsCustom, setHandleIsCustom] = useState(false);
+  // `null` until /auth/me answers — the claim control renders in neither state
+  // until then, so a verified user never sees the "verify your email" row flash.
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [allowStrangerInvites, setAllowStrangerInvites] = useState(true);
+  const [strangerInvitesError, setStrangerInvitesError] = useState("");
+  const [strangerInvitesLoading, setStrangerInvitesLoading] = useState(false);
   const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
   const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
+
+  const handleField = useEditableField(
+    async (value) => {
+      try {
+        await claimHandle(value);
+      } catch (e) {
+        throw mapHandleClaimError(e, t);
+      }
+    },
+    (value) => { setHandle(value); setHandleIsCustom(true); },
+  );
+  const { copied: handleCopied, copy: handleCopyHandle } = useCopyHandle(handle);
+
+  const toggleStrangerInvites = async (next: boolean) => {
+    setStrangerInvitesLoading(true); // blocks the switch until this round trip resolves — a second click mid-flight can't race the first
+    setAllowStrangerInvites(next);
+    setStrangerInvitesError("");
+    try {
+      await updateInvitePreferences(next);
+    } catch (e) {
+      setAllowStrangerInvites(!next); // revert — the toggle can't silently drift from the server's stored value
+      setStrangerInvitesError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStrangerInvitesLoading(false);
+    }
+  };
 
   const SESSION_TIMEOUT_OPTIONS = [
     { label: t("settings.account.sessionSecurity.timeout.never"), value: "never" },
@@ -60,7 +153,13 @@ export default function AccountSection() {
   useEffect(() => {
     getAccountMode().then(setMode).catch(() => setMode(null));
     getCurrentUserEmail().then(setCurrentEmail).catch(() => {});
-    fetchAndCacheDisplayName().then((n) => { if (n) setDisplayName(n); }).catch(() => {});
+    getMe().then((me) => {
+      if (!me) return;
+      if (me.handle) setHandle(me.handle);
+      setHandleIsCustom(!!me.handle_is_custom);
+      setEmailVerified(!!me.email_verified);
+      if (typeof me.allow_stranger_invites === "boolean") setAllowStrangerInvites(me.allow_stranger_invites);
+    }).catch(() => {});
     setStep("idle");
     setError("");
     setSuccess("");
@@ -132,6 +231,85 @@ export default function AccountSection() {
         </div>
       </div>
 
+      {mode === "server" && (
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
+            {t("settings.account.handle.title")}
+          </h3>
+          <div className="rounded-lg px-4 py-3 space-y-2 bg-(--t-bg-elevated) border border-(--t-border)">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-(--t-text-primary)">
+                {handle ? `@${handle}` : "—"}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyHandle}
+                className="text-xs px-2 py-1 rounded-md flex items-center gap-1 text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
+              >
+                <Icon icon={handleCopied ? "lucide:check" : "lucide:copy"} width={12} />
+                {handleCopied ? t("settings.account.handle.copied") : t("settings.account.handle.copy")}
+              </button>
+            </div>
+
+            {emailVerified === null ? null : handleField.editing ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleField.submit((value) => (value ? null : t("settings.account.handle.errorInvalid")));
+                }}
+                className="space-y-2"
+              >
+                <SettingsInput
+                  placeholder={t("settings.account.handle.placeholder")}
+                  value={handleField.input}
+                  onChange={handleField.setInput}
+                  autoFocus
+                  aria-label={t("settings.account.handle.inputLabel")}
+                />
+                {handleField.error && <p className="text-xs text-(--t-status-error)">{handleField.error}</p>}
+                <FormButtons
+                  onCancel={handleField.cancel}
+                  submitLabel={t("settings.account.handle.save")}
+                  submitting={handleField.loading}
+                />
+              </form>
+            ) : (
+              <div>
+                {/* Disabled with the reason rather than hidden: hiding the
+                    control is what made the old tier gate unreadable. */}
+                <button
+                  type="button"
+                  disabled={!emailVerified}
+                  onClick={() => handleField.start(handleIsCustom ? (handle ?? "") : "")}
+                  className="text-xs px-2.5 py-1 rounded-md font-medium bg-(--t-accent) text-white hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
+                >
+                  {handleIsCustom ? t("settings.account.handle.change") : t("settings.account.handle.choose")}
+                </button>
+                <p className="text-xs mt-1.5 text-(--t-text-dim)">{t("settings.account.handle.chooseSub")}</p>
+                <p className="text-xs mt-0.5 text-(--t-text-muted)">{t("settings.account.handle.generatedNote")}</p>
+                {!emailVerified && (
+                  <p className="text-xs mt-1.5 text-(--t-status-error)">{t("settings.account.handle.unverified")}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-2 rounded-lg px-4 py-3 flex items-center justify-between gap-4 bg-(--t-bg-elevated) border border-(--t-border)">
+            <div>
+              <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.account.strangerInvites.label")}</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.account.strangerInvites.desc")}</p>
+              {strangerInvitesError && <p className="text-xs mt-1 text-(--t-status-error)">{strangerInvitesError}</p>}
+            </div>
+            <Toggle
+              checked={allowStrangerInvites}
+              onChange={toggleStrangerInvites}
+              disabled={strangerInvitesLoading}
+              aria-label={t("settings.account.strangerInvites.label")}
+            />
+          </div>
+        </div>
+      )}
+
       {mode === "server" && <PlansSection />}
 
       <div>
@@ -182,68 +360,6 @@ export default function AccountSection() {
               sub={currentEmail}
               onClick={() => setShowEditEmail(true)}
             />
-          )}
-          {mode === "server" && (
-            editingDisplayName ? (
-              <div
-                className="flex flex-col gap-2 rounded-lg px-4 py-3"
-                style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}
-              >
-                <p className="text-xs font-medium text-(--t-text-dim)">{t("settings.account.displayName.title")}</p>
-                <input
-                  autoFocus
-                  type="text"
-                  value={displayNameInput}
-                  maxLength={50}
-                  onChange={(e) => { setDisplayNameInput(e.target.value); setDisplayNameError(""); }}
-                  className="rounded-lg px-3 py-1.5 text-sm outline-hidden"
-                  style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
-                />
-                {displayNameError && <p className="text-xs text-(--t-status-error)">{displayNameError}</p>}
-                <div className="flex gap-2">
-                  <button
-                    className="flex-1 text-xs px-3 py-1.5 rounded-lg"
-                    style={{ background: "var(--t-bg-input)", color: "var(--t-text-muted)", border: "1px solid var(--t-border)" }}
-                    onClick={() => { setEditingDisplayName(false); setDisplayNameError(""); }}
-                  >
-                    {t("settings.shared.cancel")}
-                  </button>
-                  <button
-                    disabled={displayNameLoading}
-                    className="flex-1 text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-50"
-                    style={{ background: "var(--t-accent)", color: "#fff" }}
-                    onClick={async () => {
-                      const trimmed = displayNameInput.trim();
-                      if (!trimmed) { setDisplayNameError(t("settings.account.displayName.cannotBeEmpty")); return; }
-                      setDisplayNameLoading(true);
-                      setDisplayNameError("");
-                      try {
-                        await updateDisplayName(trimmed);
-                        setDisplayName(trimmed);
-                        setEditingDisplayName(false);
-                      } catch (e) {
-                        setDisplayNameError(e instanceof Error ? e.message : t("settings.account.error.updateFailed"));
-                      } finally {
-                        setDisplayNameLoading(false);
-                      }
-                    }}
-                  >
-                    {displayNameLoading ? t("settings.account.displayName.saving") : t("settings.account.displayName.save")}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <ActionItem
-                icon="lucide:user"
-                label={t("settings.account.displayName.title")}
-                sub={displayName ?? "—"}
-                onClick={() => {
-                  setDisplayNameInput(displayName ?? "");
-                  setDisplayNameError("");
-                  setEditingDisplayName(true);
-                }}
-              />
-            )
           )}
           {mode === "server" && (
             <ActionItem

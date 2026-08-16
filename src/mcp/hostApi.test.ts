@@ -7,9 +7,9 @@ import { PERMISSIONS } from "./hostApi";
 const isPermissionError = (err: unknown) => err instanceof Error && /requires permission/.test(err.message);
 
 describe("MCP host API surface", () => {
-  it("builds all 74 MCP tools over the real createHostPluginAPI", () => {
+  it("builds all 91 MCP tools over the real createHostPluginAPI", () => {
     const api = createHostPluginAPI("__mcp_hostapi_test__", PERMISSIONS);
-    expect(buildMcpTools(api, new Set()).map((t) => t.name).sort()).toHaveLength(74);
+    expect(buildMcpTools(api, new Set()).map((t) => t.name).sort()).toHaveLength(91);
   });
 
   // Each gated PluginAPI call the tools reach into must clear its permission
@@ -59,6 +59,41 @@ describe("MCP host API surface", () => {
       } catch (err) {
         expect(isPermissionError(err)).toBe(false);
       }
+    }
+  });
+
+  // export_objects/import_objects only reach api.fs when a `path` argument is
+  // given; the two checks above run every tool with `{}` and so never exercise
+  // that branch. A permission gap reached only through an optional argument
+  // (the "fs" permission for IMPORT_EXPORT_PERMISSIONS) is invisible to them.
+  it("export_objects and import_objects with a path do not hit a permission error", async () => {
+    const api = createHostPluginAPI("__mcp_hostapi_test3__", PERMISSIONS);
+    const tools = buildMcpTools(api, new Set());
+    const exportTool = tools.find((t) => t.name === "export_objects");
+    const importTool = tools.find((t) => t.name === "import_objects");
+    expect(exportTool).toBeDefined();
+    expect(importTool).toBeDefined();
+
+    for (const call of [
+      () => exportTool!.execute({ path: "export-bundle.json" }),
+      () => importTool!.execute({ path: "export-bundle.json" }),
+    ]) {
+      let thrown: unknown;
+      let result: unknown;
+      try {
+        result = await call();
+      } catch (err) {
+        thrown = err;
+      }
+      // Assertions live outside the try/catch: an assertion failure inside it
+      // would itself be caught and re-checked against isPermissionError,
+      // silently passing instead of failing the test.
+      if (thrown !== undefined) expect(isPermissionError(thrown)).toBe(false);
+      const errMsg =
+        result && typeof result === "object" && typeof (result as { error?: unknown }).error === "string"
+          ? (result as { error: string }).error
+          : undefined;
+      if (errMsg !== undefined) expect(isPermissionError(new Error(errMsg))).toBe(false);
     }
   });
 

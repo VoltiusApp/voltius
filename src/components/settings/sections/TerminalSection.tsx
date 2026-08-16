@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { CURSOR_STYLES, DEFAULT_CURSOR_STYLE, useTerminalSettingsStore, type TerminalCursorStyle } from "@/stores/terminalSettingsStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { DEFAULT_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import { FormSelect } from "@/components/shared/FormSelect";
@@ -8,11 +8,14 @@ import { SettingRow } from "./shared";
 
 export default function TerminalSection() {
   const { t } = useTranslation();
+  const [cursorBlink, setCursorBlink] = useToggle("cursor-blink");
   const [scrollMinimapEnabled, setScrollMinimapEnabled] = useToggle("scroll-minimap");
   const [selectToCopy, setSelectToCopy] = useToggle("select-to-copy");
   const [ignoreBracketedPaste, setIgnoreBracketedPaste] = useToggle("ignore-bracketed-paste");
   const scrollbackLines = useTerminalSettingsStore((s) => s.scrollbackLines);
   const setScrollbackLines = useTerminalSettingsStore((s) => s.setScrollbackLines);
+  const cursorStyle = useTerminalSettingsStore((s) => s.cursorStyle);
+  const setCursorStyle = useTerminalSettingsStore((s) => s.setCursorStyle);
 
   const scrollbackOptions = [1_000, 10_000, 50_000, 100_000, 250_000]
     .filter((value) => value >= MIN_SCROLLBACK_LINES && value <= MAX_SCROLLBACK_LINES)
@@ -37,6 +40,31 @@ export default function TerminalSection() {
             options={scrollbackOptions}
             onChange={(value) => setScrollbackLines(Number(value))}
           />
+        </SettingRow>
+        <SettingRow
+          variant="card"
+          className="mt-4"
+          title={t("settings.terminal.cursorStyle.title")}
+          desc={t("settings.terminal.cursorStyle.desc")}
+          dirty={cursorStyle !== DEFAULT_CURSOR_STYLE}
+          onReset={() => setCursorStyle(DEFAULT_CURSOR_STYLE)}
+        >
+          <FormSelect
+            className="w-44 shrink-0"
+            value={cursorStyle}
+            options={CURSOR_STYLES.map((value) => ({ value, label: t(`settings.terminal.cursorStyle.${value}`) }))}
+            onChange={(value) => setCursorStyle(value as TerminalCursorStyle)}
+          />
+        </SettingRow>
+        <SettingRow
+          variant="card"
+          className="mt-4"
+          title={t("settings.terminal.cursorBlink.title")}
+          desc={t("settings.terminal.cursorBlink.desc")}
+          dirty={cursorBlink !== TOGGLE_DEFS["cursor-blink"].default}
+          onReset={() => setCursorBlink(TOGGLE_DEFS["cursor-blink"].default)}
+        >
+          <Toggle checked={cursorBlink} onChange={setCursorBlink} />
         </SettingRow>
         <SettingRow
           variant="card"

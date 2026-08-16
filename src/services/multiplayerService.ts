@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { getVaultKey } from "@/services/vault";
 import * as teamService from "@/services/teamService";
+import { freshPublicKeys, type InviteTarget } from "@/services/teamSharing";
 import { appFetch } from "@/services/http";
 import { openXChaCha20Poly1305, sealXChaCha20Poly1305 } from "@/services/crypto/xchacha";
 
@@ -9,7 +10,8 @@ import { openXChaCha20Poly1305, sealXChaCha20Poly1305 } from "@/services/crypto/
 
 export interface ActiveSession {
   id: string;
-  connection_name: string;
+  /** Null for a stranger who hasn't accepted yet — the host name is withheld until then. */
+  connection_name: string | null;
   host_user_id: string;
   host_public_key: string;
   visibility: string;
@@ -19,11 +21,17 @@ export interface ActiveSession {
   participants?: Participant[];
   /** Vault scope(s) this session is shared with. Absent for invite-link sessions. */
   vault_ids?: string[];
+  /** Set when this session reached me through an individual invite (#66). */
+  invited_by?: string | null;
+  /** `invited_by`'s handle, resolved by the server from its own `users` table. */
+  invited_by_handle?: string | null;
+  /** Everyone the host has individually invited (#66). Only set for the host. */
+  invitee_ids?: string[];
 }
 
 export interface Participant {
   user_id: string;
-  display_name: string;
+  handle: string;
 }
 
 export interface SessionCallbacks {
@@ -123,6 +131,60 @@ export async function listActiveSessions(): Promise<ActiveSession[]> {
 }
 
 /**
+ * A stranger's current public key by id — used when there is no team roster to
+ * batch through (#unified-invite). Fresh at call time, same as freshPublicKeys:
+ * wrapping to a stale key fails on the recipient with aead::Error (#66).
+ */
+async function resolveStrangerPublicKey(userId: string): Promise<string> {
+  const fresh = await teamService.getUserPublicKey(userId);
+  if (!fresh) throw new Error(i18n.t("common.error.userNoLongerAvailable"));
+  return fresh.public_key;
+}
+
+/**
+ * Fresh session key plus one wrapped copy per unique member, ready to embed in a
+ * terminal-session create/invite payload. Shared by createVaultSession and
+ * createDirectSession.
+ */
+async function prepareWrappedSessionKey(
+  members: { user_id: string; team_id?: string }[],
+): Promise<{ sessionKey: SessionKey; sessionKeyBytes: Uint8Array; wrappedKeys: { user_id: string; wrapped_key: string }[] }> {
+  const { publicKey } = await getMyX25519Keypair();
+  await teamService.updatePublicKey(publicKey);
+
+  const sessionKeyBytes = crypto.getRandomValues(new Uint8Array(32));
+  const sessionKey = await importSessionKey(sessionKeyBytes);
+
+  // Deduplicate members by user_id (e.g. across multiple vaults)
+  const uniqueMembers = Array.from(
+    new Map(members.map((m) => [m.user_id, m])).values(),
+  );
+
+  // Teammates resolve in one batched request per team; a stranger has no
+  // team_id to batch on, so they resolve individually by id.
+  const teammates = uniqueMembers.filter((m): m is { user_id: string; team_id: string } => !!m.team_id);
+  const strangers = uniqueMembers.filter((m) => !m.team_id);
+
+  const [teamKeys, strangerKeyList] = await Promise.all([
+    freshPublicKeys(teammates),
+    Promise.all(strangers.map((m) => resolveStrangerPublicKey(m.user_id))),
+  ]);
+  const strangerKeys = new Map(strangers.map((m, i) => [m.user_id, strangerKeyList[i]]));
+
+  const wrappedKeys = await Promise.all(
+    uniqueMembers.map(async (member) => {
+      const publicKey = teamKeys.get(member.user_id) ?? strangerKeys.get(member.user_id);
+      // Missing only if the server's roster no longer has this teammate —
+      // treat that the same as an unresolved stranger.
+      if (!publicKey) throw new Error(i18n.t("common.error.userNoLongerAvailable"));
+      return { user_id: member.user_id, wrapped_key: await wrapSessionKeyForUser(sessionKeyBytes, publicKey) };
+    }),
+  );
+
+  return { sessionKey, sessionKeyBytes, wrappedKeys };
+}
+
+/**
  * Create a vault-based session (E2EE per-user key wrapping).
  * Members of the selected vaults can join; optionally filtered by role.
  */
@@ -132,23 +194,7 @@ export async function createVaultSession(
   connectionName: string,
   members: teamService.TeamMember[],
 ): Promise<{ sessionId: string; sessionKey: SessionKey; sessionKeyBytes: Uint8Array }> {
-  const { publicKey } = await getMyX25519Keypair();
-  await teamService.updatePublicKey(publicKey);
-
-  const sessionKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-  const sessionKey = await importSessionKey(sessionKeyBytes);
-
-  // Deduplicate members by user_id across multiple vaults
-  const uniqueMembers = Array.from(
-    new Map(members.map((m) => [m.user_id, m])).values(),
-  );
-
-  const participantKeys = await Promise.all(
-    uniqueMembers.map(async (member) => ({
-      user_id: member.user_id,
-      wrapped_key: await wrapSessionKeyForUser(sessionKeyBytes, member.public_key),
-    })),
-  );
+  const { sessionKey, sessionKeyBytes, wrappedKeys } = await prepareWrappedSessionKey(members);
 
   const serverUrl = await teamService.getServerUrlValue();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
@@ -165,7 +211,7 @@ export async function createVaultSession(
       vault_ids: vaultIds,
       connection_name: connectionName,
       visibility: "vault",
-      participant_keys: participantKeys,
+      participant_keys: wrappedKeys,
       allowed_roles: allowedRoles,
     }),
   });
@@ -173,6 +219,69 @@ export async function createVaultSession(
   const { session_id } = await res.json();
 
   return { sessionId: session_id, sessionKey, sessionKeyBytes };
+}
+
+/**
+ * Create a direct session (no vault scope): only the named invitees can join,
+ * each with their own wrapped session key (#66).
+ */
+export async function createDirectSession(
+  connectionName: string,
+  invitees: InviteTarget[],
+): Promise<{ sessionId: string; sessionKey: SessionKey; sessionKeyBytes: Uint8Array }> {
+  const { sessionKey, sessionKeyBytes, wrappedKeys } = await prepareWrappedSessionKey(invitees);
+
+  const serverUrl = await teamService.getServerUrlValue();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const jwt = await teamService.getJwtToken();
+  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+
+  const res = await appFetch(`${serverUrl}/v1/terminal-sessions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      vault_ids: [],
+      connection_name: connectionName,
+      visibility: "direct",
+      participant_keys: [],
+      allowed_roles: [],
+      invitees: wrappedKeys,
+    }),
+  });
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToCreateSession", { status: res.status }));
+  const { session_id } = await res.json();
+
+  return { sessionId: session_id, sessionKey, sessionKeyBytes };
+}
+
+/** Grant anyone — teammate or stranger — access to a live session by wrapping the session key for them (#66). */
+export async function inviteUserToSession(
+  sessionId: string,
+  target: InviteTarget,
+  sessionKeyBytes: Uint8Array,
+): Promise<void> {
+  // By user id, not by team roster: a stranger is in none of my teams, so
+  // freshPublicKeys has nothing to read. Still a fresh read at wrap time —
+  // wrapping to a cached key fails with aead::Error on the recipient (#66).
+  const wrappedKey = await wrapSessionKeyForUser(sessionKeyBytes, await resolveStrangerPublicKey(target.user_id));
+
+  const serverUrl = await teamService.getServerUrlValue();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const jwt = await teamService.getJwtToken();
+  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+
+  const res = await appFetch(`${serverUrl}/v1/terminal-sessions/${sessionId}/invitees`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ user_id: target.user_id, wrapped_key: wrappedKey }),
+  });
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToInvite", { status: res.status }));
 }
 
 /**
@@ -255,16 +364,16 @@ export async function endMultiplayerSession(sessionId: string): Promise<void> {
 
 // ─── WebSocket connection ─────────────────────────────────────────────────────
 
-// ─── Per-session SSH output buffer (pre-share scrollback) ────────────────────
+// ─── Per-session output buffer (pre-share scrollback, any transport) ─────────
 
 const MAX_BUFFER_BYTES = 64 * 1024; // 64 KB per session
 
 interface OutputBuffer { chunks: Uint8Array[]; totalBytes: number; }
-const sshOutputBuffers = new Map<string, OutputBuffer>();
+const sessionOutputBuffers = new Map<string, OutputBuffer>();
 
-export function appendSshOutputBuffer(sessionId: string, data: Uint8Array): void {
-  let buf = sshOutputBuffers.get(sessionId);
-  if (!buf) { buf = { chunks: [], totalBytes: 0 }; sshOutputBuffers.set(sessionId, buf); }
+export function appendSessionOutputBuffer(sessionId: string, data: Uint8Array): void {
+  let buf = sessionOutputBuffers.get(sessionId);
+  if (!buf) { buf = { chunks: [], totalBytes: 0 }; sessionOutputBuffers.set(sessionId, buf); }
   buf.chunks.push(data);
   buf.totalBytes += data.length;
   while (buf.totalBytes > MAX_BUFFER_BYTES && buf.chunks.length > 0) {
@@ -272,9 +381,9 @@ export function appendSshOutputBuffer(sessionId: string, data: Uint8Array): void
   }
 }
 
-export function drainSshOutputBuffer(sessionId: string): Uint8Array | null {
-  const buf = sshOutputBuffers.get(sessionId);
-  sshOutputBuffers.delete(sessionId);
+export function drainSessionOutputBuffer(sessionId: string): Uint8Array | null {
+  const buf = sessionOutputBuffers.get(sessionId);
+  sessionOutputBuffers.delete(sessionId);
   if (!buf || buf.chunks.length === 0) return null;
   const out = new Uint8Array(buf.totalBytes);
   let offset = 0;
@@ -297,7 +406,6 @@ export function openWebSocket(
   serverUrl: string,
   sessionId: string,
   jwt: string,
-  displayName: string,
   sessionKey: SessionKey,
   callbacks: SessionCallbacks,
   inviteToken?: string,
@@ -306,7 +414,7 @@ export function openWebSocket(
   let wsUrl = serverUrl
     .replace(/^https?/, (m) => (m === "https" ? "wss" : "ws"))
     + `/v1/terminal-sessions/${sessionId}/ws`
-    + `?token=${encodeURIComponent(jwt)}&display_name=${encodeURIComponent(displayName)}`;
+    + `?token=${encodeURIComponent(jwt)}`;
 
   if (inviteToken) {
     wsUrl += `&invite_token=${encodeURIComponent(inviteToken)}`;
@@ -341,7 +449,7 @@ export function openWebSocket(
           callbacks.onControlUpdate(msg.holder as string, (msg.requester as string | null) ?? null);
           break;
         case "participant_joined":
-          callbacks.onParticipantJoined({ user_id: msg.user_id as string, display_name: msg.display_name as string });
+          callbacks.onParticipantJoined({ user_id: msg.user_id as string, handle: msg.handle as string });
           break;
         case "participant_left":
           callbacks.onParticipantLeft(msg.user_id as string);

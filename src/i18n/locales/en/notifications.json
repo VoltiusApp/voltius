@@ -52,6 +52,15 @@
         "join": "Join",
         "joined": "Joined"
       },
+      "sessionInvite": {
+        "message": "{{inviter}} invited you to {{name}}"
+      },
+      "sessionKnock": {
+        "message": "{{inviter}} wants to share a terminal",
+        "join": "Join",
+        "decline": "Decline",
+        "blockPermanently": "Block permanently"
+      },
       "control": {
         "request": "{{requester}} is requesting control",
         "grant": "Grant",

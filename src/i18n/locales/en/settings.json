@@ -2,10 +2,24 @@
   "settings": {
     "terminal": {
       "heading": "Terminal behavior",
+      "preferredShell": {
+        "title": "Preferred shell"
+      },
       "scrollback": {
         "title": "Terminal scrollback",
         "desc": "Retained lines per terminal session. Applies to new terminals.",
         "option": "{{count}} lines"
+      },
+      "cursorStyle": {
+        "title": "Cursor style",
+        "desc": "Shape of the terminal cursor.",
+        "bar": "Bar",
+        "block": "Block",
+        "underline": "Underline"
+      },
+      "cursorBlink": {
+        "title": "Cursor blink",
+        "desc": "Blink the terminal cursor."
       },
       "minimap": {
         "title": "Scroll minimap",
@@ -44,6 +58,7 @@
         "reset": "Reset"
       },
       "automation": {
+        "themeMode": "Automatic theme mode",
         "title": "Automatic theme",
         "desc": "Switch between a light and dark theme automatically",
         "lightTheme": "Light theme",
@@ -122,6 +137,7 @@
         "label": "Terminal",
         "keywords": [
           "scrollback",
+          "cursor",
           "paste",
           "bracketed",
           "copy",
@@ -241,11 +257,27 @@
         "save": "Save",
         "toastVerification": "Verification email sent to {{email}}."
       },
-      "displayName": {
-        "title": "Display name",
-        "cannotBeEmpty": "Cannot be empty",
-        "saving": "Saving…",
-        "save": "Save"
+      "handle": {
+        "title": "Handle",
+        "copy": "Copy",
+        "copied": "Copied",
+        "choose": "Choose a handle",
+        "change": "Change handle",
+        "chooseSub": "A custom handle makes you findable by people outside your teams.",
+        "generatedNote": "Your current handle already works for anyone you give it to.",
+        "unverified": "Verify your email to choose a custom handle.",
+        "placeholder": "your-handle",
+        "inputLabel": "Handle",
+        "save": "Save",
+        "errorInvalid": "Handles can only contain letters, numbers, and hyphens.",
+        "errorTaken": "That handle is already taken.",
+        "errorEmailNotVerified": "Verify your email first, then choose your handle.",
+        "errorCooldown": "You can change your handle again soon.",
+        "errorGeneric": "Could not update your handle."
+      },
+      "strangerInvites": {
+        "label": "Allow invites from anyone",
+        "desc": "Let people outside your teams invite you to a shared terminal by @handle or email."
       },
       "changeMasterPassword": {
         "label": "Change master password",
@@ -373,7 +405,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "Lets local MCP clients (like Claude Code) run commands, read, write and delete files on every host in your vault and on this computer, create, change or delete saved connections, keys and identities, run your saved snippets on those hosts, authorise SSH host keys, read the commands you have typed, see, cancel or retry your file transfers, see which of your saved hosts are reachable, rearrange your terminal tabs and split panes, manage your team's membership and invitations, and share your terminal sessions with your team or hand off control of them, over a private socket. Approval happens in that client, not in Voltius. Off by default.",
+        "sub": "Lets local MCP clients (like Claude Code) run commands, read, write and delete files on every host in your vault and on this computer, create, change or delete saved connections, keys and identities, run your saved snippets on those hosts, authorise SSH host keys, read the commands you have typed, see, cancel or retry your file transfers, see which of your saved hosts are reachable, rearrange your terminal tabs and split panes, manage your team's membership and invitations, share your terminal sessions with your team or hand off control of them, read and change every setting in this app, and read your subscription, over a private socket. Approval happens in that client, not in Voltius. Off by default. It can also install, update and remove plugins, and export or import your saved objects.",
         "running": "Running",
         "quickSetup": {
           "title": "Quick setup",
@@ -409,6 +441,13 @@
           "count_one": "{{count}} tool",
           "count_other": "{{count}} tools"
         }
+      }
+    },
+    "mcp": {
+      "consequence": {
+        "autoUpdate": "Turns off automatic update downloads, so security fixes stop arriving on their own.",
+        "pluginInstallReview": "Turns off the consent screen shown before installing a plugin. A plugin that asks for a sensitive permission still shows it.",
+        "sessionTimeout": "Turns off the automatic vault lock after a period of inactivity."
       }
     },
     "about": {
@@ -788,7 +827,7 @@
           "sftpRead": { "label": "Read files", "description": "Browse and read files on your saved SSH/FTP hosts and on this computer." },
           "sftpWrite": { "label": "Write and move files", "description": "Create, rename, overwrite and delete files on your saved SSH/FTP hosts and on this computer, and copy files between them. This can permanently destroy data." },
           "audit": { "label": "Record audit events", "description": "Add entries to your audit log describing what it did. For a host in a team vault, these entries are also sent to that team's server." },
-          "auditRead": { "label": "Read the activity log", "description": "Read this device's activity log, including which hosts were reached, which files were touched and what other plugins did." },
+          "auditRead": { "label": "Read the activity log", "description": "Read this device's activity log, including which hosts were reached, which files were touched and what other plugins did. When a team is named, it also reads that team's server-side log — every member's activity." },
           "mcpContribute": { "label": "Expose tools to external AI agents", "description": "Lets this plugin add its own commands to the Voltius MCP server, so any external AI agent you have connected can run them — using this plugin's own permissions." },
           "vaultsRead": { "label": "See your vaults", "description": "See the names of your vaults, including team vaults, and how they are organized." },
           "vaultsWrite": { "label": "Create and delete vaults", "description": "Create, rename and delete your vaults. Deleting a vault can delete everything filed in it." },
@@ -823,6 +862,12 @@
           "teamWrite": { "label": "Manage team members", "description": "Invite people to your teams, remove members, and change what role they hold." },
           "sharingRead": { "label": "Read shared terminals", "description": "See which of your terminal sessions are shared, who is watching them, and who holds control." },
           "sharingWrite": { "label": "Share live terminals", "description": "Stream a live terminal session to members of your teams, stop sharing, and hand control of it to a participant who asked for it." },
+          "settingsRead": { "label": "Read app settings", "description": "See every setting in this app and its current value." },
+          "settingsWrite": { "label": "Change app settings", "description": "Change any setting in this app, including ones that turn off a safeguard." },
+          "accountRead": { "label": "Read your subscription", "description": "See your plan, trial status, seats and billing state." },
+          "pluginsManage": { "label": "Manage plugins", "description": "Install, update, remove, enable and disable plugins, and add marketplace sources. An installed plugin runs code inside Voltius with the permissions it declares." },
+          "importExportRead": { "label": "Export your data", "description": "Export connections, identities, SSH keys, snippets and port-forwarding rules. Bundles containing passwords or private keys can only be exported encrypted." },
+          "importExportWrite": { "label": "Import data", "description": "Import connections, identities, SSH keys, snippets and port-forwarding rules into a vault. Existing items are never overwritten." },
           "storage": { "label": "Store plugin data", "description": "Save this plugin's own settings and data on your device." },
           "http": { "label": "Access the network", "description": "Make network requests to external services." },
           "cryptoDerive": { "label": "Derive encryption keys", "description": "Derive an encryption key from a passphrase you provide. Does not grant access to your stored secrets." },
@@ -854,6 +899,9 @@
         }
       },
       "filePanel": {
+        "showHidden": {
+          "title": "Show hidden files"
+        },
         "title": "File Panel",
         "autoRefresh": {
           "title": "Auto-refresh",
@@ -866,6 +914,9 @@
         }
       },
       "editor": {
+        "maxBytes": {
+          "title": "Maximum editable file size"
+        },
         "title": "Editor",
         "autoSave": {
           "title": "Auto-save",
@@ -937,6 +988,9 @@
       }
     },
     "toggleDefs": {
+      "cursorBlink": {
+        "label": "Cursor Blink"
+      },
       "scrollMinimap": {
         "label": "Scroll Minimap"
       },

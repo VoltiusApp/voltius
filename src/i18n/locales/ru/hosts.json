@@ -145,8 +145,7 @@
       "resume": "Возобновить",
       "invalidCodeFormat": "Неверный код — ожидаемый формат: sessionId:token",
       "failedToJoinSession": "Не удалось присоединиться к сессии",
-      "sharedTerminalFallback": "Общий терминал",
-      "meFallback": "Я"
+      "sharedTerminalFallback": "Общий терминал"
     },
     "snippetPicker": {
       "title": "Выполнить сниппет",

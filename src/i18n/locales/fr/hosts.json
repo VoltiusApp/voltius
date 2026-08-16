@@ -118,8 +118,7 @@
       "resume": "Reprendre",
       "invalidCodeFormat": "Code invalide — format attendu : sessionId:token",
       "failedToJoinSession": "Échec de la connexion à la session",
-      "sharedTerminalFallback": "Terminal partagé",
-      "meFallback": "Moi"
+      "sharedTerminalFallback": "Terminal partagé"
     },
     "snippetPicker": {
       "title": "Exécuter un snippet",

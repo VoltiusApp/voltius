@@ -6,8 +6,14 @@ import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { buildInviteCode } from "@/services/inviteCode";
-import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
+import { uninviteFromSession } from "@/services/teamService";
+import { guestCapFor, highestOwnerTier, inviteSessionOf, membersOfTeams, seatUsage, type InviteSession, type InviteTarget, type ShareTier } from "@/services/teamSharing";
+import { useDelayedUnmount } from "@/hooks/useDelayedUnmount";
 import { InviteCodeField } from "./InviteCodeField";
+import { PeopleTab } from "./PeopleTab";
+import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
+
+const EXIT_MS = 140;
 
 const ROLES = ["owner", "manager", "editor", "member"] as const;
 
@@ -19,7 +25,7 @@ interface ShareMenuProps {
   connectionName: string;
   connectionVaultId?: string;
   isLoggedIn: boolean;
-  tier: "free" | "pro" | "teams" | "business";
+  tier: ShareTier;
   onSignIn: () => void;
   onUpgrade: () => void;
 }
@@ -27,8 +33,9 @@ interface ShareMenuProps {
 export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectionName, connectionVaultId, isLoggedIn, tier, onSignIn, onUpgrade }: ShareMenuProps) {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-  const [tab, setTab] = useState<"team" | "invite">("team");
+  const mounted = useDelayedUnmount(open, EXIT_MS);
+  const [pos, setPos] = useState({ top: 0, left: 0, originX: 140 });
+  const [tab, setTab] = useState<"people" | "invite" | "team">("people");
   const [sessionName, setSessionName] = useState(connectionName);
   const [selectedVaultIds, setSelectedVaultIds] = useState<Set<string>>(new Set());
   const [vaultRoles, setVaultRoles] = useState<Record<string, Set<string>>>({});
@@ -36,15 +43,27 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const [error, setError] = useState<string | null>(null);
   const [inviteLinkToken, setInviteLinkToken] = useState<string | null>(null);
   const [autoCopied, setAutoCopied] = useState(false);
+  // Held here rather than in PeopleTab: the first direct invite creates the
+  // session, which swaps the setup view for the active view and remounts the tab.
+  const [invitedThisSession, setInvitedThisSession] = useState<ReadonlySet<string>>(new Set());
 
   const { teams, loading: teamsLoading, loadTeams } = useTeamStore();
   const mpConnections = useTeamSessionStore((s) => s.connections);
+  const activeSessions = useTeamSessionStore((s) => s.activeSessions);
   const startSharing = useTeamSessionStore((s) => s.startSharing);
   const startSharingInviteLink = useTeamSessionStore((s) => s.startSharingInviteLink);
+  const startSharingDirect = useTeamSessionStore((s) => s.startSharingDirect);
+  const inviteToActiveSession = useTeamSessionStore((s) => s.inviteToActiveSession);
   const stopSharing = useTeamSessionStore((s) => s.stopSharing);
 
   const activeMp = mpConnections[activeSessionId];
   const isSharing = !!activeMp && !activeMp.ended;
+
+  // The server's record of this session, if one exists yet — the source of truth for
+  // vault scope and per-invitee grants (#66). Empty until this local session has a
+  // multiplayer counterpart the server has told us about.
+  const matchingActiveSession = activeSessions.find((s) => s.id === activeMp?.multiplayerSessionId);
+  const inviteSession = inviteSessionOf(activeMp, matchingActiveSession);
 
   // Vaults whose owner has a qualifying plan (teams/business) — free-tier users can share to these
   const qualifyingVaults = teams.filter((t) => t.owner_tier === "teams" || t.owner_tier === "business");
@@ -58,24 +77,28 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     qualifyingVaults.some((v) => v.id === connectionVaultId);
 
   // Effective cap for the active session: use vault owner's tier when available
-  const effectiveTier = activeMp?.vaultOwnerTier ?? tier;
-  const guestCap = effectiveTier === "business" ? 50 : effectiveTier === "teams" ? 10 : 1;
+  const guestCap = guestCapFor(activeMp?.vaultOwnerTier ?? tier);
 
-  // Tab availability:
-  //   free → team only, but only when connection is in a qualifying vault
-  //   pro  → invite always; team only when connection is in a qualifying vault
-  //   teams/business → both tabs always
-  const availableTabs =
-    tier === "free" ? (["team"] as const)
-    : (tier === "pro" && !connectionInQualifyingVault) ? (["invite"] as const)
-    : (["team", "invite"] as const);
+  // Tab availability — People and Link both need Pro+ (host_tier_session_limit
+  // rejects free with 402, so gate here rather than round-trip a raw error).
+  // Team vault: for Pro it also needs the connection in a qualifying vault (the
+  // anti-piggyback rule above); for free/teams/business it's ungated here — free
+  // is gated by the outer upgrade wall instead, teams/business own their vaults
+  // outright. People leads whenever it's available: it fits "invite a specific
+  // person" best.
+  const teamTabAvailable = tier === "pro" ? connectionInQualifyingVault : true;
+  const availableTabs: readonly ("people" | "invite" | "team")[] = [
+    ...(tier !== "free" ? (["people", "invite"] as const) : []),
+    ...(teamTabAvailable ? (["team"] as const) : []),
+  ];
 
   // Position + load teams on open
   useEffect(() => {
     if (!open) return;
     if (anchorRef.current) {
       const rect = anchorRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.left + rect.width / 2 - 140 });
+      const left = rect.left + rect.width / 2 - 140;
+      setPos({ top: rect.bottom + 4, left, originX: rect.left + rect.width / 2 - left });
     }
     loadTeams().catch(() => {});
     setSessionName(connectionName);
@@ -83,6 +106,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     setSelectedVaultIds(connectionVaultId && connectionVaultId !== "personal" ? new Set([connectionVaultId]) : new Set());
     setVaultRoles({});
     setError(null);
+    setInvitedThisSession(new Set());
     if (!isSharing) {
       setInviteLinkToken(null);
       setAutoCopied(false);
@@ -167,6 +191,27 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     }
   };
 
+  const handleInvite = async (target: InviteTarget) => {
+    if (isSharing) await inviteToActiveSession(activeSessionId, target);
+    else await startSharingDirect(activeSessionId, sessionName || connectionName, [target]);
+    setInvitedThisSession((prev) => new Set(prev).add(target.user_id));
+  };
+
+  // Withdraws a standing invite (A6). The refetch is what frees the seat in the
+  // UI: `invitedIds` comes from the server's session record, and without it the
+  // host stays at "1 of 1 guest" with the invite already gone server-side.
+  const handleUninvite = async (userId: string) => {
+    const sessionId = activeMp?.multiplayerSessionId;
+    if (!sessionId) return;
+    await uninviteFromSession(sessionId, userId);
+    setInvitedThisSession((prev) => {
+      const next = new Set(prev);
+      next.delete(userId);
+      return next;
+    });
+    await useTeamSessionStore.getState().fetchActiveSessions();
+  };
+
   const handleStopSharing = async () => {
     setLoading(true);
     try {
@@ -177,16 +222,22 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     }
   };
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   return createPortal(
     <div
       ref={menuRef}
-      className="surface-float fixed z-9999"
+      className={`surface-float fixed z-9999 ${open ? "animate-fadeIn" : "animate-fadeOut"}`}
       style={{
         top: pos.top,
         left: pos.left,
         width: 280,
+        transformOrigin: `${pos.originX}px top`,
+        // `--animate-fadeIn`/`fadeOut` are the `animation` shorthand (duration baked
+        // in at 0.3s/0.25s) — a Tailwind arbitrary `[animation-duration:...]` utility
+        // competes with that shorthand on generation order, which is not something
+        // to rely on. An inline style always wins the cascade.
+        animationDuration: open ? "140ms" : "110ms",
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -265,6 +316,10 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           inviteLinkToken={inviteLinkToken}
           autoCopied={autoCopied}
           tier={tier}
+          inviteSession={inviteSession}
+          invitedThisSession={invitedThisSession}
+          onInvite={handleInvite}
+          onUninvite={handleUninvite}
           onStop={handleStopSharing}
           onUpgrade={onUpgrade}
         />
@@ -289,7 +344,8 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
             />
           </div>
 
-          {/* Tabs — Team tab hidden for Pro (no team vaults) */}
+          {/* Tabs — omitted entirely when only one is available (e.g. a Pro host
+              whose connection isn't in a qualifying vault sees no Team tab). */}
           {availableTabs.length > 1 && (
             <div className="flex px-3 gap-1 mb-2">
               {availableTabs.map((tabId) => (
@@ -303,7 +359,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
                   }}
                   onClick={() => setTab(tabId)}
                 >
-                  {tabId === "team" ? t("terminal.share.tabTeam") : t("terminal.share.tabInviteLink")}
+                  {tabId === "people" ? t("terminal.share.tabPeople") : tabId === "team" ? t("terminal.share.tabTeam") : t("terminal.share.tabInviteLink")}
                 </button>
               ))}
             </div>
@@ -316,7 +372,16 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           )}
 
           {/* Tab content */}
-          {tab === "team" ? (
+          {tab === "people" ? (
+            <PeopleTab
+              session={inviteSession}
+              invitedThisSession={invitedThisSession}
+              guestCap={guestCap}
+              tier={tier}
+              onUpgrade={onUpgrade}
+              onInvite={handleInvite}
+            />
+          ) : tab === "team" ? (
             <TeamTab
               teams={(tier === "free" || tier === "pro") ? qualifyingVaults : teams}
               selectedVaultIds={selectedVaultIds}
@@ -355,6 +420,10 @@ function ActiveSharingView({
   inviteLinkToken,
   autoCopied,
   tier,
+  inviteSession,
+  invitedThisSession,
+  onInvite,
+  onUninvite,
   onStop,
   onUpgrade,
 }: {
@@ -364,13 +433,20 @@ function ActiveSharingView({
   guestCap: number;
   inviteLinkToken: string | null;
   autoCopied: boolean;
-  tier: "free" | "pro" | "teams" | "business";
+  tier: ShareTier;
+  inviteSession: InviteSession;
+  invitedThisSession: ReadonlySet<string>;
+  onInvite: (target: InviteTarget) => Promise<void>;
+  onUninvite: (userId: string) => Promise<void>;
   onStop: () => void;
   onUpgrade: () => void;
 }) {
   const { t } = useTranslation();
-  const participantCount = activeMp.participants.filter((p) => p.user_id !== activeMp.myUserId).length;
-  const atCap = participantCount >= guestCap;
+  const participantCount = inviteSession.participantIds.length;
+  // An invite_link session retains no per-user session key (#66) — inviting into it
+  // would always throw cannotInviteWithoutSessionKey, so don't offer the action.
+  const canInviteDirectly = !!activeMp.sessionKeyBytes;
+  const { committedSeats, atCap } = seatUsage(inviteSession, invitedThisSession, guestCap);
 
   return (
     <div className="p-3">
@@ -384,19 +460,13 @@ function ActiveSharingView({
         </span>
       </div>
 
-      <div className="flex items-center gap-2 mb-3 text-xs" style={{ color: atCap ? "#f59e0b" : "var(--t-text-secondary)" }}>
-        <Icon icon="lucide:users" width={13} />
-        <span>{t("terminal.share.participantsRatio", { count: guestCap, participantCount, guestCap })}</span>
-        {atCap && tier !== "business" && (
-          <button
-            className="text-[10px] underline ml-auto"
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#f59e0b" }}
-            onClick={onUpgrade}
-          >
-            {tier === "pro" ? t("terminal.share.upgradeToTeams") : t("terminal.share.upgradeToBusiness")}
-          </button>
-        )}
-      </div>
+      {/* Exactly one seats line per view. The invite roster below draws its own, which
+          also counts standing invites; a second one here would contradict it. This
+          fallback covers the invite_link case, which has no roster — and no invitees
+          either, so its seat count is just the live participants. */}
+      {!canInviteDirectly && (
+        <ParticipantsRatioNotice count={committedSeats} guestCap={guestCap} atCap={atCap} tier={tier} onUpgrade={onUpgrade} />
+      )}
 
       {participantCount > 0 && (
         <div className="flex flex-wrap gap-1 mb-3">
@@ -414,7 +484,7 @@ function ActiveSharingView({
               title={p.user_id === activeMp.controlHolder ? t("terminal.share.hasControl") : undefined}
             >
               {p.user_id === activeMp.controlHolder && <Icon icon="lucide:pencil" width={9} />}
-              {p.display_name}
+              {p.handle}
             </div>
           ))}
         </div>
@@ -430,6 +500,18 @@ function ActiveSharingView({
         <div className="mb-3">
           <InviteCodeField code={buildInviteCode(activeMp.multiplayerSessionId, inviteLinkToken)} autoCopied={autoCopied} />
         </div>
+      )}
+
+      {canInviteDirectly && (
+        <PeopleTab
+          session={inviteSession}
+          invitedThisSession={invitedThisSession}
+          guestCap={guestCap}
+          tier={tier}
+          onUpgrade={onUpgrade}
+          onInvite={onInvite}
+          onUninvite={onUninvite}
+        />
       )}
 
       <button
@@ -578,7 +660,7 @@ function InviteLinkTab({
   sessionId: string;
   autoCopied: boolean;
   guestCap: number;
-  tier: "free" | "pro" | "teams" | "business";
+  tier: ShareTier;
   onGenerate: () => void;
   onUpgrade: () => void;
 }) {

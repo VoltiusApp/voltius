@@ -4,15 +4,17 @@ import type { PluginAPI, PluginManifest } from "./api";
 
 type CloseHandler = (event: { preventDefault: () => void }) => unknown;
 
-const { closeHandlers, hide, invoke } = vi.hoisted(() => ({
+const { closeHandlers, hide, invoke, isVisible } = vi.hoisted(() => ({
   closeHandlers: [] as CloseHandler[],
   hide: vi.fn(() => Promise.resolve()),
   invoke: vi.fn(() => Promise.resolve()),
+  isVisible: vi.fn(() => Promise.resolve(false)),
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     hide,
+    isVisible,
     onCloseRequested: (cb: CloseHandler) => {
       closeHandlers.push(cb);
       return Promise.resolve(() => {});
@@ -46,7 +48,10 @@ async function registerQuitHook(cb: () => void | Promise<void>): Promise<() => v
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   hide.mockClear();
+  hide.mockImplementation(() => Promise.resolve());
   invoke.mockClear();
+  isVisible.mockClear();
+  isVisible.mockImplementation(() => Promise.resolve(false));
 });
 
 afterEach(() => {
@@ -96,6 +101,62 @@ describe("the close handler", () => {
     // The fallback exit must have been disarmed by the normal path.
     await vi.advanceTimersByTimeAsync(5000);
     expect(invoke).toHaveBeenCalledTimes(1);
+    off();
+  });
+
+  test("cancels the exit when the window was reopened during the wait", async () => {
+    isVisible.mockImplementation(() => Promise.resolve(true));
+    const off = await registerQuitHook(() => {});
+
+    await fireClose();
+
+    expect(invoke).not.toHaveBeenCalled();
+    off();
+  });
+
+  test("exits when the visibility check rejects", async () => {
+    isVisible.mockImplementation(() => Promise.reject(new Error("no window")));
+    const off = await registerQuitHook(() => {});
+
+    await fireClose();
+
+    expect(invoke).toHaveBeenCalledWith("force_quit");
+    off();
+  });
+
+  test("exits when the visibility check never settles", async () => {
+    isVisible.mockImplementation(() => new Promise<boolean>(() => {}));
+    const off = await registerQuitHook(() => {});
+
+    const closed = fireClose();
+    await vi.advanceTimersByTimeAsync(1000);
+    await closed;
+
+    expect(invoke).toHaveBeenCalledWith("force_quit");
+    off();
+  });
+
+  test("exits when the hide failed, without trusting the visibility check", async () => {
+    hide.mockImplementation(() => Promise.reject(new Error("no window")));
+    isVisible.mockImplementation(() => Promise.resolve(true));
+    const off = await registerQuitHook(() => {});
+
+    await fireClose();
+
+    expect(isVisible).not.toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledWith("force_quit");
+    off();
+  });
+
+  test("exits on the fallback when the hide never settles", async () => {
+    hide.mockImplementation(() => new Promise<void>(() => {}));
+    const off = await registerQuitHook(() => {});
+
+    const closed = fireClose();
+    await vi.advanceTimersByTimeAsync(1000);
+    await closed;
+
+    expect(invoke).toHaveBeenCalledWith("force_quit");
     off();
   });
 });

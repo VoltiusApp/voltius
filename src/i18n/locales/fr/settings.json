@@ -2,10 +2,24 @@
   "settings": {
     "terminal": {
       "heading": "Comportement du terminal",
+      "preferredShell": {
+        "title": "Shell préféré"
+      },
       "scrollback": {
         "title": "Historique du terminal",
         "desc": "Lignes conservées par session de terminal. S'applique aux nouveaux terminaux.",
         "option": "{{count}} lignes"
+      },
+      "cursorStyle": {
+        "title": "Style du curseur",
+        "desc": "Forme du curseur du terminal.",
+        "bar": "Barre",
+        "block": "Bloc",
+        "underline": "Souligné"
+      },
+      "cursorBlink": {
+        "title": "Clignotement du curseur",
+        "desc": "Faire clignoter le curseur du terminal."
       },
       "minimap": {
         "title": "Mini-carte de défilement",
@@ -44,6 +58,7 @@
         "reset": "Réinitialiser"
       },
       "automation": {
+        "themeMode": "Mode du thème automatique",
         "title": "Thème automatique",
         "desc": "Basculer automatiquement entre un thème clair et sombre",
         "lightTheme": "Thème clair",
@@ -122,6 +137,7 @@
         "label": "Terminal",
         "keywords": [
           "historique",
+          "curseur",
           "collage",
           "crochets",
           "copier",
@@ -241,11 +257,27 @@
         "save": "Enregistrer",
         "toastVerification": "E-mail de vérification envoyé à {{email}}."
       },
-      "displayName": {
-        "title": "Nom d'affichage",
-        "cannotBeEmpty": "Ne peut pas être vide",
-        "saving": "Enregistrement…",
-        "save": "Enregistrer"
+      "handle": {
+        "title": "Pseudo",
+        "copy": "Copier",
+        "copied": "Copié",
+        "choose": "Choisir un pseudo",
+        "change": "Changer de pseudo",
+        "chooseSub": "Un pseudo personnalisé vous rend trouvable par des personnes extérieures à vos équipes.",
+        "generatedNote": "Votre pseudo actuel fonctionne déjà auprès de toute personne à qui vous le donnez.",
+        "unverified": "Vérifiez votre adresse e-mail pour choisir un pseudo personnalisé.",
+        "placeholder": "votre-pseudo",
+        "inputLabel": "Pseudo",
+        "save": "Enregistrer",
+        "errorInvalid": "Un pseudo ne peut contenir que des lettres, des chiffres et des tirets.",
+        "errorTaken": "Ce pseudo est déjà pris.",
+        "errorEmailNotVerified": "Vérifiez d'abord votre adresse e-mail, puis choisissez votre pseudo.",
+        "errorCooldown": "Vous pourrez de nouveau changer de pseudo bientôt.",
+        "errorGeneric": "Impossible de mettre à jour votre pseudo."
+      },
+      "strangerInvites": {
+        "label": "Autoriser les invitations de tout le monde",
+        "desc": "Permet aux personnes en dehors de vos équipes de vous inviter dans un terminal partagé par @pseudo ou e-mail."
       },
       "changeMasterPassword": {
         "label": "Changer le mot de passe maître",
@@ -373,7 +405,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "Permet aux clients MCP locaux (comme Claude Code) d'exécuter des commandes, de lire, écrire et supprimer des fichiers sur tous les hôtes de votre coffre ainsi que sur cet ordinateur, de créer, modifier ou supprimer des connexions, clés et identités enregistrées, d'exécuter vos snippets enregistrés sur ces hôtes, d'autoriser des clés d'hôte SSH, de lire les commandes que vous avez saisies, de voir, annuler ou relancer vos transferts de fichiers, de voir lesquels de vos hôtes enregistrés sont joignables, de réorganiser vos onglets de terminal et vos panneaux divisés, de gérer les membres et les invitations de votre équipe, et de partager vos sessions de terminal avec votre équipe ou d'en céder le contrôle, via un socket privé. L'approbation a lieu dans ce client, pas dans Voltius. Désactivé par défaut.",
+        "sub": "Permet aux clients MCP locaux (comme Claude Code) d'exécuter des commandes, de lire, écrire et supprimer des fichiers sur tous les hôtes de votre coffre ainsi que sur cet ordinateur, de créer, modifier ou supprimer des connexions, clés et identités enregistrées, d'exécuter vos snippets enregistrés sur ces hôtes, d'autoriser des clés d'hôte SSH, de lire les commandes que vous avez saisies, de voir, annuler ou relancer vos transferts de fichiers, de voir lesquels de vos hôtes enregistrés sont joignables, de réorganiser vos onglets de terminal et vos panneaux divisés, de gérer les membres et les invitations de votre équipe, de partager vos sessions de terminal avec votre équipe ou d'en céder le contrôle, de lire et modifier tous les réglages de l'application, et de lire votre abonnement, via un socket privé. L'approbation a lieu dans ce client, pas dans Voltius. Désactivé par défaut. Il peut aussi installer, mettre à jour et supprimer des plugins, et exporter ou importer vos objets enregistrés.",
         "running": "Actif",
         "quickSetup": {
           "title": "Configuration rapide",
@@ -409,6 +441,13 @@
           "count_one": "{{count}} outil",
           "count_other": "{{count}} outils"
         }
+      }
+    },
+    "mcp": {
+      "consequence": {
+        "autoUpdate": "Désactive le téléchargement automatique des mises à jour : les correctifs de sécurité n'arrivent plus d'eux-mêmes.",
+        "pluginInstallReview": "Désactive l'écran de consentement affiché avant l'installation d'un plugin. Un plugin qui demande une permission sensible l'affiche quand même.",
+        "sessionTimeout": "Désactive le verrouillage automatique du coffre après une période d'inactivité."
       }
     },
     "about": {
@@ -788,7 +827,7 @@
           "sftpRead": { "label": "Lire les fichiers", "description": "Parcourir et lire les fichiers de vos hôtes SSH/FTP enregistrés et de cet ordinateur." },
           "sftpWrite": { "label": "Écrire et déplacer des fichiers", "description": "Créer, renommer, écraser et supprimer des fichiers sur vos hôtes SSH/FTP enregistrés et sur cet ordinateur, et les copier entre eux. Cela peut détruire définitivement des données." },
           "audit": { "label": "Enregistrer des événements d'audit", "description": "Ajouter à votre journal d'audit des entrées décrivant ses actions. Pour un hôte d'un coffre d'équipe, ces entrées sont également envoyées au serveur de cette équipe." },
-          "auditRead": { "label": "Lire le journal d'activité", "description": "Lire le journal d'activité de cet appareil, y compris les hôtes contactés, les fichiers touchés et les actions des autres plugins." },
+          "auditRead": { "label": "Lire le journal d'activité", "description": "Lire le journal d'activité de cet appareil, y compris les hôtes contactés, les fichiers touchés et les actions des autres plugins. Lorsqu'une équipe est nommée, cela lit aussi le journal côté serveur de cette équipe — l'activité de chacun de ses membres." },
           "mcpContribute": { "label": "Exposer des outils aux agents IA externes", "description": "Permet à ce plugin d'ajouter ses propres commandes au serveur MCP de Voltius, afin que tout agent IA externe connecté puisse les exécuter — avec les autorisations de ce plugin." },
           "vaultsRead": { "label": "Voir vos coffres", "description": "Voir les noms de vos coffres, y compris les coffres d'équipe, et leur organisation." },
           "vaultsWrite": { "label": "Créer et supprimer des coffres", "description": "Créer, renommer et supprimer vos coffres. Supprimer un coffre peut supprimer tout ce qu'il contient." },
@@ -823,6 +862,12 @@
           "teamWrite": { "label": "Gérer les membres d'équipe", "description": "Inviter des personnes dans vos équipes, retirer des membres et modifier leur rôle." },
           "sharingRead": { "label": "Lire les terminaux partagés", "description": "Voir lesquelles de vos sessions de terminal sont partagées, qui les regarde et qui en détient le contrôle." },
           "sharingWrite": { "label": "Partager des terminaux en direct", "description": "Diffuser une session de terminal en direct aux membres de vos équipes, arrêter le partage et céder le contrôle à un participant qui l'a demandé." },
+          "settingsRead": { "label": "Lire les réglages", "description": "Voir chaque réglage de l'application et sa valeur actuelle." },
+          "settingsWrite": { "label": "Modifier les réglages", "description": "Modifier n'importe quel réglage, y compris ceux qui désactivent une protection." },
+          "accountRead": { "label": "Lire votre abonnement", "description": "Voir votre formule, votre essai, vos sièges et votre facturation." },
+          "pluginsManage": { "label": "Gérer les plugins", "description": "Installer, mettre à jour, supprimer, activer et désactiver des plugins, et ajouter des sources de marketplace. Un plugin installé exécute du code dans Voltius avec les permissions qu'il déclare." },
+          "importExportRead": { "label": "Exporter vos données", "description": "Exporter connexions, identités, clés SSH, snippets et règles de redirection de ports. Un export contenant des mots de passe ou des clés privées ne sort que chiffré." },
+          "importExportWrite": { "label": "Importer des données", "description": "Importer connexions, identités, clés SSH, snippets et règles de redirection de ports dans un coffre. Rien d'existant n'est écrasé." },
           "storage": { "label": "Stocker les données du plugin", "description": "Enregistrer les réglages et données propres à ce plugin sur votre appareil." },
           "http": { "label": "Accéder au réseau", "description": "Effectuer des requêtes réseau vers des services externes." },
           "cryptoDerive": { "label": "Dériver des clés de chiffrement", "description": "Dériver une clé de chiffrement à partir d'une phrase secrète que vous fournissez. Ne donne pas accès à vos secrets stockés." },
@@ -854,6 +899,9 @@
         }
       },
       "filePanel": {
+        "showHidden": {
+          "title": "Afficher les fichiers cachés"
+        },
         "title": "Panneau de fichiers",
         "autoRefresh": {
           "title": "Actualisation automatique",
@@ -866,6 +914,9 @@
         }
       },
       "editor": {
+        "maxBytes": {
+          "title": "Taille maximale des fichiers éditables"
+        },
         "title": "Éditeur",
         "autoSave": {
           "title": "Sauvegarde automatique",
@@ -937,6 +988,9 @@
       }
     },
     "toggleDefs": {
+      "cursorBlink": {
+        "label": "Clignotement du curseur"
+      },
       "scrollMinimap": {
         "label": "Minimap de défilement"
       },

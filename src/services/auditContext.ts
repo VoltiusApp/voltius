@@ -61,7 +61,25 @@ export type PluginAuditAction =
   | "agent.member_role_changed"
   | "agent.session_shared"
   | "agent.session_unshared"
-  | "agent.control_granted";
+  | "agent.control_granted"
+  // A setting an agent changed. Local to the device: a settings verb's scope
+  // resolves no connection and no team, so runtime.ts files the row under the
+  // "personal" bucket audit.query reads. Nothing to add to the server's
+  // CLIENT_WHITELIST.
+  | "agent.setting_changed"
+  // Plugin lifecycle and import/export (P9). Local to the device: these verbs
+  // resolve no connection and no team, so runtime.ts files their rows under the
+  // "personal" bucket audit.query reads. Nothing to add to the server's
+  // CLIENT_WHITELIST.
+  | "agent.plugin_installed"
+  | "agent.plugin_removed"
+  | "agent.plugin_enabled"
+  | "agent.plugin_disabled"
+  | "agent.plugin_updated"
+  | "agent.plugin_configured"
+  | "agent.marketplace_source_changed"
+  | "agent.objects_imported"
+  | "agent.objects_exported";
 
 export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.grant_created", "agent.grant_revoked", "agent.mode_changed",
@@ -73,6 +91,10 @@ export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.plugin_tool_run",
   "agent.member_invited", "agent.member_removed", "agent.member_role_changed",
   "agent.session_shared", "agent.session_unshared", "agent.control_granted",
+  "agent.setting_changed",
+  "agent.plugin_installed", "agent.plugin_removed", "agent.plugin_enabled",
+  "agent.plugin_disabled", "agent.plugin_updated", "agent.plugin_configured",
+  "agent.marketplace_source_changed", "agent.objects_imported", "agent.objects_exported",
 ];
 
 export type AnyAuditAction = ClientAuditAction | PluginAuditAction;

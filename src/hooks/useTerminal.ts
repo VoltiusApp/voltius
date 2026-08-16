@@ -29,6 +29,7 @@ import { handleDuplicateShortcut } from "@/services/duplicateSession";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
+import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor } from "@/utils/terminalTheme";
 import { getPlatform } from "@/utils/platform";
 
 interface UseTerminalOptions {
@@ -730,12 +731,13 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       // ── Create new terminal ───────────────────────────────────────────────
       const activeTheme = useThemeStore.getState().getActiveTheme();
-      const scrollback = useTerminalSettingsStore.getState().scrollbackLines;
+      const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
       const term = new Terminal({
         altClickMovesCursor: false,
-        cursorBlink: true,
-        cursorStyle: "bar",
+        cursorBlink: getToggle("cursor-blink"),
+        cursorStyle,
         fontSize: activeTheme.terminalFontSize,
+        lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
         fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
         scrollback,
         theme: activeTheme.terminal,
@@ -1152,14 +1154,13 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const entry = terminalCache.get(sessionId);
       if (!entry) return;
       const { terminal: term, fitAddon } = entry;
-      const theme = state.getActiveTheme();
-      term.options.theme = theme.terminal;
-      term.options.fontFamily = withFlagEmojiFallback(theme.terminalFontFamily);
-      if (term.options.fontSize !== theme.terminalFontSize) {
-        term.options.fontSize = theme.terminalFontSize;
-        fitAddon.fit();
-      }
+      applyTerminalTheme(term, fitAddon, state.getActiveTheme());
     });
+  }, [sessionId]);
+
+  // Live cursor style/blink updates
+  useEffect(() => {
+    return subscribeTerminalCursor(() => terminalCache.get(sessionId)?.terminal);
   }, [sessionId]);
 
   // Live theme preview
@@ -1168,13 +1169,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const entry = terminalCache.get(sessionId);
       if (!entry) return;
       const { terminal: term, fitAddon } = entry;
-      const theme = (e as CustomEvent).detail;
-      term.options.theme = theme.terminal;
-      term.options.fontFamily = withFlagEmojiFallback(theme.terminalFontFamily);
-      if (term.options.fontSize !== theme.terminalFontSize) {
-        term.options.fontSize = theme.terminalFontSize;
-        fitAddon.fit();
-      }
+      applyTerminalTheme(term, fitAddon, (e as CustomEvent).detail);
     };
     window.addEventListener("theme-preview", handler);
     return () => window.removeEventListener("theme-preview", handler);

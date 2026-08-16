@@ -11,7 +11,7 @@ const SEAT_PRICE_MONTHLY = 15;
 
 interface Props {
   teamId: string;
-  pendingUser: { user_id: string; display_name: string } | null;
+  pendingUser: { user_id: string; handle: string } | null;
   pendingRole: string;
   onClose: () => void;
   onSuccess: () => void;
@@ -79,7 +79,7 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
             </h2>
             <p className="text-xs mt-0.5" style={{ color: "var(--t-text-dim)" }}>
               {t("settings.account.buySeats.seatsUsed", { used: usedSeats, total: totalSeats })}
-              {pendingUser && <> · {t("settings.account.buySeats.inviting")} <span className="font-medium">{pendingUser.display_name}</span></>}
+              {pendingUser && <> · {t("settings.account.buySeats.inviting")} <span className="font-medium">{pendingUser.handle}</span></>}
             </p>
           </div>
           <button onClick={onClose} className="shrink-0 mt-0.5" style={{ color: "var(--t-text-dim)" }}>

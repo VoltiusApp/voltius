@@ -15,7 +15,7 @@ import type { TeamMember, TeamRole } from "@/services/teamService";
 const role = (id: string, permissions: number, name = id, is_builtin = false): TeamRole =>
   ({ id, team_id: "t1", name, permissions, is_builtin, position: 0 } as TeamRole);
 const member = (user_id: string, role_ids: string[]): TeamMember =>
-  ({ team_id: "t1", user_id, display_name: "", public_key: "", invited_by_display_name: null, joined_at: "", role_ids });
+  ({ team_id: "t1", user_id, handle: "", public_key: "", invited_by_display_name: null, joined_at: "", role_ids });
 
 beforeEach(() => {
   h.getMyUserId.mockResolvedValue("me");

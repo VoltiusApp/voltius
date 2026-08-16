@@ -3,7 +3,8 @@ import { buildMcpTools } from "./consumer";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import type { PluginAPI } from "@/plugins/api";
 
-vi.mock("@/services/sftp", () => ({
+vi.mock(import("@/services/sftp"), async (importOriginal) => ({
+  ...(await importOriginal()),
   sftpCancelTransfer: vi.fn(async () => {}),
   onTransferProgress: vi.fn(async () => () => {}),
 }));

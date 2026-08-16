@@ -625,9 +625,26 @@ export const register: PluginRegisterFn = (api) => {
     sync(api).catch((e) => api.log.error("ssh-config manual sync failed", e));
   });
 
+  const offMcp = api.mcp.registerTools([
+    {
+      name: "sync",
+      description:
+        "Read the user's ~/.ssh/config and mirror it into saved connections: hosts are created and " +
+        "updated, private keys referenced by IdentityFile are imported into the vault, and connections " +
+        "this plugin previously created for hosts that have since disappeared from the config are " +
+        "deleted. Returns how many hosts were seen.",
+      inputSchema: { type: "object", properties: {} },
+      execute: async () => {
+        await sync(api);
+        return "synced";
+      },
+    },
+  ]);
+
   return () => {
     stopWatch?.();
     offEvent();
     offSyncNow();
+    offMcp();
   };
 };

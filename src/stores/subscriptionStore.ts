@@ -2,9 +2,9 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { appFetch } from "@/services/http";
 import { parseJwtPayload } from "@/utils/emailVerification";
-import { deriveTierFlags } from "@/stores/subscriptionTier";
+import { deriveTierFlags, type Tier } from "@/stores/subscriptionTier";
 
-export type Tier = "free" | "pro" | "teams" | "business";
+export type { Tier };
 
 interface JwtPayload {
   tier?: string;
@@ -34,6 +34,7 @@ export interface SubscriptionState {
   renewsAt: Date | null;
   endsAt: Date | null;
   emailVerified: boolean;
+  billingLoadFailed: boolean;
   load: () => Promise<void>;
 }
 
@@ -54,23 +55,24 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
   renewsAt: null,
   endsAt: null,
   emailVerified: true,
+  billingLoadFailed: false,
 
   async load() {
     const mode = await keychainGet("mode").catch(() => null);
     if (mode !== "server") {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true, billingLoadFailed: false });
       return;
     }
 
     const jwt = await keychainGet("jwt").catch(() => null);
     if (!jwt) {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true, billingLoadFailed: false });
       return;
     }
 
     const payload = parseJwtPayload<JwtPayload>(jwt);
     if (!payload) {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true, billingLoadFailed: false });
       return;
     }
 
@@ -78,7 +80,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
     const { tier, trialEndsAt, trialKnown, trialUsed, isTrialActive, isPro, isTeams, isBusiness, emailVerified } =
       deriveTierFlags(payload, now);
 
-    set({ tier, trialEndsAt, trialUsed, trialKnown, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified });
+    set({ tier, trialEndsAt, trialUsed, trialKnown, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified, billingLoadFailed: false });
 
     // Non-fatal: enrich paid plans with live billing lifecycle and seat data.
     if (isPro) {
@@ -104,11 +106,14 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
               subscriptionCancelled: data.cancelled ?? false,
               renewsAt: data.renews_at ? new Date(data.renews_at * 1000) : null,
               endsAt: data.ends_at ? new Date(data.ends_at * 1000) : null,
+              billingLoadFailed: false,
             });
+          } else {
+            set({ billingLoadFailed: true });
           }
         }
       } catch {
-        // Non-fatal: lifecycle and seats display will just be empty
+        set({ billingLoadFailed: true });
       }
     }
   },

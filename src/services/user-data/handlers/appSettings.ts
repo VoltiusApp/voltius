@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { CURSOR_STYLES, useTerminalSettingsStore, type TerminalCursorStyle } from "@/stores/terminalSettingsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useToggleSettingsStore, TOGGLE_DEFS, type ToggleId } from "@/stores/toggleSettingsStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
@@ -12,7 +12,7 @@ import { lastWriteWins, type UserDataHandler } from "../handler";
 
 interface AppSettingsData {
   sftp?: { autoRefreshIntervalMs: number };
-  terminal?: { preferredShell: string | null };
+  terminal?: { preferredShell: string | null; cursorStyle?: TerminalCursorStyle };
   plugins?: { overrides: Record<string, boolean> };
   toggles?: Partial<Record<string, boolean>>;
   keepalivePreset?: KeepalivePreset;
@@ -31,7 +31,7 @@ export const appSettingsHandler: UserDataHandler = {
     const { values } = useToggleSettingsStore.getState();
     return {
       sftp: { autoRefreshIntervalMs: sftp.autoRefreshIntervalMs },
-      terminal: { preferredShell: terminal.preferredShell },
+      terminal: { preferredShell: terminal.preferredShell, cursorStyle: terminal.cursorStyle },
       plugins: { overrides: plugins.overrides },
       toggles: { ...values },
       keepalivePreset: useConnectivitySettingsStore.getState().keepalivePreset,
@@ -46,7 +46,10 @@ export const appSettingsHandler: UserDataHandler = {
       if (d.sftp.autoRefreshIntervalMs != null) s.setAutoRefreshIntervalMs(d.sftp.autoRefreshIntervalMs);
     }
     if (d.terminal) {
-      useTerminalSettingsStore.getState().setPreferredShell(d.terminal.preferredShell ?? null);
+      const s = useTerminalSettingsStore.getState();
+      s.setPreferredShell(d.terminal.preferredShell ?? null);
+      const style = d.terminal.cursorStyle;
+      if (style && CURSOR_STYLES.includes(style)) s.setCursorStyle(style);
     }
     if (d.plugins?.overrides) {
       const overrides = d.plugins.overrides;

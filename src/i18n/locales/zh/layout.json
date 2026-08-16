@@ -86,6 +86,7 @@
       "localShellFallback": "本地 Shell"
     },
     "sidebarAccount": {
+      "copyHandle": "复制您的 handle",
       "accountTitle": "账户",
       "localAccountFallback": "本地账户",
       "modeCloud": "云账户",

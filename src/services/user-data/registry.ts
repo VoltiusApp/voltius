@@ -1,9 +1,11 @@
+import { withRemoteApply } from "@/stores/remoteApplyGuard";
 import type { UserDataHandler } from "./handler";
 import type { UserDataBundle, UserDataSection } from "./formats";
 import { themesHandler } from "./handlers/themes";
 import { uiPreferencesHandler } from "./handlers/uiPreferences";
 import { shortcutsHandler } from "./handlers/shortcuts";
 import { appSettingsHandler } from "./handlers/appSettings";
+import { recentPeopleHandler } from "./handlers/recentPeople";
 
 // ─── Handler registry ─────────────────────────────────────────────────────────
 // Order matters for UI rendering. Adding a new settings domain:
@@ -15,6 +17,7 @@ export const USER_DATA_HANDLERS: UserDataHandler[] = [
   uiPreferencesHandler,
   shortcutsHandler,
   appSettingsHandler,
+  recentPeopleHandler,
 ];
 
 // ─── Build ────────────────────────────────────────────────────────────────────
@@ -39,16 +42,25 @@ export function buildUserDataBundle(keys?: string[]): UserDataBundle {
 
 // ─── Apply ────────────────────────────────────────────────────────────────────
 
+/**
+ * @param opts.remote  true when the bundle came from another device's blob:
+ *                     each section is applied under the remote-apply guard so
+ *                     stores adopt the remote timestamp and skip the push that
+ *                     would bounce the change straight back (see
+ *                     stores/remoteApplyGuard).
+ */
 export async function applyUserDataBundle(
   bundle: UserDataBundle,
   keys?: string[],
+  opts?: { remote?: boolean },
 ): Promise<{ applied: string[] }> {
   const applied: string[] = [];
   for (const h of USER_DATA_HANDLERS) {
     if (keys && !keys.includes(h.key)) continue;
     const section = bundle.sections[h.key];
     if (!section) continue;
-    await h.import(section.data);
+    if (opts?.remote) await withRemoteApply(section.updated_at, () => h.import(section.data));
+    else await h.import(section.data);
     applied.push(h.key);
   }
   return { applied };

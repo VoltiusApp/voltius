@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { searchUsers } from "@/services/teamService";
+import { searchUsers, type UserSearchResult } from "@/services/teamService";
 
-export interface UserSearchResult { user_id: string; display_name: string; public_key: string; }
+export type { UserSearchResult };
 
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 250;

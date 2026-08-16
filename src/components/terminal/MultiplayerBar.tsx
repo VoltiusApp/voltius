@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { handleInitials } from "@/components/shared/AvatarStack";
 
 interface MultiplayerBarProps {
   localSessionId: string;
@@ -87,9 +88,9 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
                   ? "1.5px solid var(--t-accent)"
                   : "1.5px solid var(--t-border)",
             }}
-            title={p.display_name}
+            title={p.handle}
           >
-            {p.display_name.slice(0, 2).toUpperCase()}
+            {handleInitials(p.handle)}
           </div>
         ))}
         {mpState.participants.length > 5 && (

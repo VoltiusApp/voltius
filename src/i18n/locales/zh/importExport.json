@@ -107,7 +107,8 @@
         "themes": { "label": "主题" },
         "uiPreferences": { "label": "UI 偏好" },
         "shortcuts": { "label": "快捷键" },
-        "appSettings": { "label": "应用设置" }
+        "appSettings": { "label": "应用设置" },
+        "recentPeople": { "label": "最近的联系人" }
       },
       "describe": {
         "themes_one": "{{count}} 个自定义主题",
@@ -117,7 +118,9 @@
         "shortcutsOverrides_other": "{{count}} 个覆盖",
         "shortcutsDefaults": "默认值",
         "appSettingsShell": "shell: {{shell}}",
-        "appSettingsDefault": "默认设置"
+        "appSettingsDefault": "默认设置",
+        "recentPeople_one": "{{count}} 位最近联系人",
+        "recentPeople_other": "{{count}} 位最近联系人"
       }
     }
   }

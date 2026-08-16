@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
 
 export interface ShortcutAlias {
   key: string;
@@ -84,25 +85,25 @@ export const useShortcutStore = create<ShortcutStore>()(
       shortcutsUpdatedAt: new Date(0).toISOString(),
 
       setKey: (id, key, ctrl, shift, alt) => {
-        set((s) => ({ shortcutsUpdatedAt: new Date().toISOString(), shortcuts: s.shortcuts.map((sc) => sc.id === id ? { ...sc, key, ctrl, shift, alt } : sc) }));
-        import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {});
+        set((s) => ({ shortcutsUpdatedAt: settingsStamp(), shortcuts: s.shortcuts.map((sc) => sc.id === id ? { ...sc, key, ctrl, shift, alt } : sc) }));
+        pushSettingsChange();
       },
 
       reset: (id) => {
         set((s) => ({
-          shortcutsUpdatedAt: new Date().toISOString(),
+          shortcutsUpdatedAt: settingsStamp(),
           shortcuts: s.shortcuts.map((sc) => {
             if (sc.id !== id) return sc;
             const def = DEFAULTS.find((d) => d.id === id)!;
             return { ...sc, key: def.defaultKey, ctrl: def.ctrl, shift: def.shift, alt: def.alt };
           }),
         }));
-        import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {});
+        pushSettingsChange();
       },
 
       resetAll: () => {
-        set({ shortcuts: DEFAULTS.map(toShortcut), shortcutsUpdatedAt: new Date().toISOString() });
-        import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {});
+        set({ shortcuts: DEFAULTS.map(toShortcut), shortcutsUpdatedAt: settingsStamp() });
+        pushSettingsChange();
       },
     }),
     {

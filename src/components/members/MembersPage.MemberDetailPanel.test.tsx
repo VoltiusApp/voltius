@@ -55,7 +55,7 @@ const baseMember: TeamMember = {
   user_id: "u1",
   invited_by_display_name: null,
   joined_at: "2024-01-01T00:00:00Z",
-  display_name: "Ann",
+  handle: "amber-lynx-4410",
   public_key: "pk",
   role_ids: ["r-mem"],
 };
