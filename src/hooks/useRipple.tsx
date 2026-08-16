@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 interface Ripple {
   id: number;
@@ -11,6 +11,16 @@ interface Ripple {
 
 export function useRipple() {
   const [ripples, setRipples] = useState<Ripple[]>([]);
+  // A press outlives the event that started it: two document listeners and up to
+  // two timers, none of which the button's own unmount would take down.
+  const pending = useRef(new Set<() => void>());
+
+  useEffect(() => {
+    const inFlight = pending.current;
+    return () => {
+      for (const release of [...inFlight]) release();
+    };
+  }, []);
 
   const createRipple = useCallback((e: React.PointerEvent<HTMLElement>) => {
     const el = e.currentTarget;
@@ -29,25 +39,37 @@ export function useRipple() {
       { id, x: e.clientX - rect.left - size / 2, y: e.clientY - rect.top - size / 2, size, startTime, phase: "entering" },
     ]);
 
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
     const fadeOut = () => {
-      cleanup();
+      detachListeners();
       setRipples((prev) => prev.map((r) => (r.id === id ? { ...r, phase: "exiting" } : r)));
-      setTimeout(() => setRipples((prev) => prev.filter((r) => r.id !== id)), 500);
+      timers.push(setTimeout(() => {
+        setRipples((prev) => prev.filter((r) => r.id !== id));
+        release();
+      }, 500));
     };
 
     const onPointerUp = () => {
       const elapsed = performance.now() - startTime;
       const delay = Math.max(0, 350 - elapsed);
-      setTimeout(fadeOut, delay);
+      timers.push(setTimeout(fadeOut, delay));
     };
 
     const onPointerCancel = () => fadeOut();
 
-    const cleanup = () => {
+    const detachListeners = () => {
       document.removeEventListener("pointerup", onPointerUp);
       document.removeEventListener("pointercancel", onPointerCancel);
     };
 
+    const release = () => {
+      detachListeners();
+      for (const timer of timers) clearTimeout(timer);
+      pending.current.delete(release);
+    };
+
+    pending.current.add(release);
     document.addEventListener("pointerup", onPointerUp);
     document.addEventListener("pointercancel", onPointerCancel);
   }, []);
