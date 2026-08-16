@@ -96,7 +96,13 @@ CMD bash -c "CI=true pnpm install && \
 # uses the kernel keyutils keyring; the default Docker seccomp profile blocks
 # those syscalls, which makes keychain_get fail and the app hang on its splash.
 # docker run -d --name tauri-headless --security-opt seccomp=unconfined \
-#   -v "$(pwd):/app" -v voltius-target:/target tauri-mcp
+#   -v "$(pwd):/app" -v voltius-node-modules:/app/node_modules \
+#   -v voltius-target:/target tauri-mcp
+#
+# node_modules MUST be a volume, not shared with the host: pnpm records an
+# absolute storeDir in node_modules/.modules.yaml, and a host command that then
+# sees the container's path decides the tree is foreign and asks to purge it —
+# which fails outside a TTY. Recovery on the host: `CI=true pnpm install`.
 #
 # docker logs -f tauri-headless
 # claude mcp add tauri-docker -- docker exec -i tauri-headless npx -y github:VoltiusApp/mcp-tauri-automation
