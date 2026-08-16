@@ -108,7 +108,8 @@
         "uiPreferences": { "label": "UI 偏好" },
         "shortcuts": { "label": "快捷键" },
         "appSettings": { "label": "应用设置" },
-        "recentPeople": { "label": "最近的联系人" }
+        "recentPeople": { "label": "最近的联系人" },
+        "vaults": { "label": "保险库" }
       },
       "describe": {
         "themes_one": "{{count}} 个自定义主题",
@@ -120,7 +121,9 @@
         "appSettingsShell": "shell: {{shell}}",
         "appSettingsDefault": "默认设置",
         "recentPeople_one": "{{count}} 位最近联系人",
-        "recentPeople_other": "{{count}} 位最近联系人"
+        "recentPeople_other": "{{count}} 位最近联系人",
+        "vaults_one": "{{count}} 个保险库",
+        "vaults_other": "{{count}} 个保险库"
       }
     }
   }
