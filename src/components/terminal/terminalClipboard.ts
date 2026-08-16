@@ -87,7 +87,16 @@ export function attachTerminalClipboard(
     });
   };
 
+  // A drag that starts in the terminal often ends outside it (window padding,
+  // another pane, past the window edge). Arm on mousedown inside the container
+  // and resolve on the window so those releases still copy.
+  let dragging = false;
+  const handleMouseDown = (e: MouseEvent) => {
+    if (e.button === 0) dragging = true;
+  };
   const handleMouseUp = (e: MouseEvent) => {
+    if (!dragging) return;
+    dragging = false;
     // Copy-on-select is opt-out: when the "Select to Copy" toggle is off, a
     // selection must NOT touch the clipboard (#50). Explicit Ctrl+Shift+C still
     // copies regardless.
@@ -100,7 +109,8 @@ export function attachTerminalClipboard(
       }
     }, 20);
   };
-  container.addEventListener("mouseup", handleMouseUp);
+  container.addEventListener("mousedown", handleMouseDown);
+  window.addEventListener("mouseup", handleMouseUp);
 
   const handleContextMenu = (e: MouseEvent) => {
     e.preventDefault();
@@ -159,7 +169,8 @@ export function attachTerminalClipboard(
   return {
     handleKeyEvent,
     dispose() {
-      container.removeEventListener("mouseup", handleMouseUp);
+      container.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mouseup", handleMouseUp);
       container.removeEventListener("contextmenu", handleContextMenu);
       selectionDispose.dispose();
       hideBadge();
