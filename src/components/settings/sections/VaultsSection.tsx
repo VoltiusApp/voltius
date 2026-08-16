@@ -302,7 +302,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
 
         <UserSearchField
           size="sm"
-          placeholder={t("settings.vaults.members.searchOrEmailPlaceholder")}
+          placeholder={t("settings.vaults.members.searchOrInvitePlaceholder")}
           query={query}
           onQueryChange={(v) => { setQuery(v); setSuccess(""); }}
           onClear={() => { reset(); setSuccess(""); }}
@@ -815,7 +815,7 @@ export function PrivateVaultMembersPanel({
       </h4>
       <UserSearchField
         size="sm"
-        placeholder={t("settings.vaults.members.searchByEmailPlaceholder")}
+        placeholder={t("settings.vaults.members.searchUserPlaceholder")}
         query={query}
         onQueryChange={setQuery}
         onClear={reset}

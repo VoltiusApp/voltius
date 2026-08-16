@@ -826,9 +826,9 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
           </FormSection>
 
           {/* Search input */}
-          <FormSection label={t("members.invite.searchOrEmailLabel")} className="overflow-visible">
+          <FormSection label={t("members.invite.searchOrInviteLabel")} className="overflow-visible">
             <UserSearchField
-              placeholder={t("members.invite.searchByEmailPlaceholder")}
+              placeholder={t("members.invite.searchUserPlaceholder")}
               query={query}
               onQueryChange={(v) => { setQuery(v); setSuccess(""); }}
               onClear={() => { reset(); setSuccess(""); }}
@@ -921,9 +921,9 @@ function PrivateVaultInvitePanel({
         </FormSection>
 
         {/* Search input */}
-        <FormSection label={t("members.invite.searchByEmailLabel")} className="overflow-visible">
+        <FormSection label={t("members.invite.searchUserLabel")} className="overflow-visible">
           <UserSearchField
-            placeholder={t("members.invite.searchByEmailPlaceholder")}
+            placeholder={t("members.invite.searchUserPlaceholder")}
             query={query}
             onQueryChange={onQueryChange}
             onClear={() => { onQueryChange(""); setOpen(false); }}

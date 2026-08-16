@@ -183,7 +183,7 @@ async function renderAndOpenInvite() {
 }
 
 function getPrivateInput() {
-  return screen.getByPlaceholderText("members.invite.searchByEmailPlaceholder");
+  return screen.getByPlaceholderText("members.invite.searchUserPlaceholder");
 }
 
 test("private search debounce: no call <2 chars, exactly one searchUsers after 250ms", async () => {

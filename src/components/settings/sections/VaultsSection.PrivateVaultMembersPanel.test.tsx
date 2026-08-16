@@ -102,7 +102,7 @@ test("server + teams + user id: renders invite UI (owner row + invite search)", 
 
   expect(screen.getByText("settings.vaults.members.youLabel")).toBeTruthy();
   expect(screen.getByText("settings.vaults.members.inviteMember")).toBeTruthy();
-  expect(screen.getByPlaceholderText("settings.vaults.members.searchByEmailPlaceholder")).toBeTruthy();
+  expect(screen.getByPlaceholderText("settings.vaults.members.searchUserPlaceholder")).toBeTruthy();
   expect(screen.queryByText("settings.vaults.upgrade.requiresTeams")).toBeNull();
 });
 
@@ -110,7 +110,7 @@ test("search debounce: no search under 2 chars, one call at 250ms rendering resu
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([{ user_id: "u1", handle: "amber-lynx-4410", public_key: "pk" }]);
   render(<PrivateVaultMembersPanel {...baseProps} />);
-  const input = screen.getByPlaceholderText("settings.vaults.members.searchByEmailPlaceholder");
+  const input = screen.getByPlaceholderText("settings.vaults.members.searchUserPlaceholder");
 
   fireEvent.change(input, { target: { value: "a" } });
   await act(async () => { await vi.advanceTimersByTimeAsync(250); });
@@ -132,7 +132,7 @@ test("handleAdd error: createTeam rejects → error surfaced, setVaultTeamId not
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([{ user_id: "u1", handle: "amber-lynx-4410", public_key: "pk" }]);
   render(<PrivateVaultMembersPanel {...baseProps} />);
-  const input = screen.getByPlaceholderText("settings.vaults.members.searchByEmailPlaceholder");
+  const input = screen.getByPlaceholderText("settings.vaults.members.searchUserPlaceholder");
   fireEvent.change(input, { target: { value: "al" } });
   await act(async () => { await vi.advanceTimersByTimeAsync(250); });
   vi.useRealTimers();
