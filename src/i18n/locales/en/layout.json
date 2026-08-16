@@ -107,7 +107,8 @@
       "leaveLocalConfirm": "Erase and switch",
       "autoLock": "Auto-lock settings…",
       "autoLockOff": "Auto-lock off",
-      "autoLockAfter": "Auto-locks after {{duration}}"
+      "autoLockAfter": "Auto-locks after {{duration}}",
+      "addAccount": "Add another account…"
     },
     "splash": {
       "steps": {

@@ -107,7 +107,8 @@
       "leaveLocalConfirm": "Удалить и переключиться",
       "autoLock": "Настройки автоблокировки…",
       "autoLockOff": "Автоблокировка выключена",
-      "autoLockAfter": "Автоблокировка через {{duration}}"
+      "autoLockAfter": "Автоблокировка через {{duration}}",
+      "addAccount": "Добавить другой аккаунт…"
     },
     "splash": {
       "steps": {

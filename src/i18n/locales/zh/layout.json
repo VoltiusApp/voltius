@@ -107,7 +107,8 @@
       "leaveLocalConfirm": "删除并切换",
       "autoLock": "自动锁定设置…",
       "autoLockOff": "自动锁定已关闭",
-      "autoLockAfter": "{{duration}}后自动锁定"
+      "autoLockAfter": "{{duration}}后自动锁定",
+      "addAccount": "添加其他账户…"
     },
     "splash": {
       "steps": {
