@@ -364,16 +364,16 @@ export async function endMultiplayerSession(sessionId: string): Promise<void> {
 
 // ─── WebSocket connection ─────────────────────────────────────────────────────
 
-// ─── Per-session SSH output buffer (pre-share scrollback) ────────────────────
+// ─── Per-session output buffer (pre-share scrollback, any transport) ─────────
 
 const MAX_BUFFER_BYTES = 64 * 1024; // 64 KB per session
 
 interface OutputBuffer { chunks: Uint8Array[]; totalBytes: number; }
-const sshOutputBuffers = new Map<string, OutputBuffer>();
+const sessionOutputBuffers = new Map<string, OutputBuffer>();
 
-export function appendSshOutputBuffer(sessionId: string, data: Uint8Array): void {
-  let buf = sshOutputBuffers.get(sessionId);
-  if (!buf) { buf = { chunks: [], totalBytes: 0 }; sshOutputBuffers.set(sessionId, buf); }
+export function appendSessionOutputBuffer(sessionId: string, data: Uint8Array): void {
+  let buf = sessionOutputBuffers.get(sessionId);
+  if (!buf) { buf = { chunks: [], totalBytes: 0 }; sessionOutputBuffers.set(sessionId, buf); }
   buf.chunks.push(data);
   buf.totalBytes += data.length;
   while (buf.totalBytes > MAX_BUFFER_BYTES && buf.chunks.length > 0) {
@@ -381,9 +381,9 @@ export function appendSshOutputBuffer(sessionId: string, data: Uint8Array): void
   }
 }
 
-export function drainSshOutputBuffer(sessionId: string): Uint8Array | null {
-  const buf = sshOutputBuffers.get(sessionId);
-  sshOutputBuffers.delete(sessionId);
+export function drainSessionOutputBuffer(sessionId: string): Uint8Array | null {
+  const buf = sessionOutputBuffers.get(sessionId);
+  sessionOutputBuffers.delete(sessionId);
   if (!buf || buf.chunks.length === 0) return null;
   const out = new Uint8Array(buf.totalBytes);
   let offset = 0;

@@ -1,13 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/services/local", () => ({ localSendInput: vi.fn(async () => {}), localResize: vi.fn(async () => {}) }));
-vi.mock("@/services/serial", () => ({ serialWrite: vi.fn(async () => {}) }));
-vi.mock("@/services/ssh", () => ({ sshSendInput: vi.fn(async () => {}), sshResize: vi.fn(async () => {}) }));
+const unlisten = () => {};
+vi.mock("@/services/local", () => ({
+  localSendInput: vi.fn(async () => {}),
+  localResize: vi.fn(async () => {}),
+  onLocalOutput: vi.fn(async () => unlisten),
+}));
+vi.mock("@/services/serial", () => ({
+  serialWrite: vi.fn(async () => {}),
+  onSerialOutput: vi.fn(async () => unlisten),
+}));
+vi.mock("@/services/ssh", () => ({
+  sshSendInput: vi.fn(async () => {}),
+  sshResize: vi.fn(async () => {}),
+  onSshOutput: vi.fn(async () => unlisten),
+}));
 
-import { sendSessionInput, sendSessionResize } from "./sessionInput";
-import { localSendInput, localResize } from "@/services/local";
-import { serialWrite } from "@/services/serial";
-import { sshSendInput, sshResize } from "@/services/ssh";
+import { sendSessionInput, sendSessionResize, onSessionOutput } from "./sessionInput";
+import { localSendInput, localResize, onLocalOutput } from "@/services/local";
+import { serialWrite, onSerialOutput } from "@/services/serial";
+import { sshSendInput, sshResize, onSshOutput } from "@/services/ssh";
 
 const bytes = new TextEncoder().encode("hi");
 
@@ -35,6 +47,36 @@ describe("sendSessionInput", () => {
   it("rejects when the transport rejects, rather than swallowing", async () => {
     vi.mocked(sshSendInput).mockRejectedValueOnce(new Error("channel closed"));
     await expect(sendSessionInput("s3", "ssh", bytes)).rejects.toThrow("channel closed");
+  });
+});
+
+describe("onSessionOutput", () => {
+  beforeEach(() => vi.clearAllMocks());
+  const cb = () => {};
+
+  it("subscribes a local session to local-output", async () => {
+    await onSessionOutput("s1", "local", cb);
+    expect(onLocalOutput).toHaveBeenCalledWith("s1", cb);
+    expect(onSshOutput).not.toHaveBeenCalled();
+  });
+
+  it("subscribes a serial session to serial-output", async () => {
+    await onSessionOutput("s2", "serial", cb);
+    expect(onSerialOutput).toHaveBeenCalledWith("s2", cb);
+    expect(onSshOutput).not.toHaveBeenCalled();
+  });
+
+  it("subscribes an ssh session to ssh-output", async () => {
+    await onSessionOutput("s3", "ssh", cb);
+    expect(onSshOutput).toHaveBeenCalledWith("s3", cb);
+  });
+
+  it("subscribes nothing for a multiplayer tab, which has no local transport", async () => {
+    const stop = await onSessionOutput("s4", "multiplayer", cb);
+    expect(onSshOutput).not.toHaveBeenCalled();
+    expect(onLocalOutput).not.toHaveBeenCalled();
+    expect(onSerialOutput).not.toHaveBeenCalled();
+    expect(() => stop()).not.toThrow();
   });
 });
 

@@ -4,7 +4,7 @@ import type { TeamMember } from "@/services/teamService";
 const mp = vi.hoisted(() => ({
   listActiveSessions: vi.fn(async () => []),
   openWebSocket: vi.fn(() => ({ close: vi.fn(), requestControl: vi.fn(), grantControl: vi.fn(), revokeControl: vi.fn() })),
-  drainSshOutputBuffer: vi.fn(() => undefined),
+  drainSessionOutputBuffer: vi.fn(() => undefined),
   createDirectSession: vi.fn(async () => ({ sessionId: "sess-1", sessionKey: new Uint8Array(), sessionKeyBytes: new Uint8Array(32) })),
   inviteUserToSession: vi.fn(async () => {}),
 }));

@@ -2,7 +2,8 @@ import { create, type StoreApi } from "zustand";
 import i18n from "@/i18n";
 import * as mp from "@/services/multiplayerService";
 import type { ActiveSession, Participant, MultiplayerConnection, SessionKey } from "@/services/multiplayerService";
-import { sshSendInput } from "@/services/ssh";
+import { sendSessionInput } from "@/services/sessionInput";
+import { getSessionTransportType } from "@/stores/sessionStore";
 import type { TeamMember } from "@/services/teamService";
 import type { InviteTarget } from "@/services/teamSharing";
 export type { ActiveSession, Participant };
@@ -87,7 +88,11 @@ export interface MultiplayerSessionState {
 function makeCallbacks(localSessionId: string, set: any, _get: any) {
   return {
     onOutput: () => {},
-    onInput: (data: Uint8Array) => { sshSendInput(localSessionId, data).catch(() => {}); },
+    // A guest with control types into whatever the host is running — a local
+    // shell and a serial port as much as an SSH channel.
+    onInput: (data: Uint8Array) => {
+      sendSessionInput(localSessionId, getSessionTransportType(localSessionId), data).catch(() => {});
+    },
     onControlUpdate: (holderId: string, requesterId: string | null) => {
       set((s: TeamSessionStore) => ({
         connections: { ...s.connections, [localSessionId]: { ...s.connections[localSessionId]!, controlHolder: holderId, controlRequester: requesterId } },
@@ -144,7 +149,7 @@ async function attachAsHost(
   if (!serverUrl || !jwt) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");
-  const initialSnapshot = mp.drainSshOutputBuffer(localSessionId) ?? undefined;
+  const initialSnapshot = mp.drainSessionOutputBuffer(localSessionId) ?? undefined;
 
   const conn = mp.openWebSocket(serverUrl, sessionId, jwt, sessionKey, {
     ...makeCallbacks(localSessionId, set, get),

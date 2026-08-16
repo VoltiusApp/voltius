@@ -4,8 +4,8 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
 import {
   openWebSocket,
-  appendSshOutputBuffer,
-  drainSshOutputBuffer,
+  appendSessionOutputBuffer,
+  drainSessionOutputBuffer,
   encryptData,
   importSessionKey,
 } from "./multiplayerService";
@@ -135,14 +135,14 @@ test("initial snapshot is encrypted and sent on open", async () => {
 });
 
 test("output buffer evicts oldest chunks past 64KB and drains in order", () => {
-  appendSshOutputBuffer("s1", new Uint8Array([1, 2]));
-  appendSshOutputBuffer("s1", new Uint8Array([3]));
+  appendSessionOutputBuffer("s1", new Uint8Array([1, 2]));
+  appendSessionOutputBuffer("s1", new Uint8Array([3]));
   // toEqual on Uint8Array breaks cross-realm under jsdom; compare byte arrays.
-  expect(Array.from(drainSshOutputBuffer("s1")!)).toEqual([1, 2, 3]);
-  expect(drainSshOutputBuffer("s1")).toBeNull(); // cleared after drain
+  expect(Array.from(drainSessionOutputBuffer("s1")!)).toEqual([1, 2, 3]);
+  expect(drainSessionOutputBuffer("s1")).toBeNull(); // cleared after drain
 
-  appendSshOutputBuffer("s2", new Uint8Array(40 * 1024).fill(9));
-  appendSshOutputBuffer("s2", new Uint8Array(40 * 1024).fill(8)); // pushes total > 64KB, evicts first
-  const drained = drainSshOutputBuffer("s2")!;
+  appendSessionOutputBuffer("s2", new Uint8Array(40 * 1024).fill(9));
+  appendSessionOutputBuffer("s2", new Uint8Array(40 * 1024).fill(8)); // pushes total > 64KB, evicts first
+  const drained = drainSessionOutputBuffer("s2")!;
   expect(drained.length).toBeLessThanOrEqual(64 * 1024);
 });

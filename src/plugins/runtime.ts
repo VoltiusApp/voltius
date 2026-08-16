@@ -9,10 +9,8 @@ import i18n from "@/i18n";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
-import { onSshOutput } from "@/services/ssh";
-import { onLocalOutput, localConnect, localSendInput } from "@/services/local";
-import { onSerialOutput } from "@/services/serial";
-import { sendSessionInput } from "@/services/sessionInput";
+import { localConnect, localSendInput } from "@/services/local";
+import { onSessionOutput, sendSessionInput } from "@/services/sessionInput";
 import { readTerminalSnapshot, readTerminalSelection, getAppCursorMode } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
@@ -1956,10 +1954,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (!session) throw new Error(`Session "${sessionId}" not found`);
         const decoder = new TextDecoder();
-        const handler = (data: Uint8Array) => cb(decoder.decode(data, { stream: true }));
-        if (session.type === "local") return onLocalOutput(sessionId, handler);
-        if (session.type === "serial") return onSerialOutput(sessionId, handler);
-        return onSshOutput(sessionId, handler);
+        return onSessionOutput(sessionId, session.type, (data) => cb(decoder.decode(data, { stream: true })));
       },
     },
 
