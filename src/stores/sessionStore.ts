@@ -251,11 +251,7 @@ async function connectSshSession(
   const hasConfiguredAuth = !!connection.identity_id || !!connection.key_id;
   const preflightError = preflightConnect(connection.username, password, privateKey, hasConfiguredAuth);
   if (preflightError) {
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: preflightError } : sess,
-      ),
-    }));
+    markSessionError(set, sessionId, preflightError);
     throw new Error(preflightError);
   }
 
@@ -292,12 +288,7 @@ async function connectSshSession(
         .catch(() => {});
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
-      ),
-    }));
+    markSessionError(set, sessionId, err);
     throw err;
   }
 }
@@ -358,20 +349,36 @@ async function connectSerialSession(
     useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
     void runHostCommand(connection, "pre", sessionId, "serial");
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
-      ),
-    }));
+    markSessionError(set, sessionId, err);
   }
 }
 
-function markSessionError(set: SessionSetter, sessionId: string, err: unknown) {
+/**
+ * Mark a session failed. `err` may be an Error or an already-built message.
+ * `onlyIfConnecting` leaves a session alone once something else has already
+ * settled its status, for callers that only need to cover an earlier failure.
+ */
+function markSessionError(
+  set: SessionSetter,
+  sessionId: string,
+  err: unknown,
+  { onlyIfConnecting = false }: { onlyIfConnecting?: boolean } = {},
+) {
   const msg = err instanceof Error ? err.message : String(err);
   set((s) => ({
     sessions: s.sessions.map((sess) =>
-      sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
+      sess.id === sessionId && (!onlyIfConnecting || sess.status === "connecting")
+        ? { ...sess, status: "error" as const, errorMessage: msg }
+        : sess,
+    ),
+  }));
+}
+
+/** Mark a session connecting again, clearing any previous failure. */
+function markSessionConnecting(set: SessionSetter, sessionId: string) {
+  set((s) => ({
+    sessions: s.sessions.map((sess) =>
+      sess.id === sessionId ? { ...sess, status: "connecting" as const, errorMessage: undefined } : sess,
     ),
   }));
 }
@@ -561,13 +568,7 @@ async function connectConnection(
     // connectSshSession already marks the session as "error"; if the failure
     // happened earlier (e.g. credential resolution), mark it here so the
     // error overlay is shown rather than leaving the session stuck on "connecting".
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId && sess.status === "connecting"
-          ? { ...sess, status: "error" as const, errorMessage: err instanceof Error ? err.message : String(err) }
-          : sess,
-      ),
-    }));
+    markSessionError(set, sessionId, err, { onlyIfConnecting: true });
     if (!options.keepFailedSession) throw err;
   }
   return sessionId;
@@ -676,12 +677,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         ),
       }));
     }).catch((err) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
-        ),
-      }));
+      markSessionError(set, sessionId, err);
     });
     return sessionId;
   },
@@ -739,12 +735,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         ),
       }));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
-        ),
-      }));
+      markSessionError(set, sessionId, err);
     }
   },
 
@@ -846,16 +837,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   // Steady "connecting" the auto-reconnect loop holds across attempts, so the
   // overlay shows the normal connection steps (TCP step spinning) instead of a
   // separate panel. Idempotent and clears any prior error.
-  markConnecting: (sessionId) =>
-    set((s) => {
-      const sess = s.sessions.find((x) => x.id === sessionId);
-      if (!sess || (sess.status === "connecting" && sess.errorMessage === undefined)) return s;
-      return {
-        sessions: s.sessions.map((x) =>
-          x.id === sessionId ? { ...x, status: "connecting" as const, errorMessage: undefined } : x,
-        ),
-      };
-    }),
+  markConnecting: (sessionId) => {
+    const sess = get().sessions.find((x) => x.id === sessionId);
+    if (!sess || (sess.status === "connecting" && sess.errorMessage === undefined)) return;
+    markSessionConnecting(set, sessionId);
+  },
 
   // Rehydrate the whole session list at launch (workspace restore). Replaces
   // state wholesale — only valid while the store is empty.
@@ -874,23 +860,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       ),
     })),
 
-  markError: (sessionId, message) =>
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: message } : sess,
-      ),
-    })),
+  markError: (sessionId, message) => markSessionError(set, sessionId, message),
 
   reconnect: async (sessionId, options) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session || (session.type !== "ssh" && session.type !== "serial")) return;
 
     if (session.type === "serial" && session.serialConfig) {
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connecting" as const, errorMessage: undefined } : sess,
-        ),
-      }));
+      markSessionConnecting(set, sessionId);
       try {
         await serialConnect(session.serialConfig);
         set((s) => ({
@@ -899,39 +876,22 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ),
         }));
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        set((s) => ({
-          sessions: s.sessions.map((sess) =>
-            sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
-          ),
-        }));
+        markSessionError(set, sessionId, err);
       }
       return;
     }
     if (session.type === "serial") {
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: i18n.t("common.error.serialPortConfigNotFound") } : sess,
-        ),
-      }));
+      markSessionError(set, sessionId, i18n.t("common.error.serialPortConfigNotFound"));
       return;
     }
 
     const connection = findConnection(session.connectionId);
     if (!connection) {
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: i18n.t("common.error.connectionConfigNotFound") } : sess,
-        ),
-      }));
+      markSessionError(set, sessionId, i18n.t("common.error.connectionConfigNotFound"));
       return;
     }
 
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "connecting" as const, errorMessage: undefined } : sess,
-      ),
-    }));
+    markSessionConnecting(set, sessionId);
 
     try {
       await withSessionConnectLock(sessionId, async () => {
@@ -966,11 +926,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         sessionEnded(sessionId);
         return;
       }
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
-        ),
-      }));
+      markSessionError(set, sessionId, msg);
     }
   },
 
@@ -1021,11 +977,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const connection = findConnection(session.connectionId);
     if (!connection) return;
 
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "connecting" as const, errorMessage: undefined } : sess,
-      ),
-    }));
+    markSessionConnecting(set, sessionId);
 
     try {
       await withSessionConnectLock(sessionId, async () => {
@@ -1068,12 +1020,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       reportConnectionAudit(connection, "connection.started");
       void runHostCommand(connection, "pre", sessionId, "ssh");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
-        ),
-      }));
+      markSessionError(set, sessionId, err);
     }
   },
 
@@ -1092,11 +1039,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
     connectOverrides.set(sessionId, merged);
 
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "connecting" as const, errorMessage: undefined } : sess,
-      ),
-    }));
+    markSessionConnecting(set, sessionId);
 
     try {
       await sshDisconnectForReconnect(sessionId);
@@ -1110,11 +1053,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         if (save && merged.username?.trim()) {
           await persistConnectAuth(connection, { username: merged.username }).catch(() => {});
         }
-        set((s) => ({
-          sessions: s.sessions.map((sess) =>
-            sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: preflightError } : sess,
-          ),
-        }));
+        markSessionError(set, sessionId, preflightError);
         return;
       }
 
@@ -1172,12 +1111,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       reportConnectionAudit(conn, "connection.started");
       void runHostCommand(conn, "pre", sessionId, "ssh");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
-        ),
-      }));
+      markSessionError(set, sessionId, err);
     }
   },
 
