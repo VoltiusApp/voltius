@@ -181,6 +181,7 @@
       }
     },
     "vaultHeader": {
+      "members": "Membres",
       "teamBadge": "équipe",
       "memberCount_one": "{{count}} membre",
       "memberCount_other": "{{count}} membres",

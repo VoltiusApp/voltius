@@ -29,7 +29,7 @@ beforeEach(() => {
   tauri.invoke.mockReset();
   useTeamStore.setState({
     teams: [], membersByTeam: {}, rolesByTeam: {}, pendingInvitationsByTeam: {},
-    myPendingInvitations: [], activeTeamId: null, loading: false,
+    myPendingInvitations: [], activeTeamId: null, loading: false, self: null,
   });
 });
 
@@ -65,6 +65,19 @@ test("loadMembers / loadRoles store by team id", async () => {
   await get().loadRoles("t1");
   expect(get().membersByTeam.t1.map((m) => m.user_id)).toEqual(["u1"]);
   expect(get().rolesByTeam.t1.map((r) => r.id)).toEqual(["r1"]);
+});
+
+test("loadMembers keeps our own presence from the stream, not the server payload", async () => {
+  get().setSelfOnline("me", true);
+  api.listMembers.mockResolvedValue([
+    { ...member("me"), is_online: false },
+    { ...member("u1"), is_online: false },
+  ]);
+  await get().loadMembers("t1");
+  expect(get().membersByTeam.t1.map((m) => m.is_online)).toEqual([true, false]);
+
+  get().setSelfOnline("me", false);
+  expect(get().membersByTeam.t1[0].is_online).toBe(false);
 });
 
 test("createRole appends to the team's roles", async () => {
