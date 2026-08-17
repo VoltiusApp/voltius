@@ -15,7 +15,7 @@ export function buildInviteLink(sessionId: string, token: string): string {
 export function parseInviteCode(code: string): { sessionId: string; token: string } | null {
   const trimmed = code.trim();
   const asLink = parseDeepLink(trimmed);
-  if (asLink) return { sessionId: asLink.sessionId, token: asLink.token };
+  if (asLink && asLink.route === "join") return { sessionId: asLink.sessionId, token: asLink.token };
   // A rejected URL is not a bare `sessionId:token`, despite the colons.
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return null;
   const colonIdx = trimmed.indexOf(":");

@@ -1,3 +1,4 @@
+import { handleSilentIntent } from "@/services/deepLinkHandlers";
 import { parseDeepLink } from "@/services/deepLinkUrl";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
@@ -19,6 +20,8 @@ export function startDeepLinks(): () => void {
   let unlisten: (() => void) | null = null;
   let stopped = false;
 
+  useDeepLinkStore.getState().setSilentHandler(handleSilentIntent);
+
   void getCurrent()
     .then((urls) => urls?.forEach(handleDeepLink))
     .catch(() => {});
@@ -32,6 +35,7 @@ export function startDeepLinks(): () => void {
 
   return () => {
     stopped = true;
+    useDeepLinkStore.getState().setSilentHandler(null);
     unlisten?.();
   };
 }

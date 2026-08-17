@@ -431,7 +431,7 @@ export async function getMyHandle(): Promise<string> {
   return me?.handle ?? "";
 }
 
-export async function refreshSession(): Promise<void> {
+async function refreshJwt(): Promise<void> {
   const [refreshToken, serverUrl] = await Promise.all([
     keychainGet("refresh_token"),
     keychainGet("server_url"),
@@ -447,7 +447,21 @@ export async function refreshSession(): Promise<void> {
 
   const { jwt_token } = await res.json();
   await keychainSet("jwt", jwt_token);
+}
+
+export async function refreshSession(): Promise<void> {
+  await refreshJwt();
   reloadSubscription();
+}
+
+/**
+ * Refreshes the session and awaits the single subscription load it implies,
+ * then reports the store's own verified truth. Rejects on refresh failure.
+ */
+export async function refreshVerificationState(): Promise<boolean> {
+  await refreshJwt();
+  await useSubscriptionStore.getState().load();
+  return useSubscriptionStore.getState().emailVerified;
 }
 
 export async function resendVerificationEmail(): Promise<void> {

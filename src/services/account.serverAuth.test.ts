@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   http: {} as Record<string, { ok: boolean; status: number; body?: unknown }>,
   dek: null as number[] | null,
   x25519: null as number[] | null,
+  emailVerified: false,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -28,7 +29,7 @@ vi.mock("./vault", () => ({
   resetVault: vi.fn(async () => undefined),
 }));
 vi.mock("@/stores/subscriptionStore", () => ({
-  useSubscriptionStore: { getState: () => ({ load: h.load }) },
+  useSubscriptionStore: { getState: () => ({ load: h.load, emailVerified: h.emailVerified }) },
 }));
 vi.mock("@/stores/vaultKeysStore", () => ({
   useVaultKeysStore: { getState: () => ({ set: h.keysSet, clear: vi.fn(), dek: h.dek, x25519Private: h.x25519 }) },
@@ -42,6 +43,7 @@ import {
   changeMasterPassword,
   changeEmail,
   refreshSession,
+  refreshVerificationState,
   getMe,
   resendVerificationEmail,
 } from "./account";
@@ -97,6 +99,7 @@ beforeEach(() => {
   h.http = {};
   h.dek = null;
   h.x25519 = null;
+  h.emailVerified = false;
   routeInvoke();
   routeHttp();
 });
@@ -366,6 +369,33 @@ test("refreshSession stores the new jwt and reloads subscription", async () => {
   await refreshSession();
   expect(h.store.jwt).toBe("JWT2");
   expect(h.load).toHaveBeenCalled();
+});
+
+// ─── refreshVerificationState ────────────────────────────────────────────────
+
+test("refreshVerificationState refreshes, loads exactly once, and reports the store", async () => {
+  h.store.refresh_token = "RT";
+  h.store.server_url = S;
+  h.http["/auth/refresh"] = ok({ jwt_token: "JWT2" });
+  h.emailVerified = true;
+  await expect(refreshVerificationState()).resolves.toBe(true);
+  expect(h.store.jwt).toBe("JWT2");
+  expect(h.load).toHaveBeenCalledTimes(1);
+});
+
+test("refreshVerificationState reports false when the store is still unverified", async () => {
+  h.store.refresh_token = "RT";
+  h.store.server_url = S;
+  h.http["/auth/refresh"] = ok({ jwt_token: "JWT2" });
+  await expect(refreshVerificationState()).resolves.toBe(false);
+});
+
+test("refreshVerificationState rejects on a failed refresh without loading", async () => {
+  h.store.refresh_token = "RT";
+  h.store.server_url = S;
+  h.http["/auth/refresh"] = err(401);
+  await expect(refreshVerificationState()).rejects.toThrow("common.error.sessionRefreshFailed");
+  expect(h.load).not.toHaveBeenCalled();
 });
 
 // ─── getMe ───────────────────────────────────────────────────────────────────
