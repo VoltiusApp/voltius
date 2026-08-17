@@ -32,6 +32,25 @@ async function ensureUnlocked(): Promise<void> {
 }
 
 /**
+ * Run a secrets command on an unlocked store, giving Rust's bare "locked" string a
+ * code so the overlay can offer to unlock. Reaching it means `unlocked` disagreed
+ * with the store, so the flag is dropped and the next call unlocks again.
+ */
+async function withUnlocked<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  await ensureUnlocked();
+  try {
+    return await invoke<T>(cmd, args);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("Secrets store is locked")) {
+      unlocked = false;
+      throw new VaultLockedError();
+    }
+    throw e;
+  }
+}
+
+/**
  * Set an unreadable secrets.enc aside as a timestamped .bak, keeping the newest few.
  * User-initiated recovery only. Returns the backup's file name.
  */
@@ -87,18 +106,15 @@ export async function resetVault(): Promise<void> {
 }
 
 export async function storeSecret(key: string, value: string): Promise<void> {
-  await ensureUnlocked();
-  await invoke("secrets_set", { key, value });
+  await withUnlocked("secrets_set", { key, value });
 }
 
 export async function getSecret(key: string): Promise<string | null> {
-  await ensureUnlocked();
-  return invoke<string | null>("secrets_get", { key });
+  return withUnlocked<string | null>("secrets_get", { key });
 }
 
 export async function deleteSecret(key: string): Promise<void> {
-  await ensureUnlocked();
-  await invoke("secrets_delete", { key });
+  await withUnlocked("secrets_delete", { key });
 }
 
 export function getVaultKey(): number[] | null {
