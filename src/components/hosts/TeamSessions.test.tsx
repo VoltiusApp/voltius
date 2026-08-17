@@ -79,6 +79,8 @@ const { teamState, sessionState, uiState, getMyUserId, accessibleVaultIds } = h;
 
 import { TeamSessions } from "./TeamSessions";
 
+const SESSION_ID = "8f3c1e0a-4b2d-47aa-9e11-2c6d5a7b8f90";
+
 const active = (o: Partial<{
   id: string; connection_name: string; host_user_id: string;
   participant_count: number; participants: { user_id: string; handle: string }[]; vault_ids: string[];
@@ -178,10 +180,12 @@ test("valid code calls joinSession with sessionId + token", async () => {
   render(<TeamSessions />);
   fireEvent.click(screen.getByText("hosts.teamSessions.joinByCode"));
   const input = screen.getByPlaceholderText("hosts.teamSessions.inviteCodePlaceholder");
-  fireEvent.change(input, { target: { value: "sess-9:tok-9" } });
+  // A real session id: the field now rejects shapes that only look like one, so
+  // `host:22` and friends can no longer reach the join call.
+  fireEvent.change(input, { target: { value: `${SESSION_ID}:tok-9` } });
   fireEvent.click(screen.getByText("hosts.teamSessions.join"));
   await waitFor(() =>
-    expect(teamState.joinSession).toHaveBeenCalledWith("sess-9", expect.any(Function), "tok-9"),
+    expect(teamState.joinSession).toHaveBeenCalledWith(SESSION_ID, expect.any(Function), "tok-9"),
   );
 });
 

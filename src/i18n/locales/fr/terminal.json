@@ -164,7 +164,13 @@
       "deepLinkJoinBody": "Quelqu'un a partagé une session de terminal en direct avec vous. En rejoignant, vous vous y connectez immédiatement.",
       "deepLinkJoinUnknownHost": "Voltius ne peut pas identifier l'expéditeur avant que vous rejoigniez la session.",
       "deepLinkJoinAction": "Rejoindre la session",
-      "deepLinkJoinFailed": "Impossible de rejoindre cette session — le lien a peut-être expiré."
+      "deepLinkJoinFailed": "Impossible de rejoindre cette session — le lien a peut-être expiré.",
+      "getSpokenCode": "Obtenir un code à dicter",
+      "codeExpired": "Code expiré — en obtenir un nouveau",
+      "newCode": "Nouveau code",
+      "readAloudHint": "Dictez-le à voix haute",
+      "expiresIn": "expire dans {{time}}",
+      "failedToMintCode": "Échec de la création du code"
     },
     "snippetVariableModal": {
       "on": "Activé",

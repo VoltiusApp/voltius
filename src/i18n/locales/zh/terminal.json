@@ -164,7 +164,13 @@
       "deepLinkJoinBody": "有人与你共享了一个实时终端会话。加入后将立即连接。",
       "deepLinkJoinUnknownHost": "在你加入之前，Voltius 无法识别共享者。",
       "deepLinkJoinAction": "加入会话",
-      "deepLinkJoinFailed": "无法加入该会话——链接可能已失效。"
+      "deepLinkJoinFailed": "无法加入该会话——链接可能已失效。",
+      "getSpokenCode": "获取口述验证码",
+      "codeExpired": "验证码已过期 — 请获取新的",
+      "newCode": "新验证码",
+      "readAloudHint": "可直接读出",
+      "expiresIn": "{{time}} 后过期",
+      "failedToMintCode": "创建验证码失败"
     },
     "snippetVariableModal": {
       "on": "开",
