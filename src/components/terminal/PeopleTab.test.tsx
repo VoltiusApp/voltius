@@ -19,7 +19,7 @@ vi.mock("@/services/teamService", async () => {
   return { ...actual, searchUsers: h.searchUsers };
 });
 
-import { PeopleTab } from "./PeopleTab";
+import { PeopleTab, PERSON_TEXT_INDENT } from "./PeopleTab";
 import { useRecentPeopleStore } from "@/stores/recentPeopleStore";
 import { useTeamStore } from "@/stores/teamStore";
 
@@ -110,6 +110,26 @@ test("only recent rows offer forget", async () => {
   await userEvent.type(screen.getByRole("textbox"), "sam-q");
   await screen.findByRole("button", { name: /sam-q/i });
   expect(screen.queryByRole("button", { name: "terminal.share.forgetPerson" })).toBeNull();
+});
+
+// A row's handle sits past the reserved presence slot, so a label at the row's
+// own padding hangs 14px to its left. Every section label shares one indent.
+test("every section label starts at the handle column", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  h.searchUsers.mockResolvedValue([{ user_id: "s1", handle: "sam-lynx-9001", is_teammate: false }]);
+  useRecentPeopleStore.setState({
+    recent: [{ user_id: "r1", handle: "kevin-lynx-6620", last_invited_at: "" }],
+    recentUpdatedAt: "",
+  });
+  render(<PeopleTab {...base} />);
+  await userEvent.type(screen.getByRole("textbox"), "lynx");
+  await screen.findByRole("button", { name: /sam-lynx-9001/i });
+  const labels = [
+    screen.getByText("terminal.share.recentLabel"),
+    screen.getByText("terminal.share.yourTeamsLabel"),
+    screen.getByText("terminal.share.elsewhereLabel"),
+  ];
+  for (const label of labels) expect(label.className).toContain(PERSON_TEXT_INDENT);
 });
 
 test("the presence dot names the state it shows", async () => {
