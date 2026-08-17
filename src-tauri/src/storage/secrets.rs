@@ -165,11 +165,7 @@ fn write_atomic_via(
     tmp: &std::path::Path,
     bytes: &[u8],
 ) -> Result<(), AppError> {
-    let staged = stage(tmp, bytes);
-    if staged.is_err() {
-        let _ = std::fs::remove_file(tmp);
-    }
-    staged?;
+    stage(tmp, bytes)?;
     std::fs::rename(tmp, path).map_err(|e| {
         let _ = std::fs::remove_file(tmp);
         AppError::Msg(format!("Write failed: {e}"))
@@ -178,7 +174,18 @@ fn write_atomic_via(
 
 /// Fully materialise `bytes` at `tmp`, flushed to disk before the caller renames:
 /// without the sync the rename can land ahead of the data it is meant to commit.
+/// A failure removes the scratch file, so no half-written sibling is left behind.
 fn stage(tmp: &std::path::Path, bytes: &[u8]) -> Result<(), AppError> {
+    match write_and_sync(tmp, bytes) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            let _ = std::fs::remove_file(tmp);
+            Err(e)
+        }
+    }
+}
+
+fn write_and_sync(tmp: &std::path::Path, bytes: &[u8]) -> Result<(), AppError> {
     use std::io::Write;
     let mut file = std::fs::File::create(tmp).map_err(|e| format!("Write failed: {e}"))?;
     file.write_all(bytes)
@@ -433,10 +440,7 @@ fn restore_backup_at(
     // Staged before anything moves, so a failed read cannot leave the vault gone.
     let bytes = std::fs::read(&source).map_err(|e| format!("Read failed: {e}"))?;
     let tmp = temp_path(path)?;
-    if let Err(e) = stage(&tmp, &bytes) {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(e);
-    }
+    stage(&tmp, &bytes)?;
 
     let set_aside = if path.exists() {
         Some(rename_aside(path, now)?)
