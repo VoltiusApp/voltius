@@ -10,6 +10,7 @@ import { uninviteFromSession } from "@/services/teamService";
 import { guestCapFor, highestOwnerTier, inviteSessionOf, membersOfTeams, seatUsage, type InviteSession, type InviteTarget, type ShareTier } from "@/services/teamSharing";
 import { useDelayedUnmount } from "@/hooks/useDelayedUnmount";
 import { InviteCodeField } from "./InviteCodeField";
+import { SpokenCodeRow } from "./SpokenCodeRow";
 import { PeopleTab } from "./PeopleTab";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 
@@ -58,6 +59,10 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
 
   const activeMp = mpConnections[activeSessionId];
   const isSharing = !!activeMp && !activeMp.ended;
+
+  // The store's copy outlives this menu's local state, so reopening a sharing
+  // session shows the link it already has instead of an empty tab.
+  const linkToken = activeMp?.inviteToken ?? inviteLinkToken;
 
   // The server's record of this session, if one exists yet — the source of truth for
   // vault scope and per-invitee grants (#66). Empty until this local session has a
@@ -313,7 +318,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           connectionName={connectionName}
           loading={loading}
           guestCap={guestCap}
-          inviteLinkToken={inviteLinkToken}
+          inviteLinkToken={linkToken}
           autoCopied={autoCopied}
           tier={tier}
           inviteSession={inviteSession}
@@ -394,7 +399,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           ) : (
             <InviteLinkTab
               loading={loading}
-              inviteLinkToken={inviteLinkToken}
+              inviteLinkToken={linkToken}
               sessionId={activeMp?.multiplayerSessionId ?? ""}
               autoCopied={autoCopied}
               guestCap={guestCap}
@@ -497,8 +502,9 @@ function ActiveSharingView({
       )}
 
       {inviteLinkToken && (
-        <div className="mb-3">
+        <div className="mb-3 flex flex-col gap-2">
           <InviteCodeField code={buildInviteLink(activeMp.multiplayerSessionId, inviteLinkToken)} autoCopied={autoCopied} />
+          <SpokenCodeRow sessionId={activeMp.multiplayerSessionId} />
         </div>
       )}
 
@@ -673,6 +679,9 @@ function InviteLinkTab({
             {t("terminal.share.shareCodeDescription")}
           </p>
           <InviteCodeField code={buildInviteLink(sessionId, inviteLinkToken)} autoCopied={autoCopied} />
+          <div className="mt-2">
+            <SpokenCodeRow sessionId={sessionId} />
+          </div>
         </>
       ) : (
         <>

@@ -79,6 +79,9 @@ export interface MultiplayerSessionState {
   vaultOwnerTier?: string;
   // Raw session key bytes, retained so a live E2EE session can invite more members later (#66).
   sessionKeyBytes?: Uint8Array;
+  // Invite-link sessions only. Retained because the server returns it once, at
+  // creation: without it a host who reopens ShareMenu can never see the link again.
+  inviteToken?: string;
   // Runtime-only wiring between the terminal view and store; never persisted.
   _termWrite?: (data: Uint8Array) => void;
   _pendingOutput?: Uint8Array;
@@ -162,6 +165,7 @@ async function attachAsHost(
       [localSessionId]: {
         multiplayerSessionId: sessionId, role: "host", myUserId, participants: [], controlHolder: "", controlRequester: null,
         connection: conn, vaultOwnerTier: extra.vaultOwnerTier, sessionKeyBytes: extra.sessionKeyBytes,
+        inviteToken: extra.inviteToken,
       },
     },
   }));
