@@ -30,7 +30,11 @@
       "toast": {
         "sent": "验证邮件已发送。",
         "sendFailed": "无法重新发送验证邮件。",
-        "refreshFailed": "无法刷新会话。"
+        "refreshFailed": "无法刷新会话。",
+        "verified": "邮箱已验证。",
+        "verifiedOther": "已验证 {{email}} 的邮箱。",
+        "verifiedSwitch": "切换",
+        "verifiedUnknown": "邮箱已验证。请登录以继续。"
       }
     },
     "progressToast": {

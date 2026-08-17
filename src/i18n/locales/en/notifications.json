@@ -30,7 +30,11 @@
       "toast": {
         "sent": "Verification email sent.",
         "sendFailed": "Could not resend verification email.",
-        "refreshFailed": "Could not refresh session."
+        "refreshFailed": "Could not refresh session.",
+        "verified": "Email verified.",
+        "verifiedOther": "Email verified for {{email}}.",
+        "verifiedSwitch": "Switch",
+        "verifiedUnknown": "Email verified. Sign in to continue."
       }
     },
     "progressToast": {

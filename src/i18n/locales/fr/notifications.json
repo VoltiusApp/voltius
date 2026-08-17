@@ -30,7 +30,11 @@
       "toast": {
         "sent": "E-mail de vérification envoyé.",
         "sendFailed": "Impossible de renvoyer l'e-mail de vérification.",
-        "refreshFailed": "Impossible d'actualiser la session."
+        "refreshFailed": "Impossible d'actualiser la session.",
+        "verified": "E-mail vérifié.",
+        "verifiedOther": "E-mail vérifié pour {{email}}.",
+        "verifiedSwitch": "Basculer",
+        "verifiedUnknown": "E-mail vérifié. Connectez-vous pour continuer."
       }
     },
     "progressToast": {
