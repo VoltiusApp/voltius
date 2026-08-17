@@ -59,11 +59,7 @@ function normalizeServerUrl(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
-/**
- * Unwrap cached user secrets into the vault-keys store and return the dek.
- * Null when there are none, or when they are corrupt or belong to another
- * account — the caller then stays on the kek.
- */
+/** Unwrap cached user secrets into the vault-keys store; null when unusable. */
 async function adoptUserSecrets(kek: number[], wrapped: string | null): Promise<number[] | null> {
   if (!wrapped) return null;
   try {
@@ -79,12 +75,7 @@ async function adoptUserSecrets(kek: number[], wrapped: string | null): Promise<
   }
 }
 
-/**
- * The first candidate that actually opens secrets.enc, or null when none does.
- * A cloud vault is encrypted with the dek, a legacy or local one with the kek,
- * so the caller must never assume which of its keys the on-disk file holds.
- * With no vault yet the first candidate wins — nothing to verify against.
- */
+/** First candidate that opens secrets.enc; the first one when no vault exists yet. */
 async function keyThatOpensVault(...candidates: number[][]): Promise<number[] | null> {
   const { exists } = await getVaultStatus();
   if (!exists) return candidates[0] ?? null;
@@ -93,18 +84,13 @@ async function keyThatOpensVault(...candidates: number[][]): Promise<number[] | 
       await verifyVaultKey(key);
       return key;
     } catch {
-      // Try the next candidate.
+      continue;
     }
   }
   return null;
 }
 
-/**
- * The key that opens this device's vault for a password-derived account: the dek
- * from the cached user secrets when secrets.enc was written by a cloud session,
- * the kek when it was written by a local or pre-dek one. Null when a vault exists
- * and neither opens it.
- */
+/** A cloud vault is dek-encrypted, a local or pre-split one kek-encrypted. */
 async function passwordVaultKey(kek: number[]): Promise<number[] | null> {
   const dek = await adoptUserSecrets(kek, await keychainGet("wrapped_user_secrets"));
   return keyThatOpensVault(...(dek ? [dek, kek] : [kek]));
@@ -275,12 +261,8 @@ export async function login(password: string, email?: string, serverUrl?: string
     if (!(await keyThatOpensVault(encKey))) throw new Error(i18n.t("common.error.incorrectPassword"));
   } else {
     const { enc_key: kek } = await deriveKeys(password, accountId);
-    // A cloud vault is encrypted with the dek held in wrapped_user_secrets, so the
-    // password-derived kek alone does not open it — checking the kek against a cloud
-    // vault rejected the correct master password as a corrupted file (issue #134).
     const opened = await passwordVaultKey(kek);
-    // Without a cached dek only the server can hand back the key a cloud vault was
-    // encrypted with, so a failed local check is not yet a failed password.
+    // Without a cached dek only the server can supply a cloud vault's key.
     if (!opened && !reauth) throw new Error(i18n.t("common.error.incorrectPassword"));
     encKey = opened ?? kek;
   }
@@ -313,7 +295,8 @@ export async function login(password: string, email?: string, serverUrl?: string
     if (data.wrapped_user_secrets) {
       const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
       useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
-      setVaultKey(unwrapped.dek);
+      // This device's secrets.enc may predate the split and still be kek-encrypted.
+      setVaultKey((await keyThatOpensVault(unwrapped.dek, kek)) ?? unwrapped.dek);
       await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
     } else {
       // Legacy account — trigger one-time migration
@@ -360,11 +343,7 @@ export async function autoLogin(): Promise<boolean> {
       if (!accountId) return false;
       const { enc_key: kek } = await deriveKeys(password, accountId);
 
-      // Adopt dek when this device has previously unwrapped user secrets (cached at
-      // login/migration). Converges every session onto dek so the kek/dek split heals.
-      // Offline: unwrap + verify are local Tauri calls, no network — autoLogin stays instant.
-      // Falls back to kek when nothing opens the vault: an auto-login must not strand
-      // the session, and ensureUnlocked still reports a genuinely unopenable store.
+      // Local Tauri calls only — autoLogin stays instant offline.
       encKey = (await passwordVaultKey(kek)) ?? kek;
 
       if (!mode) {

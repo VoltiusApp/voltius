@@ -153,9 +153,8 @@ test("login local mode sets the vault key without a server round-trip", async ()
   expect(h.appFetch).not.toHaveBeenCalled();
 });
 
-// A cloud vault is encrypted with the dek carried in wrapped_user_secrets, not with
-// the password-derived kek. Verifying the kek against it rejected the correct master
-// password with "Decryption failed — wrong key or corrupted file" (issue #134).
+// Issue #134: verifying the kek against a dek-encrypted cloud vault rejected the
+// correct master password as a corrupted file.
 test("login opens a cloud vault encrypted with the dek, offline, without a server round-trip", async () => {
   h.store.account_id = "acc";
   h.store.mode = "server";
@@ -171,8 +170,7 @@ test("login opens a cloud vault encrypted with the dek, offline, without a serve
 });
 
 test("login defers to the server when no cached key opens the existing vault", async () => {
-  // Keychain cleared: no cached wrapped_user_secrets, so only the server can hand
-  // back the dek. Failing the local check here must not abort the sign-in.
+  // No cached wrapped_user_secrets: only the server can hand back the dek.
   h.store.account_id = "acc";
   h.store.mode = "server";
   h.store.email = "a@b.co";
@@ -185,6 +183,24 @@ test("login defers to the server when no cached key opens the existing vault", a
 
   await login("pw");
   expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]); // dek
+});
+
+// A pre-split device keeps a kek-encrypted vault while the server holds
+// wrapped_user_secrets. Adopting the dek there wiped the store on first access.
+test("login keeps the kek when the server's dek does not open this device's vault", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.email = "a@b.co";
+  h.store.server_url = S;
+  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockImplementation(async (key: number[]) => {
+    if (String(key) !== String([9, 9, 9])) throw new Error("Decryption failed — wrong key or corrupted file");
+  });
+
+  await login("pw");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek, not the server's dek
+  expect(h.keysSet).toHaveBeenCalledWith(expect.objectContaining({ dek: [1, 1, 1] }));
 });
 
 test("login rejects a password whose keys open nothing", async () => {
