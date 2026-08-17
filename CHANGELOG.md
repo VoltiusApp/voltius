@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-08-17
+
+### Added
+
+- Voltius now answers `voltius://` links. A session invite, a team invite or an
+  email verification opens the app straight on the thing it points at, on
+  desktop and on mobile. Links are routed through a table that classifies each
+  one by how much it is trusted, and a link that arrives before you are signed
+  in is queued and replayed once you are. Verifying your email no longer needs
+  the manual "I've verified" click.
+- Live session invites can be read out loud: alongside the link, a share now
+  offers a short spoken code that a teammate can type into the join field.
+- Vault backups are visible. When a save is quarantined because it could not be
+  opened, the vault panel lists the kept backups with their real sizes and
+  offers to restore one, instead of leaving them as files on disk you were never
+  told about.
+- The People section in the share menu reads as clickable, and Recent entries
+  can be pruned.
+
+### Fixed
+
+- A cloud vault is unlocked with the key that actually encrypted it, and that
+  key survives re-authenticating with the cloud. Signing back in no longer
+  leaves the vault unopenable on the device that created it.
+- The vault never deletes `secrets.enc` when no key opens it, writes it
+  atomically so an interrupted save cannot truncate it, and stops retention from
+  deleting backups a recovery run never attempted.
+- Vault failures are told apart from missing data: "vault unavailable" is no
+  longer read as "no credentials saved", the locked-store error from the Rust
+  side carries the vault-locked code, and that code survives the reconnect loop.
+  A form now says outright when a secret could not be read instead of showing a
+  blank field.
+- Sync now carries the vault list — which vaults exist and what they are
+  called — in the encrypted blob, so a second device stops showing objects whose
+  vault it cannot name.
+- A new vault key is uploaded before the vault is re-encrypted to it, so a
+  failure mid-rotation cannot strand the vault.
+- An account with no password whose vault cannot be read is sent to recovery,
+  and the vault is unlocked before the legacy migration runs.
+- Connecting from the SFTP side pane while the vault is locked now shows the
+  vault panel rather than failing silently.
+- The account quick switcher no longer carries one account's state into
+  another's, signing out drops the saved credentials, and the rest of an
+  account's local state moves with the account. Reaching a second account from
+  the switcher works again.
+- Auto-lock is reachable from the account menu.
+- An invite link stays reachable after the share menu closes, presence is shown
+  on Recent rows with a dot that actually paints, the members popover floats
+  above the header, and your own presence is trusted.
+- The invite search says it accepts handles, not just email; the members popover
+  title is translated in Russian and Chinese.
+- A button's ripple releases its listeners and timers when the button unmounts.
+
 ## [0.26.1] - 2026-08-16
 
 ### Fixed
