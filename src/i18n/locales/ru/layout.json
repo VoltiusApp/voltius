@@ -181,6 +181,7 @@
       }
     },
     "vaultHeader": {
+      "members": "Участники",
       "teamBadge": "команда",
       "memberCount_one": "{{count}} участник",
       "memberCount_few": "{{count}} участника",
