@@ -127,6 +127,30 @@ test("a silent link arriving before ready runs once ready", () => {
   expect(seen).toEqual([USER]);
 });
 
+test("the same silent link delivered twice reaches the handler once", () => {
+  const seen: string[] = [];
+  useDeepLinkStore.getState().setSilentHandler((i) => seen.push(i.userId));
+  useDeepLinkStore.getState().setReady(true);
+  handleDeepLink(`voltius://verified?u=${USER}`);
+  handleDeepLink(`voltius://verified?u=${USER}`);
+  expect(seen).toEqual([USER]);
+});
+
+test("the same silent link delivered again after the echo window reaches the handler again", () => {
+  vi.useFakeTimers();
+  try {
+    const seen: string[] = [];
+    useDeepLinkStore.getState().setSilentHandler((i) => seen.push(i.userId));
+    useDeepLinkStore.getState().setReady(true);
+    handleDeepLink(`voltius://verified?u=${USER}`);
+    vi.advanceTimersByTime(5001);
+    handleDeepLink(`voltius://verified?u=${USER}`);
+    expect(seen).toEqual([USER, USER]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test("the queue drops the oldest beyond its cap", () => {
   const ids = [
     "11111111-1111-1111-1111-111111111111",

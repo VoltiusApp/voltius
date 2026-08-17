@@ -19,6 +19,12 @@ const MAX_QUEUE = 4;
  */
 let silentHandler: ((intent: SilentIntent) => void) | null = null;
 
+// Suppresses only the cold-start echo (getCurrent plus onOpenUrl delivering
+// the same URL), not a deliberate retry: a failed handler run is not fatal,
+// so the window must not outlive the user's next click.
+let lastSilent: { key: string; at: number } | null = null;
+const SILENT_ECHO_WINDOW_MS = 5000;
+
 interface DeepLinkStore {
   ready: boolean;
   queue: DeepLinkIntent[];
@@ -37,6 +43,7 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
 
   setSilentHandler: (fn) => {
     silentHandler = fn;
+    lastSilent = null;
   },
 
   setReady: (ready) => {
@@ -72,6 +79,10 @@ function drain(): void {
   let nextPrompt = prompt;
   for (const intent of queue) {
     if (!isConfirmIntent(intent)) {
+      const key = intentKey(intent);
+      const now = Date.now();
+      if (lastSilent?.key === key && now - lastSilent.at < SILENT_ECHO_WINDOW_MS) continue;
+      lastSilent = { key, at: now };
       silentHandler?.(intent);
       continue;
     }
