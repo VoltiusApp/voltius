@@ -46,7 +46,10 @@
       "and": " et ",
       "termsOfService": "conditions d'utilisation",
       "privacyPolicy": "politique de confidentialité",
-      "accountCreatedToast": "Compte créé ! Vérifiez votre e-mail pour le confirmer."
+      "accountCreatedToast": "Compte créé ! Vérifiez votre e-mail pour le confirmer.",
+      "vaultUnreadableBodyNoPassword": "Le fichier de secrets de cet appareil ne peut pas être ouvert avec la clé enregistrée sur cette machine. Rien n'a été supprimé. Mettez-le de côté pour repartir d'un coffre vide, ou restaurez une des sauvegardes ci-dessous.",
+      "vaultSetAsideLocal": "Mettre de côté et repartir à zéro",
+      "vaultSetAsideLocalSub": "Conserve une copie de sauvegarde sur cet appareil"
     },
     "cloudAuthModal": {
       "registerTitle": "Créer un compte cloud",
@@ -128,7 +131,8 @@
       "sessionRestored": "Session restaurée",
       "vaultFound": "Coffre trouvé",
       "connectionsUnavailable": "Connexions indisponibles",
-      "sshClient": "Client SSH"
+      "sshClient": "Client SSH",
+      "vaultUnreadable": "Coffre illisible"
     },
     "sync": {
       "title": "Synchronisation",

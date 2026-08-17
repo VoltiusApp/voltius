@@ -101,6 +101,21 @@
       "deleteTagBody_other": "这将从 {{count}} 台主机移除此标签。主机本身不会被删除。",
       "renameTagTitle": "重命名标签",
       "deleteTagButtonTitle": "删除标签"
+    },
+    "vaultUnavailable": {
+      "note": "无法读取保管库，因此此处不显示已保存的密钥。留空以保留已保存的内容；输入新值将替换它。"
+    },
+    "vaultBackups": {
+      "title": "保管库备份",
+      "description": "无法打开时被搁置的保管库文件。恢复其中一个会将其设为当前保管库，并把现有保管库保留为新备份——不会删除任何内容。",
+      "empty": "此设备上没有保管库备份。",
+      "restore": "恢复",
+      "confirm": "恢复此备份",
+      "cancel": "取消",
+      "warn": "此备份将成为您的保管库。它使用创建时所用的主密码打开，因此您将退出登录并需要解锁。",
+      "warnReadable": "当前保管库可以读取。恢复会替换它——它将保留为新备份，您将退出登录并需要用恢复文件对应的密码解锁。",
+      "restoredToast": "备份已恢复。之前的保管库保留为 {{file}}。",
+      "restoredToastNoPrevious": "备份已恢复。"
     }
   }
 }

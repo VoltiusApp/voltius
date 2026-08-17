@@ -3,9 +3,34 @@ import { clearPersistedAccountUiState } from "@/stores/persistedAccountUiState";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { VaultLockedError, VaultUnreadableError } from "./vaultErrors";
 
+/**
+ * Rust's own failure strings, matched to tell a wrong key from a busy file.
+ * Source of truth: src-tauri/src/storage/secrets.rs (LOCKED_ERR and decrypt) — a
+ * rename there must be mirrored here, which the canary test on each side catches.
+ */
+export const SECRETS_LOCKED_MESSAGE = "Secrets store is locked";
+const DECRYPT_FAILED_MESSAGE = "wrong key or corrupted file";
+
 // Pending key: set at login/setup, used to unlock secrets on first access
 let pendingKey: number[] | null = null;
 let unlocked = false;
+
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * Run a secrets command, giving a failed decrypt its own type. Every other
+ * failure — a read error, a busy file — stays itself so callers can tell a key
+ * that does not fit from a vault that could not be opened at all.
+ */
+async function invokeDecrypting<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await invoke<T>(cmd, args);
+  } catch (e) {
+    // Possibly readable with a key we lack. Deleting it here once cost a vault (#134).
+    if (errorMessage(e).includes(DECRYPT_FAILED_MESSAGE)) throw new VaultUnreadableError(e);
+    throw e;
+  }
+}
 
 /**
  * Store the vault key for lazy unlocking.
@@ -20,15 +45,26 @@ export function setVaultKey(encKey: number[]): void {
 async function ensureUnlocked(): Promise<void> {
   if (unlocked) return;
   if (!pendingKey) throw new VaultLockedError();
+  await invokeDecrypting("secrets_unlock", { encKey: pendingKey });
+  unlocked = true;
+}
+
+/**
+ * Run a secrets command on an unlocked store, giving Rust's bare "locked" string a
+ * code so the overlay can offer to unlock. Reaching it means `unlocked` disagreed
+ * with the store, so the flag is dropped and the next call unlocks again.
+ */
+async function withUnlocked<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  await ensureUnlocked();
   try {
-    await invoke("secrets_unlock", { encKey: pendingKey });
+    return await invoke<T>(cmd, args);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    // Possibly readable with a key we lack. Deleting it here once cost a vault (#134).
-    if (msg.includes("wrong key or corrupted file")) throw new VaultUnreadableError(e);
+    if (errorMessage(e).includes(SECRETS_LOCKED_MESSAGE)) {
+      unlocked = false;
+      throw new VaultLockedError();
+    }
     throw e;
   }
-  unlocked = true;
 }
 
 /**
@@ -40,12 +76,39 @@ export async function quarantineVault(): Promise<string> {
   return invoke<string>("secrets_quarantine");
 }
 
+/** A set-aside vault file, offered back to the user for restoring. */
+export interface VaultBackup {
+  file: string;
+  stamp_millis: number;
+  size: number;
+}
+
+/** Set-aside vault files still on disk, newest first. */
+export async function listVaultBackups(): Promise<VaultBackup[]> {
+  return invoke<VaultBackup[]>("secrets_backups");
+}
+
+/**
+ * Put a backup back in place, keeping the current vault as a new backup. The
+ * restored file opens with whichever key encrypted it, which is not necessarily
+ * this session's, so the key is dropped and the caller reloads to the unlock
+ * screen. Returns the name the displaced vault was kept under, if there was one.
+ */
+export async function restoreVaultBackup(file: string): Promise<string | null> {
+  const setAside = await invoke<string | null>("secrets_restore", { file });
+  pendingKey = null;
+  unlocked = false;
+  return setAside;
+}
+
 /**
  * Verify an enc_key can open the secrets store (used to validate passwords).
  * Does not unlock the store — caller must call setVaultKey after success.
+ * Rejects with VaultUnreadableError when the key does not fit; any other
+ * rejection means the file could not be read, not that the key is wrong.
  */
 export async function verifyVaultKey(encKey: number[]): Promise<void> {
-  await invoke("secrets_verify", { encKey });
+  await invokeDecrypting("secrets_verify", { encKey });
 }
 
 export async function lockVault(): Promise<void> {
@@ -87,18 +150,15 @@ export async function resetVault(): Promise<void> {
 }
 
 export async function storeSecret(key: string, value: string): Promise<void> {
-  await ensureUnlocked();
-  await invoke("secrets_set", { key, value });
+  await withUnlocked("secrets_set", { key, value });
 }
 
 export async function getSecret(key: string): Promise<string | null> {
-  await ensureUnlocked();
-  return invoke<string | null>("secrets_get", { key });
+  return withUnlocked<string | null>("secrets_get", { key });
 }
 
 export async function deleteSecret(key: string): Promise<void> {
-  await ensureUnlocked();
-  await invoke("secrets_delete", { key });
+  await withUnlocked("secrets_delete", { key });
 }
 
 export function getVaultKey(): number[] | null {

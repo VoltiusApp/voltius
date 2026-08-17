@@ -2,6 +2,13 @@ import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+// Iconify loads icon data asynchronously; its timers can outlive this file's
+// jsdom teardown and throw in whichever test runs next (see other *.test.tsx
+// files in this repo for the same workaround).
+vi.mock("@iconify/react", () => ({
+  Icon: ({ icon }: { icon: string }) => <i data-icon={icon} />,
+}));
+
 const prune = {
   images: vi.fn(async () => "reclaimed 1GB"),
   networks: vi.fn(async () => "reclaimed 2 networks"),

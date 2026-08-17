@@ -46,7 +46,10 @@
       "and": " and ",
       "termsOfService": "Terms of Service",
       "privacyPolicy": "Privacy Policy",
-      "accountCreatedToast": "Account created! Check your email to verify."
+      "accountCreatedToast": "Account created! Check your email to verify.",
+      "vaultUnreadableBodyNoPassword": "This device's secrets file cannot be opened with the key stored on this machine. Nothing has been deleted. Set it aside to start with an empty vault, or restore one of the backups below.",
+      "vaultSetAsideLocal": "Set aside and start fresh",
+      "vaultSetAsideLocalSub": "Keeps a backup copy on this device"
     },
     "cloudAuthModal": {
       "registerTitle": "Create cloud account",
@@ -128,7 +131,8 @@
       "sessionRestored": "Session restored",
       "vaultFound": "Vault found",
       "connectionsUnavailable": "Connections unavailable",
-      "sshClient": "SSH Client"
+      "sshClient": "SSH Client",
+      "vaultUnreadable": "Vault unreadable"
     },
     "sync": {
       "title": "Sync",

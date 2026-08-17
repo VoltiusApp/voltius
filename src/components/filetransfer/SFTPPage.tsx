@@ -21,6 +21,7 @@ import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { vaultErrorCode } from "@/services/vaultErrors";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import {
@@ -96,7 +97,7 @@ export default function SFTPPage() {
       }
       setPhase({ tag: "connected", sftpId, cwd, selected: [] });
     } catch (e) {
-      setPhase({ tag: "error", message: String(e), host });
+      setPhase({ tag: "error", message: String(e), errorCode: vaultErrorCode(e) ?? undefined, host });
     }
   }, []);
 

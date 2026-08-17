@@ -624,9 +624,9 @@ export default function KeychainPage() {
     try {
       const newKey = await saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
       const [priv, pub, pass] = await Promise.all([
-        getSecret(`key:${key.id}:private`).catch(() => null),
-        getSecret(`key:${key.id}:public`).catch(() => null),
-        getSecret(`key:${key.id}:passphrase`).catch(() => null),
+        getSecret(`key:${key.id}:private`),
+        getSecret(`key:${key.id}:public`),
+        getSecret(`key:${key.id}:passphrase`),
       ]);
       if (priv) await storeSecret(`key:${newKey.id}:private`, priv);
       if (pub) await storeSecret(`key:${newKey.id}:public`, pub);
@@ -678,8 +678,8 @@ export default function KeychainPage() {
           if (keyNeedsCopy) {
             const newKey = await saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
             const [priv, pub] = await Promise.all([
-              getSecret(`key:${key.id}:private`).catch(() => null),
-              getSecret(`key:${key.id}:public`).catch(() => null),
+              getSecret(`key:${key.id}:private`),
+              getSecret(`key:${key.id}:public`),
             ]);
             if (priv) await storeSecret(`key:${newKey.id}:private`, priv);
             if (pub) await storeSecret(`key:${newKey.id}:public`, pub);
@@ -688,7 +688,7 @@ export default function KeychainPage() {
           }
 
           const newIdentity = await saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
-          const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
+          const pwd = await getSecret(`identity:${identity.id}:password`);
           if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd);
           await publishIdentitySecrets(newIdentity.id, vaultId);
         } catch (err) { setError(String(err)); }
@@ -779,8 +779,8 @@ export default function KeychainPage() {
           for (const key of treeKeys) {
             const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
             const [priv, pub] = await Promise.all([
-              getSecret(`key:${key.id}:private`).catch(() => null),
-              getSecret(`key:${key.id}:public`).catch(() => null),
+              getSecret(`key:${key.id}:private`),
+              getSecret(`key:${key.id}:public`),
             ]);
             if (priv) await storeSecret(`key:${newKey.id}:private`, priv);
             if (pub) await storeSecret(`key:${newKey.id}:public`, pub);
@@ -789,7 +789,7 @@ export default function KeychainPage() {
           for (const identity of treeIdentities) {
             const newKeyId = identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined;
             const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
-            const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
+            const pwd = await getSecret(`identity:${identity.id}:password`);
             if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd);
           }
         } catch (err) { setError(String(err)); }
@@ -819,7 +819,7 @@ export default function KeychainPage() {
       vault_id: vaultId,
     });
     for (const part of ["private", "public", "passphrase"]) {
-      const value = await getSecret(`key:${key.id}:${part}`).catch(() => null);
+      const value = await getSecret(`key:${key.id}:${part}`);
       if (!value) continue;
       const localKey = `key:${newKey.id}:${part}`;
       await storeSecret(localKey, value);
@@ -844,7 +844,7 @@ export default function KeychainPage() {
       folder_id: folderId ?? undefined,
       vault_id: vaultId,
     });
-    const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
+    const pwd = await getSecret(`identity:${identity.id}:password`);
     if (pwd) {
       const localKey = `identity:${newIdentity.id}:password`;
       await storeSecret(localKey, pwd);

@@ -11,6 +11,8 @@ import EnvVarsPanel from "./EnvVarsPanel";
 import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
 import { sshExecCommand } from "@/services/ssh";
+import { useStoredSecrets } from "@/hooks/useStoredSecrets";
+import { VaultUnavailableNote } from "@/components/shared/VaultUnavailableNote";
 import { useAutosave } from "@/hooks/useAutosave";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent } from "@/services/auditReporter";
@@ -155,19 +157,19 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // Load existing secrets when editing
-  useEffect(() => {
-    if (!initial) return;
-    (async () => {
-      const pwd = await getSecret(`password:${initial.id}`).catch(() => null);
-      if (pwd && !passwordDirty.current) setPassword(pwd);
-      if (!initial.key_id) {
-        const key = await getSecret(`key:${initial.id}`).catch(() => null);
-        if (key && !privateKeyDirty.current) setPrivateKey(key);
-        const pass = await getSecret(`passphrase:${initial.id}`).catch(() => null);
-        if (pass && !passphraseDirty.current) setPassphrase(pass);
-      }
-    })();
-  }, [initial?.id]);
+  const vaultUnavailable = useStoredSecrets(
+    initial?.id,
+    {
+      password: initial ? `password:${initial.id}` : null,
+      privateKey: initial && !initial.key_id ? `key:${initial.id}` : null,
+      passphrase: initial && !initial.key_id ? `passphrase:${initial.id}` : null,
+    },
+    (v) => {
+      if (v.password && !passwordDirty.current) setPassword(v.password);
+      if (v.privateKey && !privateKeyDirty.current) setPrivateKey(v.privateKey);
+      if (v.passphrase && !passphraseDirty.current) setPassphrase(v.passphrase);
+    },
+  );
 
   const selectedIdentity = relevantIdentities.find((i) => i.id === identityId) ?? null;
 
@@ -388,6 +390,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
       <div className="flex flex-col flex-1 overflow-y-auto">
         <div className="flex-1 px-4 py-4 space-y-3">
+
+          {vaultUnavailable && <VaultUnavailableNote />}
 
           <FormSection label={t("connections.common.general")}>
             <div>

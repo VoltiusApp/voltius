@@ -1,5 +1,6 @@
 import type { HostChoice } from "@/components/shared/HostPickerPanel";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
+import type { VaultErrorCode } from "@/services/vaultErrors";
 export type { HostChoice };
 
 export type FileEntry = {
@@ -42,7 +43,7 @@ export type SidePhase =
   | { tag: "picking" }
   | { tag: "connecting"; connectId: string; host: HostChoice }
   | { tag: "connected"; sftpId: string | null; cwd: string; selected: FileEntry[] }
-  | { tag: "error"; message: string; host?: HostChoice };
+  | { tag: "error"; message: string; errorCode?: VaultErrorCode; host?: HostChoice };
 
 export type Transfer = {
   id: string; label: string; direction: "→" | "←";

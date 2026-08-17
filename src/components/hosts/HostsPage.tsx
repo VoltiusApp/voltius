@@ -446,10 +446,10 @@ export default function HostsPage() {
       terminal_encoding: conn.terminal_encoding,
     });
     if (newConn && conn.connection_type !== "serial") {
-      const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
+      const pwd = await getSecret(`password:${conn.id}`);
       if (pwd) await storeSecret(`password:${newConn.id}`, pwd);
       if (!conn.key_id) {
-        const key = await getSecret(`key:${conn.id}`).catch(() => null);
+        const key = await getSecret(`key:${conn.id}`);
         if (key) await storeSecret(`key:${newConn.id}`, key);
       }
       await publishConnectionSecrets(newConn.id, opts.vaultId ?? conn.vault_id ?? "personal");
@@ -698,8 +698,8 @@ export default function HostsPage() {
           if (keyNeedsCopy) {
             const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
             const [priv, pub] = await Promise.all([
-              getSecret(`key:${key.id}:private`).catch(() => null),
-              getSecret(`key:${key.id}:public`).catch(() => null),
+              getSecret(`key:${key.id}:private`),
+              getSecret(`key:${key.id}:public`),
             ]);
             if (priv) await storeSecret(`key:${newKey.id}:private`, priv);
             if (pub) await storeSecret(`key:${newKey.id}:public`, pub);
@@ -708,7 +708,7 @@ export default function HostsPage() {
 
           if (identityNeedsCopy) {
             const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
-            const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
+            const pwd = await getSecret(`identity:${identity.id}:password`);
             if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd);
             newIdentityId = newIdentity.id;
           }
@@ -723,13 +723,13 @@ export default function HostsPage() {
             vault_id: vaultId,
           });
           if (newConn) {
-            const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
+            const pwd = await getSecret(`password:${conn.id}`);
             if (pwd) {
               await storeSecret(`password:${newConn.id}`, pwd);
               await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
             }
             if (!conn.key_id) {
-              const k = await getSecret(`key:${conn.id}`).catch(() => null);
+              const k = await getSecret(`key:${conn.id}`);
               if (k) {
                 await storeSecret(`key:${newConn.id}`, k);
                 await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
@@ -840,8 +840,8 @@ export default function HostsPage() {
           for (const key of keyMap.values()) {
             const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
             const [priv, pub] = await Promise.all([
-              getSecret(`key:${key.id}:private`).catch(() => null),
-              getSecret(`key:${key.id}:public`).catch(() => null),
+              getSecret(`key:${key.id}:private`),
+              getSecret(`key:${key.id}:public`),
             ]);
             if (priv) {
               await storeSecret(`key:${newKey.id}:private`, priv);
@@ -859,7 +859,7 @@ export default function HostsPage() {
           for (const identity of identityMap.values()) {
             const newKeyId = identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined;
             const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
-            const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
+            const pwd = await getSecret(`identity:${identity.id}:password`);
             if (pwd) {
               await storeSecret(`identity:${newIdentity.id}:password`, pwd);
               await saveTeamVaultSecretForVault(vaultId, `identity:${newIdentity.id}:password`, pwd).catch(() => {});
@@ -874,13 +874,13 @@ export default function HostsPage() {
             const newKeyId = conn.key_id ? (keyIdMap.get(conn.key_id) ?? conn.key_id) : undefined;
             const newConn = await saveConnection({ name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: [...conn.tags], identity_id: newIdentityId, key_id: newKeyId, folder_id: newFolderId, vault_id: vaultId });
             if (newConn) {
-              const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
+              const pwd = await getSecret(`password:${conn.id}`);
               if (pwd) {
                 await storeSecret(`password:${newConn.id}`, pwd);
                 await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
               }
               if (!conn.key_id) {
-                const k = await getSecret(`key:${conn.id}`).catch(() => null);
+                const k = await getSecret(`key:${conn.id}`);
                 if (k) {
                   await storeSecret(`key:${newConn.id}`, k);
                   await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});

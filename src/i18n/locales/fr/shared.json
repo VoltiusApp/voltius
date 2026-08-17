@@ -101,6 +101,21 @@
       "deleteTagBody_other": "Ceci retirera le tag de {{count}} hôtes. Les hôtes eux-mêmes ne seront pas supprimés.",
       "renameTagTitle": "Renommer le tag",
       "deleteTagButtonTitle": "Supprimer le tag"
+    },
+    "vaultUnavailable": {
+      "note": "Le coffre n'a pas pu être lu, les secrets enregistrés ne sont donc pas affichés ici. Laissez un champ vide pour conserver ce qui est enregistré ; saisir une nouvelle valeur la remplace."
+    },
+    "vaultBackups": {
+      "title": "Sauvegardes du coffre",
+      "description": "Fichiers de coffre mis de côté parce qu'ils ne pouvaient pas être ouverts. En restaurer un le remet comme coffre actif et conserve l'actuel comme nouvelle sauvegarde — rien n'est supprimé.",
+      "empty": "Aucune sauvegarde du coffre sur cet appareil.",
+      "restore": "Restaurer",
+      "confirm": "Restaurer cette sauvegarde",
+      "cancel": "Annuler",
+      "warn": "Cette sauvegarde devient votre coffre. Elle s'ouvre avec le mot de passe maître utilisé au moment de sa création : vous serez déconnecté et invité à déverrouiller.",
+      "warnReadable": "Votre coffre actuel est lisible. La restauration le remplace — il est conservé comme nouvelle sauvegarde, et vous serez déconnecté puis invité à déverrouiller avec le mot de passe du fichier restauré.",
+      "restoredToast": "Sauvegarde restaurée. Votre coffre précédent a été conservé sous {{file}}.",
+      "restoredToastNoPrevious": "Sauvegarde restaurée."
     }
   }
 }

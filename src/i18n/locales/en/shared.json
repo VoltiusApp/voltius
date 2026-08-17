@@ -101,6 +101,21 @@
       "deleteTagBody_other": "This will remove the tag from {{count}} hosts. The hosts themselves won't be deleted.",
       "renameTagTitle": "Rename tag",
       "deleteTagButtonTitle": "Delete tag"
+    },
+    "vaultUnavailable": {
+      "note": "The vault could not be read, so stored secrets are not shown here. Leave a field empty to keep what is saved; typing a new value replaces it."
+    },
+    "vaultBackups": {
+      "title": "Vault backups",
+      "description": "Vault files set aside when they could not be opened. Restoring one puts it back as your vault and keeps the current one as a new backup — nothing is deleted.",
+      "empty": "No vault backups on this device.",
+      "restore": "Restore",
+      "confirm": "Restore this backup",
+      "cancel": "Cancel",
+      "warn": "This backup becomes your vault. It opens with the master password that was in use when it was made, so you will be signed out and asked to unlock.",
+      "warnReadable": "Your current vault can be read. Restoring replaces it — it is kept as a new backup, and you will be signed out and asked to unlock with the password that made the restored file.",
+      "restoredToast": "Backup restored. Your previous vault was kept as {{file}}.",
+      "restoredToastNoPrevious": "Backup restored."
     }
   }
 }

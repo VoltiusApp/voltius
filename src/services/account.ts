@@ -84,8 +84,11 @@ async function keyThatOpensVault(...candidates: number[][]): Promise<number[] | 
     try {
       await verifyVaultKey(key);
       return key;
-    } catch {
-      continue;
+    } catch (e) {
+      // Only a failed decrypt means "not this key". A read error — a file held by
+      // a backup or an antivirus — must keep its own identity: folded in here it
+      // reads as "no key fits", whose recovery screen offers to set the file aside.
+      if (!(e instanceof VaultUnreadableError)) throw e;
     }
   }
   return null;
@@ -311,8 +314,15 @@ export async function login(password: string, email?: string, serverUrl?: string
   }
 }
 
+/**
+ * How a keychain auto-login ended. `vault-unreadable` is not a declined session:
+ * the account has no master password to retype, so the unlock prompt cannot help
+ * and the caller must offer the vault recovery screen instead.
+ */
+export type AutoLoginOutcome = "ok" | "declined" | "vault-unreadable";
+
 /** Auto-login from keychain — instant (no secret access). */
-export async function autoLogin(): Promise<boolean> {
+export async function autoLogin(): Promise<AutoLoginOutcome> {
   // A keychain failure here (e.g. an OS keychain backend unavailable on a platform)
   // must degrade to "no session", never throw — an unhandled rejection would abort the
   // splash init and freeze the app on its loading screen.
@@ -324,9 +334,9 @@ export async function autoLogin(): Promise<boolean> {
       keychainGet("mode"),
     ]);
   } catch {
-    return false;
+    return "declined";
   }
-  if (!password) return false;
+  if (!password) return "declined";
 
   try {
     let encKey: number[];
@@ -334,8 +344,13 @@ export async function autoLogin(): Promise<boolean> {
     // In OS-keychain mode, the stored value is already the encryption key.
     // Some older installs may miss mode/account_id metadata; heal it silently.
     if (mode === "local-nopassword" || (!mode && !accountId && isHexEncoded32ByteKey(password))) {
-      if (!isHexEncoded32ByteKey(password)) return false;
+      if (!isHexEncoded32ByteKey(password)) return "declined";
       encKey = hexToBytes(password); // password = stored hex key
+
+      // The key lives in the OS keychain and is the only one this account has, so
+      // a vault it cannot open is unreadable, not a wrong password. Installing it
+      // regardless would defer the failure to the first secret read, inside the app.
+      if (!(await keyThatOpensVault(encKey))) return "vault-unreadable";
 
       if (!accountId) {
         await keychainSet("account_id", crypto.randomUUID());
@@ -344,13 +359,14 @@ export async function autoLogin(): Promise<boolean> {
         await keychainSet("mode", "local-nopassword");
       }
     } else {
-      if (!accountId) return false;
+      if (!accountId) return "declined";
       const { enc_key: kek } = await deriveKeys(password, accountId);
 
       // Local Tauri calls only — autoLogin stays instant offline.
       const opened = await passwordVaultKey(kek);
       // Decline rather than install a key already proven not to open the file.
-      if (!opened) return false;
+      // A password account keeps the unlock prompt: another password may open it.
+      if (!opened) return "declined";
       encKey = opened;
 
       if (!mode) {
@@ -359,9 +375,9 @@ export async function autoLogin(): Promise<boolean> {
       }
     }
     setVaultKey(encKey); // instant — no secrets_unlock yet
-    return true;
+    return "ok";
   } catch {
-    return false;
+    return "declined";
   }
 }
 
@@ -723,11 +739,14 @@ async function migrateToWrappedUserSecrets(
     const secrets = await generateUserSecrets();
     const dek = secrets.dek;
 
-    // Re-encrypt secrets.enc: old key was kek (legacy), new key is dek
-    await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
-
     // Build user_secrets with legacy X25519 private key (preserves public key on server)
     const wrapped_user_secrets = await wrapUserSecrets(kek, dek, legacyX25519Private);
+
+    // secrets_rekey needs an unlocked store, and login only installs the key
+    // lazily. Unlocking after the upload marked the account migrated server-side
+    // while the rekey threw, stranding this device on a kek-encrypted vault with
+    // no dek in the session at all.
+    await unlockVaultIfNeeded();
 
     const res = await fetchWithTimeout(`${serverUrl}/v1/auth/wrapped-user-secrets`, {
       method: "PUT",
@@ -736,13 +755,26 @@ async function migrateToWrappedUserSecrets(
     });
     if (!res.ok) {
       console.warn("Migration upload failed:", res.status);
-      // Don't throw — fall back to using kek as vault key
+      // secrets.enc is still kek-encrypted, so the legacy key remains correct.
       setVaultKey(kek);
       return;
     }
 
+    // Only now can the dek be recovered from the server, so only now may the file
+    // depend on it. Rekeying first left an upload failure with a vault whose key
+    // existed nowhere.
+    let vaultKey = dek;
+    try {
+      await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
+    } catch (e) {
+      // The server is migrated either way, so the session still adopts the dek;
+      // only the file stays kek-encrypted, which login already handles.
+      console.warn("Migration rekey failed, keeping the kek-encrypted vault:", e);
+      vaultKey = kek;
+    }
+
     useVaultKeysStore.getState().set({ dek, x25519Private: legacyX25519Private, kek });
-    setVaultKey(dek);
+    setVaultKey(vaultKey);
     await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
 
     const { push } = await import("@/services/sync");
