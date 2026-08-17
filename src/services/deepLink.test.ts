@@ -7,14 +7,15 @@ const OTHER = "11111111-2222-3333-4444-555555555555";
 const link = (s: string) => `voltius://join?s=${s}&t=tok`;
 
 beforeEach(() => {
-  useDeepLinkStore.setState({ ready: false, pending: null, prompt: null });
+  useDeepLinkStore.setState({ ready: false, queue: [], prompt: null });
+  useDeepLinkStore.getState().setSilentHandler(null);
 });
 
 test("a link arriving before ready is queued, not prompted", () => {
   handleDeepLink(link(SESSION));
   const s = useDeepLinkStore.getState();
   expect(s.prompt).toBeNull();
-  expect(s.pending?.sessionId).toBe(SESSION);
+  expect(s.queue).toHaveLength(1);
 });
 
 test("becoming ready drains the queued intent into the prompt", () => {
@@ -22,7 +23,7 @@ test("becoming ready drains the queued intent into the prompt", () => {
   useDeepLinkStore.getState().setReady(true);
   const s = useDeepLinkStore.getState();
   expect(s.prompt?.sessionId).toBe(SESSION);
-  expect(s.pending).toBeNull();
+  expect(s.queue).toHaveLength(0);
 });
 
 test("a link arriving while ready prompts immediately", () => {
@@ -39,11 +40,10 @@ test("a warm echo while the prompt is open does not re-prompt", () => {
   expect(useDeepLinkStore.getState().prompt).toBe(first);
 });
 
-test("a duplicate arriving before ready does not replace the queued intent", () => {
+test("a duplicate arriving before ready is dropped", () => {
   handleDeepLink(link(SESSION));
-  const first = useDeepLinkStore.getState().pending;
   handleDeepLink(link(SESSION));
-  expect(useDeepLinkStore.getState().pending).toBe(first);
+  expect(useDeepLinkStore.getState().queue).toHaveLength(1);
 });
 
 test("dismissing then redelivering the same link prompts again", () => {
@@ -54,10 +54,13 @@ test("dismissing then redelivering the same link prompts again", () => {
   expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
 });
 
-test("a different link supersedes the pending one", () => {
+test("two different links queued before ready are both delivered, in order", () => {
   handleDeepLink(link(SESSION));
   handleDeepLink(link(OTHER));
-  expect(useDeepLinkStore.getState().pending?.sessionId).toBe(OTHER);
+  useDeepLinkStore.getState().setReady(true);
+  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
+  useDeepLinkStore.getState().dismissPrompt();
+  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(OTHER);
 });
 
 test("an unknown route is dropped without prompting or throwing", () => {
@@ -74,14 +77,14 @@ test("dropping a link never logs the query string", () => {
   warn.mockRestore();
 });
 
-test("a different link while a prompt is on screen queues as pending, leaving prompt untouched", () => {
+test("a different link while a prompt is on screen queues behind it", () => {
   useDeepLinkStore.getState().setReady(true);
   handleDeepLink(link(SESSION));
   const shown = useDeepLinkStore.getState().prompt;
   handleDeepLink(link(OTHER));
   const s = useDeepLinkStore.getState();
   expect(s.prompt).toBe(shown);
-  expect(s.pending?.sessionId).toBe(OTHER);
+  expect(s.queue).toHaveLength(1);
   s.dismissPrompt();
   expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(OTHER);
 });
@@ -91,4 +94,49 @@ test("dismissing clears the prompt", () => {
   handleDeepLink(link(SESSION));
   useDeepLinkStore.getState().dismissPrompt();
   expect(useDeepLinkStore.getState().prompt).toBeNull();
+});
+
+const USER = "9f1e2d3c-4b5a-6978-8765-43210fedcba9";
+const OTHER_USER = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+test("two verified links for different users both reach the silent handler", () => {
+  const seen: string[] = [];
+  useDeepLinkStore.getState().setSilentHandler((i) => seen.push(i.userId));
+  useDeepLinkStore.getState().setReady(true);
+  handleDeepLink(`voltius://verified?u=${USER}`);
+  handleDeepLink(`voltius://verified?u=${OTHER_USER}`);
+  expect(seen).toEqual([USER, OTHER_USER]);
+});
+
+test("a silent link does not wait behind an open prompt", () => {
+  const seen: string[] = [];
+  useDeepLinkStore.getState().setSilentHandler((i) => seen.push(i.userId));
+  useDeepLinkStore.getState().setReady(true);
+  handleDeepLink(link(SESSION));
+  handleDeepLink(`voltius://verified?u=${USER}`);
+  expect(seen).toEqual([USER]);
+  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
+});
+
+test("a silent link arriving before ready runs once ready", () => {
+  const seen: string[] = [];
+  useDeepLinkStore.getState().setSilentHandler((i) => seen.push(i.userId));
+  handleDeepLink(`voltius://verified?u=${USER}`);
+  expect(seen).toEqual([]);
+  useDeepLinkStore.getState().setReady(true);
+  expect(seen).toEqual([USER]);
+});
+
+test("the queue drops the oldest beyond its cap", () => {
+  const ids = [
+    "11111111-1111-1111-1111-111111111111",
+    "22222222-2222-2222-2222-222222222222",
+    "33333333-3333-3333-3333-333333333333",
+    "44444444-4444-4444-4444-444444444444",
+    "55555555-5555-5555-5555-555555555555",
+  ];
+  ids.forEach((id) => handleDeepLink(link(id)));
+  const queued = useDeepLinkStore.getState().queue;
+  expect(queued).toHaveLength(4);
+  expect(queued[0]).toMatchObject({ sessionId: ids[1] });
 });

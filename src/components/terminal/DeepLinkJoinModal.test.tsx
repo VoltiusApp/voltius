@@ -20,7 +20,7 @@ const intent = { route: "join" as const, sessionId: SESSION, token: "tok" };
 
 beforeEach(() => {
   joinMock.mockClear().mockResolvedValue("local-1");
-  useDeepLinkStore.setState({ ready: true, pending: null, prompt: null });
+  useDeepLinkStore.setState({ ready: true, queue: [], prompt: null });
 });
 
 afterEach(() => cleanup());

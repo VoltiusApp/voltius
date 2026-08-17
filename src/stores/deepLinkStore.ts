@@ -1,46 +1,82 @@
 import { create } from "zustand";
-import type { DeepLinkIntent } from "@/services/deepLinkUrl";
+import {
+  intentKey,
+  isConfirmIntent,
+  type ConfirmIntent,
+  type DeepLinkIntent,
+  type SilentIntent,
+} from "@/services/deepLinkUrl";
 
-function sameIntent(a: DeepLinkIntent | null, b: DeepLinkIntent): boolean {
-  return a?.route === b.route && a?.sessionId === b.sessionId && a?.token === b.token;
-}
+/**
+ * A cap, not a design: a burst this size means something is firing links at us,
+ * and holding them all would let it push a real one off the end anyway.
+ */
+const MAX_QUEUE = 4;
+
+/**
+ * Kept out of the store's state so a test resetting state cannot leave a stale
+ * handler installed, and so the store never imports the handler module.
+ */
+let silentHandler: ((intent: SilentIntent) => void) | null = null;
 
 interface DeepLinkStore {
   ready: boolean;
-  pending: DeepLinkIntent | null;
-  prompt: DeepLinkIntent | null;
+  queue: DeepLinkIntent[];
+  prompt: ConfirmIntent | null;
 
   setReady(ready: boolean): void;
+  setSilentHandler(fn: ((intent: SilentIntent) => void) | null): void;
   enqueue(intent: DeepLinkIntent): void;
   dismissPrompt(): void;
 }
 
 export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
   ready: false,
-  pending: null,
+  queue: [],
   prompt: null,
 
-  setReady: (ready) => {
-    const { pending } = get();
-    if (ready && pending) set({ ready, pending: null, prompt: pending });
-    else set({ ready });
+  setSilentHandler: (fn) => {
+    silentHandler = fn;
   },
 
-  // A cold start delivers the same URL twice (getCurrent plus an onOpenUrl echo),
-  // hence the no-op on an identical intent. A visible `prompt` is never swapped:
-  // the sheet shows no identifying detail, so the user could confirm the wrong
-  // session without noticing.
+  setReady: (ready) => {
+    set({ ready });
+    if (ready) drain();
+  },
+
+  // A cold start delivers the same URL twice (getCurrent plus an onOpenUrl
+  // echo), hence the key check against everything currently held. A visible
+  // `prompt` is never swapped: the sheet shows no identifying detail, so the
+  // user could confirm the wrong session without noticing.
   enqueue: (intent) => {
-    const { ready, pending, prompt } = get();
-    if (sameIntent(pending, intent) || sameIntent(prompt, intent)) return;
-    if (prompt) set({ pending: intent });
-    else if (ready) set({ prompt: intent, pending: null });
-    else set({ pending: intent });
+    const { queue, prompt } = get();
+    const key = intentKey(intent);
+    if (prompt && intentKey(prompt) === key) return;
+    if (queue.some((queued) => intentKey(queued) === key)) return;
+    set({ queue: [...queue, intent].slice(-MAX_QUEUE) });
+    drain();
   },
 
   // Surfaces a link queued behind the prompt, rather than losing it.
   dismissPrompt: () => {
-    const { pending } = get();
-    set(pending ? { prompt: pending, pending: null } : { prompt: null });
+    set({ prompt: null });
+    drain();
   },
 }));
+
+function drain(): void {
+  const { ready, queue, prompt } = useDeepLinkStore.getState();
+  if (!ready) return;
+
+  const rest: DeepLinkIntent[] = [];
+  let nextPrompt = prompt;
+  for (const intent of queue) {
+    if (!isConfirmIntent(intent)) {
+      silentHandler?.(intent);
+      continue;
+    }
+    if (!nextPrompt) nextPrompt = intent;
+    else rest.push(intent);
+  }
+  useDeepLinkStore.setState({ queue: rest, prompt: nextPrompt });
+}

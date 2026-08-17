@@ -15,7 +15,7 @@ vi.mock("@tauri-apps/plugin-deep-link", () => ({
 beforeEach(() => {
   getCurrent.mockReset().mockResolvedValue(null);
   onOpenUrl.mockReset().mockResolvedValue(() => {});
-  useDeepLinkStore.setState({ ready: true, pending: null, prompt: null });
+  useDeepLinkStore.setState({ ready: true, queue: [], prompt: null });
 });
 
 test("a cold-start url is handled", async () => {
