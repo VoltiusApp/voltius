@@ -163,7 +163,12 @@
       "termiusDumpInvalidJson": "Дамп Termius должен быть корректным JSON",
       "legacyTermiusUnsupported": "Старый формат дампа Termius больше не поддерживается; используйте автоэкспорт.",
       "termiusExtractionFormat": "Экспорт Termius должен возвращать { version: 2, records: [...] }",
-      "failedToFetchSource": "Не удалось получить источник: HTTP {{status}}"
+      "failedToFetchSource": "Не удалось получить источник: HTTP {{status}}",
+      "failedToMintInviteCode": "Не удалось создать код приглашения: {{status}}",
+      "failedToRedeemInviteCode": "Не удалось использовать код приглашения: {{status}}",
+      "inviteCodeMalformed": "Код указан в неверном формате",
+      "inviteCodeNotFound": "Код истёк или указан неверно",
+      "inviteCodeTooManyAttempts": "Слишком много попыток — подождите и попробуйте снова"
     },
     "clipboard": {
       "cut_one": "Вырезан {{count}} элемент",

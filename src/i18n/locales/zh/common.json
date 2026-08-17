@@ -163,7 +163,12 @@
       "termiusDumpInvalidJson": "Termius 导出必须是有效的 JSON",
       "legacyTermiusUnsupported": "不再支持旧版 Termius 导出格式；请使用自动提取。",
       "termiusExtractionFormat": "Termius 提取必须返回 { version: 2, records: [...] }",
-      "failedToFetchSource": "获取源失败：HTTP {{status}}"
+      "failedToFetchSource": "获取源失败：HTTP {{status}}",
+      "failedToMintInviteCode": "创建邀请码失败：{{status}}",
+      "failedToRedeemInviteCode": "使用邀请码失败：{{status}}",
+      "inviteCodeMalformed": "该邀请码格式不正确",
+      "inviteCodeNotFound": "该邀请码已过期或不正确",
+      "inviteCodeTooManyAttempts": "尝试次数过多 — 请稍后重试"
     },
     "clipboard": {
       "cut_one": "已剪切 {{count}} 个项目",

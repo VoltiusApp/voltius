@@ -164,7 +164,13 @@
       "deepLinkJoinBody": "Someone shared a live terminal session with you. Joining connects you to it now.",
       "deepLinkJoinUnknownHost": "Voltius can't identify who shared it until you join.",
       "deepLinkJoinAction": "Join session",
-      "deepLinkJoinFailed": "Couldn't join that session — the link may have expired."
+      "deepLinkJoinFailed": "Couldn't join that session — the link may have expired.",
+      "getSpokenCode": "Get a code to read aloud",
+      "codeExpired": "Code expired — get a new one",
+      "newCode": "New code",
+      "readAloudHint": "Say it out loud",
+      "expiresIn": "expires in {{time}}",
+      "failedToMintCode": "Failed to create code"
     },
     "snippetVariableModal": {
       "on": "On",

@@ -10,7 +10,7 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { AvatarStack } from "@/components/shared/AvatarStack";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
-import { parseInviteCode } from "@/services/inviteCode";
+import { isJoinInput, resolveJoinInput } from "@/services/resolveJoinInput";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { sessionDisplayName } from "@/services/teamSharing";
 
@@ -110,17 +110,18 @@ export function TeamSessions() {
     const code = inviteCode.trim();
     if (!code) return;
 
-    const parsed = parseInviteCode(code);
-    if (!parsed) {
+    if (!isJoinInput(code)) {
       setJoinError(t("hosts.teamSessions.invalidCodeFormat"));
       return;
     }
-    const { sessionId, token } = parsed;
 
     setJoinLoading(true);
     setJoinError(null);
     try {
-      await doJoinSession(sessionId, token);
+      // A short code is exchanged for a session and a secret here; the other two
+      // shapes already carry theirs.
+      const { sessionId, inviteToken } = await resolveJoinInput(code);
+      await doJoinSession(sessionId, inviteToken);
       setShowJoinModal(false);
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : t("hosts.teamSessions.failedToJoinSession"));
