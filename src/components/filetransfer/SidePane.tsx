@@ -32,6 +32,24 @@ function sparklinePoints(values: number[], width: number, height: number): strin
   }).join(" ");
 }
 
+/** Icon, name and subtitle the connection overlay shows for a host. */
+function hostPresentation(h: HostChoice | null | undefined, t: (k: string) => string) {
+  if (!h) return { icon: "lucide:server", name: "", subtitle: undefined };
+  if (h.kind === "local") {
+    return {
+      icon: h.wslDistro ? getConnectionIcon(h.wslDistro.split(/[-_ ]/)[0]) : "lucide:monitor",
+      name: h.wslDistro ?? t("fileTransfer.common.localMachine"),
+      subtitle: undefined,
+    };
+  }
+  const c = h.connection;
+  return {
+    icon: (c.icon || c.distro ? getConnectionIcon(c.icon || c.distro!) : null) ?? "lucide:server",
+    name: c.name?.trim() || `${c.username}@${c.host}`,
+    subtitle: `${c.username}@${c.host}:${c.port}`,
+  };
+}
+
 export function SidePane({
   host, phase, refreshTick,
   onPick, onNavigate, onSelect, onRefresh, onChangeHost, side, onDropFiles,
@@ -245,32 +263,35 @@ export function SidePane({
       <div className="flex-1 min-h-0 overflow-hidden">
         {phase.tag === "picking" && <HostPickerPanel onPick={onPick} sshOnly />}
 
-        {phase.tag === "connecting" && (() => {
-          const h = phase.host;
-          const phaseIcon = h.kind === "local" ? (h.wslDistro ? getConnectionIcon(h.wslDistro.split(/[-_ ]/)[0]) : "lucide:monitor")
-            : h.kind === "remote" && (h.connection.icon || h.connection.distro) ? (getConnectionIcon(h.connection.icon || h.connection.distro!) ?? "lucide:server")
-            : "lucide:server";
-          const phaseName = h.kind === "local" ? (h.wslDistro ?? t("fileTransfer.common.localMachine"))
-            : h.connection.name?.trim() || `${h.connection.username}@${h.connection.host}`;
-          const phaseSubtitle = h.kind === "remote"
-            ? `${h.connection.username}@${h.connection.host}:${h.connection.port}`
-            : undefined;
-          return (
-            <ConnectionOverlay
-              sessionId={phase.connectId}
-              status="connecting"
-              name={phaseName}
-              subtitle={phaseSubtitle}
-              icon={phaseIcon}
-              steps={getSftpSteps()}
-              stepEventName={`sftp-step-${phase.connectId}`}
-              conflictEventName={`sftp-host-key-conflict-${phase.connectId}`}
-              className="flex items-center justify-center h-full bg-(--t-bg-base)"
-            />
-          );
-        })()}
+        {phase.tag === "connecting" && (
+          <ConnectionOverlay
+            sessionId={phase.connectId}
+            status="connecting"
+            {...hostPresentation(phase.host, t)}
+            steps={getSftpSteps()}
+            stepEventName={`sftp-step-${phase.connectId}`}
+            conflictEventName={`sftp-host-key-conflict-${phase.connectId}`}
+            className="flex items-center justify-center h-full bg-(--t-bg-base)"
+          />
+        )}
 
-        {phase.tag === "error" && (
+        {/* The vault holds the credentials, so the panel's unlock action is the
+            way out; the message alone leaves nothing to act on. */}
+        {phase.tag === "error" && phase.errorCode && (
+          <ConnectionOverlay
+            sessionId={`sftp-error-${side}`}
+            status="error"
+            errorMessage={phase.message}
+            errorCode={phase.errorCode}
+            {...hostPresentation(phase.host ?? host, t)}
+            steps={getSftpSteps()}
+            stepEventName={`sftp-step-error-${side}`}
+            onRetry={onChangeHost}
+            className="flex items-center justify-center h-full bg-(--t-bg-base)"
+          />
+        )}
+
+        {phase.tag === "error" && !phase.errorCode && (
           <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
             <Icon icon="lucide:wifi-off" width={24} className="text-(--t-status-error)" />
             <p className="text-sm text-(--t-status-error)">{phase.message}</p>

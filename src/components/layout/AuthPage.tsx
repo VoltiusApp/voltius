@@ -9,6 +9,8 @@ import {
   login,
 } from "@/services/account";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { VaultUnreadableError } from "@/services/vaultErrors";
+import { VaultBackups } from "@/components/shared/VaultBackups";
 
 
 type View = "home" | "cloud";
@@ -16,17 +18,26 @@ type CloudMode = "signup" | "signin";
 
 interface Props {
   isLocked: boolean;
+  /** The vault was already found unreadable at startup, before any password was
+   *  asked for — an account whose only key lives in the OS keychain. */
+  vaultUnreadable?: boolean;
   onReady: () => void;
 }
 
+/** Which way the vault turned out to be unreadable — they offer different exits. */
+type Unreadable = "no-password" | "wrong-key";
+
 const DEFAULT_SERVER = "https://api.voltius.app";
 
-export default function AuthPage({ isLocked, onReady }: Props) {
+export default function AuthPage({ isLocked, vaultUnreadable, onReady }: Props) {
   const { t } = useTranslation();
   const [view, setView] = useState<View>("home");
   const [cloudMode, setCloudMode] = useState<CloudMode>("signup");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [unreadable, setUnreadable] = useState<Unreadable | null>(
+    vaultUnreadable ? "no-password" : null,
+  );
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -50,11 +61,65 @@ export default function AuthPage({ isLocked, onReady }: Props) {
       await fn();
       onReady();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      // Not a bad password, so not the password form.
+      if (e instanceof VaultUnreadableError) setUnreadable("wrong-key");
+      else setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
   };
+
+  // ── Vault present but unreadable ─────────────────────────────────────────
+
+  if (unreadable) {
+    const setAside = () =>
+      wrap(async () => {
+        const { quarantineVault } = await import("@/services/vault");
+        const backup = await quarantineVault();
+        addToast({
+          source: { kind: "plugin", id: "system", name: "Voltius" },
+          type: "toast",
+          message: t("layout.auth.vaultSetAsideToast", { file: backup }),
+          severity: "info",
+          duration: 8000,
+        });
+        window.location.reload();
+      });
+
+    // No password was ever asked for, so there is no other one to try and no
+    // cloud copy to re-download: the backups below are the only way back.
+    const noPassword = unreadable === "no-password";
+
+    return (
+      <Layout>
+        <p className="text-sm mb-2 text-center text-(--t-text-bright)">
+          {t("layout.auth.vaultUnreadableTitle")}
+        </p>
+        <p className="text-xs mb-4 text-center leading-relaxed text-(--t-text-muted)">
+          {t(noPassword ? "layout.auth.vaultUnreadableBodyNoPassword" : "layout.auth.vaultUnreadableBody")}
+        </p>
+        <ErrorMsg msg={error} />
+        <ActionButton
+          icon={noPassword ? "lucide:archive" : "lucide:cloud-download"}
+          label={t(noPassword ? "layout.auth.vaultSetAsideLocal" : "layout.auth.vaultSetAside")}
+          sub={t(noPassword ? "layout.auth.vaultSetAsideLocalSub" : "layout.auth.vaultSetAsideSub")}
+          primary
+          loading={loading}
+          onClick={setAside}
+        />
+        {!noPassword && (
+          <button
+            type="button"
+            onClick={() => { setUnreadable(null); setError(""); setPassword(""); }}
+            className="mt-1 text-xs w-full text-center transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
+          >
+            {t("layout.auth.vaultUnreadableRetry")}
+          </button>
+        )}
+        <VaultBackups currentReadable={false} hideWhenEmpty className="mt-4 w-full text-left" />
+      </Layout>
+    );
+  }
 
   // ── Locked (vault exists, need password) ─────────────────────────────────
 

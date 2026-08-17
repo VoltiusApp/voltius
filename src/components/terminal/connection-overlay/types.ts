@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { KnownHost } from "@/types";
+import type { VaultErrorCode } from "@/services/vaultErrors";
 
 export type StepStatus = "pending" | "active" | "done" | "error";
 
@@ -47,6 +48,8 @@ export interface ConnectionOverlayProps {
   sessionId: string;
   status: "connecting" | "connected" | "error" | "disconnected";
   errorMessage?: string;
+  /** Set when the vault, not the host, is why it failed. Outranks errorMessage. */
+  errorCode?: VaultErrorCode;
   name: string;
   subtitle?: string;
   icon: string;

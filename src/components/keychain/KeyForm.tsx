@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
-import { getSecret } from "@/services/vault";
+import { useStoredSecrets } from "@/hooks/useStoredSecrets";
+import { VaultUnavailableNote } from "@/components/shared/VaultUnavailableNote";
 import {
   PanelShell, PanelHeader, FormSection,
   formInputClass, formInputStyle, formLabelClass, formLabelStyle,
@@ -100,17 +101,19 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
   const shell = useVaultObjectFormShell({ initial, folderType: "keychain", objectType: "key", pin: pinKey });
   const { vaultId, pickVault, isPinned, togglePin } = shell;
 
-  useEffect(() => {
-    if (!initial) return;
-    (async () => {
-      const priv = await getSecret(`key:${initial.id}:private`).catch(() => null);
-      const pub = await getSecret(`key:${initial.id}:public`).catch(() => null);
-      const pass = await getSecret(`key:${initial.id}:passphrase`).catch(() => null);
-      if (priv && !privateKeyDirty.current) setPrivateKey(priv);
-      if (pub && !publicKeyDirty.current) setPublicKey(pub);
-      if (pass && !passphraseDirty.current) setPassphrase(pass);
-    })();
-  }, [initial?.id]);
+  const vaultUnavailable = useStoredSecrets(
+    initial?.id,
+    {
+      privateKey: initial ? `key:${initial.id}:private` : null,
+      publicKey: initial ? `key:${initial.id}:public` : null,
+      passphrase: initial ? `key:${initial.id}:passphrase` : null,
+    },
+    (v) => {
+      if (v.privateKey && !privateKeyDirty.current) setPrivateKey(v.privateKey);
+      if (v.publicKey && !publicKeyDirty.current) setPublicKey(v.publicKey);
+      if (v.passphrase && !passphraseDirty.current) setPassphrase(v.passphrase);
+    },
+  );
 
   const contributions = useUIContributions("key.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
@@ -183,6 +186,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
         })() : undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {vaultUnavailable && <VaultUnavailableNote />}
         <FormSection label={t("keychain.common.general")}>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>

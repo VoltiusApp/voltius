@@ -159,7 +159,20 @@
       "yourTeamsLabel": "您的团队",
       "elsewhereLabel": "Voltius 上的其他人",
       "notInYourTeams": "不在您的团队中",
-      "forgetPerson": "从最近记录中移除"
+      "presenceOnline": "在线",
+      "presenceOffline": "离线",
+      "forgetPerson": "从最近记录中移除",
+      "deepLinkJoinTitle": "加入共享终端？",
+      "deepLinkJoinBody": "有人与你共享了一个实时终端会话。加入后将立即连接。",
+      "deepLinkJoinUnknownHost": "在你加入之前，Voltius 无法识别共享者。",
+      "deepLinkJoinAction": "加入会话",
+      "deepLinkJoinFailed": "无法加入该会话——链接可能已失效。",
+      "getSpokenCode": "获取口述验证码",
+      "codeExpired": "验证码已过期 — 请获取新的",
+      "newCode": "新验证码",
+      "readAloudHint": "可直接读出",
+      "expiresIn": "{{time}} 后过期",
+      "failedToMintCode": "创建验证码失败"
     },
     "snippetVariableModal": {
       "on": "开",
@@ -248,6 +261,15 @@
         "modeIdentity": "身份",
         "passwordPlaceholder": "密码",
         "keyPassphrasePlaceholder": "密钥口令（可选）"
+      },
+      "vaultError": {
+        "unreadableTitle": "无法读取保险库",
+        "unreadableBody": "该主机的凭据已保存，但本地保险库无法用当前密钥解密。没有任何内容被删除——请解锁保险库后再连接。",
+        "lockedTitle": "保险库已锁定",
+        "lockedBody": "该主机的凭据存放在已锁定的保险库中。请解锁后再连接。",
+        "unlock": "解锁保险库",
+        "retry": "重试",
+        "dismiss": "关闭标签页"
       }
     },
     "statusBar": {

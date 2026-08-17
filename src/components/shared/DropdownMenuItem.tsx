@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import type { ReactNode } from "react";
 import { useRipple } from "@/hooks/useRipple";
 
 interface Props {
@@ -7,11 +8,17 @@ interface Props {
   onClick: () => void;
   checked?: boolean;
   iconSize?: number;
+  sublabel?: string;
+  /**
+   * Secondary control shown at the item's right edge. Kept a sibling of the
+   * button, never a child — a button inside a button is invalid DOM.
+   */
+  trailing?: ReactNode;
 }
 
-export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20 }: Props) {
+export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20, sublabel, trailing }: Props) {
   const { createRipple, rippleEls } = useRipple();
-  return (
+  const item = (
     <button
       type="button"
       onClick={onClick}
@@ -28,12 +35,23 @@ export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20 
     >
       {rippleEls}
       {icon && <Icon icon={icon} width={iconSize} className="shrink-0" />}
-      <span className="flex-1 text-left text-(--t-text-primary)">{label}</span>
+      <span className="flex-1 min-w-0 text-left">
+        <span className="block truncate text-(--t-text-primary)">{label}</span>
+        {sublabel && <span className="block text-[10px] text-(--t-text-dim)">{sublabel}</span>}
+      </span>
       {checked && (
         <span className="[&_path]:stroke-[2.5]">
           <Icon icon="lucide:check" width={14} />
         </span>
       )}
     </button>
+  );
+
+  if (!trailing) return item;
+  return (
+    <div className="group relative flex items-center">
+      {item}
+      <div className="absolute right-2 flex items-center">{trailing}</div>
+    </div>
   );
 }

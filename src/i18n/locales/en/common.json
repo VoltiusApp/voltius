@@ -69,6 +69,7 @@
       "invalidSessionKey": "Session key must be 32 bytes",
       "sessionExpired": "Session expired — please log in again",
       "vaultLocked": "Vault is locked",
+      "vaultUnreadable": "This device's vault cannot be opened with your key",
       "rateLimited": "Rate limited — retry in {{seconds}}s",
       "serverError": "Server error: {{status}}",
       "connectionNotFound": "Connection not found",
@@ -163,7 +164,12 @@
       "termiusDumpInvalidJson": "Termius dump must be valid JSON",
       "legacyTermiusUnsupported": "Legacy Termius dump format is no longer supported; use Auto Extract.",
       "termiusExtractionFormat": "Termius extraction must return { version: 2, records: [...] }",
-      "failedToFetchSource": "Failed to fetch source: HTTP {{status}}"
+      "failedToFetchSource": "Failed to fetch source: HTTP {{status}}",
+      "failedToMintInviteCode": "Failed to create invite code: {{status}}",
+      "failedToRedeemInviteCode": "Failed to use invite code: {{status}}",
+      "inviteCodeMalformed": "That code is not in the right format",
+      "inviteCodeNotFound": "That code has expired or is incorrect",
+      "inviteCodeTooManyAttempts": "Too many attempts — wait a moment and try again"
     },
     "clipboard": {
       "cut_one": "{{count}} item cut",

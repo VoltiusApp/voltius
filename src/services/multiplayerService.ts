@@ -4,6 +4,7 @@ import { getVaultKey } from "@/services/vault";
 import * as teamService from "@/services/teamService";
 import { freshPublicKeys, type InviteTarget } from "@/services/teamSharing";
 import { appFetch } from "@/services/http";
+import { normalizeShortCode } from "@/services/shortCode";
 import { openXChaCha20Poly1305, sealXChaCha20Poly1305 } from "@/services/crypto/xchacha";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -118,6 +119,18 @@ export async function unwrapSessionKey(
 
 // ─── Server API ───────────────────────────────────────────────────────────────
 
+/**
+ * Server URL and JWT, or a throw naming whichever half is missing. Callers that
+ * degrade instead of failing (`listActiveSessions`) read the two values directly.
+ */
+async function requireServer(): Promise<{ serverUrl: string; jwt: string }> {
+  const serverUrl = await teamService.getServerUrlValue();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const jwt = await teamService.getJwtToken();
+  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+  return { serverUrl, jwt };
+}
+
 export async function listActiveSessions(): Promise<ActiveSession[]> {
   const serverUrl = await teamService.getServerUrlValue();
   if (!serverUrl) return [];
@@ -196,10 +209,7 @@ export async function createVaultSession(
 ): Promise<{ sessionId: string; sessionKey: SessionKey; sessionKeyBytes: Uint8Array }> {
   const { sessionKey, sessionKeyBytes, wrappedKeys } = await prepareWrappedSessionKey(members);
 
-  const serverUrl = await teamService.getServerUrlValue();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const jwt = await teamService.getJwtToken();
-  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+  const { serverUrl, jwt } = await requireServer();
 
   const res = await appFetch(`${serverUrl}/v1/terminal-sessions`, {
     method: "POST",
@@ -231,10 +241,7 @@ export async function createDirectSession(
 ): Promise<{ sessionId: string; sessionKey: SessionKey; sessionKeyBytes: Uint8Array }> {
   const { sessionKey, sessionKeyBytes, wrappedKeys } = await prepareWrappedSessionKey(invitees);
 
-  const serverUrl = await teamService.getServerUrlValue();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const jwt = await teamService.getJwtToken();
-  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+  const { serverUrl, jwt } = await requireServer();
 
   const res = await appFetch(`${serverUrl}/v1/terminal-sessions`, {
     method: "POST",
@@ -268,10 +275,7 @@ export async function inviteUserToSession(
   // wrapping to a cached key fails with aead::Error on the recipient (#66).
   const wrappedKey = await wrapSessionKeyForUser(sessionKeyBytes, await resolveStrangerPublicKey(target.user_id));
 
-  const serverUrl = await teamService.getServerUrlValue();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const jwt = await teamService.getJwtToken();
-  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+  const { serverUrl, jwt } = await requireServer();
 
   const res = await appFetch(`${serverUrl}/v1/terminal-sessions/${sessionId}/invitees`, {
     method: "POST",
@@ -291,10 +295,7 @@ export async function inviteUserToSession(
 export async function createInviteLinkSession(
   connectionName: string,
 ): Promise<{ sessionId: string; sessionKey: SessionKey; inviteToken: string }> {
-  const serverUrl = await teamService.getServerUrlValue();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const jwt = await teamService.getJwtToken();
-  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+  const { serverUrl, jwt } = await requireServer();
 
   const sessionKeyBytes = crypto.getRandomValues(new Uint8Array(32));
   const sessionKey = await importSessionKey(sessionKeyBytes);
@@ -318,14 +319,61 @@ export async function createInviteLinkSession(
   return { sessionId: session_id, sessionKey, inviteToken: invite_token as string };
 }
 
+/**
+ * Host: mint a short code for an already-live invite-link session. Minting revokes
+ * any previous code server-side, so the value returned here is the only live one.
+ */
+export async function mintSessionCode(
+  sessionId: string,
+): Promise<{ code: string; expiresAt: string }> {
+  const { serverUrl, jwt } = await requireServer();
+
+  const res = await appFetch(`${serverUrl}/v1/terminal-sessions/${sessionId}/code`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToMintInviteCode", { status: res.status }));
+  const { code, expires_at } = await res.json();
+
+  return { code: code as string, expiresAt: expires_at as string };
+}
+
+/**
+ * Guest: exchange a short code for the session it belongs to and a join secret of
+ * this guest's own. The secret is what every later request presents; the code is
+ * never sent again.
+ */
+export async function redeemSessionCode(
+  code: string,
+): Promise<{ sessionId: string; inviteToken: string }> {
+  const normalized = normalizeShortCode(code);
+  if (!normalized) throw new Error(i18n.t("common.error.inviteCodeMalformed"));
+
+  const { serverUrl, jwt } = await requireServer();
+
+  const res = await appFetch(`${serverUrl}/v1/terminal-sessions/redeem`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code: normalized }),
+  });
+  // The server answers 404 for unknown, expired and revoked alike — deliberately,
+  // so a wrong code reveals nothing. Do not invent a distinction here.
+  if (res.status === 404) throw new Error(i18n.t("common.error.inviteCodeNotFound"));
+  if (res.status === 429) throw new Error(i18n.t("common.error.inviteCodeTooManyAttempts"));
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToRedeemInviteCode", { status: res.status }));
+  const { session_id, invite_token } = await res.json();
+
+  return { sessionId: session_id as string, inviteToken: invite_token as string };
+}
+
 export async function getMySessionKey(
   sessionId: string,
   inviteToken?: string,
 ): Promise<{ sessionKey: SessionKey; hostPublicKey: string }> {
-  const serverUrl = await teamService.getServerUrlValue();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const jwt = await teamService.getJwtToken();
-  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+  const { serverUrl, jwt } = await requireServer();
 
   const url = inviteToken
     ? `${serverUrl}/v1/terminal-sessions/${sessionId}/my-key?invite_token=${encodeURIComponent(inviteToken)}`
@@ -352,10 +400,7 @@ export async function getMySessionKey(
 }
 
 export async function endMultiplayerSession(sessionId: string): Promise<void> {
-  const serverUrl = await teamService.getServerUrlValue();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const jwt = await teamService.getJwtToken();
-  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
+  const { serverUrl, jwt } = await requireServer();
   await appFetch(`${serverUrl}/v1/terminal-sessions/${sessionId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${jwt}` },

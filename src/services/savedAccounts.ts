@@ -1,16 +1,40 @@
 import { invoke } from "@tauri-apps/api/core";
+import {
+  clearPersistedAccountUiState,
+  restorePersistedAccountUiState,
+  snapshotPersistedAccountUiState,
+  type PersistedAccountUiState,
+} from "@/stores/persistedAccountUiState";
+import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { lockVault, wipeLocalConfig } from "./vault";
 
-export interface SavedAccount {
+/**
+ * The keychain entries that make up an account session. A SavedAccount is a
+ * snapshot of exactly these, so the reader (saveCurrentAccount) and the writer
+ * (switchToAccount) stay in step.
+ */
+export const SESSION_KEYS = [
+  "account_id",
+  "mode",
+  "master_password",
+  "email",
+  "server_url",
+  "jwt",
+  "refresh_token",
+] as const;
+type SessionKey = (typeof SESSION_KEYS)[number];
+
+export type SavedAccount = Record<SessionKey, string | null> & {
   account_id: string;
-  display: string; // email or "Local Account"
-  email: string | null;
-  server_url: string | null;
   mode: string;
   master_password: string;
-  jwt: string | null;
-  refresh_token: string | null;
-}
+  /**
+   * The account's persisted UI state, captured when it was last switched away
+   * from. The vault list lives only in localStorage, so without this a switch
+   * back would leave every host filed under a user-created vault invisible.
+   */
+  ui_state?: PersistedAccountUiState;
+};
 
 async function keychainGet(key: string): Promise<string | null> {
   return invoke<string | null>("keychain_get", { key });
@@ -24,11 +48,22 @@ async function keychainDelete(key: string): Promise<void> {
 
 const SAVED_ACCOUNTS_KEY = "voltius.saved_accounts";
 
+/**
+ * Only cloud accounts are switchable. Switching wipes the config dir and
+ * secrets.enc, which for a local account is the only copy of its data — it could
+ * never be switched back into, and offering it would destroy the vault instead.
+ */
+function isSwitchable(account: SavedAccount): boolean {
+  return account.mode === "server";
+}
+
 export async function getSavedAccounts(): Promise<SavedAccount[]> {
   try {
     const raw = await keychainGet(SAVED_ACCOUNTS_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as SavedAccount[];
+    // Filter on read too: installs from before the cloud-only rule may hold a
+    // local entry, and it must not surface as a switch target.
+    return (JSON.parse(raw) as SavedAccount[]).filter(isSwitchable);
   } catch {
     return [];
   }
@@ -40,39 +75,42 @@ async function setSavedAccounts(accounts: SavedAccount[]): Promise<void> {
 
 /** Snapshot current active account and upsert it into the saved list. */
 export async function saveCurrentAccount(): Promise<void> {
-  const [account_id, mode, email, server_url, master_password, jwt, refresh_token] =
-    await Promise.all([
-      keychainGet("account_id"),
-      keychainGet("mode"),
-      keychainGet("email"),
-      keychainGet("server_url"),
-      keychainGet("master_password"),
-      keychainGet("jwt"),
-      keychainGet("refresh_token"),
-    ]);
+  const values = await Promise.all(SESSION_KEYS.map((key) => keychainGet(key)));
+  const session = Object.fromEntries(
+    SESSION_KEYS.map((key, i) => [key, values[i]]),
+  ) as Record<SessionKey, string | null>;
 
+  const { account_id, mode, master_password } = session;
   if (!account_id || !mode || !master_password) return;
 
-  const display = email ?? "Local Account";
-  const entry: SavedAccount = {
-    account_id,
-    display,
-    email: email ?? null,
-    server_url: server_url ?? null,
-    mode,
-    master_password,
-    jwt: jwt ?? null,
-    refresh_token: refresh_token ?? null,
-  };
+  const entry: SavedAccount = { ...session, account_id, mode, master_password };
+  if (!isSwitchable(entry)) return;
 
+  await upsertSavedAccount(entry);
+}
+
+/** Merge an entry into the saved list, keeping fields the caller did not supply. */
+async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
   const existing = await getSavedAccounts();
-  const idx = existing.findIndex((a) => a.account_id === account_id);
+  const idx = existing.findIndex((a) => a.account_id === entry.account_id);
   if (idx >= 0) {
-    existing[idx] = entry;
+    existing[idx] = { ...existing[idx], ...entry };
   } else {
     existing.push(entry);
   }
   await setSavedAccounts(existing);
+}
+
+/**
+ * Park the outgoing account's persisted UI state on its saved entry, so that
+ * switching back restores the vaults and teams it was last showing.
+ */
+async function stashUiStateForCurrentAccount(): Promise<void> {
+  const account_id = await keychainGet("account_id");
+  if (!account_id) return;
+  const current = (await getSavedAccounts()).find((a) => a.account_id === account_id);
+  if (!current) return;
+  await upsertSavedAccount({ ...current, ui_state: snapshotPersistedAccountUiState() });
 }
 
 export async function removeSavedAccount(account_id: string): Promise<void> {
@@ -81,10 +119,13 @@ export async function removeSavedAccount(account_id: string): Promise<void> {
 }
 
 /**
- * Switch to a saved account: lock vault, overwrite active keychain entries,
- * then reload the window so autoLogin picks up the new account.
+ * End the current account's session without touching the saved list: flush its
+ * work to the server, park its UI state, and leave the machine with no active
+ * account. Shared by the switch and by "add another account", which differ only
+ * in what they put back afterwards.
  */
-export async function switchToAccount(account: SavedAccount): Promise<void> {
+async function tearDownSession(): Promise<void> {
+  await stashUiStateForCurrentAccount().catch(() => {});
   const { stopRealtimeSync, push } = await import("@/services/sync");
   // Flush any pending local changes before wiping — the debounced sync may not
   // have fired yet, so we push explicitly to ensure the current account's latest
@@ -99,40 +140,45 @@ export async function switchToAccount(account: SavedAccount): Promise<void> {
   // will repopulate entity files from the cloud pull after reload.
   await wipeLocalConfig().catch(() => {});
 
-  // Drop the previous account's cached wrapped_user_secrets — it is wrapped by the
-  // old account's kek and must never be unwrapped with the new account's key. The
-  // new account writes its own on first login.
-  await keychainDelete("wrapped_user_secrets");
-
-  await keychainSet("account_id", account.account_id);
-  await keychainSet("mode", account.mode);
-  await keychainSet("master_password", account.master_password);
-
-  if (account.email) {
-    await keychainSet("email", account.email);
-  } else {
-    await keychainDelete("email");
-  }
-  if (account.server_url) {
-    await keychainSet("server_url", account.server_url);
-  } else {
-    await keychainDelete("server_url");
-  }
-  if (account.jwt) {
-    await keychainSet("jwt", account.jwt);
-  } else {
-    await keychainDelete("jwt");
-  }
-  if (account.refresh_token) {
-    await keychainSet("refresh_token", account.refresh_token);
-  } else {
-    await keychainDelete("refresh_token");
+  // Clear every account-scoped keychain entry before writing the target's — the
+  // same list sign-out clears. A key left behind is served to the incoming
+  // account: `handle` did exactly that, showing the previous user's @handle in
+  // the account menu, and `wrapped_user_secrets` is wrapped by the old account's
+  // kek and must never be unwrapped with the new account's key.
+  for (const key of ACCOUNT_CACHE_KEYS) {
+    await keychainDelete(key).catch(() => {});
   }
 
   // Tell SplashScreen to use replace-mode sync after reload so the old
-  // account's local state is never merged into the new account's cloud data.
+  // account's local state is never merged into the next account's cloud data.
   sessionStorage.setItem("voltius.replace-sync-on-login", "1");
-  // Clear persisted team roles so the new account doesn't briefly see the old account's teams.
-  localStorage.removeItem("voltius-teams");
+  clearPersistedAccountUiState();
+}
+
+/**
+ * Switch to a saved account: end the current session, write the target's
+ * keychain entries and UI state, then reload so autoLogin picks it up.
+ */
+export async function switchToAccount(account: SavedAccount): Promise<void> {
+  await tearDownSession();
+  for (const key of SESSION_KEYS) {
+    const value = account[key];
+    if (value) await keychainSet(key, value);
+  }
+  restorePersistedAccountUiState(account.ui_state);
+  window.location.reload();
+}
+
+/**
+ * Leave the current account signed in to the switcher and land on the auth
+ * screen, so a second account can be added.
+ *
+ * Sign-out cannot do this job: it forgets the account on the way out, by
+ * design. Without this the switcher could never hold more than one account,
+ * because signing out is otherwise the only way to reach the auth screen.
+ */
+export async function signOutToAddAccount(): Promise<void> {
+  await saveCurrentAccount();
+  await tearDownSession();
   window.location.reload();
 }

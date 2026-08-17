@@ -1,5 +1,5 @@
-import { test, expect } from "vitest";
-import { deriveAccessibleVaultIds, deriveScopedVaultId } from "./accessibleVaults";
+import { describe, test, expect } from "vitest";
+import { deriveAccessibleVaultIds, deriveScopedVaultId, deriveOrphanVaultIds } from "./accessibleVaults";
 import type { Vault } from "@/stores/vaultStore";
 import type { Team } from "@/stores/teamStore";
 
@@ -56,6 +56,53 @@ test("an unknown id that is neither a vault nor a loaded team is dropped", () =>
   expect(
     deriveAccessibleVaultIds({ selectedVaultIds: ["ghost"], vaults: [], teams: [], cloudActive: true }),
   ).toEqual([]);
+});
+
+test("an unknown id is kept once it is known to be an orphan vault", () => {
+  expect(
+    deriveAccessibleVaultIds({
+      selectedVaultIds: ["ghost"],
+      vaults: [],
+      teams: [],
+      cloudActive: true,
+      orphanVaultIds: ["ghost"],
+    }),
+  ).toEqual(["ghost"]);
+});
+
+test("an orphan id keeps its place among the vaults around it", () => {
+  expect(
+    deriveAccessibleVaultIds({
+      selectedVaultIds: ["personal", "ghost", "v1"],
+      vaults: [localVault("v1")],
+      teams: [],
+      cloudActive: true,
+      orphanVaultIds: ["ghost"],
+    }),
+  ).toEqual(["personal", "ghost", "v1"]);
+});
+
+describe("deriveOrphanVaultIds", () => {
+  const input = (objectVaultIds: (string | undefined)[], vaults: Vault[] = [], teams: Team[] = []) =>
+    deriveOrphanVaultIds({ objectVaultIds, vaults, teams });
+
+  test("a vault id carried by an object but held by no local vault is an orphan", () => {
+    expect(input(["ghost"])).toEqual(["ghost"]);
+  });
+
+  test("personal, known vaults, their team ids, and loaded teams are all not orphans", () => {
+    expect(
+      input(
+        ["personal", "v1", "t1", "t2", undefined],
+        [localVault("v1"), teamVault("v2", "t1")],
+        [team("t2")],
+      ),
+    ).toEqual([]);
+  });
+
+  test("repeated ids collapse to one, in a stable order", () => {
+    expect(input(["b", "a", "b"])).toEqual(["a", "b"]);
+  });
 });
 
 test("a standalone server team UUID (not backed by a local vault) is kept when the team is loaded", () => {

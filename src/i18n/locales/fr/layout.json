@@ -14,6 +14,12 @@
       "masterPasswordPlaceholder": "Mot de passe principal",
       "unlock": "Déverrouiller",
       "resetVault": "Réinitialiser le coffre (supprime toutes les données locales)",
+      "vaultUnreadableTitle": "Le coffre de cet appareil ne peut pas être ouvert",
+      "vaultUnreadableBody": "Votre mot de passe est correct, mais le fichier de secrets de cet appareil a été chiffré avec une autre clé. Rien n'a été supprimé. Vous pouvez le mettre de côté et retélécharger vos secrets depuis le cloud.",
+      "vaultSetAside": "Mettre de côté et retélécharger",
+      "vaultSetAsideSub": "Conserve une copie de sauvegarde sur cet appareil",
+      "vaultSetAsideToast": "Coffre mis de côté sous {{file}}",
+      "vaultUnreadableRetry": "Essayer un autre mot de passe",
       "chooseHowToUse": "Choisissez comment utiliser Voltius",
       "getStarted": "Commencer",
       "getStartedSub": "Sécurisé par le trousseau du système — aucun mot de passe requis",
@@ -40,7 +46,10 @@
       "and": " et ",
       "termsOfService": "conditions d'utilisation",
       "privacyPolicy": "politique de confidentialité",
-      "accountCreatedToast": "Compte créé ! Vérifiez votre e-mail pour le confirmer."
+      "accountCreatedToast": "Compte créé ! Vérifiez votre e-mail pour le confirmer.",
+      "vaultUnreadableBodyNoPassword": "Le fichier de secrets de cet appareil ne peut pas être ouvert avec la clé enregistrée sur cette machine. Rien n'a été supprimé. Mettez-le de côté pour repartir d'un coffre vide, ou restaurez une des sauvegardes ci-dessous.",
+      "vaultSetAsideLocal": "Mettre de côté et repartir à zéro",
+      "vaultSetAsideLocalSub": "Conserve une copie de sauvegarde sur cet appareil"
     },
     "cloudAuthModal": {
       "registerTitle": "Créer un compte cloud",
@@ -100,7 +109,15 @@
       "switchAccount": "Changer de compte",
       "removeSavedAccount": "Supprimer le compte enregistré",
       "savedAccountCloud": "Cloud",
-      "savedAccountLocal": "Local"
+      "savedAccountLocal": "Local",
+      "switchFailed": "Échec du changement de compte : {{error}}",
+      "leaveLocalTitle": "Quitter ce compte local ?",
+      "leaveLocalMessage": "Les hôtes, clés et snippets de ce compte sont stockés uniquement sur cette machine. Passer à {{account}} les efface définitivement.",
+      "leaveLocalConfirm": "Effacer et changer",
+      "autoLock": "Réglages du verrouillage auto…",
+      "autoLockOff": "Verrouillage auto désactivé",
+      "autoLockAfter": "Verrouillage auto après {{duration}}",
+      "addAccount": "Ajouter un autre compte…"
     },
     "splash": {
       "steps": {
@@ -114,7 +131,8 @@
       "sessionRestored": "Session restaurée",
       "vaultFound": "Coffre trouvé",
       "connectionsUnavailable": "Connexions indisponibles",
-      "sshClient": "Client SSH"
+      "sshClient": "Client SSH",
+      "vaultUnreadable": "Coffre illisible"
     },
     "sync": {
       "title": "Synchronisation",
@@ -173,6 +191,7 @@
       }
     },
     "vaultHeader": {
+      "members": "Membres",
       "teamBadge": "équipe",
       "memberCount_one": "{{count}} membre",
       "memberCount_other": "{{count}} membres",
@@ -191,6 +210,7 @@
     },
     "vaultSidebar": {
       "cloudVaultLabel": "{{name}} (Coffre cloud)",
+      "unknownVaultLabel": "Coffre inconnu {{id}} — son nom n'est pas parvenu à cet appareil",
       "vaultInviteTitle": "Invitation au coffre : {{name}}",
       "vaultInvitation": "Invitation au coffre",
       "inviterFallback": "Quelqu'un",

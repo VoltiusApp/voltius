@@ -14,6 +14,12 @@
       "masterPasswordPlaceholder": "Master password",
       "unlock": "Unlock",
       "resetVault": "Reset vault (deletes all local data)",
+      "vaultUnreadableTitle": "This device's vault can't be opened",
+      "vaultUnreadableBody": "Your password is correct, but this device's secrets file was encrypted with a different key. Nothing has been deleted. You can set it aside and download your secrets from the cloud again.",
+      "vaultSetAside": "Set aside and re-download",
+      "vaultSetAsideSub": "Keeps a backup copy on this device",
+      "vaultSetAsideToast": "Vault set aside as {{file}}",
+      "vaultUnreadableRetry": "Try another password",
       "chooseHowToUse": "Choose how you want to use Voltius",
       "getStarted": "Get started",
       "getStartedSub": "Secured by OS keychain — no password needed",
@@ -40,7 +46,10 @@
       "and": " and ",
       "termsOfService": "Terms of Service",
       "privacyPolicy": "Privacy Policy",
-      "accountCreatedToast": "Account created! Check your email to verify."
+      "accountCreatedToast": "Account created! Check your email to verify.",
+      "vaultUnreadableBodyNoPassword": "This device's secrets file cannot be opened with the key stored on this machine. Nothing has been deleted. Set it aside to start with an empty vault, or restore one of the backups below.",
+      "vaultSetAsideLocal": "Set aside and start fresh",
+      "vaultSetAsideLocalSub": "Keeps a backup copy on this device"
     },
     "cloudAuthModal": {
       "registerTitle": "Create cloud account",
@@ -100,7 +109,15 @@
       "switchAccount": "Switch account",
       "removeSavedAccount": "Remove saved account",
       "savedAccountCloud": "Cloud",
-      "savedAccountLocal": "Local"
+      "savedAccountLocal": "Local",
+      "switchFailed": "Account switch failed: {{error}}",
+      "leaveLocalTitle": "Leave this local account?",
+      "leaveLocalMessage": "This account's hosts, keys and snippets are stored only on this machine. Switching to {{account}} erases them and they cannot be recovered.",
+      "leaveLocalConfirm": "Erase and switch",
+      "autoLock": "Auto-lock settings…",
+      "autoLockOff": "Auto-lock off",
+      "autoLockAfter": "Auto-locks after {{duration}}",
+      "addAccount": "Add another account…"
     },
     "splash": {
       "steps": {
@@ -114,7 +131,8 @@
       "sessionRestored": "Session restored",
       "vaultFound": "Vault found",
       "connectionsUnavailable": "Connections unavailable",
-      "sshClient": "SSH Client"
+      "sshClient": "SSH Client",
+      "vaultUnreadable": "Vault unreadable"
     },
     "sync": {
       "title": "Sync",
@@ -173,6 +191,7 @@
       }
     },
     "vaultHeader": {
+      "members": "Members",
       "teamBadge": "team",
       "memberCount_one": "{{count}} member",
       "memberCount_other": "{{count}} members",
@@ -191,6 +210,7 @@
     },
     "vaultSidebar": {
       "cloudVaultLabel": "{{name}} (Cloud vault)",
+      "unknownVaultLabel": "Unknown vault {{id}} — its name has not reached this device",
       "vaultInviteTitle": "Vault invite: {{name}}",
       "vaultInvitation": "Vault invitation",
       "inviterFallback": "Someone",

@@ -159,7 +159,20 @@
       "yourTeamsLabel": "Vos équipes",
       "elsewhereLabel": "Ailleurs sur Voltius",
       "notInYourTeams": "Pas dans vos équipes",
-      "forgetPerson": "Retirer des récents"
+      "presenceOnline": "En ligne",
+      "presenceOffline": "Hors ligne",
+      "forgetPerson": "Retirer des récents",
+      "deepLinkJoinTitle": "Rejoindre le terminal partagé ?",
+      "deepLinkJoinBody": "Quelqu'un a partagé une session de terminal en direct avec vous. En rejoignant, vous vous y connectez immédiatement.",
+      "deepLinkJoinUnknownHost": "Voltius ne peut pas identifier l'expéditeur avant que vous rejoigniez la session.",
+      "deepLinkJoinAction": "Rejoindre la session",
+      "deepLinkJoinFailed": "Impossible de rejoindre cette session — le lien a peut-être expiré.",
+      "getSpokenCode": "Obtenir un code à dicter",
+      "codeExpired": "Code expiré — en obtenir un nouveau",
+      "newCode": "Nouveau code",
+      "readAloudHint": "Dictez-le à voix haute",
+      "expiresIn": "expire dans {{time}}",
+      "failedToMintCode": "Échec de la création du code"
     },
     "snippetVariableModal": {
       "on": "Activé",
@@ -248,6 +261,15 @@
         "modeIdentity": "Identité",
         "passwordPlaceholder": "Mot de passe",
         "keyPassphrasePlaceholder": "Phrase de passe de la clé (optionnel)"
+      },
+      "vaultError": {
+        "unreadableTitle": "Le coffre n'a pas pu être lu",
+        "unreadableBody": "Les identifiants de cet hôte sont enregistrés, mais le coffre local n'a pas pu être déchiffré avec la clé actuelle. Rien n'a été supprimé — déverrouillez le coffre pour vous connecter.",
+        "lockedTitle": "Le coffre est verrouillé",
+        "lockedBody": "Les identifiants de cet hôte sont dans le coffre, qui est verrouillé. Déverrouillez-le pour vous connecter.",
+        "unlock": "Déverrouiller le coffre",
+        "retry": "Réessayer",
+        "dismiss": "Fermer l'onglet"
       }
     },
     "statusBar": {

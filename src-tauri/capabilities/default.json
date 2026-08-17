@@ -6,6 +6,7 @@
   "permissions": [
     "core:default",
     "log:default",
+    "deep-link:default",
     "core:window:allow-start-dragging",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",

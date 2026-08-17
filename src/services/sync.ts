@@ -904,6 +904,7 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
 
   _cloudActive = true;
   _listeners.forEach((fn) => fn());
+  setMyPresence(true);
 
   // Sync immediately on (re)connect to catch any events missed while offline
   syncNow().catch(() => {});
@@ -951,5 +952,17 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
   } finally {
     _cloudActive = false;
     _listeners.forEach((fn) => fn());
+    setMyPresence(false);
   }
+}
+
+/** Presence events only carry other members — the server never tells us about
+ *  ourselves. Mirror our own stream state into any loaded members list so our
+ *  row doesn't sit on whatever the server's presence map held at fetch time. */
+function setMyPresence(online: boolean): void {
+  void (async () => {
+    const { getMyUserId } = await import("@/services/teamService");
+    const myUserId = await getMyUserId();
+    if (myUserId) useTeamStore.getState().setSelfOnline(myUserId, online);
+  })().catch(() => {});
 }

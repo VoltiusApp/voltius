@@ -39,9 +39,36 @@ interface RowEntry {
   /** Teammate group memberships, for `memberHasAccess`. Empty for Recent/stranger rows. */
   teamIds: string[];
   isStranger: boolean;
-  /** Only teammates carry live presence; undefined omits the dot entirely. */
+  /** Only teammates carry live presence; undefined keeps the slot but draws no dot. */
   isOnline?: boolean;
+  /** Only Recent rows: the roster and search hits aren't ours to delete. */
+  canForget?: boolean;
   onContextMenu?: (e: React.MouseEvent) => void;
+}
+
+/**
+ * Row controls stay out of the way until the row is aimed at. Coarse pointers
+ * have no hover to reveal them with, so there they're simply always visible.
+ */
+const REVEAL =
+  "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
+
+/**
+ * A row's handle starts past its own padding plus the reserved presence slot
+ * (`px-2` + `w-1.5` + `gap-2`). Anything that should read as the same column —
+ * the section labels, Recent's empty state — carries this instead of `pl-2`.
+ */
+export const PERSON_TEXT_INDENT = "pl-[1.375rem]";
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      className={`text-[10px] font-semibold uppercase mb-0.5 pr-2 ${PERSON_TEXT_INDENT}`}
+      style={{ color: "var(--t-text-dim)" }}
+    >
+      {children}
+    </p>
+  );
 }
 
 function ErrorBanner({ children }: { children: React.ReactNode }) {
@@ -67,6 +94,7 @@ function PersonRow({
   capBlocked,
   onInvite,
   onUninvite,
+  onForget,
   t,
 }: {
   entry: RowEntry;
@@ -77,22 +105,35 @@ function PersonRow({
   onInvite: () => void;
   /** Offered only on a standing invite: the seat it holds is the one A6 exists to free. */
   onUninvite?: () => void;
+  /** Drops the person from Recent. Absent on rows that aren't ours to delete. */
+  onForget?: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const { target, isStranger, isOnline, onContextMenu } = entry;
+  const actionable = !hasAccess && !inFlight && !invited && !capBlocked;
+  const presenceLabel =
+    isOnline === undefined ? "" : t(isOnline ? "terminal.share.presenceOnline" : "terminal.share.presenceOffline");
   return (
-    <div className="flex items-center gap-1">
+    <div className={`group flex items-center gap-1 rounded-md transition-colors ${actionable ? "hover:bg-(--t-bg-elevated)" : ""}`}>
       <button
-        className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 rounded-md text-left disabled:cursor-default transition-colors"
+        className={`flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors focus-visible:outline-1 focus-visible:outline-(--t-accent) ${actionable ? "cursor-pointer" : "cursor-default"}`}
         style={{ color: "var(--t-text-primary)", background: "transparent" }}
-        disabled={hasAccess || inFlight || invited || capBlocked}
+        disabled={!actionable}
         onClick={onInvite}
         onContextMenu={onContextMenu}
       >
-        {isOnline !== undefined && (
+        {isOnline === undefined ? (
+          /* The slot is held even with no dot to draw: Recent mixes rows whose
+             presence we know with rows we deliberately don't ask about, and a
+             per-row indent would make the handles ragged. */
+          <span className="w-1.5 shrink-0" aria-hidden="true" />
+        ) : (
           <span
+            role="img"
+            aria-label={presenceLabel}
+            title={presenceLabel}
             className="w-1.5 h-1.5 rounded-full shrink-0"
-            style={{ background: isOnline ? "var(--t-status-success)" : "var(--t-text-dim)" }}
+            style={{ background: isOnline ? "var(--t-status-connected)" : "var(--t-text-dim)" }}
           />
         )}
         <span className="flex-1 min-w-0 text-left">
@@ -120,16 +161,32 @@ function PersonRow({
           <span className="text-[10px] shrink-0" style={{ color: "var(--t-text-dim)" }}>
             {t("terminal.share.inviteCapReached")}
           </span>
-        ) : null}
+        ) : (
+          // Names the action rather than only hinting the row is live: an
+          // untouched row is otherwise indistinguishable from static text.
+          <Icon icon="lucide:user-plus" width={12} className={`shrink-0 ${REVEAL}`} style={{ color: "var(--t-text-dim)" }} />
+        )}
       </button>
       {invited && onUninvite && (
         <button
-          className="text-[10px] px-1.5 py-1 rounded-md shrink-0 transition-colors"
+          className="text-[10px] px-1.5 py-1 rounded-md shrink-0 transition-colors cursor-pointer"
           style={{ color: "var(--t-text-dim)" }}
           title={t("terminal.share.withdrawInvite")}
           onClick={onUninvite}
         >
           {t("terminal.share.withdrawInvite")}
+        </button>
+      )}
+      {onForget && (
+        <button
+          // Colour lives in classes, not `style`: an inline colour outranks the
+          // hover variant and the red-on-hover never lands.
+          className={`p-1 mr-1 rounded-md shrink-0 cursor-pointer text-(--t-text-dim) hover:text-(--t-status-error) ${REVEAL}`}
+          title={t("terminal.share.forgetPerson")}
+          aria-label={t("terminal.share.forgetPerson")}
+          onClick={onForget}
+        >
+          <Icon icon="lucide:x" width={12} />
         </button>
       )}
     </div>
@@ -221,6 +278,10 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
       },
       teamIds: teammate?.teamIds ?? [],
       isStranger: false,
+      // Only a teammate's presence is already in hand. Asking the server about
+      // anyone else would hand it the social graph Recent keeps local.
+      isOnline: teammate ? !!teammate.is_online : undefined,
+      canForget: true,
       onContextMenu: (e: React.MouseEvent) => {
         e.preventDefault();
         setMenu({ userId: p.user_id, pos: { x: e.clientX, y: e.clientY } });
@@ -262,6 +323,7 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
         capBlocked={capBlocked}
         onInvite={() => handleInvite(entry.target)}
         onUninvite={onUninvite ? () => handleUninvite(entry.target.user_id) : undefined}
+        onForget={entry.canForget ? () => forget(entry.target.user_id) : undefined}
         t={t}
       />
     );
@@ -301,13 +363,11 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
       ) : (
         <div className="flex flex-col gap-2">
           <div>
-            <p className="text-[10px] font-semibold uppercase mb-0.5 px-2" style={{ color: "var(--t-text-dim)" }}>
-              {t("terminal.share.recentLabel")}
-            </p>
+            <SectionLabel>{t("terminal.share.recentLabel")}</SectionLabel>
             {recentEntries.length > 0 ? (
               <div className="flex flex-col gap-0.5">{recentEntries.map(renderRow)}</div>
             ) : (
-              <p className="text-xs px-2 py-1" style={{ color: "var(--t-text-dim)" }}>
+              <p className={`text-xs pr-2 py-1 ${PERSON_TEXT_INDENT}`} style={{ color: "var(--t-text-dim)" }}>
                 {t("terminal.share.recentEmpty")}
               </p>
             )}
@@ -315,18 +375,14 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
 
           {teammateEntries.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold uppercase mb-0.5 px-2" style={{ color: "var(--t-text-dim)" }}>
-                {t("terminal.share.yourTeamsLabel")}
-              </p>
+              <SectionLabel>{t("terminal.share.yourTeamsLabel")}</SectionLabel>
               <div className="flex flex-col gap-0.5">{teammateEntries.map(renderRow)}</div>
             </div>
           )}
 
           {strangerEntries.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold uppercase mb-0.5 px-2" style={{ color: "var(--t-text-dim)" }}>
-                {t("terminal.share.elsewhereLabel")}
-              </p>
+              <SectionLabel>{t("terminal.share.elsewhereLabel")}</SectionLabel>
               <div className="flex flex-col gap-0.5">{strangerEntries.map(renderRow)}</div>
             </div>
           )}

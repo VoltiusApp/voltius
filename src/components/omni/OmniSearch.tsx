@@ -34,7 +34,7 @@ import { useToggleSettings } from "@/hooks/useToggleSettings";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
 import { sessionDisplayName } from "@/services/teamSharing";
-import { isInviteCode, parseInviteCode } from "@/services/inviteCode";
+import { isJoinInput, resolveJoinInput } from "@/services/resolveJoinInput";
 import { computeSectionBoundaries } from "./omniSections";
 import {
   selectRecentHosts,
@@ -226,7 +226,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
     if (category === "marketplace") return [];
     if (category === "join") {
-      if (isInviteCode(q)) {
+      if (isJoinInput(q)) {
         return [{ kind: "join-code", id: "", label: "", icon: "", code: query.trim() }];
       }
       const sessionItems = teamSessions
@@ -238,7 +238,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     const result: OmniItem[] = [];
 
     // A valid invite code cannot also be a host, so it outranks quick-connect.
-    if (isInviteCode(query)) {
+    if (isJoinInput(query)) {
       result.push({ kind: "join-code", id: "", label: "", icon: "", code: query.trim() });
     }
 
@@ -494,18 +494,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           }
         }, 0);
       } else if (item.kind === "join-code") {
-        const parsed = parseInviteCode(item.code);
-        if (parsed) {
-          const { sessionId, token } = parsed;
-          (async () => {
-            await joinTeamSessionAndOpenTab({
-              sessionId,
-              connectionName: "Shared Terminal",
-              inviteToken: token,
-            });
-            setSidebarOpen(false);
-          })().catch(console.error);
-        }
+        (async () => {
+          const { sessionId, inviteToken } = await resolveJoinInput(item.code);
+          await joinTeamSessionAndOpenTab({
+            sessionId,
+            connectionName: "Shared Terminal",
+            inviteToken,
+          });
+          setSidebarOpen(false);
+        })().catch(console.error);
         onClose();
       } else if (item.kind === "local-shell") {
         launchLocalShell(item.shell?.path);

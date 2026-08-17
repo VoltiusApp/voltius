@@ -1,4 +1,5 @@
 import { backoffDelays, cancelBackoff, handleSessionClosed, runBackoff, type BackoffStore, type SessionStatus } from "./reconnectBackoffCore.ts";
+import type { VaultErrorCode } from "@/services/vaultErrors";
 import { test } from "vitest";
 
 test("reconnectBackoff", async () => {
@@ -22,32 +23,30 @@ const realSetTimeout = globalThis.setTimeout;
 // @ts-expect-error test stub
 globalThis.setTimeout = (fn: () => void) => { fn(); return 0 as unknown as ReturnType<typeof setTimeout>; };
 
-const interactive = (msg?: string) => msg === "The key is encrypted";
-
-type Attempt = () => Promise<{ ok: boolean; errorMessage?: string }>;
+type Attempt = () => Promise<{ ok: boolean; errorMessage?: string; errorCode?: VaultErrorCode }>;
 
 function makeStore(opts: {
   status: () => SessionStatus;
   exists?: () => boolean;
   attempt?: Attempt;
-}): BackoffStore & { attempts: number; reconnecting: number; connected: number; errors: string[]; ended: string[] } {
+}): BackoffStore & { attempts: number; reconnecting: number; connected: number; errors: string[]; codes: (VaultErrorCode | undefined)[]; ended: string[] } {
   const userAttempt = opts.attempt;
   const s = {
     attempts: 0,
     reconnecting: 0,
     connected: 0,
     errors: [] as string[],
+    codes: [] as (VaultErrorCode | undefined)[],
     ended: [] as string[],
     status: opts.status,
     exists: () => (opts.exists ? opts.exists() : true),
     markReconnecting: () => { s.reconnecting++; },
     markConnected: () => { s.connected++; },
-    markError: (_id: string, msg: string) => { s.errors.push(msg); },
+    markError: (_id: string, msg: string, code?: VaultErrorCode) => { s.errors.push(msg); s.codes.push(code); },
     attempt: async () => {
       s.attempts++;
       return userAttempt ? userAttempt() : { ok: false };
     },
-    needsInteractiveInput: interactive,
     sessionEnded: (id: string) => { s.ended.push(id); },
   };
   return s;
@@ -99,6 +98,20 @@ await (async () => {
   assertEqual(ok, false, "stops on interactive passphrase error");
   assertEqual(store.attempts, 1, "attempts exactly once before bailing on passphrase error");
   assertEqual(store.errors, ["The key is encrypted"], "surfaces the interactive error so the prompt renders");
+})();
+
+await (async () => {
+  // An unreadable vault will not heal on a timer, and each attempt re-runs the decrypt.
+  const store = makeStore({
+    status: () => "disconnected",
+    attempt: async () => ({ ok: false, errorMessage: "Coffre illisible", errorCode: "vault-unreadable" }),
+  });
+  const ok = await runBackoff("s-vault", store);
+  assertEqual(ok, false, "stops when the vault cannot be read");
+  assertEqual(store.attempts, 1, "attempts exactly once before bailing on a vault error");
+  assertEqual(store.errors, ["Coffre illisible"], "surfaces the vault error so its panel renders");
+  // Dropping the code sent the reconnect path to the generic panel.
+  assertEqual(store.codes, ["vault-unreadable"], "carries the code, not just the message");
 })();
 
 await (async () => {

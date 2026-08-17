@@ -108,7 +108,8 @@
         "uiPreferences": { "label": "Préférences d'interface" },
         "shortcuts": { "label": "Raccourcis" },
         "appSettings": { "label": "Paramètres de l'application" },
-        "recentPeople": { "label": "Personnes récentes" }
+        "recentPeople": { "label": "Personnes récentes" },
+        "vaults": { "label": "Coffres" }
       },
       "describe": {
         "themes_one": "{{count}} thème personnalisé",
@@ -120,7 +121,9 @@
         "appSettingsShell": "shell : {{shell}}",
         "appSettingsDefault": "Paramètres par défaut",
         "recentPeople_one": "{{count}} personne récente",
-        "recentPeople_other": "{{count}} personnes récentes"
+        "recentPeople_other": "{{count}} personnes récentes",
+        "vaults_one": "{{count}} coffre",
+        "vaults_other": "{{count}} coffres"
       }
     }
   }

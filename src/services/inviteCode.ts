@@ -1,9 +1,23 @@
+import { parseDeepLink } from "./deepLinkUrl";
+import { isSessionId } from "./sessionId";
+
+export { isSessionId };
+
 export function buildInviteCode(sessionId: string, token: string): string {
   return `${sessionId}:${token}`;
 }
 
+export function buildInviteLink(sessionId: string, token: string): string {
+  const params = new URLSearchParams({ s: sessionId, t: token });
+  return `voltius://join?${params.toString()}`;
+}
+
 export function parseInviteCode(code: string): { sessionId: string; token: string } | null {
   const trimmed = code.trim();
+  const asLink = parseDeepLink(trimmed);
+  if (asLink && asLink.route === "join") return { sessionId: asLink.sessionId, token: asLink.token };
+  // A rejected URL is not a bare `sessionId:token`, despite the colons.
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return null;
   const colonIdx = trimmed.indexOf(":");
   if (colonIdx === -1) return null;
   const sessionId = trimmed.slice(0, colonIdx);
@@ -12,9 +26,7 @@ export function parseInviteCode(code: string): { sessionId: string; token: strin
   return { sessionId, token };
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export function isInviteCode(value: string): boolean {
   const parsed = parseInviteCode(value);
-  return parsed !== null && UUID_RE.test(parsed.sessionId);
+  return parsed !== null && isSessionId(parsed.sessionId);
 }

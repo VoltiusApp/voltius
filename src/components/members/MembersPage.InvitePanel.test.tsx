@@ -98,7 +98,7 @@ afterEach(() => {
 });
 
 function getInput() {
-  return screen.getByPlaceholderText("members.invite.searchByEmailPlaceholder");
+  return screen.getByPlaceholderText("members.invite.searchUserPlaceholder");
 }
 
 /** Types a query and advances the 250ms debounce under fake timers, flushing the search promise. */

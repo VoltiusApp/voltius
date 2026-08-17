@@ -13,6 +13,9 @@ interface TeamStore {
   myPendingInvitations: MyPendingInvitation[];
   activeTeamId: string | null;
   loading: boolean;
+  /** Our own presence, owned by the realtime layer rather than the server's
+   *  members payload — see `setSelfOnline`. Null until the stream first opens. */
+  self: { userId: string; online: boolean } | null;
 
   loadTeams: () => Promise<void>;
   createTeam: (name: string) => Promise<Team>;
@@ -23,6 +26,7 @@ interface TeamStore {
   setActiveTeam: (teamId: string | null) => void;
   getActiveMembers: () => TeamMember[];
   setMemberOnline: (userId: string, online: boolean) => void;
+  setSelfOnline: (userId: string, online: boolean) => void;
   loadPendingInvitations: (teamId: string) => Promise<void>;
   loadMyPendingInvitations: () => Promise<void>;
   removeTeam: (teamId: string) => void;
@@ -86,6 +90,7 @@ export const useTeamStore = create<TeamStore>()(
   myPendingInvitations: [],
   activeTeamId: null,
   loading: false,
+  self: null,
 
   loadTeams: async () => {
     set({ loading: true });
@@ -117,7 +122,15 @@ export const useTeamStore = create<TeamStore>()(
 
   loadMembers: async (teamId) => {
     const members = await api.listMembers(teamId);
-    set((s) => ({ membersByTeam: { ...s.membersByTeam, [teamId]: members } }));
+    // The server derives is_online from its presence map, which only gains our
+    // entry once it handles our SSE stream. On a fresh vault this fetch can win
+    // that race and report us offline forever (nothing refetches). Our own
+    // stream state is the better answer for our own row.
+    const self = get().self;
+    const withSelf = self
+      ? members.map((m) => (m.user_id === self.userId ? { ...m, is_online: self.online } : m))
+      : members;
+    set((s) => ({ membersByTeam: { ...s.membersByTeam, [teamId]: withSelf } }));
   },
 
   addMember: async (teamId, email, role) => {
@@ -166,6 +179,11 @@ export const useTeamStore = create<TeamStore>()(
         pendingInvitationsByTeam,
       };
     });
+  },
+
+  setSelfOnline: (userId, online) => {
+    set({ self: { userId, online } });
+    get().setMemberOnline(userId, online);
   },
 
   setMemberOnline: (userId, online) =>

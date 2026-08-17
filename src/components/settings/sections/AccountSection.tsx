@@ -5,12 +5,16 @@ import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword, logout, 
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
 import { ActionItem, FormButtons, SettingsInput } from "./shared";
+import { VaultBackups } from "@/components/shared/VaultBackups";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openPortal } from "@/utils/billing";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { claimHandle, updateInvitePreferences, HandleClaimError } from "@/services/teamService";
+import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
+import { canLockVault } from "@/utils/accountMode";
+import { sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
 import EditEmailModal from "./EditEmailModal";
 import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 
@@ -141,15 +145,6 @@ export default function AccountSection() {
     }
   };
 
-  const SESSION_TIMEOUT_OPTIONS = [
-    { label: t("settings.account.sessionSecurity.timeout.never"), value: "never" },
-    { label: t("settings.account.sessionSecurity.timeout.5min"),  value: "5" },
-    { label: t("settings.account.sessionSecurity.timeout.15min"), value: "15" },
-    { label: t("settings.account.sessionSecurity.timeout.30min"), value: "30" },
-    { label: t("settings.account.sessionSecurity.timeout.1h"),    value: "60" },
-    { label: t("settings.account.sessionSecurity.timeout.4h"),    value: "240" },
-  ];
-
   useEffect(() => {
     getAccountMode().then(setMode).catch(() => setMode(null));
     getCurrentUserEmail().then(setCurrentEmail).catch(() => {});
@@ -211,8 +206,8 @@ export default function AccountSection() {
     mode === "local-nopassword" ? "lucide:key-round" :
     mode === "local" ? "lucide:lock" : "lucide:cloud";
 
-  const canLockVault = mode === "local" || mode === "server";
-  const timeoutSelectValue = sessionTimeoutMinutes === null ? "never" : String(sessionTimeoutMinutes);
+  const lockable = canLockVault(mode);
+  const timeoutSelectValue = sessionTimeoutValue(sessionTimeoutMinutes);
 
   return (
     <div className="p-6 max-w-lg space-y-4">
@@ -316,27 +311,22 @@ export default function AccountSection() {
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           {t("settings.account.sessionSecurity.title")}
         </h3>
-        {canLockVault ? (
+        {lockable ? (
           <div
             className="rounded-lg px-4 py-3 space-y-2 bg-(--t-bg-elevated) border border-(--t-border)"
           >
-            <label className="text-xs text-(--t-text-dim)">
+            <p className="text-xs text-(--t-text-dim)">
               {t("settings.account.sessionSecurity.autoLockLabel")}
-            </label>
-            <select
+            </p>
+            <FormSelect
               value={timeoutSelectValue}
-              onChange={(e) => {
-                const next = e.target.value === "never" ? null : Number(e.target.value);
+              options={sessionTimeoutOptions(t)}
+              ariaLabel={t("settings.account.sessionSecurity.autoLockLabel")}
+              onChange={(value) => {
+                const next = value === "never" ? null : Number(value);
                 setSessionTimeoutMinutes(Number.isFinite(next) ? next : null);
               }}
-              className="w-full rounded-lg px-3 py-2 text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
-            >
-              {SESSION_TIMEOUT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            />
             <p className="text-xs text-(--t-text-dim)">
               {t("settings.account.sessionSecurity.autoLockDesc")}
             </p>
@@ -380,7 +370,7 @@ export default function AccountSection() {
               }}
             />
           )}
-          {canLockVault && (
+          {lockable && (
             <ActionItem
               icon="lucide:lock"
               label={t("settings.account.lockVault.label")}
@@ -417,6 +407,15 @@ export default function AccountSection() {
               setStep("confirm-wipe");
             }}
           />
+        </div>
+      )}
+
+      {step === "idle" && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-(--t-text-secondary)">
+            {t("shared.vaultBackups.title")}
+          </p>
+          <VaultBackups currentReadable />
         </div>
       )}
 

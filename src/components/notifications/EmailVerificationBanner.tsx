@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { getCurrentUserEmail, refreshSession, resendVerificationEmail } from "@/services/account";
+import { getCurrentUserEmail, refreshVerificationState, resendVerificationEmail } from "@/services/account";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
 export function EmailVerificationBanner() {
   const { t } = useTranslation();
-  const { accountMode, emailVerified, load } = useSubscriptionStore();
+  const { accountMode, emailVerified } = useSubscriptionStore();
   const addToast = useNotificationStore((s) => s.addToast);
   const [email, setEmail] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
@@ -48,8 +48,7 @@ export function EmailVerificationBanner() {
   async function handleVerified() {
     setRefreshing(true);
     try {
-      await refreshSession();
-      await load();
+      await refreshVerificationState();
     } catch (e) {
       addToast({
         source: { kind: "plugin", id: "system", name: "Voltius" },

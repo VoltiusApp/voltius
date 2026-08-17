@@ -4,6 +4,11 @@ const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   appFetch: vi.fn(),
   setVaultKey: vi.fn(),
+  getVaultStatus: vi.fn(async () => ({ exists: false, path: "" })),
+  verifyVaultKey: vi.fn(async (_key: number[]) => undefined as void),
+  unlockVault: vi.fn(async () => undefined as void),
+  unlocked: false,
+  rekeyError: null as Error | null,
   wipeLocalConfig: vi.fn(async () => undefined),
   load: vi.fn(async () => undefined),
   keysSet: vi.fn(),
@@ -11,6 +16,8 @@ const h = vi.hoisted(() => ({
   http: {} as Record<string, { ok: boolean; status: number; body?: unknown }>,
   dek: null as number[] | null,
   x25519: null as number[] | null,
+  emailVerified: false,
+  seq: [] as string[],
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -18,15 +25,15 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch, isAbortError: () => false }));
 vi.mock("./vault", () => ({
   setVaultKey: h.setVaultKey,
-  verifyVaultKey: vi.fn(async () => undefined),
+  verifyVaultKey: h.verifyVaultKey,
   lockVault: vi.fn(async () => undefined),
-  getVaultStatus: vi.fn(async () => ({ exists: false, path: "" })),
-  unlockVaultIfNeeded: vi.fn(async () => undefined),
+  getVaultStatus: h.getVaultStatus,
+  unlockVaultIfNeeded: h.unlockVault,
   wipeLocalConfig: h.wipeLocalConfig,
   resetVault: vi.fn(async () => undefined),
 }));
 vi.mock("@/stores/subscriptionStore", () => ({
-  useSubscriptionStore: { getState: () => ({ load: h.load }) },
+  useSubscriptionStore: { getState: () => ({ load: h.load, emailVerified: h.emailVerified }) },
 }));
 vi.mock("@/stores/vaultKeysStore", () => ({
   useVaultKeysStore: { getState: () => ({ set: h.keysSet, clear: vi.fn(), dek: h.dek, x25519Private: h.x25519 }) },
@@ -40,16 +47,21 @@ import {
   changeMasterPassword,
   changeEmail,
   refreshSession,
+  refreshVerificationState,
   getMe,
   resendVerificationEmail,
 } from "./account";
+import { VaultUnreadableError } from "./vaultErrors";
 
 const S = "https://srv";
 const TOKENS = { jwt_token: "JWT", refresh_token: "RT" };
 
 function routeInvoke() {
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
+    h.seq.push(cmd);
     switch (cmd) {
+      case "derive_x25519_keypair":
+        return { public_key: "PUB", private_key: btoa("legacy-x25519-private") };
       case "keychain_get":
         return h.store[args.key as string] ?? null;
       case "keychain_set":
@@ -68,6 +80,12 @@ function routeInvoke() {
         return { dek: [1, 1, 1], x25519_private: [2, 2, 2] };
       case "get_machine_fingerprint":
         return "FP";
+      // Mirrors the Rust precondition (src-tauri/src/storage/secrets.rs): the
+      // command needs a store someone has already unlocked.
+      case "secrets_rekey":
+        if (!h.unlocked) throw new Error("Secrets store is locked");
+        if (h.rekeyError) throw h.rekeyError;
+        return undefined;
       default:
         return undefined;
     }
@@ -77,6 +95,7 @@ function routeInvoke() {
 // appFetch routed by the endpoint path; each test sets h.http[<path>] as needed.
 function routeHttp() {
   h.appFetch.mockImplementation(async (url: string) => {
+    h.seq.push(String(url));
     const path = Object.keys(h.http).find((p) => String(url).includes(p));
     const r = path ? h.http[path] : { ok: true, status: 200, body: {} };
     return { ok: r.ok, status: r.status, json: async () => r.body ?? {} };
@@ -87,13 +106,48 @@ const err = (status: number, body: unknown = {}) => ({ ok: false, status, body }
 
 beforeEach(() => {
   for (const m of [h.invoke, h.appFetch, h.setVaultKey, h.wipeLocalConfig, h.load, h.keysSet]) m.mockReset();
+  h.getVaultStatus.mockReset();
+  h.getVaultStatus.mockResolvedValue({ exists: false, path: "" });
+  h.verifyVaultKey.mockReset();
+  h.verifyVaultKey.mockResolvedValue(undefined);
+  h.unlockVault.mockReset();
+  h.unlockVault.mockImplementation(async () => {
+    h.seq.push("secrets_unlock");
+    h.unlocked = true;
+  });
+  h.unlocked = false;
+  h.rekeyError = null;
   h.store = {};
   h.http = {};
   h.dek = null;
   h.x25519 = null;
+  h.emailVerified = false;
+  h.seq = [];
   routeInvoke();
   routeHttp();
 });
+
+/** Index of the first recorded invoke/fetch containing `needle`, or -1. */
+const step = (needle: string) => h.seq.findIndex((s) => s.includes(needle));
+
+/** An existing vault only `opener` can decrypt; null for one no key opens. */
+function existingVaultOpenedBy(opener: number[] | null) {
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockImplementation(async (key: number[]) => {
+    // What vault.ts raises for a key that does not fit, as opposed to a file it
+    // could not read at all.
+    if (!opener || String(key) !== String(opener)) throw new VaultUnreadableError();
+  });
+}
+
+/** A legacy cloud account: the server answers login without wrapped secrets. */
+function legacyServerAccount() {
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.email = "a@b.co";
+  h.store.server_url = S;
+  h.http["/auth/login"] = ok(TOKENS);
+}
 
 // ─── createServerAccount ─────────────────────────────────────────────────────
 
@@ -145,6 +199,137 @@ test("login local mode sets the vault key without a server round-trip", async ()
   await login("pw");
   expect(h.setVaultKey).toHaveBeenCalledWith([9, 9, 9]); // enc_key
   expect(h.appFetch).not.toHaveBeenCalled();
+});
+
+// Issue #134: verifying the kek against a dek-encrypted cloud vault rejected the
+// correct master password as a corrupted file.
+test("login opens a cloud vault encrypted with the dek, offline, without a server round-trip", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.wrapped_user_secrets = "WRAPPED"; // no email/server_url → no re-auth
+  existingVaultOpenedBy([1, 1, 1]);
+
+  await login("pw");
+  expect(h.setVaultKey).toHaveBeenCalledWith([1, 1, 1]); // dek
+  expect(h.appFetch).not.toHaveBeenCalled();
+});
+
+test("login defers to the server when no cached key opens the existing vault", async () => {
+  // No cached wrapped_user_secrets: only the server can hand back the dek.
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.email = "a@b.co";
+  h.store.server_url = S;
+  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  existingVaultOpenedBy([1, 1, 1]);
+
+  await login("pw");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]); // dek
+});
+
+// A pre-split device keeps a kek-encrypted vault while the server holds
+// wrapped_user_secrets. Adopting the dek there wiped the store on first access.
+test("login keeps the kek when the server's dek does not open this device's vault", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.email = "a@b.co";
+  h.store.server_url = S;
+  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  existingVaultOpenedBy([9, 9, 9]);
+
+  await login("pw");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek, not the server's dek
+  expect(h.keysSet).toHaveBeenCalledWith(expect.objectContaining({ dek: [1, 1, 1] }));
+});
+
+// Server login proves the password, so this is unreadable, not a bad password.
+test("login reports an unreadable vault after the server proved the password", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.email = "a@b.co";
+  h.store.server_url = S;
+  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  existingVaultOpenedBy(null);
+
+  await expect(login("pw")).rejects.toThrow(VaultUnreadableError);
+  expect(h.setVaultKey).not.toHaveBeenCalledWith([1, 1, 1]); // never adopts the server's dek
+});
+
+test("login rejects a password whose keys open nothing", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "local";
+  existingVaultOpenedBy(null);
+
+  await expect(login("pw")).rejects.toThrow("common.error.incorrectPassword");
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+});
+
+// "Set aside and start fresh" is one click away from the wrong-password screen.
+// A file merely held open by a backup must never route there.
+test("login surfaces a vault the file system would not read, not a bad password", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "local";
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockRejectedValue(new Error("Read failed: permission denied"));
+
+  await expect(login("pw")).rejects.toThrow("permission denied");
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+});
+
+// ─── legacy account migration ────────────────────────────────────────────────
+
+// The dek exists only in memory until the server stores it. Re-encrypting first
+// meant a failed upload left secrets.enc keyed to a dek that existed nowhere.
+test("login leaves the vault kek-encrypted when the migration upload fails", async () => {
+  legacyServerAccount();
+  h.http["/auth/wrapped-user-secrets"] = err(500);
+
+  await login("pw");
+
+  expect(h.seq).not.toContain("secrets_rekey");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek still opens it
+});
+
+// secrets_rekey needs an unlocked store and login installs the key lazily, so a
+// cold legacy login threw there — after the upload had already told the server
+// the account was migrated.
+test("login unlocks, uploads, then re-encrypts — the order a cold legacy migration needs", async () => {
+  legacyServerAccount();
+  h.http["/auth/wrapped-user-secrets"] = ok();
+
+  await login("pw");
+
+  expect(step("secrets_unlock")).toBeGreaterThanOrEqual(0);
+  expect(step("/auth/wrapped-user-secrets")).toBeGreaterThan(step("secrets_unlock"));
+  expect(step("secrets_rekey")).toBeGreaterThan(step("/auth/wrapped-user-secrets"));
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]); // dek
+  expect(h.store.wrapped_user_secrets).toBe("WRAPPED_B64");
+});
+
+test("login does not tell the server the account is migrated when the vault will not open", async () => {
+  legacyServerAccount();
+  h.http["/auth/wrapped-user-secrets"] = ok();
+  h.unlockVault.mockRejectedValue(new VaultUnreadableError());
+
+  await login("pw");
+
+  expect(step("/auth/wrapped-user-secrets")).toBe(-1);
+  expect(h.seq).not.toContain("secrets_rekey");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek
+});
+
+// Once the upload lands the dek is the account's, recoverable from the server, so
+// the session must hold it for team crypto even if this file stayed kek-encrypted.
+test("login adopts the dek the server stored even when the local rekey fails", async () => {
+  legacyServerAccount();
+  h.http["/auth/wrapped-user-secrets"] = ok();
+  h.rekeyError = new Error("Write failed: no space left on device");
+
+  await login("pw");
+
+  expect(h.keysSet).toHaveBeenCalledWith(expect.objectContaining({ dek: [1, 1, 1] }));
+  expect(h.store.wrapped_user_secrets).toBe("WRAPPED_B64");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek still opens the file
 });
 
 // ─── signInToCloud ───────────────────────────────────────────────────────────
@@ -300,6 +485,33 @@ test("refreshSession stores the new jwt and reloads subscription", async () => {
   await refreshSession();
   expect(h.store.jwt).toBe("JWT2");
   expect(h.load).toHaveBeenCalled();
+});
+
+// ─── refreshVerificationState ────────────────────────────────────────────────
+
+test("refreshVerificationState refreshes, loads exactly once, and reports the store", async () => {
+  h.store.refresh_token = "RT";
+  h.store.server_url = S;
+  h.http["/auth/refresh"] = ok({ jwt_token: "JWT2" });
+  h.emailVerified = true;
+  await expect(refreshVerificationState()).resolves.toBe(true);
+  expect(h.store.jwt).toBe("JWT2");
+  expect(h.load).toHaveBeenCalledTimes(1);
+});
+
+test("refreshVerificationState reports false when the store is still unverified", async () => {
+  h.store.refresh_token = "RT";
+  h.store.server_url = S;
+  h.http["/auth/refresh"] = ok({ jwt_token: "JWT2" });
+  await expect(refreshVerificationState()).resolves.toBe(false);
+});
+
+test("refreshVerificationState rejects on a failed refresh without loading", async () => {
+  h.store.refresh_token = "RT";
+  h.store.server_url = S;
+  h.http["/auth/refresh"] = err(401);
+  await expect(refreshVerificationState()).rejects.toThrow("common.error.sessionRefreshFailed");
+  expect(h.load).not.toHaveBeenCalled();
 });
 
 // ─── getMe ───────────────────────────────────────────────────────────────────

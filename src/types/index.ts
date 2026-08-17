@@ -1,4 +1,5 @@
 import type { KeepalivePreset } from "@/utils/keepalive";
+import type { VaultErrorCode } from "@/services/vaultErrors";
 
 export type AuthType = "password" | "key";
 
@@ -217,6 +218,9 @@ export interface TerminalSession {
   everConnected?: boolean;
   type: "ssh" | "local" | "multiplayer" | "serial";
   errorMessage?: string;
+  /** Set when the failure was the vault itself, so the overlay can offer to unlock
+   * rather than ask for credentials. The message is translated and cannot be matched. */
+  errorCode?: VaultErrorCode;
   encoding?: string;
   localShell?: string;
   serialConfig?: SerialConnectParams;

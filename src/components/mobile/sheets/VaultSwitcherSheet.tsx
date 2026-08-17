@@ -5,6 +5,8 @@ import BottomSheet from "./BottomSheet";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { useOrphanVaultIds } from "@/hooks/useAccessibleVaultIds";
+import { unknownVaultLabel } from "@/hooks/accessibleVaults";
 
 export default function VaultSwitcherSheet() {
   const { t } = useTranslation();
@@ -14,6 +16,7 @@ export default function VaultSwitcherSheet() {
   const selectVaultOnly = useVaultStore((s) => s.selectVaultOnly);
   const addVault = useVaultStore((s) => s.addVault);
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
+  const orphanVaultIds = useOrphanVaultIds();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
 
@@ -22,6 +25,11 @@ export default function VaultSwitcherSheet() {
   const entries = [
     ...vaults.map((v) => ({ id: v.id, name: v.name, icon: "lucide:vault" })),
     ...teams.filter((team) => !linkedTeamIds.has(team.id)).map((team) => ({ id: team.id, name: team.name, icon: "lucide:users-round" })),
+    ...orphanVaultIds.map((id) => ({
+      id,
+      name: unknownVaultLabel(id),
+      icon: "lucide:circle-help",
+    })),
   ];
 
   const create = () => {

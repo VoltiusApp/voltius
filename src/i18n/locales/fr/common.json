@@ -69,6 +69,7 @@
       "invalidSessionKey": "La clé de session doit faire 32 octets",
       "sessionExpired": "Session expirée — veuillez vous reconnecter",
       "vaultLocked": "Le coffre est verrouillé",
+      "vaultUnreadable": "Le coffre de cet appareil ne peut pas être ouvert avec votre clé",
       "rateLimited": "Trop de requêtes — réessayez dans {{seconds}}s",
       "serverError": "Erreur serveur : {{status}}",
       "connectionNotFound": "Connexion introuvable",
@@ -163,7 +164,12 @@
       "termiusDumpInvalidJson": "Le fichier Termius doit être un JSON valide",
       "legacyTermiusUnsupported": "L'ancien format d'export Termius n'est plus pris en charge ; utilisez l'extraction automatique.",
       "termiusExtractionFormat": "L'extraction Termius doit renvoyer { version: 2, records: [...] }",
-      "failedToFetchSource": "Échec de la récupération de la source : HTTP {{status}}"
+      "failedToFetchSource": "Échec de la récupération de la source : HTTP {{status}}",
+      "failedToMintInviteCode": "Échec de la création du code d'invitation : {{status}}",
+      "failedToRedeemInviteCode": "Échec de l'utilisation du code d'invitation : {{status}}",
+      "inviteCodeMalformed": "Ce code n'a pas le bon format",
+      "inviteCodeNotFound": "Ce code a expiré ou est incorrect",
+      "inviteCodeTooManyAttempts": "Trop de tentatives — patientez un instant et réessayez"
     },
     "clipboard": {
       "cut_one": "{{count}} élément coupé",

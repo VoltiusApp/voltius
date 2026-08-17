@@ -14,6 +14,12 @@
       "masterPasswordPlaceholder": "主密码",
       "unlock": "解锁",
       "resetVault": "重置保险库（删除所有本地数据）",
+      "vaultUnreadableTitle": "无法打开本设备的保险库",
+      "vaultUnreadableBody": "您的密码正确，但本设备的机密文件是用另一个密钥加密的。没有任何内容被删除。您可以将其搁置，并从云端重新下载您的机密。",
+      "vaultSetAside": "搁置并重新下载",
+      "vaultSetAsideSub": "在本设备保留备份副本",
+      "vaultSetAsideToast": "保险库已搁置为 {{file}}",
+      "vaultUnreadableRetry": "尝试其他密码",
       "chooseHowToUse": "选择您想如何使用 Voltius",
       "getStarted": "开始使用",
       "getStartedSub": "由操作系统密钥链保护——无需密码",
@@ -40,7 +46,10 @@
       "and": "和",
       "termsOfService": "服务条款",
       "privacyPolicy": "隐私政策",
-      "accountCreatedToast": "账户已创建！请查收邮件进行验证。"
+      "accountCreatedToast": "账户已创建！请查收邮件进行验证。",
+      "vaultUnreadableBodyNoPassword": "无法用本机保存的密钥打开此设备的密钥文件。没有删除任何内容。可以将其搁置以从空保管库开始，或恢复下方的某个备份。",
+      "vaultSetAsideLocal": "搁置并重新开始",
+      "vaultSetAsideLocalSub": "在此设备上保留备份副本"
     },
     "cloudAuthModal": {
       "registerTitle": "创建云账户",
@@ -100,7 +109,15 @@
       "switchAccount": "切换账户",
       "removeSavedAccount": "移除已保存的账户",
       "savedAccountCloud": "云",
-      "savedAccountLocal": "本地"
+      "savedAccountLocal": "本地",
+      "switchFailed": "切换账户失败：{{error}}",
+      "leaveLocalTitle": "离开此本地账户？",
+      "leaveLocalMessage": "此账户的主机、密钥和代码片段仅存储在本机。切换到 {{account}} 将永久删除它们。",
+      "leaveLocalConfirm": "删除并切换",
+      "autoLock": "自动锁定设置…",
+      "autoLockOff": "自动锁定已关闭",
+      "autoLockAfter": "{{duration}}后自动锁定",
+      "addAccount": "添加其他账户…"
     },
     "splash": {
       "steps": {
@@ -114,7 +131,8 @@
       "sessionRestored": "会话已恢复",
       "vaultFound": "找到保险库",
       "connectionsUnavailable": "连接不可用",
-      "sshClient": "SSH 客户端"
+      "sshClient": "SSH 客户端",
+      "vaultUnreadable": "保管库无法读取"
     },
     "sync": {
       "title": "同步",
@@ -173,6 +191,7 @@
       }
     },
     "vaultHeader": {
+      "members": "成员",
       "teamBadge": "团队",
       "memberCount_one": "{{count}} 名成员",
       "memberCount_other": "{{count}} 名成员",
@@ -191,6 +210,7 @@
     },
     "vaultSidebar": {
       "cloudVaultLabel": "{{name}} (云保险库)",
+      "unknownVaultLabel": "未知保险库 {{id}} — 其名称尚未同步到此设备",
       "vaultInviteTitle": "保险库邀请：{{name}}",
       "vaultInvitation": "保险库邀请",
       "inviterFallback": "某人",

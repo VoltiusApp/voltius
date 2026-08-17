@@ -108,7 +108,8 @@
         "uiPreferences": { "label": "UI Preferences" },
         "shortcuts": { "label": "Shortcuts" },
         "appSettings": { "label": "App Settings" },
-        "recentPeople": { "label": "Recent People" }
+        "recentPeople": { "label": "Recent People" },
+        "vaults": { "label": "Vaults" }
       },
       "describe": {
         "themes_one": "{{count}} custom theme",
@@ -120,7 +121,9 @@
         "appSettingsShell": "shell: {{shell}}",
         "appSettingsDefault": "Default settings",
         "recentPeople_one": "{{count}} recent person",
-        "recentPeople_other": "{{count}} recent people"
+        "recentPeople_other": "{{count}} recent people",
+        "vaults_one": "{{count}} vault",
+        "vaults_other": "{{count}} vaults"
       }
     }
   }
