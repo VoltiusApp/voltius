@@ -29,6 +29,11 @@ interface MiniAvatarProps {
   size?: number;
 }
 
+/** Floor for the derived initials size. `size * 0.32` was tuned by the 26–40px
+ *  callers; below 28px it drops two letters under 9px, smaller than the 10px
+ *  the app uses for its smallest real text. */
+const MIN_INITIALS_PX = 9;
+
 export function MiniAvatar({ name, size = 26 }: MiniAvatarProps) {
   return (
     <div
@@ -38,7 +43,7 @@ export function MiniAvatar({ name, size = 26 }: MiniAvatarProps) {
         height: size,
         background: avatarColor(name),
         color: "#fff",
-        fontSize: size * 0.32,
+        fontSize: Math.max(MIN_INITIALS_PX, size * 0.32),
       }}
     >
       {handleInitials(name)}

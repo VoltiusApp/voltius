@@ -1,5 +1,8 @@
-import { describe, expect, test } from "vitest";
-import { avatarColor, handleInitials } from "./AvatarStack";
+import { describe, expect, test, afterEach } from "vitest";
+import { render, cleanup } from "@testing-library/react";
+import { MiniAvatar, avatarColor, handleInitials } from "./AvatarStack";
+
+afterEach(cleanup);
 
 describe("handleInitials", () => {
   // Generated handles are adjective-noun-NNNN over 20 adjectives, so a single
@@ -44,5 +47,17 @@ describe("avatarColor", () => {
     expect(() => avatarColor(undefined)).not.toThrow();
     expect(() => avatarColor("")).not.toThrow();
     expect(avatarColor(undefined)).toBe(avatarColor(""));
+  });
+});
+
+describe("MiniAvatar initials size", () => {
+  test("floors small avatars at a legible size", () => {
+    const { container } = render(<MiniAvatar name="merry-quartz-2597" size={18} />);
+    expect((container.firstChild as HTMLElement).style.fontSize).toBe("9px");
+  });
+
+  test("keeps the derived size once it clears the floor", () => {
+    const { container } = render(<MiniAvatar name="merry-quartz-2597" size={40} />);
+    expect((container.firstChild as HTMLElement).style.fontSize).toBe("12.8px");
   });
 });
