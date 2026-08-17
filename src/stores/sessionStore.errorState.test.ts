@@ -92,9 +92,7 @@ describe("session error state", () => {
     expect(current()).toBe(before);
   });
 
-  // Without a code the overlay can only read the message, and the message is
-  // translated — so it would match in English and prompt for auth in every other
-  // language, which is how a vault failure came to look like a missing password.
+  // Without a code the overlay must match a translated message: en-only, silently.
   test("a connect blocked by an unreadable vault records the vault code", async () => {
     h.resolveConnectionCredentials.mockRejectedValue(new VaultUnreadableError());
 

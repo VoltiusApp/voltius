@@ -298,9 +298,7 @@ export async function login(password: string, email?: string, serverUrl?: string
       useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
       // This device's secrets.enc may predate the split and still be kek-encrypted.
       const opens = await keyThatOpensVault(unwrapped.dek, kek);
-      // The server just proved this password, so neither key opening the vault means
-      // the file is unreadable. Installing one anyway defers the failure to the first
-      // secret read, where only an error string is left to reason about.
+      // Server login proved the password, so this is an unreadable file, not a bad one.
       if (!opens) throw new VaultUnreadableError();
       setVaultKey(opens);
       await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
@@ -351,9 +349,7 @@ export async function autoLogin(): Promise<boolean> {
 
       // Local Tauri calls only — autoLogin stays instant offline.
       const opened = await passwordVaultKey(kek);
-      // An existing vault no key opens: decline the session rather than install a key
-      // known not to work, so the user lands on the unlock screen instead of a session
-      // whose every secret read fails.
+      // Decline rather than install a key already proven not to open the file.
       if (!opened) return false;
       encKey = opened;
 

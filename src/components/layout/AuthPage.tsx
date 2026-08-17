@@ -52,8 +52,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
       await fn();
       onReady();
     } catch (e) {
-      // A vault no key opens is not a bad password: it needs its own way out, not a
-      // retype of a password that is already correct.
+      // Not a bad password, so not the password form.
       if (e instanceof VaultUnreadableError) setUnreadable(true);
       else setError(e instanceof Error ? e.message : String(e));
     } finally {

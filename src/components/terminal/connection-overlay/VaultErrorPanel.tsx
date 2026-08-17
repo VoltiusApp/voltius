@@ -3,11 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { VaultErrorCode } from "@/services/vaultErrors";
 import { DecisionPanel } from "./DecisionPanel";
 
-/**
- * The host's credentials exist but the vault would not hand them over. Retyping a
- * password the app is already holding fixes nothing, so this offers the unlock
- * screen — which owns every vault recovery choice — instead of an auth prompt.
- */
+/** Credentials exist but the vault would not hand them over: offer the unlock
+ * screen, which owns every vault recovery choice, rather than an auth prompt. */
 export function VaultErrorPanel({
   code,
   onRetry,

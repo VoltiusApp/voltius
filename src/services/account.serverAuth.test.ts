@@ -204,8 +204,7 @@ test("login keeps the kek when the server's dek does not open this device's vaul
   expect(h.keysSet).toHaveBeenCalledWith(expect.objectContaining({ dek: [1, 1, 1] }));
 });
 
-// Server login proves the password, so a vault that no key opens is unreadable, not a
-// bad password. Installing the dek anyway is what let a later unlock delete the file.
+// Server login proves the password, so this is unreadable, not a bad password.
 test("login reports an unreadable vault after the server proved the password", async () => {
   h.store.account_id = "acc";
   h.store.mode = "server";

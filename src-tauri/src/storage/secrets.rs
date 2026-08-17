@@ -287,10 +287,23 @@ pub fn secrets_delete(state: tauri::State<SecretsStore>, key: String) -> Result<
 
 const QUARANTINE_KEEP: usize = 3;
 
-/// Rename `path` aside as `<name>.<unix_millis>.bak`, keeping the newest `keep`
-/// backups. Never deletes the file being set aside: a vault nothing can decrypt
-/// today may still be recoverable once the right key is found.
+/// Rename `path` aside as `<name>.<unix_millis>.bak`, keeping the newest `keep`.
+/// Never deletes it: an unreadable vault may still open with a key found later.
 fn quarantine_at(path: &std::path::Path, keep: usize) -> Result<String, AppError> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| format!("Clock error: {e}"))?
+        .as_millis();
+    quarantine_at_millis(path, keep, now)
+}
+
+/// `now` is injected so the naming invariant is testable without depending on how
+/// many quarantines happen to share a millisecond.
+fn quarantine_at_millis(
+    path: &std::path::Path,
+    keep: usize,
+    now: u128,
+) -> Result<String, AppError> {
     if !path.exists() {
         return Err("No vault file to set aside".into());
     }
@@ -300,11 +313,12 @@ fn quarantine_at(path: &std::path::Path, keep: usize) -> Result<String, AppError
         .and_then(|n| n.to_str())
         .ok_or("Vault path has no file name")?;
 
-    // Fixed-width millis keep the names sorting in creation order.
-    let mut ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| format!("Clock error: {e}"))?
-        .as_millis();
+    // Must sort after every surviving backup: "now" alone can reuse a stamp that
+    // pruning just freed within the same millisecond.
+    let mut ts = match newest_backup_stamp(dir, name) {
+        Some(latest) if latest >= now => latest + 1,
+        _ => now,
+    };
     let mut target = dir.join(format!("{name}.{ts}.bak"));
     while target.exists() {
         ts += 1;
@@ -316,29 +330,40 @@ fn quarantine_at(path: &std::path::Path, keep: usize) -> Result<String, AppError
     Ok(format!("{name}.{ts}.bak"))
 }
 
-/// Best-effort retention: a failed prune leaves extra backups, never fewer.
-fn prune_backups(dir: &std::path::Path, name: &str, keep: usize) {
+/// Existing backups of `name` in `dir`, oldest first by embedded stamp.
+fn backup_paths(dir: &std::path::Path, name: &str) -> Vec<(u128, PathBuf)> {
     let prefix = format!("{name}.");
     let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
+        return Vec::new();
     };
-    let mut backups: Vec<PathBuf> = entries
+    let mut backups: Vec<(u128, PathBuf)> = entries
         .filter_map(|e| e.ok())
         .map(|e| e.path())
-        .filter(|p| {
-            p.file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(|n| n.starts_with(&prefix) && n.ends_with(".bak"))
+        .filter_map(|p| {
+            let file = p.file_name()?.to_str()?;
+            let stamp = file.strip_prefix(&prefix)?.strip_suffix(".bak")?;
+            Some((stamp.parse::<u128>().ok()?, p))
         })
         .collect();
-    backups.sort();
-    for old in backups.iter().rev().skip(keep) {
+    backups.sort_by_key(|(stamp, _)| *stamp);
+    backups
+}
+
+fn newest_backup_stamp(dir: &std::path::Path, name: &str) -> Option<u128> {
+    backup_paths(dir, name).last().map(|(stamp, _)| *stamp)
+}
+
+/// Best-effort retention: a failed prune leaves extra backups, never fewer.
+fn prune_backups(dir: &std::path::Path, name: &str, keep: usize) {
+    let backups = backup_paths(dir, name);
+    let excess = backups.len().saturating_sub(keep);
+    for (_, old) in backups.iter().take(excess) {
         let _ = std::fs::remove_file(old);
     }
 }
 
-/// Set an unreadable secrets.enc aside and lock the store, so the next unlock
-/// starts from an empty file and the sync pull can repopulate it.
+/// Set an unreadable secrets.enc aside and lock the store: the next unlock starts
+/// empty and the sync pull repopulates it.
 #[tauri::command]
 pub fn secrets_quarantine(
     app: AppHandle,
@@ -429,20 +454,39 @@ mod tests {
         assert_eq!(std::fs::read(&moved).unwrap(), b"ciphertext");
     }
 
+    /// Quarantine `count` times on one frozen clock — what a fast machine produces.
+    fn quarantine_repeatedly(dir: &std::path::Path, keep: usize, count: u8) -> Vec<String> {
+        let path = dir.join("secrets.enc");
+        (0..count)
+            .map(|i| {
+                std::fs::write(&path, [i]).unwrap();
+                quarantine_at_millis(&path, keep, 1_000).expect("quarantine")
+            })
+            .collect()
+    }
+
     #[test]
     fn quarantine_keeps_only_the_newest_backups() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("secrets.enc");
-
-        let mut created = Vec::new();
-        for i in 0..5u8 {
-            std::fs::write(&path, [i]).unwrap();
-            created.push(quarantine_at(&path, 3).expect("quarantine"));
-        }
+        let created = quarantine_repeatedly(dir.path(), 3, 5);
 
         let kept = backups(dir.path());
         assert_eq!(kept.len(), 3, "retention keeps three, found {kept:?}");
         assert_eq!(kept, created[2..].to_vec(), "the newest three survive");
+    }
+
+    // Pruning frees the oldest name; reusing it would make the newest backup sort as
+    // the oldest, so the next prune would delete the newest instead.
+    #[test]
+    fn quarantine_never_reuses_a_pruned_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let created = quarantine_repeatedly(dir.path(), 1, 3);
+
+        assert_eq!(backups(dir.path()), vec![created[2].clone()]);
+        assert!(
+            created[1] > created[0] && created[2] > created[1],
+            "names must increase on one clock tick: {created:?}"
+        );
     }
 
     #[test]

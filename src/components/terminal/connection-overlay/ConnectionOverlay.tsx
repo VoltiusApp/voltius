@@ -40,8 +40,7 @@ export default function ConnectionOverlay({
   const isError = status === "error";
   const isDisconnected = status === "disconnected";
   const isConnecting = status === "connecting";
-  // A vault failure outranks every message-based prompt: the credentials are stored,
-  // they just could not be read, so asking for them again is the wrong question.
+  // Outranks the message-based prompts: the credentials are stored, just unreadable.
   const showVaultError = isError && !!errorCode;
   const showPassphrasePrompt = isError && !showVaultError && isPassphraseError(errorMessage) && !!onRetryWithPassphrase;
   const showUsernamePrompt = isError && !showVaultError && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;

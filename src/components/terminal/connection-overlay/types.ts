@@ -48,9 +48,7 @@ export interface ConnectionOverlayProps {
   sessionId: string;
   status: "connecting" | "connected" | "error" | "disconnected";
   errorMessage?: string;
-  /** Set when the vault, not the host, is why the connection failed. Takes priority
-   * over errorMessage: the message says "no authentication method", but the fix is
-   * to unlock the vault, not to supply credentials. */
+  /** Set when the vault, not the host, is why it failed. Outranks errorMessage. */
   errorCode?: VaultErrorCode;
   name: string;
   subtitle?: string;

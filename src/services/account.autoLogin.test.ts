@@ -158,8 +158,7 @@ test("autoLogin falls back to kek when the existing vault rejects dek", async ()
   expect(h.setVaultKey).toHaveBeenCalledWith(DERIVE_KEK); // kek
 });
 
-// Installing a key already proven not to open the file only defers the failure to the
-// first secret read, where all that survives is an error string.
+// Installing a proven-wrong key only defers the failure to the first secret read.
 test("autoLogin declines the session when no key opens the existing vault", async () => {
   h.store.master_password = "pw";
   h.store.mode = "server";

@@ -2,11 +2,8 @@ import { isMissingUsernameError, isNoAuthError, isPassphraseError } from "@/comp
 import type { VaultErrorCode } from "@/services/vaultErrors";
 
 /**
- * A failure retrying cannot fix. Either the user must supply something
- * (passphrase, username, auth method) — the overlay prompts — or the vault itself
- * cannot be read, which no amount of waiting changes and every attempt re-runs.
- * The vault case is matched on its code, never its message: that message is
- * translated, so text matching would hold only in English.
+ * A failure retrying cannot fix: the user must supply something, or the vault cannot
+ * be read. Matched on the code, never the message — the message is translated.
  */
 export function stopsRetrying(msg?: string, code?: VaultErrorCode): boolean {
   if (code) return true;
@@ -81,9 +78,8 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
       store.sessionEnded(sessionId);
       return false;
     }
-    // Nothing a retry can fix (auth input needed, or an unreadable vault): surface it.
-    // The code has to travel with the message — without it the overlay falls back to
-    // the generic error panel and the vault's own recovery offer never appears.
+    // Nothing a retry can fix. The code must travel with the message, or the overlay
+    // falls back to the generic panel.
     if (stopsRetrying(errorMessage, errorCode)) {
       store.markError(sessionId, errorMessage ?? "Authentication required", errorCode);
       return false;

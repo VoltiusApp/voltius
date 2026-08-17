@@ -24,8 +24,7 @@ async function ensureUnlocked(): Promise<void> {
     await invoke("secrets_unlock", { encKey: pendingKey });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    // The file is intact and possibly readable with a key we do not have. Deleting it
-    // here once cost a whole vault (#134): the app had simply installed the wrong key.
+    // Possibly readable with a key we lack. Deleting it here once cost a vault (#134).
     if (msg.includes("wrong key or corrupted file")) throw new VaultUnreadableError(e);
     throw e;
   }
@@ -34,8 +33,7 @@ async function ensureUnlocked(): Promise<void> {
 
 /**
  * Set an unreadable secrets.enc aside as a timestamped .bak, keeping the newest few.
- * User-initiated recovery only: the next unlock starts from an empty store and the
- * sync pull repopulates it. Returns the backup's file name.
+ * User-initiated recovery only. Returns the backup's file name.
  */
 export async function quarantineVault(): Promise<string> {
   unlocked = false;

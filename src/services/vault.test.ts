@@ -41,8 +41,7 @@ beforeEach(() => {
 });
 
 test("an unreadable vault raises VaultUnreadableError instead of destroying the file", async () => {
-  // Issue #134's second half: the vault was intact and readable with another key,
-  // the app installed the wrong one, and the recovery branch deleted the file.
+  // #134's second half: the file was readable with another key and got deleted.
   h.unlockError = WRONG_KEY;
   await expect(getSecret("password:c1")).rejects.toThrow(VaultUnreadableError);
   expect(invoked("secrets_wipe")).toBe(false);

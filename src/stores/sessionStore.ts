@@ -356,10 +356,8 @@ async function connectSerialSession(
 
 /**
  * Mark a session failed. `err` may be an Error or an already-built message.
- * `onlyIfConnecting` leaves a session alone once something else has already
- * settled its status, for callers that only need to cover an earlier failure.
- * `code` is for callers holding a message rather than the original error — the
- * reconnect loop reports a string, and without this the vault code was lost.
+ * `onlyIfConnecting` spares a session whose status something else has settled.
+ * `code` is for callers holding a message rather than the original error.
  */
 function markSessionError(
   set: SessionSetter,

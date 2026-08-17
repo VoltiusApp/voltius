@@ -39,8 +39,7 @@ test("a stored password is resolved", async () => {
   await expect(resolveConnectionCredentials(conn())).resolves.toMatchObject({ username: "root", password: "pw" });
 });
 
-// A secret that was never stored is a legitimate absence: key-only hosts, hosts
-// using an agent. It must stay distinguishable from a vault that cannot be read.
+// A never-stored secret is a legitimate absence, distinct from an unreadable vault.
 test("a secret that is not stored resolves to undefined, not an error", async () => {
   const creds = await resolveConnectionCredentials(conn());
   expect(creds.username).toBe("root");

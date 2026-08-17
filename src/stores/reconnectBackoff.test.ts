@@ -101,8 +101,7 @@ await (async () => {
 })();
 
 await (async () => {
-  // A vault that cannot be read will not become readable on a timer, and every
-  // attempt re-runs the failing decrypt. Stop and surface it, like an auth prompt.
+  // An unreadable vault will not heal on a timer, and each attempt re-runs the decrypt.
   const store = makeStore({
     status: () => "disconnected",
     attempt: async () => ({ ok: false, errorMessage: "Coffre illisible", errorCode: "vault-unreadable" }),
@@ -111,8 +110,7 @@ await (async () => {
   assertEqual(ok, false, "stops when the vault cannot be read");
   assertEqual(store.attempts, 1, "attempts exactly once before bailing on a vault error");
   assertEqual(store.errors, ["Coffre illisible"], "surfaces the vault error so its panel renders");
-  // Dropping the code here sent the reconnect path to the generic error panel even
-  // though the loop knew the vault was the cause.
+  // Dropping the code sent the reconnect path to the generic panel.
   assertEqual(store.codes, ["vault-unreadable"], "carries the code, not just the message");
 })();
 

@@ -83,11 +83,9 @@ export async function resolveJumpHosts(conn: Connection): Promise<ResolvedJumpHo
 }
 
 /**
- * Credential reads here do NOT swallow vault failures. `getSecret` returns null for a
- * secret that was never stored, and throws when the vault is locked or cannot be
- * decrypted; connecting with no credentials because the vault is unreadable produced
- * "No authentication method provided" and an auth prompt asking for a password the app
- * was already holding. Callers must let a VaultError reach the user.
+ * Deliberately does NOT swallow vault failures: `getSecret` returns null for a secret
+ * that was never stored and throws when the vault is locked or undecryptable. Callers
+ * must let a VaultError reach the user rather than connect with no credentials.
  */
 export async function resolveConnectionCredentials(conn: Connection): Promise<ResolvedCredentials> {
   const resolved = await resolveCredentials(conn, findIdentity, getSecret);
