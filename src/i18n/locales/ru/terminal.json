@@ -169,6 +169,8 @@
       "yourTeamsLabel": "Ваши команды",
       "elsewhereLabel": "Другие пользователи Voltius",
       "notInYourTeams": "Не в ваших командах",
+      "presenceOnline": "В сети",
+      "presenceOffline": "Не в сети",
       "forgetPerson": "Убрать из недавних",
       "deepLinkJoinTitle": "Присоединиться к общему терминалу?",
       "deepLinkJoinBody": "Кто-то поделился с вами активной сессией терминала. Присоединение подключит вас к ней сейчас.",

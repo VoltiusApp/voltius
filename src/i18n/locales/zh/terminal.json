@@ -159,6 +159,8 @@
       "yourTeamsLabel": "您的团队",
       "elsewhereLabel": "Voltius 上的其他人",
       "notInYourTeams": "不在您的团队中",
+      "presenceOnline": "在线",
+      "presenceOffline": "离线",
       "forgetPerson": "从最近记录中移除",
       "deepLinkJoinTitle": "加入共享终端？",
       "deepLinkJoinBody": "有人与你共享了一个实时终端会话。加入后将立即连接。",
