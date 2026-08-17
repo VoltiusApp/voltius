@@ -133,7 +133,58 @@ fn save(inner: &StoreInner) -> Result<(), AppError> {
     };
     let json = serde_json::to_vec(&data)?;
     let encrypted = encrypt(&inner.enc_key, &json)?;
-    std::fs::write(&inner.path, encrypted).map_err(|e| AppError::Msg(format!("Write failed: {e}")))
+    write_atomic(&inner.path, &encrypted)
+}
+
+/// The directory and file name of `path`, the two parts every vault file operation
+/// needs before it can name a sibling.
+fn dir_and_name(path: &std::path::Path) -> Result<(&std::path::Path, &str), AppError> {
+    let dir = path.parent().ok_or("Vault path has no parent directory")?;
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("Vault path has no file name")?;
+    Ok((dir, name))
+}
+
+/// Sibling scratch path for a staged write. A sibling keeps the rename on one
+/// filesystem, which is what makes it atomic.
+fn temp_path(path: &std::path::Path) -> Result<PathBuf, AppError> {
+    let (dir, name) = dir_and_name(path)?;
+    Ok(dir.join(format!("{name}.tmp")))
+}
+
+/// Write `bytes` to `path` through a staged sibling file, so an interrupted write
+/// leaves the previous vault intact rather than a truncated one that no key opens.
+fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> Result<(), AppError> {
+    write_atomic_via(path, &temp_path(path)?, bytes)
+}
+
+fn write_atomic_via(
+    path: &std::path::Path,
+    tmp: &std::path::Path,
+    bytes: &[u8],
+) -> Result<(), AppError> {
+    let staged = stage(tmp, bytes);
+    if staged.is_err() {
+        let _ = std::fs::remove_file(tmp);
+    }
+    staged?;
+    std::fs::rename(tmp, path).map_err(|e| {
+        let _ = std::fs::remove_file(tmp);
+        AppError::Msg(format!("Write failed: {e}"))
+    })
+}
+
+/// Fully materialise `bytes` at `tmp`, flushed to disk before the caller renames:
+/// without the sync the rename can land ahead of the data it is meant to commit.
+fn stage(tmp: &std::path::Path, bytes: &[u8]) -> Result<(), AppError> {
+    use std::io::Write;
+    let mut file = std::fs::File::create(tmp).map_err(|e| format!("Write failed: {e}"))?;
+    file.write_all(bytes)
+        .map_err(|e| format!("Write failed: {e}"))?;
+    file.sync_all().map_err(|e| format!("Write failed: {e}"))?;
+    Ok(())
 }
 
 fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, AppError> {
@@ -307,11 +358,7 @@ fn quarantine_at_millis(
     if !path.exists() {
         return Err("No vault file to set aside".into());
     }
-    let dir = path.parent().ok_or("Vault path has no parent directory")?;
-    let name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .ok_or("Vault path has no file name")?;
+    let (dir, name) = dir_and_name(path)?;
 
     // Must sort after every surviving backup: "now" alone can reuse a stamp that
     // pruning just freed within the same millisecond.
@@ -493,5 +540,55 @@ mod tests {
     fn quarantine_errors_when_there_is_no_vault_file() {
         let dir = tempfile::tempdir().unwrap();
         assert!(quarantine_at(&dir.path().join("secrets.enc"), 3).is_err());
+    }
+
+    // A truncating write loses the vault if the process dies mid-write. The staged
+    // write is made to fail by pointing the temp path at a directory.
+    #[test]
+    fn an_interrupted_write_leaves_the_previous_vault_intact() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("secrets.enc");
+        write_atomic(&path, b"v1").expect("first write");
+
+        let blocked = dir.path().join("blocked.tmp");
+        std::fs::create_dir(&blocked).unwrap();
+        assert!(write_atomic_via(&path, &blocked, b"v2").is_err());
+
+        assert_eq!(std::fs::read(&path).unwrap(), b"v1");
+    }
+
+    #[test]
+    fn a_completed_write_replaces_the_content_and_leaves_no_temp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("secrets.enc");
+        write_atomic(&path, b"v1").expect("first write");
+        write_atomic(&path, b"v2").expect("second write");
+
+        assert_eq!(std::fs::read(&path).unwrap(), b"v2");
+        let strays: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".tmp"))
+            .collect();
+        assert!(strays.is_empty(), "temp file left behind: {strays:?}");
+    }
+
+    // The temp file must be a sibling: a rename across filesystems is not atomic.
+    #[test]
+    fn the_temp_file_sits_beside_the_vault() {
+        let path = std::path::Path::new("/data/app/secrets.enc");
+        assert_eq!(
+            temp_path(path).unwrap(),
+            std::path::Path::new("/data/app/secrets.enc.tmp")
+        );
+    }
+
+    // backup_paths must not mistake an interrupted write for a restorable backup.
+    #[test]
+    fn a_stray_temp_file_is_not_listed_as_a_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("secrets.enc.tmp"), b"partial").unwrap();
+        assert!(backup_paths(dir.path(), "secrets.enc").is_empty());
     }
 }
