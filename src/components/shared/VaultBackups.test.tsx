@@ -24,10 +24,10 @@ vi.mock("@/stores/notificationStore", () => ({
 
 import { VaultBackups } from "./VaultBackups";
 
-const backup = (stamp: number, file = `secrets.enc.${stamp}.bak`) => ({
+const backup = (stamp: number, file = `secrets.enc.${stamp}.bak`, size = 2048) => ({
   file,
   stamp_millis: stamp,
-  size: 2048,
+  size,
 });
 
 beforeEach(() => {
@@ -43,6 +43,19 @@ test("lists every backup on disk", async () => {
 
   await waitFor(() => expect(screen.getByText("secrets.enc.1700000000000.bak")).toBeTruthy());
   expect(screen.getByText("secrets.enc.1600000000000.bak")).toBeTruthy();
+});
+
+// Size is the only signal for ruling out a backup, and truncated files are what
+// the non-atomic writes produced. Sub-kB sizes must not round up to "1 kB".
+test("shows real byte sizes for empty and truncated backups", async () => {
+  h.list.mockResolvedValue([
+    backup(1_700_000_000_000, "secrets.enc.empty.bak", 0),
+    backup(1_600_000_000_000, "secrets.enc.truncated.bak", 300),
+  ]);
+  render(<VaultBackups currentReadable={false} />);
+
+  await waitFor(() => expect(screen.getByText(/· 0 B$/)).toBeTruthy());
+  expect(screen.getByText(/· 300 B$/)).toBeTruthy();
 });
 
 // Restoring replaces the live vault. It must never happen on one stray click.
