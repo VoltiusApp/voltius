@@ -10,6 +10,7 @@ import {
 } from "@/services/account";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { VaultUnreadableError } from "@/services/vaultErrors";
+import { VaultBackups } from "@/components/shared/VaultBackups";
 
 
 type View = "home" | "cloud";
@@ -101,6 +102,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
         >
           {t("layout.auth.vaultUnreadableRetry")}
         </button>
+        <VaultBackups currentReadable={false} hideWhenEmpty className="mt-4 w-full text-left" />
       </Layout>
     );
   }

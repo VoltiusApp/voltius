@@ -5,6 +5,7 @@ import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword, logout, 
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
 import { ActionItem, FormButtons, SettingsInput } from "./shared";
+import { VaultBackups } from "@/components/shared/VaultBackups";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openPortal } from "@/utils/billing";
 import { openBillingCheckout } from "@/services/billingCheckout";
@@ -406,6 +407,15 @@ export default function AccountSection() {
               setStep("confirm-wipe");
             }}
           />
+        </div>
+      )}
+
+      {step === "idle" && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-(--t-text-secondary)">
+            {t("shared.vaultBackups.title")}
+          </p>
+          <VaultBackups currentReadable />
         </div>
       )}
 

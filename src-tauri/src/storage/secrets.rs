@@ -355,6 +355,16 @@ fn quarantine_at_millis(
     keep: usize,
     now: u128,
 ) -> Result<String, AppError> {
+    let moved = rename_aside(path, now)?;
+    let (dir, name) = dir_and_name(path)?;
+    prune_backups(dir, name, keep);
+    Ok(moved)
+}
+
+/// Move `path` to the next free `<name>.<stamp>.bak`, without pruning. Restoring
+/// prunes nothing: the retention pass must never be able to delete the backup a
+/// restore is reading from.
+fn rename_aside(path: &std::path::Path, now: u128) -> Result<String, AppError> {
     if !path.exists() {
         return Err("No vault file to set aside".into());
     }
@@ -373,8 +383,82 @@ fn quarantine_at_millis(
     }
 
     std::fs::rename(path, &target).map_err(|e| format!("Set aside failed: {e}"))?;
-    prune_backups(dir, name, keep);
     Ok(format!("{name}.{ts}.bak"))
+}
+
+/// A vault backup offered to the user for restoring.
+#[derive(serde::Serialize)]
+pub struct VaultBackup {
+    pub file: String,
+    pub stamp_millis: u64,
+    pub size: u64,
+}
+
+/// Backups of `name` in `dir`, newest first — the order the list is shown in.
+fn list_backups(dir: &std::path::Path, name: &str) -> Vec<VaultBackup> {
+    let mut out: Vec<VaultBackup> = backup_paths(dir, name)
+        .into_iter()
+        .map(|(stamp, path)| VaultBackup {
+            file: path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default()
+                .to_string(),
+            stamp_millis: stamp as u64,
+            size: std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0),
+        })
+        .collect();
+    out.reverse();
+    out
+}
+
+/// Copy the backup `file` back over the vault at `path`, setting the current
+/// vault aside first. Nothing is deleted: the backup stays where it is, so a
+/// wrong choice can be undone by restoring another. Returns the name the current
+/// vault was set aside as, or None when there was no vault to displace.
+fn restore_backup_at(
+    path: &std::path::Path,
+    file: &str,
+    now: u128,
+) -> Result<Option<String>, AppError> {
+    let (dir, name) = dir_and_name(path)?;
+    if !is_backup_name(file, name) {
+        return Err("Not a vault backup".into());
+    }
+    let source = dir.join(file);
+    if !source.is_file() {
+        return Err("That backup is no longer on disk".into());
+    }
+
+    // Staged before anything moves, so a failed read cannot leave the vault gone.
+    let bytes = std::fs::read(&source).map_err(|e| format!("Read failed: {e}"))?;
+    let tmp = temp_path(path)?;
+    if let Err(e) = stage(&tmp, &bytes) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
+    }
+
+    let set_aside = if path.exists() {
+        Some(rename_aside(path, now)?)
+    } else {
+        None
+    };
+    std::fs::rename(&tmp, path).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        AppError::Msg(format!("Restore failed: {e}"))
+    })?;
+    Ok(set_aside)
+}
+
+/// `<name>.<digits>.bak` and nothing else — the argument arrives from the
+/// frontend, so a name that could escape the vault directory is rejected here.
+fn is_backup_name(file: &str, name: &str) -> bool {
+    if file.contains('/') || file.contains('\\') || file.contains("..") {
+        return false;
+    }
+    file.strip_prefix(&format!("{name}."))
+        .and_then(|rest| rest.strip_suffix(".bak"))
+        .is_some_and(|stamp| stamp.parse::<u128>().is_ok())
 }
 
 /// Existing backups of `name` in `dir`, oldest first by embedded stamp.
@@ -418,6 +502,33 @@ pub fn secrets_quarantine(
 ) -> Result<String, AppError> {
     state.lock();
     quarantine_at(&secrets_path(&app), QUARANTINE_KEEP)
+}
+
+/// Vault backups available to restore, newest first.
+#[tauri::command]
+pub fn secrets_backups(app: AppHandle) -> Vec<VaultBackup> {
+    let path = secrets_path(&app);
+    match dir_and_name(&path) {
+        Ok((dir, name)) => list_backups(dir, name),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Put a backup back in place, keeping the current vault as a new backup, and
+/// lock the store: the restored file answers to whichever key encrypted it, so
+/// the caller reloads into the unlock screen.
+#[tauri::command]
+pub fn secrets_restore(
+    app: AppHandle,
+    state: tauri::State<SecretsStore>,
+    file: String,
+) -> Result<Option<String>, AppError> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| format!("Clock error: {e}"))?
+        .as_millis();
+    state.lock();
+    restore_backup_at(&secrets_path(&app), &file, now)
 }
 
 #[cfg(test)]
@@ -582,6 +693,121 @@ mod tests {
             temp_path(path).unwrap(),
             std::path::Path::new("/data/app/secrets.enc.tmp")
         );
+    }
+
+    /// A vault plus `count` backups on a frozen clock, newest last.
+    fn vault_with_backups(dir: &std::path::Path, count: u8) -> PathBuf {
+        let path = dir.join("secrets.enc");
+        for i in 0..count {
+            std::fs::write(&path, [i]).unwrap();
+            rename_aside(&path, 1_000).unwrap();
+        }
+        std::fs::write(&path, b"current").unwrap();
+        path
+    }
+
+    #[test]
+    fn backups_are_listed_newest_first_with_their_stamp_and_size() {
+        let dir = tempfile::tempdir().unwrap();
+        vault_with_backups(dir.path(), 3);
+
+        let listed = list_backups(dir.path(), "secrets.enc");
+
+        let stamps: Vec<u64> = listed.iter().map(|b| b.stamp_millis).collect();
+        assert_eq!(stamps, vec![1_002, 1_001, 1_000], "newest first");
+        assert!(listed.iter().all(|b| b.size == 1));
+        assert_eq!(listed[0].file, "secrets.enc.1002.bak");
+    }
+
+    #[test]
+    fn listing_ignores_files_that_are_not_backups() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("secrets.enc"), b"live").unwrap();
+        std::fs::write(dir.path().join("secrets.enc.tmp"), b"partial").unwrap();
+        std::fs::write(dir.path().join("notes.txt.1000.bak"), b"other").unwrap();
+
+        assert!(list_backups(dir.path(), "secrets.enc").is_empty());
+    }
+
+    #[test]
+    fn restoring_puts_the_backup_back_and_sets_the_current_vault_aside() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = vault_with_backups(dir.path(), 1);
+
+        let set_aside = restore_backup_at(&path, "secrets.enc.1000.bak", 2_000)
+            .expect("restore")
+            .expect("the current vault must be kept");
+
+        assert_eq!(std::fs::read(&path).unwrap(), [0]);
+        assert_eq!(
+            std::fs::read(dir.path().join(&set_aside)).unwrap(),
+            b"current"
+        );
+    }
+
+    // Restoring must be undoable: the backup it read stays on disk, and nothing
+    // is pruned, so the source cannot be the file retention deletes.
+    #[test]
+    fn restoring_leaves_every_backup_in_place() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = vault_with_backups(dir.path(), 3);
+
+        restore_backup_at(&path, "secrets.enc.1000.bak", 2_000).expect("restore");
+
+        let kept = backups(dir.path());
+        assert!(
+            kept.contains(&"secrets.enc.1000.bak".to_string()),
+            "source survives"
+        );
+        assert_eq!(
+            kept.len(),
+            4,
+            "the displaced vault is added, none pruned: {kept:?}"
+        );
+    }
+
+    #[test]
+    fn restoring_with_no_current_vault_reports_nothing_set_aside() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = vault_with_backups(dir.path(), 1);
+        std::fs::remove_file(&path).unwrap();
+
+        let set_aside = restore_backup_at(&path, "secrets.enc.1000.bak", 2_000).expect("restore");
+
+        assert!(set_aside.is_none());
+        assert_eq!(std::fs::read(&path).unwrap(), [0]);
+    }
+
+    // The name arrives from the frontend, so it must not be able to reach outside
+    // the vault directory or name a file that is not a backup.
+    #[test]
+    fn restoring_rejects_a_name_that_is_not_this_vaults_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = vault_with_backups(dir.path(), 1);
+        std::fs::write(dir.path().join("secrets.enc.notastamp.bak"), b"x").unwrap();
+
+        for bad in [
+            "../secrets.enc.1000.bak",
+            "/etc/passwd",
+            "secrets.enc",
+            "secrets.enc.notastamp.bak",
+            "other.enc.1000.bak",
+        ] {
+            assert!(
+                restore_backup_at(&path, bad, 2_000).is_err(),
+                "accepted {bad}"
+            );
+        }
+        assert_eq!(std::fs::read(&path).unwrap(), b"current", "vault untouched");
+    }
+
+    #[test]
+    fn restoring_a_backup_that_is_gone_errors_without_touching_the_vault() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = vault_with_backups(dir.path(), 1);
+
+        assert!(restore_backup_at(&path, "secrets.enc.9999.bak", 2_000).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"current");
     }
 
     // backup_paths must not mistake an interrupted write for a restorable backup.

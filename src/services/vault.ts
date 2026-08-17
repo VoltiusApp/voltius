@@ -59,6 +59,31 @@ export async function quarantineVault(): Promise<string> {
   return invoke<string>("secrets_quarantine");
 }
 
+/** A set-aside vault file, offered back to the user for restoring. */
+export interface VaultBackup {
+  file: string;
+  stamp_millis: number;
+  size: number;
+}
+
+/** Set-aside vault files still on disk, newest first. */
+export async function listVaultBackups(): Promise<VaultBackup[]> {
+  return invoke<VaultBackup[]>("secrets_backups");
+}
+
+/**
+ * Put a backup back in place, keeping the current vault as a new backup. The
+ * restored file opens with whichever key encrypted it, which is not necessarily
+ * this session's, so the key is dropped and the caller reloads to the unlock
+ * screen. Returns the name the displaced vault was kept under, if there was one.
+ */
+export async function restoreVaultBackup(file: string): Promise<string | null> {
+  const setAside = await invoke<string | null>("secrets_restore", { file });
+  pendingKey = null;
+  unlocked = false;
+  return setAside;
+}
+
 /**
  * Verify an enc_key can open the secrets store (used to validate passwords).
  * Does not unlock the store — caller must call setVaultKey after success.

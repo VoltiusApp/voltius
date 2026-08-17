@@ -21,7 +21,11 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
-vi.mock("@/services/vault", () => ({ resetVault: vi.fn(async () => {}) }));
+vi.mock("@/services/vault", () => ({
+  resetVault: vi.fn(async () => {}),
+  listVaultBackups: vi.fn(async () => []),
+  restoreVaultBackup: vi.fn(async () => null),
+}));
 vi.mock("@/stores/securityStore", () => ({
   useSecurityStore: (selector: (s: unknown) => unknown) =>
     selector({ sessionTimeoutMinutes: null, setSessionTimeoutMinutes: vi.fn() }),
