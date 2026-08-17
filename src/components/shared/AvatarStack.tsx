@@ -46,6 +46,39 @@ export function MiniAvatar({ name, size = 26 }: MiniAvatarProps) {
   );
 }
 
+interface AvatarOverflowProps {
+  count: number;
+  /** Edge length of the avatars this chip trails, in px. */
+  size: number;
+  /** Separator ring colour — should match the surface behind the stack. */
+  ringColor?: string;
+  /** Pulls the chip back over the preceding avatar. Off for spaced (non-stacked) rows. */
+  overlap?: boolean;
+}
+
+/** The `+N` chip that closes an avatar row. */
+export function AvatarOverflow({
+  count, size, ringColor = "var(--t-bg-card)", overlap = true,
+}: AvatarOverflowProps) {
+  if (count <= 0) return null;
+  return (
+    <div
+      className="flex items-center justify-center text-[10px] font-semibold rounded-full shrink-0"
+      style={{
+        marginLeft: overlap ? -(size * 0.37) : 0,
+        zIndex: 0,
+        width: size + 2,
+        height: size + 2,
+        background: "var(--t-bg-elevated)",
+        border: `1.5px solid ${ringColor}`,
+        color: "var(--t-text-dim)",
+      }}
+    >
+      +{count}
+    </div>
+  );
+}
+
 interface AvatarStackProps {
   /** Named participants — when available, real initials are shown. */
   participants?: { name: string }[];
@@ -100,22 +133,7 @@ export function AvatarStack({
           <MiniAvatar name={p.name} size={size} />
         </div>
       ))}
-      {overflow > 0 && (
-        <div
-          className="flex items-center justify-center text-[10px] font-semibold rounded-full shrink-0"
-          style={{
-            marginLeft: -(size * 0.37),
-            zIndex: 0,
-            width: size + 2,
-            height: size + 2,
-            background: "var(--t-bg-elevated)",
-            border: `1.5px solid ${ringColor}`,
-            color: "var(--t-text-dim)",
-          }}
-        >
-          +{overflow}
-        </div>
-      )}
+      <AvatarOverflow count={overflow} size={size} ringColor={ringColor} />
     </div>
   );
 }

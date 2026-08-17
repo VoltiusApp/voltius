@@ -49,6 +49,9 @@
       "participantCount_many": "{{count}} участников",
       "participantCount_other": "{{count}} участников"
     },
+    "presence": {
+      "hasControl": "Управляет"
+    },
     "panel": {
       "saveState": {
         "dirty": "Редактирование...",

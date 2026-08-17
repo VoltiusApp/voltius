@@ -151,7 +151,6 @@
       "guestsRatio_other": "{{participantCount}} / {{guestCap}} гостей",
       "upgradeToTeams": "Перейти на Teams",
       "upgradeToBusiness": "Перейти на Business",
-      "hasControl": "Управляет",
       "stopSharing": "Остановить совместный доступ",
       "inviteHasAccess": "Уже есть доступ",
       "inviteSent": "Приглашение отправлено",

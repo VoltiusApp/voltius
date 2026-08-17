@@ -141,7 +141,6 @@
       "guestsRatio_other": "{{participantCount}} of {{guestCap}} guests",
       "upgradeToTeams": "Upgrade to Teams",
       "upgradeToBusiness": "Upgrade to Business",
-      "hasControl": "Has control",
       "stopSharing": "Stop sharing",
       "inviteHasAccess": "Has access",
       "inviteSent": "Invited",

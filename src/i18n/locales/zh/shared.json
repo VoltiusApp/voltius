@@ -47,6 +47,9 @@
       "participantCount_one": "{{count}} 名参与者",
       "participantCount_other": "{{count}} 名参与者"
     },
+    "presence": {
+      "hasControl": "拥有控制权"
+    },
     "panel": {
       "saveState": {
         "dirty": "正在编辑...",

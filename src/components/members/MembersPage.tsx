@@ -8,8 +8,8 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useHistoryStore } from "@/stores/historyStore";
-import { StatusDot } from "@/components/shared/StatusDot";
 import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
+import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { UserSearchField } from "@/components/shared/UserSearchField";
 import {
   getMyUserId,
@@ -274,14 +274,7 @@ interface MemberCardProps {
 }
 
 function MemberAvatar({ member, size }: { member: TeamMember; size: number }) {
-  return (
-    <div className="relative shrink-0">
-      <MiniAvatar name={member.handle} size={size} />
-      {member.is_online && (
-        <StatusDot color="var(--t-status-connected)" animate size={9} />
-      )}
-    </div>
-  );
+  return <PresenceAvatar handle={member.handle} size={size} online={member.is_online} animate />;
 }
 
 function MemberCard({
