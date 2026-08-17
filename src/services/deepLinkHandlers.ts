@@ -31,7 +31,7 @@ function jwtSubject(jwt: string | null): string | null {
 }
 
 async function handleVerified(intent: VerifiedIntent): Promise<void> {
-  const activeJwt = await invoke<string | null>("keychain_get", { key: "jwt" });
+  const activeJwt = await invoke<string | null>("keychain_get", { key: "jwt" }).catch(() => null);
   if (jwtSubject(activeJwt) === intent.userId) {
     try {
       await refreshSession();

@@ -20,9 +20,10 @@ vi.mock("@/i18n", () => ({
 }));
 
 const keychain: Record<string, string | null> = {};
+let invokeImpl = (cmd: string, args: { key: string }) =>
+  Promise.resolve(cmd === "keychain_get" ? (keychain[args.key] ?? null) : null);
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (cmd: string, args: { key: string }) =>
-    Promise.resolve(cmd === "keychain_get" ? (keychain[args.key] ?? null) : null),
+  invoke: (cmd: string, args: { key: string }) => invokeImpl(cmd, args),
 }));
 
 const refreshSession = vi.fn();
@@ -49,6 +50,8 @@ import { handleSilentIntent } from "./deepLinkHandlers";
 
 beforeEach(() => {
   for (const key of Object.keys(keychain)) delete keychain[key];
+  invokeImpl = (cmd, args) =>
+    Promise.resolve(cmd === "keychain_get" ? (keychain[args.key] ?? null) : null);
   refreshSession.mockReset().mockResolvedValue(undefined);
   load.mockReset().mockResolvedValue(undefined);
   getSavedAccounts.mockReset().mockResolvedValue([]);
@@ -75,9 +78,8 @@ test("a failed refresh reports an error and does not throw", async () => {
 
 test("a link for a saved but inactive account offers a switch instead of acting", async () => {
   keychain.jwt = jwtFor(OTHER_USER);
-  getSavedAccounts.mockResolvedValue([
-    { account_id: "a", mode: "server", email: "other@example.com", jwt: jwtFor(USER) },
-  ]);
+  const match = { account_id: "a", mode: "server", email: "other@example.com", jwt: jwtFor(USER) };
+  getSavedAccounts.mockResolvedValue([match]);
   handleSilentIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
   expect(refreshSession).not.toHaveBeenCalled();
@@ -86,7 +88,7 @@ test("a link for a saved but inactive account offers a switch instead of acting"
   expect(entry.message).toContain("other@example.com");
   expect(entry.action).toBeDefined();
   entry.action.onClick();
-  expect(switchToAccount).toHaveBeenCalledTimes(1);
+  expect(switchToAccount).toHaveBeenCalledWith(match);
 });
 
 test("a link matching no local account only toasts", async () => {
@@ -103,4 +105,12 @@ test("a malformed stored jwt is skipped rather than throwing", async () => {
   handleSilentIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
   expect(refreshSession).not.toHaveBeenCalled();
+});
+
+test("a rejecting keychain read falls through to the no-match toast rather than rejecting", async () => {
+  invokeImpl = () => Promise.reject(new Error("keychain unavailable"));
+  handleSilentIntent({ route: "verified", userId: USER });
+  await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
+  expect(refreshSession).not.toHaveBeenCalled();
+  expect(addToast).toHaveBeenCalledTimes(1);
 });
