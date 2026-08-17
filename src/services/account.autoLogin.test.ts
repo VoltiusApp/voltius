@@ -171,6 +171,24 @@ test("autoLogin declines the session when no key opens the existing vault", asyn
   expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
+// The password branch above declines. This one never tests the keychain key
+// against secrets.enc, so a no-password account with an unreadable vault reaches
+// the main UI and fails at the first secret read instead — the state the form
+// note and the SFTP vault panel exist to report.
+test("autoLogin (no-password) admits a session whose vault no key opens", async () => {
+  h.store.master_password = HEX64;
+  h.store.mode = "local-nopassword";
+  h.store.account_id = "acc";
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockImplementation(async () => {
+    throw new Error("Decryption failed — wrong key or corrupted file");
+  });
+
+  expect(await autoLogin()).toBe(true);
+  expect(h.verifyVaultKey).not.toHaveBeenCalled();
+  expect(h.setVaultKey).toHaveBeenCalled();
+});
+
 test("autoLogin adopts dek without verifying when no vault exists yet", async () => {
   h.store.master_password = "pw";
   h.store.mode = "server";
