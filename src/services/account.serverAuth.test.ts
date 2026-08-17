@@ -4,6 +4,8 @@ const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   appFetch: vi.fn(),
   setVaultKey: vi.fn(),
+  getVaultStatus: vi.fn(async () => ({ exists: false, path: "" })),
+  verifyVaultKey: vi.fn(async (_key: number[]) => undefined as void),
   wipeLocalConfig: vi.fn(async () => undefined),
   load: vi.fn(async () => undefined),
   keysSet: vi.fn(),
@@ -18,9 +20,9 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch, isAbortError: () => false }));
 vi.mock("./vault", () => ({
   setVaultKey: h.setVaultKey,
-  verifyVaultKey: vi.fn(async () => undefined),
+  verifyVaultKey: h.verifyVaultKey,
   lockVault: vi.fn(async () => undefined),
-  getVaultStatus: vi.fn(async () => ({ exists: false, path: "" })),
+  getVaultStatus: h.getVaultStatus,
   unlockVaultIfNeeded: vi.fn(async () => undefined),
   wipeLocalConfig: h.wipeLocalConfig,
   resetVault: vi.fn(async () => undefined),
@@ -87,6 +89,10 @@ const err = (status: number, body: unknown = {}) => ({ ok: false, status, body }
 
 beforeEach(() => {
   for (const m of [h.invoke, h.appFetch, h.setVaultKey, h.wipeLocalConfig, h.load, h.keysSet]) m.mockReset();
+  h.getVaultStatus.mockReset();
+  h.getVaultStatus.mockResolvedValue({ exists: false, path: "" });
+  h.verifyVaultKey.mockReset();
+  h.verifyVaultKey.mockResolvedValue(undefined);
   h.store = {};
   h.http = {};
   h.dek = null;
@@ -145,6 +151,66 @@ test("login local mode sets the vault key without a server round-trip", async ()
   await login("pw");
   expect(h.setVaultKey).toHaveBeenCalledWith([9, 9, 9]); // enc_key
   expect(h.appFetch).not.toHaveBeenCalled();
+});
+
+// Issue #134: verifying the kek against a dek-encrypted cloud vault rejected the
+// correct master password as a corrupted file.
+test("login opens a cloud vault encrypted with the dek, offline, without a server round-trip", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.wrapped_user_secrets = "WRAPPED"; // no email/server_url → no re-auth
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockImplementation(async (key: number[]) => {
+    if (String(key) !== String([1, 1, 1])) throw new Error("Decryption failed — wrong key or corrupted file");
+  });
+
+  await login("pw");
+  expect(h.setVaultKey).toHaveBeenCalledWith([1, 1, 1]); // dek
+  expect(h.appFetch).not.toHaveBeenCalled();
+});
+
+test("login defers to the server when no cached key opens the existing vault", async () => {
+  // No cached wrapped_user_secrets: only the server can hand back the dek.
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.email = "a@b.co";
+  h.store.server_url = S;
+  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockImplementation(async (key: number[]) => {
+    if (String(key) !== String([1, 1, 1])) throw new Error("Decryption failed — wrong key or corrupted file");
+  });
+
+  await login("pw");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]); // dek
+});
+
+// A pre-split device keeps a kek-encrypted vault while the server holds
+// wrapped_user_secrets. Adopting the dek there wiped the store on first access.
+test("login keeps the kek when the server's dek does not open this device's vault", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.email = "a@b.co";
+  h.store.server_url = S;
+  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockImplementation(async (key: number[]) => {
+    if (String(key) !== String([9, 9, 9])) throw new Error("Decryption failed — wrong key or corrupted file");
+  });
+
+  await login("pw");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek, not the server's dek
+  expect(h.keysSet).toHaveBeenCalledWith(expect.objectContaining({ dek: [1, 1, 1] }));
+});
+
+test("login rejects a password whose keys open nothing", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "local";
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockRejectedValue(new Error("Decryption failed — wrong key or corrupted file"));
+
+  await expect(login("pw")).rejects.toThrow("common.error.incorrectPassword");
+  expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
 // ─── signInToCloud ───────────────────────────────────────────────────────────
