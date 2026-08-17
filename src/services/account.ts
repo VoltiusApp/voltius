@@ -311,8 +311,15 @@ export async function login(password: string, email?: string, serverUrl?: string
   }
 }
 
+/**
+ * How a keychain auto-login ended. `vault-unreadable` is not a declined session:
+ * the account has no master password to retype, so the unlock prompt cannot help
+ * and the caller must offer the vault recovery screen instead.
+ */
+export type AutoLoginOutcome = "ok" | "declined" | "vault-unreadable";
+
 /** Auto-login from keychain — instant (no secret access). */
-export async function autoLogin(): Promise<boolean> {
+export async function autoLogin(): Promise<AutoLoginOutcome> {
   // A keychain failure here (e.g. an OS keychain backend unavailable on a platform)
   // must degrade to "no session", never throw — an unhandled rejection would abort the
   // splash init and freeze the app on its loading screen.
@@ -324,9 +331,9 @@ export async function autoLogin(): Promise<boolean> {
       keychainGet("mode"),
     ]);
   } catch {
-    return false;
+    return "declined";
   }
-  if (!password) return false;
+  if (!password) return "declined";
 
   try {
     let encKey: number[];
@@ -334,8 +341,13 @@ export async function autoLogin(): Promise<boolean> {
     // In OS-keychain mode, the stored value is already the encryption key.
     // Some older installs may miss mode/account_id metadata; heal it silently.
     if (mode === "local-nopassword" || (!mode && !accountId && isHexEncoded32ByteKey(password))) {
-      if (!isHexEncoded32ByteKey(password)) return false;
+      if (!isHexEncoded32ByteKey(password)) return "declined";
       encKey = hexToBytes(password); // password = stored hex key
+
+      // The key lives in the OS keychain and is the only one this account has, so
+      // a vault it cannot open is unreadable, not a wrong password. Installing it
+      // regardless would defer the failure to the first secret read, inside the app.
+      if (!(await keyThatOpensVault(encKey))) return "vault-unreadable";
 
       if (!accountId) {
         await keychainSet("account_id", crypto.randomUUID());
@@ -344,13 +356,14 @@ export async function autoLogin(): Promise<boolean> {
         await keychainSet("mode", "local-nopassword");
       }
     } else {
-      if (!accountId) return false;
+      if (!accountId) return "declined";
       const { enc_key: kek } = await deriveKeys(password, accountId);
 
       // Local Tauri calls only — autoLogin stays instant offline.
       const opened = await passwordVaultKey(kek);
       // Decline rather than install a key already proven not to open the file.
-      if (!opened) return false;
+      // A password account keeps the unlock prompt: another password may open it.
+      if (!opened) return "declined";
       encKey = opened;
 
       if (!mode) {
@@ -359,9 +372,9 @@ export async function autoLogin(): Promise<boolean> {
       }
     }
     setVaultKey(encKey); // instant — no secrets_unlock yet
-    return true;
+    return "ok";
   } catch {
-    return false;
+    return "declined";
   }
 }
 

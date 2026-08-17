@@ -20,7 +20,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
 
-type Phase = "loading" | "auth-first-launch" | "auth-locked" | "finishing" | "done";
+type Phase = "loading" | "auth-first-launch" | "auth-locked" | "auth-unreadable" | "finishing" | "done";
 type StepStatus = "pending" | "running" | "done" | "error";
 
 interface Step { id: string; label: string; status: StepStatus; }
@@ -60,12 +60,20 @@ export default function SplashScreen({ onReady }: Props) {
         return;
       }
 
-      const autoOk = await autoLogin();
-      if (autoOk) {
+      const outcome = await autoLogin();
+      if (outcome === "ok") {
         setStep("vault", "done", t("layout.splash.sessionRestored"));
         setPhase("finishing");
         saveCurrentAccount().catch(() => {}); // keep saved accounts list fresh
         await finishLoading();
+        return;
+      }
+
+      // The key came from the OS keychain and does not open the file. There is no
+      // password to prompt for, so the unlock screen would be a dead end.
+      if (outcome === "vault-unreadable") {
+        setStep("vault", "error", t("layout.splash.vaultUnreadable"));
+        setPhase("auth-unreadable");
         return;
       }
 
@@ -146,6 +154,7 @@ export default function SplashScreen({ onReady }: Props) {
 
   if (phase === "auth-first-launch") return <AuthPage isLocked={false} onReady={handleAuthReady} />;
   if (phase === "auth-locked") return <AuthPage isLocked={true} onReady={handleAuthReady} />;
+  if (phase === "auth-unreadable") return <AuthPage isLocked={true} vaultUnreadable onReady={handleAuthReady} />;
 
   return (
     <div

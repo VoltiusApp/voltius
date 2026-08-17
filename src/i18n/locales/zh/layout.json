@@ -46,7 +46,10 @@
       "and": "和",
       "termsOfService": "服务条款",
       "privacyPolicy": "隐私政策",
-      "accountCreatedToast": "账户已创建！请查收邮件进行验证。"
+      "accountCreatedToast": "账户已创建！请查收邮件进行验证。",
+      "vaultUnreadableBodyNoPassword": "无法用本机保存的密钥打开此设备的密钥文件。没有删除任何内容。可以将其搁置以从空保管库开始，或恢复下方的某个备份。",
+      "vaultSetAsideLocal": "搁置并重新开始",
+      "vaultSetAsideLocalSub": "在此设备上保留备份副本"
     },
     "cloudAuthModal": {
       "registerTitle": "创建云账户",
@@ -128,7 +131,8 @@
       "sessionRestored": "会话已恢复",
       "vaultFound": "找到保险库",
       "connectionsUnavailable": "连接不可用",
-      "sshClient": "SSH 客户端"
+      "sshClient": "SSH 客户端",
+      "vaultUnreadable": "保管库无法读取"
     },
     "sync": {
       "title": "同步",

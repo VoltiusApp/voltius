@@ -80,13 +80,13 @@ beforeEach(() => {
 
 test("autoLogin degrades to false (never throws) when the keychain is unavailable", async () => {
   h.keychainThrows = true;
-  await expect(autoLogin()).resolves.toBe(false);
+  await expect(autoLogin()).resolves.toBe("declined");
   expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
 test("autoLogin returns false when no master password is stored", async () => {
   // store empty → password null
-  expect(await autoLogin()).toBe(false);
+  expect(await autoLogin()).toBe("declined");
   expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
@@ -94,7 +94,7 @@ test("autoLogin returns false in server/local mode when account_id is missing", 
   h.store.master_password = "pw";
   h.store.mode = "local";
   // no account_id
-  expect(await autoLogin()).toBe(false);
+  expect(await autoLogin()).toBe("declined");
   expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
@@ -103,7 +103,7 @@ test("autoLogin returns false when derive_keys fails", async () => {
   h.store.mode = "local";
   h.store.account_id = "acc";
   h.deriveThrows = true;
-  expect(await autoLogin()).toBe(false);
+  expect(await autoLogin()).toBe("declined");
   expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
@@ -113,7 +113,7 @@ test("autoLogin (no-password) uses the stored hex key and heals missing account_
   h.store.master_password = HEX64;
   h.store.mode = "local-nopassword";
   // no account_id
-  expect(await autoLogin()).toBe(true);
+  expect(await autoLogin()).toBe("ok");
   // hex decoded to 32 bytes and set as the vault key (no derive_keys call)
   expect(h.setVaultKey).toHaveBeenCalledTimes(1);
   expect(h.setVaultKey.mock.calls[0][0]).toHaveLength(32);
@@ -125,7 +125,7 @@ test("autoLogin (no-password) uses the stored hex key and heals missing account_
 test("autoLogin (no-password) returns false when the stored key is not valid hex", async () => {
   h.store.master_password = "not-hex";
   h.store.mode = "local-nopassword";
-  expect(await autoLogin()).toBe(false);
+  expect(await autoLogin()).toBe("declined");
   expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
@@ -139,7 +139,7 @@ test("autoLogin adopts dek when the vault exists and dek verifies", async () => 
   h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
   h.verifyVaultKey.mockResolvedValue(undefined); // dek opens the vault
 
-  expect(await autoLogin()).toBe(true);
+  expect(await autoLogin()).toBe("ok");
   expect(h.setVaultKey).toHaveBeenCalledWith(UNWRAP.dek);
   expect(h.keysSet).toHaveBeenCalled();
 });
@@ -154,7 +154,7 @@ test("autoLogin falls back to kek when the existing vault rejects dek", async ()
     if (String(key) !== String(DERIVE_KEK)) throw new Error("wrong key"); // dek does NOT open it
   });
 
-  expect(await autoLogin()).toBe(true);
+  expect(await autoLogin()).toBe("ok");
   expect(h.setVaultKey).toHaveBeenCalledWith(DERIVE_KEK); // kek
 });
 
@@ -167,15 +167,13 @@ test("autoLogin declines the session when no key opens the existing vault", asyn
   h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
   h.verifyVaultKey.mockRejectedValue(new Error("wrong key"));
 
-  expect(await autoLogin()).toBe(false);
+  expect(await autoLogin()).toBe("declined");
   expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
-// The password branch above declines. This one never tests the keychain key
-// against secrets.enc, so a no-password account with an unreadable vault reaches
-// the main UI and fails at the first secret read instead — the state the form
-// note and the SFTP vault panel exist to report.
-test("autoLogin (no-password) admits a session whose vault no key opens", async () => {
+// A no-password account has no password to retype, so "declined" would send it to
+// an unlock prompt it can never satisfy. It gets the recovery screen instead.
+test("autoLogin (no-password) reports an unreadable vault rather than admitting the session", async () => {
   h.store.master_password = HEX64;
   h.store.mode = "local-nopassword";
   h.store.account_id = "acc";
@@ -184,9 +182,18 @@ test("autoLogin (no-password) admits a session whose vault no key opens", async 
     throw new Error("Decryption failed — wrong key or corrupted file");
   });
 
-  expect(await autoLogin()).toBe(true);
-  expect(h.verifyVaultKey).not.toHaveBeenCalled();
-  expect(h.setVaultKey).toHaveBeenCalled();
+  expect(await autoLogin()).toBe("vault-unreadable");
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+});
+
+test("autoLogin (no-password) admits the session when the keychain key opens the vault", async () => {
+  h.store.master_password = HEX64;
+  h.store.mode = "local-nopassword";
+  h.store.account_id = "acc";
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+
+  expect(await autoLogin()).toBe("ok");
+  expect(h.setVaultKey).toHaveBeenCalledTimes(1);
 });
 
 test("autoLogin adopts dek without verifying when no vault exists yet", async () => {
@@ -196,7 +203,7 @@ test("autoLogin adopts dek without verifying when no vault exists yet", async ()
   h.store.wrapped_user_secrets = "WRAPPED";
   h.getVaultStatus.mockResolvedValue({ exists: false, path: "" });
 
-  expect(await autoLogin()).toBe(true);
+  expect(await autoLogin()).toBe("ok");
   expect(h.setVaultKey).toHaveBeenCalledWith(UNWRAP.dek);
   expect(h.verifyVaultKey).not.toHaveBeenCalled();
 });
@@ -208,7 +215,7 @@ test("autoLogin stays on kek when the cached secrets are corrupt", async () => {
   h.store.wrapped_user_secrets = "WRAPPED";
   h.unwrapThrows = true;
 
-  expect(await autoLogin()).toBe(true);
+  expect(await autoLogin()).toBe("ok");
   expect(h.setVaultKey).toHaveBeenCalledWith(DERIVE_KEK); // kek
 });
 
@@ -218,7 +225,7 @@ test("autoLogin heals a missing mode to local for a password account", async () 
   h.store.master_password = "pw"; // non-hex → not treated as OS-keychain key
   h.store.account_id = "acc";
   // no mode, no wrapped secrets
-  expect(await autoLogin()).toBe(true);
+  expect(await autoLogin()).toBe("ok");
   expect(h.setVaultKey).toHaveBeenCalledWith(DERIVE_KEK);
   expect(h.store.mode).toBe("local");
 });
