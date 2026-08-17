@@ -101,6 +101,9 @@
       "deleteTagBody_other": "Ceci retirera le tag de {{count}} hôtes. Les hôtes eux-mêmes ne seront pas supprimés.",
       "renameTagTitle": "Renommer le tag",
       "deleteTagButtonTitle": "Supprimer le tag"
+    },
+    "vaultUnavailable": {
+      "note": "Le coffre n'a pas pu être lu, les secrets enregistrés ne sont donc pas affichés ici. Laissez un champ vide pour conserver ce qui est enregistré ; saisir une nouvelle valeur la remplace."
     }
   }
 }

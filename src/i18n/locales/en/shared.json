@@ -101,6 +101,9 @@
       "deleteTagBody_other": "This will remove the tag from {{count}} hosts. The hosts themselves won't be deleted.",
       "renameTagTitle": "Rename tag",
       "deleteTagButtonTitle": "Delete tag"
+    },
+    "vaultUnavailable": {
+      "note": "The vault could not be read, so stored secrets are not shown here. Leave a field empty to keep what is saved; typing a new value replaces it."
     }
   }
 }

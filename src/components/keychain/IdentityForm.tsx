@@ -17,6 +17,8 @@ import {
 } from "@/components/shared/vaultObjectForm";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { storeSecret, getSecret } from "@/services/vault";
+import { useStoredSecrets } from "@/hooks/useStoredSecrets";
+import { VaultUnavailableNote } from "@/components/shared/VaultUnavailableNote";
 import {
   PanelShell, PanelHeader, FormSection,
   formInputClass, formInputStyle, formLabelClass, formLabelStyle,
@@ -250,13 +252,13 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
     void loadConnections();
   }, []);
 
-  useEffect(() => {
-    if (!initial) return;
-    (async () => {
-      const pwd = await getSecret(`identity:${initial.id}:password`).catch(() => null);
-      if (pwd && !passwordDirty.current) setPassword(pwd);
-    })();
-  }, [initial?.id]);
+  const vaultUnavailable = useStoredSecrets(
+    initial?.id,
+    { password: initial ? `identity:${initial.id}:password` : null },
+    (v) => {
+      if (v.password && !passwordDirty.current) setPassword(v.password);
+    },
+  );
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => {
@@ -328,6 +330,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
         })() : undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {vaultUnavailable && <VaultUnavailableNote />}
         <FormSection label={t("keychain.common.general")}>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.label")}</label>

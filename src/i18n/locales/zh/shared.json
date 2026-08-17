@@ -101,6 +101,9 @@
       "deleteTagBody_other": "这将从 {{count}} 台主机移除此标签。主机本身不会被删除。",
       "renameTagTitle": "重命名标签",
       "deleteTagButtonTitle": "删除标签"
+    },
+    "vaultUnavailable": {
+      "note": "无法读取保管库，因此此处不显示已保存的密钥。留空以保留已保存的内容；输入新值将替换它。"
     }
   }
 }
