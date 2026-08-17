@@ -3,9 +3,34 @@ import { clearPersistedAccountUiState } from "@/stores/persistedAccountUiState";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { VaultLockedError, VaultUnreadableError } from "./vaultErrors";
 
+/**
+ * Rust's own failure strings, matched to tell a wrong key from a busy file.
+ * Source of truth: src-tauri/src/storage/secrets.rs (LOCKED_ERR and decrypt) — a
+ * rename there must be mirrored here, which the canary test on each side catches.
+ */
+export const SECRETS_LOCKED_MESSAGE = "Secrets store is locked";
+const DECRYPT_FAILED_MESSAGE = "wrong key or corrupted file";
+
 // Pending key: set at login/setup, used to unlock secrets on first access
 let pendingKey: number[] | null = null;
 let unlocked = false;
+
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * Run a secrets command, giving a failed decrypt its own type. Every other
+ * failure — a read error, a busy file — stays itself so callers can tell a key
+ * that does not fit from a vault that could not be opened at all.
+ */
+async function invokeDecrypting<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await invoke<T>(cmd, args);
+  } catch (e) {
+    // Possibly readable with a key we lack. Deleting it here once cost a vault (#134).
+    if (errorMessage(e).includes(DECRYPT_FAILED_MESSAGE)) throw new VaultUnreadableError(e);
+    throw e;
+  }
+}
 
 /**
  * Store the vault key for lazy unlocking.
@@ -20,14 +45,7 @@ export function setVaultKey(encKey: number[]): void {
 async function ensureUnlocked(): Promise<void> {
   if (unlocked) return;
   if (!pendingKey) throw new VaultLockedError();
-  try {
-    await invoke("secrets_unlock", { encKey: pendingKey });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    // Possibly readable with a key we lack. Deleting it here once cost a vault (#134).
-    if (msg.includes("wrong key or corrupted file")) throw new VaultUnreadableError(e);
-    throw e;
-  }
+  await invokeDecrypting("secrets_unlock", { encKey: pendingKey });
   unlocked = true;
 }
 
@@ -41,8 +59,7 @@ async function withUnlocked<T>(cmd: string, args?: Record<string, unknown>): Pro
   try {
     return await invoke<T>(cmd, args);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("Secrets store is locked")) {
+    if (errorMessage(e).includes(SECRETS_LOCKED_MESSAGE)) {
       unlocked = false;
       throw new VaultLockedError();
     }
@@ -87,9 +104,11 @@ export async function restoreVaultBackup(file: string): Promise<string | null> {
 /**
  * Verify an enc_key can open the secrets store (used to validate passwords).
  * Does not unlock the store — caller must call setVaultKey after success.
+ * Rejects with VaultUnreadableError when the key does not fit; any other
+ * rejection means the file could not be read, not that the key is wrong.
  */
 export async function verifyVaultKey(encKey: number[]): Promise<void> {
-  await invoke("secrets_verify", { encKey });
+  await invokeDecrypting("secrets_verify", { encKey });
 }
 
 export async function lockVault(): Promise<void> {

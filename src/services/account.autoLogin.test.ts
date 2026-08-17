@@ -32,6 +32,10 @@ vi.mock("@/stores/vaultKeysStore", () => ({
 }));
 
 import { autoLogin } from "./account";
+import { VaultUnreadableError } from "./vaultErrors";
+
+/** What vault.ts raises for a key that does not decrypt the file. */
+const wrongKey = () => new VaultUnreadableError();
 
 const HEX64 = "a".repeat(64); // valid 32-byte hex key
 const DERIVE_KEK = [9, 9, 9];
@@ -151,7 +155,7 @@ test("autoLogin falls back to kek when the existing vault rejects dek", async ()
   h.store.wrapped_user_secrets = "WRAPPED";
   h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
   h.verifyVaultKey.mockImplementation(async (key: number[]) => {
-    if (String(key) !== String(DERIVE_KEK)) throw new Error("wrong key"); // dek does NOT open it
+    if (String(key) !== String(DERIVE_KEK)) throw wrongKey(); // dek does NOT open it
   });
 
   expect(await autoLogin()).toBe("ok");
@@ -165,7 +169,7 @@ test("autoLogin declines the session when no key opens the existing vault", asyn
   h.store.account_id = "acc";
   h.store.wrapped_user_secrets = "WRAPPED";
   h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
-  h.verifyVaultKey.mockRejectedValue(new Error("wrong key"));
+  h.verifyVaultKey.mockRejectedValue(wrongKey());
 
   expect(await autoLogin()).toBe("declined");
   expect(h.setVaultKey).not.toHaveBeenCalled();
@@ -178,11 +182,22 @@ test("autoLogin (no-password) reports an unreadable vault rather than admitting 
   h.store.mode = "local-nopassword";
   h.store.account_id = "acc";
   h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
-  h.verifyVaultKey.mockImplementation(async () => {
-    throw new Error("Decryption failed — wrong key or corrupted file");
-  });
+  h.verifyVaultKey.mockRejectedValue(wrongKey());
 
   expect(await autoLogin()).toBe("vault-unreadable");
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+});
+
+// The recovery screen's primary action sets the file aside. A file merely held
+// open by a backup or an antivirus must land on the unlock prompt instead.
+test("autoLogin (no-password) does not call a file it could not read unreadable", async () => {
+  h.store.master_password = HEX64;
+  h.store.mode = "local-nopassword";
+  h.store.account_id = "acc";
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockRejectedValue(new Error("Read failed: permission denied"));
+
+  expect(await autoLogin()).toBe("declined");
   expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 

@@ -84,8 +84,11 @@ async function keyThatOpensVault(...candidates: number[][]): Promise<number[] | 
     try {
       await verifyVaultKey(key);
       return key;
-    } catch {
-      continue;
+    } catch (e) {
+      // Only a failed decrypt means "not this key". A read error — a file held by
+      // a backup or an antivirus — must keep its own identity: folded in here it
+      // reads as "no key fits", whose recovery screen offers to set the file aside.
+      if (!(e instanceof VaultUnreadableError)) throw e;
     }
   }
   return null;
@@ -739,6 +742,12 @@ async function migrateToWrappedUserSecrets(
     // Build user_secrets with legacy X25519 private key (preserves public key on server)
     const wrapped_user_secrets = await wrapUserSecrets(kek, dek, legacyX25519Private);
 
+    // secrets_rekey needs an unlocked store, and login only installs the key
+    // lazily. Unlocking after the upload marked the account migrated server-side
+    // while the rekey threw, stranding this device on a kek-encrypted vault with
+    // no dek in the session at all.
+    await unlockVaultIfNeeded();
+
     const res = await fetchWithTimeout(`${serverUrl}/v1/auth/wrapped-user-secrets`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
@@ -753,12 +762,19 @@ async function migrateToWrappedUserSecrets(
 
     // Only now can the dek be recovered from the server, so only now may the file
     // depend on it. Rekeying first left an upload failure with a vault whose key
-    // existed nowhere. A failure here degrades to a pre-split device, which login
-    // already handles by keeping the kek.
-    await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
+    // existed nowhere.
+    let vaultKey = dek;
+    try {
+      await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
+    } catch (e) {
+      // The server is migrated either way, so the session still adopts the dek;
+      // only the file stays kek-encrypted, which login already handles.
+      console.warn("Migration rekey failed, keeping the kek-encrypted vault:", e);
+      vaultKey = kek;
+    }
 
     useVaultKeysStore.getState().set({ dek, x25519Private: legacyX25519Private, kek });
-    setVaultKey(dek);
+    setVaultKey(vaultKey);
     await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
 
     const { push } = await import("@/services/sync");

@@ -6,6 +6,9 @@ const h = vi.hoisted(() => ({
   setVaultKey: vi.fn(),
   getVaultStatus: vi.fn(async () => ({ exists: false, path: "" })),
   verifyVaultKey: vi.fn(async (_key: number[]) => undefined as void),
+  unlockVault: vi.fn(async () => undefined as void),
+  unlocked: false,
+  rekeyError: null as Error | null,
   wipeLocalConfig: vi.fn(async () => undefined),
   load: vi.fn(async () => undefined),
   keysSet: vi.fn(),
@@ -25,7 +28,7 @@ vi.mock("./vault", () => ({
   verifyVaultKey: h.verifyVaultKey,
   lockVault: vi.fn(async () => undefined),
   getVaultStatus: h.getVaultStatus,
-  unlockVaultIfNeeded: vi.fn(async () => undefined),
+  unlockVaultIfNeeded: h.unlockVault,
   wipeLocalConfig: h.wipeLocalConfig,
   resetVault: vi.fn(async () => undefined),
 }));
@@ -77,6 +80,12 @@ function routeInvoke() {
         return { dek: [1, 1, 1], x25519_private: [2, 2, 2] };
       case "get_machine_fingerprint":
         return "FP";
+      // Mirrors the Rust precondition (src-tauri/src/storage/secrets.rs): the
+      // command needs a store someone has already unlocked.
+      case "secrets_rekey":
+        if (!h.unlocked) throw new Error("Secrets store is locked");
+        if (h.rekeyError) throw h.rekeyError;
+        return undefined;
       default:
         return undefined;
     }
@@ -101,6 +110,13 @@ beforeEach(() => {
   h.getVaultStatus.mockResolvedValue({ exists: false, path: "" });
   h.verifyVaultKey.mockReset();
   h.verifyVaultKey.mockResolvedValue(undefined);
+  h.unlockVault.mockReset();
+  h.unlockVault.mockImplementation(async () => {
+    h.seq.push("secrets_unlock");
+    h.unlocked = true;
+  });
+  h.unlocked = false;
+  h.rekeyError = null;
   h.store = {};
   h.http = {};
   h.dek = null;
@@ -113,6 +129,16 @@ beforeEach(() => {
 
 /** Index of the first recorded invoke/fetch containing `needle`, or -1. */
 const step = (needle: string) => h.seq.findIndex((s) => s.includes(needle));
+
+/** An existing vault only `opener` can decrypt; null for one no key opens. */
+function existingVaultOpenedBy(opener: number[] | null) {
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockImplementation(async (key: number[]) => {
+    // What vault.ts raises for a key that does not fit, as opposed to a file it
+    // could not read at all.
+    if (!opener || String(key) !== String(opener)) throw new VaultUnreadableError();
+  });
+}
 
 /** A legacy cloud account: the server answers login without wrapped secrets. */
 function legacyServerAccount() {
@@ -181,10 +207,7 @@ test("login opens a cloud vault encrypted with the dek, offline, without a serve
   h.store.account_id = "acc";
   h.store.mode = "server";
   h.store.wrapped_user_secrets = "WRAPPED"; // no email/server_url → no re-auth
-  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
-  h.verifyVaultKey.mockImplementation(async (key: number[]) => {
-    if (String(key) !== String([1, 1, 1])) throw new Error("Decryption failed — wrong key or corrupted file");
-  });
+  existingVaultOpenedBy([1, 1, 1]);
 
   await login("pw");
   expect(h.setVaultKey).toHaveBeenCalledWith([1, 1, 1]); // dek
@@ -198,10 +221,7 @@ test("login defers to the server when no cached key opens the existing vault", a
   h.store.email = "a@b.co";
   h.store.server_url = S;
   h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
-  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
-  h.verifyVaultKey.mockImplementation(async (key: number[]) => {
-    if (String(key) !== String([1, 1, 1])) throw new Error("Decryption failed — wrong key or corrupted file");
-  });
+  existingVaultOpenedBy([1, 1, 1]);
 
   await login("pw");
   expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]); // dek
@@ -215,10 +235,7 @@ test("login keeps the kek when the server's dek does not open this device's vaul
   h.store.email = "a@b.co";
   h.store.server_url = S;
   h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
-  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
-  h.verifyVaultKey.mockImplementation(async (key: number[]) => {
-    if (String(key) !== String([9, 9, 9])) throw new Error("Decryption failed — wrong key or corrupted file");
-  });
+  existingVaultOpenedBy([9, 9, 9]);
 
   await login("pw");
   expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek, not the server's dek
@@ -232,8 +249,7 @@ test("login reports an unreadable vault after the server proved the password", a
   h.store.email = "a@b.co";
   h.store.server_url = S;
   h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
-  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
-  h.verifyVaultKey.mockRejectedValue(new Error("Decryption failed — wrong key or corrupted file"));
+  existingVaultOpenedBy(null);
 
   await expect(login("pw")).rejects.toThrow(VaultUnreadableError);
   expect(h.setVaultKey).not.toHaveBeenCalledWith([1, 1, 1]); // never adopts the server's dek
@@ -242,10 +258,21 @@ test("login reports an unreadable vault after the server proved the password", a
 test("login rejects a password whose keys open nothing", async () => {
   h.store.account_id = "acc";
   h.store.mode = "local";
-  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
-  h.verifyVaultKey.mockRejectedValue(new Error("Decryption failed — wrong key or corrupted file"));
+  existingVaultOpenedBy(null);
 
   await expect(login("pw")).rejects.toThrow("common.error.incorrectPassword");
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+});
+
+// "Set aside and start fresh" is one click away from the wrong-password screen.
+// A file merely held open by a backup must never route there.
+test("login surfaces a vault the file system would not read, not a bad password", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "local";
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockRejectedValue(new Error("Read failed: permission denied"));
+
+  await expect(login("pw")).rejects.toThrow("permission denied");
   expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
@@ -263,15 +290,46 @@ test("login leaves the vault kek-encrypted when the migration upload fails", asy
   expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek still opens it
 });
 
-test("login re-encrypts the vault only after the server has stored the new key", async () => {
+// secrets_rekey needs an unlocked store and login installs the key lazily, so a
+// cold legacy login threw there — after the upload had already told the server
+// the account was migrated.
+test("login unlocks, uploads, then re-encrypts — the order a cold legacy migration needs", async () => {
   legacyServerAccount();
   h.http["/auth/wrapped-user-secrets"] = ok();
 
   await login("pw");
 
+  expect(step("secrets_unlock")).toBeGreaterThanOrEqual(0);
+  expect(step("/auth/wrapped-user-secrets")).toBeGreaterThan(step("secrets_unlock"));
   expect(step("secrets_rekey")).toBeGreaterThan(step("/auth/wrapped-user-secrets"));
   expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]); // dek
   expect(h.store.wrapped_user_secrets).toBe("WRAPPED_B64");
+});
+
+test("login does not tell the server the account is migrated when the vault will not open", async () => {
+  legacyServerAccount();
+  h.http["/auth/wrapped-user-secrets"] = ok();
+  h.unlockVault.mockRejectedValue(new VaultUnreadableError());
+
+  await login("pw");
+
+  expect(step("/auth/wrapped-user-secrets")).toBe(-1);
+  expect(h.seq).not.toContain("secrets_rekey");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek
+});
+
+// Once the upload lands the dek is the account's, recoverable from the server, so
+// the session must hold it for team crypto even if this file stayed kek-encrypted.
+test("login adopts the dek the server stored even when the local rekey fails", async () => {
+  legacyServerAccount();
+  h.http["/auth/wrapped-user-secrets"] = ok();
+  h.rekeyError = new Error("Write failed: no space left on device");
+
+  await login("pw");
+
+  expect(h.keysSet).toHaveBeenCalledWith(expect.objectContaining({ dek: [1, 1, 1] }));
+  expect(h.store.wrapped_user_secrets).toBe("WRAPPED_B64");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek still opens the file
 });
 
 // ─── signInToCloud ───────────────────────────────────────────────────────────
