@@ -4,6 +4,7 @@ import { setVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNe
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { appFetch, isAbortError } from "@/services/http";
+import { VaultUnreadableError } from "./vaultErrors";
 
 function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
@@ -296,7 +297,10 @@ export async function login(password: string, email?: string, serverUrl?: string
       const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
       useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
       // This device's secrets.enc may predate the split and still be kek-encrypted.
-      setVaultKey((await keyThatOpensVault(unwrapped.dek, kek)) ?? unwrapped.dek);
+      const opens = await keyThatOpensVault(unwrapped.dek, kek);
+      // Server login proved the password, so this is an unreadable file, not a bad one.
+      if (!opens) throw new VaultUnreadableError();
+      setVaultKey(opens);
       await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
     } else {
       // Legacy account — trigger one-time migration
@@ -344,7 +348,10 @@ export async function autoLogin(): Promise<boolean> {
       const { enc_key: kek } = await deriveKeys(password, accountId);
 
       // Local Tauri calls only — autoLogin stays instant offline.
-      encKey = (await passwordVaultKey(kek)) ?? kek;
+      const opened = await passwordVaultKey(kek);
+      // Decline rather than install a key already proven not to open the file.
+      if (!opened) return false;
+      encKey = opened;
 
       if (!mode) {
         // Heal missing mode for local accounts (e.g. Windows after mock-keychain loss)

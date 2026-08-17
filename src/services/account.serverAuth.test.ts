@@ -47,6 +47,7 @@ import {
   getMe,
   resendVerificationEmail,
 } from "./account";
+import { VaultUnreadableError } from "./vaultErrors";
 
 const S = "https://srv";
 const TOKENS = { jwt_token: "JWT", refresh_token: "RT" };
@@ -204,6 +205,20 @@ test("login keeps the kek when the server's dek does not open this device's vaul
   await login("pw");
   expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek, not the server's dek
   expect(h.keysSet).toHaveBeenCalledWith(expect.objectContaining({ dek: [1, 1, 1] }));
+});
+
+// Server login proves the password, so this is unreadable, not a bad password.
+test("login reports an unreadable vault after the server proved the password", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.email = "a@b.co";
+  h.store.server_url = S;
+  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockRejectedValue(new Error("Decryption failed — wrong key or corrupted file"));
+
+  await expect(login("pw")).rejects.toThrow(VaultUnreadableError);
+  expect(h.setVaultKey).not.toHaveBeenCalledWith([1, 1, 1]); // never adopts the server's dek
 });
 
 test("login rejects a password whose keys open nothing", async () => {

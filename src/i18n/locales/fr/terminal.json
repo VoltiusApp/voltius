@@ -261,6 +261,15 @@
         "modeIdentity": "Identité",
         "passwordPlaceholder": "Mot de passe",
         "keyPassphrasePlaceholder": "Phrase de passe de la clé (optionnel)"
+      },
+      "vaultError": {
+        "unreadableTitle": "Le coffre n'a pas pu être lu",
+        "unreadableBody": "Les identifiants de cet hôte sont enregistrés, mais le coffre local n'a pas pu être déchiffré avec la clé actuelle. Rien n'a été supprimé — déverrouillez le coffre pour vous connecter.",
+        "lockedTitle": "Le coffre est verrouillé",
+        "lockedBody": "Les identifiants de cet hôte sont dans le coffre, qui est verrouillé. Déverrouillez-le pour vous connecter.",
+        "unlock": "Déverrouiller le coffre",
+        "retry": "Réessayer",
+        "dismiss": "Fermer l'onglet"
       }
     },
     "statusBar": {

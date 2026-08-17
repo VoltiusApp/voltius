@@ -599,7 +599,7 @@ pub fn run() {
             storage::secrets::secrets_get,
             storage::secrets::secrets_set,
             storage::secrets::secrets_delete,
-            storage::secrets::secrets_wipe,
+            storage::secrets::secrets_quarantine,
             commands::sync::backup_export,
             commands::sync::backup_import,
             commands::sync::backup_decrypt,

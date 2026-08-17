@@ -69,6 +69,7 @@
       "invalidSessionKey": "La clé de session doit faire 32 octets",
       "sessionExpired": "Session expirée — veuillez vous reconnecter",
       "vaultLocked": "Le coffre est verrouillé",
+      "vaultUnreadable": "Le coffre de cet appareil ne peut pas être ouvert avec votre clé",
       "rateLimited": "Trop de requêtes — réessayez dans {{seconds}}s",
       "serverError": "Erreur serveur : {{status}}",
       "connectionNotFound": "Connexion introuvable",
