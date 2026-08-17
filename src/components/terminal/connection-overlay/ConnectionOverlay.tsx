@@ -5,6 +5,7 @@ import { HostKeyConflictPanel } from "./HostKeyConflictPanel";
 import { PassphrasePromptPanel } from "./PassphrasePromptPanel";
 import { AuthPromptPanel } from "./AuthPromptPanel";
 import { UsernamePromptPanel } from "./UsernamePromptPanel";
+import { VaultErrorPanel } from "./VaultErrorPanel";
 import { useConnectionSteps, useHostKeyConflict } from "./hooks";
 import type { ConnectionOverlayProps } from "./types";
 import { isMissingUsernameError, isNoAuthError, isPassphraseError } from "./utils";
@@ -13,6 +14,7 @@ export default function ConnectionOverlay({
   sessionId,
   status,
   errorMessage,
+  errorCode,
   name,
   subtitle,
   icon,
@@ -38,10 +40,14 @@ export default function ConnectionOverlay({
   const isError = status === "error";
   const isDisconnected = status === "disconnected";
   const isConnecting = status === "connecting";
-  const showPassphrasePrompt = isError && isPassphraseError(errorMessage) && !!onRetryWithPassphrase;
-  const showUsernamePrompt = isError && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
-  const showAuthPrompt = isError && isNoAuthError(errorMessage) && !!onRetryWithAuth;
-  const showSpecialPanel = (conflict && !isError) || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
+  // A vault failure outranks every message-based prompt: the credentials are stored,
+  // they just could not be read, so asking for them again is the wrong question.
+  const showVaultError = isError && !!errorCode;
+  const showPassphrasePrompt = isError && !showVaultError && isPassphraseError(errorMessage) && !!onRetryWithPassphrase;
+  const showUsernamePrompt = isError && !showVaultError && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
+  const showAuthPrompt = isError && !showVaultError && isNoAuthError(errorMessage) && !!onRetryWithAuth;
+  const showSpecialPanel =
+    (conflict && !isError) || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
 
   return (
     <div className={className ?? "absolute inset-0 z-20 flex items-center justify-center bg-(--t-bg-terminal)"}>
@@ -56,6 +62,8 @@ export default function ConnectionOverlay({
 
         {conflict && !isError ? (
           <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
+        ) : showVaultError ? (
+          <VaultErrorPanel code={errorCode} onRetry={onRetry} onCancel={onDismiss} />
         ) : showPassphrasePrompt ? (
           <PassphrasePromptPanel
             onSubmit={onRetryWithPassphrase}

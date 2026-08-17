@@ -23,6 +23,7 @@ import { serialConnect, serialDisconnect } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/ephemeralCredentials";
 import { storeSecret, getSecret } from "@/services/vault";
+import { vaultErrorCode } from "@/services/vaultErrors";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { useIdentityStore } from "@/stores/identityStore";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
@@ -365,10 +366,11 @@ function markSessionError(
   { onlyIfConnecting = false }: { onlyIfConnecting?: boolean } = {},
 ) {
   const msg = err instanceof Error ? err.message : String(err);
+  const errorCode = vaultErrorCode(err) ?? undefined;
   set((s) => ({
     sessions: s.sessions.map((sess) =>
       sess.id === sessionId && (!onlyIfConnecting || sess.status === "connecting")
-        ? { ...sess, status: "error" as const, errorMessage: msg }
+        ? { ...sess, status: "error" as const, errorMessage: msg, errorCode }
         : sess,
     ),
   }));
@@ -378,7 +380,9 @@ function markSessionError(
 function markSessionConnecting(set: SessionSetter, sessionId: string) {
   set((s) => ({
     sessions: s.sessions.map((sess) =>
-      sess.id === sessionId ? { ...sess, status: "connecting" as const, errorMessage: undefined } : sess,
+      sess.id === sessionId
+        ? { ...sess, status: "connecting" as const, errorMessage: undefined, errorCode: undefined }
+        : sess,
     ),
   }));
 }
@@ -855,7 +859,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((s) => ({
       sessions: s.sessions.map((sess) =>
         sess.id === sessionId
-          ? { ...sess, status: "connected" as const, errorMessage: undefined, everConnected: true }
+          ? { ...sess, status: "connected" as const, errorMessage: undefined, errorCode: undefined, everConnected: true }
           : sess,
       ),
     })),
@@ -967,7 +971,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       void runHostCommand(connection, "pre", sessionId, "ssh");
       return { ok: true };
     } catch (err) {
-      return { ok: false, errorMessage: err instanceof Error ? err.message : String(err) };
+      return {
+        ok: false,
+        errorMessage: err instanceof Error ? err.message : String(err),
+        errorCode: vaultErrorCode(err) ?? undefined,
+      };
     }
   },
 

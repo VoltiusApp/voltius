@@ -17,8 +17,12 @@ vi.mock("@/services/ssh", () => ({
   sshDetectDistro: vi.fn(async () => null),
   sshSendInput: vi.fn(async () => {}),
 }));
+const h = vi.hoisted(() => ({
+  resolveConnectionCredentials: vi.fn(async () => ({ username: "root", password: "pw" }) as unknown),
+}));
+
 vi.mock("@/services/credentials", () => ({
-  resolveConnectionCredentials: vi.fn(async () => ({ username: "root", password: "pw" })),
+  resolveConnectionCredentials: h.resolveConnectionCredentials,
   resolveJumpHosts: vi.fn(async () => []),
 }));
 vi.mock("@/stores/connectionStore", () => ({
@@ -39,6 +43,7 @@ vi.mock("@/services/auditReporter", () => ({ reportAuditClientEvent: vi.fn() }))
 vi.mock("@/services/auditContextResolver", () => ({ auditContextForVaultId: vi.fn(() => ({})) }));
 
 import { useSessionStore } from "./sessionStore";
+import { VaultUnreadableError } from "@/services/vaultErrors";
 
 const session = (over: Partial<TerminalSession> = {}) =>
   ({
@@ -58,6 +63,7 @@ const current = () => useSessionStore.getState().sessions[0];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.resolveConnectionCredentials.mockResolvedValue({ username: "root", password: "pw" });
   useSessionStore.setState({ sessions: [], activeSessionId: null });
 });
 
@@ -84,6 +90,40 @@ describe("session error state", () => {
     useSessionStore.getState().markConnecting("s1");
 
     expect(current()).toBe(before);
+  });
+
+  // Without a code the overlay can only read the message, and the message is
+  // translated — so it would match in English and prompt for auth in every other
+  // language, which is how a vault failure came to look like a missing password.
+  test("a connect blocked by an unreadable vault records the vault code", async () => {
+    h.resolveConnectionCredentials.mockRejectedValue(new VaultUnreadableError());
+
+    await expect(useSessionStore.getState().connect("c1")).rejects.toThrow(VaultUnreadableError);
+
+    const failed = useSessionStore.getState().sessions[0];
+    expect(failed.status).toBe("error");
+    expect(failed.errorCode).toBe("vault-unreadable");
+  });
+
+  test("markConnecting clears a stale vault code along with the message", () => {
+    seed({ status: "error", errorMessage: "boom", errorCode: "vault-unreadable" });
+    useSessionStore.getState().markConnecting("s1");
+
+    expect(current().errorCode).toBeUndefined();
+  });
+
+  test("markConnected clears a stale vault code", () => {
+    seed({ status: "error", errorMessage: "boom", errorCode: "vault-unreadable" });
+    useSessionStore.getState().markConnected("s1");
+
+    expect(current().errorCode).toBeUndefined();
+  });
+
+  test("an ordinary failure records no code", () => {
+    seed();
+    useSessionStore.getState().markError("s1", "Connection refused");
+
+    expect(current().errorCode).toBeUndefined();
   });
 
   test("markConnecting leaves other sessions untouched", () => {

@@ -117,6 +117,7 @@ export function SessionConnectionOverlay({
         sessionId={session.id}
         status={session.status}
         errorMessage={session.errorMessage}
+        errorCode={session.errorCode}
         name={session.connectionName}
         subtitle={subtitle}
         icon="lucide:ethernet-port"
@@ -136,6 +137,7 @@ export function SessionConnectionOverlay({
       sessionId={session.id}
       status={session.status}
       errorMessage={session.errorMessage}
+      errorCode={session.errorCode}
       name={session.connectionName}
       subtitle={subtitle}
       icon={icon}

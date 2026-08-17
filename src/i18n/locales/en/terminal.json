@@ -259,6 +259,15 @@
         "modeIdentity": "Identity",
         "passwordPlaceholder": "Password",
         "keyPassphrasePlaceholder": "Key passphrase (optional)"
+      },
+      "vaultError": {
+        "unreadableTitle": "Vault could not be read",
+        "unreadableBody": "This host's credentials are stored, but the local vault could not be decrypted with the current key. Nothing has been deleted — unlock the vault to connect.",
+        "lockedTitle": "Vault is locked",
+        "lockedBody": "This host's credentials are stored in the vault, which is locked. Unlock it to connect.",
+        "unlock": "Unlock vault",
+        "retry": "Try again",
+        "dismiss": "Close tab"
       }
     },
     "statusBar": {

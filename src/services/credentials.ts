@@ -65,24 +65,31 @@ export async function resolveJumpHosts(conn: Connection): Promise<ResolvedJumpHo
       if (jh.identity_id) {
         const identity = await findIdentity(jh.identity_id);
         if (identity) {
-          const pwd = (await getSecret(`identity:${jh.identity_id}:password`).catch(() => null)) ?? undefined;
+          const pwd = (await getSecret(`identity:${jh.identity_id}:password`)) ?? undefined;
           const pk = identity.key_id
-            ? (await getSecret(`key:${identity.key_id}:private`).catch(() => null)) ?? undefined
+            ? (await getSecret(`key:${identity.key_id}:private`)) ?? undefined
             : undefined;
           const pass = identity.key_id
-            ? (await getSecret(`key:${identity.key_id}:passphrase`).catch(() => null)) ?? undefined
+            ? (await getSecret(`key:${identity.key_id}:passphrase`)) ?? undefined
             : undefined;
           return { host: jh.host, port: jh.port, username: identity.username, password: pwd, privateKey: pk, passphrase: pass };
         }
       }
-      const pwd = (await getSecret(`password:${jh.connection_id}`).catch(() => null)) ?? undefined;
-      const pk = (await getSecret(`key:${jh.connection_id}`).catch(() => null)) ?? undefined;
+      const pwd = (await getSecret(`password:${jh.connection_id}`)) ?? undefined;
+      const pk = (await getSecret(`key:${jh.connection_id}`)) ?? undefined;
       return { host: jh.host, port: jh.port, username: jh.username ?? "", password: pwd, privateKey: pk };
     })
   );
 }
 
+/**
+ * Credential reads here do NOT swallow vault failures. `getSecret` returns null for a
+ * secret that was never stored, and throws when the vault is locked or cannot be
+ * decrypted; connecting with no credentials because the vault is unreadable produced
+ * "No authentication method provided" and an auth prompt asking for a password the app
+ * was already holding. Callers must let a VaultError reach the user.
+ */
 export async function resolveConnectionCredentials(conn: Connection): Promise<ResolvedCredentials> {
-  const resolved = await resolveCredentials(conn, findIdentity, (key) => getSecret(key).catch(() => null));
+  const resolved = await resolveCredentials(conn, findIdentity, getSecret);
   return withEphemeralCredentials(conn.id, resolved);
 }

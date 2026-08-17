@@ -1,3 +1,18 @@
+import { isMissingUsernameError, isNoAuthError, isPassphraseError } from "@/components/terminal/connection-overlay/utils";
+import type { VaultErrorCode } from "@/services/vaultErrors";
+
+/**
+ * A failure retrying cannot fix. Either the user must supply something
+ * (passphrase, username, auth method) — the overlay prompts — or the vault itself
+ * cannot be read, which no amount of waiting changes and every attempt re-runs.
+ * The vault case is matched on its code, never its message: that message is
+ * translated, so text matching would hold only in English.
+ */
+export function stopsRetrying(msg?: string, code?: VaultErrorCode): boolean {
+  if (code) return true;
+  return isPassphraseError(msg) || isNoAuthError(msg) || isMissingUsernameError(msg);
+}
+
 export function backoffDelays(): number[] {
   const delays = [1500, 3000, 5000, 8000];
   let total = delays.reduce((a, b) => a + b, 0);
@@ -19,8 +34,7 @@ export interface BackoffStore {
   markConnected(sessionId: string): void;
   markError(sessionId: string, message: string): void;
   /** Silent connect attempt: mutates no visible status, returns the outcome. */
-  attempt(sessionId: string): Promise<{ ok: boolean; errorMessage?: string }>;
-  needsInteractiveInput(msg?: string): boolean;
+  attempt(sessionId: string): Promise<{ ok: boolean; errorMessage?: string; errorCode?: VaultErrorCode }>;
   /** The multiplexer session is gone on the host (attach-only probe failed):
    * tear the session down — retrying can never succeed. */
   sessionEnded(sessionId: string): void;
@@ -55,7 +69,7 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
     // Recovered through another path (e.g. a manual retry) — nothing to do.
     if (store.status(sessionId) === "connected") return true;
 
-    const { ok, errorMessage } = await store.attempt(sessionId);
+    const { ok, errorMessage, errorCode } = await store.attempt(sessionId);
     if (superseded()) return false;
     if (!store.exists(sessionId)) return false;
     if (ok) {
@@ -67,8 +81,8 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
       store.sessionEnded(sessionId);
       return false;
     }
-    // Interactive auth needed (passphrase/username/key): surface the prompt.
-    if (store.needsInteractiveInput(errorMessage)) {
+    // Nothing a retry can fix (auth input needed, or an unreadable vault): surface it.
+    if (stopsRetrying(errorMessage, errorCode)) {
       store.markError(sessionId, errorMessage ?? "Authentication required");
       return false;
     }
