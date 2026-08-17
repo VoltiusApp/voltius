@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   intentKey,
   isConfirmIntent,
+  isSilentIntent,
   type ConfirmIntent,
   type DeepLinkIntent,
   type SilentIntent,
@@ -71,23 +72,42 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
   },
 }));
 
-function drain(): void {
-  const { ready, queue, prompt } = useDeepLinkStore.getState();
-  if (!ready) return;
+// A handler running inside drain() may enqueue, which re-enters drain(). The
+// nested call returns immediately and the outer loop, which re-reads state each
+// pass, picks the new intent up.
+let draining = false;
 
-  const rest: DeepLinkIntent[] = [];
-  let nextPrompt = prompt;
-  for (const intent of queue) {
-    if (!isConfirmIntent(intent)) {
-      const key = intentKey(intent);
-      const now = Date.now();
-      if (lastSilent?.key === key && now - lastSilent.at < SILENT_ECHO_WINDOW_MS) continue;
-      lastSilent = { key, at: now };
-      silentHandler?.(intent);
-      continue;
+function drain(): void {
+  if (draining) return;
+  draining = true;
+  try {
+    for (;;) {
+      const { ready, queue, prompt } = useDeepLinkStore.getState();
+      if (!ready) return;
+      // A confirm intent needs a free prompt slot; everything else is handled
+      // where it sits, so a silent link never waits behind an open sheet.
+      const intent = queue.find((queued) => !prompt || !isConfirmIntent(queued));
+      if (!intent) return;
+      useDeepLinkStore.setState({ queue: queue.filter((queued) => queued !== intent) });
+
+      if (isSilentIntent(intent)) {
+        dispatchSilent(intent);
+        continue;
+      }
+      // Unknown trust class: drop it, never act on it.
+      if (!isConfirmIntent(intent)) continue;
+      useDeepLinkStore.setState({ prompt: intent });
     }
-    if (!nextPrompt) nextPrompt = intent;
-    else rest.push(intent);
+  } finally {
+    draining = false;
   }
-  useDeepLinkStore.setState({ queue: rest, prompt: nextPrompt });
+}
+
+function dispatchSilent(intent: SilentIntent): void {
+  if (!silentHandler) return;
+  const key = intentKey(intent);
+  const now = Date.now();
+  if (lastSilent?.key === key && now - lastSilent.at < SILENT_ECHO_WINDOW_MS) return;
+  lastSilent = { key, at: now };
+  silentHandler(intent);
 }

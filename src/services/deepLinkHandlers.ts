@@ -1,10 +1,9 @@
-import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
-import { refreshSession } from "@/services/account";
+import { refreshVerificationState } from "@/services/account";
+import { getJwt } from "@/services/authTokens";
 import { getSavedAccounts, switchToAccount, type SavedAccount } from "@/services/savedAccounts";
 import type { SilentIntent, VerifiedIntent } from "@/services/deepLinkUrl";
 import { useNotificationStore } from "@/stores/notificationStore";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { parseJwtPayload } from "@/utils/emailVerification";
 import type { ToastSeverity } from "@/plugins/api";
 
@@ -20,7 +19,9 @@ function toast(
     type: "toast",
     message,
     severity,
-    duration: severity === "error" ? 5000 : 3500,
+    // An action is the only affordance for its branch, and a history row keeps
+    // none, so an actionable toast stays until dismissed.
+    duration: action ? 0 : severity === "error" ? 5000 : 3500,
     action,
   });
 }
@@ -31,29 +32,31 @@ function jwtSubject(jwt: string | null): string | null {
 }
 
 async function handleVerified(intent: VerifiedIntent): Promise<void> {
-  const activeJwt = await invoke<string | null>("keychain_get", { key: "jwt" }).catch(() => null);
+  const activeJwt = await getJwt().catch(() => null);
   if (jwtSubject(activeJwt) === intent.userId) {
     try {
-      await refreshSession();
-      await useSubscriptionStore.getState().load();
-      toast(i18n.t("notifications.emailVerification.toast.verified"), "success");
+      const verified = await refreshVerificationState();
+      if (verified) toast(i18n.t("notifications.emailVerification.toast.verified"), "success");
+      else toast(i18n.t("notifications.emailVerification.toast.verifiedPending"), "warning");
     } catch {
       toast(i18n.t("notifications.emailVerification.toast.refreshFailed"), "error");
     }
     return;
   }
 
-  const saved: SavedAccount[] = await getSavedAccounts().catch(() => []);
+  const saved: SavedAccount[] = await getSavedAccounts();
   const match = saved.find((account) => jwtSubject(account.jwt) === intent.userId);
   if (!match) {
-    // Also the not-signed-in case: the splash screen resolves whether or not a
-    // session exists, so a link can land while the auth screen is up.
+    // Not the signed-out case: a link arriving at the auth screen is queued and
+    // fires after sign-in, so this user is genuinely unknown to this device.
     toast(i18n.t("notifications.emailVerification.toast.verifiedUnknown"), "success");
     return;
   }
 
   toast(
-    i18n.t("notifications.emailVerification.toast.verifiedOther", { email: match.email ?? "" }),
+    match.email
+      ? i18n.t("notifications.emailVerification.toast.verifiedOther", { email: match.email })
+      : i18n.t("notifications.emailVerification.toast.verified"),
     "success",
     {
       label: i18n.t("notifications.emailVerification.toast.verifiedSwitch"),
@@ -72,5 +75,11 @@ export function handleSilentIntent(intent: SilentIntent): void {
     case "verified":
       void handleVerified(intent);
       return;
+    // On the route rather than the intent: TypeScript only narrows the object
+    // itself to `never` once the union has two or more members.
+    default: {
+      const _exhaustive: never = intent.route;
+      void _exhaustive;
+    }
   }
 }

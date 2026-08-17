@@ -26,19 +26,16 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (cmd: string, args: { key: string }) => invokeImpl(cmd, args),
 }));
 
-const refreshSession = vi.fn();
-vi.mock("@/services/account", () => ({ refreshSession: () => refreshSession() }));
+const refreshVerificationState = vi.fn();
+vi.mock("@/services/account", () => ({
+  refreshVerificationState: () => refreshVerificationState(),
+}));
 
 const getSavedAccounts = vi.fn();
 const switchToAccount = vi.fn();
 vi.mock("@/services/savedAccounts", () => ({
   getSavedAccounts: () => getSavedAccounts(),
   switchToAccount: (a: unknown) => switchToAccount(a),
-}));
-
-const load = vi.fn();
-vi.mock("@/stores/subscriptionStore", () => ({
-  useSubscriptionStore: { getState: () => ({ load }) },
 }));
 
 const addToast = vi.fn();
@@ -52,25 +49,34 @@ beforeEach(() => {
   for (const key of Object.keys(keychain)) delete keychain[key];
   invokeImpl = (cmd, args) =>
     Promise.resolve(cmd === "keychain_get" ? (keychain[args.key] ?? null) : null);
-  refreshSession.mockReset().mockResolvedValue(undefined);
-  load.mockReset().mockResolvedValue(undefined);
+  refreshVerificationState.mockReset().mockResolvedValue(true);
   getSavedAccounts.mockReset().mockResolvedValue([]);
   switchToAccount.mockReset();
   addToast.mockReset();
 });
 
-test("a link for the active account refreshes the session and reloads billing", async () => {
+test("a link for the active account refreshes the verification state once", async () => {
   keychain.jwt = jwtFor(USER);
   handleSilentIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
-  expect(refreshSession).toHaveBeenCalledTimes(1);
-  expect(load).toHaveBeenCalledTimes(1);
+  expect(refreshVerificationState).toHaveBeenCalledTimes(1);
   expect(addToast.mock.calls[0][0].severity).toBe("success");
+  expect(addToast.mock.calls[0][0].message).toBe("notifications.emailVerification.toast.verified");
+});
+
+test("a refresh that leaves the account unverified reports pending, not success", async () => {
+  keychain.jwt = jwtFor(USER);
+  refreshVerificationState.mockResolvedValue(false);
+  handleSilentIntent({ route: "verified", userId: USER });
+  await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
+  const entry = addToast.mock.calls[0][0];
+  expect(entry.message).toBe("notifications.emailVerification.toast.verifiedPending");
+  expect(entry.severity).toBe("warning");
 });
 
 test("a failed refresh reports an error and does not throw", async () => {
   keychain.jwt = jwtFor(USER);
-  refreshSession.mockRejectedValue(new Error("offline"));
+  refreshVerificationState.mockRejectedValue(new Error("offline"));
   handleSilentIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
   expect(addToast.mock.calls[0][0].severity).toBe("error");
@@ -82,11 +88,12 @@ test("a link for a saved but inactive account offers a switch instead of acting"
   getSavedAccounts.mockResolvedValue([match]);
   handleSilentIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
-  expect(refreshSession).not.toHaveBeenCalled();
+  expect(refreshVerificationState).not.toHaveBeenCalled();
   const entry = addToast.mock.calls[0][0];
   expect(entry.message).toContain("verifiedOther");
   expect(entry.message).toContain("other@example.com");
   expect(entry.action).toBeDefined();
+  expect(entry.duration).toBe(0); // the action is the only affordance: never auto-dismiss
   entry.action.onClick();
   expect(switchToAccount).toHaveBeenCalledWith(match);
 });
@@ -94,7 +101,7 @@ test("a link for a saved but inactive account offers a switch instead of acting"
 test("a link matching no local account only toasts", async () => {
   handleSilentIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
-  expect(refreshSession).not.toHaveBeenCalled();
+  expect(refreshVerificationState).not.toHaveBeenCalled();
   expect(switchToAccount).not.toHaveBeenCalled();
   expect(addToast.mock.calls[0][0].action).toBeUndefined();
 });
@@ -104,13 +111,13 @@ test("a malformed stored jwt is skipped rather than throwing", async () => {
   getSavedAccounts.mockResolvedValue([{ account_id: "a", mode: "server", jwt: "also.not/valid" }]);
   handleSilentIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
-  expect(refreshSession).not.toHaveBeenCalled();
+  expect(refreshVerificationState).not.toHaveBeenCalled();
 });
 
 test("a rejecting keychain read falls through to the no-match toast rather than rejecting", async () => {
   invokeImpl = () => Promise.reject(new Error("keychain unavailable"));
   handleSilentIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
-  expect(refreshSession).not.toHaveBeenCalled();
+  expect(refreshVerificationState).not.toHaveBeenCalled();
   expect(addToast).toHaveBeenCalledTimes(1);
 });

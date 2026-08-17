@@ -1,6 +1,7 @@
 import { test, expect, beforeEach, vi } from "vitest";
 import { handleDeepLink } from "./deepLink";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
+import type { DeepLinkIntent } from "@/services/deepLinkUrl";
 
 const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
 const OTHER = "11111111-2222-3333-4444-555555555555";
@@ -149,6 +150,27 @@ test("the same silent link delivered again after the echo window reaches the han
   } finally {
     vi.useRealTimers();
   }
+});
+
+test("a link enqueued by a silent handler survives the drain that ran it", () => {
+  useDeepLinkStore.getState().setSilentHandler(() => handleDeepLink(link(SESSION)));
+  useDeepLinkStore.getState().setReady(true);
+  handleDeepLink(`voltius://verified?u=${USER}`);
+  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
+  expect(useDeepLinkStore.getState().queue).toHaveLength(0);
+});
+
+// The cast is the point: a future route whose trust class the store does not
+// recognise must be dropped, not fall through to the silent handler.
+test("an intent of an unknown trust class is dropped rather than acted on", () => {
+  const seen: string[] = [];
+  useDeepLinkStore.getState().setSilentHandler((i) => seen.push(i.userId));
+  useDeepLinkStore.getState().setReady(true);
+  useDeepLinkStore.getState().enqueue({ route: "future" } as unknown as DeepLinkIntent);
+  const s = useDeepLinkStore.getState();
+  expect(seen).toEqual([]);
+  expect(s.prompt).toBeNull();
+  expect(s.queue).toHaveLength(0);
 });
 
 test("the queue drops the oldest beyond its cap", () => {
