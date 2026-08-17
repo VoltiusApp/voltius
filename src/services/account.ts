@@ -723,9 +723,6 @@ async function migrateToWrappedUserSecrets(
     const secrets = await generateUserSecrets();
     const dek = secrets.dek;
 
-    // Re-encrypt secrets.enc: old key was kek (legacy), new key is dek
-    await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
-
     // Build user_secrets with legacy X25519 private key (preserves public key on server)
     const wrapped_user_secrets = await wrapUserSecrets(kek, dek, legacyX25519Private);
 
@@ -736,10 +733,16 @@ async function migrateToWrappedUserSecrets(
     });
     if (!res.ok) {
       console.warn("Migration upload failed:", res.status);
-      // Don't throw — fall back to using kek as vault key
+      // secrets.enc is still kek-encrypted, so the legacy key remains correct.
       setVaultKey(kek);
       return;
     }
+
+    // Only now can the dek be recovered from the server, so only now may the file
+    // depend on it. Rekeying first left an upload failure with a vault whose key
+    // existed nowhere. A failure here degrades to a pre-split device, which login
+    // already handles by keeping the kek.
+    await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
 
     useVaultKeysStore.getState().set({ dek, x25519Private: legacyX25519Private, kek });
     setVaultKey(dek);

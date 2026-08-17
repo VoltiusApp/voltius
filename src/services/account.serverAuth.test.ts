@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   dek: null as number[] | null,
   x25519: null as number[] | null,
   emailVerified: false,
+  seq: [] as string[],
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -54,7 +55,10 @@ const TOKENS = { jwt_token: "JWT", refresh_token: "RT" };
 
 function routeInvoke() {
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
+    h.seq.push(cmd);
     switch (cmd) {
+      case "derive_x25519_keypair":
+        return { public_key: "PUB", private_key: btoa("legacy-x25519-private") };
       case "keychain_get":
         return h.store[args.key as string] ?? null;
       case "keychain_set":
@@ -82,6 +86,7 @@ function routeInvoke() {
 // appFetch routed by the endpoint path; each test sets h.http[<path>] as needed.
 function routeHttp() {
   h.appFetch.mockImplementation(async (url: string) => {
+    h.seq.push(String(url));
     const path = Object.keys(h.http).find((p) => String(url).includes(p));
     const r = path ? h.http[path] : { ok: true, status: 200, body: {} };
     return { ok: r.ok, status: r.status, json: async () => r.body ?? {} };
@@ -101,9 +106,22 @@ beforeEach(() => {
   h.dek = null;
   h.x25519 = null;
   h.emailVerified = false;
+  h.seq = [];
   routeInvoke();
   routeHttp();
 });
+
+/** Index of the first recorded invoke/fetch containing `needle`, or -1. */
+const step = (needle: string) => h.seq.findIndex((s) => s.includes(needle));
+
+/** A legacy cloud account: the server answers login without wrapped secrets. */
+function legacyServerAccount() {
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.email = "a@b.co";
+  h.store.server_url = S;
+  h.http["/auth/login"] = ok(TOKENS);
+}
 
 // ─── createServerAccount ─────────────────────────────────────────────────────
 
@@ -229,6 +247,31 @@ test("login rejects a password whose keys open nothing", async () => {
 
   await expect(login("pw")).rejects.toThrow("common.error.incorrectPassword");
   expect(h.setVaultKey).not.toHaveBeenCalled();
+});
+
+// ─── legacy account migration ────────────────────────────────────────────────
+
+// The dek exists only in memory until the server stores it. Re-encrypting first
+// meant a failed upload left secrets.enc keyed to a dek that existed nowhere.
+test("login leaves the vault kek-encrypted when the migration upload fails", async () => {
+  legacyServerAccount();
+  h.http["/auth/wrapped-user-secrets"] = err(500);
+
+  await login("pw");
+
+  expect(h.seq).not.toContain("secrets_rekey");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([9, 9, 9]); // kek still opens it
+});
+
+test("login re-encrypts the vault only after the server has stored the new key", async () => {
+  legacyServerAccount();
+  h.http["/auth/wrapped-user-secrets"] = ok();
+
+  await login("pw");
+
+  expect(step("secrets_rekey")).toBeGreaterThan(step("/auth/wrapped-user-secrets"));
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]); // dek
+  expect(h.store.wrapped_user_secrets).toBe("WRAPPED_B64");
 });
 
 // ─── signInToCloud ───────────────────────────────────────────────────────────
