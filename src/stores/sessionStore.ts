@@ -23,7 +23,7 @@ import { serialConnect, serialDisconnect } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/ephemeralCredentials";
 import { storeSecret, getSecret } from "@/services/vault";
-import { vaultErrorCode } from "@/services/vaultErrors";
+import { vaultErrorCode, type VaultErrorCode } from "@/services/vaultErrors";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { useIdentityStore } from "@/stores/identityStore";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
@@ -69,12 +69,12 @@ interface SessionStore {
   /** Silent reconnect for the auto-backoff loop: performs the same connect as
    * reconnect() but mutates no visible status, returning the outcome so the loop
    * can hold a single steady "reconnecting" state and decide what to surface. */
-  reconnectAttempt: (sessionId: string) => Promise<{ ok: boolean; errorMessage?: string }>;
+  reconnectAttempt: (sessionId: string) => Promise<{ ok: boolean; errorMessage?: string; errorCode?: VaultErrorCode }>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
   restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
   markConnected: (sessionId: string) => void;
-  markError: (sessionId: string, message: string) => void;
+  markError: (sessionId: string, message: string, code?: VaultErrorCode) => void;
 }
 
 type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
@@ -358,15 +358,17 @@ async function connectSerialSession(
  * Mark a session failed. `err` may be an Error or an already-built message.
  * `onlyIfConnecting` leaves a session alone once something else has already
  * settled its status, for callers that only need to cover an earlier failure.
+ * `code` is for callers holding a message rather than the original error — the
+ * reconnect loop reports a string, and without this the vault code was lost.
  */
 function markSessionError(
   set: SessionSetter,
   sessionId: string,
   err: unknown,
-  { onlyIfConnecting = false }: { onlyIfConnecting?: boolean } = {},
+  { onlyIfConnecting = false, code }: { onlyIfConnecting?: boolean; code?: VaultErrorCode } = {},
 ) {
   const msg = err instanceof Error ? err.message : String(err);
-  const errorCode = vaultErrorCode(err) ?? undefined;
+  const errorCode = code ?? vaultErrorCode(err) ?? undefined;
   set((s) => ({
     sessions: s.sessions.map((sess) =>
       sess.id === sessionId && (!onlyIfConnecting || sess.status === "connecting")
@@ -864,7 +866,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       ),
     })),
 
-  markError: (sessionId, message) => markSessionError(set, sessionId, message),
+  markError: (sessionId, message, code) => markSessionError(set, sessionId, message, { code }),
 
   reconnect: async (sessionId, options) => {
     const session = get().sessions.find((s) => s.id === sessionId);

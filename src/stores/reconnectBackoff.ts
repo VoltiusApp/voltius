@@ -6,7 +6,7 @@ const liveStore: BackoffStore = {
   exists: (id) => useSessionStore.getState().sessions.some((s) => s.id === id),
   markReconnecting: (id) => useSessionStore.getState().markConnecting(id),
   markConnected: (id) => useSessionStore.getState().markConnected(id),
-  markError: (id, msg) => useSessionStore.getState().markError(id, msg),
+  markError: (id, msg, code) => useSessionStore.getState().markError(id, msg, code),
   attempt: (id) => useSessionStore.getState().reconnectAttempt(id),
   sessionEnded: (id) => {
     void import("@/services/crossDeviceSessions").then(({ sessionEnded }) => sessionEnded(id));

@@ -29,19 +29,20 @@ function makeStore(opts: {
   status: () => SessionStatus;
   exists?: () => boolean;
   attempt?: Attempt;
-}): BackoffStore & { attempts: number; reconnecting: number; connected: number; errors: string[]; ended: string[] } {
+}): BackoffStore & { attempts: number; reconnecting: number; connected: number; errors: string[]; codes: (VaultErrorCode | undefined)[]; ended: string[] } {
   const userAttempt = opts.attempt;
   const s = {
     attempts: 0,
     reconnecting: 0,
     connected: 0,
     errors: [] as string[],
+    codes: [] as (VaultErrorCode | undefined)[],
     ended: [] as string[],
     status: opts.status,
     exists: () => (opts.exists ? opts.exists() : true),
     markReconnecting: () => { s.reconnecting++; },
     markConnected: () => { s.connected++; },
-    markError: (_id: string, msg: string) => { s.errors.push(msg); },
+    markError: (_id: string, msg: string, code?: VaultErrorCode) => { s.errors.push(msg); s.codes.push(code); },
     attempt: async () => {
       s.attempts++;
       return userAttempt ? userAttempt() : { ok: false };
@@ -110,6 +111,9 @@ await (async () => {
   assertEqual(ok, false, "stops when the vault cannot be read");
   assertEqual(store.attempts, 1, "attempts exactly once before bailing on a vault error");
   assertEqual(store.errors, ["Coffre illisible"], "surfaces the vault error so its panel renders");
+  // Dropping the code here sent the reconnect path to the generic error panel even
+  // though the loop knew the vault was the cause.
+  assertEqual(store.codes, ["vault-unreadable"], "carries the code, not just the message");
 })();
 
 await (async () => {

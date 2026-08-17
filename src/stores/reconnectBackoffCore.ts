@@ -32,7 +32,7 @@ export interface BackoffStore {
    * so the overlay shows the normal connection steps (TCP step spinning). */
   markReconnecting(sessionId: string): void;
   markConnected(sessionId: string): void;
-  markError(sessionId: string, message: string): void;
+  markError(sessionId: string, message: string, code?: VaultErrorCode): void;
   /** Silent connect attempt: mutates no visible status, returns the outcome. */
   attempt(sessionId: string): Promise<{ ok: boolean; errorMessage?: string; errorCode?: VaultErrorCode }>;
   /** The multiplexer session is gone on the host (attach-only probe failed):
@@ -82,8 +82,10 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
       return false;
     }
     // Nothing a retry can fix (auth input needed, or an unreadable vault): surface it.
+    // The code has to travel with the message — without it the overlay falls back to
+    // the generic error panel and the vault's own recovery offer never appears.
     if (stopsRetrying(errorMessage, errorCode)) {
-      store.markError(sessionId, errorMessage ?? "Authentication required");
+      store.markError(sessionId, errorMessage ?? "Authentication required", errorCode);
       return false;
     }
     // Transient failure (host unreachable, refused): stay reconnecting, retry.
