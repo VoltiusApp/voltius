@@ -159,6 +159,8 @@
       "yourTeamsLabel": "Your teams",
       "elsewhereLabel": "Elsewhere on Voltius",
       "notInYourTeams": "Not in your teams",
+      "presenceOnline": "Online",
+      "presenceOffline": "Offline",
       "forgetPerson": "Remove from recent",
       "deepLinkJoinTitle": "Join shared terminal?",
       "deepLinkJoinBody": "Someone shared a live terminal session with you. Joining connects you to it now.",

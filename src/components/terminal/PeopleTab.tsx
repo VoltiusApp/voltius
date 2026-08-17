@@ -39,7 +39,7 @@ interface RowEntry {
   /** Teammate group memberships, for `memberHasAccess`. Empty for Recent/stranger rows. */
   teamIds: string[];
   isStranger: boolean;
-  /** Only teammates carry live presence; undefined omits the dot entirely. */
+  /** Only teammates carry live presence; undefined keeps the slot but draws no dot. */
   isOnline?: boolean;
   /** Only Recent rows: the roster and search hits aren't ours to delete. */
   canForget?: boolean;
@@ -93,6 +93,8 @@ function PersonRow({
 }) {
   const { target, isStranger, isOnline, onContextMenu } = entry;
   const actionable = !hasAccess && !inFlight && !invited && !capBlocked;
+  const presenceLabel =
+    isOnline === undefined ? "" : t(isOnline ? "terminal.share.presenceOnline" : "terminal.share.presenceOffline");
   return (
     <div className={`group flex items-center gap-1 rounded-md transition-colors ${actionable ? "hover:bg-(--t-bg-elevated)" : ""}`}>
       <button
@@ -102,10 +104,18 @@ function PersonRow({
         onClick={onInvite}
         onContextMenu={onContextMenu}
       >
-        {isOnline !== undefined && (
+        {isOnline === undefined ? (
+          /* The slot is held even with no dot to draw: Recent mixes rows whose
+             presence we know with rows we deliberately don't ask about, and a
+             per-row indent would make the handles ragged. */
+          <span className="w-1.5 shrink-0" aria-hidden="true" />
+        ) : (
           <span
+            role="img"
+            aria-label={presenceLabel}
+            title={presenceLabel}
             className="w-1.5 h-1.5 rounded-full shrink-0"
-            style={{ background: isOnline ? "var(--t-status-success)" : "var(--t-text-dim)" }}
+            style={{ background: isOnline ? "var(--t-status-connected)" : "var(--t-text-dim)" }}
           />
         )}
         <span className="flex-1 min-w-0 text-left">
@@ -250,6 +260,9 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
       },
       teamIds: teammate?.teamIds ?? [],
       isStranger: false,
+      // Only a teammate's presence is already in hand. Asking the server about
+      // anyone else would hand it the social graph Recent keeps local.
+      isOnline: teammate ? !!teammate.is_online : undefined,
       canForget: true,
       onContextMenu: (e: React.MouseEvent) => {
         e.preventDefault();

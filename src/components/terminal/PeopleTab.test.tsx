@@ -112,6 +112,59 @@ test("only recent rows offer forget", async () => {
   expect(screen.queryByRole("button", { name: "terminal.share.forgetPerson" })).toBeNull();
 });
 
+test("the presence dot names the state it shows", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  render(<PeopleTab {...base} />);
+  const online = await screen.findByRole("button", { name: /amber-lynx-4410/i });
+  const offline = await screen.findByRole("button", { name: /brisk-otter-8823/i });
+  expect(within(online).getByRole("img", { name: "terminal.share.presenceOnline" })).toBeTruthy();
+  expect(within(offline).getByRole("img", { name: "terminal.share.presenceOffline" })).toBeTruthy();
+});
+
+// `--t-status-success` is not a token this app defines (useApplyTheme sets
+// `--t-status-connected`), so the online dot painted transparent.
+test("the online dot uses a theme token that exists", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  render(<PeopleTab {...base} />);
+  const row = await screen.findByRole("button", { name: /amber-lynx-4410/i });
+  const dot = within(row).getByRole("img", { name: "terminal.share.presenceOnline" });
+  expect(dot.getAttribute("style")).toContain("--t-status-connected");
+});
+
+// Recent wins the dedupe, so a teammate listed under Recent loses the dot they
+// had under Your teams — for presence we already hold locally, at no privacy cost.
+test("a recent row who is also a teammate keeps their presence", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  useRecentPeopleStore.setState({
+    recent: [{ user_id: "u-alice", handle: "amber-lynx-4410", last_invited_at: "" }],
+    recentUpdatedAt: "",
+  });
+  render(<PeopleTab {...base} />);
+  const row = await screen.findByRole("button", { name: /amber-lynx-4410/i });
+  expect(within(row).getByRole("img", { name: "terminal.share.presenceOnline" })).toBeTruthy();
+});
+
+// Presence for a non-teammate would mean asking the server "is user X online",
+// which hands it the social graph Recent exists to keep local. No dot instead.
+test("a recent row who is not a teammate shows no presence", async () => {
+  h.allTeammates.mockResolvedValue(roster);
+  useRecentPeopleStore.setState({
+    recent: [{ user_id: "r1", handle: "kevin-p-6620", last_invited_at: "" }],
+    recentUpdatedAt: "",
+  });
+  render(<PeopleTab {...base} />);
+  const row = await screen.findByRole("button", { name: /kevin-p-6620/i });
+  expect(within(row).queryByRole("img")).toBeNull();
+});
+
+test("a search hit shows no presence", async () => {
+  h.searchUsers.mockResolvedValue([{ user_id: "s1", handle: "sam-q", is_teammate: false }]);
+  render(<PeopleTab {...base} />);
+  await userEvent.type(screen.getByRole("textbox"), "sam-q");
+  const row = await screen.findByRole("button", { name: /sam-q/i });
+  expect(within(row).queryByRole("img")).toBeNull();
+});
+
 test("an invitable row reads as clickable and a blocked one does not", async () => {
   h.allTeammates.mockResolvedValue(roster);
   render(<PeopleTab {...base} session={{ vaultIds: ["t1"], participantIds: [], invitedIds: [] }} />);
