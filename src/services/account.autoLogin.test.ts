@@ -4,7 +4,7 @@ const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   setVaultKey: vi.fn(),
   getVaultStatus: vi.fn(async () => ({ exists: false, path: "" })),
-  verifyVaultKey: vi.fn(async () => undefined),
+  verifyVaultKey: vi.fn(async (_key: number[]) => undefined as void),
   keysSet: vi.fn(),
   store: {} as Record<string, string | null>,
   keychainThrows: false,
@@ -150,10 +150,26 @@ test("autoLogin falls back to kek when the existing vault rejects dek", async ()
   h.store.account_id = "acc";
   h.store.wrapped_user_secrets = "WRAPPED";
   h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
-  h.verifyVaultKey.mockRejectedValue(new Error("wrong key")); // dek does NOT open it
+  h.verifyVaultKey.mockImplementation(async (key: number[]) => {
+    if (String(key) !== String(DERIVE_KEK)) throw new Error("wrong key"); // dek does NOT open it
+  });
 
   expect(await autoLogin()).toBe(true);
   expect(h.setVaultKey).toHaveBeenCalledWith(DERIVE_KEK); // kek
+});
+
+// Installing a key already proven not to open the file only defers the failure to the
+// first secret read, where all that survives is an error string.
+test("autoLogin declines the session when no key opens the existing vault", async () => {
+  h.store.master_password = "pw";
+  h.store.mode = "server";
+  h.store.account_id = "acc";
+  h.store.wrapped_user_secrets = "WRAPPED";
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockRejectedValue(new Error("wrong key"));
+
+  expect(await autoLogin()).toBe(false);
+  expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
 test("autoLogin adopts dek without verifying when no vault exists yet", async () => {

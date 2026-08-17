@@ -4,6 +4,7 @@ import { setVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNe
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { appFetch, isAbortError } from "@/services/http";
+import { VaultUnreadableError } from "./vaultErrors";
 
 function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
@@ -296,7 +297,12 @@ export async function login(password: string, email?: string, serverUrl?: string
       const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
       useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
       // This device's secrets.enc may predate the split and still be kek-encrypted.
-      setVaultKey((await keyThatOpensVault(unwrapped.dek, kek)) ?? unwrapped.dek);
+      const opens = await keyThatOpensVault(unwrapped.dek, kek);
+      // The server just proved this password, so neither key opening the vault means
+      // the file is unreadable. Installing one anyway defers the failure to the first
+      // secret read, where only an error string is left to reason about.
+      if (!opens) throw new VaultUnreadableError();
+      setVaultKey(opens);
       await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
     } else {
       // Legacy account — trigger one-time migration
@@ -344,7 +350,12 @@ export async function autoLogin(): Promise<boolean> {
       const { enc_key: kek } = await deriveKeys(password, accountId);
 
       // Local Tauri calls only — autoLogin stays instant offline.
-      encKey = (await passwordVaultKey(kek)) ?? kek;
+      const opened = await passwordVaultKey(kek);
+      // An existing vault no key opens: decline the session rather than install a key
+      // known not to work, so the user lands on the unlock screen instead of a session
+      // whose every secret read fails.
+      if (!opened) return false;
+      encKey = opened;
 
       if (!mode) {
         // Heal missing mode for local accounts (e.g. Windows after mock-keychain loss)

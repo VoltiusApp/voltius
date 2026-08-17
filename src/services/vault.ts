@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { clearPersistedAccountUiState } from "@/stores/persistedAccountUiState";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
+import { VaultUnreadableError } from "./vaultErrors";
 
 // Pending key: set at login/setup, used to unlock secrets on first access
 let pendingKey: number[] | null = null;
@@ -24,22 +25,22 @@ async function ensureUnlocked(): Promise<void> {
     await invoke("secrets_unlock", { encKey: pendingKey });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("wrong key or corrupted file")) {
-      // secrets.enc was encrypted with a stale key (e.g. prior account in same XDG dir).
-      // In server mode, the authoritative copy lives on the server — wipe the stale
-      // local file so unlock succeeds with an empty store, then let syncOnLogin repopulate.
-      const mode = await invoke<string | null>("keychain_get", { key: "mode" }).catch(() => null);
-      if (mode === "server") {
-        await invoke("secrets_wipe");
-        await invoke("secrets_unlock", { encKey: pendingKey });
-      } else {
-        throw e;
-      }
-    } else {
-      throw e;
-    }
+    // The file is intact and possibly readable with a key we do not have. Deleting it
+    // here once cost a whole vault (#134): the app had simply installed the wrong key.
+    if (msg.includes("wrong key or corrupted file")) throw new VaultUnreadableError(e);
+    throw e;
   }
   unlocked = true;
+}
+
+/**
+ * Set an unreadable secrets.enc aside as a timestamped .bak, keeping the newest few.
+ * User-initiated recovery only: the next unlock starts from an empty store and the
+ * sync pull repopulates it. Returns the backup's file name.
+ */
+export async function quarantineVault(): Promise<string> {
+  unlocked = false;
+  return invoke<string>("secrets_quarantine");
 }
 
 /**
@@ -65,10 +66,11 @@ export async function getVaultStatus(): Promise<{ exists: boolean; path: string 
 }
 
 /**
- * Wipe only the local config directory (connections, identities, keys, folders).
- * Does NOT touch secrets.enc or keychain.
+ * Wipe secrets.enc and the local config directory (connections, identities, keys,
+ * folders). Does NOT touch the keychain.
  * Use before syncing into a different account so local data doesn't contaminate
- * the incoming cloud pull.
+ * the incoming cloud pull — and so the previous account's secrets.enc, which the
+ * incoming key cannot open, is gone before that key is installed.
  */
 export async function wipeLocalConfig(): Promise<void> {
   await invoke("config_wipe");

@@ -9,6 +9,7 @@ import {
   login,
 } from "@/services/account";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { VaultUnreadableError } from "@/services/vaultErrors";
 
 
 type View = "home" | "cloud";
@@ -27,6 +28,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
   const [cloudMode, setCloudMode] = useState<CloudMode>("signup");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [unreadable, setUnreadable] = useState(false);
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -50,11 +52,59 @@ export default function AuthPage({ isLocked, onReady }: Props) {
       await fn();
       onReady();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      // A vault no key opens is not a bad password: it needs its own way out, not a
+      // retype of a password that is already correct.
+      if (e instanceof VaultUnreadableError) setUnreadable(true);
+      else setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
   };
+
+  // ── Vault present but unreadable ─────────────────────────────────────────
+
+  if (unreadable) {
+    const setAside = () =>
+      wrap(async () => {
+        const { quarantineVault } = await import("@/services/vault");
+        const backup = await quarantineVault();
+        addToast({
+          source: { kind: "plugin", id: "system", name: "Voltius" },
+          type: "toast",
+          message: t("layout.auth.vaultSetAsideToast", { file: backup }),
+          severity: "info",
+          duration: 8000,
+        });
+        window.location.reload();
+      });
+
+    return (
+      <Layout>
+        <p className="text-sm mb-2 text-center text-(--t-text-bright)">
+          {t("layout.auth.vaultUnreadableTitle")}
+        </p>
+        <p className="text-xs mb-4 text-center leading-relaxed text-(--t-text-muted)">
+          {t("layout.auth.vaultUnreadableBody")}
+        </p>
+        <ErrorMsg msg={error} />
+        <ActionButton
+          icon="lucide:cloud-download"
+          label={t("layout.auth.vaultSetAside")}
+          sub={t("layout.auth.vaultSetAsideSub")}
+          primary
+          loading={loading}
+          onClick={setAside}
+        />
+        <button
+          type="button"
+          onClick={() => { setUnreadable(false); setError(""); setPassword(""); }}
+          className="mt-1 text-xs w-full text-center transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
+        >
+          {t("layout.auth.vaultUnreadableRetry")}
+        </button>
+      </Layout>
+    );
+  }
 
   // ── Locked (vault exists, need password) ─────────────────────────────────
 

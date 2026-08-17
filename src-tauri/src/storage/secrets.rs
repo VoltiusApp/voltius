@@ -285,16 +285,67 @@ pub fn secrets_delete(state: tauri::State<SecretsStore>, key: String) -> Result<
     state.delete(&key)
 }
 
-/// Delete secrets.enc from disk and lock the store.
-/// Used for recovery when the file was encrypted with a stale key.
-#[tauri::command]
-pub fn secrets_wipe(app: AppHandle, state: tauri::State<SecretsStore>) -> Result<(), AppError> {
-    state.lock();
-    let path = secrets_path(&app);
-    if path.exists() {
-        std::fs::remove_file(&path).map_err(|e| format!("Wipe failed: {e}"))?;
+const QUARANTINE_KEEP: usize = 3;
+
+/// Rename `path` aside as `<name>.<unix_millis>.bak`, keeping the newest `keep`
+/// backups. Never deletes the file being set aside: a vault nothing can decrypt
+/// today may still be recoverable once the right key is found.
+fn quarantine_at(path: &std::path::Path, keep: usize) -> Result<String, AppError> {
+    if !path.exists() {
+        return Err("No vault file to set aside".into());
     }
-    Ok(())
+    let dir = path.parent().ok_or("Vault path has no parent directory")?;
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("Vault path has no file name")?;
+
+    // Fixed-width millis keep the names sorting in creation order.
+    let mut ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| format!("Clock error: {e}"))?
+        .as_millis();
+    let mut target = dir.join(format!("{name}.{ts}.bak"));
+    while target.exists() {
+        ts += 1;
+        target = dir.join(format!("{name}.{ts}.bak"));
+    }
+
+    std::fs::rename(path, &target).map_err(|e| format!("Set aside failed: {e}"))?;
+    prune_backups(dir, name, keep);
+    Ok(format!("{name}.{ts}.bak"))
+}
+
+/// Best-effort retention: a failed prune leaves extra backups, never fewer.
+fn prune_backups(dir: &std::path::Path, name: &str, keep: usize) {
+    let prefix = format!("{name}.");
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut backups: Vec<PathBuf> = entries
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with(&prefix) && n.ends_with(".bak"))
+        })
+        .collect();
+    backups.sort();
+    for old in backups.iter().rev().skip(keep) {
+        let _ = std::fs::remove_file(old);
+    }
+}
+
+/// Set an unreadable secrets.enc aside and lock the store, so the next unlock
+/// starts from an empty file and the sync pull can repopulate it.
+#[tauri::command]
+pub fn secrets_quarantine(
+    app: AppHandle,
+    state: tauri::State<SecretsStore>,
+) -> Result<String, AppError> {
+    state.lock();
+    quarantine_at(&secrets_path(&app), QUARANTINE_KEEP)
 }
 
 #[cfg(test)]
@@ -349,5 +400,54 @@ mod tests {
         let back = parse_secrets(&json).unwrap();
         assert_eq!(back.secrets, secrets);
         assert_eq!(back.clocks, clocks);
+    }
+
+    fn backups(dir: &std::path::Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".bak"))
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn quarantine_renames_instead_of_deleting() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("secrets.enc");
+        std::fs::write(&path, b"ciphertext").unwrap();
+
+        let name = quarantine_at(&path, 3).expect("quarantine");
+
+        assert!(
+            !path.exists(),
+            "the unreadable file must be moved, not left"
+        );
+        let moved = dir.path().join(&name);
+        assert_eq!(std::fs::read(&moved).unwrap(), b"ciphertext");
+    }
+
+    #[test]
+    fn quarantine_keeps_only_the_newest_backups() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("secrets.enc");
+
+        let mut created = Vec::new();
+        for i in 0..5u8 {
+            std::fs::write(&path, [i]).unwrap();
+            created.push(quarantine_at(&path, 3).expect("quarantine"));
+        }
+
+        let kept = backups(dir.path());
+        assert_eq!(kept.len(), 3, "retention keeps three, found {kept:?}");
+        assert_eq!(kept, created[2..].to_vec(), "the newest three survive");
+    }
+
+    #[test]
+    fn quarantine_errors_when_there_is_no_vault_file() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(quarantine_at(&dir.path().join("secrets.enc"), 3).is_err());
     }
 }
