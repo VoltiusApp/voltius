@@ -59,6 +59,57 @@ function normalizeServerUrl(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
+/**
+ * Unwrap cached user secrets into the vault-keys store and return the dek.
+ * Null when there are none, or when they are corrupt or belong to another
+ * account — the caller then stays on the kek.
+ */
+async function adoptUserSecrets(kek: number[], wrapped: string | null): Promise<number[] | null> {
+  if (!wrapped) return null;
+  try {
+    const unwrapped = await unwrapUserSecrets(kek, wrapped);
+    useVaultKeysStore.getState().set({
+      dek: unwrapped.dek,
+      x25519Private: unwrapped.x25519_private,
+      kek,
+    });
+    return unwrapped.dek;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The first candidate that actually opens secrets.enc, or null when none does.
+ * A cloud vault is encrypted with the dek, a legacy or local one with the kek,
+ * so the caller must never assume which of its keys the on-disk file holds.
+ * With no vault yet the first candidate wins — nothing to verify against.
+ */
+async function keyThatOpensVault(...candidates: number[][]): Promise<number[] | null> {
+  const { exists } = await getVaultStatus();
+  if (!exists) return candidates[0] ?? null;
+  for (const key of candidates) {
+    try {
+      await verifyVaultKey(key);
+      return key;
+    } catch {
+      // Try the next candidate.
+    }
+  }
+  return null;
+}
+
+/**
+ * The key that opens this device's vault for a password-derived account: the dek
+ * from the cached user secrets when secrets.enc was written by a cloud session,
+ * the kek when it was written by a local or pre-dek one. Null when a vault exists
+ * and neither opens it.
+ */
+async function passwordVaultKey(kek: number[]): Promise<number[] | null> {
+  const dek = await adoptUserSecrets(kek, await keychainGet("wrapped_user_secrets"));
+  return keyThatOpensVault(...(dek ? [dek, kek] : [kek]));
+}
+
 async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 10_000): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -208,17 +259,32 @@ export async function login(password: string, email?: string, serverUrl?: string
 
   const mode = await keychainGet("mode");
 
+  // Re-authenticate with server if in server mode (e.g. after logout deleted the JWT)
+  const resolvedEmail = email ?? await keychainGet("email");
+  const rawServerUrl = serverUrl ?? await keychainGet("server_url");
+  const resolvedServerUrl = rawServerUrl ? normalizeServerUrl(rawServerUrl) : null;
+  const reauth =
+    resolvedEmail && resolvedServerUrl && (mode === "server" || serverUrl)
+      ? { email: resolvedEmail, serverUrl: resolvedServerUrl }
+      : null;
+
   let encKey: number[];
   if (mode === "local-nopassword") {
     // password IS the stored hex key — convert back to bytes
     encKey = hexToBytes(password);
+    if (!(await keyThatOpensVault(encKey))) throw new Error(i18n.t("common.error.incorrectPassword"));
   } else {
-    const { enc_key } = await deriveKeys(password, accountId);
-    encKey = enc_key;
+    const { enc_key: kek } = await deriveKeys(password, accountId);
+    // A cloud vault is encrypted with the dek held in wrapped_user_secrets, so the
+    // password-derived kek alone does not open it — checking the kek against a cloud
+    // vault rejected the correct master password as a corrupted file (issue #134).
+    const opened = await passwordVaultKey(kek);
+    // Without a cached dek only the server can hand back the key a cloud vault was
+    // encrypted with, so a failed local check is not yet a failed password.
+    if (!opened && !reauth) throw new Error(i18n.t("common.error.incorrectPassword"));
+    encKey = opened ?? kek;
   }
 
-  const { exists } = await getVaultStatus();
-  if (exists) await verifyVaultKey(encKey);
   setVaultKey(encKey);
 
   await keychainSet("master_password", password);
@@ -229,14 +295,9 @@ export async function login(password: string, email?: string, serverUrl?: string
     await keychainSet("mode", isHexEncoded32ByteKey(password) ? "local-nopassword" : "local");
   }
 
-  // Re-authenticate with server if in server mode (e.g. after logout deleted the JWT)
-  const resolvedEmail = email ?? await keychainGet("email");
-  const rawServerUrl = serverUrl ?? await keychainGet("server_url");
-  const resolvedServerUrl = rawServerUrl ? normalizeServerUrl(rawServerUrl) : null;
-
-  if (resolvedEmail && resolvedServerUrl && (mode === "server" || serverUrl)) {
+  if (reauth) {
     const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
-    const res = await fetchWithTimeout(`${resolvedServerUrl}/v1/auth/login`, {
+    const res = await fetchWithTimeout(`${reauth.serverUrl}/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ account_id: accountId, auth_key }),
@@ -246,8 +307,8 @@ export async function login(password: string, email?: string, serverUrl?: string
     await keychainSet("jwt", data.jwt_token);
     await keychainSet("refresh_token", data.refresh_token);
     await keychainSet("mode", "server");
-    await keychainSet("email", resolvedEmail);
-    await keychainSet("server_url", resolvedServerUrl);
+    await keychainSet("email", reauth.email);
+    await keychainSet("server_url", reauth.serverUrl);
 
     if (data.wrapped_user_secrets) {
       const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
@@ -256,7 +317,7 @@ export async function login(password: string, email?: string, serverUrl?: string
       await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
     } else {
       // Legacy account — trigger one-time migration
-      await migrateToWrappedUserSecrets(password, accountId, kek, resolvedServerUrl, data.jwt_token);
+      await migrateToWrappedUserSecrets(password, accountId, kek, reauth.serverUrl, data.jwt_token);
     }
 
     reloadSubscription();
@@ -298,38 +359,13 @@ export async function autoLogin(): Promise<boolean> {
     } else {
       if (!accountId) return false;
       const { enc_key: kek } = await deriveKeys(password, accountId);
-      encKey = kek;
 
       // Adopt dek when this device has previously unwrapped user secrets (cached at
       // login/migration). Converges every session onto dek so the kek/dek split heals.
       // Offline: unwrap + verify are local Tauri calls, no network — autoLogin stays instant.
-      const wrapped = await keychainGet("wrapped_user_secrets");
-      if (wrapped) {
-        try {
-          const unwrapped = await unwrapUserSecrets(kek, wrapped);
-          useVaultKeysStore.getState().set({
-            dek: unwrapped.dek,
-            x25519Private: unwrapped.x25519_private,
-            kek,
-          });
-          // Pick the key that actually opens secrets.enc — prefer dek, fall back to kek.
-          // Guards against a device whose on-disk vault is still kek-encrypted.
-          const { exists } = await getVaultStatus();
-          if (!exists) {
-            encKey = unwrapped.dek;
-          } else {
-            try {
-              await verifyVaultKey(unwrapped.dek);
-              encKey = unwrapped.dek;
-            } catch {
-              encKey = kek;
-            }
-          }
-        } catch {
-          // Corrupt/foreign cached secrets — stay on kek.
-          encKey = kek;
-        }
-      }
+      // Falls back to kek when nothing opens the vault: an auto-login must not strand
+      // the session, and ensureUnlocked still reports a genuinely unopenable store.
+      encKey = (await passwordVaultKey(kek)) ?? kek;
 
       if (!mode) {
         // Heal missing mode for local accounts (e.g. Windows after mock-keychain loss)
