@@ -10,6 +10,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
+import { PickerSurface } from "@/components/shared/PickerSurface";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
 import { getAccountMode } from "@/services/account";
 
@@ -30,9 +31,26 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
   const [hovered, setHovered] = useState(false);
   const [invHovered, setInvHovered] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | null>(null);
   const visible = members.slice(0, MAX_STACK);
   const overflow = members.length - MAX_STACK;
   const onlineCount = members.filter((m) => m.is_online).length;
+
+  // The popover is portalled out of the header, so moving the pointer into it
+  // fires the stack's mouseleave. Defer the close so the popover's own
+  // mouseenter can cancel it.
+  const openPopover = () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+    setHovered(true);
+  };
+  const closePopover = () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setHovered(false), 120);
+  };
+  useEffect(() => () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+  }, []);
 
   return (
     <div className="flex items-center gap-2 shrink-0">
@@ -41,8 +59,8 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
         <div
           ref={ref}
           className="relative flex items-center cursor-default"
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
+          onMouseEnter={openPopover}
+          onMouseLeave={closePopover}
         >
           {visible.map((m, i) => (
             <div
@@ -80,12 +98,18 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
             </div>
           )}
 
-          {/* Hover popover */}
-          {hovered && (
-            <div
-              className="surface-float absolute top-full mt-2 left-0 z-50 overflow-hidden"
-              style={{ minWidth: 190 }}
-            >
+          {/* Hover popover — portalled: the page overlay in MainPanel outranks the
+              header's stacking context, so an in-flow popover paints under it. */}
+          <PickerSurface
+            open={hovered}
+            onClose={() => setHovered(false)}
+            anchorRef={ref}
+            width={220}
+            align="right"
+            gap={0}
+            title={t("layout.vaultHeader.members")}
+          >
+            <div onMouseEnter={openPopover} onMouseLeave={closePopover}>
               <div className="px-3 py-2" style={{ borderBottom: "1px solid var(--t-border)" }}>
                 <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
                   {onlineCount > 0 ? t("layout.vaultHeader.onlineCount", { count: onlineCount }) : t("layout.vaultHeader.noOneOnline")}
@@ -124,7 +148,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
                 );
               })}
             </div>
-          )}
+          </PickerSurface>
         </div>
       )}
 

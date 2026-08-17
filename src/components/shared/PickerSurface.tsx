@@ -13,7 +13,7 @@ type AnchorRef = { readonly current: HTMLElement | null };
  *  `anchorRef` (with below/above flip). Mobile: a BottomSheet. Open state + the trigger
  *  stay owned by the caller; this owns only the open surface + its dismiss. */
 export function PickerSurface({
-  open, onClose, anchorRef, title, children, width,
+  open, onClose, anchorRef, title, children, width, align = "left", gap = 4,
 }: {
   open: boolean;
   onClose: () => void;
@@ -21,6 +21,12 @@ export function PickerSurface({
   title?: string;
   children: ReactNode;
   width?: number;
+  /** Which anchor edge the surface lines up with. Right-align keeps a surface wider
+   *  than its anchor on screen when the anchor sits near the right edge. */
+  align?: "left" | "right";
+  /** Vertical distance between anchor and surface. 0 keeps them touching, so a
+   *  hover-opened surface has no gap for the pointer to fall through. */
+  gap?: number;
 }) {
   const isAndroid = useIsAndroid();
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -35,12 +41,13 @@ export function PickerSurface({
       if (!el) return;
       const r = el.getBoundingClientRect();
       const w = width ?? r.width;
+      const left = align === "right" ? Math.max(8, r.right - w) : r.left;
       const spaceBelow = window.innerHeight - r.bottom - 8;
       const spaceAbove = r.top - 8;
       const goUp = spaceBelow < 150 && spaceAbove > spaceBelow;
       setPos(goUp
-        ? { bottom: window.innerHeight - r.top + 4, left: r.left, width: w, maxHeight: Math.min(spaceAbove, 320) }
-        : { top: r.bottom + 4, left: r.left, width: w, maxHeight: Math.min(spaceBelow, 320) });
+        ? { bottom: window.innerHeight - r.top + gap, left, width: w, maxHeight: Math.min(spaceAbove, 320) }
+        : { top: r.bottom + gap, left, width: w, maxHeight: Math.min(spaceBelow, 320) });
     };
     measure();
     window.addEventListener("scroll", measure, true); // capture: catch scrolls in any ancestor
@@ -49,7 +56,7 @@ export function PickerSurface({
       window.removeEventListener("scroll", measure, true);
       window.removeEventListener("resize", measure);
     };
-  }, [open, isAndroid, anchorRef, width]);
+  }, [open, isAndroid, anchorRef, width, align, gap]);
 
   // Desktop: outside-mousedown dismiss (ignores the anchor so the trigger toggles cleanly).
   useEffect(() => {
