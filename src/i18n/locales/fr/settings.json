@@ -797,6 +797,14 @@
         "failed": "Échec de l'installation du module.",
         "versionUnsupported": "Ce module nécessite la version {{version}} ou supérieure de l'application."
       },
+      "deepLinkInstall": {
+        "title": "Installer ce plugin ?",
+        "body": "Ce lien installe un plugin. Un plugin exécute du code dans Voltius avec les permissions listées ci-dessous.",
+        "summary": "{{name}} {{version}} par {{author}}",
+        "source": "Depuis le catalogue {{source}}.",
+        "action": "Installer",
+        "failed": "Ce lien ne désigne aucun plugin que Voltius puisse installer"
+      },
       "permissionModal": {
         "installTitle": "Installer {{name}} ?",
         "installBody": "Ce plugin s'exécute avec tous les privilèges de l'application. Il demande ces autorisations :",

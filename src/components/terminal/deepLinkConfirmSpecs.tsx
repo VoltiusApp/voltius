@@ -11,6 +11,9 @@ import { installCatalogEntries } from "@/services/snippetCatalogInstall";
 import { resolveInstallVault } from "@/services/import-export/storeAccess";
 import type { CatalogEntry } from "@/services/snippetCatalog";
 import { useVaultStore } from "@/stores/vaultStore";
+import { PluginPermissionList } from "@/components/settings/sections/PluginPermissionList";
+import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
+import type { PluginManifest } from "@/plugins/api";
 
 export type ConfirmRoute = ConfirmIntent["route"];
 type IntentOf<K extends ConfirmRoute> = Extract<ConfirmIntent, { route: K }>;
@@ -45,11 +48,21 @@ export interface InviteLoad {
   localSessionId: string | null;
 }
 
+export interface PluginInstallLoad {
+  plugin: MarketplacePlugin;
+  manifest: PluginManifest;
+  /** The exact reviewed manifest text, handed to installPlugin so what was
+   *  disclosed and what is loaded are the same bytes. */
+  manifestText: string;
+  sourceName: string;
+}
+
 /** What each route's `load` produces. `void` for a route with nothing to fetch. */
 export interface ConfirmLoad {
   join: void;
   invite: InviteLoad;
   "snippet-install": CatalogEntry;
+  "plugin-install": PluginInstallLoad;
 }
 
 /**
@@ -153,6 +166,54 @@ export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]
     accept: async (_intent, loaded) => {
       if (!loaded) return;
       await installCatalogEntries([{ entry: loaded }], installTargetVault().id);
+    },
+  },
+  "plugin-install": {
+    icon: "lucide:puzzle",
+    acceptLabelKey: "settings.plugins.deepLinkInstall.action",
+    errorKey: "settings.plugins.deepLinkInstall.failed",
+    load: async ({ pluginId, sourceId }) => {
+      await useMarketplaceStore.getState().loadSources();
+      const source = useMarketplaceStore
+        .getState()
+        .sources.find((candidate) => candidate.id === sourceId && candidate.enabled);
+      // A link can only point at a catalogue this device already trusts. Failing
+      // here — before any fetch — is what stops a link introducing a code source.
+      if (!source) throw new Error("unknown or disabled plugin source");
+
+      await useMarketplaceStore.getState().fetchCatalog();
+      const plugin = useMarketplaceStore
+        .getState()
+        .catalog.find((candidate) => candidate.id === pluginId && candidate.sourceId === sourceId);
+      if (!plugin) throw new Error("plugin not listed by that source");
+
+      const { manifest, manifestText } = await useMarketplaceStore.getState().fetchManifest(plugin);
+      return { plugin, manifest, manifestText, sourceName: source.name };
+    },
+    details: (_intent, loaded, t) => ({
+      title: t("settings.plugins.deepLinkInstall.title"),
+      body: t("settings.plugins.deepLinkInstall.body"),
+      note: loaded ? t("settings.plugins.deepLinkInstall.source", { source: loaded.sourceName }) : undefined,
+    }),
+    extra: (loaded, t) =>
+      loaded ? (
+        <>
+          <p className="text-sm text-(--t-text-bright)">
+            {t("settings.plugins.deepLinkInstall.summary", {
+              name: loaded.plugin.name,
+              author: loaded.plugin.author,
+              version: loaded.plugin.version,
+            })}
+          </p>
+          {/* The permission list is carried here rather than chaining to
+              PluginPermissionModal: two consecutive consent dialogs for one click
+              train the user to click through both. */}
+          <PluginPermissionList permissions={loaded.manifest.permissions ?? []} />
+        </>
+      ) : null,
+    accept: async (_intent, loaded) => {
+      if (!loaded) return;
+      await useMarketplaceStore.getState().installPlugin(loaded.plugin, loaded.manifestText);
     },
   },
 };

@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { intentKey, isConfirmIntent, isNavigateIntent, isSilentIntent, parseDeepLink, buildDeepLink } from "./deepLinkUrl";
+import { intentKey, isConfirmIntent, isNavigateIntent, isSilentIntent, parseDeepLink, buildDeepLink, DEFAULT_PLUGIN_SOURCE_ID } from "./deepLinkUrl";
 
 const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
 const TOKEN = "deadbeefdeadbeefdeadbeefdeadbeef";
@@ -243,4 +243,30 @@ test("a snippet-install link with no id, or an over-long one, is rejected", () =
   expect(parseDeepLink("voltius://snippet-install")).toBeNull();
   expect(parseDeepLink("voltius://snippet-install?id=")).toBeNull();
   expect(parseDeepLink("voltius://snippet-install?id=" + "a".repeat(101))).toBeNull();
+});
+
+test("a plugin-install link round-trips through both forms", () => {
+  const intent = { route: "plugin-install" as const, pluginId: "docker", sourceId: "voltius" };
+  expect(parseDeepLink(buildDeepLink(intent, "scheme"))).toEqual(intent);
+  expect(parseDeepLink(buildDeepLink(intent, "https"))).toEqual(intent);
+});
+
+test("a plugin-install link with no source falls back to the first-party one", () => {
+  expect(parseDeepLink("voltius://plugin-install?id=docker")).toEqual({
+    route: "plugin-install",
+    pluginId: "docker",
+    sourceId: DEFAULT_PLUGIN_SOURCE_ID,
+  });
+});
+
+test("a plugin-install link whose id could escape the plugins directory is rejected", () => {
+  expect(parseDeepLink("voltius://plugin-install?id=../evil")).toBeNull();
+  expect(parseDeepLink("voltius://plugin-install?id=__meta__")).toBeNull();
+  expect(parseDeepLink("voltius://plugin-install?id=Docker")).toBeNull();
+  expect(parseDeepLink("voltius://plugin-install?id=")).toBeNull();
+  expect(parseDeepLink("voltius://plugin-install")).toBeNull();
+});
+
+test("a plugin-install link naming an over-long source id is rejected", () => {
+  expect(parseDeepLink("voltius://plugin-install?id=docker&src=" + "a".repeat(101))).toBeNull();
 });

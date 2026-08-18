@@ -1,5 +1,6 @@
 import { isSessionId } from "@/services/sessionId";
 import { isSettingsSection, type SettingsSection } from "@/stores/uiStore";
+import { isValidPluginId } from "@/plugins/pluginId";
 
 export type JoinIntent = { route: "join"; sessionId: string; token: string };
 export type InviteIntent = { route: "invite"; handle: string };
@@ -8,6 +9,7 @@ export type NotificationIntent = { route: "notification"; entryId: string | null
 export type SettingsIntent = { route: "settings"; section: SettingsSection };
 export type BillingIntent = { route: "billing" };
 export type SnippetInstallIntent = { route: "snippet-install"; entryId: string };
+export type PluginInstallIntent = { route: "plugin-install"; pluginId: string; sourceId: string };
 export type DeepLinkIntent =
   | JoinIntent
   | InviteIntent
@@ -15,7 +17,8 @@ export type DeepLinkIntent =
   | NotificationIntent
   | SettingsIntent
   | BillingIntent
-  | SnippetInstallIntent;
+  | SnippetInstallIntent
+  | PluginInstallIntent;
 
 type TrustClass = "confirm" | "silent" | "navigate";
 type Route = DeepLinkIntent["route"];
@@ -46,6 +49,10 @@ const TRUST = {
   // Writes snippets — shell commands the user will later run — into a vault, so
   // nothing lands until the user accepts.
   "snippet-install": "confirm",
+  // Executes third-party code on this machine. The strongest confirm on the list:
+  // the sheet names the plugin, its catalogue and its permissions before the
+  // accept button does anything.
+  "plugin-install": "confirm",
 } as const satisfies Record<Route, TrustClass>;
 
 type RouteOfClass<C extends TrustClass> = {
@@ -72,6 +79,17 @@ const MAX_ENTRY_ID = 200;
 
 /** Long enough for any catalogue id upstream authors, short enough to stay a key. */
 const MAX_CATALOG_ID = 100;
+
+/**
+ * The catalogue a `plugin-install` link means when it names none. Kept as a
+ * literal rather than importing `FIRST_PARTY_SOURCE`, so the parser stays free of
+ * the marketplace store (and of `@tauri-apps/api`, which every parser test would
+ * then have to stub). A test pins the two together.
+ */
+export const DEFAULT_PLUGIN_SOURCE_ID = "voltius";
+
+/** A source id is a catalogue key, not a URL; this only stops an absurd one. */
+const MAX_SOURCE_ID = 100;
 
 /**
  * Mirrors the server's custom-handle rule (server: `src/handles.rs`,
@@ -143,6 +161,23 @@ const ROUTES: { [K in Route]: RouteCodec<K> } = {
       return { route: "snippet-install", entryId };
     },
     params: ({ entryId }) => ({ id: entryId }),
+  },
+  "plugin-install": {
+    parse: (params) => {
+      const pluginId = params.get("id") ?? "";
+      // Validated here rather than at install time: the id becomes a directory
+      // name under the plugins folder, and `assertValidPluginId` throws far too
+      // late to render a sheet from.
+      if (!isValidPluginId(pluginId)) return null;
+      // A source *id* already configured on this device, never a URL. A link able
+      // to name a new source is a link able to introduce a new code source; the
+      // sheet resolves this against the user's own enabled sources and fails when
+      // it matches none.
+      const sourceId = params.get("src") || DEFAULT_PLUGIN_SOURCE_ID;
+      if (sourceId.length > MAX_SOURCE_ID) return null;
+      return { route: "plugin-install", pluginId, sourceId };
+    },
+    params: ({ pluginId, sourceId }) => ({ id: pluginId, src: sourceId }),
   },
 };
 

@@ -21,8 +21,9 @@ vi.mock("@/stores/pluginRegistryStore", () => ({
   usePluginRegistryStore: { getState: () => ({ isEnabled: () => true }) },
 }));
 
-import { useMarketplaceStore, restoreMissingPlugins, type MarketplacePlugin } from "./marketplaceStore";
+import { useMarketplaceStore, restoreMissingPlugins, FIRST_PARTY_SOURCE, type MarketplacePlugin } from "./marketplaceStore";
 import { PluginHashMismatchError } from "@/plugins/integrity";
+import { DEFAULT_PLUGIN_SOURCE_ID } from "@/services/deepLinkUrl";
 
 const JS_TEXT = "export default () => {}";
 const JS_HASH = "324c9070eb5daa71308b5ca39ce5c17b5274acc6f053df1ca19111d834b79f56";
@@ -371,4 +372,12 @@ test("a manifest id that differs from the catalogue id aborts before anything is
   expect(h.invoke).not.toHaveBeenCalledWith("plugin_write_file", expect.anything());
   expect(h.loadPlugin).not.toHaveBeenCalled();
   expect(useMarketplaceStore.getState().installedMeta).toEqual([]);
+});
+
+// A plugin-install deep link with no explicit source falls back to this id
+// (deepLinkUrl.ts, kept as a literal there to keep the parser free of this
+// store and of @tauri-apps/api). If the two ever drift, a link with no `src`
+// would resolve to a source id nothing on the device recognises.
+test("the deep-link default plugin source id is the first-party source's own id", () => {
+  expect(DEFAULT_PLUGIN_SOURCE_ID).toBe(FIRST_PARTY_SOURCE.id);
 });

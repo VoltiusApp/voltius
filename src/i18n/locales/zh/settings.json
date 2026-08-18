@@ -617,6 +617,14 @@
         "failed": "安装插件失败。",
         "versionUnsupported": "此插件需要应用版本 {{version}} 或更高版本。"
       },
+      "deepLinkInstall": {
+        "title": "安装此插件？",
+        "body": "此链接将安装一个插件。插件会在 Voltius 内部以下列权限运行代码。",
+        "summary": "{{name}} {{version}}，作者 {{author}}",
+        "source": "来自 {{source}} 目录。",
+        "action": "安装",
+        "failed": "此链接未指向 Voltius 可安装的插件"
+      },
       "permissionModal": {
         "installTitle": "安装 {{name}}？",
         "installBody": "此插件将以应用的完整权限运行。它请求以下权限：",

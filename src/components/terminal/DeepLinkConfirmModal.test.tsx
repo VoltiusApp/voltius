@@ -7,6 +7,8 @@ import { useDeepLinkStore } from "@/stores/deepLinkStore";
 let teamConnections: Record<string, { sessionKeyBytes?: Uint8Array }> = {};
 let activeLocalSessionId: string | null = null;
 let snippetEntries: { id: string; kind: string; name: string; author?: string; snippets: unknown[] }[] = [];
+let marketplaceSources: { id: string; name: string; enabled: boolean }[] = [];
+let marketplaceCatalog: { id: string; name: string; author: string; version: string; sourceId: string }[] = [];
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -46,6 +48,28 @@ vi.mock("@/stores/sessionStore", () => ({
   useSessionStore: { getState: () => ({ activeSessionId: activeLocalSessionId }) },
 }));
 
+vi.mock("@/components/settings/sections/PluginPermissionList", () => ({
+  PluginPermissionList: ({ permissions }: { permissions: string[] }) => <div>perms:{permissions.join(",")}</div>,
+}));
+
+const installPluginMock = vi.fn(async (..._args: unknown[]) => {});
+const fetchManifestMock = vi.fn(async (..._args: unknown[]) => ({
+  manifest: { permissions: ["shell:exec"] },
+  manifestText: "{\"permissions\":[\"shell:exec\"]}",
+}));
+vi.mock("@/stores/marketplaceStore", () => ({
+  useMarketplaceStore: {
+    getState: () => ({
+      sources: marketplaceSources,
+      catalog: marketplaceCatalog,
+      loadSources: async () => {},
+      fetchCatalog: async () => {},
+      fetchManifest: (...args: unknown[]) => fetchManifestMock(...args),
+      installPlugin: (...args: unknown[]) => installPluginMock(...args),
+    }),
+  },
+}));
+
 const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
 const intent = { route: "join" as const, sessionId: SESSION, token: "tok" };
 
@@ -58,6 +82,10 @@ beforeEach(() => {
   snippetEntries = [];
   fetchSnippetCatalogMock.mockClear();
   installEntriesMock.mockClear().mockResolvedValue({ imported: 1, errors: 0 });
+  marketplaceSources = [];
+  marketplaceCatalog = [];
+  installPluginMock.mockClear();
+  fetchManifestMock.mockClear();
   useDeepLinkStore.setState({ ready: true, queue: [], prompt: null });
 });
 
@@ -197,4 +225,42 @@ test("a snippet-install link naming an entry the catalogue does not list cannot 
   await waitFor(() => expect(screen.getByText("snippets.deepLinkInstall.failed")).toBeTruthy());
   await userEvent.click(screen.getByText("snippets.deepLinkInstall.action"));
   expect(installEntriesMock).not.toHaveBeenCalled();
+});
+
+test("a plugin-install sheet names the plugin, its catalogue and its permissions before installing", async () => {
+  marketplaceSources = [{ id: "voltius", name: "Voltius Marketplace", enabled: true }];
+  marketplaceCatalog = [{ id: "docker", name: "Docker", author: "Voltius", version: "1.2.0", sourceId: "voltius" }];
+  useDeepLinkStore.setState({ prompt: { route: "plugin-install", pluginId: "docker", sourceId: "voltius" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("settings.plugins.deepLinkInstall.summary")).toBeTruthy());
+  expect(screen.getByText("perms:shell:exec")).toBeTruthy();
+  expect(screen.getByText("settings.plugins.deepLinkInstall.source")).toBeTruthy();
+  expect(installPluginMock).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByText("settings.plugins.deepLinkInstall.action"));
+  await waitFor(() =>
+    expect(installPluginMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "docker" }),
+      "{\"permissions\":[\"shell:exec\"]}",
+    ),
+  );
+});
+
+test("a plugin-install link naming a source this device does not have installs nothing", async () => {
+  marketplaceSources = [{ id: "voltius", name: "Voltius Marketplace", enabled: true }];
+  marketplaceCatalog = [{ id: "docker", name: "Docker", author: "Voltius", version: "1.2.0", sourceId: "voltius" }];
+  useDeepLinkStore.setState({ prompt: { route: "plugin-install", pluginId: "docker", sourceId: "someone-elses" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("settings.plugins.deepLinkInstall.failed")).toBeTruthy());
+  await userEvent.click(screen.getByText("settings.plugins.deepLinkInstall.action"));
+  expect(installPluginMock).not.toHaveBeenCalled();
+  expect(fetchManifestMock).not.toHaveBeenCalled();
+});
+
+test("a plugin-install link naming a disabled source installs nothing", async () => {
+  marketplaceSources = [{ id: "voltius", name: "Voltius Marketplace", enabled: false }];
+  marketplaceCatalog = [{ id: "docker", name: "Docker", author: "Voltius", version: "1.2.0", sourceId: "voltius" }];
+  useDeepLinkStore.setState({ prompt: { route: "plugin-install", pluginId: "docker", sourceId: "voltius" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("settings.plugins.deepLinkInstall.failed")).toBeTruthy());
+  expect(fetchManifestMock).not.toHaveBeenCalled();
 });
