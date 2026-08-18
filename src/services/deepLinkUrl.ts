@@ -78,6 +78,8 @@ export function buildDeepLink(intent: DeepLinkIntent, form: LinkForm = "https"):
     : `${WEB_ORIGIN}${WEB_PATH}#${intent.route}?${query}`;
 }
 
+const WEB_HOSTS = new Set(["voltius.app", "www.voltius.app"]);
+
 export function parseDeepLink(url: string): DeepLinkIntent | null {
   let parsed: URL;
   try {
@@ -85,12 +87,40 @@ export function parseDeepLink(url: string): DeepLinkIntent | null {
   } catch {
     return null;
   }
-  if (parsed.protocol !== "voltius:") return null;
-  // Custom schemes are not special-scheme URLs, so the route lands in `hostname`
-  // on some platforms and `pathname` on others.
-  const route = parsed.hostname || parsed.pathname.replace(/^\/+/, "");
+
+  if (parsed.protocol === "voltius:") {
+    // Custom schemes are not special-scheme URLs, so the route lands in
+    // `hostname` on some platforms and `pathname` on others.
+    const route = parsed.hostname || parsed.pathname.replace(/^\/+/, "");
+    return parseRoute(route, parsed.searchParams);
+  }
+
+  // The `https` fallback form. `http` is rejected: an App Link registered for
+  // cleartext would be hijackable on a hostile network.
+  if (
+    parsed.protocol === "https:" &&
+    WEB_HOSTS.has(parsed.hostname) &&
+    parsed.pathname.replace(/\/+$/, "") === WEB_PATH
+  ) {
+    return parseFragment(parsed.hash);
+  }
+
+  return null;
+}
+
+/** `#join?s=…&t=…` — the route, then its parameters, all after the hash. */
+function parseFragment(hash: string): DeepLinkIntent | null {
+  const body = hash.replace(/^#/, "");
+  if (!body) return null;
+  const queryAt = body.indexOf("?");
+  const route = queryAt === -1 ? body : body.slice(0, queryAt);
+  const params = new URLSearchParams(queryAt === -1 ? "" : body.slice(queryAt + 1));
+  return parseRoute(route, params);
+}
+
+function parseRoute(route: string, params: URLSearchParams): DeepLinkIntent | null {
   if (!isRoute(route)) return null;
-  return ROUTES[route].parse(parsed.searchParams);
+  return ROUTES[route].parse(params);
 }
 
 // Own-property only: `"toString" in TRUST` is true, and an inherited hit would
