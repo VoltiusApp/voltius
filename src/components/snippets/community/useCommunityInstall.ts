@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useVaultStore } from "@/stores/vaultStore";
 import { installCatalogEntries, type EntrySelection } from "@/services/snippetCatalogInstall";
+import { resolveInstallVault } from "@/services/import-export/storeAccess";
 
 export function useInstallTargetVault() {
   const selectedVaultIds = useVaultStore(s => s.selectedVaultIds);
   const vaults = useVaultStore(s => s.vaults);
-  const id = selectedVaultIds[0] ?? "personal";
-  return { id, name: vaults.find(v => v.id === id)?.name ?? id };
+  return resolveInstallVault({ selectedVaultIds, vaults });
 }
 
 export function useCommunityInstall() {

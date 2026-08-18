@@ -6,6 +6,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTeamStore } from "@/stores/teamStore";
+import type { Vault } from "@/stores/vaultStore";
 import type { Snippet } from "@/types";
 import type { ImportStores, ReloadFns } from "./context";
 
@@ -59,4 +60,13 @@ export function allSnippetsNow(): Snippet[] {
     snippets.teamSnippets,
     useTeamStore.getState().teams.map((team) => team.id),
   );
+}
+
+/** The vault an install lands in — the selected one, or the personal vault. */
+export function resolveInstallVault(state: {
+  selectedVaultIds: string[];
+  vaults: Vault[];
+}): { id: string; name: string } {
+  const id = state.selectedVaultIds[0] ?? "personal";
+  return { id, name: state.vaults.find((vault) => vault.id === id)?.name ?? id };
 }

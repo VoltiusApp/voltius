@@ -8,6 +8,7 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { InviteTarget } from "@/services/teamSharing";
 import { fetchCatalog as fetchSnippetCatalog } from "@/services/snippetCatalogFetch";
 import { installCatalogEntries } from "@/services/snippetCatalogInstall";
+import { resolveInstallVault } from "@/services/import-export/storeAccess";
 import type { CatalogEntry } from "@/services/snippetCatalog";
 import { useVaultStore } from "@/stores/vaultStore";
 
@@ -62,11 +63,9 @@ function shareableSessionId(): string | null {
   return useTeamSessionStore.getState().connections[id]?.sessionKeyBytes ? id : null;
 }
 
-/** The vault an install lands in — the selected one, or the personal vault. */
+/** The vault an install lands in — read directly since the spec is not a component. */
 function installTargetVault(): { id: string; name: string } {
-  const { selectedVaultIds, vaults } = useVaultStore.getState();
-  const id = selectedVaultIds[0] ?? "personal";
-  return { id, name: vaults.find((vault) => vault.id === id)?.name ?? id };
+  return resolveInstallVault(useVaultStore.getState());
 }
 
 export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]> } = {
