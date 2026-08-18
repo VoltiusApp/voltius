@@ -2,7 +2,9 @@ import i18n from "@/i18n";
 import { refreshVerificationState } from "@/services/account";
 import { getJwt } from "@/services/authTokens";
 import { getSavedAccounts, switchToAccount, type SavedAccount } from "@/services/savedAccounts";
-import type { SilentIntent, VerifiedIntent } from "@/services/deepLinkUrl";
+import { isNavigateIntent } from "@/services/deepLinkUrl";
+import type { NavigateIntent, UnpromptedIntent, VerifiedIntent } from "@/services/deepLinkUrl";
+import { useUIStore } from "@/stores/uiStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { parseJwtPayload } from "@/utils/emailVerification";
 import type { ToastSeverity } from "@/plugins/api";
@@ -67,18 +69,47 @@ async function handleVerified(intent: VerifiedIntent): Promise<void> {
 }
 
 /**
- * Silent routes act unprompted, so every failure path here has to end in a
- * toast rather than a rejected promise: the caller is an event listener.
+ * Navigate routes only move the user somewhere they could already go, so none
+ * of these branches performs an action: `billing` opens the account section
+ * rather than starting a checkout, and an unknown notification id opens the
+ * centre on the full list.
  */
-export function handleSilentIntent(intent: SilentIntent): void {
+function handleNavigate(intent: NavigateIntent): void {
+  const ui = useUIStore.getState();
+  switch (intent.route) {
+    case "notification":
+      ui.openNotificationCenter(intent.entryId);
+      return;
+    case "settings":
+      ui.openSettings(intent.section);
+      return;
+    case "billing":
+      ui.openSettings("account");
+      return;
+    default: {
+      const _exhaustive: never = intent;
+      void _exhaustive;
+    }
+  }
+}
+
+/**
+ * Unprompted routes act without asking, so every failure path here has to end
+ * in a toast rather than a rejected promise: the caller is an event listener.
+ */
+export function handleUnpromptedIntent(intent: UnpromptedIntent): void {
+  // Routed by trust class rather than by a second list of route names, so
+  // adding a navigate route means touching `TRUST` and `handleNavigate` only.
+  if (isNavigateIntent(intent)) {
+    handleNavigate(intent);
+    return;
+  }
   switch (intent.route) {
     case "verified":
       void handleVerified(intent);
       return;
-    // On the route rather than the intent: TypeScript only narrows the object
-    // itself to `never` once the union has two or more members.
     default: {
-      const _exhaustive: never = intent.route;
+      const _exhaustive: never = intent;
       void _exhaustive;
     }
   }

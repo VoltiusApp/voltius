@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { intentKey, isConfirmIntent, isSilentIntent, parseDeepLink, buildDeepLink } from "./deepLinkUrl";
+import { intentKey, isConfirmIntent, isNavigateIntent, isSilentIntent, parseDeepLink, buildDeepLink } from "./deepLinkUrl";
 
 const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
 const TOKEN = "deadbeefdeadbeefdeadbeefdeadbeef";
@@ -145,4 +145,69 @@ test("rejects an unknown route in the fragment", () => {
 
 test("rejects the http form", () => {
   expect(parseDeepLink(`http://voltius.app/open#join?s=${SESSION}&t=${TOKEN}`)).toBeNull();
+});
+
+test("parses a notification link with and without an entry id", () => {
+  expect(parseDeepLink("voltius://notification?n=invite%3A42")).toEqual({
+    route: "notification",
+    entryId: "invite:42",
+  });
+  expect(parseDeepLink("voltius://notification")).toEqual({
+    route: "notification",
+    entryId: null,
+  });
+});
+
+test("rejects a notification entry id past the length cap", () => {
+  expect(parseDeepLink(`voltius://notification?n=${"a".repeat(201)}`)).toBeNull();
+  expect(parseDeepLink(`voltius://notification?n=${"a".repeat(200)}`)).not.toBeNull();
+});
+
+test("parses a settings link only for a section that exists", () => {
+  expect(parseDeepLink("voltius://settings?section=integrations")).toEqual({
+    route: "settings",
+    section: "integrations",
+  });
+  // `mcp` reads like a section but is a panel inside `integrations`; an id the
+  // app cannot render has to fail here rather than open an empty modal.
+  expect(parseDeepLink("voltius://settings?section=mcp")).toBeNull();
+  expect(parseDeepLink("voltius://settings?section=__proto__")).toBeNull();
+  expect(parseDeepLink("voltius://settings")).toBeNull();
+});
+
+test("parses a billing link, which takes no parameters", () => {
+  expect(parseDeepLink("voltius://billing")).toEqual({ route: "billing" });
+  expect(parseDeepLink("voltius://billing?section=account")).toEqual({ route: "billing" });
+});
+
+test("the navigate routes are neither confirm nor silent", () => {
+  for (const url of [
+    "voltius://notification",
+    "voltius://settings?section=account",
+    "voltius://billing",
+  ]) {
+    const intent = parseDeepLink(url)!;
+    expect(isNavigateIntent(intent)).toBe(true);
+    expect(isConfirmIntent(intent)).toBe(false);
+    expect(isSilentIntent(intent)).toBe(false);
+  }
+});
+
+test("builds the navigate routes in both forms and round-trips them", () => {
+  const intents = [
+    { route: "notification", entryId: "invite:42" },
+    { route: "notification", entryId: null },
+    { route: "settings", section: "vaults" },
+    { route: "billing" },
+  ] as const;
+  for (const intent of intents) {
+    for (const form of ["scheme", "https"] as const) {
+      expect(parseDeepLink(buildDeepLink(intent, form))).toEqual(intent);
+    }
+  }
+});
+
+test("a parameterless route builds without a trailing question mark", () => {
+  expect(buildDeepLink({ route: "billing" }, "scheme")).toBe("voltius://billing");
+  expect(buildDeepLink({ route: "billing" }, "https")).toBe("https://voltius.app/open#billing");
 });
