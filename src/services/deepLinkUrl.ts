@@ -7,13 +7,15 @@ export type VerifiedIntent = { route: "verified"; userId: string };
 export type NotificationIntent = { route: "notification"; entryId: string | null };
 export type SettingsIntent = { route: "settings"; section: SettingsSection };
 export type BillingIntent = { route: "billing" };
+export type SnippetInstallIntent = { route: "snippet-install"; entryId: string };
 export type DeepLinkIntent =
   | JoinIntent
   | InviteIntent
   | VerifiedIntent
   | NotificationIntent
   | SettingsIntent
-  | BillingIntent;
+  | BillingIntent
+  | SnippetInstallIntent;
 
 type TrustClass = "confirm" | "silent" | "navigate";
 type Route = DeepLinkIntent["route"];
@@ -41,6 +43,9 @@ const TRUST = {
   notification: "navigate",
   settings: "navigate",
   billing: "navigate",
+  // Writes snippets — shell commands the user will later run — into a vault, so
+  // nothing lands until the user accepts.
+  "snippet-install": "confirm",
 } as const satisfies Record<Route, TrustClass>;
 
 type RouteOfClass<C extends TrustClass> = {
@@ -64,6 +69,9 @@ type RouteCodec<K extends Route> = {
 
 /** Long enough for any id the inbox builds, short enough to stay a lookup key. */
 const MAX_ENTRY_ID = 200;
+
+/** Long enough for any catalogue id upstream authors, short enough to stay a key. */
+const MAX_CATALOG_ID = 100;
 
 /**
  * Mirrors the server's custom-handle rule (server: `src/handles.rs`,
@@ -125,6 +133,16 @@ const ROUTES: { [K in Route]: RouteCodec<K> } = {
   billing: {
     parse: () => ({ route: "billing" }),
     params: () => ({}),
+  },
+  "snippet-install": {
+    parse: (params) => {
+      const entryId = params.get("id") ?? "";
+      // Opaque beyond its length: the catalogue is fetched at confirm time, and an
+      // id it does not list fails there, where the sheet can say so.
+      if (!entryId || entryId.length > MAX_CATALOG_ID) return null;
+      return { route: "snippet-install", entryId };
+    },
+    params: ({ entryId }) => ({ id: entryId }),
   },
 };
 

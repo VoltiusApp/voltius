@@ -244,6 +244,15 @@
       "error": {
         "unsupportedCatalog": "This snippet catalogue is in a format this version of Voltius doesn’t understand. Try updating the app."
       }
+    },
+    "deepLinkInstall": {
+      "title": "Install these snippets?",
+      "body": "This link installs snippets from the Voltius community catalogue. Snippets are shell commands that run on your hosts when you use them.",
+      "summary": "{{name}} by {{author}} — {{count}} snippets",
+      "unknownAuthor": "an unnamed author",
+      "destination": "They will be added to the {{vault}} vault.",
+      "action": "Install",
+      "failed": "Could not install these snippets"
     }
   }
 }

@@ -232,3 +232,15 @@ test("an invite link with a handle the server could never issue is rejected", ()
   expect(parseDeepLink("voltius://invite?h=" + "a".repeat(31))).toBeNull();
   expect(parseDeepLink("voltius://invite")).toBeNull();
 });
+
+test("a snippet-install link round-trips through both forms", () => {
+  const intent = { route: "snippet-install" as const, entryId: "docker-cleanup" };
+  expect(parseDeepLink(buildDeepLink(intent, "scheme"))).toEqual(intent);
+  expect(parseDeepLink(buildDeepLink(intent, "https"))).toEqual(intent);
+});
+
+test("a snippet-install link with no id, or an over-long one, is rejected", () => {
+  expect(parseDeepLink("voltius://snippet-install")).toBeNull();
+  expect(parseDeepLink("voltius://snippet-install?id=")).toBeNull();
+  expect(parseDeepLink("voltius://snippet-install?id=" + "a".repeat(101))).toBeNull();
+});

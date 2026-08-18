@@ -6,6 +6,10 @@ import { searchUsers } from "@/services/teamService";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { InviteTarget } from "@/services/teamSharing";
+import { fetchCatalog as fetchSnippetCatalog } from "@/services/snippetCatalogFetch";
+import { installCatalogEntries } from "@/services/snippetCatalogInstall";
+import type { CatalogEntry } from "@/services/snippetCatalog";
+import { useVaultStore } from "@/stores/vaultStore";
 
 export type ConfirmRoute = ConfirmIntent["route"];
 type IntentOf<K extends ConfirmRoute> = Extract<ConfirmIntent, { route: K }>;
@@ -44,6 +48,7 @@ export interface InviteLoad {
 export interface ConfirmLoad {
   join: void;
   invite: InviteLoad;
+  "snippet-install": CatalogEntry;
 }
 
 /**
@@ -55,6 +60,13 @@ function shareableSessionId(): string | null {
   const id = useSessionStore.getState().activeSessionId;
   if (!id) return null;
   return useTeamSessionStore.getState().connections[id]?.sessionKeyBytes ? id : null;
+}
+
+/** The vault an install lands in — the selected one, or the personal vault. */
+function installTargetVault(): { id: string; name: string } {
+  const { selectedVaultIds, vaults } = useVaultStore.getState();
+  const id = selectedVaultIds[0] ?? "personal";
+  return { id, name: vaults.find((vault) => vault.id === id)?.name ?? id };
 }
 
 export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]> } = {
@@ -105,6 +117,43 @@ export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]
     accept: async (_intent, loaded) => {
       if (!loaded?.target || !loaded.localSessionId) return;
       await useTeamSessionStore.getState().inviteToActiveSession(loaded.localSessionId, loaded.target);
+    },
+  },
+  "snippet-install": {
+    icon: "lucide:scroll-text",
+    acceptLabelKey: "snippets.deepLinkInstall.action",
+    errorKey: "snippets.deepLinkInstall.failed",
+    load: async ({ entryId }) => {
+      const { entries } = await fetchSnippetCatalog();
+      const entry = entries.find((candidate) => candidate.id === entryId);
+      // Rejecting here is what leaves accept dead: a sheet that cannot name what
+      // it would install must never be acceptable.
+      if (!entry) throw new Error("snippet catalogue entry not found");
+      return entry;
+    },
+    details: (_intent, loaded, t) => ({
+      title: t("snippets.deepLinkInstall.title"),
+      body: t("snippets.deepLinkInstall.body"),
+      note: loaded
+        ? // Named on purpose: the install lands in whichever vault is selected, and a
+          // link the user did not author should not quietly write into one they were
+          // not thinking about.
+          t("snippets.deepLinkInstall.destination", { vault: installTargetVault().name })
+        : undefined,
+    }),
+    extra: (loaded, t) =>
+      loaded ? (
+        <p className="text-sm text-(--t-text-bright)">
+          {t("snippets.deepLinkInstall.summary", {
+            name: loaded.name,
+            author: loaded.author ?? t("snippets.deepLinkInstall.unknownAuthor"),
+            count: loaded.snippets.length,
+          })}
+        </p>
+      ) : null,
+    accept: async (_intent, loaded) => {
+      if (!loaded) return;
+      await installCatalogEntries([{ entry: loaded }], installTargetVault().id);
     },
   },
 };

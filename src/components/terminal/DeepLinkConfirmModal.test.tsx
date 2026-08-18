@@ -4,14 +4,29 @@ import userEvent from "@testing-library/user-event";
 import { DeepLinkConfirmModal } from "./DeepLinkConfirmModal";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 
+let teamConnections: Record<string, { sessionKeyBytes?: Uint8Array }> = {};
+let activeLocalSessionId: string | null = null;
+let snippetEntries: { id: string; kind: string; name: string; author?: string; snippets: unknown[] }[] = [];
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
-let teamConnections: Record<string, { sessionKeyBytes?: Uint8Array }> = {};
-let activeLocalSessionId: string | null = null;
+const fetchSnippetCatalogMock = vi.fn(async () => ({ entries: snippetEntries, fromCache: false }));
+vi.mock("@/services/snippetCatalogFetch", () => ({
+  fetchCatalog: () => fetchSnippetCatalogMock(),
+}));
+
+const installEntriesMock = vi.fn(async (..._args: unknown[]) => ({ imported: 1, errors: 0 }));
+vi.mock("@/services/snippetCatalogInstall", () => ({
+  installCatalogEntries: (...args: unknown[]) => installEntriesMock(...args),
+}));
+
+vi.mock("@/stores/vaultStore", () => ({
+  useVaultStore: { getState: () => ({ selectedVaultIds: ["team-a"], vaults: [{ id: "team-a", name: "Ops" }] }) },
+}));
 
 const joinMock = vi.fn(async (..._args: unknown[]) => "local-1");
 vi.mock("@/services/teamSessionJoin", () => ({
@@ -40,6 +55,9 @@ beforeEach(() => {
   inviteMock.mockClear();
   teamConnections = {};
   activeLocalSessionId = null;
+  snippetEntries = [];
+  fetchSnippetCatalogMock.mockClear();
+  installEntriesMock.mockClear().mockResolvedValue({ imported: 1, errors: 0 });
   useDeepLinkStore.setState({ ready: true, queue: [], prompt: null });
 });
 
@@ -154,4 +172,29 @@ test("an invite link with no shareable session names the handle but cannot be ac
   await waitFor(() => expect(screen.getByText("terminal.share.deepLinkInviteNoActiveSession")).toBeTruthy());
   await userEvent.click(screen.getByText("terminal.share.deepLinkInviteAction"));
   expect(inviteMock).not.toHaveBeenCalled();
+});
+
+test("a snippet-install sheet names the entry and its destination vault before installing", async () => {
+  snippetEntries = [{ id: "docker-cleanup", kind: "pack", name: "Docker cleanup", author: "kevin", snippets: [{}, {}] }];
+  useDeepLinkStore.setState({ prompt: { route: "snippet-install", entryId: "docker-cleanup" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("snippets.deepLinkInstall.summary")).toBeTruthy());
+  expect(screen.getByText("snippets.deepLinkInstall.destination")).toBeTruthy();
+  expect(installEntriesMock).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByText("snippets.deepLinkInstall.action"));
+  await waitFor(() =>
+    expect(installEntriesMock).toHaveBeenCalledWith(
+      [expect.objectContaining({ entry: expect.objectContaining({ id: "docker-cleanup" }) })],
+      "team-a",
+    ),
+  );
+});
+
+test("a snippet-install link naming an entry the catalogue does not list cannot be accepted", async () => {
+  snippetEntries = [];
+  useDeepLinkStore.setState({ prompt: { route: "snippet-install", entryId: "docker-cleanup" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("snippets.deepLinkInstall.failed")).toBeTruthy());
+  await userEvent.click(screen.getByText("snippets.deepLinkInstall.action"));
+  expect(installEntriesMock).not.toHaveBeenCalled();
 });
