@@ -1,7 +1,7 @@
 import { test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DeepLinkJoinModal } from "./DeepLinkJoinModal";
+import { DeepLinkConfirmModal } from "./DeepLinkConfirmModal";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 
 vi.mock("react-i18next", () => ({
@@ -26,20 +26,20 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 test("renders nothing without a prompt", () => {
-  const { container } = render(<DeepLinkJoinModal />);
+  const { container } = render(<DeepLinkConfirmModal />);
   expect(container.innerHTML).toBe("");
 });
 
 test("does not join until the user confirms", () => {
   useDeepLinkStore.setState({ prompt: intent });
-  render(<DeepLinkJoinModal />);
+  render(<DeepLinkConfirmModal />);
   expect(screen.getByText("terminal.share.deepLinkJoinTitle")).toBeTruthy();
   expect(joinMock).not.toHaveBeenCalled();
 });
 
 test("confirming joins with the link's session id and token", async () => {
   useDeepLinkStore.setState({ prompt: intent });
-  render(<DeepLinkJoinModal />);
+  render(<DeepLinkConfirmModal />);
   await userEvent.click(screen.getByText("terminal.share.deepLinkJoinAction"));
   await waitFor(() =>
     expect(joinMock).toHaveBeenCalledWith(
@@ -51,7 +51,7 @@ test("confirming joins with the link's session id and token", async () => {
 
 test("cancelling clears the prompt without joining", async () => {
   useDeepLinkStore.setState({ prompt: intent });
-  render(<DeepLinkJoinModal />);
+  render(<DeepLinkConfirmModal />);
   await userEvent.click(screen.getByText("common.action.cancel"));
   expect(joinMock).not.toHaveBeenCalled();
   expect(useDeepLinkStore.getState().prompt).toBeNull();
@@ -60,7 +60,7 @@ test("cancelling clears the prompt without joining", async () => {
 test("a failed join shows the error and keeps the sheet open", async () => {
   joinMock.mockRejectedValue(new Error("nope"));
   useDeepLinkStore.setState({ prompt: intent });
-  render(<DeepLinkJoinModal />);
+  render(<DeepLinkConfirmModal />);
   await userEvent.click(screen.getByText("terminal.share.deepLinkJoinAction"));
   await waitFor(() =>
     expect(screen.getByText("terminal.share.deepLinkJoinFailed")).toBeTruthy(),
@@ -76,7 +76,7 @@ test("a second click while the first join is in flight does not join twice", asy
     }),
   );
   useDeepLinkStore.setState({ prompt: intent });
-  render(<DeepLinkJoinModal />);
+  render(<DeepLinkConfirmModal />);
   const button = screen.getByText("terminal.share.deepLinkJoinAction");
   await userEvent.click(button);
   await userEvent.click(button);
@@ -87,7 +87,7 @@ test("a second click while the first join is in flight does not join twice", asy
 test("a stale error is cleared when a new link is prompted", async () => {
   joinMock.mockRejectedValue(new Error("nope"));
   useDeepLinkStore.setState({ prompt: intent });
-  render(<DeepLinkJoinModal />);
+  render(<DeepLinkConfirmModal />);
   await userEvent.click(screen.getByText("terminal.share.deepLinkJoinAction"));
   await waitFor(() =>
     expect(screen.getByText("terminal.share.deepLinkJoinFailed")).toBeTruthy(),
