@@ -23,14 +23,14 @@ test("becoming ready drains the queued intent into the prompt", () => {
   handleDeepLink(link(SESSION));
   useDeepLinkStore.getState().setReady(true);
   const s = useDeepLinkStore.getState();
-  expect(s.prompt?.sessionId).toBe(SESSION);
+  expect(s.prompt).toMatchObject({ route: "join", sessionId: SESSION });
   expect(s.queue).toHaveLength(0);
 });
 
 test("a link arriving while ready prompts immediately", () => {
   useDeepLinkStore.getState().setReady(true);
   handleDeepLink(link(SESSION));
-  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
+  expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION });
 });
 
 test("a warm echo while the prompt is open does not re-prompt", () => {
@@ -52,16 +52,16 @@ test("dismissing then redelivering the same link prompts again", () => {
   handleDeepLink(link(SESSION));
   useDeepLinkStore.getState().dismissPrompt();
   handleDeepLink(link(SESSION));
-  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
+  expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION });
 });
 
 test("two different links queued before ready are both delivered, in order", () => {
   handleDeepLink(link(SESSION));
   handleDeepLink(link(OTHER));
   useDeepLinkStore.getState().setReady(true);
-  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
+  expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION });
   useDeepLinkStore.getState().dismissPrompt();
-  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(OTHER);
+  expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: OTHER });
 });
 
 test("an unknown route is dropped without prompting or throwing", () => {
@@ -87,7 +87,7 @@ test("a different link while a prompt is on screen queues behind it", () => {
   expect(s.prompt).toBe(shown);
   expect(s.queue).toHaveLength(1);
   s.dismissPrompt();
-  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(OTHER);
+  expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: OTHER });
 });
 
 test("dismissing clears the prompt", () => {
@@ -116,7 +116,7 @@ test("a silent link does not wait behind an open prompt", () => {
   handleDeepLink(link(SESSION));
   handleDeepLink(`voltius://verified?u=${USER}`);
   expect(seen).toEqual([USER]);
-  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
+  expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION });
 });
 
 test("a silent link arriving before ready runs once ready", () => {
@@ -156,7 +156,7 @@ test("a link enqueued by a silent handler survives the drain that ran it", () =>
   useDeepLinkStore.getState().setUnpromptedHandler(() => handleDeepLink(link(SESSION)));
   useDeepLinkStore.getState().setReady(true);
   handleDeepLink(`voltius://verified?u=${USER}`);
-  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
+  expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION });
   expect(useDeepLinkStore.getState().queue).toHaveLength(0);
 });
 
@@ -204,7 +204,7 @@ test("a navigate link does not wait behind an open prompt", () => {
   handleDeepLink(link(SESSION));
   handleDeepLink("voltius://notification?n=invite%3A42");
   expect(seen).toEqual(["notification"]);
-  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
+  expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION });
 });
 
 test("the same navigate link delivered twice reaches the handler once", () => {
