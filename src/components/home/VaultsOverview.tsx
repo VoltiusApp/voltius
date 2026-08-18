@@ -7,25 +7,13 @@ import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
+import { vaultOverviewSections } from "./vaultOverviewSections";
 import type { Connection } from "@/types";
-
-const HOSTS_PER_VAULT = 6;
 
 function displayName(c: Connection): string {
   if (c.name?.trim()) return c.name.trim();
   if (c.connection_type === "serial" || c.serial_port) return c.serial_port ?? i18n.t("home.serialFallback");
   return `${c.username}@${c.host}`;
-}
-
-function topHosts(
-  connections: Connection[],
-  isPinned: (c: Connection) => boolean,
-): Connection[] {
-  const pinned = connections.filter((c) => isPinned(c));
-  const rest = connections
-    .filter((c) => !isPinned(c))
-    .sort((a, b) => (b.last_used_at ?? "").localeCompare(a.last_used_at ?? ""));
-  return [...pinned, ...rest].slice(0, HOSTS_PER_VAULT);
 }
 
 interface VaultCardProps {
@@ -105,14 +93,7 @@ export function VaultsOverview() {
   };
 
   const isPinnedFn = useEffectivePinnedPredicate();
-  const sections = vaults.map((vault) => {
-    const vaultConns = connections.filter((c) => (c.vault_id ?? "personal") === vault.id);
-    return {
-      vault,
-      hosts: topHosts(vaultConns, (c) => isPinnedFn(c, "connection")),
-      totalHosts: vaultConns.length,
-    };
-  });
+  const sections = vaultOverviewSections(vaults, connections, (c) => isPinnedFn(c, "connection"));
 
   if (sections.length === 0) return null;
 
