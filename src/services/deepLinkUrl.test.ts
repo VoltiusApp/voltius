@@ -211,3 +211,24 @@ test("a parameterless route builds without a trailing question mark", () => {
   expect(buildDeepLink({ route: "billing" }, "scheme")).toBe("voltius://billing");
   expect(buildDeepLink({ route: "billing" }, "https")).toBe("https://voltius.app/open#billing");
 });
+
+test("an invite link round-trips through both forms", () => {
+  const intent = { route: "invite" as const, handle: "kevin-p" };
+  expect(parseDeepLink(buildDeepLink(intent, "scheme"))).toEqual(intent);
+  expect(parseDeepLink(buildDeepLink(intent, "https"))).toEqual(intent);
+});
+
+test("an invite handle is accepted with or without its @, and normalised without it", () => {
+  expect(parseDeepLink("voltius://invite?h=%40kevin-p")).toEqual({ route: "invite", handle: "kevin-p" });
+  expect(parseDeepLink("voltius://invite?h=kevin-p")).toEqual({ route: "invite", handle: "kevin-p" });
+  expect(parseDeepLink("voltius://invite?h=Kevin-P")).toEqual({ route: "invite", handle: "kevin-p" });
+});
+
+test("an invite link with a handle the server could never issue is rejected", () => {
+  expect(parseDeepLink("voltius://invite?h=ab")).toBeNull();
+  expect(parseDeepLink("voltius://invite?h=-kevin")).toBeNull();
+  expect(parseDeepLink("voltius://invite?h=kevin-")).toBeNull();
+  expect(parseDeepLink("voltius://invite?h=kevin%20p")).toBeNull();
+  expect(parseDeepLink("voltius://invite?h=" + "a".repeat(31))).toBeNull();
+  expect(parseDeepLink("voltius://invite")).toBeNull();
+});

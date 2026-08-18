@@ -2,12 +2,14 @@ import { isSessionId } from "@/services/sessionId";
 import { isSettingsSection, type SettingsSection } from "@/stores/uiStore";
 
 export type JoinIntent = { route: "join"; sessionId: string; token: string };
+export type InviteIntent = { route: "invite"; handle: string };
 export type VerifiedIntent = { route: "verified"; userId: string };
 export type NotificationIntent = { route: "notification"; entryId: string | null };
 export type SettingsIntent = { route: "settings"; section: SettingsSection };
 export type BillingIntent = { route: "billing" };
 export type DeepLinkIntent =
   | JoinIntent
+  | InviteIntent
   | VerifiedIntent
   | NotificationIntent
   | SettingsIntent
@@ -32,6 +34,9 @@ type Route = DeepLinkIntent["route"];
  */
 const TRUST = {
   join: "confirm",
+  // Grants a stranger access to a live terminal, so nothing happens until the
+  // host accepts.
+  invite: "confirm",
   verified: "silent",
   notification: "navigate",
   settings: "navigate",
@@ -60,6 +65,16 @@ type RouteCodec<K extends Route> = {
 /** Long enough for any id the inbox builds, short enough to stay a lookup key. */
 const MAX_ENTRY_ID = 200;
 
+/**
+ * Mirrors the server's custom-handle rule (server: `src/handles.rs`,
+ * `validate_custom_handle`): 3–30 ASCII lowercase/digit/`-`/`_`, never starting
+ * or ending in a separator. Generated handles (`adjective-noun-1234`) satisfy it
+ * too. The reserved-name list is deliberately not mirrored: it governs *claiming*
+ * a handle, not looking one up, and a link naming a reserved handle resolves to
+ * nobody anyway.
+ */
+const HANDLE_RE = /^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/;
+
 const ROUTES: { [K in Route]: RouteCodec<K> } = {
   join: {
     parse: (params) => {
@@ -69,6 +84,16 @@ const ROUTES: { [K in Route]: RouteCodec<K> } = {
       return { route: "join", sessionId, token };
     },
     params: ({ sessionId, token }) => ({ s: sessionId, t: token }),
+  },
+  invite: {
+    // The `@` is how a handle is written throughout the UI, so links carry it;
+    // it is display sugar and never part of the stored value.
+    parse: (params) => {
+      const handle = (params.get("h") ?? "").replace(/^@/, "").toLowerCase();
+      if (!HANDLE_RE.test(handle)) return null;
+      return { route: "invite", handle };
+    },
+    params: ({ handle }) => ({ h: `@${handle}` }),
   },
   verified: {
     parse: (params) => {

@@ -10,9 +10,25 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
+let teamConnections: Record<string, { sessionKeyBytes?: Uint8Array }> = {};
+let activeLocalSessionId: string | null = null;
+
 const joinMock = vi.fn(async (..._args: unknown[]) => "local-1");
 vi.mock("@/services/teamSessionJoin", () => ({
   joinTeamSessionAndOpenTab: (...args: unknown[]) => joinMock(...args),
+}));
+
+const searchUsersMock = vi.fn(async (_q: string) => [] as { user_id: string; handle: string; is_teammate: boolean }[]);
+vi.mock("@/services/teamService", () => ({
+  searchUsers: (q: string) => searchUsersMock(q),
+}));
+
+const inviteMock = vi.fn(async (..._args: unknown[]) => {});
+vi.mock("@/stores/teamSessionStore", () => ({
+  useTeamSessionStore: { getState: () => ({ connections: teamConnections, inviteToActiveSession: inviteMock }) },
+}));
+vi.mock("@/stores/sessionStore", () => ({
+  useSessionStore: { getState: () => ({ activeSessionId: activeLocalSessionId }) },
 }));
 
 const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
@@ -20,6 +36,10 @@ const intent = { route: "join" as const, sessionId: SESSION, token: "tok" };
 
 beforeEach(() => {
   joinMock.mockClear().mockResolvedValue("local-1");
+  searchUsersMock.mockClear().mockResolvedValue([]);
+  inviteMock.mockClear();
+  teamConnections = {};
+  activeLocalSessionId = null;
   useDeepLinkStore.setState({ ready: true, queue: [], prompt: null });
 });
 
@@ -97,4 +117,41 @@ test("a stale error is cleared when a new link is prompted", async () => {
   await waitFor(() =>
     expect(screen.queryByText("terminal.share.deepLinkJoinFailed")).toBeNull(),
   );
+});
+
+test("an invite sheet names the handle and invites the resolved user", async () => {
+  searchUsersMock.mockResolvedValue([{ user_id: "u1", handle: "kevin-p", is_teammate: false }]);
+  activeLocalSessionId = "local-1";
+  teamConnections = { "local-1": { sessionKeyBytes: new Uint8Array(32) } };
+  useDeepLinkStore.setState({ prompt: { route: "invite", handle: "kevin-p" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() =>
+    expect((screen.getByText("terminal.share.deepLinkInviteAction").closest("button") as HTMLButtonElement).disabled).toBe(false),
+  );
+  await userEvent.click(screen.getByText("terminal.share.deepLinkInviteAction"));
+  await waitFor(() =>
+    expect(inviteMock).toHaveBeenCalledWith("local-1", expect.objectContaining({ user_id: "u1", handle: "kevin-p" })),
+  );
+});
+
+test("an invite link whose handle only fuzzily matches invites nobody", async () => {
+  searchUsersMock.mockResolvedValue([{ user_id: "u1", handle: "kevin-porter", is_teammate: false }]);
+  activeLocalSessionId = "local-1";
+  teamConnections = { "local-1": { sessionKeyBytes: new Uint8Array(32) } };
+  useDeepLinkStore.setState({ prompt: { route: "invite", handle: "kevin-p" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("terminal.share.deepLinkInviteUnknownUser")).toBeTruthy());
+  await userEvent.click(screen.getByText("terminal.share.deepLinkInviteAction"));
+  expect(inviteMock).not.toHaveBeenCalled();
+});
+
+test("an invite link with no shareable session names the handle but cannot be accepted", async () => {
+  searchUsersMock.mockResolvedValue([{ user_id: "u1", handle: "kevin-p", is_teammate: false }]);
+  activeLocalSessionId = null;
+  teamConnections = {};
+  useDeepLinkStore.setState({ prompt: { route: "invite", handle: "kevin-p" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("terminal.share.deepLinkInviteNoActiveSession")).toBeTruthy());
+  await userEvent.click(screen.getByText("terminal.share.deepLinkInviteAction"));
+  expect(inviteMock).not.toHaveBeenCalled();
 });
