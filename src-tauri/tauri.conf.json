@@ -61,7 +61,7 @@
       },
       "mobile": [
         { "scheme": ["voltius"] },
-        { "scheme": ["https"], "host": "voltius.app", "pathPrefix": ["/open"] }
+        { "scheme": ["https"], "host": "voltius.app", "path": ["/open", "/open/"] }
       ]
     },
     "updater": {

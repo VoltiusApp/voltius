@@ -45,9 +45,10 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" />
                 <data android:host="voltius.app" />
+                <data android:path="/open" />
+                <data android:path="/open/" />
                 
                 
-                <data android:pathPrefix="/open" />
                 
             </intent-filter>
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
