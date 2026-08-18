@@ -8,8 +8,8 @@ import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember, TeamRole } from "@/services/teamService";
-import { StatusDot } from "@/components/shared/StatusDot";
-import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
+import { AvatarOverflow, MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
+import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
 import { getAccountMode } from "@/services/account";
@@ -81,22 +81,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
               <MiniAvatar name={m.handle} size={24} />
             </div>
           ))}
-          {overflow > 0 && (
-            <div
-              className="flex items-center justify-center text-[10px] font-semibold rounded-full shrink-0"
-              style={{
-                marginLeft: -9,
-                zIndex: 0,
-                width: 26,
-                height: 26,
-                background: "var(--t-bg-elevated)",
-                border: "2px solid var(--t-bg-chrome)",
-                color: "var(--t-text-dim)",
-              }}
-            >
-              +{overflow}
-            </div>
-          )}
+          <AvatarOverflow count={overflow} size={24} ringColor="var(--t-bg-chrome)" />
 
           {/* Hover popover — portalled: the page overlay in MainPanel outranks the
               header's stacking context, so an in-flow popover paints under it. */}
@@ -121,10 +106,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
                   .filter(Boolean) as TeamRole[];
                 return (
                   <div key={m.user_id} className="flex items-center gap-2.5 px-3 py-2" style={{ opacity: m.is_online ? 1 : 0.5 }}>
-                    <div className="relative shrink-0">
-                      <MiniAvatar name={m.handle} size={22} />
-                      {m.is_online && <StatusDot color="var(--t-status-connected)" size={7} />}
-                    </div>
+                    <PresenceAvatar handle={m.handle} size={22} online={m.is_online} />
                     <div className="flex flex-col min-w-0 flex-1">
                       <span className="text-xs truncate" style={{ color: "var(--t-text-primary)" }}>{m.handle}</span>
                       {memberRoles.length > 0 && (

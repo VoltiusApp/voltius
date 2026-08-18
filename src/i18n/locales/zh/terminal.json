@@ -141,7 +141,6 @@
       "guestsRatio_other": "{{participantCount}} / {{guestCap}} 位访客",
       "upgradeToTeams": "升级到 Teams",
       "upgradeToBusiness": "升级到 Business",
-      "hasControl": "拥有控制权",
       "stopSharing": "停止共享",
       "inviteHasAccess": "已有访问权限",
       "inviteSent": "已邀请",
