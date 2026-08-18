@@ -54,13 +54,15 @@ export interface HistoryEntry {
   dismissedAt: number;
 }
 
+/** Every kind here is actionable: the bell badge counts these entries, so a
+ *  confirmation with nothing to decide (control landing on a guest) is a toast
+ *  in `reconcileControlRequests`, not a kind. */
 export type InboxKind =
   | "invite"
   | "sessionShared"
   | "sessionInvite"
   | "sessionKnock"
   | "controlRequest"
-  | "controlGranted"
   | "awaitingKey";
 
 export interface InboxAction {
