@@ -1,8 +1,9 @@
 import { test, expect } from "vitest";
-import { intentKey, isConfirmIntent, isSilentIntent, parseDeepLink } from "./deepLinkUrl";
+import { intentKey, isConfirmIntent, isSilentIntent, parseDeepLink, buildDeepLink } from "./deepLinkUrl";
 
 const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
 const TOKEN = "deadbeefdeadbeefdeadbeefdeadbeef";
+const USER = "9f1e2d3c-4b5a-6978-8765-43210fedcba9";
 
 test("parses a join link", () => {
   expect(parseDeepLink(`voltius://join?s=${SESSION}&t=${TOKEN}`)).toEqual({
@@ -42,8 +43,6 @@ test("rejects junk without throwing", () => {
   expect(parseDeepLink("")).toBeNull();
 });
 
-const USER = "9f1e2d3c-4b5a-6978-8765-43210fedcba9";
-
 test("parses a verified link", () => {
   expect(parseDeepLink(`voltius://verified?u=${USER}`)).toEqual({
     route: "verified",
@@ -80,4 +79,70 @@ test("intent keys match for the same link parsed twice", () => {
 test("join is a confirm route and verified is a silent one", () => {
   expect(isConfirmIntent(parseDeepLink(`voltius://join?s=${SESSION}&t=${TOKEN}`)!)).toBe(true);
   expect(isSilentIntent(parseDeepLink(`voltius://verified?u=${USER}`)!)).toBe(true);
+});
+
+test("builds a join link in both forms", () => {
+  const intent = { route: "join", sessionId: SESSION, token: TOKEN } as const;
+  expect(buildDeepLink(intent, "scheme")).toBe(`voltius://join?s=${SESSION}&t=${TOKEN}`);
+  expect(buildDeepLink(intent, "https")).toBe(
+    `https://voltius.app/open#join?s=${SESSION}&t=${TOKEN}`,
+  );
+});
+
+test("builds a verified link and defaults to the https form", () => {
+  const intent = { route: "verified", userId: USER } as const;
+  expect(buildDeepLink(intent)).toBe(`https://voltius.app/open#verified?u=${USER}`);
+  expect(buildDeepLink(intent, "scheme")).toBe(`voltius://verified?u=${USER}`);
+});
+
+test("percent-encodes parameters that need it", () => {
+  const built = buildDeepLink({ route: "join", sessionId: SESSION, token: "a+b" }, "scheme");
+  expect(built).toBe(`voltius://join?s=${SESSION}&t=a%2Bb`);
+  expect(parseDeepLink(built)).toMatchObject({ token: "a+b" });
+});
+
+test("parses the https form", () => {
+  expect(parseDeepLink(`https://voltius.app/open#join?s=${SESSION}&t=${TOKEN}`)).toEqual({
+    route: "join",
+    sessionId: SESSION,
+    token: TOKEN,
+  });
+  expect(parseDeepLink(`https://www.voltius.app/open/#verified?u=${USER}`)).toEqual({
+    route: "verified",
+    userId: USER,
+  });
+});
+
+test("every route round-trips through both forms", () => {
+  for (const intent of [
+    { route: "join", sessionId: SESSION, token: TOKEN },
+    { route: "verified", userId: USER },
+  ] as const) {
+    expect(parseDeepLink(buildDeepLink(intent, "https"))).toEqual(intent);
+    expect(parseDeepLink(buildDeepLink(intent, "scheme"))).toEqual(intent);
+  }
+});
+
+test("rejects an https link on a foreign host", () => {
+  expect(parseDeepLink(`https://evil.example/open#join?s=${SESSION}&t=${TOKEN}`)).toBeNull();
+  expect(parseDeepLink(`https://voltius.app.evil.example/open#join?s=${SESSION}&t=${TOKEN}`))
+    .toBeNull();
+});
+
+test("rejects an https link on the wrong path", () => {
+  expect(parseDeepLink(`https://voltius.app/blog#join?s=${SESSION}&t=${TOKEN}`)).toBeNull();
+});
+
+test("rejects an https link that carries the route in the query string", () => {
+  expect(parseDeepLink(`https://voltius.app/open?join&s=${SESSION}&t=${TOKEN}`)).toBeNull();
+});
+
+test("rejects an unknown route in the fragment", () => {
+  expect(parseDeepLink(`https://voltius.app/open#vault?s=${SESSION}`)).toBeNull();
+  expect(parseDeepLink("https://voltius.app/open#")).toBeNull();
+  expect(parseDeepLink("https://voltius.app/open")).toBeNull();
+});
+
+test("rejects the http form", () => {
+  expect(parseDeepLink(`http://voltius.app/open#join?s=${SESSION}&t=${TOKEN}`)).toBeNull();
 });

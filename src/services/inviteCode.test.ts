@@ -48,7 +48,7 @@ test("parseInviteCode returns null when session id or token is empty", () => {
 
 test("buildInviteLink round-trips through parseInviteCode", () => {
   const link = buildInviteLink(SESSION, TOKEN);
-  expect(link.startsWith("voltius://join?")).toBe(true);
+  expect(link.startsWith("https://voltius.app/open#join?")).toBe(true);
   expect(parseInviteCode(link)).toEqual({ sessionId: SESSION, token: TOKEN });
 });
 
@@ -87,4 +87,22 @@ test("an uppercase-host voltius:// link returns null instead of colon-splitting"
 test("bare sessionId:token still parses when it is not a URL", () => {
   expect(parseInviteCode(`${SESSION}:${TOKEN}`)).toEqual({ sessionId: SESSION, token: TOKEN });
   expect(isInviteCode(`${SESSION}:${TOKEN}`)).toBe(true);
+});
+
+test("buildInviteLink emits the https form", () => {
+  expect(buildInviteLink(SESSION, TOKEN)).toBe(
+    `https://voltius.app/open#join?s=${SESSION}&t=${TOKEN}`,
+  );
+});
+
+test("parseInviteCode accepts all three shapes", () => {
+  const expected = { sessionId: SESSION, token: TOKEN };
+  expect(parseInviteCode(`${SESSION}:${TOKEN}`)).toEqual(expected);
+  expect(parseInviteCode(`voltius://join?s=${SESSION}&t=${TOKEN}`)).toEqual(expected);
+  expect(parseInviteCode(`https://voltius.app/open#join?s=${SESSION}&t=${TOKEN}`)).toEqual(expected);
+});
+
+test("parseInviteCode rejects an https link that is not an invite", () => {
+  expect(parseInviteCode("https://voltius.app/open#verified?u=" + SESSION)).toBeNull();
+  expect(parseInviteCode("https://example.com/open#join?s=x&t=y")).toBeNull();
 });

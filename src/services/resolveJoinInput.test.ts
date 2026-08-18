@@ -60,3 +60,10 @@ test("quick-connect shapes are not treated as invites", async () => {
   await expect(resolveJoinInput("host:22")).rejects.toThrow("common.error.inviteCodeMalformed");
   expect(redeemSessionCode).not.toHaveBeenCalled();
 });
+
+test("resolves an https invite link", async () => {
+  expect(await resolveJoinInput(`https://voltius.app/open#join?s=${SESSION}&t=faketoken`)).toEqual({
+    sessionId: SESSION,
+    inviteToken: "faketoken",
+  });
+});

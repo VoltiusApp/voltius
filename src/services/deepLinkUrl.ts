@@ -26,23 +26,59 @@ type RouteOfClass<C extends TrustClass> = {
 export type ConfirmIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"confirm"> }>;
 export type SilentIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"silent"> }>;
 
-type RouteParsers = {
-  [K in Route]: (params: URLSearchParams) => Extract<DeepLinkIntent, { route: K }> | null;
+/**
+ * One codec per route, both directions declared together so the builder and the
+ * parser cannot drift as routes are added.
+ */
+type RouteCodec<K extends Route> = {
+  parse: (params: URLSearchParams) => Extract<DeepLinkIntent, { route: K }> | null;
+  params: (intent: Extract<DeepLinkIntent, { route: K }>) => Record<string, string>;
 };
 
-const ROUTES: RouteParsers = {
-  join: (params) => {
-    const sessionId = params.get("s") ?? "";
-    const token = params.get("t") ?? "";
-    if (!isSessionId(sessionId) || !token) return null;
-    return { route: "join", sessionId, token };
+const ROUTES: { [K in Route]: RouteCodec<K> } = {
+  join: {
+    parse: (params) => {
+      const sessionId = params.get("s") ?? "";
+      const token = params.get("t") ?? "";
+      if (!isSessionId(sessionId) || !token) return null;
+      return { route: "join", sessionId, token };
+    },
+    params: ({ sessionId, token }) => ({ s: sessionId, t: token }),
   },
-  verified: (params) => {
-    const userId = params.get("u") ?? "";
-    if (!isSessionId(userId)) return null;
-    return { route: "verified", userId };
+  verified: {
+    parse: (params) => {
+      const userId = params.get("u") ?? "";
+      if (!isSessionId(userId)) return null;
+      return { route: "verified", userId };
+    },
+    params: ({ userId }) => ({ u: userId }),
   },
 };
+
+export type LinkForm = "https" | "scheme";
+
+/** The landing site that bridges an `https` link back to the scheme. */
+export const WEB_ORIGIN = "https://voltius.app";
+const WEB_PATH = "/open";
+
+/**
+ * The one link builder. Every route goes through it; a new route means a new
+ * entry in `ROUTES`, never a second builder.
+ *
+ * The `https` form carries the route in the fragment, so a join token never
+ * reaches a web server log, a CDN, or a `Referer` header.
+ */
+export function buildDeepLink(intent: DeepLinkIntent, form: LinkForm = "https"): string {
+  // The codec is picked by the intent's own route, so the pairing is right by
+  // construction — TypeScript cannot prove that through the index.
+  const codec = ROUTES[intent.route] as RouteCodec<Route>;
+  const query = new URLSearchParams(codec.params(intent)).toString();
+  return form === "scheme"
+    ? `voltius://${intent.route}?${query}`
+    : `${WEB_ORIGIN}${WEB_PATH}#${intent.route}?${query}`;
+}
+
+const WEB_HOSTS = new Set(["voltius.app", "www.voltius.app"]);
 
 export function parseDeepLink(url: string): DeepLinkIntent | null {
   let parsed: URL;
@@ -51,12 +87,40 @@ export function parseDeepLink(url: string): DeepLinkIntent | null {
   } catch {
     return null;
   }
-  if (parsed.protocol !== "voltius:") return null;
-  // Custom schemes are not special-scheme URLs, so the route lands in `hostname`
-  // on some platforms and `pathname` on others.
-  const route = parsed.hostname || parsed.pathname.replace(/^\/+/, "");
+
+  if (parsed.protocol === "voltius:") {
+    // Custom schemes are not special-scheme URLs, so the route lands in
+    // `hostname` on some platforms and `pathname` on others.
+    const route = parsed.hostname || parsed.pathname.replace(/^\/+/, "");
+    return parseRoute(route, parsed.searchParams);
+  }
+
+  // The `https` fallback form. `http` is rejected: an App Link registered for
+  // cleartext would be hijackable on a hostile network.
+  if (
+    parsed.protocol === "https:" &&
+    WEB_HOSTS.has(parsed.hostname) &&
+    parsed.pathname.replace(/\/+$/, "") === WEB_PATH
+  ) {
+    return parseFragment(parsed.hash);
+  }
+
+  return null;
+}
+
+/** `#join?s=…&t=…` — the route, then its parameters, all after the hash. */
+function parseFragment(hash: string): DeepLinkIntent | null {
+  const body = hash.replace(/^#/, "");
+  if (!body) return null;
+  const queryAt = body.indexOf("?");
+  const route = queryAt === -1 ? body : body.slice(0, queryAt);
+  const params = new URLSearchParams(queryAt === -1 ? "" : body.slice(queryAt + 1));
+  return parseRoute(route, params);
+}
+
+function parseRoute(route: string, params: URLSearchParams): DeepLinkIntent | null {
   if (!isRoute(route)) return null;
-  return ROUTES[route](parsed.searchParams);
+  return ROUTES[route].parse(params);
 }
 
 // Own-property only: `"toString" in TRUST` is true, and an inherited hit would
