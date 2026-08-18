@@ -3,3 +3,4 @@
 # the whole worktree, which carries a multi-gigabyte cargo target/ and
 # node_modules and takes minutes before the first instruction runs.
 *
+!rust-toolchain.toml
