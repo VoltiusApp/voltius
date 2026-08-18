@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { Icon } from "@iconify/react";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { useUIStore } from "@/stores/uiStore";
 import type { BannerEntry, HistoryEntry, InboxEntry } from "@/stores/notificationStore";
 
 const SEVERITY_ICONS: Record<string, string> = {
@@ -32,6 +33,7 @@ function InboxRow({ entry, onAction }: { entry: InboxEntry; onAction: (i: number
   const resolved = entry.state === "resolved";
   return (
     <div
+      data-inbox-id={entry.id}
       className="flex flex-col gap-1 px-3 py-2.5 rounded-lg"
       style={{
         background: "var(--t-bg-elevated)",
@@ -153,10 +155,51 @@ export function NotificationBell() {
   const runInboxAction = useNotificationStore((s) => s.runInboxAction);
   const clearHistory = useNotificationStore((s) => s.clearHistory);
 
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, right: 0 });
+  // Open state lives in the store so a `notification` deep link can raise the
+  // popover; the bell is the only thing that renders it.
+  const open = useUIStore((s) => s.notificationCenterOpen);
+  const setOpen = useUIStore((s) => s.setNotificationCenterOpen);
+  const focusId = useUIStore((s) => s.notificationFocusId);
+  const clearFocus = useUIStore((s) => s.clearNotificationFocus);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Placement is measured on every open, not on click: a deep link opens the
+  // popover with no pointer event to measure from.
+  //
+  // The mobile shell keeps a second bell mounted behind `invisible` (the SFTP
+  // tab), and the popover is portalled to the body, where an ancestor's
+  // visibility no longer hides it. Measuring resolves which bell is on screen:
+  // `visibility` inherits, so the off-screen one bails and leaves the popover
+  // to the bell the user can actually see.
+  useEffect(() => {
+    const button = buttonRef.current;
+    if (!open || !button) return;
+    if (getComputedStyle(button).visibility === "hidden") {
+      setPos(null);
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+  }, [open]);
+
+  // A stale id is normal — inbox entries are re-derived, not stored — so a miss
+  // leaves the popover open on the full list rather than reporting anything.
+  useEffect(() => {
+    // `pos` gates the portal, so the popover exists only from the pass after it
+    // is measured; without it in the deps the scroll would fire against nothing.
+    if (!open || !focusId || !dropdownRef.current) return;
+    // Matched by attribute value rather than a built selector: ids carry `:`
+    // and would otherwise need escaping.
+    for (const row of dropdownRef.current.querySelectorAll("[data-inbox-id]")) {
+      if (row.getAttribute("data-inbox-id") === focusId) {
+        row.scrollIntoView({ block: "nearest" });
+        break;
+      }
+    }
+    clearFocus();
+  }, [open, pos, focusId, inbox, clearFocus]);
 
   useEffect(() => {
     if (!open) return;
@@ -172,13 +215,7 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const handleOpen = () => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-    }
-    setOpen((o) => !o);
-  };
+  const handleOpen = () => setOpen(!open);
 
   const displayCount = Math.min(unreadCount, 9);
   const hasItems = inbox.length > 0 || banners.length > 0 || history.length > 0;
@@ -224,7 +261,7 @@ export function NotificationBell() {
         </button>
       </div>
 
-      {open && createPortal(
+      {open && pos && createPortal(
         <div
           ref={dropdownRef}
           style={{

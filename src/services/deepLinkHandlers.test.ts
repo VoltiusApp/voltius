@@ -43,7 +43,8 @@ vi.mock("@/stores/notificationStore", () => ({
   useNotificationStore: { getState: () => ({ addToast }) },
 }));
 
-import { handleSilentIntent } from "./deepLinkHandlers";
+import { handleUnpromptedIntent } from "./deepLinkHandlers";
+import { useUIStore } from "@/stores/uiStore";
 
 beforeEach(() => {
   for (const key of Object.keys(keychain)) delete keychain[key];
@@ -57,7 +58,7 @@ beforeEach(() => {
 
 test("a link for the active account refreshes the verification state once", async () => {
   keychain.jwt = jwtFor(USER);
-  handleSilentIntent({ route: "verified", userId: USER });
+  handleUnpromptedIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
   expect(refreshVerificationState).toHaveBeenCalledTimes(1);
   expect(addToast.mock.calls[0][0].severity).toBe("success");
@@ -67,7 +68,7 @@ test("a link for the active account refreshes the verification state once", asyn
 test("a refresh that leaves the account unverified reports pending, not success", async () => {
   keychain.jwt = jwtFor(USER);
   refreshVerificationState.mockResolvedValue(false);
-  handleSilentIntent({ route: "verified", userId: USER });
+  handleUnpromptedIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
   const entry = addToast.mock.calls[0][0];
   expect(entry.message).toBe("notifications.emailVerification.toast.verifiedPending");
@@ -77,7 +78,7 @@ test("a refresh that leaves the account unverified reports pending, not success"
 test("a failed refresh reports an error and does not throw", async () => {
   keychain.jwt = jwtFor(USER);
   refreshVerificationState.mockRejectedValue(new Error("offline"));
-  handleSilentIntent({ route: "verified", userId: USER });
+  handleUnpromptedIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
   expect(addToast.mock.calls[0][0].severity).toBe("error");
 });
@@ -86,7 +87,7 @@ test("a link for a saved but inactive account offers a switch instead of acting"
   keychain.jwt = jwtFor(OTHER_USER);
   const match = { account_id: "a", mode: "server", email: "other@example.com", jwt: jwtFor(USER) };
   getSavedAccounts.mockResolvedValue([match]);
-  handleSilentIntent({ route: "verified", userId: USER });
+  handleUnpromptedIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
   expect(refreshVerificationState).not.toHaveBeenCalled();
   const entry = addToast.mock.calls[0][0];
@@ -99,7 +100,7 @@ test("a link for a saved but inactive account offers a switch instead of acting"
 });
 
 test("a link matching no local account only toasts", async () => {
-  handleSilentIntent({ route: "verified", userId: USER });
+  handleUnpromptedIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
   expect(refreshVerificationState).not.toHaveBeenCalled();
   expect(switchToAccount).not.toHaveBeenCalled();
@@ -109,15 +110,47 @@ test("a link matching no local account only toasts", async () => {
 test("a malformed stored jwt is skipped rather than throwing", async () => {
   keychain.jwt = "not-a-jwt";
   getSavedAccounts.mockResolvedValue([{ account_id: "a", mode: "server", jwt: "also.not/valid" }]);
-  handleSilentIntent({ route: "verified", userId: USER });
+  handleUnpromptedIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
   expect(refreshVerificationState).not.toHaveBeenCalled();
 });
 
 test("a rejecting keychain read falls through to the no-match toast rather than rejecting", async () => {
   invokeImpl = () => Promise.reject(new Error("keychain unavailable"));
-  handleSilentIntent({ route: "verified", userId: USER });
+  handleUnpromptedIntent({ route: "verified", userId: USER });
   await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
   expect(refreshVerificationState).not.toHaveBeenCalled();
   expect(addToast).toHaveBeenCalledTimes(1);
+});
+
+test("a settings link opens the modal on the requested section", () => {
+  useUIStore.setState({ settingsOpen: false, settingsSection: "appearance" });
+  handleUnpromptedIntent({ route: "settings", section: "integrations" });
+  const ui = useUIStore.getState();
+  expect(ui.settingsOpen).toBe(true);
+  expect(ui.settingsSection).toBe("integrations");
+});
+
+test("a billing link opens the account section and starts no checkout", () => {
+  useUIStore.setState({ settingsOpen: false, settingsSection: "appearance" });
+  handleUnpromptedIntent({ route: "billing" });
+  const ui = useUIStore.getState();
+  expect(ui.settingsOpen).toBe(true);
+  expect(ui.settingsSection).toBe("account");
+  // The route navigates; a checkout is an action and would need a prompt.
+  expect(addToast).not.toHaveBeenCalled();
+});
+
+test("a notification link opens the centre and carries the entry id", () => {
+  useUIStore.setState({ notificationCenterOpen: false, notificationFocusId: null });
+  handleUnpromptedIntent({ route: "notification", entryId: "invite:42" });
+  expect(useUIStore.getState().notificationCenterOpen).toBe(true);
+  expect(useUIStore.getState().notificationFocusId).toBe("invite:42");
+});
+
+test("a notification link without an id still opens the centre", () => {
+  useUIStore.setState({ notificationCenterOpen: false, notificationFocusId: "stale" });
+  handleUnpromptedIntent({ route: "notification", entryId: null });
+  expect(useUIStore.getState().notificationCenterOpen).toBe(true);
+  expect(useUIStore.getState().notificationFocusId).toBeNull();
 });

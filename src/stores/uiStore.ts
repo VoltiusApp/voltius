@@ -7,7 +7,17 @@ export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "k
 export type BuiltinRightPanelSection = "snippets" | "history" | "themes" | "ports" | "sftp";
 /** Widened to allow plugin-contributed section IDs (prefixed with "plugin:") */
 export type RightPanelSection = BuiltinRightPanelSection | (string & {});
-export type SettingsSection = "appearance" | "account" | "sync" | "vaults" | "plugins" | "integrations" | "terminal" | "sftp" | "portForwarding" | "hosts" | "shortcuts" | "diagnostics" | "about";
+/**
+ * The list, not the union, is the source of truth: a deep link has to check a
+ * section id it received from outside, and a type alone cannot be checked at
+ * runtime.
+ */
+export const SETTINGS_SECTIONS = ["appearance", "account", "sync", "vaults", "plugins", "integrations", "terminal", "sftp", "portForwarding", "hosts", "shortcuts", "diagnostics", "about"] as const;
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
+export function isSettingsSection(value: string): value is SettingsSection {
+  return (SETTINGS_SECTIONS as readonly string[]).includes(value);
+}
 
 export type LayoutMode = "grid" | "list";
 export type SortMode   = "name-asc" | "name-desc" | "newest" | "oldest" | "role-asc";
@@ -73,6 +83,10 @@ interface UIStore {
   dockedPanelWidth: number;
   setDockedPanelWidth: (width: number) => void;
   settingsOpen: boolean;
+  /** The notification bell's popover. In the store so a deep link can open it. */
+  notificationCenterOpen: boolean;
+  /** Inbox entry a deep link asked for; the bell clears it once shown. */
+  notificationFocusId: string | null;
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
   settingsSection: SettingsSection;
@@ -113,6 +127,9 @@ interface UIStore {
   setActiveNav: (nav: NavItem) => void;
   setOmniOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  setNotificationCenterOpen: (open: boolean) => void;
+  openNotificationCenter: (focusId?: string | null) => void;
+  clearNotificationFocus: () => void;
   openCloudAuth: (mode?: CloudAuthMode) => void;
   closeCloudAuth: () => void;
   setCloudAuthMode: (mode: CloudAuthMode) => void;
@@ -172,6 +189,8 @@ export const useUIStore = create<UIStore>()(
         globalPanelOpen: {},
         dockedPanelWidth: 0,
         settingsOpen: false,
+        notificationCenterOpen: false,
+        notificationFocusId: null as string | null,
         cloudAuthOpen: false,
         cloudAuthMode: "signin" as CloudAuthMode,
         settingsSection: "appearance" as SettingsSection,
@@ -218,6 +237,9 @@ export const useUIStore = create<UIStore>()(
         toggleGlobalPanel: (id) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: !s.globalPanelOpen[id] } })),
         setDockedPanelWidth: (width) => set({ dockedPanelWidth: width }),
         setSettingsOpen: (open) => set((s) => ({ settingsOpen: open, settingsSubPage: open ? s.settingsSubPage : null })),
+        setNotificationCenterOpen: (open) => set((s) => ({ notificationCenterOpen: open, notificationFocusId: open ? s.notificationFocusId : null })),
+        openNotificationCenter: (focusId) => set({ notificationCenterOpen: true, notificationFocusId: focusId ?? null }),
+        clearNotificationFocus: () => set({ notificationFocusId: null }),
         openCloudAuth: (mode) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin" }),
         closeCloudAuth: () => set({ cloudAuthOpen: false }),
         setCloudAuthMode: (mode) => set({ cloudAuthMode: mode }),

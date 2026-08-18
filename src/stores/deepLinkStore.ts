@@ -2,10 +2,10 @@ import { create } from "zustand";
 import {
   intentKey,
   isConfirmIntent,
-  isSilentIntent,
+  isUnpromptedIntent,
   type ConfirmIntent,
   type DeepLinkIntent,
-  type SilentIntent,
+  type UnpromptedIntent,
 } from "@/services/deepLinkUrl";
 
 /**
@@ -18,13 +18,13 @@ const MAX_QUEUE = 4;
  * Kept out of the store's state so a test resetting state cannot leave a stale
  * handler installed, and so the store never imports the handler module.
  */
-let silentHandler: ((intent: SilentIntent) => void) | null = null;
+let unpromptedHandler: ((intent: UnpromptedIntent) => void) | null = null;
 
 // Suppresses only the cold-start echo (getCurrent plus onOpenUrl delivering
 // the same URL), not a deliberate retry: a failed handler run is not fatal,
 // so the window must not outlive the user's next click.
-let lastSilent: { key: string; at: number } | null = null;
-const SILENT_ECHO_WINDOW_MS = 5000;
+let lastUnprompted: { key: string; at: number } | null = null;
+const UNPROMPTED_ECHO_WINDOW_MS = 5000;
 
 interface DeepLinkStore {
   ready: boolean;
@@ -32,7 +32,7 @@ interface DeepLinkStore {
   prompt: ConfirmIntent | null;
 
   setReady(ready: boolean): void;
-  setSilentHandler(fn: ((intent: SilentIntent) => void) | null): void;
+  setUnpromptedHandler(fn: ((intent: UnpromptedIntent) => void) | null): void;
   enqueue(intent: DeepLinkIntent): void;
   dismissPrompt(): void;
 }
@@ -42,9 +42,9 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
   queue: [],
   prompt: null,
 
-  setSilentHandler: (fn) => {
-    silentHandler = fn;
-    lastSilent = null;
+  setUnpromptedHandler: (fn) => {
+    unpromptedHandler = fn;
+    lastUnprompted = null;
   },
 
   setReady: (ready) => {
@@ -85,13 +85,13 @@ function drain(): void {
       const { ready, queue, prompt } = useDeepLinkStore.getState();
       if (!ready) return;
       // A confirm intent needs a free prompt slot; everything else is handled
-      // where it sits, so a silent link never waits behind an open sheet.
+      // where it sits, so an unprompted link never waits behind an open sheet.
       const intent = queue.find((queued) => !prompt || !isConfirmIntent(queued));
       if (!intent) return;
       useDeepLinkStore.setState({ queue: queue.filter((queued) => queued !== intent) });
 
-      if (isSilentIntent(intent)) {
-        dispatchSilent(intent);
+      if (isUnpromptedIntent(intent)) {
+        dispatchUnprompted(intent);
         continue;
       }
       // Unknown trust class: drop it, never act on it.
@@ -103,11 +103,11 @@ function drain(): void {
   }
 }
 
-function dispatchSilent(intent: SilentIntent): void {
-  if (!silentHandler) return;
+function dispatchUnprompted(intent: UnpromptedIntent): void {
+  if (!unpromptedHandler) return;
   const key = intentKey(intent);
   const now = Date.now();
-  if (lastSilent?.key === key && now - lastSilent.at < SILENT_ECHO_WINDOW_MS) return;
-  lastSilent = { key, at: now };
-  silentHandler(intent);
+  if (lastUnprompted?.key === key && now - lastUnprompted.at < UNPROMPTED_ECHO_WINDOW_MS) return;
+  lastUnprompted = { key, at: now };
+  unpromptedHandler(intent);
 }

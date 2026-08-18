@@ -1,22 +1,41 @@
 import { isSessionId } from "@/services/sessionId";
+import { isSettingsSection, type SettingsSection } from "@/stores/uiStore";
 
 export type JoinIntent = { route: "join"; sessionId: string; token: string };
 export type VerifiedIntent = { route: "verified"; userId: string };
-export type DeepLinkIntent = JoinIntent | VerifiedIntent;
+export type NotificationIntent = { route: "notification"; entryId: string | null };
+export type SettingsIntent = { route: "settings"; section: SettingsSection };
+export type BillingIntent = { route: "billing" };
+export type DeepLinkIntent =
+  | JoinIntent
+  | VerifiedIntent
+  | NotificationIntent
+  | SettingsIntent
+  | BillingIntent;
 
-type TrustClass = "confirm" | "silent";
+type TrustClass = "confirm" | "silent" | "navigate";
 type Route = DeepLinkIntent["route"];
 
 /**
- * The single declaration of trust: `confirm` routes carry a capability and
- * nothing happens until the user accepts; `silent` routes carry nothing and act
- * unprompted. `verified` is silent because the token died server-side before
- * the link was built and the user id authorises nothing, so a hostile link
- * costs a session refresh, which is a no-op.
+ * The single declaration of trust:
+ *
+ * - `confirm` routes carry a capability and nothing happens until the user
+ *   accepts.
+ * - `silent` routes carry no capability and run a side effect unprompted.
+ *   `verified` is silent because the token died server-side before the link was
+ *   built and the user id authorises nothing, so a hostile link costs a session
+ *   refresh, which is a no-op.
+ * - `navigate` routes only move the user to a screen they could already reach.
+ *   The worst a hostile link achieves is an unexpected panel, so they need no
+ *   prompt — but they must never *act*: `billing` opens the account section and
+ *   deliberately does not start a checkout.
  */
 const TRUST = {
   join: "confirm",
   verified: "silent",
+  notification: "navigate",
+  settings: "navigate",
+  billing: "navigate",
 } as const satisfies Record<Route, TrustClass>;
 
 type RouteOfClass<C extends TrustClass> = {
@@ -25,6 +44,9 @@ type RouteOfClass<C extends TrustClass> = {
 
 export type ConfirmIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"confirm"> }>;
 export type SilentIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"silent"> }>;
+export type NavigateIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"navigate"> }>;
+/** Everything that runs without asking the user first. */
+export type UnpromptedIntent = SilentIntent | NavigateIntent;
 
 /**
  * One codec per route, both directions declared together so the builder and the
@@ -34,6 +56,9 @@ type RouteCodec<K extends Route> = {
   parse: (params: URLSearchParams) => Extract<DeepLinkIntent, { route: K }> | null;
   params: (intent: Extract<DeepLinkIntent, { route: K }>) => Record<string, string>;
 };
+
+/** Long enough for any id the inbox builds, short enough to stay a lookup key. */
+const MAX_ENTRY_ID = 200;
 
 const ROUTES: { [K in Route]: RouteCodec<K> } = {
   join: {
@@ -53,7 +78,31 @@ const ROUTES: { [K in Route]: RouteCodec<K> } = {
     },
     params: ({ userId }) => ({ u: userId }),
   },
+  notification: {
+    // The id is opaque here: inbox ids are re-derived from server state on every
+    // reconcile, so this cannot check one exists. It is length-capped and the
+    // entry is looked up by exact match, so an unknown id just opens the centre.
+    parse: (params) => {
+      const entryId = params.get("n") ?? "";
+      if (entryId.length > MAX_ENTRY_ID) return null;
+      return { route: "notification", entryId: entryId || null };
+    },
+    params: ({ entryId }): Record<string, string> => (entryId ? { n: entryId } : {}),
+  },
+  settings: {
+    parse: (params) => {
+      const section = params.get("section") ?? "";
+      if (!isSettingsSection(section)) return null;
+      return { route: "settings", section };
+    },
+    params: ({ section }) => ({ section }),
+  },
+  billing: {
+    parse: () => ({ route: "billing" }),
+    params: () => ({}),
+  },
 };
+
 
 export type LinkForm = "https" | "scheme";
 
@@ -73,9 +122,12 @@ export function buildDeepLink(intent: DeepLinkIntent, form: LinkForm = "https"):
   // construction — TypeScript cannot prove that through the index.
   const codec = ROUTES[intent.route] as RouteCodec<Route>;
   const query = new URLSearchParams(codec.params(intent)).toString();
+  // A parameterless route (`billing`) must not end in a bare `?`: the two forms
+  // have to round-trip through `parseDeepLink` byte for byte.
+  const suffix = query ? `?${query}` : "";
   return form === "scheme"
-    ? `voltius://${intent.route}?${query}`
-    : `${WEB_ORIGIN}${WEB_PATH}#${intent.route}?${query}`;
+    ? `voltius://${intent.route}${suffix}`
+    : `${WEB_ORIGIN}${WEB_PATH}#${intent.route}${suffix}`;
 }
 
 const WEB_HOSTS = new Set(["voltius.app", "www.voltius.app"]);
@@ -146,4 +198,13 @@ export function isConfirmIntent(intent: DeepLinkIntent): intent is ConfirmIntent
 
 export function isSilentIntent(intent: DeepLinkIntent): intent is SilentIntent {
   return TRUST[intent.route] === "silent";
+}
+
+export function isNavigateIntent(intent: DeepLinkIntent): intent is NavigateIntent {
+  return TRUST[intent.route] === "navigate";
+}
+
+/** A route that acts without a prompt, whether it navigates or runs a side effect. */
+export function isUnpromptedIntent(intent: DeepLinkIntent): intent is UnpromptedIntent {
+  return isSilentIntent(intent) || isNavigateIntent(intent);
 }
