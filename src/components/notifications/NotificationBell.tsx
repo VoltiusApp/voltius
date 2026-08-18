@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
@@ -20,6 +20,26 @@ const SEVERITY_COLORS: Record<string, string> = {
   warning: "var(--t-status-warning)",
   error: "var(--t-status-error)",
 };
+
+// Which bell is on screen changes when bells mount and unmount: the mobile
+// shell swaps the foreground tab's bell while the SFTP tab's stays mounted
+// behind `invisible`. Bells re-measure on this signal so the popover follows
+// the bell the user can actually see instead of staying with the one that was
+// visible when it opened.
+let mountVersion = 0;
+const mountListeners = new Set<() => void>();
+
+function bumpMounts() {
+  mountVersion += 1;
+  for (const listener of mountListeners) listener();
+}
+
+function subscribeMounts(listener: () => void) {
+  mountListeners.add(listener);
+  return () => {
+    mountListeners.delete(listener);
+  };
+}
 
 function relativeTime(ms: number): string {
   const diff = Date.now() - ms;
@@ -165,6 +185,12 @@ export function NotificationBell() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const mounts = useSyncExternalStore(subscribeMounts, () => mountVersion);
+  useEffect(() => {
+    bumpMounts();
+    return bumpMounts;
+  }, []);
+
   // Placement is measured on every open, not on click: a deep link opens the
   // popover with no pointer event to measure from.
   //
@@ -182,7 +208,7 @@ export function NotificationBell() {
     }
     const rect = button.getBoundingClientRect();
     setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-  }, [open]);
+  }, [open, mounts]);
 
   // A stale id is normal — inbox entries are re-derived, not stored — so a miss
   // leaves the popover open on the full list rather than reporting anything.
