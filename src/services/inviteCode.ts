@@ -1,4 +1,4 @@
-import { parseDeepLink } from "./deepLinkUrl";
+import { buildDeepLink, parseDeepLink } from "./deepLinkUrl";
 import { isSessionId } from "./sessionId";
 
 export { isSessionId };
@@ -8,8 +8,7 @@ export function buildInviteCode(sessionId: string, token: string): string {
 }
 
 export function buildInviteLink(sessionId: string, token: string): string {
-  const params = new URLSearchParams({ s: sessionId, t: token });
-  return `voltius://join?${params.toString()}`;
+  return buildDeepLink({ route: "join", sessionId, token });
 }
 
 export function parseInviteCode(code: string): { sessionId: string; token: string } | null {
