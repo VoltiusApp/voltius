@@ -26,6 +26,17 @@ let unpromptedHandler: ((intent: UnpromptedIntent) => void) | null = null;
 let lastUnprompted: { key: string; at: number } | null = null;
 const UNPROMPTED_ECHO_WINDOW_MS = 5000;
 
+/**
+ * A sheet dismissed by a click leaves the second half of a double-click still
+ * coming. The next queued sheet paints its accept button at the same screen
+ * position, and a route with no `load` — `join` — is live in its first frame, so
+ * promoting in the same tick lets one double-click confirm two different links.
+ * Only a *queued* sheet waits; a link arriving on its own still prompts at once.
+ */
+const CONFIRM_PROMOTE_DELAY_MS = 300;
+let confirmHeldUntil = 0;
+let promoteTimer: ReturnType<typeof setTimeout> | null = null;
+
 interface DeepLinkStore {
   ready: boolean;
   queue: DeepLinkIntent[];
@@ -42,9 +53,14 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
   queue: [],
   prompt: null,
 
+  // Installing a handler marks a fresh app lifecycle, so every piece of
+  // module-level scheduling state is dropped with it.
   setUnpromptedHandler: (fn) => {
     unpromptedHandler = fn;
     lastUnprompted = null;
+    confirmHeldUntil = 0;
+    if (promoteTimer) clearTimeout(promoteTimer);
+    promoteTimer = null;
   },
 
   setReady: (ready) => {
@@ -67,6 +83,7 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
 
   // Surfaces a link queued behind the prompt, rather than losing it.
   dismissPrompt: () => {
+    confirmHeldUntil = Date.now() + CONFIRM_PROMOTE_DELAY_MS;
     set({ prompt: null });
     drain();
   },
@@ -84,10 +101,15 @@ function drain(): void {
     for (;;) {
       const { ready, queue, prompt } = useDeepLinkStore.getState();
       if (!ready) return;
-      // A confirm intent needs a free prompt slot; everything else is handled
-      // where it sits, so an unprompted link never waits behind an open sheet.
-      const intent = queue.find((queued) => !prompt || !isConfirmIntent(queued));
-      if (!intent) return;
+      // A confirm intent needs a free prompt slot and a settled one before it;
+      // everything else is handled where it sits, so an unprompted link never
+      // waits behind an open sheet.
+      const held = Date.now() < confirmHeldUntil;
+      const intent = queue.find((queued) => !isConfirmIntent(queued) || (!prompt && !held));
+      if (!intent) {
+        if (held && queue.some(isConfirmIntent)) schedulePromotion();
+        return;
+      }
       useDeepLinkStore.setState({ queue: queue.filter((queued) => queued !== intent) });
 
       if (isUnpromptedIntent(intent)) {
@@ -101,6 +123,18 @@ function drain(): void {
   } finally {
     draining = false;
   }
+}
+
+/** Re-drains once the hold expires, so a queued sheet is delayed, never dropped. */
+function schedulePromotion(): void {
+  if (promoteTimer) return;
+  promoteTimer = setTimeout(
+    () => {
+      promoteTimer = null;
+      drain();
+    },
+    Math.max(0, confirmHeldUntil - Date.now()),
+  );
 }
 
 function dispatchUnprompted(intent: UnpromptedIntent): void {
