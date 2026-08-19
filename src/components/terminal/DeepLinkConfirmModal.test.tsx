@@ -3,6 +3,11 @@ import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeepLinkConfirmModal } from "./DeepLinkConfirmModal";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
+import { PluginHashMismatchError } from "@/plugins/integrity";
+import { MinAppVersionError } from "@/plugins/version";
+
+const acceptButton = (labelKey: string) =>
+  screen.getByText(labelKey).closest("button") as HTMLButtonElement;
 
 let teamConnections: Record<string, { sessionKeyBytes?: Uint8Array }> = {};
 let activeLocalSessionId: string | null = null;
@@ -171,9 +176,7 @@ test("an invite sheet names the handle and invites the resolved user", async () 
   teamConnections = { "local-1": { sessionKeyBytes: new Uint8Array(32) } };
   useDeepLinkStore.setState({ prompt: { route: "invite", handle: "kevin-p" } });
   render(<DeepLinkConfirmModal />);
-  await waitFor(() =>
-    expect((screen.getByText("terminal.share.deepLinkInviteAction").closest("button") as HTMLButtonElement).disabled).toBe(false),
-  );
+  await waitFor(() => expect(acceptButton("terminal.share.deepLinkInviteAction").disabled).toBe(false));
   await userEvent.click(screen.getByText("terminal.share.deepLinkInviteAction"));
   await waitFor(() =>
     expect(inviteMock).toHaveBeenCalledWith("local-1", expect.objectContaining({ user_id: "u1", handle: "kevin-p" })),
@@ -187,6 +190,7 @@ test("an invite link whose handle only fuzzily matches invites nobody", async ()
   useDeepLinkStore.setState({ prompt: { route: "invite", handle: "kevin-p" } });
   render(<DeepLinkConfirmModal />);
   await waitFor(() => expect(screen.getByText("terminal.share.deepLinkInviteUnknownUser")).toBeTruthy());
+  expect(acceptButton("terminal.share.deepLinkInviteAction").disabled).toBe(true);
   await userEvent.click(screen.getByText("terminal.share.deepLinkInviteAction"));
   expect(inviteMock).not.toHaveBeenCalled();
 });
@@ -198,6 +202,7 @@ test("an invite link with no shareable session names the handle but cannot be ac
   useDeepLinkStore.setState({ prompt: { route: "invite", handle: "kevin-p" } });
   render(<DeepLinkConfirmModal />);
   await waitFor(() => expect(screen.getByText("terminal.share.deepLinkInviteNoActiveSession")).toBeTruthy());
+  expect(acceptButton("terminal.share.deepLinkInviteAction").disabled).toBe(true);
   await userEvent.click(screen.getByText("terminal.share.deepLinkInviteAction"));
   expect(inviteMock).not.toHaveBeenCalled();
 });
@@ -223,6 +228,7 @@ test("a snippet-install link naming an entry the catalogue does not list cannot 
   useDeepLinkStore.setState({ prompt: { route: "snippet-install", entryId: "docker-cleanup" } });
   render(<DeepLinkConfirmModal />);
   await waitFor(() => expect(screen.getByText("snippets.deepLinkInstall.failed")).toBeTruthy());
+  expect(acceptButton("snippets.deepLinkInstall.action").disabled).toBe(true);
   await userEvent.click(screen.getByText("snippets.deepLinkInstall.action"));
   expect(installEntriesMock).not.toHaveBeenCalled();
 });
@@ -251,9 +257,38 @@ test("a plugin-install link naming a source this device does not have installs n
   useDeepLinkStore.setState({ prompt: { route: "plugin-install", pluginId: "docker", sourceId: "someone-elses" } });
   render(<DeepLinkConfirmModal />);
   await waitFor(() => expect(screen.getByText("settings.plugins.deepLinkInstall.failed")).toBeTruthy());
+  expect(acceptButton("settings.plugins.deepLinkInstall.action").disabled).toBe(true);
   await userEvent.click(screen.getByText("settings.plugins.deepLinkInstall.action"));
   expect(installPluginMock).not.toHaveBeenCalled();
   expect(fetchManifestMock).not.toHaveBeenCalled();
+});
+
+async function acceptPluginInstall() {
+  marketplaceSources = [{ id: "voltius", name: "Voltius Marketplace", enabled: true }];
+  marketplaceCatalog = [{ id: "docker", name: "Docker", author: "Voltius", version: "1.2.0", sourceId: "voltius" }];
+  useDeepLinkStore.setState({ prompt: { route: "plugin-install", pluginId: "docker", sourceId: "voltius" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(acceptButton("settings.plugins.deepLinkInstall.action").disabled).toBe(false));
+  await userEvent.click(screen.getByText("settings.plugins.deepLinkInstall.action"));
+}
+
+test("a plugin bundle failing its hash check is reported as tampering, not as a bad link", async () => {
+  installPluginMock.mockRejectedValue(new PluginHashMismatchError("aaa", "bbb"));
+  await acceptPluginInstall();
+  await waitFor(() => expect(screen.getByText("settings.plugins.install.integrityFailed")).toBeTruthy());
+  expect(screen.queryByText("settings.plugins.deepLinkInstall.failed")).toBeNull();
+});
+
+test("a plugin the running app is too old for names the version requirement", async () => {
+  installPluginMock.mockRejectedValue(new MinAppVersionError("2.0.0", "1.0.0"));
+  await acceptPluginInstall();
+  await waitFor(() => expect(screen.getByText("settings.plugins.install.versionUnsupported")).toBeTruthy());
+});
+
+test("any other plugin-install failure falls back to the deep-link message", async () => {
+  installPluginMock.mockRejectedValue(new Error("network down"));
+  await acceptPluginInstall();
+  await waitFor(() => expect(screen.getByText("settings.plugins.deepLinkInstall.failed")).toBeTruthy());
 });
 
 test("a plugin-install link naming a disabled source installs nothing", async () => {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Icon } from "@iconify/react";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
@@ -12,6 +13,11 @@ export function DeepLinkConfirmModal() {
   // failure's error and re-runs `load` against the new target. The key embeds a
   // join token, so it must never be logged.
   return prompt ? <ConfirmSheet key={intentKey(prompt)} intent={prompt} /> : null;
+}
+
+/** Module scope so the load effect can use it without taking it as a dependency. */
+function failureMessage(spec: ConfirmSpec<ConfirmRoute, unknown>, e: unknown, t: TFunction): string {
+  return spec.errorMessage?.(e, t, spec.errorKey) ?? t(spec.errorKey);
 }
 
 function ConfirmSheet({ intent }: { intent: ConfirmIntent }) {
@@ -36,10 +42,10 @@ function ConfirmSheet({ intent }: { intent: ConfirmIntent }) {
       .then((value) => {
         if (!cancelled) setLoaded(value);
       })
-      .catch(() => {
+      .catch((e: unknown) => {
         if (cancelled) return;
         setLoadFailed(true);
-        setError(t(spec.errorKey));
+        setError(failureMessage(spec, e, t));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -61,8 +67,8 @@ function ConfirmSheet({ intent }: { intent: ConfirmIntent }) {
     try {
       await spec.accept(intent, loaded, t);
       dismissPrompt();
-    } catch {
-      setError(t(spec.errorKey));
+    } catch (e) {
+      setError(failureMessage(spec, e, t));
     } finally {
       setBusy(false);
     }

@@ -13,6 +13,7 @@ import type { CatalogEntry } from "@/services/snippetCatalog";
 import { useVaultStore } from "@/stores/vaultStore";
 import { PluginPermissionList } from "@/components/settings/sections/PluginPermissionList";
 import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
+import { pluginInstallErrorMessage } from "@/plugins/installErrors";
 import type { PluginManifest } from "@/plugins/api";
 
 export type ConfirmRoute = ConfirmIntent["route"];
@@ -29,6 +30,12 @@ export interface ConfirmSpec<K extends ConfirmRoute, L> {
   icon: string;
   acceptLabelKey: string;
   errorKey: string;
+  /**
+   * Distinguishes failures that mean something specific to the user from the
+   * generic `errorKey`, which it receives as the fallback. Absent means every
+   * failure reads the same.
+   */
+  errorMessage?: (e: unknown, t: TFunction, fallbackKey: string) => string;
   /**
    * Resolves what the link names. Omitted where the intent already says
    * everything, so such a sheet paints complete in its first frame rather than
@@ -172,6 +179,9 @@ export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]
     icon: "lucide:puzzle",
     acceptLabelKey: "settings.plugins.deepLinkInstall.action",
     errorKey: "settings.plugins.deepLinkInstall.failed",
+    // An integrity mismatch is the user's only tamper signal, so it must not be
+    // reported as a link that did not work.
+    errorMessage: pluginInstallErrorMessage,
     load: async ({ pluginId, sourceId }) => {
       await useMarketplaceStore.getState().loadSources();
       const source = useMarketplaceStore
