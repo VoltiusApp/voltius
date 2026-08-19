@@ -43,8 +43,10 @@ cat <<EOF
     },
     "uninstaller": {
         "script": [
-            "\$uninst = \"\$env:LOCALAPPDATA\\\\Voltius\\\\uninstall.exe\"",
-            "if (Test-Path \$uninst) { Start-Process -FilePath \$uninst -ArgumentList '/S' -Wait }"
+            "\$keys = @('HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\*', 'HKLM:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\*')",
+            "\$entry = Get-ItemProperty \$keys -ErrorAction SilentlyContinue | Where-Object { \$_.DisplayName -eq 'Voltius' } | Select-Object -First 1",
+            "\$uninst = if (\$entry -and \$entry.UninstallString) { \$entry.UninstallString.Trim('\"') } else { Join-Path \$env:LOCALAPPDATA 'Voltius\\\\uninstall.exe' }",
+            "if (Test-Path \$uninst) { Start-Process -FilePath \$uninst -ArgumentList '/S' -Wait } else { Write-Host \"no uninstaller found at \$uninst\" }"
         ]
     },
     "checkver": {

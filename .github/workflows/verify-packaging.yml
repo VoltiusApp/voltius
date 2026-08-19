@@ -1,0 +1,114 @@
+# Exercises the package manifests that nothing else can check.
+#
+# The generators are pure text and easy to eyeball; what is NOT easy is knowing
+# whether a Scoop manifest actually installs, or whether a cask passes the audit
+# homebrew-cask core runs on a new submission. Both need an OS this project is
+# not built on, and both are cheap on a hosted runner.
+#
+# Runs on changes to the packaging inputs, so a manifest cannot rot silently
+# between releases.
+name: verify-packaging
+
+on:
+  push:
+    paths:
+      - 'packaging/**'
+      - 'scripts/gen-*.sh'
+      - 'scripts/*msix*'
+      - 'scripts/lib/**'
+      - '.github/workflows/verify-packaging.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag whose assets the manifests point at'
+        required: false
+        default: ''
+
+env:
+  # The manifests are generated against a published release, not against this
+  # commit — they reference release assets by sha256.
+  TAG: ${{ inputs.tag || 'v0.27.0' }}
+
+jobs:
+  # Proves the manifest installs, puts a working binary on disk, and uninstalls
+  # cleanly. The install and uninstall scripts drive the NSIS installer with /S
+  # and assume Tauri's per-user layout, which is exactly the assumption that
+  # cannot be checked by reading it.
+  scoop:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Generate the manifest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/gen-scoop-manifest.sh "$TAG" > voltius.json
+
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-RestMethod -Uri https://get.scoop.sh -OutFile install-scoop.ps1
+          # The runner user is an administrator, which the installer refuses
+          # without this switch.
+          ./install-scoop.ps1 -RunAsAdmin
+          "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Install from the manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          scoop install .\voltius.json
+          $exe = "$env:LOCALAPPDATA\Voltius\voltius.exe"
+          if (-not (Test-Path $exe)) {
+            throw "installer ran but $exe is missing — the /S install or the install path assumption is wrong"
+          }
+          Write-Host "installed $((Get-Item $exe).Length) bytes to $exe"
+
+      - name: Uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          scoop uninstall voltius
+          $exe = "$env:LOCALAPPDATA\Voltius\voltius.exe"
+          if (Test-Path $exe) {
+            throw "uninstall left $exe behind — the uninstaller lookup is wrong"
+          }
+          Write-Host "uninstalled cleanly"
+
+  # `brew audit --new` is the gate a homebrew-cask core submission has to pass.
+  # It is stricter than the `--online` audit the release job already runs
+  # against the tap, and it only exists on macOS.
+  cask-core:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Generate the core-submission cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/gen-homebrew-cask.sh "$TAG" --core > voltius.rb
+          cat voltius.rb
+
+      - name: Audit as a new cask
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          brew style voltius.rb
+          brew tap-new voltiusapp/coretest --no-git
+          mkdir -p "$(brew --repository voltiusapp/coretest)/Casks"
+          cp voltius.rb "$(brew --repository voltiusapp/coretest)/Casks/voltius.rb"
+          brew audit --cask --new --online voltiusapp/coretest/voltius
+
+  # Proves the MSIX packs at all: it needs Windows plus the Windows SDK, so
+  # nothing else in this repo can. Publishing is inert here — the submission
+  # step skips itself when the Store credentials are absent.
+  msix:
+    uses: ./.github/workflows/publish-msix.yml
+    with:
+      ref: ${{ github.sha }}
+    secrets: inherit
