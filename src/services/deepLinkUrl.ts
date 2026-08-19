@@ -34,10 +34,10 @@ type Route = DeepLinkIntent["route"];
  *   person at the wrong moment, still costs the tapping user nothing.
  *
  *   `verified` is the only member, and is classified on the strongest form it
- *   will carry rather than the weakest form it carries today. Today the portal
+ *   could carry rather than the weakest form it carries today. Today the portal
  *   spends the verification token server-side and the app receives an inert
- *   user id, which would also satisfy `silent`; once the mail link opens the app
- *   directly the app receives the raw token instead. That capability is a
+ *   user id, which would also satisfy `silent`; a mail link that opened the app
+ *   directly would hand it the raw token instead. That capability is a
  *   single-use, short-lived token, bound server-side to one account, proving an
  *   address is reachable — no session, no key material, no grant. So a hostile
  *   `verified` link carries the *attacker's* own token: tapping it verifies the
@@ -50,13 +50,16 @@ type Route = DeepLinkIntent["route"];
  *   a forged one could spend *against* the tapper — a session, a wrapped key, an
  *   account-scoped grant. That route is `confirm`, not `attenuated`.
  *
- *   Open, and it gates putting these links in mail rather than this
- *   classification: enterprise rewriters (Outlook SafeLinks, Defender ATP)
- *   re-encode the link onto their own logging host. The tap then resolves
- *   against *that* host, so no App Link fires and the mail client's own browser
- *   follows the redirect — the app never sees the link at all, and whatever the
- *   rewriter kept of it sits in the gateway's logs. Whether a fragment survives
- *   the round trip is undocumented and untested here.
+ *   The stronger form stays hypothetical because mailing the raw token was
+ *   considered and rejected. Enterprise rewriters (Outlook SafeLinks, Defender
+ *   ATP) re-encode a mailed link onto their own logging host, so the tap
+ *   resolves against *that* host: no App Link fires, the mail client's own
+ *   browser follows the redirect, and the app never sees the link at all.
+ *   Whether a fragment even survives that round trip is undocumented, while the
+ *   one rewriter behaviour that is documented mangles query structure. A carrier
+ *   that can silently drop the token is not worth what it would buy, which is
+ *   one browser tab: the portal already hands the app a `verified` link the
+ *   moment it succeeds.
  * - `silent` routes carry no capability at all and run a side effect unprompted.
  *   Currently unpopulated: it is the narrower claim `verified` used to make,
  *   kept for a route that genuinely carries nothing.
