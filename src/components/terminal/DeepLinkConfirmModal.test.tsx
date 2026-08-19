@@ -183,6 +183,19 @@ test("an invite sheet names the handle and invites the resolved user", async () 
   );
 });
 
+test("a re-render does not re-run load", async () => {
+  // `useTranslation` hands back a fresh `t` on every render, as the real hook does
+  // on a locale change. A `t` in the load effect's deps turns that into a second
+  // searchUsers — or, once the load's own setState re-renders, an unbounded loop.
+  searchUsersMock.mockResolvedValue([{ user_id: "u1", handle: "kevin-p", is_teammate: false }]);
+  activeLocalSessionId = "local-1";
+  teamConnections = { "local-1": { sessionKeyBytes: new Uint8Array(32) } };
+  useDeepLinkStore.setState({ prompt: { route: "invite", handle: "kevin-p" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(acceptButton("terminal.share.deepLinkInviteAction").disabled).toBe(false));
+  expect(searchUsersMock).toHaveBeenCalledTimes(1);
+});
+
 test("an invite link whose handle only fuzzily matches invites nobody", async () => {
   searchUsersMock.mockResolvedValue([{ user_id: "u1", handle: "kevin-porter", is_teammate: false }]);
   activeLocalSessionId = "local-1";

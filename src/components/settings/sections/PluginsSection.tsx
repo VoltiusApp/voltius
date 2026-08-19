@@ -179,11 +179,12 @@ function usePluginInstaller() {
   const busy = new Set<string>([...installing, ...preparing]);
 
   const notifyError = (e: unknown) => {
+    const { key, params } = pluginInstallErrorMessage(e, "settings.plugins.install.failed");
     useNotificationStore.getState().addToast({
       source: { kind: "plugin", id: "system", name: "Voltius" },
       type: "toast",
       severity: "error",
-      message: pluginInstallErrorMessage(e, t, "settings.plugins.install.failed"),
+      message: t(key, params),
       duration: 0,
     });
   };

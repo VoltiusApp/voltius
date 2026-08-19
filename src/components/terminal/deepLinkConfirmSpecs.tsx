@@ -13,7 +13,7 @@ import type { CatalogEntry } from "@/services/snippetCatalog";
 import { useVaultStore } from "@/stores/vaultStore";
 import { PluginPermissionList } from "@/components/settings/sections/PluginPermissionList";
 import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
-import { pluginInstallErrorMessage } from "@/plugins/installErrors";
+import { pluginInstallErrorMessage, type TranslatableMessage } from "@/plugins/installErrors";
 import type { PluginManifest } from "@/plugins/api";
 
 export type ConfirmRoute = ConfirmIntent["route"];
@@ -32,10 +32,11 @@ export interface ConfirmSpec<K extends ConfirmRoute, L> {
   errorKey: string;
   /**
    * Distinguishes failures that mean something specific to the user from the
-   * generic `errorKey`, which it receives as the fallback. Absent means every
-   * failure reads the same.
+   * generic `errorKey`, which it receives as the fallback. Returns a key rather
+   * than translated text so the sheet can hold it across a locale change.
+   * Absent means every failure reads the same.
    */
-  errorMessage?: (e: unknown, t: TFunction, fallbackKey: string) => string;
+  errorMessage?: (e: unknown, fallbackKey: string) => TranslatableMessage;
   /**
    * Resolves what the link names. Omitted where the intent already says
    * everything, so such a sheet paints complete in its first frame rather than
