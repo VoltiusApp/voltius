@@ -30,11 +30,6 @@ concurrency:
   group: verify-packaging-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # The manifests are generated against a published release, not against this
-  # commit — they reference release assets by sha256.
-  TAG: ${{ inputs.tag || 'v0.27.0' }}
-
 jobs:
   # Proves the manifest installs, puts a working binary on disk, and uninstalls
   # cleanly. The install and uninstall scripts drive the NSIS installer with /S
@@ -45,6 +40,21 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+
+      # The manifests are generated against a published release, not against this
+      # commit — they reference release assets by sha256. Resolved rather than
+      # pinned: a stale pin would keep validating an installer nobody ships, and
+      # would miss the asset renaming this job exists to catch.
+      - name: Resolve the release tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag="${INPUT_TAG:-$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q '.tagName')}"
+          [ -n "$tag" ] || { echo "no published release to validate against" >&2; exit 1; }
+          echo "validating against $tag"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
 
       - name: Generate the manifest
         shell: bash
