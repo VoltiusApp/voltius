@@ -117,9 +117,10 @@ jobs:
           MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
           MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.MSIX_PUBLISHER_DISPLAY_NAME }}
         run: |
+          # target/ sits at the workspace root, which is the repository root.
           ./scripts/build-msix.ps1 `
             -Arch ${{ matrix.arch }} `
-            -ExePath "src-tauri/target/${{ matrix.target }}/release/voltius.exe"
+            -ExePath "target/${{ matrix.target }}/release/voltius.exe"
 
       - name: Upload MSIX
         uses: actions/upload-artifact@v4

@@ -28,7 +28,9 @@ param(
   [ValidateSet('x64', 'arm64')]
   [string]$Arch = 'x64',
 
-  [string]$ExePath = "src-tauri/target/release/voltius.exe",
+  # The Cargo workspace root is the repository root (see the [workspace] table
+  # in ./Cargo.toml), so the target directory is ./target, NOT src-tauri/target.
+  [string]$ExePath = "target/release/voltius.exe",
 
   [string]$OutDir = "target/msix",
 
@@ -45,7 +47,14 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
   if (-not (Test-Path $ExePath)) {
-    throw "$ExePath not found. Run 'pnpm tauri build' first."
+    # Name what was actually built rather than only what was expected: the
+    # difference is usually a target triple or the workspace-root target dir,
+    # and the build that produced it took half an hour.
+    $found = Get-ChildItem -Path . -Recurse -Filter voltius.exe -ErrorAction SilentlyContinue |
+      Where-Object { $_.FullName -match '\\release\\' } |
+      Select-Object -ExpandProperty FullName
+    $hint = if ($found) { "Found instead:`n  " + ($found -join "`n  ") } else { "No release voltius.exe anywhere under $repoRoot." }
+    throw "$ExePath not found. Run 'pnpm tauri build' first.`n$hint"
   }
 
   # MSIX versions are 4-part and the Store requires the revision to be 0.
