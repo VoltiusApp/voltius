@@ -127,6 +127,20 @@ After that every release builds both architectures, bundles them into one
 `.msixbundle` and submits it. Until the secrets exist the submission step warns
 and skips, so a release cannot fail on it.
 
+Listing assets, for the manual part:
+
+- **Screenshots** must be PNG and **1366x768 or larger** — not one of two exact
+  sizes, which is the mistake worth not making twice. The existing 1600x1148
+  captures under `docs/docs/assets/screenshots` qualify as they are. Up to 10,
+  four recommended. Keep anything important out of the bottom third, where the
+  Store draws text overlays, and do not paste logos or marketing copy onto them.
+- **`StoreLogo300x300.png`** in this directory is the 1:1 app tile, rendered
+  from `src-tauri/icons/icon.png`. The Store falls back to the package icon
+  without it, but an uploaded tile takes priority and looks better.
+- 2:3 poster art and 1:1 box art are for games. Apps do not need them.
+- 16:9 hero art (1920x1080) is optional. It must carry no text and should not
+  show the app's UI, so it is a marketing image rather than a screenshot.
+
 Two limits worth knowing:
 
 - The CLI cannot create a listing, only update one. That is why step 3 is
