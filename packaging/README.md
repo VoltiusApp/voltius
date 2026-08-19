@@ -147,9 +147,21 @@ it cannot write.
 
 `VoltiusApp/homebrew-voltius` is a third-party tap: `brew search voltius` finds
 nothing until the user has tapped it. A submission to homebrew-cask core is what
-makes it discoverable, and the notability bar (75 stars) is cleared.
+would make it discoverable, and the notability bar (75 stars) is cleared.
 
-`scripts/gen-homebrew-cask.sh <tag> --core` emits the variant for that PR: core
-rejects casks whose caveats tell the user to reinstall with `--no-quarantine`,
-so that hint is dropped, leaving the right-click-Open instructions core does
-accept for an app that is ad-hoc signed but not notarized.
+**Core is blocked on notarization.** `brew audit --cask --new`, the gate a
+submission has to pass, runs a signature scan and fails:
+
+```
+Signature verification failed: Scan completed, but failed because the software
+is not signed by a distributor that meets the system Gatekeeper requirements.
+```
+
+Voltius is ad-hoc signed, not notarized, so this cannot pass without an Apple
+Developer account. `brew style` and the rest of the audit are clean, so this is
+the only thing standing in the way.
+
+`scripts/gen-homebrew-cask.sh <tag> --core` emits the variant for that PR, kept
+ready for the day notarization exists: core rejects casks whose caveats tell the
+user to reinstall with `--no-quarantine`, so that hint is dropped, leaving the
+right-click-Open instructions.
