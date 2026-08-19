@@ -106,6 +106,14 @@ Microsoft Trusted Root Program, which is the recurring cost this avoids.)
 Releases submit themselves through `publish-msix.yml`, but the listing has to
 exist first — the Store CLI can only *update* an app that is already live.
 
+**Build the first submission from a release tag, not from a branch.** The MSIX
+version comes from `tauri.conf.json`, and that file only carries the released
+version at a tag — on `dev` it lags, because the bump lands on `main`. A bundle
+built from a branch is therefore labelled with a stale version. Store versions
+only ever move forward, so a first submission at the wrong version cannot be
+taken back. `publish-msix` warns when it packages a version that trails the
+latest release.
+
 One-time:
 
 1. Reserve the app name in Partner Center.

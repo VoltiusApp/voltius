@@ -149,6 +149,28 @@ jobs:
         shell: pwsh
         run: ./scripts/bundle-msix.ps1
 
+      # The packaged version comes from tauri.conf.json, and that file only
+      # carries the released version at a release tag — on dev it lags behind,
+      # because the bump lands on main. A check running against a branch
+      # therefore produces a bundle labelled with a stale version, which must
+      # never reach Partner Center: Store versions only ever move forward, so a
+      # first submission at the wrong version cannot be taken back.
+      - name: Warn when the packaged version trails the latest release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          packaged=$(node -e "console.log(require('./src-tauri/tauri.conf.json').version)")
+          latest=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q '.tagName' 2>/dev/null || echo "")
+          latest="${latest#v}"
+          echo "packaged: $packaged, latest release: ${latest:-unknown}"
+          if [ -n "$latest" ] && [ "$packaged" != "$latest" ]; then
+            newest=$(printf '%s\n%s\n' "$packaged" "$latest" | sort -V | tail -1)
+            if [ "$newest" != "$packaged" ]; then
+              echo "::warning::Packaged version $packaged trails the latest release $latest. This bundle is fine for checking that the package builds, but do NOT submit it — build from a release tag instead."
+            fi
+          fi
+
       - name: Upload bundle
         uses: actions/upload-artifact@v4
         with:
