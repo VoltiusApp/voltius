@@ -90,12 +90,15 @@ try {
     Replace('{{ARCH}}', $Arch)
   Set-Content -Path (Join-Path $layout "AppxManifest.xml") -Value $manifest -Encoding UTF8
 
-  . "$PSScriptRoot/lib/makeappx.ps1"
   $makeappx = Get-MakeAppxPath
 
   New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
+  # Clear every package for this architecture, not just the one about to be
+  # written: bundle-msix.ps1 globs *.msix, so a leftover from before a version
+  # bump would be bundled alongside the new one as a second package for the
+  # same architecture.
+  Remove-Item (Join-Path $OutDir "Voltius_*_$Arch.msix") -Force -ErrorAction SilentlyContinue
   $msix = Join-Path $OutDir "Voltius_${version}_$Arch.msix"
-  if (Test-Path $msix) { Remove-Item $msix -Force }
 
   & $makeappx pack /d $layout /p $msix /o
   if ($LASTEXITCODE -ne 0) { throw "makeappx failed with exit code $LASTEXITCODE" }
