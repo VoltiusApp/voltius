@@ -33,6 +33,16 @@ on:
         description: 'Ref to build (tag for a release run)'
         required: true
         type: string
+      publish:
+        # Defaults to false so a caller has to opt in. `github.event_name` cannot
+        # tell the two callers apart — inside a reusable workflow it is the
+        # CALLER's event, so a packaging check triggered by a push read as "not a
+        # workflow_dispatch, therefore publish", and would have submitted a
+        # branch build to the Store the moment the credentials were set.
+        description: 'Submit the bundle to the Store as well as building it'
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       ref:
@@ -155,7 +165,8 @@ jobs:
       # therefore produces a bundle labelled with a stale version, which must
       # never reach Partner Center: Store versions only ever move forward, so a
       # first submission at the wrong version cannot be taken back.
-      - name: Warn when the packaged version trails the latest release
+      - name: Check the packaged version against the latest release
+        id: staleness
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -164,12 +175,15 @@ jobs:
           latest=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q '.tagName' 2>/dev/null || echo "")
           latest="${latest#v}"
           echo "packaged: $packaged, latest release: ${latest:-unknown}"
+          stale=false
           if [ -n "$latest" ] && [ "$packaged" != "$latest" ]; then
             newest=$(printf '%s\n%s\n' "$packaged" "$latest" | sort -V | tail -1)
             if [ "$newest" != "$packaged" ]; then
-              echo "::warning::Packaged version $packaged trails the latest release $latest. This bundle is fine for checking that the package builds, but do NOT submit it — build from a release tag instead."
+              stale=true
+              echo "::warning::Packaged version $packaged trails the latest release $latest. This bundle is fine for checking that the package builds, but it will not be submitted — build from a release tag instead."
             fi
           fi
+          echo "stale=$stale" >> "$GITHUB_OUTPUT"
 
       - name: Upload bundle
         uses: actions/upload-artifact@v4
@@ -178,7 +192,7 @@ jobs:
           path: target/msix/*.msixbundle
           if-no-files-found: error
 
-      - name: Check the Store credentials are configured
+      - name: Decide whether to submit
         id: guard
         shell: bash
         env:
@@ -187,10 +201,17 @@ jobs:
           CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
           SELLER_ID: ${{ secrets.SELLER_ID }}
           PRODUCT_ID: ${{ vars.MSSTORE_PRODUCT_ID }}
-          WANTED: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
+          WANTED: ${{ inputs.publish }}
+          STALE: ${{ steps.staleness.outputs.stale }}
         run: |
           if [ "$WANTED" != "true" ]; then
             echo "::notice::publish input is false — built the bundle only."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          elif [ "$STALE" = "true" ]; then
+            # Refusing is the whole point: a submission at a version below the
+            # latest release cannot be withdrawn, and the Store only ever moves
+            # versions forward.
+            echo "::error::Refusing to submit a bundle whose version trails the latest release."
             echo "ok=false" >> "$GITHUB_OUTPUT"
           elif [ -z "$TENANT_ID" ] || [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$SELLER_ID" ] || [ -z "$PRODUCT_ID" ]; then
             echo "::warning::Store credentials or MSSTORE_PRODUCT_ID are not set — the bundle is attached as an artifact but was not submitted."

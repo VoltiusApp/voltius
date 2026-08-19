@@ -98,10 +98,11 @@ jobs:
   # day that changes. The tap keeps being audited by publish-installers.yml.
 
   # Proves the MSIX packs at all: it needs Windows plus the Windows SDK, so
-  # nothing else in this repo can. Publishing is inert here — the submission
-  # step skips itself when the Store credentials are absent.
+  # nothing else in this repo can. This is a check, never a submission: it builds
+  # from a branch, where tauri.conf.json still carries the previous version.
   msix:
     uses: ./.github/workflows/publish-msix.yml
     with:
       ref: ${{ github.sha }}
+      publish: false
     secrets: inherit

@@ -111,8 +111,9 @@ version comes from `tauri.conf.json`, and that file only carries the released
 version at a tag — on `dev` it lags, because the bump lands on `main`. A bundle
 built from a branch is therefore labelled with a stale version. Store versions
 only ever move forward, so a first submission at the wrong version cannot be
-taken back. `publish-msix` warns when it packages a version that trails the
-latest release.
+taken back. `publish-msix` refuses to submit a bundle whose version trails the
+latest release, and only the release job passes `publish: true` — the packaging
+check builds the bundle and stops there.
 
 One-time:
 

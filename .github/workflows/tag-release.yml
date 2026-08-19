@@ -159,4 +159,7 @@ jobs:
     uses: ./.github/workflows/publish-msix.yml
     with:
       ref: ${{ needs.tag.outputs.tag }}
+      # The one caller allowed to submit. It builds from the release tag, so the
+      # packaged version is the released version.
+      publish: true
     secrets: inherit
