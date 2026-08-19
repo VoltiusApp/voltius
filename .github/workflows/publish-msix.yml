@@ -46,7 +46,11 @@ on:
         type: boolean
 
 concurrency:
-  group: publish-msix
+  # Keyed on the ref, not on the workflow name: a release runs against a tag and
+  # a packaging check runs against a branch, so they no longer queue behind each
+  # other. With a single shared group, three pushes in a row left the release
+  # path's builds cancelled as merely-pending members of the same group.
+  group: publish-msix-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

@@ -24,6 +24,12 @@ on:
         required: false
         default: ''
 
+concurrency:
+  # A push while a check is running supersedes it. The MSIX job is a full
+  # Windows Rust build, so leaving stale ones running is expensive.
+  group: verify-packaging-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   # The manifests are generated against a published release, not against this
   # commit — they reference release assets by sha256.
