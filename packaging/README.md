@@ -68,6 +68,11 @@ real Windows machine before opening the PR** — nothing in CI exercises them.
 manifest with `scripts/gen-flatpak-manifest.sh <tag>` if the release asset
 naming changes; otherwise Flathub's bot keeps it current.
 
+The bot updates the source `url` and `sha256`, and only those. Add a `<release>`
+entry to `app.voltius.Voltius.metainfo.xml` per release and open a PR for it —
+that block is what the Flathub page shows as the current version, so without it
+the page advertises an old version while serving the new binary.
+
 Validate before submitting:
 
 ```bash

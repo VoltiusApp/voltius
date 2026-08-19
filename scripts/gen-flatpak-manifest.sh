@@ -12,6 +12,11 @@
 # follows new releases on its own — nothing here has to run again unless the
 # release asset naming changes.
 #
+# What the bot does NOT touch is the metainfo: it rewrites the source url and
+# sha256 and nothing else. The <releases> block in
+# packaging/flatpak/app.voltius.Voltius.metainfo.xml is what the store page
+# shows as the current version, so it needs an entry per release by hand.
+#
 # Requires: gh (authenticated), awk.
 set -euo pipefail
 
