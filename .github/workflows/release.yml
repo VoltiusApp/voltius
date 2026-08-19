@@ -177,7 +177,7 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-          workspaces: 'src-tauri -> target'
+          workspaces: '. -> target'
 
       - name: Install dependencies (Ubuntu native)
         if: matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm'
@@ -276,7 +276,7 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           key: aarch64-linux-android
-          workspaces: 'src-tauri -> target'
+          workspaces: '. -> target'
 
       - name: Install frontend dependencies
         run: pnpm install

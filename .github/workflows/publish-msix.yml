@@ -105,7 +105,10 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-          workspaces: 'src-tauri -> target'
+          # The Cargo workspace root is the repository root, so the target dir is
+          # ./target. Pointing this at src-tauri/target cached nothing and made
+          # every MSIX build a cold half-hour Windows compile.
+          workspaces: '. -> target'
 
       - name: Install frontend dependencies
         run: pnpm install
