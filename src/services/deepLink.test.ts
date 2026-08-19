@@ -7,6 +7,10 @@ const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
 const OTHER = "11111111-2222-3333-4444-555555555555";
 const link = (s: string) => `voltius://join?s=${s}&t=tok`;
 
+/** Waits out the store's promote hold, which keeps a queued sheet off the screen
+ *  long enough that a double-click cannot carry into it. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 350));
+
 beforeEach(() => {
   useDeepLinkStore.setState({ ready: false, queue: [], prompt: null });
   useDeepLinkStore.getState().setUnpromptedHandler(null);
@@ -47,21 +51,34 @@ test("a duplicate arriving before ready is dropped", () => {
   expect(useDeepLinkStore.getState().queue).toHaveLength(1);
 });
 
-test("dismissing then redelivering the same link prompts again", () => {
+test("dismissing then redelivering the same link prompts again", async () => {
   useDeepLinkStore.getState().setReady(true);
   handleDeepLink(link(SESSION));
   useDeepLinkStore.getState().dismissPrompt();
   handleDeepLink(link(SESSION));
+  await settle();
   expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION });
 });
 
-test("two different links queued before ready are both delivered, in order", () => {
+test("two different links queued before ready are both delivered, in order", async () => {
   handleDeepLink(link(SESSION));
   handleDeepLink(link(OTHER));
   useDeepLinkStore.getState().setReady(true);
   expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION });
   useDeepLinkStore.getState().dismissPrompt();
+  await settle();
   expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: OTHER });
+});
+
+test("the sheet behind the one just dismissed is not promoted into the same click", () => {
+  useDeepLinkStore.getState().setReady(true);
+  handleDeepLink(link(SESSION));
+  handleDeepLink(link(OTHER));
+  useDeepLinkStore.getState().dismissPrompt();
+  // Still queued, not on screen: a double-click's second half has nothing to hit.
+  const s = useDeepLinkStore.getState();
+  expect(s.prompt).toBeNull();
+  expect(s.queue).toHaveLength(1);
 });
 
 test("an unknown route is dropped without prompting or throwing", () => {
@@ -78,7 +95,7 @@ test("dropping a link never logs the query string", () => {
   warn.mockRestore();
 });
 
-test("a different link while a prompt is on screen queues behind it", () => {
+test("a different link while a prompt is on screen queues behind it", async () => {
   useDeepLinkStore.getState().setReady(true);
   handleDeepLink(link(SESSION));
   const shown = useDeepLinkStore.getState().prompt;
@@ -87,6 +104,7 @@ test("a different link while a prompt is on screen queues behind it", () => {
   expect(s.prompt).toBe(shown);
   expect(s.queue).toHaveLength(1);
   s.dismissPrompt();
+  await settle();
   expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: OTHER });
 });
 

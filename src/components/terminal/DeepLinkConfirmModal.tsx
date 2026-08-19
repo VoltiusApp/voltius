@@ -5,6 +5,7 @@ import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 import { intentKey, type ConfirmIntent } from "@/services/deepLinkUrl";
 import { CONFIRM_SPECS, type ConfirmRoute, type ConfirmSpec } from "./deepLinkConfirmSpecs";
+import type { TranslatableMessage } from "@/plugins/installErrors";
 
 export function DeepLinkConfirmModal() {
   const prompt = useDeepLinkStore((s) => s.prompt);
@@ -12,6 +13,10 @@ export function DeepLinkConfirmModal() {
   // failure's error and re-runs `load` against the new target. The key embeds a
   // join token, so it must never be logged.
   return prompt ? <ConfirmSheet key={intentKey(prompt)} intent={prompt} /> : null;
+}
+
+function failureMessage(spec: ConfirmSpec<ConfirmRoute, unknown>, e: unknown): TranslatableMessage {
+  return spec.errorMessage?.(e, spec.errorKey) ?? { key: spec.errorKey };
 }
 
 function ConfirmSheet({ intent }: { intent: ConfirmIntent }) {
@@ -26,20 +31,26 @@ function ConfirmSheet({ intent }: { intent: ConfirmIntent }) {
   const [loading, setLoading] = useState(!!spec.load);
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TranslatableMessage | null>(null);
 
+  // `t` is deliberately absent from the deps: it is a new function on every
+  // locale change, and re-running `load` would fetch a second time without
+  // resetting the state below, leaving accept live over a stale result.
   useEffect(() => {
     if (!spec.load) return;
     let cancelled = false;
+    setLoading(true);
+    setLoadFailed(false);
+    setError(null);
     void spec
       .load(intent)
       .then((value) => {
         if (!cancelled) setLoaded(value);
       })
-      .catch(() => {
+      .catch((e: unknown) => {
         if (cancelled) return;
         setLoadFailed(true);
-        setError(t(spec.errorKey));
+        setError(failureMessage(spec, e));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -47,7 +58,7 @@ function ConfirmSheet({ intent }: { intent: ConfirmIntent }) {
     return () => {
       cancelled = true;
     };
-  }, [intent, spec, t]);
+  }, [intent, spec]);
 
   const details = spec.details(intent, loaded, t);
   // A sheet that could not name what it is about must never be acceptable. A
@@ -61,8 +72,8 @@ function ConfirmSheet({ intent }: { intent: ConfirmIntent }) {
     try {
       await spec.accept(intent, loaded, t);
       dismissPrompt();
-    } catch {
-      setError(t(spec.errorKey));
+    } catch (e) {
+      setError(failureMessage(spec, e));
     } finally {
       setBusy(false);
     }
@@ -84,7 +95,7 @@ function ConfirmSheet({ intent }: { intent: ConfirmIntent }) {
         {loading && <p className="text-xs text-(--t-text-dim)">{t("common.state.loading")}</p>}
         {spec.extra?.(loaded, t)}
         {details.note && <p className="text-xs text-(--t-text-dim)">{details.note}</p>}
-        {error && <p className="text-xs text-(--t-status-error)">{error}</p>}
+        {error && <p className="text-xs text-(--t-status-error)">{t(error.key, error.params)}</p>}
         <div className="flex gap-2 justify-end">
           <button
             onClick={dismissPrompt}
