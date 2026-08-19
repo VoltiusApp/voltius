@@ -15,7 +15,11 @@ copies of captures that live in the docs repo.
 | `04-command-palette.png` | Screenshot 4 | Jump to any host, session or snippet from one palette |
 | `05-teams-roles.png` | Screenshot 5 | Shared vaults with roles and an audit log |
 | `06-themes-creator.png` | Screenshot 6 | Theme editor for window colors and the terminal palette |
+| `StorePoster1440x2160.png` | Store logos → 2:3 poster art | — |
+| `StorePoster720x1080.png` | same field, smaller accepted size | — |
 | `StoreLogo300x300.png` | Store logos → 1:1 App tile icon | — |
+
+Regenerate the two logos with `scripts/make-store-poster.sh`.
 
 ## Rules these already satisfy
 
@@ -37,8 +41,19 @@ sitting in a shop window. Worth recapturing against a host that has tmux, at
 which point the pane also demonstrates the persistent-sessions feature instead
 of contradicting it.
 
+## The poster is not optional, whatever the docs say
+
+Microsoft's documentation states that 2:3 poster art "does not apply to apps"
+and is for games. The Partner Center form asks for it anyway, at **exactly**
+720x1080 or 1440x2160 — no "or larger" here, unlike the screenshots. The form
+wins; both sizes are provided.
+
+The bolt sits in the top two-thirds and the bottom third is left empty, because
+the Store draws its own text over that band. There is no wordmark on the image:
+the docs allow one, but a rendered-in font would not match the brand and the
+mark is distinctive on its own.
+
 ## Not needed
 
-2:3 poster art and 1:1 box art are for games. 16:9 hero art (1920x1080) is
-optional and must carry no text and not show the app's UI — a marketing image
-rather than a screenshot.
+1:1 box art is for games. 16:9 hero art (1920x1080) is optional and must carry
+no text and not show the app's UI — a marketing image rather than a screenshot.
