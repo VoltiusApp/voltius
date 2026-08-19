@@ -87,22 +87,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Generate the core-submission cask
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          bash scripts/gen-homebrew-cask.sh "$TAG" --core > voltius.rb
-          cat voltius.rb
-
-      - name: Audit as a new cask
-        env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          brew style voltius.rb
-          brew tap-new voltiusapp/coretest --no-git
-          mkdir -p "$(brew --repository voltiusapp/coretest)/Casks"
-          cp voltius.rb "$(brew --repository voltiusapp/coretest)/Casks/voltius.rb"
-          brew audit --cask --new --online voltiusapp/coretest/voltius
+      - name: Audit the core variant as a new cask
+        uses: ./.github/actions/cask-audit
+        with:
+          tag: ${{ env.TAG }}
+          core: 'true'
+          audit-args: --new
+          tap: voltiusapp/coretest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   # Proves the MSIX packs at all: it needs Windows plus the Windows SDK, so
   # nothing else in this repo can. Publishing is inert here — the submission
