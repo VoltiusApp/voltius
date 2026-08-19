@@ -67,12 +67,15 @@ try {
 
   Copy-Item $ExePath (Join-Path $layout "voltius.exe")
 
-  # `tauri icon` already emits the whole Appx logo set.
+  # `tauri icon` emits every square logo. Wide310x150Logo is not square, so it
+  # comes from scripts/make-store-assets.sh — and makeappx rejects the package
+  # without it once Square310x310Logo is declared.
   $logos = @(
     'Square44x44Logo.png',
     'Square71x71Logo.png',
     'Square150x150Logo.png',
     'Square310x310Logo.png',
+    'Wide310x150Logo.png',
     'StoreLogo.png'
   )
   foreach ($logo in $logos) {

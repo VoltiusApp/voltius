@@ -45,9 +45,14 @@
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
+        <!-- Wide310x150Logo is not optional here: makeappx rejects the package
+             when Square310x310Logo is declared without it. `tauri icon` emits
+             only square logos, so the wide one comes from
+             scripts/make-store-assets.sh. -->
         <uap:DefaultTile
           Square71x71Logo="Assets\Square71x71Logo.png"
-          Square310x310Logo="Assets\Square310x310Logo.png" />
+          Square310x310Logo="Assets\Square310x310Logo.png"
+          Wide310x150Logo="Assets\Wide310x150Logo.png" />
       </uap:VisualElements>
 
       <Extensions>
