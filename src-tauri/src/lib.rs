@@ -111,7 +111,23 @@ fn classify_install(
         // Per-user NSIS self-updates. A per-machine install still attempts the
         // update and surfaces any UAC-elevation failure via the error path;
         // no proactive install-scope detection here.
-        Os::Windows => InstallKind::SelfUpdate,
+        //
+        // The exception is an MSIX package from the Microsoft Store, which
+        // lands under C:\Program Files\WindowsApps. That tree is locked down
+        // even for administrators, so the download would always fail at the
+        // install step; the Store owns updates for that install anyway.
+        //
+        // Matched on the raw string rather than on Path components: this
+        // function is unit-tested for every platform from one host, and a
+        // Linux Path does not split a Windows path on its backslashes.
+        Os::Windows => {
+            let p = exe_path.to_string_lossy().to_ascii_lowercase();
+            if p.contains("\\windowsapps\\") || p.contains("/windowsapps/") {
+                InstallKind::External
+            } else {
+                InstallKind::SelfUpdate
+            }
+        }
     }
 }
 
@@ -872,6 +888,21 @@ mod updater_tests {
                 true
             ),
             InstallKind::SelfUpdate
+        );
+    }
+
+    #[test]
+    fn windows_msix_package_is_external() {
+        assert_eq!(
+            classify_install(
+                Os::Windows,
+                false,
+                Path::new(
+                    r"C:\Program Files\WindowsApps\Voltius_0.27.0.0_x64__abcdefg\voltius.exe"
+                ),
+                true
+            ),
+            InstallKind::External
         );
     }
 }

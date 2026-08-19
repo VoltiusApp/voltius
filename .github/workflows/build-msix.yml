@@ -1,0 +1,95 @@
+# Builds the Microsoft Store MSIX packages and uploads them as workflow
+# artifacts.
+#
+# Deliberately manual (workflow_dispatch) rather than part of tag-release:
+# submitting to Partner Center is a manual step anyway, and the package is
+# unsigned — the Store signs MSIX on submission, which is why this path needs no
+# code-signing certificate at all. An unsigned .msix cannot be installed by a
+# normal user, so it must NOT be attached to a public release as a download.
+name: build-msix
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Ref to build (branch, tag or SHA). Defaults to this branch.'
+        required: false
+        default: ''
+
+jobs:
+  msix:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Read toolchain channel from rust-toolchain.toml
+        id: rust
+        shell: bash
+        run: echo "channel=$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+          workspaces: 'src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Install sccache
+        uses: mozilla/sccache-action@v0.0.11
+
+      # --no-bundle: the MSIX is packed from the raw binary, so none of the
+      # installer bundlers need to run.
+      - name: Build
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+        run: pnpm tauri build --target ${{ matrix.target }} --no-bundle
+
+      - name: Pack MSIX
+        shell: pwsh
+        env:
+          # Set these as repository variables once the app name is reserved in
+          # Partner Center. Without them the package builds with a placeholder
+          # identity, which is good for a local install test and nothing else.
+          MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME }}
+          MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
+          MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.MSIX_PUBLISHER_DISPLAY_NAME }}
+        run: |
+          ./scripts/build-msix.ps1 `
+            -Arch ${{ matrix.arch }} `
+            -ExePath "src-tauri/target/${{ matrix.target }}/release/voltius.exe"
+
+      - name: Upload MSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-${{ matrix.arch }}
+          path: target/msix/*.msix
+          if-no-files-found: error
