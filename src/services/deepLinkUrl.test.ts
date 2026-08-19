@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { intentKey, isConfirmIntent, isNavigateIntent, isSilentIntent, parseDeepLink, buildDeepLink, DEFAULT_PLUGIN_SOURCE_ID } from "./deepLinkUrl";
+import { intentKey, isAttenuatedIntent, isConfirmIntent, isNavigateIntent, isSilentIntent, isUnpromptedIntent, parseDeepLink, buildDeepLink, DEFAULT_PLUGIN_SOURCE_ID } from "./deepLinkUrl";
 
 const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
 const TOKEN = "deadbeefdeadbeefdeadbeefdeadbeef";
@@ -76,9 +76,13 @@ test("intent keys match for the same link parsed twice", () => {
   expect(intentKey(a)).toBe(intentKey(b));
 });
 
-test("join is a confirm route and verified is a silent one", () => {
+test("join is a confirm route and verified is an attenuated one", () => {
+  const verified = parseDeepLink(`voltius://verified?u=${USER}`)!;
   expect(isConfirmIntent(parseDeepLink(`voltius://join?s=${SESSION}&t=${TOKEN}`)!)).toBe(true);
-  expect(isSilentIntent(parseDeepLink(`voltius://verified?u=${USER}`)!)).toBe(true);
+  expect(isAttenuatedIntent(verified)).toBe(true);
+  expect(isSilentIntent(verified)).toBe(false);
+  // Attenuated still acts without a prompt; that is the whole point of the class.
+  expect(isUnpromptedIntent(verified)).toBe(true);
 });
 
 test("builds a join link in both forms", () => {
