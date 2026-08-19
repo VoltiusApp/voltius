@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { intentKey, isConfirmIntent, isNavigateIntent, isSilentIntent, parseDeepLink, buildDeepLink } from "./deepLinkUrl";
+import { intentKey, isConfirmIntent, isNavigateIntent, isSilentIntent, parseDeepLink, buildDeepLink, DEFAULT_PLUGIN_SOURCE_ID } from "./deepLinkUrl";
 
 const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
 const TOKEN = "deadbeefdeadbeefdeadbeefdeadbeef";
@@ -210,4 +210,63 @@ test("builds the navigate routes in both forms and round-trips them", () => {
 test("a parameterless route builds without a trailing question mark", () => {
   expect(buildDeepLink({ route: "billing" }, "scheme")).toBe("voltius://billing");
   expect(buildDeepLink({ route: "billing" }, "https")).toBe("https://voltius.app/open#billing");
+});
+
+test("an invite link round-trips through both forms", () => {
+  const intent = { route: "invite" as const, handle: "kevin-p" };
+  expect(parseDeepLink(buildDeepLink(intent, "scheme"))).toEqual(intent);
+  expect(parseDeepLink(buildDeepLink(intent, "https"))).toEqual(intent);
+});
+
+test("an invite handle is accepted with or without its @, and normalised without it", () => {
+  expect(parseDeepLink("voltius://invite?h=%40kevin-p")).toEqual({ route: "invite", handle: "kevin-p" });
+  expect(parseDeepLink("voltius://invite?h=kevin-p")).toEqual({ route: "invite", handle: "kevin-p" });
+  expect(parseDeepLink("voltius://invite?h=Kevin-P")).toEqual({ route: "invite", handle: "kevin-p" });
+});
+
+test("an invite link with a handle the server could never issue is rejected", () => {
+  expect(parseDeepLink("voltius://invite?h=ab")).toBeNull();
+  expect(parseDeepLink("voltius://invite?h=-kevin")).toBeNull();
+  expect(parseDeepLink("voltius://invite?h=kevin-")).toBeNull();
+  expect(parseDeepLink("voltius://invite?h=kevin%20p")).toBeNull();
+  expect(parseDeepLink("voltius://invite?h=" + "a".repeat(31))).toBeNull();
+  expect(parseDeepLink("voltius://invite")).toBeNull();
+});
+
+test("a snippet-install link round-trips through both forms", () => {
+  const intent = { route: "snippet-install" as const, entryId: "docker-cleanup" };
+  expect(parseDeepLink(buildDeepLink(intent, "scheme"))).toEqual(intent);
+  expect(parseDeepLink(buildDeepLink(intent, "https"))).toEqual(intent);
+});
+
+test("a snippet-install link with no id, or an over-long one, is rejected", () => {
+  expect(parseDeepLink("voltius://snippet-install")).toBeNull();
+  expect(parseDeepLink("voltius://snippet-install?id=")).toBeNull();
+  expect(parseDeepLink("voltius://snippet-install?id=" + "a".repeat(101))).toBeNull();
+});
+
+test("a plugin-install link round-trips through both forms", () => {
+  const intent = { route: "plugin-install" as const, pluginId: "docker", sourceId: "voltius" };
+  expect(parseDeepLink(buildDeepLink(intent, "scheme"))).toEqual(intent);
+  expect(parseDeepLink(buildDeepLink(intent, "https"))).toEqual(intent);
+});
+
+test("a plugin-install link with no source falls back to the first-party one", () => {
+  expect(parseDeepLink("voltius://plugin-install?id=docker")).toEqual({
+    route: "plugin-install",
+    pluginId: "docker",
+    sourceId: DEFAULT_PLUGIN_SOURCE_ID,
+  });
+});
+
+test("a plugin-install link whose id could escape the plugins directory is rejected", () => {
+  expect(parseDeepLink("voltius://plugin-install?id=../evil")).toBeNull();
+  expect(parseDeepLink("voltius://plugin-install?id=__meta__")).toBeNull();
+  expect(parseDeepLink("voltius://plugin-install?id=Docker")).toBeNull();
+  expect(parseDeepLink("voltius://plugin-install?id=")).toBeNull();
+  expect(parseDeepLink("voltius://plugin-install")).toBeNull();
+});
+
+test("a plugin-install link naming an over-long source id is rejected", () => {
+  expect(parseDeepLink("voltius://plugin-install?id=docker&src=" + "a".repeat(101))).toBeNull();
 });

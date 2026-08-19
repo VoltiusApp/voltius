@@ -33,7 +33,7 @@ import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
 import CloudAuthModal from "@/components/layout/CloudAuthModal";
 import WhatsNewModal from "@/components/changelog/WhatsNewModal";
 import { EmailVerificationRequiredModal } from "@/components/notifications/EmailVerificationRequiredModal";
-import { DeepLinkJoinModal } from "@/components/terminal/DeepLinkJoinModal";
+import { DeepLinkConfirmModal } from "@/components/terminal/DeepLinkConfirmModal";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 import { GlobalTransferQueue } from "@/components/filetransfer/GlobalTransferQueue";
 
@@ -85,7 +85,7 @@ function App() {
       <CloudAuthModal />
       <WhatsNewModal />
       <EmailVerificationRequiredModal />
-      <DeepLinkJoinModal />
+      <DeepLinkConfirmModal />
       <GlobalTransferQueue />
 
       {/* Global snippet variable modal — triggered from OmniSearch, the
