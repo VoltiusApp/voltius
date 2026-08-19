@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-08-19
+
+### Added
+
+- Voltius is packaged for four more channels: the AUR (`voltius-bin`), Flathub,
+  Scoop and the Microsoft Store. The Store build installs without the unknown-
+  publisher warning Windows shows for the standalone installer.
+- Deep links reach more of the app. Notifications, settings and billing each
+  have a route, and an invitation by handle, a snippet install or a plugin
+  install now opens a confirmation sheet that names exactly what it is about to
+  do before anything is applied.
+- Links work in their `https://voltius.app/open` form as well as the
+  `voltius://` scheme, so they survive the chat clients and mail readers that
+  strip custom schemes. On Android that address is registered as an App Link and
+  opens the app directly. Sharing an invitation hands out the https form.
+- Presence is drawn by one component everywhere it appears — the title bar, the
+  share menu, session cards and the member list — so a teammate looks the same
+  wherever you run into them.
+
+### Fixed
+
+- The Linux `.deb` declares its dependency on libsecret, which it linked against
+  without asking for. On a minimal Debian the app failed to start.
+- The generated desktop entry carries a category, so Voltius is filed under
+  Development instead of landing in whatever bucket a launcher uses for
+  uncategorised apps.
+- A confirmation sheet queued behind another no longer inherits the click that
+  dismissed the first one, and changing language while one is open no longer
+  re-runs its load.
+- A plugin install link whose integrity check fails is reported as tampering
+  rather than as a malformed link.
+- The `/open` App Link matches exact paths instead of a prefix, so the rest of
+  voltius.app opens in the browser again.
+- The notification bell re-measures when the set of mounted bells changes,
+  fixing a popover that could point at the wrong bell on mobile.
+- Very small avatars keep their initials legible instead of shrinking them into
+  nothing.
+
 ## [0.27.0] - 2026-08-17
 
 ### Added
