@@ -3,10 +3,11 @@
   <br/>
   <h1>Voltius</h1>
   
-  <p>📢 <strong>Latest Update:</strong> <a href="https://github.com/orgs/VoltiusApp/discussions/7">Huge thanks for the 200+ stars in 24h!</a></p>
   <p><strong>A local-first SSH/SFTP/Serial client with E2EE sync, plugins, and no account required — a modern alternative to Termius.</strong></p>
   
   <p>
+    <a href="https://github.com/VoltiusApp/voltius/releases/latest"><img src="https://img.shields.io/github/v/release/VoltiusApp/voltius?label=release&color=3b82f6" alt="Latest release" /></a>
+    <img src="https://img.shields.io/github/stars/VoltiusApp/voltius?style=flat&color=eab308" alt="Stars" />
     <img src="https://img.shields.io/badge/status-beta-f59e0b" alt="Beta" />
     <img src="https://img.shields.io/badge/built_with-Rust-dea584?logo=rust" alt="Rust" />
     <img src="https://img.shields.io/badge/UI-Tauri-24c8db?logo=tauri" alt="Tauri" />
@@ -36,7 +37,7 @@ No account required. Everything below is free, forever.
 - **Process Manager** — View and kill processes on connected hosts.
 - **System Monitoring** — Live CPU, memory, and disk stats from connected hosts.
 
-> Full feature list at [docs.voltius.app](https://docs.voltius.app) *(coming soon)* · **Pro · Teams · Business** — see [voltius.app/#pricing](https://voltius.app/#pricing) for paid plans.
+> Full feature list at [docs.voltius.app](https://docs.voltius.app) · **Pro · Teams · Business** — see [voltius.app/#pricing](https://voltius.app/#pricing) for paid plans.
 
 ## 📸 Screenshots
 
@@ -122,37 +123,39 @@ Direct installers (`.dmg`, `.msi`, `.exe`, `.AppImage`) are on
 [voltius.app/download](https://voltius.app/download). Voltius updates itself in-app
 on macOS and Windows after installation.
 
-## ⚖️ Comparison (WIP)
+## ⚖️ Comparison
+
+✅ yes · ❌ no · 🟡 partial or paid-tier · ? not tested
 
 | Feature | Voltius | Termius | [Reach](https://github.com/alexandrosnt/Reach) | [Termix](https://github.com/Termix-SSH/Termix) | Tabby |
 | --- | --- | --- | --- | --- | --- |
 | **Engine** | **Rust + Tauri** 🦀 | likely Electron (closed-source) | **Rust + Tauri** 🦀 | Web (React + Node.js) | Electron / Node.js |
-| **RAM Usage** | ~300MB | ~500MB+ | ~300MB | NOT TESTED | NOT TESTED |
-| **Installed Size** | ~40MB | ~1GB | ~40MB | NOT TESTED | NOT TESTED |
+| **RAM Usage** | ~300MB | ~500MB+ | ~300MB | ? | ? |
+| **Installed Size** | ~40MB | ~1GB | ~40MB | ? | ? |
 | **Cloud Sync** | Gist (Free) / Real-Time (Paid) | 🟡 Only Pro | 🟡 Via Turso (own account) | ❌ | Community Plugins |
-| **Import/Export** | ✅ 1-click import from Termius/MobaXterm, JSON Export | 🟡 Strong Import Integrations but no Export | ✅ |  |  |
+| **Import/Export** | ✅ 1-click import from Termius/MobaXterm, JSON Export | 🟡 Strong Import Integrations but no Export | ✅ | ? | ? |
 | **Port Forwarding** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Snippets** | ✅ + multi-exec | 🟡 (Multi-exec + startup snippets only Pro) | ✅ + multi-exec | ✅ + multi-exec |  |
-| **Command Palette** | ✅ | ✅ |  |  | ✅ |
+| **Snippets** | ✅ + multi-exec | 🟡 (Multi-exec + startup snippets only Pro) | ✅ + multi-exec | ✅ + multi-exec | ? |
+| **Command Palette** | ✅ | ✅ | ? | ? | ✅ |
 | **Split panes** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **X11 Forwarding** | ❌ | | ❌ |  | ✅ |
-| **MCP server (AI agents)** | ✅ Built in, 52 tools, off by default |  |  |  |  |
-| **Docker Integration** | ✅ |  |  |  | 🟡 (community plugin) |
+| **X11 Forwarding** | ❌ | ? | ❌ | ? | ✅ |
+| **MCP server (AI agents)** | ✅ Built in, 52 tools, off by default | ? | ? | ? | ? |
+| **Docker Integration** | ✅ | ? | ? | ? | 🟡 (community plugin) |
 | **Proxmox LXC Integration** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **System Monitoring** | ✅ |  | ✅ | ✅ |  |
-| **Jump Hosts** | ✅ | ✅ | ✅ |  | ✅ |
-| **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex |  |  |
-| **Audit logs** | ✅ | 🟡 Teams plan |  |  |  |
-| **Custom Themes** | ✅ |  |  | ✅ | ✅ |
-| **Folders &amp; Tags** | ✅ | ✅ | ✅ | ✅ |  |
-| **Auto-Updates** | ✅ | ✅ | ✅ |  |  |
+| **System Monitoring** | ✅ | ? | ✅ | ✅ | ? |
+| **Jump Hosts** | ✅ | ✅ | ✅ | ? | ✅ |
+| **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex | ? | ? |
+| **Audit logs** | ✅ | 🟡 Teams plan | ? | ? | ? |
+| **Custom Themes** | ✅ | ? | ? | ✅ | ✅ |
+| **Folders &amp; Tags** | ✅ | ✅ | ✅ | ✅ | ? |
+| **Auto-Updates** | ✅ | ✅ | ✅ | ? | ? |
 | **Modern UI/UX** | ✅ | ✅ | 🟡 | ✅ | 🟡 |
-| **AI assistant** | ❌ | ✅ | ✅ |  |  |
-| **Permissions** | ✅ Teams RBAC / Business custom roles | ✅ Granular perms |  |  |  |
-| **Terminal sharing** | ✅ Pro (1 guest) / Teams (unlimited) | ✅ needs Teams plan |  |  |  |
-| **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** |  | Local Only / Manual |
-| **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ |  | ❌ |
-| **Serial Console** | ✅ | ✅ | ✅ |  | ✅ |
+| **AI assistant** | ❌ | ✅ | ✅ | ? | ? |
+| **Permissions** | ✅ Teams RBAC / Business custom roles | ✅ Granular perms | ? | ? | ? |
+| **Terminal sharing** | ✅ Pro (1 guest) / Teams (unlimited) | ✅ needs Teams plan | ? | ? | ? |
+| **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** | ? | Local Only / Manual |
+| **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ | ? | ❌ |
+| **Serial Console** | ✅ | ✅ | ✅ | ? | ✅ |
 | **Persistent sessions** | ✅ uses tmux/screen, default behavior | 🟡 (via Mosh, must be installed on the host; not built-in) | ❌ | ❌ | ❌ |
 | **Cross-device live resume** | ✅ Seamless pickup | ❌ | ❌ | ❌ | ❌ |
 | **Local-first** | ✅ | ✅ | ✅ | ✅ | ✅ |

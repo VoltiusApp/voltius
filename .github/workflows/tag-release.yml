@@ -123,9 +123,10 @@ jobs:
             echo "::warning::Release $TAG is not published (publish-release said '$REPORTED', isDraft=$draft) — skipping the distribution channels."
           fi
 
-  # Publish Homebrew cask + winget manifest once the release and its assets
-  # exist. Called explicitly here rather than via `release: published`, which
-  # never fires for a GITHUB_TOKEN-authored release (see publish-installers.yml).
+  # Publish Homebrew cask + winget manifest + AUR package once the release and
+  # its assets exist. Called explicitly here rather than via `release:
+  # published`, which never fires for a GITHUB_TOKEN-authored release (see
+  # publish-installers.yml).
   publish-installers:
     needs: [tag, release-published]
     if: ${{ !cancelled() && needs.release-published.outputs.ok == 'true' }}
@@ -142,4 +143,23 @@ jobs:
     needs: [tag, release-published]
     if: ${{ !cancelled() && needs.release-published.outputs.ok == 'true' }}
     uses: ./.github/workflows/publish-repo.yml
+    secrets: inherit
+
+  # Build and submit the Microsoft Store bundle. This one rebuilds the Windows
+  # binaries rather than reusing the release assets: the release ships NSIS/MSI
+  # installers, and an MSIX is packed from the bare .exe, which is not published.
+  #
+  # It is gated on the release only so that a version bump and a Store
+  # submission always describe the same tag; it uploads nothing to the release.
+  # The submission step skips with a warning when the Store credentials are
+  # absent, so this can never fail a release.
+  publish-msix:
+    needs: [tag, release-published]
+    if: ${{ !cancelled() && needs.release-published.outputs.ok == 'true' }}
+    uses: ./.github/workflows/publish-msix.yml
+    with:
+      ref: ${{ needs.tag.outputs.tag }}
+      # The one caller allowed to submit. It builds from the release tag, so the
+      # packaged version is the released version.
+      publish: true
     secrets: inherit

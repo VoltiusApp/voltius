@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Template for the Microsoft Store MSIX package. scripts/build-msix.ps1
+  substitutes the {{...}} placeholders and writes the result into the package
+  layout; nothing consumes this file as-is.
+
+  IDENTITY_NAME, PUBLISHER and PUBLISHER_DISPLAY_NAME are assigned by Partner
+  Center once the app name is reserved, and the package is rejected if they do
+  not match the reservation byte for byte. Until then the script's defaults
+  produce a package that installs locally with a self-signed certificate but
+  cannot be submitted.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity
+    Name="{{IDENTITY_NAME}}"
+    Publisher="{{PUBLISHER}}"
+    Version="{{VERSION}}"
+    ProcessorArchitecture="{{ARCH}}" />
+
+  <Properties>
+    <DisplayName>Voltius</DisplayName>
+    <PublisherDisplayName>{{PUBLISHER_DISPLAY_NAME}}</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <!-- 17763 is the oldest build the WebView2 runtime supports. -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="Voltius" Executable="voltius.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Voltius"
+        Description="Local-first SSH, SFTP and serial client"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <!-- Wide310x150Logo is not optional here: makeappx rejects the package
+             when Square310x310Logo is declared without it. `tauri icon` emits
+             only square logos, so the wide one comes from
+             scripts/make-store-assets.sh. -->
+        <uap:DefaultTile
+          Square71x71Logo="Assets\Square71x71Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png"
+          Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- Deep links: voltius://... The NSIS build registers this through the
+             deep-link plugin at runtime, but a packaged app may not write to
+             HKCR, so the association has to be declared here instead. -->
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="voltius">
+            <uap:DisplayName>Voltius</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- Full-trust Win32 payload: the app spawns local shells, opens sockets and
+         talks to the credential manager, none of which the sandboxed app model
+         allows. -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

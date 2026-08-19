@@ -35,3 +35,8 @@ packages/plugin-types/index.d.ts
 
 # This project uses pnpm; an npm lockfile would silently diverge from CI.
 package-lock.json
+
+# flatpak-builder output from a local test build of packaging/flatpak. Written
+# by a container running as root, so it is also awkward to clean up by accident.
+packaging/flatpak/build-dir/
+packaging/flatpak/.flatpak-builder/

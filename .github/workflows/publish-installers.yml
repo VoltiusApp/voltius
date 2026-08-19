@@ -1,8 +1,15 @@
-# Publishes the Homebrew cask (tap VoltiusApp/homebrew-voltius) and the winget
-# manifest (microsoft/winget-pkgs) from a published GitHub release.
+# Publishes the Homebrew cask (tap VoltiusApp/homebrew-voltius), the winget
+# manifest (microsoft/winget-pkgs) and the AUR package (voltius-bin) from a
+# published GitHub release.
+#
+# Scoop is deliberately absent: its manifest carries checkver + autoupdate, so
+# once merged into ScoopInstaller/Extras their excavator bot follows releases on
+# its own. See scripts/gen-scoop-manifest.sh.
 #
 # Required repository secrets:
 #   HOMEBREW_TAP_TOKEN   PAT with push access to VoltiusApp/homebrew-voltius
+#   AUR_SSH_PRIVATE_KEY  private key registered on the AUR account that owns
+#                        voltius-bin. Absent: the AUR job warns and skips.
 #   WINGET_PKGS_TOKEN    classic PAT (public_repo + workflow) for komac to fork
 #                        winget-pkgs. Must be CLASSIC — winget-releaser does not
 #                        support fine-grained PATs, which cannot authorize a PR
@@ -36,12 +43,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  homebrew:
-    runs-on: macos-latest
+  # One place resolves the tag for every channel below. It used to be repeated
+  # per job, which meant each new channel copied the same three lines.
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
       - name: Resolve tag
         id: tag
         env:
@@ -49,31 +57,24 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: echo "tag=${DISPATCH_TAG:-$RELEASE_TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Generate cask
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p out/Casks
-          bash scripts/gen-homebrew-cask.sh "${{ steps.tag.outputs.tag }}" > out/Casks/voltius.rb
-          cat out/Casks/voltius.rb
+  homebrew:
+    needs: tag
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - name: Audit cask
-        # brew audit --online calls the GitHub API; without a token it uses the
-        # unauthenticated 60 req/hr limit and flakes ("API rate limit exceeded")
-        # on back-to-back runs. The default token lifts this to 5000/hr.
-        env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          brew style out/Casks/voltius.rb
-          brew tap-new voltiusapp/voltius --no-git
-          mkdir -p "$(brew --repository voltiusapp/voltius)/Casks"
-          cp out/Casks/voltius.rb "$(brew --repository voltiusapp/voltius)/Casks/voltius.rb"
-          brew audit --cask --online voltiusapp/voltius/voltius
+      - name: Generate and audit the cask
+        uses: ./.github/actions/cask-audit
+        with:
+          tag: ${{ needs.tag.outputs.tag }}
+          tap: voltiusapp/voltius
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push cask to tap
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          TAG: ${{ steps.tag.outputs.tag }}
+          TAG: ${{ needs.tag.outputs.tag }}
         run: |
           git clone "https://x-access-token:${TAP_TOKEN}@github.com/VoltiusApp/homebrew-voltius" tap
           mkdir -p tap/Casks
@@ -89,15 +90,9 @@ jobs:
           git push origin HEAD:main
 
   winget:
+    needs: tag
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve tag
-        id: tag
-        env:
-          DISPATCH_TAG: ${{ inputs.tag }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: echo "tag=${DISPATCH_TAG:-$RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-
       # komac branches the fork from upstream, and once kipavy/winget-pkgs falls
       # behind microsoft/winget-pkgs it fails with "kipavy does not have the
       # correct permissions to execute `CreateRef`" — a misleading message that
@@ -133,7 +128,7 @@ jobs:
         uses: vedantmgoyal9/winget-releaser@v2
         with:
           identifier: Voltius.Voltius
-          release-tag: ${{ steps.tag.outputs.tag }}
+          release-tag: ${{ needs.tag.outputs.tag }}
           installers-regex: '_(x64|arm64)-setup\.exe$'
           token: ${{ secrets.WINGET_PKGS_TOKEN }}
           # The winget-pkgs fork lives under the token account (kipavy), not
@@ -141,3 +136,74 @@ jobs:
           # KOMAC_FORK_OWNER to github.repository_owner (VoltiusApp) and fails
           # with "Could not resolve to a Repository VoltiusApp/winget-pkgs".
           fork-user: kipavy
+
+  # Publishes the `voltius-bin` AUR package. The AUR is a plain git remote over
+  # ssh: pushing a commit that carries PKGBUILD + .SRCINFO IS the release.
+  #
+  # .SRCINFO must come from `makepkg --printsrcinfo`, and makepkg refuses to run
+  # as root, hence the throwaway user inside the arch container. The container
+  # is only used for that one command — the PKGBUILD itself is generated on the
+  # runner, where `gh` is already authenticated.
+  aur:
+    needs: tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Skip when the AUR key is not configured
+        id: guard
+        env:
+          KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::warning::AUR_SSH_PRIVATE_KEY is not set — skipping the AUR push."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate PKGBUILD
+        if: steps.guard.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p out/aur
+          bash scripts/gen-aur-pkgbuild.sh "${{ needs.tag.outputs.tag }}" > out/aur/PKGBUILD
+          cat out/aur/PKGBUILD
+
+      - name: Generate .SRCINFO
+        if: steps.guard.outputs.ok == 'true'
+        run: |
+          docker run --rm -v "$PWD/out/aur:/w" archlinux:base-devel bash -euc '
+            useradd -m b && chown -R b /w
+            su b -c "cd /w && makepkg --printsrcinfo > .SRCINFO"
+          '
+          cat out/aur/.SRCINFO
+
+      - name: Push to the AUR
+        if: steps.guard.outputs.ok == 'true'
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          TAG: ${{ needs.tag.outputs.tag }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur -o IdentitiesOnly=yes"
+
+          git clone ssh://aur@aur.archlinux.org/voltius-bin.git aur
+          cp out/aur/PKGBUILD out/aur/.SRCINFO aur/
+          cd aur
+          git config user.name 'voltius-bot'
+          git config user.email 'bot@voltius.app'
+          git add PKGBUILD .SRCINFO
+          # --cached, after `git add`: on the very first push the files are
+          # untracked, and an unstaged `git diff` would report no change and
+          # skip the push that creates the package.
+          if git diff --cached --quiet; then
+            echo "AUR package already up to date for ${TAG}"; exit 0
+          fi
+          git commit -m "Update to ${TAG#v}"
+          git push origin HEAD:master

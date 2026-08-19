@@ -34,6 +34,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "category": "DeveloperTool",
     "targets": [
       "nsis",
       "msi",
@@ -52,6 +53,18 @@
     ],
     "macOS": {
       "signingIdentity": "-"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libsecret-1-0"
+        ]
+      },
+      "rpm": {
+        "depends": [
+          "libsecret"
+        ]
+      }
     }
   },
   "plugins": {
