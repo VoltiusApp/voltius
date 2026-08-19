@@ -36,16 +36,18 @@ try {
   New-Item -ItemType Directory -Path $staging -Force | Out-Null
   $packages | ForEach-Object { Copy-Item $_.FullName $staging }
 
-  $conf = Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json
-  $version = "$($conf.version).0"
-
   . "$PSScriptRoot/lib/makeappx.ps1"
   $makeappx = Get-MakeAppxPath
+  $version = Get-MsixVersion
 
   $bundle = Join-Path $OutDir "Voltius_$version.msixbundle"
   if (Test-Path $bundle) { Remove-Item $bundle -Force }
 
-  & $makeappx bundle /d $staging /p $bundle /o
+  # /bv is not optional: without it makeappx stamps the bundle identity with the
+  # current date-time (2026.819.1209.0) instead of the app version. Store
+  # versions only ever move forward, so one submission at a date-derived version
+  # would lock the listing out of every semantic version for good.
+  & $makeappx bundle /bv $version /d $staging /p $bundle /o
   if ($LASTEXITCODE -ne 0) { throw "makeappx bundle failed with exit code $LASTEXITCODE" }
 
   Remove-Item $staging -Recurse -Force

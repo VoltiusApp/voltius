@@ -57,9 +57,8 @@ try {
     throw "$ExePath not found. Run 'pnpm tauri build' first.`n$hint"
   }
 
-  # MSIX versions are 4-part and the Store requires the revision to be 0.
-  $conf = Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json
-  $version = "$($conf.version).0"
+  . "$PSScriptRoot/lib/makeappx.ps1"
+  $version = Get-MsixVersion
 
   $layout = Join-Path $OutDir "layout-$Arch"
   if (Test-Path $layout) { Remove-Item $layout -Recurse -Force }
