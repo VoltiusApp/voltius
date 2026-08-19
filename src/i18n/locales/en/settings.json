@@ -794,6 +794,7 @@
       },
       "install": {
         "integrityFailed": "Plugin bundle failed its integrity check — install blocked.",
+        "alreadyInstalling": "This plugin is already being installed — check Settings › Plugins.",
         "failed": "Failed to install plugin.",
         "versionUnsupported": "This plugin requires app version {{version}} or later."
       },
