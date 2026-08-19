@@ -13,9 +13,15 @@ a named release asset" step every channel needs.
 | winget | komac | `publish-installers.yml` on every release |
 | AUR (`voltius-bin`) | `scripts/gen-aur-pkgbuild.sh` | `publish-installers.yml` on every release |
 | apt / yum | `scripts/build-apt-repo.sh`, `scripts/build-yum-repo.sh` | `publish-repo.yml` on every release |
+| Microsoft Store | `packaging/msix/`, `scripts/build-msix.ps1` | `publish-msix.yml` on every release |
 | Scoop | `scripts/gen-scoop-manifest.sh` | Scoop's excavator bot, after the first merge |
 | Flathub | `scripts/gen-flatpak-manifest.sh` | Flathub's external-data-checker, after the first merge |
-| Microsoft Store | `packaging/msix/`, `scripts/build-msix.ps1` | Manual submission |
+
+Scoop and Flathub have no job here on purpose: their manifests carry `checkver`
+and `x-checker-data`, so each ecosystem's own bot follows new releases once the
+manifest is merged. For Flathub that bot opens a PR against
+`flathub/app.voltius.Voltius`; add `{"automerge-flathubbot-prs": true}` to
+`flathub.json` in that repo to let it land unattended.
 
 ## One-time setup, per channel
 
@@ -97,17 +103,41 @@ needs **no code-signing certificate** — the Store re-signs MSIX on submission.
 (Submitting the NSIS `.exe` instead would require a certificate chaining to the
 Microsoft Trusted Root Program, which is the recurring cost this avoids.)
 
+Releases submit themselves through `publish-msix.yml`, but the listing has to
+exist first — the Store CLI can only *update* an app that is already live.
+
+One-time:
+
 1. Reserve the app name in Partner Center.
 2. Copy the assigned identity values into repository variables:
    `MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER`, `MSIX_PUBLISHER_DISPLAY_NAME`.
    Partner Center rejects a package whose identity does not match the
    reservation exactly.
-3. Run the `build-msix` workflow and download the `msix-x64` / `msix-arm64`
-   artifacts.
-4. Upload both to the submission.
+3. Run `publish-msix` manually with `publish: false`, download the `msixbundle`
+   artifact, and complete the first submission by hand in Partner Center.
+4. Once that submission is live, wire up the automation:
+   - Associate a Microsoft Entra tenant with the Partner Center account.
+   - Register an Entra application and give it the **Manager** role under
+     Account settings → User management → Microsoft Entra applications.
+   - Add the secrets `AZURE_AD_TENANT_ID`, `AZURE_AD_APPLICATION_CLIENT_ID`,
+     `AZURE_AD_APPLICATION_SECRET`, `SELLER_ID`, and the repository variable
+     `MSSTORE_PRODUCT_ID`.
 
-The packages are unsigned by design, so they are workflow artifacts rather than
-release assets — a user who downloaded one could not install it.
+After that every release builds both architectures, bundles them into one
+`.msixbundle` and submits it. Until the secrets exist the submission step warns
+and skips, so a release cannot fail on it.
+
+Two limits worth knowing:
+
+- The CLI cannot create a listing, only update one. That is why step 3 is
+  manual and cannot be automated away.
+- Microsoft supports app updates through this action for **free products only**.
+  Voltius is free in the Store — Pro is billed outside it — so this holds today,
+  but adding a paid Store product would break the automation.
+
+The packages are unsigned by design (the Store signs them), so they are workflow
+artifacts rather than release assets — a user who downloaded one could not
+install it.
 
 `classify_install` treats an install under `C:\Program Files\WindowsApps` as
 externally-updated, so the Store build does not try to self-update into a tree

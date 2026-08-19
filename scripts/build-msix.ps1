@@ -79,19 +79,14 @@ try {
     Replace('{{ARCH}}', $Arch)
   Set-Content -Path (Join-Path $layout "AppxManifest.xml") -Value $manifest -Encoding UTF8
 
-  # makeappx ships with the Windows SDK; the newest installed version wins.
-  $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\makeappx.exe" -ErrorAction SilentlyContinue |
-    Sort-Object FullName |
-    Select-Object -Last 1
-  if (-not $makeappx) {
-    throw "makeappx.exe not found. Install the Windows 10/11 SDK."
-  }
+  . "$PSScriptRoot/lib/makeappx.ps1"
+  $makeappx = Get-MakeAppxPath
 
   New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
   $msix = Join-Path $OutDir "Voltius_${version}_$Arch.msix"
   if (Test-Path $msix) { Remove-Item $msix -Force }
 
-  & $makeappx.FullName pack /d $layout /p $msix /o
+  & $makeappx pack /d $layout /p $msix /o
   if ($LASTEXITCODE -ne 0) { throw "makeappx failed with exit code $LASTEXITCODE" }
 
   Write-Host "Built $msix"
