@@ -2,10 +2,10 @@ import { create } from "zustand";
 import {
   intentKey,
   isConfirmIntent,
-  isSilentIntent,
+  isUnpromptedIntent,
   type ConfirmIntent,
   type DeepLinkIntent,
-  type SilentIntent,
+  type UnpromptedIntent,
 } from "@/services/deepLinkUrl";
 
 /**
@@ -18,13 +18,24 @@ const MAX_QUEUE = 4;
  * Kept out of the store's state so a test resetting state cannot leave a stale
  * handler installed, and so the store never imports the handler module.
  */
-let silentHandler: ((intent: SilentIntent) => void) | null = null;
+let unpromptedHandler: ((intent: UnpromptedIntent) => void) | null = null;
 
 // Suppresses only the cold-start echo (getCurrent plus onOpenUrl delivering
 // the same URL), not a deliberate retry: a failed handler run is not fatal,
 // so the window must not outlive the user's next click.
-let lastSilent: { key: string; at: number } | null = null;
-const SILENT_ECHO_WINDOW_MS = 5000;
+let lastUnprompted: { key: string; at: number } | null = null;
+const UNPROMPTED_ECHO_WINDOW_MS = 5000;
+
+/**
+ * A sheet dismissed by a click leaves the second half of a double-click still
+ * coming. The next queued sheet paints its accept button at the same screen
+ * position, and a route with no `load` — `join` — is live in its first frame, so
+ * promoting in the same tick lets one double-click confirm two different links.
+ * Only a *queued* sheet waits; a link arriving on its own still prompts at once.
+ */
+const CONFIRM_PROMOTE_DELAY_MS = 300;
+let confirmHeldUntil = 0;
+let promoteTimer: ReturnType<typeof setTimeout> | null = null;
 
 interface DeepLinkStore {
   ready: boolean;
@@ -32,7 +43,7 @@ interface DeepLinkStore {
   prompt: ConfirmIntent | null;
 
   setReady(ready: boolean): void;
-  setSilentHandler(fn: ((intent: SilentIntent) => void) | null): void;
+  setUnpromptedHandler(fn: ((intent: UnpromptedIntent) => void) | null): void;
   enqueue(intent: DeepLinkIntent): void;
   dismissPrompt(): void;
 }
@@ -42,9 +53,14 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
   queue: [],
   prompt: null,
 
-  setSilentHandler: (fn) => {
-    silentHandler = fn;
-    lastSilent = null;
+  // Installing a handler marks a fresh app lifecycle, so every piece of
+  // module-level scheduling state is dropped with it.
+  setUnpromptedHandler: (fn) => {
+    unpromptedHandler = fn;
+    lastUnprompted = null;
+    confirmHeldUntil = 0;
+    if (promoteTimer) clearTimeout(promoteTimer);
+    promoteTimer = null;
   },
 
   setReady: (ready) => {
@@ -67,6 +83,7 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
 
   // Surfaces a link queued behind the prompt, rather than losing it.
   dismissPrompt: () => {
+    confirmHeldUntil = Date.now() + CONFIRM_PROMOTE_DELAY_MS;
     set({ prompt: null });
     drain();
   },
@@ -84,14 +101,19 @@ function drain(): void {
     for (;;) {
       const { ready, queue, prompt } = useDeepLinkStore.getState();
       if (!ready) return;
-      // A confirm intent needs a free prompt slot; everything else is handled
-      // where it sits, so a silent link never waits behind an open sheet.
-      const intent = queue.find((queued) => !prompt || !isConfirmIntent(queued));
-      if (!intent) return;
+      // A confirm intent needs a free prompt slot and a settled one before it;
+      // everything else is handled where it sits, so an unprompted link never
+      // waits behind an open sheet.
+      const held = Date.now() < confirmHeldUntil;
+      const intent = queue.find((queued) => !isConfirmIntent(queued) || (!prompt && !held));
+      if (!intent) {
+        if (held && queue.some(isConfirmIntent)) schedulePromotion();
+        return;
+      }
       useDeepLinkStore.setState({ queue: queue.filter((queued) => queued !== intent) });
 
-      if (isSilentIntent(intent)) {
-        dispatchSilent(intent);
+      if (isUnpromptedIntent(intent)) {
+        dispatchUnprompted(intent);
         continue;
       }
       // Unknown trust class: drop it, never act on it.
@@ -103,11 +125,23 @@ function drain(): void {
   }
 }
 
-function dispatchSilent(intent: SilentIntent): void {
-  if (!silentHandler) return;
+/** Re-drains once the hold expires, so a queued sheet is delayed, never dropped. */
+function schedulePromotion(): void {
+  if (promoteTimer) return;
+  promoteTimer = setTimeout(
+    () => {
+      promoteTimer = null;
+      drain();
+    },
+    Math.max(0, confirmHeldUntil - Date.now()),
+  );
+}
+
+function dispatchUnprompted(intent: UnpromptedIntent): void {
+  if (!unpromptedHandler) return;
   const key = intentKey(intent);
   const now = Date.now();
-  if (lastSilent?.key === key && now - lastSilent.at < SILENT_ECHO_WINDOW_MS) return;
-  lastSilent = { key, at: now };
-  silentHandler(intent);
+  if (lastUnprompted?.key === key && now - lastUnprompted.at < UNPROMPTED_ECHO_WINDOW_MS) return;
+  lastUnprompted = { key, at: now };
+  unpromptedHandler(intent);
 }

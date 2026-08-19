@@ -87,11 +87,11 @@ async function generateInviteLink() {
 test("generating an invite link copies the code to the clipboard and shows the copied state", async () => {
   await generateInviteLink();
 
-  await waitFor(() => expect(writeClipboard).toHaveBeenCalledWith("voltius://join?s=mp-1&t=tok-abc"));
+  await waitFor(() => expect(writeClipboard).toHaveBeenCalledWith("https://voltius.app/open#join?s=mp-1&t=tok-abc"));
   await waitFor(() => expect(screen.getByText("terminal.shared.copied")).toBeTruthy());
 
-  const input = screen.getByDisplayValue("voltius://join?s=mp-1&t=tok-abc") as HTMLInputElement;
-  expect(input.value).toBe("voltius://join?s=mp-1&t=tok-abc");
+  const input = screen.getByDisplayValue("https://voltius.app/open#join?s=mp-1&t=tok-abc") as HTMLInputElement;
+  expect(input.value).toBe("https://voltius.app/open#join?s=mp-1&t=tok-abc");
 });
 
 test("with only the host in participants, the waiting line renders and no lone self-chip appears", () => {
@@ -125,9 +125,9 @@ test("a rejecting writeClipboard leaves the share successful and the field uncop
 
   await generateInviteLink();
 
-  await waitFor(() => expect(writeClipboard).toHaveBeenCalledWith("voltius://join?s=mp-1&t=tok-abc"));
+  await waitFor(() => expect(writeClipboard).toHaveBeenCalledWith("https://voltius.app/open#join?s=mp-1&t=tok-abc"));
   // Share itself still succeeded: the code field is rendered, no error surfaced.
-  expect(screen.getByDisplayValue("voltius://join?s=mp-1&t=tok-abc")).toBeTruthy();
+  expect(screen.getByDisplayValue("https://voltius.app/open#join?s=mp-1&t=tok-abc")).toBeTruthy();
   expect(screen.queryByText("terminal.share.failedToGenerateLink")).toBeNull();
   expect(screen.getByText("common.action.copy")).toBeTruthy();
   expect(screen.queryByText("terminal.shared.copied")).toBeNull();

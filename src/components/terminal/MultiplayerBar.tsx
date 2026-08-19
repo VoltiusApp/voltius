@@ -2,7 +2,10 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { handleInitials } from "@/components/shared/AvatarStack";
+import { AvatarOverflow } from "@/components/shared/AvatarStack";
+import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
+
+const MAX_VISIBLE_PARTICIPANTS = 5;
 
 interface MultiplayerBarProps {
   localSessionId: string;
@@ -69,35 +72,21 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
       </div>
 
       {/* Participants */}
-      <div className="flex items-center gap-1 flex-1">
-        {mpState.participants.slice(0, 5).map((p) => (
-          <div
+      <div className="flex items-center gap-1.5 flex-1">
+        {mpState.participants.slice(0, MAX_VISIBLE_PARTICIPANTS).map((p) => (
+          <PresenceAvatar
             key={p.user_id}
-            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-            style={{
-              background:
-                p.user_id === mpState.controlHolder
-                  ? "var(--t-accent)"
-                  : "var(--t-bg-card-avatar)",
-              color:
-                p.user_id === mpState.controlHolder
-                  ? "white"
-                  : "var(--t-text-muted)",
-              border:
-                p.user_id === mpState.controlHolder
-                  ? "1.5px solid var(--t-accent)"
-                  : "1.5px solid var(--t-border)",
-            }}
-            title={p.handle}
-          >
-            {handleInitials(p.handle)}
-          </div>
+            handle={p.handle}
+            size={24}
+            hasControl={p.user_id === mpState.controlHolder}
+          />
         ))}
-        {mpState.participants.length > 5 && (
-          <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
-            +{mpState.participants.length - 5}
-          </span>
-        )}
+        <AvatarOverflow
+          count={mpState.participants.length - MAX_VISIBLE_PARTICIPANTS}
+          size={24}
+          ringColor="var(--t-bg-terminal)"
+          overlap={false}
+        />
       </div>
 
       {/* Control actions — hidden when session has ended */}

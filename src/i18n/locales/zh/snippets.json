@@ -50,6 +50,15 @@
         "unsupportedCatalog": "此片段目录的格式不受当前版本的 Voltius 支持。请尝试更新应用。"
       }
     },
+    "deepLinkInstall": {
+      "title": "安装这些代码片段？",
+      "body": "此链接将从 Voltius 社区目录安装代码片段。代码片段是 shell 命令，使用时会在你的主机上执行。",
+      "summary": "{{name}}，作者 {{author}} — 共 {{count}} 个片段",
+      "unknownAuthor": "未署名作者",
+      "destination": "它们将被添加到 {{vault}} 保险库。",
+      "action": "安装",
+      "failed": "无法安装这些代码片段"
+    },
     "sequence": {
       "summary": {
         "success": "代码片段已在 {{count}} 个目标上运行",

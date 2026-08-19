@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, test, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { __resetGistSyncStateWarnings } from "@/services/syncStatus";
@@ -25,6 +25,15 @@ vi.mock("@/utils/icons", () => ({
 
 const PLUGIN_ID = "plugin-gist-sync";
 
+// TitleBar pulls in a large dependency graph that vitest must cold-transform
+// on first import. Under load that transform alone can exceed the default
+// 5s test timeout, so it's paid once here in beforeAll (unbounded by any
+// single test's timeout) rather than inside each test via a per-test import.
+let TitleBar: (typeof import("./TitleBar"))["default"];
+beforeAll(async () => {
+  ({ default: TitleBar } = await import("./TitleBar"));
+}, 20000);
+
 beforeEach(() => {
   usePluginStateStore.setState({ values: new Map() });
   __resetGistSyncStateWarnings();
@@ -37,7 +46,7 @@ afterEach(cleanup);
 // (root.children dropped to 0). This renders the real TitleBar against that exact
 // malformed publish and proves it no longer crashes.
 describe("TitleBar + malformed gist-sync state", () => {
-  test("renders without throwing when lastSync is published as an ISO string", async () => {
+  test("renders without throwing when lastSync is published as an ISO string", () => {
     usePluginStateStore.getState().publish(PLUGIN_ID, "sync-state", {
       status: "success",
       lastSync: "2026-01-01T00:00:00.000Z",
@@ -46,11 +55,10 @@ describe("TitleBar + malformed gist-sync state", () => {
       configured: true,
     });
 
-    const { default: TitleBar } = await import("./TitleBar");
     expect(() => render(<TitleBar />)).not.toThrow();
   });
 
-  test("renders without throwing when lastSync is published as unparseable garbage", async () => {
+  test("renders without throwing when lastSync is published as unparseable garbage", () => {
     usePluginStateStore.getState().publish(PLUGIN_ID, "sync-state", {
       status: "success",
       lastSync: "not-a-date",
@@ -59,7 +67,6 @@ describe("TitleBar + malformed gist-sync state", () => {
       configured: true,
     });
 
-    const { default: TitleBar } = await import("./TitleBar");
     expect(() => render(<TitleBar />)).not.toThrow();
   });
 });

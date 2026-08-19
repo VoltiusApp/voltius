@@ -1,0 +1,68 @@
+name: Generate and audit the Homebrew cask
+description: >
+  Generates the cask for a tag, styles it and audits it inside a throwaway tap.
+  Used both by the release job that publishes to VoltiusApp/homebrew-voltius and
+  by the packaging check that runs the stricter new-cask audit homebrew-cask
+  core applies to a submission.
+
+inputs:
+  tag:
+    description: Release tag to generate the cask for
+    required: true
+  core:
+    description: >
+      Generate the homebrew-cask core variant (drops the --no-quarantine hint,
+      which core rejects) instead of the tap variant.
+    required: false
+    default: 'false'
+  audit-args:
+    description: Extra flags for `brew audit`, e.g. --new for a first submission
+    required: false
+    default: ''
+  tap:
+    description: Throwaway tap name to audit inside
+    required: false
+    default: voltiusapp/audit
+  github-token:
+    description: >
+      Token for the audit's GitHub API calls. Without one it uses the
+      unauthenticated 60 req/hr limit and flakes ("API rate limit exceeded") on
+      back-to-back runs.
+    required: true
+
+outputs:
+  path:
+    description: Path of the generated cask file
+    value: out/Casks/voltius.rb
+
+runs:
+  using: composite
+  steps:
+    - name: Generate cask
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        TAG: ${{ inputs.tag }}
+        CORE: ${{ inputs.core }}
+      run: |
+        # The path matters: `brew style` only applies the cask cops when the
+        # file sits under a Casks/ directory. On a bare .rb it falls back to
+        # generic Ruby cops and fails on Sorbet sigils and frozen_string_literal.
+        mkdir -p out/Casks
+        variant=""
+        [ "$CORE" = "true" ] && variant="--core"
+        bash scripts/gen-homebrew-cask.sh "$TAG" $variant > out/Casks/voltius.rb
+        cat out/Casks/voltius.rb
+
+    - name: Style and audit
+      shell: bash
+      env:
+        HOMEBREW_GITHUB_API_TOKEN: ${{ inputs.github-token }}
+        TAP: ${{ inputs.tap }}
+        AUDIT_ARGS: ${{ inputs.audit-args }}
+      run: |
+        brew style out/Casks/voltius.rb
+        brew tap-new "$TAP" --no-git
+        mkdir -p "$(brew --repository "$TAP")/Casks"
+        cp out/Casks/voltius.rb "$(brew --repository "$TAP")/Casks/voltius.rb"
+        brew audit --cask --online $AUDIT_ARGS "$TAP/voltius"

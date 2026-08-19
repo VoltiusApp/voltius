@@ -797,6 +797,14 @@
         "failed": "Failed to install plugin.",
         "versionUnsupported": "This plugin requires app version {{version}} or later."
       },
+      "deepLinkInstall": {
+        "title": "Install this plugin?",
+        "body": "This link installs a plugin. A plugin runs code inside Voltius with the permissions listed below.",
+        "summary": "{{name}} {{version}} by {{author}}",
+        "source": "From the {{source}} catalogue.",
+        "action": "Install",
+        "failed": "This link does not name a plugin Voltius can install"
+      },
       "permissionModal": {
         "installTitle": "Install {{name}}?",
         "installBody": "This plugin runs with the app's full privileges. It requests these permissions:",

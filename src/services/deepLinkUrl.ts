@@ -1,22 +1,58 @@
 import { isSessionId } from "@/services/sessionId";
+import { isSettingsSection, type SettingsSection } from "@/stores/uiStore";
+import { isValidPluginId } from "@/plugins/pluginId";
 
 export type JoinIntent = { route: "join"; sessionId: string; token: string };
+export type InviteIntent = { route: "invite"; handle: string };
 export type VerifiedIntent = { route: "verified"; userId: string };
-export type DeepLinkIntent = JoinIntent | VerifiedIntent;
+export type NotificationIntent = { route: "notification"; entryId: string | null };
+export type SettingsIntent = { route: "settings"; section: SettingsSection };
+export type BillingIntent = { route: "billing" };
+export type SnippetInstallIntent = { route: "snippet-install"; entryId: string };
+export type PluginInstallIntent = { route: "plugin-install"; pluginId: string; sourceId: string };
+export type DeepLinkIntent =
+  | JoinIntent
+  | InviteIntent
+  | VerifiedIntent
+  | NotificationIntent
+  | SettingsIntent
+  | BillingIntent
+  | SnippetInstallIntent
+  | PluginInstallIntent;
 
-type TrustClass = "confirm" | "silent";
+type TrustClass = "confirm" | "silent" | "navigate";
 type Route = DeepLinkIntent["route"];
 
 /**
- * The single declaration of trust: `confirm` routes carry a capability and
- * nothing happens until the user accepts; `silent` routes carry nothing and act
- * unprompted. `verified` is silent because the token died server-side before
- * the link was built and the user id authorises nothing, so a hostile link
- * costs a session refresh, which is a no-op.
+ * The single declaration of trust:
+ *
+ * - `confirm` routes carry a capability and nothing happens until the user
+ *   accepts.
+ * - `silent` routes carry no capability and run a side effect unprompted.
+ *   `verified` is silent because the token died server-side before the link was
+ *   built and the user id authorises nothing, so a hostile link costs a session
+ *   refresh, which is a no-op.
+ * - `navigate` routes only move the user to a screen they could already reach.
+ *   The worst a hostile link achieves is an unexpected panel, so they need no
+ *   prompt — but they must never *act*: `billing` opens the account section and
+ *   deliberately does not start a checkout.
  */
 const TRUST = {
   join: "confirm",
+  // Grants a stranger access to a live terminal, so nothing happens until the
+  // host accepts.
+  invite: "confirm",
   verified: "silent",
+  notification: "navigate",
+  settings: "navigate",
+  billing: "navigate",
+  // Writes snippets — shell commands the user will later run — into a vault, so
+  // nothing lands until the user accepts.
+  "snippet-install": "confirm",
+  // Executes third-party code on this machine. The strongest confirm on the list:
+  // the sheet names the plugin, its catalogue and its permissions before the
+  // accept button does anything.
+  "plugin-install": "confirm",
 } as const satisfies Record<Route, TrustClass>;
 
 type RouteOfClass<C extends TrustClass> = {
@@ -25,24 +61,154 @@ type RouteOfClass<C extends TrustClass> = {
 
 export type ConfirmIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"confirm"> }>;
 export type SilentIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"silent"> }>;
+export type NavigateIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"navigate"> }>;
+/** Everything that runs without asking the user first. */
+export type UnpromptedIntent = SilentIntent | NavigateIntent;
 
-type RouteParsers = {
-  [K in Route]: (params: URLSearchParams) => Extract<DeepLinkIntent, { route: K }> | null;
+/**
+ * One codec per route, both directions declared together so the builder and the
+ * parser cannot drift as routes are added.
+ */
+type RouteCodec<K extends Route> = {
+  parse: (params: URLSearchParams) => Extract<DeepLinkIntent, { route: K }> | null;
+  params: (intent: Extract<DeepLinkIntent, { route: K }>) => Record<string, string>;
 };
 
-const ROUTES: RouteParsers = {
-  join: (params) => {
-    const sessionId = params.get("s") ?? "";
-    const token = params.get("t") ?? "";
-    if (!isSessionId(sessionId) || !token) return null;
-    return { route: "join", sessionId, token };
+/** Long enough for any id the inbox builds, short enough to stay a lookup key. */
+const MAX_ENTRY_ID = 200;
+
+/** Long enough for any catalogue id upstream authors, short enough to stay a key. */
+const MAX_CATALOG_ID = 100;
+
+/**
+ * The catalogue a `plugin-install` link means when it names none. Kept as a
+ * literal rather than importing `FIRST_PARTY_SOURCE`, so the parser stays free of
+ * the marketplace store (and of `@tauri-apps/api`, which every parser test would
+ * then have to stub). A test pins the two together.
+ */
+export const DEFAULT_PLUGIN_SOURCE_ID = "voltius";
+
+/** A source id is a catalogue key, not a URL; this only stops an absurd one. */
+const MAX_SOURCE_ID = 100;
+
+/**
+ * Mirrors the server's custom-handle rule (server: `src/handles.rs`,
+ * `validate_custom_handle`): 3–30 ASCII lowercase/digit/`-`/`_`, never starting
+ * or ending in a separator. Generated handles (`adjective-noun-1234`) satisfy it
+ * too. The reserved-name list is deliberately not mirrored: it governs *claiming*
+ * a handle, not looking one up, and a link naming a reserved handle resolves to
+ * nobody anyway.
+ */
+const HANDLE_RE = /^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/;
+
+const ROUTES: { [K in Route]: RouteCodec<K> } = {
+  join: {
+    parse: (params) => {
+      const sessionId = params.get("s") ?? "";
+      const token = params.get("t") ?? "";
+      if (!isSessionId(sessionId) || !token) return null;
+      return { route: "join", sessionId, token };
+    },
+    params: ({ sessionId, token }) => ({ s: sessionId, t: token }),
   },
-  verified: (params) => {
-    const userId = params.get("u") ?? "";
-    if (!isSessionId(userId)) return null;
-    return { route: "verified", userId };
+  invite: {
+    // The `@` is how a handle is written throughout the UI, so links carry it;
+    // it is display sugar and never part of the stored value.
+    parse: (params) => {
+      const handle = (params.get("h") ?? "").replace(/^@/, "").toLowerCase();
+      if (!HANDLE_RE.test(handle)) return null;
+      return { route: "invite", handle };
+    },
+    params: ({ handle }) => ({ h: `@${handle}` }),
+  },
+  verified: {
+    parse: (params) => {
+      const userId = params.get("u") ?? "";
+      if (!isSessionId(userId)) return null;
+      return { route: "verified", userId };
+    },
+    params: ({ userId }) => ({ u: userId }),
+  },
+  notification: {
+    // The id is opaque here: inbox ids are re-derived from server state on every
+    // reconcile, so this cannot check one exists. It is length-capped and the
+    // entry is looked up by exact match, so an unknown id just opens the centre.
+    parse: (params) => {
+      const entryId = params.get("n") ?? "";
+      if (entryId.length > MAX_ENTRY_ID) return null;
+      return { route: "notification", entryId: entryId || null };
+    },
+    params: ({ entryId }): Record<string, string> => (entryId ? { n: entryId } : {}),
+  },
+  settings: {
+    parse: (params) => {
+      const section = params.get("section") ?? "";
+      if (!isSettingsSection(section)) return null;
+      return { route: "settings", section };
+    },
+    params: ({ section }) => ({ section }),
+  },
+  billing: {
+    parse: () => ({ route: "billing" }),
+    params: () => ({}),
+  },
+  "snippet-install": {
+    parse: (params) => {
+      const entryId = params.get("id") ?? "";
+      // Opaque beyond its length: the catalogue is fetched at confirm time, and an
+      // id it does not list fails there, where the sheet can say so.
+      if (!entryId || entryId.length > MAX_CATALOG_ID) return null;
+      return { route: "snippet-install", entryId };
+    },
+    params: ({ entryId }) => ({ id: entryId }),
+  },
+  "plugin-install": {
+    parse: (params) => {
+      const pluginId = params.get("id") ?? "";
+      // Validated here rather than at install time: the id becomes a directory
+      // name under the plugins folder, and `assertValidPluginId` throws far too
+      // late to render a sheet from.
+      if (!isValidPluginId(pluginId)) return null;
+      // A source *id* already configured on this device, never a URL. A link able
+      // to name a new source is a link able to introduce a new code source; the
+      // sheet resolves this against the user's own enabled sources and fails when
+      // it matches none.
+      const sourceId = params.get("src") || DEFAULT_PLUGIN_SOURCE_ID;
+      if (sourceId.length > MAX_SOURCE_ID) return null;
+      return { route: "plugin-install", pluginId, sourceId };
+    },
+    params: ({ pluginId, sourceId }) => ({ id: pluginId, src: sourceId }),
   },
 };
+
+
+export type LinkForm = "https" | "scheme";
+
+/** The landing site that bridges an `https` link back to the scheme. */
+export const WEB_ORIGIN = "https://voltius.app";
+const WEB_PATH = "/open";
+
+/**
+ * The one link builder. Every route goes through it; a new route means a new
+ * entry in `ROUTES`, never a second builder.
+ *
+ * The `https` form carries the route in the fragment, so a join token never
+ * reaches a web server log, a CDN, or a `Referer` header.
+ */
+export function buildDeepLink(intent: DeepLinkIntent, form: LinkForm = "https"): string {
+  // The codec is picked by the intent's own route, so the pairing is right by
+  // construction — TypeScript cannot prove that through the index.
+  const codec = ROUTES[intent.route] as RouteCodec<Route>;
+  const query = new URLSearchParams(codec.params(intent)).toString();
+  // A parameterless route (`billing`) must not end in a bare `?`: the two forms
+  // have to round-trip through `parseDeepLink` byte for byte.
+  const suffix = query ? `?${query}` : "";
+  return form === "scheme"
+    ? `voltius://${intent.route}${suffix}`
+    : `${WEB_ORIGIN}${WEB_PATH}#${intent.route}${suffix}`;
+}
+
+const WEB_HOSTS = new Set(["voltius.app", "www.voltius.app"]);
 
 export function parseDeepLink(url: string): DeepLinkIntent | null {
   let parsed: URL;
@@ -51,12 +217,40 @@ export function parseDeepLink(url: string): DeepLinkIntent | null {
   } catch {
     return null;
   }
-  if (parsed.protocol !== "voltius:") return null;
-  // Custom schemes are not special-scheme URLs, so the route lands in `hostname`
-  // on some platforms and `pathname` on others.
-  const route = parsed.hostname || parsed.pathname.replace(/^\/+/, "");
+
+  if (parsed.protocol === "voltius:") {
+    // Custom schemes are not special-scheme URLs, so the route lands in
+    // `hostname` on some platforms and `pathname` on others.
+    const route = parsed.hostname || parsed.pathname.replace(/^\/+/, "");
+    return parseRoute(route, parsed.searchParams);
+  }
+
+  // The `https` fallback form. `http` is rejected: an App Link registered for
+  // cleartext would be hijackable on a hostile network.
+  if (
+    parsed.protocol === "https:" &&
+    WEB_HOSTS.has(parsed.hostname) &&
+    parsed.pathname.replace(/\/+$/, "") === WEB_PATH
+  ) {
+    return parseFragment(parsed.hash);
+  }
+
+  return null;
+}
+
+/** `#join?s=…&t=…` — the route, then its parameters, all after the hash. */
+function parseFragment(hash: string): DeepLinkIntent | null {
+  const body = hash.replace(/^#/, "");
+  if (!body) return null;
+  const queryAt = body.indexOf("?");
+  const route = queryAt === -1 ? body : body.slice(0, queryAt);
+  const params = new URLSearchParams(queryAt === -1 ? "" : body.slice(queryAt + 1));
+  return parseRoute(route, params);
+}
+
+function parseRoute(route: string, params: URLSearchParams): DeepLinkIntent | null {
   if (!isRoute(route)) return null;
-  return ROUTES[route](parsed.searchParams);
+  return ROUTES[route].parse(params);
 }
 
 // Own-property only: `"toString" in TRUST` is true, and an inherited hit would
@@ -82,4 +276,13 @@ export function isConfirmIntent(intent: DeepLinkIntent): intent is ConfirmIntent
 
 export function isSilentIntent(intent: DeepLinkIntent): intent is SilentIntent {
   return TRUST[intent.route] === "silent";
+}
+
+export function isNavigateIntent(intent: DeepLinkIntent): intent is NavigateIntent {
+  return TRUST[intent.route] === "navigate";
+}
+
+/** A route that acts without a prompt, whether it navigates or runs a side effect. */
+export function isUnpromptedIntent(intent: DeepLinkIntent): intent is UnpromptedIntent {
+  return isSilentIntent(intent) || isNavigateIntent(intent);
 }

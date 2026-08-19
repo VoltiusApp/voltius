@@ -7,8 +7,8 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useNotificationStore } from "@/stores/notificationStore";
-import { PluginHashMismatchError } from "@/plugins/integrity";
-import { satisfiesMinAppVersion, MinAppVersionError } from "@/plugins/version";
+import { pluginInstallErrorMessage } from "@/plugins/installErrors";
+import { satisfiesMinAppVersion } from "@/plugins/version";
 import { availableUpdate, availableSeededUpdate, addedPermissions } from "@/plugins/updates";
 import { mergeBrowseCatalog, seededActiveIds as computeSeededActiveIds } from "@/plugins/floor";
 import { useSeededTombstoneStore, loadSeededEntries, type SeededEntry } from "@/stores/seededTombstoneStore";
@@ -179,15 +179,12 @@ function usePluginInstaller() {
   const busy = new Set<string>([...installing, ...preparing]);
 
   const notifyError = (e: unknown) => {
+    const { key, params } = pluginInstallErrorMessage(e, "settings.plugins.install.failed");
     useNotificationStore.getState().addToast({
       source: { kind: "plugin", id: "system", name: "Voltius" },
       type: "toast",
       severity: "error",
-      message: e instanceof PluginHashMismatchError
-        ? t("settings.plugins.install.integrityFailed")
-        : e instanceof MinAppVersionError
-        ? t("settings.plugins.install.versionUnsupported", { version: e.required })
-        : t("settings.plugins.install.failed"),
+      message: t(key, params),
       duration: 0,
     });
   };

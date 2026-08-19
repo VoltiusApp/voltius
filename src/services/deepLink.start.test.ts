@@ -22,7 +22,7 @@ test("a cold-start url is handled", async () => {
   getCurrent.mockResolvedValue([URL_A]);
   startDeepLinks();
   await vi.waitFor(() =>
-    expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION),
+    expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION }),
   );
 });
 
@@ -30,14 +30,14 @@ test("a warm url delivered through onOpenUrl is handled", async () => {
   startDeepLinks();
   await vi.waitFor(() => expect(onOpenUrl).toHaveBeenCalled());
   onOpenUrl.mock.calls[0][0]([URL_A]);
-  expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION);
+  expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION });
 });
 
 test("the same url from both paths prompts once", async () => {
   getCurrent.mockResolvedValue([URL_A]);
   startDeepLinks();
   await vi.waitFor(() =>
-    expect(useDeepLinkStore.getState().prompt?.sessionId).toBe(SESSION),
+    expect(useDeepLinkStore.getState().prompt).toMatchObject({ route: "join", sessionId: SESSION }),
   );
   const first = useDeepLinkStore.getState().prompt;
   await vi.waitFor(() => expect(onOpenUrl).toHaveBeenCalled());

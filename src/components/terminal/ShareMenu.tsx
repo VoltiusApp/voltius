@@ -9,6 +9,7 @@ import { buildInviteLink } from "@/services/inviteCode";
 import { uninviteFromSession } from "@/services/teamService";
 import { guestCapFor, highestOwnerTier, inviteSessionOf, membersOfTeams, seatUsage, type InviteSession, type InviteTarget, type ShareTier } from "@/services/teamSharing";
 import { useDelayedUnmount } from "@/hooks/useDelayedUnmount";
+import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { InviteCodeField } from "./InviteCodeField";
 import { SpokenCodeRow } from "./SpokenCodeRow";
 import { PeopleTab } from "./PeopleTab";
@@ -478,7 +479,7 @@ function ActiveSharingView({
           {activeMp.participants.map((p) => (
             <div
               key={p.user_id}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px]"
+              className="flex items-center gap-1.5 pl-0.5 pr-2 py-0.5 rounded-full text-[10px]"
               style={{
                 background: p.user_id === activeMp.controlHolder
                   ? "color-mix(in srgb, var(--t-accent) 15%, transparent)"
@@ -486,9 +487,8 @@ function ActiveSharingView({
                 color: p.user_id === activeMp.controlHolder ? "var(--t-accent)" : "var(--t-text-secondary)",
                 border: "1px solid var(--t-border)",
               }}
-              title={p.user_id === activeMp.controlHolder ? t("terminal.share.hasControl") : undefined}
             >
-              {p.user_id === activeMp.controlHolder && <Icon icon="lucide:pencil" width={9} />}
+              <PresenceAvatar handle={p.handle} size={20} hasControl={p.user_id === activeMp.controlHolder} />
               {p.handle}
             </div>
           ))}

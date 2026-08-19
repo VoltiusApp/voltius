@@ -1,0 +1,246 @@
+# Builds the Microsoft Store MSIX packages, bundles them, and publishes the
+# bundle to the Store through the Microsoft Store Developer CLI.
+#
+# The MSIX path needs no code-signing certificate — the Store re-signs MSIX on
+# submission. Submitting the NSIS .exe instead would require a certificate
+# chaining to the Microsoft Trusted Root Program.
+#
+# Required repository secrets (all four, or the publish step warns and skips so
+# a release can never fail on it):
+#   AZURE_AD_TENANT_ID              Entra tenant associated with Partner Center
+#   AZURE_AD_APPLICATION_CLIENT_ID  app registration with the Manager role
+#   AZURE_AD_APPLICATION_SECRET     that registration's client secret
+#   SELLER_ID                       Partner Center publisher/seller id
+#
+# Required repository variables:
+#   MSSTORE_PRODUCT_ID              Store product id of the listing
+#   MSIX_IDENTITY_NAME              \
+#   MSIX_PUBLISHER                   } assigned by Partner Center on reservation
+#   MSIX_PUBLISHER_DISPLAY_NAME     /
+#
+# TWO THINGS THIS CANNOT DO:
+#   1. Create the listing. The app must already be published and live in the
+#      Store before the CLI can update it, so the first submission is manual.
+#   2. Update a paid product. Microsoft supports app updates through this action
+#      for free products only. Voltius is free in the Store (Pro is billed
+#      outside it), so this applies today but would break if that ever changed.
+name: publish-msix
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Ref to build (tag for a release run)'
+        required: true
+        type: string
+      publish:
+        # Defaults to false so a caller has to opt in. `github.event_name` cannot
+        # tell the two callers apart — inside a reusable workflow it is the
+        # CALLER's event, so a packaging check triggered by a push read as "not a
+        # workflow_dispatch, therefore publish", and would have submitted a
+        # branch build to the Store the moment the credentials were set.
+        description: 'Submit the bundle to the Store as well as building it'
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Ref to build (branch, tag or SHA). Defaults to this branch.'
+        required: false
+        default: ''
+      publish:
+        description: 'Publish to the Store as well as building'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  # Keyed on the ref being BUILT, not on `github.ref`: inside a reusable workflow
+  # that is the caller's ref, and tag-release runs on a push to main, so a release
+  # and a packaging check both resolved to refs/heads/main and queued behind each
+  # other anyway. With a single shared group, three pushes in a row left the
+  # release path's builds cancelled as merely-pending members of the same group.
+  group: publish-msix-${{ inputs.ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Read toolchain channel from rust-toolchain.toml
+        id: rust
+        shell: bash
+        run: echo "channel=$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+          # The Cargo workspace root is the repository root, so the target dir is
+          # ./target. Pointing this at src-tauri/target cached nothing and made
+          # every MSIX build a cold half-hour Windows compile.
+          workspaces: '. -> target'
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Install sccache
+        uses: mozilla/sccache-action@v0.0.11
+
+      # --no-bundle: the MSIX is packed from the raw binary, so none of the
+      # installer bundlers need to run.
+      - name: Build
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+        run: pnpm tauri build --target ${{ matrix.target }} --no-bundle
+
+      - name: Pack MSIX
+        shell: pwsh
+        env:
+          MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME }}
+          MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
+          MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.MSIX_PUBLISHER_DISPLAY_NAME }}
+        run: |
+          # target/ sits at the workspace root, which is the repository root.
+          ./scripts/build-msix.ps1 `
+            -Arch ${{ matrix.arch }} `
+            -ExePath "target/${{ matrix.target }}/release/voltius.exe"
+
+      - name: Upload MSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-${{ matrix.arch }}
+          path: target/msix/*.msix
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Download the per-architecture packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: msix-*
+          merge-multiple: true
+          path: target/msix
+
+      - name: Bundle
+        shell: pwsh
+        run: ./scripts/bundle-msix.ps1
+
+      # The packaged version comes from tauri.conf.json, and that file only
+      # carries the released version at a release tag — on dev it lags behind,
+      # because the bump lands on main. A check running against a branch
+      # therefore produces a bundle labelled with a stale version, which must
+      # never reach Partner Center: Store versions only ever move forward, so a
+      # first submission at the wrong version cannot be taken back.
+      - name: Check the packaged version against the latest release
+        id: staleness
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          packaged=$(node -e "console.log(require('./src-tauri/tauri.conf.json').version)")
+          latest=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q '.tagName' 2>/dev/null || echo "")
+          latest="${latest#v}"
+          echo "packaged: $packaged, latest release: ${latest:-unknown}"
+          stale=false
+          if [ -n "$latest" ] && [ "$packaged" != "$latest" ]; then
+            newest=$(printf '%s\n%s\n' "$packaged" "$latest" | sort -V | tail -1)
+            if [ "$newest" != "$packaged" ]; then
+              stale=true
+              echo "::warning::Packaged version $packaged trails the latest release $latest. This bundle is fine for checking that the package builds, but it will not be submitted — build from a release tag instead."
+            fi
+          fi
+          echo "stale=$stale" >> "$GITHUB_OUTPUT"
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: msixbundle
+          path: target/msix/*.msixbundle
+          if-no-files-found: error
+
+      - name: Decide whether to submit
+        id: guard
+        shell: bash
+        env:
+          TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+          PRODUCT_ID: ${{ vars.MSSTORE_PRODUCT_ID }}
+          WANTED: ${{ inputs.publish }}
+          STALE: ${{ steps.staleness.outputs.stale }}
+        run: |
+          if [ "$WANTED" != "true" ]; then
+            echo "::notice::publish input is false — built the bundle only."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          elif [ "$STALE" = "true" ]; then
+            # Refusing is the whole point: a submission at a version below the
+            # latest release cannot be withdrawn, and the Store only ever moves
+            # versions forward.
+            echo "::error::Refusing to submit a bundle whose version trails the latest release."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$TENANT_ID" ] || [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$SELLER_ID" ] || [ -z "$PRODUCT_ID" ]; then
+            echo "::warning::Store credentials or MSSTORE_PRODUCT_ID are not set — the bundle is attached as an artifact but was not submitted."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up the Microsoft Store Developer CLI
+        if: steps.guard.outputs.ok == 'true'
+        uses: microsoft/microsoft-store-apppublisher@v1.1
+
+      - name: Configure Store credentials
+        if: steps.guard.outputs.ok == 'true'
+        shell: pwsh
+        run: |
+          msstore reconfigure `
+            --tenantId ${{ secrets.AZURE_AD_TENANT_ID }} `
+            --sellerId ${{ secrets.SELLER_ID }} `
+            --clientId ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }} `
+            --clientSecret ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+
+      - name: Publish to the Store
+        if: steps.guard.outputs.ok == 'true'
+        shell: pwsh
+        run: |
+          $bundle = (Get-ChildItem target/msix/*.msixbundle | Select-Object -First 1).FullName
+          msstore publish $bundle -id ${{ vars.MSSTORE_PRODUCT_ID }}
