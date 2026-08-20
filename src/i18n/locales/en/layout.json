@@ -33,6 +33,7 @@
       "masterPasswordMinPlaceholder": "Master password (min 8 chars)",
       "confirmPasswordPlaceholder": "Confirm password",
       "customServerUrl": "Custom server URL",
+      "serverNamed": "Server: {{host}}",
       "errorInvalidEmail": "Invalid email",
       "errorMinLength8": "At least 8 characters",
       "errorPasswordMismatch": "Passwords don't match",

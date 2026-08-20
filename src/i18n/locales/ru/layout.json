@@ -33,6 +33,7 @@
       "masterPasswordMinPlaceholder": "Мастер-пароль (мин. 8 символов)",
       "confirmPasswordPlaceholder": "Подтвердите пароль",
       "customServerUrl": "Пользовательский URL сервера",
+      "serverNamed": "Сервер: {{host}}",
       "errorInvalidEmail": "Некорректный email",
       "errorMinLength8": "Не менее 8 символов",
       "errorPasswordMismatch": "Пароли не совпадают",

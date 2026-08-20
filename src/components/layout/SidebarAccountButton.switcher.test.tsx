@@ -2,6 +2,7 @@ import { test, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { SavedAccount } from "@/services/savedAccounts";
+import { DEFAULT_SERVER_URL } from "@/utils/serverInstance";
 
 const h = vi.hoisted(() => ({
   accountMode: "server" as string,
@@ -17,7 +18,9 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
-vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@iconify/react", () => ({
+  Icon: ({ icon }: { icon: string }) => <i data-icon={icon} />,
+}));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (_cmd: string, args: { key: string }) => h.keychain[args.key] ?? null),
 }));
@@ -42,10 +45,15 @@ import { useNotificationStore } from "@/stores/notificationStore";
 
 const CURRENT = {
   account_id: "current", mode: "server", master_password: ["master", "for", "current"].join("-"),
-  email: "ada@example.com", server_url: "https://srv", jwt: null, refresh_token: null,
+  email: "ada@example.com", server_url: DEFAULT_SERVER_URL, jwt: null, refresh_token: null,
 } satisfies SavedAccount;
 
 const OTHER = { ...CURRENT, account_id: "other", email: "grace@example.com" } satisfies SavedAccount;
+
+/** Same person, same email, other instance — the case the row could not tell apart. */
+const SELF_HOSTED = {
+  ...CURRENT, account_id: "self-hosted", server_url: "https://stackdome.example.tld",
+} satisfies SavedAccount;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -172,6 +180,39 @@ test("a switcher save the keychain refuses is reported", async () => {
       ),
     ).toBe(true),
   );
+});
+
+test("two accounts on different instances are told apart by their row", async () => {
+  h.getSavedAccounts.mockResolvedValue([CURRENT, OTHER, SELF_HOSTED]);
+  await openMenu();
+
+  await screen.findByText("stackdome.example.tld");
+  expect(screen.getAllByText("layout.sidebarAccount.savedAccountCloud")).toHaveLength(1);
+});
+
+test("a self-hosted row is marked with a server icon and its full URL", async () => {
+  h.getSavedAccounts.mockResolvedValue([CURRENT, SELF_HOSTED]);
+  await openMenu();
+
+  const row = (await screen.findByText("stackdome.example.tld")).closest("button");
+  expect(row?.getAttribute("title")).toBe(SELF_HOSTED.server_url);
+  expect(row?.querySelector('[data-icon="lucide:server"]')).toBeTruthy();
+});
+
+test("the header names the instance the current account is signed in to", async () => {
+  h.keychain = { ...h.keychain, server_url: SELF_HOSTED.server_url };
+  h.getSavedAccounts.mockResolvedValue([CURRENT]);
+  await openMenu();
+
+  await screen.findByText("stackdome.example.tld");
+  expect(screen.queryByText("layout.sidebarAccount.modeCloud")).toBeNull();
+});
+
+test("the header still reads Cloud account on the official instance", async () => {
+  h.keychain = { ...h.keychain, server_url: DEFAULT_SERVER_URL };
+  await openMenu();
+
+  await screen.findByText("layout.sidebarAccount.modeCloud");
 });
 
 test("adding another account stops when the current one could not be saved", async () => {
