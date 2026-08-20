@@ -30,7 +30,7 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, getSkippedSyncFiles, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
 import type {
@@ -2360,8 +2360,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           accountId: "gist-sync",
           deviceId,
           // Strip cloud-off objects (and their secrets) from third-party sync
-          // destinations too, mirroring the built-in server push (issue #47).
+          // destinations too, mirroring the built-in server push (issue #47),
+          // and withhold the same config files (issue #42).
           excludedIds: getExcludedObjectIds(),
+          skipFiles: getSkippedSyncFiles(),
         });
         const CHUNK = 8192;
         let binary = "";

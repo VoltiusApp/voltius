@@ -8,11 +8,12 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
-// Stub the sync service: `getExcludedObjectIds()` returns a known set so the test
-// can assert it is threaded through to `backup_export` (issue #47). The other
-// three named imports are the surface runtime.ts pulls from this module.
+// Stub the sync service: `getExcludedObjectIds()` and `getSkippedSyncFiles()` return
+// known values so the test can assert they're threaded through to `backup_export`
+// (issues #47, #42). The rest are the remaining surface runtime.ts pulls from this module.
 vi.mock("@/services/sync", () => ({
   getExcludedObjectIds: () => ["excluded-host", "excluded-key"],
+  getSkippedSyncFiles: () => ["theme.json"],
   getSyncState: () => ({ status: "idle" }),
   onSyncStateChange: () => () => {},
   ENTITY_FILES: [],
@@ -51,7 +52,10 @@ describe("plugin sync.exportState honours sync exclusions", () => {
 
     expect(invokeMock).toHaveBeenCalledWith(
       "backup_export",
-      expect.objectContaining({ excludedIds: ["excluded-host", "excluded-key"] }),
+      expect.objectContaining({
+        excludedIds: ["excluded-host", "excluded-key"],
+        skipFiles: ["theme.json"],
+      }),
     );
   });
 });
