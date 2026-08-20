@@ -52,6 +52,7 @@ import {
   resendVerificationEmail,
 } from "./account";
 import { VaultUnreadableError } from "./vaultErrors";
+import { DEFAULT_SERVER_URL, lastServerUrl } from "@/utils/serverInstance";
 
 const S = "https://srv";
 const TOKENS = { jwt_token: "JWT", refresh_token: "RT" };
@@ -119,6 +120,7 @@ beforeEach(() => {
   h.rekeyError = null;
   h.store = {};
   h.http = {};
+  localStorage.clear();
   h.dek = null;
   h.x25519 = null;
   h.emailVerified = false;
@@ -170,6 +172,23 @@ test("createServerAccount persists tokens, sets the vault key, and reloads subsc
   expect(h.store.email).toBe("a@b.co");
   expect(h.setVaultKey).toHaveBeenCalledWith([1, 1, 1]); // dek
   expect(h.load).toHaveBeenCalled();
+});
+
+/**
+ * Adding a second account clears `server_url` with every other account-scoped
+ * key, so without a device-scoped record the auth screen sends a self-hosted
+ * user back to the official cloud.
+ */
+test("createServerAccount remembers the instance for the next auth screen", async () => {
+  h.http["/auth/register"] = ok(TOKENS);
+  await createServerAccount("a@b.co", "pw", S);
+  expect(lastServerUrl()).toBe(S);
+});
+
+test("a failed registration leaves the remembered instance alone", async () => {
+  h.http["/auth/register"] = err(500);
+  await expect(createServerAccount("a@b.co", "pw", S)).rejects.toThrow();
+  expect(lastServerUrl()).toBe(DEFAULT_SERVER_URL);
 });
 
 // ─── login ───────────────────────────────────────────────────────────────────

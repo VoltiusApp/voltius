@@ -33,6 +33,7 @@
       "masterPasswordMinPlaceholder": "主密码（至少 8 个字符）",
       "confirmPasswordPlaceholder": "确认密码",
       "customServerUrl": "自定义服务器地址",
+      "serverNamed": "服务器：{{host}}",
       "errorInvalidEmail": "邮箱无效",
       "errorMinLength8": "至少 8 个字符",
       "errorPasswordMismatch": "密码不匹配",

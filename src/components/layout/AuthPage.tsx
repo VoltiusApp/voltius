@@ -11,6 +11,8 @@ import {
 import { useNotificationStore } from "@/stores/notificationStore";
 import { VaultUnreadableError } from "@/services/vaultErrors";
 import { VaultBackups } from "@/components/shared/VaultBackups";
+import { ServerUrlField } from "@/components/shared/ServerUrlField";
+import { lastServerUrl } from "@/utils/serverInstance";
 
 
 type View = "home" | "cloud";
@@ -27,8 +29,6 @@ interface Props {
 /** Which way the vault turned out to be unreadable — they offer different exits. */
 type Unreadable = "no-password" | "wrong-key";
 
-const DEFAULT_SERVER = "https://api.voltius.app";
-
 export default function AuthPage({ isLocked, vaultUnreadable, onReady }: Props) {
   const { t } = useTranslation();
   const [view, setView] = useState<View>("home");
@@ -42,8 +42,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, onReady }: Props) 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [email, setEmail] = useState("");
-  const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER);
-  const [showServerUrl, setShowServerUrl] = useState(false);
+  const [serverUrl, setServerUrl] = useState(lastServerUrl);
   const addToast = useNotificationStore((s) => s.addToast);
 
   const reset = (v: View, mode?: CloudMode) => {
@@ -227,17 +226,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, onReady }: Props) 
           {isSignup && (
             <Input type="password" placeholder={t("layout.auth.confirmPasswordPlaceholder")} value={confirm} onChange={setConfirm} />
           )}
-          <button
-            type="button"
-            onClick={() => setShowServerUrl((v) => !v)}
-            className="text-xs w-full text-left transition-colors text-(--t-text-dim)"
-          >
-            {showServerUrl ? "▾" : "▸"} {t("layout.auth.customServerUrl")}
-          </button>
-          {showServerUrl && (
-            <Input type="url" placeholder="https://api.voltius.app"
-              value={serverUrl} onChange={setServerUrl} />
-          )}
+          <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={INPUT_CLASS} />
           <ErrorMsg msg={error} />
           <SubmitBtn loading={loading} label={isSignup ? t("layout.auth.createAccount") : t("layout.auth.signIn")} />
         </form>
@@ -356,6 +345,9 @@ function ActionButton({ icon, label, sub, primary, loading, onClick }: {
   );
 }
 
+const INPUT_CLASS =
+  "form-input w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)";
+
 function Input({ type, placeholder, value, onChange, autoFocus }: {
   type: string; placeholder: string; value: string;
   onChange: (v: string) => void; autoFocus?: boolean;
@@ -367,7 +359,7 @@ function Input({ type, placeholder, value, onChange, autoFocus }: {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       autoFocus={autoFocus}
-      className="form-input w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+      className={INPUT_CLASS}
     />
   );
 }

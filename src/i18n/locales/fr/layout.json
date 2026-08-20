@@ -33,6 +33,7 @@
       "masterPasswordMinPlaceholder": "Mot de passe principal (8 caractères min.)",
       "confirmPasswordPlaceholder": "Confirmer le mot de passe",
       "customServerUrl": "URL de serveur personnalisée",
+      "serverNamed": "Serveur : {{host}}",
       "errorInvalidEmail": "E-mail invalide",
       "errorMinLength8": "Au moins 8 caractères",
       "errorPasswordMismatch": "Les mots de passe ne correspondent pas",

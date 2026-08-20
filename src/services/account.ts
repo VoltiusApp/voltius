@@ -5,6 +5,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
+import { rememberServer } from "@/utils/serverInstance";
 
 function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
@@ -130,6 +131,30 @@ async function keychainDelete(key: string): Promise<void> {
   return invoke("keychain_delete", { key });
 }
 
+/**
+ * Write the keychain entries that make a server session, for every route into
+ * one: register, sign-in, re-auth and link-to-cloud all wrote this same list by
+ * hand. It is also the single place that records the instance for the auth
+ * screen, which a fifth route would otherwise forget.
+ */
+async function persistServerSession(session: {
+  serverUrl: string;
+  email: string;
+  accountId?: string;
+  password?: string;
+  jwt?: string;
+  refreshToken?: string;
+}): Promise<void> {
+  if (session.password) await keychainSet("master_password", session.password);
+  if (session.accountId) await keychainSet("account_id", session.accountId);
+  await keychainSet("mode", "server");
+  await keychainSet("email", session.email);
+  if (session.jwt) await keychainSet("jwt", session.jwt);
+  if (session.refreshToken) await keychainSet("refresh_token", session.refreshToken);
+  await keychainSet("server_url", session.serverUrl);
+  rememberServer(session.serverUrl);
+}
+
 function setForceLockFlag(): void {
   if (typeof window === "undefined") return;
   try {
@@ -224,13 +249,10 @@ export async function createServerAccount(
   useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek: enc_key });
   setVaultKey(secrets.dek);
 
-  await keychainSet("master_password", password);
-  await keychainSet("account_id", accountId);
-  await keychainSet("mode", "server");
-  await keychainSet("email", email);
-  await keychainSet("jwt", data.jwt_token);
-  await keychainSet("refresh_token", data.refresh_token);
-  await keychainSet("server_url", serverUrl);
+  await persistServerSession({
+    serverUrl, email, accountId, password,
+    jwt: data.jwt_token, refreshToken: data.refresh_token,
+  });
   await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
   reloadSubscription();
 }
@@ -290,11 +312,10 @@ export async function login(password: string, email?: string, serverUrl?: string
     });
     if (!res.ok) throw new Error(i18n.t("common.error.serverLoginFailed"));
     const data = await res.json();
-    await keychainSet("jwt", data.jwt_token);
-    await keychainSet("refresh_token", data.refresh_token);
-    await keychainSet("mode", "server");
-    await keychainSet("email", reauth.email);
-    await keychainSet("server_url", reauth.serverUrl);
+    await persistServerSession({
+      serverUrl: reauth.serverUrl, email: reauth.email,
+      jwt: data.jwt_token, refreshToken: data.refresh_token,
+    });
 
     if (data.wrapped_user_secrets) {
       const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
@@ -577,13 +598,10 @@ export async function signInToCloud(
 
   setVaultKey(vaultKey);
 
-  await keychainSet("master_password", password);
-  await keychainSet("account_id", accountId);
-  await keychainSet("mode", "server");
-  await keychainSet("email", email);
-  await keychainSet("jwt", data.jwt_token);
-  await keychainSet("refresh_token", data.refresh_token);
-  await keychainSet("server_url", serverUrl);
+  await persistServerSession({
+    serverUrl, email, accountId, password,
+    jwt: data.jwt_token, refreshToken: data.refresh_token,
+  });
   reloadSubscription();
 
   // Delete the old secrets.enc (encrypted with the previous account's key — the new
@@ -634,11 +652,9 @@ export async function linkToCloud(
 
   useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek });
 
-  await keychainSet("mode", "server");
-  await keychainSet("email", email);
-  await keychainSet("server_url", serverUrl);
-  await keychainSet("jwt", data.jwt_token);
-  await keychainSet("refresh_token", data.refresh_token);
+  await persistServerSession({
+    serverUrl, email, jwt: data.jwt_token, refreshToken: data.refresh_token,
+  });
   await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
   reloadSubscription();
 }

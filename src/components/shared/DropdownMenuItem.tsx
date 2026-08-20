@@ -9,6 +9,8 @@ interface Props {
   checked?: boolean;
   iconSize?: number;
   sublabel?: string;
+  /** Native tooltip, for detail the row is too narrow to spell out. */
+  title?: string;
   /**
    * Secondary control shown at the item's right edge. Kept a sibling of the
    * button, never a child — a button inside a button is invalid DOM.
@@ -16,13 +18,14 @@ interface Props {
   trailing?: ReactNode;
 }
 
-export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20, sublabel, trailing }: Props) {
+export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20, sublabel, title, trailing }: Props) {
   const { createRipple, rippleEls } = useRipple();
   const item = (
     <button
       type="button"
       onClick={onClick}
       onPointerDown={createRipple}
+      title={title}
       className="w-full flex items-center gap-2.5 p-3 rounded-lg text-md font-medium-bold transition-colors whitespace-nowrap text-(--t-text-secondary) bg-transparent relative overflow-hidden"
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)";
@@ -37,7 +40,7 @@ export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20,
       {icon && <Icon icon={icon} width={iconSize} className="shrink-0" />}
       <span className="flex-1 min-w-0 text-left">
         <span className="block truncate text-(--t-text-primary)">{label}</span>
-        {sublabel && <span className="block text-[10px] text-(--t-text-dim)">{sublabel}</span>}
+        {sublabel && <span className="block truncate text-[10px] text-(--t-text-dim)">{sublabel}</span>}
       </span>
       {checked && (
         <span className="[&_path]:stroke-[2.5]">
