@@ -30,7 +30,7 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, getSkippedSyncFiles, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
 import type {
@@ -2354,6 +2354,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
       async exportState(encKey, deviceId) {
         requirePerm(manifest, "sync:write");
+        await writeFilteredSettings();
         const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
         const blob: number[] = await invoke("backup_export", {
           encKey: encKeyBytes,
@@ -2361,9 +2362,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           deviceId,
           // Strip cloud-off objects (and their secrets) from third-party sync
           // destinations too, mirroring the built-in server push (issue #47),
-          // and withhold the same config files (issue #42).
+          // and withhold the same config files (issue #42) — the plugin path's
+          // own theme.json rule, since this destination has no settings-bundle
+          // theme route (see importStates below).
           excludedIds: getExcludedObjectIds(),
-          skipFiles: getSkippedSyncFiles(),
+          skipFiles: getPluginSkippedSyncFiles(),
         });
         const CHUNK = 8192;
         let binary = "";

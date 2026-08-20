@@ -82,10 +82,20 @@ export function mergeUserDataBundle(
     const remoteSection = remote.sections[h.key];
     if (!remoteSection) continue;
 
-    const localTs = localSection?.updated_at ?? new Date(0).toISOString();
+    // A section missing from the bundle isn't necessarily missing data: a
+    // switched-off domain is filtered OUT of settings.json before it's ever
+    // written (filterOutgoing), so the merge base can lack an entry for a
+    // domain whose store still holds current, possibly newer, local state.
+    // The stores are local truth — settings.json is only a cache of them —
+    // so fall back to the handler's live export/timestamp rather than
+    // treating an absent section as "no local value", which would let
+    // lastWriteWins hand a stale remote an unconditional win the moment the
+    // domain is re-enabled.
+    const localData = localSection ? localSection.data : h.export();
+    const localTs = localSection ? localSection.updated_at : h.getTimestamp();
     const remoteTs = remoteSection.updated_at;
     const { value, updated } = h.merge(
-      localSection?.data,
+      localData,
       remoteSection.data,
       localTs,
       remoteTs,

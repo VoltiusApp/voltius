@@ -36,10 +36,6 @@ export const themesHandler: UserDataHandler = {
 
   async import(data: unknown): Promise<void> {
     const d = (data ?? {}) as Partial<ThemesData>;
-    const store = useThemeStore.getState();
-    for (const theme of d.customThemes ?? []) {
-      store.saveCustomTheme({ ...theme, builtIn: false });
-    }
 
     // One setState + one persist: each individual setter writes theme.json and
     // schedules a push, so calling seven of them would do that seven times.
@@ -51,6 +47,12 @@ export const themesHandler: UserDataHandler = {
     if (d.scheduleLightStart) patch.scheduleLightStart = d.scheduleLightStart;
     if (d.scheduleDarkStart) patch.scheduleDarkStart = d.scheduleDarkStart;
     if (d.location !== undefined) patch.location = d.location;
+    // REPLACE, not upsert: an upsert can only add themes, never remove one a
+    // remote deletion took out, so a deleted theme would survive on this device
+    // and get republished back to the deleter on the next export.
+    if (Array.isArray(d.customThemes)) {
+      patch.customThemes = d.customThemes.map((theme) => ({ ...theme, builtIn: false }));
+    }
     if (Object.keys(patch).length === 0) return;
     useThemeStore.setState(patch);
     useThemeStore.getState().persist();

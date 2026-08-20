@@ -306,22 +306,63 @@ export function getExcludedObjectIds(): string[] {
   );
 }
 
-/**
- * Config files that must not enter the outbound blob this round.
- *
- * `theme.json` is always withheld: themes travel in the settings bundle, and a
- * second wire would defeat the domain toggle. `plugin-registry.json` duplicates
- * `appSettings.plugins.overrides`, so it follows that domain's toggle.
- *
- * Exported for the same reason as `getExcludedObjectIds` — non-server sync
- * destinations must withhold the same files (issue #47).
- */
-export function getSkippedSyncFiles(): string[] {
-  const skipped = ["theme.json"];
+/** `plugin-registry.json` duplicates `appSettings.plugins.overrides`, so every
+ *  destination withholds it under the same condition — that part isn't
+ *  destination-specific, unlike theme.json below. */
+function skippedConfigFilesCore(): string[] {
+  const skipped: string[] = [];
   if (!useSyncPrefsStore.getState().isDomainSynced("appSettings")) {
     skipped.push("plugin-registry.json");
   }
   return skipped;
+}
+
+/**
+ * Config files that must not enter the SERVER blob this round.
+ *
+ * `theme.json` is always withheld here: themes travel in the settings bundle,
+ * and `applyRemoteSettings` merges that bundle on pull, so a second wire would
+ * be redundant and could fight the domain toggle.
+ *
+ * Exported for the same reason as `getExcludedObjectIds` — non-server sync
+ * destinations must withhold the same files (issue #47). See
+ * `getPluginSkippedSyncFiles` for why the plugin path differs.
+ */
+export function getSkippedSyncFiles(): string[] {
+  return ["theme.json", ...skippedConfigFilesCore()];
+}
+
+/**
+ * Config files that must not enter a PLUGIN (third-party) blob this round.
+ *
+ * Unlike the server destination, plugin destinations never merge the settings
+ * bundle — `theme.json` is their *only* theme route (see `importStates` in
+ * runtime.ts). So it must still travel there whenever the themes domain is
+ * synced, and is withheld only when the user has switched that domain off.
+ * This asymmetry with `getSkippedSyncFiles` is deliberate, not a bug: it
+ * exists because the two destinations don't apply the same wire for themes.
+ */
+export function getPluginSkippedSyncFiles(): string[] {
+  const skipped = skippedConfigFilesCore();
+  if (!useSyncPrefsStore.getState().isDomainSynced("themes")) {
+    skipped.push("theme.json");
+  }
+  return skipped;
+}
+
+/**
+ * Ensure settings.json is current before ANY `backup_export` caller reads it.
+ * Filtered: this file is both the local merge base and part of the uploaded
+ * blob, so a switched-off domain has to be absent from it, not merely ignored
+ * on arrival. Every `backup_export` caller (server push, plugin export) must
+ * call this first — issue #47 was exactly a second caller skipping a step
+ * like this one.
+ */
+export async function writeFilteredSettings(): Promise<void> {
+  try {
+    const bundle = filterOutgoing(buildUserDataBundle());
+    await invoke("settings_save", { state: JSON.stringify(bundle) });
+  } catch {}
 }
 
 /** Export local data and upload to server. */
@@ -337,13 +378,7 @@ export async function push(): Promise<void> {
 
   await unlockVaultIfNeeded();
 
-  // Ensure settings.json is current before backup_export reads it. Filtered:
-  // this file is both the local merge base and part of the uploaded blob, so a
-  // switched-off domain has to be absent from it, not merely ignored on arrival.
-  try {
-    const bundle = filterOutgoing(buildUserDataBundle());
-    await invoke("settings_save", { state: JSON.stringify(bundle) });
-  } catch {}
+  await writeFilteredSettings();
 
   const blob: number[] = await invoke("backup_export", {
     encKey,
