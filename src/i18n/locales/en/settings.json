@@ -509,7 +509,7 @@
         "configure": "Configure →"
       },
       "prefsTitle": "Sync Preferences",
-      "prefsFooter": "Disabled types won't trigger automatic syncs when changed. Individual objects can also be excluded via their edit panel.",
+      "prefsFooter": "Disabled types are never uploaded. Individual objects can also be excluded from their edit panel.",
       "quickToggleLabel": "Sync {{label}}",
       "objectType": {
         "connection": {
@@ -532,6 +532,15 @@
           "label": "Port Forwarding",
           "sub": "Saved tunnel rules"
         }
+      },
+      "settingsTitle": "Settings",
+      "settingsFooter": "Anything switched off stays on this device. It is never uploaded, even encrypted. Turning sync back on publishes this device's values.",
+      "settingDomain": {
+        "themes": { "label": "Themes", "sub": "Active theme and custom themes" },
+        "uiPreferences": { "label": "Interface", "sub": "Scale, layouts and sort order" },
+        "shortcuts": { "label": "Shortcuts", "sub": "Keyboard overrides" },
+        "appSettings": { "label": "App settings", "sub": "Terminal, SFTP, plugins, language" },
+        "recentPeople": { "label": "Recent people", "sub": "Who you have invited lately" }
       }
     },
     "vaults": {
