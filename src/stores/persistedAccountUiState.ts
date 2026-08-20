@@ -103,3 +103,59 @@ export function restorePersistedAccountUiState(
     if (value !== undefined) storage.setItem(key, value);
   }
 }
+
+/**
+ * Where a signed-out account's state waits for it to come back.
+ *
+ * It stays in localStorage rather than riding along in the account's keychain
+ * entry: it is kilobytes (a workspace snapshot, command history, remembered
+ * snippet variables) and keychain values are capped — 2560 bytes on Windows —
+ * so parking it there failed, silently, and the account came back with no tabs.
+ * The same data sits in these very keys while the account is signed in, so
+ * holding it under a per-account name adds no exposure it did not already have;
+ * signing an account out drops its parked copy with the rest of its session.
+ */
+const PARKED_PREFIX = "voltius.parked-ui-state.";
+
+const parkedKey = (accountId: string) => `${PARKED_PREFIX}${accountId}`;
+
+export function writeParkedUiState(
+  accountId: string,
+  state: PersistedAccountUiState,
+  storage: PersistedAccountStorage | undefined = globalThis.localStorage,
+): void {
+  if (!storage) return;
+  storage.setItem(parkedKey(accountId), JSON.stringify(state));
+}
+
+/** Park what the account is showing now, to be handed back on the way in. */
+export function parkAccountUiState(
+  accountId: string,
+  storage: PersistedAccountStorage | undefined = globalThis.localStorage,
+): void {
+  if (!storage) return;
+  writeParkedUiState(accountId, snapshotPersistedAccountUiState(storage), storage);
+}
+
+/** Hand an account its parked state back; the live keys hold it from here. */
+export function restoreAccountUiState(
+  accountId: string,
+  storage: PersistedAccountStorage | undefined = globalThis.localStorage,
+): void {
+  if (!storage) return;
+  const raw = storage.getItem(parkedKey(accountId));
+  if (!raw) return;
+  try {
+    restorePersistedAccountUiState(JSON.parse(raw) as PersistedAccountUiState, storage);
+  } catch {
+    // Unparseable park: nothing to restore, and dropping it below clears it.
+  }
+  storage.removeItem(parkedKey(accountId));
+}
+
+export function dropAccountUiState(
+  accountId: string,
+  storage: PersistedAccountStorage | undefined = globalThis.localStorage,
+): void {
+  storage?.removeItem(parkedKey(accountId));
+}

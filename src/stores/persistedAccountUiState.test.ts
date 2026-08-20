@@ -6,6 +6,10 @@ import {
   clearPersistedAccountUiState,
   snapshotPersistedAccountUiState,
   restorePersistedAccountUiState,
+  parkAccountUiState,
+  restoreAccountUiState,
+  dropAccountUiState,
+  writeParkedUiState,
 } from "./persistedAccountUiState";
 
 const storeSources = import.meta.glob("./*.ts", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
@@ -88,4 +92,60 @@ test("every persisted store is classified as the account's or the machine's", ()
 test("no key is classified twice", () => {
   const all = [...ACCOUNT_SCOPED_STORAGE_KEYS, ...ACCOUNT_SCOPED_RESET_KEYS, ...DEVICE_SCOPED_STORAGE_KEYS];
   expect(all).toHaveLength(new Set(all).size);
+});
+
+/**
+ * The round trip an account switch makes. It runs through localStorage because
+ * a keychain value cannot hold it: 2560 bytes on Windows, against a workspace
+ * snapshot and a command history that run to kilobytes.
+ */
+test("an account gets back the state it was parked with", () => {
+  const storage = fakeStorage({ ...ACCOUNT_STATE, ...DEVICE_STATE });
+
+  parkAccountUiState("acct-a", storage);
+  clearPersistedAccountUiState(storage);
+  restorePersistedAccountUiState({ "voltius-teams": "the other account's teams" }, storage);
+  clearPersistedAccountUiState(storage);
+  restoreAccountUiState("acct-a", storage);
+
+  expect(storage.data).toMatchObject(ACCOUNT_STATE);
+  // Handed back, so nothing stays parked to go stale behind the live keys.
+  expect(storage.data["voltius.parked-ui-state.acct-a"]).toBeUndefined();
+});
+
+test("parked state belongs to one account only", () => {
+  const storage = fakeStorage({ "voltius-vaults": "vaults of a" });
+  parkAccountUiState("acct-a", storage);
+  clearPersistedAccountUiState(storage);
+
+  restoreAccountUiState("acct-b", storage);
+
+  expect(storage.data["voltius-vaults"]).toBeUndefined();
+});
+
+test("signing an account out drops what it parked", () => {
+  const storage = fakeStorage({ "voltius-host-command-vars": "remembered secrets" });
+  parkAccountUiState("acct-a", storage);
+
+  dropAccountUiState("acct-a", storage);
+
+  expect(storage.data["voltius.parked-ui-state.acct-a"]).toBeUndefined();
+});
+
+test("an unparseable park restores nothing and clears itself", () => {
+  const storage = fakeStorage({});
+  storage.data["voltius.parked-ui-state.acct-a"] = "{not json";
+
+  restoreAccountUiState("acct-a", storage);
+
+  expect(storage.data).toEqual({});
+});
+
+test("state migrated out of a keychain entry restores like any other park", () => {
+  const storage = fakeStorage({});
+  writeParkedUiState("acct-a", { "voltius-vaults": "vaults from the old blob" }, storage);
+
+  restoreAccountUiState("acct-a", storage);
+
+  expect(storage.data["voltius-vaults"]).toBe("vaults from the old blob");
 });

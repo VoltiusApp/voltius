@@ -111,6 +111,7 @@
       "savedAccountCloud": "Cloud",
       "savedAccountLocal": "Local",
       "switchFailed": "Account switch failed: {{error}}",
+      "saveFailed": "This account could not be saved to the switcher: {{error}}",
       "leaveLocalTitle": "Leave this local account?",
       "leaveLocalMessage": "This account's hosts, keys and snippets are stored only on this machine. Switching to {{account}} erases them and they cannot be recovered.",
       "leaveLocalConfirm": "Erase and switch",

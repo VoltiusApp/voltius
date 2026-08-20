@@ -38,6 +38,7 @@ vi.mock("@/services/savedAccounts", () => ({
 import { SidebarAccountButton } from "./SidebarAccountButton";
 import { useUIStore } from "@/stores/uiStore";
 import { useSecurityStore } from "@/stores/securityStore";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 const CURRENT = {
   account_id: "current", mode: "server", master_password: ["master", "for", "current"].join("-"),
@@ -50,6 +51,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.accountMode = "server";
   h.keychain = { email: CURRENT.email, account_id: CURRENT.account_id };
+  useNotificationStore.setState({ toasts: [] });
 });
 afterEach(cleanup);
 
@@ -153,4 +155,36 @@ test("a local account is not offered the add-account route", async () => {
   h.accountMode = "local";
   await openMenu();
   expect(screen.queryByText("layout.sidebarAccount.addAccount")).toBeNull();
+});
+
+/**
+ * A keychain that refuses the write is how an account went missing from the
+ * switcher without a word — the save failure was caught and dropped.
+ */
+test("a switcher save the keychain refuses is reported", async () => {
+  h.saveCurrentAccount.mockRejectedValueOnce(new Error("Keychain write error: too long"));
+  await openMenu();
+
+  await waitFor(() =>
+    expect(
+      useNotificationStore.getState().toasts.some((toast) =>
+        toast.message.startsWith("layout.sidebarAccount.saveFailed"),
+      ),
+    ).toBe(true),
+  );
+});
+
+test("adding another account stops when the current one could not be saved", async () => {
+  h.signOutToAddAccount.mockRejectedValueOnce(new Error("Saved accounts could not be read"));
+  await openMenu();
+
+  await userEvent.click(await screen.findByText("layout.sidebarAccount.addAccount"));
+
+  await waitFor(() =>
+    expect(
+      useNotificationStore.getState().toasts.some((toast) =>
+        toast.message.startsWith("layout.sidebarAccount.saveFailed"),
+      ),
+    ).toBe(true),
+  );
 });
