@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-08-20
+
+### Added
+
+- An account signed in to a self-hosted instance is now named as such. The
+  switcher row and the account header show the instance host instead of a
+  generic "Cloud", with the full URL on hover, and the auth screen's server
+  field seeds from the instance this machine last used — so "Add another
+  account…" no longer quietly aims a self-hosted user back at the official
+  cloud. Rows on the official cloud are unchanged.
+
+### Fixed
+
+- The account switcher no longer loses accounts to the platform keychain's
+  size limit. Windows Credential Manager refuses a value over 2560 bytes,
+  which two accounts' tokens exceeded on their own, and the rejection was
+  swallowed: adding a second account saved nothing, and switching back came
+  up with no tabs. Accounts are now stored one entry each, workspace state
+  parks in local storage, failures surface as a toast instead of silence, and
+  an older single-value list migrates on first read. Restoring a workspace
+  also waits for the login sync, so reconnecting no longer errors every
+  restored tab.
+- A shared team vault's card in the dashboard's Vaults section counted no
+  hosts, even though the same hosts were listed everywhere else.
+- Installing a snippet from a link writes it to the vault the confirm sheet
+  named, even if the vault selection changed while the sheet was open.
+- Accepting a plugin-install link while the same plugin was already
+  installing from Settings reported success without writing anything; the
+  second install is now refused.
+
 ## [0.28.0] - 2026-08-19
 
 ### Added
