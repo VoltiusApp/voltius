@@ -12,8 +12,10 @@ vi.mock("@/services/sync", () => ({
   getSyncState: () => ({ status: "idle", lastSync: null, error: null, cloudActive: false, blobSizeBytes: null }),
   onSyncStateChange: () => () => {},
   syncNow: vi.fn(),
+  scheduleSync: vi.fn(),
 }));
 
+import { scheduleSync } from "@/services/sync";
 import SyncSection from "./SyncSection";
 
 const toggleFor = (c: HTMLElement, domain: string) =>
@@ -54,5 +56,11 @@ describe("SyncSection settings domains", () => {
     fireEvent.click(toggleFor(container, "themes")!);
     expect(touch).not.toHaveBeenCalled();
     touch.mockRestore();
+  });
+
+  test("switching a domain off schedules a push to withdraw the server copy", () => {
+    const { container } = render(<SyncSection />);
+    fireEvent.click(toggleFor(container, "themes")!);
+    expect(scheduleSync).toHaveBeenCalled();
   });
 });

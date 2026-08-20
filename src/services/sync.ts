@@ -324,9 +324,7 @@ function skippedConfigFilesCore(): string[] {
  * and `applyRemoteSettings` merges that bundle on pull, so a second wire would
  * be redundant and could fight the domain toggle.
  *
- * Exported for the same reason as `getExcludedObjectIds` — non-server sync
- * destinations must withhold the same files (issue #47). See
- * `getPluginSkippedSyncFiles` for why the plugin path differs.
+ * Exported for its test; plugin destinations use `getPluginSkippedSyncFiles`.
  */
 export function getSkippedSyncFiles(): string[] {
   return ["theme.json", ...skippedConfigFilesCore()];
@@ -359,10 +357,12 @@ export function getPluginSkippedSyncFiles(): string[] {
  * like this one.
  */
 export async function writeFilteredSettings(): Promise<void> {
-  try {
-    const bundle = filterOutgoing(buildUserDataBundle());
-    await invoke("settings_save", { state: JSON.stringify(bundle) });
-  } catch {}
+  // Not swallowed: backup_export reads settings.json from disk regardless of
+  // this call's outcome, so a hidden failure here would upload the
+  // pre-toggle, unfiltered file. A failed sync round is strictly better than
+  // uploading held-back data — let this throw and abort the round.
+  const bundle = filterOutgoing(buildUserDataBundle());
+  await invoke("settings_save", { state: JSON.stringify(bundle) });
 }
 
 /** Export local data and upload to server. */

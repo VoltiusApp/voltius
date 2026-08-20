@@ -101,7 +101,8 @@
         "applyDefault": "应用",
         "resultApplied_one": "已应用 {{count}} 个设置：{{list}}。",
         "resultApplied_other": "已应用 {{count}} 个设置：{{list}}。",
-        "resultError": "错误：{{error}}"
+        "resultError": "错误：{{error}}",
+        "themesReplaceWarning": "将替换此设备上的自定义主题。"
       },
       "handlers": {
         "themes": { "label": "主题" },

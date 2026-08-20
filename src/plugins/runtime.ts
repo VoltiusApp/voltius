@@ -32,6 +32,7 @@ import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
 import type {
   UISlot,
@@ -2428,7 +2429,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           }
         }
 
-        if (bestThemeRaw) {
+        // Inbound half of what getPluginSkippedSyncFiles enforces outbound: a
+        // device that opted themes out of sync must not have them overwritten
+        // by an incoming blob either.
+        if (bestThemeRaw && useSyncPrefsStore.getState().isDomainSynced("themes")) {
           try {
             const localRaw = await invoke<string | null>("theme_load");
             let apply = true;

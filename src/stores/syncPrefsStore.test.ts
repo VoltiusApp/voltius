@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach } from "vitest";
 import { useSyncPrefsStore, SYNC_SETTING_DOMAINS } from "./syncPrefsStore";
+import { USER_DATA_HANDLERS } from "@/services/user-data/registry";
 
 describe("settings domain toggles", () => {
   beforeEach(() => useSyncPrefsStore.setState({ syncSettingDomains: {} }));
@@ -23,5 +24,11 @@ describe("settings domain toggles", () => {
   test("vaults always syncs, even if a stale value says otherwise", () => {
     useSyncPrefsStore.setState({ syncSettingDomains: { vaults: false } });
     expect(useSyncPrefsStore.getState().isDomainSynced("vaults")).toBe(true);
+  });
+
+  test("every handler has a sync toggle, or is the vaults exception", () => {
+    const handlerKeys = new Set(USER_DATA_HANDLERS.map((h) => h.key));
+    const togglableKeys = new Set([...SYNC_SETTING_DOMAINS.map((d) => d.id), "vaults"]);
+    expect(togglableKeys).toEqual(handlerKeys);
   });
 });

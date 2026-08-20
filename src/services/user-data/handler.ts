@@ -6,7 +6,8 @@ export interface UserDataHandler {
   readonly label: string;
   readonly icon: string;
 
-  // Read current state from stores.
+  // Read current state from stores. Must be side-effect free: mergeUserDataBundle
+  // calls this on the absent-section path, outside of any explicit export flow.
   export(): unknown;
 
   // Write exported state to stores.

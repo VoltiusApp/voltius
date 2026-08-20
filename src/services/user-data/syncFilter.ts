@@ -1,6 +1,10 @@
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import type { UserDataBundle, UserDataSection } from "./formats";
 
+// filterOutgoing and filterIncoming both delegate here and are identical
+// today. Kept as two functions because a follow-up PR gives them different
+// per-key behaviour: outgoing must delete held-back paths from the server
+// blob, incoming must not.
 function keepSyncedSections(bundle: UserDataBundle): UserDataBundle {
   const { isDomainSynced } = useSyncPrefsStore.getState();
   const sections: Record<string, UserDataSection> = {};

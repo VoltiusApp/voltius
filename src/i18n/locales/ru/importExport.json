@@ -129,7 +129,8 @@
         "resultApplied_few": "Применено {{count}} настройки: {{list}}.",
         "resultApplied_many": "Применено {{count}} настроек: {{list}}.",
         "resultApplied_other": "Применено {{count}} настроек: {{list}}.",
-        "resultError": "Ошибка: {{error}}"
+        "resultError": "Ошибка: {{error}}",
+        "themesReplaceWarning": "Заменит пользовательские темы этого устройства."
       },
       "handlers": {
         "themes": { "label": "Темы" },

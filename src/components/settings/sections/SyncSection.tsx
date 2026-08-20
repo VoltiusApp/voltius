@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "@/components/shared/Toggle";
-import { getSyncState, onSyncStateChange, syncNow } from "@/services/sync";
+import { getSyncState, onSyncStateChange, scheduleSync, syncNow } from "@/services/sync";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/stores/syncPrefsStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -153,6 +153,9 @@ export default function SyncSection() {
                 // Publishing on re-enable, so a value curated here while sync was
                 // off is not silently lost to the other device's newer timestamp.
                 if (v) USER_DATA_HANDLERS.find((h) => h.key === id)?.touch();
+                // On disable, the section already on the server must be withdrawn
+                // from that blob now, not merely left out of future ones.
+                else scheduleSync();
               }}
             />
           ))}
