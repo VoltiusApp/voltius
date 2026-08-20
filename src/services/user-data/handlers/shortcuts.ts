@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
 import { useShortcutStore } from "@/stores/shortcutStore";
+import { pushSettingsChange, settingsStamp } from "@/stores/remoteApplyGuard";
 import { lastWriteWins, type UserDataHandler } from "../handler";
 
 interface ShortcutOverride {
@@ -31,6 +32,11 @@ export const shortcutsHandler: UserDataHandler = {
 
   getTimestamp(): string {
     return useShortcutStore.getState().shortcutsUpdatedAt;
+  },
+
+  touch(): void {
+    useShortcutStore.setState({ shortcutsUpdatedAt: settingsStamp() });
+    pushSettingsChange();
   },
 
   describe(): string {

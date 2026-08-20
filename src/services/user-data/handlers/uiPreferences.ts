@@ -1,6 +1,7 @@
 import i18n from "@/i18n";
 import { useUIStore } from "@/stores/uiStore";
 import type { LayoutMode, SortMode } from "@/stores/uiStore";
+import { pushSettingsChange, settingsStamp } from "@/stores/remoteApplyGuard";
 import { lastWriteWins, type UserDataHandler } from "../handler";
 
 interface UIPrefsData {
@@ -47,6 +48,11 @@ export const uiPreferencesHandler: UserDataHandler = {
 
   getTimestamp(): string {
     return useUIStore.getState().prefsUpdatedAt;
+  },
+
+  touch(): void {
+    useUIStore.setState({ prefsUpdatedAt: settingsStamp() });
+    pushSettingsChange();
   },
 
   describe(): string {

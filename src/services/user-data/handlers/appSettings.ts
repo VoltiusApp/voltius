@@ -76,6 +76,10 @@ export const appSettingsHandler: UserDataHandler = {
     return useAppSettingsTimestampStore.getState().updatedAt;
   },
 
+  touch(): void {
+    useAppSettingsTimestampStore.getState().touch();
+  },
+
   describe(): string {
     const { preferredShell } = useTerminalSettingsStore.getState();
     return preferredShell

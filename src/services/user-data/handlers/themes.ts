@@ -62,6 +62,10 @@ export const themesHandler: UserDataHandler = {
     return useThemeStore.getState().updatedAt;
   },
 
+  touch(): void {
+    useThemeStore.getState().persist();
+  },
+
   describe(): string {
     const { customThemes } = useThemeStore.getState();
     return i18n.t("importExport.userData.describe.themes", { count: customThemes.length });
