@@ -111,6 +111,7 @@
       "savedAccountCloud": "云",
       "savedAccountLocal": "本地",
       "switchFailed": "切换账户失败：{{error}}",
+      "saveFailed": "无法将此账户保存到切换器：{{error}}",
       "leaveLocalTitle": "离开此本地账户？",
       "leaveLocalMessage": "此账户的主机、密钥和代码片段仅存储在本机。切换到 {{account}} 将永久删除它们。",
       "leaveLocalConfirm": "删除并切换",

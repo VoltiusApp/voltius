@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
   clearPersistedAccountUiState,
-  restorePersistedAccountUiState,
-  snapshotPersistedAccountUiState,
+  dropAccountUiState,
+  parkAccountUiState,
+  restoreAccountUiState,
+  writeParkedUiState,
   type PersistedAccountUiState,
 } from "@/stores/persistedAccountUiState";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
@@ -28,13 +30,10 @@ export type SavedAccount = Record<SessionKey, string | null> & {
   account_id: string;
   mode: string;
   master_password: string;
-  /**
-   * The account's persisted UI state, captured when it was last switched away
-   * from. The vault list lives only in localStorage, so without this a switch
-   * back would leave every host filed under a user-created vault invisible.
-   */
-  ui_state?: PersistedAccountUiState;
 };
+
+/** Pre-0.29 shape: every account, and its UI state, inside one keychain value. */
+type LegacySavedAccount = SavedAccount & { ui_state?: PersistedAccountUiState };
 
 async function keychainGet(key: string): Promise<string | null> {
   return invoke<string | null>("keychain_get", { key });
@@ -46,7 +45,18 @@ async function keychainDelete(key: string): Promise<void> {
   return invoke("keychain_delete", { key });
 }
 
-const SAVED_ACCOUNTS_KEY = "voltius.saved_accounts";
+/**
+ * The switcher is one keychain entry per account plus an index of their ids,
+ * because keychains cap the size of a single value and the app has no way to
+ * see that coming: Windows Credential Manager refuses a blob over 2560 bytes
+ * once UTF-16 encoded, which two accounts' tokens exceed on their own. Held in
+ * one value, saving the second account failed, the failure was swallowed, and
+ * the account silently never joined the switcher.
+ */
+const INDEX_KEY = "voltius.saved_accounts";
+const ENTRY_PREFIX = "voltius.saved_account.";
+
+const entryKey = (account_id: string) => `${ENTRY_PREFIX}${account_id}`;
 
 /**
  * Only cloud accounts are switchable. Switching wipes the config dir and
@@ -57,23 +67,95 @@ function isSwitchable(account: SavedAccount): boolean {
   return account.mode === "server";
 }
 
-export async function getSavedAccounts(): Promise<SavedAccount[]> {
+function parseEntry(raw: string | null): SavedAccount | null {
+  if (!raw) return null;
   try {
-    const raw = await keychainGet(SAVED_ACCOUNTS_KEY);
-    if (!raw) return [];
-    // Filter on read too: installs from before the cloud-only rule may hold a
-    // local entry, and it must not surface as a switch target.
-    return (JSON.parse(raw) as SavedAccount[]).filter(isSwitchable);
+    const entry = JSON.parse(raw) as SavedAccount;
+    return entry?.account_id && isSwitchable(entry) ? entry : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
-async function setSavedAccounts(accounts: SavedAccount[]): Promise<void> {
-  await keychainSet(SAVED_ACCOUNTS_KEY, JSON.stringify(accounts));
+/**
+ * Read the switcher.
+ *
+ * `ok` is false only when the keychain itself failed, and it is what keeps a
+ * bad read from becoming a bad write: an unreadable list must never be treated
+ * as an empty one, or the next save persists that emptiness over real accounts.
+ */
+async function loadSavedAccounts(): Promise<{ ok: boolean; accounts: SavedAccount[] }> {
+  let raw: string | null;
+  try {
+    raw = await keychainGet(INDEX_KEY);
+  } catch {
+    return { ok: false, accounts: [] };
+  }
+  if (!raw) return { ok: true, accounts: [] };
+
+  let index: unknown;
+  try {
+    index = JSON.parse(raw);
+  } catch {
+    return { ok: true, accounts: [] }; // corrupt beyond repair — safe to replace
+  }
+  if (!Array.isArray(index)) return { ok: true, accounts: [] };
+
+  if (index.some((entry) => entry !== null && typeof entry === "object")) {
+    return migrateLegacyList(index as LegacySavedAccount[]);
+  }
+
+  const accounts: SavedAccount[] = [];
+  for (const id of index) {
+    if (typeof id !== "string") continue;
+    let entry: string | null;
+    try {
+      entry = await keychainGet(entryKey(id));
+    } catch {
+      return { ok: false, accounts: [] };
+    }
+    const parsed = parseEntry(entry);
+    if (parsed) accounts.push(parsed);
+  }
+  return { ok: true, accounts };
 }
 
-/** Snapshot current active account and upsert it into the saved list. */
+/**
+ * Split a pre-0.29 single-value list into one entry per account, moving any
+ * parked UI state out of the keychain. Leaves the old value untouched if a
+ * write fails, so a keychain that refuses the migration today can still serve
+ * the accounts it already holds and retry on the next read.
+ */
+async function migrateLegacyList(
+  legacy: LegacySavedAccount[],
+): Promise<{ ok: boolean; accounts: SavedAccount[] }> {
+  const accounts: SavedAccount[] = [];
+  for (const { ui_state, ...entry } of legacy) {
+    if (!entry?.account_id || !isSwitchable(entry)) continue;
+    if (ui_state) writeParkedUiState(entry.account_id, ui_state);
+    accounts.push(entry);
+  }
+  try {
+    for (const entry of accounts) {
+      await keychainSet(entryKey(entry.account_id), JSON.stringify(entry));
+    }
+    await keychainSet(INDEX_KEY, JSON.stringify(accounts.map((a) => a.account_id)));
+  } catch {
+    return { ok: false, accounts };
+  }
+  return { ok: true, accounts };
+}
+
+export async function getSavedAccounts(): Promise<SavedAccount[]> {
+  return (await loadSavedAccounts()).accounts;
+}
+
+/**
+ * Snapshot the active account and upsert it into the switcher.
+ *
+ * Rejects when the keychain does — the caller decides whether that is worth
+ * telling the user about. Swallowing it here is what hid the size cap.
+ */
 export async function saveCurrentAccount(): Promise<void> {
   const values = await Promise.all(SESSION_KEYS.map((key) => keychainGet(key)));
   const session = Object.fromEntries(
@@ -89,33 +171,48 @@ export async function saveCurrentAccount(): Promise<void> {
   await upsertSavedAccount(entry);
 }
 
-/** Merge an entry into the saved list, keeping fields the caller did not supply. */
+/** Merge an entry into the switcher, keeping fields the caller did not supply. */
 async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
-  const existing = await getSavedAccounts();
-  const idx = existing.findIndex((a) => a.account_id === entry.account_id);
-  if (idx >= 0) {
-    existing[idx] = { ...existing[idx], ...entry };
-  } else {
-    existing.push(entry);
-  }
-  await setSavedAccounts(existing);
+  const { ok, accounts } = await loadSavedAccounts();
+  if (!ok) throw new Error("Saved accounts could not be read");
+
+  const existing = accounts.find((a) => a.account_id === entry.account_id);
+  await keychainSet(entryKey(entry.account_id), JSON.stringify({ ...existing, ...entry }));
+  if (existing) return;
+  await keychainSet(
+    INDEX_KEY,
+    JSON.stringify([...accounts.map((a) => a.account_id), entry.account_id]),
+  );
 }
 
 /**
- * Park the outgoing account's persisted UI state on its saved entry, so that
- * switching back restores the vaults and teams it was last showing.
+ * Park the outgoing account's persisted UI state, so that switching back
+ * restores the vaults and teams it was last showing.
+ *
+ * It stays in localStorage, where it already lives while the account is signed
+ * in: it runs to kilobytes — workspace snapshot, command history, snippet
+ * variables — which is far past what a keychain value holds.
  */
 async function stashUiStateForCurrentAccount(): Promise<void> {
   const account_id = await keychainGet("account_id");
   if (!account_id) return;
-  const current = (await getSavedAccounts()).find((a) => a.account_id === account_id);
-  if (!current) return;
-  await upsertSavedAccount({ ...current, ui_state: snapshotPersistedAccountUiState() });
+  const { accounts } = await loadSavedAccounts();
+  if (!accounts.some((a) => a.account_id === account_id)) return;
+  parkAccountUiState(account_id);
 }
 
 export async function removeSavedAccount(account_id: string): Promise<void> {
-  const existing = await getSavedAccounts();
-  await setSavedAccounts(existing.filter((a) => a.account_id !== account_id));
+  const { ok, accounts } = await loadSavedAccounts();
+  // Index first: a failed entry delete then leaves a dangling id, which reads
+  // skip, rather than an account the switcher still offers.
+  if (ok) {
+    await keychainSet(
+      INDEX_KEY,
+      JSON.stringify(accounts.map((a) => a.account_id).filter((id) => id !== account_id)),
+    );
+  }
+  await keychainDelete(entryKey(account_id)).catch(() => {});
+  dropAccountUiState(account_id);
 }
 
 /**
@@ -165,7 +262,7 @@ export async function switchToAccount(account: SavedAccount): Promise<void> {
     const value = account[key];
     if (value) await keychainSet(key, value);
   }
-  restorePersistedAccountUiState(account.ui_state);
+  restoreAccountUiState(account.account_id);
   window.location.reload();
 }
 

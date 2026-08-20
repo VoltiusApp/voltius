@@ -73,10 +73,25 @@ export function SidebarAccountButton() {
       const rect = buttonRef.current.getBoundingClientRect();
       setPos({ bottom: window.innerHeight - rect.bottom, left: rect.right + 8 });
     }
-    await Promise.all([refreshAccountInfo(), saveCurrentAccount().catch(() => {})]);
+    await Promise.all([
+      refreshAccountInfo(),
+      // A keychain that refuses this write is exactly how an account goes
+      // missing from the switcher, so it is said out loud rather than swallowed.
+      saveCurrentAccount().catch((e) => reportAccountError("saveFailed", e)),
+    ]);
     const accounts = await getSavedAccounts().catch(() => [] as SavedAccount[]);
     setSavedAccounts(accounts);
     setOpen(true);
+  };
+
+  const reportAccountError = (key: "switchFailed" | "saveFailed", e: unknown) => {
+    useNotificationStore.getState().addToast({
+      source: { kind: "plugin", id: "system", name: "Voltius" },
+      type: "toast",
+      message: t(`layout.sidebarAccount.${key}`, { error: e instanceof Error ? e.message : String(e) }),
+      severity: "error",
+      duration: 8000,
+    });
   };
 
   const handleLockVault = async () => {
@@ -93,7 +108,13 @@ export function SidebarAccountButton() {
 
   const handleAddAccount = async () => {
     setOpen(false);
-    await signOutToAddAccount();
+    try {
+      await signOutToAddAccount();
+    } catch (e) {
+      // It signs this account out to reach the auth screen, so it must not run
+      // when the switcher could not keep it: that is a one-way trip out.
+      reportAccountError("saveFailed", e);
+    }
   };
 
   const handleSwitchAccount = async (account: SavedAccount) => {
@@ -103,13 +124,7 @@ export function SidebarAccountButton() {
     } catch (e) {
       // The switch tears the session down before it rebuilds it; a silent
       // rejection would leave the user staring at an unchanged window.
-      useNotificationStore.getState().addToast({
-        source: { kind: "plugin", id: "system", name: "Voltius" },
-        type: "toast",
-        message: t("layout.sidebarAccount.switchFailed", { error: e instanceof Error ? e.message : String(e) }),
-        severity: "error",
-        duration: 8000,
-      });
+      reportAccountError("switchFailed", e);
     }
   };
 
