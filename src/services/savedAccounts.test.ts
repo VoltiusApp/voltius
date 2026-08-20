@@ -7,10 +7,15 @@ const h = vi.hoisted(() => ({
   push: vi.fn(async () => undefined),
   stopRealtimeSync: vi.fn(),
   clearPersistedAccountUiState: vi.fn(),
-  snapshotPersistedAccountUiState: vi.fn(() => ({ "voltius-vaults": "VAULTS_OF_CURRENT" })),
-  restorePersistedAccountUiState: vi.fn(),
+  parkAccountUiState: vi.fn(),
+  restoreAccountUiState: vi.fn(),
+  writeParkedUiState: vi.fn(),
+  dropAccountUiState: vi.fn(),
   reload: vi.fn(),
   store: {} as Record<string, string>,
+  /** UTF-16 bytes a single keychain value may hold; 0 for an unbounded one. */
+  valueCap: 0,
+  readFails: false,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -18,14 +23,24 @@ vi.mock("./vault", () => ({ lockVault: h.lockVault, wipeLocalConfig: h.wipeLocal
 vi.mock("@/services/sync", () => ({ push: h.push, stopRealtimeSync: h.stopRealtimeSync }));
 vi.mock("@/stores/persistedAccountUiState", () => ({
   clearPersistedAccountUiState: h.clearPersistedAccountUiState,
-  snapshotPersistedAccountUiState: h.snapshotPersistedAccountUiState,
-  restorePersistedAccountUiState: h.restorePersistedAccountUiState,
+  parkAccountUiState: h.parkAccountUiState,
+  restoreAccountUiState: h.restoreAccountUiState,
+  writeParkedUiState: h.writeParkedUiState,
+  dropAccountUiState: h.dropAccountUiState,
 }));
 
 import { getSavedAccounts, saveCurrentAccount, removeSavedAccount, signOutToAddAccount, switchToAccount, type SavedAccount } from "./savedAccounts";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 
-const LIST_KEY = "voltius.saved_accounts";
+const INDEX_KEY = "voltius.saved_accounts";
+const entryKey = (id: string) => `voltius.saved_account.${id}`;
+
+/**
+ * Windows Credential Manager's ceiling: CRED_MAX_CREDENTIAL_BLOB_SIZE, checked
+ * after the value is encoded as UTF-16, so 2560 bytes is 1280 ASCII characters.
+ * The switcher held every account in one value and blew straight through it.
+ */
+const WINDOWS_BLOB_CAP = 2560;
 
 /** Values are composed rather than written inline so secret scanners stay quiet. */
 const fake = (kind: string, id: string) => [kind, "for", id].join("-");
@@ -48,10 +63,19 @@ const CLOUD_B = cloudAccount("b");
 beforeEach(() => {
   vi.clearAllMocks();
   h.store = {};
+  h.valueCap = 0;
+  h.readFails = false;
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
     switch (cmd) {
-      case "keychain_get": return h.store[args.key as string] ?? null;
-      case "keychain_set": h.store[args.key as string] = args.value as string; return undefined;
+      case "keychain_get":
+        if (h.readFails) throw new Error("Keychain read error");
+        return h.store[args.key as string] ?? null;
+      case "keychain_set": {
+        const value = args.value as string;
+        if (h.valueCap && value.length * 2 > h.valueCap) throw new Error("Keychain write error: too long");
+        h.store[args.key as string] = value;
+        return undefined;
+      }
       case "keychain_delete": delete h.store[args.key as string]; return undefined;
       default: throw new Error(`unexpected command ${cmd}`);
     }
@@ -62,6 +86,12 @@ beforeEach(() => {
 
 function activate(account: SavedAccount) {
   for (const [key, value] of Object.entries(account)) h.store[key] = value as string;
+}
+
+/** Seed the switcher in its stored shape: an index of ids, one entry each. */
+function seed(...accounts: SavedAccount[]) {
+  h.store[INDEX_KEY] = JSON.stringify(accounts.map((a) => a.account_id));
+  for (const account of accounts) h.store[entryKey(account.account_id)] = JSON.stringify(account);
 }
 
 test("saveCurrentAccount snapshots the active session and upserts by account_id", async () => {
@@ -93,19 +123,21 @@ test("a local account is never saved or listed — switching would wipe its only
   expect(await getSavedAccounts()).toEqual([]);
 
   // Entries written by an install from before the rule are filtered on read.
-  h.store[LIST_KEY] = JSON.stringify([{ ...CLOUD_A, mode: "local" }, CLOUD_B]);
+  seed({ ...CLOUD_A, mode: "local" }, CLOUD_B);
   expect((await getSavedAccounts()).map((a) => a.account_id)).toEqual(["b"]);
 });
 
 test("getSavedAccounts survives a corrupt list", async () => {
-  h.store[LIST_KEY] = "{not json";
+  h.store[INDEX_KEY] = "{not json";
   expect(await getSavedAccounts()).toEqual([]);
 });
 
-test("removeSavedAccount drops only the named account", async () => {
-  h.store[LIST_KEY] = JSON.stringify([CLOUD_A, CLOUD_B]);
+test("removeSavedAccount drops the account, its entry and its parked state", async () => {
+  seed(CLOUD_A, CLOUD_B);
   await removeSavedAccount("a");
   expect((await getSavedAccounts()).map((a) => a.account_id)).toEqual(["b"]);
+  expect(h.store[entryKey("a")]).toBeUndefined();
+  expect(h.dropAccountUiState).toHaveBeenCalledWith("a");
 });
 
 test("switchToAccount clears every account-scoped key before writing the target's", async () => {
@@ -113,7 +145,7 @@ test("switchToAccount clears every account-scoped key before writing the target'
   // Keys the previous account cached that are not part of the session snapshot.
   h.store.handle = "alice";
   h.store.wrapped_user_secrets = "WRAPPED_A";
-  h.store[LIST_KEY] = JSON.stringify([CLOUD_A, CLOUD_B]);
+  seed(CLOUD_A, CLOUD_B);
 
   await switchToAccount(CLOUD_B);
 
@@ -135,32 +167,26 @@ test("switchToAccount deletes session keys the target leaves empty", async () =>
 
 test("switchToAccount parks the outgoing UI state and restores the incoming one", async () => {
   activate(CLOUD_A);
-  const bWithState = { ...CLOUD_B, ui_state: { "voltius-vaults": "VAULTS_OF_B" } };
-  h.store[LIST_KEY] = JSON.stringify([CLOUD_A, bWithState]);
+  seed(CLOUD_A, CLOUD_B);
 
-  await switchToAccount(bWithState);
+  await switchToAccount(CLOUD_B);
 
-  const parked = (await getSavedAccounts()).find((a) => a.account_id === "a");
-  expect(parked?.ui_state).toEqual({ "voltius-vaults": "VAULTS_OF_CURRENT" });
+  expect(h.parkAccountUiState).toHaveBeenCalledWith("a");
   expect(h.clearPersistedAccountUiState).toHaveBeenCalled();
-  expect(h.restorePersistedAccountUiState).toHaveBeenCalledWith({ "voltius-vaults": "VAULTS_OF_B" });
+  expect(h.restoreAccountUiState).toHaveBeenCalledWith("b");
 });
 
 test("parking the outgoing UI state keeps the rest of its saved entry", async () => {
   activate(CLOUD_A);
-  h.store[LIST_KEY] = JSON.stringify([CLOUD_A, CLOUD_B]);
+  seed(CLOUD_A, CLOUD_B);
   await switchToAccount(CLOUD_B);
   expect((await getSavedAccounts()).find((a) => a.account_id === "a")).toMatchObject(CLOUD_A);
 });
 
-test("saveCurrentAccount keeps the UI state already parked on the entry", async () => {
-  activate(CLOUD_A);
-  h.store[LIST_KEY] = JSON.stringify([{ ...CLOUD_A, ui_state: { "voltius-vaults": "PARKED" } }]);
-  h.store.jwt = fake("jwt", "a3");
-  await saveCurrentAccount();
-  const saved = (await getSavedAccounts())[0];
-  expect(saved.ui_state).toEqual({ "voltius-vaults": "PARKED" });
-  expect(saved.jwt).toBe(fake("jwt", "a3"));
+test("only an account the switcher already holds gets its UI state parked", async () => {
+  activate(CLOUD_A); // signed in, never saved — parking it would strand its state
+  await switchToAccount(CLOUD_B);
+  expect(h.parkAccountUiState).not.toHaveBeenCalled();
 });
 
 test("switchToAccount tears the old session down before reloading", async () => {
@@ -197,6 +223,73 @@ test("adding another account keeps the current one in the switcher", async () =>
 test("adding another account parks the outgoing account's UI state", async () => {
   activate(CLOUD_A);
   await signOutToAddAccount();
-  const parked = (await getSavedAccounts()).find((a) => a.account_id === "a");
-  expect(parked?.ui_state).toEqual({ "voltius-vaults": "VAULTS_OF_CURRENT" });
+  expect(h.parkAccountUiState).toHaveBeenCalledWith("a");
+});
+
+/**
+ * The bug this layout exists for. Real tokens are ~350 characters each, so two
+ * accounts in one keychain value ran to ~3.8 KB UTF-16 — past the cap, and the
+ * write failed silently, leaving the second account out of the switcher for good.
+ */
+function realisticAccount(id: string): SavedAccount {
+  const token = (kind: string) => `${fake(kind, id)}.${"t".repeat(340)}`;
+  return { ...cloudAccount(id), jwt: token("jwt"), refresh_token: token("refresh") };
+}
+
+const utf16Bytes = (value: string) => value.length * 2;
+
+test("a second account survives a keychain that caps one value at the Windows blob size", async () => {
+  h.valueCap = WINDOWS_BLOB_CAP;
+
+  activate(realisticAccount("a"));
+  await saveCurrentAccount();
+  activate(realisticAccount("b"));
+  await saveCurrentAccount();
+
+  expect((await getSavedAccounts()).map((a) => a.account_id)).toEqual(["a", "b"]);
+  for (const [key, value] of Object.entries(h.store)) {
+    expect(utf16Bytes(value), `${key} would be refused by the keychain`).toBeLessThanOrEqual(WINDOWS_BLOB_CAP);
+  }
+});
+
+test("one account's entry leaves room under the Windows cap", async () => {
+  activate(realisticAccount("a"));
+  await saveCurrentAccount();
+  // Headroom for a few more claims in the JWT before the cap bites again.
+  expect(utf16Bytes(h.store[entryKey("a")])).toBeLessThan(WINDOWS_BLOB_CAP * 0.8);
+});
+
+test("a keychain that cannot be read is never overwritten with an empty switcher", async () => {
+  seed(CLOUD_A, CLOUD_B);
+  activate(CLOUD_A);
+  const before = { ...h.store };
+  h.readFails = true;
+
+  await expect(saveCurrentAccount()).rejects.toThrow();
+
+  h.readFails = false;
+  expect(h.store).toEqual(before);
+  expect((await getSavedAccounts()).map((a) => a.account_id)).toEqual(["a", "b"]);
+});
+
+test("a pre-0.29 single-value list migrates to one entry per account", async () => {
+  h.store[INDEX_KEY] = JSON.stringify([
+    { ...CLOUD_A, ui_state: { "voltius-vaults": "VAULTS_OF_A" } },
+    CLOUD_B,
+  ]);
+
+  expect(await getSavedAccounts()).toEqual([CLOUD_A, CLOUD_B]);
+  expect(JSON.parse(h.store[INDEX_KEY])).toEqual(["a", "b"]);
+  expect(JSON.parse(h.store[entryKey("a")])).toEqual(CLOUD_A);
+  // The UI state that used to ride along leaves the keychain for localStorage.
+  expect(h.writeParkedUiState).toHaveBeenCalledWith("a", { "voltius-vaults": "VAULTS_OF_A" });
+});
+
+test("a migration the keychain refuses leaves the old list readable", async () => {
+  const legacy = JSON.stringify([CLOUD_A, CLOUD_B]);
+  h.store[INDEX_KEY] = legacy;
+  h.valueCap = 20;
+
+  expect((await getSavedAccounts()).map((a) => a.account_id)).toEqual(["a", "b"]);
+  expect(h.store[INDEX_KEY]).toBe(legacy);
 });

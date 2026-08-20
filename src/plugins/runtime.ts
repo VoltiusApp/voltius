@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { closePfTunnel, getPfState, openPfTunnel } from "@/services/portForwardingTunnels";
+import { whenLoginSyncSettled } from "@/services/loginSyncGate";
 import { resolvePort } from "@/plugins/domains/ports";
 import { runSnippetSequence, previewSnippetSequence } from "@/services/snippetSequence";
 import type { RunTarget } from "@/services/sftpTarget";
@@ -147,22 +148,6 @@ const _exposedApis = new Map<string, unknown>();
 // Per-plugin SFTP/FTP handles, so unloading a plugin closes the connections it
 // opened. Without this a disabled plugin's sockets outlive it silently.
 const _sftpDisposers = new Map<string, () => void>();
-
-// ─── Login-sync readiness gate ────────────────────────────────────────────
-// Resolves immediately for local/offline users; SplashScreen holds it pending
-// while syncOnLogin / syncOnLoginReplace runs so plugins don't race the merge.
-
-let _loginSyncResolve: (() => void) | null = null;
-let _loginSyncReady: Promise<void> = Promise.resolve();
-
-export function setLoginSyncPending(): void {
-  _loginSyncReady = new Promise<void>((resolve) => { _loginSyncResolve = resolve; });
-}
-
-export function resolveLoginSync(): void {
-  _loginSyncResolve?.();
-  _loginSyncResolve = null;
-}
 
 // ─── Per-plugin settings-change listeners ─────────────────────────────────
 
@@ -2311,7 +2296,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         _onBeforeQuit.add(cb);
         return () => _onBeforeQuit.delete(cb);
       },
-      waitForLoginSync: () => _loginSyncReady,
+      waitForLoginSync: whenLoginSyncSettled,
     },
 
     sync: {

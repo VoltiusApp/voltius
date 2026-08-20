@@ -794,6 +794,7 @@
       },
       "install": {
         "integrityFailed": "L'intégrité du module a échoué — installation bloquée.",
+        "alreadyInstalling": "Ce module est déjà en cours d'installation — voir Paramètres › Modules.",
         "failed": "Échec de l'installation du module.",
         "versionUnsupported": "Ce module nécessite la version {{version}} ou supérieure de l'application."
       },

@@ -65,11 +65,19 @@ export interface PluginInstallLoad {
   sourceName: string;
 }
 
+export interface SnippetInstallLoad {
+  entry: CatalogEntry;
+  /** Resolved with the entry, not again at accept: the vault the sheet names is
+   *  then provably the vault written to, however the selection moves while the
+   *  sheet is open. */
+  vault: { id: string; name: string };
+}
+
 /** What each route's `load` produces. `void` for a route with nothing to fetch. */
 export interface ConfirmLoad {
   join: void;
   invite: InviteLoad;
-  "snippet-install": CatalogEntry;
+  "snippet-install": SnippetInstallLoad;
   "plugin-install": PluginInstallLoad;
 }
 
@@ -82,11 +90,6 @@ function shareableSessionId(): string | null {
   const id = useSessionStore.getState().activeSessionId;
   if (!id) return null;
   return useTeamSessionStore.getState().connections[id]?.sessionKeyBytes ? id : null;
-}
-
-/** The vault an install lands in — read directly since the spec is not a component. */
-function installTargetVault(): { id: string; name: string } {
-  return resolveInstallVault(useVaultStore.getState());
 }
 
 export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]> } = {
@@ -149,7 +152,10 @@ export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]
       // Rejecting here is what leaves accept dead: a sheet that cannot name what
       // it would install must never be acceptable.
       if (!entry) throw new Error("snippet catalogue entry not found");
-      return entry;
+      // Read here rather than in `details` and again in `accept` — the store is
+      // read directly since the spec is not a component, so two reads are two
+      // answers whenever the selection moves while the sheet is open.
+      return { entry, vault: resolveInstallVault(useVaultStore.getState()) };
     },
     details: (_intent, loaded, t) => ({
       title: t("snippets.deepLinkInstall.title"),
@@ -158,22 +164,22 @@ export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]
         ? // Named on purpose: the install lands in whichever vault is selected, and a
           // link the user did not author should not quietly write into one they were
           // not thinking about.
-          t("snippets.deepLinkInstall.destination", { vault: installTargetVault().name })
+          t("snippets.deepLinkInstall.destination", { vault: loaded.vault.name })
         : undefined,
     }),
     extra: (loaded, t) =>
       loaded ? (
         <p className="text-sm text-(--t-text-bright)">
           {t("snippets.deepLinkInstall.summary", {
-            name: loaded.name,
-            author: loaded.author ?? t("snippets.deepLinkInstall.unknownAuthor"),
-            count: loaded.snippets.length,
+            name: loaded.entry.name,
+            author: loaded.entry.author ?? t("snippets.deepLinkInstall.unknownAuthor"),
+            count: loaded.entry.snippets.length,
           })}
         </p>
       ) : null,
     accept: async (_intent, loaded) => {
       if (!loaded) return;
-      await installCatalogEntries([{ entry: loaded }], installTargetVault().id);
+      await installCatalogEntries([{ entry: loaded.entry }], loaded.vault.id);
     },
   },
   "plugin-install": {

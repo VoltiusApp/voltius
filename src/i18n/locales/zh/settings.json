@@ -614,6 +614,7 @@
       },
       "install": {
         "integrityFailed": "插件包未通过完整性校验——已阻止安装。",
+        "alreadyInstalling": "该插件正在安装中——请查看“设置 › 插件”。",
         "failed": "安装插件失败。",
         "versionUnsupported": "此插件需要应用版本 {{version}} 或更高版本。"
       },

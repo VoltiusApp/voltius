@@ -31,8 +31,12 @@ vi.mock("@/services/snippetCatalogInstall", () => ({
   installCatalogEntries: (...args: unknown[]) => installEntriesMock(...args),
 }));
 
+let vaultState = {
+  selectedVaultIds: ["team-a"],
+  vaults: [{ id: "team-a", name: "Ops" }, { id: "team-b", name: "Staging" }],
+};
 vi.mock("@/stores/vaultStore", () => ({
-  useVaultStore: { getState: () => ({ selectedVaultIds: ["team-a"], vaults: [{ id: "team-a", name: "Ops" }] }) },
+  useVaultStore: { getState: () => vaultState },
 }));
 
 const joinMock = vi.fn(async (..._args: unknown[]) => "local-1");
@@ -85,6 +89,10 @@ beforeEach(() => {
   teamConnections = {};
   activeLocalSessionId = null;
   snippetEntries = [];
+  vaultState = {
+    selectedVaultIds: ["team-a"],
+    vaults: [{ id: "team-a", name: "Ops" }, { id: "team-b", name: "Staging" }],
+  };
   fetchSnippetCatalogMock.mockClear();
   installEntriesMock.mockClear().mockResolvedValue({ imported: 1, errors: 0 });
   marketplaceSources = [];
@@ -234,6 +242,21 @@ test("a snippet-install sheet names the entry and its destination vault before i
       "team-a",
     ),
   );
+});
+
+test("a snippet-install writes to the vault the sheet disclosed, not the one selected at accept", async () => {
+  snippetEntries = [{ id: "docker-cleanup", kind: "pack", name: "Docker cleanup", author: "kevin", snippets: [{}] }];
+  useDeepLinkStore.setState({ prompt: { route: "snippet-install", entryId: "docker-cleanup" } });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("snippets.deepLinkInstall.destination")).toBeTruthy());
+
+  // The sheet named "Ops" while it was open; selecting another vault behind it
+  // must not silently redirect the write it disclosed.
+  vaultState = { ...vaultState, selectedVaultIds: ["team-b"] };
+  await userEvent.click(screen.getByText("snippets.deepLinkInstall.action"));
+
+  await waitFor(() => expect(installEntriesMock).toHaveBeenCalled());
+  expect(installEntriesMock.mock.calls[0][1]).toBe("team-a");
 });
 
 test("a snippet-install link naming an entry the catalogue does not list cannot be accepted", async () => {

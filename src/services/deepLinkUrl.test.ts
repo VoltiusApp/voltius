@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { intentKey, isConfirmIntent, isNavigateIntent, isSilentIntent, parseDeepLink, buildDeepLink, DEFAULT_PLUGIN_SOURCE_ID } from "./deepLinkUrl";
+import { intentKey, isAttenuatedIntent, isConfirmIntent, isNavigateIntent, isUnpromptedIntent, parseDeepLink, buildDeepLink, DEFAULT_PLUGIN_SOURCE_ID, type SilentIntent } from "./deepLinkUrl";
 
 const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
 const TOKEN = "deadbeefdeadbeefdeadbeefdeadbeef";
@@ -76,9 +76,19 @@ test("intent keys match for the same link parsed twice", () => {
   expect(intentKey(a)).toBe(intentKey(b));
 });
 
-test("join is a confirm route and verified is a silent one", () => {
+test("join is a confirm route and verified is an attenuated one", () => {
+  const verified = parseDeepLink(`voltius://verified?u=${USER}`)!;
   expect(isConfirmIntent(parseDeepLink(`voltius://join?s=${SESSION}&t=${TOKEN}`)!)).toBe(true);
-  expect(isSilentIntent(parseDeepLink(`voltius://verified?u=${USER}`)!)).toBe(true);
+  expect(isAttenuatedIntent(verified)).toBe(true);
+  // Attenuated still acts without a prompt; that is the whole point of the class.
+  expect(isUnpromptedIntent(verified)).toBe(true);
+});
+
+test("the silent class is empty", () => {
+  // No runtime assertion can pin this: `isSilentIntent` returns false for every
+  // intent while the class has no members, so the typecheck is the only gate.
+  const silentIsEmpty: [SilentIntent] extends [never] ? true : false = true;
+  expect(silentIsEmpty).toBe(true);
 });
 
 test("builds a join link in both forms", () => {
@@ -180,7 +190,7 @@ test("parses a billing link, which takes no parameters", () => {
   expect(parseDeepLink("voltius://billing?section=account")).toEqual({ route: "billing" });
 });
 
-test("the navigate routes are neither confirm nor silent", () => {
+test("the navigate routes are not confirm routes", () => {
   for (const url of [
     "voltius://notification",
     "voltius://settings?section=account",
@@ -189,7 +199,6 @@ test("the navigate routes are neither confirm nor silent", () => {
     const intent = parseDeepLink(url)!;
     expect(isNavigateIntent(intent)).toBe(true);
     expect(isConfirmIntent(intent)).toBe(false);
-    expect(isSilentIntent(intent)).toBe(false);
   }
 });
 

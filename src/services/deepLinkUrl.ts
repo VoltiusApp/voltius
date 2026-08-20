@@ -20,7 +20,7 @@ export type DeepLinkIntent =
   | SnippetInstallIntent
   | PluginInstallIntent;
 
-type TrustClass = "confirm" | "silent" | "navigate";
+type TrustClass = "confirm" | "attenuated" | "silent" | "navigate";
 type Route = DeepLinkIntent["route"];
 
 /**
@@ -28,10 +28,41 @@ type Route = DeepLinkIntent["route"];
  *
  * - `confirm` routes carry a capability and nothing happens until the user
  *   accepts.
- * - `silent` routes carry no capability and run a side effect unprompted.
- *   `verified` is silent because the token died server-side before the link was
- *   built and the user id authorises nothing, so a hostile link costs a session
- *   refresh, which is a no-op.
+ * - `attenuated` routes carry a real capability, worn down by scope, lifetime
+ *   and blast radius until acting on it unprompted is safe. The bar is not "the
+ *   link is probably genuine": it is that a forged link, tapped by the wrong
+ *   person at the wrong moment, still costs the tapping user nothing.
+ *
+ *   `verified` is the only member, and is classified on the strongest form it
+ *   could carry rather than the weakest form it carries today. Today the portal
+ *   spends the verification token server-side and the app receives an inert
+ *   user id, which would also satisfy `silent`; a mail link that opened the app
+ *   directly would hand it the raw token instead. That capability is a
+ *   single-use, short-lived token, bound server-side to one account, proving an
+ *   address is reachable — no session, no key material, no grant. So a hostile
+ *   `verified` link carries the *attacker's* own token: tapping it verifies the
+ *   attacker's address, which the attacker can already do unaided, and touches
+ *   nothing of the tapper's. A consent sheet on a tap the user asked for by
+ *   pressing "verify my email" buys none of that back, and spends the user's
+ *   willingness to read the sheets that do carry a capability.
+ *
+ *   The class stops being honest the moment a `verified` link carries something
+ *   a forged one could spend *against* the tapper — a session, a wrapped key, an
+ *   account-scoped grant. That route is `confirm`, not `attenuated`.
+ *
+ *   The stronger form stays hypothetical because mailing the raw token was
+ *   considered and rejected. Enterprise rewriters (Outlook SafeLinks, Defender
+ *   ATP) re-encode a mailed link onto their own logging host, so the tap
+ *   resolves against *that* host: no App Link fires, the mail client's own
+ *   browser follows the redirect, and the app never sees the link at all.
+ *   Whether a fragment even survives that round trip is undocumented, while the
+ *   one rewriter behaviour that is documented mangles query structure. A carrier
+ *   that can silently drop the token is not worth what it would buy, which is
+ *   one browser tab: the portal already hands the app a `verified` link the
+ *   moment it succeeds.
+ * - `silent` routes carry no capability at all and run a side effect unprompted.
+ *   Currently unpopulated: it is the narrower claim `verified` used to make,
+ *   kept for a route that genuinely carries nothing.
  * - `navigate` routes only move the user to a screen they could already reach.
  *   The worst a hostile link achieves is an unexpected panel, so they need no
  *   prompt — but they must never *act*: `billing` opens the account section and
@@ -42,7 +73,7 @@ const TRUST = {
   // Grants a stranger access to a live terminal, so nothing happens until the
   // host accepts.
   invite: "confirm",
-  verified: "silent",
+  verified: "attenuated",
   notification: "navigate",
   settings: "navigate",
   billing: "navigate",
@@ -60,10 +91,12 @@ type RouteOfClass<C extends TrustClass> = {
 }[Route];
 
 export type ConfirmIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"confirm"> }>;
+export type AttenuatedIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"attenuated"> }>;
+/** `never` while `silent` has no members; kept so a future route has a home. */
 export type SilentIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"silent"> }>;
 export type NavigateIntent = Extract<DeepLinkIntent, { route: RouteOfClass<"navigate"> }>;
 /** Everything that runs without asking the user first. */
-export type UnpromptedIntent = SilentIntent | NavigateIntent;
+export type UnpromptedIntent = AttenuatedIntent | SilentIntent | NavigateIntent;
 
 /**
  * One codec per route, both directions declared together so the builder and the
@@ -181,7 +214,6 @@ const ROUTES: { [K in Route]: RouteCodec<K> } = {
   },
 };
 
-
 export type LinkForm = "https" | "scheme";
 
 /** The landing site that bridges an `https` link back to the scheme. */
@@ -270,19 +302,20 @@ export function intentKey(intent: DeepLinkIntent): string {
     .join("&");
 }
 
-export function isConfirmIntent(intent: DeepLinkIntent): intent is ConfirmIntent {
-  return TRUST[intent.route] === "confirm";
-}
+/** One guard per trust class, all reading the same single declaration. */
+const isOfClass =
+  <C extends TrustClass>(trust: C) =>
+  (intent: DeepLinkIntent): intent is Extract<DeepLinkIntent, { route: RouteOfClass<C> }> =>
+    TRUST[intent.route] === trust;
 
-export function isSilentIntent(intent: DeepLinkIntent): intent is SilentIntent {
-  return TRUST[intent.route] === "silent";
-}
-
-export function isNavigateIntent(intent: DeepLinkIntent): intent is NavigateIntent {
-  return TRUST[intent.route] === "navigate";
-}
+export const isConfirmIntent = isOfClass("confirm");
+export const isAttenuatedIntent = isOfClass("attenuated");
+export const isSilentIntent = isOfClass("silent");
+export const isNavigateIntent = isOfClass("navigate");
 
 /** A route that acts without a prompt, whether it navigates or runs a side effect. */
 export function isUnpromptedIntent(intent: DeepLinkIntent): intent is UnpromptedIntent {
-  return isSilentIntent(intent) || isNavigateIntent(intent);
+  // Listed class by class rather than as "not `confirm`", so a class added
+  // later has to be admitted here deliberately instead of by default.
+  return isAttenuatedIntent(intent) || isSilentIntent(intent) || isNavigateIntent(intent);
 }

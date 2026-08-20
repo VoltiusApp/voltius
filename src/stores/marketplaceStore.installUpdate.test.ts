@@ -31,6 +31,7 @@ import { getExposedApi, getLoadedPlugins, unloadPlugin } from "@/plugins/runtime
 import * as runtimeModule from "@/plugins/runtime";
 import { injectPluginStyle } from "@/plugins/importPluginModule";
 import { PluginHashMismatchError } from "@/plugins/integrity";
+import { PluginInstallInProgressError } from "@/plugins/installErrors";
 import { sha256Hex } from "@/plugins/integrity";
 import type { PluginRegisterFn } from "@/plugins/api";
 
@@ -245,4 +246,60 @@ test("installing a plugin that was never loaded does not call unloadPlugin", asy
   } finally {
     spy.mockRestore();
   }
+});
+
+/** Parks installPlugin inside its first plugin_fetch_url until the returned
+ *  release() runs, so a second install can race a genuinely in-flight one. */
+function gatedFetch(): () => void {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") {
+      await gate;
+      return args.url!.endsWith("manifest.json") ? manifestFor("1.0.0") : "v1-js";
+    }
+    return undefined;
+  });
+  return release;
+}
+
+test("a second install of an id already installing is refused rather than resolving as a no-op", async () => {
+  mockBundle("v1");
+  const release = gatedFetch();
+
+  const first = useMarketplaceStore.getState().installPlugin(basePlugin());
+
+  // A caller that resolves here — the deep-link confirm sheet — would report a
+  // success for an install it never performed.
+  await expect(
+    useMarketplaceStore.getState().installPlugin(basePlugin()),
+  ).rejects.toBeInstanceOf(PluginInstallInProgressError);
+
+  release();
+  await first;
+  expect(getExposedApi("p1")).toBe("v1");
+});
+
+test("a refused concurrent install does not clear the running install's busy state", async () => {
+  mockBundle("v1");
+  const release = gatedFetch();
+
+  const first = useMarketplaceStore.getState().installPlugin(basePlugin());
+  await expect(useMarketplaceStore.getState().installPlugin(basePlugin())).rejects.toThrow();
+
+  expect(useMarketplaceStore.getState().installing.has("p1")).toBe(true);
+  release();
+  await first;
+  expect(useMarketplaceStore.getState().installing.has("p1")).toBe(false);
+});
+
+test("an id is installable again once its previous install has settled", async () => {
+  mockBundle("v1");
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") return args.url!.endsWith("manifest.json") ? manifestFor("1.0.0") : "v1-js";
+    return undefined;
+  });
+  await useMarketplaceStore.getState().installPlugin(basePlugin());
+
+  await expect(useMarketplaceStore.getState().installPlugin(basePlugin())).resolves.toBeUndefined();
 });

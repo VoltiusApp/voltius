@@ -6,8 +6,11 @@ import { useUIStore, type CloudAuthMode } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { getAccountMode, linkToCloud, setMasterPassword, signInToCloud } from "@/services/account";
 import { startRealtimeSync, syncOnLogin, syncOnLoginReplace } from "@/services/sync";
+import { ServerUrlField } from "@/components/shared/ServerUrlField";
+import { lastServerUrl } from "@/utils/serverInstance";
 
-const DEFAULT_SERVER = "https://api.voltius.app";
+const AUTH_INPUT_CLASS =
+  "w-full px-3 py-2.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) placeholder:text-(--t-text-muted) focus:border-(--t-accent)";
 
 export default function CloudAuthModal() {
   const { t } = useTranslation();
@@ -21,8 +24,7 @@ export default function CloudAuthModal() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER);
-  const [showServerUrl, setShowServerUrl] = useState(false);
+  const [serverUrl, setServerUrl] = useState(lastServerUrl);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -134,16 +136,7 @@ export default function CloudAuthModal() {
             </>
           )}
 
-          <button
-            type="button"
-            onClick={() => setShowServerUrl((v) => !v)}
-            className="text-xs w-full text-left transition-colors text-(--t-text-dim)"
-          >
-            {showServerUrl ? "▾" : "▸"} {t("layout.auth.customServerUrl")}
-          </button>
-          {showServerUrl && (
-            <AuthInput type="url" placeholder="https://api.voltius.app" value={serverUrl} onChange={setServerUrl} />
-          )}
+          <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={AUTH_INPUT_CLASS} />
 
           {error && <p className="text-xs px-1 text-(--t-status-error)">{error}</p>}
 
@@ -187,7 +180,7 @@ function AuthInput({
       value={value}
       autoFocus={autoFocus}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) placeholder:text-(--t-text-muted) focus:border-(--t-accent)"
+      className={AUTH_INPUT_CLASS}
     />
   );
 }

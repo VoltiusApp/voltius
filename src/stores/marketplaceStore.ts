@@ -9,6 +9,7 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
 import { resolveVerifiedHash } from "@/plugins/integrity";
 import { assertValidPluginId } from "@/plugins/pluginId";
+import { PluginInstallInProgressError } from "@/plugins/installErrors";
 import { satisfiesMinAppVersion, MinAppVersionError, beatsSeededVersion, isParsableVersion } from "@/plugins/version";
 import { useSeededTombstoneStore, loadSeededEntries } from "@/stores/seededTombstoneStore";
 
@@ -349,7 +350,10 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     // checked separately by loadPlugin, since the two are not required to match.
     assertValidPluginId(plugin.id);
     const { installing, installedMeta } = get();
-    if (installing.has(plugin.id)) return;
+    // Refused, not silently skipped: resolving here told every caller the install
+    // succeeded — a deep-link confirm sheet accepted while the Settings tab was
+    // installing the same id closed reporting success having written nothing.
+    if (installing.has(plugin.id)) throw new PluginInstallInProgressError(plugin.id);
 
     set((s) => ({ installing: new Set([...s.installing, plugin.id]) }));
     try {
