@@ -7,7 +7,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useAllFolders } from "@/hooks/useAllFolders";
-import { getSecret } from "@/services/vault";
+import { ensurePublicKey } from "@/services/publicKeyStore";
 import { writeClipboard } from "@/utils/clipboard";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
 import type { SshKey, Identity } from "@/types";
@@ -66,7 +66,7 @@ export default function KeychainItemActionsSheet(props: Props) {
   const items: SheetAction[] = [
     kind === "key"
       ? { icon: "lucide:clipboard-copy", label: t("mobile.sheets.keychainActions.copyPublicKey"), slug: "copy-public-key", onTap: async () => {
-          const pub = await getSecret(`key:${item.id}:public`);
+          const pub = await ensurePublicKey(item as SshKey);
           if (pub) { await writeClipboard(pub); toast(t("mobile.sheets.keychainActions.copiedPublicKey"), "success"); }
           else { toast(t("mobile.sheets.keychainActions.noPublicKeyStored"), "error"); }
           onClose();

@@ -26,6 +26,7 @@ import { detectKeyInfo } from "./keyDetection";
 import { KeyFileDropZone } from "./KeyFileDropZone";
 import { KeyGenFields } from "./KeyGenFields";
 import { PublicKeyField, isPublicKeyInvalid } from "./PublicKeyField";
+import { useDerivedPublicKey } from "./useDerivedPublicKey";
 
 // Re-exported for back-compat (IdentityForm imports KeyFileDropZone from here).
 export { KeyFileDropZone } from "./KeyFileDropZone";
@@ -140,6 +141,18 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => schedule(), [name, tags, privateKey, publicKey, passphrase, folderId, vaultId]);
+
+  useDerivedPublicKey({
+    privateKey,
+    publicKey,
+    passphrase,
+    enabled: !publicKeyDirty.current,
+    onDerived: (derived) => {
+      markDirty();
+      publicKeyDirty.current = true;
+      setPublicKey(derived);
+    },
+  });
 
   const handleClose = () => flushAndClose(onClose);
 
