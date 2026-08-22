@@ -529,13 +529,22 @@ mod tests {
         let skip: HashSet<String> = ["theme.json".to_string()].into_iter().collect();
         collect_json_dir(&mut files, &dir, "", &skip);
 
-        assert!(!files.contains_key("theme.json"), "skipped file must not be collected");
-        assert_eq!(files.get("connections.json").map(String::as_str), Some("[]"));
+        assert!(
+            !files.contains_key("theme.json"),
+            "skipped file must not be collected"
+        );
+        assert_eq!(
+            files.get("connections.json").map(String::as_str),
+            Some("[]")
+        );
         assert!(!files.contains_key("notes.txt"), "non-json must be ignored");
 
         let mut prefixed = HashMap::new();
         collect_json_dir(&mut prefixed, &dir, "plugin-data/", &HashSet::new());
-        assert!(prefixed.contains_key("plugin-data/theme.json"), "prefix applies to the key");
+        assert!(
+            prefixed.contains_key("plugin-data/theme.json"),
+            "prefix applies to the key"
+        );
 
         fs::remove_dir_all(&dir).ok();
     }
