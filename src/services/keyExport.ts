@@ -1,5 +1,5 @@
 import i18n from "@/i18n";
-import { getSecret } from "@/services/vault";
+import { ensurePublicKey } from "@/services/publicKeyStore";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sshExecCommand } from "@/services/ssh";
 import { isValidSshPublicKey } from "@/services/sshPublicKey";
@@ -50,7 +50,7 @@ export async function addKeyToHost({
   const safeLocation = String(location);
   const safeFilename = String(filename);
 
-  const pubKey = await getSecret(`key:${sshKey.id}:public`);
+  const pubKey = await ensurePublicKey(sshKey);
   if (!pubKey) throw new Error(i18n.t("keychain.exportPanel.publicKeyNotFoundError"));
   const trimmedPubKey = pubKey.trim();
   // printf writes this verbatim as the file's second line, so anything that is

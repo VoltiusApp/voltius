@@ -29,6 +29,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { KeyFileDropZone } from "./KeyForm";
 import { PublicKeyField, isPublicKeyInvalid } from "./PublicKeyField";
+import { useDerivedPublicKey } from "./useDerivedPublicKey";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { AuthType, Connection, Identity, IdentityFormData } from "@/types";
@@ -286,6 +287,12 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => schedule(), [name, tags, username, password, keyId, folderId, vaultId, inlineKeyLabel, inlinePrivKey, inlinePublicKey]);
+
+  useDerivedPublicKey({
+    privateKey: inlinePrivKey,
+    publicKey: inlinePublicKey,
+    onDerived: (derived) => { markDirty(); setInlinePublicKey(derived); },
+  });
 
   const handleClose = () => flushAndClose(onClose);
 

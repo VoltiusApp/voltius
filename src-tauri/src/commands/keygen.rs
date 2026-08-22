@@ -10,6 +10,38 @@ pub struct GeneratedKeyPair {
     pub key_type_label: String,
 }
 
+/// The public half is missing whenever a key was imported private-only, so the
+/// callers need to tell "give me the passphrase" apart from "that is not a key".
+/// Codes, not prose: the UI branches on them and translates its own message.
+pub const ERR_ENCRYPTED: &str = "ENCRYPTED";
+pub const ERR_INVALID: &str = "INVALID";
+
+fn derive_public_key(private_key: &str, passphrase: Option<&str>) -> Result<String, String> {
+    let key = PrivateKey::from_openssh(private_key.trim()).map_err(|_| ERR_INVALID.to_string())?;
+    let key = if key.is_encrypted() {
+        let passphrase = passphrase
+            .filter(|p| !p.is_empty())
+            .ok_or_else(|| ERR_ENCRYPTED.to_string())?;
+        key.decrypt(passphrase)
+            .map_err(|_| ERR_ENCRYPTED.to_string())?
+    } else {
+        key
+    };
+    key.public_key()
+        .to_openssh()
+        .map_err(|_| ERR_INVALID.to_string())
+}
+
+#[tauri::command]
+pub async fn ssh_public_key_from_private(
+    private_key: String,
+    passphrase: Option<String>,
+) -> Result<String, String> {
+    spawn_blocking(move || derive_public_key(&private_key, passphrase.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// key_type:   "ed25519" | "ecdsa" | "rsa"
 /// curve:      "256" | "384" | "521"     (ecdsa only)
 /// bits:       2048 | 4096               (rsa only)
@@ -103,4 +135,66 @@ pub async fn generate_ssh_keypair(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ed25519_pem(passphrase: Option<&str>) -> (String, String) {
+        let mut rng = rand::thread_rng();
+        let key = PrivateKey::random(&mut rng, Algorithm::Ed25519).unwrap();
+        let public = key.public_key().to_openssh().unwrap();
+        let pem = match passphrase {
+            Some(p) => key
+                .encrypt(&mut rng, p)
+                .unwrap()
+                .to_openssh(LineEnding::LF)
+                .unwrap(),
+            None => key.to_openssh(LineEnding::LF).unwrap(),
+        };
+        (pem.to_string(), public)
+    }
+
+    #[test]
+    fn derives_the_public_half_of_a_plaintext_key() {
+        let (pem, public) = ed25519_pem(None);
+        assert_eq!(derive_public_key(&pem, None).unwrap(), public);
+    }
+
+    #[test]
+    fn derives_the_public_half_of_an_encrypted_key() {
+        let (pem, public) = ed25519_pem(Some("hunter2"));
+        assert_eq!(derive_public_key(&pem, Some("hunter2")).unwrap(), public);
+    }
+
+    #[test]
+    fn reports_encrypted_when_the_passphrase_is_missing_or_wrong() {
+        let (pem, _) = ed25519_pem(Some("hunter2"));
+        assert_eq!(
+            derive_public_key(&pem, None),
+            Err(ERR_ENCRYPTED.to_string())
+        );
+        assert_eq!(
+            derive_public_key(&pem, Some("")),
+            Err(ERR_ENCRYPTED.to_string())
+        );
+        assert_eq!(
+            derive_public_key(&pem, Some("wrong")),
+            Err(ERR_ENCRYPTED.to_string())
+        );
+    }
+
+    #[test]
+    fn reports_invalid_for_anything_that_is_not_a_private_key() {
+        assert_eq!(
+            derive_public_key("nonsense", None),
+            Err(ERR_INVALID.to_string())
+        );
+        let (_, public) = ed25519_pem(None);
+        assert_eq!(
+            derive_public_key(&public, None),
+            Err(ERR_INVALID.to_string())
+        );
+    }
 }
