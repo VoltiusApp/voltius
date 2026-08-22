@@ -66,7 +66,7 @@ describe("per-setting overrides", () => {
     expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.somethingNew")).toBe(true);
   });
 
-  test("rehydrating a pre-upgrade blob leaves the override map usable", () => {
+  test("a missing or undefined override map does not break the read path", () => {
     useSyncPrefsStore.setState({ settingSyncOverrides: undefined as unknown as Record<string, boolean> });
     expect(() => useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).not.toThrow();
   });

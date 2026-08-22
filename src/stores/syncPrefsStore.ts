@@ -96,6 +96,9 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
         return get().syncSettingDomains[id] ?? true;
       },
 
+      // Not folded into setSyncType/setSyncSettingDomain: a computed-key
+      // generic setter needs an `as Pick<SyncPrefsStore, K>` cast, which
+      // costs more than the three explicit one-liners it would replace.
       setSettingSync: (path, v) =>
         set((s) => ({ settingSyncOverrides: { ...s.settingSyncOverrides, [path]: v } })),
 
