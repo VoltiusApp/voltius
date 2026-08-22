@@ -10,7 +10,10 @@ const h = vi.hoisted(() => ({
   toggle: false,
   setToggle: vi.fn(),
 }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/mcp/status", () => ({ getMcpStatus: h.getMcpStatus }));
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: h.writeClipboard }));
