@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "@/components/shared/Toggle";
-import { getSyncState, onSyncStateChange, scheduleSync, syncNow } from "@/services/sync";
+import { getSyncState, onSyncStateChange, syncNow } from "@/services/sync";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/stores/syncPrefsStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { openPortal } from "@/utils/billing";
-import { USER_DATA_HANDLERS } from "@/services/user-data/registry";
+import { setDomainSync } from "@/services/user-data/syncChoice";
 import { SettingsGroup } from "./shared";
 
 function SyncToggleRow({ domain, label, sub, checked, onChange }: {
@@ -39,7 +39,7 @@ export default function SyncSection() {
   const isPro = useSubscriptionStore((s) => s.isPro);
   const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
-  const { syncTypes, setSyncType, isDomainSynced, setSyncSettingDomain } = useSyncPrefsStore();
+  const { syncTypes, setSyncType, isDomainSynced } = useSyncPrefsStore();
 
   const isLoggedIn = accountMode === "server";
 
@@ -148,15 +148,7 @@ export default function SyncSection() {
               label={t(`settings.sync.settingDomain.${id}.label`)}
               sub={t(`settings.sync.settingDomain.${id}.sub`)}
               checked={isDomainSynced(id)}
-              onChange={(v) => {
-                setSyncSettingDomain(id, v);
-                // Publishing on re-enable, so a value curated here while sync was
-                // off is not silently lost to the other device's newer timestamp.
-                if (v) USER_DATA_HANDLERS.find((h) => h.key === id)?.touch();
-                // On disable, the section already on the server must be withdrawn
-                // from that blob now, not merely left out of future ones.
-                else scheduleSync();
-              }}
+              onChange={(v) => setDomainSync(id, v)}
             />
           ))}
         </SettingsGroup>
