@@ -54,6 +54,7 @@ export default function HostsSection() {
     <div className="p-6 max-w-lg space-y-6">
       <SettingsGroup title={t("settings.hosts.connectivityTitle")} divided>
         <SettingRow
+          syncKey="appSettings.toggles.reachability"
           title={t("settings.hosts.reachability.title")}
           desc={t("settings.hosts.reachability.desc")}
           dirty={enabled !== TOGGLE_DEFS.reachability.default}
@@ -106,6 +107,7 @@ export default function HostsSection() {
           </>
         )}
         <SettingRow
+          syncKey="appSettings.keepalivePreset"
           title={t("settings.hosts.keepalive.title")}
           desc={t("settings.hosts.keepalive.desc", { detail: t(KEEPALIVE_PRESETS[keepalivePreset].detailKey) })}
           dirty={keepalivePreset !== DEFAULT_KEEPALIVE_PRESET}
@@ -119,6 +121,7 @@ export default function HostsSection() {
           />
         </SettingRow>
         <SettingRow
+          syncKey="appSettings.toggles.persistent-sessions"
           title={t("settings.hosts.persistentSessions.title")}
           desc={t("settings.hosts.persistentSessions.desc")}
           dirty={persistSessions !== PERSIST_SESSIONS_DEFAULT}
@@ -130,6 +133,7 @@ export default function HostsSection() {
 
       <SettingsGroup title={t("settings.hosts.terminalTitle")}>
         <SettingRow
+          syncKey="appSettings.toggles.shell-integration"
           title={t("settings.hosts.shellIntegration.title")}
           desc={t("settings.hosts.shellIntegration.desc")}
           dirty={shellIntegration !== SHELL_INTEGRATION_DEFAULT}
@@ -141,6 +145,7 @@ export default function HostsSection() {
 
       <SettingsGroup title={t("settings.hosts.teamPresenceTitle")}>
         <SettingRow
+          syncKey="appSettings.toggles.team-presence"
           title={t("settings.hosts.teamPresence.title")}
           desc={t("settings.hosts.teamPresence.desc")}
           dirty={presenceEnabled !== TOGGLE_DEFS["team-presence"].default}

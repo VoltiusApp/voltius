@@ -12,6 +12,7 @@ export default function PortForwardingSection() {
     <div className="p-6 max-w-lg space-y-6">
       <SettingsGroup title={t("settings.portForwarding.automationTitle")} divided>
         <SettingRow
+          syncKey="appSettings.toggles.auto-forward"
           title={t("settings.portForwarding.autoForward.title")}
           desc={t("settings.portForwarding.autoForward.desc")}
           dirty={autoForwardEnabled !== TOGGLE_DEFS["auto-forward"].default}
@@ -20,6 +21,7 @@ export default function PortForwardingSection() {
           <Toggle checked={autoForwardEnabled} onChange={setAutoForwardEnabled} />
         </SettingRow>
         <SettingRow
+          syncKey="appSettings.toggles.forwarding-notifications"
           title={t("settings.portForwarding.notifications.title")}
           desc={t("settings.portForwarding.notifications.desc")}
           dimmed={!autoForwardEnabled}

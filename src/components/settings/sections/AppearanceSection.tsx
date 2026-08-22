@@ -68,7 +68,7 @@ export default function AppearanceSection() {
           {t("settings.appearance.interface")}
         </h3>
         <ScaleSection />
-        <SettingRow variant="card" className="mt-4" title={t("settings.appearance.language.title")}>
+        <SettingRow variant="card" className="mt-4" syncKey="appSettings.locale" title={t("settings.appearance.language.title")}>
           <FormSelect
             className="w-44 shrink-0"
             value={locale}
