@@ -122,6 +122,7 @@
       "location": "位置",
       "filename": "文件名",
       "unixOnlyNotice": "密钥导出目前仅支持 UNIX 系统。使用高级部分自定义导出脚本。",
+      "missingPublicKeyNotice": "此密钥没有可发送的公钥部分。请在钥匙串中打开它并粘贴其 .pub 行 —— 或填写其密码短语，以便从私钥推导出公钥。",
       "advanced": "高级",
       "exportScriptLabel": "导出脚本",
       "successMessage": "密钥导出成功",

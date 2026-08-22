@@ -122,6 +122,7 @@
       "location": "Location",
       "filename": "Filename",
       "unixOnlyNotice": "Key export currently supports only UNIX systems. Use Advanced section to customize the export script.",
+      "missingPublicKeyNotice": "This key has no public half to send. Open it in the Keychain and paste its .pub line — or add its passphrase, so the public half can be derived from the private one.",
       "advanced": "Advanced",
       "exportScriptLabel": "Export script",
       "successMessage": "Key exported successfully",

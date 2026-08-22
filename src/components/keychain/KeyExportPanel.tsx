@@ -4,6 +4,9 @@ import { Icon } from "@iconify/react";
 import { useRipple } from "@/hooks/useRipple";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { addKeyToHost, DEFAULT_EXPORT_SCRIPT } from "@/services/keyExport";
+import { ensurePublicKey } from "@/services/publicKeyStore";
+import { useNotificationStore } from "@/stores/notificationStore";
+import { statusSurface } from "@/components/shared/statusSurface";
 import {
   PanelShell, PanelHeader, FormSection,
   formInputClass, formInputStyle, formLabelClass, formLabelStyle,
@@ -45,13 +48,27 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
   const [script, setScript] = useState(DEFAULT_EXPORT_SCRIPT);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [showHostSelect, setShowHostSelect] = useState(false);
-  const [exportStatus, setExportStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [exportStatus, setExportStatus] = useState<"idle" | "loading" | "error">("idle");
   const [exportError, setExportError] = useState("");
+  const [publicHalf, setPublicHalf] = useState<"checking" | "ready" | "missing">("checking");
   const { createRipple: rippleExport, rippleEls: ripplesExport } = useRipple();
 
   useEffect(() => { void loadConnections(); }, [loadConnections]);
 
+  // Asked before a host is even picked: a key imported private-only has nothing
+  // to deploy, and finding that out after choosing a host and pressing the
+  // button is what made the failure read like a broken feature.
+  useEffect(() => {
+    let cancelled = false;
+    setPublicHalf("checking");
+    void ensurePublicKey(sshKey).then((pub) => {
+      if (!cancelled) setPublicHalf(pub ? "ready" : "missing");
+    });
+    return () => { cancelled = true; };
+  }, [sshKey]);
+
   const selectedHost = connections.find((c) => c.id === selectedHostId);
+  const canExport = !!selectedHost && publicHalf === "ready" && exportStatus !== "loading";
 
   const handleExport = async () => {
     if (!selectedHost) return;
@@ -59,7 +76,16 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
     setExportError("");
     try {
       await addKeyToHost({ sshKey, connection: selectedHost, location, filename, script });
-      setExportStatus("success");
+      // Said where the eye already is rather than in a panel that is closing.
+      useNotificationStore.getState().addToast({
+        source: { kind: "plugin", id: "system", name: "Voltius" },
+        type: "toast",
+        message: t("keychain.exportPanel.successMessage"),
+        severity: "success",
+        duration: 4000,
+      });
+      setExportStatus("idle");
+      onClose();
     } catch (e) {
       setExportError(String(e));
       setExportStatus("error");
@@ -75,6 +101,13 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
           <BaseCard isList={false} className="cursor-default">
             <KeyCardContent sshKey={sshKey} avatarSize={48} iconSize={24} />
           </BaseCard>
+
+          {publicHalf === "missing" && (
+            <div className="flex gap-2 px-3 py-2.5 rounded-lg mx-1 text-xs" style={statusSurface("warning")}>
+              <Icon icon="lucide:triangle-alert" width={14} className="shrink-0" style={{ marginTop: 1 }} />
+              <p className="leading-relaxed">{t("keychain.exportPanel.missingPublicKeyNotice")}</p>
+            </div>
+          )}
 
           <FormSection label={t("keychain.exportPanel.exportSectionLabel")}>
             <div className="space-y-3 p-1">
@@ -140,30 +173,25 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
             </div>
           </FormSection>
 
-          {exportStatus === "success" && (
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg mx-1" style={{ background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)" }}>
-              <Icon icon="lucide:circle-check-big" width={14} className="text-(--t-accent) shrink-0" />
-              <span className="text-xs text-(--t-accent)">{t("keychain.exportPanel.successMessage")}</span>
-            </div>
-          )}
-          {exportStatus === "error" && (
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg mx-1" style={{ background: "color-mix(in srgb, var(--t-danger, #ef4444) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--t-danger, #ef4444) 30%, transparent)" }}>
-              <Icon icon="lucide:circle-x" width={14} className="text-(--t-danger,#ef4444) shrink-0" style={{ marginTop: 1 }} />
-              <span className="text-xs break-all text-(--t-danger,#ef4444)">{exportError}</span>
-            </div>
-          )}
-
         </div>
 
-        <div className="px-4 py-3 border-t border-t-(--t-border)">
+        {/* The outcome belongs against the button that caused it: in the scroll
+            area it landed below the fold, so a click looked like it did nothing. */}
+        <div className="px-4 py-3 border-t border-t-(--t-border) space-y-2" data-export-footer>
+          {exportStatus === "error" && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg max-h-20 overflow-y-auto" style={statusSurface("error")}>
+              <Icon icon="lucide:circle-x" width={14} className="shrink-0" style={{ marginTop: 1 }} />
+              <span className="text-xs break-all">{exportError}</span>
+            </div>
+          )}
           <button
             onClick={() => { void handleExport(); }}
-            onPointerDown={(!selectedHostId || exportStatus === "loading") ? undefined : rippleExport}
-            disabled={!selectedHostId || exportStatus === "loading"}
+            onPointerDown={canExport ? rippleExport : undefined}
+            disabled={!canExport}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity bg-(--t-accent) text-white relative overflow-hidden"
             style={{
-              opacity: !selectedHostId || exportStatus === "loading" ? 0.5 : 1,
-              cursor: !selectedHostId || exportStatus === "loading" ? "not-allowed" : "pointer",
+              opacity: canExport ? 1 : 0.5,
+              cursor: canExport ? "pointer" : "not-allowed",
             }}
           >
             {ripplesExport}
