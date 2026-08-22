@@ -5,9 +5,9 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
 import { getSkippedSyncFiles, getPluginSkippedSyncFiles } from "./sync";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 
-describe("getSkippedSyncFiles", () => {
-  beforeEach(() => useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: {} }));
+beforeEach(() => useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: {} }));
 
+describe("getSkippedSyncFiles", () => {
   test("always withholds theme.json — themes travel in the bundle now", () => {
     expect(getSkippedSyncFiles()).toContain("theme.json");
   });
@@ -24,7 +24,6 @@ describe("getSkippedSyncFiles", () => {
   });
 
   test("withholds plugin-registry.json when only the plugin overrides are held back", () => {
-    useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: {} });
     expect(getSkippedSyncFiles()).not.toContain("plugin-registry.json");
     useSyncPrefsStore.getState().setSettingSync("appSettings.plugins.overrides", false);
     expect(getSkippedSyncFiles()).toContain("plugin-registry.json");
@@ -33,8 +32,6 @@ describe("getSkippedSyncFiles", () => {
 });
 
 describe("getPluginSkippedSyncFiles", () => {
-  beforeEach(() => useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: {} }));
-
   test("does not withhold theme.json while the themes domain is synced — it's the plugin path's only theme route", () => {
     expect(getPluginSkippedSyncFiles()).not.toContain("theme.json");
   });
