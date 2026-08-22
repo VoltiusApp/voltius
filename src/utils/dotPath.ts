@@ -17,16 +17,19 @@ function walk(obj: unknown, segments: string[]): Rec | undefined {
   return isRec(cur) ? cur : undefined;
 }
 
-export function getPath(obj: unknown, path: string): unknown {
+function resolve(obj: unknown, path: string): { parent: Rec | undefined; key: string } {
   const segments = path.split(".");
-  const parent = walk(obj, segments.slice(0, -1));
-  return parent?.[segments[segments.length - 1]];
+  return { parent: walk(obj, segments.slice(0, -1)), key: segments[segments.length - 1] };
+}
+
+export function getPath(obj: unknown, path: string): unknown {
+  const { parent, key } = resolve(obj, path);
+  return parent?.[key];
 }
 
 export function hasPath(obj: unknown, path: string): boolean {
-  const segments = path.split(".");
-  const parent = walk(obj, segments.slice(0, -1));
-  return parent !== undefined && segments[segments.length - 1] in parent;
+  const { parent, key } = resolve(obj, path);
+  return parent !== undefined && key in parent;
 }
 
 export function setPath(obj: unknown, path: string, value: unknown): void {
@@ -41,7 +44,6 @@ export function setPath(obj: unknown, path: string, value: unknown): void {
 }
 
 export function deletePath(obj: unknown, path: string): void {
-  const segments = path.split(".");
-  const parent = walk(obj, segments.slice(0, -1));
-  if (parent) delete parent[segments[segments.length - 1]];
+  const { parent, key } = resolve(obj, path);
+  if (parent) delete parent[key];
 }
