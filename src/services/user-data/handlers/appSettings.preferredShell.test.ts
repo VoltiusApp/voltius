@@ -21,4 +21,14 @@ describe("appSettings.import", () => {
     await appSettingsHandler.import({ terminal: { preferredShell: "/bin/zsh" } });
     expect(useTerminalSettingsStore.getState().preferredShell).toBe("/bin/zsh");
   });
+
+  test("an explicit undefined still clears it — the key was sent, unlike an absent leaf", async () => {
+    await appSettingsHandler.import({ terminal: { preferredShell: undefined } });
+    expect(useTerminalSettingsStore.getState().preferredShell).toBeNull();
+  });
+
+  test("a non-object terminal leaf is ignored, not thrown on", async () => {
+    await expect(appSettingsHandler.import({ terminal: "bash" })).resolves.toBeUndefined();
+    expect(useTerminalSettingsStore.getState().preferredShell).toBe("/usr/bin/fish");
+  });
 });

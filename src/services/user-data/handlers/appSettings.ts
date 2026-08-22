@@ -45,7 +45,7 @@ export const appSettingsHandler: UserDataHandler = {
       const s = useSftpSettingsStore.getState();
       if (d.sftp.autoRefreshIntervalMs != null) s.setAutoRefreshIntervalMs(d.sftp.autoRefreshIntervalMs);
     }
-    if (d.terminal) {
+    if (d.terminal && typeof d.terminal === "object") {
       const s = useTerminalSettingsStore.getState();
       // An absent leaf means "held back by the sender", not "cleared": a device
       // filtering preferredShell out of its push must not reset every other
