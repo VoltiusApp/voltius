@@ -1,4 +1,4 @@
-import { TOGGLE_DEFS } from "@/stores/toggleSettingsStore";
+import { TOGGLE_DEFS } from "@/stores/toggleDefs";
 
 export interface SettingKeyDef {
   /** Dotted path into the bundle; the first segment is the handler key. */
