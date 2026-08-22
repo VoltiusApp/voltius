@@ -16,7 +16,7 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
 import { filterRemoteExcluded, collectExcludedIds } from "./syncExclusion";
-import { filterIncoming, filterOutgoing } from "@/services/user-data/syncFilter";
+import { filterIncoming, filterOutgoing, restoreLocal } from "@/services/user-data/syncFilter";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { buildDecryptKeyCandidates } from "@/services/vaultKeyCandidates";
@@ -94,7 +94,10 @@ async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
     const { merged, updatedKeys } = mergeUserDataBundle(local, filterIncoming(remote));
     if (updatedKeys.length === 0) return;
     await invoke("settings_save", { state: JSON.stringify(merged) });
-    await applyUserDataBundle(merged, updatedKeys, { remote: true });
+    // settings.json keeps the merge result; the stores get this device's
+    // held-back values back on top of it. Writing the restored bundle to disk
+    // would put held-back values in the file backup_export uploads.
+    await applyUserDataBundle(restoreLocal(merged), updatedKeys, { remote: true });
   } catch {}
 }
 
@@ -308,10 +311,12 @@ export function getExcludedObjectIds(): string[] {
 
 /** `plugin-registry.json` duplicates `appSettings.plugins.overrides`, so every
  *  destination withholds it under the same condition — that part isn't
- *  destination-specific, unlike theme.json below. */
+ *  destination-specific, unlike theme.json below. `isSettingSynced` is false
+ *  whenever the whole appSettings domain is off, so this one check covers both
+ *  the domain toggle and the per-key one. */
 function skippedConfigFilesCore(): string[] {
   const skipped: string[] = [];
-  if (!useSyncPrefsStore.getState().isDomainSynced("appSettings")) {
+  if (!useSyncPrefsStore.getState().isSettingSynced("appSettings.plugins.overrides")) {
     skipped.push("plugin-registry.json");
   }
   return skipped;

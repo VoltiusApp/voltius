@@ -12,7 +12,7 @@ import { lastWriteWins, type UserDataHandler } from "../handler";
 
 interface AppSettingsData {
   sftp?: { autoRefreshIntervalMs: number };
-  terminal?: { preferredShell: string | null; cursorStyle?: TerminalCursorStyle };
+  terminal?: { preferredShell?: string | null; cursorStyle?: TerminalCursorStyle };
   plugins?: { overrides: Record<string, boolean> };
   toggles?: Partial<Record<string, boolean>>;
   keepalivePreset?: KeepalivePreset;
@@ -47,7 +47,10 @@ export const appSettingsHandler: UserDataHandler = {
     }
     if (d.terminal) {
       const s = useTerminalSettingsStore.getState();
-      s.setPreferredShell(d.terminal.preferredShell ?? null);
+      // An absent leaf means "held back by the sender", not "cleared": a device
+      // filtering preferredShell out of its push must not reset every other
+      // device's shell to the default.
+      if ("preferredShell" in d.terminal) s.setPreferredShell(d.terminal.preferredShell ?? null);
       const style = d.terminal.cursorStyle;
       if (style && CURSOR_STYLES.includes(style)) s.setCursorStyle(style);
     }
