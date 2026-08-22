@@ -1,8 +1,9 @@
-import { describe, test, expect, beforeEach } from "vitest";
+import { describe, test, expect, beforeEach, vi } from "vitest";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { filterOutgoing, filterIncoming, restoreLocal, heldBackKeys } from "./syncFilter";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
+import { appSettingsHandler } from "./handlers/appSettings";
 import type { UserDataBundle } from "./formats";
 
 const bundle = (): UserDataBundle => ({
@@ -101,6 +102,32 @@ describe("per-key filtering", () => {
     const data = filterIncoming(appBundle()).sections.appSettings.data as Record<string, Record<string, unknown>>;
     expect(data.terminal.preferredShell).toBe("/bin/zsh");
   });
+
+  test("takes no copy when nothing is held back", () => {
+    useSyncPrefsStore.getState().setSettingSync("appSettings.terminal.preferredShell", true);
+    const input = appBundle();
+    expect(filterOutgoing(input).sections.appSettings).toBe(input.sections.appSettings);
+  });
+
+  test("strips held-back keys independently across two domains, leaving siblings alone", () => {
+    const input: UserDataBundle = {
+      ...appBundle(),
+      sections: {
+        ...appBundle().sections,
+        themes: {
+          data: { activeThemeId: "dracula", location: { lat: 1, lng: 2 } },
+          updated_at: "2026-08-22T00:00:00.000Z",
+        },
+      },
+    };
+    const out = filterOutgoing(input);
+    const themesData = out.sections.themes.data as Record<string, unknown>;
+    const appData = out.sections.appSettings.data as Record<string, Record<string, unknown>>;
+    expect("location" in themesData).toBe(false);
+    expect(themesData.activeThemeId).toBe("dracula");
+    expect("preferredShell" in appData.terminal).toBe(false);
+    expect(appData.terminal.cursorStyle).toBe("bar");
+  });
 });
 
 describe("restoreLocal", () => {
@@ -134,6 +161,14 @@ describe("restoreLocal", () => {
 
   test("ignores a domain the bundle does not carry", () => {
     expect(() => restoreLocal({ ...appBundle(), sections: {} })).not.toThrow();
+  });
+
+  test("reads this device's export once per domain, however many of its keys are held back", () => {
+    useSyncPrefsStore.getState().setSettingSync("appSettings.toggles.cursor-blink", false);
+    const spy = vi.spyOn(appSettingsHandler, "export");
+    restoreLocal(appBundle());
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
   });
 });
 

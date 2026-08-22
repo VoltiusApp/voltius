@@ -4,10 +4,8 @@ import { USER_DATA_HANDLERS } from "./registry";
 import { domainOf, keysForDomain, relPath, SETTING_KEYS, type SettingKeyDef } from "./settingKeys";
 import type { UserDataBundle, UserDataSection } from "./formats";
 
-// filterOutgoing and filterIncoming both delegate here and are identical
-// today. Kept as two functions because a follow-up PR gives them different
-// per-key behaviour: outgoing must delete held-back paths from the server
-// blob, incoming must not.
+// The domain pass shared by filterOutgoing and filterIncoming: drop every
+// section whose domain toggle is off.
 function keepSyncedSections(bundle: UserDataBundle): UserDataBundle {
   const { isDomainSynced } = useSyncPrefsStore.getState();
   const sections: Record<string, UserDataSection> = {};
@@ -108,7 +106,9 @@ export function restoreLocal(bundle: UserDataBundle): UserDataBundle {
  * Empty when the domain itself is off — there the domain toggle is the whole
  * story, and listing every key under it would be noise.
  *
- * Exported for the Settings UI so the summary and the filter cannot drift.
+ * Exported for the Settings UI: it shares `isSettingSynced` with the filter,
+ * so for a domain that is syncing the two cannot disagree on what "held
+ * back" means.
  */
 export function heldBackKeys(domain: string): SettingKeyDef[] {
   const { isDomainSynced, isSettingSynced } = useSyncPrefsStore.getState();
