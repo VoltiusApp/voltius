@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { domainOf, settingKey } from "@/services/user-data/settingKeys";
 
 // ─── Registry ────────────────────────────────────────────────────────────────
 // Add new syncable object types here. AccountSection reads this automatically.
@@ -44,6 +45,9 @@ interface SyncPrefsStore {
   excludedIds: string[];
   // Per-domain settings toggles: key = handler key, value = synced (default true when absent)
   syncSettingDomains: Record<string, boolean>;
+  // Explicit per-setting choice, keyed by dotted path. Absent = the registry
+  // default, so device-scoped keys need no seeding and no store migration.
+  settingSyncOverrides: Record<string, boolean>;
 
   setSyncType: (typeId: string, v: boolean) => void;
   toggleExcluded: (id: string) => void;
@@ -52,6 +56,8 @@ interface SyncPrefsStore {
   isObjectSynced: (id: string, typeId: string) => boolean;
   setSyncSettingDomain: (id: string, v: boolean) => void;
   isDomainSynced: (id: string) => boolean;
+  setSettingSync: (path: string, v: boolean) => void;
+  isSettingSynced: (path: string) => boolean;
 }
 
 export const useSyncPrefsStore = create<SyncPrefsStore>()(
@@ -60,6 +66,7 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
       syncTypes: {},
       excludedIds: [],
       syncSettingDomains: {},
+      settingSyncOverrides: {},
 
       setSyncType: (typeId, v) =>
         set((s) => ({ syncTypes: { ...s.syncTypes, [typeId]: v } })),
@@ -87,6 +94,15 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
       isDomainSynced: (id) => {
         if (!TOGGLEABLE_DOMAINS.has(id)) return true;
         return get().syncSettingDomains[id] ?? true;
+      },
+
+      setSettingSync: (path, v) =>
+        set((s) => ({ settingSyncOverrides: { ...s.settingSyncOverrides, [path]: v } })),
+
+      isSettingSynced: (path) => {
+        const s = get();
+        if (!s.isDomainSynced(domainOf(path))) return false;
+        return (s.settingSyncOverrides ?? {})[path] ?? !settingKey(path)?.deviceScoped;
       },
     }),
     { name: "sync-prefs" },
