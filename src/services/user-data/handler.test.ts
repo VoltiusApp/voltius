@@ -31,4 +31,20 @@ describe("registered handlers", () => {
       else expect(h.merge, h.key).toBe(lastWriteWins);
     }
   });
+
+  test("every handler exposes touch()", () => {
+    for (const h of USER_DATA_HANDLERS) {
+      expect(typeof h.touch, h.key).toBe("function");
+    }
+  });
+
+  test("touch advances the timestamp of every toggleable domain", () => {
+    // `vaults` derives its timestamp from row clocks and is never toggleable,
+    // so it has nothing to advance.
+    for (const h of USER_DATA_HANDLERS.filter((x) => x.key !== "vaults")) {
+      const before = h.getTimestamp();
+      h.touch();
+      expect(h.getTimestamp() > before, h.key).toBe(true);
+    }
+  });
 });

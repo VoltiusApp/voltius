@@ -101,7 +101,8 @@
         "applyDefault": "Apply",
         "resultApplied_one": "Applied {{count}} setting: {{list}}.",
         "resultApplied_other": "Applied {{count}} settings: {{list}}.",
-        "resultError": "Error: {{error}}"
+        "resultError": "Error: {{error}}",
+        "themesReplaceWarning": "Replaces this device's custom themes."
       },
       "handlers": {
         "themes": { "label": "Themes" },

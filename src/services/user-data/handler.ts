@@ -6,7 +6,8 @@ export interface UserDataHandler {
   readonly label: string;
   readonly icon: string;
 
-  // Read current state from stores.
+  // Read current state from stores. Must be side-effect free: mergeUserDataBundle
+  // calls this on the absent-section path, outside of any explicit export flow.
   export(): unknown;
 
   // Write exported state to stores.
@@ -22,6 +23,10 @@ export interface UserDataHandler {
 
   // ISO timestamp of the most recent local change to this domain.
   getTimestamp(): string;
+
+  // Stamp this domain as changed now, so the next merge publishes local values.
+  // Called when the user switches sync back on for the domain.
+  touch(): void;
 
   // Short human-readable summary of current state, e.g. "3 custom themes".
   describe(): string;

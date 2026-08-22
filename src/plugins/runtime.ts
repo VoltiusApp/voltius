@@ -30,8 +30,9 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
 import type {
   UISlot,
@@ -2354,14 +2355,19 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
       async exportState(encKey, deviceId) {
         requirePerm(manifest, "sync:write");
+        await writeFilteredSettings();
         const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
         const blob: number[] = await invoke("backup_export", {
           encKey: encKeyBytes,
           accountId: "gist-sync",
           deviceId,
           // Strip cloud-off objects (and their secrets) from third-party sync
-          // destinations too, mirroring the built-in server push (issue #47).
+          // destinations too, mirroring the built-in server push (issue #47),
+          // and withhold the same config files (issue #42) — the plugin path's
+          // own theme.json rule, since this destination has no settings-bundle
+          // theme route (see importStates below).
           excludedIds: getExcludedObjectIds(),
+          skipFiles: getPluginSkippedSyncFiles(),
         });
         const CHUNK = 8192;
         let binary = "";
@@ -2423,7 +2429,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           }
         }
 
-        if (bestThemeRaw) {
+        // Inbound half of what getPluginSkippedSyncFiles enforces outbound: a
+        // device that opted themes out of sync must not have them overwritten
+        // by an incoming blob either.
+        if (bestThemeRaw && useSyncPrefsStore.getState().isDomainSynced("themes")) {
           try {
             const localRaw = await invoke<string | null>("theme_load");
             let apply = true;

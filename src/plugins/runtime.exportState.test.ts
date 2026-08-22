@@ -8,11 +8,16 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
-// Stub the sync service: `getExcludedObjectIds()` returns a known set so the test
-// can assert it is threaded through to `backup_export` (issue #47). The other
-// three named imports are the surface runtime.ts pulls from this module.
+// Stub the sync service: `getExcludedObjectIds()` and `getPluginSkippedSyncFiles()`
+// return known/controllable values so the test can assert they're threaded through
+// to `backup_export` (issues #47, #42). The rest are the remaining surface
+// runtime.ts pulls from this module.
+const pluginSkippedFilesMock = vi.fn<() => string[]>(() => ["theme.json"]);
+const writeFilteredSettingsMock = vi.fn(async () => {});
 vi.mock("@/services/sync", () => ({
   getExcludedObjectIds: () => ["excluded-host", "excluded-key"],
+  getPluginSkippedSyncFiles: () => pluginSkippedFilesMock(),
+  writeFilteredSettings: () => writeFilteredSettingsMock(),
   getSyncState: () => ({ status: "idle" }),
   onSyncStateChange: () => () => {},
   ENTITY_FILES: [],
@@ -29,29 +34,64 @@ function captureApi(manifest: PluginManifest): PluginAPI {
   return captured;
 }
 
+async function exportOnce(): Promise<void> {
+  const manifest: PluginManifest = {
+    id: "gist-sync-test",
+    name: "Gist Sync",
+    version: "1.0.0",
+    permissions: ["sync:write"],
+  };
+  const api = captureApi(manifest);
+  try {
+    await api.sync.exportState("aabb", "device-1");
+  } finally {
+    unloadPlugin("gist-sync-test");
+  }
+}
+
 describe("plugin sync.exportState honours sync exclusions", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue([1, 2, 3]);
+    pluginSkippedFilesMock.mockReset();
+    writeFilteredSettingsMock.mockReset();
   });
 
   test("forwards getExcludedObjectIds() into backup_export", async () => {
-    const manifest: PluginManifest = {
-      id: "gist-sync-test",
-      name: "Gist Sync",
-      version: "1.0.0",
-      permissions: ["sync:write"],
-    };
-    const api = captureApi(manifest);
-    try {
-      await api.sync.exportState("aabb", "device-1");
-    } finally {
-      unloadPlugin("gist-sync-test");
-    }
+    pluginSkippedFilesMock.mockReturnValue(["theme.json"]);
+    await exportOnce();
 
     expect(invokeMock).toHaveBeenCalledWith(
       "backup_export",
-      expect.objectContaining({ excludedIds: ["excluded-host", "excluded-key"] }),
+      expect.objectContaining({
+        excludedIds: ["excluded-host", "excluded-key"],
+        skipFiles: ["theme.json"],
+      }),
+    );
+  });
+
+  test("writes the filtered settings bundle before calling backup_export", async () => {
+    await exportOnce();
+    expect(writeFilteredSettingsMock).toHaveBeenCalled();
+  });
+
+  test("themes ON: theme.json is not withheld on the plugin path", async () => {
+    pluginSkippedFilesMock.mockReturnValue([]);
+    await exportOnce();
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      "backup_export",
+      expect.objectContaining({ skipFiles: [] }),
+    );
+  });
+
+  test("themes OFF: theme.json is withheld on the plugin path", async () => {
+    pluginSkippedFilesMock.mockReturnValue(["theme.json"]);
+    await exportOnce();
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      "backup_export",
+      expect.objectContaining({ skipFiles: ["theme.json"] }),
     );
   });
 });

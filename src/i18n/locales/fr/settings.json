@@ -509,7 +509,7 @@
         "configure": "Configurer →"
       },
       "prefsTitle": "Préférences de synchronisation",
-      "prefsFooter": "Les types désactivés ne déclenchent pas de synchronisation automatique lors de modifications. Les objets individuels peuvent également être exclus via leur panneau d'édition.",
+      "prefsFooter": "Les types désactivés ne sont jamais envoyés. Les objets peuvent aussi être exclus depuis leur panneau d'édition.",
       "quickToggleLabel": "Synchroniser {{label}}",
       "objectType": {
         "connection": {
@@ -532,6 +532,15 @@
           "label": "Transfert de ports",
           "sub": "Règles de tunnel enregistrées"
         }
+      },
+      "settingsTitle": "Paramètres",
+      "settingsFooter": "Tout ce qui est désactivé reste sur cet appareil. Rien n'est envoyé, même chiffré. Réactiver la synchronisation publie les valeurs de cet appareil.",
+      "settingDomain": {
+        "themes": { "label": "Thèmes", "sub": "Thème actif et thèmes personnalisés" },
+        "uiPreferences": { "label": "Interface", "sub": "Échelle, dispositions et tri" },
+        "shortcuts": { "label": "Raccourcis", "sub": "Raccourcis clavier personnalisés" },
+        "appSettings": { "label": "Paramètres de l'application", "sub": "Terminal, SFTP, extensions, langue" },
+        "recentPeople": { "label": "Personnes récentes", "sub": "Vos invitations récentes" }
       }
     },
     "vaults": {

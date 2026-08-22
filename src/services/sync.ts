@@ -3,7 +3,6 @@ import i18n from "@/i18n";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring } from "@/services/authTokens";
 import { getVaultKey, unlockVaultIfNeeded } from "@/services/vault";
-import { useThemeStore } from "@/stores/themeStore";
 import { buildUserDataBundle, mergeUserDataBundle, applyUserDataBundle } from "@/services/user-data/registry";
 import type { UserDataBundle } from "@/services/user-data/formats";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -17,6 +16,7 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
 import { filterRemoteExcluded, collectExcludedIds } from "./syncExclusion";
+import { filterIncoming, filterOutgoing } from "@/services/user-data/syncFilter";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { buildDecryptKeyCandidates } from "@/services/vaultKeyCandidates";
@@ -83,22 +83,6 @@ function setState(status: SyncStatus, error?: string) {
   _listeners.forEach((fn) => fn());
 }
 
-async function applyRemoteTheme(remotePayload: BlobPayload): Promise<void> {
-  try {
-    const remoteRaw = remotePayload.files["theme.json"];
-    if (!remoteRaw) return;
-    const remote = JSON.parse(remoteRaw) as { updatedAt?: string };
-    if (!remote.updatedAt) return;
-    const localRaw = await invoke<string | null>("theme_load");
-    if (localRaw) {
-      const local = JSON.parse(localRaw) as { updatedAt?: string };
-      if (local.updatedAt && local.updatedAt >= remote.updatedAt) return;
-    }
-    await invoke("theme_save", { state: remoteRaw });
-    await useThemeStore.getState().loadFromDisk();
-  } catch {}
-}
-
 async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
   try {
     const remoteRaw = remotePayload.files["settings.json"];
@@ -107,7 +91,7 @@ async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
     if (remote.type !== "voltius-user-data") return;
     const localRaw = await invoke<string | null>("settings_load");
     const local = localRaw ? (JSON.parse(localRaw) as UserDataBundle) : null;
-    const { merged, updatedKeys } = mergeUserDataBundle(local, remote);
+    const { merged, updatedKeys } = mergeUserDataBundle(local, filterIncoming(remote));
     if (updatedKeys.length === 0) return;
     await invoke("settings_save", { state: JSON.stringify(merged) });
     await applyUserDataBundle(merged, updatedKeys, { remote: true });
@@ -322,6 +306,65 @@ export function getExcludedObjectIds(): string[] {
   );
 }
 
+/** `plugin-registry.json` duplicates `appSettings.plugins.overrides`, so every
+ *  destination withholds it under the same condition — that part isn't
+ *  destination-specific, unlike theme.json below. */
+function skippedConfigFilesCore(): string[] {
+  const skipped: string[] = [];
+  if (!useSyncPrefsStore.getState().isDomainSynced("appSettings")) {
+    skipped.push("plugin-registry.json");
+  }
+  return skipped;
+}
+
+/**
+ * Config files that must not enter the SERVER blob this round.
+ *
+ * `theme.json` is always withheld here: themes travel in the settings bundle,
+ * and `applyRemoteSettings` merges that bundle on pull, so a second wire would
+ * be redundant and could fight the domain toggle.
+ *
+ * Exported for its test; plugin destinations use `getPluginSkippedSyncFiles`.
+ */
+export function getSkippedSyncFiles(): string[] {
+  return ["theme.json", ...skippedConfigFilesCore()];
+}
+
+/**
+ * Config files that must not enter a PLUGIN (third-party) blob this round.
+ *
+ * Unlike the server destination, plugin destinations never merge the settings
+ * bundle — `theme.json` is their *only* theme route (see `importStates` in
+ * runtime.ts). So it must still travel there whenever the themes domain is
+ * synced, and is withheld only when the user has switched that domain off.
+ * This asymmetry with `getSkippedSyncFiles` is deliberate, not a bug: it
+ * exists because the two destinations don't apply the same wire for themes.
+ */
+export function getPluginSkippedSyncFiles(): string[] {
+  const skipped = skippedConfigFilesCore();
+  if (!useSyncPrefsStore.getState().isDomainSynced("themes")) {
+    skipped.push("theme.json");
+  }
+  return skipped;
+}
+
+/**
+ * Ensure settings.json is current before ANY `backup_export` caller reads it.
+ * Filtered: this file is both the local merge base and part of the uploaded
+ * blob, so a switched-off domain has to be absent from it, not merely ignored
+ * on arrival. Every `backup_export` caller (server push, plugin export) must
+ * call this first — issue #47 was exactly a second caller skipping a step
+ * like this one.
+ */
+export async function writeFilteredSettings(): Promise<void> {
+  // Not swallowed: backup_export reads settings.json from disk regardless of
+  // this call's outcome, so a hidden failure here would upload the
+  // pre-toggle, unfiltered file. A failed sync round is strictly better than
+  // uploading held-back data — let this throw and abort the round.
+  const bundle = filterOutgoing(buildUserDataBundle());
+  await invoke("settings_save", { state: JSON.stringify(bundle) });
+}
+
 /** Export local data and upload to server. */
 export async function push(): Promise<void> {
   const encKey = await getEncKey();
@@ -335,17 +378,14 @@ export async function push(): Promise<void> {
 
   await unlockVaultIfNeeded();
 
-  // Ensure settings.json is current before backup_export reads it.
-  try {
-    const bundle = buildUserDataBundle();
-    await invoke("settings_save", { state: JSON.stringify(bundle) });
-  } catch {}
+  await writeFilteredSettings();
 
   const blob: number[] = await invoke("backup_export", {
     encKey,
     accountId,
     deviceId,
     excludedIds: getExcludedObjectIds(),
+    skipFiles: getSkippedSyncFiles(),
   });
 
   const res = await fetchWithAuth(`${serverUrl}/v1/sync/blob`, {
@@ -455,7 +495,6 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
     ENTITY_FILES,
   );
 
-  await applyRemoteTheme(remotePayload);
   await applyRemoteSettings(remotePayload);
   applyRemoteLiveSessions(remoteDeviceId, remotePayload);
 
@@ -633,7 +672,6 @@ export async function syncOnLoginReplace(): Promise<void> {
           ENTITY_FILES,
         );
 
-        await applyRemoteTheme(remotePayload);
         await applyRemoteSettings(remotePayload);
         applyRemoteLiveSessions(device.device_id, remotePayload);
 

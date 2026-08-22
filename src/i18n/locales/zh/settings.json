@@ -395,7 +395,7 @@
         "configure": "配置 →"
       },
       "prefsTitle": "同步偏好",
-      "prefsFooter": "禁用的类型在更改时不会触发自动同步。单个对象也可以通过其编辑面板排除。",
+      "prefsFooter": "禁用的类型永远不会上传。单个对象也可以通过其编辑面板排除。",
       "quickToggleLabel": "同步 {{label}}",
       "objectType": {
         "connection": { "label": "主机", "sub": "SSH 连接" },
@@ -403,6 +403,15 @@
         "key": { "label": "SSH 密钥", "sub": "存储在密钥链中的密钥对" },
         "folder": { "label": "文件夹", "sub": "用于组织对象的文件夹结构" },
         "port-forwarding-rule": { "label": "端口转发", "sub": "保存的隧道规则" }
+      },
+      "settingsTitle": "设置",
+      "settingsFooter": "关闭的项目只保留在此设备上，永远不会上传，即使加密后也不会。重新开启同步会发布此设备的值。",
+      "settingDomain": {
+        "themes": { "label": "主题", "sub": "当前主题和自定义主题" },
+        "uiPreferences": { "label": "界面", "sub": "缩放、布局和排序方式" },
+        "shortcuts": { "label": "快捷键", "sub": "键盘快捷键覆盖" },
+        "appSettings": { "label": "应用设置", "sub": "终端、SFTP、插件、语言" },
+        "recentPeople": { "label": "最近联系人", "sub": "您最近邀请过的人" }
       }
     },
     "vaults": {

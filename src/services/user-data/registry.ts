@@ -12,6 +12,11 @@ import { vaultsHandler } from "./handlers/vaults";
 // Order matters for UI rendering. Adding a new settings domain:
 //   1. Create handlers/<name>.ts implementing UserDataHandler
 //   2. Add it here
+//   3. Add an entry to SYNC_SETTING_DOMAINS in stores/syncPrefsStore.ts, or the
+//      new domain silently becomes permanently-synced (isDomainSynced defaults
+//      an unknown key to true) — the drift test in syncPrefsStore.test.ts
+//      fails until you do
+//   4. Add the four settings.sync.settingDomain.<id>.{label,sub} locale strings
 
 export const USER_DATA_HANDLERS: UserDataHandler[] = [
   themesHandler,
@@ -24,6 +29,13 @@ export const USER_DATA_HANDLERS: UserDataHandler[] = [
 
 // ─── Build ────────────────────────────────────────────────────────────────────
 
+/**
+ * Unfiltered by design: the manual export UI produces a backup the user asked
+ * for by name, and that backup must be complete regardless of sync domain
+ * toggles. Only the sync path wraps this in `filterOutgoing`. A future sync
+ * route reaching for a "build the bundle" function should filter its own
+ * output rather than change this one.
+ */
 export function buildUserDataBundle(keys?: string[]): UserDataBundle {
   const handlers = keys
     ? USER_DATA_HANDLERS.filter((h) => keys.includes(h.key))
@@ -82,10 +94,20 @@ export function mergeUserDataBundle(
     const remoteSection = remote.sections[h.key];
     if (!remoteSection) continue;
 
-    const localTs = localSection?.updated_at ?? new Date(0).toISOString();
+    // A section missing from the bundle isn't necessarily missing data: a
+    // switched-off domain is filtered OUT of settings.json before it's ever
+    // written (filterOutgoing), so the merge base can lack an entry for a
+    // domain whose store still holds current, possibly newer, local state.
+    // The stores are local truth — settings.json is only a cache of them —
+    // so fall back to the handler's live export/timestamp rather than
+    // treating an absent section as "no local value", which would let
+    // lastWriteWins hand a stale remote an unconditional win the moment the
+    // domain is re-enabled.
+    const localData = localSection ? localSection.data : h.export();
+    const localTs = localSection ? localSection.updated_at : h.getTimestamp();
     const remoteTs = remoteSection.updated_at;
     const { value, updated } = h.merge(
-      localSection?.data,
+      localData,
       remoteSection.data,
       localTs,
       remoteTs,
