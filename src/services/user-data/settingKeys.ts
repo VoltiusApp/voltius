@@ -22,6 +22,12 @@ const HAND_WRITTEN: SettingKeyDef[] = [
   { id: "appSettings.plugins.overrides", labelKey: "settings.sync.settingKey.pluginOverrides" },
   { id: "appSettings.keepalivePreset", labelKey: "settings.hosts.keepalive.title" },
   { id: "appSettings.locale", labelKey: "settings.appearance.language.title" },
+  {
+    id: "themes.location",
+    labelKey: "settings.sync.settingKey.themeLocation",
+    // Where the person physically is, not a preference about the app.
+    deviceScoped: true,
+  },
 ];
 
 export const SETTING_KEYS: SettingKeyDef[] = [

@@ -2431,7 +2431,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
         // Inbound half of what getPluginSkippedSyncFiles enforces outbound: a
         // device that opted themes out of sync must not have them overwritten
-        // by an incoming blob either.
+        // by an incoming blob either. The domain toggle is the whole decision
+        // here — theme.json carries no per-key leaf (see themeStore's
+        // ThemeDiskState), so `location` cannot arrive through this wire.
         if (bestThemeRaw && useSyncPrefsStore.getState().isDomainSynced("themes")) {
           try {
             const localRaw = await invoke<string | null>("theme_load");

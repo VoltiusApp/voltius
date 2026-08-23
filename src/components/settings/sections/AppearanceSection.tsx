@@ -10,7 +10,7 @@ import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 import { useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
-import { SettingRow } from "./shared";
+import { SettingRow, SyncKeyButton } from "./shared";
 
 function downloadJson(filename: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -138,7 +138,9 @@ export default function AppearanceSection() {
               )}
 
               {mode === "sunset" && (
-                <div className="flex flex-col gap-2">
+                // `group` so SyncKeyButton's hover-reveal has an ancestor to
+                // hover: without it the control is unreachable once opted in.
+                <div className="group flex flex-col gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <button onClick={useMyLocation} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-(--t-bg-elevated) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
                       <Icon icon="lucide:map-pin" width={12} /> {t("settings.appearance.automation.useMyLocation")}
@@ -155,6 +157,7 @@ export default function AppearanceSection() {
                       const lat = parse(latText);
                       if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: "manual", source: "manual" });
                     }} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
+                    <SyncKeyButton path="themes.location" />
                   </div>
                   <span className="text-xs text-(--t-text-dim)">
                     {sun ? t("settings.appearance.automation.sunToday", { sunrise: fmt(sun.sunrise), sunset: fmt(sun.sunset) }) : t("settings.appearance.automation.locationNeeded")}

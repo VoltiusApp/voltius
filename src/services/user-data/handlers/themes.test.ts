@@ -18,7 +18,7 @@ describe("themesHandler", () => {
     });
   });
 
-  test("exports every field theme.json persists", () => {
+  test("exports every field of the themes section, coordinates included", () => {
     useThemeStore.setState({ mode: "schedule", scheduleLightStart: "06:30", darkThemeId: "dracula" });
     expect(themesHandler.export()).toMatchObject({
       activeThemeId: "voltius",

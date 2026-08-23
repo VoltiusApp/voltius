@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The default shell is no longer synced unless you ask for it. A shell path is
   wrong on another machine by construction, so it is now device-scoped: it
   stays out of the backup until you opt it in from the Sync panel.
+- Your sunrise/sunset coordinates are no longer synced unless you ask for
+  them to be. Where you physically are is a property of the machine, not of
+  your account, so the theme location is now device-scoped: it stays out of
+  the uploaded backup — and out of any third-party sync destination, such as
+  the gist-sync plugin — until you opt it in from the cloud button beside the
+  latitude and longitude fields.
 
 ### Changed
 

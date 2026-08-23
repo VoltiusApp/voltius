@@ -1,6 +1,9 @@
-import { test, expect, beforeEach } from "vitest";
+import { test, expect, beforeEach, vi } from "vitest";
 import { useThemeStore } from "./themeStore";
 import { DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
+
+const invokeMock = vi.hoisted(() => vi.fn(async (): Promise<unknown> => null));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
 beforeEach(() => {
   useThemeStore.setState({
@@ -75,4 +78,30 @@ test("setResolvedPhase does not bump updatedAt (device-local, not synced)", () =
   const before = useThemeStore.getState().updatedAt;
   useThemeStore.getState().setResolvedPhase("light");
   expect(useThemeStore.getState().updatedAt).toBe(before);
+});
+
+test("theme.json carries no location — the coordinates are device-scoped (#163)", async () => {
+  invokeMock.mockClear();
+  useThemeStore.setState({ location: { lat: 48.85, lng: 2.35, label: "Paris", source: "manual" } });
+  useThemeStore.getState().persist();
+  const calls = invokeMock.mock.calls as unknown as [string, { state: string }][];
+  const [cmd, args] = calls[calls.length - 1];
+  expect(cmd).toBe("theme_save");
+  expect("location" in JSON.parse(args.state)).toBe(false);
+});
+
+test("loadFromDisk leaves the local location alone when an old file still has one", async () => {
+  useThemeStore.setState({ location: { lat: 48.85, lng: 2.35, label: "Paris", source: "manual" } });
+  invokeMock.mockResolvedValueOnce(
+    JSON.stringify({
+      updatedAt: "2026-08-23T00:00:00.000Z",
+      activeThemeId: "dracula",
+      customThemes: [],
+      location: { lat: 35.68, lng: 139.69, label: "Tokyo", source: "manual" },
+    }),
+  );
+  await useThemeStore.getState().loadFromDisk();
+  const s = useThemeStore.getState();
+  expect(s.activeThemeId).toBe("dracula");
+  expect(s.location).toEqual({ lat: 48.85, lng: 2.35, label: "Paris", source: "manual" });
 });
