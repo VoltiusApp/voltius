@@ -11,9 +11,9 @@ import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { lastWriteWins, type UserDataHandler } from "../handler";
 
 interface AppSettingsData {
-  sftp?: { autoRefreshIntervalMs: number };
+  sftp?: { autoRefreshIntervalMs?: number };
   terminal?: { preferredShell?: string | null; cursorStyle?: TerminalCursorStyle };
-  plugins?: { overrides: Record<string, boolean> };
+  plugins?: { overrides?: Record<string, boolean> };
   toggles?: Partial<Record<string, boolean>>;
   keepalivePreset?: KeepalivePreset;
   locale?: Locale;

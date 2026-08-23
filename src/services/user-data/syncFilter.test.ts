@@ -109,24 +109,22 @@ describe("per-key filtering", () => {
     expect(filterOutgoing(input).sections.appSettings).toBe(input.sections.appSettings);
   });
 
-  test("strips held-back keys independently across two domains, leaving siblings alone", () => {
+  test("strips several held-back keys at once, leaving siblings and untouched domains alone", () => {
+    useSyncPrefsStore.getState().setSettingSync("appSettings.locale", false);
     const input: UserDataBundle = {
       ...appBundle(),
       sections: {
         ...appBundle().sections,
-        themes: {
-          data: { activeThemeId: "dracula", location: { lat: 1, lng: 2 } },
-          updated_at: "2026-08-22T00:00:00.000Z",
-        },
+        themes: { data: { activeThemeId: "dracula" }, updated_at: "2026-08-22T00:00:00.000Z" },
       },
     };
     const out = filterOutgoing(input);
-    const themesData = out.sections.themes.data as Record<string, unknown>;
     const appData = out.sections.appSettings.data as Record<string, Record<string, unknown>>;
-    expect("location" in themesData).toBe(false);
-    expect(themesData.activeThemeId).toBe("dracula");
     expect("preferredShell" in appData.terminal).toBe(false);
+    expect("locale" in appData).toBe(false);
     expect(appData.terminal.cursorStyle).toBe("bar");
+    expect(appData.toggles).toEqual({ "cursor-blink": false });
+    expect(out.sections.themes).toBe(input.sections.themes);
   });
 });
 

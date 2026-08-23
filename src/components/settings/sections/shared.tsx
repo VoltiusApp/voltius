@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { domainOf, settingKey } from "@/services/user-data/settingKeys";
+import { domainOf, isDeviceScopedDefault } from "@/services/user-data/settingKeys";
 import { setKeySync } from "@/services/user-data/syncChoice";
 
 /** A titled block of settings rows: the uppercase heading plus the row container. */
@@ -161,7 +161,7 @@ export function ResetButton({ onReset }: { onReset: () => void }) {
   return (
     <button
       onClick={onReset}
-      className="p-1 rounded-sm transition-opacity opacity-0 group-hover:opacity-100 text-(--t-text-muted)"
+      className="p-1 rounded-sm transition-opacity opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-(--t-text-muted)"
       onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-muted)"; }}
       title={t("settings.shared.resetToDefault")}
@@ -175,8 +175,7 @@ export function SyncKeyButton({ path }: { path: string }) {
   const { t } = useTranslation();
   const domainSynced = useSyncPrefsStore((s) => s.isDomainSynced(domainOf(path)));
   const synced = useSyncPrefsStore((s) => s.isSettingSynced(path));
-  const explicit = useSyncPrefsStore((s) => s.settingSyncOverrides[path] !== undefined);
-  const deviceDefault = !explicit && !!settingKey(path)?.deviceScoped;
+  const deviceDefault = useSyncPrefsStore((s) => isDeviceScopedDefault(path, s.settingSyncOverrides ?? {}));
 
   const title = !domainSynced
     ? t("settings.sync.keyButton.domainOff")
@@ -198,7 +197,7 @@ export function SyncKeyButton({ path }: { path: string }) {
       onClick={() => setKeySync(path, !synced)}
       title={title}
       aria-label={title}
-      className={`p-1 rounded-sm transition-opacity text-(--t-text-muted)${synced ? " opacity-0 group-hover:opacity-100" : ""}`}
+      className={`p-1 rounded-sm transition-opacity text-(--t-text-muted)${synced ? " opacity-0 group-hover:opacity-100 focus-visible:opacity-100" : ""}`}
       style={{ color: accented ? "var(--t-accent)" : undefined }}
       onMouseEnter={(e) => { if (domainSynced) e.currentTarget.style.color = "var(--t-text-bright)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.color = accented ? "var(--t-accent)" : ""; }}

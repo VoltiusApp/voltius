@@ -21,6 +21,7 @@ src-tauri/gen/
 !.claude/skills/
 docs/superpowers/
 .superpowers/
+specs/
 
 # on-device / emulator screenshots captured while iterating
 screenshots/

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { SETTING_KEYS, settingKey, domainOf, relPath, keysForDomain } from "./settingKeys";
+import { SETTING_KEYS, settingKey, domainOf, relPath, keysForDomain, isDeviceScopedDefault } from "./settingKeys";
 import { TOGGLE_DEFS, useToggleSettingsStore, type ToggleId } from "@/stores/toggleSettingsStore";
 import { USER_DATA_HANDLERS } from "./registry";
 import { hasPath } from "@/utils/dotPath";
@@ -13,20 +13,27 @@ describe("settingKeys", () => {
     }
   });
 
-  test("marks exactly the two device-scoped keys", () => {
-    expect(SETTING_KEYS.filter((k) => k.deviceScoped).map((k) => k.id).sort())
-      .toEqual(["appSettings.terminal.preferredShell", "themes.location"]);
+  test("marks exactly the one device-scoped key", () => {
+    expect(SETTING_KEYS.filter((k) => k.deviceScoped).map((k) => k.id))
+      .toEqual(["appSettings.terminal.preferredShell"]);
   });
 
   test("splits an id into its domain and the path within the section", () => {
     expect(domainOf("appSettings.terminal.cursorStyle")).toBe("appSettings");
     expect(relPath("appSettings.terminal.cursorStyle")).toBe("terminal.cursorStyle");
-    expect(relPath("themes.location")).toBe("location");
+    expect(relPath("appSettings.locale")).toBe("locale");
   });
 
   test("groups keys by domain", () => {
-    expect(keysForDomain("themes").map((k) => k.id)).toEqual(["themes.location"]);
-    expect(keysForDomain("uiPreferences")).toEqual([]);
+    expect(keysForDomain("appSettings")).toEqual(SETTING_KEYS);
+    expect(keysForDomain("themes")).toEqual([]);
+  });
+
+  test("a device-scoped key is the default hold only until the user chooses", () => {
+    const shell = "appSettings.terminal.preferredShell";
+    expect(isDeviceScopedDefault(shell, {})).toBe(true);
+    expect(isDeviceScopedDefault(shell, { [shell]: false })).toBe(false);
+    expect(isDeviceScopedDefault("appSettings.locale", {})).toBe(false);
   });
 
   test("ids are unique", () => {

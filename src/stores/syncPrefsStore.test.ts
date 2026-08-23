@@ -44,7 +44,6 @@ describe("per-setting overrides", () => {
 
   test("a device-scoped key does not sync by default", () => {
     expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.terminal.preferredShell")).toBe(false);
-    expect(useSyncPrefsStore.getState().isSettingSynced("themes.location")).toBe(false);
   });
 
   test("an explicit override beats the registry default in both directions", () => {

@@ -544,8 +544,7 @@
       },
       "settingKey": {
         "preferredShell": "Shell par défaut",
-        "pluginOverrides": "Plugins activés",
-        "themeLocation": "Position pour le lever/coucher du soleil"
+        "pluginOverrides": "Plugins activés"
       },
       "keyButton": {
         "hold": "Garder ce réglage sur cet appareil",

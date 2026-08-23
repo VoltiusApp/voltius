@@ -9,6 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { openPortal } from "@/utils/billing";
 import { setDomainSync, setKeySync } from "@/services/user-data/syncChoice";
 import { heldBackKeys } from "@/services/user-data/syncFilter";
+import { isDeviceScopedDefault } from "@/services/user-data/settingKeys";
 import { SettingsGroup } from "./shared";
 
 function SyncToggleRow({ domain, label, sub, checked, onChange }: {
@@ -37,7 +38,7 @@ function HeldBackKeys({ domain }: { domain: string }) {
   // Subscribing to both maps is what re-renders this row when a key is held
   // back from a settings page while this panel is mounted.
   const overrides = useSyncPrefsStore((s) => s.settingSyncOverrides);
-  useSyncPrefsStore((s) => s.syncSettingDomains);
+  void useSyncPrefsStore((s) => s.syncSettingDomains);
   const keys = heldBackKeys(domain);
   if (keys.length === 0) return null;
 
@@ -46,6 +47,7 @@ function HeldBackKeys({ domain }: { domain: string }) {
       <button
         data-testid={`held-back-${domain}`}
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
         className="text-xs text-(--t-text-muted) hover:text-(--t-text-primary) transition-colors"
       >
         {t("settings.sync.heldBack.summary", { count: keys.length })}
@@ -58,7 +60,7 @@ function HeldBackKeys({ domain }: { domain: string }) {
                 {t(k.labelKey)}
                 {" · "}
                 {t(
-                  overrides[k.id] === undefined
+                  isDeviceScopedDefault(k.id, overrides ?? {})
                     ? "settings.sync.heldBack.deviceDefault"
                     : "settings.sync.heldBack.yourChoice",
                 )}

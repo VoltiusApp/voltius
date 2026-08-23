@@ -22,13 +22,6 @@ const HAND_WRITTEN: SettingKeyDef[] = [
   { id: "appSettings.plugins.overrides", labelKey: "settings.sync.settingKey.pluginOverrides" },
   { id: "appSettings.keepalivePreset", labelKey: "settings.hosts.keepalive.title" },
   { id: "appSettings.locale", labelKey: "settings.appearance.language.title" },
-  {
-    id: "themes.location",
-    labelKey: "settings.sync.settingKey.themeLocation",
-    // The user's coordinates. It only ever synced by accident of theme.json
-    // carrying whatever themeStore persisted (see PR 1).
-    deviceScoped: true,
-  },
 ];
 
 export const SETTING_KEYS: SettingKeyDef[] = [
@@ -56,4 +49,9 @@ export function relPath(id: string): string {
 
 export function keysForDomain(domain: string): SettingKeyDef[] {
   return SETTING_KEYS.filter((k) => domainOf(k.id) === domain);
+}
+
+/** Held back only by the registry default, with no explicit choice from the user. */
+export function isDeviceScopedDefault(id: string, overrides: Record<string, boolean>): boolean {
+  return overrides[id] === undefined && !!settingKey(id)?.deviceScoped;
 }
