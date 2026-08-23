@@ -49,6 +49,11 @@ describe("SettingRow syncKey", () => {
     expect(btn(c)!.disabled).toBe(true);
     fireEvent.click(btn(c)!);
     expect(useSyncPrefsStore.getState().settingSyncOverrides["appSettings.locale"]).toBeUndefined();
+
+    const domainOffColor = btn(c)!.style.color;
+    useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: { "appSettings.locale": false } });
+    const heldBackColor = btn(row("appSettings.locale"))!.style.color;
+    expect(domainOffColor).not.toBe(heldBackColor);
   });
 
   test("a device-scoped key starts held back", () => {

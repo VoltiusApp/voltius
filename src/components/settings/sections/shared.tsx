@@ -186,6 +186,10 @@ export function SyncKeyButton({ path }: { path: string }) {
         ? t("settings.sync.keyButton.deviceDefault")
         : t("settings.sync.keyButton.resume");
 
+  // Muted once the domain itself is off: without this, a domain-off row is
+  // visually indistinguishable from a setting the user held back individually.
+  const accented = domainSynced && !synced && !deviceDefault;
+
   return (
     <button
       data-testid="sync-key-button"
@@ -195,9 +199,9 @@ export function SyncKeyButton({ path }: { path: string }) {
       title={title}
       aria-label={title}
       className={`p-1 rounded-sm transition-opacity text-(--t-text-muted)${synced ? " opacity-0 group-hover:opacity-100" : ""}`}
-      style={{ color: !synced && !deviceDefault ? "var(--t-accent)" : undefined }}
+      style={{ color: accented ? "var(--t-accent)" : undefined }}
       onMouseEnter={(e) => { if (domainSynced) e.currentTarget.style.color = "var(--t-text-bright)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.color = !synced && !deviceDefault ? "var(--t-accent)" : ""; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = accented ? "var(--t-accent)" : ""; }}
     >
       <Icon icon={synced ? "lucide:cloud" : "lucide:cloud-off"} width={11} />
     </button>
