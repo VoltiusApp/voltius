@@ -353,6 +353,10 @@ export function getSkippedSyncFiles(): string[] {
  * synced, and is withheld only when the user has switched that domain off.
  * This asymmetry with `getSkippedSyncFiles` is deliberate, not a bug: it
  * exists because the two destinations don't apply the same wire for themes.
+ *
+ * A file-level rule is the only rule this wire can enforce, which is why
+ * `themes.location` no longer rides inside theme.json (issue #163): a per-key
+ * decision the plugin path cannot see is a promise it cannot keep.
  */
 export function getPluginSkippedSyncFiles(): string[] {
   const skipped = skippedConfigFilesCore();

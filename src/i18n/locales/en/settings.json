@@ -548,7 +548,8 @@
       },
       "settingKey": {
         "preferredShell": "Default shell",
-        "pluginOverrides": "Enabled plugins"
+        "pluginOverrides": "Enabled plugins",
+        "themeLocation": "Sunrise/sunset location"
       },
       "keyButton": {
         "hold": "Keep this setting on this device",

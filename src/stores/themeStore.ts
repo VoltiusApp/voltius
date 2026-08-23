@@ -7,6 +7,10 @@ import { usePluginStore } from "@/stores/pluginStore";
 import { pushSettingsChange, remoteApplyTimestamp, settingsStamp } from "./remoteApplyGuard";
 import type { ThemeMode, GeoLocation, AutomationConfig, ThemePhase } from "@/services/themeAutomation";
 
+// `location` is deliberately absent: it is device-scoped, and theme.json is the
+// plugin path's only theme wire — a per-key filter cannot reach inside a file.
+// The coordinates travel in the `themes` user-data section alone, and persist
+// locally through this store's own localStorage middleware.
 interface ThemeDiskState {
   updatedAt: string;
   activeThemeId: string;
@@ -16,7 +20,6 @@ interface ThemeDiskState {
   darkThemeId?: string;
   scheduleLightStart?: string;
   scheduleDarkStart?: string;
-  location?: GeoLocation | null;
 }
 
 async function saveToDisk(state: ThemeDiskState): Promise<void> {
@@ -83,7 +86,6 @@ export const useThemeStore = create<ThemeStore>()(
           darkThemeId: s.darkThemeId,
           scheduleLightStart: s.scheduleLightStart,
           scheduleDarkStart: s.scheduleDarkStart,
-          location: s.location,
         });
       },
       setTheme: (id) => {
@@ -170,7 +172,6 @@ export const useThemeStore = create<ThemeStore>()(
               darkThemeId: disk.darkThemeId ?? DEFAULT_THEME_ID,
               scheduleLightStart: disk.scheduleLightStart ?? "07:00",
               scheduleDarkStart: disk.scheduleDarkStart ?? "19:00",
-              location: disk.location ?? null,
             });
         } catch {}
       },

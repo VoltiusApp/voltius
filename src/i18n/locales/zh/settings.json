@@ -416,7 +416,8 @@
       },
       "settingKey": {
         "preferredShell": "默认 Shell",
-        "pluginOverrides": "已启用的插件"
+        "pluginOverrides": "已启用的插件",
+        "themeLocation": "日出/日落位置"
       },
       "keyButton": {
         "hold": "仅在本设备保留此设置",

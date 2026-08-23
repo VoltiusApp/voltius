@@ -75,6 +75,9 @@ describe("plugin sync.exportState honours sync exclusions", () => {
     expect(writeFilteredSettingsMock).toHaveBeenCalled();
   });
 
+  // The plugin wire can only decide per FILE. That is the whole contract now:
+  // theme.json no longer carries `themes.location`, so an ON domain here means
+  // nothing per-key is riding along un-filtered (#163).
   test("themes ON: theme.json is not withheld on the plugin path", async () => {
     pluginSkippedFilesMock.mockReturnValue([]);
     await exportOnce();

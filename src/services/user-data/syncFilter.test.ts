@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, vi } from "vitest";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { filterOutgoing, filterIncoming, restoreLocal, heldBackKeys } from "./syncFilter";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { useThemeStore } from "@/stores/themeStore";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { appSettingsHandler } from "./handlers/appSettings";
 import type { UserDataBundle } from "./formats";
@@ -124,8 +125,36 @@ describe("per-key filtering", () => {
     expect("locale" in appData).toBe(false);
     expect(appData.terminal.cursorStyle).toBe("bar");
     expect(appData.toggles).toEqual({ "cursor-blink": false });
-    expect(out.sections.themes).toBe(input.sections.themes);
+    // Copied, not shared: themes carries a held-back key of its own now.
+    expect(out.sections.themes.data).toEqual({ activeThemeId: "dracula" });
   });
+
+  test("holds back the theme location by default, keeping its siblings", () => {
+    const data = filterOutgoing(themeBundle()).sections.themes.data as Record<string, unknown>;
+    expect("location" in data).toBe(false);
+    expect(data.mode).toBe("sunset");
+  });
+
+  test("keeps the theme location once the user opts in", () => {
+    useSyncPrefsStore.getState().setSettingSync("themes.location", true);
+    const data = filterOutgoing(themeBundle()).sections.themes.data as Record<string, unknown>;
+    expect(data.location).toEqual(PARIS);
+  });
+});
+
+const PARIS = { lat: 48.85, lng: 2.35, label: "Paris", source: "manual" } as const;
+const TOKYO = { lat: 35.68, lng: 139.69, label: "Tokyo", source: "manual" } as const;
+
+const themeBundle = (): UserDataBundle => ({
+  type: "voltius-user-data",
+  version: 2,
+  exported_at: "2026-08-23T00:00:00.000Z",
+  sections: {
+    themes: {
+      data: { activeThemeId: "dracula", mode: "sunset", location: PARIS },
+      updated_at: "2026-08-23T00:00:00.000Z",
+    },
+  },
 });
 
 describe("restoreLocal", () => {
@@ -161,6 +190,15 @@ describe("restoreLocal", () => {
     expect(() => restoreLocal({ ...appBundle(), sections: {} })).not.toThrow();
   });
 
+  test("re-injects this device's coordinates over a remote theme location", () => {
+    useThemeStore.setState({ location: PARIS });
+    const remote = themeBundle();
+    (remote.sections.themes.data as Record<string, unknown>).location = TOKYO;
+    const data = restoreLocal(remote).sections.themes.data as Record<string, unknown>;
+    expect(data.location).toEqual(PARIS);
+    expect(data.mode).toBe("sunset");
+  });
+
   test("reads this device's export once per domain, however many of its keys are held back", () => {
     useSyncPrefsStore.getState().setSettingSync("appSettings.toggles.cursor-blink", false);
     const spy = vi.spyOn(appSettingsHandler, "export");
@@ -189,5 +227,9 @@ describe("heldBackKeys", () => {
   test("is empty for a domain whose sync is off — the domain toggle is the whole story", () => {
     useSyncPrefsStore.getState().setSyncSettingDomain("appSettings", false);
     expect(heldBackKeys("appSettings")).toEqual([]);
+  });
+
+  test("lists the theme location, so the Sync panel can say so", () => {
+    expect(heldBackKeys("themes").map((k) => k.id)).toEqual(["themes.location"]);
   });
 });
