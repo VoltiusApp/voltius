@@ -52,7 +52,14 @@ describe("plugin bundle build (webview compatibility)", () => {
     expect(ids).toContain("process-manager");
   });
 
+  // A plugin build takes ~5s, and the stylesheet test below wants the same
+  // artifact the webview-safety test already built. Cache by id so a full run
+  // pays for each build once, whatever order the tests run in.
+  const built = new Map<string, string>();
+
   function buildAndRead(id: string): string {
+    const cached = built.get(id);
+    if (cached !== undefined) return cached;
     const outDir = path.join(outRoot, id);
     execFileSync(
       "pnpm",
@@ -68,7 +75,9 @@ describe("plugin bundle build (webview compatibility)", () => {
         env: { ...process.env, VOLTIUS_PLUGIN_ID: id },
       },
     );
-    return readFileSync(path.join(outDir, "index.js"), "utf8");
+    const code = readFileSync(path.join(outDir, "index.js"), "utf8");
+    built.set(id, code);
+    return code;
   }
 
   test.each(ids)("%s bundle is webview-safe", async (id) => {
@@ -118,5 +127,7 @@ describe("plugin bundle build (webview compatibility)", () => {
     const css = readFileSync(cssPath, "utf8");
     expect(css.length).toBeGreaterThan(0);
     expect(css).toContain(".uplot");
-  });
+    // Same allowance as the build test above: run on its own, this test does the
+    // build itself, and one build is already close to vitest's 5s default.
+  }, 30000);
 });
