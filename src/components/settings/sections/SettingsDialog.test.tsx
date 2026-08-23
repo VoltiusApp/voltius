@@ -3,6 +3,7 @@ import { render, cleanup, fireEvent, screen } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <i data-icon={icon} />,

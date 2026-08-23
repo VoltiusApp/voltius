@@ -1,6 +1,9 @@
 import { Icon } from "@iconify/react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
+import { domainOf, isDeviceScopedDefault } from "@/services/user-data/settingKeys";
+import { setKeySync } from "@/services/user-data/syncChoice";
 
 /** A titled block of settings rows: the uppercase heading plus the row container. */
 export function SettingsGroup({ title, divided, className, children }: {
@@ -31,7 +34,7 @@ export function SettingsGroup({ title, divided, className, children }: {
  * `list` rows sit inside a `SettingsGroup` container; `card` rows are their own
  * bordered card and stand alone.
  */
-export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, variant = "list", className, children }: {
+export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, variant = "list", className, children }: {
   title: ReactNode;
   desc?: ReactNode;
   dirty?: boolean;
@@ -40,6 +43,8 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   dimmed?: boolean;
   /** Clips an overlong description (a path, say) instead of widening the row. */
   truncateDesc?: boolean;
+  /** Dotted key from SETTING_KEYS: adds the per-setting cloud-sync control. */
+  syncKey?: string;
   variant?: "list" | "card";
   className?: string;
   children: ReactNode;
@@ -66,6 +71,7 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        {syncKey && <SyncKeyButton path={syncKey} />}
         {dirty && onReset && <ResetButton onReset={onReset} />}
         {dirty && <DirtyDot />}
         {children}
@@ -155,12 +161,48 @@ export function ResetButton({ onReset }: { onReset: () => void }) {
   return (
     <button
       onClick={onReset}
-      className="p-1 rounded-sm transition-opacity opacity-0 group-hover:opacity-100 text-(--t-text-muted)"
+      className="p-1 rounded-sm transition-opacity opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-(--t-text-muted)"
       onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-muted)"; }}
       title={t("settings.shared.resetToDefault")}
     >
       <Icon icon="lucide:rotate-ccw" width={11} />
+    </button>
+  );
+}
+
+export function SyncKeyButton({ path }: { path: string }) {
+  const { t } = useTranslation();
+  const domainSynced = useSyncPrefsStore((s) => s.isDomainSynced(domainOf(path)));
+  const synced = useSyncPrefsStore((s) => s.isSettingSynced(path));
+  const deviceDefault = useSyncPrefsStore((s) => isDeviceScopedDefault(path, s.settingSyncOverrides ?? {}));
+
+  const title = !domainSynced
+    ? t("settings.sync.keyButton.domainOff")
+    : synced
+      ? t("settings.sync.keyButton.hold")
+      : deviceDefault
+        ? t("settings.sync.keyButton.deviceDefault")
+        : t("settings.sync.keyButton.resume");
+
+  // Muted once the domain itself is off: without this, a domain-off row is
+  // visually indistinguishable from a setting the user held back individually.
+  const accented = domainSynced && !synced && !deviceDefault;
+
+  return (
+    <button
+      data-testid="sync-key-button"
+      data-sync-key={path}
+      disabled={!domainSynced}
+      onClick={() => setKeySync(path, !synced)}
+      title={title}
+      aria-label={title}
+      className={`p-1 rounded-sm transition-opacity text-(--t-text-muted)${synced ? " opacity-0 group-hover:opacity-100 focus-visible:opacity-100" : ""}`}
+      style={{ color: accented ? "var(--t-accent)" : undefined }}
+      onMouseEnter={(e) => { if (domainSynced) e.currentTarget.style.color = "var(--t-text-bright)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = accented ? "var(--t-accent)" : ""; }}
+    >
+      <Icon icon={synced ? "lucide:cloud" : "lucide:cloud-off"} width={11} />
     </button>
   );
 }

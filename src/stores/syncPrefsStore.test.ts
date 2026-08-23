@@ -32,3 +32,41 @@ describe("settings domain toggles", () => {
     expect(togglableKeys).toEqual(handlerKeys);
   });
 });
+
+describe("per-setting overrides", () => {
+  beforeEach(() =>
+    useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: {} }),
+  );
+
+  test("an ordinary key syncs by default", () => {
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).toBe(true);
+  });
+
+  test("a device-scoped key does not sync by default", () => {
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.terminal.preferredShell")).toBe(false);
+  });
+
+  test("an explicit override beats the registry default in both directions", () => {
+    const s = useSyncPrefsStore.getState();
+    s.setSettingSync("appSettings.terminal.preferredShell", true);
+    s.setSettingSync("appSettings.locale", false);
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.terminal.preferredShell")).toBe(true);
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).toBe(false);
+  });
+
+  test("a switched-off domain overrides an opted-in key", () => {
+    const s = useSyncPrefsStore.getState();
+    s.setSettingSync("appSettings.terminal.preferredShell", true);
+    s.setSyncSettingDomain("appSettings", false);
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.terminal.preferredShell")).toBe(false);
+  });
+
+  test("an unknown path syncs, so a stale override cannot hide a new setting", () => {
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.somethingNew")).toBe(true);
+  });
+
+  test("a missing or undefined override map does not break the read path", () => {
+    useSyncPrefsStore.setState({ settingSyncOverrides: undefined as unknown as Record<string, boolean> });
+    expect(() => useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).not.toThrow();
+  });
+});

@@ -5,9 +5,9 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
 import { getSkippedSyncFiles, getPluginSkippedSyncFiles } from "./sync";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 
-describe("getSkippedSyncFiles", () => {
-  beforeEach(() => useSyncPrefsStore.setState({ syncSettingDomains: {} }));
+beforeEach(() => useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: {} }));
 
+describe("getSkippedSyncFiles", () => {
   test("always withholds theme.json — themes travel in the bundle now", () => {
     expect(getSkippedSyncFiles()).toContain("theme.json");
   });
@@ -22,11 +22,15 @@ describe("getSkippedSyncFiles", () => {
     useSyncPrefsStore.getState().setSyncSettingDomain("appSettings", false);
     expect(getSkippedSyncFiles()).toContain("plugin-registry.json");
   });
+
+  test("withholds plugin-registry.json when only the plugin overrides are held back", () => {
+    expect(getSkippedSyncFiles()).not.toContain("plugin-registry.json");
+    useSyncPrefsStore.getState().setSettingSync("appSettings.plugins.overrides", false);
+    expect(getSkippedSyncFiles()).toContain("plugin-registry.json");
+  });
 });
 
 describe("getPluginSkippedSyncFiles", () => {
-  beforeEach(() => useSyncPrefsStore.setState({ syncSettingDomains: {} }));
-
   test("does not withhold theme.json while the themes domain is synced — it's the plugin path's only theme route", () => {
     expect(getPluginSkippedSyncFiles()).not.toContain("theme.json");
   });
@@ -39,6 +43,12 @@ describe("getPluginSkippedSyncFiles", () => {
   test("withholds plugin-registry.json when app settings are not synced, same as the server variant", () => {
     expect(getPluginSkippedSyncFiles()).not.toContain("plugin-registry.json");
     useSyncPrefsStore.getState().setSyncSettingDomain("appSettings", false);
+    expect(getPluginSkippedSyncFiles()).toContain("plugin-registry.json");
+  });
+
+  test("withholds plugin-registry.json when only the plugin overrides are held back, same as the server variant", () => {
+    expect(getPluginSkippedSyncFiles()).not.toContain("plugin-registry.json");
+    useSyncPrefsStore.getState().setSettingSync("appSettings.plugins.overrides", false);
     expect(getPluginSkippedSyncFiles()).toContain("plugin-registry.json");
   });
 });

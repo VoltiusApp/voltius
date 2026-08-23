@@ -55,6 +55,7 @@ export default function SFTPSection() {
 
       <SettingsGroup title={t("settings.sftp.transfers.title")}>
         <SettingRow
+          syncKey="appSettings.toggles.sftp-tar"
           title={t("settings.sftp.transfers.tarAcceleration.title")}
           desc={
             <>
@@ -72,6 +73,7 @@ export default function SFTPSection() {
 
       <SettingsGroup title={t("settings.sftp.filePanel.title")} divided>
         <SettingRow
+          syncKey="appSettings.toggles.sftp-autorefresh"
           title={t("settings.sftp.filePanel.autoRefresh.title")}
           desc={t("settings.sftp.filePanel.autoRefresh.desc")}
           dirty={autoRefreshEnabled !== TOGGLE_DEFS["sftp-autorefresh"].default}
@@ -80,6 +82,7 @@ export default function SFTPSection() {
           <Toggle checked={autoRefreshEnabled} onChange={setAutoRefreshEnabled} />
         </SettingRow>
         <SettingRow
+          syncKey="appSettings.sftp.autoRefreshIntervalMs"
           title={t("settings.sftp.filePanel.refreshInterval.title")}
           desc={t("settings.sftp.filePanel.refreshInterval.desc")}
           dimmed={!autoRefreshEnabled}

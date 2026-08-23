@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Cloud sync is now yours to choose, group by group and setting by setting.
+  Settings → Sync gains a switch per group — themes, interface, shortcuts,
+  app settings, recent people — and each individual setting gains a cloud
+  button in its row's hover controls, so a single value can stay on this
+  device without switching its whole group off. A held-back value never enters
+  the uploaded backup, and a copy already on the server is withdrawn when you
+  switch the setting off. Each group also lists what it is keeping local, which is the
+  only control for the handful of settings that have no row of their own.
+- The default shell is no longer synced unless you ask for it. A shell path is
+  wrong on another machine by construction, so it is now device-scoped: it
+  stays out of the backup until you opt it in from the Sync panel.
+
+### Changed
+
+- Because the default shell now stays out of the uploaded backup, a device
+  still running 0.29.x will have its own default shell cleared back to the
+  system default. That older release reads an absent shell as "clear it", and
+  it happens again on every later settings change made on an updated device,
+  until the older device updates too. Devices on this release are unaffected,
+  and the setting itself is never lost — only the older device's copy is
+  reset to the default.
+
 ## [0.29.0] - 2026-08-20
 
 ### Added
