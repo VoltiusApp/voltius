@@ -31,6 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the setting itself is never lost — only the older device's copy is
   reset to the default.
 
+### Fixed
+
+- Three Russian strings read wrong. The Interface sync group described itself
+  with "раскладки", which reads first as *keyboard* layouts — an active
+  collision in a panel that also has a Shortcuts group — and the same word was
+  used for terminal panes; both now say what they mean. "Недавние люди" became
+  "Недавние контакты", which is what the counts beside it already said.
+
 ## [0.29.0] - 2026-08-20
 
 ### Added
