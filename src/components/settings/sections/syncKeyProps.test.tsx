@@ -7,7 +7,12 @@ describe("syncKey props", () => {
       Record<string, string>;
     const used = Object.entries(sources)
       .filter(([path]) => !path.endsWith(".test.tsx"))
-      .flatMap(([, text]) => [...text.matchAll(/syncKey="([^"]+)"/g)].map((m) => m[1]));
+      // Both ways a component names a setting key: the SettingRow prop and a
+      // stand-alone SyncKeyButton, for controls that are not rows.
+      .flatMap(([, text]) => [
+        ...[...text.matchAll(/syncKey="([^"]+)"/g)].map((m) => m[1]),
+        ...[...text.matchAll(/<SyncKeyButton path="([^"]+)"/g)].map((m) => m[1]),
+      ]);
     const declared = new Set(SETTING_KEYS.map((k) => k.id));
     expect(used.length).toBeGreaterThan(0);
     expect(used.filter((id) => !declared.has(id))).toEqual([]);
