@@ -3,8 +3,11 @@ import { render, cleanup, fireEvent } from "@testing-library/react";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { USER_DATA_HANDLERS } from "@/services/user-data/registry";
 
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
-vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+const { mockT } = vi.hoisted(() => ({
+  mockT: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k),
+}));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
+vi.mock("@/i18n", () => ({ default: { t: mockT } }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
 vi.mock("@/utils/billing", () => ({ openPortal: vi.fn() }));
@@ -62,5 +65,43 @@ describe("SyncSection settings domains", () => {
     const { container } = render(<SyncSection />);
     fireEvent.click(toggleFor(container, "themes")!);
     expect(scheduleSync).toHaveBeenCalled();
+  });
+});
+
+describe("held-back settings summary", () => {
+  // The file already mocks react-i18next, @/i18n, @iconify/react and
+  // @/services/sync, and queries the DOM directly — jest-dom is not installed.
+  const el = (c: HTMLElement, id: string) =>
+    c.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+
+  beforeEach(() =>
+    useSyncPrefsStore.setState({
+      syncSettingDomains: {}, settingSyncOverrides: {}, syncTypes: {}, excludedIds: [],
+    }),
+  );
+  afterEach(cleanup);
+
+  test("counts the device-scoped default under App settings", () => {
+    const { container } = render(<SyncSection />);
+    expect(el(container, "held-back-appSettings")?.textContent).toContain("1");
+  });
+
+  test("lists a held-back key and resumes it", () => {
+    useSyncPrefsStore.getState().setSettingSync("appSettings.locale", false);
+    const { container } = render(<SyncSection />);
+    fireEvent.click(el(container, "held-back-appSettings")!);
+    fireEvent.click(el(container, "resume-appSettings.locale")!);
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).toBe(true);
+  });
+
+  test("shows nothing for a domain with no held-back keys", () => {
+    const { container } = render(<SyncSection />);
+    expect(el(container, "held-back-shortcuts")).toBeNull();
+  });
+
+  test("shows nothing for a domain that is switched off entirely", () => {
+    useSyncPrefsStore.getState().setSyncSettingDomain("appSettings", false);
+    const { container } = render(<SyncSection />);
+    expect(el(container, "held-back-appSettings")).toBeNull();
   });
 });

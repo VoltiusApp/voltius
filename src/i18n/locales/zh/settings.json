@@ -412,6 +412,23 @@
         "shortcuts": { "label": "快捷键", "sub": "键盘快捷键覆盖" },
         "appSettings": { "label": "应用设置", "sub": "终端、SFTP、插件、语言" },
         "recentPeople": { "label": "最近联系人", "sub": "您最近邀请过的人" }
+      },
+      "settingKey": {
+        "preferredShell": "默认 Shell",
+        "pluginOverrides": "已启用的插件",
+        "themeLocation": "日出/日落所用位置"
+      },
+      "keyButton": {
+        "hold": "仅在本设备保留此设置",
+        "resume": "未同步 — 点击以恢复同步",
+        "deviceDefault": "未同步：属于本设备的设置。点击仍可同步。",
+        "domainOff": "该分组的同步已关闭"
+      },
+      "heldBack": {
+        "summary": "仅保留在本设备：{{count}}",
+        "deviceDefault": "设备默认",
+        "yourChoice": "您的选择",
+        "resume": "恢复同步"
       }
     },
     "vaults": {

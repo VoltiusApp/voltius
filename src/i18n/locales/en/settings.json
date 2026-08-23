@@ -541,6 +541,23 @@
         "shortcuts": { "label": "Shortcuts", "sub": "Keyboard overrides" },
         "appSettings": { "label": "App settings", "sub": "Terminal, SFTP, plugins, language" },
         "recentPeople": { "label": "Recent people", "sub": "Who you have invited lately" }
+      },
+      "settingKey": {
+        "preferredShell": "Default shell",
+        "pluginOverrides": "Enabled plugins",
+        "themeLocation": "Location for sunrise/sunset"
+      },
+      "keyButton": {
+        "hold": "Keep this setting on this device",
+        "resume": "Not synced — click to sync this setting again",
+        "deviceDefault": "Not synced: specific to this device. Click to sync it anyway.",
+        "domainOff": "Sync is off for this whole group"
+      },
+      "heldBack": {
+        "summary": "Kept on this device: {{count}}",
+        "deviceDefault": "device default",
+        "yourChoice": "your choice",
+        "resume": "Resume syncing"
       }
     },
     "vaults": {

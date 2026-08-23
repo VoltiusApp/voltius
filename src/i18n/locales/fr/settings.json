@@ -541,6 +541,23 @@
         "shortcuts": { "label": "Raccourcis", "sub": "Raccourcis clavier personnalisés" },
         "appSettings": { "label": "Paramètres de l'application", "sub": "Terminal, SFTP, extensions, langue" },
         "recentPeople": { "label": "Personnes récentes", "sub": "Vos invitations récentes" }
+      },
+      "settingKey": {
+        "preferredShell": "Shell par défaut",
+        "pluginOverrides": "Plugins activés",
+        "themeLocation": "Position pour le lever/coucher du soleil"
+      },
+      "keyButton": {
+        "hold": "Garder ce réglage sur cet appareil",
+        "resume": "Non synchronisé — cliquez pour synchroniser à nouveau",
+        "deviceDefault": "Non synchronisé : propre à cet appareil. Cliquez pour le synchroniser quand même.",
+        "domainOff": "La synchronisation est désactivée pour tout ce groupe"
+      },
+      "heldBack": {
+        "summary": "Gardés sur cet appareil : {{count}}",
+        "deviceDefault": "par défaut sur l'appareil",
+        "yourChoice": "votre choix",
+        "resume": "Reprendre la synchronisation"
       }
     },
     "vaults": {
