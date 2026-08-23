@@ -16,6 +16,7 @@ export const SYNC_OBJECT_TYPES: SyncObjectTypeDef[] = [
   { id: "identity",   label: "Identities",  sub: "Usernames and credentials" },
   { id: "key",        label: "SSH Keys",    sub: "Key pairs stored in keychain" },
   { id: "folder",     label: "Folders",     sub: "Folder structure for organizing objects" },
+  { id: "snippet",    label: "Snippets",    sub: "Saved commands and scripts" },
   { id: "port-forwarding-rule", label: "Port Forwarding", sub: "Saved tunnel rules" },
 ];
 

@@ -301,7 +301,16 @@ export function getExcludedObjectIds(): string[] {
       { type: "connection", ids: useConnectionStore.getState().connections.map((c) => c.id) },
       { type: "identity", ids: useIdentityStore.getState().identities.map((i) => i.id) },
       { type: "key", ids: useKeyStore.getState().keys.map((k) => k.id) },
-      { type: "folder", ids: useFolderStore.getState().folders.map((f) => f.id) },
+      {
+        type: "folder",
+        // Snippet folders ride the `folder` type deliberately: FolderCard reads
+        // isObjectSynced(id, "folder") for both trees, so one toggle has to
+        // govern both or a snippet folder would show as held back while still
+        // syncing.
+        ids: [...useFolderStore.getState().folders, ...useSnippetFolderStore.getState().folders]
+          .map((f) => f.id),
+      },
+      { type: "snippet", ids: useSnippetStore.getState().snippets.map((s) => s.id) },
       { type: "port-forwarding-rule", ids: usePortForwardingStore.getState().rules.map((r) => r.id) },
     ],
     prefs.isObjectSynced,

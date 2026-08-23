@@ -402,6 +402,7 @@
         "identity": { "label": "身份", "sub": "用户名和凭据" },
         "key": { "label": "SSH 密钥", "sub": "存储在密钥链中的密钥对" },
         "folder": { "label": "文件夹", "sub": "用于组织对象的文件夹结构" },
+        "snippet": { "label": "代码片段", "sub": "保存的命令和脚本" },
         "port-forwarding-rule": { "label": "端口转发", "sub": "保存的隧道规则" }
       },
       "settingsTitle": "设置",

@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The default shell is no longer synced unless you ask for it. A shell path is
   wrong on another machine by construction, so it is now device-scoped: it
   stays out of the backup until you opt it in from the Sync panel.
+- Snippets now have their own cloud sync switch. Settings → Sync gains a
+  Snippets row alongside hosts, identities, keys, folders and port forwarding,
+  so the whole collection can stay off the backup — individual snippets could
+  already be excluded one at a time from their card. Switching Folders off now
+  also stops snippet folders syncing, which is what their cards already showed.
 
 ### Changed
 
