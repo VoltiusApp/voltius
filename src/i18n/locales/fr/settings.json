@@ -528,6 +528,10 @@
           "label": "Dossiers",
           "sub": "Structure de dossiers pour organiser les objets"
         },
+        "snippet": {
+          "label": "Extraits",
+          "sub": "Commandes et scripts enregistrés"
+        },
         "port-forwarding-rule": {
           "label": "Transfert de ports",
           "sub": "Règles de tunnel enregistrées"

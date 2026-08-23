@@ -528,6 +528,10 @@
           "label": "Folders",
           "sub": "Folder structure for organizing objects"
         },
+        "snippet": {
+          "label": "Snippets",
+          "sub": "Saved commands and scripts"
+        },
         "port-forwarding-rule": {
           "label": "Port Forwarding",
           "sub": "Saved tunnel rules"

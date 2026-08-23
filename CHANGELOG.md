@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the uploaded backup — and out of any third-party sync destination, such as
   the gist-sync plugin — until you opt it in from the cloud button beside the
   latitude and longitude fields.
+- Snippets now have their own cloud sync switch. Settings → Sync gains a
+  Snippets row alongside hosts, identities, keys, folders and port forwarding,
+  so the whole collection can stay off the backup — individual snippets could
+  already be excluded one at a time from their card. Switching Folders off now
+  also stops snippet folders syncing, which is what their cards already showed.
 
 ### Changed
 
