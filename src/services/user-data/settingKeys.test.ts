@@ -13,9 +13,9 @@ describe("settingKeys", () => {
     }
   });
 
-  test("marks exactly the one device-scoped key", () => {
+  test("marks exactly the device-scoped keys", () => {
     expect(SETTING_KEYS.filter((k) => k.deviceScoped).map((k) => k.id))
-      .toEqual(["appSettings.terminal.preferredShell"]);
+      .toEqual(["appSettings.terminal.preferredShell", "themes.location"]);
   });
 
   test("splits an id into its domain and the path within the section", () => {
@@ -25,8 +25,10 @@ describe("settingKeys", () => {
   });
 
   test("groups keys by domain", () => {
-    expect(keysForDomain("appSettings")).toEqual(SETTING_KEYS);
-    expect(keysForDomain("themes")).toEqual([]);
+    expect(keysForDomain("appSettings")).toEqual(
+      SETTING_KEYS.filter((k) => k.id.startsWith("appSettings.")),
+    );
+    expect(keysForDomain("themes").map((k) => k.id)).toEqual(["themes.location"]);
   });
 
   test("a device-scoped key is the default hold only until the user chooses", () => {
