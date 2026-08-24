@@ -491,27 +491,42 @@ elif command -v screen >/dev/null 2>&1; then
   spid=$(screen -ls 2>/dev/null | grep -F .{key} | head -n1 | awk '{{print $1}}' | cut -d. -f1)
   if [ -n "$spid" ]; then
     pid=$spid
-    cwd=""
-    # Descend the tree to the foreground process. The window's wrapper sh pipes
-    # into the real shell, so the interactive shell is a grandchild — the direct
-    # child keeps a stale login cwd. Track the last process with a readable cwd
-    # so transient/dead leaves and cwd-less wrappers are skipped.
-    while :; do
-      c=$(pgrep -P "$pid" 2>/dev/null | tail -n1)
-      [ -n "$c" ] || c=$(ps -o pid= --ppid "$pid" 2>/dev/null | tail -n1 | tr -d ' ')
-      [ -n "$c" ] || break
-      pid=$c
-      cur=$(readlink /proc/$pid/cwd 2>/dev/null)
-      [ -n "$cur" ] && cwd=$cur
-    done
+{descent}
     [ -n "$cwd" ] && printf '%s\n' "$cwd"
   fi
 fi
 true"#,
         socket = TMUX_SOCKET,
         key = session_key,
+        descent = SCREEN_CWD_DESCENT,
     );
     encode_wrapper(&script)
+}
+
+/// Walks from `$pid` down to the foreground process, leaving the deepest usable
+/// cwd in `$cwd`. The window's wrapper sh pipes into the real shell, so the
+/// interactive shell is a grandchild — the direct child keeps a stale login cwd.
+/// Only directories that still exist count: `/proc/<pid>/cwd` resolves to
+/// `<path> (deleted)` once the directory is unlinked, so a long-lived program
+/// pinned to a since-removed directory would otherwise report a path no `cd` can
+/// reach, silently landing a session duplicated from it in the home directory.
+const SCREEN_CWD_DESCENT: &str = r#"cwd=""
+    while :; do
+      c=$(pgrep -P "$pid" 2>/dev/null | tail -n1)
+      [ -n "$c" ] || c=$(ps -o pid= --ppid "$pid" 2>/dev/null | tail -n1 | tr -d ' ')
+      [ -n "$c" ] || break
+      pid=$c
+      cur=$(readlink /proc/$pid/cwd 2>/dev/null)
+      [ -n "$cur" ] && [ -d "$cur" ] && cwd=$cur
+    done"#;
+
+/// Whether a cwd reported by [`cwd_probe_command`] can be handed to a `cd`.
+/// The probe's own `[ -d ]` guard drops unlinked directories, but a host whose
+/// `/proc` or `readlink` behaves differently can still surface the kernel's
+/// `<path> (deleted)` form; taking it would strand a duplicated session in the
+/// home directory rather than keeping the last live cwd.
+pub fn is_live_probe_cwd(path: &str) -> bool {
+    path.starts_with('/') && !path.ends_with(" (deleted)")
 }
 
 /// Conditional kill for a shared session. Kills only when at most
@@ -883,11 +898,97 @@ mod tests {
         assert!(script.contains("ps -o pid= --ppid"));
         assert!(script.contains("readlink /proc/$pid/cwd"));
         // Track the last readable cwd so wrapper shells (stale login cwd) and
-        // transient/dead leaves don't win over the real interactive shell.
-        assert!(script.contains("[ -n \"$cur\" ] && cwd=$cur"));
+        // transient/dead leaves don't win over the real interactive shell, and
+        // only count directories that still exist.
+        assert!(script.contains("[ -n \"$cur\" ] && [ -d \"$cur\" ] && cwd=$cur"));
         // Never errors the channel; ends clean for the caller's read loop.
         assert!(script.contains("2>/dev/null"));
         assert!(script.trim_end().ends_with("true"));
+    }
+
+    /// The descent run for real against a three-level process tree whose deepest
+    /// process sits in a directory that is then removed under it: `/proc/<pid>/cwd`
+    /// starts resolving to `<path> (deleted)`, and reporting that would send a
+    /// duplicated session's `cd` somewhere it can never reach.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn descent_ignores_a_descendant_whose_directory_was_removed() {
+        use std::os::unix::process::CommandExt;
+        use std::process::{Command, Stdio};
+
+        fn descend(start: u32) -> String {
+            let out = Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "pid={start}\n{SCREEN_CWD_DESCENT}\nprintf '%s' \"$cwd\""
+                ))
+                .output()
+                .expect("descent runs");
+            String::from_utf8_lossy(&out.stdout).into_owned()
+        }
+
+        let root = std::env::temp_dir().join(format!("voltius-descent-{}", std::process::id()));
+        let live = root.join("live");
+        let doomed = root.join("doomed");
+        std::fs::create_dir_all(&live).unwrap();
+        std::fs::create_dir_all(&doomed).unwrap();
+
+        // start -> shell in `live` -> sleep in `doomed`, mirroring screen's
+        // wrapper -> interactive shell -> foreground program.
+        let mut start = Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "sh -c 'cd \"{live}\"; sh -c \"cd \\\"{doomed}\\\"; exec sleep 30\"'\n:",
+                live = live.display(),
+                doomed = doomed.display(),
+            ))
+            .process_group(0)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("tree spawns");
+
+        // The tree comes up asynchronously; it is fully built once the descent
+        // reaches the deepest process. Reaching it is also what makes the rest
+        // of this test meaningful.
+        let mut built = false;
+        for _ in 0..100 {
+            if descend(start.id()) == doomed.to_string_lossy() {
+                built = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+
+        let result = if built {
+            std::fs::remove_dir(&doomed).unwrap();
+            Some(descend(start.id()))
+        } else {
+            None
+        };
+
+        // `process_group(0)` made the child its own group leader, so one signal
+        // reaps the whole tree. `--` keeps the negative pgid out of kill's flags.
+        let _ = Command::new("kill")
+            .arg("--")
+            .arg(format!("-{}", start.id()))
+            .status();
+        let _ = start.wait();
+        let _ = std::fs::remove_dir_all(&root);
+
+        assert!(built, "descent never reached the deepest process");
+        // The removed directory is skipped, so the shell's live cwd stands.
+        assert_eq!(result.unwrap(), live.to_string_lossy());
+    }
+
+    #[test]
+    fn probe_cwd_must_be_an_absolute_live_path() {
+        assert!(is_live_probe_cwd("/home/user/project"));
+        // The kernel's marker for an unlinked directory — no `cd` can reach it.
+        assert!(!is_live_probe_cwd("/home/user/worktrees/gone (deleted)"));
+        // Probe output when the multiplexer or session is missing.
+        assert!(!is_live_probe_cwd(""));
+        assert!(!is_live_probe_cwd("screen: command not found"));
     }
 
     #[test]
