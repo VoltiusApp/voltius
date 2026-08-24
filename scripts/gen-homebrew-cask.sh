@@ -5,11 +5,9 @@
 #   e.g. gen-homebrew-cask.sh v0.4.0
 #
 #   --core  emit the variant intended for a homebrew-cask *core* submission
-#           rather than for the VoltiusApp/homebrew-voltius tap. Core rejects
-#           casks whose caveats tell the user to reinstall with
-#           --no-quarantine, so that hint is dropped there; the right-click
-#           Open instructions stay, which core does accept for an app that is
-#           ad-hoc signed but not notarized.
+#           rather than for the VoltiusApp/homebrew-voltius tap. The tap gives
+#           an optional command for clearing the quarantine flag; core keeps
+#           only the accepted right-click Open instructions.
 #
 # Requires: gh (authenticated), awk. Reads the .dmg.sha256 release assets.
 set -euo pipefail
@@ -27,8 +25,8 @@ if [ "$VARIANT" = "--core" ]; then
   QUARANTINE_HINT=""
 else
   QUARANTINE_HINT="
-    To skip the warning entirely, install with:
-      brew install --cask --no-quarantine voltiusapp/voltius/voltius
+    To clear the quarantine flag from an existing installation instead, run:
+      xattr -dr com.apple.quarantine /Applications/Voltius.app
 "
 fi
 

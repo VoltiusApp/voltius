@@ -95,18 +95,16 @@ brew install --cask voltiusapp/voltius/voltius
 
 Voltius is ad-hoc signed but not yet notarized (no Apple Developer account yet).
 If macOS Gatekeeper blocks the first launch, right-click the app and choose
-**Open**, or install with `--no-quarantine`:
+**Open**. To clear the quarantine flag from an existing installation instead,
+run:
 
 ```sh
-brew install --cask --no-quarantine voltiusapp/voltius/voltius
+xattr -dr com.apple.quarantine /Applications/Voltius.app
 ```
 
 If you download the `.dmg` directly and macOS says **"Voltius.app is damaged and
-cannot be opened"**, the download was quarantined — clear the flag and launch again:
-
-```sh
-xattr -cr /Applications/Voltius.app
-```
+cannot be opened"**, the same command clears the quarantine flag after you copy
+Voltius to Applications.
 
 ### Windows — winget
 

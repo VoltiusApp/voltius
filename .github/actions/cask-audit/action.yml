@@ -11,8 +11,8 @@ inputs:
     required: true
   core:
     description: >
-      Generate the homebrew-cask core variant (drops the --no-quarantine hint,
-      which core rejects) instead of the tap variant.
+      Generate the homebrew-cask core variant (drops the command-line
+      quarantine workaround) instead of the tap variant.
     required: false
     default: 'false'
   audit-args:
@@ -52,6 +52,10 @@ runs:
         variant=""
         [ "$CORE" = "true" ] && variant="--core"
         bash scripts/gen-homebrew-cask.sh "$TAG" $variant > out/Casks/voltius.rb
+        if grep -q -- '--no-quarantine' out/Casks/voltius.rb; then
+          echo "::error::Generated cask uses Homebrew's removed --no-quarantine option"
+          exit 1
+        fi
         cat out/Casks/voltius.rb
 
     - name: Style and audit
