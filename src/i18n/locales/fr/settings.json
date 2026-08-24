@@ -57,6 +57,15 @@
         "resetTitle": "Réinitialiser l'échelle",
         "reset": "Réinitialiser"
       },
+      "terminalFontSize": {
+        "title": "Taille de police du terminal",
+        "desc": "Régler la taille du texte du terminal seule, sans agrandir le reste de l'interface.",
+        "clickHint": "Cliquer pour saisir une valeur",
+        "zoomOut": "Texte plus petit",
+        "zoomIn": "Texte plus grand",
+        "resetTitle": "Revenir à la taille du thème",
+        "reset": "Réinitialiser"
+      },
       "automation": {
         "themeMode": "Mode du thème automatique",
         "title": "Thème automatique",
@@ -509,7 +518,7 @@
         "configure": "Configurer →"
       },
       "prefsTitle": "Préférences de synchronisation",
-      "prefsFooter": "Les types désactivés ne déclenchent pas de synchronisation automatique lors de modifications. Les objets individuels peuvent également être exclus via leur panneau d'édition.",
+      "prefsFooter": "Les types désactivés ne sont jamais envoyés. Les objets peuvent aussi être exclus depuis leur panneau d'édition.",
       "quickToggleLabel": "Synchroniser {{label}}",
       "objectType": {
         "connection": {
@@ -528,10 +537,40 @@
           "label": "Dossiers",
           "sub": "Structure de dossiers pour organiser les objets"
         },
+        "snippet": {
+          "label": "Extraits",
+          "sub": "Commandes et scripts enregistrés"
+        },
         "port-forwarding-rule": {
           "label": "Transfert de ports",
           "sub": "Règles de tunnel enregistrées"
         }
+      },
+      "settingsTitle": "Paramètres",
+      "settingsFooter": "Tout ce qui est désactivé reste sur cet appareil. Rien n'est envoyé, même chiffré. Réactiver la synchronisation publie les valeurs de cet appareil.",
+      "settingDomain": {
+        "themes": { "label": "Thèmes", "sub": "Thème actif et thèmes personnalisés" },
+        "uiPreferences": { "label": "Interface", "sub": "Échelle, dispositions et tri" },
+        "shortcuts": { "label": "Raccourcis", "sub": "Raccourcis clavier personnalisés" },
+        "appSettings": { "label": "Paramètres de l'application", "sub": "Terminal, SFTP, extensions, langue" },
+        "recentPeople": { "label": "Personnes récentes", "sub": "Vos invitations récentes" }
+      },
+      "settingKey": {
+        "preferredShell": "Shell par défaut",
+        "pluginOverrides": "Plugins activés",
+        "themeLocation": "Position pour lever/coucher du soleil"
+      },
+      "keyButton": {
+        "hold": "Garder ce réglage sur cet appareil",
+        "resume": "Non synchronisé — cliquez pour synchroniser à nouveau",
+        "deviceDefault": "Non synchronisé : propre à cet appareil. Cliquez pour le synchroniser quand même.",
+        "domainOff": "La synchronisation est désactivée pour tout ce groupe"
+      },
+      "heldBack": {
+        "summary": "Gardés sur cet appareil : {{count}}",
+        "deviceDefault": "par défaut sur l'appareil",
+        "yourChoice": "votre choix",
+        "resume": "Reprendre la synchronisation"
       }
     },
     "vaults": {

@@ -57,6 +57,15 @@
         "resetTitle": "Reset scale",
         "reset": "Reset"
       },
+      "terminalFontSize": {
+        "title": "Terminal Font Size",
+        "desc": "Size the terminal text on its own, without scaling the rest of the interface.",
+        "clickHint": "Click to enter a value",
+        "zoomOut": "Smaller text",
+        "zoomIn": "Larger text",
+        "resetTitle": "Follow the theme's font size",
+        "reset": "Reset"
+      },
       "automation": {
         "themeMode": "Automatic theme mode",
         "title": "Automatic theme",
@@ -509,7 +518,7 @@
         "configure": "Configure →"
       },
       "prefsTitle": "Sync Preferences",
-      "prefsFooter": "Disabled types won't trigger automatic syncs when changed. Individual objects can also be excluded via their edit panel.",
+      "prefsFooter": "Disabled types are never uploaded. Individual objects can also be excluded from their edit panel.",
       "quickToggleLabel": "Sync {{label}}",
       "objectType": {
         "connection": {
@@ -528,10 +537,40 @@
           "label": "Folders",
           "sub": "Folder structure for organizing objects"
         },
+        "snippet": {
+          "label": "Snippets",
+          "sub": "Saved commands and scripts"
+        },
         "port-forwarding-rule": {
           "label": "Port Forwarding",
           "sub": "Saved tunnel rules"
         }
+      },
+      "settingsTitle": "Settings",
+      "settingsFooter": "Anything switched off stays on this device. It is never uploaded, even encrypted. Turning sync back on publishes this device's values.",
+      "settingDomain": {
+        "themes": { "label": "Themes", "sub": "Active theme and custom themes" },
+        "uiPreferences": { "label": "Interface", "sub": "Scale, layouts and sort order" },
+        "shortcuts": { "label": "Shortcuts", "sub": "Keyboard overrides" },
+        "appSettings": { "label": "App settings", "sub": "Terminal, SFTP, plugins, language" },
+        "recentPeople": { "label": "Recent people", "sub": "Who you have invited lately" }
+      },
+      "settingKey": {
+        "preferredShell": "Default shell",
+        "pluginOverrides": "Enabled plugins",
+        "themeLocation": "Sunrise/sunset location"
+      },
+      "keyButton": {
+        "hold": "Keep this setting on this device",
+        "resume": "Not synced — click to sync this setting again",
+        "deviceDefault": "Not synced: specific to this device. Click to sync it anyway.",
+        "domainOff": "Sync is off for this whole group"
+      },
+      "heldBack": {
+        "summary": "Kept on this device: {{count}}",
+        "deviceDefault": "device default",
+        "yourChoice": "your choice",
+        "resume": "Resume syncing"
       }
     },
     "vaults": {

@@ -589,6 +589,7 @@ pub fn run() {
             commands::keys::key_adopt,
             commands::keys::key_delete,
             commands::keygen::generate_ssh_keypair,
+            commands::keygen::ssh_public_key_from_private,
             commands::vault::vault_status,
             commands::vault::vault_reset,
             commands::vault::config_wipe,

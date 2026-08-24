@@ -35,6 +35,10 @@ export const vaultsHandler: UserDataHandler = {
     return newestVaultTimestamp(section());
   },
 
+  // No-op by design: the vaults timestamp is the newest row clock, and vaults
+  // is never user-toggleable, so there is no re-enable to publish.
+  touch(): void {},
+
   describe(): string {
     return i18n.t("importExport.userData.describe.vaults", {
       count: Object.values(section()).filter(isAliveVaultRow).length,

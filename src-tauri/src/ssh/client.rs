@@ -1025,7 +1025,9 @@ pub async fn connect(
                 })
                 .await;
                 let path = String::from_utf8_lossy(&out).trim().to_string();
-                if path.starts_with('/') && Some(&path) != last.as_ref() {
+                if crate::shell_integration::is_live_probe_cwd(&path)
+                    && Some(&path) != last.as_ref()
+                {
                     let _ = poll_app.emit(&cwd_event, path.clone());
                     last = Some(path);
                 }

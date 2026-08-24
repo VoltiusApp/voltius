@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   defaultVaultId: "personal",
   secrets: {} as Record<string, string>,
   reportAuditClientEvent: vi.fn(),
+  derivePublicKey: vi.fn(async (..._a: unknown[]) => ({ error: "invalid" as const })),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -79,6 +80,9 @@ vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(async (k: string) => h.secrets[k] ?? null),
   storeSecret: vi.fn(async () => {}),
 }));
+vi.mock("@/services/publicKeyStore", () => ({
+  derivePublicKey: (...a: unknown[]) => h.derivePublicKey(...a),
+}));
 vi.mock("@/services/auditContextResolver", () => ({ auditContextForVaultId: () => ({}) }));
 vi.mock("@/services/auditReporter", () => ({ reportAuditClientEvent: (...a: unknown[]) => h.reportAuditClientEvent(...a) }));
 
@@ -138,6 +142,7 @@ beforeEach(() => {
   h.defaultVaultId = "personal";
   vi.clearAllMocks();
   h.isObjectSynced.mockReturnValue(true);
+  h.derivePublicKey.mockResolvedValue({ error: "invalid" as const });
 });
 afterEach(() => cleanup());
 
@@ -328,6 +333,62 @@ test("the key form saves once the public half is corrected", async () => {
   expect(onSubmit).toHaveBeenCalledTimes(1);
   expect(onSubmit.mock.calls[0][2]).toBe(VALID_PUB);
   expect(screen.queryByText("keychain.keyForm.invalidPublicKey")).toBeNull();
+});
+
+const COMPLETE_PRIV = "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----";
+
+test("the key form derives the public half of a private-only import and saves it", async () => {
+  h.derivePublicKey.mockResolvedValue({ publicKey: VALID_PUB } as never);
+  const { onSubmit, flushRef } = renderKey();
+  const [priv, pub] = Array.from(document.querySelectorAll("textarea")) as HTMLTextAreaElement[];
+  await act(async () => {
+    fireEvent.change(priv, { target: { value: COMPLETE_PRIV } });
+  });
+  expect(h.derivePublicKey).toHaveBeenCalledWith(COMPLETE_PRIV, "");
+  expect(pub.value).toBe(VALID_PUB);
+  await act(async () => {
+    flushRef.current!();
+  });
+  expect(onSubmit.mock.calls[0][2]).toBe(VALID_PUB);
+});
+
+test("the key form never overwrites a public half the user pasted", async () => {
+  h.derivePublicKey.mockResolvedValue({ publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 derived" } as never);
+  renderKey();
+  const [priv, pub] = Array.from(document.querySelectorAll("textarea")) as HTMLTextAreaElement[];
+  await act(async () => {
+    fireEvent.change(pub, { target: { value: VALID_PUB } });
+    fireEvent.change(priv, { target: { value: COMPLETE_PRIV } });
+  });
+  expect(h.derivePublicKey).not.toHaveBeenCalled();
+  expect(pub.value).toBe(VALID_PUB);
+});
+
+test("the key form leaves the public half empty when the private one cannot be read", async () => {
+  h.derivePublicKey.mockResolvedValue({ error: "encrypted" as const } as never);
+  const { onSubmit, flushRef } = renderKey();
+  const [priv, pub] = Array.from(document.querySelectorAll("textarea")) as HTMLTextAreaElement[];
+  await act(async () => {
+    fireEvent.change(priv, { target: { value: COMPLETE_PRIV } });
+  });
+  expect(pub.value).toBe("");
+  await act(async () => {
+    flushRef.current!();
+  });
+  expect(onSubmit.mock.calls[0][2]).toBeNull();
+});
+
+test("the identity form derives the public half of inline key material too", async () => {
+  h.derivePublicKey.mockResolvedValue({ publicKey: VALID_PUB } as never);
+  renderIdentity();
+  fireEvent.change(screen.getByPlaceholderText("root"), { target: { value: "deploy" } });
+  fireEvent.click(screen.getByText("keychain.identityForm.noKey"));
+  fireEvent.click(screen.getByText("keychain.identityForm.newKeyInline"));
+  const textareas = Array.from(document.querySelectorAll("textarea")) as HTMLTextAreaElement[];
+  await act(async () => {
+    fireEvent.change(textareas[textareas.length - 2], { target: { value: COMPLETE_PRIV } });
+  });
+  expect(textareas[textareas.length - 1].value).toBe(VALID_PUB);
 });
 
 test("the identity form refuses to save inline key material with a bad public half", async () => {

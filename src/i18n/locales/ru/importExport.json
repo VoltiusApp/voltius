@@ -129,14 +129,15 @@
         "resultApplied_few": "Применено {{count}} настройки: {{list}}.",
         "resultApplied_many": "Применено {{count}} настроек: {{list}}.",
         "resultApplied_other": "Применено {{count}} настроек: {{list}}.",
-        "resultError": "Ошибка: {{error}}"
+        "resultError": "Ошибка: {{error}}",
+        "themesReplaceWarning": "Заменит пользовательские темы этого устройства."
       },
       "handlers": {
         "themes": { "label": "Темы" },
         "uiPreferences": { "label": "Настройки интерфейса" },
         "shortcuts": { "label": "Сочетания клавиш" },
         "appSettings": { "label": "Настройки приложения" },
-        "recentPeople": { "label": "Недавние люди" },
+        "recentPeople": { "label": "Недавние контакты" },
         "vaults": { "label": "Хранилища" }
       },
       "describe": {
@@ -144,7 +145,7 @@
         "themes_few": "{{count}} пользовательские темы",
         "themes_many": "{{count}} пользовательских тем",
         "themes_other": "{{count}} пользовательских тем",
-        "uiPreferences": "масштаб {{scale}}× · раскладка {{layout}}",
+        "uiPreferences": "масштаб {{scale}}× · вид: {{layout}}",
         "shortcutsOverrides_one": "{{count}} переопределение",
         "shortcutsOverrides_few": "{{count}} переопределения",
         "shortcutsOverrides_many": "{{count}} переопределений",

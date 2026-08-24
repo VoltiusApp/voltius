@@ -4,9 +4,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
 import { usePluginStore } from "@/stores/pluginStore";
+import { useUIStore } from "@/stores/uiStore";
 import { pushSettingsChange, remoteApplyTimestamp, settingsStamp } from "./remoteApplyGuard";
 import type { ThemeMode, GeoLocation, AutomationConfig, ThemePhase } from "@/services/themeAutomation";
 
+// `location` is deliberately absent: it is device-scoped, and theme.json is the
+// plugin path's only theme wire — a per-key filter cannot reach inside a file.
+// The coordinates travel in the `themes` user-data section alone, and persist
+// locally through this store's own localStorage middleware.
 interface ThemeDiskState {
   updatedAt: string;
   activeThemeId: string;
@@ -16,7 +21,6 @@ interface ThemeDiskState {
   darkThemeId?: string;
   scheduleLightStart?: string;
   scheduleDarkStart?: string;
-  location?: GeoLocation | null;
 }
 
 async function saveToDisk(state: ThemeDiskState): Promise<void> {
@@ -83,7 +87,6 @@ export const useThemeStore = create<ThemeStore>()(
           darkThemeId: s.darkThemeId,
           scheduleLightStart: s.scheduleLightStart,
           scheduleDarkStart: s.scheduleDarkStart,
-          location: s.location,
         });
       },
       setTheme: (id) => {
@@ -148,12 +151,19 @@ export const useThemeStore = create<ThemeStore>()(
         const id = get().getEffectiveThemeId();
         const { customThemes } = get();
         const pluginThemes = usePluginStore.getState().pluginThemes;
-        return (
+        const theme =
           BUILT_IN_THEMES.find((t) => t.id === id) ??
           customThemes.find((t) => t.id === id) ??
           pluginThemes.get(id) ??
-          BUILT_IN_THEMES[0]
-        );
+          BUILT_IN_THEMES[0];
+        // The terminal font size override is folded in here rather than at each
+        // consumer: xterm, the CodeMirror editor, the --t-terminal-font-size
+        // variable and the theme chip all read it off the active theme, and a
+        // size that only some of them honoured would be worse than none.
+        const override = useUIStore.getState().terminalFontSize;
+        return override === null || override === theme.terminalFontSize
+          ? theme
+          : { ...theme, terminalFontSize: override };
       },
       loadFromDisk: async () => {
         try {
@@ -170,7 +180,6 @@ export const useThemeStore = create<ThemeStore>()(
               darkThemeId: disk.darkThemeId ?? DEFAULT_THEME_ID,
               scheduleLightStart: disk.scheduleLightStart ?? "07:00",
               scheduleDarkStart: disk.scheduleDarkStart ?? "19:00",
-              location: disk.location ?? null,
             });
         } catch {}
       },

@@ -96,6 +96,9 @@ export function UserDataImportTab({ onClose }: { onClose: () => void }) {
                 </span>
                 <Icon icon={h.icon} width={13} className="text-(--t-text-muted)" />
                 <span className="text-sm text-(--t-text-primary)">{t(`importExport.userData.handlers.${h.key}.label`)}</span>
+                {h.key === "themes" && (
+                  <span className="text-xs text-(--t-status-warning)">{t("importExport.userData.import.themesReplaceWarning")}</span>
+                )}
               </label>
             ))}
           </div>

@@ -55,6 +55,15 @@
         "resetTitle": "重置缩放",
         "reset": "重置"
       },
+      "terminalFontSize": {
+        "title": "终端字体大小",
+        "desc": "单独设置终端文字大小，不缩放其余界面。",
+        "clickHint": "点击输入值",
+        "zoomOut": "缩小文字",
+        "zoomIn": "放大文字",
+        "resetTitle": "恢复主题的字体大小",
+        "reset": "重置"
+      },
       "automation": {
         "themeMode": "自动主题模式",
         "title": "自动主题",
@@ -395,14 +404,41 @@
         "configure": "配置 →"
       },
       "prefsTitle": "同步偏好",
-      "prefsFooter": "禁用的类型在更改时不会触发自动同步。单个对象也可以通过其编辑面板排除。",
+      "prefsFooter": "禁用的类型永远不会上传。单个对象也可以通过其编辑面板排除。",
       "quickToggleLabel": "同步 {{label}}",
       "objectType": {
         "connection": { "label": "主机", "sub": "SSH 连接" },
         "identity": { "label": "身份", "sub": "用户名和凭据" },
         "key": { "label": "SSH 密钥", "sub": "存储在密钥链中的密钥对" },
         "folder": { "label": "文件夹", "sub": "用于组织对象的文件夹结构" },
+        "snippet": { "label": "代码片段", "sub": "保存的命令和脚本" },
         "port-forwarding-rule": { "label": "端口转发", "sub": "保存的隧道规则" }
+      },
+      "settingsTitle": "设置",
+      "settingsFooter": "关闭的项目只保留在此设备上，永远不会上传，即使加密后也不会。重新开启同步会发布此设备的值。",
+      "settingDomain": {
+        "themes": { "label": "主题", "sub": "当前主题和自定义主题" },
+        "uiPreferences": { "label": "界面", "sub": "缩放、布局和排序方式" },
+        "shortcuts": { "label": "快捷键", "sub": "键盘快捷键覆盖" },
+        "appSettings": { "label": "应用设置", "sub": "终端、SFTP、插件、语言" },
+        "recentPeople": { "label": "最近联系人", "sub": "您最近邀请过的人" }
+      },
+      "settingKey": {
+        "preferredShell": "默认 Shell",
+        "pluginOverrides": "已启用的插件",
+        "themeLocation": "日出/日落位置"
+      },
+      "keyButton": {
+        "hold": "仅在本设备保留此设置",
+        "resume": "未同步 — 点击以恢复同步",
+        "deviceDefault": "未同步：属于本设备的设置。点击仍可同步。",
+        "domainOff": "该分组的同步已关闭"
+      },
+      "heldBack": {
+        "summary": "仅保留在本设备：{{count}}",
+        "deviceDefault": "设备默认",
+        "yourChoice": "您的选择",
+        "resume": "恢复同步"
       }
     },
     "vaults": {

@@ -8,7 +8,7 @@ import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
-import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor } from "@/utils/terminalTheme";
+import { clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
 import "@xterm/xterm/css/xterm.css";
 
 interface Props {
@@ -133,11 +133,7 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
 
   // Live theme updates
   useEffect(() => {
-    return useThemeStore.subscribe((state) => {
-      const term = termRef.current;
-      if (!term) return;
-      applyTerminalTheme(term, fitRef.current, state.getActiveTheme());
-    });
+    return subscribeTerminalTheme(() => ({ term: termRef.current, fit: fitRef.current }));
   }, []);
 
   // Live cursor style/blink updates

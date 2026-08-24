@@ -1,8 +1,13 @@
 import i18n from "@/i18n";
 import { useUIStore } from "@/stores/uiStore";
 import type { LayoutMode, SortMode } from "@/stores/uiStore";
+import { pushSettingsChange, settingsStamp } from "@/stores/remoteApplyGuard";
 import { lastWriteWins, type UserDataHandler } from "../handler";
 
+// `terminalFontSize` is deliberately absent: it is device-scoped. A readable
+// size on a phone is not a readable size on a desktop, and syncing it would
+// undo the per-device choice the setting exists to give (#159). It persists
+// locally through uiStore's own localStorage middleware.
 interface UIPrefsData {
   uiScale: number;
   homeLayoutMode: LayoutMode;
@@ -47,6 +52,11 @@ export const uiPreferencesHandler: UserDataHandler = {
 
   getTimestamp(): string {
     return useUIStore.getState().prefsUpdatedAt;
+  },
+
+  touch(): void {
+    useUIStore.setState({ prefsUpdatedAt: settingsStamp() });
+    pushSettingsChange();
   },
 
   describe(): string {

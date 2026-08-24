@@ -13,15 +13,12 @@ a named release asset" step every channel needs.
 | winget | komac | `publish-installers.yml` on every release |
 | AUR (`voltius-bin`) | `scripts/gen-aur-pkgbuild.sh` | `publish-installers.yml` on every release |
 | apt / yum | `scripts/build-apt-repo.sh`, `scripts/build-yum-repo.sh` | `publish-repo.yml` on every release |
-| Microsoft Store | `packaging/msix/`, `scripts/build-msix.ps1` | `publish-msix.yml` on every release |
+| Microsoft Store | `packaging/msix/`, `scripts/build-msix.ps1` | **retired** — no tenant for the submission API, see below |
 | Scoop | `scripts/gen-scoop-manifest.sh` | Scoop's excavator bot, after the first merge |
-| Flathub | `scripts/gen-flatpak-manifest.sh` | Flathub's external-data-checker, after the first merge |
+| Flathub | — | **abandoned** — submission rejected, files removed, see below |
 
-Scoop and Flathub have no job here on purpose: their manifests carry `checkver`
-and `x-checker-data`, so each ecosystem's own bot follows new releases once the
-manifest is merged. For Flathub that bot opens a PR against
-`flathub/app.voltius.Voltius`; add `{"automerge-flathubbot-prs": true}` to
-`flathub.json` in that repo to let it land unattended.
+Scoop has no job here on purpose: its manifest carries `checkver`, so the
+excavator bot follows new releases once the manifest is merged.
 
 ## One-time setup, per channel
 
@@ -62,105 +59,104 @@ The install and uninstall scripts drive the NSIS installer with `/S` and assume
 Tauri's per-user install location (`%LOCALAPPDATA%\Voltius`). **Test both on a
 real Windows machine before opening the PR** — nothing in CI exercises them.
 
-### Flathub
+### Flathub — abandoned 2026-08-24
 
-`packaging/flatpak/` holds the three files a submission needs. Regenerate the
-manifest with `scripts/gen-flatpak-manifest.sh <tag>` if the release asset
-naming changes; otherwise Flathub's bot keeps it current.
+**Not a Voltius channel, and the files are gone.** `packaging/flatpak/` and
+`scripts/gen-flatpak-manifest.sh` were removed with this section; recover them
+from git history if this is ever revisited.
 
-The bot updates the source `url` and `sha256`, and only those. Add a `<release>`
-entry to `app.voltius.Voltius.metainfo.xml` per release and open a PR for it —
-that block is what the Flathub page shows as the current version, so without it
-the page advertises an old version while serving the new binary.
+The manifest worked. It built with `flatpak-builder` against
+`org.gnome.Platform//50` on aarch64, `appstreamcli compose` and
+`desktop-file-validate` passed, and the resulting Flatpak installed and ran.
 
-Validate before submitting:
+The submission did not. flathub/flathub#9821 was closed automatically —
+"Checklist(s) not completed or missing", because the PR description replaced the
+mandatory template instead of filling it in — and was labelled **AI Slop** by the
+maintainers. The bot forbids opening a replacement PR; the only way back in is a
+comment on the closed one, and it must carry a video of the app running from the
+Flatpak on Linux. Between the video and a submission already marked as
+low-quality, the channel was not worth pursuing.
 
-```bash
-docker run --rm -v "$PWD/packaging/flatpak:/w" -w /w \
-  ghcr.io/flathub-infra/flatpak-builder-lint:latest manifest app.voltius.Voltius.yml
-```
+Three things worth keeping if it ever is:
 
-Three linter errors are expected and each needs a written justification in the
-submission PR, which Flathub records as an exception:
+- The app id is `app.voltius.Voltius`, matching the `voltius.app` domain rather
+  than the Tauri identifier (`com.voltius.app`), because Flathub verification
+  checks the id against a domain the publisher controls.
+- Three linter errors were expected and deliberate, each needing a written
+  exception: `finish-args-home-filesystem-access` (SFTP has to reach the local
+  side of a transfer, and `~/.ssh` is where imported keys live),
+  `finish-args-has-socket-ssh-auth` (agent forwarding), and
+  `finish-args-flatpak-spawn-access` (the local-terminal feature opens the user's
+  real shell; without host spawn it silently becomes a shell inside the sandbox).
+- The submission PR must go against the `new-pr` base branch, and the checklist
+  in flathub/flathub's pull request template must be completed literally.
 
-- `finish-args-home-filesystem-access` — SFTP has to reach the local side of a
-  transfer, and `~/.ssh` is where the keys users import already live.
-- `finish-args-has-socket-ssh-auth` — agent forwarding, so the passphrase is not
-  re-asked on every connection.
-- `finish-args-flatpak-spawn-access` — the local-terminal feature opens the
-  user's real shell with their real toolchain. Without host spawn it silently
-  becomes a shell inside the sandbox. Same permission, for the same reason, that
-  the terminal emulators already on Flathub carry.
+The in-app updater needed no change either way: a Flatpak install has no
+`APPIMAGE` environment variable, so `classify_install` already reports it as
+externally updated rather than writing to the read-only `/app`.
 
-The app id is `app.voltius.Voltius`, matching the `voltius.app` domain rather
-than the Tauri identifier (`com.voltius.app`), because Flathub verification
-checks the id against a domain the publisher controls.
+### Microsoft Store — retired 2026-08-24
 
-The in-app updater needs no change: a Flatpak install has no `APPIMAGE`
-environment variable, so `classify_install` already reports it as
-externally-updated and the app tells the user to update through their package
-manager instead of writing to the read-only `/app`.
+**The Store is not a Voltius channel.** The listing was reserved, submitted by
+hand at 0.28.0, certified, and then unpublished. `tag-release` does not call
+`publish-msix.yml`. Nothing here needs maintaining; this section records why, so
+the decision does not get re-litigated from scratch.
 
-### Microsoft Store
-
-Registration is free for both individual and company accounts. The MSIX path
+What worked: registration is free for individual accounts, and the MSIX path
 needs **no code-signing certificate** — the Store re-signs MSIX on submission.
 (Submitting the NSIS `.exe` instead would require a certificate chaining to the
-Microsoft Trusted Root Program, which is the recurring cost this avoids.)
+Microsoft Trusted Root Program.) The package built, bundled, passed
+certification and installed.
 
-Releases submit themselves through `publish-msix.yml`, but the listing has to
-exist first — the Store CLI can only *update* an app that is already live.
+What killed it was authentication, not packaging. The Store submission API
+accepts exactly one credential: a Microsoft Entra application. An Entra
+application needs an Entra tenant. A Partner Center account opened with a
+personal Microsoft account has no tenant, and every route to creating one for
+free now dead-ends in a paid Microsoft 365 signup:
 
-**Build the first submission from a release tag, not from a branch.** The MSIX
-version comes from `tauri.conf.json`, and that file only carries the released
-version at a tag — on `dev` it lags, because the bump lands on `main`. A bundle
-built from a branch is therefore labelled with a stale version. Store versions
-only ever move forward, so a first submission at the wrong version cannot be
-taken back. `publish-msix` refuses to submit a bundle whose version trails the
-latest release, and only the release job passes `publish: true` — the packaging
-check builds the bundle and stops there.
+- Partner Center → Account settings → Tenants → *Create* redirects to the
+  "Microsoft for your business" flow, which ends at a payment step.
+- The Azure portal refuses a personal account outright: "the selected user
+  account does not exist in tenant Microsoft Services".
+- Signing up at azure.microsoft.com/free does create a tenant, but requires a
+  card for identity verification.
 
-One-time:
+So the choice was a card, a manual upload per release, or dropping the channel.
+The channel was dropped. A listing frozen at one version is worse than no
+listing: an MSIX installs under `C:\Program Files\WindowsApps`, which is
+unwritable, so `classify_install` reports it as externally updated and the
+in-app updater deliberately does nothing — Store users would never be offered a
+newer version at all.
 
-1. Reserve the app name in Partner Center.
-2. Copy the assigned identity values into repository variables:
-   `MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER`, `MSIX_PUBLISHER_DISPLAY_NAME`.
-   Partner Center rejects a package whose identity does not match the
-   reservation exactly.
-3. Run `publish-msix` manually with `publish: false`, download the `msixbundle`
-   artifact, and complete the first submission by hand in Partner Center.
-4. Once that submission is live, wire up the automation:
-   - Associate a Microsoft Entra tenant with the Partner Center account.
-   - Register an Entra application and give it the **Manager** role under
-     Account settings → User management → Microsoft Entra applications.
-   - Add the secrets `AZURE_AD_TENANT_ID`, `AZURE_AD_APPLICATION_CLIENT_ID`,
-     `AZURE_AD_APPLICATION_SECRET`, `SELLER_ID`, and the repository variable
-     `MSSTORE_PRODUCT_ID`.
+**If this is ever revisited** (a tenant becomes available, or Microsoft reopens
+free tenant creation), nothing has to be rebuilt:
 
-After that every release builds both architectures, bundles them into one
-`.msixbundle` and submits it. Until the secrets exist the submission step warns
-and skips, so a release cannot fail on it.
+1. Set the secrets `AZURE_AD_TENANT_ID`, `AZURE_AD_APPLICATION_CLIENT_ID`,
+   `AZURE_AD_APPLICATION_SECRET`, `SELLER_ID` and the variable
+   `MSSTORE_PRODUCT_ID` (the Store ID, `9P8VC6P11R4D`).
+2. Republish the listing in Partner Center — the CLI can only *update* a live
+   listing, never create one.
+3. Run `publish-msix` with a release **tag** as `ref` and `publish: true`, then
+   restore the job in `tag-release.yml` (see the history of this file).
 
-Every image the listing form asks for is in `packaging/msix/store-listing`,
-numbered in upload order, with the captions to go with them and the rules they
-satisfy. Refresh the screenshots from the docs repo with
-`scripts/copy-store-screenshots.sh`.
+Build from a release tag, never from a branch: the MSIX version comes from
+`tauri.conf.json`, which only carries the released version at a tag — on `dev`
+it lags, because the bump lands on `main`. Store versions only ever move
+forward, so a submission at a stale version cannot be taken back.
+`publish-msix` refuses to submit a bundle whose version trails the latest
+release, and no caller passes `publish: true` any more.
 
-Two limits worth knowing:
+`MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER` and `MSIX_PUBLISHER_DISPLAY_NAME` are
+still set as repository variables: the packing step needs them, and they must
+match the Partner Center reservation exactly. Every image the listing form asks
+for is still in `packaging/msix/store-listing`, numbered in upload order with
+its caption, refreshable with `scripts/copy-store-screenshots.sh`.
 
-- The CLI cannot create a listing, only update one. That is why step 3 is
-  manual and cannot be automated away.
-- Microsoft supports app updates through this action for **free products only**.
-  Voltius is free in the Store — Pro is billed outside it — so this holds today,
-  but adding a paid Store product would break the automation.
-
-The packages are unsigned by design (the Store signs them), so they are workflow
-artifacts rather than release assets — a user who downloaded one could not
-install it.
-
-`classify_install` treats an install under `C:\Program Files\WindowsApps` as
-externally-updated, so the Store build does not try to self-update into a tree
-it cannot write.
+What still runs is `verify-packaging`, which calls `publish-msix.yml` with
+`publish: false` to prove the package packs on Windows — a cheap guard on
+`packaging/msix/` and the two PowerShell scripts. The packages are unsigned by
+design (the Store signs them), so they are workflow artifacts rather than
+release assets — a user who downloaded one could not install it.
 
 ### Homebrew
 

@@ -122,6 +122,7 @@
       "location": "Emplacement",
       "filename": "Nom du fichier",
       "unixOnlyNotice": "L'export de clé ne prend actuellement en charge que les systèmes UNIX. Utilisez la section Avancé pour personnaliser le script d'export.",
+      "missingPublicKeyNotice": "Cette clé n'a pas de partie publique à envoyer. Ouvrez-la dans le Trousseau et collez sa ligne .pub — ou renseignez sa phrase secrète, afin que la partie publique puisse être dérivée de la partie privée.",
       "advanced": "Avancé",
       "exportScriptLabel": "Script d'export",
       "successMessage": "Clé exportée avec succès",

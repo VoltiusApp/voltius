@@ -5,6 +5,7 @@ use chacha20poly1305::{
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::path::Path;
 
 use crate::storage::config::config_dir;
 use crate::storage::secrets::SecretsStore;
@@ -186,6 +187,38 @@ fn strip_excluded(
     clocks.retain(|k, _| !is_excluded_secret(k));
 }
 
+/// Collect every `*.json` in `dir` into `files`, keyed by `prefix` + filename.
+/// Keys present in `skip` are omitted — that is how a device withholds a config
+/// file (e.g. `theme.json`) from the uploaded blob. A missing directory is not
+/// an error: not every install has plugins.
+fn collect_json_dir(
+    files: &mut HashMap<String, String>,
+    dir: &Path,
+    prefix: &str,
+    skip: &HashSet<String>,
+) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() || path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        let (Some(name), Ok(content)) = (
+            path.file_name().and_then(|n| n.to_str()),
+            fs::read_to_string(&path),
+        ) else {
+            continue;
+        };
+        let key = format!("{prefix}{name}");
+        if skip.contains(&key) {
+            continue;
+        }
+        files.insert(key, content);
+    }
+}
+
 #[tauri::command]
 pub fn backup_export(
     state: tauri::State<SecretsStore>,
@@ -193,6 +226,7 @@ pub fn backup_export(
     account_id: String,
     device_id: String,
     excluded_ids: Option<Vec<String>>,
+    skip_files: Option<Vec<String>>,
 ) -> Result<Vec<u8>, String> {
     if enc_key.len() != 32 {
         return Err("enc_key must be 32 bytes".to_string());
@@ -209,54 +243,20 @@ pub fn backup_export(
     let mut files = HashMap::new();
     let dir = config_dir();
 
-    // Root JSON files (connections.json, identities.json, plugin-registry.json, …)
-    if let Ok(entries) = std::fs::read_dir(&dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("json") {
-                if let (Some(name), Ok(content)) = (
-                    path.file_name().and_then(|n| n.to_str()).map(String::from),
-                    std::fs::read_to_string(&path),
-                ) {
-                    files.insert(name, content);
-                }
-            }
-        }
-    }
+    let skip: HashSet<String> = skip_files.unwrap_or_default().into_iter().collect();
 
-    // plugin-data/<id>.json — each plugin's api.storage
-    let plugin_data_dir = dir.join("plugin-data");
-    if let Ok(entries) = std::fs::read_dir(&plugin_data_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("json") {
-                if let (Some(name), Ok(content)) = (
-                    path.file_name().and_then(|n| n.to_str()).map(String::from),
-                    std::fs::read_to_string(&path),
-                ) {
-                    files.insert(format!("plugin-data/{name}"), content);
-                }
-            }
-        }
-    }
-
-    // plugins/__meta__/*.json — the installed-plugin list and marketplace sources.
-    // Carrying these is what lets a fresh device restore the user's plugin set;
-    // the reinstall itself happens client-side and stays hash-verified.
-    let plugin_meta_dir = dir.join("plugins").join(PLUGIN_META_ID);
-    if let Ok(entries) = std::fs::read_dir(&plugin_meta_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("json") {
-                if let (Some(name), Ok(content)) = (
-                    path.file_name().and_then(|n| n.to_str()).map(String::from),
-                    std::fs::read_to_string(&path),
-                ) {
-                    files.insert(format!("{PLUGIN_META_PREFIX}{name}"), content);
-                }
-            }
-        }
-    }
+    // Root JSON files (connections.json, identities.json, plugin-registry.json, …),
+    // each plugin's api.storage, and the installed-plugin list that lets a fresh
+    // device restore the user's plugin set — the reinstall itself happens
+    // client-side and stays hash-verified.
+    collect_json_dir(&mut files, &dir, "", &skip);
+    collect_json_dir(&mut files, &dir.join("plugin-data"), "plugin-data/", &skip);
+    collect_json_dir(
+        &mut files,
+        &dir.join("plugins").join(PLUGIN_META_ID),
+        PLUGIN_META_PREFIX,
+        &skip,
+    );
     let data = state.export_all()?;
     let mut secrets = data.secrets;
     let mut clocks = data.clocks;
@@ -516,6 +516,63 @@ pub fn updater_set_auto(enabled: bool) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn collect_json_dir_skips_named_files_and_prefixes_the_rest() {
+        let dir = std::env::temp_dir().join(format!("voltius-skip-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("theme.json"), r#"{"activeThemeId":"voltius"}"#).unwrap();
+        fs::write(dir.join("connections.json"), "[]").unwrap();
+        fs::write(dir.join("notes.txt"), "ignored").unwrap();
+
+        let mut files = HashMap::new();
+        let skip: HashSet<String> = ["theme.json".to_string()].into_iter().collect();
+        collect_json_dir(&mut files, &dir, "", &skip);
+
+        assert!(
+            !files.contains_key("theme.json"),
+            "skipped file must not be collected"
+        );
+        assert_eq!(
+            files.get("connections.json").map(String::as_str),
+            Some("[]")
+        );
+        assert!(!files.contains_key("notes.txt"), "non-json must be ignored");
+
+        let mut prefixed = HashMap::new();
+        collect_json_dir(&mut prefixed, &dir, "plugin-data/", &HashSet::new());
+        assert!(
+            prefixed.contains_key("plugin-data/theme.json"),
+            "prefix applies to the key"
+        );
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn collect_json_dir_skip_matches_the_prefixed_key_not_the_bare_filename() {
+        let dir = std::env::temp_dir().join(format!("voltius-skip-key-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("theme.json"), r#"{"activeThemeId":"voltius"}"#).unwrap();
+
+        let mut files = HashMap::new();
+        let skip: HashSet<String> = ["plugin-data/theme.json".to_string()].into_iter().collect();
+        collect_json_dir(&mut files, &dir, "plugin-data/", &skip);
+        assert!(
+            !files.contains_key("plugin-data/theme.json"),
+            "a skip entry for the prefixed key must skip the file"
+        );
+
+        let mut files = HashMap::new();
+        let skip: HashSet<String> = ["theme.json".to_string()].into_iter().collect();
+        collect_json_dir(&mut files, &dir, "plugin-data/", &skip);
+        assert!(
+            files.contains_key("plugin-data/theme.json"),
+            "a skip entry for the bare filename must not match a differently-prefixed key"
+        );
+
+        fs::remove_dir_all(&dir).ok();
+    }
 
     #[test]
     fn strip_excluded_removes_entity_and_its_secrets_from_both_maps() {

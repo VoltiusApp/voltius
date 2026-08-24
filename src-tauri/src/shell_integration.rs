@@ -270,6 +270,20 @@ pub const MAX_EXEC_COMMAND_LEN: usize = 8192;
 
 const TMUX_SOCKET: &str = "voltius";
 
+/// Prepended to the pane command so the session shell no longer looks like it
+/// is inside a multiplexer (#159). The persistence wrapper is an implementation
+/// detail, but tmux exports `$TMUX` into the shell it starts, and a tmux client
+/// with no `-L`/`-S` takes its socket from `$TMUX` — so a user's own `tmux ls`
+/// listed Voltius's private socket instead of their sessions, and `tmux attach`
+/// refused outright ("sessions should be nested with care, unset $TMUX to
+/// force"). Nothing in Voltius reads these back: every control path names the
+/// socket and session explicitly.
+const TMUX_ENV_STRIP: &str = "unset TMUX TMUX_PANE; ";
+
+/// screen's equivalent of [`TMUX_ENV_STRIP`]. `screen -x` inside a session
+/// would otherwise join the wrapper rather than the user's own session.
+const SCREEN_ENV_STRIP: &str = "unset STY WINDOW; ";
+
 /// Shown once, inside the new window, when a session lands on a GNU screen
 /// older than 5.0. Those parse `ESC[38;2;r;g;b` and emit nothing, so TrueColor
 /// TUIs (btop) draw solid blocks instead of shaded braille (#118) — there is no
@@ -327,6 +341,17 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// never meet a session another device is attached to. Re-attach and
 /// cross-device join go through `persistent_attach_command`.
 ///
+/// The screen branch gives up its escape key the same way the tmux branch gives
+/// up its prefix, so a user's own screen inside ours keeps `C-a` (#159 follow-up:
+/// a bare `C-a d` used to detach *our* wrapper, which the app then silently
+/// reconnected). screen has no `prefix None` equivalent — `escape` always names
+/// some key — so it is pointed at `\377`, a byte no key produces in a UTF-8
+/// terminal. The one theoretical cost is a latin-1 session where 0xFF is `ÿ`;
+/// that is worth trading for a wrapper the user's own screen can nest inside.
+/// Unlike the tmux prefix this needs no version gate: `escape` and octal escapes
+/// long predate any screen still in use, and a screen that did reject the line
+/// would simply keep its default key.
+///
 /// Both multiplexer configs override the outer terminal's `cnorm` (cursor
 /// normal) capability to plain `\E[?25h`. xterm-256color's stock cnorm is
 /// `\E[?12l\E[?25h`, and the `?12l` half is "stop cursor blinking" — xterm.js
@@ -335,6 +360,15 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// SSH sessions (local sessions, with no multiplexer, kept blinking). Remote
 /// apps that explicitly request a blinking cursor (cvvis / DECSCUSR) still
 /// work; only the implicit blink-off on redraw is dropped.
+///
+/// The wrapper is meant to be invisible to whatever the user runs inside it, so
+/// it also gives up the prefix key: `prefix None` leaves `C-b` to the user's own
+/// tmux instead of being swallowed by ours (#159). Nothing here needs a prefix —
+/// the status line is off and every Voltius command addresses the session by
+/// name over the `-L voltius` socket. It is set two ways because a config file
+/// is only read when the server starts: `-f` covers a cold server, and the
+/// `set -g` push covers one an earlier session already left running. Both are
+/// version-gated to tmux 2.1+, the first release that accepts `None` as a key.
 ///
 /// `inner` is bound once to `$V` rather than inlined at each of the five call
 /// sites. Inlining made the exec payload ~21.7 KB, over dropbear's 9000-byte
@@ -345,6 +379,13 @@ pub fn persistent_exec_command(session_key: &str, inner: &str) -> String {
     let script = format!(
         r#"V="{inner}"
 if command -v tmux >/dev/null 2>&1; then
+  V="{tmux_strip}$V"
+  TMUX_PREFIX_NONE=
+  case "$(tmux -V 2>/dev/null)" in
+    *"tmux "[3-9]*|*"tmux "[1-9][0-9]*|*"tmux "2.[1-9]*)
+      tmux -L {socket} set -g prefix None >/dev/null 2>&1
+      TMUX_PREFIX_NONE=1 ;;
+  esac
   TMUX_CONF=$(mktemp 2>/dev/null)
   if [ -n "$TMUX_CONF" ]; then
     cat > "$TMUX_CONF" <<'EOF'
@@ -356,10 +397,12 @@ set -sg escape-time 0
 set -g destroy-unattached off
 set -ga terminal-overrides ',*:cnorm=\E[?25h'
 EOF
+    [ -n "$TMUX_PREFIX_NONE" ] && echo "set -g prefix None" >> "$TMUX_CONF"
     exec tmux -L {socket} -f "$TMUX_CONF" new-session -A -s {key} "$V" <&2
   fi
   exec tmux -L {socket} new-session -A -s {key} "$V" <&2
 elif command -v screen >/dev/null 2>&1; then
+  V="{screen_strip}$V"
   screen -wipe >/dev/null 2>&1
   for d in $(screen -ls 2>/dev/null | grep -F .{key} | awk '{{print $1}}' | tail -n +2); do
     screen -S "$d" -X quit >/dev/null 2>&1
@@ -372,6 +415,7 @@ msgwait 0
 msgminwait 0
 vbell off
 defscrollback 50000
+escape \377\377
 termcapinfo xterm* ti@:te@:ve=\E[?25h
 EOF
     case "$(screen --version 2>/dev/null)" in
@@ -391,6 +435,8 @@ fi
         socket = TMUX_SOCKET,
         key = session_key,
         inner = inner,
+        tmux_strip = TMUX_ENV_STRIP,
+        screen_strip = SCREEN_ENV_STRIP,
         screen_notice = notice_printf(SCREEN_DEGRADED_NOTICE),
         no_mux_notice =
             notice_printf("[voltius] tmux/screen not found - session will not survive disconnects"),
@@ -491,27 +537,42 @@ elif command -v screen >/dev/null 2>&1; then
   spid=$(screen -ls 2>/dev/null | grep -F .{key} | head -n1 | awk '{{print $1}}' | cut -d. -f1)
   if [ -n "$spid" ]; then
     pid=$spid
-    cwd=""
-    # Descend the tree to the foreground process. The window's wrapper sh pipes
-    # into the real shell, so the interactive shell is a grandchild — the direct
-    # child keeps a stale login cwd. Track the last process with a readable cwd
-    # so transient/dead leaves and cwd-less wrappers are skipped.
-    while :; do
-      c=$(pgrep -P "$pid" 2>/dev/null | tail -n1)
-      [ -n "$c" ] || c=$(ps -o pid= --ppid "$pid" 2>/dev/null | tail -n1 | tr -d ' ')
-      [ -n "$c" ] || break
-      pid=$c
-      cur=$(readlink /proc/$pid/cwd 2>/dev/null)
-      [ -n "$cur" ] && cwd=$cur
-    done
+{descent}
     [ -n "$cwd" ] && printf '%s\n' "$cwd"
   fi
 fi
 true"#,
         socket = TMUX_SOCKET,
         key = session_key,
+        descent = SCREEN_CWD_DESCENT,
     );
     encode_wrapper(&script)
+}
+
+/// Walks from `$pid` down to the foreground process, leaving the deepest usable
+/// cwd in `$cwd`. The window's wrapper sh pipes into the real shell, so the
+/// interactive shell is a grandchild — the direct child keeps a stale login cwd.
+/// Only directories that still exist count: `/proc/<pid>/cwd` resolves to
+/// `<path> (deleted)` once the directory is unlinked, so a long-lived program
+/// pinned to a since-removed directory would otherwise report a path no `cd` can
+/// reach, silently landing a session duplicated from it in the home directory.
+const SCREEN_CWD_DESCENT: &str = r#"cwd=""
+    while :; do
+      c=$(pgrep -P "$pid" 2>/dev/null | tail -n1)
+      [ -n "$c" ] || c=$(ps -o pid= --ppid "$pid" 2>/dev/null | tail -n1 | tr -d ' ')
+      [ -n "$c" ] || break
+      pid=$c
+      cur=$(readlink /proc/$pid/cwd 2>/dev/null)
+      [ -n "$cur" ] && [ -d "$cur" ] && cwd=$cur
+    done"#;
+
+/// Whether a cwd reported by [`cwd_probe_command`] can be handed to a `cd`.
+/// The probe's own `[ -d ]` guard drops unlinked directories, but a host whose
+/// `/proc` or `readlink` behaves differently can still surface the kernel's
+/// `<path> (deleted)` form; taking it would strand a duplicated session in the
+/// home directory rather than keeping the last live cwd.
+pub fn is_live_probe_cwd(path: &str) -> bool {
+    path.starts_with('/') && !path.ends_with(" (deleted)")
 }
 
 /// Conditional kill for a shared session. Kills only when at most
@@ -697,6 +758,18 @@ mod tests {
             notice_printf(SCREEN_DEGRADED_NOTICE)
         )));
         assert!(script.contains("without TrueColor"));
+        // #159: the pane shell must not inherit multiplexer env, or the user's
+        // own tmux talks to our socket and refuses to attach.
+        assert!(script.contains(&format!(r#"V="{TMUX_ENV_STRIP}$V""#)));
+        assert!(script.contains(&format!(r#"V="{SCREEN_ENV_STRIP}$V""#)));
+        // #159: C-b belongs to whatever the user runs inside, not to us. Set on
+        // both a cold server (via -f) and one left running by a past session.
+        assert!(script.contains(r#"tmux -L voltius set -g prefix None"#));
+        assert!(script.contains(r#"echo "set -g prefix None" >> "$TMUX_CONF""#));
+        assert!(script.contains(r#"*"tmux "2.[1-9]*"#));
+        // #159 follow-up: screen's escape key belongs to whatever runs inside,
+        // pointed at a byte no key produces rather than a real chord.
+        assert!(script.contains(r"escape \377\377"));
         // Self-heal: wipe dead entries and collapse same-named duplicates so
         // -D -R can't fail into the "several suitable screens" reconnect loop.
         assert!(script.contains("screen -wipe"));
@@ -883,11 +956,97 @@ mod tests {
         assert!(script.contains("ps -o pid= --ppid"));
         assert!(script.contains("readlink /proc/$pid/cwd"));
         // Track the last readable cwd so wrapper shells (stale login cwd) and
-        // transient/dead leaves don't win over the real interactive shell.
-        assert!(script.contains("[ -n \"$cur\" ] && cwd=$cur"));
+        // transient/dead leaves don't win over the real interactive shell, and
+        // only count directories that still exist.
+        assert!(script.contains("[ -n \"$cur\" ] && [ -d \"$cur\" ] && cwd=$cur"));
         // Never errors the channel; ends clean for the caller's read loop.
         assert!(script.contains("2>/dev/null"));
         assert!(script.trim_end().ends_with("true"));
+    }
+
+    /// The descent run for real against a three-level process tree whose deepest
+    /// process sits in a directory that is then removed under it: `/proc/<pid>/cwd`
+    /// starts resolving to `<path> (deleted)`, and reporting that would send a
+    /// duplicated session's `cd` somewhere it can never reach.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn descent_ignores_a_descendant_whose_directory_was_removed() {
+        use std::os::unix::process::CommandExt;
+        use std::process::{Command, Stdio};
+
+        fn descend(start: u32) -> String {
+            let out = Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "pid={start}\n{SCREEN_CWD_DESCENT}\nprintf '%s' \"$cwd\""
+                ))
+                .output()
+                .expect("descent runs");
+            String::from_utf8_lossy(&out.stdout).into_owned()
+        }
+
+        let root = std::env::temp_dir().join(format!("voltius-descent-{}", std::process::id()));
+        let live = root.join("live");
+        let doomed = root.join("doomed");
+        std::fs::create_dir_all(&live).unwrap();
+        std::fs::create_dir_all(&doomed).unwrap();
+
+        // start -> shell in `live` -> sleep in `doomed`, mirroring screen's
+        // wrapper -> interactive shell -> foreground program.
+        let mut start = Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "sh -c 'cd \"{live}\"; sh -c \"cd \\\"{doomed}\\\"; exec sleep 30\"'\n:",
+                live = live.display(),
+                doomed = doomed.display(),
+            ))
+            .process_group(0)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("tree spawns");
+
+        // The tree comes up asynchronously; it is fully built once the descent
+        // reaches the deepest process. Reaching it is also what makes the rest
+        // of this test meaningful.
+        let mut built = false;
+        for _ in 0..100 {
+            if descend(start.id()) == doomed.to_string_lossy() {
+                built = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+
+        let result = if built {
+            std::fs::remove_dir(&doomed).unwrap();
+            Some(descend(start.id()))
+        } else {
+            None
+        };
+
+        // `process_group(0)` made the child its own group leader, so one signal
+        // reaps the whole tree. `--` keeps the negative pgid out of kill's flags.
+        let _ = Command::new("kill")
+            .arg("--")
+            .arg(format!("-{}", start.id()))
+            .status();
+        let _ = start.wait();
+        let _ = std::fs::remove_dir_all(&root);
+
+        assert!(built, "descent never reached the deepest process");
+        // The removed directory is skipped, so the shell's live cwd stands.
+        assert_eq!(result.unwrap(), live.to_string_lossy());
+    }
+
+    #[test]
+    fn probe_cwd_must_be_an_absolute_live_path() {
+        assert!(is_live_probe_cwd("/home/user/project"));
+        // The kernel's marker for an unlinked directory — no `cd` can reach it.
+        assert!(!is_live_probe_cwd("/home/user/worktrees/gone (deleted)"));
+        // Probe output when the multiplexer or session is missing.
+        assert!(!is_live_probe_cwd(""));
+        assert!(!is_live_probe_cwd("screen: command not found"));
     }
 
     #[test]
