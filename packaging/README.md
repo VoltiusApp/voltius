@@ -15,13 +15,10 @@ a named release asset" step every channel needs.
 | apt / yum | `scripts/build-apt-repo.sh`, `scripts/build-yum-repo.sh` | `publish-repo.yml` on every release |
 | Microsoft Store | `packaging/msix/`, `scripts/build-msix.ps1` | **retired** — no tenant for the submission API, see below |
 | Scoop | `scripts/gen-scoop-manifest.sh` | Scoop's excavator bot, after the first merge |
-| Flathub | `scripts/gen-flatpak-manifest.sh` | Flathub's external-data-checker, after the first merge |
+| Flathub | — | **abandoned** — submission rejected, files removed, see below |
 
-Scoop and Flathub have no job here on purpose: their manifests carry `checkver`
-and `x-checker-data`, so each ecosystem's own bot follows new releases once the
-manifest is merged. For Flathub that bot opens a PR against
-`flathub/app.voltius.Voltius`; add `{"automerge-flathubbot-prs": true}` to
-`flathub.json` in that repo to let it land unattended.
+Scoop has no job here on purpose: its manifest carries `checkver`, so the
+excavator bot follows new releases once the manifest is merged.
 
 ## One-time setup, per channel
 
@@ -62,44 +59,41 @@ The install and uninstall scripts drive the NSIS installer with `/S` and assume
 Tauri's per-user install location (`%LOCALAPPDATA%\Voltius`). **Test both on a
 real Windows machine before opening the PR** — nothing in CI exercises them.
 
-### Flathub
+### Flathub — abandoned 2026-08-24
 
-`packaging/flatpak/` holds the three files a submission needs. Regenerate the
-manifest with `scripts/gen-flatpak-manifest.sh <tag>` if the release asset
-naming changes; otherwise Flathub's bot keeps it current.
+**Not a Voltius channel, and the files are gone.** `packaging/flatpak/` and
+`scripts/gen-flatpak-manifest.sh` were removed with this section; recover them
+from git history if this is ever revisited.
 
-The bot updates the source `url` and `sha256`, and only those. Add a `<release>`
-entry to `app.voltius.Voltius.metainfo.xml` per release and open a PR for it —
-that block is what the Flathub page shows as the current version, so without it
-the page advertises an old version while serving the new binary.
+The manifest worked. It built with `flatpak-builder` against
+`org.gnome.Platform//50` on aarch64, `appstreamcli compose` and
+`desktop-file-validate` passed, and the resulting Flatpak installed and ran.
 
-Validate before submitting:
+The submission did not. flathub/flathub#9821 was closed automatically —
+"Checklist(s) not completed or missing", because the PR description replaced the
+mandatory template instead of filling it in — and was labelled **AI Slop** by the
+maintainers. The bot forbids opening a replacement PR; the only way back in is a
+comment on the closed one, and it must carry a video of the app running from the
+Flatpak on Linux. Between the video and a submission already marked as
+low-quality, the channel was not worth pursuing.
 
-```bash
-docker run --rm -v "$PWD/packaging/flatpak:/w" -w /w \
-  ghcr.io/flathub-infra/flatpak-builder-lint:latest manifest app.voltius.Voltius.yml
-```
+Three things worth keeping if it ever is:
 
-Three linter errors are expected and each needs a written justification in the
-submission PR, which Flathub records as an exception:
+- The app id is `app.voltius.Voltius`, matching the `voltius.app` domain rather
+  than the Tauri identifier (`com.voltius.app`), because Flathub verification
+  checks the id against a domain the publisher controls.
+- Three linter errors were expected and deliberate, each needing a written
+  exception: `finish-args-home-filesystem-access` (SFTP has to reach the local
+  side of a transfer, and `~/.ssh` is where imported keys live),
+  `finish-args-has-socket-ssh-auth` (agent forwarding), and
+  `finish-args-flatpak-spawn-access` (the local-terminal feature opens the user's
+  real shell; without host spawn it silently becomes a shell inside the sandbox).
+- The submission PR must go against the `new-pr` base branch, and the checklist
+  in flathub/flathub's pull request template must be completed literally.
 
-- `finish-args-home-filesystem-access` — SFTP has to reach the local side of a
-  transfer, and `~/.ssh` is where the keys users import already live.
-- `finish-args-has-socket-ssh-auth` — agent forwarding, so the passphrase is not
-  re-asked on every connection.
-- `finish-args-flatpak-spawn-access` — the local-terminal feature opens the
-  user's real shell with their real toolchain. Without host spawn it silently
-  becomes a shell inside the sandbox. Same permission, for the same reason, that
-  the terminal emulators already on Flathub carry.
-
-The app id is `app.voltius.Voltius`, matching the `voltius.app` domain rather
-than the Tauri identifier (`com.voltius.app`), because Flathub verification
-checks the id against a domain the publisher controls.
-
-The in-app updater needs no change: a Flatpak install has no `APPIMAGE`
-environment variable, so `classify_install` already reports it as
-externally-updated and the app tells the user to update through their package
-manager instead of writing to the read-only `/app`.
+The in-app updater needed no change either way: a Flatpak install has no
+`APPIMAGE` environment variable, so `classify_install` already reports it as
+externally updated rather than writing to the read-only `/app`.
 
 ### Microsoft Store — retired 2026-08-24
 
