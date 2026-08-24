@@ -341,6 +341,17 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// never meet a session another device is attached to. Re-attach and
 /// cross-device join go through `persistent_attach_command`.
 ///
+/// The screen branch gives up its escape key the same way the tmux branch gives
+/// up its prefix, so a user's own screen inside ours keeps `C-a` (#159 follow-up:
+/// a bare `C-a d` used to detach *our* wrapper, which the app then silently
+/// reconnected). screen has no `prefix None` equivalent — `escape` always names
+/// some key — so it is pointed at `\377`, a byte no key produces in a UTF-8
+/// terminal. The one theoretical cost is a latin-1 session where 0xFF is `ÿ`;
+/// that is worth trading for a wrapper the user's own screen can nest inside.
+/// Unlike the tmux prefix this needs no version gate: `escape` and octal escapes
+/// long predate any screen still in use, and a screen that did reject the line
+/// would simply keep its default key.
+///
 /// Both multiplexer configs override the outer terminal's `cnorm` (cursor
 /// normal) capability to plain `\E[?25h`. xterm-256color's stock cnorm is
 /// `\E[?12l\E[?25h`, and the `?12l` half is "stop cursor blinking" — xterm.js
@@ -404,6 +415,7 @@ msgwait 0
 msgminwait 0
 vbell off
 defscrollback 50000
+escape \377\377
 termcapinfo xterm* ti@:te@:ve=\E[?25h
 EOF
     case "$(screen --version 2>/dev/null)" in
@@ -755,6 +767,9 @@ mod tests {
         assert!(script.contains(r#"tmux -L voltius set -g prefix None"#));
         assert!(script.contains(r#"echo "set -g prefix None" >> "$TMUX_CONF""#));
         assert!(script.contains(r#"*"tmux "2.[1-9]*"#));
+        // #159 follow-up: screen's escape key belongs to whatever runs inside,
+        // pointed at a byte no key produces rather than a real chord.
+        assert!(script.contains(r"escape \377\377"));
         // Self-heal: wipe dead entries and collapse same-named duplicates so
         // -D -R can't fail into the "several suitable screens" reconnect loop.
         assert!(script.contains("screen -wipe"));
