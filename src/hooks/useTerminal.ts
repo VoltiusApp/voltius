@@ -162,6 +162,10 @@ type CacheEntry = {
   minimap: MinimapState;
   sessionType: "ssh" | "local" | "serial";
   connectedRef: { current: boolean };
+  /** Clipboard handle of the mount this terminal is currently attached to. Lives
+   *  on the entry, not on the hook: a mount that switches session keeps its refs,
+   *  so a hook-owned handle would send this terminal's Ctrl+V to the new session. */
+  clip: TerminalClipboardHandle | null;
   /** Mirror of the useTerminal `inputGate` so module-level senders (writeToSession)
    *  honor the same multiplayer control-holder gate as the onData handler. */
   inputGateRef: { current: (() => boolean) | undefined };
@@ -661,7 +665,6 @@ useSessionStore.subscribe((state) => {
 
 export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encoding, onResize }: UseTerminalOptions) {
   const mountCleanupRef = useRef<(() => void) | null>(null);
-  const clipRef = useRef<TerminalClipboardHandle | null>(null);
 
   // Keep the cached entry's callback refs current on every render
   useEffect(() => {
@@ -677,9 +680,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
   // the ref detaches. The teardown also pulls the terminal element out of the
   // container: a pane that switches session keeps the same container node, so
   // leaving the old element behind would show the previous session's buffer.
-  const bindContainer = useCallback((terminal: Terminal, fitAddon: FitAddon, container: HTMLDivElement) => {
+  const bindContainer = useCallback((entry: CacheEntry, container: HTMLDivElement) => {
+    const { terminal, fitAddon } = entry;
     const clip = attachTerminalClipboard(terminal, container, { osc52: true });
-    clipRef.current = clip;
+    entry.clip = clip;
 
     const handleWindowResize = () => fitAddon.fit();
     window.addEventListener("resize", handleWindowResize);
@@ -693,7 +697,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
     mountCleanupRef.current = () => {
       clip.dispose();
-      if (clipRef.current === clip) clipRef.current = null;
+      if (entry.clip === clip) entry.clip = null;
       window.removeEventListener("resize", handleWindowResize);
       resizeObserver.disconnect();
       if (fitTimer !== null) clearTimeout(fitTimer);
@@ -725,7 +729,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
         fitAddon.fit();
 
-        bindContainer(terminal, fitAddon, container);
+        bindContainer(existing, container);
         return;
       }
 
@@ -836,6 +840,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         // connected before the terminal mounts); ssh and local flip in the
         // store subscription above, once the backend owns the session.
         connectedRef: { current: sessionType === "serial" },
+        clip: null,
         inputGateRef: { current: inputGate?.current },
         onClosedRef: { current: onClosed },
         onResizeRef: { current: onResize },
@@ -881,7 +886,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           if (e.type === "keydown") useUIStore.getState().setOmniOpen(true);
           return false;
         }
-        const clipResult = clipRef.current?.handleKeyEvent(e);
+        const clipResult = entry.clip?.handleKeyEvent(e);
         if (clipResult != null) return clipResult;
         if (matchShortcut("terminal-search", e)) {
           if (e.type === "keydown") {
@@ -1133,7 +1138,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         term.dispose();
       };
 
-      bindContainer(term, fitAddon, container);
+      bindContainer(entry, container);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sessionId, sessionType, encoding],
