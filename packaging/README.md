@@ -177,6 +177,11 @@ Developer account. `brew style` and the rest of the audit are clean, so this is
 the only thing standing in the way.
 
 `scripts/gen-homebrew-cask.sh <tag> --core` emits the variant for that PR, kept
-ready for the day notarization exists: core rejects casks whose caveats tell the
-user to reinstall with `--no-quarantine`, so that hint is dropped, leaving the
-right-click-Open instructions.
+ready for the day notarization exists: core is hostile to caveats that talk the
+user out of Gatekeeper, so the quarantine-clearing `xattr` command the tap
+caveat carries is dropped there, leaving the right-click-Open instructions.
+
+Never put `brew install --no-quarantine` in either variant. Homebrew 6 removed
+the flag, so the hint fails with `Error: invalid option: --no-quarantine` for
+tap users, and core rejected it before that. `brew audit` does not catch it, so
+the `cask-audit` action greps the generated cask and fails the run (#176).
