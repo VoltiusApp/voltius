@@ -57,6 +57,15 @@
         "resetTitle": "Réinitialiser l'échelle",
         "reset": "Réinitialiser"
       },
+      "terminalFontSize": {
+        "title": "Taille de police du terminal",
+        "desc": "Régler la taille du texte du terminal seule, sans agrandir le reste de l'interface.",
+        "clickHint": "Cliquer pour saisir une valeur",
+        "zoomOut": "Texte plus petit",
+        "zoomIn": "Texte plus grand",
+        "resetTitle": "Revenir à la taille du thème",
+        "reset": "Réinitialiser"
+      },
       "automation": {
         "themeMode": "Mode du thème automatique",
         "title": "Thème automatique",

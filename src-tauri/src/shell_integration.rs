@@ -270,6 +270,20 @@ pub const MAX_EXEC_COMMAND_LEN: usize = 8192;
 
 const TMUX_SOCKET: &str = "voltius";
 
+/// Prepended to the pane command so the session shell no longer looks like it
+/// is inside a multiplexer (#159). The persistence wrapper is an implementation
+/// detail, but tmux exports `$TMUX` into the shell it starts, and a tmux client
+/// with no `-L`/`-S` takes its socket from `$TMUX` — so a user's own `tmux ls`
+/// listed Voltius's private socket instead of their sessions, and `tmux attach`
+/// refused outright ("sessions should be nested with care, unset $TMUX to
+/// force"). Nothing in Voltius reads these back: every control path names the
+/// socket and session explicitly.
+const TMUX_ENV_STRIP: &str = "unset TMUX TMUX_PANE; ";
+
+/// screen's equivalent of [`TMUX_ENV_STRIP`]. `screen -x` inside a session
+/// would otherwise join the wrapper rather than the user's own session.
+const SCREEN_ENV_STRIP: &str = "unset STY WINDOW; ";
+
 /// Shown once, inside the new window, when a session lands on a GNU screen
 /// older than 5.0. Those parse `ESC[38;2;r;g;b` and emit nothing, so TrueColor
 /// TUIs (btop) draw solid blocks instead of shaded braille (#118) — there is no
@@ -336,6 +350,15 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// apps that explicitly request a blinking cursor (cvvis / DECSCUSR) still
 /// work; only the implicit blink-off on redraw is dropped.
 ///
+/// The wrapper is meant to be invisible to whatever the user runs inside it, so
+/// it also gives up the prefix key: `prefix None` leaves `C-b` to the user's own
+/// tmux instead of being swallowed by ours (#159). Nothing here needs a prefix —
+/// the status line is off and every Voltius command addresses the session by
+/// name over the `-L voltius` socket. It is set two ways because a config file
+/// is only read when the server starts: `-f` covers a cold server, and the
+/// `set -g` push covers one an earlier session already left running. Both are
+/// version-gated to tmux 2.1+, the first release that accepts `None` as a key.
+///
 /// `inner` is bound once to `$V` rather than inlined at each of the five call
 /// sites. Inlining made the exec payload ~21.7 KB, over dropbear's 9000-byte
 /// `MAX_STRING_LEN`, so dropbear killed the channel with "String too long" the
@@ -345,6 +368,13 @@ pub fn persistent_exec_command(session_key: &str, inner: &str) -> String {
     let script = format!(
         r#"V="{inner}"
 if command -v tmux >/dev/null 2>&1; then
+  V="{tmux_strip}$V"
+  TMUX_PREFIX_NONE=
+  case "$(tmux -V 2>/dev/null)" in
+    *"tmux "[3-9]*|*"tmux "[1-9][0-9]*|*"tmux "2.[1-9]*)
+      tmux -L {socket} set -g prefix None >/dev/null 2>&1
+      TMUX_PREFIX_NONE=1 ;;
+  esac
   TMUX_CONF=$(mktemp 2>/dev/null)
   if [ -n "$TMUX_CONF" ]; then
     cat > "$TMUX_CONF" <<'EOF'
@@ -356,10 +386,12 @@ set -sg escape-time 0
 set -g destroy-unattached off
 set -ga terminal-overrides ',*:cnorm=\E[?25h'
 EOF
+    [ -n "$TMUX_PREFIX_NONE" ] && echo "set -g prefix None" >> "$TMUX_CONF"
     exec tmux -L {socket} -f "$TMUX_CONF" new-session -A -s {key} "$V" <&2
   fi
   exec tmux -L {socket} new-session -A -s {key} "$V" <&2
 elif command -v screen >/dev/null 2>&1; then
+  V="{screen_strip}$V"
   screen -wipe >/dev/null 2>&1
   for d in $(screen -ls 2>/dev/null | grep -F .{key} | awk '{{print $1}}' | tail -n +2); do
     screen -S "$d" -X quit >/dev/null 2>&1
@@ -391,6 +423,8 @@ fi
         socket = TMUX_SOCKET,
         key = session_key,
         inner = inner,
+        tmux_strip = TMUX_ENV_STRIP,
+        screen_strip = SCREEN_ENV_STRIP,
         screen_notice = notice_printf(SCREEN_DEGRADED_NOTICE),
         no_mux_notice =
             notice_printf("[voltius] tmux/screen not found - session will not survive disconnects"),
@@ -697,6 +731,15 @@ mod tests {
             notice_printf(SCREEN_DEGRADED_NOTICE)
         )));
         assert!(script.contains("without TrueColor"));
+        // #159: the pane shell must not inherit multiplexer env, or the user's
+        // own tmux talks to our socket and refuses to attach.
+        assert!(script.contains(&format!(r#"V="{TMUX_ENV_STRIP}$V""#)));
+        assert!(script.contains(&format!(r#"V="{SCREEN_ENV_STRIP}$V""#)));
+        // #159: C-b belongs to whatever the user runs inside, not to us. Set on
+        // both a cold server (via -f) and one left running by a past session.
+        assert!(script.contains(r#"tmux -L voltius set -g prefix None"#));
+        assert!(script.contains(r#"echo "set -g prefix None" >> "$TMUX_CONF""#));
+        assert!(script.contains(r#"*"tmux "2.[1-9]*"#));
         // Self-heal: wipe dead entries and collapse same-named duplicates so
         // -D -R can't fail into the "several suitable screens" reconnect loop.
         assert!(script.contains("screen -wipe"));

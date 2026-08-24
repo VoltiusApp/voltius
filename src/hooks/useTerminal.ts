@@ -29,7 +29,7 @@ import { handleDuplicateShortcut } from "@/services/duplicateSession";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
-import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor } from "@/utils/terminalTheme";
+import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
 import { getPlatform } from "@/utils/platform";
 
 interface UseTerminalOptions {
@@ -1150,11 +1150,9 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
   // Live theme updates
   useEffect(() => {
-    return useThemeStore.subscribe((state) => {
+    return subscribeTerminalTheme(() => {
       const entry = terminalCache.get(sessionId);
-      if (!entry) return;
-      const { terminal: term, fitAddon } = entry;
-      applyTerminalTheme(term, fitAddon, state.getActiveTheme());
+      return { term: entry?.terminal, fit: entry?.fitAddon };
     });
   }, [sessionId]);
 

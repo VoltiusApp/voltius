@@ -4,6 +4,8 @@ import type { AppTheme } from "@/themes/types";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
+import { useThemeStore } from "@/stores/themeStore";
+import { useUIStore } from "@/stores/uiStore";
 
 export const MIN_TERMINAL_LINE_HEIGHT = 1;
 export const MAX_TERMINAL_LINE_HEIGHT = 2;
@@ -26,6 +28,23 @@ export function applyTerminalTheme(term: Terminal, fit: FitAddon | null | undefi
     term.options.lineHeight = lineHeight;
     fit?.fit();
   }
+}
+
+/** Keeps a live terminal's theme in sync. Two stores feed it: the theme itself,
+ *  and the terminal font size override that `getActiveTheme` folds in (#159). */
+export function subscribeTerminalTheme(
+  getTarget: () => { term: Terminal | null | undefined; fit?: FitAddon | null },
+): () => void {
+  const apply = () => {
+    const { term, fit } = getTarget();
+    if (term) applyTerminalTheme(term, fit, useThemeStore.getState().getActiveTheme());
+  };
+  const unsubTheme = useThemeStore.subscribe(apply);
+  const unsubFontSize = useUIStore.subscribe(apply);
+  return () => {
+    unsubTheme();
+    unsubFontSize();
+  };
 }
 
 /** Keeps a live terminal's cursor options in sync with the settings stores.

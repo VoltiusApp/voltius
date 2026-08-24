@@ -9,6 +9,7 @@ import { FormSelect } from "@/components/shared/FormSelect";
 import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
+import TerminalFontSizeSection from "./TerminalFontSizeSection";
 import { useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
 import { SettingRow, SyncKeyButton } from "./shared";
 
@@ -68,6 +69,9 @@ export default function AppearanceSection() {
           {t("settings.appearance.interface")}
         </h3>
         <ScaleSection />
+        <div className="mt-4">
+          <TerminalFontSizeSection />
+        </div>
         <SettingRow variant="card" className="mt-4" syncKey="appSettings.locale" title={t("settings.appearance.language.title")}>
           <FormSelect
             className="w-44 shrink-0"

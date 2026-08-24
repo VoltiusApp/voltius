@@ -29,6 +29,13 @@ export function clampUiScale(value: number): number {
   return Math.min(MAX_UI_SCALE, Math.max(MIN_UI_SCALE, Number.isFinite(value) ? value : 1));
 }
 
+export const MIN_TERMINAL_FONT_SIZE = 8;
+export const MAX_TERMINAL_FONT_SIZE = 32;
+
+export function clampTerminalFontSize(value: number): number {
+  return Math.min(MAX_TERMINAL_FONT_SIZE, Math.max(MIN_TERMINAL_FONT_SIZE, Math.round(value)));
+}
+
 export type ImportExportSection = "vaults" | "user-data";
 
 /** Monotonic counter for import/export modal opens — drives a fresh remount per invocation. */
@@ -100,6 +107,12 @@ interface UIStore {
   sftpPanelOpen: boolean;
   pendingSftpConnectionId: string | null;
   uiScale: number;
+  /**
+   * Overrides the active theme's `terminalFontSize` when set. Null follows the
+   * theme, which is the only place the size used to live — changing it meant
+   * cloning a theme, or scaling the whole UI (#159).
+   */
+  terminalFontSize: number | null;
   homeLayoutMode: LayoutMode;
   homeSortMode: SortMode;
   keychainLayoutMode: LayoutMode;
@@ -147,6 +160,7 @@ interface UIStore {
   openSftpWith: (connectionId: string) => void;
   clearPendingSftpConnection: () => void;
   setUiScale: (value: number) => void;
+  setTerminalFontSize: (value: number | null) => void;
   setHomeLayoutMode: (v: LayoutMode) => void;
   setHomeSortMode: (v: SortMode) => void;
   setKeychainLayoutMode: (v: LayoutMode) => void;
@@ -202,6 +216,7 @@ export const useUIStore = create<UIStore>()(
         sftpPanelOpen: false,
         pendingSftpConnectionId: null as string | null,
         uiScale: 1,
+        terminalFontSize: null as number | null,
         homeLayoutMode: "grid" as LayoutMode,
         homeSortMode: "newest" as SortMode,
         keychainLayoutMode: "list" as LayoutMode,
@@ -264,6 +279,7 @@ export const useUIStore = create<UIStore>()(
         openSftpWith: (connectionId) => set({ sftpPanelOpen: true, pendingSftpConnectionId: connectionId }),
         clearPendingSftpConnection: () => set({ pendingSftpConnectionId: null }),
         setUiScale: (value) => setPref({ uiScale: clampUiScale(value) }),
+        setTerminalFontSize: (value) => setPref({ terminalFontSize: value === null ? null : clampTerminalFontSize(value) }),
         setHomeLayoutMode: (v) => setPref({ homeLayoutMode: v }),
         setHomeSortMode: (v) => setPref({ homeSortMode: v }),
         setKeychainLayoutMode: (v) => setPref({ keychainLayoutMode: v }),
@@ -301,6 +317,7 @@ export const useUIStore = create<UIStore>()(
       },
       partialize: (state) => ({
         uiScale: state.uiScale,
+        terminalFontSize: state.terminalFontSize,
         settingsSection: state.settingsSection,
         pluginsNavExpanded: state.pluginsNavExpanded,
         homeLayoutMode: state.homeLayoutMode,

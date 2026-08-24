@@ -1,6 +1,7 @@
 import { test, expect, beforeEach, vi } from "vitest";
 import { useThemeStore } from "./themeStore";
 import { DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
+import { MAX_TERMINAL_FONT_SIZE, MIN_TERMINAL_FONT_SIZE, useUIStore } from "./uiStore";
 
 const invokeMock = vi.hoisted(() => vi.fn(async (): Promise<unknown> => null));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
@@ -104,4 +105,22 @@ test("loadFromDisk leaves the local location alone when an old file still has on
   const s = useThemeStore.getState();
   expect(s.activeThemeId).toBe("dracula");
   expect(s.location).toEqual({ lat: 48.85, lng: 2.35, label: "Paris", source: "manual" });
+});
+
+test("getActiveTheme folds in the terminal font size override", () => {
+  const themed = useThemeStore.getState().getActiveTheme().terminalFontSize;
+  useUIStore.getState().setTerminalFontSize(themed + 5);
+  expect(useThemeStore.getState().getActiveTheme().terminalFontSize).toBe(themed + 5);
+  // Every other field still comes from the theme itself.
+  expect(useThemeStore.getState().getActiveTheme().id).toBe(DEFAULT_THEME_ID);
+  useUIStore.getState().setTerminalFontSize(null);
+  expect(useThemeStore.getState().getActiveTheme().terminalFontSize).toBe(themed);
+});
+
+test("the override is clamped to a size xterm can render", () => {
+  useUIStore.getState().setTerminalFontSize(999);
+  expect(useThemeStore.getState().getActiveTheme().terminalFontSize).toBe(MAX_TERMINAL_FONT_SIZE);
+  useUIStore.getState().setTerminalFontSize(0);
+  expect(useThemeStore.getState().getActiveTheme().terminalFontSize).toBe(MIN_TERMINAL_FONT_SIZE);
+  useUIStore.getState().setTerminalFontSize(null);
 });
