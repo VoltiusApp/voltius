@@ -55,6 +55,15 @@
         "resetTitle": "重置缩放",
         "reset": "重置"
       },
+      "terminalFontSize": {
+        "title": "终端字体大小",
+        "desc": "单独设置终端文字大小，不缩放其余界面。",
+        "clickHint": "点击输入值",
+        "zoomOut": "缩小文字",
+        "zoomIn": "放大文字",
+        "resetTitle": "恢复主题的字体大小",
+        "reset": "重置"
+      },
       "automation": {
         "themeMode": "自动主题模式",
         "title": "自动主题",

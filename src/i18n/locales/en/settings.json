@@ -57,6 +57,15 @@
         "resetTitle": "Reset scale",
         "reset": "Reset"
       },
+      "terminalFontSize": {
+        "title": "Terminal Font Size",
+        "desc": "Size the terminal text on its own, without scaling the rest of the interface.",
+        "clickHint": "Click to enter a value",
+        "zoomOut": "Smaller text",
+        "zoomIn": "Larger text",
+        "resetTitle": "Follow the theme's font size",
+        "reset": "Reset"
+      },
       "automation": {
         "themeMode": "Automatic theme mode",
         "title": "Automatic theme",

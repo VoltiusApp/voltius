@@ -7,7 +7,9 @@ import { useIsAndroid } from "@/utils/platform";
 import { isDoubleTap, type TapPoint } from "./doubleTap";
 import {
   cellFromPoint,
+  fontSizeFromPinch,
   linesFromPixelDelta,
+  touchDistance,
   wordRangeAt,
   isBlankCell,
   extendSelection,
@@ -15,16 +17,20 @@ import {
   type CellMetrics,
 } from "./mobileTerminalGesturesCore";
 import { writeClipboard, readClipboard } from "@/utils/clipboard";
+import { MAX_TERMINAL_FONT_SIZE, MIN_TERMINAL_FONT_SIZE, useUIStore } from "@/stores/uiStore";
+import { useThemeStore } from "@/stores/themeStore";
 
 const LONG_PRESS_MS = 380;
 const MOVE_THRESHOLD_PX = 10;
 const DOUBLE_TAP = { ms: 300, px: 24 };
 
-type Phase = "idle" | "pending" | "scrolling" | "selecting";
+type Phase = "idle" | "pending" | "scrolling" | "selecting" | "pinching";
 
 /**
  * Mobile-only unified terminal gesture layer. One-finger immediate drag scrolls;
  * a long-press selects (on text) or pastes (on blank). Double-tap sends Tab.
+ * Two fingers pinch the terminal font size (#159), which is the only text on a
+ * phone that has to stay readable independently of the surrounding UI.
  * Single taps pass through to xterm (focus → keyboard). Attaches capture-phase
  * touch listeners to the terminal container so it can pre-empt xterm's own
  * synthesized mouse handling for consumed gestures.
@@ -47,6 +53,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
   const lastTap = useRef<TapPoint | null>(null);
+  const pinch = useRef<{ dist: number; size: number } | null>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -118,6 +125,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
 
     const reset = () => {
       phase.current = "idle";
+      pinch.current = null;
       start.current = null;
       carry.current = 0;
       longPressFired.current = false;
@@ -130,6 +138,16 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         if (target?.closest("[data-mobile-term-toolbar]")) return; // let the toolbar button handle its own tap
         getTerminalApi(sessionId)?.clearSelection();
         closeToolbar();
+      }
+      if (e.touches.length === 2) {
+        clearLongPress();
+        longPressFired.current = false;
+        phase.current = "pinching";
+        pinch.current = {
+          dist: touchDistance(e.touches[0], e.touches[1]),
+          size: useThemeStore.getState().getActiveTheme().terminalFontSize,
+        };
+        return;
       }
       if (e.touches.length !== 1) { reset(); return; }
       const t = e.touches[0];
@@ -148,6 +166,23 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     };
 
     const onTouchMove = (e: TouchEvent) => {
+      if (phase.current === "pinching") {
+        const p = pinch.current;
+        if (!p || e.touches.length < 2) return;
+        e.preventDefault();
+        const size = fontSizeFromPinch(
+          p.size,
+          p.dist,
+          touchDistance(e.touches[0], e.touches[1]),
+          MIN_TERMINAL_FONT_SIZE,
+          MAX_TERMINAL_FONT_SIZE,
+        );
+        if (size !== useThemeStore.getState().getActiveTheme().terminalFontSize) {
+          useUIStore.getState().setTerminalFontSize(size);
+        }
+        return;
+      }
+
       const s = start.current;
       const t = e.touches[0];
       if (!s || !t) return;
@@ -188,6 +223,13 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     const onTouchEnd = (e: TouchEvent) => {
       clearLongPress();
       const wasPhase = phase.current;
+
+      if (wasPhase === "pinching") {
+        e.preventDefault();
+        // The lifted finger must not be read as the start of a tap or a scroll.
+        if (e.touches.length === 0) reset();
+        return;
+      }
 
       if (longPressFired.current) {
         e.preventDefault();

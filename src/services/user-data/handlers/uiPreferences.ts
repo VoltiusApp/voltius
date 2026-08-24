@@ -4,6 +4,10 @@ import type { LayoutMode, SortMode } from "@/stores/uiStore";
 import { pushSettingsChange, settingsStamp } from "@/stores/remoteApplyGuard";
 import { lastWriteWins, type UserDataHandler } from "../handler";
 
+// `terminalFontSize` is deliberately absent: it is device-scoped. A readable
+// size on a phone is not a readable size on a desktop, and syncing it would
+// undo the per-device choice the setting exists to give (#159). It persists
+// locally through uiStore's own localStorage middleware.
 interface UIPrefsData {
   uiScale: number;
   homeLayoutMode: LayoutMode;

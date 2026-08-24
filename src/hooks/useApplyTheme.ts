@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useThemeStore } from "@/stores/themeStore";
+import { useUIStore } from "@/stores/uiStore";
 import type { AppTheme } from "@/themes/types";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
 import { appearanceFromColor, luminanceFromHex } from "@/utils/appearance";
@@ -74,8 +75,11 @@ export function useApplyTheme() {
   const lightThemeId = useThemeStore((s) => s.lightThemeId);
   const darkThemeId = useThemeStore((s) => s.darkThemeId);
   const resolvedPhase = useThemeStore((s) => s.resolvedPhase);
+  // Folded into the active theme by getActiveTheme, so it has to re-run the
+  // DOM apply — and with it the theme-preview event live terminals listen on.
+  const terminalFontSize = useUIStore((s) => s.terminalFontSize);
 
   useEffect(() => {
     applyThemeToDom(getActiveTheme());
-  }, [activeThemeId, customThemes, mode, lightThemeId, darkThemeId, resolvedPhase, getActiveTheme]);
+  }, [activeThemeId, customThemes, mode, lightThemeId, darkThemeId, resolvedPhase, terminalFontSize, getActiveTheme]);
 }

@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
 import { usePluginStore } from "@/stores/pluginStore";
+import { useUIStore } from "@/stores/uiStore";
 import { pushSettingsChange, remoteApplyTimestamp, settingsStamp } from "./remoteApplyGuard";
 import type { ThemeMode, GeoLocation, AutomationConfig, ThemePhase } from "@/services/themeAutomation";
 
@@ -150,12 +151,19 @@ export const useThemeStore = create<ThemeStore>()(
         const id = get().getEffectiveThemeId();
         const { customThemes } = get();
         const pluginThemes = usePluginStore.getState().pluginThemes;
-        return (
+        const theme =
           BUILT_IN_THEMES.find((t) => t.id === id) ??
           customThemes.find((t) => t.id === id) ??
           pluginThemes.get(id) ??
-          BUILT_IN_THEMES[0]
-        );
+          BUILT_IN_THEMES[0];
+        // The terminal font size override is folded in here rather than at each
+        // consumer: xterm, the CodeMirror editor, the --t-terminal-font-size
+        // variable and the theme chip all read it off the active theme, and a
+        // size that only some of them honoured would be worse than none.
+        const override = useUIStore.getState().terminalFontSize;
+        return override === null || override === theme.terminalFontSize
+          ? theme
+          : { ...theme, terminalFontSize: override };
       },
       loadFromDisk: async () => {
         try {
