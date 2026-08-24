@@ -1,29 +1,34 @@
-# Builds the Microsoft Store MSIX packages, bundles them, and publishes the
-# bundle to the Store through the Microsoft Store Developer CLI.
+# Builds the Microsoft Store MSIX packages and bundles them, and can submit the
+# bundle through the Microsoft Store Developer CLI.
+#
+# NOT WIRED INTO RELEASES. The Store channel was retired on 2026-08-24: the
+# submission API authenticates only through a Microsoft Entra application, an
+# Entra application needs a tenant, and every free route to creating one now
+# ends in a paid Microsoft 365 signup. Submitting by hand every release was not
+# acceptable either, so tag-release no longer calls this workflow and the
+# listing was unpublished. See packaging/README.md for the full account.
+#
+# What still runs is the build: verify-packaging calls this with publish: false
+# to prove the package packs on Windows. The publish path below is kept intact
+# and reachable through workflow_dispatch, because nothing about it is wrong —
+# it is waiting on an account, not on code.
 #
 # The MSIX path needs no code-signing certificate — the Store re-signs MSIX on
 # submission. Submitting the NSIS .exe instead would require a certificate
 # chaining to the Microsoft Trusted Root Program.
 #
-# Required repository secrets (all four, or the publish step warns and skips so
-# a release can never fail on it):
-#   AZURE_AD_TENANT_ID              Entra tenant associated with Partner Center
-#   AZURE_AD_APPLICATION_CLIENT_ID  app registration with the Manager role
-#   AZURE_AD_APPLICATION_SECRET     that registration's client secret
-#   SELLER_ID                       Partner Center publisher/seller id
-#
-# Required repository variables:
-#   MSSTORE_PRODUCT_ID              Store product id of the listing
-#   MSIX_IDENTITY_NAME              \
-#   MSIX_PUBLISHER                   } assigned by Partner Center on reservation
-#   MSIX_PUBLISHER_DISPLAY_NAME     /
+# To submit again, set the repository secrets AZURE_AD_TENANT_ID,
+# AZURE_AD_APPLICATION_CLIENT_ID, AZURE_AD_APPLICATION_SECRET and SELLER_ID,
+# plus the variable MSSTORE_PRODUCT_ID, then run this workflow with a release
+# tag as `ref` and publish: true. MSIX_IDENTITY_NAME, MSIX_PUBLISHER and
+# MSIX_PUBLISHER_DISPLAY_NAME are assigned by Partner Center on reservation and
+# must match it exactly; they are still set, and the packing step needs them.
 #
 # TWO THINGS THIS CANNOT DO:
 #   1. Create the listing. The app must already be published and live in the
 #      Store before the CLI can update it, so the first submission is manual.
 #   2. Update a paid product. Microsoft supports app updates through this action
-#      for free products only. Voltius is free in the Store (Pro is billed
-#      outside it), so this applies today but would break if that ever changed.
+#      for free products only.
 name: publish-msix
 
 on:

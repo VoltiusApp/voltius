@@ -13,7 +13,7 @@ a named release asset" step every channel needs.
 | winget | komac | `publish-installers.yml` on every release |
 | AUR (`voltius-bin`) | `scripts/gen-aur-pkgbuild.sh` | `publish-installers.yml` on every release |
 | apt / yum | `scripts/build-apt-repo.sh`, `scripts/build-yum-repo.sh` | `publish-repo.yml` on every release |
-| Microsoft Store | `packaging/msix/`, `scripts/build-msix.ps1` | `publish-msix.yml` on every release |
+| Microsoft Store | `packaging/msix/`, `scripts/build-msix.ps1` | **retired** — no tenant for the submission API, see below |
 | Scoop | `scripts/gen-scoop-manifest.sh` | Scoop's excavator bot, after the first merge |
 | Flathub | `scripts/gen-flatpak-manifest.sh` | Flathub's external-data-checker, after the first merge |
 
@@ -101,66 +101,68 @@ environment variable, so `classify_install` already reports it as
 externally-updated and the app tells the user to update through their package
 manager instead of writing to the read-only `/app`.
 
-### Microsoft Store
+### Microsoft Store — retired 2026-08-24
 
-Registration is free for both individual and company accounts. The MSIX path
+**The Store is not a Voltius channel.** The listing was reserved, submitted by
+hand at 0.28.0, certified, and then unpublished. `tag-release` does not call
+`publish-msix.yml`. Nothing here needs maintaining; this section records why, so
+the decision does not get re-litigated from scratch.
+
+What worked: registration is free for individual accounts, and the MSIX path
 needs **no code-signing certificate** — the Store re-signs MSIX on submission.
 (Submitting the NSIS `.exe` instead would require a certificate chaining to the
-Microsoft Trusted Root Program, which is the recurring cost this avoids.)
+Microsoft Trusted Root Program.) The package built, bundled, passed
+certification and installed.
 
-Releases submit themselves through `publish-msix.yml`, but the listing has to
-exist first — the Store CLI can only *update* an app that is already live.
+What killed it was authentication, not packaging. The Store submission API
+accepts exactly one credential: a Microsoft Entra application. An Entra
+application needs an Entra tenant. A Partner Center account opened with a
+personal Microsoft account has no tenant, and every route to creating one for
+free now dead-ends in a paid Microsoft 365 signup:
 
-**Build the first submission from a release tag, not from a branch.** The MSIX
-version comes from `tauri.conf.json`, and that file only carries the released
-version at a tag — on `dev` it lags, because the bump lands on `main`. A bundle
-built from a branch is therefore labelled with a stale version. Store versions
-only ever move forward, so a first submission at the wrong version cannot be
-taken back. `publish-msix` refuses to submit a bundle whose version trails the
-latest release, and only the release job passes `publish: true` — the packaging
-check builds the bundle and stops there.
+- Partner Center → Account settings → Tenants → *Create* redirects to the
+  "Microsoft for your business" flow, which ends at a payment step.
+- The Azure portal refuses a personal account outright: "the selected user
+  account does not exist in tenant Microsoft Services".
+- Signing up at azure.microsoft.com/free does create a tenant, but requires a
+  card for identity verification.
 
-One-time:
+So the choice was a card, a manual upload per release, or dropping the channel.
+The channel was dropped. A listing frozen at one version is worse than no
+listing: an MSIX installs under `C:\Program Files\WindowsApps`, which is
+unwritable, so `classify_install` reports it as externally updated and the
+in-app updater deliberately does nothing — Store users would never be offered a
+newer version at all.
 
-1. Reserve the app name in Partner Center.
-2. Copy the assigned identity values into repository variables:
-   `MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER`, `MSIX_PUBLISHER_DISPLAY_NAME`.
-   Partner Center rejects a package whose identity does not match the
-   reservation exactly.
-3. Run `publish-msix` manually with `publish: false`, download the `msixbundle`
-   artifact, and complete the first submission by hand in Partner Center.
-4. Once that submission is live, wire up the automation:
-   - Associate a Microsoft Entra tenant with the Partner Center account.
-   - Register an Entra application and give it the **Manager** role under
-     Account settings → User management → Microsoft Entra applications.
-   - Add the secrets `AZURE_AD_TENANT_ID`, `AZURE_AD_APPLICATION_CLIENT_ID`,
-     `AZURE_AD_APPLICATION_SECRET`, `SELLER_ID`, and the repository variable
-     `MSSTORE_PRODUCT_ID`.
+**If this is ever revisited** (a tenant becomes available, or Microsoft reopens
+free tenant creation), nothing has to be rebuilt:
 
-After that every release builds both architectures, bundles them into one
-`.msixbundle` and submits it. Until the secrets exist the submission step warns
-and skips, so a release cannot fail on it.
+1. Set the secrets `AZURE_AD_TENANT_ID`, `AZURE_AD_APPLICATION_CLIENT_ID`,
+   `AZURE_AD_APPLICATION_SECRET`, `SELLER_ID` and the variable
+   `MSSTORE_PRODUCT_ID` (the Store ID, `9P8VC6P11R4D`).
+2. Republish the listing in Partner Center — the CLI can only *update* a live
+   listing, never create one.
+3. Run `publish-msix` with a release **tag** as `ref` and `publish: true`, then
+   restore the job in `tag-release.yml` (see the history of this file).
 
-Every image the listing form asks for is in `packaging/msix/store-listing`,
-numbered in upload order, with the captions to go with them and the rules they
-satisfy. Refresh the screenshots from the docs repo with
-`scripts/copy-store-screenshots.sh`.
+Build from a release tag, never from a branch: the MSIX version comes from
+`tauri.conf.json`, which only carries the released version at a tag — on `dev`
+it lags, because the bump lands on `main`. Store versions only ever move
+forward, so a submission at a stale version cannot be taken back.
+`publish-msix` refuses to submit a bundle whose version trails the latest
+release, and no caller passes `publish: true` any more.
 
-Two limits worth knowing:
+`MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER` and `MSIX_PUBLISHER_DISPLAY_NAME` are
+still set as repository variables: the packing step needs them, and they must
+match the Partner Center reservation exactly. Every image the listing form asks
+for is still in `packaging/msix/store-listing`, numbered in upload order with
+its caption, refreshable with `scripts/copy-store-screenshots.sh`.
 
-- The CLI cannot create a listing, only update one. That is why step 3 is
-  manual and cannot be automated away.
-- Microsoft supports app updates through this action for **free products only**.
-  Voltius is free in the Store — Pro is billed outside it — so this holds today,
-  but adding a paid Store product would break the automation.
-
-The packages are unsigned by design (the Store signs them), so they are workflow
-artifacts rather than release assets — a user who downloaded one could not
-install it.
-
-`classify_install` treats an install under `C:\Program Files\WindowsApps` as
-externally-updated, so the Store build does not try to self-update into a tree
-it cannot write.
+What still runs is `verify-packaging`, which calls `publish-msix.yml` with
+`publish: false` to prove the package packs on Windows — a cheap guard on
+`packaging/msix/` and the two PowerShell scripts. The packages are unsigned by
+design (the Store signs them), so they are workflow artifacts rather than
+release assets — a user who downloaded one could not install it.
 
 ### Homebrew
 
