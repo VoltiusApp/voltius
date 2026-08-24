@@ -1,5 +1,9 @@
 # Microsoft Store listing assets
 
+The Store listing was retired on 2026-08-24 (see ../../README.md for why),
+so nothing here is in use. It is kept because the assets cost real work and the
+decision could be revisited.
+
 Everything the Partner Center listing form asks for, in one place. Upload the
 screenshots in filename order — the Store shows them in the order they are
 listed, and the first one is what a browsing customer sees.
