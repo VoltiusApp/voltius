@@ -7,15 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-08-24
+
 ### Added
 
-- Cloud sync is now yours to choose, group by group and setting by setting.
-  Settings → Sync gains a switch per group — themes, interface, shortcuts,
-  app settings, recent people — and each individual setting gains a cloud
-  button in its row's hover controls, so a single value can stay on this
-  device without switching its whole group off. A held-back value never enters
-  the uploaded backup, and a copy already on the server is withdrawn when you
-  switch the setting off. Each group also lists what it is keeping local, which is the
+- Your settings are now yours to sync group by group and setting by setting.
+  Settings → Sync gains a second block, "Settings", below the existing Sync
+  Preferences block that already governed hosts, identities, keys and the rest.
+  It carries one switch per group — Themes, Interface, Shortcuts, App settings,
+  Recent people — and each individual setting gains a cloud button in its own
+  row's hover controls, so a single value can stay on this device without
+  switching its whole group off. A held-back value never enters the uploaded
+  backup, and a copy already on the server is withdrawn when you switch the
+  setting off. Each group also lists what it is keeping local, which is the
   only control for the handful of settings that have no row of their own.
 - The default shell is no longer synced unless you ask for it. A shell path is
   wrong on another machine by construction, so it is now device-scoped: it
@@ -26,11 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the uploaded backup — and out of any third-party sync destination, such as
   the gist-sync plugin — until you opt it in from the cloud button beside the
   latitude and longitude fields.
-- Snippets now have their own cloud sync switch. Settings → Sync gains a
-  Snippets row alongside hosts, identities, keys, folders and port forwarding,
-  so the whole collection can stay off the backup — individual snippets could
-  already be excluded one at a time from their card. Switching Folders off now
-  also stops snippet folders syncing, which is what their cards already showed.
+- Snippets now have their own cloud sync switch. The Sync Preferences block
+  gains a Snippets row alongside Hosts, Identities, SSH Keys, Folders and Port
+  Forwarding, so the whole collection can stay off the backup — individual
+  snippets could already be excluded one at a time from their card. Switching
+  Folders off now also stops snippet folders syncing, which is what their cards
+  already showed.
+- Terminal font size is now a setting of its own in Appearance, overriding the
+  active theme, where before changing it meant cloning a theme or scaling the
+  whole UI. On mobile a two-finger pinch on the terminal drives the same value.
+  It stays on this device — a size that reads well on a phone does not read
+  well on a desktop — so it is never synced.
 
 ### Changed
 
@@ -49,6 +59,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   collision in a panel that also has a Shortcuts group — and the same word was
   used for terminal panes; both now say what they mean. "Недавние люди" became
   "Недавние контакты", which is what the counts beside it already said.
+- Pasting went to the wrong terminal. With more than one terminal on screen,
+  the paste landed in whichever session the pane had opened last rather than
+  the one that received the keystroke.
+- Your own tmux works inside a persistent session again. A persistent session
+  wraps the remote shell in Voltius's own tmux, and that wrapper leaked its
+  socket and its `C-b` prefix into the shell: `tmux ls` listed Voltius's
+  private sessions instead of yours, `tmux attach` refused to nest at all, and
+  a forced nest lost every prefix key. The wrapper now clears the multiplexer
+  environment and gives up its prefix. The fix reaches new sessions; a session
+  started before this release keeps the old wrapper until it is restarted.
+- On a host that has screen but not tmux, the wrapper no longer swallows
+  `C-a`. A bare `C-a d` inside your own nested screen detached Voltius's
+  session instead, closing the connection and reconnecting underneath you.
+- Duplicating a session no longer lands in your home directory when the
+  original's working directory has since been deleted. The directory probe
+  read the kernel's `<path> (deleted)` form verbatim, so the duplicate's `cd`
+  could never succeed; it now falls back to the nearest directory that still
+  exists. The same stale path also reached the stored working directory and
+  the file panel's follow-cwd.
+- Exporting or deploying a key whose public half was never stored no longer
+  fails with "Public key not found". The public half is derived from the
+  private key instead.
 
 ## [0.29.0] - 2026-08-20
 
