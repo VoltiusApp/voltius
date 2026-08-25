@@ -252,6 +252,25 @@ function usePluginInstaller() {
 // ─── Installed tab ─────────────────────────────────────────────────────────
 
 /**
+ * The enable/disable control, and the one rule for whether a plugin gets one.
+ *
+ * A theme plugin contributes nothing but themes, so "disabled" and "not installed"
+ * would mean the same thing to the user — it is installed or it isn't. Everything
+ * else can be turned off without losing it. This is a property of the PLUGIN, not
+ * of how it reached the disk: the same plugin must offer the same control whether
+ * it shipped with the app or was installed from a catalogue.
+ */
+function EnableToggle({ manifest, enabled, onToggle }: {
+  manifest: PluginManifest;
+  enabled: boolean;
+  onToggle: (id: string, enabled: boolean) => void;
+}) {
+  const themeOnly = manifest.permissions.length === 1 && manifest.permissions[0] === "themes";
+  if (themeOnly) return null;
+  return <Toggle checked={enabled} onChange={() => onToggle(manifest.id, enabled)} />;
+}
+
+/**
  * Seeded first-party plugins have no static entry anywhere — the runtime registry
  * is the only place that knows they exist. `excludeIds` strips out externally-installed
  * ids so a plugin is never listed twice.
@@ -484,7 +503,7 @@ export function InstalledTab() {
                 >
                   <Icon icon={isUninstalling ? "lucide:loader" : "lucide:trash-2"} width={14} className={isUninstalling ? "animate-spin" : ""} />
                 </button>
-                <Toggle checked={enabled} onChange={() => handleToggle(manifest.id, enabled)} />
+                <EnableToggle manifest={manifest} enabled={enabled} onToggle={handleToggle} />
               </div>
               {manifest.permissions.length > 0 && (
                 <div className="flex flex-wrap gap-1 px-4 py-2 border-t border-t-(--t-border)">
@@ -501,6 +520,11 @@ export function InstalledTab() {
         {filteredExternal.map((meta) => {
           const manifest = externalManifests.find((m) => m.id === meta.id);
           const isLoaded = loadedIds.has(meta.id);
+          // `true` mirrors marketplaceStore's externalPluginActive: installing IS the
+          // opt-in, so an installed plugin is on unless the user turned it off. Kept
+          // as a literal rather than imported because that helper reads the store via
+          // getState(), which would not re-render this row when the override changes.
+          const enabled = isLoaded && isEnabled(meta.id, true);
           const isReloading = reloading.has(meta.id);
           const isUninstalling = uninstalling.has(meta.id);
           const update = availableUpdate(meta, catalog);
@@ -511,11 +535,11 @@ export function InstalledTab() {
             <div
               key={meta.id}
               className="rounded-xl overflow-hidden bg-(--t-bg-card)"
-              style={{ border: `1px solid ${isLoaded ? "var(--t-border-hover)" : "var(--t-border)"}`, opacity: isLoaded ? 1 : 0.7 }}
+              style={{ border: `1px solid ${enabled ? "var(--t-border-hover)" : "var(--t-border)"}`, opacity: enabled ? 1 : 0.7 }}
             >
               <div className="flex items-center gap-3 px-4 py-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-elevated) border border-(--t-border)">
-                  <Icon icon="lucide:puzzle" width={15} style={{ color: isLoaded ? "var(--t-accent)" : "var(--t-text-dim)" }} />
+                  <Icon icon="lucide:puzzle" width={15} style={{ color: enabled ? "var(--t-accent)" : "var(--t-text-dim)" }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -580,6 +604,7 @@ export function InstalledTab() {
                 >
                   <Icon icon={isUninstalling ? "lucide:loader" : "lucide:trash-2"} width={14} className={isUninstalling ? "animate-spin" : ""} />
                 </button>
+                {manifest && <EnableToggle manifest={manifest} enabled={enabled} onToggle={handleToggle} />}
               </div>
               {manifest && manifest.permissions.length > 0 && (
                 <div className="flex flex-wrap gap-1 px-4 py-2 border-t border-t-(--t-border)">
