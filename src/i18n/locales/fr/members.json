@@ -52,6 +52,24 @@
       "JOIN_TERMINAL_SESSION": "Rejoindre des sessions",
       "VIEW_TERMINAL_SESSIONS": "Voir les sessions"
     },
+    "convert": {
+      "title": "Partager « {{vault}} » avec d'autres personnes ?",
+      "body": "Ceci transforme votre coffre-fort privé en coffre-fort d'équipe.",
+      "offlineWarning": "Ne s'ouvre que si Voltius joint le serveur de synchronisation — pas d'accès hors ligne.",
+      "keyCustody": "Chaque personne ajoutée reçoit une copie de la clé. La retirer plus tard ne la reprend pas.",
+      "change": "Il n'y a pas de retour possible au statut privé.",
+      "cancel": "Annuler",
+      "confirm": "Transformer en coffre-fort d'équipe"
+    },
+    "share": {
+      "shareVerb": "Partager",
+      "title": "Partager {{vault}}",
+      "tabPeople": "Personnes",
+      "tabInvite": "Inviter",
+      "manage": "Gérer…",
+      "inviteSomeone": "Inviter quelqu'un",
+      "loadFailed": "Impossible de charger la liste — réessayez"
+    },
     "invite": {
       "title": "Inviter un membre",
       "seatsLabel": "Postes",
@@ -66,7 +84,17 @@
       "addAsRole": "Ajouter en tant que {{role}}",
       "noRoleFallback": "aucun rôle",
       "sendInviteLabel": "Envoyer une invitation à",
-      "inviteArrow": "Inviter →"
+      "inviteArrow": "Inviter →",
+      "handleRule": "Seuls les pseudos personnalisés se retrouvent avec une partie du nom. Pour un pseudo généré comme rapid-violet-8884, saisissez-le en entier ou utilisez son e-mail.",
+      "seatsUnknown": "Nombre de postes indisponible — vérifiez votre connexion au serveur de synchronisation",
+      "inviteAction": "Inviter",
+      "joinsAs": "Ils rejoignent en tant que"
+    },
+    "roleBlurb": {
+      "manager": "Les gestionnaires peuvent inviter des personnes, changer les rôles et gérer les liens.",
+      "editor": "Les éditeurs peuvent ajouter et modifier les hôtes, clés et snippets de ce coffre-fort.",
+      "member": "Les membres peuvent tout utiliser dans ce coffre-fort mais pas le modifier.",
+      "connect-only": "Les personnes en connexion seule peuvent ouvrir des connexions mais ne voient jamais les identifiants derrière."
     },
     "toast": {
       "removingRoleFrom": "Suppression du rôle {{role}} de {{name}}…",
@@ -83,13 +111,17 @@
       "invitingEmail": "Invitation de {{email}}…",
       "invitationSentToEmail": "Invitation envoyée à {{email}}",
       "invitingToSession": "Invitation de {{name}} à la session…",
-      "invitedToSession": "{{name}} invité à la session"
+      "invitedToSession": "{{name}} invité à la session",
+      "convertingVault": "Transformation de {{vault}} en coffre-fort d'équipe…",
+      "vaultConverted": "{{vault}} est désormais un coffre-fort d'équipe"
     },
     "error": {
       "cannotRemoveOwnerRole": "Impossible de retirer le rôle de propriétaire au propriétaire de l'équipe",
       "failedToUpdateRole": "Échec de la mise à jour du rôle",
       "failedToRemoveMember": "Échec de la suppression du membre",
-      "failedToAddMember": "Échec de l'ajout du membre"
+      "failedToAddMember": "Échec de l'ajout du membre",
+      "inviteFailed": "Impossible d'inviter {{name}} — {{reason}}",
+      "convertFailed": "Impossible de transformer {{vault}} en coffre-fort d'équipe — {{reason}}"
     },
     "history": {
       "removeRole": "Retirer le rôle : {{name}}",
@@ -113,6 +145,14 @@
       "noVaultDesc": "Sélectionnez un coffre-fort dans la barre latérale pour gérer ses membres.",
       "signInToInvite": "Connectez-vous pour inviter des collègues dans ce coffre-fort.",
       "vaultNotFound": "Coffre-fort introuvable."
+    },
+    "people": {
+      "pending": "En attente",
+      "awaitingKey": "Attente d'une clé — impossible d'ouvrir le coffre-fort pour le moment",
+      "grantKey": "Autoriser maintenant",
+      "copyInviteLink": "Copier le lien d'invitation",
+      "revoke": "Révoquer l'invitation",
+      "remove": "Retirer du coffre-fort"
     },
     "cta": {
       "signInTitle": "Connectez-vous pour utiliser les fonctionnalités d'équipe",

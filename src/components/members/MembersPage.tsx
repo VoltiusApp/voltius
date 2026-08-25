@@ -13,7 +13,6 @@ import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { UserSearchField } from "@/components/shared/UserSearchField";
 import {
   getMyUserId,
-  inviteByEmail,
   revokePendingInvitation,
 } from "@/services/teamService";
 import type { PendingInvitation } from "@/stores/teamStore";
@@ -30,15 +29,15 @@ import { useListKeyNav } from "@/hooks/useListKeyNav";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
 import { runTeamAction } from "@/services/teamActionFeedback";
-import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
 import { openBillingCheckout } from "@/services/billingCheckout";
-import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 import { seatAvailability } from "@/services/seatMath";
 import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
 import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
+import { inviteUserById, inviteByEmailAddress } from "@/services/vaultShare";
+import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 
 function RoleChip({ role }: { role: TeamRole }) {
   const { t } = useTranslation();
@@ -231,7 +230,7 @@ function MembersToolbar({
               className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
               style={{
                 background: showInvitePanel ? "var(--t-accent-hover)" : "var(--t-accent)",
-                color: "var(--t-bg-terminal)",
+                color: "var(--t-on-accent, #fff)",
                 border: "1px solid var(--t-accent-hover)",
               }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-accent-hover)")}
@@ -668,7 +667,6 @@ interface InvitePanelProps {
 
 export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }: InvitePanelProps) {
   const { t } = useTranslation();
-  const addMemberById = useTeamStore((s) => s.addMemberById);
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
   const { query, setQuery, results, searching, open, setOpen, inputRef, dropdownRef, reset } =
@@ -719,15 +717,17 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
     if (isAtSeatLimit) { setBuySeatsFor(user); setOpen(false); return; }
     setAdding(user.user_id); setError(""); setSuccess("");
     try {
-      const result = await runTeamAction({
-        pending: t("members.toast.invitingUser", { name: user.handle }),
-        success: (r) => r.status === "pending"
-          ? t("members.toast.invitationSentToUser", { name: user.handle })
-          : t("members.toast.userAdded", { name: user.handle }),
-        run: () => addMemberById(teamId, user.user_id),
+      const [firstRoleId, ...restRoleIds] = selectedRoleIds;
+      const firstRoleName = builtinRoles.find((r) => r.id === firstRoleId)?.name ?? "member";
+      const result = await inviteUserById({
+        teamId,
+        userId: user.user_id,
+        handle: user.handle,
+        roleName: firstRoleName,
+        roleId: firstRoleId,
       });
-      if (result.status === "pending") {
-        for (const roleId of selectedRoleIds) {
+      if (result.status === "already_member") {
+        for (const roleId of restRoleIds) {
           await assignMemberRole(teamId, user.user_id, roleId).catch(() => {});
         }
       }
@@ -753,12 +753,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
     setSendingInvite(true); setError(""); setSuccess("");
     try {
       const invitedEmail = query;
-      const result = await runTeamAction({
-        pending: t("members.toast.invitingEmail", { email: invitedEmail }),
-        success: () => t("members.toast.invitationSentToEmail", { email: invitedEmail }),
-        run: () => inviteByEmail(teamId, invitedEmail, primaryRoleName),
-      });
-      void result;
+      await inviteByEmailAddress({ teamId, email: invitedEmail, roleName: primaryRoleName });
       reset();
       setSuccess(t("members.toast.invitationSentToEmail", { email: invitedEmail }));
       await reloadSubscription();
@@ -858,86 +853,6 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
   );
 }
 
-// ─── Private vault invite panel ───────────────────────────────────────────────
-
-const PRIVATE_VAULT_ROLES = ["manager", "editor", "member", "connect-only"] as const;
-
-function PrivateVaultInvitePanel({
-  query, onQueryChange,
-  results, searching, open, setOpen,
-  adding, error,
-  inputRef, dropdownRef,
-  onAdd, onClose,
-}: {
-  query: string;
-  onQueryChange: (v: string) => void;
-  results: UserSearchResult[];
-  searching: boolean;
-  open: boolean;
-  setOpen: (v: boolean) => void;
-  adding: string | null;
-  error: string;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  dropdownRef: React.RefObject<HTMLDivElement | null>;
-  onAdd: (user: UserSearchResult, roleName: string) => void;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const reloadSubscription = useSubscriptionStore((s) => s.load);
-  const [selectedRole, setSelectedRole] = useState("member");
-
-  useEffect(() => { void reloadSubscription(); }, []);
-  useEffect(() => { inputRef.current?.focus(); }, []);
-
-  return (
-    <PanelShell>
-      <PanelHeader icon="lucide:user-plus" title={t("members.invite.title")} onClose={onClose} />
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-
-        {/* Seats */}
-        <FormSection label={t("members.invite.seatsLabel")}>
-          <SeatsMeter />
-        </FormSection>
-
-        {/* Role selector */}
-        <FormSection label={t("members.invite.initialRole")}>
-          <div className="flex flex-wrap gap-2">
-            {PRIVATE_VAULT_ROLES.map((name) => (
-              <RoleToggleChip
-                key={name}
-                name={name}
-                active={selectedRole === name}
-                onClick={() => setSelectedRole(name)}
-              />
-            ))}
-          </div>
-        </FormSection>
-
-        {/* Search input */}
-        <FormSection label={t("members.invite.searchUserLabel")} className="overflow-visible">
-          <UserSearchField
-            placeholder={t("members.invite.searchUserPlaceholder")}
-            query={query}
-            onQueryChange={onQueryChange}
-            onClear={() => { onQueryChange(""); setOpen(false); }}
-            results={results}
-            searching={searching}
-            open={open}
-            setOpen={setOpen}
-            inputRef={inputRef}
-            dropdownRef={dropdownRef}
-            adding={adding}
-            addLabel={t("members.invite.addAsRole", { role: selectedRole })}
-            onAdd={(user) => onAdd(user, selectedRole)}
-          />
-        </FormSection>
-
-        {error && <p className="text-xs px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}
-      </div>
-    </PanelShell>
-  );
-}
-
 // ─── Upgrade CTA ──────────────────────────────────────────────────────────────
 
 function SignInToCloudCTA({ onSignIn }: { onSignIn: () => void }) {
@@ -1000,8 +915,6 @@ export default function MembersPage() {
   const vaults = useVaultStore((s) => s.vaults);
   const { teams, loadTeams, membersByTeam, loadMembers, rolesByTeam, loadRoles, pendingInvitationsByTeam, loadPendingInvitations } = useTeamStore();
   const { tier, isTeams, accountMode } = useSubscriptionStore();
-  const { createTeam } = useTeamStore();
-  const { setVaultTeamId } = useVaultStore();
   const addMemberById = useTeamStore((s) => s.addMemberById);
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
   const removeMemberRole = useTeamStore((s) => s.removeMemberRole);
@@ -1035,11 +948,6 @@ export default function MembersPage() {
     }
   }, [membersInvitePending, clearMembersInvitePending]);
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
-
-  // Private-vault invite state
-  const privateSearch = useUserSearch();
-  const [privateAdding, setPrivateAdding] = useState<string | null>(null);
-  const [privateError, setPrivateError] = useState("");
 
   useEffect(() => {
     getMyUserId().then((id) => { if (id) setMyUserId(id); }).catch(() => {});
@@ -1097,29 +1005,6 @@ export default function MembersPage() {
     if (!teamId || !canManageMembers) return;
     loadPendingInvitations(teamId).catch(() => {});
   }, [teamId, canManageMembers, loadPendingInvitations]);
-
-  const handlePrivateAdd = async (user: UserSearchResult, roleName: string) => {
-    if (!localVault || !primaryVaultId) return;
-    setPrivateAdding(user.user_id); setPrivateError("");
-    try {
-      const team = await createTeam(localVault.name);
-      setVaultTeamId(primaryVaultId, team.id);
-      const { initTeamVaultKey } = await import("@/services/teamVaultSync");
-      await initTeamVaultKey(team.id, []);
-      markTeamVaultLoadedAfterLocalActivation(team.id, useTeamVaultStateStore.getState());
-      await addMemberById(team.id, user.user_id);
-      await loadRoles(team.id);
-      const role = useTeamStore.getState().rolesByTeam[team.id]?.find(
-        (r) => r.is_builtin && r.name === roleName,
-      );
-      if (role) {
-        await assignMemberRole(team.id, user.user_id, role.id);
-      }
-      privateSearch.reset();
-    } catch (e) {
-      setPrivateError(e instanceof Error ? e.message : t("members.error.failedToAddMember"));
-    } finally { setPrivateAdding(null); }
-  };
 
   // Filter + sort
   const searchLower = search.trim().toLowerCase();
@@ -1481,28 +1366,16 @@ const vaultTabs = selectedVaultIds.length > 1
     }
 
     return (
-      <SidePanelLayout
-        panelOpen={showInvitePanel}
-        panelWidth={320}
-        panel={showInvitePanel ? (
-          <PrivateVaultInvitePanel
-            query={privateSearch.query}
-            onQueryChange={(v) => { privateSearch.setQuery(v); setPrivateError(""); }}
-            results={privateSearch.results}
-            searching={privateSearch.searching}
-            open={privateSearch.open}
-            setOpen={privateSearch.setOpen}
-            adding={privateAdding}
-            error={privateError}
-            inputRef={privateSearch.inputRef}
-            dropdownRef={privateSearch.dropdownRef}
-            onAdd={(user, roleName) => void handlePrivateAdd(user, roleName)}
-            onClose={() => setShowInvitePanel(false)}
+      <>
+        {showInvitePanel && (
+          <ConvertToTeamGate
+            vaultId={primaryVaultId}
+            vaultName={localVault.name}
+            onCancel={() => setShowInvitePanel(false)}
+            onConverted={() => {}}
           />
-        ) : null}
-        className="chrome-canvas"
-      >
-        <div className="flex flex-col h-full">
+        )}
+        <div className="flex-1 flex flex-col chrome-canvas">
           {toolbar}
           <div className="flex-1 overflow-y-auto px-9 pt-5 pb-9">
           <div className="mb-6">
@@ -1546,7 +1419,7 @@ const vaultTabs = selectedVaultIds.length > 1
           </div>
         </div>
         </div>
-      </SidePanelLayout>
+      </>
     );
   }
 

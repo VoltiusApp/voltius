@@ -52,6 +52,24 @@
       "JOIN_TERMINAL_SESSION": "Join sessions",
       "VIEW_TERMINAL_SESSIONS": "View sessions"
     },
+    "convert": {
+      "title": "Share \"{{vault}}\" with other people?",
+      "body": "This turns your private vault into a team vault.",
+      "offlineWarning": "Opens only while Voltius can reach the sync server — no offline access.",
+      "keyCustody": "Everyone you add gets a copy of its key. Removing them later doesn't take it back.",
+      "change": "There's no way back to private.",
+      "cancel": "Cancel",
+      "confirm": "Turn into a team vault"
+    },
+    "share": {
+      "shareVerb": "Share",
+      "title": "Share {{vault}}",
+      "tabPeople": "People",
+      "tabInvite": "Invite",
+      "manage": "Manage…",
+      "inviteSomeone": "Invite someone",
+      "loadFailed": "Couldn't load everyone — try again"
+    },
     "invite": {
       "title": "Invite member",
       "seatsLabel": "Seats",
@@ -66,7 +84,17 @@
       "addAsRole": "Add as {{role}}",
       "noRoleFallback": "no role",
       "sendInviteLabel": "Send invite to",
-      "inviteArrow": "Invite →"
+      "inviteArrow": "Invite →",
+      "handleRule": "Only custom handles match on part of a name. For a generated handle like rapid-violet-8884, type it in full or use their email.",
+      "seatsUnknown": "Seat count unavailable — check your connection to the sync server",
+      "inviteAction": "Invite",
+      "joinsAs": "They join as"
+    },
+    "roleBlurb": {
+      "manager": "Managers can invite people, change roles and manage links.",
+      "editor": "Editors can add and change hosts, keys and snippets in this vault.",
+      "member": "Members can use everything in this vault but not change it.",
+      "connect-only": "Connect-only people can open connections but never see the credentials behind them."
     },
     "toast": {
       "removingRoleFrom": "Removing {{role}} from {{name}}...",
@@ -83,13 +111,17 @@
       "invitingEmail": "Inviting {{email}}...",
       "invitationSentToEmail": "Invitation sent to {{email}}",
       "invitingToSession": "Inviting {{name}} to session...",
-      "invitedToSession": "Invited {{name}} to session"
+      "invitedToSession": "Invited {{name}} to session",
+      "convertingVault": "Turning {{vault}} into a team vault...",
+      "vaultConverted": "{{vault}} is now a team vault"
     },
     "error": {
       "cannotRemoveOwnerRole": "Cannot remove the owner role from the team owner",
       "failedToUpdateRole": "Failed to update role",
       "failedToRemoveMember": "Failed to remove member",
-      "failedToAddMember": "Failed to add member"
+      "failedToAddMember": "Failed to add member",
+      "inviteFailed": "Could not invite {{name}} — {{reason}}",
+      "convertFailed": "Could not turn {{vault}} into a team vault — {{reason}}"
     },
     "history": {
       "removeRole": "Remove role: {{name}}",
@@ -113,6 +145,14 @@
       "noVaultDesc": "Select a vault in the sidebar to manage its members.",
       "signInToInvite": "Sign in to invite teammates to this vault.",
       "vaultNotFound": "Vault not found."
+    },
+    "people": {
+      "pending": "Pending",
+      "awaitingKey": "Waiting for a key — they cannot open the vault yet",
+      "grantKey": "Grant now",
+      "copyInviteLink": "Copy invite link",
+      "revoke": "Revoke invitation",
+      "remove": "Remove from vault"
     },
     "cta": {
       "signInTitle": "Sign in to use team features",
