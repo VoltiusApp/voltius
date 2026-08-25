@@ -52,6 +52,24 @@
       "JOIN_TERMINAL_SESSION": "加入会话",
       "VIEW_TERMINAL_SESSIONS": "查看会话"
     },
+    "convert": {
+      "title": "要与他人共享 \"{{vault}}\" 吗？",
+      "body": "这会将您的私有保险库转变为团队保险库。",
+      "offlineWarning": "仅在 Voltius 可连接同步服务器时才能打开——不支持离线访问。",
+      "keyCustody": "您添加的每个人都会获得密钥副本。之后移除也无法收回。",
+      "change": "无法再改回私有状态。",
+      "cancel": "取消",
+      "confirm": "转换为团队保险库"
+    },
+    "share": {
+      "shareVerb": "共享",
+      "title": "共享 {{vault}}",
+      "tabPeople": "成员",
+      "tabInvite": "邀请",
+      "manage": "管理…",
+      "inviteSomeone": "邀请某人",
+      "loadFailed": "无法加载列表——请重试"
+    },
     "invite": {
       "title": "邀请成员",
       "seatsLabel": "座位",
@@ -66,7 +84,18 @@
       "addAsRole": "添加为 {{role}}",
       "noRoleFallback": "无角色",
       "sendInviteLabel": "发送邀请给",
-      "inviteArrow": "邀请 →"
+      "inviteArrow": "邀请 →",
+      "handleRule": "只有自定义用户名支持按部分名称匹配。对于自动生成的用户名（如 rapid-violet-8884），请完整输入，或改用对方的邮箱邀请。",
+      "seatsUnknown": "座位数量暂不可用 — 请检查与同步服务器的连接",
+      "inviteAction": "邀请",
+      "joinsAs": "他们将以此身份加入",
+      "selectRoleHint": "邀请前请至少选择一个角色"
+    },
+    "roleBlurb": {
+      "manager": "管理员可以邀请他人、更改角色并管理链接。",
+      "editor": "编辑者可以在此保险库中添加和更改主机、密钥和代码片段。",
+      "member": "成员可以使用此保险库中的所有内容，但无法更改。",
+      "connect-only": "仅连接权限的人可以打开连接，但永远无法看到其背后的凭据。"
     },
     "toast": {
       "removingRoleFrom": "正在从 {{name}} 移除 {{role}}…",
@@ -83,13 +112,18 @@
       "invitingEmail": "正在邀请 {{email}}…",
       "invitationSentToEmail": "已发送邀请给 {{email}}",
       "invitingToSession": "正在邀请 {{name}} 加入会话…",
-      "invitedToSession": "已邀请 {{name}} 加入会话"
+      "invitedToSession": "已邀请 {{name}} 加入会话",
+      "convertingVault": "正在将 {{vault}} 转换为团队保险库…",
+      "vaultConverted": "{{vault}} 已成为团队保险库"
     },
     "error": {
       "cannotRemoveOwnerRole": "无法从团队所有者移除所有者角色",
       "failedToUpdateRole": "更新角色失败",
       "failedToRemoveMember": "移除成员失败",
-      "failedToAddMember": "添加成员失败"
+      "failedToAddMember": "添加成员失败",
+      "inviteFailed": "无法邀请 {{name}} — {{reason}}",
+      "convertFailed": "无法将 {{vault}} 转换为团队保险库 — {{reason}}",
+      "serverUnreachable": "无法连接到同步服务器"
     },
     "history": {
       "removeRole": "移除角色：{{name}}",
@@ -113,6 +147,14 @@
       "noVaultDesc": "请在侧边栏中选择一个保险库以管理其成员。",
       "signInToInvite": "登录以邀请队友加入此保险库。",
       "vaultNotFound": "未找到保险库。"
+    },
+    "people": {
+      "pending": "待处理",
+      "awaitingKey": "等待获取密钥 — 他们暂时无法打开保险库",
+      "grantKey": "立即授予",
+      "copyInviteLink": "复制邀请链接",
+      "revoke": "撤销邀请",
+      "remove": "从保险库中移除"
     },
     "cta": {
       "signInTitle": "登录以使用团队功能",

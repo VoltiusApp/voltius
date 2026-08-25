@@ -1,13 +1,17 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { seatAvailability } from "@/services/seatMath";
+import { seatState } from "@/components/vault-share/vaultShareModel";
 
 /** Seat usage bar for the invite surfaces, with an optional "buy seats" action. */
 export function SeatsMeter({ onBuySeats }: { onBuySeats?: () => void }) {
   const { t } = useTranslation();
   const { usedSeats, totalSeats } = useSubscriptionStore();
-  const { atLimit, available } = seatAvailability(usedSeats, totalSeats);
+  const seats = seatState(usedSeats, totalSeats);
+  const atLimit = seats.kind === "known" && seats.atLimit;
+  const barWidth = seats.kind === "known" && seats.total > 0
+    ? `${Math.min(100, (seats.used / seats.total) * 100)}%`
+    : "0%";
 
   return (
     <div className="flex items-center gap-3">
@@ -15,19 +19,16 @@ export function SeatsMeter({ onBuySeats }: { onBuySeats?: () => void }) {
         <div className="h-1.5 rounded-full overflow-hidden mb-1.5" style={{ background: "var(--t-bg-elevated)" }}>
           <div
             className="h-full rounded-full transition-all"
-            style={{
-              width: totalSeats ? `${Math.min(100, ((usedSeats ?? 0) / totalSeats) * 100)}%` : "0%",
-              background: atLimit ? "var(--t-status-error)" : "var(--t-accent)",
-            }}
+            style={{ width: barWidth, background: atLimit ? "var(--t-status-error)" : "var(--t-accent)" }}
           />
         </div>
-        <p className="text-[11px] tabular-nums" style={{ color: atLimit ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
-          {t("members.invite.seatsSummary", {
-            used: usedSeats ?? 0,
-            available: available ?? "?",
-            total: totalSeats ?? "?",
-          })}
-        </p>
+        {seats.kind === "unknown" ? (
+          <p className="text-[11px]" style={{ color: "var(--t-text-dim)" }}>{t("members.invite.seatsUnknown")}</p>
+        ) : (
+          <p className="text-[11px] tabular-nums" style={{ color: atLimit ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
+            {t("members.invite.seatsSummary", { used: seats.used, available: seats.available, total: seats.total })}
+          </p>
+        )}
       </div>
       {onBuySeats && (
         <button

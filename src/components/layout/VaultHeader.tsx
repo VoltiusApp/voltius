@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import i18n from "@/i18n";
@@ -7,34 +7,26 @@ import { useUIStore } from "@/stores/uiStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useTeamStore } from "@/stores/teamStore";
-import type { TeamMember, TeamRole } from "@/services/teamService";
-import { AvatarOverflow, MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
-import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
+import type { TeamMember } from "@/services/teamService";
+import { AvatarOverflow, MiniAvatar } from "@/components/shared/AvatarStack";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
 import { getAccountMode } from "@/services/account";
+import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
 
-// ─── Online members stack ─────────────────────────────────────────────────────
-
-const BUILTIN_ROLE_COLORS: Record<string, string> = {
-  owner: "#f59e0b",
-  manager: "#8b5cf6",
-  editor: "#3b82f6",
-  member: "#10b981",
-  "connect-only": "#6b7280",
-};
+// ─── Members stack ─────────────────────────────────────────────────────────
 
 const MAX_STACK = 3;
 
-function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMember[]; roles: TeamRole[]; onInviteClick: () => void }) {
+export function MembersStack({ members, vaultId }: { members: TeamMember[]; vaultId: string }) {
   const { t } = useTranslation();
-  const [hovered, setHovered] = useState(false);
+  const openMembersInvite = useUIStore((s) => s.openMembersInvite);
   const [invHovered, setInvHovered] = useState(false);
+  const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
   const visible = members.slice(0, MAX_STACK);
   const overflow = members.length - MAX_STACK;
-  const onlineCount = members.filter((m) => m.is_online).length;
 
   // The popover is portalled out of the header, so moving the pointer into it
   // fires the stack's mouseleave. Defer the close so the popover's own
@@ -42,25 +34,42 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
   const openPopover = () => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = null;
-    setHovered(true);
+    setOpen(true);
   };
   const closePopover = () => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(() => setHovered(false), 120);
+    closeTimer.current = window.setTimeout(() => setOpen(false), 120);
   };
   useEffect(() => () => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
   }, []);
 
+  const toggleOpen = () => setOpen((o) => !o);
+  const handleTriggerKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleOpen();
+    }
+  };
+
   return (
-    <div className="flex items-center gap-2 shrink-0">
+    <div
+      ref={ref}
+      className="relative flex items-center gap-2 shrink-0"
+      onMouseEnter={openPopover}
+      onMouseLeave={closePopover}
+    >
       {/* Stack */}
       {members.length > 0 && (
-        <div
-          ref={ref}
-          className="relative flex items-center cursor-default"
-          onMouseEnter={openPopover}
-          onMouseLeave={closePopover}
+        <button
+          type="button"
+          onClick={toggleOpen}
+          onKeyDown={handleTriggerKeyDown}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={t("layout.vaultHeader.members")}
+          className="relative flex items-center rounded-full"
+          style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
         >
           {visible.map((m, i) => (
             <div
@@ -82,63 +91,17 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
             </div>
           ))}
           <AvatarOverflow count={overflow} size={24} ringColor="var(--t-bg-chrome)" />
-
-          {/* Hover popover — portalled: the page overlay in MainPanel outranks the
-              header's stacking context, so an in-flow popover paints under it. */}
-          <PickerSurface
-            open={hovered}
-            onClose={() => setHovered(false)}
-            anchorRef={ref}
-            width={220}
-            align="right"
-            gap={0}
-            title={t("layout.vaultHeader.members")}
-          >
-            <div onMouseEnter={openPopover} onMouseLeave={closePopover}>
-              <div className="px-3 py-2" style={{ borderBottom: "1px solid var(--t-border)" }}>
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
-                  {onlineCount > 0 ? t("layout.vaultHeader.onlineCount", { count: onlineCount }) : t("layout.vaultHeader.noOneOnline")}
-                </span>
-              </div>
-              {members.map((m) => {
-                const memberRoles = (m.role_ids ?? [])
-                  .map((rid) => roles.find((r) => r.id === rid))
-                  .filter(Boolean) as TeamRole[];
-                return (
-                  <div key={m.user_id} className="flex items-center gap-2.5 px-3 py-2" style={{ opacity: m.is_online ? 1 : 0.5 }}>
-                    <PresenceAvatar handle={m.handle} size={22} online={m.is_online} />
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-xs truncate" style={{ color: "var(--t-text-primary)" }}>{m.handle}</span>
-                      {memberRoles.length > 0 && (
-                        <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                          {memberRoles.map((r) => {
-                            const color = r.color ?? BUILTIN_ROLE_COLORS[r.name] ?? avatarColor(r.name);
-                            return (
-                              <span
-                                key={r.id}
-                                className="text-[9px] font-medium px-1 py-px rounded-full capitalize leading-none"
-                                style={{ color, background: `${color}22` }}
-                              >
-                                {r.name}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </PickerSurface>
-        </div>
+        </button>
       )}
 
       {/* Invite + button */}
       <button
-        onClick={onInviteClick}
+        type="button"
+        onClick={toggleOpen}
         onMouseEnter={() => setInvHovered(true)}
         onMouseLeave={() => setInvHovered(false)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         title={t("layout.vaultHeader.inviteMember")}
         className="rounded-full flex items-center justify-center transition-all shrink-0"
         style={{
@@ -151,6 +114,22 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
       >
         <Icon icon="lucide:plus" width={11} />
       </button>
+
+      {/* Popover — portalled: the page overlay in MainPanel outranks the
+          header's stacking context, so an in-flow popover paints under it. */}
+      <PickerSurface
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={ref}
+        width={280}
+        align="right"
+        gap={4}
+        title={t("layout.vaultHeader.members")}
+      >
+        <div onMouseEnter={openPopover} onMouseLeave={closePopover}>
+          <VaultShareSheet vaultId={vaultId} variant="popover" onRequestFull={openMembersInvite} />
+        </div>
+      </PickerSurface>
     </div>
   );
 }
@@ -173,8 +152,7 @@ export default function VaultHeader() {
   const vaults = useVaultStore((s) => s.vaults);
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
-  const openMembersInvite = useUIStore((s) => s.openMembersInvite);
-  const { teams, membersByTeam, rolesByTeam, loadMembers } = useTeamStore();
+  const { teams, membersByTeam, loadMembers } = useTeamStore();
 
   const [syncState, setSyncState] = useState(getSyncState);
   useEffect(() => onSyncStateChange(() => setSyncState(getSyncState())), []);
@@ -194,7 +172,6 @@ export default function VaultHeader() {
     ? (teams.find((t) => t.id === vault.teamId) ?? null)
     : standaloneTeam;
   const members = team ? (membersByTeam[team.id] ?? null) : null;
-  const roles = team ? (rolesByTeam[team.id] ?? []) : [];
 
   const contentVaultId = team?.id ?? activeVaultId ?? "personal";
   const counts = useVaultContents(contentVaultId);
@@ -306,8 +283,8 @@ export default function VaultHeader() {
 
       {/* Right zone: online members */}
       <div className="flex items-center justify-end min-w-0">
-        {team && members !== null && (
-          <OnlineMembersStack members={members} roles={roles} onInviteClick={openMembersInvite} />
+        {team && members !== null && activeVaultId && (
+          <MembersStack members={members} vaultId={activeVaultId} />
         )}
       </div>
     </div>

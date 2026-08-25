@@ -40,12 +40,12 @@ test("overshooting the seat count clamps the bar at 100%", () => {
   expect(bar().style.width).toBe("100%");
 });
 
-test("an unknown total renders an empty bar and '?' placeholders", () => {
+test("an unknown total renders an empty bar and an explicit unavailable message, never '?'", () => {
   h.seats = { usedSeats: null, totalSeats: null };
   render(<SeatsMeter />);
   expect(bar().style.width).toBe("0%");
-  expect(screen.getByText(/"used":0/)).toBeTruthy();
-  expect(screen.getByText(/"available":"\?","total":"\?"/)).toBeTruthy();
+  expect(screen.getByText("members.invite.seatsUnknown")).toBeTruthy();
+  expect(screen.queryByText(/\?/)).toBeNull();
 });
 
 test("the buy-seats button appears only with a handler and reports clicks", () => {
