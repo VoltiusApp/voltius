@@ -15,6 +15,14 @@ export function isRunnableSession(s: Pick<TerminalSession, "status" | "type">): 
   return s.status === "connected" && s.type !== "multiplayer";
 }
 
+/** The focused tab, when it can take an injection. No fallback to another tab:
+ *  injecting into a terminal the user is not looking at is worse than nothing. */
+export function getActiveRunnableSession(): TerminalSession | null {
+  const { sessions, activeSessionId } = useSessionStore.getState();
+  const s = sessions.find((x) => x.id === activeSessionId);
+  return s && isRunnableSession(s) ? s : null;
+}
+
 export interface RunOpts {
   /** Called when the snippet has unfilled user variables; the surface shows a modal. */
   onNeedVars: (pending: SnippetPendingInject) => void;
@@ -72,7 +80,7 @@ export function runSnippetIntoActiveSession(snippet: Snippet, sessionId?: string
   const sessions = useSessionStore.getState().sessions;
   const active = sessionId
     ? sessions.find((s) => s.id === sessionId && isRunnableSession(s))
-    : sessions.find(isRunnableSession);
+    : getActiveRunnableSession();
   if (!active) return false;
   void runSnippetIntoSessions(snippet, [active.id], true, {
     onNeedVars: (p) => useSnippetStore.getState().setGlobalPendingInject(p),

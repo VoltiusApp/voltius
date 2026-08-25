@@ -18,6 +18,7 @@ import {
 } from "@/services/snippetParser";
 import { broadcastSnippetInject } from "@/services/snippets";
 import { runSnippetSequence, reportSequenceResult } from "@/services/snippetSequence";
+import { getActiveRunnableSession } from "@/services/snippetRun";
 import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
@@ -417,9 +418,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         }
         onClose();
       } else if (item.kind === "snippet") {
-        const activeSession = sessions.find(
-          (s) => s.status === "connected" && s.type !== "multiplayer",
-        );
+        const activeSession = getActiveRunnableSession();
         if (!activeSession) { onClose(); return; }
 
         if (item.snippet.steps.some((s) => s.kind !== "script")) {
@@ -514,7 +513,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     },
     [setActive, setActiveNav, onClose, setSidebarOpen,
      openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
-     sessions, connections, trackUsed, setGlobalPendingInject],
+     connections, trackUsed, setGlobalPendingInject],
   );
 
   useEffect(() => {
