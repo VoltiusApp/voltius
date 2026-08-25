@@ -178,6 +178,19 @@ async function takesFloorPath(plugin: MarketplacePlugin): Promise<boolean> {
     && useSeededTombstoneStore.getState().isRemoved(plugin.id);
 }
 
+/**
+ * Activation for an EXTERNALLY installed plugin.
+ *
+ * `defaultEnabled` is a seeded concept — "ships with the app, off until asked for".
+ * A catalogue plugin is on disk because the user installed it, so the install is
+ * the opt-in and the manifest flag must not gate it: honouring it left themes
+ * loaded-but-inactive, registering nothing, with no way back — the enable toggle
+ * exists only on seeded rows. An explicit stored override still wins.
+ */
+function externalPluginActive(manifestId: string): boolean {
+  return usePluginRegistryStore.getState().isEnabled(manifestId, true);
+}
+
 let appVersionPromise: Promise<string | null> | null = null;
 
 /** Resolves the running app's version once and caches it for the session. Falls
@@ -420,9 +433,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       const mod = (await importPluginModule(jsText, cssText, plugin.id)) as PluginModule;
       // Honour a stored enable/disable override: reinstalling — or restoring on
       // another device — must not silently re-enable something the user turned off.
-      const active = usePluginRegistryStore
-        .getState()
-        .isEnabled(manifest.id, manifest.defaultEnabled ?? true);
+      const active = externalPluginActive(manifest.id);
       // An update over an id that's still registered must tear down the OLD code
       // first — loadPlugin silently no-ops on an id it already has, which would
       // leave the previous version running for the rest of the session while the
@@ -515,7 +526,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
     const css = await readLocalCss(id);
     const mod = (await importPluginModule(jsText, css, id)) as PluginModule;
-    loadPlugin(manifest, pluginRegisterOf(mod), true, false, css);
+    loadPlugin(manifest, pluginRegisterOf(mod), externalPluginActive(manifest.id), false, css);
   },
 
   // ── Scan local ────────────────────────────────────────────────────────
@@ -533,7 +544,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
         const css = await readLocalCss(id);
         const mod = (await importPluginModule(jsText, css, id)) as PluginModule;
-        loadPlugin(manifest, pluginRegisterOf(mod), true, false, css);
+        loadPlugin(manifest, pluginRegisterOf(mod), externalPluginActive(manifest.id), false, css);
         const newMeta: InstalledPluginMeta[] = [
           ...installedMeta,
           { id, version: manifest.version, sourceId: "local", hash: null },
@@ -722,9 +733,7 @@ export async function loadInstalledPlugins(): Promise<void> {
       const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
       const css = await readLocalCss(id);
       const mod = (await importPluginModule(jsText, css, id)) as PluginModule;
-      const { isEnabled } = usePluginRegistryStore.getState();
-      const active = isEnabled(manifest.id, manifest.defaultEnabled ?? true);
-      loadPlugin(manifest, pluginRegisterOf(mod), active, false, css);
+      loadPlugin(manifest, pluginRegisterOf(mod), externalPluginActive(manifest.id), false, css);
     } catch (e) {
       console.warn(`[marketplace] Failed to load installed plugin "${id}":`, e);
     }
