@@ -35,7 +35,7 @@ import { getPlatform } from "@/utils/platform";
 interface UseTerminalOptions {
   sessionId: string;
   sessionType: "ssh" | "local" | "serial";
-  onClosed?: () => void;
+  onClosed?: (remoteExit: boolean) => void;
   /** If provided, input is only sent to the process when this returns true. */
   inputGate?: React.RefObject<() => boolean>;
   encoding?: string;
@@ -169,7 +169,7 @@ type CacheEntry = {
   /** Mirror of the useTerminal `inputGate` so module-level senders (writeToSession)
    *  honor the same multiplayer control-holder gate as the onData handler. */
   inputGateRef: { current: (() => boolean) | undefined };
-  onClosedRef: { current: (() => void) | undefined };
+  onClosedRef: { current: ((remoteExit: boolean) => void) | undefined };
   onResizeRef: { current: ((cols: number, rows: number) => void) | undefined };
   dispose: () => void; // full teardown, called only when the session is deleted
 };
@@ -1071,7 +1071,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           onLocalOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
           onLocalClosed(sessionId, () => {
             term.write("\r\n\x1b[90m--- Session closed ---\x1b[0m\r\n");
-            entry.onClosedRef.current?.();
+            entry.onClosedRef.current?.(false);
           }),
         ];
         unlistenPromises.push(...localListeners);
@@ -1089,7 +1089,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         unlistenPromises.push(
           onSerialClosed(sessionId, () => {
             term.write("\r\n\x1b[90m--- Serial connection closed ---\x1b[0m\r\n");
-            entry.onClosedRef.current?.();
+            entry.onClosedRef.current?.(false);
           }),
         );
       } else {
@@ -1100,8 +1100,8 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }),
         );
         unlistenPromises.push(
-          onSshClosed(sessionId, () => {
-            entry.onClosedRef.current?.();
+          onSshClosed(sessionId, (remoteExit) => {
+            entry.onClosedRef.current?.(remoteExit);
           }),
         );
         // Persistent sessions (tmux/screen) hide the shell's OSC 7 from the

@@ -171,12 +171,14 @@ export async function onSshOutput(
   });
 }
 
+/** `remoteExit` is true when the far side sent an exit-status/exit-signal
+ * before closing — the remote command ended on its own, it was not a drop. */
 export async function onSshClosed(
   sessionId: string,
-  callback: () => void,
+  callback: (remoteExit: boolean) => void,
 ): Promise<UnlistenFn> {
-  return listen(`ssh-closed-${sessionId}`, () => {
-    callback();
+  return listen<boolean>(`ssh-closed-${sessionId}`, (event) => {
+    callback(event.payload === true);
   });
 }
 

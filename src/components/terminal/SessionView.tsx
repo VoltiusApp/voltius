@@ -22,7 +22,7 @@ export function HostAwareTerminalView({
 }: {
   session: TerminalSession;
   active: boolean;
-  onClosed: () => void;
+  onClosed: (remoteExit: boolean) => void;
   /** Mobile: render the terminal compact (no minimap) and suppress the status-bar footer. */
   compact?: boolean;
   /** Split panes carry no status bar of their own. */

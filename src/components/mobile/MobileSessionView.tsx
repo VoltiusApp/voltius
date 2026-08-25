@@ -1,13 +1,11 @@
 import { useSessionStore } from "@/stores/sessionStore";
-import { reconnectWithBackoff } from "@/stores/reconnectBackoff";
-import { handleSessionClosed } from "@/stores/reconnectBackoffCore";
+import { sessionClosed } from "@/stores/reconnectBackoff";
 import { HostAwareTerminalView, SessionConnectionOverlay } from "@/components/terminal/SessionView";
 import MobileTerminalGestures from "./MobileTerminalGestures";
 import type { TerminalSession } from "@/types";
 
 /** Mobile-only wrapper: renders the shared terminal compact inside a hard-clipped box. */
 export default function MobileSessionView({ session, active }: { session: TerminalSession; active: boolean }) {
-  const markDisconnected = useSessionStore((s) => s.markDisconnected);
   const reconnect = useSessionStore((s) => s.reconnect);
   const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
   const retryConnect = useSessionStore((s) => s.retryConnect);
@@ -28,13 +26,7 @@ export default function MobileSessionView({ session, active }: { session: Termin
         session={session}
         active={active}
         compact
-        onClosed={() =>
-          handleSessionClosed(session.type, session.id, {
-            status: (id) => useSessionStore.getState().sessions.find((s) => s.id === id)?.status,
-            markDisconnected,
-            reconnectWithBackoff,
-          })
-        }
+        onClosed={(remoteExit) => sessionClosed(session.type, session.id, remoteExit)}
       />
       {session.status === "connected" && <MobileTerminalGestures sessionId={session.id} active={active} />}
     </div>
