@@ -1,6 +1,7 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
 import type { TeamRole } from "@/stores/teamStore";
+import membersEn from "@/i18n/locales/en/members.json";
 
 const h = vi.hoisted(() => ({
   searchUsers: vi.fn(),
@@ -9,12 +10,28 @@ const h = vi.hoisted(() => ({
   assign: vi.fn(),
   reload: vi.fn(),
   getMyHandle: vi.fn(async () => "merry-quartz-2597"),
+  t: vi.fn((k: string) => k),
   usedSeats: 2,
   totalSeats: 3,
 }));
 
+// Looks up the real English copy so the interpolating t below reproduces what
+// i18next actually does: substitute {{vars}} into the resource string.
+function lookup(key: string): string {
+  const value = key
+    .split(".")
+    .reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], membersEn);
+  return typeof value === "string" ? value : key;
+}
+function interpolatingT(k: string, vars?: Record<string, unknown>): string {
+  const template = lookup(k);
+  return vars
+    ? Object.entries(vars).reduce((s, [key, v]) => s.replace(new RegExp(`{{${key}}}`, "g"), String(v)), template)
+    : template;
+}
+
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({ t: h.t }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
@@ -29,10 +46,12 @@ vi.mock("@/services/teamService", () => ({
   getMyUserId: vi.fn(),
   revokePendingInvitation: vi.fn(),
 }));
-vi.mock("@/services/vaultShare", () => ({
-  inviteUserById: h.inviteUserById,
-  inviteByEmailAddress: h.inviteByEmailAddress,
-}));
+// Keep the real `inviteFailureReason` (the URL-classification logic under test);
+// only the network calls themselves are stubbed.
+vi.mock("@/services/vaultShare", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/vaultShare")>();
+  return { ...actual, inviteUserById: h.inviteUserById, inviteByEmailAddress: h.inviteByEmailAddress };
+});
 vi.mock("@/services/account", () => ({ getMyHandle: h.getMyHandle }));
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
@@ -90,6 +109,7 @@ beforeEach(() => {
   h.inviteByEmailAddress.mockReset();
   h.assign.mockReset();
   h.reload.mockReset().mockResolvedValue(undefined);
+  h.t.mockImplementation((k: string) => k);
   h.usedSeats = 2;
   h.totalSeats = 3;
   baseProps.onClose = vi.fn();
@@ -100,8 +120,11 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+// Role-based, not placeholder-text-based: some tests switch `t` to a real,
+// interpolating implementation, under which the placeholder is real English
+// copy rather than the literal key. The panel has exactly one text input.
 function getInput() {
-  return screen.getByPlaceholderText("members.invite.searchUserPlaceholder");
+  return screen.getByRole("textbox");
 }
 
 /** Types a query and advances the 250ms debounce under fake timers, flushing the search promise. */
@@ -233,7 +256,8 @@ test("add rejects Error with '402' in message (no code prop): BuySeatsModal show
   expect(screen.queryByText("boom 402 detail")).toBeNull();
 });
 
-test("add rejects generic error (no 402): error text shown, BuySeatsModal NOT rendered", async () => {
+test("add rejects generic error (no 402): named inviteFailed message shown, BuySeatsModal NOT rendered", async () => {
+  h.t.mockImplementation(interpolatingT);
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([inA]);
   h.inviteUserById.mockRejectedValue(new Error("nope"));
@@ -243,8 +267,27 @@ test("add rejects generic error (no 402): error text shown, BuySeatsModal NOT re
   vi.useRealTimers();
   fireEvent.click(screen.getByText("included-alpha-3140"));
 
-  expect(await screen.findByText("nope")).toBeTruthy();
+  expect(await screen.findByText(/Could not invite included-alpha-3140 — nope/)).toBeTruthy();
   expect(screen.queryByTestId("buy-seats-modal")).toBeNull();
+});
+
+test("add rejects a transport failure (no HTTP status): named message shown, no URL ever reaches the DOM", async () => {
+  h.t.mockImplementation(interpolatingT);
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([inA]);
+  h.inviteUserById.mockRejectedValue(
+    new Error("error sending request for url (http://v68-server:8080/v1/teams/a5c2d19d/invite)"),
+  );
+  const { container } = render(<InvitePanel {...baseProps} />);
+
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+  fireEvent.click(screen.getByText("included-alpha-3140"));
+
+  expect(await screen.findByText(/Could not invite included-alpha-3140/)).toBeTruthy();
+  expect(container.textContent).not.toMatch(/http/i);
+  // The dropdown also closes so the error is not hidden underneath it.
+  expect(screen.queryByText("included-alpha-3140")).toBeNull();
 });
 
 test("email invite success (not at limit): inviteByEmailAddress(default role) + reload + onMemberAdded", async () => {
@@ -293,7 +336,8 @@ test("email invite rejects 402: BuySeatsModal(null)", async () => {
   expect(modal.dataset.pendingUser).toBe("none");
 });
 
-test("email invite rejects generic error (no 402): error text shown, no modal", async () => {
+test("email invite rejects generic error (no 402): named inviteFailed message shown, no modal", async () => {
+  h.t.mockImplementation(interpolatingT);
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([]);
   h.inviteByEmailAddress.mockRejectedValue(new Error("nope"));
@@ -301,9 +345,9 @@ test("email invite rejects generic error (no 402): error text shown, no modal", 
 
   await typeAndDebounce("a@b.com");
   vi.useRealTimers();
-  fireEvent.click(await screen.findByRole("button", { name: /sendInviteLabel/ }));
+  fireEvent.click(await screen.findByRole("button", { name: /sendInviteLabel|Send invite to/ }));
 
-  expect(await screen.findByText("nope")).toBeTruthy();
+  expect(await screen.findByText(/Could not invite a@b.com — nope/)).toBeTruthy();
   expect(screen.queryByTestId("buy-seats-modal")).toBeNull();
 });
 
@@ -325,4 +369,37 @@ test("BuySeatsModal onSuccess: reloadSubscription + onMemberAdded called, modal 
   await waitFor(() => expect(baseProps.onMemberAdded).toHaveBeenCalled());
   expect(h.reload).toHaveBeenCalled();
   expect(screen.queryByTestId("buy-seats-modal")).toBeNull();
+});
+
+test("no role selected: the Add action is disabled, a hint is shown, clicking does nothing", async () => {
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([inA]);
+  render(<InvitePanel {...baseProps} />);
+
+  // "member" is auto-selected on mount; untick it so nothing is selected.
+  fireEvent.click(screen.getByText("member"));
+  expect(screen.getByText("members.invite.selectRoleHint")).toBeTruthy();
+
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+
+  const addButton = screen.getByText("included-alpha-3140").closest("button") as HTMLButtonElement;
+  expect(addButton.disabled).toBe(true);
+  fireEvent.click(addButton);
+  expect(h.inviteUserById).not.toHaveBeenCalled();
+});
+
+test("no role selected: the email-invite action is disabled, clicking does nothing", async () => {
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([]);
+  render(<InvitePanel {...baseProps} />);
+
+  fireEvent.click(screen.getByText("member"));
+  await typeAndDebounce("a@b.com");
+  vi.useRealTimers();
+
+  const emailButton = (await screen.findByRole("button", { name: /sendInviteLabel/ })) as HTMLButtonElement;
+  expect(emailButton.disabled).toBe(true);
+  fireEvent.click(emailButton);
+  expect(h.inviteByEmailAddress).not.toHaveBeenCalled();
 });

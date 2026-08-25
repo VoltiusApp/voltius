@@ -17,7 +17,7 @@ vi.mock("@/services/teamActionFeedback", () => ({
 }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
-import { inviteUserById, inviteByEmailAddress } from "./vaultShare";
+import { inviteUserById, inviteByEmailAddress, inviteFailureReason } from "./vaultShare";
 
 beforeEach(() => {
   h.addMemberById.mockReset();
@@ -54,4 +54,15 @@ test("email invites carry the role too", async () => {
   h.inviteByEmail.mockResolvedValue({ status: "invited" });
   await inviteByEmailAddress({ teamId: "t1", email: "dave@example.com", roleName: "connect-only" });
   expect(h.inviteByEmail).toHaveBeenCalledWith("t1", "dave@example.com", "connect-only");
+});
+
+test("a transport failure's raw URL is never returned as the reason", () => {
+  const raw = "error sending request for url (http://v68-server:8080/v1/teams/a5c2d19d/invite)";
+  const reason = inviteFailureReason(new Error(raw));
+  expect(reason).not.toContain("http");
+  expect(reason).not.toBe(raw);
+});
+
+test("a real HTTP failure's short, already-translated message passes through unchanged", () => {
+  expect(inviteFailureReason(new Error("User not found"))).toBe("User not found");
 });

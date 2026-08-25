@@ -3,6 +3,21 @@ import { useTeamStore } from "@/stores/teamStore";
 import { inviteByEmail } from "@/services/teamService";
 import { runTeamAction } from "@/services/teamActionFeedback";
 
+const URL_IN_MESSAGE = /https?:\/\//i;
+
+/**
+ * A raw transport failure (no HTTP response — fetch/reqwest rejected before a
+ * status came back) can embed the server URL in its message, e.g. "error
+ * sending request for url (http://host:port/...)". That must never reach the
+ * UI, so collapse it to a translated, URL-free reason; any other error is
+ * already a short, translated, URL-free message and passes through as-is.
+ */
+export function inviteFailureReason(err: Error): string {
+  return URL_IN_MESSAGE.test(err.message)
+    ? i18n.t("members.error.serverUnreachable")
+    : err.message;
+}
+
 /**
  * Invite a known user.
  *
@@ -28,7 +43,7 @@ export async function inviteUserById(args: {
       r.status === "pending"
         ? i18n.t("members.toast.invitationSentToUser", { name: handle })
         : i18n.t("members.toast.userAdded", { name: handle }),
-    error: (e: Error) => i18n.t("members.error.inviteFailed", { name: handle, reason: e.message }),
+    error: (e: Error) => i18n.t("members.error.inviteFailed", { name: handle, reason: inviteFailureReason(e) }),
     run: () => addMemberById(teamId, userId, roleName),
   });
 
@@ -47,7 +62,7 @@ export async function inviteByEmailAddress(args: {
   return runTeamAction({
     pending: i18n.t("members.toast.invitingUser", { name: email }),
     success: i18n.t("members.toast.invitationSentToUser", { name: email }),
-    error: (e: Error) => i18n.t("members.error.inviteFailed", { name: email, reason: e.message }),
+    error: (e: Error) => i18n.t("members.error.inviteFailed", { name: email, reason: inviteFailureReason(e) }),
     run: () => inviteByEmail(teamId, email, roleName),
   });
 }

@@ -88,7 +88,8 @@
       "handleRule": "只有自定义用户名支持按部分名称匹配。对于自动生成的用户名（如 rapid-violet-8884），请完整输入，或改用对方的邮箱邀请。",
       "seatsUnknown": "座位数量暂不可用 — 请检查与同步服务器的连接",
       "inviteAction": "邀请",
-      "joinsAs": "他们将以此身份加入"
+      "joinsAs": "他们将以此身份加入",
+      "selectRoleHint": "邀请前请至少选择一个角色"
     },
     "roleBlurb": {
       "manager": "管理员可以邀请他人、更改角色并管理链接。",
@@ -121,7 +122,8 @@
       "failedToRemoveMember": "移除成员失败",
       "failedToAddMember": "添加成员失败",
       "inviteFailed": "无法邀请 {{name}} — {{reason}}",
-      "convertFailed": "无法将 {{vault}} 转换为团队保险库 — {{reason}}"
+      "convertFailed": "无法将 {{vault}} 转换为团队保险库 — {{reason}}",
+      "serverUnreachable": "无法连接到同步服务器"
     },
     "history": {
       "removeRole": "移除角色：{{name}}",

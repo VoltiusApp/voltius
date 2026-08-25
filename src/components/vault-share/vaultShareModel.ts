@@ -7,6 +7,16 @@ export function assignableRoles(roles: TeamRole[]): TeamRole[] {
     .sort((a, b) => a.position - b.position);
 }
 
+/**
+ * The safest possible stand-in when a role choice is ambiguous: whichever
+ * assignable role has the least access (highest `position`), never a more
+ * privileged one such as "member".
+ */
+export function leastPrivilegedRole(roles: TeamRole[]): TeamRole | null {
+  const sorted = assignableRoles(roles);
+  return sorted.length > 0 ? sorted[sorted.length - 1] : null;
+}
+
 export type SeatState =
   | { kind: "known"; used: number; total: number; available: number; atLimit: boolean }
   | { kind: "unknown" };

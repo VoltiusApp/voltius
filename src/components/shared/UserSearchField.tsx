@@ -33,6 +33,8 @@ interface UserSearchFieldProps {
   /** When set, the dropdown stays open on an empty result set and shows this. */
   emptyLabel?: string;
   emailOption?: EmailInviteOption;
+  /** Disables every add/invite action without hiding the dropdown, e.g. while no role is selected. */
+  actionsDisabled?: boolean;
 }
 
 export function UserSearchField({
@@ -42,6 +44,7 @@ export function UserSearchField({
   inputRef, dropdownRef,
   adding, addLabel, onAdd,
   emptyLabel, emailOption,
+  actionsDisabled,
 }: UserSearchFieldProps) {
   const md = size === "md";
   const iconWidth = md ? 14 : 13;
@@ -91,7 +94,7 @@ export function UserSearchField({
               style={{ color: "var(--t-text-primary)" }}
               onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)")}
               onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
-              disabled={!!adding}
+              disabled={!!adding || actionsDisabled}
               onClick={() => onAdd(user)}
             >
               <MiniAvatar name={user.handle} size={26} />
@@ -114,7 +117,7 @@ export function UserSearchField({
               }}
               onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)")}
               onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
-              disabled={emailOption.sending}
+              disabled={emailOption.sending || actionsDisabled}
               onClick={emailOption.onInvite}
             >
               <Icon icon="lucide:mail" width={16} className="shrink-0" style={{ color: "var(--t-accent)" }} />

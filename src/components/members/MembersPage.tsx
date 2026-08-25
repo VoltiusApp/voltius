@@ -36,8 +36,9 @@ import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDispla
 import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
-import { inviteUserById, inviteByEmailAddress } from "@/services/vaultShare";
+import { inviteUserById, inviteByEmailAddress, inviteFailureReason } from "@/services/vaultShare";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
+import { assignableRoles, leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
 
 function RoleChip({ role }: { role: TeamRole }) {
   const { t } = useTranslation();
@@ -680,10 +681,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
 
   const { atLimit: isAtSeatLimit } = seatAvailability(usedSeats, totalSeats);
 
-  const builtinRoles = useMemo(
-    () => teamRoles.filter((r) => !(r.is_builtin && r.name === "owner")).sort((a, b) => a.position - b.position),
-    [teamRoles],
-  );
+  const builtinRoles = useMemo(() => assignableRoles(teamRoles), [teamRoles]);
   const defaultMemberRoleId = useMemo(
     () => builtinRoles.find((r) => r.is_builtin && r.name === "member")?.id,
     [builtinRoles],
@@ -699,9 +697,13 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
     setSelectedRoleIds((prev) =>
       prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId],
     );
+  const hasRoleSelected = selectedRoleIds.length > 0;
+  // Never relied on by the UI (the invite actions are disabled without a selection) —
+  // a pure safety net so no future caller can end up granting "member" by accident.
+  const fallbackRoleName = useMemo(() => leastPrivilegedRole(teamRoles)?.name ?? "connect-only", [teamRoles]);
   const primaryRoleName = useMemo(
-    () => builtinRoles.find((r) => selectedRoleIds.includes(r.id))?.name ?? "member",
-    [selectedRoleIds, builtinRoles],
+    () => builtinRoles.find((r) => selectedRoleIds.includes(r.id))?.name ?? fallbackRoleName,
+    [selectedRoleIds, builtinRoles, fallbackRoleName],
   );
   const selectedRoleLabel = useMemo(() => {
     const names = selectedRoleIds
@@ -714,11 +716,12 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const handleAdd = async (user: UserSearchResult) => {
+    if (!hasRoleSelected) return;
     if (isAtSeatLimit) { setBuySeatsFor(user); setOpen(false); return; }
     setAdding(user.user_id); setError(""); setSuccess("");
     try {
       const [firstRoleId, ...restRoleIds] = selectedRoleIds;
-      const firstRoleName = builtinRoles.find((r) => r.id === firstRoleId)?.name ?? "member";
+      const firstRoleName = builtinRoles.find((r) => r.id === firstRoleId)?.name ?? fallbackRoleName;
       const result = await inviteUserById({
         teamId,
         userId: user.user_id,
@@ -742,13 +745,14 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
       if ((e as { code?: number }).code === 402 || err.message.includes("402")) {
         setBuySeatsFor(user); setOpen(false);
       } else {
-        setError(err.message);
+        setOpen(false);
+        setError(t("members.error.inviteFailed", { name: user.handle, reason: inviteFailureReason(err) }));
       }
     } finally { setAdding(null); }
   };
 
   const handleEmailInvite = async () => {
-    if (!isValidEmail(query)) return;
+    if (!isValidEmail(query) || !hasRoleSelected) return;
     if (isAtSeatLimit) { setBuySeatsFor(null); return; }
     setSendingInvite(true); setError(""); setSuccess("");
     try {
@@ -763,7 +767,8 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
       if ((e as { code?: number }).code === 402 || err.message.includes("402")) {
         setBuySeatsFor(null);
       } else {
-        setError(err.message);
+        setOpen(false);
+        setError(t("members.error.inviteFailed", { name: query, reason: inviteFailureReason(err) }));
       }
     } finally { setSendingInvite(false); }
   };
@@ -811,6 +816,9 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
                 />
               ))}
             </div>
+            {!hasRoleSelected && (
+              <p className="text-xs mt-1.5" style={{ color: "var(--t-text-dim)" }}>{t("members.invite.selectRoleHint")}</p>
+            )}
           </FormSection>
 
           {/* Search input */}
@@ -830,6 +838,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
               adding={adding}
               addLabel={t("members.invite.addWithRole", { role: selectedRoleLabel })}
               onAdd={(user) => void handleAdd(user)}
+              actionsDisabled={!hasRoleSelected}
               emailOption={{
                 visible: showEmailInviteOption,
                 label: <>{t("members.invite.sendInviteLabel")} <span className="font-medium">{query}</span></>,

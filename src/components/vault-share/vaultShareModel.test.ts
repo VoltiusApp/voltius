@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { assignableRoles, seatState, canManageShare, canMintLink } from "./vaultShareModel";
+import { assignableRoles, leastPrivilegedRole, seatState, canManageShare, canMintLink } from "./vaultShareModel";
 import type { TeamRole } from "@/stores/teamStore";
 
 const role = (name: string, position: number, is_builtin = true): TeamRole =>
@@ -13,6 +13,12 @@ test("assignable roles drop owner and sort by position", () => {
 test("assignable roles keep custom roles", () => {
   const roles = [role("owner", 0), role("auditor", 5, false)];
   expect(assignableRoles(roles).map((r) => r.name)).toEqual(["auditor"]);
+});
+
+test("least privileged role is the highest-position assignable role, never owner", () => {
+  const roles = [role("member", 3), role("owner", 0), role("manager", 1), role("connect-only", 4)];
+  expect(leastPrivilegedRole(roles)?.name).toBe("connect-only");
+  expect(leastPrivilegedRole([])).toBeNull();
 });
 
 test("seat state reports unknown instead of question marks", () => {

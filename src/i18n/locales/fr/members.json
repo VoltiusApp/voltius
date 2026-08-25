@@ -88,7 +88,8 @@
       "handleRule": "Seuls les pseudos personnalisés se retrouvent avec une partie du nom. Pour un pseudo généré comme rapid-violet-8884, saisissez-le en entier ou utilisez son e-mail.",
       "seatsUnknown": "Nombre de postes indisponible — vérifiez votre connexion au serveur de synchronisation",
       "inviteAction": "Inviter",
-      "joinsAs": "Ils rejoignent en tant que"
+      "joinsAs": "Ils rejoignent en tant que",
+      "selectRoleHint": "Sélectionnez au moins un rôle avant d'inviter"
     },
     "roleBlurb": {
       "manager": "Les gestionnaires peuvent inviter des personnes, changer les rôles et gérer les liens.",
@@ -121,7 +122,8 @@
       "failedToRemoveMember": "Échec de la suppression du membre",
       "failedToAddMember": "Échec de l'ajout du membre",
       "inviteFailed": "Impossible d'inviter {{name}} — {{reason}}",
-      "convertFailed": "Impossible de transformer {{vault}} en coffre-fort d'équipe — {{reason}}"
+      "convertFailed": "Impossible de transformer {{vault}} en coffre-fort d'équipe — {{reason}}",
+      "serverUnreachable": "le serveur de synchronisation est injoignable"
     },
     "history": {
       "removeRole": "Retirer le rôle : {{name}}",
