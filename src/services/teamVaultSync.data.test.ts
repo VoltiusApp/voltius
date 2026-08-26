@@ -33,6 +33,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import { useTeamStore } from "@/stores/teamStore";
 
 function futureJwt(): string {
   const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -230,4 +231,40 @@ test("fetchTeamData decrypts the legacy blob and populates the seven store slice
   expect(useSnippetFolderStore.getState().teamSnippetFolders[teamId]).toEqual([{ id: "sf1" }]);
   expect(usePortForwardingStore.getState().teamRules[teamId]).toEqual([{ id: "pf1" }]);
   expect(useTeamVaultStateStore.getState().statusByTeamId[teamId]).toBe("loaded");
+});
+
+
+/**
+ * connect-only members hold no VIEW_SECRETS, so `GET /vault-key` 403s for them.
+ * On an empty team vault — the one a joiner meets right after conversion — that
+ * used to surface as "Access revoked" (issue #187). They were never revoked:
+ * their view of the vault is the object route, which returned nothing.
+ */
+test("fetchTeamData shows an empty vault, not a revocation, when the key route 403s a listed member", async () => {
+  const teamId = "t-connect-only";
+  useTeamStore.setState({ teams: [{ id: teamId, role_ids: [] }] as never });
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockImplementation(async (url: string) => {
+    if (url.endsWith("/vault-key")) return res(403);
+    throw new Error(`unexpected fetch ${url}`);
+  });
+
+  await fetchTeamData(teamId);
+
+  expect(useTeamVaultStateStore.getState().statusByTeamId[teamId]).toBe("loaded");
+  expect(useConnectionStore.getState().teamConnections[teamId] ?? []).toEqual([]);
+});
+
+test("fetchTeamData still reports a revocation when the 403'd team is no longer listed", async () => {
+  const teamId = "t-revoked";
+  useTeamStore.setState({ teams: [] as never });
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockImplementation(async (url: string) => {
+    if (url.endsWith("/vault-key")) return res(403);
+    throw new Error(`unexpected fetch ${url}`);
+  });
+
+  await fetchTeamData(teamId);
+
+  expect(useTeamVaultStateStore.getState().statusByTeamId[teamId]).toBe("forbidden");
 });
