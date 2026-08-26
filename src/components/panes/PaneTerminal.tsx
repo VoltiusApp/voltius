@@ -4,12 +4,10 @@ import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalVi
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
 import { HostAwareTerminalView, SessionConnectionOverlay } from "@/components/terminal/SessionView";
 import { useSessionStore } from "@/stores/sessionStore";
-import { reconnectWithBackoff } from "@/stores/reconnectBackoff";
-import { handleSessionClosed } from "@/stores/reconnectBackoffCore";
+import { sessionClosed } from "@/stores/reconnectBackoff";
 import type { TerminalSession } from "@/types";
 
 export function PaneTerminal({ session, active }: { session: TerminalSession; active: boolean }) {
-  const markDisconnected = useSessionStore((s) => s.markDisconnected);
   const reconnect = useSessionStore((s) => s.reconnect);
   const removeSession = useSessionStore((s) => s.removeSession);
   const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
@@ -39,13 +37,7 @@ export function PaneTerminal({ session, active }: { session: TerminalSession; ac
         session={session}
         active={active && session.status === "connected"}
         statusBar={false}
-        onClosed={() =>
-          handleSessionClosed(session.type, session.id, {
-            status: (id) => useSessionStore.getState().sessions.find((s) => s.id === id)?.status,
-            markDisconnected,
-            reconnectWithBackoff,
-          })
-        }
+        onClosed={(remoteExit) => sessionClosed(session.type, session.id, remoteExit)}
       />
     </div>
   );

@@ -160,10 +160,12 @@ globalThis.setTimeout = realSetTimeout;
 // --- handleSessionClosed: start reconnect only on an unexpected close ---
 (() => {
   const calls: string[] = [];
-  const deps = (status: SessionStatus) => ({
+  const deps = (status: SessionStatus, persist = false) => ({
     status: () => status,
+    persist: () => persist,
     markDisconnected: () => calls.push("disconnect"),
     reconnectWithBackoff: () => calls.push("backoff"),
+    endSession: () => calls.push("end"),
   });
 
   calls.length = 0;
@@ -185,5 +187,24 @@ globalThis.setTimeout = realSetTimeout;
   calls.length = 0;
   handleSessionClosed("local", "s1", deps("connected"));
   assertEqual(calls, ["disconnect"], "local close marks disconnected without reconnecting");
+
+  // The remote shell exited on purpose (`exit`): the channel carried an
+  // exit-status, so this is not a drop and reconnecting would resurrect a
+  // session the user just closed (#180).
+  calls.length = 0;
+  handleSessionClosed("ssh", "s1", deps("connected"), true);
+  assertEqual(calls, ["end"], "a clean remote exit ends the session instead of reconnecting");
+
+  // Persistent sessions run inside tmux/screen: the wrapper exiting can also
+  // mean a detach, so the attach probe stays the judge of whether it ended.
+  calls.length = 0;
+  handleSessionClosed("ssh", "s1", deps("connected", true), true);
+  assertEqual(calls, ["backoff"], "a persistent session still reconnects on a clean wrapper exit");
+
+  // A dropped link carries no exit-status.
+  calls.length = 0;
+  handleSessionClosed("ssh", "s1", deps("connected"), false);
+  assertEqual(calls, ["backoff"], "a drop with no exit-status still reconnects");
 })();
+
 });

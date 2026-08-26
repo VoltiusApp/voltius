@@ -9,7 +9,7 @@ import "@xterm/xterm/css/xterm.css";
 interface Props {
   sessionId: string;
   sessionType: "ssh" | "local" | "serial";
-  onClosed?: () => void;
+  onClosed?: (remoteExit: boolean) => void;
   active?: boolean;
   inputGate?: React.RefObject<() => boolean>;
   encoding?: string;

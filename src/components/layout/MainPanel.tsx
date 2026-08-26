@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
-import { reconnectWithBackoff } from "@/stores/reconnectBackoff";
-import { handleSessionClosed } from "@/stores/reconnectBackoffCore";
+import { sessionClosed } from "@/stores/reconnectBackoff";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -170,7 +169,6 @@ function useSelectedTeamId(): string | null {
 
 export default function MainPanel() {
   const { sessions, activeSessionId } = useSessionStore();
-  const markDisconnected = useSessionStore((s) => s.markDisconnected);
   const reconnect = useSessionStore((s) => s.reconnect);
   const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
   const retryConnect = useSessionStore((s) => s.retryConnect);
@@ -287,13 +285,7 @@ export default function MainPanel() {
                       <HostAwareTerminalView
                         session={session}
                         active={session.id === activeSessionId && session.status === "connected" && !overlayContent}
-                        onClosed={() =>
-                          handleSessionClosed(session.type, session.id, {
-                            status: (id) => useSessionStore.getState().sessions.find((s) => s.id === id)?.status,
-                            markDisconnected,
-                            reconnectWithBackoff,
-                          })
-                        }
+                        onClosed={(remoteExit) => sessionClosed(session.type, session.id, remoteExit)}
                       />
                     )}
                     {session.id === activeSessionId && !overlayContent && (

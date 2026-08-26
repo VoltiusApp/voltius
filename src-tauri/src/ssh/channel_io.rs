@@ -13,9 +13,21 @@ pub struct ChannelIo {
     pub shutdown_tx: mpsc::Sender<()>,
 }
 
+/// The far side reported how the remote command ended before closing the
+/// channel. Only a command that ran to completion — the user typing `exit`, a
+/// one-shot command finishing, a signal killing it — gets an exit-status or
+/// exit-signal; a dropped link closes the channel with neither. The frontend
+/// reconnects on a drop and must not on a deliberate exit (#180).
+fn is_remote_exit(msg: &ChannelMsg) -> bool {
+    matches!(
+        msg,
+        ChannelMsg::ExitStatus { .. } | ChannelMsg::ExitSignal { .. }
+    )
+}
+
 /// Spawn the I/O loop for an opened channel: forward input and resizes, emit the
 /// channel's output as `ssh-output-<session_id>`, and emit `ssh-closed-<id>` when
-/// the far side ends it.
+/// the far side ends it, carrying whether the remote command exited on its own.
 pub fn spawn_channel_io(
     app: AppHandle,
     session_id: &str,
@@ -42,6 +54,7 @@ pub fn spawn_channel_io_split(
     let mut writer = write_half.make_writer();
 
     tokio::spawn(async move {
+        let mut remote_exit = false;
         loop {
             tokio::select! {
                 _ = shutdown_rx.recv() => break,
@@ -62,9 +75,12 @@ pub fn spawn_channel_io_split(
                             let _ = app.emit(&event_name, data.as_ref());
                         }
                         Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => {
-                            let _ = app.emit(&close_event, ());
+                            let _ = app.emit(&close_event, remote_exit);
                             break;
                         }
+                        // Sent just before Eof/Close, so the flag is set by the
+                        // time the close event goes out.
+                        Some(ref m) if is_remote_exit(m) => remote_exit = true,
                         _ => {}
                     }
                 }
@@ -124,4 +140,27 @@ pub async fn open_exec_session(
         .await;
 
     Ok(new_session_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_reported_exit_counts_as_a_remote_exit() {
+        // A shell the user quit, or a command that finished, is reported.
+        assert!(is_remote_exit(&ChannelMsg::ExitStatus { exit_status: 0 }));
+        assert!(is_remote_exit(&ChannelMsg::ExitSignal {
+            signal_name: russh::Sig::TERM,
+            core_dumped: false,
+            error_message: String::new(),
+            lang_tag: String::new(),
+        }));
+        // A dropped link only ever produces these, and must stay reconnectable.
+        assert!(!is_remote_exit(&ChannelMsg::Eof));
+        assert!(!is_remote_exit(&ChannelMsg::Close));
+        assert!(!is_remote_exit(&ChannelMsg::WindowAdjusted {
+            new_size: 4096
+        }));
+    }
 }

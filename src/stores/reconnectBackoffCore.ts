@@ -98,20 +98,33 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
  * so the steady overlay never flickers and no second loop spawns. The loop owns
  * the 'reconnecting' (connecting) state, so we don't set it here.
  *
+ * `remoteExit` means the far side sent an exit-status/exit-signal before the
+ * close: the shell ended on purpose (the user typed `exit`), not a dropped
+ * link, so the session is over and reconnecting would resurrect it (#180).
+ * Persistent sessions are excluded: their wrapper also exits on a tmux/screen
+ * detach, so there the attach probe (SESSION_ENDED) stays the judge.
+ *
  * local: just mark disconnected (no reconnect). */
 export function handleSessionClosed(
   sessionType: string,
   sessionId: string,
   deps: {
     status: (id: string) => SessionStatus;
+    persist: (id: string) => boolean;
     markDisconnected: (id: string) => void;
     reconnectWithBackoff: (id: string) => void;
+    endSession: (id: string) => void;
   },
+  remoteExit = false,
 ): void {
   if (sessionType !== "ssh" && sessionType !== "serial") {
     deps.markDisconnected(sessionId);
     return;
   }
   if (deps.status(sessionId) !== "connected") return;
+  if (remoteExit && !deps.persist(sessionId)) {
+    deps.endSession(sessionId);
+    return;
+  }
   deps.reconnectWithBackoff(sessionId);
 }
