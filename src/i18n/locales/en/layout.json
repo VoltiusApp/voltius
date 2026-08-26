@@ -73,6 +73,7 @@
         "forbiddenBody": "You no longer have access to this team vault. Contact the team owner.",
         "waitingForAccessTitle": "Waiting for access",
         "waitingForAccessBody": "A team vault owner needs to grant you access. This happens automatically the next time an owner is online.",
+        "waitingForAccessBodyNamed": "Waiting for {{owner}} to grant access — they need to come online once.",
         "paymentRequiredTitle": "Team vault unavailable",
         "paymentRequiredBodyOwner": "Your subscription has ended. Team vaults require an active plan.",
         "paymentRequiredBodyMember": "The owner's subscription has ended. Team vaults require an active plan.",

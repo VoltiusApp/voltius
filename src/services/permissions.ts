@@ -42,7 +42,7 @@ export const PERM_BITS: Record<Permission, number> = {
 };
 
 /** OR together all permission bits for a member's assigned roles. */
-export function effectivePermissions(member: TeamMember, roles: TeamRole[]): number {
+export function effectivePermissions(member: { role_ids: string[] }, roles: TeamRole[]): number {
   return member.role_ids.reduce((acc, rid) => {
     const role = roles.find((r) => r.id === rid);
     return acc | (role?.permissions ?? 0);
@@ -95,14 +95,5 @@ export function resolveCan(
 
   const myTeam = snapshot.teams.find((t) => t.id === teamId);
   if (!myTeam || roles.length === 0) return false;
-  const fakeMember: TeamMember = {
-    team_id: teamId,
-    user_id: snapshot.myUserId,
-    handle: "",
-    public_key: "",
-    invited_by_display_name: null,
-    joined_at: "",
-    role_ids: myTeam.role_ids,
-  };
-  return (effectivePermissions(fakeMember, roles) & PERM_BITS[permission]) !== 0;
+  return (effectivePermissions({ role_ids: myTeam.role_ids }, roles) & PERM_BITS[permission]) !== 0;
 }
