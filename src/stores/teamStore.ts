@@ -177,6 +177,7 @@ export const useTeamStore = create<TeamStore>()(
         membersByTeam,
         rolesByTeam,
         pendingInvitationsByTeam,
+        activeTeamId: s.activeTeamId === teamId ? null : s.activeTeamId,
       };
     });
   },

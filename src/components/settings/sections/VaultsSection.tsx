@@ -6,7 +6,7 @@ import { useVaultContents } from "@/hooks/useVaultContents";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
-import { getMyUserId, inviteByEmail, listPendingInvitations, revokePendingInvitation } from "@/services/teamService";
+import { deleteTeam, getMyUserId, inviteByEmail, listPendingInvitations, revokePendingInvitation } from "@/services/teamService";
 import type { PendingInvitation } from "@/services/teamService";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -19,105 +19,11 @@ import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
 import { UserSearchField } from "@/components/shared/UserSearchField";
 import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
 import { runTeamAction } from "@/services/teamActionFeedback";
+import { createTeamVaultFromVault } from "@/services/vaultConvert";
+import { reloadLocalVaultObjectStores } from "@/services/vaultTeamMigration";
 
-import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
 import { openBillingCheckout } from "@/services/billingCheckout";
-import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
-
-// ─── Vault migration helpers ──────────────────────────────────────────────────
-
-async function migrateVaultToTeam(
-  vaultId: string,
-  teamId: string,
-): Promise<void> {
-  const { useConnectionStore } = await import("@/stores/connectionStore");
-  const { useIdentityStore } = await import("@/stores/identityStore");
-  const { useKeyStore } = await import("@/stores/keyStore");
-  const { useFolderStore } = await import("@/stores/folderStore");
-  const { useSnippetStore } = await import("@/stores/snippetStore");
-  const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
-  const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
-  const { saveTeamVaultObject } = await import("@/services/teamObjectPersistence");
-  const { backfillExistingTeamVaultSecrets } = await import("@/services/teamVaultSecrets");
-
-  const now = new Date().toISOString();
-
-  // Clone entities from personal disk into team memory slices
-  const conns = useConnectionStore.getState().connections
-    .filter((c) => (c.vault_id ?? "personal") === vaultId)
-    .map((c) => ({ ...c, vault_id: teamId, updated_at: now }));
-  const identities = useIdentityStore.getState().identities
-    .filter((i) => (i.vault_id ?? "personal") === vaultId)
-    .map((i) => ({ ...i, vault_id: teamId, updated_at: now }));
-  const keys = useKeyStore.getState().keys
-    .filter((k) => (k.vault_id ?? "personal") === vaultId)
-    .map((k) => ({ ...k, vault_id: teamId, updated_at: now }));
-  const folders = useFolderStore.getState().folders
-    .filter((f) => (f.vault_id ?? "personal") === vaultId)
-    .map((f) => ({ ...f, vault_id: teamId, updated_at: now }));
-  const snippets = useSnippetStore.getState().snippets
-    .filter((s) => (s.vault_id ?? "personal") === vaultId)
-    .map((s) => ({ ...s, vault_id: teamId, updated_at: now }));
-  const snippetFolders = useSnippetFolderStore.getState().folders
-    .filter((f) => (f.vault_id ?? "personal") === vaultId)
-    .map((f) => ({ ...f, vault_id: teamId, updated_at: now }));
-  const portRules = usePortForwardingStore.getState().rules
-    .filter((r) => (r.vault_id ?? "personal") === vaultId)
-    .map((r) => ({ ...r, vault_id: teamId, updated_at: now }));
-
-  // Push each entity to the per-object API — this is what members read on fetch
-  await Promise.all([
-    ...conns.map((c) => saveTeamVaultObject(teamId, "connection", c)),
-    ...identities.map((i) => saveTeamVaultObject(teamId, "identity", i)),
-    ...keys.map((k) => saveTeamVaultObject(teamId, "key", k)),
-    ...folders.map((f) => saveTeamVaultObject(teamId, "folder", f)),
-    ...snippets.map((s) => saveTeamVaultObject(teamId, "snippet", s)),
-    ...snippetFolders.map((f) => saveTeamVaultObject(teamId, "snippet_folder", f)),
-    ...portRules.map((r) => saveTeamVaultObject(teamId, "port_forwarding_rule", r)),
-  ]);
-
-  // Populate in-memory stores so backfillExistingTeamVaultSecrets can resolve IDs,
-  // and so the UI reflects the migration immediately
-  useConnectionStore.getState().setTeamConnections(teamId, conns);
-  useIdentityStore.getState().setTeamIdentities(teamId, identities);
-  useKeyStore.getState().setTeamKeys(teamId, keys);
-  useFolderStore.getState().setTeamFolders(teamId, folders);
-  useSnippetStore.getState().setTeamSnippets(teamId, snippets);
-  useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, snippetFolders);
-  usePortForwardingStore.getState().setTeamRules(teamId, portRules);
-
-  // Upload secrets while they still exist in the local keychain
-  await backfillExistingTeamVaultSecrets(teamId);
-
-  const [connApi, identApi, keyApi, folderApi, snippetApi, pfApi] = await Promise.all([
-    import("@/services/connections"),
-    import("@/services/identities"),
-    import("@/services/keys"),
-    import("@/services/folders"),
-    import("@/services/snippets"),
-    import("@/services/portForwardingRules"),
-  ]);
-  await Promise.allSettled([
-    ...conns.map((e) => connApi.deleteConnection(e.id)),
-    ...identities.map((e) => identApi.deleteIdentity(e.id)),
-    ...keys.map((e) => keyApi.deleteKey(e.id)),
-    ...folders.map((e) => folderApi.deleteFolder(e.id)),
-    ...snippets.map((e) => snippetApi.deleteSnippet(e.id)),
-    ...snippetFolders.map((e) => snippetApi.deleteSnippetFolder(e.id)),
-    ...portRules.map((e) => pfApi.deletePfRule(e.id)),
-  ]);
-
-  await Promise.all([
-    useConnectionStore.getState().loadConnections(),
-    useIdentityStore.getState().loadIdentities(),
-    useKeyStore.getState().loadKeys(),
-    useFolderStore.getState().loadFolders(),
-    useSnippetStore.getState().loadSnippets(),
-    useSnippetFolderStore.getState().loadFolders(),
-    usePortForwardingStore.getState().loadRules(),
-  ]);
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -730,8 +636,7 @@ export function PrivateVaultMembersPanel({
   const { t } = useTranslation();
   const { isTeams, accountMode } = useSubscriptionStore();
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
-  const { createTeam, loadRoles, addMemberById, assignMemberRole } = useTeamStore();
-  const { setVaultTeamId } = useVaultStore();
+  const { loadRoles, addMemberById, assignMemberRole } = useTeamStore();
 
   const { query, setQuery, results, searching, open, setOpen, inputRef, dropdownRef, reset } = useUserSearch();
   const [adding, setAdding] = useState<string | null>(null);
@@ -741,22 +646,17 @@ export function PrivateVaultMembersPanel({
     setAdding(user.user_id);
     setError("");
     try {
-      const team = await createTeam(vaultName);
-      setVaultTeamId(vaultId, team.id);
-      const { initTeamVaultKey } = await import("@/services/teamVaultSync");
-      await initTeamVaultKey(team.id, []);
-      await migrateVaultToTeam(vaultId, team.id);
-      markTeamVaultLoadedAfterLocalActivation(team.id, useTeamVaultStateStore.getState());
-      await addMemberById(team.id, user.user_id);
-      await loadRoles(team.id);
-      const memberRole = useTeamStore.getState().rolesByTeam[team.id]?.find(
+      const teamId = await createTeamVaultFromVault(vaultId, vaultName);
+      await addMemberById(teamId, user.user_id);
+      await loadRoles(teamId);
+      const memberRole = useTeamStore.getState().rolesByTeam[teamId]?.find(
         (r) => r.is_builtin && r.name === "member",
       );
       if (memberRole) {
-        await assignMemberRole(team.id, user.user_id, memberRole.id);
+        await assignMemberRole(teamId, user.user_id, memberRole.id);
       }
       reset();
-      onTeamCreated(team.id);
+      onTeamCreated(teamId);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("settings.vaults.members.failedToAdd"));
     } finally {
@@ -913,7 +813,6 @@ function VaultGeneralTab({
       const folderApi = await import("@/services/folders");
       const snippetApi = await import("@/services/snippets");
       const pfApi = await import("@/services/portForwardingRules");
-      const { fetchWithAuth, getServerUrl } = await import("@/services/sync");
       const { clearTeamKeyCache } = await import("@/services/teamVaultSync");
       const { useTeamVaultStateStore } = await import("@/stores/teamVaultStateStore");
 
@@ -964,20 +863,9 @@ function VaultGeneralTab({
       useTeamVaultStateStore.getState().setStatus(teamId, "idle");
 
       // Delete team on server (cascades all team tables)
-      const serverUrl = await getServerUrl();
-      if (serverUrl) {
-        await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}`, { method: "DELETE" }).catch(() => {});
-      }
+      await deleteTeam(teamId).catch(() => {});
 
-      await Promise.all([
-        useConnectionStore.getState().loadConnections(),
-        useIdentityStore.getState().loadIdentities(),
-        useKeyStore.getState().loadKeys(),
-        useFolderStore.getState().loadFolders(),
-        useSnippetStore.getState().loadSnippets(),
-        useSnippetFolderStore.getState().loadFolders(),
-        usePortForwardingStore.getState().loadRules(),
-      ]);
+      await reloadLocalVaultObjectStores();
 
       const { useNotificationStore } = await import("@/stores/notificationStore");
       const memberN = membersByTeam[teamId]?.length ?? 0;

@@ -115,6 +115,7 @@ test("removeMember drops the member; removeTeam purges all team-scoped maps", as
   useTeamStore.setState({
     teams: [team("t1")], membersByTeam: { t1: [member("u1"), member("u2")] },
     rolesByTeam: { t1: [role("r1")] }, pendingInvitationsByTeam: { t1: [] },
+    activeTeamId: "t1",
   });
   await get().removeMember("t1", "u1");
   expect(get().membersByTeam.t1.map((m) => m.user_id)).toEqual(["u2"]);
@@ -122,6 +123,7 @@ test("removeMember drops the member; removeTeam purges all team-scoped maps", as
   expect(get().teams).toEqual([]);
   expect(get().membersByTeam.t1).toBeUndefined();
   expect(get().rolesByTeam.t1).toBeUndefined();
+  expect(get().activeTeamId).toBeNull();
 });
 
 const cachedRoles = () => {

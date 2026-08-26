@@ -110,6 +110,7 @@
       "cannotDeleteBuiltinRoles": "Встроенные роли нельзя удалять",
       "noPermissionInviteMembers": "У вас нет прав на приглашение участников",
       "failedToCreateTeam": "Не удалось создать команду: {{status}}",
+      "failedToDeleteTeam": "Не удалось удалить команду: {{status}}",
       "failedToListMembers": "Не удалось получить список участников: {{status}}",
       "failedToListVaultKeyHolders": "Не удалось получить список владельцев ключа хранилища: {{status}}",
       "failedToAddMember": "Не удалось добавить участника: {{status}}",

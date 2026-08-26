@@ -54,7 +54,7 @@
     },
     "convert": {
       "title": "Share \"{{vault}}\" with other people?",
-      "body": "This turns your private vault into a team vault.",
+      "body": "This turns your private vault into a team vault. Everything already in it moves across, so the people you add see it too.",
       "offlineWarning": "Opens only while Voltius can reach the sync server — no offline access.",
       "keyCustody": "Everyone you add gets a copy of its key. Removing them later doesn't take it back.",
       "change": "There's no way back to private.",
