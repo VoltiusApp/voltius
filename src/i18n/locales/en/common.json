@@ -110,6 +110,7 @@
       "cannotDeleteBuiltinRoles": "Cannot delete builtin roles",
       "noPermissionInviteMembers": "You don't have permission to invite members",
       "failedToCreateTeam": "Failed to create team: {{status}}",
+      "failedToDeleteTeam": "Failed to delete team: {{status}}",
       "failedToListMembers": "Failed to list members: {{status}}",
       "failedToListVaultKeyHolders": "Failed to list vault key holders: {{status}}",
       "failedToAddMember": "Failed to add member: {{status}}",

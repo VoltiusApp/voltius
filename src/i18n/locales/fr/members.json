@@ -54,7 +54,7 @@
     },
     "convert": {
       "title": "Partager « {{vault}} » avec d'autres personnes ?",
-      "body": "Ceci transforme votre coffre-fort privé en coffre-fort d'équipe.",
+      "body": "Ceci transforme votre coffre-fort privé en coffre-fort d'équipe. Tout ce qu'il contient déjà y est transféré, et devient donc visible par les personnes que vous ajoutez.",
       "offlineWarning": "Ne s'ouvre que si Voltius joint le serveur de synchronisation — pas d'accès hors ligne.",
       "keyCustody": "Chaque personne ajoutée reçoit une copie de la clé. La retirer plus tard ne la reprend pas.",
       "change": "Il n'y a pas de retour possible au statut privé.",

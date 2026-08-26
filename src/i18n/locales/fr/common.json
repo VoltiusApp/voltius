@@ -110,6 +110,7 @@
       "cannotDeleteBuiltinRoles": "Impossible de supprimer les rôles intégrés",
       "noPermissionInviteMembers": "Vous n'avez pas la permission d'inviter des membres",
       "failedToCreateTeam": "Échec de la création de l'équipe : {{status}}",
+      "failedToDeleteTeam": "Échec de la suppression de l'équipe : {{status}}",
       "failedToListMembers": "Échec du chargement des membres : {{status}}",
       "failedToListVaultKeyHolders": "Échec du chargement des détenteurs de clé de coffre : {{status}}",
       "failedToAddMember": "Échec de l'ajout du membre : {{status}}",
