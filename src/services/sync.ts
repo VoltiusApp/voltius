@@ -865,6 +865,12 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
   } else if (eventData.startsWith("pending_invitations_changed:")) {
     useTeamStore.getState().loadMyPendingInvitations().catch(() => {});
   } else if (eventData === "membership_changed") {
+    // Also fired at every recipient of a freshly wrapped vault key. Those users
+    // are already members, so the delta below is zero and nothing would re-read
+    // the key that just landed (issue #70).
+    const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");
+    refreshAwaitingKeyTeams().catch(() => {});
+
     handleMembershipChangedEvent({
       getTeamIds: () => useTeamStore.getState().teams.map((t) => t.id),
       loadTeams: () => useTeamStore.getState().loadTeams(),

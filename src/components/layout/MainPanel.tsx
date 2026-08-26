@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
 import { sessionClosed } from "@/stores/reconnectBackoff";
@@ -6,6 +7,7 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { fetchTeamData } from "@/services/teamVaultSync";
+import { ownerHandle, selectedTeamId } from "@/services/teamVaultFirstAccess";
 import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
 import { HostAwareTerminalView, SessionConnectionOverlay } from "@/components/terminal/SessionView";
@@ -63,12 +65,24 @@ function TeamVaultState({
   const { t } = useTranslation();
   const team = useTeamStore((s) => s.teams.find((t) => t.id === teamId));
   const rolesByTeam = useTeamStore((s) => s.rolesByTeam);
+  const members = useTeamStore((s) => s.membersByTeam[teamId]);
+  const loadMembers = useTeamStore((s) => s.loadMembers);
   const myRoleIds = team?.role_ids ?? [];
   const teamRoles = rolesByTeam[teamId] ?? [];
   const isOwner = myRoleIds.some((rid) => {
     const r = teamRoles.find((role) => role.id === rid);
     return r?.is_builtin && r.name === "owner";
   });
+
+  // The waiting copy names the owner the user is waiting on, so the roster has
+  // to be there — this panel replaces the pages that would otherwise load it.
+  useEffect(() => {
+    if (status === "awaiting_key" && !members) loadMembers(teamId).catch(() => {});
+  }, [status, members, teamId, loadMembers]);
+
+  // Generic until the handle resolves: a name flashing in from blank reads worse
+  // than the sentence that never had one.
+  const owner = ownerHandle(team, members);
 
   const configs: Record<string, { icon: string; title: string; body: string }> = {
     offline: {
@@ -87,7 +101,9 @@ function TeamVaultState({
     awaiting_key: {
       icon: "lucide:clock",
       title: t("layout.mainPanel.teamVault.waitingForAccessTitle"),
-      body: t("layout.mainPanel.teamVault.waitingForAccessBody"),
+      body: owner
+        ? t("layout.mainPanel.teamVault.waitingForAccessBodyNamed", { owner: `@${owner}` })
+        : t("layout.mainPanel.teamVault.waitingForAccessBody"),
     },
     payment_required: {
       icon: "lucide:credit-card",
@@ -153,18 +169,7 @@ function useSelectedTeamId(): string | null {
   const vaults = useVaultStore((s) => s.vaults);
   const teams = useTeamStore((s) => s.teams);
 
-  if (selectedVaultIds.length !== 1) return null;
-  const vid = selectedVaultIds[0];
-
-  // Standalone team
-  const team = teams.find((t) => t.id === vid);
-  if (team) return team.id;
-
-  // Vault linked to a team
-  const vault = vaults.find((v) => v.id === vid);
-  if (vault?.teamId) return vault.teamId;
-
-  return null;
+  return selectedTeamId(selectedVaultIds, vaults, teams);
 }
 
 export default function MainPanel() {
