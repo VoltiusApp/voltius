@@ -271,11 +271,17 @@ function EnableToggle({ manifest, enabled, onToggle }: {
 }
 
 /**
- * Seeded first-party plugins have no static entry anywhere — the runtime registry
- * is the only place that knows they exist. `excludeIds` strips out externally-installed
- * ids so a plugin is never listed twice.
+ * The plugins that ship with the app: loaded, but with no installedMeta entry of
+ * their own. They have no static entry anywhere — the runtime registry is the only
+ * place that knows they exist — so they are found by subtraction, with `excludeIds`
+ * stripping out externally-installed ids so a plugin is never listed twice.
+ *
+ * NOT "the seeded ones": an id can be loaded with no seeded artifact behind it (its
+ * installedMeta entry went missing, or two plugins collide on an id), and it belongs
+ * in this list too. Anything that needs a genuine app-bundled artifact must check
+ * `seededEntries` instead — see the Update guard below.
  */
-function seededPluginManifests(excludeIds: Set<string>): PluginManifest[] {
+function bundledPluginManifests(excludeIds: Set<string>): PluginManifest[] {
   return getLoadedPlugins().filter((m) => !excludeIds.has(m.id));
 }
 
@@ -381,9 +387,9 @@ export function InstalledTab() {
   const externalPluginIds = new Set(installedMeta.map((m) => m.id));
   const externalManifests = getLoadedPlugins().filter((m) => externalPluginIds.has(m.id));
 
-  const seeded = seededPluginManifests(externalPluginIds);
-  const allSeeded = visiblePlugins(
-    seeded.map((manifest) => ({ manifest })),
+  const bundled = bundledPluginManifests(externalPluginIds);
+  const allBundled = visiblePlugins(
+    bundled.map((manifest) => ({ manifest })),
     isAndroid,
   );
   const allExternal = installedMeta;
@@ -394,7 +400,7 @@ export function InstalledTab() {
     return name.toLowerCase().includes(q) || (description ?? "").toLowerCase().includes(q);
   };
 
-  const filteredSeeded = allSeeded.filter(({ manifest }) =>
+  const filteredBundled = allBundled.filter(({ manifest }) =>
     matchesSearch(manifest.name, manifest.description),
   );
   const filteredExternal = allExternal.filter((meta) => {
@@ -430,8 +436,8 @@ export function InstalledTab() {
     </div>
     <div className="flex-1 overflow-y-auto p-6 space-y-5">
       <div className="space-y-2">
-        {/* Seeded first-party plugins */}
-        {filteredSeeded.map(({ manifest }) => {
+        {/* Plugins bundled with the app */}
+        {filteredBundled.map(({ manifest }) => {
           const enabled = isEnabled(manifest.id, manifest.defaultEnabled ?? true) && loadedIds.has(manifest.id);
           const pluginPages = [...settingsPages.values()].filter((p) => p.id.startsWith(manifest.id));
           const hasAutoConfig = !!manifest.contributes?.configuration && Object.keys(manifest.contributes.configuration).length > 0;
@@ -617,7 +623,7 @@ export function InstalledTab() {
           );
         })}
 
-        {filteredSeeded.length === 0 && filteredExternal.length === 0 && (
+        {filteredBundled.length === 0 && filteredExternal.length === 0 && (
           <p className="text-sm text-center py-8 text-(--t-text-dim)">
             {search
               ? t("settings.plugins.installed.noMatch")
@@ -973,11 +979,11 @@ export default function PluginsSection() {
   // Filtered through visiblePlugins before anything counts against it — a desktopOnly
   // seeded plugin (e.g. ssh-config) is still loaded on Android but renders no row and
   // no button there, so an update for it must never be counted either.
-  const visibleSeededManifests = visiblePlugins(
-    seededPluginManifests(externalIds).map((manifest) => ({ manifest })),
+  const visibleBundledManifests = visiblePlugins(
+    bundledPluginManifests(externalIds).map((manifest) => ({ manifest })),
     isAndroid,
   ).map(({ manifest }) => manifest);
-  const totalCount = installedMeta.length + visibleSeededManifests.length;
+  const totalCount = installedMeta.length + visibleBundledManifests.length;
   const [seededEntries, setSeededEntries] = useState<Map<string, SeededEntry>>(new Map());
 
   // Fetch the catalog once on mount so update detection works before visiting Browse.
@@ -991,7 +997,7 @@ export default function PluginsSection() {
   // manifest with no real seeded artifact must never count toward "N updates"
   // either, or the badge promises an update the UI has nowhere to act on.
   const updateCount = installedMeta.filter((m) => availableUpdate(m, catalog)).length
-    + visibleSeededManifests.filter((m) => seededEntries.has(m.id) && availableSeededUpdate(m, catalog, appVersion)).length;
+    + visibleBundledManifests.filter((m) => seededEntries.has(m.id) && availableSeededUpdate(m, catalog, appVersion)).length;
 
   const tabLabel = (tabKey: Tab) => {
     if (tabKey === "browse") return t("settings.plugins.tabs.browse");
