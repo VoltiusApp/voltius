@@ -93,7 +93,9 @@ async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> 
  *
  * Throws typed string errors for callers to route to the right UX state:
  *   "offline"          — network error or navigator.onLine === false
- *   "forbidden"        — server returned 403 (membership revoked)
+ *   "forbidden"        — server returned 403 (removed from the team, or the
+ *                        caller's role lacks VIEW_SECRETS — callers that can
+ *                        tell the two apart should; see fetchTeamData)
  *   "payment_required" — server returned 402 (subscription lapsed)
  *   "awaiting_key"     — server returned 404 (no wrapped key for this member yet)
  *   "error"            — anything else
@@ -316,10 +318,20 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   try {
     key = await getTeamVaultKey(teamId);
   } catch (err) {
-    const validStatuses = ["offline", "forbidden", "payment_required", "awaiting_key", "error"] as const;
-    type S = typeof validStatuses[number];
-    const status: S = validStatuses.includes(err as S) ? (err as S) : "error";
     if (options.background) return;
+    const validStatuses = ["offline", "forbidden", "payment_required", "awaiting_key", "error"] as const;
+    type Thrown = typeof validStatuses[number];
+    let status: Thrown | "loaded" = validStatuses.includes(err as Thrown) ? (err as Thrown) : "error";
+    // A 403 here means one of two very different things: the caller was removed
+    // from the team, or their role simply lacks VIEW_SECRETS (connect-only,
+    // issue #187). The route cannot tell them apart, but the client can — a
+    // revoked member no longer has the team in their own team list. A 403 while
+    // the team is still listed is a role restriction, and such a member reads
+    // this vault through the object routes only: the empty list they just got
+    // IS their view of the vault, so show it rather than a false revocation.
+    if (status === "forbidden" && (await _isStillATeamMember(teamId))) {
+      status = "loaded";
+    }
     // Clear team store slices so stale data doesn't linger
     await _clearTeamStores(teamId);
     stateStore.setStatus(teamId, status);
@@ -374,6 +386,16 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   }
 
   stateStore.setStatus(teamId, "loaded");
+}
+
+/**
+ * True when the client still lists `teamId` among the caller's teams. The
+ * server drops revoked teams from that list and `onTeamRemoved` clears the
+ * store, so this separates "your role can't do that" from "you were removed".
+ */
+async function _isStillATeamMember(teamId: string): Promise<boolean> {
+  const { useTeamStore } = await import("@/stores/teamStore");
+  return useTeamStore.getState().teams.some((t) => t.id === teamId);
 }
 
 async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<void> {
