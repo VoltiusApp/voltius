@@ -90,6 +90,28 @@ export interface HostCommandFieldsState {
   setTerminalEncoding: (v: string) => void;
 }
 
+/** One labelled row in a form's advanced block: icon, label, and a control
+ * pushed to the right edge. */
+export function SettingRow({
+  icon,
+  label,
+  title,
+  children,
+}: {
+  icon: string;
+  label: string;
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1" title={title}>
+      <Icon icon={icon} width={13} />
+      <span>{label}</span>
+      <span className="ml-auto">{children}</span>
+    </div>
+  );
+}
+
 /** The pre/post command state both forms keep and submit. */
 export function useHostCommandFields(initial?: Connection): HostCommandFieldsState {
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");

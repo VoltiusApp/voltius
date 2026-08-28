@@ -114,7 +114,7 @@ const adapters: Adapter[] = [
     store: useConnectionStore as unknown as Store,
     localKey: "connections", teamKey: "teamConnections",
     persistKind: "connection", auditKind: "connection", pinField: "pinned",
-    pinPayloadKeys: ["name", "host", "port", "username", "auth_type", "tags", "identity_id", "key_id", "folder_id", "vault_id", "jump_hosts", "env_vars", "agent_forwarding", "legacy_algorithms", "pre_command", "post_command", "pre_snippet_id", "post_snippet_id", "ask_vars_each_time", "terminal_encoding", "distro", "icon", "pinned", "ping_disabled", "shell_integration", "keepalive_preset", "connection_type", "serial_port", "serial_baud", "serial_data_bits", "serial_parity", "serial_stop_bits", "serial_flow_control", "ftp_secure", "notes"],
+    pinPayloadKeys: ["name", "host", "port", "username", "auth_type", "tags", "identity_id", "key_id", "folder_id", "vault_id", "jump_hosts", "env_vars", "agent_forwarding", "legacy_algorithms", "pre_command", "post_command", "pre_snippet_id", "post_snippet_id", "ask_vars_each_time", "terminal_encoding", "distro", "icon", "pinned", "ping_disabled", "shell_integration", "keepalive_preset", "connection_type", "serial_port", "serial_baud", "serial_data_bits", "serial_parity", "serial_stop_bits", "serial_flow_control", "serial_auto_reconnect", "ftp_secure", "notes"],
     api: h.connections,
     seed: (o) => ({ id: "x1", name: "Web", host: "h", port: 22, username: "u", auth_type: "key", tags: [], vault_id: "personal", ...stamps, ...o }),
     form: (o) => ({ name: "Web", host: "h", port: 22, username: "u", auth_type: "key", tags: [], vault_id: "personal", ...o }),

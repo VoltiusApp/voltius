@@ -138,6 +138,7 @@ export interface Connection {
   serial_parity?: string;
   serial_stop_bits?: number;
   serial_flow_control?: string;
+  serial_auto_reconnect?: boolean;
   updated_at: string;
   deleted_at?: string;
   clocks: Record<string, string>;
@@ -180,6 +181,7 @@ export interface ConnectionFormData {
   serial_parity?: string;
   serial_stop_bits?: number;
   serial_flow_control?: string;
+  serial_auto_reconnect?: boolean;
 }
 
 export interface KnownHost {
@@ -224,6 +226,9 @@ export interface TerminalSession {
   encoding?: string;
   localShell?: string;
   serialConfig?: SerialConnectParams;
+  /** Serial only, ephemeral sessions: the auto-reconnect preference has no
+   * connection to live on, so it is held here for the session's lifetime. */
+  autoReconnect?: boolean;
   /** Serial only: port typed at quick-connect time, prefilled into the config overlay. */
   initialSerialPort?: string;
   containerExec?:

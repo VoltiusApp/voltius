@@ -9,6 +9,7 @@ import { useHostPingStore } from "@/stores/hostPingStore";
 import { usePluginStore, findRightPanelSectionWithFlag } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { serialAutoReconnectEnabled } from "@/stores/serialAutoReconnect";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { getPfState } from "@/services/portForwardingTunnels";
@@ -120,6 +121,31 @@ const SPARKLINE_MAX = 20;
 const statusBarItemClass = "h-full rounded-none transition-colors hover:bg-(--t-bg-card-hover)";
 const statusBarIdentityGroupClass = "flex items-center h-full";
 
+function StatusBarIconButton({
+  icon,
+  title,
+  color,
+  dimmed,
+  onClick,
+}: {
+  icon: string;
+  title: string;
+  color: string;
+  dimmed?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={`items-center px-1 ${statusBarItemClass}`}
+      style={{ color, display: "flex", alignItems: "center", opacity: dimmed ? 0.45 : 1 }}
+    >
+      <Icon icon={icon} width={11} />
+    </button>
+  );
+}
+
 export function TerminalStatusBar({ sessionId, sessionType, connectionId, connectionName, serialConfig, sessionStatus, dimensions }: Props) {
   const { t } = useTranslation();
   const connections = useAllConnections();
@@ -138,6 +164,10 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
   const monitoringActive = metricsSectionId !== null;
   const reconnect = useSessionStore((s) => s.reconnect);
   const disconnect = useSessionStore((s) => s.disconnect);
+  const closeSerialPort = useSessionStore((s) => s.closeSerialPort);
+  const setSerialAutoReconnect = useSessionStore((s) => s.setSerialAutoReconnect);
+  const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
+  const serialAutoReconnect = session ? serialAutoReconnectEnabled(session, connection) : true;
 
   const [tunnels, setTunnels] = useState<ActiveTunnel[]>([]);
   const [pulse, setPulse] = useState(false);
@@ -648,14 +678,12 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                 </span>
               </div>
               {isDisconnectedOrError && (
-                <button
-                  onClick={() => void reconnect(sessionId)}
+                <StatusBarIconButton
+                  icon="lucide:rotate-ccw"
                   title={t("terminal.statusBar.reconnectTitle")}
-                  className={`items-center px-1 ${statusBarItemClass}`}
-                  style={{ color: "var(--t-status-error)", display: "flex", alignItems: "center" }}
-                >
-                  <Icon icon="lucide:rotate-ccw" width={11} />
-                </button>
+                  color="var(--t-status-error)"
+                  onClick={() => void reconnect(sessionId)}
+                />
               )}
             </>
           )}
@@ -740,16 +768,21 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
               >
                 {copied ? t("terminal.statusBar.copiedBang") : (serialConfig ? `${serialConfig.port} · ${serialConfig.baud} baud` : t("terminal.statusBar.serialFallback"))}
               </span>
-              {isDisconnectedOrError && (
-                <button
-                  onClick={() => void reconnect(sessionId)}
-                  title={t("terminal.statusBar.reconnectTitle")}
-                  className={`items-center px-1 ${statusBarItemClass}`}
-                  style={{ color: "var(--t-status-error)", display: "flex", alignItems: "center" }}
-                >
-                  <Icon icon="lucide:rotate-ccw" width={11} />
-                </button>
-              )}
+              <StatusBarIconButton
+                icon={isDisconnectedOrError ? "lucide:plug" : "lucide:unplug"}
+                title={isDisconnectedOrError ? t("terminal.statusBar.serialReopen") : t("terminal.statusBar.serialClose")}
+                color={isDisconnectedOrError ? "var(--t-status-error)" : "var(--t-text-dim)"}
+                onClick={() =>
+                  void (isDisconnectedOrError ? reconnect(sessionId) : closeSerialPort(sessionId))
+                }
+              />
+              <StatusBarIconButton
+                icon={serialAutoReconnect ? "lucide:refresh-cw" : "lucide:refresh-cw-off"}
+                title={serialAutoReconnect ? t("terminal.statusBar.serialAutoReconnectOn") : t("terminal.statusBar.serialAutoReconnectOff")}
+                color="var(--t-text-dim)"
+                dimmed={!serialAutoReconnect}
+                onClick={() => void setSerialAutoReconnect(sessionId, !serialAutoReconnect)}
+              />
             </>
           )}
         </div>

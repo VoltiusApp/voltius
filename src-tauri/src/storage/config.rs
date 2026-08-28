@@ -175,6 +175,7 @@ pub struct Connection {
     pub serial_stop_bits: Option<u8>,
     #[serde(default)]
     pub serial_flow_control: Option<String>,
+    pub serial_auto_reconnect: Option<bool>,
     /// FTP only: use explicit FTPS (AUTH TLS) instead of plain FTP.
     #[serde(default)]
     pub ftp_secure: bool,
@@ -257,6 +258,7 @@ pub struct ConnectionFormData {
     pub serial_stop_bits: Option<u8>,
     #[serde(default)]
     pub serial_flow_control: Option<String>,
+    pub serial_auto_reconnect: Option<bool>,
     #[serde(default)]
     pub ftp_secure: bool,
     #[serde(default)]
@@ -1009,6 +1011,7 @@ mod tests {
             serial_parity: Some("none".into()),
             serial_stop_bits: Some(1),
             serial_flow_control: Some("none".into()),
+            serial_auto_reconnect: Some(true),
             ftp_secure: false,
             notes: Some("maintenance window: Sat".into()),
             updated_at: "2026-01-02T00:00:00Z".into(),

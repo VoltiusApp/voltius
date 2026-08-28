@@ -45,6 +45,7 @@ import {
 import { SecretInput, TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
 import {
   AdvancedDisclosure,
+  SettingRow,
   HostCommandFields,
   hostCommandFieldsSet,
   useHostCommandFields,
@@ -514,59 +515,40 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                   <Icon icon="lucide:chevron-right" width={12} className="ml-auto" />
                 </button>
                 <HostCommandFields connectionId={initial?.id} fields={hostCommands} markDirty={markDirty} />
-                <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
-                  <Icon icon="lucide:key-round" width={13} />
-                  <span>{t("connections.form.agentForwarding")}</span>
-                  <span className="ml-auto">
-                    <Toggle
-                      checked={agentForwarding}
-                      onChange={(v) => { markDirty(); setAgentForwarding(v); }}
-                    />
-                  </span>
-                </div>
-                <div
-                  className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1"
+                <SettingRow icon="lucide:key-round" label={t("connections.form.agentForwarding")}>
+                  <Toggle checked={agentForwarding} onChange={(v) => { markDirty(); setAgentForwarding(v); }} />
+                </SettingRow>
+                <SettingRow
+                  icon="lucide:shield-alert"
+                  label={t("connections.form.legacyAlgorithms")}
                   title={t("connections.form.legacyAlgorithmsTooltip")}
                 >
-                  <Icon icon="lucide:shield-alert" width={13} />
-                  <span>{t("connections.form.legacyAlgorithms")}</span>
-                  <span className="ml-auto">
-                    <Toggle
-                      checked={legacyAlgorithms}
-                      onChange={(v) => { markDirty(); setLegacyAlgorithms(v); }}
-                    />
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
-                  <Icon icon="lucide:terminal" width={13} />
-                  <span>{t("connections.form.shellIntegration")}</span>
+                  <Toggle checked={legacyAlgorithms} onChange={(v) => { markDirty(); setLegacyAlgorithms(v); }} />
+                </SettingRow>
+                <SettingRow icon="lucide:terminal" label={t("connections.form.shellIntegration")}>
                   <FormSelect
-                    className="ml-auto w-36"
+                    className="w-36"
                     value={shellIntegration}
                     options={shellIntegrationOptions}
                     onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
                   />
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
-                  <Icon icon="lucide:heart-pulse" width={13} />
-                  <span>{t("connections.form.keepalive")}</span>
+                </SettingRow>
+                <SettingRow icon="lucide:heart-pulse" label={t("connections.form.keepalive")}>
                   <FormSelect
-                    className="ml-auto w-36"
+                    className="w-36"
                     value={keepalivePreset}
                     options={keepaliveOptions}
                     onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
                   />
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
-                  <Icon icon="lucide:layers" width={13} />
-                  <span>{t("connections.form.persistentSession")}</span>
+                </SettingRow>
+                <SettingRow icon="lucide:layers" label={t("connections.form.persistentSession")}>
                   <FormSelect
-                    className="ml-auto w-36"
+                    className="w-36"
                     value={persistSession}
                     options={persistOptions}
                     onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
                   />
-                </div>
+                </SettingRow>
 
             </AdvancedDisclosure>
             </>)}
@@ -612,18 +594,14 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                 </div>
 
                 {isFtp && (
-                  <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
-                    <Icon icon="lucide:shield" width={13} />
-                    <span>{t("connections.form.ftpsToggle")}</span>
-                    <span className="ml-auto"><Toggle checked={ftpSecure} onChange={(v) => { markDirty(); setFtpSecure(v); }} /></span>
-                  </div>
+                  <SettingRow icon="lucide:shield" label={t("connections.form.ftpsToggle")}>
+                    <Toggle checked={ftpSecure} onChange={(v) => { markDirty(); setFtpSecure(v); }} />
+                  </SettingRow>
                 )}
                 {isFtp && (
-                  <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
-                    <Icon icon="lucide:user-x" width={13} />
-                    <span>{t("connections.form.anonymousLogin")}</span>
-                    <span className="ml-auto"><Toggle checked={username === "anonymous"} onChange={(v) => { markDirty(); setUsername(v ? "anonymous" : ""); }} /></span>
-                  </div>
+                  <SettingRow icon="lucide:user-x" label={t("connections.form.anonymousLogin")}>
+                    <Toggle checked={username === "anonymous"} onChange={(v) => { markDirty(); setUsername(v ? "anonymous" : ""); }} />
+                  </SettingRow>
                 )}
 
                 {!isFtp && (

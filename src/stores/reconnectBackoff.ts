@@ -1,4 +1,5 @@
-import { useSessionStore } from "./sessionStore";
+import { connectionForSession, useSessionStore } from "./sessionStore";
+import { serialAutoReconnectEnabled } from "./serialAutoReconnect";
 import { type BackoffStore, handleSessionClosed, runBackoff } from "./reconnectBackoffCore";
 
 const liveStore: BackoffStore = {
@@ -32,6 +33,10 @@ export function sessionClosed(sessionType: string, sessionId: string, remoteExit
     {
       status: (id) => useSessionStore.getState().sessions.find((s) => s.id === id)?.status,
       persist: (id) => !!useSessionStore.getState().sessions.find((s) => s.id === id)?.persist,
+      autoReconnect: (id) => {
+        const sess = useSessionStore.getState().sessions.find((s) => s.id === id);
+        return !sess || serialAutoReconnectEnabled(sess, connectionForSession(sess));
+      },
       markDisconnected: (id) => useSessionStore.getState().markDisconnected(id),
       reconnectWithBackoff,
       endSession: (id) => {

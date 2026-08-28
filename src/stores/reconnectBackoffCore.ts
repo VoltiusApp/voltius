@@ -104,6 +104,10 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
  * Persistent sessions are excluded: their wrapper also exits on a tmux/screen
  * detach, so there the attach probe (SESSION_ENDED) stays the judge.
  *
+ * Auto-reconnect turned off (serial devices that must release the port, #192):
+ * the drop just marks the session disconnected, leaving the port free and the
+ * reopen button armed.
+ *
  * local: just mark disconnected (no reconnect). */
 export function handleSessionClosed(
   sessionType: string,
@@ -111,6 +115,7 @@ export function handleSessionClosed(
   deps: {
     status: (id: string) => SessionStatus;
     persist: (id: string) => boolean;
+    autoReconnect: (id: string) => boolean;
     markDisconnected: (id: string) => void;
     reconnectWithBackoff: (id: string) => void;
     endSession: (id: string) => void;
@@ -122,6 +127,10 @@ export function handleSessionClosed(
     return;
   }
   if (deps.status(sessionId) !== "connected") return;
+  if (!deps.autoReconnect(sessionId)) {
+    deps.markDisconnected(sessionId);
+    return;
+  }
   if (remoteExit && !deps.persist(sessionId)) {
     deps.endSession(sessionId);
     return;

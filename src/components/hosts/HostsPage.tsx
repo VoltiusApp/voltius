@@ -438,6 +438,7 @@ export default function HostsPage() {
       serial_parity: conn.serial_parity,
       serial_stop_bits: conn.serial_stop_bits,
       serial_flow_control: conn.serial_flow_control,
+      serial_auto_reconnect: conn.serial_auto_reconnect,
       pre_command: conn.pre_command,
       post_command: conn.post_command,
       pre_snippet_id: conn.pre_snippet_id,

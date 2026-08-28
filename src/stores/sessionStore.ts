@@ -60,6 +60,10 @@ interface SessionStore {
   connectSerialEphemeral: (initialPort?: string) => Promise<void>;
   connectSerialEphemeralFinalize: (sessionId: string, params: SerialConnectParams) => Promise<void>;
   resetSerialEphemeral: (sessionId: string) => void;
+  /** Release the serial port while keeping the tab, its buffer and its
+   * config, so the user can hand the device to another tool and reopen (#192). */
+  closeSerialPort: (sessionId: string) => Promise<void>;
+  setSerialAutoReconnect: (sessionId: string, enabled: boolean) => Promise<void>;
   disconnect: (sessionId: string) => Promise<void>;
   setActive: (sessionId: string) => void;
   markDisconnected: (sessionId: string) => void;
@@ -98,6 +102,11 @@ function findConnection(connectionId: string): Connection | undefined {
     Object.values(teamConnections).flat().find((c) => c.id === connectionId) ??
     ephemeralConnections.get(connectionId)
   );
+}
+
+/** The saved, team or ephemeral connection a session was opened from. */
+export function connectionForSession(session: TerminalSession): Connection | undefined {
+  return session.connectionId ? findConnection(session.connectionId) : undefined;
 }
 
 function reportConnectionAudit(connection: Connection, action: ClientAuditAction): void {
@@ -383,6 +392,14 @@ function markSessionConnecting(set: SessionSetter, sessionId: string) {
       sess.id === sessionId
         ? { ...sess, status: "connecting" as const, errorMessage: undefined, errorCode: undefined }
         : sess,
+    ),
+  }));
+}
+
+function markSessionDisconnected(set: SessionSetter, sessionId: string) {
+  set((s) => ({
+    sessions: s.sessions.map((sess) =>
+      sess.id === sessionId ? { ...sess, status: "disconnected" as const } : sess,
     ),
   }));
 }
@@ -753,6 +770,35 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }));
   },
 
+  closeSerialPort: async (sessionId) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session || session.type !== "serial") return;
+    // Ordering matters: the backend emits serial-closed as soon as the port
+    // drops, and handleSessionClosed only starts the backoff loop for a session
+    // that still reads 'connected'.
+    markSessionDisconnected(set, sessionId);
+    cancelBackoff(sessionId);
+    await serialDisconnect(sessionId).catch(() => {});
+  },
+
+  setSerialAutoReconnect: async (sessionId, enabled) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+    const connection = connectionForSession(session);
+    if (connection) {
+      await useConnectionStore.getState().updateConnection(connection.id, {
+        ...connectionToFormData(connection),
+        serial_auto_reconnect: enabled,
+      });
+      return;
+    }
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, autoReconnect: enabled } : sess,
+      ),
+    }));
+  },
+
   disconnect: async (sessionId) => {
     cancelBackoff(sessionId);
     const session = get().sessions.find((s) => s.id === sessionId);
@@ -831,12 +877,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   setActive: (sessionId) => set({ activeSessionId: sessionId }),
 
-  markDisconnected: (sessionId) =>
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "disconnected" as const } : sess,
-      ),
-    })),
+  markDisconnected: (sessionId) => markSessionDisconnected(set, sessionId),
 
   // Steady "connecting" the auto-reconnect loop holds across attempts, so the
   // overlay shows the normal connection steps (TCP step spinning) instead of a
