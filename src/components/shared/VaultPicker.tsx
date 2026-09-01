@@ -92,7 +92,7 @@ export function VaultPicker({
         anchorRef={triggerRef}
         title={t("common.entity.vault")}
         width="content"
-        minWidth={208}
+        minWidth="13rem"
       >
         {allVaults.map((v) => {
               const selected = v.id === currentId;

@@ -24,8 +24,9 @@ export function PickerSurface({
    *  the anchor's width, which is what a field-shaped trigger wants. */
   width?: number | "content";
   /** Floor for a `"content"`-width surface, so a narrow trigger still opens a
-   *  readable menu. */
-  minWidth?: number;
+   *  readable menu. A CSS length: prefer `rem`, which tracks the UI scale the way
+   *  a Tailwind `min-w-*` on the surface used to. */
+  minWidth?: number | string;
   /** Cap on the surface's own height, before the space around the anchor is applied. */
   maxHeight?: number;
   /** Which anchor edge the surface lines up with. Right-align keeps a surface wider
