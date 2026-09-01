@@ -17,6 +17,8 @@ import {
   type DynamicContext,
 } from "@/services/snippetParser";
 import { buildDynamicContext } from "@/services/snippetRunCore";
+import { PickerSurface } from "@/components/shared/PickerSurface";
+import { MenuItemList, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { runSnippetSequence, reportSequenceResult } from "@/services/snippetSequence";
 import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
@@ -122,20 +124,25 @@ function SnippetRow({
 }: SnippetRowProps) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [movingToFolder, setMovingToFolder] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-        setMovingToFolder(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [menuOpen]);
+  const menuItems: ContextMenuItem[] = [
+    { label: t("common.action.edit"), icon: "lucide:pencil", onClick: onEdit },
+    { label: t("terminal.snippets.duplicate"), icon: "lucide:copy", onClick: onDuplicate },
+    {
+      label: t("terminal.snippets.moveToFolder"),
+      icon: "lucide:folder",
+      children: [
+        { label: t("terminal.snippets.unfiled"), icon: "lucide:inbox", onClick: () => onMoveToFolder(null) },
+        ...folders.map((f) => ({
+          label: f.name,
+          icon: "lucide:folder",
+          onClick: () => onMoveToFolder(f.id),
+        })),
+      ],
+    },
+    { label: t("common.action.delete"), icon: "lucide:trash-2", danger: true, divider: true, onClick: onDelete },
+  ];
 
   return (
     <div
@@ -194,80 +201,27 @@ function SnippetRow({
             <Icon icon="lucide:play" width={13} />
           </button>
 
-          <div className="relative" ref={menuRef}>
-            <button onClick={() => { setMenuOpen((o) => !o); setMovingToFolder(false); }}
+          <div>
+            <button
+              ref={menuButtonRef}
+              onClick={() => setMenuOpen((o) => !o)}
               className="w-6 h-6 flex items-center justify-center rounded-sm transition-colors"
               style={{ color: "var(--t-text-muted)" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}>
               <Icon icon="lucide:ellipsis" width={13} />
             </button>
-            {menuOpen && !movingToFolder && (
-              <div className="absolute right-0 top-7 z-50 rounded-lg shadow-lg border py-1 min-w-[150px]"
-                style={{ background: "var(--t-bg-modal)", borderColor: "var(--t-border)" }}>
-                <button onClick={() => { onEdit(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left"
-                  style={{ color: "var(--t-text-primary)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                  <Icon icon="lucide:pencil" width={12} /> {t("common.action.edit")}
-                </button>
-                <button onClick={() => { onDuplicate(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left"
-                  style={{ color: "var(--t-text-primary)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                  <Icon icon="lucide:copy" width={12} /> {t("terminal.snippets.duplicate")}
-                </button>
-                <button onClick={() => setMovingToFolder(true)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-xs text-left"
-                  style={{ color: "var(--t-text-primary)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                  <span className="flex items-center gap-2"><Icon icon="lucide:folder" width={12} /> {t("terminal.snippets.moveToFolder")}</span>
-                  <Icon icon="lucide:chevron-right" width={10} />
-                </button>
-                <div className="my-1 border-t" style={{ borderColor: "var(--t-border)" }} />
-                <button onClick={() => { onDelete(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left"
-                  style={{ color: "var(--t-status-error)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                  <Icon icon="lucide:trash-2" width={12} /> {t("common.action.delete")}
-                </button>
-              </div>
-            )}
-            {menuOpen && movingToFolder && (
-              <div className="absolute right-0 top-7 z-50 rounded-lg shadow-lg border py-1 min-w-[150px]"
-                style={{ background: "var(--t-bg-modal)", borderColor: "var(--t-border)" }}>
-                <button onClick={() => setMovingToFolder(false)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs"
-                  style={{ color: "var(--t-text-muted)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                  <Icon icon="lucide:arrow-left" width={11} /> {t("terminal.snippets.back")}
-                </button>
-                <div className="my-1 border-t" style={{ borderColor: "var(--t-border)" }} />
-                <button onClick={() => { onMoveToFolder(null); setMenuOpen(false); setMovingToFolder(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left"
-                  style={{ color: "var(--t-text-primary)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                  <Icon icon="lucide:inbox" width={12} /> {t("terminal.snippets.unfiled")}
-                </button>
-                {folders.map((f) => (
-                  <button key={f.id}
-                    onClick={() => { onMoveToFolder(f.id); setMenuOpen(false); setMovingToFolder(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left"
-                    style={{ color: "var(--t-text-primary)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                    <Icon icon="lucide:folder" width={12} style={{ color: f.color ?? "var(--t-text-muted)" }} />
-                    {f.name}
-                  </button>
-                ))}
-              </div>
-            )}
+            <PickerSurface
+              open={menuOpen}
+              onClose={() => setMenuOpen(false)}
+              anchorRef={menuButtonRef}
+              title={snippet.name}
+              width="content"
+              minWidth="12.667rem"
+              align="right"
+            >
+              <MenuItemList items={menuItems} onClose={() => setMenuOpen(false)} />
+            </PickerSurface>
           </div>
         </div>
       </div>
