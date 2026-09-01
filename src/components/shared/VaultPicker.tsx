@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId } from "@/services/teamService";
 import { effectivePermissions, PERM_BITS } from "@/hooks/usePermission";
+import { PickerSurface } from "./PickerSurface";
 
 export function VaultPicker({
   vaultId,
@@ -19,9 +19,7 @@ export function VaultPicker({
   const { teams, membersByTeam, loadMembers, loadTeams, rolesByTeam, loadRoles } = useTeamStore();
   const [myUserId, setMyUserId] = useState("");
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getMyUserId().then((id) => { if (id) setMyUserId(id); }).catch(() => {});
@@ -68,14 +66,6 @@ export function VaultPicker({
   const currentVault = allVaults.find((v) => v.id === currentId);
   const label = currentVault?.name ?? t("common.entity.personal");
 
-  const handleOpen = () => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.left });
-    }
-    setOpen((o) => !o);
-  };
-
   const select = (id: string) => {
     if (!canWrite(id)) return;
     onChange(id);
@@ -88,7 +78,7 @@ export function VaultPicker({
       <button
         ref={triggerRef}
         type="button"
-        onClick={handleOpen}
+        onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1 text-xs select-none transition-opacity hover:opacity-80"
         style={{ color: "var(--t-text-dim)" }}
       >
@@ -96,18 +86,15 @@ export function VaultPicker({
         <Icon icon="lucide:chevron-down" width={11} style={{ color: "var(--t-text-dim)" }} />
       </button>
 
-      {open && createPortal(
-        <>
-          <div className="fixed inset-0 z-9998" onClick={() => setOpen(false)} />
-          <div
-            ref={dropdownRef}
-            className="surface-float fixed z-9999 p-1.5 min-w-52"
-            style={{
-              top: pos.top,
-              left: pos.left,
-            }}
-          >
-            {allVaults.map((v) => {
+      <PickerSurface
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={triggerRef}
+        title={t("common.entity.vault")}
+        width="content"
+        minWidth="13rem"
+      >
+        {allVaults.map((v) => {
               const selected = v.id === currentId;
               const writable = canWrite(v.id);
               const role = v.team ? myPrimaryRoleIn(v.id) : "";
@@ -145,11 +132,8 @@ export function VaultPicker({
                   )}
                 </button>
               );
-            })}
-          </div>
-        </>,
-        document.body
-      )}
+        })}
+      </PickerSurface>
     </>
   );
 }

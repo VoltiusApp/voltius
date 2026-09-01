@@ -24,6 +24,8 @@ import {
   formInputClass, formInputStyle, formLabelClass, formLabelStyle,
 } from "@/components/shared/Panel";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
+import { PickerSurface } from "@/components/shared/PickerSurface";
+import { PickerDivider, PickerOption, PickerTrigger } from "@/components/shared/pickerParts";
 import { PinButton } from "@/components/shared/PinButton";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -37,34 +39,11 @@ import { buildKeychainMenuItems } from "@/utils/keychainMenuItems";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 
 // ─────────────────────────────────────────────────────────────────
-// Dropdown sub-components (used by KeySelector)
-// ─────────────────────────────────────────────────────────────────
 
-function DropdownItem({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
-      style={{ color: active ? "var(--t-accent)" : "var(--t-text-secondary)" }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-    >
-      <Icon icon={icon} width={13} className="shrink-0" />
-      <span className="flex-1 text-left truncate">{label}</span>
-      {active && <Icon icon="lucide:check" width={13} className="text-(--t-accent)" />}
-    </button>
-  );
-}
-
-function DropdownDivider() {
-  return <div className="my-1 border-t border-t-(--t-bg-card-hover)" />;
-}
-
-// ─────────────────────────────────────────────────────────────────
-// KeySelector dropdown
-// ─────────────────────────────────────────────────────────────────
-
+// Deliberately not shared with connections/KeySelector: that one picks between an
+// inline key and the keychain and ends in a "manage in keychain" action, this one
+// has a third "no key" state and none of the key-type badges. Unifying them would
+// take more props than the two compositions cost lines.
 function KeySelector({
   value, onChange, vaultId,
 }: {
@@ -85,93 +64,52 @@ function KeySelector({
     resolveVaultId: resolveVaultIdForSave,
   }), [effectiveVaultId, personalKeys, teamKeys, teamVaultIds]);
   const [open, setOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top?: number; bottom?: number; left: number; width: number }>({ left: 0, width: 0 });
-  const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isInline = value === "__inline__";
   const selected = isInline ? null : (keys.find((k) => k.id === value) ?? null);
 
-  const handleToggle = () => {
-    if (!open && buttonRef.current) {
-      const r = buttonRef.current.getBoundingClientRect();
-      const estimatedHeight = 12 + 2 * 33 + (keys.length > 0 ? 9 + keys.length * 33 : 0);
-      const spaceBelow = window.innerHeight - r.bottom;
-      if (spaceBelow < estimatedHeight) {
-        setDropdownPos({ bottom: window.innerHeight - r.top + 4, left: r.left, width: r.width });
-      } else {
-        setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width });
-      }
-    }
-    setOpen((o) => !o);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
   return (
-    <div ref={wrapperRef}>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={handleToggle}
-        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors"
-        style={{ ...formInputStyle, color: (selected || isInline) ? "var(--t-text-primary)" : "var(--t-text-dim)" }}
-      >
-        <Icon icon={isInline ? "lucide:file-key" : selected ? "lucide:key-round" : "lucide:minus"} width={13} className="shrink-0" />
-        <span className="flex-1 text-left truncate text-xs">
-          {isInline ? t("keychain.identityForm.newKeyInline") : selected ? (selected.name ?? t("keychain.identityForm.unnamedKey")) : t("keychain.identityForm.noKey")}
-        </span>
-        <Icon
-          icon="lucide:chevron-down"
-          width={13}
-          className="text-(--t-text-dim) shrink-0"
-          style={{
-            transition: "transform 150ms",
-            transform: open ? "rotate(180deg)" : "rotate(0deg)",
-          }}
-        />
-      </button>
+    <div>
+      <PickerTrigger
+        buttonRef={buttonRef}
+        icon={isInline ? "lucide:file-key" : selected ? "lucide:key-round" : "lucide:minus"}
+        label={isInline
+          ? t("keychain.identityForm.newKeyInline")
+          : selected ? (selected.name ?? t("keychain.identityForm.unnamedKey")) : t("keychain.identityForm.noKey")}
+        filled={!!selected || isInline}
+        open={open}
+        onToggle={() => setOpen((o) => !o)}
+      />
 
-      {open && (
-        <div
-          className="surface-float p-1.5 fixed z-9999"
-          style={{
-            top: dropdownPos.top,
-            bottom: dropdownPos.bottom,
-            left: dropdownPos.left,
-            width: dropdownPos.width,
-          }}
-        >
-          <DropdownItem
-            icon="lucide:minus"
-            label={t("keychain.identityForm.noKey")}
-            active={value === null}
-            onClick={() => { onChange(null); setOpen(false); }}
+      <PickerSurface
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={buttonRef}
+        title={t("connections.common.sshKey")}
+      >
+        <PickerOption
+          icon="lucide:minus"
+          label={t("keychain.identityForm.noKey")}
+          active={value === null}
+          onClick={() => { onChange(null); setOpen(false); }}
+        />
+        <PickerOption
+          icon="lucide:file-key"
+          label={t("keychain.identityForm.newKeyInline")}
+          active={value === "__inline__"}
+          onClick={() => { onChange("__inline__"); setOpen(false); }}
+        />
+        {keys.length > 0 && <PickerDivider />}
+        {keys.map((k) => (
+          <PickerOption
+            key={k.id}
+            icon="lucide:key-round"
+            label={k.name ?? k.id}
+            active={value === k.id}
+            onClick={() => { onChange(k.id); setOpen(false); }}
           />
-          <DropdownItem
-            icon="lucide:file-key"
-            label={t("keychain.identityForm.newKeyInline")}
-            active={value === "__inline__"}
-            onClick={() => { onChange("__inline__"); setOpen(false); }}
-          />
-          {keys.length > 0 && <DropdownDivider />}
-          {keys.map((k) => (
-            <DropdownItem
-              key={k.id}
-              icon="lucide:key-round"
-              label={k.name ?? k.id}
-              active={value === k.id}
-              onClick={() => { onChange(k.id); setOpen(false); }}
-            />
-          ))}
-        </div>
-      )}
+        ))}
+      </PickerSurface>
     </div>
   );
 }
