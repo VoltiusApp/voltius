@@ -28,7 +28,7 @@ import { keyToBytes } from "@/services/terminalKeyCore";
 import { handleDuplicateShortcut } from "@/services/duplicateSession";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { withFlagEmojiFallback } from "@/utils/emojiFont";
+import { terminalFontStack } from "@/utils/fontStack";
 import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
 import { getPlatform } from "@/utils/platform";
 
@@ -742,7 +742,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         cursorStyle,
         fontSize: activeTheme.terminalFontSize,
         lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
-        fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
+        fontFamily: terminalFontStack(activeTheme.terminalFontFamily),
         scrollback,
         theme: activeTheme.terminal,
         overviewRuler: { width: 4 },
@@ -783,7 +783,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
             background: "var(--t-bg-card)",
             border: "1px solid var(--t-border)",
             color: "var(--t-text)",
-            fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
+            fontFamily: terminalFontStack(activeTheme.terminalFontFamily),
             fontSize: "12px",
             boxShadow: "0 8px 24px rgba(0, 0, 0, 0.28)",
             opacity: "0",

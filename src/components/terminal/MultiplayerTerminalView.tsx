@@ -7,7 +7,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
-import { withFlagEmojiFallback } from "@/utils/emojiFont";
+import { terminalFontStack } from "@/utils/fontStack";
 import { clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
 import "@xterm/xterm/css/xterm.css";
 
@@ -35,7 +35,7 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
         cursorStyle,
         fontSize: activeTheme.terminalFontSize,
         lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
-        fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
+        fontFamily: terminalFontStack(activeTheme.terminalFontFamily),
         scrollback,
         theme: activeTheme.terminal,
         allowProposedApi: true,
