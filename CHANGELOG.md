@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.1] - 2026-09-01
+
+### Changed
+
+- The option menus across the app now behave alike. The font picker, the
+  keychain's key selector, the vault picker, the serial port list and the
+  snippet row's menu each positioned and painted themselves, so they missed
+  what the shared picker surface already did: re-measuring while the form
+  panel scrolls, flipping above the trigger when there is no room below, and
+  becoming a bottom sheet on Android. They are now drawn from the same parts as
+  every other dropdown, on the same tokens, radii and icon sizes. The snippet
+  row's "move to folder" step is a submenu rather than a second menu, and the
+  mobile terminal bar's panels menu closes when you tap outside it — until now
+  only tapping an item closed it.
+
+### Fixed
+
+- Pasting a directory in the file browser now uses tar acceleration. Copy/paste
+  and cut/paste hardcoded it off, so they always fell back to per-file SFTP even
+  when both ends supported tar, and never marked the transfer as accelerated —
+  dragging the same directory between the panes was fast, pasting it was slow.
+
 ## [0.31.0] - 2026-09-01
 
 ### Added
