@@ -88,12 +88,13 @@ export function parseVariables(template: string): ParsedVariable[] {
 }
 
 /**
- * Returns true if the variable requires explicit user input
- * (no resolvable default, or is a password which should never be auto-injected).
+ * Returns true if the variable requires explicit user input: no resolvable
+ * default, a password (never auto-injected), or a choice — whose first option
+ * is a pre-selection to confirm, not an answer (#195).
  */
 export function needsUserInput(v: ParsedVariable): boolean {
   if (v.dynamic) return false;
-  if (v.type === "password") return true;
+  if (v.type === "password" || v.type === "choice") return true;
   return v.default === undefined;
 }
 
