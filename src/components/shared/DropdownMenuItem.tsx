@@ -16,9 +16,15 @@ interface Props {
    * button, never a child — a button inside a button is invalid DOM.
    */
   trailing?: ReactNode;
+  /**
+   * `data-*` hooks for the row. The mobile screens are driven over CDP by
+   * attribute selector, so a row that replaces a hand-written button has to
+   * carry the same hook the button did.
+   */
+  dataAttrs?: Record<string, string>;
 }
 
-export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20, sublabel, title, trailing }: Props) {
+export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20, sublabel, title, trailing, dataAttrs }: Props) {
   const { createRipple, rippleEls } = useRipple();
   const item = (
     <button
@@ -26,6 +32,7 @@ export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20,
       onClick={onClick}
       onPointerDown={createRipple}
       title={title}
+      {...dataAttrs}
       className="w-full flex items-center gap-2.5 p-3 rounded-lg text-md font-medium-bold transition-colors whitespace-nowrap text-(--t-text-secondary) bg-transparent relative overflow-hidden"
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)";
