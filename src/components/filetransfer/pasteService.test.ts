@@ -1,7 +1,19 @@
-import { describe, it, expect, vi } from "vitest";
-import { executePaste, type PasteDeps } from "./pasteService";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { executePaste, buildPasteDeps, type PasteDeps } from "./pasteService";
 import type { FileEntry } from "@/components/filetransfer/SFTPTypes";
 import type { FileClipboard, FileEndpoint } from "@/stores/fileClipboardStore";
+import { transferItem } from "@/services/sftpTransferCore";
+import { tarUsableForPair } from "./tarSupport";
+
+vi.mock("@/services/sftpTransferCore", () => ({ transferItem: vi.fn(async () => {}) }));
+vi.mock("./tarSupport", () => ({ tarUsableForPair: vi.fn(async () => false) }));
+vi.mock("@/services/sftp", () => ({
+  fsExists: vi.fn(async () => false), sftpExists: vi.fn(async () => false),
+  fsRename: vi.fn(async () => {}), sftpRename: vi.fn(async () => {}),
+  fsDelete: vi.fn(async () => {}), sftpDelete: vi.fn(async () => {}),
+}));
+
+beforeEach(() => { vi.clearAllMocks(); });
 
 const file = (path: string): FileEntry => ({ path, name: path.split("/").pop()!, isDir: false } as FileEntry);
 const local = (cwd: string): FileEndpoint => ({ isLocal: true, sftpId: null, cwd });
@@ -78,5 +90,47 @@ describe("executePaste", () => {
     await executePaste(clip!, local("/a"), deps);
     expect(deps.moveSameHost).not.toHaveBeenCalled();
     expect(deps.copyTarget).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildPasteDeps", () => {
+  const dir = (path: string): FileEntry => ({ path, name: path.split("/").pop()!, isDir: true } as FileEntry);
+
+  const wiring = () => ({
+    runTransfer: vi.fn(async (_l: string, _d: string, fn: (t: string) => Promise<void>, onDone?: () => void) => {
+      await fn("t1");
+      onDone?.();
+    }),
+    setPending: vi.fn(),
+    refresh: vi.fn(),
+    clearClipboard: vi.fn(),
+  });
+
+  const copyOne = async (source: FileEndpoint, dest: FileEndpoint, item: FileEntry) => {
+    const w = wiring();
+    const clip: FileClipboard = { items: [item], source, mode: "cut" };
+    const deps = buildPasteDeps(clip, dest, w as never);
+    await deps.copyTarget({ srcPath: item.path, dstPath: `${dest.cwd}/${item.name}`, isDir: item.isDir, name: item.name });
+    return w;
+  };
+
+  it("tars a directory paste when the endpoint pair supports it", async () => {
+    vi.mocked(tarUsableForPair).mockResolvedValue(true);
+    const w = await copyOne(remote("s1", "/a"), local("/b"), dir("/a/saves"));
+    expect(transferItem).toHaveBeenCalledWith(expect.objectContaining({ useTar: true }));
+    expect(w.runTransfer).toHaveBeenCalledWith("saves", "→", expect.any(Function), expect.any(Function), true);
+  });
+
+  it("falls back to plain SFTP when the pair cannot tar", async () => {
+    vi.mocked(tarUsableForPair).mockResolvedValue(false);
+    const w = await copyOne(remote("s1", "/a"), local("/b"), dir("/a/saves"));
+    expect(transferItem).toHaveBeenCalledWith(expect.objectContaining({ useTar: false }));
+    expect(w.runTransfer).toHaveBeenCalledWith("saves", "→", expect.any(Function), expect.any(Function), false);
+  });
+
+  it("never flags a single file as accelerated", async () => {
+    vi.mocked(tarUsableForPair).mockResolvedValue(true);
+    const w = await copyOne(remote("s1", "/a"), local("/b"), file("/a/x.txt"));
+    expect(w.runTransfer).toHaveBeenCalledWith("x.txt", "→", expect.any(Function), expect.any(Function), false);
   });
 });
