@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -7,6 +7,8 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import type { TerminalSession } from "@/types";
 import { terminalPanelItems } from "./terminalPanelItems";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { PickerSurface } from "@/components/shared/PickerSurface";
+import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 
 const DOT: Record<TerminalSession["status"], string> = {
   connected: "#3fb950",
@@ -30,9 +32,17 @@ export default function MobileTerminalTopBar() {
   const openSheet = useMobileNavStore((s) => s.openSheet);
   const exitTo = useMobileNavStore((s) => s.lastNonTerminalTab);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Derive Proxmox gate as a primitive (boolean) — Zustand-safe; no fresh array/object from the selector.
   const activeConnId = allSessions.find((s) => s.id === activeSessionId)?.connectionId;
   const isProxmox = useConnectionStore((s) => s.connections.find((c) => c.id === activeConnId)?.distro === "proxmox");
+
+  const panelItems = terminalPanelItems({
+    activeSessionId,
+    connectionIdOfActive: activeConnId,
+    nav: { push, openSheet },
+    isProxmox,
+  }, t);
 
   return (
     <div
@@ -79,8 +89,9 @@ export default function MobileTerminalTopBar() {
         <Icon icon="lucide:plus" width={20} />
       </button>
       <NotificationBell />
-      <div className="relative shrink-0">
+      <div className="shrink-0">
         <button
+          ref={menuButtonRef}
           data-mobile-terminal-menu
           onClick={() => setMenuOpen((v) => !v)}
           className="px-2 h-full text-(--t-text-primary)"
@@ -88,30 +99,25 @@ export default function MobileTerminalTopBar() {
         >
           <Icon icon="lucide:ellipsis-vertical" width={20} />
         </button>
-        {menuOpen && (
-          <div
-            className="absolute right-1 top-10 z-50 rounded-xl border py-1 min-w-40"
-            style={{ background: "var(--t-bg-modal)", borderColor: "var(--t-border-hover)", boxShadow: "var(--t-elev-2)" }}
-            onClick={() => setMenuOpen(false)}
-          >
-            {terminalPanelItems({
-              activeSessionId,
-              connectionIdOfActive: allSessions.find((s) => s.id === activeSessionId)?.connectionId,
-              nav: { push, openSheet },
-              isProxmox,
-            }, t).map((it) => (
-              <button
-                key={it.key}
-                data-mobile-panel={it.key}
-                onClick={() => { it.onTap(); setMenuOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm text-(--t-text-primary)"
-              >
-                <Icon icon={it.icon} width={16} />
-                {it.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <PickerSurface
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          anchorRef={menuButtonRef}
+          title={t("mobile.terminalTopBar.panelsAriaLabel")}
+          width="content"
+          minWidth="10rem"
+          align="right"
+        >
+          {panelItems.map((it) => (
+            <DropdownMenuItem
+              key={it.key}
+              icon={it.icon}
+              iconSize={16}
+              label={it.label}
+              onClick={() => { it.onTap(); setMenuOpen(false); }}
+            />
+          ))}
+        </PickerSurface>
       </div>
     </div>
   );

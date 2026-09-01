@@ -103,7 +103,11 @@ export function MenuItemList({
       {activeSub !== null && items[activeSub.idx]?.children &&
         createPortal(
           <div
-            className="surface-float fixed z-101 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
+            // Marked so a surface that dismisses on outside-mousedown (PickerSurface)
+            // can tell a submenu of its own menu from a click elsewhere, and stacked
+            // above that surface because a flipped submenu overlaps its parent.
+            data-menu-portal=""
+            className="surface-float fixed z-10000 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
             style={{ left: activeSub.x, top: activeSub.y, maxHeight: window.innerHeight - activeSub.y - 8 }}
             onMouseEnter={clearTimer}
             onMouseLeave={scheduleClose}

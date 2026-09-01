@@ -75,6 +75,9 @@ export function PickerSurface({
     if (!open || isAndroid) return;
     const handler = (e: MouseEvent) => {
       const t = e.target as Node;
+      // A submenu portals to the body, so it is not a DOM descendant of the surface
+      // that opened it. Dismissing on it would unmount the row before its click fires.
+      if ((t as Element).closest?.("[data-menu-portal]")) return;
       if (!anchorRef.current?.contains(t) && !surfaceRef.current?.contains(t)) onClose();
     };
     document.addEventListener("mousedown", handler);
