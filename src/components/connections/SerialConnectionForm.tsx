@@ -20,8 +20,10 @@ import { Pills } from "@/components/shared/Pills";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { PortInput } from "@/components/shared/PortInput";
 import { TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
+import { Toggle } from "@/components/shared/Toggle";
 import {
   AdvancedDisclosure,
+  SettingRow,
   HostCommandFields,
   hostCommandFieldsSet,
   useHostCommandFields,
@@ -48,6 +50,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
   const [parity, setParity] = useState(initial?.serial_parity ?? "none");
   const [stopBits, setStopBits] = useState<number>(initial?.serial_stop_bits ?? 1);
   const [flowControl, setFlowControl] = useState(initial?.serial_flow_control ?? "none");
+  const [autoReconnect, setAutoReconnect] = useState(initial?.serial_auto_reconnect ?? true);
   const hostCommands = useHostCommandFields(initial);
   const [showAdvanced, setShowAdvanced] = useState(
     !!(
@@ -59,7 +62,8 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
       (initial?.serial_data_bits !== undefined && initial.serial_data_bits !== 8) ||
       (initial?.serial_parity !== undefined && initial.serial_parity !== "none") ||
       (initial?.serial_stop_bits !== undefined && initial.serial_stop_bits !== 1) ||
-      (initial?.serial_flow_control !== undefined && initial.serial_flow_control !== "none")
+      (initial?.serial_flow_control !== undefined && initial.serial_flow_control !== "none") ||
+      initial?.serial_auto_reconnect === false
     ),
   );
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
@@ -89,6 +93,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
         serial_parity: parity,
         serial_stop_bits: stopBits,
         serial_flow_control: flowControl,
+        serial_auto_reconnect: autoReconnect,
         tags,
         folder_id: folderId ?? undefined,
         vault_id: resolveVaultIdForSave(vaultId),
@@ -125,7 +130,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
   }, [_markDirty]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, serialPort, baud, customBaud, useCustomBaud, dataBits, parity, stopBits, flowControl, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, tags, folderId, vaultId]);
+  useEffect(() => schedule(), [name, serialPort, baud, customBaud, useCustomBaud, dataBits, parity, stopBits, flowControl, autoReconnect, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, tags, folderId, vaultId]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -234,7 +239,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
             <AdvancedDisclosure
               open={showAdvanced}
               onToggle={() => setShowAdvanced((v) => !v)}
-              hasValues={!!(hostCommandFieldsSet(hostCommands) || dataBits !== 8 || parity !== "none" || stopBits !== 1 || flowControl !== "none")}
+              hasValues={!!(hostCommandFieldsSet(hostCommands) || dataBits !== 8 || parity !== "none" || stopBits !== 1 || flowControl !== "none" || !autoReconnect)}
             >
               <div>
                 <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.dataBits")}</label>
@@ -287,6 +292,14 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
                   onChange={(v) => { markDirty(); setFlowControl(v); }}
                 />
               </div>
+
+              <SettingRow
+                icon="lucide:refresh-cw"
+                label={t("connections.form.serialAutoReconnect")}
+                title={t("connections.form.serialAutoReconnectTooltip")}
+              >
+                <Toggle checked={autoReconnect} onChange={(v) => { markDirty(); setAutoReconnect(v); }} />
+              </SettingRow>
 
               <HostCommandFields connectionId={initial?.id} fields={hostCommands} markDirty={markDirty} />
             </AdvancedDisclosure>

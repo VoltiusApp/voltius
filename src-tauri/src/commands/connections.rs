@@ -57,6 +57,7 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         serial_parity: data.serial_parity,
         serial_stop_bits: data.serial_stop_bits,
         serial_flow_control: data.serial_flow_control,
+        serial_auto_reconnect: data.serial_auto_reconnect,
         ftp_secure: data.ftp_secure,
         notes: data.notes,
         created_at: existing.created_at.clone(),
@@ -117,7 +118,8 @@ connection_clocks! {
         pre_snippet_id, post_snippet_id, ask_vars_each_time,
         terminal_encoding, distro, icon, ping_disabled,
         shell_integration, keepalive_preset, persist_session, connection_type, serial_port, serial_baud,
-        serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control, ftp_secure,
+        serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control,
+        serial_auto_reconnect, ftp_secure,
         notes,
     ],
     by_id: [jump_hosts, env_vars],
@@ -186,6 +188,7 @@ fn build_connection(
         serial_parity: data.serial_parity,
         serial_stop_bits: data.serial_stop_bits,
         serial_flow_control: data.serial_flow_control,
+        serial_auto_reconnect: data.serial_auto_reconnect,
         ftp_secure: data.ftp_secure,
         notes: data.notes,
         clocks,
@@ -329,6 +332,7 @@ mod tests {
             serial_parity: Some("none".into()),
             serial_stop_bits: Some(1),
             serial_flow_control: Some("none".into()),
+            serial_auto_reconnect: Some(true),
             ftp_secure: false,
             notes: Some("orig note".into()),
             updated_at: "2026-01-01T00:00:00Z".into(),
@@ -385,6 +389,7 @@ mod tests {
             serial_parity: Some("even".into()),
             serial_stop_bits: Some(2),
             serial_flow_control: Some("rtscts".into()),
+            serial_auto_reconnect: Some(false),
             ftp_secure: true,
             notes: Some("new note".into()),
         }
@@ -566,6 +571,7 @@ mod tests {
             "post_snippet_id",
             "pre_command",
             "pre_snippet_id",
+            "serial_auto_reconnect",
             "serial_baud",
             "serial_data_bits",
             "serial_flow_control",
@@ -580,7 +586,7 @@ mod tests {
         ];
         expected.sort();
         assert_eq!(keys, expected);
-        assert_eq!(keys.len(), 35);
+        assert_eq!(keys.len(), 36);
     }
 
     /// Phase 1 reconciliation: the clocks seeded for a brand-new connection
@@ -600,6 +606,6 @@ mod tests {
         let bumpable: HashSet<String> = new.clocks.into_keys().collect();
 
         assert_eq!(seeded, bumpable);
-        assert_eq!(seeded.len(), 35);
+        assert_eq!(seeded.len(), 36);
     }
 }

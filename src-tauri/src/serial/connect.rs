@@ -1,21 +1,64 @@
 use serialport;
 use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
+pub(super) struct SerialSession {
+    generation: u64,
+    port: Box<dyn serialport::SerialPort>,
+}
+
+pub(super) type SessionMap = HashMap<String, SerialSession>;
+
 pub struct SerialSessionManager {
-    sessions: Arc<Mutex<HashMap<String, Box<dyn serialport::SerialPort>>>>,
+    pub(super) sessions: Arc<Mutex<SessionMap>>,
+    next_generation: AtomicU64,
 }
 
 impl SerialSessionManager {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
+            next_generation: AtomicU64::new(1),
         }
     }
+
+    /// Registers a freshly opened port under `session_id`, replacing whatever
+    /// was there, and hands back the generation identifying this open.
+    pub(super) fn insert(&self, session_id: &str, port: Box<dyn serialport::SerialPort>) -> u64 {
+        let generation = self.next_generation.fetch_add(1, Ordering::Relaxed);
+        self.sessions
+            .lock()
+            .unwrap()
+            .insert(session_id.to_string(), SerialSession { generation, port });
+        generation
+    }
+
+    pub(super) fn remove(&self, session_id: &str) {
+        self.sessions.lock().unwrap().remove(session_id);
+    }
+}
+
+/// Whether `generation` still owns `session_id`.
+///
+/// A read thread keeps its own cloned descriptor, so closing and reopening the
+/// port leaves the previous thread running. Without this check both threads read
+/// the same device and split its output between them, and the older one's
+/// `serial-closed` would tear down the session that replaced it.
+pub(super) fn generation_is_current(
+    sessions: &Mutex<SessionMap>,
+    session_id: &str,
+    generation: u64,
+) -> bool {
+    sessions
+        .lock()
+        .unwrap()
+        .get(session_id)
+        .is_some_and(|s| s.generation == generation)
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -117,11 +160,7 @@ pub fn serial_connect(
         .map_err(|e| e.to_string())?;
 
     let read_port = serial.try_clone().map_err(|e| e.to_string())?;
-
-    {
-        let mut sessions = state.sessions.lock().unwrap();
-        sessions.insert(session_id.clone(), serial);
-    }
+    let generation = state.insert(&session_id, serial);
 
     // Spawn read loop thread
     let app_clone = app.clone();
@@ -138,8 +177,9 @@ pub fn serial_connect(
                     let _ = app_clone.emit(&format!("serial-output-{}", sid), data);
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
-                    // Check if session was removed (disconnected)
-                    if !sessions_arc.lock().unwrap().contains_key(&sid) {
+                    // Bail once this open is no longer the session's: it was
+                    // disconnected, or reopened by a newer generation.
+                    if !generation_is_current(&sessions_arc, &sid, generation) {
                         break;
                     }
                     continue;
@@ -147,7 +187,9 @@ pub fn serial_connect(
                 Err(_) => break,
             }
         }
-        let _ = app_clone.emit(&format!("serial-closed-{}", sid), ());
+        if generation_is_current(&sessions_arc, &sid, generation) {
+            let _ = app_clone.emit(&format!("serial-closed-{}", sid), ());
+        }
     });
 
     let _ = app.emit(
@@ -165,10 +207,10 @@ pub fn serial_write(
     data: Vec<u8>,
 ) -> Result<(), String> {
     let mut sessions = state.sessions.lock().unwrap();
-    let port = sessions
+    let session = sessions
         .get_mut(&session_id)
         .ok_or("Serial session not found")?;
-    port.write_all(&data).map_err(|e| e.to_string())
+    session.port.write_all(&data).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -176,6 +218,6 @@ pub fn serial_disconnect(
     state: tauri::State<'_, SerialSessionManager>,
     session_id: String,
 ) -> Result<(), String> {
-    state.sessions.lock().unwrap().remove(&session_id);
+    state.remove(&session_id);
     Ok(())
 }

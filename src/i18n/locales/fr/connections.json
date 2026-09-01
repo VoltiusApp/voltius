@@ -56,6 +56,8 @@
       "legacyAlgorithms": "Algorithmes hérités",
       "legacyAlgorithmsTooltip": "Autoriser les algorithmes hérités faibles (diffie-hellman-group1-sha1, 3des-cbc, hmac-sha1, …) pour les anciens appareils tels que les Cisco IOS obsolètes. Les algorithmes robustes restent privilégiés. N'activez cette option que pour les hôtes qui l'exigent.",
       "agentForwarding": "Redirection de l'agent",
+      "serialAutoReconnect": "Reconnexion automatique",
+      "serialAutoReconnectTooltip": "Rouvrir le port automatiquement après une coupure. À désactiver pour les cartes que vous reflashez : sinon la boucle de reconnexion reprend le port pendant que l'outil de flash en a besoin.",
       "shellIntegration": "Intégration au shell",
       "keepalive": "Keepalive",
       "inheritKeepalive": "Hérite ({{label}})",

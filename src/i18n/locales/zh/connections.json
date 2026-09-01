@@ -56,6 +56,8 @@
       "legacyAlgorithms": "传统算法",
       "legacyAlgorithmsTooltip": "允许使用弱传统算法（diffie-hellman-group1-sha1、3des-cbc、hmac-sha1 等）以兼容旧设备（如旧版 Cisco IOS）。仍然优先使用强算法。仅对需要的主机启用。",
       "agentForwarding": "代理转发",
+      "serialAutoReconnect": "自动重连",
+      "serialAutoReconnectTooltip": "断开后自动重新打开串口。为需要重新烧录的开发板关闭此项：否则重连循环会在烧录工具占用串口时把它抢回来。",
       "shellIntegration": "Shell 集成",
       "keepalive": "保持连接",
       "inheritKeepalive": "继承（{{label}}）",

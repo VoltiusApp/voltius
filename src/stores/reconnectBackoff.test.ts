@@ -160,9 +160,10 @@ globalThis.setTimeout = realSetTimeout;
 // --- handleSessionClosed: start reconnect only on an unexpected close ---
 (() => {
   const calls: string[] = [];
-  const deps = (status: SessionStatus, persist = false) => ({
+  const deps = (status: SessionStatus, persist = false, autoReconnect = true) => ({
     status: () => status,
     persist: () => persist,
+    autoReconnect: () => autoReconnect,
     markDisconnected: () => calls.push("disconnect"),
     reconnectWithBackoff: () => calls.push("backoff"),
     endSession: () => calls.push("end"),
@@ -187,6 +188,17 @@ globalThis.setTimeout = realSetTimeout;
   calls.length = 0;
   handleSessionClosed("local", "s1", deps("connected"));
   assertEqual(calls, ["disconnect"], "local close marks disconnected without reconnecting");
+
+  // Auto-reconnect turned off for this serial device (#192): a drop must leave
+  // the port free — the loop would otherwise reclaim /dev/ttyUSB0 every 10s and
+  // fight the flashing tool the user just started.
+  calls.length = 0;
+  handleSessionClosed("serial", "s1", deps("connected", false, false));
+  assertEqual(calls, ["disconnect"], "serial close with auto-reconnect off marks disconnected without reconnecting");
+
+  calls.length = 0;
+  handleSessionClosed("ssh", "s1", deps("connected", false, false));
+  assertEqual(calls, ["disconnect"], "auto-reconnect off suppresses the ssh loop too");
 
   // The remote shell exited on purpose (`exit`): the channel carried an
   // exit-status, so this is not a drop and reconnecting would resurrect a

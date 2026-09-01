@@ -33,7 +33,7 @@ export function connectionToFormData(c: Connection): ConnectionFormData {
     keepalive_preset: c.keepalive_preset,
     connection_type: c.connection_type, serial_port: c.serial_port, serial_baud: c.serial_baud,
     serial_data_bits: c.serial_data_bits, serial_parity: c.serial_parity, serial_stop_bits: c.serial_stop_bits,
-    serial_flow_control: c.serial_flow_control, ftp_secure: c.ftp_secure,
+    serial_flow_control: c.serial_flow_control, serial_auto_reconnect: c.serial_auto_reconnect, ftp_secure: c.ftp_secure,
     notes: c.notes,
   };
 }
@@ -113,6 +113,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         serial_parity: data.serial_parity,
         serial_stop_bits: data.serial_stop_bits,
         serial_flow_control: data.serial_flow_control,
+        serial_auto_reconnect: data.serial_auto_reconnect,
         ftp_secure: data.ftp_secure,
         notes: data.notes,
         created_at: now,
@@ -188,6 +189,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         serial_parity: data.serial_parity ?? prev.serial_parity,
         serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
         serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
+        serial_auto_reconnect: data.serial_auto_reconnect ?? prev.serial_auto_reconnect,
         ftp_secure: data.ftp_secure ?? prev.ftp_secure,
         notes: data.notes,
         ping_disabled: data.ping_disabled,
@@ -259,6 +261,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           serial_parity: data.serial_parity ?? prev.serial_parity,
           serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
           serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
+          serial_auto_reconnect: data.serial_auto_reconnect ?? prev.serial_auto_reconnect,
         ftp_secure: data.ftp_secure ?? prev.ftp_secure,
           notes: data.notes,
           ping_disabled: data.ping_disabled,

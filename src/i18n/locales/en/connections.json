@@ -56,6 +56,8 @@
       "legacyAlgorithms": "Legacy Algorithms",
       "legacyAlgorithmsTooltip": "Allow weak legacy algorithms (diffie-hellman-group1-sha1, 3des-cbc, hmac-sha1, …) for old devices such as legacy Cisco IOS. Strong algorithms are still preferred. Only enable for hosts that require it.",
       "agentForwarding": "Agent Forwarding",
+      "serialAutoReconnect": "Auto-reconnect",
+      "serialAutoReconnectTooltip": "Reopen the port automatically after a drop. Turn this off for boards you reflash: the retry loop would otherwise take the port back while the flashing tool needs it.",
       "shellIntegration": "Shell Integration",
       "keepalive": "Keepalive",
       "inheritKeepalive": "Inherit ({{label}})",
