@@ -21,6 +21,7 @@ export default defineConfig({
     // `navigator.onLine`) and rely on a fresh module registry + globals per file. Do not
     // disable isolation without giving those tests explicit cross-file resets.
     environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
       "tests/**/*.{test,spec}.ts",
