@@ -46,7 +46,7 @@ fn dedupe_families(faces: impl Iterator<Item = (String, bool)>) -> Vec<SystemFon
         }
     }
 
-    families.sort_by(|a, b| a.family.to_lowercase().cmp(&b.family.to_lowercase()));
+    families.sort_by_key(|f| f.family.to_lowercase());
     families
 }
 
