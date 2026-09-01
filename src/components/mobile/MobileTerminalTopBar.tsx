@@ -111,6 +111,7 @@ export default function MobileTerminalTopBar() {
           {panelItems.map((it) => (
             <DropdownMenuItem
               key={it.key}
+              dataAttrs={{ "data-mobile-panel": it.key }}
               icon={it.icon}
               iconSize={16}
               label={it.label}
