@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { SnippetChooserList } from "@/components/snippets/SnippetChooserList";
 import { PickerSurface } from "@/components/shared/PickerSurface";
-import { formInputClass, formInputStyle } from "@/components/shared/Panel";
+import { PickerSearch } from "@/components/shared/pickerParts";
 
 export interface HostCommandFieldProps {
   slot: "pre" | "post";
@@ -72,21 +72,11 @@ export function HostCommandField({ slot, text, snippetId, onChangeText, onChange
         title={t("connections.common.hostCommand.pickerTitle")}
       >
         <div className="p-1.5 space-y-2">
-          <div className="relative">
-            <Icon
-              icon="lucide:search"
-              width={13}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none"
-            />
-            <input
-              className={`${formInputClass} pl-7 text-xs`}
-              style={formInputStyle}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("connections.common.hostCommand.searchPlaceholder")}
-              autoFocus
-            />
-          </div>
+          <PickerSearch
+            value={search}
+            onChange={setSearch}
+            placeholder={t("connections.common.hostCommand.searchPlaceholder")}
+          />
           <div className="max-h-52 overflow-y-auto -mx-1.5">
             <SnippetChooserList
               search={search}

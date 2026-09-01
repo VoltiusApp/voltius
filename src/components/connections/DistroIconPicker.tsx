@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { filterIconOptions, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle } from "@/utils/icons";
-import { formInputClass, formInputStyle } from "@/components/shared/Panel";
+import { PickerSearch } from "@/components/shared/pickerParts";
 
 /** Distro/icon chooser body: search + grid of CONNECTION_ICON_OPTIONS, hosted in a
  *  PickerSurface (anchored float on desktop, bottom sheet on mobile). Caller owns the
@@ -38,21 +38,11 @@ export function DistroIconPicker({
   return (
     <PickerSurface open={open} onClose={onClose} anchorRef={anchorRef} title={t("connections.distroIconPicker.title")}>
       <div className="p-1.5 space-y-3">
-        <div className="relative">
-          <Icon
-            icon="lucide:search"
-            width={13}
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none"
-          />
-          <input
-            className={`${formInputClass} pl-7 text-xs`}
-            style={formInputStyle}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("connections.distroIconPicker.searchPlaceholder")}
-            autoFocus
-          />
-        </div>
+        <PickerSearch
+          value={search}
+          onChange={setSearch}
+          placeholder={t("connections.distroIconPicker.searchPlaceholder")}
+        />
         <div className="grid grid-cols-4 gap-2 max-h-52 overflow-y-auto pr-1">
           {results.map((option) => {
             const selected = selectedIcon === option.id;
