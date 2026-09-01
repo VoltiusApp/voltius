@@ -15,6 +15,7 @@ import {
 } from "@/utils/terminalTheme";
 import { getUiGroups, getTerminalGroups, getFieldLabels } from "./colorGroups";
 import { ColorPicker } from "./ColorPicker";
+import { primaryFamily, toFontStack, useSystemFonts } from "@/utils/systemFonts";
 
 // ── CSS variable inspector ────────────────────────────────────────────────────
 
@@ -108,18 +109,38 @@ function FontPicker({
   value,
   onChange,
   options,
+  generic,
+  monospaceOnly = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: { label: string; value: string }[];
+  /** Generic family appended to a pick from the installed list (#196). */
+  generic: string;
+  /** Hide families whose faces don't claim fixed pitch, until "show all". */
+  monospaceOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState(false);
+  const [query, setQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const systemFonts = useSystemFonts();
 
   const isPreset = options.some((o) => o.value === value);
-  const displayLabel = options.find((o) => o.value === value)?.label ?? value.split(",")[0].replace(/'/g, "").trim();
+  const selected = primaryFamily(value);
+  const displayLabel = options.find((o) => o.value === value)?.label ?? selected;
+
+  // Bundled presets ship inside the app, so they never appear in the installed
+  // list and must not be reported missing.
+  const installed = systemFonts?.some((f) => f.family.toLowerCase() === selected.toLowerCase());
+  const missing = systemFonts !== null && !isPreset && !installed;
+
+  const listed = (systemFonts ?? []).filter((f) => {
+    if (monospaceOnly && !showAll && !f.monospace) return false;
+    return f.family.toLowerCase().includes(query.trim().toLowerCase());
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -133,20 +154,51 @@ function FontPicker({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const close = () => { setOpen(false); setCustom(false); setQuery(""); };
+  const rowBackground = (active: boolean) =>
+    active ? "color-mix(in srgb, var(--t-accent) 12%, transparent)" : "transparent";
+
+  const Row = ({ label, stack, active, onPick }: {
+    label: string; stack: string; active: boolean; onPick: () => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => { onPick(); close(); }}
+      className="w-full flex items-center justify-between px-3 py-2 text-left cursor-pointer transition-colors"
+      style={{ background: rowBackground(active) }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = rowBackground(active); }}
+    >
+      <span style={{ fontFamily: stack, fontSize: 13, color: "var(--t-text-primary)" }}>{label}</span>
+      {active && <Icon icon="lucide:check" width={12} className="text-(--t-accent) shrink-0" />}
+    </button>
+  );
+
   return (
     <div ref={ref} className="relative mt-1">
       {/* Trigger */}
       <button
         type="button"
         onClick={() => { setOpen((o) => !o); setCustom(false); }}
-        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) cursor-pointer"
+        className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) cursor-pointer"
         onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--t-border-hover)")}
         onMouseLeave={(e) => (e.currentTarget.style.borderColor = open ? "var(--t-accent)" : "var(--t-border)")}
         style={{ borderColor: open ? "var(--t-accent)" : undefined }}
       >
-        <span style={{ fontFamily: value, fontSize: 13 }}>{displayLabel}</span>
-        <Icon icon={open ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="text-(--t-text-dim) shrink-0" />
+        <span className="truncate" style={{ fontFamily: value, fontSize: 13 }}>{displayLabel}</span>
+        <span className="flex items-center gap-1.5 shrink-0">
+          {missing && (
+            <Icon icon="lucide:triangle-alert" width={12} className="text-(--t-status-warning)" />
+          )}
+          <Icon icon={open ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="text-(--t-text-dim)" />
+        </span>
       </button>
+
+      {missing && (
+        <p className="text-[10px] mt-1 text-(--t-status-warning)">
+          {t("themeCreator.font.notInstalled", { family: selected })}
+        </p>
+      )}
 
       {/* Dropdown */}
       {open && (
@@ -155,19 +207,59 @@ function FontPicker({
           style={{ boxShadow: "var(--t-ring), var(--t-elev-2)" }}
         >
           {options.map((opt) => (
-            <button
+            <Row
               key={opt.value}
-              type="button"
-              onClick={() => { onChange(opt.value); setOpen(false); setCustom(false); }}
-              className="w-full flex items-center justify-between px-3 py-2 text-left cursor-pointer transition-colors"
-              style={{ background: value === opt.value ? "color-mix(in srgb, var(--t-accent) 12%, transparent)" : "transparent" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = value === opt.value ? "color-mix(in srgb, var(--t-accent) 12%, transparent)" : "transparent"; }}
-            >
-              <span style={{ fontFamily: opt.value, fontSize: 13, color: "var(--t-text-primary)" }}>{opt.label}</span>
-              {value === opt.value && <Icon icon="lucide:check" width={12} className="text-(--t-accent) shrink-0" />}
-            </button>
+              label={opt.label}
+              stack={opt.value}
+              active={value === opt.value}
+              onPick={() => onChange(opt.value)}
+            />
           ))}
+
+          <div className="border-t border-(--t-border)" />
+
+          {systemFonts === null ? (
+            <p className="px-3 py-2 text-xs text-(--t-text-dim)">{t("themeCreator.font.loading")}</p>
+          ) : systemFonts.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-(--t-text-dim)">{t("themeCreator.font.noneInstalled")}</p>
+          ) : (
+            <>
+              <div className="px-3 pt-2">
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t("themeCreator.font.searchPlaceholder")}
+                  className="w-full px-2 py-1 rounded-sm text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+                />
+              </div>
+              <div className="max-h-56 overflow-y-auto mt-1">
+                {listed.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-(--t-text-dim)">{t("themeCreator.font.noMatches")}</p>
+                ) : (
+                  listed.map((f) => (
+                    <Row
+                      key={f.family}
+                      label={f.family}
+                      stack={toFontStack(f.family, generic)}
+                      active={f.family.toLowerCase() === selected.toLowerCase()}
+                      onPick={() => onChange(toFontStack(f.family, generic))}
+                    />
+                  ))
+                )}
+              </div>
+              {monospaceOnly && (
+                <button
+                  type="button"
+                  onClick={() => setShowAll((s) => !s)}
+                  className="w-full px-3 py-2 text-left text-xs text-(--t-text-muted) cursor-pointer transition-colors border-t border-(--t-border)"
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
+                >
+                  {showAll ? t("themeCreator.font.showMonospaceOnly") : t("themeCreator.font.showAll")}
+                </button>
+              )}
+            </>
+          )}
 
           {/* Custom divider */}
           <div className="border-t border-(--t-border)" />
@@ -189,7 +281,7 @@ function FontPicker({
                 placeholder={t("themeCreator.font.customPlaceholder")}
                 className="w-full px-2 py-1 rounded-sm text-xs outline-hidden font-mono bg-(--t-bg-input) border border-(--t-accent) text-(--t-text-primary)"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") { onChange(e.currentTarget.value); setOpen(false); setCustom(false); }
+                  if (e.key === "Enter") { onChange(e.currentTarget.value); close(); }
                   if (e.key === "Escape") { setCustom(false); }
                 }}
               />
@@ -318,6 +410,7 @@ function ColorEditor({
             value={draft.uiFontFamily}
             onChange={(v) => setDraft((d) => ({ ...d, uiFontFamily: v }))}
             options={UI_FONT_OPTIONS}
+            generic="sans-serif"
           />
         </div>
         <label className="block">
@@ -377,6 +470,8 @@ function ColorEditor({
             value={draft.terminalFontFamily}
             onChange={(v) => setDraft((d) => ({ ...d, terminalFontFamily: v }))}
             options={TERMINAL_FONT_OPTIONS}
+            generic="monospace"
+            monospaceOnly
           />
         </div>
         <label className="block">

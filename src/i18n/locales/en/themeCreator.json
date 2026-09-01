@@ -8,7 +8,14 @@
     "font": {
       "customLabel": "Custom font…",
       "customPlaceholder": "'My Font', monospace",
-      "customHint": "Press Enter to apply"
+      "customHint": "Press Enter to apply",
+      "searchPlaceholder": "Search installed fonts…",
+      "loading": "Reading installed fonts…",
+      "noneInstalled": "No installed fonts found",
+      "noMatches": "No matching font",
+      "showAll": "Show all fonts",
+      "showMonospaceOnly": "Show monospace fonts only",
+      "notInstalled": "\"{{family}}\" isn't installed — the terminal will fall back to another font"
     },
     "varSearch": {
       "usage_one": "{{count}} element uses",

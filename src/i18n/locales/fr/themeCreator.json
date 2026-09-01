@@ -8,7 +8,14 @@
     "font": {
       "customLabel": "Police personnalisée…",
       "customPlaceholder": "'Ma Police', monospace",
-      "customHint": "Appuyez sur Entrée pour appliquer"
+      "customHint": "Appuyez sur Entrée pour appliquer",
+      "searchPlaceholder": "Rechercher une police installée…",
+      "loading": "Lecture des polices installées…",
+      "noneInstalled": "Aucune police installée trouvée",
+      "noMatches": "Aucune police correspondante",
+      "showAll": "Afficher toutes les polices",
+      "showMonospaceOnly": "N'afficher que les polices à chasse fixe",
+      "notInstalled": "« {{family}} » n'est pas installée — le terminal utilisera une autre police"
     },
     "varSearch": {
       "usage_one": "{{count}} élément utilise",
