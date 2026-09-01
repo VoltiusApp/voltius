@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { ToolbarViewControls, type LayoutMode, type SortMode } from "@/components/shared/ToolbarViewControls";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useRipple } from "@/hooks/useRipple";
+import { PickerSurface } from "@/components/shared/PickerSurface";
 
 interface KeychainToolbarProps {
   search: string;
@@ -91,31 +92,14 @@ export function KeychainToolbar({
 function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onImport?: () => void; onGenerate?: () => void; onNewIdentity?: () => void; onNewFolder: () => void; accent?: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const { createRipple, rippleEls } = useRipple();
 
-  const handleClick = () => {
-    if (!open && wrapperRef.current) {
-      const r = wrapperRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
-    }
-    setOpen((o) => !o);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
   return (
-    <div ref={wrapperRef}>
+    <div>
       <button
-        onClick={handleClick}
+        ref={buttonRef}
+        onClick={() => setOpen((o) => !o)}
         onPointerDown={createRipple}
         className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden rounded-tr-[0.533rem] rounded-br-[0.533rem]"
         style={{ background: accent ? "var(--t-accent)" : "var(--t-bg-input)" }}
@@ -130,20 +114,18 @@ function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onI
         </span>
       </button>
 
-      {open && (
-        <div
-          className="surface-float p-1.5 fixed z-9999"
-          style={{
-            top: pos.top,
-            right: pos.right,
-            width: "max-content",
-          }}
-        >
-          {onGenerate && <DropdownMenuItem icon="lucide:key-round" label={t("keychain.toolbar.generateKeyPair")} onClick={() => { setOpen(false); onGenerate(); }} />}
-          {onNewIdentity && <DropdownMenuItem icon="lucide:user-plus" label={t("keychain.toolbar.newIdentity")} onClick={() => { setOpen(false); onNewIdentity(); }} />}
-          <DropdownMenuItem icon="lucide:folder-plus" label={t("keychain.toolbar.newFolder")} onClick={() => { setOpen(false); onNewFolder(); }} />
-        </div>
-      )}
+      <PickerSurface
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={buttonRef}
+        title={t("keychain.toolbar.newKeyOptionsAriaLabel")}
+        width="content"
+        align="right"
+      >
+        {onGenerate && <DropdownMenuItem icon="lucide:key-round" label={t("keychain.toolbar.generateKeyPair")} onClick={() => { setOpen(false); onGenerate(); }} />}
+        {onNewIdentity && <DropdownMenuItem icon="lucide:user-plus" label={t("keychain.toolbar.newIdentity")} onClick={() => { setOpen(false); onNewIdentity(); }} />}
+        <DropdownMenuItem icon="lucide:folder-plus" label={t("keychain.toolbar.newFolder")} onClick={() => { setOpen(false); onNewFolder(); }} />
+      </PickerSurface>
     </div>
   );
 }
