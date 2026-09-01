@@ -17,6 +17,7 @@ on:
       - 'scripts/*msix*'
       - 'scripts/lib/**'
       - '.github/workflows/verify-packaging.yml'
+      - '.github/workflows/publish-msix.yml'
   workflow_dispatch:
     inputs:
       tag:
