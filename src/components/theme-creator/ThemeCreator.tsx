@@ -16,6 +16,15 @@ import {
 import { getUiGroups, getTerminalGroups, getFieldLabels } from "./colorGroups";
 import { ColorPicker } from "./ColorPicker";
 import { primaryFamily, toFontStack, useSystemFonts } from "@/utils/systemFonts";
+import { PickerSurface } from "@/components/shared/PickerSurface";
+import {
+  PickerDivider,
+  PickerFooterAction,
+  PickerOption,
+  PickerSearch,
+  PickerTrigger,
+} from "@/components/shared/pickerParts";
+import { formInputClass, formInputStyle } from "@/components/shared/Panel";
 
 // ── CSS variable inspector ────────────────────────────────────────────────────
 
@@ -125,7 +134,7 @@ function FontPicker({
   const [custom, setCustom] = useState(false);
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const systemFonts = useSystemFonts();
 
   const isPreset = options.some((o) => o.value === value);
@@ -142,57 +151,24 @@ function FontPicker({
     return f.family.toLowerCase().includes(query.trim().toLowerCase());
   });
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setCustom(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
   const close = () => { setOpen(false); setCustom(false); setQuery(""); };
-  const rowBackground = (active: boolean) =>
-    active ? "color-mix(in srgb, var(--t-accent) 12%, transparent)" : "transparent";
-
-  const Row = ({ label, stack, active, onPick }: {
-    label: string; stack: string; active: boolean; onPick: () => void;
-  }) => (
-    <button
-      type="button"
-      onClick={() => { onPick(); close(); }}
-      className="w-full flex items-center justify-between px-3 py-2 text-left cursor-pointer transition-colors"
-      style={{ background: rowBackground(active) }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = rowBackground(active); }}
-    >
-      <span style={{ fontFamily: stack, fontSize: 13, color: "var(--t-text-primary)" }}>{label}</span>
-      {active && <Icon icon="lucide:check" width={12} className="text-(--t-accent) shrink-0" />}
-    </button>
-  );
+  const pick = (stack: string) => { onChange(stack); close(); };
+  const note = (text: string) => <p className="px-3 py-2 text-xs text-(--t-text-dim)">{text}</p>;
 
   return (
-    <div ref={ref} className="relative mt-1">
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => { setOpen((o) => !o); setCustom(false); }}
-        className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) cursor-pointer"
-        onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--t-border-hover)")}
-        onMouseLeave={(e) => (e.currentTarget.style.borderColor = open ? "var(--t-accent)" : "var(--t-border)")}
-        style={{ borderColor: open ? "var(--t-accent)" : undefined }}
-      >
-        <span className="truncate" style={{ fontFamily: value, fontSize: 13 }}>{displayLabel}</span>
-        <span className="flex items-center gap-1.5 shrink-0">
-          {missing && (
-            <Icon icon="lucide:triangle-alert" width={12} className="text-(--t-status-warning)" />
-          )}
-          <Icon icon={open ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="text-(--t-text-dim)" />
-        </span>
-      </button>
+    <div className="mt-1">
+      <PickerTrigger
+        buttonRef={triggerRef}
+        icon="lucide:type"
+        label={displayLabel}
+        labelFont={value}
+        filled
+        open={open}
+        onToggle={() => { setOpen((o) => !o); setCustom(false); }}
+        trailing={missing
+          ? <Icon icon="lucide:triangle-alert" width={13} className="text-(--t-status-warning) shrink-0" />
+          : undefined}
+      />
 
       {missing && (
         <p className="text-[10px] mt-1 text-(--t-status-warning)">
@@ -200,96 +176,83 @@ function FontPicker({
         </p>
       )}
 
-      {/* Dropdown */}
-      {open && (
-        <div
-          className="absolute left-0 right-0 z-50 mt-1 rounded-md bg-(--t-bg-modal) overflow-hidden"
-          style={{ boxShadow: "var(--t-ring), var(--t-elev-2)" }}
-        >
-          {options.map((opt) => (
-            <Row
-              key={opt.value}
-              label={opt.label}
-              stack={opt.value}
-              active={value === opt.value}
-              onPick={() => onChange(opt.value)}
-            />
-          ))}
+      <PickerSurface open={open} onClose={close} anchorRef={triggerRef} title={t("themeCreator.editor.family")}>
+        {options.map((opt) => (
+          <PickerOption
+            key={opt.value}
+            label={opt.label}
+            labelFont={opt.value}
+            labelTone="primary"
+            active={value === opt.value}
+            onClick={() => pick(opt.value)}
+          />
+        ))}
 
-          <div className="border-t border-(--t-border)" />
+        <PickerDivider />
 
-          {systemFonts === null ? (
-            <p className="px-3 py-2 text-xs text-(--t-text-dim)">{t("themeCreator.font.loading")}</p>
-          ) : systemFonts.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-(--t-text-dim)">{t("themeCreator.font.noneInstalled")}</p>
-          ) : (
-            <>
-              <div className="px-3 pt-2">
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t("themeCreator.font.searchPlaceholder")}
-                  className="w-full px-2 py-1 rounded-sm text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
-                />
-              </div>
-              <div className="max-h-56 overflow-y-auto mt-1">
-                {listed.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-(--t-text-dim)">{t("themeCreator.font.noMatches")}</p>
-                ) : (
-                  listed.map((f) => (
-                    <Row
-                      key={f.family}
-                      label={f.family}
-                      stack={toFontStack(f.family, generic)}
-                      active={f.family.toLowerCase() === selected.toLowerCase()}
-                      onPick={() => onChange(toFontStack(f.family, generic))}
-                    />
-                  ))
-                )}
-              </div>
-              {monospaceOnly && (
-                <button
-                  type="button"
-                  onClick={() => setShowAll((s) => !s)}
-                  className="w-full px-3 py-2 text-left text-xs text-(--t-text-muted) cursor-pointer transition-colors border-t border-(--t-border)"
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-                >
-                  {showAll ? t("themeCreator.font.showMonospaceOnly") : t("themeCreator.font.showAll")}
-                </button>
-              )}
-            </>
-          )}
-
-          {/* Custom divider */}
-          <div className="border-t border-(--t-border)" />
-          {!custom ? (
-            <button
-              type="button"
-              onClick={() => setCustom(true)}
-              className="w-full px-3 py-2 text-left text-xs text-(--t-text-muted) cursor-pointer transition-colors"
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-            >
-              {t("themeCreator.font.customLabel")}
-            </button>
-          ) : (
-            <div className="px-3 py-2">
-              <input
-                autoFocus
-                defaultValue={isPreset ? "" : value}
-                placeholder={t("themeCreator.font.customPlaceholder")}
-                className="w-full px-2 py-1 rounded-sm text-xs outline-hidden font-mono bg-(--t-bg-input) border border-(--t-accent) text-(--t-text-primary)"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") { onChange(e.currentTarget.value); close(); }
-                  if (e.key === "Escape") { setCustom(false); }
-                }}
+        {systemFonts === null ? (
+          note(t("themeCreator.font.loading"))
+        ) : systemFonts.length === 0 ? (
+          note(t("themeCreator.font.noneInstalled"))
+        ) : (
+          <>
+            {/* The surface is the only scroller — a nested one would clip a row
+                against its max height. The filter stays pinned to the top. */}
+            <div className="sticky top-0 z-10 pb-1 bg-(--t-bg-card)">
+              <PickerSearch
+                value={query}
+                onChange={setQuery}
+                placeholder={t("themeCreator.font.searchPlaceholder")}
+                autoFocus={false}
               />
-              <p className="text-[10px] text-(--t-text-dim) mt-1">{t("themeCreator.font.customHint")}</p>
             </div>
-          )}
-        </div>
-      )}
+            {listed.length === 0
+              ? note(t("themeCreator.font.noMatches"))
+              : listed.map((f) => (
+                <PickerOption
+                  key={f.family}
+                  label={f.family}
+                  labelFont={toFontStack(f.family, generic)}
+                  labelTone="primary"
+                  active={f.family.toLowerCase() === selected.toLowerCase()}
+                  onClick={() => pick(toFontStack(f.family, generic))}
+                />
+              ))}
+            {monospaceOnly && (
+              <PickerFooterAction
+                icon={showAll ? "lucide:filter" : "lucide:list"}
+                label={showAll ? t("themeCreator.font.showMonospaceOnly") : t("themeCreator.font.showAll")}
+                onClick={() => setShowAll((s) => !s)}
+              />
+            )}
+          </>
+        )}
+
+        <PickerDivider />
+
+        {!custom ? (
+          <PickerFooterAction
+            icon="lucide:pencil"
+            label={t("themeCreator.font.customLabel")}
+            onClick={() => setCustom(true)}
+          />
+        ) : (
+          <div className="px-1.5 py-1">
+            <input
+              autoFocus
+              defaultValue={isPreset ? "" : value}
+              placeholder={t("themeCreator.font.customPlaceholder")}
+              className={`${formInputClass} text-xs font-mono`}
+              style={{ ...formInputStyle, borderColor: "var(--t-accent)" }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { onChange(e.currentTarget.value); close(); }
+                if (e.key === "Escape") { setCustom(false); }
+              }}
+            />
+            <p className="text-[10px] text-(--t-text-dim) mt-1">{t("themeCreator.font.customHint")}</p>
+          </div>
+        )}
+      </PickerSurface>
     </div>
   );
 }
