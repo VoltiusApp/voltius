@@ -5,6 +5,7 @@ pub mod diagnostics;
 pub mod docker;
 pub mod downloads;
 pub mod folders;
+pub mod fonts;
 pub mod fs;
 pub mod host_command;
 pub mod http;

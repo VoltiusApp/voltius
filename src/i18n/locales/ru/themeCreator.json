@@ -8,7 +8,14 @@
     "font": {
       "customLabel": "Свой шрифт…",
       "customPlaceholder": "'My Font', monospace",
-      "customHint": "Нажмите Enter, чтобы применить"
+      "customHint": "Нажмите Enter, чтобы применить",
+      "searchPlaceholder": "Поиск установленных шрифтов…",
+      "loading": "Чтение установленных шрифтов…",
+      "noneInstalled": "Установленные шрифты не найдены",
+      "noMatches": "Подходящий шрифт не найден",
+      "showAll": "Показать все шрифты",
+      "showMonospaceOnly": "Показывать только моноширинные шрифты",
+      "notInstalled": "«{{family}}» не установлен — терминал использует другой шрифт"
     },
     "varSearch": {
       "usage_one": "{{count}} элемент использует",

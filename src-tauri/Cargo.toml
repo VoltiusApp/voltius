@@ -52,6 +52,10 @@ portable-pty = "0.9"
 ssh-key = { version = "0.6", features = ["ed25519", "p256", "p384", "p521", "rsa", "encryption"] }
 rsa = { version = "0.9", features = ["getrandom"] }
 sysinfo = "0.39"
+# Pure-Rust font enumeration for the theme editor's font pickers. `fontdb` scans the
+# OS font directories itself, so it needs no fontconfig/CoreText/DirectWrite linkage
+# and stays out of the cross-compile images' way.
+fontdb = { version = "0.24", default-features = false, features = ["fs", "memmap", "std"] }
 bollard = "0.21"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }

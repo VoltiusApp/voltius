@@ -8,7 +8,14 @@
     "font": {
       "customLabel": "自定义字体…",
       "customPlaceholder": "'我的字体', monospace",
-      "customHint": "按 Enter 应用"
+      "customHint": "按 Enter 应用",
+      "searchPlaceholder": "搜索已安装字体…",
+      "loading": "正在读取已安装字体…",
+      "noneInstalled": "未找到已安装的字体",
+      "noMatches": "没有匹配的字体",
+      "showAll": "显示全部字体",
+      "showMonospaceOnly": "仅显示等宽字体",
+      "notInstalled": "未安装“{{family}}”——终端将回退到其他字体"
     },
     "varSearch": {
       "usage_one": "{{count}} 个元素使用",

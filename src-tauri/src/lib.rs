@@ -758,6 +758,7 @@ pub fn run() {
             commands::processes::process_kill,
             commands::sysinfo::get_system_info,
             commands::sysinfo::get_connected_system_info,
+            commands::fonts::list_system_fonts,
             commands::docker::docker_list_containers,
             commands::docker::docker_list_images,
             commands::docker::docker_list_volumes,
