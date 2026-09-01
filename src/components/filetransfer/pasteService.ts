@@ -3,6 +3,7 @@ import type { FileClipboard, FileEndpoint } from "@/stores/fileClipboardStore";
 import type { PendingTransferAction } from "@/stores/transferQueueStore";
 import { type TransferTarget, transferItem } from "@/services/sftpTransferCore";
 import { classifyPaste } from "./pasteClassify";
+import { tarUsableForPair } from "./tarSupport";
 import { copyNameCandidate } from "./copyNameCandidate";
 import { sameHost } from "@/stores/fileClipboardStore";
 import { runIntraPaneMove } from "./moveService";
@@ -103,6 +104,7 @@ export function buildPasteDeps(
     existsInDest: (name) => existsAt(dest, joinDir(dest.cwd, name)),
     copyTarget: async (target) => {
       let ok = false;
+      const useTar = await tarUsableForPair(src, dest);
       await wiring.runTransfer(
         target.name, "→",
         (tid) => transferItem({
@@ -110,9 +112,10 @@ export function buildPasteDeps(
           srcSftpId: src.sftpId ?? undefined,
           dstSftpId: dest.sftpId ?? undefined,
           srcPath: target.srcPath, dstPath: target.dstPath,
-          isDir: target.isDir, useTar: false, transferId: tid,
+          isDir: target.isDir, useTar, transferId: tid,
         }),
         () => { ok = true; },
+        target.isDir && useTar,
       );
       if (!ok) throw new Error(`paste: copy failed for ${target.name}`);
     },

@@ -16,7 +16,7 @@ import { transferItem } from "@/services/sftpTransferCore";
 import { runIntraPaneMove } from "./moveService";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "./internalDrag";
 import { triggerUpload } from "./osDropPipeline";
-import { tarUsable } from "./tarSupport";
+import { tarUsable, tarUsableForPair } from "./tarSupport";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
@@ -235,9 +235,10 @@ export default function SFTPPage() {
     const dstIsLocal = dstHost?.kind === "local";
     const srcSftpId = src.tag === "connected" ? src.sftpId : null;
     const dstSftpId = dst.tag === "connected" ? dst.sftpId : null;
-    // local↔local uses fsCopy, never tar.
-    const useTar = !(srcIsLocal && dstIsLocal)
-      && await tarUsable([srcSftpId, dstSftpId], srcIsLocal || dstIsLocal);
+    const useTar = await tarUsableForPair(
+      { isLocal: !!srcIsLocal, sftpId: srcSftpId },
+      { isLocal: !!dstIsLocal, sftpId: dstSftpId },
+    );
     if (useTar && files.length > 1) {
       await execBatchTar(files, fromSide, targetFolder);
     } else {

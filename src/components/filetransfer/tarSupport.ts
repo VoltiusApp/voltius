@@ -27,3 +27,12 @@ export async function tarUsable(
   }
   return (await Promise.all(checks)).every(Boolean);
 }
+
+export interface TarEndpoint { isLocal: boolean; sftpId?: string | null }
+
+// Tar usability for one src → dst pair. local↔local never tars: `fsCopy` already
+// does the whole copy in one native call.
+export function tarUsableForPair(src: TarEndpoint, dst: TarEndpoint): Promise<boolean> {
+  if (src.isLocal && dst.isLocal) return Promise.resolve(false);
+  return tarUsable([src.sftpId, dst.sftpId], src.isLocal || dst.isLocal);
+}
