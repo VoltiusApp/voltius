@@ -634,6 +634,44 @@ export function openTerminalSearch(sessionId: string): void {
   getTerminalSearchController(sessionId)?.open();
 }
 
+/**
+ * Take a chord for the terminal canvas and return xterm's "skip this key" verdict.
+ *
+ * xterm returns early on a false verdict *without* calling its own cancel(), so
+ * the event keeps propagating to useKeyboard's window listener. That listener
+ * runs the Ctrl+F and Ctrl+G branches above its `isInput` guard — the canvas is
+ * a textarea, so every other shortcut it owns is already unreachable from here —
+ * and would run its copy of the shortcut on top of this one.
+ */
+function claimChord(e: KeyboardEvent): false {
+  e.preventDefault();
+  e.stopPropagation();
+  return false;
+}
+
+/** Ctrl+G / Shift+Ctrl+G — the search widget's find-next / find-previous chord. */
+export function isTerminalSearchNavKey(e: KeyboardEvent): boolean {
+  return e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G");
+}
+
+/**
+ * Move an open search widget to its next (or, with shift, previous) hit.
+ *
+ * Returns whether the chord was consumed. A closed widget consumes nothing:
+ * Ctrl+G then still belongs to the shell as ^G, which is readline's `abort` and
+ * the only way out of a Ctrl+R reverse-i-search (#208).
+ */
+export function handleTerminalSearchNav(sessionId: string, e: KeyboardEvent): boolean {
+  const ctrl = getTerminalSearchController(sessionId);
+  if (!ctrl?.getSnapshot().open) return false;
+  // The chord is consumed for keyup/keypress too, but only keydown moves the hit.
+  if (e.type === "keydown") {
+    if (e.shiftKey) ctrl.prev();
+    else ctrl.next();
+  }
+  return true;
+}
+
 useSessionStore.subscribe((state) => {
   const currentIds = new Set(state.sessions.map((s) => s.id));
   for (const [id, entry] of terminalCache) {
@@ -889,21 +927,17 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         const clipResult = entry.clip?.handleKeyEvent(e);
         if (clipResult != null) return clipResult;
         if (matchShortcut("terminal-search", e)) {
-          if (e.type === "keydown") {
-            e.preventDefault();
-            getTerminalSearchController(sessionId)?.open();
-          }
-          return false;
+          if (e.type === "keydown") getTerminalSearchController(sessionId)?.open();
+          return claimChord(e);
         }
-        if (e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G")) {
-          if (e.type === "keydown") {
-            const ctrl = getTerminalSearchController(sessionId);
-            if (ctrl?.getSnapshot().open) {
-              if (e.shiftKey) ctrl.prev();
-              else ctrl.next();
-            }
-          }
-          return false;
+        // Returning false makes xterm skip the key entirely — correct while the
+        // search widget owns Ctrl+G, wrong once it is closed, when the shell needs
+        // ^G. xterm marks ctrl+letter cancel:true and calls preventDefault itself,
+        // so the webview's native find-next stays suppressed on the pass-through.
+        // This pane owns its own widget; useKeyboard keys off activeSessionId.
+        if (isTerminalSearchNavKey(e)) {
+          if (!handleTerminalSearchNav(sessionId, e)) return true;
+          return claimChord(e);
         }
         if (matchShortcut("history", e)) {
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel("history");
