@@ -38,6 +38,8 @@ import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
 import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason, removeTeamMember, revokeInvitation } from "@/services/vaultShare";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import { assignableRoles, leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
+import { OffboardingDialog } from "@/components/members/OffboardingDialog";
+import type { DepartMode } from "@/services/teamOffboarding";
 
 function RoleChip({ role }: { role: TeamRole }) {
   const { t } = useTranslation();
@@ -366,12 +368,14 @@ export function MemberDetailPanel({
   const [error, setError] = useState("");
   const [toggling, setToggling] = useState<string | null>(null);
   const [justToggled, setJustToggled] = useState<string | null>(null);
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  const [removing, setRemoving] = useState(false);
+  const [offboarding, setOffboarding] = useState<DepartMode | null>(null);
   const [creatingRole, setCreatingRole] = useState(false);
 
   const canChangeRoles = canManageMembers && !isMe;
   const canRemove = canManageMembers && !isTargetOwner && !isMe;
+  // The server rejects an owner removing themselves (teams.rs `is_owner`), so
+  // offering Leave to an owner would promise something that 403s.
+  const canLeave = isMe && !isTargetOwner;
 
   const handleToggleRole = async (role: TeamRole) => {
     const hasRole = member.role_ids.includes(role.id);
@@ -425,35 +429,6 @@ export function MemberDetailPanel({
       setError(e instanceof Error ? e.message : t("members.error.failedToUpdateRole"));
     } finally {
       setToggling(null);
-    }
-  };
-
-  const handleRemove = async () => {
-    if (!confirmRemove) { setConfirmRemove(true); return; }
-    const snapshot = { ...member };
-    setRemoving(true); setError("");
-    try {
-      await removeTeamMember({ teamId, userId: member.user_id, handle: member.handle ?? "" });
-      push({
-        label: t("members.history.remove", { name: member.handle }),
-        undo: async () => {
-          await useTeamStore.getState().addMemberById(teamId, snapshot.user_id);
-          for (const rid of snapshot.role_ids) {
-            await useTeamStore.getState().assignMemberRole(teamId, snapshot.user_id, rid).catch(() => {});
-          }
-          await useTeamStore.getState().loadMembers(teamId);
-        },
-        redo: async () => {
-          await useTeamStore.getState().removeMember(teamId, snapshot.user_id);
-          await useTeamStore.getState().loadMembers(teamId);
-        },
-      });
-      onClose();
-      onUpdated();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("members.error.failedToRemoveMember"));
-      setRemoving(false);
-      setConfirmRemove(false);
     }
   };
 
@@ -554,26 +529,21 @@ export function MemberDetailPanel({
         </FormSection>
 
         {/* Danger zone */}
-        {canRemove && (
+        {(canRemove || canLeave) && (
           <FormSection label={t("members.dangerZone")}>
             <button
-              onClick={() => { if (!removing) void handleRemove(); }}
-              disabled={removing}
+              onClick={() => setOffboarding(canLeave ? "leave" : "remove")}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
               style={{
-                background: confirmRemove ? "#3D1515" : "var(--t-bg-elevated)",
-                color: confirmRemove ? "#F87171" : "var(--t-status-error)",
-                border: `1px solid ${confirmRemove ? "#5C2020" : "rgba(239,68,68,0.3)"}`,
-                opacity: removing ? 0.6 : 1,
+                background: "var(--t-bg-elevated)",
+                color: "var(--t-status-error)",
+                border: "1px solid rgba(239,68,68,0.3)",
               }}
-              onMouseEnter={(e) => { if (!confirmRemove) e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
-              onMouseLeave={(e) => { if (!confirmRemove) e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
             >
-              {removing
-                ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
-                : <Icon icon="lucide:user-minus" width={13} />
-              }
-              {confirmRemove ? t("members.confirmRemoval") : t("members.removeFromTeam")}
+              <Icon icon={canLeave ? "lucide:log-out" : "lucide:user-minus"} width={13} />
+              {canLeave ? t("members.leaveTeam") : t("members.removeFromTeam")}
             </button>
           </FormSection>
         )}
@@ -581,6 +551,16 @@ export function MemberDetailPanel({
         {error && <p className="text-xs px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}
       </div>
     </PanelShell>
+
+    {offboarding && (
+      <OffboardingDialog
+        members={[member]}
+        teamId={teamId}
+        mode={offboarding}
+        onClose={() => setOffboarding(null)}
+        onDone={() => { onClose(); onUpdated(); }}
+      />
+    )}
     </>
   );
 }
@@ -906,10 +886,8 @@ export default function MembersPage() {
   const vaults = useVaultStore((s) => s.vaults);
   const { teams, loadTeams, membersByTeam, loadMembers, rolesByTeam, loadRoles, pendingInvitationsByTeam, loadPendingInvitations } = useTeamStore();
   const { tier, isTeams, accountMode } = useSubscriptionStore();
-  const addMemberById = useTeamStore((s) => s.addMemberById);
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
   const removeMemberRole = useTeamStore((s) => s.removeMemberRole);
-  const removeMember = useTeamStore((s) => s.removeMember);
   const push = useHistoryStore((s) => s.push);
   const { activeSessions, connections } = useTeamSessionStore();
 
@@ -930,6 +908,7 @@ export default function MembersPage() {
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [showRolesPanel, setShowRolesPanel] = useState(false);
+  const [offboardingMembers, setOffboardingMembers] = useState<TeamMember[] | null>(null);
 
   useEffect(() => {
     if (membersInvitePending) {
@@ -1147,23 +1126,7 @@ export default function MembersPage() {
         icon: "lucide:user-minus",
         danger: true,
         divider: true,
-        onClick: () => {
-          const snapshot = { ...member };
-          void removeMember(teamId!, member.user_id).then(() => {
-            push({
-              label: t("members.history.remove", { name: member.handle }),
-              undo: async () => {
-                await addMemberById(teamId!, snapshot.user_id);
-                for (const rid of snapshot.role_ids) {
-                  await assignMemberRole(teamId!, snapshot.user_id, rid).catch(() => {});
-                }
-                reload();
-              },
-              redo: async () => { await removeMember(teamId!, snapshot.user_id); reload(); },
-            });
-            reload();
-          });
-        },
+        onClick: () => setOffboardingMembers([member]),
       });
     }
 
@@ -1247,26 +1210,7 @@ export default function MembersPage() {
         icon: "lucide:user-minus",
         danger: true,
         divider: items.length > 0,
-        onClick: () => {
-          const snapshots = selectedMembers.map((m) => ({ ...m }));
-          void Promise.all(selectedMembers.map((m) => removeMember(teamId!, m.user_id))).then(() => {
-            push({
-              label: t("members.history.removeBulk", { count: selectedMembers.length }),
-              undo: async () => {
-                await Promise.all(snapshots.map((m) => addMemberById(teamId!, m.user_id)));
-                await Promise.all(
-                  snapshots.flatMap((m) => m.role_ids.map((rid) => assignMemberRole(teamId!, m.user_id, rid).catch(() => {})))
-                );
-                reload();
-              },
-              redo: async () => {
-                await Promise.all(snapshots.map((m) => removeMember(teamId!, m.user_id)));
-                reload();
-              },
-            });
-            reload();
-          });
-        },
+        onClick: () => setOffboardingMembers(selectedMembers),
       });
     }
 
@@ -1606,6 +1550,16 @@ const vaultTabs = selectedVaultIds.length > 1
         </DragSelectSurface>
       </div>
     </SidePanelLayout>
+
+    {offboardingMembers && (
+      <OffboardingDialog
+        members={offboardingMembers}
+        teamId={teamId}
+        mode="remove"
+        onClose={() => setOffboardingMembers(null)}
+        onDone={reload}
+      />
+    )}
     </>
   );
 }
