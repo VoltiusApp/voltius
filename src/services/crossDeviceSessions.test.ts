@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   removeSession: vi.fn(),
   reconnect: vi.fn(async () => {}),
   markClosed: vi.fn(),
+  setState: vi.fn(),
   sessions: [] as { id: string; status: string }[],
   connections: [] as { id: string }[],
   teamConnections: {} as Record<string, { id: string }[]>,
@@ -19,7 +20,10 @@ vi.mock("@/stores/toggleSettingsStore", () => ({ getToggle: h.getToggle }));
 vi.mock("@/services/liveSessionPublisher", () => ({ publishLiveSessionsNow: h.publishLiveSessionsNow }));
 vi.mock("@/services/vault", () => ({})); // safety: avoid transitive tauri imports
 vi.mock("@/stores/sessionStore", () => ({
-  useSessionStore: { getState: () => ({ sessions: h.sessions, removeSession: h.removeSession, reconnect: h.reconnect }) },
+  useSessionStore: {
+    getState: () => ({ sessions: h.sessions, removeSession: h.removeSession, reconnect: h.reconnect }),
+    setState: h.setState,
+  },
 }));
 vi.mock("@/stores/connectionStore", () => ({
   useConnectionStore: { getState: () => ({ connections: h.connections, teamConnections: h.teamConnections }) },
@@ -31,7 +35,7 @@ vi.mock("@/stores/uiStore", () => ({
   useUIStore: { getState: () => ({ setActiveNav: vi.fn(), setSidebarOpen: vi.fn() }) },
 }));
 
-import { getJoinableSessions, runClosedCheck, sessionEnded } from "./crossDeviceSessions";
+import { getJoinableSessions, joinRemoteSession, runClosedCheck, sessionEnded } from "./crossDeviceSessions";
 
 beforeEach(() => {
   Object.values(h).forEach((v) => (v as { mockReset?: () => void }).mockReset?.());
@@ -105,4 +109,32 @@ test("sessionEnded removes tab, tombstones it, and republishes", () => {
   expect(h.removeSession).toHaveBeenCalledWith("s5");
   expect(h.markClosed).toHaveBeenCalledWith("s5");
   expect(h.publishLiveSessionsNow).toHaveBeenCalledTimes(1);
+});
+
+test("joining a session opened elsewhere inherits the name that device gave the tab", async () => {
+  await joinRemoteSession({
+    sessionId: "s1",
+    deviceId: "devA",
+    deviceName: "laptop",
+    connectionId: "c1",
+    connectionName: "web-01",
+    title: "deploy",
+    openedAt: "2026-06-11T09:00:00Z",
+  });
+
+  const added = h.setState.mock.calls[0][0]({ sessions: [] }).sessions[0];
+  expect(added).toMatchObject({ id: "s1", connectionName: "web-01", title: "deploy" });
+});
+
+test("joining an unnamed session leaves the tab on its connection name", async () => {
+  await joinRemoteSession({
+    sessionId: "s2",
+    deviceId: "devA",
+    deviceName: "laptop",
+    connectionId: "c1",
+    connectionName: "web-01",
+    openedAt: "2026-06-11T09:00:00Z",
+  });
+
+  expect(h.setState.mock.calls[0][0]({ sessions: [] }).sessions[0].title).toBeUndefined();
 });

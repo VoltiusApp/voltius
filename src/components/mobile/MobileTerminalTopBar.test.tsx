@@ -1,5 +1,6 @@
 import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, cleanup } from "@testing-library/react";
+import { useSessionStore } from "@/stores/sessionStore";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
@@ -20,4 +21,15 @@ describe("MobileTerminalTopBar", () => {
     const { container } = render(<MobileTerminalTopBar />);
     expect(container.querySelector('[title="notifications.bell.title"]')).not.toBeNull();
   });
+});
+
+test("a session chip carries the name the tab was given, not the connection", async () => {
+  useSessionStore.setState({
+    sessions: [{ id: "s1", connectionId: "c1", connectionName: "web-01", title: "deploy", status: "connected", type: "local" }],
+    activeSessionId: "s1",
+  });
+  const { default: MobileTerminalTopBar } = await import("./MobileTerminalTopBar");
+  const { container } = render(<MobileTerminalTopBar />);
+
+  expect(container.querySelector('[data-mobile-session-chip="s1"]')!.textContent).toContain("deploy");
 });

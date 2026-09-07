@@ -1,5 +1,6 @@
 import {
   buildManifest,
+  manifestSignature,
   parseManifest,
   resolveRemoteSessions,
   pruneStale,
@@ -179,4 +180,63 @@ const prunedTombs = pruneStale(
   now,
 );
 assertEqual(Object.keys(prunedTombs), ["fresh"], "tombstones older than 60 days pruned");
+
+// --- tab names travel with a shared session ---
+const named = buildManifest({
+  snapshotSessions: [
+    { id: "s1", type: "ssh", connectionId: "c1", connectionName: "web-01", persist: true, title: "deploy" },
+    { id: "s2", type: "ssh", connectionId: "c2", connectionName: "db-01", persist: true },
+  ],
+  opens: {},
+  tombstones: {},
+  deviceId: "devA",
+  deviceName: "laptop",
+  now,
+});
+assertEqual(named.sessions[0].title, "deploy", "a renamed session publishes its title");
+assertEqual(named.sessions[1].title, undefined, "an unnamed session publishes no title");
+
+const namedRemote = resolveRemoteSessions({
+  manifests: [named],
+  myDeviceId: "devB",
+  myTombstones: {},
+  myOpenSessionIds: [],
+});
+assertEqual(namedRemote.joinable[0].title, "deploy", "a joinable session offers the origin device's name");
+
+// --- manifestSignature ---
+const sigBase = buildManifest({
+  snapshotSessions: [{ id: "s1", type: "ssh", connectionId: "c1", connectionName: "web-01", persist: true, cwd: "/srv" }],
+  opens: {},
+  tombstones: {},
+  deviceId: "devA",
+  deviceName: "laptop",
+  now,
+});
+const sigRenamed = buildManifest({
+  snapshotSessions: [{ id: "s1", type: "ssh", connectionId: "c1", connectionName: "web-01", persist: true, cwd: "/srv", title: "deploy" }],
+  opens: {},
+  tombstones: {},
+  deviceId: "devA",
+  deviceName: "laptop",
+  now,
+});
+const sigMoved = buildManifest({
+  snapshotSessions: [{ id: "s1", type: "ssh", connectionId: "c1", connectionName: "web-01", persist: true, cwd: "/tmp" }],
+  opens: {},
+  tombstones: {},
+  deviceId: "devA",
+  deviceName: "laptop",
+  now,
+});
+assertEqual(
+  manifestSignature(sigRenamed) === manifestSignature(sigBase),
+  false,
+  "a rename is worth publishing",
+);
+assertEqual(
+  manifestSignature(sigMoved),
+  manifestSignature(sigBase),
+  "cwd churn is not worth publishing",
+);
 });

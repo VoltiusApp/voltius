@@ -23,6 +23,7 @@
       "closePane": "Close pane",
       "latencyTooltip": "{{ms}}ms — click to copy",
       "reconnect": "Reconnect",
+      "rename": "Rename…",
       "duplicate": "Duplicate",
       "duplicateSplit": "Duplicate into split",
       "split": "Split",

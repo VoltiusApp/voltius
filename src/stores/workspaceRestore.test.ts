@@ -7,7 +7,7 @@ const h = vi.hoisted(() => ({
   hydrate: vi.fn(),
   snapshot: {
     version: 1,
-    sessions: [{ id: "s1", connectionId: "c1", connectionName: "host", type: "ssh", persist: true }],
+    sessions: [{ id: "s1", connectionId: "c1", connectionName: "host", title: "deploy", type: "ssh", persist: true }],
     layout: { splitTabs: [], activeSplitTabId: null, splitTabActive: false, titlebarOrder: [] },
     activeSessionId: "s1",
   },
@@ -85,4 +85,17 @@ test("a normal launch reconnects without waiting on sync", async () => {
   await restoreWorkspaceOnLaunch();
 
   expect(h.reconnect).toHaveBeenCalledWith("s1", { restore: true });
+});
+
+test("a restored tab comes back under the name the user gave it", async () => {
+  const { setLoginSyncPending } = await import("@/services/loginSyncGate");
+  const { restoreWorkspaceOnLaunch } = await import("./workspaceRestore");
+  setLoginSyncPending();
+
+  await restoreWorkspaceOnLaunch();
+
+  expect(h.restoreSessions).toHaveBeenCalledWith(
+    [expect.objectContaining({ id: "s1", title: "deploy" })],
+    "s1",
+  );
 });

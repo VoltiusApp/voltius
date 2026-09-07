@@ -183,8 +183,10 @@
       "maximize": "最大化",
       "close": "关闭",
       "newSession": "新建会话",
+      "renameTab": "重命名标签页",
       "closeTab": "关闭标签页",
       "splitMenu": {
+        "rename": "重命名标签页…",
         "broadcastOn": "向所有窗格广播输入",
         "broadcastOff": "停止广播输入",
         "panes": "窗格",

@@ -17,6 +17,7 @@ export interface ConnectRetryOverride {
 }
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
+import { normalizeTabTitle } from "@/utils/sessionLabel";
 import { getGlobalKeepalivePreset, resolvePersistSession } from "@/stores/connectivitySettingsStore";
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
@@ -79,6 +80,8 @@ interface SessionStore {
   restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
   markConnected: (sessionId: string) => void;
   markError: (sessionId: string, message: string, code?: VaultErrorCode) => void;
+  /** Name a tab. A blank name clears it, so the tab falls back to the connection. */
+  renameSession: (sessionId: string, title: string | null) => void;
 }
 
 type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
@@ -876,6 +879,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   setActive: (sessionId) => set({ activeSessionId: sessionId }),
+
+  renameSession: (sessionId, title) =>
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, title: normalizeTabTitle(title) } : sess,
+      ),
+    })),
 
   markDisconnected: (sessionId) => markSessionDisconnected(set, sessionId),
 

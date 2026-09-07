@@ -9,6 +9,7 @@ import { terminalPanelItems } from "./terminalPanelItems";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
+import { sessionLabel } from "@/utils/sessionLabel";
 
 const DOT: Record<TerminalSession["status"], string> = {
   connected: "#3fb950",
@@ -72,7 +73,7 @@ export default function MobileTerminalTopBar() {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: DOT[s.status] }} />
-              <button onClick={() => setActive(s.id)}>{s.connectionName}</button>
+              <button onClick={() => setActive(s.id)}>{sessionLabel(s)}</button>
               <button data-mobile-session-close={s.id} onClick={() => void disconnect(s.id)} className="opacity-70">
                 <Icon icon="lucide:x" width={12} />
               </button>

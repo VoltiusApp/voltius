@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { buildManifest, type LiveSessionManifest } from "@/stores/liveSessionManifestCore";
+import { buildManifest, manifestSignature, type LiveSessionManifest } from "@/stores/liveSessionManifestCore";
 import { useWorkspaceSnapshotStore, readWorkspaceSnapshot } from "@/stores/workspaceSnapshotStore";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
@@ -33,21 +33,12 @@ function buildCurrentManifest(deviceName: string): LiveSessionManifest | null {
   });
 }
 
-/** Structural signature: a change here is worth a push. cwd churn and the
- * updatedAt clock are excluded so we don't re-upload the blob constantly. */
-function signature(m: LiveSessionManifest): string {
-  return JSON.stringify({
-    s: m.sessions.map((x): [string, string] => [x.id, x.openedAt]).sort(),
-    c: m.closedSessions.map((x): [string, string] => [x.id, x.closedAt]).sort(),
-  });
-}
-
 let lastSignature: string | null = null;
 
 async function writeManifest(immediate: boolean): Promise<void> {
   const manifest = buildCurrentManifest(await getDeviceName());
   if (!manifest) return;
-  const sig = signature(manifest);
+  const sig = manifestSignature(manifest);
   if (sig === lastSignature) return;
   lastSignature = sig;
   await invoke("live_sessions_save", { state: JSON.stringify(manifest) }).catch(() => {});

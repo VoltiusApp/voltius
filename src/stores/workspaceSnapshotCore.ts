@@ -24,6 +24,8 @@ export interface SnapshotSession {
   type: "ssh" | "local" | "serial";
   connectionId: string;
   connectionName: string;
+  /** User-given tab name, so a rename survives a restart. */
+  title?: string;
   /** Whether persistence (tmux/screen) was active when it connected. */
   persist: boolean;
   cwd?: string;
@@ -59,6 +61,7 @@ export interface SessionInput {
   type: string;
   connectionId: string;
   connectionName: string;
+  title?: string;
   persist?: boolean;
   encoding?: string;
   localShell?: string;
@@ -91,6 +94,7 @@ export function buildSnapshot(input: {
       type: s.type as SnapshotSession["type"],
       connectionId: s.connectionId,
       connectionName: s.connectionName,
+      title: s.title,
       persist: s.persist ?? false,
       cwd: input.cwds[s.id],
       localShell: s.localShell,
@@ -154,6 +158,7 @@ export function parseSnapshot(raw: unknown): WorkspaceSnapshot | null {
     },
     sessions: s.sessions.filter(isValidSession).map((x) => ({
       ...x,
+      title: typeof x.title === "string" ? x.title : undefined,
       persist: x.persist === true,
       scrollLinesFromBottom:
         typeof x.scrollLinesFromBottom === "number" && x.scrollLinesFromBottom > 0
