@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useDragStore } from "@/stores/dragStore";
+import { useLayoutStore } from "@/stores/layoutStore";
 import { PaneHeader } from "./PaneHeader";
 import type { TerminalSession } from "@/types";
 
@@ -29,6 +31,7 @@ const session: TerminalSession = {
 
 beforeEach(() => {
   focusSession.mockClear();
+  useDragStore.setState({ lastDragEndedAt: 0, isDragging: false });
   useSessionStore.setState({ sessions: [session], activeSessionId: "s1" });
 });
 afterEach(cleanup);
@@ -68,6 +71,28 @@ describe("renaming from the pane header", () => {
     fireEvent.doubleClick(screen.getByText("web-1"));
     fireEvent.keyDown(editor(), { key: "Enter" });
     expect(focusSession).toHaveBeenCalledWith("s1");
+  });
+
+  it("clicking the title of the focused pane opens the editor", () => {
+    render(<PaneHeader paneId="p1" session={session} active />);
+    fireEvent.click(screen.getByText("web-1"));
+    expect(editor().value).toBe("web-1");
+  });
+
+  it("clicking the title of an unfocused pane focuses it instead of renaming", () => {
+    useLayoutStore.setState({ activePaneId: "p9" });
+    render(<PaneHeader paneId="p1" session={session} active={false} />);
+    fireEvent.click(screen.getByText("web-1"));
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(useLayoutStore.getState().activePaneId).toBe("p1");
+  });
+
+  it("does not open the editor on the click that ends a pane drag", () => {
+    render(<PaneHeader paneId="p1" session={session} active />);
+    useDragStore.setState({ lastDragEndedAt: Date.now() });
+    fireEvent.click(screen.getByText("web-1"));
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("Escape leaves the session as it was", () => {

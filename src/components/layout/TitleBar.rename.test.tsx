@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useLayoutStore } from "@/stores/layoutStore";
+import { useDragStore } from "@/stores/dragStore";
+import { useUIStore } from "@/stores/uiStore";
 import TitleBar from "./TitleBar";
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -33,6 +35,8 @@ const session = (id: string) => ({
 
 beforeEach(() => {
   focusSession.mockClear();
+  useUIStore.setState({ activeNav: "terminal" });
+  useDragStore.setState({ lastDragEndedAt: 0, isDragging: false });
   useSessionStore.setState({ sessions: [session("s1"), session("s2")], activeSessionId: "s1" });
   useLayoutStore.setState({ splitTabs: [], activeSplitTabId: null, root: null, splitTabActive: false, titlebarOrder: [] });
 });
@@ -106,6 +110,29 @@ describe("renaming a session tab", () => {
     expect(focusSession).toHaveBeenCalledWith("s1");
   });
 
+  /** Right-click is not findable; a click on the name of the tab you are already
+   *  on is the discoverable gesture. A background tab still just activates. */
+  it("clicking the name of the active tab opens the editor", () => {
+    render(<TitleBar />);
+    fireEvent.click(screen.getByText("s1"));
+    expect(editor().value).toBe("s1");
+  });
+
+  it("clicking the name of a background tab switches to it instead", () => {
+    render(<TitleBar />);
+    fireEvent.click(screen.getByText("s2"));
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(useSessionStore.getState().activeSessionId).toBe("s2");
+  });
+
+  it("does not open the editor on the click that ends a tab drag", () => {
+    render(<TitleBar />);
+    useDragStore.setState({ lastDragEndedAt: Date.now() });
+    fireEvent.click(screen.getByText("s1"));
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
   it("Escape leaves the tab as it was", () => {
     render(<TitleBar />);
     fireEvent.doubleClick(screen.getByText("s1"));
@@ -148,6 +175,13 @@ describe("renaming a split tab", () => {
     fireEvent.keyDown(editor(), { key: "Enter" });
 
     expect(focusSession).toHaveBeenCalled();
+  });
+
+  it("clicking the name of the active split tab opens the editor", () => {
+    useLayoutStore.setState({ splitTabActive: true });
+    render(<TitleBar />);
+    fireEvent.click(screen.getByText(/^s[12]/));
+    expect(editor()).toBeTruthy();
   });
 
   it("a named split tab stops following the active pane", () => {

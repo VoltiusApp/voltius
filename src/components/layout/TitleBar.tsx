@@ -94,6 +94,21 @@ export default function TitleBar() {
   const [renaming, setRenaming] = useState<{ kind: "session" | "split"; id: string } | null>(null);
   const isRenaming = (kind: "session" | "split", id: string) =>
     renaming?.kind === kind && renaming.id === id;
+  /**
+   * A click on the label renames — but only on the tab the user is already on,
+   * so clicking a background tab still just switches to it, and not on the
+   * click that ends a drag.
+   */
+  const startRenameFromLabel = (
+    e: React.MouseEvent,
+    isActiveTab: boolean,
+    target: { kind: "session" | "split"; id: string },
+  ) => {
+    if (!isActiveTab || shouldSuppressDragClick()) return;
+    e.stopPropagation();
+    setRenaming(target);
+  };
+
   // Closing the editor must not leave the keyboard on nothing: the terminal
   // the user was working in takes focus back.
   const endRename = (sessionId: string | undefined) => {
@@ -389,7 +404,10 @@ export default function TitleBar() {
                 >
                   {renderMcpBar(tab.id, tabSessionIds)}
                   <Icon icon="lucide:layout-dashboard" width={18} />
-                  <span className="max-w-[140px] truncate">
+                  <span
+                    className="max-w-[140px] truncate"
+                    onClick={(e) => startRenameFromLabel(e, isActiveSplitTab, { kind: "split", id: tab.id })}
+                  >
                     {splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback"))}{tabSessionIds.length > 1 ? t("layout.titleBar.splitCountSuffix", { count: tabSessionIds.length - 1 }) : ""}
                   </span>
                   <span
@@ -491,7 +509,12 @@ export default function TitleBar() {
               >
                 {renderMcpBar(session.id, [session.id])}
                 {tabIcon}
-                <span className="max-w-[140px] truncate">{sessionLabel(session)}</span>
+                <span
+                  className="max-w-[140px] truncate"
+                  onClick={(e) => startRenameFromLabel(e, isActive, { kind: "session", id: session.id })}
+                >
+                  {sessionLabel(session)}
+                </span>
                 <span
                   onClick={(e) => handleTabClose(e, session.id)}
                   className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"

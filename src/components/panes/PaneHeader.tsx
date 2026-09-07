@@ -6,7 +6,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
-import { useDragStore } from "@/stores/dragStore";
+import { useDragStore, shouldSuppressDragClick } from "@/stores/dragStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
 import { McpMark, mcpOwnerTitle, mcpTint } from "@/components/shared/McpMark";
@@ -347,6 +347,14 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
             className="truncate font-semibold"
             onMouseDown={(e) => e.stopPropagation()}
             onDoubleClick={() => setRenaming(true)}
+            onClick={() => {
+              // Same rule as the tab labels: the first click brings you to the
+              // pane, a click on the pane you are already in renames it. Never
+              // on the click that ends a drag.
+              if (shouldSuppressDragClick()) return;
+              if (active) setRenaming(true);
+              else useLayoutStore.getState().setActivePane(paneId);
+            }}
           >
             {sessionLabel(session)}
           </span>
