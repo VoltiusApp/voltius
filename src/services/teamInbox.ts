@@ -353,3 +353,31 @@ export function startTeamInbox(): () => void {
     unsubVaultState();
   };
 }
+
+/**
+ * One-shot, unlike the reconcilers above: the team is gone from every source we
+ * could re-derive this from, so it is upserted directly and stays until acted
+ * on. Keyed by team so being removed from two teams raises two entries.
+ */
+export function notifyMembershipEnded(teamName: string): void {
+  const id = `membership-ended:${teamName}`;
+  const message = i18n.t("notifications.inbox.membershipEnded.message", { team: teamName });
+
+  useNotificationStore.getState().upsertInbox({
+    id,
+    kind: "membershipEnded",
+    source: APP_SOURCE,
+    message,
+    actions: [
+      {
+        label: i18n.t("notifications.inbox.membershipEnded.review"),
+        run: async () => {
+          const { useUIStore } = await import("@/stores/uiStore");
+          useUIStore.getState().setActiveNav("keychain");
+        },
+      },
+    ],
+  });
+
+  toast(message, 10000, id);
+}
