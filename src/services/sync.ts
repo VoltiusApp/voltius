@@ -890,8 +890,13 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
         // holding the team's plaintext passwords and private keys (#216).
         await clearTeamStoresAndSecrets(tid);
 
-        const { notifyMembershipEnded } = await import("@/services/teamInbox");
-        notifyMembershipEnded(departedTeamName);
+        // membership_changed cannot tell a kick from a departure, so the
+        // leaver's own client marks its intent before the round trip.
+        const { departedVoluntarily } = await import("@/services/teamOffboarding");
+        if (!departedVoluntarily(tid)) {
+          const { notifyMembershipEnded } = await import("@/services/teamInbox");
+          notifyMembershipEnded(departedTeamName);
+        }
       },
     }).catch(() => {});
   } else if (eventData.startsWith("presence:")) {
