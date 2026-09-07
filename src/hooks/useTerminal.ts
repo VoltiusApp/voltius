@@ -506,6 +506,12 @@ export interface TerminalApi {
   paste(text: string): void;
 }
 
+/** Give the keyboard back to a session's terminal — after an inline rename, a
+ * modal, anything that borrowed focus. No-op when nothing is cached. */
+export function focusSession(sessionId: string): void {
+  terminalCache.get(sessionId)?.terminal.focus();
+}
+
 /** Narrow facade over a cached terminal for the mobile gesture layer. Null when no
  *  terminal is cached for the session yet. */
 export function getTerminalApi(sessionId: string): TerminalApi | null {

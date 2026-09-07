@@ -31,6 +31,7 @@ import { closeSession } from "@/services/closeSession";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { sessionLabel, splitTabLabel } from "@/utils/sessionLabel";
+import { focusSession } from "@/hooks/useTerminal";
 import { splitTabMenuItems } from "@/utils/splitTabMenuItems";
 
 const appWindow = getCurrentWindow();
@@ -93,6 +94,12 @@ export default function TitleBar() {
   const [renaming, setRenaming] = useState<{ kind: "session" | "split"; id: string } | null>(null);
   const isRenaming = (kind: "session" | "split", id: string) =>
     renaming?.kind === kind && renaming.id === id;
+  // Closing the editor must not leave the keyboard on nothing: the terminal
+  // the user was working in takes focus back.
+  const endRename = (sessionId: string | undefined) => {
+    setRenaming(null);
+    if (sessionId) focusSession(sessionId);
+  };
   const menuSession = menuTarget?.kind === "session" ? sessions.find((s) => s.id === menuTarget.id) ?? null : null;
   const menuSplitTab = menuTarget?.kind === "split" ? splitTabs.find((tab) => tab.id === menuTarget.id) ?? null : null;
 
@@ -344,6 +351,25 @@ export default function TitleBar() {
             return (
               <div key={item.key} className="contents">
                 {renderTitlebarDropCue(item.key, "before")}
+                {isRenaming("split", tab.id) ? (
+                  <div
+                    data-titlebar-key={item.key}
+                    className="relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 overflow-hidden"
+                    style={{
+                      background: isActiveSplitTab ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
+                      color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
+                      border: isActiveSplitTab ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
+                    }}
+                  >
+                    <Icon icon="lucide:layout-dashboard" width={18} />
+                    <InlineNameEditor
+                      value={splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback"))}
+                      ariaLabel={t("layout.titleBar.renameTab")}
+                      onCommit={(name) => { useLayoutStore.getState().renameSplitTab(tab.id, name); endRename(tabActiveSession?.id); }}
+                      onCancel={() => endRename(tabActiveSession?.id)}
+                    />
+                  </div>
+                ) : (
                 <button
                   data-titlebar-key={item.key}
                   onClick={() => handleUnifiedTabClick(tab.id)}
@@ -363,18 +389,9 @@ export default function TitleBar() {
                 >
                   {renderMcpBar(tab.id, tabSessionIds)}
                   <Icon icon="lucide:layout-dashboard" width={18} />
-                  {isRenaming("split", tab.id) ? (
-                    <InlineNameEditor
-                      value={splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback"))}
-                      ariaLabel={t("layout.titleBar.renameTab")}
-                      onCommit={(name) => { useLayoutStore.getState().renameSplitTab(tab.id, name); setRenaming(null); }}
-                      onCancel={() => setRenaming(null)}
-                    />
-                  ) : (
-                    <span className="max-w-[140px] truncate">
-                      {splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback"))}{tabSessionIds.length > 1 ? t("layout.titleBar.splitCountSuffix", { count: tabSessionIds.length - 1 }) : ""}
-                    </span>
-                  )}
+                  <span className="max-w-[140px] truncate">
+                    {splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback"))}{tabSessionIds.length > 1 ? t("layout.titleBar.splitCountSuffix", { count: tabSessionIds.length - 1 }) : ""}
+                  </span>
                   <span
                     onClick={(e) => handleUnifiedTabClose(e, tab.id)}
                     className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
@@ -385,6 +402,7 @@ export default function TitleBar() {
                     <span className="[&_path]:stroke-[2.1]"><Icon icon="lucide:x" width={20} /></span>
                   </span>
                 </button>
+                )}
                 {renderTitlebarDropCue(item.key, "after")}
               </div>
             );
@@ -402,10 +420,46 @@ export default function TitleBar() {
           const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;
           const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
           const distroBg = connectionIcon ? getConnectionIconColor(connectionIcon) : null;
+          const tabIcon = distroIcon ? (
+            <span
+              className="flex items-center justify-center size-6 rounded-md shrink-0"
+              style={{ background: distroBg ?? "transparent", color: "#fff" }}
+            >
+              <Icon icon={distroIcon} width={16} />
+            </span>
+          ) : isLocal ? (
+            <span
+              className="flex items-center justify-center size-6 rounded-md shrink-0"
+              style={{ color: isActive ? "var(--t-tab-active-text)" : statusColor }}
+            >
+              <Icon icon="lucide:terminal" width={14} />
+            </span>
+          ) : (
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />
+          );
 
           return (
             <div key={item.key} className="contents">
               {renderTitlebarDropCue(item.key, "before")}
+              {isRenaming("session", session.id) ? (
+                <div
+                  data-titlebar-key={item.key}
+                  className="relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 overflow-hidden"
+                  style={{
+                    background: isActive ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
+                    color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
+                    border: isActive ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
+                  }}
+                >
+                  {tabIcon}
+                  <InlineNameEditor
+                    value={sessionLabel(session)}
+                    ariaLabel={t("layout.titleBar.renameTab")}
+                    onCommit={(name) => { useSessionStore.getState().renameSession(session.id, name); endRename(session.id); }}
+                    onCancel={() => endRename(session.id)}
+                  />
+                </div>
+              ) : (
               <button
                 data-titlebar-key={item.key}
                 onClick={() => handleTabClick(session.id)}
@@ -436,36 +490,8 @@ export default function TitleBar() {
                 }}
               >
                 {renderMcpBar(session.id, [session.id])}
-                {distroIcon ? (
-                  <span
-                    className="flex items-center justify-center size-6 rounded-md shrink-0"
-                    style={{ background: distroBg ?? "transparent", color: "#fff" }}
-                  >
-                    <Icon icon={distroIcon} width={16} />
-                  </span>
-                ) : isLocal ? (
-                  <span
-                    className="flex items-center justify-center size-6 rounded-md shrink-0"
-                    style={{ color: isActive ? "var(--t-tab-active-text)" : statusColor }}
-                  >
-                    <Icon icon="lucide:terminal" width={14} />
-                  </span>
-                ) : (
-                  <span
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ background: statusColor }}
-                  />
-                )}
-                {isRenaming("session", session.id) ? (
-                  <InlineNameEditor
-                    value={sessionLabel(session)}
-                    ariaLabel={t("layout.titleBar.renameTab")}
-                    onCommit={(name) => { useSessionStore.getState().renameSession(session.id, name); setRenaming(null); }}
-                    onCancel={() => setRenaming(null)}
-                  />
-                ) : (
-                  <span className="max-w-[140px] truncate">{sessionLabel(session)}</span>
-                )}
+                {tabIcon}
+                <span className="max-w-[140px] truncate">{sessionLabel(session)}</span>
                 <span
                   onClick={(e) => handleTabClose(e, session.id)}
                   className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
@@ -478,6 +504,7 @@ export default function TitleBar() {
                   </span>
                 </span>
               </button>
+              )}
               {renderTitlebarDropCue(item.key, "after")}
             </div>
           );

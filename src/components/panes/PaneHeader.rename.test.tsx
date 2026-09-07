@@ -10,6 +10,11 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+const focusSession = vi.hoisted(() => vi.fn());
+vi.mock("@/hooks/useTerminal", async () => {
+  const actual = await vi.importActual<typeof import("@/hooks/useTerminal")>("@/hooks/useTerminal");
+  return { ...actual, focusSession };
+});
 vi.mock("@/utils/icons", () => ({
   getConnectionIcon: () => null,
   getConnectionIconColor: () => null,
@@ -23,6 +28,7 @@ const session: TerminalSession = {
 };
 
 beforeEach(() => {
+  focusSession.mockClear();
   useSessionStore.setState({ sessions: [session], activeSessionId: "s1" });
 });
 afterEach(cleanup);
@@ -44,6 +50,24 @@ describe("renaming from the pane header", () => {
     fireEvent.keyDown(editor(), { key: "Enter" });
 
     expect(titleOf()).toBe("deploy");
+  });
+
+  it("keeps the editor out of any button, where Space would activate it", () => {
+    render(<PaneHeader paneId="p1" session={session} active />);
+    fireEvent.doubleClick(screen.getByText("web-1"));
+    expect(editor().closest("button")).toBeNull();
+  });
+
+  it("hands focus back to the pane's terminal when the editor closes", () => {
+    render(<PaneHeader paneId="p1" session={session} active />);
+    fireEvent.doubleClick(screen.getByText("web-1"));
+    fireEvent.keyDown(editor(), { key: "Escape" });
+    expect(focusSession).toHaveBeenCalledWith("s1");
+
+    focusSession.mockClear();
+    fireEvent.doubleClick(screen.getByText("web-1"));
+    fireEvent.keyDown(editor(), { key: "Enter" });
+    expect(focusSession).toHaveBeenCalledWith("s1");
   });
 
   it("Escape leaves the session as it was", () => {

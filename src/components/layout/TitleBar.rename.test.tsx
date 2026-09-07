@@ -21,11 +21,18 @@ vi.mock("react-i18next", () => ({
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/utils/icons", () => ({ getConnectionIcon: () => null, getConnectionIconColor: () => null }));
 
+const focusSession = vi.hoisted(() => vi.fn());
+vi.mock("@/hooks/useTerminal", async () => {
+  const actual = await vi.importActual<typeof import("@/hooks/useTerminal")>("@/hooks/useTerminal");
+  return { ...actual, focusSession };
+});
+
 const session = (id: string) => ({
   id, connectionId: `conn-${id}`, connectionName: id, status: "connected" as const, type: "local" as const,
 });
 
 beforeEach(() => {
+  focusSession.mockClear();
   useSessionStore.setState({ sessions: [session("s1"), session("s2")], activeSessionId: "s1" });
   useLayoutStore.setState({ splitTabs: [], activeSplitTabId: null, root: null, splitTabActive: false, titlebarOrder: [] });
 });
@@ -59,6 +66,17 @@ describe("renaming a session tab", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
+  /**
+   * Live bug: with the input nested in the tab <button>, WebKit activated the
+   * button on Space — the tab took focus, the editor blurred and committed a
+   * half-typed name, and the rest of the keystrokes went into the terminal.
+   */
+  it("does not put the editor inside the tab button, where Space activates the tab", () => {
+    render(<TitleBar />);
+    fireEvent.doubleClick(screen.getByText("s1"));
+    expect(editor().closest("button")).toBeNull();
+  });
+
   it("an emptied field returns the tab to its connection name", () => {
     useSessionStore.getState().renameSession("s1", "deploy");
     render(<TitleBar />);
@@ -68,6 +86,24 @@ describe("renaming a session tab", () => {
 
     expect(titleOf("s1")).toBeUndefined();
     expect(screen.getByText("s1")).toBeTruthy();
+  });
+
+  /** Renaming must not cost the user their cursor: the terminal takes focus back. */
+  it("hands focus back to the terminal after a commit", () => {
+    render(<TitleBar />);
+    fireEvent.doubleClick(screen.getByText("s1"));
+    fireEvent.change(editor(), { target: { value: "deploy" } });
+    fireEvent.keyDown(editor(), { key: "Enter" });
+
+    expect(focusSession).toHaveBeenCalledWith("s1");
+  });
+
+  it("hands focus back to the terminal after a cancel", () => {
+    render(<TitleBar />);
+    fireEvent.doubleClick(screen.getByText("s1"));
+    fireEvent.keyDown(editor(), { key: "Escape" });
+
+    expect(focusSession).toHaveBeenCalledWith("s1");
   });
 
   it("Escape leaves the tab as it was", () => {
@@ -96,6 +132,22 @@ describe("renaming a split tab", () => {
 
     expect(splitTab().name).toBe("prod");
     expect(titleOf("s1")).toBeUndefined();
+  });
+
+  it("does not put the editor inside the tab button, where Space activates the tab", () => {
+    render(<TitleBar />);
+    fireEvent.doubleClick(screen.getByText(/^s[12]/));
+    expect(editor().closest("button")).toBeNull();
+  });
+
+  it("hands focus back to the pane that was active in the split", () => {
+    render(<TitleBar />);
+    const activeLeafSession = useLayoutStore.getState().splitTabs[0];
+    expect(activeLeafSession).toBeTruthy();
+    fireEvent.doubleClick(screen.getByText(/^s[12]/));
+    fireEvent.keyDown(editor(), { key: "Enter" });
+
+    expect(focusSession).toHaveBeenCalled();
   });
 
   it("a named split tab stops following the active pane", () => {

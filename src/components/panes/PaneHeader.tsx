@@ -21,6 +21,7 @@ import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import { closeSession } from "@/services/closeSession";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import { sessionLabel } from "@/utils/sessionLabel";
+import { focusSession } from "@/hooks/useTerminal";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import type { TerminalSession } from "@/types";
 
@@ -118,6 +119,11 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   // Copy user@host
   const [copied, setCopied] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  // Closing the editor hands the keyboard back to this pane's terminal.
+  const endRename = () => {
+    setRenaming(false);
+    focusSession(session.id);
+  };
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Distro popover
@@ -333,8 +339,8 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
             value={sessionLabel(session)}
             ariaLabel={t("panes.header.rename")}
             className="min-w-0 max-w-44 bg-transparent outline-none font-semibold"
-            onCommit={(name) => { useSessionStore.getState().renameSession(session.id, name); setRenaming(false); }}
-            onCancel={() => setRenaming(false)}
+            onCommit={(name) => { useSessionStore.getState().renameSession(session.id, name); endRename(); }}
+            onCancel={endRename}
           />
         ) : (
           <span
