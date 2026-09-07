@@ -1,6 +1,6 @@
 {
   "name": "voltius",
-  "version": "0.31.1",
+  "version": "0.32.0",
   "packageManager": "pnpm@11.5.2",
   "type": "module",
   "scripts": {
