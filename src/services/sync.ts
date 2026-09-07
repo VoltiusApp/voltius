@@ -875,33 +875,16 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
           vaultStore.setVaultTeamId(vault.id, null);
         }
 
-        const [
-          { useTeamVaultStateStore },
-          { useConnectionStore },
-          { useIdentityStore },
-          { useKeyStore },
-          { useFolderStore },
-          { useSnippetStore },
-          { useSnippetFolderStore },
-          { usePortForwardingStore },
-        ] = await Promise.all([
+        const [{ useTeamVaultStateStore }, { clearTeamStoresAndSecrets }] = await Promise.all([
           import("@/stores/teamVaultStateStore"),
-          import("@/stores/connectionStore"),
-          import("@/stores/identityStore"),
-          import("@/stores/keyStore"),
-          import("@/stores/folderStore"),
-          import("@/stores/snippetStore"),
-          import("@/stores/snippetFolderStore"),
-          import("@/stores/portForwardingStore"),
+          import("@/services/teamVaultSync"),
         ]);
         useTeamVaultStateStore.getState().setStatus(tid, "forbidden");
-        useConnectionStore.getState().clearTeamConnections(tid);
-        useIdentityStore.getState().clearTeamIdentities(tid);
-        useKeyStore.getState().clearTeamKeys(tid);
-        useFolderStore.getState().clearTeamFolders(tid);
-        useSnippetStore.getState().clearTeamSnippets(tid);
-        useSnippetFolderStore.getState().clearTeamSnippetFolders(tid);
-        usePortForwardingStore.getState().clearTeamRules(tid);
+
+        // Wipes the team's secrets from the OS keychain as well as the
+        // in-memory slices. Clearing the stores alone left a removed member
+        // holding the team's plaintext passwords and private keys (#216).
+        await clearTeamStoresAndSecrets(tid);
       },
     }).catch(() => {});
   } else if (eventData.startsWith("presence:")) {
