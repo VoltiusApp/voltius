@@ -82,6 +82,33 @@ describe("terminal Ctrl+G", () => {
     expect(addon.searches).toHaveLength(2);
   });
 
+  // xterm returns early on a false verdict without cancelling the event, so a
+  // chord the handler claims still bubbles to useKeyboard's window listener —
+  // which would run the same next/prev again, moving two hits per press.
+  it("claims the event so the window listener cannot move the hit twice", () => {
+    render(<Harness sessionId="ctrl-g-claims" />);
+    const handler = lastKeyHandler();
+    const search = getTerminalSearchController("ctrl-g-claims")!;
+
+    const open = ctrlG("keydown");
+    const openStop = vi.spyOn(open, "stopPropagation");
+    const openPrevent = vi.spyOn(open, "preventDefault");
+    search.open();
+    expect(handler(open)).toBe(false);
+    expect(openStop).toHaveBeenCalled();
+    expect(openPrevent).toHaveBeenCalled();
+
+    // Closed, the shell owns the chord: xterm cancels it on the way out, so the
+    // handler must leave the event alone rather than swallow it here.
+    const closed = ctrlG("keydown");
+    const closedStop = vi.spyOn(closed, "stopPropagation");
+    const closedPrevent = vi.spyOn(closed, "preventDefault");
+    search.close();
+    expect(handler(closed)).toBe(true);
+    expect(closedStop).not.toHaveBeenCalled();
+    expect(closedPrevent).not.toHaveBeenCalled();
+  });
+
   it("goes back to the shell once the widget closes", () => {
     render(<Harness sessionId="ctrl-g-reclosed" />);
     const handler = lastKeyHandler();

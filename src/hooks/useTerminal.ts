@@ -922,7 +922,15 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         // search widget owns Ctrl+G, wrong once it is closed, when the shell needs
         // ^G. xterm marks ctrl+letter cancel:true and calls preventDefault itself,
         // so the webview's native find-next stays suppressed on the pass-through.
-        if (isTerminalSearchNavKey(e)) return !handleTerminalSearchNav(sessionId, e);
+        if (isTerminalSearchNavKey(e)) {
+          if (!handleTerminalSearchNav(sessionId, e)) return true;
+          // A false verdict makes xterm return early *without* cancelling, so
+          // the chord would still reach useKeyboard and move the hit a second
+          // time. This pane owns its widget, so claim the event here.
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
         if (matchShortcut("history", e)) {
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel("history");
           return false;

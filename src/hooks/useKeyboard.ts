@@ -65,10 +65,10 @@ export function useKeyboard() {
 
       // Ctrl+G / Shift+Ctrl+G: always prevent the native webview find-next dialog.
       // When the terminal search widget is open, drive it to next/prev result.
-      // The terminal canvas gets first refusal, in useTerminal. Once that hands
-      // Ctrl+G to xterm as ^G, xterm cancels the key and stops propagation, so
-      // this listener never runs — it covers the focus-is-elsewhere case and the
-      // open-widget case, where xterm bails out before touching the event.
+      // useTerminal gets first refusal and claims the chord whenever the canvas
+      // has focus: xterm cancels the pass-through ^G, and useTerminal stops the
+      // event itself when it drives an open widget. What is left for this
+      // listener is focus elsewhere — the search input, or outside the canvas.
       if (isTerminalSearchNavKey(e)) {
         e.preventDefault();
         if (useUIStore.getState().activeNav === "terminal") {
