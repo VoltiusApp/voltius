@@ -1,3 +1,4 @@
+import { getSecret } from "@/services/vault";
 import type { Connection, Folder, PortForwardingRule } from "@/types";
 import type { ExportBundle, FolderExport } from "./formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "./context";
@@ -66,6 +67,7 @@ export async function buildBundle(
   stores: StoreSlices,
   vaultIds: string[],
   selection: SelectionProps,
+  canViewSecrets: (vaultId: string) => boolean,
 ): Promise<ExportBundle> {
   // 1. Resolve cascade for identities/keys (connections pull in their identities, etc.)
   const selectedByKey: Record<string, unknown[]> = {};
@@ -139,6 +141,10 @@ export async function buildBundle(
   const snippetFolderEidMap = buildFolderEidMap(neededSnippet, stores.snippetFolders, "f", folderEidMap.size);
 
   const ctx: ExportCtx = {
+    readSecret: (vaultId) =>
+      canViewSecrets(vaultId ?? "personal")
+        ? (key) => getSecret(key).catch(() => null)
+        : async () => null,
     folderEidMap,
     snippetFolderEidMap,
     keyEidMap: new Map(),

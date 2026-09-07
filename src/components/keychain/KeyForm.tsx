@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
-import { VaultUnavailableNote } from "@/components/shared/VaultUnavailableNote";
+import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import {
   PanelShell, PanelHeader, FormSection,
   formInputClass, formInputStyle, formLabelClass, formLabelStyle,
@@ -102,8 +102,9 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
   const shell = useVaultObjectFormShell({ initial, folderType: "keychain", objectType: "key", pin: pinKey });
   const { vaultId, pickVault, isPinned, togglePin } = shell;
 
-  const vaultUnavailable = useStoredSecrets(
+  const storedSecrets = useStoredSecrets(
     initial?.id,
+    vaultId,
     {
       privateKey: initial ? `key:${initial.id}:private` : null,
       publicKey: initial ? `key:${initial.id}:public` : null,
@@ -199,7 +200,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
         })() : undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {vaultUnavailable && <VaultUnavailableNote />}
+        <StoredSecretsNote state={storedSecrets} />
         <FormSection label={t("keychain.common.general")}>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>

@@ -55,12 +55,21 @@ vi.mock("@/stores/connectionStore", () => ({
   },
 }));
 vi.mock("@/stores/teamStore", () => ({
+  // The forms resolve VIEW_SECRETS through `usePermissions`, which reads the
+  // roster and loader actions as well as the team list.
   useTeamStore: Object.assign(
     (sel?: (s: unknown) => unknown) => {
-      const state = { teams: h.teams };
+      const state = {
+        teams: h.teams,
+        membersByTeam: {},
+        rolesByTeam: {},
+        loadTeams: async () => {},
+        loadMembers: async () => {},
+        loadRoles: async () => {},
+      };
       return sel ? sel(state) : state;
     },
-    { getState: () => ({ teams: h.teams }) },
+    { getState: () => ({ teams: h.teams, membersByTeam: {}, rolesByTeam: {} }) },
   ),
 }));
 vi.mock("@/stores/identityStore", () => ({
