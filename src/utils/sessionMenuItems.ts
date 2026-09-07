@@ -11,16 +11,22 @@ export function sessionMenuItems({
   t,
   closeLabel,
   onClose,
+  onRename,
   extras = [],
 }: {
   session: TerminalSession;
   t: TFunction;
   closeLabel: string;
   onClose: () => void;
+  /** Start the inline editor. The name is typed on the tab or pane header
+   * itself, so the caller owns the editing state. */
+  onRename: () => void;
   /** Caller-specific entries, inserted between reconnect and close. */
   extras?: ContextMenuItem[];
 }): ContextMenuItem[] {
-  const items: ContextMenuItem[] = [];
+  const items: ContextMenuItem[] = [
+    { label: t("panes.header.rename"), icon: "lucide:pencil", onClick: onRename },
+  ];
 
   if (canDuplicateSession(session)) {
     items.push(

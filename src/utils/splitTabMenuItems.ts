@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { getPaneLeaves, useLayoutStore, type SplitTab } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { sessionLabel } from "@/utils/sessionLabel";
 
 /**
  * Tab-scope entries for a unified split tab. Everything that acts on a single
@@ -16,6 +17,7 @@ export function splitTabMenuItems({
   t,
   onFocusPane,
   onClose,
+  onRename,
 }: {
   tab: SplitTab;
   t: TFunction;
@@ -23,13 +25,22 @@ export function splitTabMenuItems({
   onFocusPane: (paneId: string) => void;
   /** Close the tab and every session in it. */
   onClose: () => void;
+  /** Start the inline editor on the tab itself. */
+  onRename: () => void;
 }): ContextMenuItem[] {
   const leaves = getPaneLeaves(tab.root);
   const { sessions } = useSessionStore.getState();
-  const paneLabel = (sessionId: string) =>
-    sessions.find((session) => session.id === sessionId)?.connectionName ?? t("layout.titleBar.splitFallback");
+  const paneLabel = (sessionId: string) => {
+    const session = sessions.find((s) => s.id === sessionId);
+    return session ? sessionLabel(session) : t("layout.titleBar.splitFallback");
+  };
 
   return [
+    {
+      label: t("layout.titleBar.splitMenu.rename"),
+      icon: "lucide:pencil",
+      onClick: onRename,
+    },
     {
       label: tab.broadcastActive
         ? t("layout.titleBar.splitMenu.broadcastOff")

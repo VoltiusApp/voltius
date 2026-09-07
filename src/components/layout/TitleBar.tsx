@@ -29,6 +29,8 @@ import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { ContextMenu, useContextMenu } from "@/components/shared/ContextMenu";
 import { closeSession } from "@/services/closeSession";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
+import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
+import { sessionLabel, splitTabLabel } from "@/utils/sessionLabel";
 import { splitTabMenuItems } from "@/utils/splitTabMenuItems";
 
 const appWindow = getCurrentWindow();
@@ -86,6 +88,11 @@ export default function TitleBar() {
 
   const { pos: tabMenuPos, open: openTabMenu, close: closeTabMenu } = useContextMenu();
   const [menuTarget, setMenuTarget] = useState<{ kind: "session" | "split"; id: string } | null>(null);
+  // The tab being renamed in place. Its label becomes an input; committing an
+  // empty name clears it, so the tab falls back to its connection again.
+  const [renaming, setRenaming] = useState<{ kind: "session" | "split"; id: string } | null>(null);
+  const isRenaming = (kind: "session" | "split", id: string) =>
+    renaming?.kind === kind && renaming.id === id;
   const menuSession = menuTarget?.kind === "session" ? sessions.find((s) => s.id === menuTarget.id) ?? null : null;
   const menuSplitTab = menuTarget?.kind === "split" ? splitTabs.find((tab) => tab.id === menuTarget.id) ?? null : null;
 
@@ -341,6 +348,7 @@ export default function TitleBar() {
                   data-titlebar-key={item.key}
                   onClick={() => handleUnifiedTabClick(tab.id)}
                   onContextMenu={(e) => { setMenuTarget({ kind: "split", id: tab.id }); openTabMenu(e); }}
+                  onDoubleClick={() => setRenaming({ kind: "split", id: tab.id })}
                   onPointerDown={(e) => {
                     if (e.button === 0) useDragStore.getState().beginSplitTabDrag(tab.id, e.clientX, e.clientY);
                     if (e.button === 1) { e.preventDefault(); handleUnifiedTabClose(e, tab.id); }
@@ -355,9 +363,18 @@ export default function TitleBar() {
                 >
                   {renderMcpBar(tab.id, tabSessionIds)}
                   <Icon icon="lucide:layout-dashboard" width={18} />
-                  <span className="max-w-[140px] truncate">
-                    {tabActiveSession?.connectionName ?? t("layout.titleBar.splitFallback")}{tabSessionIds.length > 1 ? t("layout.titleBar.splitCountSuffix", { count: tabSessionIds.length - 1 }) : ""}
-                  </span>
+                  {isRenaming("split", tab.id) ? (
+                    <InlineNameEditor
+                      value={splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback"))}
+                      ariaLabel={t("layout.titleBar.renameTab")}
+                      onCommit={(name) => { useLayoutStore.getState().renameSplitTab(tab.id, name); setRenaming(null); }}
+                      onCancel={() => setRenaming(null)}
+                    />
+                  ) : (
+                    <span className="max-w-[140px] truncate">
+                      {splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback"))}{tabSessionIds.length > 1 ? t("layout.titleBar.splitCountSuffix", { count: tabSessionIds.length - 1 }) : ""}
+                    </span>
+                  )}
                   <span
                     onClick={(e) => handleUnifiedTabClose(e, tab.id)}
                     className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
@@ -393,6 +410,7 @@ export default function TitleBar() {
                 data-titlebar-key={item.key}
                 onClick={() => handleTabClick(session.id)}
                 onContextMenu={(e) => { setMenuTarget({ kind: "session", id: session.id }); openTabMenu(e); }}
+                onDoubleClick={() => setRenaming({ kind: "session", id: session.id })}
                 onPointerDown={(e) => {
                   if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, item.key);
                   if (e.button === 1) { e.preventDefault(); handleTabClose(e, session.id); }
@@ -438,7 +456,16 @@ export default function TitleBar() {
                     style={{ background: statusColor }}
                   />
                 )}
-                <span className="max-w-[140px] truncate">{session.connectionName}</span>
+                {isRenaming("session", session.id) ? (
+                  <InlineNameEditor
+                    value={sessionLabel(session)}
+                    ariaLabel={t("layout.titleBar.renameTab")}
+                    onCommit={(name) => { useSessionStore.getState().renameSession(session.id, name); setRenaming(null); }}
+                    onCancel={() => setRenaming(null)}
+                  />
+                ) : (
+                  <span className="max-w-[140px] truncate">{sessionLabel(session)}</span>
+                )}
                 <span
                   onClick={(e) => handleTabClose(e, session.id)}
                   className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
@@ -471,12 +498,14 @@ export default function TitleBar() {
                 t,
                 closeLabel: t("layout.titleBar.closeTab"),
                 onClose: () => closeTabById(menuSession.id),
+                onRename: () => setRenaming({ kind: "session", id: menuSession.id }),
               })
             : splitTabMenuItems({
                 tab: menuSplitTab!,
                 t,
                 onFocusPane: (paneId) => handleUnifiedTabClick(menuSplitTab!.id, paneId),
                 onClose: () => closeUnifiedTab(menuSplitTab!.id),
+                onRename: () => setRenaming({ kind: "split", id: menuSplitTab!.id }),
               })}
           pos={tabMenuPos}
           onClose={closeTabMenu}

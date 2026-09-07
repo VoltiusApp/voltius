@@ -20,6 +20,8 @@ import { getConnectionIcon, getConnectionIconColor, getDistroColor, getDistroIco
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import { closeSession } from "@/services/closeSession";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
+import { sessionLabel } from "@/utils/sessionLabel";
+import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import type { TerminalSession } from "@/types";
 
 function latencyColor(ms: number): string {
@@ -115,6 +117,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
 
   // Copy user@host
   const [copied, setCopied] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Distro popover
@@ -259,6 +262,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
     t,
     closeLabel: t("panes.header.closePane"),
     onClose: handleClosePane,
+    onRename: () => setRenaming(true),
     extras: [
       {
         label: t("panes.header.split"),
@@ -324,7 +328,23 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
         >
           <Icon icon={icon} width={13} />
         </span>
-        <span className="truncate font-semibold">{session.connectionName}</span>
+        {renaming ? (
+          <InlineNameEditor
+            value={sessionLabel(session)}
+            ariaLabel={t("panes.header.rename")}
+            className="min-w-0 max-w-44 bg-transparent outline-none font-semibold"
+            onCommit={(name) => { useSessionStore.getState().renameSession(session.id, name); setRenaming(false); }}
+            onCancel={() => setRenaming(false)}
+          />
+        ) : (
+          <span
+            className="truncate font-semibold"
+            onMouseDown={(e) => e.stopPropagation()}
+            onDoubleClick={() => setRenaming(true)}
+          >
+            {sessionLabel(session)}
+          </span>
+        )}
         {subtitle && (
           <span
             className="hidden md:flex items-center truncate max-w-44 text-(--t-text-dim) px-1 -mx-1 hover:bg-(--t-bg-card-hover) transition-colors cursor-pointer self-stretch"

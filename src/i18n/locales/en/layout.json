@@ -183,8 +183,10 @@
       "maximize": "Maximize",
       "close": "Close",
       "newSession": "New session",
+      "renameTab": "Rename tab",
       "closeTab": "Close tab",
       "splitMenu": {
+        "rename": "Rename tab…",
         "broadcastOn": "Broadcast input to all panes",
         "broadcastOff": "Stop broadcasting input",
         "panes": "Panes",

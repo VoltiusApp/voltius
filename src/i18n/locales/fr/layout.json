@@ -183,8 +183,10 @@
       "maximize": "Agrandir",
       "close": "Fermer",
       "newSession": "Nouvelle session",
+      "renameTab": "Renommer l'onglet",
       "closeTab": "Fermer l'onglet",
       "splitMenu": {
+        "rename": "Renommer l'onglet…",
         "broadcastOn": "Diffuser la saisie dans tous les panneaux",
         "broadcastOff": "Arrêter la diffusion de la saisie",
         "panes": "Panneaux",

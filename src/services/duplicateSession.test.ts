@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 import type { TerminalSession } from "@/types";
 
 const beginSession = vi.fn((connectionId: string, _cwd?: string) => `sess-of-${connectionId}`);
+const renameSession = vi.fn();
 const beginLocalSession = vi.fn((shell?: string, _cwd?: string) => `local-of-${shell ?? "default"}`);
 const setActive = vi.fn();
 
@@ -9,7 +10,7 @@ let sessions: TerminalSession[] = [];
 
 vi.mock("@/stores/sessionStore", () => ({
   useSessionStore: {
-    getState: () => ({ sessions, beginSession, beginLocalSession, setActive }),
+    getState: () => ({ sessions, beginSession, beginLocalSession, setActive, renameSession }),
   },
 }));
 vi.mock("@/services/launch", () => ({ goToTerminal: vi.fn() }));
@@ -51,6 +52,12 @@ describe("duplicateSession", () => {
     expect(id).toBe("sess-of-c1");
     expect(setActive).toHaveBeenCalledWith("sess-of-c1");
     expect(useLayoutStore.getState().splitTabs).toHaveLength(0);
+  });
+
+  test("a duplicate of a renamed tab starts from the connection, not the name", () => {
+    sessions = [{ ...ssh, title: "deploy" }];
+    duplicateSession("s1", "tab");
+    expect(renameSession).not.toHaveBeenCalled();
   });
 
   test("local sessions duplicate their own shell rather than a connection", () => {

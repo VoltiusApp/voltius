@@ -34,3 +34,33 @@ describe("broadcastActiveForSession", () => {
     expect(broadcastActiveForSession("s2")).toBe(true);
   });
 });
+
+describe("renameSplitTab", () => {
+  beforeEach(() => {
+    useLayoutStore.setState({
+      splitTabs: [
+        { id: "t1", root: twoPanes, activePaneId: "p1", maximizedPaneId: null, broadcastActive: false },
+        { id: "t2", root: twoPanes, activePaneId: "p1", maximizedPaneId: null, broadcastActive: false },
+      ],
+      activeSplitTabId: "t1",
+    });
+  });
+
+  const names = () => useLayoutStore.getState().splitTabs.map((tab) => tab.name);
+
+  test("names the tab it is given, not the active one", () => {
+    useLayoutStore.getState().renameSplitTab("t2", "prod");
+    expect(names()).toEqual([undefined, "prod"]);
+  });
+
+  test("stores what the user typed, trimmed", () => {
+    useLayoutStore.getState().renameSplitTab("t1", "  prod  ");
+    expect(names()[0]).toBe("prod");
+  });
+
+  test("a blank name returns the tab to deriving from its active pane", () => {
+    useLayoutStore.getState().renameSplitTab("t1", "prod");
+    useLayoutStore.getState().renameSplitTab("t1", "");
+    expect(names()[0]).toBeUndefined();
+  });
+});

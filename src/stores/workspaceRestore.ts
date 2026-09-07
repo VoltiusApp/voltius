@@ -20,6 +20,7 @@ function toTerminalSession(s: SnapshotSession): TerminalSession {
     id: s.id,
     connectionId: s.connectionId,
     connectionName: s.connectionName,
+    title: s.title,
     status: "connecting",
     persist: s.persist,
     // Snapshot sessions existed on the host: reconnects must attach, not create.
