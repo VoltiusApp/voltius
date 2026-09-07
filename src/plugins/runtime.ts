@@ -129,7 +129,8 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
 import { isMobileShell } from "@/utils/platform";
-import { resolveCan, type Permission } from "@/services/permissions";
+import { type Permission } from "@/services/permissions";
+import { canFromStores } from "@/services/permissionsFromStores";
 import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
@@ -594,14 +595,7 @@ const objectPorts: ObjectPorts = {
       ]),
     );
   },
-  can: (permission, vaultId) => {
-    const { teams, membersByTeam, rolesByTeam } = useTeamStore.getState();
-    return resolveCan(
-      { myUserId: _myUserId, teams, membersByTeam, rolesByTeam, vaults: useVaultStore.getState().vaults },
-      permission as Permission,
-      vaultId,
-    );
-  },
+  can: (permission, vaultId) => canFromStores(_myUserId)(permission as Permission, vaultId),
   isTeamVault: isTeamVaultId,
   vaults: () => {
     const vaults = useVaultStore.getState().vaults;

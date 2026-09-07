@@ -108,6 +108,12 @@
     "vaultUnavailable": {
       "note": "The vault could not be read, so stored secrets are not shown here. Leave a field empty to keep what is saved; typing a new value replaces it."
     },
+    "storedSecrets": {
+      "forbidden": "Your role in this vault cannot see stored secrets, so these fields are left blank. Connecting still works — the saved credential is used without being shown."
+    },
+    "teamCredentials": {
+      "unavailable": "Stored credentials for this team vault could not be loaded, so hosts that need a saved password, key, or passphrase will fail to connect. Ask a vault administrator to grant your role access to the vault's secrets."
+    },
     "vaultBackups": {
       "title": "Vault backups",
       "description": "Vault files set aside when they could not be opened. Restoring one puts it back as your vault and keeps the current one as a new backup — nothing is deleted.",

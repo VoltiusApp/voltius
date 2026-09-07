@@ -24,6 +24,8 @@ import AddChoiceSheet from "@/components/mobile/sheets/AddChoiceSheet";
 import type { Connection, Folder } from "@/types";
 import MobileHeader from "../MobileHeader";
 import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
+import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
+import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
 
 function MobileHostRow({
   c,
@@ -152,6 +154,8 @@ export default function MobileHostsScreen() {
     setTab("terminal");
   };
 
+  const teamCredentialsUnavailable = useTeamCredentialsUnavailable();
+
   const targetVaultId = (nav.folderPath[nav.folderPath.length - 1]?.vault_id) ?? selectedVaultIds[0] ?? "personal";
   const createFolder = (name: string) =>
     void saveFolder({ name, object_type: "connection", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
@@ -176,6 +180,7 @@ export default function MobileHostsScreen() {
       </div>
       <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
       <div className="flex-1 overflow-y-auto">
+        {teamCredentialsUnavailable && <TeamCredentialsNote className="mx-4 mt-3" />}
         {!nav.activeFolderId && <MobileRemoteDeviceSessions />}
         {!search && subFolders.map((f) => (
           <MobileFolderRow

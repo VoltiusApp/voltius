@@ -1,8 +1,9 @@
 import { writeClipboard } from "../../utils/clipboard";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
+import { usePermissions } from "@/hooks/usePermission";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { encryptText, toJSON } from "@/services/import-export/formats";
@@ -23,6 +24,10 @@ export function ExportTab({ selection, preselectedTypes }: {
   const { t } = useTranslation();
   const stores = useStoreSlices();
   const accessibleVaultIds = useAccessibleVaultIds();
+  const can = usePermissions();
+  // Stable across renders so it can sit in the bundle effect's dep list without
+  // rebuilding the preview on every keystroke.
+  const canViewSecrets = useCallback((vaultId: string) => can("VIEW_SECRETS", vaultId), [can]);
   const vaultContentCounts = useVaultContents();
 
   const isSingleItem = !!selection.single;
@@ -75,7 +80,7 @@ export function ExportTab({ selection, preselectedTypes }: {
     const enabled: Record<string, boolean> = Object.fromEntries(
       HANDLERS.map(h => [h.key, included[h.key] && (!h.jsonOnly || !isCsvOnly)])
     );
-    buildBundle(enabled, stores, exportVaultIds, selection).then(bundle => {
+    buildBundle(enabled, stores, exportVaultIds, selection, canViewSecrets).then(bundle => {
       if (cancelled) return;
       const counts: Record<string, number> = { folders: bundle.folders.length };
       for (const h of HANDLERS) counts[h.key] = (bundle[h.key as keyof ExportBundle] as unknown[])?.length ?? 0;
@@ -99,7 +104,7 @@ export function ExportTab({ selection, preselectedTypes }: {
     });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [included, format, exportVaultIds, stores.connections, stores.identities, stores.keys, stores.snippets, stores.pfRules]);
+  }, [included, format, exportVaultIds, canViewSecrets, stores.connections, stores.identities, stores.keys, stores.snippets, stores.pfRules]);
 
   const totalItems = Object.values(bundleCounts).reduce((a, b) => a + b, 0);
   const recapCounts = vaultContentCounts.map((item) => ({

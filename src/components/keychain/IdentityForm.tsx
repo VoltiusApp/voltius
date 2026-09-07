@@ -18,7 +18,7 @@ import {
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { storeSecret, getSecret } from "@/services/vault";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
-import { VaultUnavailableNote } from "@/components/shared/VaultUnavailableNote";
+import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import {
   PanelShell, PanelHeader, FormSection,
   formInputClass, formInputStyle, formLabelClass, formLabelStyle,
@@ -191,8 +191,9 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
     void loadConnections();
   }, []);
 
-  const vaultUnavailable = useStoredSecrets(
+  const storedSecrets = useStoredSecrets(
     initial?.id,
+    vaultId,
     { password: initial ? `identity:${initial.id}:password` : null },
     (v) => {
       if (v.password && !passwordDirty.current) setPassword(v.password);
@@ -275,7 +276,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
         })() : undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {vaultUnavailable && <VaultUnavailableNote />}
+        <StoredSecretsNote state={storedSecrets} />
         <FormSection label={t("keychain.common.general")}>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.label")}</label>

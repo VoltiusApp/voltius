@@ -1,4 +1,4 @@
-import { getSecret, storeSecret } from "@/services/vault";
+import { storeSecret } from "@/services/vault";
 import type { SshKey } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, KeyExport } from "../formats";
@@ -23,7 +23,7 @@ export const keysHandler: DataTypeHandler = {
       name: k.name,
       key_type: k.key_type,
       tags: k.tags,
-      ...(await fetchKeySecrets(k.id, (key) => getSecret(key).catch(() => null))),
+      ...(await fetchKeySecrets(k.id, ctx.readSecret(k.vault_id))),
       _folder_eid: k.folder_id ? ctx.folderEidMap.get(k.folder_id) : undefined,
     })));
   },

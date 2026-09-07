@@ -1,4 +1,4 @@
-import { getSecret, storeSecret } from "@/services/vault";
+import { storeSecret } from "@/services/vault";
 import type { Connection, JumpHost } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats";
@@ -21,7 +21,7 @@ export const connectionsHandler: DataTypeHandler = {
     bundle.connections = await Promise.all(connections.map(async (c, i): Promise<ConnectionExport> => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, identity_id, folder_id, vault_id, created_at, last_used_at, updated_at, deleted_at, clocks, distro, jump_hosts, ...passthrough } = c;
-      const secrets = await fetchConnectionSecrets(c.id, (key) => getSecret(key).catch(() => null));
+      const secrets = await fetchConnectionSecrets(c.id, ctx.readSecret(c.vault_id));
       return {
         ...passthrough,
         _eid: `c${i}`,

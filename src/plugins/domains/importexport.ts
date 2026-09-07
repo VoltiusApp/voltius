@@ -7,6 +7,7 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { HANDLERS, buildBundle, runImport, reloadAll } from "@/services/import-export/registry";
+import { canFromStoresAsync } from "@/services/permissionsFromStores";
 import { toJSON, encryptText, decryptText, detectFormat } from "@/services/import-export/formats";
 import { parseImport } from "@/services/import-export/importers";
 import { connectionsToCSV } from "@/services/import-export/parsers/csv";
@@ -130,6 +131,11 @@ function secretBearingTypes(bundle: ExportBundle): string[] {
   return out;
 }
 
+async function canViewSecretsForVault(): Promise<(vaultId: string) => boolean> {
+  const can = await canFromStoresAsync();
+  return (vaultId) => can("VIEW_SECRETS", vaultId);
+}
+
 export async function exportObjects(opts: {
   vaultIds: string[];
   types: ExportType[];
@@ -157,7 +163,9 @@ export async function exportObjects(opts: {
 
   let bundle: ExportBundle;
   try {
-    bundle = await buildBundle(enabled, storeSlices(), opts.vaultIds, {});
+    // An export is a read of every secret it carries, so it obeys the same
+    // VIEW_SECRETS gate the editors do (issue #190).
+    bundle = await buildBundle(enabled, storeSlices(), opts.vaultIds, {}, await canViewSecretsForVault());
   } catch (e) {
     return failed(e instanceof Error ? e.message : String(e));
   }
