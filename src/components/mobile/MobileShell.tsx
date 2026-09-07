@@ -19,6 +19,8 @@ import MobileLogsScreen from "./screens/MobileLogsScreen";
 import MobileSftpScreen from "./panels/MobileSftpScreen";
 import MobileAccountPage from "./screens/MobileAccountPage";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
+import MobileHeader from "./MobileHeader";
+import TeamVaultStatePanel from "@/components/team/TeamVaultStatePanel";
 import MobileSnippetTargetSheet from "./sheets/MobileSnippetTargetSheet";
 import MobileSnippetActionsSheet from "./sheets/MobileSnippetActionsSheet";
 import MobileSnippetsSheet from "./sheets/MobileSnippetsSheet";
@@ -43,6 +45,7 @@ import { resolvePanelScreen } from "./mobilePanelDispatch";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
+import { useBlockedTeamVault } from "@/hooks/useBlockedTeamVault";
 import { refitSession } from "@/hooks/useTerminal";
 
 export default function MobileShell() {
@@ -71,8 +74,14 @@ export default function MobileShell() {
   };
   const resolvedPanel = resolvePanelScreen(top);
 
+  // A team vault that cannot show its contents replaces the vault's screens with
+  // the explanatory panel, the way MainPanel does on desktop (issue #70).
+  const blockedTeamVault = useBlockedTeamVault();
+
   // Terminal tab with sessions = immersive: hide the tab bar, give xterm every pixel.
-  const immersive = tab === "terminal" && hasSessions && !top;
+  // Never while the blocked panel is up — it covers the screens, so dropping the tab
+  // bar as well would leave the member no way off the vault at all.
+  const immersive = tab === "terminal" && hasSessions && !top && !blockedTeamVault;
   const terminalVisible = tab === "terminal" && !top;
   // SFTP tab is always-mounted (below) so its connections/cwd survive tab switches; this only gates visibility.
   const sftpVisible = !terminalVisible && tab === "sftp" && !top;
@@ -107,7 +116,10 @@ export default function MobileShell() {
           {/* Always-mounted sessions; visibility toggled so xterm survives tab switches */}
           <MobileSessionLayer visible={terminalVisible && hasSessions} />
           {/* Non-terminal tab content layers above the session layer when terminal isn't foreground */}
-          {!terminalVisible && tab !== "sftp" && (
+          {/* Not while the vault is blocked: these screens list vault objects, and the
+              panel covers them anyway. The session and SFTP layers below stay mounted —
+              unmounting them would drop a live terminal or an SFTP connection. */}
+          {!terminalVisible && tab !== "sftp" && !blockedTeamVault && (
             <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)" style={{ overflow: "clip" }}>
               {tab === "hosts" && !top && <MobileHostsScreen />}
               {tab === "snippets" && !top && <MobileSnippetsScreen />}
@@ -141,6 +153,16 @@ export default function MobileShell() {
         {resolvedPanel && renderMobileScreen(resolvedPanel.screenKind, resolvedPanel.props)}
         {top?.kind === "panel-sftp" && <MobileSftpScreen presetConnectionId={top.connectionId} />}
         {top?.kind === "account" && <MobileAccountPage />}
+        {/* Above every screen and pushed page — all of them read vault objects this
+            member cannot see yet. MobileHeader rides along because it owns the vault
+            switcher: desktop leaves its sidebar uncovered, and this is the mobile
+            equivalent of that escape route. */}
+        {blockedTeamVault && (
+          <div className="absolute inset-0 z-40 flex flex-col bg-(--t-bg-base)">
+            <MobileHeader />
+            <TeamVaultStatePanel status={blockedTeamVault.status} teamId={blockedTeamVault.teamId} />
+          </div>
+        )}
       </div>
       {/* Hide the tab bar while a full-screen page is pushed — it would otherwise sit
           visible-but-covered under the overlay, and tapping a tab silently clears the stack. */}
