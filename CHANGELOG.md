@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-09-07
+
+### Fixed
+
+- A member holding only the `connect-only` role can now actually connect. The
+  role could see every host in a team vault and reach none of them that needed
+  a stored password, private key, or key passphrase: fetching the vault key and
+  the stored credentials both required "View secrets", which the role does not
+  grant, so the credentials never reached the device and every connection
+  failed authentication. Connecting now means "use a stored credential without
+  seeing it" — "View secrets" still governs reading one back in plain text, and
+  "Copy secrets" the clipboard. Editors opened by a role without "View secrets"
+  leave the credential fields blank and say why rather than showing the secret,
+  and an export carries only the secrets its author is allowed to see. Requires
+  a server that grants the same, so self-hosted installs should update the
+  server alongside the app.
+- A team vault whose stored credentials could not be loaded now says so. The
+  hosts in a team vault are listed from data that needs no key, so the vault
+  rendered complete and the first sign of trouble was an authentication failure
+  at connect time. The vault stays browsable and warns in place instead.
+- Updated browserslist past GHSA-73wf-gq98-2v4g.
+
 ## [0.32.0] - 2026-09-07
 
 ### Added
