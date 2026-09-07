@@ -295,7 +295,12 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     if (objects.length > 0) {
       await _hydrateTeamObjectStores(teamId, objects);
       const { backfillExistingTeamVaultSecrets, hydrateTeamVaultSecrets } = await import("@/services/teamVaultSecrets");
-      await hydrateTeamVaultSecrets(teamId).catch(() => {});
+      // Credentials are what makes a host connectable, so a failure here is not
+      // cosmetic: the vault renders fully populated and every host needing a
+      // stored secret then fails at authentication. Record it instead of
+      // swallowing it (issue #190).
+      const credentialsOk = await hydrateTeamVaultSecrets(teamId).then(() => true, () => false);
+      stateStore.setCredentialsUnavailable(teamId, !credentialsOk);
       if (!options.background) await backfillExistingTeamVaultSecrets(teamId).catch(() => {});
       stateStore.setStatus(teamId, "loaded");
       return;

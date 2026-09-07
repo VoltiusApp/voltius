@@ -108,6 +108,12 @@
     "vaultUnavailable": {
       "note": "Le coffre n'a pas pu être lu, les secrets enregistrés ne sont donc pas affichés ici. Laissez un champ vide pour conserver ce qui est enregistré ; saisir une nouvelle valeur la remplace."
     },
+    "storedSecrets": {
+      "forbidden": "Votre rôle dans ce coffre ne permet pas de voir les secrets enregistrés : ces champs restent vides. La connexion fonctionne quand même — l'identifiant enregistré est utilisé sans être affiché."
+    },
+    "teamCredentials": {
+      "unavailable": "Les identifiants enregistrés de ce coffre d'équipe n'ont pas pu être chargés : les hôtes qui utilisent un mot de passe, une clé ou une phrase secrète enregistrés échoueront à la connexion. Demandez à un administrateur du coffre d'accorder à votre rôle l'accès aux secrets du coffre."
+    },
     "vaultBackups": {
       "title": "Sauvegardes du coffre",
       "description": "Fichiers de coffre mis de côté parce qu'ils ne pouvaient pas être ouverts. En restaurer un le remet comme coffre actif et conserve l'actuel comme nouvelle sauvegarde — rien n'est supprimé.",

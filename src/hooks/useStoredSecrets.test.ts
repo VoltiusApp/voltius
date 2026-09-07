@@ -1,9 +1,10 @@
 import { test, expect, vi, beforeEach } from "vitest";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 
-const h = vi.hoisted(() => ({ getSecret: vi.fn() }));
+const h = vi.hoisted(() => ({ getSecret: vi.fn(), can: vi.fn(() => true) }));
 
 vi.mock("@/services/vault", () => ({ getSecret: h.getSecret }));
+vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => h.can }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
 import { useStoredSecrets } from "./useStoredSecrets";
@@ -12,10 +13,11 @@ import { VaultUnreadableError } from "@/services/vaultErrors";
 beforeEach(() => {
   cleanup();
   h.getSecret.mockReset();
+  h.can.mockReset().mockReturnValue(true);
 });
 
 const load = (keys: Record<string, string | null>, apply: (v: Partial<Record<string, string>>) => void) =>
-  renderHook(() => useStoredSecrets("c1", keys, apply));
+  renderHook(() => useStoredSecrets("c1", "team-1", keys, apply));
 
 test("applies the secrets it could read and reports the vault as available", async () => {
   h.getSecret.mockImplementation(async (k: string) => (k === "password:c1" ? "hunter2" : null));
@@ -25,7 +27,7 @@ test("applies the secrets it could read and reports the vault as available", asy
 
   await waitFor(() => expect(apply).toHaveBeenCalled());
   expect(apply).toHaveBeenCalledWith({ password: "hunter2" });
-  expect(result.current).toBe(false);
+  expect(result.current).toBe("ok");
 });
 
 // A secret that was never stored is not a vault failure: the field is genuinely
@@ -37,7 +39,7 @@ test("a missing secret is not reported as a vault failure", async () => {
   const { result } = load({ password: "password:c1" }, apply);
 
   await waitFor(() => expect(apply).toHaveBeenCalledWith({}));
-  expect(result.current).toBe(false);
+  expect(result.current).toBe("ok");
 });
 
 // The empty field looks identical to "nothing stored", so a user types a guess
@@ -50,7 +52,7 @@ test("an unreadable vault is reported so the form can say so", async () => {
 
   const { result } = load({ password: "password:c1" }, apply);
 
-  await waitFor(() => expect(result.current).toBe(true));
+  await waitFor(() => expect(result.current).toBe("unavailable"));
   expect(apply).toHaveBeenCalledWith({});
 });
 
@@ -67,9 +69,35 @@ test("skips fields with no secret key and does not touch the vault for them", as
 
 test("reads nothing when there is no object to edit", async () => {
   const apply = vi.fn();
-  renderHook(() => useStoredSecrets(undefined, { password: "password:c1" }, apply));
+  renderHook(() => useStoredSecrets(undefined, "team-1", { password: "password:c1" }, apply));
 
   await new Promise((r) => setTimeout(r, 0));
   expect(h.getSecret).not.toHaveBeenCalled();
   expect(apply).not.toHaveBeenCalled();
+});
+
+// A connect-only member holds the credential in their keychain so they can use
+// it, but VIEW_SECRETS is what allows reading it back. Loading it into an
+// editable field would hand them the plaintext (issue #190).
+test("a role without VIEW_SECRETS never reads the plaintext", async () => {
+  h.can.mockReturnValue(false);
+  h.getSecret.mockResolvedValue("hunter2");
+  const apply = vi.fn();
+
+  const { result } = load({ password: "password:c1" }, apply);
+
+  await new Promise((r) => setTimeout(r, 0));
+  expect(result.current).toBe("forbidden");
+  expect(h.getSecret).not.toHaveBeenCalled();
+  expect(apply).not.toHaveBeenCalled();
+});
+
+test("checks VIEW_SECRETS against the object's own vault", async () => {
+  h.getSecret.mockResolvedValue(null);
+  const apply = vi.fn();
+
+  load({ password: "password:c1" }, apply);
+
+  await waitFor(() => expect(apply).toHaveBeenCalled());
+  expect(h.can).toHaveBeenCalledWith("VIEW_SECRETS", "team-1");
 });

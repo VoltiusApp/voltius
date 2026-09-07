@@ -12,7 +12,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
 import { sshExecCommand } from "@/services/ssh";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
-import { VaultUnavailableNote } from "@/components/shared/VaultUnavailableNote";
+import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import { useAutosave } from "@/hooks/useAutosave";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent } from "@/services/auditReporter";
@@ -158,8 +158,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // Load existing secrets when editing
-  const vaultUnavailable = useStoredSecrets(
+  const storedSecrets = useStoredSecrets(
     initial?.id,
+    vaultId,
     {
       password: initial ? `password:${initial.id}` : null,
       privateKey: initial && !initial.key_id ? `key:${initial.id}` : null,
@@ -392,7 +393,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
       <div className="flex flex-col flex-1 overflow-y-auto">
         <div className="flex-1 px-4 py-4 space-y-3">
 
-          {vaultUnavailable && <VaultUnavailableNote />}
+          <StoredSecretsNote state={storedSecrets} />
 
           <FormSection label={t("connections.common.general")}>
             <div>
