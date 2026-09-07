@@ -70,10 +70,14 @@ const newPaneId = () => `pane-${crypto.randomUUID()}`;
 const newSplitId = () => `split-${crypto.randomUUID()}`;
 const newSplitTabId = () => `split-tab-${crypto.randomUUID()}`;
 
-export function getPaneSessionIds(root: PaneNode | null): string[] {
+export function getPaneLeaves(root: PaneNode | null): LeafNode[] {
   if (!root) return [];
-  if (root.type === "leaf") return [root.sessionId];
-  return [...getPaneSessionIds(root.first), ...getPaneSessionIds(root.second)];
+  if (root.type === "leaf") return [root];
+  return [...getPaneLeaves(root.first), ...getPaneLeaves(root.second)];
+}
+
+export function getPaneSessionIds(root: PaneNode | null): string[] {
+  return getPaneLeaves(root).map((leaf) => leaf.sessionId);
 }
 
 /**

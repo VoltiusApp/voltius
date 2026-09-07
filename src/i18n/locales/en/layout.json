@@ -184,6 +184,15 @@
       "close": "Close",
       "newSession": "New session",
       "closeTab": "Close tab",
+      "splitMenu": {
+        "broadcastOn": "Broadcast input to all panes",
+        "broadcastOff": "Stop broadcasting input",
+        "panes": "Panes",
+        "pane": "{{index}} · {{name}}",
+        "splitApart": "Split apart into tabs",
+        "closeTab_one": "Close tab ({{count}} session)",
+        "closeTab_other": "Close tab ({{count}} sessions)"
+      },
       "plan": {
         "proTrial": "Pro Trial — {{daysLeft}}d left",
         "teams": "Teams",
