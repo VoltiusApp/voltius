@@ -1,7 +1,9 @@
 import i18n from "@/i18n";
 import { useTeamStore } from "@/stores/teamStore";
+import type { TeamRole } from "@/stores/teamStore";
 import { inviteByEmail } from "@/services/teamService";
 import { runTeamAction } from "@/services/teamActionFeedback";
+import { leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
 
 const URL_IN_MESSAGE = /https?:\/\//i;
 
@@ -32,7 +34,7 @@ export async function inviteUserById(args: {
   userId: string;
   handle: string;
   roleName: string;
-  roleId: string;
+  roleId?: string;
 }): Promise<{ status: "pending" | "already_member" }> {
   const { teamId, userId, handle, roleName, roleId } = args;
   const { addMemberById, assignMemberRole } = useTeamStore.getState();
@@ -47,8 +49,50 @@ export async function inviteUserById(args: {
     run: () => addMemberById(teamId, userId, roleName),
   });
 
-  if (result.status === "already_member") {
+  if (result.status === "already_member" && roleId) {
     await assignMemberRole(teamId, userId, roleId);
+  }
+  return result;
+}
+
+/**
+ * Invite a known user with a set of chosen roles — the one shape every invite
+ * surface uses.
+ *
+ * Only the first role can travel on the invitation, so the rest are assigned
+ * afterwards and only for someone who is already a member; for a pending
+ * invitee there is no `team_members` row to assign them to.
+ *
+ * With nothing chosen the fallback is the least-privileged assignable role,
+ * never "member": callers disable their invite actions without a selection, so
+ * reaching here at all means the choice was lost rather than made.
+ */
+export async function inviteUserWithRoles(args: {
+  teamId: string;
+  userId: string;
+  handle: string;
+  roleIds: string[];
+  roles: TeamRole[];
+}): Promise<{ status: "pending" | "already_member" }> {
+  const { teamId, userId, handle, roleIds, roles } = args;
+  const chosen = roleIds.map((id) => roles.find((r) => r.id === id)).filter((r): r is TeamRole => !!r);
+  const [first, ...rest] = chosen.length > 0 ? chosen : [leastPrivilegedRole(roles)].filter((r): r is TeamRole => !!r);
+
+  const result = await inviteUserById({
+    teamId,
+    userId,
+    handle,
+    roleName: first?.name ?? "connect-only",
+    roleId: first?.id,
+  });
+
+  if (result.status === "already_member") {
+    // Best-effort: the invite itself already landed, so one extra role that
+    // fails to apply must not report the whole invite as failed.
+    const { assignMemberRole } = useTeamStore.getState();
+    for (const role of rest) {
+      await assignMemberRole(teamId, userId, role.id).catch(() => {});
+    }
   }
   return result;
 }

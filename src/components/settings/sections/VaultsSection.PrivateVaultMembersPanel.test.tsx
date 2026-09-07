@@ -4,6 +4,7 @@ import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-libra
 const h = vi.hoisted(() => ({
   searchUsers: vi.fn(async () => [] as { user_id: string; handle: string; public_key: string }[]),
   openBillingCheckout: vi.fn(async () => {}),
+  convertVaultToTeam: vi.fn(async () => "t-new"),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -29,6 +30,9 @@ vi.mock("@/services/teamActionFeedback", () => ({
 }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: h.openBillingCheckout }));
 vi.mock("@/services/teamVaultActivation", () => ({ markTeamVaultLoadedAfterLocalActivation: vi.fn() }));
+// The conversion itself is covered in vaultConvert.test.ts; what matters here is
+// that it only ever runs from behind the consent gate.
+vi.mock("@/services/vaultConvert", () => ({ convertVaultToTeam: h.convertVaultToTeam }));
 
 import { PrivateVaultMembersPanel } from "./VaultsSection";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -49,6 +53,7 @@ beforeEach(() => {
   localStorage.clear();
   h.searchUsers.mockReset().mockResolvedValue([]);
   h.openBillingCheckout.mockReset().mockResolvedValue(undefined);
+  h.convertVaultToTeam.mockReset().mockResolvedValue("t-new");
   openCloudAuth.mockReset();
   baseProps.onTeamCreated = vi.fn();
   useSubscriptionStore.setState({ isTeams: true, accountMode: "server" });
@@ -123,12 +128,8 @@ test("search debounce: no search under 2 chars, one call at 250ms rendering resu
   expect(screen.getByText("amber-lynx-4410")).toBeTruthy();
 });
 
-test("handleAdd error: createTeam rejects → error surfaced, setVaultTeamId not reached", async () => {
-  const createTeam = vi.fn(async () => { throw new Error("boom"); });
-  const setVaultTeamId = vi.fn();
-  useTeamStore.setState({ createTeam });
-  useVaultStore.setState({ setVaultTeamId });
-
+/** Renders the panel, searches, and picks the one result — the act that used to convert on the spot. */
+async function pickUser() {
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([{ user_id: "u1", handle: "amber-lynx-4410", public_key: "pk" }]);
   render(<PrivateVaultMembersPanel {...baseProps} />);
@@ -136,11 +137,68 @@ test("handleAdd error: createTeam rejects → error surfaced, setVaultTeamId not
   fireEvent.change(input, { target: { value: "al" } });
   await act(async () => { await vi.advanceTimersByTimeAsync(250); });
   vi.useRealTimers();
-
   fireEvent.click(screen.getByText("amber-lynx-4410"));
+}
 
-  expect(await screen.findByText("boom")).toBeTruthy();
-  expect(createTeam).toHaveBeenCalledWith("My Vault");
-  expect(setVaultTeamId).not.toHaveBeenCalled();
+const memberRole = {
+  id: "r-mem", team_id: "t-new", name: "member",
+  is_builtin: true, permissions: 0, position: 1, created_at: "",
+};
+
+test("picking someone asks for consent first — nothing is converted yet", async () => {
+  await pickUser();
+
+  expect(await screen.findByText("members.convert.confirm")).toBeTruthy();
+  expect(h.convertVaultToTeam).not.toHaveBeenCalled();
   expect(baseProps.onTeamCreated).not.toHaveBeenCalled();
+});
+
+test("cancelling the consent gate leaves the vault private and adds nobody", async () => {
+  const addMemberById = vi.fn(async () => ({ status: "pending" as const }));
+  useTeamStore.setState({ addMemberById });
+
+  await pickUser();
+  fireEvent.click(await screen.findByText("members.convert.cancel"));
+
+  await waitFor(() => expect(screen.queryByText("members.convert.confirm")).toBeNull());
+  expect(h.convertVaultToTeam).not.toHaveBeenCalled();
+  expect(addMemberById).not.toHaveBeenCalled();
+  expect(baseProps.onTeamCreated).not.toHaveBeenCalled();
+});
+
+test("confirming converts, then invites the picked user as a member", async () => {
+  const addMemberById = vi.fn(async () => ({ status: "pending" as const }));
+  useTeamStore.setState({ addMemberById, rolesByTeam: { "t-new": [memberRole] } });
+
+  await pickUser();
+  fireEvent.click(await screen.findByText("members.convert.confirm"));
+
+  await waitFor(() => expect(baseProps.onTeamCreated).toHaveBeenCalledWith("t-new"));
+  expect(h.convertVaultToTeam).toHaveBeenCalledWith("v1", "My Vault");
+  expect(addMemberById).toHaveBeenCalledWith("t-new", "u1", "member");
+});
+
+test("a failed conversion keeps the gate up and invites nobody", async () => {
+  const addMemberById = vi.fn(async () => ({ status: "pending" as const }));
+  useTeamStore.setState({ addMemberById });
+  h.convertVaultToTeam.mockRejectedValue(new Error("boom"));
+
+  await pickUser();
+  fireEvent.click(await screen.findByText("members.convert.confirm"));
+
+  await waitFor(() => expect(h.convertVaultToTeam).toHaveBeenCalled());
+  expect(screen.getByText("members.convert.confirm")).toBeTruthy();
+  expect(addMemberById).not.toHaveBeenCalled();
+  expect(baseProps.onTeamCreated).not.toHaveBeenCalled();
+});
+
+test("a failed invite still hands the caller the team the conversion created", async () => {
+  const addMemberById = vi.fn(async () => { throw new Error("nope"); });
+  useTeamStore.setState({ addMemberById, rolesByTeam: { "t-new": [memberRole] } });
+
+  await pickUser();
+  fireEvent.click(await screen.findByText("members.convert.confirm"));
+
+  expect(await screen.findByText("nope")).toBeTruthy();
+  expect(baseProps.onTeamCreated).toHaveBeenCalledWith("t-new");
 });

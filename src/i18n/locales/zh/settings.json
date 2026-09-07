@@ -490,7 +490,6 @@
         "searchUserPlaceholder": "按用户名或邮箱搜索…",
         "noUsersFound": "未找到用户",
         "addAsMember": "添加为成员",
-        "adding": "正在添加 {{name}}…",
         "added": "已添加 {{name}}",
         "inviting": "正在邀请 {{email}}…",
         "invitationSent": "已发送邀请给 {{email}}",
