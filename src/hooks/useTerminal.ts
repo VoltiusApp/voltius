@@ -634,6 +634,21 @@ export function openTerminalSearch(sessionId: string): void {
   getTerminalSearchController(sessionId)?.open();
 }
 
+/**
+ * Take a chord for the terminal canvas and return xterm's "skip this key" verdict.
+ *
+ * xterm returns early on a false verdict *without* calling its own cancel(), so
+ * the event keeps propagating to useKeyboard's window listener. That listener
+ * runs the Ctrl+F and Ctrl+G branches above its `isInput` guard — the canvas is
+ * a textarea, so every other shortcut it owns is already unreachable from here —
+ * and would run its copy of the shortcut on top of this one.
+ */
+function claimChord(e: KeyboardEvent): false {
+  e.preventDefault();
+  e.stopPropagation();
+  return false;
+}
+
 /** Ctrl+G / Shift+Ctrl+G — the search widget's find-next / find-previous chord. */
 export function isTerminalSearchNavKey(e: KeyboardEvent): boolean {
   return e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G");
@@ -912,24 +927,17 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         const clipResult = entry.clip?.handleKeyEvent(e);
         if (clipResult != null) return clipResult;
         if (matchShortcut("terminal-search", e)) {
-          if (e.type === "keydown") {
-            e.preventDefault();
-            getTerminalSearchController(sessionId)?.open();
-          }
-          return false;
+          if (e.type === "keydown") getTerminalSearchController(sessionId)?.open();
+          return claimChord(e);
         }
         // Returning false makes xterm skip the key entirely — correct while the
         // search widget owns Ctrl+G, wrong once it is closed, when the shell needs
         // ^G. xterm marks ctrl+letter cancel:true and calls preventDefault itself,
         // so the webview's native find-next stays suppressed on the pass-through.
+        // This pane owns its own widget; useKeyboard keys off activeSessionId.
         if (isTerminalSearchNavKey(e)) {
           if (!handleTerminalSearchNav(sessionId, e)) return true;
-          // A false verdict makes xterm return early *without* cancelling, so
-          // the chord would still reach useKeyboard and move the hit a second
-          // time. This pane owns its widget, so claim the event here.
-          e.preventDefault();
-          e.stopPropagation();
-          return false;
+          return claimChord(e);
         }
         if (matchShortcut("history", e)) {
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel("history");

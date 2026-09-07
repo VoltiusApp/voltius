@@ -42,7 +42,17 @@ function Harness({ sessionId }: { sessionId: string }) {
 const ctrlG = (type: "keydown" | "keyup", shiftKey = false) =>
   new KeyboardEvent(type, { key: shiftKey ? "G" : "g", ctrlKey: true, shiftKey });
 
-describe("terminal Ctrl+G", () => {
+const ctrlF = () => new KeyboardEvent("keydown", { key: "f", ctrlKey: true });
+
+/** Both spies on one event, so a claim can be asserted as a pair. */
+function watchClaim(e: KeyboardEvent) {
+  return {
+    prevented: vi.spyOn(e, "preventDefault"),
+    stopped: vi.spyOn(e, "stopPropagation"),
+  };
+}
+
+describe("terminal search chords", () => {
   beforeEach(() => {
     resetFakeXterm();
   });
@@ -83,30 +93,43 @@ describe("terminal Ctrl+G", () => {
   });
 
   // xterm returns early on a false verdict without cancelling the event, so a
-  // chord the handler claims still bubbles to useKeyboard's window listener —
-  // which would run the same next/prev again, moving two hits per press.
-  it("claims the event so the window listener cannot move the hit twice", () => {
+  // chord the handler claims still bubbles to useKeyboard's window listener.
+  // Ctrl+F and Ctrl+G are the two branches that sit above that listener's
+  // isInput guard, so they are the two it would otherwise run a second time —
+  // reopening the widget, or moving two hits per press.
+  it("claims Ctrl+G so the window listener cannot move the hit twice", () => {
     render(<Harness sessionId="ctrl-g-claims" />);
     const handler = lastKeyHandler();
     const search = getTerminalSearchController("ctrl-g-claims")!;
 
     const open = ctrlG("keydown");
-    const openStop = vi.spyOn(open, "stopPropagation");
-    const openPrevent = vi.spyOn(open, "preventDefault");
+    const claim = watchClaim(open);
     search.open();
     expect(handler(open)).toBe(false);
-    expect(openStop).toHaveBeenCalled();
-    expect(openPrevent).toHaveBeenCalled();
+    expect(claim.stopped).toHaveBeenCalled();
+    expect(claim.prevented).toHaveBeenCalled();
 
     // Closed, the shell owns the chord: xterm cancels it on the way out, so the
     // handler must leave the event alone rather than swallow it here.
     const closed = ctrlG("keydown");
-    const closedStop = vi.spyOn(closed, "stopPropagation");
-    const closedPrevent = vi.spyOn(closed, "preventDefault");
+    const passThrough = watchClaim(closed);
     search.close();
     expect(handler(closed)).toBe(true);
-    expect(closedStop).not.toHaveBeenCalled();
-    expect(closedPrevent).not.toHaveBeenCalled();
+    expect(passThrough.stopped).not.toHaveBeenCalled();
+    expect(passThrough.prevented).not.toHaveBeenCalled();
+  });
+
+  it("claims Ctrl+F, so only the terminal widget opens", () => {
+    render(<Harness sessionId="ctrl-f-claims" />);
+    const handler = lastKeyHandler();
+    const search = getTerminalSearchController("ctrl-f-claims")!;
+
+    const e = ctrlF();
+    const claim = watchClaim(e);
+    expect(handler(e)).toBe(false);
+    expect(search.getSnapshot().open).toBe(true);
+    expect(claim.stopped).toHaveBeenCalled();
+    expect(claim.prevented).toHaveBeenCalled();
   });
 
   it("goes back to the shell once the widget closes", () => {
