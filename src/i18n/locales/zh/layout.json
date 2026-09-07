@@ -183,7 +183,18 @@
       "maximize": "最大化",
       "close": "关闭",
       "newSession": "新建会话",
+      "renameTab": "重命名标签页",
       "closeTab": "关闭标签页",
+      "splitMenu": {
+        "rename": "重命名标签页…",
+        "broadcastOn": "向所有窗格广播输入",
+        "broadcastOff": "停止广播输入",
+        "panes": "窗格",
+        "pane": "{{index}} · {{name}}",
+        "splitApart": "拆分为独立标签页",
+        "closeTab_one": "关闭标签页（{{count}} 个会话）",
+        "closeTab_other": "关闭标签页（{{count}} 个会话）"
+      },
       "plan": {
         "proTrial": "Pro 试用——剩余 {{daysLeft}} 天",
         "teams": "Teams",

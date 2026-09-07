@@ -211,6 +211,8 @@ export interface TerminalSession {
   id: string;
   connectionId: string;
   connectionName: string;
+  /** User-given tab name. Unset falls back to connectionName (see sessionLabel). */
+  title?: string;
   status: "connecting" | "connected" | "disconnected" | "error";
   /** SSH only: persistence (remote tmux/screen) was active at connect time. */
   persist?: boolean;

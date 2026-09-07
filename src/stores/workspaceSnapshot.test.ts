@@ -119,4 +119,23 @@ mutLayout.splitTabs.push({});
 mutLayout.titlebarOrder.push("session:x");
 assertEqual(mutSnap.layout.splitTabs.length, 0, "snapshot layout is decoupled from caller mutation");
 assertEqual(mutSnap.layout.titlebarOrder.length, 0, "snapshot titlebarOrder is decoupled from caller mutation");
+
+const titled = buildSnapshot({
+  sessions: [{ ...sessions[0], title: "deploy" }],
+  cwds: {},
+  layout,
+  activeSessionId: "s1",
+});
+assertEqual(titled.sessions[0].title, "deploy", "a renamed tab is snapshotted");
+assertEqual(parseSnapshot(titled)?.sessions[0].title, "deploy", "a tab name round trips");
+assertEqual(
+  buildSnapshot({ sessions: [sessions[0]], cwds: {}, layout, activeSessionId: "s1" }).sessions[0].title,
+  undefined,
+  "an unnamed tab carries no title",
+);
+assertEqual(
+  parseSnapshot({ ...titled, sessions: [{ ...titled.sessions[0], title: 7 }] })?.sessions[0].title,
+  undefined,
+  "non-string title sanitized away",
+);
 });

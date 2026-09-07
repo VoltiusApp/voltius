@@ -12,6 +12,9 @@ const h = vi.hoisted(() => ({
   loadRoles: vi.fn(async () => {}),
   setActiveNav: vi.fn(),
   setHomeView: vi.fn(),
+  setTab: vi.fn(),
+  push: vi.fn(),
+  isMobileShell: vi.fn(() => false),
   statusByTeamId: {} as Record<string, string>,
   setStatus: vi.fn(),
   teams: [] as unknown[],
@@ -44,6 +47,10 @@ vi.mock("@/stores/uiStore", () => ({
 vi.mock("@/stores/vaultStore", () => ({
   useVaultStore: { getState: () => ({ selectedVaultIds: h.selectedVaultIds, vaults: h.vaults }) },
 }));
+vi.mock("@/stores/mobileNavStore", () => ({
+  useMobileNavStore: { getState: () => ({ setTab: h.setTab, push: h.push }) },
+}));
+vi.mock("@/utils/platform", () => ({ isMobileShell: h.isMobileShell }));
 
 import { refreshAwaitingKeyTeams, joinAndLoadTeamVault } from "./teamDataManager";
 
@@ -52,6 +59,7 @@ beforeEach(() => {
   // clearAllMocks keeps implementations — a status-flipping stub from an earlier
   // test would otherwise make the next one's vault load on its own.
   h.fetchTeamData.mockImplementation(async () => {});
+  h.isMobileShell.mockImplementation(() => false);
   h.statusByTeamId = {};
   h.teams = [];
   h.rolesByTeam = {};
@@ -62,6 +70,18 @@ beforeEach(() => {
 function connectOnlyTeam(teamId: string) {
   h.teams = [{ id: teamId, role_ids: ["r1"] }];
   h.rolesByTeam = { [teamId]: [{ id: "r1", name: "connect-only", permissions: CONNECT_ONLY }] };
+}
+
+function secretsReaderTeam(teamId: string) {
+  h.teams = [{ id: teamId, role_ids: ["r1"] }];
+  h.rolesByTeam = { [teamId]: [{ id: "r1", name: "reader", permissions: PERM_BITS.VIEW_SECRETS }] };
+}
+
+/** A team whose vault unlocks on the next fetch, selected and on screen. */
+function unlockingOnScreen(teamId: string) {
+  h.selectedVaultIds = [teamId];
+  h.statusByTeamId = { [teamId]: "awaiting_key" };
+  h.fetchTeamData.mockImplementation(async () => { h.statusByTeamId[teamId] = "loaded"; });
 }
 
 test("only teams still waiting on a key are re-read", async () => {
@@ -107,6 +127,48 @@ test("a vault still waiting on its key does not steer the nav", async () => {
   await refreshAwaitingKeyTeams();
 
   expect(h.setActiveNav).not.toHaveBeenCalled();
+});
+
+test("on mobile a connect-only member lands on the hosts tab", async () => {
+  h.isMobileShell.mockImplementation(() => true);
+  connectOnlyTeam("t1");
+  unlockingOnScreen("t1");
+
+  await refreshAwaitingKeyTeams();
+
+  expect(h.setTab).toHaveBeenCalledWith("hosts");
+  expect(h.push).not.toHaveBeenCalled();
+});
+
+test("on mobile a secrets reader is pushed to the keychain page under More", async () => {
+  h.isMobileShell.mockImplementation(() => true);
+  secretsReaderTeam("t1");
+  unlockingOnScreen("t1");
+
+  await refreshAwaitingKeyTeams();
+
+  expect(h.setTab).toHaveBeenCalledWith("more");
+  expect(h.push).toHaveBeenCalledWith({ kind: "more-page", page: "keychain" });
+});
+
+test("on mobile the desktop nav is left alone", async () => {
+  h.isMobileShell.mockImplementation(() => true);
+  connectOnlyTeam("t1");
+  unlockingOnScreen("t1");
+
+  await refreshAwaitingKeyTeams();
+
+  expect(h.setActiveNav).not.toHaveBeenCalled();
+});
+
+test("on desktop the mobile nav is left alone", async () => {
+  connectOnlyTeam("t1");
+  unlockingOnScreen("t1");
+
+  await refreshAwaitingKeyTeams();
+
+  expect(h.setActiveNav).toHaveBeenCalledWith("hosts");
+  expect(h.setTab).not.toHaveBeenCalled();
 });
 
 test("joining a vault that loads lands on the role's surface", async () => {

@@ -9,6 +9,7 @@
 import type { Team, TeamMember } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
 import type { NavItem } from "@/stores/uiStore";
+import type { MobileScreen, MobileTab } from "@/stores/mobileNavCore";
 import { PERM_BITS } from "@/services/permissions";
 
 /**
@@ -35,6 +36,22 @@ export function firstViewNav(permissions: number): NavItem {
   if (permissions & PERM_BITS.VIEW_SECRETS) return "keychain";
   if (permissions & PERM_BITS.MANAGE_MEMBERS) return "members";
   return "hosts";
+}
+
+/**
+ * The mobile destination for a `firstViewNav` result. The mobile shell has no
+ * single nav axis: `hosts` is a tab, while the keychain and members live as
+ * pushed pages under More. Kept as a mapping off the desktop nav item so the
+ * permission rule stays in `firstViewNav` alone.
+ */
+export function mobileFirstViewTarget(nav: NavItem): {
+  tab: MobileTab;
+  screen: MobileScreen | null;
+} {
+  if (nav === "keychain" || nav === "members") {
+    return { tab: "more", screen: { kind: "more-page", page: nav } };
+  }
+  return { tab: "hosts", screen: null };
 }
 
 /**

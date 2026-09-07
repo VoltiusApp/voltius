@@ -42,6 +42,7 @@ export async function joinRemoteSession(j: RemoteSession): Promise<void> {
     id: j.sessionId,
     connectionId: j.connectionId,
     connectionName: j.connectionName,
+    title: j.title,
     status: "connecting",
     persist: true,
     everConnected: true,

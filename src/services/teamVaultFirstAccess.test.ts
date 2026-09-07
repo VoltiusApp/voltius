@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { ownerHandle, firstViewNav, selectedTeamId } from "./teamVaultFirstAccess.ts";
+import { ownerHandle, firstViewNav, mobileFirstViewTarget, selectedTeamId } from "./teamVaultFirstAccess.ts";
 import { PERM_BITS } from "./permissions.ts";
 import type { Team, TeamMember } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
@@ -37,6 +37,25 @@ test("connect-only lands on connections, never the keychain", () => {
 test("a role without CONNECT lands where it can read", () => {
   expect(firstViewNav(PERM_BITS.VIEW_SECRETS)).toBe("keychain");
   expect(firstViewNav(PERM_BITS.MANAGE_MEMBERS)).toBe("members");
+});
+
+test("the mobile landing for a connect-only member is the hosts tab, no pushed page", () => {
+  expect(mobileFirstViewTarget("hosts")).toEqual({ tab: "hosts", screen: null });
+});
+
+test("mobile landings that live under More push the page they mean", () => {
+  expect(mobileFirstViewTarget("keychain")).toEqual({
+    tab: "more",
+    screen: { kind: "more-page", page: "keychain" },
+  });
+  expect(mobileFirstViewTarget("members")).toEqual({
+    tab: "more",
+    screen: { kind: "more-page", page: "members" },
+  });
+});
+
+test("a nav item with no mobile destination falls back to the hosts tab", () => {
+  expect(mobileFirstViewTarget("terminal")).toEqual({ tab: "hosts", screen: null });
 });
 
 test("a team is selected directly or through a vault linked to it", () => {

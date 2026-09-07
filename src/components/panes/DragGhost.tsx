@@ -6,6 +6,7 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import type { TerminalSession } from "@/types";
+import { sessionLabel } from "@/utils/sessionLabel";
 
 function sessionBadge(session: TerminalSession, t: TFunction): string {
   if (session.type === "ssh") return t("panes.badge.ssh");
@@ -53,7 +54,7 @@ export function DragGhost() {
         >
           <Icon icon={icon} width={13} />
         </span>
-        <span className="truncate max-w-48">{session.connectionName}</span>
+        <span className="truncate max-w-48">{sessionLabel(session)}</span>
         <span
           className="px-1.5 py-0.5 rounded-sm border text-[10px]"
           style={{ borderColor: "var(--t-border)", background: "var(--t-bg-elevated)" }}

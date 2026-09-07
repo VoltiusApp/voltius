@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
@@ -135,6 +135,26 @@ interface ContextMenuProps {
 
 export function ContextMenu({ items, pos, onClose, direction = "down" }: ContextMenuProps) {
   const uiScale = useUIStore((s) => s.uiScale);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Closing from window capture rather than behind a full-screen backdrop: the
+  // backdrop swallowed the next right-click, so with one menu open, right-
+  // clicking another target did nothing at all. Capture runs before React's own
+  // handlers and does not preventDefault, so the event still reaches whatever
+  // is under the pointer and that target opens its own menu in the same event.
+  useEffect(() => {
+    const onOutside = (e: MouseEvent) => {
+      const target = e.target;
+      if (target instanceof Element && (menuRef.current?.contains(target) || target.closest("[data-menu-portal]"))) return;
+      onClose();
+    };
+    window.addEventListener("mousedown", onOutside, true);
+    window.addEventListener("contextmenu", onOutside, true);
+    return () => {
+      window.removeEventListener("mousedown", onOutside, true);
+      window.removeEventListener("contextmenu", onOutside, true);
+    };
+  }, [onClose]);
 
   const maxHeight = direction === "up" ? pos.y - 8 : window.innerHeight - pos.y - 8;
 
@@ -143,23 +163,18 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
     : { top: pos.y, transformOrigin: "top left" };
 
   return createPortal(
-    <>
-      {/* Backdrop at z-99: catches outside clicks without interfering with
-          submenu portals at z-101. useClickOutside on mousedown was causing
-          submenus to unmount before onClick fired — backdrop avoids that. */}
-      <div className="fixed inset-0 z-99" onMouseDown={onClose} />
-      <div
-        className="surface-float fixed z-100 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
-        style={{
-          left: pos.x,
-          maxHeight,
-          transform: `scale(${uiScale})`,
-          ...placement,
-        }}
-      >
-        <MenuItemList items={items} onClose={onClose} />
-      </div>
-    </>,
+    <div
+      ref={menuRef}
+      className="surface-float fixed z-100 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
+      style={{
+        left: pos.x,
+        maxHeight,
+        transform: `scale(${uiScale})`,
+        ...placement,
+      }}
+    >
+      <MenuItemList items={items} onClose={onClose} />
+    </div>,
     document.body,
   );
 }

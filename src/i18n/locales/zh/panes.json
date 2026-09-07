@@ -23,6 +23,7 @@
       "closePane": "关闭面板",
       "latencyTooltip": "{{ms}}ms — 点击复制",
       "reconnect": "重连",
+      "rename": "重命名…",
       "duplicate": "复制会话",
       "duplicateSplit": "复制到分屏",
       "split": "分屏",

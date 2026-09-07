@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { mergeTitlebarItems, placeTitlebarItem } from "@/utils/titlebarOrder";
+import { normalizeTabTitle } from "@/utils/sessionLabel";
 
 export type SplitDirection = "h" | "v";
 export type SplitPosition = "left" | "right" | "top" | "bottom";
@@ -23,6 +24,8 @@ export interface SplitNode {
 
 export interface SplitTab {
   id: string;
+  /** User-given tab name. Unset keeps deriving the label from the active pane. */
+  name?: string;
   root: PaneNode;
   activePaneId: string | null;
   maximizedPaneId: string | null;
@@ -43,6 +46,8 @@ interface LayoutStore {
   setSplitTabActive(active: boolean): void;
   activateSplitTab(tabId: string): void;
   closeSplitTab(tabId: string): void;
+  /** Name a split tab. A blank name clears it, so the label derives again. */
+  renameSplitTab(tabId: string, name: string | null): void;
   syncTitlebarOrder(visibleKeys: string[]): void;
   placeTitlebarItem(itemKey: string, targetKey: string | null, placement: "before" | "after"): void;
   reorderTitlebarItem(sourceKey: string, targetKey: string | null, placement: "before" | "after"): void;
@@ -70,10 +75,14 @@ const newPaneId = () => `pane-${crypto.randomUUID()}`;
 const newSplitId = () => `split-${crypto.randomUUID()}`;
 const newSplitTabId = () => `split-tab-${crypto.randomUUID()}`;
 
-export function getPaneSessionIds(root: PaneNode | null): string[] {
+export function getPaneLeaves(root: PaneNode | null): LeafNode[] {
   if (!root) return [];
-  if (root.type === "leaf") return [root.sessionId];
-  return [...getPaneSessionIds(root.first), ...getPaneSessionIds(root.second)];
+  if (root.type === "leaf") return [root];
+  return [...getPaneLeaves(root.first), ...getPaneLeaves(root.second)];
+}
+
+export function getPaneSessionIds(root: PaneNode | null): string[] {
+  return getPaneLeaves(root).map((leaf) => leaf.sessionId);
 }
 
 /**
@@ -264,6 +273,13 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
       };
     });
   },
+
+  renameSplitTab: (tabId, name) =>
+    set((state) => ({
+      splitTabs: state.splitTabs.map((tab) =>
+        tab.id === tabId ? { ...tab, name: normalizeTabTitle(name) } : tab,
+      ),
+    })),
 
   setSplitTabActive: (active) => set({ splitTabActive: active }),
 

@@ -12,6 +12,8 @@ export interface ManifestSession {
   id: string;
   connectionId: string;
   connectionName: string;
+  /** Tab name given on the publishing device, so a join inherits it. */
+  title?: string;
   cwd?: string;
   /** When the publishing device opened its tab (display only). */
   openedAt: string;
@@ -45,6 +47,7 @@ export interface ManifestSessionInput {
   type: string;
   connectionId: string;
   connectionName: string;
+  title?: string;
   persist: boolean;
   cwd?: string;
 }
@@ -64,6 +67,7 @@ export function buildManifest(input: {
       id: s.id,
       connectionId: s.connectionId,
       connectionName: s.connectionName,
+      ...(s.title ? { title: s.title } : {}),
       ...(s.cwd ? { cwd: s.cwd } : {}),
       openedAt: input.opens[s.id]
         ? new Date(input.opens[s.id].openedAt).toISOString()
@@ -80,6 +84,16 @@ export function buildManifest(input: {
     sessions,
     closedSessions,
   };
+}
+
+/** Structural signature: a change here is worth uploading the sync blob. cwd
+ * churn and the updatedAt clock are excluded so we don't re-upload constantly;
+ * a rename is not, so it travels as soon as the user types it. */
+export function manifestSignature(m: LiveSessionManifest): string {
+  return JSON.stringify({
+    s: m.sessions.map((x): [string, string, string] => [x.id, x.openedAt, x.title ?? ""]).sort(),
+    c: m.closedSessions.map((x): [string, string] => [x.id, x.closedAt]).sort(),
+  });
 }
 
 function isValidSession(x: unknown): x is ManifestSession {
@@ -105,6 +119,7 @@ export interface RemoteSession {
   deviceName: string;
   connectionId: string;
   connectionName: string;
+  title?: string;
   cwd?: string;
   openedAt: string;
 }
@@ -146,6 +161,7 @@ export function resolveRemoteSessions(input: {
           deviceName: m.deviceName,
           connectionId: s.connectionId,
           connectionName: s.connectionName,
+          title: s.title,
           cwd: s.cwd,
           openedAt: s.openedAt,
         },

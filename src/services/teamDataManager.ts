@@ -9,7 +9,9 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
-import { firstViewNav, selectedTeamId } from "@/services/teamVaultFirstAccess";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { firstViewNav, mobileFirstViewTarget, selectedTeamId } from "@/services/teamVaultFirstAccess";
+import { isMobileShell } from "@/utils/platform";
 import { effectivePermissions } from "@/services/permissions";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -86,13 +88,24 @@ export async function joinAndLoadTeamVault(teamId: string): Promise<void> {
  *
  * A no-op until the roles are known: guessing a landing surface from an
  * unresolved role is worse than leaving the user where they were.
+ *
+ * The two shells navigate through different stores, so each gets the write it
+ * understands and neither touches the other's: `activeNav`/`homeView` mean
+ * nothing to MobileShell, and a mobile tab means nothing to MainPanel.
  */
 function applyFirstViewNav(teamId: string): void {
   const { teams, rolesByTeam } = useTeamStore.getState();
   const team = teams.find((t) => t.id === teamId);
   const roles = rolesByTeam[teamId];
   if (!team || !roles || roles.length === 0) return;
-  useUIStore.getState().setActiveNav(firstViewNav(effectivePermissions({ role_ids: team.role_ids }, roles)));
+  const nav = firstViewNav(effectivePermissions({ role_ids: team.role_ids }, roles));
+  if (isMobileShell()) {
+    const { tab, screen } = mobileFirstViewTarget(nav);
+    useMobileNavStore.getState().setTab(tab);
+    if (screen) useMobileNavStore.getState().push(screen);
+    return;
+  }
+  useUIStore.getState().setActiveNav(nav);
   useUIStore.getState().setHomeView(false);
 }
 

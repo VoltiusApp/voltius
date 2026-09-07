@@ -183,7 +183,19 @@
       "maximize": "Развернуть",
       "close": "Закрыть",
       "newSession": "Новая сессия",
+      "renameTab": "Переименовать вкладку",
       "closeTab": "Закрыть вкладку",
+      "splitMenu": {
+        "rename": "Переименовать вкладку…",
+        "broadcastOn": "Транслировать ввод во все панели",
+        "broadcastOff": "Остановить трансляцию ввода",
+        "panes": "Панели",
+        "pane": "{{index}} · {{name}}",
+        "splitApart": "Разделить на вкладки",
+        "closeTab_one": "Закрыть вкладку ({{count}} сессия)",
+        "closeTab_few": "Закрыть вкладку ({{count}} сессии)",
+        "closeTab_many": "Закрыть вкладку ({{count}} сессий)"
+      },
       "plan": {
         "proTrial": "Pro триал — осталось {{daysLeft}} дн.",
         "teams": "Teams",
