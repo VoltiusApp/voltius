@@ -3,50 +3,11 @@ import { render } from "@testing-library/react";
 import { useTerminal } from "@/hooks/useTerminal";
 import { localReady, onLocalClosed, onLocalOutput } from "@/services/local";
 
-vi.mock("@xterm/xterm", () => {
-  class FakeTerminal {
-    element: HTMLElement | null = null;
-    options: Record<string, unknown> = {};
-    cols = 80;
-    rows = 24;
-    buffer = {
-      active: { length: 0, viewportY: 0, baseY: 0, cursorY: 0, getLine: () => null },
-      onBufferChange: () => ({ dispose() {} }),
-    };
-    open(container: HTMLElement) {
-      this.element = document.createElement("div");
-      container.appendChild(this.element);
-    }
-    parser = { registerOscHandler: () => ({ dispose() {} }) };
-    loadAddon() {}
-    write() {}
-    focus() {}
-    dispose() {}
-    attachCustomKeyEventHandler() {}
-    attachCustomWheelEventHandler() {}
-    onData() { return { dispose() {} }; }
-    onBinary() { return { dispose() {} }; }
-    onResize() { return { dispose() {} }; }
-    onScroll() { return { dispose() {} }; }
-    onLineFeed() { return { dispose() {} }; }
-    onRender() { return { dispose() {} }; }
-    onWriteParsed() { return { dispose() {} }; }
-    registerLinkProvider() { return { dispose() {} }; }
-    registerDecoration() { return null; }
-  }
-  return { Terminal: FakeTerminal };
-});
-vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} proposeDimensions() { return { cols: 80, rows: 24 }; } } }));
-vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class { onContextLoss() { return { dispose() {} }; } dispose() {} } }));
-vi.mock("@xterm/addon-web-links", () => ({ WebLinksAddon: class {} }));
-vi.mock("@xterm/addon-search", () => ({
-  SearchAddon: class {
-    findNext() { return false; }
-    findPrevious() { return false; }
-    clearDecorations() {}
-    onDidChangeResults() { return { dispose() {} }; }
-  },
-}));
+vi.mock("@xterm/xterm", async () => ({ Terminal: (await import("@/hooks/__fixtures__/fakeXterm")).FakeTerminal }));
+vi.mock("@xterm/addon-fit", async () => ({ FitAddon: (await import("@/hooks/__fixtures__/fakeXterm")).FakeFitAddon }));
+vi.mock("@xterm/addon-webgl", async () => ({ WebglAddon: (await import("@/hooks/__fixtures__/fakeXterm")).FakeWebglAddon }));
+vi.mock("@xterm/addon-web-links", async () => ({ WebLinksAddon: (await import("@/hooks/__fixtures__/fakeXterm")).FakeWebLinksAddon }));
+vi.mock("@xterm/addon-search", async () => ({ SearchAddon: (await import("@/hooks/__fixtures__/fakeXterm")).FakeSearchAddon }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 vi.mock("@/services/ssh", () => ({
   sshSendInput: vi.fn(), sshResize: vi.fn(),
