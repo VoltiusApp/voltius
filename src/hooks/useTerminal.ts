@@ -634,6 +634,29 @@ export function openTerminalSearch(sessionId: string): void {
   getTerminalSearchController(sessionId)?.open();
 }
 
+/** Ctrl+G / Shift+Ctrl+G — the search widget's find-next / find-previous chord. */
+export function isTerminalSearchNavKey(e: KeyboardEvent): boolean {
+  return e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G");
+}
+
+/**
+ * Move an open search widget to its next (or, with shift, previous) hit.
+ *
+ * Returns whether the chord was consumed. A closed widget consumes nothing:
+ * Ctrl+G then still belongs to the shell as ^G, which is readline's `abort` and
+ * the only way out of a Ctrl+R reverse-i-search (#208).
+ */
+export function handleTerminalSearchNav(sessionId: string, e: KeyboardEvent): boolean {
+  const ctrl = getTerminalSearchController(sessionId);
+  if (!ctrl?.getSnapshot().open) return false;
+  // The chord is consumed for keyup/keypress too, but only keydown moves the hit.
+  if (e.type === "keydown") {
+    if (e.shiftKey) ctrl.prev();
+    else ctrl.next();
+  }
+  return true;
+}
+
 useSessionStore.subscribe((state) => {
   const currentIds = new Set(state.sessions.map((s) => s.id));
   for (const [id, entry] of terminalCache) {
@@ -895,16 +918,11 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
-        if (e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G")) {
-          if (e.type === "keydown") {
-            const ctrl = getTerminalSearchController(sessionId);
-            if (ctrl?.getSnapshot().open) {
-              if (e.shiftKey) ctrl.prev();
-              else ctrl.next();
-            }
-          }
-          return false;
-        }
+        // Returning false makes xterm skip the key entirely — correct while the
+        // search widget owns Ctrl+G, wrong once it is closed, when the shell needs
+        // ^G. xterm marks ctrl+letter cancel:true and calls preventDefault itself,
+        // so the webview's native find-next stays suppressed on the pass-through.
+        if (isTerminalSearchNavKey(e)) return !handleTerminalSearchNav(sessionId, e);
         if (matchShortcut("history", e)) {
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel("history");
           return false;

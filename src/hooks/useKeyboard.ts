@@ -5,7 +5,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useHistoryStore } from "@/stores/historyStore";
-import { openTerminalSearch, getTerminalSearchController } from "@/hooks/useTerminal";
+import { openTerminalSearch, isTerminalSearchNavKey, handleTerminalSearchNav } from "@/hooks/useTerminal";
 import { handleDuplicateShortcut } from "@/services/duplicateSession";
 
 const CLIPBOARD_TABS = new Set(["hosts", "keychain", "port-forwarding", "snippets"]);
@@ -65,17 +65,15 @@ export function useKeyboard() {
 
       // Ctrl+G / Shift+Ctrl+G: always prevent the native webview find-next dialog.
       // When the terminal search widget is open, drive it to next/prev result.
-      if (e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G")) {
+      // The terminal canvas gets first refusal, in useTerminal. Once that hands
+      // Ctrl+G to xterm as ^G, xterm cancels the key and stops propagation, so
+      // this listener never runs — it covers the focus-is-elsewhere case and the
+      // open-widget case, where xterm bails out before touching the event.
+      if (isTerminalSearchNavKey(e)) {
         e.preventDefault();
         if (useUIStore.getState().activeNav === "terminal") {
           const activeId = useSessionStore.getState().activeSessionId;
-          if (activeId) {
-            const ctrl = getTerminalSearchController(activeId);
-            if (ctrl?.getSnapshot().open) {
-              if (e.shiftKey) ctrl.prev();
-              else ctrl.next();
-            }
-          }
+          if (activeId) handleTerminalSearchNav(activeId, e);
         }
         return;
       }
