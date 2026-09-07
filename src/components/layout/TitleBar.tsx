@@ -29,6 +29,7 @@ import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { ContextMenu, useContextMenu } from "@/components/shared/ContextMenu";
 import { closeSession } from "@/services/closeSession";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
+import { splitTabMenuItems } from "@/utils/splitTabMenuItems";
 
 const appWindow = getCurrentWindow();
 
@@ -84,8 +85,9 @@ export default function TitleBar() {
   } = selectEffectiveSyncStatus({ voltius: syncState, gist: gistSyncState, accountMode, isPro, gistPluginEnabled });
 
   const { pos: tabMenuPos, open: openTabMenu, close: closeTabMenu } = useContextMenu();
-  const [menuSessionId, setMenuSessionId] = useState<string | null>(null);
-  const menuSession = sessions.find((s) => s.id === menuSessionId) ?? null;
+  const [menuTarget, setMenuTarget] = useState<{ kind: "session" | "split"; id: string } | null>(null);
+  const menuSession = menuTarget?.kind === "session" ? sessions.find((s) => s.id === menuTarget.id) ?? null : null;
+  const menuSplitTab = menuTarget?.kind === "split" ? splitTabs.find((tab) => tab.id === menuTarget.id) ?? null : null;
 
   const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
   const syncButtonRef = useRef<HTMLButtonElement>(null);
@@ -152,23 +154,33 @@ export default function TitleBar() {
     closeTabById(sessionId);
   };
 
-  const handleUnifiedTabClick = (tabId: string) => {
+  const handleUnifiedTabClick = (tabId: string, paneId?: string) => {
     if (shouldSuppressDragClick()) return;
     setSftpPanelOpen(false);
     activateSplitTab(tabId);
+    if (paneId) {
+      useLayoutStore.getState().setActivePane(paneId);
+      // A maximized sibling would otherwise keep the whole tab, so the pane the
+      // user just picked would stay hidden behind it.
+      if (useLayoutStore.getState().maximizedPaneId) useLayoutStore.getState().setMaximized(paneId);
+    }
     const layout = useLayoutStore.getState();
     const leaf = findLeaf(layout.root, layout.activePaneId) ?? firstLeaf(layout.root);
     if (leaf) setActive(leaf.sessionId);
     setActiveNav("terminal");
   };
 
-  const handleUnifiedTabClose = (e: React.MouseEvent, tabId: string) => {
-    e.stopPropagation();
+  const closeUnifiedTab = (tabId: string) => {
     const tab = useLayoutStore.getState().splitTabs.find((candidate) => candidate.id === tabId);
     const ids = tab ? getPaneSessionIds(tab.root) : [];
     closeSplitTab(tabId);
     ids.forEach(closeSession);
     if (sessions.length <= ids.length) setActiveNav("hosts");
+  };
+
+  const handleUnifiedTabClose = (e: React.MouseEvent, tabId: string) => {
+    e.stopPropagation();
+    closeUnifiedTab(tabId);
   };
 
   const handleDragRegionMouseDown = (e: React.MouseEvent) => {
@@ -328,6 +340,7 @@ export default function TitleBar() {
                 <button
                   data-titlebar-key={item.key}
                   onClick={() => handleUnifiedTabClick(tab.id)}
+                  onContextMenu={(e) => { setMenuTarget({ kind: "split", id: tab.id }); openTabMenu(e); }}
                   onPointerDown={(e) => {
                     if (e.button === 0) useDragStore.getState().beginSplitTabDrag(tab.id, e.clientX, e.clientY);
                     if (e.button === 1) { e.preventDefault(); handleUnifiedTabClose(e, tab.id); }
@@ -379,7 +392,7 @@ export default function TitleBar() {
               <button
                 data-titlebar-key={item.key}
                 onClick={() => handleTabClick(session.id)}
-                onContextMenu={(e) => { setMenuSessionId(session.id); openTabMenu(e); }}
+                onContextMenu={(e) => { setMenuTarget({ kind: "session", id: session.id }); openTabMenu(e); }}
                 onPointerDown={(e) => {
                   if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, item.key);
                   if (e.button === 1) { e.preventDefault(); handleTabClose(e, session.id); }
@@ -450,14 +463,21 @@ export default function TitleBar() {
         </div>
       </div>
 
-      {tabMenuPos && menuSession && (
+      {tabMenuPos && (menuSession || menuSplitTab) && (
         <ContextMenu
-          items={sessionMenuItems({
-            session: menuSession,
-            t,
-            closeLabel: t("layout.titleBar.closeTab"),
-            onClose: () => closeTabById(menuSession.id),
-          })}
+          items={menuSession
+            ? sessionMenuItems({
+                session: menuSession,
+                t,
+                closeLabel: t("layout.titleBar.closeTab"),
+                onClose: () => closeTabById(menuSession.id),
+              })
+            : splitTabMenuItems({
+                tab: menuSplitTab!,
+                t,
+                onFocusPane: (paneId) => handleUnifiedTabClick(menuSplitTab!.id, paneId),
+                onClose: () => closeUnifiedTab(menuSplitTab!.id),
+              })}
           pos={tabMenuPos}
           onClose={closeTabMenu}
         />
