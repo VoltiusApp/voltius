@@ -6,21 +6,26 @@ interface Props {
   title: string;
   message: string;
   confirmLabel?: string;
+  /** `danger` (default) for destruction; `warning` for reversible-but-serious. */
+  tone?: "danger" | "warning";
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: Props) {
+export function ConfirmModal({ title, message, confirmLabel, tone = "danger", onConfirm, onCancel }: Props) {
   const { t } = useTranslation();
+  const accent = tone === "warning" ? "var(--t-status-warning)" : "var(--t-status-error)";
+  const icon = tone === "warning" ? "lucide:lock" : "lucide:triangle-alert";
+  const confirmClass = tone === "warning" ? "btn btn-warning" : "btn btn-danger";
   return (
     <Modal onClose={onCancel} onEnter={onConfirm}>
       <ModalCard className="p-6 flex flex-col gap-4 min-w-[21.333rem] max-w-[26.667rem]">
         <div className="flex items-center gap-3">
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: "color-mix(in srgb, var(--t-status-error) 15%, transparent)" }}
+            style={{ background: `color-mix(in srgb, ${accent} 15%, transparent)` }}
           >
-            <Icon icon="lucide:triangle-alert" width={16} className="text-(--t-status-error)" />
+            <Icon icon={icon} width={16} style={{ color: accent }} />
           </div>
           <h2 className="text-sm font-semibold text-(--t-text-bright)">{title}</h2>
         </div>
@@ -34,7 +39,7 @@ export function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel
           </button>
           <button
             onClick={onConfirm}
-            className="btn btn-danger px-4 py-2 rounded-lg text-sm font-medium"
+            className={`${confirmClass} px-4 py-2 rounded-lg text-sm font-medium`}
           >
             {confirmLabel ?? t("common.action.confirm")}
           </button>

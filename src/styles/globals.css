@@ -597,6 +597,18 @@ button svg *,
   filter: brightness(0.97);
 }
 
+.btn-warning {
+  color: #fff;
+  background: var(--t-status-warning);
+  box-shadow: var(--t-ring);
+}
+.btn-warning:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.btn-warning:active:not(:disabled) {
+  filter: brightness(0.97);
+}
+
 /*
   Shared form-field focus ring — adds only the accent ring (box-shadow) so it
   composes with whatever inline border/background a field already has. Pairs
