@@ -1,0 +1,44 @@
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useContextMenu } from "@/components/shared/ContextMenu";
+import { useTeamStore } from "@/stores/teamStore";
+import { useUIStore } from "@/stores/uiStore";
+import { vaultAdminCapabilities, type VaultAdminTarget } from "./vaultAdminTarget";
+import { vaultMenuItems } from "./vaultMenuItems";
+import type { VaultDialog } from "./VaultAdminDialogs";
+
+export function useVaultAdmin(target: VaultAdminTarget | null) {
+  const { t } = useTranslation();
+  const { teams, rolesByTeam, membersByTeam } = useTeamStore();
+  const openMembersNav = useUIStore((s) => s.openMembersNav);
+  const openMembersRoles = useUIStore((s) => s.openMembersRoles);
+  const { pos, open: openAtPointer, openAt, close: closeMenu } = useContextMenu();
+  const [dialog, setDialog] = useState<VaultDialog>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const caps = target
+    ? vaultAdminCapabilities(target, teams, rolesByTeam)
+    : { isTeam: false, isOwner: false, canRename: false, canDelete: false, canMakePrivate: false };
+  const memberCount = target?.teamId ? (membersByTeam[target.teamId]?.length ?? null) : null;
+
+  const items = target
+    ? vaultMenuItems({
+        caps, memberCount, t,
+        on: (action) => {
+          switch (action) {
+            case "share": setShareOpen(true); return;
+            case "members": openMembersNav(); return;
+            case "roles": openMembersRoles(); return;
+            case "rename":
+            case "settings":
+            case "makePrivate":
+            case "delete": setDialog(action); return;
+          }
+        },
+      })
+    : [];
+
+  const openAtElement = (el: HTMLElement) => openAt(el.getBoundingClientRect());
+
+  return { items, pos, openAtElement, openAtPointer, closeMenu, dialog, setDialog, shareOpen, setShareOpen };
+}

@@ -52,6 +52,8 @@ export default function MembersPage() {
   const setSortMode = useUIStore((s) => s.setMembersSortMode);
   const membersInvitePending = useUIStore((s) => s.membersInvitePending);
   const clearMembersInvitePending = useUIStore((s) => s.clearMembersInvitePending);
+  const membersRolesPending = useUIStore((s) => s.membersRolesPending);
+  const clearMembersRolesPending = useUIStore((s) => s.clearMembersRolesPending);
   const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
@@ -72,6 +74,15 @@ export default function MembersPage() {
       clearMembersInvitePending();
     }
   }, [membersInvitePending, clearMembersInvitePending]);
+
+  useEffect(() => {
+    if (membersRolesPending) {
+      setShowRolesPanel(true);
+      setShowDetailPanel(false);
+      setShowInvitePanel(false);
+      clearMembersRolesPending();
+    }
+  }, [membersRolesPending, clearMembersRolesPending]);
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
 
   useEffect(() => {

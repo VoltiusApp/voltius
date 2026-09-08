@@ -13,6 +13,10 @@ import { PickerSurface } from "@/components/shared/PickerSurface";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
 import { getAccountMode } from "@/services/account";
 import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
+import { ContextMenu } from "@/components/shared/ContextMenu";
+import { useVaultAdmin } from "@/components/vault-admin/useVaultAdmin";
+import { VaultAdminDialogs } from "@/components/vault-admin/VaultAdminDialogs";
+import type { VaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
 
 // ─── Members stack ─────────────────────────────────────────────────────────
 
@@ -22,15 +26,26 @@ export function MembersStack({
   members,
   vaultId,
   vaultName,
+  open: openProp,
+  onOpenChange,
 }: {
   members: TeamMember[];
   vaultId: string;
   vaultName: string;
+  /** Lets a caller (the vault menu's Share… action) drive the popover too. Uncontrolled when omitted. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
   const openMembersInvite = useUIStore((s) => s.openMembersInvite);
   const [invHovered, setInvHovered] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = (value: boolean | ((o: boolean) => boolean)) => {
+    const next = typeof value === "function" ? value(open) : value;
+    onOpenChange?.(next);
+    setUncontrolledOpen(next);
+  };
   const ref = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
   const visible = members.slice(0, MAX_STACK);
@@ -192,6 +207,14 @@ export default function VaultHeader() {
     }
   }, [team?.id]);
 
+  const target: VaultAdminTarget | null = vault
+    ? { kind: "local", vaultId: vault.id, teamId: vault.teamId ?? null, name: vault.name }
+    : standaloneTeam
+      ? { kind: "cloud", vaultId: null, teamId: standaloneTeam.id, name: standaloneTeam.name }
+      : null;
+  const admin = useVaultAdmin(target);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
   if (!vault && !standaloneTeam) return null;
 
   const displayName = vault ? vault.name : (standaloneTeam!.name);
@@ -224,9 +247,21 @@ export default function VaultHeader() {
 
         <div className="flex flex-col justify-center min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base font-semibold truncate" style={{ color: "var(--t-text-primary)" }}>
-              {displayName}
-            </span>
+            <button
+              ref={triggerRef}
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={admin.pos !== null}
+              aria-label={t("layout.vaultMenu.openMenu")}
+              onClick={() => triggerRef.current && admin.openAtElement(triggerRef.current)}
+              className="flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 -ml-1.5 transition-colors"
+              style={{ background: admin.pos !== null ? "var(--t-bg-elevated)" : "transparent", border: "none", cursor: "pointer" }}
+            >
+              <span className="text-base font-semibold truncate" style={{ color: "var(--t-text-primary)" }}>
+                {displayName}
+              </span>
+              <Icon icon="lucide:chevron-down" width={12} style={{ color: "var(--t-text-dim)" }} />
+            </button>
             {team && <Badge label={t("layout.vaultHeader.teamBadge")} />}
             {members !== null && (
               <Badge label={t("layout.vaultHeader.memberCount", { count: members.length })} accent />
@@ -300,9 +335,20 @@ export default function VaultHeader() {
             members={members ?? []}
             vaultId={activeVaultId}
             vaultName={vault?.name ?? team?.name ?? ""}
+            open={admin.shareOpen}
+            onOpenChange={admin.setShareOpen}
           />
         )}
       </div>
+
+      {admin.pos && <ContextMenu items={admin.items} pos={admin.pos} onClose={admin.closeMenu} />}
+      {target && (
+        <VaultAdminDialogs
+          target={target}
+          dialog={admin.dialog}
+          onClose={() => admin.setDialog(null)}
+        />
+      )}
     </div>
   );
 }
