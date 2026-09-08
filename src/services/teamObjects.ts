@@ -33,8 +33,8 @@ export interface TeamSecretRecord {
 export interface UpsertTeamObject<T = unknown> {
   object_id: string;
   object_type: TeamObjectType;
-  name?: string;
-  folder_id?: string;
+  name?: string | null;
+  folder_id?: string | null;
   metadata: T;
 }
 
