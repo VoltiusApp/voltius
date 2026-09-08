@@ -1,3 +1,5 @@
+import { log } from "@/lib/logger";
+
 export interface TeamMembershipEventDeps {
   getTeamIds: () => string[];
   loadTeams: () => Promise<void>;
@@ -17,18 +19,24 @@ export function getTeamMembershipDelta(prevTeamIds: string[], nextTeamIds: strin
 export async function handleMembershipChangedEvent(deps: TeamMembershipEventDeps): Promise<void> {
   const prevTeamIds = deps.getTeamIds();
 
-  // loadTeams() swallows its own errors — if listTeams() had a transient failure,
-  // the returned list equals prevTeamIds and the delta is zero. Retry with backoff
-  // so a brief network hiccup doesn't leave the user staring at a vault they were
-  // just kicked from (or missing a vault they just joined).
+  // loadTeams() reports its own failures but still resolves — if listTeams() had
+  // a transient failure, the returned list equals prevTeamIds and the delta is
+  // zero. Retry with backoff so a brief network hiccup doesn't leave the user
+  // staring at a vault they were just kicked from (or missing a vault they just
+  // joined).
   let nextTeamIds = prevTeamIds;
+  let sawDelta = false;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise<void>((r) => setTimeout(r, 1000 * attempt));
     await deps.loadTeams();
     nextTeamIds = deps.getTeamIds();
     const { added, removed } = getTeamMembershipDelta(prevTeamIds, nextTeamIds);
-    if (added.length > 0 || removed.length > 0) break;
+    sawDelta = added.length > 0 || removed.length > 0;
+    if (sawDelta) break;
   }
+  // Expected on a key-wrap notification, which every member of the team also
+  // receives; only interesting when chasing a removal that never applied (#233).
+  if (!sawDelta) log.debug("membership_changed: no membership delta after 3 attempts");
 
   const delta = getTeamMembershipDelta(prevTeamIds, nextTeamIds);
 

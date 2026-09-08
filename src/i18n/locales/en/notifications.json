@@ -78,6 +78,10 @@
       "membershipEnded": {
         "message": "You were removed from {{team}}. Its hosts, keys and snippets are gone from this device, and credentials you used there should be rotated.",
         "review": "Review credentials"
+      },
+      "secretsNotWiped": {
+        "message": "Some {{team}} credentials could not be removed from this device. They stay readable here until the wipe succeeds.",
+        "retry": "Remove them now"
       }
     }
   }
