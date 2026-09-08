@@ -10,7 +10,7 @@ vi.mock("@/services/multiplayerService", () => ({
   publishMyPublicKey: vi.fn(),
 }));
 
-import { getTeamVaultKey, clearTeamKeyCache } from "./teamVaultSync.ts";
+import { getTeamVaultKey, clearTeamKeyCache, deleteTeamKey } from "./teamVaultSync.ts";
 
 function futureJwt(): string {
   const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -104,5 +104,36 @@ test("a rejected fetch clears the cache entry so a later call can retry, not poi
 
   const key = await getTeamVaultKey("t1");
   expect(key).toEqual([4, 5, 6]);
+  expect(h.appFetch).toHaveBeenCalledTimes(2);
+});
+
+// #216/#229: deleteTeamKey (fired on a "kicked from team" event, see
+// src/services/sync.ts onTeamRemoved) can't cancel a fetch already in
+// flight — it can only clear the map entries. Without a generation guard,
+// the in-flight fetch would resolve after the eviction and write the key
+// straight back into the cache for a team the caller no longer has access
+// to.
+test("an eviction that lands mid-fetch is not resurrected into the cache", async () => {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.unwrap.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+  let resolveFetch!: (value: unknown) => void;
+  h.appFetch.mockReturnValueOnce(new Promise((resolve) => { resolveFetch = resolve; }));
+
+  const first = getTeamVaultKey("t1"); // fetch starts, still pending
+
+  deleteTeamKey("t1"); // kicked from the team while the fetch is on the wire
+
+  resolveFetch(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" }));
+  await expect(first).rejects.toBe("error");
+
+  // Observable proof the stale key was not written back: the next call must
+  // start a brand-new fetch rather than returning a cached value.
+  h.appFetch.mockResolvedValueOnce(res(200, { wrapped_key: "wk2", wrapped_by_user_id: "u1" }));
+  h.unwrap.mockResolvedValueOnce(new Uint8Array([9, 9, 9]));
+
+  const second = await getTeamVaultKey("t1");
+  expect(second).toEqual([9, 9, 9]);
   expect(h.appFetch).toHaveBeenCalledTimes(2);
 });

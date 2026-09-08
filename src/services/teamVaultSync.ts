@@ -56,14 +56,39 @@ const _teamKeyCache = new Map<string, number[]>();
 // listMembers + unwrap, stampeding the rate-limited vault-key route until it
 // 429s — which callers then fold into "offline" and silently drop rows.
 const _teamKeyInFlight = new Map<string, Promise<number[]>>();
+// Per-team eviction generation. deleteTeamKey/clearTeamKeyCache bump it;
+// getTeamVaultKey captures it before starting a fetch and only writes the
+// resolved key into _teamKeyCache if the generation is still the one it
+// started with. Deleting the map entry can't cancel a fetch already in
+// flight — the caller that started it still holds the promise in its
+// closure — so without this guard a key evicted for a kicked member (#216)
+// could be written straight back into the cache moments later by a fetch
+// that was already on its way when the eviction landed. Task 5 put
+// getTeamVaultKey on the per-row hydrate path, which made this far more
+// likely to actually happen (#229).
+const _teamKeyGeneration = new Map<string, number>();
 const _teamRefreshQueue = new TeamVaultRefreshQueue();
 
+function _currentGeneration(teamId: string): number {
+  return _teamKeyGeneration.get(teamId) ?? 0;
+}
+
+function _bumpGeneration(teamId: string): void {
+  _teamKeyGeneration.set(teamId, _currentGeneration(teamId) + 1);
+}
+
 export function clearTeamKeyCache(): void {
+  // Bump every team that could have a fetch in flight, not just the ones
+  // with a resolved cache entry — an in-flight fetch has no _teamKeyCache
+  // row yet but must still be invalidated.
+  const teamIds = new Set([..._teamKeyCache.keys(), ..._teamKeyInFlight.keys(), ..._teamKeyGeneration.keys()]);
+  for (const teamId of teamIds) _bumpGeneration(teamId);
   _teamKeyCache.clear();
   _teamKeyInFlight.clear();
 }
 
 export function deleteTeamKey(teamId: string): void {
+  _bumpGeneration(teamId);
   _teamKeyCache.delete(teamId);
   _teamKeyInFlight.delete(teamId);
 }
@@ -83,7 +108,9 @@ export function deleteTeamKey(teamId: string): void {
  *   "awaiting_key"     — server returned 404 (no wrapped key for this member yet)
  *   "key_mismatch"     — the key arrived but this device's identity cannot open
  *                        it; retrying cannot help, unlike "error" (#228)
- *   "error"            — anything else
+ *   "error"            — anything else, including a key evicted by
+ *                        deleteTeamKey/clearTeamKeyCache while this fetch was
+ *                        still in flight (e.g. #216's kick eviction)
  */
 export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   const cached = _teamKeyCache.get(teamId);
@@ -94,7 +121,22 @@ export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   const existing = _teamKeyInFlight.get(teamId);
   if (existing) return existing;
 
-  const inFlight = _fetchAndUnwrapTeamVaultKey(teamId);
+  // The generation guard has to live inside the shared promise itself, not
+  // in a check the initiating caller runs after its own await: every
+  // concurrent joiner above returns this same promise object directly and
+  // never runs any code of its own after it resolves, so a check outside
+  // this chain would only protect the caller that happened to start the
+  // fetch.
+  const generation = _currentGeneration(teamId);
+  const inFlight = _fetchAndUnwrapTeamVaultKey(teamId).then((keyBytes) => {
+    // The key was evicted (deleteTeamKey/clearTeamKeyCache) while this fetch
+    // was on the wire — most importantly, a member just kicked from the team
+    // (#216). Do not resurrect it into the cache, and do not hand it back to
+    // any caller either; treat it the same as any other failed fetch.
+    if (_currentGeneration(teamId) !== generation) throw "error";
+    _teamKeyCache.set(teamId, keyBytes);
+    return keyBytes;
+  });
   _teamKeyInFlight.set(teamId, inFlight);
   // Detached cleanup subscriber: always drop the in-flight entry once the
   // fetch settles (success or failure) so a later call can retry after a
@@ -103,9 +145,7 @@ export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   // their own `await inFlight`/`await getTeamVaultKey(...)`.
   inFlight.finally(() => _teamKeyInFlight.delete(teamId)).catch(() => {});
 
-  const keyBytes = await inFlight;
-  _teamKeyCache.set(teamId, keyBytes);
-  return keyBytes;
+  return inFlight;
 }
 
 async function _fetchAndUnwrapTeamVaultKey(teamId: string): Promise<number[]> {
