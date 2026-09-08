@@ -3,6 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/re
 
 const h = vi.hoisted(() => ({
   revoke: vi.fn(),
+  inviteByEmail: vi.fn(),
 }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -13,11 +14,12 @@ vi.mock("@/components/shared/BaseCard", () => ({
   BaseCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock("@/services/teamService", () => ({ revokePendingInvitation: h.revoke }));
+vi.mock("@/services/vaultShare", () => ({ inviteByEmailAddress: h.inviteByEmail }));
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
 
-import { PendingInviteCard } from "./MembersPage";
+import { PendingInviteCard } from "./cards/PendingInviteCard";
 
 const inv = {
   id: "inv1",
@@ -25,7 +27,8 @@ const inv = {
   role: "member",
   invited_by_display_name: null,
   created_at: "2024-01-01",
-  expires_at: "2024-02-01",
+  expires_at: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+  status: "pending" as const,
 };
 
 const props = {
@@ -33,11 +36,15 @@ const props = {
   teamId: "t1",
   roles: [],
   onRevoked: vi.fn(),
+  onResent: vi.fn(),
 };
 
 beforeEach(() => {
   h.revoke.mockReset();
+  h.inviteByEmail.mockReset();
+  h.inviteByEmail.mockResolvedValue({ status: "invited" });
   props.onRevoked = vi.fn();
+  props.onResent = vi.fn();
 });
 afterEach(() => cleanup());
 
@@ -73,4 +80,53 @@ test("button disabled while revoke in flight, re-enables after resolve", async (
   await waitFor(() => expect(btn.disabled).toBe(true));
   resolveRevoke!();
   await waitFor(() => expect(btn.disabled).toBe(false));
+});
+
+test("shows how long a live invitation has left", () => {
+  render(<PendingInviteCard {...props} />);
+
+  expect(screen.getByText(/members\.invite\.expiresIn/)).toBeTruthy();
+});
+
+test("marks an expired invitation as expired rather than counting down", () => {
+  const expired = { ...inv, status: "expired" as const, expires_at: "2024-01-08" };
+  render(<PendingInviteCard {...props} inv={expired} />);
+
+  // The badge says "Expired"; the line beneath the name says when it lapsed.
+  expect(screen.getByText("members.invite.expired")).toBeTruthy();
+  expect(screen.getByText(/members\.invite\.expiredOn/)).toBeTruthy();
+  expect(screen.queryByText(/members\.invite\.expiresIn/)).toBeNull();
+});
+
+test("resend re-invites the same person with the same role", async () => {
+  render(<PendingInviteCard {...props} />);
+
+  fireEvent.click(screen.getByTitle("members.invite.resendTitle"));
+
+  await waitFor(() =>
+    expect(h.inviteByEmail).toHaveBeenCalledWith({
+      teamId: "t1",
+      email: "jade-heron-7715",
+      roleName: "member",
+    }),
+  );
+  await waitFor(() => expect(props.onResent).toHaveBeenCalled());
+});
+
+test("a failed resend does not report success", async () => {
+  h.inviteByEmail.mockRejectedValue(new Error("nope"));
+  render(<PendingInviteCard {...props} />);
+
+  const btn = screen.getByTitle("members.invite.resendTitle") as HTMLButtonElement;
+  fireEvent.click(btn);
+
+  await waitFor(() => expect(btn.disabled).toBe(false));
+  expect(props.onResent).not.toHaveBeenCalled();
+});
+
+test("both actions are permanent buttons, not hover-only", () => {
+  render(<PendingInviteCard {...props} />);
+
+  expect(screen.getByTitle("members.revokeInvitationTitle").className).not.toContain("group-hover");
+  expect(screen.getByTitle("members.invite.resendTitle").className).not.toContain("group-hover");
 });

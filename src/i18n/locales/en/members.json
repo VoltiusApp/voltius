@@ -90,7 +90,13 @@
       "seatsUnknown": "Seat count unavailable — check your connection to the sync server",
       "inviteAction": "Invite",
       "joinsAs": "They join as",
-      "selectRoleHint": "Select at least one role before inviting"
+      "selectRoleHint": "Select at least one role before inviting",
+      "expiresIn_one": "Expires tomorrow",
+      "expiresIn_other": "Expires in {{count}} days",
+      "expiresToday": "Expires today",
+      "expired": "Expired",
+      "resendTitle": "Send this invitation again",
+      "expiredOn": "Expired {{date}}"
     },
     "roleBlurb": {
       "manager": "Managers can invite people, change roles and manage links.",

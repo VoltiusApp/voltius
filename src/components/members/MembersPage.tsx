@@ -11,10 +11,7 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { UserSearchField } from "@/components/shared/UserSearchField";
-import {
-  getMyUserId,
-} from "@/services/teamService";
-import type { PendingInvitation } from "@/stores/teamStore";
+import { getMyUserId } from "@/services/teamService";
 import { getMyHandle } from "@/services/account";
 import { BaseCard } from "@/components/shared/BaseCard";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -40,6 +37,7 @@ import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import { assignableRoles, leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import type { DepartMode } from "@/services/teamOffboarding";
+import { PendingInviteCard } from "@/components/members/cards/PendingInviteCard";
 
 function RoleChip({ role }: { role: TeamRole }) {
   const { t } = useTranslation();
@@ -562,63 +560,6 @@ export function MemberDetailPanel({
       />
     )}
     </>
-  );
-}
-
-// ─── Pending invite card ──────────────────────────────────────────────────────
-
-export function PendingInviteCard({
-  inv, teamId, roles, onRevoked,
-}: {
-  inv: PendingInvitation;
-  teamId: string;
-  roles: TeamRole[];
-  onRevoked: (id: string) => void;
-}) {
-  const { t } = useTranslation();
-  const [revoking, setRevoking] = useState(false);
-
-  const handleRevoke = async () => {
-    setRevoking(true);
-    try {
-      await revokeInvitation({ teamId, invitationId: inv.id, name: inv.display_name });
-      onRevoked(inv.id);
-    } catch { /* toast already reports the failure */ }
-    finally { setRevoking(false); }
-  };
-
-  const matchedRole = roles.find((r) => r.name === inv.role);
-  const meta = ROLE_META[inv.role] ?? ROLE_META.member;
-  const chipColor = matchedRole?.color ?? meta.color;
-  const chipBg = meta.bg ?? `${chipColor}1a`;
-
-  return (
-    <BaseCard isList>
-      <MiniAvatar name={inv.display_name} size={32} />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate text-(--t-text-bright)">{inv.display_name}</p>
-      </div>
-      <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>
-        {t("members.pendingBadge")}
-      </span>
-      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ color: chipColor, background: chipBg }}>
-        {inv.role}
-      </span>
-      <button
-        title={t("members.revokeInvitationTitle")}
-        disabled={revoking}
-        onClick={(e) => { e.stopPropagation(); void handleRevoke(); }}
-        className="p-1.5 hidden group-hover:flex rounded-lg transition-colors"
-        style={{ color: "var(--t-text-dim)", opacity: revoking ? 0.4 : 1 }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
-      >
-        {revoking
-          ? <Icon icon="lucide:loader-circle" width={16} className="animate-spin" />
-          : <Icon icon="lucide:x" width={16} />
-        }
-      </button>
-    </BaseCard>
   );
 }
 
@@ -1540,6 +1481,7 @@ const vaultTabs = selectedVaultIds.length > 1
                       teamId={teamId}
                       roles={teamRoles}
                       onRevoked={() => { if (teamId) loadPendingInvitations(teamId).catch(() => {}); }}
+                      onResent={() => { if (teamId) loadPendingInvitations(teamId).catch(() => {}); }}
                     />
                   ))}
                 </div>

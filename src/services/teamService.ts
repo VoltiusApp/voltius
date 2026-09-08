@@ -373,6 +373,12 @@ export interface PendingInvitation {
   invited_by_display_name: string | null;
   created_at: string;
   expires_at: string;
+  /**
+   * Derived server-side; the client's clock is not the one the accept path
+   * checks against. Absent from an older server, which filtered expired
+   * invitations out of the list entirely — so treat a missing value as live.
+   */
+  status?: "pending" | "expired";
 }
 
 export async function inviteByEmail(
