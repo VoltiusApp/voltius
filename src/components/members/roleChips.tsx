@@ -1,4 +1,8 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
+import type { TeamRole } from "@/services/teamService";
+import { PERM_BITS } from "@/hooks/usePermission";
+import { PERM_META } from "@/components/settings/sections/RolesSection";
 
 export const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
   owner:          { label: "Owner",        color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
@@ -18,6 +22,59 @@ export function roleChipColors(name: string, override?: string | null, fallback 
   return { meta, color, bg: meta?.bg ?? `${color}1a` };
 }
 
+/**
+ * The precise half of the role explanation: exactly which permissions a role
+ * grants, derived from its bits. The plain-language counterpart is
+ * `members.roleBlurb.*`, which only the built-in roles have.
+ */
+export function RolePermissionTooltip({ role, color }: { role: TeamRole; color: string }) {
+  const { t } = useTranslation();
+  const permLabels = Object.entries(PERM_BITS)
+    .filter(([, bit]) => (role.permissions & bit) !== 0)
+    .map(([p]) => {
+      const key = p as keyof typeof PERM_META;
+      return t(`members.permission.${key}`, { defaultValue: PERM_META[key]?.label ?? p });
+    });
+
+  if (permLabels.length === 0) return null;
+
+  return (
+    <div
+      className="absolute bottom-full left-0 mb-1.5 z-50 rounded-lg p-2 text-[10px] min-w-[140px] max-w-[200px] pointer-events-none"
+      style={{
+        background: "var(--t-bg-card)",
+        boxShadow: "var(--t-ring), var(--t-elev-2)",
+        color: "var(--t-text-primary)",
+      }}
+    >
+      <p className="font-semibold mb-1 capitalize">{role.name}</p>
+      <ul className="space-y-0.5">
+        {permLabels.slice(0, 8).map((l) => (
+          <li key={l} className="flex items-center gap-1" style={{ color: "var(--t-text-dim)" }}>
+            <Icon icon="lucide:check" width={8} style={{ color }} />
+            {l}
+          </li>
+        ))}
+        {permLabels.length > 8 && (
+          <li style={{ color: "var(--t-text-dim)" }}>{t("members.morePermissions", { count: permLabels.length - 8 })}</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * The plain-language half: one line saying what a role is for, shown where a
+ * role is being *granted* rather than merely displayed. Only the built-in roles
+ * have one, so a custom role renders nothing.
+ */
+export function RoleBlurb({ name }: { name: string }) {
+  const { t } = useTranslation();
+  const text = t(`members.roleBlurb.${name}`, { defaultValue: "" });
+  if (!text) return null;
+  return <p className="text-[11px]" style={{ color: "var(--t-text-secondary)" }}>{text}</p>;
+}
+
 const VARIANT_CLASS = {
   pill: "text-[10px] px-2 py-0.5 rounded-full font-medium transition-all",
   chip: "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
@@ -33,13 +90,20 @@ interface RoleToggleChipProps {
   color?: string | null;
   fallbackColor?: string;
   disabled?: boolean;
+  /**
+   * Show the plain-language `members.roleBlurb.*` line under an active chip —
+   * for the surfaces where a role is being *granted*, not merely displayed.
+   * Only the built-in roles have one, so a custom role shows nothing.
+   */
+  blurb?: boolean;
 }
 
 export function RoleToggleChip({
-  name, active, onClick, variant = "chip", color: override, fallbackColor, disabled,
+  name, active, onClick, variant = "chip", color: override, fallbackColor, disabled, blurb,
 }: RoleToggleChipProps) {
   const { color, bg } = roleChipColors(name, override, fallbackColor);
-  return (
+
+  const button = (
     <button
       onClick={onClick}
       disabled={disabled}
@@ -53,5 +117,13 @@ export function RoleToggleChip({
       {variant !== "pill" && active && <Icon icon="lucide:check" width={9} />}
       {name}
     </button>
+  );
+
+  if (!blurb || !active) return button;
+  return (
+    <div className="flex flex-col gap-1">
+      {button}
+      <RoleBlurb name={name} />
+    </div>
   );
 }

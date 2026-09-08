@@ -26,11 +26,11 @@ import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { openBillingCheckout } from "@/services/billingCheckout";
-import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
+import { RoleModal, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 import { seatAvailability } from "@/services/seatMath";
 import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
 import { SeatsMeter } from "@/components/members/SeatsMeter";
-import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
+import { ROLE_META, RoleToggleChip, RolePermissionTooltip, RoleBlurb } from "@/components/members/roleChips";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
 import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason, removeTeamMember, revokeInvitation } from "@/services/vaultShare";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
@@ -40,17 +40,10 @@ import type { DepartMode } from "@/services/teamOffboarding";
 import { PendingInviteCard } from "@/components/members/cards/PendingInviteCard";
 
 function RoleChip({ role }: { role: TeamRole }) {
-  const { t } = useTranslation();
   const [showTip, setShowTip] = useState(false);
   const meta = ROLE_META[role.name];
   const color = role.color ?? meta?.color ?? avatarColor(role.name);
   const bg = meta?.bg ?? `${color}1a`;
-
-  const grantedPerms = Object.entries(PERM_BITS).filter(([, bit]) => (role.permissions & bit) !== 0);
-  const permLabels = grantedPerms.map(([p]) => {
-    const key = p as keyof typeof PERM_META;
-    return t(`members.permission.${key}`, { defaultValue: PERM_META[key]?.label ?? p });
-  });
 
   return (
     <span className="relative inline-flex items-center" style={{ verticalAlign: "middle" }}>
@@ -66,29 +59,7 @@ function RoleChip({ role }: { role: TeamRole }) {
         }
         {role.name}
       </span>
-      {showTip && permLabels.length > 0 && (
-        <div
-          className="absolute bottom-full left-0 mb-1.5 z-50 rounded-lg p-2 text-[10px] min-w-[140px] max-w-[200px] pointer-events-none"
-          style={{
-            background: "var(--t-bg-card)",
-            boxShadow: "var(--t-ring), var(--t-elev-2)",
-            color: "var(--t-text-primary)",
-          }}
-        >
-          <p className="font-semibold mb-1 capitalize">{role.name}</p>
-          <ul className="space-y-0.5">
-            {permLabels.slice(0, 8).map((l) => (
-              <li key={l} className="flex items-center gap-1" style={{ color: "var(--t-text-dim)" }}>
-                <Icon icon="lucide:check" width={8} style={{ color }} />
-                {l}
-              </li>
-            ))}
-            {permLabels.length > 8 && (
-              <li style={{ color: "var(--t-text-dim)" }}>{t("members.morePermissions", { count: permLabels.length - 8 })}</li>
-            )}
-          </ul>
-        </div>
-      )}
+      {showTip && <RolePermissionTooltip role={role} color={color} />}
     </span>
   );
 }
@@ -455,7 +426,7 @@ export function MemberDetailPanel({
         {/* Roles */}
         <FormSection label={t("members.roles")}>
           {canChangeRoles ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-start gap-2">
               {[...teamRoles]
                 .filter((r) => !(r.is_builtin && r.name === "owner"))
                 .sort((a, b) => a.position - b.position).map((role) => {
@@ -465,8 +436,8 @@ export function MemberDetailPanel({
                 const color = role.color ?? meta?.color ?? "var(--t-accent)";
                 const bg = meta?.bg ?? `${color}1a`;
                 return (
+                  <div key={role.id} className="flex flex-col gap-1">
                   <button
-                    key={role.id}
                     onClick={() => void handleToggleRole(role)}
                     disabled={toggling === role.id}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
@@ -492,6 +463,8 @@ export function MemberDetailPanel({
                       : <Icon icon="lucide:sparkles" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.7 }} />
                     }
                   </button>
+                  {hasRole && <RoleBlurb name={role.name} />}
+                  </div>
                 );
               })}
               <button
@@ -709,13 +682,14 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
 
           {/* Role selector */}
           <FormSection label={t("members.invite.initialRoles")}>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-start gap-2">
               {builtinRoles.map((r) => (
                 <RoleToggleChip
                   key={r.id}
                   name={r.name}
                   active={selectedRoleIds.includes(r.id)}
                   onClick={() => toggleRole(r.id)}
+                  blurb
                 />
               ))}
             </div>

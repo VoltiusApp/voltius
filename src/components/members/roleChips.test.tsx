@@ -2,6 +2,17 @@ import { test, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    // Mirrors i18next's real behaviour: an unknown key falls back to
+    // defaultValue when the caller supplies one.
+    t: (k: string, o?: { defaultValue?: string }) =>
+      k.startsWith("members.roleBlurb.") && !k.endsWith("editor") && o?.defaultValue !== undefined
+        ? o.defaultValue
+        : k,
+  }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
 
 import { ROLE_META, roleChipColors, RoleToggleChip } from "./roleChips";
 
@@ -57,6 +68,27 @@ test("each variant renders its own chrome", () => {
 
   render(<RoleToggleChip name="editor" active onClick={() => {}} variant="chip-sm" />);
   expect(screen.getByRole("button").className).toContain("px-2.5");
+});
+
+test("a toggle chip explains the role in plain language when asked", () => {
+  render(<RoleToggleChip name="editor" active blurb onClick={() => {}} />);
+
+  expect(screen.getByText("members.roleBlurb.editor")).toBeTruthy();
+});
+
+test("a custom role with no blurb renders no explanation line", () => {
+  // Hand-written blurbs exist only for the built-in roles; a role the user
+  // invented falls back to an empty string, which must render nothing.
+  render(<RoleToggleChip name="deploy-bot" active blurb onClick={() => {}} />);
+
+  expect(screen.queryByText(/members\.roleBlurb/)).toBeNull();
+});
+
+test("without the blurb prop the chip is unchanged", () => {
+  render(<RoleToggleChip name="editor" active onClick={() => {}} />);
+
+  expect(screen.queryByText(/members\.roleBlurb/)).toBeNull();
+  expect(screen.getByRole("button").className).toContain("rounded-lg");
 });
 
 test("clicking reports, and a disabled chip does not", () => {
