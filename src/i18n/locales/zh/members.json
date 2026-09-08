@@ -75,6 +75,8 @@
       "title": "邀请成员",
       "seatsLabel": "座位",
       "seatsSummary": "已使用 {{used}} · 可用 {{available}} · 总共 {{total}}",
+      "seatsScope": "统计范围为你拥有的所有团队，而不只是当前团队。",
+      "seatsTrialClamp": "试用期内上限为 {{cap}} 个座位（已购买 {{purchased}} 个），直至试用结束。",
       "buySeats": "购买座位",
       "initialRoles": "初始角色",
       "initialRole": "初始角色",

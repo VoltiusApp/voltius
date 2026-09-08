@@ -27,7 +27,7 @@ export interface InvitePanelProps {
 
 export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }: InvitePanelProps) {
   const { t } = useTranslation();
-  const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
+  const { usedSeats, effectiveSeats, load: reloadSubscription } = useSubscriptionStore();
   const { query, setQuery, results, searching, open, setOpen, inputRef, dropdownRef, reset } =
     useUserSearch(existingIds);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
@@ -37,7 +37,10 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
   const [error, setError] = useState("");
   const [buySeatsFor, setBuySeatsFor] = useState<UserSearchResult | null | undefined>(undefined);
 
-  const { atLimit: isAtSeatLimit } = seatAvailability(usedSeats, totalSeats);
+  // Against the *enforced* cap, not the purchased one: during a trial the server
+  // caps at 10 however many seats were bought, and pre-checking the purchased
+  // number sends invites it then rejects with 402.
+  const { atLimit: isAtSeatLimit } = seatAvailability(usedSeats, effectiveSeats);
 
   const builtinRoles = useMemo(() => assignableRoles(teamRoles), [teamRoles]);
   const defaultMemberRoleId = useMemo(

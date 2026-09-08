@@ -28,7 +28,12 @@ export interface SubscriptionState {
   isBusiness: boolean;
   accountMode: string | null;
   usedSeats: number | null;
+  /** Seats purchased. What the buy-seats UI prices — never what an invite is checked against. */
   totalSeats: number | null;
+  /** The cap the server enforces on invites: an active trial clamps it to 10 however
+   *  many seats were purchased. `null` means uncapped (or unknown), so a pre-check
+   *  must not block on it. Compare with `totalSeats` to explain the gap. */
+  effectiveSeats: number | null;
   subscriptionStatus: string | null;
   subscriptionCancelled: boolean;
   renewsAt: Date | null;
@@ -38,8 +43,11 @@ export interface SubscriptionState {
   load: () => Promise<void>;
 }
 
-export const useSubscriptionStore = create<SubscriptionState>((set) => ({
-  tier: "free",
+/** Everything `load` derives from the server or the JWT, back to "nothing known".
+ *  Spread into each early return so a new field cannot be reset in one path and
+ *  left stale in another. */
+const CLEARED = {
+  tier: "free" as Tier,
   trialEndsAt: null,
   trialUsed: false,
   trialKnown: false,
@@ -47,32 +55,37 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
   isPro: false,
   isTeams: false,
   isBusiness: false,
-  accountMode: null,
   usedSeats: null,
   totalSeats: null,
+  effectiveSeats: null,
   subscriptionStatus: null,
   subscriptionCancelled: false,
   renewsAt: null,
   endsAt: null,
   emailVerified: true,
   billingLoadFailed: false,
+};
+
+export const useSubscriptionStore = create<SubscriptionState>((set) => ({
+  ...CLEARED,
+  accountMode: null,
 
   async load() {
     const mode = await keychainGet("mode").catch(() => null);
     if (mode !== "server") {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true, billingLoadFailed: false });
+      set({ ...CLEARED, accountMode: mode });
       return;
     }
 
     const jwt = await keychainGet("jwt").catch(() => null);
     if (!jwt) {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true, billingLoadFailed: false });
+      set({ ...CLEARED });
       return;
     }
 
     const payload = parseJwtPayload<JwtPayload>(jwt);
     if (!payload) {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true, billingLoadFailed: false });
+      set({ ...CLEARED });
       return;
     }
 
@@ -80,7 +93,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
     const { tier, trialEndsAt, trialKnown, trialUsed, isTrialActive, isPro, isTeams, isBusiness, emailVerified } =
       deriveTierFlags(payload, now);
 
-    set({ tier, trialEndsAt, trialUsed, trialKnown, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified, billingLoadFailed: false });
+    set({ ...CLEARED, tier, trialEndsAt, trialUsed, trialKnown, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, emailVerified });
 
     // Non-fatal: enrich paid plans with live billing lifecycle and seat data.
     if (isPro) {
@@ -94,6 +107,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
             const data = await res.json() as {
               used_seats?: number | null;
               seats?: number | null;
+              effective_seats?: number | null;
               status?: string | null;
               cancelled?: boolean;
               renews_at?: number | null;
@@ -102,6 +116,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
             set({
               usedSeats: data.used_seats ?? null,
               totalSeats: data.seats ?? null,
+              effectiveSeats: data.effective_seats ?? null,
               subscriptionStatus: data.status ?? null,
               subscriptionCancelled: data.cancelled ?? false,
               renewsAt: data.renews_at ? new Date(data.renews_at * 1000) : null,

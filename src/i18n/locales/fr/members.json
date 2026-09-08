@@ -75,6 +75,8 @@
       "title": "Inviter un membre",
       "seatsLabel": "Postes",
       "seatsSummary": "{{used}} utilisés · {{available}} disponibles · {{total}} au total",
+      "seatsScope": "Comptabilisé sur toutes vos équipes, pas seulement celle-ci.",
+      "seatsTrialClamp": "Votre essai limite à {{cap}} postes jusqu'à son terme, sur les {{purchased}} achetés.",
       "buySeats": "Acheter des postes",
       "initialRoles": "Rôles initiaux",
       "initialRole": "Rôle initial",

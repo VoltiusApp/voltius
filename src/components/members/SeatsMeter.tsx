@@ -2,12 +2,18 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { seatState } from "@/components/vault-share/vaultShareModel";
+import { displaySeatCap } from "@/services/seatMath";
 
 /** Seat usage bar for the invite surfaces, with an optional "buy seats" action. */
 export function SeatsMeter({ onBuySeats }: { onBuySeats?: () => void }) {
   const { t } = useTranslation();
-  const { usedSeats, totalSeats } = useSubscriptionStore();
-  const seats = seatState(usedSeats, totalSeats);
+  const { usedSeats, effectiveSeats, totalSeats, isTrialActive } = useSubscriptionStore();
+  // The enforced cap, so the meter and the server agree on when invites stop.
+  const seats = seatState(usedSeats, displaySeatCap(effectiveSeats, totalSeats));
+  // A trial clamps the cap below what was purchased; without this the meter is a
+  // number nothing on screen explains.
+  const trialClamped =
+    isTrialActive && effectiveSeats != null && totalSeats != null && effectiveSeats < totalSeats;
   const atLimit = seats.kind === "known" && seats.atLimit;
   const barWidth = seats.kind === "known" && seats.total > 0
     ? `${Math.min(100, (seats.used / seats.total) * 100)}%`
@@ -25,9 +31,16 @@ export function SeatsMeter({ onBuySeats }: { onBuySeats?: () => void }) {
         {seats.kind === "unknown" ? (
           <p className="text-[11px]" style={{ color: "var(--t-text-dim)" }}>{t("members.invite.seatsUnknown")}</p>
         ) : (
-          <p className="text-[11px] tabular-nums" style={{ color: atLimit ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
-            {t("members.invite.seatsSummary", { used: seats.used, available: seats.available, total: seats.total })}
-          </p>
+          <>
+            <p className="text-[11px] tabular-nums" style={{ color: atLimit ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
+              {t("members.invite.seatsSummary", { used: seats.used, available: seats.available, total: seats.total })}
+            </p>
+            <p className="text-[11px] mt-0.5" style={{ color: "var(--t-text-dim)" }}>
+              {trialClamped
+                ? t("members.invite.seatsTrialClamp", { cap: seats.total, purchased: totalSeats })
+                : t("members.invite.seatsScope")}
+            </p>
+          </>
         )}
       </div>
       {onBuySeats && (

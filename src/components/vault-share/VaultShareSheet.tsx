@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { displaySeatCap } from "@/services/seatMath";
 import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
 import { ConvertToTeamGate } from "./ConvertToTeamGate";
 import { InviteControl } from "./InviteControl";
@@ -38,6 +39,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
   const rolesByTeam = useTeamStore((s) => s.rolesByTeam);
   const pendingInvitationsByTeam = useTeamStore((s) => s.pendingInvitationsByTeam);
   const usedSeats = useSubscriptionStore((s) => s.usedSeats);
+  const effectiveSeats = useSubscriptionStore((s) => s.effectiveSeats);
   const totalSeats = useSubscriptionStore((s) => s.totalSeats);
 
   const [tab, setTab] = useState<Tab>("people");
@@ -209,7 +211,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
           roles={rolesByTeam[teamId] ?? []}
           existingIds={new Set(people.map((p) => p.userId))}
           usedSeats={usedSeats}
-          totalSeats={totalSeats}
+          seatCap={displaySeatCap(effectiveSeats, totalSeats)}
           onInvited={() => setTab("people")}
         />
       )}

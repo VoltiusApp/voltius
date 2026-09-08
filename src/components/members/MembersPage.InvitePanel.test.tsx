@@ -12,7 +12,7 @@ const h = vi.hoisted(() => ({
   getMyHandle: vi.fn(async () => "merry-quartz-2597"),
   t: vi.fn((k: string) => k),
   usedSeats: 2,
-  totalSeats: 3,
+  effectiveSeats: 3,
 }));
 
 // Looks up the real English copy so the interpolating t below reproduces what
@@ -66,7 +66,7 @@ vi.mock("@/stores/teamStore", () => {
 });
 vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: Object.assign(
-    () => ({ usedSeats: h.usedSeats, totalSeats: h.totalSeats, load: h.reload }),
+    () => ({ usedSeats: h.usedSeats, effectiveSeats: h.effectiveSeats, load: h.reload }),
     { getState: () => ({ load: h.reload }) },
   ),
 }));
@@ -111,7 +111,7 @@ beforeEach(() => {
   h.reload.mockReset().mockResolvedValue(undefined);
   h.t.mockImplementation((k: string) => k);
   h.usedSeats = 2;
-  h.totalSeats = 3;
+  h.effectiveSeats = 3;
   baseProps.onClose = vi.fn();
   baseProps.onMemberAdded = vi.fn();
 });
@@ -213,7 +213,7 @@ test("every ticked role is handed to the shared invite, in selection order", asy
 
 test("add at seat limit: no invite call, BuySeatsModal shown with that user", async () => {
   h.usedSeats = 3;
-  h.totalSeats = 3;
+  h.effectiveSeats = 3;
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([inA]);
   render(<InvitePanel {...baseProps} />);
@@ -309,7 +309,7 @@ test("email invite success (not at limit): inviteByEmailAddress(default role) + 
 
 test("email invite at seat limit: BuySeatsModal(null); inviteByEmailAddress NOT called", async () => {
   h.usedSeats = 3;
-  h.totalSeats = 3;
+  h.effectiveSeats = 3;
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([]);
   render(<InvitePanel {...baseProps} />);
@@ -354,7 +354,7 @@ test("email invite rejects generic error (no 402): named inviteFailed message sh
 
 test("BuySeatsModal onSuccess: reloadSubscription + onMemberAdded called, modal closes", async () => {
   h.usedSeats = 3;
-  h.totalSeats = 3;
+  h.effectiveSeats = 3;
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([inA]);
   render(<InvitePanel {...baseProps} />);
