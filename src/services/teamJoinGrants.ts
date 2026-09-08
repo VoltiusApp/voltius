@@ -2,22 +2,11 @@ import i18n from "@/i18n";
 import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
 import { getServerUrl } from "@/services/authTokens";
 
-/**
- * Team join grants — the client half of the link that admits someone into a
- * team vault (issue #68; server: `migrations/038_team_join_grants.sql`,
- * `src/routes/team_grants.rs`).
- *
- * A grant confers **membership only, never vault access**. The vault key is
- * wrapped per member with X25519, so it cannot travel in a link: it arrives
- * afterwards, when an online key-holder runs the normal distribution pass. A
- * redeemer therefore lands in `awaiting_key` (issue #41) until that happens,
- * which `TeamVaultStatePanel` already renders as an explicit waiting state.
- *
- * `account_id` appears nowhere here and must never be put in a link: despite
- * the name it is the KDF salt for the user's password.
- */
+// A grant confers team membership, never vault access: the vault key is wrapped
+// per member with X25519, so it follows separately and the redeemer sits in
+// `awaiting_key` until a key-holder wraps it.
 
-/** Roles a link may confer. `owner` is a 400 on the server, deliberately. */
+/** `owner` is absent deliberately — the server answers 400 for it. */
 export const GRANTABLE_ROLES = ["manager", "editor", "member", "connect-only"] as const;
 export type GrantableRole = (typeof GRANTABLE_ROLES)[number];
 
@@ -25,7 +14,7 @@ export function isGrantableRole(role: string): role is GrantableRole {
   return (GRANTABLE_ROLES as readonly string[]).includes(role);
 }
 
-/** Server clamps, mirrored so the form cannot ask for something it won't get. */
+/** Server-side clamps, mirrored so the form cannot ask for what it won't get. */
 export const MAX_USES_CEILING = 500;
 export const MIN_TTL_SECS = 60;
 export const MAX_TTL_SECS = 30 * 24 * 3600;
@@ -40,7 +29,7 @@ export interface JoinGrant {
   created_by: string;
 }
 
-/** The mint response. `secret` is returned exactly once and never re-fetchable. */
+/** `secret` is returned by this call only; the server stores just its sha256. */
 export interface MintedJoinGrant extends JoinGrant {
   secret: string;
 }
@@ -57,10 +46,6 @@ export interface JoinGrantRedemption {
   role: string;
 }
 
-/**
- * Why the server refused. Matched on `code`, never on the message: a message is
- * translated and a translated string is not a protocol.
- */
 export type JoinGrantErrorCode =
   | "not_found"
   | "revoked_or_expired"
@@ -69,6 +54,7 @@ export type JoinGrantErrorCode =
   | "no_public_key"
   | "unknown";
 
+/** Carries a code so callers never match on a translated message. */
 export class JoinGrantError extends Error {
   constructor(
     readonly code: JoinGrantErrorCode,
@@ -79,12 +65,8 @@ export class JoinGrantError extends Error {
   }
 }
 
-/**
- * The redeem/preview status contract, read off the server rather than the API
- * doc, which did not pin it: 404 wrong id *or* wrong secret (deliberately
- * indistinguishable), 410 revoked or expired, 409 exhausted, 402 seat cap,
- * 400 on redeem means the redeemer has no published public key.
- */
+// 404 covers a wrong id and a wrong secret alike, deliberately. 400 means
+// "no published public key" only when redeeming.
 function grantError(status: number, redeeming: boolean): JoinGrantError {
   switch (status) {
     case 404:
@@ -141,11 +123,7 @@ export async function revokeJoinGrant(teamId: string, grantId: string): Promise<
   if (!res.ok) throw grantError(res.status, false);
 }
 
-/**
- * What the link names, before the holder commits to joining. Read-only: it
- * consumes no use, and the server re-checks revocation and expiry again inside
- * the redemption transaction, so nothing here is cached as a decision.
- */
+/** Consumes no use; the server re-checks validity inside the redeem transaction. */
 export async function previewJoinGrant(grantId: string, secret: string): Promise<JoinGrantPreview> {
   const base = await serverUrl();
   const res = await fetchAuth(`${base}/v1/grants/${grantId}/preview`, {
@@ -156,12 +134,8 @@ export async function previewJoinGrant(grantId: string, secret: string): Promise
   return res.json();
 }
 
-/**
- * Redeem. `publicKey` fills a NULL on the user row and never overwrites one —
- * overwriting would orphan every vault key already wrapped to the old key — and
- * a redeemer who has published none is refused with a 400 rather than admitted
- * into a vault that could never fill.
- */
+// `public_key` fills a NULL only and never overwrites — overwriting would orphan
+// every vault key already wrapped to the old one.
 export async function redeemJoinGrant(
   grantId: string,
   secret: string,

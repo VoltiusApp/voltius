@@ -10,14 +10,12 @@ const h = vi.hoisted(() => ({
   revokeInvitation: vi.fn().mockResolvedValue(undefined),
   grantVaultKeyToMember: vi.fn().mockResolvedValue(undefined),
   writeClipboard: vi.fn().mockResolvedValue(undefined),
-  /** User ids the server reports as already holding a wrapped vault key. */
   keyHolders: [] as string[],
 }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-// Exposes each row action as a button, so a handler wired to `() => {}` — which
-// is how all four of these shipped — fails the test rather than passing it.
+// A button per handler, so a no-op handler fails rather than passes.
 vi.mock("./PeopleList", () => ({
   PeopleList: ({
     people,
@@ -139,7 +137,6 @@ test("Remove and Grant now run the real calls, not a no-op", () => {
     teamId: "t1",
     userId: "u1",
     handle: "bob",
-    // Carried through from the roster, so granting needs no second fetch.
     publicKey: "pk-bob",
   });
 });
@@ -157,7 +154,6 @@ test("Revoke runs against the invitation id, and does nothing without one", () =
     name: "carol@example.com",
   });
 
-  // A member row has no invitation to revoke.
   fireEvent.click(screen.getByText("revoke:u1"));
   expect(h.revokeInvitation).toHaveBeenCalledTimes(1);
 });
@@ -168,8 +164,6 @@ test("only members missing from the key-holder list read as waiting", async () =
     { user_id: "u1", handle: "bob", role_ids: [], public_key: "pk1" },
     { user_id: "u2", handle: "carol", role_ids: [], public_key: "pk2" },
   ];
-  // The old code read the *viewer's* own vault status and applied it to
-  // everyone, so a reader who was waiting saw the whole roster as waiting.
   h.keyHolders = ["u1"];
   render(<VaultShareSheet vaultId="v1" variant="full" />);
   await waitFor(() => expect(screen.getByText("waiting:u2")).toBeTruthy());
