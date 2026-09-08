@@ -36,7 +36,7 @@ import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDispla
 import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
-import { inviteUserById, inviteByEmailAddress, inviteFailureReason } from "@/services/vaultShare";
+import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason } from "@/services/vaultShare";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import { assignableRoles, leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
 
@@ -668,7 +668,6 @@ interface InvitePanelProps {
 
 export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }: InvitePanelProps) {
   const { t } = useTranslation();
-  const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
   const { query, setQuery, results, searching, open, setOpen, inputRef, dropdownRef, reset } =
     useUserSearch(existingIds);
@@ -720,20 +719,13 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
     if (isAtSeatLimit) { setBuySeatsFor(user); setOpen(false); return; }
     setAdding(user.user_id); setError(""); setSuccess("");
     try {
-      const [firstRoleId, ...restRoleIds] = selectedRoleIds;
-      const firstRoleName = builtinRoles.find((r) => r.id === firstRoleId)?.name ?? fallbackRoleName;
-      const result = await inviteUserById({
+      const result = await inviteUserWithRoles({
         teamId,
         userId: user.user_id,
         handle: user.handle,
-        roleName: firstRoleName,
-        roleId: firstRoleId,
+        roleIds: selectedRoleIds,
+        roles: teamRoles,
       });
-      if (result.status === "already_member") {
-        for (const roleId of restRoleIds) {
-          await assignMemberRole(teamId, user.user_id, roleId).catch(() => {});
-        }
-      }
       reset();
       setSuccess(result.status === "pending"
         ? t("members.toast.invitationSentToUser", { name: user.handle })

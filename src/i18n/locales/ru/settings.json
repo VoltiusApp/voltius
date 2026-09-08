@@ -630,7 +630,6 @@
         "searchUserPlaceholder": "Поиск по нику или email…",
         "noUsersFound": "Пользователи не найдены",
         "addAsMember": "Добавить как участника",
-        "adding": "Добавление {{name}}…",
         "added": "{{name}} добавлен",
         "inviting": "Приглашение {{email}}…",
         "invitationSent": "Приглашение отправлено на {{email}}",

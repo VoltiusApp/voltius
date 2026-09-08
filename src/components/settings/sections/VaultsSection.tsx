@@ -19,7 +19,9 @@ import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
 import { UserSearchField } from "@/components/shared/UserSearchField";
 import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
 import { runTeamAction } from "@/services/teamActionFeedback";
-import { createTeamVaultFromVault } from "@/services/vaultConvert";
+import { inviteUserWithRoles } from "@/services/vaultShare";
+import { assignableRoles, leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
+import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import { reloadLocalVaultObjectStores } from "@/services/vaultTeamMigration";
 
 import { openBillingCheckout } from "@/services/billingCheckout";
@@ -73,8 +75,6 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
   onMemberAdded?: () => void;
 }) {
   const { t } = useTranslation();
-  const addMemberById = useTeamStore((s) => s.addMemberById);
-  const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
   const { query, setQuery, results, searching, open, setOpen, inputRef, dropdownRef, reset } =
     useUserSearch(existingIds);
@@ -87,10 +87,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
 
   const isAtSeatLimit = seatAvailability(usedSeats, totalSeats).atLimit;
 
-  const inviteRoles = useMemo(
-    () => roles.filter((r) => !(r.is_builtin && r.name === "owner")).sort((a, b) => a.position - b.position),
-    [roles],
-  );
+  const inviteRoles = useMemo(() => assignableRoles(roles), [roles]);
   const defaultMemberRoleId = useMemo(() => inviteRoles.find((r) => r.is_builtin && r.name === "member")?.id, [inviteRoles]);
 
   useEffect(() => {
@@ -101,8 +98,12 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
   const toggleRole = (roleId: string) =>
     setSelectedRoleIds((prev) => prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]);
 
+  // With nothing ticked the stand-in is the least-privileged role, never "member":
+  // an empty selection is a lost choice, not a request for more access.
   const primaryRoleName = useMemo(
-    () => inviteRoles.find((r) => selectedRoleIds.includes(r.id))?.name ?? "member",
+    () => inviteRoles.find((r) => selectedRoleIds.includes(r.id))?.name
+      ?? leastPrivilegedRole(inviteRoles)?.name
+      ?? "connect-only",
     [selectedRoleIds, inviteRoles],
   );
 
@@ -113,14 +114,13 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
     setAdding(user.user_id);
     setError(""); setSuccess("");
     try {
-      await runTeamAction({
-        pending: t("settings.vaults.members.adding", { name: user.handle }),
-        success: t("settings.vaults.members.added", { name: user.handle }),
-        run: () => addMemberById(teamId, user.user_id),
+      await inviteUserWithRoles({
+        teamId,
+        userId: user.user_id,
+        handle: user.handle,
+        roleIds: selectedRoleIds,
+        roles,
       });
-      for (const roleId of selectedRoleIds) {
-        await assignMemberRole(teamId, user.user_id, roleId).catch(() => {});
-      }
       reset();
       await reloadSubscription();
       onMemberAdded?.();
@@ -636,31 +636,38 @@ export function PrivateVaultMembersPanel({
   const { t } = useTranslation();
   const { isTeams, accountMode } = useSubscriptionStore();
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
-  const { loadRoles, addMemberById, assignMemberRole } = useTeamStore();
+  const { loadRoles } = useTeamStore();
 
   const { query, setQuery, results, searching, open, setOpen, inputRef, dropdownRef, reset } = useUserSearch();
   const [adding, setAdding] = useState<string | null>(null);
+  const [pendingUser, setPendingUser] = useState<UserSearchResult | null>(null);
   const [error, setError] = useState("");
 
-  const handleAdd = async (user: UserSearchResult) => {
-    setAdding(user.user_id);
-    setError("");
+  // Picking someone here used to convert the vault on the spot: a team appeared,
+  // key custody moved to the server and the vault stopped opening offline, none
+  // of it announced. The conversion now happens behind the same consent gate the
+  // other two share surfaces use, and only the invite runs after it.
+  const inviteAfterConvert = async (teamId: string, user: UserSearchResult) => {
+    setPendingUser(null);
     try {
-      const teamId = await createTeamVaultFromVault(vaultId, vaultName);
-      await addMemberById(teamId, user.user_id);
       await loadRoles(teamId);
-      const memberRole = useTeamStore.getState().rolesByTeam[teamId]?.find(
-        (r) => r.is_builtin && r.name === "member",
-      );
-      if (memberRole) {
-        await assignMemberRole(teamId, user.user_id, memberRole.id);
-      }
+      const roles = useTeamStore.getState().rolesByTeam[teamId] ?? [];
+      const memberRole = roles.find((r) => r.is_builtin && r.name === "member");
+      await inviteUserWithRoles({
+        teamId,
+        userId: user.user_id,
+        handle: user.handle,
+        roleIds: memberRole ? [memberRole.id] : [],
+        roles,
+      });
       reset();
-      onTeamCreated(teamId);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("settings.vaults.members.failedToAdd"));
     } finally {
       setAdding(null);
+      // The vault is a team vault either way — the caller must switch panels even
+      // if the invite failed, or the next attempt converts an already-converted vault.
+      onTeamCreated(teamId);
     }
   };
 
@@ -697,6 +704,14 @@ export function PrivateVaultMembersPanel({
 
   return (
     <div>
+      {pendingUser && (
+        <ConvertToTeamGate
+          vaultId={vaultId}
+          vaultName={vaultName}
+          onCancel={() => { setPendingUser(null); setAdding(null); }}
+          onConverted={(teamId) => void inviteAfterConvert(teamId, pendingUser)}
+        />
+      )}
       <div className="rounded-xl overflow-hidden mb-4" style={{ border: "1px solid var(--t-border)" }}>
         <div className="flex items-center gap-3 px-4 py-2.5">
           <MiniAvatar name={myUserId} size={30} />
@@ -727,7 +742,7 @@ export function PrivateVaultMembersPanel({
         dropdownRef={dropdownRef}
         adding={adding}
         addLabel={t("settings.vaults.members.addAsMember")}
-        onAdd={(user) => void handleAdd(user)}
+        onAdd={(user) => { setError(""); setAdding(user.user_id); setOpen(false); setPendingUser(user); }}
         emptyLabel={t("settings.vaults.members.noUsersFound")}
       />
       {error && <p className="text-xs mt-1.5 px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}

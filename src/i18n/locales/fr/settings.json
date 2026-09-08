@@ -622,7 +622,6 @@
         "searchUserPlaceholder": "Rechercher par pseudo ou e-mail…",
         "noUsersFound": "Aucun utilisateur trouvé",
         "addAsMember": "Ajouter comme membre",
-        "adding": "Ajout de {{name}}…",
         "added": "{{name}} ajouté",
         "inviting": "Invitation de {{email}}…",
         "invitationSent": "Invitation envoyée à {{email}}",

@@ -5,7 +5,7 @@ import membersEn from "@/i18n/locales/en/members.json";
 
 const h = vi.hoisted(() => ({
   searchUsers: vi.fn(),
-  inviteUserById: vi.fn(),
+  inviteUserWithRoles: vi.fn(),
   inviteByEmailAddress: vi.fn(),
   assign: vi.fn(),
   reload: vi.fn(),
@@ -50,7 +50,7 @@ vi.mock("@/services/teamService", () => ({
 // only the network calls themselves are stubbed.
 vi.mock("@/services/vaultShare", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/services/vaultShare")>();
-  return { ...actual, inviteUserById: h.inviteUserById, inviteByEmailAddress: h.inviteByEmailAddress };
+  return { ...actual, inviteUserWithRoles: h.inviteUserWithRoles, inviteByEmailAddress: h.inviteByEmailAddress };
 });
 vi.mock("@/services/account", () => ({ getMyHandle: h.getMyHandle }));
 vi.mock("@/services/teamActionFeedback", () => ({
@@ -105,7 +105,7 @@ const inA = { user_id: "inA", handle: "included-alpha-3140", public_key: "pkA" }
 
 beforeEach(() => {
   h.searchUsers.mockReset();
-  h.inviteUserById.mockReset();
+  h.inviteUserWithRoles.mockReset();
   h.inviteByEmailAddress.mockReset();
   h.assign.mockReset();
   h.reload.mockReset().mockResolvedValue(undefined);
@@ -170,10 +170,10 @@ test("existingIds filter: excluded id absent from rendered results, included id 
   expect(screen.queryByText("excluded-bravo-9022")).toBeNull();
 });
 
-test("add success (not at limit): the chosen role travels with inviteUserById, not a doomed post-hoc assignment", async () => {
+test("add success (not at limit): the chosen roles travel with the invite, not a doomed post-hoc assignment", async () => {
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([inA]);
-  h.inviteUserById.mockResolvedValue({ status: "pending" });
+  h.inviteUserWithRoles.mockResolvedValue({ status: "pending" });
   render(<InvitePanel {...baseProps} />);
 
   await typeAndDebounce("in");
@@ -182,21 +182,21 @@ test("add success (not at limit): the chosen role travels with inviteUserById, n
   fireEvent.click(screen.getByText("included-alpha-3140"));
 
   await waitFor(() => expect(baseProps.onMemberAdded).toHaveBeenCalled());
-  expect(h.inviteUserById).toHaveBeenCalledWith({
-    teamId: "t1", userId: "inA", handle: "included-alpha-3140", roleName: "member", roleId: "r-mem",
+  expect(h.inviteUserWithRoles).toHaveBeenCalledWith({
+    teamId: "t1", userId: "inA", handle: "included-alpha-3140", roleIds: ["r-mem"], roles: teamRoles,
   });
   expect(h.assign).not.toHaveBeenCalled();
   expect(h.reload).toHaveBeenCalled();
 });
 
-test("add resolves already_member: extra selected roles (beyond the first) are assigned", async () => {
+test("every ticked role is handed to the shared invite, in selection order", async () => {
   vi.useFakeTimers();
   const roles: TeamRole[] = [
     ...teamRoles,
     { id: "r-editor", team_id: "t1", name: "editor", is_builtin: true, permissions: 0, position: 2, created_at: "" },
   ];
   h.searchUsers.mockResolvedValue([inA]);
-  h.inviteUserById.mockResolvedValue({ status: "already_member" });
+  h.inviteUserWithRoles.mockResolvedValue({ status: "already_member" });
   h.assign.mockResolvedValue(undefined);
   render(<InvitePanel {...baseProps} teamRoles={roles} />);
 
@@ -206,11 +206,12 @@ test("add resolves already_member: extra selected roles (beyond the first) are a
   fireEvent.click(screen.getByText("included-alpha-3140"));
 
   await waitFor(() => expect(baseProps.onMemberAdded).toHaveBeenCalled());
-  expect(h.inviteUserById).toHaveBeenCalledWith(expect.objectContaining({ roleName: "member", roleId: "r-mem" }));
-  expect(h.assign).toHaveBeenCalledWith("t1", "inA", "r-editor");
+  expect(h.inviteUserWithRoles).toHaveBeenCalledWith(expect.objectContaining({ roleIds: ["r-mem", "r-editor"], roles }));
+  // Applying them is the shared helper's job, not the panel's.
+  expect(h.assign).not.toHaveBeenCalled();
 });
 
-test("add at seat limit: inviteUserById NOT called, BuySeatsModal shown with that user", async () => {
+test("add at seat limit: no invite call, BuySeatsModal shown with that user", async () => {
   h.usedSeats = 3;
   h.totalSeats = 3;
   vi.useFakeTimers();
@@ -221,7 +222,7 @@ test("add at seat limit: inviteUserById NOT called, BuySeatsModal shown with tha
   vi.useRealTimers();
   fireEvent.click(screen.getByText("included-alpha-3140"));
 
-  expect(h.inviteUserById).not.toHaveBeenCalled();
+  expect(h.inviteUserWithRoles).not.toHaveBeenCalled();
   const modal = await screen.findByTestId("buy-seats-modal");
   expect(modal.dataset.pendingUser).toBe("inA");
 });
@@ -229,7 +230,7 @@ test("add at seat limit: inviteUserById NOT called, BuySeatsModal shown with tha
 test("add rejects {code:402} (not at limit): BuySeatsModal shown, no error text", async () => {
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([inA]);
-  h.inviteUserById.mockRejectedValue(Object.assign(new Error("x"), { code: 402 }));
+  h.inviteUserWithRoles.mockRejectedValue(Object.assign(new Error("x"), { code: 402 }));
   render(<InvitePanel {...baseProps} />);
 
   await typeAndDebounce("in");
@@ -244,7 +245,7 @@ test("add rejects {code:402} (not at limit): BuySeatsModal shown, no error text"
 test("add rejects Error with '402' in message (no code prop): BuySeatsModal shown", async () => {
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([inA]);
-  h.inviteUserById.mockRejectedValue(new Error("boom 402 detail"));
+  h.inviteUserWithRoles.mockRejectedValue(new Error("boom 402 detail"));
   render(<InvitePanel {...baseProps} />);
 
   await typeAndDebounce("in");
@@ -260,7 +261,7 @@ test("add rejects generic error (no 402): named inviteFailed message shown, BuyS
   h.t.mockImplementation(interpolatingT);
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([inA]);
-  h.inviteUserById.mockRejectedValue(new Error("nope"));
+  h.inviteUserWithRoles.mockRejectedValue(new Error("nope"));
   render(<InvitePanel {...baseProps} />);
 
   await typeAndDebounce("in");
@@ -275,7 +276,7 @@ test("add rejects a transport failure (no HTTP status): named message shown, no 
   h.t.mockImplementation(interpolatingT);
   vi.useFakeTimers();
   h.searchUsers.mockResolvedValue([inA]);
-  h.inviteUserById.mockRejectedValue(
+  h.inviteUserWithRoles.mockRejectedValue(
     new Error("error sending request for url (http://v68-server:8080/v1/teams/a5c2d19d/invite)"),
   );
   const { container } = render(<InvitePanel {...baseProps} />);
@@ -386,7 +387,7 @@ test("no role selected: the Add action is disabled, a hint is shown, clicking do
   const addButton = screen.getByText("included-alpha-3140").closest("button") as HTMLButtonElement;
   expect(addButton.disabled).toBe(true);
   fireEvent.click(addButton);
-  expect(h.inviteUserById).not.toHaveBeenCalled();
+  expect(h.inviteUserWithRoles).not.toHaveBeenCalled();
 });
 
 test("no role selected: the email-invite action is disabled, clicking does nothing", async () => {

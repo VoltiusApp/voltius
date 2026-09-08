@@ -622,7 +622,6 @@
         "searchUserPlaceholder": "Search by handle or email…",
         "noUsersFound": "No users found",
         "addAsMember": "Add as Member",
-        "adding": "Adding {{name}}…",
         "added": "{{name}} added",
         "inviting": "Inviting {{email}}…",
         "invitationSent": "Invitation sent to {{email}}",
