@@ -586,13 +586,6 @@
         "title": "Import / Export",
         "desc": "Back up or restore your hosts, identities, and SSH key metadata as JSON or CSV."
       },
-      "roles": {
-        "owner": "Owner",
-        "manager": "Manager",
-        "editor": "Editor",
-        "member": "Member",
-        "connect_only": "Connect-Only"
-      },
       "upgrade": {
         "requiresTeams": "Team Vaults require a Teams plan",
         "upgradeDesc": "Invite members, assign roles, and share credentials securely with your team.",
@@ -736,9 +729,7 @@
         "businessFeatureDesc": "Custom roles with granular permissions are available on the Business plan.",
         "upgradeBtn": "Upgrade to Business",
         "noCustomRolesCanEdit": "No custom roles yet. Create one to assign specific permissions.",
-        "noCustomRoles": "No custom roles defined for this team.",
-        "noTeams": "No teams yet. Create a shared vault to start managing roles.",
-        "teamLabel": "Team"
+        "noCustomRoles": "No custom roles defined for this team."
       }
     },
     "plugins": {

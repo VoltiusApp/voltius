@@ -8,40 +8,9 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { ContentCounts } from "@/components/shared/ContentCounts";
-import { openBillingCheckout } from "@/services/billingCheckout";
 import { VaultSettingsBody } from "@/components/vault-admin/VaultSettingsBody";
 import { VaultAdminDialogs, type VaultDialog } from "@/components/vault-admin/VaultAdminDialogs";
 import type { VaultAdminTarget as VaultDetail } from "@/components/vault-admin/vaultAdminTarget";
-
-// ─── Upgrade to teams CTA ──────────────────────────────────────────────────────
-
-export function UpgradeToTeamsCTA() {
-  const { t } = useTranslation();
-  const openCheckout = async () => {
-    await openBillingCheckout("teams");
-  };
-
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
-      <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "rgba(99,102,241,0.12)" }}>
-        <Icon icon="lucide:users-round" width={22} style={{ color: "var(--t-accent)" }} />
-      </div>
-      <div>
-        <p className="text-sm font-medium mb-1" style={{ color: "var(--t-text-primary)" }}>{t("settings.vaults.upgrade.requiresTeams")}</p>
-        <p className="text-xs max-w-xs" style={{ color: "var(--t-text-dim)" }}>
-          {t("settings.vaults.upgrade.upgradeDesc")}
-        </p>
-      </div>
-      <button
-        onClick={() => void openCheckout()}
-        className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-        style={{ background: "var(--t-accent)" }}
-      >
-        {t("settings.vaults.upgrade.upgradeBtn")}
-      </button>
-    </div>
-  );
-}
 
 // ─── Vault content counts (list row, skips zeros) ─────────────────────────────
 

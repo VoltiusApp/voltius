@@ -454,13 +454,6 @@
         "title": "导入 / 导出",
         "desc": "将您的主机、身份和 SSH 密钥元数据备份或恢复为 JSON 或 CSV。"
       },
-      "roles": {
-        "owner": "所有者",
-        "manager": "管理员",
-        "editor": "编辑者",
-        "member": "成员",
-        "connect_only": "仅连接"
-      },
       "upgrade": {
         "requiresTeams": "团队保险库需要 Teams 套餐",
         "upgradeDesc": "邀请成员、分配角色并与团队安全共享凭据。",
@@ -553,9 +546,7 @@
         "businessFeatureDesc": "具有细粒度权限的自定义角色在 Business 套餐中可用。",
         "upgradeBtn": "升级到 Business",
         "noCustomRolesCanEdit": "暂无自定义角色。创建一个以分配特定权限。",
-        "noCustomRoles": "此团队未定义自定义角色。",
-        "noTeams": "暂无团队。创建共享保险库以开始管理角色。",
-        "teamLabel": "团队"
+        "noCustomRoles": "此团队未定义自定义角色。"
       }
     },
     "plugins": {

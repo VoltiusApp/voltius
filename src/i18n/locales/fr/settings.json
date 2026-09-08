@@ -586,13 +586,6 @@
         "title": "Import / Export",
         "desc": "Sauvegardez ou restaurez vos hôtes, identités et métadonnées de clés SSH au format JSON ou CSV."
       },
-      "roles": {
-        "owner": "Propriétaire",
-        "manager": "Gestionnaire",
-        "editor": "Éditeur",
-        "member": "Membre",
-        "connect_only": "Connexion uniquement"
-      },
       "upgrade": {
         "requiresTeams": "Les coffres-forts d'équipe nécessitent un abonnement Teams",
         "upgradeDesc": "Invitez des membres, attribuez des rôles et partagez des identifiants en toute sécurité avec votre équipe.",
@@ -736,9 +729,7 @@
         "businessFeatureDesc": "Les rôles personnalisés avec des permissions granulaires sont disponibles dans le plan Business.",
         "upgradeBtn": "Passer au plan Business",
         "noCustomRolesCanEdit": "Aucun rôle personnalisé pour l'instant. Créez-en un pour attribuer des permissions spécifiques.",
-        "noCustomRoles": "Aucun rôle personnalisé défini pour cette équipe.",
-        "noTeams": "Aucune équipe pour l'instant. Créez un coffre-fort partagé pour commencer à gérer les rôles.",
-        "teamLabel": "Équipe"
+        "noCustomRoles": "Aucun rôle personnalisé défini pour cette équipe."
       }
     },
     "plugins": {
