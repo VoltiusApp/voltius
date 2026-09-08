@@ -62,6 +62,14 @@ test("delete and make-private are flagged danger and start a divider group", () 
   const priv = items.find((i) => i.label === "layout.vaultMenu.makePrivate")!;
   expect(del.danger).toBe(true);
   expect(priv.divider).toBe(true);
+  expect(del.divider).toBe(false);
+});
+
+test("with no make-private, delete opens the destructive group itself", () => {
+  const items = vaultMenuItems({ caps: privateCaps, memberCount: null, t, on: vi.fn() });
+  const del = items.find((i) => i.label === "layout.vaultMenu.delete")!;
+  expect(del.divider).toBe(true);
+  expect(del.danger).toBe(true);
 });
 
 test("clicking an item reports its action", () => {
