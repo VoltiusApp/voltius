@@ -1,6 +1,6 @@
 import i18n from "@/i18n";
 import { useNotificationStore } from "@/stores/notificationStore";
-import type { InboxEntry, InboxKind } from "@/stores/notificationStore";
+import type { InboxAction, InboxEntry, InboxKind } from "@/stores/notificationStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -356,28 +356,48 @@ export function startTeamInbox(): () => void {
 
 /**
  * One-shot, unlike the reconcilers above: the team is gone from every source we
- * could re-derive this from, so it is upserted directly and stays until acted
- * on. Keyed by team so being removed from two teams raises two entries.
+ * could re-derive these from, so they are upserted directly and stay until
+ * acted on. Keyed by team so two departures raise two entries.
  */
-export function notifyMembershipEnded(teamName: string): void {
-  const id = `membership-ended:${teamName}`;
-  const message = i18n.t("notifications.inbox.membershipEnded.message", { team: teamName });
-
+function notifyOneShot(id: string, kind: InboxKind, message: string, action: InboxAction): void {
   useNotificationStore.getState().upsertInbox({
     id,
-    kind: "membershipEnded",
+    kind,
     source: APP_SOURCE,
     message,
-    actions: [
-      {
-        label: i18n.t("notifications.inbox.membershipEnded.review"),
-        run: async () => {
-          const { useUIStore } = await import("@/stores/uiStore");
-          useUIStore.getState().setActiveNav("keychain");
-        },
-      },
-    ],
+    actions: [action],
   });
 
   toast(message, 10000, id);
+}
+
+export function notifyMembershipEnded(teamName: string): void {
+  const id = `membership-ended:${teamName}`;
+  notifyOneShot(id, "membershipEnded", i18n.t("notifications.inbox.membershipEnded.message", { team: teamName }), {
+    label: i18n.t("notifications.inbox.membershipEnded.review"),
+    run: async () => {
+      const { useUIStore } = await import("@/stores/uiStore");
+      useUIStore.getState().setActiveNav("keychain");
+    },
+  });
+}
+
+/**
+ * The offboarding wipe left the departed team's plaintext credentials on this
+ * device. It retries by itself at the next login; the action is there so a user
+ * who has just been removed does not have to wait for one (#233).
+ */
+export function notifySecretsNotWiped(teamId: string, teamName: string): void {
+  const id = `secrets-not-wiped:${teamId}`;
+  notifyOneShot(id, "secretsNotWiped", i18n.t("notifications.inbox.secretsNotWiped.message", { team: teamName }), {
+    label: i18n.t("notifications.inbox.secretsNotWiped.retry"),
+    run: async () => {
+      const { drainPendingSecretWipes } = await import("@/services/teamVaultSync");
+      await drainPendingSecretWipes();
+      const { usePendingSecretWipeStore } = await import("@/stores/pendingSecretWipeStore");
+      if (!usePendingSecretWipeStore.getState().keysByTeamId[teamId]) {
+        useNotificationStore.getState().retractInbox(id);
+      }
+    },
+  });
 }

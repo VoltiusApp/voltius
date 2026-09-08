@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import * as api from "@/services/teamService";
+import { logFailure } from "@/lib/logger";
 import type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
 export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation };
 
@@ -109,7 +110,10 @@ export const useTeamStore = create<TeamStore>()(
       await cacheVaultRoles(teams, get().rolesByTeam, (teamId, roles) =>
         set((s) => ({ rolesByTeam: { ...s.rolesByTeam, [teamId]: roles } })),
       );
-    } catch {
+    } catch (e) {
+      // Callers treat an unchanged list as "nothing happened", so a swallowed
+      // failure here is what makes a missed removal look like a no-op (#233).
+      logFailure("loadTeams")(e);
       set({ loading: false });
     }
   },

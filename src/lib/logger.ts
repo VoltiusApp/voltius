@@ -70,3 +70,13 @@ export function installGlobalErrorLogging(): void {
     log.error("unhandled promise rejection", safeJson(e.reason));
   });
 }
+
+/**
+ * Rejection handler for a promise that is deliberately not awaited. The caller
+ * still must not die on the failure, but the failure must not vanish either:
+ * `.catch(() => {})` left removal, sync and presence errors indistinguishable
+ * from success and kept them out of bug reports entirely (issue #233).
+ */
+export function logFailure(context: string): (e: unknown) => void {
+  return (e) => log.warn(`${context} failed:`, e instanceof Error ? e.message : safeJson(e));
+}

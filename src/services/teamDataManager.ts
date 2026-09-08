@@ -19,7 +19,8 @@ import { useKeyStore } from "@/stores/keyStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
-import { fetchTeamData, clearTeamKeyCache, reconcileTeamVaultKeys } from "@/services/teamVaultSync";
+import { fetchTeamData, clearTeamKeyCache, reconcileTeamVaultKeys, drainPendingSecretWipes } from "@/services/teamVaultSync";
+import { logFailure } from "@/lib/logger";
 
 // Statuses that warrant a retry (transient — key not yet distributed)
 const TRANSIENT_STATUSES = new Set(["awaiting_key", "error"]);
@@ -30,6 +31,11 @@ const TRANSIENT_STATUSES = new Set(["awaiting_key", "error"]);
  * allSettled — one failing team vault doesn't block the others.
  */
 export async function onTeamLogin(): Promise<void> {
+  // Secrets a past offboarding wipe failed to delete are still on this device.
+  // Login is the one moment we know the vault is unlocked and the team list is
+  // current, so it is where the retry belongs (#233).
+  await drainPendingSecretWipes().catch(logFailure("pending secret wipe drain"));
+
   const teamIds = useTeamStore.getState().teams.map((t) => t.id);
   await Promise.allSettled(
     teamIds.map(async (teamId) => {

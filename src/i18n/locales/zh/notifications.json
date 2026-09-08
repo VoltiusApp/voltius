@@ -78,6 +78,10 @@
       "membershipEnded": {
         "message": "你已被移出 {{team}}。其主机、密钥和代码片段已从此设备删除，请轮换你在其中使用过的凭据。",
         "review": "检查凭据"
+      },
+      "secretsNotWiped": {
+        "message": "部分 {{team}} 凭据无法从此设备删除。在清除成功之前，它们在此仍可读取。",
+        "retry": "立即删除"
       }
     }
   }
