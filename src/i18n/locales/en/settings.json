@@ -668,7 +668,7 @@
         "deleteVault": {
           "title": "Delete vault",
           "desc": "Permanently removes this vault and all its contents.",
-          "confirmDesc": "Are you sure? This cannot be undone.",
+          "confirmDesc": "Permanently deletes this vault and its {{count}} items. This cannot be undone.",
           "confirmBtn": "Confirm delete",
           "btn": "Delete vault"
         },

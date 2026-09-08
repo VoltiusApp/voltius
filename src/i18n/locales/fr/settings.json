@@ -668,7 +668,7 @@
         "deleteVault": {
           "title": "Supprimer le coffre-fort",
           "desc": "Supprime définitivement ce coffre-fort et tout son contenu.",
-          "confirmDesc": "Êtes-vous sûr ? Cette action est irréversible.",
+          "confirmDesc": "Supprime définitivement ce coffre et ses {{count}} éléments. Cette action est irréversible.",
           "confirmBtn": "Confirmer la suppression",
           "btn": "Supprimer le coffre-fort"
         },

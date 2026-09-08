@@ -536,7 +536,7 @@
         "deleteVault": {
           "title": "删除保险库",
           "desc": "永久移除此保险库及其所有内容。",
-          "confirmDesc": "确定吗？此操作无法撤销。",
+          "confirmDesc": "将永久删除此保险库及其 {{count}} 个项目。此操作无法撤销。",
           "confirmBtn": "确认删除",
           "btn": "删除保险库"
         },
