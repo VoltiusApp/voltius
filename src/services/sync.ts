@@ -850,6 +850,13 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");
     refreshAwaitingKeyTeams().catch(() => {});
 
+    // Snapshot the names BEFORE loadTeams() runs: the removal is detected by
+    // diffing against a reloaded list, so by the time onTeamRemoved fires the
+    // departed team is already gone from the store and only its id remains.
+    const teamNamesBefore = new Map(
+      useTeamStore.getState().teams.map((t) => [t.id, t.name] as const),
+    );
+
     handleMembershipChangedEvent({
       getTeamIds: () => useTeamStore.getState().teams.map((t) => t.id),
       loadTeams: () => useTeamStore.getState().loadTeams(),
@@ -863,9 +870,7 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
         const { deleteTeamKey } = await import("@/services/teamVaultSync");
         deleteTeamKey(tid);
 
-        // Read before removeTeam drops the row this name lives on.
-        const departedTeamName =
-          useTeamStore.getState().teams.find((t) => t.id === tid)?.name ?? tid;
+        const departedTeamName = teamNamesBefore.get(tid) ?? tid;
 
         // Remove all per-team slices from the team store (members, roles, etc.)
         useTeamStore.getState().removeTeam(tid);
