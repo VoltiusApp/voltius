@@ -21,7 +21,6 @@
     "noMatch": "没有匹配 \"{{search}}\" 的成员",
     "revokeInvitationTitle": "撤销邀请",
     "pendingBadge": "待处理",
-    "openInSettingsVaults": "在 设置 › 保险库 中打开",
     "toolbar": {
       "filterPlaceholder": "筛选成员…",
       "sortByRole": "按角色",

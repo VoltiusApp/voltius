@@ -21,7 +21,6 @@
     "noMatch": "No members match \"{{search}}\"",
     "revokeInvitationTitle": "Revoke invitation",
     "pendingBadge": "Pending",
-    "openInSettingsVaults": "Open in Settings › Vaults",
     "toolbar": {
       "filterPlaceholder": "Filter members…",
       "sortByRole": "By role",

@@ -21,7 +21,6 @@
     "noMatch": "Aucun membre ne correspond à « {{search}} »",
     "revokeInvitationTitle": "Révoquer l'invitation",
     "pendingBadge": "En attente",
-    "openInSettingsVaults": "Voir dans Paramètres › Coffres-forts",
     "toolbar": {
       "filterPlaceholder": "Filtrer les membres…",
       "sortByRole": "Par rôle",

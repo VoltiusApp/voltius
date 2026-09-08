@@ -14,7 +14,7 @@ import { getMyHandle } from "@/services/account";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
-import { PanelShell, PanelHeader, PanelHeaderIconButton } from "@/components/shared/Panel";
+import { PanelShell, PanelHeader } from "@/components/shared/Panel";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
@@ -54,7 +54,6 @@ export default function MembersPage() {
   const clearMembersInvitePending = useUIStore((s) => s.clearMembersInvitePending);
   const membersRolesPending = useUIStore((s) => s.membersRolesPending);
   const clearMembersRolesPending = useUIStore((s) => s.clearMembersRolesPending);
-  const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
   const [myUserId, setMyUserId] = useState("");
@@ -543,13 +542,6 @@ const vaultTabs = selectedVaultIds.length > 1
                     title={t("members.roles")}
                     icon="lucide:shield"
                     onClose={() => setShowRolesPanel(false)}
-                    actions={
-                      <PanelHeaderIconButton
-                        icon="lucide:external-link"
-                        title={t("members.openInSettingsVaults")}
-                        onClick={() => openSettings("vaults")}
-                      />
-                    }
                   />
                   <div className="flex-1 overflow-y-auto p-4">
                     <TeamRolesPanel teamId={teamId} myUserId={myUserId} />

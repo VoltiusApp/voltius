@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -30,10 +30,6 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTeamStore } from "@/stores/teamStore";
-import type { Team } from "@/services/teamService";
-
-const team = (id: string, name: string): Team =>
-  ({ id, name, owner_id: "", owner_tier: "teams", created_at: "", role_ids: [] });
 
 const openSettings = vi.fn();
 const openCloudAuth = vi.fn();
@@ -114,24 +110,9 @@ test("free tier with zero vaults: create form reachable and submit adds vault (l
   expect(openSettings).not.toHaveBeenCalled();
 });
 
-test("standalone team item opens detail with a Roles tab; local vault detail has no Roles tab", async () => {
-  useSubscriptionStore.setState({ isPro: true, accountMode: "server" });
-  useTeamStore.setState({
-    teams: [team("t1", "Team Alpha")],
-    membersByTeam: { t1: [] }, rolesByTeam: { t1: [] },
-    loadTeams: vi.fn(async () => {}),
-    loadMembers: vi.fn(async () => {}),
-    loadRoles: vi.fn(async () => {}),
-  });
+test("opening a vault shows its settings body, with no tab strip", () => {
   render(<VaultsSection />);
-
-  // Local (personal) vault → 2 tabs, no Roles
   fireEvent.click(screen.getByText("Personal"));
-  expect(screen.getByText("settings.vaults.tabs.general")).toBeTruthy();
-  expect(screen.queryByText("settings.vaults.tabs.roles")).toBeNull();
-
-  // Back, then open the standalone team → 3 tabs incl Roles
-  fireEvent.click(screen.getByText("settings.vaults.back"));
-  fireEvent.click(screen.getByText("Team Alpha"));
-  await waitFor(() => expect(screen.getByText("settings.vaults.tabs.roles")).toBeTruthy());
+  expect(screen.getByText("settings.vaults.general.vaultNameLabel")).toBeTruthy();
+  expect(screen.queryByText("settings.vaults.tabs.members")).toBeNull();
 });
