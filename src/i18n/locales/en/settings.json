@@ -660,7 +660,10 @@
           "confirm_other": "Remove {{count}} members and make private?",
           "converting": "Converting…",
           "confirmBtn": "Confirm",
-          "btn": "Make private"
+          "btn": "Make private",
+          "copyFailedToast": "Couldn't copy everything out of the team — nothing was deleted, and this is still a team vault.",
+          "removeMembersFailedToast": "Couldn't remove the members — this is still a team vault. {{reason}}",
+          "failedToast": "Couldn't make this vault private — {{reason}}"
         },
         "deleteVault": {
           "title": "Delete vault",

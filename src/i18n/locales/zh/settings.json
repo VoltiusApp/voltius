@@ -528,7 +528,10 @@
           "confirm_other": "移除 {{count}} 名成员并设为私有？",
           "converting": "正在转换…",
           "confirmBtn": "确认",
-          "btn": "设为私有"
+          "btn": "设为私有",
+          "copyFailedToast": "无法从团队中复制全部内容——未删除任何内容，此保险库仍是团队保险库。",
+          "removeMembersFailedToast": "无法移除成员——此保险库仍是团队保险库。{{reason}}",
+          "failedToast": "无法将此保险库设为私有——{{reason}}"
         },
         "deleteVault": {
           "title": "删除保险库",

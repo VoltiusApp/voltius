@@ -57,7 +57,7 @@
       "body": "Ceci transforme votre coffre-fort privé en coffre-fort d'équipe. Tout ce qu'il contient déjà y est transféré, et devient donc visible par les personnes que vous ajoutez.",
       "offlineWarning": "Ne s'ouvre que si Voltius joint le serveur de synchronisation — pas d'accès hors ligne.",
       "keyCustody": "Chaque personne ajoutée reçoit une copie de la clé. La retirer plus tard ne la reprend pas.",
-      "change": "Il n'y a pas de retour possible au statut privé.",
+      "change": "Vous pourrez le rendre privé à nouveau plus tard — cela retire l'accès à tout le monde, mais pas les copies qu'ils détiennent déjà.",
       "cancel": "Annuler",
       "confirm": "Transformer en coffre-fort d'équipe"
     },
