@@ -108,6 +108,28 @@ export async function deleteTeamObject(teamId: string, objectId: string): Promis
   if (!res.ok) throw new Error(i18n.t("common.error.failedToDeleteTeamObject", { status: res.status }));
 }
 
+/**
+ * One-time migration write for rows predating #229: updates `metadata` only,
+ * leaving `updated_at`/`updated_by` untouched server-side and broadcasting
+ * once per batch. `metadata` is always an `EncryptedEnvelope` in practice, but
+ * this module has no dependency on the envelope shape, so it stays `unknown`
+ * at this layer. Uses `apiError` (not a plain `Error`) so `runReencryptionPass`
+ * can classify failures by `status` rather than translated message text.
+ */
+export async function reencryptTeamObjects(
+  teamId: string,
+  items: { object_id: string; metadata: unknown }[],
+): Promise<void> {
+  const res = await fetchTeamApi(`/v1/teams/${teamId}/objects/reencrypt`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(items),
+  });
+  if (!res.ok) {
+    throw apiError(i18n.t("common.error.failedToSaveTeamObject", { status: res.status }), { status: res.status });
+  }
+}
+
 export interface TeamObjectPrefRecord {
   object_id: string;
   pinned: boolean | null;

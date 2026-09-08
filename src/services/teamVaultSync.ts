@@ -341,6 +341,11 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     const objects = await listTeamObjects(teamId);
     if (objects.length > 0) {
       await _hydrateTeamObjectStores(teamId, objects);
+      // Background migration of rows predating #229. Never blocks the load, and
+      // a failure leaves the remaining rows for the next connect.
+      void import("@/services/teamObjectReencrypt")
+        .then(({ runReencryptionPass }) => runReencryptionPass(teamId, objects))
+        .catch(() => {});
       const { backfillExistingTeamVaultSecrets, hydrateTeamVaultSecrets } = await import("@/services/teamVaultSecrets");
       // Credentials are what makes a host connectable, so a failure here is not
       // cosmetic: the vault renders fully populated and every host needing a
