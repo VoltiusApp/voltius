@@ -26,7 +26,7 @@ beforeEach(() => {
   h.appFetch.mockReset();
   useSubscriptionStore.setState({
     tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false,
-    isPro: false, isTeams: false, isBusiness: false, accountMode: null, usedSeats: null, totalSeats: null,
+    isPro: false, isTeams: false, isBusiness: false, accountMode: null, usedSeats: null, totalSeats: null, effectiveSeats: null,
     subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true,
     billingLoadFailed: false,
   });
@@ -57,10 +57,10 @@ test("pro jwt derives flags and enriches seats from billing endpoint", async () 
   keychain({ mode: "server", jwt, server_url: "https://api.example" });
   h.appFetch.mockResolvedValue({
     ok: true,
-    json: async () => ({ used_seats: 2, seats: 5, status: "active", cancelled: false }),
+    json: async () => ({ used_seats: 2, seats: 5, effective_seats: 5, status: "active", cancelled: false }),
   });
   await get().load();
-  expect(get()).toMatchObject({ tier: "teams", isPro: true, isTeams: true, accountMode: "server", usedSeats: 2, totalSeats: 5, subscriptionStatus: "active", billingLoadFailed: false });
+  expect(get()).toMatchObject({ tier: "teams", isPro: true, isTeams: true, accountMode: "server", usedSeats: 2, totalSeats: 5, effectiveSeats: 5, subscriptionStatus: "active", billingLoadFailed: false });
   expect(h.appFetch).toHaveBeenCalledWith(
     "https://api.example/v1/billing/subscription",
     expect.objectContaining({ headers: { Authorization: `Bearer ${jwt}` } }),
@@ -86,4 +86,27 @@ test("free-tier jwt does not call the billing endpoint", async () => {
   await get().load();
   expect(get()).toMatchObject({ isPro: false, billingLoadFailed: false });
   expect(h.appFetch).not.toHaveBeenCalled();
+});
+
+test("a trial keeps the purchased seats but stores the clamped cap invites are checked against", async () => {
+  // #219: pre-checking the purchased 25 sent invites the server rejected at 10.
+  keychain({ mode: "server", jwt: makeJwt({ tier: "teams" }), server_url: "https://api.example" });
+  h.appFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({ used_seats: 4, seats: 25, effective_seats: 10, status: "on_trial", cancelled: false }),
+  });
+  await get().load();
+  expect(get()).toMatchObject({ totalSeats: 25, effectiveSeats: 10 });
+});
+
+test("a server that omits effective_seats leaves the cap unknown rather than falling back to purchased", async () => {
+  // An older server sends no effective_seats; blocking on `seats` would be the
+  // very mismatch this field exists to remove, so the pre-check must stay open.
+  keychain({ mode: "server", jwt: makeJwt({ tier: "teams" }), server_url: "https://api.example" });
+  h.appFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({ used_seats: 4, seats: 25, status: "active", cancelled: false }),
+  });
+  await get().load();
+  expect(get()).toMatchObject({ totalSeats: 25, effectiveSeats: null });
 });

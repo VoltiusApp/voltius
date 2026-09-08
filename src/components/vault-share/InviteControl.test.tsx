@@ -34,18 +34,18 @@ beforeEach(() => { h.inviteUserById.mockReset(); h.results = []; });
 afterEach(cleanup);
 
 test("owner is never offered as an assignable role", () => {
-  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} usedSeats={1} totalSeats={10} onInvited={vi.fn()} />);
+  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} usedSeats={1} seatCap={10} onInvited={vi.fn()} />);
   expect(screen.queryByText("owner")).toBeNull();
   expect(screen.getByText("manager")).toBeTruthy();
 });
 
 test("the custom-handle search rule is stated", () => {
-  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} usedSeats={1} totalSeats={10} onInvited={vi.fn()} />);
+  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} usedSeats={1} seatCap={10} onInvited={vi.fn()} />);
   expect(screen.getByText("members.invite.handleRule")).toBeTruthy();
 });
 
 test("seats render an explicit unknown state, never a question mark", () => {
-  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} usedSeats={null} totalSeats={null} onInvited={vi.fn()} />);
+  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} usedSeats={null} seatCap={null} onInvited={vi.fn()} />);
   expect(screen.getByText("members.invite.seatsUnknown")).toBeTruthy();
 });
 
@@ -56,14 +56,14 @@ test("with no role named member, the least privileged role is the default", () =
     { id: "r-editor", name: "editor", position: 2, is_builtin: true },
     { id: "r-connect", name: "connect-only", position: 3, is_builtin: true },
   ] as unknown as TeamRole[];
-  render(<InviteControl teamId="t1" roles={noMemberRoles} existingIds={new Set()} usedSeats={1} totalSeats={10} onInvited={vi.fn()} />);
+  render(<InviteControl teamId="t1" roles={noMemberRoles} existingIds={new Set()} usedSeats={1} seatCap={10} onInvited={vi.fn()} />);
   expect(screen.getByText("connect-only").getAttribute("aria-pressed")).toBe("true");
 });
 
 test("choosing a role and a person invites with that role", async () => {
   h.results = [{ user_id: "u1", handle: "bob-builder", display_name: "bob-builder", is_teammate: false }];
   h.inviteUserById.mockResolvedValue({ status: "pending" });
-  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} usedSeats={1} totalSeats={10} onInvited={vi.fn()} />);
+  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} usedSeats={1} seatCap={10} onInvited={vi.fn()} />);
   fireEvent.click(screen.getByText("editor"));
   fireEvent.click(screen.getByText("members.invite.inviteAction"));
   await waitFor(() => expect(h.inviteUserById).toHaveBeenCalledWith(

@@ -75,6 +75,8 @@
       "title": "Invite member",
       "seatsLabel": "Seats",
       "seatsSummary": "{{used}} used · {{available}} available · {{total}} total",
+      "seatsScope": "Counted across every team you own, not just this one.",
+      "seatsTrialClamp": "Your trial caps you at {{cap}} seats until it ends, of the {{purchased}} you bought.",
       "buySeats": "Buy seats",
       "initialRoles": "Initial Roles",
       "initialRole": "Initial Role",

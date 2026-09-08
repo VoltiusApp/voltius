@@ -14,14 +14,15 @@ interface Props {
   roles: TeamRole[];
   existingIds: Set<string>;
   usedSeats: number | null;
-  totalSeats: number | null;
+  /** The cap to show, from `displaySeatCap` — the enforced one when the server reports it. */
+  seatCap: number | null;
   onInvited: () => void;
 }
 
-export function InviteControl({ teamId, roles, existingIds, usedSeats, totalSeats, onInvited }: Props) {
+export function InviteControl({ teamId, roles, existingIds, usedSeats, seatCap, onInvited }: Props) {
   const { t } = useTranslation();
   const options = assignableRoles(roles);
-  const seats = seatState(usedSeats, totalSeats);
+  const seats = seatState(usedSeats, seatCap);
   const [roleId, setRoleId] = useState<string | null>(null);
   const search = useUserSearch(existingIds);
 

@@ -72,7 +72,7 @@ vi.mock("@/stores/teamStore", () => ({
   ),
 }));
 vi.mock("@/stores/subscriptionStore", () => ({
-  useSubscriptionStore: Object.assign((sel: (s: unknown) => unknown) => sel({ usedSeats: 1, totalSeats: 10, load: vi.fn() }), {
+  useSubscriptionStore: Object.assign((sel: (s: unknown) => unknown) => sel({ usedSeats: 1, effectiveSeats: 10, load: vi.fn() }), {
     getState: () => ({ load: vi.fn() }),
   }),
 }));
