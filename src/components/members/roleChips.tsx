@@ -1,8 +1,10 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TeamRole } from "@/services/teamService";
-import { PERM_BITS } from "@/hooks/usePermission";
-import { PERM_META } from "@/components/settings/sections/RolesSection";
+// Both from the service, not the hook: @/hooks/usePermission pulls teamService
+// and i18n in at runtime, which every consumer of this leaf module would then
+// have to mock.
+import { PERM_BITS, PERM_META } from "@/services/permissions";
 
 export const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
   owner:          { label: "Owner",        color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
