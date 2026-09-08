@@ -7,7 +7,7 @@ vi.mock("@/services/teamService", () => ({ listMembers: h.listMembers }));
 vi.mock("@/services/multiplayerService", () => ({
   unwrapSessionKey: h.unwrap,
   wrapSessionKeyForUser: vi.fn(),
-  getMyX25519Keypair: vi.fn(),
+  publishMyPublicKey: vi.fn(),
 }));
 
 import { getTeamVaultKey, clearTeamKeyCache } from "./teamVaultSync.ts";
@@ -59,6 +59,14 @@ test("success unwraps the wrapped key, returns bytes, and caches (no 2nd fetch)"
   const again = await getTeamVaultKey("t1"); // cache hit
   expect(again).toEqual([1, 2, 3]);
   expect(h.appFetch).toHaveBeenCalledTimes(1);
+});
+
+test("a local unwrap failure → 'key_mismatch', not 'error'", async () => {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" }));
+  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.unwrap.mockRejectedValue(new Error("aead::Error"));
+  await expect(getTeamVaultKey("t1")).rejects.toBe("key_mismatch");
 });
 
 test("wrapping member missing → 'error'", async () => {

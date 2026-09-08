@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { getVaultKey } from "@/services/vault";
+import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import * as teamService from "@/services/teamService";
 import { freshPublicKeys, type InviteTarget } from "@/services/teamSharing";
 import { appFetch } from "@/services/http";
@@ -75,6 +76,10 @@ export function clearKeypairCache(): void {
   _cachedPublicKey = null;
 }
 
+/**
+ * Deliberately not `useVaultKeysStore.x25519Private`: that stored key opens
+ * nothing, and every published roster key is this derived one.
+ */
 export async function getMyX25519Keypair(): Promise<{ privateKey: string; publicKey: string }> {
   if (_cachedPrivateKey && _cachedPublicKey) {
     return { privateKey: _cachedPrivateKey, publicKey: _cachedPublicKey };
@@ -88,6 +93,19 @@ export async function getMyX25519Keypair(): Promise<{ privateKey: string; public
   _cachedPrivateKey = result.private_key;
   _cachedPublicKey = result.public_key;
   return { privateKey: result.private_key, publicKey: result.public_key };
+}
+
+/**
+ * Publish this device's x25519 public key and return it. Refuses on an unproven
+ * vault key: that would overwrite a good roster key with one nobody holds (#228).
+ */
+export async function publishMyPublicKey(): Promise<string> {
+  if (useVaultKeysStore.getState().identityUnproven) {
+    throw new Error(i18n.t("common.error.identityUnproven"));
+  }
+  const { publicKey } = await getMyX25519Keypair();
+  await teamService.updatePublicKey(publicKey);
+  return publicKey;
 }
 
 // ─── Session key operations ───────────────────────────────────────────────────
@@ -162,8 +180,7 @@ async function resolveStrangerPublicKey(userId: string): Promise<string> {
 async function prepareWrappedSessionKey(
   members: { user_id: string; team_id?: string }[],
 ): Promise<{ sessionKey: SessionKey; sessionKeyBytes: Uint8Array; wrappedKeys: { user_id: string; wrapped_key: string }[] }> {
-  const { publicKey } = await getMyX25519Keypair();
-  await teamService.updatePublicKey(publicKey);
+  await publishMyPublicKey();
 
   const sessionKeyBytes = crypto.getRandomValues(new Uint8Array(32));
   const sessionKey = await importSessionKey(sessionKeyBytes);
@@ -391,8 +408,7 @@ export async function getMySessionKey(
     return { sessionKey, hostPublicKey: host_public_key as string };
   }
 
-  const { publicKey } = await getMyX25519Keypair();
-  await teamService.updatePublicKey(publicKey);
+  await publishMyPublicKey();
 
   const sessionKeyBytes = await unwrapSessionKey(wrapped_key as string, host_public_key as string);
   const sessionKey = await importSessionKey(sessionKeyBytes);

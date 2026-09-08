@@ -77,6 +77,8 @@
         "paymentRequiredTitle": "Team vault unavailable",
         "paymentRequiredBodyOwner": "Your subscription has ended. Team vaults require an active plan.",
         "paymentRequiredBodyMember": "The owner's subscription has ended. Team vaults require an active plan.",
+        "keyMismatchTitle": "This device can't open the vault key",
+        "keyMismatchBody": "Your key is on the server, but this device's account keys don't match it. Sign out of this account and sign back in with your master password.",
         "errorTitle": "Couldn't load team vault",
         "errorBody": "Something went wrong. Try again."
       },

@@ -23,6 +23,9 @@ export const SESSION_KEYS = [
   "server_url",
   "jwt",
   "refresh_token",
+  // Per-account like the rest: without it a switch restored everything except
+  // the value that recovers the dek, and team vault keys stopped unwrapping (#228).
+  "wrapped_user_secrets",
 ] as const;
 type SessionKey = (typeof SESSION_KEYS)[number];
 
@@ -171,13 +174,20 @@ export async function saveCurrentAccount(): Promise<void> {
   await upsertSavedAccount(entry);
 }
 
-/** Merge an entry into the switcher, keeping fields the caller did not supply. */
+/**
+ * Merge an entry into the switcher, keeping fields the caller did not supply.
+ * Null counts as not supplied: blanking `wrapped_user_secrets` from a snapshot
+ * of a half-torn-down session costs the account its dek on the next switch.
+ */
 async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
   const { ok, accounts } = await loadSavedAccounts();
   if (!ok) throw new Error("Saved accounts could not be read");
 
+  const supplied = Object.fromEntries(
+    Object.entries(entry).filter(([, value]) => value !== null && value !== undefined),
+  );
   const existing = accounts.find((a) => a.account_id === entry.account_id);
-  await keychainSet(entryKey(entry.account_id), JSON.stringify({ ...existing, ...entry }));
+  await keychainSet(entryKey(entry.account_id), JSON.stringify({ ...existing, ...supplied }));
   if (existing) return;
   await keychainSet(
     INDEX_KEY,

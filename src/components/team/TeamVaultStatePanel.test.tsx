@@ -45,6 +45,13 @@ test("the waiting copy stays generic while the owner's handle is unknown", () =>
   expect(screen.getByText("layout.mainPanel.teamVault.waitingForAccessBody")).toBeTruthy();
 });
 
+test("a key mismatch names the sign-in that heals it instead of offering a retry", () => {
+  render(<TeamVaultStatePanel status="key_mismatch" teamId="t1" />);
+
+  expect(screen.getByText("layout.mainPanel.teamVault.keyMismatchBody")).toBeTruthy();
+  expect(screen.queryByText("layout.mainPanel.tryAgain")).toBeNull();
+});
+
 test("an unrecognised status falls back to the generic error", () => {
   render(<TeamVaultStatePanel status="banana" teamId="t1" />);
 

@@ -70,6 +70,7 @@
       "sessionExpired": "Session expirée — veuillez vous reconnecter",
       "vaultLocked": "Le coffre est verrouillé",
       "vaultUnreadable": "Le coffre de cet appareil ne peut pas être ouvert avec votre clé",
+      "identityUnproven": "Cet appareil n'a pas pu vérifier les clés de votre compte. Déconnectez-vous puis reconnectez-vous avec votre mot de passe principal.",
       "rateLimited": "Trop de requêtes — réessayez dans {{seconds}}s",
       "serverError": "Erreur serveur : {{status}}",
       "connectionNotFound": "Connexion introuvable",

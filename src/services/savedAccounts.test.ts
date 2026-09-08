@@ -54,6 +54,7 @@ function cloudAccount(id: string): SavedAccount {
     server_url: "https://srv",
     jwt: fake("jwt", id),
     refresh_token: fake("refresh", id),
+    wrapped_user_secrets: fake("wrapped", id),
   };
 }
 
@@ -156,6 +157,27 @@ test("switchToAccount clears every account-scoped key before writing the target'
   expect(h.store).toMatchObject(CLOUD_B);
   // The saved list itself must survive — it is what makes the switch reversible.
   expect((await getSavedAccounts()).map((a) => a.account_id)).toEqual(["a", "b"]);
+});
+
+// #228: the one value the switch did not restore, so the target came back on
+// its kek and its team vault keys stopped unwrapping.
+test("switchToAccount restores the target's own wrapped secrets", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+
+  await switchToAccount(CLOUD_B);
+
+  expect(h.store.wrapped_user_secrets).toBe(fake("wrapped", "b"));
+});
+
+test("saveCurrentAccount keeps stored values the live session no longer has", async () => {
+  activate(CLOUD_A);
+  await saveCurrentAccount();
+
+  delete h.store.wrapped_user_secrets;
+  await saveCurrentAccount();
+
+  expect((await getSavedAccounts())[0].wrapped_user_secrets).toBe(fake("wrapped", "a"));
 });
 
 test("switchToAccount deletes session keys the target leaves empty", async () => {

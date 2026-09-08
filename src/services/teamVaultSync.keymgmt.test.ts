@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({
   updatePublicKey: vi.fn(),
   wrap: vi.fn(),
   unwrap: vi.fn(),
-  keypair: vi.fn(),
+  publishPublicKey: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
@@ -21,7 +21,7 @@ vi.mock("@/services/teamService", () => ({
 vi.mock("@/services/multiplayerService", () => ({
   wrapSessionKeyForUser: h.wrap,
   unwrapSessionKey: h.unwrap,
-  getMyX25519Keypair: h.keypair,
+  publishMyPublicKey: h.publishPublicKey,
 }));
 
 import { initTeamVaultKey, distributeKeyToNewMember, clearTeamKeyCache } from "./teamVaultSync";
@@ -42,7 +42,7 @@ beforeEach(() => {
   Object.values(h).forEach((m) => m.mockReset());
   clearTeamKeyCache();
   keychain();
-  h.keypair.mockResolvedValue({ privateKey: "PRIV", publicKey: "MYPUB" });
+  h.publishPublicKey.mockResolvedValue("MYPUB");
   h.getMyUserId.mockResolvedValue("me");
   h.updatePublicKey.mockResolvedValue(undefined);
   h.wrap.mockImplementation(async (_key: Uint8Array, pub: string) => `wrapped-for-${pub}`);

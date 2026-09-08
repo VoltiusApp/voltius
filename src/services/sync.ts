@@ -21,7 +21,7 @@ import { filterIncoming, filterOutgoing, restoreLocal } from "@/services/user-da
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { buildDecryptKeyCandidates } from "@/services/vaultKeyCandidates";
-import { getMyX25519Keypair } from "@/services/multiplayerService";
+import { publishMyPublicKey } from "@/services/multiplayerService";
 import { initTeamVaultKey } from "@/services/teamVaultSync";
 import { onTeamLogin } from "@/services/teamDataManager";
 import { handleMembershipChangedEvent } from "@/services/teamMembershipEvents";
@@ -426,11 +426,11 @@ async function reloadAllStores(): Promise<void> {
 }
 
 async function completeTeamLoginSetup(): Promise<void> {
-  // Register public key unconditionally — needed even for users with no linked vaults
-  // so that when they're added to a team their key is already on the server.
+  // Register the public key even for users with no linked vaults, so it is
+  // already there when they're added to a team. publishMyPublicKey still
+  // refuses on an unproven vault key (#228).
   try {
-    const { publicKey } = await getMyX25519Keypair();
-    await teamService.updatePublicKey(publicKey);
+    await publishMyPublicKey();
   } catch { /* best-effort */ }
 
   // Owners/managers: re-distribute key to ALL current members (idempotent).

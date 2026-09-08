@@ -70,6 +70,7 @@
       "sessionExpired": "会话已过期——请重新登录",
       "vaultLocked": "保险库已锁定",
       "vaultUnreadable": "无法用您的密钥打开本设备的保险库",
+      "identityUnproven": "本设备无法验证您的账户密钥。请退出登录后使用主密码重新登录。",
       "rateLimited": "请求过于频繁——请在 {{seconds}}s 后重试",
       "serverError": "服务器错误：{{status}}",
       "connectionNotFound": "未找到连接",
