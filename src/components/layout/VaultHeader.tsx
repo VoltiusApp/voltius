@@ -223,6 +223,9 @@ export default function VaultHeader() {
       admin.setShareOpen(true);
       clearVaultSharePending();
     }
+    // `!!target`, not `target`: target is a fresh object literal every render, so
+    // depending on it directly would re-run this effect on every render instead
+    // of only when the vault menu's Share… action actually just fired.
   }, [vaultSharePending, !!target, admin.setShareOpen, clearVaultSharePending]);
 
   if (!vault && !standaloneTeam) return null;
