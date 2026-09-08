@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useContextMenu } from "@/components/shared/ContextMenu";
 import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
-import { getAccountMode } from "@/services/account";
+import { useAccountMode } from "@/hooks/useAccountMode";
 import { vaultAdminCapabilities, type VaultAdminTarget } from "./vaultAdminTarget";
 import { vaultMenuItems } from "./vaultMenuItems";
 import type { VaultDialog } from "./VaultAdminDialogs";
@@ -16,8 +16,7 @@ export function useVaultAdmin(target: VaultAdminTarget | null) {
   const { pos, open: openAtPointer, openAt, close: closeMenu } = useContextMenu();
   const [dialog, setDialog] = useState<VaultDialog>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [accountMode, setAccountMode] = useState<string | null>(null);
-  useEffect(() => { getAccountMode().then(setAccountMode).catch(() => {}); }, []);
+  const accountMode = useAccountMode();
 
   const caps = target
     ? vaultAdminCapabilities(target, teams, rolesByTeam)

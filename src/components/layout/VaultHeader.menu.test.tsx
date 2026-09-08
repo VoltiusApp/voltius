@@ -24,6 +24,10 @@ import VaultHeader from "./VaultHeader";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
+import type { Team } from "@/services/teamService";
+
+const team = (id: string, name: string): Team =>
+  ({ id, name, owner_id: "", owner_tier: "teams", created_at: "", role_ids: [] });
 
 beforeEach(() => {
   useVaultStore.setState({
@@ -34,7 +38,7 @@ beforeEach(() => {
     teams: [], membersByTeam: {}, rolesByTeam: {},
     loadMembers: vi.fn(async () => {}),
   });
-  useUIStore.setState({ activeNav: "hosts", homeView: true });
+  useUIStore.setState({ activeNav: "hosts", homeView: true, membersRolesPending: false });
 });
 afterEach(cleanup);
 
@@ -58,4 +62,38 @@ test("choosing Rename opens the rename dialog", () => {
   fireEvent.click(screen.getByRole("button", { name: "layout.vaultMenu.openMenu" }));
   fireEvent.click(screen.getByText("layout.vaultMenu.rename"));
   expect(screen.getByTestId("dialog").textContent).toBe("rename");
+});
+
+test("choosing Members navigates to the Members page without marking roles pending", () => {
+  useVaultStore.setState({ vaults: [{ id: "v1", name: "Ops Vault", teamId: "team1" }] });
+  useTeamStore.setState({
+    teams: [team("team1", "Team One")],
+    membersByTeam: { team1: [] },
+    rolesByTeam: { team1: [] },
+  });
+  render(<VaultHeader />);
+  fireEvent.click(screen.getByRole("button", { name: "layout.vaultMenu.openMenu" }));
+  fireEvent.click(screen.getByText("layout.vaultMenu.members"));
+
+  const state = useUIStore.getState();
+  expect(state.activeNav).toBe("members");
+  expect(state.homeView).toBe(false);
+  expect(state.membersRolesPending).toBe(false);
+});
+
+test("choosing Roles navigates to the Members page and marks the roles panel pending", () => {
+  useVaultStore.setState({ vaults: [{ id: "v1", name: "Ops Vault", teamId: "team1" }] });
+  useTeamStore.setState({
+    teams: [team("team1", "Team One")],
+    membersByTeam: { team1: [] },
+    rolesByTeam: { team1: [] },
+  });
+  render(<VaultHeader />);
+  fireEvent.click(screen.getByRole("button", { name: "layout.vaultMenu.openMenu" }));
+  fireEvent.click(screen.getByText("layout.vaultMenu.roles"));
+
+  const state = useUIStore.getState();
+  expect(state.activeNav).toBe("members");
+  expect(state.homeView).toBe(false);
+  expect(state.membersRolesPending).toBe(true);
 });
