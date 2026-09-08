@@ -57,6 +57,39 @@ async function unwrapUserSecrets(kek: number[], wrappedB64: string): Promise<Unw
   return invoke<UnwrappedUserSecrets>("unwrap_user_secrets_cmd", { kek, wrappedB64 });
 }
 
+/** The identity every wrap and unwrap uses; `getMyX25519Keypair` derives the same. */
+async function deriveX25519Keypair(encKey: number[]): Promise<{ public_key: string; private_key: string }> {
+  return invoke<{ public_key: string; private_key: string }>("derive_x25519_keypair", { encKey });
+}
+
+async function registerOnServer(args: {
+  serverUrl: string;
+  email: string;
+  accountId: string;
+  authKey: string;
+  publicKey: string;
+  wrappedUserSecrets: string;
+}): Promise<{ jwt_token: string; refresh_token: string }> {
+  const machine_fingerprint = await invoke<string | null>("get_machine_fingerprint").catch(() => null);
+
+  const res = await fetchWithTimeout(`${args.serverUrl}/v1/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: args.email,
+      account_id: args.accountId,
+      auth_key: args.authKey,
+      public_key: args.publicKey,
+      wrapped_user_secrets: args.wrappedUserSecrets,
+      machine_fingerprint,
+    }),
+  });
+
+  if (res.status === 409) throw new Error(i18n.t("common.error.emailAlreadyRegistered"));
+  if (!res.ok) throw new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
+  return res.json();
+}
+
 function normalizeServerUrl(url: string): string {
   return url.replace(/\/+$/, "");
 }
@@ -95,9 +128,37 @@ async function keyThatOpensVault(...candidates: number[][]): Promise<number[] | 
   return null;
 }
 
-/** A cloud vault is dek-encrypted, a local or pre-split one kek-encrypted. */
-async function passwordVaultKey(kek: number[]): Promise<number[] | null> {
-  const dek = await adoptUserSecrets(kek, await keychainGet("wrapped_user_secrets"));
+/**
+ * Re-fetch and cache this account's wrapped secrets. The dek on success,
+ * "legacy" when the server confirms the account predates the dek/kek split,
+ * null when the question could not be answered.
+ */
+async function recoverUserSecrets(kek: number[]): Promise<number[] | "legacy" | null> {
+  // Short timeout: this runs on the splash screen, which is otherwise local-only.
+  if (navigator.onLine === false) return null;
+  const me = await getMe(5_000);
+  if (!me) return null;
+  if (!me.wrapped_user_secrets) return "legacy";
+  const dek = await adoptUserSecrets(kek, me.wrapped_user_secrets);
+  if (!dek) return null;
+  await keychainSet("wrapped_user_secrets", me.wrapped_user_secrets);
+  return dek;
+}
+
+/**
+ * A cloud vault is dek-encrypted, a local or pre-split one kek-encrypted.
+ *
+ * `recoverFromServer` because the kek opens a freshly wiped vault happily while
+ * deriving an identity that is not this account's, so team vault keys stop
+ * unwrapping (#228). `login` passes false — its re-auth already re-fetches.
+ */
+async function passwordVaultKey(kek: number[], recoverFromServer: boolean): Promise<number[] | null> {
+  let dek = await adoptUserSecrets(kek, await keychainGet("wrapped_user_secrets"));
+  if (!dek && recoverFromServer) {
+    const recovered = await recoverUserSecrets(kek);
+    if (recovered === null) useVaultKeysStore.getState().markIdentityUnproven();
+    else if (recovered !== "legacy") dek = recovered;
+  }
   return keyThatOpensVault(...(dek ? [dek, kek] : [kek]));
 }
 
@@ -226,25 +287,14 @@ export async function createServerAccount(
   const { auth_key, enc_key } = await deriveKeys(password, accountId);
   const secrets = await generateUserSecrets();
   const wrapped_user_secrets = await wrapUserSecrets(enc_key, secrets.dek, secrets.x25519_private);
-  const machine_fingerprint = await invoke<string | null>("get_machine_fingerprint").catch(() => null);
+  // Not secrets.x25519_public: the session lands on the dek, and that random
+  // keypair is stored but never used to open anything.
+  const { public_key } = await deriveX25519Keypair(secrets.dek);
 
-  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email,
-      account_id: accountId,
-      auth_key,
-      public_key: secrets.x25519_public,
-      wrapped_user_secrets,
-      machine_fingerprint,
-    }),
+  const data = await registerOnServer({
+    serverUrl, email, accountId, authKey: auth_key,
+    publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets,
   });
-
-  if (res.status === 409) throw new Error(i18n.t("common.error.emailAlreadyRegistered"));
-  if (!res.ok) throw new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
-
-  const data = await res.json();
 
   useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek: enc_key });
   setVaultKey(secrets.dek);
@@ -287,7 +337,7 @@ export async function login(password: string, email?: string, serverUrl?: string
     if (!(await keyThatOpensVault(encKey))) throw new Error(i18n.t("common.error.incorrectPassword"));
   } else {
     const { enc_key: kek } = await deriveKeys(password, accountId);
-    const opened = await passwordVaultKey(kek);
+    const opened = await passwordVaultKey(kek, false);
     // Without a cached dek only the server can supply a cloud vault's key.
     if (!opened && !reauth) throw new Error(i18n.t("common.error.incorrectPassword"));
     encKey = opened ?? kek;
@@ -383,8 +433,9 @@ export async function autoLogin(): Promise<AutoLoginOutcome> {
       if (!accountId) return "declined";
       const { enc_key: kek } = await deriveKeys(password, accountId);
 
-      // Local Tauri calls only — autoLogin stays instant offline.
-      const opened = await passwordVaultKey(kek);
+      // Local Tauri calls only, except a cloud account missing its wrapped
+      // secrets, which cannot derive its own identity without asking (#228).
+      const opened = await passwordVaultKey(kek, mode === "server");
       // Decline rather than install a key already proven not to open the file.
       // A password account keeps the unlock prompt: another password may open it.
       if (!opened) return "declined";
@@ -433,6 +484,7 @@ export async function getCurrentUserEmail(): Promise<string | null> {
 
 export interface MeResponse {
   handle?: string;
+  wrapped_user_secrets?: string;
   handle_is_custom?: boolean;
   allow_stranger_invites?: boolean;
   tier?: string;
@@ -442,13 +494,13 @@ export interface MeResponse {
 /** Fetches /v1/auth/me and caches the handle for offline use. Returns the
  *  full payload so callers that need the live tier/preference fields — the
  *  settings identity UI — don't need a second round trip. */
-export async function getMe(): Promise<MeResponse | null> {
+export async function getMe(timeoutMs?: number): Promise<MeResponse | null> {
   const [jwt, serverUrl] = await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
   if (!jwt || !serverUrl) return null;
   try {
     const res = await fetchWithTimeout(`${serverUrl}/v1/auth/me`, {
       headers: { Authorization: `Bearer ${jwt}` },
-    });
+    }, timeoutMs);
     if (!res.ok) return null;
     const me: MeResponse = await res.json();
     if (me.handle) await keychainSet("handle", me.handle);
@@ -630,25 +682,14 @@ export async function linkToCloud(
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
   const secrets = await generateUserSecrets();
   const wrapped_user_secrets = await wrapUserSecrets(kek, secrets.dek, secrets.x25519_private);
-  const machine_fingerprint = await invoke<string | null>("get_machine_fingerprint").catch(() => null);
+  // The kek, not the fresh dek: linking does not rekey the vault this account
+  // already has, so the session stays on the kek.
+  const { public_key } = await deriveX25519Keypair(kek);
 
-  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email,
-      account_id: accountId,
-      auth_key,
-      public_key: secrets.x25519_public,
-      wrapped_user_secrets,
-      machine_fingerprint,
-    }),
+  const data = await registerOnServer({
+    serverUrl, email, accountId, authKey: auth_key,
+    publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets,
   });
-
-  if (res.status === 409) throw new Error(i18n.t("common.error.emailAlreadyRegistered"));
-  if (!res.ok) throw new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
-
-  const data = await res.json();
 
   useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek });
 
@@ -745,8 +786,7 @@ async function migrateToWrappedUserSecrets(
 ): Promise<void> {
   try {
     // Derive existing deterministic X25519 keypair from legacy enc_key (= kek)
-    const { private_key: legacyX25519PrivateB64 } =
-      await invoke<{ public_key: string; private_key: string }>("derive_x25519_keypair", { encKey: kek });
+    const { private_key: legacyX25519PrivateB64 } = await deriveX25519Keypair(kek);
 
     const legacyX25519Private = Array.from(
       Uint8Array.from(atob(legacyX25519PrivateB64), (c) => c.charCodeAt(0))

@@ -16,7 +16,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
-import { wrapSessionKeyForUser, unwrapSessionKey, getMyX25519Keypair } from "@/services/multiplayerService";
+import { wrapSessionKeyForUser, unwrapSessionKey, publishMyPublicKey } from "@/services/multiplayerService";
 import * as teamService from "@/services/teamService";
 import { getServerUrl } from "@/services/authTokens";
 import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
@@ -73,6 +73,8 @@ export function deleteTeamKey(teamId: string): void {
  *                        tell the two apart should; see fetchTeamData)
  *   "payment_required" — server returned 402 (subscription lapsed)
  *   "awaiting_key"     — server returned 404 (no wrapped key for this member yet)
+ *   "key_mismatch"     — the key arrived but this device's identity cannot open
+ *                        it; retrying cannot help, unlike "error" (#228)
  *   "error"            — anything else
  */
 export async function getTeamVaultKey(teamId: string): Promise<number[]> {
@@ -105,7 +107,12 @@ export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   const wrapper = members.find((m) => m.user_id === wrapped_by_user_id);
   if (!wrapper) throw "error";
 
-  const rawKey = await unwrapSessionKey(wrapped_key, wrapper.public_key);
+  let rawKey: Uint8Array;
+  try {
+    rawKey = await unwrapSessionKey(wrapped_key, wrapper.public_key);
+  } catch {
+    throw "key_mismatch";
+  }
   const keyBytes = Array.from(rawKey);
   _teamKeyCache.set(teamId, keyBytes);
   return keyBytes;
@@ -134,8 +141,7 @@ export async function initTeamVaultKey(
     rawKey = crypto.getRandomValues(new Uint8Array(32));
   }
 
-  const { publicKey: myPublicKey } = await getMyX25519Keypair();
-  await teamService.updatePublicKey(myPublicKey);
+  const myPublicKey = await publishMyPublicKey();
 
   const myUserId = await teamService.getMyUserId();
   if (!myUserId) throw new Error(i18n.t("common.error.notAuthenticated"));
@@ -299,7 +305,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     key = await getTeamVaultKey(teamId);
   } catch (err) {
     if (options.background) return;
-    const validStatuses = ["offline", "forbidden", "payment_required", "awaiting_key", "error"] as const;
+    const validStatuses = ["offline", "forbidden", "payment_required", "awaiting_key", "key_mismatch", "error"] as const;
     type Thrown = typeof validStatuses[number];
     let status: Thrown | "loaded" = validStatuses.includes(err as Thrown) ? (err as Thrown) : "error";
     // A 403 here means one of two very different things: the caller was removed

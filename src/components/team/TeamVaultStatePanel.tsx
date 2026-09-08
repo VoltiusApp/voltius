@@ -69,6 +69,13 @@ export default function TeamVaultStatePanel({
         ? t("layout.mainPanel.teamVault.paymentRequiredBodyOwner")
         : t("layout.mainPanel.teamVault.paymentRequiredBodyMember"),
     },
+    // No Try again: it repeats the same failing unwrap. Only a password sign-in
+    // recovers the secrets (#228).
+    key_mismatch: {
+      icon: "lucide:key-round",
+      title: t("layout.mainPanel.teamVault.keyMismatchTitle"),
+      body: t("layout.mainPanel.teamVault.keyMismatchBody"),
+    },
     error: {
       icon: "lucide:triangle-alert",
       title: t("layout.mainPanel.teamVault.errorTitle"),

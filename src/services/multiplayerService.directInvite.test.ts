@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   getVaultKey: vi.fn(),
   freshPublicKeys: vi.fn(),
   getUserPublicKey: vi.fn(),
+  getMyUserId: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
@@ -19,6 +20,7 @@ vi.mock("@/services/teamService", () => ({
   getJwtToken: h.getJwtToken,
   updatePublicKey: h.updatePublicKey,
   getUserPublicKey: h.getUserPublicKey,
+  getMyUserId: h.getMyUserId,
 }));
 vi.mock("@/services/teamSharing", () => ({ freshPublicKeys: h.freshPublicKeys }));
 
@@ -47,10 +49,12 @@ beforeEach(() => {
   h.freshPublicKeys.mockImplementation(async (members: { user_id: string; public_key: string }[]) =>
     new Map(members.map((m) => [m.user_id, m.public_key])),
   );
+  h.getMyUserId.mockResolvedValue("me");
   h.getUserPublicKey.mockImplementation(async (userId: string) => ({
     user_id: userId,
     handle: userId,
-    public_key: `pk-${userId}`,
+    // The roster's copy of our own key agrees with what we derive.
+    public_key: userId === "me" ? "PUB" : `pk-${userId}`,
   }));
 });
 
@@ -107,7 +111,11 @@ test("invite to a user with no public account (404) throws instead of wrapping t
 
 test("a stranger with no team_id resolves by id rather than through freshPublicKeys", async () => {
   const fetchMock = mockAppFetch({ session_id: "sess-1" });
-  h.getUserPublicKey.mockResolvedValue({ user_id: "stranger", handle: "stray-owl-7781", public_key: "stranger-key" });
+  h.getUserPublicKey.mockImplementation(async (userId: string) =>
+    userId === "me"
+      ? { user_id: "me", handle: "me", public_key: "PUB" }
+      : { user_id: "stranger", handle: "stray-owl-7781", public_key: "stranger-key" },
+  );
   await createDirectSession("web-prod", [{ user_id: "stranger", handle: "stray-owl-7781" } as any]);
   // No team_id on the invitee, so the batched roster lookup has nothing to fetch.
   expect(h.freshPublicKeys).toHaveBeenCalledWith([]);

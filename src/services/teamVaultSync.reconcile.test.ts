@@ -12,7 +12,7 @@ const h = vi.hoisted(() => ({
   getVaultKeyHolders: vi.fn(),
   wrap: vi.fn(),
   unwrap: vi.fn(),
-  keypair: vi.fn(),
+  publishPublicKey: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
@@ -25,7 +25,7 @@ vi.mock("@/services/teamService", () => ({
 vi.mock("@/services/multiplayerService", () => ({
   wrapSessionKeyForUser: h.wrap,
   unwrapSessionKey: h.unwrap,
-  getMyX25519Keypair: h.keypair,
+  publishMyPublicKey: h.publishPublicKey,
 }));
 
 import { reconcileTeamVaultKeys, clearTeamKeyCache } from "./teamVaultSync";
@@ -51,7 +51,7 @@ beforeEach(() => {
   h.invoke.mockImplementation(async (cmd: string, args: { key: string }) =>
     cmd === "keychain_get" ? (args.key === "server_url" ? "https://s" : futureJwt()) : null,
   );
-  h.keypair.mockResolvedValue({ privateKey: "PRIV", publicKey: "MYPUB" });
+  h.publishPublicKey.mockResolvedValue("MYPUB");
   h.getMyUserId.mockResolvedValue("me");
   h.listMembers.mockResolvedValue(MEMBERS);
   h.unwrap.mockResolvedValue(new Uint8Array(32));

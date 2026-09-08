@@ -70,6 +70,7 @@
       "sessionExpired": "Session expired — please log in again",
       "vaultLocked": "Vault is locked",
       "vaultUnreadable": "This device's vault cannot be opened with your key",
+      "identityUnproven": "This device could not verify your account keys. Sign out and sign in with your master password.",
       "rateLimited": "Rate limited — retry in {{seconds}}s",
       "serverError": "Server error: {{status}}",
       "connectionNotFound": "Connection not found",

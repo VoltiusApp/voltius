@@ -6,6 +6,8 @@ const h = vi.hoisted(() => ({
   getVaultStatus: vi.fn(async () => ({ exists: false, path: "" })),
   verifyVaultKey: vi.fn(async (_key: number[]) => undefined as void),
   keysSet: vi.fn(),
+  markIdentityUnproven: vi.fn(),
+  appFetch: vi.fn(),
   store: {} as Record<string, string | null>,
   keychainThrows: false,
   deriveThrows: false,
@@ -14,7 +16,7 @@ const h = vi.hoisted(() => ({
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
-vi.mock("@/services/http", () => ({ appFetch: vi.fn(), isAbortError: () => false }));
+vi.mock("@/services/http", () => ({ appFetch: h.appFetch, isAbortError: () => false }));
 vi.mock("./vault", () => ({
   setVaultKey: h.setVaultKey,
   verifyVaultKey: h.verifyVaultKey,
@@ -28,7 +30,15 @@ vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: { getState: () => ({ load: vi.fn(async () => undefined) }) },
 }));
 vi.mock("@/stores/vaultKeysStore", () => ({
-  useVaultKeysStore: { getState: () => ({ set: h.keysSet, clear: vi.fn(), dek: null, x25519Private: null }) },
+  useVaultKeysStore: {
+    getState: () => ({
+      set: h.keysSet,
+      markIdentityUnproven: h.markIdentityUnproven,
+      clear: vi.fn(),
+      dek: null,
+      x25519Private: null,
+    }),
+  },
 }));
 
 import { autoLogin } from "./account";
@@ -73,6 +83,9 @@ beforeEach(() => {
   h.verifyVaultKey.mockReset();
   h.verifyVaultKey.mockResolvedValue(undefined);
   h.keysSet.mockReset();
+  h.markIdentityUnproven.mockReset();
+  h.appFetch.mockReset();
+  h.appFetch.mockRejectedValue(new Error("no server in this test"));
   h.store = {};
   h.keychainThrows = false;
   h.deriveThrows = false;
@@ -232,6 +245,74 @@ test("autoLogin stays on kek when the cached secrets are corrupt", async () => {
 
   expect(await autoLogin()).toBe("ok");
   expect(h.setVaultKey).toHaveBeenCalledWith(DERIVE_KEK); // kek
+});
+
+// ─── recovering the wrapped secrets after an account switch (#228) ───────────
+
+/** A cloud session whose keychain has the tokens but not the wrapped secrets. */
+function switchedBackCloudAccount() {
+  h.store.master_password = "pw";
+  h.store.mode = "server";
+  h.store.account_id = "acc";
+  h.store.jwt = "JWT";
+  h.store.server_url = "https://srv";
+  // wrapped_user_secrets deliberately absent — the switcher deleted it.
+}
+
+test("autoLogin re-fetches the wrapped secrets from the server when they are not cached", async () => {
+  switchedBackCloudAccount();
+  h.appFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({ wrapped_user_secrets: "WRAPPED" }),
+  });
+
+  expect(await autoLogin()).toBe("ok");
+  expect(h.setVaultKey).toHaveBeenCalledWith(UNWRAP.dek); // not the kek
+  expect(h.keysSet).toHaveBeenCalled();
+  expect(h.store.wrapped_user_secrets).toBe("WRAPPED");
+  expect(h.markIdentityUnproven).not.toHaveBeenCalled();
+});
+
+test("autoLogin marks the identity unproven when the secrets cannot be recovered", async () => {
+  switchedBackCloudAccount();
+  h.appFetch.mockRejectedValue(new Error("offline"));
+
+  expect(await autoLogin()).toBe("ok"); // the session still opens
+  expect(h.setVaultKey).toHaveBeenCalledWith(DERIVE_KEK); // …on the kek
+  expect(h.markIdentityUnproven).toHaveBeenCalled();
+});
+
+test("autoLogin trusts the kek when the server confirms the account is pre-split", async () => {
+  switchedBackCloudAccount();
+  h.appFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+  expect(await autoLogin()).toBe("ok");
+  expect(h.setVaultKey).toHaveBeenCalledWith(DERIVE_KEK);
+  expect(h.markIdentityUnproven).not.toHaveBeenCalled();
+});
+
+test("autoLogin does not ask the server for a local account's secrets", async () => {
+  h.store.master_password = "pw";
+  h.store.mode = "local";
+  h.store.account_id = "acc";
+  h.store.jwt = "JWT";
+  h.store.server_url = "https://srv";
+
+  expect(await autoLogin()).toBe("ok");
+  expect(h.appFetch).not.toHaveBeenCalled();
+  expect(h.markIdentityUnproven).not.toHaveBeenCalled();
+});
+
+test("autoLogin skips the round trip when the cached secrets already open", async () => {
+  h.store.master_password = "pw";
+  h.store.mode = "server";
+  h.store.account_id = "acc";
+  h.store.wrapped_user_secrets = "WRAPPED";
+  h.store.jwt = "JWT";
+  h.store.server_url = "https://srv";
+
+  expect(await autoLogin()).toBe("ok");
+  expect(h.appFetch).not.toHaveBeenCalled();
 });
 
 // ─── mode healing ────────────────────────────────────────────────────────────

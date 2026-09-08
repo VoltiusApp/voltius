@@ -77,6 +77,8 @@
         "paymentRequiredTitle": "Coffre d'équipe indisponible",
         "paymentRequiredBodyOwner": "Votre abonnement a expiré. Les coffres d'équipe nécessitent un abonnement actif.",
         "paymentRequiredBodyMember": "L'abonnement du propriétaire a expiré. Les coffres d'équipe nécessitent un abonnement actif.",
+        "keyMismatchTitle": "Cet appareil ne peut pas ouvrir la clé du coffre",
+        "keyMismatchBody": "Votre clé est bien sur le serveur, mais les clés de compte de cet appareil ne correspondent pas. Déconnectez-vous de ce compte puis reconnectez-vous avec votre mot de passe principal.",
         "errorTitle": "Impossible de charger le coffre d'équipe",
         "errorBody": "Une erreur s'est produite. Réessayez."
       },

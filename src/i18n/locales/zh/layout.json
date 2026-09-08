@@ -77,6 +77,8 @@
         "paymentRequiredTitle": "团队保险库不可用",
         "paymentRequiredBodyOwner": "您的订阅已结束。团队保险库需要有效的套餐。",
         "paymentRequiredBodyMember": "所有者的订阅已结束。团队保险库需要有效的套餐。",
+        "keyMismatchTitle": "本设备无法打开保险库密钥",
+        "keyMismatchBody": "您的密钥已在服务器上，但本设备的账户密钥与之不匹配。请退出该账户，并使用主密码重新登录。",
         "errorTitle": "无法加载团队保险库",
         "errorBody": "出错了。请重试。"
       },

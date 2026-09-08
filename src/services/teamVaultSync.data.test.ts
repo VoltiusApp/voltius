@@ -15,7 +15,7 @@ vi.mock("@/services/teamService", () => ({ listMembers: h.listMembers }));
 vi.mock("@/services/multiplayerService", () => ({
   unwrapSessionKey: h.unwrap,
   wrapSessionKeyForUser: vi.fn(),
-  getMyX25519Keypair: vi.fn(),
+  publishMyPublicKey: vi.fn(),
 }));
 vi.mock("@/services/vault", () => ({
   getSecret: h.getSecret,

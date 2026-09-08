@@ -46,6 +46,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 const CURRENT = {
   account_id: "current", mode: "server", master_password: ["master", "for", "current"].join("-"),
   email: "ada@example.com", server_url: DEFAULT_SERVER_URL, jwt: null, refresh_token: null,
+  wrapped_user_secrets: null,
 } satisfies SavedAccount;
 
 const OTHER = { ...CURRENT, account_id: "other", email: "grace@example.com" } satisfies SavedAccount;

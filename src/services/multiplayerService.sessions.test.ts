@@ -6,6 +6,8 @@ const h = vi.hoisted(() => ({
   getServerUrlValue: vi.fn(),
   getJwtToken: vi.fn(),
   updatePublicKey: vi.fn(),
+  getMyUserId: vi.fn(),
+  getUserPublicKey: vi.fn(),
   getVaultKey: vi.fn(),
   freshPublicKeys: vi.fn(),
 }));
@@ -17,6 +19,8 @@ vi.mock("@/services/teamService", () => ({
   getServerUrlValue: h.getServerUrlValue,
   getJwtToken: h.getJwtToken,
   updatePublicKey: h.updatePublicKey,
+  getMyUserId: h.getMyUserId,
+  getUserPublicKey: h.getUserPublicKey,
 }));
 vi.mock("@/services/teamSharing", () => ({ freshPublicKeys: h.freshPublicKeys }));
 
@@ -39,6 +43,8 @@ beforeEach(() => {
   h.getServerUrlValue.mockResolvedValue("https://s");
   h.getJwtToken.mockResolvedValue("jwt");
   h.updatePublicKey.mockResolvedValue(undefined);
+  h.getMyUserId.mockResolvedValue("me");
+  h.getUserPublicKey.mockResolvedValue({ public_key: "PUB" }); // roster agrees with what we derive
   // Default: server agrees with the caller-supplied public_key.
   h.freshPublicKeys.mockImplementation(async (members: { user_id: string; public_key: string }[]) =>
     new Map(members.map((m) => [m.user_id, m.public_key])),

@@ -18,6 +18,8 @@ const h = vi.hoisted(() => ({
   x25519: null as number[] | null,
   emailVerified: false,
   seq: [] as string[],
+  /** Request bodies by endpoint path, so a test can assert what was sent. */
+  sent: {} as Record<string, Record<string, unknown>>,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -61,8 +63,12 @@ function routeInvoke() {
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
     h.seq.push(cmd);
     switch (cmd) {
+      // Keyed by enc_key so a test can tell which key an identity came from.
       case "derive_x25519_keypair":
-        return { public_key: "PUB", private_key: btoa("legacy-x25519-private") };
+        return {
+          public_key: `DERIVED_FROM_${args.encKey}`,
+          private_key: btoa("legacy-x25519-private"),
+        };
       case "keychain_get":
         return h.store[args.key as string] ?? null;
       case "keychain_set":
@@ -74,7 +80,7 @@ function routeInvoke() {
       case "derive_keys":
         return { auth_key: "AUTH", enc_key: [9, 9, 9] };
       case "generate_user_secrets_cmd":
-        return { dek: [1, 1, 1], x25519_private: [2, 2, 2], x25519_public: "PUB" };
+        return { dek: [1, 1, 1], x25519_private: [2, 2, 2], x25519_public: "RANDOM_PUB" };
       case "wrap_user_secrets_cmd":
         return "WRAPPED_B64";
       case "unwrap_user_secrets_cmd":
@@ -95,8 +101,12 @@ function routeInvoke() {
 
 // appFetch routed by the endpoint path; each test sets h.http[<path>] as needed.
 function routeHttp() {
-  h.appFetch.mockImplementation(async (url: string) => {
+  h.appFetch.mockImplementation(async (url: string, init?: { body?: string }) => {
     h.seq.push(String(url));
+    if (init?.body) {
+      const path = String(url).replace(/^https?:\/\/[^/]+\/v1/, "");
+      h.sent[path] = JSON.parse(init.body);
+    }
     const path = Object.keys(h.http).find((p) => String(url).includes(p));
     const r = path ? h.http[path] : { ok: true, status: 200, body: {} };
     return { ok: r.ok, status: r.status, json: async () => r.body ?? {} };
@@ -120,6 +130,7 @@ beforeEach(() => {
   h.rekeyError = null;
   h.store = {};
   h.http = {};
+  h.sent = {};
   localStorage.clear();
   h.dek = null;
   h.x25519 = null;
@@ -172,6 +183,22 @@ test("createServerAccount persists tokens, sets the vault key, and reloads subsc
   expect(h.store.email).toBe("a@b.co");
   expect(h.setVaultKey).toHaveBeenCalledWith([1, 1, 1]); // dek
   expect(h.load).toHaveBeenCalled();
+});
+
+// Registering the generated keypair — which opens nothing — left a window in
+// which a teammate could wrap a vault key to a public key nothing here holds.
+test("createServerAccount registers the identity its vault key derives, not the generated one", async () => {
+  h.http["/auth/register"] = ok(TOKENS);
+  await createServerAccount("a@b.co", "pw", S);
+  expect(h.sent["/auth/register"].public_key).toBe("DERIVED_FROM_1,1,1"); // the dek
+});
+
+test("linkToCloud registers the identity of the vault it keeps", async () => {
+  h.store.master_password = "pw";
+  h.store.account_id = "acc";
+  h.http["/auth/register"] = ok(TOKENS);
+  await linkToCloud("a@b.co", S);
+  expect(h.sent["/auth/register"].public_key).toBe("DERIVED_FROM_9,9,9");
 });
 
 /**
