@@ -18,7 +18,15 @@ import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
 
 const MAX_STACK = 3;
 
-export function MembersStack({ members, vaultId }: { members: TeamMember[]; vaultId: string }) {
+export function MembersStack({
+  members,
+  vaultId,
+  vaultName,
+}: {
+  members: TeamMember[];
+  vaultId: string;
+  vaultName: string;
+}) {
   const { t } = useTranslation();
   const openMembersInvite = useUIStore((s) => s.openMembersInvite);
   const [invHovered, setInvHovered] = useState(false);
@@ -94,7 +102,10 @@ export function MembersStack({ members, vaultId }: { members: TeamMember[]; vaul
         </button>
       )}
 
-      {/* Invite + button */}
+      {/* The Share verb (issue #68). This affordance already opened the share
+          sheet; it just never said so — a bare "+" with an "Invite member"
+          tooltip. Naming it is the whole of the explicit verb: no second entry
+          point, and no second surface to keep in step with this one. */}
       <button
         type="button"
         onClick={toggleOpen}
@@ -102,17 +113,18 @@ export function MembersStack({ members, vaultId }: { members: TeamMember[]; vaul
         onMouseLeave={() => setInvHovered(false)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        title={t("layout.vaultHeader.inviteMember")}
-        className="rounded-full flex items-center justify-center transition-all shrink-0"
+        title={t("members.share.title", { vault: vaultName })}
+        className="rounded-full flex items-center gap-1 transition-all shrink-0 text-[11px] font-medium"
         style={{
-          width: 26,
           height: 26,
+          padding: "0 0.6rem",
           border: `2px dashed ${invHovered ? "var(--t-accent)" : "var(--t-border)"}`,
           background: invHovered ? "rgba(var(--t-accent-rgb, 99,102,241), 0.1)" : "transparent",
           color: invHovered ? "var(--t-accent)" : "var(--t-text-dim)",
         }}
       >
-        <Icon icon="lucide:plus" width={11} />
+        <Icon icon="lucide:user-plus" width={12} />
+        {t("members.share.shareVerb")}
       </button>
 
       {/* Popover — portalled: the page overlay in MainPanel outranks the
@@ -121,10 +133,14 @@ export function MembersStack({ members, vaultId }: { members: TeamMember[]; vaul
         open={open}
         onClose={() => setOpen(false)}
         anchorRef={ref}
-        width={280}
+        width={320}
+        // The default 320 was sized for a short members list. This surface now
+        // carries three tabs, and at 320 the Links tab's Create button sat
+        // below the fold behind a scroll.
+        maxHeight={480}
         align="right"
         gap={4}
-        title={t("layout.vaultHeader.members")}
+        title={t("members.share.title", { vault: vaultName })}
       >
         <div onMouseEnter={openPopover} onMouseLeave={closePopover}>
           <VaultShareSheet vaultId={vaultId} variant="popover" onRequestFull={openMembersInvite} />
@@ -283,8 +299,16 @@ export default function VaultHeader() {
 
       {/* Right zone: online members */}
       <div className="flex items-center justify-end min-w-0">
-        {team && members !== null && activeVaultId && (
-          <MembersStack members={members} vaultId={activeVaultId} />
+        {/* Shown for a private vault too. The sheet's own `!teamId` branch is
+            the conversion consent gate, so hiding the verb until a team already
+            exists put it everywhere except the one place it matters most. A
+            private vault simply has no avatar stack to show beside it. */}
+        {activeVaultId && (accountMode === "server" || team) && (
+          <MembersStack
+            members={members ?? []}
+            vaultId={activeVaultId}
+            vaultName={vault?.name ?? team?.name ?? ""}
+          />
         )}
       </div>
     </div>

@@ -1,7 +1,8 @@
 import i18n from "@/i18n";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
-import { inviteByEmail } from "@/services/teamService";
+import { inviteByEmail, revokePendingInvitation } from "@/services/teamService";
+import { buildDeepLink } from "@/services/deepLinkUrl";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
 import { userFacingReason } from "@/services/errorReason";
@@ -98,4 +99,81 @@ export async function inviteByEmailAddress(args: {
     error: (e: Error) => i18n.t("members.error.inviteFailed", { name: email, reason: inviteFailureReason(e) }),
     run: () => inviteByEmail(teamId, email, roleName),
   });
+}
+
+/**
+ * Remove a member. The toast wording lives here so both share surfaces say the
+ * same thing; the Members page adds its own undo entry on top of this call,
+ * which the popover deliberately has no room for.
+ */
+export async function removeTeamMember(args: {
+  teamId: string;
+  userId: string;
+  handle: string;
+}): Promise<void> {
+  const { teamId, userId, handle } = args;
+  await runTeamAction({
+    pending: i18n.t("members.toast.removingMember", { name: handle }),
+    success: i18n.t("members.toast.memberRemoved", { name: handle }),
+    error: (e: Error) => i18n.t("members.error.removeFailed", { name: handle, reason: userFacingReason(e) }),
+    run: () => useTeamStore.getState().removeMember(teamId, userId),
+  });
+}
+
+/** Withdraw a pending invitation. */
+export async function revokeInvitation(args: {
+  teamId: string;
+  invitationId: string;
+  name: string;
+}): Promise<void> {
+  const { teamId, invitationId, name } = args;
+  await runTeamAction({
+    pending: i18n.t("members.toast.revokingInvitation", { name }),
+    success: i18n.t("members.toast.invitationRevoked", { name }),
+    error: (e: Error) => i18n.t("members.error.revokeFailed", { name, reason: userFacingReason(e) }),
+    run: () => revokePendingInvitation(teamId, invitationId),
+  });
+}
+
+/**
+ * Wrap the team vault key for one member who has none (issue #41).
+ *
+ * `distributeKeyToNewMember` returns quietly when this device cannot unwrap the
+ * key itself, which is right for the background reconcile but wrong for a
+ * button: a user who pressed "Grant now" and is told nothing assumes it worked.
+ * The key-holder check is therefore made here, and a non-holder is told why.
+ */
+export async function grantVaultKeyToMember(args: {
+  teamId: string;
+  userId: string;
+  handle: string;
+  publicKey: string;
+}): Promise<void> {
+  const { teamId, userId, handle, publicKey } = args;
+  await runTeamAction({
+    pending: i18n.t("members.toast.grantingKey", { name: handle }),
+    success: i18n.t("members.toast.keyGranted", { name: handle }),
+    error: (e: Error) => i18n.t("members.error.grantKeyFailed", { name: handle, reason: userFacingReason(e) }),
+    run: async () => {
+      if (!publicKey) throw new Error(i18n.t("members.error.memberHasNoPublicKey"));
+      const { getTeamVaultKey, distributeKeyToNewMember } = await import("@/services/teamVaultSync");
+      try {
+        await getTeamVaultKey(teamId);
+      } catch {
+        throw new Error(i18n.t("members.error.notAKeyHolder"));
+      }
+      await distributeKeyToNewMember(teamId, userId, publicKey);
+    },
+  });
+}
+
+/**
+ * The deep link that lands an invitee on their own inbox entry for a pending
+ * invitation, where Accept and Decline already live. This is the *addressed*
+ * vault invite link (issue #68): it carries no capability at all — the
+ * invitation row is what confers anything, and it is already addressed to that
+ * one user — so the route is `navigate`, not `confirm`.
+ */
+export function addressedInviteLink(invitationId: string): string {
+  return buildDeepLink({ route: "notification", entryId: `invite:${invitationId}` });
 }

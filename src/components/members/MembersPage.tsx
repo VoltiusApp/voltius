@@ -13,7 +13,6 @@ import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { UserSearchField } from "@/components/shared/UserSearchField";
 import {
   getMyUserId,
-  revokePendingInvitation,
 } from "@/services/teamService";
 import type { PendingInvitation } from "@/stores/teamStore";
 import { getMyHandle } from "@/services/account";
@@ -36,7 +35,7 @@ import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDispla
 import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
-import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason } from "@/services/vaultShare";
+import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason, removeTeamMember, revokeInvitation } from "@/services/vaultShare";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import { assignableRoles, leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
 
@@ -362,7 +361,6 @@ export function MemberDetailPanel({
   const { t } = useTranslation();
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
   const removeMemberRole = useTeamStore((s) => s.removeMemberRole);
-  const removeMember = useTeamStore((s) => s.removeMember);
   const push = useHistoryStore((s) => s.push);
 
   const [error, setError] = useState("");
@@ -435,11 +433,7 @@ export function MemberDetailPanel({
     const snapshot = { ...member };
     setRemoving(true); setError("");
     try {
-      await runTeamAction({
-        pending: t("members.toast.removingMember", { name: member.handle }),
-        success: t("members.toast.memberRemoved", { name: member.handle }),
-        run: () => removeMember(teamId, member.user_id),
-      });
+      await removeTeamMember({ teamId, userId: member.user_id, handle: member.handle ?? "" });
       push({
         label: t("members.history.remove", { name: member.handle }),
         undo: async () => {
@@ -607,11 +601,7 @@ export function PendingInviteCard({
   const handleRevoke = async () => {
     setRevoking(true);
     try {
-      await runTeamAction({
-        pending: t("members.toast.revokingInvitation", { name: inv.display_name }),
-        success: t("members.toast.invitationRevoked", { name: inv.display_name }),
-        run: () => revokePendingInvitation(teamId, inv.id),
-      });
+      await revokeInvitation({ teamId, invitationId: inv.id, name: inv.display_name });
       onRevoked(inv.id);
     } catch { /* toast already reports the failure */ }
     finally { setRevoking(false); }

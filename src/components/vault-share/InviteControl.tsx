@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import type { TeamRole } from "@/stores/teamStore";
 import { useUserSearch } from "@/hooks/useUserSearch";
 import { assignableRoles, seatState } from "./vaultShareModel";
+import { ChoiceChip } from "./ChoiceChip";
 import { inviteUserById, inviteByEmailAddress } from "@/services/vaultShare";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -100,19 +101,13 @@ export function InviteControl({ teamId, roles, existingIds, usedSeats, totalSeat
         </span>
         <div className="flex flex-wrap gap-1.5">
           {options.map((r) => (
-            <button
+            <ChoiceChip
               key={r.id}
+              label={r.name}
+              capitalize
+              selected={r.id === roleId}
               onClick={() => setRoleId(r.id)}
-              aria-pressed={r.id === roleId}
-              className="px-2.5 py-1 rounded-lg text-[11px] capitalize border"
-              style={{
-                background: r.id === roleId ? "color-mix(in srgb, var(--t-accent) 10%, transparent)" : "var(--t-bg-elevated)",
-                borderColor: r.id === roleId ? "var(--t-accent)" : "transparent",
-                color: r.id === roleId ? "var(--t-accent)" : "var(--t-text-secondary)",
-              }}
-            >
-              {r.name}
-            </button>
+            />
           ))}
         </div>
         {role && <p className="text-[11px] text-(--t-text-secondary)">{t(`members.roleBlurb.${role.name}`, { defaultValue: "" })}</p>}

@@ -68,7 +68,8 @@
       "tabInvite": "Inviter",
       "manage": "Gérer…",
       "inviteSomeone": "Inviter quelqu'un",
-      "loadFailed": "Impossible de charger la liste — réessayez"
+      "loadFailed": "Impossible de charger la liste — réessayez",
+      "tabLinks": "Liens"
     },
     "invite": {
       "title": "Inviter un membre",
@@ -114,7 +115,9 @@
       "invitingToSession": "Invitation de {{name}} à la session…",
       "invitedToSession": "{{name}} invité à la session",
       "convertingVault": "Transformation de {{vault}} en coffre-fort d'équipe…",
-      "vaultConverted": "{{vault}} est désormais un coffre-fort d'équipe"
+      "vaultConverted": "{{vault}} est désormais un coffre-fort d'équipe",
+      "grantingKey": "Octroi de l'accès au coffre-fort à {{name}}…",
+      "keyGranted": "{{name}} peut maintenant ouvrir le coffre-fort"
     },
     "error": {
       "cannotRemoveOwnerRole": "Impossible de retirer le rôle de propriétaire au propriétaire de l'équipe",
@@ -123,7 +126,12 @@
       "failedToAddMember": "Échec de l'ajout du membre",
       "inviteFailed": "Impossible d'inviter {{name}} — {{reason}}",
       "convertFailed": "Impossible de transformer {{vault}} en coffre-fort d'équipe — {{reason}}",
-      "serverUnreachable": "le serveur de synchronisation est injoignable"
+      "serverUnreachable": "le serveur de synchronisation est injoignable",
+      "removeFailed": "Impossible de retirer {{name}} — {{reason}}",
+      "revokeFailed": "Impossible de révoquer l'invitation de {{name}} — {{reason}}",
+      "grantKeyFailed": "Impossible d'accorder l'accès au coffre-fort à {{name}} — {{reason}}",
+      "memberHasNoPublicKey": "Cette personne n'a pas encore publié de clé — demandez-lui de se connecter une fois.",
+      "notAKeyHolder": "Vous ne détenez pas la clé de ce coffre-fort, vous ne pouvez donc pas l'accorder."
     },
     "history": {
       "removeRole": "Retirer le rôle : {{name}}",
@@ -154,7 +162,8 @@
       "grantKey": "Autoriser maintenant",
       "copyInviteLink": "Copier le lien d'invitation",
       "revoke": "Révoquer l'invitation",
-      "remove": "Retirer du coffre-fort"
+      "remove": "Retirer du coffre-fort",
+      "inviteLinkCopied": "Lien d'invitation copié — il ouvre leur invitation dans Voltius."
     },
     "cta": {
       "signInTitle": "Connectez-vous pour utiliser les fonctionnalités d'équipe",
@@ -163,6 +172,65 @@
       "upgradeTitle": "Les coffres-forts d'équipe nécessitent Teams",
       "upgradeDesc": "Invitez des membres, attribuez des rôles et partagez des identifiants en toute sécurité avec votre équipe.",
       "upgradeBtn": "Passer à Teams →"
+    },
+    "joinLinks": {
+      "explainer": "Toute personne disposant du lien rejoint ce coffre-fort avec le rôle que vous choisissez. Le lien ne transporte jamais la clé du coffre-fort : elle arrive séparément, lorsqu'une personne qui la détient déjà est en ligne.",
+      "empty": "Aucun lien actif.",
+      "loadFailed": "Impossible de charger les liens — {{reason}}",
+      "joinsAs": "Rejoint en tant que",
+      "usesLabel": "Utilisations",
+      "expiryLabel": "Expire après",
+      "create": "Créer un lien",
+      "copy": "Copier",
+      "copied": "Copié",
+      "revoke": "Révoquer le lien",
+      "shownOnce": "Un lien n'est affiché qu'une fois, à sa création. Rien ne peut le réafficher.",
+      "secretNotRecoverable": "Lien non consultable — révoquez-le et créez-en un nouveau.",
+      "usesLeft_one": "{{count}} utilisation restante sur {{max}}",
+      "usesLeft_other": "{{count}} utilisations restantes sur {{max}}",
+      "expiringNow": "expire maintenant",
+      "expiresIn": {
+        "minutes_one": "{{count}} min restante",
+        "minutes_other": "{{count}} min restantes",
+        "hours_one": "{{count}} heure restante",
+        "hours_other": "{{count}} heures restantes",
+        "days_one": "{{count}} jour restant",
+        "days_other": "{{count}} jours restants"
+      },
+      "ttl": {
+        "hour1": "1 heure",
+        "day1": "1 jour",
+        "day7": "7 jours",
+        "day30": "30 jours"
+      },
+      "toast": {
+        "creating": "Création du lien…",
+        "created": "Lien créé",
+        "createFailed": "Impossible de créer le lien — {{reason}}",
+        "revoking": "Révocation du lien…",
+        "revoked": "Lien révoqué",
+        "revokeFailed": "Impossible de révoquer le lien — {{reason}}"
+      },
+      "error": {
+        "notFound": "Ce lien n'est pas valide.",
+        "revokedOrExpired": "Ce lien a été révoqué ou a expiré.",
+        "exhausted": "Ce lien a été entièrement utilisé.",
+        "seatLimit": "Cette équipe n'a plus de siège disponible. Demandez à l'expéditeur du lien d'en ajouter un.",
+        "noPublicKey": "Votre appareil n'a pas encore publié de clé. Connectez-vous une fois, puis rouvrez le lien.",
+        "generic": "Le serveur a refusé ({{status}})."
+      },
+      "confirm": {
+        "title": "Rejoindre {{team}} ?",
+        "titleGeneric": "Rejoindre un coffre-fort d'équipe ?",
+        "loading": "Vérification du lien…",
+        "body": "Ce lien vous ajoute à {{team}} en tant que {{role}}.",
+        "bodyNamed": "{{inviter}} vous invite dans {{team}} en tant que {{role}}.",
+        "keyFollowsLater": "Vous rejoignez immédiatement, mais le coffre-fort reste verrouillé jusqu'à ce qu'une personne détenant déjà sa clé soit en ligne.",
+        "action": "Rejoindre",
+        "failed": "Impossible de rejoindre — le lien a peut-être été révoqué."
+      },
+      "newLink": "Nouveau lien",
+      "cancel": "Annuler"
     }
   }
 }

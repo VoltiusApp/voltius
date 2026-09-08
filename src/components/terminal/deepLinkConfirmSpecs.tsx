@@ -15,6 +15,14 @@ import { PluginPermissionList } from "@/components/settings/sections/PluginPermi
 import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { pluginInstallErrorMessage, type TranslatableMessage } from "@/plugins/installErrors";
 import type { PluginManifest } from "@/plugins/api";
+import {
+  JoinGrantError,
+  previewJoinGrant,
+  redeemJoinGrant,
+  type JoinGrantPreview,
+} from "@/services/teamJoinGrants";
+import { refreshAfterJoiningTeam } from "@/services/teamJoin";
+import { getMyX25519Keypair } from "@/services/multiplayerService";
 
 export type ConfirmRoute = ConfirmIntent["route"];
 type IntentOf<K extends ConfirmRoute> = Extract<ConfirmIntent, { route: K }>;
@@ -79,6 +87,29 @@ export interface ConfirmLoad {
   invite: InviteLoad;
   "snippet-install": SnippetInstallLoad;
   "plugin-install": PluginInstallLoad;
+  "vault-join": JoinGrantPreview;
+}
+
+/**
+ * A refused grant is matched on the error's code, never on its message: the
+ * message is translated, and a translated string is not a protocol.
+ */
+function joinGrantErrorMessage(e: unknown, fallbackKey: string): TranslatableMessage {
+  if (!(e instanceof JoinGrantError)) return { key: fallbackKey };
+  switch (e.code) {
+    case "not_found":
+      return { key: "members.joinLinks.error.notFound" };
+    case "revoked_or_expired":
+      return { key: "members.joinLinks.error.revokedOrExpired" };
+    case "exhausted":
+      return { key: "members.joinLinks.error.exhausted" };
+    case "seat_limit":
+      return { key: "members.joinLinks.error.seatLimit" };
+    case "no_public_key":
+      return { key: "members.joinLinks.error.noPublicKey" };
+    default:
+      return { key: fallbackKey };
+  }
 }
 
 /**
@@ -231,6 +262,44 @@ export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]
     accept: async (_intent, loaded) => {
       if (!loaded) return;
       await useMarketplaceStore.getState().installPlugin(loaded.plugin, loaded.manifestText);
+    },
+  },
+  "vault-join": {
+    icon: "lucide:users",
+    acceptLabelKey: "members.joinLinks.confirm.action",
+    errorKey: "members.joinLinks.confirm.failed",
+    errorMessage: joinGrantErrorMessage,
+    // Preview consumes no use, so a sheet the user closes costs the link
+    // nothing. The server re-checks revocation, expiry and exhaustion again
+    // inside the redemption transaction; this result is copy, not a decision.
+    load: ({ grantId, secret }) => previewJoinGrant(grantId, secret),
+    details: (_intent, loaded, t) => ({
+      title: loaded
+        ? t("members.joinLinks.confirm.title", { team: loaded.team_name })
+        : t("members.joinLinks.confirm.titleGeneric"),
+      body: loaded
+        ? loaded.inviter_handle
+          ? t("members.joinLinks.confirm.bodyNamed", {
+              team: loaded.team_name,
+              role: loaded.role,
+              inviter: `@${loaded.inviter_handle}`,
+            })
+          : t("members.joinLinks.confirm.body", { team: loaded.team_name, role: loaded.role })
+        : t("members.joinLinks.confirm.loading"),
+      // The one thing the sheet must not let the user assume. A link confers
+      // membership; the vault key is wrapped per member with X25519 and only
+      // arrives once an online key-holder wraps it.
+      note: loaded ? t("members.joinLinks.confirm.keyFollowsLater") : undefined,
+    }),
+    accept: async (intent, _loaded) => {
+      // Sent so the roster row a key-holder reads is wrappable immediately.
+      // The server fills a NULL only and never overwrites — overwriting would
+      // orphan every vault key already wrapped to the old key.
+      const publicKey = await getMyX25519Keypair()
+        .then(({ publicKey }) => publicKey)
+        .catch(() => null);
+      const { team_id } = await redeemJoinGrant(intent.grantId, intent.secret, publicKey);
+      await refreshAfterJoiningTeam(team_id);
     },
   },
 };

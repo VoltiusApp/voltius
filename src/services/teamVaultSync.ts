@@ -18,12 +18,12 @@ import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { wrapSessionKeyForUser, unwrapSessionKey, getMyX25519Keypair } from "@/services/multiplayerService";
 import * as teamService from "@/services/teamService";
-import { getJwt, getServerUrl, isJwtExpiredOrExpiring, tryRefreshJwt } from "@/services/authTokens";
+import { getServerUrl } from "@/services/authTokens";
+import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
-import { appFetch } from "@/services/http";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
 import {
   shouldShowBlockingTeamVaultLoad,
@@ -58,31 +58,6 @@ export function clearTeamKeyCache(): void {
 
 export function deleteTeamKey(teamId: string): void {
   _teamKeyCache.delete(teamId);
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> {
-  let jwt = await getJwt();
-  if (!jwt || isJwtExpiredOrExpiring(jwt)) {
-    jwt = await tryRefreshJwt();
-    if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
-  }
-  const makeHeaders = (token: string) => ({
-    ...(init.headers as Record<string, string>),
-    Authorization: `Bearer ${token}`,
-  });
-  let res = await appFetch(url, { ...init, headers: makeHeaders(jwt) });
-  if (res.status === 401) {
-    const newJwt = await tryRefreshJwt();
-    if (!newJwt) throw new Error(i18n.t("common.error.sessionExpired"));
-    res = await appFetch(url, { ...init, headers: makeHeaders(newJwt) });
-  }
-  if (res.status === 429) {
-    const retryAfter = parseInt(res.headers.get("Retry-After") ?? "60", 10);
-    throw new Error(i18n.t("common.error.rateLimited", { seconds: retryAfter }));
-  }
-  return res;
 }
 
 // ─── Key management ───────────────────────────────────────────────────────────

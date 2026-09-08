@@ -1,28 +1,6 @@
 import i18n from "@/i18n";
-import { appFetch } from "@/services/http";
-import { getJwt, getServerUrl, isJwtExpiredOrExpiring, tryRefreshJwt } from "@/services/authTokens";
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function fetchAuth(url: string, init: RequestInit = {}): Promise<Response> {
-  let jwt = await getJwt();
-  if (!jwt || isJwtExpiredOrExpiring(jwt)) {
-    jwt = await tryRefreshJwt();
-    if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
-  }
-  const makeHeaders = (token: string) => ({
-    ...(init.headers as Record<string, string>),
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  });
-  let res = await appFetch(url, { ...init, headers: makeHeaders(jwt) });
-  if (res.status === 401) {
-    const newJwt = await tryRefreshJwt();
-    if (!newJwt) throw new Error(i18n.t("common.error.sessionExpired"));
-    res = await appFetch(url, { ...init, headers: makeHeaders(newJwt) });
-  }
-  return res;
-}
+import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
+import { getJwt, getServerUrl } from "@/services/authTokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
