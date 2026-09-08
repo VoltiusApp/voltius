@@ -75,3 +75,34 @@ test("wrapping member missing → 'error'", async () => {
   h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
   await expect(getTeamVaultKey("t1")).rejects.toBe("error");
 });
+
+// #229: decoding N encrypted team objects during hydration calls
+// getTeamVaultKey(teamId) once per row. On a cold cache each of those used to
+// start its own fetch/unwrap, stampeding the rate-limited vault-key route.
+test("N concurrent calls on a cold cache share a single underlying fetch", async () => {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" }));
+  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.unwrap.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+  const keys = await Promise.all(Array.from({ length: 5 }, () => getTeamVaultKey("t1")));
+
+  expect(keys).toEqual(Array(5).fill([1, 2, 3]));
+  expect(h.appFetch).toHaveBeenCalledTimes(1);
+  expect(h.listMembers).toHaveBeenCalledTimes(1);
+});
+
+test("a rejected fetch clears the cache entry so a later call can retry, not poison the session", async () => {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockResolvedValueOnce(res(500));
+
+  await expect(getTeamVaultKey("t1")).rejects.toBe("error");
+
+  h.appFetch.mockResolvedValueOnce(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" }));
+  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.unwrap.mockResolvedValue(new Uint8Array([4, 5, 6]));
+
+  const key = await getTeamVaultKey("t1");
+  expect(key).toEqual([4, 5, 6]);
+  expect(h.appFetch).toHaveBeenCalledTimes(2);
+});

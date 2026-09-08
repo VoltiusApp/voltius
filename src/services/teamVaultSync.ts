@@ -50,14 +50,22 @@ interface BlobPayload {
 // ─── In-memory key cache (process memory only — gone on logout/close) ─────────
 
 const _teamKeyCache = new Map<string, number[]>();
+// In-flight fetch/unwrap promises, keyed by team. Without this, N concurrent
+// getTeamVaultKey(teamId) calls on a cold cache (e.g. decoding N encrypted
+// objects during hydration, #229) each start their own GET vault-key +
+// listMembers + unwrap, stampeding the rate-limited vault-key route until it
+// 429s — which callers then fold into "offline" and silently drop rows.
+const _teamKeyInFlight = new Map<string, Promise<number[]>>();
 const _teamRefreshQueue = new TeamVaultRefreshQueue();
 
 export function clearTeamKeyCache(): void {
   _teamKeyCache.clear();
+  _teamKeyInFlight.clear();
 }
 
 export function deleteTeamKey(teamId: string): void {
   _teamKeyCache.delete(teamId);
+  _teamKeyInFlight.delete(teamId);
 }
 
 // ─── Key management ───────────────────────────────────────────────────────────
@@ -81,6 +89,26 @@ export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   const cached = _teamKeyCache.get(teamId);
   if (cached) return cached;
 
+  // Join whatever fetch is already in flight for this team instead of
+  // starting a second one — see the comment on _teamKeyInFlight above.
+  const existing = _teamKeyInFlight.get(teamId);
+  if (existing) return existing;
+
+  const inFlight = _fetchAndUnwrapTeamVaultKey(teamId);
+  _teamKeyInFlight.set(teamId, inFlight);
+  // Detached cleanup subscriber: always drop the in-flight entry once the
+  // fetch settles (success or failure) so a later call can retry after a
+  // transient error instead of being poisoned by it. The `.catch` here only
+  // silences this derived chain — callers still observe the rejection via
+  // their own `await inFlight`/`await getTeamVaultKey(...)`.
+  inFlight.finally(() => _teamKeyInFlight.delete(teamId)).catch(() => {});
+
+  const keyBytes = await inFlight;
+  _teamKeyCache.set(teamId, keyBytes);
+  return keyBytes;
+}
+
+async function _fetchAndUnwrapTeamVaultKey(teamId: string): Promise<number[]> {
   if (!navigator.onLine) throw "offline";
 
   const serverUrl = await getServerUrl();
@@ -113,9 +141,7 @@ export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   } catch {
     throw "key_mismatch";
   }
-  const keyBytes = Array.from(rawKey);
-  _teamKeyCache.set(teamId, keyBytes);
-  return keyBytes;
+  return Array.from(rawKey);
 }
 
 /**
