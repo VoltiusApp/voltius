@@ -54,7 +54,7 @@ vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
 
-import { MemberDetailPanel } from "./MembersPage";
+import { MemberDetailPanel } from "./panels/MemberDetailPanel";
 
 const baseMember: TeamMember = {
   team_id: "t1",
