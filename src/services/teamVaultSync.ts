@@ -384,10 +384,26 @@ async function _isStillATeamMember(teamId: string): Promise<boolean> {
   return useTeamStore.getState().teams.some((t) => t.id === teamId);
 }
 
-async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<void> {
+export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<void> {
   const active = objects.filter((o) => !o.deleted_at);
+
+  const { decodeObjectMetadata } = await import("@/services/teamObjectEnvelope");
+
+  // Rows written before #229 carry plaintext metadata and decode to themselves.
+  // A row that will not decrypt is dropped rather than spread: a half-object
+  // with no id or host is worse in the stores than an absent one, and it would
+  // be written straight back on the next save.
+  const decoded = await Promise.all(
+    active.map(async (o) => {
+      const metadata = await decodeObjectMetadata(teamId, o.metadata).catch(() => null);
+      return metadata === null ? null : { ...o, metadata };
+    }),
+  );
+
+  const usable = decoded.filter((o): o is TeamObjectRecord & { metadata: object } => o !== null);
+
   const byType = <T>(type: TeamObjectRecord["object_type"]): T[] =>
-    active
+    usable
       .filter((o) => o.object_type === type)
       .map((o) => ({ ...(o.metadata as object), updated_by: o.updated_by } as T));
 
