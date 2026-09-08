@@ -8,7 +8,7 @@ import { vaultAdminCapabilities, type VaultAdminTarget } from "./vaultAdminTarge
 import { vaultMenuItems } from "./vaultMenuItems";
 import type { VaultDialog } from "./VaultAdminDialogs";
 
-export function useVaultAdmin(target: VaultAdminTarget | null) {
+export function useVaultAdmin(target: VaultAdminTarget | null, opts?: { onShare?: () => void }) {
   const { t } = useTranslation();
   const { teams, rolesByTeam, membersByTeam } = useTeamStore();
   const openMembersNav = useUIStore((s) => s.openMembersNav);
@@ -31,7 +31,7 @@ export function useVaultAdmin(target: VaultAdminTarget | null) {
         caps, memberCount, canShare, t,
         on: (action) => {
           switch (action) {
-            case "share": setShareOpen(true); return;
+            case "share": opts?.onShare ? opts.onShare() : setShareOpen(true); return;
             case "members": openMembersNav(); return;
             case "roles": openMembersRoles(); return;
             case "rename":

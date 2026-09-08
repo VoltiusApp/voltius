@@ -182,6 +182,9 @@ interface UIStore {
   openMembersRoles: () => void;
   clearMembersRolesPending: () => void;
   openMembersNav: () => void;
+  vaultSharePending: boolean;
+  openVaultSharePending: () => void;
+  clearVaultSharePending: () => void;
   whatsNewOpen: boolean;
   lastSeenChangelogVersion: string | null;
   openWhatsNew: () => void;
@@ -235,6 +238,7 @@ export const useUIStore = create<UIStore>()(
         snippetsPendingAction: null as SnippetsPendingAction,
         membersInvitePending: false,
         membersRolesPending: false,
+        vaultSharePending: false,
         whatsNewOpen: false,
         lastSeenChangelogVersion: null as string | null,
         terminalPanelsRowOpen: false,
@@ -303,6 +307,8 @@ export const useUIStore = create<UIStore>()(
         openMembersRoles: () => set({ activeNav: "members", homeView: false, membersRolesPending: true }),
         clearMembersRolesPending: () => set({ membersRolesPending: false }),
         openMembersNav: () => set({ activeNav: "members", homeView: false }),
+        openVaultSharePending: () => set({ vaultSharePending: true }),
+        clearVaultSharePending: () => set({ vaultSharePending: false }),
         openWhatsNew: () => set({ whatsNewOpen: true }),
         closeWhatsNew: () => set({ whatsNewOpen: false }),
         markChangelogSeen: (version) => set({ lastSeenChangelogVersion: version }),

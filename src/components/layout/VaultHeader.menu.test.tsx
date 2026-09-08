@@ -38,7 +38,7 @@ beforeEach(() => {
     teams: [], membersByTeam: {}, rolesByTeam: {},
     loadMembers: vi.fn(async () => {}),
   });
-  useUIStore.setState({ activeNav: "hosts", homeView: true, membersRolesPending: false });
+  useUIStore.setState({ activeNav: "hosts", homeView: true, membersRolesPending: false, vaultSharePending: false });
   useSubscriptionStore.setState({ accountMode: "server" });
 });
 afterEach(cleanup);
@@ -97,4 +97,13 @@ test("choosing Roles navigates to the Members page and marks the roles panel pen
   expect(state.activeNav).toBe("members");
   expect(state.homeView).toBe(false);
   expect(state.membersRolesPending).toBe(true);
+});
+
+// The rail's Share… action has no share sheet of its own — it switches to the
+// vault and sets this flag for the header (which does have one) to pick up.
+test("a pending vault-share flag opens the share sheet and clears itself", () => {
+  useUIStore.setState({ vaultSharePending: true });
+  render(<VaultHeader />);
+  expect(screen.getByText("share-sheet")).toBeTruthy();
+  expect(useUIStore.getState().vaultSharePending).toBe(false);
 });

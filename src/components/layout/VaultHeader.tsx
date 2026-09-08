@@ -214,6 +214,17 @@ export default function VaultHeader() {
   const admin = useVaultAdmin(target);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
+  const vaultSharePending = useUIStore((s) => s.vaultSharePending);
+  const clearVaultSharePending = useUIStore((s) => s.clearVaultSharePending);
+  useEffect(() => {
+    // Mirrors the rail's Share… action: it switches to this vault and sets this
+    // flag, since the rail hosts no share sheet of its own.
+    if (vaultSharePending && target) {
+      admin.setShareOpen(true);
+      clearVaultSharePending();
+    }
+  }, [vaultSharePending, !!target, admin.setShareOpen, clearVaultSharePending]);
+
   if (!vault && !standaloneTeam) return null;
 
   const displayName = vault ? vault.name : (standaloneTeam!.name);
