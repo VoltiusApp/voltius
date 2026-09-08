@@ -30,8 +30,6 @@ vi.mock("@/services/teamService", () => ({
 }));
 vi.mock("@/hooks/useVaultContents", () => ({ useVaultContents: () => [] }));
 vi.mock("@/hooks/useUIContributions", () => ({ useUIContributions: () => [] }));
-vi.mock("./RolesSection", () => ({ TeamRolesPanel: () => null, default: () => null }));
-vi.mock("@/components/settings/BuySeatsModal", () => ({ default: () => null }));
 vi.mock("@/components/shared/ContentCounts", () => ({ ContentCounts: () => null }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn(async () => {}) }));
 vi.mock("@/services/teamVaultActivation", () => ({ markTeamVaultLoadedAfterLocalActivation: vi.fn() }));
@@ -91,7 +89,8 @@ vi.mock("@/services/snippets", () => ({
 }));
 vi.mock("@/services/portForwardingRules", () => ({ createPfRule: vi.fn(async () => {}) }));
 
-import { VaultGeneralTab } from "./VaultsSection";
+import { useVaultAdminActions } from "./useVaultAdminActions";
+import type { VaultAdminTarget } from "./vaultAdminTarget";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 
@@ -100,17 +99,22 @@ const ownerRole = {
   is_builtin: true, permissions: 0, position: 0, created_at: "",
 };
 
-const detail = { kind: "local" as const, vaultId: "v1", teamId: "t1", name: "My Vault" };
-const onBack = vi.fn();
+const target: VaultAdminTarget =
+  { kind: "local", vaultId: "v1", teamId: "t1", name: "My Vault" };
+const onDone = vi.fn();
+
+function Probe() {
+  const { makePrivate } = useVaultAdminActions(target, { onDone });
+  return <button onClick={() => void makePrivate()}>go</button>;
+}
+
+/** Runs the already-confirmed make-private action. */
+function clickMakePrivate() {
+  render(<Probe />);
+  fireEvent.click(screen.getByText("go"));
+}
 
 const messages = () => h.addToast.mock.calls.map((c) => (c[0] as { message: string }).message);
-
-/** Renders the tab and gets past the two-click confirm on "Make private". */
-function clickMakePrivate() {
-  render(<VaultGeneralTab detail={detail} onBack={onBack} onRenamed={vi.fn()} />);
-  fireEvent.click(screen.getByText("settings.vaults.general.makePrivate.btn"));
-  fireEvent.click(screen.getByText("settings.vaults.general.makePrivate.confirmBtn"));
-}
 
 beforeEach(() => {
   localStorage.clear();
@@ -121,7 +125,7 @@ beforeEach(() => {
   h.reloadLocalVaultObjectStores.mockResolvedValue(undefined);
   h.saveConnection.mockResolvedValue(undefined);
   h.t.mockImplementation((k: string) => k);
-  onBack.mockReset();
+  onDone.mockReset();
   useVaultStore.setState({ setVaultTeamId: h.setVaultTeamId });
   useTeamStore.setState({
     teams: [{ id: "t1", name: "My Vault", owner_id: "me", owner_tier: "teams", created_at: "", role_ids: ["r-own"] }],
@@ -140,7 +144,7 @@ test("a rejected entity write aborts before anything destructive and says so", a
   expect(h.deleteTeam).not.toHaveBeenCalled();
   expect(h.setVaultTeamId).not.toHaveBeenCalled();
   expect(h.clearTeamConnections).not.toHaveBeenCalled();
-  expect(onBack).not.toHaveBeenCalled();
+  expect(onDone).not.toHaveBeenCalled();
   expect(h.addToast.mock.calls[0][0]).toMatchObject({ severity: "error" });
 });
 
@@ -154,14 +158,14 @@ test("a failed team delete leaves the vault linked and never claims success", as
   expect(h.setVaultTeamId).not.toHaveBeenCalled();
   expect(h.clearTeamConnections).not.toHaveBeenCalled();
   expect(messages()).not.toContain("settings.vaults.general.madePrivateToastEmpty");
-  expect(onBack).not.toHaveBeenCalled();
+  expect(onDone).not.toHaveBeenCalled();
   expect(h.addToast.mock.calls[0][0]).toMatchObject({ severity: "error" });
 });
 
 test("the happy path deletes the team, unlinks the vault and reports success", async () => {
   clickMakePrivate();
 
-  await waitFor(() => expect(onBack).toHaveBeenCalled());
+  await waitFor(() => expect(onDone).toHaveBeenCalled());
   expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ name: "web", vault_id: "v1" }));
   expect(h.deleteTeam).toHaveBeenCalledWith("t1");
   expect(h.setVaultTeamId).toHaveBeenCalledWith("v1", null);
