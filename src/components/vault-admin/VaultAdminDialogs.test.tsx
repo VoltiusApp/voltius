@@ -52,6 +52,16 @@ test("the rename dialog opens with the current name and commits the edit", () =>
   expect(onClose).toHaveBeenCalled();
 });
 
+test("Enter on an emptied name neither renames nor closes the dialog", () => {
+  const onClose = vi.fn();
+  render(<VaultAdminDialogs target={target} dialog="rename" onClose={onClose} />);
+  const input = screen.getByLabelText("settings.vaults.general.vaultNameLabel") as HTMLInputElement;
+  fireEvent.change(input, { target: { value: "   " } });
+  fireEvent.keyDown(document, { key: "Enter" });
+  expect(h.rename).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+});
+
 test("the delete dialog needs an explicit confirm and then deletes once", () => {
   render(<VaultAdminDialogs target={target} dialog="delete" onClose={vi.fn()} />);
   expect(h.remove).not.toHaveBeenCalled();

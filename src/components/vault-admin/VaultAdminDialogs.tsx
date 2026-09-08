@@ -42,7 +42,11 @@ export function VaultAdminDialogs({
   if (!dialog) return null;
 
   if (effective === "rename") {
-    const commit = () => { rename(draft); onClose(); };
+    const commit = () => {
+      if (!draft.trim()) return;
+      rename(draft);
+      onClose();
+    };
     return (
       <Modal onClose={onClose} onEnter={commit}>
         <ModalCard className="p-6 flex flex-col gap-4 min-w-[21.333rem]">
