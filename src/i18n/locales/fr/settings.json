@@ -660,7 +660,10 @@
           "confirm_other": "Retirer {{count}} membres et rendre privé ?",
           "converting": "Conversion…",
           "confirmBtn": "Confirmer",
-          "btn": "Rendre privé"
+          "btn": "Rendre privé",
+          "copyFailedToast": "Impossible de tout copier hors de l'équipe — rien n'a été supprimé, et ce coffre-fort reste un coffre-fort d'équipe.",
+          "removeMembersFailedToast": "Impossible de retirer les membres — ce coffre-fort reste un coffre-fort d'équipe. {{reason}}",
+          "failedToast": "Impossible de rendre ce coffre-fort privé — {{reason}}"
         },
         "deleteVault": {
           "title": "Supprimer le coffre-fort",

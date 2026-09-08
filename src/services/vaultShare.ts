@@ -4,21 +4,10 @@ import type { TeamRole } from "@/stores/teamStore";
 import { inviteByEmail } from "@/services/teamService";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
+import { userFacingReason } from "@/services/errorReason";
 
-const URL_IN_MESSAGE = /https?:\/\//i;
-
-/**
- * A raw transport failure (no HTTP response — fetch/reqwest rejected before a
- * status came back) can embed the server URL in its message, e.g. "error
- * sending request for url (http://host:port/...)". That must never reach the
- * UI, so collapse it to a translated, URL-free reason; any other error is
- * already a short, translated, URL-free message and passes through as-is.
- */
-export function inviteFailureReason(err: Error): string {
-  return URL_IN_MESSAGE.test(err.message)
-    ? i18n.t("members.error.serverUnreachable")
-    : err.message;
-}
+/** Invite-side name for the shared URL-stripping reason. */
+export const inviteFailureReason = userFacingReason;
 
 /**
  * Invite a known user.
