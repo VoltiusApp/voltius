@@ -224,6 +224,16 @@
         "daysAgo": "{{count}} 天前"
       }
     },
+    "vaultMenu": {
+      "share": "共享…",
+      "members": "成员",
+      "roles": "角色",
+      "rename": "重命名…",
+      "settings": "保险库设置…",
+      "makePrivate": "设为私有…",
+      "delete": "删除保险库…",
+      "openMenu": "保险库菜单"
+    },
     "vaultSidebar": {
       "cloudVaultLabel": "{{name}} (云保险库)",
       "unknownVaultLabel": "未知保险库 {{id}} — 其名称尚未同步到此设备",
