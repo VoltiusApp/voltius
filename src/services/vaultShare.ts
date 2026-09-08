@@ -101,11 +101,6 @@ export async function inviteByEmailAddress(args: {
   });
 }
 
-/**
- * Remove a member. The toast wording lives here so both share surfaces say the
- * same thing; the Members page adds its own undo entry on top of this call,
- * which the popover deliberately has no room for.
- */
 export async function removeTeamMember(args: {
   teamId: string;
   userId: string;
@@ -120,7 +115,6 @@ export async function removeTeamMember(args: {
   });
 }
 
-/** Withdraw a pending invitation. */
 export async function revokeInvitation(args: {
   teamId: string;
   invitationId: string;
@@ -135,14 +129,8 @@ export async function revokeInvitation(args: {
   });
 }
 
-/**
- * Wrap the team vault key for one member who has none (issue #41).
- *
- * `distributeKeyToNewMember` returns quietly when this device cannot unwrap the
- * key itself, which is right for the background reconcile but wrong for a
- * button: a user who pressed "Grant now" and is told nothing assumes it worked.
- * The key-holder check is therefore made here, and a non-holder is told why.
- */
+// distributeKeyToNewMember returns quietly when this device cannot unwrap the
+// key, so the key-holder check happens here — a button must not fail silently.
 export async function grantVaultKeyToMember(args: {
   teamId: string;
   userId: string;
@@ -167,13 +155,8 @@ export async function grantVaultKeyToMember(args: {
   });
 }
 
-/**
- * The deep link that lands an invitee on their own inbox entry for a pending
- * invitation, where Accept and Decline already live. This is the *addressed*
- * vault invite link (issue #68): it carries no capability at all — the
- * invitation row is what confers anything, and it is already addressed to that
- * one user — so the route is `navigate`, not `confirm`.
- */
+/** Opens the invitee's own inbox entry. Carries no capability — the invitation
+ *  row is already bound to that user — so the route is `navigate`. */
 export function addressedInviteLink(invitationId: string): string {
   return buildDeepLink({ route: "notification", entryId: `invite:${invitationId}` });
 }

@@ -375,8 +375,6 @@ test("a plugin-install link naming a disabled source installs nothing", async ()
   expect(fetchManifestMock).not.toHaveBeenCalled();
 });
 
-// ─── vault-join (issue #68) ───────────────────────────────────────────────────
-
 const acceptVaultJoin = async () => {
   await waitFor(() => expect(acceptButton("members.joinLinks.confirm.action").disabled).toBe(false));
   await userEvent.click(acceptButton("members.joinLinks.confirm.action"));
@@ -394,7 +392,6 @@ test("the sheet names the team, the role and the inviter before accept does anyt
   render(<DeepLinkConfirmModal />);
   await waitFor(() => expect(screen.getByText("members.joinLinks.confirm.title")).toBeTruthy());
   expect(screen.getByText("members.joinLinks.confirm.bodyNamed")).toBeTruthy();
-  // The one thing a joiner must not assume: the link is not the key.
   expect(screen.getByText("members.joinLinks.confirm.keyFollowsLater")).toBeTruthy();
 });
 

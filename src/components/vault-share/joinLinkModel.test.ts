@@ -19,7 +19,6 @@ test("every preset is already inside the server's clamps", () => {
 });
 
 test("the unit floors but the count rounds, so a fresh 7-day link reads as 7 days", () => {
-  // The case that drove this: minted a moment ago, so a hair under 7 days.
   expect(expiresIn(at(7 * 24 * 3600_000 - 4_000), NOW)).toEqual({ unit: "days", count: 7 });
   expect(expiresIn(at(3600_000 - 4_000), NOW)).toEqual({ unit: "minutes", count: 60 });
   expect(expiresIn(at(5 * 60_000), NOW)).toEqual({ unit: "minutes", count: 5 });

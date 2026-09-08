@@ -29,10 +29,8 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
   const { t } = useTranslation();
   const vault = useVaultStore((s) => s.vaults.find((v) => v.id === vaultId));
   const teams = useTeamStore((s) => s.teams);
-  // `vaultId` is a local vault id for an owner, but a *team* id for anyone
-  // reached through the sidebar's standalone-team entry — every invited member,
-  // and an owner whose local vault has not yet re-read its teamId after a
-  // conversion. Resolving only the first left the sheet blank for the second.
+  // `vaultId` is a local vault id for an owner but a *team* id when reached
+  // through the sidebar's standalone-team entry.
   const standaloneTeam = vault ? null : (teams.find((t) => t.id === vaultId) ?? null);
   const teamId = vault?.teamId ?? standaloneTeam?.id ?? null;
 
@@ -46,7 +44,6 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
   // Owned by the sheet, never by a tab: the bug this component replaces was an
   // error written to a panel the same handler had just unmounted.
   const [error, setError] = useState("");
-  /** The invitation whose addressed link was just copied, for the confirmation line. */
   const [copiedInvite, setCopiedInvite] = useState<string | null>(null);
 
   // undefined while resolving, null once resolved with no signed-in user.
@@ -60,12 +57,8 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
     return () => { cancelled = true; };
   }, []);
 
-  /**
-   * User ids that already hold a wrapped copy of the vault key, or null while
-   * unknown. This is the only honest source for "who is still waiting": the
-   * team's own vault status is *this viewer's* status, and using it marked
-   * every member as awaiting whenever the reader happened to be.
-   */
+  // Null while unknown. `statusByTeamId` is the *viewer's* own status, so it
+  // cannot say who is waiting.
   const [keyHolders, setKeyHolders] = useState<Set<string> | null>(null);
 
   useEffect(() => {
@@ -78,9 +71,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
         if (results.some((r) => r.status === "rejected")) setError(t("members.share.loadFailed"));
       },
     );
-    // Best-effort and non-blocking: a member without MANAGE permission is
-    // refused this list, and their view simply shows nobody as waiting rather
-    // than showing everybody as waiting.
+    // Best-effort: a member without MANAGE permission is refused this list.
     let cancelled = false;
     void getVaultKeyHolders(teamId)
       .then((ids) => { if (!cancelled) setKeyHolders(new Set(ids)); })
@@ -100,11 +91,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
       handle: m.handle ?? "?",
       roleNames: m.role_ids.map(roleName).filter(Boolean),
       online: !!m.is_online,
-      // Per member, from the server's key-holder list. Unknown means "say
-      // nothing" rather than "everyone is waiting".
       state: keyHolders && !keyHolders.has(m.user_id) ? "awaiting_key" : "member",
-      // Carried so "Grant now" can wrap the vault key for this member without
-      // a second roster fetch.
       publicKey: m.public_key,
     }));
     const pending: Person[] = (pendingInvitationsByTeam[teamId] ?? []).map((inv) => ({
@@ -130,10 +117,9 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
       .filter((n): n is string => !!n);
   }, [teamId, myUserId, membersByTeam, rolesByTeam]);
 
-  // Neither a vault this device holds nor a team it belongs to.
   if (!vault && !standaloneTeam) return null;
 
-  // Only a *local* vault can be converted; a standalone team is one already.
+  // Only a local vault can be converted; a standalone team already is one.
   if (!teamId) {
     return (
       <ConvertToTeamGate
@@ -148,15 +134,10 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
   const canManage = canManageShare(myRoleNames);
   const canMint = canMintLink(myRoleNames);
 
-  // Every one of these shipped as `() => {}` while PeopleList rendered a button
-  // for it, so the popover's Remove, Revoke, Grant now and copy-link controls
-  // all did nothing. They run the same calls the Members page runs, then
-  // refetch so the list reflects what just happened.
   const reloadMembers = () => {
     void useTeamStore.getState().loadMembers(teamId);
     void useTeamStore.getState().loadPendingInvitations(teamId);
-    // Refetched too, so a member who just received their key stops reading as
-    // waiting without the user having to reopen the sheet.
+    // So a member who just received their key stops reading as waiting.
     void getVaultKeyHolders(teamId).then((ids) => setKeyHolders(new Set(ids))).catch(() => {});
   };
 
@@ -181,9 +162,6 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
       .then(reloadMembers)
       .catch(() => {});
 
-  // The addressed vault invite link: it opens the invitee's own inbox entry,
-  // where Accept and Decline already are. It carries no capability — the
-  // invitation is already bound to that one user — so it needs no new route.
   const handleCopyInviteLink = (p: Person) => {
     if (!p.invitationId) return;
     void writeClipboard(addressedInviteLink(p.invitationId)).then(() => setCopiedInvite(p.invitationId!));

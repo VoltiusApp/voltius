@@ -19,8 +19,6 @@ vi.mock("@/services/teamJoinGrants", async (importOriginal) => ({
   createJoinGrant: h.create,
   revokeJoinGrant: h.revoke,
 }));
-// Passes the action straight through: the toast wrapper is not what these
-// tests are about, and mocking it keeps the notification store out of them.
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: ({ run }: { run: () => Promise<unknown> }) => run(),
 }));
@@ -31,7 +29,6 @@ import { JoinLinksTab } from "./JoinLinksTab";
 const ROLES = [
   { id: "r1", team_id: "t1", name: "member", permissions: 0, is_builtin: true, position: 2, created_at: "" },
   { id: "r2", team_id: "t1", name: "connect-only", permissions: 0, is_builtin: true, position: 3, created_at: "" },
-  // Never offered by a link: the server answers 400 for it.
   { id: "r0", team_id: "t1", name: "owner", permissions: 0, is_builtin: true, position: 0, created_at: "" },
 ];
 
@@ -39,7 +36,6 @@ const inADay = () => new Date(Date.now() + 24 * 3600_000).toISOString();
 
 afterEach(() => { cleanup(); h.grants = []; vi.clearAllMocks(); });
 
-/** The mint form is folded away behind "New link"; open it. */
 const openForm = async () => {
   await waitFor(() => expect(screen.getByText("members.joinLinks.newLink")).toBeTruthy());
   fireEvent.click(screen.getByText("members.joinLinks.newLink"));
@@ -76,14 +72,12 @@ test("the freshly minted grant is the only one that offers its link", async () =
   const { rerender } = render(<JoinLinksTab teamId="t1" roles={ROLES} canMint />);
   await openForm();
 
-  // The reload after minting is what surfaces the row the link belongs to.
   h.grants = [{ id: "g1", role: "member", max_uses: 1, uses: 0, expires_at: inADay(), created_by: "u1" }];
   fireEvent.click(screen.getByText("members.joinLinks.create"));
   rerender(<JoinLinksTab teamId="t1" roles={ROLES} canMint />);
 
   const field = await waitFor(() => screen.getByDisplayValue(new RegExp(secret)));
   expect((field as HTMLInputElement).value).toContain("#vault-join?g=g1&k=");
-  // The secret rides in the fragment, so it never reaches a web server log.
   expect((field as HTMLInputElement).value.split("#")[0]).not.toContain(secret);
 });
 

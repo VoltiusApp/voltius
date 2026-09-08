@@ -10,7 +10,7 @@ export type Person = {
   online: boolean;
   state: "member" | "pending" | "awaiting_key";
   invitationId?: string;
-  /** The member's X25519 public key, so "Grant now" can wrap the vault key. */
+  /** X25519 public key, so "Grant now" can wrap the vault key. */
   publicKey?: string;
 };
 
@@ -28,22 +28,15 @@ export function PeopleList({ people, canManage, onRemove, onRevoke, onGrantKey, 
   return (
     <div className="flex flex-col gap-1.5">
       {people.map((p) => (
-        // Two lines rather than one. At the popover's 320px, an untruncated
-        // handle plus a role chip plus "Grant now" plus remove squeezed the
-        // handle into a three-line column and the waiting note into a six-line
-        // one. The identity line now owns the full width; the waiting note and
-        // its action sit under it, and only for someone actually waiting.
         <div
           key={p.invitationId ?? p.userId}
           className="flex flex-col gap-1 px-3 py-2 rounded-lg bg-(--t-bg-card)"
         >
-          {/* Wraps rather than squeezes. An email address is long enough that
-              flexing it against the chips shredded it into a five-line column
-              at the popover's width; here the chips drop to the next line and
-              the identity keeps a readable floor. */}
+          {/* Wraps rather than squeezes: at the popover's width, flexing a long
+              handle against the chips shredded it into a five-line column. */}
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <PresenceAvatar handle={p.handle} size={26} online={p.online} />
-            {/* No truncation: the handle is what an owner reads before granting access. */}
+            {/* No truncation: read before granting access. */}
             <span className="text-xs text-(--t-text-primary) break-all flex-1 basis-32 min-w-0">
               {p.handle}
             </span>

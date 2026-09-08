@@ -1,9 +1,3 @@
-/**
- * The one selectable chip of the share surface — roles, use counts, lifetimes.
- * Extracted because the same markup, the same accent-mix background and the same
- * `aria-pressed` had been written three times across this folder and would
- * otherwise drift a fourth time.
- */
 export function ChoiceChip({
   label,
   selected,
@@ -13,7 +7,6 @@ export function ChoiceChip({
   label: string;
   selected: boolean;
   onClick: () => void;
-  /** Role names are stored lowercase but read as proper nouns in the UI. */
   capitalize?: boolean;
 }) {
   return (

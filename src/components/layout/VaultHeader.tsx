@@ -102,10 +102,6 @@ export function MembersStack({
         </button>
       )}
 
-      {/* The Share verb (issue #68). This affordance already opened the share
-          sheet; it just never said so — a bare "+" with an "Invite member"
-          tooltip. Naming it is the whole of the explicit verb: no second entry
-          point, and no second surface to keep in step with this one. */}
       <button
         type="button"
         onClick={toggleOpen}
@@ -134,9 +130,7 @@ export function MembersStack({
         onClose={() => setOpen(false)}
         anchorRef={ref}
         width={320}
-        // The default 320 was sized for a short members list. This surface now
-        // carries three tabs, and at 320 the Links tab's Create button sat
-        // below the fold behind a scroll.
+        // 320 leaves the Links tab's Create button below the fold.
         maxHeight={480}
         align="right"
         gap={4}
@@ -299,10 +293,8 @@ export default function VaultHeader() {
 
       {/* Right zone: online members */}
       <div className="flex items-center justify-end min-w-0">
-        {/* Shown for a private vault too. The sheet's own `!teamId` branch is
-            the conversion consent gate, so hiding the verb until a team already
-            exists put it everywhere except the one place it matters most. A
-            private vault simply has no avatar stack to show beside it. */}
+        {/* Shown for a private vault too: the sheet's `!teamId` branch is the
+            conversion consent gate. */}
         {activeVaultId && (accountMode === "server" || team) && (
           <MembersStack
             members={members ?? []}

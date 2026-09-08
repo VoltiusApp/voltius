@@ -25,20 +25,6 @@ interface Props {
   canMint: boolean;
 }
 
-/**
- * Open join links for a team vault (issue #68).
- *
- * Two honesty rules drive the whole layout:
- *
- * 1. A link confers **membership, not vault access**. The vault key is wrapped
- *    per member with X25519, so it cannot travel in a link — the joiner waits
- *    in `awaiting_key` until an online key-holder wraps it. The tab says so
- *    rather than letting a manager assume the link is a key.
- * 2. The secret is returned by the mint call and **never again** — only its
- *    sha256 is stored. So a listed grant has no copyable URL, and this tab must
- *    not render a Copy button that would produce a broken link. Only the grant
- *    minted in this session, still held in memory, offers one.
- */
 export function JoinLinksTab({ teamId, roles, canMint }: Props) {
   const { t } = useTranslation();
   const [grants, setGrants] = useState<JoinGrant[] | null>(null);
@@ -46,8 +32,7 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
   const [minting, setMinting] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // The URL for a grant minted in this session, keyed by grant id. Never
-  // persisted: writing a live join secret to disk would outlive the tab.
+  // In memory only: a live join secret must not outlive the tab.
   const [freshLinks, setFreshLinks] = useState<Record<string, string>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -57,8 +42,7 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
   const [ttlSecs, setTtlSecs] = useState<number>(TTL_PRESETS[2].secs);
 
   useEffect(() => {
-    // Least privileged of what this team actually offers, never a hardcoded
-    // "member": a link is unattended credential material.
+    // Least privileged available, never a hardcoded "member".
     if (!role && options.length > 0) setRole(options[options.length - 1].name as GrantableRole);
   }, [options, role]);
 
@@ -93,12 +77,10 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
         ...prev,
         [grant.id]: buildDeepLink({ route: "vault-join", grantId: grant.id, secret: grant.secret }),
       }));
-      // Folded away again so the new link, which is only readable now, is what
-      // the tab shows rather than the form that made it.
       setCreating(false);
       reload();
     } catch {
-      // runTeamAction already toasted the reason; the tab stays as it was.
+      // Already toasted.
     } finally {
       setMinting(false);
     }
@@ -158,7 +140,6 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
                 </span>
                 <span
                   className="text-[11px] text-(--t-text-secondary) flex-1 min-w-0"
-                  // The friendly count is rounded; this is the exact moment.
                   title={new Date(grant.expires_at).toLocaleString()}
                 >
                   {t("members.joinLinks.usesLeft", {
@@ -199,8 +180,7 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
                   </button>
                 </div>
               ) : (
-                // Not a failure — the server keeps only the secret's hash, so
-                // there is nothing to copy. Saying so beats a dead button.
+                // Only the hash is stored, so there is nothing to copy.
                 <span className="text-[10px] text-(--t-text-dim)">{t("members.joinLinks.secretNotRecoverable")}</span>
               )}
             </div>

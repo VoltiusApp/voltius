@@ -90,10 +90,7 @@ export interface ConfirmLoad {
   "vault-join": JoinGrantPreview;
 }
 
-/**
- * A refused grant is matched on the error's code, never on its message: the
- * message is translated, and a translated string is not a protocol.
- */
+/** Matched on code, never on the translated message. */
 function joinGrantErrorMessage(e: unknown, fallbackKey: string): TranslatableMessage {
   if (!(e instanceof JoinGrantError)) return { key: fallbackKey };
   switch (e.code) {
@@ -269,9 +266,7 @@ export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]
     acceptLabelKey: "members.joinLinks.confirm.action",
     errorKey: "members.joinLinks.confirm.failed",
     errorMessage: joinGrantErrorMessage,
-    // Preview consumes no use, so a sheet the user closes costs the link
-    // nothing. The server re-checks revocation, expiry and exhaustion again
-    // inside the redemption transaction; this result is copy, not a decision.
+    // Consumes no use; the server re-validates inside the redeem transaction.
     load: ({ grantId, secret }) => previewJoinGrant(grantId, secret),
     details: (_intent, loaded, t) => ({
       title: loaded
@@ -286,15 +281,11 @@ export const CONFIRM_SPECS: { [K in ConfirmRoute]: ConfirmSpec<K, ConfirmLoad[K]
             })
           : t("members.joinLinks.confirm.body", { team: loaded.team_name, role: loaded.role })
         : t("members.joinLinks.confirm.loading"),
-      // The one thing the sheet must not let the user assume. A link confers
-      // membership; the vault key is wrapped per member with X25519 and only
-      // arrives once an online key-holder wraps it.
+      // A link confers membership only; the key follows separately.
       note: loaded ? t("members.joinLinks.confirm.keyFollowsLater") : undefined,
     }),
     accept: async (intent, _loaded) => {
-      // Sent so the roster row a key-holder reads is wrappable immediately.
-      // The server fills a NULL only and never overwrites — overwriting would
-      // orphan every vault key already wrapped to the old key.
+      // Sent so a key-holder can wrap for this member at once.
       const publicKey = await getMyX25519Keypair()
         .then(({ publicKey }) => publicKey)
         .catch(() => null);
