@@ -96,14 +96,25 @@ export async function getMyX25519Keypair(): Promise<{ privateKey: string; public
 }
 
 /**
- * Publish this device's x25519 public key and return it. Refuses on an unproven
- * vault key: that would overwrite a good roster key with one nobody holds (#228).
+ * Publish this device's x25519 public key and return it.
+ *
+ * An account's identity never changes, so a device deriving something other
+ * than what the roster already holds has the wrong vault key — the #228 state,
+ * observed poisoning a live roster. Overwriting would make that permanent and
+ * shared: teammates would wrap to a key nobody holds. Refuse both when the
+ * session admits its key is unproven and when the published key disagrees.
  */
 export async function publishMyPublicKey(): Promise<string> {
   if (useVaultKeysStore.getState().identityUnproven) {
     throw new Error(i18n.t("common.error.identityUnproven"));
   }
   const { publicKey } = await getMyX25519Keypair();
+  const myUserId = await teamService.getMyUserId();
+  const published = myUserId ? await teamService.getUserPublicKey(myUserId) : null;
+  if (published?.public_key && published.public_key !== publicKey) {
+    useVaultKeysStore.getState().markIdentityUnproven();
+    throw new Error(i18n.t("common.error.identityUnproven"));
+  }
   await teamService.updatePublicKey(publicKey);
   return publicKey;
 }
