@@ -11,7 +11,7 @@ import type { TeamMember } from "@/services/teamService";
 import { AvatarOverflow, MiniAvatar } from "@/components/shared/AvatarStack";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
-import { useAccountMode } from "@/hooks/useAccountMode";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
 import { ContextMenu } from "@/components/shared/ContextMenu";
 import { useVaultAdmin } from "@/components/vault-admin/useVaultAdmin";
@@ -182,7 +182,7 @@ export default function VaultHeader() {
   const [syncState, setSyncState] = useState(getSyncState);
   useEffect(() => onSyncStateChange(() => setSyncState(getSyncState())), []);
 
-  const accountMode = useAccountMode();
+  const { accountMode } = useSubscriptionStore();
 
   // Use the first selected vault as the "active" vault.
   // For non-owner team members there is no local vault — the sidebar sets a

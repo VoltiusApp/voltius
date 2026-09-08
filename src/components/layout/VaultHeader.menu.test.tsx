@@ -14,7 +14,6 @@ vi.mock("@/services/sync", () => ({
   getSyncState: () => ({ status: "idle", lastSync: null, error: null, cloudActive: false, blobSizeBytes: 0 }),
   onSyncStateChange: () => () => {},
 }));
-vi.mock("@/services/account", () => ({ getAccountMode: vi.fn(async () => "server") }));
 vi.mock("@/components/vault-admin/VaultAdminDialogs", () => ({
   VaultAdminDialogs: ({ dialog }: { dialog: string | null }) =>
     dialog ? <div data-testid="dialog">{dialog}</div> : null,
@@ -24,6 +23,7 @@ import VaultHeader from "./VaultHeader";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import type { Team } from "@/services/teamService";
 
 const team = (id: string, name: string): Team =>
@@ -39,6 +39,7 @@ beforeEach(() => {
     loadMembers: vi.fn(async () => {}),
   });
   useUIStore.setState({ activeNav: "hosts", homeView: true, membersRolesPending: false });
+  useSubscriptionStore.setState({ accountMode: "server" });
 });
 afterEach(cleanup);
 
