@@ -820,7 +820,7 @@ async function refetchActiveSessions(): Promise<void> {
   await useTeamSessionStore.getState().fetchActiveSessions().catch(() => {});
 }
 
-async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promise<void> {
+export async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promise<void> {
   if (eventData.startsWith("team:")) {
     const teamId = eventData.slice(5);
     _teamEventListeners.forEach((fn) => fn(teamId));
