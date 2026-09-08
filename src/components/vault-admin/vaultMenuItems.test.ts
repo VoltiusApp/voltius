@@ -3,8 +3,8 @@ import { vaultMenuItems } from "./vaultMenuItems";
 import type { VaultAdminCapabilities } from "./vaultAdminTarget";
 
 const t = (k: string) => k;
-const labels = (caps: VaultAdminCapabilities, memberCount: number | null = null) =>
-  vaultMenuItems({ caps, memberCount, t, on: vi.fn() }).map((i) => i.label);
+const labels = (caps: VaultAdminCapabilities, memberCount: number | null = null, canShare = true) =>
+  vaultMenuItems({ caps, memberCount, canShare, t, on: vi.fn() }).map((i) => i.label);
 
 const privateCaps: VaultAdminCapabilities =
   { isTeam: false, isOwner: false, canRename: true, canDelete: true, canMakePrivate: false };
@@ -22,6 +22,16 @@ test("a private vault gets no members, roles or make-private entries", () => {
     "layout.vaultMenu.settings",
     "layout.vaultMenu.delete",
   ]);
+});
+
+test("a private vault with nothing to share with gets no Share row, rename leads", () => {
+  const result = labels(privateCaps, null, false);
+  expect(result).not.toContain("layout.vaultMenu.share");
+  expect(result[0]).toBe("layout.vaultMenu.rename");
+});
+
+test("a shareable vault still gets Share first", () => {
+  expect(labels(privateCaps, null, true)[0]).toBe("layout.vaultMenu.share");
 });
 
 test("a team vault owner gets the full menu, destructive last", () => {
@@ -50,14 +60,14 @@ test("a standalone team vault offers neither rename nor delete", () => {
 });
 
 test("the member count rides on the Members row as a shortcut hint", () => {
-  const items = vaultMenuItems({ caps: ownerCaps, memberCount: 4, t, on: vi.fn() });
+  const items = vaultMenuItems({ caps: ownerCaps, memberCount: 4, canShare: true, t, on: vi.fn() });
   expect(items.find((i) => i.label === "layout.vaultMenu.members")?.shortcut).toBe("4");
-  const none = vaultMenuItems({ caps: ownerCaps, memberCount: null, t, on: vi.fn() });
+  const none = vaultMenuItems({ caps: ownerCaps, memberCount: null, canShare: true, t, on: vi.fn() });
   expect(none.find((i) => i.label === "layout.vaultMenu.members")?.shortcut).toBeUndefined();
 });
 
 test("delete and make-private are flagged danger and start a divider group", () => {
-  const items = vaultMenuItems({ caps: ownerCaps, memberCount: 4, t, on: vi.fn() });
+  const items = vaultMenuItems({ caps: ownerCaps, memberCount: 4, canShare: true, t, on: vi.fn() });
   const del = items.find((i) => i.label === "layout.vaultMenu.delete")!;
   const priv = items.find((i) => i.label === "layout.vaultMenu.makePrivate")!;
   expect(del.danger).toBe(true);
@@ -66,7 +76,7 @@ test("delete and make-private are flagged danger and start a divider group", () 
 });
 
 test("with no make-private, delete opens the destructive group itself", () => {
-  const items = vaultMenuItems({ caps: privateCaps, memberCount: null, t, on: vi.fn() });
+  const items = vaultMenuItems({ caps: privateCaps, memberCount: null, canShare: true, t, on: vi.fn() });
   const del = items.find((i) => i.label === "layout.vaultMenu.delete")!;
   expect(del.divider).toBe(true);
   expect(del.danger).toBe(true);
@@ -74,7 +84,7 @@ test("with no make-private, delete opens the destructive group itself", () => {
 
 test("clicking an item reports its action", () => {
   const on = vi.fn();
-  const items = vaultMenuItems({ caps: ownerCaps, memberCount: 4, t, on });
+  const items = vaultMenuItems({ caps: ownerCaps, memberCount: 4, canShare: true, t, on });
   items.find((i) => i.label === "layout.vaultMenu.rename")!.onClick!();
   expect(on).toHaveBeenCalledWith("rename");
 });

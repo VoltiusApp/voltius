@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useContextMenu } from "@/components/shared/ContextMenu";
 import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
+import { getAccountMode } from "@/services/account";
 import { vaultAdminCapabilities, type VaultAdminTarget } from "./vaultAdminTarget";
 import { vaultMenuItems } from "./vaultMenuItems";
 import type { VaultDialog } from "./VaultAdminDialogs";
@@ -15,15 +16,20 @@ export function useVaultAdmin(target: VaultAdminTarget | null) {
   const { pos, open: openAtPointer, openAt, close: closeMenu } = useContextMenu();
   const [dialog, setDialog] = useState<VaultDialog>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [accountMode, setAccountMode] = useState<string | null>(null);
+  useEffect(() => { getAccountMode().then(setAccountMode).catch(() => {}); }, []);
 
   const caps = target
     ? vaultAdminCapabilities(target, teams, rolesByTeam)
     : { isTeam: false, isOwner: false, canRename: false, canDelete: false, canMakePrivate: false };
   const memberCount = target?.teamId ? (membersByTeam[target.teamId]?.length ?? null) : null;
+  // Mirrors MembersStack's render gate in VaultHeader: a private vault only has
+  // someone to share with once cloud sync is on, but a team vault always does.
+  const canShare = accountMode === "server" || caps.isTeam;
 
   const items = target
     ? vaultMenuItems({
-        caps, memberCount, t,
+        caps, memberCount, canShare, t,
         on: (action) => {
           switch (action) {
             case "share": setShareOpen(true); return;

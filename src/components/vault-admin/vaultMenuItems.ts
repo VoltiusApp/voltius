@@ -9,16 +9,19 @@ export type VaultMenuAction =
  * members to manage and no team to leave, so those entries simply do not exist.
  */
 export function vaultMenuItems({
-  caps, memberCount, t, on,
+  caps, memberCount, canShare, t, on,
 }: {
   caps: VaultAdminCapabilities;
   memberCount: number | null;
+  canShare: boolean;
   t: (key: string) => string;
   on: (action: VaultMenuAction) => void;
 }): ContextMenuItem[] {
-  const items: ContextMenuItem[] = [
-    { label: t("layout.vaultMenu.share"), icon: "lucide:share-2", onClick: () => on("share") },
-  ];
+  const items: ContextMenuItem[] = [];
+
+  if (canShare) {
+    items.push({ label: t("layout.vaultMenu.share"), icon: "lucide:share-2", onClick: () => on("share") });
+  }
 
   if (caps.isTeam) {
     items.push({
