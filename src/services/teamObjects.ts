@@ -1,6 +1,14 @@
+import { getVersion } from "@tauri-apps/api/app";
 import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, tryRefreshJwt } from "@/services/authTokens";
+
+// Cached: the app version cannot change while the process runs.
+let cachedVersion: string | null = null;
+async function clientVersion(): Promise<string> {
+  cachedVersion ??= await getVersion().catch(() => "0.0.0");
+  return cachedVersion;
+}
 
 export type TeamObjectType =
   | "connection"
@@ -60,6 +68,17 @@ function apiError(message: string, opts?: { status?: number; offline?: boolean }
   return err;
 }
 
+/**
+ * Throws a classifiable {@link TeamObjectApiError} (never a bare `Error`) when
+ * `res` is not ok, so every caller's failures carry `status` the same way the
+ * special-cased statuses in {@link fetchTeamApi} do. `ignoreStatus` lets
+ * delete endpoints treat "already gone" as success.
+ */
+async function ensureOk(res: Response, messageKey: string, opts?: { ignoreStatus?: number }): Promise<void> {
+  if (res.ok || res.status === opts?.ignoreStatus) return;
+  throw apiError(i18n.t(messageKey, { status: res.status }), { status: res.status });
+}
+
 async function fetchTeamApi(path: string, init: RequestInit): Promise<Response> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw apiError(i18n.t("common.error.notConnectedToServer"), { offline: true });
@@ -68,9 +87,14 @@ async function fetchTeamApi(path: string, init: RequestInit): Promise<Response> 
   if (!jwt || isJwtExpiredOrExpiring(jwt)) jwt = await tryRefreshJwt();
   if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
 
+  const version = await clientVersion();
   const makeHeaders = (token: string) => ({
     ...(init.headers as Record<string, string>),
     Authorization: `Bearer ${token}`,
+    // Lets a server opt into refusing writes from builds that predate the
+    // encrypted metadata format (#229). Compatibility only — spoofable, and
+    // never used for authorization.
+    "X-Client-Version": version,
   });
 
   let res = await appFetch(`${serverUrl}${path}`, { ...init, headers: makeHeaders(jwt) });
@@ -81,6 +105,7 @@ async function fetchTeamApi(path: string, init: RequestInit): Promise<Response> 
   }
   if (res.status === 403) throw apiError(i18n.t("common.error.noPermissionTeamVaultOp"), { status: res.status });
   if (res.status === 402) throw apiError(i18n.t("common.error.teamVaultRequiresSubscription"), { status: res.status });
+  if (res.status === 426) throw apiError(i18n.t("common.error.clientTooOldForTeamVault"), { status: res.status });
   if (res.status === 429) {
     const retryAfter = parseInt(res.headers.get("Retry-After") ?? "60", 10);
     throw apiError(i18n.t("common.error.rateLimited", { seconds: retryAfter }), { status: res.status });
@@ -90,7 +115,7 @@ async function fetchTeamApi(path: string, init: RequestInit): Promise<Response> 
 
 export async function listTeamObjects(teamId: string): Promise<TeamObjectRecord[]> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/objects`, { method: "GET" });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToListTeamObjects", { status: res.status }));
+  await ensureOk(res, "common.error.failedToListTeamObjects");
   return res.json();
 }
 
@@ -100,12 +125,12 @@ export async function upsertTeamObject(teamId: string, object: UpsertTeamObject)
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(object),
   });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamObject", { status: res.status }));
+  await ensureOk(res, "common.error.failedToSaveTeamObject");
 }
 
 export async function deleteTeamObject(teamId: string, objectId: string): Promise<void> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/objects/${objectId}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToDeleteTeamObject", { status: res.status }));
+  await ensureOk(res, "common.error.failedToDeleteTeamObject");
 }
 
 /**
@@ -125,9 +150,7 @@ export async function reencryptTeamObjects(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(items),
   });
-  if (!res.ok) {
-    throw apiError(i18n.t("common.error.failedToSaveTeamObject", { status: res.status }), { status: res.status });
-  }
+  await ensureOk(res, "common.error.failedToSaveTeamObject");
 }
 
 export interface TeamObjectPrefRecord {
@@ -138,7 +161,7 @@ export interface TeamObjectPrefRecord {
 
 export async function listTeamObjectPrefs(teamId: string): Promise<TeamObjectPrefRecord[]> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/object_prefs`, { method: "GET" });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToListTeamObjectPrefs", { status: res.status }));
+  await ensureOk(res, "common.error.failedToListTeamObjectPrefs");
   return res.json();
 }
 
@@ -152,21 +175,19 @@ export async function upsertTeamObjectPref(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pinned }),
   });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamObjectPref", { status: res.status }));
+  await ensureOk(res, "common.error.failedToSaveTeamObjectPref");
 }
 
 export async function deleteTeamObjectPref(teamId: string, objectId: string): Promise<void> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/object_prefs/${objectId}`, {
     method: "DELETE",
   });
-  if (!res.ok && res.status !== 404) {
-    throw new Error(i18n.t("common.error.failedToDeleteTeamObjectPref", { status: res.status }));
-  }
+  await ensureOk(res, "common.error.failedToDeleteTeamObjectPref", { ignoreStatus: 404 });
 }
 
 export async function listTeamSecrets(teamId: string): Promise<TeamSecretRecord[]> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/secrets`, { method: "GET" });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToListTeamSecrets", { status: res.status }));
+  await ensureOk(res, "common.error.failedToListTeamSecrets");
   return res.json();
 }
 
@@ -176,7 +197,7 @@ export async function upsertTeamSecret(teamId: string, secret: UpsertTeamSecret)
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(secret),
   });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamSecret", { status: res.status }));
+  await ensureOk(res, "common.error.failedToSaveTeamSecret");
 }
 
 /** 404 is success: the secret is already gone from the vault. */
@@ -184,7 +205,5 @@ export async function deleteTeamSecret(teamId: string, secretId: string): Promis
   const res = await fetchTeamApi(`/v1/teams/${teamId}/secrets/${encodeURIComponent(secretId)}`, {
     method: "DELETE",
   });
-  if (!res.ok && res.status !== 404) {
-    throw new Error(i18n.t("common.error.failedToDeleteTeamSecret", { status: res.status }));
-  }
+  await ensureOk(res, "common.error.failedToDeleteTeamSecret", { ignoreStatus: 404 });
 }
