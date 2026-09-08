@@ -41,14 +41,20 @@ vi.mock("@/stores/teamStore", () => {
   );
   return { useTeamStore };
 });
+// teamOffboarding reads i18n directly rather than through react-i18next, so the
+// label assertions below need the key back, not the English string.
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/stores/historyStore", () => ({
-  useHistoryStore: (sel: (s: { push: typeof h.push }) => unknown) => sel({ push: h.push }),
+  useHistoryStore: Object.assign(
+    (sel: (s: { push: typeof h.push }) => unknown) => sel({ push: h.push }),
+    { getState: () => ({ push: h.push }) },
+  ),
 }));
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
 
-import { MemberDetailPanel } from "./MembersPage";
+import { MemberDetailPanel } from "./panels/MemberDetailPanel";
 
 const baseMember: TeamMember = {
   team_id: "t1",
@@ -135,23 +141,49 @@ test("remove-role path: click member toggle when member has it", async () => {
   expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.removeRole" }));
 });
 
-test("remove-member two-step confirm flow", async () => {
+test("remove-member confirms in a dialog before removing", async () => {
   render(<MemberDetailPanel {...baseProps} />);
   fireEvent.click(screen.getByRole("button", { name: "members.removeFromTeam" }));
   expect(h.removeMember).not.toHaveBeenCalled();
-  expect(await screen.findByRole("button", { name: "members.confirmRemoval" })).toBeTruthy();
+  expect(await screen.findByText("members.offboarding.removeTitle")).toBeTruthy();
 
-  fireEvent.click(screen.getByRole("button", { name: "members.confirmRemoval" }));
+  fireEvent.click(screen.getByRole("button", { name: "members.offboarding.removeConfirm" }));
   await waitFor(() => expect(baseProps.onUpdated).toHaveBeenCalled());
   expect(h.removeMember).toHaveBeenCalledWith("t1", "u1");
   expect(baseProps.onClose).toHaveBeenCalled();
   expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.remove" }));
 });
 
+test("cancelling the removal dialog removes nobody", async () => {
+  render(<MemberDetailPanel {...baseProps} />);
+  fireEvent.click(screen.getByRole("button", { name: "members.removeFromTeam" }));
+
+  fireEvent.click(await screen.findByRole("button", { name: "settings.shared.cancel" }));
+
+  expect(h.removeMember).not.toHaveBeenCalled();
+  expect(h.push).not.toHaveBeenCalled();
+});
+
+test("offers Leave team to yourself instead of Remove", () => {
+  render(<MemberDetailPanel {...baseProps} isMe member={{ ...baseMember, user_id: "me" }} />);
+
+  expect(screen.getByRole("button", { name: "members.leaveTeam" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
+});
+
+test("does not offer Leave team to the owner", () => {
+  // The server rejects an owner removing themselves, so offering it would lie.
+  render(
+    <MemberDetailPanel {...baseProps} isMe isTargetOwner member={{ ...baseMember, user_id: "me" }} />,
+  );
+
+  expect(screen.queryByRole("button", { name: "members.leaveTeam" })).toBeNull();
+});
+
 test("remove undo closure: re-adds member, reassigns each snapshot role, reloads", async () => {
   render(<MemberDetailPanel {...baseProps} />);
   fireEvent.click(screen.getByRole("button", { name: "members.removeFromTeam" }));
-  fireEvent.click(await screen.findByRole("button", { name: "members.confirmRemoval" }));
+  fireEvent.click(await screen.findByRole("button", { name: "members.offboarding.removeConfirm" }));
   await waitFor(() => expect(h.push).toHaveBeenCalled());
 
   const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };

@@ -90,7 +90,13 @@
       "seatsUnknown": "Seat count unavailable — check your connection to the sync server",
       "inviteAction": "Invite",
       "joinsAs": "They join as",
-      "selectRoleHint": "Select at least one role before inviting"
+      "selectRoleHint": "Select at least one role before inviting",
+      "expiresIn_one": "Expires tomorrow",
+      "expiresIn_other": "Expires in {{count}} days",
+      "expiresToday": "Expires today",
+      "expired": "Expired",
+      "resendTitle": "Send this invitation again",
+      "expiredOn": "Expired {{date}}"
     },
     "roleBlurb": {
       "manager": "Managers can invite people, change roles and manage links.",
@@ -117,7 +123,9 @@
       "convertingVault": "Turning {{vault}} into a team vault...",
       "vaultConverted": "{{vault}} is now a team vault",
       "grantingKey": "Granting vault access to {{name}}…",
-      "keyGranted": "{{name}} can now open the vault"
+      "keyGranted": "{{name}} can now open the vault",
+      "leavingTeam": "Leaving team...",
+      "leftTeam": "You left the team"
     },
     "error": {
       "cannotRemoveOwnerRole": "Cannot remove the owner role from the team owner",
@@ -231,6 +239,22 @@
       },
       "newLink": "New link",
       "cancel": "Cancel"
-    }
+    },
+    "offboarding": {
+      "removeTitle_one": "Remove {{names}} from this team?",
+      "removeTitle_other": "Remove {{count}} people from this team?",
+      "leaveTitle": "Leave this team?",
+      "removeConfirm_one": "Remove",
+      "removeConfirm_other": "Remove {{count}}",
+      "leaveConfirm": "Leave team",
+      "pointAccessEnds": "Their access to this vault's hosts, keys and snippets ends immediately, on every device.",
+      "pointLocalWipe": "The vault's contents are deleted from their devices, including saved passwords and private keys.",
+      "pointAlreadySeen": "They keep anything they already saw. Rotate credentials they had access to.",
+      "pointSessions": "They are dropped from any shared terminal session they had joined.",
+      "leavePointAccessEnds": "You lose access to this vault's hosts, keys and snippets on every device.",
+      "leavePointLocalWipe": "Its contents are deleted from this device, including saved passwords and private keys.",
+      "leavePointIrreversible": "You cannot rejoin without a new invitation."
+    },
+    "leaveTeam": "Leave team"
   }
 }

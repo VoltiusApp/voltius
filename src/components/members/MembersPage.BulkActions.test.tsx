@@ -178,7 +178,15 @@ vi.mock("@/stores/teamSessionStore", () => {
   return { useTeamSessionStore };
 });
 vi.mock("@/stores/historyStore", () => ({
-  useHistoryStore: (sel: (s: { push: typeof h.push }) => unknown) => sel({ push: h.push }),
+  useHistoryStore: Object.assign(
+    (sel: (s: { push: typeof h.push }) => unknown) => sel({ push: h.push }),
+    { getState: () => ({ push: h.push }) },
+  ),
+}));
+// teamOffboarding reads i18n directly rather than through react-i18next, so the
+// label assertions below need the key back, not the English string.
+vi.mock("@/i18n", () => ({
+  default: { t: (k: string) => k },
 }));
 
 import MembersPage from "./MembersPage";
@@ -220,35 +228,40 @@ test("single member card renders; no bulk menu until 2+ selected", async () => {
   expect(screen.getByTestId("bulk-u1::members.contextMenu.kickBulk")).toBeTruthy();
 });
 
-test("bulk kick: removeMember for both selected, push removeBulk, reload", async () => {
+test("bulk kick asks for confirmation before removing anyone", async () => {
+  // Regression: the bulk path removed N members on one click while the single
+  // path was two-step.
+  await renderPage();
+  selectU1U2();
+  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.kickBulk"));
+
+  expect(h.removeMember).not.toHaveBeenCalled();
+  expect(screen.getByText("members.offboarding.removeTitle")).toBeTruthy();
+});
+
+test("bulk kick, once confirmed: removeMember for both selected, push, reload", async () => {
   await renderPage();
   selectU1U2();
   h.loadMembers.mockClear();
   fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.kickBulk"));
+  fireEvent.click(screen.getByText("members.offboarding.removeConfirm"));
 
   await waitFor(() => expect(h.push).toHaveBeenCalled());
   expect(h.removeMember).toHaveBeenCalledWith("t1", "u1");
   expect(h.removeMember).toHaveBeenCalledWith("t1", "u2");
   expect(h.removeMember).toHaveBeenCalledTimes(2);
-  expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.removeBulk" }));
+  expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.remove" }));
   expect(h.loadMembers).toHaveBeenCalledWith("t1");
 });
 
-test("bulk kick undo closure: re-adds each snapshot, reassigns roles, reloads", async () => {
+test("cancelling the bulk confirmation removes nobody", async () => {
   await renderPage();
   selectU1U2();
   fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.kickBulk"));
-  await waitFor(() => expect(h.push).toHaveBeenCalled());
+  fireEvent.click(screen.getByText("settings.shared.cancel"));
 
-  const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
-  h.loadMembers.mockClear();
-  await entry.undo();
-
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1");
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u2");
-  // u1 has r-mem+r-ed, u2 has r-mem -> 3 role reassignments total
-  expect(h.assignMemberRole).toHaveBeenCalledTimes(3);
-  expect(h.loadMembers).toHaveBeenCalledWith("t1");
+  expect(h.removeMember).not.toHaveBeenCalled();
+  expect(h.push).not.toHaveBeenCalled();
 });
 
 test("bulk assign role: assignMemberRole(editor) for both, push assignRoleBulk", async () => {
@@ -275,10 +288,13 @@ test("bulk remove role: removeMemberRole only for members who have that role", a
   expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.removeRoleBulk" }));
 });
 
-test("single-member context menu kick: removeMember for that one member + push remove", async () => {
+test("single-member context menu kick: confirms, then removeMember + push remove", async () => {
   await renderPage();
   h.loadMembers.mockClear();
   fireEvent.click(screen.getByTestId("ctx-u1::members.kick"));
+
+  expect(h.removeMember).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText("members.offboarding.removeConfirm"));
 
   await waitFor(() => expect(h.push).toHaveBeenCalled());
   expect(h.removeMember).toHaveBeenCalledWith("t1", "u1");

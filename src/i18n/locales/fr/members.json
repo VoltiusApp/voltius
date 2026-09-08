@@ -57,7 +57,7 @@
       "body": "Ceci transforme votre coffre-fort privé en coffre-fort d'équipe. Tout ce qu'il contient déjà y est transféré, et devient donc visible par les personnes que vous ajoutez.",
       "offlineWarning": "Ne s'ouvre que si Voltius joint le serveur de synchronisation — pas d'accès hors ligne.",
       "keyCustody": "Chaque personne ajoutée reçoit une copie de la clé. La retirer plus tard ne la reprend pas.",
-      "change": "Vous pourrez le rendre privé à nouveau plus tard — cela retire l'accès à tout le monde, mais pas les copies qu'ils détiennent déjà.",
+      "change": "Il n'y a pas de retour possible au statut privé.",
       "cancel": "Annuler",
       "confirm": "Transformer en coffre-fort d'équipe"
     },
@@ -90,7 +90,13 @@
       "seatsUnknown": "Nombre de postes indisponible — vérifiez votre connexion au serveur de synchronisation",
       "inviteAction": "Inviter",
       "joinsAs": "Ils rejoignent en tant que",
-      "selectRoleHint": "Sélectionnez au moins un rôle avant d'inviter"
+      "selectRoleHint": "Sélectionnez au moins un rôle avant d'inviter",
+      "expiresIn_one": "Expire demain",
+      "expiresIn_other": "Expire dans {{count}} jours",
+      "expiresToday": "Expire aujourd'hui",
+      "expired": "Expirée",
+      "expiredOn": "Expirée le {{date}}",
+      "resendTitle": "Renvoyer cette invitation"
     },
     "roleBlurb": {
       "manager": "Les gestionnaires peuvent inviter des personnes, changer les rôles et gérer les liens.",
@@ -117,7 +123,9 @@
       "convertingVault": "Transformation de {{vault}} en coffre-fort d'équipe…",
       "vaultConverted": "{{vault}} est désormais un coffre-fort d'équipe",
       "grantingKey": "Octroi de l'accès au coffre-fort à {{name}}…",
-      "keyGranted": "{{name}} peut maintenant ouvrir le coffre-fort"
+      "keyGranted": "{{name}} peut maintenant ouvrir le coffre-fort",
+      "leavingTeam": "Départ de l'équipe…",
+      "leftTeam": "Vous avez quitté l'équipe"
     },
     "error": {
       "cannotRemoveOwnerRole": "Impossible de retirer le rôle de propriétaire au propriétaire de l'équipe",
@@ -231,6 +239,22 @@
       },
       "newLink": "Nouveau lien",
       "cancel": "Annuler"
+    },
+    "leaveTeam": "Quitter l'équipe",
+    "offboarding": {
+      "removeTitle_one": "Retirer {{names}} de cette équipe ?",
+      "removeTitle_other": "Retirer {{count}} personnes de cette équipe ?",
+      "leaveTitle": "Quitter cette équipe ?",
+      "removeConfirm_one": "Retirer",
+      "removeConfirm_other": "Retirer {{count}}",
+      "leaveConfirm": "Quitter l'équipe",
+      "pointAccessEnds": "Leur accès aux hôtes, clés et snippets de ce coffre prend fin immédiatement, sur tous leurs appareils.",
+      "pointLocalWipe": "Le contenu du coffre est supprimé de leurs appareils, y compris les mots de passe et clés privées enregistrés.",
+      "pointAlreadySeen": "Ils conservent tout ce qu'ils ont déjà vu. Renouvelez les identifiants auxquels ils avaient accès.",
+      "pointSessions": "Ils sont exclus de toute session de terminal partagée qu'ils avaient rejointe.",
+      "leavePointAccessEnds": "Vous perdez l'accès aux hôtes, clés et snippets de ce coffre sur tous vos appareils.",
+      "leavePointLocalWipe": "Son contenu est supprimé de cet appareil, y compris les mots de passe et clés privées enregistrés.",
+      "leavePointIrreversible": "Vous ne pourrez pas revenir sans une nouvelle invitation."
     }
   }
 }

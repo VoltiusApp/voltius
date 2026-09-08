@@ -97,3 +97,29 @@ export function resolveCan(
   if (!myTeam || roles.length === 0) return false;
   return (effectivePermissions({ role_ids: myTeam.role_ids }, roles) & PERM_BITS[permission]) !== 0;
 }
+
+/**
+ * Human-readable name and description per permission. Lives here, beside the
+ * bits, rather than in a component: presentational modules need it, and
+ * importing it from a settings screen dragged that screen's whole dependency
+ * graph (tauri plugins, i18n) into every consumer.
+ */
+export const PERM_META: Record<Permission, { label: string; description: string }> = {
+  VIEW_SECRETS:           { label: "View secrets",       description: "See passwords and private keys in plain text" },
+  COPY_SECRETS:           { label: "Copy secrets",       description: "Copy passwords and keys to clipboard" },
+  CONNECT:                { label: "Connect",            description: "Launch SSH connections" },
+  EDIT_CONNECTIONS:       { label: "Edit connections",   description: "Create, modify, and delete connections" },
+  EDIT_IDENTITIES:        { label: "Edit identities",    description: "Create, modify, and delete SSH identities" },
+  EDIT_KEYS:              { label: "Edit keys",          description: "Create, modify, and delete SSH keys" },
+  EDIT_SNIPPETS:          { label: "Edit snippets",      description: "Create, modify, and delete command snippets" },
+  EDIT_FOLDERS:           { label: "Edit folders",       description: "Manage folder structure" },
+  VIEW_AUDIT_LOG:         { label: "View audit log",     description: "Read the activity audit log" },
+  INVITE_MEMBERS:         { label: "Invite members",     description: "Invite new members to the vault" },
+  MANAGE_MEMBERS:         { label: "Manage members",     description: "Assign roles and remove members" },
+  CREATE_CUSTOM_ROLES:    { label: "Manage roles (legacy)", description: "Retired permission — kept for compatibility" },
+  MANAGE_ROLES:           { label: "Manage roles",       description: "Create, edit, and delete roles" },
+  MANAGE_VAULT:           { label: "Manage vault",       description: "Rename vault and manage vault settings" },
+  START_TERMINAL_SESSION: { label: "Start sessions",     description: "Start multiplayer terminal sessions" },
+  JOIN_TERMINAL_SESSION:  { label: "Join sessions",      description: "Join existing terminal sessions" },
+  VIEW_TERMINAL_SESSIONS: { label: "View sessions",      description: "See active terminal sessions" },
+};

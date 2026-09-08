@@ -86,7 +86,7 @@ vi.mock("@/components/settings/BuySeatsModal", () => ({
   ),
 }));
 
-import { InvitePanel } from "./MembersPage";
+import { InvitePanel } from "./panels/InvitePanel";
 
 const teamRoles: TeamRole[] = [
   { id: "r-owner", team_id: "t1", name: "owner", is_builtin: true, permissions: 0, position: 0, created_at: "" },

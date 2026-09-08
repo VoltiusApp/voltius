@@ -57,7 +57,7 @@
       "body": "这会将您的私有保险库转变为团队保险库。其中已有的所有内容都会一并转移，因此您添加的人也能看到。",
       "offlineWarning": "仅在 Voltius 可连接同步服务器时才能打开——不支持离线访问。",
       "keyCustody": "您添加的每个人都会获得密钥副本。之后移除也无法收回。",
-      "change": "以后您可以再把它改回私有——这会移除所有人的访问权限，但收不回他们已有的副本。",
+      "change": "无法再改回私有状态。",
       "cancel": "取消",
       "confirm": "转换为团队保险库"
     },
@@ -90,7 +90,13 @@
       "seatsUnknown": "座位数量暂不可用 — 请检查与同步服务器的连接",
       "inviteAction": "邀请",
       "joinsAs": "他们将以此身份加入",
-      "selectRoleHint": "邀请前请至少选择一个角色"
+      "selectRoleHint": "邀请前请至少选择一个角色",
+      "expiresIn_one": "明天过期",
+      "expiresIn_other": "{{count}} 天后过期",
+      "expiresToday": "今天过期",
+      "expired": "已过期",
+      "expiredOn": "已于 {{date}} 过期",
+      "resendTitle": "重新发送此邀请"
     },
     "roleBlurb": {
       "manager": "管理员可以邀请他人、更改角色并管理链接。",
@@ -117,7 +123,9 @@
       "convertingVault": "正在将 {{vault}} 转换为团队保险库…",
       "vaultConverted": "{{vault}} 已成为团队保险库",
       "grantingKey": "正在为 {{name}} 授予保险库访问权…",
-      "keyGranted": "{{name}} 现在可以打开保险库"
+      "keyGranted": "{{name}} 现在可以打开保险库",
+      "leavingTeam": "正在退出团队…",
+      "leftTeam": "你已退出团队"
     },
     "error": {
       "cannotRemoveOwnerRole": "无法从团队所有者移除所有者角色",
@@ -231,6 +239,22 @@
       },
       "newLink": "新建链接",
       "cancel": "取消"
+    },
+    "leaveTeam": "退出团队",
+    "offboarding": {
+      "removeTitle_one": "将 {{names}} 移出此团队？",
+      "removeTitle_other": "将 {{count}} 人移出此团队？",
+      "leaveTitle": "退出此团队？",
+      "removeConfirm_one": "移除",
+      "removeConfirm_other": "移除 {{count}} 人",
+      "leaveConfirm": "退出团队",
+      "pointAccessEnds": "他们对此保管库中主机、密钥和代码片段的访问权限将在所有设备上立即终止。",
+      "pointLocalWipe": "保管库内容将从其设备上删除，包括已保存的密码和私钥。",
+      "pointAlreadySeen": "他们仍保留已经看到的内容。请轮换他们曾可访问的凭据。",
+      "pointSessions": "他们会被移出所有已加入的共享终端会话。",
+      "leavePointAccessEnds": "你将在所有设备上失去对此保管库中主机、密钥和代码片段的访问权限。",
+      "leavePointLocalWipe": "其内容将从此设备删除，包括已保存的密码和私钥。",
+      "leavePointIrreversible": "除非收到新的邀请，否则你无法重新加入。"
     }
   }
 }

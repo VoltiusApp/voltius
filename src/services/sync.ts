@@ -850,6 +850,13 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");
     refreshAwaitingKeyTeams().catch(() => {});
 
+    // Snapshot the names BEFORE loadTeams() runs: the removal is detected by
+    // diffing against a reloaded list, so by the time onTeamRemoved fires the
+    // departed team is already gone from the store and only its id remains.
+    const teamNamesBefore = new Map(
+      useTeamStore.getState().teams.map((t) => [t.id, t.name] as const),
+    );
+
     handleMembershipChangedEvent({
       getTeamIds: () => useTeamStore.getState().teams.map((t) => t.id),
       loadTeams: () => useTeamStore.getState().loadTeams(),
@@ -863,6 +870,8 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
         const { deleteTeamKey } = await import("@/services/teamVaultSync");
         deleteTeamKey(tid);
 
+        const departedTeamName = teamNamesBefore.get(tid) ?? tid;
+
         // Remove all per-team slices from the team store (members, roles, etc.)
         useTeamStore.getState().removeTeam(tid);
 
@@ -875,33 +884,24 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
           vaultStore.setVaultTeamId(vault.id, null);
         }
 
-        const [
-          { useTeamVaultStateStore },
-          { useConnectionStore },
-          { useIdentityStore },
-          { useKeyStore },
-          { useFolderStore },
-          { useSnippetStore },
-          { useSnippetFolderStore },
-          { usePortForwardingStore },
-        ] = await Promise.all([
+        const [{ useTeamVaultStateStore }, { clearTeamStoresAndSecrets }] = await Promise.all([
           import("@/stores/teamVaultStateStore"),
-          import("@/stores/connectionStore"),
-          import("@/stores/identityStore"),
-          import("@/stores/keyStore"),
-          import("@/stores/folderStore"),
-          import("@/stores/snippetStore"),
-          import("@/stores/snippetFolderStore"),
-          import("@/stores/portForwardingStore"),
+          import("@/services/teamVaultSync"),
         ]);
         useTeamVaultStateStore.getState().setStatus(tid, "forbidden");
-        useConnectionStore.getState().clearTeamConnections(tid);
-        useIdentityStore.getState().clearTeamIdentities(tid);
-        useKeyStore.getState().clearTeamKeys(tid);
-        useFolderStore.getState().clearTeamFolders(tid);
-        useSnippetStore.getState().clearTeamSnippets(tid);
-        useSnippetFolderStore.getState().clearTeamSnippetFolders(tid);
-        usePortForwardingStore.getState().clearTeamRules(tid);
+
+        // Wipes the team's secrets from the OS keychain as well as the
+        // in-memory slices. Clearing the stores alone left a removed member
+        // holding the team's plaintext passwords and private keys (#216).
+        await clearTeamStoresAndSecrets(tid);
+
+        // membership_changed cannot tell a kick from a departure, so the
+        // leaver's own client marks its intent before the round trip.
+        const { departedVoluntarily } = await import("@/services/teamOffboarding");
+        if (!departedVoluntarily(tid)) {
+          const { notifyMembershipEnded } = await import("@/services/teamInbox");
+          notifyMembershipEnded(departedTeamName);
+        }
       },
     }).catch(() => {});
   } else if (eventData.startsWith("presence:")) {

@@ -74,6 +74,10 @@
       },
       "awaitingKey": {
         "message": "Waiting for a {{team}} owner to grant vault access"
+      },
+      "membershipEnded": {
+        "message": "You were removed from {{team}}. Its hosts, keys and snippets are gone from this device, and credentials you used there should be rotated.",
+        "review": "Review credentials"
       }
     }
   }

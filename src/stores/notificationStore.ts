@@ -63,7 +63,8 @@ export type InboxKind =
   | "sessionInvite"
   | "sessionKnock"
   | "controlRequest"
-  | "awaitingKey";
+  | "awaitingKey"
+  | "membershipEnded";
 
 export interface InboxAction {
   label: string;

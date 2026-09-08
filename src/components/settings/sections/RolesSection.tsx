@@ -7,6 +7,10 @@ import type { TeamRole } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { ColorPicker } from "@/components/theme-creator/ColorPicker";
 import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePermission";
+// Re-exported for the existing importers of this module; it is defined beside
+// the permission bits so presentational code can read it without pulling this
+// screen's dependency graph in.
+export { PERM_META } from "@/services/permissions";
 import { getMyUserId } from "@/services/teamService";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
@@ -29,26 +33,6 @@ const PERMISSION_GROUPS: { key: string; perms: Permission[] }[] = [
     perms: ["START_TERMINAL_SESSION", "JOIN_TERMINAL_SESSION", "VIEW_TERMINAL_SESSIONS"],
   },
 ];
-
-export const PERM_META: Record<Permission, { label: string; description: string }> = {
-  VIEW_SECRETS:           { label: "View secrets",       description: "See passwords and private keys in plain text" },
-  COPY_SECRETS:           { label: "Copy secrets",       description: "Copy passwords and keys to clipboard" },
-  CONNECT:                { label: "Connect",            description: "Launch SSH connections" },
-  EDIT_CONNECTIONS:       { label: "Edit connections",   description: "Create, modify, and delete connections" },
-  EDIT_IDENTITIES:        { label: "Edit identities",    description: "Create, modify, and delete SSH identities" },
-  EDIT_KEYS:              { label: "Edit keys",          description: "Create, modify, and delete SSH keys" },
-  EDIT_SNIPPETS:          { label: "Edit snippets",      description: "Create, modify, and delete command snippets" },
-  EDIT_FOLDERS:           { label: "Edit folders",       description: "Manage folder structure" },
-  VIEW_AUDIT_LOG:         { label: "View audit log",     description: "Read the activity audit log" },
-  INVITE_MEMBERS:         { label: "Invite members",     description: "Invite new members to the vault" },
-  MANAGE_MEMBERS:         { label: "Manage members",     description: "Assign roles and remove members" },
-  CREATE_CUSTOM_ROLES:    { label: "Manage roles (legacy)", description: "Retired permission — kept for compatibility" },
-  MANAGE_ROLES:           { label: "Manage roles",       description: "Create, edit, and delete roles" },
-  MANAGE_VAULT:           { label: "Manage vault",       description: "Rename vault and manage vault settings" },
-  START_TERMINAL_SESSION: { label: "Start sessions",     description: "Start multiplayer terminal sessions" },
-  JOIN_TERMINAL_SESSION:  { label: "Join sessions",      description: "Join existing terminal sessions" },
-  VIEW_TERMINAL_SESSIONS: { label: "View sessions",      description: "See active terminal sessions" },
-};
 
 // ─── Permission checkbox grid ─────────────────────────────────────────────────
 

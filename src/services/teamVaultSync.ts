@@ -260,7 +260,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   const serverUrl = await getServerUrl();
   if (!serverUrl) {
     if (options.background) return;
-    await _clearTeamStores(teamId);
+    await clearTeamStoresAndSecrets(teamId);
     stateStore.setStatus(teamId, "offline");
     return;
   }
@@ -288,7 +288,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       // object-route failures immediately after invitation while the legacy blob
       // route already has the vault data available.
     } else {
-      await _clearTeamStores(teamId);
+      await clearTeamStoresAndSecrets(teamId);
       stateStore.setStatus(teamId, action);
       return;
     }
@@ -313,7 +313,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       status = "loaded";
     }
     // Clear team store slices so stale data doesn't linger
-    await _clearTeamStores(teamId);
+    await clearTeamStoresAndSecrets(teamId);
     stateStore.setStatus(teamId, status);
     return;
   }
@@ -324,13 +324,13 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     if (res.status === 404) {
       // No blob yet — owner hasn't pushed data. Show as empty vault.
       if (options.background) return;
-      await _clearTeamStores(teamId);
+      await clearTeamStoresAndSecrets(teamId);
       stateStore.setStatus(teamId, "loaded");
       return;
     }
     if (!res.ok) {
       if (options.background) return;
-      await _clearTeamStores(teamId);
+      await clearTeamStoresAndSecrets(teamId);
       stateStore.setStatus(teamId, "error");
       return;
     }
@@ -339,7 +339,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     blobPayload = await invoke<BlobPayload>("backup_decrypt", { encKey: key, blob: blobBytes });
   } catch {
     if (options.background) return;
-    await _clearTeamStores(teamId);
+    await clearTeamStoresAndSecrets(teamId);
     stateStore.setStatus(teamId, "error");
     return;
   }
@@ -471,7 +471,7 @@ export async function saveTeamData(teamId: string): Promise<void> {
   if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamData", { status: res.status }));
 }
 
-async function _clearTeamStores(teamId: string): Promise<void> {
+export async function clearTeamStoresAndSecrets(teamId: string): Promise<void> {
   const { useConnectionStore } = await import("@/stores/connectionStore");
   const { useIdentityStore } = await import("@/stores/identityStore");
   const { useKeyStore } = await import("@/stores/keyStore");
