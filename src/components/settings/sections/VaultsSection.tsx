@@ -17,6 +17,7 @@ import { inviteUserWithRoles } from "@/services/vaultShare";
 import { userFacingReason } from "@/services/errorReason";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import { reloadLocalVaultObjectStores } from "@/services/vaultTeamMigration";
+import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
@@ -343,6 +344,12 @@ export function VaultGeneralTab({
   const canDelete = detail.kind === "local" && !isPersonal;
   const memberCount = detail.teamId ? (membersByTeam[detail.teamId]?.length ?? null) : null;
   const nonZeroCounts = counts.filter((c) => c.count > 0);
+  // Absent from the map means the re-encryption pass never ran for this team
+  // because it has no objects at all — that must read as nothing to report,
+  // not as an unknown-and-alarming state, so this stays undefined rather than
+  // defaulting to 0.
+  const unencryptedCount = useTeamVaultStateStore((s) =>
+    detail.teamId ? s.unencryptedCountByTeamId[detail.teamId] : undefined);
 
   const isOwner = (() => {
     if (!detail.teamId) return false;
@@ -549,6 +556,15 @@ export function VaultGeneralTab({
           </p>
         )}
       </div>
+
+      {!!unencryptedCount && (
+        <div
+          className="rounded-xl p-4 text-xs"
+          style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "var(--t-text-secondary)" }}
+        >
+          {t("settings.vaults.general.unencryptedObjects", { count: unencryptedCount })}
+        </div>
+      )}
 
       {(canDelete || canMakePrivate) && (
         <div>
