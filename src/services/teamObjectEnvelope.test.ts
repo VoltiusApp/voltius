@@ -47,8 +47,6 @@ test("round-trips an object through the envelope", async () => {
 });
 
 test("the envelope carries no plaintext from the object", async () => {
-  await encodeObjectMetadata("t1", { id: "c1", host: "secret-host.internal" });
-
   const envelope = await encodeObjectMetadata("t1", { id: "c1", host: "secret-host.internal" });
   expect(envelope.enc).not.toContain("secret-host");
 });
@@ -70,4 +68,11 @@ test("detects a v2 envelope only when both fields are right", () => {
 test("decoding a legacy plaintext object returns it unchanged", async () => {
   const legacy = { id: "c1", host: "10.0.0.1" };
   expect(await decodeObjectMetadata("t1", legacy)).toEqual(legacy);
+});
+
+test("decoding a payload with no metadata key throws instead of returning a phantom object", async () => {
+  const { invoke } = await import("@tauri-apps/api/core");
+  vi.mocked(invoke).mockImplementationOnce(async () => ({ files: {}, secrets: {} }));
+
+  await expect(decodeObjectMetadata("t1", { v: 2, enc: "anything" })).rejects.toThrow();
 });

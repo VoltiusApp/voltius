@@ -44,5 +44,10 @@ export async function decodeObjectMetadata(teamId: string, metadata: unknown): P
     encKey,
     blob: base64ToBytes(metadata.enc),
   });
-  return JSON.parse(payload.files[METADATA_FILE] ?? "{}") as object;
+  // No `?? "{}"` fallback: a payload that decrypts successfully but has no
+  // `metadata` key must throw (JSON.parse(undefined) throws SyntaxError),
+  // not silently resolve to a phantom object with no fields. Callers rely
+  // on decode throwing to drop undecryptable/malformed rows instead of
+  // spreading a half-object into the stores.
+  return JSON.parse(payload.files[METADATA_FILE]) as object;
 }
