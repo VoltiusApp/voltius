@@ -3,6 +3,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember } from "@/services/teamService";
 import { useHistoryStore } from "@/stores/historyStore";
 import { runTeamAction } from "@/services/teamActionFeedback";
+import { userFacingReason } from "@/services/errorReason";
 
 export type DepartMode = "remove" | "leave";
 
@@ -83,6 +84,10 @@ export async function departMembers(
     success: opts.mode === "leave"
       ? i18n.t("members.toast.leftTeam")
       : i18n.t("members.toast.memberRemoved", { name: names, count }),
+    // Same failure copy as the single-member helper in vaultShare; this path
+    // keeps one toast for the whole batch rather than nesting N of them.
+    error: (e: Error) =>
+      i18n.t("members.error.removeFailed", { name: names, reason: userFacingReason(e) }),
     run: async () => {
       for (const m of members) await store().removeMember(teamId, m.user_id);
     },

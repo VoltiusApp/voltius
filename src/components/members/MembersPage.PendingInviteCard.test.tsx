@@ -13,8 +13,10 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/components/shared/BaseCard", () => ({
   BaseCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock("@/services/teamService", () => ({ revokePendingInvitation: h.revoke }));
-vi.mock("@/services/vaultShare", () => ({ inviteByEmailAddress: h.inviteByEmail }));
+vi.mock("@/services/vaultShare", () => ({
+  inviteByEmailAddress: h.inviteByEmail,
+  revokeInvitation: h.revoke,
+}));
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
@@ -59,7 +61,9 @@ test("click revoke calls revokePendingInvitation(teamId, inv.id) then onRevoked(
   render(<PendingInviteCard {...props} />);
   fireEvent.click(screen.getByTitle("members.revokeInvitationTitle"));
   await waitFor(() => expect(props.onRevoked).toHaveBeenCalledWith("inv1"));
-  expect(h.revoke).toHaveBeenCalledWith("t1", "inv1");
+  expect(h.revoke).toHaveBeenCalledWith(
+    expect.objectContaining({ teamId: "t1", invitationId: "inv1" }),
+  );
 });
 
 test("revoke rejection: onRevoked NOT called, no unhandled rejection", async () => {

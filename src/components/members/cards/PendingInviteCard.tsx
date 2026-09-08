@@ -2,9 +2,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { PendingInvitation, TeamRole } from "@/services/teamService";
-import { revokePendingInvitation } from "@/services/teamService";
-import { inviteByEmailAddress } from "@/services/vaultShare";
-import { runTeamAction } from "@/services/teamActionFeedback";
+import { inviteByEmailAddress, revokeInvitation } from "@/services/vaultShare";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { ROLE_META } from "@/components/members/roleChips";
@@ -32,11 +30,9 @@ export function PendingInviteCard({
   const handleRevoke = async () => {
     setRevoking(true);
     try {
-      await runTeamAction({
-        pending: t("members.toast.revokingInvitation", { name: inv.display_name }),
-        success: t("members.toast.invitationRevoked", { name: inv.display_name }),
-        run: () => revokePendingInvitation(teamId, inv.id),
-      });
+      // Shared helper rather than a local runTeamAction: it carries the
+      // revoke-specific failure copy every other revoke surface uses.
+      await revokeInvitation({ teamId, invitationId: inv.id, name: inv.display_name });
       onRevoked(inv.id);
     } catch { /* toast already reports the failure */ }
     finally { setRevoking(false); }
