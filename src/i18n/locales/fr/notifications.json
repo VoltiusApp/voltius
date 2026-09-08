@@ -74,6 +74,10 @@
       },
       "awaitingKey": {
         "message": "En attente qu'un propriétaire de {{team}} vous donne accès au coffre"
+      },
+      "membershipEnded": {
+        "message": "Vous avez été retiré de {{team}}. Ses hôtes, clés et snippets ont été supprimés de cet appareil ; renouvelez les identifiants que vous y utilisiez.",
+        "review": "Vérifier les identifiants"
       }
     }
   }
