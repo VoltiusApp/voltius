@@ -1,16 +1,59 @@
 import { test, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 
 const h = vi.hoisted(() => ({
   vault: { id: "v1", name: "Personal", teamId: null as string | null },
   members: [] as unknown[],
   roles: [] as unknown[],
   pending: [] as unknown[],
+  removeTeamMember: vi.fn().mockResolvedValue(undefined),
+  revokeInvitation: vi.fn().mockResolvedValue(undefined),
+  grantVaultKeyToMember: vi.fn().mockResolvedValue(undefined),
+  writeClipboard: vi.fn().mockResolvedValue(undefined),
+  /** User ids the server reports as already holding a wrapped vault key. */
+  keyHolders: [] as string[],
 }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("./PeopleList", () => ({ PeopleList: ({ people }: { people: unknown[] }) => <div>{`people:${people.length}`}</div> }));
+// Exposes each row action as a button, so a handler wired to `() => {}` — which
+// is how all four of these shipped — fails the test rather than passing it.
+vi.mock("./PeopleList", () => ({
+  PeopleList: ({
+    people,
+    onRemove,
+    onRevoke,
+    onGrantKey,
+    onCopyInviteLink,
+  }: {
+    people: { userId: string; handle: string; invitationId?: string; state: string }[];
+    onRemove: (p: unknown) => void;
+    onRevoke: (p: unknown) => void;
+    onGrantKey: (p: unknown) => void;
+    onCopyInviteLink: (p: unknown) => void;
+  }) => (
+    <div>
+      <span>{`people:${people.length}`}</span>
+      {people.map((p) => (
+        <div key={p.userId}>
+          {p.state === "awaiting_key" && <span>{`waiting:${p.userId}`}</span>}
+          <button onClick={() => onRemove(p)}>{`remove:${p.userId}`}</button>
+          <button onClick={() => onRevoke(p)}>{`revoke:${p.userId}`}</button>
+          <button onClick={() => onGrantKey(p)}>{`grant:${p.userId}`}</button>
+          <button onClick={() => onCopyInviteLink(p)}>{`link:${p.userId}`}</button>
+        </div>
+      ))}
+    </div>
+  ),
+}));
+vi.mock("./JoinLinksTab", () => ({ JoinLinksTab: () => <div>join-links</div> }));
+vi.mock("@/services/vaultShare", () => ({
+  removeTeamMember: h.removeTeamMember,
+  revokeInvitation: h.revokeInvitation,
+  grantVaultKeyToMember: h.grantVaultKeyToMember,
+  addressedInviteLink: (id: string) => `voltius://notification?n=invite%3A${id}`,
+}));
+vi.mock("@/utils/clipboard", () => ({ writeClipboard: h.writeClipboard }));
 vi.mock("./InviteControl", () => ({ InviteControl: () => <div>invite-control</div> }));
 vi.mock("./ConvertToTeamGate", () => ({ ConvertToTeamGate: () => <div>convert-gate</div> }));
 vi.mock("@/stores/vaultStore", () => ({
@@ -40,11 +83,21 @@ vi.mock("@/stores/teamVaultStateStore", () => ({
     getState: () => ({ statusByTeamId: {} }),
   }),
 }));
-vi.mock("@/services/teamService", () => ({ getMyUserId: vi.fn().mockResolvedValue(null) }));
+vi.mock("@/services/teamService", () => ({
+  getMyUserId: vi.fn().mockResolvedValue(null),
+  getVaultKeyHolders: () => Promise.resolve(h.keyHolders),
+}));
 
 import { VaultShareSheet } from "./VaultShareSheet";
 
-afterEach(() => { cleanup(); h.vault.teamId = null; });
+afterEach(() => {
+  cleanup();
+  h.vault.teamId = null;
+  h.members = [];
+  h.pending = [];
+  h.keyHolders = [];
+  vi.clearAllMocks();
+});
 
 test("a private vault shows the conversion gate instead of the tabs", () => {
   render(<VaultShareSheet vaultId="v1" variant="full" />);
@@ -64,4 +117,81 @@ test("switching to Invite renders the invite control", () => {
   render(<VaultShareSheet vaultId="v1" variant="full" />);
   fireEvent.click(screen.getByText("members.share.tabInvite"));
   expect(screen.getByText("invite-control")).toBeTruthy();
+});
+
+test("switching to Links renders the join-links tab", () => {
+  h.vault.teamId = "t1";
+  render(<VaultShareSheet vaultId="v1" variant="full" />);
+  fireEvent.click(screen.getByText("members.share.tabLinks"));
+  expect(screen.getByText("join-links")).toBeTruthy();
+});
+
+test("Remove and Grant now run the real calls, not a no-op", () => {
+  h.vault.teamId = "t1";
+  h.members = [{ user_id: "u1", handle: "bob", role_ids: [], public_key: "pk-bob" }];
+  render(<VaultShareSheet vaultId="v1" variant="full" />);
+
+  fireEvent.click(screen.getByText("remove:u1"));
+  expect(h.removeTeamMember).toHaveBeenCalledWith({ teamId: "t1", userId: "u1", handle: "bob" });
+
+  fireEvent.click(screen.getByText("grant:u1"));
+  expect(h.grantVaultKeyToMember).toHaveBeenCalledWith({
+    teamId: "t1",
+    userId: "u1",
+    handle: "bob",
+    // Carried through from the roster, so granting needs no second fetch.
+    publicKey: "pk-bob",
+  });
+});
+
+test("Revoke runs against the invitation id, and does nothing without one", () => {
+  h.vault.teamId = "t1";
+  h.members = [{ user_id: "u1", handle: "bob", role_ids: [], public_key: "pk" }];
+  h.pending = [{ id: "inv1", display_name: "carol@example.com", role: "member" }];
+  render(<VaultShareSheet vaultId="v1" variant="full" />);
+
+  fireEvent.click(screen.getByText("revoke:inv1"));
+  expect(h.revokeInvitation).toHaveBeenCalledWith({
+    teamId: "t1",
+    invitationId: "inv1",
+    name: "carol@example.com",
+  });
+
+  // A member row has no invitation to revoke.
+  fireEvent.click(screen.getByText("revoke:u1"));
+  expect(h.revokeInvitation).toHaveBeenCalledTimes(1);
+});
+
+test("only members missing from the key-holder list read as waiting", async () => {
+  h.vault.teamId = "t1";
+  h.members = [
+    { user_id: "u1", handle: "bob", role_ids: [], public_key: "pk1" },
+    { user_id: "u2", handle: "carol", role_ids: [], public_key: "pk2" },
+  ];
+  // The old code read the *viewer's* own vault status and applied it to
+  // everyone, so a reader who was waiting saw the whole roster as waiting.
+  h.keyHolders = ["u1"];
+  render(<VaultShareSheet vaultId="v1" variant="full" />);
+  await waitFor(() => expect(screen.getByText("waiting:u2")).toBeTruthy());
+  expect(screen.queryByText("waiting:u1")).toBeNull();
+});
+
+test("nobody reads as waiting while the key-holder list is unknown", () => {
+  h.vault.teamId = "t1";
+  h.members = [{ user_id: "u1", handle: "bob", role_ids: [], public_key: "pk1" }];
+  render(<VaultShareSheet vaultId="v1" variant="full" />);
+  expect(screen.queryByText("waiting:u1")).toBeNull();
+});
+
+test("the addressed invite link is copied for a pending invitation only", () => {
+  h.vault.teamId = "t1";
+  h.members = [{ user_id: "u1", handle: "bob", role_ids: [], public_key: "pk" }];
+  h.pending = [{ id: "inv1", display_name: "carol@example.com", role: "member" }];
+  render(<VaultShareSheet vaultId="v1" variant="full" />);
+
+  fireEvent.click(screen.getByText("link:u1"));
+  expect(h.writeClipboard).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByText("link:inv1"));
+  expect(h.writeClipboard).toHaveBeenCalledWith("voltius://notification?n=invite%3Ainv1");
 });

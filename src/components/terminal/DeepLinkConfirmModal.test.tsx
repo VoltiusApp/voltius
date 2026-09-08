@@ -79,8 +79,43 @@ vi.mock("@/stores/marketplaceStore", () => ({
   },
 }));
 
+const previewGrantMock = vi.fn(
+  async (..._args: unknown[]) =>
+    ({ team_name: "Ops", role: "editor", inviter_handle: "dana" }) as {
+      team_name: string;
+      role: string;
+      inviter_handle: string | null;
+    },
+);
+const redeemGrantMock = vi.fn(async (..._args: unknown[]) => ({
+  team_id: "team-a",
+  team_name: "Ops",
+  role: "editor",
+}));
+vi.mock("@/services/teamJoinGrants", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/teamJoinGrants")>()),
+  previewJoinGrant: (...args: unknown[]) => previewGrantMock(...args),
+  redeemJoinGrant: (...args: unknown[]) => redeemGrantMock(...args),
+}));
+
+const refreshAfterJoinMock = vi.fn(async (..._args: unknown[]) => {});
+vi.mock("@/services/teamJoin", () => ({
+  refreshAfterJoiningTeam: (...args: unknown[]) => refreshAfterJoinMock(...args),
+}));
+
+let myPublicKey: string | null = "pk-mine";
+vi.mock("@/services/multiplayerService", () => ({
+  getMyX25519Keypair: async () => {
+    if (myPublicKey === null) throw new Error("no keypair");
+    return { privateKey: "sk", publicKey: myPublicKey };
+  },
+}));
+
 const SESSION = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
+const GRANT = "1b4e28ba-2fa1-11d2-883f-0016d3cca427";
+const GRANT_SECRET = "A".repeat(43);
 const intent = { route: "join" as const, sessionId: SESSION, token: "tok" };
+const vaultJoinIntent = { route: "vault-join" as const, grantId: GRANT, secret: GRANT_SECRET };
 
 beforeEach(() => {
   joinMock.mockClear().mockResolvedValue("local-1");
@@ -99,6 +134,10 @@ beforeEach(() => {
   marketplaceCatalog = [];
   installPluginMock.mockClear();
   fetchManifestMock.mockClear();
+  previewGrantMock.mockClear().mockResolvedValue({ team_name: "Ops", role: "editor", inviter_handle: "dana" });
+  redeemGrantMock.mockClear().mockResolvedValue({ team_id: "team-a", team_name: "Ops", role: "editor" });
+  refreshAfterJoinMock.mockClear();
+  myPublicKey = "pk-mine";
   useDeepLinkStore.setState({ ready: true, queue: [], prompt: null });
 });
 
@@ -334,4 +373,84 @@ test("a plugin-install link naming a disabled source installs nothing", async ()
   render(<DeepLinkConfirmModal />);
   await waitFor(() => expect(screen.getByText("settings.plugins.deepLinkInstall.failed")).toBeTruthy());
   expect(fetchManifestMock).not.toHaveBeenCalled();
+});
+
+// ─── vault-join (issue #68) ───────────────────────────────────────────────────
+
+const acceptVaultJoin = async () => {
+  await waitFor(() => expect(acceptButton("members.joinLinks.confirm.action").disabled).toBe(false));
+  await userEvent.click(acceptButton("members.joinLinks.confirm.action"));
+};
+
+test("a vault-join link previews without redeeming — opening it costs the link nothing", async () => {
+  useDeepLinkStore.setState({ prompt: vaultJoinIntent });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(previewGrantMock).toHaveBeenCalledWith(GRANT, GRANT_SECRET));
+  expect(redeemGrantMock).not.toHaveBeenCalled();
+});
+
+test("the sheet names the team, the role and the inviter before accept does anything", async () => {
+  useDeepLinkStore.setState({ prompt: vaultJoinIntent });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("members.joinLinks.confirm.title")).toBeTruthy());
+  expect(screen.getByText("members.joinLinks.confirm.bodyNamed")).toBeTruthy();
+  // The one thing a joiner must not assume: the link is not the key.
+  expect(screen.getByText("members.joinLinks.confirm.keyFollowsLater")).toBeTruthy();
+});
+
+test("an unnamed inviter falls back to the plain body rather than inventing a name", async () => {
+  previewGrantMock.mockResolvedValue({ team_name: "Ops", role: "member", inviter_handle: null });
+  useDeepLinkStore.setState({ prompt: vaultJoinIntent });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("members.joinLinks.confirm.body")).toBeTruthy());
+  expect(screen.queryByText("members.joinLinks.confirm.bodyNamed")).toBeNull();
+});
+
+test("confirming redeems with this device's public key, then refreshes the team", async () => {
+  useDeepLinkStore.setState({ prompt: vaultJoinIntent });
+  render(<DeepLinkConfirmModal />);
+  await acceptVaultJoin();
+  await waitFor(() => expect(redeemGrantMock).toHaveBeenCalledWith(GRANT, GRANT_SECRET, "pk-mine"));
+  await waitFor(() => expect(refreshAfterJoinMock).toHaveBeenCalledWith("team-a"));
+});
+
+test("a device with no keypair still redeems — the server decides, not the client", async () => {
+  myPublicKey = null;
+  useDeepLinkStore.setState({ prompt: vaultJoinIntent });
+  render(<DeepLinkConfirmModal />);
+  await acceptVaultJoin();
+  await waitFor(() => expect(redeemGrantMock).toHaveBeenCalledWith(GRANT, GRANT_SECRET, null));
+});
+
+test("a revoked or expired link says so, not 'the link did not work'", async () => {
+  const { JoinGrantError } = await import("@/services/teamJoinGrants");
+  previewGrantMock.mockRejectedValue(new JoinGrantError("revoked_or_expired", "raw"));
+  useDeepLinkStore.setState({ prompt: vaultJoinIntent });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("members.joinLinks.error.revokedOrExpired")).toBeTruthy());
+});
+
+test("a seat-capped team says so at preview, and an exhausted link says that instead", async () => {
+  const { JoinGrantError } = await import("@/services/teamJoinGrants");
+
+  previewGrantMock.mockRejectedValue(new JoinGrantError("exhausted", "raw"));
+  useDeepLinkStore.setState({ prompt: vaultJoinIntent });
+  const first = render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("members.joinLinks.error.exhausted")).toBeTruthy());
+  first.unmount();
+
+  previewGrantMock.mockRejectedValue(new JoinGrantError("seat_limit", "raw"));
+  useDeepLinkStore.setState({ prompt: vaultJoinIntent });
+  render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(screen.getByText("members.joinLinks.error.seatLimit")).toBeTruthy());
+});
+
+test("a seat cap hit at redemption is reported, and no team refresh is claimed", async () => {
+  const { JoinGrantError } = await import("@/services/teamJoinGrants");
+  redeemGrantMock.mockRejectedValue(new JoinGrantError("seat_limit", "raw"));
+  useDeepLinkStore.setState({ prompt: vaultJoinIntent });
+  render(<DeepLinkConfirmModal />);
+  await acceptVaultJoin();
+  await waitFor(() => expect(screen.getByText("members.joinLinks.error.seatLimit")).toBeTruthy());
+  expect(refreshAfterJoinMock).not.toHaveBeenCalled();
 });

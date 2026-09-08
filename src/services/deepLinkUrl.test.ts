@@ -279,3 +279,46 @@ test("a plugin-install link whose id could escape the plugins directory is rejec
 test("a plugin-install link naming an over-long source id is rejected", () => {
   expect(parseDeepLink("voltius://plugin-install?id=docker&src=" + "a".repeat(101))).toBeNull();
 });
+
+// ─── vault-join (issue #68) ───────────────────────────────────────────────────
+
+const GRANT = "1b4e28ba-2fa1-11d2-883f-0016d3cca427";
+/** 32 bytes as unpadded base64url — exactly what the server mints. */
+const SECRET = "A".repeat(43);
+
+test("a vault-join link round-trips through both forms", () => {
+  const intent = { route: "vault-join" as const, grantId: GRANT, secret: SECRET };
+  expect(parseDeepLink(buildDeepLink(intent, "https"))).toEqual(intent);
+  expect(parseDeepLink(buildDeepLink(intent, "scheme"))).toEqual(intent);
+});
+
+test("the https form keeps the vault-join secret in the fragment, never the query", () => {
+  const url = buildDeepLink({ route: "vault-join", grantId: GRANT, secret: SECRET }, "https");
+  expect(new URL(url).search).toBe("");
+  expect(url).toContain(`#vault-join?g=${GRANT}&k=${SECRET}`);
+});
+
+test("a vault-join link needs a real UUID and a well-formed secret", () => {
+  expect(parseDeepLink(`voltius://vault-join?g=not-a-uuid&k=${SECRET}`)).toBeNull();
+  expect(parseDeepLink(`voltius://vault-join?g=${GRANT}`)).toBeNull();
+  expect(parseDeepLink(`voltius://vault-join?g=${GRANT}&k=`)).toBeNull();
+  expect(parseDeepLink(`voltius://vault-join?g=${GRANT}&k=${"A".repeat(42)}`)).toBeNull();
+  expect(parseDeepLink(`voltius://vault-join?g=${GRANT}&k=${"A".repeat(44)}`)).toBeNull();
+  // Padded or non-URL-safe base64 is not what the server mints.
+  expect(parseDeepLink(`voltius://vault-join?g=${GRANT}&k=${"A".repeat(42)}%3D`)).toBeNull();
+  expect(parseDeepLink(`voltius://vault-join?g=${GRANT}&k=${"A".repeat(42)}%2B`)).toBeNull();
+});
+
+test("vault-join is a confirm route — it never acts unprompted", () => {
+  const intent = parseDeepLink(`voltius://vault-join?g=${GRANT}&k=${SECRET}`)!;
+  expect(isConfirmIntent(intent)).toBe(true);
+  expect(isUnpromptedIntent(intent)).toBe(false);
+});
+
+test("a vault-join link carries no account id", () => {
+  // account_id is the KDF salt for the user's password. The codec has exactly
+  // two parameters, so there is nowhere for one to be added by accident.
+  const url = buildDeepLink({ route: "vault-join", grantId: GRANT, secret: SECRET }, "scheme");
+  const params = new URLSearchParams(url.slice(url.indexOf("?") + 1));
+  expect([...params.keys()].sort()).toEqual(["g", "k"]);
+});

@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring } from "@/services/authTokens";
+import { fetchAuthRateLimited } from "@/services/authFetch";
 import { getVaultKey, unlockVaultIfNeeded } from "@/services/vault";
 import { buildUserDataBundle, mergeUserDataBundle, applyUserDataBundle } from "@/services/user-data/registry";
 import type { UserDataBundle } from "@/services/user-data/formats";
@@ -183,35 +184,13 @@ async function loadTeamsForCurrentUser(): Promise<boolean> {
   return useTeamStore.getState().teams.length > 0;
 }
 
-/** fetch() wrapper that proactively refreshes the JWT before expiry and backs off on 429. */
-export async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> {
-  let jwt = await getJwt();
-
-  if (!jwt || isJwtExpiredOrExpiring(jwt)) {
-    jwt = await tryRefreshJwt();
-    if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
-  }
-
-  const makeHeaders = (token: string) => ({
-    ...(init.headers as Record<string, string>),
-    Authorization: `Bearer ${token}`,
-  });
-
-  let res = await appFetch(url, { ...init, headers: makeHeaders(jwt) });
-
-  // Fallback: if server still returns 401, try one more refresh
-  if (res.status === 401) {
-    const newJwt = await tryRefreshJwt();
-    if (!newJwt) throw new Error(i18n.t("common.error.sessionExpired"));
-    res = await appFetch(url, { ...init, headers: makeHeaders(newJwt) });
-  }
-
-  if (res.status === 429) {
-    const retryAfter = parseInt(res.headers.get("Retry-After") ?? "60", 10);
-    throw new Error(i18n.t("common.error.rateLimited", { seconds: retryAfter }));
-  }
-
-  return res;
+/**
+ * fetch() wrapper that proactively refreshes the JWT before expiry and backs off
+ * on 429. Re-exported from here because `connectionPresence` imports it by this
+ * name; the implementation is the shared one in `authFetch`.
+ */
+export function fetchWithAuth(url: string, init: RequestInit): Promise<Response> {
+  return fetchAuthRateLimited(url, init);
 }
 
 let _deviceId: string | null = null;

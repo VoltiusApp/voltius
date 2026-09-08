@@ -68,7 +68,8 @@
       "tabInvite": "Invite",
       "manage": "Manage…",
       "inviteSomeone": "Invite someone",
-      "loadFailed": "Couldn't load everyone — try again"
+      "loadFailed": "Couldn't load everyone — try again",
+      "tabLinks": "Links"
     },
     "invite": {
       "title": "Invite member",
@@ -114,7 +115,9 @@
       "invitingToSession": "Inviting {{name}} to session...",
       "invitedToSession": "Invited {{name}} to session",
       "convertingVault": "Turning {{vault}} into a team vault...",
-      "vaultConverted": "{{vault}} is now a team vault"
+      "vaultConverted": "{{vault}} is now a team vault",
+      "grantingKey": "Granting vault access to {{name}}…",
+      "keyGranted": "{{name}} can now open the vault"
     },
     "error": {
       "cannotRemoveOwnerRole": "Cannot remove the owner role from the team owner",
@@ -123,7 +126,12 @@
       "failedToAddMember": "Failed to add member",
       "inviteFailed": "Could not invite {{name}} — {{reason}}",
       "convertFailed": "Could not turn {{vault}} into a team vault — {{reason}}",
-      "serverUnreachable": "the sync server could not be reached"
+      "serverUnreachable": "the sync server could not be reached",
+      "removeFailed": "Couldn't remove {{name}} — {{reason}}",
+      "revokeFailed": "Couldn't revoke the invitation for {{name}} — {{reason}}",
+      "grantKeyFailed": "Couldn't grant vault access to {{name}} — {{reason}}",
+      "memberHasNoPublicKey": "They haven't published a key yet — ask them to sign in once.",
+      "notAKeyHolder": "You don't hold this vault's key, so you can't grant it."
     },
     "history": {
       "removeRole": "Remove role: {{name}}",
@@ -154,7 +162,8 @@
       "grantKey": "Grant now",
       "copyInviteLink": "Copy invite link",
       "revoke": "Revoke invitation",
-      "remove": "Remove from vault"
+      "remove": "Remove from vault",
+      "inviteLinkCopied": "Invite link copied — it opens their invitation in Voltius."
     },
     "cta": {
       "signInTitle": "Sign in to use team features",
@@ -163,6 +172,65 @@
       "upgradeTitle": "Team Vaults require Teams",
       "upgradeDesc": "Invite members, assign roles, and share credentials securely with your team.",
       "upgradeBtn": "Upgrade to Teams →"
+    },
+    "joinLinks": {
+      "explainer": "Anyone with the link joins this vault in the role you pick. The link never carries the vault's key — that arrives separately, once someone who already has it is online.",
+      "empty": "No live links.",
+      "loadFailed": "Couldn't load links — {{reason}}",
+      "joinsAs": "Joins as",
+      "usesLabel": "Uses",
+      "expiryLabel": "Expires after",
+      "create": "Create link",
+      "copy": "Copy",
+      "copied": "Copied",
+      "revoke": "Revoke link",
+      "shownOnce": "A link is shown once, when you create it. Nothing can show it again.",
+      "secretNotRecoverable": "Link no longer viewable — revoke it and make a new one.",
+      "usesLeft_one": "{{count}} use left of {{max}}",
+      "usesLeft_other": "{{count}} uses left of {{max}}",
+      "expiringNow": "expiring now",
+      "expiresIn": {
+        "minutes_one": "{{count}} min left",
+        "minutes_other": "{{count}} min left",
+        "hours_one": "{{count}} hour left",
+        "hours_other": "{{count}} hours left",
+        "days_one": "{{count}} day left",
+        "days_other": "{{count}} days left"
+      },
+      "ttl": {
+        "hour1": "1 hour",
+        "day1": "1 day",
+        "day7": "7 days",
+        "day30": "30 days"
+      },
+      "toast": {
+        "creating": "Creating link…",
+        "created": "Link created",
+        "createFailed": "Couldn't create the link — {{reason}}",
+        "revoking": "Revoking link…",
+        "revoked": "Link revoked",
+        "revokeFailed": "Couldn't revoke the link — {{reason}}"
+      },
+      "error": {
+        "notFound": "This link isn't valid.",
+        "revokedOrExpired": "This link has been revoked or has expired.",
+        "exhausted": "This link has been used up.",
+        "seatLimit": "This team has no seat free. Ask whoever sent the link to add one.",
+        "noPublicKey": "Your device hasn't published a key yet. Sign in once, then open the link again.",
+        "generic": "The server refused ({{status}})."
+      },
+      "confirm": {
+        "title": "Join {{team}}?",
+        "titleGeneric": "Join a team vault?",
+        "loading": "Checking the link…",
+        "body": "This link adds you to {{team}} as {{role}}.",
+        "bodyNamed": "{{inviter}} is inviting you to {{team}} as {{role}}.",
+        "keyFollowsLater": "You'll join straight away, but the vault stays locked until someone who already has its key is online.",
+        "action": "Join",
+        "failed": "Couldn't join — the link may have been revoked."
+      },
+      "newLink": "New link",
+      "cancel": "Cancel"
     }
   }
 }

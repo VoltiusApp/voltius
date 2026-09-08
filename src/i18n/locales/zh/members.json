@@ -68,7 +68,8 @@
       "tabInvite": "邀请",
       "manage": "管理…",
       "inviteSomeone": "邀请某人",
-      "loadFailed": "无法加载列表——请重试"
+      "loadFailed": "无法加载列表——请重试",
+      "tabLinks": "链接"
     },
     "invite": {
       "title": "邀请成员",
@@ -114,7 +115,9 @@
       "invitingToSession": "正在邀请 {{name}} 加入会话…",
       "invitedToSession": "已邀请 {{name}} 加入会话",
       "convertingVault": "正在将 {{vault}} 转换为团队保险库…",
-      "vaultConverted": "{{vault}} 已成为团队保险库"
+      "vaultConverted": "{{vault}} 已成为团队保险库",
+      "grantingKey": "正在为 {{name}} 授予保险库访问权…",
+      "keyGranted": "{{name}} 现在可以打开保险库"
     },
     "error": {
       "cannotRemoveOwnerRole": "无法从团队所有者移除所有者角色",
@@ -123,7 +126,12 @@
       "failedToAddMember": "添加成员失败",
       "inviteFailed": "无法邀请 {{name}} — {{reason}}",
       "convertFailed": "无法将 {{vault}} 转换为团队保险库 — {{reason}}",
-      "serverUnreachable": "无法连接到同步服务器"
+      "serverUnreachable": "无法连接到同步服务器",
+      "removeFailed": "无法移除 {{name}} — {{reason}}",
+      "revokeFailed": "无法撤销 {{name}} 的邀请 — {{reason}}",
+      "grantKeyFailed": "无法为 {{name}} 授予保险库访问权 — {{reason}}",
+      "memberHasNoPublicKey": "对方尚未发布密钥 — 请让他们先登录一次。",
+      "notAKeyHolder": "您未持有此保险库的密钥，因此无法授予。"
     },
     "history": {
       "removeRole": "移除角色：{{name}}",
@@ -154,7 +162,8 @@
       "grantKey": "立即授予",
       "copyInviteLink": "复制邀请链接",
       "revoke": "撤销邀请",
-      "remove": "从保险库中移除"
+      "remove": "从保险库中移除",
+      "inviteLinkCopied": "邀请链接已复制 — 它会在 Voltius 中打开对方的邀请。"
     },
     "cta": {
       "signInTitle": "登录以使用团队功能",
@@ -163,6 +172,65 @@
       "upgradeTitle": "团队保险库需要 Teams",
       "upgradeDesc": "邀请成员、分配角色并与团队安全共享凭据。",
       "upgradeBtn": "升级到 Teams →"
+    },
+    "joinLinks": {
+      "explainer": "任何拥有此链接的人都会以您选定的角色加入此保险库。链接永远不会携带保险库密钥 — 密钥会在已持有它的人上线时单独送达。",
+      "empty": "没有有效链接。",
+      "loadFailed": "无法加载链接 — {{reason}}",
+      "joinsAs": "加入身份",
+      "usesLabel": "使用次数",
+      "expiryLabel": "有效期",
+      "create": "创建链接",
+      "copy": "复制",
+      "copied": "已复制",
+      "revoke": "撤销链接",
+      "shownOnce": "链接仅在创建时显示一次，之后无法再次查看。",
+      "secretNotRecoverable": "链接已无法查看 — 请撤销并新建一个。",
+      "usesLeft_one": "剩余 {{count}} 次（共 {{max}} 次）",
+      "usesLeft_other": "剩余 {{count}} 次（共 {{max}} 次）",
+      "expiringNow": "即将过期",
+      "expiresIn": {
+        "minutes_one": "剩余 {{count}} 分钟",
+        "minutes_other": "剩余 {{count}} 分钟",
+        "hours_one": "剩余 {{count}} 小时",
+        "hours_other": "剩余 {{count}} 小时",
+        "days_one": "剩余 {{count}} 天",
+        "days_other": "剩余 {{count}} 天"
+      },
+      "ttl": {
+        "hour1": "1 小时",
+        "day1": "1 天",
+        "day7": "7 天",
+        "day30": "30 天"
+      },
+      "toast": {
+        "creating": "正在创建链接…",
+        "created": "链接已创建",
+        "createFailed": "无法创建链接 — {{reason}}",
+        "revoking": "正在撤销链接…",
+        "revoked": "链接已撤销",
+        "revokeFailed": "无法撤销链接 — {{reason}}"
+      },
+      "error": {
+        "notFound": "此链接无效。",
+        "revokedOrExpired": "此链接已被撤销或已过期。",
+        "exhausted": "此链接的使用次数已用完。",
+        "seatLimit": "此团队没有空余席位。请联系发送链接的人添加席位。",
+        "noPublicKey": "您的设备尚未发布密钥。请先登录一次，然后重新打开链接。",
+        "generic": "服务器拒绝了请求（{{status}}）。"
+      },
+      "confirm": {
+        "title": "加入 {{team}}？",
+        "titleGeneric": "加入团队保险库？",
+        "loading": "正在检查链接…",
+        "body": "此链接将以 {{role}} 身份将您加入 {{team}}。",
+        "bodyNamed": "{{inviter}} 邀请您以 {{role}} 身份加入 {{team}}。",
+        "keyFollowsLater": "您会立即加入，但在已持有密钥的人上线之前，保险库仍处于锁定状态。",
+        "action": "加入",
+        "failed": "无法加入 — 链接可能已被撤销。"
+      },
+      "newLink": "新建链接",
+      "cancel": "取消"
     }
   }
 }

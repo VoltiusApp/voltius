@@ -20,13 +20,13 @@ const members = [
 ] as unknown as TeamMember[];
 
 test("the stack opens on click, not only on hover", () => {
-  render(<MembersStack members={members} vaultId="v1" />);
+  render(<MembersStack members={members} vaultId="v1" vaultName="Ops" />);
   fireEvent.click(screen.getByRole("button", { name: "layout.vaultHeader.members" }));
   expect(screen.getByText("share-sheet")).toBeTruthy();
 });
 
 test("the stack is reachable by keyboard", () => {
-  render(<MembersStack members={members} vaultId="v1" />);
+  render(<MembersStack members={members} vaultId="v1" vaultName="Ops" />);
   const trigger = screen.getByRole("button", { name: "layout.vaultHeader.members" });
   trigger.focus();
   expect(document.activeElement).toBe(trigger);
@@ -34,8 +34,8 @@ test("the stack is reachable by keyboard", () => {
   expect(screen.getByText("share-sheet")).toBeTruthy();
 });
 
-test("the + button opens the same sheet as the stack", () => {
-  render(<MembersStack members={members} vaultId="v1" />);
-  fireEvent.click(screen.getByTitle("layout.vaultHeader.inviteMember"));
+test("the Share button opens the same sheet as the stack", () => {
+  render(<MembersStack members={members} vaultId="v1" vaultName="Ops" />);
+  fireEvent.click(screen.getByTitle("members.share.title"));
   expect(screen.getByText("share-sheet")).toBeTruthy();
 });

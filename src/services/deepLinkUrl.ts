@@ -1,4 +1,4 @@
-import { isSessionId } from "@/services/sessionId";
+import { isSessionId, isUuid } from "@/services/sessionId";
 import { isSettingsSection, type SettingsSection } from "@/stores/uiStore";
 import { isValidPluginId } from "@/plugins/pluginId";
 
@@ -10,6 +10,12 @@ export type SettingsIntent = { route: "settings"; section: SettingsSection };
 export type BillingIntent = { route: "billing" };
 export type SnippetInstallIntent = { route: "snippet-install"; entryId: string };
 export type PluginInstallIntent = { route: "plugin-install"; pluginId: string; sourceId: string };
+/**
+ * An open join link for a team vault. Carries a grant id and that grant's
+ * secret and nothing else — never key material, and never `account_id`, which
+ * despite its name is the KDF salt for the user's password.
+ */
+export type VaultJoinIntent = { route: "vault-join"; grantId: string; secret: string };
 export type DeepLinkIntent =
   | JoinIntent
   | InviteIntent
@@ -18,7 +24,8 @@ export type DeepLinkIntent =
   | SettingsIntent
   | BillingIntent
   | SnippetInstallIntent
-  | PluginInstallIntent;
+  | PluginInstallIntent
+  | VaultJoinIntent;
 
 type TrustClass = "confirm" | "attenuated" | "silent" | "navigate";
 type Route = DeepLinkIntent["route"];
@@ -84,6 +91,12 @@ const TRUST = {
   // the sheet names the plugin, its catalogue and its permissions before the
   // accept button does anything.
   "plugin-install": "confirm",
+  // Spends a use of a real grant and lands the tapper's account in someone
+  // else's team under a role its author chose. It carries no vault key — those
+  // are wrapped per member with X25519 and can never travel in a link — but
+  // membership is still a capability, and leaving again is a separate act. The
+  // sheet names the team, the role and the inviter before accept does anything.
+  "vault-join": "confirm",
 } as const satisfies Record<Route, TrustClass>;
 
 type RouteOfClass<C extends TrustClass> = {
@@ -123,6 +136,14 @@ export const DEFAULT_PLUGIN_SOURCE_ID = "voltius";
 
 /** A source id is a catalogue key, not a URL; this only stops an absurd one. */
 const MAX_SOURCE_ID = 100;
+
+/**
+ * A join-grant secret exactly as the server mints it (server:
+ * `team_join_grants::generate_secret`) — 32 random bytes as unpadded base64url,
+ * so 43 characters. Anything else is rejected here rather than spent as a
+ * probe against the preview endpoint.
+ */
+const GRANT_SECRET_RE = /^[A-Za-z0-9_-]{43}$/;
 
 /**
  * Mirrors the server's custom-handle rule (server: `src/handles.rs`,
@@ -211,6 +232,16 @@ const ROUTES: { [K in Route]: RouteCodec<K> } = {
       return { route: "plugin-install", pluginId, sourceId };
     },
     params: ({ pluginId, sourceId }) => ({ id: pluginId, src: sourceId }),
+  },
+  "vault-join": {
+    parse: (params) => {
+      const grantId = params.get("g") ?? "";
+      if (!isUuid(grantId)) return null;
+      const secret = params.get("k") ?? "";
+      if (!GRANT_SECRET_RE.test(secret)) return null;
+      return { route: "vault-join", grantId, secret };
+    },
+    params: ({ grantId, secret }) => ({ g: grantId, k: secret }),
   },
 };
 

@@ -1,6 +1,6 @@
 import i18n from "@/i18n";
-import { appFetch } from "@/services/http";
-import { getJwt, getServerUrl } from "@/services/authTokens";
+import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
+import { getServerUrl } from "@/services/authTokens";
 import type { AnyAuditAction } from "@/services/auditContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,21 +28,6 @@ export interface AuditFilters {
   to?: string;
   page: number;
   per_page: number;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function fetchAuth(url: string, init: RequestInit = {}): Promise<Response> {
-  const jwt = await getJwt();
-  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
-  return appFetch(url, {
-    ...init,
-    headers: {
-      ...(init.headers as Record<string, string>),
-      Authorization: `Bearer ${jwt}`,
-      "Content-Type": "application/json",
-    },
-  });
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
