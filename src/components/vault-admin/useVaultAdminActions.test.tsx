@@ -7,7 +7,7 @@ const h = vi.hoisted(() => ({
   fetchTeamData: vi.fn(async (_id: string) => {}),
   clearTeamKeyCache: vi.fn(),
   reloadLocalVaultObjectStores: vi.fn(async () => {}),
-  saveConnection: vi.fn(async (_c: unknown) => {}),
+  adoptConnection: vi.fn(async (_id: string, _c: unknown) => {}),
   clearTeamConnections: vi.fn(),
   setStatus: vi.fn(),
   setVaultTeamId: vi.fn(),
@@ -53,12 +53,17 @@ vi.mock("@/stores/notificationStore", () => ({
 // One team connection is enough to exercise the copy step; the other entity
 // kinds share the same Promise.allSettled and are left empty.
 vi.mock("@/stores/connectionStore", () => ({
+  connectionToFormData: (c: Record<string, unknown>) => {
+    const { id: _id, ...rest } = c;
+    return rest;
+  },
   useConnectionStore: {
     getState: () => ({
       teamConnections: {
         t1: [{
           id: "c1", name: "web", host: "h", port: 22, username: "u",
-          auth_type: "password", tags: [], identity_id: null, folder_id: null,
+          auth_type: "password", tags: [], identity_id: "i1", key_id: "k1", folder_id: "f1",
+          notes: "prod box", jump_hosts: [{ id: "j1", connection_id: "c9" }],
         }],
       },
       clearTeamConnections: h.clearTeamConnections,
@@ -89,14 +94,14 @@ vi.mock("@/stores/teamVaultStateStore", () => ({
     { getState: () => ({ setStatus: h.setStatus }) },
   ),
 }));
-vi.mock("@/services/connections", () => ({ saveConnection: h.saveConnection }));
-vi.mock("@/services/identities", () => ({ saveIdentity: vi.fn(async () => {}) }));
-vi.mock("@/services/keys", () => ({ saveKey: vi.fn(async () => {}) }));
-vi.mock("@/services/folders", () => ({ saveFolder: vi.fn(async () => {}) }));
+vi.mock("@/services/connections", () => ({ adoptConnection: h.adoptConnection }));
+vi.mock("@/services/identities", () => ({ adoptIdentity: vi.fn(async () => {}) }));
+vi.mock("@/services/keys", () => ({ adoptKey: vi.fn(async () => {}) }));
+vi.mock("@/services/folders", () => ({ adoptFolder: vi.fn(async () => {}) }));
 vi.mock("@/services/snippets", () => ({
-  createSnippet: vi.fn(async () => {}), createSnippetFolder: vi.fn(async () => {}),
+  adoptSnippet: vi.fn(async () => {}), adoptSnippetFolder: vi.fn(async () => {}),
 }));
-vi.mock("@/services/portForwardingRules", () => ({ createPfRule: vi.fn(async () => {}) }));
+vi.mock("@/services/portForwardingRules", () => ({ adoptPfRule: vi.fn(async () => {}) }));
 
 import { useVaultAdminActions } from "./useVaultAdminActions";
 import type { VaultAdminTarget } from "./vaultAdminTarget";
@@ -117,6 +122,17 @@ function Probe() {
   return <button onClick={() => void makePrivate()}>go</button>;
 }
 
+/**
+ * Fires make-private twice in one tick, the way Modal.tsx's Enter handler does:
+ * it stopPropagation()s but never preventDefault()s, so a focused Confirm button
+ * runs `onEnter` and its own native click before React re-renders `busy`.
+ */
+const doubled: Promise<void>[] = [];
+function DoubleProbe() {
+  const { makePrivate } = useVaultAdminActions(target, { onDone });
+  return <button onClick={() => { doubled.push(makePrivate(), makePrivate()); }}>twice</button>;
+}
+
 /** Runs the already-confirmed make-private action. */
 function clickMakePrivate() {
   render(<Probe />);
@@ -133,7 +149,7 @@ beforeEach(() => {
   h.deleteTeam.mockResolvedValue(undefined);
   h.fetchTeamData.mockResolvedValue(undefined);
   h.reloadLocalVaultObjectStores.mockResolvedValue(undefined);
-  h.saveConnection.mockResolvedValue(undefined);
+  h.adoptConnection.mockResolvedValue(undefined);
   h.t.mockImplementation((k: string) => k);
   onDone.mockReset();
   useVaultStore.setState({ setVaultTeamId: h.setVaultTeamId });
@@ -146,7 +162,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 test("a rejected entity write aborts before anything destructive and says so", async () => {
-  h.saveConnection.mockRejectedValue(new Error("disk full"));
+  h.adoptConnection.mockRejectedValue(new Error("disk full"));
 
   clickMakePrivate();
 
@@ -176,7 +192,7 @@ test("the happy path deletes the team, unlinks the vault and reports success", a
   clickMakePrivate();
 
   await waitFor(() => expect(onDone).toHaveBeenCalled());
-  expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ name: "web", vault_id: "v1" }));
+  expect(h.adoptConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ name: "web", vault_id: "v1" }));
   expect(h.deleteTeam).toHaveBeenCalledWith("t1");
   expect(h.setVaultTeamId).toHaveBeenCalledWith("v1", null);
   expect(h.clearTeamConnections).toHaveBeenCalledWith("t1");
@@ -210,4 +226,50 @@ test("a transport failure's raw URL never reaches the toast", async () => {
   expect(shown).toContain("settings.vaults.general.makePrivate.removeMembersFailedToast");
   expect(shown).not.toMatch(/http/i);
   expect(shown).not.toContain("v68-server");
+});
+
+test("a copied object keeps its own id and its every field", async () => {
+  clickMakePrivate();
+
+  await waitFor(() => expect(onDone).toHaveBeenCalled());
+  // A fresh id would orphan `password:c1` in the keychain and break every
+  // reference to it, so the id is the assertion — not just that a write happened.
+  const [id, payload] = h.adoptConnection.mock.calls[0] as [string, Record<string, unknown>];
+  expect(id).toBe("c1");
+  expect(payload).toMatchObject({
+    vault_id: "v1",
+    identity_id: "i1",
+    key_id: "k1",
+    folder_id: "f1",
+    notes: "prod box",
+    jump_hosts: [{ id: "j1", connection_id: "c9" }],
+  });
+});
+
+test("a second confirm in the same tick is a no-op, not a second pass", async () => {
+  // Asserted on timing, not call counts: an unguarded second call dies somewhere
+  // in the concurrent dynamic-import race, so `deleteTeam`/`fetchTeamData` counts
+  // read the same with the guard and without it. What only the guard produces is
+  // a second call that settles *before its first await* — while the first is
+  // still inside the copy pass, held here by a fetch that never resolves.
+  h.fetchTeamData.mockReturnValue(new Promise<void>(() => {}));
+  doubled.length = 0;
+  render(<DoubleProbe />);
+
+  fireEvent.click(screen.getByText("twice"));
+  const settled = [false, false];
+  doubled.forEach((p, i) => void p.then(() => { settled[i] = true; }));
+
+  // Let the first call run its import chain and reach the fetch that never
+  // resolves; a second call that was not turned away would get there too.
+  await waitFor(() => expect(h.fetchTeamData).toHaveBeenCalled());
+  for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+
+  expect(doubled).toHaveLength(2);
+  expect(settled[1]).toBe(true);
+  expect(settled[0]).toBe(false);
+  // A second pass that got as far as running would show up as either a second
+  // copy attempt or the error toast its own failure raises.
+  expect(h.fetchTeamData).toHaveBeenCalledTimes(1);
+  expect(h.addToast).not.toHaveBeenCalled();
 });

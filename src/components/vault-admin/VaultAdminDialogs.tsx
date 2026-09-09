@@ -6,7 +6,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { useVaultAdminActions } from "./useVaultAdminActions";
 import { VaultSettingsBody } from "./VaultSettingsBody";
-import type { VaultAdminTarget } from "./vaultAdminTarget";
+import { makePrivateMemberMessage, type VaultAdminTarget } from "./vaultAdminTarget";
 
 export type VaultDialog = "rename" | "settings" | "makePrivate" | "delete" | null;
 
@@ -96,9 +96,10 @@ export function VaultAdminDialogs({
       <ConfirmModal
         tone="warning"
         title={t("settings.vaults.general.makePrivate.title")}
-        message={memberN > 1
-          ? t("settings.vaults.general.makePrivate.confirm", { count: memberN - 1 })
-          : t("settings.vaults.general.makePrivate.confirmAll")}
+        message={makePrivateMemberMessage(memberN, t, {
+          others: "settings.vaults.general.makePrivate.confirm",
+          alone: "settings.vaults.general.makePrivate.confirmAll",
+        })}
         confirmLabel={t("settings.vaults.general.makePrivate.confirmBtn")}
         busy={busy}
         busyLabel={t("settings.vaults.general.makePrivate.converting")}
