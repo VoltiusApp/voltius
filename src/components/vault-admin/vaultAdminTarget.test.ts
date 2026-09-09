@@ -29,8 +29,17 @@ test("the built-in personal vault can be renamed but never deleted", () => {
 
 test("a team vault owner can make it private again", () => {
   expect(vaultAdminCapabilities(teamVault, teamsAsOwner, roles)).toEqual({
-    isTeam: true, isOwner: true, canRename: true, canDelete: true, canMakePrivate: true,
+    isTeam: true, isOwner: true, canRename: true, canDelete: false, canMakePrivate: true,
   });
+});
+
+// Delete takes the vault's contents with it, and a team vault's contents are the
+// members', held server-side. Make-private is the step that takes ownership of
+// them first; it stays offered here.
+test("a team vault is never deleted from here, not even by its owner", () => {
+  expect(vaultAdminCapabilities(teamVault, teamsAsOwner, roles).canDelete).toBe(false);
+  expect(vaultAdminCapabilities(teamVault, teamsAsMember, roles).canDelete).toBe(false);
+  expect(vaultAdminCapabilities(teamVault, teamsAsOwner, roles).canMakePrivate).toBe(true);
 });
 
 test("a team vault member is not offered make-private", () => {

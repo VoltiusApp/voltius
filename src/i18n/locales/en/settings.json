@@ -622,6 +622,8 @@
           "title": "Delete vault",
           "confirmDesc": "Permanently deletes this vault and its {{count}} items. This cannot be undone.",
           "confirmBtn": "Confirm delete",
+          "deleting": "Deleting…",
+          "failedToast": "Couldn't finish deleting this vault — it is still here, but some of its items may already be gone. {{reason}}",
           "btn": "Delete vault"
         },
         "madePrivateToast_one": "Vault is now private. {{count}} member lost access.",

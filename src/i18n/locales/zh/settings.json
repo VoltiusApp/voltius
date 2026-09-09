@@ -490,6 +490,8 @@
           "title": "删除保险库",
           "confirmDesc": "将永久删除此保险库及其 {{count}} 个项目。此操作无法撤销。",
           "confirmBtn": "确认删除",
+          "deleting": "正在删除…",
+          "failedToast": "未能完成此保险库的删除——保险库仍在，但其中部分项目可能已被删除。{{reason}}",
           "btn": "删除保险库"
         },
         "madePrivateToast_one": "保险库现已私有。{{count}} 名成员失去了访问权限。",
