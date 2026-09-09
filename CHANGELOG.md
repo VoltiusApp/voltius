@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-09-07
+
+### Fixed
+
+- A member holding only the `connect-only` role can now actually connect. The
+  role could see every host in a team vault and reach none of them that needed
+  a stored password, private key, or key passphrase: fetching the vault key and
+  the stored credentials both required "View secrets", which the role does not
+  grant, so the credentials never reached the device and every connection
+  failed authentication. Connecting now means "use a stored credential without
+  seeing it" — "View secrets" still governs reading one back in plain text, and
+  "Copy secrets" the clipboard. Editors opened by a role without "View secrets"
+  leave the credential fields blank and say why rather than showing the secret,
+  and an export carries only the secrets its author is allowed to see. Requires
+  a server that grants the same, so self-hosted installs should update the
+  server alongside the app.
+- A team vault whose stored credentials could not be loaded now says so. The
+  hosts in a team vault are listed from data that needs no key, so the vault
+  rendered complete and the first sign of trouble was an authentication failure
+  at connect time. The vault stays browsable and warns in place instead.
+- Updated browserslist past GHSA-73wf-gq98-2v4g.
+
+## [0.32.0] - 2026-09-07
+
+### Added
+
+- Tabs can be renamed. A tab can now carry a name of your own instead of
+  always showing the connection it opened: click the label of the tab you are
+  already on, double-click it, or pick "Rename…" from the tab context menu or
+  the pane header menu. Clearing the name returns the tab to the connection
+  name, so a connection renamed upstream only ever moves the fallback. The name
+  is device-local but survives a restart, and a shared session co-attached on
+  another device inherits the name the origin device gave it. Duplicating a tab
+  opens on the connection rather than inheriting the name.
+- Split tabs have their own context menu. Right-clicking a unified split tab
+  did nothing — only the session-tab button carried a menu, so a session merged
+  into a split lost the one its own tab had. The new menu is tab-scoped:
+  broadcast input, focus one of the tab's panes, split apart into tabs, and
+  close the tab with its session count. Anything acting on a single session
+  stays on the pane header, where the target is unambiguous.
+- Mobile now shows team-vault first-access state. The mobile shell rendered
+  none of it, so a member who opened a team vault they had no key for saw an
+  empty hosts list with no explanation, and the role-aware landing never fired.
+  The panel is now mounted on mobile too, with the header kept above it — it
+  owns the only route to the vault switcher, without which a member stuck on a
+  keyless vault could never reach another one. A live terminal or SFTP
+  connection stays alive underneath.
+
+### Fixed
+
+- Ctrl+G reaches the shell again when the search widget is closed, so
+  bash's Ctrl+R reverse-i-search can be aborted — readline needs the ^G byte
+  (0x07) and it was never sent. The terminal claimed the chord unconditionally
+  rather than only while its search widget was open, which killed every shell
+  and TUI use of the key. Ctrl+G and Ctrl+F also no longer fire twice with the
+  search open: one press moved two hits, and Ctrl+F focused the right panel's
+  search bar over the widget it had just opened.
+- An open context menu no longer swallows the next right-click. The menu sat
+  above a full-screen backdrop that also caught the right-click meant for
+  whatever was under it, so with one menu open, right-clicking another target
+  did nothing at all and the stale menu simply stayed. A left-click outside now
+  also reaches what it lands on rather than being absorbed.
+
 ## [0.31.1] - 2026-09-01
 
 ### Changed
