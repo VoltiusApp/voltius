@@ -25,7 +25,7 @@ export async function appFetch(input: string | URL, init?: AppFetchInit): Promis
   return new Response(NULL_BODY_STATUSES.has(response.status) ? null : response.body, {
     status: response.status,
     statusText: response.status_text,
-    headers: response.headers.map(({ name, value }) => [name, value]),
+    headers: response.headers.map(({ name, value }) => [name, value] as [string, string]),
   });
 }
 

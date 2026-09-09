@@ -26,6 +26,7 @@ import { getServerUrl } from "@/services/authTokens";
 import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { storeSecret, deleteSecret } from "@/services/vault";
+import { logFailure } from "@/lib/logger";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
@@ -501,7 +502,54 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
 }
 
 
-export async function clearTeamStoresAndSecrets(teamId: string): Promise<void> {
+/**
+ * Deletes `keys` from the keychain, returning the ones that did not go away.
+ *
+ * `Promise.allSettled` on its own made a partial wipe indistinguishable from a
+ * clean one: a rejected delete leaves the plaintext secret on disk and nothing
+ * recorded that it did (issue #233).
+ */
+async function deleteSecrets(keys: string[]): Promise<string[]> {
+  const results = await Promise.allSettled(keys.map((k) => deleteSecret(k)));
+  const failed: string[] = [];
+  results.forEach((r, i) => {
+    if (r.status === "rejected") {
+      failed.push(keys[i]);
+      logFailure(`keychain wipe of ${keys[i]}`)(r.reason);
+    }
+  });
+  return failed;
+}
+
+/**
+ * Retries keychain deletions left over from a failed offboarding wipe.
+ *
+ * Called once per login. A team the user belongs to again is dropped without
+ * deleting anything: those entries have since been re-hydrated for a live
+ * vault, and the queue only ever meant "these should not be on this device".
+ */
+export async function drainPendingSecretWipes(): Promise<void> {
+  const { usePendingSecretWipeStore } = await import("@/stores/pendingSecretWipeStore");
+  const { useTeamStore } = await import("@/stores/teamStore");
+  const store = usePendingSecretWipeStore.getState();
+  const currentTeamIds = new Set(useTeamStore.getState().teams.map((t) => t.id));
+
+  for (const [teamId, keys] of Object.entries(store.keysByTeamId)) {
+    if (currentTeamIds.has(teamId)) {
+      store.resolve(teamId, keys);
+      continue;
+    }
+    const failed = new Set(await deleteSecrets(keys));
+    store.resolve(teamId, keys.filter((k) => !failed.has(k)));
+  }
+}
+
+/**
+ * Empties the team's store slices and wipes its secrets from the keychain.
+ * Returns the keychain keys that survived the wipe — a caller offboarding the
+ * user from the team must treat a non-empty result as secrets still on disk.
+ */
+export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[]> {
   const { useConnectionStore } = await import("@/stores/connectionStore");
   const { useIdentityStore } = await import("@/stores/identityStore");
   const { useKeyStore } = await import("@/stores/keyStore");
@@ -514,18 +562,10 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<void> {
   const conns = useConnectionStore.getState().teamConnections[teamId] ?? [];
   const keys = useKeyStore.getState().teamKeys[teamId] ?? [];
   const identities = useIdentityStore.getState().teamIdentities[teamId] ?? [];
-  await Promise.allSettled([
-    ...conns.flatMap((c) => [
-      deleteSecret(`key:${c.id}`),
-      deleteSecret(`password:${c.id}`),
-      deleteSecret(`passphrase:${c.id}`),
-    ]),
-    ...keys.flatMap((k) => [
-      deleteSecret(`key:${k.id}:private`),
-      deleteSecret(`key:${k.id}:public`),
-      deleteSecret(`key:${k.id}:passphrase`),
-    ]),
-    ...identities.map((i) => deleteSecret(`identity:${i.id}:password`)),
+  const failedKeys = await deleteSecrets([
+    ...conns.flatMap((c) => [`key:${c.id}`, `password:${c.id}`, `passphrase:${c.id}`]),
+    ...keys.flatMap((k) => [`key:${k.id}:private`, `key:${k.id}:public`, `key:${k.id}:passphrase`]),
+    ...identities.map((i) => `identity:${i.id}:password`),
   ]);
 
   useConnectionStore.getState().setTeamConnections(teamId, []);
@@ -538,4 +578,6 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<void> {
 
   const { useTeamObjectPrefsStore } = await import("@/stores/teamObjectPrefsStore");
   useTeamObjectPrefsStore.getState().clearTeam(teamId);
+
+  return failedKeys;
 }

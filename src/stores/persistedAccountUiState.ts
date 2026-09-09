@@ -33,6 +33,11 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   "voltius-snippet-recent",
   // Snippet variable values remembered per connection — often credentials.
   "voltius-host-command-vars",
+  // Keychain entries a team offboarding wipe failed to delete, named by this
+  // account's object ids. Only this account can retry them — the next one would
+  // either find nothing or, on a team it still belongs to, delete a live vault's
+  // credentials.
+  "voltius-pending-secret-wipe",
 ];
 
 /**
