@@ -5,10 +5,12 @@ const h = vi.hoisted(() => ({
   rotateCalls: [] as { user_id: string; wrapped_key: string }[][],
   members: [] as { user_id: string; public_key: string }[],
   allowed: new Set<string>(),
-  objects: [] as { object_id: string; object_type: string; metadata: unknown }[],
+  objects: [] as { object_id: string; object_type: string; metadata: unknown; deleted_at?: string }[],
   secrets: [] as { secret_id: string; object_id: string; ciphertext: string; key_version: number }[],
   reencryptObjectCalls: [] as unknown[],
   reencryptSecretCalls: [] as unknown[],
+  getTeamVaultKeyAtVersionCalls: [] as unknown[][],
+  deleteTeamKeyCalls: [] as string[],
 }));
 
 vi.mock("@/services/teamService", () => ({
@@ -23,6 +25,11 @@ vi.mock("@/services/multiplayerService", () => ({
 vi.mock("@/services/teamVaultSync", () => ({
   getTeamVaultKey: vi.fn(async () => [1, 2, 3]),
   getCachedTeamKeyVersion: vi.fn(() => 1),
+  getTeamVaultKeyAtVersion: vi.fn(async (teamId: string, version: number) => {
+    h.getTeamVaultKeyAtVersionCalls.push([teamId, version]);
+    return [7, 7, 7];
+  }),
+  deleteTeamKey: vi.fn((teamId: string) => { h.deleteTeamKeyCalls.push(teamId); }),
 }));
 vi.mock("@/services/teamObjects", () => ({
   listTeamObjects: vi.fn(async () => h.objects),
@@ -34,6 +41,7 @@ vi.mock("@/services/teamObjectEnvelope", () => ({
   isEncryptedEnvelope: (m: unknown) =>
     typeof m === "object" && m !== null && (m as Record<string, unknown>).v === 2,
   encodeObjectMetadata: vi.fn(async (_teamId: string, _item: object) => ({ v: 2, enc: "reenc", kv: 1 })),
+  decodeObjectMetadata: vi.fn(async (_teamId: string, metadata: unknown) => metadata),
 }));
 vi.mock("@/services/teamObjectEditPermission", () => ({
   buildEditPermissionSnapshot: vi.fn(async () => ({})),
@@ -42,8 +50,20 @@ vi.mock("@/services/teamObjectEditPermission", () => ({
   // ("connection") from one the caller cannot edit ("key").
   canEditObjectType: vi.fn((_snapshot: unknown, _teamId: string, objectType: string) => h.allowed.has(objectType)),
 }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async (cmd: string, _args: Record<string, unknown>) => {
+    if (cmd === "backup_decrypt") return { secrets: { "password:c1": "hunter2" } };
+    if (cmd === "encrypt_payload") return [9, 9, 9];
+    throw new Error(`unexpected invoke ${cmd}`);
+  }),
+}));
+vi.mock("@/services/teamVaultSyncCore", () => ({
+  bytesToBase64: (b: number[]) => `b64(${b.join(",")})`,
+  base64ToBytes: (_s: string) => [1, 2, 3],
+}));
 
 import { checkAndRotateTeamKey } from "./teamKeyRotation";
+import { getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
 
 beforeEach(() => {
   h.status = { stale: false, draining: false };
@@ -54,6 +74,8 @@ beforeEach(() => {
   h.secrets = [];
   h.reencryptObjectCalls = [];
   h.reencryptSecretCalls = [];
+  h.getTeamVaultKeyAtVersionCalls = [];
+  h.deleteTeamKeyCalls = [];
 });
 
 test("neither stale nor draining: does nothing", async () => {
@@ -103,4 +125,39 @@ test("concurrent calls for the same team dedup to one pass", async () => {
   await Promise.all([checkAndRotateTeamKey("t1"), checkAndRotateTeamKey("t1")]);
 
   expect(h.rotateCalls).toHaveLength(1);
+});
+
+test("draining: re-encrypts a stale secret by decrypting with its OLD key version and re-wrapping under current", async () => {
+  h.status = { stale: false, draining: true };
+  h.objects = [
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 0 } },
+  ];
+  h.secrets = [
+    { secret_id: "s1", object_id: "c1", ciphertext: "b64(old-cipher)", key_version: 0 },
+  ];
+
+  await checkAndRotateTeamKey("t1");
+
+  // Decrypted using the secret's own (stale) key_version, never the new one.
+  expect(getTeamVaultKeyAtVersion).toHaveBeenCalledWith("t1", 0);
+
+  // Re-wrapped under the current epoch (mocked getCachedTeamKeyVersion === 1),
+  // with ciphertext reflecting the fresh encrypt_payload call ([9,9,9]).
+  expect(h.reencryptSecretCalls.flat()).toEqual([
+    { secret_id: "s1", ciphertext: "b64(9,9,9)", key_version: 1 },
+  ]);
+});
+
+test("draining: does not touch a secret already at or ahead of the current version", async () => {
+  h.status = { stale: false, draining: true };
+  h.objects = [
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 1 } },
+  ];
+  h.secrets = [
+    { secret_id: "s1", object_id: "c1", ciphertext: "b64(current-cipher)", key_version: 1 },
+  ];
+
+  await checkAndRotateTeamKey("t1");
+
+  expect(h.reencryptSecretCalls).toHaveLength(0);
 });

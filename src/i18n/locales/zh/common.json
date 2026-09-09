@@ -114,6 +114,8 @@
       "failedToDeleteTeam": "删除团队失败：{{status}}",
       "failedToListMembers": "获取成员列表失败：{{status}}",
       "failedToListVaultKeyHolders": "获取保险库密钥持有者列表失败：{{status}}",
+      "failedToCheckRotationStatus": "检查密钥轮换状态失败：{{status}}",
+      "failedToRotateVaultKey": "轮换保险库密钥失败：{{status}}",
       "failedToAddMember": "添加成员失败：{{status}}",
       "failedToRemoveMember": "移除成员失败：{{status}}",
       "failedToAssignRole": "分配角色失败：{{status}}",
