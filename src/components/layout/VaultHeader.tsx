@@ -13,9 +13,8 @@ import { PickerSurface } from "@/components/shared/PickerSurface";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
-import { ContextMenu } from "@/components/shared/ContextMenu";
 import { useVaultAdmin } from "@/components/vault-admin/useVaultAdmin";
-import { VaultAdminDialogs } from "@/components/vault-admin/VaultAdminDialogs";
+import { VaultAdminSurface } from "@/components/vault-admin/VaultAdminSurface";
 import type { VaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
 
 // ─── Members stack ─────────────────────────────────────────────────────────
@@ -354,14 +353,7 @@ export default function VaultHeader() {
         )}
       </div>
 
-      {admin.pos && <ContextMenu items={admin.items} pos={admin.pos} onClose={admin.closeMenu} />}
-      {target && (
-        <VaultAdminDialogs
-          target={target}
-          dialog={admin.dialog}
-          onClose={() => admin.setDialog(null)}
-        />
-      )}
+      <VaultAdminSurface admin={admin} target={target} />
     </div>
   );
 }

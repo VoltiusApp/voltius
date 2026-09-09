@@ -6,7 +6,7 @@ import { deleteTeam } from "@/services/teamService";
 import { userFacingReason } from "@/services/errorReason";
 import { reloadLocalVaultObjectStores } from "@/services/vaultTeamMigration";
 import { deleteVaultWithContents } from "@/services/vaultObjectStores";
-import type { VaultAdminTarget } from "./vaultAdminTarget";
+import { makePrivateMemberMessage, type VaultAdminTarget } from "./vaultAdminTarget";
 
 export interface VaultAdminCallbacks {
   onRenamed?: (name: string) => void;
@@ -25,7 +25,6 @@ async function vaultToast(message: string, severity: "info" | "error") {
 export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCallbacks) {
   const { t } = useTranslation();
   const { renameVault, setVaultTeamId } = useVaultStore();
-  const { membersByTeam } = useTeamStore();
   const [busy, setBusy] = useState(false);
   // Modal.tsx's Enter handler stopPropagation()s but never preventDefault()s, so
   // pressing Enter on a focused Confirm button fires both the keydown handler
@@ -87,7 +86,7 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
     await exclusive(async () => {
       try {
         const { fetchTeamData } = await import("@/services/teamVaultSync");
-        const { useConnectionStore } = await import("@/stores/connectionStore");
+        const { useConnectionStore, connectionToFormData } = await import("@/stores/connectionStore");
         const { useIdentityStore } = await import("@/stores/identityStore");
         const { useKeyStore } = await import("@/stores/keyStore");
         const { useFolderStore } = await import("@/stores/folderStore");
@@ -108,33 +107,32 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
 
         await fetchTeamData(teamId);
 
-        const now = new Date().toISOString();
-
-        // Move entities from team memory to local disk with personal vault_id
-        const conns = (useConnectionStore.getState().teamConnections[teamId] ?? [])
-          .map((c) => ({ ...c, vault_id: vaultId, updated_at: now }));
-        const identities = (useIdentityStore.getState().teamIdentities[teamId] ?? [])
-          .map((i) => ({ ...i, vault_id: vaultId, updated_at: now }));
-        const keys = (useKeyStore.getState().teamKeys[teamId] ?? [])
-          .map((k) => ({ ...k, vault_id: vaultId, updated_at: now }));
-        const folders = (useFolderStore.getState().teamFolders[teamId] ?? [])
-          .map((f) => ({ ...f, vault_id: vaultId, updated_at: now }));
-        const snippets = (useSnippetStore.getState().teamSnippets[teamId] ?? [])
-          .map((s) => ({ ...s, vault_id: vaultId, updated_at: now }));
-        const snippetFolders = (useSnippetFolderStore.getState().teamSnippetFolders[teamId] ?? [])
-          .map((f) => ({ ...f, vault_id: vaultId, updated_at: now }));
+        // Adopted under each object's own id, never a freshly minted one. The
+        // object's secrets live in the OS keychain under `password:<id>` /
+        // `key:<id>:private` / `identity:<id>:password`, and every cross-reference
+        // (identity_id, key_id, folder_id, parent_folder_id, connection_ids) names
+        // that id too, so a new id would silently strip the copy of its credentials
+        // and its links. `migrateVaultToTeam` preserves ids on the way in for the
+        // same reason. Adopt also replaces an id it has already written, which is
+        // what makes a retry after a partial failure repair the copy rather than
+        // duplicate it.
+        const conns = useConnectionStore.getState().teamConnections[teamId] ?? [];
+        const identities = useIdentityStore.getState().teamIdentities[teamId] ?? [];
+        const keys = useKeyStore.getState().teamKeys[teamId] ?? [];
+        const folders = useFolderStore.getState().teamFolders[teamId] ?? [];
+        const snippets = useSnippetStore.getState().teamSnippets[teamId] ?? [];
+        const snippetFolders = useSnippetFolderStore.getState().teamSnippetFolders[teamId] ?? [];
         const portRules = (usePortForwardingStore.getState().teamRules[teamId] ?? [])
-          .filter((r) => !r.deleted_at || r.updated_at > r.deleted_at)
-          .map((r) => ({ ...r, vault_id: vaultId, updated_at: now }));
+          .filter((r) => !r.deleted_at || r.updated_at > r.deleted_at);
 
         const writes = await Promise.allSettled([
-          ...conns.map((c) => connApi.saveConnection({ name: c.name, host: c.host, port: c.port, username: c.username, auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, folder_id: c.folder_id, vault_id: vaultId })),
-          ...identities.map((i) => identApi.saveIdentity({ name: i.name, username: i.username, key_id: i.key_id, tags: i.tags, folder_id: i.folder_id, vault_id: vaultId })),
-          ...keys.map((k) => keyApi.saveKey({ name: k.name, key_type: k.key_type, tags: k.tags, folder_id: k.folder_id, vault_id: vaultId })),
-          ...folders.map((f) => folderApi.saveFolder({ name: f.name, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: vaultId })),
-          ...snippets.map((s) => snippetApi.createSnippet({ name: s.name, steps: s.steps, description: s.description, tags: s.tags, folder_id: s.folder_id, favorite: s.favorite, only_for_connection_tags: s.only_for_connection_tags, only_for_distros: s.only_for_distros, vault_id: vaultId })),
-          ...snippetFolders.map((f) => snippetApi.createSnippetFolder({ name: f.name, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: vaultId })),
-          ...portRules.map((r) => pfApi.createPfRule({ name: r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type, bind_host: r.bind_host, target_host: r.target_host, description: r.description, connection_ids: r.connection_ids, folder_id: r.folder_id, vault_id: vaultId })),
+          ...conns.map((c) => connApi.adoptConnection(c.id, { ...connectionToFormData(c), vault_id: vaultId })),
+          ...identities.map((i) => identApi.adoptIdentity(i.id, { name: i.name, username: i.username, key_id: i.key_id, tags: i.tags, folder_id: i.folder_id, pinned: i.pinned, vault_id: vaultId })),
+          ...keys.map((k) => keyApi.adoptKey(k.id, { name: k.name, key_type: k.key_type, tags: k.tags, folder_id: k.folder_id, pinned: k.pinned, vault_id: vaultId })),
+          ...folders.map((f) => folderApi.adoptFolder(f.id, { name: f.name, object_type: f.object_type, parent_folder_id: f.parent_folder_id, color: f.color, icon: f.icon, pinned: f.pinned, vault_id: vaultId })),
+          ...snippets.map((s) => snippetApi.adoptSnippet(s.id, { name: s.name, steps: s.steps, description: s.description, tags: s.tags, folder_id: s.folder_id, favorite: s.favorite, only_for_connection_tags: s.only_for_connection_tags, only_for_distros: s.only_for_distros, vault_id: vaultId })),
+          ...snippetFolders.map((f) => snippetApi.adoptSnippetFolder(f.id, { name: f.name, object_type: f.object_type, parent_folder_id: f.parent_folder_id, color: f.color, icon: f.icon, pinned: f.pinned, vault_id: vaultId })),
+          ...portRules.map((r) => pfApi.adoptPfRule(r.id, { name: r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type, bind_host: r.bind_host, target_host: r.target_host, description: r.description, connection_ids: r.connection_ids, folder_id: r.folder_id, vault_id: vaultId })),
         ]);
 
         // Whatever failed to land on disk still exists only inside the team, so
@@ -170,10 +168,14 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
 
         await reloadLocalVaultObjectStores();
 
-        const memberN = membersByTeam[teamId]?.length ?? 0;
-        await vaultToast(memberN > 1
-          ? t("settings.vaults.general.madePrivateToast", { count: memberN - 1 })
-          : t("settings.vaults.general.madePrivateToastEmpty"), "info");
+        // Read at toast time, not at render time: the roster this reports on is
+        // the one `fetchTeamData` just refreshed, and the confirm prompt the user
+        // answered was rendered from that same refreshed store.
+        const memberN = useTeamStore.getState().membersByTeam[teamId]?.length ?? 0;
+        await vaultToast(makePrivateMemberMessage(memberN, t, {
+          others: "settings.vaults.general.madePrivateToast",
+          alone: "settings.vaults.general.madePrivateToastEmpty",
+        }), "info");
 
         cb?.onDone?.();
       } catch (e) {

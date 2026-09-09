@@ -51,3 +51,18 @@ export function vaultAdminCapabilities(
     canMakePrivate: isTeam && isOwner && isLocal && target.vaultId !== null,
   };
 }
+
+/**
+ * The one place the make-private copy decides between "N other people" and
+ * "nobody else". The confirm prompt and the success toast say the same thing
+ * about the same team from two different store reads, so the boundary — and the
+ * off-by-one that turns a member list into a count of *other* members — lives
+ * here rather than being written out at each call site.
+ */
+export function makePrivateMemberMessage(
+  memberCount: number,
+  t: (key: string, vars?: { count: number }) => string,
+  keys: { others: string; alone: string },
+): string {
+  return memberCount > 1 ? t(keys.others, { count: memberCount - 1 }) : t(keys.alone);
+}

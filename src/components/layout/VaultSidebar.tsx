@@ -18,9 +18,8 @@ import { openBillingCheckout } from "@/services/billingCheckout";
 import { getUpdaterState, onUpdaterStateChange, type UpdaterStatus } from "@/services/updater";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import type { MyPendingInvitation } from "@/stores/teamStore";
-import { ContextMenu } from "@/components/shared/ContextMenu";
 import { useVaultAdmin } from "@/components/vault-admin/useVaultAdmin";
-import { VaultAdminDialogs } from "@/components/vault-admin/VaultAdminDialogs";
+import { VaultAdminSurface } from "@/components/vault-admin/VaultAdminSurface";
 import type { VaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
 
 function getInitials(name: string) {
@@ -66,30 +65,33 @@ export default function VaultSidebar() {
     if (vault.teamId) onVaultSelect(vault.teamId).catch(() => {});
   };
 
-  // One menu for the whole rail: only one vault row can be right-clicked at a
-  // time, so a menu per row would just multiply state for no benefit.
-  const [menuVaultId, setMenuVaultId] = useState<string | null>(null);
-  const menuVault = vaults.find((v) => v.id === menuVaultId) ?? null;
-  const adminTarget: VaultAdminTarget | null = menuVault
-    ? { kind: "local", vaultId: menuVault.id, teamId: menuVault.teamId ?? null, name: menuVault.name }
-    : null;
-  const admin = useVaultAdmin(adminTarget, {
+  // One menu for the whole rail: only one row can be right-clicked at a time, so
+  // a menu per row would just multiply state for no benefit. The target is held
+  // whole rather than as an id, because the rail's rows are not all local vaults
+  // — a standalone team row has no vault row to look the rest up from.
+  const [menuTarget, setMenuTarget] = useState<VaultAdminTarget | null>(null);
+  const activateMenuTarget = () => {
+    if (!menuTarget) return;
+    switchToVault({ id: menuTarget.vaultId ?? menuTarget.teamId!, teamId: menuTarget.teamId });
+    setMenuTarget(null);
+  };
+  const admin = useVaultAdmin(menuTarget, {
     // The rail has no share sheet of its own — switch to the vault so the
     // header's sheet (the app's one and only) can open for it instead.
     onShare: () => {
-      if (!menuVault) return;
-      switchToVault(menuVault);
+      activateMenuTarget();
       openVaultSharePending();
-      setMenuVaultId(null);
     },
     // Members/Roles nav is scoped to the ACTIVE vault, not the right-clicked
     // one — switch first so it opens for the vault the user actually chose.
-    onActivate: () => {
-      if (!menuVault) return;
-      switchToVault(menuVault);
-      setMenuVaultId(null);
-    },
+    onActivate: activateMenuTarget,
   });
+
+  /** Opens the vault menu for `target`. Rows with nothing to administer pass no handler. */
+  const menuFor = (target: VaultAdminTarget) => (e: React.MouseEvent) => {
+    setMenuTarget(target);
+    admin.openAtPointer(e);
+  };
 
   const handleAddVaultClick = () => {
     if (!isPro && vaults.length >= 1) {
@@ -129,14 +131,12 @@ export default function VaultSidebar() {
         {vaults.map((vault) => {
           const isActive = selectedVaultIds.includes(vault.id) && !homeView;
           return (
-            <div
+            <VaultRailRow
               key={vault.id}
-              data-testid={`vault-row-${vault.id}`}
-              className="relative flex items-center justify-center w-full shrink-0"
-              onContextMenu={(e) => {
-                setMenuVaultId(vault.id);
-                admin.openAtPointer(e);
-              }}
+              testId={`vault-row-${vault.id}`}
+              onContextMenu={menuFor({
+                kind: "local", vaultId: vault.id, teamId: vault.teamId ?? null, name: vault.name,
+              })}
             >
               <VaultButton
                 testId={`vault-button-${vault.id}`}
@@ -146,22 +146,29 @@ export default function VaultSidebar() {
                 onClick={() => switchToVault(vault)}
               />
               {vault.teamId && <TeamVaultBadge teamId={vault.teamId} />}
-            </div>
+            </VaultRailRow>
           );
         })}
 
         {/* Pending vault invitations */}
         {pendingInvites.map((inv) => (
-          <div key={inv.id} className="relative flex items-center justify-center w-full shrink-0">
+          <VaultRailRow key={inv.id}>
             <PendingInviteButton invite={inv} onClick={() => setSelectedInvite(inv)} />
-          </div>
+          </VaultRailRow>
         ))}
 
         {/* Standalone team vault buttons (invited members who have no linked local vault) */}
         {standaloneTeams.map((team) => {
           const isActive = selectedVaultIds.includes(team.id) && !homeView;
           return (
-            <div key={team.id} className="relative flex items-center justify-center w-full shrink-0">
+            // The members who most need Members and Roles are exactly the ones
+            // with no local vault row, so this menu is not optional: the header
+            // already builds the same cloud target for them.
+            <VaultRailRow
+              key={team.id}
+              testId={`vault-row-${team.id}`}
+              onContextMenu={menuFor({ kind: "cloud", vaultId: null, teamId: team.id, name: team.name })}
+            >
               <VaultButton
                 initial={getInitials(team.name)}
                 label={t("layout.vaultSidebar.cloudVaultLabel", { name: team.name })}
@@ -169,22 +176,24 @@ export default function VaultSidebar() {
                 onClick={() => switchToVault({ id: team.id, teamId: team.id })}
               />
               <TeamVaultBadge teamId={team.id} />
-            </div>
+            </VaultRailRow>
           );
         })}
 
-        {/* Unnamed vaults, kept visible so their hosts stay reachable */}
+        {/* Unnamed vaults, kept visible so their hosts stay reachable. No menu:
+            an orphan id has no vault record behind it, so every item the menu
+            offers — rename, share, delete, make private — would act on nothing. */}
         {orphanVaultIds.map((id) => {
           const isActive = selectedVaultIds.includes(id) && !homeView;
           return (
-            <div key={id} className="relative flex items-center justify-center w-full shrink-0">
+            <VaultRailRow key={id} testId={`vault-row-${id}`}>
               <VaultButton
                 initial="?"
                 label={unknownVaultLabel(id)}
                 isActive={isActive}
                 onClick={() => switchToVault({ id, teamId: null })}
               />
-            </div>
+            </VaultRailRow>
           );
         })}
 
@@ -192,17 +201,7 @@ export default function VaultSidebar() {
         <AddVaultButton onClick={handleAddVaultClick} />
       </div>
 
-      {admin.pos && <ContextMenu items={admin.items} pos={admin.pos} onClose={admin.closeMenu} />}
-      {adminTarget && (
-        <VaultAdminDialogs
-          target={adminTarget}
-          dialog={admin.dialog}
-          onClose={() => {
-            admin.setDialog(null);
-            setMenuVaultId(null);
-          }}
-        />
-      )}
+      <VaultAdminSurface admin={admin} target={menuTarget} onClose={() => setMenuTarget(null)} />
 
       {showCreateModal && (
         <CreateVaultModal
@@ -483,6 +482,33 @@ function ActivePip({ active }: { active: boolean }) {
         transition: "height 150ms ease",
       }}
     />
+  );
+}
+
+/**
+ * One rail slot. Every row in the scroll area is this wrapper plus its button,
+ * and binding `onContextMenu` here rather than per-row is what keeps the menu
+ * from reaching only the row kind that happened to be written first.
+ *
+ * `AppIconButton` keeps a wrapper of its own: it looks the same but is not a
+ * row — it sits outside the scroll area and drives a hover pip, so sharing this
+ * one would mean widening it with props no actual row uses.
+ */
+function VaultRailRow({
+  testId, onContextMenu, children,
+}: {
+  testId?: string;
+  onContextMenu?: (e: React.MouseEvent) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      data-testid={testId}
+      className="relative flex items-center justify-center w-full shrink-0"
+      onContextMenu={onContextMenu}
+    >
+      {children}
+    </div>
   );
 }
 
