@@ -10,9 +10,13 @@ interface Props {
   tone?: "danger" | "warning";
   onConfirm: () => void;
   onCancel: () => void;
+  /** Disables the confirm button while a multi-step action is in flight. */
+  busy?: boolean;
+  /** Label shown on the confirm button while `busy` is true, in place of `confirmLabel`. */
+  busyLabel?: string;
 }
 
-export function ConfirmModal({ title, message, confirmLabel, tone = "danger", onConfirm, onCancel }: Props) {
+export function ConfirmModal({ title, message, confirmLabel, tone = "danger", onConfirm, onCancel, busy = false, busyLabel }: Props) {
   const { t } = useTranslation();
   const accent = tone === "warning" ? "var(--t-status-warning)" : "var(--t-status-error)";
   const icon = tone === "warning" ? "lucide:lock" : "lucide:triangle-alert";
@@ -39,9 +43,10 @@ export function ConfirmModal({ title, message, confirmLabel, tone = "danger", on
           </button>
           <button
             onClick={onConfirm}
+            disabled={busy}
             className={`${confirmClass} px-4 py-2 rounded-lg text-sm font-medium`}
           >
-            {confirmLabel ?? t("common.action.confirm")}
+            {busy && busyLabel ? busyLabel : (confirmLabel ?? t("common.action.confirm"))}
           </button>
         </div>
       </ModalCard>

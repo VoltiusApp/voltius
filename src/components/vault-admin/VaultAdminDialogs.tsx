@@ -22,7 +22,7 @@ export function VaultAdminDialogs({
   const { t } = useTranslation();
   const { membersByTeam } = useTeamStore();
   const counts = useVaultContents(target.vaultId ?? undefined);
-  const { rename, remove, makePrivate } = useVaultAdminActions(target, {
+  const { busy, rename, remove, makePrivate } = useVaultAdminActions(target, {
     onRenamed,
     onDone: () => { onClose(); onDone?.(); },
   });
@@ -98,6 +98,8 @@ export function VaultAdminDialogs({
           ? t("settings.vaults.general.makePrivate.confirm", { count: memberN - 1 })
           : t("settings.vaults.general.makePrivate.confirmAll")}
         confirmLabel={t("settings.vaults.general.makePrivate.confirmBtn")}
+        busy={busy}
+        busyLabel={t("settings.vaults.general.makePrivate.converting")}
         onConfirm={() => void makePrivate()}
         onCancel={cancelConfirm}
       />

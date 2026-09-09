@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -26,6 +26,11 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
   const { renameVault, removeVault, setVaultTeamId } = useVaultStore();
   const { membersByTeam } = useTeamStore();
   const [busy, setBusy] = useState(false);
+  // Modal.tsx's Enter handler stopPropagation()s but never preventDefault()s, so
+  // pressing Enter on a focused Confirm button fires both the keydown handler
+  // and the button's native click in the same tick — before React re-renders
+  // `busy`. A ref closes that hole; state alone cannot.
+  const makePrivateInFlight = useRef(false);
 
   const rename = (nextName: string) => {
     const trimmed = nextName.trim();
@@ -41,7 +46,8 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
   };
 
   const makePrivate = async () => {
-    if (!target.vaultId || !target.teamId || busy) return;
+    if (!target.vaultId || !target.teamId || makePrivateInFlight.current) return;
+    makePrivateInFlight.current = true;
     setBusy(true);
     try {
       const { fetchTeamData } = await import("@/services/teamVaultSync");
@@ -138,6 +144,7 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
       console.error("Failed to make vault private:", e);
       await vaultToast(t("settings.vaults.general.makePrivate.failedToast", { reason: userFacingReason(e) }), "error");
     } finally {
+      makePrivateInFlight.current = false;
       setBusy(false);
     }
   };
