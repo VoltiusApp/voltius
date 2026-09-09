@@ -77,7 +77,10 @@ export function VaultSettingsBody({
             }
           </div>
 
-          {nonZeroCounts.map(({ icon, count }) => (
+          {/* A cloud target has no vaultId to scope by — useVaultContents falls back
+              to unfiltered global counts, which would misrepresent this vault's
+              contents as the user's entire local library. */}
+          {target.vaultId !== null && nonZeroCounts.map(({ icon, count }) => (
             <div
               key={icon}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
