@@ -474,7 +474,6 @@
         "dangerZone": "危险区域",
         "makePrivate": {
           "title": "设为私有",
-          "desc": "移除所有成员并将此保险库恢复为个人保险库。",
           "confirmAll": "移除所有成员并设为私有？",
           "confirm_one": "移除 {{count}} 名成员并设为私有？",
           "confirm_other": "移除 {{count}} 名成员并设为私有？",
@@ -487,7 +486,6 @@
         },
         "deleteVault": {
           "title": "删除保险库",
-          "desc": "永久移除此保险库及其所有内容。",
           "confirmDesc": "将永久删除此保险库及其 {{count}} 个项目。此操作无法撤销。",
           "confirmBtn": "确认删除",
           "btn": "删除保险库"
