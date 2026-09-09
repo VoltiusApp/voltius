@@ -1,22 +1,8 @@
 import { isEncryptedEnvelope, encodeObjectMetadata } from "@/services/teamObjectEnvelope";
 import { reencryptTeamObjects } from "@/services/teamObjects";
-import { resolveCan, type Permission } from "@/services/permissions";
-import { useTeamStore } from "@/stores/teamStore";
-import { useVaultStore } from "@/stores/vaultStore";
+import { buildEditPermissionSnapshot, canEditObjectType } from "@/services/teamObjectEditPermission";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
-import { getMyUserId } from "@/services/teamService";
 import type { TeamObjectRecord } from "@/services/teamObjects";
-
-/** Server-side truth is `edit_permission_for_str` in routes/team_objects.rs. */
-const EDIT_PERMISSION: Record<string, Permission> = {
-  connection: "EDIT_CONNECTIONS",
-  port_forwarding_rule: "EDIT_CONNECTIONS",
-  snippet: "EDIT_SNIPPETS",
-  identity: "EDIT_IDENTITIES",
-  key: "EDIT_KEYS",
-  folder: "EDIT_FOLDERS",
-  snippet_folder: "EDIT_FOLDERS",
-};
 
 /** A live row whose metadata predates #229 and is still stored in the clear. */
 function isStillPlaintext(o: TeamObjectRecord): boolean {
@@ -70,28 +56,11 @@ async function _runReencryptionPass(
   let done = 0;
 
   try {
-    // getMyUserId() reads the JWT via the keychain bridge and can reject (no
-    // session, not running under Tauri); best-effort like the rest of this
-    // background pass — an empty id just resolves every permission to false.
-    let myUserId = "";
-    try {
-      myUserId = (await getMyUserId()) ?? "";
-    } catch {
-      // ignore — resolveCan treats a blank id as "no access"
-    }
-
-    const snapshot = {
-      myUserId,
-      teams: useTeamStore.getState().teams,
-      membersByTeam: useTeamStore.getState().membersByTeam,
-      rolesByTeam: useTeamStore.getState().rolesByTeam,
-      vaults: useVaultStore.getState().vaults,
-    };
+    const snapshot = await buildEditPermissionSnapshot();
 
     const pending = objects.filter((o) => {
       if (!isStillPlaintext(o)) return false;
-      const permission = EDIT_PERMISSION[o.object_type];
-      return permission !== undefined && resolveCan(snapshot, permission, teamId);
+      return canEditObjectType(snapshot, teamId, o.object_type);
     });
 
     for (let i = 0; i < pending.length; i += BATCH_SIZE) {
