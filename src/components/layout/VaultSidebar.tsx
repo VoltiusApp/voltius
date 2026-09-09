@@ -80,6 +80,14 @@ export default function VaultSidebar() {
       if (!menuVault) return;
       switchToVault(menuVault);
       openVaultSharePending();
+      setMenuVaultId(null);
+    },
+    // Members/Roles nav is scoped to the ACTIVE vault, not the right-clicked
+    // one — switch first so it opens for the vault the user actually chose.
+    onActivate: () => {
+      if (!menuVault) return;
+      switchToVault(menuVault);
+      setMenuVaultId(null);
     },
   });
 

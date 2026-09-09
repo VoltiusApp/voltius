@@ -69,3 +69,52 @@ test("right-clicking a different vault in the rail and choosing Share opens the 
   expect(screen.getByText("Vault Two")).toBeTruthy();
   expect(screen.getByTestId("share-sheet").textContent).toBe("v2");
 });
+
+// Both vaults need a teamId for the Members/Roles rows to appear in the menu
+// (vaultAdminCapabilities gates them on caps.isTeam).
+function setUpTeamVaults() {
+  useVaultStore.setState({
+    vaults: [
+      { id: "v1", name: "Vault One", teamId: "t1" },
+      { id: "v2", name: "Vault Two", teamId: "t2" },
+    ],
+    selectedVaultIds: ["v1"],
+  });
+}
+
+test("right-clicking a second vault while a different one is active and choosing Members activates THAT vault, not just the nav", () => {
+  setUpTeamVaults();
+  render(
+    <>
+      <VaultSidebar />
+      <VaultHeader />
+    </>
+  );
+
+  expect(useVaultStore.getState().selectedVaultIds[0]).toBe("v1");
+
+  fireEvent.contextMenu(screen.getByTestId("vault-row-v2"));
+  fireEvent.click(screen.getByText("layout.vaultMenu.members"));
+
+  expect(useVaultStore.getState().selectedVaultIds[0]).toBe("v2");
+  expect(useUIStore.getState().activeNav).toBe("members");
+});
+
+test("right-clicking a second vault while a different one is active and choosing Roles activates THAT vault, not just the nav", () => {
+  setUpTeamVaults();
+  render(
+    <>
+      <VaultSidebar />
+      <VaultHeader />
+    </>
+  );
+
+  expect(useVaultStore.getState().selectedVaultIds[0]).toBe("v1");
+
+  fireEvent.contextMenu(screen.getByTestId("vault-row-v2"));
+  fireEvent.click(screen.getByText("layout.vaultMenu.roles"));
+
+  expect(useVaultStore.getState().selectedVaultIds[0]).toBe("v2");
+  expect(useUIStore.getState().activeNav).toBe("members");
+  expect(useUIStore.getState().membersRolesPending).toBe(true);
+});
