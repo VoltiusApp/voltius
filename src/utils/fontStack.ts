@@ -25,12 +25,19 @@ const GENERIC_FAMILIES = new Set([
   "fangsong",
 ]);
 
-/** A quoted entry is a family *name*, never the generic keyword of the same spelling. */
-function hasGenericFamily(fontFamily: string): boolean {
-  return fontFamily
-    .split(",")
-    .map((entry) => entry.trim())
-    .some((entry) => GENERIC_FAMILIES.has(entry.toLowerCase()));
+/** The bundled Nerd Fonts icon face. Declared in `globals.css`, where a
+ *  `unicode-range` confines it to the codepoints Nerd Fonts maps glyphs onto —
+ *  the BMP and supplementary Private Use Areas, plus the handful of symbol
+ *  characters (power glyphs, the IEC power trigram, heart, zap, brackets) every
+ *  patched font ships outside the PUA proper. Keep the two in sync (#235). */
+const NERD_FONT_SYMBOLS_FAMILY = '"Nerd Font Symbols"';
+
+/** A quoted entry is a family *name*, never the generic keyword of the same
+ *  spelling, so `'monospace'` deliberately does not match. */
+function genericFamilyIndex(entries: string[]): number {
+  return entries.findIndex((entry) =>
+    GENERIC_FAMILIES.has(entry.trim().toLowerCase()),
+  );
 }
 
 /** Terminal font stacks must end in a generic, and it must be `monospace` (#196).
@@ -42,8 +49,22 @@ function hasGenericFamily(fontFamily: string): boolean {
  *  out ~1.6x too wide while the glyphs still paint at the right size. Terminating
  *  the stack with `monospace` bounds that miss to a monospace advance instead.
  *  The presets already end in `monospace`; a custom family typed into the theme
- *  editor's font picker does not. */
+ *  editor's font picker does not.
+ *
+ *  Nerd Font icon glyphs (prompts like Powerlevel10k, statuslines) live in the
+ *  Private Use Area, so a font that lacks them just draws tofu there instead of
+ *  falling through to another installed font the way a native terminal's
+ *  fontconfig-driven fallback would (#235). `NERD_FONT_SYMBOLS_FAMILY` is
+ *  inserted right before the generic so it is consulted for any codepoint the
+ *  configured font (or the user's system fallback) doesn't cover, without
+ *  disturbing the generic-last invariant #196 depends on. */
 export function terminalFontStack(fontFamily: string): string {
-  const stack = withFlagEmojiFallback(fontFamily);
-  return hasGenericFamily(stack) ? stack : `${stack}, monospace`;
+  const entries = withFlagEmojiFallback(fontFamily).split(",");
+  let genericIndex = genericFamilyIndex(entries);
+  if (genericIndex === -1) {
+    entries.push(" monospace");
+    genericIndex = entries.length - 1;
+  }
+  entries.splice(genericIndex, 0, ` ${NERD_FONT_SYMBOLS_FAMILY}`);
+  return entries.join(",");
 }
