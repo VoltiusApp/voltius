@@ -86,6 +86,32 @@ export async function getVaultKeyHolders(teamId: string): Promise<string[]> {
   return res.json();
 }
 
+export interface RotationStatus {
+  stale: boolean;
+  draining: boolean;
+}
+
+export async function getRotationStatus(teamId: string): Promise<RotationStatus> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/vault-key/rotation-status`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToCheckRotationStatus", { status: res.status }));
+  return res.json();
+}
+
+export async function rotateVaultKey(
+  teamId: string,
+  keys: { user_id: string; wrapped_key: string }[],
+): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/vault-key/rotate`, {
+    method: "POST",
+    body: JSON.stringify({ keys }),
+  });
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToRotateVaultKey", { status: res.status }));
+}
+
 export async function addMember(
   teamId: string,
   email: string,

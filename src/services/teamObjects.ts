@@ -219,3 +219,19 @@ export async function deleteTeamSecret(teamId: string, secretId: string): Promis
   });
   await ensureOk(res, "common.error.failedToDeleteTeamSecret", { ignoreStatus: 404 });
 }
+
+/**
+ * Rotation's secrets-side bulk rewrite: updates ciphertext + key_version only,
+ * no audit stamp, one broadcast per batch. Sibling of reencryptTeamObjects.
+ */
+export async function reencryptTeamSecrets(
+  teamId: string,
+  items: { secret_id: string; ciphertext: string; key_version: number }[],
+): Promise<void> {
+  const res = await fetchTeamApi(`/v1/teams/${teamId}/secrets/reencrypt`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(items),
+  });
+  await ensureOk(res, "common.error.failedToSaveTeamSecret");
+}

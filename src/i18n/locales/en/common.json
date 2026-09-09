@@ -114,6 +114,8 @@
       "failedToDeleteTeam": "Failed to delete team: {{status}}",
       "failedToListMembers": "Failed to list members: {{status}}",
       "failedToListVaultKeyHolders": "Failed to list vault key holders: {{status}}",
+      "failedToCheckRotationStatus": "Failed to check rotation status: {{status}}",
+      "failedToRotateVaultKey": "Failed to rotate vault key: {{status}}",
       "failedToAddMember": "Failed to add member: {{status}}",
       "failedToRemoveMember": "Failed to remove member: {{status}}",
       "failedToAssignRole": "Failed to assign role: {{status}}",
