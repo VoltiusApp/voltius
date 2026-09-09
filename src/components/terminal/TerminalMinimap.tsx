@@ -55,9 +55,22 @@ export function TerminalMinimap({ sessionId }: Props) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const observer = new ResizeObserver(() => setCanvasVersion((v) => v + 1));
-    observer.observe(canvas);
-    return () => observer.disconnect();
+    const bump = () => setCanvasVersion((v) => v + 1);
+    const resizeObserver = new ResizeObserver(bump);
+    resizeObserver.observe(canvas);
+    // Maximize/minimize toggles ancestor panes' display via a `hidden` class.
+    // ResizeObserver isn't reliable across that display:none <-> visible
+    // transition (WebKitGTK in particular can skip the notification), leaving
+    // the canvas stuck at its last-measured size. IntersectionObserver does
+    // report the re-appearance, so use it to force a re-measure.
+    const intersectionObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) bump();
+    });
+    intersectionObserver.observe(canvas);
+    return () => {
+      resizeObserver.disconnect();
+      intersectionObserver.disconnect();
+    };
   }, []);
 
   useEffect(() => {
