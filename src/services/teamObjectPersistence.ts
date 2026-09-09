@@ -1,4 +1,5 @@
 import { deleteTeamObject, upsertTeamObject, type TeamObjectType } from "@/services/teamObjects";
+import { encodeObjectMetadata } from "@/services/teamObjectEnvelope";
 
 interface PersistableTeamObject {
   id: string;
@@ -11,12 +12,15 @@ export async function saveTeamVaultObject<T extends PersistableTeamObject>(
   objectType: TeamObjectType,
   item: T,
 ): Promise<void> {
+  // name and folder_id are sent as null: the server stopped persisting them
+  // (#229) and no client ever read them back — every field comes from the
+  // metadata blob, which is now encrypted under the team DEK.
   await upsertTeamObject(teamId, {
     object_id: item.id,
     object_type: objectType,
-    name: item.name,
-    folder_id: item.folder_id,
-    metadata: item,
+    name: null,
+    folder_id: null,
+    metadata: await encodeObjectMetadata(teamId, item),
   });
 }
 

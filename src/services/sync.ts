@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
+import { logFailure } from "@/lib/logger";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring } from "@/services/authTokens";
 import { fetchAuthRateLimited } from "@/services/authFetch";
@@ -138,7 +139,7 @@ async function tryRefreshJwt(): Promise<string | null> {
 
   const wasProBefore = useSubscriptionStore.getState().isPro;
   const wasTeamsBefore = useSubscriptionStore.getState().isTeams;
-  await useSubscriptionStore.getState().load().catch(() => {});
+  await useSubscriptionStore.getState().load().catch(logFailure("subscription load"));
   const isProNow = useSubscriptionStore.getState().isPro;
   const isTeamsNow = useSubscriptionStore.getState().isTeams;
 
@@ -167,7 +168,7 @@ async function tryRefreshJwt(): Promise<string | null> {
     const teams = useTeamStore.getState().teams;
     for (const team of teams) {
       if (statusByTeamId[team.id] === "payment_required") {
-        fetchTeamData(team.id).catch(() => {});
+        fetchTeamData(team.id).catch(logFailure(`retry payment-blocked vault team=${team.id}`));
       }
     }
   }
@@ -180,7 +181,7 @@ function isPaymentRequired(error: unknown): boolean {
 }
 
 async function loadTeamsForCurrentUser(): Promise<boolean> {
-  await useTeamStore.getState().loadTeams().catch(() => {});
+  await useTeamStore.getState().loadTeams().catch(logFailure("loadTeams"));
   return useTeamStore.getState().teams.length > 0;
 }
 
@@ -437,7 +438,7 @@ async function completeTeamLoginSetup(): Promise<void> {
   const teamIds = useTeamStore.getState().teams.map((t) => t.id);
   for (const teamId of teamIds) {
     try {
-      await useTeamStore.getState().loadRoles(teamId).catch(() => {});
+      await useTeamStore.getState().loadRoles(teamId).catch(logFailure(`login: loadRoles team=${teamId}`));
       const { teams, rolesByTeam } = useTeamStore.getState();
       const myTeam = teams.find((t) => t.id === teamId);
       const teamRoles = rolesByTeam[teamId] ?? [];
@@ -458,7 +459,7 @@ async function completeTeamLoginSetup(): Promise<void> {
     const { invoke: inv } = await import("@tauri-apps/api/core");
     const teams = useTeamStore.getState().teams;
     await Promise.allSettled(
-      teams.map((t) => inv("keychain_delete", { key: `team_vault_key_${t.id}` }).catch(() => {})),
+      teams.map((t) => inv("keychain_delete", { key: `team_vault_key_${t.id}` }).catch(logFailure(`legacy team key migration team=${t.id}`))),
     );
     localStorage.setItem("voltius.team_key_migration_v1", "1");
   }
@@ -770,7 +771,7 @@ export function scheduleSync() {
   if (_syncTimer) clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
     _syncTimer = null;
-    syncNow(true).catch(() => {}); // forcePush: local mutation must be uploaded
+    syncNow(true).catch(logFailure("forced push after local mutation")); // forcePush: local mutation must be uploaded
   }, 2000);
 }
 
@@ -817,7 +818,86 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
 
 async function refetchActiveSessions(): Promise<void> {
   const { useTeamSessionStore } = await import("@/stores/teamSessionStore");
-  await useTeamSessionStore.getState().fetchActiveSessions().catch(() => {});
+  await useTeamSessionStore.getState().fetchActiveSessions().catch(logFailure("fetchActiveSessions"));
+}
+
+/**
+ * Runs one cleanup step, logging a failure instead of propagating it. The steps
+ * below are independent, and a throw in any of them — a failed dynamic import
+ * was enough — used to skip every step after it, keychain wipe included (#233).
+ */
+async function guarded<T>(context: string, fn: () => Promise<T> | T): Promise<T | undefined> {
+  try {
+    return await fn();
+  } catch (e) {
+    logFailure(context)(e);
+    return undefined;
+  }
+}
+
+/** Everything a client must undo once it learns it is no longer on a team. */
+async function offboardFromTeam(tid: string, teamName: string): Promise<void> {
+  const step = <T,>(what: string, fn: () => Promise<T> | T) =>
+    guarded(`offboarding ${tid}: ${what}`, fn);
+
+  // Evict the in-memory vault key immediately so the kicked member can't use a
+  // cached key to decrypt data after losing access.
+  await step("evict the vault key", async () => {
+    const { deleteTeamKey } = await import("@/services/teamVaultSync");
+    deleteTeamKey(tid);
+  });
+
+  // Wipe before anything else: the wipe names its keychain entries from the
+  // object IDs still held in the stores, and every step below either empties
+  // those stores or can throw before reaching it. Clearing the stores alone
+  // left a removed member holding the team's plaintext passwords and private
+  // keys (#216).
+  // undefined means the wipe never ran, so the key names are unknown and
+  // unrecoverable; an empty array means it ran clean.
+  const leftoverSecrets = await step("wipe the team's secrets", async () => {
+    const { clearTeamStoresAndSecrets } = await import("@/services/teamVaultSync");
+    return clearTeamStoresAndSecrets(tid);
+  });
+
+  const survivors = leftoverSecrets ?? [];
+  if (survivors.length > 0) {
+    await step("queue the surviving secrets for a later retry", async () => {
+      const { usePendingSecretWipeStore } = await import("@/stores/pendingSecretWipeStore");
+      usePendingSecretWipeStore.getState().enqueue(tid, survivors);
+    });
+  }
+
+  await step("clear the team store slices", () => {
+    useTeamStore.getState().removeTeam(tid);
+  });
+
+  // Unlink any local vault that was pointing at this team so the vault button
+  // disappears from the sidebar rather than staying as a broken cloud-linked vault.
+  await step("unlink local vaults", async () => {
+    const { useVaultStore } = await import("@/stores/vaultStore");
+    const vaultStore = useVaultStore.getState();
+    for (const vault of vaultStore.vaults.filter((v) => v.teamId === tid)) {
+      vaultStore.setVaultTeamId(vault.id, null);
+    }
+  });
+
+  await step("mark the vault forbidden", async () => {
+    const { useTeamVaultStateStore } = await import("@/stores/teamVaultStateStore");
+    useTeamVaultStateStore.getState().setStatus(tid, "forbidden");
+  });
+
+  await step("notify", async () => {
+    const { departedVoluntarily } = await import("@/services/teamOffboarding");
+    const { notifyMembershipEnded, notifySecretsNotWiped } = await import("@/services/teamInbox");
+    // membership_changed cannot tell a kick from a departure, so the leaver's
+    // own client marks its intent before the round trip.
+    if (!departedVoluntarily(tid)) notifyMembershipEnded(teamName);
+    // Credentials the user thinks are gone are still readable on this device.
+    // That is the one offboarding failure they need to hear about.
+    if (leftoverSecrets === undefined || survivors.length > 0) {
+      notifySecretsNotWiped(tid, teamName);
+    }
+  });
 }
 
 export async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promise<void> {
@@ -825,7 +905,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     const teamId = eventData.slice(5);
     _teamEventListeners.forEach((fn) => fn(teamId));
     const { fetchTeamData } = await import("@/services/teamVaultSync");
-    fetchTeamData(teamId, { background: true }).catch(() => {});
+    fetchTeamData(teamId, { background: true }).catch(logFailure(`team event: fetchTeamData team=${teamId}`));
   } else if (eventData.startsWith("team_members:")) {
     const teamId = eventData.slice("team_members:".length);
     await Promise.all([
@@ -839,16 +919,16 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     // member is already in membersByTeam by the time this event fires so the
     // old diff saw zero newcomers and skipped distribution (issue #41).
     const { reconcileTeamVaultKeys } = await import("@/services/teamVaultSync");
-    await reconcileTeamVaultKeys(teamId).catch(() => {});
-    useTeamStore.getState().loadPendingInvitations(teamId).catch(() => {});
+    await reconcileTeamVaultKeys(teamId).catch(logFailure(`team_members: reconcileTeamVaultKeys team=${teamId}`));
+    useTeamStore.getState().loadPendingInvitations(teamId).catch(logFailure(`team_members: loadPendingInvitations team=${teamId}`));
   } else if (eventData.startsWith("pending_invitations_changed:")) {
-    useTeamStore.getState().loadMyPendingInvitations().catch(() => {});
+    useTeamStore.getState().loadMyPendingInvitations().catch(logFailure("pending_invitations_changed: loadMyPendingInvitations"));
   } else if (eventData === "membership_changed") {
     // Also fired at every recipient of a freshly wrapped vault key. Those users
     // are already members, so the delta below is zero and nothing would re-read
     // the key that just landed (issue #70).
     const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");
-    refreshAwaitingKeyTeams().catch(() => {});
+    refreshAwaitingKeyTeams().catch(logFailure("membership_changed: refreshAwaitingKeyTeams"));
 
     // Snapshot the names BEFORE loadTeams() runs: the removal is detected by
     // diffing against a reloaded list, so by the time onTeamRemoved fires the
@@ -864,46 +944,8 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
         const { joinAndLoadTeamVault } = await import("@/services/teamDataManager");
         await joinAndLoadTeamVault(teamId);
       },
-      onTeamRemoved: async (tid) => {
-        // Evict the in-memory vault key immediately so the kicked member can't
-        // use a cached key to decrypt data after losing access.
-        const { deleteTeamKey } = await import("@/services/teamVaultSync");
-        deleteTeamKey(tid);
-
-        const departedTeamName = teamNamesBefore.get(tid) ?? tid;
-
-        // Remove all per-team slices from the team store (members, roles, etc.)
-        useTeamStore.getState().removeTeam(tid);
-
-        // Unlink any local vault that was pointing at this team so the vault
-        // button disappears from the sidebar rather than staying as a broken
-        // cloud-linked vault.
-        const { useVaultStore } = await import("@/stores/vaultStore");
-        const vaultStore = useVaultStore.getState();
-        for (const vault of vaultStore.vaults.filter((v) => v.teamId === tid)) {
-          vaultStore.setVaultTeamId(vault.id, null);
-        }
-
-        const [{ useTeamVaultStateStore }, { clearTeamStoresAndSecrets }] = await Promise.all([
-          import("@/stores/teamVaultStateStore"),
-          import("@/services/teamVaultSync"),
-        ]);
-        useTeamVaultStateStore.getState().setStatus(tid, "forbidden");
-
-        // Wipes the team's secrets from the OS keychain as well as the
-        // in-memory slices. Clearing the stores alone left a removed member
-        // holding the team's plaintext passwords and private keys (#216).
-        await clearTeamStoresAndSecrets(tid);
-
-        // membership_changed cannot tell a kick from a departure, so the
-        // leaver's own client marks its intent before the round trip.
-        const { departedVoluntarily } = await import("@/services/teamOffboarding");
-        if (!departedVoluntarily(tid)) {
-          const { notifyMembershipEnded } = await import("@/services/teamInbox");
-          notifyMembershipEnded(departedTeamName);
-        }
-      },
-    }).catch(() => {});
+      onTeamRemoved: (tid) => offboardFromTeam(tid, teamNamesBefore.get(tid) ?? tid),
+    }).catch(logFailure("membership_changed"));
   } else if (eventData.startsWith("presence:")) {
     const parts = eventData.split(":");
     const userId = parts[1];
@@ -918,16 +960,16 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
       else store.removeUser(parsed.connectionId, parsed.userId);
     }
   } else if (eventData === "token_invalidated") {
-    tryRefreshJwt().catch(() => {});
+    tryRefreshJwt().catch(logFailure("token_invalidated: tryRefreshJwt"));
   } else if (eventData.startsWith("session_shared:") || eventData.startsWith("session_ended:")) {
     await refetchActiveSessions();
   } else if (eventData !== myDeviceId) {
-    syncNow().catch(() => {});
+    syncNow().catch(logFailure("cross-device push: syncNow"));
     // "sync" is the server's lagged-receiver fallback: session_shared /
     // session_ended may have been dropped, so refetch active sessions too.
     // Scoped to that event — ordinary cross-device pushes carry a device id
     // and must not each cost a session round-trip.
-    if (eventData === "sync") refetchActiveSessions().catch(() => {});
+    if (eventData === "sync") refetchActiveSessions().catch(logFailure("sync fallback: refetchActiveSessions"));
   }
 }
 
@@ -948,7 +990,7 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
   setMyPresence(true);
 
   // Sync immediately on (re)connect to catch any events missed while offline
-  syncNow().catch(() => {});
+  syncNow().catch(logFailure("syncNow on realtime connect"));
 
   // Seed connection-presence snapshot so we render correct state even before any
   // SSE event arrives this session.
@@ -959,7 +1001,7 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
     ]);
     const entries = await fetchCurrentConnectionUsage();
     useConnectionPresenceStore.getState().setSnapshot(entries);
-  })().catch(() => {});
+  })().catch(logFailure("connection presence snapshot"));
 
   const parser = new SseDataLineParser();
   const connect = (token: string) => connectNativeSse(
@@ -970,7 +1012,7 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
       // Each SSE data line contains either the pusher's device_id (personal sync)
       // or "team:{team_id}" (team blob pushed by another member).
       for (const eventData of parser.push(text)) {
-        handleRealtimeEvent(eventData, myDeviceId).catch(() => {});
+        handleRealtimeEvent(eventData, myDeviceId).catch(logFailure(`realtime event ${eventData}`));
       }
     },
   );
@@ -1005,5 +1047,5 @@ function setMyPresence(online: boolean): void {
     const { getMyUserId } = await import("@/services/teamService");
     const myUserId = await getMyUserId();
     if (myUserId) useTeamStore.getState().setSelfOnline(myUserId, online);
-  })().catch(() => {});
+  })().catch(logFailure("self presence mirror"));
 }

@@ -603,6 +603,8 @@
         "private": "Privé",
         "cloudOnly": "Cloud uniquement",
         "cloudOnlyDesc": "Cette équipe existe uniquement dans le cloud et n'est pas liée à un coffre-fort local. Les membres et les rôles sont entièrement gérés depuis les onglets ci-dessus.",
+        "unencryptedObjects_one": "{{count}} objet de ce coffre-fort est encore stocké non chiffré sur le serveur. Il sera chiffré à la prochaine connexion d'un membre autorisé à le modifier.",
+        "unencryptedObjects_other": "{{count}} objets de ce coffre-fort sont encore stockés non chiffrés sur le serveur. Ils seront chiffrés à la prochaine connexion d'un membre autorisé à les modifier.",
         "dangerZone": "Zone de danger",
         "makePrivate": {
           "title": "Rendre privé",

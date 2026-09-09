@@ -133,6 +133,7 @@
       "failedToFetchPublicKey": "Failed to fetch public key: {{status}}",
       "noPermissionTeamVaultOp": "You do not have permission for this team vault operation",
       "teamVaultRequiresSubscription": "Team vault requires an active Teams or Business subscription",
+      "clientTooOldForTeamVault": "This version of Voltius is too old to save changes to this team vault. Update Voltius to continue.",
       "failedToListTeamObjects": "Failed to list team objects: {{status}}",
       "failedToSaveTeamObject": "Failed to save team object: {{status}}",
       "failedToDeleteTeamObject": "Failed to delete team object: {{status}}",

@@ -471,6 +471,8 @@
         "private": "私有",
         "cloudOnly": "仅云端",
         "cloudOnlyDesc": "此团队仅存在于云端，未链接到本地保险库。成员和角色仍可从上方标签页全面管理。",
+        "unencryptedObjects_one": "此保险库中仍有 {{count}} 个对象以未加密方式存储在服务器上。下次有权编辑它们的成员连接时，这些对象将被加密。",
+        "unencryptedObjects_other": "此保险库中仍有 {{count}} 个对象以未加密方式存储在服务器上。下次有权编辑它们的成员连接时，这些对象将被加密。",
         "dangerZone": "危险区域",
         "makePrivate": {
           "title": "设为私有",

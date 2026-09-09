@@ -14,6 +14,12 @@ const h = vi.hoisted(() => ({
   t: vi.fn((k: string) => k),
 }));
 
+// Not a fn, so it lives outside `h`: the generic `for (const fn of
+// Object.values(h)) fn.mockReset()` below assumes every entry is a mock.
+const teamVaultState = vi.hoisted(() => ({
+  unencryptedCountByTeamId: {} as Record<string, number>,
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: h.t }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -78,7 +84,10 @@ vi.mock("@/stores/portForwardingStore", () => ({
   usePortForwardingStore: { getState: () => ({ teamRules: {}, clearTeamRules: vi.fn() }) },
 }));
 vi.mock("@/stores/teamVaultStateStore", () => ({
-  useTeamVaultStateStore: { getState: () => ({ setStatus: h.setStatus }) },
+  useTeamVaultStateStore: Object.assign(
+    (sel: (s: unknown) => unknown) => sel({ unencryptedCountByTeamId: teamVaultState.unencryptedCountByTeamId }),
+    { getState: () => ({ setStatus: h.setStatus }) },
+  ),
 }));
 vi.mock("@/services/connections", () => ({ saveConnection: h.saveConnection }));
 vi.mock("@/services/identities", () => ({ saveIdentity: vi.fn(async () => {}) }));
@@ -120,6 +129,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.spyOn(console, "error").mockImplementation(() => {});
   for (const fn of Object.values(h)) fn.mockReset();
+  teamVaultState.unencryptedCountByTeamId = {};
   h.deleteTeam.mockResolvedValue(undefined);
   h.fetchTeamData.mockResolvedValue(undefined);
   h.reloadLocalVaultObjectStores.mockResolvedValue(undefined);
@@ -200,4 +210,34 @@ test("a transport failure's raw URL never reaches the toast", async () => {
   expect(shown).toContain("settings.vaults.general.makePrivate.removeMembersFailedToast");
   expect(shown).not.toMatch(/http/i);
   expect(shown).not.toContain("v68-server");
+});
+
+// ─── Unencrypted metadata notice (#229) ────────────────────────────────────────
+
+test("warns when the team still holds unencrypted objects", () => {
+  h.t.mockImplementation((k: string, o?: { count?: number }) =>
+    o?.count !== undefined ? `${k} ${o.count}` : k);
+  teamVaultState.unencryptedCountByTeamId = { t1: 3 };
+
+  render(<VaultGeneralTab detail={detail} onBack={onBack} onRenamed={vi.fn()} />);
+
+  expect(screen.getByText("settings.vaults.general.unencryptedObjects 3")).toBeTruthy();
+});
+
+test("says nothing when the count is zero", () => {
+  teamVaultState.unencryptedCountByTeamId = { t1: 0 };
+
+  render(<VaultGeneralTab detail={detail} onBack={onBack} onRenamed={vi.fn()} />);
+
+  expect(screen.queryByText(/unencryptedObjects/)).toBeNull();
+});
+
+test("says nothing when the team has no entry at all", () => {
+  // The re-encryption pass never ran for a team with no objects, so the map
+  // has no key for it — that must render as "nothing to report", not a warning.
+  teamVaultState.unencryptedCountByTeamId = {};
+
+  render(<VaultGeneralTab detail={detail} onBack={onBack} onRenamed={vi.fn()} />);
+
+  expect(screen.queryByText(/unencryptedObjects/)).toBeNull();
 });

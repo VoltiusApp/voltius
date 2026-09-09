@@ -272,6 +272,29 @@
     font-weight: 100 900;
     src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2');
   }
+
+  /* Nerd Font icon glyphs (Powerlevel10k, statuslines, etc). Scoped via
+     unicode-range so it never competes with the user's own terminal font for
+     ordinary text — only consulted for codepoints the configured font (and
+     the user's system fallback) doesn't cover (#235). Keep in sync with
+     `NERD_FONT_SYMBOLS_FAMILY` in `src/utils/fontStack.ts`. */
+  @font-face {
+    font-family: 'Nerd Font Symbols';
+    font-style: normal;
+    font-display: block;
+    src: url('/fonts/NerdFontSymbols.woff2') format('woff2');
+    /* Every glyph in Symbols Nerd Font Mono advances a full em, but a terminal
+       cell is the primary font's advance — 0.6 em in every common monospace
+       (Source Code Pro, JetBrains Mono, Menlo, Meslo, Fira Code, Cascadia, and
+       WebKit's own `monospace`). Left at 1 em the icons would render ~1.67x the
+       cell and bleed into the next one: xterm's atlas draws oversized glyphs at
+       their natural size, and `rescaleOverlappingGlyphs` deliberately never
+       touches the PUA. Scaling the face to 60% is what a *patched* Nerd Font
+       does to its symbols, so this reproduces their intended size. */
+    size-adjust: 60%;
+    unicode-range: U+23FB-23FE, U+2630, U+2665, U+26A1, U+276C-2771, U+2B58,
+      U+E000-F8FF, U+F0000-FFFFD, U+100000-10FFFD;
+  }
 }
 
 @layer utilities {

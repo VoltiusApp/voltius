@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { useTeamStore } from "@/stores/teamStore";
+import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { useVaultAdminActions } from "./useVaultAdminActions";
 import { vaultAdminCapabilities, type VaultAdminTarget } from "./vaultAdminTarget";
 
@@ -23,6 +24,12 @@ export function VaultSettingsBody({
 
   const memberCount = target.teamId ? (membersByTeam[target.teamId]?.length ?? null) : null;
   const nonZeroCounts = counts.filter((c) => c.count > 0);
+  // Absent from the map means the re-encryption pass never ran for this team
+  // because it has no objects at all — that must read as nothing to report,
+  // not as an unknown-and-alarming state, so this stays undefined rather than
+  // defaulting to 0.
+  const unencryptedCount = useTeamVaultStateStore((s) =>
+    target.teamId ? s.unencryptedCountByTeamId[target.teamId] : undefined);
 
   const handleRename = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +115,15 @@ export function VaultSettingsBody({
           </p>
         )}
       </div>
+
+      {!!unencryptedCount && (
+        <div
+          className="rounded-xl p-4 text-xs"
+          style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "var(--t-text-secondary)" }}
+        >
+          {t("settings.vaults.general.unencryptedObjects", { count: unencryptedCount })}
+        </div>
+      )}
 
       {(caps.canDelete || caps.canMakePrivate) && (
         <div style={{ borderTop: "1px solid var(--t-border)", paddingTop: "0.75rem" }}>

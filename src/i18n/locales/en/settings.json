@@ -603,6 +603,8 @@
         "private": "Private",
         "cloudOnly": "Cloud only",
         "cloudOnlyDesc": "This team exists only in the cloud and isn't linked to a local vault. Members and roles are still fully managed from the tabs above.",
+        "unencryptedObjects_one": "{{count}} object in this vault is still stored unencrypted on the server. It will be encrypted the next time a member who can edit it connects.",
+        "unencryptedObjects_other": "{{count}} objects in this vault are still stored unencrypted on the server. They will be encrypted the next time a member who can edit them connects.",
         "dangerZone": "Danger zone",
         "makePrivate": {
           "title": "Make private",

@@ -71,10 +71,11 @@ describe("installGlobalErrorLogging", () => {
     expect(pluginLog.error.mock.calls[0][0]).toContain("boom");
   });
 
-  it("raises a toast with a create-report action on uncaught errors", () => {
+  it("raises a toast with a create-report action on uncaught errors", async () => {
     installGlobalErrorLogging();
     window.dispatchEvent(new ErrorEvent("error", { message: "boom" }));
-    expect(addToast).toHaveBeenCalled();
+    // The toast's i18n and stores load on demand, so it lands a tick later.
+    await vi.waitFor(() => expect(addToast).toHaveBeenCalled());
     const toast = addToast.mock.calls[0][0];
     expect(toast.action).toBeDefined();
     toast.action.onClick();

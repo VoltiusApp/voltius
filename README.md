@@ -87,6 +87,16 @@ sudo dnf install voltius
 On older dnf, replace the `curl` line with `sudo dnf config-manager --add-repo https://repo.voltius.app/voltius.repo`.
 </details>
 
+### Linux — Arch (AUR)
+
+Community-maintained by [ezhkov](https://aur.archlinux.org/account/ezhkov/), not published by this repo's CI:
+
+```bash
+yay -S voltius-bin   # prebuilt binary, tracks releases
+```
+
+`voltius` (builds from source) and `voltius-git` (latest `main`) are also available. If any of these are ever behind, the apt/dnf repo above or a direct download is the maintained fallback.
+
 ### macOS — Homebrew
 
 ```sh

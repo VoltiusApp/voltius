@@ -11,7 +11,11 @@
  *
  * Data management:
  *   - fetchTeamData()  ← download + decrypt + populate Zustand store slices
- *   - saveTeamData()   ← collect Zustand store slices + encrypt + upload
+ *
+ * Team objects are written per row by saveTeamVaultObject (see
+ * teamObjectPersistence.ts). The legacy whole-blob writer was removed with #229:
+ * uploading collected store state would turn a row this client failed to decrypt
+ * into a deletion for the whole team.
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -21,7 +25,8 @@ import * as teamService from "@/services/teamService";
 import { getServerUrl } from "@/services/authTokens";
 import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
-import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
+import { storeSecret, deleteSecret } from "@/services/vault";
+import { logFailure } from "@/lib/logger";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
@@ -32,9 +37,7 @@ import {
 } from "@/services/teamVaultRefresh";
 import { classifyTeamObjectListError } from "@/services/teamVaultLoadErrors";
 import {
-  bytesToBase64,
   base64ToBytes,
-  buildTeamVaultFiles,
   parseTeamVaultBlobFiles,
 } from "@/services/teamVaultSyncCore";
 
@@ -50,14 +53,47 @@ interface BlobPayload {
 // ─── In-memory key cache (process memory only — gone on logout/close) ─────────
 
 const _teamKeyCache = new Map<string, number[]>();
+// In-flight fetch/unwrap promises, keyed by team. Without this, N concurrent
+// getTeamVaultKey(teamId) calls on a cold cache (e.g. decoding N encrypted
+// objects during hydration, #229) each start their own GET vault-key +
+// listMembers + unwrap, stampeding the rate-limited vault-key route until it
+// 429s — which callers then fold into "offline" and silently drop rows.
+const _teamKeyInFlight = new Map<string, Promise<number[]>>();
+// Per-team eviction generation. deleteTeamKey/clearTeamKeyCache bump it;
+// getTeamVaultKey captures it before starting a fetch and only writes the
+// resolved key into _teamKeyCache if the generation is still the one it
+// started with. Deleting the map entry can't cancel a fetch already in
+// flight — the caller that started it still holds the promise in its
+// closure — so without this guard a key evicted for a kicked member (#216)
+// could be written straight back into the cache moments later by a fetch
+// that was already on its way when the eviction landed. Task 5 put
+// getTeamVaultKey on the per-row hydrate path, which made this far more
+// likely to actually happen (#229).
+const _teamKeyGeneration = new Map<string, number>();
 const _teamRefreshQueue = new TeamVaultRefreshQueue();
 
+function _currentGeneration(teamId: string): number {
+  return _teamKeyGeneration.get(teamId) ?? 0;
+}
+
+function _bumpGeneration(teamId: string): void {
+  _teamKeyGeneration.set(teamId, _currentGeneration(teamId) + 1);
+}
+
 export function clearTeamKeyCache(): void {
+  // Bump every team that could have a fetch in flight, not just the ones
+  // with a resolved cache entry — an in-flight fetch has no _teamKeyCache
+  // row yet but must still be invalidated.
+  const teamIds = new Set([..._teamKeyCache.keys(), ..._teamKeyInFlight.keys(), ..._teamKeyGeneration.keys()]);
+  for (const teamId of teamIds) _bumpGeneration(teamId);
   _teamKeyCache.clear();
+  _teamKeyInFlight.clear();
 }
 
 export function deleteTeamKey(teamId: string): void {
+  _bumpGeneration(teamId);
   _teamKeyCache.delete(teamId);
+  _teamKeyInFlight.delete(teamId);
 }
 
 // ─── Key management ───────────────────────────────────────────────────────────
@@ -75,12 +111,47 @@ export function deleteTeamKey(teamId: string): void {
  *   "awaiting_key"     — server returned 404 (no wrapped key for this member yet)
  *   "key_mismatch"     — the key arrived but this device's identity cannot open
  *                        it; retrying cannot help, unlike "error" (#228)
- *   "error"            — anything else
+ *   "error"            — anything else, including a key evicted by
+ *                        deleteTeamKey/clearTeamKeyCache while this fetch was
+ *                        still in flight (e.g. #216's kick eviction)
  */
 export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   const cached = _teamKeyCache.get(teamId);
   if (cached) return cached;
 
+  // Join whatever fetch is already in flight for this team instead of
+  // starting a second one — see the comment on _teamKeyInFlight above.
+  const existing = _teamKeyInFlight.get(teamId);
+  if (existing) return existing;
+
+  // The generation guard has to live inside the shared promise itself, not
+  // in a check the initiating caller runs after its own await: every
+  // concurrent joiner above returns this same promise object directly and
+  // never runs any code of its own after it resolves, so a check outside
+  // this chain would only protect the caller that happened to start the
+  // fetch.
+  const generation = _currentGeneration(teamId);
+  const inFlight = _fetchAndUnwrapTeamVaultKey(teamId).then((keyBytes) => {
+    // The key was evicted (deleteTeamKey/clearTeamKeyCache) while this fetch
+    // was on the wire — most importantly, a member just kicked from the team
+    // (#216). Do not resurrect it into the cache, and do not hand it back to
+    // any caller either; treat it the same as any other failed fetch.
+    if (_currentGeneration(teamId) !== generation) throw "error";
+    _teamKeyCache.set(teamId, keyBytes);
+    return keyBytes;
+  });
+  _teamKeyInFlight.set(teamId, inFlight);
+  // Detached cleanup subscriber: always drop the in-flight entry once the
+  // fetch settles (success or failure) so a later call can retry after a
+  // transient error instead of being poisoned by it. The `.catch` here only
+  // silences this derived chain — callers still observe the rejection via
+  // their own `await inFlight`/`await getTeamVaultKey(...)`.
+  inFlight.finally(() => _teamKeyInFlight.delete(teamId)).catch(() => {});
+
+  return inFlight;
+}
+
+async function _fetchAndUnwrapTeamVaultKey(teamId: string): Promise<number[]> {
   if (!navigator.onLine) throw "offline";
 
   const serverUrl = await getServerUrl();
@@ -113,9 +184,7 @@ export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   } catch {
     throw "key_mismatch";
   }
-  const keyBytes = Array.from(rawKey);
-  _teamKeyCache.set(teamId, keyBytes);
-  return keyBytes;
+  return Array.from(rawKey);
 }
 
 /**
@@ -275,6 +344,11 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     const objects = await listTeamObjects(teamId);
     if (objects.length > 0) {
       await _hydrateTeamObjectStores(teamId, objects);
+      // Background migration of rows predating #229. Never blocks the load, and
+      // a failure leaves the remaining rows for the next connect.
+      void import("@/services/teamObjectReencrypt")
+        .then(({ runReencryptionPass }) => runReencryptionPass(teamId, objects))
+        .catch(() => {});
       const { backfillExistingTeamVaultSecrets, hydrateTeamVaultSecrets } = await import("@/services/teamVaultSecrets");
       // Credentials are what makes a host connectable, so a failure here is not
       // cosmetic: the vault renders fully populated and every host needing a
@@ -384,10 +458,26 @@ async function _isStillATeamMember(teamId: string): Promise<boolean> {
   return useTeamStore.getState().teams.some((t) => t.id === teamId);
 }
 
-async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<void> {
+export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<void> {
   const active = objects.filter((o) => !o.deleted_at);
+
+  const { decodeObjectMetadata } = await import("@/services/teamObjectEnvelope");
+
+  // Rows written before #229 carry plaintext metadata and decode to themselves.
+  // A row that will not decrypt is dropped rather than spread: a half-object
+  // with no id or host is worse in the stores than an absent one, and it would
+  // be written straight back on the next save.
+  const decoded = await Promise.all(
+    active.map(async (o) => {
+      const metadata = await decodeObjectMetadata(teamId, o.metadata).catch(() => null);
+      return metadata === null ? null : { ...o, metadata };
+    }),
+  );
+
+  const usable = decoded.filter((o): o is TeamObjectRecord & { metadata: object } => o !== null);
+
   const byType = <T>(type: TeamObjectRecord["object_type"]): T[] =>
-    active
+    usable
       .filter((o) => o.object_type === type)
       .map((o) => ({ ...(o.metadata as object), updated_by: o.updated_by } as T));
 
@@ -411,73 +501,55 @@ async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecor
   await useTeamObjectPrefsStore.getState().load(teamId).catch(() => {});
 }
 
+
 /**
- * Collect in-memory team store slices, encrypt them, and upload to the server.
- * Throws on failure — callers are expected to handle errors (e.g. retry toast).
+ * Deletes `keys` from the keychain, returning the ones that did not go away.
+ *
+ * `Promise.allSettled` on its own made a partial wipe indistinguishable from a
+ * clean one: a rejected delete leaves the plaintext secret on disk and nothing
+ * recorded that it did (issue #233).
  */
-export async function saveTeamData(teamId: string): Promise<void> {
-  const key = await getTeamVaultKey(teamId);
-
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw "offline";
-
-  const { useConnectionStore } = await import("@/stores/connectionStore");
-  const { useIdentityStore } = await import("@/stores/identityStore");
-  const { useKeyStore } = await import("@/stores/keyStore");
-  const { useFolderStore } = await import("@/stores/folderStore");
-  const { useSnippetStore } = await import("@/stores/snippetStore");
-  const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
-  const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
-
-  const teamConns = useConnectionStore.getState().teamConnections[teamId] ?? [];
-  const teamKeys = useKeyStore.getState().teamKeys[teamId] ?? [];
-  const teamIdentities = useIdentityStore.getState().teamIdentities[teamId] ?? [];
-
-  const files = buildTeamVaultFiles({
-    connections: teamConns,
-    identities: teamIdentities,
-    keys: teamKeys,
-    folders: useFolderStore.getState().teamFolders[teamId] ?? [],
-    snippets: useSnippetStore.getState().teamSnippets[teamId] ?? [],
-    snippetFolders: useSnippetFolderStore.getState().teamSnippetFolders[teamId] ?? [],
-    portForwardingRules: usePortForwardingStore.getState().teamRules[teamId] ?? [],
+async function deleteSecrets(keys: string[]): Promise<string[]> {
+  const results = await Promise.allSettled(keys.map((k) => deleteSecret(k)));
+  const failed: string[] = [];
+  results.forEach((r, i) => {
+    if (r.status === "rejected") {
+      failed.push(keys[i]);
+      logFailure(`keychain wipe of ${keys[i]}`)(r.reason);
+    }
   });
-
-  const secretEntries = await Promise.all([
-    ...teamConns.flatMap((c) => [
-      getSecret(`key:${c.id}`).then((v) => v ? [`key:${c.id}`, v] : null).catch(() => null),
-      getSecret(`password:${c.id}`).then((v) => v ? [`password:${c.id}`, v] : null).catch(() => null),
-      getSecret(`passphrase:${c.id}`).then((v) => v ? [`passphrase:${c.id}`, v] : null).catch(() => null),
-    ]),
-    ...teamKeys.flatMap((k) => [
-      getSecret(`key:${k.id}:private`).then((v) => v ? [`key:${k.id}:private`, v] : null).catch(() => null),
-      getSecret(`key:${k.id}:public`).then((v) => v ? [`key:${k.id}:public`, v] : null).catch(() => null),
-      getSecret(`key:${k.id}:passphrase`).then((v) => v ? [`key:${k.id}:passphrase`, v] : null).catch(() => null),
-    ]),
-    ...teamIdentities.map((i) =>
-      getSecret(`identity:${i.id}:password`).then((v) => v ? [`identity:${i.id}:password`, v] : null).catch(() => null),
-    ),
-  ]);
-  const secrets: Record<string, string> = {};
-  for (const e of secretEntries) {
-    if (e) secrets[e[0]] = e[1];
-  }
-
-  const encryptedBlob: number[] = await invoke("encrypt_payload", {
-    encKey: key,
-    files,
-    secrets,
-  });
-
-  const res = await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}/sync-blob`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ blob: bytesToBase64(encryptedBlob) }),
-  });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamData", { status: res.status }));
+  return failed;
 }
 
-export async function clearTeamStoresAndSecrets(teamId: string): Promise<void> {
+/**
+ * Retries keychain deletions left over from a failed offboarding wipe.
+ *
+ * Called once per login. A team the user belongs to again is dropped without
+ * deleting anything: those entries have since been re-hydrated for a live
+ * vault, and the queue only ever meant "these should not be on this device".
+ */
+export async function drainPendingSecretWipes(): Promise<void> {
+  const { usePendingSecretWipeStore } = await import("@/stores/pendingSecretWipeStore");
+  const { useTeamStore } = await import("@/stores/teamStore");
+  const store = usePendingSecretWipeStore.getState();
+  const currentTeamIds = new Set(useTeamStore.getState().teams.map((t) => t.id));
+
+  for (const [teamId, keys] of Object.entries(store.keysByTeamId)) {
+    if (currentTeamIds.has(teamId)) {
+      store.resolve(teamId, keys);
+      continue;
+    }
+    const failed = new Set(await deleteSecrets(keys));
+    store.resolve(teamId, keys.filter((k) => !failed.has(k)));
+  }
+}
+
+/**
+ * Empties the team's store slices and wipes its secrets from the keychain.
+ * Returns the keychain keys that survived the wipe — a caller offboarding the
+ * user from the team must treat a non-empty result as secrets still on disk.
+ */
+export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[]> {
   const { useConnectionStore } = await import("@/stores/connectionStore");
   const { useIdentityStore } = await import("@/stores/identityStore");
   const { useKeyStore } = await import("@/stores/keyStore");
@@ -490,18 +562,10 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<void> {
   const conns = useConnectionStore.getState().teamConnections[teamId] ?? [];
   const keys = useKeyStore.getState().teamKeys[teamId] ?? [];
   const identities = useIdentityStore.getState().teamIdentities[teamId] ?? [];
-  await Promise.allSettled([
-    ...conns.flatMap((c) => [
-      deleteSecret(`key:${c.id}`),
-      deleteSecret(`password:${c.id}`),
-      deleteSecret(`passphrase:${c.id}`),
-    ]),
-    ...keys.flatMap((k) => [
-      deleteSecret(`key:${k.id}:private`),
-      deleteSecret(`key:${k.id}:public`),
-      deleteSecret(`key:${k.id}:passphrase`),
-    ]),
-    ...identities.map((i) => deleteSecret(`identity:${i.id}:password`)),
+  const failedKeys = await deleteSecrets([
+    ...conns.flatMap((c) => [`key:${c.id}`, `password:${c.id}`, `passphrase:${c.id}`]),
+    ...keys.flatMap((k) => [`key:${k.id}:private`, `key:${k.id}:public`, `key:${k.id}:passphrase`]),
+    ...identities.map((i) => `identity:${i.id}:password`),
   ]);
 
   useConnectionStore.getState().setTeamConnections(teamId, []);
@@ -514,4 +578,6 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<void> {
 
   const { useTeamObjectPrefsStore } = await import("@/stores/teamObjectPrefsStore");
   useTeamObjectPrefsStore.getState().clearTeam(teamId);
+
+  return failedKeys;
 }

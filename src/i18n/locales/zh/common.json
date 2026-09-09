@@ -133,6 +133,7 @@
       "failedToFetchPublicKey": "获取公钥失败：{{status}}",
       "noPermissionTeamVaultOp": "您没有权限执行此团队保险库操作",
       "teamVaultRequiresSubscription": "团队保险库需要有效的 Teams 或 Business 订阅",
+      "clientTooOldForTeamVault": "此版本的 Voltius 过旧，无法保存对该团队保险库的更改。请更新 Voltius 后继续。",
       "failedToListTeamObjects": "获取团队对象列表失败：{{status}}",
       "failedToSaveTeamObject": "保存团队对象失败：{{status}}",
       "failedToDeleteTeamObject": "删除团队对象失败：{{status}}",

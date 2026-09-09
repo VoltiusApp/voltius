@@ -40,8 +40,18 @@ interface TeamVaultStateStore {
    * connect rather than after an authentication failure (issue #190).
    */
   credentialsUnavailableByTeamId: Record<string, boolean>;
+  /**
+   * Rows still holding plaintext metadata written before #229, per team, as
+   * last recorded by `runReencryptionPass`. Computed from the whole team's
+   * objects regardless of what this member can edit — a team can be
+   * partially migrated by a member who lacks some edit rights, and the
+   * warning must describe the team as a whole, not this session's
+   * permissions.
+   */
+  unencryptedCountByTeamId: Record<string, number>;
   setStatus: (teamId: string, s: TeamVaultStatus, error?: string) => void;
   setCredentialsUnavailable: (teamId: string, unavailable: boolean) => void;
+  setUnencryptedCount: (teamId: string, count: number) => void;
   clearAll: () => void;
 }
 
@@ -49,6 +59,7 @@ export const useTeamVaultStateStore = create<TeamVaultStateStore>((set) => ({
   statusByTeamId: {},
   errorByTeamId: {},
   credentialsUnavailableByTeamId: {},
+  unencryptedCountByTeamId: {},
 
   setStatus: (teamId, s, error) =>
     set((state) => ({
@@ -68,6 +79,23 @@ export const useTeamVaultStateStore = create<TeamVaultStateStore>((set) => ({
           },
     ),
 
+  setUnencryptedCount: (teamId, count) =>
+    set((state) =>
+      (state.unencryptedCountByTeamId[teamId] ?? 0) === count
+        ? state
+        : {
+            unencryptedCountByTeamId: {
+              ...state.unencryptedCountByTeamId,
+              [teamId]: count,
+            },
+          },
+    ),
+
   clearAll: () =>
-    set({ statusByTeamId: {}, errorByTeamId: {}, credentialsUnavailableByTeamId: {} }),
+    set({
+      statusByTeamId: {},
+      errorByTeamId: {},
+      credentialsUnavailableByTeamId: {},
+      unencryptedCountByTeamId: {},
+    }),
 }));

@@ -78,6 +78,10 @@
       "membershipEnded": {
         "message": "Vous avez été retiré de {{team}}. Ses hôtes, clés et snippets ont été supprimés de cet appareil ; renouvelez les identifiants que vous y utilisiez.",
         "review": "Vérifier les identifiants"
+      },
+      "secretsNotWiped": {
+        "message": "Certains identifiants de {{team}} n'ont pas pu être supprimés de cet appareil. Ils y restent lisibles tant que l'effacement n'a pas abouti.",
+        "retry": "Les supprimer maintenant"
       }
     }
   }
