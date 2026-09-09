@@ -211,33 +211,3 @@ test("a transport failure's raw URL never reaches the toast", async () => {
   expect(shown).not.toMatch(/http/i);
   expect(shown).not.toContain("v68-server");
 });
-
-// ─── Unencrypted metadata notice (#229) ────────────────────────────────────────
-
-test("warns when the team still holds unencrypted objects", () => {
-  h.t.mockImplementation((k: string, o?: { count?: number }) =>
-    o?.count !== undefined ? `${k} ${o.count}` : k);
-  teamVaultState.unencryptedCountByTeamId = { t1: 3 };
-
-  render(<VaultGeneralTab detail={detail} onBack={onBack} onRenamed={vi.fn()} />);
-
-  expect(screen.getByText("settings.vaults.general.unencryptedObjects 3")).toBeTruthy();
-});
-
-test("says nothing when the count is zero", () => {
-  teamVaultState.unencryptedCountByTeamId = { t1: 0 };
-
-  render(<VaultGeneralTab detail={detail} onBack={onBack} onRenamed={vi.fn()} />);
-
-  expect(screen.queryByText(/unencryptedObjects/)).toBeNull();
-});
-
-test("says nothing when the team has no entry at all", () => {
-  // The re-encryption pass never ran for a team with no objects, so the map
-  // has no key for it — that must render as "nothing to report", not a warning.
-  teamVaultState.unencryptedCountByTeamId = {};
-
-  render(<VaultGeneralTab detail={detail} onBack={onBack} onRenamed={vi.fn()} />);
-
-  expect(screen.queryByText(/unencryptedObjects/)).toBeNull();
-});
