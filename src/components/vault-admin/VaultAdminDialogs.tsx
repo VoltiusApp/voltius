@@ -82,7 +82,9 @@ export function VaultAdminDialogs({
         title={t("settings.vaults.general.deleteVault.title")}
         message={t("settings.vaults.general.deleteVault.confirmDesc", { count: items })}
         confirmLabel={t("settings.vaults.general.deleteVault.confirmBtn")}
-        onConfirm={remove}
+        busy={busy}
+        busyLabel={t("settings.vaults.general.deleteVault.deleting")}
+        onConfirm={() => void remove()}
         onCancel={cancelConfirm}
       />
     );

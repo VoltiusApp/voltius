@@ -90,7 +90,8 @@ import { createI18nAPI } from "./domains/i18n";
 import { createProxmoxAPI } from "./domains/proxmox";
 import { createSftpAPI } from "./domains/sftp";
 import { createDockerAPI } from "./domains/docker";
-import { createVaultsAPI, type VaultPorts } from "./domains/vaults";
+import { createVaultsAPI } from "./domains/vaults";
+import { isTeamVaultId, hydrateVaultObjectStores, vaultPorts } from "@/services/vaultObjectStores";
 import { createFoldersAPI, type FolderPorts } from "./domains/folders";
 import { createObjectsAPI, type ObjectPorts } from "./domains/objects";
 import { createSnippetsAPI, type SnippetPorts } from "./domains/snippets";
@@ -471,69 +472,6 @@ function registerKeybinding(pluginId: string, commandId: string, raw: string, ex
 }
 
 // ─── Vault ports ──────────────────────────────────────────────────────────
-
-/**
- * A vault is team-backed when a team carries its id — the same test
- * folderStore makes. `teamId` on the record only survives a session that set
- * it, so the team list is the authority.
- */
-const isTeamVaultId = (vaultId: string): boolean =>
-  useTeamStore.getState().teams.some((t) => t.id === vaultId);
-
-/**
- * Loads the seven stores the vault-object tabs read.
- *
- * Snippets, port-forwarding rules, keys, identities and snippet folders are
- * loaded by their own pages, so in a session that never opened them the stores
- * are empty — and an empty read is what turns "refuse a non-empty vault" into
- * silently orphaning its contents, and a paste's cascade into leaving a key
- * behind. The Vaults settings page loads the same seven for the same reason.
- */
-const hydrateVaultObjectStores = async (): Promise<void> => {
-  await Promise.all([
-    useConnectionStore.getState().loadConnections(),
-    useIdentityStore.getState().loadIdentities(),
-    useKeyStore.getState().loadKeys(),
-    useFolderStore.getState().loadFolders(),
-    useSnippetStore.getState().loadSnippets(),
-    useSnippetFolderStore.getState().loadFolders(),
-    usePortForwardingStore.getState().loadRules(),
-  ]);
-};
-
-const vaultPorts: VaultPorts = {
-  vaults: {
-    list: () => useVaultStore.getState().vaults,
-    add: (name) => useVaultStore.getState().addVault(name),
-    rename: (id, name) => useVaultStore.getState().renameVault(id, name),
-    remove: (id) => useVaultStore.getState().removeVault(id),
-  },
-  isTeamVault: isTeamVaultId,
-  /** Hydrates before counting — see `hydrateVaultObjectStores`. */
-  contents: async () => {
-    await hydrateVaultObjectStores();
-    return {
-      connections: useConnectionStore.getState().connections,
-      keys: useKeyStore.getState().keys,
-      identities: useIdentityStore.getState().identities,
-      snippets: useSnippetStore.getState().snippets,
-      portForwardingRules: usePortForwardingStore.getState().rules,
-      folders: useFolderStore.getState().folders,
-      snippetFolders: useSnippetFolderStore.getState().folders,
-    };
-  },
-  remove: {
-    connection: (id) => useConnectionStore.getState().deleteConnection(id),
-    key: (id) => useKeyStore.getState().deleteKey(id),
-    identity: (id) => useIdentityStore.getState().deleteIdentity(id),
-    snippet: (id) => useSnippetStore.getState().deleteSnippet(id),
-    portForwardingRule: (id) => usePortForwardingStore.getState().deleteRule(id),
-    // Cascade off: the vault sweep deletes every object in the vault itself, so
-    // a cascading folder delete would race it on ids already gone.
-    folder: (id) => useFolderStore.getState().deleteFolder(id, { cascade: false }),
-    snippetFolder: (id) => useSnippetFolderStore.getState().deleteFolder(id),
-  },
-};
 
 /**
  * Both folder stores keep team folders in a separate map keyed by team id, so a
