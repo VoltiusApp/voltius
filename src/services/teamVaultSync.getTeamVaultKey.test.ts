@@ -10,7 +10,7 @@ vi.mock("@/services/multiplayerService", () => ({
   publishMyPublicKey: vi.fn(),
 }));
 
-import { getTeamVaultKey, clearTeamKeyCache, deleteTeamKey } from "./teamVaultSync.ts";
+import { getTeamVaultKey, clearTeamKeyCache, deleteTeamKey, getCachedTeamKeyVersion } from "./teamVaultSync.ts";
 
 function futureJwt(): string {
   const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -59,6 +59,29 @@ test("success unwraps the wrapped key, returns bytes, and caches (no 2nd fetch)"
   const again = await getTeamVaultKey("t1"); // cache hit
   expect(again).toEqual([1, 2, 3]);
   expect(h.appFetch).toHaveBeenCalledTimes(1);
+});
+
+test("caches the key_version alongside the key", async () => {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1", key_version: 3 }));
+  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.unwrap.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+  await getTeamVaultKey("t1");
+  expect(getCachedTeamKeyVersion("t1")).toBe(3);
+});
+
+test("clearTeamKeyCache/deleteTeamKey also clear the cached version", async () => {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1", key_version: 2 }));
+  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.unwrap.mockResolvedValue(new Uint8Array([1]));
+
+  await getTeamVaultKey("t1");
+  expect(getCachedTeamKeyVersion("t1")).toBe(2);
+
+  deleteTeamKey("t1");
+  expect(getCachedTeamKeyVersion("t1")).toBeUndefined();
 });
 
 test("a local unwrap failure → 'key_mismatch', not 'error'", async () => {
