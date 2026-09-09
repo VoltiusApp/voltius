@@ -18,9 +18,14 @@ const EDIT_PERMISSION: Record<string, Permission> = {
   snippet_folder: "EDIT_FOLDERS",
 };
 
+/** A live row whose metadata predates #229 and is still stored in the clear. */
+function isStillPlaintext(o: TeamObjectRecord): boolean {
+  return !o.deleted_at && !isEncryptedEnvelope(o.metadata);
+}
+
 /** Rows still holding plaintext metadata, ignoring what the caller may edit. */
 export function countUnencryptedObjects(objects: TeamObjectRecord[]): number {
-  return objects.filter((o) => !o.deleted_at && !isEncryptedEnvelope(o.metadata)).length;
+  return objects.filter(isStillPlaintext).length;
 }
 
 const BATCH_SIZE = 50;
@@ -39,7 +44,25 @@ const BATCH_SIZE = 50;
  * Deliberately does NOT go through saveTeamVaultObject: that path stamps the
  * audit log, and re-encryption is not an edit.
  */
-export async function runReencryptionPass(
+const _passInFlight = new Map<string, Promise<number>>();
+
+export function runReencryptionPass(
+  teamId: string,
+  objects: TeamObjectRecord[],
+): Promise<number> {
+  // fetchTeamData serialises per team, but this pass is launched fire-and-forget
+  // so it escapes that queue: two loads in quick succession would otherwise both
+  // encrypt and PUT the same rows, doubling the writes and the SSE fan-out.
+  const existing = _passInFlight.get(teamId);
+  if (existing) return existing;
+
+  const run = _runReencryptionPass(teamId, objects);
+  _passInFlight.set(teamId, run);
+  run.finally(() => _passInFlight.delete(teamId)).catch(() => {});
+  return run;
+}
+
+async function _runReencryptionPass(
   teamId: string,
   objects: TeamObjectRecord[],
 ): Promise<number> {
@@ -66,7 +89,7 @@ export async function runReencryptionPass(
     };
 
     const pending = objects.filter((o) => {
-      if (o.deleted_at || isEncryptedEnvelope(o.metadata)) return false;
+      if (!isStillPlaintext(o)) return false;
       const permission = EDIT_PERMISSION[o.object_type];
       return permission !== undefined && resolveCan(snapshot, permission, teamId);
     });

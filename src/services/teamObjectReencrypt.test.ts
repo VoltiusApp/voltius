@@ -106,3 +106,17 @@ test("records the remaining unencrypted count on useTeamVaultStateStore, keyed b
 
   expect(useTeamVaultStateStore.getState().unencryptedCountByTeamId.t2).toBe(0);
 });
+
+test("two concurrent passes for the same team send only one set of batches", async () => {
+  const objects = [legacy("c1", "connection"), legacy("c2", "connection")] as never;
+
+  const [a, b] = await Promise.all([
+    runReencryptionPass("t1", objects),
+    runReencryptionPass("t1", objects),
+  ]);
+
+  // One pass does the work; the other joins it rather than re-encrypting and
+  // re-PUTing the same rows, which would double the writes and the SSE fan-out.
+  expect(h.batches.flat().map((i) => i.object_id).sort()).toEqual(["c1", "c2"]);
+  expect(a).toBe(b);
+});

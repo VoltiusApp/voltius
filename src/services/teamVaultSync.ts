@@ -11,7 +11,11 @@
  *
  * Data management:
  *   - fetchTeamData()  ← download + decrypt + populate Zustand store slices
- *   - saveTeamData()   ← collect Zustand store slices + encrypt + upload
+ *
+ * Team objects are written per row by saveTeamVaultObject (see
+ * teamObjectPersistence.ts). The legacy whole-blob writer was removed with #229:
+ * uploading collected store state would turn a row this client failed to decrypt
+ * into a deletion for the whole team.
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -21,7 +25,7 @@ import * as teamService from "@/services/teamService";
 import { getServerUrl } from "@/services/authTokens";
 import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
-import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
+import { storeSecret, deleteSecret } from "@/services/vault";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
@@ -32,9 +36,7 @@ import {
 } from "@/services/teamVaultRefresh";
 import { classifyTeamObjectListError } from "@/services/teamVaultLoadErrors";
 import {
-  bytesToBase64,
   base64ToBytes,
-  buildTeamVaultFiles,
   parseTeamVaultBlobFiles,
 } from "@/services/teamVaultSyncCore";
 
@@ -498,71 +500,6 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
   await useTeamObjectPrefsStore.getState().load(teamId).catch(() => {});
 }
 
-/**
- * Collect in-memory team store slices, encrypt them, and upload to the server.
- * Throws on failure — callers are expected to handle errors (e.g. retry toast).
- */
-export async function saveTeamData(teamId: string): Promise<void> {
-  const key = await getTeamVaultKey(teamId);
-
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw "offline";
-
-  const { useConnectionStore } = await import("@/stores/connectionStore");
-  const { useIdentityStore } = await import("@/stores/identityStore");
-  const { useKeyStore } = await import("@/stores/keyStore");
-  const { useFolderStore } = await import("@/stores/folderStore");
-  const { useSnippetStore } = await import("@/stores/snippetStore");
-  const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
-  const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
-
-  const teamConns = useConnectionStore.getState().teamConnections[teamId] ?? [];
-  const teamKeys = useKeyStore.getState().teamKeys[teamId] ?? [];
-  const teamIdentities = useIdentityStore.getState().teamIdentities[teamId] ?? [];
-
-  const files = buildTeamVaultFiles({
-    connections: teamConns,
-    identities: teamIdentities,
-    keys: teamKeys,
-    folders: useFolderStore.getState().teamFolders[teamId] ?? [],
-    snippets: useSnippetStore.getState().teamSnippets[teamId] ?? [],
-    snippetFolders: useSnippetFolderStore.getState().teamSnippetFolders[teamId] ?? [],
-    portForwardingRules: usePortForwardingStore.getState().teamRules[teamId] ?? [],
-  });
-
-  const secretEntries = await Promise.all([
-    ...teamConns.flatMap((c) => [
-      getSecret(`key:${c.id}`).then((v) => v ? [`key:${c.id}`, v] : null).catch(() => null),
-      getSecret(`password:${c.id}`).then((v) => v ? [`password:${c.id}`, v] : null).catch(() => null),
-      getSecret(`passphrase:${c.id}`).then((v) => v ? [`passphrase:${c.id}`, v] : null).catch(() => null),
-    ]),
-    ...teamKeys.flatMap((k) => [
-      getSecret(`key:${k.id}:private`).then((v) => v ? [`key:${k.id}:private`, v] : null).catch(() => null),
-      getSecret(`key:${k.id}:public`).then((v) => v ? [`key:${k.id}:public`, v] : null).catch(() => null),
-      getSecret(`key:${k.id}:passphrase`).then((v) => v ? [`key:${k.id}:passphrase`, v] : null).catch(() => null),
-    ]),
-    ...teamIdentities.map((i) =>
-      getSecret(`identity:${i.id}:password`).then((v) => v ? [`identity:${i.id}:password`, v] : null).catch(() => null),
-    ),
-  ]);
-  const secrets: Record<string, string> = {};
-  for (const e of secretEntries) {
-    if (e) secrets[e[0]] = e[1];
-  }
-
-  const encryptedBlob: number[] = await invoke("encrypt_payload", {
-    encKey: key,
-    files,
-    secrets,
-  });
-
-  const res = await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}/sync-blob`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ blob: bytesToBase64(encryptedBlob) }),
-  });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamData", { status: res.status }));
-}
 
 export async function clearTeamStoresAndSecrets(teamId: string): Promise<void> {
   const { useConnectionStore } = await import("@/stores/connectionStore");

@@ -24,7 +24,7 @@ vi.mock("@/services/vault", () => ({
 }));
 vi.mock("@/services/teamObjects", () => ({ listTeamObjects: vi.fn(async () => []) }));
 
-import { saveTeamData, fetchTeamData, clearTeamKeyCache } from "./teamVaultSync.ts";
+import { fetchTeamData, clearTeamKeyCache } from "./teamVaultSync.ts";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
@@ -67,82 +67,6 @@ afterEach(() => {
   clearTeamKeyCache();
 });
 
-test("saveTeamData encrypts the seven store slices and PUTs the blob", async () => {
-  // getTeamVaultKey success path (unmocked real @/stores/* default to empty slices for a fresh teamId)
-  keychain({ server_url: "https://s", jwt: futureJwt() });
-  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
-    if (url.endsWith("/vault-key")) return res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" });
-    if (url.endsWith("/sync-blob") && init?.method === "PUT") return res(200);
-    throw new Error(`unexpected fetch ${url}`);
-  });
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
-  h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
-
-  await saveTeamData("t-save-1");
-
-  expect(h.invoke).toHaveBeenCalledWith(
-    "encrypt_payload",
-    expect.objectContaining({
-      encKey: [9, 9, 9],
-      files: {
-        "connections.json": "[]",
-        "identities.json": "[]",
-        "ssh_keys.json": "[]",
-        "folders.json": "[]",
-        "snippets.json": "[]",
-        "snippet_folders.json": "[]",
-        "port_forwarding_rules.json": "[]",
-      },
-    }),
-  );
-
-  const putCall = h.appFetch.mock.calls.find(([url, init]) => url.endsWith("/sync-blob") && init?.method === "PUT");
-  expect(putCall).toBeDefined();
-  const [url, init] = putCall!;
-  expect(url).toBe("https://s/v1/teams/t-save-1/sync-blob");
-  const body = JSON.parse(init.body as string);
-  expect(typeof body.blob).toBe("string");
-});
-
-/**
- * The blob is the fallback path, taken whenever the object route returns
- * nothing or fails. It collected a connection's password and key but not the
- * passphrase for that key, and an ssh key's private/public halves but not its
- * passphrase — so a member restored from a blob held material they could not
- * open.
- */
-test("saveTeamData puts every secret an object owns into the blob, passphrases included", async () => {
-  const teamId = "t-save-passphrase";
-  useConnectionStore.getState().setTeamConnections(teamId, [{ id: "c1" }] as never);
-  useKeyStore.getState().setTeamKeys(teamId, [{ id: "k1" }] as never);
-  useIdentityStore.getState().setTeamIdentities(teamId, [{ id: "i1" }] as never);
-
-  keychain({ server_url: "https://s", jwt: futureJwt() });
-  h.getSecret.mockImplementation(async (k: string) => `val-${k}`);
-  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
-    if (url.endsWith("/vault-key")) return res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" });
-    if (url.endsWith("/sync-blob") && init?.method === "PUT") return res(200);
-    throw new Error(`unexpected fetch ${url}`);
-  });
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
-  h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
-
-  await saveTeamData(teamId);
-
-  const encryptCall = h.invoke.mock.calls.find(([cmd]) => cmd === "encrypt_payload");
-  expect(Object.keys(encryptCall![1].secrets).sort()).toEqual(
-    [
-      "password:c1",
-      "key:c1",
-      "passphrase:c1",
-      "key:k1:private",
-      "key:k1:public",
-      "key:k1:passphrase",
-      "identity:i1:password",
-    ].sort(),
-  );
-});
-
 /**
  * Clearing a team vault wipes its secrets from disk first, while the ids are
  * still in memory. It skipped both passphrase shapes, so they outlived the
@@ -177,19 +101,6 @@ test("clearing a team vault deletes every secret it owns, passphrases included",
       "identity:i1:password",
     ].sort(),
   );
-});
-
-test("saveTeamData throws when the PUT fails", async () => {
-  keychain({ server_url: "https://s", jwt: futureJwt() });
-  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
-    if (url.endsWith("/vault-key")) return res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" });
-    if (url.endsWith("/sync-blob") && init?.method === "PUT") return res(500);
-    throw new Error(`unexpected fetch ${url}`);
-  });
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
-  h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
-
-  await expect(saveTeamData("t-save-2")).rejects.toThrow();
 });
 
 test("fetchTeamData decrypts the legacy blob and populates the seven store slices", async () => {
@@ -232,7 +143,6 @@ test("fetchTeamData decrypts the legacy blob and populates the seven store slice
   expect(usePortForwardingStore.getState().teamRules[teamId]).toEqual([{ id: "pf1" }]);
   expect(useTeamVaultStateStore.getState().statusByTeamId[teamId]).toBe("loaded");
 });
-
 
 /**
  * connect-only members hold no VIEW_SECRETS, so `GET /vault-key` 403s for them.
