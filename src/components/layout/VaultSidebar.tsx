@@ -18,6 +18,10 @@ import { openBillingCheckout } from "@/services/billingCheckout";
 import { getUpdaterState, onUpdaterStateChange, type UpdaterStatus } from "@/services/updater";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import type { MyPendingInvitation } from "@/stores/teamStore";
+import { ContextMenu } from "@/components/shared/ContextMenu";
+import { useVaultAdmin } from "@/components/vault-admin/useVaultAdmin";
+import { VaultAdminDialogs } from "@/components/vault-admin/VaultAdminDialogs";
+import type { VaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
 
 function getInitials(name: string) {
   return name.trim().charAt(0).toUpperCase();
@@ -34,6 +38,7 @@ export default function VaultSidebar() {
   const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const openWhatsNew = useUIStore((s) => s.openWhatsNew);
+  const openVaultSharePending = useUIStore((s) => s.openVaultSharePending);
 
   const orphanVaultIds = useOrphanVaultIds();
 
@@ -54,6 +59,37 @@ export default function VaultSidebar() {
     if (!isCloudAccount) return;
     loadMyPendingInvitations().catch(() => {});
   }, [isCloudAccount, loadMyPendingInvitations]);
+
+  const switchToVault = (vault: { id: string; teamId?: string | null }) => {
+    selectVaultOnly(vault.id);
+    setHomeView(false);
+    if (vault.teamId) onVaultSelect(vault.teamId).catch(() => {});
+  };
+
+  // One menu for the whole rail: only one vault row can be right-clicked at a
+  // time, so a menu per row would just multiply state for no benefit.
+  const [menuVaultId, setMenuVaultId] = useState<string | null>(null);
+  const menuVault = vaults.find((v) => v.id === menuVaultId) ?? null;
+  const adminTarget: VaultAdminTarget | null = menuVault
+    ? { kind: "local", vaultId: menuVault.id, teamId: menuVault.teamId ?? null, name: menuVault.name }
+    : null;
+  const admin = useVaultAdmin(adminTarget, {
+    // The rail has no share sheet of its own — switch to the vault so the
+    // header's sheet (the app's one and only) can open for it instead.
+    onShare: () => {
+      if (!menuVault) return;
+      switchToVault(menuVault);
+      openVaultSharePending();
+      setMenuVaultId(null);
+    },
+    // Members/Roles nav is scoped to the ACTIVE vault, not the right-clicked
+    // one — switch first so it opens for the vault the user actually chose.
+    onActivate: () => {
+      if (!menuVault) return;
+      switchToVault(menuVault);
+      setMenuVaultId(null);
+    },
+  });
 
   const handleAddVaultClick = () => {
     if (!isPro && vaults.length >= 1) {
@@ -93,16 +129,21 @@ export default function VaultSidebar() {
         {vaults.map((vault) => {
           const isActive = selectedVaultIds.includes(vault.id) && !homeView;
           return (
-            <div key={vault.id} className="relative flex items-center justify-center w-full shrink-0">
+            <div
+              key={vault.id}
+              data-testid={`vault-row-${vault.id}`}
+              className="relative flex items-center justify-center w-full shrink-0"
+              onContextMenu={(e) => {
+                setMenuVaultId(vault.id);
+                admin.openAtPointer(e);
+              }}
+            >
               <VaultButton
+                testId={`vault-button-${vault.id}`}
                 initial={getInitials(vault.name)}
                 label={vault.teamId ? t("layout.vaultSidebar.cloudVaultLabel", { name: vault.name }) : vault.name}
                 isActive={isActive}
-                onClick={() => {
-                  selectVaultOnly(vault.id);
-                  setHomeView(false);
-                  if (vault.teamId) onVaultSelect(vault.teamId).catch(() => {});
-                }}
+                onClick={() => switchToVault(vault)}
               />
               {vault.teamId && <TeamVaultBadge teamId={vault.teamId} />}
             </div>
@@ -125,11 +166,7 @@ export default function VaultSidebar() {
                 initial={getInitials(team.name)}
                 label={t("layout.vaultSidebar.cloudVaultLabel", { name: team.name })}
                 isActive={isActive}
-                onClick={() => {
-                  selectVaultOnly(team.id);
-                  setHomeView(false);
-                  onVaultSelect(team.id).catch(() => {});
-                }}
+                onClick={() => switchToVault({ id: team.id, teamId: team.id })}
               />
               <TeamVaultBadge teamId={team.id} />
             </div>
@@ -145,10 +182,7 @@ export default function VaultSidebar() {
                 initial="?"
                 label={unknownVaultLabel(id)}
                 isActive={isActive}
-                onClick={() => {
-                  selectVaultOnly(id);
-                  setHomeView(false);
-                }}
+                onClick={() => switchToVault({ id, teamId: null })}
               />
             </div>
           );
@@ -157,6 +191,18 @@ export default function VaultSidebar() {
         {/* Add vault */}
         <AddVaultButton onClick={handleAddVaultClick} />
       </div>
+
+      {admin.pos && <ContextMenu items={admin.items} pos={admin.pos} onClose={admin.closeMenu} />}
+      {adminTarget && (
+        <VaultAdminDialogs
+          target={adminTarget}
+          dialog={admin.dialog}
+          onClose={() => {
+            admin.setDialog(null);
+            setMenuVaultId(null);
+          }}
+        />
+      )}
 
       {showCreateModal && (
         <CreateVaultModal
@@ -471,11 +517,13 @@ function VaultButton({
   label,
   isActive,
   onClick,
+  testId,
 }: {
   initial: string;
   label: string;
   isActive: boolean;
   onClick: () => void;
+  testId?: string;
 }) {
   const { createRipple, rippleEls } = useRipple();
   const [hovered, setHovered] = useState(false);
@@ -487,6 +535,7 @@ function VaultButton({
     >
       {(isActive || hovered) && <ActivePip active={isActive} />}
       <button
+        data-testid={testId}
         onClick={onClick}
         onPointerDown={createRipple}
         title={label}

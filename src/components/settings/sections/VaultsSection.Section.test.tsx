@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -14,7 +14,13 @@ vi.mock("@/services/teamService", () => ({
   listPendingInvitations: vi.fn(async () => []),
   revokePendingInvitation: vi.fn(),
 }));
-vi.mock("@/hooks/useVaultContents", () => ({ useVaultContents: () => [] }));
+// A real function (not a static []) so the team-vs-local test below can make
+// it respond differently to a scoped vaultId vs. the unscoped call a cloud
+// target makes, the way the real hook's filter does.
+const h = vi.hoisted(() => ({
+  vaultContents: vi.fn((_vaultId?: string) => [] as { key: string; label: string; icon: string; count: number }[]),
+}));
+vi.mock("@/hooks/useVaultContents", () => ({ useVaultContents: h.vaultContents }));
 vi.mock("@/hooks/useUIContributions", () => ({ useUIContributions: () => [] }));
 vi.mock("./RolesSection", () => ({ TeamRolesPanel: () => null, default: () => null }));
 vi.mock("@/components/settings/BuySeatsModal", () => ({ default: () => null }));
@@ -42,6 +48,8 @@ beforeEach(() => {
   localStorage.clear();
   openSettings.mockReset();
   openCloudAuth.mockReset();
+  h.vaultContents.mockReset();
+  h.vaultContents.mockImplementation(() => []);
   useVaultStore.setState({
     vaults: [{ id: "personal", name: "Personal" }],
   });
@@ -114,8 +122,22 @@ test("free tier with zero vaults: create form reachable and submit adds vault (l
   expect(openSettings).not.toHaveBeenCalled();
 });
 
-test("standalone team item opens detail with a Roles tab; local vault detail has no Roles tab", async () => {
-  useSubscriptionStore.setState({ isPro: true, accountMode: "server" });
+test("opening a vault shows its settings body, with no tab strip", () => {
+  render(<VaultsSection />);
+  fireEvent.click(screen.getByText("Personal"));
+  expect(screen.getByText("settings.vaults.general.vaultNameLabel")).toBeTruthy();
+  expect(screen.queryByText("settings.vaults.tabs.members")).toBeNull();
+});
+
+test("a cloud (standalone team) vault never shows the user's unscoped global counts; a local vault shows only its own", () => {
+  // Mirrors the real hook's filter: a scoped vaultId gets its own (small)
+  // count, the unscoped call a cloud target makes gets the user's much larger
+  // global count — which must never be attributed to the cloud vault.
+  h.vaultContents.mockImplementation((vaultId?: string) =>
+    vaultId
+      ? [{ key: "connections", label: "connections", icon: "lucide:server", count: 2 }]
+      : [{ key: "connections", label: "connections", icon: "lucide:server", count: 99 }],
+  );
   useTeamStore.setState({
     teams: [team("t1", "Team Alpha")],
     membersByTeam: { t1: [] }, rolesByTeam: { t1: [] },
@@ -123,15 +145,15 @@ test("standalone team item opens detail with a Roles tab; local vault detail has
     loadMembers: vi.fn(async () => {}),
     loadRoles: vi.fn(async () => {}),
   });
+
   render(<VaultsSection />);
 
-  // Local (personal) vault → 2 tabs, no Roles
   fireEvent.click(screen.getByText("Personal"));
-  expect(screen.getByText("settings.vaults.tabs.general")).toBeTruthy();
-  expect(screen.queryByText("settings.vaults.tabs.roles")).toBeNull();
+  expect(screen.getByText("2")).toBeTruthy();
+  expect(screen.queryByText("99")).toBeNull();
 
-  // Back, then open the standalone team → 3 tabs incl Roles
   fireEvent.click(screen.getByText("settings.vaults.back"));
   fireEvent.click(screen.getByText("Team Alpha"));
-  await waitFor(() => expect(screen.getByText("settings.vaults.tabs.roles")).toBeTruthy());
+  expect(screen.queryByText("99")).toBeNull();
+  expect(screen.queryByText("2")).toBeNull();
 });

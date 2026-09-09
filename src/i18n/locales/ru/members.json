@@ -23,7 +23,6 @@
     "noMatch": "Нет участников, соответствующих \"{{search}}\"",
     "revokeInvitationTitle": "Отозвать приглашение",
     "pendingBadge": "Ожидает",
-    "openInSettingsVaults": "Открыть в Настройки › Хранилища",
     "toolbar": {
       "filterPlaceholder": "Фильтр участников…",
       "sortByRole": "По роли",

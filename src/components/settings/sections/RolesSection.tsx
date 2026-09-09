@@ -11,7 +11,6 @@ import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePer
 // the permission bits so presentational code can read it without pulling this
 // screen's dependency graph in.
 export { PERM_META } from "@/services/permissions";
-import { getMyUserId } from "@/services/teamService";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
 
@@ -576,59 +575,6 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ─── Main section ─────────────────────────────────────────────────────────────
-
-export default function RolesSection() {
-  const { t } = useTranslation();
-  const { teams, loadTeams } = useTeamStore();
-  const [myUserId, setMyUserId] = useState("");
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-
-  useEffect(() => { getMyUserId().then((id) => { if (id) setMyUserId(id); }).catch(() => {}); }, []);
-  useEffect(() => { loadTeams().catch(() => {}); }, [loadTeams]);
-
-  useEffect(() => {
-    if (!selectedTeamId && teams.length > 0) setSelectedTeamId(teams[0].id);
-  }, [teams, selectedTeamId]);
-
-  if (teams.length === 0) {
-    return (
-      <div className="p-6 flex flex-col items-center justify-center h-full gap-3">
-        <Icon icon="lucide:shield" width={32} style={{ color: "var(--t-text-dim)" }} />
-        <p className="text-sm text-center" style={{ color: "var(--t-text-dim)" }}>
-          {t("settings.vaults.rolesPanel.noTeams")}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6 space-y-6">
-      {teams.length > 1 && (
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--t-text-dim)" }}>
-            {t("settings.vaults.rolesPanel.teamLabel")}
-          </label>
-          <select
-            value={selectedTeamId ?? ""}
-            onChange={(e) => setSelectedTeamId(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm outline-hidden"
-            style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
-          >
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>{team.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {selectedTeamId && myUserId && (
-        <TeamRolesPanel teamId={selectedTeamId} myUserId={myUserId} />
-      )}
     </div>
   );
 }

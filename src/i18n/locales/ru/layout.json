@@ -227,6 +227,16 @@
         "daysAgo": "{{count}} дн. назад"
       }
     },
+    "vaultMenu": {
+      "share": "Поделиться…",
+      "members": "Участники",
+      "roles": "Роли",
+      "rename": "Переименовать…",
+      "settings": "Настройки хранилища…",
+      "makePrivate": "Сделать личным…",
+      "delete": "Удалить хранилище…",
+      "openMenu": "Меню хранилища"
+    },
     "vaultSidebar": {
       "cloudVaultLabel": "{{name}} (облачное хранилище)",
       "unknownVaultLabel": "Неизвестное хранилище {{id}} — его имя не дошло до этого устройства",

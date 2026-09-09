@@ -179,9 +179,17 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
   );
 }
 
+const ANCHOR_GAP = 4;
+
 export function useContextMenu() {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const open = (e: React.MouseEvent) => { e.preventDefault(); setPos({ x: e.clientX, y: e.clientY }); };
+  /**
+   * Anchor under an element instead of under the pointer. A left-click trigger is
+   * usually wide (a vault name), so pointer coordinates place the menu arbitrarily.
+   */
+  const openAt = (rect: { left: number; bottom: number }) =>
+    setPos({ x: rect.left, y: rect.bottom + ANCHOR_GAP });
   const close = () => setPos(null);
-  return { pos, open, close };
+  return { pos, open, openAt, close };
 }

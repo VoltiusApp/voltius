@@ -454,54 +454,6 @@
         "title": "导入 / 导出",
         "desc": "将您的主机、身份和 SSH 密钥元数据备份或恢复为 JSON 或 CSV。"
       },
-      "tabs": {
-        "general": "通用",
-        "members": "成员",
-        "roles": "角色"
-      },
-      "roles": {
-        "owner": "所有者",
-        "manager": "管理员",
-        "editor": "编辑者",
-        "member": "成员",
-        "connect_only": "仅连接"
-      },
-      "members": {
-        "memberCount_one": "{{count}} 名成员",
-        "memberCount_other": "{{count}} 名成员",
-        "loading": "正在加载…",
-        "pendingInvitations": "待处理邀请",
-        "pendingBadge": "待处理",
-        "revokeTitle": "撤销邀请",
-        "revokingInvite": "正在撤销对 {{name}} 的邀请…",
-        "inviteRevoked": "已撤销对 {{name}} 的邀请",
-        "inviteMember": "邀请成员",
-        "searchOrInvitePlaceholder": "搜索用户名或输入邮箱…",
-        "addBtn": "添加",
-        "inviteBtn": "邀请 →",
-        "sendInviteLabel": "发送邀请给 ",
-        "noRole": "无角色",
-        "youBadge": "您",
-        "youLabel": "您",
-        "clickToConfirm": "再次点击确认",
-        "removeTitle": "从保险库中移除",
-        "openInMembers": "在成员中打开",
-        "onlineNow": "{{count}} 人在线",
-        "searchUserPlaceholder": "按用户名或邮箱搜索…",
-        "noUsersFound": "未找到用户",
-        "addAsMember": "添加为成员",
-        "added": "已添加 {{name}}",
-        "inviting": "正在邀请 {{email}}…",
-        "invitationSent": "已发送邀请给 {{email}}",
-        "failedToAdd": "添加成员失败",
-        "failed": "失败",
-        "removingRole": "正在从 {{name}} 移除 {{role}}…",
-        "roleRemoved": "已从 {{name}} 移除 {{role}}",
-        "assigningRole": "正在为 {{name}} 分配 {{role}}…",
-        "roleAssigned": "已为 {{name}} 分配 {{role}}",
-        "removingMember": "正在移除 {{name}}…",
-        "memberRemoved": "已移除 {{name}}"
-      },
       "upgrade": {
         "requiresTeams": "团队保险库需要 Teams 套餐",
         "upgradeDesc": "邀请成员、分配角色并与团队安全共享凭据。",
@@ -524,7 +476,6 @@
         "dangerZone": "危险区域",
         "makePrivate": {
           "title": "设为私有",
-          "desc": "移除所有成员并将此保险库恢复为个人保险库。",
           "confirmAll": "移除所有成员并设为私有？",
           "confirm_one": "移除 {{count}} 名成员并设为私有？",
           "confirm_other": "移除 {{count}} 名成员并设为私有？",
@@ -537,8 +488,7 @@
         },
         "deleteVault": {
           "title": "删除保险库",
-          "desc": "永久移除此保险库及其所有内容。",
-          "confirmDesc": "确定吗？此操作无法撤销。",
+          "confirmDesc": "将永久删除此保险库及其 {{count}} 个项目。此操作无法撤销。",
           "confirmBtn": "确认删除",
           "btn": "删除保险库"
         },
@@ -596,9 +546,7 @@
         "businessFeatureDesc": "具有细粒度权限的自定义角色在 Business 套餐中可用。",
         "upgradeBtn": "升级到 Business",
         "noCustomRolesCanEdit": "暂无自定义角色。创建一个以分配特定权限。",
-        "noCustomRoles": "此团队未定义自定义角色。",
-        "noTeams": "暂无团队。创建共享保险库以开始管理角色。",
-        "teamLabel": "团队"
+        "noCustomRoles": "此团队未定义自定义角色。"
       }
     },
     "plugins": {
