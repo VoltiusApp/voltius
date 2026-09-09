@@ -43,6 +43,7 @@ export interface TeamSecretRecord {
   object_id: string;
   secret_type: string;
   ciphertext: string;
+  key_version: number;
   updated_at: string;
 }
 
@@ -59,6 +60,7 @@ export interface UpsertTeamSecret {
   object_id: string;
   secret_type: string;
   ciphertext: string;
+  key_version: number;
 }
 
 /**

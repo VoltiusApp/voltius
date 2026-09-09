@@ -145,6 +145,40 @@ test("fetchTeamData decrypts the legacy blob and populates the seven store slice
 });
 
 /**
+ * The legacy blob route gains `key_version` alongside the object routes (#217).
+ * A blob written before the team's most recent rotation must be decrypted with
+ * the epoch it was actually encrypted under, not the current one.
+ */
+test("fetchTeamData decrypts the legacy blob with the historical key when its key_version is behind the team's current epoch", async () => {
+  const teamId = "t-fetch-rotated";
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => {
+    if (cmd === "keychain_get") return args.key === "server_url" ? "https://s" : futureJwt();
+    if (cmd === "backup_decrypt") {
+      const encKey = args.encKey as number[];
+      if (encKey[0] !== 1) throw new Error("decrypted with the wrong epoch's key");
+      return { files: { "connections.json": JSON.stringify([{ id: "c1" }]) }, secrets: {} };
+    }
+    return null;
+  });
+  h.appFetch.mockImplementation(async (url: string) => {
+    if (url.endsWith("/vault-key")) return res(200, { wrapped_key: "wk-current", wrapped_by_user_id: "u1", key_version: 3 });
+    if (url.endsWith("/vault-key/1")) return res(200, { wrapped_key: "wk-old", wrapped_by_user_id: "u1", key_version: 1 });
+    if (url.endsWith("/sync-blob")) return res(200, { blob: btoa("ignored-bytes"), updated_at: "", key_version: 1 });
+    throw new Error(`unexpected fetch ${url}`);
+  });
+  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.unwrap.mockImplementation(async (wrappedKey: string) =>
+    wrappedKey === "wk-old" ? new Uint8Array([1]) : new Uint8Array([9, 9, 9]),
+  );
+
+  await fetchTeamData(teamId);
+
+  expect(useConnectionStore.getState().teamConnections[teamId]).toEqual([{ id: "c1" }]);
+  expect(useTeamVaultStateStore.getState().statusByTeamId[teamId]).toBe("loaded");
+});
+
+/**
  * connect-only members hold no VIEW_SECRETS, so `GET /vault-key` 403s for them.
  * On an empty team vault — the one a joiner meets right after conversion — that
  * used to surface as "Access revoked" (issue #187). They were never revoked:

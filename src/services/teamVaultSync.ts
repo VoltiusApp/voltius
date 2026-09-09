@@ -251,6 +251,16 @@ export async function getTeamVaultKeyAtVersion(teamId: string, version: number):
   return inFlight;
 }
 
+// The "current epoch, or bust out to vault-key/:version" branch below is the
+// same three-line shape at every call site that decodes a versioned row
+// (this file's own blob path, teamObjectEnvelope.ts, teamVaultSecrets.ts) —
+// deliberately NOT extracted into a shared helper here. Their unit tests each
+// mock this whole module down to just getTeamVaultKey/getCachedTeamKeyVersion/
+// getTeamVaultKeyAtVersion so they can exercise the branch as *their own*
+// logic; a helper living in this module would be undefined under that mock,
+// which would silently swap "test the branch" for "test that a mock was
+// called." See #217 task-2 brief.
+
 /**
  * Initialise the team vault key. Tries to reuse any existing key first (404 →
  * generates fresh). Uploads wrapped copies for self and all provided members.
@@ -478,9 +488,15 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       stateStore.setStatus(teamId, "error");
       return;
     }
-    const { blob: blobB64 } = await res.json() as { blob: string; updated_at: string };
+    const { blob: blobB64, key_version: blobVersion } = await res.json() as {
+      blob: string; updated_at: string; key_version: number;
+    };
     const blobBytes = base64ToBytes(blobB64);
-    blobPayload = await invoke<BlobPayload>("backup_decrypt", { encKey: key, blob: blobBytes });
+    const currentVersion = getCachedTeamKeyVersion(teamId);
+    const blobKey = currentVersion !== undefined && blobVersion !== currentVersion
+      ? await getTeamVaultKeyAtVersion(teamId, blobVersion)
+      : key;
+    blobPayload = await invoke<BlobPayload>("backup_decrypt", { encKey: blobKey, blob: blobBytes });
   } catch {
     if (options.background) return;
     await clearTeamStoresAndSecrets(teamId);

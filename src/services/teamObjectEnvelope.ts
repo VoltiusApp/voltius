@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { getTeamVaultKey } from "@/services/teamVaultSync";
+import { getTeamVaultKey, getCachedTeamKeyVersion, getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
 import { bytesToBase64, base64ToBytes } from "@/services/teamVaultSyncCore";
 
 /**
@@ -11,6 +11,10 @@ import { bytesToBase64, base64ToBytes } from "@/services/teamVaultSyncCore";
 export interface EncryptedEnvelope {
   v: 2;
   enc: string;
+  /** The key epoch `enc` was encrypted under. Absent on any row written
+   * before #217 — those predate epochs entirely and are always epoch 1,
+   * matching the server's own COALESCE(..., 1) treatment of the same rows. */
+  kv?: number;
 }
 
 /** The key under which the object JSON travels inside the encrypted payload. */
@@ -24,22 +28,29 @@ export function isEncryptedEnvelope(metadata: unknown): metadata is EncryptedEnv
 
 export async function encodeObjectMetadata(teamId: string, item: object): Promise<EncryptedEnvelope> {
   const encKey = await getTeamVaultKey(teamId);
+  const kv = getCachedTeamKeyVersion(teamId) ?? 1;
   const blob: number[] = await invoke("encrypt_payload", {
     encKey,
     files: { [METADATA_FILE]: JSON.stringify(item) },
     secrets: {},
   });
-  return { v: 2, enc: bytesToBase64(blob) };
+  return { v: 2, enc: bytesToBase64(blob), kv };
 }
 
 /**
  * Returns the object. Rows written before #229 are plaintext and pass straight
- * through, which is what lets a client read a team mid-migration.
+ * through, which is what lets a client read a team mid-migration. A row's `kv`
+ * that is behind the team's current epoch (rotation, #217) is decrypted with
+ * the matching historical key instead of the current one.
  */
 export async function decodeObjectMetadata(teamId: string, metadata: unknown): Promise<object> {
   if (!isEncryptedEnvelope(metadata)) return (metadata ?? {}) as object;
 
-  const encKey = await getTeamVaultKey(teamId);
+  const targetVersion = metadata.kv ?? 1;
+  const currentVersion = getCachedTeamKeyVersion(teamId);
+  const encKey = currentVersion !== undefined && targetVersion !== currentVersion
+    ? await getTeamVaultKeyAtVersion(teamId, targetVersion)
+    : await getTeamVaultKey(teamId); // also primes the current-version cache for next time
   const payload = await invoke<{ files: Record<string, string> }>("backup_decrypt", {
     encKey,
     blob: base64ToBytes(metadata.enc),
