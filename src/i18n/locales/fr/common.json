@@ -133,6 +133,7 @@
       "failedToFetchPublicKey": "Échec de la récupération de la clé publique : {{status}}",
       "noPermissionTeamVaultOp": "Vous n'avez pas la permission d'effectuer cette opération sur le coffre d'équipe",
       "teamVaultRequiresSubscription": "Le coffre d'équipe nécessite un abonnement Teams ou Business actif",
+      "clientTooOldForTeamVault": "Cette version de Voltius est trop ancienne pour enregistrer des modifications dans ce coffre d'équipe. Mettez à jour Voltius pour continuer.",
       "failedToListTeamObjects": "Échec du chargement des objets d'équipe : {{status}}",
       "failedToSaveTeamObject": "Échec de l'enregistrement de l'objet d'équipe : {{status}}",
       "failedToDeleteTeamObject": "Échec de la suppression de l'objet d'équipe : {{status}}",

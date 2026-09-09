@@ -133,6 +133,7 @@
       "failedToFetchPublicKey": "Не удалось получить публичный ключ: {{status}}",
       "noPermissionTeamVaultOp": "У вас нет прав на эту операцию с командным хранилищем",
       "teamVaultRequiresSubscription": "Для командного хранилища требуется активная подписка Teams или Business",
+      "clientTooOldForTeamVault": "Эта версия Voltius слишком старая, чтобы сохранять изменения в этом командном хранилище. Обновите Voltius, чтобы продолжить.",
       "failedToListTeamObjects": "Не удалось получить список объектов команды: {{status}}",
       "failedToSaveTeamObject": "Не удалось сохранить объект команды: {{status}}",
       "failedToDeleteTeamObject": "Не удалось удалить объект команды: {{status}}",
