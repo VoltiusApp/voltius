@@ -840,6 +840,20 @@ async function offboardFromTeam(tid: string, teamName: string): Promise<void> {
   const step = <T,>(what: string, fn: () => Promise<T> | T) =>
     guarded(`offboarding ${tid}: ${what}`, fn);
 
+  // membership_changed carries no reason, so a departure this client caused
+  // itself is only recognisable from the marker it left behind.
+  const departure = await step("read the departure marker", async () => {
+    const { selfDeparture } = await import("@/services/teamOffboarding");
+    return selfDeparture(tid);
+  });
+
+  // A team this client deleted while owning it is not an offboarding at all.
+  // Make-private has already adopted its objects locally under the *same* ids,
+  // so the wipe below would name the user's own live credentials, the vault
+  // would be marked forbidden, and the notice would announce a removal that
+  // never happened (#249). The caller has already torn down what it owns.
+  if (departure === "self-deleted") return;
+
   // Evict the in-memory vault key immediately so the kicked member can't use a
   // cached key to decrypt data after losing access.
   await step("evict the vault key", async () => {
@@ -887,11 +901,9 @@ async function offboardFromTeam(tid: string, teamName: string): Promise<void> {
   });
 
   await step("notify", async () => {
-    const { departedVoluntarily } = await import("@/services/teamOffboarding");
     const { notifyMembershipEnded, notifySecretsNotWiped } = await import("@/services/teamInbox");
-    // membership_changed cannot tell a kick from a departure, so the leaver's
-    // own client marks its intent before the round trip.
-    if (!departedVoluntarily(tid)) notifyMembershipEnded(teamName);
+    // Only a removal the user did not ask for is news to them.
+    if (departure === undefined) notifyMembershipEnded(teamName);
     // Credentials the user thinks are gone are still readable on this device.
     // That is the one offboarding failure they need to hear about.
     if (leftoverSecrets === undefined || survivors.length > 0) {

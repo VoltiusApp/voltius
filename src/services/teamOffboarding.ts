@@ -13,14 +13,33 @@ export interface DepartConsequences {
   confirmLabel: string;
 }
 
-// Set between calling the removal endpoint for yourself and the server's
-// membership_changed arriving back, so the "you were removed" notice does not
-// fire at someone who left on purpose.
-const voluntaryDepartures = new Set<string>();
+/**
+ * Why a team disappeared from this client's own list, when this client is the
+ * one that caused it.
+ *
+ * - `leave` still needs the full offboarding — the vault really has left this
+ *   device — and only suppresses the "you were removed" notice.
+ * - `self-deleted` is a team this client destroyed while owning it (make
+ *   private, or a rolled-back conversion). Nothing was taken away: the objects
+ *   now live locally under the *same* ids, so an offboarding would wipe the
+ *   user's own credentials and tell them they were kicked (#249).
+ */
+export type SelfDeparture = "leave" | "self-deleted";
 
-/** True while a leave this client initiated is still echoing back from the server. */
-export function departedVoluntarily(teamId: string): boolean {
-  return voluntaryDepartures.has(teamId);
+// Held between the request and the server's membership_changed arriving back:
+// that event carries no reason, so intent has to be recorded locally.
+const selfDepartures = new Map<string, SelfDeparture>();
+
+/** The kind of self-inflicted departure still echoing back, if any. */
+export function selfDeparture(teamId: string): SelfDeparture | undefined {
+  return selfDepartures.get(teamId);
+}
+
+export function markSelfDeparture(teamId: string, kind: SelfDeparture): void {
+  selfDepartures.set(teamId, kind);
+  // A stale marker would only suppress a later genuine removal notice, so it
+  // must not outlive the round trip.
+  setTimeout(() => selfDepartures.delete(teamId), 30_000);
 }
 
 /**
@@ -70,12 +89,7 @@ export async function departMembers(
   const names = members.map((m) => m.handle ?? "").join(", ");
   const store = () => useTeamStore.getState();
 
-  if (opts.mode === "leave") {
-    voluntaryDepartures.add(teamId);
-    // A stale marker would only suppress a later genuine removal notice, so it
-    // must not outlive the round trip.
-    setTimeout(() => voluntaryDepartures.delete(teamId), 30_000);
-  }
+  if (opts.mode === "leave") markSelfDeparture(teamId, "leave");
 
   await runTeamAction({
     pending: opts.mode === "leave"

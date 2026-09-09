@@ -29,7 +29,7 @@ vi.mock("@/stores/historyStore", () => ({
   useHistoryStore: { getState: () => ({ push: h.push }) },
 }));
 
-import { departMembers, departConsequences, departedVoluntarily } from "./teamOffboarding";
+import { departMembers, departConsequences, markSelfDeparture, selfDeparture } from "./teamOffboarding";
 
 const member = (id: string): TeamMember => ({
   team_id: "t1",
@@ -118,8 +118,17 @@ test("consequences state that a departing member keeps what they already saw", (
 
 test("a voluntary leave is marked so the removal notice can be suppressed", async () => {
   await departMembers("t9", [member("me")], { mode: "leave" });
-  expect(departedVoluntarily("t9")).toBe(true);
+  expect(selfDeparture("t9")).toBe("leave");
 
   await departMembers("t8", [member("ana")], { mode: "remove" });
-  expect(departedVoluntarily("t8")).toBe(false);
+  expect(selfDeparture("t8")).toBeUndefined();
+});
+
+test("a team deleted by its own owner is marked apart from a leave", async () => {
+  // The two are not interchangeable: a leave still needs the full offboarding,
+  // a self-delete needs none of it (#249).
+  markSelfDeparture("t7", "self-deleted");
+
+  expect(selfDeparture("t7")).toBe("self-deleted");
+  expect(selfDeparture("t6")).toBeUndefined();
 });

@@ -4,6 +4,7 @@ const h = vi.hoisted(() => ({
   deleted: [] as string[],
   failing: new Set<string>(),
   notWiped: [] as string[],
+  departures: new Map<string, string>(),
 }));
 
 vi.mock("@/services/vault", () => ({
@@ -29,9 +30,9 @@ vi.mock("@/services/teamDataManager", () => ({
 }));
 
 // Its real module graph reaches back into the mocked vault store; only the
-// kick-vs-leave answer matters here, and this event is a kick.
+// why-did-this-team-go answer matters here, and an unmarked team is a kick.
 vi.mock("@/services/teamOffboarding", () => ({
-  departedVoluntarily: vi.fn(() => false),
+  selfDeparture: vi.fn((tid: string) => h.departures.get(tid)),
 }));
 
 vi.mock("@/services/teamInbox", () => ({
@@ -58,14 +59,17 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
-import { notifySecretsNotWiped } from "@/services/teamInbox";
+import { notifyMembershipEnded, notifySecretsNotWiped } from "@/services/teamInbox";
 
 beforeEach(() => {
   h.deleted = [];
   h.failing = new Set();
   h.notWiped = [];
+  h.departures = new Map();
+  vi.mocked(notifyMembershipEnded).mockClear();
   vi.mocked(notifySecretsNotWiped).mockClear();
   usePendingSecretWipeStore.getState().clearAll();
+  useTeamStore.setState({ teams: [] });
   useConnectionStore.setState({ teamConnections: {} });
   useKeyStore.setState({ teamKeys: {} });
   useIdentityStore.setState({ teamIdentities: {} });
@@ -77,11 +81,18 @@ beforeEach(() => {
  * the next test's stores.
  */
 function seedTeam(tid: string): void {
-  useTeamStore.setState({ teams: [{ id: tid, name: `team-${tid}`, role_ids: [] } as never] });
-  useConnectionStore.setState({
-    teamConnections: { [tid]: [{ id: `c-${tid}`, name: "web", host: "h", port: 22 } as never] },
-  });
-  useKeyStore.setState({ teamKeys: { [tid]: [{ id: `k-${tid}`, name: "deploy" } as never] } });
+  useTeamStore.setState((s) => ({
+    teams: [...s.teams, { id: tid, name: `team-${tid}`, role_ids: [] } as never],
+  }));
+  useConnectionStore.setState((s) => ({
+    teamConnections: {
+      ...s.teamConnections,
+      [tid]: [{ id: `c-${tid}`, name: "web", host: "h", port: 22 } as never],
+    },
+  }));
+  useKeyStore.setState((s) => ({
+    teamKeys: { ...s.teamKeys, [tid]: [{ id: `k-${tid}`, name: "deploy" } as never] },
+  }));
 }
 
 test("wipes the keychain even when a later offboarding step throws", async () => {
@@ -114,4 +125,34 @@ test("says nothing when the wipe succeeded", async () => {
   await vi.waitFor(() => expect(h.deleted).toContain("password:c-t3"));
   expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({});
   expect(notifySecretsNotWiped).not.toHaveBeenCalled();
+});
+
+test("a team this client deleted as owner is not offboarded at all", async () => {
+  // Make-private deletes the team and re-adopts its objects locally under the
+  // same ids, so the wipe would name the user's own live credentials and the
+  // notice would announce a removal that never happened (#249).
+  //
+  // ctl is the control: both removals start in the same tick, and the marked
+  // team's path is strictly shorter than the wipe, so the control's deletes
+  // landing means an unsuppressed wipe of t4 would already have landed too.
+  seedTeam("t4");
+  seedTeam("ctl");
+  h.departures.set("t4", "self-deleted");
+
+  await handleRealtimeEvent("membership_changed", "device-1");
+
+  await vi.waitFor(() => expect(h.deleted).toContain("password:c-ctl"));
+  expect(h.deleted.filter((k) => k.includes("t4"))).toEqual([]);
+  expect(notifyMembershipEnded).toHaveBeenCalledTimes(1);
+  expect(notifyMembershipEnded).toHaveBeenCalledWith("team-ctl");
+});
+
+test("a voluntary leave still wipes, and only the notice is suppressed", async () => {
+  seedTeam("t5");
+  h.departures.set("t5", "leave");
+
+  await handleRealtimeEvent("membership_changed", "device-1");
+
+  await vi.waitFor(() => expect(h.deleted).toContain("password:c-t5"));
+  expect(notifyMembershipEnded).not.toHaveBeenCalled();
 });

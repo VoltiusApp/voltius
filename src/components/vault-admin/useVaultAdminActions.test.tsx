@@ -3,6 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/re
 
 const h = vi.hoisted(() => ({
   deleteTeam: vi.fn(async (_id: string) => {}),
+  markSelfDeparture: vi.fn(),
   addToast: vi.fn(),
   fetchTeamData: vi.fn(async (_id: string) => {}),
   clearTeamKeyCache: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("@/services/teamService", () => ({
   listPendingInvitations: vi.fn(async () => []),
   revokePendingInvitation: vi.fn(),
 }));
+vi.mock("@/services/teamOffboarding", () => ({ markSelfDeparture: h.markSelfDeparture }));
 vi.mock("@/hooks/useVaultContents", () => ({ useVaultContents: () => [] }));
 vi.mock("@/hooks/useUIContributions", () => ({ useUIContributions: () => [] }));
 vi.mock("@/components/shared/ContentCounts", () => ({ ContentCounts: () => null }));
@@ -198,6 +200,33 @@ test("the happy path deletes the team, unlinks the vault and reports success", a
   expect(h.clearTeamConnections).toHaveBeenCalledWith("t1");
   expect(h.clearTeamKeyCache).toHaveBeenCalled();
   expect(messages()).toEqual(["settings.vaults.general.madePrivateToastEmpty"]);
+});
+
+test("the team's own store slices go with it", async () => {
+  // The offboarding path used to drop these, and it no longer runs for a team
+  // its owner deleted (#249); the roster the toast reports on is read first.
+  useTeamStore.setState({
+    membersByTeam: { t1: [{ user_id: "me" } as never, { user_id: "ana" } as never] },
+  });
+
+  clickMakePrivate();
+
+  await waitFor(() => expect(onDone).toHaveBeenCalled());
+  expect(useTeamStore.getState().teams).toEqual([]);
+  expect(useTeamStore.getState().membersByTeam.t1).toBeUndefined();
+  expect(messages()).toEqual(["settings.vaults.general.madePrivateToast"]);
+});
+
+test("the delete is marked as this client's own before it is sent", async () => {
+  // Unmarked, the server's echo of this delete reads as a kick: the wrong
+  // notice, and an offboarding wipe aimed at the copies just adopted under the
+  // same ids. Marking after the round trip would be too late (#249).
+  clickMakePrivate();
+
+  await waitFor(() => expect(h.deleteTeam).toHaveBeenCalled());
+  expect(h.markSelfDeparture).toHaveBeenCalledWith("t1", "self-deleted");
+  expect(h.markSelfDeparture.mock.invocationCallOrder[0])
+    .toBeLessThan(h.deleteTeam.mock.invocationCallOrder[0]);
 });
 
 test("an unexpected failure surfaces as an error toast, not just a console line", async () => {

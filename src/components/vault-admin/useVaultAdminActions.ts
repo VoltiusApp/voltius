@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { deleteTeam } from "@/services/teamService";
+import { markSelfDeparture } from "@/services/teamOffboarding";
 import { userFacingReason } from "@/services/errorReason";
 import { reloadLocalVaultObjectStores } from "@/services/vaultTeamMigration";
 import { deleteVaultWithContents } from "@/services/vaultObjectStores";
@@ -148,6 +149,11 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
         // local teardown: unlinking first would report a private vault to a user
         // whose members can all still open it.
         try {
+          // Marked before the request, not after: the server echoes the delete
+          // back as a membership_changed, and an unmarked one reads as this user
+          // being kicked — the wrong notice, and an offboarding wipe aimed at the
+          // copies just adopted under those same ids (#249).
+          markSelfDeparture(teamId, "self-deleted");
           await deleteTeam(teamId);
         } catch (e) {
           await failToast("settings.vaults.general.makePrivate.removeMembersFailedToast", e);
@@ -172,6 +178,12 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
         // the one `fetchTeamData` just refreshed, and the confirm prompt the user
         // answered was rendered from that same refreshed store.
         const memberN = useTeamStore.getState().membersByTeam[teamId]?.length ?? 0;
+
+        // Own the whole teardown: the offboarding path used to drop these
+        // slices, and it no longer runs for a team its owner deleted (#249).
+        // After the toast has read the roster, never before it.
+        useTeamStore.getState().removeTeam(teamId);
+
         await vaultToast(makePrivateMemberMessage(memberN, t, {
           others: "settings.vaults.general.madePrivateToast",
           alone: "settings.vaults.general.madePrivateToastEmpty",
