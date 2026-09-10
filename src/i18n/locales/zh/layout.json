@@ -208,9 +208,6 @@
     },
     "vaultHeader": {
       "members": "成员",
-      "teamBadge": "团队",
-      "memberCount_one": "{{count}} 名成员",
-      "memberCount_other": "{{count}} 名成员",
       "lastSync": "上次同步 {{time}}",
       "e2ee": "E2EE",
       "noOneOnline": "无人在线",
