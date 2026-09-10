@@ -1,5 +1,5 @@
 import { test, expect, vi } from "vitest";
-import { handleMembershipChangedEvent, getTeamMembershipDelta } from "./teamMembershipEvents";
+import { handleMembershipChangedEvent, parseMembershipChangedEvent, getTeamMembershipDelta } from "./teamMembershipEvents";
 
 test("reports the teams added and removed between two snapshots", () => {
   expect(getTeamMembershipDelta(["a", "b"], ["b", "c"])).toEqual({ added: ["c"], removed: ["a"] });
@@ -52,4 +52,30 @@ test("a transient loadTeams failure is retried rather than read as no change", a
 
   expect(attempt).toBeGreaterThan(1);
   expect(onTeamRemoved).toHaveBeenCalledWith("t1");
+});
+
+test("parses an added event", () => {
+  expect(parseMembershipChangedEvent("membership_changed:added:team-1")).toEqual({
+    kind: "added",
+    teamId: "team-1",
+  });
+});
+
+test("parses a removed event", () => {
+  expect(parseMembershipChangedEvent("membership_changed:removed:team-1")).toEqual({
+    kind: "removed",
+    teamId: "team-1",
+  });
+});
+
+test("returns null for the bare legacy event", () => {
+  expect(parseMembershipChangedEvent("membership_changed")).toBeNull();
+});
+
+test("returns null for an unrecognized kind", () => {
+  expect(parseMembershipChangedEvent("membership_changed:renamed:team-1")).toBeNull();
+});
+
+test("returns null for an unrelated event", () => {
+  expect(parseMembershipChangedEvent("team_members:team-1")).toBeNull();
 });

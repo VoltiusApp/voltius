@@ -124,12 +124,10 @@ function applyFirstViewNav(teamId: string): void {
 /**
  * Re-fetch every team vault currently stuck in `awaiting_key`.
  *
- * The server notifies each recipient of a wrapped key with `membership_changed`
- * (`put_vault_keys` in server/src/routes/team_sync.rs), but the joiner is
- * already in the team by then, so the membership delta is zero and
- * `onTeamAdded` never fires — the key lands and nothing re-reads it. Without
- * this the honest waiting state is also a permanent one until the user hits
- * Retry or restarts.
+ * The server notifies each recipient of a wrapped key with `vault_key_changed`
+ * (`put_vault_keys` in server/src/routes/team_sync.rs), not `membership_changed`,
+ * since the joiner is already a member by then. Without this the waiting state
+ * is permanent until the user hits Retry or restarts.
  *
  * Deliberately a foreground fetch: `{ background: true }` suppresses every
  * status write, including the "loaded" that a team with no blob yet reaches, so

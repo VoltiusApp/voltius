@@ -25,7 +25,7 @@ import { buildDecryptKeyCandidates } from "@/services/vaultKeyCandidates";
 import { publishMyPublicKey } from "@/services/multiplayerService";
 import { initTeamVaultKey } from "@/services/teamVaultSync";
 import { onTeamLogin } from "@/services/teamDataManager";
-import { handleMembershipChangedEvent } from "@/services/teamMembershipEvents";
+import { handleMembershipChangedEvent, parseMembershipChangedEvent } from "@/services/teamMembershipEvents";
 import * as teamService from "@/services/teamService";
 import { appFetch } from "@/services/http";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
@@ -821,6 +821,11 @@ async function refetchActiveSessions(): Promise<void> {
   await useTeamSessionStore.getState().fetchActiveSessions().catch(logFailure("fetchActiveSessions"));
 }
 
+async function onTeamMembershipAdded(teamId: string): Promise<void> {
+  const { joinAndLoadTeamVault } = await import("@/services/teamDataManager");
+  await joinAndLoadTeamVault(teamId);
+}
+
 /**
  * Runs one cleanup step, logging a failure instead of propagating it. The steps
  * below are independent, and a throw in any of them — a failed dynamic import
@@ -942,10 +947,22 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     useTeamStore.getState().loadPendingInvitations(teamId).catch(logFailure(`team_members: loadPendingInvitations team=${teamId}`));
   } else if (eventData.startsWith("pending_invitations_changed:")) {
     useTeamStore.getState().loadMyPendingInvitations().catch(logFailure("pending_invitations_changed: loadMyPendingInvitations"));
+  } else if (eventData.startsWith("membership_changed:")) {
+    const parsed = parseMembershipChangedEvent(eventData);
+    if (!parsed) return;
+    if (parsed.kind === "added") {
+      await useTeamStore.getState().loadTeams();
+      await onTeamMembershipAdded(parsed.teamId);
+    } else {
+      const teamName = useTeamStore.getState().teams.find((t) => t.id === parsed.teamId)?.name ?? parsed.teamId;
+      await offboardFromTeam(parsed.teamId, teamName);
+    }
   } else if (eventData === "membership_changed") {
-    // Also fired at every recipient of a freshly wrapped vault key. Those users
-    // are already members, so the delta below is zero and nothing would re-read
-    // the key that just landed (issue #70).
+    // Compat: bare event from a server pod on an older build, carrying neither
+    // a team id nor an added/removed kind — diff against the current team list
+    // instead. Also fired at every recipient of a freshly wrapped vault key on
+    // such a pod. Those users are already members, so the delta below is zero
+    // and nothing would re-read the key that just landed (issue #70).
     const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");
     refreshAwaitingKeyTeams().catch(logFailure("membership_changed: refreshAwaitingKeyTeams"));
 
@@ -959,12 +976,12 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     handleMembershipChangedEvent({
       getTeamIds: () => useTeamStore.getState().teams.map((t) => t.id),
       loadTeams: () => useTeamStore.getState().loadTeams(),
-      onTeamAdded: async (teamId) => {
-        const { joinAndLoadTeamVault } = await import("@/services/teamDataManager");
-        await joinAndLoadTeamVault(teamId);
-      },
+      onTeamAdded: onTeamMembershipAdded,
       onTeamRemoved: (tid) => offboardFromTeam(tid, teamNamesBefore.get(tid) ?? tid),
     }).catch(logFailure("membership_changed"));
+  } else if (eventData === "vault_key_changed") {
+    const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");
+    refreshAwaitingKeyTeams().catch(logFailure("vault_key_changed: refreshAwaitingKeyTeams"));
   } else if (eventData.startsWith("presence:")) {
     const parts = eventData.split(":");
     const userId = parts[1];
