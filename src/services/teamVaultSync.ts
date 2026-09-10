@@ -695,9 +695,21 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[
   const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
 
   // Wipe secrets from disk before clearing in-memory state so we still have the IDs.
-  const conns = useConnectionStore.getState().teamConnections[teamId] ?? [];
-  const keys = useKeyStore.getState().teamKeys[teamId] ?? [];
-  const identities = useIdentityStore.getState().teamIdentities[teamId] ?? [];
+  // A local object holding the same id owns those same keychain entries, so
+  // wiping them would destroy credentials the user still has every right to:
+  // make-private adopts a team's objects locally under their original ids
+  // (#249). No genuine removal reaches this filter — a member losing access has
+  // no local copy of the team's objects.
+  const localIds = new Set<string>([
+    ...useConnectionStore.getState().connections.map((c) => c.id),
+    ...useKeyStore.getState().keys.map((k) => k.id),
+    ...useIdentityStore.getState().identities.map((i) => i.id),
+  ]);
+  const teamOnly = <T extends { id: string }>(items: T[]) => items.filter((i) => !localIds.has(i.id));
+
+  const conns = teamOnly(useConnectionStore.getState().teamConnections[teamId] ?? []);
+  const keys = teamOnly(useKeyStore.getState().teamKeys[teamId] ?? []);
+  const identities = teamOnly(useIdentityStore.getState().teamIdentities[teamId] ?? []);
   const failedKeys = await deleteSecrets([
     ...conns.flatMap((c) => [`key:${c.id}`, `password:${c.id}`, `passphrase:${c.id}`]),
     ...keys.flatMap((k) => [`key:${k.id}:private`, `key:${k.id}:public`, `key:${k.id}:passphrase`]),

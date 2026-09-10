@@ -3,6 +3,7 @@ import { test, expect, vi, beforeEach } from "vitest";
 const h = vi.hoisted(() => ({
   createTeam: vi.fn(async (name: string) => ({ id: "team-1", name, owner_id: "u1", owner_tier: "pro", created_at: "", role_ids: [] })),
   deleteTeam: vi.fn(async () => {}),
+  markSelfDeparture: vi.fn(),
   migrateVaultToTeam: vi.fn(async () => {}),
   initTeamVaultKey: vi.fn(async () => {}),
   invoke: vi.fn(async () => null),
@@ -13,6 +14,7 @@ const h = vi.hoisted(() => ({
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/teamService", () => ({ createTeam: h.createTeam, deleteTeam: h.deleteTeam }));
+vi.mock("@/services/teamOffboarding", () => ({ markSelfDeparture: h.markSelfDeparture }));
 vi.mock("@/services/vaultTeamMigration", () => ({ migrateVaultToTeam: h.migrateVaultToTeam }));
 vi.mock("@/services/teamVaultSync", () => ({ initTeamVaultKey: h.initTeamVaultKey }));
 vi.mock("@/stores/notificationStore", () => ({
@@ -71,6 +73,18 @@ test("a failed key init surfaces rather than leaving a silent half-conversion", 
 
   expect(h.migrateVaultToTeam).not.toHaveBeenCalled();
   expect(useVaultStore.getState().vaults[0].teamId).toBeUndefined();
+});
+
+test("the rollback delete is marked as this client's own", async () => {
+  // The objects it uploaded still exist locally under the same ids, so this
+  // deletion must not come back as an offboarding and wipe them (#249).
+  h.migrateVaultToTeam.mockRejectedValueOnce(new Error("upload failed"));
+
+  await expect(convertVaultToTeam(VAULT, "Ops")).rejects.toThrow("upload failed");
+
+  expect(h.markSelfDeparture).toHaveBeenCalledWith("team-1", "self-deleted");
+  expect(h.markSelfDeparture.mock.invocationCallOrder[0])
+    .toBeLessThan(h.deleteTeam.mock.invocationCallOrder[0]);
 });
 
 test("a team the server refuses to delete still leaves the vault private", async () => {

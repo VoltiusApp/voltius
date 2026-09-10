@@ -6,6 +6,7 @@ import { runTeamAction } from "@/services/teamActionFeedback";
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
 import { migrateVaultToTeam } from "@/services/vaultTeamMigration";
 import { deleteTeam } from "@/services/teamService";
+import { markSelfDeparture } from "@/services/teamOffboarding";
 
 /**
  * Turn a private vault into a team vault, carrying its existing contents over.
@@ -28,6 +29,10 @@ export async function createTeamVaultFromVault(vaultId: string, vaultName: strin
   } catch (e) {
     useVaultStore.getState().setVaultTeamId(vaultId, null);
     useTeamStore.getState().removeTeam(team.id);
+    // Same reason as make-private: this deletion is the rollback of a
+    // conversion whose objects still exist locally under the same ids, so it
+    // must not come back as an offboarding (#249).
+    markSelfDeparture(team.id, "self-deleted");
     await deleteTeam(team.id).catch(() => {});
     throw e;
   }

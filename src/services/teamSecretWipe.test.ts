@@ -26,8 +26,8 @@ beforeEach(() => {
   h.deleted = [];
   h.failing = new Set();
   usePendingSecretWipeStore.getState().clearAll();
-  useConnectionStore.setState({ teamConnections: {} });
-  useKeyStore.setState({ teamKeys: {} });
+  useConnectionStore.setState({ teamConnections: {}, connections: [] });
+  useKeyStore.setState({ teamKeys: {}, keys: [] });
   useTeamStore.setState({ teams: [] });
 });
 
@@ -82,4 +82,19 @@ test("drain drops queued keys for a team the user has rejoined", async () => {
 
   expect(h.deleted).toEqual([]);
   expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({});
+});
+
+test("never wipes a secret a local object of the same id still owns", async () => {
+  // Make-private adopts a team's objects locally under their original ids, so
+  // the two stores can name the same keychain entries — and those entries are
+  // now the user's own (#249). Only the objects with no local twin are wiped.
+  seed();
+  useConnectionStore.setState({
+    connections: [{ id: "c1", name: "web", host: "h", port: 22 } as never],
+  });
+
+  expect(await clearTeamStoresAndSecrets("t1")).toEqual([]);
+
+  expect(h.deleted).not.toContain("password:c1");
+  expect(h.deleted).toContain("key:k1:private");
 });
