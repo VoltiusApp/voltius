@@ -1,7 +1,8 @@
-import { getRotationStatus, rotateVaultKey, listMembers } from "@/services/teamService";
-import { wrapSessionKeyForUser } from "@/services/multiplayerService";
+import { getRotationStatus, rotateVaultKey, listMembers, getMyUserId } from "@/services/teamService";
+import { wrapSessionKeyForUser, publishMyPublicKey } from "@/services/multiplayerService";
 import {
   getTeamVaultKey, getCachedTeamKeyVersion, getTeamVaultKeyAtVersion, deleteTeamKey,
+  reencryptLegacyBlobIfStale,
 } from "@/services/teamVaultSync";
 import {
   listTeamObjects, reencryptTeamObjects,
@@ -99,22 +100,26 @@ async function _rotateTeamKey(teamId: string): Promise<void> {
   // #217 exists to prevent. Matches initTeamVaultKey's own first-time-key
   // pattern in teamVaultSync.ts.
   const rawKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-  const members = await listMembers(teamId);
+  // Publish first and wrap for self against that, not against whatever
+  // public_key listMembers happens to have cached for the caller — a stale
+  // cached key here has repeatedly caused real lockouts (#66, #228). Mirrors
+  // initTeamVaultKey's own pattern in teamVaultSync.ts.
+  const myPublicKey = await publishMyPublicKey();
+  const myUserId = await getMyUserId();
+  if (!myUserId) return; // not authenticated — try again next event
 
+  const members = await listMembers(teamId);
   const keys = await Promise.all(
     members
-      .filter((m) => !!m.public_key)
+      .filter((m) => m.user_id !== myUserId && !!m.public_key)
       .map(async (m) => ({
         user_id: m.user_id,
         wrapped_key: await wrapSessionKeyForUser(rawKeyBytes, m.public_key),
       })),
   );
+  keys.push({ user_id: myUserId, wrapped_key: await wrapSessionKeyForUser(rawKeyBytes, myPublicKey) });
 
   await rotateVaultKey(teamId, keys);
-  // Evict so the drain below (and any concurrent reader) is forced to fetch
-  // the just-rotated key instead of serving this client's stale pre-rotation
-  // cache entry.
-  deleteTeamKey(teamId);
   await _drainTeamKeyRotation(teamId).catch(logFailure(`teamKeyRotation: drain team=${teamId}`));
 }
 
@@ -128,6 +133,12 @@ async function _drainTeamKeyRotation(teamId: string): Promise<void> {
   const currentKey = await getTeamVaultKey(teamId); // forces a fresh network fetch, primes both caches
   const currentVersion = getCachedTeamKeyVersion(teamId);
   if (currentVersion === undefined) return; // couldn't fetch (offline/forbidden) — try again next event
+
+  // Step 4 of the spec's reencrypt pass: the legacy whole-blob some older
+  // teams still carry. Independent of the object/secret loops below, so its
+  // failure doesn't block them (or vice versa).
+  await reencryptLegacyBlobIfStale(teamId, currentVersion, currentKey)
+    .catch(logFailure(`teamKeyRotation: reencrypt legacy blob team=${teamId}`));
 
   const [objects, secrets] = await Promise.all([listTeamObjects(teamId), listTeamSecrets(teamId)]);
   const snapshot = await buildEditPermissionSnapshot();

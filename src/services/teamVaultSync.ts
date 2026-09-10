@@ -26,7 +26,7 @@ import { getServerUrl } from "@/services/authTokens";
 import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { storeSecret, deleteSecret } from "@/services/vault";
-import { logFailure } from "@/lib/logger";
+import { logFailure, logSettledFailures } from "@/lib/logger";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
@@ -38,6 +38,7 @@ import {
 import { classifyTeamObjectListError } from "@/services/teamVaultLoadErrors";
 import {
   base64ToBytes,
+  bytesToBase64,
   parseTeamVaultBlobFiles,
 } from "@/services/teamVaultSyncCore";
 
@@ -93,6 +94,13 @@ export function clearTeamKeyCache(): void {
   _teamKeyCache.clear();
   _teamKeyVersionCache.clear();
   _teamKeyInFlight.clear();
+  // This is the session-end wipe (logout/vault lock, see teamDataManager's
+  // onSessionEnd) — raw historical DEKs must not survive it either, even
+  // though deleteTeamKey (the per-team epoch-change eviction) deliberately
+  // leaves these alone: a single team's epoch changing has no bearing on
+  // another epoch's key.
+  _teamKeyAtVersionCache.clear();
+  _teamKeyAtVersionInFlight.clear();
 }
 
 export function deleteTeamKey(teamId: string): void {
@@ -529,6 +537,46 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
 }
 
 /**
+ * Re-encrypts the team's legacy whole-blob (#229 removed the writer for new
+ * data, but old teams may still carry one) under the current key epoch, if
+ * it exists and is behind. No-op if there is no blob (404) or it's already
+ * current. Part of the #217 reencrypt pass alongside objects and secrets —
+ * without this, a team with a legacy blob rotates once and then can never
+ * rotate again (a stale blob keeps `draining` true forever).
+ */
+export async function reencryptLegacyBlobIfStale(teamId: string, currentVersion: number, currentKey: number[]): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) return;
+
+  let res: Response;
+  try {
+    res = await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}/sync-blob`, { method: "GET" });
+  } catch {
+    return;
+  }
+  if (res.status === 404 || !res.ok) return;
+
+  const { blob: blobB64, key_version: blobVersion } = await res.json() as {
+    blob: string; updated_at: string; key_version: number;
+  };
+  if (blobVersion >= currentVersion) return; // already current or ahead — nothing to do
+
+  const oldKey = await getTeamVaultKeyAtVersion(teamId, blobVersion);
+  const blobPayload = await invoke<BlobPayload>("backup_decrypt", { encKey: oldKey, blob: base64ToBytes(blobB64) });
+  const reencrypted: number[] = await invoke("encrypt_payload", {
+    encKey: currentKey,
+    files: blobPayload.files,
+    secrets: blobPayload.secrets,
+  });
+
+  await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}/sync-blob`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ blob: bytesToBase64(reencrypted), key_version: currentVersion }),
+  });
+}
+
+/**
  * True when the client still lists `teamId` among the caller's teams. The
  * server drops revoked teams from that list and `onTeamRemoved` clears the
  * store, so this separates "your role can't do that" from "you were removed".
@@ -549,7 +597,10 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
   // be written straight back on the next save.
   const decoded = await Promise.all(
     active.map(async (o) => {
-      const metadata = await decodeObjectMetadata(teamId, o.metadata).catch(() => null);
+      const metadata = await decodeObjectMetadata(teamId, o.metadata).catch((e) => {
+        logFailure(`teamVaultSync: decode object team=${teamId} object=${o.object_id}`)(e);
+        return null;
+      });
       return metadata === null ? null : { ...o, metadata };
     }),
   );
@@ -591,13 +642,8 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
  */
 async function deleteSecrets(keys: string[]): Promise<string[]> {
   const results = await Promise.allSettled(keys.map((k) => deleteSecret(k)));
-  const failed: string[] = [];
-  results.forEach((r, i) => {
-    if (r.status === "rejected") {
-      failed.push(keys[i]);
-      logFailure(`keychain wipe of ${keys[i]}`)(r.reason);
-    }
-  });
+  logSettledFailures(results, (i) => `keychain wipe of ${keys[i]}`);
+  const failed = results.flatMap((r, i) => (r.status === "rejected" ? [keys[i]] : []));
   return failed;
 }
 

@@ -10,7 +10,7 @@ vi.mock("@/services/multiplayerService", () => ({
   publishMyPublicKey: vi.fn(),
 }));
 
-import { getTeamVaultKeyAtVersion } from "./teamVaultSync.ts";
+import { getTeamVaultKeyAtVersion, clearTeamKeyCache } from "./teamVaultSync.ts";
 
 function futureJwt(): string {
   const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -71,5 +71,23 @@ test("a different version is a separate cache entry and a separate fetch", async
 
   expect(k1).toEqual([1]);
   expect(k2).toEqual([2]);
+  expect(h.appFetch).toHaveBeenCalledTimes(2);
+});
+
+test("clearTeamKeyCache() also wipes the historical-epoch cache (I-D): a re-fetch is forced afterward", async () => {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockResolvedValue(res(200, { wrapped_key: "old-wk", wrapped_by_user_id: "u1", key_version: 1 }));
+  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.unwrap.mockResolvedValue(new Uint8Array([4, 4, 4]));
+
+  await getTeamVaultKeyAtVersion("t-logout", 1);
+  expect(h.appFetch).toHaveBeenCalledTimes(1);
+
+  clearTeamKeyCache();
+
+  await getTeamVaultKeyAtVersion("t-logout", 1);
+  // A raw historical DEK must not survive a session-end wipe: without
+  // clearing _teamKeyAtVersionCache/_teamKeyAtVersionInFlight, this second
+  // call would be served from the stale in-memory cache with no new fetch.
   expect(h.appFetch).toHaveBeenCalledTimes(2);
 });

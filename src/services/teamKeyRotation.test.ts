@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   reencryptSecretCalls: [] as unknown[],
   getTeamVaultKeyAtVersionCalls: [] as unknown[][],
   deleteTeamKeyCalls: [] as string[],
+  reencryptLegacyBlobCalls: [] as unknown[][],
 }));
 
 vi.mock("@/services/teamService", () => ({
@@ -21,6 +22,7 @@ vi.mock("@/services/teamService", () => ({
 }));
 vi.mock("@/services/multiplayerService", () => ({
   wrapSessionKeyForUser: vi.fn(async (_bytes: Uint8Array, pk: string) => `wrapped-for-${pk}`),
+  publishMyPublicKey: vi.fn(async () => "me-published-pk"),
 }));
 vi.mock("@/services/teamVaultSync", () => ({
   getTeamVaultKey: vi.fn(async () => [1, 2, 3]),
@@ -30,6 +32,7 @@ vi.mock("@/services/teamVaultSync", () => ({
     return [7, 7, 7];
   }),
   deleteTeamKey: vi.fn((teamId: string) => { h.deleteTeamKeyCalls.push(teamId); }),
+  reencryptLegacyBlobIfStale: vi.fn(async (...args: unknown[]) => { h.reencryptLegacyBlobCalls.push(args); }),
 }));
 vi.mock("@/services/teamObjects", () => ({
   listTeamObjects: vi.fn(async () => h.objects),
@@ -76,6 +79,7 @@ beforeEach(() => {
   h.reencryptSecretCalls = [];
   h.getTeamVaultKeyAtVersionCalls = [];
   h.deleteTeamKeyCalls = [];
+  h.reencryptLegacyBlobCalls = [];
 });
 
 test("neither stale nor draining: does nothing", async () => {
@@ -97,6 +101,12 @@ test("stale and not draining: rotates, wrapping for every member with a public k
   expect(h.rotateCalls).toHaveLength(1);
   const sent = h.rotateCalls[0].map((k) => k.user_id).sort();
   expect(sent).toEqual(["me", "other"]);
+
+  // Self must be wrapped against the freshly-published public key
+  // (mocked to "me-published-pk"), not listMembers' own cached "me-pk" for
+  // the calling user — a stale cached key here caused #66/#228 (I-B).
+  const selfEntry = h.rotateCalls[0].find((k) => k.user_id === "me");
+  expect(selfEntry?.wrapped_key).toBe("wrapped-for-me-published-pk");
 });
 
 test("draining: does not rotate again, and re-encrypts only editable object types", async () => {
@@ -146,6 +156,14 @@ test("draining: re-encrypts a stale secret by decrypting with its OLD key versio
   expect(h.reencryptSecretCalls.flat()).toEqual([
     { secret_id: "s1", ciphertext: "b64(9,9,9)", key_version: 1 },
   ]);
+});
+
+test("draining: reencrypts the legacy blob if stale, using the resolved current key/version (C-B)", async () => {
+  h.status = { stale: false, draining: true };
+
+  await checkAndRotateTeamKey("t1");
+
+  expect(h.reencryptLegacyBlobCalls).toEqual([["t1", 1, [1, 2, 3]]]);
 });
 
 test("draining: does not touch a secret already at or ahead of the current version", async () => {
