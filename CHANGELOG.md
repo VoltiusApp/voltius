@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.3] - 2026-09-10
+
+### Fixed
+
+- Rotated the vault-header chevron on open and deduped the chevron-rotate style.
+
 ## [0.33.2] - 2026-09-10
 
 ### Fixed
