@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Icon } from "@iconify/react";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -123,14 +124,16 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
 
   // Only a local vault can be converted; a standalone team already is one.
   if (!teamId) {
-    return (
+    const gate = (
       <ConvertToTeamGate
         vaultId={vault!.id}
         vaultName={vault!.name}
         onCancel={() => onRequestFull?.()}
         onConverted={() => setTab("invite")}
+        inline={variant === "popover"}
       />
     );
+    return variant === "popover" ? <div className="p-4">{gate}</div> : gate;
   }
 
   const canManage = canManageShare(myRoleNames);
@@ -179,6 +182,17 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
   return (
     <div className="flex flex-col gap-3.5 p-4">
       <h2 className="text-sm font-semibold text-(--t-text-primary)">{t("members.share.title", { vault: teamName })}</h2>
+
+      {variant === "popover" && tab !== "invite" && (
+        <button
+          onClick={() => setTab("invite")}
+          className="btn flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold py-2"
+          style={{ background: "var(--t-accent)", color: "var(--t-on-accent, #fff)" }}
+        >
+          <Icon icon="lucide:plus" width={14} />
+          {t("members.share.inviteSomeone")}
+        </button>
+      )}
 
       <div className="flex gap-4 border-b border-(--t-border)">
         {tabs.map(({ key, label }) => {
@@ -248,7 +262,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
       {variant === "popover" && (
         <button
           onClick={onRequestFull}
-          className="self-start pt-2 text-[11px] font-medium border-t border-(--t-border) w-full text-left"
+          className="btn btn-ghost self-start pt-2 pb-1 px-1 -mx-1 rounded text-[11px] font-medium border-t border-(--t-border) w-full text-left"
           style={{ color: "var(--t-accent)" }}
         >
           {t("members.share.manage")}
