@@ -47,10 +47,11 @@ export async function decodeObjectMetadata(teamId: string, metadata: unknown): P
   if (!isEncryptedEnvelope(metadata)) return (metadata ?? {}) as object;
 
   const targetVersion = metadata.kv ?? 1;
+  const currentKey = await getTeamVaultKey(teamId); // always resolves first; primes the version cache
   const currentVersion = getCachedTeamKeyVersion(teamId);
   const encKey = currentVersion !== undefined && targetVersion !== currentVersion
     ? await getTeamVaultKeyAtVersion(teamId, targetVersion)
-    : await getTeamVaultKey(teamId); // also primes the current-version cache for next time
+    : currentKey;
   const payload = await invoke<{ files: Record<string, string> }>("backup_decrypt", {
     encKey,
     blob: base64ToBytes(metadata.enc),

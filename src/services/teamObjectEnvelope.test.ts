@@ -117,3 +117,27 @@ test("decodeObjectMetadata reaches for the historical key when kv is behind curr
 
   expect(getTeamVaultKeyAtVersion).toHaveBeenCalledWith("t1", 1);
 });
+
+test("decodeObjectMetadata primes a cold cache via getTeamVaultKey BEFORE checking it, still reaching the historical key (C-A)", async () => {
+  h2.cachedVersion = 1;
+  const envelope = await encodeObjectMetadata("t1", { id: "c1" }); // stamped kv:1
+
+  // Simulate a cold cache at decode time: nothing cached yet. getTeamVaultKey
+  // is what primes _teamKeyVersionCache in the real module — reproduce that
+  // side effect here, landing on epoch 3 (the team has since rotated).
+  h2.cachedVersion = undefined;
+  const { getTeamVaultKey } = await import("@/services/teamVaultSync");
+  vi.mocked(getTeamVaultKey).mockImplementationOnce(async () => {
+    h2.cachedVersion = 3;
+    return new Array(32).fill(7);
+  });
+
+  await decodeObjectMetadata("t1", envelope);
+
+  // The old, buggy ordering read getCachedTeamKeyVersion synchronously before
+  // awaiting getTeamVaultKey, saw `undefined`, and fell through to "use the
+  // current key" — never reaching the historical fetch below. The fix awaits
+  // getTeamVaultKey (which primes the cache to 3) before reading the cache,
+  // so kv:1 is correctly seen as behind and the historical key is fetched.
+  expect(getTeamVaultKeyAtVersion).toHaveBeenCalledWith("t1", 1);
+});
