@@ -51,7 +51,7 @@ fn build_folder(id: String, data: FolderFormData, now: &str, created_at: Option<
 /// here — and authorizes the destination vault before stamping anything.
 #[tauri::command]
 pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, String> {
-    let mut folders = load_folders();
+    let mut folders = load_folders()?;
     let folder = find_mut(&mut folders, &id)?;
     let effective = effective_vault(&data.vault_id, &folder.vault_id);
     check_vault_write(std::slice::from_ref(&effective))?;
@@ -78,7 +78,7 @@ pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, String>
 /// destroy items the user filed in the folder after creating it.
 #[tauri::command]
 pub fn folder_delete(id: String, cascade: Option<bool>) -> Result<(), String> {
-    let mut folders = load_folders();
+    let mut folders = load_folders()?;
     if !folders.iter().any(|f| f.id == id) {
         return Err(format!("Folder {} not found", id));
     }
@@ -90,10 +90,10 @@ pub fn folder_delete(id: String, cascade: Option<bool>) -> Result<(), String> {
         HashSet::from([id.clone()])
     };
 
-    let mut connections = load_connections();
-    let mut identities = load_identities();
-    let mut keys = load_keys();
-    let mut rules = load_port_forwarding_rules();
+    let mut connections = load_connections()?;
+    let mut identities = load_identities()?;
+    let mut keys = load_keys()?;
+    let mut rules = load_port_forwarding_rules()?;
 
     let in_tree = |folder_id: &Option<String>| {
         cascading && folder_id.as_deref().is_some_and(|f| doomed.contains(f))
@@ -138,21 +138,21 @@ pub fn folder_move_objects(
     let now = Utc::now().to_rfc3339();
     match object_type.as_str() {
         "connection" => {
-            let mut items = load_connections();
+            let mut items = load_connections()?;
             refile_into_folder(&mut items, &object_ids, &folder_id, &now, |c| {
                 &mut c.folder_id
             })?;
             save_connections(&items)
         }
         "identity" => {
-            let mut items = load_identities();
+            let mut items = load_identities()?;
             refile_into_folder(&mut items, &object_ids, &folder_id, &now, |i| {
                 &mut i.folder_id
             })?;
             save_identities(&items)
         }
         "key" => {
-            let mut items = load_keys();
+            let mut items = load_keys()?;
             refile_into_folder(&mut items, &object_ids, &folder_id, &now, |k| {
                 &mut k.folder_id
             })?;

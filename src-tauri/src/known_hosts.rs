@@ -61,7 +61,11 @@ impl KnownHostsStore {
 
     /// Load from disk, migrating the old HashMap-based format if present.
     pub fn load() -> Arc<Self> {
-        let mut entries = load_known_hosts();
+        // A corrupt file is already renamed aside by load_json, so this fallback loses nothing.
+        let mut entries = load_known_hosts().unwrap_or_else(|e| {
+            eprintln!("known_hosts: {e}");
+            Vec::new()
+        });
 
         // Migrate old app_data_dir-based key-value JSON (HashMap<"host:port", fingerprint>)
         let old_paths: Vec<std::path::PathBuf> = {

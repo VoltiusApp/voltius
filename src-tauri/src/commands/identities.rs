@@ -58,7 +58,7 @@ fn build_identity(
 
 #[tauri::command]
 pub fn identity_update(id: String, data: IdentityFormData) -> Result<Identity, String> {
-    let mut identities = load_identities();
+    let mut identities = load_identities()?;
     let identity = find_mut(&mut identities, &id)?;
     let now = Utc::now().to_rfc3339();
     let effective = retarget_vault(identity, &data.vault_id, &now);
