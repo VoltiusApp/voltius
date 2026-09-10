@@ -208,9 +208,6 @@
     },
     "vaultHeader": {
       "members": "Membres",
-      "teamBadge": "équipe",
-      "memberCount_one": "{{count}} membre",
-      "memberCount_other": "{{count}} membres",
       "lastSync": "Dernière synchro {{time}}",
       "e2ee": "E2EE",
       "noOneOnline": "personne en ligne",

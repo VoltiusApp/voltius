@@ -271,7 +271,7 @@ export default function VaultHeader() {
         </div>
 
         <div className="flex flex-col justify-center min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               ref={triggerRef}
               type="button"
@@ -279,30 +279,26 @@ export default function VaultHeader() {
               aria-expanded={admin.pos !== null}
               aria-label={t("layout.vaultMenu.openMenu")}
               onClick={() => triggerRef.current && admin.openAtElement(triggerRef.current)}
-              className="flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 -ml-1.5 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 -ml-1.5 transition-colors min-w-0"
               style={{ background: admin.pos !== null ? "var(--t-bg-elevated)" : "transparent", border: "none", cursor: "pointer" }}
             >
               <span className="text-base font-semibold truncate" style={{ color: "var(--t-text-primary)" }}>
                 {displayName}
               </span>
-              <Icon icon="lucide:chevron-down" width={12} style={{ color: "var(--t-text-dim)" }} />
+              <Icon icon="lucide:chevron-down" width={12} className="shrink-0" style={{ color: "var(--t-text-dim)" }} />
             </button>
-            {team && <Badge label={t("layout.vaultHeader.teamBadge")} />}
-            {members !== null && (
-              <Badge label={t("layout.vaultHeader.memberCount", { count: members.length })} accent />
-            )}
-            {showSync && (
-              <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>{t("layout.vaultHeader.lastSync", { time: lastSync })}</span>
-            )}
           </div>
-          <div className="flex items-center gap-3 text-xs mt-0.5 flex-wrap" style={{ color: "var(--t-text-dim)" }}>
+          <div className="flex items-center gap-3 text-xs mt-0.5 flex-nowrap overflow-hidden" style={{ color: "var(--t-text-dim)" }}>
             {isE2EE && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--t-status-connected)" }} />
                 {t("layout.vaultHeader.e2ee")}
               </span>
             )}
             <ContentCounts counts={counts} />
+            {showSync && (
+              <span className="truncate">{t("layout.vaultHeader.lastSync", { time: lastSync })}</span>
+            )}
           </div>
         </div>
       </div>
@@ -310,7 +306,7 @@ export default function VaultHeader() {
       {/* Center zone: command palette */}
       <button
         onClick={() => setOmniOpen(true)}
-        className="flex items-center gap-2 px-3.5 h-9 rounded-lg transition-colors justify-self-center w-[clamp(20rem,30vw,27.5rem)]"
+        className="flex items-center gap-2 px-3.5 h-9 rounded-lg transition-colors justify-self-center w-[clamp(11rem,30vw,27.5rem)]"
         style={{
           background: "var(--t-bg-chrome-field)",
           color: "var(--t-text-secondary)",
@@ -369,24 +365,5 @@ export default function VaultHeader() {
 
       <VaultAdminSurface admin={admin} target={target} />
     </div>
-  );
-}
-
-function Badge({ label, accent }: { label: string; accent?: boolean }) {
-  return (
-    <span
-      className="px-2 py-0.5 rounded-full text-xs font-medium shrink-0"
-      style={{
-        background: accent
-          ? "color-mix(in srgb, var(--t-accent) 15%, transparent)"
-          : "var(--t-bg-elevated)",
-        color: accent ? "var(--t-accent)" : "var(--t-text-secondary)",
-        border: accent
-          ? "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)"
-          : "1px solid var(--t-border)",
-      }}
-    >
-      {label}
-    </span>
   );
 }

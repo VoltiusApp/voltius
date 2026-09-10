@@ -209,11 +209,6 @@
     },
     "vaultHeader": {
       "members": "Участники",
-      "teamBadge": "команда",
-      "memberCount_one": "{{count}} участник",
-      "memberCount_few": "{{count}} участника",
-      "memberCount_many": "{{count}} участников",
-      "memberCount_other": "{{count}} участников",
       "lastSync": "Последняя синхронизация {{time}}",
       "e2ee": "E2EE",
       "noOneOnline": "никого нет в сети",
