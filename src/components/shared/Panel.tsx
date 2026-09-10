@@ -18,6 +18,32 @@ export const formLabelClass = "block text-xs font-medium mb-1.5";
 
 export const formLabelStyle: React.CSSProperties = { color: "var(--t-text-dim)" };
 
+/*
+  Spread onto any field holding a machine identifier the remote end compares
+  byte-for-byte, such as an SSH username, so the OS cannot rewrite
+  `abcd` into `Abcd` and change which account we log in as (#252).
+
+  All three are needed, and not for the reason the names suggest. Measured in a
+  bare WKWebView, the engine Tauri renders through, with macOS "Capitalize
+  words automatically" on:
+
+    autocapitalize="off"   still capitalised, no effect on a hardware keyboard
+    autocorrect="off"      stopped it
+    spellcheck="false"     stopped it
+
+  So macOS routes this through text checking, not through autocapitalize.
+  autocapitalize still earns its place: it is the attribute that governs
+  virtual keyboards, which is what the Android build gets typed into.
+
+  Free-text fields the user names themselves, such as connection names and
+  snippet titles, want the OS assistance and should not use this.
+*/
+export const formIdentifierProps = {
+  autoCapitalize: "off",
+  autoCorrect: "off",
+  spellCheck: false,
+} as const;
+
 // ─── Panel primitives ───────────────────────────────────────────────────────
 
 export function PanelShell({ children }: { children: React.ReactNode }) {

@@ -21,7 +21,7 @@ import { useStoredSecrets } from "@/hooks/useStoredSecrets";
 import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import {
   PanelShell, PanelHeader, FormSection,
-  formInputClass, formInputStyle, formLabelClass, formLabelStyle,
+  formInputClass, formInputStyle, formLabelClass, formLabelStyle, formIdentifierProps,
 } from "@/components/shared/Panel";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PickerSurface } from "@/components/shared/PickerSurface";
@@ -311,6 +311,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
               value={username}
               onChange={(e) => { markDirty(); setUsername(e.target.value); }}
               placeholder="root"
+              {...formIdentifierProps}
             />
           </div>
 

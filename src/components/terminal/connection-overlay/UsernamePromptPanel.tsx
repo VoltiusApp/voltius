@@ -7,6 +7,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import IdentitySelector from "@/components/connections/IdentitySelector";
+import { formIdentifierProps } from "@/components/shared/Panel";
 import { DecisionPanel } from "./DecisionPanel";
 import type { ConnectRetryOverride } from "./types";
 
@@ -103,9 +104,7 @@ export function UsernamePromptPanel({
             onChange={(event) => setUsername(event.target.value)}
             placeholder={t("terminal.overlay.usernamePrompt.placeholder")}
             autoFocus
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
+            {...formIdentifierProps}
             className="w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)"
           />
         )}

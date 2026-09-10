@@ -41,6 +41,7 @@ import {
   formInputStyle,
   formLabelClass,
   formLabelStyle,
+  formIdentifierProps,
 } from "@/components/shared/Panel";
 import { SecretInput, TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
 import {
@@ -580,6 +581,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     value={username}
                     onChange={(e) => { markDirty(); setUsername(e.target.value); }}
                     placeholder="root"
+                    {...formIdentifierProps}
                   />
                 </div>
 
