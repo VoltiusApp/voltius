@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.2] - 2026-09-10
+
+### Fixed
+
+- Stopped the private vault's "+" button from opening the convert-to-team
+  popover on hover.
+- Labeled the share triggers, anchored the convert-to-team popover, and
+  pinned the invite row.
+- Clarified the "Manage" label and fixed the invite search field's contrast.
+
 ## [0.33.1] - 2026-09-10
 
 ### Fixed
