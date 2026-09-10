@@ -21,8 +21,11 @@ vi.mock("@tauri-apps/api/core", () => ({
   }),
 }));
 
+const h2 = vi.hoisted(() => ({ cachedVersion: undefined as number | undefined }));
 vi.mock("@/services/teamVaultSync", () => ({
   getTeamVaultKey: vi.fn(async () => new Array(32).fill(7)),
+  getCachedTeamKeyVersion: vi.fn((_teamId: string) => h2.cachedVersion),
+  getTeamVaultKeyAtVersion: vi.fn(async (_teamId: string, _version: number) => new Array(32).fill(9)),
 }));
 
 import {
@@ -30,9 +33,12 @@ import {
   decodeObjectMetadata,
   isEncryptedEnvelope,
 } from "./teamObjectEnvelope";
+import { getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
 
 beforeEach(() => {
   h.encrypted = [];
+  h2.cachedVersion = undefined;
+  vi.mocked(getTeamVaultKeyAtVersion).mockClear();
 });
 
 test("round-trips an object through the envelope", async () => {
@@ -75,4 +81,63 @@ test("decoding a payload with no metadata key throws instead of returning a phan
   vi.mocked(invoke).mockImplementationOnce(async () => ({ files: {}, secrets: {} }));
 
   await expect(decodeObjectMetadata("t1", { v: 2, enc: "anything" })).rejects.toThrow();
+});
+
+test("encodeObjectMetadata stamps the current cached key version", async () => {
+  h2.cachedVersion = 3;
+  const envelope = await encodeObjectMetadata("t1", { host: "example" });
+  expect(envelope.kv).toBe(3);
+});
+
+test("encodeObjectMetadata stamps epoch 1 when nothing is cached yet", async () => {
+  h2.cachedVersion = undefined;
+  const envelope = await encodeObjectMetadata("t1", { host: "example" });
+  expect(envelope.kv).toBe(1);
+});
+
+test("decodeObjectMetadata treats a missing kv as epoch 1 and round-trips normally", async () => {
+  h2.cachedVersion = 1;
+  // A row written before this feature: {v:2, enc} with no kv field at all.
+  const item = { id: "c1", host: "10.0.0.1" };
+  const envelope = await encodeObjectMetadata("t1", item);
+  const { kv: _drop, ...withoutKv } = envelope as typeof envelope & { kv?: number };
+  void _drop;
+
+  const decoded = await decodeObjectMetadata("t1", withoutKv);
+  expect(decoded).toEqual(item);
+  expect(getTeamVaultKeyAtVersion).not.toHaveBeenCalled();
+});
+
+test("decodeObjectMetadata reaches for the historical key when kv is behind current", async () => {
+  h2.cachedVersion = 1;
+  const envelope = await encodeObjectMetadata("t1", { id: "c1" }); // stamped kv:1
+  h2.cachedVersion = 3; // team has since rotated to epoch 3
+
+  await decodeObjectMetadata("t1", envelope);
+
+  expect(getTeamVaultKeyAtVersion).toHaveBeenCalledWith("t1", 1);
+});
+
+test("decodeObjectMetadata primes a cold cache via getTeamVaultKey BEFORE checking it, still reaching the historical key (C-A)", async () => {
+  h2.cachedVersion = 1;
+  const envelope = await encodeObjectMetadata("t1", { id: "c1" }); // stamped kv:1
+
+  // Simulate a cold cache at decode time: nothing cached yet. getTeamVaultKey
+  // is what primes _teamKeyVersionCache in the real module — reproduce that
+  // side effect here, landing on epoch 3 (the team has since rotated).
+  h2.cachedVersion = undefined;
+  const { getTeamVaultKey } = await import("@/services/teamVaultSync");
+  vi.mocked(getTeamVaultKey).mockImplementationOnce(async () => {
+    h2.cachedVersion = 3;
+    return new Array(32).fill(7);
+  });
+
+  await decodeObjectMetadata("t1", envelope);
+
+  // The old, buggy ordering read getCachedTeamKeyVersion synchronously before
+  // awaiting getTeamVaultKey, saw `undefined`, and fell through to "use the
+  // current key" — never reaching the historical fetch below. The fix awaits
+  // getTeamVaultKey (which primes the cache to 3) before reading the cache,
+  // so kv:1 is correctly seen as behind and the historical key is fetched.
+  expect(getTeamVaultKeyAtVersion).toHaveBeenCalledWith("t1", 1);
 });

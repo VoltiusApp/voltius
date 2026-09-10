@@ -88,3 +88,16 @@ export function installGlobalErrorLogging(): void {
 export function logFailure(context: string): (e: unknown) => void {
   return (e) => log.warn(`${context} failed:`, e instanceof Error ? e.message : safeJson(e));
 }
+
+/**
+ * Logs every rejected entry of a `Promise.allSettled` result via logFailure,
+ * so a batch of independent per-item work (a keychain wipe, a decrypt pass)
+ * never drops a failure silently just because the batch itself "succeeded".
+ * `contextFor(i)` gets the same index used to build `results`, so callers can
+ * name the item (its id, key, etc.) in the log line.
+ */
+export function logSettledFailures<T>(results: PromiseSettledResult<T>[], contextFor: (index: number) => string): void {
+  results.forEach((r, i) => {
+    if (r.status === "rejected") logFailure(contextFor(i))(r.reason);
+  });
+}

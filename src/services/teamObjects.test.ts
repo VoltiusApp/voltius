@@ -105,12 +105,12 @@ test("upsertTeamObject shapes PUT with Content-Type + body", async () => {
 test("upsertTeamSecret shapes PUT to /secrets", async () => {
   connected();
   h.appFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
-  await upsertTeamSecret("t1", { secret_id: "s1", object_id: "o1", secret_type: "connection_password", ciphertext: "cc" });
+  await upsertTeamSecret("t1", { secret_id: "s1", object_id: "o1", secret_type: "connection_password", ciphertext: "cc", key_version: 1 });
   const [url, init] = h.appFetch.mock.calls[0];
   expect(url).toBe("https://s/v1/teams/t1/secrets");
   expect(init.method).toBe("PUT");
   expect(init.headers["Content-Type"]).toBe("application/json");
-  expect(JSON.parse(init.body)).toEqual({ secret_id: "s1", object_id: "o1", secret_type: "connection_password", ciphertext: "cc" });
+  expect(JSON.parse(init.body)).toEqual({ secret_id: "s1", object_id: "o1", secret_type: "connection_password", ciphertext: "cc", key_version: 1 });
 });
 
 // Secret ids are local keychain keys ("key:<id>:private"), so the colons have to

@@ -20,6 +20,7 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { fetchTeamData, clearTeamKeyCache, reconcileTeamVaultKeys, drainPendingSecretWipes } from "@/services/teamVaultSync";
+import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
 import { logFailure } from "@/lib/logger";
 
 // Statuses that warrant a retry (transient — key not yet distributed)
@@ -44,6 +45,11 @@ export async function onTeamLogin(): Promise<void> {
       // offline — self-heals the async invite-acceptance lockout (issue #41).
       // No-op for non-holders (they can't unwrap the key to redistribute).
       await reconcileTeamVaultKeys(teamId);
+      // The realtime team_members handler (sync.ts) is the only other place
+      // rotation gets checked, so a client offline when a member was removed
+      // would otherwise never rotate or resume draining until some other,
+      // unrelated membership event happened to fire (#217).
+      await checkAndRotateTeamKey(teamId).catch(logFailure(`onTeamLogin: checkAndRotateTeamKey team=${teamId}`));
     }),
   );
 }

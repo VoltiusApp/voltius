@@ -4,6 +4,7 @@ const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   appFetch: vi.fn(),
   listMembers: vi.fn(),
+  getUserPublicKey: vi.fn(),
   getMyUserId: vi.fn(),
   updatePublicKey: vi.fn(),
   wrap: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/teamService", () => ({
   listMembers: h.listMembers,
+  getUserPublicKey: h.getUserPublicKey,
   getMyUserId: h.getMyUserId,
   updatePublicKey: h.updatePublicKey,
 }));
@@ -24,7 +26,7 @@ vi.mock("@/services/multiplayerService", () => ({
   publishMyPublicKey: h.publishPublicKey,
 }));
 
-import { initTeamVaultKey, distributeKeyToNewMember, clearTeamKeyCache } from "./teamVaultSync";
+import { initTeamVaultKey, distributeKeyToNewMember, clearTeamKeyCache, getCachedTeamKeyVersion } from "./teamVaultSync";
 
 function futureJwt(): string {
   const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -71,7 +73,7 @@ test("initTeamVaultKey generates a fresh key when none exists (404) and wraps fo
 
 test("initTeamVaultKey reuses the existing key when the server already has one", async () => {
   h.unwrap.mockResolvedValue(new Uint8Array(32).fill(1));
-  h.listMembers.mockResolvedValue([{ user_id: "w", public_key: "wpk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "w", handle: "w", public_key: "wpk" });
   h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url.endsWith("/vault-key") && (!init || init.method === "GET"))
       return res(200, { wrapped_key: "wk", wrapped_by_user_id: "w" });
@@ -106,7 +108,7 @@ test("distributeKeyToNewMember returns early when the team key cannot be fetched
 
 test("distributeKeyToNewMember uploads a single wrapped key for the new member", async () => {
   h.unwrap.mockResolvedValue(new Uint8Array(32).fill(1));
-  h.listMembers.mockResolvedValue([{ user_id: "w", public_key: "wpk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "w", handle: "w", public_key: "wpk" });
   h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url.endsWith("/vault-key") && (!init || init.method === "GET"))
       return res(200, { wrapped_key: "wk", wrapped_by_user_id: "w" });
@@ -118,4 +120,18 @@ test("distributeKeyToNewMember uploads a single wrapped key for the new member",
   const put = h.appFetch.mock.calls.find(([, init]) => init?.method === "PUT")!;
   const body = JSON.parse(put[1].body);
   expect(body.keys).toEqual([{ user_id: "u9", wrapped_key: "wrapped-for-pk9" }]);
+});
+
+test("initTeamVaultKey caches epoch 1 for a freshly minted key, keeping key and version in lockstep", async () => {
+  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/vault-key") && (!init || init.method === "GET")) return res(404);
+    if (url.endsWith("/vault-key") && init?.method === "PUT") return res(200);
+    throw new Error(`unexpected ${url}`);
+  });
+
+  await initTeamVaultKey("team-7", [] as any);
+
+  // A cached key with no corresponding version breaks every caller that
+  // trusts "a key is cached implies a version is cached" (#217).
+  expect(getCachedTeamKeyVersion("team-7")).toBe(1);
 });

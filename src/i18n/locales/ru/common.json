@@ -114,6 +114,8 @@
       "failedToDeleteTeam": "Не удалось удалить команду: {{status}}",
       "failedToListMembers": "Не удалось получить список участников: {{status}}",
       "failedToListVaultKeyHolders": "Не удалось получить список владельцев ключа хранилища: {{status}}",
+      "failedToCheckRotationStatus": "Не удалось проверить статус ротации: {{status}}",
+      "failedToRotateVaultKey": "Не удалось выполнить ротацию ключа хранилища: {{status}}",
       "failedToAddMember": "Не удалось добавить участника: {{status}}",
       "failedToRemoveMember": "Не удалось удалить участника: {{status}}",
       "failedToAssignRole": "Не удалось назначить роль: {{status}}",

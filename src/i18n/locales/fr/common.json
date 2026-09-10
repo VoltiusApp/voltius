@@ -114,6 +114,8 @@
       "failedToDeleteTeam": "Échec de la suppression de l'équipe : {{status}}",
       "failedToListMembers": "Échec du chargement des membres : {{status}}",
       "failedToListVaultKeyHolders": "Échec du chargement des détenteurs de clé de coffre : {{status}}",
+      "failedToCheckRotationStatus": "Échec de la vérification de l'état de rotation : {{status}}",
+      "failedToRotateVaultKey": "Échec de la rotation de la clé de coffre : {{status}}",
       "failedToAddMember": "Échec de l'ajout du membre : {{status}}",
       "failedToRemoveMember": "Échec de la suppression du membre : {{status}}",
       "failedToAssignRole": "Échec de l'attribution du rôle : {{status}}",
