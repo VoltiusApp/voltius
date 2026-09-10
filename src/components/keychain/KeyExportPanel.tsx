@@ -7,6 +7,7 @@ import { addKeyToHost, DEFAULT_EXPORT_SCRIPT } from "@/services/keyExport";
 import { ensurePublicKey } from "@/services/publicKeyStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { statusSurface } from "@/components/shared/statusSurface";
+import { chevronRotateStyle } from "@/utils/icons";
 import {
   PanelShell, PanelHeader, FormSection,
   formInputClass, formInputStyle, formLabelClass, formLabelStyle,
@@ -159,7 +160,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
             <div className="p-1">
               <button onClick={() => setAdvancedOpen((o) => !o)} className="flex items-center gap-2 w-full mb-2">
                 <span className="flex-1 text-left text-xs text-(--t-text-muted)">{t("keychain.exportPanel.exportScriptLabel")}</span>
-                <Icon icon="lucide:chevron-down" width={14} className="text-(--t-text-muted)" style={{ transform: advancedOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }} />
+                <Icon icon="lucide:chevron-down" width={14} className="text-(--t-text-muted)" style={chevronRotateStyle(advancedOpen)} />
               </button>
               {advancedOpen && (
                 <textarea

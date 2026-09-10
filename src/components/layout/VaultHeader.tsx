@@ -16,6 +16,7 @@ import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
 import { useVaultAdmin } from "@/components/vault-admin/useVaultAdmin";
 import { VaultAdminSurface } from "@/components/vault-admin/VaultAdminSurface";
 import type { VaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
+import { chevronRotateStyle } from "@/utils/icons";
 
 // ─── Members stack ─────────────────────────────────────────────────────────
 
@@ -285,7 +286,11 @@ export default function VaultHeader() {
               <span className="text-base font-semibold truncate" style={{ color: "var(--t-text-primary)" }}>
                 {displayName}
               </span>
-              <Icon icon="lucide:chevron-down" width={12} style={{ color: "var(--t-text-dim)" }} />
+              <Icon
+                icon="lucide:chevron-down"
+                width={12}
+                style={{ color: "var(--t-text-dim)", ...chevronRotateStyle(admin.pos !== null) }}
+              />
             </button>
             {team && <Badge label={t("layout.vaultHeader.teamBadge")} />}
             {members !== null && (

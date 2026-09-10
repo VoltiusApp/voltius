@@ -6,6 +6,7 @@ import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useRipple } from "@/hooks/useRipple";
 import { PickerSurface } from "@/components/shared/PickerSurface";
+import { chevronRotateStyle } from "@/utils/icons";
 
 interface KeychainToolbarProps {
   search: string;
@@ -110,7 +111,7 @@ function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onI
       >
         {rippleEls}
         <span className="[&_path]:stroke-3">
-          <Icon icon="lucide:chevron-down" width={20} color="var(--t-bg-terminal)" style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
+          <Icon icon="lucide:chevron-down" width={20} color="var(--t-bg-terminal)" style={chevronRotateStyle(open)} />
         </span>
       </button>
 
