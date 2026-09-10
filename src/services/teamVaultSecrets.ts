@@ -10,6 +10,7 @@ import {
   teamSecretFromLocalKey,
 } from "@/services/teamVaultSecretKeys";
 import { bytesToBase64, base64ToBytes } from "@/services/teamVaultSyncCore";
+import { logSettledFailures } from "@/lib/logger";
 
 interface BlobPayload {
   files: Record<string, string>;
@@ -80,7 +81,7 @@ export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
   const [currentKey, records] = await Promise.all([getTeamVaultKey(teamId), listTeamSecrets(teamId)]);
   const currentVersion = getCachedTeamKeyVersion(teamId);
 
-  await Promise.allSettled(records.map(async (record) => {
+  const results = await Promise.allSettled(records.map(async (record) => {
     const localKey = localSecretKeyFromTeamSecret(record.object_id, record.secret_type);
     if (!localKey) return;
     const encKey = currentVersion !== undefined && record.key_version !== currentVersion
@@ -91,6 +92,7 @@ export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
     const value = payload.secrets?.[localKey];
     if (value) await storeSecret(localKey, value);
   }));
+  logSettledFailures(results, (i) => `teamVaultSecrets: hydrate team=${teamId} secret=${records[i].secret_id}`);
 }
 
 export async function backfillExistingTeamVaultSecrets(teamId: string): Promise<void> {

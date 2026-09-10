@@ -220,6 +220,25 @@ test("hydrateTeamVaultSecrets isolates a failing record (allSettled) so siblings
   expect(h.storeSecret).toHaveBeenCalledWith("password:good", "ok");
 });
 
+// I-F: a rejected record must leave a trace instead of vanishing silently —
+// the only prior signal was "some connections disappeared," nothing in the logs.
+test("hydrateTeamVaultSecrets logs a rejected record, naming the team and secret (I-F)", async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  h.listTeamSecrets.mockResolvedValue([
+    { secret_id: "s-poisoned", object_id: "bad", secret_type: "connection_password", ciphertext: bytesToBase64([1]), key_version: 1 },
+  ]);
+  h.invoke.mockRejectedValue(new Error("decrypt failed"));
+
+  await hydrateTeamVaultSecrets("t-log");
+
+  expect(console.warn).toHaveBeenCalled();
+  const logged = vi.mocked(console.warn).mock.calls.flat().join(" ");
+  expect(logged).toContain("t-log");
+  expect(logged).toContain("s-poisoned");
+
+  vi.restoreAllMocks();
+});
+
 test("hydrateTeamVaultSecrets does not store when the decrypted payload lacks the expected key", async () => {
   h.listTeamSecrets.mockResolvedValue([
     { object_id: "c1", secret_type: "connection_password", ciphertext: bytesToBase64([1]), key_version: 1 },

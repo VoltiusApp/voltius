@@ -63,3 +63,28 @@ test("a row that fails to decrypt is dropped, not spread as garbage", async () =
 
   expect(useConnectionStore.getState().teamConnections.t1 ?? []).toEqual([]);
 });
+
+// I-F: a wrong-epoch or malformed row must leave a trace instead of silently
+// vanishing from the vault with nothing in the logs.
+test("a row that fails to decrypt is logged, naming the team and object (I-F)", async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const { decodeObjectMetadata } = await import("@/services/teamObjectEnvelope");
+  vi.mocked(decodeObjectMetadata).mockRejectedValueOnce(new Error("bad key"));
+
+  await _hydrateTeamObjectStores("t-log", [
+    {
+      object_id: "c-poisoned",
+      object_type: "connection",
+      metadata: { v: 2, enc: "corrupt" },
+      updated_at: "2026-09-01T00:00:00.000Z",
+      updated_by: "u1",
+    },
+  ] as never);
+
+  expect(console.warn).toHaveBeenCalled();
+  const logged = vi.mocked(console.warn).mock.calls.flat().join(" ");
+  expect(logged).toContain("t-log");
+  expect(logged).toContain("c-poisoned");
+
+  vi.restoreAllMocks();
+});
