@@ -444,16 +444,6 @@
       "general": {
         "vaultNameLabel": "保险库名称",
         "save": "保存",
-        "infoLabel": "信息",
-        "teamWithCount_one": "团队 · {{count}} 名成员",
-        "teamWithCount_other": "团队 · {{count}} 名成员",
-        "teamLoading": "团队 · …",
-        "private": "私有",
-        "cloudOnly": "仅云端",
-        "cloudOnlyDesc": "此团队仅存在于云端，未链接到本地保险库。成员和角色仍可从上方标签页全面管理。",
-        "unencryptedObjects_one": "此保险库中仍有 {{count}} 个对象以未加密方式存储在服务器上。下次有权编辑它们的成员连接时，这些对象将被加密。",
-        "unencryptedObjects_other": "此保险库中仍有 {{count}} 个对象以未加密方式存储在服务器上。下次有权编辑它们的成员连接时，这些对象将被加密。",
-        "dangerZone": "危险区域",
         "makePrivate": {
           "title": "设为私有",
           "confirmAll": "移除所有成员并设为私有？",
@@ -461,7 +451,6 @@
           "confirm_other": "移除 {{count}} 名成员并设为私有？",
           "converting": "正在转换…",
           "confirmBtn": "确认",
-          "btn": "设为私有",
           "copyFailedToast": "无法从团队中复制全部内容——未删除任何内容，此保险库仍是团队保险库。",
           "removeMembersFailedToast": "无法移除成员——此保险库仍是团队保险库。{{reason}}",
           "failedToast": "无法将此保险库设为私有——{{reason}}"
@@ -471,8 +460,7 @@
           "confirmDesc": "将永久删除此保险库及其 {{count}} 个项目。此操作无法撤销。",
           "confirmBtn": "确认删除",
           "deleting": "正在删除…",
-          "failedToast": "未能完成此保险库的删除——保险库仍在，但其中部分项目可能已被删除。{{reason}}",
-          "btn": "删除保险库"
+          "failedToast": "未能完成此保险库的删除——保险库仍在，但其中部分项目可能已被删除。{{reason}}"
         },
         "madePrivateToast_one": "保险库现已私有。{{count}} 名成员失去了访问权限。",
         "madePrivateToast_other": "保险库现已私有。{{count}} 名成员失去了访问权限。",

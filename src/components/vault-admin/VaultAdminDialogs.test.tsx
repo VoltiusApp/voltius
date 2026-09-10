@@ -11,10 +11,10 @@ vi.mock("@/hooks/useVaultContents", () => ({ useVaultContents: () => [] }));
 vi.mock("./useVaultAdminActions", () => ({
   useVaultAdminActions: () => ({ busy: false, rename: h.rename, remove: h.remove, makePrivate: h.makePrivate }),
 }));
-// VaultAdminDialogs and VaultSettingsBody both call useTeamStore() with no
-// selector, so the mock must work when called with no arguments. The state lives
-// inside the factory: a vi.mock factory is hoisted above module scope and cannot
-// close over an outer const.
+// VaultAdminDialogs calls useTeamStore() with no selector, so the mock must
+// work when called with no arguments. The state lives inside the factory: a
+// vi.mock factory is hoisted above module scope and cannot close over an
+// outer const.
 vi.mock("@/stores/teamStore", () => {
   const teamState = { teams: [], rolesByTeam: {}, membersByTeam: {} };
   return {
@@ -83,15 +83,4 @@ test("the make-private dialog uses the warning tone, not the danger tone", () =>
   const btn = screen.getByText("settings.vaults.general.makePrivate.confirmBtn");
   expect(btn.className).toContain("btn-warning");
   expect(btn.className).not.toContain("btn-danger");
-});
-
-test("the settings dialog escalates to a delete confirm and back", () => {
-  const onClose = vi.fn();
-  render(<VaultAdminDialogs target={target} dialog="settings" onClose={onClose} />);
-  fireEvent.click(screen.getByText("settings.vaults.general.deleteVault.btn"));
-  expect(screen.getByText("settings.vaults.general.deleteVault.confirmBtn")).toBeTruthy();
-  fireEvent.click(screen.getByText("common.action.cancel"));
-  expect(h.remove).not.toHaveBeenCalled();
-  expect(onClose).not.toHaveBeenCalled();
-  expect(screen.getByText("settings.vaults.general.deleteVault.btn")).toBeTruthy();
 });
