@@ -284,6 +284,19 @@ test("hydrateTeamVaultSecrets uses the plain current key for a record already on
   expect(h.invoke).toHaveBeenCalledWith("backup_decrypt", expect.objectContaining({ encKey: "ENCKEY" }));
 });
 
+test("hydrateTeamVaultSecrets treats a missing key_version as epoch 1, not a literal undefined fetch", async () => {
+  h.getCachedTeamKeyVersion.mockReturnValue(3);
+  h.listTeamSecrets.mockResolvedValue([
+    // A pre-#217 record with no key_version at all.
+    { secret_id: "s1", object_id: "c1", secret_type: "connection_password", ciphertext: "AQID" },
+  ]);
+  h.invoke.mockResolvedValue({ secrets: { "password:c1": "hunter2" } });
+
+  await hydrateTeamVaultSecrets("t1");
+
+  expect(h.getTeamVaultKeyAtVersion).toHaveBeenCalledWith("t1", 1);
+});
+
 // ─── backfillExistingTeamVaultSecrets ────────────────────────────────────────
 
 test("backfillExistingTeamVaultSecrets fans out over connections, identities, and keys with the expected local-key shapes", async () => {

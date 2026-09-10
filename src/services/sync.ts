@@ -923,7 +923,8 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     // Opportunistic rotate-and-drain (#217): reconcileTeamVaultKeys only ever
     // adds keys for new members: it does nothing on a removal, because the
     // removed member's key row is already gone by the time this event fires,
-    // so "missing" stays empty. This is the only place rotation gets checked.
+    // so "missing" stays empty. onTeamLogin (teamDataManager.ts) also checks
+    // this, for a client that was offline when the realtime event fired.
     const { checkAndRotateTeamKey } = await import("@/services/teamKeyRotation");
     checkAndRotateTeamKey(teamId).catch(logFailure(`team_members: checkAndRotateTeamKey team=${teamId}`));
     useTeamStore.getState().loadPendingInvitations(teamId).catch(logFailure(`team_members: loadPendingInvitations team=${teamId}`));

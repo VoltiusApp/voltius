@@ -3,7 +3,7 @@ import { test, expect, vi, beforeEach, afterEach } from "vitest";
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   appFetch: vi.fn(),
-  listMembers: vi.fn(),
+  getUserPublicKey: vi.fn(),
   unwrap: vi.fn(),
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
@@ -11,7 +11,7 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
-vi.mock("@/services/teamService", () => ({ listMembers: h.listMembers }));
+vi.mock("@/services/teamService", () => ({ getUserPublicKey: h.getUserPublicKey }));
 vi.mock("@/services/multiplayerService", () => ({
   unwrapSessionKey: h.unwrap,
   wrapSessionKeyForUser: vi.fn(),
@@ -53,7 +53,7 @@ const res = (status: number, body: unknown = {}) =>
 beforeEach(() => {
   h.invoke.mockReset();
   h.appFetch.mockReset();
-  h.listMembers.mockReset();
+  h.getUserPublicKey.mockReset();
   h.unwrap.mockReset();
   h.getSecret.mockReset();
   h.storeSecret.mockReset();
@@ -85,7 +85,7 @@ test("clearing a team vault deletes every secret it owns, passphrases included",
     if (url.endsWith("/sync-blob")) return res(404);
     throw new Error(`unexpected fetch ${url}`);
   });
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
 
   await fetchTeamData(teamId);
@@ -129,7 +129,7 @@ test("fetchTeamData decrypts the legacy blob and populates the seven store slice
     if (url.endsWith("/sync-blob")) return res(200, { blob: btoa("ignored-bytes"), updated_at: "" });
     throw new Error(`unexpected fetch ${url}`);
   });
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
 
   await fetchTeamData(teamId);
@@ -167,7 +167,7 @@ test("fetchTeamData decrypts the legacy blob with the historical key when its ke
     if (url.endsWith("/sync-blob")) return res(200, { blob: btoa("ignored-bytes"), updated_at: "", key_version: 1 });
     throw new Error(`unexpected fetch ${url}`);
   });
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockImplementation(async (wrappedKey: string) =>
     wrappedKey === "wk-old" ? new Uint8Array([1]) : new Uint8Array([9, 9, 9]),
   );

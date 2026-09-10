@@ -84,8 +84,12 @@ export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
   const results = await Promise.allSettled(records.map(async (record) => {
     const localKey = localSecretKeyFromTeamSecret(record.object_id, record.secret_type);
     if (!localKey) return;
-    const encKey = currentVersion !== undefined && record.key_version !== currentVersion
-      ? await getTeamVaultKeyAtVersion(teamId, record.key_version)
+    // A pre-#217 row's key_version is undefined, which is epoch 1 (matching
+    // the server's own COALESCE(...,1) treatment) — never a literal
+    // "undefined" fetch against vault-key/undefined.
+    const recordVersion = record.key_version ?? 1;
+    const encKey = currentVersion !== undefined && recordVersion !== currentVersion
+      ? await getTeamVaultKeyAtVersion(teamId, recordVersion)
       : currentKey;
     const blob = base64ToBytes(record.ciphertext);
     const payload = await invoke<BlobPayload>("backup_decrypt", { encKey, blob });

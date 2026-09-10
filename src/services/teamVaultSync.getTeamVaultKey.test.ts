@@ -1,9 +1,9 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
-const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), listMembers: vi.fn(), unwrap: vi.fn() }));
+const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), getUserPublicKey: vi.fn(), unwrap: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
-vi.mock("@/services/teamService", () => ({ listMembers: h.listMembers }));
+vi.mock("@/services/teamService", () => ({ getUserPublicKey: h.getUserPublicKey }));
 vi.mock("@/services/multiplayerService", () => ({
   unwrapSessionKey: h.unwrap,
   wrapSessionKeyForUser: vi.fn(),
@@ -25,7 +25,7 @@ const res = (status: number, body: unknown = {}) =>
   ({ status, ok: status >= 200 && status < 300, json: async () => body, headers: { get: () => null } });
 
 beforeEach(() => {
-  h.invoke.mockReset(); h.appFetch.mockReset(); h.listMembers.mockReset(); h.unwrap.mockReset();
+  h.invoke.mockReset(); h.appFetch.mockReset(); h.getUserPublicKey.mockReset(); h.unwrap.mockReset();
   clearTeamKeyCache();
 });
 afterEach(() => {
@@ -49,7 +49,7 @@ test("403 → forbidden, 402 → payment_required, 404 → awaiting_key", async 
 test("success unwraps the wrapped key, returns bytes, and caches (no 2nd fetch)", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
   h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([1, 2, 3]));
 
   const key = await getTeamVaultKey("t1");
@@ -64,7 +64,7 @@ test("success unwraps the wrapped key, returns bytes, and caches (no 2nd fetch)"
 test("caches the key_version alongside the key", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
   h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1", key_version: 3 }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([1, 2, 3]));
 
   await getTeamVaultKey("t1");
@@ -74,7 +74,7 @@ test("caches the key_version alongside the key", async () => {
 test("clearTeamKeyCache/deleteTeamKey also clear the cached version", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
   h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1", key_version: 2 }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([1]));
 
   await getTeamVaultKey("t1");
@@ -87,7 +87,7 @@ test("clearTeamKeyCache/deleteTeamKey also clear the cached version", async () =
 test("a local unwrap failure → 'key_mismatch', not 'error'", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
   h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockRejectedValue(new Error("aead::Error"));
   await expect(getTeamVaultKey("t1")).rejects.toBe("key_mismatch");
 });
@@ -95,7 +95,7 @@ test("a local unwrap failure → 'key_mismatch', not 'error'", async () => {
 test("wrapping member missing → 'error'", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
   h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "ghost" }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue(null); // 404: the wrapping user no longer resolves
   await expect(getTeamVaultKey("t1")).rejects.toBe("error");
 });
 
@@ -105,14 +105,14 @@ test("wrapping member missing → 'error'", async () => {
 test("N concurrent calls on a cold cache share a single underlying fetch", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
   h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([1, 2, 3]));
 
   const keys = await Promise.all(Array.from({ length: 5 }, () => getTeamVaultKey("t1")));
 
   expect(keys).toEqual(Array(5).fill([1, 2, 3]));
   expect(h.appFetch).toHaveBeenCalledTimes(1);
-  expect(h.listMembers).toHaveBeenCalledTimes(1);
+  expect(h.getUserPublicKey).toHaveBeenCalledTimes(1);
 });
 
 test("a rejected fetch clears the cache entry so a later call can retry, not poison the session", async () => {
@@ -122,7 +122,7 @@ test("a rejected fetch clears the cache entry so a later call can retry, not poi
   await expect(getTeamVaultKey("t1")).rejects.toBe("error");
 
   h.appFetch.mockResolvedValueOnce(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([4, 5, 6]));
 
   const key = await getTeamVaultKey("t1");
@@ -138,7 +138,7 @@ test("a rejected fetch clears the cache entry so a later call can retry, not poi
 // to.
 test("an eviction that lands mid-fetch is not resurrected into the cache", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([1, 2, 3]));
 
   let resolveFetch!: (value: unknown) => void;

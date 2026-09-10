@@ -66,7 +66,7 @@ vi.mock("@/services/teamVaultSyncCore", () => ({
 }));
 
 import { checkAndRotateTeamKey } from "./teamKeyRotation";
-import { getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
+import { getTeamVaultKeyAtVersion, getCachedTeamKeyVersion } from "@/services/teamVaultSync";
 
 beforeEach(() => {
   h.status = { stale: false, draining: false };
@@ -178,4 +178,52 @@ test("draining: does not touch a secret already at or ahead of the current versi
   await checkAndRotateTeamKey("t1");
 
   expect(h.reencryptSecretCalls).toHaveLength(0);
+});
+
+test("draining: a legacy secret with no key_version fetches epoch 1, not vault-key/undefined", async () => {
+  // The team has already rotated once (current epoch 2), so an undefined
+  // key_version (epoch 1) is genuinely stale and must be re-encrypted.
+  vi.mocked(getCachedTeamKeyVersion).mockReturnValueOnce(2);
+  h.status = { stale: false, draining: true };
+  h.objects = [
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 2 } },
+  ];
+  h.secrets = [
+    // key_version is undefined here (a pre-#217 row).
+    { secret_id: "s1", object_id: "c1", ciphertext: "b64(old-cipher)" } as never,
+  ];
+
+  await checkAndRotateTeamKey("t1");
+
+  expect(getTeamVaultKeyAtVersion).toHaveBeenCalledWith("t1", 1);
+});
+
+test("draining: does not re-encrypt a secret belonging to a soft-deleted object", async () => {
+  h.status = { stale: false, draining: true };
+  h.objects = [
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 0 }, deleted_at: "2026-01-01" },
+  ];
+  h.secrets = [
+    { secret_id: "s1", object_id: "c1", ciphertext: "b64(old-cipher)", key_version: 0 },
+  ];
+
+  await checkAndRotateTeamKey("t1");
+
+  expect(h.reencryptSecretCalls).toHaveLength(0);
+});
+
+test("draining: a failing object batch write does not block the secrets batch that follows", async () => {
+  h.status = { stale: false, draining: true };
+  h.objects = [
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 0 } },
+  ];
+  h.secrets = [
+    { secret_id: "s1", object_id: "c1", ciphertext: "b64(old-cipher)", key_version: 0 },
+  ];
+  const { reencryptTeamObjects } = await import("@/services/teamObjects");
+  vi.mocked(reencryptTeamObjects).mockRejectedValueOnce(new Error("PUT 500"));
+
+  await expect(checkAndRotateTeamKey("t1")).resolves.toBeUndefined();
+
+  expect(h.reencryptSecretCalls).toHaveLength(1);
 });

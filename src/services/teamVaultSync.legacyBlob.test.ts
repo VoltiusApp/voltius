@@ -3,7 +3,7 @@ import { test, expect, vi, beforeEach } from "vitest";
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   appFetch: vi.fn(),
-  listMembers: vi.fn(),
+  getUserPublicKey: vi.fn(),
   unwrap: vi.fn(),
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
@@ -11,7 +11,7 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
-vi.mock("@/services/teamService", () => ({ listMembers: h.listMembers }));
+vi.mock("@/services/teamService", () => ({ getUserPublicKey: h.getUserPublicKey }));
 vi.mock("@/services/multiplayerService", () => ({
   unwrapSessionKey: h.unwrap,
   wrapSessionKeyForUser: vi.fn(),
@@ -43,7 +43,7 @@ const methodOf = (init?: RequestInit) => init?.method ?? "GET";
 beforeEach(() => {
   h.invoke.mockReset();
   h.appFetch.mockReset();
-  h.listMembers.mockReset();
+  h.getUserPublicKey.mockReset();
   h.unwrap.mockReset();
   h.getSecret.mockReset();
   h.storeSecret.mockReset();
@@ -106,7 +106,7 @@ test("blob behind the current version: decrypts with the OLD key, re-encrypts wi
     }
     throw new Error(`unexpected fetch ${url} ${method}`);
   });
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([1])); // old epoch's raw key
 
   await reencryptLegacyBlobIfStale("t1", 3, [9, 9, 9]);

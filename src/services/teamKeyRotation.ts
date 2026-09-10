@@ -46,7 +46,7 @@ async function settleInBatches<T, R>(
       logFailure(logContext)(r.reason);
       return [];
     });
-    if (settled.length > 0) await onBatch(settled);
+    if (settled.length > 0) await onBatch(settled).catch(logFailure(`${logContext}: batch write`));
   }
 }
 
@@ -135,15 +135,20 @@ async function _drainTeamKeyRotation(teamId: string): Promise<void> {
   if (currentVersion === undefined) return; // couldn't fetch (offline/forbidden) — try again next event
 
   // Step 4 of the spec's reencrypt pass: the legacy whole-blob some older
-  // teams still carry. Independent of the object/secret loops below, so its
-  // failure doesn't block them (or vice versa).
-  await reencryptLegacyBlobIfStale(teamId, currentVersion, currentKey)
-    .catch(logFailure(`teamKeyRotation: reencrypt legacy blob team=${teamId}`));
-
-  const [objects, secrets] = await Promise.all([listTeamObjects(teamId), listTeamSecrets(teamId)]);
+  // teams still carry. Independent of the object/secret loops below (already
+  // .catch'd so its failure can't fail this Promise.all), so all three run
+  // concurrently instead of paying its round-trip serially first.
+  const [, objects, secrets] = await Promise.all([
+    reencryptLegacyBlobIfStale(teamId, currentVersion, currentKey)
+      .catch(logFailure(`teamKeyRotation: reencrypt legacy blob team=${teamId}`)),
+    listTeamObjects(teamId),
+    listTeamSecrets(teamId),
+  ]);
   const snapshot = await buildEditPermissionSnapshot();
 
-  const objectTypeById = new Map(objects.map((o) => [o.object_id, o.object_type] as const));
+  const objectTypeById = new Map(
+    objects.filter((o) => !o.deleted_at).map((o) => [o.object_id, o.object_type] as const),
+  );
 
   // Strictly behind current, never equal-or-ahead: a row already on or ahead
   // of this client's freshly-resolved "current" must never be rewritten
@@ -186,7 +191,7 @@ async function _drainTeamKeyRotation(teamId: string): Promise<void> {
     staleSecrets,
     BATCH_SIZE,
     async (s) => {
-      const oldKey = await getTeamVaultKeyAtVersion(teamId, s.key_version);
+      const oldKey = await getTeamVaultKeyAtVersion(teamId, epochOf(s.key_version));
       const decrypted = await invoke<{ secrets: Record<string, string> }>("backup_decrypt", {
         encKey: oldKey,
         blob: base64ToBytes(s.ciphertext),

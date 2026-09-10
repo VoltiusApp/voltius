@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   appFetch: vi.fn(),
   listMembers: vi.fn(),
+  getUserPublicKey: vi.fn(),
   getMyUserId: vi.fn(),
   getVaultKeyHolders: vi.fn(),
   wrap: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/teamService", () => ({
   listMembers: h.listMembers,
+  getUserPublicKey: h.getUserPublicKey,
   getMyUserId: h.getMyUserId,
   getVaultKeyHolders: h.getVaultKeyHolders,
 }));
@@ -54,6 +56,7 @@ beforeEach(() => {
   h.publishPublicKey.mockResolvedValue("MYPUB");
   h.getMyUserId.mockResolvedValue("me");
   h.listMembers.mockResolvedValue(MEMBERS);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "me", handle: "me", public_key: "MYPUB" });
   h.unwrap.mockResolvedValue(new Uint8Array(32));
   h.wrap.mockImplementation(async (_key: Uint8Array, pub: string) => `wrapped-for-${pub}`);
 });

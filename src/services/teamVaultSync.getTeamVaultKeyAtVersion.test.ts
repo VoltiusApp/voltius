@@ -1,9 +1,9 @@
 import { test, expect, vi, beforeEach } from "vitest";
 
-const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), listMembers: vi.fn(), unwrap: vi.fn() }));
+const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), getUserPublicKey: vi.fn(), unwrap: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
-vi.mock("@/services/teamService", () => ({ listMembers: h.listMembers }));
+vi.mock("@/services/teamService", () => ({ getUserPublicKey: h.getUserPublicKey }));
 vi.mock("@/services/multiplayerService", () => ({
   unwrapSessionKey: h.unwrap,
   wrapSessionKeyForUser: vi.fn(),
@@ -24,13 +24,13 @@ const res = (status: number, body: unknown = {}) =>
   ({ status, ok: status >= 200 && status < 300, json: async () => body, headers: { get: () => null } });
 
 beforeEach(() => {
-  h.invoke.mockReset(); h.appFetch.mockReset(); h.listMembers.mockReset(); h.unwrap.mockReset();
+  h.invoke.mockReset(); h.appFetch.mockReset(); h.getUserPublicKey.mockReset(); h.unwrap.mockReset();
 });
 
 test("fetches the historical epoch, unwraps it, and hits the versioned URL", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
   h.appFetch.mockResolvedValue(res(200, { wrapped_key: "old-wk", wrapped_by_user_id: "u1", key_version: 1 }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
 
   const key = await getTeamVaultKeyAtVersion("t1", 1);
@@ -49,7 +49,7 @@ test("caches per (teamId, version) — a second call for the same version does n
   // first test already populated instead of exercising the cache-miss path.
   keychain({ server_url: "https://s", jwt: futureJwt() });
   h.appFetch.mockResolvedValue(res(200, { wrapped_key: "old-wk", wrapped_by_user_id: "u1", key_version: 1 }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([1]));
 
   await getTeamVaultKeyAtVersion("t2", 1);
@@ -63,7 +63,7 @@ test("a different version is a separate cache entry and a separate fetch", async
   h.appFetch
     .mockResolvedValueOnce(res(200, { wrapped_key: "v1", wrapped_by_user_id: "u1", key_version: 1 }))
     .mockResolvedValueOnce(res(200, { wrapped_key: "v2", wrapped_by_user_id: "u1", key_version: 2 }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValueOnce(new Uint8Array([1])).mockResolvedValueOnce(new Uint8Array([2]));
 
   const k1 = await getTeamVaultKeyAtVersion("t3", 1);
@@ -77,7 +77,7 @@ test("a different version is a separate cache entry and a separate fetch", async
 test("clearTeamKeyCache() also wipes the historical-epoch cache (I-D): a re-fetch is forced afterward", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
   h.appFetch.mockResolvedValue(res(200, { wrapped_key: "old-wk", wrapped_by_user_id: "u1", key_version: 1 }));
-  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([4, 4, 4]));
 
   await getTeamVaultKeyAtVersion("t-logout", 1);
@@ -90,4 +90,19 @@ test("clearTeamKeyCache() also wipes the historical-epoch cache (I-D): a re-fetc
   // clearing _teamKeyAtVersionCache/_teamKeyAtVersionInFlight, this second
   // call would be served from the stale in-memory cache with no new fetch.
   expect(h.appFetch).toHaveBeenCalledTimes(2);
+});
+
+test("resolves the wrapping user directly, so a historical epoch wrapped by a since-removed member is still recoverable (#217)", async () => {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockResolvedValue(res(200, { wrapped_key: "old-wk", wrapped_by_user_id: "removed-user", key_version: 1 }));
+  // No current membership row for "removed-user" — a roster lookup would
+  // find nothing. getUserPublicKey resolves users independent of the
+  // current team roster.
+  h.getUserPublicKey.mockResolvedValue({ user_id: "removed-user", handle: "gone", public_key: "pk" });
+  h.unwrap.mockResolvedValue(new Uint8Array([5, 5, 5]));
+
+  const key = await getTeamVaultKeyAtVersion("t-removed-wrapper", 1);
+
+  expect(key).toEqual([5, 5, 5]);
+  expect(h.getUserPublicKey).toHaveBeenCalledWith("removed-user");
 });
