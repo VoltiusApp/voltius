@@ -920,6 +920,12 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     // old diff saw zero newcomers and skipped distribution (issue #41).
     const { reconcileTeamVaultKeys } = await import("@/services/teamVaultSync");
     await reconcileTeamVaultKeys(teamId).catch(logFailure(`team_members: reconcileTeamVaultKeys team=${teamId}`));
+    // Opportunistic rotate-and-drain (#217): reconcileTeamVaultKeys only ever
+    // adds keys for new members: it does nothing on a removal, because the
+    // removed member's key row is already gone by the time this event fires,
+    // so "missing" stays empty. This is the only place rotation gets checked.
+    const { checkAndRotateTeamKey } = await import("@/services/teamKeyRotation");
+    checkAndRotateTeamKey(teamId).catch(logFailure(`team_members: checkAndRotateTeamKey team=${teamId}`));
     useTeamStore.getState().loadPendingInvitations(teamId).catch(logFailure(`team_members: loadPendingInvitations team=${teamId}`));
   } else if (eventData.startsWith("pending_invitations_changed:")) {
     useTeamStore.getState().loadMyPendingInvitations().catch(logFailure("pending_invitations_changed: loadMyPendingInvitations"));
