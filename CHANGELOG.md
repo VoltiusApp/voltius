@@ -7,13 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-09-10
+
+### Added
+
+- Rotate the team vault's encryption key whenever team membership changes.
+- Reach vault admin directly from the vault.
+- Encrypt team vault object metadata.
+- Offboarding and invite lifecycle management, closing the keychain leak left
+  behind on member removal.
+- Vault invite links, and an explicit Share verb.
+
 ### Fixed
 
+- Entity file loads now fail loudly instead of swallowing errors.
+- Make-private no longer reports itself as a removal.
 - The username of a host and of a keychain identity no longer picks up a
   capital first letter on macOS. Typing `abcd` and clicking away left `Abcd`
   behind, and an SSH username is case-sensitive, so the host was saved with a
   different login than the one that was typed. Fields you name yourself, such
   as a connection or a snippet name, keep the normal macOS behaviour.
+- Converting a team vault back to private keeps its object ids, instead of
+  orphaning every secret in it.
+- Deleting a vault actually deletes its contents.
+- Team offboarding failures are no longer swallowed silently.
+- Wrapped user secrets now carry per account, fixing vault unwrap across an
+  account switch.
+- Invites are pre-checked against the enforced seat cap.
+- Make-private now tells the truth about what it did, and stops losing data.
+- Closed the last silent private-to-team conversion.
 
 ## [0.32.1] - 2026-09-07
 
