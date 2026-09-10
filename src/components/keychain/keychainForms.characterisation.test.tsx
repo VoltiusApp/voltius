@@ -418,3 +418,13 @@ test("the identity form refuses to save inline key material with a bad public ha
   expect(onSubmit).not.toHaveBeenCalled();
   expect(screen.getByText("keychain.keyForm.invalidPublicKey")).toBeTruthy();
 });
+
+// #252, sibling of the SSH host form: a keychain identity feeds the same
+// case-sensitive SSH login, so it must opt out of OS text checking too.
+test("the identity username field opts out of OS capitalisation and autocorrect", () => {
+  renderIdentity();
+  const username = screen.getByPlaceholderText("root");
+  expect(username.getAttribute("autocapitalize")).toBe("off");
+  expect(username.getAttribute("autocorrect")).toBe("off");
+  expect(username.getAttribute("spellcheck")).toBe("false");
+});

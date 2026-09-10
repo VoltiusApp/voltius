@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The username of a host and of a keychain identity no longer picks up a
+  capital first letter on macOS. Typing `abcd` and clicking away left `Abcd`
+  behind, and an SSH username is case-sensitive, so the host was saved with a
+  different login than the one that was typed. Fields you name yourself, such
+  as a connection or a snippet name, keep the normal macOS behaviour.
+
 ## [0.32.1] - 2026-09-07
 
 ### Fixed

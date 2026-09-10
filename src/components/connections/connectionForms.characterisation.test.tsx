@@ -373,3 +373,15 @@ test("a dirty edit marks the form dirty on both forms", () => {
   fireEvent.click(document.querySelector("[data-tag-selector]")!);
   expect(serial.ref.current!.isDirty()).toBe(true);
 });
+
+// #252: macOS capitalised the first letter of the SSH username on blur, so
+// `abcd` was saved as `Abcd`, a different login on a case-sensitive host.
+// autocorrect and spellcheck are the two that actually stop it in WKWebView;
+// autocapitalize covers virtual keyboards on the Android build.
+test("the ssh username field opts out of OS capitalisation and autocorrect", () => {
+  renderSsh();
+  const username = screen.getByPlaceholderText("root");
+  expect(username.getAttribute("autocapitalize")).toBe("off");
+  expect(username.getAttribute("autocorrect")).toBe("off");
+  expect(username.getAttribute("spellcheck")).toBe("false");
+});
