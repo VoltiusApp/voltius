@@ -65,7 +65,7 @@
       "title": "共享 {{vault}}",
       "tabPeople": "成员",
       "tabInvite": "邀请",
-      "manage": "管理…",
+      "manage": "管理成员和角色",
       "inviteSomeone": "邀请某人",
       "loadFailed": "无法加载列表——请重试",
       "tabLinks": "链接"

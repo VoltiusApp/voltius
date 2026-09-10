@@ -63,7 +63,7 @@ export function InviteControl({ teamId, roles, existingIds, usedSeats, seatCap, 
         <span className="text-[10px] uppercase tracking-wider text-(--t-text-secondary)">
           {t("members.invite.searchOrInviteLabel")}
         </span>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-(--t-bg-input) border border-(--t-border)">
           <Icon icon="lucide:search" width={14} className="text-(--t-text-dim)" />
           <input
             ref={search.inputRef}
