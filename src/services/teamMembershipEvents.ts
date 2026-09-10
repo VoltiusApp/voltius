@@ -5,6 +5,24 @@ export interface TeamMembershipEventDeps {
   onTeamRemoved?: (teamId: string) => Promise<void> | void;
 }
 
+export interface MembershipChangedEvent {
+  kind: "added" | "removed";
+  teamId: string;
+}
+
+/** Parses `membership_changed:added:{team_id}` / `membership_changed:removed:{team_id}`. */
+export function parseMembershipChangedEvent(eventData: string): MembershipChangedEvent | null {
+  const prefix = "membership_changed:";
+  if (!eventData.startsWith(prefix)) return null;
+  const rest = eventData.slice(prefix.length);
+  const sep = rest.indexOf(":");
+  if (sep === -1) return null;
+  const kind = rest.slice(0, sep);
+  const teamId = rest.slice(sep + 1);
+  if ((kind !== "added" && kind !== "removed") || !teamId) return null;
+  return { kind, teamId };
+}
+
 export function getTeamMembershipDelta(prevTeamIds: string[], nextTeamIds: string[]) {
   const prev = new Set(prevTeamIds);
   const next = new Set(nextTeamIds);
