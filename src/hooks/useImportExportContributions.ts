@@ -42,12 +42,6 @@ export function useImportExportContributions() {
           { label: "Import…", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("import"), divider: true },
           { label: "Export…", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export") },
         ]),
-
-      registerContribution(ID, "settings.vaults",
-        () => [
-          { label: "Export Vault", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export") },
-          { label: "Import into Vault", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("import") },
-        ]),
     ];
 
     return () => { for (const unreg of unregs) unreg(); };

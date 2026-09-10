@@ -5,10 +5,9 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { useVaultAdminActions } from "./useVaultAdminActions";
-import { VaultSettingsBody } from "./VaultSettingsBody";
 import { makePrivateMemberMessage, type VaultAdminTarget } from "./vaultAdminTarget";
 
-export type VaultDialog = "rename" | "settings" | "makePrivate" | "delete" | null;
+export type VaultDialog = "rename" | "makePrivate" | "delete" | null;
 
 export function VaultAdminDialogs({
   target, dialog, onClose, onRenamed, onDone,
@@ -28,20 +27,14 @@ export function VaultAdminDialogs({
   });
   const [draft, setDraft] = useState(target.name);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [escalated, setEscalated] = useState<"makePrivate" | "delete" | null>(null);
 
   useEffect(() => {
     if (dialog === "rename") { setDraft(target.name); inputRef.current?.focus(); }
   }, [dialog, target.name]);
 
-  useEffect(() => { if (!dialog) setEscalated(null); }, [dialog]);
-
-  const effective = dialog === "settings" && escalated ? escalated : dialog;
-  const cancelConfirm = () => (escalated ? setEscalated(null) : onClose());
-
   if (!dialog) return null;
 
-  if (effective === "rename") {
+  if (dialog === "rename") {
     const commit = () => {
       if (!draft.trim()) return;
       rename(draft);
@@ -75,7 +68,7 @@ export function VaultAdminDialogs({
     );
   }
 
-  if (effective === "delete") {
+  if (dialog === "delete") {
     const items = counts.filter((c) => c.count > 0).map((c) => c.count).reduce((a, b) => a + b, 0);
     return (
       <ConfirmModal
@@ -85,40 +78,25 @@ export function VaultAdminDialogs({
         busy={busy}
         busyLabel={t("settings.vaults.general.deleteVault.deleting")}
         onConfirm={() => void remove()}
-        onCancel={cancelConfirm}
+        onCancel={onClose}
       />
     );
   }
 
-  if (effective === "makePrivate") {
-    const memberN = target.teamId ? (membersByTeam[target.teamId]?.length ?? 0) : 0;
-    return (
-      <ConfirmModal
-        tone="warning"
-        title={t("settings.vaults.general.makePrivate.title")}
-        message={makePrivateMemberMessage(memberN, t, {
-          others: "settings.vaults.general.makePrivate.confirm",
-          alone: "settings.vaults.general.makePrivate.confirmAll",
-        })}
-        confirmLabel={t("settings.vaults.general.makePrivate.confirmBtn")}
-        busy={busy}
-        busyLabel={t("settings.vaults.general.makePrivate.converting")}
-        onConfirm={() => void makePrivate()}
-        onCancel={cancelConfirm}
-      />
-    );
-  }
-
+  const memberN = target.teamId ? (membersByTeam[target.teamId]?.length ?? 0) : 0;
   return (
-    <Modal onClose={onClose}>
-      <ModalCard solid className="p-6 min-w-[24rem] max-w-[30rem]">
-        <VaultSettingsBody
-          target={target}
-          onRenamed={(n) => onRenamed?.(n)}
-          onDone={() => { onClose(); onDone?.(); }}
-          onRequestDialog={setEscalated}
-        />
-      </ModalCard>
-    </Modal>
+    <ConfirmModal
+      tone="warning"
+      title={t("settings.vaults.general.makePrivate.title")}
+      message={makePrivateMemberMessage(memberN, t, {
+        others: "settings.vaults.general.makePrivate.confirm",
+        alone: "settings.vaults.general.makePrivate.confirmAll",
+      })}
+      confirmLabel={t("settings.vaults.general.makePrivate.confirmBtn")}
+      busy={busy}
+      busyLabel={t("settings.vaults.general.makePrivate.converting")}
+      onConfirm={() => void makePrivate()}
+      onCancel={onClose}
+    />
   );
 }

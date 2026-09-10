@@ -107,12 +107,10 @@ export function TerminalSearch({ sessionId }: { sessionId: string }) {
 
   return (
     <div
-      className="absolute top-2 right-2 z-30 flex items-center gap-1 rounded-lg animate-fadeIn"
+      className="surface-float absolute top-2 right-2 z-30 flex items-center gap-1 animate-fadeIn"
       style={{
-        background: "var(--t-bg-modal)",
         padding: "5px 6px",
         width: "min(420px, calc(100% - 16px))",
-        boxShadow: "var(--t-ring), var(--t-elev-2)",
       }}
       onClick={(e) => e.stopPropagation()}
     >

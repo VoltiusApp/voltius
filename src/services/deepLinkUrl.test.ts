@@ -206,7 +206,7 @@ test("builds the navigate routes in both forms and round-trips them", () => {
   const intents = [
     { route: "notification", entryId: "invite:42" },
     { route: "notification", entryId: null },
-    { route: "settings", section: "vaults" },
+    { route: "settings", section: "sync" },
     { route: "billing" },
   ] as const;
   for (const intent of intents) {

@@ -114,15 +114,6 @@
           "pro"
         ]
       },
-      "vaults": {
-        "label": "Vaults",
-        "keywords": [
-          "secret",
-          "password",
-          "storage",
-          "keyring"
-        ]
-      },
       "plugins": {
         "label": "Plugins",
         "keywords": [
@@ -574,38 +565,9 @@
       }
     },
     "vaults": {
-      "title": "Vaults",
-      "newVault": "New vault",
-      "desc": "Organize your connections, identities, and keys. Invite members to share a vault.",
-      "vaultNamePlaceholder": "Vault name…",
-      "create": "Create",
-      "team": "Team",
-      "onlyYou": "Only you",
-      "back": "Vaults",
-      "importExport": {
-        "title": "Import / Export",
-        "desc": "Back up or restore your hosts, identities, and SSH key metadata as JSON or CSV."
-      },
-      "upgrade": {
-        "requiresTeams": "Team Vaults require a Teams plan",
-        "upgradeDesc": "Invite members, assign roles, and share credentials securely with your team.",
-        "upgradeBtn": "Upgrade to Teams →",
-        "signInDesc": "Sign in to a cloud account to invite teammates to this vault.",
-        "signInBtn": "Sign in / Create account"
-      },
       "general": {
         "vaultNameLabel": "Vault name",
         "save": "Save",
-        "infoLabel": "Info",
-        "teamWithCount_one": "Team · {{count}} member",
-        "teamWithCount_other": "Team · {{count}} members",
-        "teamLoading": "Team · …",
-        "private": "Private",
-        "cloudOnly": "Cloud only",
-        "cloudOnlyDesc": "This team exists only in the cloud and isn't linked to a local vault. Members and roles are still fully managed from the tabs above.",
-        "unencryptedObjects_one": "{{count}} object in this vault is still stored unencrypted on the server. It will be encrypted the next time a member who can edit it connects.",
-        "unencryptedObjects_other": "{{count}} objects in this vault are still stored unencrypted on the server. They will be encrypted the next time a member who can edit them connects.",
-        "dangerZone": "Danger zone",
         "makePrivate": {
           "title": "Make private",
           "confirmAll": "Remove all members and make private?",
@@ -613,7 +575,6 @@
           "confirm_other": "Remove {{count}} members and make private?",
           "converting": "Converting…",
           "confirmBtn": "Confirm",
-          "btn": "Make private",
           "copyFailedToast": "Couldn't copy everything out of the team — nothing was deleted, and this is still a team vault.",
           "removeMembersFailedToast": "Couldn't remove the members — this is still a team vault. {{reason}}",
           "failedToast": "Couldn't make this vault private — {{reason}}"
@@ -623,8 +584,7 @@
           "confirmDesc": "Permanently deletes this vault and its {{count}} items. This cannot be undone.",
           "confirmBtn": "Confirm delete",
           "deleting": "Deleting…",
-          "failedToast": "Couldn't finish deleting this vault — it is still here, but some of its items may already be gone. {{reason}}",
-          "btn": "Delete vault"
+          "failedToast": "Couldn't finish deleting this vault — it is still here, but some of its items may already be gone. {{reason}}"
         },
         "madePrivateToast_one": "Vault is now private. {{count}} member lost access.",
         "madePrivateToast_other": "Vault is now private. {{count}} members lost access.",

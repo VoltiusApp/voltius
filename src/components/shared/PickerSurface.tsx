@@ -13,13 +13,16 @@ type AnchorRef = { readonly current: HTMLElement | null };
  *  `anchorRef` (with below/above flip). Mobile: a BottomSheet. Open state + the trigger
  *  stay owned by the caller; this owns only the open surface + its dismiss. */
 export function PickerSurface({
-  open, onClose, anchorRef, title, children, width, minWidth, maxHeight = 320, align = "left", gap = 4,
+  open, onClose, anchorRef, title, children, width, minWidth, maxHeight = 320, align = "left", gap = 4, glass = false,
 }: {
   open: boolean;
   onClose: () => void;
   anchorRef: AnchorRef;
   title?: string;
   children: ReactNode;
+  /** Lifted "surface-glass-solid" sheen + elevation instead of the flat default —
+   *  for a surface that needs to read as floating above busy content, not just listy. */
+  glass?: boolean;
   /** A pixel width, or `"content"` to let the surface size to its rows. Defaults to
    *  the anchor's width, which is what a field-shaped trigger wants. */
   width?: number | "content";
@@ -93,7 +96,7 @@ export function PickerSurface({
   return createPortal(
     <div
       ref={surfaceRef}
-      className="surface-float fixed p-1.5 z-9999 flex flex-col overflow-y-auto"
+      className={`${glass ? "surface-glass-solid rounded-[var(--r-md)] animate-fadeIn" : "surface-float"} fixed p-1.5 z-9999 flex flex-col overflow-y-auto`}
       style={{
         top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right,
         width: pos.width, minWidth, maxHeight: pos.maxHeight,

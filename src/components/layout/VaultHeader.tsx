@@ -27,6 +27,7 @@ export function MembersStack({
   vaultName,
   open: openProp,
   onOpenChange,
+  hasTeam = true,
 }: {
   members: TeamMember[];
   vaultId: string;
@@ -34,6 +35,9 @@ export function MembersStack({
   /** Lets a caller (the vault menu's Share… action) drive the popover too. Uncontrolled when omitted. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** False for a private vault: the trigger reads "Share" (not "Invite") and opens
+   *  the convert-to-team gate, not a members peek, so it must not open on a passing hover. */
+  hasTeam?: boolean;
 }) {
   const { t } = useTranslation();
   const openMembersInvite = useUIStore((s) => s.openMembersInvite);
@@ -54,11 +58,13 @@ export function MembersStack({
   // fires the stack's mouseleave. Defer the close so the popover's own
   // mouseenter can cancel it.
   const openPopover = () => {
+    if (!hasTeam) return;
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = null;
     setOpen(true);
   };
   const closePopover = () => {
+    if (!hasTeam) return;
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = window.setTimeout(() => setOpen(false), 120);
   };
@@ -78,7 +84,6 @@ export function MembersStack({
     <div
       ref={ref}
       className="relative flex items-center gap-2 shrink-0"
-      onMouseEnter={openPopover}
       onMouseLeave={closePopover}
     >
       {/* Stack */}
@@ -119,22 +124,29 @@ export function MembersStack({
       <button
         type="button"
         onClick={toggleOpen}
-        onMouseEnter={() => setInvHovered(true)}
+        onMouseEnter={() => {
+          setInvHovered(true);
+          openPopover();
+        }}
         onMouseLeave={() => setInvHovered(false)}
         aria-haspopup="dialog"
         aria-expanded={open}
         title={t("members.share.title", { vault: vaultName })}
-        className="rounded-full flex items-center gap-1 transition-all shrink-0 text-[11px] font-medium"
+        className="flex items-center gap-1 rounded-full transition-all shrink-0"
         style={{
           height: 26,
-          padding: "0 0.6rem",
-          border: `2px dashed ${invHovered ? "var(--t-accent)" : "var(--t-border)"}`,
-          background: invHovered ? "rgba(var(--t-accent-rgb, 99,102,241), 0.1)" : "transparent",
-          color: invHovered ? "var(--t-accent)" : "var(--t-text-dim)",
+          padding: "0 0.625rem",
+          border: hasTeam ? "1px solid transparent" : `2px dashed ${invHovered ? "var(--t-accent)" : "var(--t-border)"}`,
+          background: hasTeam
+            ? (invHovered ? "var(--t-accent)" : "var(--t-bg-elevated)")
+            : (invHovered ? "rgba(var(--t-accent-rgb, 99,102,241), 0.1)" : "transparent"),
+          color: hasTeam ? (invHovered ? "var(--t-on-accent, #fff)" : "var(--t-text-secondary)") : (invHovered ? "var(--t-accent)" : "var(--t-text-dim)"),
         }}
       >
-        <Icon icon="lucide:user-plus" width={12} />
-        {t("members.share.shareVerb")}
+        <Icon icon="lucide:plus" width={12} />
+        <span className="text-xs font-semibold">
+          {hasTeam ? t("members.share.tabInvite") : t("members.share.shareVerb")}
+        </span>
       </button>
 
       {/* Popover — portalled: the page overlay in MainPanel outranks the
@@ -149,6 +161,7 @@ export function MembersStack({
         align="right"
         gap={4}
         title={t("members.share.title", { vault: vaultName })}
+        glass
       >
         <div onMouseEnter={openPopover} onMouseLeave={closePopover}>
           <VaultShareSheet vaultId={vaultId} variant="popover" onRequestFull={openMembersInvite} />
@@ -349,6 +362,7 @@ export default function VaultHeader() {
             vaultName={vault?.name ?? team?.name ?? ""}
             open={admin.shareOpen}
             onOpenChange={admin.setShareOpen}
+            hasTeam={!!team}
           />
         )}
       </div>

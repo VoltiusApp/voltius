@@ -114,15 +114,6 @@
           "pro"
         ]
       },
-      "vaults": {
-        "label": "Coffres-forts",
-        "keywords": [
-          "secret",
-          "mot de passe",
-          "stockage",
-          "trousseau"
-        ]
-      },
       "plugins": {
         "label": "Extensions",
         "keywords": [
@@ -574,38 +565,9 @@
       }
     },
     "vaults": {
-      "title": "Coffres-forts",
-      "newVault": "Nouveau coffre-fort",
-      "desc": "Organisez vos connexions, identités et clés. Invitez des membres à partager un coffre-fort.",
-      "vaultNamePlaceholder": "Nom du coffre-fort…",
-      "create": "Créer",
-      "team": "Équipe",
-      "onlyYou": "Vous seul",
-      "back": "Coffres-forts",
-      "importExport": {
-        "title": "Import / Export",
-        "desc": "Sauvegardez ou restaurez vos hôtes, identités et métadonnées de clés SSH au format JSON ou CSV."
-      },
-      "upgrade": {
-        "requiresTeams": "Les coffres-forts d'équipe nécessitent un abonnement Teams",
-        "upgradeDesc": "Invitez des membres, attribuez des rôles et partagez des identifiants en toute sécurité avec votre équipe.",
-        "upgradeBtn": "Passer à Teams →",
-        "signInDesc": "Connectez-vous à un compte cloud pour inviter des coéquipiers dans ce coffre-fort.",
-        "signInBtn": "Se connecter / Créer un compte"
-      },
       "general": {
         "vaultNameLabel": "Nom du coffre-fort",
         "save": "Enregistrer",
-        "infoLabel": "Infos",
-        "teamWithCount_one": "Équipe · {{count}} membre",
-        "teamWithCount_other": "Équipe · {{count}} membres",
-        "teamLoading": "Équipe · …",
-        "private": "Privé",
-        "cloudOnly": "Cloud uniquement",
-        "cloudOnlyDesc": "Cette équipe existe uniquement dans le cloud et n'est pas liée à un coffre-fort local. Les membres et les rôles sont entièrement gérés depuis les onglets ci-dessus.",
-        "unencryptedObjects_one": "{{count}} objet de ce coffre-fort est encore stocké non chiffré sur le serveur. Il sera chiffré à la prochaine connexion d'un membre autorisé à le modifier.",
-        "unencryptedObjects_other": "{{count}} objets de ce coffre-fort sont encore stockés non chiffrés sur le serveur. Ils seront chiffrés à la prochaine connexion d'un membre autorisé à les modifier.",
-        "dangerZone": "Zone de danger",
         "makePrivate": {
           "title": "Rendre privé",
           "confirmAll": "Retirer tous les membres et rendre privé ?",
@@ -613,7 +575,6 @@
           "confirm_other": "Retirer {{count}} membres et rendre privé ?",
           "converting": "Conversion…",
           "confirmBtn": "Confirmer",
-          "btn": "Rendre privé",
           "copyFailedToast": "Impossible de tout copier hors de l'équipe — rien n'a été supprimé, et ce coffre-fort reste un coffre-fort d'équipe.",
           "removeMembersFailedToast": "Impossible de retirer les membres — ce coffre-fort reste un coffre-fort d'équipe. {{reason}}",
           "failedToast": "Impossible de rendre ce coffre-fort privé — {{reason}}"
@@ -623,8 +584,7 @@
           "confirmDesc": "Supprime définitivement ce coffre et ses {{count}} éléments. Cette action est irréversible.",
           "confirmBtn": "Confirmer la suppression",
           "deleting": "Suppression…",
-          "failedToast": "Impossible de terminer la suppression de ce coffre-fort — il est toujours là, mais certains de ses éléments ont peut-être déjà été supprimés. {{reason}}",
-          "btn": "Supprimer le coffre-fort"
+          "failedToast": "Impossible de terminer la suppression de ce coffre-fort — il est toujours là, mais certains de ses éléments ont peut-être déjà été supprimés. {{reason}}"
         },
         "madePrivateToast_one": "Le coffre-fort est maintenant privé. {{count}} membre a perdu l'accès.",
         "madePrivateToast_other": "Le coffre-fort est maintenant privé. {{count}} membres ont perdu l'accès.",

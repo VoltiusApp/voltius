@@ -11,7 +11,6 @@ export function getSettingsNav(): {
     { id: "appearance",     label: i18n.t("settings.nav.appearance.label"),     icon: "lucide:palette",          keywords: i18n.t("settings.nav.appearance.keywords",     { returnObjects: true }) as string[] },
     { id: "account",        label: i18n.t("settings.nav.account.label"),        icon: "lucide:circle-user",      keywords: i18n.t("settings.nav.account.keywords",        { returnObjects: true }) as string[] },
     { id: "sync",           label: i18n.t("settings.nav.sync.label"),           icon: "lucide:cloud",            keywords: i18n.t("settings.nav.sync.keywords",           { returnObjects: true }) as string[] },
-    { id: "vaults",         label: i18n.t("settings.nav.vaults.label"),         icon: "lucide:vault",            keywords: i18n.t("settings.nav.vaults.keywords",         { returnObjects: true }) as string[] },
     { id: "plugins",        label: i18n.t("settings.nav.plugins.label"),        icon: "lucide:puzzle",           keywords: i18n.t("settings.nav.plugins.keywords",        { returnObjects: true }) as string[] },
     { id: "integrations",   label: i18n.t("settings.nav.integrations.label"),   icon: "lucide:plug",             keywords: i18n.t("settings.nav.integrations.keywords",   { returnObjects: true }) as string[] },
     { id: "terminal",       label: i18n.t("settings.nav.terminal.label"),       icon: "lucide:square-terminal",  keywords: i18n.t("settings.nav.terminal.keywords",       { returnObjects: true }) as string[] },

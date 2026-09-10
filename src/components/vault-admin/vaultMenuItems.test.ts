@@ -19,7 +19,6 @@ test("a private vault gets no members, roles or make-private entries", () => {
   expect(labels(privateCaps)).toEqual([
     "layout.vaultMenu.share",
     "layout.vaultMenu.rename",
-    "layout.vaultMenu.settings",
     "layout.vaultMenu.delete",
   ]);
 });
@@ -40,7 +39,6 @@ test("a team vault owner gets the full menu, destructive last", () => {
     "layout.vaultMenu.members",
     "layout.vaultMenu.roles",
     "layout.vaultMenu.rename",
-    "layout.vaultMenu.settings",
     "layout.vaultMenu.makePrivate",
     "layout.vaultMenu.delete",
   ]);

@@ -65,7 +65,7 @@
       "title": "Share {{vault}}",
       "tabPeople": "People",
       "tabInvite": "Invite",
-      "manage": "Manage…",
+      "manage": "Manage members & roles",
       "inviteSomeone": "Invite someone",
       "loadFailed": "Couldn't load everyone — try again",
       "tabLinks": "Links"

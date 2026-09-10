@@ -38,7 +38,6 @@ export function useVaultAdmin(
             case "members": opts?.onActivate?.(); openMembersNav(); return;
             case "roles": opts?.onActivate?.(); openMembersRoles(); return;
             case "rename":
-            case "settings":
             case "makePrivate":
             case "delete": setDialog(action); return;
           }
