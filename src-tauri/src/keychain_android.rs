@@ -15,9 +15,9 @@ use jni::objects::{JString, JValue};
 use keyring_core::api::{CredentialApi, CredentialPersistence, CredentialStoreApi};
 use keyring_core::{Credential, Entry, Error, Result};
 
-use crate::android_ctx::with_env;
+use crate::android_ctx::{load_class, with_env};
 
-const CLASS: &str = "com/voltius/app/VoltiusKeychain";
+const CLASS: &str = "com.voltius.app.VoltiusKeychain";
 
 fn platform_err(msg: String) -> Error {
     Error::PlatformFailure(msg.into())
@@ -25,10 +25,11 @@ fn platform_err(msg: String) -> Error {
 
 fn raw_get(storage_key: &str) -> Result<Option<String>> {
     with_env("keychain get", |env, ctx| {
+        let cls = load_class(env, CLASS)?;
         let jkey = env.new_string(storage_key)?;
         let val = env
             .call_static_method(
-                CLASS,
+                &cls,
                 "get",
                 "(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;",
                 &[JValue::Object(ctx), JValue::Object(&jkey)],
@@ -46,10 +47,11 @@ fn raw_get(storage_key: &str) -> Result<Option<String>> {
 
 fn raw_set(storage_key: &str, value: &str) -> Result<()> {
     with_env("keychain set", |env, ctx| {
+        let cls = load_class(env, CLASS)?;
         let jkey = env.new_string(storage_key)?;
         let jval = env.new_string(value)?;
         env.call_static_method(
-            CLASS,
+            &cls,
             "set",
             "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)V",
             &[
@@ -65,9 +67,10 @@ fn raw_set(storage_key: &str, value: &str) -> Result<()> {
 
 fn raw_delete(storage_key: &str) -> Result<()> {
     with_env("keychain delete", |env, ctx| {
+        let cls = load_class(env, CLASS)?;
         let jkey = env.new_string(storage_key)?;
         env.call_static_method(
-            CLASS,
+            &cls,
             "delete",
             "(Landroid/content/Context;Ljava/lang/String;)V",
             &[JValue::Object(ctx), JValue::Object(&jkey)],
