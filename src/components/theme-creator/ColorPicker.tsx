@@ -213,16 +213,14 @@ function Popover({
   return createPortal(
     <div
       ref={boxRef}
+      className="surface-float"
       style={{
         position: "fixed",
         left: safeLeft,
         top,
         width: PICKER_W,
         zIndex: 9999,
-        background: "var(--t-bg-modal)",
-        borderRadius: 8,
         padding: 12,
-        boxShadow: "var(--t-ring), var(--t-elev-2)",
         display: "flex",
         flexDirection: "column",
         gap: 10,

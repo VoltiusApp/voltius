@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { Modal } from "@/components/shared/Modal";
+import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useUIStore, type CloudAuthMode } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { getAccountMode, linkToCloud, setMasterPassword, signInToCloud } from "@/services/account";
@@ -83,10 +83,7 @@ export default function CloudAuthModal() {
 
   return (
     <Modal onClose={onClose} blur>
-      <div
-        className="flex flex-col gap-5 bg-(--t-bg-base) border border-(--t-border) p-6"
-        style={{ width: "min(27rem, 92vw)", borderRadius: "0.933rem", boxShadow: "var(--t-elev-3)" }}
-      >
+      <ModalCard className="flex flex-col gap-5 p-6" style={{ width: "min(27rem, 92vw)" }}>
         <div className="flex items-start gap-3">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -155,7 +152,7 @@ export default function CloudAuthModal() {
             {t("common.action.cancel")}
           </button>
         </form>
-      </div>
+      </ModalCard>
     </Modal>
   );
 }

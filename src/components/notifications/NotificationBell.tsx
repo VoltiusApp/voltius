@@ -290,15 +290,13 @@ export function NotificationBell() {
       {open && pos && createPortal(
         <div
           ref={dropdownRef}
+          className="surface-float"
           style={{
             position: "fixed",
             top: pos.top,
             width: "min(20rem, calc(100vw - 1rem))",
             right: Math.max(pos.right, 8),
             zIndex: 50,
-            background: "var(--t-bg-modal)",
-            borderRadius: "0.75rem",
-            boxShadow: "var(--t-ring), var(--t-elev-2)",
           }}
         >
           {/* Header */}

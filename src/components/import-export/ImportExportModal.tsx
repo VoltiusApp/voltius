@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { Modal } from "@/components/shared/Modal";
+import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useUIStore } from "@/stores/uiStore";
 import { reloadAll } from "@/services/import-export/registry";
 import { useReloadFns } from "./useStores";
@@ -44,9 +44,10 @@ export function ImportExportModal() {
 
   return (
     <Modal onClose={close} blur>
-      <div
-        className="flex flex-col animate-fadeIn overflow-hidden bg-(--t-bg-base) border border-(--t-border)"
-        style={{ width: "min(680px, 94vw)", height: "min(580px, 90vh)", borderRadius: 14, boxShadow: "var(--t-elev-3)" }}
+      <ModalCard
+        solid
+        className="flex flex-col animate-fadeIn overflow-hidden"
+        style={{ width: "min(680px, 94vw)", height: "min(580px, 90vh)" }}
       >
         <div className="grid grid-cols-3 items-center px-6 py-4 shrink-0 border-b border-b-(--t-border)">
           <div className="flex items-center gap-3">
@@ -109,7 +110,7 @@ export function ImportExportModal() {
             activeMode === "export" ? <UserDataExportTab /> : <UserDataImportTab onClose={close} />
           )}
         </div>
-      </div>
+      </ModalCard>
     </Modal>
   );
 }

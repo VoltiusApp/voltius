@@ -124,17 +124,16 @@ export function MembersStack({
         aria-haspopup="dialog"
         aria-expanded={open}
         title={t("members.share.title", { vault: vaultName })}
-        className="rounded-full flex items-center gap-1 transition-all shrink-0 text-[11px] font-medium"
+        className="rounded-full flex items-center justify-center transition-all shrink-0"
         style={{
+          width: 26,
           height: 26,
-          padding: "0 0.6rem",
           border: `2px dashed ${invHovered ? "var(--t-accent)" : "var(--t-border)"}`,
           background: invHovered ? "rgba(var(--t-accent-rgb, 99,102,241), 0.1)" : "transparent",
           color: invHovered ? "var(--t-accent)" : "var(--t-text-dim)",
         }}
       >
-        <Icon icon="lucide:user-plus" width={12} />
-        {t("members.share.shareVerb")}
+        <Icon icon="lucide:plus" width={12} />
       </button>
 
       {/* Popover — portalled: the page overlay in MainPanel outranks the

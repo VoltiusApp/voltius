@@ -88,7 +88,6 @@
       "appearance":     { "label": "外观",      "keywords": ["主题", "颜色", "字体", "ui"] },
       "account":        { "label": "账户",         "keywords": ["个人资料", "登录", "认证"] },
       "sync":           { "label": "同步",            "keywords": ["备份", "云", "gist", "同步", "pro"] },
-      "vaults":         { "label": "保险库",          "keywords": ["密钥", "密码", "存储", "密钥链"] },
       "plugins":        { "label": "插件",         "keywords": ["扩展", "附加组件", "市场"] },
       "integrations":   { "label": "集成",         "keywords": ["mcp", "claude", "claude code", "服务器", "socket", "代理"] },
       "terminal":       { "label": "终端",        "keywords": ["光标", "回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
@@ -442,25 +441,6 @@
       }
     },
     "vaults": {
-      "title": "保险库",
-      "newVault": "新建保险库",
-      "desc": "组织您的连接、身份和密钥。邀请成员共享保险库。",
-      "vaultNamePlaceholder": "保险库名称…",
-      "create": "创建",
-      "team": "团队",
-      "onlyYou": "仅您",
-      "back": "保险库",
-      "importExport": {
-        "title": "导入 / 导出",
-        "desc": "将您的主机、身份和 SSH 密钥元数据备份或恢复为 JSON 或 CSV。"
-      },
-      "upgrade": {
-        "requiresTeams": "团队保险库需要 Teams 套餐",
-        "upgradeDesc": "邀请成员、分配角色并与团队安全共享凭据。",
-        "upgradeBtn": "升级到 Teams →",
-        "signInDesc": "登录云账户以邀请队友加入此保险库。",
-        "signInBtn": "登录 / 创建账户"
-      },
       "general": {
         "vaultNameLabel": "保险库名称",
         "save": "保存",

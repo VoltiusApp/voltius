@@ -114,15 +114,6 @@
           "pro"
         ]
       },
-      "vaults": {
-        "label": "Vaults",
-        "keywords": [
-          "secret",
-          "password",
-          "storage",
-          "keyring"
-        ]
-      },
       "plugins": {
         "label": "Plugins",
         "keywords": [
@@ -574,25 +565,6 @@
       }
     },
     "vaults": {
-      "title": "Vaults",
-      "newVault": "New vault",
-      "desc": "Organize your connections, identities, and keys. Invite members to share a vault.",
-      "vaultNamePlaceholder": "Vault name…",
-      "create": "Create",
-      "team": "Team",
-      "onlyYou": "Only you",
-      "back": "Vaults",
-      "importExport": {
-        "title": "Import / Export",
-        "desc": "Back up or restore your hosts, identities, and SSH key metadata as JSON or CSV."
-      },
-      "upgrade": {
-        "requiresTeams": "Team Vaults require a Teams plan",
-        "upgradeDesc": "Invite members, assign roles, and share credentials securely with your team.",
-        "upgradeBtn": "Upgrade to Teams →",
-        "signInDesc": "Sign in to a cloud account to invite teammates to this vault.",
-        "signInBtn": "Sign in / Create account"
-      },
       "general": {
         "vaultNameLabel": "Vault name",
         "save": "Save",

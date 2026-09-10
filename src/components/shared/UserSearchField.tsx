@@ -81,8 +81,7 @@ export function UserSearchField({
       {showDropdown && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 left-0 right-0 mt-1 rounded-xl overflow-hidden"
-          style={{ background: "var(--t-bg-card)", boxShadow: "var(--t-ring), var(--t-elev-2)" }}
+          className="surface-float absolute z-50 left-0 right-0 mt-1 overflow-hidden"
         >
           {results.length === 0 && emptyLabel !== undefined && !showEmail && (
             <p className="px-4 py-3 text-xs" style={{ color: "var(--t-text-dim)" }}>{emptyLabel}</p>

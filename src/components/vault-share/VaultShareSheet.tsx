@@ -169,21 +169,50 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
     void writeClipboard(addressedInviteLink(p.invitationId)).then(() => setCopiedInvite(p.invitationId!));
   };
 
+  const teamName = vault?.name ?? standaloneTeam?.name ?? "";
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "people", label: t("members.share.tabPeople") },
+    { key: "invite", label: t("members.share.tabInvite") },
+    { key: "links", label: t("members.share.tabLinks") },
+  ];
+
   return (
     <div className="flex flex-col gap-3.5 p-4">
+      <h2 className="text-sm font-semibold text-(--t-text-primary)">{t("members.share.title", { vault: teamName })}</h2>
+
       <div className="flex gap-4 border-b border-(--t-border)">
-        <button onClick={() => setTab("people")} aria-current={tab === "people"} className="pb-2 text-xs">
-          {t("members.share.tabPeople")}
-        </button>
-        <button onClick={() => setTab("invite")} aria-current={tab === "invite"} className="pb-2 text-xs">
-          {t("members.share.tabInvite")}
-        </button>
-        <button onClick={() => setTab("links")} aria-current={tab === "links"} className="pb-2 text-xs">
-          {t("members.share.tabLinks")}
-        </button>
+        {tabs.map(({ key, label }) => {
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              aria-current={active}
+              className="pb-2 text-xs transition-colors"
+              style={{
+                color: active ? "var(--t-accent)" : "var(--t-text-secondary)",
+                fontWeight: active ? 600 : 500,
+                borderBottom: active ? "2px solid var(--t-accent)" : "2px solid transparent",
+                marginBottom: -1,
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
-      {error && <p className="text-xs" style={{ color: "var(--t-status-error)" }}>{error}</p>}
+      {error && (
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs"
+          style={{
+            color: "var(--t-status-error)",
+            background: "color-mix(in srgb, var(--t-status-error) 10%, transparent)",
+          }}
+        >
+          {error}
+        </div>
+      )}
 
       {tab === "people" && (
         <>
@@ -217,7 +246,11 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
       )}
 
       {variant === "popover" && (
-        <button onClick={onRequestFull} className="self-start text-[11px] text-(--t-text-secondary)">
+        <button
+          onClick={onRequestFull}
+          className="self-start pt-2 text-[11px] font-medium border-t border-(--t-border) w-full text-left"
+          style={{ color: "var(--t-accent)" }}
+        >
           {t("members.share.manage")}
         </button>
       )}

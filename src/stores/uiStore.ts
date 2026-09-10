@@ -12,7 +12,7 @@ export type RightPanelSection = BuiltinRightPanelSection | (string & {});
  * section id it received from outside, and a type alone cannot be checked at
  * runtime.
  */
-export const SETTINGS_SECTIONS = ["appearance", "account", "sync", "vaults", "plugins", "integrations", "terminal", "sftp", "portForwarding", "hosts", "shortcuts", "diagnostics", "about"] as const;
+export const SETTINGS_SECTIONS = ["appearance", "account", "sync", "plugins", "integrations", "terminal", "sftp", "portForwarding", "hosts", "shortcuts", "diagnostics", "about"] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 export function isSettingsSection(value: string): value is SettingsSection {

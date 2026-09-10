@@ -114,15 +114,6 @@
           "pro"
         ]
       },
-      "vaults": {
-        "label": "Coffres-forts",
-        "keywords": [
-          "secret",
-          "mot de passe",
-          "stockage",
-          "trousseau"
-        ]
-      },
       "plugins": {
         "label": "Extensions",
         "keywords": [
@@ -574,25 +565,6 @@
       }
     },
     "vaults": {
-      "title": "Coffres-forts",
-      "newVault": "Nouveau coffre-fort",
-      "desc": "Organisez vos connexions, identités et clés. Invitez des membres à partager un coffre-fort.",
-      "vaultNamePlaceholder": "Nom du coffre-fort…",
-      "create": "Créer",
-      "team": "Équipe",
-      "onlyYou": "Vous seul",
-      "back": "Coffres-forts",
-      "importExport": {
-        "title": "Import / Export",
-        "desc": "Sauvegardez ou restaurez vos hôtes, identités et métadonnées de clés SSH au format JSON ou CSV."
-      },
-      "upgrade": {
-        "requiresTeams": "Les coffres-forts d'équipe nécessitent un abonnement Teams",
-        "upgradeDesc": "Invitez des membres, attribuez des rôles et partagez des identifiants en toute sécurité avec votre équipe.",
-        "upgradeBtn": "Passer à Teams →",
-        "signInDesc": "Connectez-vous à un compte cloud pour inviter des coéquipiers dans ce coffre-fort.",
-        "signInBtn": "Se connecter / Créer un compte"
-      },
       "general": {
         "vaultNameLabel": "Nom du coffre-fort",
         "save": "Enregistrer",
