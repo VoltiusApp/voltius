@@ -399,9 +399,10 @@ fn migrate_enum_fields(obj: &mut serde_json::Map<String, serde_json::Value>) {
     }
 }
 
-fn parse_with_migration<T: serde::de::DeserializeOwned>(data: &str) -> Vec<T> {
-    let raw: Vec<serde_json::Value> = serde_json::from_str(data).unwrap_or_default();
-    raw.into_iter()
+fn parse_with_migration<T: serde::de::DeserializeOwned>(data: &str) -> Result<Vec<T>, String> {
+    let raw: Vec<serde_json::Value> = serde_json::from_str(data).map_err(|e| e.to_string())?;
+    Ok(raw
+        .into_iter()
         .filter_map(|mut v| {
             if let serde_json::Value::Object(ref mut map) = v {
                 migrate_vault_id(map);
@@ -410,7 +411,7 @@ fn parse_with_migration<T: serde::de::DeserializeOwned>(data: &str) -> Vec<T> {
             }
             serde_json::from_value(v).ok()
         })
-        .collect()
+        .collect())
 }
 
 // ─── File helpers ────────────────────────────────────────────────────────────
@@ -444,25 +445,42 @@ pub fn known_hosts_file() -> PathBuf {
 
 // ─── Generic JSON load/save ──────────────────────────────────────────────────
 
-/// Load a JSON value from `path`, returning `T::default()` if the file is
-/// missing, unreadable, or malformed. Mirrors the historical
-/// `unwrap_or_default()` behavior: errors are swallowed, never surfaced.
-fn load_json<T: serde::de::DeserializeOwned + Default>(path: PathBuf) -> T {
+/// Renames a corrupt file aside so a later save can't overwrite the only copy.
+fn side_band_corrupt_file(path: &std::path::Path) {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return;
+    };
+    let ts = chrono::Utc::now().format("%Y%m%d%H%M%S%3f");
+    let corrupt = path.with_file_name(format!("{name}.corrupt-{ts}"));
+    let _ = fs::rename(path, corrupt);
+}
+
+/// `T::default()` if `path` is absent; `Err` (never a silent empty value) if it
+/// exists but can't be read or parsed.
+fn load_json<T: serde::de::DeserializeOwned + Default>(path: PathBuf) -> Result<T, String> {
     if !path.exists() {
-        return T::default();
+        return Ok(T::default());
     }
-    let data = fs::read_to_string(path).unwrap_or_default();
-    serde_json::from_str(&data).unwrap_or_default()
+    let data =
+        fs::read_to_string(&path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    serde_json::from_str(&data).map_err(|e| {
+        side_band_corrupt_file(&path);
+        format!("failed to parse {}: {e}", path.display())
+    })
 }
 
 /// Like [`load_json`] but applies the `vault_ids` → `vault_id` migration to
-/// each record (see [`parse_with_migration`]). Used by the entity stores.
-fn load_json_migrated<T: serde::de::DeserializeOwned>(path: PathBuf) -> Vec<T> {
+/// each record (see [`parse_with_migration`]).
+fn load_json_migrated<T: serde::de::DeserializeOwned>(path: PathBuf) -> Result<Vec<T>, String> {
     if !path.exists() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
-    let data = fs::read_to_string(path).unwrap_or_default();
-    parse_with_migration(&data)
+    let data =
+        fs::read_to_string(&path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    parse_with_migration(&data).map_err(|e| {
+        side_band_corrupt_file(&path);
+        format!("failed to parse {}: {e}", path.display())
+    })
 }
 
 /// Pretty-print `value` as JSON and write it to `path`.
@@ -471,7 +489,7 @@ fn save_json<T: Serialize + ?Sized>(path: PathBuf, value: &T) -> Result<(), Stri
     fs::write(path, data).map_err(|e| e.to_string())
 }
 
-pub fn load_connections() -> Vec<Connection> {
+pub fn load_connections() -> Result<Vec<Connection>, String> {
     load_json_migrated(connections_file())
 }
 
@@ -479,7 +497,7 @@ pub fn save_connections(connections: &[Connection]) -> Result<(), String> {
     save_json(connections_file(), connections)
 }
 
-pub fn load_identities() -> Vec<Identity> {
+pub fn load_identities() -> Result<Vec<Identity>, String> {
     load_json_migrated(identities_file())
 }
 
@@ -487,7 +505,7 @@ pub fn save_identities(identities: &[Identity]) -> Result<(), String> {
     save_json(identities_file(), identities)
 }
 
-pub fn load_keys() -> Vec<SshKey> {
+pub fn load_keys() -> Result<Vec<SshKey>, String> {
     load_json_migrated(keys_file())
 }
 
@@ -495,7 +513,7 @@ pub fn save_keys(keys: &[SshKey]) -> Result<(), String> {
     save_json(keys_file(), keys)
 }
 
-pub fn load_folders() -> Vec<Folder> {
+pub fn load_folders() -> Result<Vec<Folder>, String> {
     load_json(folders_file())
 }
 
@@ -522,7 +540,7 @@ pub struct KnownHost {
     pub clocks: HashMap<String, String>,
 }
 
-pub fn load_known_hosts() -> Vec<KnownHost> {
+pub fn load_known_hosts() -> Result<Vec<KnownHost>, String> {
     load_json(known_hosts_file())
 }
 
@@ -757,7 +775,7 @@ fn port_forwarding_rules_file() -> PathBuf {
     config_dir().join("port_forwarding_rules.json")
 }
 
-pub fn load_port_forwarding_rules() -> Vec<PortForwardingRule> {
+pub fn load_port_forwarding_rules() -> Result<Vec<PortForwardingRule>, String> {
     load_json_migrated(port_forwarding_rules_file())
 }
 
@@ -783,8 +801,8 @@ fn migrate_snippet_steps(s: &mut Snippet) {
     }
 }
 
-pub fn load_snippets() -> Vec<Snippet> {
-    let mut snippets: Vec<Snippet> = load_json_migrated(snippets_file());
+pub fn load_snippets() -> Result<Vec<Snippet>, String> {
+    let mut snippets: Vec<Snippet> = load_json_migrated(snippets_file())?;
     let needs = snippets.iter().any(|s| s.content.is_some());
     for s in snippets.iter_mut() {
         migrate_snippet_steps(s);
@@ -792,7 +810,7 @@ pub fn load_snippets() -> Vec<Snippet> {
     if needs {
         let _ = save_snippets(&snippets);
     }
-    snippets
+    Ok(snippets)
 }
 
 pub fn save_snippets(snippets: &[Snippet]) -> Result<(), String> {
@@ -836,7 +854,7 @@ fn snippet_folders_file() -> PathBuf {
     config_dir().join("snippet_folders.json")
 }
 
-pub fn load_snippet_folders() -> Vec<SnippetFolder> {
+pub fn load_snippet_folders() -> Result<Vec<SnippetFolder>, String> {
     load_json_migrated(snippet_folders_file())
 }
 
@@ -1165,13 +1183,14 @@ mod tests {
 
     #[test]
     fn parse_reads_valid_array() {
-        let got: Vec<Mini> = parse_with_migration(r#"[{"id":"a"},{"id":"b"}]"#);
+        let got: Vec<Mini> = parse_with_migration(r#"[{"id":"a"},{"id":"b"}]"#).unwrap();
         assert_eq!(got, vec![Mini { id: "a".into() }, Mini { id: "b".into() }]);
     }
 
     #[test]
     fn parse_applies_migration_to_each_record() {
-        let got: Vec<WithVault> = parse_with_migration(r#"[{"id":"a","vault_ids":["team","x"]}]"#);
+        let got: Vec<WithVault> =
+            parse_with_migration(r#"[{"id":"a","vault_ids":["team","x"]}]"#).unwrap();
         assert_eq!(
             got,
             vec![WithVault {
@@ -1182,22 +1201,21 @@ mod tests {
     }
 
     #[test]
-    fn parse_returns_empty_on_malformed_json() {
-        // Pinned current behavior: `unwrap_or_default()` swallows parse errors.
-        let got: Vec<Mini> = parse_with_migration("not valid json {");
-        assert!(got.is_empty());
+    fn parse_errors_on_malformed_json() {
+        let got: Result<Vec<Mini>, String> = parse_with_migration("not valid json {");
+        assert!(got.is_err());
     }
 
     #[test]
-    fn parse_returns_empty_when_top_level_is_not_an_array() {
-        let got: Vec<Mini> = parse_with_migration(r#"{"id":"a"}"#);
-        assert!(got.is_empty());
+    fn parse_errors_when_top_level_is_not_an_array() {
+        let got: Result<Vec<Mini>, String> = parse_with_migration(r#"{"id":"a"}"#);
+        assert!(got.is_err());
     }
 
     #[test]
     fn parse_silently_drops_records_that_fail_to_deserialize() {
         // Pinned current behavior: a bad record is filtered out, not surfaced.
-        let got: Vec<Mini> = parse_with_migration(r#"[{"id":"a"},{"nope":"b"}]"#);
+        let got: Vec<Mini> = parse_with_migration(r#"[{"id":"a"},{"nope":"b"}]"#).unwrap();
         assert_eq!(got, vec![Mini { id: "a".into() }]);
     }
 
@@ -1215,11 +1233,11 @@ mod tests {
         std::env::set_var("XDG_CONFIG_HOME", &dir);
 
         // A missing file loads as empty, not an error.
-        assert!(load_identities().is_empty());
+        assert!(load_identities().unwrap().is_empty());
 
         // save → load preserves the record.
         save_connections(&[sample_connection()]).expect("save");
-        let loaded = load_connections();
+        let loaded = load_connections().unwrap();
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].id, "conn-1");
         assert_eq!(loaded[0].vault_id, "team");
@@ -1228,11 +1246,56 @@ mod tests {
         let legacy = r#"[{"id":"c2","tags":[],"created_at":"t","last_used_at":null,
             "updated_at":"t","deleted_at":null,"clocks":{},"vault_ids":["legacy-team","x"]}]"#;
         std::fs::write(config_dir().join("connections.json"), legacy).unwrap();
-        let migrated = load_connections();
+        let migrated = load_connections().unwrap();
         assert_eq!(migrated.len(), 1);
         assert_eq!(migrated[0].vault_id, "legacy-team");
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ── #250: a corrupt entity file must error, not silently look empty ──────
+
+    #[test]
+    fn load_json_migrated_is_empty_for_a_missing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let items: Vec<KnownHost> =
+            load_json_migrated(dir.path().join("connections.json")).unwrap();
+        assert!(items.is_empty());
+    }
+
+    #[test]
+    fn load_json_migrated_errors_on_a_corrupt_file_instead_of_returning_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("connections.json");
+        fs::write(&path, "not json").unwrap();
+
+        let result: Result<Vec<KnownHost>, String> = load_json_migrated(path.clone());
+        assert!(result.is_err());
+
+        // The bad file is renamed aside, not left for the next save to overwrite.
+        assert!(!path.exists());
+        let siblings: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert_eq!(siblings.len(), 1);
+        let corrupt_name = siblings[0].file_name().to_string_lossy().into_owned();
+        assert!(
+            corrupt_name.starts_with("connections.json.corrupt-"),
+            "{corrupt_name}"
+        );
+        assert_eq!(fs::read_to_string(siblings[0].path()).unwrap(), "not json");
+    }
+
+    #[test]
+    fn load_json_errors_on_a_corrupt_file_instead_of_returning_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("folders.json");
+        fs::write(&path, "not json").unwrap();
+
+        let result: Result<Vec<Folder>, String> = load_json(path.clone());
+        assert!(result.is_err());
+        assert!(!path.exists());
     }
 }
 

@@ -797,7 +797,10 @@ impl PortForwardManager {
         }
 
         use crate::storage::config::{load_port_forwarding_rules, TunnelType as CfgTunnelType};
-        let rules = load_port_forwarding_rules();
+        let rules = load_port_forwarding_rules().unwrap_or_else(|e| {
+            eprintln!("port_forwarding_rules: {e}");
+            Vec::new()
+        });
         for rule in rules {
             if rule.deleted_at.is_some() {
                 continue;

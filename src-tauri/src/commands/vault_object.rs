@@ -275,7 +275,7 @@ macro_rules! vault_list_command {
         $(#[$meta])*
         #[tauri::command]
         pub fn $name() -> Result<Vec<$ty>, String> {
-            Ok($crate::commands::vault_object::live($load()))
+            Ok($crate::commands::vault_object::live($load()?))
         }
     };
 }
@@ -287,7 +287,7 @@ macro_rules! vault_create_command {
         $(#[$meta])*
         #[tauri::command]
         pub fn $name(data: $form) -> Result<$ty, String> {
-            let mut items = $load();
+            let mut items = $load()?;
             let now = chrono::Utc::now().to_rfc3339();
             $crate::vault_auth::check_vault_write(
                 &$crate::commands::vault_object::requested_vault(&data.vault_id),
@@ -308,7 +308,7 @@ macro_rules! vault_adopt_command {
         $(#[$meta])*
         #[tauri::command]
         pub fn $name(id: String, data: $form) -> Result<$ty, String> {
-            let mut items = $load();
+            let mut items = $load()?;
             let now = chrono::Utc::now().to_rfc3339();
             $crate::vault_auth::check_vault_write(
                 &$crate::commands::vault_object::requested_vault(&data.vault_id),
@@ -329,7 +329,7 @@ macro_rules! vault_delete_command {
         $(#[$meta])*
         #[tauri::command]
         pub fn $name(id: String) -> Result<(), String> {
-            let mut items = $load();
+            let mut items = $load()?;
             let now = chrono::Utc::now().to_rfc3339();
             let item = $crate::commands::vault_object::find_mut(&mut items, &id)?;
             $crate::vault_auth::check_vault_write(std::slice::from_ref(&item.vault_id))?;

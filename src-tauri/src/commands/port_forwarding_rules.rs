@@ -73,7 +73,7 @@ pub fn pf_rule_update(
     id: String,
     data: PortForwardingRuleFormData,
 ) -> Result<PortForwardingRule, String> {
-    let mut rules = load_port_forwarding_rules();
+    let mut rules = load_port_forwarding_rules()?;
     let rule = find_mut(&mut rules, &id)?;
     let now = Utc::now().to_rfc3339();
     let effective = retarget_vault(rule, &data.vault_id, &now);
@@ -103,7 +103,7 @@ pub fn pf_rule_update(
 
 #[tauri::command]
 pub fn pf_rule_duplicate(id: String) -> Result<PortForwardingRule, String> {
-    let rules = load_port_forwarding_rules();
+    let rules = load_port_forwarding_rules()?;
     let source = rules
         .iter()
         .find(|r| r.id == id && is_alive(&r.deleted_at, &r.updated_at))
@@ -127,7 +127,7 @@ pub fn pf_rule_duplicate(id: String) -> Result<PortForwardingRule, String> {
 
 #[tauri::command]
 pub fn pf_rule_move_folder(id: String, folder_id: Option<String>) -> Result<(), String> {
-    let mut rules = load_port_forwarding_rules();
+    let mut rules = load_port_forwarding_rules()?;
     let now = Utc::now().to_rfc3339();
     let rule = find_mut(&mut rules, &id)?;
     rule.folder_id = folder_id;

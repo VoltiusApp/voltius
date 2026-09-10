@@ -197,7 +197,7 @@ fn build_connection(
 
 #[tauri::command]
 pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
-    let mut connections = load_connections();
+    let mut connections = load_connections()?;
     let now = Utc::now().to_rfc3339();
     check_vault_write(&requested_vault(&data.vault_id))?;
     let conn = build_connection(Uuid::new_v4().to_string(), data, &now, None, None);
@@ -217,7 +217,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
 /// migration idempotent.
 #[tauri::command]
 pub fn connection_adopt(id: String, data: ConnectionFormData) -> Result<Connection, String> {
-    let mut connections = load_connections();
+    let mut connections = load_connections()?;
     let now = Utc::now().to_rfc3339();
     check_vault_write(&requested_vault(&data.vault_id))?;
 
@@ -234,7 +234,7 @@ pub fn connection_adopt(id: String, data: ConnectionFormData) -> Result<Connecti
 
 #[tauri::command]
 pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connection, String> {
-    let mut connections = load_connections();
+    let mut connections = load_connections()?;
     let existing = find_mut(&mut connections, &id)?.clone();
     check_vault_write(&[effective_vault(&data.vault_id, &existing.vault_id)])?;
 
@@ -250,7 +250,7 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
 
 #[tauri::command]
 pub fn connection_set_distro(id: String, distro: String) -> Result<(), String> {
-    let mut connections = load_connections();
+    let mut connections = load_connections()?;
     let conn = find_mut(&mut connections, &id)?;
     let now = Utc::now().to_rfc3339();
     conn.distro = Some(distro);
@@ -261,7 +261,7 @@ pub fn connection_set_distro(id: String, distro: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn connection_set_last_used(id: String) -> Result<(), String> {
-    let mut connections = load_connections();
+    let mut connections = load_connections()?;
     let conn = find_mut(&mut connections, &id)?;
     let now = Utc::now().to_rfc3339();
     conn.last_used_at = Some(now.clone());

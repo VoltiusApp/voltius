@@ -45,7 +45,7 @@ fn build_key(id: String, data: SshKeyFormData, now: &str, created_at: Option<Str
 
 #[tauri::command]
 pub fn key_update(id: String, data: SshKeyFormData) -> Result<SshKey, String> {
-    let mut keys = load_keys();
+    let mut keys = load_keys()?;
     let key = find_mut(&mut keys, &id)?;
     let now = Utc::now().to_rfc3339();
     let effective = retarget_vault(key, &data.vault_id, &now);

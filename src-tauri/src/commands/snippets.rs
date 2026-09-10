@@ -77,7 +77,7 @@ fn build_snippet(
 
 #[tauri::command]
 pub fn snippet_update(id: String, data: SnippetFormData) -> Result<Snippet, String> {
-    let mut snippets = load_snippets();
+    let mut snippets = load_snippets()?;
     let snippet = find_mut(&mut snippets, &id)?;
     let now = Utc::now().to_rfc3339();
     let effective = retarget_vault(snippet, &data.vault_id, &now);
@@ -170,7 +170,7 @@ pub fn snippet_folder_update(
     id: String,
     data: SnippetFolderFormData,
 ) -> Result<SnippetFolder, String> {
-    let mut folders = load_snippet_folders();
+    let mut folders = load_snippet_folders()?;
     let folder = find_mut(&mut folders, &id)?;
     let now = Utc::now().to_rfc3339();
     merge_fields!(folder, data, &now, name, parent_id, color, icon);
@@ -184,14 +184,14 @@ pub fn snippet_folder_update(
 /// filed in that subtree.
 #[tauri::command]
 pub fn snippet_folder_delete(id: String) -> Result<(), String> {
-    let mut folders = load_snippet_folders();
+    let mut folders = load_snippet_folders()?;
     if !folders.iter().any(|f| f.id == id) {
         return Err(format!("SnippetFolder {} not found", id));
     }
     let now = Utc::now().to_rfc3339();
     let doomed = subtree_ids(&folders, &id, |f| f.parent_id.as_deref());
 
-    let mut snippets = load_snippets();
+    let mut snippets = load_snippets()?;
     let in_tree =
         |folder_id: &Option<String>| folder_id.as_deref().is_some_and(|f| doomed.contains(f));
 
