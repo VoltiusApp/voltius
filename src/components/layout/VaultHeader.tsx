@@ -27,6 +27,7 @@ export function MembersStack({
   vaultName,
   open: openProp,
   onOpenChange,
+  hoverOpens = true,
 }: {
   members: TeamMember[];
   vaultId: string;
@@ -34,6 +35,8 @@ export function MembersStack({
   /** Lets a caller (the vault menu's Share… action) drive the popover too. Uncontrolled when omitted. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** False for a private vault: the popover there is the convert-to-team gate, not a lightweight members peek, so it must not open on a passing hover. */
+  hoverOpens?: boolean;
 }) {
   const { t } = useTranslation();
   const openMembersInvite = useUIStore((s) => s.openMembersInvite);
@@ -54,11 +57,13 @@ export function MembersStack({
   // fires the stack's mouseleave. Defer the close so the popover's own
   // mouseenter can cancel it.
   const openPopover = () => {
+    if (!hoverOpens) return;
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = null;
     setOpen(true);
   };
   const closePopover = () => {
+    if (!hoverOpens) return;
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = window.setTimeout(() => setOpen(false), 120);
   };
@@ -348,6 +353,7 @@ export default function VaultHeader() {
             vaultName={vault?.name ?? team?.name ?? ""}
             open={admin.shareOpen}
             onOpenChange={admin.setShareOpen}
+            hoverOpens={!!team}
           />
         )}
       </div>
