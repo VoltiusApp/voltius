@@ -41,17 +41,17 @@ interface TeamStore {
 }
 
 /**
- * Mirrors {teamId -> the union of the user's role permission bits} into the
- * keychain for the Rust vault-write check. Bits, not role names: a team using a
- * custom-named role with write permissions would be denied locally by a name
- * match even though the server allows it. The union mirrors the server's
- * `bit_or` over every assigned role.
+ * Mirrors {teamId -> the user's effective permission bits (role union with
+ * allow/deny overrides applied)} into the keychain for the Rust vault-write
+ * check. Bits, not role names: a team using a custom-named role with write
+ * permissions would be denied locally by a name match even though the server
+ * allows it.
  *
  * A team whose roles can't be resolved is left out of the map rather than
  * written as "no permissions" — the server stays authoritative, and guessing
  * would lock the user out of a vault they can write to.
  */
-async function cacheVaultRoles(
+export async function cacheVaultRoles(
   teams: Team[],
   rolesByTeam: Record<string, TeamRole[]>,
   onRolesLoaded: (teamId: string, roles: TeamRole[]) => void,
@@ -72,7 +72,8 @@ async function cacheVaultRoles(
         .map((rid) => roles!.find((r) => r.id === rid)?.permissions)
         .filter((p): p is number => typeof p === "number");
       if (resolved.length < t.role_ids.length) return;
-      bits[t.id] = resolved.reduce((acc, p) => acc | p, 0);
+      bits[t.id] = (resolved.reduce((acc, p) => acc | p, 0) | (t.permission_allow ?? 0))
+        & ~(t.permission_deny ?? 0);
     }),
   );
   await invoke("keychain_set", {
