@@ -29,4 +29,26 @@ describe("teamStore.setMemberPermissions", () => {
     expect(member.permission_allow).toBe(PERM_BITS.CONNECT);
     expect(member.permission_deny).toBe(PERM_BITS.VIEW_SECRETS);
   });
+
+  it("leaves the cache unchanged when the service call rejects", async () => {
+    const { useTeamStore } = await import("@/stores/teamStore");
+    useTeamStore.setState({
+      membersByTeam: {
+        t1: [{
+          team_id: "t1", user_id: "u1", handle: "alice", public_key: "k",
+          invited_by_display_name: null, joined_at: "", role_ids: [],
+          permission_allow: 0, permission_deny: 0,
+        }],
+      },
+    } as never);
+    setMemberPermissions.mockRejectedValueOnce(new Error("boom"));
+
+    await expect(
+      useTeamStore.getState().setMemberPermissions("t1", "u1", PERM_BITS.CONNECT, PERM_BITS.VIEW_SECRETS),
+    ).rejects.toThrow("boom");
+
+    const member = useTeamStore.getState().membersByTeam.t1[0];
+    expect(member.permission_allow).toBe(0);
+    expect(member.permission_deny).toBe(0);
+  });
 });
