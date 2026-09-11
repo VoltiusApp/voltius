@@ -521,6 +521,7 @@ const vaultTabs = selectedVaultIds.length > 1
               teamRoles={teamRoles}
               canManageMembers={canManageMembers}
               isTargetOwner={isOwnerMember(detailMember)}
+              viewer={myMember}
               onClose={() => setShowDetailPanel(false)}
               onUpdated={reload}
             />

@@ -11,6 +11,10 @@ import { ROLE_META, RoleBlurb } from "@/components/members/roleChips";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import type { DepartMode } from "@/services/teamOffboarding";
+import { PERM_BITS, PERM_META, effectivePermissions, type Permission } from "@/services/permissions";
+import {
+  PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState,
+} from "./PermissionOverrideRow";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;
@@ -19,12 +23,22 @@ export interface MemberDetailPanelProps {
   teamRoles: TeamRole[];
   canManageMembers: boolean;
   isTargetOwner: boolean;
+  viewer?: TeamMember;
   onClose: () => void;
   onUpdated: () => void;
 }
 
+/** Lower position = more authority; a role absent from `roles` is skipped. */
+function minRolePosition(roleIds: string[], roles: TeamRole[]): number | null {
+  return roleIds.reduce<number | null>((min, rid) => {
+    const role = roles.find((r) => r.id === rid);
+    if (!role) return min;
+    return min === null || role.position < min ? role.position : min;
+  }, null);
+}
+
 export function MemberDetailPanel({
-  member, isMe, teamId, teamRoles, canManageMembers, isTargetOwner, onClose, onUpdated,
+  member, isMe, teamId, teamRoles, canManageMembers, isTargetOwner, viewer, onClose, onUpdated,
 }: MemberDetailPanelProps) {
   const { t } = useTranslation();
   const push = useHistoryStore((s) => s.push);
@@ -34,6 +48,7 @@ export function MemberDetailPanel({
   const [justToggled, setJustToggled] = useState<string | null>(null);
   const [offboarding, setOffboarding] = useState<DepartMode | null>(null);
   const [creatingRole, setCreatingRole] = useState(false);
+  const [overriding, setOverriding] = useState(false);
 
   const canChangeRoles = canManageMembers && !isMe;
   const canRemove = canManageMembers && !isTargetOwner && !isMe;
@@ -92,6 +107,59 @@ export function MemberDetailPanel({
       setError(e instanceof Error ? e.message : t("members.error.failedToUpdateRole"));
     } finally {
       setToggling(null);
+    }
+  };
+
+  const allow = member.permission_allow ?? 0;
+  const deny = member.permission_deny ?? 0;
+  const viewerEffective = viewer ? effectivePermissions(viewer, teamRoles) : 0;
+
+  const editablePermissions = (Object.keys(PERM_META) as Permission[])
+    .filter((p) => p !== "CREATE_CUSTOM_ROLES");
+
+  const rolesGranting = (permission: Permission) =>
+    teamRoles
+      .filter((r) => member.role_ids.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
+      .map((r) => r.name);
+
+  const readOnlyReason: string | null = (() => {
+    if (!canManageMembers) return t("members.permissions.readOnlyNoManage");
+    if (isTargetOwner) return t("members.permissions.readOnlyOwner");
+    if (isMe) return t("members.permissions.readOnlySelf");
+    const viewerMin = viewer ? minRolePosition(viewer.role_ids, teamRoles) : null;
+    const targetMin = minRolePosition(member.role_ids, teamRoles);
+    const hierarchyFails = !viewer || viewerMin === null || (targetMin !== null && viewerMin >= targetMin);
+    if (hierarchyFails) return t("members.permissions.readOnlyHigherRole");
+    if ((allow & ~viewerEffective) !== 0) return t("members.permissions.readOnlyNotHeld");
+    return null;
+  })();
+
+  const write = (masks: { allow: number; deny: number }) => () =>
+    useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
+
+  const handleOverride = async (permission: Permission, next: OverrideState) => {
+    if (next === "allow" && (viewerEffective & PERM_BITS[permission]) === 0) {
+      setError(t("members.permissions.readOnlyNotHeld"));
+      return;
+    }
+    const previous = { allow, deny };
+    const updated = applyOverrideState(permission, allow, deny, next);
+    setError("");
+    setOverriding(true);
+    try {
+      await runReversible({
+        pending: t("members.toast.updatingPermissions", { name: member.handle }),
+        success: t("members.toast.permissionsUpdated", { name: member.handle }),
+        label: t("members.history.changePermissions", { name: member.handle }),
+        run: write(updated),
+        undo: write(previous),
+        redo: write(updated),
+      });
+      onUpdated();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("members.error.failedToUpdatePermissions"));
+    } finally {
+      setOverriding(false);
     }
   };
 
@@ -175,6 +243,29 @@ export function MemberDetailPanel({
           ) : (
             <RoleBadges member={member} roles={teamRoles} />
           )}
+        </FormSection>
+
+        {/* Permissions */}
+        <FormSection label={t("members.permissions.title")}>
+          {readOnlyReason && (
+            <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>
+          )}
+          <div className="divide-y" style={{ borderColor: "var(--t-border)" }}>
+            {editablePermissions.map((permission) => {
+              const granting = rolesGranting(permission);
+              return (
+                <PermissionOverrideRow
+                  key={permission}
+                  permission={permission}
+                  state={overrideStateOf(permission, allow, deny)}
+                  inheritedFrom={granting}
+                  inheritedGrants={granting.length > 0}
+                  disabled={readOnlyReason !== null || overriding}
+                  onChange={(next) => void handleOverride(permission, next)}
+                />
+              );
+            })}
+          </div>
         </FormSection>
 
         {/* Info */}

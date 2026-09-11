@@ -140,11 +140,14 @@
       "grantingKey": "Granting vault access to {{name}}…",
       "keyGranted": "{{name}} can now open the vault",
       "leavingTeam": "Leaving team...",
-      "leftTeam": "You left the team"
+      "leftTeam": "You left the team",
+      "updatingPermissions": "Updating {{name}}'s permissions…",
+      "permissionsUpdated": "Updated {{name}}'s permissions"
     },
     "error": {
       "cannotRemoveOwnerRole": "Cannot remove the owner role from the team owner",
       "failedToUpdateRole": "Failed to update role",
+      "failedToUpdatePermissions": "Failed to update permissions",
       "failedToRemoveMember": "Failed to remove member",
       "failedToAddMember": "Failed to add member",
       "inviteFailed": "Could not invite {{name}} — {{reason}}",
@@ -159,6 +162,7 @@
     "history": {
       "removeRole": "Remove role: {{name}}",
       "assignRole": "Assign role: {{name}}",
+      "changePermissions": "Change {{name}}'s permissions",
       "remove": "Remove: {{name}}",
       "assignRoleBulk": "Assign role ×{{count}}",
       "removeRoleBulk": "Remove role ×{{count}}",

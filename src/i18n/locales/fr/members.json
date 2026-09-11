@@ -140,11 +140,14 @@
       "grantingKey": "Octroi de l'accès au coffre-fort à {{name}}…",
       "keyGranted": "{{name}} peut maintenant ouvrir le coffre-fort",
       "leavingTeam": "Départ de l'équipe…",
-      "leftTeam": "Vous avez quitté l'équipe"
+      "leftTeam": "Vous avez quitté l'équipe",
+      "updatingPermissions": "Mise à jour des permissions de {{name}}…",
+      "permissionsUpdated": "Permissions de {{name}} mises à jour"
     },
     "error": {
       "cannotRemoveOwnerRole": "Impossible de retirer le rôle de propriétaire au propriétaire de l'équipe",
       "failedToUpdateRole": "Échec de la mise à jour du rôle",
+      "failedToUpdatePermissions": "Échec de la mise à jour des permissions",
       "failedToRemoveMember": "Échec de la suppression du membre",
       "failedToAddMember": "Échec de l'ajout du membre",
       "inviteFailed": "Impossible d'inviter {{name}} — {{reason}}",
@@ -159,6 +162,7 @@
     "history": {
       "removeRole": "Retirer le rôle : {{name}}",
       "assignRole": "Attribuer un rôle : {{name}}",
+      "changePermissions": "Modifier les permissions de {{name}}",
       "remove": "Retirer : {{name}}",
       "assignRoleBulk": "Attribuer un rôle ×{{count}}",
       "removeRoleBulk": "Retirer un rôle ×{{count}}",

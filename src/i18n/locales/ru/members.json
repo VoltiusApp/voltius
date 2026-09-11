@@ -144,11 +144,14 @@
       "grantingKey": "Предоставление доступа к хранилищу для {{name}}…",
       "keyGranted": "{{name}} теперь может открыть хранилище",
       "leavingTeam": "Выход из команды…",
-      "leftTeam": "Вы вышли из команды"
+      "leftTeam": "Вы вышли из команды",
+      "updatingPermissions": "Обновление разрешений {{name}}…",
+      "permissionsUpdated": "Разрешения {{name}} обновлены"
     },
     "error": {
       "cannotRemoveOwnerRole": "Нельзя удалить роль владельца у владельца команды",
       "failedToUpdateRole": "Не удалось обновить роль",
+      "failedToUpdatePermissions": "Не удалось обновить разрешения",
       "failedToRemoveMember": "Не удалось удалить участника",
       "failedToAddMember": "Не удалось добавить участника",
       "inviteFailed": "Не удалось пригласить {{name}} — {{reason}}",
@@ -163,6 +166,7 @@
     "history": {
       "removeRole": "Удалить роль: {{name}}",
       "assignRole": "Назначить роль: {{name}}",
+      "changePermissions": "Изменить разрешения {{name}}",
       "remove": "Удалить: {{name}}",
       "assignRoleBulk": "Назначить роль ×{{count}}",
       "removeRoleBulk": "Удалить роль ×{{count}}",
