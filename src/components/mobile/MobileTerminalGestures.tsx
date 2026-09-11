@@ -13,6 +13,8 @@ import {
   wordRangeAt,
   isBlankCell,
   extendSelection,
+  selectionLength,
+  cellPixel,
   type Cell,
   type CellMetrics,
 } from "./mobileTerminalGesturesCore";
@@ -24,7 +26,9 @@ const LONG_PRESS_MS = 380;
 const MOVE_THRESHOLD_PX = 10;
 const DOUBLE_TAP = { ms: 300, px: 24 };
 
-type Phase = "idle" | "pending" | "scrolling" | "selecting" | "pinching";
+type Phase = "idle" | "pending" | "scrolling" | "selecting" | "pinching" | "draggingHandle";
+
+type HandlePositions = { start: { x: number; y: number }; end: { x: number; y: number } };
 
 /**
  * Mobile-only unified terminal gesture layer. One-finger immediate drag scrolls;
@@ -41,6 +45,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
   const rootRef = useRef<HTMLDivElement>(null);
   const [hintKey, setHintKey] = useState(0);
   const [toolbar, setToolbar] = useState<{ x: number; y: number; mode: "select" | "paste" } | null>(null);
+  const [handles, setHandles] = useState<HandlePositions | null>(null);
   const toolbarOpen = useRef(false);
   const anchorStart = useRef<Cell | null>(null);
   const anchorEnd = useRef<Cell | null>(null);
@@ -54,30 +59,50 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
   const longPressFired = useRef(false);
   const lastTap = useRef<TapPoint | null>(null);
   const pinch = useRef<{ dist: number; size: number } | null>(null);
+  const dragHandle = useRef<"start" | "end" | null>(null);
+  const dragFixed = useRef<Cell | null>(null);
+
+  const metrics = (): CellMetrics | null => {
+    const api = getTerminalApi(sessionId);
+    const el = api?.screenEl();
+    if (!api || !el) return null;
+    const r = el.getBoundingClientRect();
+    const cols = api.cols();
+    const rows = api.rows();
+    if (!cols || !rows) return null;
+    return {
+      left: r.left,
+      top: r.top,
+      cellWidth: r.width / cols,
+      cellHeight: r.height / rows,
+      cols,
+      rows,
+      viewportTop: api.viewportTop(),
+    };
+  };
+
+  /** Re-derives the toolbar and both drag handles from xterm's own settled selection. */
+  const refreshSelectionUI = () => {
+    const api = getTerminalApi(sessionId);
+    const m = metrics();
+    const pos = api?.getSelectionPosition();
+    if (!api || !m || !pos) { setHandles(null); return; }
+    const root = rootRef.current?.getBoundingClientRect();
+    const rx = root?.left ?? 0;
+    const ry = root?.top ?? 0;
+    const startPx = cellPixel(m, { col: pos.start.x, line: pos.start.y }, 0);
+    const endPx = cellPixel(m, { col: pos.end.x, line: pos.end.y }, 1);
+    setHandles({
+      start: { x: startPx.x - rx, y: startPx.y - ry + m.cellHeight },
+      end: { x: endPx.x - rx, y: endPx.y - ry + m.cellHeight },
+    });
+    setToolbar({ x: startPx.x - rx, y: startPx.y - ry, mode: "select" });
+  };
 
   useEffect(() => {
     if (!active) return;
     const container = rootRef.current?.parentElement;
     if (!container) return;
-
-    const metrics = (): CellMetrics | null => {
-      const api = getTerminalApi(sessionId);
-      const el = api?.screenEl();
-      if (!api || !el) return null;
-      const r = el.getBoundingClientRect();
-      const cols = api.cols();
-      const rows = api.rows();
-      if (!cols || !rows) return null;
-      return {
-        left: r.left,
-        top: r.top,
-        cellWidth: r.width / cols,
-        cellHeight: r.height / rows,
-        cols,
-        rows,
-        viewportTop: api.viewportTop(),
-      };
-    };
 
     const clearLongPress = () => {
       if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
@@ -85,6 +110,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
 
     const closeToolbar = () => {
       setToolbar(null);
+      setHandles(null);
       anchorStart.current = null;
       anchorEnd.current = null;
     };
@@ -92,17 +118,6 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     const showPaste = (x: number, y: number) => {
       const root = rootRef.current?.getBoundingClientRect();
       setToolbar({ x: x - (root?.left ?? 0), y: y - (root?.top ?? 0), mode: "paste" });
-    };
-
-    const showSelectionToolbar = () => {
-      const api = getTerminalApi(sessionId);
-      const m = metrics();
-      const pos = api?.getSelectionPosition();
-      if (!api || !m || !pos) return;
-      const root = rootRef.current?.getBoundingClientRect();
-      const left = m.left + pos.start.x * m.cellWidth - (root?.left ?? 0);
-      const top = m.top + (pos.start.y - m.viewportTop) * m.cellHeight - (root?.top ?? 0);
-      setToolbar({ x: left, y: top, mode: "select" });
     };
 
     const onLongPress = (x: number, y: number) => {
@@ -129,10 +144,24 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       start.current = null;
       carry.current = 0;
       longPressFired.current = false;
+      dragHandle.current = null;
+      dragFixed.current = null;
       clearLongPress();
     };
 
     const onTouchStart = (e: TouchEvent) => {
+      const handleEl = (e.target as Element | null)?.closest("[data-selection-handle]") as HTMLElement | null;
+      if (handleEl) {
+        const api = getTerminalApi(sessionId);
+        const pos = api?.getSelectionPosition();
+        if (!pos) return;
+        const which = handleEl.dataset.selectionHandle as "start" | "end";
+        dragHandle.current = which;
+        dragFixed.current = which === "start" ? { col: pos.end.x, line: pos.end.y } : { col: pos.start.x, line: pos.start.y };
+        phase.current = "draggingHandle";
+        setToolbar(null);
+        return;
+      }
       if (toolbarOpen.current) {
         const target = e.target as Element | null;
         if (target?.closest("[data-mobile-term-toolbar]")) return; // let the toolbar button handle its own tap
@@ -166,6 +195,20 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     };
 
     const onTouchMove = (e: TouchEvent) => {
+      if (phase.current === "draggingHandle") {
+        e.preventDefault();
+        const m = metrics();
+        const api = getTerminalApi(sessionId);
+        const t = e.touches[0];
+        if (!m || !api || !dragFixed.current || !t) return;
+        const focus = cellFromPoint(m, t.clientX, t.clientY);
+        const sel = extendSelection(dragFixed.current, dragFixed.current, focus);
+        api.select(sel.start.col, sel.start.line, selectionLength(sel.start, sel.end, m.cols));
+        const root = rootRef.current?.getBoundingClientRect();
+        const live = { x: t.clientX - (root?.left ?? 0), y: t.clientY - (root?.top ?? 0) };
+        setHandles((h) => (h ? { ...h, [dragHandle.current!]: live } : h));
+        return;
+      }
       if (phase.current === "pinching") {
         const p = pinch.current;
         if (!p || e.touches.length < 2) return;
@@ -215,14 +258,20 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         if (!m || !api || !anchorStart.current || !anchorEnd.current) return;
         const focus = cellFromPoint(m, t.clientX, t.clientY);
         const sel = extendSelection(anchorStart.current, anchorEnd.current, focus);
-        if (sel.kind === "line") api.select(sel.startCol, sel.line, sel.len);
-        else api.selectLines(sel.start, sel.end);
+        api.select(sel.start.col, sel.start.line, selectionLength(sel.start, sel.end, m.cols));
       }
     };
 
     const onTouchEnd = (e: TouchEvent) => {
       clearLongPress();
       const wasPhase = phase.current;
+
+      if (wasPhase === "draggingHandle") {
+        e.preventDefault();
+        reset();
+        refreshSelectionUI();
+        return;
+      }
 
       if (wasPhase === "pinching") {
         e.preventDefault();
@@ -234,7 +283,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       if (longPressFired.current) {
         e.preventDefault();
         e.stopPropagation();
-        if (wasPhase === "selecting") showSelectionToolbar();
+        if (wasPhase === "selecting") refreshSelectionUI();
         reset();
         return;
       }
@@ -318,6 +367,36 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
           Tab
         </span>
       )}
+      {handles && (
+        <>
+          {(["start", "end"] as const).map((which) => (
+            <div
+              key={which}
+              data-selection-handle={which}
+              className="absolute pointer-events-auto"
+              style={{
+                left: `${handles[which].x}px`,
+                top: `${handles[which].y}px`,
+                width: 32,
+                height: 32,
+                transform: "translate(-50%, 0)",
+              }}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              <div
+                style={{
+                  width: 18,
+                  height: 18,
+                  margin: "0 auto",
+                  background: "var(--t-accent)",
+                  borderRadius: "50% 50% 50% 0",
+                  transform: "rotate(135deg)",
+                }}
+              />
+            </div>
+          ))}
+        </>
+      )}
       {toolbar && (
         <div
           data-mobile-term-toolbar
@@ -342,6 +421,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
                   if (sel) void writeClipboard(sel);
                   getTerminalApi(sessionId)?.clearSelection();
                   setToolbar(null);
+                  setHandles(null);
                   anchorStart.current = null;
                   anchorEnd.current = null;
                 }}
@@ -351,7 +431,10 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
               <button
                 data-toolbar-selectall
                 className="px-3 py-1.5 rounded-md text-xs font-medium text-(--t-text-primary)"
-                onClick={() => getTerminalApi(sessionId)?.selectAll()}
+                onClick={() => {
+                  getTerminalApi(sessionId)?.selectAll();
+                  refreshSelectionUI();
+                }}
               >
                 {t("mobile.terminalGestures.selectAll")}
               </button>
@@ -366,6 +449,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
               });
               getTerminalApi(sessionId)?.clearSelection();
               setToolbar(null);
+              setHandles(null);
               anchorStart.current = null;
               anchorEnd.current = null;
             }}

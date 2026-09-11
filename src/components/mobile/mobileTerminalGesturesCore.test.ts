@@ -4,6 +4,8 @@ import {
   isBlankCell,
   linesFromPixelDelta,
   extendSelection,
+  selectionLength,
+  cellPixel,
   fontSizeFromPinch,
   touchDistance,
   type CellMetrics,
@@ -40,27 +42,46 @@ eq(linesFromPixelDelta(8, 16, 0), { lines: 0, carry: 0.5 }, "half a cell carries
 eq(linesFromPixelDelta(8, 16, 0.5), { lines: 1, carry: 0 }, "carry completes a line");
 eq(linesFromPixelDelta(-24, 16, 0), { lines: -1, carry: -0.5 }, "negative truncates toward zero");
 
-// extendSelection: same line → char-precise; cross-line → whole lines.
+// extendSelection: char-precise, same line or crossing lines.
 eq(
   extendSelection({ col: 3, line: 100 }, { col: 6, line: 100 }, { col: 9, line: 100 }),
-  { kind: "line", startCol: 3, line: 100, len: 7 },
+  { start: { col: 3, line: 100 }, end: { col: 9, line: 100 } },
   "same line extends to focus",
 );
 eq(
   extendSelection({ col: 3, line: 100 }, { col: 6, line: 100 }, { col: 1, line: 100 }),
-  { kind: "line", startCol: 1, line: 100, len: 6 },
+  { start: { col: 1, line: 100 }, end: { col: 6, line: 100 } },
   "same line extends left of anchor",
 );
 eq(
   extendSelection({ col: 3, line: 100 }, { col: 6, line: 100 }, { col: 2, line: 104 }),
-  { kind: "lines", start: 100, end: 104 },
-  "cross line → whole lines",
+  { start: { col: 3, line: 100 }, end: { col: 2, line: 104 } },
+  "cross line downward stays char-precise",
 );
 eq(
   extendSelection({ col: 3, line: 100 }, { col: 6, line: 100 }, { col: 2, line: 97 }),
-  { kind: "lines", start: 97, end: 100 },
-  "cross line upward → whole lines",
+  { start: { col: 2, line: 97 }, end: { col: 6, line: 100 } },
+  "cross line upward stays char-precise",
 );
+eq(
+  extendSelection({ col: 3, line: 100 }, { col: 3, line: 100 }, { col: 0, line: 100 }),
+  { start: { col: 0, line: 100 }, end: { col: 3, line: 100 } },
+  "two-point range (handle drag) — focus before fixed",
+);
+eq(
+  extendSelection({ col: 3, line: 100 }, { col: 3, line: 100 }, { col: 1, line: 102 }),
+  { start: { col: 3, line: 100 }, end: { col: 1, line: 102 } },
+  "two-point range (handle drag) — focus on a later line",
+);
+
+// selectionLength: char count term.select(col, row, length) needs, wrapping at `cols`.
+eq(selectionLength({ col: 3, line: 100 }, { col: 9, line: 100 }, 80), 7, "same line inclusive count");
+eq(selectionLength({ col: 3, line: 100 }, { col: 2, line: 104 }, 80), 4 * 80 - 1 + 1, "wraps 4 full lines via cols");
+eq(selectionLength({ col: 0, line: 100 }, { col: 0, line: 100 }, 80), 1, "single cell");
+
+// cellPixel: left edge (colOffset 0) vs right edge (colOffset 1) of a cell, in client coords.
+eq(cellPixel(m, { col: 3, line: 102 }, 0), { x: 10 + 3 * 8, y: 20 + 2 * 16 }, "left edge");
+eq(cellPixel(m, { col: 3, line: 102 }, 1), { x: 10 + 4 * 8, y: 20 + 2 * 16 }, "right edge");
 
 // touchDistance / fontSizeFromPinch: two fingers scale the terminal font size.
 eq(touchDistance({ clientX: 0, clientY: 0 }, { clientX: 3, clientY: 4 }), 5, "euclidean distance");
