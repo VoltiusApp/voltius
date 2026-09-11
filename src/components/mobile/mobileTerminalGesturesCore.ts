@@ -53,23 +53,28 @@ export function linesFromPixelDelta(
   return { lines, carry: total - lines };
 }
 
-export type Selection =
-  | { kind: "line"; startCol: number; line: number; len: number }
-  | { kind: "lines"; start: number; end: number };
+export type Selection = { start: Cell; end: Cell };
 
-/**
- * Extend a selection seeded by the word [anchorStart..anchorEnd] (same line) out to `focus`.
- * Same line → character-precise range; crossing lines → whole-line range (xterm public-API limit).
- */
+const isBefore = (a: Cell, b: Cell) => a.line < b.line || (a.line === b.line && a.col < b.col);
+const minCell = (a: Cell, b: Cell) => (isBefore(a, b) ? a : b);
+const maxCell = (a: Cell, b: Cell) => (isBefore(a, b) ? b : a);
+
+/** Extend a selection seeded by [anchorStart..anchorEnd] out to `focus`, char-precise across lines. */
 export function extendSelection(anchorStart: Cell, anchorEnd: Cell, focus: Cell): Selection {
-  if (focus.line === anchorStart.line && anchorStart.line === anchorEnd.line) {
-    const lo = Math.min(anchorStart.col, focus.col);
-    const hi = Math.max(anchorEnd.col, focus.col);
-    return { kind: "line", startCol: lo, line: anchorStart.line, len: hi - lo + 1 };
-  }
-  const start = Math.min(anchorStart.line, focus.line);
-  const end = Math.max(anchorEnd.line, focus.line);
-  return { kind: "lines", start, end };
+  return { start: minCell(anchorStart, focus), end: maxCell(anchorEnd, focus) };
+}
+
+/** Char count `term.select(col, row, length)` needs to cover [start..end] inclusive, given terminal width. */
+export function selectionLength(start: Cell, end: Cell, cols: number): number {
+  return (end.line - start.line) * cols + (end.col - start.col) + 1;
+}
+
+/** Client-coord point at a cell's left (colOffset 0) or right (colOffset 1) edge. */
+export function cellPixel(m: CellMetrics, cell: Cell, colOffset: 0 | 1): { x: number; y: number } {
+  return {
+    x: m.left + (cell.col + colOffset) * m.cellWidth,
+    y: m.top + (cell.line - m.viewportTop) * m.cellHeight,
+  };
 }
 
 /** Distance between the first two touch points of a gesture. */
