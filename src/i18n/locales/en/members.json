@@ -51,6 +51,20 @@
       "JOIN_TERMINAL_SESSION": "Join sessions",
       "VIEW_TERMINAL_SESSIONS": "View sessions"
     },
+    "permissions": {
+      "title": "Permissions",
+      "inheritedFrom": "From {{roles}}",
+      "notGranted": "No role grants this",
+      "effectiveAllowed": "allowed",
+      "effectiveDenied": "denied",
+      "state": { "deny": "Deny", "inherit": "Inherit", "allow": "Allow" },
+      "readOnlyNoManage": "You need the Manage members permission",
+      "readOnlyOwner": "An owner's permissions cannot be overridden",
+      "readOnlySelf": "You cannot change your own permissions",
+      "readOnlyHigherRole": "This member holds a role at or above yours",
+      "readOnlyNotHeld": "You cannot grant a permission you do not hold",
+      "overrideMarker": "Has permission overrides"
+    },
     "convert": {
       "title": "Share \"{{vault}}\" with other people?",
       "body": "This turns your private vault into a team vault. Everything already in it moves across, so the people you add see it too.",

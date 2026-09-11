@@ -51,6 +51,20 @@
       "JOIN_TERMINAL_SESSION": "Rejoindre des sessions",
       "VIEW_TERMINAL_SESSIONS": "Voir les sessions"
     },
+    "permissions": {
+      "title": "Permissions",
+      "inheritedFrom": "Via {{roles}}",
+      "notGranted": "Aucun rôle ne l'accorde",
+      "effectiveAllowed": "autorisé",
+      "effectiveDenied": "refusé",
+      "state": { "deny": "Refuser", "inherit": "Hériter", "allow": "Autoriser" },
+      "readOnlyNoManage": "Vous avez besoin de la permission Gérer les membres",
+      "readOnlyOwner": "Les permissions d'un propriétaire ne peuvent pas être modifiées",
+      "readOnlySelf": "Vous ne pouvez pas modifier vos propres permissions",
+      "readOnlyHigherRole": "Ce membre a un rôle égal ou supérieur au vôtre",
+      "readOnlyNotHeld": "Vous ne pouvez pas accorder une permission que vous n'avez pas",
+      "overrideMarker": "Permissions personnalisées"
+    },
     "convert": {
       "title": "Partager « {{vault}} » avec d'autres personnes ?",
       "body": "Ceci transforme votre coffre-fort privé en coffre-fort d'équipe. Tout ce qu'il contient déjà y est transféré, et devient donc visible par les personnes que vous ajoutez.",

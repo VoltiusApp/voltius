@@ -51,6 +51,20 @@
       "JOIN_TERMINAL_SESSION": "加入会话",
       "VIEW_TERMINAL_SESSIONS": "查看会话"
     },
+    "permissions": {
+      "title": "权限",
+      "inheritedFrom": "来自 {{roles}}",
+      "notGranted": "没有角色授予此权限",
+      "effectiveAllowed": "已允许",
+      "effectiveDenied": "已拒绝",
+      "state": { "deny": "拒绝", "inherit": "继承", "allow": "允许" },
+      "readOnlyNoManage": "需要「管理成员」权限",
+      "readOnlyOwner": "无法覆盖所有者的权限",
+      "readOnlySelf": "无法修改自己的权限",
+      "readOnlyHigherRole": "该成员的角色不低于你",
+      "readOnlyNotHeld": "无法授予你自己没有的权限",
+      "overrideMarker": "存在权限覆盖"
+    },
     "convert": {
       "title": "要与他人共享 \"{{vault}}\" 吗？",
       "body": "这会将您的私有保险库转变为团队保险库。其中已有的所有内容都会一并转移，因此您添加的人也能看到。",
