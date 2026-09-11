@@ -302,6 +302,25 @@ test("hierarchy: a roleless target is not read-only", () => {
   expect((within(row).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(false);
 });
 
+// The hierarchy check must fail CLOSED (read-only) when the viewer side of the
+// comparison cannot be resolved at all, not just when it loses the comparison.
+test.each([
+  {
+    label: "viewer is undefined",
+    overrides: { viewer: undefined },
+  },
+  {
+    label: "viewer holds no resolvable role",
+    overrides: { viewer: { ...viewerMember, role_ids: [] } },
+  },
+])("hierarchy fails closed when $label", ({ overrides }) => {
+  render(<MemberDetailPanel {...permProps(overrides)} />);
+
+  expect(screen.getByText("members.permissions.readOnlyHigherRole")).toBeTruthy();
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  expect((within(row).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(true);
+});
+
 test("choosing allow on a bit the viewer lacks sends no request", async () => {
   render(<MemberDetailPanel {...permProps()} />);
 
