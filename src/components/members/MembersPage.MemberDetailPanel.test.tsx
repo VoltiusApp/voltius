@@ -32,6 +32,7 @@ vi.mock("@/components/settings/sections/RolesSection", () => ({
 }));
 vi.mock("@/stores/teamStore", () => {
   const state = {
+    membersByTeam: {} as Record<string, TeamMember[]>,
     assignMemberRole: h.assign,
     removeMemberRole: h.remove,
     removeMember: h.removeMember,
@@ -62,6 +63,9 @@ vi.mock("@/services/teamKeyRotation", () => ({
 }));
 
 import { MemberDetailPanel } from "./panels/MemberDetailPanel";
+import { useTeamStore } from "@/stores/teamStore";
+
+const mockStore = useTeamStore.getState() as unknown as { membersByTeam: Record<string, TeamMember[]> };
 
 const baseMember: TeamMember = {
   team_id: "t1",
@@ -99,6 +103,7 @@ beforeEach(() => {
   h.loadMembers.mockResolvedValue(undefined);
   h.setPerms.mockResolvedValue(undefined);
   h.rotate.mockResolvedValue(undefined);
+  mockStore.membersByTeam = {};
   baseProps.onClose = vi.fn();
   baseProps.onUpdated = vi.fn();
 });
@@ -267,6 +272,58 @@ test("permission overrides: renders one row per permission and sends the new mas
   const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
   await entry.undo();
   expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0);
+});
+
+// An older server omits both mask fields entirely; every row would otherwise
+// render live and 404 on click.
+test("no permissions section at all when the server serves neither mask", () => {
+  const legacy = { ...targetMember };
+  delete legacy.permission_allow;
+  delete legacy.permission_deny;
+  render(<MemberDetailPanel {...permProps({ member: legacy })} />);
+
+  expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
+  expect(screen.queryByText("members.permissions.title")).toBeNull();
+});
+
+test("undo re-reads the masks so a concurrent change survives the full replace", async () => {
+  render(<MemberDetailPanel {...permProps()} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.EDIT_KEYS),
+  );
+
+  mockStore.membersByTeam = {
+    t1: [{ ...targetMember, permission_deny: PERM_BITS.EDIT_KEYS | PERM_BITS.CONNECT }],
+  };
+
+  const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
+  await entry.undo();
+
+  expect(h.setPerms).toHaveBeenLastCalledWith("t1", "u2", 0, PERM_BITS.CONNECT);
+});
+
+// CREATE_CUSTOM_ROLES is retired and normally hidden, but it is inside the
+// server's ALL_PERMISSIONS, so a mask carrying it must stay clearable.
+test("a retired bit set in a mask renders an enabled row that can clear it", async () => {
+  const member = { ...targetMember, permission_allow: PERM_BITS.CREATE_CUSTOM_ROLES };
+  render(<MemberDetailPanel {...permProps({ member })} />);
+
+  expect(screen.getByText("members.permissions.readOnlyNotHeld")).toBeTruthy();
+  const row = screen.getByRole("radiogroup", { name: "members.permission.CREATE_CUSTOM_ROLES" });
+  expect((within(row).getByRole("radio", { name: /inherit/i }) as HTMLButtonElement).disabled).toBe(false);
+
+  fireEvent.click(within(row).getByRole("radio", { name: /inherit/i }));
+
+  await waitFor(() => expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0));
+});
+
+test("the retired bit renders no row when neither mask carries it", () => {
+  render(<MemberDetailPanel {...permProps()} />);
+
+  expect(screen.queryByRole("radiogroup", { name: "members.permission.CREATE_CUSTOM_ROLES" })).toBeNull();
 });
 
 test("a notHeld lock enables exactly the offending row, not the others", async () => {

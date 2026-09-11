@@ -121,8 +121,14 @@ export function MemberDetailPanel({
   const deny = member.permission_deny ?? 0;
   const viewerEffective = viewer ? effectivePermissions(viewer, teamRoles) : 0;
 
+  // A server predating overrides omits both masks; a zero mask serializes as 0.
+  const serverSupportsOverrides =
+    member.permission_allow !== undefined || member.permission_deny !== undefined;
+
+  // Retired, but shown when set: otherwise no row can clear it as an offending bit.
   const editablePermissions = (Object.keys(PERM_META) as Permission[])
-    .filter((p) => p !== "CREATE_CUSTOM_ROLES");
+    .filter((p) => p !== "CREATE_CUSTOM_ROLES"
+      || ((allow | deny) & PERM_BITS.CREATE_CUSTOM_ROLES) !== 0);
 
   const rolesGranting = (permission: Permission) =>
     teamRoles
@@ -164,8 +170,14 @@ export function MemberDetailPanel({
     useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
 
   const commitOverride = async (permission: Permission, next: OverrideState, rotate: boolean) => {
-    const previous = { allow, deny };
     const updated = applyOverrideState(permission, allow, deny, next);
+    // Undo/redo re-read the masks so a concurrent admin's unrelated bits survive
+    // the full-replace PUT; only the bit this entry owns moves.
+    const at = (state: OverrideState) => () => {
+      const m = useTeamStore.getState().membersByTeam[teamId]?.find((x) => x.user_id === member.user_id);
+      const masks = applyOverrideState(permission, m?.permission_allow ?? 0, m?.permission_deny ?? 0, state);
+      return useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
+    };
     setError("");
     setOverriding(true);
     try {
@@ -174,8 +186,8 @@ export function MemberDetailPanel({
         success: t("members.toast.permissionsUpdated", { name: member.handle }),
         label: t("members.history.changePermissions", { name: member.handle }),
         run: write(updated),
-        undo: write(previous),
-        redo: write(updated),
+        undo: at(overrideStateOf(permission, allow, deny)),
+        redo: at(next),
       });
       onUpdated();
       if (rotate) void checkAndRotateTeamKey(teamId);
@@ -282,6 +294,7 @@ export function MemberDetailPanel({
         </FormSection>
 
         {/* Permissions */}
+        {serverSupportsOverrides && (
         <FormSection label={t("members.permissions.title")}>
           {readOnlyReason && (
             <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>
@@ -303,6 +316,7 @@ export function MemberDetailPanel({
             })}
           </div>
         </FormSection>
+        )}
 
         {/* Info */}
         <FormSection label={t("members.info")}>
