@@ -42,11 +42,15 @@ export const PERM_BITS: Record<Permission, number> = {
 };
 
 /** OR together all permission bits for a member's assigned roles. */
-export function effectivePermissions(member: { role_ids: string[] }, roles: TeamRole[]): number {
-  return member.role_ids.reduce((acc, rid) => {
+export function effectivePermissions(
+  member: { role_ids: string[]; permission_allow?: number; permission_deny?: number },
+  roles: TeamRole[],
+): number {
+  const union = member.role_ids.reduce((acc, rid) => {
     const role = roles.find((r) => r.id === rid);
     return acc | (role?.permissions ?? 0);
   }, 0);
+  return (union | (member.permission_allow ?? 0)) & ~(member.permission_deny ?? 0);
 }
 
 /** True if member holds the builtin role with the given name in this team. */

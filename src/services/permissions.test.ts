@@ -1,5 +1,5 @@
-import { test, expect } from "vitest";
-import { resolveCan, PERM_BITS, type PermissionSnapshot } from "./permissions.ts";
+import { test, expect, describe, it } from "vitest";
+import { resolveCan, PERM_BITS, effectivePermissions, type PermissionSnapshot } from "./permissions.ts";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
 
@@ -75,4 +75,43 @@ test("fallback denies when team unknown or roles empty", () => {
   expect(
     resolveCan(snap({ teams: [team("t1", ["r1"])], rolesByTeam: { t1: [] } }), "VIEW_SECRETS", "t1"),
   ).toBe(false);
+});
+
+describe("effectivePermissions with member overrides", () => {
+  const roles: TeamRole[] = [
+    { id: "r1", team_id: "t1", name: "editor", permissions: PERM_BITS.CONNECT | PERM_BITS.VIEW_SECRETS, is_builtin: true, position: 2, created_at: "" },
+  ];
+
+  it("returns the role union when no override is present", () => {
+    expect(effectivePermissions({ role_ids: ["r1"] }, roles)).toBe(
+      PERM_BITS.CONNECT | PERM_BITS.VIEW_SECRETS,
+    );
+  });
+
+  it("adds allowed bits the roles do not grant", () => {
+    expect(
+      effectivePermissions({ role_ids: ["r1"], permission_allow: PERM_BITS.EDIT_KEYS }, roles),
+    ).toBe(PERM_BITS.CONNECT | PERM_BITS.VIEW_SECRETS | PERM_BITS.EDIT_KEYS);
+  });
+
+  it("removes denied bits the roles do grant", () => {
+    expect(
+      effectivePermissions({ role_ids: ["r1"], permission_deny: PERM_BITS.VIEW_SECRETS }, roles),
+    ).toBe(PERM_BITS.CONNECT);
+  });
+
+  it("lets deny win when a bit is in both masks", () => {
+    expect(
+      effectivePermissions(
+        { role_ids: [], permission_allow: PERM_BITS.CONNECT, permission_deny: PERM_BITS.CONNECT },
+        roles,
+      ),
+    ).toBe(0);
+  });
+
+  it("grants an allowed bit to a member holding no roles", () => {
+    expect(
+      effectivePermissions({ role_ids: [], permission_allow: PERM_BITS.CONNECT }, roles),
+    ).toBe(PERM_BITS.CONNECT);
+  });
 });

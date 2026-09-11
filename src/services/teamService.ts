@@ -11,6 +11,8 @@ export interface Team {
   owner_tier: string;
   created_at: string;
   role_ids: string[];
+  permission_allow?: number;
+  permission_deny?: number;
 }
 
 export interface TeamMember {
@@ -21,6 +23,8 @@ export interface TeamMember {
   joined_at: string;
   public_key: string;
   role_ids: string[];
+  permission_allow?: number;
+  permission_deny?: number;
   is_online?: boolean;
   /** An older server (no migration 035) omits this. Never render a bare "@" when absent. */
   handle?: string;
