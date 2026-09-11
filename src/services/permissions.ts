@@ -41,7 +41,6 @@ export const PERM_BITS: Record<Permission, number> = {
   EDIT_SNIPPETS:          1 << 16,  // 65536
 };
 
-/** OR together all permission bits for a member's assigned roles. */
 export function effectivePermissions(
   member: { role_ids: string[]; permission_allow?: number; permission_deny?: number },
   roles: TeamRole[],
@@ -99,7 +98,7 @@ export function resolveCan(
 
   const myTeam = snapshot.teams.find((t) => t.id === teamId);
   if (!myTeam || roles.length === 0) return false;
-  return (effectivePermissions({ role_ids: myTeam.role_ids }, roles) & PERM_BITS[permission]) !== 0;
+  return (effectivePermissions(myTeam, roles) & PERM_BITS[permission]) !== 0;
 }
 
 /**

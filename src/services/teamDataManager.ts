@@ -110,7 +110,7 @@ function applyFirstViewNav(teamId: string): void {
   const team = teams.find((t) => t.id === teamId);
   const roles = rolesByTeam[teamId];
   if (!team || !roles || roles.length === 0) return;
-  const nav = firstViewNav(effectivePermissions({ role_ids: team.role_ids }, roles));
+  const nav = firstViewNav(effectivePermissions(team, roles));
   if (isMobileShell()) {
     const { tab, screen } = mobileFirstViewTarget(nav);
     useMobileNavStore.getState().setTab(tab);

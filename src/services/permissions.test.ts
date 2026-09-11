@@ -100,13 +100,13 @@ describe("effectivePermissions with member overrides", () => {
     ).toBe(PERM_BITS.CONNECT);
   });
 
-  it("lets deny win when a bit is in both masks", () => {
+  it("lets deny win when a role-granted bit is in both allow and deny masks", () => {
     expect(
       effectivePermissions(
-        { role_ids: [], permission_allow: PERM_BITS.CONNECT, permission_deny: PERM_BITS.CONNECT },
+        { role_ids: ["r1"], permission_allow: PERM_BITS.VIEW_SECRETS, permission_deny: PERM_BITS.VIEW_SECRETS },
         roles,
       ),
-    ).toBe(0);
+    ).toBe(PERM_BITS.CONNECT);
   });
 
   it("grants an allowed bit to a member holding no roles", () => {
@@ -114,4 +114,13 @@ describe("effectivePermissions with member overrides", () => {
       effectivePermissions({ role_ids: [], permission_allow: PERM_BITS.CONNECT }, roles),
     ).toBe(PERM_BITS.CONNECT);
   });
+});
+
+test("resolveCan uses team-level deny in the team fallback (before membersByTeam loads)", () => {
+  const s = snap({
+    teams: [{ id: "t1", name: "t1", owner_id: "o", owner_tier: "team", created_at: "", role_ids: ["r1"], permission_deny: PERM_BITS.VIEW_SECRETS }],
+    rolesByTeam: { t1: [role("r1", PERM_BITS.VIEW_SECRETS | PERM_BITS.CONNECT)] },
+  });
+  expect(resolveCan(s, "VIEW_SECRETS", "t1")).toBe(false);
+  expect(resolveCan(s, "CONNECT", "t1")).toBe(true);
 });
