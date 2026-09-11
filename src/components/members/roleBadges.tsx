@@ -5,6 +5,8 @@ import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
 import { ROLE_META, RolePermissionTooltip } from "@/components/members/roleChips";
 
+const INLINE_WRAPPER_CLASS = "inline-flex items-center gap-1";
+
 export function RoleChip({ role }: { role: TeamRole }) {
   const [showTip, setShowTip] = useState(false);
   const meta = ROLE_META[role.name];
@@ -57,7 +59,7 @@ export function RoleBadges({
   if (memberRoles.length === 0) {
     if (canManage && onAddRole) {
       return (
-        <div className="flex items-center gap-1">
+        <span className={INLINE_WRAPPER_CLASS}>
           <button
             onClick={(e) => { e.stopPropagation(); onAddRole(); }}
             className="text-[10px] transition-colors"
@@ -68,14 +70,14 @@ export function RoleBadges({
             {t("members.noRoleAddPrompt")}
           </button>
           {marker}
-        </div>
+        </span>
       );
     }
     return (
-      <div className="flex items-center gap-1">
+      <span className={INLINE_WRAPPER_CLASS}>
         <span className="text-[10px] text-(--t-text-dim)">{t("members.noRole")}</span>
         {marker}
-      </div>
+      </span>
     );
   }
   return (

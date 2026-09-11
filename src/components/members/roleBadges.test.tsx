@@ -51,6 +51,18 @@ test("no-role member with canManage and onAddRole and no overrides shows no mark
   expect(screen.queryByTestId("override-marker")).toBeNull();
 });
 
+test("the noRole wrapper is inline, not a block, so surrounding text does not break", () => {
+  render(<RoleBadges member={member(PERM_BITS.CONNECT, 0)} roles={[]} />);
+  expect(screen.getByTestId("override-marker").parentElement?.tagName).toBe("SPAN");
+});
+
+test("the add-role wrapper is inline, not a block, so surrounding text does not break", () => {
+  render(
+    <RoleBadges member={member(PERM_BITS.CONNECT, 0)} roles={[]} canManage onAddRole={() => {}} />,
+  );
+  expect(screen.getByTestId("override-marker").parentElement?.tagName).toBe("SPAN");
+});
+
 test("member with a resolvable role and an override shows the marker", () => {
   render(<RoleBadges member={member(PERM_BITS.CONNECT, 0, ["r1"])} roles={[role]} />);
   expect(screen.getByTestId("override-marker")).toBeTruthy();
