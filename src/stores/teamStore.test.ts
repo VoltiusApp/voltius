@@ -148,6 +148,16 @@ test("loadTeams unions the bits of every role a member holds", async () => {
   expect(cachedRoles()).toEqual({ t1: 12 });
 });
 
+test("loadTeams caches freshly served override masks even when nothing else changed", async () => {
+  const before = { ...team("t1", ["r1"]), permission_allow: 0, permission_deny: 0 };
+  useTeamStore.setState({ teams: [before] });
+  api.listTeams.mockResolvedValue([{ ...before, permission_deny: 8 }]);
+  api.listRoles.mockResolvedValue([role("r1", 12)]);
+  await get().loadTeams();
+  expect(get().teams[0].permission_deny).toBe(8);
+  expect(cachedRoles()).toEqual({ t1: 4 });
+});
+
 test("loadTeams omits a team whose roles cannot be resolved", async () => {
   api.listTeams.mockResolvedValue([team("t1", ["r1"])]);
   api.listRoles.mockRejectedValue(new Error("offline"));
