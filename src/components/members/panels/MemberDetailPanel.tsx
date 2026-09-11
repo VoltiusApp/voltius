@@ -122,17 +122,36 @@ export function MemberDetailPanel({
       .filter((r) => member.role_ids.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
       .map((r) => r.name);
 
-  const readOnlyReason: string | null = (() => {
-    if (!canManageMembers) return t("members.permissions.readOnlyNoManage");
-    if (isTargetOwner) return t("members.permissions.readOnlyOwner");
-    if (isMe) return t("members.permissions.readOnlySelf");
+  const offendingBits = allow & ~viewerEffective;
+
+  type ReadOnlyReasonKind = "noManage" | "owner" | "self" | "higherRole" | "notHeld";
+  const READONLY_REASON_KEYS: Record<ReadOnlyReasonKind, string> = {
+    noManage: "members.permissions.readOnlyNoManage",
+    owner: "members.permissions.readOnlyOwner",
+    self: "members.permissions.readOnlySelf",
+    higherRole: "members.permissions.readOnlyHigherRole",
+    notHeld: "members.permissions.readOnlyNotHeld",
+  };
+
+  const readOnlyReasonKind: ReadOnlyReasonKind | null = (() => {
+    if (!canManageMembers) return "noManage";
+    if (isTargetOwner) return "owner";
+    if (isMe) return "self";
     const viewerMin = viewer ? minRolePosition(viewer.role_ids, teamRoles) : null;
     const targetMin = minRolePosition(member.role_ids, teamRoles);
     const hierarchyFails = !viewer || viewerMin === null || (targetMin !== null && viewerMin >= targetMin);
-    if (hierarchyFails) return t("members.permissions.readOnlyHigherRole");
-    if ((allow & ~viewerEffective) !== 0) return t("members.permissions.readOnlyNotHeld");
+    if (hierarchyFails) return "higherRole";
+    if (offendingBits !== 0) return "notHeld";
     return null;
   })();
+
+  const readOnlyReason: string | null = readOnlyReasonKind ? t(READONLY_REASON_KEYS[readOnlyReasonKind]) : null;
+
+  // A whole-mask notHeld lock still lets the admin clear the very bit that
+  // caused it — clearing it produces a mask the server accepts.
+  const rowDisabled = (permission: Permission) =>
+    overriding || (readOnlyReasonKind !== null &&
+      (readOnlyReasonKind !== "notHeld" || (PERM_BITS[permission] & offendingBits) === 0));
 
   const write = (masks: { allow: number; deny: number }) => () =>
     useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
@@ -260,7 +279,7 @@ export function MemberDetailPanel({
                   state={overrideStateOf(permission, allow, deny)}
                   inheritedFrom={granting}
                   inheritedGrants={granting.length > 0}
-                  disabled={readOnlyReason !== null || overriding}
+                  disabled={rowDisabled(permission)}
                   onChange={(next) => void handleOverride(permission, next)}
                 />
               );

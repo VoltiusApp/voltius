@@ -258,6 +258,28 @@ test("permission overrides: renders one row per permission and sends the new mas
   await waitFor(() =>
     expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.EDIT_KEYS),
   );
+
+  const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
+  await entry.undo();
+  expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0);
+});
+
+test("a notHeld lock enables exactly the offending row, not the others", async () => {
+  const member = { ...targetMember, permission_allow: PERM_BITS.CONNECT };
+  render(<MemberDetailPanel {...permProps({ member })} />);
+
+  const connectRow = screen.getByRole("radiogroup", { name: "members.permission.CONNECT" });
+  expect((within(connectRow).getByRole("radio", { name: /allow/i }) as HTMLButtonElement).disabled).toBe(false);
+  expect((within(connectRow).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(false);
+
+  const otherRow = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  expect((within(otherRow).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(true);
+
+  fireEvent.click(within(connectRow).getByRole("radio", { name: /inherit/i }));
+
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0),
+  );
 });
 
 test.each([
