@@ -209,7 +209,7 @@ test("a navigate link reaches the handler without opening a prompt", () => {
   const seen: string[] = [];
   useDeepLinkStore.getState().setUnpromptedHandler((i) => seen.push(i.route));
   useDeepLinkStore.getState().setReady(true);
-  handleDeepLink("voltius://settings?section=vaults");
+  handleDeepLink("voltius://settings?section=sync");
   handleDeepLink("voltius://billing");
   expect(seen).toEqual(["settings", "billing"]);
   expect(useDeepLinkStore.getState().prompt).toBeNull();
@@ -229,7 +229,7 @@ test("the same navigate link delivered twice reaches the handler once", () => {
   const seen: string[] = [];
   useDeepLinkStore.getState().setUnpromptedHandler((i) => seen.push(i.route));
   useDeepLinkStore.getState().setReady(true);
-  handleDeepLink("voltius://settings?section=vaults");
-  handleDeepLink("voltius://settings?section=vaults");
+  handleDeepLink("voltius://settings?section=sync");
+  handleDeepLink("voltius://settings?section=sync");
   expect(seen).toEqual(["settings"]);
 });
