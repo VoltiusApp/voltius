@@ -27,8 +27,6 @@ export function MemberDetailPanel({
   member, isMe, teamId, teamRoles, canManageMembers, isTargetOwner, onClose, onUpdated,
 }: MemberDetailPanelProps) {
   const { t } = useTranslation();
-  const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
-  const removeMemberRole = useTeamStore((s) => s.removeMemberRole);
   const push = useHistoryStore((s) => s.push);
 
   const [error, setError] = useState("");
@@ -43,51 +41,50 @@ export function MemberDetailPanel({
   // offering Leave to an owner would promise something that 403s.
   const canLeave = isMe && !isTargetOwner;
 
+  const runReversible = async (opts: {
+    pending: string;
+    success: string;
+    label: string;
+    run: () => Promise<void>;
+    undo: () => Promise<void>;
+    redo: () => Promise<void>;
+  }) => {
+    await runTeamAction({ pending: opts.pending, success: opts.success, run: opts.run });
+    push({
+      label: opts.label,
+      undo: async () => { await opts.undo(); onUpdated(); },
+      redo: async () => { await opts.redo(); onUpdated(); },
+    });
+  };
+
   const handleToggleRole = async (role: TeamRole) => {
     const hasRole = member.role_ids.includes(role.id);
-    // Block removing the owner role from an owner
     if (hasRole && isTargetOwner && role.is_builtin && role.name === "owner") {
       setError(t("members.error.cannotRemoveOwnerRole"));
       return;
     }
+    const store = useTeamStore.getState();
+    const assign = () => store.assignMemberRole(teamId, member.user_id, role.id);
+    const remove = () => store.removeMemberRole(teamId, member.user_id, role.id);
+
     setToggling(role.id);
     setError("");
     try {
-      if (hasRole) {
-        await runTeamAction({
-          pending: t("members.toast.removingRoleFrom", { role: role.name, name: member.handle }),
-          success: t("members.toast.roleRemovedFrom", { role: role.name, name: member.handle }),
-          run: () => removeMemberRole(teamId, member.user_id, role.id),
-        });
-        push({
-          label: t("members.history.removeRole", { name: member.handle }),
-          undo: async () => {
-            await useTeamStore.getState().assignMemberRole(teamId, member.user_id, role.id);
-            onUpdated();
-          },
-          redo: async () => {
-            await useTeamStore.getState().removeMemberRole(teamId, member.user_id, role.id);
-            onUpdated();
-          },
-        });
-      } else {
-        await runTeamAction({
-          pending: t("members.toast.assigningRoleTo", { role: role.name, name: member.handle }),
-          success: t("members.toast.roleAssignedTo", { role: role.name, name: member.handle }),
-          run: () => assignMemberRole(teamId, member.user_id, role.id),
-        });
-        push({
-          label: t("members.history.assignRole", { name: member.handle }),
-          undo: async () => {
-            await useTeamStore.getState().removeMemberRole(teamId, member.user_id, role.id);
-            onUpdated();
-          },
-          redo: async () => {
-            await useTeamStore.getState().assignMemberRole(teamId, member.user_id, role.id);
-            onUpdated();
-          },
-        });
-      }
+      await runReversible(
+        hasRole
+          ? {
+              pending: t("members.toast.removingRoleFrom", { role: role.name, name: member.handle }),
+              success: t("members.toast.roleRemovedFrom", { role: role.name, name: member.handle }),
+              label: t("members.history.removeRole", { name: member.handle }),
+              run: remove, undo: assign, redo: remove,
+            }
+          : {
+              pending: t("members.toast.assigningRoleTo", { role: role.name, name: member.handle }),
+              success: t("members.toast.roleAssignedTo", { role: role.name, name: member.handle }),
+              label: t("members.history.assignRole", { name: member.handle }),
+              run: assign, undo: remove, redo: assign,
+            },
+      );
       onUpdated();
       setJustToggled(role.id);
       setTimeout(() => setJustToggled(null), 700);
