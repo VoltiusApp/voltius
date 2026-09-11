@@ -12,11 +12,12 @@ import { getAuditTimeRange, type AuditTimeRange } from "./auditLogToolbarUtils";
 function getActionOptions(t: TFunction) {
   return [
     { value: "", label: t("logs.filters.actionOptions.all") },
-    { value: "member.invited",      label: t("logs.filters.actionOptions.memberInvited") },
-    { value: "member.joined",       label: t("logs.filters.actionOptions.memberJoined") },
-    { value: "member.removed",      label: t("logs.filters.actionOptions.memberRemoved") },
-    { value: "member.role_changed", label: t("logs.filters.actionOptions.memberRoleChanged") },
-    { value: "connection.created",  label: t("logs.filters.actionOptions.connectionCreated") },
+    { value: "member.invited",                label: t("logs.filters.actionOptions.memberInvited") },
+    { value: "member.joined",                 label: t("logs.filters.actionOptions.memberJoined") },
+    { value: "member.removed",                label: t("logs.filters.actionOptions.memberRemoved") },
+    { value: "member.role_changed",           label: t("logs.filters.actionOptions.memberRoleChanged") },
+    { value: "member.permissions_changed",    label: t("logs.filters.actionOptions.memberPermissionsChanged") },
+    { value: "connection.created",            label: t("logs.filters.actionOptions.connectionCreated") },
     { value: "connection.updated",  label: t("logs.filters.actionOptions.connectionUpdated") },
     { value: "connection.deleted",  label: t("logs.filters.actionOptions.connectionDeleted") },
     { value: "identity.created",    label: t("logs.filters.actionOptions.identityCreated") },
