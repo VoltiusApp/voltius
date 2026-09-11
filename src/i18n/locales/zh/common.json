@@ -120,6 +120,8 @@
       "failedToRemoveMember": "移除成员失败：{{status}}",
       "failedToAssignRole": "分配角色失败：{{status}}",
       "failedToRemoveRole": "移除角色失败：{{status}}",
+      "insufficientPermissionSetMemberPermissions": "您没有权限修改该成员的权限",
+      "failedToSetMemberPermissions": "设置成员权限失败（{{status}}）",
       "failedToCreateRole": "创建角色失败：{{status}}",
       "failedToUpdateRole": "更新角色失败：{{status}}",
       "failedToDeleteRole": "删除角色失败：{{status}}",

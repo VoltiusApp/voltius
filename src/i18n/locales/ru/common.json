@@ -120,6 +120,8 @@
       "failedToRemoveMember": "Не удалось удалить участника: {{status}}",
       "failedToAssignRole": "Не удалось назначить роль: {{status}}",
       "failedToRemoveRole": "Не удалось удалить роль: {{status}}",
+      "insufficientPermissionSetMemberPermissions": "У вас нет прав на изменение разрешений этого участника",
+      "failedToSetMemberPermissions": "Не удалось задать разрешения участника ({{status}})",
       "failedToCreateRole": "Не удалось создать роль: {{status}}",
       "failedToUpdateRole": "Не удалось обновить роль: {{status}}",
       "failedToDeleteRole": "Не удалось удалить роль: {{status}}",

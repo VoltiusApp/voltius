@@ -205,6 +205,24 @@ export async function removeMemberRole(
   }
 }
 
+export async function setMemberPermissions(
+  teamId: string,
+  userId: string,
+  allow: number,
+  deny: number,
+): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}/permissions`, {
+    method: "PUT",
+    body: JSON.stringify({ allow, deny }),
+  });
+  if (!res.ok) {
+    if (res.status === 403) throw new Error(i18n.t("common.error.insufficientPermissionSetMemberPermissions"));
+    throw new Error(i18n.t("common.error.failedToSetMemberPermissions", { status: res.status }));
+  }
+}
+
 // ─── Roles CRUD ───────────────────────────────────────────────────────────────
 
 export async function listRoles(teamId: string): Promise<TeamRole[]> {

@@ -39,6 +39,7 @@ interface TeamStore {
   deleteRole: (teamId: string, roleId: string) => Promise<void>;
   assignMemberRole: (teamId: string, userId: string, roleId: string) => Promise<void>;
   removeMemberRole: (teamId: string, userId: string, roleId: string) => Promise<void>;
+  setMemberPermissions: (teamId: string, userId: string, allow: number, deny: number) => Promise<void>;
 }
 
 /**
@@ -263,6 +264,18 @@ export const useTeamStore = create<TeamStore>()(
           m.user_id === userId
             ? { ...m, role_ids: m.role_ids.filter((rid) => rid !== roleId) }
             : m,
+        ),
+      },
+    }));
+  },
+
+  setMemberPermissions: async (teamId, userId, allow, deny) => {
+    await api.setMemberPermissions(teamId, userId, allow, deny);
+    set((s) => ({
+      membersByTeam: {
+        ...s.membersByTeam,
+        [teamId]: (s.membersByTeam[teamId] ?? []).map((m) =>
+          m.user_id === userId ? { ...m, permission_allow: allow, permission_deny: deny } : m,
         ),
       },
     }));
