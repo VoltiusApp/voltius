@@ -164,6 +164,14 @@ describe("crossesVaultKeyGate", () => {
       crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.EDIT_KEYS }),
     ).toBe(false);
   });
+
+  it("role grants VIEW_SECRETS and an unrelated bit; deny VIEW_SECRETS still crosses", () => {
+    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS | PERM_BITS.EDIT_KEYS)];
+    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
+    expect(
+      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS }),
+    ).toBe(true);
+  });
 });
 
 test("resolveCan uses team-level deny in the team fallback (before membersByTeam loads)", () => {

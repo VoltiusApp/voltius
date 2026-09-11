@@ -515,6 +515,7 @@ const vaultTabs = selectedVaultIds.length > 1
         showDetailPanel && detailMember
           ? (
             <MemberDetailPanel
+              key={detailMember.user_id}
               member={detailMember}
               isMe={detailMember.user_id === myUserId}
               teamId={teamId}

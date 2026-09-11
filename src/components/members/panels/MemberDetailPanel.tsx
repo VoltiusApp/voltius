@@ -157,7 +157,7 @@ export function MemberDetailPanel({
   // A whole-mask notHeld lock still lets the admin clear the very bit that
   // caused it — clearing it produces a mask the server accepts.
   const rowDisabled = (permission: Permission) =>
-    overriding || (readOnlyReasonKind !== null &&
+    overriding || pendingRevoke !== null || (readOnlyReasonKind !== null &&
       (readOnlyReasonKind !== "notHeld" || (PERM_BITS[permission] & offendingBits) === 0));
 
   const write = (masks: { allow: number; deny: number }) => () =>

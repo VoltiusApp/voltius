@@ -283,7 +283,7 @@ test("a notHeld lock enables exactly the offending row, not the others", async (
   fireEvent.click(within(connectRow).getByRole("radio", { name: /inherit/i }));
 
   // Clearing the member's only source of CONNECT crosses the vault key gate,
-  // so this now routes through the confirmation dialog before writing.
+  // so this routes through the confirmation dialog before writing.
   fireEvent.click(await screen.findByRole("button", { name: "members.revokeKeyAccess.confirm" }));
 
   await waitFor(() =>
@@ -380,7 +380,21 @@ test("a gate-crossing change opens the dialog and writes nothing yet", async () 
   expect(h.setPerms).not.toHaveBeenCalled();
 });
 
+test("every row is inert while the revoke dialog is open", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  await screen.findByText("members.revokeKeyAccess.title");
+
+  const otherRow = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+  expect((within(otherRow).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(true);
+});
+
 test("confirming the dialog writes, then kicks rotation after the write resolves", async () => {
+  let resolveSet: () => void = () => {};
+  h.setPerms.mockImplementation(() => new Promise<void>((resolve) => { resolveSet = resolve; }));
+
   render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
 
   const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
@@ -390,8 +404,10 @@ test("confirming the dialog writes, then kicks rotation after the write resolves
   await waitFor(() =>
     expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.VIEW_SECRETS),
   );
+  expect(h.rotate).not.toHaveBeenCalled();
+
+  resolveSet();
   await waitFor(() => expect(h.rotate).toHaveBeenCalledWith("t1"));
-  expect(h.setPerms.mock.invocationCallOrder[0]).toBeLessThan(h.rotate.mock.invocationCallOrder[0]);
 });
 
 test("cancelling the dialog writes nothing and rotates nothing", async () => {
