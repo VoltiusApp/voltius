@@ -21,6 +21,7 @@ export type Permission =
   | "EDIT_SNIPPETS";
 
 // Bitmask values for each permission — must stay in sync with server/src/permissions.rs
+// JS bitwise ops coerce to 32-bit signed, so bit 31 and above cannot be used here.
 export const PERM_BITS: Record<Permission, number> = {
   VIEW_SECRETS:           1 << 0,   //     1
   COPY_SECRETS:           1 << 1,   //     2
