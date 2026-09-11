@@ -52,6 +52,21 @@ export function effectivePermissions(
   return (union | (member.permission_allow ?? 0)) & ~(member.permission_deny ?? 0);
 }
 
+const VAULT_KEY_GATE = PERM_BITS.CONNECT | PERM_BITS.VIEW_SECRETS;
+
+export function crossesVaultKeyGate(
+  member: { role_ids: string[]; permission_allow?: number; permission_deny?: number },
+  roles: TeamRole[],
+  next: { allow: number; deny: number },
+): boolean {
+  const before = effectivePermissions(member, roles) & VAULT_KEY_GATE;
+  const after = effectivePermissions(
+    { role_ids: member.role_ids, permission_allow: next.allow, permission_deny: next.deny },
+    roles,
+  ) & VAULT_KEY_GATE;
+  return before !== 0 && after === 0;
+}
+
 /** True if member holds the builtin role with the given name in this team. */
 export function hasBuiltinRole(member: TeamMember, roleName: string, roles: TeamRole[]): boolean {
   const target = roles.find((r) => r.is_builtin && r.name === roleName);

@@ -65,6 +65,11 @@
       "readOnlyNotHeld": "You cannot grant a permission you do not hold",
       "overrideMarker": "Has permission overrides"
     },
+    "revokeKeyAccess": {
+      "title": "Revoke {{name}}'s access to the vault key?",
+      "body": "{{name}} will no longer be able to connect or view secrets in this vault. They keep a copy of the current key and can still read secrets already synced to their device, so the vault key will be rotated for the remaining members.",
+      "confirm": "Revoke and rotate key"
+    },
     "convert": {
       "title": "Share \"{{vault}}\" with other people?",
       "body": "This turns your private vault into a team vault. Everything already in it moves across, so the people you add see it too.",

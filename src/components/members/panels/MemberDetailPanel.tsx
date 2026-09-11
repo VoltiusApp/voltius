@@ -10,8 +10,12 @@ import { RoleModal } from "@/components/settings/sections/RolesSection";
 import { ROLE_META, RoleBlurb } from "@/components/members/roleChips";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
+import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import type { DepartMode } from "@/services/teamOffboarding";
-import { PERM_BITS, PERM_META, effectivePermissions, type Permission } from "@/services/permissions";
+import {
+  PERM_BITS, PERM_META, effectivePermissions, crossesVaultKeyGate, type Permission,
+} from "@/services/permissions";
+import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
 import {
   PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState,
 } from "./PermissionOverrideRow";
@@ -49,6 +53,9 @@ export function MemberDetailPanel({
   const [offboarding, setOffboarding] = useState<DepartMode | null>(null);
   const [creatingRole, setCreatingRole] = useState(false);
   const [overriding, setOverriding] = useState(false);
+  // Stores the intent, not the computed masks — commitOverride recomputes them
+  // from the render current at confirm time, in case member state changed meanwhile.
+  const [pendingRevoke, setPendingRevoke] = useState<{ permission: Permission; next: OverrideState } | null>(null);
 
   const canChangeRoles = canManageMembers && !isMe;
   const canRemove = canManageMembers && !isTargetOwner && !isMe;
@@ -156,11 +163,7 @@ export function MemberDetailPanel({
   const write = (masks: { allow: number; deny: number }) => () =>
     useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
 
-  const handleOverride = async (permission: Permission, next: OverrideState) => {
-    if (next === "allow" && (viewerEffective & PERM_BITS[permission]) === 0) {
-      setError(t("members.permissions.readOnlyNotHeld"));
-      return;
-    }
+  const commitOverride = async (permission: Permission, next: OverrideState, rotate: boolean) => {
     const previous = { allow, deny };
     const updated = applyOverrideState(permission, allow, deny, next);
     setError("");
@@ -175,11 +178,25 @@ export function MemberDetailPanel({
         redo: write(updated),
       });
       onUpdated();
+      if (rotate) void checkAndRotateTeamKey(teamId);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("members.error.failedToUpdatePermissions"));
     } finally {
       setOverriding(false);
     }
+  };
+
+  const handleOverride = async (permission: Permission, next: OverrideState) => {
+    if (next === "allow" && (viewerEffective & PERM_BITS[permission]) === 0) {
+      setError(t("members.permissions.readOnlyNotHeld"));
+      return;
+    }
+    const updated = applyOverrideState(permission, allow, deny, next);
+    if (crossesVaultKeyGate(member, teamRoles, updated)) {
+      setPendingRevoke({ permission, next });
+      return;
+    }
+    await commitOverride(permission, next, false);
   };
 
   const joinedDate = new Date(member.joined_at).toLocaleDateString(undefined, {
@@ -334,6 +351,21 @@ export function MemberDetailPanel({
         mode={offboarding}
         onClose={() => setOffboarding(null)}
         onDone={() => { onClose(); onUpdated(); }}
+      />
+    )}
+
+    {pendingRevoke && (
+      <ConfirmModal
+        tone="warning"
+        title={t("members.revokeKeyAccess.title", { name: member.handle ?? "?" })}
+        message={t("members.revokeKeyAccess.body", { name: member.handle ?? "?" })}
+        confirmLabel={t("members.revokeKeyAccess.confirm")}
+        onCancel={() => setPendingRevoke(null)}
+        onConfirm={() => {
+          const { permission, next } = pendingRevoke;
+          setPendingRevoke(null);
+          void commitOverride(permission, next, true);
+        }}
       />
     )}
     </>

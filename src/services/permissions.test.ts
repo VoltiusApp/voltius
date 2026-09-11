@@ -1,5 +1,5 @@
 import { test, expect, describe, it } from "vitest";
-import { resolveCan, PERM_BITS, effectivePermissions, type PermissionSnapshot } from "./permissions.ts";
+import { resolveCan, PERM_BITS, effectivePermissions, crossesVaultKeyGate, type PermissionSnapshot } from "./permissions.ts";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
 
@@ -113,6 +113,56 @@ describe("effectivePermissions with member overrides", () => {
     expect(
       effectivePermissions({ role_ids: [], permission_allow: PERM_BITS.CONNECT }, roles),
     ).toBe(PERM_BITS.CONNECT);
+  });
+});
+
+describe("crossesVaultKeyGate", () => {
+  it("role grants VIEW_SECRETS only; deny VIEW_SECRETS crosses the gate", () => {
+    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS)];
+    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
+    expect(
+      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS }),
+    ).toBe(true);
+  });
+
+  it("already denying VIEW_SECRETS; submitting the identical deny again does not cross", () => {
+    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS)];
+    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: PERM_BITS.VIEW_SECRETS };
+    expect(
+      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS }),
+    ).toBe(false);
+  });
+
+  it("role grants VIEW_SECRETS and CONNECT; deny VIEW_SECRETS only does not cross (CONNECT still gates)", () => {
+    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS | PERM_BITS.CONNECT)];
+    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
+    expect(
+      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS }),
+    ).toBe(false);
+  });
+
+  it("role grants VIEW_SECRETS and COPY_SECRETS; deny COPY_SECRETS only does not cross", () => {
+    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS | PERM_BITS.COPY_SECRETS)];
+    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
+    expect(
+      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.COPY_SECRETS }),
+    ).toBe(false);
+  });
+
+  it("roleless member with allow VIEW_SECRETS; clearing to inherit crosses", () => {
+    const roles: TeamRole[] = [];
+    const m = { ...member("u1", []), permission_allow: PERM_BITS.VIEW_SECRETS, permission_deny: 0 };
+    expect(
+      crossesVaultKeyGate(m, roles, { allow: 0, deny: 0 }),
+    ).toBe(true);
+  });
+
+  it("role grants VIEW_SECRETS; deny EDIT_KEYS does not cross", () => {
+    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS)];
+    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
+    expect(
+      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.EDIT_KEYS }),
+    ).toBe(false);
   });
 });
 

@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   loadMembers: vi.fn(),
   push: vi.fn(),
   setPerms: vi.fn(),
+  rotate: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -56,6 +57,9 @@ vi.mock("@/stores/historyStore", () => ({
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
+vi.mock("@/services/teamKeyRotation", () => ({
+  checkAndRotateTeamKey: (...a: unknown[]) => h.rotate(...a),
+}));
 
 import { MemberDetailPanel } from "./panels/MemberDetailPanel";
 
@@ -94,6 +98,7 @@ beforeEach(() => {
   h.addMemberById.mockResolvedValue(undefined);
   h.loadMembers.mockResolvedValue(undefined);
   h.setPerms.mockResolvedValue(undefined);
+  h.rotate.mockResolvedValue(undefined);
   baseProps.onClose = vi.fn();
   baseProps.onUpdated = vi.fn();
 });
@@ -277,6 +282,10 @@ test("a notHeld lock enables exactly the offending row, not the others", async (
 
   fireEvent.click(within(connectRow).getByRole("radio", { name: /inherit/i }));
 
+  // Clearing the member's only source of CONNECT crosses the vault key gate,
+  // so this now routes through the confirmation dialog before writing.
+  fireEvent.click(await screen.findByRole("button", { name: "members.revokeKeyAccess.confirm" }));
+
   await waitFor(() =>
     expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0),
   );
@@ -350,6 +359,88 @@ test("choosing allow on a bit the viewer lacks sends no request", async () => {
   fireEvent.click(within(row).getByRole("radio", { name: /allow/i }));
 
   expect(await screen.findByText("members.permissions.readOnlyNotHeld")).toBeTruthy();
+  expect(h.setPerms).not.toHaveBeenCalled();
+});
+
+// ── Vault key gate confirmation ────────────────────────────────────────────
+
+const keyRole: TeamRole = {
+  id: "r-key", team_id: "t1", name: "key-role", is_builtin: false,
+  permissions: PERM_BITS.VIEW_SECRETS, position: 2, created_at: "",
+};
+const keyMember: TeamMember = { ...targetMember, role_ids: ["r-key"] };
+
+test("a gate-crossing change opens the dialog and writes nothing yet", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(h.setPerms).not.toHaveBeenCalled();
+});
+
+test("confirming the dialog writes, then kicks rotation after the write resolves", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  fireEvent.click(await screen.findByRole("button", { name: "members.revokeKeyAccess.confirm" }));
+
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.VIEW_SECRETS),
+  );
+  await waitFor(() => expect(h.rotate).toHaveBeenCalledWith("t1"));
+  expect(h.setPerms.mock.invocationCallOrder[0]).toBeLessThan(h.rotate.mock.invocationCallOrder[0]);
+});
+
+test("cancelling the dialog writes nothing and rotates nothing", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  fireEvent.click(await screen.findByRole("button", { name: "common.action.cancel" }));
+
+  expect(screen.queryByText("members.revokeKeyAccess.title")).toBeNull();
+  expect(h.setPerms).not.toHaveBeenCalled();
+  expect(h.rotate).not.toHaveBeenCalled();
+});
+
+test("a non-crossing change writes immediately with no dialog and no rotation", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.EDIT_KEYS),
+  );
+  expect(screen.queryByText("members.revokeKeyAccess.title")).toBeNull();
+  expect(h.rotate).not.toHaveBeenCalled();
+});
+
+test("a rejected write after confirming does not rotate", async () => {
+  h.setPerms.mockRejectedValueOnce(new Error("boom"));
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  fireEvent.click(await screen.findByRole("button", { name: "members.revokeKeyAccess.confirm" }));
+
+  expect(await screen.findByText("boom")).toBeTruthy();
+  expect(h.rotate).not.toHaveBeenCalled();
+});
+
+test("clearing an allow grant crosses the gate too", async () => {
+  const rolelessMember = {
+    ...targetMember, role_ids: [], permission_allow: PERM_BITS.VIEW_SECRETS, permission_deny: 0,
+  };
+  render(<MemberDetailPanel {...permProps({ member: rolelessMember })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /inherit/i }));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
   expect(h.setPerms).not.toHaveBeenCalled();
 });
 

@@ -65,6 +65,11 @@
       "readOnlyNotHeld": "Vous ne pouvez pas accorder une permission que vous n'avez pas",
       "overrideMarker": "Permissions personnalisées"
     },
+    "revokeKeyAccess": {
+      "title": "Retirer à {{name}} l'accès à la clé du coffre ?",
+      "body": "{{name}} ne pourra plus se connecter ni voir les secrets de ce coffre. Cette personne conserve une copie de la clé actuelle et peut encore lire les secrets déjà synchronisés sur son appareil ; la clé du coffre sera donc changée pour les membres restants.",
+      "confirm": "Retirer et changer la clé"
+    },
     "convert": {
       "title": "Partager « {{vault}} » avec d'autres personnes ?",
       "body": "Ceci transforme votre coffre-fort privé en coffre-fort d'équipe. Tout ce qu'il contient déjà y est transféré, et devient donc visible par les personnes que vous ajoutez.",
