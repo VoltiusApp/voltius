@@ -30,9 +30,9 @@ function manifestVersion(id: string): string {
 
 // Only these two are built for real (one with a stylesheet, one without) — enough
 // to prove hashes match real bundler output. The rest get a cheap stand-in index.js
-// so buildCatalogFragment can still produce a full six-entry fragment for the
-// cardinality/id-correctness assertions, without paying for six vite builds here
-// (tests/pluginBundleBuild.test.ts already exercises all six as real builds).
+// so buildCatalogFragment can still produce a full seeded-entry fragment for the
+// cardinality/id-correctness assertions, without paying for N vite builds here
+// (tests/pluginBundleBuild.test.ts already exercises all seeded plugins as real builds).
 const REAL_BUILDS = ["docker", "monitoring"];
 
 describe("plugin catalogue publish pipeline", () => {
@@ -81,7 +81,7 @@ describe("plugin catalogue publish pipeline", () => {
     }
     expect(ids).not.toContain("docker");
     expect(ids.sort()).toEqual(
-      ["plugin-docker", "plugin-gist-sync", "plugin-monitoring", "plugin-process-manager", "plugin-proxmox", "plugin-ssh-config"].sort(),
+      ["plugin-cloudflare-sync", "plugin-docker", "plugin-gist-sync", "plugin-monitoring", "plugin-process-manager", "plugin-proxmox", "plugin-ssh-config"].sort(),
     );
   });
 
@@ -124,7 +124,7 @@ describe("plugin catalogue publish pipeline", () => {
     }
   });
 
-  // All six manifests declare minAppVersion, so the app-version fallback is no
+  // All seeded manifests declare minAppVersion, so the app-version fallback is no
   // longer reachable through them. Asserting `minAppVersion === APP_VERSION` over
   // the real manifests (as this used to) only passed while the two happened to be
   // the same string, and silently stopped testing the fallback at all — it broke
@@ -301,7 +301,7 @@ describe("CLI entry-point guard", () => {
     const probePath = path.join(spacedDir, "probe.mjs");
     const modulePath = path.join(ROOT, "scripts/build-plugins.mjs");
     // Importing build-plugins.mjs here must NOT trigger main() (which would build
-    // all six real plugins into src-tauri/resources/plugins/) — only probe.mjs
+    // all seeded real plugins into src-tauri/resources/plugins/) — only probe.mjs
     // itself, as the actual CLI entry point, should evaluate as "true".
     writeFileSync(
       probePath,

@@ -17,6 +17,7 @@ const RESOURCES_DIR = path.join(ROOT, "src-tauri/resources/plugins");
 export const FIRST_PARTY_PLUGIN_IDS = [
   "ssh-config",
   "gist-sync",
+  "cloudflare-sync",
   "monitoring",
   "docker",
   "process-manager",
@@ -31,6 +32,7 @@ const GITHUB_REPO = process.env.GITHUB_REPOSITORY || "VoltiusApp/voltius";
 const PLUGIN_TAGS = {
   "ssh-config": ["sync", "ssh"],
   "gist-sync": ["sync", "github"],
+  "cloudflare-sync": ["sync", "cloudflare", "r2"],
   monitoring: ["monitoring", "metrics"],
   docker: ["docker", "containers"],
   "process-manager": ["system", "processes"],

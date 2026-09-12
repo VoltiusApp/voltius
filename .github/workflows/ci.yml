@@ -52,10 +52,10 @@ jobs:
 
       # `pnpm build` exits 0 having built nothing if the plugin loop silently
       # skips, so assert the artifacts actually landed rather than trusting it.
-      - name: Assert all six plugin bundles were produced
+      - name: Assert all seven plugin bundles were produced
         shell: pwsh
         run: |
-          $ids = @('ssh-config','gist-sync','monitoring','docker','process-manager','proxmox')
+          $ids = @('ssh-config','gist-sync','cloudflare-sync','monitoring','docker','process-manager','proxmox')
           foreach ($id in $ids) {
             foreach ($f in @('index.js','manifest.json')) {
               $p = "src-tauri/resources/plugins/$id/$f"
@@ -63,7 +63,7 @@ jobs:
               if ((Get-Item $p).Length -eq 0) { throw "empty $p" }
             }
           }
-          Write-Host "all six plugin bundles present"
+          Write-Host "all seven plugin bundles present"
 
   build:
     runs-on: ubuntu-24.04
