@@ -205,10 +205,24 @@ export function createSettingsPage(api: PluginAPI) {
             <Btn
               disabled={busy || !workerUrl || !token || !passphrase}
               onClick={() =>
-                void run(
-                  () => setupNewVault(workerUrl, token, passphrase),
-                  "Created remote vault and uploaded this device",
-                )
+                void run(async () => {
+                  try {
+                    await setupNewVault(workerUrl, token, passphrase);
+                  } catch (err) {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    if (!msg.includes("already exists")) throw err;
+                    const ok = window.confirm(
+                      "A remote vault already exists on this Worker. Overwrite it? This replaces the remote salt/manifest and can make old device blobs undecryptable with a new passphrase.",
+                    );
+                    if (!ok) throw new Error("Create vault cancelled");
+                    await setupNewVault(workerUrl, token, passphrase, { overwrite: true });
+                  }
+                  const interval =
+                    (await api.storage.get<number>("pollIntervalSeconds")) ?? pollSeconds ?? 60;
+                  stopPoll();
+                  startPoll(interval);
+                  await syncNow({ showProgress: false });
+                }, "Created remote vault and uploaded this device")
               }
             >
               Create vault
@@ -217,10 +231,14 @@ export function createSettingsPage(api: PluginAPI) {
               variant="secondary"
               disabled={busy || !workerUrl || !token || !passphrase}
               onClick={() =>
-                void run(
-                  () => linkExistingVault(workerUrl, token, passphrase),
-                  "Linked existing vault",
-                )
+                void run(async () => {
+                  await linkExistingVault(workerUrl, token, passphrase);
+                  const interval =
+                    (await api.storage.get<number>("pollIntervalSeconds")) ?? pollSeconds ?? 60;
+                  stopPoll();
+                  startPoll(interval);
+                  await syncNow({ showProgress: true });
+                }, "Linked existing vault")
               }
             >
               Link existing

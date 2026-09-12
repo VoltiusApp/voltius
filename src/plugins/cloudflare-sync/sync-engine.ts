@@ -11,6 +11,24 @@ import {
   type WorkerManifest,
 } from "./worker-api";
 
+
+export function normalizeWorkerUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  if (!trimmed) throw new Error("cloudflare-sync: Worker URL is required");
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    throw new Error("cloudflare-sync: Worker URL is invalid");
+  }
+  const host = url.hostname.toLowerCase();
+  const local = host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) {
+    throw new Error("cloudflare-sync: Worker URL must use https:// (http:// only for localhost)");
+  }
+  return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, "")}`;
+}
+
 let _api: PluginAPI;
 let _status: SyncStatus = "idle";
 let _lastSync: Date | null = null;
@@ -123,8 +141,30 @@ export async function setupNewVault(
   workerUrl: string,
   token: string,
   passphrase: string,
+  opts: { overwrite?: boolean } = {},
 ): Promise<void> {
-  await _api.storage.set("workerUrl", workerUrl.replace(/\/+$/, ""));
+  const normalized = normalizeWorkerUrl(workerUrl);
+  if (!token.trim()) throw new Error("cloudflare-sync: sync token is required");
+  if (!passphrase) throw new Error("cloudflare-sync: passphrase is required");
+
+  let remoteExists = false;
+  try {
+    await getManifest(_api.http, normalized, token);
+    remoteExists = true;
+  } catch (err) {
+    if (err instanceof WorkerApiError && err.status === 404) {
+      remoteExists = false;
+    } else {
+      throw err;
+    }
+  }
+  if (remoteExists && !opts.overwrite) {
+    throw new Error(
+      "cloudflare-sync: remote vault already exists — use Link existing, or confirm overwrite",
+    );
+  }
+
+  await _api.storage.set("workerUrl", normalized);
   await _api.vault.set("syncToken", token);
   await _api.vault.set("passphrase", passphrase);
 
@@ -138,10 +178,10 @@ export async function setupNewVault(
     devices: [{ id: deviceId, label: deviceLabel, pushedAt: now }],
   };
 
-  await putManifest(_api.http, workerUrl, token, manifest);
+  await putManifest(_api.http, normalized, token, manifest);
   const encKey = await getEncKey(salt);
   const blob = await _api.sync.exportState(encKey, deviceId);
-  await putDeviceBlob(_api.http, workerUrl, token, deviceId, {
+  await putDeviceBlob(_api.http, normalized, token, deviceId, {
     content: blob,
     label: deviceLabel,
     pushedAt: now,
@@ -157,8 +197,10 @@ export async function linkExistingVault(
   token: string,
   passphrase: string,
 ): Promise<void> {
-  const normalized = workerUrl.replace(/\/+$/, "");
-  await getManifest(_api.http, normalized, token); // validate reachable
+  const normalized = normalizeWorkerUrl(workerUrl);
+  if (!token.trim()) throw new Error("cloudflare-sync: sync token is required");
+  if (!passphrase) throw new Error("cloudflare-sync: passphrase is required");
+  await getManifest(_api.http, normalized, token); // must exist
   await _api.storage.set("workerUrl", normalized);
   await _api.vault.set("syncToken", token);
   await _api.vault.set("passphrase", passphrase);
@@ -193,6 +235,7 @@ export async function push(): Promise<void> {
   const encKey = await getEncKey(manifest.salt);
   const blob = await _api.sync.exportState(encKey, deviceId);
 
+  // Worker PUT /v1/devices/:id also RMW-updates manifest.devices[].pushedAt.
   await putDeviceBlob(_api.http, workerUrl, token, deviceId, {
     content: blob,
     label: deviceLabel,

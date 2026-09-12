@@ -29,7 +29,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === "/v1" || url.pathname.startsWith("/v1/")) {
-    const denied = requireSyncToken(request, env);
+    const denied = await requireSyncToken(request, env);
     if (denied) return denied;
 
     try {

@@ -81,6 +81,9 @@ describe("cloudflare-sync sync-engine", () => {
   test("setupNewVault writes manifest and device blob", async () => {
     const { api, vault, storage } = makeApi();
     init(api);
+    vi.mocked(workerApi.getManifest).mockRejectedValue(
+      new workerApi.WorkerApiError(404, "missing"),
+    );
     vi.mocked(workerApi.putManifest).mockResolvedValue({
       schema: 1,
       salt,
@@ -97,6 +100,45 @@ describe("cloudflare-sync sync-engine", () => {
     expect(workerApi.putDeviceBlob).toHaveBeenCalled();
     expect(api.sync.exportState).toHaveBeenCalled();
     expect(await isConfigured()).toBe(true);
+  });
+
+
+  test("setupNewVault refuses existing remote without overwrite", async () => {
+    const { api } = makeApi();
+    init(api);
+    vi.mocked(workerApi.getManifest).mockResolvedValue({
+      schema: 1,
+      salt,
+      devices: [],
+    });
+    await expect(setupNewVault("https://sync.example.com", "tok", "pass")).rejects.toThrow(
+      /already exists/,
+    );
+    expect(workerApi.putManifest).not.toHaveBeenCalled();
+  });
+
+  test("setupNewVault overwrite replaces existing vault", async () => {
+    const { api } = makeApi();
+    init(api);
+    vi.mocked(workerApi.getManifest).mockResolvedValue({
+      schema: 1,
+      salt,
+      devices: [],
+    });
+    vi.mocked(workerApi.putManifest).mockResolvedValue({
+      schema: 1,
+      salt,
+      devices: [],
+    });
+    vi.mocked(workerApi.putDeviceBlob).mockResolvedValue();
+    await setupNewVault("https://sync.example.com", "tok", "pass", { overwrite: true });
+    expect(workerApi.putManifest).toHaveBeenCalled();
+  });
+
+  test("normalizeWorkerUrl rejects plain http remote hosts", async () => {
+    const { normalizeWorkerUrl } = await import("./sync-engine");
+    expect(() => normalizeWorkerUrl("http://evil.example.com")).toThrow(/https/);
+    expect(normalizeWorkerUrl("https://ok.example.com/")).toBe("https://ok.example.com");
   });
 
   test("linkExistingVault validates manifest then stores secrets", async () => {

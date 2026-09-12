@@ -1,4 +1,23 @@
-/** Constant-time string compare for equal-length secrets. */
+/** SHA-256 digest bytes for constant-length compares. */
+async function sha256Bytes(value: string): Promise<Uint8Array> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  return new Uint8Array(digest);
+}
+
+/** Constant-time compare of equal-length byte arrays. */
+function timingSafeEqualBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a[i] ^ b[i];
+  }
+  return mismatch === 0;
+}
+
+/** @deprecated kept for unit tests of string helper shape — prefer digest compare. */
 export function timingSafeEqualString(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let mismatch = 0;
@@ -19,9 +38,12 @@ export function extractBearerToken(request: Request): string | null {
 
 /**
  * Returns null when authorized; otherwise a Response to return to the client.
- * /health and other non-/v1 routes should not call this.
+ * Compares SHA-256 digests so token length is not leaked via early exit.
  */
-export function requireSyncToken(request: Request, env: Env): Response | null {
+export async function requireSyncToken(
+  request: Request,
+  env: Env,
+): Promise<Response | null> {
   const expected = env.SYNC_TOKEN;
   if (!expected) {
     return jsonError(
@@ -31,7 +53,11 @@ export function requireSyncToken(request: Request, env: Env): Response | null {
     );
   }
   const provided = extractBearerToken(request);
-  if (!provided || !timingSafeEqualString(provided, expected)) {
+  if (!provided) {
+    return jsonError(401, "unauthorized", "Invalid or missing bearer token");
+  }
+  const [got, want] = await Promise.all([sha256Bytes(provided), sha256Bytes(expected)]);
+  if (!timingSafeEqualBytes(got, want)) {
     return jsonError(401, "unauthorized", "Invalid or missing bearer token");
   }
   return null;
@@ -47,7 +73,9 @@ export function jsonError(
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
-      "www-authenticate": 'Bearer realm="voltius-cloudflare-sync"',
+      ...(status === 401
+        ? { "www-authenticate": 'Bearer realm="voltius-cloudflare-sync"' }
+        : {}),
     },
   });
 }

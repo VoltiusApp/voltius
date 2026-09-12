@@ -108,3 +108,7 @@ pnpm --ignore-workspace typecheck
 ## License
 
 MIT — clean-room example; not a copy of the Voltius AGPL sync server.
+
+## Security
+
+See [SECURITY.md](./SECURITY.md) for the threat model and operational checklist. There is **no** Worker HTML UI for key management — that stays in the Voltius client.
