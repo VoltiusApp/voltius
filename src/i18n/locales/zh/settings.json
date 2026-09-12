@@ -258,6 +258,7 @@
           "terminalSharing": "终端共享（1 个会话 · 1 名访客）",
           "teamVaults": "共享团队保险库",
           "teamSharing": "团队共享（5 个会话 · 10 名访客）",
+          "seats": "席位（按订阅数量）",
           "customRoles": "自定义角色"
         }
       },

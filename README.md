@@ -160,7 +160,7 @@ on macOS and Windows after installation.
 | **Modern UI/UX** | ✅ | ✅ | 🟡 | ✅ | 🟡 |
 | **AI assistant** | ❌ | ✅ | ✅ | ? | ? |
 | **Permissions** | ✅ Teams RBAC / Business custom roles | ✅ Granular perms | ? | ? | ? |
-| **Terminal sharing** | ✅ Pro (1 guest) / Teams (unlimited) | ✅ needs Teams plan | ? | ? | ? |
+| **Terminal sharing** | ✅ Pro (1 session · 1 guest) / Teams (5 · 10) / Business (20 · 50) | ✅ needs Teams plan | ? | ? | ? |
 | **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** | ? | Local Only / Manual |
 | **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ | ? | ❌ |
 | **Serial Console** | ✅ | ✅ | ✅ | ? | ✅ |

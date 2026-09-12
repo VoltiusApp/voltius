@@ -364,6 +364,7 @@
           "terminalSharing": "Terminal sharing (1 session · 1 guest)",
           "teamVaults": "Shared team vaults",
           "teamSharing": "Team sharing (5 sessions · 10 guests)",
+          "seats": "Seats (as purchased)",
           "customRoles": "Custom roles"
         }
       },

@@ -364,6 +364,7 @@
           "terminalSharing": "Partage de terminal (1 session · 1 invité)",
           "teamVaults": "Coffres-forts d'équipe partagés",
           "teamSharing": "Partage d'équipe (5 sessions · 10 invités)",
+          "seats": "Sièges (selon l'abonnement)",
           "customRoles": "Rôles personnalisés"
         }
       },
