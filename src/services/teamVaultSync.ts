@@ -76,6 +76,9 @@ const _teamKeyInFlight = new Map<string, Promise<number[]>>();
 // likely to actually happen (#229).
 const _teamKeyGeneration = new Map<string, number>();
 const _teamRefreshQueue = new TeamVaultRefreshQueue();
+// Teams where a key_mismatch self-heal rotation was already tried this
+// session — caps retries at one instead of one per refresh forever.
+const _keyMismatchHealAttempted = new Set<string>();
 
 function _currentGeneration(teamId: string): number {
   return _teamKeyGeneration.get(teamId) ?? 0;
@@ -101,6 +104,7 @@ export function clearTeamKeyCache(): void {
   // another epoch's key.
   _teamKeyAtVersionCache.clear();
   _teamKeyAtVersionInFlight.clear();
+  _keyMismatchHealAttempted.clear();
 }
 
 export function deleteTeamKey(teamId: string): void {
@@ -408,6 +412,18 @@ export async function reconcileTeamVaultKeys(teamId: string): Promise<void> {
   );
 }
 
+// A rotation is the one action that can fix a genuine key_mismatch; if the
+// caller lacks COPY_SECRETS the server just 403s it and this is a no-op.
+async function _healKeyMismatchOnce(teamId: string, err: unknown): Promise<boolean> {
+  if (err !== "key_mismatch") return false;
+  if (_keyMismatchHealAttempted.has(teamId)) return false;
+  _keyMismatchHealAttempted.add(teamId);
+
+  const { checkAndRotateTeamKey } = await import("@/services/teamKeyRotation");
+  await checkAndRotateTeamKey(teamId, { force: true });
+  return true;
+}
+
 // ─── Data fetch / save ────────────────────────────────────────────────────────
 
 /**
@@ -446,7 +462,15 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       // cosmetic: the vault renders fully populated and every host needing a
       // stored secret then fails at authentication. Record it instead of
       // swallowing it (issue #190).
-      const credentialsOk = await hydrateTeamVaultSecrets(teamId).then(() => true, () => false);
+      let credentialsOk: boolean;
+      try {
+        await hydrateTeamVaultSecrets(teamId);
+        credentialsOk = true;
+      } catch (err) {
+        credentialsOk = await _healKeyMismatchOnce(teamId, err)
+          ? await hydrateTeamVaultSecrets(teamId).then(() => true, () => false)
+          : false;
+      }
       stateStore.setCredentialsUnavailable(teamId, !credentialsOk);
       if (!options.background) await backfillExistingTeamVaultSecrets(teamId).catch(() => {});
       stateStore.setStatus(teamId, "loaded");

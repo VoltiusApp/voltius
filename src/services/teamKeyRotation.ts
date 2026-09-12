@@ -63,17 +63,24 @@ async function settleInBatches<T, R>(
  */
 const _rotationPassInFlight = new Map<string, Promise<void>>();
 
-export function checkAndRotateTeamKey(teamId: string): Promise<void> {
+export function checkAndRotateTeamKey(teamId: string, options: { force?: boolean } = {}): Promise<void> {
   const existing = _rotationPassInFlight.get(teamId);
   if (existing) return existing;
 
-  const run = _checkAndRotateTeamKey(teamId);
+  const run = _checkAndRotateTeamKey(teamId, options);
   _rotationPassInFlight.set(teamId, run);
   run.finally(() => _rotationPassInFlight.delete(teamId)).catch(logFailure(`teamKeyRotation: pass team=${teamId}`));
   return run;
 }
 
-async function _checkAndRotateTeamKey(teamId: string): Promise<void> {
+async function _checkAndRotateTeamKey(teamId: string, options: { force?: boolean }): Promise<void> {
+  // Skips rotation-status: it only tracks epoch coverage, not whether a
+  // present wrap actually decrypts (key_mismatch self-heal needs this).
+  if (options.force) {
+    await _rotateTeamKey(teamId).catch(logFailure(`teamKeyRotation: forced rotate team=${teamId}`));
+    return;
+  }
+
   let status;
   try {
     status = await getRotationStatus(teamId);

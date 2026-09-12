@@ -88,6 +88,17 @@ test("neither stale nor draining: does nothing", async () => {
   expect(h.reencryptObjectCalls).toHaveLength(0);
 });
 
+// force bypasses rotation-status — it can't see a key_mismatch, since it
+// only tracks epoch coverage, not whether a wrap actually decrypts.
+test("force: true rotates even when rotation-status says neither stale nor draining", async () => {
+  h.status = { stale: false, draining: false };
+  h.members = [{ user_id: "me", public_key: "me-pk" }];
+
+  await checkAndRotateTeamKey("t1", { force: true });
+
+  expect(h.rotateCalls).toHaveLength(1);
+});
+
 test("stale and not draining: rotates, wrapping for every member with a public key", async () => {
   h.status = { stale: true, draining: false };
   h.members = [
