@@ -1,5 +1,8 @@
 import { test, expect, describe, it } from "vitest";
-import { resolveCan, PERM_BITS, effectivePermissions, crossesVaultKeyGate, type PermissionSnapshot } from "./permissions.ts";
+import {
+  resolveCan, PERM_BITS, effectivePermissions, crossesVaultKeyGate, resolveMemberReadOnlyReason,
+  type PermissionSnapshot,
+} from "./permissions.ts";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
 
@@ -171,6 +174,60 @@ describe("crossesVaultKeyGate", () => {
     expect(
       crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS }),
     ).toBe(true);
+  });
+});
+
+describe("resolveMemberReadOnlyReason", () => {
+  const admin = role("r-admin", 0, { position: 0 });
+  const target = role("r-target", 0, { position: 1 });
+
+  function reason(over: Partial<Parameters<typeof resolveMemberReadOnlyReason>[0]> = {}) {
+    return resolveMemberReadOnlyReason({
+      canManageMembers: true,
+      isTargetOwner: false,
+      isMe: false,
+      viewerRoleIds: ["r-admin"],
+      targetRoleIds: ["r-target"],
+      teamRoles: [admin, target],
+      offendingBits: 0,
+      ...over,
+    });
+  }
+
+  it("no manage permission wins first", () => {
+    expect(reason({ canManageMembers: false })).toBe("noManage");
+  });
+
+  it("target is owner", () => {
+    expect(reason({ isTargetOwner: true })).toBe("owner");
+  });
+
+  it("editing yourself", () => {
+    expect(reason({ isMe: true })).toBe("self");
+  });
+
+  it("viewer strictly above target: no reason", () => {
+    expect(reason()).toBeNull();
+  });
+
+  it("viewer at or below target's position: higherRole", () => {
+    expect(reason({ viewerRoleIds: ["r-target"], targetRoleIds: ["r-admin"] })).toBe("higherRole");
+  });
+
+  it("absent viewer fails closed: higherRole", () => {
+    expect(reason({ viewerRoleIds: null })).toBe("higherRole");
+  });
+
+  it("roleless viewer fails closed: higherRole", () => {
+    expect(reason({ viewerRoleIds: [] })).toBe("higherRole");
+  });
+
+  it("roleless target passes hierarchy", () => {
+    expect(reason({ targetRoleIds: [] })).toBeNull();
+  });
+
+  it("hierarchy passes but offending bits remain: notHeld", () => {
+    expect(reason({ offendingBits: PERM_BITS.VIEW_SECRETS })).toBe("notHeld");
   });
 });
 

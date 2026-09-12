@@ -75,6 +75,43 @@ export function hasBuiltinRole(member: TeamMember, roleName: string, roles: Team
   return member.role_ids.includes(target.id);
 }
 
+export type MemberReadOnlyReason = "noManage" | "owner" | "self" | "higherRole" | "notHeld";
+
+/** Lower position = more authority; a role absent from `roles` is skipped. */
+function minRolePosition(roleIds: string[], roles: TeamRole[]): number | null {
+  return roleIds.reduce<number | null>((min, rid) => {
+    const role = roles.find((r) => r.id === rid);
+    if (!role) return min;
+    return min === null || role.position < min ? role.position : min;
+  }, null);
+}
+
+/**
+ * One section-level reason a member's permission overrides are read-only, first
+ * failure wins, in the server's own guardrail order. Mirrors `assign_member_role`'s
+ * `(Some(_), None) => Ok(())`: an absent or roleless viewer fails closed, a roleless
+ * target passes.
+ */
+export function resolveMemberReadOnlyReason(params: {
+  canManageMembers: boolean;
+  isTargetOwner: boolean;
+  isMe: boolean;
+  viewerRoleIds: string[] | null;
+  targetRoleIds: string[];
+  teamRoles: TeamRole[];
+  offendingBits: number;
+}): MemberReadOnlyReason | null {
+  if (!params.canManageMembers) return "noManage";
+  if (params.isTargetOwner) return "owner";
+  if (params.isMe) return "self";
+  const viewerMin = params.viewerRoleIds ? minRolePosition(params.viewerRoleIds, params.teamRoles) : null;
+  const targetMin = minRolePosition(params.targetRoleIds, params.teamRoles);
+  const hierarchyFails = !params.viewerRoleIds || viewerMin === null || (targetMin !== null && viewerMin >= targetMin);
+  if (hierarchyFails) return "higherRole";
+  if (params.offendingBits !== 0) return "notHeld";
+  return null;
+}
+
 export interface PermissionSnapshot {
   myUserId: string;
   teams: Team[];

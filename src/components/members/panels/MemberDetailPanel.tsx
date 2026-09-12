@@ -13,7 +13,8 @@ import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import type { DepartMode } from "@/services/teamOffboarding";
 import {
-  PERM_BITS, PERM_META, effectivePermissions, crossesVaultKeyGate, type Permission,
+  PERM_BITS, PERM_META, effectivePermissions, crossesVaultKeyGate, resolveMemberReadOnlyReason,
+  type Permission, type MemberReadOnlyReason,
 } from "@/services/permissions";
 import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
 import {
@@ -32,14 +33,13 @@ export interface MemberDetailPanelProps {
   onUpdated: () => void;
 }
 
-/** Lower position = more authority; a role absent from `roles` is skipped. */
-function minRolePosition(roleIds: string[], roles: TeamRole[]): number | null {
-  return roleIds.reduce<number | null>((min, rid) => {
-    const role = roles.find((r) => r.id === rid);
-    if (!role) return min;
-    return min === null || role.position < min ? role.position : min;
-  }, null);
-}
+const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
+  noManage: "members.permissions.readOnlyNoManage",
+  owner: "members.permissions.readOnlyOwner",
+  self: "members.permissions.readOnlySelf",
+  higherRole: "members.permissions.readOnlyHigherRole",
+  notHeld: "members.permissions.readOnlyNotHeld",
+};
 
 export function MemberDetailPanel({
   member, isMe, teamId, teamRoles, canManageMembers, isTargetOwner, viewer, onClose, onUpdated,
@@ -137,26 +137,15 @@ export function MemberDetailPanel({
 
   const offendingBits = allow & ~viewerEffective;
 
-  type ReadOnlyReasonKind = "noManage" | "owner" | "self" | "higherRole" | "notHeld";
-  const READONLY_REASON_KEYS: Record<ReadOnlyReasonKind, string> = {
-    noManage: "members.permissions.readOnlyNoManage",
-    owner: "members.permissions.readOnlyOwner",
-    self: "members.permissions.readOnlySelf",
-    higherRole: "members.permissions.readOnlyHigherRole",
-    notHeld: "members.permissions.readOnlyNotHeld",
-  };
-
-  const readOnlyReasonKind: ReadOnlyReasonKind | null = (() => {
-    if (!canManageMembers) return "noManage";
-    if (isTargetOwner) return "owner";
-    if (isMe) return "self";
-    const viewerMin = viewer ? minRolePosition(viewer.role_ids, teamRoles) : null;
-    const targetMin = minRolePosition(member.role_ids, teamRoles);
-    const hierarchyFails = !viewer || viewerMin === null || (targetMin !== null && viewerMin >= targetMin);
-    if (hierarchyFails) return "higherRole";
-    if (offendingBits !== 0) return "notHeld";
-    return null;
-  })();
+  const readOnlyReasonKind = resolveMemberReadOnlyReason({
+    canManageMembers,
+    isTargetOwner,
+    isMe,
+    viewerRoleIds: viewer ? viewer.role_ids : null,
+    targetRoleIds: member.role_ids,
+    teamRoles,
+    offendingBits,
+  });
 
   const readOnlyReason: string | null = readOnlyReasonKind ? t(READONLY_REASON_KEYS[readOnlyReasonKind]) : null;
 
