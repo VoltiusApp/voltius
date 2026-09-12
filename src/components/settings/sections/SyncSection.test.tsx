@@ -10,7 +10,8 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 vi.mock("@/i18n", () => ({ default: { t: mockT } }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
-vi.mock("@/utils/billing", () => ({ openPortal: vi.fn() }));
+const { openBillingCheckout } = vi.hoisted(() => ({ openBillingCheckout: vi.fn(async () => true) }));
+vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout }));
 vi.mock("@/services/sync", () => ({
   getSyncState: () => ({ status: "idle", lastSync: null, error: null, cloudActive: false, blobSizeBytes: null }),
   onSyncStateChange: () => () => {},
@@ -20,6 +21,7 @@ vi.mock("@/services/sync", () => ({
 
 import { scheduleSync } from "@/services/sync";
 import SyncSection from "./SyncSection";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
 const toggleFor = (c: HTMLElement, domain: string) =>
   c.querySelector(`[data-sync-domain="${domain}"] button[role="switch"]`) as HTMLButtonElement | null;
@@ -103,5 +105,19 @@ describe("held-back settings summary", () => {
     useSyncPrefsStore.getState().setSyncSettingDomain("appSettings", false);
     const { container } = render(<SyncSection />);
     expect(el(container, "held-back-appSettings")).toBeNull();
+  });
+});
+
+describe("SyncSection upgrade prompt", () => {
+  beforeEach(() => {
+    openBillingCheckout.mockClear();
+    useSubscriptionStore.setState({ accountMode: "server", isPro: false });
+  });
+  afterEach(cleanup);
+
+  test("a signed-in free user is offered checkout, not the billing portal", () => {
+    const { getByText } = render(<SyncSection />);
+    fireEvent.click(getByText("settings.sync.requiresPro.upgrade"));
+    expect(openBillingCheckout).toHaveBeenCalledWith("pro");
   });
 });

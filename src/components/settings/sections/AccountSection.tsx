@@ -75,6 +75,7 @@ const PLAN_FEATURES = [
   { id: "terminalSharing",  free: false, pro: true,  teams: true,  business: true  },
   { id: "teamVaults",       free: false, pro: false, teams: true,  business: true  },
   { id: "teamSharing",      free: false, pro: false, teams: true,  business: true  },
+  { id: "seats",            free: false, pro: false, teams: true,  business: true  },
   { id: "customRoles",      free: false, pro: false, teams: false, business: true  },
 ];
 
