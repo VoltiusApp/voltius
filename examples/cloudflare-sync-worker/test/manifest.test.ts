@@ -87,4 +87,56 @@ describe("GET/PUT /v1/manifest", () => {
     await waitOnExecutionContext(ctx);
     expect(res.status).toBe(400);
   });
+
+  it("GET returns an ETag and PUT honors If-Match", async () => {
+    const ctxPut = createExecutionContext();
+    const putRes = await worker.fetch(
+      new Request("http://example.com/v1/manifest", {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(sample),
+      }),
+      env,
+      ctxPut,
+    );
+    await waitOnExecutionContext(ctxPut);
+    expect(putRes.status).toBe(200);
+
+    const ctxGet = createExecutionContext();
+    const getRes = await worker.fetch(
+      new Request("http://example.com/v1/manifest", { headers: authHeaders() }),
+      env,
+      ctxGet,
+    );
+    await waitOnExecutionContext(ctxGet);
+    const etag = getRes.headers.get("ETag");
+    expect(etag).toBeTruthy();
+
+    const ctxStale = createExecutionContext();
+    const stale = await worker.fetch(
+      new Request("http://example.com/v1/manifest", {
+        method: "PUT",
+        headers: { ...authHeaders() as Record<string, string>, "If-Match": '"not-the-etag"' },
+        body: JSON.stringify({ ...sample, devices: [] }),
+      }),
+      env,
+      ctxStale,
+    );
+    await waitOnExecutionContext(ctxStale);
+    expect(stale.status).toBe(412);
+
+    const ctxOk = createExecutionContext();
+    const ok = await worker.fetch(
+      new Request("http://example.com/v1/manifest", {
+        method: "PUT",
+        headers: { ...authHeaders() as Record<string, string>, "If-Match": etag! },
+        body: JSON.stringify({ ...sample, devices: [] }),
+      }),
+      env,
+      ctxOk,
+    );
+    await waitOnExecutionContext(ctxOk);
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ ...sample, devices: [] });
+  });
 });

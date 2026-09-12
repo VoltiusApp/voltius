@@ -109,6 +109,84 @@ describe("device blob routes", () => {
     expect(await env.VAULT_BUCKET.get(deviceObjectKey("dev-1"))).toBeNull();
   });
 
+  it("device PUT returns 412 when If-Match does not match the manifest ETag", async () => {
+    await putManifest();
+    const ctxGet = createExecutionContext();
+    const getRes = await worker.fetch(
+      new Request("http://example.com/v1/manifest", { headers: authHeaders() }),
+      env,
+      ctxGet,
+    );
+    await waitOnExecutionContext(ctxGet);
+    expect(getRes.status).toBe(200);
+    expect(getRes.headers.get("ETag")).toBeTruthy();
+
+    const ctxStale = createExecutionContext();
+    const stale = await worker.fetch(
+      new Request("http://example.com/v1/devices/dev-1", {
+        method: "PUT",
+        headers: { ...authHeaders() as Record<string, string>, "If-Match": '"stale-manifest"' },
+        body: JSON.stringify({
+          content: "opaque-b64",
+          label: "laptop",
+          pushedAt: "2026-09-12T01:00:00.000Z",
+        }),
+      }),
+      env,
+      ctxStale,
+    );
+    await waitOnExecutionContext(ctxStale);
+    expect(stale.status).toBe(412);
+
+    const ctxOk = createExecutionContext();
+    const ok = await worker.fetch(
+      new Request("http://example.com/v1/devices/dev-1", {
+        method: "PUT",
+        headers: { ...authHeaders() as Record<string, string>, "If-Match": getRes.headers.get("ETag")! },
+        body: JSON.stringify({
+          content: "opaque-b64",
+          label: "laptop",
+          pushedAt: "2026-09-12T01:00:00.000Z",
+        }),
+      }),
+      env,
+      ctxOk,
+    );
+    await waitOnExecutionContext(ctxOk);
+    expect(ok.status).toBe(200);
+  });
+
+  it("GET device keeps returning an etag", async () => {
+    await putManifest();
+    const ctxPut = createExecutionContext();
+    await worker.fetch(
+      new Request("http://example.com/v1/devices/dev-1", {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          content: "opaque-b64",
+          label: "laptop",
+          pushedAt: "2026-09-12T01:00:00.000Z",
+        }),
+      }),
+      env,
+      ctxPut,
+    );
+    await waitOnExecutionContext(ctxPut);
+
+    const ctxGet = createExecutionContext();
+    const getRes = await worker.fetch(
+      new Request("http://example.com/v1/devices/dev-1", { headers: authHeaders() }),
+      env,
+      ctxGet,
+    );
+    await waitOnExecutionContext(ctxGet);
+    expect(getRes.status).toBe(200);
+    const body = await getRes.json() as { etag: string };
+    expect(body.etag).toBeTruthy();
+    expect(getRes.headers.get("ETag")).toBeTruthy();
+  });
+
   it("rejects path-like device ids", async () => {
     await putManifest();
     const ctx = createExecutionContext();

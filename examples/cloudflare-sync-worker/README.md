@@ -80,8 +80,8 @@ Use **Create vault** on the first device, **Link existing** on the next ones.
 |--------|------|------|-------|
 | GET | `/health` | no | Liveness |
 | OPTIONS | `*` | no | CORS preflight |
-| GET/PUT | `/v1/manifest` | Bearer | `{ schema:1, salt, devices[] }` |
-| GET/PUT/DELETE | `/v1/devices/:id` | Bearer | PUT `{ content, label, pushedAt }` |
+| GET/PUT | `/v1/manifest` | Bearer | `{ schema:1, salt, devices[] }` — GET sends `ETag`; PUT honors `If-Match` (412 on mismatch) |
+| GET/PUT/DELETE | `/v1/devices/:id` | Bearer | PUT `{ content, label, pushedAt }` — `If-Match` is the **manifest** ETag (RMW); 412 on mismatch. GET still returns device `etag`. |
 
 R2 keys: `manifest.json`, `devices/{id}.b64`
 

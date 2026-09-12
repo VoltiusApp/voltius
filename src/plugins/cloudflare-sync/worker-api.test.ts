@@ -2,6 +2,7 @@ import { describe, test, expect, vi } from "vitest";
 import {
   getHealth,
   getManifest,
+  getManifestWithEtag,
   putManifest,
   getDeviceBlob,
   putDeviceBlob,
@@ -46,13 +47,27 @@ describe("worker-api", () => {
     );
   });
 
-  test("putManifest PUTs body", async () => {
+  test("getManifestWithEtag reads the ETag header", async () => {
+    const http = mockHttp(async () =>
+      new Response(JSON.stringify(sampleManifest), {
+        status: 200,
+        headers: { ETag: '"abc123"' },
+      }),
+    );
+    await expect(getManifestWithEtag(http, "https://sync.example.com", "tok")).resolves.toEqual({
+      manifest: sampleManifest,
+      etag: '"abc123"',
+    });
+  });
+
+  test("putManifest PUTs body and sends If-Match when provided", async () => {
     const http = mockHttp(async (url, init) => {
       expect(init?.method).toBe("PUT");
       expect(JSON.parse(String(init?.body))).toEqual(sampleManifest);
+      expect(new Headers(init?.headers).get("If-Match")).toBe('"abc123"');
       return new Response(JSON.stringify(sampleManifest), { status: 200 });
     });
-    await putManifest(http, "https://sync.example.com", "tok", sampleManifest);
+    await putManifest(http, "https://sync.example.com", "tok", sampleManifest, { ifMatch: '"abc123"' });
   });
 
   test("getDeviceBlob returns content field", async () => {
@@ -65,7 +80,7 @@ describe("worker-api", () => {
     );
   });
 
-  test("putDeviceBlob sends JSON body", async () => {
+  test("putDeviceBlob sends JSON body and If-Match", async () => {
     const http = mockHttp(async (_url, init) => {
       expect(init?.method).toBe("PUT");
       expect(JSON.parse(String(init?.body))).toEqual({
@@ -73,13 +88,24 @@ describe("worker-api", () => {
         label: "laptop",
         pushedAt: "2026-09-12T00:00:00.000Z",
       });
+      expect(new Headers(init?.headers).get("If-Match")).toBe('"m1"');
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });
     await putDeviceBlob(http, "https://sync.example.com", "tok", "dev-1", {
       content: "b64",
       label: "laptop",
       pushedAt: "2026-09-12T00:00:00.000Z",
-    });
+    }, { ifMatch: '"m1"' });
+  });
+
+  test("maps 412 If-Match mismatch to WorkerApiError", async () => {
+    const http = mockHttp(async () =>
+      new Response(JSON.stringify({ error: "precondition_failed", message: "etag mismatch" }), { status: 412 }),
+    );
+    await expect(putManifest(http, "https://sync.example.com", "tok", sampleManifest, { ifMatch: '"stale"' })).rejects.toMatchObject({
+      name: "WorkerApiError",
+      status: 412,
+    } satisfies Partial<WorkerApiError>);
   });
 
   test("maps non-OK responses to WorkerApiError", async () => {

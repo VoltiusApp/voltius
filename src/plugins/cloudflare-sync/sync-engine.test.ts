@@ -6,6 +6,7 @@ vi.mock("./worker-api", async () => {
   return {
     ...actual,
     getManifest: vi.fn(),
+    getManifestWithEtag: vi.fn(),
     putManifest: vi.fn(),
     putDeviceBlob: vi.fn(),
     getDeviceBlobs: vi.fn(),
@@ -23,6 +24,7 @@ import {
   pull,
   syncNow,
   disconnect,
+  MAX_SYNC_CONFLICT_RETRIES,
 } from "./sync-engine";
 
 const salt = "0123456789abcdef0123456789abcdef";
@@ -70,6 +72,10 @@ function makeApi() {
 describe("cloudflare-sync sync-engine", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(workerApi.getManifestWithEtag).mockImplementation(async (...args) => ({
+      manifest: await vi.mocked(workerApi.getManifest)(...args),
+      etag: '"m1"',
+    }));
   });
 
   test("isConfigured requires url + token + passphrase", async () => {
@@ -152,6 +158,56 @@ describe("cloudflare-sync sync-engine", () => {
     await linkExistingVault("https://sync.example.com", "tok", "pass");
     expect(workerApi.getManifest).toHaveBeenCalled();
     expect(await isConfigured()).toBe(true);
+    expect(api.sync.importStates).not.toHaveBeenCalled();
+  });
+
+  test("linkExistingVault with no device blobs stores passphrase without probing", async () => {
+    const { api } = makeApi();
+    init(api);
+    vi.mocked(workerApi.getManifest).mockResolvedValue({
+      schema: 1,
+      salt,
+      devices: [{ id: "ghost", label: "gone", pushedAt: "t0" }],
+    });
+    vi.mocked(workerApi.getDeviceBlobs).mockResolvedValue([]);
+    await linkExistingVault("https://sync.example.com", "tok", "pass");
+    expect(api.sync.importStates).not.toHaveBeenCalled();
+    expect(await isConfigured()).toBe(true);
+  });
+
+  test("linkExistingVault rejects a wrong passphrase and rolls back secrets", async () => {
+    const { api, vault, storage } = makeApi();
+    init(api);
+    vi.mocked(workerApi.getManifest).mockResolvedValue({
+      schema: 1,
+      salt,
+      devices: [{ id: "dev-remote", label: "other", pushedAt: "t1" }],
+    });
+    vi.mocked(workerApi.getDeviceBlobs).mockResolvedValue(["cipher-blob"]);
+    vi.mocked(api.sync.importStates).mockRejectedValue(new Error("Decryption failed — wrong key or corrupted blob"));
+
+    await expect(linkExistingVault("https://sync.example.com", "tok", "wrong-pass")).rejects.toThrow(
+      /passphrase does not match/,
+    );
+    expect(await isConfigured()).toBe(false);
+    expect(vault.get("passphrase")).toBeUndefined();
+    expect(vault.get("syncToken")).toBeUndefined();
+    expect(storage.get("workerUrl")).toBeUndefined();
+  });
+
+  test("linkExistingVault with a valid passphrase probes then stays configured", async () => {
+    const { api, vault } = makeApi();
+    init(api);
+    vi.mocked(workerApi.getManifest).mockResolvedValue({
+      schema: 1,
+      salt,
+      devices: [{ id: "dev-remote", label: "other", pushedAt: "t1" }],
+    });
+    vi.mocked(workerApi.getDeviceBlobs).mockResolvedValue(["cipher-blob"]);
+    await linkExistingVault("https://sync.example.com", "tok", "pass");
+    expect(api.sync.importStates).toHaveBeenCalledWith("a".repeat(64), ["cipher-blob"]);
+    expect(vault.get("passphrase")).toBe("pass");
+    expect(await isConfigured()).toBe(true);
   });
 
   test("push exports and uploads device blob", async () => {
@@ -212,6 +268,53 @@ describe("cloudflare-sync sync-engine", () => {
 
     await syncNow();
     expect(workerApi.putDeviceBlob).toHaveBeenCalled();
+    expect(vi.mocked(workerApi.putDeviceBlob).mock.calls[0][5]).toEqual({ ifMatch: '"m1"' });
+  });
+
+  test("syncNow retries pull+push on 412 then succeeds", async () => {
+    const { api, storage, vault } = makeApi();
+    init(api);
+    storage.set("workerUrl", "https://sync.example.com");
+    vault.set("syncToken", "tok");
+    vault.set("passphrase", "pass");
+    storage.set("deviceId", "dev-local");
+    vi.mocked(workerApi.getManifest).mockResolvedValue({
+      schema: 1,
+      salt,
+      devices: [{ id: "dev-local", label: "me", pushedAt: "t0" }],
+    });
+    vi.mocked(workerApi.getDeviceBlobs).mockResolvedValue([]);
+    vi.mocked(workerApi.putDeviceBlob)
+      .mockRejectedValueOnce(new workerApi.WorkerApiError(412, "etag mismatch"))
+      .mockResolvedValueOnce(undefined);
+
+    await syncNow();
+    expect(workerApi.putDeviceBlob).toHaveBeenCalledTimes(2);
+  });
+
+  test("syncNow surfaces a clear error after exhausting conflict retries", async () => {
+    const { api, storage, vault } = makeApi();
+    init(api);
+    storage.set("workerUrl", "https://sync.example.com");
+    vault.set("syncToken", "tok");
+    vault.set("passphrase", "pass");
+    storage.set("deviceId", "dev-local");
+    vi.mocked(workerApi.getManifest).mockResolvedValue({
+      schema: 1,
+      salt,
+      devices: [{ id: "dev-local", label: "me", pushedAt: "t0" }],
+    });
+    vi.mocked(workerApi.getDeviceBlobs).mockResolvedValue([]);
+    vi.mocked(workerApi.putDeviceBlob).mockRejectedValue(
+      new workerApi.WorkerApiError(412, "etag mismatch"),
+    );
+
+    await syncNow();
+    expect(workerApi.putDeviceBlob).toHaveBeenCalledTimes(MAX_SYNC_CONFLICT_RETRIES + 1);
+    expect(api.ui.publishState).toHaveBeenCalled();
+    const last = vi.mocked(api.ui.publishState).mock.calls.at(-1)?.[1] as { status: string; error: string | null };
+    expect(last.status).toBe("error");
+    expect(last.error).toMatch(/Remote changed during sync/);
   });
 
   test("disconnect clears secrets", async () => {

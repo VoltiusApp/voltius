@@ -6,6 +6,8 @@ import {
   deleteDevice,
   getDeviceBlobs,
   getManifest,
+  getManifestWithEtag,
+  isConflictStatus,
   putDeviceBlob,
   putManifest,
   type WorkerManifest,
@@ -191,7 +193,23 @@ export async function setupNewVault(
   markConfigured(true);
 }
 
-/** Link to an existing Worker vault. */
+const WRONG_PASSPHRASE_MSG =
+  "cloudflare-sync: passphrase does not match the remote vault — check it and try again";
+
+async function restoreSecret(key: "syncToken" | "passphrase", previous: string | null): Promise<void> {
+  if (previous === null) await _api.vault.delete(key);
+  else await _api.vault.set(key, previous);
+}
+
+async function restoreStorage(key: string, previous: string | null): Promise<void> {
+  if (previous === null) await _api.storage.delete(key);
+  else await _api.storage.set(key, previous);
+}
+
+/** Link to an existing Worker vault.
+ *  If the remote already has at least one device blob, the passphrase is probed
+ *  (decrypt one blob) before we keep the new secrets. On failure we roll back
+ *  any vault/storage writes so a bad passphrase is never left configured. */
 export async function linkExistingVault(
   workerUrl: string,
   token: string,
@@ -200,11 +218,50 @@ export async function linkExistingVault(
   const normalized = normalizeWorkerUrl(workerUrl);
   if (!token.trim()) throw new Error("cloudflare-sync: sync token is required");
   if (!passphrase) throw new Error("cloudflare-sync: passphrase is required");
-  await getManifest(_api.http, normalized, token); // must exist
+  const manifest = await getManifest(_api.http, normalized, token); // must exist
+
+  const [prevUrl, prevToken, prevPass] = await Promise.all([
+    _api.storage.get<string>("workerUrl"),
+    _api.vault.get("syncToken"),
+    _api.vault.get("passphrase"),
+  ]);
+
   await _api.storage.set("workerUrl", normalized);
   await _api.vault.set("syncToken", token);
   await _api.vault.set("passphrase", passphrase);
-  markConfigured(true);
+
+  const rollback = async () => {
+    await Promise.all([
+      restoreStorage("workerUrl", prevUrl),
+      restoreSecret("syncToken", prevToken),
+      restoreSecret("passphrase", prevPass),
+    ]);
+    markConfigured(!!(prevUrl && prevToken && prevPass));
+  };
+
+  try {
+    if (manifest.devices.length > 0) {
+      const blobs = await getDeviceBlobs(
+        _api.http,
+        normalized,
+        token,
+        manifest.devices.map((d) => d.id),
+      );
+      if (blobs.length > 0) {
+        const encKey = await getEncKey(manifest.salt);
+        try {
+          // importStates decrypts before merging — a wrong key throws and we roll back.
+          await _api.sync.importStates(encKey, [blobs[0]]);
+        } catch {
+          throw new Error(WRONG_PASSPHRASE_MSG);
+        }
+      }
+    }
+    markConfigured(true);
+  } catch (err) {
+    await rollback();
+    throw err;
+  }
 }
 
 export async function disconnect(): Promise<void> {
@@ -231,16 +288,16 @@ export async function push(): Promise<void> {
   const deviceId = await getDeviceId();
   const deviceLabel = await getDeviceLabel();
   const now = new Date().toISOString();
-  const manifest = await getManifest(_api.http, workerUrl, token);
+  const { manifest, etag } = await getManifestWithEtag(_api.http, workerUrl, token);
   const encKey = await getEncKey(manifest.salt);
   const blob = await _api.sync.exportState(encKey, deviceId);
 
-  // Worker PUT /v1/devices/:id also RMW-updates manifest.devices[].pushedAt.
+  // If-Match is the manifest ETag: device PUT RMW-updates manifest.devices[].
   await putDeviceBlob(_api.http, workerUrl, token, deviceId, {
     content: blob,
     label: deviceLabel,
     pushedAt: now,
-  });
+  }, { ifMatch: etag });
 
   _blobSizeBytes = Math.round((blob.length * 3) / 4);
   _lastSeenPushedAt[deviceId] = now;
@@ -273,6 +330,9 @@ export async function pull(): Promise<boolean> {
   return true;
 }
 
+/** Bounded pull+push retries when the Worker returns 412/409 (stale If-Match). */
+export const MAX_SYNC_CONFLICT_RETRIES = 3;
+
 export async function syncNow(opts: { showProgress?: boolean } = {}): Promise<void> {
   if (!(await isConfigured())) return;
   if (_status === "syncing") return;
@@ -285,8 +345,20 @@ export async function syncNow(opts: { showProgress?: boolean } = {}): Promise<vo
   }
 
   try {
-    await pull();
-    await push();
+    let lastConflict: unknown;
+    for (let attempt = 0; attempt <= MAX_SYNC_CONFLICT_RETRIES; attempt++) {
+      try {
+        await pull();
+        await push();
+        lastConflict = null;
+        break;
+      } catch (err) {
+        lastConflict = err;
+        const conflict = err instanceof WorkerApiError && isConflictStatus(err.status);
+        if (!conflict || attempt === MAX_SYNC_CONFLICT_RETRIES) throw err;
+      }
+    }
+    if (lastConflict) throw lastConflict;
     _consecutiveFailures = 0;
     if (_failureBannerId) {
       _failureBannerId.dismiss();
@@ -316,6 +388,10 @@ function onSyncError(err: unknown) {
           { severity: "error" },
         );
       }
+      return;
+    }
+    if (isConflictStatus(err.status)) {
+      setState("error", "Remote changed during sync — try again");
       return;
     }
     if (err.status === 404) {

@@ -14,6 +14,8 @@ describe("CORS", () => {
     expect(res.status).toBe(204);
     expect(res.headers.get("access-control-allow-origin")).toBe("*");
     expect(res.headers.get("access-control-allow-headers")).toContain("authorization");
+    expect(res.headers.get("access-control-allow-headers")).toContain("if-match");
+    expect(res.headers.get("access-control-expose-headers")).toContain("etag");
   });
 
   it("adds CORS headers to normal responses", async () => {

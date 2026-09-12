@@ -17,8 +17,8 @@
 
 - **No Worker admin UI.** Managing tokens/passphrases/devices belongs in the Voltius client. Rotate `SYNC_TOKEN` via `wrangler secret` / Cloudflare dashboard.
 - Anyone with `SYNC_TOKEN` can **read/write ciphertext** and delete device objects. Protect the token like an API key.
-- Concurrent multi-device sync uses last-writer-wins on `manifest.json` (same class of race as Gist sync).
-- Wrong passphrase still “links”; decrypt failures surface on import (same as Gist). Prefer Sync now after Link to validate.
+- Concurrent multi-device writes use `If-Match` / ETag on the manifest RMW. A stale writer gets 412; the client retries pull+push a bounded number of times.
+- Linking an existing vault with device blobs probes the passphrase (decrypt one blob) before secrets stay configured. A wrong passphrase is rolled back.
 - Bot Fight Mode / WAF on the zone can block non-browser clients; allow your desktop app / curl if needed.
 
 ## Operational checklist
