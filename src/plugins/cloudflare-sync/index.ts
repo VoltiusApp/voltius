@@ -1,4 +1,5 @@
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
+import type { CloudflareSyncPublicApi } from "@/services/syncStatus";
 import manifestJson from "./manifest.json";
 import { messages } from "./i18n";
 import { createSettingsPage } from "./SettingsPage";
@@ -17,7 +18,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     component: createSettingsPage(api),
   });
 
-  api.plugins.expose({ syncNow });
+  api.plugins.expose({ syncNow } satisfies CloudflareSyncPublicApi);
 
   let offBeforeQuit: (() => void) | null = null;
   if (api.isActive()) {

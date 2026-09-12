@@ -403,6 +403,12 @@
         "sub": "通过 GitHub Gist 进行端到端加密同步",
         "configure": "配置 →"
       },
+      "cloudflareTitle": "Cloudflare 同步 (E2EE)",
+      "cloudflare": {
+        "title": "Cloudflare 同步插件",
+        "sub": "通过你的 Cloudflare Worker 进行端到端加密同步",
+        "configure": "配置 →"
+      },
       "prefsTitle": "同步偏好",
       "prefsFooter": "禁用的类型永远不会上传。单个对象也可以通过其编辑面板排除。",
       "quickToggleLabel": "同步 {{label}}",

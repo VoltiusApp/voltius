@@ -9,6 +9,7 @@ import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
 import { selectEffectiveSyncStatus, syncStatusColor, syncStatusIcon } from "@/services/syncStatus";
 import { useGistSyncState } from "@/hooks/useGistSyncState";
+import { useCloudflareSyncState } from "@/hooks/useCloudflareSyncState";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { ShareMenu } from "@/components/terminal/ShareMenu";
@@ -75,8 +76,10 @@ export default function TitleBar() {
   useEffect(() => { return onSyncStateChange(() => setSyncState(getSyncState())); }, []);
 
   const gistSyncState = useGistSyncState();
+  const cloudflareSyncState = useCloudflareSyncState();
 
   const gistPluginEnabled = usePluginRegistryStore((s) => s.isEnabled("plugin-gist-sync", false));
+  const cloudflarePluginEnabled = usePluginRegistryStore((s) => s.isEnabled("plugin-cloudflare-sync", false));
   const accountMode = useSubscriptionStore((s) => s.accountMode);
   const isPro = useSubscriptionStore((s) => s.isPro);
 
@@ -85,7 +88,15 @@ export default function TitleBar() {
     status: effectiveSyncStatus,
     lastSync: effectiveLastSync,
     error: effectiveError,
-  } = selectEffectiveSyncStatus({ voltius: syncState, gist: gistSyncState, accountMode, isPro, gistPluginEnabled });
+  } = selectEffectiveSyncStatus({
+    voltius: syncState,
+    gist: gistSyncState,
+    cloudflare: cloudflareSyncState,
+    accountMode,
+    isPro,
+    gistPluginEnabled,
+    cloudflarePluginEnabled,
+  });
 
   const { pos: tabMenuPos, open: openTabMenu, close: closeTabMenu } = useContextMenu();
   const [menuTarget, setMenuTarget] = useState<{ kind: "session" | "split"; id: string } | null>(null);
@@ -580,6 +591,7 @@ export default function TitleBar() {
         onClose={() => setSyncDropdownOpen(false)}
         cloudActive={syncState.cloudActive}
         gistPluginEnabled={gistPluginEnabled}
+        cloudflarePluginEnabled={cloudflarePluginEnabled}
         accountMode={accountMode}
       />
 

@@ -1,6 +1,7 @@
-/** Pure selection of the "effective" sync status from the Voltius (server) and
- *  Gist sync engines + plan/plugin state. No React/stores — node-testable. Shared
- *  by the desktop TitleBar and the mobile header so the two can't drift. */
+/** Pure selection of the "effective" sync status from the Voltius (server),
+ *  Cloudflare, and Gist sync engines + plan/plugin state. No React/stores —
+ *  node-testable. Shared by the desktop TitleBar and the mobile header so the
+ *  two can't drift. */
 import type { SyncStatus } from "./sync";
 
 interface SyncStateLike {
@@ -9,9 +10,9 @@ interface SyncStateLike {
   error: string | null;
 }
 
-/** Shape the gist-sync plugin publishes via `api.ui.publishState("sync-state", …)`.
+/** Shape gist-sync and cloudflare-sync publish via `api.ui.publishState("sync-state", …)`.
  *  Host-owned: the runtime value lives in the plugin, but the type crosses the
- *  boundary since types are erased. */
+ *  boundary since types are erased. Cloudflare uses the same fields. */
 export interface GistSyncState {
   status: SyncStatus;
   lastSync: Date | null;
@@ -38,6 +39,11 @@ export const NOT_CONFIGURED_GIST_STATE: GistSyncState = Object.freeze({
 export interface GistSyncPublicApi {
   syncNow(opts?: { showProgress?: boolean }): Promise<void>;
 }
+
+/** Same expose contract as gist-sync (`api.plugins.expose({ syncNow })`). */
+export type CloudflareSyncPublicApi = GistSyncPublicApi;
+export type CloudflareSyncState = GistSyncState;
+export const NOT_CONFIGURED_CLOUDFLARE_STATE = NOT_CONFIGURED_GIST_STATE;
 
 const SYNC_STATUSES: readonly SyncStatus[] = ["idle", "syncing", "success", "error", "offline"];
 
@@ -128,6 +134,9 @@ export function sanitizeGistSyncState(raw: unknown, pluginId: string): GistSyncS
   }
 }
 
+/** Same sanitizer — cloudflare-sync publishes the identical `sync-state` shape. */
+export const sanitizeCloudflareSyncState = sanitizeGistSyncState;
+
 export interface EffectiveSync {
   /** Either sync engine is set up. */
   configured: boolean;
@@ -141,19 +150,40 @@ export interface EffectiveSync {
 export function selectEffectiveSyncStatus(i: {
   voltius: SyncStateLike;
   gist: SyncStateLike & { configured: boolean };
+  cloudflare?: SyncStateLike & { configured: boolean };
   accountMode: string | null;
   isPro: boolean;
   gistPluginEnabled: boolean;
+  cloudflarePluginEnabled?: boolean;
 }): EffectiveSync {
+  // Precedence for the compact titlebar / mobile indicator (first configured wins):
+  //  1. Voltius account sync — signed-in Pro session
+  //  2. Cloudflare Sync — first-party BYO plugin, enabled + configured
+  //  3. Gist Sync — community BYO plugin, enabled + configured
+  // If none are configured, surface Voltius so the icon stays "cloud-off"
+  // rather than pretending a plugin engine is active.
   const voltiusConfigured = i.accountMode === "server" && i.isPro;
+  const cloudflareConfigured = !!(i.cloudflarePluginEnabled && i.cloudflare?.configured);
   const gistConfigured = i.gistPluginEnabled && i.gist.configured;
-  const showVoltius = voltiusConfigured || !gistConfigured;
+
+  const source: "voltius" | "cloudflare" | "gist" = voltiusConfigured
+    ? "voltius"
+    : cloudflareConfigured
+      ? "cloudflare"
+      : gistConfigured
+        ? "gist"
+        : "voltius";
+  const picked = source === "cloudflare"
+    ? i.cloudflare!
+    : source === "gist"
+      ? i.gist
+      : i.voltius;
   return {
-    configured: voltiusConfigured || gistConfigured,
-    showVoltius,
-    status: showVoltius ? i.voltius.status : i.gist.status,
-    lastSync: showVoltius ? i.voltius.lastSync : i.gist.lastSync,
-    error: showVoltius ? i.voltius.error : i.gist.error,
+    configured: voltiusConfigured || cloudflareConfigured || gistConfigured,
+    showVoltius: source === "voltius",
+    status: picked.status,
+    lastSync: picked.lastSync,
+    error: picked.error,
   };
 }
 

@@ -2291,7 +2291,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
         const blob: number[] = await invoke("backup_export", {
           encKey: encKeyBytes,
-          accountId: "gist-sync",
+          // Blob-header metadata only (not used for decrypt/merge). Use this
+          // plugin's id so Cloudflare exports are not tagged as gist-sync.
+          accountId: id,
           deviceId,
           // Strip cloud-off objects (and their secrets) from third-party sync
           // destinations too, mirroring the built-in server push (issue #47),

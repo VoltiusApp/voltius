@@ -156,6 +156,21 @@ export default function SyncSection() {
         )}
       </SettingsGroup>
 
+      <SettingsGroup title={t("settings.sync.cloudflareTitle")}>
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.sync.cloudflare.title")}</p>
+            <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.sync.cloudflare.sub")}</p>
+          </div>
+          <button
+            onClick={() => openSettings("plugins", "plugin-cloudflare-sync:cloudflare-sync-settings")}
+            className="text-xs px-2.5 py-1.5 rounded-lg font-medium shrink-0 bg-(--t-bg-input) text-(--t-text-primary) transition-opacity hover:opacity-75"
+          >
+            {t("settings.sync.cloudflare.configure")}
+          </button>
+        </div>
+      </SettingsGroup>
+
       <SettingsGroup title={t("settings.sync.gistTitle")}>
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div>

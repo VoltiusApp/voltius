@@ -509,6 +509,12 @@
         "sub": "Synchronisation chiffrée de bout en bout via GitHub Gist",
         "configure": "Configurer →"
       },
+      "cloudflareTitle": "Synchronisation Cloudflare (E2EE)",
+      "cloudflare": {
+        "title": "Extension Cloudflare Sync",
+        "sub": "Synchronisation chiffrée de bout en bout via votre Worker Cloudflare",
+        "configure": "Configurer →"
+      },
       "prefsTitle": "Préférences de synchronisation",
       "prefsFooter": "Les types désactivés ne sont jamais envoyés. Les objets peuvent aussi être exclus depuis leur panneau d'édition.",
       "quickToggleLabel": "Synchroniser {{label}}",

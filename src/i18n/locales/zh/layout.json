@@ -143,6 +143,7 @@
       "title": "同步",
       "voltiusSync": "Voltius 同步",
       "gistE2ee": "Gist E2EE",
+      "cloudflareE2ee": "Cloudflare E2EE",
       "syncNow": "立即同步",
       "signInForSync": "登录以进行云同步",
       "requiresPro": "需要 Pro",

@@ -509,6 +509,12 @@
         "sub": "End-to-end encrypted sync via GitHub Gist",
         "configure": "Configure →"
       },
+      "cloudflareTitle": "Cloudflare Sync (E2EE)",
+      "cloudflare": {
+        "title": "Cloudflare Sync plugin",
+        "sub": "End-to-end encrypted sync via your Cloudflare Worker",
+        "configure": "Configure →"
+      },
       "prefsTitle": "Sync Preferences",
       "prefsFooter": "Disabled types are never uploaded. Individual objects can also be excluded from their edit panel.",
       "quickToggleLabel": "Sync {{label}}",

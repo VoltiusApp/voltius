@@ -5,8 +5,9 @@ import i18n from "@/i18n";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { getSyncState, onSyncStateChange, syncNow, type SyncStatus } from "@/services/sync";
 import { getExposedApi } from "@/plugins/runtime";
-import { syncStatusColor, syncStatusIcon, type GistSyncPublicApi } from "@/services/syncStatus";
+import { syncStatusColor, syncStatusIcon, type CloudflareSyncPublicApi, type GistSyncPublicApi } from "@/services/syncStatus";
 import { useGistSyncState } from "@/hooks/useGistSyncState";
+import { useCloudflareSyncState } from "@/hooks/useCloudflareSyncState";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useUIStore } from "@/stores/uiStore";
@@ -14,6 +15,8 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openBillingCheckout } from "@/services/billingCheckout";
 
 const GIST_SYNC_PLUGIN_ID = "plugin-gist-sync";
+const CLOUDFLARE_SYNC_PLUGIN_ID = "plugin-cloudflare-sync";
+const CLOUDFLARE_SETTINGS_PAGE = "plugin-cloudflare-sync:cloudflare-sync-settings";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -226,10 +229,11 @@ interface SyncDropdownProps {
   onClose: () => void;
   cloudActive: boolean;
   gistPluginEnabled: boolean;
+  cloudflarePluginEnabled: boolean;
   accountMode: string | null;
 }
 
-export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, accountMode }: SyncDropdownProps) {
+export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, cloudflarePluginEnabled, accountMode }: SyncDropdownProps) {
   const { t } = useTranslation();
   const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
@@ -241,6 +245,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
   useEffect(() => onSyncStateChange(() => setVoltiusState(getSyncState())), []);
 
   const gistState = useGistSyncState();
+  const cloudflareState = useCloudflareSyncState();
 
   if (!open) return null;
 
@@ -251,6 +256,12 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
     : !isPro
     ? { kind: "needs_upgrade", onUpgrade: () => { onClose(); void openBillingCheckout("pro"); } }
     : { kind: "active", status: voltiusState.status, lastSync: voltiusState.lastSync, error: voltiusState.error, blobSizeBytes: voltiusState.blobSizeBytes };
+
+  const cloudflareVariant: SectionVariant = !cloudflarePluginEnabled
+    ? { kind: "disabled", onEnable: () => { onClose(); openSettings("plugins"); } }
+    : !cloudflareState.configured
+    ? { kind: "misconfigured", onConfigure: () => { onClose(); openSettings("plugins", CLOUDFLARE_SETTINGS_PAGE); } }
+    : { kind: "active", status: cloudflareState.status, lastSync: cloudflareState.lastSync, error: cloudflareState.error, blobSizeBytes: cloudflareState.blobSizeBytes };
 
   const gistVariant: SectionVariant = !gistPluginEnabled
     ? { kind: "disabled", onEnable: () => { onClose(); openSettings("plugins"); } }
@@ -297,6 +308,19 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
         methodIcon="lucide:cloud"
         variant={voltiusVariant}
         onSyncNow={() => syncNow(true).catch(() => {})}
+      />
+
+      <div style={{ height: 1, background: "var(--t-border)" }} />
+
+      {/* Cloudflare E2EE section */}
+      <SyncSection
+        label={t("layout.sync.cloudflareE2ee")}
+        methodIcon="lucide:cloud"
+        variant={cloudflareVariant}
+        onSyncNow={() => {
+          const cfApi = getExposedApi(CLOUDFLARE_SYNC_PLUGIN_ID) as CloudflareSyncPublicApi | null;
+          cfApi?.syncNow({ showProgress: false }).catch(() => {});
+        }}
       />
 
       <div style={{ height: 1, background: "var(--t-border)" }} />

@@ -143,6 +143,7 @@
       "title": "Синхронизация",
       "voltiusSync": "Синхронизация Voltius",
       "gistE2ee": "Gist E2EE",
+      "cloudflareE2ee": "Cloudflare E2EE",
       "syncNow": "Синхронизировать сейчас",
       "signInForSync": "Войдите для облачной синхронизации",
       "requiresPro": "Требуется Pro",

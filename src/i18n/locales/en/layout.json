@@ -143,6 +143,7 @@
       "title": "Sync",
       "voltiusSync": "Voltius Sync",
       "gistE2ee": "Gist E2EE",
+      "cloudflareE2ee": "Cloudflare E2EE",
       "syncNow": "Sync now",
       "signInForSync": "Sign in for cloud sync",
       "requiresPro": "Requires Pro",

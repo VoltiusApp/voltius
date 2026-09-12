@@ -19,6 +19,17 @@ eq(selectEffectiveSyncStatus({ voltius: V, gist: G, accountMode: "local", isPro:
 eq(selectEffectiveSyncStatus({ voltius: V, gist: G, accountMode: "local", isPro: false, gistPluginEnabled: true }).configured, true, "gist configured");
 // Nothing configured → not configured, falls back to voltius state.
 eq(selectEffectiveSyncStatus({ voltius: V, gist: { ...G, configured: false }, accountMode: "local", isPro: false, gistPluginEnabled: false }).configured, false, "nothing configured");
+
+const C = { status: "success" as const, lastSync: null, error: null, configured: true };
+// Cloudflare-only (no Voltius, gist off) → CF engine.
+eq(selectEffectiveSyncStatus({ voltius: V, gist: G, cloudflare: C, accountMode: "local", isPro: false, gistPluginEnabled: false, cloudflarePluginEnabled: true }).status, "success", "cf-only shows cloudflare");
+eq(selectEffectiveSyncStatus({ voltius: V, gist: G, cloudflare: C, accountMode: "local", isPro: false, gistPluginEnabled: false, cloudflarePluginEnabled: true }).configured, true, "cf configured");
+// Voltius Pro wins over Cloudflare.
+eq(selectEffectiveSyncStatus({ voltius: V, gist: G, cloudflare: { ...C, status: "error" }, accountMode: "server", isPro: true, gistPluginEnabled: true, cloudflarePluginEnabled: true }).status, "success", "server+pro beats cloudflare");
+// Cloudflare wins over Gist when both configured and Voltius is off.
+eq(selectEffectiveSyncStatus({ voltius: V, gist: G, cloudflare: C, accountMode: "local", isPro: false, gistPluginEnabled: true, cloudflarePluginEnabled: true }).status, "success", "cloudflare beats gist");
+// CF plugin enabled but not configured falls through to gist.
+eq(selectEffectiveSyncStatus({ voltius: V, gist: G, cloudflare: { ...C, configured: false }, accountMode: "local", isPro: false, gistPluginEnabled: true, cloudflarePluginEnabled: true }).status, "error", "unconfigured cf falls through to gist");
 });
 
 describe("sanitizeGistSyncState", () => {

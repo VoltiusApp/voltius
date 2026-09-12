@@ -64,6 +64,7 @@ describe("plugin sync.exportState honours sync exclusions", () => {
     expect(invokeMock).toHaveBeenCalledWith(
       "backup_export",
       expect.objectContaining({
+        accountId: "gist-sync-test",
         excludedIds: ["excluded-host", "excluded-key"],
         skipFiles: ["theme.json"],
       }),
