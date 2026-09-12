@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-09-12
+
+### Fixed
+
+- Quieted member permission edits and grouped the permission list with a filter.
+- Self-healed a stale team vault key wrap on key mismatch.
+
 ## [0.34.0] - 2026-09-12
 
 ### Added
