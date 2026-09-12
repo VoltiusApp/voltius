@@ -9,6 +9,7 @@ import { VaultBackups } from "@/components/shared/VaultBackups";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openPortal } from "@/utils/billing";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { UpgradeStrip } from "@/components/shared/UpgradeStrip";
 import { claimHandle, updateInvitePreferences, HandleClaimError } from "@/services/teamService";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
@@ -578,27 +579,20 @@ function PlansSection() {
         )}
 
         {!isPro && (
-          <div className="flex items-center justify-between gap-3 rounded-md px-3 py-2 bg-(--t-bg-input)">
-            <p className="text-xs text-(--t-text-muted)">{t("settings.account.plan.upgradeToPro")}</p>
-            <button
-              onClick={() => openCheckout("pro")}
-              className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-accent) text-white hover:opacity-85 transition-opacity"
-            >
-              {t("settings.account.plan.upgrade")}
-            </button>
-          </div>
+          <UpgradeStrip
+            label={t("settings.account.plan.upgradeToPro")}
+            buttonLabel={t("settings.account.plan.upgrade")}
+            onClick={() => openCheckout("pro")}
+          />
         )}
 
         {isPro && !isTeams && (
-          <div className="flex items-center justify-between gap-3 rounded-md px-3 py-2 bg-(--t-bg-input)">
-            <p className="text-xs text-(--t-text-muted)">{t("settings.account.plan.upgradeToTeams")}</p>
-            <button
-              onClick={() => openCheckout("teams")}
-              className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-bg-elevated) text-(--t-text-primary) hover:opacity-85 transition-opacity border border-(--t-border)"
-            >
-              {t("settings.account.plan.teamsButton")}
-            </button>
-          </div>
+          <UpgradeStrip
+            variant="neutral"
+            label={t("settings.account.plan.upgradeToTeams")}
+            buttonLabel={t("settings.account.plan.teamsButton")}
+            onClick={() => openCheckout("teams")}
+          />
         )}
 
         {/* Feature comparison */}
