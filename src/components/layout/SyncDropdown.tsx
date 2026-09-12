@@ -11,7 +11,7 @@ import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { openPortal } from "@/utils/billing";
+import { openBillingCheckout } from "@/services/billingCheckout";
 
 const GIST_SYNC_PLUGIN_ID = "plugin-gist-sync";
 
@@ -249,7 +249,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
   const voltiusVariant: SectionVariant = !isLoggedIn
     ? { kind: "locked", onSignIn: () => { onClose(); openCloudAuth("signin"); } }
     : !isPro
-    ? { kind: "needs_upgrade", onUpgrade: () => { onClose(); openPortal(); } }
+    ? { kind: "needs_upgrade", onUpgrade: () => { onClose(); void openBillingCheckout("pro"); } }
     : { kind: "active", status: voltiusState.status, lastSync: voltiusState.lastSync, error: voltiusState.error, blobSizeBytes: voltiusState.blobSizeBytes };
 
   const gistVariant: SectionVariant = !gistPluginEnabled

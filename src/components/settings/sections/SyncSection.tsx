@@ -6,7 +6,7 @@ import { getSyncState, onSyncStateChange, syncNow } from "@/services/sync";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/stores/syncPrefsStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { openPortal } from "@/utils/billing";
+import { openBillingCheckout } from "@/services/billingCheckout";
 import { setDomainSync, setKeySync } from "@/services/user-data/syncChoice";
 import { heldBackKeys } from "@/services/user-data/syncFilter";
 import { isDeviceScopedDefault } from "@/services/user-data/settingKeys";
@@ -132,7 +132,7 @@ export default function SyncSection() {
               <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.sync.requiresPro.sub")}</p>
             </div>
             <button
-              onClick={() => openPortal()}
+              onClick={() => void openBillingCheckout("pro")}
               className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-accent) text-white hover:opacity-85 transition-opacity"
             >
               {t("settings.sync.requiresPro.upgrade")}
