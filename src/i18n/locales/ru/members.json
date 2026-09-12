@@ -149,9 +149,7 @@
       "grantingKey": "Предоставление доступа к хранилищу для {{name}}…",
       "keyGranted": "{{name}} теперь может открыть хранилище",
       "leavingTeam": "Выход из команды…",
-      "leftTeam": "Вы вышли из команды",
-      "updatingPermissions": "Обновление разрешений {{name}}…",
-      "permissionsUpdated": "Разрешения {{name}} обновлены"
+      "leftTeam": "Вы вышли из команды"
     },
     "error": {
       "cannotRemoveOwnerRole": "Нельзя удалить роль владельца у владельца команды",

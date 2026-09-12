@@ -145,9 +145,7 @@
       "grantingKey": "Granting vault access to {{name}}…",
       "keyGranted": "{{name}} can now open the vault",
       "leavingTeam": "Leaving team...",
-      "leftTeam": "You left the team",
-      "updatingPermissions": "Updating {{name}}'s permissions…",
-      "permissionsUpdated": "Updated {{name}}'s permissions"
+      "leftTeam": "You left the team"
     },
     "error": {
       "cannotRemoveOwnerRole": "Cannot remove the owner role from the team owner",

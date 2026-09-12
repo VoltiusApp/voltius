@@ -145,9 +145,7 @@
       "grantingKey": "正在为 {{name}} 授予保险库访问权…",
       "keyGranted": "{{name}} 现在可以打开保险库",
       "leavingTeam": "正在退出团队…",
-      "leftTeam": "你已退出团队",
-      "updatingPermissions": "正在更新 {{name}} 的权限…",
-      "permissionsUpdated": "已更新 {{name}} 的权限"
+      "leftTeam": "你已退出团队"
     },
     "error": {
       "cannotRemoveOwnerRole": "无法从团队所有者移除所有者角色",

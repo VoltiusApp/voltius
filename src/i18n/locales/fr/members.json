@@ -145,9 +145,7 @@
       "grantingKey": "Octroi de l'accès au coffre-fort à {{name}}…",
       "keyGranted": "{{name}} peut maintenant ouvrir le coffre-fort",
       "leavingTeam": "Départ de l'équipe…",
-      "leftTeam": "Vous avez quitté l'équipe",
-      "updatingPermissions": "Mise à jour des permissions de {{name}}…",
-      "permissionsUpdated": "Permissions de {{name}} mises à jour"
+      "leftTeam": "Vous avez quitté l'équipe"
     },
     "error": {
       "cannotRemoveOwnerRole": "Impossible de retirer le rôle de propriétaire au propriétaire de l'équipe",

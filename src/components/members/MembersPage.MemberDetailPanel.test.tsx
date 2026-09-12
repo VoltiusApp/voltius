@@ -286,7 +286,7 @@ test("permission overrides: undo throws instead of writing empty masks when the 
   );
 
   const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
-  await expect(entry.undo()).rejects.toThrow();
+  expect(() => entry.undo()).toThrow();
 });
 
 // An older server omits both mask fields entirely; every row would otherwise

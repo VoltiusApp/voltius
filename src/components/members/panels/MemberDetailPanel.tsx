@@ -172,11 +172,11 @@ export function MemberDetailPanel({
     setError("");
     setOverriding(true);
     try {
-      await runReversible({
-        pending: t("members.toast.updatingPermissions", { name: member.handle }),
-        success: t("members.toast.permissionsUpdated", { name: member.handle }),
+      // No toast here: a bit flip already gets its own inline row feedback,
+      // and a toast per click was noisy against runReversible's other callers.
+      await write(updated)();
+      push({
         label: t("members.history.changePermissions", { name: member.handle }),
-        run: write(updated),
         undo: at(overrideStateOf(permission, allow, deny)),
         redo: at(next),
       });
