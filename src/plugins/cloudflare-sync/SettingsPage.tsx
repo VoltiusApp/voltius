@@ -10,8 +10,10 @@ import {
   startPoll,
   stopPoll,
   syncNow,
+  getDeviceId,
+  removeRemoteDevice,
 } from "./sync-engine";
-import { WorkerApiError, getHealth, getManifest } from "./worker-api";
+import { WorkerApiError, getHealth, getManifest, type WorkerDevice } from "./worker-api";
 
 type SaveState = ReturnType<typeof useAutosave>["saveState"];
 
@@ -77,6 +79,8 @@ export function createSettingsPage(api: PluginAPI) {
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [deviceCount, setDeviceCount] = useState<number | null>(null);
+    const [devices, setDevices] = useState<WorkerDevice[]>([]);
+    const [localDeviceId, setLocalDeviceId] = useState<string | null>(null);
     const [, setTick] = useState(0);
 
     const refresh = useCallback(async () => {
@@ -93,15 +97,20 @@ export function createSettingsPage(api: PluginAPI) {
       setPollSeconds(poll ?? 60);
       setConfigured(cfg);
       setTick((n) => n + 1);
+      const localId = await getDeviceId();
+      setLocalDeviceId(localId);
       if (cfg && url && tok) {
         try {
           const manifest = await getManifest(api.http, url, tok);
           setDeviceCount(manifest.devices.length);
+          setDevices(manifest.devices);
         } catch {
           setDeviceCount(null);
+          setDevices([]);
         }
       } else {
         setDeviceCount(null);
+        setDevices([]);
       }
     }, [api]);
 
@@ -276,6 +285,47 @@ export function createSettingsPage(api: PluginAPI) {
               Disconnect
             </Btn>
           </div>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <h3 className="text-sm font-semibold text-(--t-text-primary)">Remote devices</h3>
+          {devices.length === 0 ? (
+            <p className="text-sm text-(--t-text-dim)">No devices listed yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {devices.map((d) => (
+                <li
+                  key={d.id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-(--t-border) px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <div className="text-(--t-text-primary) truncate">
+                      {d.label || d.id}
+                      {d.id === localDeviceId ? " (this device)" : ""}
+                    </div>
+                    <div className="text-[11px] text-(--t-text-dim) truncate">
+                      {d.id} · {d.pushedAt}
+                    </div>
+                  </div>
+                  {d.id !== localDeviceId ? (
+                    <Btn
+                      small
+                      variant="danger"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(
+                          () => removeRemoteDevice(d.id),
+                          `Removed device ${d.label || d.id}`,
+                        )
+                      }
+                    >
+                      Remove
+                    </Btn>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {message ? (
