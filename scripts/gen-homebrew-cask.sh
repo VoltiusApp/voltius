@@ -38,8 +38,7 @@ cask "voltius" do
   sha256 arm:   "${SHA_ARM}",
          intel: "${SHA_INTEL}"
 
-  url "https://github.com/${REPO}/releases/download/v#{version}/Voltius_#{version}_#{arch}.dmg",
-      verified: "github.com/${REPO}/"
+  url "https://github.com/${REPO}/releases/download/v#{version}/Voltius_#{version}_#{arch}.dmg"
   name "Voltius"
   desc "Cross-platform SSH client and terminal"
   homepage "https://voltius.app/"
