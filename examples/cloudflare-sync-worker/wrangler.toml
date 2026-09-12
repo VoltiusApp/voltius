@@ -2,11 +2,16 @@ name = "voltius-cloudflare-sync"
 main = "src/index.ts"
 compatibility_date = "2025-09-06"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
 
+# R2 binding used by /v1/manifest and /v1/devices/*
+# Bucket names can be changed; create them once (see README) or let the
+# Deploy to Cloudflare flow provision bindings when prompted.
 [[r2_buckets]]
 binding = "VAULT_BUCKET"
 bucket_name = "voltius-vault-sync"
 preview_bucket_name = "voltius-vault-sync-preview"
 
-# Set with: wrangler secret put SYNC_TOKEN
-# Required from Phase 2 onward for /v1/* routes.
+# After deploy, set the secret (dashboard or CLI):
+#   npx wrangler secret put SYNC_TOKEN
+# Required for all /v1/* routes. /health stays public.

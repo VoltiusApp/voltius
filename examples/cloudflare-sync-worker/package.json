@@ -10,7 +10,10 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "setup:buckets": "wrangler r2 bucket create voltius-vault-sync ; wrangler r2 bucket create voltius-vault-sync-preview",
+    "secret:token": "wrangler secret put SYNC_TOKEN",
+    "deploy:easy": "npm run setup:buckets && npm run deploy && npm run secret:token"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.8.71",
