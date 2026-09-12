@@ -78,7 +78,9 @@ export function TerminalMinimap({ sessionId }: Props) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
+    // Measure the wrapper, not the canvas: this effect writes canvas.style.width/height
+    // itself, so measuring the canvas can read back and lock in a bad prior size.
+    const rect = (canvas.parentElement ?? canvas).getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const width = Math.max(1, Math.floor(rect.width));
     const height = Math.max(1, Math.floor(rect.height));
