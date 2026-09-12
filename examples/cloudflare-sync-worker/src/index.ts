@@ -1,6 +1,15 @@
 import { requireSyncToken, jsonError } from "./auth";
 import { json } from "./http";
 import { isManifest, readManifest, writeManifest } from "./manifest";
+import {
+  deleteDeviceBlob,
+  getDeviceBlob,
+  isValidDeviceId,
+  parseDevicePutBody,
+  putDeviceBlob,
+} from "./devices";
+
+const DEVICE_PATH = /^\/v1\/devices\/([^/]+)$/;
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
@@ -35,6 +44,58 @@ export default {
           }
           await writeManifest(env.VAULT_BUCKET, body);
           return json(body);
+        }
+
+        const deviceMatch = DEVICE_PATH.exec(url.pathname);
+        if (deviceMatch) {
+          const deviceId = decodeURIComponent(deviceMatch[1]);
+          if (!isValidDeviceId(deviceId)) {
+            return jsonError(400, "bad_request", "Invalid device id");
+          }
+
+          if (request.method === "GET") {
+            const blob = await getDeviceBlob(env.VAULT_BUCKET, deviceId);
+            if (!blob) {
+              return jsonError(404, "not_found", `Device blob not found: ${deviceId}`);
+            }
+            return json({ content: blob.content, etag: blob.etag }, 200);
+          }
+
+          if (request.method === "PUT") {
+            let body: unknown;
+            try {
+              body = await request.json();
+            } catch {
+              return jsonError(400, "bad_request", "Request body must be JSON");
+            }
+            const parsed = parseDevicePutBody(body);
+            if (!parsed) {
+              return jsonError(
+                400,
+                "bad_request",
+                "Body must be { content, label, pushedAt }",
+              );
+            }
+            try {
+              const result = await putDeviceBlob(env.VAULT_BUCKET, deviceId, parsed);
+              return json({
+                content: parsed.content,
+                etag: result.etag,
+                manifest: result.manifest,
+              });
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              if (message.includes("manifest.json missing")) {
+                return jsonError(409, "conflict", message);
+              }
+              throw err;
+            }
+          }
+
+          if (request.method === "DELETE") {
+            const manifest = await deleteDeviceBlob(env.VAULT_BUCKET, deviceId);
+            return json({ ok: true, manifest });
+          }
         }
 
         return json(

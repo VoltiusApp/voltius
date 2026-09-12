@@ -52,10 +52,10 @@ describe("GET /v1/* auth gate", () => {
     expect(res.status).toBe(401);
   });
 
-  it("allows /v1/manifest with valid token (404 until Phase 3)", async () => {
+  it("allows authenticated access to an unknown /v1 route", async () => {
     const ctx = createExecutionContext();
     const res = await worker.fetch(
-      new Request("http://example.com/v1/manifest", {
+      new Request("http://example.com/v1/does-not-exist", {
         headers: { Authorization: "Bearer test-sync-token" },
       }),
       env,
