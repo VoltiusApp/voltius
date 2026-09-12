@@ -1,6 +1,7 @@
 import type { ReactNode, RefObject } from "react";
 import { Icon } from "@iconify/react";
 import { formInputClass, formInputStyle } from "./Panel";
+import { chevronRotateStyle } from "@/utils/icons";
 
 /** The field-shaped button every picker opens its surface from. */
 export function PickerTrigger({
@@ -47,7 +48,7 @@ export function PickerTrigger({
           icon="lucide:chevron-down"
           width={14}
           className="text-(--t-text-dim) shrink-0"
-          style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+          style={chevronRotateStyle(open)}
         />
       </span>
     </button>

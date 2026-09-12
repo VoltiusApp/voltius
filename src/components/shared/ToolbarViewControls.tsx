@@ -6,6 +6,7 @@ import { ToolbarDropdown } from "./ToolbarDropdown";
 import { Pills } from "./Pills";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { getTagColorStyle } from "@/utils/tagColors";
+import { chevronRotateStyle } from "@/utils/icons";
 
 /** Focus a search/filter input when the user presses the `filter` shortcut (Ctrl+F). */
 export function useFilterShortcut(ref: RefObject<HTMLInputElement | null>) {
@@ -265,7 +266,7 @@ function TagFilterButton({
           <Icon
             icon="lucide:chevron-down"
             width={20}
-            style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+            style={chevronRotateStyle(open)}
           />
         </span>
       </button>

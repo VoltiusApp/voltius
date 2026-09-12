@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
+import { chevronRotateStyle } from "@/utils/icons";
 
 export interface DropdownOption<T extends string> {
   value: T;
@@ -202,7 +203,7 @@ export function ToolbarDropdown<T extends string>({
           title={t("common.action.moreOptions")}
         >
           <span className="[&_path]:stroke-3">
-            <Icon icon="lucide:chevron-down" width={20} style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
+            <Icon icon="lucide:chevron-down" width={20} style={chevronRotateStyle(open)} />
           </span>
         </button>}
         {menuEl}
@@ -232,7 +233,7 @@ export function ToolbarDropdown<T extends string>({
           <Icon
             icon="lucide:chevron-down"
             width={20}
-            style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+            style={chevronRotateStyle(open)}
           />
         </span>
       </button>

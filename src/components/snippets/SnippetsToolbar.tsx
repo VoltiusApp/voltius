@@ -7,6 +7,7 @@ import { Pills } from "@/components/shared/Pills";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { useRipple } from "@/hooks/useRipple";
+import { chevronRotateStyle } from "@/utils/icons";
 
 interface Props {
   tab: "mine" | "community";
@@ -134,7 +135,7 @@ export function SnippetsToolbar({
           >
             {ripplesChevron}
             <span className="[&_path]:stroke-3">
-              <Icon icon="lucide:chevron-down" width={20} style={{ color: "var(--t-bg-terminal)", transition: "transform 150ms", transform: menuOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+              <Icon icon="lucide:chevron-down" width={20} style={{ color: "var(--t-bg-terminal)", ...chevronRotateStyle(menuOpen) }} />
             </span>
           </button>
 

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { DropdownMenuItem } from "./DropdownMenuItem";
 import { formInputStyle } from "./Panel";
 import { PickerSurface } from "./PickerSurface";
+import { chevronRotateStyle } from "@/utils/icons";
 
 interface Option {
   value: string;
@@ -43,7 +44,7 @@ export function FormSelect({ value, options, onChange, className = "", ariaLabel
           icon="lucide:chevron-down"
           width={14}
           className="text-(--t-text-dim) shrink-0"
-          style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+          style={chevronRotateStyle(open)}
         />
       </button>
 
