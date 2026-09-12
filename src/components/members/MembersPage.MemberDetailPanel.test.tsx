@@ -269,9 +269,24 @@ test("permission overrides: renders one row per permission and sends the new mas
     expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.EDIT_KEYS),
   );
 
+  mockStore.membersByTeam = { t1: [targetMember] };
+
   const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
   await entry.undo();
   expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0);
+});
+
+test("permission overrides: undo throws instead of writing empty masks when the member is gone from the store", async () => {
+  render(<MemberDetailPanel {...permProps()} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.EDIT_KEYS),
+  );
+
+  const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
+  await expect(entry.undo()).rejects.toThrow();
 });
 
 // An older server omits both mask fields entirely; every row would otherwise

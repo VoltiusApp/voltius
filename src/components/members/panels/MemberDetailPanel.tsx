@@ -172,10 +172,12 @@ export function MemberDetailPanel({
   const commitOverride = async (permission: Permission, next: OverrideState, rotate: boolean) => {
     const updated = applyOverrideState(permission, allow, deny, next);
     // Undo/redo re-read the masks so a concurrent admin's unrelated bits survive
-    // the full-replace PUT; only the bit this entry owns moves.
+    // the full-replace PUT; only the bit this entry owns moves. A member missing
+    // from the store can't be safely masked to 0/0 — bail instead of writing empty masks.
     const at = (state: OverrideState) => () => {
       const m = useTeamStore.getState().membersByTeam[teamId]?.find((x) => x.user_id === member.user_id);
-      const masks = applyOverrideState(permission, m?.permission_allow ?? 0, m?.permission_deny ?? 0, state);
+      if (!m) throw new Error(t("members.error.failedToUpdatePermissions"));
+      const masks = applyOverrideState(permission, m.permission_allow ?? 0, m.permission_deny ?? 0, state);
       return useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
     };
     setError("");
