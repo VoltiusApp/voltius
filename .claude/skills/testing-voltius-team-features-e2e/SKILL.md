@@ -97,4 +97,4 @@ docker ps | grep voltius                               # prod voltius-server/vol
 
 ## Known real bug this harness surfaced
 
-The **async key-distribution window** (VoltiusApp/voltius#41): an invitee who accepts while the sole key-holder is offline stays keyless (silent `GET vault-key → 404` loop) until the inviter reconnects. If you reproduce team-vault access failures, check `team_vault_keys` for a missing member row before assuming a crypto bug.
+The **async key-distribution window** (VoltiusApp/voltius#41): an invitee who accepts while the sole key-holder is offline stayed keyless (silent `GET vault-key → 404` loop). **FIXED in v0.13.0 and closed 2026-07-29** — `reconcileTeamVaultKeys()` (`teamVaultSync.ts:383`) wraps the key for any keyless member, triggered on login (`teamDataManager.ts:47`) and on membership change (`sync.ts:939`), so it self-heals when a key-holder next signs in. If you still reproduce team-vault access failures, check `team_vault_keys` for a missing member row before assuming a crypto bug — but do not report #41 as open.
