@@ -13,8 +13,8 @@ describe("GET /health", () => {
     expect(await response.json()).toEqual({ ok: true, version: 1 });
   });
 
-  it("returns not_found for unknown routes", async () => {
-    const request = new Request("http://example.com/v1/manifest");
+  it("returns not_found for unknown non-v1 routes", async () => {
+    const request = new Request("http://example.com/nope");
     const ctx = createExecutionContext();
     const response = await worker.fetch(request, env, ctx);
     await waitOnExecutionContext(ctx);
