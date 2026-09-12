@@ -63,7 +63,14 @@
       "readOnlySelf": "You cannot change your own permissions",
       "readOnlyHigherRole": "This member holds a role at or above yours",
       "readOnlyNotHeld": "You cannot grant a permission you do not hold",
-      "overrideMarker": "Has permission overrides"
+      "overrideMarker": "Has permission overrides",
+      "filterPlaceholder": "Filter permissions…",
+      "group": {
+        "secrets": "Secrets & Connect",
+        "vaultContent": "Vault content",
+        "team": "Team & vault",
+        "sessions": "Sessions"
+      }
     },
     "revokeKeyAccess": {
       "title": "Revoke {{name}}'s access to the vault key?",
@@ -145,9 +152,7 @@
       "grantingKey": "Granting vault access to {{name}}…",
       "keyGranted": "{{name}} can now open the vault",
       "leavingTeam": "Leaving team...",
-      "leftTeam": "You left the team",
-      "updatingPermissions": "Updating {{name}}'s permissions…",
-      "permissionsUpdated": "Updated {{name}}'s permissions"
+      "leftTeam": "You left the team"
     },
     "error": {
       "cannotRemoveOwnerRole": "Cannot remove the owner role from the team owner",

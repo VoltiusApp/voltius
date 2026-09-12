@@ -179,3 +179,16 @@ export const PERM_META: Record<Permission, { label: string; description: string 
   JOIN_TERMINAL_SESSION:  { label: "Join sessions",      description: "Join existing terminal sessions" },
   VIEW_TERMINAL_SESSIONS: { label: "View sessions",      description: "See active terminal sessions" },
 };
+
+export type PermissionGroupKey = "secrets" | "vaultContent" | "team" | "sessions";
+
+/**
+ * How the member-permissions list clusters its rows. Every `Permission` must
+ * appear in exactly one group — `permissions.test.ts` asserts the partition.
+ */
+export const PERMISSION_GROUPS: { key: PermissionGroupKey; permissions: Permission[] }[] = [
+  { key: "secrets", permissions: ["VIEW_SECRETS", "COPY_SECRETS", "CONNECT"] },
+  { key: "vaultContent", permissions: ["EDIT_CONNECTIONS", "EDIT_IDENTITIES", "EDIT_KEYS", "EDIT_FOLDERS", "EDIT_SNIPPETS"] },
+  { key: "team", permissions: ["INVITE_MEMBERS", "MANAGE_MEMBERS", "MANAGE_ROLES", "MANAGE_VAULT", "VIEW_AUDIT_LOG", "CREATE_CUSTOM_ROLES"] },
+  { key: "sessions", permissions: ["START_TERMINAL_SESSION", "JOIN_TERMINAL_SESSION", "VIEW_TERMINAL_SESSIONS"] },
+];

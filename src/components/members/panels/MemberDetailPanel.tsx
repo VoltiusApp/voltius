@@ -7,14 +7,14 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/settings/sections/RolesSection";
-import { ROLE_META, RoleBlurb } from "@/components/members/roleChips";
+import { ROLE_META, RoleBlurb, permissionLabel } from "@/components/members/roleChips";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import type { DepartMode } from "@/services/teamOffboarding";
 import {
-  PERM_BITS, PERM_META, effectivePermissions, crossesVaultKeyGate, resolveMemberReadOnlyReason,
-  type Permission, type MemberReadOnlyReason,
+  PERM_BITS, PERM_META, PERMISSION_GROUPS, effectivePermissions, crossesVaultKeyGate,
+  resolveMemberReadOnlyReason, type Permission, type MemberReadOnlyReason,
 } from "@/services/permissions";
 import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
 import {
@@ -53,6 +53,7 @@ export function MemberDetailPanel({
   const [offboarding, setOffboarding] = useState<DepartMode | null>(null);
   const [creatingRole, setCreatingRole] = useState(false);
   const [overriding, setOverriding] = useState(false);
+  const [permissionFilter, setPermissionFilter] = useState("");
   // Stores the intent, not the computed masks — commitOverride recomputes them
   // from the render current at confirm time, in case member state changed meanwhile.
   const [pendingRevoke, setPendingRevoke] = useState<{ permission: Permission; next: OverrideState } | null>(null);
@@ -130,6 +131,15 @@ export function MemberDetailPanel({
     .filter((p) => p !== "CREATE_CUSTOM_ROLES"
       || ((allow | deny) & PERM_BITS.CREATE_CUSTOM_ROLES) !== 0);
 
+  const filterQuery = permissionFilter.trim().toLowerCase();
+  const filteredGroups = PERMISSION_GROUPS
+    .map((g) => ({
+      key: g.key,
+      permissions: g.permissions.filter((p) =>
+        editablePermissions.includes(p) && permissionLabel(t, p).toLowerCase().includes(filterQuery)),
+    }))
+    .filter((g) => g.permissions.length > 0);
+
   const rolesGranting = (permission: Permission) =>
     teamRoles
       .filter((r) => member.role_ids.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
@@ -172,11 +182,11 @@ export function MemberDetailPanel({
     setError("");
     setOverriding(true);
     try {
-      await runReversible({
-        pending: t("members.toast.updatingPermissions", { name: member.handle }),
-        success: t("members.toast.permissionsUpdated", { name: member.handle }),
+      // No toast here: a bit flip already gets its own inline row feedback,
+      // and a toast per click was noisy against runReversible's other callers.
+      await write(updated)();
+      push({
         label: t("members.history.changePermissions", { name: member.handle }),
-        run: write(updated),
         undo: at(overrideStateOf(permission, allow, deny)),
         redo: at(next),
       });
@@ -290,21 +300,48 @@ export function MemberDetailPanel({
           {readOnlyReason && (
             <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>
           )}
-          <div className="divide-y" style={{ borderColor: "var(--t-border)" }}>
-            {editablePermissions.map((permission) => {
-              const granting = rolesGranting(permission);
-              return (
-                <PermissionOverrideRow
-                  key={permission}
-                  permission={permission}
-                  state={overrideStateOf(permission, allow, deny)}
-                  inheritedFrom={granting}
-                  inheritedGrants={granting.length > 0}
-                  disabled={rowDisabled(permission)}
-                  onChange={(next) => void handleOverride(permission, next)}
-                />
-              );
-            })}
+          {editablePermissions.length > 6 && (
+            <div className="relative mb-2">
+              <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--t-text-dim)" }} />
+              <input
+                value={permissionFilter}
+                onChange={(e) => setPermissionFilter(e.target.value)}
+                placeholder={t("members.permissions.filterPlaceholder")}
+                className="w-full pl-8 pr-7 py-1.5 rounded-lg outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary)"
+                style={{ fontSize: 12 }}
+              />
+              {permissionFilter && (
+                <button onClick={() => setPermissionFilter("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70">
+                  <Icon icon="lucide:x" width={12} style={{ color: "var(--t-text-dim)" }} />
+                </button>
+              )}
+            </div>
+          )}
+          {filteredGroups.length === 0 && (
+            <p className="text-xs text-(--t-text-dim) px-1 py-2">{t("common.state.noResults")}</p>
+          )}
+          <div className="space-y-4">
+            {filteredGroups.map((g) => (
+              <div key={g.key}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim) opacity-70 mb-0.5">
+                  {t(`members.permissions.group.${g.key}`)}
+                </p>
+                {g.permissions.map((permission) => {
+                  const granting = rolesGranting(permission);
+                  return (
+                    <PermissionOverrideRow
+                      key={permission}
+                      permission={permission}
+                      state={overrideStateOf(permission, allow, deny)}
+                      inheritedFrom={granting}
+                      inheritedGrants={granting.length > 0}
+                      disabled={rowDisabled(permission)}
+                      onChange={(next) => void handleOverride(permission, next)}
+                    />
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </FormSection>
         )}

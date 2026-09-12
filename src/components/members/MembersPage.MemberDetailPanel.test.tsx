@@ -276,6 +276,35 @@ test("permission overrides: renders one row per permission and sends the new mas
   expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0);
 });
 
+test("permission overrides: the filter narrows visible rows and hides empty groups", () => {
+  render(<MemberDetailPanel {...permProps()} />);
+
+  expect(screen.getAllByRole("radiogroup")).toHaveLength(16);
+
+  fireEvent.change(screen.getByPlaceholderText("members.permissions.filterPlaceholder"), {
+    target: { value: "secrets" },
+  });
+
+  const rows = screen.getAllByRole("radiogroup");
+  expect(rows).toHaveLength(2);
+  expect(rows.map((r) => r.getAttribute("aria-label"))).toEqual([
+    "members.permission.VIEW_SECRETS",
+    "members.permission.COPY_SECRETS",
+  ]);
+  expect(screen.queryByText("members.permissions.group.sessions")).toBeNull();
+});
+
+test("permission overrides: a filter matching nothing shows the no-results copy", () => {
+  render(<MemberDetailPanel {...permProps()} />);
+
+  fireEvent.change(screen.getByPlaceholderText("members.permissions.filterPlaceholder"), {
+    target: { value: "nothing-matches-this" },
+  });
+
+  expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
+  expect(screen.getByText("common.state.noResults")).toBeTruthy();
+});
+
 test("permission overrides: undo throws instead of writing empty masks when the member is gone from the store", async () => {
   render(<MemberDetailPanel {...permProps()} />);
 
@@ -286,7 +315,7 @@ test("permission overrides: undo throws instead of writing empty masks when the 
   );
 
   const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
-  await expect(entry.undo()).rejects.toThrow();
+  expect(() => entry.undo()).toThrow();
 });
 
 // An older server omits both mask fields entirely; every row would otherwise

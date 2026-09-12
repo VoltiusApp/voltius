@@ -63,7 +63,14 @@
       "readOnlySelf": "Vous ne pouvez pas modifier vos propres permissions",
       "readOnlyHigherRole": "Ce membre a un rôle égal ou supérieur au vôtre",
       "readOnlyNotHeld": "Vous ne pouvez pas accorder une permission que vous n'avez pas",
-      "overrideMarker": "Permissions personnalisées"
+      "overrideMarker": "Permissions personnalisées",
+      "filterPlaceholder": "Filtrer les permissions…",
+      "group": {
+        "secrets": "Secrets et connexion",
+        "vaultContent": "Contenu du coffre-fort",
+        "team": "Équipe et coffre-fort",
+        "sessions": "Sessions"
+      }
     },
     "revokeKeyAccess": {
       "title": "Retirer à {{name}} l'accès à la clé du coffre ?",
@@ -145,9 +152,7 @@
       "grantingKey": "Octroi de l'accès au coffre-fort à {{name}}…",
       "keyGranted": "{{name}} peut maintenant ouvrir le coffre-fort",
       "leavingTeam": "Départ de l'équipe…",
-      "leftTeam": "Vous avez quitté l'équipe",
-      "updatingPermissions": "Mise à jour des permissions de {{name}}…",
-      "permissionsUpdated": "Permissions de {{name}} mises à jour"
+      "leftTeam": "Vous avez quitté l'équipe"
     },
     "error": {
       "cannotRemoveOwnerRole": "Impossible de retirer le rôle de propriétaire au propriétaire de l'équipe",

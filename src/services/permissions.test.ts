@@ -1,7 +1,7 @@
 import { test, expect, describe, it } from "vitest";
 import {
   resolveCan, PERM_BITS, effectivePermissions, crossesVaultKeyGate, resolveMemberReadOnlyReason,
-  type PermissionSnapshot,
+  PERMISSION_GROUPS, type Permission, type PermissionSnapshot,
 } from "./permissions.ts";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
@@ -229,6 +229,13 @@ describe("resolveMemberReadOnlyReason", () => {
   it("hierarchy passes but offending bits remain: notHeld", () => {
     expect(reason({ offendingBits: PERM_BITS.VIEW_SECRETS })).toBe("notHeld");
   });
+});
+
+test("PERMISSION_GROUPS partitions every Permission exactly once", () => {
+  const allPermissions = Object.keys(PERM_BITS) as Permission[];
+  const grouped = PERMISSION_GROUPS.flatMap((g) => g.permissions);
+  expect(new Set(grouped).size).toBe(grouped.length);
+  expect([...grouped].sort()).toEqual([...allPermissions].sort());
 });
 
 test("resolveCan uses team-level deny in the team fallback (before membersByTeam loads)", () => {

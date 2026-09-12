@@ -63,7 +63,14 @@
       "readOnlySelf": "无法修改自己的权限",
       "readOnlyHigherRole": "该成员的角色不低于你",
       "readOnlyNotHeld": "无法授予你自己没有的权限",
-      "overrideMarker": "存在权限覆盖"
+      "overrideMarker": "存在权限覆盖",
+      "filterPlaceholder": "筛选权限…",
+      "group": {
+        "secrets": "密钥与连接",
+        "vaultContent": "保险库内容",
+        "team": "团队与保险库",
+        "sessions": "会话"
+      }
     },
     "revokeKeyAccess": {
       "title": "撤销 {{name}} 对保险库密钥的访问权限？",
@@ -145,9 +152,7 @@
       "grantingKey": "正在为 {{name}} 授予保险库访问权…",
       "keyGranted": "{{name}} 现在可以打开保险库",
       "leavingTeam": "正在退出团队…",
-      "leftTeam": "你已退出团队",
-      "updatingPermissions": "正在更新 {{name}} 的权限…",
-      "permissionsUpdated": "已更新 {{name}} 的权限"
+      "leftTeam": "你已退出团队"
     },
     "error": {
       "cannotRemoveOwnerRole": "无法从团队所有者移除所有者角色",
