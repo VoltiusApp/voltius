@@ -1,5 +1,6 @@
-import { requireSyncToken } from "./auth";
+import { requireSyncToken, jsonError } from "./auth";
 import { json } from "./http";
+import { isManifest, readManifest, writeManifest } from "./manifest";
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
@@ -9,14 +10,41 @@ export default {
       return json({ ok: true, version: 1 });
     }
 
-    // Phase 2: gate all /v1/* behind SYNC_TOKEN. Concrete routes arrive in later phases.
     if (url.pathname === "/v1" || url.pathname.startsWith("/v1/")) {
       const denied = requireSyncToken(request, env);
       if (denied) return denied;
-      return json(
-        { error: "not_found", message: `No route for ${request.method} ${url.pathname}` },
-        404,
-      );
+
+      try {
+        if (url.pathname === "/v1/manifest" && request.method === "GET") {
+          const manifest = await readManifest(env.VAULT_BUCKET);
+          if (!manifest) {
+            return jsonError(404, "not_found", "manifest.json does not exist yet");
+          }
+          return json(manifest);
+        }
+
+        if (url.pathname === "/v1/manifest" && request.method === "PUT") {
+          let body: unknown;
+          try {
+            body = await request.json();
+          } catch {
+            return jsonError(400, "bad_request", "Request body must be JSON");
+          }
+          if (!isManifest(body)) {
+            return jsonError(400, "bad_request", "Invalid manifest schema");
+          }
+          await writeManifest(env.VAULT_BUCKET, body);
+          return json(body);
+        }
+
+        return json(
+          { error: "not_found", message: `No route for ${request.method} ${url.pathname}` },
+          404,
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return jsonError(500, "internal", message);
+      }
     }
 
     return json(

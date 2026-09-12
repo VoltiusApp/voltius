@@ -13,7 +13,8 @@ Upstream tracking: [VoltiusApp/voltius#267](https://github.com/VoltiusApp/voltiu
 |-------|---------|
 | ✅ 1 | `GET /health` scaffold |
 | ✅ 2 | Bearer auth on `/v1/*` |
-| ⏳ 3+ | Manifest + device blob APIs on R2 |
+| ✅ 3 | Manifest GET/PUT on R2 |
+| ⏳ 4+ | Device blob APIs on R2 |
 
 ## Quick start
 
