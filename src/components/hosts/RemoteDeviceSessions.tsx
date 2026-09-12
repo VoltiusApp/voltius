@@ -111,7 +111,7 @@ export function RemoteDeviceSessions() {
                 </div>
               ) : isFailed ? (
                 <div className="flex-1 min-w-0 self-stretch flex flex-col gap-2">
-                  <p className="text-[11px] truncate text-(--t-text-bright)">{a.connectionName}</p>
+                  <p className="text-[11px] truncate text-(--t-text-bright)">{a.title || a.connectionName}</p>
                   <p className="text-[11px] text-(--t-status-error)">{t("hosts.remoteSessions.killFailed")}</p>
                   <button
                     onClick={(e) => { e.stopPropagation(); setFailedIds((prev) => { const n = new Set(prev); n.delete(a.sessionId); return n; }); }}
@@ -131,7 +131,7 @@ export function RemoteDeviceSessions() {
                     iconClassName={joiningId === a.sessionId ? "animate-spin" : undefined}
                   />
                   <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate text-(--t-text-bright)">{a.connectionName}</p>
+                    <p className="text-sm font-bold truncate text-(--t-text-bright)">{a.title || a.connectionName}</p>
                     <p className="text-[11px] truncate text-(--t-text-dim)">
                       {a.deviceName} · active {relativeAge(a.openedAt)}
                     </p>
