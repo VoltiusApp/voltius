@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.3] - 2026-09-12
+
+### Added
+
+- Let checkout request a specific plan, seat count and billing interval instead
+  of defaulting to a single monthly plan.
+
+### Fixed
+
+- Unified the role editor and per-member permission overrides so both group and
+  label every permission the same way.
+
 ## [0.34.2] - 2026-09-12
 
 ### Fixed
