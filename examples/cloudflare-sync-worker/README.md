@@ -15,7 +15,7 @@ Upstream tracking: [VoltiusApp/voltius#267](https://github.com/VoltiusApp/voltiu
 | ✅ 2 | Bearer auth on `/v1/*` |
 | ✅ 3 | Manifest GET/PUT on R2 |
 | ✅ 4 | Device blob GET/PUT/DELETE + manifest upsert |
-| ⏳ 5 | Error/CORS polish |
+| ✅ 5 | CORS + OPTIONS preflight |
 
 ## Quick start
 
@@ -40,3 +40,15 @@ Point the Voltius Cloudflare Sync plugin at your Worker URL and use a **separate
 ## License
 
 MIT — clean-room example; not a copy of the Voltius AGPL sync server.
+
+
+## HTTP API (MVP)
+
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| GET | `/health` | no | Liveness |
+| OPTIONS | `*` | no | CORS preflight |
+| GET/PUT | `/v1/manifest` | Bearer | Schema `{ schema:1, salt, devices[] }` |
+| GET/PUT/DELETE | `/v1/devices/:id` | Bearer | PUT body `{ content, label, pushedAt }` |
+
+R2 keys: `manifest.json`, `devices/{id}.b64`
