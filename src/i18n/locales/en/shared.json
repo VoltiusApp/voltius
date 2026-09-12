@@ -5,7 +5,9 @@
     },
     "trialExpiredModal": {
       "title": "Your Pro trial has ended",
-      "body": "You've had 14 days to try Pro — hope it was useful. Upgrade to keep real-time sync and cloud features.",
+      "subtitle": "These three stop working today:",
+      "freeNote": "Local vault, audit logs and GitHub Gist sync stay free, forever.",
+      "teamsPrompt": "Working with others? Teams adds shared vaults and seats.",
       "upgradeButton": "Upgrade to Pro",
       "laterButton": "Maybe later"
     },

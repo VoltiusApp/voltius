@@ -5,7 +5,9 @@
     },
     "trialExpiredModal": {
       "title": "您的 Pro 试用已结束",
-      "body": "您已有 14 天的 Pro 试用时间——希望对您有用。升级到 Pro 以保持实时同步和云功能。",
+      "subtitle": "以下三项功能今天起停止工作：",
+      "freeNote": "本地保险库、审计日志和 GitHub Gist 同步永久免费。",
+      "teamsPrompt": "与他人协作？Teams 提供共享保险库和席位。",
       "upgradeButton": "升级到 Pro",
       "laterButton": "稍后再说"
     },

@@ -5,7 +5,9 @@
     },
     "trialExpiredModal": {
       "title": "Votre essai Pro est terminé",
-      "body": "Vous avez eu 14 jours pour essayer Pro — nous espérons que cela vous a été utile. Passez à l'abonnement supérieur pour conserver la synchronisation en temps réel et les fonctionnalités cloud.",
+      "subtitle": "Ces trois fonctionnalités s'arrêtent aujourd'hui :",
+      "freeNote": "Le coffre-fort local, les journaux d'audit et la synchronisation GitHub Gist restent gratuits, pour toujours.",
+      "teamsPrompt": "Vous travaillez à plusieurs ? Teams ajoute les coffres-forts partagés et les sièges.",
       "upgradeButton": "Passer à Pro",
       "laterButton": "Plus tard"
     },
