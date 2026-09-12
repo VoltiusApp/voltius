@@ -1,0 +1,20 @@
+{
+  "id": "plugin-cloudflare-sync",
+  "name": "Cloudflare Sync",
+  "version": "0.1.0",
+  "minAppVersion": "0.34.0",
+  "description": "Sync your encrypted vault via your own Cloudflare Worker + R2 — bring your own cloud, no Voltius account required.",
+  "permissions": [
+    "vault:read",
+    "vault:write",
+    "storage",
+    "http",
+    "crypto:derive",
+    "ui",
+    "sync:read",
+    "sync:write",
+    "notifications",
+    "settings-page"
+  ],
+  "defaultEnabled": false
+}
