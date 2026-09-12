@@ -5,7 +5,13 @@ import { checkoutRequiresEmailVerification } from "@/utils/emailVerification";
 
 export const EMAIL_VERIFICATION_REQUIRED_EVENT = "voltius:email-verification-required";
 
-export type BillingPlan = "pro" | "teams";
+export type BillingPlan = "pro" | "teams" | "business";
+export type BillingInterval = "monthly" | "yearly";
+
+export interface CheckoutOptions {
+  seats?: number;
+  interval?: BillingInterval;
+}
 
 async function readResponseBody(res: Response): Promise<unknown> {
   try {
@@ -15,7 +21,7 @@ async function readResponseBody(res: Response): Promise<unknown> {
   }
 }
 
-export async function openBillingCheckout(plan: BillingPlan): Promise<boolean> {
+export async function openBillingCheckout(plan: BillingPlan, options: CheckoutOptions = {}): Promise<boolean> {
   const [serverUrl, jwt] = await Promise.all([
     invoke<string | null>("keychain_get", { key: "server_url" }),
     invoke<string | null>("keychain_get", { key: "jwt" }),
@@ -25,7 +31,11 @@ export async function openBillingCheckout(plan: BillingPlan): Promise<boolean> {
   const res = await appFetch(`${serverUrl}/v1/billing/checkout`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify({
+      plan,
+      ...(options.seats !== undefined && { seats: options.seats }),
+      ...(options.interval && { interval: options.interval }),
+    }),
   });
   const body = await readResponseBody(res);
 
