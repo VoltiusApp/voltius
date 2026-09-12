@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-09-12
+
+### Fixed
+
+- Sent free users to checkout, not the billing portal, and told the truth about limits.
+- Showed the trial-expired modal, and led with what Pro gives.
+- Stopped the minimap canvas from self-locking to 1x1 on sibling panes.
+- Showed the renamed session name on cross-device session cards.
+
 ## [0.34.1] - 2026-09-12
 
 ### Fixed
