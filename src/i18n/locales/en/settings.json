@@ -599,74 +599,23 @@
           "terminalSessions": "Terminal Sessions"
         },
         "perm": {
-          "VIEW_SECRETS": {
-            "label": "View secrets",
-            "desc": "See passwords and private keys in plain text"
-          },
-          "COPY_SECRETS": {
-            "label": "Copy secrets",
-            "desc": "Copy passwords and keys to clipboard"
-          },
-          "CONNECT": {
-            "label": "Connect",
-            "desc": "Launch SSH connections"
-          },
-          "EDIT_CONNECTIONS": {
-            "label": "Edit connections",
-            "desc": "Create, modify, and delete connections"
-          },
-          "EDIT_IDENTITIES": {
-            "label": "Edit identities",
-            "desc": "Create, modify, and delete SSH identities"
-          },
-          "EDIT_KEYS": {
-            "label": "Edit keys",
-            "desc": "Create, modify, and delete SSH keys"
-          },
-          "EDIT_SNIPPETS": {
-            "label": "Edit snippets",
-            "desc": "Create, modify, and delete command snippets"
-          },
-          "EDIT_FOLDERS": {
-            "label": "Edit folders",
-            "desc": "Manage folder structure"
-          },
-          "VIEW_AUDIT_LOG": {
-            "label": "View audit log",
-            "desc": "Read the activity audit log"
-          },
-          "INVITE_MEMBERS": {
-            "label": "Invite members",
-            "desc": "Invite new members to the vault"
-          },
-          "MANAGE_MEMBERS": {
-            "label": "Manage members",
-            "desc": "Assign roles and remove members"
-          },
-          "CREATE_CUSTOM_ROLES": {
-            "label": "Manage roles (legacy)",
-            "desc": "Retired permission — kept for compatibility"
-          },
-          "MANAGE_ROLES": {
-            "label": "Manage roles",
-            "desc": "Create, edit, and delete roles"
-          },
-          "MANAGE_VAULT": {
-            "label": "Manage vault",
-            "desc": "Rename vault and manage vault settings"
-          },
-          "START_TERMINAL_SESSION": {
-            "label": "Start sessions",
-            "desc": "Start multiplayer terminal sessions"
-          },
-          "JOIN_TERMINAL_SESSION": {
-            "label": "Join sessions",
-            "desc": "Join existing terminal sessions"
-          },
-          "VIEW_TERMINAL_SESSIONS": {
-            "label": "View sessions",
-            "desc": "See active terminal sessions"
-          }
+          "VIEW_SECRETS": "See passwords and private keys in plain text",
+          "COPY_SECRETS": "Copy passwords and keys to clipboard",
+          "CONNECT": "Launch SSH connections",
+          "EDIT_CONNECTIONS": "Create, modify, and delete connections",
+          "EDIT_IDENTITIES": "Create, modify, and delete SSH identities",
+          "EDIT_KEYS": "Create, modify, and delete SSH keys",
+          "EDIT_SNIPPETS": "Create, modify, and delete command snippets",
+          "EDIT_FOLDERS": "Manage folder structure",
+          "VIEW_AUDIT_LOG": "Read the activity audit log",
+          "INVITE_MEMBERS": "Invite new members to the vault",
+          "MANAGE_MEMBERS": "Assign roles and remove members",
+          "CREATE_CUSTOM_ROLES": "Retired permission — kept for compatibility",
+          "MANAGE_ROLES": "Create, edit, and delete roles",
+          "MANAGE_VAULT": "Rename vault and manage vault settings",
+          "START_TERMINAL_SESSION": "Start multiplayer terminal sessions",
+          "JOIN_TERMINAL_SESSION": "Join existing terminal sessions",
+          "VIEW_TERMINAL_SESSIONS": "See active terminal sessions"
         },
         "builtinBadge": "Built-in",
         "dragToReorder": "Drag to reorder",

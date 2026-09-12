@@ -48,7 +48,7 @@ function nameInput() {
   return screen.getByPlaceholderText("settings.vaults.rolesPanel.roleNamePlaceholder") as HTMLInputElement;
 }
 function clickPerm(perm: keyof typeof PERM_BITS) {
-  const label = screen.getByText(`settings.vaults.rolesPanel.perm.${perm}.label`).closest("label");
+  const label = screen.getByText(`members.permission.${perm}`).closest("label");
   fireEvent.click(label!);
 }
 

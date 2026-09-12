@@ -8,6 +8,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { ColorPicker } from "@/components/theme-creator/ColorPicker";
 import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePermission";
 import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
+import { permissionLabel } from "@/components/members/roleChips";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
 
@@ -35,8 +36,8 @@ function PermissionRow({
   const { t } = useTranslation();
   const bit = PERM_BITS[perm];
   const checked = (value & bit) !== 0;
-  const tLabel = t(`settings.vaults.rolesPanel.perm.${perm}.label`);
-  const tDesc = t(`settings.vaults.rolesPanel.perm.${perm}.desc`);
+  const tLabel = permissionLabel(t, perm);
+  const tDesc = t(`settings.vaults.rolesPanel.perm.${perm}`);
   return (
     <label
       className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors"
