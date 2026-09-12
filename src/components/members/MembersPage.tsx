@@ -19,7 +19,7 @@ import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
 import { runTeamAction } from "@/services/teamActionFeedback";
-import { TeamRolesPanel } from "@/components/settings/sections/RolesSection";
+import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
 import { RoleToggleChip } from "@/components/members/roleChips";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";

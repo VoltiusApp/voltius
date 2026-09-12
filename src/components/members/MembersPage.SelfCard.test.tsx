@@ -31,7 +31,7 @@ vi.mock("@/components/shared/ToolbarViewControls", () => ({ ToolbarViewControls:
 // Unlike the other MembersPage test files, BaseCard is left rendering its
 // children — the self-card assertions below live inside it.
 vi.mock("@/components/settings/BuySeatsModal", () => ({ default: () => null }));
-vi.mock("@/components/settings/sections/RolesSection", () => ({
+vi.mock("@/components/members/panels/RolesPanel", () => ({
   RoleModal: () => null,
   PERM_META: {},
   TeamRolesPanel: () => null,

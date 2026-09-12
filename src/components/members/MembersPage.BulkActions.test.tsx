@@ -83,7 +83,7 @@ vi.mock("@/components/shared/BaseCard", () => ({
 }));
 
 vi.mock("@/components/settings/BuySeatsModal", () => ({ default: () => null }));
-vi.mock("@/components/settings/sections/RolesSection", () => ({
+vi.mock("@/components/members/panels/RolesPanel", () => ({
   RoleModal: () => null,
   PERM_META: {},
   TeamRolesPanel: () => null,

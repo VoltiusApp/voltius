@@ -6,7 +6,7 @@ import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
 import { runTeamAction } from "@/services/teamActionFeedback";
-import { RoleModal } from "@/components/settings/sections/RolesSection";
+import { RoleModal } from "@/components/members/panels/RolesPanel";
 import { ROLE_META, RoleBlurb, permissionLabel } from "@/components/members/roleChips";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";

@@ -25,7 +25,7 @@ vi.mock("@/components/shared/Panel", () => ({
   FormSection: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   PanelHeaderIconButton: () => null,
 }));
-vi.mock("@/components/settings/sections/RolesSection", () => ({
+vi.mock("@/components/members/panels/RolesPanel", () => ({
   RoleModal: () => null,
   PERM_META: {},
   TeamRolesPanel: () => null,
