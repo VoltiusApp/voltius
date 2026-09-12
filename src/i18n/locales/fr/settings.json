@@ -599,74 +599,23 @@
           "terminalSessions": "Sessions de terminal"
         },
         "perm": {
-          "VIEW_SECRETS": {
-            "label": "Voir les secrets",
-            "desc": "Voir les mots de passe et clés privées en clair"
-          },
-          "COPY_SECRETS": {
-            "label": "Copier les secrets",
-            "desc": "Copier les mots de passe et clés dans le presse-papiers"
-          },
-          "CONNECT": {
-            "label": "Se connecter",
-            "desc": "Lancer des connexions SSH"
-          },
-          "EDIT_CONNECTIONS": {
-            "label": "Modifier les connexions",
-            "desc": "Créer, modifier et supprimer des connexions"
-          },
-          "EDIT_IDENTITIES": {
-            "label": "Modifier les identités",
-            "desc": "Créer, modifier et supprimer des identités SSH"
-          },
-          "EDIT_KEYS": {
-            "label": "Modifier les clés",
-            "desc": "Créer, modifier et supprimer des clés SSH"
-          },
-          "EDIT_SNIPPETS": {
-            "label": "Modifier les snippets",
-            "desc": "Créer, modifier et supprimer des extraits de commandes"
-          },
-          "EDIT_FOLDERS": {
-            "label": "Modifier les dossiers",
-            "desc": "Gérer la structure des dossiers"
-          },
-          "VIEW_AUDIT_LOG": {
-            "label": "Voir le journal d'audit",
-            "desc": "Lire le journal d'activité"
-          },
-          "INVITE_MEMBERS": {
-            "label": "Inviter des membres",
-            "desc": "Inviter de nouveaux membres dans le coffre-fort"
-          },
-          "MANAGE_MEMBERS": {
-            "label": "Gérer les membres",
-            "desc": "Attribuer des rôles et retirer des membres"
-          },
-          "CREATE_CUSTOM_ROLES": {
-            "label": "Gérer les rôles (hérité)",
-            "desc": "Permission retirée — conservée pour compatibilité"
-          },
-          "MANAGE_ROLES": {
-            "label": "Gérer les rôles",
-            "desc": "Créer, modifier et supprimer des rôles"
-          },
-          "MANAGE_VAULT": {
-            "label": "Gérer le coffre-fort",
-            "desc": "Renommer le coffre-fort et gérer ses paramètres"
-          },
-          "START_TERMINAL_SESSION": {
-            "label": "Démarrer des sessions",
-            "desc": "Démarrer des sessions de terminal multijoueur"
-          },
-          "JOIN_TERMINAL_SESSION": {
-            "label": "Rejoindre des sessions",
-            "desc": "Rejoindre des sessions de terminal existantes"
-          },
-          "VIEW_TERMINAL_SESSIONS": {
-            "label": "Voir les sessions",
-            "desc": "Voir les sessions de terminal actives"
-          }
+          "VIEW_SECRETS": "Voir les mots de passe et clés privées en clair",
+          "COPY_SECRETS": "Copier les mots de passe et clés dans le presse-papiers",
+          "CONNECT": "Lancer des connexions SSH",
+          "EDIT_CONNECTIONS": "Créer, modifier et supprimer des connexions",
+          "EDIT_IDENTITIES": "Créer, modifier et supprimer des identités SSH",
+          "EDIT_KEYS": "Créer, modifier et supprimer des clés SSH",
+          "EDIT_SNIPPETS": "Créer, modifier et supprimer des extraits de commandes",
+          "EDIT_FOLDERS": "Gérer la structure des dossiers",
+          "VIEW_AUDIT_LOG": "Lire le journal d'activité",
+          "INVITE_MEMBERS": "Inviter de nouveaux membres dans le coffre-fort",
+          "MANAGE_MEMBERS": "Attribuer des rôles et retirer des membres",
+          "CREATE_CUSTOM_ROLES": "Permission retirée — conservée pour compatibilité",
+          "MANAGE_ROLES": "Créer, modifier et supprimer des rôles",
+          "MANAGE_VAULT": "Renommer le coffre-fort et gérer ses paramètres",
+          "START_TERMINAL_SESSION": "Démarrer des sessions de terminal multijoueur",
+          "JOIN_TERMINAL_SESSION": "Rejoindre des sessions de terminal existantes",
+          "VIEW_TERMINAL_SESSIONS": "Voir les sessions de terminal actives"
         },
         "builtinBadge": "Intégré",
         "dragToReorder": "Glisser pour réordonner",

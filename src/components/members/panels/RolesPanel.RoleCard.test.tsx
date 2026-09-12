@@ -19,7 +19,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/components/theme-creator/ColorPicker", () => ({ ColorPicker: () => null }));
 
-import { TeamRolesPanel } from "@/components/settings/sections/RolesSection";
+import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { PERM_BITS } from "@/hooks/usePermission";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";

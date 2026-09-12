@@ -36,7 +36,7 @@ vi.mock("@/components/shared/BaseCard", () => ({ BaseCard: () => null }));
 vi.mock("@/components/settings/BuySeatsModal", () => ({ default: () => null }));
 // Unlike other MembersPage test files, TeamRolesPanel renders a marker instead
 // of null — it's the thing this file is checking for.
-vi.mock("@/components/settings/sections/RolesSection", () => ({
+vi.mock("@/components/members/panels/RolesPanel", () => ({
   RoleModal: () => null,
   PERM_META: {},
   TeamRolesPanel: ({ teamId }: { teamId: string }) => <div data-testid="team-roles-panel">{teamId}</div>,

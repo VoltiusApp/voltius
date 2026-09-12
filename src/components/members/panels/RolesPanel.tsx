@@ -7,31 +7,18 @@ import type { TeamRole } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { ColorPicker } from "@/components/theme-creator/ColorPicker";
 import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePermission";
-// Re-exported for the existing importers of this module; it is defined beside
-// the permission bits so presentational code can read it without pulling this
-// screen's dependency graph in.
-export { PERM_META } from "@/services/permissions";
+import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
+import { permissionLabel } from "@/components/members/roleChips";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
 
-const PERMISSION_GROUPS: { key: string; perms: Permission[] }[] = [
-  {
-    key: "dataAccess",
-    perms: ["VIEW_SECRETS", "COPY_SECRETS", "CONNECT"],
-  },
-  {
-    key: "connectionManagement",
-    perms: ["EDIT_CONNECTIONS", "EDIT_IDENTITIES", "EDIT_KEYS", "EDIT_SNIPPETS", "EDIT_FOLDERS"],
-  },
-  {
-    key: "teamAdministration",
-    perms: ["VIEW_AUDIT_LOG", "INVITE_MEMBERS", "MANAGE_MEMBERS", "MANAGE_ROLES", "MANAGE_VAULT"],
-  },
-  {
-    key: "terminalSessions",
-    perms: ["START_TERMINAL_SESSION", "JOIN_TERMINAL_SESSION", "VIEW_TERMINAL_SESSIONS"],
-  },
-];
+// Maps the canonical group keys onto this screen's own (already-translated) i18n names.
+const GROUP_LABEL_KEY: Record<PermissionGroupKey, string> = {
+  secrets: "dataAccess",
+  vaultContent: "connectionManagement",
+  team: "teamAdministration",
+  sessions: "terminalSessions",
+};
 
 // ─── Permission checkbox grid ─────────────────────────────────────────────────
 
@@ -49,8 +36,8 @@ function PermissionRow({
   const { t } = useTranslation();
   const bit = PERM_BITS[perm];
   const checked = (value & bit) !== 0;
-  const tLabel = t(`settings.vaults.rolesPanel.perm.${perm}.label`);
-  const tDesc = t(`settings.vaults.rolesPanel.perm.${perm}.desc`);
+  const tLabel = permissionLabel(t, perm);
+  const tDesc = t(`settings.vaults.rolesPanel.perm.${perm}`);
   return (
     <label
       className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors"
@@ -99,10 +86,10 @@ function PermissionGrid({
       {PERMISSION_GROUPS.map((group) => (
         <div key={group.key}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-1 px-3" style={{ color: "var(--t-text-dim)" }}>
-            {t(`settings.vaults.rolesPanel.permGroup.${group.key}`)}
+            {t(`settings.vaults.rolesPanel.permGroup.${GROUP_LABEL_KEY[group.key]}`)}
           </p>
           <div className="grid grid-cols-1 gap-0.5">
-            {group.perms.filter((p) => p in PERM_BITS).map((perm) => (
+            {group.permissions.filter((p) => p in PERM_BITS && p !== "CREATE_CUSTOM_ROLES").map((perm) => (
               <PermissionRow key={perm} perm={perm} value={value} readOnly={readOnly} onToggle={toggle} />
             ))}
           </div>

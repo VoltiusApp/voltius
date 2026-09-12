@@ -17,7 +17,8 @@ vi.mock("react-i18next", () => ({
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/components/theme-creator/ColorPicker", () => ({ ColorPicker: () => null }));
 
-import { RoleModal, PERM_META } from "@/components/settings/sections/RolesSection";
+import { RoleModal } from "@/components/members/panels/RolesPanel";
+import { PERM_META } from "@/services/permissions";
 import { PERM_BITS } from "@/hooks/usePermission";
 import { useTeamStore } from "@/stores/teamStore";
 
@@ -47,7 +48,7 @@ function nameInput() {
   return screen.getByPlaceholderText("settings.vaults.rolesPanel.roleNamePlaceholder") as HTMLInputElement;
 }
 function clickPerm(perm: keyof typeof PERM_BITS) {
-  const label = screen.getByText(`settings.vaults.rolesPanel.perm.${perm}.label`).closest("label");
+  const label = screen.getByText(`members.permission.${perm}`).closest("label");
   fireEvent.click(label!);
 }
 
