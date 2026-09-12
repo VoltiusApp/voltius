@@ -120,6 +120,8 @@
       "failedToRemoveMember": "Failed to remove member: {{status}}",
       "failedToAssignRole": "Failed to assign role: {{status}}",
       "failedToRemoveRole": "Failed to remove role: {{status}}",
+      "insufficientPermissionSetMemberPermissions": "You do not have permission to change this member's permissions",
+      "failedToSetMemberPermissions": "Failed to set member permissions: {{status}}",
       "failedToCreateRole": "Failed to create role: {{status}}",
       "failedToUpdateRole": "Failed to update role: {{status}}",
       "failedToDeleteRole": "Failed to delete role: {{status}}",

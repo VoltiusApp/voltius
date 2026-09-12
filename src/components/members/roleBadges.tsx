@@ -5,6 +5,8 @@ import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
 import { ROLE_META, RolePermissionTooltip } from "@/components/members/roleChips";
 
+const INLINE_WRAPPER_CLASS = "inline-flex items-center gap-1";
+
 export function RoleChip({ role }: { role: TeamRole }) {
   const [showTip, setShowTip] = useState(false);
   const meta = ROLE_META[role.name];
@@ -43,25 +45,45 @@ export function RoleBadges({
     .map((rid) => roles.find((r) => r.id === rid))
     .filter(Boolean) as TeamRole[];
   memberRoles.sort((a, b) => a.position - b.position);
+  const hasOverrides = ((member.permission_allow ?? 0) | (member.permission_deny ?? 0)) !== 0;
+  const marker = hasOverrides ? (
+    <span
+      data-testid="override-marker"
+      title={t("members.permissions.overrideMarker")}
+      className="inline-flex items-center"
+      style={{ color: "var(--t-text-dim)" }}
+    >
+      <Icon icon="lucide:sliders-horizontal" width={10} />
+    </span>
+  ) : null;
   if (memberRoles.length === 0) {
     if (canManage && onAddRole) {
       return (
-        <button
-          onClick={(e) => { e.stopPropagation(); onAddRole(); }}
-          className="text-[10px] transition-colors"
-          style={{ color: "var(--t-text-dim)" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-        >
-          {t("members.noRoleAddPrompt")}
-        </button>
+        <span className={INLINE_WRAPPER_CLASS}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onAddRole(); }}
+            className="text-[10px] transition-colors"
+            style={{ color: "var(--t-text-dim)" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+          >
+            {t("members.noRoleAddPrompt")}
+          </button>
+          {marker}
+        </span>
       );
     }
-    return <span className="text-[10px] text-(--t-text-dim)">{t("members.noRole")}</span>;
+    return (
+      <span className={INLINE_WRAPPER_CLASS}>
+        <span className="text-[10px] text-(--t-text-dim)">{t("members.noRole")}</span>
+        {marker}
+      </span>
+    );
   }
   return (
     <div className="flex flex-wrap gap-1">
       {memberRoles.map((r) => <RoleChip key={r.id} role={r} />)}
+      {marker}
     </div>
   );
 }

@@ -11,6 +11,8 @@ export interface Team {
   owner_tier: string;
   created_at: string;
   role_ids: string[];
+  permission_allow?: number;
+  permission_deny?: number;
 }
 
 export interface TeamMember {
@@ -21,6 +23,8 @@ export interface TeamMember {
   joined_at: string;
   public_key: string;
   role_ids: string[];
+  permission_allow?: number;
+  permission_deny?: number;
   is_online?: boolean;
   /** An older server (no migration 035) omits this. Never render a bare "@" when absent. */
   handle?: string;
@@ -198,6 +202,24 @@ export async function removeMemberRole(
   if (!res.ok) {
     if (res.status === 403) throw new Error(i18n.t("common.error.cannotRemoveThisRole"));
     throw new Error(i18n.t("common.error.failedToRemoveRole", { status: res.status }));
+  }
+}
+
+export async function setMemberPermissions(
+  teamId: string,
+  userId: string,
+  allow: number,
+  deny: number,
+): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}/permissions`, {
+    method: "PUT",
+    body: JSON.stringify({ allow, deny }),
+  });
+  if (!res.ok) {
+    if (res.status === 403) throw new Error(i18n.t("common.error.insufficientPermissionSetMemberPermissions"));
+    throw new Error(i18n.t("common.error.failedToSetMemberPermissions", { status: res.status }));
   }
 }
 

@@ -1,6 +1,7 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
+import { PERM_BITS } from "@/services/permissions";
 
 const h = vi.hoisted(() => ({
   assign: vi.fn(),
@@ -9,6 +10,8 @@ const h = vi.hoisted(() => ({
   addMemberById: vi.fn(),
   loadMembers: vi.fn(),
   push: vi.fn(),
+  setPerms: vi.fn(),
+  rotate: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -29,11 +32,13 @@ vi.mock("@/components/settings/sections/RolesSection", () => ({
 }));
 vi.mock("@/stores/teamStore", () => {
   const state = {
+    membersByTeam: {} as Record<string, TeamMember[]>,
     assignMemberRole: h.assign,
     removeMemberRole: h.remove,
     removeMember: h.removeMember,
     addMemberById: h.addMemberById,
     loadMembers: h.loadMembers,
+    setMemberPermissions: h.setPerms,
   };
   const useTeamStore = Object.assign(
     (sel: (s: typeof state) => unknown) => sel(state),
@@ -53,8 +58,14 @@ vi.mock("@/stores/historyStore", () => ({
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
+vi.mock("@/services/teamKeyRotation", () => ({
+  checkAndRotateTeamKey: (...a: unknown[]) => h.rotate(...a),
+}));
 
 import { MemberDetailPanel } from "./panels/MemberDetailPanel";
+import { useTeamStore } from "@/stores/teamStore";
+
+const mockStore = useTeamStore.getState() as unknown as { membersByTeam: Record<string, TeamMember[]> };
 
 const baseMember: TeamMember = {
   team_id: "t1",
@@ -90,6 +101,9 @@ beforeEach(() => {
   h.removeMember.mockResolvedValue(undefined);
   h.addMemberById.mockResolvedValue(undefined);
   h.loadMembers.mockResolvedValue(undefined);
+  h.setPerms.mockResolvedValue(undefined);
+  h.rotate.mockResolvedValue(undefined);
+  mockStore.membersByTeam = {};
   baseProps.onClose = vi.fn();
   baseProps.onUpdated = vi.fn();
 });
@@ -195,4 +209,345 @@ test("remove undo closure: re-adds member, reassigns each snapshot role, reloads
   expect(h.loadMembers).toHaveBeenCalledWith("t1");
   expect(h.addMemberById.mock.invocationCallOrder[0]).toBeLessThan(h.assign.mock.invocationCallOrder[0]);
   expect(h.assign.mock.invocationCallOrder[0]).toBeLessThan(h.loadMembers.mock.invocationCallOrder[0]);
+});
+
+// ── Permission overrides ──────────────────────────────────────────────────
+
+const viewerRole: TeamRole = {
+  id: "r-viewer", team_id: "t1", name: "viewer-role", is_builtin: false,
+  permissions: PERM_BITS.MANAGE_MEMBERS, position: 0, created_at: "",
+};
+const targetRole: TeamRole = {
+  id: "r-target", team_id: "t1", name: "target-role", is_builtin: false,
+  permissions: 0, position: 2, created_at: "",
+};
+const highRole: TeamRole = {
+  id: "r-high", team_id: "t1", name: "high-role", is_builtin: false,
+  permissions: 0, position: 0, created_at: "",
+};
+
+const viewerMember: TeamMember = {
+  team_id: "t1", user_id: "uviewer", handle: "me", public_key: "k",
+  invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z",
+  role_ids: ["r-viewer"], permission_allow: 0, permission_deny: 0,
+};
+
+const targetMember: TeamMember = {
+  team_id: "t1", user_id: "u2", handle: "alice", public_key: "k",
+  invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z",
+  role_ids: ["r-target"], permission_allow: 0, permission_deny: 0,
+};
+
+function permProps(overrides: Partial<{
+  member: TeamMember; isMe: boolean; teamRoles: TeamRole[];
+  canManageMembers: boolean; isTargetOwner: boolean; viewer: TeamMember;
+  onUpdated: () => void;
+}> = {}) {
+  return {
+    member: targetMember,
+    isMe: false,
+    teamId: "t1",
+    teamRoles: [viewerRole, targetRole],
+    canManageMembers: true,
+    isTargetOwner: false,
+    viewer: viewerMember,
+    onClose: vi.fn(),
+    onUpdated: vi.fn(),
+    ...overrides,
+  };
+}
+
+test("permission overrides: renders one row per permission and sends the new masks", async () => {
+  render(<MemberDetailPanel {...permProps()} />);
+
+  expect(screen.getAllByRole("radiogroup")).toHaveLength(16);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.EDIT_KEYS),
+  );
+
+  mockStore.membersByTeam = { t1: [targetMember] };
+
+  const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
+  await entry.undo();
+  expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0);
+});
+
+test("permission overrides: undo throws instead of writing empty masks when the member is gone from the store", async () => {
+  render(<MemberDetailPanel {...permProps()} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.EDIT_KEYS),
+  );
+
+  const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
+  await expect(entry.undo()).rejects.toThrow();
+});
+
+// An older server omits both mask fields entirely; every row would otherwise
+// render live and 404 on click.
+test("no permissions section at all when the server serves neither mask", () => {
+  const legacy = { ...targetMember };
+  delete legacy.permission_allow;
+  delete legacy.permission_deny;
+  render(<MemberDetailPanel {...permProps({ member: legacy })} />);
+
+  expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
+  expect(screen.queryByText("members.permissions.title")).toBeNull();
+});
+
+test("undo re-reads the masks so a concurrent change survives the full replace", async () => {
+  render(<MemberDetailPanel {...permProps()} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.EDIT_KEYS),
+  );
+
+  mockStore.membersByTeam = {
+    t1: [{ ...targetMember, permission_deny: PERM_BITS.EDIT_KEYS | PERM_BITS.CONNECT }],
+  };
+
+  const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
+  await entry.undo();
+
+  expect(h.setPerms).toHaveBeenLastCalledWith("t1", "u2", 0, PERM_BITS.CONNECT);
+});
+
+// CREATE_CUSTOM_ROLES is retired and normally hidden, but it is inside the
+// server's ALL_PERMISSIONS, so a mask carrying it must stay clearable.
+test("a retired bit set in a mask renders an enabled row that can clear it", async () => {
+  const member = { ...targetMember, permission_allow: PERM_BITS.CREATE_CUSTOM_ROLES };
+  render(<MemberDetailPanel {...permProps({ member })} />);
+
+  expect(screen.getByText("members.permissions.readOnlyNotHeld")).toBeTruthy();
+  const row = screen.getByRole("radiogroup", { name: "members.permission.CREATE_CUSTOM_ROLES" });
+  expect((within(row).getByRole("radio", { name: /inherit/i }) as HTMLButtonElement).disabled).toBe(false);
+
+  fireEvent.click(within(row).getByRole("radio", { name: /inherit/i }));
+
+  await waitFor(() => expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0));
+});
+
+test("the retired bit renders no row when neither mask carries it", () => {
+  render(<MemberDetailPanel {...permProps()} />);
+
+  expect(screen.queryByRole("radiogroup", { name: "members.permission.CREATE_CUSTOM_ROLES" })).toBeNull();
+});
+
+test("a notHeld lock enables exactly the offending row, not the others", async () => {
+  const member = { ...targetMember, permission_allow: PERM_BITS.CONNECT };
+  render(<MemberDetailPanel {...permProps({ member })} />);
+
+  const connectRow = screen.getByRole("radiogroup", { name: "members.permission.CONNECT" });
+  expect((within(connectRow).getByRole("radio", { name: /allow/i }) as HTMLButtonElement).disabled).toBe(false);
+  expect((within(connectRow).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(false);
+
+  const otherRow = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  expect((within(otherRow).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(true);
+
+  fireEvent.click(within(connectRow).getByRole("radio", { name: /inherit/i }));
+
+  // Clearing the member's only source of CONNECT crosses the vault key gate,
+  // so this routes through the confirmation dialog before writing.
+  fireEvent.click(await screen.findByRole("button", { name: "members.revokeKeyAccess.confirm" }));
+
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0),
+  );
+});
+
+test.each([
+  {
+    label: "no manage-members permission",
+    key: "members.permissions.readOnlyNoManage",
+    overrides: { canManageMembers: false },
+  },
+  {
+    label: "target is an owner",
+    key: "members.permissions.readOnlyOwner",
+    overrides: { isTargetOwner: true },
+  },
+  {
+    label: "target is the viewer themselves",
+    key: "members.permissions.readOnlySelf",
+    overrides: { isMe: true },
+  },
+  {
+    label: "target holds a role at or above the viewer's",
+    key: "members.permissions.readOnlyHigherRole",
+    overrides: { member: { ...targetMember, role_ids: ["r-high"] }, teamRoles: [viewerRole, highRole] },
+  },
+  {
+    label: "target already carries an allow bit the viewer lacks",
+    key: "members.permissions.readOnlyNotHeld",
+    overrides: { member: { ...targetMember, permission_allow: PERM_BITS.CONNECT } },
+  },
+])("read-only reason: $label", ({ overrides, key }) => {
+  render(<MemberDetailPanel {...permProps(overrides)} />);
+
+  expect(screen.getByText(key)).toBeTruthy();
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  expect((within(row).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+test("hierarchy: a roleless target is not read-only", () => {
+  render(<MemberDetailPanel {...permProps({ member: { ...targetMember, role_ids: [] } })} />);
+
+  expect(screen.queryByText("members.permissions.readOnlyHigherRole")).toBeNull();
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  expect((within(row).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(false);
+});
+
+// The hierarchy check must fail CLOSED (read-only) when the viewer side of the
+// comparison cannot be resolved at all, not just when it loses the comparison.
+test.each([
+  {
+    label: "viewer is undefined",
+    overrides: { viewer: undefined },
+  },
+  {
+    label: "viewer holds no resolvable role",
+    overrides: { viewer: { ...viewerMember, role_ids: [] } },
+  },
+])("hierarchy fails closed when $label", ({ overrides }) => {
+  render(<MemberDetailPanel {...permProps(overrides)} />);
+
+  expect(screen.getByText("members.permissions.readOnlyHigherRole")).toBeTruthy();
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  expect((within(row).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+test("choosing allow on a bit the viewer lacks sends no request", async () => {
+  render(<MemberDetailPanel {...permProps()} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.CONNECT" });
+  fireEvent.click(within(row).getByRole("radio", { name: /allow/i }));
+
+  expect(await screen.findByText("members.permissions.readOnlyNotHeld")).toBeTruthy();
+  expect(h.setPerms).not.toHaveBeenCalled();
+});
+
+// ── Vault key gate confirmation ────────────────────────────────────────────
+
+const keyRole: TeamRole = {
+  id: "r-key", team_id: "t1", name: "key-role", is_builtin: false,
+  permissions: PERM_BITS.VIEW_SECRETS, position: 2, created_at: "",
+};
+const keyMember: TeamMember = { ...targetMember, role_ids: ["r-key"] };
+
+test("a gate-crossing change opens the dialog and writes nothing yet", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(h.setPerms).not.toHaveBeenCalled();
+});
+
+test("every row is inert while the revoke dialog is open", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  await screen.findByText("members.revokeKeyAccess.title");
+
+  const otherRow = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+  expect((within(otherRow).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+test("confirming the dialog writes, then kicks rotation after the write resolves", async () => {
+  let resolveSet: () => void = () => {};
+  h.setPerms.mockImplementation(() => new Promise<void>((resolve) => { resolveSet = resolve; }));
+
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  fireEvent.click(await screen.findByRole("button", { name: "members.revokeKeyAccess.confirm" }));
+
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.VIEW_SECRETS),
+  );
+  expect(h.rotate).not.toHaveBeenCalled();
+
+  resolveSet();
+  await waitFor(() => expect(h.rotate).toHaveBeenCalledWith("t1"));
+});
+
+test("cancelling the dialog writes nothing and rotates nothing", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  fireEvent.click(await screen.findByRole("button", { name: "common.action.cancel" }));
+
+  expect(screen.queryByText("members.revokeKeyAccess.title")).toBeNull();
+  expect(h.setPerms).not.toHaveBeenCalled();
+  expect(h.rotate).not.toHaveBeenCalled();
+});
+
+test("a non-crossing change writes immediately with no dialog and no rotation", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+
+  await waitFor(() =>
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.EDIT_KEYS),
+  );
+  expect(screen.queryByText("members.revokeKeyAccess.title")).toBeNull();
+  expect(h.rotate).not.toHaveBeenCalled();
+});
+
+test("a rejected write after confirming does not rotate", async () => {
+  h.setPerms.mockRejectedValueOnce(new Error("boom"));
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
+  fireEvent.click(await screen.findByRole("button", { name: "members.revokeKeyAccess.confirm" }));
+
+  expect(await screen.findByText("boom")).toBeTruthy();
+  expect(h.rotate).not.toHaveBeenCalled();
+});
+
+test("clearing an allow grant crosses the gate too", async () => {
+  const rolelessMember = {
+    ...targetMember, role_ids: [], permission_allow: PERM_BITS.VIEW_SECRETS, permission_deny: 0,
+  };
+  render(<MemberDetailPanel {...permProps({ member: rolelessMember })} />);
+
+  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  fireEvent.click(within(row).getByRole("radio", { name: /inherit/i }));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(h.setPerms).not.toHaveBeenCalled();
+});
+
+test("a write in flight disables the other rows too", async () => {
+  let resolveSet: () => void = () => {};
+  h.setPerms.mockImplementation(() => new Promise<void>((resolve) => { resolveSet = resolve; }));
+
+  render(<MemberDetailPanel {...permProps()} />);
+  const row1 = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  const row2 = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+
+  fireEvent.click(within(row1).getByRole("radio", { name: /deny/i }));
+
+  await waitFor(() =>
+    expect((within(row2).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(true),
+  );
+
+  resolveSet();
+  await waitFor(() =>
+    expect((within(row2).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(false),
+  );
 });

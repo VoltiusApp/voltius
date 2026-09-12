@@ -21,6 +21,7 @@ export type Permission =
   | "EDIT_SNIPPETS";
 
 // Bitmask values for each permission — must stay in sync with server/src/permissions.rs
+// JS bitwise ops coerce to 32-bit signed, so bit 31 and above cannot be used here.
 export const PERM_BITS: Record<Permission, number> = {
   VIEW_SECRETS:           1 << 0,   //     1
   COPY_SECRETS:           1 << 1,   //     2
@@ -41,12 +42,30 @@ export const PERM_BITS: Record<Permission, number> = {
   EDIT_SNIPPETS:          1 << 16,  // 65536
 };
 
-/** OR together all permission bits for a member's assigned roles. */
-export function effectivePermissions(member: { role_ids: string[] }, roles: TeamRole[]): number {
-  return member.role_ids.reduce((acc, rid) => {
+export function effectivePermissions(
+  member: { role_ids: string[]; permission_allow?: number; permission_deny?: number },
+  roles: TeamRole[],
+): number {
+  const union = member.role_ids.reduce((acc, rid) => {
     const role = roles.find((r) => r.id === rid);
     return acc | (role?.permissions ?? 0);
   }, 0);
+  return (union | (member.permission_allow ?? 0)) & ~(member.permission_deny ?? 0);
+}
+
+const VAULT_KEY_GATE = PERM_BITS.CONNECT | PERM_BITS.VIEW_SECRETS;
+
+export function crossesVaultKeyGate(
+  member: { role_ids: string[]; permission_allow?: number; permission_deny?: number },
+  roles: TeamRole[],
+  next: { allow: number; deny: number },
+): boolean {
+  const before = effectivePermissions(member, roles) & VAULT_KEY_GATE;
+  const after = effectivePermissions(
+    { role_ids: member.role_ids, permission_allow: next.allow, permission_deny: next.deny },
+    roles,
+  ) & VAULT_KEY_GATE;
+  return before !== 0 && after === 0;
 }
 
 /** True if member holds the builtin role with the given name in this team. */
@@ -54,6 +73,43 @@ export function hasBuiltinRole(member: TeamMember, roleName: string, roles: Team
   const target = roles.find((r) => r.is_builtin && r.name === roleName);
   if (!target) return false;
   return member.role_ids.includes(target.id);
+}
+
+export type MemberReadOnlyReason = "noManage" | "owner" | "self" | "higherRole" | "notHeld";
+
+/** Lower position = more authority; a role absent from `roles` is skipped. */
+function minRolePosition(roleIds: string[], roles: TeamRole[]): number | null {
+  return roleIds.reduce<number | null>((min, rid) => {
+    const role = roles.find((r) => r.id === rid);
+    if (!role) return min;
+    return min === null || role.position < min ? role.position : min;
+  }, null);
+}
+
+/**
+ * One section-level reason a member's permission overrides are read-only, first
+ * failure wins, in the server's own guardrail order. Mirrors `assign_member_role`'s
+ * `(Some(_), None) => Ok(())`: an absent or roleless viewer fails closed, a roleless
+ * target passes.
+ */
+export function resolveMemberReadOnlyReason(params: {
+  canManageMembers: boolean;
+  isTargetOwner: boolean;
+  isMe: boolean;
+  viewerRoleIds: string[] | null;
+  targetRoleIds: string[];
+  teamRoles: TeamRole[];
+  offendingBits: number;
+}): MemberReadOnlyReason | null {
+  if (!params.canManageMembers) return "noManage";
+  if (params.isTargetOwner) return "owner";
+  if (params.isMe) return "self";
+  const viewerMin = params.viewerRoleIds ? minRolePosition(params.viewerRoleIds, params.teamRoles) : null;
+  const targetMin = minRolePosition(params.targetRoleIds, params.teamRoles);
+  const hierarchyFails = !params.viewerRoleIds || viewerMin === null || (targetMin !== null && viewerMin >= targetMin);
+  if (hierarchyFails) return "higherRole";
+  if (params.offendingBits !== 0) return "notHeld";
+  return null;
 }
 
 export interface PermissionSnapshot {
@@ -95,7 +151,7 @@ export function resolveCan(
 
   const myTeam = snapshot.teams.find((t) => t.id === teamId);
   if (!myTeam || roles.length === 0) return false;
-  return (effectivePermissions({ role_ids: myTeam.role_ids }, roles) & PERM_BITS[permission]) !== 0;
+  return (effectivePermissions(myTeam, roles) & PERM_BITS[permission]) !== 0;
 }
 
 /**

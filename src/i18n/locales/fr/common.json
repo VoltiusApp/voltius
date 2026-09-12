@@ -120,6 +120,8 @@
       "failedToRemoveMember": "Échec de la suppression du membre : {{status}}",
       "failedToAssignRole": "Échec de l'attribution du rôle : {{status}}",
       "failedToRemoveRole": "Échec du retrait du rôle : {{status}}",
+      "insufficientPermissionSetMemberPermissions": "Vous n'avez pas la permission de modifier les permissions de ce membre",
+      "failedToSetMemberPermissions": "Échec de la définition des permissions du membre : {{status}}",
       "failedToCreateRole": "Échec de la création du rôle : {{status}}",
       "failedToUpdateRole": "Échec de la mise à jour du rôle : {{status}}",
       "failedToDeleteRole": "Échec de la suppression du rôle : {{status}}",

@@ -19,10 +19,11 @@ const fallbackResource = () => i18n.t("logs.eventLabels.fallbackResource");
 const fallbackHost = () => i18n.t("logs.eventLabels.fallbackHost");
 
 export const ACTION_META: Record<string, ActionMeta> = {
-  "member.invited":      { icon: "lucide:user-plus",  color: "#3b82f6", label: (l) => i18n.t("logs.eventLabels.memberInvited", { name: l.target_name ?? l.target_id ?? fallbackUser() }) },
-  "member.joined":       { icon: "lucide:user-check",  color: "#3b82f6", label: (l) => i18n.t("logs.eventLabels.memberJoined", { role: l.metadata?.role ?? fallbackRole() }) },
-  "member.removed":      { icon: "lucide:user-minus",  color: "#ef4444", label: (l) => i18n.t("logs.eventLabels.memberRemoved", { name: l.target_name ?? l.target_id ?? fallbackMember() }) },
-  "member.role_changed": { icon: "lucide:user-cog",    color: "#3b82f6", label: (l) => i18n.t("logs.eventLabels.memberRoleChanged", { name: l.target_name ?? l.target_id ?? fallbackMember() }) },
+  "member.invited":              { icon: "lucide:user-plus",              color: "#3b82f6", label: (l) => i18n.t("logs.eventLabels.memberInvited", { name: l.target_name ?? l.target_id ?? fallbackUser() }) },
+  "member.joined":               { icon: "lucide:user-check",              color: "#3b82f6", label: (l) => i18n.t("logs.eventLabels.memberJoined", { role: l.metadata?.role ?? fallbackRole() }) },
+  "member.removed":              { icon: "lucide:user-minus",              color: "#ef4444", label: (l) => i18n.t("logs.eventLabels.memberRemoved", { name: l.target_name ?? l.target_id ?? fallbackMember() }) },
+  "member.role_changed":         { icon: "lucide:user-cog",                color: "#3b82f6", label: (l) => i18n.t("logs.eventLabels.memberRoleChanged", { name: l.target_name ?? l.target_id ?? fallbackMember() }) },
+  "member.permissions_changed":  { icon: "lucide:sliders-horizontal",      color: "#3b82f6", label: (l) => i18n.t("logs.eventLabels.memberPermissionsChanged", { name: l.target_name ?? l.target_id ?? fallbackMember() }) },
   "vault.created":       { icon: "lucide:database",    color: "#8b5cf6", label: (l) => i18n.t("logs.eventLabels.vaultCreated", { name: l.target_name ?? l.target_id ?? "" }) },
   "vault.deleted":       { icon: "lucide:database",    color: "#ef4444", label: (l) => i18n.t("logs.eventLabels.vaultDeleted", { name: l.target_name ?? l.target_id ?? "" }) },
   "vault.renamed":       { icon: "lucide:database",    color: "#8b5cf6", label: (l) => i18n.t("logs.eventLabels.vaultRenamed", { name: l.target_name ?? l.target_id ?? "" }) },

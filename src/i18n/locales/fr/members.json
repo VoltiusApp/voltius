@@ -51,6 +51,25 @@
       "JOIN_TERMINAL_SESSION": "Rejoindre des sessions",
       "VIEW_TERMINAL_SESSIONS": "Voir les sessions"
     },
+    "permissions": {
+      "title": "Permissions",
+      "inheritedFrom": "Via {{roles}}",
+      "notGranted": "Aucun rôle ne l'accorde",
+      "effectiveAllowed": "autorisé",
+      "effectiveDenied": "refusé",
+      "state": { "deny": "Refuser", "inherit": "Hériter", "allow": "Autoriser" },
+      "readOnlyNoManage": "Vous avez besoin de la permission Gérer les membres",
+      "readOnlyOwner": "Les permissions d'un propriétaire ne peuvent pas être modifiées",
+      "readOnlySelf": "Vous ne pouvez pas modifier vos propres permissions",
+      "readOnlyHigherRole": "Ce membre a un rôle égal ou supérieur au vôtre",
+      "readOnlyNotHeld": "Vous ne pouvez pas accorder une permission que vous n'avez pas",
+      "overrideMarker": "Permissions personnalisées"
+    },
+    "revokeKeyAccess": {
+      "title": "Retirer à {{name}} l'accès à la clé du coffre ?",
+      "body": "{{name}} ne pourra plus se connecter ni voir les secrets de ce coffre. Cette personne conserve une copie de la clé actuelle et peut encore lire les secrets déjà synchronisés sur son appareil ; la clé du coffre sera donc changée pour les membres restants.",
+      "confirm": "Retirer et changer la clé"
+    },
     "convert": {
       "title": "Partager « {{vault}} » avec d'autres personnes ?",
       "body": "Ceci transforme votre coffre-fort privé en coffre-fort d'équipe. Tout ce qu'il contient déjà y est transféré, et devient donc visible par les personnes que vous ajoutez.",
@@ -126,11 +145,14 @@
       "grantingKey": "Octroi de l'accès au coffre-fort à {{name}}…",
       "keyGranted": "{{name}} peut maintenant ouvrir le coffre-fort",
       "leavingTeam": "Départ de l'équipe…",
-      "leftTeam": "Vous avez quitté l'équipe"
+      "leftTeam": "Vous avez quitté l'équipe",
+      "updatingPermissions": "Mise à jour des permissions de {{name}}…",
+      "permissionsUpdated": "Permissions de {{name}} mises à jour"
     },
     "error": {
       "cannotRemoveOwnerRole": "Impossible de retirer le rôle de propriétaire au propriétaire de l'équipe",
       "failedToUpdateRole": "Échec de la mise à jour du rôle",
+      "failedToUpdatePermissions": "Échec de la mise à jour des permissions",
       "failedToRemoveMember": "Échec de la suppression du membre",
       "failedToAddMember": "Échec de l'ajout du membre",
       "inviteFailed": "Impossible d'inviter {{name}} — {{reason}}",
@@ -145,6 +167,7 @@
     "history": {
       "removeRole": "Retirer le rôle : {{name}}",
       "assignRole": "Attribuer un rôle : {{name}}",
+      "changePermissions": "Modifier les permissions de {{name}}",
       "remove": "Retirer : {{name}}",
       "assignRoleBulk": "Attribuer un rôle ×{{count}}",
       "removeRoleBulk": "Retirer un rôle ×{{count}}",

@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
+import { effectivePermissions } from "@/services/permissions";
 import type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
 export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation };
 
@@ -38,20 +39,21 @@ interface TeamStore {
   deleteRole: (teamId: string, roleId: string) => Promise<void>;
   assignMemberRole: (teamId: string, userId: string, roleId: string) => Promise<void>;
   removeMemberRole: (teamId: string, userId: string, roleId: string) => Promise<void>;
+  setMemberPermissions: (teamId: string, userId: string, allow: number, deny: number) => Promise<void>;
 }
 
 /**
- * Mirrors {teamId -> the union of the user's role permission bits} into the
- * keychain for the Rust vault-write check. Bits, not role names: a team using a
- * custom-named role with write permissions would be denied locally by a name
- * match even though the server allows it. The union mirrors the server's
- * `bit_or` over every assigned role.
+ * Mirrors {teamId -> the user's effective permission bits (role union with
+ * allow/deny overrides applied)} into the keychain for the Rust vault-write
+ * check. Bits, not role names: a team using a custom-named role with write
+ * permissions would be denied locally by a name match even though the server
+ * allows it.
  *
  * A team whose roles can't be resolved is left out of the map rather than
  * written as "no permissions" — the server stays authoritative, and guessing
  * would lock the user out of a vault they can write to.
  */
-async function cacheVaultRoles(
+export async function cacheVaultRoles(
   teams: Team[],
   rolesByTeam: Record<string, TeamRole[]>,
   onRolesLoaded: (teamId: string, roles: TeamRole[]) => void,
@@ -72,7 +74,7 @@ async function cacheVaultRoles(
         .map((rid) => roles!.find((r) => r.id === rid)?.permissions)
         .filter((p): p is number => typeof p === "number");
       if (resolved.length < t.role_ids.length) return;
-      bits[t.id] = resolved.reduce((acc, p) => acc | p, 0);
+      bits[t.id] = effectivePermissions(t, roles!);
     }),
   );
   await invoke("keychain_set", {
@@ -101,6 +103,8 @@ export const useTeamStore = create<TeamStore>()(
       const same =
         prev.length === fresh.length &&
         fresh.every((t, i) => t.id === prev[i].id && t.name === prev[i].name &&
+          t.permission_allow === prev[i].permission_allow &&
+          t.permission_deny === prev[i].permission_deny &&
           JSON.stringify(t.role_ids) === JSON.stringify(prev[i].role_ids));
       const teams = same ? prev : fresh;
       set({ teams, loading: false });
@@ -262,6 +266,18 @@ export const useTeamStore = create<TeamStore>()(
           m.user_id === userId
             ? { ...m, role_ids: m.role_ids.filter((rid) => rid !== roleId) }
             : m,
+        ),
+      },
+    }));
+  },
+
+  setMemberPermissions: async (teamId, userId, allow, deny) => {
+    await api.setMemberPermissions(teamId, userId, allow, deny);
+    set((s) => ({
+      membersByTeam: {
+        ...s.membersByTeam,
+        [teamId]: (s.membersByTeam[teamId] ?? []).map((m) =>
+          m.user_id === userId ? { ...m, permission_allow: allow, permission_deny: deny } : m,
         ),
       },
     }));

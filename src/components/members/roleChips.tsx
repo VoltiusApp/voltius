@@ -1,10 +1,11 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { TeamRole } from "@/services/teamService";
 // Both from the service, not the hook: @/hooks/usePermission pulls teamService
 // and i18n in at runtime, which every consumer of this leaf module would then
 // have to mock.
-import { PERM_BITS, PERM_META } from "@/services/permissions";
+import { PERM_BITS, PERM_META, type Permission } from "@/services/permissions";
 
 export const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
   owner:          { label: "Owner",        color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
@@ -24,6 +25,10 @@ export function roleChipColors(name: string, override?: string | null, fallback 
   return { meta, color, bg: meta?.bg ?? `${color}1a` };
 }
 
+export function permissionLabel(t: TFunction, permission: Permission): string {
+  return t(`members.permission.${permission}`, { defaultValue: PERM_META[permission]?.label ?? permission });
+}
+
 /**
  * The precise half of the role explanation: exactly which permissions a role
  * grants, derived from its bits. The plain-language counterpart is
@@ -33,10 +38,7 @@ export function RolePermissionTooltip({ role, color }: { role: TeamRole; color: 
   const { t } = useTranslation();
   const permLabels = Object.entries(PERM_BITS)
     .filter(([, bit]) => (role.permissions & bit) !== 0)
-    .map(([p]) => {
-      const key = p as keyof typeof PERM_META;
-      return t(`members.permission.${key}`, { defaultValue: PERM_META[key]?.label ?? p });
-    });
+    .map(([p]) => permissionLabel(t, p as Permission));
 
   if (permLabels.length === 0) return null;
 

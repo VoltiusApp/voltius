@@ -10,7 +10,16 @@ import { RoleModal } from "@/components/settings/sections/RolesSection";
 import { ROLE_META, RoleBlurb } from "@/components/members/roleChips";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
+import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import type { DepartMode } from "@/services/teamOffboarding";
+import {
+  PERM_BITS, PERM_META, effectivePermissions, crossesVaultKeyGate, resolveMemberReadOnlyReason,
+  type Permission, type MemberReadOnlyReason,
+} from "@/services/permissions";
+import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
+import {
+  PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState,
+} from "./PermissionOverrideRow";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;
@@ -19,16 +28,23 @@ export interface MemberDetailPanelProps {
   teamRoles: TeamRole[];
   canManageMembers: boolean;
   isTargetOwner: boolean;
+  viewer?: TeamMember;
   onClose: () => void;
   onUpdated: () => void;
 }
 
+const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
+  noManage: "members.permissions.readOnlyNoManage",
+  owner: "members.permissions.readOnlyOwner",
+  self: "members.permissions.readOnlySelf",
+  higherRole: "members.permissions.readOnlyHigherRole",
+  notHeld: "members.permissions.readOnlyNotHeld",
+};
+
 export function MemberDetailPanel({
-  member, isMe, teamId, teamRoles, canManageMembers, isTargetOwner, onClose, onUpdated,
+  member, isMe, teamId, teamRoles, canManageMembers, isTargetOwner, viewer, onClose, onUpdated,
 }: MemberDetailPanelProps) {
   const { t } = useTranslation();
-  const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
-  const removeMemberRole = useTeamStore((s) => s.removeMemberRole);
   const push = useHistoryStore((s) => s.push);
 
   const [error, setError] = useState("");
@@ -36,6 +52,10 @@ export function MemberDetailPanel({
   const [justToggled, setJustToggled] = useState<string | null>(null);
   const [offboarding, setOffboarding] = useState<DepartMode | null>(null);
   const [creatingRole, setCreatingRole] = useState(false);
+  const [overriding, setOverriding] = useState(false);
+  // Stores the intent, not the computed masks — commitOverride recomputes them
+  // from the render current at confirm time, in case member state changed meanwhile.
+  const [pendingRevoke, setPendingRevoke] = useState<{ permission: Permission; next: OverrideState } | null>(null);
 
   const canChangeRoles = canManageMembers && !isMe;
   const canRemove = canManageMembers && !isTargetOwner && !isMe;
@@ -43,51 +63,50 @@ export function MemberDetailPanel({
   // offering Leave to an owner would promise something that 403s.
   const canLeave = isMe && !isTargetOwner;
 
+  const runReversible = async (opts: {
+    pending: string;
+    success: string;
+    label: string;
+    run: () => Promise<void>;
+    undo: () => Promise<void>;
+    redo: () => Promise<void>;
+  }) => {
+    await runTeamAction({ pending: opts.pending, success: opts.success, run: opts.run });
+    push({
+      label: opts.label,
+      undo: async () => { await opts.undo(); onUpdated(); },
+      redo: async () => { await opts.redo(); onUpdated(); },
+    });
+  };
+
   const handleToggleRole = async (role: TeamRole) => {
     const hasRole = member.role_ids.includes(role.id);
-    // Block removing the owner role from an owner
     if (hasRole && isTargetOwner && role.is_builtin && role.name === "owner") {
       setError(t("members.error.cannotRemoveOwnerRole"));
       return;
     }
+    const store = useTeamStore.getState();
+    const assign = () => store.assignMemberRole(teamId, member.user_id, role.id);
+    const remove = () => store.removeMemberRole(teamId, member.user_id, role.id);
+
     setToggling(role.id);
     setError("");
     try {
-      if (hasRole) {
-        await runTeamAction({
-          pending: t("members.toast.removingRoleFrom", { role: role.name, name: member.handle }),
-          success: t("members.toast.roleRemovedFrom", { role: role.name, name: member.handle }),
-          run: () => removeMemberRole(teamId, member.user_id, role.id),
-        });
-        push({
-          label: t("members.history.removeRole", { name: member.handle }),
-          undo: async () => {
-            await useTeamStore.getState().assignMemberRole(teamId, member.user_id, role.id);
-            onUpdated();
-          },
-          redo: async () => {
-            await useTeamStore.getState().removeMemberRole(teamId, member.user_id, role.id);
-            onUpdated();
-          },
-        });
-      } else {
-        await runTeamAction({
-          pending: t("members.toast.assigningRoleTo", { role: role.name, name: member.handle }),
-          success: t("members.toast.roleAssignedTo", { role: role.name, name: member.handle }),
-          run: () => assignMemberRole(teamId, member.user_id, role.id),
-        });
-        push({
-          label: t("members.history.assignRole", { name: member.handle }),
-          undo: async () => {
-            await useTeamStore.getState().removeMemberRole(teamId, member.user_id, role.id);
-            onUpdated();
-          },
-          redo: async () => {
-            await useTeamStore.getState().assignMemberRole(teamId, member.user_id, role.id);
-            onUpdated();
-          },
-        });
-      }
+      await runReversible(
+        hasRole
+          ? {
+              pending: t("members.toast.removingRoleFrom", { role: role.name, name: member.handle }),
+              success: t("members.toast.roleRemovedFrom", { role: role.name, name: member.handle }),
+              label: t("members.history.removeRole", { name: member.handle }),
+              run: remove, undo: assign, redo: remove,
+            }
+          : {
+              pending: t("members.toast.assigningRoleTo", { role: role.name, name: member.handle }),
+              success: t("members.toast.roleAssignedTo", { role: role.name, name: member.handle }),
+              label: t("members.history.assignRole", { name: member.handle }),
+              run: assign, undo: remove, redo: assign,
+            },
+      );
       onUpdated();
       setJustToggled(role.id);
       setTimeout(() => setJustToggled(null), 700);
@@ -96,6 +115,91 @@ export function MemberDetailPanel({
     } finally {
       setToggling(null);
     }
+  };
+
+  const allow = member.permission_allow ?? 0;
+  const deny = member.permission_deny ?? 0;
+  const viewerEffective = viewer ? effectivePermissions(viewer, teamRoles) : 0;
+
+  // A server predating overrides omits both masks; a zero mask serializes as 0.
+  const serverSupportsOverrides =
+    member.permission_allow !== undefined || member.permission_deny !== undefined;
+
+  // Retired, but shown when set: otherwise no row can clear it as an offending bit.
+  const editablePermissions = (Object.keys(PERM_META) as Permission[])
+    .filter((p) => p !== "CREATE_CUSTOM_ROLES"
+      || ((allow | deny) & PERM_BITS.CREATE_CUSTOM_ROLES) !== 0);
+
+  const rolesGranting = (permission: Permission) =>
+    teamRoles
+      .filter((r) => member.role_ids.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
+      .map((r) => r.name);
+
+  const offendingBits = allow & ~viewerEffective;
+
+  const readOnlyReasonKind = resolveMemberReadOnlyReason({
+    canManageMembers,
+    isTargetOwner,
+    isMe,
+    viewerRoleIds: viewer ? viewer.role_ids : null,
+    targetRoleIds: member.role_ids,
+    teamRoles,
+    offendingBits,
+  });
+
+  const readOnlyReason: string | null = readOnlyReasonKind ? t(READONLY_REASON_KEYS[readOnlyReasonKind]) : null;
+
+  // A whole-mask notHeld lock still lets the admin clear the very bit that
+  // caused it — clearing it produces a mask the server accepts.
+  const rowDisabled = (permission: Permission) =>
+    overriding || pendingRevoke !== null || (readOnlyReasonKind !== null &&
+      (readOnlyReasonKind !== "notHeld" || (PERM_BITS[permission] & offendingBits) === 0));
+
+  const write = (masks: { allow: number; deny: number }) => () =>
+    useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
+
+  const commitOverride = async (permission: Permission, next: OverrideState, rotate: boolean) => {
+    const updated = applyOverrideState(permission, allow, deny, next);
+    // Undo/redo re-read the masks so a concurrent admin's unrelated bits survive
+    // the full-replace PUT; only the bit this entry owns moves. A member missing
+    // from the store can't be safely masked to 0/0 — bail instead of writing empty masks.
+    const at = (state: OverrideState) => () => {
+      const m = useTeamStore.getState().membersByTeam[teamId]?.find((x) => x.user_id === member.user_id);
+      if (!m) throw new Error(t("members.error.failedToUpdatePermissions"));
+      const masks = applyOverrideState(permission, m.permission_allow ?? 0, m.permission_deny ?? 0, state);
+      return useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
+    };
+    setError("");
+    setOverriding(true);
+    try {
+      await runReversible({
+        pending: t("members.toast.updatingPermissions", { name: member.handle }),
+        success: t("members.toast.permissionsUpdated", { name: member.handle }),
+        label: t("members.history.changePermissions", { name: member.handle }),
+        run: write(updated),
+        undo: at(overrideStateOf(permission, allow, deny)),
+        redo: at(next),
+      });
+      onUpdated();
+      if (rotate) void checkAndRotateTeamKey(teamId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("members.error.failedToUpdatePermissions"));
+    } finally {
+      setOverriding(false);
+    }
+  };
+
+  const handleOverride = async (permission: Permission, next: OverrideState) => {
+    if (next === "allow" && (viewerEffective & PERM_BITS[permission]) === 0) {
+      setError(t("members.permissions.readOnlyNotHeld"));
+      return;
+    }
+    const updated = applyOverrideState(permission, allow, deny, next);
+    if (crossesVaultKeyGate(member, teamRoles, updated)) {
+      setPendingRevoke({ permission, next });
+      return;
+    }
+    await commitOverride(permission, next, false);
   };
 
   const joinedDate = new Date(member.joined_at).toLocaleDateString(undefined, {
@@ -180,6 +284,31 @@ export function MemberDetailPanel({
           )}
         </FormSection>
 
+        {/* Permissions */}
+        {serverSupportsOverrides && (
+        <FormSection label={t("members.permissions.title")}>
+          {readOnlyReason && (
+            <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>
+          )}
+          <div className="divide-y" style={{ borderColor: "var(--t-border)" }}>
+            {editablePermissions.map((permission) => {
+              const granting = rolesGranting(permission);
+              return (
+                <PermissionOverrideRow
+                  key={permission}
+                  permission={permission}
+                  state={overrideStateOf(permission, allow, deny)}
+                  inheritedFrom={granting}
+                  inheritedGrants={granting.length > 0}
+                  disabled={rowDisabled(permission)}
+                  onChange={(next) => void handleOverride(permission, next)}
+                />
+              );
+            })}
+          </div>
+        </FormSection>
+        )}
+
         {/* Info */}
         <FormSection label={t("members.info")}>
           <div className="space-y-2 text-xs">
@@ -227,6 +356,21 @@ export function MemberDetailPanel({
         mode={offboarding}
         onClose={() => setOffboarding(null)}
         onDone={() => { onClose(); onUpdated(); }}
+      />
+    )}
+
+    {pendingRevoke && (
+      <ConfirmModal
+        tone="warning"
+        title={t("members.revokeKeyAccess.title", { name: member.handle ?? "?" })}
+        message={t("members.revokeKeyAccess.body", { name: member.handle ?? "?" })}
+        confirmLabel={t("members.revokeKeyAccess.confirm")}
+        onCancel={() => setPendingRevoke(null)}
+        onConfirm={() => {
+          const { permission, next } = pendingRevoke;
+          setPendingRevoke(null);
+          void commitOverride(permission, next, true);
+        }}
       />
     )}
     </>

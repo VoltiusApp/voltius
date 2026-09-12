@@ -51,6 +51,25 @@
       "JOIN_TERMINAL_SESSION": "Join sessions",
       "VIEW_TERMINAL_SESSIONS": "View sessions"
     },
+    "permissions": {
+      "title": "Permissions",
+      "inheritedFrom": "From {{roles}}",
+      "notGranted": "No role grants this",
+      "effectiveAllowed": "allowed",
+      "effectiveDenied": "denied",
+      "state": { "deny": "Deny", "inherit": "Inherit", "allow": "Allow" },
+      "readOnlyNoManage": "You need the Manage members permission",
+      "readOnlyOwner": "An owner's permissions cannot be overridden",
+      "readOnlySelf": "You cannot change your own permissions",
+      "readOnlyHigherRole": "This member holds a role at or above yours",
+      "readOnlyNotHeld": "You cannot grant a permission you do not hold",
+      "overrideMarker": "Has permission overrides"
+    },
+    "revokeKeyAccess": {
+      "title": "Revoke {{name}}'s access to the vault key?",
+      "body": "{{name}} will no longer be able to connect or view secrets in this vault. They keep a copy of the current key and can still read secrets already synced to their device, so the vault key will be rotated for the remaining members.",
+      "confirm": "Revoke and rotate key"
+    },
     "convert": {
       "title": "Share \"{{vault}}\" with other people?",
       "body": "This turns your private vault into a team vault. Everything already in it moves across, so the people you add see it too.",
@@ -126,11 +145,14 @@
       "grantingKey": "Granting vault access to {{name}}…",
       "keyGranted": "{{name}} can now open the vault",
       "leavingTeam": "Leaving team...",
-      "leftTeam": "You left the team"
+      "leftTeam": "You left the team",
+      "updatingPermissions": "Updating {{name}}'s permissions…",
+      "permissionsUpdated": "Updated {{name}}'s permissions"
     },
     "error": {
       "cannotRemoveOwnerRole": "Cannot remove the owner role from the team owner",
       "failedToUpdateRole": "Failed to update role",
+      "failedToUpdatePermissions": "Failed to update permissions",
       "failedToRemoveMember": "Failed to remove member",
       "failedToAddMember": "Failed to add member",
       "inviteFailed": "Could not invite {{name}} — {{reason}}",
@@ -145,6 +167,7 @@
     "history": {
       "removeRole": "Remove role: {{name}}",
       "assignRole": "Assign role: {{name}}",
+      "changePermissions": "Change {{name}}'s permissions",
       "remove": "Remove: {{name}}",
       "assignRoleBulk": "Assign role ×{{count}}",
       "removeRoleBulk": "Remove role ×{{count}}",
