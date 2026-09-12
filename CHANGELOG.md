@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-09-12
+
+### Added
+
+- Added per-member permission overrides, with a confirmation when a change
+  revokes vault-key access.
+- Added draggable, char-precise text-selection handles on mobile, so a
+  mis-dragged endpoint can be fixed without redoing the selection.
+
+### Fixed
+
+- Stopped the vault header from collapsing on narrow windows.
+
 ## [0.33.3] - 2026-09-10
 
 ### Fixed
