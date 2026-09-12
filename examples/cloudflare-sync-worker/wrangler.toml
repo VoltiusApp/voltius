@@ -1,0 +1,12 @@
+name = "voltius-cloudflare-sync"
+main = "src/index.ts"
+compatibility_date = "2025-09-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[r2_buckets]]
+binding = "VAULT_BUCKET"
+bucket_name = "voltius-vault-sync"
+preview_bucket_name = "voltius-vault-sync-preview"
+
+# Set with: wrangler secret put SYNC_TOKEN
+# Required from Phase 2 onward for /v1/* routes.

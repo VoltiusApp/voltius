@@ -1,0 +1,22 @@
+{
+  "name": "@voltius-examples/cloudflare-sync-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BYO Cloudflare Worker + R2 opaque vault sync backend for Voltius",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.8.71",
+    "@cloudflare/workers-types": "^4.20250906.0",
+    "typescript": "^5.9.3",
+    "vitest": "~3.2.0",
+    "wrangler": "^4.22.0"
+  }
+}
