@@ -10,39 +10,39 @@ describe("withFlagEmojiFallback", () => {
 });
 
 describe("terminalFontStack", () => {
-  it("inserts the Nerd Font fallback before a trailing generic (#235)", () => {
+  it("puts the glyph fallbacks after the generic so they never size the cell (#235, #266)", () => {
     expect(terminalFontStack("'JetBrains Mono', monospace")).toBe(
-      '"Twemoji Country Flags", \'JetBrains Mono\', "Nerd Font Symbols", monospace',
+      '\'JetBrains Mono\', monospace, "Nerd Font Symbols", "Twemoji Country Flags"',
     );
   });
 
-  it("appends the Nerd Font fallback and monospace to a family with no generic (#196, #235)", () => {
+  it("appends monospace and the glyph fallbacks to a family with no generic (#196, #266)", () => {
     expect(terminalFontStack("MesloLGS Nerd Font Mono")).toBe(
-      '"Twemoji Country Flags", MesloLGS Nerd Font Mono, "Nerd Font Symbols", monospace',
+      'MesloLGS Nerd Font Mono, monospace, "Nerd Font Symbols", "Twemoji Country Flags"',
     );
   });
 
   it("does not treat a quoted family named like a generic as one", () => {
     expect(terminalFontStack("'monospace'")).toBe(
-      '"Twemoji Country Flags", \'monospace\', "Nerd Font Symbols", monospace',
+      '\'monospace\', monospace, "Nerd Font Symbols", "Twemoji Country Flags"',
     );
   });
 
-  it("inserts before a generic that is not last", () => {
+  it("inserts right after a generic that is not last", () => {
     expect(terminalFontStack("Fira Code, monospace, Menlo")).toBe(
-      '"Twemoji Country Flags", Fira Code, "Nerd Font Symbols", monospace, Menlo',
+      'Fira Code, monospace, "Nerd Font Symbols", "Twemoji Country Flags", Menlo',
     );
   });
 
   it("recognises the ui-monospace generic", () => {
     expect(terminalFontStack("SF Mono, ui-monospace")).toBe(
-      '"Twemoji Country Flags", SF Mono, "Nerd Font Symbols", ui-monospace',
+      'SF Mono, ui-monospace, "Nerd Font Symbols", "Twemoji Country Flags"',
     );
   });
 
   it("ignores surrounding whitespace and case when locating the generic", () => {
     expect(terminalFontStack("Fira Code ,  MONOSPACE ")).toBe(
-      '"Twemoji Country Flags", Fira Code , "Nerd Font Symbols",  MONOSPACE ',
+      'Fira Code ,  MONOSPACE , "Nerd Font Symbols", "Twemoji Country Flags"',
     );
   });
 });

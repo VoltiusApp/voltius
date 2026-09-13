@@ -2,10 +2,11 @@
 // (regional indicator pairs show as letter codes, e.g. "DE" for 🇩🇪).
 // `country-flag-emoji-polyfill` (wired up in app/main.tsx) registers a
 // "Twemoji Country Flags" @font-face scoped to just those codepoints via
-// unicode-range, but only browsers/fonts that actually need it will use it —
-// so it's safe to prepend everywhere a font stack is set.
+// unicode-range, but only browsers/fonts that actually need it will use it.
+const FLAG_EMOJI_FAMILY = '"Twemoji Country Flags"';
+
 export function withFlagEmojiFallback(fontFamily: string): string {
-  return `"Twemoji Country Flags", ${fontFamily}`;
+  return `${FLAG_EMOJI_FAMILY}, ${fontFamily}`;
 }
 
 // https://drafts.csswg.org/css-fonts/#generic-family-value
@@ -40,31 +41,15 @@ function genericFamilyIndex(entries: string[]): number {
   );
 }
 
-/** Terminal font stacks must end in a generic, and it must be `monospace` (#196).
- *
- *  xterm measures the cell from `ctx.font` on a canvas. When every family in the
- *  stack fails to resolve there — a webfont still loading, or a locally installed
- *  font the canvas doesn't see yet, as with "MesloLGS Nerd Font Mono" on macOS —
- *  the canvas falls back to its own default, which is *proportional*: cells come
- *  out ~1.6x too wide while the glyphs still paint at the right size. Terminating
- *  the stack with `monospace` bounds that miss to a monospace advance instead.
- *  The presets already end in `monospace`; a custom family typed into the theme
- *  editor's font picker does not.
- *
- *  Nerd Font icon glyphs (prompts like Powerlevel10k, statuslines) live in the
- *  Private Use Area, so a font that lacks them just draws tofu there instead of
- *  falling through to another installed font the way a native terminal's
- *  fontconfig-driven fallback would (#235). `NERD_FONT_SYMBOLS_FAMILY` is
- *  inserted right before the generic so it is consulted for any codepoint the
- *  configured font (or the user's system fallback) doesn't cover, without
- *  disturbing the generic-last invariant #196 depends on. */
+/** xterm sizes the cell from the stack's first loaded face, and WebKit ignores `unicode-range`
+ *  there, so the glyph-only fallback faces must come after the always-resolving generic. */
 export function terminalFontStack(fontFamily: string): string {
-  const entries = withFlagEmojiFallback(fontFamily).split(",");
+  const entries = fontFamily.split(",");
   let genericIndex = genericFamilyIndex(entries);
   if (genericIndex === -1) {
     entries.push(" monospace");
     genericIndex = entries.length - 1;
   }
-  entries.splice(genericIndex, 0, ` ${NERD_FONT_SYMBOLS_FAMILY}`);
+  entries.splice(genericIndex + 1, 0, ` ${NERD_FONT_SYMBOLS_FAMILY}`, ` ${FLAG_EMOJI_FAMILY}`);
   return entries.join(",");
 }
