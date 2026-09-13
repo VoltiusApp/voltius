@@ -6,7 +6,7 @@ import { DEFAULT_SERVER_URL } from "@/utils/serverInstance";
 
 const h = vi.hoisted(() => ({
   accountMode: "server" as string,
-  getSavedAccounts: vi.fn(async (): Promise<SavedAccount[]> => []),
+  getSwitchTargets: vi.fn(async (): Promise<SavedAccount[]> => []),
   saveCurrentAccount: vi.fn(async () => {}),
   switchToAccount: vi.fn(async () => {}),
   signOutToAddAccount: vi.fn(async () => {}),
@@ -31,7 +31,7 @@ vi.mock("@/services/account", () => ({
   logout: vi.fn(async () => {}),
 }));
 vi.mock("@/services/savedAccounts", () => ({
-  getSavedAccounts: h.getSavedAccounts,
+  getSwitchTargets: h.getSwitchTargets,
   saveCurrentAccount: h.saveCurrentAccount,
   switchToAccount: h.switchToAccount,
   signOutToAddAccount: h.signOutToAddAccount,
@@ -67,17 +67,26 @@ afterEach(cleanup);
 async function openMenu() {
   render(<SidebarAccountButton />);
   await userEvent.click(screen.getByTitle("layout.sidebarAccount.accountTitle"));
-  await waitFor(() => expect(h.getSavedAccounts).toHaveBeenCalled());
+  await waitFor(() => expect(h.getSwitchTargets).toHaveBeenCalled());
 }
 
-test("the switch section stays hidden when the only saved account is the current one", async () => {
-  h.getSavedAccounts.mockResolvedValue([CURRENT]);
+// The id alone used to decide it, so a session whose account_id did not read back
+// listed the signed-in account as somewhere to switch to.
+test("targets are asked for against the whole live session, not its id alone", async () => {
+  h.keychain = { ...h.keychain, server_url: CURRENT.server_url };
+  h.getSwitchTargets.mockResolvedValue([]);
   await openMenu();
+
+  expect(h.getSwitchTargets).toHaveBeenCalledWith({
+    account_id: CURRENT.account_id,
+    email: CURRENT.email,
+    server_url: CURRENT.server_url,
+  });
   expect(screen.queryByText("layout.sidebarAccount.switchAccount")).toBeNull();
 });
 
 test("a saved account other than the current one is offered as a switch target", async () => {
-  h.getSavedAccounts.mockResolvedValue([CURRENT, OTHER]);
+  h.getSwitchTargets.mockResolvedValue([OTHER]);
   await openMenu();
 
   await screen.findByText("layout.sidebarAccount.switchAccount");
@@ -89,7 +98,7 @@ test("a saved account other than the current one is offered as a switch target",
 });
 
 test("removing a saved account does not switch into it", async () => {
-  h.getSavedAccounts.mockResolvedValue([CURRENT, OTHER]);
+  h.getSwitchTargets.mockResolvedValue([OTHER]);
   await openMenu();
 
   await userEvent.click(await screen.findByTitle("layout.sidebarAccount.removeSavedAccount"));
@@ -99,7 +108,7 @@ test("removing a saved account does not switch into it", async () => {
 });
 
 test("no switch row nests a button inside a button", async () => {
-  h.getSavedAccounts.mockResolvedValue([CURRENT, OTHER]);
+  h.getSwitchTargets.mockResolvedValue([OTHER]);
   await openMenu();
   await screen.findByText(OTHER.email!);
   expect(document.querySelectorAll("button button")).toHaveLength(0);
@@ -107,7 +116,7 @@ test("no switch row nests a button inside a button", async () => {
 
 test("switching away from a local account asks before erasing it", async () => {
   h.accountMode = "local-nopassword";
-  h.getSavedAccounts.mockResolvedValue([OTHER]);
+  h.getSwitchTargets.mockResolvedValue([OTHER]);
   await openMenu();
 
   await userEvent.click(await screen.findByText(OTHER.email!));
@@ -120,7 +129,7 @@ test("switching away from a local account asks before erasing it", async () => {
 
 test("cancelling the local-account warning leaves the session alone", async () => {
   h.accountMode = "local-nopassword";
-  h.getSavedAccounts.mockResolvedValue([OTHER]);
+  h.getSwitchTargets.mockResolvedValue([OTHER]);
   await openMenu();
 
   await userEvent.click(await screen.findByText(OTHER.email!));
@@ -184,7 +193,7 @@ test("a switcher save the keychain refuses is reported", async () => {
 });
 
 test("two accounts on different instances are told apart by their row", async () => {
-  h.getSavedAccounts.mockResolvedValue([CURRENT, OTHER, SELF_HOSTED]);
+  h.getSwitchTargets.mockResolvedValue([OTHER, SELF_HOSTED]);
   await openMenu();
 
   await screen.findByText("stackdome.example.tld");
@@ -192,7 +201,7 @@ test("two accounts on different instances are told apart by their row", async ()
 });
 
 test("a self-hosted row is marked with a server icon and its full URL", async () => {
-  h.getSavedAccounts.mockResolvedValue([CURRENT, SELF_HOSTED]);
+  h.getSwitchTargets.mockResolvedValue([SELF_HOSTED]);
   await openMenu();
 
   const row = (await screen.findByText("stackdome.example.tld")).closest("button");
@@ -202,7 +211,7 @@ test("a self-hosted row is marked with a server icon and its full URL", async ()
 
 test("the header names the instance the current account is signed in to", async () => {
   h.keychain = { ...h.keychain, server_url: SELF_HOSTED.server_url };
-  h.getSavedAccounts.mockResolvedValue([CURRENT]);
+  h.getSwitchTargets.mockResolvedValue([]);
   await openMenu();
 
   await screen.findByText("stackdome.example.tld");

@@ -7,6 +7,7 @@ import {
   writeParkedUiState,
   type PersistedAccountUiState,
 } from "@/stores/persistedAccountUiState";
+import { instanceLabel } from "@/utils/serverInstance";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { lockVault, wipeLocalConfig } from "./vault";
 
@@ -151,6 +152,39 @@ async function migrateLegacyList(
 
 export async function getSavedAccounts(): Promise<SavedAccount[]> {
   return (await loadSavedAccounts()).accounts;
+}
+
+/** The session the switcher must not offer to switch into: the current one. */
+export type ActiveAccount = {
+  account_id: string | null;
+  email: string | null;
+  server_url: string | null;
+};
+
+// An email is unique per instance, so it identifies the account when the id
+// cannot: a failed keychain read arrives here as a null account_id.
+function isActiveAccount(account: SavedAccount, active: ActiveAccount): boolean {
+  if (active.account_id && account.account_id === active.account_id) return true;
+  return (
+    !!active.email &&
+    account.email === active.email &&
+    instanceLabel(account.server_url) === instanceLabel(active.server_url)
+  );
+}
+
+// An entry that is this account under an id the session no longer uses is deleted,
+// not hidden: switching into it wipes the config and lands on stale credentials.
+export async function getSwitchTargets(active: ActiveAccount): Promise<SavedAccount[]> {
+  const accounts = await getSavedAccounts();
+  const targets: SavedAccount[] = [];
+  for (const account of accounts) {
+    if (!isActiveAccount(account, active)) {
+      targets.push(account);
+    } else if (active.account_id && account.account_id !== active.account_id) {
+      await removeSavedAccount(account.account_id).catch(() => {});
+    }
+  }
+  return targets;
 }
 
 /**

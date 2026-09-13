@@ -6,7 +6,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
 import { getAccountMode, getMyHandle, lockVaultSession, logout } from "@/services/account";
-import { getSavedAccounts, saveCurrentAccount, signOutToAddAccount, switchToAccount, removeSavedAccount, type SavedAccount } from "@/services/savedAccounts";
+import { getSwitchTargets, saveCurrentAccount, signOutToAddAccount, switchToAccount, removeSavedAccount, type ActiveAccount, type SavedAccount } from "@/services/savedAccounts";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
@@ -33,15 +33,14 @@ export function SidebarAccountButton() {
   const [pos, setPos] = useState({ bottom: 0, left: 0 });
   const [accountMode, setAccountMode] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
-  const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
-  const [currentAccountId, setCurrentAccountId] = useState<string | null>(null);
+  const [switchTargets, setSwitchTargets] = useState<SavedAccount[]>([]);
   const [accountHandle, setAccountHandle] = useState<string | null>(null);
   const [accountServerUrl, setAccountServerUrl] = useState<string | null>(null);
   const [pendingSwitch, setPendingSwitch] = useState<SavedAccount | null>(null);
   const { copied: handleCopied, copy: copyHandle } = useCopyHandle(accountHandle);
   const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
 
-  const refreshAccountInfo = async () => {
+  const refreshAccountInfo = async (): Promise<ActiveAccount> => {
     const { invoke: inv } = await import("@tauri-apps/api/core");
     const [mode, email, accountId, serverUrl] = await Promise.all([
       getAccountMode().catch(() => null),
@@ -51,9 +50,9 @@ export function SidebarAccountButton() {
     ]);
     setAccountMode(mode);
     setAccountEmail(email);
-    setCurrentAccountId(accountId);
     setAccountServerUrl(serverUrl);
     void getMyHandle().then((handle) => setAccountHandle(handle || null)).catch(() => {});
+    return { account_id: accountId, email, server_url: serverUrl };
   };
 
   useEffect(() => { refreshAccountInfo(); }, []);
@@ -83,14 +82,14 @@ export function SidebarAccountButton() {
       const rect = buttonRef.current.getBoundingClientRect();
       setPos({ bottom: window.innerHeight - rect.bottom, left: rect.right + 8 });
     }
-    await Promise.all([
+    const [active] = await Promise.all([
       refreshAccountInfo(),
       // A keychain that refuses this write is exactly how an account goes
       // missing from the switcher, so it is said out loud rather than swallowed.
       saveCurrentAccount().catch((e) => reportAccountError("saveFailed", e)),
     ]);
-    const accounts = await getSavedAccounts().catch(() => [] as SavedAccount[]);
-    setSavedAccounts(accounts);
+    const targets = await getSwitchTargets(active).catch(() => [] as SavedAccount[]);
+    setSwitchTargets(targets);
     setOpen(true);
   };
 
@@ -153,13 +152,12 @@ export function SidebarAccountButton() {
     ? t("layout.sidebarAccount.autoLockOff")
     : t("layout.sidebarAccount.autoLockAfter", { duration: sessionTimeoutLabel(t, sessionTimeoutValue(sessionTimeoutMinutes)) });
 
-  const switchTargets = savedAccounts.filter((a) => a.account_id !== currentAccountId);
   const currentInstance = accountMode === "server" ? instanceLabel(accountServerUrl) : null;
 
   const handleRemoveSavedAccount = async (e: React.MouseEvent, account_id: string) => {
     e.stopPropagation();
     await removeSavedAccount(account_id);
-    setSavedAccounts((prev) => prev.filter((a) => a.account_id !== account_id));
+    setSwitchTargets((prev) => prev.filter((a) => a.account_id !== account_id));
   };
 
   return (

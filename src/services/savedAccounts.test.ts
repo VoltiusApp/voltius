@@ -29,7 +29,7 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
   dropAccountUiState: h.dropAccountUiState,
 }));
 
-import { getSavedAccounts, saveCurrentAccount, removeSavedAccount, signOutToAddAccount, switchToAccount, type SavedAccount } from "./savedAccounts";
+import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, signOutToAddAccount, switchToAccount, type SavedAccount } from "./savedAccounts";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 
 const INDEX_KEY = "voltius.saved_accounts";
@@ -314,4 +314,40 @@ test("a migration the keychain refuses leaves the old list readable", async () =
 
   expect((await getSavedAccounts()).map((a) => a.account_id)).toEqual(["a", "b"]);
   expect(h.store[INDEX_KEY]).toBe(legacy);
+});
+
+test("the signed-in account is not offered as a switch target", async () => {
+  seed(CLOUD_A, CLOUD_B);
+
+  const targets = await getSwitchTargets({ account_id: "a", email: CLOUD_A.email, server_url: CLOUD_A.server_url });
+
+  expect(targets.map((a) => a.account_id)).toEqual(["b"]);
+});
+
+test("a stale entry for the signed-in account is dropped, not offered", async () => {
+  seed({ ...CLOUD_A, account_id: "a-old" }, CLOUD_B);
+
+  const targets = await getSwitchTargets({ account_id: "a", email: CLOUD_A.email, server_url: CLOUD_A.server_url });
+
+  expect(targets.map((a) => a.account_id)).toEqual(["b"]);
+  expect(h.store[entryKey("a-old")]).toBeUndefined();
+  expect(JSON.parse(h.store[INDEX_KEY])).toEqual(["b"]);
+});
+
+test("an account_id the keychain would not give up still hides the signed-in account", async () => {
+  seed(CLOUD_A, CLOUD_B);
+
+  const targets = await getSwitchTargets({ account_id: null, email: CLOUD_A.email, server_url: CLOUD_A.server_url });
+
+  expect(targets.map((a) => a.account_id)).toEqual(["b"]);
+  // Nothing is deleted on a read that failed — the entry may be the only copy.
+  expect(h.store[entryKey("a")]).toBeDefined();
+});
+
+test("the same email on another instance is a different account", async () => {
+  seed(CLOUD_A, { ...CLOUD_A, account_id: "a-self-hosted", server_url: "https://stackdome.example.tld" });
+
+  const targets = await getSwitchTargets({ account_id: "a", email: CLOUD_A.email, server_url: CLOUD_A.server_url });
+
+  expect(targets.map((a) => a.account_id)).toEqual(["a-self-hosted"]);
 });
