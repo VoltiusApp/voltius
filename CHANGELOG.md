@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.4] - 2026-09-13
+
+### Fixed
+
+- Stopped glyph fallback fonts from setting terminal row height, which made rows
+  overlap when the configured font didn't load.
+- Stopped the account quick switcher from listing the account already signed in.
+
 ## [0.34.3] - 2026-09-12
 
 ### Added
