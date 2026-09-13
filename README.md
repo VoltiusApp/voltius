@@ -125,6 +125,33 @@ winget install --id Voltius.Voltius -e
 Windows SmartScreen may warn that the publisher is unverified (the app is not yet
 code-signed) — choose **More info → Run anyway**.
 
+### Android — Obtainium
+
+Android is an **early preview**: the APK is release-signed and installs cleanly, but
+platform-only features are gated off (no local terminal, no serial console — remote SSH
+is the point here). There is no Play Store listing. [Obtainium](https://github.com/ImranR98/Obtainium)
+watches this repo's releases and installs updates the way a store would.
+
+[<img src=".github/media/badge_obtainium.png" alt="Get it on Obtainium" height="54">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.voltius.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FVoltiusApp%2Fvoltius%22%2C%22author%22%3A%22VoltiusApp%22%2C%22name%22%3A%22Voltius%22%7D)
+
+Tap that badge **on the phone** — it opens Obtainium with the source pre-filled, or offers
+to install Obtainium first. By hand: **Add App** → `https://github.com/VoltiusApp/voltius`.
+
+The APK is `arm64-v8a` only (every current phone, but not x86_64 emulators or Chromebooks)
+and needs Android 7.0+. Every release is signed with the same key, so updates install over
+the top; an APK from anywhere else — including one you built yourself — fails with
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE` and has to be uninstalled first, taking its local data.
+
+<details>
+<summary>Obtainium notes</summary>
+
+- Android asks you to allow **Install unknown apps** for Obtainium on the first install.
+- Unauthenticated GitHub API calls are capped at 60/hour per IP address. If update checks
+  start failing, add a personal access token in Obtainium under **Settings → Source-specific → GitHub**.
+- Without Obtainium: grab the `Voltius_<version>_aarch64.apk` asset from the
+  [latest release](https://github.com/VoltiusApp/voltius/releases/latest) — updates are then manual.
+</details>
+
 ### Other downloads
 
 Direct installers (`.dmg`, `.msi`, `.exe`, `.AppImage`) are on
