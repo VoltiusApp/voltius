@@ -1,7 +1,9 @@
 mod bind;
-mod pipe;
+pub(crate) mod pipe;
 pub mod poller;
 pub mod socks;
+#[cfg(test)]
+mod test_ssh;
 pub mod tunnel;
 
 use crate::ssh::live_cells::read_cell;
