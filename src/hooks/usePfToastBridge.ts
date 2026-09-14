@@ -10,6 +10,11 @@ interface PfPortDetectedPayload {
   tunnel_local_port: number;
 }
 
+interface PfAutoForwardCappedPayload {
+  session_id: string;
+  cap: number;
+}
+
 const BATCH_DELAY_MS = 800;
 
 export function usePfToastBridge() {
@@ -18,18 +23,18 @@ export function usePfToastBridge() {
   const toastIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const openPanel = () => {
+      const { setRightPanelOpen, setRightPanelSection } = useUIStore.getState();
+      setRightPanelSection("ports");
+      setRightPanelOpen(true);
+    };
+
     function flush() {
       const ports = pendingPorts.current;
       if (ports.length === 0) return;
       pendingPorts.current = [];
 
       const { addToast, updateToast } = useNotificationStore.getState();
-      const { setRightPanelOpen, setRightPanelSection } = useUIStore.getState();
-
-      const openPanel = () => {
-        setRightPanelSection("ports");
-        setRightPanelOpen(true);
-      };
 
       const message =
         ports.length === 1
@@ -55,6 +60,18 @@ export function usePfToastBridge() {
       }
     }
 
+    const cappedPromise = listen<PfAutoForwardCappedPayload>("pf-auto-forward-capped", ({ payload }) => {
+      if (!getToggle("forwarding-notifications")) return;
+      useNotificationStore.getState().addToast({
+        source: { kind: "plugin", id: "__pf__", name: "Port Forwarding" },
+        type: "toast",
+        message: `Auto-forwarding paused — ${payload.cap} ports already forwarded`,
+        severity: "warning",
+        duration: 8000,
+        action: { label: "View Ports →", onClick: openPanel },
+      });
+    });
+
     const unlistenPromise = listen<PfPortDetectedPayload>("pf-port-detected", ({ payload }) => {
       if (!getToggle("forwarding-notifications")) return;
       pendingPorts.current.push(payload);
@@ -70,6 +87,7 @@ export function usePfToastBridge() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       unlistenPromise.then((f) => f());
+      cappedPromise.then((f) => f());
     };
   }, []);
 }

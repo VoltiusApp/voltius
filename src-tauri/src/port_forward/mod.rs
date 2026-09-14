@@ -79,6 +79,93 @@ pub(crate) struct SessionPfState {
     pub(crate) owner_session: Option<String>,
 }
 
+impl SessionPfState {
+    pub(crate) fn new(owner_session: Option<String>, auto_detect: bool) -> Self {
+        Self {
+            tunnels: Vec::new(),
+            auto_detect,
+            poller_cancel: None,
+            suppressed_ports: HashSet::new(),
+            owner_session,
+        }
+    }
+}
+
+/// Terminals still attached to a host key.
+pub(crate) async fn attached_sessions(
+    session_keys: &Mutex<HashMap<String, String>>,
+    key: &str,
+) -> Vec<String> {
+    session_keys
+        .lock()
+        .await
+        .iter()
+        .filter(|(_, v)| v.as_str() == key)
+        .map(|(k, _)| k.clone())
+        .collect()
+}
+
+/// Event targets for a host: its terminals, or the key itself when the last one
+/// has already detached, so a final clearing event still reaches the panel.
+pub(crate) async fn event_targets_for_key(
+    session_keys: &Mutex<HashMap<String, String>>,
+    key: &str,
+) -> Vec<String> {
+    let live = attached_sessions(session_keys, key).await;
+    if live.is_empty() {
+        vec![key.to_string()]
+    } else {
+        live
+    }
+}
+
+/// Fan a host's shared port-forward state out to every terminal of that host.
+pub(crate) async fn emit_state_for(
+    sessions: &Mutex<HashMap<String, SessionPfState>>,
+    session_keys: &Mutex<HashMap<String, String>>,
+    app: &AppHandle,
+    key: &str,
+) {
+    let (tunnels, suppressed_ports) = {
+        let sessions = sessions.lock().await;
+        match sessions.get(key) {
+            Some(s) => (
+                s.tunnels.iter().map(snapshot_tunnel).collect::<Vec<_>>(),
+                s.suppressed_ports.iter().copied().collect::<Vec<_>>(),
+            ),
+            None => (vec![], vec![]),
+        }
+    };
+    for session_id in event_targets_for_key(session_keys, key).await {
+        let _ = app.emit(
+            "pf-state-changed",
+            PfStatePayload {
+                session_id,
+                tunnels: tunnels.clone(),
+                suppressed_ports: suppressed_ports.clone(),
+            },
+        );
+    }
+}
+
+/// False when another terminal of the host already claimed it. Check and insert
+/// must share one lock hold — terminals of a host reconnect concurrently.
+async fn claim_key(
+    sessions: &Mutex<HashMap<String, SessionPfState>>,
+    key: &str,
+    owner: &str,
+) -> bool {
+    let mut sessions = sessions.lock().await;
+    if sessions.contains_key(key) {
+        return false;
+    }
+    sessions.insert(
+        key.to_string(),
+        SessionPfState::new(Some(owner.to_string()), false),
+    );
+    true
+}
+
 #[derive(Debug)]
 pub enum ForwardError {
     PortInUse(u16, u8),
@@ -181,16 +268,6 @@ impl PortForwardManager {
             .unwrap_or_else(|| session_id.to_string())
     }
 
-    async fn live_sessions_for_key(&self, key: &str) -> Vec<String> {
-        self.session_keys
-            .lock()
-            .await
-            .iter()
-            .filter(|(_, v)| v.as_str() == key)
-            .map(|(k, _)| k.clone())
-            .collect()
-    }
-
     pub async fn get_session_state(&self, session_id: &str) -> PfSessionState {
         let key = self.key_of(session_id).await;
         let sessions = self.sessions.lock().await;
@@ -231,13 +308,7 @@ impl PortForwardManager {
         let mut sessions = self.sessions.lock().await;
         let state = sessions
             .entry(key.clone())
-            .or_insert_with(|| SessionPfState {
-                tunnels: Vec::new(),
-                auto_detect: false,
-                poller_cancel: None,
-                suppressed_ports: HashSet::new(),
-                owner_session: None,
-            });
+            .or_insert_with(|| SessionPfState::new(None, false));
 
         if enabled == state.auto_detect {
             return Ok(());
@@ -331,13 +402,7 @@ impl PortForwardManager {
             let mut sessions = self.sessions.lock().await;
             let state = sessions
                 .entry(key.clone())
-                .or_insert_with(|| SessionPfState {
-                    tunnels: Vec::new(),
-                    auto_detect: false,
-                    poller_cancel: None,
-                    suppressed_ports: HashSet::new(),
-                    owner_session: None,
-                });
+                .or_insert_with(|| SessionPfState::new(None, false));
             state.suppressed_ports.remove(&remote_port);
             state.tunnels.push(entry);
             state
@@ -420,13 +485,7 @@ impl PortForwardManager {
             let mut sessions = self.sessions.lock().await;
             let state = sessions
                 .entry(key.clone())
-                .or_insert_with(|| SessionPfState {
-                    tunnels: Vec::new(),
-                    auto_detect: false,
-                    poller_cancel: None,
-                    suppressed_ports: HashSet::new(),
-                    owner_session: None,
-                });
+                .or_insert_with(|| SessionPfState::new(None, false));
             state.tunnels.push(entry);
             state
                 .owner_session
@@ -473,13 +532,7 @@ impl PortForwardManager {
             let mut sessions = self.sessions.lock().await;
             let state = sessions
                 .entry(key.clone())
-                .or_insert_with(|| SessionPfState {
-                    tunnels: Vec::new(),
-                    auto_detect: false,
-                    poller_cancel: None,
-                    suppressed_ports: HashSet::new(),
-                    owner_session: None,
-                });
+                .or_insert_with(|| SessionPfState::new(None, false));
             state.tunnels.push(entry);
             state
                 .owner_session
@@ -575,7 +628,7 @@ impl PortForwardManager {
             map.remove(session_id)
                 .unwrap_or_else(|| session_id.to_string())
         };
-        let remaining = self.live_sessions_for_key(&key).await;
+        let remaining = attached_sessions(&self.session_keys, &key).await;
         let was_owner = {
             let sessions = self.sessions.lock().await;
             sessions
@@ -634,7 +687,14 @@ impl PortForwardManager {
                     .remove(&(rc.bind_host.clone(), rc.remote_port));
             }
         }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        for e in &old_tunnels {
+            if matches!(
+                e.tunnel.tunnel_type,
+                TunnelType::Local | TunnelType::Dynamic
+            ) {
+                wait_until_port_free(e.tunnel.local_port).await;
+            }
+        }
 
         // Re-create every tunnel on the new handle. The public open_* methods
         // translate the key back through `key_of` (an unknown id maps to itself).
@@ -683,13 +743,7 @@ impl PortForwardManager {
                 let mut sessions = self.sessions.lock().await;
                 let state = sessions
                     .entry(key.to_string())
-                    .or_insert_with(|| SessionPfState {
-                        tunnels: Vec::new(),
-                        auto_detect: true,
-                        poller_cancel: None,
-                        suppressed_ports: HashSet::new(),
-                        owner_session: Some(new_owner.to_string()),
-                    });
+                    .or_insert_with(|| SessionPfState::new(Some(new_owner.to_string()), true));
                 state.auto_detect = true;
                 state.owner_session = Some(new_owner.to_string());
                 state.poller_cancel = Some(cancel.clone());
@@ -794,7 +848,7 @@ impl PortForwardManager {
         // Only the first terminal of a host activates rules; later terminals of
         // the same host share the tunnels the first one opened.
         let key = self.key_of(session_id).await;
-        if self.sessions.lock().await.contains_key(&key) {
+        if !claim_key(&self.sessions, &key, session_id).await {
             return;
         }
 
@@ -871,13 +925,9 @@ impl PortForwardManager {
                 };
                 let key = self.key_of(session_id).await;
                 let mut s = self.sessions.lock().await;
-                let state = s.entry(key.clone()).or_insert_with(|| SessionPfState {
-                    tunnels: Vec::new(),
-                    auto_detect: false,
-                    poller_cancel: None,
-                    suppressed_ports: HashSet::new(),
-                    owner_session: None,
-                });
+                let state = s
+                    .entry(key.clone())
+                    .or_insert_with(|| SessionPfState::new(None, false));
                 state.tunnels.push(err_entry);
                 drop(s);
                 self.emit_state_for_key(&key).await;
@@ -885,35 +935,8 @@ impl PortForwardManager {
         }
     }
 
-    /// Emit shared port-forward state for a host to every live terminal of that
-    /// host (each filters `pf-state-changed` by its own `session_id`).
     async fn emit_state_for_key(&self, key: &str) {
-        let (tunnels, suppressed_ports) = {
-            let sessions = self.sessions.lock().await;
-            match sessions.get(key) {
-                Some(s) => (
-                    s.tunnels.iter().map(snapshot_tunnel).collect::<Vec<_>>(),
-                    s.suppressed_ports.iter().copied().collect::<Vec<_>>(),
-                ),
-                None => (vec![], vec![]),
-            }
-        };
-        let live = self.live_sessions_for_key(key).await;
-        let targets = if live.is_empty() {
-            vec![key.to_string()]
-        } else {
-            live
-        };
-        for sid in targets {
-            let _ = self.app.emit(
-                "pf-state-changed",
-                PfStatePayload {
-                    session_id: sid,
-                    tunnels: tunnels.clone(),
-                    suppressed_ports: suppressed_ports.clone(),
-                },
-            );
-        }
+        emit_state_for(&self.sessions, &self.session_keys, &self.app, key).await;
     }
 }
 
@@ -930,8 +953,19 @@ fn snapshot_tunnel(entry: &TunnelEntry) -> ActiveTunnel {
 /// `CancellationToken` is NOT cancelled by being dropped — only `.cancel()`
 /// does that — so removing/dropping a `TunnelEntry` does not stop anything.
 /// Callers tearing tunnels down MUST cancel explicitly.
-fn cancel_entry(entry: &TunnelEntry) {
+pub(crate) fn cancel_entry(entry: &TunnelEntry) {
     entry._cancel.cancel();
+}
+
+/// A cancelled accept loop frees its listener asynchronously; re-opening before
+/// it lands ladders the tunnel onto the next port instead of keeping its own.
+async fn wait_until_port_free(port: u16) {
+    for _ in 0..20 {
+        if bind::bind_loopback(port).await.is_ok() {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
 }
 
 /// What re-requesting one remote forward on a new connection needs.
@@ -1103,6 +1137,42 @@ mod tests {
             port_is_free(port).await,
             "cancel_entry must stop the accept loop and free the local port"
         );
+    }
+
+    /// Regression: five terminals of one host reconnect at once after a wake and
+    /// every one of them activated the full rule set, each tunnel laddering onto
+    /// the next free local port.
+    #[tokio::test]
+    async fn only_one_concurrent_terminal_claims_a_host() {
+        let sessions: Arc<Mutex<HashMap<String, SessionPfState>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let handles: Vec<_> = (0..5)
+            .map(|i| {
+                let sessions = Arc::clone(&sessions);
+                tokio::spawn(
+                    async move { claim_key(&sessions, "conn-1", &format!("term-{i}")).await },
+                )
+            })
+            .collect();
+
+        let mut claimed = 0;
+        for h in handles {
+            if h.await.unwrap() {
+                claimed += 1;
+            }
+        }
+
+        assert_eq!(claimed, 1);
+        assert!(!claim_key(&sessions, "conn-1", "term-late").await);
+    }
+
+    #[tokio::test]
+    async fn a_host_is_claimable_again_after_teardown() {
+        let sessions: Arc<Mutex<HashMap<String, SessionPfState>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        assert!(claim_key(&sessions, "conn-1", "term-0").await);
+        sessions.lock().await.remove("conn-1");
+        assert!(claim_key(&sessions, "conn-1", "term-1").await);
     }
 
     /// Pins the gotcha the fix exists for: dropping the entry (and its `_cancel`)
