@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.5] - 2026-09-14
+
+### Fixed
+
+- Let a plain drag select terminal text again over apps that report mouse events.
+- Propagated connection close through port-forward tunnels, so a keep-alive no
+  longer hangs a closed connection.
+
 ## [0.34.4] - 2026-09-13
 
 ### Fixed
