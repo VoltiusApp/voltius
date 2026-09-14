@@ -8,34 +8,35 @@ beforeAll(async () => { await i18n.changeLanguage("en"); });
 
 function dot(props: Parameters<typeof TunnelStatusDot>[0]) {
   const wrapper = render(<TunnelStatusDot {...props} />).container.firstChild as HTMLElement;
-  return { wrapper, mark: wrapper.firstElementChild as HTMLElement };
+  const mark = wrapper.firstElementChild as Element;
+  return { wrapper, tag: mark.tagName, cls: mark.getAttribute("class") ?? "" };
 }
 
 test("a live forward to a live remote is a solid green dot", () => {
-  const { wrapper, mark } = dot({ status: "active", remoteListening: true });
-  expect(mark.className).toContain("bg-green-500");
-  expect(mark.className).not.toContain("border-2");
+  const { wrapper, tag, cls } = dot({ status: "active", remoteListening: true });
+  expect(tag).toBe("SPAN");
+  expect(cls).toContain("bg-green-500");
   expect(wrapper.getAttribute("title")).toBe(null);
 });
 
 test("nothing listening hollows the dot without changing the hue", () => {
-  const { wrapper, mark } = dot({ status: "active", remoteListening: false });
-  expect(mark.className).toContain("border-green-500");
-  expect(mark.className).toContain("border-2");
-  expect(mark.className).not.toContain("bg-green-500");
+  const { wrapper, tag, cls } = dot({ status: "active", remoteListening: false });
+  expect(tag).toBe("svg");
+  expect(cls).toContain("text-green-500");
+  expect(cls).not.toContain("bg-green-500");
   expect(wrapper.getAttribute("title")).toBe("Nothing is listening on the remote port");
 });
 
 test("unknown liveness renders solid, like a live one", () => {
   for (const remoteListening of [undefined, null]) {
-    const { mark } = dot({ status: "active", remoteListening });
-    expect(mark.className).toContain("bg-green-500");
-    expect(mark.className).not.toContain("border-2");
+    const { tag, cls } = dot({ status: "active", remoteListening });
+    expect(tag).toBe("SPAN");
+    expect(cls).toContain("bg-green-500");
   }
 });
 
 test("our own health keeps the hue channel", () => {
-  expect(dot({ status: "error" }).mark.className).toContain("bg-red-500");
-  expect(dot({ status: "idle" }).mark.className).toContain("--t-text-dim");
-  expect(dot({ status: "error", remoteListening: false }).mark.className).toContain("border-red-500");
+  expect(dot({ status: "error" }).cls).toContain("bg-red-500");
+  expect(dot({ status: "idle" }).cls).toContain("--t-text-dim");
+  expect(dot({ status: "error", remoteListening: false }).cls).toContain("text-red-500");
 });

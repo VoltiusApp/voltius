@@ -3,9 +3,9 @@ import { useTranslation } from "react-i18next";
 export type TunnelDotStatus = "active" | "error" | "idle";
 
 const HUE: Record<TunnelDotStatus, { solid: string; ring: string }> = {
-  active: { solid: "bg-green-500", ring: "border-green-500" },
-  error: { solid: "bg-red-500", ring: "border-red-500" },
-  idle: { solid: "bg-(--t-text-dim) opacity-40", ring: "border-(--t-text-dim) opacity-40" },
+  active: { solid: "bg-green-500", ring: "text-green-500" },
+  error: { solid: "bg-red-500", ring: "text-red-500" },
+  idle: { solid: "bg-(--t-text-dim) opacity-40", ring: "text-(--t-text-dim) opacity-40" },
 };
 
 // Hue = our forward's health, fill = the remote end: a shape channel survives
@@ -25,13 +25,17 @@ export function TunnelStatusDot({
   return (
     <div
       title={hollow ? t("shared.tunnelStatus.noRemoteListener") : undefined}
-      className={`w-2.5 h-2.5 shrink-0 flex items-center justify-center ${className}`}
+      className={`w-3 h-3 shrink-0 flex items-center justify-center ${className}`}
     >
-      <span
-        className={`rounded-full transition-colors ${
-          hollow ? `w-2.5 h-2.5 border-2 ${hue.ring}` : `w-2 h-2 ${hue.solid}`
-        }`}
-      />
+      {hollow ? (
+        // SVG, not a CSS border: WebKit joins a border-radius ring from four
+        // arcs, which rasterizes as a rounded square at this size.
+        <svg viewBox="0 0 12 12" className={`w-3 h-3 ${hue.ring}`} aria-hidden="true">
+          <circle cx="6" cy="6" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        </svg>
+      ) : (
+        <span className={`w-2 h-2 rounded-full transition-colors ${hue.solid}`} />
+      )}
     </div>
   );
 }
