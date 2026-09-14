@@ -127,6 +127,9 @@
       "warnReadable": "Your current vault can be read. Restoring replaces it — it is kept as a new backup, and you will be signed out and asked to unlock with the password that made the restored file.",
       "restoredToast": "Backup restored. Your previous vault was kept as {{file}}.",
       "restoredToastNoPrevious": "Backup restored."
+    },
+    "tunnelStatus": {
+      "noRemoteListener": "Nothing is listening on the remote port"
     }
   }
 }

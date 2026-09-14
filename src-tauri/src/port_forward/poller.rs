@@ -70,9 +70,19 @@ pub async fn start_poller(
                     Err(_) => continue,
                 };
                 let detected_set: HashSet<u16> = detected.into_iter().collect();
+                let liveness_changed = detected_set != last_ports;
+                {
+                    let mut s = sessions.lock().await;
+                    let state = s.entry(pf_key.clone()).or_insert_with(|| SessionPfState::new(None, true));
+                    state.detected_ports = Some(detected_set.clone());
+                }
 
                 let mut opened = 0usize;
-                let new_ports: Vec<u16> = detected_set.difference(&last_ports).copied().collect();
+                let new_ports: Vec<u16> = detected_set
+                    .difference(&last_ports)
+                    .copied()
+                    .filter(|p| is_forwardable(*p))
+                    .collect();
                 let closed_ports: Vec<u16> = last_ports.difference(&detected_set).copied().collect();
 
                 let auto_count = {
@@ -121,6 +131,7 @@ pub async fn start_poller(
                                 origin: TunnelOrigin::Auto,
                                 state: TunnelState::Active,
                                 bytes_transferred: 0,
+                                remote_listening: None,
                             };
                             let entry = TunnelEntry {
                                 tunnel: tunnel.clone(),
@@ -178,6 +189,10 @@ pub async fn start_poller(
                     emit_state_for(&sessions, &session_keys, &app, &pf_key).await;
                 }
 
+                if liveness_changed {
+                    emit_state_for(&sessions, &session_keys, &app, &pf_key).await;
+                }
+
                 last_ports = detected_set;
             }
         }
@@ -214,10 +229,8 @@ async fn poll_ports(handle: SessionHandle) -> Result<Vec<u16>, String> {
             continue;
         }
 
-        let text = String::from_utf8_lossy(&output);
-        let ports = parse_for_cmd(cmd, &text);
-        let filtered: Vec<u16> = ports.into_iter().filter(|p| is_forwardable(*p)).collect();
-        return Ok(filtered);
+        // Raw: IGNORED_PORTS gates auto-forwarding only, not liveness.
+        return Ok(parse_for_cmd(cmd, &String::from_utf8_lossy(&output)));
     }
     // Not "nothing is listening": no probe ran. Reporting an empty set here would
     // reap every auto tunnel on one dropped connection.
@@ -357,6 +370,7 @@ mod tests {
                 origin,
                 state: TunnelState::Active,
                 bytes_transferred: 0,
+                remote_listening: None,
             },
             _cancel: CancellationToken::new(),
             bytes: Arc::new(AtomicU64::new(0)),

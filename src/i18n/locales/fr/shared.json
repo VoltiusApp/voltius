@@ -127,6 +127,9 @@
       "warnReadable": "Votre coffre actuel est lisible. La restauration le remplace — il est conservé comme nouvelle sauvegarde, et vous serez déconnecté puis invité à déverrouiller avec le mot de passe du fichier restauré.",
       "restoredToast": "Sauvegarde restaurée. Votre coffre précédent a été conservé sous {{file}}.",
       "restoredToastNoPrevious": "Sauvegarde restaurée."
+    },
+    "tunnelStatus": {
+      "noRemoteListener": "Rien n'écoute sur le port distant"
     }
   }
 }

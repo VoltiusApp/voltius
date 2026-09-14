@@ -127,6 +127,9 @@
       "warnReadable": "当前保管库可以读取。恢复会替换它——它将保留为新备份，您将退出登录并需要用恢复文件对应的密码解锁。",
       "restoredToast": "备份已恢复。之前的保管库保留为 {{file}}。",
       "restoredToastNoPrevious": "备份已恢复。"
+    },
+    "tunnelStatus": {
+      "noRemoteListener": "远程端口上没有服务在监听"
     }
   }
 }

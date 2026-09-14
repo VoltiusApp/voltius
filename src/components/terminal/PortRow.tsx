@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { writeClipboard } from "@/utils/clipboard";
+import { TunnelStatusDot } from "@/components/shared/TunnelStatusDot";
 
 function formatBytes(b: number): string {
   if (b === 0) return "";
@@ -22,6 +23,7 @@ export function PortRow({
   isDeleting,
   isSaving,
   badge,
+  remoteListening,
   bytesTransferred,
   httpUrl,
   localPort,
@@ -41,6 +43,7 @@ export function PortRow({
   isDeleting: boolean;
   isSaving?: boolean;
   badge: BadgeType;
+  remoteListening?: boolean | null;
   bytesTransferred?: number;
   httpUrl?: string | null;
   localPort?: number;
@@ -80,10 +83,10 @@ export function PortRow({
   }
   return (
     <div className="flex items-center gap-1.5 px-2 py-1.5 group hover:bg-(--t-bg-elevated)">
-      {/* Status dot */}
-      <div className={`w-2 h-2 rounded-full shrink-0 transition-colors ${
-        isError ? "bg-red-500" : isActive ? "bg-green-500" : "bg-(--t-text-dim) opacity-40"
-      }`} />
+      <TunnelStatusDot
+        status={isError ? "error" : isActive ? "active" : "idle"}
+        remoteListening={remoteListening}
+      />
 
       {/* Label + port info */}
       <div className="flex flex-col min-w-0 flex-1">

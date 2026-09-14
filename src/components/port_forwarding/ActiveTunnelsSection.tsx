@@ -11,6 +11,7 @@ import { getPfState, closePfTunnel, resumeAutoPort } from "@/services/portForwar
 import { formatActiveTunnelLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { AvatarTile } from "@/components/shared/AvatarTile";
+import { TunnelStatusDot } from "@/components/shared/TunnelStatusDot";
 import type { ActiveTunnel } from "@/types";
 
 interface PfStatePayload {
@@ -231,7 +232,10 @@ export function ActiveTunnelsSection() {
                       key={key}
                       className="flex items-center gap-2 rounded-xl border border-transparent bg-(--t-bg-elevated)/70 px-2.5 py-2 transition-colors hover:border-(--t-border-hover)"
                     >
-                      <div className={`h-2 w-2 shrink-0 rounded-full ${isError ? "bg-red-500" : "bg-green-500"}`} />
+                      <TunnelStatusDot
+                        status={isError ? "error" : "active"}
+                        remoteListening={tunnel.remote_listening}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <p className="truncate text-sm font-semibold text-(--t-text-bright)">
@@ -291,7 +295,7 @@ export function ActiveTunnelsSection() {
                       key={`suppressed-${session.id}-${port}`}
                       className="flex items-center gap-2 rounded-xl border border-transparent bg-(--t-bg-elevated)/70 px-2.5 py-2 transition-colors hover:border-(--t-border-hover)"
                     >
-                      <div className="h-2 w-2 shrink-0 rounded-full bg-(--t-text-dim) opacity-40" />
+                      <TunnelStatusDot status="idle" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <p className="truncate text-sm font-semibold text-(--t-text-bright)">{t("portForwarding.activeTunnels.portLabel", { port })}</p>
