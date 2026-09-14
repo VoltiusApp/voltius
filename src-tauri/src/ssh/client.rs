@@ -351,8 +351,6 @@ pub struct ConnectedSession {
 }
 
 async fn bridge_remote_channel(channel: russh::Channel<client::Msg>, route: RemoteRoute) {
-    use std::sync::atomic::Ordering;
-
     let tcp = match TcpStream::connect((route.target_host.as_str(), route.target_port)).await {
         Ok(t) => t,
         Err(_) => {
@@ -361,43 +359,13 @@ async fn bridge_remote_channel(channel: russh::Channel<client::Msg>, route: Remo
         }
     };
 
-    let (mut ch_read, ch_write) = channel.split();
-    let mut ch_writer = ch_write.make_writer();
-    let (mut tcp_r, mut tcp_w) = tokio::io::split(tcp);
-
-    let bytes_up = Arc::clone(&route.bytes);
-    let tcp_to_ssh = tokio::spawn(async move {
-        let mut buf = [0u8; 65536];
-        loop {
-            match tcp_r.read(&mut buf).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => {
-                    if ch_writer.write_all(&buf[..n]).await.is_err() {
-                        break;
-                    }
-                    bytes_up.fetch_add(n as u64, Ordering::Relaxed);
-                }
-            }
-        }
-    });
-
-    let bytes_down = route.bytes;
-    let ssh_to_tcp = tokio::spawn(async move {
-        loop {
-            match ch_read.wait().await {
-                Some(ChannelMsg::Data { data }) => {
-                    if tcp_w.write_all(&data).await.is_err() {
-                        break;
-                    }
-                    bytes_down.fetch_add(data.len() as u64, Ordering::Relaxed);
-                }
-                Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
-                _ => {}
-            }
-        }
-    });
-
-    let _ = tokio::join!(tcp_to_ssh, ssh_to_tcp);
+    crate::port_forward::pipe::pump(
+        channel,
+        tcp,
+        tokio_util::sync::CancellationToken::new(),
+        route.bytes,
+    )
+    .await;
 }
 
 pub enum SessionInput {
