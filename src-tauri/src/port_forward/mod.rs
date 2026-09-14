@@ -49,6 +49,9 @@ pub struct ActiveTunnel {
     pub state: TunnelState,
     #[serde(default)]
     pub bytes_transferred: u64,
+    /// Far end of a local forward: `None` means unknown, not "nothing listening".
+    #[serde(default)]
+    pub remote_listening: Option<bool>,
 }
 
 /// Cleanup metadata needed to cancel a remote forward on the SSH server.
@@ -73,6 +76,9 @@ pub(crate) struct SessionPfState {
     pub(crate) poller_cancel: Option<CancellationToken>,
     /// Ports the user has manually closed — poller won't re-open them.
     pub(crate) suppressed_ports: HashSet<u16>,
+    /// Listeners seen by the last successful poll, before IGNORED_PORTS is
+    /// applied: that list gates auto-forwarding only, never liveness.
+    pub(crate) detected_ports: Option<HashSet<u16>>,
     /// Terminal whose SSH handle currently backs this host's poller + tunnels.
     /// When it disconnects (and siblings remain) the forwards are rebound onto a
     /// surviving terminal's handle. `None` until the first poller/tunnel.
@@ -86,6 +92,7 @@ impl SessionPfState {
             auto_detect,
             poller_cancel: None,
             suppressed_ports: HashSet::new(),
+            detected_ports: None,
             owner_session,
         }
     }
@@ -130,7 +137,7 @@ pub(crate) async fn emit_state_for(
         let sessions = sessions.lock().await;
         match sessions.get(key) {
             Some(s) => (
-                s.tunnels.iter().map(snapshot_tunnel).collect::<Vec<_>>(),
+                snapshot_tunnels(s),
                 s.suppressed_ports.iter().copied().collect::<Vec<_>>(),
             ),
             None => (vec![], vec![]),
@@ -273,7 +280,7 @@ impl PortForwardManager {
         let sessions = self.sessions.lock().await;
         match sessions.get(&key) {
             Some(s) => PfSessionState {
-                tunnels: s.tunnels.iter().map(snapshot_tunnel).collect(),
+                tunnels: snapshot_tunnels(s),
                 suppressed_ports: s.suppressed_ports.iter().copied().collect(),
             },
             None => PfSessionState {
@@ -286,10 +293,7 @@ impl PortForwardManager {
     pub async fn list_tunnels(&self, session_id: &str) -> Vec<ActiveTunnel> {
         let key = self.key_of(session_id).await;
         let sessions = self.sessions.lock().await;
-        sessions
-            .get(&key)
-            .map(|s| s.tunnels.iter().map(snapshot_tunnel).collect())
-            .unwrap_or_default()
+        sessions.get(&key).map(snapshot_tunnels).unwrap_or_default()
     }
 
     pub async fn get_auto_detect(&self, session_id: &str) -> bool {
@@ -319,6 +323,9 @@ impl PortForwardManager {
         }
 
         state.auto_detect = enabled;
+        if !enabled {
+            state.detected_ports = None;
+        }
 
         if enabled {
             let cancel = CancellationToken::new();
@@ -388,6 +395,7 @@ impl PortForwardManager {
             origin,
             state: TunnelState::Active,
             bytes_transferred: 0,
+            remote_listening: None,
         };
 
         let entry = TunnelEntry {
@@ -465,6 +473,7 @@ impl PortForwardManager {
             origin,
             state: TunnelState::Active,
             bytes_transferred: 0,
+            remote_listening: None,
         };
 
         let cancel = CancellationToken::new();
@@ -518,6 +527,7 @@ impl PortForwardManager {
             origin,
             state: TunnelState::Active,
             bytes_transferred: 0,
+            remote_listening: None,
         };
 
         let entry = TunnelEntry {
@@ -916,6 +926,7 @@ impl PortForwardManager {
                     },
                     state: TunnelState::Error(e.to_string()),
                     bytes_transferred: 0,
+                    remote_listening: None,
                 };
                 let err_entry = TunnelEntry {
                     tunnel: err_tunnel,
@@ -944,6 +955,34 @@ fn snapshot_tunnel(entry: &TunnelEntry) -> ActiveTunnel {
     let mut t = entry.tunnel.clone();
     t.bytes_transferred = entry.bytes.load(Ordering::Relaxed);
     t
+}
+
+pub(crate) fn snapshot_tunnels(state: &SessionPfState) -> Vec<ActiveTunnel> {
+    state
+        .tunnels
+        .iter()
+        .map(|e| {
+            let mut t = snapshot_tunnel(e);
+            t.remote_listening = remote_listening_for(state, &t);
+            t
+        })
+        .collect()
+}
+
+/// `None` wherever the poller cannot answer: detection off or silent so far, a
+/// remote/dynamic forward, or a target the poller never probes.
+fn remote_listening_for(state: &SessionPfState, tunnel: &ActiveTunnel) -> Option<bool> {
+    if !state.auto_detect || !matches!(tunnel.tunnel_type, TunnelType::Local) {
+        return None;
+    }
+    if !is_loopback_host(&tunnel.remote_host) {
+        return None;
+    }
+    Some(state.detected_ports.as_ref()?.contains(&tunnel.remote_port))
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    matches!(host, "" | "127.0.0.1" | "localhost" | "::1" | "[::1]")
 }
 
 /// Stop a tunnel's accept loop + bridges, freeing its local listener.
@@ -1040,6 +1079,7 @@ mod tests {
                 origin: TunnelOrigin::Auto,
                 state: TunnelState::Active,
                 bytes_transferred: 0,
+                remote_listening: None,
             },
             _cancel: cancel,
             bytes: Arc::new(AtomicU64::new(0)),
@@ -1064,6 +1104,7 @@ mod tests {
                 origin: TunnelOrigin::AdHoc,
                 state: TunnelState::Active,
                 bytes_transferred: 0,
+                remote_listening: None,
             },
             _cancel: CancellationToken::new(),
             bytes: Arc::new(AtomicU64::new(0)),
@@ -1189,5 +1230,84 @@ mod tests {
             !port_is_free(port).await,
             "dropping the entry must NOT free the port — only an explicit cancel does"
         );
+    }
+
+    fn local_on(remote_port: u16, remote_host: &str) -> TunnelEntry {
+        let mut e = entry_of(TunnelType::Local, None, None);
+        e.tunnel.remote_port = remote_port;
+        e.tunnel.remote_host = remote_host.into();
+        e
+    }
+
+    fn state_with(
+        tunnels: Vec<TunnelEntry>,
+        auto_detect: bool,
+        detected: Option<&[u16]>,
+    ) -> SessionPfState {
+        let mut state = SessionPfState::new(None, auto_detect);
+        state.tunnels = tunnels;
+        state.detected_ports = detected.map(|ports| ports.iter().copied().collect());
+        state
+    }
+
+    fn liveness(state: &SessionPfState) -> Option<bool> {
+        snapshot_tunnels(state)[0].remote_listening
+    }
+
+    #[test]
+    fn a_local_forward_follows_the_remote_listener() {
+        let listening = state_with(vec![local_on(8080, "127.0.0.1")], true, Some(&[8080]));
+        assert_eq!(liveness(&listening), Some(true));
+
+        let dead = state_with(vec![local_on(8080, "127.0.0.1")], true, Some(&[3000]));
+        assert_eq!(liveness(&dead), Some(false));
+    }
+
+    /// Regression: IGNORED_PORTS keeps auto-detect off Postgres, but a rule
+    /// forwarding 5432 to a live Postgres must not read as nothing listening.
+    #[test]
+    fn liveness_ignores_the_auto_forward_blocklist() {
+        let state = state_with(vec![local_on(5432, "127.0.0.1")], true, Some(&[5432, 22]));
+        assert_eq!(liveness(&state), Some(true));
+    }
+
+    /// No poller, no answer — "unknown" must never render as "dead".
+    #[test]
+    fn liveness_is_unknown_without_detection() {
+        let off = state_with(vec![local_on(8080, "127.0.0.1")], false, Some(&[3000]));
+        assert_eq!(liveness(&off), None);
+
+        let not_polled_yet = state_with(vec![local_on(8080, "127.0.0.1")], true, None);
+        assert_eq!(liveness(&not_polled_yet), None);
+    }
+
+    /// A remote forward's listener is ours by definition and SOCKS has no remote
+    /// port, so neither says anything about the far end.
+    #[test]
+    fn only_local_forwards_can_answer_liveness() {
+        let remote = state_with(
+            vec![entry_of(
+                TunnelType::Remote,
+                Some("0.0.0.0"),
+                Some("10.0.0.5"),
+            )],
+            true,
+            Some(&[]),
+        );
+        assert_eq!(liveness(&remote), None);
+
+        let dynamic = state_with(
+            vec![entry_of(TunnelType::Dynamic, None, None)],
+            true,
+            Some(&[]),
+        );
+        assert_eq!(liveness(&dynamic), None);
+    }
+
+    /// The probe only sees the SSH host's own listeners.
+    #[test]
+    fn a_forward_past_the_ssh_host_cannot_answer_liveness() {
+        let state = state_with(vec![local_on(8080, "10.0.0.5")], true, Some(&[]));
+        assert_eq!(liveness(&state), None);
     }
 }

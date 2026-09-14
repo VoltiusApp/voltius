@@ -275,6 +275,7 @@ export function PortsPanel() {
             isBusy={busy.has(rule.id)}
             isDeleting={busy.has(`del-${rule.id}`)}
             badge={null}
+            remoteListening={tunnel?.remote_listening}
             bytesTransferred={tunnel?.bytes_transferred}
             localPort={tunnel?.local_port}
             httpUrl={isActive && !isError && tunnel
@@ -317,6 +318,7 @@ export function PortsPanel() {
                 isDeleting={busy.has(`del-${key}`)}
                 isSaving={busy.has(`save-${tunnel.id}`)}
                 badge={isAuto ? "auto" : "adhoc"}
+                remoteListening={tunnel.remote_listening}
                 bytesTransferred={tunnel.bytes_transferred}
                 localPort={tunnel.local_port}
                 httpUrl={getLocalTunnelHttpUrl(tunnel.tunnel_type ?? "local", tunnel.remote_port, tunnel.local_port)}

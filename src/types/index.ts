@@ -344,4 +344,6 @@ export interface ActiveTunnel {
   origin: TunnelOrigin;
   state: TunnelState;
   bytes_transferred: number;
+  /** null/undefined = unknown, not "nothing listening". */
+  remote_listening?: boolean | null;
 }
