@@ -47,6 +47,13 @@ export const TOGGLE_DEFS = {
     keywords: ["copy", "select", "clipboard", "terminal", "auto"],
     default: true,
   },
+  "drag-selects-text": {
+    labelKey: "settings.toggleDefs.dragSelectsText.label",
+    icon: "lucide:text-select",
+    descriptionKey: "settings.toggleDefs.category.appearance",
+    keywords: ["select", "drag", "mouse", "tmux", "copy", "terminal", "reporting"],
+    default: true,
+  },
   "ignore-bracketed-paste": {
     labelKey: "settings.toggleDefs.ignoreBracketedPaste.label",
     icon: "lucide:clipboard-x",

@@ -782,6 +782,8 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
       const term = new Terminal({
         altClickMovesCursor: false,
+        // macOS has no Shift bypass for mouse-reporting apps; Alt+click is the only one.
+        macOptionClickForcesSelection: true,
         cursorBlink: getToggle("cursor-blink"),
         cursorStyle,
         fontSize: activeTheme.terminalFontSize,

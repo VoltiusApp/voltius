@@ -29,6 +29,10 @@
         "title": "Sélectionner pour copier",
         "desc": "Copier le texte dans le presse-papiers dès qu'on le sélectionne dans un terminal."
       },
+      "dragSelectsText": {
+        "title": "Le glisser sélectionne le texte",
+        "desc": "Sélectionner du texte par simple glisser même lorsqu'un programme (tmux, vim, htop) capte la souris. Le clic atteint toujours le programme ; maintenir Ctrl pendant le glisser pour lui transmettre le glisser."
+      },
       "ignoreBracketedPaste": {
         "title": "Collage simple (sans collage entre crochets)",
         "desc": "Coller en texte brut sans les marqueurs \\x1b[200~ / \\x1b[201~. Corrige un affichage corrompu (ex. « 200~ ») lors d'un collage dans un prompt sudo ou une application CLI qui ne prend pas en charge le collage entre crochets."
@@ -908,6 +912,9 @@
       },
       "selectToCopy": {
         "label": "Sélectionner pour copier"
+      },
+      "dragSelectsText": {
+        "label": "Le glisser sélectionne le texte"
       },
       "ignoreBracketedPaste": {
         "label": "Collage simple (sans crochets)"

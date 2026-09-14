@@ -31,6 +31,7 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
       const activeTheme = useThemeStore.getState().getActiveTheme();
       const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
       const term = new Terminal({
+        macOptionClickForcesSelection: true,
         cursorBlink: getToggle("cursor-blink"),
         cursorStyle,
         fontSize: activeTheme.terminalFontSize,

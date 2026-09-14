@@ -11,6 +11,7 @@ export default function TerminalSection() {
   const [cursorBlink, setCursorBlink] = useToggle("cursor-blink");
   const [scrollMinimapEnabled, setScrollMinimapEnabled] = useToggle("scroll-minimap");
   const [selectToCopy, setSelectToCopy] = useToggle("select-to-copy");
+  const [dragSelectsText, setDragSelectsText] = useToggle("drag-selects-text");
   const [ignoreBracketedPaste, setIgnoreBracketedPaste] = useToggle("ignore-bracketed-paste");
   const scrollbackLines = useTerminalSettingsStore((s) => s.scrollbackLines);
   const setScrollbackLines = useTerminalSettingsStore((s) => s.setScrollbackLines);
@@ -89,6 +90,17 @@ export default function TerminalSection() {
           onReset={() => setSelectToCopy(TOGGLE_DEFS["select-to-copy"].default)}
         >
           <Toggle checked={selectToCopy} onChange={setSelectToCopy} />
+        </SettingRow>
+        <SettingRow
+          variant="card"
+          className="mt-4"
+          syncKey="appSettings.toggles.drag-selects-text"
+          title={t("settings.terminal.dragSelectsText.title")}
+          desc={t("settings.terminal.dragSelectsText.desc")}
+          dirty={dragSelectsText !== TOGGLE_DEFS["drag-selects-text"].default}
+          onReset={() => setDragSelectsText(TOGGLE_DEFS["drag-selects-text"].default)}
+        >
+          <Toggle checked={dragSelectsText} onChange={setDragSelectsText} />
         </SettingRow>
         <SettingRow
           variant="card"

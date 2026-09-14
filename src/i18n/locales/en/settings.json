@@ -29,6 +29,10 @@
         "title": "Select to copy",
         "desc": "Copy text to the clipboard as soon as you select it in a terminal."
       },
+      "dragSelectsText": {
+        "title": "Drag selects text",
+        "desc": "Select text with a plain drag even while a program (tmux, vim, htop) holds the mouse. A click still reaches the program; hold Ctrl while dragging to send the drag to it instead."
+      },
       "ignoreBracketedPaste": {
         "title": "Plain paste (no bracketed paste)",
         "desc": "Paste as plain text without the \\x1b[200~ / \\x1b[201~ markers. Fixes garbled input (e.g. \"200~\") when pasting into sudo prompts or CLI apps that don't support bracketed paste."
@@ -908,6 +912,9 @@
       },
       "selectToCopy": {
         "label": "Select to Copy"
+      },
+      "dragSelectsText": {
+        "label": "Drag Selects Text"
       },
       "ignoreBracketedPaste": {
         "label": "Plain Paste (No Bracketed Paste)"

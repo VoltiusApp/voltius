@@ -29,6 +29,10 @@
         "title": "选择即复制",
         "desc": "在终端中选中文本时显示复制按钮。"
       },
+      "dragSelectsText": {
+        "title": "拖动即选择文本",
+        "desc": "即使程序（tmux、vim、htop）占用鼠标，也可通过普通拖动选择文本。单击仍会传给程序；拖动时按住 Ctrl 可将拖动交给程序。"
+      },
       "ignoreBracketedPaste": {
         "title": "纯文本粘贴（无括号粘贴）",
         "desc": "不带 \\x1b[200~ / \\x1b[201~ 标记的纯文本粘贴。修复粘贴到 sudo 提示符或不支持括号粘贴的 CLI 应用时的乱码问题。"
@@ -965,6 +969,7 @@
       "cursorBlink": { "label": "光标闪烁" },
       "scrollMinimap": { "label": "滚动小地图" },
       "selectToCopy": { "label": "选择即复制" },
+      "dragSelectsText": { "label": "拖动即选择文本" },
       "ignoreBracketedPaste": { "label": "纯文本粘贴（无括号粘贴）" },
       "autoForward": { "label": "自动端口转发" },
       "forwardingNotifications": { "label": "端口转发通知" },
