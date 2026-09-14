@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-09-14
+
+### Added
+
+- Show whether the far end of a port forward is listening.
+
+### Fixed
+
+- Reap auto-detected forwards instead of piling them up.
+
 ## [0.34.5] - 2026-09-14
 
 ### Fixed
