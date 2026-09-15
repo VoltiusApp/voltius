@@ -233,6 +233,17 @@
         "title": "Bağlantı koptu",
         "subtitle": "Yeniden bağlanılıyor…"
       },
+      "reconnectWait": {
+        "offline": {
+          "title": "Çevrimdışısınız",
+          "subtitle": "Ağ geri geldiğinde yeniden bağlanılacak"
+        },
+        "slow": {
+          "title": "Sunucuya hâlâ ulaşılamıyor",
+          "subtitle": "Her {{seconds}} saniyede bir yeniden deneniyor"
+        },
+        "retryNow": "Şimdi tekrar dene"
+      },
       "connectionError": {
         "title": "Bağlantı başarısız",
         "retry": "Tekrar dene",
