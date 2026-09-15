@@ -148,7 +148,7 @@ test("the online dot uses a theme token that exists", async () => {
   render(<PeopleTab {...base} />);
   const row = await screen.findByRole("button", { name: /amber-lynx-4410/i });
   const dot = within(row).getByRole("img", { name: "terminal.share.presenceOnline" });
-  expect(dot.getAttribute("style")).toContain("--t-status-connected");
+  expect(dot.lastElementChild?.getAttribute("style")).toContain("--t-status-connected");
 });
 
 // Recent wins the dedupe, so a teammate listed under Recent loses the dot they

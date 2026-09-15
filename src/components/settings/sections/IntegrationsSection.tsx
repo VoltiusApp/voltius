@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
+import { StatusDot } from "@/components/shared/StatusDot";
 import { DirtyDot, ResetButton } from "./shared";
 import { getMcpStatus } from "@/mcp/status";
 import { buildMcpClientSnippet, MCP_CLIENT_IDS, type McpClientId } from "@/mcp/clientSnippets";
@@ -145,7 +146,7 @@ export default function IntegrationsSection() {
                 <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.toggleDefs.mcpServer.label")}</p>
                 {status?.enabled && (
                   <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-(--t-status-connected)/10 text-(--t-status-connected)">
-                    <span className="w-1.5 h-1.5 rounded-full bg-(--t-status-connected)" />
+                    <StatusDot tone="connected" size="sm" />
                     {t("settings.integrations.mcp.running")}
                   </span>
                 )}

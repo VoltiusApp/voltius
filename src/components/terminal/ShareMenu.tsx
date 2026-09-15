@@ -10,6 +10,7 @@ import { uninviteFromSession } from "@/services/teamService";
 import { guestCapFor, highestOwnerTier, inviteSessionOf, membersOfTeams, seatUsage, type InviteSession, type InviteTarget, type ShareTier } from "@/services/teamSharing";
 import { useDelayedUnmount } from "@/hooks/useDelayedUnmount";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
+import { StatusDot } from "@/components/shared/StatusDot";
 import { InviteCodeField } from "./InviteCodeField";
 import { SpokenCodeRow } from "./SpokenCodeRow";
 import { PeopleTab } from "./PeopleTab";
@@ -457,7 +458,7 @@ function ActiveSharingView({
   return (
     <div className="p-3">
       <div className="flex items-center gap-2 mb-3">
-        <span className="w-2 h-2 rounded-full animate-pulse shrink-0" style={{ background: "var(--t-accent)" }} />
+        <StatusDot tone="accent" motion="pulse" />
         <span className="text-xs font-semibold flex-1 truncate" style={{ color: "var(--t-text-primary)" }}>
           {connectionName}
         </span>

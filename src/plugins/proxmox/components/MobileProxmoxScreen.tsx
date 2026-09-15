@@ -1,15 +1,12 @@
 import { useState } from "react";
-import { Icon, BottomSheet, useT, useSessionById, MobileScreenHeader } from "@voltius/ui";
+import { Icon, BottomSheet, useT, useSessionById, MobileScreenHeader, StatusDot } from "@voltius/ui";
 import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
 import { useIsProxmoxHost } from "../useIsProxmoxHost";
 import { createProxmoxService } from "../services";
 import { useProxmox } from "../useProxmox";
+import { lxcStatusTone } from "../lxcStatusTone";
 import type { LxcAction, LxcContainer, LxcSnapshot } from "../types";
-
-function stateColor(status: string): string {
-  return status === "running" ? "var(--t-status-connected)" : "var(--t-text-dim)";
-}
 
 interface ActionItem { action: LxcAction; label: string; icon: string }
 function actionsFor(status: string, t: PluginAPI["i18n"]["t"]): ActionItem[] {
@@ -185,7 +182,7 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
               onClick={() => setSheetFor(c)}
               className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-(--t-bg-card) min-w-0"
             >
-              <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: stateColor(c.status) }} />
+              <StatusDot tone={lxcStatusTone(c.status)} />
               <span className="flex flex-col min-w-0 flex-1">
                 <span className="text-sm font-medium text-(--t-text-primary) truncate">{c.name}</span>
                 <span className="text-xs text-(--t-text-dim) truncate">{t("ctSummary", { vmid: c.vmid, status: c.status })}</span>

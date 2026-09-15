@@ -17,6 +17,8 @@ import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import { metricsStart, metricsStop, onMetricsSnapshot, type MetricsSnapshot } from "@/services/metrics";
 import { getDistroIcon, getDistroColor, getDistroLabel } from "@/utils/icons";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { latencyColor, latencyTone, pingStatusTone } from "@/utils/statusTone";
 import type { ActiveTunnel, SerialConnectParams } from "@/types";
 import type { TerminalStatusBarContributionContext } from "@/plugins/api";
 
@@ -42,12 +44,6 @@ interface ConnectedSystemInfo {
   kernel_version: string;
   host_name: string;
   arch: string;
-}
-
-function latencyColor(ms: number): string {
-  if (ms < 50) return "var(--t-status-connected)";
-  if (ms < 150) return "var(--t-status-warning)";
-  return "var(--t-status-error)";
 }
 
 function sessionBadge(sessionType: Props["sessionType"], t: TFunction): string {
@@ -437,11 +433,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
   const isConnected = sessionStatus === "connected";
   const isDisconnectedOrError = sessionStatus === "disconnected" || sessionStatus === "error";
 
-  const dotColor = pingStatus === "up"
-    ? latencyColor(latencyMs ?? 999)
-    : pingStatus === "down"
-    ? "var(--t-status-error)"
-    : "var(--t-text-dim)";
+  const dotTone = pingStatus === "up" ? latencyTone(latencyMs ?? 999) : pingStatusTone(pingStatus);
 
   const dotTitle = pingStatus === "up" && latencyMs !== undefined
     ? t("terminal.statusBar.pingUp", { ms: latencyMs })
@@ -517,17 +509,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                 onMouseEnter={() => setShowSparkline(true)}
                 onMouseLeave={() => setShowSparkline(false)}
               >
-                <div
-                  title={dotTitle}
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: dotColor,
-                    flexShrink: 0,
-                    transition: "background 0.4s",
-                  }}
-                />
+                <StatusDot tone={dotTone} size="sm" label={dotTitle} />
                 {pingStatus === "up" && latencyMs !== undefined && (
                   <span style={{ color: latencyColor(latencyMs), fontVariantNumeric: "tabular-nums" }}>
                     {latencyMs}ms

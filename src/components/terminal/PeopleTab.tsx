@@ -16,6 +16,7 @@ import { useUserSearch } from "@/hooks/useUserSearch";
 import { useRecentPeopleStore } from "@/stores/recentPeopleStore";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 import { ContextMenu } from "@/components/shared/ContextMenu";
+import { StatusDot } from "@/components/shared/StatusDot";
 
 interface PeopleTabProps {
   session: InviteSession;
@@ -128,13 +129,7 @@ function PersonRow({
              per-row indent would make the handles ragged. */
           <span className="w-1.5 shrink-0" aria-hidden="true" />
         ) : (
-          <span
-            role="img"
-            aria-label={presenceLabel}
-            title={presenceLabel}
-            className="w-1.5 h-1.5 rounded-full shrink-0"
-            style={{ background: isOnline ? "var(--t-status-connected)" : "var(--t-text-dim)" }}
-          />
+          <StatusDot tone={isOnline ? "connected" : "idle"} size="sm" label={presenceLabel} />
         )}
         <span className="flex-1 min-w-0 text-left">
           <span className="text-xs truncate block">{target.handle ? `@${target.handle}` : "?"}</span>

@@ -1,17 +1,12 @@
 import { useMemo, useState } from "react";
-import { Icon, BottomSheet, useT, useSessionById, MobileScreenHeader } from "@voltius/ui";
+import { Icon, BottomSheet, useT, useSessionById, MobileScreenHeader, StatusDot } from "@voltius/ui";
 import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
 import { createMobileDockerListService } from "../services";
 import { useDockerList } from "../useDockerList";
 import type { ContainerAction, DockerContainer } from "../types";
+import { containerStateTone } from "../containerStateTone";
 import { PortChips } from "./PortChips";
-
-function stateColor(state: string): string {
-  if (state === "running") return "var(--t-status-connected)";
-  if (state === "paused") return "var(--t-status-warning)";
-  return "var(--t-text-dim)";
-}
 
 function containerName(c: DockerContainer): string {
   return c.names[0] ?? c.id.slice(0, 12);
@@ -121,7 +116,7 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-(--t-bg-card) min-w-0"
               >
-                <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: stateColor(c.state) }} />
+                <StatusDot tone={containerStateTone(c.state)} />
                 <span className="flex flex-col min-w-0 flex-1">
                   <span className="text-sm font-medium text-(--t-text-primary) truncate">{containerName(c)}</span>
                   <span className="text-xs text-(--t-text-dim) truncate">{c.image}</span>

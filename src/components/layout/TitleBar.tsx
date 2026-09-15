@@ -30,6 +30,8 @@ import { ContextMenu, useContextMenu } from "@/components/shared/ContextMenu";
 import { closeSession } from "@/services/closeSession";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { STATUS_TONE_COLOR, sessionStatusTone } from "@/utils/statusTone";
 import { sessionLabel, splitTabLabel } from "@/utils/sessionLabel";
 import { focusSession } from "@/hooks/useTerminal";
 import { splitTabMenuItems } from "@/utils/splitTabMenuItems";
@@ -428,11 +430,7 @@ export default function TitleBar() {
 
           const session = item.session;
           const isActive = session.id === activeSessionId && activeNav === "terminal" && !sftpPanelOpen && !splitTabActive;
-          const statusColor =
-            session.status === "connected"  ? "var(--t-status-connected)" :
-            session.status === "error"      ? "var(--t-status-error)" :
-            session.status === "connecting" ? "var(--t-status-connecting)" :
-                                              "var(--t-text-muted)";
+          const statusTone = sessionStatusTone(session.status);
           const connection = connections.find((c) => c.id === session.connectionId);
           const isLocal = session.type === "local";
           const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;
@@ -448,12 +446,12 @@ export default function TitleBar() {
           ) : isLocal ? (
             <span
               className="flex items-center justify-center size-6 rounded-md shrink-0"
-              style={{ color: isActive ? "var(--t-tab-active-text)" : statusColor }}
+              style={{ color: isActive ? "var(--t-tab-active-text)" : STATUS_TONE_COLOR[statusTone] }}
             >
               <Icon icon="lucide:terminal" width={14} />
             </span>
           ) : (
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />
+            <StatusDot tone={statusTone} />
           );
 
           return (
@@ -595,7 +593,7 @@ export default function TitleBar() {
                 border: "1px solid color-mix(in srgb, var(--t-status-error) 25%, transparent)",
               }}
             >
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--t-status-error)" }} />
+              <StatusDot tone="error" size="sm" />
               {t("layout.titleBar.ended")}
             </span>
           ) : (
@@ -607,7 +605,7 @@ export default function TitleBar() {
                 border: "1px solid color-mix(in srgb, var(--t-accent) 25%, transparent)",
               }}
             >
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--t-accent)" }} />
+              <StatusDot tone="accent" size="sm" motion="pulse" />
               {t("layout.titleBar.watching")}
             </span>
           )}
@@ -756,12 +754,6 @@ function DetachedPanePreview({ session }: { session: ReturnType<typeof useSessio
   const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;
   const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
   const distroBg = connectionIcon ? getConnectionIconColor(connectionIcon) : null;
-  const statusColor =
-    session.status === "connected"  ? "var(--t-status-connected)" :
-    session.status === "error"      ? "var(--t-status-error)" :
-    session.status === "connecting" ? "var(--t-status-connecting)" :
-                                      "var(--t-text-muted)";
-
   return (
     <div
       className="pointer-events-none flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
@@ -787,7 +779,7 @@ function DetachedPanePreview({ session }: { session: ReturnType<typeof useSessio
           <Icon icon="lucide:terminal" width={14} />
         </span>
       ) : (
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />
+        <StatusDot tone={sessionStatusTone(session.status)} />
       )}
       <span className="max-w-[140px] truncate">{session.connectionName}</span>
     </div>

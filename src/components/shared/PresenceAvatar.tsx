@@ -44,9 +44,11 @@ export function PresenceAvatar({
       ) : (
         online && (
           <StatusDot
-            color="var(--t-status-connected)"
-            animate={animate}
-            size={Math.max(7, Math.round(size * 0.28))}
+            tone="connected"
+            size={size < 28 ? "sm" : "md"}
+            motion={animate ? "ping" : undefined}
+            halo="var(--t-bg-card)"
+            corner
           />
         )
       )}
