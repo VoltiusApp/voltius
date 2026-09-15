@@ -35,8 +35,9 @@ vi.mock("@/plugins/runtime", () => ({
     {
       id: "acme", name: "Acme", version: "1.0.0", permissions: ["storage"],
       contributes: { configuration: { autoCheck: { type: "boolean", default: true, description: "d" } } },
+      defaultEnabled: false,
     },
-    { id: "plain", name: "Plain", version: "1.0.0", permissions: [] },
+    { id: "plain", name: "Plain", version: "1.0.0", permissions: [], defaultEnabled: false },
     { id: "widget", name: "Widget", version: "1.0.0", permissions: [] },
   ],
   setPluginActive: vi.fn(),
@@ -67,6 +68,17 @@ describe("plugin domain", () => {
     expect(acme.updateAvailable).toBe("2.0.0");
     expect(acme.configurable).toEqual(["autoCheck"]);
     expect(list.find((p) => p.id === "plain")!.origin).toBe("seeded");
+  });
+
+  it("reports an installed plugin enabled even when its manifest says defaultEnabled:false", async () => {
+    registry.isEnabled.mockImplementation(((_id: string, def: boolean) => def) as () => boolean);
+    try {
+      const list = await listPlugins();
+      expect(list.find((p) => p.id === "acme")!.enabled).toBe(true);
+      expect(list.find((p) => p.id === "plain")!.enabled).toBe(false);
+    } finally {
+      registry.isEnabled.mockImplementation(() => true);
+    }
   });
 
   it("refuses an unknown id rather than throwing", async () => {

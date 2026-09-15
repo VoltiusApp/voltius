@@ -3,6 +3,7 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { getLoadedPlugins, setPluginActive, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import { loadSeededEntries } from "@/stores/seededTombstoneStore";
 import { availableUpdate, availableSeededUpdate } from "@/plugins/updates";
+import { pluginDefaultEnabled } from "@/plugins/pluginDefaultEnabled";
 import { failed, type DomainResult } from "./result";
 import type { PluginConfigField, PluginManifest } from "@/plugins/api";
 // Declared in the tool layer, not here: the MCP verbs pre-check these same
@@ -65,7 +66,7 @@ export async function listPlugins(): Promise<PluginView[]> {
       id: m.id,
       name: m.name,
       version: m.version,
-      enabled: registry.isEnabled(m.id, m.defaultEnabled ?? true),
+      enabled: registry.isEnabled(m.id, pluginDefaultEnabled(m, state.installedMeta)),
       origin,
       hash: meta?.hash ?? null,
       permissions: m.permissions ?? [],

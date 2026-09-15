@@ -32,6 +32,7 @@ import SettingsModal from "@/components/settings/SettingsModal";
 import { useUIStore } from "@/stores/uiStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { useMarketplaceStore } from "@/stores/marketplaceStore";
 
 const manifest = (id: string, defaultEnabled = true): PluginManifest =>
   ({ id, name: id, version: "1.0.0", description: "", permissions: [], defaultEnabled } as PluginManifest);
@@ -59,6 +60,7 @@ beforeEach(() => {
     ]),
   });
   usePluginRegistryStore.setState({ overrides: {} });
+  useMarketplaceStore.setState({ installedMeta: [] });
   useUIStore.setState({
     settingsOpen: true,
     settingsSection: "plugins",
@@ -83,6 +85,21 @@ test("hides a child whose plugin is disabled", () => {
   render(<SettingsModal />);
   expect(childButton("AI Agent")).toBeFalsy();
   expect(childButton("SSH Config Sync")).toBeTruthy();
+});
+
+test("an installed plugin whose manifest says defaultEnabled:false still gets its nav child", () => {
+  loaded.list = [manifest("plugin-ai-agent", false), manifest("plugin-ssh-config")];
+  useMarketplaceStore.setState({
+    installedMeta: [{ id: "plugin-ai-agent", version: "1.0.0", sourceId: "voltius", hash: "abc" }],
+  });
+  render(<SettingsModal />);
+  expect(childButton("AI Agent")).toBeTruthy();
+});
+
+test("a bundled plugin with defaultEnabled:false and no override stays out of the nav", () => {
+  loaded.list = [manifest("plugin-ai-agent", false), manifest("plugin-ssh-config")];
+  render(<SettingsModal />);
+  expect(childButton("AI Agent")).toBeFalsy();
 });
 
 test("clicking a child renders that page in the content pane", () => {
