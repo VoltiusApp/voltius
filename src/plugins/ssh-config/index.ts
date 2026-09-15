@@ -339,11 +339,12 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
       const keyId = await ensureKey(api, host.identityFile, keyMap, allKeys, notifyEnabled);
       if (keyId) {
         if (identityMap[host.alias]) {
-          const stillExists = allIdentities.find((i) => i.id === identityMap[host.alias]);
-          if (stillExists) {
-            identityId = identityMap[host.alias];
+          const mapped = allIdentities.find((i) => i.id === identityMap[host.alias]);
+          if (mapped && mapped.key_id === keyId && mapped.username === host.user) {
+            identityId = mapped.id;
           } else {
-            delete identityMap[host.alias]; // stale — identity was deleted externally
+            if (mapped) say(`identity ${mapped.id} for alias "${host.alias}" no longer matches its IdentityFile/User, not reusing it`);
+            delete identityMap[host.alias];
           }
         }
         if (!identityId) {

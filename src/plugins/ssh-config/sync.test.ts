@@ -435,3 +435,34 @@ describe("ssh-config sync — one connection per alias", () => {
     expect(h.store.get("alias_map")).toEqual({ TradingSim: "X" });
   });
 });
+
+describe("ssh-config sync — identity follows the stanza's IdentityFile", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("a mapped identity holding another key is not reused", async () => {
+    const h = makeSyncApi({
+      config: cfg("TradingSim", "129.0.0.1", "ubuntu", 22, "  IdentityFile ~/.ssh/tradingsim\n"),
+      connections: [
+        conn({ id: "T", name: "TradingSim", host: "129.0.0.1", username: "ubuntu", auth_type: "key", identity_id: "I-good", tags: [TAG] }),
+      ],
+      storage: {
+        alias_map: { TradingSim: "T" },
+        key_map: { "~/.ssh/tradingsim": "K-ts" },
+        identity_map: { TradingSim: "I-stale" },
+      },
+    });
+    (h.api.keys.list as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "K-oracle", name: "oracle", tags: [TAG] },
+      { id: "K-ts", name: "tradingsim", tags: [TAG] },
+    ]);
+    (h.api.identities.list as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "I-stale", name: "TradingSim", username: "ubuntu", key_id: "K-oracle", tags: [TAG] },
+      { id: "I-good", name: "TradingSim", username: "ubuntu", key_id: "K-ts", tags: [TAG] },
+    ]);
+
+    await sync(h.api);
+
+    expect(h.connections.find((c) => c.id === "T")!.identity_id).toBe("I-good");
+    expect((h.store.get("identity_map") as Record<string, string>).TradingSim).toBe("I-good");
+  });
+});
