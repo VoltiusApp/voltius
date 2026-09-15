@@ -32,6 +32,7 @@ export interface MarketplacePlugin {
   version: string;
   minAppVersion?: string;
   tags: string[];
+  permissions?: string[];
   theme: boolean;
   sourceId: string;
   hash?: string;

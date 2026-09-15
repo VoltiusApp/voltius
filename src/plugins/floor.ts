@@ -19,6 +19,7 @@ export function floorPluginFrom(entry: SeededEntry): MarketplacePlugin {
     repo: "",
     version: manifest.version,
     tags: [],
+    permissions: manifest.permissions,
     theme: false,
     sourceId: "builtin",
     builtin: true,
