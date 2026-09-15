@@ -1,7 +1,7 @@
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.docker / mobile.docker.* /
 // mobile.dockerLogs.* / mobile.hostActions.* / mobile.panelCommon.* and mobile.json's
 // common.action.{remove,cancel} — values carried over verbatim.
-export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
+export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
   en: {
     "title": "Docker",
     "filterAll": "All",
@@ -113,5 +113,33 @@ export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
     "hostStart": "启动",
     "dockerLogsWaiting": "正在等待日志…",
     "dockerLogsSessionNotConnected": "会话未连接。",
+  },
+  tr: {
+    "title": "Docker",
+    "filterAll": "Bütün Bütün Hepsi",
+    "filterRunning": "Koşu Koşu",
+    "needsSshTitle": "Docker bir SSH seansına ihtiyaç duyuyor",
+    "needsSshSub": "Docker, SSH'e bağlı bir ev sahibinden.",
+    "sessionNotConnected": "Oturum bağlantılı değil",
+    "sessionNotConnectedSub": "Bu ev sahibi Docker'i yönetmek için yeniden bağlantı.",
+    "unreachableTitle": "Docker ulaşılamaz",
+    "unreachableSub": "Docker'i ev sahibine başlatın, sonra yenileme.",
+    "refresh": "Yenileme",
+    "noContainers": "konteyner yok",
+    "noRunningContainers": "Yok konteyner yok",
+    "tapRunningToShowAll": "Tüm göstermek için Tap Koşu.",
+    "logs": "Logs Logs",
+    "execShell": "Exec kabuk",
+    "removeConfirmTitle": "konteyner mi?",
+    "removeConfirmBody": "{{name}} kaldırılacaktır. Bu geri alınabilir.",
+    "remove": "Kaldırın",
+    "cancel": "Cancel Cancel Cancel Cancel",
+    "hostStop": "Dur Dur Dur Dur Dur",
+    "hostRestart": "Restart",
+    "hostPause": "Pause",
+    "hostResume": "Resume",
+    "hostStart": "Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start",
+    "dockerLogsWaiting": "Loglar için bekleyin...",
+    "dockerLogsSessionNotConnected": "Oturum bağlantılı değil.",
   },
 };

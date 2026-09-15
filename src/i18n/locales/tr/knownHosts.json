@@ -1,0 +1,17 @@
+{
+  "knownHosts": {
+    "toolbar": {
+      "deleteSelected": "Delete seçilmiş",
+      "deleteButton": "DELETE"
+    },
+    "page": {
+      "noSearchResults": "Bilinen hiçbir ev aramanıza uymuyor",
+      "emptyState": "Henüz bilinen ev yok - bir sunucuya bağlandığınızda görünüyorlar",
+      "confirmDelete": {
+        "title_one": "Delete bilinen host?",
+        "title_other": "Delete {{count}} bilinen ev?",
+        "message": "Bu, güvenilir parmak izi (s) kaldıracaktır. Bu evlere bir sonraki bağlantı yeni olarak tedavi edilecektir."
+      }
+    }
+  }
+}

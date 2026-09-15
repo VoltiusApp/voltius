@@ -1,0 +1,258 @@
+{
+  "snippets": {
+    "sequence": {
+      "summary": {
+        "success": "Snippet {{count}} hedefinde koştu (s)",
+        "partial": "{{count}} tamam - {{details}}",
+        "failed": "Başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız başarısız"
+      },
+      "connectFailed": "Bir terminal seansı açamadı",
+      "flatten": {
+        "tooDeep": "Snippet \"{{name}}\"de çok derin bir şey yapıyor",
+        "tooManySteps": "Snippet çok fazla adım genişletti",
+        "cycle": "Snippet döngüsü \"{{name}}\"de tespit edildi.",
+        "missingRef": "Snippet adım eksik bir parçaya atıfta bulunur ({{id}})"
+      },
+      "error": {
+        "needsTerminal": "script adım bu hedef için açık bir terminal seansı gerektirir",
+        "noSftp": "SFTP transfer adım için bağlantı",
+        "destExists": "Hedef zaten var: {{path}}"
+      },
+      "resumeFailed": "Snippet başarısız oldu: {{error}}"
+    },
+    "toolbar": {
+      "filterPlaceholder": "Filtre parçaları...",
+      "gridLabel": "Izgara",
+      "listLabel": "Liste Listesi",
+      "sortNameAsc": "A → Z",
+      "sortNameDesc": "Z",
+      "sortNewest": "En yeni ilk",
+      "sortOldest": "En yaşlı ilk",
+      "newSnippet": "Yeni Snippet",
+      "newSnippetOptions": "Yeni parçalar seçenekleri",
+      "newFolder": "Yeni Kater"
+    },
+    "card": {
+      "duplicate": "Çoğalt",
+      "unpin": "Sabitlemeyi kaldır",
+      "pin": "Pin Pin Pin",
+      "unpinForMe": "Benim için",
+      "showInMyView": "Görünümümde göster",
+      "hideForMe": "Benim için gizle",
+      "pinForMe": "Benim için sabitle",
+      "unpinForTeam": "Takım için Unpin",
+      "pinForTeam": "takım için Pin for team",
+      "enableCloudSync": "Enable bulut senkronizasyonu",
+      "disableCloudSync": "Disable cloud senkronizasyon",
+      "export": "İhracat İhracatı",
+      "star": "Star Star",
+      "unstar": "Unstar",
+      "insert": "Ekle",
+      "execute": "idam",
+      "noContent": "Hiçbir içerik yok"
+    },
+    "form": {
+      "nameLabel": "Name Name Name Name Name Name Name Name Name Name Name",
+      "namePlaceholder": "Benim parçalarım",
+      "contentLabel": "Content Content Content",
+      "variablesLabel": "Değişkenler:",
+      "autoBadge": "Otomatik otomatik otomatik otomatik otomatik",
+      "syntaxHintType": "Tipi Tipi Tipi Tipi",
+      "syntaxHintForAutocomplete": "Autocomplete için.",
+      "syntaxHintCustomPrompts": "Özel taksiler:",
+      "syntaxHintTypesList": "- metin · numara · parola · boolean ·",
+      "descriptionLabel": "Açıklama (isteğen)",
+      "descriptionPlaceholder": "Bu parçalar ne yapar?",
+      "tagsLabel": "Etiketler",
+      "folderLabel": "Klasör",
+      "starred": "Yıldızlı",
+      "starThisSnippet": "Star bu parçalar",
+      "generalSection": "General General General General General General General General General General General General",
+      "contextualFiltersSection": "Contextual Filtre",
+      "contextualFiltersHint": "Tüm bağlantıları göstermek için boş bırakın. Boş olmayan parçalar grileştirilir, gizli değil.",
+      "onlyForConnectionTags": "Sadece bağlantı etiketleri için",
+      "connectionTagsPlaceholder": "e.g. üretim",
+      "onlyForDistros": "Sadece distros için",
+      "distrosPlaceholder": "E.g. ubuntu, debian",
+      "removeTagAriaLabel": "{{tag}}",
+      "dynamicVars": {
+        "connectionHost": "Aktif SSH hostname / IP",
+        "connectionUsername": "Aktif SSH kullanıcı adı",
+        "connectionName": "Aktif bağlantı adı",
+        "date": "Bugün - YYYYYYYY-MM-DDD",
+        "datetime": "Tarih + zaman – YY-MM-D HH:MM:SS",
+        "timestamp": "Unix zamantampampampampamp",
+        "clipboard": "Şimdiki klipler"
+      }
+    },
+    "step": {
+      "kind": {
+        "script": "Senaryo",
+        "transfer": "Transfer Transfer Transfer",
+        "snippet": "Takip Et"
+      },
+      "endpoint": {
+        "local": "Yerel Yerel Yerel Yerel",
+        "remote": "Uzak Uzak Uzak"
+      },
+      "from": "From From From From From From From From From From From From From From From From From From From From From From From From From From From From",
+      "to": "To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To To",
+      "mode": {
+        "copy": "Kopya kopya",
+        "move": "Move Move Move Move"
+      },
+      "conflict": {
+        "label": "Eğer varsa var",
+        "overwrite": "Over write",
+        "skip": "Skip Skip Skip Skip Skip Skip",
+        "fail": "Başarısız Başarısız Başarısız Başarısız Başarısız Başarısız"
+      },
+      "remotePicker": {
+        "title": "Uzak yollara göz atın",
+        "pickHost": "Görmek için bir ev seçin",
+        "selectHostTitle": "Bir host seçin",
+        "back": "Geri dön",
+        "connecting": "Connecting...",
+        "select": "Select Select Select Select",
+        "selectFolder": "Bu klasörü kullanın"
+      },
+      "file": "Dosya",
+      "folder": "Klasör",
+      "localPath": "Yerel yol",
+      "remotePath": "Uzak yol",
+      "browse": "Göze Göz",
+      "dragToReorder": "Yeniden sipariş için Drag",
+      "selectSnippet": "Bir parçaları seçin...",
+      "addScript": "+ script",
+      "addTransfer": "+ Transfer +",
+      "addSnippet": "+ çağrı parçaları",
+      "addStep": "Adım ekle",
+      "moveUp": "Adımı yukarı taşı",
+      "moveDown": "adım at",
+      "remove": "Adımı Kaldırın"
+    },
+    "page": {
+      "emptyState": {
+        "title": "Henüz parçaları yok",
+        "subtitle": "Dinamik değişkenlerle yeniden kullanılabilir terminal komutlarını kurtarın.",
+        "cta": "İlk parçalarınızı yaratın"
+      },
+      "pinned": "Pinnedildi",
+      "folders": "Katers",
+      "snippetsSection": "Kod Parçacıkları",
+      "other": "Diğer Diğer Diğer",
+      "allSnippets": "Tüm Snippets",
+      "folderEmpty": "Bu klasör boş",
+      "addSnippet": "Kod Parçacığı Ekle",
+      "noSearchResults": "Parklar maç \"{{search}}\"",
+      "clearSearch": "Clear arama",
+      "ejectMoveTo": "{{name}}",
+      "ejectRemoveFromFolder": "Download from klasör",
+      "recent": {
+        "title": "Son Güncelleme Tarihi",
+        "clear": "Clear Clear Clear Clear",
+        "showLess": "Daha az göster",
+        "showMore": "{{count}} daha fazlasını göster",
+        "deletedSnippet": "Deleted",
+        "unknownTarget": "Bilinmeyen Bilinmeyen Bilinmeyen Bilinmeyen Bilinmeyen",
+        "targetMore": "{{name}} +{{count}} daha fazla",
+        "modeRun": "run run run run run",
+        "modeInsert": "ekle",
+        "replay": "Yeniden çalıştır"
+      },
+      "bulk": {
+        "duplicateSnippets": "{{count}} parçaları",
+        "moveItemsTo_one": "{{count}} öğeyi taşımak için",
+        "moveItemsTo_other": "{{count}} öğelerini taşımak için",
+        "copyItemsTo_one": "{{count}} öğeyi kopyalayın",
+        "copyItemsTo_other": "{{count}} öğelerini kopyalayın",
+        "enableCloudSync": "Enable cloud senkronizasyonu ({{count}})",
+        "disableCloudSync": "Başarısız bulut senkronizasyonu ({{count}})",
+        "exportSnippets_one": "Export {{count}} fikstür",
+        "exportSnippets_other": "İhracat {{count}} parçaları",
+        "deleteSnippets": "Delete {{count}} parçaları"
+      },
+      "confirmDelete": {
+        "title_one": "{{count}} öğeyi sil",
+        "title_other": "Delete {{count}} öğeleri",
+        "message_one": "{{count}} eşyasını silmek istediğinizden emin misiniz? Bu geri alınmaz.",
+        "message_other": "{{count}} öğelerini silmek istediğinizden emin misiniz? Bu geri alınmaz.",
+        "folderCascade_one": "Seçilen klasörlerde açılan {{count}} parçaları da silinecektir.",
+        "folderCascade_other": "Seçilen klasörlerde açılan {{count}} parçaları da silinecektir."
+      },
+      "confirmDeleteFolder": {
+        "title": "\"{{name}}\" silinsin mi?",
+        "message_one": "Bu, klasörü, alt katlarını ve {{count}} parçaları içeride silecektir. Bu geri alınmaz.",
+        "message_other": "Bu, klasörü, alt katlarını ve {{count}} parçaları içeride silecektir. Bu geri alınmaz.",
+        "messageEmpty": "Bu, klasörü ve içindeki her şeyi silecektir. Bu geri alınmaz.",
+        "confirmLabel": "Delete klasörü"
+      },
+      "relativeTime": {
+        "justNow": "Sadece şimdi",
+        "secondsAgo": "{{count}}s önce",
+        "minutesAgo": "{{count}}m önce",
+        "hoursAgo": "{{count}}h daha önce",
+        "daysAgo": "{{count}}d önce"
+      }
+    },
+    "community": {
+      "shareTitle": "Topluma Paylaş",
+      "shareIntro": "Bu, sunulacak olan şeydir. Hiçbir şey yüklenmez - bir çekme talebi açın ve bir koruyucu bunu yorumlar.",
+      "shareCopy": "JSON",
+      "shareCopied": "Kopyalandı",
+      "shareOpenGithub": "GitHub'ı Aç",
+      "shareGuidelines": "Katkı yönergelerini okuyun",
+      "shareAuthor": "Senin adın veya idarenin",
+      "shareDescription": "Kısa açıklama",
+      "secretsTitle": "Paylaşmadan önce bunları kontrol edin",
+      "secretsIntro": "Bunlar senin gibi görünebilir, herkes değil:",
+      "secretKind_privateKey": "Özel anahtar anahtarı",
+      "secretKind_credential": "Şifre veya anahtar anahtarı",
+      "secretKind_token": "Hediye",
+      "secretKind_host": "Host veya adresi",
+      "secretsNone": "Bir sır gibi görünen hiçbir şey yok.",
+      "shareFailed": "Bunu paylaşamaz: {{error}}",
+      "tabMine": "Benim parçalarım",
+      "tabCommunity": "Topluluk Topluluğu",
+      "packs": "Paketler",
+      "snippets": "Kod Parçacıkları",
+      "searchPlaceholder": "Arama topluluğu",
+      "snippetCount_one": "{{count}} parçaları",
+      "snippetCount_other": "{{count}} parçaları",
+      "by": "{{author}}",
+      "updated": "Güncelleme {{date}}",
+      "back": "Topluluk Topluluğu",
+      "loading": "Yükleme kataloğu...",
+      "offline": "Offline - son kaydedilen kopyayı gösteriyor",
+      "empty": "Henüz topluluk parçaları yok.",
+      "noResults": "Hiçbir şey “{{search}}”.",
+      "retry": "Yeniden dene",
+      "loadFailed": "Topluluğu katalogunu yükleyemez.",
+      "install_one": "{{count}} parçaları {{vault}}",
+      "install_other": "{{count}} parçaları {{vault}}",
+      "installing": "Yüklemek...",
+      "installed_one": "{{count}} Parçaları",
+      "installed_other": "{{count}} parçaları yükleyin",
+      "installFailed": "Yükleme başarısız oldu: {{error}}",
+      "autoIncluded": "Ayrıca, “{{name}}” onu çağırır",
+      "steps": "Adım Adım Adım Adım Adım Adım Adım Adım Adım Adım",
+      "stepScript": "Senaryo",
+      "stepTransfer": "Transfer Transfer Transfer",
+      "stepSnippet": "Runsroad",
+      "selectAll": "Hepsini seçin",
+      "selectNone": "Clear Clear Clear Clear",
+      "error": {
+        "unsupportedCatalog": "Bu parçalar kataloğu, Voltius'in bu versiyonundadır. Uygulamayı güncellemeye çalışın."
+      }
+    },
+    "deepLinkInstall": {
+      "title": "Bu parçaları mı yükleyin?",
+      "body": "Bu bağlantı Voltius topluluk kataloğundan parçalar oluşturur. Snippets, onları kullandığınızda evlerinize çalışan kabuk komutlarıdır.",
+      "summary": "{{name}} tarafından {{author}} - {{count}} parçaları",
+      "unknownAuthor": "Bir isimsiz yazar",
+      "destination": "{{vault}}ob'a eklenecekler.",
+      "action": "Yükleme",
+      "failed": "Bu parçaları yükleyemeyebilir"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "folders": {
+    "card": {
+      "pin": "Pin Pin Pin",
+      "unpin": "Sabitlemeyi kaldır",
+      "openFolder": "Açık klasör",
+      "cloudSyncDisabled": "Bulut senkronizasyonu",
+      "unpinForMe": "Benim için",
+      "showInMyView": "Görünümümde göster",
+      "hideForMe": "Benim için gizle",
+      "pinForMe": "Benim için sabitle",
+      "unpinForTeam": "Takım için Unpin",
+      "pinForTeam": "takım için Pin for team",
+      "exportFolder": "İhracat klasörü",
+      "disableCloudSync": "Disable cloud senkronizasyon",
+      "enableCloudSync": "Enable bulut senkronizasyonu",
+      "deleteFolder": "Delete klasörü",
+      "itemCount_one": "{{count}} öğe",
+      "itemCount_other": "{{count}} öğeleri"
+    },
+    "editPanel": {
+      "nameLabel": "Name Name Name Name Name Name Name Name Name Name Name",
+      "cloudSyncLabel": "Cloud You",
+      "syncedToCloud": "Buluta Sunulan",
+      "notSynced": "senkronize edilmedi",
+      "syncDisabledGlobally": "Folder senkronizasyon, global olarak Ayarlarda devre dışı bırakılır.",
+      "createdLabel": "Oluşturulmuş Yaratılmış"
+    }
+  }
+}

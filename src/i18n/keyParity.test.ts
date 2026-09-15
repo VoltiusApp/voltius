@@ -39,6 +39,7 @@ const translations: Record<string, Record<string, unknown>> = {
   French: load(import.meta.glob("./locales/fr/*.json", { eager: true }) as never),
   Russian: load(import.meta.glob("./locales/ru/*.json", { eager: true }) as never),
   Chinese: load(import.meta.glob("./locales/zh/*.json", { eager: true }) as never),
+  Turkish: load(import.meta.glob("./locales/tr/*.json", { eager: true }) as never),
 };
 
 const enBaseKeys = new Set(flatten(en).map(baseKey));

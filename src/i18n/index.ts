@@ -39,9 +39,15 @@ const zh = assemble(
     { default: Record<string, unknown> }
   >,
 );
+const tr = assemble(
+  import.meta.glob("./locales/tr/*.json", { eager: true }) as Record<
+    string,
+    { default: Record<string, unknown> }
+  >,
+);
 
 i18n.use(initReactI18next).init({
-  resources: { en: { translation: en }, fr: { translation: fr }, ru: { translation: ru }, zh: { translation: zh } },
+  resources: { en: { translation: en }, fr: { translation: fr }, ru: { translation: ru }, zh: { translation: zh }, tr: { translation: tr } },
   lng: useLocaleStore.getState().locale,
   fallbackLng: "en",
   interpolation: { escapeValue: false },

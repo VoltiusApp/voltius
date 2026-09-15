@@ -1,0 +1,88 @@
+{
+  "notifications": {
+    "bell": {
+      "title": "Bildirimler",
+      "clearHistory": "Clear History",
+      "noNotifications": "Hiçbir bildirim",
+      "relativeTime": {
+        "justNow": "Sadece şimdi",
+        "minutesAgo": "{{count}}m önce",
+        "hoursAgo": "{{count}}h daha önce",
+        "daysAgo": "{{count}}d önce"
+      }
+    },
+    "emailVerification": {
+      "banner": {
+        "message": "Bulut özellikleri kilidini açmak için e-postanızı onaylayın. {{email}}'e bir bağlantı gönderdik.",
+        "yourEmail": "e-postanız",
+        "resend": "e-posta",
+        "resending": "Gönder...",
+        "verified": "Onaylandım",
+        "checking": "Denetleniyor...",
+        "dismissAriaLabel": "İzinsiz e-posta doğrulama bayrağı"
+      },
+      "modal": {
+        "title": "E-postanızı ilk önce onaylayın",
+        "body": "Bulut yükseltmeleri doğrulanmış bir e-posta adresi gerektirir. Onay bağlantı için kutunuzu kontrol edin veya yeni bir tane gönderin.",
+        "resend": "e-posta",
+        "resending": "Gönder..."
+      },
+      "toast": {
+        "sent": "Doğrulama e-postası gönderildi.",
+        "sendFailed": "Doğrulama e-postasını geri getirmeyebilir.",
+        "refreshFailed": "Oturumu yenileyemez.",
+        "verified": "E-posta doğrulandı.",
+        "verifiedPending": "Henüz doğrulanmadı. E-postanızda bağlantıyı açın, sonra tekrar deneyin.",
+        "verifiedOther": "{{email}} için doğrulanmış e-posta.",
+        "verifiedSwitch": "Anahtar anahtarı",
+        "verifiedUnknown": "E-posta doğrulandı. Devam etmek için oturum açın."
+      }
+    },
+    "progressToast": {
+      "timedOut": "Operasyon zamanı çıktı"
+    },
+    "seededPluginsFailed": {
+      "message": "Yerleşik eklentiler yüklenemez, bu yüzden uygulama onlar olmadan çalışır. Bu bir boğa - lütfen bunu rapor edin.",
+      "action": "Tanıklar"
+    },
+    "inbox": {
+      "someone": "Birisi birisi",
+      "invite": {
+        "message": "{{inviter}} sizi {{team}}'e davet etti",
+        "accept": "Kabul Kabul Kabul Kabul",
+        "decline": "Reddet"
+      },
+      "session": {
+        "message": "Bir takım arkadaşı {{name}} ile paylaştı",
+        "join": "Katıl",
+        "joined": "Katılın"
+      },
+      "sessionInvite": {
+        "message": "{{inviter}} sizi {{name}}'e davet etti"
+      },
+      "sessionKnock": {
+        "message": "{{inviter}} bir terminal paylaşmak istiyor",
+        "join": "Katıl",
+        "decline": "Reddet",
+        "blockPermanently": "Blok kalıcı olarak kalıcı olarak kalıcıdır"
+      },
+      "control": {
+        "request": "{{requester}} kontrol talep ediyor",
+        "grant": "Grant Grant Grant",
+        "deny": "Reddet",
+        "granted": "Kontrolünüz var"
+      },
+      "awaitingKey": {
+        "message": "Bir {{team}} sahibine küçük erişim sağlamak için"
+      },
+      "membershipEnded": {
+        "message": "{{team}}'den kaldırıldınız. Sahipleri, anahtarlar ve parçaları bu cihazdan çıkarılır ve kullandığınız kimlikler döndürülmelidir.",
+        "review": "Referanslar"
+      },
+      "secretsNotWiped": {
+        "message": "Bazı {{team}} kimlikleri bu cihazdan kaldırılamaz. Onlar silinene kadar burada okunabilirler.",
+        "retry": "Onları şimdi kaldır"
+      }
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "panes": {
+    "badge": {
+      "ssh": "SSH",
+      "serial": "SER",
+      "multiplayer": "MPX",
+      "local": "YEREL"
+    },
+    "header": {
+      "copied": "Kopyalandı!",
+      "loading": "yükleme...",
+      "localSystem": "Yerel sistem",
+      "excludedFromBroadcast": "Yayından alıntı",
+      "mcpBadge": "MCP",
+      "mcpTooltip": "{{client}}",
+      "mcpTooltipUnknown": "Bir MCP müşteri tarafından açıklandı",
+      "mcpTooltipDisconnected": "{{client}} tarafından açıklandı (bağlantı).",
+      "disableBroadcast": "Disable yayın",
+      "broadcastInput": "Yayın girişi",
+      "detachPane": "Paneli ayır",
+      "restorePane": "Geri yükleme pane",
+      "maximizePane": "Pane",
+      "closePane": "Paneli kapat",
+      "latencyTooltip": "{{ms}}ms - kopyalamak için tıklayın",
+      "reconnect": "Yeniden bağlantı",
+      "rename": "Rename...",
+      "duplicate": "Çoğalt",
+      "duplicateSplit": "Bölünmesi",
+      "split": "Böl",
+      "splitLeft": "Split ayrıldı sol",
+      "splitRight": "Sağa böl",
+      "splitTop": "Üste böl",
+      "splitBottom": "Split alt",
+      "noSessionToSplit": "Başka bir seans açın ya da bölmek için mevcut bir sekme sürükleyin.",
+      "sparkline": {
+        "min": "min {{ms}}ms",
+        "avg": "avg {{ms}}ms",
+        "max": "max {{ms}}ms"
+      }
+    },
+    "terminal": {
+      "emptyTitle": "Split iş alanı boş",
+      "emptyHint": "Panes'i bölmeye başlamak için burada bir oturum sekmesi atın.",
+      "serialSubtitle": "{{port}} · {{baud}} vaftiz"
+    },
+    "dragToast": {
+      "alreadyVisible": "Bu oturum zaten bölünmüş iş alanında görünür.",
+      "invalidDropTarget": "Aktif terminale veya bölünmüş bir pane bir bölünme oluşturmak için bırakın.",
+      "cannotDuplicate": "Bu seans tekrarlanabilir."
+    }
+  }
+}

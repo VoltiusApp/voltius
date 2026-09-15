@@ -1,7 +1,7 @@
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.proxmox / mobile.proxmox.* /
 // mobile.hostActions.* / mobile.panelCommon.* and mobile.json's common.action.{delete,cancel} —
 // values carried over verbatim.
-export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
+export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
   en: {
     "title": "Proxmox",
     "needsSshTitle": "Proxmox needs an SSH session",
@@ -121,5 +121,35 @@ export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
     "hostStop": "停止",
     "hostRestart": "重启",
     "hostStart": "启动",
+  },
+  tr: {
+    "title": "Proxmox",
+    "needsSshTitle": "Proxmox bir SSH seansına ihtiyaç duyuyor",
+    "needsSshSub": "Proxmox, SSH'e bağlı bir ev sahibinden.",
+    "sessionNotConnected": "Oturum bağlantılı değil",
+    "sessionNotConnectedSub": "Bu ev sahibiyi yönetmek için yeniden bağlantı.",
+    "notDetectedTitle": "Proxmox VE tespit edilmedi",
+    "notDetectedSub": "Bu panel bir SSH bağlantısını bir Proxmox VE ev sahibine gerektirir.",
+    "noContainers": "konteyner yok",
+    "snapshotsTitle": "Snapshots · {{name}}",
+    "newSnapshotPlaceholder": "Yeni anlık adım adı",
+    "descriptionPlaceholder": "Açıklama (isteğen)",
+    "createSnapshot": "Create snapshot snapshot",
+    "noSnapshots": "No snapshots",
+    "current": "(şimdi)",
+    "rollbackConfirmTitle": "Roll back?",
+    "deleteSnapshotConfirmTitle": "Delete snapshot?",
+    "rollbackConfirmBody": "{{name}}'i \"{{snap}}\" snapshot'a geri yükleyin mi? Mevcut devlet kaybolur.",
+    "deleteSnapshotConfirmBody": "Delete snapshot \"{{snap}}\"? Bu geri alınabilir.",
+    "rollbackButton": "Roll geri döndü",
+    "delete": "Delete",
+    "cancel": "Cancel Cancel Cancel Cancel",
+    "snapshotsAction": "Snapshots",
+    "openShell": "Açık kabuk",
+    "ctSummary": "CT {{vmid}} · {{status}}",
+    "sheetTitleWithId": "{{name}} (CT {{vmid}})",
+    "hostStop": "Dur Dur Dur Dur Dur",
+    "hostRestart": "Restart",
+    "hostStart": "Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start Start",
   },
 };

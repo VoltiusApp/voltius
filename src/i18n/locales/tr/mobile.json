@@ -1,0 +1,255 @@
+{
+  "mobile": {
+    "tabBar": {
+      "terminal": "Terminal Terminal Terminal Terminal",
+      "sftp": "SFTP",
+      "more": "Daha fazla"
+    },
+    "filterBar": {
+      "placeholder": "Filtre..."
+    },
+    "header": {
+      "syncTooltip": "Sen: {{status}}",
+      "syncStatus": {
+        "idle": "Beklemede",
+        "syncing": "Sening",
+        "success": "Sen",
+        "error": "Hata hatası",
+        "offline": "Çevrimdışı"
+      }
+    },
+    "remoteSessions": {
+      "title": "Diğer cihazlarda Canlı",
+      "relativeTime": {
+        "justNow": "Sadece şimdi",
+        "minutesAgo": "{{count}}m önce",
+        "hoursAgo": "{{count}}h daha önce",
+        "daysAgo": "{{count}}d önce"
+      }
+    },
+    "snippets": {
+      "searchPlaceholder": "Arama parçaları",
+      "noMatches": "No maçları",
+      "empty": "Henüz parçaları yok",
+      "insertAriaLabel": "Ekle",
+      "executeAriaLabel": "idam",
+      "moreAriaLabel": "Daha fazla",
+      "newFolderTitle": "Yeni klasör"
+    },
+    "terminalGestures": {
+      "selectAll": "Bütün Bütün Hepsi",
+      "paste": "Paste Paste"
+    },
+    "terminalTopBar": {
+      "exitAriaLabel": "Çıkış terminali",
+      "newSessionAriaLabel": "Yeni oturum",
+      "panelsAriaLabel": "Paneller"
+    },
+    "panelItems": {
+      "sftp": "SFTP",
+      "docker": "Docker",
+      "metrics": "Metriks",
+      "processes": "Süreçler",
+      "proxmox": "Proxmox"
+    },
+    "morePages": {
+      "keychain": "Fitness",
+      "portForwarding": "Port Yönlendirme",
+      "knownHosts": "Bilinen Hosts",
+      "members": "Üye Üyeleri",
+      "logs": "Logs Logs"
+    },
+    "account": {
+      "title": "Hesap Hesabı",
+      "email": "E-posta e-posta e-posta",
+      "notSignedIn": "İmzalanmamış değil",
+      "plan": "Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan Plan",
+      "cloudSync": "Cloud senkronizasyon",
+      "off": "Off Off Off Off Off",
+      "proTrial": "Pro Deneme - {{days}}d ayrıldı",
+      "tier": {
+        "free": "Ücretsiz Ücretsiz",
+        "pro": "Pro Pro Pro Pro Pro",
+        "teams": "Takımları",
+        "business": "Business Business Business"
+      },
+      "cancelsOn": "{{date}}'de iptaller. O zamana kadar erişime devam edersiniz.",
+      "periodEnd": "Dönem sonunda sona erecek",
+      "renewsOn": "{{date}} üzerinde yeniler.",
+      "subscriptionActive": "Aboneliğiniz aktiftir.",
+      "seats": "Koltuklar",
+      "seatsUsed": "{{used}} / {{total}} kullanılır",
+      "upgradeToPro": "Prodüksiyona Yükseltin",
+      "upgradeToTeams": "Takımlara Yükseltin",
+      "manageBilling": "Faturayı Yönetmek",
+      "viewAllPlans": "Tüm planları görüntüle",
+      "signInToSync": "senkronizasyonda oturum açın",
+      "signOutConfirm": "Çıkış mı? Şifreli tonunuz bu cihazdan kaldırıldı ve geri döndüğünüzde tekrar tekrarlandınız.",
+      "signOut": "Çıkış yap"
+    },
+    "more": {
+      "settings": "Ayarlar",
+      "planLabel": "{{tier}} planı"
+    },
+    "host": {
+      "newTitle": "Yeni ev sahibi",
+      "editTitle": "Sunucuyu düzenle"
+    },
+    "hostsScreen": {
+      "searchPlaceholder": "Arama ev sahipliği",
+      "clearSearchAriaLabel": "Clear arama",
+      "emptyNoHosts": "Henüz ev sahipliği yok – bir tane eklemek için +"
+    },
+    "keychainScreen": {
+      "filterPlaceholder": "Filtre anahtarchain...",
+      "sshKeysHeader": "SSH ANAHTARLARI",
+      "identitiesHeader": "crowITIES",
+      "addedOn": "{{date}} ekledi",
+      "noSearchMatches": "Hiçbir şey arama your search",
+      "empty": "Kokteyl boş"
+    },
+    "knownHostsScreen": {
+      "filterPlaceholder": "Filtre ev sahipliği...",
+      "noSearchMatches": "Bilinen hiçbir ev aramanıza uymuyor",
+      "empty": "Henüz bilinen ev yok - bir sunucuya bağlandığınızda görünüyorlar."
+    },
+    "logsScreen": {
+      "filterPlaceholder": "Filtre logları...",
+      "retry": "Yeniden dene",
+      "prev": "Önceki",
+      "next": "Sonraki Sonraki Sonraki Sonraki Sonraki Sonraki Sonraki Sonraki",
+      "pageIndicator": "Sayfa {{page}} / {{total}}"
+    },
+    "portForwardingScreen": {
+      "filterPlaceholder": "Filtre kuralları...",
+      "summary": "{{total}} toplam · {{active}} aktif",
+      "noSearchMatches": "Hiçbir kural arama your search",
+      "empty": "Henüz liman ilerici kurallar yok",
+      "newRuleLabel": "Yeni kural"
+    },
+    "snippetEdit": {
+      "editTitle": "EditRos",
+      "newTitle": "Yeni parçalar",
+      "namePlaceholder": "Snippet adı",
+      "contentPlaceholder": "yankı",
+      "delete": "Delete parçaları"
+    },
+    "snippetsScreen": {
+      "newSnippetLabel": "Yeni parçalar"
+    },
+    "terminalScreen": {
+      "noActiveSessions": "Aktif seans yok",
+      "pickHost": "Bir ev sahibi olun"
+    },
+    "sftp": {
+      "chooseHost": "Bir host seçin",
+      "hidden": "Gizli Gizli Gizli",
+      "visible": "Visible",
+      "connecting": "Connecting...",
+      "reconnecting": "Yeniden bağlantı kurmak...",
+      "reconnectNow": "Şimdi yeniden bağlan",
+      "permissionDenied": "İzin reddedildi",
+      "goUp": "Git",
+      "emptyFolder": "Boş klasör",
+      "selectedCount": "{{count}} seçildi",
+      "downloadSelectedAriaLabel": "Seçilenleri indir",
+      "deleteSelectedAriaLabel": "Delete seçilmiş",
+      "clearSelectionAriaLabel": "Clear seçimi",
+      "copyToOtherPane": "Diğer pane kopyala",
+      "download": "Download Download Download Download Download",
+      "details": "Detaylar",
+      "copyPath": "Kopya yolu",
+      "renameTitle": "{{name}} öğesini yeniden adlandır",
+      "deleteConfirmTitle": "{{name}} silinsin mi?",
+      "detail": {
+        "path": "Yol Yolu",
+        "type": "Tipi Tipi Tipi Tipi",
+        "size": "Boyut Boyutu",
+        "permissions": "İzinler",
+        "modified": "Değiştirilme"
+      },
+      "typeSymlink": "Sembolik bağlantı",
+      "typeFile": "Dosya",
+      "batchDeleteTitle_one": "{{count}} öğe silinsin mi?",
+      "batchDeleteTitle_other": "{{count}} öğeleri mi?",
+      "newFileOption": "Yeni dosya",
+      "folderNamePlaceholder": "Folder adı",
+      "fileNamePlaceholder": "Dosya adı"
+    },
+    "folders": {
+      "home": "Home Home Home Home Home"
+    },
+    "sheets": {
+      "shared": {
+        "moveToVault": "toto",
+        "copyToVault": "Tertipe",
+        "moveToFolder": "klasörüne taşıyın",
+        "back": "Geri dön",
+        "duplicate": "Çoğalt",
+        "pin": "Pin Pin Pin",
+        "unpin": "Sabitlemeyi kaldır",
+        "confirmDeleteBody": "Sürekli olarak {{name}}'i sil? Bu geri alınabilir."
+      },
+      "folderActions": {
+        "renameTitle": "Rename klasörü",
+        "deleteTitle": "Delete klasörü?",
+        "deleteBody": "Delete {{name}} ve içindeki her şey? Bu geri alınabilir."
+      },
+      "hostActions": {
+        "deleteTitle": "Sunucu silinsin mi?",
+        "openFiles": "Açık dosyalar",
+        "copyAddress": "Kopya adresi",
+        "copiedAddress": "{{host}} kopyalandı",
+        "enableCloudSync": "Enable bulut senkronizasyonu",
+        "disableCloudSync": "Disable cloud senkronizasyon",
+        "enableReachabilityCheck": "Erişilebilirlik denetimini etkinleştir",
+        "disableReachabilityCheck": "Erişilebilirlik denetimini devre dışı bırak"
+      },
+      "keychainActions": {
+        "unnamedKey": "Adsız anahtar",
+        "deleteKeyTitle": "Anahtar mı?",
+        "deleteIdentityTitle": "Kimlik mi?",
+        "copyPublicKey": "Kopyalama",
+        "copiedPublicKey": "Copied public key key key",
+        "noPublicKeyStored": "Hiçbir kamu anahtarı saklama",
+        "copyUsername": "Kullanıcı adı",
+        "copiedUsername": "Copied User"
+      },
+      "knownHostActions": {
+        "deleteTitle": "Delete bilinen host?",
+        "deleteBody": "Bu güvenilir parmak izi kaldırır. Bu ev sahibine bir sonraki bağlantı yeni olarak tedavi edilecektir.",
+        "copyFingerprint": "Parmak izi",
+        "copiedFingerprint": "Copied parmak izi"
+      },
+      "logsExport": {
+        "title": "İhracat günlükleri",
+        "exportCsv": "CSV",
+        "exportJson": "JSON"
+      },
+      "snippetActions": {
+        "deleteTitle": "Delete parçaları?"
+      },
+      "snippetTarget": {
+        "executeTitle": "\"{{name}}\" öğesini çalıştır",
+        "insertTitle": "\"{{name}}\"",
+        "confirmExecute_one": "{{count}} hedef",
+        "confirmExecute_other": "{{count}} hedeflerinde Execute",
+        "confirmInsert_one": "{{count}} hedef",
+        "confirmInsert_other": "{{count}} hedefleri",
+        "activeSessions": "Aktif Oturumlar",
+        "openNewConnection": "Yeni Bağlantı Aç",
+        "noHosts": "Hiçbir ev sahibi yok"
+      },
+      "ruleActions": {
+        "deleteTitle": "Delete kuralı?"
+      },
+      "sftpHostPicker": {
+        "noSshHosts": "SSH ev sahipliği"
+      },
+      "vaultSwitcher": {
+        "newVault": "New York",
+        "namePlaceholder": "Pencere adı"
+      }
+    }
+  }
+}

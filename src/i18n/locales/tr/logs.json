@@ -1,0 +1,147 @@
+{
+  "logs": {
+    "gate": {
+      "noVaultSelected": {
+        "title": "seçilmedi",
+        "description": "Denetim loglarını görüntülemek için tek bir ton seçin."
+      },
+      "restricted": {
+        "title": "Access kısıtlı erişim",
+        "description": "Bu sayfaya erişmek için View Denetim Log iznine ihtiyacınız var."
+      }
+    },
+    "filters": {
+      "searchPlaceholder": "Filtre logları...",
+      "allActors": "Tüm aktörler",
+      "fromDate": "tarihten itibaren",
+      "toDate": "Bugüne kadar",
+      "dateRangeSeparator": "toklanmak için",
+      "reset": "reset",
+      "actionOptions": {
+        "all": "Tüm eylemler",
+        "memberInvited": "Üye",
+        "memberJoined": "Üye katıldı",
+        "memberRemoved": "Üye kaldırıldı",
+        "memberRoleChanged": "Rol değişti",
+        "memberPermissionsChanged": "İzinler değişti",
+        "connectionCreated": "Host yaratılan",
+        "connectionUpdated": "Host güncellenmiş",
+        "connectionDeleted": "Host silindi",
+        "identityCreated": "Kimlik yaratılan kimlik",
+        "identityUpdated": "Kimlik güncellendi",
+        "identityDeleted": "Kimlik silindi",
+        "keyCreated": "Anahtar yaratılmış",
+        "keyUpdated": "Key update",
+        "keyDeleted": "Anahtar silindi",
+        "snippetCreated": "Snippet oluşturuldu",
+        "snippetUpdated": "Snippet güncellendi",
+        "snippetDeleted": "Snippet silindi",
+        "folderCreated": "Kater yaratıldı",
+        "folderUpdated": "Kater güncellendi",
+        "folderDeleted": "Kater silindi",
+        "portForwardCreated": "Port forward created created",
+        "portForwardUpdated": "Port forward update",
+        "portForwardDeleted": "Port forward silindi",
+        "vaultRenamed": "Vault yeniden adlandırılmış",
+        "vaultKeyRotated": "Anahtar döndürüldü",
+        "roleCreated": "Rol oluşturuldu",
+        "roleUpdated": "Rol güncellendi",
+        "roleDeleted": "Rol silindi",
+        "connectionStarted": "Bağlantı başladı",
+        "connectionEnded": "Bağlantı sona erdi",
+        "secretViewed": "Gizli ortaya çıktı",
+        "sessionStarted": "Oturum başladı",
+        "sessionEnded": "Oturum sona erdi",
+        "sessionJoined": "Oturum katıldı"
+      }
+    },
+    "timeRange": {
+      "lastDay": "Son 24 saat",
+      "lastWeek": "Geçen hafta",
+      "lastMonth": "Son 30 gün",
+      "all": "Bütün Zaman",
+      "custom": "Özel aralığı"
+    },
+    "layout": {
+      "timeline": "Zaman Çizelgesi",
+      "horizontal": "Görsel Görsel Görsel Görsel Görsel Görsel Görsel",
+      "list": "Liste Listesi"
+    },
+    "export": {
+      "button": "İhracat İhracatı",
+      "failed": "İhracat başarısız oldu"
+    },
+    "badges": {
+      "client": "müşteri müşteri",
+      "clientTooltip": "Müşteri uygulaması tarafından rapor edildi - yazar olmayan"
+    },
+    "eventLabels": {
+      "memberInvited": "{{name}} davet etti",
+      "memberJoined": "Takıma {{role}} olarak katıldı",
+      "memberRemoved": "{{name}}",
+      "memberRoleChanged": "{{name}} için rol değiştirdi",
+      "memberPermissionsChanged": "{{name}} için izinler",
+      "vaultCreated": "\"{{name}}\"",
+      "vaultDeleted": "\"{{name}}\"",
+      "vaultRenamed": "\"{{name}}\" olarak adlandırılmıştır.",
+      "vaultKeyRotated": "\"{{name}}\" için anahtar döndü",
+      "roleCreated": "\"{{name}}\"",
+      "roleUpdated": "güncellenmiş rol \"{{name}}\"",
+      "roleDeleted": "\"{{name}}\"",
+      "permissionGranted": "{{name}} için izin verdi",
+      "permissionRevoked": "{{name}}'de iptal izni",
+      "connectionCreated": "Ev sahibi \"{{name}}\"",
+      "connectionUpdated": "güncellenmiş host \"{{name}}\"",
+      "connectionDeleted": "\"{{name}}\"",
+      "connectionStarted": "{{name}} ile bağlantılı",
+      "connectionEnded": "{{name}}",
+      "identityCreated": "Kimlik \"{{name}}\"",
+      "identityUpdated": "Güncelleştirilmiş kimlik \"{{name}}\"",
+      "identityDeleted": "silinmiş kimlik \"{{name}}\"",
+      "keyCreated": "Anahtar \"{{name}}\"",
+      "keyUpdated": "Güncellenen anahtar \"{{name}}\"",
+      "keyDeleted": "silindi anahtar \"{{name}}\"",
+      "snippetCreated": "\"{{name}}\"",
+      "snippetUpdated": "güncellenmiş parçalar \"{{name}}\"",
+      "snippetDeleted": "“{{name}}”",
+      "folderCreated": "Oluşturulan klasör \"{{name}}\"",
+      "folderUpdated": "güncellenmiş klasör \"{{name}}\"",
+      "folderDeleted": "\"{{name}}\"",
+      "portForwardCreated": "port forward \"{{name}}\"",
+      "portForwardUpdated": "güncellenmiş port forward \"{{name}}\"",
+      "portForwardDeleted": "silinmiş port forward \"{{name}}\"",
+      "secretViewed": "Gizli \"{{name}}\"",
+      "sessionStarted": "Terminal seansı başladı",
+      "sessionEnded": "Terminal seansı sonlandı",
+      "sessionJoined": "katıldı terminal seansı",
+      "sessionLeft": "Sol terminal seans seansı",
+      "fallbackUser": "Bir kullanıcı",
+      "fallbackMember": "Bir üye",
+      "fallbackRole": "Üye üye üye üye",
+      "fallbackResource": "Bir kaynak",
+      "fallbackHost": "Bir ev sahibi"
+    },
+    "timeline": {
+      "today": "Bugün Bugün Bugün Bugün Bugün Bugün Bugün Bugün Bugün",
+      "yesterday": "Dün Dün Dün Dün Dün Dün",
+      "weekOf": "Hafta {{date}}"
+    },
+    "list": {
+      "columns": {
+        "actor": "Aktör aktör",
+        "action": "Eylem",
+        "target": "Hedef Hedef Hedef Hedef Hedef",
+        "time": "Zaman Zamanı"
+      }
+    },
+    "pagination": {
+      "prev": "Önceki",
+      "next": "Sonraki Sonraki Sonraki Sonraki Sonraki Sonraki Sonraki Sonraki",
+      "pageOf": "Sayfa {{page}} / {{totalPages}}"
+    },
+    "emptyState": "Hiçbir olay filtrelerinizi eşleştirmiyor.",
+    "error": {
+      "retry": "Yeniden dene"
+    }
+  }
+}

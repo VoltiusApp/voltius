@@ -1,0 +1,143 @@
+{
+  "importExport": {
+    "modal": {
+      "title": "İthalat / ihracat",
+      "sectionUserData": "Kullanıcı Verileri",
+      "tabExport": "İhracat İhracatı",
+      "tabImport": "İthalat"
+    },
+    "include": "Add Add Add Add Add",
+    "copied": "Kopyalandı!",
+    "downloadExt": ".{{ext}} indir",
+    "passwordPlaceholder": "Şifre Şifre",
+    "export": {
+      "format": "Biçim biçimi",
+      "formatCsvDescription": "Bağlantılar sadece - tablo dostu",
+      "formatJsonDescription": "Anahtar içeriği dahil Full data including key content",
+      "encryptBackup": "Şifre yedekleme yedekleme",
+      "plaintextSecretsWarning": "Bu ihracat, düz metindeki şifreler, anahtarlar veya host notlar içerir. Şifresiz bir dosyaya ihtiyacınız olmadıkça şifrelemeye devam edin.",
+      "snippetRefMissing": "“{{name}}”, bu ihracatın bir parçası olmayan başka bir parça ({{target}}) çalışır. Bunu seçimde ekleyin veya bu adımı çıkarın.",
+      "confirmPasswordPlaceholder": "Şifre doğrulama",
+      "passwordsDontMatch": "Şifreler eşleşmez",
+      "building": "Bina...",
+      "nothingToExport": "Hiçbir şey ihracat yapmak için",
+      "downloadEncrypted": "İndir Şifreyi İndir",
+      "hidePreview": "Gizle",
+      "showPreview": "Show önizleme",
+      "selectedItem_one": "{{count}} seçilmiş öğe",
+      "selectedItem_other": "{{count}} seçilmiş öğeler",
+      "autoIncludeIdentity": "{{count}} kimliği",
+      "autoIncludeKey": "{{count}} anahtar anahtarı",
+      "checkboxLabel": {
+        "connections_one": "Bağlantı ({{count}})",
+        "connections_other": "Bağlantılar ({{count}})",
+        "identities_one": "Kimlik ({{count}})",
+        "identities_other": "Kimlikler ({{count}})",
+        "keys_one": "SSH Anahtarı ({{count}})",
+        "keys_other": "SSH Anahtarları ({{count}})",
+        "snippets": "Kod Parçacıkları ({{count}})",
+        "portForwarding": "Port Yönlendirme ({{count}})"
+      }
+    },
+    "import": {
+      "importFrom": "İthalattan",
+      "importInto": "İthalatta",
+      "autoExtractTitle": "{{label}}",
+      "autoExtractDescription": "Yerel {{label}} verilerini şifreler ve şifreler - manuel ihracata gerek yok",
+      "extracting": "Türleme...",
+      "extractFrom": "{{label}}",
+      "orImportFromFile": "veya dosyadan ithalat",
+      "openFileLabel": "Açık {{sub}} dosyası...",
+      "encryptedBackupTitle": "Şifrelenmiş yedekleme - kilidini açmak için parolanıza girin",
+      "unlock": "Kilidi aç",
+      "reviewItems_one": "{{count}} item",
+      "reviewItems_other": "{{count}} öğeleri",
+      "back": "Geri dön",
+      "reviewImportTitle": "İçe aktarımı incele",
+      "reIncludeDuplicates": "Re- included Spotifys",
+      "skipAllDuplicates": "Tüm kopyaları girin",
+      "filterItemsPlaceholder": "Filtre eşyaları...",
+      "groupConnections": "Bağlantılar",
+      "groupKeys": "SSH Anahtarları",
+      "groupIdentities": "Kimlikler",
+      "groupPortForwarding": "Port Yönlendirme",
+      "selectAll": "Hepsini seçin",
+      "deselectAll": "Tüm seçimleri kaldır",
+      "advanced": "Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced Advanced",
+      "tagLabel": "Etiket:",
+      "tagPlaceholder": "Seçmeli opsiyonel",
+      "importing": "İthalat...",
+      "importButton_one": "{{count}} öğeyi içe aktar",
+      "importButton_other": "İthalat {{count}} öğeleri",
+      "importButtonMultiVault_one": "Import {{count}} item × {{vaultCount}}obs",
+      "importButtonMultiVault_other": "İthalat {{count}} eşyaları × {{vaultCount}} to",
+      "nothingSelected": "Hiçbir şey seçilmedi",
+      "unnamedKey": "Adsız anahtar",
+      "sshKeyFallback": "SSH Anahtarı",
+      "actionSkip": "Skip Skip Skip Skip Skip Skip",
+      "actionInclude": "İthalat",
+      "actionOverwrite": "Over write",
+      "resultImportedWithErrors": "{{count}} öğeleri{{vaultNote}}, {{errors}} başarısız oldu.",
+      "resultImportedSuccess_one": "Başarılı bir şekilde {{count}} item{{vaultNote}} ithal etti.",
+      "resultImportedSuccess_other": "Başarılı bir şekilde {{count}} öğeleri{{vaultNote}} ithal etti.",
+      "resultVaultNote": "{{count}}obs",
+      "resultError": "Hata: {{error}}"
+    },
+    "fileInput": {
+      "openFileDefault": "Açık dosya...",
+      "pasteFromClipboard": "Panodan Yapıştır",
+      "clear": "Clear Clear Clear Clear",
+      "dropToLoad": "Yüklemek için"
+    },
+    "userData": {
+      "import": {
+        "openFileLabel": "Open File...",
+        "placeholder": "Voltius ayarları JSON burada, veya bir dosyayı bırak...\n\n{ \"tip\": \"voltius-user-data\", \"vers\": 2, \"bölümler\": { ... }",
+        "foundSections_one": "{{count}} ayar bölümü",
+        "foundSections_other": "{{count}} ayar bölümleri",
+        "applying": "Uygulama...",
+        "applyButton_one": "{{count}} bölümü",
+        "applyButton_other": "{{count}} bölümlerini uygulayın",
+        "applyDefault": "Başvuru Başvuru",
+        "resultApplied_one": "Uygulamalı {{count}} ayarı: {{list}}.",
+        "resultApplied_other": "Uygulamalı {{count}} ayarları: {{list}}.",
+        "resultError": "Hata: {{error}}",
+        "themesReplaceWarning": "Bu cihazın özel temaları değiştirir."
+      },
+      "handlers": {
+        "themes": {
+          "label": "Temalar"
+        },
+        "uiPreferences": {
+          "label": "UI Tercihleri"
+        },
+        "shortcuts": {
+          "label": "Kısayollar"
+        },
+        "appSettings": {
+          "label": "App Ayarları"
+        },
+        "recentPeople": {
+          "label": "Son zamanlarda insanlar"
+        },
+        "vaults": {
+          "label": "Pencereler"
+        }
+      },
+      "describe": {
+        "themes_one": "{{count}} özel tema",
+        "themes_other": "{{count}} özel temalar",
+        "uiPreferences": "{{scale}}× · {{layout}} düzeni",
+        "shortcutsOverrides_one": "{{count}} geçersiz kılma",
+        "shortcutsOverrides_other": "{{count}} Overrides",
+        "shortcutsDefaults": "Temsiller",
+        "appSettingsShell": "kabuk: {{shell}}",
+        "appSettingsDefault": "Varsayılan ayarlar",
+        "recentPeople_one": "{{count}} son kişi",
+        "recentPeople_other": "{{count}} son zamanlarda insanlar",
+        "vaults_one": "{{count}}ob",
+        "vaults_other": "{{count}}obs"
+      }
+    }
+  }
+}
