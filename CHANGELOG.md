@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-09-15
+
+### Added
+
+- Turkish localization.
+
+### Fixed
+
+- Replaced the title-bar sync icon's spin with a calmer animation: background syncs breathe instead of spinning, manual syncs draw a symmetric arc that finishes before showing the result.
+- Kept reconnecting after a long outage and resumed when the network returned.
+- Drew every status dot with one shared StatusDot primitive.
+
 ## [0.35.1] - 2026-09-15
 
 ### Fixed
