@@ -78,6 +78,7 @@ beforeEach(() => {
   useUIStore.setState({ settingsSection: "plugins", settingsPluginPageId: null, settingsSubPage: null });
   seeded.entries = new Map();
   marketplaceState.catalog = [];
+  marketplaceState.installedMeta = [];
   marketplaceState.appVersion = null;
 });
 afterEach(cleanup);
@@ -110,6 +111,44 @@ test("a schema-only plugin still opens the auto-config drill-in", () => {
   fireEvent.click(gear());
   expect(screen.getByText("settings.plugins.installed.pluginSettingsTitle")).toBeTruthy();
   expect(useUIStore.getState().settingsPluginPageId).toBeNull();
+});
+
+const installed = (id: string) => ({ id, version: "1.0.0", sourceId: "voltius", hash: "abc" });
+
+test("the gear on a marketplace-installed plugin selects its settings page", () => {
+  const CF = manifest("plugin-cloudflare-sync");
+  loaded.list = [CF];
+  marketplaceState.installedMeta = [installed(CF.id)];
+  const page = { ...AI_PAGE, id: "plugin-cloudflare-sync:settings", label: "Cloudflare Sync" };
+  usePluginStore.setState({ settingsPages: new Map([[page.id, page]]) });
+  render(<InstalledTab />);
+  fireEvent.click(gear());
+  expect(useUIStore.getState().settingsPluginPageId).toBe("plugin-cloudflare-sync:settings");
+});
+
+test("a schema-only marketplace-installed plugin opens the auto-config drill-in", () => {
+  loaded.list = [manifest("plugin-ext", { contributes: DOCKER.contributes })];
+  marketplaceState.installedMeta = [installed("plugin-ext")];
+  usePluginStore.setState({ settingsPages: new Map() });
+  render(<InstalledTab />);
+  fireEvent.click(gear());
+  expect(screen.getByText("settings.plugins.installed.pluginSettingsTitle")).toBeTruthy();
+});
+
+test("a plugin whose id prefixes another's never gets that plugin's page", () => {
+  loaded.list = [manifest("plugin-x"), manifest("plugin-x-extra")];
+  const page = { ...AI_PAGE, id: "plugin-x-extra:settings", label: "Extra" };
+  usePluginStore.setState({ settingsPages: new Map([[page.id, page]]) });
+  render(<InstalledTab />);
+  expect(screen.getAllByTitle("settings.plugins.installed.settingsTitle")).toHaveLength(1);
+});
+
+test("a marketplace-installed plugin with neither a page nor a schema has no gear", () => {
+  loaded.list = [manifest("plugin-bare")];
+  marketplaceState.installedMeta = [installed("plugin-bare")];
+  usePluginStore.setState({ settingsPages: new Map() });
+  render(<InstalledTab />);
+  expect(screen.queryAllByTitle("settings.plugins.installed.settingsTitle")).toHaveLength(0);
 });
 
 test("a seeded row renders a trash control", () => {
