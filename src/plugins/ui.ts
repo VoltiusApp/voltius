@@ -16,3 +16,5 @@ export { default as BottomSheet } from "@/components/mobile/sheets/BottomSheet";
 export { MobileScreenHeader } from "@/components/mobile/MobileScreenHeader";
 export { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 export { ConfirmModal } from "@/components/shared/ConfirmModal";
+export { StatusDot } from "@/components/shared/StatusDot";
+export type { StatusTone } from "@/utils/statusTone";

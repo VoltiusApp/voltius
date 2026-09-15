@@ -11,6 +11,7 @@ import { getPfState, closePfTunnel, resumeAutoPort } from "@/services/portForwar
 import { formatActiveTunnelLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { AvatarTile } from "@/components/shared/AvatarTile";
+import { StatusDot } from "@/components/shared/StatusDot";
 import { TunnelStatusDot } from "@/components/shared/TunnelStatusDot";
 import type { ActiveTunnel } from "@/types";
 
@@ -168,7 +169,7 @@ export function ActiveTunnelsSection() {
         </span>
         <div className="flex items-center gap-2 text-[10px] text-(--t-text-muted)">
           <span className="px-1.5 py-0.5 rounded-full bg-(--t-bg-elevated) leading-none">{t("portForwarding.activeTunnels.hostCount", { count: sessionCards.length })}</span>
-          <span className="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 leading-none">{t("portForwarding.activeTunnels.tunnelCount", { count: totalTunnelCount })}</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-(--t-status-connected)/10 text-(--t-status-connected) leading-none">{t("portForwarding.activeTunnels.tunnelCount", { count: totalTunnelCount })}</span>
         </div>
       </div>
 
@@ -197,7 +198,7 @@ export function ActiveTunnelsSection() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 min-w-0">
                     <p className="truncate text-base font-bold text-(--t-text-bright)">{session.connectionName}</p>
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" title={t("portForwarding.activeTunnels.connected")} />
+                    <StatusDot tone="connected" label={t("portForwarding.activeTunnels.connected")} />
                   </div>
                   <p className="truncate text-xs text-(--t-text-dim)">
                     {connection ? `${connection.username}@${connection.host}:${connection.port}` : session.id}
@@ -208,9 +209,9 @@ export function ActiveTunnelsSection() {
                     {t("portForwarding.activeTunnels.forwardCount", { count: totalForwards })}
                   </span>
                   {errorCount > 0 ? (
-                    <span className="text-[10px] font-medium text-red-400">{t("portForwarding.activeTunnels.errorCount", { count: errorCount })}</span>
+                    <span className="text-[10px] font-medium text-(--t-status-error)">{t("portForwarding.activeTunnels.errorCount", { count: errorCount })}</span>
                   ) : (
-                    <span className="text-[10px] font-medium text-green-400">{t("portForwarding.activeTunnels.activeCountLabel", { count: activeCount })}</span>
+                    <span className="text-[10px] font-medium text-(--t-status-connected)">{t("portForwarding.activeTunnels.activeCountLabel", { count: activeCount })}</span>
                   )}
                 </div>
               </div>
@@ -248,7 +249,7 @@ export function ActiveTunnelsSection() {
                           </span>
                           <TunnelTypeBadge tunnelType={tunnel.tunnel_type} />
                         </div>
-                        <p className={`truncate text-xs font-mono ${isError ? "text-red-400" : "text-(--t-text-secondary)"}`}>
+                        <p className={`truncate text-xs font-mono ${isError ? "text-(--t-status-error)" : "text-(--t-text-secondary)"}`}>
                           {isError ? errorMsg : portLabel}
                         </p>
                       </div>

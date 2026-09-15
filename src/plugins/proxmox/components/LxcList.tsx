@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { StatusDot } from "@voltius/ui";
 import { getProxmoxApi } from "../runtime";
+import { lxcStatusTone } from "../lxcStatusTone";
 import type { LxcAction, LxcContainer } from "../types";
 
 interface Props {
@@ -8,12 +10,6 @@ interface Props {
   onAction: (vmid: number, action: LxcAction) => Promise<void>;
   onSnapshots: (vmid: number, vmName: string) => void;
   onShell: (vmid: number, vmName: string) => void;
-}
-
-function statusDot(status: string) {
-  return status === "running"
-    ? "bg-(--t-status-connected)"
-    : "bg-(--t-text-muted) opacity-40";
 }
 
 export function LxcList({ containers, onAction, onSnapshots, onShell }: Props) {
@@ -73,7 +69,7 @@ function LxcRow({
   return (
     <div className="border-b border-(--t-border) last:border-0 px-3 py-1.5">
       <div className="flex items-center gap-2 min-w-0">
-        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(container.status)}`} />
+        <StatusDot tone={lxcStatusTone(container.status)} size="sm" />
         <span className="font-mono text-[10px] text-(--t-text-muted) shrink-0">{container.vmid}</span>
         <span className="text-[11px] text-(--t-text) font-medium truncate flex-1">{container.name}</span>
         <span className="text-[10px] text-(--t-text-muted) shrink-0">{container.mem_mb}M</span>

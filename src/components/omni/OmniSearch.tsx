@@ -23,6 +23,8 @@ import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { AvatarTile } from "@/components/shared/AvatarTile";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { sessionStatusTone } from "@/utils/statusTone";
 import { getSettingsNav } from "@/components/settings/settingsNav";
 import { useLocaleStore } from "@/stores/localeStore";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
@@ -546,12 +548,6 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     return computeSectionBoundaries(items, !q ? recentConnections.length : 0);
   }, [category, items, q, recentConnections.length]);
 
-  const statusColor = (s: TerminalSession) =>
-    s.status === "connected"  ? "var(--t-status-connected)" :
-    s.status === "error"      ? "var(--t-status-error)" :
-    s.status === "connecting" ? "var(--t-status-connecting)" :
-                                "var(--t-text-muted)";
-
   function renderItem(item: OmniItem, idx: number) {
     const isSelected = selected === idx;
     const baseBg = isSelected ? "var(--t-border-hover)" : "transparent";
@@ -570,13 +566,10 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           {conn ? (
             <div className="relative shrink-0">
               <ConnectionAvatar connection={conn} size={28} />
-              <span
-                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-(--t-bg-modal)"
-                style={{ background: statusColor(item.session) }}
-              />
+              <StatusDot tone={sessionStatusTone(item.session.status)} size="sm" halo="var(--t-bg-modal)" corner />
             </div>
           ) : (
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor(item.session) }} />
+            <StatusDot tone={sessionStatusTone(item.session.status)} />
           )}
           <span className="flex-1 min-w-0 text-sm font-semibold truncate"
             style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>

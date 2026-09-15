@@ -32,4 +32,15 @@ declare module "@voltius/ui" {
     onConfirm: () => void;
     onCancel: () => void;
   }>;
+  export type StatusTone = "connected" | "connecting" | "warning" | "error" | "idle" | "accent";
+  export const StatusDot: ComponentType<{
+    tone: StatusTone;
+    size?: "sm" | "md";
+    hollow?: boolean;
+    halo?: string;
+    corner?: boolean;
+    motion?: "pulse" | "ping" | "ping-fast";
+    label?: string;
+    className?: string;
+  }>;
 }

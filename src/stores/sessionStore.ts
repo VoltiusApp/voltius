@@ -38,7 +38,7 @@ import { useLayoutStore } from "./layoutStore";
 import { useTerminalCwdStore } from "./terminalCwdStore";
 import { usePanelSftpStore } from "./panelSftpStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
-import { cancelBackoff } from "./reconnectBackoffCore";
+import { cancelBackoff, isSessionEnded, type ReconnectWait } from "./reconnectBackoffCore";
 import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostCommand";
 import { runHostCommand } from "@/services/hostCommandRun";
 
@@ -69,6 +69,7 @@ interface SessionStore {
   setActive: (sessionId: string) => void;
   markDisconnected: (sessionId: string) => void;
   markConnecting: (sessionId: string) => void;
+  setReconnectWait: (sessionId: string, wait: ReconnectWait | undefined) => void;
   removeSession: (sessionId: string) => void;
   reconnect: (sessionId: string, options?: { restore?: boolean }) => Promise<void>;
   /** Silent reconnect for the auto-backoff loop: performs the same connect as
@@ -393,7 +394,7 @@ function markSessionConnecting(set: SessionSetter, sessionId: string) {
   set((s) => ({
     sessions: s.sessions.map((sess) =>
       sess.id === sessionId
-        ? { ...sess, status: "connecting" as const, errorMessage: undefined, errorCode: undefined }
+        ? { ...sess, status: "connecting" as const, errorMessage: undefined, errorCode: undefined, reconnectWait: undefined }
         : sess,
     ),
   }));
@@ -898,6 +899,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     markSessionConnecting(set, sessionId);
   },
 
+  setReconnectWait: (sessionId, wait) => {
+    if (get().sessions.find((x) => x.id === sessionId)?.reconnectWait === wait) return;
+    set((s) => ({
+      sessions: s.sessions.map((sess) => (sess.id === sessionId ? { ...sess, reconnectWait: wait } : sess)),
+    }));
+  },
+
   // Rehydrate the whole session list at launch (workspace restore). Replaces
   // state wholesale — only valid while the store is empty.
   restoreSessions: (sessions, activeSessionId) =>
@@ -910,7 +918,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((s) => ({
       sessions: s.sessions.map((sess) =>
         sess.id === sessionId
-          ? { ...sess, status: "connected" as const, errorMessage: undefined, errorCode: undefined, everConnected: true }
+          ? { ...sess, status: "connected" as const, errorMessage: undefined, errorCode: undefined, reconnectWait: undefined, everConnected: true }
           : sess,
       ),
     })),
@@ -976,7 +984,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       void runHostCommand(connection, "pre", sessionId, "ssh");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("SESSION_ENDED")) {
+      if (isSessionEnded(msg)) {
         const { sessionEnded } = await import("@/services/crossDeviceSessions");
         sessionEnded(sessionId);
         return;

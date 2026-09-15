@@ -1,6 +1,8 @@
 import { writeClipboard } from "../clipboard";
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { StatusDot } from "@voltius/ui";
+import { containerStateTone } from "../containerStateTone";
 import { dockerContainerAction, dockerContainerRunCommand } from "../services";
 import { getDockerApi } from "../runtime";
 import { pullAndMaybeRecreate } from "../updateActions";
@@ -21,12 +23,6 @@ interface Props {
   onTerminal: (id: string, name: string) => void;
   onRefresh: () => void;
   onUpdated?: () => void;
-}
-
-function stateDot(state: string) {
-  if (state === "running") return "bg-(--t-status-connected)";
-  if (state === "paused") return "bg-(--t-status-warning)";
-  return "bg-(--t-text-muted) opacity-40";
 }
 
 function displayName(names: string[]): string {
@@ -103,7 +99,7 @@ export function ContainerRow({
         onClick={() => setExpanded((v) => !v)}
         className="flex items-center gap-2 px-3 py-1.5 hover:bg-(--t-bg-card-hover) cursor-pointer select-none"
       >
-        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${stateDot(container.state)}`} />
+        <StatusDot tone={containerStateTone(container.state)} size="sm" />
         <div className="flex-1 min-w-0">
           <p className="text-[11px] text-(--t-text) truncate font-medium">{name}</p>
           <div className="flex items-center gap-1.5 min-w-0">

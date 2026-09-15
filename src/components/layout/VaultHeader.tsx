@@ -10,6 +10,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember } from "@/services/teamService";
 import { AvatarOverflow, MiniAvatar } from "@/components/shared/AvatarStack";
 import { PickerSurface } from "@/components/shared/PickerSurface";
+import { StatusDot } from "@/components/shared/StatusDot";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
@@ -297,7 +298,7 @@ export default function VaultHeader() {
           <div className="flex items-center gap-3 text-xs mt-0.5 flex-nowrap overflow-hidden" style={{ color: "var(--t-text-dim)" }}>
             {isE2EE && (
               <span className="flex items-center gap-1 shrink-0">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--t-status-connected)" }} />
+                <StatusDot tone="connected" size="sm" />
                 {t("layout.vaultHeader.e2ee")}
               </span>
             )}

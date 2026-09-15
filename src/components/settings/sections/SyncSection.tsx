@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "@/components/shared/Toggle";
 import { getSyncState, onSyncStateChange, syncNow } from "@/services/sync";
+import { runManualSync } from "@/services/syncIntent";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/stores/syncPrefsStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -109,7 +110,7 @@ export default function SyncSection() {
               </p>
             </div>
             <button
-              onClick={() => { if (syncState.status !== "syncing") syncNow().catch(() => {}); }}
+              onClick={() => { if (syncState.status !== "syncing") runManualSync(syncNow).catch(() => {}); }}
               className="flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors shrink-0 bg-(--t-bg-input)"
               style={{
                 color: syncState.status === "error" ? "var(--t-status-error)" : "var(--t-text-muted)",
@@ -117,11 +118,7 @@ export default function SyncSection() {
               }}
               disabled={syncState.status === "syncing"}
             >
-              <Icon
-                icon="lucide:refresh-cw"
-                width={18}
-                className={syncState.status === "syncing" ? "animate-spin" : ""}
-              />
+              <Icon icon="lucide:refresh-cw" width={18} />
               {t("settings.sync.active.syncNow")}
             </button>
           </div>

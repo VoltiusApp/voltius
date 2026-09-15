@@ -59,8 +59,8 @@ function DupeControl({ action, onChange }: { action: ItemAction; onChange: (a: I
   const { t } = useTranslation();
   const opts: { key: ItemAction; label: string; activeColor: string }[] = [
     { key: "skip", label: t("importExport.import.actionSkip"), activeColor: "var(--t-status-error)" },
-    { key: "include", label: t("importExport.import.actionInclude"), activeColor: "var(--t-status-ok)" },
-    { key: "overwrite", label: t("importExport.import.actionOverwrite"), activeColor: "var(--t-status-warn)" },
+    { key: "include", label: t("importExport.import.actionInclude"), activeColor: "var(--t-status-connected)" },
+    { key: "overwrite", label: t("importExport.import.actionOverwrite"), activeColor: "var(--t-status-warning)" },
   ];
   return (
     <div
@@ -623,7 +623,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
             style={{
               background: importResult.isError ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.1)",
-              color: importResult.isError ? "var(--t-status-error)" : "var(--t-status-ok)",
+              color: importResult.isError ? "var(--t-status-error)" : "var(--t-status-connected)",
               border: `1px solid ${importResult.isError ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.2)"}`,
             }}
           >
@@ -806,7 +806,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
           style={{
             background: importResult.isError ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.1)",
-            color: importResult.isError ? "var(--t-status-error)" : "var(--t-status-ok)",
+            color: importResult.isError ? "var(--t-status-error)" : "var(--t-status-connected)",
             border: `1px solid ${importResult.isError ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.2)"}`,
           }}
         >

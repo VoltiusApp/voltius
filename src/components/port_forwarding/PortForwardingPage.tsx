@@ -673,8 +673,8 @@ export function PortForwardingPage() {
                     <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">{t("common.entity.rules")}</p>
                     <div className="flex items-center gap-2 text-[10px] text-(--t-text-muted)">
                       <span className="px-1.5 py-0.5 rounded-full bg-(--t-bg-elevated)">{t("portForwarding.page.total", { count: filtered.length })}</span>
-                      <span className="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400">{t("portForwarding.page.activeCount", { count: runningRuleCount.active })}</span>
-                      {runningRuleCount.error > 0 && <span className="px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">{t("portForwarding.page.errorCount", { count: runningRuleCount.error })}</span>}
+                      <span className="px-1.5 py-0.5 rounded-full bg-(--t-status-connected)/10 text-(--t-status-connected)">{t("portForwarding.page.activeCount", { count: runningRuleCount.active })}</span>
+                      {runningRuleCount.error > 0 && <span className="px-1.5 py-0.5 rounded-full bg-(--t-status-error)/10 text-(--t-status-error)">{t("portForwarding.page.errorCount", { count: runningRuleCount.error })}</span>}
                     </div>
                   </div>
                 )}

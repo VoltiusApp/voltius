@@ -4,6 +4,7 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { pingStatusMotion, pingStatusTone } from "@/utils/statusTone";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import type { Connection } from "@/types";
@@ -13,8 +14,6 @@ function PickRow({ c, pingEnabled, onPick }: { c: Connection; pingEnabled: boole
   const pingStatus = useHostPingStore((s) => s.statuses[c.id]);
   const pingLatency = useHostPingStore((s) => s.latencies[c.id]);
   const showPingDot = pingEnabled && !c.ping_disabled;
-  const pingColor = pingStatus === "up" ? "var(--t-status-connected)"
-    : pingStatus === "down" ? "var(--t-status-error)" : "var(--t-text-dim)";
   const latency = showPingDot && pingStatus === "up" && pingLatency !== undefined ? ` · ${pingLatency}ms` : "";
 
   return (
@@ -22,7 +21,14 @@ function PickRow({ c, pingEnabled, onPick }: { c: Connection; pingEnabled: boole
       className="w-full flex items-center gap-3 px-3 py-3 text-left rounded-xl active:bg-(--t-bg-card)">
       <span className="relative shrink-0">
         <ConnectionAvatar connection={c} size={30} />
-        {showPingDot && <StatusDot color={pingColor} animate={pingStatus === "up"} size={9} />}
+        {showPingDot && (
+          <StatusDot
+            tone={pingStatusTone(pingStatus)}
+            motion={pingStatusMotion(pingStatus)}
+            halo="var(--t-bg-elevated)"
+            corner
+          />
+        )}
       </span>
       <span className="flex flex-col min-w-0">
         <span className="text-sm font-medium text-(--t-text-primary) truncate">{connectionDisplayName(c)}</span>

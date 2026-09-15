@@ -6,7 +6,7 @@
 .cm-diff-ribbons-svg { position: absolute; inset: 0; overflow: visible; }
 
 .cm-diff-ribbon { stroke-width: 1; }
-.cm-diff-ribbon-ins { fill: color-mix(in srgb, var(--t-status-success) 22%, transparent); stroke: var(--t-status-success); }
+.cm-diff-ribbon-ins { fill: color-mix(in srgb, var(--t-status-connected) 22%, transparent); stroke: var(--t-status-connected); }
 .cm-diff-ribbon-del { fill: color-mix(in srgb, var(--t-status-error) 22%, transparent); stroke: var(--t-status-error); }
 .cm-diff-ribbon-mod { fill: color-mix(in srgb, var(--t-status-warning) 22%, transparent); stroke: var(--t-status-warning); }
 

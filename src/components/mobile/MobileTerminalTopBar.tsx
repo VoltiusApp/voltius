@@ -4,19 +4,13 @@ import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useConnectionStore } from "@/stores/connectionStore";
-import type { TerminalSession } from "@/types";
 import { terminalPanelItems } from "./terminalPanelItems";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
+import { StatusDot } from "@/components/shared/StatusDot";
 import { sessionLabel } from "@/utils/sessionLabel";
-
-const DOT: Record<TerminalSession["status"], string> = {
-  connected: "#3fb950",
-  connecting: "#d29922",
-  error: "#f85149",
-  disconnected: "#8b949e",
-};
+import { sessionStatusTone } from "@/utils/statusTone";
 
 /** Persistent slim terminal chrome: exit chevron / scrollable session tabs / new / panels menu. */
 export default function MobileTerminalTopBar() {
@@ -72,7 +66,7 @@ export default function MobileTerminalTopBar() {
                 border: "1px solid var(--t-border)",
               }}
             >
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: DOT[s.status] }} />
+              <StatusDot tone={sessionStatusTone(s.status)} size="sm" />
               <button onClick={() => setActive(s.id)}>{sessionLabel(s)}</button>
               <button data-mobile-session-close={s.id} onClick={() => void disconnect(s.id)} className="opacity-70">
                 <Icon icon="lucide:x" width={12} />
