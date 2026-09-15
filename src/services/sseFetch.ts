@@ -46,7 +46,9 @@ export async function sseFetch(url: string, init?: RequestInit): Promise<Respons
 
     const onAbort = () => {
       cleanup();
-      try { controller?.error(new DOMException("Aborted", "AbortError")); } catch { /* noop */ }
+      const aborted = new DOMException("Aborted", "AbortError");
+      if (!opened) { reject(aborted); return; }
+      try { controller?.error(aborted); } catch { /* noop */ }
     };
     signal?.addEventListener("abort", onAbort, { once: true });
 
@@ -92,7 +94,7 @@ export async function sseFetch(url: string, init?: RequestInit): Promise<Respons
     ])
       .then(([openU, dataU, closedU]) => {
         unlistenOpen = openU; unlistenData = dataU; unlistenClosed = closedU;
-        if (signal?.aborted) { onAbort(); reject(new DOMException("Aborted", "AbortError")); return; }
+        if (signal?.aborted) { onAbort(); return; }
         started = true;
         void invoke("http_sse_start", {
           streamId,
