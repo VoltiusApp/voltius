@@ -366,3 +366,72 @@ describe("ssh-config sync — diagnostics", () => {
     expect(lines.some((l) => l.startsWith("sync #") && l.includes("alias_map after"))).toBe(true);
   });
 });
+
+describe("ssh-config sync — one connection per alias", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const twoHosts = cfg("Oracle", "89.0.0.1", "ubuntu") + "\n" + cfg("TradingSim", "129.0.0.1", "ubuntu");
+
+  test("a poisoned alias_map sharing one id no longer rewrites that connection as the other host", async () => {
+    const h = makeSyncApi({
+      config: twoHosts,
+      connections: [
+        conn({ id: "X", name: "Oracle", host: "89.0.0.1", username: "ubuntu", tags: [TAG] }),
+        conn({ id: "T", name: "TradingSim", host: "129.0.0.1", username: "ubuntu", tags: [TAG] }),
+      ],
+      storage: { alias_map: { Oracle: "X", TradingSim: "X" } },
+    });
+    await sync(h.api);
+
+    const x = h.connections.find((c) => c.id === "X")!;
+    expect(x.name).toBe("Oracle");
+    expect(x.host).toBe("89.0.0.1");
+    expect(h.store.get("alias_map")).toEqual({ Oracle: "X", TradingSim: "T" });
+    expect(h.create).not.toHaveBeenCalled();
+  });
+
+  test("heals a connection an earlier sync already rewrote", async () => {
+    const h = makeSyncApi({
+      config: twoHosts,
+      connections: [conn({ id: "X", name: "TradingSim", host: "129.0.0.1", username: "ubuntu", tags: [TAG] })],
+      storage: { alias_map: { Oracle: "X", TradingSim: "X" } },
+    });
+    await sync(h.api);
+
+    const x = h.connections.find((c) => c.id === "X")!;
+    expect(x.name).toBe("Oracle");
+    expect(x.host).toBe("89.0.0.1");
+    const aliasMap = h.store.get("alias_map") as Record<string, string>;
+    expect(aliasMap.Oracle).toBe("X");
+    expect(aliasMap.TradingSim).not.toBe("X");
+    expect(h.connections.find((c) => c.id === aliasMap.TradingSim)?.host).toBe("129.0.0.1");
+  });
+
+  test("a new stanza copied from an existing one does not claim that host's connection", async () => {
+    const h = makeSyncApi({
+      config: twoHosts.replace("129.0.0.1", "89.0.0.1"),
+      connections: [conn({ id: "X", name: "Oracle", host: "89.0.0.1", username: "ubuntu", tags: [TAG] })],
+      storage: { alias_map: { Oracle: "X" } },
+    });
+    await sync(h.api);
+
+    const aliasMap = h.store.get("alias_map") as Record<string, string>;
+    expect(aliasMap.TradingSim).not.toBe("X");
+
+    h.setConfig(twoHosts);
+    await sync(h.api);
+    expect(h.connections.find((c) => c.id === "X")).toMatchObject({ name: "Oracle", host: "89.0.0.1" });
+  });
+
+  test("a shared id is never deleted while an alias still present in the config owns it", async () => {
+    const h = makeSyncApi({
+      config: cfg("TradingSim", "129.0.0.1", "ubuntu"),
+      connections: [conn({ id: "X", name: "TradingSim", host: "129.0.0.1", username: "ubuntu", tags: [TAG] })],
+      storage: { alias_map: { Oracle: "X", TradingSim: "X" } },
+    });
+    await sync(h.api);
+
+    expect(h.del).not.toHaveBeenCalled();
+    expect(h.store.get("alias_map")).toEqual({ TradingSim: "X" });
+  });
+});

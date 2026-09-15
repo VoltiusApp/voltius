@@ -231,6 +231,26 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
   // Hosts present in the config file (keyed by alias)
   const configAliases = new Set(hosts.map((h) => h.alias));
 
+  // One connection per alias. A shared id would make every sync rewrite it as whichever
+  // alias runs last; the delete pass below must not remove it either.
+  const owner = new Map<string, string>();
+  const byPresence = Object.entries(aliasMap).sort(
+    ([a], [b]) => Number(!configAliases.has(a)) - Number(!configAliases.has(b)),
+  );
+  for (const [alias, connId] of byPresence) {
+    const claimant = owner.get(connId);
+    if (claimant === undefined) {
+      owner.set(connId, alias);
+      continue;
+    }
+    say(`alias "${alias}" shares conn ${connId} with "${claimant}", unlinking "${alias}"`);
+    delete aliasMap[alias];
+  }
+  const claimedByOther = (connId: string, alias: string) => {
+    const claimant = owner.get(connId);
+    return claimant !== undefined && claimant !== alias;
+  };
+
   // ── Remove connections whose alias disappeared from the config ──────────
   const toDelete: string[] = [];
   for (const [alias, connId] of Object.entries(aliasMap)) {
@@ -239,6 +259,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
       say(`alias "${alias}" gone from config: ${still ? `deleting conn ${connId} "${still.name ?? ""}"` : `conn ${connId} already absent`}`);
       if (still) toDelete.push(connId);
       delete aliasMap[alias];
+      owner.delete(connId);
       // Clean up associated identity (key is shared so we keep it)
       const identityId = identityMap[alias];
       if (identityId) {
@@ -265,6 +286,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
       byAlias ??
       taggedConnections.find(
         (c) =>
+          !claimedByOther(c.id, host.alias) &&
           c.host === host.hostname &&
           c.port === host.port &&
           c.username === host.user,
@@ -277,6 +299,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
     if (!existing && adoptEnabled) {
       existing = allConnections.find(
         (c) =>
+          !claimedByOther(c.id, host.alias) &&
           !c.tags.includes(SSH_CONFIG_TAG) &&
           c.host === host.hostname &&
           c.port === host.port &&
@@ -290,6 +313,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
 
     if (existing) {
       aliasMap[host.alias] = existing.id;
+      owner.set(existing.id, host.alias);
     }
 
     // Adopted: preserve the user's fields; only propagate host/port/user changes.
@@ -358,6 +382,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
     if (!existing) {
       const conn = await api.connections.create(data);
       aliasMap[host.alias] = conn.id;
+      owner.set(conn.id, host.alias);
       say(`create conn ${conn.id} for alias "${host.alias}"`);
       if (notifyEnabled) api.notifications.toast(`SSH host added: ${host.alias}`, { severity: "success", duration: 3000 });
     } else {
