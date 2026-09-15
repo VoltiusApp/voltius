@@ -24,6 +24,7 @@ const marketplaceState = {
   uninstallSeededPlugin: vi.fn(async () => {}),
   reloadPlugin: vi.fn(async () => {}),
   scanLocal: vi.fn(async () => {}),
+  fetchCatalog: vi.fn(async () => {}),
   installPlugin: vi.fn(async () => {}),
   fetchManifest: vi.fn(async () => ({ manifest: { permissions: [] }, manifestText: "" })),
   appVersion: null as string | null,
@@ -149,6 +150,18 @@ test("a marketplace-installed plugin with neither a page nor a schema has no gea
   usePluginStore.setState({ settingsPages: new Map() });
   render(<InstalledTab />);
   expect(screen.queryAllByTitle("settings.plugins.installed.settingsTitle")).toHaveLength(0);
+});
+
+test("the Installed tab's refresh button reloads the catalogue so updates released since opening show up", async () => {
+  loaded.list = [AI];
+  usePluginStore.setState({ settingsPages: new Map() });
+  render(<InstalledTab />);
+  marketplaceState.fetchCatalog.mockClear();
+  await act(async () => {
+    fireEvent.click(screen.getByTitle("settings.plugins.installed.scanTitle"));
+  });
+  expect(marketplaceState.scanLocal).toHaveBeenCalled();
+  expect(marketplaceState.fetchCatalog).toHaveBeenCalled();
 });
 
 test("a seeded row renders a trash control", () => {

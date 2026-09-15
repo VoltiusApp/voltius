@@ -7,7 +7,7 @@ import { importPluginModule, pluginRegisterOf, injectPluginStyle, type PluginMod
 import type { PluginManifest } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
-import { resolveVerifiedHash } from "@/plugins/integrity";
+import { PluginHashMismatchError, resolveVerifiedHash } from "@/plugins/integrity";
 import { assertValidPluginId } from "@/plugins/pluginId";
 import { PluginInstallInProgressError } from "@/plugins/installErrors";
 import { satisfiesMinAppVersion, MinAppVersionError, beatsSeededVersion, isParsableVersion } from "@/plugins/version";
@@ -189,6 +189,65 @@ async function takesFloorPath(plugin: MarketplacePlugin): Promise<boolean> {
  */
 function externalPluginActive(manifestId: string): boolean {
   return usePluginRegistryStore.getState().isEnabled(manifestId, true);
+}
+
+/** Fetches an external plugin's files and verifies them against the catalogue entry's hashes. */
+async function fetchVerifiedBundle(plugin: MarketplacePlugin, reviewedManifestText: string | undefined) {
+  const appVersion = await resolveAppVersion();
+  if (appVersion !== null && !satisfiesMinAppVersion(plugin, appVersion)) {
+    throw new MinAppVersionError(plugin.minAppVersion!, appVersion);
+  }
+
+  const base = plugin.repo.startsWith("http")
+    ? plugin.repo
+    : `https://github.com/${plugin.repo}/releases/latest/download`;
+
+  // When the caller previewed the manifest for consent, reuse that exact text so the executed
+  // permission set is precisely the one shown — closing the fetch→consent→load TOCTOU
+  // (manifest.json is not hash-pinned; index.js still is). Only fetch the manifest fresh when
+  // no reviewed copy was supplied (e.g. the review-disclosure setting is off).
+  const [manifestText, jsText, cssText] = await Promise.all([
+    reviewedManifestText !== undefined
+      ? Promise.resolve(reviewedManifestText)
+      : invoke<string>("plugin_fetch_url", { url: `${base}/manifest.json` }),
+    invoke<string>("plugin_fetch_url", { url: `${base}/index.js` }),
+    // CSS: only fetched when the catalogue hash-pins it. A device must never
+    // execute or inject a network-fetched file nothing can vouch for, so with
+    // no cssHash this makes no request at all — identical to before this hash
+    // existed, and third-party plugins without a pinned stylesheet stay unstyled.
+    plugin.cssHash ? invoke<string>("plugin_fetch_url", { url: `${base}/voltius.css` }) : Promise.resolve(undefined),
+  ]);
+
+  const manifest = JSON.parse(manifestText) as PluginManifest;
+
+  // The two ids must be the same id. Everything on disk and in installedMeta is
+  // keyed by the CATALOGUE id (plugins/<plugin.id>/…), while the runtime registry,
+  // the enable/disable override and the tombstone store are all keyed by the
+  // MANIFEST id. Let them differ and the install silently splits in half: the
+  // plugin runs under one id and uninstall/update/disable act on the other.
+  // Checked before the hash verification and before anything is written, so a
+  // mismatched bundle leaves nothing behind.
+  if (manifest.id !== plugin.id) {
+    throw new Error(
+      `Catalogue id "${plugin.id}" does not match the bundle's manifest id "${manifest.id}".`,
+    );
+  }
+
+  // Integrity: refuse to execute a bundle that doesn't match its reviewed hash.
+  // Both hashes must verify before anything is written — a failed check must
+  // leave no partial install on disk.
+  const verifiedHash = await resolveVerifiedHash(jsText, plugin.hash);
+  const verifiedCssHash = plugin.cssHash ? await resolveVerifiedHash(cssText!, plugin.cssHash) : null;
+
+  return { manifestText, manifest, jsText, cssText, verifiedHash, verifiedCssHash };
+}
+
+/** The same source's current entry for `plugin`, when a fresh catalogue now pins different bytes at the same repo. */
+async function refreshedCatalogEntry(plugin: MarketplacePlugin): Promise<MarketplacePlugin | null> {
+  await useMarketplaceStore.getState().fetchCatalog();
+  const fresh = useMarketplaceStore.getState().catalog.find((p) => p.id === plugin.id && p.sourceId === plugin.sourceId);
+  if (!fresh || fresh.repo !== plugin.repo) return null;
+  return fresh.hash !== plugin.hash || fresh.cssHash !== plugin.cssHash ? fresh : null;
 }
 
 let appVersionPromise: Promise<string | null> | null = null;
@@ -377,52 +436,18 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         return;
       }
 
-      const appVersion = await resolveAppVersion();
-      if (appVersion !== null && !satisfiesMinAppVersion(plugin, appVersion)) {
-        throw new MinAppVersionError(plugin.minAppVersion!, appVersion);
+      let entry = plugin;
+      let bundle;
+      try {
+        bundle = await fetchVerifiedBundle(entry, reviewedManifestText);
+      } catch (e) {
+        // A catalogue fetched earlier this session can predate a release; only a still-mismatching bundle is refused.
+        const fresh = e instanceof PluginHashMismatchError ? await refreshedCatalogEntry(plugin) : null;
+        if (!fresh) throw e;
+        entry = fresh;
+        bundle = await fetchVerifiedBundle(entry, reviewedManifestText);
       }
-
-      const base = plugin.repo.startsWith("http")
-        ? plugin.repo
-        : `https://github.com/${plugin.repo}/releases/latest/download`;
-
-      // When the caller previewed the manifest for consent, reuse that exact text so the executed
-      // permission set is precisely the one shown — closing the fetch→consent→load TOCTOU
-      // (manifest.json is not hash-pinned; index.js still is). Only fetch the manifest fresh when
-      // no reviewed copy was supplied (e.g. the review-disclosure setting is off).
-      const [fetchedManifestText, jsText, cssText] = await Promise.all([
-        reviewedManifestText !== undefined
-          ? Promise.resolve(reviewedManifestText)
-          : invoke<string>("plugin_fetch_url", { url: `${base}/manifest.json` }),
-        invoke<string>("plugin_fetch_url", { url: `${base}/index.js` }),
-        // CSS: only fetched when the catalogue hash-pins it. A device must never
-        // execute or inject a network-fetched file nothing can vouch for, so with
-        // no cssHash this makes no request at all — identical to before this hash
-        // existed, and third-party plugins without a pinned stylesheet stay unstyled.
-        plugin.cssHash ? invoke<string>("plugin_fetch_url", { url: `${base}/voltius.css` }) : Promise.resolve(undefined),
-      ]);
-      const manifestText = fetchedManifestText;
-
-      const manifest = JSON.parse(manifestText) as PluginManifest;
-
-      // The two ids must be the same id. Everything on disk and in installedMeta is
-      // keyed by the CATALOGUE id (plugins/<plugin.id>/…), while the runtime registry,
-      // the enable/disable override and the tombstone store are all keyed by the
-      // MANIFEST id. Let them differ and the install silently splits in half: the
-      // plugin runs under one id and uninstall/update/disable act on the other.
-      // Checked before the hash verification and before anything is written, so a
-      // mismatched bundle leaves nothing behind.
-      if (manifest.id !== plugin.id) {
-        throw new Error(
-          `Catalogue id "${plugin.id}" does not match the bundle's manifest id "${manifest.id}".`,
-        );
-      }
-
-      // Integrity: refuse to execute a bundle that doesn't match its reviewed hash.
-      // Both hashes must verify before anything is written — a failed check must
-      // leave no partial install on disk.
-      const verifiedHash = await resolveVerifiedHash(jsText, plugin.hash);
-      const verifiedCssHash = plugin.cssHash ? await resolveVerifiedHash(cssText!, plugin.cssHash) : null;
+      const { manifestText, manifest, jsText, cssText, verifiedHash, verifiedCssHash } = bundle;
 
       await invoke("plugin_write_file", { id: plugin.id, filename: "manifest.json", content: manifestText });
       await invoke("plugin_write_file", { id: plugin.id, filename: "index.js", content: jsText });
@@ -461,8 +486,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       const newMeta: InstalledPluginMeta[] = [
         ...installedMeta.filter((m) => m.id !== plugin.id),
         {
-          id: plugin.id, version: plugin.version, sourceId: plugin.sourceId,
-          hash: verifiedHash, cssHash: verifiedCssHash, repo: plugin.repo,
+          id: plugin.id, version: entry.version, sourceId: entry.sourceId,
+          hash: verifiedHash, cssHash: verifiedCssHash, repo: entry.repo,
         },
       ];
       await writeInstalledMeta(newMeta);
