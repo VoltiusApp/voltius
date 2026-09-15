@@ -1,6 +1,6 @@
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.processes / mobile.processes.* and
 // mobile.json's common.action.cancel — values carried over verbatim.
-export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
+export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
   en: {
     "title": "Processes",
     "sshOnly": "The process list is only available for SSH sessions. Connect to a host over SSH to see its processes.",
@@ -76,5 +76,24 @@ export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
     "confirmKill": "终止",
     "confirmForceKill": "强制终止",
     "cancel": "取消",
+  },
+  tr: {
+    "title": "İşlemler",
+    "sshOnly": "İşlem listesi yalnızca SSH oturumlarında kullanılabilir. İşlemlerini görmek için bir sunucuya SSH ile bağlanın.",
+    "filterPlaceholder": "İşlemleri filtrele…",
+    "sortCpu": "CPU%",
+    "sortMem": "BELLEK",
+    "sortPid": "PID",
+    "sortName": "Ad",
+    "noProcessesFound": "İşlem bulunamadı",
+    "loadingProcesses": "İşlemler yükleniyor…",
+    "sheetKillTerm": "Sonlandır (SIGTERM)",
+    "sheetForceKill": "Zorla sonlandır (SIGKILL)",
+    "killConfirmTitle": "İşlem sonlandırılsın mı?",
+    "forceKillConfirmTitle": "İşlem zorla sonlandırılsın mı?",
+    "killConfirmBody": "{{name}} (pid {{pid}}) işlemine {{signal}} gönderilecek.",
+    "confirmKill": "Sonlandır",
+    "confirmForceKill": "Zorla sonlandır",
+    "cancel": "İptal",
   },
 };

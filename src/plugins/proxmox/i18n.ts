@@ -1,7 +1,7 @@
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.proxmox / mobile.proxmox.* /
 // mobile.hostActions.* / mobile.panelCommon.* and mobile.json's common.action.{delete,cancel} —
 // values carried over verbatim.
-export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
+export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
   en: {
     "title": "Proxmox",
     "needsSshTitle": "Proxmox needs an SSH session",
@@ -121,5 +121,35 @@ export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
     "hostStop": "停止",
     "hostRestart": "重启",
     "hostStart": "启动",
+  },
+  tr: {
+    "title": "Proxmox",
+    "needsSshTitle": "Proxmox için SSH oturumu gerekir",
+    "needsSshSub": "Proxmox'u SSH ile bağlı bir sunucudan açın.",
+    "sessionNotConnected": "Oturum bağlı değil",
+    "sessionNotConnectedSub": "Bu sunucuyu yönetmek için yeniden bağlanın.",
+    "notDetectedTitle": "Proxmox VE algılanmadı",
+    "notDetectedSub": "Bu panel, bir Proxmox VE sunucusuna SSH bağlantısı gerektirir.",
+    "noContainers": "Konteyner yok",
+    "snapshotsTitle": "Anlık görüntüler · {{name}}",
+    "newSnapshotPlaceholder": "Yeni anlık görüntü adı",
+    "descriptionPlaceholder": "Açıklama (isteğe bağlı)",
+    "createSnapshot": "Anlık görüntü oluştur",
+    "noSnapshots": "Anlık görüntü yok",
+    "current": "(geçerli)",
+    "rollbackConfirmTitle": "Geri döndürülsün mü?",
+    "deleteSnapshotConfirmTitle": "Anlık görüntü silinsin mi?",
+    "rollbackConfirmBody": "{{name}}, \"{{snap}}\" anlık görüntüsüne geri döndürülsün mü? Mevcut durum kaybolur.",
+    "deleteSnapshotConfirmBody": "\"{{snap}}\" anlık görüntüsü silinsin mi? Bu işlem geri alınamaz.",
+    "rollbackButton": "Geri döndür",
+    "delete": "Sil",
+    "cancel": "İptal",
+    "snapshotsAction": "Anlık görüntüler",
+    "openShell": "Kabuk aç",
+    "ctSummary": "CT {{vmid}} · {{status}}",
+    "sheetTitleWithId": "{{name}} (CT {{vmid}})",
+    "hostStop": "Durdur",
+    "hostRestart": "Yeniden başlat",
+    "hostStart": "Başlat",
   },
 };

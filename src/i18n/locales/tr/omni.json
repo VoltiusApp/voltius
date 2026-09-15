@@ -1,0 +1,92 @@
+{
+  "omni": {
+    "searchPlaceholder": "Sunucu, anahtar, kimlik ve komut ara...",
+    "categoryBadges": {
+      "all": "Tümü",
+      "join": "join> Oturumlar",
+      "snippets": "> Kod parçacıkları",
+      "marketplace": "m> Mağaza",
+      "settings": "@ Ayarlar"
+    },
+    "sections": {
+      "quickConnect": "Hızlı bağlan",
+      "activeConnections": "Etkin bağlantılar",
+      "teamSessions": "Ekip oturumları",
+      "recent": "Son kullanılanlar",
+      "hosts": "Sunucular",
+      "local": "Yerel",
+      "keychain": "Anahtar zinciri",
+      "snippets": "Kod parçacıkları",
+      "actions": "Eylemler",
+      "quickSettings": "Hızlı ayarlar",
+      "settings": "Ayarlar",
+      "joinByInviteCode": "Davet koduyla katıl"
+    },
+    "settingsDescription": "Ayarlar",
+    "pluginSettingsDescription": "Eklenti ayarları",
+    "editHost": "Sunucuyu düzenle",
+    "deleteHost": "Sunucuyu sil",
+    "resume": "Devam et",
+    "join": "Katıl",
+    "participantCount_one": "{{count}} kişi",
+    "participantCount_other": "{{count}} kişi",
+    "joinCodePrompt": {
+      "title": "Davet koduyla katıl...",
+      "subtitle": "Özel bir oturuma katılmak için davet kodunuzu buraya yapıştırın"
+    },
+    "joinCodeEntered": {
+      "title": "Davet koduyla katıl"
+    },
+    "quickConnect": {
+      "connectTo": "Bağlan: {{user}}@{{host}}",
+      "portSsh": "Port {{port}} — SSH",
+      "serialConnection": "Seri bağlantı",
+      "configurePortAndBaud": "Port ve baud hızını yapılandır",
+      "localShellNamed": "Yerel kabuk ({{shell}})",
+      "localShell": "Yerel kabuk",
+      "openLocalTerminal": "Yerel terminal aç"
+    },
+    "localShellDefault": "Yerel kabuk",
+    "emptyState": {
+      "noSnippets": "Henüz kod parçacığı yok",
+      "marketplaceComingSoon": "Mağaza yakında geliyor",
+      "noSessionsMatch": "\"{{query}}\" ile eşleşen oturum yok",
+      "noActiveTeamSessions": "Etkin ekip oturumu yok",
+      "noResultsFor": "\"{{query}}\" için sonuç yok"
+    },
+    "theme": {
+      "toggle": "Açık / koyu tema arasında geçiş yap",
+      "toggleDesc": "Açık ve koyu temalarınız arasında geçiş yapın",
+      "switch": "Tema değiştir…",
+      "switchDesc": "Bir tema seçin, canlı önizleyin",
+      "automation": "Tema otomasyonu…",
+      "automationDesc": "Elle, sistemi izle, zamanlama veya gün doğumu/gün batımı",
+      "backSwitch": "Tema değiştir",
+      "backAutomation": "Tema otomasyonu",
+      "searchThemes": "Tema ara…",
+      "roleLight": "Açık",
+      "roleDark": "Koyu",
+      "setAsLight": "Açık tema yap",
+      "setAsDark": "Koyu tema yap",
+      "keyHints": "Alt+L açık yap · Alt+D koyu yap · Enter uygula",
+      "modeManual": "Elle",
+      "modeManualDesc": "Seçtiğiniz tema kullanılır, otomasyon yok",
+      "modeSystem": "Sistemi izle",
+      "modeSystemDesc": "İşletim sisteminizin açık/koyu ayarına uyar",
+      "modeSchedule": "Zamanlama",
+      "modeScheduleDesc": "Belirli saatlerde geçiş yapar",
+      "modeSunset": "Gün doğumu / gün batımı",
+      "modeSunsetDesc": "Konumunuza göre gündüz açık, gece koyu",
+      "lightStarts": "Açık tema başlangıcı",
+      "darkStarts": "Koyu tema başlangıcı",
+      "useMyLocation": "Konumumu kullan",
+      "latitude": "Enlem",
+      "longitude": "Boylam",
+      "locationNeeded": "Gün doğumu/gün batımını kullanmak için bir konum ayarlayın",
+      "sunToday": "Bugün: gün doğumu {{sunrise}}, gün batımı {{sunset}}",
+      "statusManual": "Elle",
+      "statusSystem": "Otomatik · sistemi izliyor",
+      "statusUntil": "Otomatik · {{phase}}, saat {{time}} olana kadar"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "folders": {
+    "card": {
+      "pin": "Sabitle",
+      "unpin": "Sabitlemeyi kaldır",
+      "openFolder": "Klasörü aç",
+      "cloudSyncDisabled": "Bulut eşitlemesi devre dışı",
+      "unpinForMe": "Benim için sabitlemeyi kaldır",
+      "showInMyView": "Görünümümde göster",
+      "hideForMe": "Benim için gizle",
+      "pinForMe": "Benim için sabitle",
+      "unpinForTeam": "Ekip için sabitlemeyi kaldır",
+      "pinForTeam": "Ekip için sabitle",
+      "exportFolder": "Klasörü dışa aktar",
+      "disableCloudSync": "Bulut eşitlemesini devre dışı bırak",
+      "enableCloudSync": "Bulut eşitlemesini etkinleştir",
+      "deleteFolder": "Klasörü sil",
+      "itemCount_one": "{{count}} öğe",
+      "itemCount_other": "{{count}} öğe"
+    },
+    "editPanel": {
+      "nameLabel": "Ad",
+      "cloudSyncLabel": "Bulut eşitlemesi",
+      "syncedToCloud": "Buluta eşitlendi",
+      "notSynced": "Eşitlenmedi",
+      "syncDisabledGlobally": "Klasör eşitlemesi Ayarlar → Bulut eşitlemesi bölümünden genel olarak devre dışı bırakılmış.",
+      "createdLabel": "Oluşturulma"
+    }
+  }
+}

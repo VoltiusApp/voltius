@@ -1,0 +1,143 @@
+{
+  "importExport": {
+    "modal": {
+      "title": "İçe / dışa aktar",
+      "sectionUserData": "Kullanıcı verileri",
+      "tabExport": "Dışa aktar",
+      "tabImport": "İçe aktar"
+    },
+    "include": "Dahil edilecekler",
+    "copied": "Kopyalandı!",
+    "downloadExt": ".{{ext}} olarak indir",
+    "passwordPlaceholder": "Parola",
+    "export": {
+      "format": "Biçim",
+      "formatCsvDescription": "Yalnızca bağlantılar — elektronik tabloya uygun",
+      "formatJsonDescription": "Anahtar içerikleri dahil tüm veriler",
+      "encryptBackup": "Yedeği şifrele",
+      "plaintextSecretsWarning": "Bu dışa aktarma parolaları, anahtarları veya sunucu notlarını düz metin olarak içeriyor. Bilerek şifrelenmemiş bir dosyaya ihtiyacınız yoksa şifrelemeyi açık tutun.",
+      "snippetRefMissing": "“{{name}}”, bu dışa aktarmaya dahil olmayan başka bir kod parçacığını ({{target}}) çalıştırıyor. Onu da seçime ekleyin veya o adımı kaldırın.",
+      "confirmPasswordPlaceholder": "Parolayı onayla",
+      "passwordsDontMatch": "Parolalar eşleşmiyor",
+      "building": "Hazırlanıyor…",
+      "nothingToExport": "Dışa aktarılacak bir şey yok",
+      "downloadEncrypted": "Şifreli olarak indir",
+      "hidePreview": "Önizlemeyi gizle",
+      "showPreview": "Önizlemeyi göster",
+      "selectedItem_one": "{{count}} seçili öğe",
+      "selectedItem_other": "{{count}} seçili öğe",
+      "autoIncludeIdentity": "{{count}} kimlik",
+      "autoIncludeKey": "{{count}} anahtar",
+      "checkboxLabel": {
+        "connections_one": "Bağlantı ({{count}})",
+        "connections_other": "Bağlantılar ({{count}})",
+        "identities_one": "Kimlik ({{count}})",
+        "identities_other": "Kimlikler ({{count}})",
+        "keys_one": "SSH anahtarı ({{count}})",
+        "keys_other": "SSH anahtarları ({{count}})",
+        "snippets": "Kod parçacıkları ({{count}})",
+        "portForwarding": "Port yönlendirme ({{count}})"
+      }
+    },
+    "import": {
+      "importFrom": "İçe aktarma kaynağı",
+      "importInto": "İçe aktarma hedefi",
+      "autoExtractTitle": "{{label}} verilerini otomatik çıkar",
+      "autoExtractDescription": "Yerel {{label}} verilerinizi okur ve şifresini çözer — elle dışa aktarmaya gerek yok",
+      "extracting": "Çıkarılıyor…",
+      "extractFrom": "{{label}} verilerini çıkar",
+      "orImportFromFile": "veya dosyadan içe aktarın",
+      "openFileLabel": "{{sub}} dosyası aç…",
+      "encryptedBackupTitle": "Şifreli yedek — kilidi açmak için parolanızı girin",
+      "unlock": "Kilidi aç",
+      "reviewItems_one": "{{count}} öğeyi incele",
+      "reviewItems_other": "{{count}} öğeyi incele",
+      "back": "Geri",
+      "reviewImportTitle": "İçe aktarmayı incele",
+      "reIncludeDuplicates": "Yinelenenleri yeniden dahil et",
+      "skipAllDuplicates": "Tüm yinelenenleri atla",
+      "filterItemsPlaceholder": "Öğeleri filtrele…",
+      "groupConnections": "Bağlantılar",
+      "groupKeys": "SSH anahtarları",
+      "groupIdentities": "Kimlikler",
+      "groupPortForwarding": "Port yönlendirme",
+      "selectAll": "Tümünü seç",
+      "deselectAll": "Tüm seçimleri kaldır",
+      "advanced": "Gelişmiş",
+      "tagLabel": "Etiket:",
+      "tagPlaceholder": "isteğe bağlı",
+      "importing": "İçe aktarılıyor…",
+      "importButton_one": "{{count}} öğeyi içe aktar",
+      "importButton_other": "{{count}} öğeyi içe aktar",
+      "importButtonMultiVault_one": "{{count}} öğe × {{vaultCount}} kasa içe aktar",
+      "importButtonMultiVault_other": "{{count}} öğe × {{vaultCount}} kasa içe aktar",
+      "nothingSelected": "Hiçbir şey seçilmedi",
+      "unnamedKey": "Adsız anahtar",
+      "sshKeyFallback": "SSH anahtarı",
+      "actionSkip": "Atla",
+      "actionInclude": "İçe aktar",
+      "actionOverwrite": "Üzerine yaz",
+      "resultImportedWithErrors": "{{count}} öğe içe aktarıldı{{vaultNote}}, {{errors}} öğe başarısız oldu.",
+      "resultImportedSuccess_one": "{{count}} öğe başarıyla içe aktarıldı{{vaultNote}}.",
+      "resultImportedSuccess_other": "{{count}} öğe başarıyla içe aktarıldı{{vaultNote}}.",
+      "resultVaultNote": " ({{count}} kasaya)",
+      "resultError": "Hata: {{error}}"
+    },
+    "fileInput": {
+      "openFileDefault": "Dosya aç…",
+      "pasteFromClipboard": "Panodan yapıştır",
+      "clear": "Temizle",
+      "dropToLoad": "Yüklemek için bırakın"
+    },
+    "userData": {
+      "import": {
+        "openFileLabel": "Dosya aç…",
+        "placeholder": "Voltius ayarları JSON'unu buraya yapıştırın veya bir dosya bırakın…\n\n{ \"type\": \"voltius-user-data\", \"version\": 2, \"sections\": { ... } }",
+        "foundSections_one": "{{count}} ayar bölümü bulundu",
+        "foundSections_other": "{{count}} ayar bölümü bulundu",
+        "applying": "Uygulanıyor…",
+        "applyButton_one": "{{count}} bölümü uygula",
+        "applyButton_other": "{{count}} bölümü uygula",
+        "applyDefault": "Uygula",
+        "resultApplied_one": "{{count}} ayar uygulandı: {{list}}.",
+        "resultApplied_other": "{{count}} ayar uygulandı: {{list}}.",
+        "resultError": "Hata: {{error}}",
+        "themesReplaceWarning": "Bu cihazdaki özel temaların yerini alır."
+      },
+      "handlers": {
+        "themes": {
+          "label": "Temalar"
+        },
+        "uiPreferences": {
+          "label": "Arayüz tercihleri"
+        },
+        "shortcuts": {
+          "label": "Kısayollar"
+        },
+        "appSettings": {
+          "label": "Uygulama ayarları"
+        },
+        "recentPeople": {
+          "label": "Son kişiler"
+        },
+        "vaults": {
+          "label": "Kasalar"
+        }
+      },
+      "describe": {
+        "themes_one": "{{count}} özel tema",
+        "themes_other": "{{count}} özel tema",
+        "uiPreferences": "ölçek {{scale}}× · düzen: {{layout}}",
+        "shortcutsOverrides_one": "{{count}} değiştirilmiş kısayol",
+        "shortcutsOverrides_other": "{{count}} değiştirilmiş kısayol",
+        "shortcutsDefaults": "Varsayılanlar",
+        "appSettingsShell": "kabuk: {{shell}}",
+        "appSettingsDefault": "Varsayılan ayarlar",
+        "recentPeople_one": "{{count}} son kişi",
+        "recentPeople_other": "{{count}} son kişi",
+        "vaults_one": "{{count}} kasa",
+        "vaults_other": "{{count}} kasa"
+      }
+    }
+  }
+}

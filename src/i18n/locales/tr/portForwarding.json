@@ -1,0 +1,165 @@
+{
+  "portForwarding": {
+    "toolbar": {
+      "filterPlaceholder": "Kuralları filtrele…",
+      "deleteSelected": "Seçilenleri sil",
+      "deleteButton": "SİL",
+      "newRule": "Yeni kural",
+      "newFolder": "Yeni klasör"
+    },
+    "reach": {
+      "copied": "{{address}} panoya kopyalandı"
+    },
+    "page": {
+      "all": "Tümü",
+      "folders": "Klasörler",
+      "new": "Yeni",
+      "noRulesMatchSearch": "Aramanızla eşleşen kural yok.",
+      "folderEmpty": "Bu klasör boş.",
+      "noRulesYet": "Henüz kural yok. Başlamak için bir kural oluşturun.",
+      "addRule": "Kural ekle",
+      "ejectMoveTo": "{{name}} klasörüne taşı",
+      "ejectRemoveFromFolder": "Klasörden çıkar",
+      "total": "Toplam {{count}}",
+      "activeCount": "{{count}} etkin",
+      "errorCount": "{{count}} hata",
+      "contextMenu": {
+        "newRule": "Yeni kural"
+      },
+      "confirmDelete": {
+        "title": "Kuralı sil",
+        "message": "Bu kural kalıcı olarak silinecek."
+      },
+      "confirmDeleteBulk": {
+        "title_one": "{{count}} kuralı sil",
+        "title_other": "{{count}} kuralı sil",
+        "message_one": "{{count}} kuralı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+        "message_other": "{{count}} kuralı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+      },
+      "confirmDeleteFolder": {
+        "title": "Klasörü sil",
+        "message_one": "Klasör, alt klasörleri ve içindeki {{count}} kural silinecek. Bu işlem geri alınamaz.",
+        "message_other": "Klasör, alt klasörleri ve içindeki {{count}} kural silinecek. Bu işlem geri alınamaz.",
+        "messageEmpty": "Klasör ve içindeki her şey silinecek. Bu işlem geri alınamaz."
+      },
+      "vaultCascade": {
+        "moveDescription": "\"{{folderName}}\" taşındığında aşağıdaki kurallar da {{targetVaultName}} kasasına taşınacak:",
+        "copyDescription": "\"{{folderName}}\" kopyalandığında aşağıdaki kurallar da {{targetVaultName}} kasasına kopyalanacak:"
+      },
+      "bulk": {
+        "duplicateRules": "{{count}} kuralı çoğalt",
+        "exportRules": "{{count}} kuralı dışa aktar",
+        "deleteRules": "{{count}} kuralı sil"
+      }
+    },
+    "ruleCard": {
+      "pause": "Duraklat",
+      "resume": "Sürdür",
+      "openWebLink": "Web bağlantısını aç",
+      "activateInSession": "Oturumda etkinleştir",
+      "duplicate": "Çoğalt",
+      "enableCloudSync": "Bulut eşitlemeyi etkinleştir",
+      "disableCloudSync": "Bulut eşitlemeyi devre dışı bırak",
+      "pauseForwarding": "Yönlendirmeyi duraklat",
+      "resumeForwarding": "Yönlendirmeyi sürdür",
+      "active": "Etkin",
+      "error": "Hata",
+      "stopped": "Durduruldu",
+      "noSshSession": "SSH oturumu yok",
+      "openUrl": "{{url}} adresini aç",
+      "scopedToConnections_one": "{{count}} bağlantıyla sınırlı",
+      "scopedToConnections_other": "{{count}} bağlantıyla sınırlı",
+      "connectionsCount_one": "{{count}} bağlantı",
+      "connectionsCount_other": "{{count}} bağlantı"
+    },
+    "activeTunnels": {
+      "sectionTitle": "Etkin oturum yönlendirmeleri",
+      "hostCount_one": "{{count}} sunucu",
+      "hostCount_other": "{{count}} sunucu",
+      "tunnelCount_one": "{{count}} tünel",
+      "tunnelCount_other": "{{count}} tünel",
+      "forwardCount_one": "{{count}} yönlendirme",
+      "forwardCount_other": "{{count}} yönlendirme",
+      "errorCount": "{{count}} hata",
+      "activeCountLabel": "{{count}} etkin",
+      "connected": "Bağlı",
+      "local": "Yerel",
+      "remote": "Uzak",
+      "socks5": "SOCKS5",
+      "auto": "Otomatik",
+      "adHoc": "Geçici",
+      "portLabel": "Port {{port}}",
+      "socksPortLabel": "SOCKS5 :{{port}}",
+      "pauseForwarding": "Yönlendirmeyi duraklat",
+      "resumeForwarding": "Yönlendirmeyi sürdür",
+      "openUrl": "{{url}} adresini aç"
+    },
+    "ruleForm": {
+      "editRule": "Kuralı düzenle",
+      "newRule": "Yeni kural",
+      "general": "Genel",
+      "name": "Ad",
+      "namePlaceholder": "Tünelim",
+      "description": "Açıklama",
+      "descriptionPlaceholder": "Geliştirme sunucusu, veritabanı proxy'si…",
+      "type": "Tür",
+      "ports": "Portlar",
+      "scope": "Kapsam",
+      "tunnelTypes": {
+        "local": {
+          "label": "Yerel",
+          "title": "Yerel tünel",
+          "summary": "SSH sunucusundaki bir hizmeti kendi bilgisayarınızda açın.",
+          "example": "Sunucudaki 127.0.0.1:3000 adresine ulaşmak için bilgisayarınızda localhost:3000 adresini kullanın.",
+          "diagram": [
+            "Bilgisayarınız",
+            "SSH sunucusu",
+            "Uzak hizmet"
+          ]
+        },
+        "remote": {
+          "label": "Uzak",
+          "title": "Uzak tünel",
+          "summary": "Bilgisayarınızdaki bir hizmeti SSH sunucusunda erişime açın.",
+          "example": "Sunucu bir portu dinler ve gelen trafiği bilgisayarınıza geri yönlendirir.",
+          "diagram": [
+            "Uzak kullanıcılar",
+            "SSH sunucusu",
+            "Bilgisayarınız"
+          ]
+        },
+        "dynamic": {
+          "label": "Dinamik",
+          "title": "Dinamik SOCKS proxy'si",
+          "summary": "Uygulama trafiğini SSH sunucusu üzerinden gönderen yerel bir SOCKS5 proxy'si oluşturun.",
+          "example": "Trafiği sunucu üzerinden yönlendirmek için tarayıcıyı veya uygulamayı localhost:1080 adresini kullanacak şekilde ayarlayın.",
+          "diagram": [
+            "Uygulamanız",
+            "SOCKS proxy'si",
+            "SSH sunucusu"
+          ]
+        }
+      },
+      "localPortOnComputer": "Bilgisayarınızdaki port",
+      "localPortHelp": "Bu porta yerel olarak, genellikle localhost:{{port}} adresinden bağlanırsınız.",
+      "remotePortOnServer": "SSH sunucusundaki port",
+      "remotePortOnServerHelp": "Hizmetin, sunucu açısından çalıştığı port.",
+      "hostOnServer": "SSH sunucusu tarafındaki ana bilgisayar",
+      "hostOnServerHelp": "Hizmet doğrudan SSH sunucusunun üzerinde çalışıyorsa 127.0.0.1 kullanın.",
+      "remotePortOpenedOnServer": "SSH sunucusunda açılan port",
+      "remotePortOpenedOnServerHelp": "Sunucu tarafındaki kişiler veya hizmetler bu porta bağlanır.",
+      "localPortReceivingHelp": "Yönlendirilen trafiği alacak yerel uygulama veya hizmet.",
+      "bindAddressOnServer": "SSH sunucusundaki dinleme adresi",
+      "bindAddressOnServerHelp": "127.0.0.1 portu yalnızca sunucuya açık tutar. 0.0.0.0 portu ağa açabilir.",
+      "bindWarning": "0.0.0.0, bu portu uzak sunucunun tüm ağ arayüzlerinde erişime açar.",
+      "hostOnComputer": "Bilgisayarınız tarafındaki ana bilgisayar",
+      "hostOnComputerHelp": "Hedef uygulama bu bilgisayarda çalışıyorsa 127.0.0.1 kullanın.",
+      "socksProxyPort": "Bilgisayarınızdaki SOCKS proxy portu",
+      "socksProxyPortHelp": "Uygulamaları SOCKS5 proxy'si olarak localhost:{{port}} adresini kullanacak şekilde yapılandırın.",
+      "applyTo": "Uygulama kapsamı",
+      "allConnections": "Tüm bağlantılar",
+      "specificConnections": "Belirli bağlantılar",
+      "noSavedConnections": "Kayıtlı bağlantı yok."
+    }
+  }
+}

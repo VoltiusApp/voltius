@@ -24,7 +24,7 @@ describe("localeStore", () => {
 
   it("exposes every shipped locale, English first", () => {
     const values = SUPPORTED_LOCALES.map((l) => l.value);
-    expect(values).toEqual(["en", "fr", "ru", "zh"]);
+    expect(values).toEqual(["en", "fr", "ru", "zh", "tr"]);
   });
 
   it("every supported locale is settable and carries a native label", () => {

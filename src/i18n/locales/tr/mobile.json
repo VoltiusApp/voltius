@@ -1,0 +1,255 @@
+{
+  "mobile": {
+    "tabBar": {
+      "terminal": "Terminal",
+      "sftp": "SFTP",
+      "more": "Daha fazla"
+    },
+    "filterBar": {
+      "placeholder": "Filtrele…"
+    },
+    "header": {
+      "syncTooltip": "Eşitleme: {{status}}",
+      "syncStatus": {
+        "idle": "Beklemede",
+        "syncing": "Eşitleniyor",
+        "success": "Eşitlendi",
+        "error": "Hata",
+        "offline": "Çevrimdışı"
+      }
+    },
+    "remoteSessions": {
+      "title": "Diğer cihazlarda canlı",
+      "relativeTime": {
+        "justNow": "az önce",
+        "minutesAgo": "{{count}} dk önce",
+        "hoursAgo": "{{count}} sa önce",
+        "daysAgo": "{{count}} gün önce"
+      }
+    },
+    "snippets": {
+      "searchPlaceholder": "Kod parçacıklarında ara",
+      "noMatches": "Eşleşme yok",
+      "empty": "Henüz kod parçacığı yok",
+      "insertAriaLabel": "Ekle",
+      "executeAriaLabel": "Çalıştır",
+      "moreAriaLabel": "Daha fazla",
+      "newFolderTitle": "Yeni klasör"
+    },
+    "terminalGestures": {
+      "selectAll": "Tümü",
+      "paste": "Yapıştır"
+    },
+    "terminalTopBar": {
+      "exitAriaLabel": "Terminalden çık",
+      "newSessionAriaLabel": "Yeni oturum",
+      "panelsAriaLabel": "Paneller"
+    },
+    "panelItems": {
+      "sftp": "SFTP",
+      "docker": "Docker",
+      "metrics": "Ölçümler",
+      "processes": "İşlemler",
+      "proxmox": "Proxmox"
+    },
+    "morePages": {
+      "keychain": "Anahtar zinciri",
+      "portForwarding": "Port yönlendirme",
+      "knownHosts": "Bilinen sunucular",
+      "members": "Üyeler",
+      "logs": "Günlükler"
+    },
+    "account": {
+      "title": "Hesap",
+      "email": "E-posta",
+      "notSignedIn": "Oturum açılmadı",
+      "plan": "Plan",
+      "cloudSync": "Bulut eşitleme",
+      "off": "Kapalı",
+      "proTrial": "Pro deneme — {{days}} gün kaldı",
+      "tier": {
+        "free": "Ücretsiz",
+        "pro": "Pro",
+        "teams": "Teams",
+        "business": "Business"
+      },
+      "cancelsOn": "{{date}} tarihinde iptal edilecek. O zamana kadar erişiminiz devam eder.",
+      "periodEnd": "dönem sonu",
+      "renewsOn": "Yenilenme tarihi: {{date}}.",
+      "subscriptionActive": "Aboneliğiniz etkin.",
+      "seats": "Lisanslar",
+      "seatsUsed": "{{used}} / {{total}} kullanılıyor",
+      "upgradeToPro": "Pro'ya yükselt",
+      "upgradeToTeams": "Teams'e yükselt",
+      "manageBilling": "Faturalandırmayı yönet",
+      "viewAllPlans": "Tüm planları gör",
+      "signInToSync": "Eşitlemek için oturum açın",
+      "signOutConfirm": "Oturum kapatılsın mı? Şifreli kasanız bu cihazdan kaldırılır ve yeniden oturum açtığınızda tekrar eşitlenir.",
+      "signOut": "Oturumu kapat"
+    },
+    "more": {
+      "settings": "Ayarlar",
+      "planLabel": "{{tier}} planı"
+    },
+    "host": {
+      "newTitle": "Yeni sunucu",
+      "editTitle": "Sunucuyu düzenle"
+    },
+    "hostsScreen": {
+      "searchPlaceholder": "Sunucularda ara",
+      "clearSearchAriaLabel": "Aramayı temizle",
+      "emptyNoHosts": "Henüz sunucu yok — eklemek için + simgesine dokunun"
+    },
+    "keychainScreen": {
+      "filterPlaceholder": "Anahtar zincirini filtrele…",
+      "sshKeysHeader": "SSH ANAHTARLARI",
+      "identitiesHeader": "KİMLİKLER",
+      "addedOn": "eklenme: {{date}}",
+      "noSearchMatches": "Aramanızla eşleşen bir şey yok",
+      "empty": "Anahtar zinciri boş"
+    },
+    "knownHostsScreen": {
+      "filterPlaceholder": "Sunucuları filtrele…",
+      "noSearchMatches": "Aramanızla eşleşen bilinen sunucu yok",
+      "empty": "Henüz bilinen sunucu yok — bir sunucuya bağlandığınızda burada görünürler."
+    },
+    "logsScreen": {
+      "filterPlaceholder": "Günlükleri filtrele…",
+      "retry": "Tekrar dene",
+      "prev": "Önceki",
+      "next": "Sonraki",
+      "pageIndicator": "Sayfa {{page}} / {{total}}"
+    },
+    "portForwardingScreen": {
+      "filterPlaceholder": "Kuralları filtrele…",
+      "summary": "{{total}} toplam · {{active}} etkin",
+      "noSearchMatches": "Aramanızla eşleşen kural yok",
+      "empty": "Henüz port yönlendirme kuralı yok",
+      "newRuleLabel": "Yeni kural"
+    },
+    "snippetEdit": {
+      "editTitle": "Kod parçacığını düzenle",
+      "newTitle": "Yeni kod parçacığı",
+      "namePlaceholder": "Kod parçacığı adı",
+      "contentPlaceholder": "echo hello",
+      "delete": "Kod parçacığını sil"
+    },
+    "snippetsScreen": {
+      "newSnippetLabel": "Yeni kod parçacığı"
+    },
+    "terminalScreen": {
+      "noActiveSessions": "Etkin oturum yok",
+      "pickHost": "Bir sunucu seçin"
+    },
+    "sftp": {
+      "chooseHost": "Bir sunucu seçin",
+      "hidden": "Gizli",
+      "visible": "Görünür",
+      "connecting": "Bağlanıyor…",
+      "reconnecting": "Yeniden bağlanıyor…",
+      "reconnectNow": "Şimdi yeniden bağlan",
+      "permissionDenied": "İzin reddedildi",
+      "goUp": "Yukarı çık",
+      "emptyFolder": "Klasör boş",
+      "selectedCount": "{{count}} seçildi",
+      "downloadSelectedAriaLabel": "Seçilenleri indir",
+      "deleteSelectedAriaLabel": "Seçilenleri sil",
+      "clearSelectionAriaLabel": "Seçimi temizle",
+      "copyToOtherPane": "Diğer bölmeye kopyala",
+      "download": "İndir",
+      "details": "Ayrıntılar",
+      "copyPath": "Yolu kopyala",
+      "renameTitle": "Yeniden adlandır: {{name}}",
+      "deleteConfirmTitle": "{{name}} silinsin mi?",
+      "detail": {
+        "path": "Yol",
+        "type": "Tür",
+        "size": "Boyut",
+        "permissions": "İzinler",
+        "modified": "Değiştirilme"
+      },
+      "typeSymlink": "Sembolik bağlantı",
+      "typeFile": "Dosya",
+      "batchDeleteTitle_one": "{{count}} öğe silinsin mi?",
+      "batchDeleteTitle_other": "{{count}} öğe silinsin mi?",
+      "newFileOption": "Yeni dosya",
+      "folderNamePlaceholder": "Klasör adı",
+      "fileNamePlaceholder": "Dosya adı"
+    },
+    "folders": {
+      "home": "Ana sayfa"
+    },
+    "sheets": {
+      "shared": {
+        "moveToVault": "Kasaya taşı",
+        "copyToVault": "Kasaya kopyala",
+        "moveToFolder": "Klasöre taşı",
+        "back": "Geri",
+        "duplicate": "Çoğalt",
+        "pin": "Sabitle",
+        "unpin": "Sabitlemeyi kaldır",
+        "confirmDeleteBody": "{{name}} kalıcı olarak silinsin mi? Bu işlem geri alınamaz."
+      },
+      "folderActions": {
+        "renameTitle": "Klasörü yeniden adlandır",
+        "deleteTitle": "Klasör silinsin mi?",
+        "deleteBody": "{{name}} ve içindeki her şey silinsin mi? Bu işlem geri alınamaz."
+      },
+      "hostActions": {
+        "deleteTitle": "Sunucu silinsin mi?",
+        "openFiles": "Dosyaları aç",
+        "copyAddress": "Adresi kopyala",
+        "copiedAddress": "Kopyalandı: {{host}}",
+        "enableCloudSync": "Bulut eşitlemeyi etkinleştir",
+        "disableCloudSync": "Bulut eşitlemeyi devre dışı bırak",
+        "enableReachabilityCheck": "Erişilebilirlik denetimini etkinleştir",
+        "disableReachabilityCheck": "Erişilebilirlik denetimini devre dışı bırak"
+      },
+      "keychainActions": {
+        "unnamedKey": "Adsız anahtar",
+        "deleteKeyTitle": "Anahtar silinsin mi?",
+        "deleteIdentityTitle": "Kimlik silinsin mi?",
+        "copyPublicKey": "Açık anahtarı kopyala",
+        "copiedPublicKey": "Açık anahtar kopyalandı",
+        "noPublicKeyStored": "Kayıtlı açık anahtar yok",
+        "copyUsername": "Kullanıcı adını kopyala",
+        "copiedUsername": "Kullanıcı adı kopyalandı"
+      },
+      "knownHostActions": {
+        "deleteTitle": "Bilinen sunucu silinsin mi?",
+        "deleteBody": "Bu işlem güvenilen parmak izini kaldırır. Bu sunucuya yapılacak bir sonraki bağlantı yeni bir bağlantı olarak değerlendirilir.",
+        "copyFingerprint": "Parmak izini kopyala",
+        "copiedFingerprint": "Parmak izi kopyalandı"
+      },
+      "logsExport": {
+        "title": "Günlükleri dışa aktar",
+        "exportCsv": "CSV olarak dışa aktar",
+        "exportJson": "JSON olarak dışa aktar"
+      },
+      "snippetActions": {
+        "deleteTitle": "Kod parçacığı silinsin mi?"
+      },
+      "snippetTarget": {
+        "executeTitle": "Çalıştır: \"{{name}}\"",
+        "insertTitle": "Ekle: \"{{name}}\"",
+        "confirmExecute_one": "{{count}} hedefte çalıştır",
+        "confirmExecute_other": "{{count}} hedefte çalıştır",
+        "confirmInsert_one": "{{count}} hedefe ekle",
+        "confirmInsert_other": "{{count}} hedefe ekle",
+        "activeSessions": "Etkin oturumlar",
+        "openNewConnection": "Yeni bağlantı aç",
+        "noHosts": "Sunucu yok"
+      },
+      "ruleActions": {
+        "deleteTitle": "Kural silinsin mi?"
+      },
+      "sftpHostPicker": {
+        "noSshHosts": "SSH sunucusu yok"
+      },
+      "vaultSwitcher": {
+        "newVault": "Yeni kasa",
+        "namePlaceholder": "Kasa adı"
+      }
+    }
+  }
+}

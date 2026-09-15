@@ -1,0 +1,147 @@
+{
+  "logs": {
+    "gate": {
+      "noVaultSelected": {
+        "title": "Kasa seçilmedi",
+        "description": "Denetim günlüklerini görüntülemek için tek bir kasa seçin."
+      },
+      "restricted": {
+        "title": "Erişim kısıtlı",
+        "description": "Bu sayfaya erişmek için Denetim günlüğünü görüntüleme iznine sahip olmanız gerekir."
+      }
+    },
+    "filters": {
+      "searchPlaceholder": "Günlükleri filtrele...",
+      "allActors": "Tüm kullanıcılar",
+      "fromDate": "Başlangıç tarihi",
+      "toDate": "Bitiş tarihi",
+      "dateRangeSeparator": "–",
+      "reset": "Sıfırla",
+      "actionOptions": {
+        "all": "Tüm işlemler",
+        "memberInvited": "Üye davet edildi",
+        "memberJoined": "Üye katıldı",
+        "memberRemoved": "Üye çıkarıldı",
+        "memberRoleChanged": "Rol değiştirildi",
+        "memberPermissionsChanged": "İzinler değiştirildi",
+        "connectionCreated": "Sunucu oluşturuldu",
+        "connectionUpdated": "Sunucu güncellendi",
+        "connectionDeleted": "Sunucu silindi",
+        "identityCreated": "Kimlik oluşturuldu",
+        "identityUpdated": "Kimlik güncellendi",
+        "identityDeleted": "Kimlik silindi",
+        "keyCreated": "Anahtar oluşturuldu",
+        "keyUpdated": "Anahtar güncellendi",
+        "keyDeleted": "Anahtar silindi",
+        "snippetCreated": "Kod parçacığı oluşturuldu",
+        "snippetUpdated": "Kod parçacığı güncellendi",
+        "snippetDeleted": "Kod parçacığı silindi",
+        "folderCreated": "Klasör oluşturuldu",
+        "folderUpdated": "Klasör güncellendi",
+        "folderDeleted": "Klasör silindi",
+        "portForwardCreated": "Port yönlendirme oluşturuldu",
+        "portForwardUpdated": "Port yönlendirme güncellendi",
+        "portForwardDeleted": "Port yönlendirme silindi",
+        "vaultRenamed": "Kasa yeniden adlandırıldı",
+        "vaultKeyRotated": "Anahtar yenilendi",
+        "roleCreated": "Rol oluşturuldu",
+        "roleUpdated": "Rol güncellendi",
+        "roleDeleted": "Rol silindi",
+        "connectionStarted": "Bağlantı başlatıldı",
+        "connectionEnded": "Bağlantı sonlandı",
+        "secretViewed": "Gizli bilgi gösterildi",
+        "sessionStarted": "Oturum başlatıldı",
+        "sessionEnded": "Oturum sonlandı",
+        "sessionJoined": "Oturuma katılındı"
+      }
+    },
+    "timeRange": {
+      "lastDay": "Son 24 saat",
+      "lastWeek": "Son bir hafta",
+      "lastMonth": "Son 30 gün",
+      "all": "Tüm zamanlar",
+      "custom": "Özel aralık"
+    },
+    "layout": {
+      "timeline": "Zaman çizelgesi",
+      "horizontal": "Görsel",
+      "list": "Liste"
+    },
+    "export": {
+      "button": "Dışa aktar",
+      "failed": "Dışa aktarma başarısız oldu"
+    },
+    "badges": {
+      "client": "istemci",
+      "clientTooltip": "İstemci uygulaması tarafından bildirildi — kesin kaynak değildir"
+    },
+    "eventLabels": {
+      "memberInvited": "davet etti: {{name}}",
+      "memberJoined": "ekibe {{role}} olarak katıldı",
+      "memberRemoved": "ekipten çıkardı: {{name}}",
+      "memberRoleChanged": "rolü değiştirdi: {{name}}",
+      "memberPermissionsChanged": "izinleri değiştirdi: {{name}}",
+      "vaultCreated": "\"{{name}}\" kasasını oluşturdu",
+      "vaultDeleted": "\"{{name}}\" kasasını sildi",
+      "vaultRenamed": "kasayı \"{{name}}\" olarak yeniden adlandırdı",
+      "vaultKeyRotated": "\"{{name}}\" kasasının anahtarını yeniledi",
+      "roleCreated": "\"{{name}}\" rolünü oluşturdu",
+      "roleUpdated": "\"{{name}}\" rolünü güncelledi",
+      "roleDeleted": "\"{{name}}\" rolünü sildi",
+      "permissionGranted": "izin verdi: {{name}}",
+      "permissionRevoked": "izni kaldırdı: {{name}}",
+      "connectionCreated": "\"{{name}}\" sunucusunu oluşturdu",
+      "connectionUpdated": "\"{{name}}\" sunucusunu güncelledi",
+      "connectionDeleted": "\"{{name}}\" sunucusunu sildi",
+      "connectionStarted": "bağlandı: {{name}}",
+      "connectionEnded": "bağlantıyı kesti: {{name}}",
+      "identityCreated": "\"{{name}}\" kimliğini oluşturdu",
+      "identityUpdated": "\"{{name}}\" kimliğini güncelledi",
+      "identityDeleted": "\"{{name}}\" kimliğini sildi",
+      "keyCreated": "\"{{name}}\" anahtarını oluşturdu",
+      "keyUpdated": "\"{{name}}\" anahtarını güncelledi",
+      "keyDeleted": "\"{{name}}\" anahtarını sildi",
+      "snippetCreated": "\"{{name}}\" kod parçacığını oluşturdu",
+      "snippetUpdated": "\"{{name}}\" kod parçacığını güncelledi",
+      "snippetDeleted": "\"{{name}}\" kod parçacığını sildi",
+      "folderCreated": "\"{{name}}\" klasörünü oluşturdu",
+      "folderUpdated": "\"{{name}}\" klasörünü güncelledi",
+      "folderDeleted": "\"{{name}}\" klasörünü sildi",
+      "portForwardCreated": "\"{{name}}\" port yönlendirmesini oluşturdu",
+      "portForwardUpdated": "\"{{name}}\" port yönlendirmesini güncelledi",
+      "portForwardDeleted": "\"{{name}}\" port yönlendirmesini sildi",
+      "secretViewed": "\"{{name}}\" gizli bilgisini görüntüledi",
+      "sessionStarted": "terminal oturumu başlattı",
+      "sessionEnded": "terminal oturumunu sonlandırdı",
+      "sessionJoined": "terminal oturumuna katıldı",
+      "sessionLeft": "terminal oturumundan ayrıldı",
+      "fallbackUser": "bir kullanıcı",
+      "fallbackMember": "bir üye",
+      "fallbackRole": "üye",
+      "fallbackResource": "bir kaynak",
+      "fallbackHost": "bir sunucu"
+    },
+    "timeline": {
+      "today": "Bugün",
+      "yesterday": "Dün",
+      "weekOf": "{{date}} haftası"
+    },
+    "list": {
+      "columns": {
+        "actor": "Kullanıcı",
+        "action": "İşlem",
+        "target": "Hedef",
+        "time": "Zaman"
+      }
+    },
+    "pagination": {
+      "prev": "Önceki",
+      "next": "Sonraki",
+      "pageOf": "Sayfa {{page}} / {{totalPages}}"
+    },
+    "emptyState": "Filtrelerinizle eşleşen olay yok.",
+    "error": {
+      "retry": "Tekrar dene"
+    }
+  }
+}

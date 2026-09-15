@@ -1,0 +1,147 @@
+{
+  "hosts": {
+    "toolbar": {
+      "filterPlaceholder": "Sunucuları filtrele...",
+      "openSerialConsole": "Seri konsolu aç",
+      "serial": "Seri",
+      "terminal": "Terminal",
+      "importExport": "İçe/dışa aktar",
+      "import": "İçe aktar…",
+      "export": "Dışa aktar…",
+      "fromImporter": "{{label}} kaynağından",
+      "newHost": "Yeni sunucu",
+      "newSerialHost": "Yeni seri sunucu",
+      "newFolder": "Yeni klasör"
+    },
+    "card": {
+      "pin": "Sabitle",
+      "unpin": "Sabitlemeyi kaldır",
+      "pinned": "Sabitlendi",
+      "pinnedByTeam": "{{name}} tarafından ekip için sabitlendi",
+      "pinnedByTeamAndPersonal": "{{name}} tarafından ekip için sabitlendi · siz de sabitlediniz",
+      "hiddenPinnedByTeam": "Görünümünüzde gizli · {{name}} tarafından ekip için sabitlendi",
+      "teamMemberFallback": "bir ekip üyesi",
+      "unpinForMe": "Benim için sabitlemeyi kaldır",
+      "showInMyView": "Görünümümde göster",
+      "hideForMe": "Benim için gizle",
+      "pinForMe": "Benim için sabitle",
+      "unpinForTeam": "Ekip için sabitlemeyi kaldır",
+      "pinForTeam": "Ekip için sabitle",
+      "openInSftp": "SFTP'de aç",
+      "copyHostnameIp": "Ana bilgisayar adını/IP'yi kopyala",
+      "copiedHost": "{{host}} kopyalandı",
+      "executeSnippet": "Kod parçacığı çalıştır",
+      "cloudSyncDisabled": "Bulut eşitleme devre dışı",
+      "enableCloudSync": "Bulut eşitlemeyi etkinleştir",
+      "disableCloudSync": "Bulut eşitlemeyi devre dışı bırak",
+      "enableReachability": "Ulaşılabilirlik denetimini etkinleştir",
+      "disableReachability": "Ulaşılabilirlik denetimini devre dışı bırak",
+      "connectTitle": "Bağlan (veya çift tıklayın)",
+      "openFilesTitle": "Dosyaları aç (veya çift tıklayın)",
+      "inUseBy": "{{name}} tarafından kullanılıyor",
+      "inUseByOverflow_one": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor",
+      "inUseByOverflow_other": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor"
+    },
+    "page": {
+      "all": "Tümü",
+      "folders": "Klasörler",
+      "new": "Yeni",
+      "pinned": "Sabitlenenler",
+      "folderEmpty": "Bu klasör boş",
+      "addHost": "Sunucu ekle",
+      "noSearchResults": "\"{{search}}\" ile eşleşen sunucu yok",
+      "ejectMoveTo": "{{name}} klasörüne taşı",
+      "ejectRemoveFromFolder": "Klasörden çıkar",
+      "emptyState": {
+        "title": "Henüz sunucu yok",
+        "subtitle": "Başlamak için ilk SSH sunucunuzu ekleyin"
+      },
+      "draft": {
+        "unsaved": "Kaydedilmedi"
+      },
+      "vaultCascade": {
+        "moveDescription": "\"{{folderName}}\" taşındığında aşağıdaki öğeler de {{targetVaultName}} kasasına taşınacak:",
+        "copyDescription": "\"{{folderName}}\" kopyalandığında aşağıdaki öğeler de {{targetVaultName}} kasasına kopyalanacak:"
+      },
+      "bulk": {
+        "executeSnippetOn_one": "{{count}} sunucuda kod parçacığı çalıştır",
+        "executeSnippetOn_other": "{{count}} sunucuda kod parçacığı çalıştır",
+        "connectHosts": "{{count}} sunucuya bağlan",
+        "duplicateHosts": "{{count}} sunucuyu çoğalt",
+        "moveItemsTo_one": "{{count}} öğeyi şuraya taşı",
+        "moveItemsTo_other": "{{count}} öğeyi şuraya taşı",
+        "copyItemsTo_one": "{{count}} öğeyi şuraya kopyala",
+        "copyItemsTo_other": "{{count}} öğeyi şuraya kopyala",
+        "enableCloudSync": "Bulut eşitlemeyi etkinleştir ({{count}})",
+        "disableCloudSync": "Bulut eşitlemeyi devre dışı bırak ({{count}})",
+        "enableReachability": "Ulaşılabilirlik denetimini etkinleştir ({{count}})",
+        "disableReachability": "Ulaşılabilirlik denetimini devre dışı bırak ({{count}})",
+        "exportHosts": "{{count}} sunucuyu dışa aktar",
+        "deleteItems_one": "{{count}} öğeyi sil",
+        "deleteItems_other": "{{count}} öğeyi sil"
+      },
+      "confirmDelete": {
+        "title_one": "{{count}} öğeyi sil",
+        "title_other": "{{count}} öğeyi sil",
+        "message_one": "{{count}} öğeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+        "message_other": "{{count}} öğeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+        "folderCascade_one": "Seçili klasörlerde bulunan {{count}} sunucu da silinecek.",
+        "folderCascade_other": "Seçili klasörlerde bulunan {{count}} sunucu da silinecek."
+      },
+      "confirmDeleteFolder": {
+        "title": "Klasörü sil",
+        "message_one": "Klasör, alt klasörleri ve içindeki {{count}} sunucu silinecek. Bu işlem geri alınamaz.",
+        "message_other": "Klasör, alt klasörleri ve içindeki {{count}} sunucu silinecek. Bu işlem geri alınamaz.",
+        "messageEmpty": "Klasör ve içindeki her şey silinecek. Bu işlem geri alınamaz."
+      }
+    },
+    "remoteSessions": {
+      "title": "Diğer cihazlarda etkin",
+      "justNow": "az önce",
+      "minutesAgo": "{{count}} dk önce",
+      "hoursAgo": "{{count}} sa önce",
+      "daysAgo": "{{count}} gün önce",
+      "kill": "Oturumu sonlandır",
+      "killing": "Oturum sonlandırılıyor…",
+      "undo": "Geri al",
+      "killFailed": "Uzaktan sonlandırılamadı — sonlandırmak için oturumu açın",
+      "dismiss": "Kapat"
+    },
+    "teamSessions": {
+      "title": "Ekip oturumları",
+      "joinByCode": "Kodla katıl",
+      "emptyHint": "Ekip arkadaşlarınızın paylaştığı terminaller burada görünür. Davet kodunuz mu var? Katılmak için arama alanına yapıştırın.",
+      "live": "CANLI",
+      "pasteInviteCode": "Özel bir oturuma katılmak için davet bağlantısını veya kodunu yapıştırın:",
+      "inviteCodePlaceholder": "voltius://join?… veya sessionId:token",
+      "join": "Katıl",
+      "resume": "Sürdür",
+      "invalidCodeFormat": "Geçersiz davet — oturumu paylaşan kişinin size gönderdiği bağlantıyı veya kodu yapıştırın",
+      "failedToJoinSession": "Oturuma katılınamadı",
+      "sharedTerminalFallback": "Paylaşılan terminal"
+    },
+    "snippetPicker": {
+      "title": "Kod parçacığı çalıştır",
+      "goToSnippets": "Kod parçacıklarına git",
+      "filterPlaceholder": "Kod parçacıklarını filtrele...",
+      "newSnippetTitle": "Yeni kod parçacığı",
+      "new": "Yeni",
+      "noSnippetsYet": "Henüz kod parçacığı yok",
+      "createSnippet": "Kod parçacığı oluştur",
+      "noSnippetsMatch": "Eşleşen kod parçacığı yok",
+      "recent": "Son kullanılanlar",
+      "allSnippets": "Tüm kod parçacıkları",
+      "hostsSelected_one": "{{count}} sunucu seçildi",
+      "hostsSelected_other": "{{count}} sunucu seçildi",
+      "insert": "Ekle",
+      "execute": "Çalıştır"
+    },
+    "hostCommand": {
+      "labelPre": "{{host}} — Ön komut",
+      "labelPost": "{{host}} — Son komut",
+      "failed": "{{host}} için sunucu komutu başarısız oldu: {{error}}",
+      "missingSnippet": "{{host}} için sunucu komutunun kod parçacığı bulunamadı",
+      "postPromptTimedOut": "{{host}} için son komut atlandı: 60 saniye içinde yanıt gelmedi"
+    }
+  }
+}

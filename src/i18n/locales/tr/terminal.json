@@ -1,0 +1,320 @@
+{
+  "terminal": {
+    "shared": {
+      "copied": "Kopyalandı",
+      "insert": "Ekle",
+      "insertAndExecute": "Ekle ve çalıştır",
+      "noActiveSession": "Etkin oturum yok"
+    },
+    "historyPanel": {
+      "relativeTime": {
+        "justNow": "az önce",
+        "secondsAgo": "{{count}} sn önce",
+        "minutesAgo": "{{count}} dk önce",
+        "hoursAgo": "{{count}} sa önce",
+        "daysAgo": "{{count}} gün önce"
+      },
+      "removeFromHistory": "Geçmişten kaldır",
+      "searchPlaceholder": "Geçmişte ara…",
+      "showCurrentOnly": "Yalnızca geçerli bağlantı gösteriliyor",
+      "showAllConnections": "Tüm bağlantıları göster",
+      "clearAllTitle": "Tüm geçmişi temizle",
+      "noCommandsMatch": "Eşleşen komut yok",
+      "noHistoryForConnection": "Bu bağlantı için henüz geçmiş yok",
+      "noHistoryYet": "Henüz komut geçmişi yok.\nYazdığınız komutlar burada görünür."
+    },
+    "multiplayerBar": {
+      "ended": "Sona erdi",
+      "sharing": "Paylaşıyorsunuz",
+      "watching": "İzliyorsunuz",
+      "requestControl": "Kontrol iste",
+      "requestPending": "İstendi — oturum sahibi bekleniyor",
+      "youHaveControl": "Kontrol sizde",
+      "controlRequested": "Kontrol istendi",
+      "grant": "İzin ver",
+      "deny": "Reddet",
+      "revoke": "Geri al",
+      "stopSharingTitle": "Paylaşımı durdur",
+      "leaveSessionTitle": "Oturumdan ayrıl",
+      "stop": "Durdur",
+      "leave": "Ayrıl"
+    },
+    "sftp": {
+      "hostLabel": {
+        "remote": "uzak",
+        "localMachine": "Yerel bilgisayar"
+      },
+      "uploadDialogTitle": "Yüklenecek dosyaları seçin",
+      "downloadDialogTitle": "Klasöre indir",
+      "waitingForSession": "Oturum bekleniyor",
+      "connecting": "Bağlanıyor…",
+      "notSupportedForSessionType": "Bu oturum türünde SFTP desteklenmiyor",
+      "followPinned": "Terminalin çalışma dizini izleniyor · sabitlemeyi kaldırmak için tıklayın",
+      "followWaiting": "Terminalin çalışma dizini izleniyor · kabuğun dizini bildirmesi bekleniyor (kabuk entegrasyonu gerekir)",
+      "followTitle": "Terminalin çalışma dizinini izle",
+      "uploadFiles": "Dosya yükle",
+      "downloadTitle_one": "\"{{name}}\" öğesini indir",
+      "downloadTitle_other": "{{count}} öğeyi indir",
+      "selectFilesToDownload": "İndirilecek dosyaları seçin",
+      "viewOptions": "Görünüm seçenekleri",
+      "moreOptions": "Diğer seçenekler"
+    },
+    "ports": {
+      "badge": {
+        "auto": "Otomatik",
+        "adHoc": "Geçici"
+      },
+      "pauseForwarding": "Yönlendirmeyi duraklat",
+      "resumeForwarding": "Yönlendirmeyi sürdür",
+      "saveAsRule": "Kural olarak kaydet",
+      "copyAddress": "localhost:{{port}} adresini kopyala",
+      "openUrl": "{{url}} adresini aç",
+      "sshRequired": "Port yönlendirme için bir SSH oturumu gerekir.",
+      "empty": "Yönlendirilen port yok. Uzak sunucuda algılanan portlar burada otomatik olarak görünür.",
+      "sectionSaved": "KAYITLI",
+      "sectionActive": "ETKİN",
+      "sectionSuppressed": "GİZLENEN",
+      "header": {
+        "title": "Portlar",
+        "activeCount": "{{count}} etkin",
+        "addTitle": "Port yönlendir"
+      },
+      "quickForwardPlaceholder": "Port yönlendir (örn. 3000 veya 3000:8080)",
+      "quickForwardErrors": {
+        "emptyInput": "Bir port girin",
+        "tooManyParts": "Port veya uzak:yerel biçimini kullanın",
+        "invalidRemotePort": "Port 1–65535 arasında olmalıdır",
+        "invalidLocalPort": "Yerel port 1–65535 arasında olmalıdır"
+      }
+    },
+    "rightPanel": {
+      "font": "Yazı tipi",
+      "themes": "Temalar",
+      "themeActive": "etkin",
+      "themeBuiltin": "yerleşik",
+      "themeCustom": "özel",
+      "createNewTheme": "Yeni tema oluştur",
+      "closePanelTitle": "Paneli kapat",
+      "sections": {
+        "history": "Geçmiş",
+        "sftp": "SFTP"
+      },
+      "pluginUnavailable": "Bu panel artık kullanılamıyor. Paneli sağlayan eklenti kaldırıldı veya devre dışı bırakıldı.",
+      "pluginUnavailableAction": "Temalara dön"
+    },
+    "share": {
+      "signInToShare": "Paylaşmak için oturum açın",
+      "signInDescription": "Terminalinizi ekip arkadaşlarınızla paylaşmak için bir sunucu hesabı bağlayın.",
+      "signInButton": "Oturum aç / Kaydol",
+      "proRequired": "Pro gerekli",
+      "proRequiredDescription": "Terminal paylaşımı Pro ve üstü planlarda kullanılabilir.",
+      "features": [
+        "1 davet bağlantılı oturum · 1 katılımcı",
+        "Gerçek zamanlı bulut eşitleme",
+        "Teams: 5 oturum · 10 katılımcı + paylaşılan kasalar"
+      ],
+      "upgradeToPro": "Pro'ya yükselt",
+      "shareTerminal": "Terminali paylaş",
+      "sessionNamePlaceholder": "Oturum adı…",
+      "tabPeople": "Kişiler",
+      "tabTeam": "Ekip kasası",
+      "tabInviteLink": "Bağlantı",
+      "sessionLimitReached": "Planınızın oturum sınırına ulaşıldı.",
+      "failedToShare": "Paylaşılamadı",
+      "failedToGenerateLink": "Bağlantı oluşturulamadı",
+      "noVaultsCreateTeamFirst": "Kasa yok — önce bir ekip oluşturun",
+      "allRoles": "tüm roller",
+      "startSharingWithVault_one": "{{count}} kasayla paylaşmaya başla",
+      "startSharingWithVault_other": "{{count}} kasayla paylaşmaya başla",
+      "selectVaultToShare": "Paylaşılacak bir kasa seçin",
+      "shareCodeDescription": "Bu kodu paylaşın — koda sahip olan herkes katılabilir:",
+      "generateLinkDescription": "Tek kullanımlık bir bağlantı oluşturun. Voltius hesabı olan herkes katılabilir.",
+      "generateInviteLink": "Davet bağlantısı oluştur",
+      "upToParticipants_one": "En fazla {{count}} katılımcı",
+      "upToParticipants_other": "En fazla {{count}} katılımcı",
+      "upgradeToTeamsForParticipants": "10 katılımcı ve paylaşılan kasalar için Teams'e yükseltin",
+      "live": "Canlı",
+      "waitingForGuests": "Birinin katılması bekleniyor…",
+      "participantsRatio_one": "{{participantCount}} / {{guestCap}} katılımcı",
+      "participantsRatio_other": "{{participantCount}} / {{guestCap}} katılımcı",
+      "guestsRatio_one": "{{participantCount}} / {{guestCap}} konuk",
+      "guestsRatio_other": "{{participantCount}} / {{guestCap}} konuk",
+      "upgradeToTeams": "Teams'e yükselt",
+      "upgradeToBusiness": "Business'a yükselt",
+      "stopSharing": "Paylaşımı durdur",
+      "inviteHasAccess": "Erişimi var",
+      "inviteSent": "Davet edildi",
+      "inviteCapReached": "Sınıra ulaşıldı",
+      "inviteFailed": "{{name}} davet edilemedi",
+      "withdrawInvite": "Geri çek",
+      "uninviteFailed": "Davet geri çekilemedi",
+      "inviteNoTeammates": "Henüz ekip arkadaşı yok",
+      "inviteLoadFailed": "Ekip arkadaşları yüklenemedi",
+      "peopleSearchPlaceholder": "@kullanıcı adı veya e-postayla ara…",
+      "peopleNoMatch": "Ekiplerinizde \"{{query}}\" ile eşleşen kimse yok.",
+      "peopleFindRule": "Ekiplerinizin dışındaki kişiler @kullanıcı adlarıyla veya tam e-posta adresleriyle bulunur.",
+      "recentLabel": "Son kullanılanlar",
+      "recentEmpty": "Davet ettiğiniz kişiler burada görünür.",
+      "yourTeamsLabel": "Ekipleriniz",
+      "elsewhereLabel": "Voltius'taki diğer kişiler",
+      "notInYourTeams": "Ekiplerinizde değil",
+      "presenceOnline": "Çevrimiçi",
+      "presenceOffline": "Çevrimdışı",
+      "forgetPerson": "Son kullanılanlardan kaldır",
+      "deepLinkJoinTitle": "Paylaşılan terminale katılmak istiyor musunuz?",
+      "deepLinkJoinBody": "Biri sizinle canlı bir terminal oturumu paylaştı. Katıldığınızda oturuma hemen bağlanırsınız.",
+      "deepLinkJoinUnknownHost": "Voltius, siz katılana kadar oturumu kimin paylaştığını belirleyemez.",
+      "deepLinkJoinAction": "Oturuma katıl",
+      "deepLinkJoinFailed": "Oturuma katılınamadı — bağlantının süresi dolmuş olabilir.",
+      "deepLinkInviteTitle": "@{{handle}} davet edilsin mi?",
+      "deepLinkInviteBody": "Bu bağlantı, @{{handle}} kullanıcısını paylaştığınız terminale davet etmenizi istiyor. Bu kişi o terminaldeki her şeyi görecek.",
+      "deepLinkInviteUnknownUser": "@{{handle}} ile tam olarak eşleşen bir Voltius hesabı yok.",
+      "deepLinkInviteNoActiveSession": "Şu anda bir terminal paylaşmıyorsunuz. Bir terminali paylaşmaya başlayın, ardından bu bağlantıyı yeniden açın.",
+      "deepLinkInviteAction": "Davet et",
+      "deepLinkInviteFailed": "Davet gönderilemedi",
+      "getSpokenCode": "Sesli okunacak bir kod al",
+      "codeExpired": "Kodun süresi doldu — yeni bir kod alın",
+      "newCode": "Yeni kod",
+      "readAloudHint": "Yüksek sesle söyleyin",
+      "expiresIn": "{{time}} içinde sona erer",
+      "failedToMintCode": "Kod oluşturulamadı"
+    },
+    "snippetVariableModal": {
+      "on": "Açık",
+      "off": "Kapalı",
+      "masked": "maskeli",
+      "preview": "Önizleme",
+      "execute": "Çalıştır"
+    },
+    "snippets": {
+      "renameFolder": "Klasörü yeniden adlandır",
+      "newFolder": "Yeni klasör",
+      "folderNamePlaceholder": "Klasör adı",
+      "notRelevantForConnection": "Geçerli bağlantıyla ilgili değil",
+      "removeFromFavorites": "Favorilerden kaldır",
+      "addToFavorites": "Favorilere ekle",
+      "duplicate": "Çoğalt",
+      "moveToFolder": "Klasöre taşı",
+      "back": "Geri",
+      "unfiled": "Klasörsüz",
+      "searchPlaceholder": "Kod parçacıklarında ara…",
+      "newSnippetTitle": "Yeni kod parçacığı",
+      "favorites": "Favoriler",
+      "recent": "Son kullanılanlar",
+      "noSnippetsMatch": "Eşleşen kod parçacığı yok",
+      "noSnippetsYet": "Henüz kod parçacığı yok.\nOluşturmak için + düğmesine tıklayın."
+    },
+    "search": {
+      "placeholder": "Bul",
+      "invalid": "Geçersiz",
+      "noResults": "Sonuç yok",
+      "resultCounter": "{{index}} / {{count}}",
+      "matchCase": "Büyük/küçük harf eşleştir (Alt+C)",
+      "matchWholeWord": "Tam sözcük eşleştir (Alt+W)",
+      "useRegex": "Düzenli ifade kullan (Alt+R)",
+      "previousMatch": "Önceki eşleşme (Shift+Enter)",
+      "nextMatch": "Sonraki eşleşme (Enter)",
+      "closeTitle": "Kapat (Escape)"
+    },
+    "overlay": {
+      "continue": "Devam et",
+      "connectAndSave": "Bağlan ve kaydet",
+      "continueAndSave": "Devam et ve kaydet",
+      "steps": {
+        "tcpConnection": "TCP bağlantısı",
+        "sshHandshake": "SSH el sıkışması",
+        "authenticating": "Kimlik doğrulanıyor",
+        "openingShell": "Kabuk açılıyor",
+        "sftpSubsystem": "SFTP alt sistemi",
+        "openingPort": "Port açılıyor",
+        "ready": "Hazır"
+      },
+      "connectionLost": {
+        "title": "Bağlantı koptu",
+        "subtitle": "Yeniden bağlanılıyor…"
+      },
+      "reconnectWait": {
+        "offline": {
+          "title": "Çevrimdışısınız",
+          "subtitle": "Ağ geri geldiğinde yeniden bağlanılacak"
+        },
+        "slow": {
+          "title": "Sunucuya hâlâ ulaşılamıyor",
+          "subtitle": "Her {{seconds}} saniyede bir yeniden deneniyor"
+        },
+        "retryNow": "Şimdi tekrar dene"
+      },
+      "connectionError": {
+        "title": "Bağlantı başarısız",
+        "retry": "Tekrar dene",
+        "dismiss": "Kapat"
+      },
+      "hostKeyConflict": {
+        "title": "SUNUCU ANAHTARI DEĞİŞTİ",
+        "descriptionPrefix": "Şu sunucunun parmak izi değişti: ",
+        "descriptionSuffix": ".",
+        "replace": "Değiştir",
+        "addAsNew": "Yeni olarak ekle",
+        "abort": "İptal et",
+        "stored": "Kayıtlı",
+        "received": "Alınan"
+      },
+      "passphrasePrompt": {
+        "title": "ANAHTAR PAROLA İFADESİ GEREKLİ",
+        "description": "Bu anahtar şifreli. Devam etmek için parola ifadesini girin.",
+        "placeholder": "Parola ifadesi"
+      },
+      "usernamePrompt": {
+        "title": "KULLANICI ADI GEREKLİ",
+        "description": "Bu sunucu için kullanıcı adı ayarlanmamış. Devam etmek için bir kullanıcı adı girin veya bir kimlik seçin.",
+        "placeholder": "root"
+      },
+      "authPrompt": {
+        "title": "KİMLİK DOĞRULAMA GEREKLİ",
+        "description": "Bu sunucu için kimlik doğrulama yöntemi yok. Devam etmek için bir yöntem seçin.",
+        "modePassword": "Parola",
+        "modeKey": "Anahtar",
+        "modeIdentity": "Kimlik",
+        "passwordPlaceholder": "Parola",
+        "keyPassphrasePlaceholder": "Anahtar parola ifadesi (isteğe bağlı)"
+      },
+      "vaultError": {
+        "unreadableTitle": "Kasa okunamadı",
+        "unreadableBody": "Bu sunucunun kimlik bilgileri kayıtlı, ancak yerel kasanın şifresi geçerli anahtarla çözülemedi. Hiçbir şey silinmedi — bağlanmak için kasanın kilidini açın.",
+        "lockedTitle": "Kasa kilitli",
+        "lockedBody": "Bu sunucunun kimlik bilgileri kilitli olan kasada saklanıyor. Bağlanmak için kasanın kilidini açın.",
+        "unlock": "Kasanın kilidini aç",
+        "retry": "Tekrar dene",
+        "dismiss": "Sekmeyi kapat"
+      }
+    },
+    "statusBar": {
+      "badge": {
+        "ssh": "SSH",
+        "serial": "SERİ",
+        "local": "YEREL"
+      },
+      "localSystemFallback": "Yerel sistem",
+      "serialFallback": "seri",
+      "pingUp": "Erişilebilir · {{ms}} ms",
+      "pingDown": "Erişilemiyor",
+      "pingUnknown": "Bilinmiyor",
+      "copyLabel": "Kopyala: {{text}}",
+      "openPortsPanel": "Portlar panelini aç",
+      "reconnectTitle": "Yeniden bağlan",
+      "serialClose": "Seri portu kapat (sekme açık kalır)",
+      "serialReopen": "Seri portu yeniden aç",
+      "serialAutoReconnectOn": "Otomatik yeniden bağlanma açık — portu yeniden almayı durdurmak için tıklayın",
+      "serialAutoReconnectOff": "Otomatik yeniden bağlanma kapalı — bağlantı koptuğunda port serbest kalır",
+      "systemMetricsTitle": "Sistem ölçümleri",
+      "activeTunnels_one": "{{count}} etkin tünel",
+      "activeTunnels_other": "{{count}} etkin tünel",
+      "cpu": "CPU %{{pct}}",
+      "copiedBang": "Kopyalandı!",
+      "loadingEllipsis": "yükleniyor…",
+      "sparklineMin": "en az {{value}} ms",
+      "sparklineAvg": "ort. {{value}} ms",
+      "sparklineMax": "en çok {{value}} ms"
+    }
+  }
+}

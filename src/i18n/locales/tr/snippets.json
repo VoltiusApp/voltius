@@ -1,0 +1,258 @@
+{
+  "snippets": {
+    "sequence": {
+      "summary": {
+        "success": "Kod parçacığı {{count}} hedefte çalıştırıldı",
+        "partial": "{{count}} başarılı — {{details}}",
+        "failed": "başarısız"
+      },
+      "connectFailed": "terminal oturumu açılamadı",
+      "flatten": {
+        "tooDeep": "Kod parçacıkları çok derin iç içe geçmiş: \"{{name}}\"",
+        "tooManySteps": "Kod parçacığı çok fazla adıma genişledi",
+        "cycle": "Kod parçacığı döngüsü algılandı: \"{{name}}\"",
+        "missingRef": "Kod parçacığı adımı, bulunmayan bir kod parçacığına başvuruyor ({{id}})"
+      },
+      "error": {
+        "needsTerminal": "Betik adımı, bu hedef için açık bir terminal oturumu gerektirir",
+        "noSftp": "Aktarım adımı için SFTP bağlantısı yok",
+        "destExists": "Hedef zaten var: {{path}}"
+      },
+      "resumeFailed": "Kod parçacığı başarısız oldu: {{error}}"
+    },
+    "toolbar": {
+      "filterPlaceholder": "Kod parçacıklarını filtrele...",
+      "gridLabel": "Izgara",
+      "listLabel": "Liste",
+      "sortNameAsc": "A → Z",
+      "sortNameDesc": "Z → A",
+      "sortNewest": "Önce en yeni",
+      "sortOldest": "Önce en eski",
+      "newSnippet": "Yeni kod parçacığı",
+      "newSnippetOptions": "Yeni kod parçacığı seçenekleri",
+      "newFolder": "Yeni klasör"
+    },
+    "card": {
+      "duplicate": "Çoğalt",
+      "unpin": "Sabitlemeyi kaldır",
+      "pin": "Sabitle",
+      "unpinForMe": "Benim için sabitlemeyi kaldır",
+      "showInMyView": "Görünümümde göster",
+      "hideForMe": "Benim için gizle",
+      "pinForMe": "Benim için sabitle",
+      "unpinForTeam": "Ekip için sabitlemeyi kaldır",
+      "pinForTeam": "Ekip için sabitle",
+      "enableCloudSync": "Bulut eşitlemesini etkinleştir",
+      "disableCloudSync": "Bulut eşitlemesini devre dışı bırak",
+      "export": "Dışa aktar",
+      "star": "Yıldızla",
+      "unstar": "Yıldızı kaldır",
+      "insert": "Ekle",
+      "execute": "Çalıştır",
+      "noContent": "İçerik yok"
+    },
+    "form": {
+      "nameLabel": "Ad",
+      "namePlaceholder": "Kod parçacığım",
+      "contentLabel": "İçerik",
+      "variablesLabel": "Değişkenler:",
+      "autoBadge": "otomatik",
+      "syntaxHintType": "Otomatik tamamlama için",
+      "syntaxHintForAutocomplete": "yazın.",
+      "syntaxHintCustomPrompts": "Özel istemler:",
+      "syntaxHintTypesList": "— türler: text · number · password · boolean ·",
+      "descriptionLabel": "Açıklama (isteğe bağlı)",
+      "descriptionPlaceholder": "Bu kod parçacığı ne yapar?",
+      "tagsLabel": "Etiketler",
+      "folderLabel": "Klasör",
+      "starred": "Yıldızlı",
+      "starThisSnippet": "Bu kod parçacığını yıldızla",
+      "generalSection": "Genel",
+      "contextualFiltersSection": "Bağlamsal filtreler",
+      "contextualFiltersHint": "Tüm bağlantılarda göstermek için boş bırakın. Eşleşmeyen kod parçacıkları gizlenmez, soluk gösterilir.",
+      "onlyForConnectionTags": "Yalnızca şu bağlantı etiketleri için",
+      "connectionTagsPlaceholder": "ör. production",
+      "onlyForDistros": "Yalnızca şu dağıtımlar için",
+      "distrosPlaceholder": "ör. ubuntu, debian",
+      "removeTagAriaLabel": "Etiketi kaldır: {{tag}}",
+      "dynamicVars": {
+        "connectionHost": "Etkin SSH ana bilgisayar adı / IP",
+        "connectionUsername": "Etkin SSH kullanıcı adı",
+        "connectionName": "Etkin bağlantı adı",
+        "date": "Bugün — YYYY-MM-DD",
+        "datetime": "Tarih + saat — YYYY-MM-DD HH:MM:SS",
+        "timestamp": "Unix zaman damgası",
+        "clipboard": "Geçerli pano içeriği"
+      }
+    },
+    "step": {
+      "kind": {
+        "script": "Betik",
+        "transfer": "Aktarım",
+        "snippet": "Kod parçacığı çağır"
+      },
+      "endpoint": {
+        "local": "Yerel",
+        "remote": "Uzak"
+      },
+      "from": "Kaynak",
+      "to": "Hedef",
+      "mode": {
+        "copy": "Kopyala",
+        "move": "Taşı"
+      },
+      "conflict": {
+        "label": "Varsa",
+        "overwrite": "Üzerine yaz",
+        "skip": "Atla",
+        "fail": "Hata ver"
+      },
+      "remotePicker": {
+        "title": "Uzak yola göz at",
+        "pickHost": "Göz atmak için bir sunucu seçin",
+        "selectHostTitle": "Bir sunucu seçin",
+        "back": "Geri",
+        "connecting": "Bağlanıyor…",
+        "select": "Seç",
+        "selectFolder": "Bu klasörü kullan"
+      },
+      "file": "Dosya",
+      "folder": "Klasör",
+      "localPath": "Yerel yol",
+      "remotePath": "Uzak yol",
+      "browse": "Göz at",
+      "dragToReorder": "Sıralamak için sürükleyin",
+      "selectSnippet": "Bir kod parçacığı seçin...",
+      "addScript": "+ Betik",
+      "addTransfer": "+ Aktarım",
+      "addSnippet": "+ Kod parçacığı çağır",
+      "addStep": "Adım ekle",
+      "moveUp": "Adımı yukarı taşı",
+      "moveDown": "Adımı aşağı taşı",
+      "remove": "Adımı kaldır"
+    },
+    "page": {
+      "emptyState": {
+        "title": "Henüz kod parçacığı yok",
+        "subtitle": "Dinamik değişkenler içeren, yeniden kullanılabilir terminal komutları kaydedin.",
+        "cta": "İlk kod parçacığınızı oluşturun"
+      },
+      "pinned": "Sabitlenenler",
+      "folders": "Klasörler",
+      "snippetsSection": "Kod parçacıkları",
+      "other": "Diğer",
+      "allSnippets": "Tüm kod parçacıkları",
+      "folderEmpty": "Bu klasör boş",
+      "addSnippet": "Kod parçacığı ekle",
+      "noSearchResults": "\"{{search}}\" ile eşleşen kod parçacığı yok",
+      "clearSearch": "Aramayı temizle",
+      "ejectMoveTo": "Taşı: {{name}}",
+      "ejectRemoveFromFolder": "Klasörden çıkar",
+      "recent": {
+        "title": "Son kullanılanlar",
+        "clear": "Temizle",
+        "showLess": "Daha az göster",
+        "showMore": "{{count}} tane daha göster",
+        "deletedSnippet": "Silinmiş kod parçacığı",
+        "unknownTarget": "Bilinmiyor",
+        "targetMore": "{{name}} +{{count}} daha",
+        "modeRun": "çalıştırma",
+        "modeInsert": "ekleme",
+        "replay": "Yeniden çalıştır"
+      },
+      "bulk": {
+        "duplicateSnippets": "{{count}} kod parçacığını çoğalt",
+        "moveItemsTo_one": "{{count}} öğeyi şuraya taşı",
+        "moveItemsTo_other": "{{count}} öğeyi şuraya taşı",
+        "copyItemsTo_one": "{{count}} öğeyi şuraya kopyala",
+        "copyItemsTo_other": "{{count}} öğeyi şuraya kopyala",
+        "enableCloudSync": "Bulut eşitlemesini etkinleştir ({{count}})",
+        "disableCloudSync": "Bulut eşitlemesini devre dışı bırak ({{count}})",
+        "exportSnippets_one": "{{count}} kod parçacığını dışa aktar",
+        "exportSnippets_other": "{{count}} kod parçacığını dışa aktar",
+        "deleteSnippets": "{{count}} kod parçacığını sil"
+      },
+      "confirmDelete": {
+        "title_one": "{{count}} öğeyi sil",
+        "title_other": "{{count}} öğeyi sil",
+        "message_one": "{{count}} öğeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+        "message_other": "{{count}} öğeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+        "folderCascade_one": "Seçili klasörlerdeki {{count}} kod parçacığı da silinecek.",
+        "folderCascade_other": "Seçili klasörlerdeki {{count}} kod parçacığı da silinecek."
+      },
+      "confirmDeleteFolder": {
+        "title": "\"{{name}}\" silinsin mi?",
+        "message_one": "Klasör, alt klasörleri ve içindeki {{count}} kod parçacığı silinecek. Bu işlem geri alınamaz.",
+        "message_other": "Klasör, alt klasörleri ve içindeki {{count}} kod parçacığı silinecek. Bu işlem geri alınamaz.",
+        "messageEmpty": "Klasör ve içindeki her şey silinecek. Bu işlem geri alınamaz.",
+        "confirmLabel": "Klasörü sil"
+      },
+      "relativeTime": {
+        "justNow": "az önce",
+        "secondsAgo": "{{count}} sn önce",
+        "minutesAgo": "{{count}} dk önce",
+        "hoursAgo": "{{count}} sa önce",
+        "daysAgo": "{{count}} gün önce"
+      }
+    },
+    "community": {
+      "shareTitle": "Toplulukla paylaş",
+      "shareIntro": "Gönderilecek içerik budur. Hiçbir şey yüklenmez — siz bir pull request açarsınız ve bir bakımcı bunu inceler.",
+      "shareCopy": "JSON'u kopyala",
+      "shareCopied": "Kopyalandı",
+      "shareOpenGithub": "GitHub'ı aç",
+      "shareGuidelines": "Katkı yönergelerini okuyun",
+      "shareAuthor": "Adınız veya kullanıcı adınız",
+      "shareDescription": "Kısa açıklama",
+      "secretsTitle": "Paylaşmadan önce bunları kontrol edin",
+      "secretsIntro": "Bunlar herkese değil, yalnızca size ait gibi görünüyor:",
+      "secretKind_privateKey": "Özel anahtar",
+      "secretKind_credential": "Parola veya anahtar",
+      "secretKind_token": "Token",
+      "secretKind_host": "Sunucu veya adres",
+      "secretsNone": "Gizli bilgiye benzeyen bir şey yok.",
+      "shareFailed": "Bu paylaşılamıyor: {{error}}",
+      "tabMine": "Kod parçacıklarım",
+      "tabCommunity": "Topluluk",
+      "packs": "Paketler",
+      "snippets": "Kod parçacıkları",
+      "searchPlaceholder": "Toplulukta ara",
+      "snippetCount_one": "{{count}} kod parçacığı",
+      "snippetCount_other": "{{count}} kod parçacığı",
+      "by": "Yazar: {{author}}",
+      "updated": "Güncellendi: {{date}}",
+      "back": "Topluluk",
+      "loading": "Katalog yükleniyor…",
+      "offline": "Çevrimdışı — son kaydedilen kopya gösteriliyor",
+      "empty": "Henüz topluluk kod parçacığı yok.",
+      "noResults": "“{{search}}” ile eşleşen bir şey yok.",
+      "retry": "Tekrar dene",
+      "loadFailed": "Topluluk kataloğu yüklenemedi.",
+      "install_one": "{{count}} kod parçacığını yükle: {{vault}}",
+      "install_other": "{{count}} kod parçacığını yükle: {{vault}}",
+      "installing": "Yükleniyor…",
+      "installed_one": "{{count}} kod parçacığı yüklendi",
+      "installed_other": "{{count}} kod parçacığı yüklendi",
+      "installFailed": "Yükleme başarısız: {{error}}",
+      "autoIncluded": "“{{name}}” bunu çağırdığı için eklendi",
+      "steps": "Adımlar",
+      "stepScript": "Betik",
+      "stepTransfer": "Aktarım",
+      "stepSnippet": "Kod parçacığı çalıştırır",
+      "selectAll": "Tümünü seç",
+      "selectNone": "Temizle",
+      "error": {
+        "unsupportedCatalog": "Bu kod parçacığı kataloğu, Voltius'un bu sürümünün tanımadığı bir biçimde. Uygulamayı güncellemeyi deneyin."
+      }
+    },
+    "deepLinkInstall": {
+      "title": "Bu kod parçacıkları yüklensin mi?",
+      "body": "Bu bağlantı, Voltius topluluk kataloğundan kod parçacıkları yükler. Kod parçacıkları, kullandığınızda sunucularınızda çalışan kabuk komutlarıdır.",
+      "summary": "{{name}} ({{author}}) — {{count}} kod parçacığı",
+      "unknownAuthor": "adı belirtilmemiş yazar",
+      "destination": "{{vault}} kasasına eklenecekler.",
+      "action": "Yükle",
+      "failed": "Bu kod parçacıkları yüklenemedi"
+    }
+  }
+}

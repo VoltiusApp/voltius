@@ -1,0 +1,52 @@
+{
+  "panes": {
+    "badge": {
+      "ssh": "SSH",
+      "serial": "SERİ",
+      "multiplayer": "MPX",
+      "local": "YEREL"
+    },
+    "header": {
+      "copied": "Kopyalandı!",
+      "loading": "yükleniyor…",
+      "localSystem": "Yerel sistem",
+      "excludedFromBroadcast": "Yayın dışında",
+      "mcpBadge": "MCP",
+      "mcpTooltip": "Açan: {{client}}",
+      "mcpTooltipUnknown": "Bir MCP istemcisi tarafından açıldı",
+      "mcpTooltipDisconnected": "Açan: {{client}} (bağlantı kesildi)",
+      "disableBroadcast": "Yayını devre dışı bırak",
+      "broadcastInput": "Girdiyi yayınla",
+      "detachPane": "Bölmeyi ayır",
+      "restorePane": "Bölmeyi geri yükle",
+      "maximizePane": "Bölmeyi büyüt",
+      "closePane": "Bölmeyi kapat",
+      "latencyTooltip": "{{ms}} ms — kopyalamak için tıklayın",
+      "reconnect": "Yeniden bağlan",
+      "rename": "Yeniden adlandır…",
+      "duplicate": "Çoğalt",
+      "duplicateSplit": "Bölerek çoğalt",
+      "split": "Böl",
+      "splitLeft": "Sola böl",
+      "splitRight": "Sağa böl",
+      "splitTop": "Yukarı böl",
+      "splitBottom": "Aşağı böl",
+      "noSessionToSplit": "Bölmek için başka bir oturum açın veya mevcut bir sekmeyi bir bölmenin üzerine sürükleyin.",
+      "sparkline": {
+        "min": "en az {{ms}} ms",
+        "avg": "ort. {{ms}} ms",
+        "max": "en çok {{ms}} ms"
+      }
+    },
+    "terminal": {
+      "emptyTitle": "Bölünmüş çalışma alanı boş",
+      "emptyHint": "Bölmelere ayırmaya başlamak için bir oturum sekmesini buraya sürükleyin.",
+      "serialSubtitle": "{{port}} · {{baud}} baud"
+    },
+    "dragToast": {
+      "alreadyVisible": "Bu oturum bölünmüş çalışma alanında zaten görünüyor.",
+      "invalidDropTarget": "Bölme oluşturmak için etkin terminalin veya bir bölmenin üzerine bırakın.",
+      "cannotDuplicate": "Bu oturum çoğaltılamaz."
+    }
+  }
+}

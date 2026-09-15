@@ -1,0 +1,135 @@
+{
+  "shared": {
+    "errorBanner": {
+      "dismiss": "kapat"
+    },
+    "trialExpiredModal": {
+      "title": "Pro denemeniz sona erdi",
+      "subtitle": "Şu üç özellik bugün itibarıyla çalışmayı durduruyor:",
+      "freeNote": "Yerel kasa, denetim günlükleri ve GitHub Gist eşitlemesi her zaman ücretsiz kalır.",
+      "teamsPrompt": "Başkalarıyla mı çalışıyorsunuz? Teams, paylaşılan kasalar ve kullanıcı lisansları ekler.",
+      "upgradeButton": "Pro'ya yükselt",
+      "laterButton": "Belki daha sonra"
+    },
+    "createVaultModal": {
+      "title": "Yeni kasa",
+      "subtitle": "Kasalar kimlik bilgilerinizi düzenli tutar",
+      "nameLabel": "Kasa adı",
+      "namePlaceholder": "ör. İş, Kişisel, Test…",
+      "createButton": "Kasa oluştur"
+    },
+    "vaultCascadeModal": {
+      "headingMove": "Bağlantılı öğeler şu kasaya taşınsın mı:",
+      "headingCopy": "Bağlantılı öğeler şu kasaya kopyalansın mı:",
+      "fallbackDescriptionMoved": "Aşağıdaki bağlantılı öğeler farklı bir kasada bulunuyor ve onlar da taşınacak:",
+      "fallbackDescriptionCopied": "Aşağıdaki bağlantılı öğeler farklı bir kasada bulunuyor ve onlar da kopyalanacak:",
+      "confirmMove": "Tümünü taşı",
+      "confirmCopy": "Tümünü kopyala",
+      "typeLabel": {
+        "identity": "Kimlik",
+        "key": "SSH anahtarı"
+      }
+    },
+    "formSelect": {
+      "title": "Seç"
+    },
+    "folderSelector": {
+      "noFolder": "Klasör yok",
+      "namePlaceholder": "Klasör adı",
+      "newFolder": "Yeni klasör"
+    },
+    "tagSelector": {
+      "placeholder": "Etiket ekle…",
+      "removeTag": "{{tag}} etiketini kaldır"
+    },
+    "portInput": {
+      "placeholder": "/dev/ttyUSB0 veya COM3"
+    },
+    "avatarStack": {
+      "participantCount_one": "{{count}} katılımcı",
+      "participantCount_other": "{{count}} katılımcı"
+    },
+    "presence": {
+      "hasControl": "Kontrol onda"
+    },
+    "panel": {
+      "saveState": {
+        "dirty": "Düzenleniyor...",
+        "saving": "Kaydediliyor...",
+        "saved": "Kaydedildi"
+      }
+    },
+    "vaultPicker": {
+      "memberBadge": "üye"
+    },
+    "pickers": {
+      "thisComputer": "Bu bilgisayar"
+    },
+    "sessionPicker": {
+      "insertTitle": "Şuraya ekle...",
+      "executeTitle": "Şurada çalıştır...",
+      "insertConfirm_one": "{{count}} hedefe ekle",
+      "insertConfirm_other": "{{count}} hedefe ekle",
+      "executeConfirm_one": "{{count}} hedefte çalıştır",
+      "executeConfirm_other": "{{count}} hedefte çalıştır",
+      "noActiveSessions": "Etkin oturum yok",
+      "activeSessionsHeader": "Etkin oturumlar",
+      "openNewConnectionHeader": "Yeni bağlantı aç",
+      "localShellFallbackName": "Yerel kabuk",
+      "sshSessionSub": "SSH oturumu",
+      "noRemoteHostsFound": "Uzak sunucu bulunamadı",
+      "noHostsFound": "Sunucu bulunamadı"
+    },
+    "hostPicker": {
+      "selectHostTitle": "Sunucu seç",
+      "filterPlaceholder": "Sunucuları filtrele...",
+      "localMachineName": "Yerel bilgisayar",
+      "wslSub": "WSL",
+      "noHostsConfigured": "Yapılandırılmış sunucu yok",
+      "noHostsMatch": "Eşleşen sunucu yok"
+    },
+    "sort": {
+      "nameAsc": "A → Z",
+      "nameDesc": "Z → A",
+      "newest": "Önce en yeni",
+      "oldest": "Önce en eski"
+    },
+    "tagFilter": {
+      "filterByTag": "Etikete göre filtrele",
+      "emptyTitle": "Etiket ekle",
+      "emptyDescription": "Etiketler sunucularınızı filtrelemenize yardımcı olur. Bir sunucuyu düzenlerken etiket ekleyebilirsiniz.",
+      "searchPlaceholder": "Etiketleri filtrele...",
+      "clearSelection": "Seçimi temizle ({{count}})",
+      "noTagsMatch": "\"{{search}}\" ile eşleşen etiket yok",
+      "deleteTagTitle": "\"{{tag}}\" etiketi silinsin mi?",
+      "deleteTagBody_one": "Etiket {{count}} sunucudan kaldırılacak. Sunucuların kendisi silinmeyecek.",
+      "deleteTagBody_other": "Etiket {{count}} sunucudan kaldırılacak. Sunucuların kendisi silinmeyecek.",
+      "renameTagTitle": "Etiketi yeniden adlandır",
+      "deleteTagButtonTitle": "Etiketi sil"
+    },
+    "vaultUnavailable": {
+      "note": "Kasa okunamadığı için kayıtlı gizli bilgiler burada gösterilmiyor. Kayıtlı değeri korumak için alanı boş bırakın; yeni bir değer yazarsanız kayıtlı değerin yerini alır."
+    },
+    "storedSecrets": {
+      "forbidden": "Bu kasadaki rolünüz kayıtlı gizli bilgileri göremediği için bu alanlar boş bırakıldı. Bağlanmaya devam edebilirsiniz — kayıtlı kimlik bilgisi size gösterilmeden kullanılır."
+    },
+    "teamCredentials": {
+      "unavailable": "Bu ekip kasasının kayıtlı kimlik bilgileri yüklenemedi; bu nedenle kayıtlı parola, anahtar veya parola ifadesi gerektiren sunuculara bağlanılamayacak. Bir kasa yöneticisinden, rolünüze kasadaki gizli bilgilere erişim izni vermesini isteyin."
+    },
+    "vaultBackups": {
+      "title": "Kasa yedekleri",
+      "description": "Açılamadığı için bir kenara ayrılan kasa dosyaları. Bir yedeği geri yüklediğinizde o dosya yeniden kasanız olur ve mevcut kasanız yeni bir yedek olarak saklanır — hiçbir şey silinmez.",
+      "empty": "Bu cihazda kasa yedeği yok.",
+      "restore": "Geri yükle",
+      "confirm": "Bu yedeği geri yükle",
+      "cancel": "İptal",
+      "warn": "Bu yedek kasanız olur. Yedek, oluşturulduğu sırada kullanılan ana parolayla açılır; bu nedenle oturumunuz kapatılacak ve kilidi açmanız istenecek.",
+      "warnReadable": "Mevcut kasanız okunabiliyor. Geri yükleme onun yerini alır — mevcut kasanız yeni bir yedek olarak saklanır; oturumunuz kapatılacak ve kilidi, geri yüklenen dosyayı oluşturan parolayla açmanız istenecek.",
+      "restoredToast": "Yedek geri yüklendi. Önceki kasanız {{file}} olarak saklandı.",
+      "restoredToastNoPrevious": "Yedek geri yüklendi."
+    },
+    "tunnelStatus": {
+      "noRemoteListener": "Uzak portu dinleyen bir hizmet yok"
+    }
+  }
+}

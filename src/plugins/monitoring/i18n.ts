@@ -1,6 +1,6 @@
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.metrics / mobile.metrics.* —
 // values carried over verbatim, keys shortened now that this catalog is plugin-scoped.
-export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
+export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
   en: {
     "title": "Metrics",
     "sshOnly": "Live metrics are only available for SSH sessions. Connect to a host over SSH to see its metrics.",
@@ -32,5 +32,13 @@ export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
     "memory": "内存",
     "netRx": "网络接收",
     "netTx": "网络发送",
+  },
+  tr: {
+    "title": "Ölçümler",
+    "sshOnly": "Canlı ölçümler yalnızca SSH oturumlarında kullanılabilir. Ölçümlerini görmek için bir sunucuya SSH ile bağlanın.",
+    "cpu": "CPU",
+    "memory": "Bellek",
+    "netRx": "Ağ RX",
+    "netTx": "Ağ TX",
   },
 };

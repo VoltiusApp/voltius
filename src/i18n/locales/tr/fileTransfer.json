@@ -1,0 +1,164 @@
+{
+  "fileTransfer": {
+    "common": {
+      "localMachine": "Yerel bilgisayar",
+      "remoteFallback": "uzak",
+      "itemsCount_one": "{{count}} öğe",
+      "itemsCount_other": "{{count}} öğe"
+    },
+    "acceleratedBadge": {
+      "title": "Tar hızlandırma",
+      "description": "Tek bir arşivde paketlenip karşı tarafta açılır — dosyaları tek tek aktarmaya göre çok daha az gidiş dönüş gerekir.",
+      "howItWorks": "Nasıl çalışır?"
+    },
+    "conflict": {
+      "title": "Dosya zaten var",
+      "conflictOf": "Çakışma {{number}} / {{total}}",
+      "description": "Hedefte bu adda bir öğe zaten var. Ne yapmak istersiniz?",
+      "skip": "Atla",
+      "skipAll": "Tümünü atla",
+      "overwrite": "Üzerine yaz",
+      "overwriteAll": "Tümünün üzerine yaz"
+    },
+    "pane": {
+      "toolbar": {
+        "parentDirectory": "Üst dizin",
+        "homeDirectory": "Ev dizini",
+        "browse": "Göz at…",
+        "selectFolder": "Klasör seç",
+        "newFolder": "Yeni klasör",
+        "newFile": "Yeni dosya",
+        "refresh": "Yenile"
+      },
+      "dropToTransfer": "Aktarmak için bırakın",
+      "placeholder": {
+        "folderName": "Klasör adı",
+        "fileName": "Dosya adı"
+      },
+      "emptyDirectory": "Dizin boş",
+      "selection": {
+        "selected": "{{count}} seçili",
+        "clear": "Temizle"
+      },
+      "confirmDelete": {
+        "title": "Silmeyi onayla",
+        "messageSingle": "\"{{name}}\" silinsin mi?",
+        "messageMulti": "{{count}} öğe silinsin mi?"
+      },
+      "menu": {
+        "download_one": "İndir",
+        "download_other": "{{count}} öğeyi indir",
+        "copyToTarget_one": "Hedefe kopyala",
+        "copyToTarget_other": "{{count}} öğeyi hedefe kopyala",
+        "moveToTarget_one": "Hedefe taşı",
+        "moveToTarget_other": "{{count}} öğeyi hedefe taşı",
+        "delete_one": "Sil",
+        "delete_other": "{{count}} öğeyi sil",
+        "copyPath_one": "Yolu kopyala",
+        "copyPath_other": "{{count}} yolu kopyala",
+        "compress": ".tar.gz olarak sıkıştır",
+        "extractHere": "Buraya çıkar",
+        "openInTerminal": "Terminalde aç",
+        "uploadFiles": "Dosya yükle",
+        "selectAll": "Tümünü seç",
+        "deselect": "Seçimi kaldır",
+        "disconnect": "Bağlantıyı kes",
+        "hideHiddenFiles": "Gizli dosyaları gizle",
+        "showHiddenFiles": "Gizli dosyaları göster",
+        "sizeColumn": "Boyut sütunu",
+        "dateColumn": "Tarih sütunu",
+        "permissionsColumn": "İzinler sütunu"
+      },
+      "columns": {
+        "name": "Ad",
+        "size": "Boyut",
+        "modified": "Değiştirilme",
+        "permissions": "İzinler"
+      }
+    },
+    "side": {
+      "chooseHost": "Sunucu seç…",
+      "back": "Geri",
+      "forward": "İleri",
+      "filterPlaceholder": "Filtrele…",
+      "uploadHere": "Dosyaları buraya yükle",
+      "selectFilesToDownload": "İndirilecek dosyaları seçin",
+      "download_one": "İndir: \"{{name}}\"",
+      "download_other": "{{count}} öğeyi indir",
+      "viewOptions": "Görünüm seçenekleri",
+      "moreOptions": "Diğer seçenekler",
+      "tryAgain": "Tekrar dene",
+      "sparkline": {
+        "min": "en az {{value}} ms",
+        "avg": "ort. {{value}} ms",
+        "max": "en çok {{value}} ms"
+      }
+    },
+    "page": {
+      "transferLeftToRight_one": "Aktar: \"{{name}}\" →",
+      "transferLeftToRight_other": "{{count}} öğeyi aktar →",
+      "transferRightToLeft_one": "Aktar: \"{{name}}\" ←",
+      "transferRightToLeft_other": "{{count}} öğeyi aktar ←",
+      "selectFileLeft": "Soldan bir dosya seçin",
+      "selectFileRight": "Sağdan bir dosya seçin",
+      "compareTitle": "Karşılaştır: \"{{leftName}}\" ↔ \"{{rightName}}\"",
+      "compareHint": "Karşılaştırmak için her iki taraftan birer dosya seçin",
+      "selectFilesToUpload": "Yüklenecek dosyaları seçin",
+      "downloadToFolder": "Klasöre indir",
+      "connectionLost": "Bağlantı koptu"
+    },
+    "queue": {
+      "title": "Aktarımlar",
+      "transferCount_one": "{{count}} aktarım",
+      "transferCount_other": "{{count}} aktarım",
+      "activeSuffix_one": " · {{count}} etkin",
+      "activeSuffix_other": " · {{count}} etkin",
+      "combinedThroughput": "Toplam aktarım hızı",
+      "cancelAll": "Tüm aktarımları iptal et",
+      "clearFinished": "Tamamlanan aktarımları temizle",
+      "cancelTransfer": "Aktarımı iptal et",
+      "retryTransfer": "Aktarımı tekrar dene",
+      "mcpTooltip": "Başlatan: {{client}}",
+      "mcpTooltipUnknown": "Bir MCP istemcisi tarafından başlatıldı",
+      "status": {
+        "done": "Tamamlandı",
+        "error": "Hata",
+        "cancelled": "İptal edildi"
+      }
+    },
+    "editor": {
+      "common": {
+        "saveCtrlS": "Kaydet (Ctrl+S)",
+        "saveFailed": "Kaydedilemedi",
+        "retrySave": "Kaydetmeyi tekrar dene",
+        "retry": "Tekrar dene",
+        "dismiss": "Kapat"
+      },
+      "diff": {
+        "loadError": "Karşılaştırma için dosyalardan biri veya ikisi yüklenemedi.",
+        "loading": "Farklar yükleniyor…",
+        "previousChange": "Önceki değişiklik",
+        "nextChange": "Sonraki değişiklik",
+        "saveErrorLine": "{{label}}: {{msg}}"
+      },
+      "tab": {
+        "autoSave": "Otomatik kaydet",
+        "saveFailedReason": "Kaydedilemedi: {{error}}",
+        "error": {
+          "default": "Dosya açılamadı.",
+          "tooLarge": "Dosya çok büyük ({{size}} bayt, sınır {{limit}}). Bunun yerine dosyayı indirin.",
+          "binary": "İkili dosya — düzenlenemez. Bunun yerine dosyayı indirin."
+        }
+      },
+      "tabStrip": {
+        "filesTab": "Dosyalar",
+        "pendingNameFallback": "bu dosya",
+        "pendingNameDiffFallback": "bu karşılaştırma",
+        "diffTitlePrefix": "fark: {{name}}",
+        "discardTitle": "Kaydedilmemiş değişiklikler atılsın mı?",
+        "discardMessage": "\"{{name}}\" içinde kaydedilmemiş değişiklikler var. Bu sekme kapatılırsa değişiklikler kaybolur.",
+        "discard": "Değişiklikleri at"
+      }
+    }
+  }
+}

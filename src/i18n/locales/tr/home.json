@@ -1,0 +1,46 @@
+{
+  "home": {
+    "greeting": {
+      "morning": "Günaydın",
+      "afternoon": "İyi günler",
+      "evening": "İyi akşamlar"
+    },
+    "search": {
+      "placeholder": "Sunucularda, oturumlarda ve kod parçacıklarında ara…"
+    },
+    "stat": {
+      "vaults": "kasa",
+      "hosts": "sunucu",
+      "activeSessions": "etkin oturum",
+      "portForwards": "port yönlendirme"
+    },
+    "quickActions": {
+      "export": "Dışa aktar",
+      "import": "İçe aktar"
+    },
+    "recentHosts": {
+      "title": "Son kullanılan sunucular",
+      "seeAll": "Tümünü gör",
+      "prevPage": "Önceki sayfa",
+      "nextPage": "Sonraki sayfa",
+      "pageNumber": "Sayfa {{number}}"
+    },
+    "allHosts": {
+      "back": "Geri",
+      "title": "Tüm sunucular",
+      "empty": "Henüz sunucu yok."
+    },
+    "hostCard": {
+      "pin": "Sabitle",
+      "unpin": "Sabitlemeyi kaldır",
+      "baud": "{{rate}} baud"
+    },
+    "serialFallback": "Seri",
+    "vaultCard": {
+      "hostCount_one": "{{count}} sunucu",
+      "hostCount_other": "{{count}} sunucu",
+      "empty": "Henüz sunucu yok",
+      "more": "+{{count}} daha"
+    }
+  }
+}

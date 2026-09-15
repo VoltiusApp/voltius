@@ -1,0 +1,21 @@
+{
+  "changelog": {
+    "title": "Yenilikler",
+    "quickLinks": {
+      "documentation": "Belgeler"
+    },
+    "loading": "Sürüm notları yükleniyor…",
+    "unavailable": "Sürüm notları çevrimdışıyken kullanılamaz. Yenilikleri görmek için yeniden bağlanın.",
+    "hidePreviousReleases": "Önceki sürümleri gizle",
+    "previousReleases": "Önceki sürümler ({{count}})",
+    "newBadge": "Yeni",
+    "updateBanner": {
+      "checking": "Güncellemeler denetleniyor…",
+      "downloading": "v{{version}} indiriliyor… %{{progress}}",
+      "ready": "v{{version}} yüklenmeye hazır",
+      "restartToUpdate": "Güncellemek için yeniden başlat",
+      "available": "v{{version}} kullanılabilir",
+      "download": "İndir"
+    }
+  }
+}

@@ -39,6 +39,7 @@ const translations: Record<string, Record<string, unknown>> = {
   French: load(import.meta.glob("./locales/fr/*.json", { eager: true }) as never),
   Russian: load(import.meta.glob("./locales/ru/*.json", { eager: true }) as never),
   Chinese: load(import.meta.glob("./locales/zh/*.json", { eager: true }) as never),
+  Turkish: load(import.meta.glob("./locales/tr/*.json", { eager: true }) as never),
 };
 
 const enBaseKeys = new Set(flatten(en).map(baseKey));
@@ -54,4 +55,15 @@ describe.each(Object.entries(translations))("locale key parity — %s", (_name, 
     const missing = flatten(en).filter((k) => !localeBaseKeys.has(baseKey(k)));
     expect(missing).toEqual([]);
   });
+
+  it("has no runaway repeated-word values (machine-translation loops)", () => {
+    expect(stringValues(locale).filter((v) => REPEATED_WORD.test(v))).toEqual([]);
+  });
 });
+
+const REPEATED_WORD = /(^|\s)([\p{L}'’]+)(?:\s+\2(?=$|[\s.,!?…)])){2,}/iu;
+function stringValues(obj: unknown): string[] {
+  if (typeof obj === "string") return [obj];
+  if (obj && typeof obj === "object") return Object.values(obj).flatMap(stringValues);
+  return [];
+}

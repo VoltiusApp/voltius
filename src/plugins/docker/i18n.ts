@@ -1,7 +1,7 @@
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.docker / mobile.docker.* /
 // mobile.dockerLogs.* / mobile.hostActions.* / mobile.panelCommon.* and mobile.json's
 // common.action.{remove,cancel} — values carried over verbatim.
-export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
+export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
   en: {
     "title": "Docker",
     "filterAll": "All",
@@ -113,5 +113,33 @@ export const messages: Record<"en"|"fr"|"ru"|"zh", Record<string,string>> = {
     "hostStart": "启动",
     "dockerLogsWaiting": "正在等待日志…",
     "dockerLogsSessionNotConnected": "会话未连接。",
+  },
+  tr: {
+    "title": "Docker",
+    "filterAll": "Tümü",
+    "filterRunning": "Çalışanlar",
+    "needsSshTitle": "Docker için SSH oturumu gerekir",
+    "needsSshSub": "Docker'ı SSH ile bağlı bir sunucudan açın.",
+    "sessionNotConnected": "Oturum bağlı değil",
+    "sessionNotConnectedSub": "Bu sunucudaki Docker'ı yönetmek için yeniden bağlanın.",
+    "unreachableTitle": "Docker'a ulaşılamıyor",
+    "unreachableSub": "Sunucuda Docker'ı başlatın, ardından yenileyin.",
+    "refresh": "Yenile",
+    "noContainers": "Konteyner yok",
+    "noRunningContainers": "Çalışan konteyner yok",
+    "tapRunningToShowAll": "Tümünü göstermek için Çalışanlar'a dokunun.",
+    "logs": "Günlükler",
+    "execShell": "Kabuk aç",
+    "removeConfirmTitle": "Konteyner kaldırılsın mı?",
+    "removeConfirmBody": "{{name}} kaldırılacak. Bu işlem geri alınamaz.",
+    "remove": "Kaldır",
+    "cancel": "İptal",
+    "hostStop": "Durdur",
+    "hostRestart": "Yeniden başlat",
+    "hostPause": "Duraklat",
+    "hostResume": "Sürdür",
+    "hostStart": "Başlat",
+    "dockerLogsWaiting": "Günlükler bekleniyor…",
+    "dockerLogsSessionNotConnected": "Oturum bağlı değil.",
   },
 };
