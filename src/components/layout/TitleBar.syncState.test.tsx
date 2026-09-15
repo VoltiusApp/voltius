@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
-import { __resetGistSyncStateWarnings } from "@/services/syncStatus";
+import { __resetPluginStateWarnings } from "@/services/syncStatus";
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
@@ -36,7 +36,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   usePluginStateStore.setState({ values: new Map() });
-  __resetGistSyncStateWarnings();
+  __resetPluginStateWarnings();
 });
 afterEach(cleanup);
 

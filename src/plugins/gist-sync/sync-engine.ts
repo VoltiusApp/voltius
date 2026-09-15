@@ -11,8 +11,7 @@ import {
   type GistDevice,
 } from "./gist-api";
 import { generateSaltHex } from "./crypto";
-import type { SyncStatus } from "./types";
-import type { GistSyncState } from "@/services/syncStatus";
+import type { GistSyncState, SyncStatus } from "./types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

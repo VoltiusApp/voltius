@@ -2,13 +2,13 @@ import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, cleanup } from "@testing-library/react";
 import { useGistSyncState } from "./useGistSyncState";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
-import { __resetGistSyncStateWarnings } from "@/services/syncStatus";
+import { __resetPluginStateWarnings } from "@/services/syncStatus";
 
 const PLUGIN_ID = "plugin-gist-sync";
 
 beforeEach(() => {
   usePluginStateStore.setState({ values: new Map() });
-  __resetGistSyncStateWarnings();
+  __resetPluginStateWarnings();
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 afterEach(() => {

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
-import { NOT_CONFIGURED_GIST_STATE, sanitizeGistSyncState, type GistSyncState } from "@/services/syncStatus";
+import { NOT_CONFIGURED_SYNC_STATE, sanitizeSyncProviderState, type SyncProviderSnapshot } from "@/services/syncStatus";
 
 const GIST_SYNC_PLUGIN_ID = "plugin-gist-sync";
 
@@ -10,11 +10,11 @@ const GIST_SYNC_PLUGIN_ID = "plugin-gist-sync";
  *
  *  The store keeps `raw` reference-stable across re-renders (it only changes when
  *  the plugin actually republishes), so `useMemo` on `raw` gives a stable sanitized
- *  result without needing `sanitizeGistSyncState` to cache anything itself. */
-export function useGistSyncState(): GistSyncState {
+ *  result without needing `sanitizeSyncProviderState` to cache anything itself. */
+export function useGistSyncState(): SyncProviderSnapshot {
   const raw = usePluginStateStore((s) => s.read<unknown>(GIST_SYNC_PLUGIN_ID, "sync-state"));
   return useMemo(
-    () => (raw === undefined ? NOT_CONFIGURED_GIST_STATE : sanitizeGistSyncState(raw, GIST_SYNC_PLUGIN_ID)),
+    () => (raw === undefined ? NOT_CONFIGURED_SYNC_STATE : sanitizeSyncProviderState(raw, GIST_SYNC_PLUGIN_ID)),
     [raw],
   );
 }

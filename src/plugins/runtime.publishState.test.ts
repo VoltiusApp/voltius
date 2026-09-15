@@ -16,27 +16,27 @@ afterEach(() => { try { unloadPlugin("t"); } catch { /* noop */ } });
 describe("api.ui.publishState", () => {
   test("publishes into the host store, namespaced by plugin id", () => {
     loadPlugin(manifest(["ui"]), register, true, false);
-    captured.ui.publishState("sync-state", { status: "idle" });
-    expect(usePluginStateStore.getState().read("t", "sync-state")).toEqual({ status: "idle" });
+    captured.ui.publishState("some-state", { status: "idle" });
+    expect(usePluginStateStore.getState().read("t", "some-state")).toEqual({ status: "idle" });
   });
 
   test("requires the ui permission", () => {
     loadPlugin(manifest([]), register, true, false);
-    expect(() => captured.ui.publishState("sync-state", {})).toThrow(/requires permission/);
+    expect(() => captured.ui.publishState("some-state", {})).toThrow(/requires permission/);
   });
 
   test("unloadPlugin clears published state", () => {
     loadPlugin(manifest(["ui"]), register, true, false);
-    captured.ui.publishState("sync-state", { status: "idle" });
+    captured.ui.publishState("some-state", { status: "idle" });
     unloadPlugin("t");
-    expect(usePluginStateStore.getState().read("t", "sync-state")).toBeUndefined();
+    expect(usePluginStateStore.getState().read("t", "some-state")).toBeUndefined();
   });
 
   test("disabling a plugin clears its published state", () => {
     loadPlugin(manifest(["ui"]), register, true, false);
-    captured.ui.publishState("sync-state", { status: "idle" });
+    captured.ui.publishState("some-state", { status: "idle" });
     setPluginActive("t", false);
-    expect(usePluginStateStore.getState().read("t", "sync-state")).toBeUndefined();
+    expect(usePluginStateStore.getState().read("t", "some-state")).toBeUndefined();
   });
 });
 
