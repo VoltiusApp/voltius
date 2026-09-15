@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore, type ConnectRetryOverride } from "@/stores/sessionStore";
+import { wakeBackoff } from "@/stores/reconnectBackoffCore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import TerminalView from "@/components/terminal/Terminal";
 import { TerminalSearch } from "@/components/terminal/TerminalSearch";
@@ -91,6 +92,7 @@ export function SessionConnectionOverlay({
   const connection = connections.find((c) => c.id === session.connectionId);
   const connectSerialEphemeralFinalize = useSessionStore((s) => s.connectSerialEphemeralFinalize);
   const resetSerialEphemeral = useSessionStore((s) => s.resetSerialEphemeral);
+  const reconnectProps = { reconnectWait: session.reconnectWait, onRetryNow: () => wakeBackoff(session.id) };
 
   if (session.type === "serial") {
     const isEphemeral = session.connectionId === "serial-ephemeral";
@@ -125,6 +127,7 @@ export function SessionConnectionOverlay({
         stepEventName={`serial-step-${session.id}`}
         onDismiss={onDismiss}
         onRetry={isEphemeral ? () => resetSerialEphemeral(session.id) : onRetry}
+        {...reconnectProps}
       />
     );
   }
@@ -147,6 +150,7 @@ export function SessionConnectionOverlay({
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}
       onRetry={onRetry}
+      {...reconnectProps}
       onRetryWithPassphrase={onRetryWithPassphrase}
       onRetryWithAuth={onRetryWithAuth}
     />

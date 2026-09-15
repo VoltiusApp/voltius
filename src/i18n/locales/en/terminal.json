@@ -233,6 +233,17 @@
         "title": "Connection lost",
         "subtitle": "Reconnecting…"
       },
+      "reconnectWait": {
+        "offline": {
+          "title": "You're offline",
+          "subtitle": "Reconnecting when the network is back"
+        },
+        "slow": {
+          "title": "Host still unreachable",
+          "subtitle": "Retrying every {{seconds}} seconds"
+        },
+        "retryNow": "Retry now"
+      },
       "connectionError": {
         "title": "Connection failed",
         "retry": "Retry",

@@ -1,6 +1,18 @@
-import { backoffDelays, cancelBackoff, handleSessionClosed, runBackoff, type BackoffStore, type SessionStatus } from "./reconnectBackoffCore.ts";
+import {
+  FAST_DELAYS_MS,
+  SLOW_RETRY_MS,
+  cancelBackoff,
+  handleSessionClosed,
+  retryDelay,
+  runBackoff,
+  strandedByNetwork,
+  wakeBackoff,
+  type BackoffStore,
+  type ReconnectWait,
+  type SessionStatus,
+} from "./reconnectBackoffCore.ts";
 import type { VaultErrorCode } from "@/services/vaultErrors";
-import { test } from "vitest";
+import { test, vi } from "vitest";
 
 test("reconnectBackoff", async () => {
 function assertEqual<T>(actual: T, expected: T, msg: string): void {
@@ -11,11 +23,13 @@ function assertEqual<T>(actual: T, expected: T, msg: string): void {
 }
 
 // --- schedule (pure) ---
-const delays = backoffDelays();
+const delays = FAST_DELAYS_MS;
 assertEqual(delays.slice(0, 4), [1500, 3000, 5000, 8000], "fast initial backoff steps");
-assertEqual(delays.every((d) => d <= 10000), true, "no single delay exceeds 10s");
+assertEqual(delays.every((d) => d <= 10000), true, "no single fast delay exceeds 10s");
 const total = delays.reduce((a, b) => a + b, 0);
-assertEqual(total >= 180000, true, "schedule spans at least ~3 minutes to survive an outage");
+assertEqual(total >= 180000, true, "fast phase spans at least ~3 minutes");
+assertEqual(retryDelay(delays.length), SLOW_RETRY_MS, "past the fast phase, retries slow down instead of stopping");
+assertEqual(retryDelay(delays.length + 500), SLOW_RETRY_MS, "the slow phase has no end");
 
 // --- loop behavior via injected store ---
 // Fire timers immediately so the schedule runs without real waits.
@@ -28,8 +42,9 @@ type Attempt = () => Promise<{ ok: boolean; errorMessage?: string; errorCode?: V
 function makeStore(opts: {
   status: () => SessionStatus;
   exists?: () => boolean;
+  online?: () => boolean;
   attempt?: Attempt;
-}): BackoffStore & { attempts: number; reconnecting: number; connected: number; errors: string[]; codes: (VaultErrorCode | undefined)[]; ended: string[] } {
+}): BackoffStore & { attempts: number; reconnecting: number; connected: number; errors: string[]; codes: (VaultErrorCode | undefined)[]; ended: string[]; waits: (ReconnectWait | undefined)[] } {
   const userAttempt = opts.attempt;
   const s = {
     attempts: 0,
@@ -38,7 +53,10 @@ function makeStore(opts: {
     errors: [] as string[],
     codes: [] as (VaultErrorCode | undefined)[],
     ended: [] as string[],
+    waits: [] as (ReconnectWait | undefined)[],
     status: opts.status,
+    online: () => (opts.online ? opts.online() : true),
+    setWait: (_id: string, wait: ReconnectWait | undefined) => { s.waits.push(wait); },
     exists: () => (opts.exists ? opts.exists() : true),
     markReconnecting: () => { s.reconnecting++; },
     markConnected: () => { s.connected++; },
@@ -128,12 +146,31 @@ await (async () => {
 })();
 
 await (async () => {
-  // Network never returns: exhaust the schedule, then surface one final error.
-  const store = makeStore({ status: () => "disconnected", attempt: async () => ({ ok: false }) });
-  const ok = await runBackoff("s-exhausted", store);
-  assertEqual(ok, false, "returns false when the schedule is exhausted");
-  assertEqual(store.attempts, delays.length, "attempts once per scheduled delay");
-  assertEqual(store.errors.length, 1, "surfaces exactly one error after exhaustion");
+  // A long outage must never strand the tab on an error.
+  const failures = delays.length + 20;
+  const store = makeStore({
+    status: () => "disconnected",
+    attempt: async () => (store.attempts > failures ? { ok: true } : { ok: false, errorMessage: "Network is unreachable" }),
+  });
+  const ok = await runBackoff("s-long-outage", store);
+  assertEqual(ok, true, "keeps retrying past the fast phase and recovers");
+  assertEqual(store.attempts, failures + 1, "never stops on a transient failure");
+  assertEqual(store.errors, [], "never surfaces an error for a transient failure");
+  assertEqual(store.waits.includes("slow"), true, "tells the overlay once it has slowed down");
+  assertEqual(store.waits.indexOf("slow"), delays.length, "slows down only after the fast phase");
+})();
+
+await (async () => {
+  let checks = 0;
+  const store = makeStore({
+    status: () => "disconnected",
+    online: () => ++checks > 3,
+    attempt: async () => ({ ok: true }),
+  });
+  const ok = await runBackoff("s-offline", store);
+  assertEqual(ok, true, "reconnects once the network is back");
+  assertEqual(store.attempts, 1, "makes no attempt while offline");
+  assertEqual(store.waits, [undefined, "offline", "offline", "offline"], "tells the overlay it is waiting for the network");
 })();
 
 await (async () => {
@@ -156,6 +193,59 @@ await (async () => {
 })();
 
 globalThis.setTimeout = realSetTimeout;
+
+await (async () => {
+  vi.useFakeTimers();
+  try {
+    let fail = true;
+    const store = makeStore({ status: () => "disconnected", attempt: async () => (fail ? { ok: false } : { ok: true }) });
+    const loop = runBackoff("s-wake", store);
+    for (const d of delays) await vi.advanceTimersByTimeAsync(d);
+    const before = store.attempts;
+    assertEqual(before, delays.length, "fast phase ran");
+    await vi.advanceTimersByTimeAsync(1000);
+    assertEqual(store.attempts, before, "slow phase is waiting");
+    fail = false;
+    assertEqual(wakeBackoff("s-wake"), true, "wake reaches the sleeping loop");
+    assertEqual(await loop, true, "woken loop attempts immediately and reconnects");
+    assertEqual(store.attempts, before + 1, "one attempt on wake, without waiting out the slow delay");
+    assertEqual(wakeBackoff("s-wake"), false, "nothing left to wake once connected");
+  } finally {
+    vi.useRealTimers();
+  }
+})();
+
+await (async () => {
+  vi.useFakeTimers();
+  try {
+    const store = makeStore({ status: () => "disconnected", attempt: async () => ({ ok: false }) });
+    const loop = runBackoff("s-wake-reset", store);
+    await vi.advanceTimersByTimeAsync(1500);
+    await vi.advanceTimersByTimeAsync(3000);
+    assertEqual(store.attempts, 2, "two fast attempts");
+    wakeBackoff("s-wake-reset");
+    await vi.advanceTimersByTimeAsync(0);
+    assertEqual(store.attempts, 3, "wake attempts at once");
+    await vi.advanceTimersByTimeAsync(3000);
+    assertEqual(store.attempts, 4, "wake restarts the schedule: 3s next, not the 5s it had reached");
+    cancelBackoff("s-wake-reset");
+    assertEqual(await loop, false, "cancel wakes the loop so it exits without waiting out its delay");
+  } finally {
+    vi.useRealTimers();
+  }
+})();
+
+// --- strandedByNetwork: which errored tabs the network coming back should revive ---
+(() => {
+  const base = { type: "ssh", status: "error" as SessionStatus, everConnected: true, errorMessage: "Network is unreachable" };
+  assertEqual(strandedByNetwork(base), true, "a restored ssh tab that failed offline is revived");
+  assertEqual(strandedByNetwork({ ...base, everConnected: false }), false, "a host that never connected is left alone");
+  assertEqual(strandedByNetwork({ ...base, status: "connecting" }), false, "a live loop is not restarted");
+  assertEqual(strandedByNetwork({ ...base, type: "serial" }), false, "serial does not depend on the network");
+  assertEqual(strandedByNetwork({ ...base, errorMessage: "The key is encrypted" }), false, "a passphrase prompt is not dismissed");
+  assertEqual(strandedByNetwork({ ...base, errorCode: "vault-unreadable" }), false, "a vault error is not retried");
+  assertEqual(strandedByNetwork({ ...base, errorMessage: "SESSION_ENDED" }), false, "an ended session is not resurrected");
+})();
 
 // --- handleSessionClosed: start reconnect only on an unexpected close ---
 (() => {

@@ -1,5 +1,5 @@
 import { ConnectionHeader } from "./ConnectionHeader";
-import { ConnectionErrorPanel, ConnectionLostPanel } from "./ConnectionStatusPanel";
+import { ConnectionErrorPanel, ConnectionLostPanel, ReconnectWaitPanel } from "./ConnectionStatusPanel";
 import { ConnectionSteps } from "./ConnectionSteps";
 import { HostKeyConflictPanel } from "./HostKeyConflictPanel";
 import { PassphrasePromptPanel } from "./PassphrasePromptPanel";
@@ -25,6 +25,8 @@ export default function ConnectionOverlay({
   className,
   onDismiss,
   onRetry,
+  reconnectWait,
+  onRetryNow,
   onRetryWithPassphrase,
   onRetryWithAuth,
 }: ConnectionOverlayProps) {
@@ -85,6 +87,10 @@ export default function ConnectionOverlay({
             <ConnectionSteps steps={steps} />
 
             {isDisconnected && <ConnectionLostPanel />}
+
+            {isConnecting && reconnectWait && (
+              <ReconnectWaitPanel wait={reconnectWait} onRetryNow={onRetryNow} onDismiss={onDismiss} />
+            )}
 
             {isError && (
               <ConnectionErrorPanel

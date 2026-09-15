@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { KnownHost } from "@/types";
+import type { KnownHost, TerminalSession } from "@/types";
 import type { VaultErrorCode } from "@/services/vaultErrors";
 
 export type StepStatus = "pending" | "active" | "done" | "error";
@@ -61,6 +61,9 @@ export interface ConnectionOverlayProps {
   className?: string;
   onDismiss?: () => void;
   onRetry?: () => void;
+  reconnectWait?: TerminalSession["reconnectWait"];
+  /** Cut the auto-reconnect loop's wait short. */
+  onRetryNow?: () => void;
   onRetryWithPassphrase?: (passphrase: string, save: boolean) => void;
   /** Retry the connection with auth/username supplied through the overlay. */
   onRetryWithAuth?: (override: ConnectRetryOverride, save: boolean) => void;
