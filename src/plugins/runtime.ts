@@ -6,8 +6,9 @@ import { resolvePort } from "@/plugins/domains/ports";
 import { runSnippetSequence, previewSnippetSequence } from "@/services/snippetSequence";
 import type { RunTarget } from "@/services/sftpTarget";
 import { writeClipboard } from "@/utils/clipboard";
+import { log as appLog } from "@/lib/logger";
 import i18n from "@/i18n";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { localConnect, localSendInput } from "@/services/local";
@@ -1076,16 +1077,19 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const existing = await connectionService.listConnections();
         const conn = existing.find((c) => c.id === connId);
         if (!conn) throw new Error(`Connection ${connId} not found`);
+        // connection_update is a near-total replace: every field absent from the
+        // payload is wiped, so a partial patch has to ride the full record.
+        const base = connectionToFormData(conn);
         await connectionService.updateConnection(connId, {
-          name: data.name ?? conn.name,
-          host: data.host ?? conn.host,
-          port: data.port ?? conn.port,
-          username: data.username ?? conn.username,
-          auth_type: data.auth_type ?? conn.auth_type,
-          tags: data.tags ?? conn.tags,
-          identity_id: data.identity_id ?? conn.identity_id,
-          jump_hosts: data.jump_hosts !== undefined ? data.jump_hosts : conn.jump_hosts,
-          notes: conn.notes, // plugins can't set notes; never wipe the user's
+          ...base,
+          name: data.name ?? base.name,
+          host: data.host ?? base.host,
+          port: data.port ?? base.port,
+          username: data.username ?? base.username,
+          auth_type: data.auth_type ?? base.auth_type,
+          tags: data.tags ?? base.tags,
+          identity_id: data.identity_id ?? base.identity_id,
+          jump_hosts: data.jump_hosts ?? base.jump_hosts,
         });
         await useConnectionStore.getState().loadConnections();
       },
@@ -1683,13 +1687,20 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "fs");
         const intervalMs = opts?.intervalMs ?? 5000;
         let lastContent: string | null = null;
+        // Sleep/resume coalesces the missed interval ticks: without this guard
+        // two reads race the same `lastContent` and fire `cb` twice per change.
+        let reading = false;
         const tick = async () => {
+          if (reading) return;
+          reading = true;
           try {
             const content = await invoke<string>("fs_read_text_home", { path });
             if (lastContent !== null && content !== lastContent) cb();
             lastContent = content;
           } catch {
             // File might not exist yet — ignore
+          } finally {
+            reading = false;
           }
         };
         // Initial read to establish baseline (no callback on first tick)
@@ -1784,9 +1795,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     },
 
     log: {
-      info: (msg, ...args) => console.info(`[plugin:${id}]`, msg, ...args),
-      warn: (msg, ...args) => console.warn(`[plugin:${id}]`, msg, ...args),
-      error: (msg, ...args) => console.error(`[plugin:${id}]`, msg, ...args),
+      info: (msg, ...args) => appLog.info(`[plugin:${id}] ${msg}`, ...args),
+      warn: (msg, ...args) => appLog.warn(`[plugin:${id}] ${msg}`, ...args),
+      error: (msg, ...args) => appLog.error(`[plugin:${id}] ${msg}`, ...args),
     },
 
     sessions: {

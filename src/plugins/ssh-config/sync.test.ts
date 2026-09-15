@@ -324,3 +324,145 @@ describe("ssh-config sync — adopted connection lifecycle", () => {
     expect(h.update.mock.calls[0][1]).toEqual({ host: "5.6.7.8", port: 2222, username: "ubuntu" });
   });
 });
+
+describe("ssh-config sync — concurrent runs", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("two overlapping syncs create the host once, not twice", async () => {
+    const h = makeSyncApi({ config: cfg("oracle", "1.2.3.4", "ubuntu") });
+    await Promise.all([sync(h.api), sync(h.api)]);
+
+    expect(h.create).toHaveBeenCalledTimes(1);
+    expect(h.connections).toHaveLength(1);
+  });
+
+  test("an overlapping sync does not strand a stale alias map", async () => {
+    const h = makeSyncApi({ config: cfg("oracle", "1.2.3.4", "ubuntu") });
+    await Promise.all([sync(h.api), sync(h.api)]);
+
+    const aliasMap = h.store.get("alias_map") as Record<string, string>;
+    expect(Object.values(aliasMap)).toEqual([h.connections[0].id]);
+  });
+});
+
+describe("ssh-config sync — diagnostics", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("logs the trigger, each write and how the target connection was resolved", async () => {
+    const h = makeSyncApi({
+      config: cfg("oracle", "5.6.7.8", "ubuntu"),
+      connections: [
+        conn({ id: "t1", name: "oracle", host: "1.2.3.4", username: "ubuntu", tags: [TAG] }),
+        conn({ id: "t2", name: "gone", host: "9.9.9.9", tags: [TAG] }),
+      ],
+      storage: { alias_map: { oracle: "t1", gone: "t2" } },
+    });
+    await sync(h.api, "watch");
+
+    const lines = (h.api.log.info as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes("trigger=watch"))).toBe(true);
+    expect(lines.some((l) => l.includes('deleting conn t2 "gone"'))).toBe(true);
+    expect(lines.some((l) => l.includes("update conn t1") && l.includes("via alias_map"))).toBe(true);
+    expect(lines.some((l) => l.startsWith("sync #") && l.includes("alias_map after"))).toBe(true);
+  });
+});
+
+describe("ssh-config sync — one connection per alias", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const twoHosts = cfg("Oracle", "89.0.0.1", "ubuntu") + "\n" + cfg("TradingSim", "129.0.0.1", "ubuntu");
+
+  test("a poisoned alias_map sharing one id no longer rewrites that connection as the other host", async () => {
+    const h = makeSyncApi({
+      config: twoHosts,
+      connections: [
+        conn({ id: "X", name: "Oracle", host: "89.0.0.1", username: "ubuntu", tags: [TAG] }),
+        conn({ id: "T", name: "TradingSim", host: "129.0.0.1", username: "ubuntu", tags: [TAG] }),
+      ],
+      storage: { alias_map: { Oracle: "X", TradingSim: "X" } },
+    });
+    await sync(h.api);
+
+    const x = h.connections.find((c) => c.id === "X")!;
+    expect(x.name).toBe("Oracle");
+    expect(x.host).toBe("89.0.0.1");
+    expect(h.store.get("alias_map")).toEqual({ Oracle: "X", TradingSim: "T" });
+    expect(h.create).not.toHaveBeenCalled();
+  });
+
+  test("heals a connection an earlier sync already rewrote", async () => {
+    const h = makeSyncApi({
+      config: twoHosts,
+      connections: [conn({ id: "X", name: "TradingSim", host: "129.0.0.1", username: "ubuntu", tags: [TAG] })],
+      storage: { alias_map: { Oracle: "X", TradingSim: "X" } },
+    });
+    await sync(h.api);
+
+    const x = h.connections.find((c) => c.id === "X")!;
+    expect(x.name).toBe("Oracle");
+    expect(x.host).toBe("89.0.0.1");
+    const aliasMap = h.store.get("alias_map") as Record<string, string>;
+    expect(aliasMap.Oracle).toBe("X");
+    expect(aliasMap.TradingSim).not.toBe("X");
+    expect(h.connections.find((c) => c.id === aliasMap.TradingSim)?.host).toBe("129.0.0.1");
+  });
+
+  test("a new stanza copied from an existing one does not claim that host's connection", async () => {
+    const h = makeSyncApi({
+      config: twoHosts.replace("129.0.0.1", "89.0.0.1"),
+      connections: [conn({ id: "X", name: "Oracle", host: "89.0.0.1", username: "ubuntu", tags: [TAG] })],
+      storage: { alias_map: { Oracle: "X" } },
+    });
+    await sync(h.api);
+
+    const aliasMap = h.store.get("alias_map") as Record<string, string>;
+    expect(aliasMap.TradingSim).not.toBe("X");
+
+    h.setConfig(twoHosts);
+    await sync(h.api);
+    expect(h.connections.find((c) => c.id === "X")).toMatchObject({ name: "Oracle", host: "89.0.0.1" });
+  });
+
+  test("a shared id is never deleted while an alias still present in the config owns it", async () => {
+    const h = makeSyncApi({
+      config: cfg("TradingSim", "129.0.0.1", "ubuntu"),
+      connections: [conn({ id: "X", name: "TradingSim", host: "129.0.0.1", username: "ubuntu", tags: [TAG] })],
+      storage: { alias_map: { Oracle: "X", TradingSim: "X" } },
+    });
+    await sync(h.api);
+
+    expect(h.del).not.toHaveBeenCalled();
+    expect(h.store.get("alias_map")).toEqual({ TradingSim: "X" });
+  });
+});
+
+describe("ssh-config sync — identity follows the stanza's IdentityFile", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("a mapped identity holding another key is not reused", async () => {
+    const h = makeSyncApi({
+      config: cfg("TradingSim", "129.0.0.1", "ubuntu", 22, "  IdentityFile ~/.ssh/tradingsim\n"),
+      connections: [
+        conn({ id: "T", name: "TradingSim", host: "129.0.0.1", username: "ubuntu", auth_type: "key", identity_id: "I-good", tags: [TAG] }),
+      ],
+      storage: {
+        alias_map: { TradingSim: "T" },
+        key_map: { "~/.ssh/tradingsim": "K-ts" },
+        identity_map: { TradingSim: "I-stale" },
+      },
+    });
+    (h.api.keys.list as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "K-oracle", name: "oracle", tags: [TAG] },
+      { id: "K-ts", name: "tradingsim", tags: [TAG] },
+    ]);
+    (h.api.identities.list as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "I-stale", name: "TradingSim", username: "ubuntu", key_id: "K-oracle", tags: [TAG] },
+      { id: "I-good", name: "TradingSim", username: "ubuntu", key_id: "K-ts", tags: [TAG] },
+    ]);
+
+    await sync(h.api);
+
+    expect(h.connections.find((c) => c.id === "T")!.identity_id).toBe("I-good");
+    expect((h.store.get("identity_map") as Record<string, string>).TradingSim).toBe("I-good");
+  });
+});
