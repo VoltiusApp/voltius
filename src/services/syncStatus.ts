@@ -36,7 +36,7 @@ export const NOT_CONFIGURED_GIST_STATE: GistSyncState = Object.freeze({
  *  through `getExposedApi("plugin-gist-sync")` — lets host UI trigger a sync
  *  without importing the plugin's module. */
 export interface GistSyncPublicApi {
-  syncNow(opts?: { showProgress?: boolean }): Promise<void>;
+  syncNow(): Promise<void>;
 }
 
 const SYNC_STATUSES: readonly SyncStatus[] = ["idle", "syncing", "success", "error", "offline"];

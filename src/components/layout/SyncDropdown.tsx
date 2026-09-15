@@ -307,7 +307,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
         variant={gistVariant}
         onSyncNow={async () => {
           const gistApi = getExposedApi(GIST_SYNC_PLUGIN_ID) as GistSyncPublicApi | null;
-          await gistApi?.syncNow({ showProgress: false });
+          await gistApi?.syncNow();
         }}
       />
 
