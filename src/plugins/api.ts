@@ -207,6 +207,7 @@ export interface PluginSyncState {
   error: string | null;
   cloudActive: boolean;
   blobSizeBytes: number | null;
+  providers: SyncProviderSummary[];
 }
 
 export interface PluginHostPing {

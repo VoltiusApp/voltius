@@ -9,9 +9,12 @@ export function buildTelemetryTools(ports: ToolSurfacePorts): Tool[] {
     {
       name: "sync_status",
       description:
-        "The state of the user's own configuration sync: whether it is idle, running, succeeded, "
-        + "failed or offline, when it last succeeded, the last error, and the size of the synced "
-        + "blob. Says nothing about team vaults.",
+        "The state of the user's own configuration sync. The top-level fields describe Voltius cloud "
+        + "sync: whether it is idle, running, succeeded, failed or offline, when it last succeeded, "
+        + "the last error, and the size of the synced blob. `providers` lists every sync provider — "
+        + "Voltius cloud and each installed sync plugin — with its availability (active, "
+        + "not_configured, disabled, locked, needs_upgrade), status, last success and last error. "
+        + "Says nothing about team vaults.",
       risk: "auto",
       schema: z.object({}),
       execute: async () => ports.api.appSync.status(),

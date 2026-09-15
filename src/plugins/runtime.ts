@@ -5,7 +5,8 @@ import { whenLoginSyncSettled } from "@/services/loginSyncGate";
 import { resolvePort } from "@/plugins/domains/ports";
 import { runSnippetSequence, previewSnippetSequence } from "@/services/snippetSequence";
 import type { RunTarget } from "@/services/sftpTarget";
-import type { LoadedPluginSource } from "@/services/syncProviderInputs";
+import { readSyncProviderInputs, type LoadedPluginSource } from "@/services/syncProviderInputs";
+import { buildSyncProviders, toSyncProviderSummary } from "@/services/syncProviders";
 import { writeClipboard } from "@/utils/clipboard";
 import { log as appLog } from "@/lib/logger";
 import i18n from "@/i18n";
@@ -1348,6 +1349,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           error: s.error,
           cloudActive: s.cloudActive,
           blobSizeBytes: s.blobSizeBytes,
+          providers: buildSyncProviders(readSyncProviderInputs(loadedPluginSource)).map(toSyncProviderSummary),
         };
       },
     },
