@@ -63,6 +63,9 @@ export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
 // ─── Sync state (module-level, not a store) ──────────────────────────────────
 
 let _status: SyncStatus = "idle";
+let _syncInFlight = false;
+// Calls within this long of a sync's start are still dropped; the status no longer waits for it.
+const SYNC_HOLD_MS = 600;
 let _lastSync: Date | null = null;
 let _error: string | null = null;
 let _cloudActive = false;
@@ -550,15 +553,14 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
  *                   data actually changed local state, preventing infinite loops.
  */
 export async function syncNow(forcePush = false): Promise<void> {
-  if (_status === "syncing") return;
+  if (_syncInFlight) return;
 
   // Personal blob sync is a Pro feature — free-tier accounts have no blob quota.
   if (!useSubscriptionStore.getState().isPro) return;
 
+  _syncInFlight = true;
+  const holdUntil = Date.now() + SYNC_HOLD_MS;
   setState("syncing");
-
-  const start = Date.now();
-  const minDisplay = 600;
 
   try {
     await unlockVaultIfNeeded();
@@ -603,12 +605,8 @@ export async function syncNow(forcePush = false): Promise<void> {
       await push();
     }
 
-    const elapsed = Date.now() - start;
-    if (elapsed < minDisplay) await new Promise((r) => setTimeout(r, minDisplay - elapsed));
     setState("success");
   } catch (e) {
-    const elapsed = Date.now() - start;
-    if (elapsed < minDisplay) await new Promise((r) => setTimeout(r, minDisplay - elapsed));
     if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
       await completeTeamLoginSetup();
       setState("success");
@@ -617,6 +615,10 @@ export async function syncNow(forcePush = false): Promise<void> {
     const msg = e instanceof Error ? e.message : String(e);
     setState(navigator.onLine === false ? "offline" : "error", msg);
     throw e;
+  } finally {
+    const wait = holdUntil - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    _syncInFlight = false;
   }
 }
 
