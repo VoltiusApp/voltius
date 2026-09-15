@@ -324,3 +324,45 @@ describe("ssh-config sync — adopted connection lifecycle", () => {
     expect(h.update.mock.calls[0][1]).toEqual({ host: "5.6.7.8", port: 2222, username: "ubuntu" });
   });
 });
+
+describe("ssh-config sync — concurrent runs", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("two overlapping syncs create the host once, not twice", async () => {
+    const h = makeSyncApi({ config: cfg("oracle", "1.2.3.4", "ubuntu") });
+    await Promise.all([sync(h.api), sync(h.api)]);
+
+    expect(h.create).toHaveBeenCalledTimes(1);
+    expect(h.connections).toHaveLength(1);
+  });
+
+  test("an overlapping sync does not strand a stale alias map", async () => {
+    const h = makeSyncApi({ config: cfg("oracle", "1.2.3.4", "ubuntu") });
+    await Promise.all([sync(h.api), sync(h.api)]);
+
+    const aliasMap = h.store.get("alias_map") as Record<string, string>;
+    expect(Object.values(aliasMap)).toEqual([h.connections[0].id]);
+  });
+});
+
+describe("ssh-config sync — diagnostics", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("logs the trigger, each write and how the target connection was resolved", async () => {
+    const h = makeSyncApi({
+      config: cfg("oracle", "5.6.7.8", "ubuntu"),
+      connections: [
+        conn({ id: "t1", name: "oracle", host: "1.2.3.4", username: "ubuntu", tags: [TAG] }),
+        conn({ id: "t2", name: "gone", host: "9.9.9.9", tags: [TAG] }),
+      ],
+      storage: { alias_map: { oracle: "t1", gone: "t2" } },
+    });
+    await sync(h.api, "watch");
+
+    const lines = (h.api.log.info as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes("trigger=watch"))).toBe(true);
+    expect(lines.some((l) => l.includes('deleting conn t2 "gone"'))).toBe(true);
+    expect(lines.some((l) => l.includes("update conn t1") && l.includes("via alias_map"))).toBe(true);
+    expect(lines.some((l) => l.startsWith("sync #") && l.includes("alias_map after"))).toBe(true);
+  });
+});

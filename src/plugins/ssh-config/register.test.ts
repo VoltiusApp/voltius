@@ -85,3 +85,29 @@ describe("ssh-config register honors isActive()", () => {
     if (typeof cleanup === "function") cleanup();
   });
 });
+
+describe("ssh-config cleanup before the deferred starts resolve", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("disabling before login sync settles never starts a watcher or a sync", async () => {
+    const { api, watch } = makeApi(true);
+    let settleLoginSync!: () => void;
+    let settleInterval!: (v: null) => void;
+    (api.lifecycle.waitForLoginSync as ReturnType<typeof vi.fn>).mockReturnValue(
+      new Promise<void>((r) => { settleLoginSync = r; }),
+    );
+    (api.storage.get as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+      new Promise((r) => { settleInterval = r; }),
+    );
+
+    const cleanup = register(api);
+    if (typeof cleanup === "function") cleanup();
+    settleInterval(null);
+    settleLoginSync();
+    await flush();
+    await flush();
+
+    expect(watch).not.toHaveBeenCalled();
+    expect(api.fs.exists).not.toHaveBeenCalled();
+  });
+});

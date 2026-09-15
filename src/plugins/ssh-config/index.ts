@@ -163,12 +163,49 @@ async function ensureKey(
   return key.id;
 }
 
-export async function sync(api: PluginAPI): Promise<void> {
+export type SyncTrigger = "initial" | "watch" | "manual" | "mcp" | "queued";
+
+let inFlight: Promise<void> | null = null;
+let rerunRequested = false;
+let runSeq = 0;
+let liveWatchers = 0;
+
+// Overlapping runs each snapshot the alias map up front and each write it back,
+// so the later run strands whatever the earlier one created. Serialise them.
+export async function sync(api: PluginAPI, trigger: SyncTrigger = "manual"): Promise<void> {
+  if (inFlight) {
+    rerunRequested = true;
+    api.log.info(`sync requested by ${trigger} while a run is in flight, queued`);
+    return inFlight;
+  }
+  inFlight = (async () => {
+    try {
+      let current = trigger;
+      do {
+        rerunRequested = false;
+        await syncOnce(api, current);
+        current = "queued";
+      } while (rerunRequested);
+    } finally {
+      inFlight = null;
+    }
+  })();
+  return inFlight;
+}
+
+async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
+  const run = ++runSeq;
+  const say = (msg: string) => api.log.info(`sync #${run} ${msg}`);
+
   const exists = await api.fs.exists(SSH_CONFIG_PATH);
-  if (!exists) return;
+  if (!exists) {
+    say(`trigger=${trigger}: no ~/.ssh/config, nothing to do`);
+    return;
+  }
 
   const content = await api.fs.readText(SSH_CONFIG_PATH);
   const hosts = parseSshConfig(content);
+  say(`trigger=${trigger}: read ${content.length} bytes, aliases=[${hosts.map((h) => h.alias).join(", ")}]`);
 
   const [listed, allKeys, allIdentities] = await Promise.all([
     api.connections.list(),
@@ -189,6 +226,8 @@ export async function sync(api: PluginAPI): Promise<void> {
   const notifyEnabled = (await api.storage.get<boolean>(NOTIFICATIONS_ENABLED_KEY)) ?? DEFAULT_NOTIFICATIONS_ENABLED;
   const adoptEnabled = (await api.storage.get<boolean>(ADOPT_UNTAGGED_ENABLED_KEY)) ?? DEFAULT_ADOPT_UNTAGGED_ENABLED;
 
+  say(`alias_map before ${JSON.stringify(aliasMap)}`);
+
   // Hosts present in the config file (keyed by alias)
   const configAliases = new Set(hosts.map((h) => h.alias));
 
@@ -197,6 +236,7 @@ export async function sync(api: PluginAPI): Promise<void> {
   for (const [alias, connId] of Object.entries(aliasMap)) {
     if (!configAliases.has(alias)) {
       const still = taggedConnections.find((c) => c.id === connId);
+      say(`alias "${alias}" gone from config: ${still ? `deleting conn ${connId} "${still.name ?? ""}"` : `conn ${connId} already absent`}`);
       if (still) toDelete.push(connId);
       delete aliasMap[alias];
       // Clean up associated identity (key is shared so we keep it)
@@ -220,14 +260,17 @@ export async function sync(api: PluginAPI): Promise<void> {
     // aliasMap is authoritative: search ALL connections by id so a previously
     // adopted (untagged) connection is always re-found. The content fallback
     // stays scoped to tagged connections unless adoption is enabled.
+    const byAlias = existingId ? allConnections.find((c) => c.id === existingId) : undefined;
     let existing =
-      (existingId ? allConnections.find((c) => c.id === existingId) : undefined) ??
+      byAlias ??
       taggedConnections.find(
         (c) =>
           c.host === host.hostname &&
           c.port === host.port &&
           c.username === host.user,
       );
+    let resolvedVia = byAlias ? "alias_map" : existing ? "tagged content match" : "none";
+    if (existingId && !byAlias) say(`alias "${host.alias}" maps to missing conn ${existingId}`);
 
     // Adoption: reuse an untagged user connection that matches by host/port/user
     // instead of creating a duplicate. First match wins.
@@ -239,6 +282,7 @@ export async function sync(api: PluginAPI): Promise<void> {
           c.port === host.port &&
           c.username === host.user,
       );
+      if (existing) resolvedVia = "adopted content match";
     }
 
     // A managed connection that is untagged can only be an adopted one.
@@ -255,6 +299,7 @@ export async function sync(api: PluginAPI): Promise<void> {
         existing.port !== host.port ||
         existing.username !== host.user;
       if (changed) {
+        say(`update adopted conn ${existing.id} "${existing.name ?? ""}" for alias "${host.alias}" (via ${resolvedVia})`);
         await api.connections.update(existing.id, {
           host: host.hostname,
           port: host.port,
@@ -293,6 +338,7 @@ export async function sync(api: PluginAPI): Promise<void> {
             });
             identityId = identity.id;
             identityMap[host.alias] = identityId;
+            say(`create identity ${identityId} for alias "${host.alias}"`);
             if (notifyEnabled) api.notifications.toast(`SSH identity created: ${host.alias}`, { severity: "success", duration: 3000 });
           }
         }
@@ -312,6 +358,7 @@ export async function sync(api: PluginAPI): Promise<void> {
     if (!existing) {
       const conn = await api.connections.create(data);
       aliasMap[host.alias] = conn.id;
+      say(`create conn ${conn.id} for alias "${host.alias}"`);
       if (notifyEnabled) api.notifications.toast(`SSH host added: ${host.alias}`, { severity: "success", duration: 3000 });
     } else {
       const changed =
@@ -323,6 +370,7 @@ export async function sync(api: PluginAPI): Promise<void> {
         (data.name !== undefined && existing.name !== data.name);
 
       if (changed) {
+        say(`update conn ${existing.id} "${existing.name ?? ""}" -> "${data.name ?? existing.name ?? ""}" for alias "${host.alias}" (via ${resolvedVia})`);
         await api.connections.update(existing.id, data);
       }
     }
@@ -373,11 +421,12 @@ export async function sync(api: PluginAPI): Promise<void> {
     const jumpIds = jumpHosts.map((j) => j.connection_id).join(",");
     const existingIds = existingJumps.map((j) => j.connection_id).join(",");
     if (jumpIds !== existingIds) {
+      say(`update jump_hosts of conn ${connId} for alias "${host.alias}"`);
       await api.connections.update(connId, { jump_hosts: jumpHosts });
     }
   }
 
-  api.log.info(`Synced ${hosts.length} host(s) from ~/.ssh/config`);
+  say(`end: ${hosts.length} host(s), alias_map after ${JSON.stringify(aliasMap)}`);
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────
@@ -589,26 +638,41 @@ export const register: PluginRegisterFn = (api) => {
   if (!api.isActive()) return () => {};
 
   let stopWatch: (() => void) | null = null;
+  // Both deferred starts below can resolve after cleanup; they must not revive a disabled plugin.
+  let disposed = false;
+
+  const runSync = (trigger: SyncTrigger) =>
+    sync(api, trigger).catch((e) => api.log.error(`ssh-config ${trigger} sync failed`, e));
+
+  const stopWatcher = () => {
+    if (!stopWatch) return;
+    stopWatch();
+    stopWatch = null;
+    liveWatchers--;
+  };
 
   const startWatcher = (intervalMs: number) => {
-    stopWatch?.();
+    if (disposed) return;
+    stopWatcher();
     stopWatch = api.fs.watch(
       SSH_CONFIG_PATH,
       () => {
-        api.log.info("~/.ssh/config changed — resyncing");
-        sync(api).catch((e) => api.log.error("ssh-config sync failed", e));
+        api.log.info("~/.ssh/config changed, resyncing");
+        void runSync("watch");
       },
       { intervalMs },
     );
+    liveWatchers++;
+    api.log.info(`watcher started every ${intervalMs}ms (live watchers: ${liveWatchers})`);
   };
 
   // Defer initial sync until login-time server sync has landed so the dedup
   // lists (connections/keys/identities) reflect post-merge state. For local
   // users the promise resolves immediately; for cloud users it waits for
   // syncOnLogin to finish (vault_reset on logout wipes the config dir).
-  api.lifecycle.waitForLoginSync().then(() =>
-    sync(api).catch((e) => api.log.error("Initial ssh-config sync failed", e)),
-  );
+  api.lifecycle.waitForLoginSync().then(() => {
+    if (!disposed) void runSync("initial");
+  });
 
   api.storage.get<number>(POLL_INTERVAL_KEY).then((stored) => {
     startWatcher(stored ?? DEFAULT_POLL_INTERVAL);
@@ -620,10 +684,7 @@ export const register: PluginRegisterFn = (api) => {
     startWatcher(newInterval);
   });
 
-  const offSyncNow = api.events.on(SYNC_NOW_EVENT, () => {
-    api.log.info("Manual sync triggered");
-    sync(api).catch((e) => api.log.error("ssh-config manual sync failed", e));
-  });
+  const offSyncNow = api.events.on(SYNC_NOW_EVENT, () => void runSync("manual"));
 
   const offMcp = api.mcp.registerTools([
     {
@@ -635,14 +696,15 @@ export const register: PluginRegisterFn = (api) => {
         "deleted. Returns how many hosts were seen.",
       inputSchema: { type: "object", properties: {} },
       execute: async () => {
-        await sync(api);
+        await sync(api, "mcp");
         return "synced";
       },
     },
   ]);
 
   return () => {
-    stopWatch?.();
+    disposed = true;
+    stopWatcher();
     offEvent();
     offSyncNow();
     offMcp();
