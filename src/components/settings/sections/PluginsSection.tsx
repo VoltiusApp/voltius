@@ -18,7 +18,8 @@ import { PluginPermissionModal } from "./PluginPermissionModal";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
-import type { PluginManifest, PluginConfigField } from "@/plugins/api";
+import type { PluginManifest, PluginConfigField, SettingsPage } from "@/plugins/api";
+import { attributePage } from "@/components/settings/settingsPluginNav";
 import { DirtyDot, ResetButton, SettingRow } from "./shared";
 import { useIsAndroid } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
@@ -270,6 +271,30 @@ function EnableToggle({ manifest, enabled, onToggle }: {
   return <Toggle checked={enabled} onChange={() => onToggle(manifest.id, enabled)} />;
 }
 
+function PluginSettingsButton({ manifest, settingsPages, onOpenPage, onOpenConfig }: {
+  manifest: PluginManifest;
+  settingsPages: Map<string, SettingsPage>;
+  onOpenPage: (pageId: string) => void;
+  onOpenConfig: (manifest: PluginManifest) => void;
+}) {
+  const { t } = useTranslation();
+  const loadedIds = getLoadedPlugins().map((m) => m.id);
+  const page = [...settingsPages.values()].find((p) => attributePage(p.id, loadedIds) === manifest.id);
+  const hasAutoConfig = Object.keys(manifest.contributes?.configuration ?? {}).length > 0;
+  if (!page && !hasAutoConfig) return null;
+  return (
+    <button
+      onClick={() => (page ? onOpenPage(page.id) : onOpenConfig(manifest))}
+      className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+      title={t("settings.plugins.installed.settingsTitle")}
+    >
+      <Icon icon="lucide:settings" width={15} />
+    </button>
+  );
+}
+
 /**
  * The plugins that ship with the app: loaded, but with no installedMeta entry of
  * their own. They have no static entry anywhere — the runtime registry is the only
@@ -439,9 +464,6 @@ export function InstalledTab() {
         {/* Plugins bundled with the app */}
         {filteredBundled.map(({ manifest }) => {
           const enabled = isEnabled(manifest.id, manifest.defaultEnabled ?? true) && loadedIds.has(manifest.id);
-          const pluginPages = [...settingsPages.values()].filter((p) => p.id.startsWith(manifest.id));
-          const hasAutoConfig = !!manifest.contributes?.configuration && Object.keys(manifest.contributes.configuration).length > 0;
-          const showSettingsBtn = pluginPages.length > 0 || hasAutoConfig;
           const isUninstalling = uninstalling.has(manifest.id);
           // Mirrors uninstallSeededPlugin's hasSeededArtifact guard: a loaded plugin
           // whose id has no real seeded artifact (missing meta, or an id collision)
@@ -485,20 +507,12 @@ export function InstalledTab() {
                     {isUpdating ? t("settings.plugins.installed.updating") : t("settings.plugins.installed.update")}
                   </button>
                 )}
-                {showSettingsBtn && (
-                  <button
-                    onClick={() => {
-                      if (pluginPages.length > 0) selectPluginPage(pluginPages[0].id);
-                      else setAutoConfigManifest(manifest);
-                    }}
-                    className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-                    title={t("settings.plugins.installed.settingsTitle")}
-                  >
-                    <Icon icon="lucide:settings" width={15} />
-                  </button>
-                )}
+                <PluginSettingsButton
+                  manifest={manifest}
+                  settingsPages={settingsPages}
+                  onOpenPage={selectPluginPage}
+                  onOpenConfig={setAutoConfigManifest}
+                />
                 <button
                   onClick={() => setConfirmUninstallSeeded(manifest)}
                   disabled={isUninstalling}
@@ -589,6 +603,14 @@ export function InstalledTab() {
                     <Icon icon={isUpdating ? "lucide:loader" : "lucide:arrow-up-circle"} width={12} className={isUpdating ? "animate-spin" : ""} />
                     {isUpdating ? t("settings.plugins.installed.updating") : t("settings.plugins.installed.update")}
                   </button>
+                )}
+                {manifest && (
+                  <PluginSettingsButton
+                    manifest={manifest}
+                    settingsPages={settingsPages}
+                    onOpenPage={selectPluginPage}
+                    onOpenConfig={setAutoConfigManifest}
+                  />
                 )}
                 <button
                   onClick={() => void handleReload(meta.id)}
