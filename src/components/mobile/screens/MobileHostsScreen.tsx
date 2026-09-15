@@ -14,6 +14,7 @@ import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { pingStatusMotion, pingStatusTone } from "@/utils/statusTone";
 import { scopeItems, folderItemCount } from "@/components/mobile/folders/mobileFolderCore";
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
@@ -45,12 +46,6 @@ function MobileHostRow({
 
   const isSerial = c.connection_type === "serial";
   const showPingDot = !isSerial && pingEnabled && !c.ping_disabled;
-  const pingColor =
-    pingStatus === "up"
-      ? "var(--t-status-connected)"
-      : pingStatus === "down"
-      ? "var(--t-status-error)"
-      : "var(--t-text-dim)";
 
   const named = !!c.name?.trim();
   const base = `${c.username}@${c.host}${c.port !== 22 ? `:${c.port}` : ""}`;
@@ -65,7 +60,14 @@ function MobileHostRow({
       >
         <span className="relative shrink-0">
           <ConnectionAvatar connection={c} size={34} />
-          {showPingDot && <StatusDot color={pingColor} animate={pingStatus === "up"} size={9} />}
+          {showPingDot && (
+            <StatusDot
+              tone={pingStatusTone(pingStatus)}
+              motion={pingStatusMotion(pingStatus)}
+              halo="var(--t-bg-base)"
+              corner
+            />
+          )}
         </span>
         <span className="flex flex-col min-w-0">
           <span className="flex items-center gap-1.5 min-w-0">

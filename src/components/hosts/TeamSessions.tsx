@@ -10,6 +10,7 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { AvatarStack } from "@/components/shared/AvatarStack";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
+import { StatusDot } from "@/components/shared/StatusDot";
 import { isJoinInput, resolveJoinInput } from "@/services/resolveJoinInput";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { sessionDisplayName } from "@/services/teamSharing";
@@ -211,10 +212,7 @@ export function TeamSessions() {
             color: "var(--t-accent)",
           }}
         >
-          <span
-            className="w-1.5 h-1.5 rounded-full animate-pulse"
-            style={{ background: "var(--t-accent)" }}
-          />
+          <StatusDot tone="accent" size="sm" motion="pulse" />
           {t("hosts.teamSessions.live")}
         </span>
         <div className="ml-auto">

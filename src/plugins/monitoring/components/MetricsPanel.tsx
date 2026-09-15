@@ -1,6 +1,6 @@
 import type { FC } from "react";
 import type { PluginAPI } from "@/plugins/api";
-import { useActiveSession } from "@voltius/ui";
+import { StatusDot, useActiveSession } from "@voltius/ui";
 import { createMetricsService } from "../services";
 import { useHostMetrics } from "../useHostMetrics";
 import { MetricCard } from "./MetricCard";
@@ -61,7 +61,7 @@ export function createMetricsPanel(api: PluginAPI): FC {
       <div className="flex flex-col h-full overflow-y-auto">
         {/* Host badge */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-(--t-border) shrink-0">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+          <StatusDot tone="connected" size="sm" />
           <span className="text-[11px] text-(--t-text-muted) truncate">
             {activeSession.connectionName}
           </span>

@@ -5,6 +5,8 @@ import type { PortForwardingRule, VaultOption } from "@/types";
 import { formatRuleLabel } from "@/utils/tunnelFormat";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { CardActionButton } from "@/components/shared/CardActionButton";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { tunnelStatusTone } from "@/utils/statusTone";
 import { type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
@@ -96,7 +98,6 @@ export function RuleCard({
       {typeBadgeLabel.toUpperCase()}
     </span>
   );
-  const statusColor = status === "active" ? "bg-green-500" : status === "error" ? "bg-red-500" : "bg-(--t-text-dim) opacity-40";
   const effectiveStatusLabel = statusLabel ?? (status === "active" ? t("portForwarding.ruleCard.active") : status === "error" ? t("portForwarding.ruleCard.error") : t("portForwarding.ruleCard.stopped"));
   const actionIcon = isBusy ? "lucide:loader-circle" : status === "active" ? "lucide:pause" : "lucide:play";
   const actionTitle = status === "active" ? t("portForwarding.ruleCard.pauseForwarding") : t("portForwarding.ruleCard.resumeForwarding");
@@ -104,6 +105,9 @@ export function RuleCard({
     if (status === "active") onStop?.(rule);
     else onStart?.(rule);
   };
+  const statusDot = (
+    <StatusDot tone={tunnelStatusTone(status)} halo="var(--t-bg-card)" corner label={effectiveStatusLabel} />
+  );
   const actionButtons = (
     <div className="flex items-center gap-1 shrink-0">
       <CardActionButton icon={actionIcon} title={actionTitle} onClick={handleToggle} />
@@ -131,7 +135,7 @@ export function RuleCard({
         <>
           <div className="relative shrink-0">
             <AvatarTile icon="lucide:network" iconSize={15} className="w-7 h-7 rounded-lg text-(--t-text-secondary)" />
-            <span className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-(--t-bg-card) ${statusColor}`} title={effectiveStatusLabel} />
+            {statusDot}
           </div>
           <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
             {rule.name}
@@ -162,7 +166,7 @@ export function RuleCard({
           <div className="flex items-start gap-2 min-w-0">
             <div className="relative shrink-0">
               <AvatarTile icon="lucide:network" iconSize={16} className="w-[30px] h-[30px] rounded-lg text-(--t-text-secondary)" />
-              <span className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-(--t-bg-card) ${statusColor}`} title={effectiveStatusLabel} />
+              {statusDot}
             </div>
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">

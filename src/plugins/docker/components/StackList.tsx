@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
+import { StatusDot } from "@voltius/ui";
+import { containerStateTone } from "../containerStateTone";
 import { dockerContainerAction, dockerStackAction, dockerStackUpdate } from "../services";
 import { getDockerApi } from "../runtime";
 import { checkableImage, useImageUpdates } from "../useImageUpdates";
@@ -121,14 +123,9 @@ export function StackList({
                   onClick={() => toggleStack(stack.name)}
                   className="flex items-center gap-2 px-3 py-1.5 hover:bg-(--t-bg-card-hover) cursor-pointer select-none"
                 >
-                  <div
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      stack.running > 0
-                        ? "bg-(--t-status-connected)"
-                        : stack.paused > 0
-                          ? "bg-(--t-status-warning)"
-                          : "bg-(--t-text-muted) opacity-40"
-                    }`}
+                  <StatusDot
+                    tone={containerStateTone(stack.running > 0 ? "running" : stack.paused > 0 ? "paused" : "exited")}
+                    size="sm"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] text-(--t-text) truncate font-medium">{stack.name}</p>
@@ -280,15 +277,7 @@ function ServiceRow({
 
   return (
     <div className="flex items-center gap-2 px-2 py-1.5 border-b border-(--t-border) last:border-0 hover:bg-(--t-bg-card-hover) group">
-      <span
-        className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-          state === "running"
-            ? "bg-(--t-status-connected)"
-            : state === "paused"
-              ? "bg-(--t-status-warning)"
-              : "bg-(--t-text-muted) opacity-40"
-        }`}
-      />
+      <StatusDot tone={containerStateTone(state)} size="sm" />
       <div className="flex-1 min-w-0">
         <p className="text-[11px] text-(--t-text) truncate">{service.service || service.name}</p>
         <p className="text-[10px] text-(--t-text-muted) truncate">{service.status || state}</p>

@@ -23,20 +23,9 @@ import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import { sessionLabel } from "@/utils/sessionLabel";
 import { focusSession } from "@/hooks/useTerminal";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { latencyColor, sessionStatusTone } from "@/utils/statusTone";
 import type { TerminalSession } from "@/types";
-
-function latencyColor(ms: number): string {
-  if (ms < 50) return "var(--t-status-connected)";
-  if (ms < 150) return "var(--t-status-warning)";
-  return "var(--t-status-error)";
-}
-
-function statusColor(status: TerminalSession["status"]): string {
-  if (status === "connected") return "var(--t-status-connected)";
-  if (status === "connecting") return "var(--t-status-connecting)";
-  if (status === "error") return "var(--t-status-error)";
-  return "var(--t-text-muted)";
-}
 
 function sessionBadge(session: TerminalSession, t: TFunction): string {
   if (session.type === "ssh") return t("panes.badge.ssh");
@@ -387,7 +376,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
             label={t("panes.header.mcpBadge")}
           />
         )}
-        <span className="size-1.5 rounded-full" style={{ background: statusColor(session.status) }} />
+        <StatusDot tone={sessionStatusTone(session.status)} size="sm" />
         {pingEnabled && session.type === "ssh" && pingStatus === "up" && latencyMs !== undefined && (
           <div
             ref={latencyTriggerRef}

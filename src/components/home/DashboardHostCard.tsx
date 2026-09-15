@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import type { Connection } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { pingStatusMotion, pingStatusTone } from "@/utils/statusTone";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
@@ -74,26 +76,12 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
       <div className="relative">
         <ConnectionAvatar connection={connection} size={36} />
         {showPingDot && (
-          <span className="absolute bottom-0 right-0">
-            {pingStatus === "up" && (
-              <span
-                className="absolute inset-0 rounded-full animate-ping-slow"
-                style={{ background: "var(--t-status-connected)" }}
-              />
-            )}
-            <span
-              className="relative block rounded-full border-2 border-(--t-bg-elevated)"
-              style={{
-                width: 10,
-                height: 10,
-                background: pingStatus === "up"
-                  ? "var(--t-status-connected)"
-                  : pingStatus === "down"
-                  ? "var(--t-status-error)"
-                  : "var(--t-text-dim)",
-              }}
-            />
-          </span>
+          <StatusDot
+            tone={pingStatusTone(pingStatus)}
+            motion={pingStatusMotion(pingStatus)}
+            halo="var(--t-bg-elevated)"
+            corner
+          />
         )}
       </div>
       <span

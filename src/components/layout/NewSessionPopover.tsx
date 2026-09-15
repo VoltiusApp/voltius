@@ -7,6 +7,8 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { pingStatusTone } from "@/utils/statusTone";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
 import {
@@ -149,18 +151,6 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
 
   const pingStatuses = useHostPingStore((s) => s.statuses);
 
-  // Mirror the reachability convention used by HostCard: green when the host
-  // pings up, red when down, dim when unknown/not yet probed. (An active
-  // session implies the host is up, so the ping store already reflects it.)
-  const statusColor = (c: Connection) => {
-    const status = pingStatuses[c.id];
-    return status === "up"
-      ? "var(--t-status-connected)"
-      : status === "down"
-      ? "var(--t-status-error)"
-      : "var(--t-text-dim)";
-  };
-
   const hostRow = (c: Connection, rowIdx: number) => {
     const isSel = selected === rowIdx;
     return (
@@ -174,8 +164,7 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
       >
         <div className="relative shrink-0">
           <ConnectionAvatar connection={c} size={26} />
-          <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-(--t-bg-modal)"
-            style={{ background: statusColor(c) }} />
+          <StatusDot tone={pingStatusTone(pingStatuses[c.id])} size="sm" halo="var(--t-bg-modal)" corner />
         </div>
         <span className="flex-1 min-w-0 text-sm font-medium truncate"
           style={{ color: isSel ? "var(--t-accent)" : "var(--t-text-primary)" }}>

@@ -1,7 +1,7 @@
 import { writeClipboard } from "./clipboard";
 import { openExternal } from "./openExternal";
 import React, { useEffect, useRef, useState } from "react";
-import { useAutosave, Icon, InfoTooltip } from "@voltius/ui";
+import { useAutosave, Icon, InfoTooltip, StatusDot } from "@voltius/ui";
 import type { PluginAPI } from "@/plugins/api";
 import {
   setupNewGist,
@@ -118,15 +118,6 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <span className="text-sm text-(--t-text-muted) shrink-0">{label}</span>
       <div className="flex items-center gap-2">{children}</div>
     </div>
-  );
-}
-
-function StatusDot({ ok }: { ok: boolean }) {
-  return (
-    <span
-      className="inline-block w-2 h-2 rounded-full shrink-0"
-      style={{ background: ok ? "var(--t-status-connected)" : "var(--t-status-error)" }}
-    />
   );
 }
 
@@ -605,7 +596,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         <div className="flex items-center gap-2">
           <Icon icon="custom:github" width={20} className="text-(--t-text-primary)" />
           <h2 className="text-base font-semibold text-(--t-text-primary)">GitHub Gist Sync</h2>
-          {configured && <StatusDot ok={!syncError} />}
+          {configured && <StatusDot tone={syncError ? "error" : "connected"} />}
         </div>
 
         <p className="text-sm text-(--t-text-dim) -mt-4">
@@ -801,7 +792,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
               Sync
             </p>
             <Row label="Status">
-              <StatusDot ok={!syncError} />
+              <StatusDot tone={syncError ? "error" : "connected"} />
               <span className="text-sm text-(--t-text-primary)">
                 {syncError
                   ? syncError

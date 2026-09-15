@@ -8,6 +8,7 @@ import { CardActionButton } from "@/components/shared/CardActionButton";
 import { OverflowTagList } from "@/components/shared/OverflowTagList";
 import { type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { STATUS_TONE_COLOR, pingStatusMotion, pingStatusTone } from "@/utils/statusTone";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import { useConnectionPresence } from "@/hooks/useConnectionPresence";
 import { useUIContributions } from "@/hooks/useUIContributions";
@@ -217,11 +218,8 @@ export default function HostCard({
     return () => obs.disconnect();
   }, [isList]);
 
-  const pingColor = pingStatus === "up"
-    ? "var(--t-status-connected)"
-    : pingStatus === "down"
-    ? "var(--t-status-error)"
-    : "var(--t-text-dim)";
+  const pingTone = pingStatusTone(pingStatus);
+  const pingMotion = pingStatusMotion(pingStatus, isActive);
 
   const syncIcon = !isSynced && (
     <span title={t("hosts.card.cloudSyncDisabled")} className="text-(--t-text-dim) flex items-center">
@@ -252,7 +250,7 @@ export default function HostCard({
           <div className="relative shrink-0">
             <ConnectionAvatar connection={connection} size={28} />
             {showPingDot && (
-              <StatusDot color={pingColor} animate={pingStatus === "up"} fast={isActive} />
+              <StatusDot tone={pingTone} motion={pingMotion} halo="var(--t-bg-card)" corner />
             )}
           </div>
           <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
@@ -311,18 +309,12 @@ export default function HostCard({
                       {showPingDot && (
                         <>
                           {pingStatus === "up" && pingLatency !== undefined && (
-                            <span className="text-xs font-medium" style={{ color: pingColor }}>
+                            <span className="text-xs font-medium" style={{ color: STATUS_TONE_COLOR[pingTone] }}>
                               {pingLatency} ms
                             </span>
                           )}
-                          <span className="relative w-6 h-6 -my-1.5 shrink-0">
-                            <StatusDot
-                              color={pingColor}
-                              animate={pingStatus === "up"}
-                              fast={isActive}
-                              size={12}
-                              className="bottom-auto right-auto top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-                            />
+                          <span className="flex items-center justify-center w-6 h-6 -my-1.5 shrink-0">
+                            <StatusDot tone={pingTone} motion={pingMotion} />
                           </span>
                         </>
                       )}

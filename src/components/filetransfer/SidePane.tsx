@@ -9,14 +9,10 @@ import { HostPickerPanel } from "@/components/shared/HostPickerPanel";
 import { FilePane } from "./FilePane";
 import ConnectionOverlay, { getSftpSteps } from "@/components/terminal/connection-overlay";
 import { FilterInput } from "@/components/shared/ToolbarViewControls";
+import { StatusDot } from "@/components/shared/StatusDot";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { latencyColor, latencyTone } from "@/utils/statusTone";
 import { useToggle } from "@/stores/toggleSettingsStore";
-
-function latencyColor(ms: number): string {
-  if (ms < 50) return "var(--t-status-connected)";
-  if (ms < 150) return "var(--t-status-warning)";
-  return "var(--t-status-error)";
-}
 
 const SPARKLINE_MAX = 20;
 
@@ -212,7 +208,7 @@ export function SidePane({
             onMouseLeave={() => setShowSparkline(false)}
             title={`${latencyMs}ms`}
           >
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: latencyColor(latencyMs), flexShrink: 0, transition: "background 0.4s" }} />
+            <StatusDot tone={latencyTone(latencyMs)} size="sm" />
             <span style={{ color: latencyColor(latencyMs), fontVariantNumeric: "tabular-nums" }}>{latencyMs}ms</span>
           </div>
         )}

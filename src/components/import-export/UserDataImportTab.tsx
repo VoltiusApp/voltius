@@ -78,7 +78,7 @@ export function UserDataImportTab({ onClose }: { onClose: () => void }) {
       {status.type === "ready" && (
         <div className="flex flex-col gap-3 p-3 rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
           <div className="flex items-center gap-2 text-sm text-(--t-text-primary)">
-            <Icon icon="lucide:circle-check-big" width={15} className="text-(--t-status-ok)" />
+            <Icon icon="lucide:circle-check-big" width={15} className="text-(--t-status-connected)" />
             {t("importExport.userData.import.foundSections", { count: Object.keys(status.bundle.sections).length })}
           </div>
           <div className="flex flex-col gap-2 pt-2 border-t border-(--t-border)">
@@ -109,7 +109,7 @@ export function UserDataImportTab({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
           style={{
             background: importResult.isError ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.1)",
-            color: importResult.isError ? "var(--t-status-error)" : "var(--t-status-ok)",
+            color: importResult.isError ? "var(--t-status-error)" : "var(--t-status-connected)",
             border: `1px solid ${importResult.isError ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.2)"}`,
           }}>
           <Icon icon={importResult.isError ? "lucide:circle-alert" : "lucide:circle-check-big"} width={14} />

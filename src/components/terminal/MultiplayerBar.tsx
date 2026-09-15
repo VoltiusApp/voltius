@@ -4,6 +4,7 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { AvatarOverflow } from "@/components/shared/AvatarStack";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
+import { StatusDot } from "@/components/shared/StatusDot";
 
 const MAX_VISIBLE_PARTICIPANTS = 5;
 
@@ -50,20 +51,14 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
       <div className="flex items-center gap-1.5 mr-1">
         {mpState.ended ? (
           <>
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{ background: "var(--t-status-error)" }}
-            />
+            <StatusDot tone="error" />
             <span className="text-xs font-semibold" style={{ color: "var(--t-status-error)" }}>
               {t("terminal.multiplayerBar.ended")}
             </span>
           </>
         ) : (
           <>
-            <span
-              className="w-2 h-2 rounded-full animate-pulse"
-              style={{ background: "var(--t-accent)" }}
-            />
+            <StatusDot tone="accent" motion="pulse" />
             <span className="text-xs font-semibold" style={{ color: "var(--t-accent)" }}>
               {isHost ? t("terminal.multiplayerBar.sharing") : t("terminal.multiplayerBar.watching")}
             </span>
