@@ -233,6 +233,17 @@
         "title": "Connexion perdue",
         "subtitle": "Reconnexion…"
       },
+      "reconnectWait": {
+        "offline": {
+          "title": "Vous êtes hors ligne",
+          "subtitle": "Reconnexion dès le retour du réseau"
+        },
+        "slow": {
+          "title": "Hôte toujours injoignable",
+          "subtitle": "Nouvelle tentative toutes les {{seconds}} secondes"
+        },
+        "retryNow": "Réessayer maintenant"
+      },
       "connectionError": {
         "title": "Échec de la connexion",
         "retry": "Réessayer",

@@ -233,6 +233,17 @@
         "title": "连接已断开",
         "subtitle": "正在重连…"
       },
+      "reconnectWait": {
+        "offline": {
+          "title": "您已离线",
+          "subtitle": "网络恢复后将自动重新连接"
+        },
+        "slow": {
+          "title": "主机仍无法访问",
+          "subtitle": "每 {{seconds}} 秒重试一次"
+        },
+        "retryNow": "立即重试"
+      },
       "connectionError": {
         "title": "连接失败",
         "retry": "重试",

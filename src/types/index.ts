@@ -225,6 +225,8 @@ export interface TerminalSession {
   /** Set when the failure was the vault itself, so the overlay can offer to unlock
    * rather than ask for credentials. The message is translated and cannot be matched. */
   errorCode?: VaultErrorCode;
+  /** Why the auto-reconnect loop is holding off: no network, or past its fast retries. */
+  reconnectWait?: "offline" | "slow";
   encoding?: string;
   localShell?: string;
   serialConfig?: SerialConnectParams;

@@ -1,5 +1,6 @@
 import { isMissingUsernameError, isNoAuthError, isPassphraseError } from "@/components/terminal/connection-overlay/utils";
 import type { VaultErrorCode } from "@/services/vaultErrors";
+import type { TerminalSession } from "@/types";
 
 /**
  * A failure retrying cannot fix: the user must supply something, or the vault cannot
@@ -10,7 +11,11 @@ export function stopsRetrying(msg?: string, code?: VaultErrorCode): boolean {
   return isPassphraseError(msg) || isNoAuthError(msg) || isMissingUsernameError(msg);
 }
 
-export function backoffDelays(): number[] {
+export function isSessionEnded(msg?: string): boolean {
+  return !!msg?.includes("SESSION_ENDED");
+}
+
+export const FAST_DELAYS_MS: readonly number[] = (() => {
   const delays = [1500, 3000, 5000, 8000];
   let total = delays.reduce((a, b) => a + b, 0);
   while (total < 180_000) {
@@ -18,9 +23,36 @@ export function backoffDelays(): number[] {
     total += 10_000;
   }
   return delays;
+})();
+
+export const SLOW_RETRY_MS = 30_000;
+
+export function retryDelay(step: number): number {
+  return FAST_DELAYS_MS[step] ?? SLOW_RETRY_MS;
 }
 
 export type SessionStatus = "connected" | "connecting" | "disconnected" | "error" | undefined;
+
+export type ReconnectWait = NonNullable<TerminalSession["reconnectWait"]>;
+
+export interface StrandableSession {
+  type: string;
+  status: SessionStatus;
+  everConnected?: boolean;
+  errorMessage?: string;
+  errorCode?: VaultErrorCode;
+}
+
+/** An ssh session that failed to come back for a reason the network returning can fix. */
+export function strandedByNetwork(s: StrandableSession): boolean {
+  return (
+    s.type === "ssh" &&
+    s.status === "error" &&
+    !!s.everConnected &&
+    !isSessionEnded(s.errorMessage) &&
+    !stopsRetrying(s.errorMessage, s.errorCode)
+  );
+}
 
 export interface BackoffStore {
   status(sessionId: string): SessionStatus;
@@ -30,6 +62,8 @@ export interface BackoffStore {
   markReconnecting(sessionId: string): void;
   markConnected(sessionId: string): void;
   markError(sessionId: string, message: string, code?: VaultErrorCode): void;
+  setWait(sessionId: string, wait: ReconnectWait | undefined): void;
+  online(sessionId: string): boolean;
   /** Silent connect attempt: mutates no visible status, returns the outcome. */
   attempt(sessionId: string): Promise<{ ok: boolean; errorMessage?: string; errorCode?: VaultErrorCode }>;
   /** The multiplexer session is gone on the host (attach-only probe failed):
@@ -43,28 +77,64 @@ const generations = new Map<string, number>();
 /** Cancel any live backoff loop for sessionId so it bails at its next check. */
 export function cancelBackoff(sessionId: string): void {
   generations.set(sessionId, (generations.get(sessionId) ?? 0) + 1);
+  wakeBackoff(sessionId);
 }
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const wakers = new Map<string, () => void>();
 
-/** Reconnect a dropped session on the backoff schedule while holding a single
- * steady "reconnecting" state. Per-attempt failures are silent — the overlay
- * stays calm and never flashes a scary transient error. Only terminal outcomes
- * change state: success → connected, interactive-auth needed → error (prompt),
- * schedule exhausted → error (Retry/Dismiss). */
+/** Resolves true when woken early by wakeBackoff, false when the delay elapsed. */
+function sleep(sessionId: string, ms: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const wake = () => {
+      clearTimeout(timer);
+      if (wakers.get(sessionId) === wake) wakers.delete(sessionId);
+      resolve(true);
+    };
+    wakers.set(sessionId, wake);
+    timer = setTimeout(() => {
+      if (wakers.get(sessionId) === wake) wakers.delete(sessionId);
+      resolve(false);
+    }, ms);
+  });
+}
+
+/** Cut the current wait of sessionId's loop short and restart its schedule. */
+export function wakeBackoff(sessionId: string): boolean {
+  const wake = wakers.get(sessionId);
+  wake?.();
+  return !!wake;
+}
+
+export function sleepingBackoffs(): string[] {
+  return [...wakers.keys()];
+}
+
+/** Reconnect a dropped session while holding a single steady "reconnecting"
+ * state. Per-attempt failures are silent; it never gives up on a transient
+ * failure, and holds off while store.online says the link is down.
+ * Terminal outcomes: success → connected, interactive-auth needed → error. */
 export async function runBackoff(sessionId: string, store: BackoffStore): Promise<boolean> {
   const gen = (generations.get(sessionId) ?? 0) + 1;
   generations.set(sessionId, gen);
   const superseded = () => generations.get(sessionId) !== gen;
 
   store.markReconnecting(sessionId);
+  store.setWait(sessionId, undefined);
 
-  for (const delay of backoffDelays()) {
-    await sleep(delay);
+  let step = 0;
+  for (;;) {
+    const woken = await sleep(sessionId, retryDelay(step));
     if (superseded()) return false;
     if (!store.exists(sessionId)) return false;
     // Recovered through another path (e.g. a manual retry) — nothing to do.
     if (store.status(sessionId) === "connected") return true;
+    if (woken) step = 0;
+    if (!store.online(sessionId)) {
+      store.setWait(sessionId, "offline");
+      step = 0;
+      continue;
+    }
 
     const { ok, errorMessage, errorCode } = await store.attempt(sessionId);
     if (superseded()) return false;
@@ -74,7 +144,7 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
       return true;
     }
     // The session no longer exists on the host: terminal, tear down.
-    if (errorMessage?.includes("SESSION_ENDED")) {
+    if (isSessionEnded(errorMessage)) {
       store.sessionEnded(sessionId);
       return false;
     }
@@ -85,9 +155,9 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
       return false;
     }
     // Transient failure (host unreachable, refused): stay reconnecting, retry.
+    step++;
+    store.setWait(sessionId, retryDelay(step) === SLOW_RETRY_MS ? "slow" : undefined);
   }
-  store.markError(sessionId, "Couldn't reconnect after repeated attempts");
-  return false;
 }
 
 /** Route a session whose channel just closed.
