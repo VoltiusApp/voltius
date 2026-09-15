@@ -314,7 +314,7 @@ export function InstalledTab() {
   const { t } = useTranslation();
   const settingsPages = usePluginStore((s) => s.settingsPages);
   const { setEnabled, isEnabled } = usePluginRegistryStore();
-  const { installedMeta, catalog, uninstallPlugin, uninstallSeededPlugin, reloadPlugin, scanLocal, appVersion, loadAppVersion } = useMarketplaceStore();
+  const { installedMeta, catalog, uninstallPlugin, uninstallSeededPlugin, reloadPlugin, scanLocal, fetchCatalog, appVersion, loadAppVersion } = useMarketplaceStore();
   const { busy: updateBusy, startUpdate, modal: updateModal } = usePluginInstaller();
 
   useEffect(() => {
@@ -383,7 +383,7 @@ export function InstalledTab() {
 
   const handleScan = async () => {
     setScanning(true);
-    try { await scanLocal(); refreshLoaded(); } finally { setScanning(false); }
+    try { await Promise.all([scanLocal(), fetchCatalog()]); refreshLoaded(); } finally { setScanning(false); }
   };
 
   if (autoConfigManifest) {

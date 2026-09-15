@@ -33,6 +33,7 @@ import { injectPluginStyle } from "@/plugins/importPluginModule";
 import { PluginHashMismatchError } from "@/plugins/integrity";
 import { PluginInstallInProgressError } from "@/plugins/installErrors";
 import { sha256Hex } from "@/plugins/integrity";
+import { appFetch } from "@/services/http";
 import type { PluginRegisterFn } from "@/plugins/api";
 
 function basePlugin(over: Partial<MarketplacePlugin> = {}): MarketplacePlugin {
@@ -73,7 +74,8 @@ beforeEach(() => {
   h.invoke.mockClear();
   h.importPluginModule.mockClear();
   registryState.enabled = true;
-  useMarketplaceStore.setState({ installedMeta: [], installing: new Set() });
+  useMarketplaceStore.setState({ installedMeta: [], installing: new Set(), catalog: [] });
+  vi.mocked(appFetch).mockReset();
 });
 
 afterEach(() => {
@@ -227,6 +229,55 @@ test("a failed update (hash mismatch) leaves the old plugin loaded and working",
   expect(getLoadedPlugins().find((m) => m.id === "p1")?.version).toBe("1.0.0");
   const wrote = h.invoke.mock.calls.some(([cmd]) => cmd === "plugin_write_file");
   expect(wrote).toBe(false);
+});
+
+function serveCatalogue(entries: MarketplacePlugin[]) {
+  vi.mocked(appFetch).mockImplementation(async () => new Response(JSON.stringify(entries)));
+}
+
+function serveBundle(version: string, js: string) {
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") return args.url!.endsWith("manifest.json") ? manifestFor(version) : js;
+    return undefined;
+  });
+}
+
+test("an install from a catalogue entry that went stale refreshes the catalogue and installs the current release", async () => {
+  mockBundle("v2");
+  serveBundle("1.1.0", "v2-js");
+  const current = basePlugin({ version: "1.1.0", hash: await sha256Hex("v2-js") });
+  serveCatalogue([current]);
+  useMarketplaceStore.setState({ catalog: [basePlugin({ hash: await sha256Hex("v1-js") })] });
+
+  await useMarketplaceStore.getState().installPlugin(basePlugin({ hash: await sha256Hex("v1-js") }));
+
+  expect(getExposedApi("p1")).toBe("v2");
+  expect(useMarketplaceStore.getState().installedMeta).toEqual([
+    expect.objectContaining({ id: "p1", version: "1.1.0", hash: current.hash }),
+  ]);
+  expect(useMarketplaceStore.getState().catalog[0].version).toBe("1.1.0");
+});
+
+test("a bundle the refreshed catalogue still does not vouch for is refused", async () => {
+  mockBundle("evil");
+  serveBundle("1.0.0", "tampered-js");
+  const entry = basePlugin({ hash: await sha256Hex("v1-js") });
+  serveCatalogue([entry]);
+
+  await expect(useMarketplaceStore.getState().installPlugin(entry)).rejects.toBeInstanceOf(PluginHashMismatchError);
+  expect(getExposedApi("p1")).toBeNull();
+  expect(h.invoke.mock.calls.some(([cmd]) => cmd === "plugin_write_file")).toBe(false);
+});
+
+test("a refreshed entry that moved to another repo is not used to retry", async () => {
+  mockBundle("v2");
+  serveBundle("1.1.0", "v2-js");
+  serveCatalogue([basePlugin({ version: "1.1.0", hash: await sha256Hex("v2-js"), repo: "https://elsewhere.example/p1" })]);
+
+  await expect(
+    useMarketplaceStore.getState().installPlugin(basePlugin({ hash: await sha256Hex("v1-js") })),
+  ).rejects.toBeInstanceOf(PluginHashMismatchError);
+  expect(getExposedApi("p1")).toBeNull();
 });
 
 test("installing a plugin that was never loaded does not call unloadPlugin", async () => {
