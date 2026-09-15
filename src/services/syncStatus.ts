@@ -1,14 +1,6 @@
-/** Pure selection of the "effective" sync status from the Voltius (server) and
- *  Gist sync engines + plan/plugin state. No React/stores — node-testable. Shared
- *  by the desktop TitleBar and the mobile header so the two can't drift. */
+/** Sanitizer and display helpers for sync provider state. No React/stores — node-testable. */
 import type { SyncStatus } from "./sync";
 import type { SyncProviderState } from "@/plugins/api";
-
-interface SyncStateLike {
-  status: SyncStatus;
-  lastSync: Date | null;
-  error: string | null;
-}
 
 /** A `sync-state` after sanitizing: `lastSync` is always a valid `Date` or null. */
 export interface SyncProviderSnapshot extends Omit<SyncProviderState, "lastSync"> {
@@ -26,13 +18,6 @@ export const NOT_CONFIGURED_SYNC_STATE: SyncProviderSnapshot = Object.freeze({
   blobSizeBytes: null,
   configured: false,
 });
-
-/** Shape the gist-sync plugin exposes via `api.plugins.expose(...)`, read back
- *  through `getExposedApi("plugin-gist-sync")` — lets host UI trigger a sync
- *  without importing the plugin's module. */
-export interface GistSyncPublicApi {
-  syncNow(): Promise<void>;
-}
 
 const SYNC_STATUSES: readonly SyncStatus[] = ["idle", "syncing", "success", "error", "offline"];
 
@@ -121,35 +106,6 @@ export function sanitizeSyncProviderState(raw: unknown, pluginId: string): SyncP
     warnPluginStateOnce(pluginId, "sync-state", `sync-state threw while being read: ${safeStr(e)}`);
     return NOT_CONFIGURED_SYNC_STATE;
   }
-}
-
-export interface EffectiveSync {
-  /** Either sync engine is set up. */
-  configured: boolean;
-  /** True when the Voltius (server) engine is the one being surfaced. */
-  showVoltius: boolean;
-  status: SyncStatus;
-  lastSync: Date | null;
-  error: string | null;
-}
-
-export function selectEffectiveSyncStatus(i: {
-  voltius: SyncStateLike;
-  gist: SyncStateLike & { configured: boolean };
-  accountMode: string | null;
-  isPro: boolean;
-  gistPluginEnabled: boolean;
-}): EffectiveSync {
-  const voltiusConfigured = i.accountMode === "server" && i.isPro;
-  const gistConfigured = i.gistPluginEnabled && i.gist.configured;
-  const showVoltius = voltiusConfigured || !gistConfigured;
-  return {
-    configured: voltiusConfigured || gistConfigured,
-    showVoltius,
-    status: showVoltius ? i.voltius.status : i.gist.status,
-    lastSync: showVoltius ? i.voltius.lastSync : i.gist.lastSync,
-    error: showVoltius ? i.voltius.error : i.gist.error,
-  };
 }
 
 /** Lucide icon for a sync status (matches SyncDropdown). */

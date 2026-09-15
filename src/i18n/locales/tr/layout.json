@@ -142,7 +142,6 @@
     "sync": {
       "title": "Eşitleme",
       "voltiusSync": "Voltius Sync",
-      "gistE2ee": "Gist E2EE",
       "syncNow": "Şimdi eşitle",
       "signInForSync": "Bulut eşitlemesi için oturum açın",
       "requiresPro": "Pro gerektirir",
@@ -158,6 +157,7 @@
         "syncedAt": "Eşitlendi · {{time}}",
         "error": "Eşitleme hatası",
         "errorDetail": "Eşitleme hatası: {{error}}",
+        "errorDetailFrom": "Eşitleme hatası · {{source}}: {{error}}",
         "offline": "Çevrimdışı",
         "idle": "Boşta",
         "notConfigured": "Eşitleme yapılandırılmadı",

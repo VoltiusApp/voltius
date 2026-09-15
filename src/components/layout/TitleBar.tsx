@@ -6,16 +6,15 @@ import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
-import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
-import { selectEffectiveSyncStatus, syncStatusColor } from "@/services/syncStatus";
-import { useGistSyncState } from "@/hooks/useGistSyncState";
+import type { SyncStatus } from "@/services/sync";
+import { syncStatusColor } from "@/services/syncStatus";
+import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { ShareMenu } from "@/components/terminal/ShareMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { usePfToastBridge } from "@/hooks/usePfToastBridge";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { SyncDropdown } from "@/components/layout/SyncDropdown";
 import { NewSessionPopover } from "@/components/layout/NewSessionPopover";
 import { useDragStore } from "@/stores/dragStore";
@@ -74,21 +73,9 @@ export default function TitleBar() {
 
   usePfToastBridge();
 
-  const [syncState, setSyncState] = useState(getSyncState);
-  useEffect(() => { return onSyncStateChange(() => setSyncState(getSyncState())); }, []);
+  const { providers: syncProviders, effective: sync } = useSyncProviders();
 
-  const gistSyncState = useGistSyncState();
-
-  const gistPluginEnabled = usePluginRegistryStore((s) => s.isEnabled("plugin-gist-sync", false));
   const accountMode = useSubscriptionStore((s) => s.accountMode);
-  const isPro = useSubscriptionStore((s) => s.isPro);
-
-  const {
-    configured: effectiveConfigured,
-    status: effectiveSyncStatus,
-    lastSync: effectiveLastSync,
-    error: effectiveError,
-  } = selectEffectiveSyncStatus({ voltius: syncState, gist: gistSyncState, accountMode, isPro, gistPluginEnabled });
 
   const { pos: tabMenuPos, open: openTabMenu, close: closeTabMenu } = useContextMenu();
   const [menuTarget, setMenuTarget] = useState<{ kind: "session" | "split"; id: string } | null>(null);
@@ -566,20 +553,19 @@ export default function TitleBar() {
       {/* Sync indicator */}
       <SyncIndicator
         anchorRef={syncButtonRef}
-        status={effectiveSyncStatus}
-        lastSync={effectiveLastSync}
-        error={effectiveError}
+        status={sync.status}
+        lastSync={sync.lastSync}
+        error={sync.error}
+        errorSource={sync.errorSource}
         active={syncDropdownOpen}
-        configured={effectiveConfigured}
+        configured={sync.configured}
         onClick={() => setSyncDropdownOpen((o) => !o)}
       />
       <SyncDropdown
         anchorRef={syncButtonRef}
         open={syncDropdownOpen}
         onClose={() => setSyncDropdownOpen(false)}
-        cloudActive={syncState.cloudActive}
-        gistPluginEnabled={gistPluginEnabled}
-        accountMode={accountMode}
+        providers={syncProviders}
       />
 
       {/* Watching / Ended badge — guest in a multiplayer session */}
@@ -870,6 +856,7 @@ function SyncIndicator({
   status: engineStatus,
   lastSync,
   error,
+  errorSource,
   active,
   configured,
   onClick,
@@ -878,6 +865,7 @@ function SyncIndicator({
   status: SyncStatus;
   lastSync: Date | null;
   error: string | null;
+  errorSource: string | null;
   active: boolean;
   configured: boolean;
   onClick: () => void;
@@ -891,7 +879,9 @@ function SyncIndicator({
   const title = !configured ? t("layout.sync.status.notConfigured") :
     status === "syncing" ? t("layout.sync.status.syncing") :
     status === "success" ? (lastSync ? t("layout.sync.status.syncedAt", { time: lastSync.toLocaleTimeString() }) : t("layout.sync.status.synced")) :
-    status === "error"   ? t("layout.sync.status.errorDetail", { error: error ?? t("layout.sync.status.unknown") }) :
+    status === "error"   ? (errorSource
+      ? t("layout.sync.status.errorDetailFrom", { source: errorSource, error: error ?? t("layout.sync.status.unknown") })
+      : t("layout.sync.status.errorDetail", { error: error ?? t("layout.sync.status.unknown") })) :
     status === "offline" ? t("layout.sync.status.offline") :
                            t("layout.sync.status.default");
 

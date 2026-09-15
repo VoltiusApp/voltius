@@ -142,7 +142,6 @@
     "sync": {
       "title": "Synchronisation",
       "voltiusSync": "Synchronisation Voltius",
-      "gistE2ee": "Gist E2EE",
       "syncNow": "Synchroniser maintenant",
       "signInForSync": "Connectez-vous pour la synchronisation cloud",
       "requiresPro": "Nécessite Pro",
@@ -158,6 +157,7 @@
         "syncedAt": "Synchronisé · {{time}}",
         "error": "Erreur de synchronisation",
         "errorDetail": "Erreur de synchronisation : {{error}}",
+        "errorDetailFrom": "Erreur de synchronisation · {{source}} : {{error}}",
         "offline": "Hors ligne",
         "idle": "Inactif",
         "notConfigured": "Synchronisation non configurée",
