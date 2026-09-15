@@ -6,7 +6,8 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useEffectiveSyncStatus } from "@/hooks/useEffectiveSyncStatus";
-import { syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
+import { syncStatusColor } from "@/services/syncStatus";
+import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?: () => void }) {
@@ -21,6 +22,7 @@ export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?:
     vaults.find((v) => v.id === id)?.name ?? teams.find((tm) => tm.id === id)?.name ?? t("common.entity.vault");
   const counts = useVaultContents(id);
   const sync = useEffectiveSyncStatus();
+  const syncMotion = useSyncMotion(sync.status);
 
   return (
     <header
@@ -43,15 +45,10 @@ export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?:
         {sync.configured && (
           <span
             data-mobile-sync-status
-            title={t("mobile.header.syncTooltip", { status: t(`mobile.header.syncStatus.${sync.status}`) })}
+            title={t("mobile.header.syncTooltip", { status: t(`mobile.header.syncStatus.${syncMotion.status}`) })}
             className="p-2 flex items-center"
           >
-            <Icon
-              icon={syncStatusIcon(sync.status)}
-              width={18}
-              className={sync.status === "syncing" ? "animate-spin" : ""}
-              style={{ color: syncStatusColor(sync.status) }}
-            />
+            <SyncStatusIcon sync={syncMotion} width={18} style={{ color: syncStatusColor(syncMotion.status) }} />
           </span>
         )}
         <NotificationBell />

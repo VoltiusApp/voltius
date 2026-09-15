@@ -5,7 +5,9 @@ import i18n from "@/i18n";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { getSyncState, onSyncStateChange, syncNow, type SyncStatus } from "@/services/sync";
 import { getExposedApi } from "@/plugins/runtime";
-import { syncStatusColor, syncStatusIcon, type GistSyncPublicApi } from "@/services/syncStatus";
+import { syncStatusColor, type GistSyncPublicApi } from "@/services/syncStatus";
+import { runManualSync } from "@/services/syncIntent";
+import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { useGistSyncState } from "@/hooks/useGistSyncState";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
@@ -53,23 +55,24 @@ function SyncSection({
   label: string;
   methodIcon: string;
   variant: SectionVariant;
-  onSyncNow: () => void;
+  onSyncNow: () => Promise<void>;
 }) {
   const { t } = useTranslation();
   const isActive = variant.kind === "active";
   const isSyncing = isActive && variant.status === "syncing";
-  const [spinning, setSpinning] = useState(isSyncing);
+  const [pending, setPending] = useState(isSyncing);
+  const sync = useSyncMotion(isActive ? variant.status : "idle");
 
   useEffect(() => {
-    setSpinning(isActive && variant.status === "syncing");
+    setPending(isActive && variant.status === "syncing");
   }, [isActive, isActive ? variant.status : null]);
 
-  const canSync = isActive && !spinning;
+  const canSync = isActive && !pending;
 
   const handleSync = () => {
     if (!canSync) return;
-    setSpinning(true);
-    onSyncNow();
+    setPending(true);
+    runManualSync(onSyncNow).catch(() => {});
   };
 
   return (
@@ -99,7 +102,7 @@ function SyncSection({
           }}
           title={t("layout.sync.syncNow")}
         >
-          <Icon icon="lucide:refresh-cw" width={10} className={spinning ? "animate-spin" : ""} />
+          <Icon icon="lucide:refresh-cw" width={10} />
           {t("layout.sync.syncNow")}
         </button>
       </div>
@@ -171,17 +174,13 @@ function SyncSection({
       )}
 
       {variant.kind === "active" && (() => {
-        const { status, lastSync, error, blobSizeBytes } = variant;
+        const { lastSync, error, blobSizeBytes } = variant;
+        const { status } = sync;
         const color = syncStatusColor(status);
         return (
           <>
             <div className="flex items-center gap-1.5">
-              <Icon
-                icon={syncStatusIcon(status)}
-                width={12}
-                className={status === "syncing" ? "animate-spin" : ""}
-                style={{ color }}
-              />
+              <SyncStatusIcon sync={sync} width={12} style={{ color }} />
               <span className="text-xs" style={{ color }}>
                 {statusLabel(status, lastSync)}
               </span>
@@ -296,7 +295,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
         label={t("layout.sync.voltiusSync")}
         methodIcon="lucide:cloud"
         variant={voltiusVariant}
-        onSyncNow={() => syncNow(true).catch(() => {})}
+        onSyncNow={() => syncNow(true)}
       />
 
       <div style={{ height: 1, background: "var(--t-border)" }} />
@@ -306,9 +305,9 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
         label={t("layout.sync.gistE2ee")}
         methodIcon="custom:github"
         variant={gistVariant}
-        onSyncNow={() => {
+        onSyncNow={async () => {
           const gistApi = getExposedApi(GIST_SYNC_PLUGIN_ID) as GistSyncPublicApi | null;
-          gistApi?.syncNow({ showProgress: false }).catch(() => {});
+          await gistApi?.syncNow({ showProgress: false });
         }}
       />
 

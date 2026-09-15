@@ -4,7 +4,7 @@ const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 
-import { syncNow, ENTITY_FILES } from "./sync";
+import { syncNow, ENTITY_FILES, getSyncState } from "./sync";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
@@ -94,4 +94,27 @@ test("a synced pull writes the raw merge to settings.json but restores this devi
   expect(disk.sections.appSettings.data.terminal.preferredShell).toBe("/bin/zsh");
 
   expect(useTerminalSettingsStore.getState().preferredShell).toBe("/usr/bin/fish");
+});
+
+test("the status reports success as soon as the work ends, while calls during the hold are still dropped", async () => {
+  h.invoke.mockImplementation(async (cmd: string, args?: { key?: string }) => {
+    if (cmd !== "keychain_get") return null;
+    if (args?.key === "server_url") return "https://sync.example.com";
+    return args?.key === "jwt" ? jwt(3600) : null;
+  });
+  let deviceListings = 0;
+  h.appFetch.mockImplementation(async (url: string) => {
+    if (!url.endsWith("/v1/sync/devices")) return notFound;
+    deviceListings++;
+    return okJson({ devices: [] });
+  });
+
+  const first = syncNow();
+  await vi.waitFor(() => expect(getSyncState().status).toBe("success"), { timeout: 300 });
+  await syncNow();
+  await first;
+  expect(deviceListings).toBe(1);
+
+  await syncNow();
+  expect(deviceListings).toBe(2);
 });

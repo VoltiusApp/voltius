@@ -7,7 +7,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
-import { selectEffectiveSyncStatus, syncStatusColor, syncStatusIcon } from "@/services/syncStatus";
+import { selectEffectiveSyncStatus, syncStatusColor } from "@/services/syncStatus";
 import { useGistSyncState } from "@/hooks/useGistSyncState";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -31,6 +31,7 @@ import { closeSession } from "@/services/closeSession";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { STATUS_TONE_COLOR, sessionStatusTone } from "@/utils/statusTone";
 import { sessionLabel, splitTabLabel } from "@/utils/sessionLabel";
 import { focusSession } from "@/hooks/useTerminal";
@@ -866,7 +867,7 @@ function SubscriptionBadge() {
 
 function SyncIndicator({
   anchorRef,
-  status,
+  status: engineStatus,
   lastSync,
   error,
   active,
@@ -883,7 +884,8 @@ function SyncIndicator({
 }) {
   const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
-  const icon = !configured ? "lucide:cloud-off" : syncStatusIcon(status);
+  const sync = useSyncMotion(engineStatus);
+  const status = sync.status;
   const color = !configured ? "var(--t-text-dim)" : syncStatusColor(status);
 
   const title = !configured ? t("layout.sync.status.notConfigured") :
@@ -921,11 +923,7 @@ function SyncIndicator({
         }}
       >
         {rippleEls}
-        <Icon
-          icon={icon}
-          width={18}
-          className={status === "syncing" ? "animate-spin" : ""}
-        />
+        {configured ? <SyncStatusIcon sync={sync} width={18} /> : <Icon icon="lucide:cloud-off" width={18} />}
       </button>
     </div>
   );

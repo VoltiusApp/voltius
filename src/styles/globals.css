@@ -48,6 +48,7 @@
   --animate-fadeOut: fadeOut 0.25s ease-in forwards;
   --animate-spin: spin 0.8s linear infinite;
   --animate-tab-hint: tab-hint 600ms ease-out forwards;
+  --animate-sync-breathe: sync-breathe 1.4s ease-in-out infinite;
 
   --transition-duration-400: 400ms;
 
@@ -76,6 +77,10 @@
     20%  { opacity: 1; transform: scale(1); }
     55%  { opacity: 1; transform: scale(1); }
     100% { opacity: 0; transform: scale(0.92); }
+  }
+  @keyframes sync-breathe {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.35; transform: scale(0.9); }
   }
 }
 
