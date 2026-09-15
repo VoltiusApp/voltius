@@ -5,6 +5,8 @@ import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { getLoadedPlugins, setPluginActive } from "@/plugins/runtime";
+import { useMarketplaceStore } from "@/stores/marketplaceStore";
+import { pluginDefaultEnabled } from "@/plugins/pluginDefaultEnabled";
 
 export interface ToggleItem {
   id: string;
@@ -24,6 +26,7 @@ export function useToggleSettings(): ToggleItem[] {
   // Subscribe to overrides so plugin toggle values stay live as they're flipped.
   const pluginOverrides = usePluginRegistryStore((s) => s.overrides);
   const setPluginEnabled = usePluginRegistryStore((s) => s.setEnabled);
+  const installedMeta = useMarketplaceStore((s) => s.installedMeta);
   const autoUpdate = useUpdaterPrefStore((s) => s.autoUpdate);
   const setAutoUpdate = useUpdaterPrefStore((s) => s.setAutoUpdate);
 
@@ -61,11 +64,11 @@ export function useToggleSettings(): ToggleItem[] {
       icon: "lucide:puzzle",
       description: t("settings.plugins.categoryLabel"),
       keywords: ["plugin", "extension", m.name.toLowerCase(), m.id],
-      value: pluginOverrides[m.id] ?? m.defaultEnabled ?? true,
+      value: pluginOverrides[m.id] ?? pluginDefaultEnabled(m, installedMeta),
       onToggle: (v: boolean) => {
         setPluginActive(m.id, v);
         void setPluginEnabled(m.id, v);
       },
     })),
-  ], [t, values, set, syncTypes, setSyncType, pluginOverrides, setPluginEnabled, autoUpdate, setAutoUpdate]);
+  ], [t, values, set, syncTypes, setSyncType, pluginOverrides, setPluginEnabled, installedMeta, autoUpdate, setAutoUpdate]);
 }
