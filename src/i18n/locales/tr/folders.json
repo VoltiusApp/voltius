@@ -1,30 +1,30 @@
 {
   "folders": {
     "card": {
-      "pin": "Pin Pin Pin",
+      "pin": "Sabitle",
       "unpin": "Sabitlemeyi kaldır",
-      "openFolder": "Açık klasör",
-      "cloudSyncDisabled": "Bulut senkronizasyonu",
-      "unpinForMe": "Benim için",
+      "openFolder": "Klasörü aç",
+      "cloudSyncDisabled": "Bulut eşitlemesi devre dışı",
+      "unpinForMe": "Benim için sabitlemeyi kaldır",
       "showInMyView": "Görünümümde göster",
       "hideForMe": "Benim için gizle",
       "pinForMe": "Benim için sabitle",
-      "unpinForTeam": "Takım için Unpin",
-      "pinForTeam": "takım için Pin for team",
-      "exportFolder": "İhracat klasörü",
-      "disableCloudSync": "Disable cloud senkronizasyon",
-      "enableCloudSync": "Enable bulut senkronizasyonu",
-      "deleteFolder": "Delete klasörü",
+      "unpinForTeam": "Ekip için sabitlemeyi kaldır",
+      "pinForTeam": "Ekip için sabitle",
+      "exportFolder": "Klasörü dışa aktar",
+      "disableCloudSync": "Bulut eşitlemesini devre dışı bırak",
+      "enableCloudSync": "Bulut eşitlemesini etkinleştir",
+      "deleteFolder": "Klasörü sil",
       "itemCount_one": "{{count}} öğe",
-      "itemCount_other": "{{count}} öğeleri"
+      "itemCount_other": "{{count}} öğe"
     },
     "editPanel": {
-      "nameLabel": "Name Name Name Name Name Name Name Name Name Name Name",
-      "cloudSyncLabel": "Cloud You",
-      "syncedToCloud": "Buluta Sunulan",
-      "notSynced": "senkronize edilmedi",
-      "syncDisabledGlobally": "Folder senkronizasyon, global olarak Ayarlarda devre dışı bırakılır.",
-      "createdLabel": "Oluşturulmuş Yaratılmış"
+      "nameLabel": "Ad",
+      "cloudSyncLabel": "Bulut eşitlemesi",
+      "syncedToCloud": "Buluta eşitlendi",
+      "notSynced": "Eşitlenmedi",
+      "syncDisabledGlobally": "Klasör eşitlemesi Ayarlar → Bulut eşitlemesi bölümünden genel olarak devre dışı bırakılmış.",
+      "createdLabel": "Oluşturulma"
     }
   }
 }

@@ -104,8 +104,10 @@
         "label": "Hesap",
         "keywords": [
           "profil",
+          "oturum aç",
           "giriş",
-          "kimlik doğrulama"
+          "kimlik doğrulama",
+          "login"
         ]
       },
       "sync": {
@@ -123,7 +125,9 @@
         "keywords": [
           "uzantılar",
           "eklentiler",
-          "mağaza"
+          "mağaza",
+          "extensions",
+          "marketplace"
         ]
       },
       "integrations": {
@@ -134,7 +138,9 @@
           "claude code",
           "sunucu",
           "soket",
-          "ajan"
+          "ajan",
+          "yapay zekâ",
+          "agent"
         ]
       },
       "terminal": {
@@ -265,10 +271,10 @@
         "title": "Kullanıcı adı",
         "copy": "Kopyala",
         "copied": "Kopyalandı",
-        "choose": "Kullanıcı adı seç",
+        "choose": "Kullanıcı adı seçin",
         "change": "Kullanıcı adını değiştir",
         "chooseSub": "Özel bir kullanıcı adı, ekipleriniz dışındaki kişilerin sizi bulabilmesini sağlar.",
-        "generatedNote": "Mevcut kullanıcı adınız, paylaştığınız herkes tarafından zaten kullanılabilir.",
+        "generatedNote": "Mevcut kullanıcı adınız, onu verdiğiniz herkes için zaten geçerlidir.",
         "unverified": "Özel bir kullanıcı adı seçmek için e-postanızı doğrulayın.",
         "placeholder": "kullanici-adiniz",
         "inputLabel": "Kullanıcı adı",
@@ -294,7 +300,7 @@
         "errorMinLength": "Yeni parola en az 8 karakter olmalıdır",
         "errorSamePassword": "Yeni parola mevcut paroladan farklı olmalıdır",
         "successMsg": "Parola başarıyla değiştirildi.",
-        "successNote": "Oturumunuz açık kalmaya devam ediyor. Kasa kayıtlarınız değişmedi.",
+        "successNote": "Oturumunuz hâlâ açık. Kasa kayıtlarınız değişmedi.",
         "done": "Tamam",
         "changing": "Değiştiriliyor…",
         "changeBtn": "Parolayı değiştir"
@@ -305,27 +311,27 @@
       },
       "lockVault": {
         "label": "Kasayı kilitle",
-        "sub": "Şimdi kilitle ve ana parolayı gerekli kıl"
+        "sub": "Şimdi kilitle ve ana parolayı iste"
       },
       "signOut": {
-        "label": "Bulut hesabından çıkış yap",
+        "label": "Bulut hesabında oturumu kapat",
         "sub": "Önbelleğe alınmış parolayı ve eşitleme belirteçlerini temizler"
       },
       "wipeData": {
         "label": "Tüm yerel verileri sil",
-        "sub": "Tüm bağlantıları, anahtarları, kasa ve anahtar zinciri kayıtlarını kalıcı olarak siler"
+        "sub": "Tüm bağlantıları, anahtarları, kasayı ve anahtar zinciri kayıtlarını kalıcı olarak siler"
       },
       "confirmWipe": {
         "descPre": "Bu işlem ",
         "descBold": "tüm yerel verileri",
-        "descPost": ": bağlantıları, SSH anahtarlarını, kimlikleri, kasa sırlarını ve işletim sistemi anahtar zinciri kayıtlarını kalıcı olarak siler. Bu işlem geri alınamaz.",
+        "descPost": " (bağlantılar, SSH anahtarları, kimlikler, kasadaki gizli bilgiler ve işletim sistemi anahtar zinciri kayıtları) kalıcı olarak siler. Bu işlem geri alınamaz.",
         "confirm": "Her şeyi sil"
       },
       "setPassword": {
         "desc": "Bir ana parola seçin. Mevcut verileriniz yeniden şifrelenecektir.",
         "newPlaceholder": "Yeni ana parola",
         "confirmPlaceholder": "Parolayı doğrula",
-        "submit": "Parolayı ayarla"
+        "submit": "Parola belirle"
       },
       "error": {
         "minLength": "En az 4 karakter",
@@ -352,11 +358,11 @@
           "renews": "{{date}} tarihinde yenilenir.",
           "active": "Aboneliğiniz etkin."
         },
-        "seats": "Kullanıcılar",
+        "seats": "Lisanslar",
         "seatsUsed": "{{used}} / {{total}} kullanılıyor",
         "upgradeToPro": "Bulut eşitleme ve daha fazlasının kilidini açmak için yükseltin",
         "upgrade": "Yükselt",
-        "upgradeToTeams": "Paylaşılan kasalar ve sınırsız konuk için Teams'e yükseltin",
+        "upgradeToTeams": "Paylaşılan kasalar ve sınırsız konuk için Teams planına yükseltin",
         "teamsButton": "Teams →",
         "viewAllPlans": "Tüm planları gör →",
         "feature": {
@@ -368,26 +374,26 @@
           "terminalSharing": "Terminal paylaşımı (1 oturum · 1 konuk)",
           "teamVaults": "Paylaşılan ekip kasaları",
           "teamSharing": "Ekip paylaşımı (5 oturum · 10 konuk)",
-          "seats": "Kullanıcılar (satın alınan kadar)",
+          "seats": "Lisanslar (satın alınan kadar)",
           "customRoles": "Özel roller"
         }
       },
       "buySeats": {
-        "title": "Kullanılabilir yer yok",
-        "seatsUsed": "{{used}} / {{total}} kullanıcı yeri kullanılıyor",
+        "title": "Boş lisans yok",
+        "seatsUsed": "{{used}} / {{total}} lisans kullanılıyor",
         "inviting": "Davet ediliyor",
-        "additionalSeats": "Ek kullanıcı yerleri",
+        "additionalSeats": "Ek lisanslar",
         "seatsTotal": "Toplam {{from}} → {{to}}",
         "priceRow_one": "{{count}} kullanıcı × ${{price}}/ay",
         "priceRow_other": "{{count}} kullanıcı × ${{price}}/ay",
         "totalPerMonth": "${{amount}}/ay",
         "proratedNote": "Mevcut faturalandırma dönemi için orantılı ücret hemen uygulanır.",
         "processing": "İşleniyor…",
-        "buyAndInvite_one": "{{count}} kullanıcı yeri satın al ve davet et",
-        "buyAndInvite_other": "{{count}} kullanıcı yeri satın al ve davet et",
+        "buyAndInvite_one": "{{count}} lisans satın al ve davet et",
+        "buyAndInvite_other": "{{count}} lisans satın al ve davet et",
         "errorNotConnected": "Sunucuya bağlı değil",
         "errorNoSubscription": "Etkin abonelik bulunamadı",
-        "errorUpdateSeats": "Kullanıcı yerleri güncellenemedi: {{status}}"
+        "errorUpdateSeats": "Lisanslar güncellenemedi: {{status}}"
       }
     },
     "sync": {
@@ -408,8 +414,8 @@
       },
       "notConnected": {
         "title": "Bulut hesabı bağlı değil",
-        "sub": "Cihazlar arasında eşitlemek için giriş yapın veya bir bulut hesabı oluşturun.",
-        "signIn": "Giriş yap"
+        "sub": "Cihazlar arasında eşitlemek için oturum açın veya bir bulut hesabı oluşturun.",
+        "signIn": "Oturum aç"
       },
       "gistTitle": "GitHub Gist (uçtan uca şifreli)",
       "gist": {
@@ -419,7 +425,7 @@
       },
       "prefsTitle": "Eşitleme Tercihleri",
       "prefsFooter": "Devre dışı bırakılan türler hiçbir zaman yüklenmez. Tek tek nesneler de düzenleme panelinden hariç tutulabilir.",
-      "quickToggleLabel": "{{label}} eşitlemesi",
+      "quickToggleLabel": "Eşitle: {{label}}",
       "objectType": {
         "connection": {
           "label": "Sunucular",
@@ -447,7 +453,7 @@
         }
       },
       "settingsTitle": "Ayarlar",
-      "settingsFooter": "Kapatılan her şey bu cihazda kalır. Şifrelenmiş olsa bile hiçbir zaman yüklenmez. Eşitlemeyi yeniden açmak bu cihazdaki değerleri yayımlar.",
+      "settingsFooter": "Kapattığınız her şey bu cihazda kalır. Şifrelenmiş olarak bile hiçbir zaman yüklenmez. Eşitlemeyi yeniden açtığınızda bu cihazdaki değerler yayımlanır.",
       "settingDomain": {
         "themes": {
           "label": "Temalar",
@@ -459,7 +465,7 @@
         },
         "shortcuts": {
           "label": "Kısayollar",
-          "sub": "Klavye geçersiz kılmaları"
+          "sub": "Özel klavye atamaları"
         },
         "appSettings": {
           "label": "Uygulama ayarları",
@@ -587,7 +593,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "Yerel MCP istemcilerinin (Claude Code gibi) özel bir soket üzerinden kasanızdaki tüm sunucularda ve bu bilgisayarda komut çalıştırmasına; dosya okumasına, yazmasına ve silmesine; kayıtlı bağlantıları, anahtarları ve kimlikleri oluşturmasına, değiştirmesine veya silmesine; kayıtlı kod parçacıklarınızı çalıştırmasına; SSH sunucu anahtarlarını yetkilendirmesine; yazdığınız komutları okumasına; dosya aktarımlarınızı görmesine, iptal etmesine veya yeniden denemesine; sunucularınızın erişilebilirliğini görmesine; terminal sekmelerinizi ve bölünmüş panelleri düzenlemesine; ekip üyeliğini ve davetlerini yönetmesine; terminal oturumlarını ekibinizle paylaşmasına veya denetimi devretmesine; uygulamadaki tüm ayarları okuyup değiştirmesine ve aboneliğinizi okumasına izin verir. Onay Voltius'ta değil, ilgili istemcide gerçekleşir. Varsayılan olarak kapalıdır. Ayrıca eklenti yükleyebilir, güncelleyebilir ve kaldırabilir; kayıtlı nesnelerinizi içe veya dışa aktarabilir.",
+        "sub": "Yerel MCP istemcilerinin (Claude Code gibi) özel bir soket üzerinden kasanızdaki tüm sunucularda ve bu bilgisayarda komut çalıştırmasına; dosya okumasına, yazmasına ve silmesine; kayıtlı bağlantıları, anahtarları ve kimlikleri oluşturmasına, değiştirmesine veya silmesine; kayıtlı kod parçacıklarınızı bu sunucularda çalıştırmasına; SSH sunucu anahtarlarını yetkilendirmesine; yazdığınız komutları okumasına; dosya aktarımlarınızı görmesine, iptal etmesine veya yeniden denemesine; kayıtlı sunucularınızdan hangilerine erişilebildiğini görmesine; terminal sekmelerinizi ve bölmelerinizi yeniden düzenlemesine; ekibinizin üyeliklerini ve davetlerini yönetmesine; terminal oturumlarınızı ekibinizle paylaşmasına veya kontrollerini devretmesine; bu uygulamadaki tüm ayarları okuyup değiştirmesine ve aboneliğinizi okumasına izin verir. Onay Voltius'ta değil, ilgili istemcide verilir. Varsayılan olarak kapalıdır. Ayrıca eklenti kurabilir, güncelleyebilir ve kaldırabilir; kayıtlı nesnelerinizi dışa veya içe aktarabilir.",
         "running": "Çalışıyor",
         "quickSetup": {
           "title": "Hızlı kurulum",
@@ -609,7 +615,7 @@
           "help": {
             "claudeCode": "Voltius'u Claude Code'a kaydetmek için bunu bir kez çalıştırın. İstemcinin bağlanabilmesi için yukarıdaki sunucu etkin olmalıdır.",
             "mcpServers": "Bu bloğu claude_desktop_config.json (Claude Desktop) veya .cursor/mcp.json (Cursor, Cline, Windsurf) dosyasına ekleyin. İstemcinin bağlanabilmesi için yukarıdaki sunucu etkin olmalıdır.",
-            "vscode": "Bu bloğu .vscode/mcp.json dosyasına ekleyin. VS Code, \"mcpServers\" değil \"servers\" kullanır — Cursor biçimindeki bir bloğu buraya yapıştırmak hiçbir şeyi yüklemez.",
+            "vscode": "Bu bloğu .vscode/mcp.json dosyasına ekleyin. VS Code \"mcpServers\" değil \"servers\" kullanır — Cursor biçimindeki bir bloğu buraya yapıştırırsanız hiçbir şey yüklenmez ve hata da gösterilmez.",
             "opencode": "Bu bloğu opencode.json (proje) veya ~/.config/opencode/opencode.json (genel) dosyasına ekleyin."
           },
           "exePathLabel": "Çalıştırılabilir dosya yolu",
@@ -627,8 +633,8 @@
     },
     "mcp": {
       "consequence": {
-        "autoUpdate": "Otomatik güncelleme indirmelerini kapatır; böylece güvenlik düzeltmeleri kendiliğinden gelmez.",
-        "pluginInstallReview": "Eklenti yüklemeden önce gösterilen onay ekranını kapatır. Hassas izin isteyen bir eklenti yine bu izni gösterir.",
+        "autoUpdate": "Güncellemelerin otomatik indirilmesini kapatır; böylece güvenlik düzeltmeleri artık kendiliğinden gelmez.",
+        "pluginInstallReview": "Eklenti kurulmadan önce gösterilen onay ekranını kapatır. Hassas bir izin isteyen eklenti yine de bu izni gösterir.",
         "sessionTimeout": "Belirli bir süre işlem yapılmadığında kasanın otomatik kilitlenmesini kapatır."
       }
     },
@@ -719,7 +725,7 @@
       "connectivityTitle": "Bağlantı",
       "reachability": {
         "title": "Erişilebilirlik denetimi",
-        "desc": "SSH portunu yoklar ve her sunucu kartında durum noktasıyla gecikmeyi gösterir. Sunucu ayarlarından her sunucu için ayrı ayrı kapatılabilir."
+        "desc": "SSH portunu yoklar ve her sunucu kartında bir durum noktası ile gecikme süresini gösterir. Sunucunun ayarlarından her sunucu için ayrı ayrı kapatılabilir."
       },
       "pollInterval": {
         "title": "Yoklama aralığı",
@@ -754,17 +760,17 @@
       },
       "persistentSessions": {
         "title": "Kalıcı oturumlar",
-        "desc": "Uzak kabuğu tmux içinde çalıştırarak bağlantı kesintileri boyunca kabuğunuzu ve çalışan işlemleri açık tutar (screen'e geri döner). Sunucuda tmux veya screen gerekir. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir."
+        "desc": "Uzak kabuğu tmux içinde çalıştırarak (tmux yoksa screen kullanılır) kabuğunuzu ve çalışan işlemlerinizi bağlantı kesintilerinde canlı tutar. Sunucuda tmux veya screen gerekir. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir."
       },
       "terminalTitle": "Terminal",
       "shellIntegration": {
         "title": "Kabuk entegrasyonu",
-        "desc": "Çalışma klasörüne duyarlı dosya panelleri için uzak/yerel kabuğun çalışma klasörünü (OSC 7) bildirmesini sağlar. Bir sunucunun karşılama başlığı veya istemi bozuk görünüyorsa o sunucuda devre dışı bırakın. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir."
+        "desc": "Çalışma dizinini izleyen dosya panelleri için uzak/yerel kabuğa, çalışma dizinini (OSC 7) bildiren kancalar ekler. Bir sunucunun karşılama mesajı veya istemi bozuk görünüyorsa orada devre dışı bırakın. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir."
       },
-      "teamPresenceTitle": "Ekip durumu",
+      "teamPresenceTitle": "Ekip çevrimiçi durumu",
       "teamPresence": {
-        "title": "Kullandığınız ekip kasası sunucularını paylaşın",
-        "desc": "Açık olduğunda, sunucuya bağlı bir terminaliniz varken avatarınız sunucu kartında görünür. Yalnızca sunucuya erişimi olan ekip arkadaşları bunu görebilir."
+        "title": "Kullandığınız ekip kasası sunucularını paylaş",
+        "desc": "Açıkken, bir sunucuya terminaliniz açık olduğu sürece avatarınız o sunucunun kartında görünür. Bunu yalnızca o sunucuya erişimi olan ekip arkadaşlarınız görür."
       }
     },
     "toggleDefs": {
@@ -799,7 +805,7 @@
         "label": "Erişilebilirlik Denetimi"
       },
       "teamPresence": {
-        "label": "Ekip Durumu"
+        "label": "Ekip Çevrimiçi Durumu"
       },
       "shellIntegration": {
         "label": "Kabuk Entegrasyonu"
@@ -826,7 +832,7 @@
         "integrations": "Entegrasyonlar"
       },
       "pluginInstallReview": {
-        "label": "Eklentileri yüklemeden önce izinleri incele"
+        "label": "Eklentileri kurmadan önce izinleri incele"
       },
       "mcpServer": {
         "label": "MCP Sunucusu"
@@ -876,7 +882,7 @@
           "desc": "Aynı sunucuda ikinci bir terminal aç"
         },
         "duplicateSessionSplit": {
-          "label": "Bölünmüş Alanda Çoğalt",
+          "label": "Yan Bölmede Çoğalt",
           "desc": "Mevcut terminalin yanında ikinci bir terminal aç"
         },
         "closeTab": {
@@ -944,357 +950,357 @@
     "plugins": {
       "categoryLabel": "Eklenti",
       "tabs": {
-        "installed": "({{count}})",
-        "browse": "Göze Göz",
+        "installed": "Kurulu ({{count}})",
+        "browse": "Göz at",
         "updateCount_one": "• {{count}} güncelleme",
-        "updateCount_other": "• {{count}} güncelleştirmeleri"
+        "updateCount_other": "• {{count}} güncelleme"
       },
       "installed": {
-        "filterPlaceholder": "Filtre eklentileri...",
-        "scanTitle": "Yerel eklentiler için Scan",
-        "pluginSettingsTitle": "{{name}} Ayarlar",
-        "noConfig": "yapılandırılabilir ayarlar yok.",
-        "bundledBadge": "Sched",
-        "settingsTitle": "Plugin ayarları",
-        "reloadTitle": "Reload eklenti",
-        "uninstallTitle": "Uninstall eklenti",
-        "noMatch": "Hiçbir eklenti aramanıza uymuyor.",
-        "noneInstalled": "Hiçbir eklenti kuruldu.",
-        "sourceLocal": "Yerel Yerel Yerel Yerel",
+        "filterPlaceholder": "Eklentileri filtrele…",
+        "scanTitle": "Yerel eklentileri tara",
+        "pluginSettingsTitle": "{{name}} ayarları",
+        "noConfig": "Yapılandırılabilir ayar yok.",
+        "bundledBadge": "Dahili",
+        "settingsTitle": "Eklenti ayarları",
+        "reloadTitle": "Eklentiyi yeniden yükle",
+        "uninstallTitle": "Eklentiyi kaldır",
+        "noMatch": "Aramanızla eşleşen eklenti yok.",
+        "noneInstalled": "Kurulu eklenti yok.",
+        "sourceLocal": "Yerel",
         "sourceUrl": "URL",
-        "sourceInstalled": "Yükleme",
+        "sourceInstalled": "Kurulu",
         "unverified": "Doğrulanmamış",
-        "update": "Update Update Update Update Update Update Update",
-        "updating": "Updating...",
-        "updateTitle": "v{{version}}",
+        "update": "Güncelle",
+        "updating": "Güncelleniyor…",
+        "updateTitle": "v{{version}} sürümüne güncelle",
         "confirmUninstallSeeded": {
-          "title": "{{name}}'i yüklemeyin?",
-          "message": "{{name}}, yerleşik bir eklentidir. Yüklemek listenizden kaldırır - Göz sekmesinden herhangi bir zaman yeniden yükleyebilirsiniz.",
+          "title": "{{name}} kaldırılsın mı?",
+          "message": "{{name}} yerleşik bir eklentidir. Kaldırırsanız listenizden çıkarılır; Göz at sekmesinden istediğiniz zaman yeniden kurabilirsiniz.",
           "confirm": "Kaldır"
         }
       },
       "browse": {
-        "searchPlaceholder": "Arama eklentileri...",
-        "refreshTitle": "Yeni katalog kataloğu",
-        "manageSourcesTitle": "Kaynakları yönetmek",
-        "sourcesHeader": "Plugin Kaynaklar",
-        "addSource": "Ekle kaynağı ekle",
+        "searchPlaceholder": "Eklentilerde ara…",
+        "refreshTitle": "Kataloğu yenile",
+        "manageSourcesTitle": "Kaynakları yönet",
+        "sourcesHeader": "Eklenti Kaynakları",
+        "addSource": "Kaynak ekle",
         "addSourcePlaceholder": "https://example.com/plugins.json",
-        "add": "Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add Add",
-        "installedBadge": "Yükleme",
-        "byAuthor": "{{author}} · v{{version}}",
+        "add": "Ekle",
+        "installedBadge": "Kurulu",
+        "byAuthor": "Geliştirici: {{author}} · v{{version}}",
         "noCatalog": "Katalogda eklenti yok.",
-        "noResults": "Hiçbir sonuç yok.",
-        "removing": "Removing...",
+        "noResults": "Sonuç yok.",
+        "removing": "Kaldırılıyor…",
         "uninstall": "Kaldır",
-        "installing": "Yüklemek...",
-        "install": "Yükleme",
-        "updateBadge": "Mevcut güncelleme mevcut Güncelleme",
-        "requiresVersion": "V{{version}} veya daha sonra"
+        "installing": "Kuruluyor…",
+        "install": "Kur",
+        "updateBadge": "güncelleme var",
+        "requiresVersion": "v{{version}} veya üstü gerekir"
       },
       "install": {
-        "integrityFailed": "Plugin paket, bütünlüğünü başarısız etti - bloke etti.",
-        "alreadyInstalling": "Bu eklenti zaten kuruldu - Ayarlar › Plugins.",
-        "failed": "Eklenti yüklemek için başarısız oldu.",
-        "versionUnsupported": "Bu eklenti uygulama sürüm {{version}} veya daha sonra gerektirir."
+        "integrityFailed": "Eklenti paketi bütünlük denetimini geçemedi — kurulum engellendi.",
+        "alreadyInstalling": "Bu eklenti zaten kuruluyor — Ayarlar › Eklentiler bölümüne bakın.",
+        "failed": "Eklenti kurulamadı.",
+        "versionUnsupported": "Bu eklenti {{version}} veya üstü bir uygulama sürümü gerektirir."
       },
       "deepLinkInstall": {
-        "title": "Bu eklentiyi yükleyin mi?",
-        "body": "Bu bağlantı bir eklenti yükler. Bir eklenti aşağıda listelenen izinlerle Voltius içinde kod çalışır.",
-        "summary": "{{name}} {{version}} Tarafından {{author}}",
-        "source": "{{source}} kataloğundan.",
-        "action": "Yükleme",
-        "failed": "Bu bağlantı bir eklenti Voltius olarak adlandırılamaz"
+        "title": "Bu eklenti kurulsun mu?",
+        "body": "Bu bağlantı bir eklenti kurar. Eklentiler, aşağıda listelenen izinlerle Voltius içinde kod çalıştırır.",
+        "summary": "{{name}} {{version}} · Geliştirici: {{author}}",
+        "source": "Kaynak katalog: {{source}}.",
+        "action": "Kur",
+        "failed": "Bu bağlantı, Voltius'un kurabileceği bir eklentiyi belirtmiyor"
       },
       "permissionModal": {
-        "installTitle": "{{name}} yükleyin?",
-        "installBody": "Bu eklenti uygulamanın tam ayrıcalıkları ile çalışır. Bu izni talep eder:",
-        "updateTitle": "Güncelleme {{name}}?",
-        "updateBody": "Bu güncelleştirme yeni izinler talep eder. Onları devam etmeden önce gözden geçirin:",
+        "installTitle": "{{name}} kurulsun mu?",
+        "installBody": "Bu eklenti, uygulamanın tüm ayrıcalıklarıyla çalışır. İstediği izinler:",
+        "updateTitle": "{{name}} güncellensin mi?",
+        "updateBody": "Bu güncelleme yeni izinler istiyor. Devam etmeden önce bunları inceleyin:",
         "newPermissions": "Yeni izinler",
-        "noPermissions": "Bu eklenti özel izni gerektirmez.",
-        "installConfirm": "Yükleme",
-        "updateConfirm": "Update Update Update Update Update Update Update",
+        "noPermissions": "Bu eklenti özel bir izin istemiyor.",
+        "installConfirm": "Kur",
+        "updateConfirm": "Güncelle",
         "permissions": {
-          "readOnlyHeading": "Sadece erişim",
-          "readOnlyWarning": "Eklenti bunu görebilir, ancak onunla herhangi bir şeyi değiştiremez veya silemez.",
+          "readOnlyHeading": "Salt okunur erişim",
+          "readOnlyWarning": "Eklenti bunları görebilir, ancak bunlarla hiçbir şeyi değiştiremez veya silemez.",
           "dangerHeading": "Güçlü izinler",
-          "dangerWarning": "Bunlar eklentiye erişim sağlar. Onlara sadece güvendiğiniz bir eklentiye yardım edin.",
+          "dangerWarning": "Bunlar eklentiye çok geniş kapsamlı erişim verir. Bu izinleri yalnızca güvendiğiniz bir eklentiye verin.",
           "terminalRead": {
-            "label": "Oku terminal çıktı",
-            "description": "terminal seanslarınızın görünür çıktısını ve kaydırını okuyun."
+            "label": "Terminal çıktısını oku",
+            "description": "Terminal oturumlarınızın görünür çıktısını ve geri kaydırma geçmişini okur."
           },
           "terminalStream": {
-            "label": "Watch terminal çıktı canlı canlı",
-            "description": "Sürekli olarak terminal seanslarınızda basılan her şeyi izleyin, olduğu gibi."
+            "label": "Terminal çıktısını canlı izle",
+            "description": "Terminal oturumlarınızda yazdırılan her şeyi, gerçekleştiği anda sürekli olarak izler."
           },
           "terminalWrite": {
-            "label": "Terminallerinize yazın",
-            "description": "Giriş gönderin ve terminal seanslarınızda komutlar gönderin - onları kendiniz yazmak gibi."
+            "label": "Terminallerinize yaz",
+            "description": "Terminal oturumlarınıza girdi gönderir ve komut çalıştırır — tıpkı bunları sizin yazmanız gibi."
           },
           "keychainRead": {
-            "label": "Kendi depolanan sırları okuyun",
-            "description": "Bu eklentiyi daha önce cihazınızdaki anahtarchain'de depolanan sırları okuyun."
+            "label": "Kendi kaydettiği gizli bilgileri oku",
+            "description": "Bu eklentinin daha önce cihazınızın anahtar zincirine kaydettiği gizli bilgileri okur."
           },
           "keychainWrite": {
-            "label": "Cihazınızda Mağaza sırları",
-            "description": "Cihazınızın OS anahtar Zincirine sırları kurtarın."
+            "label": "Cihazınızda gizli bilgi sakla",
+            "description": "Gizli bilgileri cihazınızın işletim sistemi anahtar zincirine kaydeder."
           },
           "metricsRead": {
-            "label": "Sistem metrikleri Oku",
-            "description": "CPU, hafıza, disk ve ağ istatistiklerine bağlı evlerinize okuyun."
+            "label": "Sistem ölçümlerini oku",
+            "description": "Bağlı sunucularınızın CPU, bellek, disk ve ağ istatistiklerini okur."
           },
           "dockerRead": {
-            "label": "Docker bilgi",
-            "description": "Liste konteynerleri, görüntüler, hacimler, ağlar ve yığınlar ve konteyner girişlerini okuyun. Logs şifre veya jetonları içerebilir."
+            "label": "Docker bilgilerini oku",
+            "description": "Konteynerleri, imajları, birimleri, ağları ve yığınları listeler, konteyner günlüklerini okur. Günlükler parola veya belirteç içerebilir."
           },
           "processesRead": {
-            "label": "Prosedür bilgileri",
-            "description": "Bağlantılı evlerinizde çalışan süreçleri listeleyin."
+            "label": "İşlem bilgilerini oku",
+            "description": "Bağlı sunucularınızda çalışan işlemleri listeler."
           },
           "processesManage": {
-            "label": "Süreç Yönetimi",
-            "description": "Liste ve bağlı evlerinizde koşu süreçleri öldür."
+            "label": "İşlemleri yönet",
+            "description": "Bağlı sunucularınızda çalışan işlemleri listeler ve sonlandırır."
           },
           "dockerManage": {
-            "label": "Docker",
-            "description": "Liste, başlayın ve konteynerleri sil, görüntüler, hacimler, ağlar ve yığınlar. Bu, verileri kalıcı olarak yok edebilir."
+            "label": "Docker'ı yönet",
+            "description": "Konteynerleri, imajları, birimleri, ağları ve yığınları listeler, başlatır, durdurur ve siler. Bu, verileri kalıcı olarak yok edebilir."
           },
           "portsForward": {
-            "label": "İleri limanlar bu bilgisayara",
-            "description": "Open SSH tünelleri, bu bilgisayarda yerel limanlara bağlı evlerden ve tarayıcınızda veya klip dolabınızda belirtilen adresi açın."
+            "label": "Portları bu bilgisayara yönlendir",
+            "description": "Bağlı sunucularınızdan bu bilgisayardaki yerel portlara SSH tünelleri açar ve ortaya çıkan adresi tarayıcınızda açar veya panoya kopyalar."
           },
           "proxmoxRead": {
-            "label": "Proxmox bilgi",
-            "description": "LXC konteynerleri ve anlıkları."
+            "label": "Proxmox bilgilerini oku",
+            "description": "LXC konteynerlerini ve anlık görüntülerini listeler."
           },
           "proxmoxManage": {
-            "label": "Proxmox",
-            "description": "LXC konteynerlerini oluşturma, silme ve geri yükleme gibi liste ve kontrol edin. Bu, verileri kalıcı olarak yok edebilir."
+            "label": "Proxmox'u yönet",
+            "description": "LXC konteynerlerini listeler ve denetler; anlık görüntü oluşturma, silme ve anlık görüntüye geri dönme de buna dahildir. Bu, verileri kalıcı olarak yok edebilir."
           },
           "sftpRead": {
-            "label": "dosyaları okuyun",
-            "description": "kaydedilen SSH/FTP dosyalarına göz atın ve okuyun."
+            "label": "Dosyaları oku",
+            "description": "Kayıtlı SSH/FTP sunucularınızdaki ve bu bilgisayardaki dosyalara göz atar ve bunları okur."
           },
           "sftpWrite": {
-            "label": "Yaz ve hareket dosyaları",
-            "description": "Create, name, overwrite and delete files on your save SSH/FTP host and on this computer, and copy files between them. Bu, verileri kalıcı olarak yok edebilir."
+            "label": "Dosya yaz ve taşı",
+            "description": "Kayıtlı SSH/FTP sunucularınızda ve bu bilgisayarda dosya oluşturur, yeniden adlandırır, üzerine yazar ve siler; bunlar arasında dosya kopyalar. Bu, verileri kalıcı olarak yok edebilir."
           },
           "audit": {
-            "label": "Rekor denetim olayları",
-            "description": "Ne yaptığını açıklayan denetim günlüklerinize girişlerinizi ekleyin. Bir takımda ev sahibi için, bu girişler aynı zamanda bu takımın sunucusuna gönderilir."
+            "label": "Denetim olayları kaydet",
+            "description": "Denetim günlüğünüze, yaptığı işlemleri açıklayan kayıtlar ekler. Ekip kasasındaki bir sunucu için bu kayıtlar o ekibin sunucusuna da gönderilir."
           },
           "auditRead": {
-            "label": "Faaliyet logunu okuyun",
-            "description": "Bu cihazın aktivite logunu okuyun, hangi evlere ulaşıldı, hangi dosyalar dokundu ve diğer eklentilerin yaptığı. Bir takım adı verildiğinde, aynı zamanda takımın sunucu-side logunu da okur - her üyenin aktivitesi."
+            "label": "Etkinlik günlüğünü oku",
+            "description": "Bu cihazın etkinlik günlüğünü okur; hangi sunuculara erişildiği, hangi dosyalara dokunulduğu ve diğer eklentilerin ne yaptığı da buna dahildir. Bir ekip belirtildiğinde o ekibin sunucu tarafındaki günlüğünü, yani her üyenin etkinliğini de okur."
           },
           "mcpContribute": {
-            "label": "Dış AI ajanları için Expose araçları",
-            "description": "Bu eklenti Voltius MCP sunucusuna kendi komutlarını ekleyelim, böylece bağlı olduğunuz herhangi bir dış AI ajanı bunları çalıştırabilirsiniz - bu eklentinin kendi izinlerini kullanarak."
+            "label": "Harici yapay zekâ ajanlarına araç sun",
+            "description": "Bu eklentinin Voltius MCP sunucusuna kendi komutlarını eklemesine izin verir; böylece bağladığınız herhangi bir harici yapay zekâ ajanı bu komutları, bu eklentinin kendi izinleriyle çalıştırabilir."
           },
           "vaultsRead": {
-            "label": "Senin tonları gör",
-            "description": "Takımları da dahil olmak üzere tonların isimlerini ve nasıl organize edildiğini görün."
+            "label": "Kasalarınızı gör",
+            "description": "Ekip kasaları dahil kasalarınızın adlarını ve nasıl düzenlendiklerini görür."
           },
           "vaultsWrite": {
-            "label": "Create and deleteobs",
-            "description": "Create, name and delete yourobs. Bir tonu bitirmek, her şeyi içinde silebilir."
+            "label": "Kasa oluştur ve sil",
+            "description": "Kasalarınızı oluşturur, yeniden adlandırır ve siler. Bir kasayı silmek, içindeki her şeyi silebilir."
           },
           "foldersRead": {
-            "label": "klasörlerinizi görün",
-            "description": "Ziyaretçi organize ettiğiniz klasörleri görün, anahtarlar, port forwards ve parçalar içine."
+            "label": "Klasörlerinizi gör",
+            "description": "Sunucularınızı, anahtarlarınızı, port yönlendirmelerinizi ve kod parçacıklarınızı düzenlediğiniz klasörleri görür."
           },
           "foldersWrite": {
-            "label": "Create and delete klasörs",
-            "description": "Oluşturun, değiştirin ve klasörleri silin. Bir klasörü bitirmek, içinde her şeyi silebilir."
+            "label": "Klasör oluştur ve sil",
+            "description": "Klasörleri oluşturur, yeniden adlandırır ve siler. Bir klasörü silmek, içindeki her şeyi silebilir."
           },
           "sessionsRead": {
-            "label": "seanslarınızı görün",
-            "description": "Hangi terminal seanslarının açık olduğunu ve değiştiğine bakın."
+            "label": "Oturumlarınızı gör",
+            "description": "Hangi terminal oturumlarının açık olduğunu ve ne zaman değiştiklerini görür."
           },
           "sessionsWrite": {
-            "label": "Açık ve yakın seanslar",
-            "description": "Yeni terminal seansları açın ve mevcut olanları kapatın."
+            "label": "Oturumları başlat ve kapat",
+            "description": "Yeni terminal oturumları açar ve mevcut oturumları kapatır."
           },
           "connectionsRead": {
-            "label": "Bağlantılarınızı okuyun",
-            "description": "Kurtarılan bağlantıları ve ayrıntılarınızı okuyun."
+            "label": "Bağlantılarınızı oku",
+            "description": "Kayıtlı bağlantılarınızı ve ayrıntılarını okur."
           },
           "connectionsWrite": {
-            "label": "Bağlantılarınızı yönetin",
-            "description": "Create, edit, and delete your save connections."
+            "label": "Bağlantılarınızı yönet",
+            "description": "Kayıtlı bağlantılarınızı oluşturur, düzenler ve siler."
           },
           "keysRead": {
-            "label": "SSH anahtarlarınızı okuyun",
-            "description": "Satın aldığınız SSH anahtarlarını listeleyin ve SSH üzerinde kurtarılan bir hostun yetkili keys'e bir kez gönderin."
+            "label": "SSH anahtarlarınızı oku",
+            "description": "Kayıtlı SSH anahtarlarınızı listeler ve bunlardan birini SSH üzerinden kayıtlı bir sunucunun authorized_keys dosyasına ekler."
           },
           "keysWrite": {
-            "label": "SSH anahtarlarınızı yönetin",
-            "description": "SSH anahtarlarını adınıza oluşturun."
+            "label": "SSH anahtarlarınızı yönet",
+            "description": "Sizin adınıza SSH anahtarları oluşturur ve siler."
           },
           "identitiesRead": {
-            "label": "kimliklerinizi okuyun",
-            "description": "Kurtarılan kimliklerinizi listeleyin."
+            "label": "Kimliklerinizi oku",
+            "description": "Kayıtlı kimliklerinizi listeler."
           },
           "identitiesWrite": {
-            "label": "kimliklerinizi yönetin",
-            "description": "İsiminizde kimlikleri oluşturun ve silin."
+            "label": "Kimliklerinizi yönet",
+            "description": "Sizin adınıza kimlik oluşturur ve siler."
           },
           "snippetsRead": {
-            "label": "Sayfalarınızı okuyun",
-            "description": "Kurtarılan parçaları ve çalıştırdıkları komutları listeleyin."
+            "label": "Kod parçacıklarınızı oku",
+            "description": "Kayıtlı kod parçacıklarınızı ve çalıştırdıkları komutları listeler."
           },
           "snippetsWrite": {
-            "label": "Parçalarınızı yönetin",
-            "description": "Oluşturun, düzenleme, hareket edin ve kurtarılan parçaları silin."
+            "label": "Kod parçacıklarınızı yönet",
+            "description": "Kayıtlı kod parçacıklarınızı oluşturur, düzenler, taşır ve siler."
           },
           "snippetsRun": {
-            "label": "Evinize ev sahipliği yapın",
-            "description": "Bir ev sahibine karşı kurtarılmış bir parçaları idam et, gerekirse ona bağlanmak. Onun komutları kendi erişiminizle çalışır, tam olarak onları kendiniz koştuğunuz gibi."
+            "label": "Kod parçacıklarınızı sunucularınızda çalıştır",
+            "description": "Kayıtlı bir kod parçacığını bir sunucuda çalıştırır, gerekirse o sunucuya bağlanır. Komutları sizin erişim yetkinizle, tam olarak sizin çalıştırmanız gibi çalışır."
           },
           "portForwardingRead": {
-            "label": "port forwardsunuzu okuyun",
-            "description": "Kurtarılan portlarınızı ve tünelleri hemen şimdi açın."
+            "label": "Port yönlendirmelerinizi oku",
+            "description": "Kayıtlı port yönlendirme kurallarınızı ve şu anda açık olan tünelleri listeler."
           },
           "portForwardingWrite": {
-            "label": "portunuzu yönetin",
-            "description": "Oluşturun, düzenleme, hareket edin ve kurtarılmış port ileri kurallara silin."
+            "label": "Port yönlendirmelerinizi yönet",
+            "description": "Kayıtlı port yönlendirme kurallarınızı oluşturur, düzenler, taşır ve siler."
           },
           "knownHostsRead": {
-            "label": "Bilinen ev sahipliğilerinizi okuyun",
-            "description": "SSH barındırma anahtarlarını listeleyin, parmak izlerini ile."
+            "label": "Bilinen sunucularınızı oku",
+            "description": "Güvendiğiniz SSH sunucu anahtarlarını parmak izleriyle birlikte listeler."
           },
           "knownHostsWrite": {
-            "label": "Güven ve host anahtarlarını çıkarın",
-            "description": "Bir SSH host anahtarını yazar veya güvendiğiniz birini sil. Güvenilir bir anahtar, bu ev sahibine bağlantıların sizi sormadan kabul edilmesi anlamına gelir."
+            "label": "Sunucu anahtarlarına güven ve kaldır",
+            "description": "Bir SSH sunucu anahtarını yetkilendirir veya güvendiğiniz bir anahtarı siler. Güvenilen bir anahtar, o sunucuya yapılan bağlantıların size sorulmadan kabul edileceği anlamına gelir."
           },
           "historyRead": {
-            "label": "komut tarihlerinizi okuyun",
-            "description": "Terminallerde yazdığınız komutları arayın. Bunlar, düz metinde yazdığınız şifre veya jetonları içerebilir."
+            "label": "Komut geçmişinizi oku",
+            "description": "Terminallerde yazdığınız komutlarda arama yapar. Bunlar, düz metin olarak yazdığınız parola veya belirteçleri içerebilir."
           },
           "transfersRead": {
-            "label": "Dosya transferleri",
-            "description": "Dosya transferlerini şimdi çalıştırın, dosya isimleri, ilerleme ve hataları da dahil."
+            "label": "Dosya aktarımlarını gör",
+            "description": "Şu anda süren dosya aktarımlarını; dosya adları, ilerleme durumları ve hatalarıyla birlikte görür."
           },
           "transfersWrite": {
-            "label": "Cancel and retry transferleri",
-            "description": "Koşan bir dosya transferini iptal edin veya bir daha başarısız olmaya başlayın - kendiniz başladığınız transferler dahil."
+            "label": "Aktarımları iptal et ve yeniden dene",
+            "description": "Süren bir dosya aktarımını iptal eder veya başarısız olan bir aktarımı yeniden başlatır — sizin başlattığınız aktarımlar da buna dahildir."
           },
           "healthRead": {
-            "label": "host erişilebilirlik",
-            "description": "En son kaydedilen evlerinizin hangisinin bir erişilebilirlik kontrolü ve ne kadar çabuk cevap verdiğini görün."
+            "label": "Sunucu erişilebilirliğini gör",
+            "description": "Kayıtlı sunucularınızdan hangilerinin son erişilebilirlik denetimine yanıt verdiğini ve ne kadar hızlı yanıt verdiğini görür."
           },
           "vaultRead": {
-            "label": "tonu oku",
-            "description": "Tozunuzda saklanan verileri okuyun."
+            "label": "Kasanızı oku",
+            "description": "Kasanızda saklanan verileri okur."
           },
           "vaultWrite": {
-            "label": "Write to yourob",
-            "description": "Mağaza ve verileriniz tonunuzda değiştirir."
+            "label": "Kasanıza yaz",
+            "description": "Kasanızda veri saklar ve değiştirir."
           },
           "syncRead": {
-            "label": "senkronizasyon verilerini okuyun",
-            "description": "Bu eklentinin kendi verilerini cihazlarınızda senkronize edin ve kendi yapılandırma senkronizasyonunuzun durumunu görün."
+            "label": "Eşitleme verilerini oku",
+            "description": "Bu eklentinin cihazlarınız arasında eşitlenen kendi verilerini okur ve kendi yapılandırma eşitlemenizin durumunu görür."
           },
           "syncWrite": {
-            "label": "Yaz senkronizasyon verileri",
-            "description": "Mağaza ve verileriniz cihazlarınızda senkronize edildi."
+            "label": "Eşitleme verilerini yaz",
+            "description": "Cihazlarınız arasında eşitlenen verileri saklar ve değiştirir."
           },
           "panesRead": {
-            "label": "Terminal düzeni okuyun",
-            "description": "Açık sekmelerinizi görün ve panes bölün ve hangi seans her birinde."
+            "label": "Terminal düzenini oku",
+            "description": "Açık sekmelerinizi ve bölmelerinizi, her birinde hangi oturumun bulunduğunu görür."
           },
           "panesWrite": {
-            "label": "Terminal panellerini düzenle",
-            "description": "Split, hareket, detach ve terminal panes. Oturumlar açık kalıyor; hiçbir şey kapalı değil."
+            "label": "Terminal bölmelerini düzenle",
+            "description": "Terminal bölmelerini böler, taşır, ayırır ve odaklar. Oturumlar açık kalır; hiçbir şey kapatılmaz."
           },
           "teamRead": {
-            "label": "Takımlarınızı okuyun",
-            "description": "Takımlarınızı görün, kim onlara ait, rolleri ve hangi üyeler takımdan anahtar tutar."
+            "label": "Ekiplerinizi oku",
+            "description": "Ekiplerinizi, bu ekiplere kimlerin dahil olduğunu, rollerini ve hangi üyelerin ekip kasası anahtarına sahip olduğunu görür."
           },
           "teamWrite": {
-            "label": "Takım üyelerini yönetme",
-            "description": "İnsanları takımlarınıza davet etmek, üyeleri kaldırmak ve hangi rolü yerine getirdiklerini değiştirmek."
+            "label": "Ekip üyelerini yönet",
+            "description": "Ekiplerinize kişi davet eder, üyeleri kaldırır ve üyelerin rollerini değiştirir."
           },
           "sharingRead": {
-            "label": "Paylaşılan terminalleri okuyun",
-            "description": "Hangi terminal seanslarının paylaşıldığını görün, kim onları izliyor ve kim kontrol ediyor."
+            "label": "Paylaşılan terminalleri oku",
+            "description": "Terminal oturumlarınızdan hangilerinin paylaşıldığını, kimlerin izlediğini ve kontrolün kimde olduğunu görür."
           },
           "sharingWrite": {
-            "label": "Share live terminals",
-            "description": "Takımlarınızın üyelerine canlı bir terminal seansı hazırlayın, paylaşmayı bırakın ve bunu isteyen bir katılımcıya el kontrol edin."
+            "label": "Canlı terminalleri paylaş",
+            "description": "Canlı bir terminal oturumunu ekiplerinizin üyelerine yayınlar, paylaşımı durdurur ve oturumun kontrolünü bunu isteyen bir katılımcıya devreder."
           },
           "settingsRead": {
-            "label": "Uygulama ayarlarını okuyun",
-            "description": "Bu uygulamada ve mevcut değeri her ayarı görün."
+            "label": "Uygulama ayarlarını oku",
+            "description": "Bu uygulamadaki tüm ayarları ve geçerli değerlerini görür."
           },
           "settingsWrite": {
-            "label": "Change app ayarları",
-            "description": "Bu uygulamada herhangi bir ayar değiştirin, bunlar da bir korumayı bırakıyor."
+            "label": "Uygulama ayarlarını değiştir",
+            "description": "Bu uygulamadaki herhangi bir ayarı değiştirir; bir güvenlik önlemini kapatan ayarlar da buna dahildir."
           },
           "accountRead": {
-            "label": "Aboneliğinizi okuyun",
-            "description": "Planını gör, deneme durumu, koltuklar ve fatura durumu."
+            "label": "Aboneliğinizi oku",
+            "description": "Planınızı, deneme durumunuzu, lisanslarınızı ve faturalandırma durumunuzu görür."
           },
           "pluginsManage": {
-            "label": "Eklentileri yönetin",
-            "description": "Yükleme, güncelleme, kaldırma, eklentileri devre dışı bırakmak ve piyasa kaynaklarını ekleyin. Oluşturulmuş bir eklenti Voltius içinde ilan ettiği izinlerle kod çalışır."
+            "label": "Eklentileri yönet",
+            "description": "Eklentileri kurar, günceller, kaldırır, etkinleştirir ve devre dışı bırakır; mağaza kaynakları ekler. Kurulan bir eklenti, Voltius içinde bildirdiği izinlerle kod çalıştırır."
           },
           "importExportRead": {
-            "label": "verilerinize ihracat",
-            "description": "İhracat bağlantıları, kimlikler, SSH anahtarları, parçaları ve port ileri kuralları. Şifre veya özel anahtarlar içeren grafikler sadece şifre aktarılabilir."
+            "label": "Verilerinizi dışa aktar",
+            "description": "Bağlantıları, kimlikleri, SSH anahtarlarını, kod parçacıklarını ve port yönlendirme kurallarını dışa aktarır. Parola veya özel anahtar içeren paketler yalnızca şifreli olarak dışa aktarılabilir."
           },
           "importExportWrite": {
-            "label": "İthalat verileri",
-            "description": "İthalat bağlantıları, kimlikler, SSH anahtarları, parçaları ve port ileri kuralları bir ton içine. Mevcut öğeler asla yazılmamıştır."
+            "label": "Veri içe aktar",
+            "description": "Bağlantıları, kimlikleri, SSH anahtarlarını, kod parçacıklarını ve port yönlendirme kurallarını bir kasaya içe aktarır. Mevcut öğelerin üzerine asla yazılmaz."
           },
           "storage": {
-            "label": "Store eklenti data",
-            "description": "Bu eklentinin kendi ayarları ve cihazınızdaki verileri kurtarın."
+            "label": "Eklenti verilerini sakla",
+            "description": "Bu eklentinin kendi ayarlarını ve verilerini cihazınıza kaydeder."
           },
           "http": {
-            "label": "Ağa erişim",
-            "description": "Ağ istekleri dış hizmetler için yapın."
+            "label": "Ağa eriş",
+            "description": "Harici hizmetlere ağ istekleri gönderir."
           },
           "cryptoDerive": {
-            "label": "Türve şifreleme anahtarları",
-            "description": "Verdiğiniz bir geçiş anahtarına sahip olun. Depolama sırlarınıza erişim sağlamaz."
+            "label": "Şifreleme anahtarı türet",
+            "description": "Sağladığınız bir parola ifadesinden şifreleme anahtarı türetir. Kayıtlı gizli bilgilerinize erişim sağlamaz."
           },
           "fs": {
-            "label": "Access dosyaları",
-            "description": "Cihazınızda dosyaları okuyun ve yazın."
+            "label": "Dosyalara eriş",
+            "description": "Cihazınızdaki dosyaları okur ve yazar."
           },
           "ui": {
-            "label": "Göster arayüz elementleri göster",
-            "description": "Uygulamaya kendi panellerini ve kontrollerini ekleyin."
+            "label": "Arayüz öğeleri göster",
+            "description": "Uygulamaya kendi panellerini ve denetimlerini ekler."
           },
           "notifications": {
-            "label": "Show bildirimleri göster",
-            "description": "Size bildirimleri ve tostları göster."
+            "label": "Bildirim göster",
+            "description": "Size bildirimler ve kısa açılır mesajlar gösterir."
           },
           "settingsPage": {
-            "label": "Add a settings page",
-            "description": "Kendi sayfasını Ayarlara ekleyin."
+            "label": "Ayarlar sayfası ekle",
+            "description": "Ayarlar'a kendi sayfasını ekler."
           },
           "rightPanel": {
-            "label": "Bir yan panel ekleyin",
-            "description": "Oturum tarafına bir panel ekleyin."
+            "label": "Yan panel ekle",
+            "description": "Oturumun yan alanına bir panel ekler."
           },
           "globalPanel": {
-            "label": "Bir uygulama çapında bir panel ekleyin",
-            "description": "Tüm uygulama boyunca mevcut bir panel ekleyin."
+            "label": "Uygulama geneli panel ekle",
+            "description": "Uygulamanın tamamında kullanılabilen bir panel ekler."
           },
           "themes": {
-            "label": "Renk temaları ekle",
-            "description": "Uygulamada seçebilirsiniz kendi renk temaları ekleyin."
+            "label": "Renk teması ekle",
+            "description": "Uygulamada seçebileceğiniz kendi renk temalarını ekler."
           },
           "omniCommands": {
-            "label": "komut-palet eylemleri ekleyin",
-            "description": "Kendi eylemlerini komut paletine ekleyin."
+            "label": "Komut paleti eylemleri ekle",
+            "description": "Komut paletine kendi eylemlerini ekler."
           },
           "uiContributions": {
-            "label": "arayüzü öğeleri ekleyin",
-            "description": "Uygulamanın arayüzüne kendi elementlerini ekleyin."
+            "label": "Arayüz öğeleri ekle",
+            "description": "Uygulamanın arayüzüne kendi öğelerini ekler."
           }
         }
       }

@@ -34,11 +34,11 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "netTx": "网络发送",
   },
   tr: {
-    "title": "Metriks",
-    "sshOnly": "Canlı ölçümler sadece SSH seansları için mevcuttur. SSH'i metriklerini görmek için bir ev sahibine bağlanın.",
+    "title": "Ölçümler",
+    "sshOnly": "Canlı ölçümler yalnızca SSH oturumlarında kullanılabilir. Ölçümlerini görmek için bir sunucuya SSH ile bağlanın.",
     "cpu": "CPU",
-    "memory": "Hafıza",
-    "netRx": "Net RX",
-    "netTx": "Net TX",
+    "memory": "Bellek",
+    "netRx": "Ağ RX",
+    "netTx": "Ağ TX",
   },
 };

@@ -7,11 +7,11 @@
       "folder": "Klasör",
       "port": "Port",
       "advanced": "Gelişmiş",
-      "baudRate": "Baud Hızı",
-      "dataBits": "Veri Bitleri",
-      "stopBits": "Durdurma Bitleri",
+      "baudRate": "Baud hızı",
+      "dataBits": "Veri bitleri",
+      "stopBits": "Durma bitleri",
       "parity": "Eşlik",
-      "flowControl": "Akış Denetimi",
+      "flowControl": "Akış denetimi",
       "even": "Çift",
       "odd": "Tek",
       "xonXoff": "XON/XOFF",
@@ -20,56 +20,56 @@
       "off": "Kapalı",
       "username": "Kullanıcı adı",
       "password": "Parola",
-      "privateKey": "Özel Anahtar",
-      "sshKey": "SSH Anahtarı",
-      "manageInKeychain": "Anahtar Zincirinde Yönet",
-      "hostsChaining": "Sunucu Zincirleme",
-      "environmentVariables": "Ortam Değişkenleri",
-      "preCommandPlaceholder": "Ön Komut",
-      "postCommandPlaceholder": "Son Komut",
+      "privateKey": "Özel anahtar",
+      "sshKey": "SSH anahtarı",
+      "manageInKeychain": "Anahtar zincirinde yönet",
+      "hostsChaining": "Sunucu zincirleme",
+      "environmentVariables": "Ortam değişkenleri",
+      "preCommandPlaceholder": "Ön komut",
+      "postCommandPlaceholder": "Son komut",
       "hostCommand": {
         "useSnippet": "Kod parçacığı kullan",
         "useInline": "Satır içi komut kullan",
         "missingSnippet": "Kod parçacığı bulunamadı",
         "askEachTime": "Değişkenleri her seferinde sor",
-        "pickerTitle": "Bir kod parçacığı seçin",
+        "pickerTitle": "Kod parçacığı seçin",
         "searchPlaceholder": "Kod parçacıklarında ara…"
       }
     },
     "form": {
-      "titleEdit": "Sunucuyu Düzenle",
-      "titleNew": "Yeni Sunucu",
+      "titleEdit": "Sunucuyu düzenle",
+      "titleNew": "Yeni sunucu",
       "changeIcon": "Simgeyi değiştir",
       "changeIconWithLabel": "Simgeyi değiştir ({{label}})",
       "changeIconAriaLabel": "Bağlantı simgesini değiştir",
       "namePlaceholder": "Sunucum (isteğe bağlı)",
       "sectionConnection": "Bağlantı",
-      "sectionCredentials": "Kimlik Bilgileri",
+      "sectionCredentials": "Kimlik bilgileri",
       "sectionIdentity": "Kimlik",
       "sectionNotes": "Notlar",
-      "notesPlaceholder": "Hatırlatmalar, bakım zamanları, ekip bilgileri… (sunucuyla eşitlenir)",
+      "notesPlaceholder": "Hatırlatmalar, bakım zamanları, ekip bilgileri… (sunucuyla birlikte eşitlenir)",
       "protocol": "Protokol",
       "protocolSsh": "SSH / SFTP",
       "protocolFtp": "FTP",
       "hostIp": "Sunucu / IP",
       "hostPlaceholder": "192.168.1.1",
-      "legacyAlgorithms": "Eski Algoritmalar",
-      "legacyAlgorithmsTooltip": "Eski Cisco IOS gibi cihazlar için zayıf eski algoritmalara (diffie-hellman-group1-sha1, 3des-cbc, hmac-sha1, …) izin verin. Güçlü algoritmalar yine öncelikli olur. Yalnızca bunları gerektiren sunucularda etkinleştirin.",
-      "agentForwarding": "Ajan Yönlendirme",
+      "legacyAlgorithms": "Eski algoritmalar",
+      "legacyAlgorithmsTooltip": "Eski Cisco IOS gibi eski cihazlar için zayıf, eski algoritmalara (diffie-hellman-group1-sha1, 3des-cbc, hmac-sha1, …) izin verir. Güçlü algoritmalar yine de önceliklidir. Yalnızca bunu gerektiren sunucularda etkinleştirin.",
+      "agentForwarding": "Ajan yönlendirme",
       "serialAutoReconnect": "Otomatik yeniden bağlan",
-      "serialAutoReconnectTooltip": "Bağlantı kesildiğinde portu otomatik olarak yeniden açar. Yeniden yazılım yüklediğiniz kartlarda bunu kapatın; aksi hâlde yeniden deneme döngüsü, yazılım yükleme aracı kullanırken portu geri alır.",
-      "shellIntegration": "Kabuk Entegrasyonu",
-      "keepalive": "Bağlantıyı Canlı Tut",
+      "serialAutoReconnectTooltip": "Bağlantı koptuğunda portu otomatik olarak yeniden açar. Yazılımını yeniden yüklediğiniz kartlarda bunu kapatın; aksi hâlde yeniden deneme döngüsü, yükleme aracının ihtiyaç duyduğu portu geri alır.",
+      "shellIntegration": "Kabuk entegrasyonu",
+      "keepalive": "Canlı tutma",
       "inheritKeepalive": "Devral ({{label}})",
       "persistentSession": "Kalıcı oturum",
       "inheritPersist": "Devral ({{state}})",
       "inheritShellIntegration": "Devral ({{state}})",
       "ftpsToggle": "Açık FTPS (AUTH TLS)",
-      "anonymousLogin": "Anonim giriş",
-      "keychainIdentity": "Anahtar Zinciri Kimliği",
-      "passphrase": "Anahtar parolası",
+      "anonymousLogin": "Anonim oturum açma",
+      "keychainIdentity": "Anahtar zinciri kimliği",
+      "passphrase": "Parola ifadesi",
       "optional": "(isteğe bağlı)",
-      "keyPassphrasePlaceholder": "Anahtar parolası"
+      "keyPassphrasePlaceholder": "Anahtar parola ifadesi"
     },
     "distroIconPicker": {
       "title": "Simge",
@@ -77,7 +77,7 @@
       "autoDetectOs": "İşletim sistemini otomatik algıla"
     },
     "encodingSelector": {
-      "title": "Karakter Kodlaması",
+      "title": "Kodlama",
       "utf8Default": "UTF-8 (varsayılan)",
       "groups": {
         "unicode": "Unicode",
@@ -130,14 +130,14 @@
     "envVarsPanel": {
       "emptyTitle": "Ortam değişkeni yok",
       "emptySubtitle": "Değişkenler bu sunucuya bağlanırken ayarlanır",
-      "hint": "Uzak oturum ortamında ayarlanan değişkenler",
+      "hint": "Uzak oturumun ortamında ayarlanan değişkenler",
       "keyPlaceholder": "ANAHTAR",
       "valuePlaceholder": "değer",
       "removeAriaLabel": "Değişkeni kaldır",
-      "addButton": "Değişken Ekle"
+      "addButton": "Değişken ekle"
     },
     "serialConfigOverlay": {
-      "title": "Seri Bağlantı",
+      "title": "Seri bağlantı",
       "subtitle": "Bağlanmadan önce portu yapılandırın"
     },
     "identitySelector": {
@@ -148,24 +148,24 @@
     },
     "jumpHostsPanel": {
       "dragToReorderAriaLabel": "Yeniden sıralamak için sürükleyin",
-      "emptyTitle": "Atlama sunucusu yapılandırılmamış",
-      "emptySubtitle": "Nihai hedefe ulaşmadan önce üzerinden bağlanılacak sunucuları ekleyin",
-      "hint": "Yeniden sıralamak için basılı tutup sürükleyin · Nihai sunucuya ulaşmadan önce sırayla bağlanılır",
+      "emptyTitle": "Yapılandırılmış atlama sunucusu yok",
+      "emptySubtitle": "Son hedefe ulaşmadan önce üzerinden geçilecek sunucuları ekleyin",
+      "hint": "Yeniden sıralamak için basılı tutup sürükleyin · Son sunucuya ulaşmadan önce sırayla bağlanılır",
       "removeAriaLabel": "Atlama sunucusunu kaldır",
-      "addButton": "Atlama Sunucusu Ekle"
+      "addButton": "Atlama sunucusu ekle"
     },
     "keySelector": {
       "inlinePrivateKey": "Satır içi özel anahtar",
-      "unnamedKey": "Adsız Anahtar"
+      "unnamedKey": "Adsız anahtar"
     },
     "serialForm": {
-      "titleEdit": "Seri Sunucuyu Düzenle",
-      "titleNew": "Yeni Seri Sunucu",
+      "titleEdit": "Seri sunucuyu düzenle",
+      "titleNew": "Yeni seri sunucu",
       "duplicate": "Çoğalt",
       "namePlaceholder": "Cihazım (isteğe bağlı)",
-      "sectionSerialPort": "Seri Port",
+      "sectionSerialPort": "Seri port",
       "customBaudButton": "Özel",
-      "presetBaudButton": "Hazır Ayar"
+      "presetBaudButton": "Hazır ayar"
     }
   }
 }

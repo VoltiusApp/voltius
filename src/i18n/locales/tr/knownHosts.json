@@ -1,16 +1,16 @@
 {
   "knownHosts": {
     "toolbar": {
-      "deleteSelected": "Delete seçilmiş",
-      "deleteButton": "DELETE"
+      "deleteSelected": "Seçilenleri sil",
+      "deleteButton": "SİL"
     },
     "page": {
-      "noSearchResults": "Bilinen hiçbir ev aramanıza uymuyor",
-      "emptyState": "Henüz bilinen ev yok - bir sunucuya bağlandığınızda görünüyorlar",
+      "noSearchResults": "Aramanızla eşleşen bilinen sunucu yok",
+      "emptyState": "Henüz bilinen sunucu yok — bir sunucuya bağlandığınızda burada görünürler",
       "confirmDelete": {
-        "title_one": "Delete bilinen host?",
-        "title_other": "Delete {{count}} bilinen ev?",
-        "message": "Bu, güvenilir parmak izi (s) kaldıracaktır. Bu evlere bir sonraki bağlantı yeni olarak tedavi edilecektir."
+        "title_one": "Bilinen sunucu silinsin mi?",
+        "title_other": "{{count}} bilinen sunucu silinsin mi?",
+        "message": "Güvenilen parmak izleri kaldırılacak. Bu sunuculara yapılacak bir sonraki bağlantı yeni bağlantı olarak değerlendirilecek."
       }
     }
   }

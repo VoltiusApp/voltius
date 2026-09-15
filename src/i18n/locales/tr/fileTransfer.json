@@ -1,29 +1,29 @@
 {
   "fileTransfer": {
     "common": {
-      "localMachine": "Yerel Bilgisayar",
+      "localMachine": "Yerel bilgisayar",
       "remoteFallback": "uzak",
       "itemsCount_one": "{{count}} öğe",
       "itemsCount_other": "{{count}} öğe"
     },
     "acceleratedBadge": {
       "title": "Tar hızlandırma",
-      "description": "Tek bir arşivde paketlenip karşı tarafta çıkarılır — dosyaları tek tek aktarmaya göre çok daha az gidiş geliş gerekir.",
+      "description": "Tek bir arşivde paketlenip karşı tarafta açılır — dosyaları tek tek aktarmaya göre çok daha az gidiş dönüş gerekir.",
       "howItWorks": "Nasıl çalışır?"
     },
     "conflict": {
       "title": "Dosya zaten var",
-      "conflictOf": "{{total}} çakışmadan {{number}}.",
+      "conflictOf": "Çakışma {{number}} / {{total}}",
       "description": "Hedefte bu adda bir öğe zaten var. Ne yapmak istersiniz?",
       "skip": "Atla",
-      "skipAll": "Tümünü Atla",
-      "overwrite": "Üzerine Yaz",
-      "overwriteAll": "Tümünün Üzerine Yaz"
+      "skipAll": "Tümünü atla",
+      "overwrite": "Üzerine yaz",
+      "overwriteAll": "Tümünün üzerine yaz"
     },
     "pane": {
       "toolbar": {
-        "parentDirectory": "Üst klasör",
-        "homeDirectory": "Ana klasör",
+        "parentDirectory": "Üst dizin",
+        "homeDirectory": "Ev dizini",
         "browse": "Göz at…",
         "selectFolder": "Klasör seç",
         "newFolder": "Yeni klasör",
@@ -35,9 +35,9 @@
         "folderName": "Klasör adı",
         "fileName": "Dosya adı"
       },
-      "emptyDirectory": "Klasör boş",
+      "emptyDirectory": "Dizin boş",
       "selection": {
-        "selected": "{{count}} seçildi",
+        "selected": "{{count}} seçili",
         "clear": "Temizle"
       },
       "confirmDelete": {
@@ -60,7 +60,7 @@
         "extractHere": "Buraya çıkar",
         "openInTerminal": "Terminalde aç",
         "uploadFiles": "Dosya yükle",
-        "selectAll": "Tümünü Seç",
+        "selectAll": "Tümünü seç",
         "deselect": "Seçimi kaldır",
         "disconnect": "Bağlantıyı kes",
         "hideHiddenFiles": "Gizli dosyaları gizle",
@@ -83,11 +83,11 @@
       "filterPlaceholder": "Filtrele…",
       "uploadHere": "Dosyaları buraya yükle",
       "selectFilesToDownload": "İndirilecek dosyaları seçin",
-      "download_one": "\"{{name}}\" öğesini indir",
+      "download_one": "İndir: \"{{name}}\"",
       "download_other": "{{count}} öğeyi indir",
       "viewOptions": "Görünüm seçenekleri",
       "moreOptions": "Diğer seçenekler",
-      "tryAgain": "Yeniden dene",
+      "tryAgain": "Tekrar dene",
       "sparkline": {
         "min": "en az {{value}} ms",
         "avg": "ort. {{value}} ms",
@@ -95,17 +95,17 @@
       }
     },
     "page": {
-      "transferLeftToRight_one": "\"{{name}}\" öğesini aktar →",
+      "transferLeftToRight_one": "Aktar: \"{{name}}\" →",
       "transferLeftToRight_other": "{{count}} öğeyi aktar →",
-      "transferRightToLeft_one": "\"{{name}}\" öğesini aktar ←",
+      "transferRightToLeft_one": "Aktar: \"{{name}}\" ←",
       "transferRightToLeft_other": "{{count}} öğeyi aktar ←",
       "selectFileLeft": "Soldan bir dosya seçin",
       "selectFileRight": "Sağdan bir dosya seçin",
-      "compareTitle": "\"{{leftName}}\" ↔ \"{{rightName}}\" karşılaştır",
-      "compareHint": "Karşılaştırmak için iki taraftan birer dosya seçin",
+      "compareTitle": "Karşılaştır: \"{{leftName}}\" ↔ \"{{rightName}}\"",
+      "compareHint": "Karşılaştırmak için her iki taraftan birer dosya seçin",
       "selectFilesToUpload": "Yüklenecek dosyaları seçin",
       "downloadToFolder": "Klasöre indir",
-      "connectionLost": "Bağlantı kesildi"
+      "connectionLost": "Bağlantı koptu"
     },
     "queue": {
       "title": "Aktarımlar",
@@ -117,8 +117,8 @@
       "cancelAll": "Tüm aktarımları iptal et",
       "clearFinished": "Tamamlanan aktarımları temizle",
       "cancelTransfer": "Aktarımı iptal et",
-      "retryTransfer": "Aktarımı yeniden dene",
-      "mcpTooltip": "{{client}} tarafından başlatıldı",
+      "retryTransfer": "Aktarımı tekrar dene",
+      "mcpTooltip": "Başlatan: {{client}}",
       "mcpTooltipUnknown": "Bir MCP istemcisi tarafından başlatıldı",
       "status": {
         "done": "Tamamlandı",
@@ -129,9 +129,9 @@
     "editor": {
       "common": {
         "saveCtrlS": "Kaydet (Ctrl+S)",
-        "saveFailed": "Kaydetme başarısız",
-        "retrySave": "Kaydetmeyi yeniden dene",
-        "retry": "Yeniden dene",
+        "saveFailed": "Kaydedilemedi",
+        "retrySave": "Kaydetmeyi tekrar dene",
+        "retry": "Tekrar dene",
         "dismiss": "Kapat"
       },
       "diff": {
@@ -143,7 +143,7 @@
       },
       "tab": {
         "autoSave": "Otomatik kaydet",
-        "saveFailedReason": "Kaydetme başarısız: {{error}}",
+        "saveFailedReason": "Kaydedilemedi: {{error}}",
         "error": {
           "default": "Dosya açılamadı.",
           "tooLarge": "Dosya çok büyük ({{size}} bayt, sınır {{limit}}). Bunun yerine dosyayı indirin.",
@@ -156,8 +156,8 @@
         "pendingNameDiffFallback": "bu karşılaştırma",
         "diffTitlePrefix": "fark: {{name}}",
         "discardTitle": "Kaydedilmemiş değişiklikler atılsın mı?",
-        "discardMessage": "\"{{name}}\" dosyasında kaydedilmemiş değişiklikler var. Bu sekmeyi kapatmak değişiklikleri atacaktır.",
-        "discard": "Değişiklikleri At"
+        "discardMessage": "\"{{name}}\" içinde kaydedilmemiş değişiklikler var. Bu sekme kapatılırsa değişiklikler kaybolur.",
+        "discard": "Değişiklikleri at"
       }
     }
   }

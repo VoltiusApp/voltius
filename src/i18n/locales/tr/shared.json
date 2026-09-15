@@ -1,135 +1,135 @@
 {
   "shared": {
     "errorBanner": {
-      "dismiss": "Reddet"
+      "dismiss": "kapat"
     },
     "trialExpiredModal": {
       "title": "Pro denemeniz sona erdi",
-      "subtitle": "Bugün bu üç durak:",
-      "freeNote": "Yerel ton, denetim logları ve GitHub Gist senkronizasyonu sonsuza dek özgür kalır.",
-      "teamsPrompt": "Başkalarıyla mı çalışmak? Takımlar paylaşılan tonlar ve koltuklar ekliyor.",
-      "upgradeButton": "Prodüksiyona Yükseltin",
+      "subtitle": "Şu üç özellik bugün itibarıyla çalışmayı durduruyor:",
+      "freeNote": "Yerel kasa, denetim günlükleri ve GitHub Gist eşitlemesi her zaman ücretsiz kalır.",
+      "teamsPrompt": "Başkalarıyla mı çalışıyorsunuz? Teams, paylaşılan kasalar ve kullanıcı lisansları ekler.",
+      "upgradeButton": "Pro'ya yükselt",
       "laterButton": "Belki daha sonra"
     },
     "createVaultModal": {
-      "title": "Yeni Kasa",
-      "subtitle": "Vaults, kimliklerinizi organize tutar",
-      "nameLabel": "Pencere adı",
-      "namePlaceholder": "E.g. Work, Personal, Staging...",
-      "createButton": "Kasa Oluştur"
+      "title": "Yeni kasa",
+      "subtitle": "Kasalar kimlik bilgilerinizi düzenli tutar",
+      "nameLabel": "Kasa adı",
+      "namePlaceholder": "ör. İş, Kişisel, Test…",
+      "createButton": "Kasa oluştur"
     },
     "vaultCascadeModal": {
-      "headingMove": "Bağlantılı eşyaları hareket etmek için",
-      "headingCopy": "Bağlantılı eşyaları kopyalayın",
-      "fallbackDescriptionMoved": "Aşağıdaki bağlantılı öğeler farklı bir ton içinde ve aynı zamanda taşınacaktır:",
-      "fallbackDescriptionCopied": "Aşağıdaki bağlantılı öğeler farklı bir ton içinde ve kopyalanacaktır:",
-      "confirmMove": "Move All Move",
-      "confirmCopy": "Tüm kopyaları kopyalayın",
+      "headingMove": "Bağlantılı öğeler şu kasaya taşınsın mı:",
+      "headingCopy": "Bağlantılı öğeler şu kasaya kopyalansın mı:",
+      "fallbackDescriptionMoved": "Aşağıdaki bağlantılı öğeler farklı bir kasada bulunuyor ve onlar da taşınacak:",
+      "fallbackDescriptionCopied": "Aşağıdaki bağlantılı öğeler farklı bir kasada bulunuyor ve onlar da kopyalanacak:",
+      "confirmMove": "Tümünü taşı",
+      "confirmCopy": "Tümünü kopyala",
       "typeLabel": {
-        "identity": "Kimlik Kimliği",
-        "key": "SSH Anahtarı"
+        "identity": "Kimlik",
+        "key": "SSH anahtarı"
       }
     },
     "formSelect": {
-      "title": "Select Select Select Select"
+      "title": "Seç"
     },
     "folderSelector": {
-      "noFolder": "Hiçbir klasör",
-      "namePlaceholder": "Folder adı",
+      "noFolder": "Klasör yok",
+      "namePlaceholder": "Klasör adı",
       "newFolder": "Yeni klasör"
     },
     "tagSelector": {
-      "placeholder": "Add tags...",
-      "removeTag": "{{tag}}"
+      "placeholder": "Etiket ekle…",
+      "removeTag": "{{tag}} etiketini kaldır"
     },
     "portInput": {
       "placeholder": "/dev/ttyUSB0 veya COM3"
     },
     "avatarStack": {
       "participantCount_one": "{{count}} katılımcı",
-      "participantCount_other": "{{count}} katılımcıları"
+      "participantCount_other": "{{count}} katılımcı"
     },
     "presence": {
-      "hasControl": "Kontrolü Has control Has Has Has"
+      "hasControl": "Kontrol onda"
     },
     "panel": {
       "saveState": {
         "dirty": "Düzenleniyor...",
-        "saving": "Tasarruf...",
-        "saved": "Saved Saved"
+        "saving": "Kaydediliyor...",
+        "saved": "Kaydedildi"
       }
     },
     "vaultPicker": {
-      "memberBadge": "Üye üye üye üye"
+      "memberBadge": "üye"
     },
     "pickers": {
       "thisComputer": "Bu bilgisayar"
     },
     "sessionPicker": {
-      "insertTitle": "Ekle to...",
+      "insertTitle": "Şuraya ekle...",
       "executeTitle": "Şurada çalıştır...",
-      "insertConfirm_one": "{{count}} hedef",
-      "insertConfirm_other": "{{count}} hedefleri",
-      "executeConfirm_one": "{{count}} hedef",
-      "executeConfirm_other": "{{count}} hedeflerinde Execute",
-      "noActiveSessions": "Aktif seans yok",
-      "activeSessionsHeader": "Aktif Oturumlar",
-      "openNewConnectionHeader": "Yeni Bağlantı Aç",
-      "localShellFallbackName": "Yerel Shell",
-      "sshSessionSub": "SSH Oturumu",
-      "noRemoteHostsFound": "Hiçbir uzaktan ev bulunamadı",
-      "noHostsFound": "Hiçbir ev bulunamadı"
+      "insertConfirm_one": "{{count}} hedefe ekle",
+      "insertConfirm_other": "{{count}} hedefe ekle",
+      "executeConfirm_one": "{{count}} hedefte çalıştır",
+      "executeConfirm_other": "{{count}} hedefte çalıştır",
+      "noActiveSessions": "Etkin oturum yok",
+      "activeSessionsHeader": "Etkin oturumlar",
+      "openNewConnectionHeader": "Yeni bağlantı aç",
+      "localShellFallbackName": "Yerel kabuk",
+      "sshSessionSub": "SSH oturumu",
+      "noRemoteHostsFound": "Uzak sunucu bulunamadı",
+      "noHostsFound": "Sunucu bulunamadı"
     },
     "hostPicker": {
-      "selectHostTitle": "Host Select Host",
-      "filterPlaceholder": "Filtre ev sahipliği...",
-      "localMachineName": "Yerel Bilgisayar",
+      "selectHostTitle": "Sunucu seç",
+      "filterPlaceholder": "Sunucuları filtrele...",
+      "localMachineName": "Yerel bilgisayar",
       "wslSub": "WSL",
-      "noHostsConfigured": "Hiçbir ev yapılandırma",
-      "noHostsMatch": "Hiçbir host maç"
+      "noHostsConfigured": "Yapılandırılmış sunucu yok",
+      "noHostsMatch": "Eşleşen sunucu yok"
     },
     "sort": {
       "nameAsc": "A → Z",
-      "nameDesc": "Z",
-      "newest": "En yeni ilk",
-      "oldest": "En yaşlı ilk"
+      "nameDesc": "Z → A",
+      "newest": "Önce en yeni",
+      "oldest": "Önce en eski"
     },
     "tagFilter": {
       "filterByTag": "Etikete göre filtrele",
       "emptyTitle": "Etiket ekle",
-      "emptyDescription": "Etiketler evlerinizi filtrelendirmenize yardımcı olur. Bir ev kiralarken bir etiket ekleyebilirsiniz.",
-      "searchPlaceholder": "Filtre etiketleri...",
-      "clearSelection": "Clear Selection ({{count}})",
-      "noTagsMatch": "Hiçbir etiket \"{{search}}\"",
-      "deleteTagTitle": "Delete etiketi \"{{tag}}\"?",
-      "deleteTagBody_one": "Bu, {{count}} ev sahipliğinden etiketi kaldıracaktır. Ev sahipleri silinmeyecek.",
-      "deleteTagBody_other": "Bu, {{count}} evlerinden etiketi kaldıracaktır. Ev sahipleri silinmeyecek.",
+      "emptyDescription": "Etiketler sunucularınızı filtrelemenize yardımcı olur. Bir sunucuyu düzenlerken etiket ekleyebilirsiniz.",
+      "searchPlaceholder": "Etiketleri filtrele...",
+      "clearSelection": "Seçimi temizle ({{count}})",
+      "noTagsMatch": "\"{{search}}\" ile eşleşen etiket yok",
+      "deleteTagTitle": "\"{{tag}}\" etiketi silinsin mi?",
+      "deleteTagBody_one": "Etiket {{count}} sunucudan kaldırılacak. Sunucuların kendisi silinmeyecek.",
+      "deleteTagBody_other": "Etiket {{count}} sunucudan kaldırılacak. Sunucuların kendisi silinmeyecek.",
       "renameTagTitle": "Etiketi yeniden adlandır",
-      "deleteTagButtonTitle": "Delete etiketi"
+      "deleteTagButtonTitle": "Etiketi sil"
     },
     "vaultUnavailable": {
-      "note": "Musul okuyamazdı, bu yüzden saklanan sırları burada gösterilmez. Neyin kurtarıldığını tutmak için bir alan boş bırakın; yeni bir değer yazmak onu değiştirir."
+      "note": "Kasa okunamadığı için kayıtlı gizli bilgiler burada gösterilmiyor. Kayıtlı değeri korumak için alanı boş bırakın; yeni bir değer yazarsanız kayıtlı değerin yerini alır."
     },
     "storedSecrets": {
-      "forbidden": "Bu tondaki rolünüz depolanmış sırları göremez, bu yüzden bu alanlar boş bırakılır. Hala çalışır - kurtarılmış haçlı gösteriliyor gösterilmeden."
+      "forbidden": "Bu kasadaki rolünüz kayıtlı gizli bilgileri göremediği için bu alanlar boş bırakıldı. Bağlanmaya devam edebilirsiniz — kayıtlı kimlik bilgisi size gösterilmeden kullanılır."
     },
     "teamCredentials": {
-      "unavailable": "Bu takım için depolanmış kimlikler yüklenmedi, bu yüzden kurtarılmış bir şifreye, anahtara veya geçişe ihtiyaç duyanlara bağlanmak için başarısız olacaktır. Bir ton yöneticiye, rolünüzü ton sırlarına vermek için sorun."
+      "unavailable": "Bu ekip kasasının kayıtlı kimlik bilgileri yüklenemedi; bu nedenle kayıtlı parola, anahtar veya parola ifadesi gerektiren sunuculara bağlanılamayacak. Bir kasa yöneticisinden, rolünüze kasadaki gizli bilgilere erişim izni vermesini isteyin."
     },
     "vaultBackups": {
-      "title": "Vault yedeklemeleri",
-      "description": "Pencere dosyaları açılmadığı zaman bir kenara bırakılır. Birini geri almak, tonunuz olarak geri getirir ve mevcut olanı yeni bir yedekleme olarak tutar - hiçbir şey silinmez.",
-      "empty": "Bu cihazda toz yedekleri yok.",
-      "restore": "geri yükleme geri yükleme",
-      "confirm": "Bu yedeklemeyi geri yükleme",
-      "cancel": "Cancel Cancel Cancel Cancel",
-      "warn": "Bu yedekleme sizin tonunuz haline gelir. Oluşturulduğunda kullanılan ana şifre ile açılır, böylece imzalanır ve kilidini istediniz.",
-      "warnReadable": "Mevcut tonunuz okunabilir. Restoring onu değiştirir - yeni bir yedekleme olarak tutulur ve yeni dosyayı yapan şifre ile kilidini açmak isteyeceksiniz.",
-      "restoredToast": "Backup restore edildi. Önceki tonunuz {{file}} olarak tutuluyordu.",
-      "restoredToastNoPrevious": "Backup restore edildi."
+      "title": "Kasa yedekleri",
+      "description": "Açılamadığı için bir kenara ayrılan kasa dosyaları. Bir yedeği geri yüklediğinizde o dosya yeniden kasanız olur ve mevcut kasanız yeni bir yedek olarak saklanır — hiçbir şey silinmez.",
+      "empty": "Bu cihazda kasa yedeği yok.",
+      "restore": "Geri yükle",
+      "confirm": "Bu yedeği geri yükle",
+      "cancel": "İptal",
+      "warn": "Bu yedek kasanız olur. Yedek, oluşturulduğu sırada kullanılan ana parolayla açılır; bu nedenle oturumunuz kapatılacak ve kilidi açmanız istenecek.",
+      "warnReadable": "Mevcut kasanız okunabiliyor. Geri yükleme onun yerini alır — mevcut kasanız yeni bir yedek olarak saklanır; oturumunuz kapatılacak ve kilidi, geri yüklenen dosyayı oluşturan parolayla açmanız istenecek.",
+      "restoredToast": "Yedek geri yüklendi. Önceki kasanız {{file}} olarak saklandı.",
+      "restoredToastNoPrevious": "Yedek geri yüklendi."
     },
     "tunnelStatus": {
-      "noRemoteListener": "Uzak limanda hiçbir şey dinlemiyor"
+      "noRemoteListener": "Uzak portu dinleyen bir hizmet yok"
     }
   }
 }

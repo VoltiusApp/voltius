@@ -4,5 +4,5 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
   fr: { "settingsLabel": "Synchronisation GitHub Gist" },
   ru: { "settingsLabel": "Синхронизация GitHub Gist" },
   zh: { "settingsLabel": "GitHub Gist 同步" },
-  tr: { "settingsLabel": "GitHub Gist Eşitleme" },
+  tr: { "settingsLabel": "GitHub Gist eşitlemesi" },
 };

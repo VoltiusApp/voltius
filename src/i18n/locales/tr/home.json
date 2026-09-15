@@ -19,7 +19,7 @@
       "import": "İçe aktar"
     },
     "recentHosts": {
-      "title": "Son Kullanılan Sunucular",
+      "title": "Son kullanılan sunucular",
       "seeAll": "Tümünü gör",
       "prevPage": "Önceki sayfa",
       "nextPage": "Sonraki sayfa",
@@ -27,7 +27,7 @@
     },
     "allHosts": {
       "back": "Geri",
-      "title": "Tüm Sunucular",
+      "title": "Tüm sunucular",
       "empty": "Henüz sunucu yok."
     },
     "hostCard": {

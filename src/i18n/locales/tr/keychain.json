@@ -8,9 +8,9 @@
       "optional": "(isteğe bağlı)",
       "username": "Kullanıcı adı",
       "password": "Parola",
-      "privateKey": "Özel Anahtar",
-      "publicKey": "Açık Anahtar",
-      "passphrase": "Anahtar parolası",
+      "privateKey": "Özel anahtar",
+      "publicKey": "Açık anahtar",
+      "passphrase": "Parola ifadesi",
       "addToHost": "Sunucuya ekle",
       "disableCloudSync": "Bulut eşitlemeyi devre dışı bırak",
       "enableCloudSync": "Bulut eşitlemeyi etkinleştir",
@@ -18,18 +18,18 @@
     },
     "toolbar": {
       "filterPlaceholder": "Filtrele...",
-      "newKey": "Yeni Anahtar",
+      "newKey": "Yeni anahtar",
       "newKeyOptionsAriaLabel": "Yeni anahtar seçenekleri",
-      "generateKeyPair": "Anahtar Çifti Oluştur",
-      "newIdentity": "Yeni Kimlik",
-      "newFolder": "Yeni Klasör"
+      "generateKeyPair": "Anahtar çifti oluştur",
+      "newIdentity": "Yeni kimlik",
+      "newFolder": "Yeni klasör"
     },
     "page": {
       "all": "Tümü",
       "folders": "Klasörler",
       "new": "Yeni",
       "pinned": "Sabitlenenler",
-      "ejectMoveTo": "{{name}} konumuna taşı",
+      "ejectMoveTo": "Şuraya taşı: {{name}}",
       "ejectRemoveFromFolder": "Klasörden çıkar",
       "bulk": {
         "moveItemsTo_one": "{{count}} öğeyi şuraya taşı",
@@ -54,28 +54,28 @@
         "title_other": "{{count}} öğeyi sil",
         "message_one": "{{count}} öğeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
         "message_other": "{{count}} öğeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
-        "folderCascade_one": "Seçili klasörlerde bulunan {{count}} öğe de silinecek.",
-        "folderCascade_other": "Seçili klasörlerde bulunan {{count}} öğe de silinecek."
+        "folderCascade_one": "Seçili klasörlerdeki {{count}} öğe de silinecek.",
+        "folderCascade_other": "Seçili klasörlerdeki {{count}} öğe de silinecek."
       },
       "vaultCascade": {
-        "moveDescription": "\"{{folderName}}\" taşındığında aşağıdaki öğeler de {{targetVaultName}} kasasına taşınacak:",
-        "copyDescription": "\"{{folderName}}\" kopyalandığında aşağıdaki öğeler de {{targetVaultName}} kasasına kopyalanacak:"
+        "moveDescription": "\"{{folderName}}\" taşındığında aşağıdaki öğeler de {{targetVaultName}} adlı kasaya taşınacak:",
+        "copyDescription": "\"{{folderName}}\" kopyalandığında aşağıdaki öğeler de {{targetVaultName}} adlı kasaya kopyalanacak:"
       }
     },
     "cards": {
       "addedOn": "{{date}} tarihinde eklendi",
       "passwordBadge": "Parola",
-      "sshKeysLabel": "SSH Anahtarları",
+      "sshKeysLabel": "SSH anahtarları",
       "identitiesLabel": "Kimlikler",
       "keySection": {
         "emptyTitle": "Henüz SSH anahtarı yok",
         "emptyDescription": "Yeniden kullanılabilir SSH anahtar çiftlerini saklayın",
-        "addButton": "Anahtar Ekle"
+        "addButton": "Anahtar ekle"
       },
       "identitySection": {
         "emptyTitle": "Henüz kimlik yok",
-        "emptyDescription": "Sunucular arasında yeniden kullanmak için kullanıcı adıyla kimlik bilgilerini birleştirin",
-        "addButton": "Kimlik Ekle"
+        "emptyDescription": "Bir kullanıcı adını kimlik bilgileriyle birleştirip farklı sunucularda yeniden kullanın",
+        "addButton": "Kimlik ekle"
       },
       "pin": {
         "unpinForMe": "Benim için sabitlemeyi kaldır",
@@ -89,40 +89,40 @@
       }
     },
     "keyForm": {
-      "titleEdit": "Anahtarı Düzenle",
-      "modeImport": "İçe Aktar",
+      "titleEdit": "Anahtarı düzenle",
+      "modeImport": "İçe aktar",
       "modeGenerate": "Oluştur",
-      "sectionKeyMaterial": "Anahtar İçeriği",
-      "sectionImportFromFile": "Dosyadan İçe Aktar",
-      "sectionKeyExport": "Anahtarı Dışa Aktar",
+      "sectionKeyMaterial": "Anahtar içeriği",
+      "sectionImportFromFile": "Dosyadan içe aktar",
+      "sectionKeyExport": "Anahtarı dışa aktar",
       "unknownType": "Bilinmeyen tür",
       "invalidKey": "Geçersiz anahtar",
       "invalidPublicKey": "SSH açık anahtarı değil — tek satırda \"ssh-ed25519 AAAA… açıklama\" biçimi bekleniyor. Kaydedilemez ve bir sunucuya eklenemez.",
-      "keyPassphrasePlaceholder": "Anahtar parolası"
+      "keyPassphrasePlaceholder": "Anahtar parola ifadesi"
     },
     "identityForm": {
-      "titleEdit": "Kimliği Düzenle",
-      "sectionCredentials": "Kimlik Bilgileri",
-      "sectionNewKeyMaterial": "Yeni Anahtar İçeriği",
-      "sectionLinkedTo": "Bağlantılar",
-      "sshKeyLabel": "SSH Anahtarı",
+      "titleEdit": "Kimliği düzenle",
+      "sectionCredentials": "Kimlik bilgileri",
+      "sectionNewKeyMaterial": "Yeni anahtar içeriği",
+      "sectionLinkedTo": "Bağlı sunucular",
+      "sshKeyLabel": "SSH anahtarı",
       "noKey": "Anahtar yok",
       "newKeyInline": "Yeni anahtar (satır içi)...",
-      "unnamedKey": "Adsız Anahtar",
+      "unnamedKey": "Adsız anahtar",
       "namePlaceholder": "Kimliğim (isteğe bağlı)",
-      "keyLabel": "Anahtar Etiketi",
-      "keyLabelPlaceholder": "SSH Anahtarım (isteğe bağlı)",
+      "keyLabel": "Anahtar etiketi",
+      "keyLabelPlaceholder": "SSH anahtarım (isteğe bağlı)",
       "editHostTitle": "Sunucuyu düzenle",
       "unlinkTitle": "Bağlantıyı kaldır — kimlik bilgilerini sunucuya satır içi kopyala"
     },
     "exportPanel": {
-      "exportSectionLabel": "Dışa Aktar",
+      "exportSectionLabel": "Dışa aktar",
       "destinationHost": "Hedef sunucu",
       "selectHostPlaceholder": "Bir sunucu seçin…",
       "location": "Konum",
       "filename": "Dosya adı",
-      "unixOnlyNotice": "Anahtar dışa aktarma şu anda yalnızca UNIX sistemlerini destekler. Dışa aktarma betiğini özelleştirmek için Gelişmiş bölümünü kullanın.",
-      "missingPublicKeyNotice": "Bu anahtarın gönderilecek açık bölümü yok. Anahtar Zincirinde açıp .pub satırını yapıştırın veya özel anahtardan açık bölümün türetilebilmesi için anahtar parolasını ekleyin.",
+      "unixOnlyNotice": "Anahtar dışa aktarma şu anda yalnızca UNIX sistemlerini destekliyor. Dışa aktarma betiğini özelleştirmek için Gelişmiş bölümünü kullanın.",
+      "missingPublicKeyNotice": "Bu anahtarın gönderilecek açık kısmı yok. Anahtarı anahtar zincirinde açıp .pub satırını yapıştırın ya da açık kısmın özel anahtardan türetilebilmesi için parola ifadesini ekleyin.",
       "advanced": "Gelişmiş",
       "exportScriptLabel": "Dışa aktarma betiği",
       "successMessage": "Anahtar başarıyla dışa aktarıldı",
@@ -130,10 +130,10 @@
       "publicKeyNotFoundError": "Açık anahtar bulunamadı",
       "multilinePublicKeyError": "Açık anahtar geçersiz — tek satır olmalıdır",
       "invalidPublicKeyError": "Açık anahtar geçersiz — \"tür base64 [açıklama]\" biçiminde bir SSH açık anahtarı olmalıdır",
-      "invalidLocationError": "Konum, uzak ana klasörün altında bir yol olmalı ve \"..\" bölümü içermemelidir",
+      "invalidLocationError": "Konum, uzak ev dizini altında bir yol olmalı ve \"..\" bileşeni içermemelidir",
       "invalidFilenameError": "Dosya adı yol ayırıcı içermemelidir",
-      "remoteCommandFailedError": "Uzak komut başarısız: {{detail}}",
-      "remoteCommandFailedUnknownError": "Uzak komut başarısız (çıkış kodu {{code}})"
+      "remoteCommandFailedError": "Uzak komut başarısız oldu: {{detail}}",
+      "remoteCommandFailedUnknownError": "Uzak komut başarısız oldu (çıkış kodu {{code}})"
     },
     "dropZone": {
       "loaded": "Anahtar dosyası yüklendi",
@@ -143,14 +143,14 @@
       "hint": ".pem, .key, .pub veya herhangi bir SSH anahtar dosyası"
     },
     "genFields": {
-      "sectionKeyType": "Anahtar Türü",
+      "sectionKeyType": "Anahtar türü",
       "ellipticCurve": "Eliptik eğri",
       "keySizeBits": "Anahtar boyutu (bit)",
-      "passphrasePlaceholder": "İsteğe bağlı anahtar parolası",
-      "savePassphrase": "Anahtar parolasını kaydet",
+      "passphrasePlaceholder": "İsteğe bağlı parola ifadesi",
+      "savePassphrase": "Parola ifadesini kaydet",
       "cipher": "Şifreleme algoritması",
       "rounds": "Tur sayısı",
-      "roundsTooltip": "Anahtar parolanızdan şifreleme anahtarı türetmek için kullanılan bcrypt-pbkdf yineleme sayısı. Yüksek değerler anahtarın yüklenmesini biraz yavaşlatırken kaba kuvvet saldırılarını da yavaşlatır. OpenSSH varsayılanı 16'dır; 100 iyi bir dengedir.",
+      "roundsTooltip": "Parola ifadenizden şifreleme anahtarını türetmek için kullanılan bcrypt-pbkdf yineleme sayısı. Yüksek değerler kaba kuvvet saldırılarını yavaşlatır, ancak anahtar biraz daha yavaş yüklenir. OpenSSH varsayılanı 16'dır; 100 iyi bir dengedir.",
       "generating": "Oluşturuluyor…"
     }
   }

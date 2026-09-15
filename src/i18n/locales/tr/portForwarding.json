@@ -4,8 +4,8 @@
       "filterPlaceholder": "Kuralları filtrele…",
       "deleteSelected": "Seçilenleri sil",
       "deleteButton": "SİL",
-      "newRule": "Yeni Kural",
-      "newFolder": "Yeni Klasör"
+      "newRule": "Yeni kural",
+      "newFolder": "Yeni klasör"
     },
     "reach": {
       "copied": "{{address}} panoya kopyalandı"
@@ -17,14 +17,14 @@
       "noRulesMatchSearch": "Aramanızla eşleşen kural yok.",
       "folderEmpty": "Bu klasör boş.",
       "noRulesYet": "Henüz kural yok. Başlamak için bir kural oluşturun.",
-      "addRule": "Kural Ekle",
-      "ejectMoveTo": "{{name}} konumuna taşı",
+      "addRule": "Kural ekle",
+      "ejectMoveTo": "{{name}} klasörüne taşı",
       "ejectRemoveFromFolder": "Klasörden çıkar",
       "total": "Toplam {{count}}",
       "activeCount": "{{count}} etkin",
       "errorCount": "{{count}} hata",
       "contextMenu": {
-        "newRule": "Yeni Kural"
+        "newRule": "Yeni kural"
       },
       "confirmDelete": {
         "title": "Kuralı sil",
@@ -67,8 +67,8 @@
       "stopped": "Durduruldu",
       "noSshSession": "SSH oturumu yok",
       "openUrl": "{{url}} adresini aç",
-      "scopedToConnections_one": "{{count}} bağlantıyla sınırlandırıldı",
-      "scopedToConnections_other": "{{count}} bağlantıyla sınırlandırıldı",
+      "scopedToConnections_one": "{{count}} bağlantıyla sınırlı",
+      "scopedToConnections_other": "{{count}} bağlantıyla sınırlı",
       "connectionsCount_one": "{{count}} bağlantı",
       "connectionsCount_other": "{{count}} bağlantı"
     },
@@ -82,7 +82,7 @@
       "forwardCount_other": "{{count}} yönlendirme",
       "errorCount": "{{count}} hata",
       "activeCountLabel": "{{count}} etkin",
-      "connected": "Bağlandı",
+      "connected": "Bağlı",
       "local": "Yerel",
       "remote": "Uzak",
       "socks5": "SOCKS5",
@@ -95,8 +95,8 @@
       "openUrl": "{{url}} adresini aç"
     },
     "ruleForm": {
-      "editRule": "Kuralı Düzenle",
-      "newRule": "Yeni Kural",
+      "editRule": "Kuralı düzenle",
+      "newRule": "Yeni kural",
       "general": "Genel",
       "name": "Ad",
       "namePlaceholder": "Tünelim",
@@ -121,7 +121,7 @@
           "label": "Uzak",
           "title": "Uzak tünel",
           "summary": "Bilgisayarınızdaki bir hizmeti SSH sunucusunda erişime açın.",
-          "example": "Sunucu bir portu dinler ve trafiği bilgisayarınıza geri yönlendirir.",
+          "example": "Sunucu bir portu dinler ve gelen trafiği bilgisayarınıza geri yönlendirir.",
           "diagram": [
             "Uzak kullanıcılar",
             "SSH sunucusu",
@@ -132,7 +132,7 @@
           "label": "Dinamik",
           "title": "Dinamik SOCKS proxy'si",
           "summary": "Uygulama trafiğini SSH sunucusu üzerinden gönderen yerel bir SOCKS5 proxy'si oluşturun.",
-          "example": "Trafiği sunucu üzerinden yönlendirmek için tarayıcıyı veya uygulamayı localhost:1080 adresine ayarlayın.",
+          "example": "Trafiği sunucu üzerinden yönlendirmek için tarayıcıyı veya uygulamayı localhost:1080 adresini kullanacak şekilde ayarlayın.",
           "diagram": [
             "Uygulamanız",
             "SOCKS proxy'si",
@@ -143,20 +143,20 @@
       "localPortOnComputer": "Bilgisayarınızdaki port",
       "localPortHelp": "Bu porta yerel olarak, genellikle localhost:{{port}} adresinden bağlanırsınız.",
       "remotePortOnServer": "SSH sunucusundaki port",
-      "remotePortOnServerHelp": "Hizmetin sunucunun bakış açısından çalıştığı port.",
-      "hostOnServer": "SSH sunucusundaki ana makine",
-      "hostOnServerHelp": "Hizmet doğrudan SSH sunucusunda çalışıyorsa 127.0.0.1 kullanın.",
+      "remotePortOnServerHelp": "Hizmetin, sunucu açısından çalıştığı port.",
+      "hostOnServer": "SSH sunucusu tarafındaki ana bilgisayar",
+      "hostOnServerHelp": "Hizmet doğrudan SSH sunucusunun üzerinde çalışıyorsa 127.0.0.1 kullanın.",
       "remotePortOpenedOnServer": "SSH sunucusunda açılan port",
-      "remotePortOpenedOnServerHelp": "Sunucu tarafındaki kişilerin veya hizmetlerin bağlandığı port.",
+      "remotePortOpenedOnServerHelp": "Sunucu tarafındaki kişiler veya hizmetler bu porta bağlanır.",
       "localPortReceivingHelp": "Yönlendirilen trafiği alacak yerel uygulama veya hizmet.",
       "bindAddressOnServer": "SSH sunucusundaki dinleme adresi",
-      "bindAddressOnServerHelp": "127.0.0.1 erişimi sunucuyla sınırlar. 0.0.0.0 porta ağdan erişilmesine yol açabilir.",
-      "bindWarning": "0.0.0.0 bu portu uzak sunucunun tüm ağ arayüzleri üzerinden erişime açar.",
-      "hostOnComputer": "Bilgisayarınızdaki ana makine",
+      "bindAddressOnServerHelp": "127.0.0.1 portu yalnızca sunucuya açık tutar. 0.0.0.0 portu ağa açabilir.",
+      "bindWarning": "0.0.0.0, bu portu uzak sunucunun tüm ağ arayüzlerinde erişime açar.",
+      "hostOnComputer": "Bilgisayarınız tarafındaki ana bilgisayar",
       "hostOnComputerHelp": "Hedef uygulama bu bilgisayarda çalışıyorsa 127.0.0.1 kullanın.",
       "socksProxyPort": "Bilgisayarınızdaki SOCKS proxy portu",
-      "socksProxyPortHelp": "Uygulamaları SOCKS5 proxy'si olarak localhost:{{port}} kullanacak şekilde yapılandırın.",
-      "applyTo": "Uygulanacak bağlantılar",
+      "socksProxyPortHelp": "Uygulamaları SOCKS5 proxy'si olarak localhost:{{port}} adresini kullanacak şekilde yapılandırın.",
+      "applyTo": "Uygulama kapsamı",
       "allConnections": "Tüm bağlantılar",
       "specificConnections": "Belirli bağlantılar",
       "noSavedConnections": "Kayıtlı bağlantı yok."

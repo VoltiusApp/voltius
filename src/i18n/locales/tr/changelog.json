@@ -2,20 +2,20 @@
   "changelog": {
     "title": "Yenilikler",
     "quickLinks": {
-      "documentation": "Dokümantasyon"
+      "documentation": "Belgeler"
     },
-    "loading": "Yükleniyor changelog...",
-    "unavailable": "Changelog çevrimdışı değil. Yeni olanı görmek için yeniden bağlantı.",
-    "hidePreviousReleases": "Hide previous release",
+    "loading": "Sürüm notları yükleniyor…",
+    "unavailable": "Sürüm notları çevrimdışıyken kullanılamaz. Yenilikleri görmek için yeniden bağlanın.",
+    "hidePreviousReleases": "Önceki sürümleri gizle",
     "previousReleases": "Önceki sürümler ({{count}})",
-    "newBadge": "Yeni Yeni Yeni Yeni Yeni Yeni Yeni",
+    "newBadge": "Yeni",
     "updateBanner": {
-      "checking": "Güncellemeler için kontrol edin...",
-      "downloading": "v{{version}}... {{progress}}%",
-      "ready": "v{{version}} yüklemeye hazır",
-      "restartToUpdate": "güncelleştirmeye yeniden başlayın",
-      "available": "v{{version}} mevcuttur",
-      "download": "Download Download Download Download Download"
+      "checking": "Güncellemeler denetleniyor…",
+      "downloading": "v{{version}} indiriliyor… %{{progress}}",
+      "ready": "v{{version}} yüklenmeye hazır",
+      "restartToUpdate": "Güncellemek için yeniden başlat",
+      "available": "v{{version}} kullanılabilir",
+      "download": "İndir"
     }
   }
 }

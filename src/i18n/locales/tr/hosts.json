@@ -5,13 +5,13 @@
       "openSerialConsole": "Seri konsolu aç",
       "serial": "Seri",
       "terminal": "Terminal",
-      "importExport": "İçe/Dışa Aktar",
+      "importExport": "İçe/dışa aktar",
       "import": "İçe aktar…",
       "export": "Dışa aktar…",
       "fromImporter": "{{label}} kaynağından",
-      "newHost": "Yeni Sunucu",
-      "newSerialHost": "Yeni Seri Sunucu",
-      "newFolder": "Yeni Klasör"
+      "newHost": "Yeni sunucu",
+      "newSerialHost": "Yeni seri sunucu",
+      "newFolder": "Yeni klasör"
     },
     "card": {
       "pin": "Sabitle",
@@ -28,19 +28,19 @@
       "unpinForTeam": "Ekip için sabitlemeyi kaldır",
       "pinForTeam": "Ekip için sabitle",
       "openInSftp": "SFTP'de aç",
-      "copyHostnameIp": "Sunucu Adını/IP'yi Kopyala",
+      "copyHostnameIp": "Ana bilgisayar adını/IP'yi kopyala",
       "copiedHost": "{{host}} kopyalandı",
-      "executeSnippet": "Kod Parçacığını Çalıştır",
+      "executeSnippet": "Kod parçacığı çalıştır",
       "cloudSyncDisabled": "Bulut eşitleme devre dışı",
       "enableCloudSync": "Bulut eşitlemeyi etkinleştir",
       "disableCloudSync": "Bulut eşitlemeyi devre dışı bırak",
-      "enableReachability": "Erişilebilirlik denetimini etkinleştir",
-      "disableReachability": "Erişilebilirlik denetimini devre dışı bırak",
-      "connectTitle": "Bağlan (veya çift tıkla)",
-      "openFilesTitle": "Dosyaları aç (veya çift tıkla)",
+      "enableReachability": "Ulaşılabilirlik denetimini etkinleştir",
+      "disableReachability": "Ulaşılabilirlik denetimini devre dışı bırak",
+      "connectTitle": "Bağlan (veya çift tıklayın)",
+      "openFilesTitle": "Dosyaları aç (veya çift tıklayın)",
       "inUseBy": "{{name}} tarafından kullanılıyor",
-      "inUseByOverflow_one": "{{name}} ve {{count}} kişi tarafından kullanılıyor",
-      "inUseByOverflow_other": "{{name}} ve {{count}} kişi tarafından kullanılıyor"
+      "inUseByOverflow_one": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor",
+      "inUseByOverflow_other": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor"
     },
     "page": {
       "all": "Tümü",
@@ -48,9 +48,9 @@
       "new": "Yeni",
       "pinned": "Sabitlenenler",
       "folderEmpty": "Bu klasör boş",
-      "addHost": "Sunucu Ekle",
+      "addHost": "Sunucu ekle",
       "noSearchResults": "\"{{search}}\" ile eşleşen sunucu yok",
-      "ejectMoveTo": "{{name}} konumuna taşı",
+      "ejectMoveTo": "{{name}} klasörüne taşı",
       "ejectRemoveFromFolder": "Klasörden çıkar",
       "emptyState": {
         "title": "Henüz sunucu yok",
@@ -64,8 +64,8 @@
         "copyDescription": "\"{{folderName}}\" kopyalandığında aşağıdaki öğeler de {{targetVaultName}} kasasına kopyalanacak:"
       },
       "bulk": {
-        "executeSnippetOn_one": "Kod parçacığını {{count}} sunucuda çalıştır",
-        "executeSnippetOn_other": "Kod parçacığını {{count}} sunucuda çalıştır",
+        "executeSnippetOn_one": "{{count}} sunucuda kod parçacığı çalıştır",
+        "executeSnippetOn_other": "{{count}} sunucuda kod parçacığı çalıştır",
         "connectHosts": "{{count}} sunucuya bağlan",
         "duplicateHosts": "{{count}} sunucuyu çoğalt",
         "moveItemsTo_one": "{{count}} öğeyi şuraya taşı",
@@ -74,8 +74,8 @@
         "copyItemsTo_other": "{{count}} öğeyi şuraya kopyala",
         "enableCloudSync": "Bulut eşitlemeyi etkinleştir ({{count}})",
         "disableCloudSync": "Bulut eşitlemeyi devre dışı bırak ({{count}})",
-        "enableReachability": "Erişilebilirlik denetimini etkinleştir ({{count}})",
-        "disableReachability": "Erişilebilirlik denetimini devre dışı bırak ({{count}})",
+        "enableReachability": "Ulaşılabilirlik denetimini etkinleştir ({{count}})",
+        "disableReachability": "Ulaşılabilirlik denetimini devre dışı bırak ({{count}})",
         "exportHosts": "{{count}} sunucuyu dışa aktar",
         "deleteItems_one": "{{count}} öğeyi sil",
         "deleteItems_other": "{{count}} öğeyi sil"
@@ -104,33 +104,33 @@
       "kill": "Oturumu sonlandır",
       "killing": "Oturum sonlandırılıyor…",
       "undo": "Geri al",
-      "killFailed": "Uzaktan sonlandırılamadı — bitirmek için oturumu açın",
+      "killFailed": "Uzaktan sonlandırılamadı — sonlandırmak için oturumu açın",
       "dismiss": "Kapat"
     },
     "teamSessions": {
-      "title": "Ekip Oturumları",
+      "title": "Ekip oturumları",
       "joinByCode": "Kodla katıl",
-      "emptyHint": "Ekip arkadaşlarınızın paylaştığı terminaller burada görünür. Davet kodunuz varsa katılmak için arama alanına yapıştırın.",
+      "emptyHint": "Ekip arkadaşlarınızın paylaştığı terminaller burada görünür. Davet kodunuz mu var? Katılmak için arama alanına yapıştırın.",
       "live": "CANLI",
       "pasteInviteCode": "Özel bir oturuma katılmak için davet bağlantısını veya kodunu yapıştırın:",
       "inviteCodePlaceholder": "voltius://join?… veya sessionId:token",
       "join": "Katıl",
       "resume": "Sürdür",
-      "invalidCodeFormat": "Geçersiz davet — sunucunun sizinle paylaştığı bağlantıyı veya kodu yapıştırın",
+      "invalidCodeFormat": "Geçersiz davet — oturumu paylaşan kişinin size gönderdiği bağlantıyı veya kodu yapıştırın",
       "failedToJoinSession": "Oturuma katılınamadı",
-      "sharedTerminalFallback": "Paylaşılan Terminal"
+      "sharedTerminalFallback": "Paylaşılan terminal"
     },
     "snippetPicker": {
-      "title": "Kod Parçacığını Çalıştır",
-      "goToSnippets": "Kod Parçacıklarına Git",
+      "title": "Kod parçacığı çalıştır",
+      "goToSnippets": "Kod parçacıklarına git",
       "filterPlaceholder": "Kod parçacıklarını filtrele...",
       "newSnippetTitle": "Yeni kod parçacığı",
       "new": "Yeni",
       "noSnippetsYet": "Henüz kod parçacığı yok",
       "createSnippet": "Kod parçacığı oluştur",
       "noSnippetsMatch": "Eşleşen kod parçacığı yok",
-      "recent": "Son Kullanılanlar",
-      "allSnippets": "Tüm Kod Parçacıkları",
+      "recent": "Son kullanılanlar",
+      "allSnippets": "Tüm kod parçacıkları",
       "hostsSelected_one": "{{count}} sunucu seçildi",
       "hostsSelected_other": "{{count}} sunucu seçildi",
       "insert": "Ekle",
@@ -140,8 +140,8 @@
       "labelPre": "{{host}} — Ön komut",
       "labelPost": "{{host}} — Son komut",
       "failed": "{{host}} için sunucu komutu başarısız oldu: {{error}}",
-      "missingSnippet": "{{host}} için sunucu komutu kod parçacığı eksik",
-      "postPromptTimedOut": "{{host}} için son komut atlandı: 60 saniye içinde yanıt alınamadı"
+      "missingSnippet": "{{host}} için sunucu komutunun kod parçacığı bulunamadı",
+      "postPromptTimedOut": "{{host}} için son komut atlandı: 60 saniye içinde yanıt gelmedi"
     }
   }
 }
