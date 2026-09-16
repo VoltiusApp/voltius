@@ -4,6 +4,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { matchesSearch } from "@/utils/connectionFilter";
+import { sessionMatchesQuery } from "@/utils/sessionLabel";
 import { useIsAndroid } from "@/utils/platform";
 import { getSnippetInjectionTargetIds, waitForConnectedSessionIds } from "@/components/shared/sessionPickerTargets";
 import { useLocalShells } from "@/hooks/useLocalShells";
@@ -26,7 +27,7 @@ export function useSnippetTargetPicker() {
   const filteredSessions = useMemo(
     () => !search
       ? activeSessions
-      : activeSessions.filter((s) => s.connectionName.toLowerCase().includes(search.toLowerCase())),
+      : activeSessions.filter((s) => sessionMatchesQuery(s, search)),
     [activeSessions, search],
   );
 

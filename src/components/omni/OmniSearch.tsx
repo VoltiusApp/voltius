@@ -25,6 +25,7 @@ import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { sessionStatusTone } from "@/utils/statusTone";
+import { sessionLabel, sessionMatchesQuery } from "@/utils/sessionLabel";
 import { getSettingsNav } from "@/components/settings/settingsNav";
 import { useLocaleStore } from "@/stores/localeStore";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
@@ -255,7 +256,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     // Active SSH sessions
     result.push(
       ...activeSessions
-        .filter((s) => !q || s.connectionName.toLowerCase().includes(q))
+        .filter((s) => !q || sessionMatchesQuery(s, q))
         .map((s): OmniItem => ({ kind: "session", session: s, connection: connectionById.get(s.connectionId) })),
     );
 
@@ -573,7 +574,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           )}
           <span className="flex-1 min-w-0 text-sm font-semibold truncate"
             style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-            {item.session.connectionName}
+            {sessionLabel(item.session)}
           </span>
           <VaultBadge vaultId={item.connection?.vault_id} vaults={vaults} teams={teams} />
           <span className="text-xs shrink-0 text-(--t-text-dim)">

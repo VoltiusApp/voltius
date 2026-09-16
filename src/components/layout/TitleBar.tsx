@@ -666,7 +666,7 @@ export default function TitleBar() {
               open={shareDropdownOpen}
               onClose={() => setShareDropdownOpen(false)}
               activeSessionId={activeSessionId}
-              connectionName={activeSession?.connectionName ?? t("layout.titleBar.terminalFallback")}
+              connectionName={activeSession ? sessionLabel(activeSession) : t("layout.titleBar.terminalFallback")}
               connectionVaultId={connections.find((c) => c.id === activeSession?.connectionId)?.vault_id}
               isLoggedIn={accountMode === "server"}
               tier={tier}
@@ -791,7 +791,7 @@ function DetachedPanePreview({ session }: { session: ReturnType<typeof useSessio
       ) : (
         <StatusDot tone={sessionStatusTone(session.status)} />
       )}
-      <span className="max-w-[140px] truncate">{session.connectionName}</span>
+      <span className="max-w-[140px] truncate">{sessionLabel(session)}</span>
     </div>
   );
 }

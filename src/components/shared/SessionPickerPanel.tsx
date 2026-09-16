@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
+import { sessionLabel } from "@/utils/sessionLabel";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { HostRow } from "./HostPickerPanel";
 import { useSnippetTargetPicker } from "@/hooks/useSnippetTargetPicker";
@@ -83,7 +84,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
                       <Icon icon={picker.selectedSessionIds.has(s.id) ? "lucide:check" : "lucide:terminal"} width={13} />
                     </div>
                   }
-                  name={s.connectionName}
+                  name={sessionLabel(s)}
                   sub={s.type === "local" ? t("shared.pickers.thisComputer") : t("shared.sessionPicker.sshSessionSub")}
                   isSelected={picker.selectedSessionIds.has(s.id)}
                   onClick={() => picker.toggleSession(s.id)}
