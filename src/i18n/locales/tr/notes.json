@@ -1,6 +1,7 @@
 {
   "notes": {
     "toolbar": {
+      "heading": "Başlık",
       "h1": "Başlık 1",
       "h2": "Başlık 2",
       "h3": "Başlık 3",
@@ -12,6 +13,7 @@
       "ordered": "Numaralı liste",
       "task": "Yapılacaklar listesi",
       "codeBlock": "Kod bloğu",
+      "more": "Diğer biçimlendirme",
       "preview": "Önizleme",
       "edit": "Düzenle"
     },

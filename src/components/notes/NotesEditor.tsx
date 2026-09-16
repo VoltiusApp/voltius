@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
@@ -7,6 +7,8 @@ import { EditorView, keymap, placeholder, tooltips } from "@codemirror/view";
 import { EditorSelection, Prec, type StateCommand } from "@codemirror/state";
 import { autocompletion } from "@codemirror/autocomplete";
 import { useCmTheme } from "@/components/filetransfer/editor/useCmTheme";
+import { PickerSurface } from "@/components/shared/PickerSurface";
+import { MenuItemList } from "@/components/shared/ContextMenu";
 import { NOTES_ICON_BUTTON, NotesEmptyState } from "./NotesChrome";
 import { NotesPreview } from "./NotesPreview";
 import {
@@ -41,19 +43,81 @@ interface ToolbarItem {
   command: StateCommand;
 }
 
-const TOOLBAR: ToolbarItem[] = [
-  { id: "h1", icon: "lucide:heading-1", shortcut: "Shift+1", command: toggleLineKind("h1") },
-  { id: "h2", icon: "lucide:heading-2", shortcut: "Shift+2", command: toggleLineKind("h2") },
-  { id: "h3", icon: "lucide:heading-3", shortcut: "Shift+3", command: toggleLineKind("h3") },
+interface ToolbarMenuEntry {
+  id: string;
+  icon: string;
+  align: "left" | "right";
+  items: ToolbarItem[];
+}
+
+const TOOLBAR: (ToolbarItem | ToolbarMenuEntry)[] = [
+  {
+    id: "heading",
+    icon: "lucide:heading",
+    align: "left",
+    items: [
+      { id: "h1", icon: "lucide:heading-1", shortcut: "Shift+1", command: toggleLineKind("h1") },
+      { id: "h2", icon: "lucide:heading-2", shortcut: "Shift+2", command: toggleLineKind("h2") },
+      { id: "h3", icon: "lucide:heading-3", shortcut: "Shift+3", command: toggleLineKind("h3") },
+    ],
+  },
   { id: "bold", icon: "lucide:bold", shortcut: "B", command: wrapSelection("**") },
   { id: "italic", icon: "lucide:italic", shortcut: "I", command: wrapSelection("*") },
-  { id: "code", icon: "lucide:code", command: wrapSelection("`") },
   { id: "link", icon: "lucide:link", shortcut: "K", command: insertLink },
   { id: "bullet", icon: "lucide:list", shortcut: "Shift+8", command: toggleLineKind("bullet") },
   { id: "ordered", icon: "lucide:list-ordered", shortcut: "Shift+7", command: toggleLineKind("ordered") },
   { id: "task", icon: "lucide:list-checks", shortcut: "Shift+9", command: toggleLineKind("task") },
-  { id: "codeBlock", icon: "lucide:square-code", command: insertBlock(...BLOCKS.codeBlock) },
+  {
+    id: "more",
+    icon: "lucide:ellipsis",
+    align: "right",
+    items: [
+      { id: "code", icon: "lucide:code", command: wrapSelection("`") },
+      { id: "codeBlock", icon: "lucide:square-code", command: insertBlock(...BLOCKS.codeBlock) },
+    ],
+  },
 ];
+
+const shortcutLabel = (shortcut: string) => `${MOD_LABEL}+${shortcut}`;
+
+const keepEditorFocus = (e: MouseEvent) => e.preventDefault();
+
+function ToolbarMenu({ menu, className, onRun }: { menu: ToolbarMenuEntry; className: string; onRun: (command: StateCommand) => void }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const label = t(`notes.toolbar.${menu.id}`);
+  const close = () => setOpen(false);
+  return (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        className={className}
+        title={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onMouseDown={keepEditorFocus}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Icon icon={menu.icon} width={13} />
+      </button>
+      <PickerSurface open={open} onClose={close} anchorRef={anchorRef} title={label} width="content" minWidth="12.667rem" align={menu.align}>
+        <div onMouseDown={keepEditorFocus}>
+          <MenuItemList
+            items={menu.items.map((item) => ({
+              label: t(`notes.toolbar.${item.id}`),
+              icon: item.icon,
+              shortcut: item.shortcut && shortcutLabel(item.shortcut),
+              onClick: () => onRun(item.command),
+            }))}
+            onClose={close}
+          />
+        </div>
+      </PickerSurface>
+    </>
+  );
+}
 
 const NOTES_THEME = EditorView.theme({
   ".cm-placeholder": { color: "var(--t-text-muted)" },
@@ -159,15 +223,17 @@ export function NotesEditor({
       }}
     >
       {!readOnly && (
-        <div className="flex flex-wrap items-center gap-0.5 px-1.5 py-1 border-b border-b-(--t-border) shrink-0">
+        <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-b-(--t-border) shrink-0">
           {effectiveMode === "edit" &&
-            TOOLBAR.map((item) => (
+            TOOLBAR.map((item) => "items" in item ? (
+              <ToolbarMenu key={item.id} menu={item} className={toolbarButton} onRun={runCommand} />
+            ) : (
               <button
                 key={item.id}
                 type="button"
                 className={toolbarButton}
-                title={item.shortcut ? `${t(`notes.toolbar.${item.id}`)} (${MOD_LABEL}+${item.shortcut})` : t(`notes.toolbar.${item.id}`)}
-                onMouseDown={(e) => { e.preventDefault(); runCommand(item.command); }}
+                title={item.shortcut ? `${t(`notes.toolbar.${item.id}`)} (${shortcutLabel(item.shortcut)})` : t(`notes.toolbar.${item.id}`)}
+                onMouseDown={(e) => { keepEditorFocus(e); runCommand(item.command); }}
               >
                 <Icon icon={item.icon} width={13} />
               </button>
@@ -175,7 +241,7 @@ export function NotesEditor({
           <button
             type="button"
             className={`${toolbarButton} ml-auto`}
-            title={`${t(effectiveMode === "edit" ? "notes.toolbar.preview" : "notes.toolbar.edit")} (${MOD_LABEL}+E)`}
+            title={`${t(effectiveMode === "edit" ? "notes.toolbar.preview" : "notes.toolbar.edit")} (${shortcutLabel("E")})`}
             onClick={() => requestMode(effectiveMode === "edit" ? "preview" : "edit")}
           >
             <Icon icon={effectiveMode === "edit" ? "lucide:eye" : "lucide:pencil"} width={13} />

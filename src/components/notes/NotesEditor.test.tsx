@@ -69,8 +69,34 @@ function renderEditor(props: Partial<Parameters<typeof NotesEditor>[0]> = {}) {
 describe("NotesEditor", () => {
   test("toolbar buttons run their markdown command", () => {
     const { onChange } = renderEditor({ value: "title" });
-    fireEvent.mouseDown(screen.getByTitle(/notes.toolbar.h1/));
-    expect(onChange).toHaveBeenLastCalledWith("# title");
+    fireEvent.mouseDown(screen.getByTitle(/notes.toolbar.bold/));
+    expect(onChange).toHaveBeenLastCalledWith("****title");
+  });
+
+  test.each([
+    ["notes.toolbar.heading", "notes.toolbar.h2", "Ctrl+Shift+2", "## title"],
+    ["notes.toolbar.more", "notes.toolbar.codeBlock", null, "\n```\n\n```title"],
+    ["notes.toolbar.more", "notes.toolbar.code", null, "``title"],
+  ])("the %s menu runs %s without taking focus from the editor", (trigger, row, shortcut, expected) => {
+    const { onChange } = renderEditor({ value: "title" });
+    const button = screen.getByTitle(trigger);
+    expect(fireEvent.mouseDown(button)).toBe(false);
+    fireEvent.click(button);
+    const item = screen.getByText(row).closest("button")!;
+    if (shortcut) expect(item.textContent).toContain(shortcut);
+    expect(fireEvent.mouseDown(item)).toBe(false);
+    fireEvent.click(item);
+    expect(onChange).toHaveBeenLastCalledWith(expected);
+    expect(screen.queryByText(row)).toBeNull();
+  });
+
+  test("the toolbar keeps to one row: headings and code live in menus", () => {
+    renderEditor({ value: "x" });
+    const toolbar = screen.getByTitle(/notes.toolbar.bold/).parentElement!;
+    expect(toolbar.className).not.toContain("flex-wrap");
+    expect(toolbar.querySelectorAll(":scope > button")).toHaveLength(9);
+    expect(screen.queryByTitle(/notes.toolbar.h1/)).toBeNull();
+    expect(screen.queryByTitle(/notes.toolbar.codeBlock/)).toBeNull();
   });
 
   test("the mode toggle switches to preview and back", () => {

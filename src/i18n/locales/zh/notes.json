@@ -1,6 +1,7 @@
 {
   "notes": {
     "toolbar": {
+      "heading": "标题",
       "h1": "标题 1",
       "h2": "标题 2",
       "h3": "标题 3",
@@ -12,6 +13,7 @@
       "ordered": "有序列表",
       "task": "任务清单",
       "codeBlock": "代码块",
+      "more": "更多格式",
       "preview": "预览",
       "edit": "编辑"
     },

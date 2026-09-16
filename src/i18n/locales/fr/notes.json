@@ -1,6 +1,7 @@
 {
   "notes": {
     "toolbar": {
+      "heading": "Titre",
       "h1": "Titre 1",
       "h2": "Titre 2",
       "h3": "Titre 3",
@@ -12,6 +13,7 @@
       "ordered": "Liste numérotée",
       "task": "Liste de tâches",
       "codeBlock": "Bloc de code",
+      "more": "Plus de mise en forme",
       "preview": "Aperçu",
       "edit": "Modifier"
     },
