@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   restoreSessions: vi.fn(),
   removeSession: vi.fn(),
   hydrate: vi.fn(),
+  resumeIfStranded: vi.fn(),
   snapshot: {
     version: 1,
     sessions: [{ id: "s1", connectionId: "c1", connectionName: "host", title: "deploy", type: "ssh", persist: true }],
@@ -35,6 +36,7 @@ vi.mock("./sessionStore", () => ({
     }),
   },
 }));
+vi.mock("./reconnectBackoff", () => ({ resumeIfStranded: h.resumeIfStranded }));
 vi.mock("./layoutStore", () => ({
   useLayoutStore: { getState: () => ({ splitTabs: [], hydrate: h.hydrate, removeSession: h.removeSession }) },
   getPaneSessionIds: () => [],
@@ -98,4 +100,14 @@ test("a restored tab comes back under the name the user gave it", async () => {
     [expect.objectContaining({ id: "s1", title: "deploy" })],
     "s1",
   );
+});
+
+test("a restored ssh tab the launch could not reach is handed to the reconnect loop", async () => {
+  const { setLoginSyncPending } = await import("@/services/loginSyncGate");
+  const { restoreWorkspaceOnLaunch } = await import("./workspaceRestore");
+  setLoginSyncPending();
+
+  await restoreWorkspaceOnLaunch();
+
+  expect(h.resumeIfStranded).toHaveBeenCalledWith("s1", { restore: true });
 });

@@ -75,7 +75,7 @@ interface SessionStore {
   /** Silent reconnect for the auto-backoff loop: performs the same connect as
    * reconnect() but mutates no visible status, returning the outcome so the loop
    * can hold a single steady "reconnecting" state and decide what to surface. */
-  reconnectAttempt: (sessionId: string) => Promise<{ ok: boolean; errorMessage?: string; errorCode?: VaultErrorCode }>;
+  reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<{ ok: boolean; errorMessage?: string; errorCode?: VaultErrorCode }>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
   restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
@@ -993,7 +993,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
-  reconnectAttempt: async (sessionId) => {
+  reconnectAttempt: async (sessionId, options) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session) return { ok: false };
     try {
@@ -1007,8 +1007,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (session.type !== "ssh") return { ok: false };
       const connection = findConnection(session.connectionId);
       if (!connection) return { ok: false, errorMessage: i18n.t("common.error.connectionConfigNotFound") };
-      // restore:false — the xterm buffer still holds prior output, so the
-      // re-attach redraw repaints the live screen without duplicating scrollback.
+      // A dropped tab's xterm buffer still holds its output: replaying history would duplicate it.
       await withSessionConnectLock(sessionId, async () => {
         await sshDisconnectForReconnect(sessionId);
         const credentials = await resolveConnectionCredentials(connection);
@@ -1022,7 +1021,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           privateKey: credentials.privateKey,
           passphrase: credentials.passphrase,
           connectionId: connection.id,
-          restore: false,
+          restore: options?.restore ?? false,
           attachOnly: !!(session.persist && session.everConnected),
           ...opts,
         });

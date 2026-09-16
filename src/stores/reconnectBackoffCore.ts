@@ -8,7 +8,12 @@ import type { TerminalSession } from "@/types";
  */
 export function stopsRetrying(msg?: string, code?: VaultErrorCode): boolean {
   if (code) return true;
-  return isPassphraseError(msg) || isNoAuthError(msg) || isMissingUsernameError(msg);
+  return isPassphraseError(msg) || isNoAuthError(msg) || isMissingUsernameError(msg) || isHostKeyRejected(msg);
+}
+
+// Retrying would re-open the host-key prompt the user just turned down.
+function isHostKeyRejected(msg?: string): boolean {
+  return !!msg?.includes("Connection aborted by user.");
 }
 
 export function isSessionEnded(msg?: string): boolean {
@@ -27,6 +32,9 @@ export const FAST_DELAYS_MS: readonly number[] = (() => {
 
 export const SLOW_RETRY_MS = 30_000;
 
+/** A tab that never connected gets these attempts when the network returns, then shows its error again. */
+export const CATCH_UP_DELAYS_MS: readonly number[] = [300, 2000, 5000];
+
 export function retryDelay(step: number): number {
   return FAST_DELAYS_MS[step] ?? SLOW_RETRY_MS;
 }
@@ -43,12 +51,11 @@ export interface StrandableSession {
   errorCode?: VaultErrorCode;
 }
 
-/** An ssh session that failed to come back for a reason the network returning can fix. */
+/** An ssh tab showing a failure the network returning can fix. */
 export function strandedByNetwork(s: StrandableSession): boolean {
   return (
     s.type === "ssh" &&
     s.status === "error" &&
-    !!s.everConnected &&
     !isSessionEnded(s.errorMessage) &&
     !stopsRetrying(s.errorMessage, s.errorCode)
   );
@@ -113,8 +120,14 @@ export function sleepingBackoffs(): string[] {
 /** Reconnect a dropped session while holding a single steady "reconnecting"
  * state. Per-attempt failures are silent; it never gives up on a transient
  * failure, and holds off while store.online says the link is down.
- * Terminal outcomes: success → connected, interactive-auth needed → error. */
-export async function runBackoff(sessionId: string, store: BackoffStore): Promise<boolean> {
+ * Terminal outcomes: success → connected, interactive-auth needed → error.
+ * With `catchUp`, only those attempts are made and the last failure is shown. */
+export async function runBackoff(
+  sessionId: string,
+  store: BackoffStore,
+  catchUp?: readonly number[],
+): Promise<boolean> {
+  const delay = (step: number) => (catchUp ? catchUp[step] : retryDelay(step));
   const gen = (generations.get(sessionId) ?? 0) + 1;
   generations.set(sessionId, gen);
   const superseded = () => generations.get(sessionId) !== gen;
@@ -124,7 +137,7 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
 
   let step = 0;
   for (;;) {
-    const woken = await sleep(sessionId, retryDelay(step));
+    const woken = await sleep(sessionId, delay(step));
     if (superseded()) return false;
     if (!store.exists(sessionId)) return false;
     // Recovered through another path (e.g. a manual retry) — nothing to do.
@@ -156,7 +169,11 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
     }
     // Transient failure (host unreachable, refused): stay reconnecting, retry.
     step++;
-    store.setWait(sessionId, retryDelay(step) === SLOW_RETRY_MS ? "slow" : undefined);
+    if (catchUp && step >= catchUp.length) {
+      store.markError(sessionId, errorMessage ?? "", errorCode);
+      return false;
+    }
+    store.setWait(sessionId, !catchUp && retryDelay(step) === SLOW_RETRY_MS ? "slow" : undefined);
   }
 }
 

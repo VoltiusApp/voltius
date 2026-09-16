@@ -25,6 +25,7 @@ import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { restoreWorkspaceOnLaunch } from "@/stores/workspaceRestore";
 import { startLiveSessionPublisher } from "@/services/liveSessionPublisher";
 import { startCrossDeviceSessions } from "@/services/crossDeviceSessions";
+import { startNetworkWatch } from "@/stores/reconnectBackoff";
 import { startTeamInbox } from "@/services/teamInbox";
 import { startDeepLinks } from "@/services/deepLink";
 import { NotificationToastContainer } from "@/components/notifications/NotificationToastContainer";
@@ -53,6 +54,7 @@ function App() {
   useEffect(() => { initUpdaterListener(); useUpdaterPrefStore.getState().load(); }, []);
   useEffect(() => startTeamInbox(), []);
   useEffect(() => startDeepLinks(), []);
+  useEffect(() => startNetworkWatch(), []);
   useEffect(() => {
     if (ready) {
       useDeepLinkStore.getState().setReady(true);

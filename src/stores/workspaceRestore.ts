@@ -7,6 +7,7 @@ import { getToggle } from "./toggleSettingsStore";
 import { resolveRemoteSessions } from "./liveSessionManifestCore";
 import { useCrossDeviceSessionsStore } from "./crossDeviceSessionsStore";
 import { useSessionStore } from "./sessionStore";
+import { resumeIfStranded } from "./reconnectBackoff";
 import { useLayoutStore, getPaneSessionIds, type SplitTab } from "./layoutStore";
 import { useUIStore } from "./uiStore";
 import { localConnect } from "@/services/local";
@@ -126,6 +127,8 @@ export async function restoreWorkspaceOnLaunch(): Promise<void> {
       if (closed.has(s.id)) return; // killed on another device
       if (s.type === "ssh" || s.type === "serial") {
         await reconnect(s.id, { restore: s.persist });
+        // Launched offline, the `online` event may never come: the loop must own the retry.
+        resumeIfStranded(s.id, { restore: s.persist });
       } else {
         try {
           await localConnect(s.id, 80, 24, s.localShell, s.cwd, getToggle("shell-integration"));
