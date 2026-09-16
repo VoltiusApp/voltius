@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-09-16
+
+### Added
+
+- Every installed sync provider now shows alongside Voltius cloud sync — in the title bar, the sync menu, the mobile header and Settings › Sync — each with its own status and a Sync now action. Sync plugins you have not installed yet are offered there too.
+
+### Fixed
+
+- Stopped sync plugins notifying on routine background syncs; failures are left to the title-bar sync icon.
+- Retried a hash-mismatched plugin install against a refreshed catalogue instead of failing outright.
+- Showed the settings gear on marketplace-installed plugins.
+- Fixed a streamed-request abort hang and settings hidden for installed plugins.
+
 ## [0.36.0] - 2026-09-15
 
 ### Added
