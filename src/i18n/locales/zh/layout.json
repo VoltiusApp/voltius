@@ -142,7 +142,7 @@
     "sync": {
       "title": "同步",
       "voltiusSync": "Voltius 同步",
-      "gistE2ee": "Gist E2EE",
+      "moreProviders": "更多同步方式",
       "syncNow": "立即同步",
       "signInForSync": "登录以进行云同步",
       "requiresPro": "需要 Pro",
@@ -158,6 +158,7 @@
         "syncedAt": "已同步 · {{time}}",
         "error": "同步错误",
         "errorDetail": "同步错误：{{error}}",
+        "errorDetailFrom": "同步错误 · {{source}}：{{error}}",
         "offline": "离线",
         "idle": "空闲",
         "notConfigured": "同步未配置",

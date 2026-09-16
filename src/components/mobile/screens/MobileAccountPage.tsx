@@ -5,7 +5,7 @@ import MobilePanelHeader from "../panels/MobilePanelHeader";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { useEffectiveSyncStatus } from "@/hooks/useEffectiveSyncStatus";
+import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
 import { getCurrentUserEmail, logout } from "@/services/account";
 import { openBillingCheckout } from "@/services/billingCheckout";
@@ -38,7 +38,7 @@ export default function MobileAccountPage() {
   const subscriptionCancelled = useSubscriptionStore((s) => s.subscriptionCancelled);
   const renewsAt = useSubscriptionStore((s) => s.renewsAt);
   const endsAt = useSubscriptionStore((s) => s.endsAt);
-  const sync = useEffectiveSyncStatus();
+  const sync = useSyncProviders().effective;
   const [email, setEmail] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);

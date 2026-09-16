@@ -1,5 +1,6 @@
 import { resolveLabel } from "@/plugins/resolveLabel";
 import type { SettingsPage } from "@/plugins/api";
+import { attributePage } from "@/plugins/attributePage";
 
 export interface NavChild {
   pageId: string;
@@ -10,22 +11,6 @@ export interface NavChild {
 export interface NavPluginInfo {
   id: string;
   defaultEnabled: boolean;
-}
-
-/**
- * Owning plugin for a stored settings-page id, by longest prefix.
- *
- * runtime.ts:509 stores `page.id` verbatim when it already starts with the plugin
- * id and prefixes it otherwise, so a `:` separator is not guaranteed. Longest match
- * keeps `plugin-x` from claiming a `plugin-x-extra` page.
- */
-export function attributePage(pageId: string, pluginIds: string[]): string | null {
-  let best: string | null = null;
-  for (const id of pluginIds) {
-    if (!pageId.startsWith(id)) continue;
-    if (best === null || id.length > best.length) best = id;
-  }
-  return best;
 }
 
 /** Nav children: attributable pages whose owning plugin is enabled, sorted by label. */

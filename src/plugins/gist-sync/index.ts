@@ -1,5 +1,4 @@
-import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
-import type { GistSyncPublicApi } from "@/services/syncStatus";
+import type { PluginAPI, PluginManifest, PluginRegisterFn, SyncProviderPublicApi } from "@/plugins/api";
 import manifestJson from "./manifest.json";
 import { messages } from "./i18n";
 import { createSettingsPage } from "./SettingsPage";
@@ -28,10 +27,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     component: createSettingsPage(api),
   });
 
-  // Public API for the host's SyncDropdown "sync now" button — avoids the host
-  // importing this plugin's module directly. Dropped on disable and re-exposed on
-  // reactivation; host callers null-check.
-  api.plugins.expose({ syncNow } satisfies GistSyncPublicApi);
+  api.plugins.expose({ syncNow } satisfies SyncProviderPublicApi);
 
   // Functional hooks only when the plugin is enabled
   let offBeforeQuit: (() => void) | null = null;

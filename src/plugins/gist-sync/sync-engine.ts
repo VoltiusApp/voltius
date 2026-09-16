@@ -11,8 +11,7 @@ import {
   type GistDevice,
 } from "./gist-api";
 import { generateSaltHex } from "./crypto";
-import type { SyncStatus } from "./types";
-import type { GistSyncState } from "@/services/syncStatus";
+import type { GistSyncState, SyncStatus } from "./types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,7 +63,6 @@ function setGistState(status: SyncStatus, error?: string) {
 
 let _api: PluginAPI;
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
-let _failureBannerId: { dismiss(): void } | null = null;
 // deviceId → last known pushedAt (change detection for pull)
 let _lastSeenPushedAt: Record<string, string> = {};
 
@@ -320,7 +318,6 @@ export async function syncNow(): Promise<void> {
   try {
     await pull();
     await push();
-    if (_failureBannerId) { _failureBannerId.dismiss(); _failureBannerId = null; }
     await _api.storage.set("lastSync", new Date().toISOString());
     setGistState("success");
   } catch (err) {
@@ -328,7 +325,7 @@ export async function syncNow(): Promise<void> {
   }
 }
 
-// Polling stops on these, so they are the only failures surfaced outside sync-state.
+// Polling stops on these until the user reconfigures.
 const FATAL_STATUS_MESSAGES: Record<number, string> = {
   401: "GitHub PAT is invalid or expired",
   404: "Gist not found — re-configure in Settings",
@@ -339,7 +336,6 @@ function _onSyncError(err: unknown) {
   if (fatal) {
     stopPoll();
     setGistState("error", fatal);
-    _failureBannerId ??= _api.notifications.banner(`Gist Sync: ${fatal}`, { severity: "error" });
     return;
   }
   const isOffline = !navigator.onLine;

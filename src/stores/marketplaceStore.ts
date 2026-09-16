@@ -32,6 +32,9 @@ export interface MarketplacePlugin {
   version: string;
   minAppVersion?: string;
   tags: string[];
+  permissions?: string[];
+  /** Iconify name for the entry, e.g. `simple-icons:cloudflare`. */
+  icon?: string;
   theme: boolean;
   sourceId: string;
   hash?: string;

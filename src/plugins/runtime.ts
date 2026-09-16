@@ -5,6 +5,8 @@ import { whenLoginSyncSettled } from "@/services/loginSyncGate";
 import { resolvePort } from "@/plugins/domains/ports";
 import { runSnippetSequence, previewSnippetSequence } from "@/services/snippetSequence";
 import type { RunTarget } from "@/services/sftpTarget";
+import { readSyncProviderInputs, type LoadedPluginSource } from "@/services/syncProviderInputs";
+import { buildSyncProviders, toSyncProviderSummary } from "@/services/syncProviders";
 import { writeClipboard } from "@/utils/clipboard";
 import { log as appLog } from "@/lib/logger";
 import i18n from "@/i18n";
@@ -1347,6 +1349,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           error: s.error,
           cloudActive: s.cloudActive,
           blobSizeBytes: s.blobSizeBytes,
+          providers: buildSyncProviders(readSyncProviderInputs(loadedPluginSource)).map(toSyncProviderSummary),
         };
       },
     },
@@ -2619,6 +2622,16 @@ export function getLoadedPlugins(): PluginManifest[] {
     .filter((e) => !_loading.has(e.manifest.id))
     .map((e) => e.manifest);
 }
+
+export function isPluginActive(pluginId: string): boolean {
+  return _registry.get(pluginId)?.active ?? false;
+}
+
+export const loadedPluginSource: LoadedPluginSource = {
+  loaded: getLoadedPlugins,
+  isActive: isPluginActive,
+  exposed: getExposedApi,
+};
 
 /** Read a plugin's storage value — for use by trusted UI code (e.g. auto-generated settings). */
 export function pluginStorageGet<T>(pluginId: string, key: string): Promise<T | null> {

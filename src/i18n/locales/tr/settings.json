@@ -417,12 +417,7 @@
         "sub": "Cihazlar arasında eşitlemek için oturum açın veya bir bulut hesabı oluşturun.",
         "signIn": "Oturum aç"
       },
-      "gistTitle": "GitHub Gist (uçtan uca şifreli)",
-      "gist": {
-        "title": "Gist Eşitleme eklentisi",
-        "sub": "GitHub Gist üzerinden uçtan uca şifreli eşitleme",
-        "configure": "Yapılandır →"
-      },
+      "providersTitle": "Eşitleme eklentileri",
       "prefsTitle": "Eşitleme Tercihleri",
       "prefsFooter": "Devre dışı bırakılan türler hiçbir zaman yüklenmez. Tek tek nesneler de düzenleme panelinden hariç tutulabilir.",
       "quickToggleLabel": "Eşitle: {{label}}",

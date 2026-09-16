@@ -7,7 +7,8 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { pluginDefaultEnabled } from "@/plugins/pluginDefaultEnabled";
 import { useUIStore } from "@/stores/uiStore";
-import { pluginNavChildren, attributePage, type NavChild } from "@/components/settings/settingsPluginNav";
+import { pluginNavChildren, type NavChild } from "@/components/settings/settingsPluginNav";
+import { attributePage } from "@/plugins/attributePage";
 
 /** Enabled plugins contributing a settings page, as nav children. */
 export function usePluginNavChildren(): NavChild[] {

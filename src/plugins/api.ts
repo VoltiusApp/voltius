@@ -174,12 +174,40 @@ export interface PluginTransfer {
   owner?: string;
 }
 
+export type SyncProviderStatus = "idle" | "syncing" | "success" | "error" | "offline";
+
+export type SyncProviderAvailability = "active" | "not_configured" | "disabled" | "locked" | "needs_upgrade";
+
+/** What a sync provider plugin publishes under `publishState("sync-state", …)`. */
+export interface SyncProviderState {
+  status: SyncProviderStatus;
+  lastSync: Date | string | number | null;
+  error: string | null;
+  blobSizeBytes: number | null;
+  configured: boolean;
+}
+
+/** What a sync provider plugin passes to `plugins.expose`. */
+export interface SyncProviderPublicApi {
+  syncNow(): Promise<void>;
+}
+
+export interface SyncProviderSummary {
+  id: string;
+  label: string;
+  availability: SyncProviderAvailability;
+  status: SyncProviderStatus;
+  lastSync: string | null;
+  error: string | null;
+}
+
 export interface PluginSyncState {
-  status: "idle" | "syncing" | "success" | "error" | "offline";
+  status: SyncProviderStatus;
   lastSync: string | null;
   error: string | null;
   cloudActive: boolean;
   blobSizeBytes: number | null;
+  providers: SyncProviderSummary[];
 }
 
 export interface PluginHostPing {
@@ -1122,7 +1150,7 @@ export interface PluginAPI {
     /** Publish a plain, serialisable state snapshot for host UI to read, keyed
      *  by `<pluginId>::<key>`. Host surfaces subscribe to this instead of
      *  importing the plugin's runtime module. Cleared on unload/disable. */
-    publishState(key: string, value: unknown): void;
+    publishState<K extends string>(key: K, value: K extends "sync-state" ? SyncProviderState : unknown): void;
   };
 
   // Plugin-scoped key-value storage

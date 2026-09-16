@@ -401,12 +401,7 @@
         "sub": "登录或创建云账户以跨设备同步。",
         "signIn": "登录"
       },
-      "gistTitle": "GitHub Gist (E2EE)",
-      "gist": {
-        "title": "Gist 同步插件",
-        "sub": "通过 GitHub Gist 进行端到端加密同步",
-        "configure": "配置 →"
-      },
+      "providersTitle": "同步插件",
       "prefsTitle": "同步偏好",
       "prefsFooter": "禁用的类型永远不会上传。单个对象也可以通过其编辑面板排除。",
       "quickToggleLabel": "同步 {{label}}",

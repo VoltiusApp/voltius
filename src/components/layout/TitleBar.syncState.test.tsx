@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, act } from "@testing-library/react";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
-import { __resetGistSyncStateWarnings } from "@/services/syncStatus";
+import { __resetPluginStateWarnings } from "@/services/syncStatus";
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
@@ -23,50 +23,74 @@ vi.mock("@/utils/icons", () => ({
   getConnectionIconColor: () => null,
 }));
 
-const PLUGIN_ID = "plugin-gist-sync";
+import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
+import type { PluginManifest } from "@/plugins/api";
 
-// TitleBar pulls in a large dependency graph that vitest must cold-transform
-// on first import. Under load that transform alone can exceed the default
-// 5s test timeout, so it's paid once here in beforeAll (unbounded by any
-// single test's timeout) rather than inside each test via a per-test import.
+const providerManifest = (id: string, name: string): PluginManifest =>
+  ({ id, name, version: "1.0.0", permissions: ["sync:write", "ui"] });
+
+function loadProvider(id: string, name: string, state: unknown) {
+  loadPlugin(providerManifest(id, name), (api) => {
+    api.plugins.expose({ syncNow: async () => {} });
+  }, true);
+  usePluginStateStore.getState().publish(id, "sync-state", state);
+}
+
 let TitleBar: (typeof import("./TitleBar"))["default"];
 beforeAll(async () => {
   ({ default: TitleBar } = await import("./TitleBar"));
 }, 20000);
 
+const loaded: string[] = [];
 beforeEach(() => {
   usePluginStateStore.setState({ values: new Map() });
-  __resetGistSyncStateWarnings();
+  __resetPluginStateWarnings();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  while (loaded.length) unloadPlugin(loaded.pop()!);
+});
 
-// The literal live-gate bug: gist-sync published `sync-state.lastSync` as an ISO
-// string instead of a Date, and TitleBar's SyncIndicator called
-// `lastSync.toLocaleTimeString()` on it, white-screening the whole app
-// (root.children dropped to 0). This renders the real TitleBar against that exact
-// malformed publish and proves it no longer crashes.
-describe("TitleBar + malformed gist-sync state", () => {
-  test("renders without throwing when lastSync is published as an ISO string", () => {
-    usePluginStateStore.getState().publish(PLUGIN_ID, "sync-state", {
-      status: "success",
-      lastSync: "2026-01-01T00:00:00.000Z",
-      error: null,
-      blobSizeBytes: 1024,
-      configured: true,
-    });
+const provider = (id: string, name: string, state: unknown) => {
+  loadProvider(id, name, state);
+  loaded.push(id);
+};
 
+const syncButtonTitle = (container: HTMLElement) =>
+  [...container.querySelectorAll("button[title^='layout.sync.status.']")].map((b) => b.getAttribute("title"));
+
+describe("TitleBar sync icon across providers", () => {
+  test("a failing provider wins over a syncing one and names its source", () => {
+    provider("plugin-a-sync", "A Sync", { status: "syncing", lastSync: null, error: null, blobSizeBytes: null, configured: true });
+    provider("plugin-b-sync", "B Sync", { status: "error", lastSync: null, error: "Sync token is invalid or expired", blobSizeBytes: null, configured: true });
+    const { container } = render(<TitleBar />);
+    expect(syncButtonTitle(container)).toContain("layout.sync.status.errorDetailFrom");
+  });
+
+  test("syncing wins over success", () => {
+    provider("plugin-a-sync", "A Sync", { status: "syncing", lastSync: null, error: null, blobSizeBytes: null, configured: true });
+    provider("plugin-b-sync", "B Sync", { status: "success", lastSync: new Date(), error: null, blobSizeBytes: null, configured: true });
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<TitleBar />);
+      // useSyncMotion only reports "syncing" once its background-delay timer fires;
+      // advance past it so the icon reflects the aggregated engine status.
+      act(() => { vi.advanceTimersByTime(500); });
+      expect(syncButtonTitle(container)).toContain("layout.sync.status.syncing");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("TitleBar + malformed provider state", () => {
+  test("renders when lastSync is published as an ISO string", () => {
+    provider("plugin-a-sync", "A Sync", { status: "success", lastSync: "2026-01-01T00:00:00.000Z", error: null, blobSizeBytes: 1024, configured: true });
     expect(() => render(<TitleBar />)).not.toThrow();
   });
 
-  test("renders without throwing when lastSync is published as unparseable garbage", () => {
-    usePluginStateStore.getState().publish(PLUGIN_ID, "sync-state", {
-      status: "success",
-      lastSync: "not-a-date",
-      error: null,
-      blobSizeBytes: null,
-      configured: true,
-    });
-
+  test("renders when lastSync is unparseable garbage", () => {
+    provider("plugin-a-sync", "A Sync", { status: "success", lastSync: "not-a-date", error: null, blobSizeBytes: null, configured: true });
     expect(() => render(<TitleBar />)).not.toThrow();
   });
 });

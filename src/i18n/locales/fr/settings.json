@@ -507,12 +507,7 @@
         "sub": "Connectez-vous ou créez un compte cloud pour synchroniser vos appareils.",
         "signIn": "Se connecter"
       },
-      "gistTitle": "GitHub Gist (E2EE)",
-      "gist": {
-        "title": "Extension Gist Sync",
-        "sub": "Synchronisation chiffrée de bout en bout via GitHub Gist",
-        "configure": "Configurer →"
-      },
+      "providersTitle": "Plugins de synchronisation",
       "prefsTitle": "Préférences de synchronisation",
       "prefsFooter": "Les types désactivés ne sont jamais envoyés. Les objets peuvent aussi être exclus depuis leur panneau d'édition.",
       "quickToggleLabel": "Synchroniser {{label}}",

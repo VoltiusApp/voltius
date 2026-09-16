@@ -5,7 +5,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
-import { useEffectiveSyncStatus } from "@/hooks/useEffectiveSyncStatus";
+import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { syncStatusColor } from "@/services/syncStatus";
 import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -21,7 +21,7 @@ export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?:
   const vaultName =
     vaults.find((v) => v.id === id)?.name ?? teams.find((tm) => tm.id === id)?.name ?? t("common.entity.vault");
   const counts = useVaultContents(id);
-  const sync = useEffectiveSyncStatus();
+  const sync = useSyncProviders().effective;
   const syncMotion = useSyncMotion(sync.status);
 
   return (

@@ -37,7 +37,7 @@ describe("appSync is a distinct domain from the plugin-scoped sync", () => {
     };
     const api = captureApi(manifest);
     try {
-      expect(api.appSync.status()).toEqual({
+      expect(api.appSync.status()).toMatchObject({
         status: "success",
         lastSync: "2026-01-01T00:00:00.000Z",
         error: null,
@@ -46,6 +46,27 @@ describe("appSync is a distinct domain from the plugin-scoped sync", () => {
       });
     } finally {
       unloadPlugin("appsync-test");
+    }
+  });
+
+  test("appSync.status() lists every sync provider", () => {
+    const reader: PluginManifest = { id: "appsync-reader", name: "Reader", version: "1.0.0", permissions: ["sync:read"] };
+    const provider: PluginManifest = { id: "appsync-provider", name: "Provider Sync", version: "1.0.0", permissions: ["sync:write", "ui"] };
+    const api = captureApi(reader);
+    loadPlugin(provider, (p) => {
+      p.ui.publishState("sync-state", { status: "error", lastSync: null, error: "boom", blobSizeBytes: null, configured: true });
+      p.plugins.expose({ syncNow: async () => {} });
+    }, true);
+    try {
+      const { providers } = api.appSync.status();
+      expect(providers.map((p) => p.id)).toEqual(["voltius", "appsync-provider"]);
+      expect(providers[1]).toEqual({
+        id: "appsync-provider", label: "Provider Sync", availability: "active",
+        status: "error", lastSync: null, error: "boom",
+      });
+    } finally {
+      unloadPlugin("appsync-provider");
+      unloadPlugin("appsync-reader");
     }
   });
 

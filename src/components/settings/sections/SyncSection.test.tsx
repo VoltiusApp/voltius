@@ -10,18 +10,43 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 vi.mock("@/i18n", () => ({ default: { t: mockT } }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
-const { openBillingCheckout } = vi.hoisted(() => ({ openBillingCheckout: vi.fn(async () => true) }));
-vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout }));
 vi.mock("@/services/sync", () => ({
   getSyncState: () => ({ status: "idle", lastSync: null, error: null, cloudActive: false, blobSizeBytes: null }),
   onSyncStateChange: () => () => {},
   syncNow: vi.fn(),
   scheduleSync: vi.fn(),
 }));
+const { view, defaultProviders, useSyncProvidersMock, resetProvidersMock } = vi.hoisted(() => {
+  type ProviderOverride = Record<string, unknown>;
+  const view = (over: ProviderOverride) => ({
+    id: "x", label: "X", icon: "lucide:cloud", availability: "active",
+    state: { status: "success", lastSync: null, error: null, blobSizeBytes: null, configured: true },
+    syncNow: null, action: null, ...over,
+  });
+  const defaultProviders = () => [
+    view({ id: "voltius", label: "Voltius Sync" }),
+    view({ id: "plugin-cloudflare-sync", label: "Cloudflare Sync", availability: "disabled", action: { kind: "enable" } }),
+    view({ id: "plugin-gist-sync", label: "GitHub Gist Sync", action: { kind: "configure", pageId: "plugin-gist-sync:gist-sync-settings" } }),
+  ];
+  const defaultReturn = () => ({
+    providers: defaultProviders(),
+    effective: { configured: true, status: "success", lastSync: null, error: null, errorSource: null },
+  });
+  const useSyncProvidersMock = vi.fn(defaultReturn);
+  const resetProvidersMock = () => useSyncProvidersMock.mockImplementation(defaultReturn);
+  return { view, defaultProviders, useSyncProvidersMock, resetProvidersMock };
+});
+vi.mock("@/hooks/useSyncProviders", () => ({ useSyncProviders: useSyncProvidersMock }));
+const { availableCatalog } = vi.hoisted(() => ({ availableCatalog: { list: [] as unknown[] } }));
+vi.mock("@/hooks/useAvailableSyncProviders", () => ({ useAvailableSyncProviders: () => ({ available: availableCatalog.list, appVersion: null }) }));
+vi.mock("@/components/settings/usePluginInstaller", () => ({
+  usePluginInstaller: () => ({ busy: new Set(), startInstall: vi.fn(), startUpdate: vi.fn(), modal: null }),
+}));
+const { runAction } = vi.hoisted(() => ({ runAction: vi.fn() }));
+vi.mock("@/services/syncProviderAction", () => ({ runSyncProviderAction: runAction }));
 
 import { scheduleSync } from "@/services/sync";
 import SyncSection from "./SyncSection";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
 const toggleFor = (c: HTMLElement, domain: string) =>
   c.querySelector(`[data-sync-domain="${domain}"] button[role="switch"]`) as HTMLButtonElement | null;
@@ -108,16 +133,97 @@ describe("held-back settings summary", () => {
   });
 });
 
-describe("SyncSection upgrade prompt", () => {
-  beforeEach(() => {
-    openBillingCheckout.mockClear();
-    useSubscriptionStore.setState({ accountMode: "server", isPro: false });
-  });
-  afterEach(cleanup);
+describe("SyncSection Voltius group", () => {
+  beforeEach(() => runAction.mockClear());
+  afterEach(() => { cleanup(); resetProvidersMock(); });
 
-  test("a signed-in free user is offered checkout, not the billing portal", () => {
+  test("a signed-in free user's upgrade button routes through the shared provider action", () => {
+    useSyncProvidersMock.mockImplementation(() => ({
+      providers: [view({ id: "voltius", label: "Voltius Sync", availability: "needs_upgrade", action: { kind: "upgrade" } })],
+      effective: { configured: false, status: "idle", lastSync: null, error: null, errorSource: null },
+    }));
     const { getByText } = render(<SyncSection />);
     fireEvent.click(getByText("settings.sync.requiresPro.upgrade"));
-    expect(openBillingCheckout).toHaveBeenCalledWith("pro");
+    expect(runAction).toHaveBeenCalledWith({ kind: "upgrade" });
+  });
+
+  test("a signed-out user's sign-in button routes through the shared provider action", () => {
+    useSyncProvidersMock.mockImplementation(() => ({
+      providers: [view({ id: "voltius", label: "Voltius Sync", availability: "locked", action: { kind: "signIn" } })],
+      effective: { configured: false, status: "idle", lastSync: null, error: null, errorSource: null },
+    }));
+    const { getByText } = render(<SyncSection />);
+    fireEvent.click(getByText("settings.sync.notConnected.signIn"));
+    expect(runAction).toHaveBeenCalledWith({ kind: "signIn" });
+  });
+});
+
+describe("SyncSection plugin providers", () => {
+  afterEach(() => { cleanup(); resetProvidersMock(); });
+
+  const otherSync = {
+    id: "plugin-other-sync", name: "Other Sync", author: "a", description: "d", repo: "", version: "1.0.0",
+    tags: [], theme: false, sourceId: "voltius", permissions: ["sync:write"],
+  };
+
+  test("lists plugin providers without a hardcoded Gist group", () => {
+    const { container, queryByText } = render(<SyncSection />);
+    expect([...container.querySelectorAll("[data-sync-provider]")].map((e) => e.getAttribute("data-sync-provider")))
+      .toEqual(["plugin-cloudflare-sync", "plugin-gist-sync"]);
+    expect(queryByText("settings.sync.gistTitle")).toBeNull();
+  });
+
+  test("a disabled provider's button runs the enable action", () => {
+    const { container } = render(<SyncSection />);
+    const row = container.querySelector("[data-sync-provider='plugin-cloudflare-sync']")!;
+    fireEvent.click(row.querySelector("button")!);
+    expect(runAction).toHaveBeenCalledWith({ kind: "enable" });
+  });
+
+  test("a provider with a real syncNow renders Sync now and calls it on click", async () => {
+    const syncNow = vi.fn(async () => {});
+    useSyncProvidersMock.mockImplementation(() => ({
+      providers: [
+        ...defaultProviders(),
+        view({ id: "plugin-real-sync", label: "Real Sync", syncNow }),
+      ],
+      effective: { configured: true, status: "success", lastSync: null, error: null, errorSource: null },
+    }));
+    const { container } = render(<SyncSection />);
+    const row = container.querySelector("[data-sync-provider='plugin-real-sync']")!;
+    const button = row.querySelector("button")!;
+    expect(button.textContent).toContain("settings.sync.active.syncNow");
+    fireEvent.click(button);
+    await vi.waitFor(() => expect(syncNow).toHaveBeenCalledTimes(1));
+  });
+
+  test("installable providers are listed inside the Sync plugins group, after the installed ones", () => {
+    availableCatalog.list = [otherSync];
+    try {
+      const { container, getByText, queryByText } = render(<SyncSection />);
+      const group = getByText("settings.sync.providersTitle").parentElement!;
+      const rows = [...group.querySelectorAll("[data-sync-provider], [data-available-sync-provider]")];
+      expect(rows.map((r) => r.getAttribute("data-sync-provider") ?? r.getAttribute("data-available-sync-provider")))
+        .toEqual(["plugin-cloudflare-sync", "plugin-gist-sync", "plugin-other-sync"]);
+      expect(container.querySelectorAll("[data-available-sync-provider]")).toHaveLength(1);
+      expect(queryByText("settings.sync.availableTitle")).toBeNull();
+    } finally {
+      availableCatalog.list = [];
+    }
+  });
+
+  test("the Sync plugins group appears when only installable providers exist", () => {
+    useSyncProvidersMock.mockImplementation(() => ({
+      providers: [view({ id: "voltius", label: "Voltius Sync" })],
+      effective: { configured: true, status: "success", lastSync: null, error: null, errorSource: null },
+    }));
+    availableCatalog.list = [otherSync];
+    try {
+      const { getByText } = render(<SyncSection />);
+      const group = getByText("settings.sync.providersTitle").parentElement!;
+      expect(group.querySelector("[data-available-sync-provider='plugin-other-sync']")).not.toBeNull();
+    } finally {
+      availableCatalog.list = [];
+    }
   });
 });

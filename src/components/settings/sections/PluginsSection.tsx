@@ -4,22 +4,20 @@ import { Toggle } from "@/components/shared/Toggle";
 import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
-import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
+import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useNotificationStore } from "@/stores/notificationStore";
-import { pluginInstallErrorMessage } from "@/plugins/installErrors";
+import { catalogIcon } from "@/plugins/catalogIcon";
 import { satisfiesMinAppVersion } from "@/plugins/version";
-import { availableUpdate, availableSeededUpdate, addedPermissions } from "@/plugins/updates";
-import { mergeBrowseCatalog, seededActiveIds as computeSeededActiveIds } from "@/plugins/floor";
-import { useSeededTombstoneStore, loadSeededEntries, type SeededEntry } from "@/stores/seededTombstoneStore";
-import { requiresInstallConsent } from "@/plugins/gatedPermissions";
-import { getToggle, useToggle } from "@/stores/toggleSettingsStore";
-import { PluginPermissionModal } from "./PluginPermissionModal";
+import { availableUpdate, availableSeededUpdate } from "@/plugins/updates";
+import { loadSeededEntries, type SeededEntry } from "@/stores/seededTombstoneStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import type { PluginManifest, PluginConfigField, SettingsPage } from "@/plugins/api";
-import { attributePage } from "@/components/settings/settingsPluginNav";
+import { attributePage } from "@/plugins/attributePage";
+import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
+import { useBrowseCatalog } from "@/hooks/useBrowseCatalog";
 import { DirtyDot, ResetButton, SettingRow } from "./shared";
 import { useIsAndroid } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
@@ -149,105 +147,6 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
       })}
     </div>
   );
-}
-
-// ─── Shared install/update flow ────────────────────────────────────────────
-
-interface PendingReview {
-  mode: "install" | "update";
-  plugin: MarketplacePlugin;
-  permissions: string[];
-  addedPermissions: string[];
-  /** The exact reviewed manifest text, passed to installPlugin so the loaded perms == consented. */
-  manifestText: string;
-}
-
-/**
- * install/update with permission consent. First installs show a disclosure when the
- * `plugin-install-review` setting is on, or whenever the manifest declares a gated
- * permission (which always forces the dialog, review setting notwithstanding); updates
- * apply silently unless they request NEW permissions, in which case a non-skippable
- * review modal is shown. Both paths run the authoritative, hash-verified `installPlugin`.
- */
-function usePluginInstaller() {
-  const { t } = useTranslation();
-  const installing = useMarketplaceStore((s) => s.installing);
-  const installPlugin = useMarketplaceStore((s) => s.installPlugin);
-  const fetchManifest = useMarketplaceStore((s) => s.fetchManifest);
-  const [preparing, setPreparing] = useState<Set<string>>(new Set());
-  const [pending, setPending] = useState<PendingReview | null>(null);
-
-  const busy = new Set<string>([...installing, ...preparing]);
-
-  const notifyError = (e: unknown) => {
-    const { key, params } = pluginInstallErrorMessage(e, "settings.plugins.install.failed");
-    useNotificationStore.getState().addToast({
-      source: { kind: "plugin", id: "system", name: "Voltius" },
-      type: "toast",
-      severity: "error",
-      message: t(key, params),
-      duration: 0,
-    });
-  };
-
-  const runInstall = async (plugin: MarketplacePlugin, reviewedManifestText?: string) => {
-    try { await installPlugin(plugin, reviewedManifestText); } catch (e) { notifyError(e); }
-  };
-
-  const withPreparing = async (id: string, fn: () => Promise<void>) => {
-    setPreparing((s) => new Set([...s, id]));
-    try { await fn(); } finally {
-      setPreparing((s) => { const n = new Set(s); n.delete(id); return n; });
-    }
-  };
-
-  const startInstall = (plugin: MarketplacePlugin) => {
-    void withPreparing(plugin.id, async () => {
-      try {
-        const { manifest, manifestText } = await fetchManifest(plugin);
-        const perms = manifest.permissions ?? [];
-        // Gated perms always prompt; the review toggle governs only benign installs.
-        if (!requiresInstallConsent(perms, getToggle("plugin-install-review"))) {
-          await runInstall(plugin, manifestText);
-          return;
-        }
-        setPending({ mode: "install", plugin, permissions: perms, addedPermissions: [], manifestText });
-      } catch (e) { notifyError(e); }
-    });
-  };
-
-  const startUpdate = (plugin: MarketplacePlugin, currentPermissions: string[]) => {
-    void withPreparing(plugin.id, async () => {
-      try {
-        const { manifest, manifestText } = await fetchManifest(plugin);
-        const next = manifest.permissions ?? [];
-        const added = addedPermissions(currentPermissions, next);
-        if (added.length === 0) { await runInstall(plugin, manifestText); return; }
-        setPending({ mode: "update", plugin, permissions: next, addedPermissions: added, manifestText });
-      } catch (e) { notifyError(e); }
-    });
-  };
-
-  const confirm = () => {
-    if (!pending) return;
-    const { plugin, manifestText } = pending;
-    setPending(null);
-    void runInstall(plugin, manifestText);
-  };
-  const cancel = () => setPending(null);
-
-  const modal = pending ? (
-    <PluginPermissionModal
-      mode={pending.mode}
-      pluginName={pending.plugin.name}
-      permissions={pending.permissions}
-      addedPermissions={pending.addedPermissions}
-      onConfirm={confirm}
-      onCancel={cancel}
-    />
-  ) : null;
-
-  return { busy, startInstall, startUpdate, modal };
 }
 
 // ─── Installed tab ─────────────────────────────────────────────────────────
@@ -680,17 +579,15 @@ function BrowseTab() {
     catalog, catalogLoading, catalogError, fetchCatalog,
     sources, addSource, removeSource, toggleSource,
     installedMeta, uninstallPlugin,
-    appVersion, loadAppVersion,
   } = useMarketplaceStore();
   const { busy, startInstall, startUpdate, modal } = usePluginInstaller();
+  const { merged, installedIds, seededActive, seededEntries, appVersion } = useBrowseCatalog();
   const [reviewInstalls, setReviewInstalls] = useToggle("plugin-install-review");
-  const removedIds = useSeededTombstoneStore((s) => s.removed);
 
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showSources, setShowSources] = useState(false);
   const [uninstalling, setUninstalling] = useState<Set<string>>(new Set());
-  const [seededEntries, setSeededEntries] = useState<Map<string, SeededEntry>>(new Map());
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
 
@@ -703,22 +600,6 @@ function BrowseTab() {
   const [newSourceUrl, setNewSourceUrl] = useState("");
   const [addingSource, setAddingSource] = useState(false);
   const [addSourceError, setAddSourceError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (catalog.length === 0 && !catalogLoading) {
-      void fetchCatalog();
-    }
-    if (appVersion === null) void loadAppVersion();
-    void loadSeededEntries().then(setSeededEntries);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Built-ins still active (not tombstoned) are already installed — Browse must
-  // never offer them for install again, even once the catalogue lists them.
-  const seededActive = computeSeededActiveIds(seededEntries, removedIds);
-  const installedIds = new Set([...installedMeta.map((m) => m.id), ...seededActive]);
-
-  const merged = mergeBrowseCatalog(catalog, seededEntries, removedIds, appVersion);
 
   const allTags = [...new Set(merged.flatMap((p) => p.tags))].sort();
 
@@ -906,7 +787,7 @@ function BrowseTab() {
               <div key={plugin.id} className="rounded-xl bg-(--t-bg-card) border border-(--t-border) px-4 py-3">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-elevated) border border-(--t-border) mt-0.5">
-                    <Icon icon={plugin.theme ? "lucide:palette" : "lucide:puzzle"} width={15} className="text-(--t-accent)" />
+                    <Icon icon={catalogIcon(plugin.icon, plugin.theme ? "lucide:palette" : "lucide:puzzle")} width={15} className="text-(--t-accent)" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

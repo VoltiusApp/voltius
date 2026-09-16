@@ -507,12 +507,7 @@
         "sub": "Sign in or create a cloud account to sync across devices.",
         "signIn": "Sign in"
       },
-      "gistTitle": "GitHub Gist (E2EE)",
-      "gist": {
-        "title": "Gist Sync plugin",
-        "sub": "End-to-end encrypted sync via GitHub Gist",
-        "configure": "Configure →"
-      },
+      "providersTitle": "Sync plugins",
       "prefsTitle": "Sync Preferences",
       "prefsFooter": "Disabled types are never uploaded. Individual objects can also be excluded from their edit panel.",
       "quickToggleLabel": "Sync {{label}}",
