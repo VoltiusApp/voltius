@@ -57,13 +57,10 @@ export function useNotesDraft(stored: string | undefined, save: (notes: string |
         resaveRef.current = false;
         if (!conflictRef.current && !sameNotes(draftRef.current, baseRef.current)) await performSave();
       }
+      inFlightRef.current = null;
     })();
     inFlightRef.current = run;
-    try {
-      await run;
-    } finally {
-      inFlightRef.current = null;
-    }
+    await run;
   }, [performSave]);
 
   const { schedule, markDirty, flush, saveState } = useAutosave({
@@ -133,7 +130,12 @@ export function useNotesDraft(stored: string | undefined, save: (notes: string |
     flush();
   };
 
-  const effectiveSaveState: SaveState = error || conflict ? "dirty" : saveState;
+  let effectiveSaveState: SaveState = saveState;
+  if (error || conflict) {
+    effectiveSaveState = "dirty";
+  } else if (saveState === "dirty" && inFlightRef.current === null && sameNotes(draft, baseRef.current)) {
+    effectiveSaveState = "idle";
+  }
 
   return { draft, setDraft, conflict, reload, keepMine, flush, error, retry, saveState: effectiveSaveState };
 }

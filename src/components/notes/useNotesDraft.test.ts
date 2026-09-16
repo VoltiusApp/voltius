@@ -83,7 +83,7 @@ describe("useNotesDraft", () => {
     act(() => result.current.setDraft("mine"));
     rerender({ stored: "theirs" });
     act(() => result.current.reload());
-    expect(result.current).toMatchObject({ draft: "theirs", conflict: false });
+    expect(result.current).toMatchObject({ draft: "theirs", conflict: false, saveState: "idle" });
   });
 
   test("keep mine saves the draft over the external value", async () => {
@@ -143,6 +143,7 @@ describe("useNotesDraft", () => {
     expect(result.current.conflict).toBe(true);
     rerender({ stored: "mine" });
     expect(result.current.conflict).toBe(false);
+    expect(result.current.saveState).toBe("idle");
   });
 
   test("saveState does not report saved after a failed save", async () => {
@@ -187,5 +188,24 @@ describe("useNotesDraft", () => {
     act(() => result.current.retry());
     expect(save).toHaveBeenCalledTimes(1);
     expect(result.current.error).toBeNull();
+  });
+
+  test("a save in flight when the component unmounts still saves the latest draft once resolved", async () => {
+    let resolveSave!: () => void;
+    const save = vi.fn(() => new Promise<void>((resolve) => { resolveSave = resolve; }));
+    const { result, unmount } = setup("a", save);
+    act(() => result.current.setDraft("ab"));
+    await advance(NOTES_SAVE_DELAY_MS);
+    expect(save).toHaveBeenCalledTimes(1);
+    act(() => result.current.setDraft("abc"));
+    unmount();
+    expect(save).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveSave();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith("abc");
   });
 });
