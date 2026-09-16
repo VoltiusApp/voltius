@@ -21,10 +21,12 @@ import { FormSelect } from "@/components/shared/FormSelect";
 import { PortInput } from "@/components/shared/PortInput";
 import { TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
 import { Toggle } from "@/components/shared/Toggle";
+import { normalizeNotes } from "@/components/notes/notesText";
 import {
   AdvancedDisclosure,
   SettingRow,
   HostCommandFields,
+  NotesSection,
   hostCommandFieldsSet,
   useHostCommandFields,
   useConnectionFormShell,
@@ -68,6 +70,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
   );
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
+  const [notes, setNotes] = useState(initial?.notes ?? "");
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
 
   const shell = useConnectionFormShell(initial);
@@ -103,9 +106,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
         post_snippet_id: hostCommands.postSnippetId,
         ask_vars_each_time: hostCommands.askVarsEachTime,
         terminal_encoding: hostCommands.terminalEncoding || undefined,
-        // Serial has no notes UI; pass through any existing note so saving
-        // (e.g. after a note synced in from another device) never wipes it.
-        notes: initial?.notes,
+        notes: normalizeNotes(notes),
         // Serial connections don't use these SSH fields; provide empty defaults
         host: "",
         port: 0,
@@ -130,7 +131,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
   }, [_markDirty]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, serialPort, baud, customBaud, useCustomBaud, dataBits, parity, stopBits, flowControl, autoReconnect, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, tags, folderId, vaultId]);
+  useEffect(() => schedule(), [name, serialPort, baud, customBaud, useCustomBaud, dataBits, parity, stopBits, flowControl, autoReconnect, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, tags, folderId, vaultId, notes]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -304,6 +305,8 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
               <HostCommandFields connectionId={initial?.id} fields={hostCommands} markDirty={markDirty} />
             </AdvancedDisclosure>
           </FormSection>
+
+          <NotesSection value={notes} onChange={(v) => { markDirty(); setNotes(v); }} readOnly={!canEdit} />
         </div>
       </div>
     </PanelShell>

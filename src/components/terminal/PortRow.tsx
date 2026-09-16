@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { writeClipboard } from "@/utils/clipboard";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { TunnelStatusDot } from "@/components/shared/TunnelStatusDot";
 
 function formatBytes(b: number): string {
@@ -56,7 +57,7 @@ export function PortRow({
   defaultName?: string;
 }) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { copied, flash } = useCopiedFlash(1200);
   const [nameDraft, setNameDraft] = useState(defaultName ?? label);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const renameCommittedRef = useRef(false);
@@ -78,8 +79,7 @@ export function PortRow({
   async function copyAddress() {
     if (localPort == null) return;
     await writeClipboard(`localhost:${localPort}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    flash();
   }
   return (
     <div className="flex items-center gap-1.5 px-2 py-1.5 group hover:bg-(--t-bg-elevated)">

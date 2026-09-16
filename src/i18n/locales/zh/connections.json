@@ -47,7 +47,6 @@
       "sectionCredentials": "凭据",
       "sectionIdentity": "身份",
       "sectionNotes": "备注",
-      "notesPlaceholder": "提醒、维护窗口、团队上下文…（与主机同步）",
       "protocol": "协议",
       "protocolSsh": "SSH / SFTP",
       "protocolFtp": "FTP",

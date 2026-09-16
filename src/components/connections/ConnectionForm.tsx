@@ -44,10 +44,12 @@ import {
   formIdentifierProps,
 } from "@/components/shared/Panel";
 import { SecretInput, TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
+import { normalizeNotes } from "@/components/notes/notesText";
 import {
   AdvancedDisclosure,
   SettingRow,
   HostCommandFields,
+  NotesSection,
   hostCommandFieldsSet,
   useHostCommandFields,
   useConnectionFormShell,
@@ -191,7 +193,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
           icon: icon || undefined,
           connection_type: "ftp",
           ftp_secure: ftpSecure,
-          notes: notes.trim() ? notes : undefined,
+          notes: normalizeNotes(notes),
         } as ConnectionFormData,
         password: passwordDirty.current ? password : null,
         privateKey: null,
@@ -232,7 +234,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         shell_integration: shellIntegration === "" ? undefined : shellIntegration === "on",
         keepalive_preset: keepalivePreset || undefined,
         persist_session: persistSession === "" ? undefined : persistSession === "on",
-        notes: notes.trim() ? notes : undefined,
+        notes: normalizeNotes(notes),
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
       privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
@@ -675,16 +677,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
             )}
           </FormSection>
 
-          <FormSection label={t("connections.form.sectionNotes")}>
-            <textarea
-              className={`${formInputClass} min-h-20 resize-none leading-relaxed`}
-              style={formInputStyle}
-              rows={4}
-              value={notes}
-              onChange={(e) => { markDirty(); setNotes(e.target.value); }}
-              placeholder={t("connections.form.notesPlaceholder")}
-            />
-          </FormSection>
+          <NotesSection value={notes} onChange={(v) => { markDirty(); setNotes(v); }} readOnly={!canEdit} />
         </div>
       </div>
     </PanelShell>

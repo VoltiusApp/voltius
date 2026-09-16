@@ -678,3 +678,20 @@ button svg *,
   .clipboard-pill-exit  { animation: none; opacity: 0; }
   .clipboard-count-pop  { animation: none; }
 }
+
+.notes-preview h1 { font-size: 1.25rem; font-weight: 600; margin: 0.75rem 0 0.375rem; color: var(--t-text-bright); }
+.notes-preview h2 { font-size: 1.1rem; font-weight: 600; margin: 0.75rem 0 0.375rem; color: var(--t-text-bright); }
+.notes-preview h3 { font-size: 1rem; font-weight: 600; margin: 0.5rem 0 0.25rem; color: var(--t-text-bright); }
+.notes-preview p { margin: 0.375rem 0; }
+.notes-preview ul { list-style: disc; padding-left: 1.25rem; margin: 0.375rem 0; }
+.notes-preview ol { list-style: decimal; padding-left: 1.25rem; margin: 0.375rem 0; }
+.notes-preview :not(pre) > code { font-family: var(--t-terminal-font-family, monospace); font-size: 0.85em; padding: 0.05rem 0.3rem; border-radius: 0.25rem; background: var(--t-bg-base); border: 1px solid var(--t-border); }
+.notes-preview blockquote { border-left: 2px solid var(--t-border); padding-left: 0.625rem; color: var(--t-text-secondary); }
+.notes-preview table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
+.notes-preview th, .notes-preview td { border: 1px solid var(--t-border); padding: 0.25rem 0.5rem; }
+.notes-preview hr { border-color: var(--t-border); margin: 0.75rem 0; }
+.notes-preview input[type="checkbox"] { appearance: none; display: inline-grid; place-content: center; width: 1rem; height: 1rem; margin: 0 0.375rem 0 0; vertical-align: middle; border: 1px solid var(--t-border-hover); border-radius: 0.25rem; background: transparent; cursor: pointer; }
+.notes-preview input[type="checkbox"]:checked { background: var(--t-accent); border-color: var(--t-accent); }
+.notes-preview input[type="checkbox"]:checked::after { content: ""; width: 0.3rem; height: 0.55rem; border: solid var(--t-on-accent); border-width: 0 2px 2px 0; transform: translateY(-0.05rem) rotate(45deg); }
+.notes-preview input[type="checkbox"]:disabled { cursor: default; opacity: 0.6; }
+.notes-preview input[type="checkbox"]:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 1px; }

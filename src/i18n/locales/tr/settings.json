@@ -939,6 +939,10 @@
         "panelThemes": {
           "label": "Temalar Paneli",
           "desc": "Temaları sağ panelde aç"
+        },
+        "panelNotes": {
+          "label": "Notlar paneli",
+          "desc": "Sunucu notlarını sağ panelde aç"
         }
       }
     },

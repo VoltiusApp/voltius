@@ -1,0 +1,54 @@
+{
+  "notes": {
+    "toolbar": {
+      "heading": "标题",
+      "h1": "标题 1",
+      "h2": "标题 2",
+      "h3": "标题 3",
+      "bold": "粗体",
+      "italic": "斜体",
+      "code": "行内代码",
+      "link": "链接",
+      "bullet": "无序列表",
+      "ordered": "有序列表",
+      "task": "任务清单",
+      "codeBlock": "代码块",
+      "more": "更多格式",
+      "preview": "预览",
+      "edit": "编辑"
+    },
+    "editor": {
+      "placeholder": "使用 Markdown 编写备注 — 输入 / 插入块"
+    },
+    "slash": {
+      "h1": "标题 1",
+      "h2": "标题 2",
+      "h3": "标题 3",
+      "bullet": "无序列表",
+      "numbered": "有序列表",
+      "todo": "任务清单",
+      "code": "代码块",
+      "table": "表格",
+      "divider": "分隔线",
+      "link": "链接"
+    },
+    "empty": {
+      "title": "暂无备注",
+      "start": "开始编写"
+    },
+    "code": {
+      "copy": "复制",
+      "copied": "已复制",
+      "sendToTerminal": "发送到终端"
+    },
+    "panel": {
+      "noHost": "备注仅适用于已保存的主机",
+      "readOnly": "只读",
+      "conflict": "备注已在其他地方更改",
+      "reload": "重新加载",
+      "keepMine": "保留我的",
+      "saveFailed": "无法保存备注：{{error}}",
+      "retry": "重试"
+    }
+  }
+}

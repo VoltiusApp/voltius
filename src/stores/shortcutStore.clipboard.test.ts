@@ -33,3 +33,11 @@ test("a persisted v5 state gains the new shortcuts on migration", () => {
   expect(ids).toContain("paste");
   expect(ids).toContain("omni");
 });
+
+test("a persisted v7 state gains panel-notes on migration", () => {
+  const migrated = useShortcutStore.persist.getOptions().migrate!(
+    { shortcuts: [{ id: "omni", key: "k", ctrl: true, shift: false, alt: false, defaultKey: "k", labelKey: "x", descriptionKey: "y" }] },
+    7,
+  ) as { shortcuts: Array<{ id: string }> };
+  expect(migrated.shortcuts.map((s) => s.id)).toContain("panel-notes");
+});

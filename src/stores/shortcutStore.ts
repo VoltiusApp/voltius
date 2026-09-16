@@ -61,6 +61,7 @@ const DEFAULTS: Omit<Shortcut, "key">[] = [
   { id: "history",         labelKey: "settings.shortcuts.items.history.label",         descriptionKey: "settings.shortcuts.items.history.desc",         defaultKey: "h",      ctrl: true,  shift: true,  alt: false },
   { id: "snippets",        labelKey: "settings.shortcuts.items.snippets.label",        descriptionKey: "settings.shortcuts.items.snippets.desc",        defaultKey: "s",      ctrl: true,  shift: true,  alt: false },
   { id: "panel-themes",    labelKey: "settings.shortcuts.items.panelThemes.label",     descriptionKey: "settings.shortcuts.items.panelThemes.desc",     defaultKey: "t",      ctrl: true,  shift: true,  alt: false },
+  { id: "panel-notes",     labelKey: "settings.shortcuts.items.panelNotes.label",      descriptionKey: "settings.shortcuts.items.panelNotes.desc",      defaultKey: "n",      ctrl: true,  shift: true,  alt: false },
   { id: "copy",  labelKey: "settings.shortcuts.items.copy.label",  descriptionKey: "settings.shortcuts.items.copy.desc",  defaultKey: "c", ctrl: true, shift: false, alt: false },
   { id: "cut",   labelKey: "settings.shortcuts.items.cut.label",   descriptionKey: "settings.shortcuts.items.cut.desc",   defaultKey: "x", ctrl: true, shift: false, alt: false },
   { id: "paste", labelKey: "settings.shortcuts.items.paste.label", descriptionKey: "settings.shortcuts.items.paste.desc", defaultKey: "v", ctrl: true, shift: false, alt: false },
@@ -109,7 +110,7 @@ export const useShortcutStore = create<ShortcutStore>()(
     {
       name: "voltius-shortcuts",
       // Bump on every DEFAULTS addition: migrate is what merges new entries into a persisted set.
-      version: 7,
+      version: 8,
       // v5: label/description (literal English strings) → labelKey/descriptionKey
       // (i18n keys resolved at render time). Re-derive keys from `id`; drop the
       // stale literal fields so old English text can't linger in persisted state.

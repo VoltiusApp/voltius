@@ -16,6 +16,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { matchShortcut } from "@/stores/shortcutStore";
+import { matchPanelShortcut } from "@/hooks/panelShortcuts";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { broadcastActiveForSession, findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
@@ -947,16 +948,9 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           if (!handleTerminalSearchNav(sessionId, e)) return true;
           return claimChord(e);
         }
-        if (matchShortcut("history", e)) {
-          if (e.type === "keydown") useUIStore.getState().toggleRightPanel("history");
-          return false;
-        }
-        if (matchShortcut("snippets", e)) {
-          if (e.type === "keydown") useUIStore.getState().toggleRightPanel("snippets");
-          return false;
-        }
-        if (matchShortcut("panel-themes", e)) {
-          if (e.type === "keydown") useUIStore.getState().toggleRightPanel("themes");
+        const panelSection = matchPanelShortcut(e);
+        if (panelSection) {
+          if (e.type === "keydown") useUIStore.getState().toggleRightPanel(panelSection);
           return false;
         }
         if (handleDuplicateShortcut(e, sessionId)) return false;

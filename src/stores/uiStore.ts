@@ -4,7 +4,7 @@ import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
 
 export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "known-hosts" | "members" | "logs" | "terminal";
 
-export type BuiltinRightPanelSection = "snippets" | "history" | "themes" | "ports" | "sftp";
+export type BuiltinRightPanelSection = "snippets" | "history" | "notes" | "themes" | "ports" | "sftp";
 /** Widened to allow plugin-contributed section IDs (prefixed with "plugin:") */
 export type RightPanelSection = BuiltinRightPanelSection | (string & {});
 /**

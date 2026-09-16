@@ -4,6 +4,7 @@ import { usePluginStore } from "@/stores/pluginStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { matchShortcut } from "@/stores/shortcutStore";
+import { matchPanelShortcut } from "@/hooks/panelShortcuts";
 import { useHistoryStore } from "@/stores/historyStore";
 import { openTerminalSearch, isTerminalSearchNavKey, handleTerminalSearchNav } from "@/hooks/useTerminal";
 import { handleDuplicateShortcut } from "@/services/duplicateSession";
@@ -130,21 +131,10 @@ export function useKeyboard() {
         return;
       }
 
-      if (matchShortcut("history", e)) {
+      const panelSection = matchPanelShortcut(e);
+      if (panelSection) {
         e.preventDefault();
-        useUIStore.getState().toggleRightPanel("history");
-        return;
-      }
-
-      if (matchShortcut("snippets", e)) {
-        e.preventDefault();
-        useUIStore.getState().toggleRightPanel("snippets");
-        return;
-      }
-
-      if (matchShortcut("panel-themes", e)) {
-        e.preventDefault();
-        useUIStore.getState().toggleRightPanel("themes");
+        useUIStore.getState().toggleRightPanel(panelSection);
         return;
       }
 

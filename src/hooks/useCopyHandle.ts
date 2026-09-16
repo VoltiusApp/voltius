@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { writeClipboard } from "@/utils/clipboard";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 
 /**
  * One-tap "copy my address": writes `@handle` and flips a transient copied flag.
@@ -7,14 +7,11 @@ import { writeClipboard } from "@/utils/clipboard";
  * account menu — so both spell the address the same way.
  */
 export function useCopyHandle(handle: string | null): { copied: boolean; copy: () => void } {
-  const [copied, setCopied] = useState(false);
+  const { copied, flash } = useCopiedFlash(1500);
   const copy = () => {
     if (!handle) return;
     writeClipboard(`@${handle}`)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      })
+      .then(() => flash())
       .catch(() => {});
   };
   return { copied, copy };

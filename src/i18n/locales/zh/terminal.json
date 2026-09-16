@@ -97,7 +97,8 @@
       "closePanelTitle": "关闭面板",
       "sections": {
         "history": "历史",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "notes": "备注"
       },
       "pluginUnavailable": "此面板已不可用。提供它的插件已被移除或停用。",
       "pluginUnavailableAction": "返回主题"

@@ -20,7 +20,9 @@ vi.mock("@/components/terminal/SnippetsPanel", () => ({ SnippetsPanel: () => <di
 vi.mock("@/components/terminal/PortsPanel", () => ({ PortsPanel: () => <div>ports-panel</div> }));
 vi.mock("@/components/terminal/HistoryPanel", () => ({ HistoryPanel: () => <div>history-panel</div> }));
 vi.mock("@/components/terminal/PanelSftpSection", () => ({ default: () => <div>sftp-panel</div> }));
+vi.mock("@/components/terminal/NotesPanel", () => ({ NotesPanel: () => <div>notes-panel</div> }));
 vi.mock("@/hooks/useCurrentSessionTunnelCount", () => ({ useCurrentSessionTunnelCount: () => 0 }));
+vi.mock("@/hooks/useActiveHostConnection", () => ({ useActiveHostConnection: () => ({ session: undefined, connection: undefined }) }));
 
 function renderPanel(rightPanelSection: string) {
   useUIStore.setState({ rightPanelOpen: true, rightPanelSection, activeNav: "terminal" });

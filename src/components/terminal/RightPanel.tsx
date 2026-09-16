@@ -10,10 +10,12 @@ import { SnippetsPanel } from "@/components/terminal/SnippetsPanel";
 import { PortsPanel } from "@/components/terminal/PortsPanel";
 import { HistoryPanel } from "@/components/terminal/HistoryPanel";
 import PanelSftpSection from "@/components/terminal/PanelSftpSection";
+import { NotesPanel } from "@/components/terminal/NotesPanel";
 import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
 import { useCurrentSessionTunnelCount } from "@/hooks/useCurrentSessionTunnelCount";
+import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
 import { orderPluginSections } from "./rightPanelOrder";
 
 const PANEL_WIDTH = 300;
@@ -25,6 +27,7 @@ function getBuiltinSections(t: (key: string) => string): { id: RightPanelSection
   return [
     { id: "snippets", icon: "lucide:braces",      title: t("common.entity.snippets") },
     { id: "history",  icon: "lucide:clock",       title: t("terminal.rightPanel.sections.history") },
+    { id: "notes",    icon: "lucide:notebook-pen", title: t("terminal.rightPanel.sections.notes") },
     { id: "themes",   icon: "lucide:palette",     title: t("terminal.rightPanel.themes") },
     { id: "ports",    icon: "lucide:network",     title: t("terminal.ports.header.title") },
     { id: "sftp",     icon: "lucide:folder-tree", title: t("terminal.rightPanel.sections.sftp") },
@@ -185,6 +188,7 @@ function PanelContent() {
   const pluginSections = usePluginStore((s) => s.rightPanelSections);
   const locale = useLocaleStore((s) => s.locale);
   const tunnelCount = useCurrentSessionTunnelCount();
+  const hasNotes = !!useActiveHostConnection().connection?.notes?.trim();
 
   const allSections = useMemo(() => [
     ...getBuiltinSections(t),
@@ -225,6 +229,9 @@ function PanelContent() {
                     {tunnelCount}
                   </span>
                 )}
+                {s.id === "notes" && hasNotes && (
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{ background: "var(--t-accent)" }} />
+                )}
               </button>
             );
           })}
@@ -244,6 +251,7 @@ function PanelContent() {
       <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
         {rightPanelSection === "snippets" && <SnippetsPanel />}
         {rightPanelSection === "history"  && <HistoryPanel />}
+        {rightPanelSection === "notes"    && <NotesPanel />}
         {rightPanelSection === "themes"   && <ThemesSection />}
         {rightPanelSection === "ports"    && <PortsPanel />}
         {rightPanelSection === "sftp"     && <PanelSftpSection />}
