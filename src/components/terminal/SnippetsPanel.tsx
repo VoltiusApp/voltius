@@ -6,7 +6,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { broadcastSnippetInject } from "@/services/snippets";
+import { broadcastSnippetInject } from "@/services/snippetInject";
 import {
   parseVariables,
   needsUserInput,
@@ -352,7 +352,7 @@ export function SnippetsPanel() {
   async function inject(text: string, execute: boolean) {
     if (!activeSession || activeSession.type === "multiplayer") return;
     try { await broadcastSnippetInject(activeSession.id, activeSession.type, text, execute); }
-    catch (e) { console.error("snippet_inject failed:", e); }
+    catch (e) { console.error("snippet inject failed:", e); }
   }
 
   async function handleTrigger(snippet: Snippet, execute: boolean) {

@@ -6,7 +6,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
-import { snippetInject } from "@/services/snippets";
+import { snippetInject } from "@/services/snippetInject";
 import {
   parseVariables,
   needsUserInput,

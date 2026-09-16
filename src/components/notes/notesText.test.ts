@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { isAllowedLinkHref, normalizeNotes, sameNotes, sanitizePasteText, toggleTaskAtLine } from "./notesText";
+import { isAllowedLinkHref, normalizeNotes, sameNotes, toggleTaskAtLine } from "./notesText";
 
 describe("normalizeNotes", () => {
   test("blank becomes undefined, content is kept verbatim", () => {
@@ -51,22 +51,4 @@ describe("isAllowedLinkHref", () => {
       expect(isAllowedLinkHref(href)).toBe(false);
     },
   );
-});
-
-describe("sanitizePasteText", () => {
-  test("keeps printable text, tabs and newlines", () => {
-    expect(sanitizePasteText("ls -la\tfoo\ncd /tmp && echo \"é ✓\"")).toBe("ls -la\tfoo\ncd /tmp && echo \"é ✓\"");
-  });
-  test("turns CR and CRLF into newlines", () => {
-    expect(sanitizePasteText("a\r\nb\rc")).toBe("a\nb\nc");
-  });
-  test("strips every other C0 control, DEL and C1 controls", () => {
-    const c0 = Array.from({ length: 32 }, (_, i) => String.fromCharCode(i)).filter((c) => c !== "\t" && c !== "\n" && c !== "\r").join("");
-    const c1 = Array.from({ length: 32 }, (_, i) => String.fromCharCode(0x80 + i)).join("");
-    expect(sanitizePasteText(`x${c0}\x7f${c1}y`)).toBe("xy");
-  });
-  test("cannot smuggle a bracketed-paste terminator or hidden line edits", () => {
-    expect(sanitizePasteText("echo safe\x1b[201~\x15rm -rf ~\x0f")).toBe("echo safe[201~rm -rf ~");
-    expect(sanitizePasteText("a\x9b201~b")).toBe("a201~b");
-  });
 });

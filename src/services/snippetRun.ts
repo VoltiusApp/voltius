@@ -1,7 +1,7 @@
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useSnippetStore } from "@/stores/snippetStore";
-import { broadcastSnippetInject } from "@/services/snippets";
+import { broadcastSnippetInject } from "@/services/snippetInject";
 import { buildDynamicContext, resolveSnippetPayload, type SnippetPendingInject } from "@/services/snippetRunCore";
 import { parseVariables } from "@/services/snippetParser";
 import { snippetScriptText } from "@/services/snippetSteps";

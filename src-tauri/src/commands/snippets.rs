@@ -2,8 +2,6 @@ use crate::commands::vault_object::{
     bump, find_mut, finish_update, impl_vault_object, initial_clocks, merge_fields,
     requested_vault, retarget_vault, subtree_ids, tombstone, vault_object_commands,
 };
-use crate::local::session::LocalSessionManager;
-use crate::ssh::session::SessionManager;
 use crate::storage::config::{
     load_snippet_folders, load_snippets, save_snippet_folders, save_snippets, Snippet,
     SnippetFolder, SnippetFolderFormData, SnippetFormData,
@@ -106,27 +104,6 @@ pub fn snippet_update(id: String, data: SnippetFormData) -> Result<Snippet, Stri
     let updated = snippet.clone();
     save_snippets(&snippets)?;
     Ok(updated)
-}
-
-/// Inject text into the active terminal session.
-/// Handles both SSH and local sessions. Appends \n when execute=true.
-/// Multiplayer injection must be gated by the caller (frontend checks controller status).
-#[tauri::command]
-pub async fn snippet_inject(
-    session_id: String,
-    session_type: String,
-    text: String,
-    execute: bool,
-    ssh_state: tauri::State<'_, SessionManager>,
-    local_state: tauri::State<'_, LocalSessionManager>,
-) -> Result<(), String> {
-    let payload = if execute { format!("{text}\n") } else { text };
-    let bytes = payload.into_bytes();
-    match session_type.as_str() {
-        "ssh" => ssh_state.send_data(&session_id, &bytes).await,
-        "local" => local_state.send_data(&session_id, bytes).await,
-        _ => Err(format!("Unknown session type: {session_type}")),
-    }
 }
 
 // ─── Snippet folder CRUD ──────────────────────────────────────────────────────

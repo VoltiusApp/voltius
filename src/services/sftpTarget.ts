@@ -3,14 +3,14 @@ import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/crede
 import { resolveKeepalive } from "@/utils/keepalive";
 import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { genId } from "@/components/filetransfer/SFTPTypes";
-import type { Connection } from "@/types";
+import type { Connection, TerminalSession } from "@/types";
 import type { DynamicContext } from "@/services/snippetParser";
 
 export type RunTarget =
   | {
       kind: "session";
       sessionId: string;
-      sessionType: string;
+      sessionType: TerminalSession["type"];
       /** Pre-captured `{{connection.*}}` values, for callers whose session row may
        *  be gone by the time the sequence resolves them (e.g. post-commands). */
       context?: Omit<DynamicContext, "clipboard">;

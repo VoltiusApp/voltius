@@ -24,7 +24,7 @@ function makePorts(over: Partial<SnippetPorts> = {}, items: Snippet[] = [snippet
     remove: vi.fn(async () => {}),
     isTeamVault: (id) => id === "team-1",
     resolveTargets: vi.fn(() => ({
-      targets: [{ kind: "session" as const, sessionId: "sess-1", sessionType: "ssh", label: "web-01" }],
+      targets: [{ kind: "session" as const, sessionId: "sess-1", sessionType: "ssh" as const, label: "web-01" }],
       unknown: [],
     })),
     run: vi.fn(async () => ({ targets: [{ label: "web-01", ok: true }], flattenErrors: [] })),
