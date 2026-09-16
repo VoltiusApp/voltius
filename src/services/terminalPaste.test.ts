@@ -27,6 +27,26 @@ describe("sanitizePasteText", () => {
     expect(sanitizePasteText("echo safe\x1b[201~\x15rm -rf ~\x0f")).toBe("echo safe[201~rm -rf ~");
     expect(sanitizePasteText("a\x9b201~b")).toBe("a201~b");
   });
+  test("strips bidi controls so the pasted bytes match what the terminal shows", () => {
+    const trojan = 'if [ "$role" != "user\u202e \u2066# admin\u2069 \u2066" ]; then';
+    expect(sanitizePasteText(trojan)).toBe('if [ "$role" != "user # admin " ]; then');
+    const all = "\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069\u200e\u200f\u061c";
+    expect(sanitizePasteText(`a${all}b`)).toBe("ab");
+  });
+  test("strips zero-width characters hidden inside a command", () => {
+    expect(sanitizePasteText("r\u200bm -rf\u2060 /tmp/x\ufeff")).toBe("rm -rf /tmp/x");
+  });
+  test("keeps right-to-left text untouched", () => {
+    const rtl = 'echo "שלום עולם" && echo "مرحبا بالعالم"';
+    expect(sanitizePasteText(rtl)).toBe(rtl);
+  });
+  test("keeps joiners inside words and emoji sequences, strips stray ones", () => {
+    const persian = "echo \"\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645\"";
+    expect(sanitizePasteText(persian)).toBe(persian);
+    const emoji = "echo 👩\u200d💻 👩🏽\u200d💻 ❤\ufe0f\u200d🔥";
+    expect(sanitizePasteText(emoji)).toBe(emoji);
+    expect(sanitizePasteText("ls\u200d -la \u200cfoo")).toBe("ls -la foo");
+  });
 });
 
 describe("pasteToSession", () => {

