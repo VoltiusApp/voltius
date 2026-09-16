@@ -7,6 +7,7 @@ import { EditorView, keymap } from "@codemirror/view";
 import { Prec, type StateCommand } from "@codemirror/state";
 import { autocompletion } from "@codemirror/autocomplete";
 import { useCmTheme } from "@/components/filetransfer/editor/useCmTheme";
+import { NOTES_ICON_BUTTON, NotesEmptyState } from "./NotesChrome";
 import { NotesPreview } from "./NotesPreview";
 import {
   BLOCKS,
@@ -98,7 +99,7 @@ export function NotesEditor({
     view.focus();
   };
 
-  const toolbarButton = "w-6 h-6 flex items-center justify-center rounded-sm text-(--t-text-muted) hover:text-(--t-text-primary) hover:bg-(--t-bg-elevated)";
+  const toolbarButton = `w-6 h-6 flex items-center justify-center ${NOTES_ICON_BUTTON}`;
   const isEmpty = !value.trim();
 
   return (
@@ -159,15 +160,13 @@ export function NotesEditor({
             basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false, autocompletion: false }}
           />
         ) : isEmpty ? (
-          <div className="h-full flex flex-col items-center justify-center gap-2 px-4 py-6 text-center">
-            <Icon icon="lucide:notebook-pen" width={20} className="text-(--t-text-muted)" />
-            <p className="text-xs text-(--t-text-secondary)">{t("notes.empty.title")}</p>
+          <NotesEmptyState message={t("notes.empty.title")}>
             {!readOnly && (
               <button type="button" className="btn btn-secondary px-3 py-1.5 rounded-lg text-xs font-medium" onClick={() => requestMode("edit")}>
                 {t("notes.empty.start")}
               </button>
             )}
-          </div>
+          </NotesEmptyState>
         ) : (
           <div className="px-3 py-2">
             <NotesPreview value={value} onChange={onChange} readOnly={readOnly} onRunCode={onRunCode} onRequestEdit={() => requestMode("edit")} />

@@ -6,6 +6,7 @@ import { Icon } from "@iconify/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { writeClipboard } from "@/utils/clipboard";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
+import { NOTES_ICON_BUTTON } from "./NotesChrome";
 import { isAllowedLinkHref, toggleTaskAtLine } from "./notesText";
 
 export interface NotesPreviewProps {
@@ -45,7 +46,7 @@ function SafeLink({ href, children }: { href?: string | null; children: ReactNod
 function CodeBlock({ code, children, onRunCode }: { code: string; children: ReactNode; onRunCode?: (code: string) => void }) {
   const { t } = useTranslation();
   const { copied, flash } = useCopiedFlash(1500);
-  const button = "p-1 rounded-sm text-(--t-text-muted) hover:text-(--t-text-primary) hover:bg-(--t-bg-elevated)";
+  const button = `p-1 ${NOTES_ICON_BUTTON}`;
   return (
     <div className="group relative my-2">
       <pre className="overflow-x-auto rounded-md bg-(--t-bg-card) border border-(--t-border) p-2 text-xs font-mono">{children}</pre>

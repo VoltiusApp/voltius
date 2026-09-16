@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
+import { NotesEmptyState, NotesFrame } from "@/components/notes/NotesChrome";
 import { NotesEditor, type NotesMode } from "@/components/notes/NotesEditor";
 import { sanitizePasteText } from "@/components/notes/notesText";
 import { useNotesDraft } from "@/components/notes/useNotesDraft";
@@ -22,12 +22,7 @@ export function NotesPanel() {
   const { t } = useTranslation();
   const { session, connection } = useActiveHostConnection();
   if (!session || !connection) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <Icon icon="lucide:notebook-pen" width={22} className="text-(--t-text-muted)" />
-        <p className="text-xs text-(--t-text-secondary)">{t("notes.panel.noHost")}</p>
-      </div>
-    );
+    return <NotesEmptyState message={t("notes.panel.noHost")} />;
   }
   return <NotesPanelBody key={connection.id} session={session} connection={connection} />;
 }
@@ -63,7 +58,7 @@ function NotesPanelBody({ session, connection }: { session: TerminalSession; con
           <button type="button" className="underline" onClick={notes.retry}>{t("notes.panel.retry")}</button>
         </div>
       )}
-      <div className="flex-1 min-h-0 mx-3 mb-3 rounded-lg border border-(--t-border) overflow-hidden bg-(--t-bg-card)">
+      <NotesFrame className="flex-1 min-h-0 mx-3 mb-3">
         <NotesEditor
           value={notes.draft}
           onChange={notes.setDraft}
@@ -73,7 +68,7 @@ function NotesPanelBody({ session, connection }: { session: TerminalSession; con
           onRunCode={runCode}
           onBlur={notes.flush}
         />
-      </div>
+      </NotesFrame>
     </div>
   );
 }

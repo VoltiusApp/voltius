@@ -31,9 +31,11 @@ export function useNotesDraft(stored: string | undefined, save: (notes: string |
   const inFlightRef = useRef<Promise<void> | null>(null);
   const resaveRef = useRef(false);
 
+  const needsSave = () => !conflictRef.current && !sameNotes(draftRef.current, baseRef.current);
+
   const performSave = useCallback(async () => {
+    if (!needsSave()) return;
     const value = draftRef.current;
-    if (conflictRef.current || sameNotes(value, baseRef.current)) return;
     pendingRef.current = value;
     try {
       await saveRef.current(normalizeNotes(value));
@@ -55,7 +57,7 @@ export function useNotesDraft(stored: string | undefined, save: (notes: string |
       await performSave();
       while (resaveRef.current) {
         resaveRef.current = false;
-        if (!conflictRef.current && !sameNotes(draftRef.current, baseRef.current)) await performSave();
+        if (needsSave()) await performSave();
       }
       inFlightRef.current = null;
     })();
@@ -65,7 +67,7 @@ export function useNotesDraft(stored: string | undefined, save: (notes: string |
 
   const { schedule, markDirty, flush, saveState } = useAutosave({
     delay: NOTES_SAVE_DELAY_MS,
-    canSave: () => !conflictRef.current && !sameNotes(draftRef.current, baseRef.current),
+    canSave: needsSave,
     onSave,
   });
 
