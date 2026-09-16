@@ -8,6 +8,8 @@ import {
   useVaultObjectFormShell,
   type VaultObjectFormShell,
 } from "@/components/shared/vaultObjectForm";
+import { FormSection } from "@/components/shared/Panel";
+import { NotesEditor, type NotesMode } from "@/components/notes/NotesEditor";
 import EncodingSelector from "./EncodingSelector";
 import { HostCommandField } from "./HostCommandField";
 
@@ -175,5 +177,17 @@ export function HostCommandFields({ connectionId, fields, markDirty }: HostComma
         onChange={(v) => { markDirty(); fields.setTerminalEncoding(v); }}
       />
     </>
+  );
+}
+
+export function NotesSection({ value, onChange, readOnly }: { value: string; onChange: (value: string) => void; readOnly?: boolean }) {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<NotesMode>("edit");
+  return (
+    <FormSection label={t("connections.form.sectionNotes")}>
+      <div className="rounded-lg border border-(--t-border) overflow-hidden h-56 bg-(--t-bg-card)">
+        <NotesEditor value={value} onChange={onChange} readOnly={readOnly} mode={mode} onModeChange={setMode} />
+      </div>
+    </FormSection>
   );
 }

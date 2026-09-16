@@ -171,6 +171,11 @@ vi.mock("./HostCommandField", () => ({
     </div>
   ),
 }));
+vi.mock("@/components/notes/NotesEditor", () => ({
+  NotesEditor: ({ value, onChange, readOnly }: { value: string; onChange: (v: string) => void; readOnly?: boolean }) => (
+    <textarea data-notes value={value} readOnly={readOnly} onChange={(e) => onChange(e.target.value)} />
+  ),
+}));
 vi.mock("./DistroIconPicker", () => ({ DistroIconPicker: () => null }));
 vi.mock("./IdentitySelector", () => ({ default: () => null }));
 vi.mock("./KeySelector", () => ({ default: () => null }));
@@ -350,16 +355,25 @@ test("the ask-vars checkbox appears only once a snippet is picked, on both forms
 
 test("the serial form lists the discovered ports and keeps existing notes on save", async () => {
   const { onSubmit, ref } = renderSerial({ initial: conn({ connection_type: "serial", serial_port: "/dev/ttyS0", notes: "keep me" }) as Connection });
-  await act(async () => {
-    await Promise.resolve();
-  });
-  fireEvent.change(screen.getByPlaceholderText("connections.serialForm.namePlaceholder"), {
-    target: { value: "renamed" },
-  });
-  await act(async () => {
-    ref.current!.flush();
-  });
+  await act(async () => { await Promise.resolve(); });
+  fireEvent.change(screen.getByPlaceholderText("connections.serialForm.namePlaceholder"), { target: { value: "renamed" } });
+  await act(async () => { ref.current!.flush(); });
   expect(onSubmit.mock.calls[0][0]).toMatchObject({ notes: "keep me", name: "renamed" });
+});
+
+test.each([
+  ["ssh", () => renderSsh({ initial: conn() })],
+  ["serial", () => renderSerial({ initial: conn({ connection_type: "serial", serial_port: "/dev/ttyS0" }) as Connection })],
+])("%s form edits notes and saves blank notes as undefined", async (_kind, mount) => {
+  const { onSubmit, ref } = mount();
+  await act(async () => { await Promise.resolve(); });
+  const notes = document.querySelector("[data-notes]") as HTMLTextAreaElement;
+  fireEvent.change(notes, { target: { value: "## Runbook\n- [ ] check disk" } });
+  await act(async () => { ref.current!.flush(); });
+  expect(onSubmit.mock.calls[onSubmit.mock.calls.length - 1][0]).toMatchObject({ notes: "## Runbook\n- [ ] check disk" });
+  fireEvent.change(notes, { target: { value: "   " } });
+  await act(async () => { ref.current!.flush(); });
+  expect(onSubmit.mock.calls[onSubmit.mock.calls.length - 1][0].notes).toBeUndefined();
 });
 
 test("a dirty edit marks the form dirty on both forms", () => {

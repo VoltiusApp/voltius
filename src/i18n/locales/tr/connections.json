@@ -47,7 +47,6 @@
       "sectionCredentials": "Kimlik bilgileri",
       "sectionIdentity": "Kimlik",
       "sectionNotes": "Notlar",
-      "notesPlaceholder": "Hatırlatmalar, bakım zamanları, ekip bilgileri… (sunucuyla birlikte eşitlenir)",
       "protocol": "Protokol",
       "protocolSsh": "SSH / SFTP",
       "protocolFtp": "FTP",
