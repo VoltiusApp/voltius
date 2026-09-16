@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.1] - 2026-09-16
+
+### Fixed
+
+- Reconnected as soon as the network returns, including tabs restored offline.
+- Made overflowing tab strips usable with a mouse wheel.
+
 ## [0.38.0] - 2026-09-16
 
 ### Added
