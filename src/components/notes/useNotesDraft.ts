@@ -28,24 +28,48 @@ export function useNotesDraft(stored: string | undefined, save: (notes: string |
   const conflictRef = useRef(false);
   const saveRef = useRef(save);
   saveRef.current = save;
+  const inFlightRef = useRef<Promise<void> | null>(null);
+  const resaveRef = useRef(false);
+
+  const performSave = useCallback(async () => {
+    const value = draftRef.current;
+    if (conflictRef.current || sameNotes(value, baseRef.current)) return;
+    pendingRef.current = value;
+    try {
+      await saveRef.current(normalizeNotes(value));
+      baseRef.current = value;
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      pendingRef.current = null;
+    }
+  }, []);
+
+  const onSave = useCallback(async () => {
+    if (inFlightRef.current) {
+      resaveRef.current = true;
+      return inFlightRef.current;
+    }
+    const run = (async () => {
+      await performSave();
+      while (resaveRef.current) {
+        resaveRef.current = false;
+        if (!conflictRef.current && !sameNotes(draftRef.current, baseRef.current)) await performSave();
+      }
+    })();
+    inFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      inFlightRef.current = null;
+    }
+  }, [performSave]);
 
   const { schedule, markDirty, flush, saveState } = useAutosave({
     delay: NOTES_SAVE_DELAY_MS,
     canSave: () => !conflictRef.current && !sameNotes(draftRef.current, baseRef.current),
-    onSave: async () => {
-      const value = draftRef.current;
-      if (conflictRef.current || sameNotes(value, baseRef.current)) return;
-      pendingRef.current = value;
-      try {
-        await saveRef.current(normalizeNotes(value));
-        baseRef.current = value;
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        pendingRef.current = null;
-      }
-    },
+    onSave,
   });
 
   const flushRef = useRef(flush);
@@ -55,6 +79,12 @@ export function useNotesDraft(stored: string | undefined, save: (notes: string |
   useEffect(() => schedule(), [draft, schedule]);
 
   useEffect(() => {
+    if (sameNotes(draftRef.current, storedText)) {
+      baseRef.current = storedText;
+      conflictRef.current = false;
+      setConflict(false);
+      return;
+    }
     if (sameNotes(storedText, baseRef.current)) return;
     if (pendingRef.current !== null && sameNotes(storedText, pendingRef.current)) {
       baseRef.current = storedText;
@@ -65,13 +95,10 @@ export function useNotesDraft(stored: string | undefined, save: (notes: string |
       setDraftState(storedText);
       return;
     }
-    if (sameNotes(draftRef.current, storedText)) {
-      baseRef.current = storedText;
-      return;
-    }
     conflictRef.current = true;
     setConflict(true);
-  }, [storedText]);
+    schedule();
+  }, [storedText, schedule]);
 
   const setDraft = useCallback((value: string) => {
     markDirty();
@@ -87,6 +114,7 @@ export function useNotesDraft(stored: string | undefined, save: (notes: string |
   const reload = () => {
     resolveConflict();
     setDraftState(storedText);
+    setError(null);
   };
 
   const keepMine = () => {
@@ -96,10 +124,16 @@ export function useNotesDraft(stored: string | undefined, save: (notes: string |
   };
 
   const retry = () => {
+    if (sameNotes(draftRef.current, baseRef.current)) {
+      setError(null);
+      return;
+    }
     markDirty();
     schedule();
     flush();
   };
 
-  return { draft, setDraft, conflict, reload, keepMine, flush, error, retry, saveState };
+  const effectiveSaveState: SaveState = error || conflict ? "dirty" : saveState;
+
+  return { draft, setDraft, conflict, reload, keepMine, flush, error, retry, saveState: effectiveSaveState };
 }

@@ -107,4 +107,85 @@ describe("useNotesDraft", () => {
     expect(save).toHaveBeenCalledTimes(2);
     expect(result.current.error).toBeNull();
   });
+
+  test("overlapping saves are serialized, not treated as a conflict", async () => {
+    const resolvers: Array<() => void> = [];
+    const save = vi.fn(() => new Promise<void>((resolve) => { resolvers.push(resolve); }));
+    const { result, rerender } = setup("a", save);
+    act(() => result.current.setDraft("ab"));
+    await advance(NOTES_SAVE_DELAY_MS);
+    expect(save).toHaveBeenCalledTimes(1);
+    act(() => result.current.setDraft("abc"));
+    act(() => result.current.flush());
+    expect(save).toHaveBeenCalledTimes(1);
+    rerender({ stored: "ab" });
+    expect(result.current.conflict).toBe(false);
+    await act(async () => {
+      resolvers[0]();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith("abc");
+    rerender({ stored: "abc" });
+    await act(async () => {
+      resolvers[1]();
+      await Promise.resolve();
+    });
+    expect(result.current.conflict).toBe(false);
+    expect(result.current.draft).toBe("abc");
+  });
+
+  test("conflict clears once the store catches up to the draft", () => {
+    const { result, rerender } = setup("a");
+    act(() => result.current.setDraft("mine"));
+    rerender({ stored: "theirs" });
+    expect(result.current.conflict).toBe(true);
+    rerender({ stored: "mine" });
+    expect(result.current.conflict).toBe(false);
+  });
+
+  test("saveState does not report saved after a failed save", async () => {
+    const save = vi.fn().mockRejectedValueOnce(new Error("offline"));
+    const { result } = setup("a", save);
+    act(() => result.current.setDraft("ab"));
+    await advance(NOTES_SAVE_DELAY_MS);
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.error).toBe("offline");
+    expect(result.current.saveState).not.toBe("saved");
+  });
+
+  test("a conflict cancels the pending timer and saveState never reports saved", async () => {
+    const { result, rerender, save } = setup("a");
+    act(() => result.current.setDraft("mine"));
+    rerender({ stored: "theirs" });
+    expect(result.current.conflict).toBe(true);
+    await advance(NOTES_SAVE_DELAY_MS * 2);
+    expect(save).not.toHaveBeenCalled();
+    expect(result.current.saveState).not.toBe("saved");
+  });
+
+  test("reload clears a stale error", async () => {
+    const save = vi.fn().mockRejectedValueOnce(new Error("offline"));
+    const { result } = setup("a", save);
+    act(() => result.current.setDraft("ab"));
+    await advance(NOTES_SAVE_DELAY_MS);
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.error).toBe("offline");
+    act(() => result.current.reload());
+    expect(result.current.error).toBeNull();
+  });
+
+  test("retry clears the error when the draft already matches the saved value", async () => {
+    const save = vi.fn().mockRejectedValueOnce(new Error("offline"));
+    const { result } = setup("a", save);
+    act(() => result.current.setDraft("ab"));
+    await advance(NOTES_SAVE_DELAY_MS);
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.error).toBe("offline");
+    act(() => result.current.setDraft("a"));
+    act(() => result.current.retry());
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeNull();
+  });
 });
