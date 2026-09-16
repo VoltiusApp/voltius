@@ -14,7 +14,7 @@ import type { TerminalSession } from "@/types";
 export type PanelSftpState =
   | { tag: "idle" }
   | { tag: "connecting" }
-  | { tag: "connected"; sftpId: string | null; isLocal: boolean; cwd: string; followCwd: boolean }
+  | { tag: "connected"; sftpId: string | null; isLocal: boolean; cwd: string; homeCwd: string; followCwd: boolean }
   | { tag: "error"; message: string };
 
 interface PanelSftpStore {
@@ -32,14 +32,16 @@ export const usePanelSftpStore = create<PanelSftpStore>((set, get) => ({
     const existing = get().sessions[session.id];
     if (existing && (existing.tag === "connecting" || existing.tag === "connected")) return;
 
+    const markConnected = (sftpId: string | null, cwd: string) =>
+      set((s) => ({
+        sessions: { ...s.sessions, [session.id]: { tag: "connected", sftpId, isLocal: sftpId === null, cwd, homeCwd: cwd, followCwd: true } },
+      }));
+
     set((s) => ({ sessions: { ...s.sessions, [session.id]: { tag: "connecting" } } }));
 
     try {
       if (session.type === "local") {
-        const cwd = await fsHomeDir();
-        set((s) => ({
-          sessions: { ...s.sessions, [session.id]: { tag: "connected", sftpId: null, isLocal: true, cwd, followCwd: true } },
-        }));
+        markConnected(null, await fsHomeDir());
         return;
       }
 
@@ -63,10 +65,7 @@ export const usePanelSftpStore = create<PanelSftpStore>((set, get) => ({
             vmid: session.containerExec.vmid,
           });
         }
-        const cwd = await sftpCanonicalize(sftpId, ".");
-        set((s) => ({
-          sessions: { ...s.sessions, [session.id]: { tag: "connected", sftpId, isLocal: false, cwd, followCwd: true } },
-        }));
+        markConnected(sftpId, await sftpCanonicalize(sftpId, "."));
         return;
       }
 
@@ -77,10 +76,7 @@ export const usePanelSftpStore = create<PanelSftpStore>((set, get) => ({
       // link, failing every operation with "Channel send error" until restart.
       // sftp_open hands over the session's live handle cell instead.
       const sftpId = await sftpOpen(session.id);
-      const cwd = await sftpCanonicalize(sftpId, ".");
-      set((s) => ({
-        sessions: { ...s.sessions, [session.id]: { tag: "connected", sftpId, isLocal: false, cwd, followCwd: true } },
-      }));
+      markConnected(sftpId, await sftpCanonicalize(sftpId, "."));
     } catch (e) {
       set((s) => ({ sessions: { ...s.sessions, [session.id]: { tag: "error", message: String(e) } } }));
     }

@@ -9,7 +9,7 @@ import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/
 import {
   sftpListDir, sftpMkdir, sftpTouch, sftpRename, sftpDelete,
   sftpCompress, sftpExtract,
-  fsListDir, fsHomeDir, fsMkdir, fsRename, fsDelete, fsTouch, pickLocalPath,
+  fsListDir, fsMkdir, fsRename, fsDelete, fsTouch, pickLocalPath,
   fsCompress, fsExtract,
   type RemoteFile, type LocalFile,
 } from "@/services/sftp";
@@ -435,13 +435,8 @@ export function FilePane({
     if (path) onNavigate(path);
   };
 
-  const handleGoHome = async () => {
-    if (isLocal) {
-      const home = await fsHomeDir();
-      onNavigate(home);
-    } else if (homeCwd) {
-      onNavigate(homeCwd);
-    }
+  const handleGoHome = () => {
+    if (homeCwd) onNavigate(homeCwd);
   };
 
   const selectionActionsCtx: SelectionActionsCtx = {

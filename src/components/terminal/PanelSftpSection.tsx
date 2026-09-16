@@ -329,6 +329,7 @@ export default function PanelSftpSection() {
             sftpId={panelState.sftpId}
             isLocal={panelState.isLocal}
             cwd={panelState.cwd}
+            homeCwd={panelState.homeCwd}
             hostLabel={panelHostLabel}
             onNavigate={handleNavigate}
             onSelect={setSelected}
