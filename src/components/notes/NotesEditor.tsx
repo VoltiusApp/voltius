@@ -70,15 +70,18 @@ export function NotesEditor({
     focusOnSwitchRef.current = true;
     onModeChange(next);
   };
+  const takeFocusRequest = () => {
+    const requested = focusOnSwitchRef.current;
+    focusOnSwitchRef.current = false;
+    return requested;
+  };
   const requestModeRef = useRef(requestMode);
   requestModeRef.current = requestMode;
   const themeExt = useCmTheme();
   const effectiveMode: NotesMode = readOnly ? "preview" : mode;
 
   useEffect(() => {
-    if (!focusOnSwitchRef.current) return;
-    focusOnSwitchRef.current = false;
-    if (effectiveMode === "preview") previewRef.current?.focus();
+    if (takeFocusRequest() && effectiveMode === "preview") previewRef.current?.focus();
   }, [effectiveMode]);
 
   const extensions = useMemo(
@@ -150,11 +153,7 @@ export function NotesEditor({
             onChange={onChange}
             onBlur={onBlur}
             extensions={extensions}
-            onCreateEditor={(view) => {
-              if (!focusOnSwitchRef.current) return;
-              focusOnSwitchRef.current = false;
-              view.focus();
-            }}
+            onCreateEditor={(view) => { if (takeFocusRequest()) view.focus(); }}
             theme="none"
             height="100%"
             basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false, autocompletion: false }}
