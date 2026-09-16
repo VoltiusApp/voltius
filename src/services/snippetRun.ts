@@ -65,9 +65,7 @@ export async function runSnippetIntoSessions(
     return true;
   }
 
-  await Promise.all(
-    targets.map((t) => broadcastSnippetInject(t.id, t.type, r.payload, execute).catch(console.error)),
-  );
+  await broadcastSnippetInject(targets, r.payload, execute).catch(console.error);
   return true;
 }
 

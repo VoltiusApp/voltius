@@ -158,7 +158,7 @@ export function HistoryPanel() {
   async function inject(text: string, execute: boolean) {
     if (!activeSession || activeSession.type === "multiplayer") return;
     try {
-      await broadcastSnippetInject(activeSession.id, activeSession.type, text, execute);
+      await broadcastSnippetInject([activeSession], text, execute);
     } catch (e) {
       console.error("history inject failed:", e);
     }

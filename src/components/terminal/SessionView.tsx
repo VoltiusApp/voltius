@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useSessionStore, type ConnectRetryOverride } from "@/stores/sessionStore";
 import { wakeBackoff } from "@/stores/reconnectBackoffCore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { hasInputControl } from "@/services/broadcast";
 import TerminalView from "@/components/terminal/Terminal";
 import { TerminalSearch } from "@/components/terminal/TerminalSearch";
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
@@ -30,14 +31,10 @@ export function HostAwareTerminalView({
   statusBar?: boolean;
 }) {
   useMultiplayerHostBroadcast(session.id, session.type);
-  const mpState = useTeamSessionStore((s) => s.connections[session.id]);
-  const isSharing = !!mpState;
+  const isSharing = useTeamSessionStore((s) => !!s.connections[session.id]);
 
   const inputGateRef = useRef<() => boolean>(() => true);
-  inputGateRef.current = () => {
-    if (!mpState) return true;
-    return mpState.controlHolder === "" || mpState.controlHolder === mpState.myUserId;
-  };
+  inputGateRef.current = () => hasInputControl(session.id);
 
   const [dimensions, setDimensions] = useState<{ cols: number; rows: number } | undefined>();
 

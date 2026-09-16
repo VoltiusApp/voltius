@@ -14,14 +14,18 @@ import type { TerminalSession } from "@/types";
  */
 export function broadcastTargets(): TerminalSession[] {
   const sessions = useSessionStore.getState().sessions;
-  const mpConnections = useTeamSessionStore.getState().connections;
   const targets: TerminalSession[] = [];
   for (const targetId of getPaneSessionIds(useLayoutStore.getState().root)) {
     const target = sessions.find((s) => s.id === targetId);
     if (!target || target.status !== "connected" || target.type === "multiplayer") continue;
-    const mpState = mpConnections[target.id];
-    if (mpState && mpState.controlHolder !== "" && mpState.controlHolder !== mpState.myUserId) continue;
+    if (!hasInputControl(target.id)) continue;
     targets.push(target);
   }
   return targets;
+}
+
+/** False while another multiplayer participant holds control of the session. */
+export function hasInputControl(sessionId: string): boolean {
+  const mpState = useTeamSessionStore.getState().connections[sessionId];
+  return !mpState || mpState.controlHolder === "" || mpState.controlHolder === mpState.myUserId;
 }

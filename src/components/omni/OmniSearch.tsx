@@ -462,7 +462,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           });
         } else {
           const resolved = resolveTemplate(partialTemplate, defaultValues);
-          broadcastSnippetInject(activeSession.id, activeSession.type, resolved, true).catch(console.error);
+          broadcastSnippetInject([activeSession], resolved, true).catch(console.error);
         }
       } else if (item.kind === "toggle") {
         item.onToggle(!item.value);
