@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-09-16
+
+### Added
+
+- Markdown host notes in the right panel and host forms.
+
+### Fixed
+
+- Stripped bidi and zero-width characters before pasting.
+- Pasted snippets get inserted and run in serial sessions too.
+- Raised understated minimum app version for the ssh-config and process-manager plugins.
+- Made the SFTP panel's home button navigate to the remote home.
+- Kept the catalogue icon on an uninstalled built-in plugin's row.
+
 ## [0.37.0] - 2026-09-16
 
 ### Added
