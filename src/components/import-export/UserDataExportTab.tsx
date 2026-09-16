@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { USER_DATA_HANDLERS, buildUserDataBundle } from "@/services/user-data/registry";
 import { toUserDataJSON } from "@/services/user-data/formats";
 import { ActionBtn } from "./shared";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 
 function downloadJson(filename: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -19,7 +20,7 @@ export function UserDataExportTab() {
   const [included, setIncluded] = useState<Record<string, boolean>>(
     () => Object.fromEntries(USER_DATA_HANDLERS.map((h) => [h.key, true])),
   );
-  const [copied, setCopied] = useState(false);
+  const { copied, flash: flashCopied } = useCopiedFlash(2000);
 
   const selectedKeys = USER_DATA_HANDLERS.filter((h) => included[h.key]).map((h) => h.key);
   const bundle = buildUserDataBundle(selectedKeys);
@@ -27,8 +28,7 @@ export function UserDataExportTab() {
 
   const handleCopy = async () => {
     await writeClipboard(payload);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    flashCopied();
   };
 
   const handleDownload = () => downloadJson("voltius-settings.json", JSON.parse(payload));

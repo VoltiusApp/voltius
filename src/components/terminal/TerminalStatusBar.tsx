@@ -12,6 +12,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { serialAutoReconnectEnabled } from "@/stores/serialAutoReconnect";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { getPfState } from "@/services/portForwardingTunnels";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import { metricsStart, metricsStop, onMetricsSnapshot, type MetricsSnapshot } from "@/services/metrics";
@@ -173,8 +174,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
   const streamIdRef = useRef<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
 
-  const [copied, setCopied] = useState(false);
-  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { copied, flash: flashCopied } = useCopiedFlash(1200);
 
   const connectedAtRef = useRef<number | null>(null);
   const [uptime, setUptime] = useState<string | null>(null);
@@ -184,8 +184,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
 
   // System info popover
   const [showDistroInfo, setShowDistroInfo] = useState(false);
-  const [copiedDistro, setCopiedDistro] = useState(false);
-  const copiedDistroTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { copied: copiedDistro, flash: flashCopiedDistro } = useCopiedFlash(1200);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [localSystemInfo, setLocalSystemInfo] = useState<ConnectedSystemInfo | null>(null);
   const systemInfoFetchedRef = useRef(false);
@@ -457,11 +456,13 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
 
   const handleCopyHost = () => {
     if (!copyHostText) return;
-    writeClipboard(copyHostText).then(() => {
-      setCopied(true);
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-      copyTimeoutRef.current = setTimeout(() => setCopied(false), 1200);
-    }).catch(() => {});
+    writeClipboard(copyHostText).then(() => flashCopied()).catch(() => {});
+  };
+
+  const handleCopySystemInfo = () => {
+    if (!systemInfoCopyText) return;
+    writeClipboard(systemInfoCopyText).catch(() => {});
+    flashCopiedDistro();
   };
 
   const borderTopColor = sessionStatus === "error"
@@ -589,13 +590,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                       icon={systemIcon}
                       width={12}
                       style={{ flexShrink: 0, color: "var(--t-text-dim)", cursor: "pointer" }}
-                      onClick={showDistroPopover ? () => {
-                        if (!systemInfoCopyText) return;
-                        writeClipboard(systemInfoCopyText).catch(() => {});
-                        setCopiedDistro(true);
-                        if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
-                        copiedDistroTimeoutRef.current = setTimeout(() => setCopiedDistro(false), 1200);
-                      } : undefined}
+                      onClick={showDistroPopover ? handleCopySystemInfo : undefined}
                     />
                     {showDistroInfo && showDistroPopover && (
                       <div
@@ -680,13 +675,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                 icon={systemIcon}
                 width={12}
                 style={{ flexShrink: 0, color: localSystemColor(localOsName), cursor: "pointer" }}
-                onClick={() => {
-                  if (!systemInfoCopyText) return;
-                  writeClipboard(systemInfoCopyText).catch(() => {});
-                  setCopiedDistro(true);
-                  if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
-                  copiedDistroTimeoutRef.current = setTimeout(() => setCopiedDistro(false), 1200);
-                }}
+                onClick={handleCopySystemInfo}
               />
               {showDistroInfo && (
                 <div

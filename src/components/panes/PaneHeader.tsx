@@ -26,6 +26,7 @@ import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { latencyColor, sessionStatusTone } from "@/utils/statusTone";
 import type { TerminalSession } from "@/types";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 
 function sessionBadge(session: TerminalSession, t: TFunction): string {
   if (session.type === "ssh") return t("panes.badge.ssh");
@@ -106,19 +107,17 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const { pos, open, close } = useContextMenu();
 
   // Copy user@host
-  const [copied, setCopied] = useState(false);
+  const { copied, flash: flashCopied } = useCopiedFlash(1200);
   const [renaming, setRenaming] = useState(false);
   // Closing the editor hands the keyboard back to this pane's terminal.
   const endRename = () => {
     setRenaming(false);
     focusSession(session.id);
   };
-  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Distro popover
   const [showDistroInfo, setShowDistroInfo] = useState(false);
-  const [copiedDistro, setCopiedDistro] = useState(false);
-  const copiedDistroTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { copied: copiedDistro, flash: flashCopiedDistro } = useCopiedFlash(1200);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [localSystemInfo, setLocalSystemInfo] = useState<ConnectedSystemInfo | null>(null);
   const systemInfoFetchedRef = useRef(false);
@@ -199,9 +198,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
       : "";
     if (!text) return;
     writeClipboard(text).catch(() => {});
-    setCopiedDistro(true);
-    if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
-    copiedDistroTimeoutRef.current = setTimeout(() => setCopiedDistro(false), 1200);
+    flashCopiedDistro();
   };
 
   const handleLatencyMouseEnter = () => {
@@ -216,11 +213,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
 
   const handleCopySubtitle = () => {
     if (!subtitle) return;
-    writeClipboard(subtitle).then(() => {
-      setCopied(true);
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-      copyTimeoutRef.current = setTimeout(() => setCopied(false), 1200);
-    }).catch(() => {});
+    writeClipboard(subtitle).then(() => flashCopied()).catch(() => {});
   };
 
   const handleClosePane = () => {

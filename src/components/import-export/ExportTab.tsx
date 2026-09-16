@@ -16,6 +16,7 @@ import { hasSelection, isSingleSelection } from "@/services/import-export/contex
 import { SnippetRefError } from "@/services/import-export/snippetRefs";
 import { ActionBtn, Checkbox, VaultChipSelect } from "./shared";
 import { Toggle } from "@/components/shared/Toggle";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 
 export function ExportTab({ selection, preselectedTypes }: {
   selection: SelectionProps;
@@ -51,7 +52,7 @@ export function ExportTab({ selection, preselectedTypes }: {
   const [preview, setPreview] = useState("");
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, flash: flashCopied } = useCopiedFlash(2000);
   const [bundleCounts, setBundleCounts] = useState<Record<string, number>>({});
   const [showPreview, setShowPreview] = useState(false);
   const [encrypt, setEncrypt] = useState(false);
@@ -123,8 +124,7 @@ export function ExportTab({ selection, preselectedTypes }: {
   const handleCopy = async () => {
     const { content } = await getExportContent();
     await writeClipboard(content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    flashCopied();
   };
 
   const handleDownload = async () => {
