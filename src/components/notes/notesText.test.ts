@@ -30,6 +30,12 @@ describe("toggleTaskAtLine", () => {
     expect(toggleTaskAtLine(src, 5)).toBe(src);
     expect(toggleTaskAtLine(src, 99)).toBe(src);
   });
+  test("toggles tasks inside blockquotes, including nested and tight markers", () => {
+    expect(toggleTaskAtLine("> - [ ] quoted", 1)).toBe("> - [x] quoted");
+    expect(toggleTaskAtLine("> > 1. [x] deep", 1)).toBe("> > 1. [ ] deep");
+    expect(toggleTaskAtLine("  >>- [ ] tight", 1)).toBe("  >>- [x] tight");
+    expect(toggleTaskAtLine("> plain [ ] text", 1)).toBe("> plain [ ] text");
+  });
   test("keeps CRLF line endings", () => {
     expect(toggleTaskAtLine("a\r\n- [ ] b\r\n", 2)).toBe("a\r\n- [x] b\r\n");
   });

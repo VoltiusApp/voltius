@@ -1,4 +1,4 @@
-const TASK_RE = /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\])/;
+const TASK_RE = /^(\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\])/;
 const PASTE_CONTROL_RE = /[\x00-\x08\x0b-\x1f\x7f-\x9f]/g;
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
 

@@ -56,6 +56,12 @@ describe("NotesPreview", () => {
     expect(onChange).toHaveBeenCalledWith("```\n- [ ] not a task\n```\n\n- [ ] first\n- [ ] second");
   });
 
+  test("toggling a checkbox inside a blockquote rewrites its line", () => {
+    const { onChange } = renderPreview("intro\n\n> - [ ] quoted");
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(onChange).toHaveBeenCalledWith("intro\n\n> - [x] quoted");
+  });
+
   test("checkboxes are disabled when read-only", () => {
     renderPreview("- [ ] a", { readOnly: true });
     expect((screen.getByRole("checkbox") as HTMLInputElement).disabled).toBe(true);
