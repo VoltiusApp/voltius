@@ -4,10 +4,9 @@ import CodeMirror from "@uiw/react-codemirror";
 import { readEditorFile, writeEditorFile, type EditorReadError } from "@/services/sftp";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useEditorStore, type EditorDoc } from "@/stores/editorStore";
-import { useThemeStore } from "@/stores/themeStore";
 import { languageForPath } from "./languageForPath";
 import { shouldHandleSaveKey } from "./editorSaveKey";
-import { cmTheme } from "./cmTheme";
+import { useCmTheme } from "./useCmTheme";
 import { IconBtn } from "@/components/filetransfer/FilePane";
 import { Toggle } from "@/components/shared/Toggle";
 
@@ -56,14 +55,7 @@ export function EditorTab({ doc }: { doc: EditorDoc }) {
   const [saving, setSaving] = useState(false);
   const lastSaved = useRef<string>("");
 
-  const activeThemeId = useThemeStore((s) => s.activeThemeId);
-  const customThemes = useThemeStore((s) => s.customThemes);
-  const getActiveTheme = useThemeStore((s) => s.getActiveTheme);
-  const themeExt = useMemo(
-    () => cmTheme(getActiveTheme()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeThemeId, customThemes],
-  );
+  const themeExt = useCmTheme();
 
   const ext = languageForPath(doc.path);
   const extensions = useMemo(
