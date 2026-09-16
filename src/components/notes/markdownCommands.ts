@@ -23,7 +23,12 @@ function prefixFor(kind: LineKind, index: number): string {
   }
 }
 
-function kindOf(prefix: string): LineKind | null {
+function parsePrefix(text: string): RegExpMatchArray {
+  return text.match(LINE_PREFIX_RE)!;
+}
+
+function kindOf(parsed: RegExpMatchArray): LineKind | null {
+  const prefix = parsed[2] ?? "";
   if (/^###\s/.test(prefix)) return "h3";
   if (/^##\s/.test(prefix)) return "h2";
   if (/^#\s/.test(prefix)) return "h1";
@@ -31,6 +36,16 @@ function kindOf(prefix: string): LineKind | null {
   if (/^[-*+]\s/.test(prefix)) return "bullet";
   if (/^\d/.test(prefix)) return "ordered";
   return null;
+}
+
+const LIST_KINDS: ReadonlySet<LineKind | null> = new Set<LineKind>(["bullet", "ordered", "task"]);
+
+function onListLines(command: StateCommand): StateCommand {
+  return (target) => {
+    const { state } = target;
+    const allList = selectedLineNumbers(state).every((n) => LIST_KINDS.has(kindOf(parsePrefix(state.doc.line(n).text))));
+    return allList && command(target);
+  };
 }
 
 function selectedLineNumbers(state: EditorState): number[] {
@@ -69,8 +84,8 @@ export function wrapSelection(marker: string): StateCommand {
 export function toggleLineKind(kind: LineKind): StateCommand {
   return ({ state, dispatch }) => {
     const lines = selectedLineNumbers(state).map((n) => state.doc.line(n));
-    const parsed = lines.map((line) => line.text.match(LINE_PREFIX_RE)!);
-    const remove = parsed.every((m) => kindOf(m[2] ?? "") === kind);
+    const parsed = lines.map((line) => parsePrefix(line.text));
+    const remove = parsed.every((m) => kindOf(m) === kind);
     const changes = lines.map((line, i) => {
       const from = line.from + parsed[i][1].length;
       return { from, to: from + (parsed[i][2]?.length ?? 0), insert: remove ? "" : prefixFor(kind, i) };
@@ -172,8 +187,8 @@ export function notesKeymap(onPreview: () => void): KeyBinding[] {
     { key: "Mod-Shift-8", run: toggleLineKind("bullet") },
     { key: "Mod-Shift-9", run: toggleLineKind("task") },
     { key: "Mod-Enter", run: toggleTaskAtCursor },
-    { key: "Tab", run: indentMore },
-    { key: "Shift-Tab", run: indentLess },
+    { key: "Tab", run: onListLines(indentMore) },
+    { key: "Shift-Tab", run: onListLines(indentLess) },
     { key: "Mod-e", run: preview },
     { key: "Escape", run: preview },
   ];

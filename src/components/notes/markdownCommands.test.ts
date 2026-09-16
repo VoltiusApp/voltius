@@ -6,6 +6,7 @@ import {
   SLASH_ITEMS,
   insertBlock,
   insertLink,
+  notesKeymap,
   slashCompletionSource,
   toggleLineKind,
   toggleTaskAtCursor,
@@ -97,5 +98,19 @@ describe("slashCompletionSource", () => {
   test("offers every slash item", () => {
     const result = complete("/") as unknown as { options: unknown[] };
     expect(result.options).toHaveLength(SLASH_ITEMS.length);
+  });
+});
+
+describe("notesKeymap Tab", () => {
+  const binding = (key: string) => notesKeymap(() => {}).find((b) => b.key === key)!.run as unknown as StateCommand;
+  test("indents and outdents when every selected line is a list item", () => {
+    expect(run("- a", 0, 0, binding("Tab"))).toMatchObject({ ok: true, doc: "  - a" });
+    expect(run("- [ ] a\n1. b", 0, 12, binding("Tab"))).toMatchObject({ ok: true, doc: "  - [ ] a\n  1. b" });
+    expect(run("  * a", 3, 3, binding("Shift-Tab"))).toMatchObject({ ok: true, doc: "* a" });
+  });
+  test("lets focus move when a selected line is not a list item", () => {
+    expect(run("plain", 0, 0, binding("Tab"))).toMatchObject({ ok: false, doc: "plain" });
+    expect(run("- a\nplain", 0, 9, binding("Tab"))).toMatchObject({ ok: false, doc: "- a\nplain" });
+    expect(run("# h", 0, 0, binding("Shift-Tab"))).toMatchObject({ ok: false, doc: "# h" });
   });
 });
