@@ -1,7 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Snippet, SnippetFormData, Folder, FolderFormData } from "@/types";
-import { broadcastActiveForSession } from "@/stores/layoutStore";
-import { broadcastTargets } from "@/services/broadcast";
 
 // ─── Snippets ─────────────────────────────────────────────────────────────────
 
@@ -24,31 +22,6 @@ export async function adoptSnippet(id: string, data: SnippetFormData): Promise<S
 
 export async function deleteSnippet(id: string): Promise<void> {
   return invoke("snippet_delete", { id });
-}
-
-export async function snippetInject(
-  sessionId: string,
-  sessionType: string,
-  text: string,
-  execute: boolean,
-): Promise<void> {
-  return invoke("snippet_inject", { sessionId, sessionType, text, execute });
-}
-
-export async function broadcastSnippetInject(
-  activeSessionId: string,
-  activeSessionType: string,
-  text: string,
-  execute: boolean,
-): Promise<void> {
-  if (broadcastActiveForSession(activeSessionId)) {
-    await Promise.all(
-      broadcastTargets().map((target) => snippetInject(target.id, target.type, text, execute)),
-    );
-    return;
-  }
-
-  return snippetInject(activeSessionId, activeSessionType, text, execute);
 }
 
 // ─── Snippet folders ──────────────────────────────────────────────────────────

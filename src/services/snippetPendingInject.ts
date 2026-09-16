@@ -1,6 +1,6 @@
 import { useSessionStore } from "@/stores/sessionStore";
 import { useSnippetRecentStore, type RecentTarget } from "@/stores/snippetRecentStore";
-import { broadcastSnippetInject } from "@/services/snippets";
+import { broadcastSnippetInject } from "@/services/snippetInject";
 import { isRunnableSession } from "@/services/snippetRun";
 import type { SnippetPendingInject } from "@/services/snippetRunCore";
 

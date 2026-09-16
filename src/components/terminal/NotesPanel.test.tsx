@@ -24,7 +24,7 @@ vi.mock("@/hooks/useActiveHostConnection", () => ({
       ?? Object.values(h.teamConnections).flat().find((c) => c.id === h.session?.connectionId),
   }),
 }));
-vi.mock("@/services/snippets", () => ({ broadcastSnippetInject: h.inject }));
+vi.mock("@/services/snippetInject", () => ({ broadcastSnippetInject: h.inject }));
 vi.mock("@/hooks/useTerminal", () => ({ getTerminalApi: vi.fn((_id: string) => (h.terminalApi ? { paste: h.paste } : null)) }));
 vi.mock("@/stores/connectionStore", () => ({
   connectionToFormData: (c: Connection) => ({ name: c.name, host: c.host, notes: c.notes }),

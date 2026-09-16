@@ -3,7 +3,7 @@ import type { Snippet, TerminalSession } from "@/types";
 import type { SnippetPendingInject } from "./snippetRunCore";
 
 const inject = vi.fn(async (_id: string, _type: string, _text: string, _execute: boolean) => {});
-vi.mock("@/services/snippets", () => ({
+vi.mock("@/services/snippetInject", () => ({
   broadcastSnippetInject: (...a: [string, string, string, boolean]) => inject(...a),
 }));
 

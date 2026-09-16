@@ -1,20 +1,20 @@
 import i18n from "@/i18n";
 import { resolveHostCommand, type HostCommandSlot } from "./hostCommand";
 import { runSnippetSequence, reportSequenceResult } from "./snippetSequence";
-import { snippetInject } from "./snippets";
+import { snippetInject } from "./snippetInject";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { rememberedVars, rememberVars } from "@/stores/hostCommandVarsStore";
 import type { RunTarget } from "./sftpTarget";
 import type { SequencePrompt, SequenceRunResult } from "./snippetSequence";
-import type { Connection, Snippet } from "@/types";
+import type { Connection, Snippet, TerminalSession } from "@/types";
 
 export interface HostCommandDeps {
   findSnippet: (id: string) => Snippet | undefined;
   runSequence: typeof runSnippetSequence;
   report: (r: SequenceRunResult) => void;
   enqueue: (p: SequencePrompt) => void;
-  inject: (sessionId: string, sessionType: string, text: string, execute: boolean) => Promise<void>;
+  inject: typeof snippetInject;
   notifyError: (message: string) => void;
 }
 
@@ -72,7 +72,7 @@ export async function runHostCommand(
   conn: Connection,
   slot: HostCommandSlot,
   sessionId: string,
-  sessionType: string,
+  sessionType: TerminalSession["type"],
   deps: HostCommandDeps = defaultHostCommandDeps(),
 ): Promise<void> {
   try {

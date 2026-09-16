@@ -731,7 +731,6 @@ pub fn run() {
             commands::snippets::snippet_update,
             commands::snippets::snippet_adopt,
             commands::snippets::snippet_delete,
-            commands::snippets::snippet_inject,
             commands::snippets::snippet_folder_list,
             commands::snippets::snippet_folder_create,
             commands::snippets::snippet_folder_update,

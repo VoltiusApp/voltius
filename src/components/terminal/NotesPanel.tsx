@@ -2,11 +2,10 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NotesEmptyState, NotesFrame } from "@/components/notes/NotesChrome";
 import { NotesEditor, type NotesMode } from "@/components/notes/NotesEditor";
-import { sanitizePasteText } from "@/components/notes/notesText";
 import { useNotesDraft } from "@/components/notes/useNotesDraft";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
-import { getTerminalApi } from "@/hooks/useTerminal";
 import { usePermissions } from "@/hooks/usePermission";
+import { pasteToSession } from "@/services/terminalPaste";
 import { connectionToFormData, useConnectionStore } from "@/stores/connectionStore";
 import { findTeamEntry } from "@/stores/teamVaultMap";
 import type { Connection, TerminalSession } from "@/types";
@@ -37,7 +36,7 @@ function NotesPanelBody({ session, connection }: { session: TerminalSession; con
 
   const runCode = session.type === "multiplayer"
     ? undefined
-    : (code: string) => getTerminalApi(session.id)?.paste(sanitizePasteText(code));
+    : (code: string) => void pasteToSession(session.id, code);
 
   return (
     <div className="flex flex-col h-full">

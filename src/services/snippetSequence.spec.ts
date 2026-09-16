@@ -413,7 +413,7 @@ describe("runSnippetSequence — seeded user variables", () => {
       created_at: "", updated_at: "", vault_id: "personal", clocks: {},
     } as Snippet;
   }
-  const target = { kind: "session" as const, sessionId: "s1", sessionType: "ssh" };
+  const target = { kind: "session" as const, sessionId: "s1", sessionType: "ssh" as const };
 
   it("prompts when the caller supplies nothing", async () => {
     const onPrompt = vi.fn();

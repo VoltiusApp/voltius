@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useCommandHistoryStore, type CommandHistoryEntry } from "@/stores/commandHistoryStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { broadcastSnippetInject } from "@/services/snippets";
+import { broadcastSnippetInject } from "@/services/snippetInject";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import i18n from "@/i18n";
 

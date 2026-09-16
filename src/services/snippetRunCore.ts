@@ -25,9 +25,9 @@ export interface ResolvedSnippet {
 
 /**
  * Resolve dynamic vars; compute the resolved payload text and which user vars
- * still need input. Pure. The execution newline is NOT added here — the backend
- * `snippet_inject` appends it when the `execute` flag is set, so payload is the
- * bare resolved text in both insert and execute modes.
+ * still need input. Pure. The execution newline is NOT added here — `snippetInject`
+ * appends it when the `execute` flag is set, so payload is the bare resolved text
+ * in both insert and execute modes.
  */
 export function resolveSnippetPayload(
   snippet: Snippet,

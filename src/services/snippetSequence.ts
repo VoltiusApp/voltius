@@ -8,7 +8,7 @@ import { collectSequenceVars, resolveLeafSteps, leafTemplateText } from "./snipp
 import { buildDynamicContext } from "./snippetRunCore";
 import { parseVariables } from "./snippetParser";
 import { resolveSftpIdForTarget, type RunTarget } from "./sftpTarget";
-import { snippetInject } from "./snippets";
+import { snippetInject } from "./snippetInject";
 import { readClipboard } from "@/utils/clipboard";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSessionStore } from "@/stores/sessionStore";

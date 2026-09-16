@@ -16,7 +16,7 @@ import {
   parseVariables, needsUserInput, buildDynamicValues, buildDefaultValues,
   resolveTemplate, type DynamicContext,
 } from "@/services/snippetParser";
-import { broadcastSnippetInject } from "@/services/snippets";
+import { broadcastSnippetInject } from "@/services/snippetInject";
 import { runSnippetSequence, reportSequenceResult } from "@/services/snippetSequence";
 import { getActiveRunnableSession } from "@/services/snippetRun";
 import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
