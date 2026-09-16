@@ -9,7 +9,7 @@ import { satisfiesMinAppVersion, beatsSeededVersion } from "@/plugins/version";
  * compatible with it. `builtin: true` marks the row so Browse can badge it and
  * `installPlugin` can route it through the no-network, no-hash-check floor path.
  */
-export function floorPluginFrom(entry: SeededEntry): MarketplacePlugin {
+export function floorPluginFrom(entry: SeededEntry, icon?: string): MarketplacePlugin {
   const { manifest } = entry;
   return {
     id: manifest.id,
@@ -21,6 +21,7 @@ export function floorPluginFrom(entry: SeededEntry): MarketplacePlugin {
     tags: [],
     permissions: manifest.permissions,
     theme: false,
+    icon,
     sourceId: "builtin",
     builtin: true,
   };
@@ -70,7 +71,7 @@ export function mergeBrowseCatalog(
     if (seeded && removed.has(p.id)) {
       const versionSatisfied = appVersion === null || satisfiesMinAppVersion(p, appVersion);
       const newer = beatsSeededVersion(p.version, seeded.manifest.version);
-      result.push(versionSatisfied && newer ? p : floorPluginFrom(seeded));
+      result.push(versionSatisfied && newer ? p : floorPluginFrom(seeded, p.icon));
       handled.add(p.id);
     } else if (seeded) {
       result.push(p);
