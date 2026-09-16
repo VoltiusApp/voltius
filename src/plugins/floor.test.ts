@@ -108,6 +108,12 @@ test("mergeBrowseCatalog falls back to the floor when the catalogue version is o
   expect(merged[0].version).toBe("1.1.0");
 });
 
+test("mergeBrowseCatalog keeps the catalogue entry's icon on the floor entry it replaces", () => {
+  const merged = mergeBrowseCatalog([catalogEntry({ version: "1.0.0", icon: "custom:github" })], seeded(), ["plugin-docker"], "2.0.0");
+  expect(merged[0].builtin).toBe(true);
+  expect(merged[0].icon).toBe("custom:github");
+});
+
 test("mergeBrowseCatalog falls back to the floor when the catalogue version ties the seeded manifest", () => {
   const merged = mergeBrowseCatalog([catalogEntry({ version: "1.1.0" })], seeded(), ["plugin-docker"], "2.0.0");
   expect(merged).toHaveLength(1);
