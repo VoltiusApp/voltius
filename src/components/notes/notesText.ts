@@ -1,4 +1,5 @@
 const TASK_RE = /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\])/;
+const PASTE_CONTROL_RE = /[\x00-\x08\x0b-\x1f\x7f-\x9f]/g;
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
 
 export function normalizeNotes(value: string): string | undefined {
@@ -25,4 +26,8 @@ export function isAllowedLinkHref(href: string | undefined | null): href is stri
   } catch {
     return false;
   }
+}
+
+export function sanitizePasteText(text: string): string {
+  return text.replace(/\r\n?/g, "\n").replace(PASTE_CONTROL_RE, "");
 }

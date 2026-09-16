@@ -9,6 +9,9 @@ const h = vi.hoisted(() => ({
   session: undefined as undefined | { id: string; type: string; connectionId: string },
   updateConnection: vi.fn(async (_id: string, _data: unknown) => {}),
   inject: vi.fn(async () => {}),
+  paste: vi.fn((_text: string) => {}),
+  terminalApi: true,
+  code: "uptime",
 }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string, o?: { error?: string }) => (o?.error ? `${k}:${o.error}` : k) }) }));
@@ -22,6 +25,7 @@ vi.mock("@/hooks/useActiveHostConnection", () => ({
   }),
 }));
 vi.mock("@/services/snippets", () => ({ broadcastSnippetInject: h.inject }));
+vi.mock("@/hooks/useTerminal", () => ({ getTerminalApi: vi.fn((_id: string) => (h.terminalApi ? { paste: h.paste } : null)) }));
 vi.mock("@/stores/connectionStore", () => ({
   connectionToFormData: (c: Connection) => ({ name: c.name, host: c.host, notes: c.notes }),
   useConnectionStore: { getState: () => ({ connections: h.connections, teamConnections: h.teamConnections, updateConnection: h.updateConnection }) },
@@ -39,7 +43,7 @@ vi.mock("@/components/notes/NotesEditor", () => ({
   NotesEditor: (p: { value: string; onChange: (v: string) => void; readOnly?: boolean; onRunCode?: (c: string) => void }) => (
     <div>
       <textarea data-notes value={p.value} readOnly={p.readOnly} onChange={(e) => p.onChange(e.target.value)} />
-      {p.onRunCode && <button onClick={() => p.onRunCode!("uptime")}>run</button>}
+      {p.onRunCode && <button onClick={() => p.onRunCode!(h.code)}>run</button>}
     </div>
   ),
 }));
@@ -56,6 +60,8 @@ beforeEach(() => {
   h.connections = [host()];
   h.teamConnections = {};
   h.session = { id: "s1", type: "ssh", connectionId: "c1" };
+  h.terminalApi = true;
+  h.code = "uptime";
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks(); });
 
@@ -90,14 +96,41 @@ describe("NotesPanel", () => {
     expect(h.updateConnection).toHaveBeenCalledTimes(2);
   });
 
-  test("send to terminal pastes without executing; multiplayer sessions get no button", () => {
-    render(<NotesPanel />);
-    fireEvent.click(screen.getByText("run"));
-    expect(h.inject).toHaveBeenCalledWith("s1", "ssh", "uptime", false);
-    cleanup();
-    h.session = { id: "s3", type: "multiplayer", connectionId: "c1" };
-    render(<NotesPanel />);
-    expect(screen.queryByText("run")).toBeNull();
+  describe("send to terminal", () => {
+    test("pastes sanitised multi-line code through the session's terminal, never the raw inject path", async () => {
+      const { getTerminalApi } = await import("@/hooks/useTerminal");
+      h.code = "echo one\r\necho two\x1b[201~\x15rm -rf ~\x0f\x7f\necho three";
+      render(<NotesPanel />);
+      fireEvent.click(screen.getByText("run"));
+      expect(getTerminalApi).toHaveBeenCalledWith("s1");
+      expect(h.paste).toHaveBeenCalledTimes(1);
+      expect(h.paste).toHaveBeenCalledWith("echo one\necho two[201~rm -rf ~\necho three");
+      expect(h.inject).not.toHaveBeenCalled();
+    });
+
+    test("serial sessions get the button and paste", async () => {
+      const { getTerminalApi } = await import("@/hooks/useTerminal");
+      h.session = { id: "s4", type: "serial", connectionId: "c1" };
+      render(<NotesPanel />);
+      fireEvent.click(screen.getByText("run"));
+      expect(getTerminalApi).toHaveBeenCalledWith("s4");
+      expect(h.paste).toHaveBeenCalledWith("uptime");
+      expect(h.inject).not.toHaveBeenCalled();
+    });
+
+    test("does nothing when the session has no terminal", () => {
+      h.terminalApi = false;
+      render(<NotesPanel />);
+      expect(() => fireEvent.click(screen.getByText("run"))).not.toThrow();
+      expect(h.paste).not.toHaveBeenCalled();
+      expect(h.inject).not.toHaveBeenCalled();
+    });
+
+    test("multiplayer sessions get no button", () => {
+      h.session = { id: "s3", type: "multiplayer", connectionId: "c1" };
+      render(<NotesPanel />);
+      expect(screen.queryByText("run")).toBeNull();
+    });
   });
 
   test("switching the active host flushes the pending edit to the old host and shows the new host's notes", async () => {

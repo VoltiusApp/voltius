@@ -2,12 +2,13 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { NotesEditor, type NotesMode } from "@/components/notes/NotesEditor";
+import { sanitizePasteText } from "@/components/notes/notesText";
 import { useNotesDraft } from "@/components/notes/useNotesDraft";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
+import { getTerminalApi } from "@/hooks/useTerminal";
 import { usePermissions } from "@/hooks/usePermission";
 import { connectionToFormData, useConnectionStore } from "@/stores/connectionStore";
 import { findTeamEntry } from "@/stores/teamVaultMap";
-import { broadcastSnippetInject } from "@/services/snippets";
 import type { Connection, TerminalSession } from "@/types";
 
 async function saveHostNotes(id: string, notes: string | undefined): Promise<void> {
@@ -41,9 +42,7 @@ function NotesPanelBody({ session, connection }: { session: TerminalSession; con
 
   const runCode = session.type === "multiplayer"
     ? undefined
-    : (code: string) => {
-        broadcastSnippetInject(session.id, session.type, code, false).catch((e) => console.error("notes inject failed:", e));
-      };
+    : (code: string) => getTerminalApi(session.id)?.paste(sanitizePasteText(code));
 
   return (
     <div className="flex flex-col h-full">
