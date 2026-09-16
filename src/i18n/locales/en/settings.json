@@ -1060,6 +1060,10 @@
         "panelThemes": {
           "label": "Themes Panel",
           "desc": "Open themes in right panel"
+        },
+        "panelNotes": {
+          "label": "Notes Panel",
+          "desc": "Open host notes in right panel"
         }
       }
     }

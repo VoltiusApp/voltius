@@ -97,7 +97,8 @@
       "closePanelTitle": "Close panel",
       "sections": {
         "history": "History",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "notes": "Notes"
       },
       "pluginUnavailable": "This panel is no longer available. The plugin that provided it was removed or turned off.",
       "pluginUnavailableAction": "Back to Themes"

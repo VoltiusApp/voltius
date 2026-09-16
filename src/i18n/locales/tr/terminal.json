@@ -97,7 +97,8 @@
       "closePanelTitle": "Paneli kapat",
       "sections": {
         "history": "Geçmiş",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "notes": "Notlar"
       },
       "pluginUnavailable": "Bu panel artık kullanılamıyor. Paneli sağlayan eklenti kaldırıldı veya devre dışı bırakıldı.",
       "pluginUnavailableAction": "Temalara dön"

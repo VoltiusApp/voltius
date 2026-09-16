@@ -1060,6 +1060,10 @@
         "panelThemes": {
           "label": "Panneau des thèmes",
           "desc": "Ouvrir les thèmes dans le panneau latéral"
+        },
+        "panelNotes": {
+          "label": "Panneau des notes",
+          "desc": "Ouvrir les notes de l'hôte dans le panneau latéral"
         }
       }
     }

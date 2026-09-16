@@ -1,0 +1,49 @@
+{
+  "notes": {
+    "toolbar": {
+      "h1": "Başlık 1",
+      "h2": "Başlık 2",
+      "h3": "Başlık 3",
+      "bold": "Kalın",
+      "italic": "İtalik",
+      "code": "Satır içi kod",
+      "link": "Bağlantı",
+      "bullet": "Madde işaretli liste",
+      "ordered": "Numaralı liste",
+      "task": "Yapılacaklar listesi",
+      "codeBlock": "Kod bloğu",
+      "preview": "Önizleme",
+      "edit": "Düzenle"
+    },
+    "slash": {
+      "h1": "Başlık 1",
+      "h2": "Başlık 2",
+      "h3": "Başlık 3",
+      "bullet": "Madde işaretli liste",
+      "numbered": "Numaralı liste",
+      "todo": "Yapılacaklar listesi",
+      "code": "Kod bloğu",
+      "table": "Tablo",
+      "divider": "Ayırıcı",
+      "link": "Bağlantı"
+    },
+    "empty": {
+      "title": "Henüz not yok",
+      "start": "Yazmaya başla"
+    },
+    "code": {
+      "copy": "Kopyala",
+      "copied": "Kopyalandı",
+      "sendToTerminal": "Terminale gönder"
+    },
+    "panel": {
+      "noHost": "Notlar kayıtlı sunuculara bağlıdır",
+      "readOnly": "Salt okunur",
+      "conflict": "Notlar başka bir yerde değiştirildi",
+      "reload": "Yeniden yükle",
+      "keepMine": "Benimkini koru",
+      "saveFailed": "Notlar kaydedilemedi: {{error}}",
+      "retry": "Tekrar dene"
+    }
+  }
+}

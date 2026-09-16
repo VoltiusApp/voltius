@@ -1032,7 +1032,8 @@
         "terminalSearch": { "label": "在终端中查找", "desc": "搜索终端回滚" },
         "history":        { "label": "历史面板",    "desc": "在右侧面板打开命令历史" },
         "snippets":       { "label": "代码片段面板",   "desc": "在右侧面板打开代码片段" },
-        "panelThemes":    { "label": "主题面板",     "desc": "在右侧面板打开主题" }
+        "panelThemes":    { "label": "主题面板",     "desc": "在右侧面板打开主题" },
+        "panelNotes":     { "label": "备注面板", "desc": "在右侧面板中打开主机备注" }
       }
     }
   }
