@@ -112,6 +112,25 @@ describe("NotesEditor", () => {
     expect(toggle.className.split(" ")).toContain("shrink-0");
   });
 
+  test.each([false, true])("android=%s: the toolbar's height-setting classes match in edit and preview", (android) => {
+    h.android = android;
+    const HEIGHT = /^(?:size-|h-|min-h-|w-6|p[ytb]?-|m[ytb]?-)/;
+    const heightClasses = (mode: "edit" | "preview") => {
+      renderEditor({ value: "x", mode });
+      const toggle = screen.getByTitle(mode === "edit" ? /notes.toolbar.preview/ : /notes.toolbar.edit/);
+      const root = toggle.parentElement!;
+      const scroller = root.firstElementChild!;
+      const pick = (el: Element) => el.className.split(" ").filter((c) => HEIGHT.test(c)).sort();
+      const result = { root: pick(root), scroller: pick(scroller), toggle: pick(toggle) };
+      cleanup();
+      return result;
+    };
+    const edit = heightClasses("edit");
+    expect(heightClasses("preview")).toEqual(edit);
+    const block = (classes: string[], prefix: string) => classes.find((c) => c.startsWith(prefix))?.slice(prefix.length);
+    expect(block(edit.toggle, "my-")).toBe(block(edit.scroller, "py-"));
+  });
+
   test.each([
     [false, "w-6"],
     [true, "size-[36px]"],

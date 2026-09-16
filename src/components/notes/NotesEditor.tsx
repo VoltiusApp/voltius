@@ -255,7 +255,7 @@ export function NotesEditor({
           </div>
           <button
             type="button"
-            className={toolbarButton}
+            className={`${toolbarButton} my-1`}
             title={`${t(effectiveMode === "edit" ? "notes.toolbar.preview" : "notes.toolbar.edit")} (${shortcutLabel("E")})`}
             onClick={() => requestMode(effectiveMode === "edit" ? "preview" : "edit")}
           >
