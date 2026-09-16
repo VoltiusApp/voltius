@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
@@ -13,6 +13,7 @@ import { writeClipboard } from "@/utils/clipboard";
 import { contributionsByPlugin, onContributionsChanged } from "@/mcp/contributions";
 import { useMcpContributionStore, setPluginExposed } from "@/stores/mcpContributionStore";
 import { getLoadedPlugins } from "@/plugins/runtime";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 
 /** The installed plugin's manifest name, falling back to its id: a contribution
  *  can outlive the plugin's load, and only the id is always available. */
@@ -21,16 +22,11 @@ function pluginDisplayName(pluginId: string): string {
 }
 
 function useCopy(value: string) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  useEffect(() => () => clearTimeout(timer.current), []);
+  const { copied, flash } = useCopiedFlash(1500);
 
   async function copy() {
     await writeClipboard(value);
-    setCopied(true);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setCopied(false), 1500);
+    flash();
   }
 
   return { copied, copy };

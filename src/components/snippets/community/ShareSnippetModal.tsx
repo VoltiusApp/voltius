@@ -7,6 +7,7 @@ import { writeClipboard } from "@/utils/clipboard";
 import type { Snippet } from "@/types";
 import { buildShareEntry, shareEntryJson, githubNewFileUrl } from "@/services/snippetShare";
 import { scanSteps, type SecretFinding } from "@/services/snippetSecretScan";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 
 const GUIDELINES_URL = "https://github.com/voltiusApp/marketplace/blob/main/CONTRIBUTING.md";
 
@@ -19,7 +20,7 @@ export function ShareSnippetModal({ snippets, packName, onClose }: {
   const { t } = useTranslation();
   const [author, setAuthor] = useState("");
   const [description, setDescription] = useState("");
-  const [copied, setCopied] = useState(false);
+  const { copied, flash: flashCopied } = useCopiedFlash(2000);
 
   const built = useMemo(() => {
     try {
@@ -50,8 +51,7 @@ export function ShareSnippetModal({ snippets, packName, onClose }: {
 
   async function handleCopy() {
     await writeClipboard(built.json);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    flashCopied();
   }
 
   return (
