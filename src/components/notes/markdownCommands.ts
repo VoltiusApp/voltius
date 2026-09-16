@@ -1,7 +1,7 @@
-import { EditorSelection, type EditorState, type StateCommand } from "@codemirror/state";
+import { EditorSelection, type EditorState, type StateCommand, type Transaction } from "@codemirror/state";
 import type { KeyBinding } from "@codemirror/view";
 import { indentLess, indentMore } from "@codemirror/commands";
-import type { Completion, CompletionContext, CompletionResult, CompletionSource } from "@codemirror/autocomplete";
+import { pickedCompletion, type Completion, type CompletionContext, type CompletionResult, type CompletionSource } from "@codemirror/autocomplete";
 import { toggleTaskAtLine } from "./notesText";
 
 export type LineKind = "h1" | "h2" | "h3" | "bullet" | "ordered" | "task";
@@ -165,9 +165,17 @@ export function slashCompletionSource(items: SlashItem[], label: (key: string) =
     const options: Completion[] = items.map((item) => ({
       label: `/${item.id}`,
       displayLabel: label(item.labelKey),
-      apply: (view, _completion, applyFrom, applyTo) => {
-        view.dispatch({ changes: { from: applyFrom, to: applyTo } });
-        item.command(view);
+      apply: (view, completion, applyFrom, applyTo) => {
+        const removed = view.state.update({ changes: { from: applyFrom, to: applyTo } });
+        let applied: Transaction | undefined;
+        item.command({ state: removed.state, dispatch: (tr) => { applied = tr; } });
+        const changes = applied ? removed.changes.compose(applied.changes) : removed.changes;
+        view.dispatch({
+          changes,
+          selection: applied?.selection ?? view.state.selection.map(changes, 1),
+          annotations: pickedCompletion.of(completion),
+          ...EDIT_ANNOTATIONS,
+        });
       },
     }));
     return { from, options, validFor: /^\/\w*$/ };

@@ -1,6 +1,8 @@
-import { describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test } from "vitest";
 import { EditorSelection, EditorState, type StateCommand } from "@codemirror/state";
-import { CompletionContext } from "@codemirror/autocomplete";
+import { CompletionContext, type Completion, type CompletionResult } from "@codemirror/autocomplete";
+import { EditorView } from "@codemirror/view";
+import { history, undo } from "@codemirror/commands";
 import {
   BLOCKS,
   SLASH_ITEMS,
@@ -82,6 +84,10 @@ describe("insertBlock", () => {
 });
 
 describe("slashCompletionSource", () => {
+  beforeAll(() => {
+    Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
+    Range.prototype.getBoundingClientRect ??= () => new DOMRect();
+  });
   const source = slashCompletionSource(SLASH_ITEMS, (k) => k);
   function complete(doc: string) {
     const state = EditorState.create({ doc, selection: EditorSelection.cursor(doc.length) });
@@ -94,6 +100,21 @@ describe("slashCompletionSource", () => {
   test("does not open inside a word or a path", () => {
     expect(complete("a/b")).toBeNull();
     expect(complete("cd /etc/ho")).toBeNull();
+  });
+  test.each([["/h1", "# ", 2], ["text /h1", "# text ", 7], ["/code", "```\n\n```", 4]] as const)("applying a command on %j undoes in one step", (doc, applied, head) => {
+    const view = new EditorView({
+      state: EditorState.create({ doc, selection: EditorSelection.cursor(doc.length), extensions: [history()] }),
+      parent: document.body,
+    });
+    const result = complete(doc) as CompletionResult;
+    const id = doc.slice(result.from + 1);
+    const option = result.options.find((o) => o.label === `/${id}`)! as Completion & { apply: (...a: unknown[]) => void };
+    option.apply(view, option, result.from, doc.length);
+    expect(view.state.doc.toString()).toBe(applied);
+    expect(view.state.selection.main.head).toBe(head);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+    view.destroy();
   });
   test("offers every slash item", () => {
     const result = complete("/") as unknown as { options: unknown[] };
