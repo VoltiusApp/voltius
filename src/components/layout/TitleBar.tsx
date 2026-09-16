@@ -36,6 +36,7 @@ import { STATUS_TONE_COLOR, sessionStatusTone } from "@/utils/statusTone";
 import { sessionLabel, splitTabLabel } from "@/utils/sessionLabel";
 import { focusSession } from "@/hooks/useTerminal";
 import { splitTabMenuItems } from "@/utils/splitTabMenuItems";
+import { fadeMask, useTabStripScroll } from "@/hooks/useTabStripScroll";
 
 const appWindow = getCurrentWindow();
 
@@ -144,6 +145,16 @@ export default function TitleBar() {
     return item ? [item] : [];
   });
 
+  const activeItemKey = activeNav !== "terminal" || sftpPanelOpen
+    ? null
+    : splitTabActive ? `split:${activeSplitTabId}` : `session:${activeSessionId}`;
+  const tabStrip = useTabStripScroll(`${activeItemKey}|${visibleItemKeys.length}`);
+  const isDraggingIntoTitlebar = isDraggingTitlebarItem || isDraggingPane;
+
+  useEffect(() => {
+    if (!isDraggingIntoTitlebar) tabStrip.stopAutoScroll();
+  }, [isDraggingIntoTitlebar, tabStrip.stopAutoScroll]);
+
   useEffect(() => {
     syncTitlebarOrder(visibleItemKeys);
   }, [syncTitlebarOrder, visibleItemKeys.join("|")]);
@@ -217,6 +228,7 @@ export default function TitleBar() {
   const updateTitlebarDropTarget = (e: React.MouseEvent<HTMLDivElement>) => {
     const drag = useDragStore.getState();
     if (drag.dragType !== "pane" && drag.dragType !== "tab") return;
+    tabStrip.autoScrollNear(e.clientX);
     const tab = (e.target as HTMLElement).closest<HTMLElement>("[data-titlebar-key]");
     if (!tab || !e.currentTarget.contains(tab)) {
       useDragStore.getState().setDropTarget({ type: "titlebar", targetKey: null, placement: "after" });
@@ -331,9 +343,8 @@ export default function TitleBar() {
           <div className="shrink-0 w-px h-[1.667rem] bg-(--t-bg-card-hover)" />
         )}
 
-        {/* Scrollable session tabs */}
         <div
-          className="flex items-center gap-1.5 overflow-x-auto flex-1 h-full min-w-0 rounded-xl transition-colors"
+          className="flex items-center gap-1.5 flex-1 h-full min-w-0 rounded-xl transition-colors"
           style={{
             background: titlebarDropActive
               ? "color-mix(in srgb, var(--t-accent) 10%, transparent)"
@@ -342,8 +353,14 @@ export default function TitleBar() {
           onMouseEnter={updateTitlebarDropTarget}
           onMouseMove={updateTitlebarDropTarget}
           onMouseLeave={() => {
+            tabStrip.stopAutoScroll();
             if (useDragStore.getState().dropTarget?.type === "titlebar") useDragStore.getState().setDropTarget(null);
           }}
+        >
+        <div
+          ref={tabStrip.ref}
+          className="flex items-center gap-1.5 h-full min-w-0 overflow-x-auto scrollbar-none"
+          style={fadeMask(tabStrip.overflow)}
         >
         {titlebarItems.map((item) => {
           if (item.type === "split") {
@@ -379,6 +396,7 @@ export default function TitleBar() {
                 ) : (
                 <button
                   data-titlebar-key={item.key}
+                  data-strip-active={isActiveSplitTab}
                   onClick={() => handleUnifiedTabClick(tab.id)}
                   onContextMenu={(e) => { setMenuTarget({ kind: "split", id: tab.id }); openTabMenu(e); }}
                   onDoubleClick={() => setRenaming({ kind: "split", id: tab.id })}
@@ -468,6 +486,7 @@ export default function TitleBar() {
               ) : (
               <button
                 data-titlebar-key={item.key}
+                data-strip-active={isActive}
                 onClick={() => handleTabClick(session.id)}
                 onContextMenu={(e) => { setMenuTarget({ kind: "session", id: session.id }); openTabMenu(e); }}
                 onDoubleClick={() => setRenaming({ kind: "session", id: session.id })}
@@ -522,8 +541,8 @@ export default function TitleBar() {
         })}
 
         {renderTitlebarDropCue(null, "after")}
+        </div>
 
-        {/* New tab button */}
         <NewTabButton />
         </div>
       </div>

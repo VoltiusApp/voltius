@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useEditorStore, type EditorTab } from "@/stores/editorStore";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { tabIcon } from "./tabIcon";
 import { startTabDragGesture, useTabDragSemantic } from "./tabDrag";
+import { fadeMask, useTabStripScroll } from "@/hooks/useTabStripScroll";
 
 function tabLabel(t: EditorTab): string {
   return t.kind === "file"
@@ -23,12 +24,7 @@ export function EditorTabStrip() {
   const drag = useTabDragSemantic();
   const reorderIndex = drag?.target?.kind === "reorder" ? drag.target.index : null;
 
-  // Keep the active tab visible when it changes and the strip has scrolled.
-  const activeRef = useRef<HTMLElement | null>(null);
-  const setActiveRef = (el: HTMLElement | null) => { activeRef.current = el; };
-  useEffect(() => {
-    activeRef.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
-  }, [activeTabId]);
+  const tabStrip = useTabStripScroll(`${activeTabId}|${tabs.length}`);
 
   // Close immediately unless the tab has unsaved edits, in which case confirm.
   const requestClose = (id: string) => {
@@ -56,7 +52,6 @@ export function EditorTabStrip() {
     >
       {/* "Files" stays pinned as a folder icon; only the tab list scrolls. */}
       <button
-        ref={activeTabId === null ? setActiveRef : undefined}
         className="shrink-0 flex items-center justify-center px-3 transition-colors"
         title={t("fileTransfer.editor.tabStrip.filesTab")}
         style={{
@@ -70,7 +65,7 @@ export function EditorTabStrip() {
         <Icon icon="lucide:folder" width={15} />
       </button>
 
-      <div className="flex items-stretch min-w-0 overflow-x-auto">
+      <div ref={tabStrip.ref} className="flex items-stretch min-w-0 overflow-x-auto scrollbar-none" style={fadeMask(tabStrip.overflow)}>
         {tabs.map((tab, i) => {
           const active = activeTabId === tab.id;
           const name = tabLabel(tab);
@@ -81,7 +76,7 @@ export function EditorTabStrip() {
                 <div className="shrink-0 self-stretch" style={{ width: 2, background: "var(--t-accent)" }} />
               )}
               <div
-                ref={active ? setActiveRef : undefined}
+                data-strip-active={active}
                 data-tab-id={tab.id}
                 className="group relative flex items-center gap-1.5 shrink-0 pl-2.5 pr-1.5 cursor-pointer transition-colors"
                 style={{
