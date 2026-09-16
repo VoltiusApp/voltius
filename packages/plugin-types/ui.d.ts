@@ -13,6 +13,7 @@ declare module "@voltius/ui" {
     children?: ReactNode;
   }>;
   export function useAutosave<T>(value: T, save: (v: T) => void | Promise<void>, delayMs?: number): void;
+  export function useCopiedFlash(durationMs: number): { copied: boolean; flash: (persist?: boolean) => void };
   export function useT(api: PluginAPI): PluginAPI["i18n"]["t"];
   export function useSessionById(api: PluginAPI, sessionId: string): PluginSession | null;
   export function useActiveSession(api: PluginAPI | null): PluginSession | null;

@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Snippet, TerminalSession } from "@/types";
 import type { SnippetPendingInject } from "./snippetRunCore";
 
-const inject = vi.fn(async (_id: string, _type: string, _text: string, _execute: boolean) => {});
-vi.mock("@/services/snippetInject", () => ({
-  broadcastSnippetInject: (...a: [string, string, string, boolean]) => inject(...a),
+const { inject } = vi.hoisted(() => ({
+  inject: vi.fn(async (_targets: Pick<TerminalSession, "id">[], _text: string, _execute: boolean) => {}),
 }));
+vi.mock("@/services/snippetInject", () => ({ broadcastSnippetInject: inject }));
 
 let sessions: TerminalSession[] = [];
 vi.mock("@/stores/sessionStore", () => ({
@@ -45,9 +45,8 @@ describe("injectPendingSnippet", () => {
   it("injects into every target session", async () => {
     sessions = [mkSession({}), mkSession({ id: "sess2", connectionId: "c2", connectionName: "db01" })];
     await injectPendingSnippet(mkPending({ sessionIds: ["sess1", "sess2"] }), "ss -tulpn", true);
-    expect(inject.mock.calls.map(c => [c[0], c[2], c[3]])).toEqual([
-      ["sess1", "ss -tulpn", true],
-      ["sess2", "ss -tulpn", true],
+    expect(inject.mock.calls.map(c => [c[0].map(t => t.id), c[1], c[2]])).toEqual([
+      [["sess1", "sess2"], "ss -tulpn", true],
     ]);
   });
 
@@ -76,6 +75,6 @@ describe("injectPendingSnippet", () => {
       mkSession({ id: "sess2", connectionName: "db01" }),
     ];
     await injectPendingSnippet(mkPending({ sessionIds: [] }), "ss -tulpn", false);
-    expect(inject.mock.calls.map(c => c[0])).toEqual(["sess2"]);
+    expect(inject.mock.calls.map(c => c[0].map(t => t.id))).toEqual([["sess2"]]);
   });
 });

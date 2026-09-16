@@ -23,9 +23,7 @@ export async function injectPendingSnippet(
     : all.filter(isRunnableSession).slice(0, 1);
   if (targets.length === 0) return;
 
-  await Promise.all(
-    targets.map((s) => broadcastSnippetInject(s.id, s.type, resolvedText, execute).catch(console.error)),
-  );
+  await broadcastSnippetInject(targets, resolvedText, execute).catch(console.error);
 
   const recentTargets: RecentTarget[] = targets.map((s) => ({
     connectionId: s.connectionId,

@@ -1,7 +1,7 @@
 import { writeClipboard } from "../clipboard";
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import { StatusDot } from "@voltius/ui";
+import { StatusDot, useCopiedFlash } from "@voltius/ui";
 import { containerStateTone } from "../containerStateTone";
 import { dockerContainerAction, dockerContainerRunCommand } from "../services";
 import { getDockerApi } from "../runtime";
@@ -50,7 +50,7 @@ export function ContainerRow({
     onRefresh,
     "action",
   );
-  const [copied, setCopied] = useState(false);
+  const { copied, flash } = useCopiedFlash(1500);
   const [updating, setUpdating] = useState(false);
 
   const update = async () => {
@@ -80,8 +80,7 @@ export function ContainerRow({
         container.image,
       );
       await writeClipboard(cmd);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      flash();
     } catch (e) {
       console.error("[docker] copy docker run failed:", e);
     }
