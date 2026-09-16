@@ -78,6 +78,21 @@ describe("NotesEditor with the real CodeMirror", () => {
     expect(document.querySelector(".cm-tooltip-autocomplete")).toBeNull();
   });
 
+  test.each(["notes.toolbar.heading", "notes.toolbar.more"])("Escape with the %s menu open closes it and stays in edit", async (menu) => {
+    render(<ModeHarness initial="edit" />);
+    await settle();
+    fireEvent.click(screen.getByTitle(menu));
+    const row = menu === "notes.toolbar.heading" ? "notes.toolbar.h1" : "notes.toolbar.code";
+    expect(screen.getByText(row)).toBeTruthy();
+    act(() => { fireEvent.keyDown(editorView().contentDOM, { key: "Escape" }); });
+    await settle();
+    expect(screen.queryByText(row)).toBeNull();
+    expect(document.querySelector(".cm-editor")).toBeTruthy();
+    act(() => { fireEvent.keyDown(editorView().contentDOM, { key: "Escape" }); });
+    await settle();
+    expect(document.querySelector(".cm-editor")).toBeNull();
+  });
+
   describe("switching to preview and back keeps the caret", () => {
     async function roundTrip(whileInPreview?: () => void) {
       act(() => { runScopeHandlers(editorView(), new KeyboardEvent("keydown", { key: "e", ctrlKey: true }), "editor"); });

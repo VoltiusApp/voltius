@@ -89,6 +89,17 @@ function ToolbarMenu({ menu, className, onRun }: { menu: ToolbarMenuEntry; class
   const anchorRef = useRef<HTMLButtonElement>(null);
   const label = t(`notes.toolbar.${menu.id}`);
   const close = () => setOpen(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [open]);
   return (
     <>
       <button
@@ -225,8 +236,8 @@ export function NotesEditor({
       }}
     >
       {!readOnly && (
-        <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-b-(--t-border) shrink-0">
-          <div className="flex flex-1 min-w-0 items-center gap-0.5 overflow-x-auto">
+        <div className="flex items-center gap-0.5 px-1.5 border-b border-b-(--t-border) shrink-0">
+          <div className="flex flex-1 min-w-0 items-center gap-0.5 py-1 overflow-x-auto">
             {effectiveMode === "edit" &&
               TOOLBAR.map((item) => "items" in item ? (
                 <ToolbarMenu key={item.id} menu={item} className={toolbarButton} onRun={runCommand} />
