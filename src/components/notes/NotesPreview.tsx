@@ -49,7 +49,7 @@ function CodeBlock({ code, children, onRunCode }: { code: string; children: Reac
   const button = `p-1 ${NOTES_ICON_BUTTON}`;
   return (
     <div className="group relative my-2">
-      <pre className="overflow-x-auto rounded-md bg-(--t-bg-card) border border-(--t-border) p-2 text-xs font-mono">{children}</pre>
+      <pre className="overflow-x-auto rounded-md bg-(--t-bg-base) border border-(--t-border) p-2 text-xs font-mono">{children}</pre>
       <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
         <button
           type="button"
@@ -85,7 +85,6 @@ function TaskBox({ type, checked }: ComponentProps<"input">) {
   return (
     <input
       type="checkbox"
-      className="mr-1.5 align-middle accent-(--t-accent)"
       checked={!!checked}
       disabled={readOnly || line === null}
       onChange={() => { if (line !== null) onChange(toggleTaskAtLine(value, line)); }}
