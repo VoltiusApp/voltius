@@ -95,11 +95,15 @@ export function NotesEditor({
       data-notes-editor
       className="flex flex-col min-h-0 h-full"
       onKeyDown={(e) => {
-        if (effectiveMode === "preview" && !readOnly && isToggleModeKey(e)) {
+        if (effectiveMode === "edit") {
+          e.stopPropagation();
+          return;
+        }
+        if (!readOnly && isToggleModeKey(e)) {
           e.preventDefault();
+          e.stopPropagation();
           onModeChange("edit");
         }
-        e.stopPropagation();
       }}
     >
       {!readOnly && (

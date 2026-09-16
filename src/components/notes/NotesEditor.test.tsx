@@ -88,4 +88,23 @@ describe("NotesEditor", () => {
     window.removeEventListener("keydown", listener);
     expect(listener).not.toHaveBeenCalled();
   });
+
+  test("in preview mode, an unhandled chord still reaches window listeners", () => {
+    const listener = vi.fn();
+    window.addEventListener("keydown", listener);
+    renderEditor({ value: "x", mode: "preview" });
+    fireEvent.keyDown(document.querySelector("[data-notes-editor]")!, { key: "N", ctrlKey: true, shiftKey: true });
+    window.removeEventListener("keydown", listener);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  test("in preview mode, Mod-e is swallowed and switches to edit", () => {
+    const listener = vi.fn();
+    window.addEventListener("keydown", listener);
+    const { onModeChange } = renderEditor({ value: "x", mode: "preview" });
+    fireEvent.keyDown(document.querySelector("[data-notes-editor]")!, { key: "e", ctrlKey: true });
+    window.removeEventListener("keydown", listener);
+    expect(listener).not.toHaveBeenCalled();
+    expect(onModeChange).toHaveBeenCalledWith("edit");
+  });
 });
