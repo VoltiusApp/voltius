@@ -6,12 +6,13 @@ import { useNotesDraft } from "@/components/notes/useNotesDraft";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
 import { usePermissions } from "@/hooks/usePermission";
 import { connectionToFormData, useConnectionStore } from "@/stores/connectionStore";
+import { findTeamEntry } from "@/stores/teamVaultMap";
 import { broadcastSnippetInject } from "@/services/snippets";
 import type { Connection, TerminalSession } from "@/types";
 
 async function saveHostNotes(id: string, notes: string | undefined): Promise<void> {
   const { connections, teamConnections, updateConnection } = useConnectionStore.getState();
-  const current = connections.find((c) => c.id === id) ?? Object.values(teamConnections).flat().find((c) => c.id === id);
+  const current = connections.find((c) => c.id === id) ?? findTeamEntry(teamConnections, id)?.item;
   if (!current) throw new Error(`host ${id} not found`);
   await updateConnection(id, { ...connectionToFormData(current), notes });
 }

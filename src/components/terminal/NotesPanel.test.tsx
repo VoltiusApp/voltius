@@ -5,6 +5,7 @@ import type { Connection } from "@/types";
 const h = vi.hoisted(() => ({
   canEdit: true,
   connections: [] as Connection[],
+  teamConnections: {} as Record<string, Connection[]>,
   session: undefined as undefined | { id: string; type: string; connectionId: string },
   updateConnection: vi.fn(async (_id: string, _data: unknown) => {}),
   inject: vi.fn(async () => {}),
@@ -14,12 +15,25 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string, o?: { 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => () => h.canEdit }));
 vi.mock("@/hooks/useActiveHostConnection", () => ({
-  useActiveHostConnection: () => ({ session: h.session, connection: h.connections.find((c) => c.id === h.session?.connectionId) }),
+  useActiveHostConnection: () => ({
+    session: h.session,
+    connection: h.connections.find((c) => c.id === h.session?.connectionId)
+      ?? Object.values(h.teamConnections).flat().find((c) => c.id === h.session?.connectionId),
+  }),
 }));
 vi.mock("@/services/snippets", () => ({ broadcastSnippetInject: h.inject }));
 vi.mock("@/stores/connectionStore", () => ({
   connectionToFormData: (c: Connection) => ({ name: c.name, host: c.host, notes: c.notes }),
-  useConnectionStore: { getState: () => ({ connections: h.connections, teamConnections: {}, updateConnection: h.updateConnection }) },
+  useConnectionStore: { getState: () => ({ connections: h.connections, teamConnections: h.teamConnections, updateConnection: h.updateConnection }) },
+}));
+vi.mock("@/stores/teamVaultMap", () => ({
+  findTeamEntry: (teamMap: Record<string, Connection[]>, id: string) => {
+    for (const [teamId, items] of Object.entries(teamMap)) {
+      const item = items.find((c) => c.id === id);
+      if (item) return { teamId, item };
+    }
+    return null;
+  },
 }));
 vi.mock("@/components/notes/NotesEditor", () => ({
   NotesEditor: (p: { value: string; onChange: (v: string) => void; readOnly?: boolean; onRunCode?: (c: string) => void }) => (
@@ -40,6 +54,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   h.canEdit = true;
   h.connections = [host()];
+  h.teamConnections = {};
   h.session = { id: "s1", type: "ssh", connectionId: "c1" };
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks(); });
@@ -95,5 +110,41 @@ describe("NotesPanel", () => {
 
     expect(h.updateConnection).toHaveBeenCalledWith("c1", { name: "web", host: "web.example", notes: "pending edit" });
     expect((document.querySelector("[data-notes]") as HTMLTextAreaElement).value).toBe("db notes");
+  });
+
+  test("a team-vault host saves through updateConnection with its full record", async () => {
+    h.connections = [];
+    h.teamConnections = { team1: [host({ id: "c3", name: "team-host", host: "team.example", notes: "team notes", vault_id: "team1" })] };
+    h.session = { id: "s1", type: "ssh", connectionId: "c3" };
+    render(<NotesPanel />);
+    fireEvent.change(document.querySelector("[data-notes]")!, { target: { value: "updated" } });
+    await act(async () => { vi.advanceTimersByTime(1500); await Promise.resolve(); });
+    expect(h.updateConnection).toHaveBeenCalledWith("c3", { name: "team-host", host: "team.example", notes: "updated" });
+  });
+
+  describe("conflicting remote edits", () => {
+    test("reload discards the local edit and shows the new stored value", async () => {
+      const { rerender } = render(<NotesPanel />);
+      fireEvent.change(document.querySelector("[data-notes]")!, { target: { value: "pending edit" } });
+
+      h.connections = [host({ notes: "server update" })];
+      await act(async () => { rerender(<NotesPanel />); });
+      expect(screen.getByText("notes.panel.conflict")).toBeTruthy();
+
+      await act(async () => { fireEvent.click(screen.getByText("notes.panel.reload")); });
+      expect((document.querySelector("[data-notes]") as HTMLTextAreaElement).value).toBe("server update");
+    });
+
+    test("keepMine keeps the local edit and saves it", async () => {
+      const { rerender } = render(<NotesPanel />);
+      fireEvent.change(document.querySelector("[data-notes]")!, { target: { value: "pending edit" } });
+
+      h.connections = [host({ notes: "server update" })];
+      await act(async () => { rerender(<NotesPanel />); });
+
+      await act(async () => { fireEvent.click(screen.getByText("notes.panel.keepMine")); });
+      await act(async () => { vi.advanceTimersByTime(1500); await Promise.resolve(); });
+      expect(h.updateConnection).toHaveBeenCalledWith("c1", { name: "web", host: "web.example", notes: "pending edit" });
+    });
   });
 });
