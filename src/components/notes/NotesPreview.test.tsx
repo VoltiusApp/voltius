@@ -83,4 +83,24 @@ describe("NotesPreview", () => {
     fireEvent.doubleClick(second.container.firstChild as Element);
     expect(onRequestEdit).toHaveBeenCalledTimes(1);
   });
+
+  test("re-rendering keeps rendered nodes mounted: focus and the copied flash survive", () => {
+    const value = "- [ ] task\n\n```\nls\n```";
+    const { rerender } = render(<NotesPreview value={value} onChange={() => {}} onRunCode={() => {}} />);
+    const box = screen.getByRole("checkbox");
+    box.focus();
+    fireEvent.click(screen.getByTitle("notes.code.copy"));
+    rerender(<NotesPreview value={value} onChange={() => {}} onRunCode={() => {}} onRequestEdit={() => {}} />);
+    expect(screen.getByRole("checkbox")).toBe(box);
+    expect(document.activeElement).toBe(box);
+    expect(screen.getByTitle("notes.code.copied")).toBeTruthy();
+  });
+
+  test("a re-rendered checkbox toggles against the latest value", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<NotesPreview value={"- [ ] a"} onChange={() => {}} />);
+    rerender(<NotesPreview value={"- [ ] a\n- [ ] b"} onChange={onChange} />);
+    fireEvent.click(screen.getAllByRole("checkbox")[0]);
+    expect(onChange).toHaveBeenCalledWith("- [x] a\n- [ ] b");
+  });
 });

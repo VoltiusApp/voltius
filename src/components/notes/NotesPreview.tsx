@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ComponentProps, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
@@ -65,39 +65,59 @@ function CodeBlock({ code, children, onRunCode }: { code: string; children: Reac
   );
 }
 
-export function NotesPreview({ value, onChange, readOnly, onRunCode, onRequestEdit }: NotesPreviewProps) {
-  const components: Components = {
-    a: ({ href, children }) => <SafeLink href={href}>{children}</SafeLink>,
-    img: ({ src, alt }) => <SafeLink href={typeof src === "string" ? src : undefined}>{alt || String(src ?? "")}</SafeLink>,
-    li: ({ node, className, children }) => (
-      <TaskLineContext.Provider value={className?.includes("task-list-item") ? node?.position?.start.line ?? null : null}>
-        <li className={className?.includes("task-list-item") ? "list-none -ml-4" : undefined}>{children}</li>
-      </TaskLineContext.Provider>
-    ),
-    input: function TaskBox({ type, checked }) {
-      const line = useContext(TaskLineContext);
-      if (type !== "checkbox") return null;
-      return (
-        <input
-          type="checkbox"
-          className="mr-1.5 align-middle accent-(--t-accent)"
-          checked={!!checked}
-          disabled={readOnly || line === null}
-          onChange={() => { if (line !== null) onChange(toggleTaskAtLine(value, line)); }}
-        />
-      );
-    },
-    pre: ({ node, children }) => (
-      <CodeBlock code={hastText(node as unknown as HastNode).replace(/\n$/, "")} onRunCode={onRunCode}>{children}</CodeBlock>
-    ),
-  };
+interface PreviewContextValue {
+  value: string;
+  onChange: (value: string) => void;
+  readOnly?: boolean;
+  onRunCode?: (code: string) => void;
+}
 
+const PreviewContext = createContext<PreviewContextValue>({ value: "", onChange: () => {} });
+
+function TaskBox({ type, checked }: ComponentProps<"input">) {
+  const line = useContext(TaskLineContext);
+  const { value, onChange, readOnly } = useContext(PreviewContext);
+  if (type !== "checkbox") return null;
+  return (
+    <input
+      type="checkbox"
+      className="mr-1.5 align-middle accent-(--t-accent)"
+      checked={!!checked}
+      disabled={readOnly || line === null}
+      onChange={() => { if (line !== null) onChange(toggleTaskAtLine(value, line)); }}
+    />
+  );
+}
+
+function PreviewCode({ node, children }: { node?: unknown; children?: ReactNode }) {
+  const { onRunCode } = useContext(PreviewContext);
+  return <CodeBlock code={hastText(node as HastNode).replace(/\n$/, "")} onRunCode={onRunCode}>{children}</CodeBlock>;
+}
+
+const REMARK_PLUGINS = [remarkGfm];
+
+const COMPONENTS: Components = {
+  a: ({ href, children }) => <SafeLink href={href}>{children}</SafeLink>,
+  img: ({ src, alt }) => <SafeLink href={typeof src === "string" ? src : undefined}>{alt || String(src ?? "")}</SafeLink>,
+  li: ({ node, className, children }) => (
+    <TaskLineContext.Provider value={className?.includes("task-list-item") ? node?.position?.start.line ?? null : null}>
+      <li className={className?.includes("task-list-item") ? "list-none -ml-4" : undefined}>{children}</li>
+    </TaskLineContext.Provider>
+  ),
+  input: TaskBox,
+  pre: PreviewCode,
+};
+
+export function NotesPreview({ value, onChange, readOnly, onRunCode, onRequestEdit }: NotesPreviewProps) {
+  const context = useMemo(() => ({ value, onChange, readOnly, onRunCode }), [value, onChange, readOnly, onRunCode]);
   return (
     <div
       className="notes-preview text-sm text-(--t-text-primary) leading-relaxed wrap-break-word"
       onDoubleClick={() => { if (!readOnly) onRequestEdit?.(); }}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{value}</ReactMarkdown>
+      <PreviewContext.Provider value={context}>
+        <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={COMPONENTS}>{value}</ReactMarkdown>
+      </PreviewContext.Provider>
     </div>
   );
 }
