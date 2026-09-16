@@ -63,6 +63,7 @@ function setGistState(status: SyncStatus, error?: string) {
 
 let _api: PluginAPI;
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
+// deviceId → last known pushedAt (change detection for pull)
 let _lastSeenPushedAt: Record<string, string> = {};
 
 export function init(api: PluginAPI) {

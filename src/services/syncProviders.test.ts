@@ -152,11 +152,22 @@ describe("aggregateSyncStatus", () => {
     const providers = buildSyncProviders(inputs({ voltius: { ...inputs().voltius, accountMode: "local", state: { status: "idle", lastSync: null, error: null, blobSizeBytes: null } } }));
     expect(aggregateSyncStatus(providers)).toEqual({ configured: false, status: "idle", lastSync: null, error: null, errorSource: null });
   });
+
+  test("when Voltius and a plugin both fail, the first provider in the list wins the tie", () => {
+    const providers = buildSyncProviders(inputs({
+      plugins: [plugin({
+        manifest: manifest("p", "P"),
+        publishedState: { status: "error", lastSync: null, error: "plugin exploded", blobSizeBytes: null, configured: true },
+      })],
+      voltius: { ...inputs().voltius, state: { status: "error", lastSync: null, error: "voltius exploded", blobSizeBytes: null } },
+    }));
+    expect(aggregateSyncStatus(providers)).toMatchObject({ status: "error", error: "voltius exploded", errorSource: "Voltius Sync" });
+  });
 });
 
 describe("availableCatalogProviders", () => {
-  const entry = (id: string, permissions: string[] | undefined, sourceId = "voltius"): MarketplacePlugin =>
-    ({ id, name: id, author: "a", description: "", repo: "", version: "1.0.0", tags: [], theme: false, sourceId, permissions });
+  const entry = (id: string, permissions: string[] | undefined, sourceId = "voltius", builtin?: boolean): MarketplacePlugin =>
+    ({ id, name: id, author: "a", description: "", repo: "", version: "1.0.0", tags: [], theme: false, sourceId, permissions, builtin });
 
   test("keeps uninstalled sync:write entries once, in catalogue order", () => {
     const result = availableCatalogProviders(
@@ -170,6 +181,22 @@ describe("availableCatalogProviders", () => {
       new Set(["plugin-gist-sync"]),
     );
     expect(result.map((p) => [p.id, p.sourceId])).toEqual([["plugin-cloudflare-sync", "voltius"]]);
+  });
+
+  test("the first source for an id wins even when it doesn't qualify, so a later untrusted duplicate never surfaces", () => {
+    const result = availableCatalogProviders(
+      [
+        entry("plugin-cloudflare-sync", undefined, "voltius"),
+        entry("plugin-cloudflare-sync", ["sync:write"], "untrusted"),
+      ],
+      new Set(),
+    );
+    expect(result).toEqual([]);
+  });
+
+  test("a builtin catalogue entry with sync:write is included", () => {
+    const result = availableCatalogProviders([entry("plugin-gist-sync", ["sync:write"], "voltius", true)], new Set());
+    expect(result.map((p) => p.id)).toEqual(["plugin-gist-sync"]);
   });
 });
 

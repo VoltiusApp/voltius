@@ -14,7 +14,7 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import type { PluginManifest, PluginConfigField, SettingsPage } from "@/plugins/api";
-import { attributePage } from "@/components/settings/settingsPluginNav";
+import { attributePage } from "@/plugins/attributePage";
 import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { useBrowseCatalog } from "@/hooks/useBrowseCatalog";
 import { DirtyDot, ResetButton, SettingRow } from "./shared";

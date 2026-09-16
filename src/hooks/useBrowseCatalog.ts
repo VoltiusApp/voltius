@@ -15,6 +15,8 @@ export function useBrowseCatalog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Built-ins still active (not tombstoned) are already installed — Browse must
+  // never offer them for install again, even once the catalogue lists them.
   const seededActive = seededActiveIds(seededEntries, removedIds);
   return {
     merged: mergeBrowseCatalog(catalog, seededEntries, removedIds, appVersion),

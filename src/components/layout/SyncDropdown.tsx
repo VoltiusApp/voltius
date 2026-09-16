@@ -59,7 +59,7 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
   const handleSync = () => {
     if (!canSync || !provider.syncNow) return;
     setPending(true);
-    runManualSync(provider.syncNow).catch(() => {});
+    runManualSync(provider.syncNow).catch(() => {}).finally(() => setPending(false));
   };
 
   const act = () => {
