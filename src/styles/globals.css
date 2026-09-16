@@ -678,3 +678,15 @@ button svg *,
   .clipboard-pill-exit  { animation: none; opacity: 0; }
   .clipboard-count-pop  { animation: none; }
 }
+
+.notes-preview h1 { font-size: 1.25rem; font-weight: 600; margin: 0.75rem 0 0.375rem; color: var(--t-text-bright); }
+.notes-preview h2 { font-size: 1.1rem; font-weight: 600; margin: 0.75rem 0 0.375rem; color: var(--t-text-bright); }
+.notes-preview h3 { font-size: 1rem; font-weight: 600; margin: 0.5rem 0 0.25rem; color: var(--t-text-bright); }
+.notes-preview p { margin: 0.375rem 0; }
+.notes-preview ul { list-style: disc; padding-left: 1.25rem; margin: 0.375rem 0; }
+.notes-preview ol { list-style: decimal; padding-left: 1.25rem; margin: 0.375rem 0; }
+.notes-preview :not(pre) > code { font-family: var(--t-terminal-font-family, monospace); font-size: 0.85em; padding: 0.05rem 0.3rem; border-radius: 0.25rem; background: var(--t-bg-card); }
+.notes-preview blockquote { border-left: 2px solid var(--t-border); padding-left: 0.625rem; color: var(--t-text-secondary); }
+.notes-preview table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
+.notes-preview th, .notes-preview td { border: 1px solid var(--t-border); padding: 0.25rem 0.5rem; }
+.notes-preview hr { border-color: var(--t-border); margin: 0.75rem 0; }
