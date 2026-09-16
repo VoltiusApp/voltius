@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
-import { EditorView, keymap } from "@codemirror/view";
+import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { Prec, type StateCommand } from "@codemirror/state";
 import { autocompletion } from "@codemirror/autocomplete";
 import { useCmTheme } from "@/components/filetransfer/editor/useCmTheme";
@@ -55,6 +55,10 @@ const TOOLBAR: ToolbarItem[] = [
   { id: "codeBlock", icon: "lucide:square-code", command: insertBlock(...BLOCKS.codeBlock) },
 ];
 
+const NOTES_THEME = EditorView.theme({
+  ".cm-placeholder": { color: "var(--t-text-muted)" },
+});
+
 function isToggleModeKey(e: React.KeyboardEvent): boolean {
   return (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "e";
 }
@@ -88,7 +92,9 @@ export function NotesEditor({
     () => [
       ...themeExt,
       markdown(),
+      NOTES_THEME,
       EditorView.lineWrapping,
+      placeholder(t("notes.editor.placeholder")),
       Prec.high(keymap.of(notesKeymap(() => requestModeRef.current("preview")))),
       autocompletion({ override: [slashCompletionSource(SLASH_ITEMS, (k) => t(k))], icons: false }),
     ],

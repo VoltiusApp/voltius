@@ -15,6 +15,9 @@
       "preview": "Önizleme",
       "edit": "Düzenle"
     },
+    "editor": {
+      "placeholder": "Notları Markdown ile yazın — bloklar için / yazın"
+    },
     "slash": {
       "h1": "Başlık 1",
       "h2": "Başlık 2",

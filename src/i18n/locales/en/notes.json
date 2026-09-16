@@ -15,6 +15,9 @@
       "preview": "Preview",
       "edit": "Edit"
     },
+    "editor": {
+      "placeholder": "Write notes in Markdown — type / for blocks"
+    },
     "slash": {
       "h1": "Heading 1",
       "h2": "Heading 2",

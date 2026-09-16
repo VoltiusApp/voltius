@@ -50,6 +50,12 @@ describe("NotesEditor with the real CodeMirror", () => {
     expect(focus).not.toHaveBeenCalled();
   });
 
+  test("an empty editor shows the placeholder hint", async () => {
+    render(<ModeHarness initial="edit" value="" />);
+    await settle();
+    expect(document.querySelector(".cm-placeholder")?.textContent).toBe("notes.editor.placeholder");
+  });
+
   test("Tab outside a list item is released; on a list item it indents", async () => {
     render(<ModeHarness initial="edit" value="plain" />);
     await settle();

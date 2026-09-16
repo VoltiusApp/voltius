@@ -15,6 +15,9 @@
       "preview": "预览",
       "edit": "编辑"
     },
+    "editor": {
+      "placeholder": "使用 Markdown 编写备注 — 输入 / 插入块"
+    },
     "slash": {
       "h1": "标题 1",
       "h2": "标题 2",
