@@ -72,7 +72,6 @@ function NotesPanelBody({ session, connection }: { session: TerminalSession; con
           onModeChange={setMode}
           onRunCode={runCode}
           onBlur={notes.flush}
-          autoFocus={mode === "edit"}
         />
       </div>
     </div>

@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { forwardRef, useImperativeHandle } from "react";
-import { EditorState } from "@codemirror/state";
+import { act, forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { EditorState, type Extension } from "@codemirror/state";
+import { keymap, type EditorView } from "@codemirror/view";
 
-const h = vi.hoisted(() => ({ dispatched: [] as string[] }));
+const h = vi.hoisted(() => ({ dispatched: [] as string[], extensions: [] as unknown[], focus: vi.fn() }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
@@ -15,9 +16,13 @@ vi.mock("./NotesPreview", () => ({
 vi.mock("@/components/filetransfer/editor/useCmTheme", () => ({ useCmTheme: () => [] }));
 vi.mock("@uiw/react-codemirror", () => ({
   default: forwardRef(function FakeCm(
-    { value, onChange }: { value: string; onChange: (v: string) => void },
+    { value, onChange, extensions, onCreateEditor }: {
+      value: string; onChange: (v: string) => void; extensions: unknown[]; onCreateEditor?: (view: unknown) => void;
+    },
     ref,
   ) {
+    h.extensions = extensions;
+    useEffect(() => { onCreateEditor?.({ focus: h.focus }); }, []);
     useImperativeHandle(ref, () => {
       let state = EditorState.create({ doc: value });
       return {
@@ -34,7 +39,23 @@ vi.mock("@uiw/react-codemirror", () => ({
 
 const { NotesEditor } = await import("./NotesEditor");
 
-afterEach(() => { cleanup(); h.dispatched = []; });
+afterEach(() => { cleanup(); h.dispatched = []; h.focus.mockClear(); });
+
+function ModeHarness({ initial, value = "x" }: { initial: "edit" | "preview"; value?: string }) {
+  const [mode, setMode] = useState(initial);
+  return <NotesEditor value={value} onChange={() => {}} mode={mode} onModeChange={setMode} />;
+}
+
+function runEditorKey(key: string) {
+  const state = EditorState.create({ extensions: h.extensions as Extension[] });
+  const view = { state, dispatch: () => {} } as unknown as EditorView;
+  const bindings = state.facet(keymap).flat().filter((b) => b.key === key && b.run);
+  act(() => { bindings.some((b) => b.run!(view)); });
+}
+
+function previewSurface() {
+  return document.querySelector("[data-notes-editor] [tabindex='0']");
+}
 
 function renderEditor(props: Partial<Parameters<typeof NotesEditor>[0]> = {}) {
   const onChange = vi.fn();
@@ -106,5 +127,52 @@ describe("NotesEditor", () => {
     window.removeEventListener("keydown", listener);
     expect(listener).not.toHaveBeenCalled();
     expect(onModeChange).toHaveBeenCalledWith("edit");
+  });
+
+  describe("focus follows mode switches made inside the editor", () => {
+    test.each(["Escape", "Mod-e"])("%s in edit focuses the preview surface", (key) => {
+      render(<ModeHarness initial="edit" />);
+      runEditorKey(key);
+      expect(document.querySelector("[data-cm]")).toBeNull();
+      expect(previewSurface()).toBeTruthy();
+      expect(document.activeElement).toBe(previewSurface());
+    });
+
+    test("the toolbar toggle to preview focuses the preview surface", () => {
+      render(<ModeHarness initial="edit" />);
+      fireEvent.click(screen.getByTitle(/notes.toolbar.preview/));
+      expect(document.activeElement).toBe(previewSurface());
+    });
+
+    test("Mod-e in preview focuses the editor, and a second Mod-e returns to a focused preview", () => {
+      render(<ModeHarness initial="preview" />);
+      fireEvent.keyDown(document.querySelector("[data-notes-editor]")!, { key: "e", ctrlKey: true });
+      expect(document.querySelector("[data-cm]")).toBeTruthy();
+      expect(h.focus).toHaveBeenCalledTimes(1);
+      runEditorKey("Mod-e");
+      expect(document.activeElement).toBe(previewSurface());
+    });
+
+    test("the edit toggle, the empty-state action and double-click focus the editor", () => {
+      render(<ModeHarness initial="preview" />);
+      fireEvent.click(screen.getByTitle(/notes.toolbar.edit/));
+      expect(h.focus).toHaveBeenCalledTimes(1);
+      cleanup();
+      render(<ModeHarness initial="preview" value="" />);
+      fireEvent.click(screen.getByText("notes.empty.start"));
+      expect(h.focus).toHaveBeenCalledTimes(2);
+      cleanup();
+      render(<ModeHarness initial="preview" />);
+      fireEvent.doubleClick(document.querySelector("[data-preview]")!);
+      expect(h.focus).toHaveBeenCalledTimes(3);
+    });
+
+    test("mounting never steals focus", () => {
+      render(<ModeHarness initial="preview" />);
+      expect(document.activeElement).toBe(document.body);
+      cleanup();
+      render(<ModeHarness initial="edit" />);
+      expect(h.focus).not.toHaveBeenCalled();
+    });
   });
 });

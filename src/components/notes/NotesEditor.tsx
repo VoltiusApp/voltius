@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
@@ -30,7 +30,6 @@ export interface NotesEditorProps {
   onModeChange: (mode: NotesMode) => void;
   onRunCode?: (code: string) => void;
   onBlur?: () => void;
-  autoFocus?: boolean;
   minHeight?: number;
 }
 
@@ -60,21 +59,33 @@ function isToggleModeKey(e: React.KeyboardEvent): boolean {
 }
 
 export function NotesEditor({
-  value, onChange, readOnly, mode, onModeChange, onRunCode, onBlur, autoFocus, minHeight = 120,
+  value, onChange, readOnly, mode, onModeChange, onRunCode, onBlur, minHeight = 120,
 }: NotesEditorProps) {
   const { t } = useTranslation();
   const cmRef = useRef<ReactCodeMirrorRef>(null);
-  const onModeChangeRef = useRef(onModeChange);
-  onModeChangeRef.current = onModeChange;
+  const previewRef = useRef<HTMLDivElement>(null);
+  const focusOnSwitchRef = useRef(false);
+  const requestMode = (next: NotesMode) => {
+    focusOnSwitchRef.current = true;
+    onModeChange(next);
+  };
+  const requestModeRef = useRef(requestMode);
+  requestModeRef.current = requestMode;
   const themeExt = useCmTheme();
   const effectiveMode: NotesMode = readOnly ? "preview" : mode;
+
+  useEffect(() => {
+    if (!focusOnSwitchRef.current) return;
+    focusOnSwitchRef.current = false;
+    if (effectiveMode === "preview") previewRef.current?.focus();
+  }, [effectiveMode]);
 
   const extensions = useMemo(
     () => [
       ...themeExt,
       markdown(),
       EditorView.lineWrapping,
-      Prec.high(keymap.of(notesKeymap(() => onModeChangeRef.current("preview")))),
+      Prec.high(keymap.of(notesKeymap(() => requestModeRef.current("preview")))),
       autocompletion({ override: [slashCompletionSource(SLASH_ITEMS, (k) => t(k))], icons: false }),
     ],
     [themeExt, t],
@@ -102,7 +113,7 @@ export function NotesEditor({
         if (!readOnly && isToggleModeKey(e)) {
           e.preventDefault();
           e.stopPropagation();
-          onModeChange("edit");
+          requestMode("edit");
         }
       }}
     >
@@ -124,13 +135,13 @@ export function NotesEditor({
             type="button"
             className={`${toolbarButton} ml-auto`}
             title={`${t(effectiveMode === "edit" ? "notes.toolbar.preview" : "notes.toolbar.edit")} (${MOD_LABEL}+E)`}
-            onClick={() => onModeChange(effectiveMode === "edit" ? "preview" : "edit")}
+            onClick={() => requestMode(effectiveMode === "edit" ? "preview" : "edit")}
           >
             <Icon icon={effectiveMode === "edit" ? "lucide:eye" : "lucide:pencil"} width={13} />
           </button>
         </div>
       )}
-      <div className="flex-1 min-h-0 overflow-y-auto" style={{ minHeight }} tabIndex={effectiveMode === "preview" ? 0 : undefined}>
+      <div ref={previewRef} className="flex-1 min-h-0 overflow-y-auto" style={{ minHeight }} tabIndex={effectiveMode === "preview" ? 0 : undefined}>
         {effectiveMode === "edit" ? (
           <CodeMirror
             ref={cmRef}
@@ -138,7 +149,11 @@ export function NotesEditor({
             onChange={onChange}
             onBlur={onBlur}
             extensions={extensions}
-            autoFocus={autoFocus}
+            onCreateEditor={(view) => {
+              if (!focusOnSwitchRef.current) return;
+              focusOnSwitchRef.current = false;
+              view.focus();
+            }}
             theme="none"
             height="100%"
             basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false, autocompletion: false }}
@@ -148,14 +163,14 @@ export function NotesEditor({
             <Icon icon="lucide:notebook-pen" width={20} className="text-(--t-text-muted)" />
             <p className="text-xs text-(--t-text-secondary)">{t("notes.empty.title")}</p>
             {!readOnly && (
-              <button type="button" className="btn btn-secondary px-3 py-1.5 rounded-lg text-xs font-medium" onClick={() => onModeChange("edit")}>
+              <button type="button" className="btn btn-secondary px-3 py-1.5 rounded-lg text-xs font-medium" onClick={() => requestMode("edit")}>
                 {t("notes.empty.start")}
               </button>
             )}
           </div>
         ) : (
           <div className="px-3 py-2">
-            <NotesPreview value={value} onChange={onChange} readOnly={readOnly} onRunCode={onRunCode} onRequestEdit={() => onModeChange("edit")} />
+            <NotesPreview value={value} onChange={onChange} readOnly={readOnly} onRunCode={onRunCode} onRequestEdit={() => requestMode("edit")} />
           </div>
         )}
       </div>
