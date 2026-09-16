@@ -27,6 +27,7 @@ No account required. Everything below is free, forever.
 
 - **Easy Import & Export** — No vendor lock-in. Import your existing setup from Termius or MobaXterm in 1-click. Your data is always exportable as open JSON.
 - **Gist Sync** — E2EE device sync via your own private GitHub Gist. No central server, bring your own token.
+- **Cloudflare Sync** — E2EE device sync through a Cloudflare Worker and R2 bucket you own, deployed from Settings. Same zero-knowledge model, storage you control.
 - **SFTP** — Easy file transfers and browsing, works for Host↔Host and Host↔Local with drag & drop support. [Accelerated SFTP →](https://voltius.app/blog/sftp-tar-acceleration)
 - **Persistent Sessions & Workspace Restore** — Sessions survive disconnects via tmux/screen on the host, and the whole workspace (tabs, splits, running processes, scrollback) survives full app restarts. With cloud sync, live sessions are shared across your devices — open the same terminal on a second device and both stay live, mirrored in real time. [Cross-device sessions →](https://voltius.app/blog/cross-device-session-pickup)
 - **Split Panes** — Split terminals as much as you want, broadcast inputs to all panes.
@@ -167,7 +168,7 @@ on macOS and Windows after installation.
 | **Engine** | **Rust + Tauri** 🦀 | likely Electron (closed-source) | **Rust + Tauri** 🦀 | Web (React + Node.js) | Electron / Node.js |
 | **RAM Usage** | ~300MB | ~500MB+ | ~300MB | ? | ? |
 | **Installed Size** | ~40MB | ~1GB | ~40MB | ? | ? |
-| **Cloud Sync** | Gist (Free) / Real-Time (Paid) | 🟡 Only Pro | 🟡 Via Turso (own account) | ❌ | Community Plugins |
+| **Cloud Sync** | Gist + Cloudflare (Free) / Real-Time (Paid) | 🟡 Only Pro | 🟡 Via Turso (own account) | ❌ | Community Plugins |
 | **Import/Export** | ✅ 1-click import from Termius/MobaXterm, JSON Export | 🟡 Strong Import Integrations but no Export | ✅ | ? | ? |
 | **Port Forwarding** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Snippets** | ✅ + multi-exec | 🟡 (Multi-exec + startup snippets only Pro) | ✅ + multi-exec | ✅ + multi-exec | ? |
@@ -216,7 +217,7 @@ We offer three levels of security to fit your workflow:
 Account registration and login at [app.voltius.app](https://app.voltius.app) are also fully E2EE. The same `voltius-crypto` crate is compiled to WebAssembly and runs entirely in your browser — key derivation (Argon2id + HKDF-SHA256) happens client-side before anything touches the network. The server only ever receives an `auth_key`, never your password or encryption key.
 
 ### Zero-Knowledge Synchronization
-Whether you use our professional Cloud Sync or our built-in Gist Plugin, we follow a **Zero-Knowledge** protocol. All data leaving the device is strictly ciphertext — the auth server, SSE server, and GitHub have zero knowledge of vault contents.
+Whether you use our professional Cloud Sync or a bring-your-own sync plugin (Gist, Cloudflare), we follow a **Zero-Knowledge** protocol. All data leaving the device is strictly ciphertext — the auth server, SSE server, GitHub and Cloudflare have zero knowledge of vault contents.
 
 <details>
 <summary>Sync architecture diagram</summary>
