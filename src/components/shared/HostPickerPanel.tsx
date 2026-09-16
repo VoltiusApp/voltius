@@ -12,6 +12,7 @@ import { SORT_MODE_ICONS, useFilterShortcut } from "./ToolbarViewControls";
 import type { SortMode } from "./ToolbarViewControls";
 import { useIsAndroid } from "@/utils/platform";
 import type { Connection } from "@/types";
+import { connectionDisplayName } from "@/utils/connectionDisplayName";
 
 export type HostChoice =
   | { kind: "local"; wslDistro?: string }
@@ -150,7 +151,7 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
           <HostRow
             key={c.id}
             avatar={<ConnectionAvatar connection={c} size={28} />}
-            name={c.name ?? `${c.username}@${c.host}`}
+            name={connectionDisplayName(c)}
             sub={`${c.username}@${c.host}:${c.port}`}
             isSelected={c.id === selectedHostId}
             onClick={() => onPick({ kind: "remote", connection: c })}
