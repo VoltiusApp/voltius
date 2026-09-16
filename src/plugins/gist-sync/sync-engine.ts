@@ -64,7 +64,6 @@ function setGistState(status: SyncStatus, error?: string) {
 
 let _api: PluginAPI;
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
-let _consecutiveFailures = 0;
 let _failureBannerId: { dismiss(): void } | null = null;
 // deviceId → last known pushedAt (change detection for pull)
 let _lastSeenPushedAt: Record<string, string> = {};
@@ -312,66 +311,39 @@ export async function pull(): Promise<boolean> {
 
 // ─── Sync cycle ───────────────────────────────────────────────────────────────
 
-export async function syncNow(opts: { showProgress?: boolean } = {}): Promise<void> {
+export async function syncNow(): Promise<void> {
   if (!(await isConfigured())) return;
   if (_gistStatus === "syncing") return;
 
   setGistState("syncing");
 
-  let progress: ReturnType<typeof _api.notifications.progress> | null = null;
-  if (opts.showProgress)
-    progress = _api.notifications.progress("Syncing via GitHub Gist…", { indeterminate: true });
-
   try {
     await pull();
     await push();
-    _consecutiveFailures = 0;
     if (_failureBannerId) { _failureBannerId.dismiss(); _failureBannerId = null; }
-    if (progress) progress.finish("Gist sync complete");
-    else if (opts.showProgress)
-      _api.notifications.toast("Gist sync complete", { severity: "success" });
     await _api.storage.set("lastSync", new Date().toISOString());
     setGistState("success");
   } catch (err) {
-    if (progress) progress.error("Gist sync failed");
     _onSyncError(err);
   }
 }
 
+// Polling stops on these, so they are the only failures surfaced outside sync-state.
+const FATAL_STATUS_MESSAGES: Record<number, string> = {
+  401: "GitHub PAT is invalid or expired",
+  404: "Gist not found — re-configure in Settings",
+};
+
 function _onSyncError(err: unknown) {
-  _consecutiveFailures++;
-  if (err instanceof GistApiError) {
-    if (err.status === 401) {
-      stopPoll();
-      setGistState("error", "GitHub PAT is invalid or expired");
-      if (!_failureBannerId)
-        _failureBannerId = _api.notifications.banner(
-          "Gist Sync: GitHub PAT is invalid or expired",
-          { severity: "error" },
-        );
-      return;
-    }
-    if (err.status === 404) {
-      stopPoll();
-      setGistState("error", "Gist not found — re-configure in Settings");
-      if (!_failureBannerId)
-        _failureBannerId = _api.notifications.banner(
-          "Gist Sync: Gist not found — re-configure in Settings",
-          { severity: "error" },
-        );
-      return;
-    }
+  const fatal = err instanceof GistApiError ? FATAL_STATUS_MESSAGES[err.status] : undefined;
+  if (fatal) {
+    stopPoll();
+    setGistState("error", fatal);
+    _failureBannerId ??= _api.notifications.banner(`Gist Sync: ${fatal}`, { severity: "error" });
+    return;
   }
   const isOffline = !navigator.onLine;
-  const msg = err instanceof Error ? err.message : String(err);
-  setGistState(isOffline ? "offline" : "error", isOffline ? undefined : msg);
-  if (_consecutiveFailures >= 3 && !_failureBannerId)
-    _failureBannerId = _api.notifications.banner(
-      `Gist Sync: repeated failures — ${msg}`,
-      { severity: "warning" },
-    );
-  else if (_consecutiveFailures < 3)
-    _api.notifications.toast("Gist sync skipped — offline?", { severity: "warning" });
+  setGistState(isOffline ? "offline" : "error", isOffline ? undefined : err instanceof Error ? err.message : String(err));
 }
 
 // ─── Poll loop ────────────────────────────────────────────────────────────────

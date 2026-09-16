@@ -544,7 +544,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
     const handleSyncNow = async () => {
       setSyncing(true); setSyncError(null);
       try {
-        await syncNow({ showProgress: false });
+        await syncNow();
         const ts = await api.storage.get<string>("lastSync");
         if (ts) setLastSync(ts);
         setSyncing(false);
