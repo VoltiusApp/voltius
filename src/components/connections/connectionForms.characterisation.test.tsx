@@ -376,6 +376,19 @@ test.each([
   expect(onSubmit.mock.calls[onSubmit.mock.calls.length - 1][0].notes).toBeUndefined();
 });
 
+test.each([
+  ["ssh", (canEdit: boolean) => renderSsh({ initial: conn(), canEdit })],
+  ["serial", (canEdit: boolean) => renderSerial({ initial: conn({ connection_type: "serial", serial_port: "/dev/ttyS0" }) as Connection, canEdit })],
+])("%s form renders notes read-only without edit permission", async (_kind, mount) => {
+  mount(true);
+  await act(async () => { await Promise.resolve(); });
+  expect((document.querySelector("[data-notes]") as HTMLTextAreaElement).readOnly).toBe(false);
+  cleanup();
+  mount(false);
+  await act(async () => { await Promise.resolve(); });
+  expect((document.querySelector("[data-notes]") as HTMLTextAreaElement).readOnly).toBe(true);
+});
+
 test("a dirty edit marks the form dirty on both forms", () => {
   const ssh = renderSsh();
   expect(ssh.ref.current!.isDirty()).toBe(false);
