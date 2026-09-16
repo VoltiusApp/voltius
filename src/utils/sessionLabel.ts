@@ -21,6 +21,12 @@ export function sessionLabel(session: Pick<TerminalSession, "connectionName" | "
   return session.title ?? session.connectionName;
 }
 
+/** Search matches the tab name and the connection name, so a renamed tab stays findable by host. */
+export function sessionMatchesQuery(session: Pick<TerminalSession, "connectionName" | "title">, query: string): boolean {
+  const q = query.toLowerCase();
+  return [session.title, session.connectionName].some((name) => name?.toLowerCase().includes(q));
+}
+
 /**
  * A split tab's label. Its own name wins; without one it keeps deriving from
  * the active pane, so the label follows the user around the split.

@@ -10,6 +10,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { getPfState, closePfTunnel, resumeAutoPort } from "@/services/portForwardingTunnels";
 import { formatActiveTunnelLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
+import { sessionLabel } from "@/utils/sessionLabel";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { TunnelStatusDot } from "@/components/shared/TunnelStatusDot";
@@ -197,7 +198,7 @@ export function ActiveTunnelsSection() {
                 <AvatarTile base={distroColor} icon={distroIcon ?? "lucide:server"} iconSize={30} className="h-14 w-14 rounded-2xl text-white" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 min-w-0">
-                    <p className="truncate text-base font-bold text-(--t-text-bright)">{session.connectionName}</p>
+                    <p className="truncate text-base font-bold text-(--t-text-bright)">{sessionLabel(session)}</p>
                     <StatusDot tone="connected" label={t("portForwarding.activeTunnels.connected")} />
                   </div>
                   <p className="truncate text-xs text-(--t-text-dim)">

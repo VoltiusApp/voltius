@@ -11,6 +11,7 @@ import { runSnippetSequence, reportSequenceResult } from "@/services/snippetSequ
 import type { RunTarget } from "@/services/sftpTarget";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import { sessionLabel } from "@/utils/sessionLabel";
 
 export default function MobileSnippetTargetSheet(
   { snippetId, mode, preselectSessionId }: { snippetId: string; mode: "insert" | "execute"; preselectSessionId?: string },
@@ -87,7 +88,7 @@ export default function MobileSnippetTargetSheet(
                   style={{ background: sel ? "var(--t-accent)" : "var(--t-bg-elevated)", color: sel ? "#fff" : "var(--t-text-dim)" }}>
                   <Icon icon={sel ? "lucide:check" : "lucide:terminal"} width={15} />
                 </span>
-                <span className="flex-1 text-sm font-medium text-(--t-text-primary) truncate">{s.connectionName}</span>
+                <span className="flex-1 text-sm font-medium text-(--t-text-primary) truncate">{sessionLabel(s)}</span>
               </button>
             );
           })}
