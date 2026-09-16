@@ -15,9 +15,12 @@ beforeAll(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
+let setHarnessText: (text: string) => void = () => {};
+
 function ModeHarness({ initial, value = "x" }: { initial: "edit" | "preview"; value?: string }) {
   const [mode, setMode] = useState(initial);
   const [text, setText] = useState(value);
+  setHarnessText = setText;
   return <NotesEditor value={text} onChange={setText} mode={mode} onModeChange={setMode} />;
 }
 
@@ -54,6 +57,34 @@ describe("NotesEditor with the real CodeMirror", () => {
     render(<ModeHarness initial="edit" value="" />);
     await settle();
     expect(document.querySelector(".cm-placeholder")?.textContent).toBe("notes.editor.placeholder");
+  });
+
+  describe("switching to preview and back keeps the caret", () => {
+    async function roundTrip(whileInPreview?: () => void) {
+      act(() => { runScopeHandlers(editorView(), new KeyboardEvent("keydown", { key: "e", ctrlKey: true }), "editor"); });
+      await settle();
+      expect(document.querySelector(".cm-editor")).toBeNull();
+      if (whileInPreview) act(whileInPreview);
+      act(() => { fireEvent.keyDown(document.querySelector("[data-notes-editor]")!, { key: "e", ctrlKey: true }); });
+      await settle();
+      return editorView().state.selection.main;
+    }
+
+    test("restores the selection", async () => {
+      render(<ModeHarness initial="edit" value={"first line\nsecond line"} />);
+      await settle();
+      act(() => { editorView().dispatch({ selection: { anchor: 13, head: 16 } }); });
+      const selection = await roundTrip();
+      expect([selection.anchor, selection.head]).toEqual([13, 16]);
+    });
+
+    test("clamps the selection to a document shortened in preview", async () => {
+      render(<ModeHarness initial="edit" value={"first line\nsecond line"} />);
+      await settle();
+      act(() => { editorView().dispatch({ selection: { anchor: 20 } }); });
+      const selection = await roundTrip(() => setHarnessText("short"));
+      expect([selection.anchor, selection.head]).toEqual([5, 5]);
+    });
   });
 
   test("Tab outside a list item is released; on a list item it indents", async () => {

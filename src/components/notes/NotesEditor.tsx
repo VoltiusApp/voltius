@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorView, keymap, placeholder } from "@codemirror/view";
-import { Prec, type StateCommand } from "@codemirror/state";
+import { EditorSelection, Prec, type StateCommand } from "@codemirror/state";
 import { autocompletion } from "@codemirror/autocomplete";
 import { useCmTheme } from "@/components/filetransfer/editor/useCmTheme";
 import { NOTES_ICON_BUTTON, NotesEmptyState } from "./NotesChrome";
@@ -59,6 +59,14 @@ const NOTES_THEME = EditorView.theme({
   ".cm-placeholder": { color: "var(--t-text-muted)" },
 });
 
+function clampSelection(selection: EditorSelection, length: number): EditorSelection {
+  const clamp = (pos: number) => Math.min(pos, length);
+  return EditorSelection.create(
+    selection.ranges.map((r) => EditorSelection.range(clamp(r.anchor), clamp(r.head))),
+    selection.mainIndex,
+  );
+}
+
 function isToggleModeKey(e: React.KeyboardEvent): boolean {
   return (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "e";
 }
@@ -79,6 +87,7 @@ export function NotesEditor({
     focusOnSwitchRef.current = false;
     return requested;
   };
+  const selectionRef = useRef<EditorSelection | null>(null);
   const requestModeRef = useRef(requestMode);
   requestModeRef.current = requestMode;
   const themeExt = useCmTheme();
@@ -94,6 +103,7 @@ export function NotesEditor({
       markdown(),
       NOTES_THEME,
       EditorView.lineWrapping,
+      EditorView.updateListener.of((update) => { selectionRef.current = update.state.selection; }),
       placeholder(t("notes.editor.placeholder")),
       Prec.high(keymap.of(notesKeymap(() => requestModeRef.current("preview")))),
       autocompletion({ override: [slashCompletionSource(SLASH_ITEMS, (k) => t(k))], icons: false }),
@@ -160,7 +170,12 @@ export function NotesEditor({
             onBlur={onBlur}
             extensions={extensions}
             indentWithTab={false}
-            onCreateEditor={(view) => { if (takeFocusRequest()) view.focus(); }}
+            onCreateEditor={(view) => {
+              if (selectionRef.current) {
+                view.dispatch({ selection: clampSelection(selectionRef.current, view.state.doc.length), scrollIntoView: true });
+              }
+              if (takeFocusRequest()) view.focus();
+            }}
             theme="none"
             height="100%"
             basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false, autocompletion: false }}
