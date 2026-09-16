@@ -1,31 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { writeClipboard } from "@/utils/clipboard";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 
 export function InviteCodeField({ code, autoCopied = false }: { code: string; autoCopied?: boolean }) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Manual copy flashes for 2s (the click itself is the feedback). Auto-copy has no
-  // click to anchor to, so it must persist until something else changes it.
-  const showCopied = (persist: boolean) => {
-    setCopied(true);
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (!persist) timeoutRef.current = setTimeout(() => setCopied(false), 2000);
-  };
+  const { copied, flash } = useCopiedFlash(2000);
 
   // React to autoCopied flipping true after mount, not just its value at mount time.
+  // Auto-copy has no click to anchor to, so it must persist until something else changes it.
   useEffect(() => {
-    if (autoCopied) showCopied(true);
+    if (autoCopied) flash(true);
   }, [autoCopied]);
-
-  useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
 
   const handleCopy = async () => {
     await writeClipboard(code);
-    showCopied(false);
+    flash();
   };
 
   return (

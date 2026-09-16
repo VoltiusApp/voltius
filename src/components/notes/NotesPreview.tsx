@@ -1,10 +1,11 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { writeClipboard } from "@/utils/clipboard";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { isAllowedLinkHref, toggleTaskAtLine } from "./notesText";
 
 export interface NotesPreviewProps {
@@ -40,7 +41,7 @@ function SafeLink({ href, children }: { href?: string | null; children: ReactNod
 
 function CodeBlock({ code, children, onRunCode }: { code: string; children: ReactNode; onRunCode?: (code: string) => void }) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { copied, flash } = useCopiedFlash(1500);
   const button = "p-1 rounded-sm text-(--t-text-muted) hover:text-(--t-text-primary) hover:bg-(--t-bg-elevated)";
   return (
     <div className="group relative my-2">
@@ -50,7 +51,7 @@ function CodeBlock({ code, children, onRunCode }: { code: string; children: Reac
           type="button"
           className={button}
           title={t(copied ? "notes.code.copied" : "notes.code.copy")}
-          onClick={() => { void writeClipboard(code); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+          onClick={() => { void writeClipboard(code); flash(); }}
         >
           <Icon icon={copied ? "lucide:check" : "lucide:copy"} width={12} />
         </button>

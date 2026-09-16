@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { useCommandHistoryStore, type CommandHistoryEntry } from "@/stores/commandHistoryStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { broadcastSnippetInject } from "@/services/snippets";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import i18n from "@/i18n";
 
 function formatRelativeTime(ts: number): string {
@@ -37,12 +38,11 @@ function HistoryRow({
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { copied, flash } = useCopiedFlash(1200);
 
   function handleCopy() {
     onCopy();
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
+    flash();
   }
 
   return (
