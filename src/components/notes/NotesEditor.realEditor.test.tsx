@@ -1,7 +1,8 @@
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { EditorView, runScopeHandlers } from "@codemirror/view";
+import { startCompletion } from "@codemirror/autocomplete";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
@@ -57,6 +58,24 @@ describe("NotesEditor with the real CodeMirror", () => {
     render(<ModeHarness initial="edit" value="" />);
     await settle();
     expect(document.querySelector(".cm-placeholder")?.textContent).toBe("notes.editor.placeholder");
+  });
+
+  test("the slash menu renders outside the editor's clipping containers and goes away with it", async () => {
+    render(<ModeHarness initial="edit" value="" />);
+    await settle();
+    const view = editorView();
+    act(() => { view.dispatch({ changes: { from: 0, insert: "/" }, selection: { anchor: 1 } }); startCompletion(view); });
+    const menu = await waitFor(() => {
+      const el = document.querySelector(".cm-tooltip-autocomplete");
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    expect(view.dom.contains(menu)).toBe(false);
+    expect(document.body.contains(menu)).toBe(true);
+    expect(menu.textContent).toContain("notes.slash.h1");
+    expect(menu.textContent).not.toContain("/h1");
+    cleanup();
+    expect(document.querySelector(".cm-tooltip-autocomplete")).toBeNull();
   });
 
   describe("switching to preview and back keeps the caret", () => {
