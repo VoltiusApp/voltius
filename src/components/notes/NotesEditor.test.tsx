@@ -93,11 +93,23 @@ describe("NotesEditor", () => {
 
   test("the toolbar keeps to one row: headings and code live in menus", () => {
     renderEditor({ value: "x" });
-    const toolbar = screen.getByTitle(/notes.toolbar.bold/).parentElement!;
-    expect(toolbar.className).not.toContain("flex-wrap");
-    expect(toolbar.querySelectorAll(":scope > button")).toHaveLength(9);
+    const actions = screen.getByTitle(/notes.toolbar.bold/).parentElement!;
+    expect(actions.parentElement!.className).not.toContain("flex-wrap");
+    expect(actions.className).not.toContain("flex-wrap");
+    expect(actions.querySelectorAll(":scope > button")).toHaveLength(8);
     expect(screen.queryByTitle(/notes.toolbar.h1/)).toBeNull();
     expect(screen.queryByTitle(/notes.toolbar.codeBlock/)).toBeNull();
+  });
+
+  test.each([false, true])("android=%s: only the formatting actions scroll; the mode toggle stays pinned outside", (android) => {
+    h.android = android;
+    renderEditor({ value: "x" });
+    const actions = screen.getByTitle(/notes.toolbar.bold/).parentElement!;
+    const toggle = screen.getByTitle(/notes.toolbar.preview/);
+    expect(actions.className.split(" ")).toContain("overflow-x-auto");
+    expect(actions.contains(toggle)).toBe(false);
+    expect(toggle.parentElement).toBe(actions.parentElement);
+    expect(toggle.className.split(" ")).toContain("shrink-0");
   });
 
   test.each([
@@ -106,7 +118,10 @@ describe("NotesEditor", () => {
   ])("android=%s sizes every toolbar button %s", (android, size) => {
     h.android = android;
     renderEditor({ value: "x" });
-    const buttons = [...screen.getByTitle(/notes.toolbar.bold/).parentElement!.querySelectorAll(":scope > button")];
+    const buttons = [
+      ...screen.getByTitle(/notes.toolbar.bold/).parentElement!.querySelectorAll(":scope > button"),
+      screen.getByTitle(/notes.toolbar.preview/),
+    ];
     expect(buttons.every((b) => b.className.split(" ").includes(size))).toBe(true);
   });
 

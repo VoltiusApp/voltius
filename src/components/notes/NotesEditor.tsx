@@ -225,24 +225,26 @@ export function NotesEditor({
       }}
     >
       {!readOnly && (
-        <div className={`flex items-center gap-0.5 px-1.5 py-1 border-b border-b-(--t-border) shrink-0${touch ? " overflow-x-auto" : ""}`}>
-          {effectiveMode === "edit" &&
-            TOOLBAR.map((item) => "items" in item ? (
-              <ToolbarMenu key={item.id} menu={item} className={toolbarButton} onRun={runCommand} />
-            ) : (
-              <button
-                key={item.id}
-                type="button"
-                className={toolbarButton}
-                title={item.shortcut ? `${t(`notes.toolbar.${item.id}`)} (${shortcutLabel(item.shortcut)})` : t(`notes.toolbar.${item.id}`)}
-                onMouseDown={(e) => { keepEditorFocus(e); runCommand(item.command); }}
-              >
-                <Icon icon={item.icon} width={13} />
-              </button>
-            ))}
+        <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-b-(--t-border) shrink-0">
+          <div className="flex flex-1 min-w-0 items-center gap-0.5 overflow-x-auto">
+            {effectiveMode === "edit" &&
+              TOOLBAR.map((item) => "items" in item ? (
+                <ToolbarMenu key={item.id} menu={item} className={toolbarButton} onRun={runCommand} />
+              ) : (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={toolbarButton}
+                  title={item.shortcut ? `${t(`notes.toolbar.${item.id}`)} (${shortcutLabel(item.shortcut)})` : t(`notes.toolbar.${item.id}`)}
+                  onMouseDown={(e) => { keepEditorFocus(e); runCommand(item.command); }}
+                >
+                  <Icon icon={item.icon} width={13} />
+                </button>
+              ))}
+          </div>
           <button
             type="button"
-            className={`${toolbarButton} ml-auto`}
+            className={toolbarButton}
             title={`${t(effectiveMode === "edit" ? "notes.toolbar.preview" : "notes.toolbar.edit")} (${shortcutLabel("E")})`}
             onClick={() => requestMode(effectiveMode === "edit" ? "preview" : "edit")}
           >
