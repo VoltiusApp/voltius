@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { act, forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { act, forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useState } from "react";
 import { EditorState, type Extension } from "@codemirror/state";
 import { keymap, type EditorView } from "@codemirror/view";
 
@@ -22,7 +22,9 @@ vi.mock("@uiw/react-codemirror", () => ({
     ref,
   ) {
     h.extensions = extensions;
-    useEffect(() => { onCreateEditor?.({ focus: h.focus }); }, []);
+    const [container, setContainer] = useState(false);
+    useEffect(() => { setContainer(true); }, []);
+    useLayoutEffect(() => { if (container) onCreateEditor?.({ focus: h.focus }); }, [container]);
     useImperativeHandle(ref, () => {
       let state = EditorState.create({ doc: value });
       return {

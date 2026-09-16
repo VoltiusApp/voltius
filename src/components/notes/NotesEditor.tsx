@@ -81,7 +81,7 @@ export function NotesEditor({
   const effectiveMode: NotesMode = readOnly ? "preview" : mode;
 
   useEffect(() => {
-    if (takeFocusRequest() && effectiveMode === "preview") previewRef.current?.focus();
+    if (effectiveMode === "preview" && takeFocusRequest()) previewRef.current?.focus();
   }, [effectiveMode]);
 
   const extensions = useMemo(
@@ -153,6 +153,7 @@ export function NotesEditor({
             onChange={onChange}
             onBlur={onBlur}
             extensions={extensions}
+            indentWithTab={false}
             onCreateEditor={(view) => { if (takeFocusRequest()) view.focus(); }}
             theme="none"
             height="100%"
