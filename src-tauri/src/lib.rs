@@ -20,6 +20,7 @@ mod linux_gfx;
 mod local;
 pub mod mcp;
 mod metrics;
+mod network_watch;
 mod port_forward;
 mod processes;
 mod proxmox;
@@ -518,6 +519,7 @@ pub fn run() {
             app.manage(Arc::new(PendingConflicts::new()));
             app.manage(PortForwardManager::new(app.handle().clone()));
             app.manage(Arc::new(mcp::McpState::new()));
+            network_watch::start(app.handle().clone());
 
             #[cfg(all(desktop, not(debug_assertions)))]
             {

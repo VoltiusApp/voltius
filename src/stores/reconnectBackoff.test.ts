@@ -1,4 +1,5 @@
 import {
+  CATCH_UP_DELAYS_MS,
   FAST_DELAYS_MS,
   SLOW_RETRY_MS,
   cancelBackoff,
@@ -192,6 +193,38 @@ await (async () => {
   assertEqual(store.attempts, 0, "cancelled loop performs no attempts");
 })();
 
+await (async () => {
+  // A tab that never connected may be a typo: a few attempts, then its error again.
+  let n = 0;
+  const store = makeStore({
+    status: () => "error",
+    attempt: async () => ({ ok: false, errorMessage: `unreachable ${++n}` }),
+  });
+  const ok = await runBackoff("s-catch-up", store, CATCH_UP_DELAYS_MS);
+  assertEqual(ok, false, "a catch-up gives up");
+  assertEqual(store.attempts, CATCH_UP_DELAYS_MS.length, "a catch-up makes only its scheduled attempts");
+  assertEqual(store.errors, [`unreachable ${CATCH_UP_DELAYS_MS.length}`], "the latest failure is shown again");
+  assertEqual(store.waits.includes("slow"), false, "a catch-up never claims to be retrying slowly");
+})();
+
+await (async () => {
+  let n = 0;
+  const store = makeStore({
+    status: () => "error",
+    attempt: async () => (++n >= 2 ? { ok: true } : { ok: false, errorMessage: "DHCP not done" }),
+  });
+  assertEqual(await runBackoff("s-catch-up-ok", store, CATCH_UP_DELAYS_MS), true, "a catch-up connects once the network settles");
+})();
+
+await (async () => {
+  const store = makeStore({
+    status: () => "disconnected",
+    attempt: async () => ({ ok: false, errorMessage: "Connection aborted by user." }),
+  });
+  assertEqual(await runBackoff("s-host-key", store), false, "stops after the user refuses a changed host key");
+  assertEqual(store.attempts, 1, "does not re-open the host-key prompt on every retry");
+})();
+
 globalThis.setTimeout = realSetTimeout;
 
 await (async () => {
@@ -239,7 +272,8 @@ await (async () => {
 (() => {
   const base = { type: "ssh", status: "error" as SessionStatus, everConnected: true, errorMessage: "Network is unreachable" };
   assertEqual(strandedByNetwork(base), true, "a restored ssh tab that failed offline is revived");
-  assertEqual(strandedByNetwork({ ...base, everConnected: false }), false, "a host that never connected is left alone");
+  assertEqual(strandedByNetwork({ ...base, everConnected: false }), true, "a tab whose first connect failed offline is revived too");
+  assertEqual(strandedByNetwork({ ...base, errorMessage: "Connection aborted by user." }), false, "a refused host key is not asked again");
   assertEqual(strandedByNetwork({ ...base, status: "connecting" }), false, "a live loop is not restarted");
   assertEqual(strandedByNetwork({ ...base, type: "serial" }), false, "serial does not depend on the network");
   assertEqual(strandedByNetwork({ ...base, errorMessage: "The key is encrypted" }), false, "a passphrase prompt is not dismissed");
