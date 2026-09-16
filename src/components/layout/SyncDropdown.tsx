@@ -11,6 +11,9 @@ import type { SyncProviderAction, SyncProviderView } from "@/services/syncProvid
 import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
+import type { usePluginInstaller } from "@/components/settings/usePluginInstaller";
+import { useAvailableSyncProviders } from "@/hooks/useAvailableSyncProviders";
+import { AvailableSyncProviderRow } from "@/components/shared/AvailableSyncProviderRow";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -174,6 +177,32 @@ function EntityCounts() {
   );
 }
 
+type SyncInstaller = Pick<ReturnType<typeof usePluginInstaller>, "busy" | "startInstall">;
+
+function MoreSyncProviders({ installer }: { installer: SyncInstaller }) {
+  const { t } = useTranslation();
+  const { available, appVersion } = useAvailableSyncProviders();
+  if (available.length === 0) return null;
+
+  return (
+    <div className="px-3 py-2.5 space-y-2" style={{ borderTop: "1px solid var(--t-border)" }}>
+      <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
+        {t("layout.sync.moreProviders")}
+      </span>
+      {available.map((plugin) => (
+        <AvailableSyncProviderRow
+          key={plugin.id}
+          compact
+          plugin={plugin}
+          appVersion={appVersion}
+          busy={installer.busy.has(plugin.id)}
+          onInstall={() => installer.startInstall(plugin)}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ─── Main dropdown ────────────────────────────────────────────────────────────
 
 interface SyncDropdownProps {
@@ -181,9 +210,10 @@ interface SyncDropdownProps {
   open: boolean;
   onClose: () => void;
   providers: SyncProviderView[];
+  installer: SyncInstaller;
 }
 
-export function SyncDropdown({ anchorRef, open, onClose, providers }: SyncDropdownProps) {
+export function SyncDropdown({ anchorRef, open, onClose, providers, installer }: SyncDropdownProps) {
   const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
   useClickOutside(panelRef, onClose, open);
@@ -223,6 +253,8 @@ export function SyncDropdown({ anchorRef, open, onClose, providers }: SyncDropdo
           <SyncSection provider={provider} onAction={onAction} />
         </Fragment>
       ))}
+
+      <MoreSyncProviders installer={installer} />
 
       <div style={{ borderTop: "1px solid var(--t-border)" }}>
         <EntityCounts />

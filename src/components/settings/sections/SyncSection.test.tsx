@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, cleanup, fireEvent } from "@testing-library/react";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { USER_DATA_HANDLERS } from "@/services/user-data/registry";
+import type { SyncProviderView } from "@/services/syncProviders";
 
 const { mockT } = vi.hoisted(() => ({
   mockT: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k),
@@ -18,6 +19,29 @@ vi.mock("@/services/sync", () => ({
   syncNow: vi.fn(),
   scheduleSync: vi.fn(),
 }));
+const { view } = vi.hoisted(() => ({
+  view: (over: Partial<SyncProviderView>): SyncProviderView => ({
+    id: "x", label: "X", icon: "lucide:cloud", availability: "active",
+    state: { status: "success", lastSync: null, error: null, blobSizeBytes: null, configured: true },
+    syncNow: null, action: null, ...over,
+  } as SyncProviderView),
+}));
+vi.mock("@/hooks/useSyncProviders", () => ({
+  useSyncProviders: () => ({
+    providers: [
+      view({ id: "voltius", label: "Voltius Sync" }),
+      view({ id: "plugin-cloudflare-sync", label: "Cloudflare Sync", availability: "disabled", action: { kind: "enable" } }),
+      view({ id: "plugin-gist-sync", label: "GitHub Gist Sync", action: { kind: "configure", pageId: "plugin-gist-sync:gist-sync-settings" } }),
+    ],
+    effective: { configured: true, status: "success", lastSync: null, error: null, errorSource: null },
+  }),
+}));
+vi.mock("@/hooks/useAvailableSyncProviders", () => ({ useAvailableSyncProviders: () => ({ available: [], appVersion: null }) }));
+vi.mock("@/components/settings/usePluginInstaller", () => ({
+  usePluginInstaller: () => ({ busy: new Set(), startInstall: vi.fn(), startUpdate: vi.fn(), modal: null }),
+}));
+const { runAction } = vi.hoisted(() => ({ runAction: vi.fn() }));
+vi.mock("@/services/syncProviderAction", () => ({ runSyncProviderAction: runAction }));
 
 import { scheduleSync } from "@/services/sync";
 import SyncSection from "./SyncSection";
@@ -119,5 +143,23 @@ describe("SyncSection upgrade prompt", () => {
     const { getByText } = render(<SyncSection />);
     fireEvent.click(getByText("settings.sync.requiresPro.upgrade"));
     expect(openBillingCheckout).toHaveBeenCalledWith("pro");
+  });
+});
+
+describe("SyncSection plugin providers", () => {
+  afterEach(cleanup);
+
+  test("lists plugin providers without a hardcoded Gist group", () => {
+    const { container, queryByText } = render(<SyncSection />);
+    expect([...container.querySelectorAll("[data-sync-provider]")].map((e) => e.getAttribute("data-sync-provider")))
+      .toEqual(["plugin-cloudflare-sync", "plugin-gist-sync"]);
+    expect(queryByText("settings.sync.gistTitle")).toBeNull();
+  });
+
+  test("a disabled provider's button runs the enable action", () => {
+    const { container } = render(<SyncSection />);
+    const row = container.querySelector("[data-sync-provider='plugin-cloudflare-sync']")!;
+    fireEvent.click(row.querySelector("button")!);
+    expect(runAction).toHaveBeenCalledWith({ kind: "enable" });
   });
 });

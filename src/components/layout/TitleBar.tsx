@@ -16,6 +16,7 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { usePfToastBridge } from "@/hooks/usePfToastBridge";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { SyncDropdown } from "@/components/layout/SyncDropdown";
+import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { NewSessionPopover } from "@/components/layout/NewSessionPopover";
 import { useDragStore } from "@/stores/dragStore";
 import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
@@ -74,6 +75,7 @@ export default function TitleBar() {
   usePfToastBridge();
 
   const { providers: syncProviders, effective: sync } = useSyncProviders();
+  const syncInstaller = usePluginInstaller();
 
   const accountMode = useSubscriptionStore((s) => s.accountMode);
 
@@ -566,7 +568,9 @@ export default function TitleBar() {
         open={syncDropdownOpen}
         onClose={() => setSyncDropdownOpen(false)}
         providers={syncProviders}
+        installer={syncInstaller}
       />
+      {syncInstaller.modal}
 
       {/* Watching / Ended badge — guest in a multiplayer session */}
       {showTerminal && isActiveSessionMultiplayer && (

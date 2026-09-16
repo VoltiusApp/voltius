@@ -142,6 +142,7 @@
     "sync": {
       "title": "Sync",
       "voltiusSync": "Voltius Sync",
+      "moreProviders": "More sync providers",
       "syncNow": "Sync now",
       "signInForSync": "Sign in for cloud sync",
       "requiresPro": "Requires Pro",

@@ -142,6 +142,7 @@
     "sync": {
       "title": "同步",
       "voltiusSync": "Voltius 同步",
+      "moreProviders": "更多同步方式",
       "syncNow": "立即同步",
       "signInForSync": "登录以进行云同步",
       "requiresPro": "需要 Pro",

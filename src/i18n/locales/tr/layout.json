@@ -142,6 +142,7 @@
     "sync": {
       "title": "Eşitleme",
       "voltiusSync": "Voltius Sync",
+      "moreProviders": "Diğer eşitleme sağlayıcıları",
       "syncNow": "Şimdi eşitle",
       "signInForSync": "Bulut eşitlemesi için oturum açın",
       "requiresPro": "Pro gerektirir",
