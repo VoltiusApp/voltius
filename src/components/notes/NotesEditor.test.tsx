@@ -4,10 +4,11 @@ import { act, forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useSt
 import { EditorState, type Extension } from "@codemirror/state";
 import { keymap, type EditorView } from "@codemirror/view";
 
-const h = vi.hoisted(() => ({ dispatched: [] as string[], extensions: [] as unknown[], focus: vi.fn() }));
+const h = vi.hoisted(() => ({ dispatched: [] as string[], extensions: [] as unknown[], focus: vi.fn(), android: false }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/utils/platform", () => ({ useIsAndroid: () => h.android }));
 vi.mock("./NotesPreview", () => ({
   NotesPreview: ({ value, onRequestEdit }: { value: string; onRequestEdit?: () => void }) => (
     <div data-preview onDoubleClick={onRequestEdit}>{value}</div>
@@ -41,7 +42,7 @@ vi.mock("@uiw/react-codemirror", () => ({
 
 const { NotesEditor } = await import("./NotesEditor");
 
-afterEach(() => { cleanup(); h.dispatched = []; h.focus.mockClear(); });
+afterEach(() => { cleanup(); h.dispatched = []; h.focus.mockClear(); h.android = false; });
 
 function ModeHarness({ initial, value = "x" }: { initial: "edit" | "preview"; value?: string }) {
   const [mode, setMode] = useState(initial);
@@ -97,6 +98,16 @@ describe("NotesEditor", () => {
     expect(toolbar.querySelectorAll(":scope > button")).toHaveLength(9);
     expect(screen.queryByTitle(/notes.toolbar.h1/)).toBeNull();
     expect(screen.queryByTitle(/notes.toolbar.codeBlock/)).toBeNull();
+  });
+
+  test.each([
+    [false, "w-6"],
+    [true, "size-[36px]"],
+  ])("android=%s sizes every toolbar button %s", (android, size) => {
+    h.android = android;
+    renderEditor({ value: "x" });
+    const buttons = [...screen.getByTitle(/notes.toolbar.bold/).parentElement!.querySelectorAll(":scope > button")];
+    expect(buttons.every((b) => b.className.split(" ").includes(size))).toBe(true);
   });
 
   test("the mode toggle switches to preview and back", () => {

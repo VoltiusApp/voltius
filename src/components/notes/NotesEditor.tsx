@@ -9,6 +9,7 @@ import { autocompletion } from "@codemirror/autocomplete";
 import { useCmTheme } from "@/components/filetransfer/editor/useCmTheme";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { MenuItemList } from "@/components/shared/ContextMenu";
+import { useIsAndroid } from "@/utils/platform";
 import { NOTES_ICON_BUTTON, NotesEmptyState } from "./NotesChrome";
 import { NotesPreview } from "./NotesPreview";
 import {
@@ -175,6 +176,7 @@ export function NotesEditor({
   const requestModeRef = useRef(requestMode);
   requestModeRef.current = requestMode;
   const themeExt = useCmTheme();
+  const touch = useIsAndroid();
   const effectiveMode: NotesMode = readOnly ? "preview" : mode;
 
   useEffect(() => {
@@ -203,7 +205,7 @@ export function NotesEditor({
     view.focus();
   };
 
-  const toolbarButton = `w-6 h-6 flex items-center justify-center ${NOTES_ICON_BUTTON}`;
+  const toolbarButton = `${touch ? "size-[36px]" : "w-6 h-6"} shrink-0 flex items-center justify-center ${NOTES_ICON_BUTTON}`;
   const isEmpty = !value.trim();
 
   return (
@@ -223,7 +225,7 @@ export function NotesEditor({
       }}
     >
       {!readOnly && (
-        <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-b-(--t-border) shrink-0">
+        <div className={`flex items-center gap-0.5 px-1.5 py-1 border-b border-b-(--t-border) shrink-0${touch ? " overflow-x-auto" : ""}`}>
           {effectiveMode === "edit" &&
             TOOLBAR.map((item) => "items" in item ? (
               <ToolbarMenu key={item.id} menu={item} className={toolbarButton} onRun={runCommand} />
