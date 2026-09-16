@@ -10,6 +10,8 @@ export const MOD_LABEL = typeof navigator !== "undefined" && /Mac/.test(navigato
 
 const LINE_PREFIX_RE = /^(\s*)(#{1,6}\s+|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+[.)]\s+)?/;
 
+const EDIT_ANNOTATIONS = { scrollIntoView: true, userEvent: "input" } as const;
+
 function prefixFor(kind: LineKind, index: number): string {
   switch (kind) {
     case "h1": return "# ";
@@ -59,7 +61,7 @@ export function wrapSelection(marker: string): StateCommand {
         range: EditorSelection.range(range.from + n, range.to + n),
       };
     });
-    dispatch(state.update(spec, { scrollIntoView: true, userEvent: "input" }));
+    dispatch(state.update(spec, EDIT_ANNOTATIONS));
     return true;
   };
 }
@@ -73,7 +75,7 @@ export function toggleLineKind(kind: LineKind): StateCommand {
       const from = line.from + parsed[i][1].length;
       return { from, to: from + (parsed[i][2]?.length ?? 0), insert: remove ? "" : prefixFor(kind, i) };
     });
-    dispatch(state.update({ changes, scrollIntoView: true, userEvent: "input" }));
+    dispatch(state.update({ changes, ...EDIT_ANNOTATIONS }));
     return true;
   };
 }
@@ -82,7 +84,7 @@ export const toggleTaskAtCursor: StateCommand = ({ state, dispatch }) => {
   const line = state.doc.lineAt(state.selection.main.head);
   const next = toggleTaskAtLine(line.text, 1);
   if (next === line.text) return false;
-  dispatch(state.update({ changes: { from: line.from, to: line.to, insert: next }, userEvent: "input" }));
+  dispatch(state.update({ changes: { from: line.from, to: line.to, insert: next }, ...EDIT_ANNOTATIONS }));
   return true;
 };
 
@@ -95,7 +97,7 @@ export const insertLink: StateCommand = ({ state, dispatch }) => {
       range: EditorSelection.range(urlFrom, urlFrom + 3),
     };
   });
-  dispatch(state.update(spec, { scrollIntoView: true, userEvent: "input" }));
+  dispatch(state.update(spec, EDIT_ANNOTATIONS));
   return true;
 };
 
@@ -108,8 +110,7 @@ export function insertBlock(text: string, cursorOffset: number): StateCommand {
       state.update({
         changes: { from, to, insert },
         selection: EditorSelection.cursor(from + lead.length + cursorOffset),
-        scrollIntoView: true,
-        userEvent: "input",
+        ...EDIT_ANNOTATIONS,
       }),
     );
     return true;
