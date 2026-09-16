@@ -37,7 +37,8 @@ const { view, defaultProviders, useSyncProvidersMock, resetProvidersMock } = vi.
   return { view, defaultProviders, useSyncProvidersMock, resetProvidersMock };
 });
 vi.mock("@/hooks/useSyncProviders", () => ({ useSyncProviders: useSyncProvidersMock }));
-vi.mock("@/hooks/useAvailableSyncProviders", () => ({ useAvailableSyncProviders: () => ({ available: [], appVersion: null }) }));
+const { availableCatalog } = vi.hoisted(() => ({ availableCatalog: { list: [] as unknown[] } }));
+vi.mock("@/hooks/useAvailableSyncProviders", () => ({ useAvailableSyncProviders: () => ({ available: availableCatalog.list, appVersion: null }) }));
 vi.mock("@/components/settings/usePluginInstaller", () => ({
   usePluginInstaller: () => ({ busy: new Set(), startInstall: vi.fn(), startUpdate: vi.fn(), modal: null }),
 }));
@@ -160,6 +161,11 @@ describe("SyncSection Voltius group", () => {
 describe("SyncSection plugin providers", () => {
   afterEach(() => { cleanup(); resetProvidersMock(); });
 
+  const otherSync = {
+    id: "plugin-other-sync", name: "Other Sync", author: "a", description: "d", repo: "", version: "1.0.0",
+    tags: [], theme: false, sourceId: "voltius", permissions: ["sync:write"],
+  };
+
   test("lists plugin providers without a hardcoded Gist group", () => {
     const { container, queryByText } = render(<SyncSection />);
     expect([...container.querySelectorAll("[data-sync-provider]")].map((e) => e.getAttribute("data-sync-provider")))
@@ -189,5 +195,35 @@ describe("SyncSection plugin providers", () => {
     expect(button.textContent).toContain("settings.sync.active.syncNow");
     fireEvent.click(button);
     await vi.waitFor(() => expect(syncNow).toHaveBeenCalledTimes(1));
+  });
+
+  test("installable providers are listed inside the Sync plugins group, after the installed ones", () => {
+    availableCatalog.list = [otherSync];
+    try {
+      const { container, getByText, queryByText } = render(<SyncSection />);
+      const group = getByText("settings.sync.providersTitle").parentElement!;
+      const rows = [...group.querySelectorAll("[data-sync-provider], [data-available-sync-provider]")];
+      expect(rows.map((r) => r.getAttribute("data-sync-provider") ?? r.getAttribute("data-available-sync-provider")))
+        .toEqual(["plugin-cloudflare-sync", "plugin-gist-sync", "plugin-other-sync"]);
+      expect(container.querySelectorAll("[data-available-sync-provider]")).toHaveLength(1);
+      expect(queryByText("settings.sync.availableTitle")).toBeNull();
+    } finally {
+      availableCatalog.list = [];
+    }
+  });
+
+  test("the Sync plugins group appears when only installable providers exist", () => {
+    useSyncProvidersMock.mockImplementation(() => ({
+      providers: [view({ id: "voltius", label: "Voltius Sync" })],
+      effective: { configured: true, status: "success", lastSync: null, error: null, errorSource: null },
+    }));
+    availableCatalog.list = [otherSync];
+    try {
+      const { getByText } = render(<SyncSection />);
+      const group = getByText("settings.sync.providersTitle").parentElement!;
+      expect(group.querySelector("[data-available-sync-provider='plugin-other-sync']")).not.toBeNull();
+    } finally {
+      availableCatalog.list = [];
+    }
   });
 });

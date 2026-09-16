@@ -508,7 +508,6 @@
         "signIn": "Sign in"
       },
       "providersTitle": "Sync plugins",
-      "availableTitle": "Available sync providers",
       "prefsTitle": "Sync Preferences",
       "prefsFooter": "Disabled types are never uploaded. Individual objects can also be excluded from their edit panel.",
       "quickToggleLabel": "Sync {{label}}",

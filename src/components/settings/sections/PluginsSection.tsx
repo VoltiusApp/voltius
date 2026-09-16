@@ -6,6 +6,7 @@ import { usePluginStore } from "@/stores/pluginStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { useUIStore } from "@/stores/uiStore";
+import { catalogIcon } from "@/plugins/catalogIcon";
 import { satisfiesMinAppVersion } from "@/plugins/version";
 import { availableUpdate, availableSeededUpdate } from "@/plugins/updates";
 import { loadSeededEntries, type SeededEntry } from "@/stores/seededTombstoneStore";
@@ -786,7 +787,7 @@ function BrowseTab() {
               <div key={plugin.id} className="rounded-xl bg-(--t-bg-card) border border-(--t-border) px-4 py-3">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-elevated) border border-(--t-border) mt-0.5">
-                    <Icon icon={plugin.theme ? "lucide:palette" : "lucide:puzzle"} width={15} className="text-(--t-accent)" />
+                    <Icon icon={catalogIcon(plugin.icon, plugin.theme ? "lucide:palette" : "lucide:puzzle")} width={15} className="text-(--t-accent)" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

@@ -402,7 +402,6 @@
         "signIn": "登录"
       },
       "providersTitle": "同步插件",
-      "availableTitle": "可用的同步方式",
       "prefsTitle": "同步偏好",
       "prefsFooter": "禁用的类型永远不会上传。单个对象也可以通过其编辑面板排除。",
       "quickToggleLabel": "同步 {{label}}",

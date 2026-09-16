@@ -508,7 +508,6 @@
         "signIn": "Se connecter"
       },
       "providersTitle": "Plugins de synchronisation",
-      "availableTitle": "Fournisseurs de synchronisation disponibles",
       "prefsTitle": "Préférences de synchronisation",
       "prefsFooter": "Les types désactivés ne sont jamais envoyés. Les objets peuvent aussi être exclus depuis leur panneau d'édition.",
       "quickToggleLabel": "Synchroniser {{label}}",

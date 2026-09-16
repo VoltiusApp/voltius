@@ -418,7 +418,6 @@
         "signIn": "Oturum aç"
       },
       "providersTitle": "Eşitleme eklentileri",
-      "availableTitle": "Kullanılabilir eşitleme sağlayıcıları",
       "prefsTitle": "Eşitleme Tercihleri",
       "prefsFooter": "Devre dışı bırakılan türler hiçbir zaman yüklenmez. Tek tek nesneler de düzenleme panelinden hariç tutulabilir.",
       "quickToggleLabel": "Eşitle: {{label}}",

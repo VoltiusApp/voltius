@@ -220,14 +220,9 @@ export default function SyncSection() {
         {voltiusProvider && <VoltiusSyncGroup provider={voltiusProvider} />}
       </SettingsGroup>
 
-      {pluginProviders.length > 0 && (
+      {pluginProviders.length + available.length > 0 && (
         <SettingsGroup title={t("settings.sync.providersTitle")} divided>
           {pluginProviders.map((provider) => <PluginProviderRow key={provider.id} provider={provider} />)}
-        </SettingsGroup>
-      )}
-
-      {available.length > 0 && (
-        <SettingsGroup title={t("settings.sync.availableTitle")} divided>
           {available.map((plugin) => (
             <AvailableSyncProviderRow
               key={plugin.id}
