@@ -20,7 +20,6 @@ function makeApi() {
     ["exportDestinationIds", ["g1"]],
     ["deviceId", "dev-1"],
   ]);
-  const dismiss = vi.fn();
   const api = {
     vault: { get: vi.fn(async (k: string) => (k === "pat" ? "pat-token" : null)) },
     storage: {
@@ -32,20 +31,19 @@ function makeApi() {
     crypto: { deriveKey: vi.fn(async () => "a".repeat(64)) },
     sync: { exportState: vi.fn(async () => "blob"), importStates: vi.fn(async () => {}) },
     http: {},
-    notifications: { toast: vi.fn(), banner: vi.fn(() => ({ dismiss })), progress: vi.fn() },
+    notifications: { toast: vi.fn(), banner: vi.fn(), progress: vi.fn() },
   } as unknown as PluginAPI;
-  return { api, dismiss };
+  return { api };
 }
 
 const manifest = { schema: 1, salt: "00", devices: [] };
 
 describe("gist-sync engine notifications", () => {
   let api: PluginAPI;
-  let dismiss: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    ({ api, dismiss } = makeApi());
+    ({ api } = makeApi());
     engine.init(api);
     getManifest.mockResolvedValue(manifest);
     await engine.syncNow();
@@ -84,16 +82,12 @@ describe("gist-sync engine notifications", () => {
     expect(api.notifications.progress).not.toHaveBeenCalled();
   });
 
-  test("an invalid PAT raises one banner that the next successful sync dismisses", async () => {
+  test("an invalid PAT publishes the error and stops, without any notification", async () => {
     getManifest.mockRejectedValue(new GistApiError(401, "Bad credentials"));
     await engine.syncNow();
-    await engine.syncNow();
 
-    expect(api.notifications.banner).toHaveBeenCalledTimes(1);
-    expect(dismiss).not.toHaveBeenCalled();
-
-    getManifest.mockResolvedValue(manifest);
-    await engine.syncNow();
-    expect(dismiss).toHaveBeenCalledTimes(1);
+    expect(engine.getGistSyncState()).toMatchObject({ status: "error", error: "GitHub PAT is invalid or expired" });
+    expect(api.notifications.banner).not.toHaveBeenCalled();
+    expect(api.notifications.toast).not.toHaveBeenCalled();
   });
 });
