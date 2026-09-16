@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ComponentProps, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ComponentProps, type MouseEvent, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
@@ -28,11 +28,14 @@ function hastText(node: HastNode | undefined): string {
 
 function SafeLink({ href, children }: { href?: string | null; children: ReactNode }) {
   if (!isAllowedLinkHref(href)) return <span>{children}</span>;
+  const open = (e: MouseEvent) => { e.preventDefault(); void openUrl(href); };
   return (
     <a
       href={href}
+      title={href}
       className="text-(--t-accent) underline underline-offset-2"
-      onClick={(e) => { e.preventDefault(); void openUrl(href); }}
+      onClick={open}
+      onAuxClick={(e) => { if (e.button === 1) open(e); }}
     >
       {children}
     </a>

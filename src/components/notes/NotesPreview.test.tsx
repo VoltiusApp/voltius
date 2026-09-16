@@ -36,6 +36,23 @@ describe("NotesPreview", () => {
     expect(h.openUrl).toHaveBeenCalledWith("https://x.io");
   });
 
+  test("links show their real destination on hover", () => {
+    renderPreview("[docs](https://x.io/real)");
+    expect(screen.getByText("docs").getAttribute("title")).toBe("https://x.io/real");
+  });
+
+  test("middle-click opens through the opener and blocks the webview default; other buttons do not open", () => {
+    renderPreview("[docs](https://x.io)");
+    const link = screen.getByText("docs");
+    const middle = new MouseEvent("auxclick", { button: 1, bubbles: true, cancelable: true });
+    fireEvent(link, middle);
+    expect(middle.defaultPrevented).toBe(true);
+    expect(h.openUrl).toHaveBeenCalledTimes(1);
+    expect(h.openUrl).toHaveBeenCalledWith("https://x.io");
+    fireEvent(link, new MouseEvent("auxclick", { button: 2, bubbles: true, cancelable: true }));
+    expect(h.openUrl).toHaveBeenCalledTimes(1);
+  });
+
   test("renders disallowed links as plain text", () => {
     const { container } = renderPreview("[bad](javascript:alert(1)) [file](file:///etc/passwd)");
     expect(container.querySelector("a")).toBeNull();
