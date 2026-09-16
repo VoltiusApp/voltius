@@ -1,7 +1,7 @@
 import { writeClipboard } from "./clipboard";
 import { openExternal } from "./openExternal";
 import React, { useEffect, useRef, useState } from "react";
-import { useAutosave, Icon, InfoTooltip, StatusDot } from "@voltius/ui";
+import { useAutosave, useCopiedFlash, Icon, InfoTooltip, StatusDot } from "@voltius/ui";
 import type { PluginAPI } from "@/plugins/api";
 import {
   setupNewGist,
@@ -191,12 +191,9 @@ function GistRow({
 }) {
   const url = `https://gist.github.com/${gist.id}`;
   const shortId = `${gist.id.slice(0, 8)}…`;
-  const [copied, setCopied] = useState(false);
+  const { copied, flash } = useCopiedFlash(1500);
   const handleCopyLink = () => {
-    writeClipboard(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    writeClipboard(url).then(() => flash());
   };
 
   if (isConfirmingDelete) {
