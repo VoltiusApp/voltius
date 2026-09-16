@@ -16,6 +16,7 @@
     "gen:plugin-types": "node scripts/gen-plugin-types.mjs"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "6.10.3",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.11",
@@ -60,6 +61,8 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-i18next": "^17.0.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "uplot": "^1.6.32",
     "zod": "4.4.3",
     "zustand": "^5.0.14"
