@@ -37,6 +37,7 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { AuthType, Connection, Identity, IdentityFormData } from "@/types";
 import { buildKeychainMenuItems } from "@/utils/keychainMenuItems";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
+import { connectionDisplayName } from "@/utils/connectionDisplayName";
 
 // ─────────────────────────────────────────────────────────────────
 
@@ -393,7 +394,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate font-medium text-(--t-text-bright)">
-                        {c.name ?? `${c.username}@${c.host}`}
+                        {connectionDisplayName(c)}
                       </p>
                       <p className="text-xs truncate text-(--t-text-secondary)">
                         {c.username}@{c.host}:{c.port}

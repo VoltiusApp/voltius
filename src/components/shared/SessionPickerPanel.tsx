@@ -7,6 +7,7 @@ import { sessionLabel } from "@/utils/sessionLabel";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { HostRow } from "./HostPickerPanel";
 import { useSnippetTargetPicker } from "@/hooks/useSnippetTargetPicker";
+import { connectionDisplayName } from "@/utils/connectionDisplayName";
 
 interface Props {
   mode: "insert" | "execute";
@@ -146,7 +147,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
                   )
                   : <ConnectionAvatar connection={c} size={28} />
               }
-              name={c.name ?? `${c.username}@${c.host}`}
+              name={connectionDisplayName(c)}
               sub={`${c.username}@${c.host}:${c.port}`}
               isSelected={picker.selectedConnectionIds.has(c.id)}
               onClick={() => picker.toggleConnection(c.id)}

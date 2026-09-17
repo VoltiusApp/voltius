@@ -19,6 +19,7 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import { KeyCardContent } from "./KeyCards";
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import type { SshKey } from "@/types";
+import { connectionDisplayName } from "@/utils/connectionDisplayName";
 
 // ─────────────────────────────────────────────────────────────────
 // sortByMode helper (used by KeychainPage for keys/identities)
@@ -134,7 +135,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
                       />
                       );
                     })()}
-                    <span className="truncate">{selectedHost ? (selectedHost.name ?? `${selectedHost.username}@${selectedHost.host}`) : t("keychain.exportPanel.selectHostPlaceholder")}</span>
+                    <span className="truncate">{selectedHost ? connectionDisplayName(selectedHost) : t("keychain.exportPanel.selectHostPlaceholder")}</span>
                   </div>
                   <Icon icon="lucide:chevron-right" width={14} className="text-(--t-text-muted) shrink-0" />
                 </button>
