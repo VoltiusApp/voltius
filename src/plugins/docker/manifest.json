@@ -1,7 +1,7 @@
 {
   "id": "plugin-docker",
   "name": "Docker",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "minAppVersion": "0.38.2",
   "description": "Manage Docker containers, images, volumes, and networks for local and SSH sessions.",
   "icon": "custom:docker",
