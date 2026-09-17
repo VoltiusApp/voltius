@@ -250,8 +250,8 @@
         "seatsUsed": "已使用 {{used}} / {{total}}",
         "upgradeToPro": "升级到 Pro 解锁云同步和更多功能",
         "upgrade": "升级",
-        "upgradeToTeams": "升级到 Teams 获取共享保险库和无限访客",
-        "teamsButton": "Teams →",
+        "upgradeToTeams": "免费试用 Teams {{days}} 天：为团队提供共享保险库和角色。需绑定银行卡。",
+        "teamsButton": "免费试用 →",
         "viewAllPlans": "查看所有套餐 →",
         "feature": {
           "localVault": "本地保险库",

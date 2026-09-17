@@ -9,6 +9,7 @@ import { VaultBackups } from "@/components/shared/VaultBackups";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openPortal } from "@/utils/billing";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { UpgradeStrip } from "@/components/shared/UpgradeStrip";
 import { claimHandle, updateInvitePreferences, HandleClaimError } from "@/services/teamService";
 import { FormSelect } from "@/components/shared/FormSelect";
@@ -590,7 +591,7 @@ function PlansSection() {
         {isPro && !isTeams && (
           <UpgradeStrip
             variant="neutral"
-            label={t("settings.account.plan.upgradeToTeams")}
+            label={t("settings.account.plan.upgradeToTeams", { days: TEAMS_TRIAL_DAYS })}
             buttonLabel={t("settings.account.plan.teamsButton")}
             onClick={() => openCheckout("teams")}
           />

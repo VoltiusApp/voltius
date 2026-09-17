@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 
 export function SignInToCloudCTA({ onSignIn }: { onSignIn: () => void }) {
   const { t } = useTranslation();
@@ -48,8 +49,9 @@ export function UpgradeToTeamsCTA() {
         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
         style={{ background: "var(--t-accent)" }}
       >
-        {t("members.cta.upgradeBtn")}
+        {t("members.cta.upgradeBtn", { days: TEAMS_TRIAL_DAYS })}
       </button>
+      <p className="-mt-3 text-xs text-(--t-text-dim)">{t("members.cta.trialNote")}</p>
     </div>
   );
 }

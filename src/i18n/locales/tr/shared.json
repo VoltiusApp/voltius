@@ -7,7 +7,7 @@
       "title": "Pro denemeniz sona erdi",
       "subtitle": "Şu üç özellik bugün itibarıyla çalışmayı durduruyor:",
       "freeNote": "Yerel kasa, denetim günlükleri ve GitHub Gist eşitlemesi her zaman ücretsiz kalır.",
-      "teamsPrompt": "Başkalarıyla mı çalışıyorsunuz? Teams, paylaşılan kasalar ve kullanıcı lisansları ekler.",
+      "teamsPrompt": "Başkalarıyla mı çalışıyorsunuz? Teams'i {{days}} gün ücretsiz deneyin (kart gerekir).",
       "upgradeButton": "Pro'ya yükselt",
       "laterButton": "Belki daha sonra"
     },

@@ -356,8 +356,8 @@
         "seatsUsed": "{{used}} / {{total}} utilisés",
         "upgradeToPro": "Passez à Pro pour débloquer la synchronisation cloud et plus encore",
         "upgrade": "Mettre à niveau",
-        "upgradeToTeams": "Passez à Teams pour les coffres partagés et les invités illimités",
-        "teamsButton": "Teams →",
+        "upgradeToTeams": "Essayez Teams gratuitement pendant {{days}} jours : coffres-forts partagés et rôles pour votre équipe. Carte bancaire requise.",
+        "teamsButton": "Essai gratuit →",
         "viewAllPlans": "Voir tous les abonnements →",
         "feature": {
           "localVault": "Coffre-fort local",
