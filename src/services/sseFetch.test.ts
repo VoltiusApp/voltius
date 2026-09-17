@@ -52,6 +52,17 @@ describe("sseFetch", () => {
     }));
   });
 
+  test("a 204 response resolves with a null body", async () => {
+    const p = sseFetch("https://api.test/v1", { method: "DELETE" });
+    await Promise.resolve(); await Promise.resolve();
+    emit("open", { status: 204, headers: [] });
+    emit("closed", { error: null });
+    const res = await p;
+    expect(res.status).toBe(204);
+    expect(res.ok).toBe(true);
+    await expect(res.text()).resolves.toBe("");
+  });
+
   test("non-2xx yields a Response with the real status and the error body", async () => {
     const p = sseFetch("https://api.test/v1", { method: "POST", body: "{}" });
     await Promise.resolve(); await Promise.resolve();
