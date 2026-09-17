@@ -28,6 +28,7 @@ No account required. Everything below is free, forever.
 - **Easy Import & Export** — No vendor lock-in. Import your existing setup from Termius or MobaXterm in 1-click. Your data is always exportable as open JSON.
 - **Gist Sync** — E2EE device sync via your own private GitHub Gist. No central server, bring your own token.
 - **Cloudflare Sync** — E2EE device sync through a Cloudflare Worker and R2 bucket you own, deployed from Settings. Same zero-knowledge model, storage you control.
+- **S3 Sync** — E2EE device sync through any S3-compatible bucket you own — AWS, R2, B2, Wasabi, Hetzner, Scaleway, MinIO and more. No server to deploy.
 - **SFTP** — Easy file transfers and browsing, works for Host↔Host and Host↔Local with drag & drop support. [Accelerated SFTP →](https://voltius.app/blog/sftp-tar-acceleration)
 - **Persistent Sessions & Workspace Restore** — Sessions survive disconnects via tmux/screen on the host, and the whole workspace (tabs, splits, running processes, scrollback) survives full app restarts. With cloud sync, live sessions are shared across your devices — open the same terminal on a second device and both stay live, mirrored in real time. [Cross-device sessions →](https://voltius.app/blog/cross-device-session-pickup)
 - **Split Panes** — Split terminals as much as you want, broadcast inputs to all panes.
