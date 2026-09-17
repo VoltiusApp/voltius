@@ -39,7 +39,7 @@ export function cmTheme(theme: AppTheme): Extension[] {
       },
       "&.cm-focused": { outline: "none" },
       ".cm-cursor, .cm-dropCursor": { borderLeftColor: term.cursor },
-      "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
+      "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
         { backgroundColor: term.selectionBackground },
       ".cm-gutters": {
         backgroundColor: ui.bgToolbar,
