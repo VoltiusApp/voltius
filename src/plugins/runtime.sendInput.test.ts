@@ -10,6 +10,8 @@ vi.mock("@/hooks/useTerminal", () => ({
   readTerminalSelection: vi.fn(() => ""),
   getAppCursorMode: vi.fn(() => false),
 }));
+const { controlledElsewhere } = vi.hoisted(() => ({ controlledElsewhere: new Set<string>() }));
+vi.mock("@/services/broadcast", () => ({ hasInputControl: (id: string) => !controlledElsewhere.has(id) }));
 vi.mock("@/stores/sessionStore", () => ({
   useSessionStore: {
     getState: () => ({ sessions: [{ id: "s1", type: "ssh" }] }),
@@ -25,7 +27,7 @@ function manifest(perms: string[]): PluginManifest {
 let captured: import("./api").PluginAPI;
 const register: PluginRegisterFn = (api) => { captured = api; };
 
-beforeEach(() => { vi.clearAllMocks(); });
+beforeEach(() => { vi.clearAllMocks(); controlledElsewhere.clear(); });
 afterEach(() => { try { unloadPlugin("t"); } catch { /* noop */ } });
 
 describe("sessions.sendInput writes verbatim", () => {
@@ -49,5 +51,13 @@ describe("sessions.sendInput writes verbatim", () => {
   test("throws on an unknown session rather than resolving silently", async () => {
     loadPlugin(manifest(["terminal:write"]), register, true, false);
     await expect(captured.sessions.sendInput("nope", "x")).rejects.toThrow(/not found/);
+  });
+
+  test("refuses to write while another participant holds control of the session", async () => {
+    loadPlugin(manifest(["terminal:write"]), register, true, false);
+    controlledElsewhere.add("s1");
+    await expect(captured.sessions.sendInput("s1", "x")).rejects.toThrow(/controlled by another participant/);
+    await expect(captured.sessions.sendCommand("s1", "ls")).rejects.toThrow(/controlled by another participant/);
+    expect(sendSessionInput).not.toHaveBeenCalled();
   });
 });

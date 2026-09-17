@@ -129,6 +129,7 @@ import {
   type SharingPorts,
 } from "./domains/sharing";
 import { broadcastActiveForSession, useLayoutStore } from "@/stores/layoutStore";
+import { hasInputControl } from "@/services/broadcast";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { highestOwnerTier, membersOfTeams } from "@/services/teamSharing";
@@ -924,6 +925,7 @@ const inactiveError = (id: string): string => `Plugin "${id}" is disabled or unl
 async function writeSessionBytes(sessionId: string, text: string): Promise<void> {
   const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
   if (!session) throw new Error(`Session "${sessionId}" not found`);
+  if (!hasInputControl(sessionId)) throw new Error(`Session "${sessionId}" is controlled by another participant`);
   await sendSessionInput(sessionId, session.type as "ssh" | "local" | "serial", new TextEncoder().encode(text));
 }
 
