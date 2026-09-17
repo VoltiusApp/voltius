@@ -5,6 +5,7 @@ import { Modal, ModalCard } from "@/components/shared/Modal";
 import { UpgradeStrip } from "@/components/shared/UpgradeStrip";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 
 const STORAGE_KEY = "voltius_trial_expired_shown";
 
@@ -66,7 +67,7 @@ export function TrialExpiredModal() {
 
         <UpgradeStrip
           variant="neutral"
-          label={t("shared.trialExpiredModal.teamsPrompt")}
+          label={t("shared.trialExpiredModal.teamsPrompt", { days: TEAMS_TRIAL_DAYS })}
           buttonLabel={t("settings.account.plan.teamsButton")}
           onClick={() => upgrade("teams")}
         />

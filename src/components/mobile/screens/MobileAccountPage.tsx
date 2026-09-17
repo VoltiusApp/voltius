@@ -9,6 +9,7 @@ import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
 import { getCurrentUserEmail, logout } from "@/services/account";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { openPortal } from "@/utils/billing";
 
 function formatPlanDate(date: Date | null): string | null {
@@ -115,15 +116,18 @@ export default function MobileAccountPage() {
             )}
 
             {isPro && !isTeams && (
-              <button
-                data-account-upgrade-teams
-                disabled={checkoutBusy}
-                onClick={() => void checkout("teams")}
-                className="w-full h-11 rounded-xl text-sm font-semibold text-(--t-text-primary) disabled:opacity-60"
-                style={{ border: "1px solid var(--t-border)" }}
-              >
-                {t("mobile.account.upgradeToTeams")}
-              </button>
+              <>
+                <button
+                  data-account-upgrade-teams
+                  disabled={checkoutBusy}
+                  onClick={() => void checkout("teams")}
+                  className="w-full h-11 rounded-xl text-sm font-semibold text-(--t-text-primary) disabled:opacity-60"
+                  style={{ border: "1px solid var(--t-border)" }}
+                >
+                  {t("mobile.account.upgradeToTeams", { days: TEAMS_TRIAL_DAYS })}
+                </button>
+                <p className="-mt-1 text-center text-xs text-(--t-text-dim)">{t("mobile.account.teamsTrialNote")}</p>
+              </>
             )}
 
             <button

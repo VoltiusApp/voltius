@@ -208,7 +208,8 @@
       "signInBtn": "Se connecter ou créer un compte cloud →",
       "upgradeTitle": "Les coffres-forts d'équipe nécessitent Teams",
       "upgradeDesc": "Invitez des membres, attribuez des rôles et partagez des identifiants en toute sécurité avec votre équipe.",
-      "upgradeBtn": "Passer à Teams →"
+      "upgradeBtn": "Essayer Teams gratuitement pendant {{days}} jours →",
+      "trialNote": "Carte bancaire requise · aucun prélèvement pendant l'essai"
     },
     "joinLinks": {
       "explainer": "Toute personne disposant du lien rejoint ce coffre-fort avec le rôle que vous choisissez. Le lien ne transporte jamais la clé du coffre-fort : elle arrive séparément, lorsqu'une personne qui la détient déjà est en ligne.",

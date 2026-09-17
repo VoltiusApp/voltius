@@ -362,8 +362,8 @@
         "seatsUsed": "{{used}} / {{total}} kullanılıyor",
         "upgradeToPro": "Bulut eşitleme ve daha fazlasının kilidini açmak için yükseltin",
         "upgrade": "Yükselt",
-        "upgradeToTeams": "Paylaşılan kasalar ve sınırsız konuk için Teams planına yükseltin",
-        "teamsButton": "Teams →",
+        "upgradeToTeams": "Teams'i {{days}} gün ücretsiz deneyin: ekibiniz için paylaşılan kasalar ve roller. Kart gerekir.",
+        "teamsButton": "Ücretsiz dene →",
         "viewAllPlans": "Tüm planları gör →",
         "feature": {
           "localVault": "Yerel kasa",

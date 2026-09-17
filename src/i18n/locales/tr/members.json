@@ -212,7 +212,8 @@
       "signInBtn": "Oturum aç veya bulut hesabı oluştur →",
       "upgradeTitle": "Ekip kasaları için Teams gerekir",
       "upgradeDesc": "Üye davet edin, rol atayın ve kimlik bilgilerini ekibinizle güvenle paylaşın.",
-      "upgradeBtn": "Teams'e yükselt →"
+      "upgradeBtn": "Teams'i {{days}} gün ücretsiz dene →",
+      "trialNote": "Kart gerekir · deneme süresince ücret alınmaz"
     },
     "joinLinks": {
       "explainer": "Bağlantıya sahip herkes bu kasaya seçtiğiniz rolle katılır. Bağlantı kasanın anahtarını hiçbir zaman taşımaz — anahtar, ona zaten sahip olan biri çevrimiçi olduğunda ayrıca iletilir.",

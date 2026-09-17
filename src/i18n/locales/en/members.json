@@ -208,7 +208,8 @@
       "signInBtn": "Sign in or create cloud account →",
       "upgradeTitle": "Team Vaults require Teams",
       "upgradeDesc": "Invite members, assign roles, and share credentials securely with your team.",
-      "upgradeBtn": "Upgrade to Teams →"
+      "upgradeBtn": "Try Teams free for {{days}} days →",
+      "trialNote": "Card required · no charge during the trial"
     },
     "joinLinks": {
       "explainer": "Anyone with the link joins this vault in the role you pick. The link never carries the vault's key — that arrives separately, once someone who already has it is online.",

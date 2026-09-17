@@ -356,8 +356,8 @@
         "seatsUsed": "{{used}} / {{total}} used",
         "upgradeToPro": "Upgrade to unlock cloud sync and more",
         "upgrade": "Upgrade",
-        "upgradeToTeams": "Upgrade to Teams for shared vaults and unlimited guests",
-        "teamsButton": "Teams →",
+        "upgradeToTeams": "Try Teams free for {{days}} days: shared vaults and roles for your team. Card required.",
+        "teamsButton": "Try free →",
         "viewAllPlans": "View all plans →",
         "feature": {
           "localVault": "Local vault",
