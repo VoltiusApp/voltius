@@ -4,6 +4,7 @@
   "version": "1.2.1",
   "minAppVersion": "0.38.2",
   "description": "Sync your data across devices via encrypted GitHub Gist — no Voltius account required.",
+  "icon": "custom:github",
   "permissions": [
     "vault:read",
     "vault:write",

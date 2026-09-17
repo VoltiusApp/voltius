@@ -4,6 +4,7 @@
   "version": "1.2.2",
   "minAppVersion": "0.35.2",
   "description": "Real-time CPU, RAM, network, and disk metrics for local and SSH sessions.",
+  "icon": "lucide:activity",
   "permissions": ["metrics:read", "sessions:read", "right-panel", "ui", "mcp:contribute"],
   "defaultEnabled": true
 }

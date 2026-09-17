@@ -381,7 +381,7 @@ export function InstalledTab() {
             >
               <div className="flex items-center gap-3 px-4 py-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-elevated) border border-(--t-border)">
-                  <Icon icon="lucide:puzzle" width={15} style={{ color: enabled ? "var(--t-accent)" : "var(--t-text-dim)" }} />
+                  <Icon icon={catalogIcon(manifest.icon, "lucide:puzzle")} width={15} style={{ color: enabled ? "var(--t-accent)" : "var(--t-text-dim)" }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -446,6 +446,7 @@ export function InstalledTab() {
           const enabled = isLoaded && isEnabled(meta.id, true);
           const isReloading = reloading.has(meta.id);
           const isUninstalling = uninstalling.has(meta.id);
+          const catalogEntry = catalog.find((p) => p.id === meta.id && p.sourceId === meta.sourceId);
           const update = availableUpdate(meta, catalog);
           const isUpdating = updateBusy.has(meta.id);
           const updateVersionUnsatisfied = !!update && appVersion !== null && !satisfiesMinAppVersion(update, appVersion);
@@ -458,7 +459,7 @@ export function InstalledTab() {
             >
               <div className="flex items-center gap-3 px-4 py-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-elevated) border border-(--t-border)">
-                  <Icon icon="lucide:puzzle" width={15} style={{ color: enabled ? "var(--t-accent)" : "var(--t-text-dim)" }} />
+                  <Icon icon={catalogIcon(catalogEntry?.icon ?? manifest?.icon, "lucide:puzzle")} width={15} style={{ color: enabled ? "var(--t-accent)" : "var(--t-text-dim)" }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

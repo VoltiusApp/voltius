@@ -1386,6 +1386,9 @@ export interface PluginManifest {
    *  at build time when the manifest omits it. */
   minAppVersion?: string;
   description?: string;
+  /** Iconify id (e.g. "lucide:cpu", "custom:docker") shown in the plugin list. Restricted to
+   *  host-bundled prefixes at render time (see `catalogIcon`); falls back to a puzzle icon. */
+  icon?: string;
   permissions: string[];
   defaultEnabled?: boolean;
   /** Hidden in the plugin list on mobile (uses host-only resources, e.g. local fs). */

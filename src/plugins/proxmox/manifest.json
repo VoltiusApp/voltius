@@ -4,6 +4,7 @@
   "version": "1.2.2",
   "minAppVersion": "0.35.2",
   "description": "Manage Proxmox VE LXC containers and snapshots over SSH.",
+  "icon": "devicon:proxmox-plain",
   "permissions": [
     "sessions:read",
     "right-panel",
