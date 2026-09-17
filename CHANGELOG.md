@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-09-17
+
+### Added
+
+- Exposed FormSelect via @voltius/ui.
+
+### Fixed
+
+- Showed custom icons for installed plugins.
+- Resolved http.stream for 204/205/304 responses.
+- Said the Teams upgrade is a free trial, and stopped promising unlimited guests.
+
 ## [0.38.2] - 2026-09-17
 
 ### Fixed
