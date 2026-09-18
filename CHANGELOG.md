@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.1] - 2026-09-18
+
+### Fixed
+
+- Honour the Legacy Algorithms toggle for SFTP and headless commands (#312)
+
 ## [0.39.0] - 2026-09-17
 
 ### Added
