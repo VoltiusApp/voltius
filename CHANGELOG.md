@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.2] - 2026-09-18
+
+### Fixed
+
+- Listed the drive root when browsing to "C:" on Windows in SFTP (#316)
+- Kept the DMA-BUF renderer on Wayland + NVIDIA, disabled explicit sync (#315)
+- Stopped ~0.6 s terminal echo lag on Linux WebKitGTK (#313)
+
 ## [0.39.1] - 2026-09-18
 
 ### Fixed
