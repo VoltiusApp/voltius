@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
+import { createWebglAddon } from "@/utils/webglAddon";
 import { attachTerminalClipboard } from "@/components/terminal/terminalClipboard";
 import { useThemeStore } from "@/stores/themeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
@@ -47,7 +47,7 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
       term.open(container);
 
       try {
-        term.loadAddon(new WebglAddon());
+        term.loadAddon(createWebglAddon());
       } catch {
         // fallback to canvas
       }
