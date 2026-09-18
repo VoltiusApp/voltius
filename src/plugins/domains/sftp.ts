@@ -1,12 +1,11 @@
 import {
-  sftpConnect, ftpConnect, sftpClose, sftpListDir, sftpMkdir, sftpRename,
+  ftpConnect, sftpClose, sftpListDir, sftpMkdir, sftpRename,
   sftpDelete, sftpReadFile, sftpWriteFile, sftpUpload, sftpUploadDir, sftpDownload,
   sftpDownloadDir, sftpTransfer, sftpTransferDir,
   fsListDir, fsMkdir, fsRename, fsDelete, fsCopy, fsReadFile,
 } from "@/services/sftp";
-import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
-import { resolveKeepalive } from "@/utils/keepalive";
-import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
+import { resolveConnectionCredentials } from "@/services/credentials";
+import { sftpConnectToConnection } from "@/services/sftpTarget";
 import { invoke } from "@tauri-apps/api/core";
 import type { Connection } from "@/types";
 import type { PluginFile, SftpAPI, FileEndpoint } from "../api";
@@ -46,23 +45,7 @@ export function createSftpAPI(
         secure: !!conn.ftp_secure,
       });
     }
-    const [creds, jumpHosts] = await Promise.all([
-      resolveConnectionCredentials(conn),
-      resolveJumpHosts(conn),
-    ]);
-    const ka = resolveKeepalive(conn.keepalive_preset ?? getGlobalKeepalivePreset());
-    return sftpConnect({
-      connectId: crypto.randomUUID(),
-      host: conn.host,
-      port: conn.port,
-      username: creds.username,
-      password: creds.password,
-      privateKey: creds.privateKey,
-      passphrase: creds.passphrase,
-      jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
-      keepaliveIntervalSecs: ka.intervalSecs,
-      keepaliveMax: ka.max,
-    });
+    return sftpConnectToConnection(conn, crypto.randomUUID());
   };
 
   /** Cached by target so repeated calls reuse one connection, and a failed

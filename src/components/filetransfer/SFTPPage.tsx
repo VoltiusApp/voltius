@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import {
-  sftpConnect, ftpConnect, sftpClose,
+  ftpConnect, sftpClose,
   sftpDownload, sftpDownloadDir, sftpDownloadDirTar,
   sftpUploadBatchTar, sftpDownloadBatchTar, sftpTransferBatchTar,
   sftpExists, fsExists, fsHomeDir, fsCopy, wslHomeDir,
@@ -20,10 +20,9 @@ import { tarUsable, tarUsableForPair } from "./tarSupport";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
-import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { resolveConnectionCredentials } from "@/services/credentials";
+import { sftpConnectToConnection } from "@/services/sftpTarget";
 import { vaultErrorCode } from "@/services/vaultErrors";
-import { resolveKeepalive } from "@/utils/keepalive";
-import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import {
   type HostChoice, type SidePhase, type FileEntry,
   genId,
@@ -85,12 +84,7 @@ export default function SFTPPage() {
         const { sftpCanonicalize } = await import("@/services/sftp");
         cwd = await sftpCanonicalize(sftpId, ".");
       } else {
-        const [creds, jumpHosts] = await Promise.all([
-          resolveConnectionCredentials(host.connection),
-          resolveJumpHosts(host.connection),
-        ]);
-        const ka = resolveKeepalive(host.connection.keepalive_preset ?? getGlobalKeepalivePreset());
-        sftpId = await sftpConnect({ connectId, host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, privateKey: creds.privateKey, passphrase: creds.passphrase, jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined, keepaliveIntervalSecs: ka.intervalSecs, keepaliveMax: ka.max });
+        sftpId = await sftpConnectToConnection(host.connection, connectId);
         openSftpIds.current.add(sftpId);
         const { sftpCanonicalize } = await import("@/services/sftp");
         cwd = await sftpCanonicalize(sftpId, ".");

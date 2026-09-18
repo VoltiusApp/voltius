@@ -5,7 +5,7 @@ pub mod real;
 pub use backend::FileBackend;
 
 use crate::known_hosts::KnownHostsStore;
-use crate::ssh::client::{authenticate_handle, JumpHostConnect, SshClient};
+use crate::ssh::client::{authenticate_handle, client_config, JumpHostConnect, SshClient};
 use crate::ssh::live_cells::{own_cell, read_cell};
 use crate::ssh::session::SessionHandle;
 use docker_fs::DockerFs;
@@ -166,15 +166,13 @@ impl SftpManager {
         known_hosts: Arc<KnownHostsStore>,
         keepalive_interval_secs: u64,
         keepalive_max: usize,
+        legacy_algorithms: bool,
     ) -> Result<String, String> {
-        // Honor the host/global keepalive preset (same as terminal sessions).
-        // interval 0 = keepalive disabled.
-        let config = Arc::new(russh::client::Config {
-            keepalive_interval: (keepalive_interval_secs > 0)
-                .then(|| std::time::Duration::from_secs(keepalive_interval_secs)),
+        let config = Arc::new(client_config(
+            keepalive_interval_secs,
             keepalive_max,
-            ..Default::default()
-        });
+            legacy_algorithms,
+        ));
 
         let mut jump_handles: Vec<Arc<Handle<SshClient>>> = Vec::new();
 

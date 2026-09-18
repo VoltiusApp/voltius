@@ -533,18 +533,11 @@ pub async fn connect(
     legacy_algorithms: bool,
     initial_cwd: Option<String>,
 ) -> Result<ConnectedSession, String> {
-    let config = Arc::new(client::Config {
-        // interval 0 = keepalive disabled.
-        keepalive_interval: (keepalive_interval_secs > 0)
-            .then(|| std::time::Duration::from_secs(keepalive_interval_secs)),
+    let config = Arc::new(client_config(
+        keepalive_interval_secs,
         keepalive_max,
-        preferred: if legacy_algorithms {
-            legacy_preferred()
-        } else {
-            Default::default()
-        },
-        ..Default::default()
-    });
+        legacy_algorithms,
+    ));
 
     // Build the chain: jump_hosts[0] → jump_hosts[1] → ... → final host
     // Each hop opens a direct-tcpip channel to the next host, layering SSH over it.
@@ -1017,6 +1010,53 @@ pub async fn connect(
     })
 }
 
+/// `keepalive_interval_secs == 0` disables keepalive.
+pub fn client_config(
+    keepalive_interval_secs: u64,
+    keepalive_max: usize,
+    legacy_algorithms: bool,
+) -> client::Config {
+    client::Config {
+        keepalive_interval: (keepalive_interval_secs > 0)
+            .then(|| std::time::Duration::from_secs(keepalive_interval_secs)),
+        keepalive_max,
+        preferred: if legacy_algorithms {
+            legacy_preferred()
+        } else {
+            Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+/// One-shot connect + auth for headless commands (no PTY, no jump hosts).
+pub async fn connect_authenticated(
+    known_hosts: Arc<KnownHostsStore>,
+    host: &str,
+    port: u16,
+    username: &str,
+    password: Option<&str>,
+    private_key: Option<&str>,
+    passphrase: Option<&str>,
+    legacy_algorithms: bool,
+) -> Result<client::Handle<SshClient>, String> {
+    let config = client_config(
+        0,
+        client::Config::default().keepalive_max,
+        legacy_algorithms,
+    );
+    let (ssh_client, rejection_reason) = SshClient::new(host.to_string(), port, known_hosts);
+    let mut handle = match client::connect(Arc::new(config), (host, port), ssh_client).await {
+        Ok(h) => h,
+        Err(e) => {
+            let reason = rejection_reason.lock().await.take();
+            return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
+        }
+    };
+    authenticate_handle(&mut handle, username, password, private_key, passphrase).await?;
+    Ok(handle)
+}
+
 fn shell_escape(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
@@ -1058,7 +1098,7 @@ fn legacy_preferred() -> russh::Preferred {
 
 #[cfg(test)]
 mod tests {
-    use super::{choose_rsa_hash, is_windows_sshid, legacy_preferred, AUTH_TIMEOUT};
+    use super::{choose_rsa_hash, client_config, is_windows_sshid, legacy_preferred, AUTH_TIMEOUT};
     use russh::keys::ssh_key::HashAlg;
 
     #[test]
@@ -1109,6 +1149,41 @@ mod tests {
         ));
         assert!(!is_windows_sshid(b"SSH-2.0-dropbear_2022.83"));
         assert!(!is_windows_sshid(b""));
+    }
+
+    #[tokio::test]
+    async fn legacy_toggle_negotiates_with_sha1_only_server() {
+        use crate::port_forward::test_ssh::{connect_to_server, Behavior};
+        use russh::{cipher, kex, mac};
+        use std::borrow::Cow;
+
+        // No AEAD cipher, so the MAC actually has to negotiate.
+        let openssh_5_3 = || russh::Preferred {
+            kex: Cow::Borrowed(&[kex::DH_GEX_SHA256, kex::DH_G14_SHA1, kex::DH_G1_SHA1]),
+            cipher: Cow::Borrowed(&[
+                cipher::AES_128_CTR,
+                cipher::AES_256_CTR,
+                cipher::AES_128_CBC,
+                cipher::TRIPLE_DES_CBC,
+            ]),
+            mac: Cow::Borrowed(&[mac::HMAC_SHA1]),
+            ..Default::default()
+        };
+        let connect = |legacy| {
+            connect_to_server(
+                client_config(0, 3, legacy),
+                openssh_5_3(),
+                Behavior::GreetThenClose,
+            )
+        };
+        assert!(matches!(
+            connect(false).await,
+            Err(russh::Error::NoCommonAlgo {
+                kind: russh::AlgorithmKind::Mac,
+                ..
+            })
+        ));
+        assert!(connect(true).await.is_ok());
     }
 
     #[test]

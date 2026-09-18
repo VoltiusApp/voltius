@@ -78,6 +78,7 @@ export async function addKeyToHost({
     privateKey,
     passphrase,
     command,
+    legacyAlgorithms: connection.legacy_algorithms,
   });
   if (result.exit_code !== 0) {
     const detail = result.stderr.trim();

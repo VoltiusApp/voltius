@@ -130,6 +130,7 @@ export async function sshExecCommand(params: {
   privateKey?: string;
   passphrase?: string;
   command: string;
+  legacyAlgorithms?: boolean;
 }): Promise<SshExecResult> {
   return invoke("ssh_exec_command", {
     host: params.host,
@@ -139,6 +140,7 @@ export async function sshExecCommand(params: {
     privateKey: params.privateKey ?? null,
     passphrase: params.passphrase ?? null,
     command: params.command,
+    legacyAlgorithms: params.legacyAlgorithms ?? false,
   });
 }
 
@@ -150,6 +152,7 @@ export async function sshKillPersistent(params: {
   privateKey?: string;
   passphrase?: string;
   sessionId: string;
+  legacyAlgorithms?: boolean;
 }): Promise<boolean> {
   return invoke("ssh_kill_persistent", {
     host: params.host,
@@ -159,6 +162,7 @@ export async function sshKillPersistent(params: {
     privateKey: params.privateKey ?? null,
     passphrase: params.passphrase ?? null,
     sessionId: params.sessionId,
+    legacyAlgorithms: params.legacyAlgorithms ?? false,
   });
 }
 
