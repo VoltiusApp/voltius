@@ -9,13 +9,26 @@ export function pathSep(path: string): "/" | "\\" {
   return path.includes("/") ? "/" : "\\";
 }
 
+const DRIVE_SPEC = /^[A-Za-z]:$/;
+
+/** "C:" alone is drive-relative on Windows, so a drive root keeps its separator. */
+export function withDriveRootSep(path: string, sep: "/" | "\\"): string {
+  return DRIVE_SPEC.test(path) ? path + sep : path;
+}
+
+/** Parent directory, or "" when `path` has none. */
 export function parentDir(path: string): string {
   const sep = pathSep(path);
   const trimmed = path.replace(/[/\\]+$/, "");
+  if (DRIVE_SPEC.test(trimmed)) return "";
+  if (path.startsWith("\\\\") || path.startsWith("//")) {
+    const parts = trimmed.split(/[/\\]/).filter(Boolean);
+    return parts.length <= 1 ? "" : sep + sep + parts.slice(0, -1).join(sep);
+  }
   const idx = trimmed.lastIndexOf(sep);
   if (idx < 0) return "";
   if (idx === 0) return sep; // "/foo" -> "/"
-  return trimmed.slice(0, idx);
+  return withDriveRootSep(trimmed.slice(0, idx), sep);
 }
 
 export function joinPath(dir: string, name: string): string {

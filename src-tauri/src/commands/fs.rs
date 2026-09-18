@@ -46,8 +46,25 @@ pub fn fs_home_dir() -> Result<String, String> {
         .ok_or_else(|| "Cannot determine home directory".into())
 }
 
+/// `"C:"` is drive-relative on Windows (the process CWD on that drive), so a
+/// bare drive spec must become `"C:\"` before it is read as a directory.
+fn drive_root(path: &str) -> Option<String> {
+    let b = path.as_bytes();
+    (b.len() == 2 && b[0].is_ascii_alphabetic() && b[1] == b':').then(|| format!("{path}\\"))
+}
+
+fn normalize_browse_path(path: &str) -> String {
+    if cfg!(windows) {
+        if let Some(root) = drive_root(path) {
+            return root;
+        }
+    }
+    path.to_string()
+}
+
 #[tauri::command]
 pub fn fs_list_dir(path: String) -> Result<Vec<LocalFile>, String> {
+    let path = normalize_browse_path(&path);
     // The bare WSL server root can't be read_dir'd; list distros as folders instead.
     if let Some(prefix) = crate::commands::wsl::root_prefix(&path) {
         return Ok(crate::commands::wsl::list_distros()
@@ -374,4 +391,19 @@ pub fn fs_exists_home(path: String) -> Result<bool, String> {
         home.join(&path)
     };
     Ok(resolved.exists())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::drive_root;
+
+    #[test]
+    fn bare_drive_spec_becomes_drive_root() {
+        assert_eq!(drive_root("C:").as_deref(), Some("C:\\"));
+        assert_eq!(drive_root("d:").as_deref(), Some("d:\\"));
+        assert_eq!(drive_root("C:\\"), None);
+        assert_eq!(drive_root("C:\\Users"), None);
+        assert_eq!(drive_root("/home"), None);
+        assert_eq!(drive_root("::"), None);
+    }
 }

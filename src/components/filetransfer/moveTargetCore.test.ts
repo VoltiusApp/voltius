@@ -22,11 +22,19 @@ test("moveTargetCore", () => {
   assertEqual(parentDir("/src/logs"), "/src", "posix parent");
   assertEqual(parentDir("/src"), "/", "posix parent of top dir is root");
   assertEqual(parentDir("C:\\Users\\x"), "C:\\Users", "windows parent");
+  assertEqual(parentDir("C:\\Users"), "C:\\", "windows drive root keeps its separator");
+  assertEqual(parentDir("C:/Users"), "C:/", "windows drive root with forward slashes");
+  assertEqual(parentDir("C:\\"), "", "drive root has no parent");
+  assertEqual(parentDir("C:"), "", "bare drive spec has no parent");
+  assertEqual(parentDir("/"), "", "posix root has no parent");
+  assertEqual(parentDir("\\\\wsl$\\Ubuntu\\home"), "\\\\wsl$\\Ubuntu", "unc parent");
+  assertEqual(parentDir("\\\\wsl$"), "", "unc server root has no parent");
 
   // joinPath
   assertEqual(joinPath("/dest/", "a.txt"), "/dest/a.txt", "posix join strips trailing slash");
   assertEqual(joinPath("/", "x"), "/x", "root join no doubled slash");
   assertEqual(joinPath("C:\\Users", "x"), "C:\\Users\\x", "windows join");
+  assertEqual(joinPath("C:\\", "x"), "C:\\x", "windows drive root join");
 
   // isValidMoveTarget — valid: move /src/a.txt into /src/logs
   assertEqual(isValidMoveTarget([f("a.txt", "/src")], "/src/logs"), true, "valid move into sibling folder");
