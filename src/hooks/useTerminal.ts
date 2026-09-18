@@ -2,7 +2,7 @@ import { attachTerminalClipboard, type TerminalClipboardHandle } from "@/compone
 import { useEffect, useRef, useCallback } from "react";
 import { Terminal, type IBufferCell, type IBufferRange } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
+import { createWebglAddon } from "@/utils/webglAddon";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -1046,7 +1046,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       });
 
       try {
-        term.loadAddon(new WebglAddon());
+        term.loadAddon(createWebglAddon());
       } catch {
         // WebGL not available, use default canvas renderer
       }
