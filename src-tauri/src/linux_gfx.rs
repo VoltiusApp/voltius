@@ -6,11 +6,14 @@
 //! WebKitGTK stack and are fine:
 //!
 //! 1. WebKitGTK >= 2.42 composites through DMA-BUF by default. That path is
-//!    broken on NVIDIA proprietary drivers under Wayland and on various
-//!    Mesa/compositor combinations; WebKit silently renders nothing and the
-//!    window stays white. The ecosystem-standard fix is
-//!    `WEBKIT_DISABLE_DMABUF_RENDERER=1`, which falls back to the older
-//!    (still GPU-accelerated) EGL path.
+//!    broken on NVIDIA proprietary drivers and on various Mesa/compositor
+//!    combinations; WebKit silently renders nothing and the window stays
+//!    white. The ecosystem-standard fix is `WEBKIT_DISABLE_DMABUF_RENDERER=1`,
+//!    which falls back to the older (still GPU-accelerated) EGL path. That
+//!    path presents WebGL canvases one frame late (#224), so on native
+//!    Wayland + NVIDIA we keep DMA-BUF and set `__NV_DISABLE_EXPLICIT_SYNC=1`
+//!    instead: the failure there is a `wp_linux_drm_syncobj_surface_v1`
+//!    protocol error ("no acquire point") that kills the connection.
 //!
 //! 2. linuxdeploy bundles the build machine's `libwayland-client.so.0` into
 //!    the AppImage as a WebKit dependency. On hosts with a newer Wayland
@@ -25,10 +28,12 @@
 //! `VOLTIUS_NO_LINUX_GFX_WORKAROUNDS=1` disables everything here.
 
 use std::env;
+use std::ffi::OsStr;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
 const OPT_OUT: &str = "VOLTIUS_NO_LINUX_GFX_WORKAROUNDS";
+const NV_DISABLE_EXPLICIT_SYNC: &str = "__NV_DISABLE_EXPLICIT_SYNC";
 /// Marks the re-exec'd process so a failed preload can't retry forever.
 const PRELOAD_GUARD: &str = "VOLTIUS_WAYLAND_PRELOAD_ATTEMPTED";
 
@@ -53,10 +58,21 @@ pub fn apply_startup_workarounds() {
 
     let appimage = env::var_os("APPIMAGE").is_some() || env::var_os("APPDIR").is_some();
 
-    if env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
-        && (appimage || nvidia_driver_present())
-    {
-        env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    if env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        let native_wayland = is_native_wayland(
+            env::var_os("WAYLAND_DISPLAY").as_deref(),
+            env::var_os("GDK_BACKEND").as_deref(),
+        );
+        match dmabuf_plan(
+            appimage,
+            nvidia_driver_present(),
+            native_wayland,
+            env::var_os(NV_DISABLE_EXPLICIT_SYNC).as_deref(),
+        ) {
+            DmabufPlan::Keep => {}
+            DmabufPlan::DisableExplicitSync => env::set_var(NV_DISABLE_EXPLICIT_SYNC, "1"),
+            DmabufPlan::DisableDmabuf => env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1"),
+        }
     }
 
     // The bundled-libwayland conflict only exists inside an AppImage on a
@@ -74,6 +90,54 @@ pub fn apply_startup_workarounds() {
 
 fn nvidia_driver_present() -> bool {
     Path::new("/proc/driver/nvidia").exists() || Path::new("/sys/module/nvidia").exists()
+}
+
+#[derive(Debug, PartialEq)]
+enum DmabufPlan {
+    Keep,
+    DisableExplicitSync,
+    DisableDmabuf,
+}
+
+/// Decides how to keep WebKit's DMA-BUF renderer from failing. Only called
+/// when the user hasn't set `WEBKIT_DISABLE_DMABUF_RENDERER` themselves.
+fn dmabuf_plan(
+    appimage: bool,
+    nvidia: bool,
+    native_wayland: bool,
+    nv_disable_explicit_sync: Option<&OsStr>,
+) -> DmabufPlan {
+    if appimage || (nvidia && !native_wayland) {
+        // X11 + NVIDIA shows a blank page ("Failed to create GBM buffer"), and the
+        // AppImage's GTK hook forces GDK_BACKEND=x11.
+        return DmabufPlan::DisableDmabuf;
+    }
+    if !nvidia {
+        return DmabufPlan::Keep;
+    }
+    match nv_disable_explicit_sync {
+        None => DmabufPlan::DisableExplicitSync,
+        // The driver treats "0" and "" as explicit sync on, which still hits the error.
+        Some(v) if v.is_empty() || v == "0" => DmabufPlan::DisableDmabuf,
+        Some(_) => DmabufPlan::Keep,
+    }
+}
+
+/// Whether GTK will pick its Wayland backend. `GDK_BACKEND` may be a
+/// comma-separated preference list; GTK tries the first entry first.
+fn is_native_wayland(wayland_display: Option<&OsStr>, gdk_backend: Option<&OsStr>) -> bool {
+    if wayland_display.is_none_or(|v| v.is_empty()) {
+        return false;
+    }
+    let Some(backend) = gdk_backend else {
+        return true;
+    };
+    matches!(
+        backend
+            .to_str()
+            .map(|b| b.split(',').next().unwrap_or("").trim()),
+        Some("" | "*" | "wayland")
+    )
 }
 
 /// First candidate that exists and is an ELF shared object matching this
@@ -173,5 +237,69 @@ mod tests {
         if cfg!(target_pointer_width = "64") && EXPECTED_E_MACHINE != 0 {
             assert_eq!(first_matching_lib(&cands), Some(good));
         }
+    }
+
+    fn os(s: &str) -> Option<&OsStr> {
+        Some(OsStr::new(s))
+    }
+
+    #[test]
+    fn nvidia_on_native_wayland_keeps_dmabuf_without_explicit_sync() {
+        assert_eq!(
+            dmabuf_plan(false, true, true, None),
+            DmabufPlan::DisableExplicitSync
+        );
+        assert_eq!(dmabuf_plan(false, true, true, os("1")), DmabufPlan::Keep);
+    }
+
+    #[test]
+    fn nvidia_with_explicit_sync_forced_on_disables_dmabuf() {
+        assert_eq!(
+            dmabuf_plan(false, true, true, os("0")),
+            DmabufPlan::DisableDmabuf
+        );
+        assert_eq!(
+            dmabuf_plan(false, true, true, os("")),
+            DmabufPlan::DisableDmabuf
+        );
+    }
+
+    #[test]
+    fn x11_nvidia_and_appimage_disable_dmabuf() {
+        assert_eq!(
+            dmabuf_plan(false, true, false, None),
+            DmabufPlan::DisableDmabuf
+        );
+        assert_eq!(
+            dmabuf_plan(false, true, false, os("1")),
+            DmabufPlan::DisableDmabuf
+        );
+        assert_eq!(
+            dmabuf_plan(true, false, true, None),
+            DmabufPlan::DisableDmabuf
+        );
+        assert_eq!(
+            dmabuf_plan(true, true, true, None),
+            DmabufPlan::DisableDmabuf
+        );
+    }
+
+    #[test]
+    fn non_nvidia_keeps_dmabuf() {
+        assert_eq!(dmabuf_plan(false, false, true, None), DmabufPlan::Keep);
+        assert_eq!(dmabuf_plan(false, false, false, None), DmabufPlan::Keep);
+    }
+
+    #[test]
+    fn detects_native_wayland_from_gdk_backend() {
+        let wl = os("wayland-0");
+        assert!(is_native_wayland(wl, None));
+        assert!(is_native_wayland(wl, os("")));
+        assert!(is_native_wayland(wl, os("wayland,x11")));
+        assert!(is_native_wayland(wl, os("*")));
+        assert!(!is_native_wayland(wl, os("x11")));
+        assert!(!is_native_wayland(wl, os("x11,wayland")));
+        assert!(!is_native_wayland(None, None));
+        assert!(!is_native_wayland(os(""), os("wayland")));
     }
 }
