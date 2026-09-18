@@ -27,6 +27,7 @@ import { resolveTypeAheadIndex, TYPE_AHEAD_RESET_MS } from "./typeAhead";
 import { useFileClipboardStore, sameHost, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { writeClipboard } from "@/utils/clipboard";
 import { copyPathText } from "./copyPathText";
+import { parentDir, joinPath, withDriveRootSep } from "./moveTargetCore";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
 
@@ -228,22 +229,8 @@ export function FilePane({
       .catch((e) => { if (isPrimaryLoad) { setError(String(e)); setLoading(false); } });
   }, [isLocal, sftpId, cwd, refreshTick, autoTick]);
 
-  // Parent directory of cwd, or null at a filesystem/UNC root. Shared by the
-  // up-button navigation and its drop-target marker.
-  const computeParentDir = (): string | null => {
-    const isUnc = cwd.startsWith("\\\\") || cwd.startsWith("//");
-    const normalized = cwd.replace(/\\/g, "/");
-    const parts = normalized.split("/").filter(Boolean);
-    if (parts.length === 0) return null;
-    if (isUnc && parts.length <= 1) return null;
-    const parentParts = parts.slice(0, -1);
-    if (isUnc) return "\\\\" + parentParts.join("\\");
-    if (normalized.startsWith("/")) return "/" + parentParts.join("/") || "/";
-    return parentParts.length > 0 ? parentParts.join("/") : parts[0] + "/";
-  };
-
-  const parentPath = computeParentDir();
-  const goUp = () => { if (parentPath) onNavigate(parentPath || "/"); };
+  const parentPath = parentDir(cwd) || null;
+  const goUp = () => { if (parentPath) onNavigate(parentPath); };
 
   const handleMkdir = () => { setNewItemName(""); setCreatingFolder(true); setCreatingFile(false); };
   const handleNewFile = () => { setNewItemName(""); setCreatingFile(true); setCreatingFolder(false); };
@@ -251,7 +238,7 @@ export function FilePane({
   const commitCreateFolder = async () => {
     setCreatingFolder(false);
     if (!newItemName.trim()) return;
-    const fullPath = `${cwd.replace(/\/$/, "")}/${newItemName.trim()}`;
+    const fullPath = joinPath(cwd, newItemName.trim());
     try {
       if (isLocal) { await fsMkdir(fullPath); }
       else if (sftpId) { await sftpMkdir(sftpId, fullPath); }
@@ -262,7 +249,7 @@ export function FilePane({
   const commitCreateFile = async () => {
     setCreatingFile(false);
     if (!newItemName.trim()) return;
-    const fullPath = `${cwd.replace(/\/$/, "")}/${newItemName.trim()}`;
+    const fullPath = joinPath(cwd, newItemName.trim());
     try {
       if (isLocal) { await fsTouch(fullPath); }
       else if (sftpId) { await sftpTouch(sftpId, fullPath); }
@@ -304,9 +291,7 @@ export function FilePane({
   const commitRename = async (f: FileEntry) => {
     if (!renameVal || renameVal === f.name) { setRenaming(null); return; }
     if (!isLocal && !sftpId) { setRenaming(null); return; }
-    const sep = f.path.includes("/") ? "/" : "\\";
-    const dir = f.path.substring(0, f.path.lastIndexOf(sep));
-    const newPath = `${dir}${sep}${renameVal}`;
+    const newPath = joinPath(parentDir(f.path), renameVal);
     try {
       if (isLocal) { await fsRename(f.path, newPath); }
       else { await sftpRename(sftpId!, f.path, newPath); }
@@ -408,9 +393,7 @@ export function FilePane({
   };
 
   const handleCompress = async (file: FileEntry) => {
-    const sep = file.path.includes("/") ? "/" : "\\";
-    const parent = file.path.substring(0, file.path.lastIndexOf(sep));
-    const archivePath = `${parent}${sep}${file.name}.tar.gz`;
+    const archivePath = joinPath(parentDir(file.path), `${file.name}.tar.gz`);
     try {
       if (isLocal) await fsCompress(file.path, archivePath);
       else if (sftpId) await sftpCompress(sftpId, file.path, archivePath);
@@ -419,10 +402,8 @@ export function FilePane({
   };
 
   const handleExtract = async (file: FileEntry) => {
-    const sep = file.path.includes("/") ? "/" : "\\";
-    const parent = file.path.substring(0, file.path.lastIndexOf(sep));
     const baseName = file.name.replace(/\.(tar\.gz|tgz)$/i, "");
-    const destDir = `${parent}${sep}${baseName}`;
+    const destDir = joinPath(parentDir(file.path), baseName);
     try {
       if (isLocal) await fsExtract(file.path, destDir);
       else if (sftpId) await sftpExtract(sftpId, file.path, destDir);
@@ -769,7 +750,7 @@ function PathBreadcrumb({ cwd, onNavigate, dropFolderPath }: { cwd: string; isLo
     label,
     path: isUnc
       ? "\\\\" + parts.slice(0, i + 1).join("\\")
-      : (isAbsolute ? "/" : "") + parts.slice(0, i + 1).join("/"),
+      : withDriveRootSep((isAbsolute ? "/" : "") + parts.slice(0, i + 1).join("/"), "/"),
   }));
   const allCrumbs = isUnc || !isAbsolute ? crumbs : [{ label: "/", path: "/" }, ...crumbs];
 
