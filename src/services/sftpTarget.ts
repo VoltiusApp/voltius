@@ -23,14 +23,17 @@ export async function resolveSftpIdForTarget(target: RunTarget): Promise<string>
   if (target.kind === "session") {
     return sftpOpen(target.sessionId);
   }
-  const conn = target.connection;
+  return sftpConnectToConnection(target.connection, genId());
+}
+
+export async function sftpConnectToConnection(conn: Connection, connectId: string): Promise<string> {
   const [creds, jumpHosts] = await Promise.all([
     resolveConnectionCredentials(conn),
     resolveJumpHosts(conn),
   ]);
   const ka = resolveKeepalive(conn.keepalive_preset ?? getGlobalKeepalivePreset());
   return sftpConnect({
-    connectId: genId(),
+    connectId,
     host: conn.host,
     port: conn.port,
     username: creds.username,
@@ -40,5 +43,6 @@ export async function resolveSftpIdForTarget(target: RunTarget): Promise<string>
     jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
     keepaliveIntervalSecs: ka.intervalSecs,
     keepaliveMax: ka.max,
+    legacyAlgorithms: conn.legacy_algorithms,
   });
 }

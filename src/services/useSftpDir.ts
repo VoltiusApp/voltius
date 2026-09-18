@@ -2,13 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import i18n from "@/i18n";
 import {
-  sftpConnect, ftpConnect, sftpClose, sftpCanonicalize, sftpListDir,
+  ftpConnect, sftpClose, sftpCanonicalize, sftpListDir,
   sftpMkdir, sftpRename, sftpDelete, sftpTouch,
   type RemoteFile,
 } from "@/services/sftp";
-import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
-import { resolveKeepalive } from "@/utils/keepalive";
-import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
+import { resolveConnectionCredentials } from "@/services/credentials";
+import { sftpConnectToConnection } from "@/services/sftpTarget";
 import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
 import type { Connection } from "@/types";
 
@@ -78,23 +77,7 @@ export function useSftpDir(connection: Connection | undefined) {
             secure: !!connection.ftp_secure,
           });
         } else {
-          const [creds, jumpHosts] = await Promise.all([
-            resolveConnectionCredentials(connection),
-            resolveJumpHosts(connection),
-          ]);
-          const ka = resolveKeepalive(connection.keepalive_preset ?? getGlobalKeepalivePreset());
-          sftpId = await sftpConnect({
-            connectId,
-            host: connection.host,
-            port: connection.port,
-            username: creds.username,
-            password: creds.password,
-            privateKey: creds.privateKey,
-            passphrase: creds.passphrase,
-            jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
-            keepaliveIntervalSecs: ka.intervalSecs,
-            keepaliveMax: ka.max,
-          });
+          sftpId = await sftpConnectToConnection(connection, connectId);
         }
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
         sftpIdRef.current = sftpId;

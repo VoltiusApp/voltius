@@ -342,6 +342,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         password: detectPassword,
         privateKey: detectPrivateKey,
         passphrase: detectPassphrase,
+        legacyAlgorithms,
         command: "{ cat /etc/os-release 2>/dev/null || echo ID=linux; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true",
       });
       const lines = stdout.split(/\r?\n/);
@@ -356,7 +357,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     } finally {
       setDetectingDistro(false);
     }
-  }, [applyDetectedDistro, host, identityId, keyId, initial, passphrase, password, port, privateKey, selectedIdentity, username]);
+  }, [applyDetectedDistro, host, identityId, keyId, initial, legacyAlgorithms, passphrase, password, port, privateKey, selectedIdentity, username]);
 
   const panelItems = initial ? buildConnectionMenuItems({
     t,

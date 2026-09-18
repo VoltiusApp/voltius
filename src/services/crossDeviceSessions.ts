@@ -96,6 +96,7 @@ export async function killRemoteSession(
       privateKey: creds.privateKey,
       passphrase: creds.passphrase,
       sessionId: j.sessionId,
+      legacyAlgorithms: connection.legacy_algorithms,
     });
   } catch {
     return { ok: false, reason: "error" };

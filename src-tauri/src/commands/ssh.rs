@@ -194,47 +194,21 @@ pub async fn ssh_exec_command(
     private_key: Option<String>,
     passphrase: Option<String>,
     command: String,
+    legacy_algorithms: Option<bool>,
 ) -> Result<SshExecResult, String> {
-    use russh::client as russh_client;
     use tokio::time::{timeout, Duration};
 
-    let config = russh_client::Config {
-        ..Default::default()
-    };
-    let (ssh_client, rejection_reason) =
-        client::SshClient::new(host.clone(), port, Arc::clone(&*known_hosts));
-    let mut handle =
-        match russh_client::connect(Arc::new(config), (host.as_str(), port), ssh_client).await {
-            Ok(h) => h,
-            Err(e) => {
-                let reason = rejection_reason.lock().await.take();
-                return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
-            }
-        };
-
-    let authenticated = if let Some(key_str) = private_key {
-        let key_pair = russh::keys::decode_secret_key(&key_str, passphrase.as_deref())
-            .map_err(|e| format!("Invalid private key: {}", e))?;
-        let key = russh::keys::PrivateKeyWithHashAlg::new(
-            Arc::new(key_pair),
-            Some(russh::keys::ssh_key::HashAlg::Sha256),
-        );
-        handle
-            .authenticate_publickey(&username, key)
-            .await
-            .map_err(|e| format!("Auth failed: {}", e))?
-    } else if let Some(pwd) = password {
-        handle
-            .authenticate_password(&username, &pwd)
-            .await
-            .map_err(|e| format!("Auth failed: {}", e))?
-    } else {
-        return Err("No authentication method provided".into());
-    };
-
-    if !authenticated.success() {
-        return Err("Authentication failed".into());
-    }
+    let handle = client::connect_authenticated(
+        Arc::clone(&*known_hosts),
+        &host,
+        port,
+        &username,
+        password.as_deref(),
+        private_key.as_deref(),
+        passphrase.as_deref(),
+        legacy_algorithms.unwrap_or(false),
+    )
+    .await?;
 
     let mut channel = handle
         .channel_open_session()
@@ -295,48 +269,22 @@ pub async fn ssh_kill_persistent(
     private_key: Option<String>,
     passphrase: Option<String>,
     session_id: String,
+    legacy_algorithms: Option<bool>,
 ) -> Result<bool, String> {
-    use russh::client as russh_client;
     use tokio::io::AsyncReadExt;
     use tokio::time::{timeout, Duration};
 
-    let config = russh_client::Config {
-        ..Default::default()
-    };
-    let (ssh_client, rejection_reason) =
-        client::SshClient::new(host.clone(), port, Arc::clone(&*known_hosts));
-    let mut handle =
-        match russh_client::connect(Arc::new(config), (host.as_str(), port), ssh_client).await {
-            Ok(h) => h,
-            Err(e) => {
-                let reason = rejection_reason.lock().await.take();
-                return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
-            }
-        };
-
-    let authenticated = if let Some(key_str) = private_key {
-        let key_pair = russh::keys::decode_secret_key(&key_str, passphrase.as_deref())
-            .map_err(|e| format!("Invalid private key: {}", e))?;
-        let key = russh::keys::PrivateKeyWithHashAlg::new(
-            Arc::new(key_pair),
-            Some(russh::keys::ssh_key::HashAlg::Sha256),
-        );
-        handle
-            .authenticate_publickey(&username, key)
-            .await
-            .map_err(|e| format!("Auth failed: {}", e))?
-    } else if let Some(pwd) = password {
-        handle
-            .authenticate_password(&username, &pwd)
-            .await
-            .map_err(|e| format!("Auth failed: {}", e))?
-    } else {
-        return Err("No authentication method provided".into());
-    };
-
-    if !authenticated.success() {
-        return Err("Authentication failed".into());
-    }
+    let handle = client::connect_authenticated(
+        Arc::clone(&*known_hosts),
+        &host,
+        port,
+        &username,
+        password.as_deref(),
+        private_key.as_deref(),
+        passphrase.as_deref(),
+        legacy_algorithms.unwrap_or(false),
+    )
+    .await?;
 
     let command = crate::shell_integration::force_kill_command(&session_id);
 

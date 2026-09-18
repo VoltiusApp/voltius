@@ -33,4 +33,11 @@ describe("resolveSftpIdForTarget", () => {
     expect(sftpConnect).toHaveBeenCalled();
     expect(sftpOpen).not.toHaveBeenCalled();
   });
+
+  it("forwards the connection's legacy-algorithms toggle", async () => {
+    sftpConnect.mockResolvedValue("sftp-3");
+    const conn = { id: "c1", host: "h", port: 22, username: "u", legacy_algorithms: true } as Connection;
+    await resolveSftpIdForTarget({ kind: "connection", connection: conn });
+    expect(sftpConnect).toHaveBeenCalledWith(expect.objectContaining({ legacyAlgorithms: true }));
+  });
 });
