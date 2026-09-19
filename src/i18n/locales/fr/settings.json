@@ -43,6 +43,10 @@
       "language": {
         "title": "Langue"
       },
+      "groupTabsByHost": {
+        "title": "Regrouper les onglets par hôte",
+        "desc": "Les sessions d'un même hôte partagent un onglet. Survolez-le pour passer de l'une à l'autre."
+      },
       "colorTheme": "Thème de couleurs",
       "import": "Importer",
       "importTitle": "Importer un ou plusieurs thèmes",
@@ -910,6 +914,9 @@
       },
       "dragSelectsText": {
         "label": "Le glisser sélectionne le texte"
+      },
+      "groupTabsByHost": {
+        "label": "Regrouper les onglets par hôte"
       },
       "ignoreBracketedPaste": {
         "label": "Collage simple (sans crochets)"

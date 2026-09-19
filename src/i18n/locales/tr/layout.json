@@ -188,6 +188,26 @@
       "newSession": "Yeni oturum",
       "renameTab": "Sekmeyi yeniden adlandır",
       "closeTab": "Sekmeyi kapat",
+      "stack": {
+        "sessions_one": "{{host}} · {{count}} oturum",
+        "sessions_other": "{{host}} · {{count}} oturum",
+        "count_one": "{{count}} oturum",
+        "count_other": "{{count}} oturum",
+        "newSessionOn": "{{host}} üzerinde yeni oturum",
+        "closeAll": "Tümünü kapat ({{count}})",
+        "openInSplit": "Bölünmüş görünümde aç",
+        "inSplit": "bölünmüş görünümde",
+        "pin": "Oturum listesini sabitle",
+        "unpin": "Oturum listesinin sabitlemesini kaldır",
+        "status": {
+          "connected": "Bağlı · {{time}}",
+          "connecting": "Bağlanıyor…",
+          "disconnected": "Bağlantı kesildi",
+          "offline": "Ağ bekleniyor",
+          "reconnecting": "Yeniden bağlanıyor…",
+          "error": "Hata · {{message}}"
+        }
+      },
       "splitMenu": {
         "rename": "Sekmeyi yeniden adlandır…",
         "broadcastOn": "Girdiyi tüm bölmelere yayınla",

@@ -54,6 +54,13 @@ export const TOGGLE_DEFS = {
     keywords: ["select", "drag", "mouse", "tmux", "copy", "terminal", "reporting"],
     default: true,
   },
+  "group-tabs-by-host": {
+    labelKey: "settings.toggleDefs.groupTabsByHost.label",
+    icon: "lucide:layers",
+    descriptionKey: "settings.toggleDefs.category.appearance",
+    keywords: ["tabs", "group", "stack", "host", "sessions", "titlebar"],
+    default: true,
+  },
   "ignore-bracketed-paste": {
     labelKey: "settings.toggleDefs.ignoreBracketedPaste.label",
     icon: "lucide:clipboard-x",

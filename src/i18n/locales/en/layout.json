@@ -188,6 +188,26 @@
       "newSession": "New session",
       "renameTab": "Rename tab",
       "closeTab": "Close tab",
+      "stack": {
+        "sessions_one": "{{host}} · {{count}} session",
+        "sessions_other": "{{host}} · {{count}} sessions",
+        "count_one": "{{count}} session",
+        "count_other": "{{count}} sessions",
+        "newSessionOn": "New session on {{host}}",
+        "closeAll": "Close all {{count}}",
+        "openInSplit": "Open in split",
+        "inSplit": "in split",
+        "pin": "Pin session list",
+        "unpin": "Unpin session list",
+        "status": {
+          "connected": "Connected · {{time}}",
+          "connecting": "Connecting…",
+          "disconnected": "Disconnected",
+          "offline": "Waiting for network",
+          "reconnecting": "Reconnecting…",
+          "error": "Error · {{message}}"
+        }
+      },
       "splitMenu": {
         "rename": "Rename tab…",
         "broadcastOn": "Broadcast input to all panes",

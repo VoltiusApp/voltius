@@ -188,6 +188,28 @@
       "newSession": "Новая сессия",
       "renameTab": "Переименовать вкладку",
       "closeTab": "Закрыть вкладку",
+      "stack": {
+        "sessions_one": "{{host}} · {{count}} сеанс",
+        "sessions_few": "{{host}} · {{count}} сеанса",
+        "sessions_many": "{{host}} · {{count}} сеансов",
+        "count_one": "{{count}} сеанс",
+        "count_few": "{{count}} сеанса",
+        "count_many": "{{count}} сеансов",
+        "newSessionOn": "Новый сеанс на {{host}}",
+        "closeAll": "Закрыть все ({{count}})",
+        "openInSplit": "Открыть в разделённом виде",
+        "inSplit": "в разделённом виде",
+        "pin": "Закрепить список сеансов",
+        "unpin": "Открепить список сеансов",
+        "status": {
+          "connected": "Подключено · {{time}}",
+          "connecting": "Подключение…",
+          "disconnected": "Отключено",
+          "offline": "Ожидание сети",
+          "reconnecting": "Переподключение…",
+          "error": "Ошибка · {{message}}"
+        }
+      },
       "splitMenu": {
         "rename": "Переименовать вкладку…",
         "broadcastOn": "Транслировать ввод во все панели",
