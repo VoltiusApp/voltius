@@ -1,5 +1,6 @@
 import type { TerminalSession } from "@/types";
 import { getPaneSessionIds, type SplitTab } from "@/stores/layoutStore";
+import { useSessionStore } from "@/stores/sessionStore";
 
 export type TitlebarItem =
   | { key: string; type: "session"; session: TerminalSession }
@@ -117,3 +118,6 @@ export function hostSessionsInOrder(
   }
   return rows;
 }
+
+export const titlebarConnectionOf = (sessionId: string) =>
+  useSessionStore.getState().sessions.find((session) => session.id === sessionId)?.connectionId;

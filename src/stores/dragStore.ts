@@ -15,6 +15,7 @@ interface DragStore {
   sessionId: string | null;
   sourcePaneId: string | null;
   sourceTitlebarKey: string | null;
+  fromStackList: boolean;
   startX: number;
   startY: number;
   currentX: number;
@@ -22,7 +23,7 @@ interface DragStore {
   dropTarget: DropTarget | null;
   lastDragEndedAt: number;
 
-  beginTabDrag(sessionId: string, x: number, y: number, titlebarKey?: string): void;
+  beginTabDrag(sessionId: string, x: number, y: number, titlebarKey?: string, options?: { fromStackList?: boolean }): void;
   beginSplitTabDrag(tabId: string, x: number, y: number): void;
   beginPaneDrag(sourcePaneId: string, sessionId: string, x: number, y: number): void;
   updatePointer(x: number, y: number): void;
@@ -40,6 +41,7 @@ const initial = {
   sessionId: null,
   sourcePaneId: null,
   sourceTitlebarKey: null,
+  fromStackList: false,
   startX: 0,
   startY: 0,
   currentX: 0,
@@ -51,7 +53,7 @@ export const useDragStore = create<DragStore>((set) => ({
   ...initial,
   lastDragEndedAt: 0,
 
-  beginTabDrag: (sessionId, x, y, titlebarKey) => set({ ...initial, isPointerDown: true, dragType: "tab", sourceTitlebarKey: titlebarKey ?? `session:${sessionId}`, sessionId, startX: x, startY: y, currentX: x, currentY: y }),
+  beginTabDrag: (sessionId, x, y, titlebarKey, options) => set({ ...initial, isPointerDown: true, dragType: "tab", sourceTitlebarKey: titlebarKey ?? `session:${sessionId}`, sessionId, fromStackList: options?.fromStackList ?? false, startX: x, startY: y, currentX: x, currentY: y }),
   beginSplitTabDrag: (tabId, x, y) => set({ ...initial, isPointerDown: true, dragType: "tab", sourceTitlebarKey: `split:${tabId}`, startX: x, startY: y, currentX: x, currentY: y }),
   beginPaneDrag: (sourcePaneId, sessionId, x, y) => set({ ...initial, isPointerDown: true, dragType: "pane", sourcePaneId, sessionId, startX: x, startY: y, currentX: x, currentY: y }),
   updatePointer: (x, y) => set((state) => {

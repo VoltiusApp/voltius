@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { mergeTitlebarItems, placeTitlebarItem } from "@/utils/titlebarOrder";
+import { gatherGroups, mergeTitlebarItems, placeTitlebarBlock, placeTitlebarItem } from "@/utils/titlebarOrder";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
 
 export type SplitDirection = "h" | "v";
@@ -48,9 +48,9 @@ interface LayoutStore {
   closeSplitTab(tabId: string): void;
   /** Name a split tab. A blank name clears it, so the label derives again. */
   renameSplitTab(tabId: string, name: string | null): void;
-  syncTitlebarOrder(visibleKeys: string[]): void;
+  syncTitlebarOrder(visibleKeys: string[], groupOf?: (key: string) => string | undefined): void;
   placeTitlebarItem(itemKey: string, targetKey: string | null, placement: "before" | "after"): void;
-  reorderTitlebarItem(sourceKey: string, targetKey: string | null, placement: "before" | "after"): void;
+  reorderTitlebarItem(sourceKeys: string | string[], targetKey: string | null, placement: "before" | "after"): void;
   createSplitTab(targetSessionId: string, incomingSessionId: string, position: SplitPosition): void;
   splitPane(targetPaneId: string, sessionId: string, position: SplitPosition): void;
   movePane(sourcePaneId: string, targetPaneId: string, position: SplitPosition): void;
@@ -304,15 +304,17 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
     titlebarOrder: placeTitlebarItem(state.titlebarOrder, itemKey, targetKey, placement),
   })),
 
-  syncTitlebarOrder: (visibleKeys) => set((state) => {
-    const titlebarOrder = mergeTitlebarItems(state.titlebarOrder, visibleKeys);
+  syncTitlebarOrder: (visibleKeys, groupOf) => set((state) => {
+    const merged = mergeTitlebarItems(state.titlebarOrder, visibleKeys);
+    const titlebarOrder = groupOf ? gatherGroups(merged, groupOf) : merged;
     if (titlebarOrder.length === state.titlebarOrder.length && titlebarOrder.every((key, index) => key === state.titlebarOrder[index])) return {};
     return { titlebarOrder };
   }),
 
-  reorderTitlebarItem: (sourceKey, targetKey, placement) => set((state) => {
-    if (sourceKey === targetKey) return {};
-    return { titlebarOrder: placeTitlebarItem(state.titlebarOrder, sourceKey, targetKey, placement) };
+  reorderTitlebarItem: (sourceKeys, targetKey, placement) => set((state) => {
+    const keys = Array.isArray(sourceKeys) ? sourceKeys : [sourceKeys];
+    if (targetKey !== null && keys.includes(targetKey)) return {};
+    return { titlebarOrder: placeTitlebarBlock(state.titlebarOrder, keys, targetKey, placement) };
   }),
 
   createSplitTab: (targetSessionId, incomingSessionId, position) => {
