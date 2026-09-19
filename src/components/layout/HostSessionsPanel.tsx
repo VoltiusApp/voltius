@@ -1,0 +1,67 @@
+import { useTranslation } from "react-i18next";
+import { Icon } from "@iconify/react";
+import { useUIStore } from "@/stores/uiStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
+import { HostSessionRows } from "@/components/layout/HostSessionRows";
+import { sessionTabIcon } from "@/components/layout/TitlebarTab";
+import { canDuplicateSession, duplicateSession } from "@/services/duplicateSession";
+import { hostSessionsInOrder, shownMember, stackMemberLabels, visibleTitlebarKeys, worstStatus } from "@/utils/titlebarItems";
+import { mergeTitlebarItems } from "@/utils/titlebarOrder";
+import { sessionStatusTone } from "@/utils/statusTone";
+
+export function HostSessionsPanel() {
+  const { t } = useTranslation();
+  const pinned = useUIStore((s) => s.hostPanelPinned);
+  const activeNav = useUIStore((s) => s.activeNav);
+  const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
+  const setPinned = useUIStore((s) => s.setHostPanelPinned);
+  const sessions = useSessionStore((s) => s.sessions);
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const splitTabs = useLayoutStore((s) => s.splitTabs);
+  const titlebarOrder = useLayoutStore((s) => s.titlebarOrder);
+  const connections = useAllConnections();
+  const active = sessions.find((session) => session.id === activeSessionId);
+  if (!pinned || activeNav !== "terminal" || sftpPanelOpen || !active) return null;
+
+  const splitIds = new Set(splitTabs.flatMap((tab) => getPaneSessionIds(tab.root)));
+  const visibleKeys = visibleTitlebarKeys(sessions, splitTabs);
+  const rows = hostSessionsInOrder(mergeTitlebarItems(titlebarOrder, visibleKeys), sessions, splitTabs, active.connectionId);
+  const members = rows.map((row) => row.session);
+  const labels = stackMemberLabels(members);
+  const host = active.connectionName;
+  const connection = connections.find((c) => c.id === active.connectionId);
+  const shown = shownMember(members.filter((m) => !splitIds.has(m.id)), activeSessionId, undefined) ?? active;
+
+  return (
+    <div data-testid="host-sessions-panel" className="relative shrink-0 overflow-hidden bg-(--t-bg-terminal)" style={{ width: "16rem" }}>
+      <aside className="flex flex-col absolute inset-y-2 left-2 right-0 bg-(--t-bg-modal) border border-(--t-border) overflow-hidden rounded-[0.8rem]">
+        <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-2 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            {sessionTabIcon(active, connection, false, sessionStatusTone(worstStatus(members)))}
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-(--t-text-bright) truncate">{host}</p>
+              <p className="text-xs text-(--t-text-muted)">{t("layout.titleBar.stack.count", { count: members.length })}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-0.5">
+            {canDuplicateSession(active) && (
+              <button type="button" title={t("layout.titleBar.stack.newSessionOn", { host })} onClick={() => duplicateSession(active.id, "tab")}
+                className="size-8 flex items-center justify-center rounded-lg text-(--t-text-muted) hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)">
+                <Icon icon="lucide:plus" width={16} />
+              </button>
+            )}
+            <button type="button" title={t("layout.titleBar.stack.unpin")} onClick={() => setPinned(false)}
+              className="size-8 flex items-center justify-center rounded-lg text-(--t-text-muted) hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)">
+              <Icon icon="lucide:pin-off" width={15} />
+            </button>
+          </div>
+        </div>
+        <div data-testid="host-sessions-rows" className="flex-1 overflow-y-auto">
+          <HostSessionRows rows={rows} members={members} labels={labels} shownId={shown.id} activeSessionId={activeSessionId} variant="panel" onActivate={() => {}} />
+        </div>
+      </aside>
+    </div>
+  );
+}

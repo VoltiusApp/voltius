@@ -119,5 +119,13 @@ export function hostSessionsInOrder(
   return rows;
 }
 
+export function visibleTitlebarKeys(sessions: TerminalSession[], splitTabs: SplitTab[]): string[] {
+  const splitIds = new Set(splitTabs.flatMap((tab) => getPaneSessionIds(tab.root)));
+  return [
+    ...splitTabs.map((tab) => `split:${tab.id}`),
+    ...sessions.filter((session) => !splitIds.has(session.id)).map((session) => `session:${session.id}`),
+  ];
+}
+
 export const titlebarConnectionOf = (sessionId: string) =>
   useSessionStore.getState().sessions.find((session) => session.id === sessionId)?.connectionId;

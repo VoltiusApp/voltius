@@ -3,7 +3,7 @@ import type { TerminalSession } from "@/types";
 import type { SplitTab } from "@/stores/layoutStore";
 import {
   buildTitlebarItems, hostSessionsInOrder, resolveTitlebarTarget, shownMember,
-  stackKey, stackMemberKeys, stackMemberLabels, worstStatus,
+  stackKey, stackMemberKeys, stackMemberLabels, visibleTitlebarKeys, worstStatus,
 } from "./titlebarItems";
 
 const s = (id: string, connectionId: string, extra: Partial<TerminalSession> = {}): TerminalSession => ({
@@ -97,5 +97,16 @@ describe("hostSessionsInOrder", () => {
     const tab = { id: "t1", root: { type: "leaf", id: "p1", sessionId: "w3" } } as unknown as SplitTab;
     const rows = hostSessionsInOrder(["session:w1", "split:t1", "session:d1", "session:w2"], sessions, [tab], "web");
     expect(rows.map((r) => [r.session.id, r.splitTabId])).toEqual([["w1", null], ["w3", "t1"], ["w2", null]]);
+  });
+});
+
+describe("visibleTitlebarKeys", () => {
+  it("puts split tabs first, then sessions not already inside a split", () => {
+    const tab = { id: "t1", root: { type: "leaf", id: "p1", sessionId: "w3" } } as unknown as SplitTab;
+    expect(visibleTitlebarKeys(sessions, [tab])).toEqual(["split:t1", "session:w1", "session:w2", "session:d1"]);
+  });
+
+  it("is just the sessions when there are no split tabs", () => {
+    expect(visibleTitlebarKeys([web1, db1], [])).toEqual(["session:w1", "session:d1"]);
   });
 });

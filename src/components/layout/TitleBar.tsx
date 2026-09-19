@@ -40,7 +40,7 @@ import { splitTabMenuItems } from "@/utils/splitTabMenuItems";
 import { fadeMask, useTabStripScroll } from "@/hooks/useTabStripScroll";
 import { TitlebarTab, sessionTabIcon, tabSurfaceStyle } from "@/components/layout/TitlebarTab";
 import { StackTab } from "@/components/layout/StackTab";
-import { buildTitlebarItems, titlebarConnectionOf } from "@/utils/titlebarItems";
+import { buildTitlebarItems, titlebarConnectionOf, visibleTitlebarKeys } from "@/utils/titlebarItems";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useLastActiveByHost, useSessionTabHandlers } from "@/hooks/useTitlebarTabState";
 
@@ -135,16 +135,11 @@ export default function TitleBar() {
   const isActiveSessionEnded = activeSessionId ? !!mpConnections[activeSessionId]?.ended : false;
 
   const lastActiveByHost = useLastActiveByHost(activeSession, sessions);
+  const pinnedHost = hostPanelPinned && activeNav === "terminal" && !sftpPanelOpen ? activeSession?.connectionId ?? null : null;
 
   const isSftpCompact = !sftpPanelOpen && sessions.length > 0;
-  const splitSessionIds = splitTabs.flatMap((tab) => getPaneSessionIds(tab.root));
-  const splitSessionIdSet = new Set(splitSessionIds);
-  const visibleSessions = sessions.filter((session) => !splitSessionIdSet.has(session.id));
   const draggedSession = titlebarDropActive ? sessions.find((session) => session.id === draggedSessionId) : null;
-  const visibleItemKeys = [
-    ...splitTabs.map((tab) => `split:${tab.id}`),
-    ...visibleSessions.map((session) => `session:${session.id}`),
-  ];
+  const visibleItemKeys = visibleTitlebarKeys(sessions, splitTabs);
   const orderedItemKeys = mergeTitlebarItems(titlebarOrder, visibleItemKeys);
   const titlebarItems = buildTitlebarItems(orderedItemKeys, sessions, splitTabs, grouped);
 
@@ -430,6 +425,7 @@ export default function TitleBar() {
                   members={item.members}
                   mcpBar={renderMcpBar(item.key, item.members.map((m) => m.id))}
                   title={mcpTooltip(item.members.map((m) => m.id))}
+                  pinned={pinnedHost === item.connectionId}
                   {...stackTabProps}
                 />
                 {renderTitlebarDropCue(item.key, "after")}
@@ -453,7 +449,7 @@ export default function TitleBar() {
                 label={sessionLabel(session)}
                 title={mcpTooltip([session.id])}
                 mcpBar={renderMcpBar(session.id, [session.id])}
-                {...sessionTabHandlers(session, item.key, isActive, [pinListExtra(t, hostPanelPinned && isActive, () => setHostPanelPinned(!hostPanelPinned))])}
+                {...sessionTabHandlers(session, item.key, isActive, [pinListExtra(t, pinnedHost === session.connectionId, () => setHostPanelPinned(!hostPanelPinned))])}
               />
               {renderTitlebarDropCue(item.key, "after")}
             </div>

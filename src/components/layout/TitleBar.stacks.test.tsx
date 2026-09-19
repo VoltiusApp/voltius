@@ -84,6 +84,21 @@ it("closes every member from the pill menu", () => {
   expect(useSessionStore.getState().sessions.map((x) => x.id)).toEqual(["d1"]);
 });
 
+it("drops the chevron of the pinned host's stack", () => {
+  useUIStore.setState({ hostPanelPinned: true });
+  render(<TitleBar />);
+  expect(screen.queryByTestId("stack-chevron-web")).toBeNull();
+});
+
+it("drops the chevron of the pinned host's stack even when a split tab has focus", () => {
+  useUIStore.setState({ hostPanelPinned: true });
+  useSessionStore.setState({ sessions: [s("w1", "web"), s("w2", "web", { title: "logs" }), s("w3", "web"), s("d1", "db")], activeSessionId: "w2" });
+  useLayoutStore.getState().createSplitTab("d1", "w3", "right");
+  useSessionStore.setState({ activeSessionId: "w3" });
+  render(<TitleBar />);
+  expect(screen.queryByTestId("stack-chevron-web")).toBeNull();
+});
+
 describe("hover intent", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
