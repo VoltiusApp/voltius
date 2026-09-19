@@ -1,10 +1,14 @@
 import type { ReactNode } from "react";
 import { Icon } from "@iconify/react";
+import type { TFunction } from "i18next";
 import type { Connection, TerminalSession } from "@/types";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { STATUS_TONE_COLOR, type StatusTone } from "@/utils/statusTone";
+import type { ContextMenuItem } from "@/components/shared/ContextMenu";
+import { useDragStore } from "@/stores/dragStore";
+import { sessionLabel } from "@/utils/sessionLabel";
 
 export function sessionTabIcon(
   session: TerminalSession,
@@ -46,6 +50,38 @@ export function tabSurfaceStyle(active: boolean): React.CSSProperties {
     color: active ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
     border: active ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
   };
+}
+
+interface SessionTabHandlerDeps {
+  t: TFunction;
+  isRenaming: (id: string) => boolean;
+  activate: (id: string) => void;
+  close: (e: React.MouseEvent, id: string) => void;
+  startRenameFromLabel: (e: React.MouseEvent, isActive: boolean, id: string) => void;
+  startRename: (id: string) => void;
+  openMenu: (e: React.MouseEvent, id: string, extras: ContextMenuItem[]) => void;
+  commitRename: (id: string, name: string) => void;
+  cancelRename: (id: string) => void;
+}
+
+/** The click / rename / context-menu / drag wiring a plain session tab and a stack pill (acting on its shown session) both need. */
+export function buildSessionTabHandlers(deps: SessionTabHandlerDeps) {
+  return (session: TerminalSession, itemKey: string, isActive: boolean, extras: ContextMenuItem[] = []) => ({
+    onClick: () => deps.activate(session.id),
+    onLabelClick: (e: React.MouseEvent) => deps.startRenameFromLabel(e, isActive, session.id),
+    onClose: (e: React.MouseEvent) => deps.close(e, session.id),
+    onContextMenu: (e: React.MouseEvent) => deps.openMenu(e, session.id, extras),
+    onDoubleClick: () => deps.startRename(session.id),
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, itemKey);
+      if (e.button === 1) { e.preventDefault(); deps.close(e, session.id); }
+    },
+    renaming: deps.isRenaming(session.id),
+    renameValue: sessionLabel(session),
+    renameAriaLabel: deps.t("layout.titleBar.renameTab"),
+    onRenameCommit: (name: string) => deps.commitRename(session.id, name),
+    onRenameCancel: () => deps.cancelRename(session.id),
+  });
 }
 
 export function TitlebarTab({

@@ -26,10 +26,10 @@ import { shouldSuppressDragClick } from "@/components/panes/usePaneDragControlle
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
-import { ContextMenu, useContextMenu } from "@/components/shared/ContextMenu";
+import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { closeSession, closeSessionTabs } from "@/services/closeSession";
 import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
-import { sessionMenuItems } from "@/utils/sessionMenuItems";
+import { sessionMenuItems, pinListExtra } from "@/utils/sessionMenuItems";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
@@ -38,13 +38,12 @@ import { sessionLabel, splitTabLabel } from "@/utils/sessionLabel";
 import { focusSession } from "@/hooks/useTerminal";
 import { splitTabMenuItems } from "@/utils/splitTabMenuItems";
 import { fadeMask, useTabStripScroll } from "@/hooks/useTabStripScroll";
-import { TitlebarTab, sessionTabIcon, tabSurfaceStyle } from "@/components/layout/TitlebarTab";
+import { TitlebarTab, sessionTabIcon, tabSurfaceStyle, buildSessionTabHandlers } from "@/components/layout/TitlebarTab";
+import { StackTab } from "@/components/layout/StackTab";
+import { buildTitlebarItems, titlebarConnectionOf } from "@/utils/titlebarItems";
+import { useToggle } from "@/stores/toggleSettingsStore";
 
 const appWindow = getCurrentWindow();
-
-type TitlebarItem =
-  | { key: string; type: "split"; tab: ReturnType<typeof useLayoutStore.getState>["splitTabs"][number] }
-  | { key: string; type: "session"; session: ReturnType<typeof useSessionStore.getState>["sessions"][number] };
 
 export default function TitleBar() {
   const { t } = useTranslation();
@@ -55,6 +54,9 @@ export default function TitleBar() {
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
   const setSftpPanelOpen = useUIStore((s) => s.setSftpPanelOpen);
+  const hostPanelPinned = useUIStore((s) => s.hostPanelPinned);
+  const setHostPanelPinned = useUIStore((s) => s.setHostPanelPinned);
+  const [grouped] = useToggle("group-tabs-by-host");
   const activeThemeName = useThemeStore((s) => s.getActiveTheme().name);
   const { sessions, activeSessionId } = useSessionStore();
   const connections = useAllConnections();
@@ -82,6 +84,7 @@ export default function TitleBar() {
 
   const { pos: tabMenuPos, open: openTabMenu, close: closeTabMenu } = useContextMenu();
   const [menuTarget, setMenuTarget] = useState<{ kind: "session" | "split"; id: string } | null>(null);
+  const [menuExtras, setMenuExtras] = useState<ContextMenuItem[]>([]);
   // The tab being renamed in place. Its label becomes an input; committing an
   // empty name clears it, so the tab falls back to its connection again.
   const [renaming, setRenaming] = useState<{ kind: "session" | "split"; id: string } | null>(null);
@@ -108,6 +111,20 @@ export default function TitleBar() {
     setRenaming(null);
     if (sessionId) focusSession(sessionId);
   };
+
+  /** Shared by a plain session tab and a stack pill (acting on its shown session). */
+  const sessionTabHandlers = buildSessionTabHandlers({
+    t,
+    isRenaming: (id) => isRenaming("session", id),
+    activate: (id) => handleTabClick(id),
+    close: (e, id) => handleTabClose(e, id),
+    startRenameFromLabel: (e, isActive, id) => startRenameFromLabel(e, isActive, { kind: "session", id }),
+    startRename: (id) => setRenaming({ kind: "session", id }),
+    openMenu: (e, id, extras) => { setMenuTarget({ kind: "session", id }); setMenuExtras(extras); openTabMenu(e); },
+    commitRename: (id, name) => { useSessionStore.getState().renameSession(id, name); endRename(id); },
+    cancelRename: (id) => endRename(id),
+  });
+
   const menuSession = menuTarget?.kind === "session" ? sessions.find((s) => s.id === menuTarget.id) ?? null : null;
   const menuSplitTab = menuTarget?.kind === "split" ? splitTabs.find((tab) => tab.id === menuTarget.id) ?? null : null;
 
@@ -130,20 +147,25 @@ export default function TitleBar() {
   const isActiveSessionSharing = activeSessionId ? !!mpConnections[activeSessionId] && !mpConnections[activeSessionId]?.ended : false;
   const isActiveSessionEnded = activeSessionId ? !!mpConnections[activeSessionId]?.ended : false;
 
+  /** Which session a host's stack shows when its active session isn't on that host. */
+  const [lastActiveByHost, setLastActiveByHost] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (activeSession) {
+      setLastActiveByHost((m) => (m[activeSession.connectionId] === activeSession.id ? m : { ...m, [activeSession.connectionId]: activeSession.id }));
+    }
+  }, [activeSession?.id]);
+
   const isSftpCompact = !sftpPanelOpen && sessions.length > 0;
   const splitSessionIds = splitTabs.flatMap((tab) => getPaneSessionIds(tab.root));
   const splitSessionIdSet = new Set(splitSessionIds);
   const visibleSessions = sessions.filter((session) => !splitSessionIdSet.has(session.id));
   const draggedSession = titlebarDropActive ? sessions.find((session) => session.id === draggedSessionId) : null;
-  const splitItems: TitlebarItem[] = splitTabs.map((tab) => ({ key: `split:${tab.id}`, type: "split", tab }));
-  const sessionItems: TitlebarItem[] = visibleSessions.map((session) => ({ key: `session:${session.id}`, type: "session", session }));
-  const titlebarItemMap = new Map([...splitItems, ...sessionItems].map((item) => [item.key, item]));
-  const visibleItemKeys = [...splitItems, ...sessionItems].map((item) => item.key);
+  const visibleItemKeys = [
+    ...splitTabs.map((tab) => `split:${tab.id}`),
+    ...visibleSessions.map((session) => `session:${session.id}`),
+  ];
   const orderedItemKeys = mergeTitlebarItems(titlebarOrder, visibleItemKeys);
-  const titlebarItems = orderedItemKeys.flatMap((key) => {
-    const item = titlebarItemMap.get(key);
-    return item ? [item] : [];
-  });
+  const titlebarItems = buildTitlebarItems(orderedItemKeys, sessions, splitTabs, grouped);
 
   const activeItemKey = activeNav !== "terminal" || sftpPanelOpen
     ? null
@@ -156,8 +178,8 @@ export default function TitleBar() {
   }, [isDraggingIntoTitlebar, tabStrip.stopAutoScroll]);
 
   useEffect(() => {
-    syncTitlebarOrder(visibleItemKeys);
-  }, [syncTitlebarOrder, visibleItemKeys.join("|")]);
+    syncTitlebarOrder(visibleItemKeys, grouped ? (key) => (key.startsWith("session:") ? titlebarConnectionOf(key.slice(8)) : undefined) : undefined);
+  }, [syncTitlebarOrder, visibleItemKeys.join("|"), grouped]);
 
   // Ensure the user never gets stuck on an empty terminal view.
   // When all sessions are gone, fall back to Vaults.
@@ -412,11 +434,37 @@ export default function TitleBar() {
             );
           }
 
+          if (item.type === "stack") {
+            return (
+              <div key={item.key} className="contents">
+                {renderTitlebarDropCue(item.key, "before")}
+                <StackTab
+                  itemKey={item.key}
+                  connectionId={item.connectionId}
+                  members={item.members}
+                  connections={connections}
+                  activeSessionId={activeSessionId}
+                  activeNav={activeNav}
+                  sftpPanelOpen={sftpPanelOpen}
+                  splitTabActive={splitTabActive}
+                  hostPanelPinned={hostPanelPinned}
+                  setHostPanelPinned={setHostPanelPinned}
+                  lastActiveByHost={lastActiveByHost}
+                  mcpBar={renderMcpBar(item.key, item.members.map((m) => m.id))}
+                  title={mcpTooltip(item.members.map((m) => m.id))}
+                  buildHandlers={sessionTabHandlers}
+                />
+                {renderTitlebarDropCue(item.key, "after")}
+              </div>
+            );
+          }
+
           const session = item.session;
           const isActive = session.id === activeSessionId && activeNav === "terminal" && !sftpPanelOpen && !splitTabActive;
           const statusTone = sessionStatusTone(session.status);
           const connection = connections.find((c) => c.id === session.connectionId);
           const tabIcon = sessionTabIcon(session, connection, isActive, statusTone);
+          const pinExtra = pinListExtra(t, hostPanelPinned && isActive, () => setHostPanelPinned(!hostPanelPinned));
 
           return (
             <div key={item.key} className="contents">
@@ -428,20 +476,7 @@ export default function TitleBar() {
                 label={sessionLabel(session)}
                 title={mcpTooltip([session.id])}
                 mcpBar={renderMcpBar(session.id, [session.id])}
-                renaming={isRenaming("session", session.id)}
-                renameValue={sessionLabel(session)}
-                renameAriaLabel={t("layout.titleBar.renameTab")}
-                onRenameCommit={(name) => { useSessionStore.getState().renameSession(session.id, name); endRename(session.id); }}
-                onRenameCancel={() => endRename(session.id)}
-                onClick={() => handleTabClick(session.id)}
-                onLabelClick={(e) => startRenameFromLabel(e, isActive, { kind: "session", id: session.id })}
-                onClose={(e) => handleTabClose(e, session.id)}
-                onContextMenu={(e) => { setMenuTarget({ kind: "session", id: session.id }); openTabMenu(e); }}
-                onDoubleClick={() => setRenaming({ kind: "session", id: session.id })}
-                onPointerDown={(e) => {
-                  if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, item.key);
-                  if (e.button === 1) { e.preventDefault(); handleTabClose(e, session.id); }
-                }}
+                {...sessionTabHandlers(session, item.key, isActive, [pinExtra])}
               />
               {renderTitlebarDropCue(item.key, "after")}
             </div>
@@ -464,6 +499,7 @@ export default function TitleBar() {
                 closeLabel: t("layout.titleBar.closeTab"),
                 onClose: () => closeTabById(menuSession.id),
                 onRename: () => setRenaming({ kind: "session", id: menuSession.id }),
+                extras: menuExtras,
               })
             : splitTabMenuItems({
                 tab: menuSplitTab!,

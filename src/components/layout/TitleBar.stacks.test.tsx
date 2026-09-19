@@ -1,0 +1,85 @@
+import { it, expect, beforeEach, afterEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useLayoutStore } from "@/stores/layoutStore";
+import { useDragStore } from "@/stores/dragStore";
+import { useUIStore } from "@/stores/uiStore";
+import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
+import TitleBar from "./TitleBar";
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    minimize: vi.fn(),
+    toggleMaximize: vi.fn(),
+    close: vi.fn(),
+    startDragging: vi.fn(),
+  }),
+}));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
+vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/utils/icons", () => ({ getConnectionIcon: () => null, getConnectionIconColor: () => null }));
+vi.mock("@/components/shared/PickerSurface", () => ({
+  PickerSurface: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
+    open ? <div data-testid="stack-menu">{children}</div> : null,
+}));
+
+const focusSession = vi.hoisted(() => vi.fn());
+vi.mock("@/hooks/useTerminal", async () => {
+  const actual = await vi.importActual<typeof import("@/hooks/useTerminal")>("@/hooks/useTerminal");
+  return { ...actual, focusSession };
+});
+
+const s = (id: string, connectionId: string, extra = {}) => ({ id, connectionId, connectionName: connectionId, status: "connected" as const, type: "ssh" as const, ...extra });
+
+beforeEach(() => {
+  focusSession.mockClear();
+  useToggleSettingsStore.setState({ values: {} });
+  useUIStore.setState({ activeNav: "terminal", hostPanelPinned: false });
+  useDragStore.setState({ lastDragEndedAt: 0, isDragging: false });
+  useSessionStore.setState({ sessions: [s("w1", "web"), s("w2", "web", { title: "logs" }), s("d1", "db")], activeSessionId: "w2" });
+  useLayoutStore.setState({ splitTabs: [], activeSplitTabId: null, root: null, splitTabActive: false, titlebarOrder: [] });
+});
+afterEach(cleanup);
+
+it("renders one pill for a host with two sessions, with its count and shown session", () => {
+  render(<TitleBar />);
+  const pill = document.querySelector("[data-titlebar-key='stack:web']")!;
+  expect(pill.textContent).toContain("web");
+  expect(pill.textContent).toContain("· logs");
+  expect(pill.textContent).toContain("2");
+  expect(document.querySelector("[data-titlebar-key='session:d1']")).not.toBeNull();
+});
+
+it("renders flat tabs when the setting is off", () => {
+  useToggleSettingsStore.setState({ values: { "group-tabs-by-host": false } });
+  render(<TitleBar />);
+  expect(document.querySelector("[data-titlebar-key='stack:web']")).toBeNull();
+  expect(document.querySelectorAll("[data-titlebar-key^='session:']").length).toBe(3);
+});
+
+it("opens the session list from the chevron and switches session from a row", () => {
+  render(<TitleBar />);
+  fireEvent.click(screen.getByTestId("stack-chevron-web"));
+  const menu = screen.getByTestId("stack-menu");
+  fireEvent.click(within(menu).getByText("web"));
+  expect(useSessionStore.getState().activeSessionId).toBe("w1");
+});
+
+it("numbers untitled members in the list", () => {
+  useSessionStore.setState({ sessions: [s("w1", "web"), s("w3", "web")], activeSessionId: "w1" });
+  render(<TitleBar />);
+  fireEvent.click(screen.getByTestId("stack-chevron-web"));
+  expect(within(screen.getByTestId("stack-menu")).getByText("web (2)")).toBeTruthy();
+});
+
+it("closes every member from the pill menu", () => {
+  render(<TitleBar />);
+  fireEvent.contextMenu(document.querySelector("[data-titlebar-key='stack:web']")!);
+  fireEvent.click(screen.getByText("layout.titleBar.stack.closeAll"));
+  expect(useSessionStore.getState().sessions.map((x) => x.id)).toEqual(["d1"]);
+});
