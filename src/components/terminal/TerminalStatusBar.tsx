@@ -9,6 +9,7 @@ import { useHostPingStore } from "@/stores/hostPingStore";
 import { usePluginStore, findRightPanelSectionWithFlag } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useConnectedSince } from "@/services/sessionUptime";
 import { serialAutoReconnectEnabled } from "@/stores/serialAutoReconnect";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
@@ -176,7 +177,6 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
 
   const { copied, flash: flashCopied } = useCopiedFlash(1200);
 
-  const connectedAtRef = useRef<number | null>(null);
   const [uptime, setUptime] = useState<string | null>(null);
 
   const [showDimensions, setShowDimensions] = useState(false);
@@ -266,21 +266,15 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
 
   // ── Session uptime ────────────────────────────────────────────────────────
 
+  const connectedAt = useConnectedSince(sessionStatus === "connected" ? sessionId : null);
+
   useEffect(() => {
-    if (sessionStatus === "connected") {
-      if (connectedAtRef.current === null) connectedAtRef.current = Date.now();
-      const tick = () => {
-        const elapsed = Math.floor((Date.now() - connectedAtRef.current!) / 1000);
-        setUptime(fmtUptime(elapsed));
-      };
-      tick();
-      const interval = setInterval(tick, 1000);
-      return () => clearInterval(interval);
-    } else {
-      connectedAtRef.current = null;
-      setUptime(null);
-    }
-  }, [sessionStatus]);
+    if (connectedAt === null) { setUptime(null); return; }
+    const tick = () => setUptime(fmtUptime(Math.floor((Date.now() - connectedAt) / 1000)));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [connectedAt]);
 
   // ── Port forwarding events ────────────────────────────────────────────────
 
