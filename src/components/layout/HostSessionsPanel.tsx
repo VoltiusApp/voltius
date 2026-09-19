@@ -6,6 +6,7 @@ import { useLayoutStore } from "@/stores/layoutStore";
 import { clearTitlebarDropTarget } from "@/stores/dragStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { HostSessionRows } from "@/components/layout/HostSessionRows";
+import { SidePanelColumn } from "@/components/layout/SidePanelColumn";
 import { sessionTabIcon } from "@/components/layout/TitlebarTab";
 import { newSessionOnHostItem } from "@/utils/sessionMenuItems";
 import { hostSessionsInOrder, shownMember, stackGroupKey, stackHostName, stackMemberLabels, visibleTitlebarKeys, worstStatus } from "@/utils/titlebarItems";
@@ -24,7 +25,7 @@ export function HostSessionsPanel() {
   const titlebarOrder = useLayoutStore((s) => s.titlebarOrder);
   const connections = useAllConnections();
   const active = sessions.find((session) => session.id === activeSessionId);
-  if (!pinned || activeNav !== "terminal" || sftpPanelOpen || !active) return null;
+  if (activeNav !== "terminal" || sftpPanelOpen || !active) return null;
 
   const visibleKeys = visibleTitlebarKeys(sessions, splitTabs);
   const rows = hostSessionsInOrder(mergeTitlebarItems(titlebarOrder, visibleKeys), sessions, splitTabs, stackGroupKey(active));
@@ -37,26 +38,24 @@ export function HostSessionsPanel() {
   const newSession = newSessionOnHostItem(t, active, host);
 
   return (
-    <div data-testid="host-sessions-panel" className="relative shrink-0 overflow-hidden bg-(--t-bg-terminal)" style={{ width: "16rem" }}>
-      <aside className="flex flex-col absolute inset-y-2 left-2 right-0 bg-(--t-bg-modal) border border-(--t-border) overflow-hidden rounded-[0.8rem]">
-        <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-2 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            {sessionTabIcon(active, connection, false, sessionStatusTone(worstStatus(members)))}
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-(--t-text-bright) truncate">{host}</p>
-              <p className="text-xs text-(--t-text-muted)">{t("layout.titleBar.stack.count", { count: members.length })}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-0.5">
-            {newSession && <PanelIconButton title={newSession.label} icon={newSession.icon} iconWidth={16} onClick={newSession.onClick} />}
-            <PanelIconButton title={t("layout.titleBar.stack.unpin")} icon="lucide:pin-off" iconWidth={15} onClick={() => setPinned(false)} />
+    <SidePanelColumn testId="host-sessions-panel" open={pinned} columnWidth="16rem" cardEdgeClassName="left-2 right-0">
+      <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-2 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          {sessionTabIcon(active, connection, false, sessionStatusTone(worstStatus(members)))}
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-(--t-text-bright) truncate">{host}</p>
+            <p className="text-xs text-(--t-text-muted)">{t("layout.titleBar.stack.count", { count: members.length })}</p>
           </div>
         </div>
-        <div data-testid="host-sessions-rows" className="flex-1 overflow-y-auto" onMouseLeave={clearTitlebarDropTarget}>
-          <HostSessionRows rows={rows} members={unsplitMembers} labels={labels} shownId={shown.id} activeSessionId={activeSessionId} variant="panel" onActivate={() => {}} />
+        <div className="flex items-center gap-0.5">
+          {newSession && <PanelIconButton title={newSession.label} icon={newSession.icon} iconWidth={16} onClick={newSession.onClick} />}
+          <PanelIconButton title={t("layout.titleBar.stack.unpin")} icon="lucide:pin-off" iconWidth={15} onClick={() => setPinned(false)} />
         </div>
-      </aside>
-    </div>
+      </div>
+      <div data-testid="host-sessions-rows" className="flex-1 overflow-y-auto" onMouseLeave={clearTitlebarDropTarget}>
+        <HostSessionRows rows={rows} members={unsplitMembers} labels={labels} shownId={shown.id} activeSessionId={activeSessionId} variant="panel" onActivate={() => {}} />
+      </div>
+    </SidePanelColumn>
   );
 }
 

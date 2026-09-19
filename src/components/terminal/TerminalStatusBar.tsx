@@ -8,6 +8,7 @@ import { Icon } from "@iconify/react";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { usePluginStore, findRightPanelSectionWithFlag } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useStatusBarStore } from "@/stores/statusBarStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectedSince } from "@/services/sessionUptime";
 import { serialAutoReconnectEnabled } from "@/stores/serialAutoReconnect";
@@ -198,6 +199,12 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
       sshGetSystemInfo(sessionId).then(setSystemInfo).catch(() => {});
     }
   }, [sessionId, sessionType, sessionStatus]);
+
+  useEffect(() => {
+    const { increment, decrement } = useStatusBarStore.getState();
+    increment();
+    return decrement;
+  }, []);
 
   useEffect(() => {
     systemInfoFetchedRef.current = false;

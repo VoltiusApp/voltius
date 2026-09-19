@@ -7,6 +7,7 @@ import { useDragStore } from "@/stores/dragStore";
 import { openInSplit } from "@/services/hostStack";
 import { usePaneDragController } from "@/components/panes/usePaneDragController";
 import { useUIStore } from "@/stores/uiStore";
+import { useStatusBarStore } from "@/stores/statusBarStore";
 import { HostSessionsPanel } from "./HostSessionsPanel";
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -31,6 +32,7 @@ beforeEach(() => {
   useSessionStore.setState({ sessions: [s("w1", "web"), s("w2", "web"), s("d1", "db")], activeSessionId: "w1" });
   useLayoutStore.setState({ splitTabs: [], root: null, splitTabActive: false, titlebarOrder: ["session:w1", "session:w2", "session:d1"] });
   useDragStore.setState({ isPointerDown: false, isDragging: false, dragType: null, sessionId: null, fromStackList: false, dropTarget: null, lastDragEndedAt: 0 });
+  useStatusBarStore.setState({ mountedCount: 0 });
 });
 
 const rowOf = (id: string) => screen.getByTestId("host-sessions-rows").querySelector<HTMLElement>(`[data-titlebar-key="session:${id}"]`)!;
@@ -52,13 +54,40 @@ describe("HostSessionsPanel", () => {
     expect(screen.getByTestId("host-sessions-panel")).toBeTruthy();
   });
 
-  it("is hidden when unpinned, outside terminal view, or on the SFTP page", () => {
-    for (const state of [{ hostPanelPinned: false }, { activeNav: "hosts" as const }, { sftpPanelOpen: true }]) {
-      useUIStore.setState({ activeNav: "terminal", sftpPanelOpen: false, hostPanelPinned: true, ...state });
+  it("is hidden outside terminal view, on the SFTP page, or with no active session", () => {
+    for (const apply of [
+      () => useUIStore.setState({ activeNav: "hosts" as const }),
+      () => useUIStore.setState({ sftpPanelOpen: true }),
+      () => useSessionStore.setState({ activeSessionId: null }),
+    ]) {
+      useUIStore.setState({ activeNav: "terminal", sftpPanelOpen: false, hostPanelPinned: true });
+      useSessionStore.setState({ activeSessionId: "w1" });
+      apply();
       const { unmount } = render(<HostSessionsPanel />);
       expect(screen.queryByTestId("host-sessions-panel")).toBeNull();
       unmount();
     }
+  });
+
+  it("collapses to zero width and goes inert when unpinned, staying mounted so it can animate", () => {
+    useUIStore.setState({ hostPanelPinned: false });
+    render(<HostSessionsPanel />);
+    const column = screen.getByTestId("host-sessions-panel");
+    expect(column.style.width).toBe("0px");
+    const card = screen.getByTestId("host-sessions-panel-card");
+    expect(card.hasAttribute("inert")).toBe(true);
+    expect(card.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("paints a status-bar-colored filler beneath the card when a status bar is mounted", () => {
+    useStatusBarStore.getState().increment();
+    render(<HostSessionsPanel />);
+    expect(screen.getByTestId("host-sessions-panel-status-filler")).toBeTruthy();
+  });
+
+  it("has no filler when no status bar is mounted", () => {
+    render(<HostSessionsPanel />);
+    expect(screen.queryByTestId("host-sessions-panel-status-filler")).toBeNull();
   });
 
   it("unpins from its header", () => {
