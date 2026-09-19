@@ -159,4 +159,18 @@ describe("hover intent", () => {
     expect(spy).toHaveBeenCalledWith("w2", "w1", "right");
     expect(screen.queryByTestId("stack-menu")).toBeNull();
   });
+
+  it("settles the list itself when a hold (context menu or rename) releases with no further mouse event", () => {
+    render(<TitleBar />);
+    fireEvent.click(screen.getByTestId("stack-chevron-web"));
+    const row = screen.getByTestId("stack-menu").querySelector("[data-titlebar-key='session:w1']")!;
+
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByText("panes.header.rename"));
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+    expect(screen.getByTestId("stack-menu")).toBeTruthy();
+
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(screen.queryByTestId("stack-menu")).toBeNull();
+  });
 });
