@@ -27,16 +27,18 @@ import { mergeTitlebarItems } from "@/utils/titlebarOrder";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { ContextMenu, useContextMenu } from "@/components/shared/ContextMenu";
-import { closeSession } from "@/services/closeSession";
+import { closeSession, closeSessionTabs } from "@/services/closeSession";
+import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
-import { STATUS_TONE_COLOR, sessionStatusTone } from "@/utils/statusTone";
+import { sessionStatusTone } from "@/utils/statusTone";
 import { sessionLabel, splitTabLabel } from "@/utils/sessionLabel";
 import { focusSession } from "@/hooks/useTerminal";
 import { splitTabMenuItems } from "@/utils/splitTabMenuItems";
 import { fadeMask, useTabStripScroll } from "@/hooks/useTabStripScroll";
+import { TitlebarTab, sessionTabIcon, tabSurfaceStyle } from "@/components/layout/TitlebarTab";
 
 const appWindow = getCurrentWindow();
 
@@ -54,13 +56,11 @@ export default function TitleBar() {
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
   const setSftpPanelOpen = useUIStore((s) => s.setSftpPanelOpen);
   const activeThemeName = useThemeStore((s) => s.getActiveTheme().name);
-  const { sessions, activeSessionId, setActive } = useSessionStore();
+  const { sessions, activeSessionId } = useSessionStore();
   const connections = useAllConnections();
   const splitTabs = useLayoutStore((s) => s.splitTabs);
   const activeSplitTabId = useLayoutStore((s) => s.activeSplitTabId);
   const splitTabActive = useLayoutStore((s) => s.splitTabActive);
-  const setSplitTabActive = useLayoutStore((s) => s.setSplitTabActive);
-  const activateSplitTab = useLayoutStore((s) => s.activateSplitTab);
   const closeSplitTab = useLayoutStore((s) => s.closeSplitTab);
   const titlebarOrder = useLayoutStore((s) => s.titlebarOrder);
   const syncTitlebarOrder = useLayoutStore((s) => s.syncTitlebarOrder);
@@ -169,16 +169,11 @@ export default function TitleBar() {
 
   const handleTabClick = (sessionId: string) => {
     if (shouldSuppressDragClick()) return;
-    setSftpPanelOpen(false);
-    setSplitTabActive(false);
-    setActive(sessionId);
-    setActiveNav("terminal");
+    activateSessionTab(sessionId);
   };
 
   const closeTabById = (sessionId: string) => {
-    closeSession(sessionId);
-    useLayoutStore.getState().removeSession(sessionId);
-    if (sessions.length <= 1) setActiveNav("hosts");
+    closeSessionTabs([sessionId]);
   };
 
   const handleTabClose = (e: React.MouseEvent, sessionId: string) => {
@@ -188,18 +183,7 @@ export default function TitleBar() {
 
   const handleUnifiedTabClick = (tabId: string, paneId?: string) => {
     if (shouldSuppressDragClick()) return;
-    setSftpPanelOpen(false);
-    activateSplitTab(tabId);
-    if (paneId) {
-      useLayoutStore.getState().setActivePane(paneId);
-      // A maximized sibling would otherwise keep the whole tab, so the pane the
-      // user just picked would stay hidden behind it.
-      if (useLayoutStore.getState().maximizedPaneId) useLayoutStore.getState().setMaximized(paneId);
-    }
-    const layout = useLayoutStore.getState();
-    const leaf = findLeaf(layout.root, layout.activePaneId) ?? firstLeaf(layout.root);
-    if (leaf) setActive(leaf.sessionId);
-    setActiveNav("terminal");
+    activateSplitTabPane(tabId, paneId);
   };
 
   const closeUnifiedTab = (tabId: string) => {
@@ -379,11 +363,7 @@ export default function TitleBar() {
                   <div
                     data-titlebar-key={item.key}
                     className="relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 overflow-hidden"
-                    style={{
-                      background: isActiveSplitTab ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
-                      color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
-                      border: isActiveSplitTab ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
-                    }}
+                    style={tabSurfaceStyle(isActiveSplitTab)}
                   >
                     <Icon icon="lucide:layout-dashboard" width={18} />
                     <InlineNameEditor
@@ -406,11 +386,7 @@ export default function TitleBar() {
                   }}
                   className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
                   title={splitTabMcpTooltip ? `${splitTabTitle}\n${splitTabMcpTooltip}` : splitTabTitle}
-                  style={{
-                    background: isActiveSplitTab ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
-                    color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
-                    border: isActiveSplitTab ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
-                  }}
+                  style={tabSurfaceStyle(isActiveSplitTab)}
                 >
                   {renderMcpBar(tab.id, tabSessionIds)}
                   <Icon icon="lucide:layout-dashboard" width={18} />
@@ -440,101 +416,33 @@ export default function TitleBar() {
           const isActive = session.id === activeSessionId && activeNav === "terminal" && !sftpPanelOpen && !splitTabActive;
           const statusTone = sessionStatusTone(session.status);
           const connection = connections.find((c) => c.id === session.connectionId);
-          const isLocal = session.type === "local";
-          const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;
-          const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
-          const distroBg = connectionIcon ? getConnectionIconColor(connectionIcon) : null;
-          const tabIcon = distroIcon ? (
-            <span
-              className="flex items-center justify-center size-6 rounded-md shrink-0"
-              style={{ background: distroBg ?? "transparent", color: "#fff" }}
-            >
-              <Icon icon={distroIcon} width={16} />
-            </span>
-          ) : isLocal ? (
-            <span
-              className="flex items-center justify-center size-6 rounded-md shrink-0"
-              style={{ color: isActive ? "var(--t-tab-active-text)" : STATUS_TONE_COLOR[statusTone] }}
-            >
-              <Icon icon="lucide:terminal" width={14} />
-            </span>
-          ) : (
-            <StatusDot tone={statusTone} />
-          );
+          const tabIcon = sessionTabIcon(session, connection, isActive, statusTone);
 
           return (
             <div key={item.key} className="contents">
               {renderTitlebarDropCue(item.key, "before")}
-              {isRenaming("session", session.id) ? (
-                <div
-                  data-titlebar-key={item.key}
-                  className="relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 overflow-hidden"
-                  style={{
-                    background: isActive ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
-                    color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
-                    border: isActive ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
-                  }}
-                >
-                  {tabIcon}
-                  <InlineNameEditor
-                    value={sessionLabel(session)}
-                    ariaLabel={t("layout.titleBar.renameTab")}
-                    onCommit={(name) => { useSessionStore.getState().renameSession(session.id, name); endRename(session.id); }}
-                    onCancel={() => endRename(session.id)}
-                  />
-                </div>
-              ) : (
-              <button
-                data-titlebar-key={item.key}
-                data-strip-active={isActive}
+              <TitlebarTab
+                itemKey={item.key}
+                active={isActive}
+                icon={tabIcon}
+                label={sessionLabel(session)}
+                title={mcpTooltip([session.id])}
+                mcpBar={renderMcpBar(session.id, [session.id])}
+                renaming={isRenaming("session", session.id)}
+                renameValue={sessionLabel(session)}
+                renameAriaLabel={t("layout.titleBar.renameTab")}
+                onRenameCommit={(name) => { useSessionStore.getState().renameSession(session.id, name); endRename(session.id); }}
+                onRenameCancel={() => endRename(session.id)}
                 onClick={() => handleTabClick(session.id)}
+                onLabelClick={(e) => startRenameFromLabel(e, isActive, { kind: "session", id: session.id })}
+                onClose={(e) => handleTabClose(e, session.id)}
                 onContextMenu={(e) => { setMenuTarget({ kind: "session", id: session.id }); openTabMenu(e); }}
                 onDoubleClick={() => setRenaming({ kind: "session", id: session.id })}
                 onPointerDown={(e) => {
                   if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, item.key);
                   if (e.button === 1) { e.preventDefault(); handleTabClose(e, session.id); }
                 }}
-                className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
-                title={mcpTooltip([session.id])}
-                style={{
-                  background: isActive ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
-                  color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
-                  border: isActive ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-toolbar)";
-                    (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLButtonElement).style.background = "var(--t-tab-bg)";
-                    (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)";
-                  }
-                }}
-              >
-                {renderMcpBar(session.id, [session.id])}
-                {tabIcon}
-                <span
-                  className="max-w-[140px] truncate"
-                  onClick={(e) => startRenameFromLabel(e, isActive, { kind: "session", id: session.id })}
-                >
-                  {sessionLabel(session)}
-                </span>
-                <span
-                  onClick={(e) => handleTabClose(e, session.id)}
-                  className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
-                  style={{ color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.color = "var(--t-status-error)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = isActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)"; }}
-                >
-                  <span className="[&_path]:stroke-[2.1]">
-                  <Icon icon="lucide:x" width={20} />
-                  </span>
-                </span>
-              </button>
-              )}
+              />
               {renderTitlebarDropCue(item.key, "after")}
             </div>
           );
