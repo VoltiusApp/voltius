@@ -90,7 +90,7 @@ export function worstStatus(members: TerminalSession[]): TerminalSession["status
   );
 }
 
-export function shownMember(members: TerminalSession[], activeSessionId: string | null, lastActive: string | undefined): TerminalSession {
+export function shownMember(members: TerminalSession[], activeSessionId: string | null, lastActive: string | undefined): TerminalSession | undefined {
   return members.find((member) => member.id === activeSessionId)
     ?? members.find((member) => member.id === lastActive)
     ?? members[0];

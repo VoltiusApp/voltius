@@ -99,6 +99,24 @@ it("drops the chevron of the pinned host's stack even when a split tab has focus
   expect(screen.queryByTestId("stack-chevron-web")).toBeNull();
 });
 
+it("pinning from an unpinned host's context menu switches the pinned host instead of unpinning", () => {
+  useUIStore.setState({ hostPanelPinned: true });
+  useSessionStore.setState({ sessions: [s("w1", "web"), s("w2", "web", { title: "logs" }), s("d1", "db"), s("d2", "db")], activeSessionId: "w2" });
+  render(<TitleBar />);
+  fireEvent.contextMenu(document.querySelector("[data-titlebar-key='stack:db']")!);
+  fireEvent.click(screen.getByText("layout.titleBar.stack.pin"));
+  expect(useUIStore.getState().hostPanelPinned).toBe(true);
+  expect(useSessionStore.getState().activeSessionId).toBe("d1");
+});
+
+it("unpinning from the pinned host's own context menu clears the flag", () => {
+  useUIStore.setState({ hostPanelPinned: true });
+  render(<TitleBar />);
+  fireEvent.contextMenu(document.querySelector("[data-titlebar-key='stack:web']")!);
+  fireEvent.click(screen.getByText("layout.titleBar.stack.unpin"));
+  expect(useUIStore.getState().hostPanelPinned).toBe(false);
+});
+
 describe("hover intent", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());

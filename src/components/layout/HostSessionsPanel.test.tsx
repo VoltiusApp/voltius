@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
+import i18n from "@/i18n";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -15,12 +16,10 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-  initReactI18next: { type: "3rdParty", init: () => {} },
-}));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/utils/icons", () => ({ getConnectionIcon: () => null, getConnectionIconColor: () => null }));
+
+beforeAll(async () => { await i18n.changeLanguage("en"); });
 
 const s = (id: string, connectionId: string, extra = {}) => ({ id, connectionId, connectionName: connectionId, status: "connected" as const, type: "ssh" as const, ...extra });
 
@@ -32,8 +31,9 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("HostSessionsPanel", () => {
-  it("lists the active host's sessions with numbering", () => {
+  it("lists the active host's sessions with numbering, and the header shows the translated count", () => {
     render(<HostSessionsPanel />);
+    expect(screen.getByText("2 sessions")).toBeTruthy();
     const rows = within(screen.getByTestId("host-sessions-rows"));
     expect(rows.getByText("web")).toBeTruthy();
     expect(rows.getByText("web (2)")).toBeTruthy();
@@ -57,15 +57,17 @@ describe("HostSessionsPanel", () => {
 
   it("unpins from its header", () => {
     render(<HostSessionsPanel />);
-    fireEvent.click(screen.getByTitle("layout.titleBar.stack.unpin"));
+    fireEvent.click(screen.getByTitle("Unpin session list"));
     expect(useUIStore.getState().hostPanelPinned).toBe(false);
   });
 
-  it("marks a session that lives in a split and focuses its pane on click", () => {
+  it("marks a session that lives in a split with the in-split marker, and focuses its pane on click", () => {
     useLayoutStore.getState().createSplitTab("d1", "w2", "right");
     useSessionStore.setState({ activeSessionId: "w1" });
     render(<HostSessionsPanel />);
-    fireEvent.click(screen.getByText("web (2)"));
+    const row = within(screen.getByTestId("host-sessions-rows"));
+    expect(row.getByText(/in split/)).toBeTruthy();
+    fireEvent.click(row.getByText("web (2)"));
     expect(useLayoutStore.getState().splitTabActive).toBe(true);
     expect(useSessionStore.getState().activeSessionId).toBe("w2");
   });

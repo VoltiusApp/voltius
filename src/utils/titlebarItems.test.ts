@@ -83,12 +83,16 @@ describe("worstStatus", () => {
 
 describe("shownMember", () => {
   it("is the active session when it belongs to the stack", () => {
-    expect(shownMember([web1, web2], "w2", undefined).id).toBe("w2");
+    expect(shownMember([web1, web2], "w2", undefined)?.id).toBe("w2");
   });
 
   it("falls back to the last active member, then the first", () => {
-    expect(shownMember([web1, web2], "d1", "w2").id).toBe("w2");
-    expect(shownMember([web1, web2], "d1", "gone").id).toBe("w1");
+    expect(shownMember([web1, web2], "d1", "w2")?.id).toBe("w2");
+    expect(shownMember([web1, web2], "d1", "gone")?.id).toBe("w1");
+  });
+
+  it("is undefined for an empty member list", () => {
+    expect(shownMember([], "w2", undefined)).toBeUndefined();
   });
 });
 

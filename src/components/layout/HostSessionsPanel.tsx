@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
+import { useLayoutStore } from "@/stores/layoutStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { HostSessionRows } from "@/components/layout/HostSessionRows";
 import { sessionTabIcon } from "@/components/layout/TitlebarTab";
@@ -25,14 +25,14 @@ export function HostSessionsPanel() {
   const active = sessions.find((session) => session.id === activeSessionId);
   if (!pinned || activeNav !== "terminal" || sftpPanelOpen || !active) return null;
 
-  const splitIds = new Set(splitTabs.flatMap((tab) => getPaneSessionIds(tab.root)));
   const visibleKeys = visibleTitlebarKeys(sessions, splitTabs);
   const rows = hostSessionsInOrder(mergeTitlebarItems(titlebarOrder, visibleKeys), sessions, splitTabs, active.connectionId);
   const members = rows.map((row) => row.session);
   const labels = stackMemberLabels(members);
   const host = active.connectionName;
   const connection = connections.find((c) => c.id === active.connectionId);
-  const shown = shownMember(members.filter((m) => !splitIds.has(m.id)), activeSessionId, undefined) ?? active;
+  const unsplitMembers = rows.filter((row) => !row.splitTabId).map((row) => row.session);
+  const shown = shownMember(unsplitMembers, activeSessionId, undefined) ?? active;
 
   return (
     <div data-testid="host-sessions-panel" className="relative shrink-0 overflow-hidden bg-(--t-bg-terminal)" style={{ width: "16rem" }}>

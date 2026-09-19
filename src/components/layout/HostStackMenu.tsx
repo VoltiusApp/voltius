@@ -5,7 +5,7 @@ import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerDivider, PickerFooterAction } from "@/components/shared/pickerParts";
 import { HostSessionRows, type HostSessionLabels } from "@/components/layout/HostSessionRows";
 import { canDuplicateSession, duplicateSession } from "@/services/duplicateSession";
-import { useUIStore } from "@/stores/uiStore";
+import { pinHostList } from "@/services/hostStack";
 import type { TerminalSession } from "@/types";
 
 export function HostStackMenu({ members, labels, shownId, activeSessionId, anchorRef, surfaceRef, open, onClose, hoverBind, onHoldChange }: {
@@ -41,7 +41,7 @@ export function HostStackMenu({ members, labels, shownId, activeSessionId, ancho
           <button
             type="button"
             title={t("layout.titleBar.stack.pin")}
-            onClick={() => { useUIStore.getState().setHostPanelPinned(true); onClose(); }}
+            onClick={() => { pinHostList(shown.id); onClose(); }}
             className="size-7 flex items-center justify-center rounded-lg text-(--t-text-muted) hover:bg-(--t-bg-card-hover) hover:text-(--t-text-primary)"
           >
             <Icon icon="lucide:pin" width={14} />

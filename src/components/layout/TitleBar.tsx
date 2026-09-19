@@ -29,6 +29,7 @@ import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { closeSession, closeSessionTabs } from "@/services/closeSession";
 import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
+import { pinHostList } from "@/services/hostStack";
 import { sessionMenuItems, pinListExtra } from "@/utils/sessionMenuItems";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { StatusDot } from "@/components/shared/StatusDot";
@@ -182,7 +183,7 @@ export default function TitleBar() {
   const sessionTabHandlers = useSessionTabHandlers({
     t, isRenaming, handleTabClick, handleTabClose, startRenameFromLabel, setRenaming, setMenuTarget, setMenuExtras, openTabMenu, endRename,
   });
-  const stackTabProps = { connections, activeSessionId, activeNav, sftpPanelOpen, splitTabActive, hostPanelPinned, setHostPanelPinned, lastActiveByHost, buildHandlers: sessionTabHandlers };
+  const stackTabProps = { connections, activeSessionId, activeNav, sftpPanelOpen, splitTabActive, setHostPanelPinned, lastActiveByHost, buildHandlers: sessionTabHandlers };
 
   const handleUnifiedTabClick = (tabId: string, paneId?: string) => {
     if (shouldSuppressDragClick()) return;
@@ -425,7 +426,7 @@ export default function TitleBar() {
                   members={item.members}
                   mcpBar={renderMcpBar(item.key, item.members.map((m) => m.id))}
                   title={mcpTooltip(item.members.map((m) => m.id))}
-                  pinned={pinnedHost === item.connectionId}
+                  panelShowsThisHost={pinnedHost === item.connectionId}
                   {...stackTabProps}
                 />
                 {renderTitlebarDropCue(item.key, "after")}
@@ -435,6 +436,7 @@ export default function TitleBar() {
 
           const session = item.session;
           const isActive = session.id === activeSessionId && activeNav === "terminal" && !sftpPanelOpen && !splitTabActive;
+          const panelShowsThisSession = pinnedHost === session.connectionId;
           const statusTone = sessionStatusTone(session.status);
           const connection = connections.find((c) => c.id === session.connectionId);
           const tabIcon = sessionTabIcon(session, connection, isActive, statusTone);
@@ -449,7 +451,7 @@ export default function TitleBar() {
                 label={sessionLabel(session)}
                 title={mcpTooltip([session.id])}
                 mcpBar={renderMcpBar(session.id, [session.id])}
-                {...sessionTabHandlers(session, item.key, isActive, [pinListExtra(t, pinnedHost === session.connectionId, () => setHostPanelPinned(!hostPanelPinned))])}
+                {...sessionTabHandlers(session, item.key, isActive, [pinListExtra(t, panelShowsThisSession, () => (panelShowsThisSession ? setHostPanelPinned(false) : pinHostList(session.id)))])}
               />
               {renderTitlebarDropCue(item.key, "after")}
             </div>
