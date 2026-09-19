@@ -117,6 +117,27 @@ it("unpinning from the pinned host's own context menu clears the flag", () => {
   expect(useUIStore.getState().hostPanelPinned).toBe(false);
 });
 
+it("closes an open list when its host gets pinned from the pill's menu", () => {
+  render(<TitleBar />);
+  fireEvent.click(screen.getByTestId("stack-chevron-web"));
+  expect(screen.getByTestId("stack-menu")).toBeTruthy();
+  fireEvent.contextMenu(document.querySelector("[data-titlebar-key='stack:web']")!);
+  fireEvent.click(screen.getByText("layout.titleBar.stack.pin"));
+  expect(screen.queryByTestId("stack-menu")).toBeNull();
+});
+
+it("draws no drop cue on the bar for a drag that started on a list row", () => {
+  render(<TitleBar />);
+  const pill = document.querySelector("[data-titlebar-key='session:d1']")!;
+  act(() => useDragStore.setState({ isDragging: true, dragType: "tab", sessionId: "w1", fromStackList: true, dropTarget: null }));
+  fireEvent.mouseMove(pill);
+  expect(useDragStore.getState().dropTarget).toBeNull();
+
+  act(() => useDragStore.setState({ fromStackList: false }));
+  fireEvent.mouseMove(pill);
+  expect(useDragStore.getState().dropTarget).toMatchObject({ type: "titlebar", targetKey: "session:d1" });
+});
+
 describe("hover intent", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
@@ -204,6 +225,23 @@ describe("hover intent", () => {
     expect(screen.getByTestId("stack-menu")).toBeTruthy();
 
     act(() => { vi.advanceTimersByTime(300); });
+    expect(screen.queryByTestId("stack-menu")).toBeNull();
+  });
+
+  it("drops a row menu's hold when the list is dismissed under it", () => {
+    render(<TitleBar />);
+    const chevron = screen.getByTestId("stack-chevron-web");
+    fireEvent.click(chevron);
+    fireEvent.contextMenu(screen.getByTestId("stack-menu").querySelector("[data-titlebar-key='session:w1']")!);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByTestId("stack-menu")).toBeNull();
+
+    fireEvent.click(chevron);
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(screen.getByTestId("stack-menu")).toBeTruthy();
+
+    const pill = document.querySelector("[data-titlebar-key='stack:web']")!;
+    act(() => { fireEvent.mouseLeave(pill); vi.advanceTimersByTime(300); });
     expect(screen.queryByTestId("stack-menu")).toBeNull();
   });
 

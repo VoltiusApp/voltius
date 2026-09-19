@@ -52,6 +52,8 @@ export function HostSessionRows({ rows, members, labels, shownId, activeSessionI
     onHoldChange?.(holding);
   }, [holding, onHoldChange]);
 
+  useEffect(() => () => onHoldChange?.(false), [onHoldChange]);
+
   return (
     <>
       {rows.map((row) => (
@@ -141,7 +143,7 @@ function HostSessionRowItem({
   };
 
   const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (variant !== "panel") return;
+    if (variant !== "panel" || splitTabId) return;
     const drag = useDragStore.getState();
     if (!drag.isDragging || drag.dragType !== "tab" || drag.fromStackList || !drag.sessionId) return;
     if (titlebarGroupOf(drag.sessionId) !== stackGroupKey(session)) return;

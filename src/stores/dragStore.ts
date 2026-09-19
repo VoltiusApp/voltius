@@ -69,3 +69,7 @@ export const useDragStore = create<DragStore>((set) => ({
 export function shouldSuppressDragClick() {
   return Date.now() - useDragStore.getState().lastDragEndedAt < 50;
 }
+
+export function clearTitlebarDropTarget() {
+  if (useDragStore.getState().dropTarget?.type === "titlebar") useDragStore.getState().setDropTarget(null);
+}

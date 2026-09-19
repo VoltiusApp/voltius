@@ -77,6 +77,22 @@ describe("HostSessionsPanel", () => {
     expect(useLayoutStore.getState().splitTabActive).toBe(true);
     expect(useSessionStore.getState().activeSessionId).toBe("w2");
   });
+
+  it("sets no drop target on an in-split row, and clears the target when the pointer leaves the rows", () => {
+    useLayoutStore.getState().createSplitTab("d1", "w2", "right");
+    useSessionStore.setState({ activeSessionId: "w1" });
+    render(<HostSessionsPanel />);
+    act(() => useDragStore.setState({ isDragging: true, dragType: "tab", sessionId: "w1", sourceTitlebarKey: "session:w1" }));
+
+    fireEvent.mouseMove(rowOf("w2"));
+    expect(useDragStore.getState().dropTarget).toBeNull();
+
+    fireEvent.mouseMove(rowOf("w1"));
+    expect(useDragStore.getState().dropTarget).toMatchObject({ type: "titlebar", targetKey: "session:w1" });
+
+    fireEvent.mouseLeave(screen.getByTestId("host-sessions-rows"));
+    expect(useDragStore.getState().dropTarget).toBeNull();
+  });
 });
 
 describe("a session never lands in two split tabs", () => {

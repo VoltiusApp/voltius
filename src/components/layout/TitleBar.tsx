@@ -17,7 +17,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { SyncDropdown } from "@/components/layout/SyncDropdown";
 import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { NewSessionPopover } from "@/components/layout/NewSessionPopover";
-import { useDragStore } from "@/stores/dragStore";
+import { clearTitlebarDropTarget, useDragStore } from "@/stores/dragStore";
 import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
 import { McpMark, mcpOwnerTitle } from "@/components/shared/McpMark";
 import { findLeaf, firstLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
@@ -215,6 +215,7 @@ export default function TitleBar() {
   const updateTitlebarDropTarget = (e: React.MouseEvent<HTMLDivElement>) => {
     const drag = useDragStore.getState();
     if (drag.dragType !== "pane" && drag.dragType !== "tab") return;
+    if (drag.fromStackList) return;
     tabStrip.autoScrollNear(e.clientX);
     const tab = (e.target as HTMLElement).closest<HTMLElement>("[data-titlebar-key]");
     if (!tab || !e.currentTarget.contains(tab)) {
@@ -341,7 +342,7 @@ export default function TitleBar() {
           onMouseMove={updateTitlebarDropTarget}
           onMouseLeave={() => {
             tabStrip.stopAutoScroll();
-            if (useDragStore.getState().dropTarget?.type === "titlebar") useDragStore.getState().setDropTarget(null);
+            clearTitlebarDropTarget();
           }}
         >
         <div

@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useLayoutStore } from "@/stores/layoutStore";
+import { clearTitlebarDropTarget } from "@/stores/dragStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { HostSessionRows } from "@/components/layout/HostSessionRows";
 import { sessionTabIcon } from "@/components/layout/TitlebarTab";
@@ -52,7 +53,7 @@ export function HostSessionsPanel() {
             <PanelIconButton title={t("layout.titleBar.stack.unpin")} icon="lucide:pin-off" iconWidth={15} onClick={() => setPinned(false)} />
           </div>
         </div>
-        <div data-testid="host-sessions-rows" className="flex-1 overflow-y-auto">
+        <div data-testid="host-sessions-rows" className="flex-1 overflow-y-auto" onMouseLeave={clearTitlebarDropTarget}>
           <HostSessionRows rows={rows} members={unsplitMembers} labels={labels} shownId={shown.id} activeSessionId={activeSessionId} variant="panel" onActivate={() => {}} />
         </div>
       </aside>

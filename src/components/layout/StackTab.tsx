@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -45,9 +45,15 @@ export function StackTab({
   const isDraggingPane = useDragStore((s) => s.isDragging && s.dragType === "pane");
   const dragBlocksHover = isDraggingTitlebarItem || isDraggingPane;
 
+  const closeList = useCallback(() => hover.setOpen(false), [hover.setOpen]);
+
   useEffect(() => {
-    if (dragBlocksHover) hover.setOpen(false);
-  }, [dragBlocksHover, hover.setOpen]);
+    if (dragBlocksHover || panelShowsThisHost) closeList();
+  }, [dragBlocksHover, panelShowsThisHost, closeList]);
+
+  useEffect(() => {
+    if (!hover.open) setHold(false);
+  }, [hover.open]);
 
   const shown = shownMember(members, activeSessionId, lastActiveByHost[groupKey])!;
   const host = stackHostName(members) ?? shown.connectionName;
@@ -140,7 +146,7 @@ export function StackTab({
         anchorRef={hover.anchorRef}
         surfaceRef={hover.surfaceRef}
         open={hover.open}
-        onClose={() => hover.setOpen(false)}
+        onClose={closeList}
         hoverBind={hover.bind}
         onHoldChange={setHold}
       />
