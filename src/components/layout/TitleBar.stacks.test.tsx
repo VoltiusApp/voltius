@@ -117,6 +117,22 @@ it("unpinning from the pinned host's own context menu clears the flag", () => {
   expect(useUIStore.getState().hostPanelPinned).toBe(false);
 });
 
+it("shows no close button on a stack pill, but keeps it on a single-session pill", () => {
+  render(<TitleBar />);
+  const closeOf = (key: string) => document.querySelector(`[data-titlebar-key='${key}'] .group-hover\\:opacity-100`);
+  expect(closeOf("stack:web")).toBeNull();
+  expect(closeOf("session:d1")).not.toBeNull();
+});
+
+it("labels the chevron and reports whether the list is open", () => {
+  render(<TitleBar />);
+  const chevron = screen.getByTestId("stack-chevron-web");
+  expect(chevron.getAttribute("aria-label")).toBe("layout.titleBar.stack.sessions");
+  expect(chevron.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(chevron);
+  expect(chevron.getAttribute("aria-expanded")).toBe("true");
+});
+
 it("closes an open list when its host gets pinned from the pill's menu", () => {
   render(<TitleBar />);
   fireEvent.click(screen.getByTestId("stack-chevron-web"));

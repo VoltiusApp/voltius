@@ -61,3 +61,8 @@ export function pinListExtra(t: TFunction, pinned: boolean, onToggle: () => void
     onClick: onToggle,
   };
 }
+
+export function newSessionOnHostItem(t: TFunction, session: TerminalSession, host: string): Required<Pick<ContextMenuItem, "label" | "icon" | "onClick">> | null {
+  if (!canDuplicateSession(session)) return null;
+  return { label: t("layout.titleBar.stack.newSessionOn", { host }), icon: "lucide:plus", onClick: () => { duplicateSession(session.id, "tab"); } };
+}

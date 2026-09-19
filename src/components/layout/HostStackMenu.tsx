@@ -4,8 +4,8 @@ import { Icon } from "@iconify/react";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerDivider, PickerFooterAction } from "@/components/shared/pickerParts";
 import { HostSessionRows, type HostSessionLabels } from "@/components/layout/HostSessionRows";
-import { canDuplicateSession, duplicateSession } from "@/services/duplicateSession";
 import { pinHostList } from "@/services/hostStack";
+import { newSessionOnHostItem } from "@/utils/sessionMenuItems";
 import { shownMember } from "@/utils/titlebarItems";
 import type { TerminalSession } from "@/types";
 
@@ -24,6 +24,7 @@ export function HostStackMenu({ host, members, labels, shownId, activeSessionId,
 }) {
   const { t } = useTranslation();
   const shown = shownMember(members, shownId, undefined)!;
+  const newSession = newSessionOnHostItem(t, shown, host);
 
   useEffect(() => {
     if (!open) return;
@@ -58,13 +59,13 @@ export function HostStackMenu({ host, members, labels, shownId, activeSessionId,
           onActivate={onClose}
           onHoldChange={onHoldChange}
         />
-        {canDuplicateSession(shown) && (
+        {newSession && (
           <>
             <PickerDivider />
             <PickerFooterAction
-              icon="lucide:plus"
-              label={t("layout.titleBar.stack.newSessionOn", { host })}
-              onClick={() => { duplicateSession(shown.id, "tab"); onClose(); }}
+              icon={newSession.icon}
+              label={newSession.label}
+              onClick={() => { newSession.onClick(); onClose(); }}
             />
           </>
         )}

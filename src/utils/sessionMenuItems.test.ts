@@ -10,7 +10,7 @@ vi.mock("@/services/duplicateSession", async () => {
 vi.mock("@/stores/sessionStore", () => ({ useSessionStore: { getState: () => ({ reconnect }) } }));
 vi.mock("@/stores/shortcutStore", () => ({ getShortcutHint: (id: string) => `hint:${id}` }));
 
-import { sessionMenuItems } from "./sessionMenuItems";
+import { newSessionOnHostItem, sessionMenuItems } from "./sessionMenuItems";
 
 const session: TerminalSession = { id: "s1", connectionId: "c1", connectionName: "srv", status: "connected", type: "ssh" };
 const t = ((key: string) => key) as never;
@@ -53,4 +53,13 @@ test("rename hands the caller back control, since the editor lives on the tab", 
   const items = build();
   items[0].onClick!();
   expect(onRename).toHaveBeenCalledTimes(1);
+});
+
+test("new session on host duplicates into a tab, and is absent when the session cannot be duplicated", () => {
+  const item = newSessionOnHostItem(t, session, "prod");
+  expect(item?.label).toBe("layout.titleBar.stack.newSessionOn");
+  item!.onClick();
+  expect(duplicateSession).toHaveBeenCalledWith("s1", "tab");
+  expect(newSessionOnHostItem(t, { ...session, containerExec: { kind: "lxc", vmid: 1, parentSessionId: "p" } }, "prod")).toBeNull();
+  expect(newSessionOnHostItem(t, { ...session, type: "serial" }, "prod")).toBeNull();
 });

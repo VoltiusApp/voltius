@@ -7,7 +7,7 @@ import { clearTitlebarDropTarget } from "@/stores/dragStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { HostSessionRows } from "@/components/layout/HostSessionRows";
 import { sessionTabIcon } from "@/components/layout/TitlebarTab";
-import { canDuplicateSession, duplicateSession } from "@/services/duplicateSession";
+import { newSessionOnHostItem } from "@/utils/sessionMenuItems";
 import { hostSessionsInOrder, shownMember, stackGroupKey, stackHostName, stackMemberLabels, visibleTitlebarKeys, worstStatus } from "@/utils/titlebarItems";
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
 import { sessionStatusTone } from "@/utils/statusTone";
@@ -34,6 +34,7 @@ export function HostSessionsPanel() {
   const connection = connections.find((c) => c.id === active.connectionId);
   const unsplitMembers = rows.filter((row) => !row.splitTabId).map((row) => row.session);
   const shown = shownMember(unsplitMembers, activeSessionId, undefined) ?? active;
+  const newSession = newSessionOnHostItem(t, active, host);
 
   return (
     <div data-testid="host-sessions-panel" className="relative shrink-0 overflow-hidden bg-(--t-bg-terminal)" style={{ width: "16rem" }}>
@@ -47,9 +48,7 @@ export function HostSessionsPanel() {
             </div>
           </div>
           <div className="flex items-center gap-0.5">
-            {canDuplicateSession(active) && (
-              <PanelIconButton title={t("layout.titleBar.stack.newSessionOn", { host })} icon="lucide:plus" iconWidth={16} onClick={() => duplicateSession(active.id, "tab")} />
-            )}
+            {newSession && <PanelIconButton title={newSession.label} icon={newSession.icon} iconWidth={16} onClick={newSession.onClick} />}
             <PanelIconButton title={t("layout.titleBar.stack.unpin")} icon="lucide:pin-off" iconWidth={15} onClick={() => setPinned(false)} />
           </div>
         </div>

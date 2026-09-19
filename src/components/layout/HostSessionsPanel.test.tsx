@@ -78,6 +78,14 @@ describe("HostSessionsPanel", () => {
     expect(useSessionStore.getState().activeSessionId).toBe("w2");
   });
 
+  it("keeps the in-split marker and the status on one truncated line with the full text as its title", () => {
+    useLayoutStore.getState().createSplitTab("d1", "w2", "right");
+    useSessionStore.setState({ activeSessionId: "w1" });
+    render(<HostSessionsPanel />);
+    const line = within(rowOf("w2")).getByTitle("in split · Connected · 0m");
+    expect(line.querySelector(".truncate")?.textContent).toBe("in split · Connected · 0m");
+  });
+
   it("sets no drop target on an in-split row, and clears the target when the pointer leaves the rows", () => {
     useLayoutStore.getState().createSplitTab("d1", "w2", "right");
     useSessionStore.setState({ activeSessionId: "w1" });

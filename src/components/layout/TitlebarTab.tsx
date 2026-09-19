@@ -120,7 +120,7 @@ export function TitlebarTab({
   onRenameCancel: () => void;
   onClick: () => void;
   onLabelClick: (e: React.MouseEvent) => void;
-  onClose: (e: React.MouseEvent) => void;
+  onClose?: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onDoubleClick: () => void;
   onPointerDown: (e: React.PointerEvent) => void;
@@ -179,7 +179,7 @@ export function TitlebarTab({
         {label}
       </span>
       {trailing}
-      <span
+      {onClose && <span
         onClick={onClose}
         className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
         style={{ color: active ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
@@ -189,7 +189,7 @@ export function TitlebarTab({
         <span className="[&_path]:stroke-[2.1]">
           <Icon icon="lucide:x" width={20} />
         </span>
-      </span>
+      </span>}
     </button>
   );
 }

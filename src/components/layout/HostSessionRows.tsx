@@ -118,6 +118,9 @@ function HostSessionRowItem({
 
   const label_ = label?.label ?? session.connectionName;
   const canOpenInSplit = !splitTabId && members.some((member) => member.id !== session.id);
+  const statusLine = variant === "panel"
+    ? `${splitTabId ? `${t("layout.titleBar.stack.inSplit")} · ` : ""}${sessionStatusLine(session, since, now, t)}`
+    : "";
   const statusTone = sessionStatusTone(session.status);
   const rowPadding = variant === "compact" ? "px-3 py-2 text-xs" : "px-4 py-3 border-b border-b-(--t-border)";
 
@@ -194,14 +197,9 @@ function HostSessionRowItem({
       <div className="flex-1 min-w-0">
         <p className={`truncate ${active ? "text-(--t-accent)" : ""}`}>{label_}</p>
         {variant === "panel" && (
-          <p className="flex items-center gap-1 text-xs text-(--t-text-muted)">
-            {splitTabId && (
-              <span className="flex items-center gap-1">
-                <Icon icon="lucide:layout-dashboard" width={12} />
-                {t("layout.titleBar.stack.inSplit")} ·
-              </span>
-            )}
-            {sessionStatusLine(session, since, now, t)}
+          <p className="flex items-center gap-1 min-w-0 text-xs text-(--t-text-muted)" title={statusLine}>
+            {splitTabId && <Icon icon="lucide:layout-dashboard" width={12} className="shrink-0" />}
+            <span className="truncate">{statusLine}</span>
           </p>
         )}
       </div>

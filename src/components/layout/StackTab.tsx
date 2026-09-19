@@ -11,8 +11,7 @@ import { useHoverIntent } from "@/hooks/useHoverIntent";
 import { useDragStore } from "@/stores/dragStore";
 import { closeSessionTabs } from "@/services/closeSession";
 import { pinHostList } from "@/services/hostStack";
-import { canDuplicateSession, duplicateSession } from "@/services/duplicateSession";
-import { pinListExtra } from "@/utils/sessionMenuItems";
+import { newSessionOnHostItem, pinListExtra } from "@/utils/sessionMenuItems";
 import { stackHostName, stackMemberLabels, shownMember, worstStatus } from "@/utils/titlebarItems";
 import { sessionStatusTone } from "@/utils/statusTone";
 
@@ -59,10 +58,9 @@ export function StackTab({
   const host = stackHostName(members) ?? shown.connectionName;
   const active = members.some((m) => m.id === activeSessionId) && activeNav === "terminal" && !sftpPanelOpen && !splitTabActive;
   const connection = connections.find((c) => c.id === shown.connectionId);
+  const newSession = newSessionOnHostItem(t, shown, host);
   const extras: ContextMenuItem[] = [
-    ...(canDuplicateSession(shown)
-      ? [{ label: t("layout.titleBar.stack.newSessionOn", { host }), icon: "lucide:plus", onClick: () => duplicateSession(shown.id, "tab") }]
-      : []),
+    ...(newSession ? [newSession] : []),
     pinListExtra(t, panelShowsThisHost, () => (panelShowsThisHost ? setHostPanelPinned(false) : pinHostList(shown.id))),
     { label: t("layout.titleBar.stack.closeAll", { count: members.length }), icon: "lucide:x", danger: true, onClick: () => closeSessionTabs(members.map((m) => m.id)) },
   ];
@@ -102,6 +100,9 @@ export function StackTab({
           data-testid={`stack-chevron-${groupKey}`}
           role="button"
           tabIndex={0}
+          aria-label={t("layout.titleBar.stack.sessions", { host, count: members.length })}
+          aria-haspopup="true"
+          aria-expanded={hover.open}
           onClick={(e) => { e.stopPropagation(); hover.setOpen(!hover.open); }}
           onKeyDown={(e) => {
             if (e.key !== "Enter" && e.key !== " ") return;
@@ -134,6 +135,7 @@ export function StackTab({
         mcpBar={mcpBar}
         trailing={trailing}
         {...handlers}
+        onClose={undefined}
         onMouseEnter={panelShowsThisHost || dragBlocksHover ? undefined : hover.bind.onMouseEnter}
         onMouseLeave={panelShowsThisHost || dragBlocksHover ? undefined : hover.bind.onMouseLeave}
       />
