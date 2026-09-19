@@ -1,10 +1,23 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { useEffect } from "react";
+import { renderHook, render, cleanup, act } from "@testing-library/react";
 import { useStatusBarStore, useStatusBarMounted } from "@/stores/statusBarStore";
 
 afterEach(() => {
+  cleanup();
   useStatusBarStore.setState({ mountedCount: 0 });
 });
+
+// Mirrors TerminalStatusBar's registration effect: mounted-but-not-visible never registers.
+function RegisteringBar({ visible }: { visible: boolean }) {
+  useEffect(() => {
+    if (!visible) return;
+    const { increment, decrement } = useStatusBarStore.getState();
+    increment();
+    return decrement;
+  }, [visible]);
+  return null;
+}
 
 describe("statusBarStore", () => {
   it("starts unmounted", () => {
@@ -42,5 +55,22 @@ describe("statusBarStore", () => {
     });
     expect(useStatusBarStore.getState().mountedCount).toBe(1);
     expect(renderHook(() => useStatusBarMounted()).result.current).toBe(true);
+  });
+
+  it("a bar that is mounted but not visible never registers", () => {
+    render(<RegisteringBar visible={false} />);
+    expect(useStatusBarStore.getState().mountedCount).toBe(0);
+    expect(renderHook(() => useStatusBarMounted()).result.current).toBe(false);
+  });
+
+  it("registers once it turns visible in place, and unregisters once it turns hidden again, without remounting", () => {
+    const { rerender } = render(<RegisteringBar visible={false} />);
+    expect(useStatusBarStore.getState().mountedCount).toBe(0);
+
+    rerender(<RegisteringBar visible={true} />);
+    expect(useStatusBarStore.getState().mountedCount).toBe(1);
+
+    rerender(<RegisteringBar visible={false} />);
+    expect(useStatusBarStore.getState().mountedCount).toBe(0);
   });
 });

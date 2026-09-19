@@ -26,6 +26,7 @@ import { usePaneDragController } from "@/components/panes/usePaneDragController"
 import { DropZones } from "@/components/panes/DropZones";
 import { DragGhost } from "@/components/panes/DragGhost";
 import { getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
+import { isStatusBarVisible } from "@/utils/sessionVisibility";
 
 function NoVaultSelected() {
   const { t } = useTranslation();
@@ -162,6 +163,13 @@ export default function MainPanel() {
                       <HostAwareTerminalView
                         session={session}
                         active={session.id === activeSessionId && session.status === "connected" && !overlayContent}
+                        statusBarVisible={isStatusBarVisible({
+                          sessionId: session.id,
+                          activeSessionId,
+                          showSplitWorkspace,
+                          overlayContent: !!overlayContent,
+                          sftpPanelOpen,
+                        })}
                         onClosed={(remoteExit) => sessionClosed(session.type, session.id, remoteExit)}
                       />
                     )}

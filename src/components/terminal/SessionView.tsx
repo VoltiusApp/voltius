@@ -21,6 +21,7 @@ export function HostAwareTerminalView({
   onClosed,
   compact,
   statusBar = true,
+  statusBarVisible = true,
 }: {
   session: TerminalSession;
   active: boolean;
@@ -29,6 +30,8 @@ export function HostAwareTerminalView({
   compact?: boolean;
   /** Split panes carry no status bar of their own. */
   statusBar?: boolean;
+  /** Whether this session's status bar, if rendered, is the one currently on screen. */
+  statusBarVisible?: boolean;
 }) {
   useMultiplayerHostBroadcast(session.id, session.type);
   const isSharing = useTeamSessionStore((s) => !!s.connections[session.id]);
@@ -69,6 +72,7 @@ export function HostAwareTerminalView({
           serialConfig={session.serialConfig}
           sessionStatus={session.status}
           dimensions={dimensions}
+          visible={statusBarVisible}
         />
       )}
     </div>

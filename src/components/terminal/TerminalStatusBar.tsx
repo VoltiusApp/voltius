@@ -39,6 +39,7 @@ interface Props {
   serialConfig?: SerialConnectParams;
   sessionStatus: "connecting" | "connected" | "disconnected" | "error";
   dimensions?: { cols: number; rows: number };
+  visible?: boolean;
 }
 
 interface ConnectedSystemInfo {
@@ -145,7 +146,7 @@ function StatusBarIconButton({
   );
 }
 
-export function TerminalStatusBar({ sessionId, sessionType, connectionId, connectionName, serialConfig, sessionStatus, dimensions }: Props) {
+export function TerminalStatusBar({ sessionId, sessionType, connectionId, connectionName, serialConfig, sessionStatus, dimensions, visible = true }: Props) {
   const { t } = useTranslation();
   const connections = useAllConnections();
   const connection = useMemo(() => connections.find((c) => c.id === connectionId), [connections, connectionId]);
@@ -201,10 +202,11 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
   }, [sessionId, sessionType, sessionStatus]);
 
   useEffect(() => {
+    if (!visible) return;
     const { increment, decrement } = useStatusBarStore.getState();
     increment();
     return decrement;
-  }, []);
+  }, [visible]);
 
   useEffect(() => {
     systemInfoFetchedRef.current = false;
