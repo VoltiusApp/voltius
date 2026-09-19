@@ -6,6 +6,7 @@ import type { Connection, TerminalSession } from "@/types";
 import type { NavItem } from "@/stores/uiStore";
 import { TitlebarTab, sessionTabIcon, buildSessionTabHandlers } from "@/components/layout/TitlebarTab";
 import { HostStackMenu } from "@/components/layout/HostStackMenu";
+import { StatusDot } from "@/components/shared/StatusDot";
 import { useHoverIntent } from "@/hooks/useHoverIntent";
 import { useDragStore } from "@/stores/dragStore";
 import { closeSessionTabs } from "@/services/closeSession";
@@ -13,7 +14,7 @@ import { canDuplicateSession, duplicateSession } from "@/services/duplicateSessi
 import { pinHostList } from "@/services/hostStack";
 import { pinListExtra } from "@/utils/sessionMenuItems";
 import { stackMemberLabels, shownMember, worstStatus } from "@/utils/titlebarItems";
-import { sessionStatusTone, STATUS_TONE_COLOR } from "@/utils/statusTone";
+import { sessionStatusTone } from "@/utils/statusTone";
 
 interface StackTabProps {
   itemKey: string;
@@ -65,10 +66,7 @@ export function StackTab({
   const icon = worst === "connected" ? baseIcon : (
     <span className="relative inline-flex">
       {baseIcon}
-      <span
-        className="absolute -right-0.5 -bottom-0.5 size-2 rounded-full"
-        style={{ background: STATUS_TONE_COLOR[tone], boxShadow: "0 0 0 2px var(--t-bg-terminal)" }}
-      />
+      <StatusDot tone={tone} halo="var(--t-bg-terminal)" corner />
     </span>
   );
 

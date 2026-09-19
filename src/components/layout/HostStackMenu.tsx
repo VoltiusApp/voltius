@@ -6,6 +6,7 @@ import { PickerDivider, PickerFooterAction } from "@/components/shared/pickerPar
 import { HostSessionRows, type HostSessionLabels } from "@/components/layout/HostSessionRows";
 import { canDuplicateSession, duplicateSession } from "@/services/duplicateSession";
 import { pinHostList } from "@/services/hostStack";
+import { shownMember } from "@/utils/titlebarItems";
 import type { TerminalSession } from "@/types";
 
 export function HostStackMenu({ members, labels, shownId, activeSessionId, anchorRef, surfaceRef, open, onClose, hoverBind, onHoldChange }: {
@@ -21,7 +22,7 @@ export function HostStackMenu({ members, labels, shownId, activeSessionId, ancho
   onHoldChange?: (hold: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const shown = members.find((member) => member.id === shownId) ?? members[0];
+  const shown = shownMember(members, shownId, undefined)!;
   const host = shown.connectionName;
 
   useEffect(() => {

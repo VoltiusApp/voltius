@@ -19,5 +19,6 @@ export function sessionStatusLine(session: TerminalSession, since: number | null
       return t(`${key}connecting`);
     case "disconnected": return t(`${key}disconnected`);
     case "error": return t(`${key}error`, { message: session.errorMessage ?? "" });
+    default: return session.status satisfies never;
   }
 }

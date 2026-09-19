@@ -47,15 +47,9 @@ export function HostSessionsPanel() {
           </div>
           <div className="flex items-center gap-0.5">
             {canDuplicateSession(active) && (
-              <button type="button" title={t("layout.titleBar.stack.newSessionOn", { host })} onClick={() => duplicateSession(active.id, "tab")}
-                className="size-8 flex items-center justify-center rounded-lg text-(--t-text-muted) hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)">
-                <Icon icon="lucide:plus" width={16} />
-              </button>
+              <PanelIconButton title={t("layout.titleBar.stack.newSessionOn", { host })} icon="lucide:plus" iconWidth={16} onClick={() => duplicateSession(active.id, "tab")} />
             )}
-            <button type="button" title={t("layout.titleBar.stack.unpin")} onClick={() => setPinned(false)}
-              className="size-8 flex items-center justify-center rounded-lg text-(--t-text-muted) hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)">
-              <Icon icon="lucide:pin-off" width={15} />
-            </button>
+            <PanelIconButton title={t("layout.titleBar.stack.unpin")} icon="lucide:pin-off" iconWidth={15} onClick={() => setPinned(false)} />
           </div>
         </div>
         <div data-testid="host-sessions-rows" className="flex-1 overflow-y-auto">
@@ -63,5 +57,14 @@ export function HostSessionsPanel() {
         </div>
       </aside>
     </div>
+  );
+}
+
+function PanelIconButton({ title, icon, iconWidth, onClick }: { title: string; icon: string; iconWidth: number; onClick: () => void }) {
+  return (
+    <button type="button" title={title} onClick={onClick}
+      className="size-8 flex items-center justify-center rounded-lg text-(--t-text-muted) hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)">
+      <Icon icon={icon} width={iconWidth} />
+    </button>
   );
 }

@@ -117,6 +117,7 @@ function HostSessionRowItem({
 
   const label_ = label?.label ?? session.connectionName;
   const statusTone = sessionStatusTone(session.status);
+  const rowPadding = variant === "compact" ? "px-3 py-2 text-xs" : "px-4 py-3 border-b border-b-(--t-border)";
 
   const activate = () => {
     if (shouldSuppressDragClick()) return;
@@ -156,7 +157,7 @@ function HostSessionRowItem({
     return (
       <div
         data-titlebar-key={`session:${session.id}`}
-        className={variant === "compact" ? "flex items-center gap-2 px-3 py-2 text-xs" : "flex items-center gap-2 px-4 py-3 border-b border-b-(--t-border)"}
+        className={`flex items-center gap-2 ${rowPadding}`}
       >
         <StatusDot tone={statusTone} size="sm" />
         <InlineNameEditor
@@ -183,9 +184,7 @@ function HostSessionRowItem({
       onMouseMove={onMouseMove}
       onDoubleClick={variant === "panel" ? onStartRename : undefined}
       onContextMenu={onContextMenu}
-      className={`group relative flex items-center gap-2 cursor-pointer rounded-lg transition-colors ${
-        variant === "compact" ? "px-3 py-2 text-xs" : "px-4 py-3 border-b border-b-(--t-border)"
-      }`}
+      className={`group relative flex items-center gap-2 cursor-pointer rounded-lg transition-colors ${rowPadding}`}
       style={variant === "panel" && active ? { background: "var(--t-bg-elevated)" } : undefined}
     >
       {dropCue === "before" && <div className="absolute left-2 right-2 top-0 h-0.5 rounded-full bg-(--t-accent)" />}

@@ -99,7 +99,7 @@ export function usePaneDragController() {
           const detachedSessionId = layout.detachPane(drag.sourcePaneId);
           if (detachedSessionId) {
             const placement = drag.dropTarget.placement ?? "after";
-            const order = useLayoutStore.getState().titlebarOrder;
+            const order = layout.titlebarOrder;
             const host = titlebarConnectionOf(detachedSessionId);
             const hostKeys = getToggle("group-tabs-by-host") && host
               ? stackMemberKeys(order, `stack:${host}`, titlebarConnectionOf).filter((key) => key !== `session:${detachedSessionId}`)

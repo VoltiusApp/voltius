@@ -5,7 +5,6 @@ import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useThemeStore } from "@/stores/themeStore";
-import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import type { SyncStatus } from "@/services/sync";
 import { syncStatusColor } from "@/services/syncStatus";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
@@ -679,37 +678,12 @@ function NewTabButton() {
 function DetachedPanePreview({ session }: { session: ReturnType<typeof useSessionStore.getState>["sessions"][number] }) {
   const connections = useAllConnections();
   const connection = connections.find((c) => c.id === session.connectionId);
-  const isLocal = session.type === "local";
-  const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;
-  const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
-  const distroBg = connectionIcon ? getConnectionIconColor(connectionIcon) : null;
   return (
     <div
       className="pointer-events-none flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
-      style={{
-        background: "var(--t-tab-active-bg)",
-        color: "var(--t-tab-active-text)",
-        border: "1px solid var(--t-tab-active-border)",
-        boxShadow: "0 0 0 1px color-mix(in srgb, var(--t-accent) 35%, transparent)",
-      }}
+      style={{ ...tabSurfaceStyle(true), boxShadow: "0 0 0 1px color-mix(in srgb, var(--t-accent) 35%, transparent)" }}
     >
-      {distroIcon ? (
-        <span
-          className="flex items-center justify-center size-6 rounded-md shrink-0"
-          style={{ background: distroBg ?? "transparent", color: "#fff" }}
-        >
-          <Icon icon={distroIcon} width={16} />
-        </span>
-      ) : isLocal ? (
-        <span
-          className="flex items-center justify-center size-6 rounded-md shrink-0"
-          style={{ color: "var(--t-tab-active-text)" }}
-        >
-          <Icon icon="lucide:terminal" width={14} />
-        </span>
-      ) : (
-        <StatusDot tone={sessionStatusTone(session.status)} />
-      )}
+      {sessionTabIcon(session, connection, true, sessionStatusTone(session.status))}
       <span className="max-w-[140px] truncate">{sessionLabel(session)}</span>
     </div>
   );
