@@ -35,8 +35,19 @@ elif command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1; then
   curl -fsSL "$REPO_BASE/voltius.repo" -o /etc/yum.repos.d/voltius.repo
   "$PM" install -y voltius
   echo "==> Done. Voltius will update via '$(basename "$PM") upgrade'."
+elif command -v pacman >/dev/null 2>&1; then
+  # AUR helpers refuse to run as root, so build as the user who invoked sudo.
+  AUR_HELPER="$(command -v paru || command -v yay || true)"
+  if [ -z "$AUR_HELPER" ] || [ -z "${SUDO_USER:-}" ] || [ "$SUDO_USER" = root ]; then
+    echo "Arch: Voltius is on the AUR as voltius-bin. Install it with an AUR helper as your user:" >&2
+    echo "  yay -S voltius-bin" >&2
+    exit 1
+  fi
+  echo "==> Installing voltius-bin from the AUR with $(basename "$AUR_HELPER")"
+  sudo -u "$SUDO_USER" "$AUR_HELPER" -S --needed --noconfirm voltius-bin
+  echo "==> Done. Voltius will update via '$(basename "$AUR_HELPER") -Syu'."
 else
-  echo "Unsupported distribution: need apt-get or dnf/yum." >&2
+  echo "Unsupported distribution: need apt-get, dnf/yum or pacman." >&2
   echo "See $REPO_BASE for manual instructions." >&2
   exit 1
 fi

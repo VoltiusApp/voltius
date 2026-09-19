@@ -62,13 +62,13 @@ No account required. Everything below is free, forever.
 
 ### <img src=".github/media/icons/linux.svg" alt="" height="22" align="center" /> Linux
 
-One command adds the signed Voltius repository and installs the app on Debian/Ubuntu and Fedora/RHEL:
+One command installs the app on Debian/Ubuntu, Fedora/RHEL and Arch:
 
 ```bash
 curl -fsSL https://repo.voltius.app/setup.sh | sudo bash
 ```
 
-After that, Voltius updates through your normal `sudo apt upgrade` / `sudo dnf upgrade`. Packages are GPG-signed and provided for both `amd64`/`x86_64` and `arm64`/`aarch64`.
+On Debian/Ubuntu and Fedora/RHEL it adds the signed Voltius repository, so updates arrive through your normal `sudo apt upgrade` / `sudo dnf upgrade`. Packages are GPG-signed and provided for both `amd64`/`x86_64` and `arm64`/`aarch64`. On Arch it installs `voltius-bin` from the AUR with `paru` or `yay`.
 
 <details>
 <summary>Manual setup</summary>
@@ -87,17 +87,13 @@ sudo curl -fsSL https://repo.voltius.app/voltius.repo -o /etc/yum.repos.d/voltiu
 sudo dnf install voltius
 ```
 On older dnf, replace the `curl` line with `sudo dnf config-manager --add-repo https://repo.voltius.app/voltius.repo`.
-</details>
 
-#### <img src=".github/media/icons/archlinux.svg" alt="" height="22" align="center" /> Arch (AUR)
-
-Community-maintained by [ezhkov](https://aur.archlinux.org/account/ezhkov/), not published by this repo's CI:
-
+**<img src=".github/media/icons/archlinux.svg" alt="" height="16" align="center" /> Arch (AUR)**
 ```bash
 yay -S voltius-bin   # prebuilt binary, tracks releases
 ```
-
-`voltius` (builds from source) and `voltius-git` (latest `main`) are also available. If any of these are ever behind, the apt/dnf repo above or a direct download is the maintained fallback.
+Community-maintained by [ezhkov](https://aur.archlinux.org/account/ezhkov/), not published by this repo's CI. `voltius` (builds from source) and `voltius-git` (latest `main`) are also available. If any of these are ever behind, a direct download is the maintained fallback.
+</details>
 
 ### <img src=".github/media/icons/apple.svg" alt="" height="22" align="center" /> macOS — Homebrew
 
