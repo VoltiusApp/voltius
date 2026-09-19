@@ -109,7 +109,12 @@ export RCLONE_CONFIG_R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.
 export RCLONE_CONFIG_R2_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"
 export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
 # sync mirrors source→dest (deletes stale objects beyond the last $KEEP), scoped
-# to /deb and /rpm so top-level files (voltius.gpg, setup.sh, voltius.repo) stay.
+# to /deb and /rpm so top-level files (voltius.gpg, setup.sh, voltius.repo) survive it.
 rclone sync "$WORK/out/deb" "R2:${R2_BUCKET}/${DEB_PREFIX}" --checksum --fast-list
 rclone sync "$WORK/out/rpm" "R2:${R2_BUCKET}/${RPM_PREFIX}" --checksum --fast-list
+publish_top_level() {
+  rclone copyto "$SCRIPTS/../repo/$1" "R2:${R2_BUCKET}/$1" --checksum --header-upload "Content-Type: $2"
+}
+publish_top_level setup.sh text/x-shellscript
+publish_top_level voltius.repo text/plain
 echo "==> Published: https://repo.voltius.app/${DEB_PREFIX}  https://repo.voltius.app/${RPM_PREFIX}"
