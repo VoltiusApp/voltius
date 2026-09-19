@@ -60,9 +60,9 @@ No account required. Everything below is free, forever.
 
 ## 📦 Install
 
-### Linux — apt & dnf/yum
+### <img src=".github/media/icons/linux.svg" alt="" height="22" align="center" /> Linux
 
-One command adds the signed Voltius repository and installs the app:
+One command adds the signed Voltius repository and installs the app on Debian/Ubuntu and Fedora/RHEL:
 
 ```bash
 curl -fsSL https://repo.voltius.app/setup.sh | sudo bash
@@ -89,7 +89,7 @@ sudo dnf install voltius
 On older dnf, replace the `curl` line with `sudo dnf config-manager --add-repo https://repo.voltius.app/voltius.repo`.
 </details>
 
-### Linux — Arch (AUR)
+#### <img src=".github/media/icons/archlinux.svg" alt="" height="22" align="center" /> Arch (AUR)
 
 Community-maintained by [ezhkov](https://aur.archlinux.org/account/ezhkov/), not published by this repo's CI:
 
@@ -99,7 +99,7 @@ yay -S voltius-bin   # prebuilt binary, tracks releases
 
 `voltius` (builds from source) and `voltius-git` (latest `main`) are also available. If any of these are ever behind, the apt/dnf repo above or a direct download is the maintained fallback.
 
-### macOS — Homebrew
+### <img src=".github/media/icons/apple.svg" alt="" height="22" align="center" /> macOS — Homebrew
 
 ```sh
 brew install --cask voltiusapp/voltius/voltius
@@ -118,7 +118,7 @@ If you download the `.dmg` directly and macOS says **"Voltius.app is damaged and
 cannot be opened"**, the same command clears the quarantine flag after you copy
 Voltius to Applications.
 
-### Windows — winget
+### <img src=".github/media/icons/windows.svg" alt="" height="22" align="center" /> Windows — winget
 
 ```sh
 winget install --id Voltius.Voltius -e
@@ -127,7 +127,7 @@ winget install --id Voltius.Voltius -e
 Windows SmartScreen may warn that the publisher is unverified (the app is not yet
 code-signed) — choose **More info → Run anyway**.
 
-### Android — Obtainium
+### <img src=".github/media/icons/android.svg" alt="" height="22" align="center" /> Android — Obtainium
 
 Android is an **early preview**: the APK is release-signed and installs cleanly, but
 platform-only features are gated off (no local terminal, no serial console — remote SSH
