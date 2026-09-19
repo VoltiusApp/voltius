@@ -40,7 +40,7 @@ import { splitTabMenuItems } from "@/utils/splitTabMenuItems";
 import { fadeMask, useTabStripScroll } from "@/hooks/useTabStripScroll";
 import { TitlebarTab, sessionTabIcon, tabSurfaceStyle } from "@/components/layout/TitlebarTab";
 import { StackTab } from "@/components/layout/StackTab";
-import { buildTitlebarItems, titlebarConnectionOf, visibleTitlebarKeys } from "@/utils/titlebarItems";
+import { buildTitlebarItems, stackGroupKey, titlebarKeyGroupOf, visibleTitlebarKeys } from "@/utils/titlebarItems";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useLastActiveByHost, useSessionTabHandlers } from "@/hooks/useTitlebarTabState";
 
@@ -135,7 +135,7 @@ export default function TitleBar() {
   const isActiveSessionEnded = activeSessionId ? !!mpConnections[activeSessionId]?.ended : false;
 
   const lastActiveByHost = useLastActiveByHost(activeSession, sessions);
-  const pinnedHost = hostPanelPinned && activeNav === "terminal" && !sftpPanelOpen ? activeSession?.connectionId ?? null : null;
+  const pinnedHost = hostPanelPinned && activeNav === "terminal" && !sftpPanelOpen && activeSession ? stackGroupKey(activeSession) : null;
 
   const isSftpCompact = !sftpPanelOpen && sessions.length > 0;
   const draggedSession = titlebarDropActive ? sessions.find((session) => session.id === draggedSessionId) : null;
@@ -154,7 +154,7 @@ export default function TitleBar() {
   }, [isDraggingIntoTitlebar, tabStrip.stopAutoScroll]);
 
   useEffect(() => {
-    syncTitlebarOrder(visibleItemKeys, grouped ? (key) => (key.startsWith("session:") ? titlebarConnectionOf(key.slice(8)) : undefined) : undefined);
+    syncTitlebarOrder(visibleItemKeys, grouped ? titlebarKeyGroupOf : undefined);
   }, [syncTitlebarOrder, visibleItemKeys.join("|"), grouped]);
 
   // Ensure the user never gets stuck on an empty terminal view.
@@ -182,7 +182,7 @@ export default function TitleBar() {
   const sessionTabHandlers = useSessionTabHandlers({
     t, isRenaming, handleTabClick, handleTabClose, startRenameFromLabel, setRenaming, setMenuTarget, setMenuExtras, openTabMenu, endRename,
   });
-  const stackTabProps = { connections, activeSessionId, activeNav, sftpPanelOpen, splitTabActive, setHostPanelPinned, lastActiveByHost, buildHandlers: sessionTabHandlers };
+  const stackTabProps = { sessions, connections, activeSessionId, activeNav, sftpPanelOpen, splitTabActive, setHostPanelPinned, lastActiveByHost, buildHandlers: sessionTabHandlers };
 
   const handleUnifiedTabClick = (tabId: string, paneId?: string) => {
     if (shouldSuppressDragClick()) return;
@@ -421,11 +421,11 @@ export default function TitleBar() {
                 {renderTitlebarDropCue(item.key, "before")}
                 <StackTab
                   itemKey={item.key}
-                  connectionId={item.connectionId}
+                  groupKey={item.groupKey}
                   members={item.members}
                   mcpBar={renderMcpBar(item.key, item.members.map((m) => m.id))}
                   title={mcpTooltip(item.members.map((m) => m.id))}
-                  panelShowsThisHost={pinnedHost === item.connectionId}
+                  panelShowsThisHost={pinnedHost === item.groupKey}
                   {...stackTabProps}
                 />
                 {renderTitlebarDropCue(item.key, "after")}
@@ -435,7 +435,7 @@ export default function TitleBar() {
 
           const session = item.session;
           const isActive = session.id === activeSessionId && activeNav === "terminal" && !sftpPanelOpen && !splitTabActive;
-          const panelShowsThisSession = pinnedHost === session.connectionId;
+          const panelShowsThisSession = pinnedHost === stackGroupKey(session);
           const statusTone = sessionStatusTone(session.status);
           const connection = connections.find((c) => c.id === session.connectionId);
           const tabIcon = sessionTabIcon(session, connection, isActive, statusTone);

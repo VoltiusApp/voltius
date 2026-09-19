@@ -4,16 +4,17 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { buildSessionTabHandlers } from "@/components/layout/TitlebarTab";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { TerminalSession } from "@/types";
+import { stackGroupKey } from "@/utils/titlebarItems";
 
 export function useLastActiveByHost(activeSession: TerminalSession | undefined, sessions: TerminalSession[]): Record<string, string> {
   const [byHost, setByHost] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const liveHosts = new Set(sessions.map((s) => s.connectionId));
+    const liveHosts = new Set(sessions.map(stackGroupKey));
     setByHost((m) => {
       const next: Record<string, string> = {};
       for (const [host, id] of Object.entries(m)) if (liveHosts.has(host)) next[host] = id;
-      if (activeSession) next[activeSession.connectionId] = activeSession.id;
+      if (activeSession) next[stackGroupKey(activeSession)] = activeSession.id;
       const keys = Object.keys(next);
       const unchanged = keys.length === Object.keys(m).length && keys.every((k) => m[k] === next[k]);
       return unchanged ? m : next;

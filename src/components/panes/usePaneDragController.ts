@@ -7,7 +7,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { duplicateSession } from "@/services/duplicateSession";
 import { activateSplitTabPane } from "@/services/tabActivation";
 import { getToggle } from "@/stores/toggleSettingsStore";
-import { resolveTitlebarTarget, stackMemberKeys, titlebarConnectionOf } from "@/utils/titlebarItems";
+import { resolveTitlebarTarget, stackKey, stackMemberKeys, titlebarGroupOf } from "@/utils/titlebarItems";
 
 export function usePaneDragController() {
   const isPointerDown = useDragStore((s) => s.isPointerDown);
@@ -57,8 +57,8 @@ export function usePaneDragController() {
               const placement = drag.dropTarget.placement ?? "after";
               const order = layout.titlebarOrder;
               layout.reorderTitlebarItem(
-                stackMemberKeys(order, drag.sourceTitlebarKey, titlebarConnectionOf),
-                resolveTitlebarTarget(order, drag.dropTarget.targetKey ?? null, placement, titlebarConnectionOf),
+                stackMemberKeys(order, drag.sourceTitlebarKey, titlebarGroupOf),
+                resolveTitlebarTarget(order, drag.dropTarget.targetKey ?? null, placement, titlebarGroupOf),
                 placement,
               );
             }
@@ -100,13 +100,13 @@ export function usePaneDragController() {
           if (detachedSessionId) {
             const placement = drag.dropTarget.placement ?? "after";
             const order = layout.titlebarOrder;
-            const host = titlebarConnectionOf(detachedSessionId);
-            const hostKeys = getToggle("group-tabs-by-host") && host
-              ? stackMemberKeys(order, `stack:${host}`, titlebarConnectionOf).filter((key) => key !== `session:${detachedSessionId}`)
+            const group = titlebarGroupOf(detachedSessionId);
+            const hostKeys = getToggle("group-tabs-by-host") && group
+              ? stackMemberKeys(order, stackKey(group), titlebarGroupOf).filter((key) => key !== `session:${detachedSessionId}`)
               : [];
             const [targetKey, where] = hostKeys.length
               ? [hostKeys[hostKeys.length - 1], "after" as const]
-              : [resolveTitlebarTarget(order, drag.dropTarget.targetKey ?? null, placement, titlebarConnectionOf), placement];
+              : [resolveTitlebarTarget(order, drag.dropTarget.targetKey ?? null, placement, titlebarGroupOf), placement];
             layout.placeTitlebarItem(`session:${detachedSessionId}`, targetKey, where);
             useSessionStore.getState().setActive(detachedSessionId);
           }

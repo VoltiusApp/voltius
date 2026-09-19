@@ -7,7 +7,7 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { HostSessionRows } from "@/components/layout/HostSessionRows";
 import { sessionTabIcon } from "@/components/layout/TitlebarTab";
 import { canDuplicateSession, duplicateSession } from "@/services/duplicateSession";
-import { hostSessionsInOrder, shownMember, stackMemberLabels, visibleTitlebarKeys, worstStatus } from "@/utils/titlebarItems";
+import { hostSessionsInOrder, shownMember, stackGroupKey, stackHostName, stackMemberLabels, visibleTitlebarKeys, worstStatus } from "@/utils/titlebarItems";
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
 import { sessionStatusTone } from "@/utils/statusTone";
 
@@ -26,10 +26,10 @@ export function HostSessionsPanel() {
   if (!pinned || activeNav !== "terminal" || sftpPanelOpen || !active) return null;
 
   const visibleKeys = visibleTitlebarKeys(sessions, splitTabs);
-  const rows = hostSessionsInOrder(mergeTitlebarItems(titlebarOrder, visibleKeys), sessions, splitTabs, active.connectionId);
+  const rows = hostSessionsInOrder(mergeTitlebarItems(titlebarOrder, visibleKeys), sessions, splitTabs, stackGroupKey(active));
   const members = rows.map((row) => row.session);
-  const labels = stackMemberLabels(members);
-  const host = active.connectionName;
+  const labels = stackMemberLabels(members, sessions);
+  const host = stackHostName(members) ?? active.connectionName;
   const connection = connections.find((c) => c.id === active.connectionId);
   const unsplitMembers = rows.filter((row) => !row.splitTabId).map((row) => row.session);
   const shown = shownMember(unsplitMembers, activeSessionId, undefined) ?? active;

@@ -9,7 +9,8 @@ import { pinHostList } from "@/services/hostStack";
 import { shownMember } from "@/utils/titlebarItems";
 import type { TerminalSession } from "@/types";
 
-export function HostStackMenu({ members, labels, shownId, activeSessionId, anchorRef, surfaceRef, open, onClose, hoverBind, onHoldChange }: {
+export function HostStackMenu({ host, members, labels, shownId, activeSessionId, anchorRef, surfaceRef, open, onClose, hoverBind, onHoldChange }: {
+  host: string;
   members: TerminalSession[];
   labels: HostSessionLabels;
   shownId: string;
@@ -23,7 +24,6 @@ export function HostStackMenu({ members, labels, shownId, activeSessionId, ancho
 }) {
   const { t } = useTranslation();
   const shown = shownMember(members, shownId, undefined)!;
-  const host = shown.connectionName;
 
   useEffect(() => {
     if (!open) return;

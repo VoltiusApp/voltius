@@ -16,7 +16,7 @@ import { openInSplit } from "@/services/hostStack";
 import { findSessionPane, useLayoutStore } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useDragStore, shouldSuppressDragClick } from "@/stores/dragStore";
-import { titlebarConnectionOf } from "@/utils/titlebarItems";
+import { stackGroupKey, titlebarGroupOf } from "@/utils/titlebarItems";
 
 export type HostSessionRow = { session: TerminalSession; splitTabId: string | null };
 export type HostSessionLabels = Map<string, { label: string; number: number }>;
@@ -144,7 +144,7 @@ function HostSessionRowItem({
     if (variant !== "panel") return;
     const drag = useDragStore.getState();
     if (!drag.isDragging || drag.dragType !== "tab" || drag.fromStackList || !drag.sessionId) return;
-    if (titlebarConnectionOf(drag.sessionId) !== session.connectionId) return;
+    if (titlebarGroupOf(drag.sessionId) !== stackGroupKey(session)) return;
     const rect = e.currentTarget.getBoundingClientRect();
     useDragStore.getState().setDropTarget({
       type: "titlebar",

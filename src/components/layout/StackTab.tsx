@@ -10,16 +10,17 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { useHoverIntent } from "@/hooks/useHoverIntent";
 import { useDragStore } from "@/stores/dragStore";
 import { closeSessionTabs } from "@/services/closeSession";
-import { canDuplicateSession, duplicateSession } from "@/services/duplicateSession";
 import { pinHostList } from "@/services/hostStack";
+import { canDuplicateSession, duplicateSession } from "@/services/duplicateSession";
 import { pinListExtra } from "@/utils/sessionMenuItems";
-import { stackMemberLabels, shownMember, worstStatus } from "@/utils/titlebarItems";
+import { stackHostName, stackMemberLabels, shownMember, worstStatus } from "@/utils/titlebarItems";
 import { sessionStatusTone } from "@/utils/statusTone";
 
 interface StackTabProps {
   itemKey: string;
-  connectionId: string;
+  groupKey: string;
   members: TerminalSession[];
+  sessions: TerminalSession[];
   connections: Connection[];
   activeSessionId: string | null;
   activeNav: NavItem;
@@ -34,7 +35,7 @@ interface StackTabProps {
 }
 
 export function StackTab({
-  itemKey, connectionId, members, connections, activeSessionId, activeNav, sftpPanelOpen, splitTabActive,
+  itemKey, groupKey, members, sessions, connections, activeSessionId, activeNav, sftpPanelOpen, splitTabActive,
   setHostPanelPinned, panelShowsThisHost, lastActiveByHost, mcpBar, title, buildHandlers,
 }: StackTabProps) {
   const { t } = useTranslation();
@@ -48,12 +49,13 @@ export function StackTab({
     if (dragBlocksHover) hover.setOpen(false);
   }, [dragBlocksHover, hover.setOpen]);
 
-  const shown = shownMember(members, activeSessionId, lastActiveByHost[connectionId])!;
+  const shown = shownMember(members, activeSessionId, lastActiveByHost[groupKey])!;
+  const host = stackHostName(members) ?? shown.connectionName;
   const active = members.some((m) => m.id === activeSessionId) && activeNav === "terminal" && !sftpPanelOpen && !splitTabActive;
-  const connection = connections.find((c) => c.id === connectionId);
+  const connection = connections.find((c) => c.id === shown.connectionId);
   const extras: ContextMenuItem[] = [
     ...(canDuplicateSession(shown)
-      ? [{ label: t("layout.titleBar.stack.newSessionOn", { host: shown.connectionName }), icon: "lucide:plus", onClick: () => duplicateSession(shown.id, "tab") }]
+      ? [{ label: t("layout.titleBar.stack.newSessionOn", { host }), icon: "lucide:plus", onClick: () => duplicateSession(shown.id, "tab") }]
       : []),
     pinListExtra(t, panelShowsThisHost, () => (panelShowsThisHost ? setHostPanelPinned(false) : pinHostList(shown.id))),
     { label: t("layout.titleBar.stack.closeAll", { count: members.length }), icon: "lucide:x", danger: true, onClick: () => closeSessionTabs(members.map((m) => m.id)) },
@@ -70,12 +72,12 @@ export function StackTab({
     </span>
   );
 
-  const labels = stackMemberLabels(members);
+  const labels = stackMemberLabels(members, sessions);
   const info = labels.get(shown.id);
   const suffix = !info ? "" : info.number === 0 ? ` · ${info.label}` : info.number > 1 ? ` (${info.number})` : "";
   const label = (
     <>
-      {shown.connectionName}
+      {host}
       <span className="text-(--t-text-muted) font-medium">{suffix}</span>
     </>
   );
@@ -91,7 +93,7 @@ export function StackTab({
       </span>
       {!panelShowsThisHost && (
         <span
-          data-testid={`stack-chevron-${connectionId}`}
+          data-testid={`stack-chevron-${groupKey}`}
           role="button"
           tabIndex={0}
           onClick={(e) => { e.stopPropagation(); hover.setOpen(!hover.open); }}
@@ -130,6 +132,7 @@ export function StackTab({
         onMouseLeave={panelShowsThisHost || dragBlocksHover ? undefined : hover.bind.onMouseLeave}
       />
       <HostStackMenu
+        host={host}
         members={members}
         labels={labels}
         shownId={shown.id}

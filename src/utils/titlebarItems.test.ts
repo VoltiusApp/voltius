@@ -3,7 +3,7 @@ import type { TerminalSession } from "@/types";
 import type { SplitTab } from "@/stores/layoutStore";
 import {
   buildTitlebarItems, hostSessionsInOrder, resolveTitlebarTarget, shownMember,
-  stackKey, stackMemberKeys, stackMemberLabels, visibleTitlebarKeys, worstStatus,
+  stackGroupKey, stackHostName, stackKey, stackMemberKeys, stackMemberLabels, visibleTitlebarKeys, worstStatus,
 } from "./titlebarItems";
 
 const s = (id: string, connectionId: string, extra: Partial<TerminalSession> = {}): TerminalSession => ({
@@ -41,6 +41,34 @@ describe("buildTitlebarItems", () => {
   });
 });
 
+describe("stackGroupKey", () => {
+  const exec = s("e1", "web", { connectionName: "exec: nginx", containerExec: { kind: "docker", containerId: "c", parentSessionId: "w1" } });
+  const serialA = s("sa", "serial-ephemeral", { type: "serial" });
+  const serialB = s("sb", "serial-ephemeral", { type: "serial" });
+
+  it("is the connection for ordinary sessions and the session itself for exec and ephemeral serial", () => {
+    expect(stackGroupKey(web1)).toBe("web");
+    expect(stackGroupKey(exec)).toBe("e1");
+    expect(stackGroupKey(serialA)).toBe("sa");
+  });
+
+  it("keeps an exec session out of its parent host's stack", () => {
+    const items = buildTitlebarItems(keysOf("w1", "e1", "w3"), [web1, exec, web3], [], true);
+    expect(items.map((i) => i.key)).toEqual([stackKey("web"), "session:e1"]);
+    expect(stackHostName([web1, exec])).toBe("web");
+  });
+
+  it("never stacks ephemeral serial sessions on different ports", () => {
+    const items = buildTitlebarItems(keysOf("sa", "sb"), [serialA, serialB], [], true);
+    expect(items.map((i) => i.type)).toEqual(["session", "session"]);
+  });
+
+  it("leaves an exec session out of its parent host's panel rows", () => {
+    const rows = hostSessionsInOrder(keysOf("w1", "e1"), [web1, exec], [], "web");
+    expect(rows.map((r) => r.session.id)).toEqual(["w1"]);
+  });
+});
+
 describe("stack key resolution", () => {
   const order = keysOf("d1", "w1", "w2", "w3");
 
@@ -61,14 +89,20 @@ describe("stack key resolution", () => {
 
 describe("stackMemberLabels", () => {
   it("numbers untitled members in open order and never numbers a titled one", () => {
-    const labels = stackMemberLabels([web1, web2, web3]);
+    const labels = stackMemberLabels([web1, web2, web3], sessions);
     expect(labels.get("w1")).toEqual({ label: "web", number: 1 });
     expect(labels.get("w2")).toEqual({ label: "logs", number: 0 });
     expect(labels.get("w3")).toEqual({ label: "web (2)", number: 2 });
   });
 
   it("renumbers when a member is gone", () => {
-    expect(stackMemberLabels([web3]).get("w3")).toEqual({ label: "web", number: 1 });
+    expect(stackMemberLabels([web3], sessions).get("w3")).toEqual({ label: "web", number: 1 });
+  });
+
+  it("numbers by open order, not by the order the members are listed in", () => {
+    const labels = stackMemberLabels([web3, web1], sessions);
+    expect(labels.get("w1")).toEqual({ label: "web", number: 1 });
+    expect(labels.get("w3")).toEqual({ label: "web (2)", number: 2 });
   });
 });
 

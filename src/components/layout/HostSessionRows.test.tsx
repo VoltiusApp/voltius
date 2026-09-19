@@ -33,7 +33,7 @@ function renderRows(rows: HostSessionRow[], overrides: Partial<React.ComponentPr
     <HostSessionRows
       rows={rows}
       members={members}
-      labels={stackMemberLabels(members)}
+      labels={stackMemberLabels(members, members)}
       shownId={members[0].id}
       activeSessionId="w1"
       variant="panel"
