@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -28,7 +28,6 @@ interface StackTabProps {
   lastActiveByHost: Record<string, string>;
   mcpBar: ReactNode;
   title: string | undefined;
-  /** The plain-session-tab click/rename/context-menu/drag wiring, reused here for the shown session. */
   buildHandlers: ReturnType<typeof buildSessionTabHandlers>;
 }
 
@@ -37,7 +36,8 @@ export function StackTab({
   hostPanelPinned, setHostPanelPinned, lastActiveByHost, mcpBar, title, buildHandlers,
 }: StackTabProps) {
   const { t } = useTranslation();
-  const hover = useHoverIntent({ openDelay: 250, closeDelay: 300 });
+  const [hold, setHold] = useState(false);
+  const hover = useHoverIntent({ openDelay: 250, closeDelay: 300, hold });
   const pillRef = useRef<HTMLButtonElement>(null);
   const isDraggingTitlebarItem = useDragStore((s) => s.isDragging && s.dragType === "tab");
   const isDraggingPane = useDragStore((s) => s.isDragging && s.dragType === "pane");
@@ -60,9 +60,10 @@ export function StackTab({
   ];
   const handlers = buildHandlers(shown, itemKey, active, extras);
 
-  const tone = sessionStatusTone(worstStatus(members));
+  const worst = worstStatus(members);
+  const tone = sessionStatusTone(worst);
   const baseIcon = sessionTabIcon(shown, connection, active, tone);
-  const icon = worstStatus(members) === "connected" ? baseIcon : (
+  const icon = worst === "connected" ? baseIcon : (
     <span className="relative inline-flex">
       {baseIcon}
       <span
@@ -72,7 +73,8 @@ export function StackTab({
     </span>
   );
 
-  const info = stackMemberLabels(members).get(shown.id);
+  const labels = stackMemberLabels(members);
+  const info = labels.get(shown.id);
   const suffix = !info ? "" : info.number === 0 ? ` · ${info.label}` : info.number > 1 ? ` (${info.number})` : "";
   const label = (
     <>
@@ -93,7 +95,15 @@ export function StackTab({
       {!pinnedForHost && (
         <span
           data-testid={`stack-chevron-${connectionId}`}
+          role="button"
+          tabIndex={0}
           onClick={(e) => { e.stopPropagation(); hover.setOpen(!hover.open); }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            e.stopPropagation();
+            hover.setOpen(!hover.open);
+          }}
           className="flex items-center justify-center rounded-sm p-0.5"
           style={{ color: active ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
         >
@@ -124,12 +134,14 @@ export function StackTab({
       />
       <HostStackMenu
         members={members}
+        labels={labels}
         shownId={shown.id}
         activeSessionId={activeSessionId}
         anchorRef={pillRef}
         open={hover.open}
         onClose={() => hover.setOpen(false)}
         hoverBind={hover.bind}
+        onHoldChange={setHold}
       />
     </>
   );

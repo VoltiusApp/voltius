@@ -7,7 +7,6 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { ContextMenu, useContextMenu } from "@/components/shared/ContextMenu";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
-import { stackMemberLabels } from "@/utils/titlebarItems";
 import { sessionStatusTone } from "@/utils/statusTone";
 import { sessionStatusLine } from "@/utils/sessionStatusLine";
 import { useConnectedSince } from "@/services/sessionUptime";
@@ -21,30 +20,38 @@ import { useDragStore, shouldSuppressDragClick } from "@/stores/dragStore";
 import { titlebarConnectionOf } from "@/utils/titlebarItems";
 
 export type HostSessionRow = { session: TerminalSession; splitTabId: string | null };
+export type HostSessionLabels = Map<string, { label: string; number: number }>;
 
 interface HostSessionRowsProps {
   rows: HostSessionRow[];
   members: TerminalSession[];
+  labels: HostSessionLabels;
   shownId: string;
   activeSessionId: string | null;
   variant: "compact" | "panel";
   onActivate: () => void;
+  /** A menu or rename can portal outside the hover zone — the surface above must not close under it. */
+  onHoldChange?: (hold: boolean) => void;
 }
 
-export function HostSessionRows({ rows, members, shownId, activeSessionId, variant, onActivate }: HostSessionRowsProps) {
+export function HostSessionRows({ rows, members, labels, shownId, activeSessionId, variant, onActivate, onHoldChange }: HostSessionRowsProps) {
   const { t } = useTranslation();
-  const labels = stackMemberLabels(members);
   const [now, setNow] = useState(Date.now());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const { pos, open: openMenu, close: closeMenu } = useContextMenu();
   const [menuSessionId, setMenuSessionId] = useState<string | null>(null);
   const menuSession = menuSessionId ? rows.find((row) => row.session.id === menuSessionId)?.session ?? null : null;
+  const holding = pos !== null || renamingId !== null;
 
   useEffect(() => {
     if (variant !== "panel") return;
     const interval = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(interval);
   }, [variant]);
+
+  useEffect(() => {
+    onHoldChange?.(holding);
+  }, [holding, onHoldChange]);
 
   return (
     <>
@@ -168,7 +175,10 @@ function HostSessionRowItem({
       tabIndex={0}
       data-titlebar-key={`session:${session.id}`}
       onClick={activate}
-      onKeyDown={(e) => { if (e.key === "Enter") activate(); }}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); }
+      }}
       onPointerDown={onPointerDown}
       onMouseMove={onMouseMove}
       onDoubleClick={variant === "panel" ? onStartRename : undefined}
@@ -194,16 +204,12 @@ function HostSessionRowItem({
           </p>
         )}
       </div>
-      <span
-        className={variant === "compact"
-          ? "hidden group-hover:inline-flex items-center gap-1"
-          : "opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 transition-opacity"}
-      >
+      <span className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 inline-flex items-center gap-1 transition-opacity">
         {!splitTabId && (
           <button
             type="button"
             title={t("layout.titleBar.stack.openInSplit")}
-            onClick={(e) => { e.stopPropagation(); openInSplit(session.id, members, shownId); }}
+            onClick={(e) => { e.stopPropagation(); openInSplit(session.id, members, shownId); onActivate(); }}
             className="p-1 rounded-sm text-(--t-text-muted) hover:text-(--t-text-primary)"
           >
             <Icon icon="lucide:columns-2" width={14} />

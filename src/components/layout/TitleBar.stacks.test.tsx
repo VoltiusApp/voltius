@@ -1,5 +1,5 @@
-import { it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent, within, act } from "@testing-library/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useDragStore } from "@/stores/dragStore";
@@ -82,4 +82,81 @@ it("closes every member from the pill menu", () => {
   fireEvent.contextMenu(document.querySelector("[data-titlebar-key='stack:web']")!);
   fireEvent.click(screen.getByText("layout.titleBar.stack.closeAll"));
   expect(useSessionStore.getState().sessions.map((x) => x.id)).toEqual(["d1"]);
+});
+
+describe("hover intent", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("stays open when the pointer crosses from the pill onto the surface", () => {
+    render(<TitleBar />);
+    const pill = document.querySelector("[data-titlebar-key='stack:web']")!;
+    act(() => { fireEvent.mouseEnter(pill); vi.advanceTimersByTime(250); });
+    expect(screen.getByTestId("stack-menu")).toBeTruthy();
+
+    act(() => {
+      fireEvent.mouseLeave(pill);
+      fireEvent.mouseEnter(screen.getByTestId("stack-menu-surface"));
+      vi.advanceTimersByTime(300);
+    });
+    expect(screen.getByTestId("stack-menu")).toBeTruthy();
+  });
+
+  it("a drag starting cancels a pending open and closes an open list", () => {
+    render(<TitleBar />);
+    const pill = document.querySelector("[data-titlebar-key='stack:web']")!;
+
+    act(() => {
+      fireEvent.mouseEnter(pill);
+      useDragStore.setState({ isDragging: true, dragType: "tab" });
+      vi.advanceTimersByTime(250);
+    });
+    expect(screen.queryByTestId("stack-menu")).toBeNull();
+
+    act(() => { useDragStore.setState({ isDragging: false, dragType: null }); });
+    act(() => { fireEvent.mouseEnter(pill); vi.advanceTimersByTime(250); });
+    expect(screen.getByTestId("stack-menu")).toBeTruthy();
+
+    act(() => { useDragStore.setState({ isDragging: true, dragType: "tab" }); });
+    expect(screen.queryByTestId("stack-menu")).toBeNull();
+  });
+
+  it("clears its hover timer on unmount", () => {
+    const { unmount } = render(<TitleBar />);
+    const pill = document.querySelector("[data-titlebar-key='stack:web']")!;
+    const before = vi.getTimerCount();
+    fireEvent.mouseEnter(pill);
+    const afterEnter = vi.getTimerCount();
+    expect(afterEnter).toBeGreaterThan(before);
+    unmount();
+    expect(vi.getTimerCount()).toBeLessThan(afterEnter);
+  });
+
+  it("closes on Escape", () => {
+    render(<TitleBar />);
+    fireEvent.click(screen.getByTestId("stack-chevron-web"));
+    expect(screen.getByTestId("stack-menu")).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByTestId("stack-menu")).toBeNull();
+  });
+
+  it("a row drags with fromStackList true", () => {
+    render(<TitleBar />);
+    fireEvent.click(screen.getByTestId("stack-chevron-web"));
+    const row = screen.getByTestId("stack-menu").querySelector("[data-titlebar-key='session:w1']")!;
+    fireEvent.pointerDown(row, { button: 0, clientX: 5, clientY: 5 });
+    const drag = useDragStore.getState();
+    expect(drag.sessionId).toBe("w1");
+    expect(drag.fromStackList).toBe(true);
+  });
+
+  it("a row's Open in split reaches createSplitTab and closes the list", () => {
+    render(<TitleBar />);
+    fireEvent.click(screen.getByTestId("stack-chevron-web"));
+    const row = screen.getByTestId("stack-menu").querySelector("[data-titlebar-key='session:w1']")!;
+    const spy = vi.spyOn(useLayoutStore.getState(), "createSplitTab");
+    fireEvent.click(within(row as HTMLElement).getByTitle("layout.titleBar.stack.openInSplit"));
+    expect(spy).toHaveBeenCalledWith("w2", "w1", "right");
+    expect(screen.queryByTestId("stack-menu")).toBeNull();
+  });
 });

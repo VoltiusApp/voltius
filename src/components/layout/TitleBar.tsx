@@ -38,10 +38,11 @@ import { sessionLabel, splitTabLabel } from "@/utils/sessionLabel";
 import { focusSession } from "@/hooks/useTerminal";
 import { splitTabMenuItems } from "@/utils/splitTabMenuItems";
 import { fadeMask, useTabStripScroll } from "@/hooks/useTabStripScroll";
-import { TitlebarTab, sessionTabIcon, tabSurfaceStyle, buildSessionTabHandlers } from "@/components/layout/TitlebarTab";
+import { TitlebarTab, sessionTabIcon, tabSurfaceStyle } from "@/components/layout/TitlebarTab";
 import { StackTab } from "@/components/layout/StackTab";
 import { buildTitlebarItems, titlebarConnectionOf } from "@/utils/titlebarItems";
 import { useToggle } from "@/stores/toggleSettingsStore";
+import { useLastActiveByHost, useSessionTabHandlers } from "@/hooks/useTitlebarTabState";
 
 const appWindow = getCurrentWindow();
 
@@ -111,20 +112,6 @@ export default function TitleBar() {
     setRenaming(null);
     if (sessionId) focusSession(sessionId);
   };
-
-  /** Shared by a plain session tab and a stack pill (acting on its shown session). */
-  const sessionTabHandlers = buildSessionTabHandlers({
-    t,
-    isRenaming: (id) => isRenaming("session", id),
-    activate: (id) => handleTabClick(id),
-    close: (e, id) => handleTabClose(e, id),
-    startRenameFromLabel: (e, isActive, id) => startRenameFromLabel(e, isActive, { kind: "session", id }),
-    startRename: (id) => setRenaming({ kind: "session", id }),
-    openMenu: (e, id, extras) => { setMenuTarget({ kind: "session", id }); setMenuExtras(extras); openTabMenu(e); },
-    commitRename: (id, name) => { useSessionStore.getState().renameSession(id, name); endRename(id); },
-    cancelRename: (id) => endRename(id),
-  });
-
   const menuSession = menuTarget?.kind === "session" ? sessions.find((s) => s.id === menuTarget.id) ?? null : null;
   const menuSplitTab = menuTarget?.kind === "split" ? splitTabs.find((tab) => tab.id === menuTarget.id) ?? null : null;
 
@@ -147,13 +134,7 @@ export default function TitleBar() {
   const isActiveSessionSharing = activeSessionId ? !!mpConnections[activeSessionId] && !mpConnections[activeSessionId]?.ended : false;
   const isActiveSessionEnded = activeSessionId ? !!mpConnections[activeSessionId]?.ended : false;
 
-  /** Which session a host's stack shows when its active session isn't on that host. */
-  const [lastActiveByHost, setLastActiveByHost] = useState<Record<string, string>>({});
-  useEffect(() => {
-    if (activeSession) {
-      setLastActiveByHost((m) => (m[activeSession.connectionId] === activeSession.id ? m : { ...m, [activeSession.connectionId]: activeSession.id }));
-    }
-  }, [activeSession?.id]);
+  const lastActiveByHost = useLastActiveByHost(activeSession, sessions);
 
   const isSftpCompact = !sftpPanelOpen && sessions.length > 0;
   const splitSessionIds = splitTabs.flatMap((tab) => getPaneSessionIds(tab.root));
@@ -202,6 +183,11 @@ export default function TitleBar() {
     e.stopPropagation();
     closeTabById(sessionId);
   };
+
+  const sessionTabHandlers = useSessionTabHandlers({
+    t, isRenaming, handleTabClick, handleTabClose, startRenameFromLabel, setRenaming, setMenuTarget, setMenuExtras, openTabMenu, endRename,
+  });
+  const stackTabProps = { connections, activeSessionId, activeNav, sftpPanelOpen, splitTabActive, hostPanelPinned, setHostPanelPinned, lastActiveByHost, buildHandlers: sessionTabHandlers };
 
   const handleUnifiedTabClick = (tabId: string, paneId?: string) => {
     if (shouldSuppressDragClick()) return;
@@ -442,17 +428,9 @@ export default function TitleBar() {
                   itemKey={item.key}
                   connectionId={item.connectionId}
                   members={item.members}
-                  connections={connections}
-                  activeSessionId={activeSessionId}
-                  activeNav={activeNav}
-                  sftpPanelOpen={sftpPanelOpen}
-                  splitTabActive={splitTabActive}
-                  hostPanelPinned={hostPanelPinned}
-                  setHostPanelPinned={setHostPanelPinned}
-                  lastActiveByHost={lastActiveByHost}
                   mcpBar={renderMcpBar(item.key, item.members.map((m) => m.id))}
                   title={mcpTooltip(item.members.map((m) => m.id))}
-                  buildHandlers={sessionTabHandlers}
+                  {...stackTabProps}
                 />
                 {renderTitlebarDropCue(item.key, "after")}
               </div>
@@ -464,7 +442,6 @@ export default function TitleBar() {
           const statusTone = sessionStatusTone(session.status);
           const connection = connections.find((c) => c.id === session.connectionId);
           const tabIcon = sessionTabIcon(session, connection, isActive, statusTone);
-          const pinExtra = pinListExtra(t, hostPanelPinned && isActive, () => setHostPanelPinned(!hostPanelPinned));
 
           return (
             <div key={item.key} className="contents">
@@ -476,7 +453,7 @@ export default function TitleBar() {
                 label={sessionLabel(session)}
                 title={mcpTooltip([session.id])}
                 mcpBar={renderMcpBar(session.id, [session.id])}
-                {...sessionTabHandlers(session, item.key, isActive, [pinExtra])}
+                {...sessionTabHandlers(session, item.key, isActive, [pinListExtra(t, hostPanelPinned && isActive, () => setHostPanelPinned(!hostPanelPinned))])}
               />
               {renderTitlebarDropCue(item.key, "after")}
             </div>

@@ -54,7 +54,6 @@ export function sessionMenuItems({
   return items;
 }
 
-/** Shared by a plain session tab and a stack pill's context menu. */
 export function pinListExtra(t: TFunction, pinned: boolean, onToggle: () => void): ContextMenuItem {
   return {
     label: t(pinned ? "layout.titleBar.stack.unpin" : "layout.titleBar.stack.pin"),

@@ -165,6 +165,7 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
   return createPortal(
     <div
       ref={menuRef}
+      data-menu-portal=""
       className="surface-float fixed z-100 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
       style={{
         left: pos.x,

@@ -64,7 +64,6 @@ interface SessionTabHandlerDeps {
   cancelRename: (id: string) => void;
 }
 
-/** The click / rename / context-menu / drag wiring a plain session tab and a stack pill (acting on its shown session) both need. */
 export function buildSessionTabHandlers(deps: SessionTabHandlerDeps) {
   return (session: TerminalSession, itemKey: string, isActive: boolean, extras: ContextMenuItem[] = []) => ({
     onClick: () => deps.activate(session.id),
