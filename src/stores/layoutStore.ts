@@ -208,6 +208,14 @@ function removeSessionFromTree(root: PaneNode, sessionId: string): PaneNode | nu
   return { ...root, first, second };
 }
 
+function withoutSession(tab: SplitTab, sessionId: string): SplitTab | null {
+  const root = removeSessionFromTree(tab.root, sessionId);
+  if (!root || root.type === "leaf") return null;
+  const nextActive = findLeaf(root, tab.activePaneId) ?? firstLeaf(root);
+  const maximizedLeaf = findLeaf(root, tab.maximizedPaneId);
+  return { ...tab, root, activePaneId: nextActive?.id ?? null, maximizedPaneId: maximizedLeaf?.id ?? null };
+}
+
 function updateRatio(root: PaneNode, splitNodeId: string, ratio: number): PaneNode {
   if (root.type === "leaf") return root;
   if (root.id === splitNodeId) return { ...root, ratio: clampRatio(ratio) };
@@ -422,16 +430,8 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
   removeSession: (sessionId) => {
     set((state) => {
       const splitTabs = state.splitTabs.flatMap((tab): SplitTab[] => {
-        const root = removeSessionFromTree(tab.root, sessionId);
-        if (!root || root.type === "leaf") return [];
-        const nextActive = findLeaf(root, tab.activePaneId) ?? firstLeaf(root);
-        const maximizedLeaf = findLeaf(root, tab.maximizedPaneId);
-        return [{
-          ...tab,
-          root,
-          activePaneId: nextActive?.id ?? null,
-          maximizedPaneId: maximizedLeaf?.id ?? null,
-        }];
+        const next = withoutSession(tab, sessionId);
+        return next ? [next] : [];
       });
       const activeTab = splitTabs.find((tab) => tab.id === state.activeSplitTabId) ?? splitTabs[splitTabs.length - 1] ?? null;
       return { splitTabs, titlebarOrder: state.titlebarOrder.filter((key) => key !== `session:${sessionId}`), ...fieldsFromTab(activeTab) };
@@ -464,7 +464,15 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
   openSessions: (sessionIds) => {
     const uniqueIds = [...new Set(sessionIds)].filter(Boolean);
     set((state) => {
-      const leaves = uniqueIds.map((sessionId): LeafNode => ({ type: "leaf", id: newPaneId(), sessionId }));
+      const freshIds = uniqueIds.filter((id) => !findSessionPane(state.splitTabs, id));
+      if (freshIds.length < Math.min(2, uniqueIds.length)) {
+        const existing = uniqueIds.map((id) => findSessionPane(state.splitTabs, id)).find((pane) => pane !== null);
+        const tab = existing ? state.splitTabs.find((candidate) => candidate.id === existing.tabId) : undefined;
+        if (!existing || !tab) return {};
+        const focused = { ...tab, activePaneId: existing.paneId };
+        return { splitTabs: state.splitTabs.map((candidate) => (candidate.id === tab.id ? focused : candidate)), ...fieldsFromTab(focused) };
+      }
+      const leaves = freshIds.map((sessionId): LeafNode => ({ type: "leaf", id: newPaneId(), sessionId }));
       const root = buildBalancedTree(leaves);
       const activeLeaf = leaves[leaves.length - 1] ?? null;
       if (!root) return {};
@@ -481,12 +489,18 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
   // is only honored when the saved active tab still exists.
   hydrate: (saved) => {
     set(() => {
+      const seen = new Set<string>();
+      const splitTabs = saved.splitTabs.flatMap((tab): SplitTab[] => {
+        const next = getPaneSessionIds(tab.root).reduce<SplitTab | null>((kept, id) => (kept && seen.has(id) ? withoutSession(kept, id) : kept), tab);
+        getPaneSessionIds(next?.root ?? null).forEach((id) => seen.add(id));
+        return next ? [next] : [];
+      });
       const activeTab =
-        saved.splitTabs.find((tab) => tab.id === saved.activeSplitTabId) ??
-        saved.splitTabs[saved.splitTabs.length - 1] ??
+        splitTabs.find((tab) => tab.id === saved.activeSplitTabId) ??
+        splitTabs[splitTabs.length - 1] ??
         null;
       return {
-        splitTabs: saved.splitTabs,
+        splitTabs,
         titlebarOrder: saved.titlebarOrder,
         ...fieldsFromTab(activeTab),
         splitTabActive: saved.splitTabActive && activeTab !== null,

@@ -136,6 +136,7 @@ export function StackTab({
         trailing={trailing}
         {...handlers}
         onClose={undefined}
+        onPointerDown={(e) => { if (e.button === 0) handlers.onPointerDown(e); }}
         onMouseEnter={panelShowsThisHost || dragBlocksHover ? undefined : hover.bind.onMouseEnter}
         onMouseLeave={panelShowsThisHost || dragBlocksHover ? undefined : hover.bind.onMouseLeave}
       />

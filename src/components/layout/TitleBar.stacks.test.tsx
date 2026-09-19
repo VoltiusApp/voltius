@@ -124,6 +124,15 @@ it("shows no close button on a stack pill, but keeps it on a single-session pill
   expect(closeOf("session:d1")).not.toBeNull();
 });
 
+it("middle-click on a stack pill closes nothing, and a left press still starts a drag", () => {
+  render(<TitleBar />);
+  const pill = document.querySelector("[data-titlebar-key='stack:web']")!;
+  fireEvent.pointerDown(pill, { button: 1 });
+  expect(useSessionStore.getState().sessions.map((x) => x.id)).toEqual(["w1", "w2", "d1"]);
+  fireEvent.pointerDown(pill, { button: 0, clientX: 5, clientY: 5 });
+  expect(useDragStore.getState().sourceTitlebarKey).toBe("stack:web");
+});
+
 it("labels the chevron and reports whether the list is open", () => {
   render(<TitleBar />);
   const chevron = screen.getByTestId("stack-chevron-web");
