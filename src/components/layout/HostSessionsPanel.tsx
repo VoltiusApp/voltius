@@ -53,7 +53,7 @@ export function HostSessionsPanel() {
           </div>
         </div>
         <div data-testid="host-sessions-rows" className="flex-1 overflow-y-auto">
-          <HostSessionRows rows={rows} members={members} labels={labels} shownId={shown.id} activeSessionId={activeSessionId} variant="panel" onActivate={() => {}} />
+          <HostSessionRows rows={rows} members={unsplitMembers} labels={labels} shownId={shown.id} activeSessionId={activeSessionId} variant="panel" onActivate={() => {}} />
         </div>
       </aside>
     </div>

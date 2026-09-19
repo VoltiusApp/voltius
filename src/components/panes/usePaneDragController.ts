@@ -1,10 +1,11 @@
 import { useEffect } from "react";
 import i18n from "@/i18n";
 import { shouldSuppressDragClick, useDragStore } from "@/stores/dragStore";
-import { findLeafBySession, useLayoutStore } from "@/stores/layoutStore";
+import { findSessionPane, useLayoutStore } from "@/stores/layoutStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { duplicateSession } from "@/services/duplicateSession";
+import { activateSplitTabPane } from "@/services/tabActivation";
 import { getToggle } from "@/stores/toggleSettingsStore";
 import { resolveTitlebarTarget, stackMemberKeys, titlebarConnectionOf } from "@/utils/titlebarItems";
 
@@ -69,10 +70,9 @@ export function usePaneDragController() {
             return;
           }
 
-          const existing = findLeafBySession(layout.root, drag.sessionId);
+          const existing = findSessionPane(layout.splitTabs, drag.sessionId);
           if (existing) {
-            layout.setActivePane(existing.id);
-            useSessionStore.getState().setActive(drag.sessionId);
+            activateSplitTabPane(existing.tabId, existing.paneId);
             useNotificationStore.getState().addToast({
               source: { kind: "plugin", id: "core", name: "Voltius" },
               type: "toast",

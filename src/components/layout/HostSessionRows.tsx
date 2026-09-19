@@ -12,9 +12,8 @@ import { sessionStatusLine } from "@/utils/sessionStatusLine";
 import { useConnectedSince } from "@/services/sessionUptime";
 import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
 import { closeSessionTabs } from "@/services/closeSession";
-import { findSessionPane } from "@/services/duplicateSession";
 import { openInSplit } from "@/services/hostStack";
-import { useLayoutStore } from "@/stores/layoutStore";
+import { findSessionPane, useLayoutStore } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useDragStore, shouldSuppressDragClick } from "@/stores/dragStore";
 import { titlebarConnectionOf } from "@/utils/titlebarItems";
@@ -116,6 +115,7 @@ function HostSessionRowItem({
   });
 
   const label_ = label?.label ?? session.connectionName;
+  const canOpenInSplit = !splitTabId && members.some((member) => member.id !== session.id);
   const statusTone = sessionStatusTone(session.status);
   const rowPadding = variant === "compact" ? "px-3 py-2 text-xs" : "px-4 py-3 border-b border-b-(--t-border)";
 
@@ -131,7 +131,7 @@ function HostSessionRowItem({
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (e.button === 0) {
+    if (e.button === 0 && !splitTabId) {
       useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, `session:${session.id}`, { fromStackList: variant === "compact" });
     }
     if (e.button === 1) {
@@ -204,7 +204,7 @@ function HostSessionRowItem({
         )}
       </div>
       <span className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 inline-flex items-center gap-1 transition-opacity">
-        {!splitTabId && (
+        {canOpenInSplit && (
           <button
             type="button"
             title={t("layout.titleBar.stack.openInSplit")}

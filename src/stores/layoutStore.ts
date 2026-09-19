@@ -110,6 +110,14 @@ export function findLeafBySession(root: PaneNode | null, sessionId: string): Lea
   return findLeafBySession(root.first, sessionId) ?? findLeafBySession(root.second, sessionId);
 }
 
+export function findSessionPane(splitTabs: SplitTab[], sessionId: string): { tabId: string; paneId: string } | null {
+  for (const tab of splitTabs) {
+    const leaf = findLeafBySession(tab.root, sessionId);
+    if (leaf) return { tabId: tab.id, paneId: leaf.id };
+  }
+  return null;
+}
+
 export function firstLeaf(root: PaneNode | null): LeafNode | null {
   if (!root) return null;
   return root.type === "leaf" ? root : firstLeaf(root.first);
@@ -320,6 +328,7 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
   createSplitTab: (targetSessionId, incomingSessionId, position) => {
     set((state) => {
       if (targetSessionId === incomingSessionId) return {};
+      if (findSessionPane(state.splitTabs, targetSessionId) || findSessionPane(state.splitTabs, incomingSessionId)) return {};
       const target: LeafNode = { type: "leaf", id: newPaneId(), sessionId: targetSessionId };
       const incoming: LeafNode = { type: "leaf", id: newPaneId(), sessionId: incomingSessionId };
       const root = splitLeaf(target, incoming, position);
@@ -330,13 +339,14 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
 
   splitPane: (targetPaneId, sessionId, position) => {
     set((state) => {
+      const existing = findLeafBySession(state.root, sessionId);
+      if (existing) return { ...updateActiveSplitTab(state, { activePaneId: existing.id }), activePaneId: existing.id, splitTabActive: true };
+      if (findSessionPane(state.splitTabs, sessionId)) return {};
       if (!state.root) {
         const leaf: LeafNode = { type: "leaf", id: newPaneId(), sessionId };
         const tab = createSplitTabState(leaf, leaf.id);
         return { splitTabs: [...state.splitTabs, tab], ...fieldsFromTab(tab) };
       }
-      const existing = findLeafBySession(state.root, sessionId);
-      if (existing) return { ...updateActiveSplitTab(state, { activePaneId: existing.id }), activePaneId: existing.id, splitTabActive: true };
       const target = findLeaf(state.root, targetPaneId);
       if (!target) return {};
       const leaf: LeafNode = { type: "leaf", id: newPaneId(), sessionId };
