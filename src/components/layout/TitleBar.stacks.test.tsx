@@ -173,4 +173,21 @@ describe("hover intent", () => {
     act(() => { vi.advanceTimersByTime(300); });
     expect(screen.queryByTestId("stack-menu")).toBeNull();
   });
+
+  it("stays open when the pointer is resting on the surface when a hold releases", () => {
+    render(<TitleBar />);
+    fireEvent.click(screen.getByTestId("stack-chevron-web"));
+    const surface = screen.getByTestId("stack-menu-surface");
+    vi.spyOn(surface, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 100, 100));
+
+    const row = surface.querySelector("[data-titlebar-key='session:w1']")!;
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByText("panes.header.rename"));
+    fireEvent.pointerMove(window, { clientX: 50, clientY: 50 });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+    expect(screen.getByTestId("stack-menu")).toBeTruthy();
+
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(screen.getByTestId("stack-menu")).toBeTruthy();
+  });
 });

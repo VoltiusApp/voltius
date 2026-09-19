@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -38,7 +38,6 @@ export function StackTab({
   const { t } = useTranslation();
   const [hold, setHold] = useState(false);
   const hover = useHoverIntent({ openDelay: 250, closeDelay: 300, hold });
-  const pillRef = useRef<HTMLButtonElement>(null);
   const isDraggingTitlebarItem = useDragStore((s) => s.isDragging && s.dragType === "tab");
   const isDraggingPane = useDragStore((s) => s.isDragging && s.dragType === "pane");
   const dragBlocksHover = isDraggingTitlebarItem || isDraggingPane;
@@ -120,7 +119,7 @@ export function StackTab({
   return (
     <>
       <TitlebarTab
-        buttonRef={pillRef}
+        buttonRef={hover.anchorRef}
         itemKey={itemKey}
         active={active}
         icon={icon}
@@ -137,7 +136,8 @@ export function StackTab({
         labels={labels}
         shownId={shown.id}
         activeSessionId={activeSessionId}
-        anchorRef={pillRef}
+        anchorRef={hover.anchorRef}
+        surfaceRef={hover.surfaceRef}
         open={hover.open}
         onClose={() => hover.setOpen(false)}
         hoverBind={hover.bind}
