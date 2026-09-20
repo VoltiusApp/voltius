@@ -11,7 +11,7 @@ import { useHostPingStore } from "@/stores/hostPingStore";
 import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
 import { McpMark, mcpOwnerTitle, mcpTint } from "@/components/shared/McpMark";
 import { useToggle } from "@/stores/toggleSettingsStore";
-import { findLeaf, getPaneSessionIds, useLayoutStore, type SplitPosition } from "@/stores/layoutStore";
+import { findLeaf, findSessionPane, useLayoutStore, type SplitPosition } from "@/stores/layoutStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -229,8 +229,8 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   };
 
   const handleContextSplit = (position: SplitPosition) => {
-    const visibleSessionIds = new Set(getPaneSessionIds(useLayoutStore.getState().root));
-    const candidate = sessions.find((s) => !visibleSessionIds.has(s.id));
+    const { splitTabs } = useLayoutStore.getState();
+    const candidate = sessions.find((s) => !findSessionPane(splitTabs, s.id));
     if (!candidate) {
       useNotificationStore.getState().addToast({
         source: { kind: "plugin", id: "core", name: "Voltius" },

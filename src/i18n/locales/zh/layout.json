@@ -188,6 +188,26 @@
       "newSession": "新建会话",
       "renameTab": "重命名标签页",
       "closeTab": "关闭标签页",
+      "stack": {
+        "sessions_one": "{{host}} · {{count}} 个会话",
+        "sessions_other": "{{host}} · {{count}} 个会话",
+        "count_one": "{{count}} 个会话",
+        "count_other": "{{count}} 个会话",
+        "newSessionOn": "在 {{host}} 上新建会话",
+        "closeAll": "全部关闭（{{count}}）",
+        "openInSplit": "在分屏中打开",
+        "inSplit": "分屏中",
+        "pin": "固定会话列表",
+        "unpin": "取消固定会话列表",
+        "status": {
+          "connected": "已连接 · {{time}}",
+          "connecting": "正在连接…",
+          "disconnected": "已断开",
+          "offline": "等待网络",
+          "reconnecting": "正在重新连接…",
+          "error": "错误 · {{message}}"
+        }
+      },
       "splitMenu": {
         "rename": "重命名标签页…",
         "broadcastOn": "向所有窗格广播输入",

@@ -11,6 +11,8 @@ import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 import TerminalFontSizeSection from "./TerminalFontSizeSection";
 import { useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
+import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
+import { Toggle } from "@/components/shared/Toggle";
 import { SettingRow, SyncKeyButton } from "./shared";
 
 function downloadJson(filename: string, data: unknown) {
@@ -53,6 +55,7 @@ export default function AppearanceSection() {
   const { t } = useTranslation();
   const locale = useLocaleStore((s) => s.locale);
   const setLocale = useLocaleStore((s) => s.setLocale);
+  const [groupTabsByHost, setGroupTabsByHost] = useToggle("group-tabs-by-host");
 
   const pluginThemes: AppTheme[] = [...pluginThemeMap.values()].map((theme) => ({ ...theme, builtIn: true }));
   const allThemes = [...BUILT_IN_THEMES, ...customThemes, ...pluginThemes];
@@ -79,6 +82,17 @@ export default function AppearanceSection() {
             options={SUPPORTED_LOCALES}
             onChange={(value) => setLocale(value as typeof locale)}
           />
+        </SettingRow>
+        <SettingRow
+          variant="card"
+          className="mt-4"
+          syncKey="appSettings.toggles.group-tabs-by-host"
+          title={t("settings.appearance.groupTabsByHost.title")}
+          desc={t("settings.appearance.groupTabsByHost.desc")}
+          dirty={groupTabsByHost !== TOGGLE_DEFS["group-tabs-by-host"].default}
+          onReset={() => setGroupTabsByHost(TOGGLE_DEFS["group-tabs-by-host"].default)}
+        >
+          <Toggle checked={groupTabsByHost} onChange={setGroupTabsByHost} />
         </SettingRow>
       </div>
 

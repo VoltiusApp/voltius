@@ -16,10 +16,10 @@ import { BUILT_IN_THEMES } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
 import { useCurrentSessionTunnelCount } from "@/hooks/useCurrentSessionTunnelCount";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
+import { SidePanelColumn } from "@/components/layout/SidePanelColumn";
 import { orderPluginSections } from "./rightPanelOrder";
 
 const PANEL_WIDTH = 300;
-const TRANSITION = "width 180ms cubic-bezier(0.4, 0, 0.2, 1)";
 
 // ─── Theme preview thumbnail ──────────────────────────────────────────────────
 
@@ -283,17 +283,8 @@ export default function RightPanel() {
   if (!isTerminalView) return null;
 
   return (
-    <div className="relative shrink-0 overflow-hidden bg-(--t-bg-terminal)" style={{ width: rightPanelOpen ? PANEL_WIDTH + 16 : 0, transition: TRANSITION }}>
-      {rightPanelOpen && (
-        <aside
-          className="flex flex-col absolute inset-y-2 right-2 bg-(--t-bg-modal) border border-(--t-border) overflow-hidden rounded-[0.8rem]"
-          style={{
-            width: "20rem",
-          }}
-        >
-          <PanelContent />
-        </aside>
-      )}
-    </div>
+    <SidePanelColumn testId="right-panel" open={rightPanelOpen} columnWidth={PANEL_WIDTH + 16} cardEdgeClassName="right-2" cardStyle={{ width: "20rem" }}>
+      <PanelContent />
+    </SidePanelColumn>
   );
 }

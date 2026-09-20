@@ -43,6 +43,10 @@
       "language": {
         "title": "Language"
       },
+      "groupTabsByHost": {
+        "title": "Group tabs by host",
+        "desc": "Sessions on the same host share one tab. Hover it to switch between them."
+      },
       "colorTheme": "Color Theme",
       "import": "Import",
       "importTitle": "Import theme(s)",
@@ -910,6 +914,9 @@
       },
       "dragSelectsText": {
         "label": "Drag Selects Text"
+      },
+      "groupTabsByHost": {
+        "label": "Group Tabs by Host"
       },
       "ignoreBracketedPaste": {
         "label": "Plain Paste (No Bracketed Paste)"

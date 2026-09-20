@@ -1,4 +1,4 @@
-import { findLeafBySession, useLayoutStore, type SplitPosition, type SplitTab } from "@/stores/layoutStore";
+import { findSessionPane, useLayoutStore, type SplitPosition } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { matchShortcut } from "@/stores/shortcutStore";
@@ -11,14 +11,6 @@ export type DuplicateTarget = "tab" | SplitPosition;
 export function canDuplicateSession(session: TerminalSession | undefined): boolean {
   if (!session || session.containerExec) return false;
   return session.type === "ssh" || session.type === "local";
-}
-
-export function findSessionPane(splitTabs: SplitTab[], sessionId: string): { tabId: string; paneId: string } | null {
-  for (const tab of splitTabs) {
-    const leaf = findLeafBySession(tab.root, sessionId);
-    if (leaf) return { tabId: tab.id, paneId: leaf.id };
-  }
-  return null;
 }
 
 /** Where a split duplicate attaches. Defaults to the duplicated session's own pane. */

@@ -4,6 +4,7 @@ import RightPanel from "./RightPanel";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useStatusBarStore } from "@/stores/statusBarStore";
 
 // A `plugin:*` right-panel selection is persisted, so it outlives the plugin that
 // registered the section. Uninstalling or disabling that plugin used to leave the
@@ -37,6 +38,7 @@ function renderPanel(rightPanelSection: string) {
 describe("RightPanel with a stale plugin:* selection", () => {
   beforeEach(() => {
     usePluginStore.setState({ rightPanelSections: new Map() });
+    useStatusBarStore.setState({ mountedCount: 0 });
   });
   afterEach(cleanup);
 
@@ -65,5 +67,16 @@ describe("RightPanel with a stale plugin:* selection", () => {
     renderPanel("plugin:plugin-live:panel");
     expect(screen.getByText("live-plugin-panel")).toBeTruthy();
     expect(screen.queryByText("terminal.rightPanel.pluginUnavailable")).toBeNull();
+  });
+
+  test("paints a status-bar-colored filler beneath the card when a status bar is mounted", () => {
+    useStatusBarStore.getState().increment();
+    renderPanel("themes");
+    expect(screen.getByTestId("right-panel-status-filler")).toBeTruthy();
+  });
+
+  test("has no filler when no status bar is mounted", () => {
+    renderPanel("themes");
+    expect(screen.queryByTestId("right-panel-status-filler")).toBeNull();
   });
 });

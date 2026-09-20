@@ -3,6 +3,7 @@ import VaultSidebar from "@/components/layout/VaultSidebar";
 import VaultHeader from "@/components/layout/VaultHeader";
 import NavBar from "@/components/layout/NavBar";
 import MainPanel from "@/components/layout/MainPanel";
+import { HostSessionsPanel } from "@/components/layout/HostSessionsPanel";
 import OmniSearch from "@/components/omni/OmniSearch";
 import GlobalPanelHost from "@/components/layout/GlobalPanelHost";
 import RightPanel from "@/components/terminal/RightPanel";
@@ -38,6 +39,7 @@ export default function DesktopShell() {
             </div>
           )}
           <div className="flex flex-1 overflow-hidden" data-shell-content style={{ paddingRight: dockedPanelWidth || undefined }}>
+            <HostSessionsPanel />
             <MainPanel />
             <RightPanel />
           </div>

@@ -41,6 +41,10 @@
     "appearance": {
       "interface": "界面",
       "language": { "title": "语言" },
+      "groupTabsByHost": {
+        "title": "按主机分组标签页",
+        "desc": "同一主机上的会话共用一个标签页。将鼠标悬停在上面即可切换。"
+      },
       "colorTheme": "颜色主题",
       "import": "导入",
       "importTitle": "导入主题",
@@ -965,6 +969,7 @@
       "scrollMinimap": { "label": "滚动小地图" },
       "selectToCopy": { "label": "选择即复制" },
       "dragSelectsText": { "label": "拖动即选择文本" },
+      "groupTabsByHost": { "label": "按主机分组标签页" },
       "ignoreBracketedPaste": { "label": "纯文本粘贴（无括号粘贴）" },
       "autoForward": { "label": "自动端口转发" },
       "forwardingNotifications": { "label": "端口转发通知" },

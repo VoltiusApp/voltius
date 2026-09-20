@@ -188,6 +188,26 @@
       "newSession": "Nouvelle session",
       "renameTab": "Renommer l'onglet",
       "closeTab": "Fermer l'onglet",
+      "stack": {
+        "sessions_one": "{{host}} · {{count}} session",
+        "sessions_other": "{{host}} · {{count}} sessions",
+        "count_one": "{{count}} session",
+        "count_other": "{{count}} sessions",
+        "newSessionOn": "Nouvelle session sur {{host}}",
+        "closeAll": "Tout fermer ({{count}})",
+        "openInSplit": "Ouvrir en vue scindée",
+        "inSplit": "en vue scindée",
+        "pin": "Épingler la liste des sessions",
+        "unpin": "Détacher la liste des sessions",
+        "status": {
+          "connected": "Connecté · {{time}}",
+          "connecting": "Connexion…",
+          "disconnected": "Déconnecté",
+          "offline": "En attente du réseau",
+          "reconnecting": "Reconnexion…",
+          "error": "Erreur · {{message}}"
+        }
+      },
       "splitMenu": {
         "rename": "Renommer l'onglet…",
         "broadcastOn": "Diffuser la saisie dans tous les panneaux",

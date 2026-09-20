@@ -15,9 +15,9 @@ vi.mock("@/stores/sessionStore", () => ({
 }));
 vi.mock("@/services/launch", () => ({ goToTerminal: vi.fn() }));
 
-import { useLayoutStore, getPaneSessionIds, findLeafBySession } from "@/stores/layoutStore";
+import { useLayoutStore, getPaneSessionIds, findLeafBySession, findSessionPane } from "@/stores/layoutStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
-import { canDuplicateSession, duplicateSession, findSessionPane, handleDuplicateShortcut } from "./duplicateSession";
+import { canDuplicateSession, duplicateSession, handleDuplicateShortcut } from "./duplicateSession";
 
 const ssh: TerminalSession = { id: "s1", connectionId: "c1", connectionName: "srv", status: "connected", type: "ssh" };
 

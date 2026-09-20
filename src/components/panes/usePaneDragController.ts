@@ -1,10 +1,13 @@
 import { useEffect } from "react";
 import i18n from "@/i18n";
 import { shouldSuppressDragClick, useDragStore } from "@/stores/dragStore";
-import { findLeafBySession, useLayoutStore } from "@/stores/layoutStore";
+import { findSessionPane, useLayoutStore } from "@/stores/layoutStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { duplicateSession } from "@/services/duplicateSession";
+import { activateSplitTabPane } from "@/services/tabActivation";
+import { getToggle } from "@/stores/toggleSettingsStore";
+import { resolveTitlebarTarget, stackKey, stackMemberKeys, titlebarGroupOf } from "@/utils/titlebarItems";
 
 export function usePaneDragController() {
   const isPointerDown = useDragStore((s) => s.isPointerDown);
@@ -50,7 +53,15 @@ export function usePaneDragController() {
         }
         if (drag.dragType === "tab") {
           if (drag.sourceTitlebarKey && drag.dropTarget.type === "titlebar") {
-            layout.reorderTitlebarItem(drag.sourceTitlebarKey, drag.dropTarget.targetKey ?? null, drag.dropTarget.placement ?? "after");
+            if (!drag.fromStackList) {
+              const placement = drag.dropTarget.placement ?? "after";
+              const order = layout.titlebarOrder;
+              layout.reorderTitlebarItem(
+                stackMemberKeys(order, drag.sourceTitlebarKey, titlebarGroupOf),
+                resolveTitlebarTarget(order, drag.dropTarget.targetKey ?? null, placement, titlebarGroupOf),
+                placement,
+              );
+            }
             useDragStore.getState().endDrag();
             return;
           }
@@ -59,10 +70,9 @@ export function usePaneDragController() {
             return;
           }
 
-          const existing = findLeafBySession(layout.root, drag.sessionId);
+          const existing = findSessionPane(layout.splitTabs, drag.sessionId);
           if (existing) {
-            layout.setActivePane(existing.id);
-            useSessionStore.getState().setActive(drag.sessionId);
+            activateSplitTabPane(existing.tabId, existing.paneId);
             useNotificationStore.getState().addToast({
               source: { kind: "plugin", id: "core", name: "Voltius" },
               type: "toast",
@@ -88,7 +98,16 @@ export function usePaneDragController() {
         } else if (drag.dragType === "pane" && drag.sourcePaneId && drag.dropTarget.type === "titlebar") {
           const detachedSessionId = layout.detachPane(drag.sourcePaneId);
           if (detachedSessionId) {
-            layout.placeTitlebarItem(`session:${detachedSessionId}`, drag.dropTarget.targetKey ?? null, drag.dropTarget.placement ?? "after");
+            const placement = drag.dropTarget.placement ?? "after";
+            const order = layout.titlebarOrder;
+            const group = titlebarGroupOf(detachedSessionId);
+            const hostKeys = getToggle("group-tabs-by-host") && group
+              ? stackMemberKeys(order, stackKey(group), titlebarGroupOf).filter((key) => key !== `session:${detachedSessionId}`)
+              : [];
+            const [targetKey, where] = hostKeys.length
+              ? [hostKeys[hostKeys.length - 1], "after" as const]
+              : [resolveTitlebarTarget(order, drag.dropTarget.targetKey ?? null, placement, titlebarGroupOf), placement];
+            layout.placeTitlebarItem(`session:${detachedSessionId}`, targetKey, where);
             useSessionStore.getState().setActive(detachedSessionId);
           }
         } else if (drag.dragType === "pane" && drag.sourcePaneId && drag.dropTarget.type === "pane" && drag.dropTarget.paneId) {

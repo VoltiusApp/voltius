@@ -43,6 +43,10 @@
       "language": {
         "title": "Dil"
       },
+      "groupTabsByHost": {
+        "title": "Sekmeleri ana makineye göre grupla",
+        "desc": "Aynı ana makinedeki oturumlar tek bir sekmeyi paylaşır. Aralarında geçiş yapmak için üzerine gelin."
+      },
       "colorTheme": "Renk Teması",
       "import": "İçe Aktar",
       "importTitle": "Tema(ları) içe aktar",
@@ -780,6 +784,9 @@
       },
       "dragSelectsText": {
         "label": "Sürükleyerek Metin Seç"
+      },
+      "groupTabsByHost": {
+        "label": "Sekmeleri Ana Makineye Göre Grupla"
       },
       "ignoreBracketedPaste": {
         "label": "Düz Metin Yapıştırma (Köşeli Ayraçsız)"

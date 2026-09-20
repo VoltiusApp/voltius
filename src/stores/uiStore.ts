@@ -192,6 +192,8 @@ interface UIStore {
   markChangelogSeen: (version: string) => void;
   terminalPanelsRowOpen: boolean;
   toggleTerminalPanelsRow: () => void;
+  hostPanelPinned: boolean;
+  setHostPanelPinned: (pinned: boolean) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -242,6 +244,7 @@ export const useUIStore = create<UIStore>()(
         whatsNewOpen: false,
         lastSeenChangelogVersion: null as string | null,
         terminalPanelsRowOpen: false,
+        hostPanelPinned: false,
         prefsUpdatedAt: new Date(0).toISOString(),
         keychainPendingAction: null as KeychainPendingAction,
         importExportModal: { open: false, mode: "export" as const, section: "vaults" as ImportExportSection },
@@ -313,6 +316,7 @@ export const useUIStore = create<UIStore>()(
         closeWhatsNew: () => set({ whatsNewOpen: false }),
         markChangelogSeen: (version) => set({ lastSeenChangelogVersion: version }),
         toggleTerminalPanelsRow: () => set((s) => ({ terminalPanelsRowOpen: !s.terminalPanelsRowOpen })),
+        setHostPanelPinned: (pinned) => set({ hostPanelPinned: pinned }),
       };
     },
     {
@@ -347,6 +351,7 @@ export const useUIStore = create<UIStore>()(
         prefsUpdatedAt: state.prefsUpdatedAt,
         lastSeenChangelogVersion: state.lastSeenChangelogVersion,
         terminalPanelsRowOpen: state.terminalPanelsRowOpen,
+        hostPanelPinned: state.hostPanelPinned,
       }),
     },
   ),
