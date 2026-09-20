@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-09-20
+
+### Added
+
+- Grouped a host's sessions into one tab, with a pinnable session panel (#318)
+- Published setup.sh and voltius.repo alongside the apt/yum repos (#322)
+
 ## [0.39.2] - 2026-09-18
 
 ### Fixed
