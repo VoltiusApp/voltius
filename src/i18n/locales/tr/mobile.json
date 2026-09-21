@@ -146,6 +146,7 @@
       "pickHost": "Bir sunucu seçin"
     },
     "sftp": {
+      "transferFailed": "Aktarım başarısız",
       "chooseHost": "Bir sunucu seçin",
       "hidden": "Gizli",
       "visible": "Görünür",

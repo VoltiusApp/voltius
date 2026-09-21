@@ -1,6 +1,7 @@
 {
   "common": {
     "action": {
+      "dismiss": "Yoksay",
       "cancel": "İptal",
       "save": "Kaydet",
       "delete": "Sil",

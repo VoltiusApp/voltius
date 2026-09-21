@@ -1,6 +1,7 @@
 {
   "common": {
     "action": {
+      "dismiss": "Скрыть",
       "cancel": "Отмена",
       "save": "Сохранить",
       "delete": "Удалить",

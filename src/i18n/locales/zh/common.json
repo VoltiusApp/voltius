@@ -1,6 +1,7 @@
 {
   "common": {
     "action": {
+      "dismiss": "忽略",
       "cancel": "取消",
       "save": "保存",
       "delete": "删除",

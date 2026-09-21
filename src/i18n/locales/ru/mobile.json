@@ -146,6 +146,7 @@
       "pickHost": "Выберите хост"
     },
     "sftp": {
+      "transferFailed": "Передача не удалась",
       "chooseHost": "Выберите хост",
       "hidden": "Скрытые",
       "visible": "Видимые",

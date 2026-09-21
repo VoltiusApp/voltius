@@ -146,6 +146,7 @@
       "pickHost": "选择主机"
     },
     "sftp": {
+      "transferFailed": "传输失败",
       "chooseHost": "选择主机",
       "hidden": "隐藏",
       "visible": "可见",
