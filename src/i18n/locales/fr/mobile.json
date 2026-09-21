@@ -107,7 +107,10 @@
       "identitiesHeader": "IDENTITÉS",
       "addedOn": "ajouté le {{date}}",
       "noSearchMatches": "Aucun résultat pour votre recherche",
-      "empty": "Le trousseau est vide"
+      "empty": "Le trousseau est vide",
+      "generateKey": "Générer une clé SSH",
+      "importKey": "Importer une clé SSH",
+      "newIdentity": "Nouvelle identité"
     },
     "knownHostsScreen": {
       "filterPlaceholder": "Filtrer les hôtes…",

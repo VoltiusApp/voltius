@@ -5,18 +5,16 @@ import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 const Row = (it: SheetAction) => <SheetActionRow attr="add-choice" it={it} />;
 
 export default function AddChoiceSheet({
-  newItemLabel, newItemIcon, onNewItem, onNewFolder, onClose,
+  items, onNewFolder, onClose,
 }: {
-  newItemLabel: string;
-  newItemIcon: string;
-  onNewItem: () => void;
+  items: SheetAction[];
   onNewFolder: () => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   return (
     <BottomSheet title={t("common.action.add")} onClose={onClose} registerBack={false}>
-      <Row slug="item" icon={newItemIcon} label={newItemLabel} onTap={onNewItem} />
+      {items.map((it) => <Row key={it.slug} {...it} />)}
       <Row slug="folder" icon="lucide:folder-plus" label={t("mobile.snippets.newFolderTitle")} onTap={onNewFolder} />
     </BottomSheet>
   );

@@ -107,7 +107,10 @@
       "identitiesHeader": "身份",
       "addedOn": "添加于 {{date}}",
       "noSearchMatches": "没有匹配搜索的内容",
-      "empty": "密钥链为空"
+      "empty": "密钥链为空",
+      "generateKey": "生成 SSH 密钥",
+      "importKey": "导入 SSH 密钥",
+      "newIdentity": "新建身份"
     },
     "knownHostsScreen": {
       "filterPlaceholder": "筛选主机…",

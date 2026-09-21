@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
+import MobileEditHeader from "../MobileEditHeader";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -57,26 +58,13 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-      <header
-        className="shrink-0 flex items-center gap-2 px-2 h-12 border-b"
-        style={{ background: "var(--t-bg-chrome)", borderColor: "var(--t-border)" }}
-      >
-        <button data-mobile-back onClick={pop} className="p-2 text-(--t-text-primary)">
-          <Icon icon="lucide:arrow-left" width={22} />
-        </button>
-        <span className="flex-1 text-base font-semibold text-(--t-text-primary)">
-          {editing ? t("mobile.snippetEdit.editTitle") : t("mobile.snippetEdit.newTitle")}
-        </span>
-        <button
-          data-mobile-snippet-save
-          onClick={() => void save()}
-          disabled={!canSave}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium"
-          style={{ background: "var(--t-accent)", color: "#fff", opacity: !canSave ? 0.5 : 1 }}
-        >
-          {t("common.action.save")}
-        </button>
-      </header>
+      <MobileEditHeader
+        title={editing ? t("mobile.snippetEdit.editTitle") : t("mobile.snippetEdit.newTitle")}
+        onBack={pop}
+        onSave={() => void save()}
+        saveAttr="mobile-snippet-save"
+        saveDisabled={!canSave}
+      />
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         <input
           data-mobile-snippet-name

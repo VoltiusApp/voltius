@@ -6,6 +6,7 @@ import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useFolderStore } from "@/stores/folderStore";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { ensurePublicKey } from "@/services/publicKeyStore";
 import { writeClipboard } from "@/utils/clipboard";
@@ -31,6 +32,7 @@ export default function KeychainItemActionsSheet(props: Props) {
   const deleteKey = useKeyStore((s) => s.deleteKey);
   const deleteIdentity = useIdentityStore((s) => s.deleteIdentity);
   const moveObjectsToFolder = useFolderStore((s) => s.moveObjectsToFolder);
+  const push = useMobileNavStore((s) => s.push);
   const allFolders = useAllFolders();
   const [mode, setMode] = useState<Mode>("menu");
 
@@ -64,6 +66,10 @@ export default function KeychainItemActionsSheet(props: Props) {
   }
 
   const items: SheetAction[] = [
+    { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => {
+      push(kind === "key" ? { kind: "key-edit", keyId: item.id } : { kind: "identity-edit", identityId: item.id });
+      onClose();
+    } },
     kind === "key"
       ? { icon: "lucide:clipboard-copy", label: t("mobile.sheets.keychainActions.copyPublicKey"), slug: "copy-public-key", onTap: async () => {
           const pub = await ensurePublicKey(item as SshKey);

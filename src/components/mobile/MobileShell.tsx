@@ -13,6 +13,8 @@ import MobileExtraKeysRow from "./MobileExtraKeysRow";
 import MobileTerminalPanelsRow from "./MobileTerminalPanelsRow";
 import MembersPage from "@/components/members/MembersPage";
 import MobileKeychainScreen from "./screens/MobileKeychainScreen";
+import MobileKeyEditScreen from "./screens/MobileKeyEditScreen";
+import MobileIdentityEditScreen from "./screens/MobileIdentityEditScreen";
 import MobilePortForwardingScreen from "./screens/MobilePortForwardingScreen";
 import MobileKnownHostsScreen from "./screens/MobileKnownHostsScreen";
 import MobileLogsScreen from "./screens/MobileLogsScreen";
@@ -140,6 +142,8 @@ export default function MobileShell() {
         {/* Pushed full-screen pages overlay everything */}
         {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}
         {top?.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={top.snippetId} />}
+        {top?.kind === "key-edit" && <MobileKeyEditScreen keyId={top.keyId} mode={top.mode} />}
+        {top?.kind === "identity-edit" && <MobileIdentityEditScreen identityId={top.identityId} />}
         {top?.kind === "more-page" && top.page === "keychain" && <MobileKeychainScreen />}
         {top?.kind === "more-page" && top.page === "port-forwarding" && <MobilePortForwardingScreen />}
         {top?.kind === "more-page" && top.page === "known-hosts" && <MobileKnownHostsScreen />}

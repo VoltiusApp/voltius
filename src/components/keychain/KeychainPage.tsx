@@ -35,7 +35,8 @@ import { KeySection, IdentitySection } from "./KeyCards";
 import { KeyForm } from "./KeyForm";
 import { IdentityForm } from "./IdentityForm";
 import { KeyExportPanel, sortByMode } from "./KeyExportPanel";
-import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
+import { getSecret, storeSecret } from "@/services/vault";
+import { saveIdentityFromForm, saveKeyFromForm } from "@/services/keychainForm";
 import type { Folder, Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
@@ -455,48 +456,8 @@ export default function KeychainPage() {
 
   const handleKeySubmit = async (data: SshKeyFormData, privateKey: string | null, publicKey: string | null, passphrase: string | null) => {
     try {
-      if (editingKey) {
-        await updateKey(editingKey.id, data);
-        if (privateKey !== null) {
-          const localKey = `key:${editingKey.id}:private`;
-          if (privateKey) {
-            await storeSecret(localKey, privateKey);
-            await saveTeamVaultSecretForVault(data.vault_id ?? editingKey.vault_id, localKey, privateKey).catch(() => {});
-          } else await deleteSecret(localKey).catch(() => {});
-        }
-        if (publicKey !== null) {
-          const localKey = `key:${editingKey.id}:public`;
-          if (publicKey) {
-            await storeSecret(localKey, publicKey);
-            await saveTeamVaultSecretForVault(data.vault_id ?? editingKey.vault_id, localKey, publicKey).catch(() => {});
-          } else await deleteSecret(localKey).catch(() => {});
-        }
-        if (passphrase !== null) {
-          const localKey = `key:${editingKey.id}:passphrase`;
-          if (passphrase) {
-            await storeSecret(localKey, passphrase);
-            await saveTeamVaultSecretForVault(data.vault_id ?? editingKey.vault_id, localKey, passphrase).catch(() => {});
-          } else await deleteSecret(localKey).catch(() => {});
-        }
-      } else {
-        const key = await saveKey(data);
-        if (privateKey) {
-          const localKey = `key:${key.id}:private`;
-          await storeSecret(localKey, privateKey);
-          await saveTeamVaultSecretForVault(key.vault_id, localKey, privateKey).catch(() => {});
-        }
-        if (publicKey) {
-          const localKey = `key:${key.id}:public`;
-          await storeSecret(localKey, publicKey);
-          await saveTeamVaultSecretForVault(key.vault_id, localKey, publicKey).catch(() => {});
-        }
-        if (passphrase) {
-          const localKey = `key:${key.id}:passphrase`;
-          await storeSecret(localKey, passphrase);
-          await saveTeamVaultSecretForVault(key.vault_id, localKey, passphrase).catch(() => {});
-        }
-        setEditingKeyId(key.id);
-      }
+      const key = await saveKeyFromForm(editingKey, data, privateKey, publicKey, passphrase, selectedVaultIds[0] ?? "personal");
+      if (!editingKey) setEditingKeyId(key.id);
     } catch (err) {
       setError(String(err));
     }
@@ -508,42 +469,10 @@ export default function KeychainPage() {
     inlineKeyMaterial?: { label?: string; privateKey: string; publicKey: string },
   ) => {
     try {
-      let resolvedData = data;
-
-      if (inlineKeyMaterial?.privateKey) {
-        const { label, privateKey, publicKey } = inlineKeyMaterial;
-        const keyData = { name: label || undefined, key_type: undefined, tags: [] };
-        if (inlineKeyIdRef.current) {
-          await updateKey(inlineKeyIdRef.current, keyData);
-          await storeSecret(`key:${inlineKeyIdRef.current}:private`, privateKey);
-          if (publicKey) await storeSecret(`key:${inlineKeyIdRef.current}:public`, publicKey);
-        } else {
-          const createdKey = await saveKey(keyData);
-          await storeSecret(`key:${createdKey.id}:private`, privateKey);
-          if (publicKey) await storeSecret(`key:${createdKey.id}:public`, publicKey);
-          inlineKeyIdRef.current = createdKey.id;
-        }
-        resolvedData = { ...data, key_id: inlineKeyIdRef.current! };
-      }
-
-      if (editingIdentity) {
-        await updateIdentity(editingIdentity.id, resolvedData);
-        if (password !== null) {
-          const localKey = `identity:${editingIdentity.id}:password`;
-          if (password) {
-            await storeSecret(localKey, password);
-            await saveTeamVaultSecretForVault(resolvedData.vault_id ?? editingIdentity.vault_id, localKey, password).catch(() => {});
-          } else await deleteSecret(localKey).catch(() => {});
-        }
-      } else {
-        const identity = await saveIdentity(resolvedData);
-        if (password) {
-          const localKey = `identity:${identity.id}:password`;
-          await storeSecret(localKey, password);
-          await saveTeamVaultSecretForVault(identity.vault_id, localKey, password).catch(() => {});
-        }
-        setEditingIdentityId(identity.id);
-      }
+      const identity = await saveIdentityFromForm(
+        editingIdentity, data, password, inlineKeyMaterial, inlineKeyIdRef, selectedVaultIds[0] ?? "personal",
+      );
+      if (!editingIdentity) setEditingIdentityId(identity.id);
     } catch (err) {
       setError(String(err));
     }

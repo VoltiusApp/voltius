@@ -107,7 +107,10 @@
       "identitiesHeader": "ЛИЧНОСТИ",
       "addedOn": "добавлено {{date}}",
       "noSearchMatches": "Ничего не найдено по вашему запросу",
-      "empty": "Связка ключей пуста"
+      "empty": "Связка ключей пуста",
+      "generateKey": "Создать SSH-ключ",
+      "importKey": "Импортировать SSH-ключ",
+      "newIdentity": "Новая личность"
     },
     "knownHostsScreen": {
       "filterPlaceholder": "Фильтр хостов…",

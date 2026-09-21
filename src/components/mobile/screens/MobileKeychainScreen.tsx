@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import MobilePanelHeader from "../panels/MobilePanelHeader";
 import MobileFilterBar from "../MobileFilterBar";
 import KeychainItemActionsSheet from "../sheets/KeychainItemActionsSheet";
+import AddChoiceSheet from "../sheets/AddChoiceSheet";
 import FolderFormSheet from "../sheets/FolderFormSheet";
 import FolderActionsSheet from "../sheets/FolderActionsSheet";
 import MobileFolderBreadcrumb from "../folders/MobileFolderBreadcrumb";
@@ -15,6 +16,7 @@ import { useAllIdentities } from "@/hooks/useAllIdentities";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useFolderStore } from "@/stores/folderStore";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { scopeItems, folderItemCount } from "../folders/mobileFolderCore";
 import type { SshKey, Identity, Folder } from "@/types";
@@ -49,12 +51,14 @@ export default function MobileKeychainScreen() {
   const identities = useAllIdentities();
   const allFolders = useAllFolders();
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
+  const push = useMobileNavStore((s) => s.push);
   const saveFolder = useFolderStore((s) => s.saveFolder);
   const updateFolder = useFolderStore((s) => s.updateFolder);
   const deleteFolder = useFolderStore((s) => s.deleteFolder);
 
   const [search, setSearch] = useState("");
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [folderSheet, setFolderSheet] = useState<Folder | null>(null);
 
@@ -93,8 +97,8 @@ export default function MobileKeychainScreen() {
       <MobilePanelHeader
         title={t("mobile.morePages.keychain")}
         right={
-          <button data-keychain-add-folder onClick={() => setAddFolderOpen(true)} className="p-2 text-(--t-text-primary)">
-            <Icon icon="lucide:folder-plus" width={20} />
+          <button data-keychain-add onClick={() => setAddMenuOpen(true)} className="p-2 text-(--t-text-primary)">
+            <Icon icon="lucide:plus" width={20} />
           </button>
         }
       />
@@ -154,6 +158,17 @@ export default function MobileKeychainScreen() {
         ? <KeychainItemActionsSheet kind="key" item={sheet.item} onClose={() => setSheet(null)} />
         : <KeychainItemActionsSheet kind="identity" item={sheet.item} onClose={() => setSheet(null)} />)}
 
+      {addMenuOpen && (
+        <AddChoiceSheet
+          items={[
+            { slug: "generate-key", icon: "lucide:sparkles", label: t("mobile.keychainScreen.generateKey"), onTap: () => { setAddMenuOpen(false); push({ kind: "key-edit", mode: "generate" }); } },
+            { slug: "import-key", icon: "lucide:import", label: t("mobile.keychainScreen.importKey"), onTap: () => { setAddMenuOpen(false); push({ kind: "key-edit", mode: "import" }); } },
+            { slug: "identity", icon: "lucide:user-plus", label: t("mobile.keychainScreen.newIdentity"), onTap: () => { setAddMenuOpen(false); push({ kind: "identity-edit" }); } },
+          ]}
+          onNewFolder={() => { setAddMenuOpen(false); setAddFolderOpen(true); }}
+          onClose={() => setAddMenuOpen(false)}
+        />
+      )}
       {addFolderOpen && <FolderFormSheet title={t("mobile.snippets.newFolderTitle")} submitLabel={t("common.action.create")} onSubmit={createFolder} onClose={() => setAddFolderOpen(false)} />}
       {folderSheet && (
         <FolderActionsSheet

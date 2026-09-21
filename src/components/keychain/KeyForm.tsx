@@ -81,9 +81,10 @@ export interface KeyFormProps {
   canEdit?: boolean;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
+  hideChrome?: boolean;
 }
 
-export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onDelete, flushRef, isDirtyRef, vaults, canEdit, onMoveToVault, onCopyToVault }: KeyFormProps) {
+export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onDelete, flushRef, isDirtyRef, vaults, canEdit, onMoveToVault, onCopyToVault, hideChrome }: KeyFormProps) {
   const { t } = useTranslation();
   const [name, setName] = useState(initial?.name ?? "");
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
@@ -172,6 +173,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
 
   return (
     <PanelShell>
+      {!hideChrome && (
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:plus"}
         title={initial ? t("keychain.keyForm.titleEdit") : t("keychain.toolbar.newKey")}
@@ -199,6 +201,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
           );
         })() : undefined}
       />
+      )}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <StoredSecretsNote state={storedSecrets} />
         <FormSection label={t("keychain.common.general")}>

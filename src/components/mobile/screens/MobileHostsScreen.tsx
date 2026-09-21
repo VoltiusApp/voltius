@@ -213,9 +213,7 @@ export default function MobileHostsScreen() {
 
       {addMode === "menu" && (
         <AddChoiceSheet
-          newItemLabel={t("mobile.host.newTitle")}
-          newItemIcon="lucide:server"
-          onNewItem={() => { setAddMode(null); push({ kind: "host-edit" }); }}
+          items={[{ slug: "item", icon: "lucide:server", label: t("mobile.host.newTitle"), onTap: () => { setAddMode(null); push({ kind: "host-edit" }); } }]}
           onNewFolder={() => setAddMode("new-folder")}
           onClose={() => setAddMode(null)}
         />

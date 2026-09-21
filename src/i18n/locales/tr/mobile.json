@@ -107,7 +107,10 @@
       "identitiesHeader": "KİMLİKLER",
       "addedOn": "eklenme: {{date}}",
       "noSearchMatches": "Aramanızla eşleşen bir şey yok",
-      "empty": "Anahtar zinciri boş"
+      "empty": "Anahtar zinciri boş",
+      "generateKey": "SSH anahtarı oluştur",
+      "importKey": "SSH anahtarı içe aktar",
+      "newIdentity": "Yeni kimlik"
     },
     "knownHostsScreen": {
       "filterPlaceholder": "Sunucuları filtrele…",

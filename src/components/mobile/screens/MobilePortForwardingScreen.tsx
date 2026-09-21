@@ -126,9 +126,7 @@ export default function MobilePortForwardingScreen() {
 
       {addMode === "menu" && (
         <AddChoiceSheet
-          newItemLabel={t("mobile.portForwardingScreen.newRuleLabel")}
-          newItemIcon="lucide:arrow-left-right"
-          onNewItem={() => { setAddMode(null); setFormRule("new"); }}
+          items={[{ slug: "item", icon: "lucide:arrow-left-right", label: t("mobile.portForwardingScreen.newRuleLabel"), onTap: () => { setAddMode(null); setFormRule("new"); } }]}
           onNewFolder={() => setAddMode("new-folder")}
           onClose={() => setAddMode(null)}
         />
