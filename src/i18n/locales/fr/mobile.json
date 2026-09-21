@@ -146,6 +146,7 @@
       "pickHost": "Choisir un hôte"
     },
     "sftp": {
+      "transferFailed": "Échec du transfert",
       "chooseHost": "Choisir un hôte",
       "hidden": "Masqués",
       "visible": "Visibles",

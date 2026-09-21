@@ -1,6 +1,7 @@
 {
   "common": {
     "action": {
+      "dismiss": "Dismiss",
       "cancel": "Cancel",
       "save": "Save",
       "delete": "Delete",

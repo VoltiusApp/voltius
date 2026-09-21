@@ -20,7 +20,10 @@ export default function MobileSftpScreen({ presetConnectionId, asTab }: { preset
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const transfers = useTransferQueueStore((s) => s.transfers);
   const cancelTransfer = useTransferQueueStore((s) => s.cancelTransfer);
-  const active = transfers.filter((t) => t.status === "running");
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  const active = transfers.filter(
+    (t) => (t.status === "running" || t.status === "error") && !dismissed.includes(t.id),
+  );
 
   const [connAId, setConnAId] = useState<string | undefined>(presetConnectionId);
   const [connBId, setConnBId] = useState<string | undefined>(undefined);
@@ -79,20 +82,30 @@ export default function MobileSftpScreen({ presetConnectionId, asTab }: { preset
 
       {active.length > 0 && (
         <div className="absolute left-0 right-0 bottom-0 px-3 pb-3 flex flex-col gap-1.5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
-          {active.map((t) => {
-            const pct = t.total > 0 ? Math.round((t.transferred / t.total) * 100) : 0;
+          {active.map((tr) => {
+            const pct = tr.total > 0 ? Math.round((tr.transferred / tr.total) * 100) : 0;
+            const failed = tr.status === "error";
             return (
-              <div key={t.id} data-sftp-transfer={t.id} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}>
-                <Icon icon={t.direction === "←" ? "lucide:download" : "lucide:arrow-right-left"} width={14} className="text-(--t-text-dim) shrink-0" />
+              <div key={tr.id} data-sftp-transfer={tr.id} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: "var(--t-bg-elevated)", border: `1px solid ${failed ? "var(--t-status-error)" : "var(--t-border)"}` }}>
+                <Icon icon={failed ? "lucide:triangle-alert" : tr.direction === "←" ? "lucide:download" : "lucide:arrow-right-left"} width={14}
+                  className="shrink-0" style={{ color: failed ? "var(--t-status-error)" : "var(--t-text-dim)" }} />
                 <span className="flex flex-col min-w-0 flex-1">
-                  <span className="text-xs text-(--t-text-primary) truncate">{t.label}</span>
-                  <div className="h-1 rounded-full mt-1 overflow-hidden" style={{ background: "var(--t-bg-card)" }}>
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--t-accent)" }} />
-                  </div>
-                  <span data-sftp-transfer-meta className="text-[10px] text-(--t-text-dim) tabular-nums truncate mt-0.5">{formatTransferProgress(t)}</span>
+                  <span className="text-xs text-(--t-text-primary) truncate">{tr.label}</span>
+                  {failed ? (
+                    <span data-sftp-transfer-error className="text-[10px] mt-0.5 break-all" style={{ color: "var(--t-status-error)" }}>{tr.error ?? t("mobile.sftp.transferFailed")}</span>
+                  ) : (
+                    <>
+                      <div className="h-1 rounded-full mt-1 overflow-hidden" style={{ background: "var(--t-bg-card)" }}>
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--t-accent)" }} />
+                      </div>
+                      <span data-sftp-transfer-meta className="text-[10px] text-(--t-text-dim) tabular-nums truncate mt-0.5">{formatTransferProgress(tr)}</span>
+                    </>
+                  )}
                 </span>
-                <span className="text-[11px] text-(--t-text-dim) tabular-nums shrink-0">{pct}%</span>
-                <button data-sftp-transfer-cancel={t.id} onClick={() => cancelTransfer(t.id)} className="p-1 text-(--t-text-dim) shrink-0"><Icon icon="lucide:x" width={14} /></button>
+                {!failed && <span className="text-[11px] text-(--t-text-dim) tabular-nums shrink-0">{pct}%</span>}
+                <button data-sftp-transfer-cancel={tr.id} aria-label={failed ? t("common.action.dismiss") : t("common.action.cancel")}
+                  onClick={() => (failed ? setDismissed((d) => [...d, tr.id]) : cancelTransfer(tr.id))}
+                  className="p-1 text-(--t-text-dim) shrink-0"><Icon icon="lucide:x" width={14} /></button>
               </div>
             );
           })}

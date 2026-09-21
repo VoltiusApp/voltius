@@ -69,10 +69,15 @@ export default function MobileSftpPane({
     // Android: stream to a temp path, then publish into the user's SAF download folder
     // (picked once, persisted) so the file lands somewhere visible to the system Files app.
     if (isAndroid) {
-      let dir = await downloadDirGet();
-      if (needsPicker(dir)) {
-        dir = await downloadDirPick();
-        if (needsPicker(dir)) return; // user cancelled the folder picker
+      try {
+        let dir = await downloadDirGet();
+        if (needsPicker(dir)) {
+          dir = await downloadDirPick();
+          if (needsPicker(dir)) return; // user cancelled the folder picker
+        }
+      } catch (e) {
+        alert(String(e));
+        return;
       }
       await runTransfer(f.name, "←", async (tid) => {
         const tmp = await downloadTempPath(tid, f.name);

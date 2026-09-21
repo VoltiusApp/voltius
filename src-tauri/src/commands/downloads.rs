@@ -1,7 +1,7 @@
-#[cfg(any(target_os = "android", test))]
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
+use tauri::{AppHandle, Manager};
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -183,17 +183,35 @@ pub fn collect_publish_entries(
     Ok(out)
 }
 
+fn temp_download_path(cache_dir: &Path, transfer_id: &str, name: &str) -> PathBuf {
+    let safe = |s: &str| s.replace(['/', '\\'], "_");
+    cache_dir
+        .join("voltius-downloads")
+        .join(safe(transfer_id))
+        .join(safe(name))
+}
+
 /// A unique temp destination under the app cache for an in-flight download. The existing
 /// `sftp_download*` commands write here (real fs); `download_publish` then moves it into the
 /// SAF tree. Parent dirs are created; the leaf is returned for use as `localPath`.
 #[tauri::command]
-pub fn download_temp_path(transfer_id: String, name: String) -> Result<String, String> {
-    let safe_name = name.replace(['/', '\\'], "_");
-    let dir = std::env::temp_dir()
-        .join("voltius-downloads")
-        .join(&transfer_id);
-    std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot create temp dir: {e}"))?;
-    Ok(dir.join(safe_name).to_string_lossy().into_owned())
+pub fn download_temp_path(
+    app: AppHandle,
+    transfer_id: String,
+    name: String,
+) -> Result<String, String> {
+    // Not `std::env::temp_dir()`: on Android that is `/data/local/tmp`, which an app uid
+    // cannot write, so every download failed before it started.
+    let cache = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| format!("Cannot resolve the app cache dir: {e}"))?;
+    let path = temp_download_path(&cache, &transfer_id, &name);
+    let dir = path
+        .parent()
+        .ok_or_else(|| "Invalid temp download path".to_string())?;
+    std::fs::create_dir_all(dir).map_err(|e| format!("Cannot create temp dir: {e}"))?;
+    Ok(path.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -301,6 +319,25 @@ mod tests {
             entries.iter().map(|(r, _)| r.clone()).collect::<Vec<_>>(),
             vec!["proj/README".to_string(), "proj/src/main.rs".to_string()],
         );
+    }
+
+    #[test]
+    fn temp_path_nests_under_the_app_cache_dir() {
+        let p = temp_download_path(
+            Path::new("/data/user/0/com.voltius.app/cache"),
+            "t1",
+            "a.bin",
+        );
+        assert_eq!(
+            p,
+            Path::new("/data/user/0/com.voltius.app/cache/voltius-downloads/t1/a.bin"),
+        );
+    }
+
+    #[test]
+    fn temp_path_flattens_separators_in_the_remote_name() {
+        let p = temp_download_path(Path::new("/cache"), "t1", "../../etc/passwd");
+        assert_eq!(p, Path::new("/cache/voltius-downloads/t1/.._.._etc_passwd"));
     }
 
     #[test]
