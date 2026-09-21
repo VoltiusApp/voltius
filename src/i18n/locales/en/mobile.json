@@ -107,7 +107,10 @@
       "identitiesHeader": "IDENTITIES",
       "addedOn": "added {{date}}",
       "noSearchMatches": "Nothing matches your search",
-      "empty": "Keychain is empty"
+      "empty": "Keychain is empty",
+      "generateKey": "Generate SSH key",
+      "importKey": "Import SSH key",
+      "newIdentity": "New identity"
     },
     "knownHostsScreen": {
       "filterPlaceholder": "Filter hosts…",

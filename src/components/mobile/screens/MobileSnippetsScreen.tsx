@@ -16,9 +16,7 @@ export default function MobileSnippetsScreen() {
       <MobileSnippetList addFolderOpen={addFolderOpen} onCloseAddFolder={() => setAddFolderOpen(false)} />
       {addMenu && (
         <AddChoiceSheet
-          newItemLabel={t("mobile.snippetsScreen.newSnippetLabel")}
-          newItemIcon="lucide:braces"
-          onNewItem={() => { setAddMenu(false); push({ kind: "snippet-edit" }); }}
+          items={[{ slug: "item", icon: "lucide:braces", label: t("mobile.snippetsScreen.newSnippetLabel"), onTap: () => { setAddMenu(false); push({ kind: "snippet-edit" }); } }]}
           onNewFolder={() => { setAddMenu(false); setAddFolderOpen(true); }}
           onClose={() => setAddMenu(false)}
         />

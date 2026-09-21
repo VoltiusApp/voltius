@@ -134,9 +134,10 @@ export interface IdentityFormProps {
   canEdit?: boolean;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
+  hideChrome?: boolean;
 }
 
-export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, isDirtyRef, vaults, canEdit, onMoveToVault, onCopyToVault }: IdentityFormProps) {
+export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, isDirtyRef, vaults, canEdit, onMoveToVault, onCopyToVault, hideChrome }: IdentityFormProps) {
   const { t } = useTranslation();
   const { loadKeys } = useKeyStore();
   const { connections, loadConnections, updateConnection } = useConnectionStore();
@@ -250,6 +251,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
 
   return (
     <PanelShell>
+      {!hideChrome && (
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:plus"}
         title={initial ? t("keychain.identityForm.titleEdit") : t("keychain.toolbar.newIdentity")}
@@ -276,6 +278,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
           );
         })() : undefined}
       />
+      )}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <StoredSecretsNote state={storedSecrets} />
         <FormSection label={t("keychain.common.general")}>

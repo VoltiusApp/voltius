@@ -59,9 +59,7 @@ describe("sheets using the shared row", () => {
     const onNewItem = vi.fn();
     render(
       <AddChoiceSheet
-        newItemLabel="New host"
-        newItemIcon="lucide:server"
-        onNewItem={onNewItem}
+        items={[{ slug: "item", icon: "lucide:server", label: "New host", onTap: onNewItem }]}
         onNewFolder={() => {}}
         onClose={() => {}}
       />,
