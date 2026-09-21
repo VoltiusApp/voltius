@@ -8,6 +8,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { getJoinableSessions, joinRemoteSession } from "@/services/crossDeviceSessions";
+import { sessionLabel } from "@/utils/sessionLabel";
 
 function relativeAge(iso: string): string {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
@@ -65,7 +66,7 @@ export default function MobileRemoteDeviceSessions() {
               />
             </span>
             <span className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-sm font-semibold truncate text-(--t-text-primary)">{a.connectionName}</span>
+              <span className="text-sm font-semibold truncate text-(--t-text-primary)">{sessionLabel(a)}</span>
               <span className="text-[11px] truncate text-(--t-text-dim)">
                 {a.deviceName} · {relativeAge(a.openedAt)}
               </span>
