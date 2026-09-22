@@ -863,6 +863,7 @@ pub fn save_snippet_folders(folders: &[SnippetFolder]) -> Result<(), String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
     use serde::de::DeserializeOwned;
