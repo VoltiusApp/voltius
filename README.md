@@ -214,7 +214,7 @@ We offer three levels of security to fit your workflow:
 Account registration and login at [app.voltius.app](https://app.voltius.app) are also fully E2EE. The same `voltius-crypto` crate is compiled to WebAssembly and runs entirely in your browser — key derivation (Argon2id + HKDF-SHA256) happens client-side before anything touches the network. The server only ever receives an `auth_key`, never your password or encryption key.
 
 ### Zero-Knowledge Synchronization
-Whether you use our professional Cloud Sync or a bring-your-own sync plugin (Gist, Cloudflare), we follow a **Zero-Knowledge** protocol. All data leaving the device is strictly ciphertext — the auth server, SSE server, GitHub and Cloudflare have zero knowledge of vault contents.
+Whether you use our professional Cloud Sync or a bring-your-own sync plugin (Gist, Cloudflare), we follow a **Zero-Knowledge** protocol. All data leaving the device is strictly ciphertext — the Voltius server (one service handling both auth and sync), GitHub and Cloudflare have zero knowledge of vault contents.
 
 <details>
 <summary>Sync architecture diagram</summary>
@@ -249,7 +249,7 @@ flowchart TD
             NativeKDF --> AuthKeyDesktop
         end
 
-        RegServer[("Auth Server")]:::remote
+        RegServer[("Voltius Server\napi.voltius.app")]:::remote
         AuthKeyPortal -->|"email + auth_key + account_id"| RegServer
         AuthKeyDesktop -->|"email + auth_key + account_id\n+ public_key + machine_fingerprint"| RegServer
         RegServer -->|"JWT + account_id"| PortalCreds
@@ -274,7 +274,7 @@ flowchart TD
         OS -->|"retrieves enc_key directly\n(stored after prior login)"| EncKey
         KDF --> EncKey
         KDF --> AuthKey
-        AuthKey -->|"POST /v1/auth/login"| AuthServer[("Auth Server")]:::remote
+        AuthKey -->|"POST /v1/auth/login"| AuthServer[("Voltius Server\napi.voltius.app")]:::remote
         AuthServer -->|"JWT"| Cloud
     end
 
@@ -303,14 +303,14 @@ flowchart TD
         subgraph CloudSync ["Cloud Sync (Pro/Teams · SSE)"]
             direction TB
             SseAead{"XChaCha20-Poly1305\n(Rust · encrypt_payload)"}:::secure
-            SSE[("Voltius SSE Server")]:::remote
+            SSE[("Voltius Server\napi.voltius.app · SSE")]:::remote
             SseAead <==>|"Encrypted CRDT payloads"| SSE
         end
     end
 
     EncKey -->|"enc_key"| SseAead
 
-    Note1>All data leaving the device is strictly ciphertext.\nAuth Server, SSE Server, and GitHub have zero knowledge of vault contents.]:::note
+    Note1>All data leaving the device is strictly ciphertext.\nAuth and sync are one server — it and GitHub have zero knowledge of vault contents.]:::note
     SyncLayer --- Note1
 ```
 
