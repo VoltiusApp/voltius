@@ -38,7 +38,7 @@ const s = (id: string, connectionId: string, extra = {}) => ({ id, connectionId,
 
 beforeEach(() => {
   focusSession.mockClear();
-  useToggleSettingsStore.setState({ values: {} });
+  useToggleSettingsStore.setState({ values: { "group-tabs-by-host": true } });
   useUIStore.setState({ activeNav: "terminal", hostPanelPinned: false });
   useDragStore.setState({ lastDragEndedAt: 0, isDragging: false });
   useSessionStore.setState({ sessions: [s("w1", "web"), s("w2", "web", { title: "logs" }), s("d1", "db")], activeSessionId: "w2" });

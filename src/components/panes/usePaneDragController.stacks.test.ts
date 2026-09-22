@@ -16,7 +16,7 @@ function drop(target: { targetKey: string | null; placement: "before" | "after" 
 }
 
 beforeEach(() => {
-  useToggleSettingsStore.setState({ values: {} });
+  useToggleSettingsStore.setState({ values: { "group-tabs-by-host": true } });
   useSessionStore.setState({ sessions: [s("w1", "web"), s("w2", "web"), s("d1", "db"), s("x1", "x")], activeSessionId: "w1" });
   useLayoutStore.setState({ titlebarOrder: ["session:w1", "session:w2", "session:d1", "session:x1"], splitTabs: [], root: null });
   renderHook(() => usePaneDragController());

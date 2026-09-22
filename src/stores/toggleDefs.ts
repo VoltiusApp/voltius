@@ -59,7 +59,7 @@ export const TOGGLE_DEFS = {
     icon: "lucide:layers",
     descriptionKey: "settings.toggleDefs.category.appearance",
     keywords: ["tabs", "group", "stack", "host", "sessions", "titlebar"],
-    default: true,
+    default: false,
   },
   "ignore-bracketed-paste": {
     labelKey: "settings.toggleDefs.ignoreBracketedPaste.label",

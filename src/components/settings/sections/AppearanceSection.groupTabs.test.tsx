@@ -23,12 +23,12 @@ beforeEach(() => useToggleSettingsStore.setState({ values: {} }));
 afterEach(cleanup);
 
 describe("Group tabs by host setting", () => {
-  it("is on by default and turns off from the Appearance card", () => {
+  it("is off by default and turns on from the Appearance card", () => {
     render(<AppearanceSection />);
     const card = screen.getByText("settings.appearance.groupTabsByHost.title").closest("[class*='rounded-xl']")!;
     const toggle = card.querySelector("[role='switch']") as HTMLElement;
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(toggle);
-    expect(useToggleSettingsStore.getState().values["group-tabs-by-host"]).toBe(false);
+    expect(useToggleSettingsStore.getState().values["group-tabs-by-host"]).toBe(true);
   });
 });
