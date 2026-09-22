@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -200,12 +200,7 @@ pub fn download_temp_path(
     transfer_id: String,
     name: String,
 ) -> Result<String, String> {
-    // Not `std::env::temp_dir()`: on Android that is `/data/local/tmp`, which an app uid
-    // cannot write, so every download failed before it started.
-    let cache = app
-        .path()
-        .app_cache_dir()
-        .map_err(|e| format!("Cannot resolve the app cache dir: {e}"))?;
+    let cache = crate::scratch::app_scratch_dir(&app)?;
     let path = temp_download_path(&cache, &transfer_id, &name);
     let dir = path
         .parent()

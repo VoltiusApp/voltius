@@ -19,6 +19,8 @@ pub struct LocalIntegration {
 /// Inspect a shell path and prepare a local PTY spawn that injects OSC 7
 /// emission on every prompt. Returns `Ok(None)` for shells that need no
 /// injection (fish already emits OSC 7) or can't be hooked (cmd, wsl).
+// Spawns a local desktop shell; Android has no local shell to hook.
+#[allow(clippy::disallowed_methods)]
 pub fn prepare_local(shell: &str, session_id: &str) -> std::io::Result<Option<LocalIntegration>> {
     let shell_name = Path::new(shell)
         .file_stem()
@@ -715,6 +717,7 @@ esac
 "#;
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
     use base64::engine::general_purpose;

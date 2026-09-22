@@ -514,6 +514,7 @@ pub fn updater_set_auto(enabled: bool) -> Result<(), String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
 

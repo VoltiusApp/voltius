@@ -72,6 +72,8 @@ pub(super) fn termius_db_dir() -> Result<PathBuf, String> {
     ))
 }
 
+// Importing a desktop Termius install; the whole module is unreachable on Android.
+#[allow(clippy::disallowed_methods)]
 pub(super) fn copy_db_to_temp(src: &Path) -> Result<PathBuf, String> {
     let temp = std::env::temp_dir().join(format!("voltius-termius-ldb-{}", std::process::id()));
     if temp.exists() {

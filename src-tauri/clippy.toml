@@ -1,0 +1,3 @@
+disallowed-methods = [
+    { path = "std::env::temp_dir", reason = "on Android this is /data/local/tmp, which an app uid cannot write; use crate::scratch::app_scratch_dir. Desktop-only code may #[allow(clippy::disallowed_methods)] with a note." },
+]

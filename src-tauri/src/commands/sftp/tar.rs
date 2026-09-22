@@ -155,14 +155,13 @@ impl<'a> TarJob<'a> {
         }
     }
 
-    /// This transfer's temp archive, under the system temp dir locally and
-    /// `/tmp` remotely.
-    fn temp_paths(&self) -> (std::path::PathBuf, String) {
+    /// This transfer's temp archive, under the app cache dir locally and `/tmp` remotely.
+    /// Not `std::env::temp_dir()`: on Android that is `/data/local/tmp`, which an app uid
+    /// cannot write.
+    fn temp_paths(&self) -> Result<(std::path::PathBuf, String), String> {
         let name = temp_archive_name(self.transfer_id);
-        (
-            std::env::temp_dir().join(&name),
-            remote_archive(self.transfer_id, false),
-        )
+        let local = crate::scratch::app_scratch_dir(self.app)?.join(&name);
+        Ok((local, remote_archive(self.transfer_id, false)))
     }
 
     async fn exec(&self, cmd: &str) -> Result<(), String> {
@@ -258,7 +257,7 @@ async fn upload_tar(
     remote_dir: &str,
     strip: bool,
 ) -> Result<(), String> {
-    let (tmp_local, tmp_remote) = job.temp_paths();
+    let (tmp_local, tmp_remote) = job.temp_paths()?;
 
     // 1. Archive locally
     local_tar_create(&tmp_local, local_parent, names).await?;
@@ -297,7 +296,7 @@ async fn download_tar(
     local_dir: &str,
     strip: bool,
 ) -> Result<(), String> {
-    let (tmp_local, tmp_remote) = job.temp_paths();
+    let (tmp_local, tmp_remote) = job.temp_paths()?;
 
     // 1. Archive on remote
     job.exec(&tar_create_cmd(&tmp_remote, true, remote_parent, items))
@@ -342,7 +341,7 @@ async fn transfer_tar(
 ) -> Result<(), String> {
     // `job.sftp_id` is the source; the destination archive is named apart so a
     // same-host transfer survives the source clean-up below.
-    let (_, src_tmp) = job.temp_paths();
+    let (_, src_tmp) = job.temp_paths()?;
     let dst_tmp = remote_archive(job.transfer_id, true);
 
     // 1. Archive on source
