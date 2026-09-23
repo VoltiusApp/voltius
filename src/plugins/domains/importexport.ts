@@ -13,6 +13,7 @@ import { parseImport } from "@/services/import-export/importers";
 import { connectionsToCSV } from "@/services/import-export/parsers/csv";
 import type { ExportBundle } from "@/services/import-export/formats";
 import type { ImportStores, ReloadFns, StoreSlices } from "@/services/import-export/context";
+import { newImportCtx } from "@/services/import-export/context";
 import type { PortForwardingRule } from "@/types";
 import { failed, type DomainResult } from "./result";
 // Declared in the tool layer: it is the only value toolSurface/tools/importExport.ts
@@ -231,7 +232,7 @@ export async function importObjects(opts: {
   let imported: number;
   let errors: number;
   try {
-    ({ imported, errors } = await runImport(bundle, {
+    ({ imported, errors } = await runImport(bundle, newImportCtx({
       vault_id: opts.vaultId,
       tag: "",
       skipDupes: false,
@@ -240,13 +241,9 @@ export async function importObjects(opts: {
       existingIdentities: slices.identities,
       existingSnippets: slices.snippets,
       existingPfRules: slices.pfRules,
-      folderEidMap: new Map(),
-      snippetFolderEidMap: new Map(),
-      keyEidMap: new Map(),
-      identityEidMap: new Map(),
-      connectionEidMap: new Map(),
+      existingFolders: [...slices.folders, ...slices.snippetFolders],
       stores: importStores(),
-    }));
+    })));
   } catch (e) {
     return failed(e instanceof Error ? e.message : String(e));
   }

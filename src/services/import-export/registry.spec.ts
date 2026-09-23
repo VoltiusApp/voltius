@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Connection, Folder, FolderFormData, Identity, PortForwardingRule, Snippet, SshKey } from "@/types";
 import type { ExportBundle } from "./formats";
-import type { ImportCtx, ImportStores, StoreSlices } from "./context";
-import { buildBundle, runImport } from "./registry";
+import type { ImportStores, StoreSlices } from "./context";
+import { newImportCtx } from "./context";
+import { buildBundle, importableFolders, runImport } from "./registry";
 
 const conn = (over: Partial<Connection>) =>
   ({ name: "c", host: "h", port: 22, username: "u", tags: [], vault_id: "personal", ...over }) as Connection;
@@ -88,15 +89,14 @@ describe("runImport — empty folders", () => {
     connections: [], identities: [], keys: [], snippets: [], portForwardingRules: [],
   };
 
-  function ctxOf(skipDupes: boolean) {
+  function ctxOf(skipDupes: boolean, existingFolders: Folder[] = []) {
     const saved: FolderFormData[] = [];
     const saveFolder = async (d: FolderFormData) => { saved.push(d); return folder({ id: `id-${d.name}`, name: d.name }); };
-    const ctx: ImportCtx = {
+    const ctx = newImportCtx({
       vault_id: "personal", tag: "", skipDupes,
-      existingConnections: [], existingKeys: [], existingIdentities: [], existingSnippets: [], existingPfRules: [],
-      folderEidMap: new Map(), snippetFolderEidMap: new Map(), keyEidMap: new Map(), identityEidMap: new Map(), connectionEidMap: new Map(),
+      existingConnections: [], existingKeys: [], existingIdentities: [], existingSnippets: [], existingPfRules: [], existingFolders,
       stores: { saveFolder, saveSnippetFolder: saveFolder } as unknown as ImportStores,
-    };
+    });
     return { ctx, saved };
   }
 
@@ -110,5 +110,48 @@ describe("runImport — empty folders", () => {
     const { ctx, saved } = ctxOf(true);
     await runImport(bundle, ctx);
     expect(saved).toEqual([]);
+  });
+
+  it("reuses a matching folder the vault already has instead of duplicating it", async () => {
+    const existing = [folder({ id: "have-empty", name: "Empty" }), folder({ id: "have-child", name: "Child", parent_folder_id: "have-empty" })];
+    const { ctx, saved } = ctxOf(false, existing);
+    const result = await runImport(bundle, ctx);
+    expect(saved).toEqual([]);
+    expect(result.imported).toBe(0);
+    expect(ctx.folderEidMap.get("f1")).toBe("have-child");
+  });
+
+  it("does not reuse a same-named folder under a different parent or of another type", async () => {
+    const existing = [folder({ id: "have-empty", name: "Empty", object_type: "keychain" }), folder({ id: "have-child", name: "Child" })];
+    const { ctx, saved } = ctxOf(false, existing);
+    await runImport(bundle, ctx);
+    expect(saved.map((d) => d.name)).toEqual(["Empty", "Child"]);
+  });
+});
+
+describe("importableFolders", () => {
+  const conn = (eid: string, folderEid: string) => ({ _eid: eid, name: eid, host: "h", port: 22, username: "u", _folder_eid: folderEid }) as unknown as ExportBundle["connections"][number];
+  const original: ExportBundle = {
+    version: 1,
+    exported_at: "",
+    folders: [
+      { _eid: "prod", name: "Prod", object_type: "connection" },
+      { _eid: "eu", name: "EU", object_type: "connection", parent_folder_eid: "prod" },
+      { _eid: "dev", name: "Dev", object_type: "connection" },
+      { _eid: "lab", name: "Lab", object_type: "connection" },
+      { _eid: "empty", name: "Empty", object_type: "connection" },
+    ],
+    connections: [conn("c1", "prod"), conn("c2", "dev"), conn("c3", "lab")],
+    identities: [], keys: [], snippets: [], portForwardingRules: [],
+  };
+  const eids = (kept: string[]) =>
+    importableFolders(original, { ...original, connections: original.connections.filter((c) => kept.includes(c._eid!)) }).map((f) => f._eid);
+
+  it("drops folders whose every item was skipped, keeping empty ones and their ancestors", () => {
+    expect(eids([])).toEqual(["prod", "eu", "empty"]);
+  });
+
+  it("keeps the folders of items still being imported", () => {
+    expect(eids(["c3"])).toEqual(["prod", "eu", "lab", "empty"]);
   });
 });

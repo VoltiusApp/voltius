@@ -123,12 +123,26 @@ export interface ImportCtx {
   existingIdentities: Identity[];
   existingSnippets: Snippet[];
   existingPfRules: PortForwardingRule[];
+  existingFolders: Folder[];
   folderEidMap: Map<string, string>;
   snippetFolderEidMap: Map<string, string>;
   keyEidMap: Map<string, string>;
   identityEidMap: Map<string, string>;
   connectionEidMap: Map<string, string>;
   stores: ImportStores;
+}
+
+type EidMapKey = "folderEidMap" | "snippetFolderEidMap" | "keyEidMap" | "identityEidMap" | "connectionEidMap";
+
+export function newImportCtx(base: Omit<ImportCtx, EidMapKey>): ImportCtx {
+  return {
+    ...base,
+    folderEidMap: new Map(),
+    snippetFolderEidMap: new Map(),
+    keyEidMap: new Map(),
+    identityEidMap: new Map(),
+    connectionEidMap: new Map(),
+  };
 }
 
 export function existingConnectionsForVault<T extends { vault_id?: string }>(connections: T[], vault_id: string): T[] {
@@ -155,7 +169,7 @@ export function selectionMethods<T extends VaultItem>(
   key: string,
   labelKey: string,
   slice: (stores: StoreSlices) => T[],
-  folderType: string,
+  folderType: "connection" | "keychain" | "port_forwarding" | "snippet",
 ) {
   const isSnippet = folderType === "snippet";
   return {

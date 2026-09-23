@@ -1,6 +1,7 @@
 import type { ExportBundle, FolderExport, SnippetExport } from "./import-export/formats";
 import { refEids } from "./import-export/snippetRefs";
 import { runImport, reloadAll } from "./import-export/registry";
+import { newImportCtx } from "./import-export/context";
 import { allSnippetsNow, importStoresOf, reloadFnsOf } from "./import-export/storeAccess";
 import type { CatalogEntry } from "./snippetCatalog";
 
@@ -75,17 +76,15 @@ export async function installCatalogEntries(
 ): Promise<{ imported: number; errors: number }> {
   const reloaders = reloadFnsOf();
   try {
-    return await runImport(bundleFromEntries(selections), {
+    return await runImport(bundleFromEntries(selections), newImportCtx({
       vault_id: vaultId,
       tag: "",
       skipDupes: true,
       existingConnections: [], existingKeys: [], existingIdentities: [],
       existingSnippets: allSnippetsNow(),
-      existingPfRules: [],
-      folderEidMap: new Map(), snippetFolderEidMap: new Map(), keyEidMap: new Map(),
-      identityEidMap: new Map(), connectionEidMap: new Map(),
+      existingPfRules: [], existingFolders: [],
       stores: importStoresOf(),
-    });
+    }));
   } finally {
     await reloadAll(reloaders);
   }
