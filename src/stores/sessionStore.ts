@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import type { Connection, TerminalSession, SerialConnectParams } from "@/types";
+import type { Connection, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
 
 /**
  * Auth/username supplied through the connection overlay when a host is missing
@@ -20,7 +20,7 @@ import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
 import { getGlobalKeepalivePreset, resolvePersistSession } from "@/stores/connectivitySettingsStore";
 import { localConnect, localDisconnect } from "@/services/local";
-import { serialConnect, serialDisconnect } from "@/services/serial";
+import { serialConnect, serialDisconnect, serialSetLine } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/ephemeralCredentials";
 import { storeSecret, getSecret } from "@/services/vault";
@@ -65,6 +65,7 @@ interface SessionStore {
    * config, so the user can hand the device to another tool and reopen (#192). */
   closeSerialPort: (sessionId: string) => Promise<void>;
   setSerialAutoReconnect: (sessionId: string, enabled: boolean) => Promise<void>;
+  setSerialLine: (sessionId: string, line: SerialLine, level: boolean) => Promise<void>;
   disconnect: (sessionId: string) => Promise<void>;
   setActive: (sessionId: string) => void;
   markDisconnected: (sessionId: string) => void;
@@ -354,12 +355,7 @@ async function connectSerialSession(
   serialParams: SerialConnectParams,
 ) {
   try {
-    await serialConnect(serialParams);
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
-      ),
-    }));
+    await openSerialPort(set, sessionId, serialParams, { status: "connected" });
     useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
     void runHostCommand(connection, "pre", sessionId, "serial");
   } catch (err) {
@@ -389,23 +385,35 @@ function markSessionError(
   }));
 }
 
-/** Mark a session connecting again, clearing any previous failure. */
-function markSessionConnecting(set: SessionSetter, sessionId: string) {
+function patchSession(set: SessionSetter, sessionId: string, patch: Partial<TerminalSession>) {
   set((s) => ({
-    sessions: s.sessions.map((sess) =>
-      sess.id === sessionId
-        ? { ...sess, status: "connecting" as const, errorMessage: undefined, errorCode: undefined, reconnectWait: undefined }
-        : sess,
-    ),
+    sessions: s.sessions.map((sess) => (sess.id === sessionId ? { ...sess, ...patch } : sess)),
   }));
 }
 
+/** Every open resets DTR/RTS at the OS, so the lines are re-read from each one. */
+async function openSerialPort(
+  set: SessionSetter,
+  sessionId: string,
+  params: SerialConnectParams,
+  patch: Partial<TerminalSession> = {},
+) {
+  const serialLines = await serialConnect(params);
+  patchSession(set, sessionId, { ...patch, serialLines });
+}
+
+/** Mark a session connecting again, clearing any previous failure. */
+function markSessionConnecting(set: SessionSetter, sessionId: string) {
+  patchSession(set, sessionId, {
+    status: "connecting",
+    errorMessage: undefined,
+    errorCode: undefined,
+    reconnectWait: undefined,
+  });
+}
+
 function markSessionDisconnected(set: SessionSetter, sessionId: string) {
-  set((s) => ({
-    sessions: s.sessions.map((sess) =>
-      sess.id === sessionId ? { ...sess, status: "disconnected" as const } : sess,
-    ),
-  }));
+  patchSession(set, sessionId, { status: "disconnected" });
 }
 
 // Auth/username supplied through the overlay, carried across the two-step prompt
@@ -745,33 +753,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   connectSerialEphemeralFinalize: async (sessionId, params) => {
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId
-          ? { ...sess, serialConfig: params, status: "connecting" as const, errorMessage: undefined }
-          : sess,
-      ),
-    }));
+    patchSession(set, sessionId, { serialConfig: params, status: "connecting", errorMessage: undefined });
     try {
-      await serialConnect(params);
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
-        ),
-      }));
+      await openSerialPort(set, sessionId, params, { status: "connected" });
     } catch (err) {
       markSessionError(set, sessionId, err);
     }
   },
 
   resetSerialEphemeral: (sessionId) => {
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId
-          ? { ...sess, serialConfig: undefined, status: "connecting" as const, errorMessage: undefined }
-          : sess,
-      ),
-    }));
+    patchSession(set, sessionId, { serialConfig: undefined, status: "connecting", errorMessage: undefined });
   },
 
   closeSerialPort: async (sessionId) => {
@@ -796,11 +787,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       });
       return;
     }
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, autoReconnect: enabled } : sess,
-      ),
-    }));
+    patchSession(set, sessionId, { autoReconnect: enabled });
+  },
+
+  setSerialLine: async (sessionId, line, level) => {
+    const serialLines = await serialSetLine(sessionId, line, level);
+    patchSession(set, sessionId, { serialLines });
   },
 
   disconnect: async (sessionId) => {
@@ -932,12 +924,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (session.type === "serial" && session.serialConfig) {
       markSessionConnecting(set, sessionId);
       try {
-        await serialConnect(session.serialConfig);
-        set((s) => ({
-          sessions: s.sessions.map((sess) =>
-            sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
-          ),
-        }));
+        await openSerialPort(set, sessionId, session.serialConfig, { status: "connected" });
       } catch (err) {
         markSessionError(set, sessionId, err);
       }
@@ -999,7 +986,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       if (session.type === "serial") {
         if (!session.serialConfig) return { ok: false, errorMessage: i18n.t("common.error.serialPortConfigNotFound") };
-        await serialConnect(session.serialConfig);
+        await openSerialPort(set, sessionId, session.serialConfig);
         const conn = findConnection(session.connectionId);
         if (conn) void runHostCommand(conn, "pre", sessionId, "serial");
         return { ok: true };

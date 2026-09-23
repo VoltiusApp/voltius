@@ -798,6 +798,8 @@ pub fn run() {
             serial::connect::serial_list_ports,
             serial::connect::serial_connect,
             serial::connect::serial_write,
+            serial::connect::serial_set_line,
+            serial::connect::serial_send_break,
             serial::connect::serial_disconnect,
             commands::mcp::mcp_bridge_reply,
             commands::mcp::mcp_consumer_ready,

@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { SerialConnectParams } from "@/types";
+import type { SerialConnectParams, SerialLine, SerialLines } from "@/types";
 
-export async function serialConnect(params: SerialConnectParams): Promise<void> {
+export async function serialConnect(params: SerialConnectParams): Promise<SerialLines> {
   return invoke("serial_connect", {
     sessionId: params.sessionId,
     port: params.port,
@@ -16,6 +16,14 @@ export async function serialConnect(params: SerialConnectParams): Promise<void> 
 
 export async function serialWrite(sessionId: string, data: Uint8Array): Promise<void> {
   return invoke("serial_write", { sessionId, data: Array.from(data) });
+}
+
+export async function serialSetLine(sessionId: string, line: SerialLine, level: boolean): Promise<SerialLines> {
+  return invoke("serial_set_line", { sessionId, line, level });
+}
+
+export async function serialSendBreak(sessionId: string): Promise<void> {
+  return invoke("serial_send_break", { sessionId });
 }
 
 export async function serialDisconnect(sessionId: string): Promise<void> {

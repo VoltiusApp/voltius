@@ -22,7 +22,8 @@ import { getDistroIcon, getDistroColor, getDistroLabel } from "@/utils/icons";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { latencyColor, latencyTone, pingStatusTone } from "@/utils/statusTone";
-import type { ActiveTunnel, SerialConnectParams } from "@/types";
+import type { ActiveTunnel, SerialConnectParams, SerialLine, SerialLines } from "@/types";
+import { serialSendBreak } from "@/services/serial";
 import type { TerminalStatusBarContributionContext } from "@/plugins/api";
 
 interface PfStatePayload {
@@ -121,28 +122,95 @@ const SPARKLINE_MAX = 20;
 const statusBarItemClass = "h-full rounded-none transition-colors hover:bg-(--t-bg-card-hover)";
 const statusBarIdentityGroupClass = "flex items-center h-full";
 
-function StatusBarIconButton({
+function StatusBarButton({
   icon,
+  label,
   title,
   color,
   dimmed,
+  disabled,
   onClick,
 }: {
-  icon: string;
   title: string;
   color: string;
   dimmed?: boolean;
+  disabled?: boolean;
   onClick: () => void;
-}) {
+} & ({ icon: string; label?: never } | { label: string; icon?: never })) {
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
       title={title}
-      className={`items-center px-1 ${statusBarItemClass}`}
-      style={{ color, display: "flex", alignItems: "center", opacity: dimmed ? 0.45 : 1 }}
+      aria-disabled={disabled}
+      className={`items-center px-1 ${statusBarItemClass} aria-disabled:cursor-default aria-disabled:hover:bg-transparent`}
+      style={{
+        color,
+        display: "flex",
+        alignItems: "center",
+        opacity: disabled ? 0.25 : dimmed ? 0.45 : 1,
+        fontFamily: label ? "var(--font-mono)" : undefined,
+        fontSize: label ? 10 : undefined,
+        letterSpacing: label ? "0.04em" : undefined,
+      }}
     >
-      <Icon icon={icon} width={11} />
+      {icon ? <Icon icon={icon} width={11} /> : label}
     </button>
+  );
+}
+
+const SERIAL_LINES: SerialLine[] = ["dtr", "rts"];
+
+function SerialLineControls({
+  sessionId,
+  lines,
+  rtsFlowControlled,
+  disabled,
+}: {
+  sessionId: string;
+  lines: SerialLines | undefined;
+  rtsFlowControlled: boolean;
+  disabled: boolean;
+}) {
+  const { t } = useTranslation();
+  const setSerialLine = useSessionStore((s) => s.setSerialLine);
+  const [breaking, setBreaking] = useState(false);
+
+  const sendBreak = () => {
+    setBreaking(true);
+    serialSendBreak(sessionId)
+      .catch(() => {})
+      .finally(() => setBreaking(false));
+  };
+
+  return (
+    <>
+      {SERIAL_LINES.map((line) => {
+        const on = lines?.[line] ?? false;
+        const label = line.toUpperCase();
+        const flowControlled = line === "rts" && rtsFlowControlled;
+        return (
+          <StatusBarButton
+            key={line}
+            label={label}
+            title={
+              flowControlled
+                ? t("terminal.statusBar.serialRtsFlowControlled")
+                : t(on ? "terminal.statusBar.serialLineOn" : "terminal.statusBar.serialLineOff", { line: label })
+            }
+            color={on ? "var(--t-accent)" : "var(--t-text-dim)"}
+            disabled={disabled || flowControlled}
+            onClick={() => void setSerialLine(sessionId, line, !on).catch(() => {})}
+          />
+        );
+      })}
+      <StatusBarButton
+        label="BRK"
+        title={t("terminal.statusBar.serialBreak")}
+        color={breaking ? "var(--t-accent)" : "var(--t-text-dim)"}
+        disabled={disabled || breaking}
+        onClick={sendBreak}
+      />
+    </>
   );
 }
 
@@ -658,7 +726,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                 </span>
               </div>
               {isDisconnectedOrError && (
-                <StatusBarIconButton
+                <StatusBarButton
                   icon="lucide:rotate-ccw"
                   title={t("terminal.statusBar.reconnectTitle")}
                   color="var(--t-status-error)"
@@ -742,7 +810,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
               >
                 {copied ? t("terminal.statusBar.copiedBang") : (serialConfig ? `${serialConfig.port} · ${serialConfig.baud} baud` : t("terminal.statusBar.serialFallback"))}
               </span>
-              <StatusBarIconButton
+              <StatusBarButton
                 icon={isDisconnectedOrError ? "lucide:plug" : "lucide:unplug"}
                 title={isDisconnectedOrError ? t("terminal.statusBar.serialReopen") : t("terminal.statusBar.serialClose")}
                 color={isDisconnectedOrError ? "var(--t-status-error)" : "var(--t-text-dim)"}
@@ -750,12 +818,18 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                   void (isDisconnectedOrError ? reconnect(sessionId) : closeSerialPort(sessionId))
                 }
               />
-              <StatusBarIconButton
+              <StatusBarButton
                 icon={serialAutoReconnect ? "lucide:refresh-cw" : "lucide:refresh-cw-off"}
                 title={serialAutoReconnect ? t("terminal.statusBar.serialAutoReconnectOn") : t("terminal.statusBar.serialAutoReconnectOff")}
                 color="var(--t-text-dim)"
                 dimmed={!serialAutoReconnect}
                 onClick={() => void setSerialAutoReconnect(sessionId, !serialAutoReconnect)}
+              />
+              <SerialLineControls
+                sessionId={sessionId}
+                lines={session?.serialLines}
+                rtsFlowControlled={serialConfig?.flowControl === "rts-cts"}
+                disabled={sessionStatus !== "connected"}
               />
             </>
           )}

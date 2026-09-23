@@ -12,7 +12,8 @@ const connection = {
 const h = vi.hoisted(() => ({
   statusWhenReleased: [] as (string | undefined)[],
   serialDisconnect: vi.fn(async () => {}),
-  serialConnect: vi.fn(async () => {}),
+  serialConnect: vi.fn(async () => ({ dtr: true, rts: true })),
+  serialSetLine: vi.fn(async () => ({ dtr: true, rts: true })),
   cancelBackoff: vi.fn(),
   updateConnection: vi.fn(async () => {}),
 }));
@@ -20,6 +21,7 @@ const h = vi.hoisted(() => ({
 vi.mock("@/services/serial", () => ({
   serialConnect: h.serialConnect,
   serialDisconnect: h.serialDisconnect,
+  serialSetLine: h.serialSetLine,
   serialListPorts: vi.fn(async () => []),
 }));
 vi.mock("@/services/ssh", () => ({
@@ -138,5 +140,47 @@ describe("setSerialAutoReconnect", () => {
     await useSessionStore.getState().setSerialAutoReconnect("s1", false);
 
     expect(current()?.autoReconnect).toBe(false);
+  });
+});
+
+describe("serial DTR/RTS lines", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // The OS resets both lines on every open, so a DTR dropped before a reopen
+  // must not keep showing as dropped.
+  test("reopening the port replaces the lines toggled on the previous open", async () => {
+    seed({ status: "disconnected", serialLines: { dtr: false, rts: false } });
+    await useSessionStore.getState().reconnect("s1");
+
+    expect(current()?.status).toBe("connected");
+    expect(current()?.serialLines).toEqual({ dtr: true, rts: true });
+  });
+
+  test("the auto-reconnect attempt re-reads the lines too", async () => {
+    seed({ status: "disconnected", serialLines: { dtr: false, rts: false } });
+    h.serialConnect.mockResolvedValueOnce({ dtr: false, rts: true });
+
+    const result = await useSessionStore.getState().reconnectAttempt("s1");
+
+    expect(result.ok).toBe(true);
+    expect(current()?.serialLines).toEqual({ dtr: false, rts: true });
+  });
+
+  test("a toggle stores the lines the backend reports", async () => {
+    seed({ serialLines: { dtr: true, rts: true } });
+    h.serialSetLine.mockResolvedValueOnce({ dtr: false, rts: true });
+
+    await useSessionStore.getState().setSerialLine("s1", "dtr", false);
+
+    expect(h.serialSetLine).toHaveBeenCalledWith("s1", "dtr", false);
+    expect(current()?.serialLines).toEqual({ dtr: false, rts: true });
+  });
+
+  test("a failed toggle leaves the displayed lines unchanged", async () => {
+    seed({ serialLines: { dtr: true, rts: true } });
+    h.serialSetLine.mockRejectedValueOnce(new Error("Inappropriate ioctl for device"));
+
+    await expect(useSessionStore.getState().setSerialLine("s1", "rts", false)).rejects.toThrow();
+    expect(current()?.serialLines).toEqual({ dtr: true, rts: true });
   });
 });
