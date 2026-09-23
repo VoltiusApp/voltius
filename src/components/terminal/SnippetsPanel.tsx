@@ -567,10 +567,8 @@ export function SnippetsPanel() {
 
         {/* Folder sections */}
         {folders.map((folder) => {
-          const folderSnippets = hasQuery
-            ? allFiltered.filter((s) => s.folder_id === folder.id)
-            : byFolder.get(folder.id) ?? [];
-          if (folderSnippets.length === 0 && !hasQuery) return null;
+          const folderSnippets = byFolder.get(folder.id) ?? [];
+          if (folderSnippets.length === 0) return null;
           const isCollapsed = collapsedFolders.has(folder.id);
           return (
             <div key={folder.id}>
