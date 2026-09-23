@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use serialport::FlowControl;
+use serialport::{FlowControl, SerialPort};
 
 use super::connect::{
     generation_is_current, send_break, set_line, with_session, SerialLine, SerialLines,
@@ -40,6 +40,24 @@ fn a_removed_session_is_no_longer_current() {
     manager.remove("s1");
 
     assert!(!generation_is_current(&manager.sessions, "s1", generation));
+}
+
+// Process exit closes fds without TIOCNXCL, and a pty keeps that flag while its master lives.
+#[test]
+fn releasing_every_session_lets_the_device_be_opened_again() {
+    let (_master, slave) = serialport::TTYPort::pair().expect("pty pair");
+    let path = slave.name().expect("slave path");
+    let open = || serialport::new(&path, 115_200).open();
+    let manager = SerialSessionManager::new();
+    manager.insert("s1", open().expect("first open"), LINES);
+    assert!(
+        open().is_err(),
+        "an exclusive port must refuse a second open"
+    );
+
+    manager.release_all();
+
+    assert!(open().is_ok());
 }
 
 #[test]
