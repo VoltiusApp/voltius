@@ -236,15 +236,16 @@ pub async fn sftp_extract(
 
 // ── Tar-based directory transfer ──────────────────────────────────────────────
 
-/// True if `tar` is available on the remote host.
+/// True if the remote runs a POSIX shell with `tar` and the `/tmp` the archive is staged in.
 #[tauri::command]
 pub async fn sftp_tar_available(
     sftp_state: State<'_, SftpManager>,
     sftp_id: String,
 ) -> Result<bool, String> {
-    let cmd = "command -v tar >/dev/null 2>&1; echo __TF_EXIT__:$?".to_string();
-    Ok(sftp_state.exec_command(&sftp_id, &cmd).await.is_ok())
+    Ok(sftp_state.exec_probe(&sftp_id, TAR_PROBE_CMD).await)
 }
+
+const TAR_PROBE_CMD: &str = "command -v tar >/dev/null 2>&1 && test -d /tmp; echo __TF_EXIT__:$?";
 
 /// Archive `names` (relative to `local_parent`) locally, upload the archive, and
 /// extract it into `remote_dir`. Shared by the batch and whole-directory uploads,
