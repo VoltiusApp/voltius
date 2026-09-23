@@ -207,6 +207,10 @@ export interface SerialConnectParams {
   flowControl?: string;
 }
 
+export type SerialLine = "dtr" | "rts";
+
+export type SerialLines = Record<SerialLine, boolean>;
+
 export interface TerminalSession {
   id: string;
   connectionId: string;
@@ -230,6 +234,8 @@ export interface TerminalSession {
   encoding?: string;
   localShell?: string;
   serialConfig?: SerialConnectParams;
+  /** Serial only: DTR/RTS as last set on the currently open port. */
+  serialLines?: SerialLines;
   /** Serial only, ephemeral sessions: the auto-reconnect preference has no
    * connection to live on, so it is held here for the session's lifetime. */
   autoReconnect?: boolean;

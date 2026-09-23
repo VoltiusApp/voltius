@@ -10,6 +10,40 @@ use tauri::{AppHandle, Emitter};
 pub(super) struct SerialSession {
     generation: u64,
     port: Box<dyn serialport::SerialPort>,
+    pub(super) lines: SerialLines,
+}
+
+const BREAK_DURATION: Duration = Duration::from_millis(250);
+
+#[derive(serde::Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SerialLines {
+    pub dtr: bool,
+    pub rts: bool,
+}
+
+impl SerialLines {
+    // The crate cannot read output lines back. A POSIX tty raises both on open; the
+    // Windows backend clears DTR and raises RTS only for hardware flow control.
+    pub(super) fn on_open(windows: bool, flow_control: serialport::FlowControl) -> Self {
+        if windows {
+            Self {
+                dtr: false,
+                rts: flow_control == serialport::FlowControl::Hardware,
+            }
+        } else {
+            Self {
+                dtr: true,
+                rts: true,
+            }
+        }
+    }
+}
+
+#[derive(serde::Deserialize, Clone, Copy, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum SerialLine {
+    Dtr,
+    Rts,
 }
 
 pub(super) type SessionMap = HashMap<String, SerialSession>;
@@ -29,18 +63,70 @@ impl SerialSessionManager {
 
     /// Registers a freshly opened port under `session_id`, replacing whatever
     /// was there, and hands back the generation identifying this open.
-    pub(super) fn insert(&self, session_id: &str, port: Box<dyn serialport::SerialPort>) -> u64 {
+    pub(super) fn insert(
+        &self,
+        session_id: &str,
+        port: Box<dyn serialport::SerialPort>,
+        lines: SerialLines,
+    ) -> u64 {
         let generation = self.next_generation.fetch_add(1, Ordering::Relaxed);
-        self.sessions
-            .lock()
-            .unwrap()
-            .insert(session_id.to_string(), SerialSession { generation, port });
+        self.sessions.lock().unwrap().insert(
+            session_id.to_string(),
+            SerialSession {
+                generation,
+                port,
+                lines,
+            },
+        );
         generation
     }
 
     pub(super) fn remove(&self, session_id: &str) {
         self.sessions.lock().unwrap().remove(session_id);
     }
+}
+
+pub(super) fn with_session<T>(
+    sessions: &Mutex<SessionMap>,
+    session_id: &str,
+    f: impl FnOnce(&mut SerialSession) -> Result<T, String>,
+) -> Result<T, String> {
+    let mut sessions = sessions.lock().unwrap();
+    let session = sessions
+        .get_mut(session_id)
+        .ok_or("Serial session not found")?;
+    f(session)
+}
+
+pub(super) fn set_line(
+    sessions: &Mutex<SessionMap>,
+    session_id: &str,
+    line: SerialLine,
+    level: bool,
+) -> Result<SerialLines, String> {
+    with_session(sessions, session_id, |session| {
+        let SerialSession { port, lines, .. } = session;
+        let (written, slot) = match line {
+            SerialLine::Dtr => (port.write_data_terminal_ready(level), &mut lines.dtr),
+            SerialLine::Rts => (port.write_request_to_send(level), &mut lines.rts),
+        };
+        written.map_err(|e| e.to_string())?;
+        *slot = level;
+        Ok(*lines)
+    })
+}
+
+// Holds the map lock for the whole break so no write can interleave with it.
+pub(super) fn send_break(
+    sessions: &Mutex<SessionMap>,
+    session_id: &str,
+    duration: Duration,
+) -> Result<(), String> {
+    with_session(sessions, session_id, |session| {
+        session.port.set_break().map_err(|e| e.to_string())?;
+        thread::sleep(duration);
+        session.port.clear_break().map_err(|e| e.to_string())
+    })
 }
 
 /// Whether `generation` still owns `session_id`.
@@ -123,7 +209,7 @@ pub fn serial_connect(
     parity: Option<String>,
     stop_bits: Option<u8>,
     flow_control: Option<String>,
-) -> Result<(), String> {
+) -> Result<SerialLines, String> {
     let _ = app.emit(
         &format!("serial-step-{}", session_id),
         serde_json::json!({ "step": "open_port", "detail": "" }),
@@ -160,7 +246,8 @@ pub fn serial_connect(
         .map_err(|e| e.to_string())?;
 
     let read_port = serial.try_clone().map_err(|e| e.to_string())?;
-    let generation = state.insert(&session_id, serial);
+    let lines = SerialLines::on_open(cfg!(windows), flow_control_val);
+    let generation = state.insert(&session_id, serial, lines);
 
     // Spawn read loop thread
     let app_clone = app.clone();
@@ -197,7 +284,7 @@ pub fn serial_connect(
         serde_json::json!({ "step": "ready", "detail": "" }),
     );
 
-    Ok(())
+    Ok(lines)
 }
 
 #[tauri::command]
@@ -206,11 +293,30 @@ pub fn serial_write(
     session_id: String,
     data: Vec<u8>,
 ) -> Result<(), String> {
-    let mut sessions = state.sessions.lock().unwrap();
-    let session = sessions
-        .get_mut(&session_id)
-        .ok_or("Serial session not found")?;
-    session.port.write_all(&data).map_err(|e| e.to_string())
+    with_session(&state.sessions, &session_id, |session| {
+        session.port.write_all(&data).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn serial_set_line(
+    state: tauri::State<'_, SerialSessionManager>,
+    session_id: String,
+    line: SerialLine,
+    level: bool,
+) -> Result<SerialLines, String> {
+    set_line(&state.sessions, &session_id, line, level)
+}
+
+#[tauri::command]
+pub async fn serial_send_break(
+    state: tauri::State<'_, SerialSessionManager>,
+    session_id: String,
+) -> Result<(), String> {
+    let sessions = Arc::clone(&state.sessions);
+    tauri::async_runtime::spawn_blocking(move || send_break(&sessions, &session_id, BREAK_DURATION))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
