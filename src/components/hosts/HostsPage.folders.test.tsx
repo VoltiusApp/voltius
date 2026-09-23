@@ -424,3 +424,10 @@ test("a host selected alongside its folder is not counted twice in the delete wa
   act(() => { h.bulkOnDelete!(["root", "c-in"]); });
   expect(lastModal().message).toBe('hosts.page.confirmDelete.message:{"count":2}');
 });
+
+test("an empty folder stays listed when the vault has no hosts", () => {
+  h.folders = [folder("empty")];
+  h.visibleFolders = h.folders;
+  render(<HostsPage />);
+  expect(h.folderCardProps.map((p) => (p.folder as Folder).id)).toContain("empty");
+});

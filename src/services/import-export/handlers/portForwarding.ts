@@ -9,7 +9,7 @@ export const portForwardingHandler: DataTypeHandler = {
   label: "Port Forwarding",
   jsonOnly: true,
 
-  ...selectionMethods<PortForwardingRule>("portForwardingRules", "portForwarding", s => s.pfRules),
+  ...selectionMethods<PortForwardingRule>("portForwardingRules", "portForwarding", s => s.pfRules, "port_forwarding"),
 
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     bundle.portForwardingRules = (items as PortForwardingRule[]).map((r, i): PortForwardingRuleExport => ({

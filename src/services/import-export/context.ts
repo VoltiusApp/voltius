@@ -150,13 +150,14 @@ export function inVaults<T extends VaultItem>(items: T[], vaultIds: string[]): T
 
 // The five selection/count methods every DataTypeHandler spells identically.
 // `labelKey` is the i18n suffix (only portForwarding differs from the handler
-// key) and `folderSet` picks which eid set the type's folders belong to.
+// key) and `folderType` is the `object_type` of the folders this type lives in.
 export function selectionMethods<T extends VaultItem>(
   key: string,
   labelKey: string,
   slice: (stores: StoreSlices) => T[],
-  folderSet: "main" | "snippet" = "main",
+  folderType: string,
 ) {
+  const isSnippet = folderType === "snippet";
   return {
     isActive(s: SelectionProps) {
       return handlerActive(key, s);
@@ -173,8 +174,14 @@ export function selectionMethods<T extends VaultItem>(
       return inVaults(slice(stores), vaultIds).filter((i) => ids === null || ids.includes(i.id));
     },
     accumulateFolderIds(items: unknown[], main: Set<string>, snippet: Set<string>) {
-      const target = folderSet === "snippet" ? snippet : main;
+      const target = isSnippet ? snippet : main;
       for (const i of items as T[]) if (i.folder_id) target.add(i.folder_id);
+    },
+    accumulateVaultFolderIds(stores: StoreSlices, vaultIds: string[], main: Set<string>, snippet: Set<string>) {
+      const target = isSnippet ? snippet : main;
+      for (const f of inVaults(isSnippet ? stores.snippetFolders : stores.folders, vaultIds)) {
+        if (f.object_type === folderType) target.add(f.id);
+      }
     },
   };
 }

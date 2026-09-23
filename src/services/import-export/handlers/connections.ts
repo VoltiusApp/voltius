@@ -12,7 +12,7 @@ export const connectionsHandler: DataTypeHandler = {
   label: "Connections",
   jsonOnly: false,
 
-  ...selectionMethods<Connection>("connections", "connections", s => s.connections),
+  ...selectionMethods<Connection>("connections", "connections", s => s.connections, "connection"),
 
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     const connections = items as Connection[];

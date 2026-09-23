@@ -2,7 +2,7 @@ import { getSecret } from "@/services/vault";
 import type { Connection, Folder, PortForwardingRule } from "@/types";
 import type { ExportBundle, FolderExport } from "./formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "./context";
-import { existingConnectionsForVault } from "./context";
+import { existingConnectionsForVault, hasSelection } from "./context";
 import type { DataTypeHandler } from "./handler";
 import { keysHandler } from "./handlers/keys";
 import { identitiesHandler } from "./handlers/identities";
@@ -128,6 +128,7 @@ export async function buildBundle(
   const snippetFolderIds = new Set<string>();
   for (const h of HANDLERS) {
     h.accumulateFolderIds(selectedByKey[h.key], mainFolderIds, snippetFolderIds);
+    if (enabled[h.key] && !hasSelection(selection)) h.accumulateVaultFolderIds(stores, vaultIds, mainFolderIds, snippetFolderIds);
   }
 
   // 3. Walk parent chains
@@ -247,9 +248,9 @@ export async function runImport(
   let imported = 0;
   let errors = 0;
 
-  // 1. Folders — only create those referenced by items that will actually be imported
-  const needed = neededFolderEids(bundle, ctx);
-  const pending = bundle.folders.filter(f => needed.has(f._eid));
+  // 1. Folders — deduplicating keeps only those an imported item lives in
+  const needed = ctx.skipDupes ? neededFolderEids(bundle, ctx) : null;
+  const pending = bundle.folders.filter(f => !needed || needed.has(f._eid));
   let maxPasses = pending.length + 1;
   while (pending.length > 0 && maxPasses-- > 0) {
     const remaining: FolderExport[] = [];
