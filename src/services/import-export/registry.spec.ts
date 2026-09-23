@@ -122,6 +122,17 @@ describe("runImport — empty folders", () => {
     expect(ctx.folderEidMap.get("f1")).toBe("have-child");
   });
 
+  it("puts an imported item into the existing folder it matches", async () => {
+    const existing = [folder({ id: "have-empty", name: "Empty", parent_folder_id: null as unknown as undefined })];
+    const { ctx, saved } = ctxOf(false, existing);
+    const conns: { folder_id?: string }[] = [];
+    ctx.stores.saveConnection = async (d) => { conns.push(d); return conn({ id: "c-new", ...d } as Partial<Connection>); };
+    const withHost = { ...bundle, connections: [{ _eid: "c0", name: "h", host: "h", port: 22, username: "u", auth_type: "password", tags: [], _folder_eid: "f0" }] } as unknown as ExportBundle;
+    await runImport(withHost, ctx);
+    expect(saved.map((d) => d.name)).toEqual(["Child"]);
+    expect(conns.map((c) => c.folder_id)).toEqual(["have-empty"]);
+  });
+
   it("does not reuse a same-named folder under a different parent or of another type", async () => {
     const existing = [folder({ id: "have-empty", name: "Empty", object_type: "keychain" }), folder({ id: "have-child", name: "Child" })];
     const { ctx, saved } = ctxOf(false, existing);

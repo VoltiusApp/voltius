@@ -274,9 +274,9 @@ export async function runImport(
   let imported = 0;
   let errors = 0;
 
-  // 1. Folders — one no imported item needs is reused when the vault already has it
-  const needed = neededFolderEids(bundle, ctx);
-  const pending = bundle.folders.filter(f => !ctx.skipDupes || needed.has(f._eid));
+  // 1. Folders — reused when the vault already has one of the same name, type and parent
+  const needed = ctx.skipDupes ? neededFolderEids(bundle, ctx) : null;
+  const pending = bundle.folders.filter(f => !needed || needed.has(f._eid));
   let maxPasses = pending.length + 1;
   while (pending.length > 0 && maxPasses-- > 0) {
     const remaining: FolderExport[] = [];
@@ -286,7 +286,7 @@ export async function runImport(
       if (!folder.parent_folder_eid || parentMap.has(folder.parent_folder_eid)) {
         try {
           const parentId = folder.parent_folder_eid ? parentMap.get(folder.parent_folder_eid) : undefined;
-          const existing = needed.has(folder._eid) ? undefined : matchingFolder(ctx, folder, parentId);
+          const existing = matchingFolder(ctx, folder, parentId);
           if (existing) {
             parentMap.set(folder._eid, existing.id);
             continue;
