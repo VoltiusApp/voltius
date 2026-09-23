@@ -230,10 +230,6 @@
         "openingPort": "Port açılıyor",
         "ready": "Hazır"
       },
-      "connectionLost": {
-        "title": "Bağlantı koptu",
-        "subtitle": "Yeniden bağlanılıyor…"
-      },
       "reconnectWait": {
         "offline": {
           "title": "Çevrimdışısınız",

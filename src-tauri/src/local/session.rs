@@ -5,14 +5,33 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tauri::AppHandle;
 use tokio::sync;
 
 pub struct LocalSession {
     pub input_tx: std::sync::mpsc::SyncSender<Vec<u8>>,
     pub master: Arc<Mutex<Box<dyn portable_pty::MasterPty + Send>>>,
-    pub child: Arc<Mutex<Box<dyn portable_pty::Child + Send + Sync>>>,
+    pub child: SharedChild,
     pub tempfiles: Vec<PathBuf>,
+}
+
+type SharedChild = Arc<Mutex<Box<dyn portable_pty::Child + Send + Sync>>>;
+
+const EXIT_REAP_WAIT: Duration = Duration::from_secs(2);
+
+// The pty can hit EOF just before the child is reaped; an unknown status counts
+// as unclean so the tab stays open with whatever the shell printed.
+pub(crate) fn exited_cleanly(child: &SharedChild, wait: Duration) -> bool {
+    let deadline = Instant::now() + wait;
+    loop {
+        match child.lock().unwrap().try_wait() {
+            Ok(Some(status)) => return status.success(),
+            Ok(None) if Instant::now() < deadline => {}
+            _ => return false,
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
 }
 
 pub struct LocalSessionManager {
@@ -172,12 +191,13 @@ impl LocalSessionManager {
         // the banner and first prompt survive a listener that isn't up yet.
         let gate = self.gate(&session_id);
         let app_r = app.clone();
+        let child_r = Arc::clone(&child);
         std::thread::spawn(move || {
             let mut buf = vec![0u8; 8192];
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) | Err(_) => {
-                        gate.closed(&app_r);
+                        gate.closed(&app_r, exited_cleanly(&child_r, EXIT_REAP_WAIT));
                         break;
                     }
                     Ok(n) => {
@@ -245,5 +265,41 @@ impl LocalSessionManager {
             shell_integration::cleanup(&s.tempfiles);
         }
         Ok(())
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    // The master is returned so it outlives the child: dropping it hangs the
+    // pty up and the child dies of SIGHUP before running its script.
+    fn spawn_sh(script: &str) -> (Box<dyn portable_pty::MasterPty + Send>, SharedChild) {
+        let pair = native_pty_system()
+            .openpty(PtySize::default())
+            .expect("openpty");
+        let mut cmd = CommandBuilder::new("sh");
+        cmd.args(["-c", script]);
+        let child = pair.slave.spawn_command(cmd).expect("spawn sh");
+        (pair.master, Arc::new(Mutex::new(child)))
+    }
+
+    #[test]
+    fn a_zero_exit_is_clean() {
+        let (_master, child) = spawn_sh("exit 0");
+        assert!(exited_cleanly(&child, Duration::from_secs(5)));
+    }
+
+    #[test]
+    fn a_failing_shell_is_not_clean() {
+        let (_master, child) = spawn_sh("exit 3");
+        assert!(!exited_cleanly(&child, Duration::from_secs(5)));
+    }
+
+    #[test]
+    fn a_child_still_running_when_the_wait_ends_is_not_clean() {
+        let (_master, child) = spawn_sh("sleep 5");
+        assert!(!exited_cleanly(&child, Duration::from_millis(100)));
+        let _ = child.lock().unwrap().kill();
     }
 }

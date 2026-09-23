@@ -240,10 +240,6 @@
         "openingPort": "Открытие порта",
         "ready": "Готово"
       },
-      "connectionLost": {
-        "title": "Соединение потеряно",
-        "subtitle": "Переподключение…"
-      },
       "reconnectWait": {
         "offline": {
           "title": "Нет подключения к сети",

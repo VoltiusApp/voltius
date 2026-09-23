@@ -1,16 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { SLOW_RETRY_MS, type ReconnectWait } from "@/stores/reconnectBackoffCore";
 
-export function ConnectionLostPanel() {
-  const { t } = useTranslation();
-  return (
-    <div className="w-full p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-center">
-      <p className="text-yellow-400 text-sm font-medium">{t("terminal.overlay.connectionLost.title")}</p>
-      <p className="text-text-muted text-xs mt-1">{t("terminal.overlay.connectionLost.subtitle")}</p>
-    </div>
-  );
-}
-
 function PanelActions({
   retryLabel,
   onRetry,

@@ -1105,9 +1105,9 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       if (sessionType === "local") {
         const localListeners = [
           onLocalOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
-          onLocalClosed(sessionId, () => {
+          onLocalClosed(sessionId, (cleanExit) => {
             term.write("\r\n\x1b[90m--- Session closed ---\x1b[0m\r\n");
-            entry.onClosedRef.current?.(false);
+            entry.onClosedRef.current?.(cleanExit);
           }),
         ];
         unlistenPromises.push(...localListeners);

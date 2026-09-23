@@ -1,5 +1,5 @@
 import { ConnectionHeader } from "./ConnectionHeader";
-import { ConnectionErrorPanel, ConnectionLostPanel, ReconnectWaitPanel } from "./ConnectionStatusPanel";
+import { ConnectionErrorPanel, ReconnectWaitPanel } from "./ConnectionStatusPanel";
 import { ConnectionSteps } from "./ConnectionSteps";
 import { HostKeyConflictPanel } from "./HostKeyConflictPanel";
 import { PassphrasePromptPanel } from "./PassphrasePromptPanel";
@@ -40,7 +40,6 @@ export default function ConnectionOverlay({
   if (!visible) return null;
 
   const isError = status === "error";
-  const isDisconnected = status === "disconnected";
   const isConnecting = status === "connecting";
   // Outranks the message-based prompts: the credentials are stored, just unreadable.
   const showVaultError = isError && !!errorCode;
@@ -85,8 +84,6 @@ export default function ConnectionOverlay({
         ) : (
           <>
             <ConnectionSteps steps={steps} />
-
-            {isDisconnected && <ConnectionLostPanel />}
 
             {isConnecting && reconnectWait && (
               <ReconnectWaitPanel wait={reconnectWait} onRetryNow={onRetryNow} onDismiss={onDismiss} />

@@ -313,6 +313,16 @@ await (async () => {
   handleSessionClosed("local", "s1", deps("connected"));
   assertEqual(calls, ["disconnect"], "local close marks disconnected without reconnecting");
 
+  // `exit` with status 0 closes the tab like it does over ssh; a shell that
+  // fails (broken rc file, bad shell path) keeps the tab so its error stays readable.
+  calls.length = 0;
+  handleSessionClosed("local", "s1", deps("connected"), true);
+  assertEqual(calls, ["end"], "a clean local exit ends the session");
+
+  calls.length = 0;
+  handleSessionClosed("local", "s1", deps("connected"), false);
+  assertEqual(calls, ["disconnect"], "a failed local exit keeps the tab");
+
   // Auto-reconnect turned off for this serial device (#192): a drop must leave
   // the port free — the loop would otherwise reclaim /dev/ttyUSB0 every 10s and
   // fight the flashing tool the user just started.

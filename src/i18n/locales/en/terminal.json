@@ -230,10 +230,6 @@
         "openingPort": "Opening port",
         "ready": "Ready"
       },
-      "connectionLost": {
-        "title": "Connection lost",
-        "subtitle": "Reconnecting…"
-      },
       "reconnectWait": {
         "offline": {
           "title": "You're offline",

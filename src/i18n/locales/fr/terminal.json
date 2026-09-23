@@ -230,10 +230,6 @@
         "openingPort": "Ouverture du port",
         "ready": "Prêt"
       },
-      "connectionLost": {
-        "title": "Connexion perdue",
-        "subtitle": "Reconnexion…"
-      },
       "reconnectWait": {
         "offline": {
           "title": "Vous êtes hors ligne",

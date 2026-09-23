@@ -57,10 +57,6 @@ const PLACEHOLDER_PAGES: Record<string, { icon: string; title: string; descripti
 
 export default function MainPanel() {
   const { sessions, activeSessionId } = useSessionStore();
-  const reconnect = useSessionStore((s) => s.reconnect);
-  const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
-  const retryConnect = useSessionStore((s) => s.retryConnect);
-  const removeSession = useSessionStore((s) => s.removeSession);
   const homeView = useUIStore((s) => s.homeView);
   const activeNav = useUIStore((s) => s.activeNav);
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
@@ -142,15 +138,7 @@ export default function MainPanel() {
                       !showSplitWorkspace && session.id === activeSessionId ? "z-10" : "z-0 invisible"
                     }`}
                   >
-                    {(session.status === "connecting" || session.status === "error" || session.status === "disconnected") && session.type !== "multiplayer" && (
-                      <SessionConnectionOverlay
-                        session={session}
-                        onDismiss={() => removeSession(session.id)}
-                        onRetry={(session.type === "ssh" || session.type === "serial") ? () => reconnect(session.id) : undefined}
-                        onRetryWithPassphrase={session.type === "ssh" ? (passphrase, save) => void reconnectWithPassphrase(session.id, passphrase, save) : undefined}
-                        onRetryWithAuth={session.type === "ssh" ? (override, save) => void retryConnect(session.id, override, save) : undefined}
-                      />
-                    )}
+                    <SessionConnectionOverlay session={session} />
                     {session.type === "multiplayer" ? (
                       <div className="absolute inset-0 flex flex-col">
                         <MultiplayerTerminalView
