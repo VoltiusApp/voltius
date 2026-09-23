@@ -26,8 +26,12 @@
       "showPreview": "显示预览",
       "selectedItem_one": "已选择 {{count}} 个项目",
       "selectedItem_other": "已选择 {{count}} 个项目",
-      "autoIncludeIdentity": "{{count}} 个身份",
-      "autoIncludeKey": "{{count}} 个密钥",
+      "autoInclude": {
+        "connections_other": "{{count}} 个连接",
+        "identities_other": "{{count}} 个身份",
+        "keys_other": "{{count}} 个密钥"
+      },
+      "autoIncludeHint": "同时包含：被导出的项目所引用，以确保导入后仍可正常使用",
       "checkboxLabel": {
         "connections_one": "连接 ({{count}})",
         "connections_other": "连接 ({{count}})",

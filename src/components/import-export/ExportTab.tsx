@@ -12,11 +12,15 @@ import type { ExportBundle } from "@/services/import-export/formats";
 import { HANDLERS, buildBundle } from "@/services/import-export/registry";
 import { useStoreSlices } from "./useStores";
 import type { SelectionProps } from "@/services/import-export/context";
-import { hasSelection, isSingleSelection } from "@/services/import-export/context";
+import { handlerActive, hasSelection } from "@/services/import-export/context";
 import { SnippetRefError } from "@/services/import-export/snippetRefs";
 import { ActionBtn, Checkbox, VaultChipSelect } from "./shared";
 import { Toggle } from "@/components/shared/Toggle";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
+import { saveTextFile } from "@/services/saveFile";
+
+// Types buildBundle pulls in on its own when exported items reference them.
+const CASCADED_KEYS = ["connections", "identities", "keys"];
 
 export function ExportTab({ selection, preselectedTypes }: {
   selection: SelectionProps;
@@ -129,20 +133,12 @@ export function ExportTab({ selection, preselectedTypes }: {
 
   const handleDownload = async () => {
     const { content, ext } = await getExportContent();
-    const blob = new Blob([content], { type: ext === "csv" ? "text/csv" : "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `voltius-export.${ext}`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await saveTextFile(`voltius-export.${ext}`, content);
   };
 
-  const autoIncludes: string[] = [];
-  if (isSingleItem && !isCsvOnly) {
-    if ((bundleCounts["identities"] ?? 0) > 0 && !isSingleSelection("identities", selection)) autoIncludes.push(t("importExport.export.autoIncludeIdentity", { count: bundleCounts["identities"] }));
-    if ((bundleCounts["keys"] ?? 0) > 0 && !isSingleSelection("keys", selection)) autoIncludes.push(t("importExport.export.autoIncludeKey", { count: bundleCounts["keys"] }));
-  }
+  const autoIncludes = isCsvOnly ? [] : CASCADED_KEYS
+    .filter(key => (bundleCounts[key] ?? 0) > 0 && !(included[key] && handlerActive(key, selection)))
+    .map(key => t(`importExport.export.autoInclude.${key}`, { count: bundleCounts[key] }));
 
   return (
     <div className="flex flex-col gap-5 h-full">
@@ -162,9 +158,9 @@ export function ExportTab({ selection, preselectedTypes }: {
             {HANDLERS.map(h => {
               if (!h.isActive(selection)) return null;
               const available = h.countAvailable(stores, exportVaultIds);
-              const bundled = bundleCounts[h.key];
-              const displayCount = bundled !== undefined ? bundled : available;
               const disabled = h.jsonOnly && isCsvOnly;
+              const bundled = included[h.key] && !disabled ? bundleCounts[h.key] : undefined;
+              const displayCount = bundled !== undefined ? bundled : available;
               return (
                 <div key={h.key} className="flex items-center gap-2">
                   <Checkbox
@@ -266,7 +262,7 @@ export function ExportTab({ selection, preselectedTypes }: {
                 <span className="text-sm text-(--t-text-muted) truncate">{t("importExport.export.nothingToExport")}</span>
               )}
               {autoIncludes.length > 0 && (
-                <span className="text-xs flex items-center gap-1 text-(--t-text-dim) shrink-0">
+                <span className="text-xs flex items-center gap-1 text-(--t-text-dim) shrink-0" title={t("importExport.export.autoIncludeHint")}>
                   <Icon icon="lucide:link" width={11} />
                   +{autoIncludes.join(" + ")}
                 </span>

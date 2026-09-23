@@ -62,7 +62,9 @@
       "proSubscriptionEnded": "您的 Pro 订阅已结束——同步已暂停。",
       "managePlan": "管理套餐 →",
       "undoFailed": "撤销失败：{{error}}",
-      "redoFailed": "重做失败：{{error}}"
+      "redoFailed": "重做失败：{{error}}",
+      "fileSaved": "已保存到 {{path}}",
+      "fileSaveFailed": "无法保存文件：{{error}}"
     },
     "error": {
       "notConnectedToServer": "未连接到服务器",

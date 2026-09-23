@@ -26,8 +26,15 @@
       "showPreview": "Show preview",
       "selectedItem_one": "{{count}} selected item",
       "selectedItem_other": "{{count}} selected items",
-      "autoIncludeIdentity": "{{count}} identity",
-      "autoIncludeKey": "{{count}} key",
+      "autoInclude": {
+        "connections_one": "{{count}} connection",
+        "connections_other": "{{count}} connections",
+        "identities_one": "{{count}} identity",
+        "identities_other": "{{count}} identities",
+        "keys_one": "{{count}} key",
+        "keys_other": "{{count}} keys"
+      },
+      "autoIncludeHint": "Also included: used by the exported items, so they keep working after import",
       "checkboxLabel": {
         "connections_one": "Connection ({{count}})",
         "connections_other": "Connections ({{count}})",

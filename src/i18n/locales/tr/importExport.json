@@ -26,8 +26,15 @@
       "showPreview": "Önizlemeyi göster",
       "selectedItem_one": "{{count}} seçili öğe",
       "selectedItem_other": "{{count}} seçili öğe",
-      "autoIncludeIdentity": "{{count}} kimlik",
-      "autoIncludeKey": "{{count}} anahtar",
+      "autoInclude": {
+        "connections_one": "{{count}} bağlantı",
+        "connections_other": "{{count}} bağlantı",
+        "identities_one": "{{count}} kimlik",
+        "identities_other": "{{count}} kimlik",
+        "keys_one": "{{count}} anahtar",
+        "keys_other": "{{count}} anahtar"
+      },
+      "autoIncludeHint": "Ayrıca dahil: dışa aktarılan öğeler bunları kullanıyor, içe aktarmadan sonra da çalışmaları için",
       "checkboxLabel": {
         "connections_one": "Bağlantı ({{count}})",
         "connections_other": "Bağlantılar ({{count}})",

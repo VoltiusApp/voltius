@@ -6,14 +6,7 @@ import { USER_DATA_HANDLERS, buildUserDataBundle } from "@/services/user-data/re
 import { toUserDataJSON } from "@/services/user-data/formats";
 import { ActionBtn } from "./shared";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
-
-function downloadJson(filename: string, data: unknown) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
+import { saveTextFile } from "@/services/saveFile";
 
 export function UserDataExportTab() {
   const { t } = useTranslation();
@@ -31,7 +24,7 @@ export function UserDataExportTab() {
     flashCopied();
   };
 
-  const handleDownload = () => downloadJson("voltius-settings.json", JSON.parse(payload));
+  const handleDownload = () => void saveTextFile("voltius-settings.json", payload);
 
   return (
     <div className="flex flex-col gap-5 h-full">
