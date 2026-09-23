@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-09-23
+
+### Added
+
+- DTR/RTS toggles and a break signal in the serial status bar (#332)
+- Created and edited keys and identities from the mobile keychain (#325)
+
+### Changed
+
+- Made grouping tabs by host opt-in rather than opt-out
+
+### Fixed
+
+- Released open serial ports when the app exits (#334)
+- Stopped covering ended sessions with a false "Reconnecting…" overlay (#333)
+- Staged SFTP downloads and tar-accelerated transfers in the app cache dir on Android (#328, #331)
+- Showed the renamed session name on Android cross-device cards (#326)
+
 ## [0.40.0] - 2026-09-20
 
 ### Added
