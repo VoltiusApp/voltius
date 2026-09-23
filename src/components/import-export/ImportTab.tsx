@@ -5,8 +5,8 @@ import LogoSvg from "/logo.svg?react";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { decryptText, fromJSON } from "@/services/import-export/formats";
 import type { ConnectionExport, ExportBundle, FolderExport, IdentityExport, KeyExport, PortForwardingRuleExport, SnippetExport } from "@/services/import-export/formats";
-import { runImport, reloadAll } from "@/services/import-export/registry";
-import { existingConnectionsForVault } from "@/services/import-export/context";
+import { importableFolders, runImport, reloadAll } from "@/services/import-export/registry";
+import { existingConnectionsForVault, newImportCtx } from "@/services/import-export/context";
 import { IMPORTERS, parseImport } from "@/services/import-export/importers";
 import { useImportStores, useReloadFns, useStoreSlices, useDeleteStores } from "./useStores";
 import { ActionBtn, VaultChipSelect, useVaultList } from "./shared";
@@ -384,8 +384,9 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
           snippets: status.bundle.snippets.filter((_, i) => getAction(`snippets:${i}`) !== "skip"),
           portForwardingRules: status.bundle.portForwardingRules.filter((_, i) => getAction(`pfRules:${i}`) !== "skip"),
         };
+        filteredBundle.folders = importableFolders(status.bundle, filteredBundle);
 
-        const result = await runImport(filteredBundle, {
+        const result = await runImport(filteredBundle, newImportCtx({
           vault_id,
           tag: addTag.trim(),
           skipDupes: false,
@@ -394,13 +395,9 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
           existingIdentities: storeSlices.identities,
           existingSnippets: storeSlices.snippets,
           existingPfRules: storeSlices.pfRules,
-          folderEidMap: new Map(),
-          snippetFolderEidMap: new Map(),
-          keyEidMap: new Map(),
-          identityEidMap: new Map(),
-          connectionEidMap: new Map(),
+          existingFolders: [...storeSlices.folders, ...storeSlices.snippetFolders],
           stores: importStores,
-        });
+        }));
         imported += result.imported;
         errors += result.errors;
       }

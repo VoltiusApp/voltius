@@ -123,12 +123,26 @@ export interface ImportCtx {
   existingIdentities: Identity[];
   existingSnippets: Snippet[];
   existingPfRules: PortForwardingRule[];
+  existingFolders: Folder[];
   folderEidMap: Map<string, string>;
   snippetFolderEidMap: Map<string, string>;
   keyEidMap: Map<string, string>;
   identityEidMap: Map<string, string>;
   connectionEidMap: Map<string, string>;
   stores: ImportStores;
+}
+
+type EidMapKey = "folderEidMap" | "snippetFolderEidMap" | "keyEidMap" | "identityEidMap" | "connectionEidMap";
+
+export function newImportCtx(base: Omit<ImportCtx, EidMapKey>): ImportCtx {
+  return {
+    ...base,
+    folderEidMap: new Map(),
+    snippetFolderEidMap: new Map(),
+    keyEidMap: new Map(),
+    identityEidMap: new Map(),
+    connectionEidMap: new Map(),
+  };
 }
 
 export function existingConnectionsForVault<T extends { vault_id?: string }>(connections: T[], vault_id: string): T[] {
@@ -150,13 +164,14 @@ export function inVaults<T extends VaultItem>(items: T[], vaultIds: string[]): T
 
 // The five selection/count methods every DataTypeHandler spells identically.
 // `labelKey` is the i18n suffix (only portForwarding differs from the handler
-// key) and `folderSet` picks which eid set the type's folders belong to.
+// key) and `folderType` is the `object_type` of the folders this type lives in.
 export function selectionMethods<T extends VaultItem>(
   key: string,
   labelKey: string,
   slice: (stores: StoreSlices) => T[],
-  folderSet: "main" | "snippet" = "main",
+  folderType: "connection" | "keychain" | "port_forwarding" | "snippet",
 ) {
+  const isSnippet = folderType === "snippet";
   return {
     isActive(s: SelectionProps) {
       return handlerActive(key, s);
@@ -173,8 +188,14 @@ export function selectionMethods<T extends VaultItem>(
       return inVaults(slice(stores), vaultIds).filter((i) => ids === null || ids.includes(i.id));
     },
     accumulateFolderIds(items: unknown[], main: Set<string>, snippet: Set<string>) {
-      const target = folderSet === "snippet" ? snippet : main;
+      const target = isSnippet ? snippet : main;
       for (const i of items as T[]) if (i.folder_id) target.add(i.folder_id);
+    },
+    accumulateVaultFolderIds(stores: StoreSlices, vaultIds: string[], main: Set<string>, snippet: Set<string>) {
+      const target = isSnippet ? snippet : main;
+      for (const f of inVaults(isSnippet ? stores.snippetFolders : stores.folders, vaultIds)) {
+        if (f.object_type === folderType) target.add(f.id);
+      }
     },
   };
 }

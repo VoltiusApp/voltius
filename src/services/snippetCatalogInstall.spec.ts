@@ -59,7 +59,7 @@ describe("bundleFromEntries → runImport", () => {
     const ctx = {
       vault_id: "personal", tag: "", skipDupes: false,
       existingConnections: [], existingKeys: [], existingIdentities: [],
-      existingSnippets: [], existingPfRules: [],
+      existingSnippets: [], existingPfRules: [], existingFolders: [],
       folderEidMap: new Map(), snippetFolderEidMap: new Map(), keyEidMap: new Map(),
       identityEidMap: new Map(), connectionEidMap: new Map(),
       stores: {

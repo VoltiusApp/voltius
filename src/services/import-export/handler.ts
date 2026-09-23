@@ -33,6 +33,9 @@ export interface DataTypeHandler {
   // Handlers that use main folders write into `main`; snippets write into `snippet`.
   accumulateFolderIds(items: unknown[], main: Set<string>, snippet: Set<string>): void;
 
+  // Report every folder of this type in the vaults, so a full export keeps empty folders.
+  accumulateVaultFolderIds(stores: StoreSlices, vaultIds: string[], main: Set<string>, snippet: Set<string>): void;
+
   // Write export records into bundle[key]. May also populate ctx eid maps
   // so later handlers can cross-reference (e.g. connections populate connectionEidMap).
   buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle): Promise<void>;

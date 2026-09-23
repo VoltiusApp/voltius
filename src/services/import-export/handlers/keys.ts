@@ -12,7 +12,7 @@ export const keysHandler: DataTypeHandler = {
   label: "SSH Keys",
   jsonOnly: true,
 
-  ...selectionMethods<SshKey>("keys", "keys", s => s.keys),
+  ...selectionMethods<SshKey>("keys", "keys", s => s.keys, "keychain"),
 
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     const keys = items as SshKey[];

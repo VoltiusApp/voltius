@@ -12,7 +12,7 @@ export const identitiesHandler: DataTypeHandler = {
   label: "Identities",
   jsonOnly: true,
 
-  ...selectionMethods<Identity>("identities", "identities", s => s.identities),
+  ...selectionMethods<Identity>("identities", "identities", s => s.identities, "keychain"),
 
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     // Cascade: pull in identities referenced by connections too

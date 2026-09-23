@@ -252,6 +252,15 @@ test("an empty snippet list replaces the whole folder view with the empty state"
   expect(queryByText("snippets.page.ejectRemoveFromFolder")).toBeNull();
 });
 
+test("an empty folder stays listed when there are no snippets", () => {
+  h.folders = [folder("empty")];
+  h.visibleFolders = h.folders;
+  const { queryByText } = render(<SnippetsPage />);
+
+  expect(queryByText("snippets.page.emptyState.title")).toBeNull();
+  expect(h.folderCardProps.map((p) => (p.folder as Folder).id)).toContain("empty");
+});
+
 test("the breadcrumb lists the root link plus every ancestor, the last one not a button", () => {
   h.snippets = [snippet("s1")];
   h.folderPath = [folder("parent", { name: "Parent" }), folder("child", { name: "Child" })];
