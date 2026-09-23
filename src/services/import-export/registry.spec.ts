@@ -113,7 +113,8 @@ describe("runImport — empty folders", () => {
   });
 
   it("reuses a matching folder the vault already has instead of duplicating it", async () => {
-    const existing = [folder({ id: "have-empty", name: "Empty" }), folder({ id: "have-child", name: "Child", parent_folder_id: "have-empty" })];
+    // The backend sends root folders with a null parent, not a missing one.
+    const existing = [folder({ id: "have-empty", name: "Empty", parent_folder_id: null as unknown as undefined }), folder({ id: "have-child", name: "Child", parent_folder_id: "have-empty" })];
     const { ctx, saved } = ctxOf(false, existing);
     const result = await runImport(bundle, ctx);
     expect(saved).toEqual([]);

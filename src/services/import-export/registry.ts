@@ -262,7 +262,7 @@ export function importableFolders(original: ExportBundle, kept: ExportBundle): F
 function matchingFolder(ctx: ImportCtx, folder: FolderExport, parentId: string | undefined): Folder | undefined {
   return ctx.existingFolders.find(e =>
     !e.deleted_at && (e.vault_id ?? "personal") === ctx.vault_id && e.object_type === folder.object_type &&
-    e.name === folder.name && e.parent_folder_id === parentId);
+    e.name === folder.name && (e.parent_folder_id ?? undefined) === parentId);
 }
 
 // ─── Import orchestrator ──────────────────────────────────────────────────────
