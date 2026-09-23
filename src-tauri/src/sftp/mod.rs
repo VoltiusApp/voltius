@@ -418,6 +418,19 @@ impl SftpManager {
     /// Run a shell command on the remote host associated with an SFTP session.
     /// The command should append `; echo __TF_EXIT__:$?` to capture exit code.
     pub async fn exec_command(&self, sftp_id: &str, cmd: &str) -> Result<(), String> {
+        exit_status(&self.exec_output(sftp_id, cmd).await?, false)
+    }
+
+    /// True only if `cmd` ran and reported exit 0 through its `__TF_EXIT__` marker.
+    /// A non-POSIX shell (Windows `cmd.exe`) never prints the marker.
+    pub async fn exec_probe(&self, sftp_id: &str, cmd: &str) -> bool {
+        match self.exec_output(sftp_id, cmd).await {
+            Ok(text) => exit_status(&text, true).is_ok(),
+            Err(_) => false,
+        }
+    }
+
+    async fn exec_output(&self, sftp_id: &str, cmd: &str) -> Result<String, String> {
         let handle = {
             let sessions = self.sessions.lock().await;
             sessions
@@ -453,35 +466,54 @@ impl SftpManager {
         })
         .await;
 
-        let text = String::from_utf8_lossy(&output);
-        for line in text.lines().rev() {
-            if let Some(code_str) = line.strip_prefix("__TF_EXIT__:") {
-                let code: i32 = code_str.trim().parse().unwrap_or(1);
-                if code != 0 {
-                    let msg = text
-                        .lines()
-                        .filter(|l| !l.starts_with("__TF_EXIT__:"))
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    return Err(msg.trim().to_string());
-                }
-                return Ok(());
-            }
-        }
-
-        // No exit marker — check for obvious error patterns
-        if text.contains("command not found") || text.contains("No such file") {
-            return Err(text.trim().to_string());
-        }
-
-        Ok(())
+        Ok(String::from_utf8_lossy(&output).into_owned())
     }
+}
+
+fn exit_status(text: &str, require_marker: bool) -> Result<(), String> {
+    for line in text.lines().rev() {
+        if let Some(code_str) = line.strip_prefix("__TF_EXIT__:") {
+            let code: i32 = code_str.trim().parse().unwrap_or(1);
+            if code != 0 {
+                let msg = text
+                    .lines()
+                    .filter(|l| !l.starts_with("__TF_EXIT__:"))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                return Err(msg.trim().to_string());
+            }
+            return Ok(());
+        }
+    }
+
+    if require_marker || text.contains("command not found") || text.contains("No such file") {
+        return Err(text.trim().to_string());
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::SftpManager;
+    use super::{exit_status, SftpManager};
     use std::sync::Arc;
+
+    #[test]
+    fn exit_status_reads_the_marker() {
+        assert_eq!(exit_status("__TF_EXIT__:0\n", true), Ok(()));
+        assert_eq!(
+            exit_status("tar: boom\n__TF_EXIT__:2\n", false),
+            Err("tar: boom".into())
+        );
+    }
+
+    #[test]
+    fn missing_marker_fails_only_when_required() {
+        let cmd_exe = "The system cannot find the path specified.\r\n";
+        assert_eq!(exit_status(cmd_exe, false), Ok(()));
+        assert!(exit_status(cmd_exe, true).is_err());
+        assert!(exit_status("", true).is_err());
+    }
 
     #[tokio::test]
     async fn path_lock_same_path_is_shared() {
