@@ -3,16 +3,10 @@ import { useTranslation } from "react-i18next";
 import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
 import { HostAwareTerminalView, SessionConnectionOverlay } from "@/components/terminal/SessionView";
-import { useSessionStore } from "@/stores/sessionStore";
 import { sessionClosed } from "@/stores/reconnectBackoff";
 import type { TerminalSession } from "@/types";
 
 export function PaneTerminal({ session, active }: { session: TerminalSession; active: boolean }) {
-  const reconnect = useSessionStore((s) => s.reconnect);
-  const removeSession = useSessionStore((s) => s.removeSession);
-  const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
-  const retryConnect = useSessionStore((s) => s.retryConnect);
-
   if (session.type === "multiplayer") {
     return (
       <div className="absolute inset-0 flex flex-col">
@@ -24,15 +18,7 @@ export function PaneTerminal({ session, active }: { session: TerminalSession; ac
 
   return (
     <div className="absolute inset-0 flex flex-col">
-      {(session.status === "connecting" || session.status === "error" || session.status === "disconnected") && (
-        <SessionConnectionOverlay
-          session={session}
-          onDismiss={() => removeSession(session.id)}
-          onRetry={(session.type === "ssh" || session.type === "serial") ? () => reconnect(session.id) : undefined}
-          onRetryWithPassphrase={(passphrase, save) => void reconnectWithPassphrase(session.id, passphrase, save)}
-          onRetryWithAuth={(override, save) => void retryConnect(session.id, override, save)}
-        />
-      )}
+      <SessionConnectionOverlay session={session} />
       <HostAwareTerminalView
         session={session}
         active={active && session.status === "connected"}

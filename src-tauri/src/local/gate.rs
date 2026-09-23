@@ -23,20 +23,23 @@ const MAX_BUFFERED: usize = 1024 * 1024;
 /// recording sink in the tests, which have no Tauri runtime to emit into.
 pub trait EventSink {
     fn emit_bytes(&self, event: &str, data: &[u8]);
-    fn emit_unit(&self, event: &str);
+    fn emit_closed(&self, event: &str, clean_exit: bool);
 }
 
 impl EventSink for AppHandle {
     fn emit_bytes(&self, event: &str, data: &[u8]) {
         let _ = self.emit(event, data);
     }
-    fn emit_unit(&self, event: &str) {
-        let _ = self.emit(event, ());
+    fn emit_closed(&self, event: &str, clean_exit: bool) {
+        let _ = self.emit(event, clean_exit);
     }
 }
 
 enum State {
-    Buffering { output: Vec<u8>, closed: bool },
+    Buffering {
+        output: Vec<u8>,
+        closed: Option<bool>,
+    },
     Live,
 }
 
@@ -53,7 +56,7 @@ impl OutputGate {
             close_event,
             state: Mutex::new(State::Buffering {
                 output: Vec::new(),
-                closed: false,
+                closed: None,
             }),
         }
     }
@@ -75,11 +78,11 @@ impl OutputGate {
     /// The shell exited. Held behind any buffered output so the replay stays
     /// ordered — a shell that dies instantly must not close the terminal
     /// before its error text has been written.
-    pub fn closed(&self, sink: &impl EventSink) {
+    pub fn closed(&self, sink: &impl EventSink, clean_exit: bool) {
         let mut state = self.state.lock().unwrap();
         match &mut *state {
-            State::Live => sink.emit_unit(&self.close_event),
-            State::Buffering { closed, .. } => *closed = true,
+            State::Live => sink.emit_closed(&self.close_event, clean_exit),
+            State::Buffering { closed, .. } => *closed = Some(clean_exit),
         }
     }
 
@@ -95,8 +98,8 @@ impl OutputGate {
             if !output.is_empty() {
                 sink.emit_bytes(&self.output_event, &output);
             }
-            if closed {
-                sink.emit_unit(&self.close_event);
+            if let Some(clean_exit) = closed {
+                sink.emit_closed(&self.close_event, clean_exit);
             }
         }
     }
@@ -109,7 +112,7 @@ mod tests {
     #[derive(Debug, PartialEq)]
     enum Event {
         Bytes(String, Vec<u8>),
-        Unit(String),
+        Closed(String, bool),
     }
 
     #[derive(Default)]
@@ -128,8 +131,11 @@ mod tests {
                 .unwrap()
                 .push(Event::Bytes(event.to_string(), data.to_vec()));
         }
-        fn emit_unit(&self, event: &str) {
-            self.0.lock().unwrap().push(Event::Unit(event.to_string()));
+        fn emit_closed(&self, event: &str, clean_exit: bool) {
+            self.0
+                .lock()
+                .unwrap()
+                .push(Event::Closed(event.to_string(), clean_exit));
         }
     }
 
@@ -165,12 +171,12 @@ mod tests {
         assert_eq!(sink.events(), vec![], "nothing buffered, nothing replayed");
 
         gate.output(&sink, b"ls\r\n");
-        gate.closed(&sink);
+        gate.closed(&sink, true);
         assert_eq!(
             sink.events(),
             vec![
                 Event::Bytes("out".into(), b"ls\r\n".to_vec()),
-                Event::Unit("closed".into()),
+                Event::Closed("closed".into(), true),
             ],
         );
     }
@@ -181,7 +187,7 @@ mod tests {
         let gate = gate();
 
         gate.output(&sink, b"'sh' is not recognized\r\n");
-        gate.closed(&sink);
+        gate.closed(&sink, false);
         assert_eq!(sink.events(), vec![]);
 
         gate.release(&sink);
@@ -189,8 +195,9 @@ mod tests {
             sink.events(),
             vec![
                 Event::Bytes("out".into(), b"'sh' is not recognized\r\n".to_vec()),
-                Event::Unit("closed".into()),
+                Event::Closed("closed".into(), false),
             ],
+            "a failed shell's exit keeps its flag through the buffering window",
         );
     }
 

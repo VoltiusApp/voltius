@@ -230,10 +230,6 @@
         "openingPort": "正在打开端口",
         "ready": "就绪"
       },
-      "connectionLost": {
-        "title": "连接已断开",
-        "subtitle": "正在重连…"
-      },
       "reconnectWait": {
         "offline": {
           "title": "您已离线",

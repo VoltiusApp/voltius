@@ -210,7 +210,8 @@ export function handleSessionClosed(
   remoteExit = false,
 ): void {
   if (sessionType !== "ssh" && sessionType !== "serial") {
-    deps.markDisconnected(sessionId);
+    if (sessionType === "local" && remoteExit) deps.endSession(sessionId);
+    else deps.markDisconnected(sessionId);
     return;
   }
   if (deps.status(sessionId) !== "connected") return;

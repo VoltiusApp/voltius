@@ -40,7 +40,7 @@ export async function onLocalOutput(
 
 export async function onLocalClosed(
   sessionId: string,
-  callback: () => void,
+  callback: (cleanExit: boolean) => void,
 ): Promise<UnlistenFn> {
-  return listen(`local-closed-${sessionId}`, () => callback());
+  return listen<boolean>(`local-closed-${sessionId}`, (event) => callback(event.payload === true));
 }

@@ -14,6 +14,7 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { getConnectionIcon } from "@/utils/icons";
 import type { TerminalSession } from "@/types";
 import { EphemeralSerialConfigOverlay } from "@/components/connections/EphemeralSerialConfigOverlay";
+import { needsConnectionOverlay } from "./sessionOverlay";
 
 export function HostAwareTerminalView({
   session,
@@ -79,20 +80,23 @@ export function HostAwareTerminalView({
   );
 }
 
-export function SessionConnectionOverlay({
-  session, onDismiss, onRetry, onRetryWithPassphrase, onRetryWithAuth,
-}: {
-  session: TerminalSession;
-  onDismiss?: () => void;
-  onRetry?: () => void;
-  onRetryWithPassphrase?: (passphrase: string, save: boolean) => void;
-  onRetryWithAuth?: (override: ConnectRetryOverride, save: boolean) => void;
-}) {
+export function SessionConnectionOverlay({ session }: { session: TerminalSession }) {
+  if (!needsConnectionOverlay(session)) return null;
+  return <SessionConnectionOverlayPanel session={session} />;
+}
+
+function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }) {
   const { t } = useTranslation();
   const connections = useAllConnections();
   const connection = connections.find((c) => c.id === session.connectionId);
   const connectSerialEphemeralFinalize = useSessionStore((s) => s.connectSerialEphemeralFinalize);
   const resetSerialEphemeral = useSessionStore((s) => s.resetSerialEphemeral);
+  const reconnect = useSessionStore((s) => s.reconnect);
+  const removeSession = useSessionStore((s) => s.removeSession);
+  const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
+  const retryConnect = useSessionStore((s) => s.retryConnect);
+  const onDismiss = () => removeSession(session.id);
+  const onRetry = () => void reconnect(session.id);
   const reconnectProps = { reconnectWait: session.reconnectWait, onRetryNow: () => wakeBackoff(session.id) };
 
   if (session.type === "serial") {
@@ -150,10 +154,14 @@ export function SessionConnectionOverlay({
       stepEventName={`ssh-step-${session.id}`}
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}
-      onRetry={onRetry}
+      onRetry={session.type === "ssh" ? onRetry : undefined}
       {...reconnectProps}
-      onRetryWithPassphrase={onRetryWithPassphrase}
-      onRetryWithAuth={onRetryWithAuth}
+      onRetryWithPassphrase={
+        session.type === "ssh" ? (passphrase, save) => void reconnectWithPassphrase(session.id, passphrase, save) : undefined
+      }
+      onRetryWithAuth={
+        session.type === "ssh" ? (override: ConnectRetryOverride, save) => void retryConnect(session.id, override, save) : undefined
+      }
     />
   );
 }
