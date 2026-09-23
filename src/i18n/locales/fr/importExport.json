@@ -26,8 +26,15 @@
       "showPreview": "Afficher l'aperçu",
       "selectedItem_one": "{{count}} élément sélectionné",
       "selectedItem_other": "{{count}} éléments sélectionnés",
-      "autoIncludeIdentity": "{{count}} identité",
-      "autoIncludeKey": "{{count}} clé",
+      "autoInclude": {
+        "connections_one": "{{count}} connexion",
+        "connections_other": "{{count}} connexions",
+        "identities_one": "{{count}} identité",
+        "identities_other": "{{count}} identités",
+        "keys_one": "{{count}} clé",
+        "keys_other": "{{count}} clés"
+      },
+      "autoIncludeHint": "Également inclus : utilisés par les éléments exportés, pour qu'ils fonctionnent encore après l'import",
       "checkboxLabel": {
         "connections_one": "Connexion ({{count}})",
         "connections_other": "Connexions ({{count}})",

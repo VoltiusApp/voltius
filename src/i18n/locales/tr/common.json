@@ -62,7 +62,9 @@
       "proSubscriptionEnded": "Pro aboneliğiniz sona erdi — eşitleme duraklatıldı.",
       "managePlan": "Planı yönet →",
       "undoFailed": "Geri alınamadı: {{error}}",
-      "redoFailed": "Yinelenemedi: {{error}}"
+      "redoFailed": "Yinelenemedi: {{error}}",
+      "fileSaved": "{{path}} konumuna kaydedildi",
+      "fileSaveFailed": "Dosya kaydedilemedi: {{error}}"
     },
     "error": {
       "notConnectedToServer": "Sunucuya bağlı değil",

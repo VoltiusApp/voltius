@@ -62,7 +62,9 @@
       "proSubscriptionEnded": "Your Pro subscription has ended — sync has been paused.",
       "managePlan": "Manage plan →",
       "undoFailed": "Undo failed: {{error}}",
-      "redoFailed": "Redo failed: {{error}}"
+      "redoFailed": "Redo failed: {{error}}",
+      "fileSaved": "Saved to {{path}}",
+      "fileSaveFailed": "Couldn't save the file: {{error}}"
     },
     "error": {
       "notConnectedToServer": "Not connected to server",

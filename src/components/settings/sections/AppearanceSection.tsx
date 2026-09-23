@@ -14,21 +14,12 @@ import { useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { SettingRow, SyncKeyButton } from "./shared";
-
-function downloadJson(filename: string, data: unknown) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+import { saveTextFile } from "@/services/saveFile";
 
 function exportTheme(theme: AppTheme) {
-  downloadJson(
+  void saveTextFile(
     `${theme.name.toLowerCase().replace(/\s+/g, "-")}.voltius-theme.json`,
-    { type: "voltius-theme", version: 1, theme },
+    JSON.stringify({ type: "voltius-theme", version: 1, theme }, null, 2),
   );
 }
 

@@ -4,6 +4,7 @@ import { fetchAuditLogs, exportAuditLogs } from "@/services/auditService";
 import { fetchLocalAuditLogs, exportLocalAuditLogs } from "@/services/localAuditService";
 import type { AuditLog, AuditFilters } from "@/services/auditService";
 import type { AuditContext } from "@/services/auditContext";
+import { saveTextFile } from "@/services/saveFile";
 
 export type LayoutMode = "timeline" | "list" | "horizontal";
 
@@ -95,11 +96,6 @@ export const useAuditStore = create<AuditState>((set, get) => ({
     const { filters } = get();
     const { page: _p, per_page: _pp, ...rest } = filters;
     const blob = await exportForContext(context, rest, format);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `audit-logs.${format}`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await saveTextFile(`audit-logs.${format}`, await blob.text());
   },
 }));

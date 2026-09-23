@@ -62,7 +62,9 @@
       "proSubscriptionEnded": "Votre abonnement Pro a expiré — la synchronisation est en pause.",
       "managePlan": "Gérer l'abonnement →",
       "undoFailed": "Échec de l'annulation : {{error}}",
-      "redoFailed": "Échec du rétablissement : {{error}}"
+      "redoFailed": "Échec du rétablissement : {{error}}",
+      "fileSaved": "Enregistré dans {{path}}",
+      "fileSaveFailed": "Impossible d'enregistrer le fichier : {{error}}"
     },
     "error": {
       "notConnectedToServer": "Non connecté au serveur",

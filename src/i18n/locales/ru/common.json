@@ -62,7 +62,9 @@
       "proSubscriptionEnded": "Срок действия подписки Pro истёк — синхронизация приостановлена.",
       "managePlan": "Управление подпиской →",
       "undoFailed": "Не удалось отменить действие: {{error}}",
-      "redoFailed": "Не удалось повторить действие: {{error}}"
+      "redoFailed": "Не удалось повторить действие: {{error}}",
+      "fileSaved": "Сохранено в {{path}}",
+      "fileSaveFailed": "Не удалось сохранить файл: {{error}}"
     },
     "error": {
       "notConnectedToServer": "Нет подключения к серверу",
