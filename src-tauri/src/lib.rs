@@ -807,8 +807,14 @@ pub fn run() {
             commands::mcp::mcp_status,
             commands::mcp::mcp_notify_tools_changed,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                use tauri::Manager;
+                app.state::<SerialSessionManager>().release_all();
+            }
+        });
 }
 
 #[cfg(all(test, desktop))]

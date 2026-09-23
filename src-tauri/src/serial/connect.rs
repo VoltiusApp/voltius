@@ -84,6 +84,11 @@ impl SerialSessionManager {
     pub(super) fn remove(&self, session_id: &str) {
         self.sessions.lock().unwrap().remove(session_id);
     }
+
+    // Dropping a port is what clears its TIOCEXCL; process exit never runs those drops.
+    pub fn release_all(&self) {
+        self.sessions.lock().unwrap().clear();
+    }
 }
 
 pub(super) fn with_session<T>(
