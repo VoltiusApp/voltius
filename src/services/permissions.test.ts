@@ -29,6 +29,16 @@ test("personal vault always allowed, even with no user", () => {
   expect(resolveCan(snap({ myUserId: "" }), "VIEW_SECRETS", "personal")).toBe(true);
 });
 
+test("a personal vault turned into a team vault is gated by its team roles", () => {
+  const s = snap({
+    vaults: [vault("personal", "t1")],
+    rolesByTeam: { t1: [role("r1", PERM_BITS.VIEW_SECRETS)] },
+    membersByTeam: { t1: [member("u1", ["r1"])] },
+  });
+  expect(resolveCan(s, "VIEW_SECRETS", "personal")).toBe(true);
+  expect(resolveCan(s, "EDIT_KEYS", "personal")).toBe(false);
+});
+
 test("known non-team vault is allowed", () => {
   expect(resolveCan(snap({ vaults: [vault("v1")] }), "EDIT_CONNECTIONS", "v1")).toBe(true);
 });

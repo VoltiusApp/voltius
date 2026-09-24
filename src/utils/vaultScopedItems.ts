@@ -16,11 +16,11 @@ export function selectVaultScopedItems<T extends VaultScopedItem>({
   resolveVaultId = (id) => id,
 }: SelectVaultScopedItemsOptions<T>): T[] {
   const currentVaultId = vaultId || "personal";
-  if (currentVaultId === "personal") {
+  const resolvedVaultId = resolveVaultId(currentVaultId);
+  if (resolvedVaultId === "personal") {
     return localItems.filter((item) => !item.vault_id || item.vault_id === "personal");
   }
 
-  const resolvedVaultId = resolveVaultId(currentVaultId);
   if (teamVaultIds.has(resolvedVaultId) || Object.prototype.hasOwnProperty.call(teamItems, resolvedVaultId)) {
     return teamItems[resolvedVaultId] ?? [];
   }

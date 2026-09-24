@@ -7,6 +7,7 @@ import {
   vaultRowToVault,
   type VaultsSection,
 } from "@/services/vaultSection";
+import { PERSONAL_VAULT, withPersonalFirst } from "@/services/vaultLookup";
 
 export interface Vault {
   id: string;
@@ -16,8 +17,6 @@ export interface Vault {
   /** Clock for the `vaults` sync section. Absent on pre-sync entries, which date at the epoch. */
   updatedAt?: string;
 }
-
-const PERSONAL_VAULT: Vault = { id: "personal", name: "Personal" };
 
 interface VaultStore {
   vaults: Vault[];
@@ -93,8 +92,8 @@ export const useVaultStore = create<VaultStore>()(
       applySyncedVaults: (section) => {
         set((s) => {
           const rows = Object.entries(pruneVaultTombstones(section));
-          const alive = rows.filter(([, row]) => isAliveVaultRow(row));
-          const dead = rows.filter(([, row]) => !isAliveVaultRow(row));
+          const alive = rows.filter(([id, row]) => isAliveVaultRow(row) || id === PERSONAL_VAULT.id);
+          const dead = rows.filter(([id, row]) => !isAliveVaultRow(row) && id !== PERSONAL_VAULT.id);
           const deadIds = new Set(dead.map(([id]) => id));
           const known = new Set(s.vaults.map((v) => v.id));
 
@@ -104,7 +103,7 @@ export const useVaultStore = create<VaultStore>()(
           }
 
           return {
-            vaults: [PERSONAL_VAULT, ...alive.map(([id, row]) => vaultRowToVault(id, row))],
+            vaults: withPersonalFirst(alive.map(([id, row]) => vaultRowToVault(id, row))),
             deletedVaults: Object.fromEntries(dead),
             selectedVaultIds,
           };
@@ -115,7 +114,7 @@ export const useVaultStore = create<VaultStore>()(
     {
       name: "voltius-vaults",
       partialize: (state) => ({
-        vaults: state.vaults.filter((v) => v.id !== "personal"),
+        vaults: state.vaults,
         deletedVaults: state.deletedVaults,
         selectedVaultIds: state.selectedVaultIds,
       }),
@@ -123,7 +122,7 @@ export const useVaultStore = create<VaultStore>()(
         const p = persisted as { vaults?: Vault[]; deletedVaults?: VaultsSection; selectedVaultIds?: string[] };
         return {
           ...current,
-          vaults: [PERSONAL_VAULT, ...(p.vaults ?? [])],
+          vaults: withPersonalFirst(p.vaults ?? []),
           deletedVaults: p.deletedVaults ?? {},
           selectedVaultIds: p.selectedVaultIds ?? current.selectedVaultIds,
         };

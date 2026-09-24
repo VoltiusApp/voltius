@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { useVaultStore } from "@/stores/vaultStore";
-import { useTeamStore } from "@/stores/teamStore";
+import { useVaultStore, type Vault } from "@/stores/vaultStore";
+import { useTeamStore, type Team } from "@/stores/teamStore";
+import { withPersonalFirst } from "@/services/vaultLookup";
 import type { VaultOption } from "@/types";
 
 /**
@@ -15,14 +16,16 @@ export function useVaultOptions({ includeUnlinkedTeams = true } = {}): VaultOpti
   const vaults = useVaultStore((s) => s.vaults);
   const teams = useTeamStore((s) => s.teams);
 
-  return useMemo(() => {
-    const linkedTeamIds = new Set(vaults.map((v) => v.teamId).filter(Boolean));
-    return [
-      { id: "personal", name: "Personal" },
-      ...vaults.filter((v) => v.id !== "personal").map((v) => ({ id: v.teamId ?? v.id, name: v.name })),
-      ...(includeUnlinkedTeams
-        ? teams.filter((t) => !linkedTeamIds.has(t.id)).map((t) => ({ id: t.id, name: t.name }))
-        : []),
-    ];
-  }, [vaults, teams, includeUnlinkedTeams]);
+  return useMemo(
+    () => vaultOptionsFrom(vaults, includeUnlinkedTeams ? teams : []),
+    [vaults, teams, includeUnlinkedTeams],
+  );
+}
+
+export function vaultOptionsFrom(vaults: Vault[], teams: Pick<Team, "id" | "name">[] = []): VaultOption[] {
+  const linkedTeamIds = new Set(vaults.map((v) => v.teamId).filter(Boolean));
+  return [
+    ...withPersonalFirst(vaults).map((v) => ({ id: v.teamId ?? v.id, name: v.name })),
+    ...teams.filter((t) => !linkedTeamIds.has(t.id)).map((t) => ({ id: t.id, name: t.name })),
+  ];
 }

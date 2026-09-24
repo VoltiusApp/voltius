@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -42,7 +42,7 @@ function StatChip({ icon, label, value }: StatChipProps) {
 export function DashboardHero() {
   const { t } = useTranslation();
   const vaultCount = useVaultStore((s) => s.vaults.length);
-  const hostCount = useConnectionStore((s) => s.connections.length);
+  const hostCount = useAllConnections().length;
   const activeSessionCount = useSessionStore((s) => s.sessions.filter((sess) => sess.status === "connected").length);
   const savedRulesCount = usePortForwardingStore((s) => s.rules.length);
   const loadRules = usePortForwardingStore((s) => s.loadRules);

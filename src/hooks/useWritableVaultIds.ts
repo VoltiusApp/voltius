@@ -1,18 +1,16 @@
 import { useMemo, useEffect, useState } from "react";
 import { useVaultStore } from "@/stores/vaultStore";
+import { vaultById } from "@/services/vaultLookup";
 import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId } from "@/services/teamService";
 import { effectivePermissions, PERM_BITS } from "@/hooks/usePermission";
 
 /**
  * Maps a local vault UUID to the stored team ID at save time, so vault_id is
- * portable across accounts.  "personal" is left as-is.
+ * portable across accounts. A vault with no team keeps its own id.
  */
 export function resolveVaultIdForSave(vaultId: string): string {
-  if (vaultId === "personal") return "personal";
-  const vaults = useVaultStore.getState().vaults;
-  const vault = vaults.find((v) => v.id === vaultId);
-  return vault?.teamId ?? vaultId;
+  return vaultById(useVaultStore.getState().vaults, vaultId)?.teamId ?? vaultId;
 }
 
 /**
@@ -31,8 +29,8 @@ export function useDefaultVaultId(): string {
 
   return useMemo(() => {
     for (const vid of selectedVaultIds) {
-      if (vid === "personal") return vid;
-      const vault = useVaultStore.getState().vaults.find((v) => v.id === vid);
+      const vault = vaultById(useVaultStore.getState().vaults, vid);
+      if (vault && !vault.teamId) return vid;
       const teamId = vault?.teamId ?? vid;
       const resolvedId = vault?.teamId ?? vid;
       const members = membersByTeam[teamId];

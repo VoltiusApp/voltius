@@ -30,6 +30,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useVaultStore } from "@/stores/vaultStore";
+import { vaultOptionsFrom } from "@/hooks/useVaultOptions";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
@@ -539,15 +540,7 @@ const objectPorts: ObjectPorts = {
   },
   can: (permission, vaultId) => canFromStores(_myUserId)(permission as Permission, vaultId),
   isTeamVault: isTeamVaultId,
-  vaults: () => {
-    const vaults = useVaultStore.getState().vaults;
-    const linked = new Set(vaults.map((v) => v.teamId).filter(Boolean));
-    return [
-      { id: "personal", name: "Personal" },
-      ...vaults.filter((v) => v.id !== "personal").map((v) => ({ id: v.teamId ?? v.id, name: v.name })),
-      ...useTeamStore.getState().teams.filter((t) => !linked.has(t.id)).map((t) => ({ id: t.id, name: t.name })),
-    ];
-  },
+  vaults: () => vaultOptionsFrom(useVaultStore.getState().vaults, useTeamStore.getState().teams),
   /**
    * Every vault the user has, not the page's current filter: there is no view
    * here, so nothing is off-screen. Only `rootVaultIds` reads this, to tell a

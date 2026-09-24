@@ -31,6 +31,10 @@ test("resolveVaultIdForSave: maps local vault uuid to its teamId", () => {
   useVaultStore.setState({ vaults: [{ id: "v1", teamId: "team-abc" }] } as never);
   expect(resolveVaultIdForSave("v1")).toBe("team-abc");
 });
+test("resolveVaultIdForSave: maps a personal vault turned team vault to its teamId", () => {
+  useVaultStore.setState({ vaults: [{ id: "personal", name: "Personal", teamId: "team-abc" }] } as never);
+  expect(resolveVaultIdForSave("personal")).toBe("team-abc");
+});
 test("resolveVaultIdForSave: unknown vault id returned unchanged", () => {
   expect(resolveVaultIdForSave("v-unknown")).toBe("v-unknown");
 });
@@ -41,6 +45,13 @@ test("selected 'personal' wins immediately", async () => {
   const { result } = renderHook(() => useDefaultVaultId());
   await waitFor(() => expect(h.getMyUserId).toHaveBeenCalled());
   expect(result.current).toBe("personal");
+});
+
+test("selected 'personal' turned team vault defaults to its team id", async () => {
+  useVaultStore.setState({ selectedVaultIds: ["personal"], vaults: [{ id: "personal", name: "Personal", teamId: "team-1" }] } as never);
+  const { result } = renderHook(() => useDefaultVaultId());
+  await waitFor(() => expect(h.getMyUserId).toHaveBeenCalled());
+  expect(result.current).toBe("team-1");
 });
 
 test("member with EDIT_CONNECTIONS on a team vault → returns team id", async () => {
