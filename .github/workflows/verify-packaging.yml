@@ -16,6 +16,7 @@ on:
       - 'scripts/gen-*.sh'
       - 'scripts/*msix*'
       - 'scripts/lib/**'
+      - 'scripts/*macos*'
       - '.github/workflows/verify-packaging.yml'
       - '.github/workflows/publish-msix.yml'
   workflow_dispatch:
@@ -117,3 +118,22 @@ jobs:
       ref: ${{ github.sha }}
       publish: false
     secrets: inherit
+
+  # Proves the self-signed certificate signs on a hosted runner, which no release can afford to discover.
+  macos-signing:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Import the macOS signing certificate
+        env:
+          MACOS_SIGNING_CERTIFICATE: ${{ secrets.MACOS_SIGNING_CERTIFICATE }}
+          MACOS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: bash scripts/import-macos-signing-cert.sh
+
+      - name: Sign a binary and check its requirement
+        run: |
+          cp /bin/ls "$RUNNER_TEMP/voltius-sign-probe"
+          codesign --force --options runtime -s "$APPLE_SIGNING_IDENTITY" "$RUNNER_TEMP/voltius-sign-probe"
+          bash scripts/check-macos-signature.sh "$RUNNER_TEMP/voltius-sign-probe"
