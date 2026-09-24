@@ -1,5 +1,6 @@
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
+import { vaultById } from "@/services/vaultLookup";
 
 export type Permission =
   | "VIEW_SECRETS"
@@ -132,9 +133,7 @@ export function resolveCan(
   permission: Permission,
   vaultId: string,
 ): boolean {
-  if (vaultId === "personal") return true;
-
-  const vault = snapshot.vaults.find((v) => v.id === vaultId);
+  const vault = vaultById(snapshot.vaults, vaultId);
   if (vault && !vault.teamId) return true;
 
   const teamId = vault?.teamId ?? vaultId;

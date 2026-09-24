@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useKnownHostStore } from "@/stores/knownHostStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
+import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useUIStore } from "@/stores/uiStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useDragSelection } from "@/hooks/useDragSelection";
@@ -34,7 +35,6 @@ export default function KnownHostsPage() {
 
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
-  const vaults = useVaultStore((s) => s.vaults);
   const accessibleVaultIds = useAccessibleVaultIds();
   const can = usePermissions();
 
@@ -45,13 +45,7 @@ export default function KnownHostsPage() {
 
   const canEdit = selectedVaultIds.some((vid) => can("EDIT_CONNECTIONS", vid));
 
-  const vaultOptions = useMemo<VaultOption[]>(
-    () => [
-      { id: "personal", name: "Personal" },
-      ...vaults.filter((v) => v.id !== "personal").map((v) => ({ id: v.teamId ?? v.id, name: v.name })),
-    ],
-    [vaults],
-  );
+  const vaultOptions = useVaultOptions({ includeUnlinkedTeams: false });
 
   const q = useMemo(() => search.trim().toLowerCase(), [search]);
 

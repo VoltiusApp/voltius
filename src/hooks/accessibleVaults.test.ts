@@ -13,6 +13,17 @@ test("'personal' is always passed through, even with no vaults or teams", () => 
   ).toEqual(["personal"]);
 });
 
+test("a personal vault turned into a team vault also yields its team id", () => {
+  expect(
+    deriveAccessibleVaultIds({
+      selectedVaultIds: ["personal"],
+      vaults: [teamVault("personal", "t1")],
+      teams: [team("t1")],
+      cloudActive: true,
+    }),
+  ).toEqual(["personal", "t1"]);
+});
+
 test("a local (non-team) vault is accessible regardless of cloud connectivity", () => {
   const vaults = [localVault("v1")];
   expect(

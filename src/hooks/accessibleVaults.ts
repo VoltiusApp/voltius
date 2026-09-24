@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
 import type { Vault } from "@/stores/vaultStore";
+import { vaultById } from "@/services/vaultLookup";
 import type { Team } from "@/stores/teamStore";
 
 interface DeriveAccessibleVaultIdsInput {
@@ -23,8 +24,7 @@ export function deriveAccessibleVaultIds({
   const result: string[] = [];
 
   for (const vid of selectedVaultIds) {
-    if (vid === "personal") { result.push(vid); continue; }
-    const vault = vaults.find((v) => v.id === vid);
+    const vault = vaultById(vaults, vid);
     if (vault) {
       if (!vault.teamId || cloudActive || loadedTeamIds.has(vault.teamId)) {
         result.push(vid);

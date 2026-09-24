@@ -102,6 +102,28 @@ describe("vaultsHandler export/import", () => {
     expect(section.personal).toBeUndefined();
   });
 
+  test("exports the personal vault once it is linked to a team, so other devices follow the link", () => {
+    useVaultStore.getState().setVaultTeamId("personal", "t1");
+    const section = vaultsHandler.export() as VaultsSection;
+
+    expect(section.personal).toMatchObject({ name: "Personal", teamId: "t1" });
+  });
+
+  test("importing a personal row links the built-in vault instead of adding a second one", async () => {
+    await vaultsHandler.import({ personal: row("Personal", T1, { teamId: "t1" }) } satisfies VaultsSection);
+
+    const state = useVaultStore.getState();
+    expect(state.vaults.map((v) => v.id)).toEqual(["personal"]);
+    expect(state.vaults[0].teamId).toBe("t1");
+  });
+
+  test("a personal tombstone never removes the personal vault", async () => {
+    await vaultsHandler.import({ personal: row("Personal", T1, { deletedAt: T2 }) } satisfies VaultsSection);
+
+    expect(useVaultStore.getState().vaults.map((v) => v.id)).toEqual(["personal"]);
+    expect(useVaultStore.getState().selectedVaultIds).toEqual(["personal"]);
+  });
+
   test("exports a deleted vault as a tombstone", () => {
     const vault = useVaultStore.getState().addVault("Gone");
     useVaultStore.getState().removeVault(vault.id);
