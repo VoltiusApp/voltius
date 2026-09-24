@@ -1,0 +1,24 @@
+{
+  "knownHosts": {
+    "tlsBadge": "TLS",
+    "caVerified": "Certifikační autorita",
+    "toolbar": {
+      "deleteSelected": "Smazat vybrané",
+      "deleteButton": "SMAZAT"
+    },
+    "page": {
+      "noSearchResults": "Hledání neodpovídá žádný známý hostitel",
+      "emptyState": "Zatím žádní známí hostitelé — objeví se, jakmile se připojíte k serveru",
+      "confirmDelete": {
+        "title_one": "Smazat známého hostitele?",
+        "title_few": "Smazat {{count}} známé hostitele?",
+        "title_many": "Smazat {{count}} známého hostitele?",
+        "title_other": "Smazat {{count}} známých hostitelů?",
+        "message_one": "Tím odeberete důvěryhodný otisk. Další připojení k tomuto hostiteli bude považováno za nové.",
+        "message_few": "Tím odeberete důvěryhodné otisky. Další připojení k těmto hostitelům bude považováno za nové.",
+        "message_many": "Tím odeberete důvěryhodné otisky. Další připojení k těmto hostitelům bude považováno za nové.",
+        "message_other": "Tím odeberete důvěryhodné otisky. Další připojení k těmto hostitelům bude považováno za nové."
+      }
+    }
+  }
+}

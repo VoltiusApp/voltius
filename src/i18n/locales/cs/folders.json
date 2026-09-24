@@ -1,0 +1,37 @@
+{
+  "folders": {
+    "card": {
+      "pin": "Připnout",
+      "unpin": "Odepnout",
+      "openFolder": "Otevřít složku",
+      "cloudSyncDisabled": "Synchronizace s cloudem vypnuta",
+      "unpinForMe": "Odepnout pro mě",
+      "showInMyView": "Zobrazit v mém pohledu",
+      "hideForMe": "Skrýt pro mě",
+      "pinForMe": "Připnout pro mě",
+      "unpinForTeam": "Odepnout pro tým",
+      "pinForTeam": "Připnout pro tým",
+      "exportFolder": "Exportovat složku",
+      "disableCloudSync": "Vypnout synchronizaci s cloudem",
+      "enableCloudSync": "Zapnout synchronizaci s cloudem",
+      "deleteFolder": "Smazat složku",
+      "itemCount_one": "{{count}} položka",
+      "itemCount_few": "{{count}} položky",
+      "itemCount_many": "{{count}} položky",
+      "itemCount_other": "{{count}} položek"
+    },
+    "editPanel": {
+      "title": "Upravit složku",
+      "general": "Obecné",
+      "nameLabel": "Název",
+      "parentLabel": "Nadřazená složka"
+    },
+    "appearance": {
+      "title": "Vzhled složky",
+      "change": "Změnit ikonu a barvu",
+      "color": "Barva",
+      "icon": "Ikona",
+      "clear": "Vymazat"
+    }
+  }
+}

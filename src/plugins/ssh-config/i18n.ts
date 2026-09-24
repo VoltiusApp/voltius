@@ -1,4 +1,6 @@
-export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
+import type { PluginLocale } from "@/plugins/api";
+
+export const messages: Record<PluginLocale, Record<string,string>> = {
   en: {
     "settingsLabel": "SSH Config Sync",
     "sync": "Sync",
@@ -78,5 +80,21 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "keyImported": "SSH anahtarı içe aktarıldı: {{name}}",
     "identityCreated": "SSH kimliği oluşturuldu: {{name}}",
     "hostAdded": "SSH sunucusu eklendi: {{name}}",
+  },
+  cs: {
+    "settingsLabel": "Synchronizace SSH config",
+    "sync": "Synchronizace",
+    "pollInterval": "Interval kontroly",
+    "pollIntervalDesc": "Jak často kontrolovat změny v ~/.ssh/config",
+    "seconds": "sekund",
+    "syncing": "Synchronizace…",
+    "syncNow": "Synchronizovat",
+    "notifications": "Oznámení",
+    "notificationsDesc": "Zobrazit upozornění, když vzniknou hostitelé, klíče nebo identity",
+    "adopt": "Převzít odpovídající připojení",
+    "adoptDesc": "Místo vytvoření duplikátu znovu použije existující připojení (stejný hostitel, port a uživatel). Váš název a ověření zůstanou beze změny a převzatá připojení se nikdy automaticky nemažou.",
+    "keyImported": "SSH klíč importován: {{name}}",
+    "identityCreated": "SSH identita vytvořena: {{name}}",
+    "hostAdded": "SSH hostitel přidán: {{name}}",
   },
 };

@@ -1,0 +1,234 @@
+{
+  "importExport": {
+    "modal": {
+      "title": "Import / export",
+      "sectionUserData": "Uživatelská data",
+      "tabExport": "Export",
+      "tabImport": "Import"
+    },
+    "include": "Zahrnout",
+    "copied": "Zkopírováno!",
+    "downloadExt": "Stáhnout .{{ext}}",
+    "passwordPlaceholder": "Heslo",
+    "export": {
+      "format": "Formát",
+      "formatCsvDescription": "Pouze připojení — vhodné pro tabulkové procesory",
+      "formatJsonDescription": "Kompletní data včetně obsahu klíčů",
+      "encryptBackup": "Šifrovat zálohu",
+      "plaintextSecretsWarning": "Tento export obsahuje hesla, klíče nebo poznámky k hostitelům v čitelné podobě. Šifrování nechte zapnuté, pokud záměrně nepotřebujete nešifrovaný soubor.",
+      "snippetRefMissing": "„{{name}}“ spouští jiný snippet ({{target}}), který není součástí tohoto exportu. Zahrňte ho do výběru, nebo tento krok odeberte.",
+      "exportFailed": "Export se nezdařil: {{error}}",
+      "confirmPasswordPlaceholder": "Potvrzení hesla",
+      "passwordsDontMatch": "Hesla se neshodují",
+      "building": "Sestavování…",
+      "nothingToExport": "Není co exportovat",
+      "downloadEncrypted": "Stáhnout šifrovaně",
+      "hidePreview": "Skrýt náhled",
+      "showPreview": "Zobrazit náhled",
+      "selectedItem_one": "{{count}} vybraná položka",
+      "selectedItem_few": "{{count}} vybrané položky",
+      "selectedItem_many": "{{count}} vybrané položky",
+      "selectedItem_other": "{{count}} vybraných položek",
+      "autoInclude": {
+        "connections_one": "{{count}} připojení",
+        "connections_few": "{{count}} připojení",
+        "connections_many": "{{count}} připojení",
+        "connections_other": "{{count}} připojení",
+        "snippets_one": "{{count}} snippet",
+        "snippets_few": "{{count}} snippety",
+        "snippets_many": "{{count}} snippetu",
+        "snippets_other": "{{count}} snippetů"
+      },
+      "autoIncludeHint": "Zahrnuto také: používají je exportované položky, takže budou po importu dál fungovat",
+      "relatedCredentials": "Zahrnout propojené přihlašovací údaje",
+      "relatedCredentialsHint": "Identity a SSH klíče, které tato připojení používají. Když je vynecháte, exportují se jen nastavení připojení; při importu se znovu propojí s odpovídající identitou nebo klíčem, který už v trezoru je.",
+      "checkboxLabel": {
+        "connections_one": "Připojení ({{count}})",
+        "connections_few": "Připojení ({{count}})",
+        "connections_many": "Připojení ({{count}})",
+        "connections_other": "Připojení ({{count}})",
+        "identities_one": "Identita ({{count}})",
+        "identities_few": "Identity ({{count}})",
+        "identities_many": "Identity ({{count}})",
+        "identities_other": "Identity ({{count}})",
+        "keys_one": "SSH klíč ({{count}})",
+        "keys_few": "SSH klíče ({{count}})",
+        "keys_many": "SSH klíče ({{count}})",
+        "keys_other": "SSH klíče ({{count}})",
+        "snippets": "Snippety ({{count}})",
+        "portForwarding": "Přesměrování portů ({{count}})"
+      }
+    },
+    "import": {
+      "importFrom": "Importovat z",
+      "importInto": "Importovat do",
+      "autoExtractTitle": "Automaticky extrahovat z {{label}}",
+      "autoExtractDescription": "Načte a dešifruje vaše lokální data {{label}} — bez ručního exportu",
+      "extracting": "Extrahování…",
+      "extractFrom": "Extrahovat z {{label}}",
+      "chooseConfigFolder": "Nebo vyberte složku Config aplikace {{label}}…",
+      "orImportFromFile": "nebo importovat ze souboru",
+      "openFileLabel": "Otevřít soubor {{sub}}…",
+      "encryptedBackupTitle": "Šifrovaná záloha — zadejte heslo pro odemčení",
+      "unlock": "Odemknout",
+      "configPassphraseTitle": "Tato konfigurace SecureCRT má heslovou frázi — zadejte ji, chcete-li importovat uložená hesla",
+      "skipPasswords": "Importovat bez uložených hesel",
+      "reviewItems_one": "Zkontrolovat {{count}} položku",
+      "reviewItems_few": "Zkontrolovat {{count}} položky",
+      "reviewItems_many": "Zkontrolovat {{count}} položky",
+      "reviewItems_other": "Zkontrolovat {{count}} položek",
+      "back": "Zpět",
+      "reviewImportTitle": "Kontrola importu",
+      "reIncludeDuplicates": "Znovu zahrnout duplikáty",
+      "skipAllDuplicates": "Přeskočit všechny duplikáty",
+      "filterItemsPlaceholder": "Filtrovat položky…",
+      "groupConnections": "Připojení",
+      "groupKeys": "SSH klíče",
+      "groupIdentities": "Identity",
+      "groupLinkedCredentials": "Propojené přihlašovací údaje",
+      "linkedTo": "Propojeno s „{{name}}“ v tomto trezoru",
+      "linkedNotFound": "Není v tomto trezoru — přiřaďte po importu",
+      "groupPortForwarding": "Přesměrování portů",
+      "selectAll": "Vybrat vše",
+      "deselectAll": "Zrušit výběr",
+      "advanced": "Pokročilé",
+      "tagLabel": "Štítek:",
+      "tagPlaceholder": "volitelné",
+      "importing": "Importování…",
+      "importButton_one": "Importovat {{count}} položku",
+      "importButton_few": "Importovat {{count}} položky",
+      "importButton_many": "Importovat {{count}} položky",
+      "importButton_other": "Importovat {{count}} položek",
+      "importButtonMultiVault_one": "Importovat {{count}} položku × {{vaultCount}} trezorů",
+      "importButtonMultiVault_few": "Importovat {{count}} položky × {{vaultCount}} trezorů",
+      "importButtonMultiVault_many": "Importovat {{count}} položky × {{vaultCount}} trezorů",
+      "importButtonMultiVault_other": "Importovat {{count}} položek × {{vaultCount}} trezorů",
+      "nothingSelected": "Nic není vybráno",
+      "unnamedKey": "Klíč bez názvu",
+      "sshKeyFallback": "SSH klíč",
+      "actionSkip": "Přeskočit",
+      "actionInclude": "Importovat",
+      "actionOverwrite": "Přepsat",
+      "resultImportedSuccess_one": "Úspěšně importována {{count}} položka{{vaultNote}}.",
+      "resultImportedSuccess_few": "Úspěšně importovány {{count}} položky{{vaultNote}}.",
+      "resultImportedSuccess_many": "Úspěšně importováno {{count}} položky{{vaultNote}}.",
+      "resultImportedSuccess_other": "Úspěšně importováno {{count}} položek{{vaultNote}}.",
+      "resultVaultNote": " do {{count}} trezorů",
+      "resultError": "Chyba: {{error}}",
+      "resultImportedWithErrors_one": "Importována {{count}} položka{{vaultNote}}, selhalo: {{errors}}.",
+      "resultImportedWithErrors_few": "Importovány {{count}} položky{{vaultNote}}, selhalo: {{errors}}.",
+      "resultImportedWithErrors_many": "Importováno {{count}} položky{{vaultNote}}, selhalo: {{errors}}.",
+      "resultImportedWithErrors_other": "Importováno {{count}} položek{{vaultNote}}, selhalo: {{errors}}."
+    },
+    "fileInput": {
+      "openFileDefault": "Otevřít soubor…",
+      "pasteFromClipboard": "Vložit ze schránky",
+      "clear": "Vymazat",
+      "dropToLoad": "Pusťte pro načtení"
+    },
+    "userData": {
+      "import": {
+        "openFileLabel": "Otevřít soubor…",
+        "placeholder": "Sem vložte JSON s nastavením Voltius, nebo přetáhněte soubor…\n\n{ \"type\": \"voltius-user-data\", \"version\": 2, \"sections\": { ... } }",
+        "foundSections_one": "Nalezena {{count}} sekce nastavení",
+        "foundSections_few": "Nalezeny {{count}} sekce nastavení",
+        "foundSections_many": "Nalezeno {{count}} sekce nastavení",
+        "foundSections_other": "Nalezeno {{count}} sekcí nastavení",
+        "applying": "Použití…",
+        "applyButton_one": "Použít {{count}} sekci",
+        "applyButton_few": "Použít {{count}} sekce",
+        "applyButton_many": "Použít {{count}} sekce",
+        "applyButton_other": "Použít {{count}} sekcí",
+        "applyDefault": "Použít",
+        "resultApplied_one": "Použito {{count}} nastavení: {{list}}.",
+        "resultApplied_few": "Použita {{count}} nastavení: {{list}}.",
+        "resultApplied_many": "Použito {{count}} nastavení: {{list}}.",
+        "resultApplied_other": "Použito {{count}} nastavení: {{list}}.",
+        "resultError": "Chyba: {{error}}",
+        "themesReplaceWarning": "Nahradí vlastní motivy tohoto zařízení."
+      },
+      "handlers": {
+        "themes": {
+          "label": "Motivy"
+        },
+        "uiPreferences": {
+          "label": "Předvolby rozhraní"
+        },
+        "shortcuts": {
+          "label": "Klávesové zkratky"
+        },
+        "appSettings": {
+          "label": "Nastavení aplikace"
+        },
+        "recentPeople": {
+          "label": "Nedávné osoby"
+        },
+        "vaults": {
+          "label": "Trezory"
+        }
+      },
+      "describe": {
+        "themes_one": "{{count}} vlastní motiv",
+        "themes_few": "{{count}} vlastní motivy",
+        "themes_many": "{{count}} vlastního motivu",
+        "themes_other": "{{count}} vlastních motivů",
+        "uiPreferences": "měřítko {{scale}}× · rozložení {{layout}}",
+        "shortcutsOverrides_one": "{{count}} úprava",
+        "shortcutsOverrides_few": "{{count}} úpravy",
+        "shortcutsOverrides_many": "{{count}} úpravy",
+        "shortcutsOverrides_other": "{{count}} úprav",
+        "shortcutsDefaults": "Výchozí",
+        "appSettingsShell": "shell: {{shell}}",
+        "appSettingsDefault": "Výchozí nastavení",
+        "recentPeople_one": "{{count}} nedávná osoba",
+        "recentPeople_few": "{{count}} nedávné osoby",
+        "recentPeople_many": "{{count}} nedávné osoby",
+        "recentPeople_other": "{{count}} nedávných osob",
+        "vaults_one": "{{count}} trezor",
+        "vaults_few": "{{count}} trezory",
+        "vaults_many": "{{count}} trezoru",
+        "vaults_other": "{{count}} trezorů"
+      }
+    },
+    "importers": {
+      "voltius": {
+        "sub": "JSON",
+        "placeholder": "Sem vložte JSON z Voltius, nebo přetáhněte soubor .json…\n\n{ \"version\": 1, \"connections\": [...] }"
+      },
+      "csv": {
+        "sub": "Tabulka",
+        "placeholder": "Sem vložte CSV, nebo přetáhněte soubor…\n\nname,host,port,username,auth_type,tags"
+      },
+      "mobaxterm": {
+        "sub": "Místní instalace · automatické dešifrování",
+        "hint": "Vyžaduje nainstalovaný MobaXterm (jen Windows).",
+        "placeholder": "Sem přetáhněte MobaXterm.ini, nebo vložte jeho obsah…"
+      },
+      "termius": {
+        "sub": "Místní instalace · automatické načtení",
+        "hint": "Vyžaduje nainstalovaný Termius s přihlášeným účtem.",
+        "placeholder": "Pro Termius použijte Automatické načtení. Vložené starší výpisy z Termius nelze věrně importovat."
+      },
+      "zoc": {
+        "sub": "Adresář hostitelů · .zhd",
+        "hint": "Najdete ho v Documents\\ZOC9 Files\\Options (Windows) nebo ~/Library/Application Support/ZOC9 Files/Options (macOS). Importují se položky SSH a sériové; uložená hesla ne.",
+        "placeholder": "Sem přetáhněte HostDirectory.zhd, nebo vložte jeho obsah…"
+      },
+      "putty": {
+        "sub": ".reg nebo relace",
+        "hint": "Načte uložené relace z registru ve Windows, nebo z ~/.putty/sessions v Linuxu a macOS. Můžete také přetáhnout export .reg nebo vložit soubory relací. Importují se relace SSH a sériové, proxy a tunely; soubory klíčů ne.",
+        "placeholder": "Sem přetáhněte export .reg z PuTTY, nebo vložte soubory relací…"
+      },
+      "securecrt": {
+        "sub": "Relace .ini · export XML",
+        "hint": "Automatické načtení čte místní konfiguraci SecureCRT. Můžete také přetáhnout soubor relace .ini z Config/Sessions, nebo soubor XML z File → Export Settings. Relace SSH a sériové se importují i s uloženými hesly; Telnet, RLogin, Raw a další protokoly se přeskočí.",
+        "placeholder": "Sem přetáhněte soubor relace SecureCRT .ini nebo .xml z Export Settings, nebo vložte jeho obsah…"
+      }
+    },
+    "menu": {
+      "export": "Exportovat",
+      "importEllipsis": "Importovat…",
+      "exportEllipsis": "Exportovat…"
+    }
+  }
+}

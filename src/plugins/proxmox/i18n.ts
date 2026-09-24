@@ -1,7 +1,9 @@
+import type { PluginLocale } from "@/plugins/api";
+
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.proxmox / mobile.proxmox.* /
 // mobile.hostActions.* / mobile.panelCommon.* and mobile.json's common.action.{delete,cancel} —
 // values carried over verbatim.
-export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
+export const messages: Record<PluginLocale, Record<string,string>> = {
   en: {
     "title": "Proxmox",
     "needsSshTitle": "Proxmox needs an SSH session",
@@ -207,5 +209,46 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "rollbackFailed": "Geri döndürülemedi: {{error}}",
     "deleteFailed": "Silinemedi: {{error}}",
     "actionFailed": "İşlem başarısız: {{error}}",
+  },
+  cs: {
+    "title": "Proxmox",
+    "needsSshTitle": "Proxmox vyžaduje SSH relaci",
+    "needsSshSub": "Otevřete Proxmox z hostitele připojeného přes SSH.",
+    "sessionNotConnected": "Relace není připojena",
+    "sessionNotConnectedSub": "Pro správu tohoto hostitele se znovu připojte.",
+    "notDetectedTitle": "Proxmox VE nebyl zjištěn",
+    "notDetectedSub": "Tento panel vyžaduje SSH připojení k hostiteli Proxmox VE.",
+    "noContainers": "Žádné kontejnery",
+    "snapshotsTitle": "Snapshoty · {{name}}",
+    "newSnapshotPlaceholder": "Název nového snapshotu",
+    "descriptionPlaceholder": "Popis (volitelné)",
+    "createSnapshot": "Vytvořit snapshot",
+    "noSnapshots": "Žádné snapshoty",
+    "current": "(aktuální)",
+    "rollbackConfirmTitle": "Vrátit zpět?",
+    "deleteSnapshotConfirmTitle": "Smazat snapshot?",
+    "rollbackConfirmBody": "Obnovit {{name}} na snapshot „{{snap}}“? Aktuální stav bude ztracen.",
+    "deleteSnapshotConfirmBody": "Smazat snapshot „{{snap}}“? Tuto akci nelze vrátit zpět.",
+    "rollbackButton": "Vrátit zpět",
+    "delete": "Smazat",
+    "cancel": "Zrušit",
+    "snapshotsAction": "Snapshoty",
+    "openShell": "Otevřít shell",
+    "ctSummary": "CT {{vmid}} · {{status}}",
+    "sheetTitleWithId": "{{name}} (CT {{vmid}})",
+    "hostStop": "Zastavit",
+    "hostRestart": "Restartovat",
+    "hostStart": "Spustit",
+    "noActiveSession": "Žádná aktivní relace",
+    "refresh": "Obnovit",
+    "runningCount": "{{count}} běží",
+    "hereBadge": "zde",
+    "rollbackToSnapshot": "Vrátit se k tomuto snímku",
+    "deleteSnapshot": "Smazat snímek",
+    "shellFailed": "Shell selhal: {{error}}",
+    "snapshotFailed": "Snímek selhal: {{error}}",
+    "rollbackFailed": "Návrat selhal: {{error}}",
+    "deleteFailed": "Smazání selhalo: {{error}}",
+    "actionFailed": "Akce selhala: {{error}}",
   },
 };

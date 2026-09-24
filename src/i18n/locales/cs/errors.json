@@ -1,0 +1,36 @@
+{
+  "errors": {
+    "permission-denied": "Přístup odepřen",
+    "not-found": "Soubor nebo složka neexistuje",
+    "already-exists": "Soubor nebo složka s tímto názvem už existuje",
+    "storage-full": "Nedostatek místa na disku nebo vyčerpaná kvóta",
+    "read-only-filesystem": "Souborový systém je jen pro čtení",
+    "connection-refused": "Hostitel odmítl připojení — zkontrolujte adresu a port a zda služba běží",
+    "host-unreachable": "Hostitel je nedostupný — zkontrolujte adresu a připojení k síti",
+    "timed-out": "Časový limit operace vypršel",
+    "connection-lost": "Spojení bylo ztraceno",
+    "transfer-verify-failed": "Kopie neodpovídala originálu, proto byla zahozena — zkuste ji zkopírovat znovu",
+    "transfer-source-changed": "Soubor se během kopírování stále měnil — zkuste to znovu, až bude dopsán",
+    "port-in-use": "Port {{port}} a porty za ním jsou už obsazené (vyzkoušeno {{attempts}})",
+    "remote-forward-denied": "Server odmítl vzdálené přesměrování — port tam může být obsazený, nebo přesměrování není povoleno",
+    "ssh-key-rejected": "Ověření veřejným klíčem bylo odmítnuto",
+    "ssh-password-rejected": "Ověření heslem bylo odmítnuto — zkontrolujte uživatelské jméno a heslo",
+    "ssh-password-expired": "Server vyžaduje nové heslo — přihlaste se jednou z terminálu a změňte ho tam",
+    "ssh-prompt-unanswerable": "Server se zeptal „{{prompt}}“, na což nelze odpovědět automaticky",
+    "ssh-no-usable-auth-method": "Žádná použitelná metoda ověření — server přijímá jen: {{methods}}",
+    "ssh-auth-timeout": "Ověření vypršelo po {{seconds}} s — server připojení přijal, ale nikdy neodpověděl. Některé starší SSH servery se tu zaseknou; zkuste u hostitele volbu „Starší algoritmy“ nebo jinou metodu ověření.",
+    "login-rejected": "Server odmítl uživatelské jméno nebo heslo",
+    "resource-locked": "Soubor je na serveru zamčený — možná ho má otevřený někdo jiný",
+    "vault-locked": "$t(common.error.vaultLocked)",
+    "vault-unreadable": "$t(common.error.vaultUnreadable)",
+    "vault-sign-in-required": "Týmové trezory vyžadují aktivní připojení k serveru. Pokračujte přihlášením.",
+    "vault-read-only": "Do tohoto trezoru nemáte právo zápisu. Požádejte správce trezoru o roli, která může provádět změny.",
+    "vault-role-read-only": "Do tohoto trezoru nemáte právo zápisu (vaše role: {{role}}). Změny mohou provádět jen vlastníci, správci a editoři.",
+    "vault-permissions-unavailable": "Oprávnění k trezoru nelze ověřit, protože klíčenka není dostupná. Zkuste to znovu.",
+    "vault-permissions-corrupted": "Data oprávnění trezoru jsou poškozená. Přihlaste se znovu a obnovte přístup."
+  },
+  "errorAt": {
+    "proxy": "Proxy {{proxy}}: {{cause}}",
+    "jumpHost": "Jump host {{jumpHost}}: {{cause}}"
+  }
+}

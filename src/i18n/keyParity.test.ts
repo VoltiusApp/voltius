@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { baseKey } from "./baseKey";
+import { SUPPORTED_LOCALES } from "@/stores/localeStore";
+import { localeBundles } from "./bundles";
 
 // Covers only host-owned locale files (src/i18n/locales/*). Plugin-owned strings
 // (registered via api.i18n.register — see the four moved mobile screens under
@@ -16,24 +18,12 @@ function flatten(obj: Record<string, unknown>, prefix = ""): string[] {
       : [key];
   });
 }
-function load(glob: Record<string, { default: Record<string, unknown> }>) {
-  const out: Record<string, unknown> = {};
-  for (const mod of Object.values(glob)) {
-    for (const [k, v] of Object.entries(mod.default)) {
-      out[k] = { ...(out[k] as object), ...(v as object) };
-    }
-  }
-  return out;
-}
 
-const en = load(import.meta.glob("./locales/en/*.json", { eager: true }) as never);
-const translations: Record<string, Record<string, unknown>> = {
-  French: load(import.meta.glob("./locales/fr/*.json", { eager: true }) as never),
-  Russian: load(import.meta.glob("./locales/ru/*.json", { eager: true }) as never),
-  Chinese: load(import.meta.glob("./locales/zh/*.json", { eager: true }) as never),
-  Turkish: load(import.meta.glob("./locales/tr/*.json", { eager: true }) as never),
-};
-const LOCALE_CODES: Record<string, string> = { English: "en", French: "fr", Russian: "ru", Chinese: "zh", Turkish: "tr" };
+const en = localeBundles.en;
+const translations: Record<string, Record<string, unknown>> = Object.fromEntries(
+  SUPPORTED_LOCALES.filter((l) => l.value !== "en").map((l) => [l.label, localeBundles[l.value] ?? {}]),
+);
+const LOCALE_CODES: Record<string, string> = Object.fromEntries(SUPPORTED_LOCALES.map((l) => [l.label, l.value]));
 
 const enBaseKeys = new Set(flatten(en).map(baseKey));
 

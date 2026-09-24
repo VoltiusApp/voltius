@@ -1,6 +1,8 @@
+import type { PluginLocale } from "@/plugins/api";
+
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.metrics / mobile.metrics.* —
 // values carried over verbatim, keys shortened now that this catalog is plugin-scoped.
-export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
+export const messages: Record<PluginLocale, Record<string,string>> = {
   en: {
     "title": "Metrics",
     "sshOnly": "Live metrics are only available for SSH sessions. Connect to a host over SSH to see its metrics.",
@@ -106,5 +108,26 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "host": "Sunucu",
     "os": "OS",
     "kernel": "Kernel",
+  },
+  cs: {
+    "title": "Metriky",
+    "sshOnly": "Živé metriky jsou dostupné jen pro SSH relace. Pro zobrazení metrik se připojte k hostiteli přes SSH.",
+    "cpu": "CPU",
+    "memory": "Paměť",
+    "netRx": "Síť RX",
+    "netTx": "Síť TX",
+    "noActiveSession": "Žádná aktivní relace",
+    "androidUnavailable": "Živé metriky tohoto zařízení nejsou v Androidu k dispozici. Pro zobrazení metrik se připojte k hostiteli přes SSH.",
+    "serialUnavailable": "Živé metriky nejsou pro sériové relace k dispozici.",
+    "disk": "Disk",
+    "systemInfo": "Informace o systému",
+    "loading": "Načítání…",
+    "cores": "Jádra",
+    "arch": "Arch.",
+    "gpu": "GPU",
+    "gpus": "GPU",
+    "host": "Hostitel",
+    "os": "OS",
+    "kernel": "Jádro OS",
   },
 };
