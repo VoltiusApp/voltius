@@ -12,11 +12,13 @@ use tokio_util::sync::CancellationToken;
 pub mod dir;
 pub mod editor;
 mod ops;
+mod remote_shell;
 mod tar;
 pub mod transfer;
 
 pub use dir::*;
 pub use ops::*;
+pub use remote_shell::RemoteShell;
 pub use tar::*;
 pub use transfer::*;
 

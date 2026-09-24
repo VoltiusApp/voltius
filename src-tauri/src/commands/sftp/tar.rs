@@ -1,6 +1,11 @@
 use super::{
-    get_session, shell_quote, tar_backend, temp_archive_name, transfer::sftp_download_inner,
-    transfer::sftp_rr_file_inner, transfer::sftp_upload_inner, TarBackend,
+    get_session,
+    remote_shell::{remote_shell, RemoteShell},
+    tar_backend, temp_archive_name,
+    transfer::sftp_download_inner,
+    transfer::sftp_rr_file_inner,
+    transfer::sftp_upload_inner,
+    TarBackend,
 };
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
@@ -11,11 +16,8 @@ use tauri::{AppHandle, State};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
-// Windows tar can't recreate POSIX symlinks: dereference them when extracting locally.
-#[cfg(windows)]
-const WIN_DEREF: &str = "-h --ignore-failed-read ";
-#[cfg(not(windows))]
-const WIN_DEREF: &str = "";
+// Windows tar can't recreate POSIX symlinks: dereference them when the extracting end is Windows.
+const LOCAL_IS_WINDOWS: bool = cfg!(windows);
 
 // ── Shared shell fragments ────────────────────────────────────────────────────
 
@@ -41,56 +43,78 @@ fn local_split(path: &str) -> (String, String) {
     )
 }
 
-/// `tar -czf <archive> -C <parent> <items…>`, reporting its exit code in the
-/// `__TF_EXIT__` marker `exec_command` looks for. `deref` follows symlinks —
-/// only the download side needs it, because Windows tar cannot recreate them.
-fn tar_create_cmd(archive: &str, deref: bool, parent: &str, items: &[String]) -> String {
-    let quoted: Vec<String> = items.iter().map(|i| shell_quote(i)).collect();
-    format!(
-        "tar -czf {arch} {deref}-C {parent} {items} 2>&1; echo __TF_EXIT__:$?",
-        arch = shell_quote(archive),
-        deref = if deref { WIN_DEREF } else { "" },
-        parent = shell_quote(parent),
+/// `tar -czf <archive> -C <parent> <items…>`, reporting its exit code. `deref`
+/// follows symlinks, for an archive a Windows tar will extract.
+fn tar_create_cmd(
+    shell: &RemoteShell,
+    archive: &str,
+    deref: bool,
+    parent: &str,
+    items: &[String],
+) -> Result<String, String> {
+    let quoted: Vec<String> = items.iter().map(|i| shell.quote(i)).collect();
+    let tar = format!(
+        "tar -czf {arch} {deref}-C {parent} {items}",
+        arch = shell.quote_path(archive),
+        deref = if deref { shell.deref_flags() } else { "" },
+        parent = shell.quote_path(parent),
         items = quoted.join(" "),
-    )
+    );
+    shell.checked(shell.status(&tar, None))
 }
 
-/// `mkdir -p <dest> && tar -xzf <archive> -C <dest>`. `strip` drops the archive's
+/// Make `dest`, then `tar -xzf <archive> -C <dest>`. `strip` drops the archive's
 /// single top-level directory (a whole-directory transfer); `remove_archive`
 /// deletes the archive afterwards but still reports the *extraction's* exit code.
-fn tar_extract_cmd(dest: &str, archive: &str, strip: bool, remove_archive: bool) -> String {
-    let dest = shell_quote(dest);
-    let arch = shell_quote(archive);
-    let strip = if strip { "--strip-components=1 " } else { "" };
-    let tail = if remove_archive {
-        format!("RC=$?; rm -f {arch}; echo __TF_EXIT__:$RC")
-    } else {
-        "echo __TF_EXIT__:$?".to_string()
-    };
-    format!("mkdir -p {dest} && tar -xzf {arch} {strip}-C {dest} 2>&1; {tail}")
+fn tar_extract_cmd(
+    shell: &RemoteShell,
+    dest: &str,
+    archive: &str,
+    strip: bool,
+    remove_archive: bool,
+) -> String {
+    let tar = format!(
+        "tar -xzf {arch} {strip}-C {dest}",
+        arch = shell.quote_path(archive),
+        strip = if strip { "--strip-components=1 " } else { "" },
+        dest = shell.quote_path(dest),
+    );
+    let cleanup = remove_archive.then(|| shell.rm(archive));
+    shell.status(&shell.in_dir(dest, &tar), cleanup.as_deref())
 }
 
-fn rm_remote_cmd(path: &str) -> String {
-    format!("rm -f {}", shell_quote(path))
+async fn shell_of(manager: &SftpManager, sftp_id: &str) -> RemoteShell {
+    remote_shell(manager, sftp_id)
+        .await
+        .unwrap_or(RemoteShell::Posix)
 }
 
 /// Remote path of a transfer's temp archive. The destination end gets a name of
 /// its own: when both ends are the *same* host, one shared name means the
 /// source's clean-up `rm -f` — which runs before the destination extracts —
 /// deletes the very archive the extraction is waiting for.
-fn remote_archive(transfer_id: &str, dst: bool) -> String {
+fn remote_archive(shell: &RemoteShell, transfer_id: &str, dst: bool) -> String {
     let name = if dst {
         temp_archive_name(&format!("{transfer_id}_dst"))
     } else {
         temp_archive_name(transfer_id)
     };
-    format!("/tmp/{name}")
+    shell.temp_path(&name)
 }
 
 /// Archive `names` (all relative to `parent`) into `archive` with the local tar.
-async fn local_tar_create(archive: &Path, parent: &str, names: &[String]) -> Result<(), String> {
+async fn local_tar_create(
+    archive: &Path,
+    deref: bool,
+    parent: &str,
+    names: &[String],
+) -> Result<(), String> {
     let mut cmd = tokio::process::Command::new("tar");
-    cmd.args(["-czf", archive.to_str().unwrap_or(""), "-C", parent]);
+    cmd.args(["-czf", archive.to_str().unwrap_or("")]);
+    if deref {
+        cmd.arg("-h");
+    }
+    cmd.args(["-C", parent]);
     for name in names {
         cmd.arg(name);
     }
@@ -136,10 +160,11 @@ struct TarJob<'a> {
     sftp_id: &'a str,
     transfer_id: &'a str,
     token: &'a CancellationToken,
+    shell: RemoteShell,
 }
 
 impl<'a> TarJob<'a> {
-    fn new(
+    async fn new(
         app: &'a AppHandle,
         manager: &'a SftpManager,
         sftp_id: &'a str,
@@ -152,16 +177,17 @@ impl<'a> TarJob<'a> {
             sftp_id,
             transfer_id,
             token,
+            shell: shell_of(manager, sftp_id).await,
         }
     }
 
-    /// This transfer's temp archive, under the app cache dir locally and `/tmp` remotely.
+    /// This transfer's temp archive, under the app cache dir locally and the remote temp dir.
     /// Not `std::env::temp_dir()`: on Android that is `/data/local/tmp`, which an app uid
     /// cannot write.
     fn temp_paths(&self) -> Result<(std::path::PathBuf, String), String> {
         let name = temp_archive_name(self.transfer_id);
         let local = crate::scratch::app_scratch_dir(self.app)?.join(&name);
-        Ok((local, remote_archive(self.transfer_id, false)))
+        Ok((local, remote_archive(&self.shell, self.transfer_id, false)))
     }
 
     async fn exec(&self, cmd: &str) -> Result<(), String> {
@@ -170,7 +196,7 @@ impl<'a> TarJob<'a> {
 
     /// Best-effort cleanup of a remote temp archive.
     async fn rm_remote(&self, path: &str) {
-        let _ = self.exec(&rm_remote_cmd(path)).await;
+        let _ = self.exec(&self.shell.rm(path)).await;
     }
 }
 
@@ -216,9 +242,15 @@ pub async fn sftp_compress(
     source_path: String,
     archive_path: String,
 ) -> Result<(), String> {
-    // tar -czf archive -C parent basename  (avoids leading path components)
     let (parent, basename) = remote_split(&source_path);
-    let cmd = tar_create_cmd(&archive_path, false, parent, &[basename.to_string()]);
+    let shell = shell_of(&sftp_state, &sftp_id).await;
+    let cmd = tar_create_cmd(
+        &shell,
+        &archive_path,
+        false,
+        parent,
+        &[basename.to_string()],
+    )?;
     sftp_state.exec_command(&sftp_id, &cmd).await
 }
 
@@ -230,22 +262,21 @@ pub async fn sftp_extract(
     archive_path: String,
     dest_dir: String,
 ) -> Result<(), String> {
-    let cmd = tar_extract_cmd(&dest_dir, &archive_path, false, false);
+    let shell = shell_of(&sftp_state, &sftp_id).await;
+    let cmd = tar_extract_cmd(&shell, &dest_dir, &archive_path, false, false);
     sftp_state.exec_command(&sftp_id, &cmd).await
 }
 
 // ── Tar-based directory transfer ──────────────────────────────────────────────
 
-/// True if the remote runs a POSIX shell with `tar` and the `/tmp` the archive is staged in.
+/// True if the remote host has a tar and a temp dir the archive can be staged in.
 #[tauri::command]
 pub async fn sftp_tar_available(
     sftp_state: State<'_, SftpManager>,
     sftp_id: String,
 ) -> Result<bool, String> {
-    Ok(sftp_state.exec_probe(&sftp_id, TAR_PROBE_CMD).await)
+    Ok(remote_shell(&sftp_state, &sftp_id).await.is_some())
 }
-
-const TAR_PROBE_CMD: &str = "command -v tar >/dev/null 2>&1 && test -d /tmp; echo __TF_EXIT__:$?";
 
 /// Archive `names` (relative to `local_parent`) locally, upload the archive, and
 /// extract it into `remote_dir`. Shared by the batch and whole-directory uploads,
@@ -261,7 +292,7 @@ async fn upload_tar(
     let (tmp_local, tmp_remote) = job.temp_paths()?;
 
     // 1. Archive locally
-    local_tar_create(&tmp_local, local_parent, names).await?;
+    local_tar_create(&tmp_local, job.shell.is_windows(), local_parent, names).await?;
 
     if job.token.is_cancelled() {
         let _ = tokio::fs::remove_file(&tmp_local).await;
@@ -283,8 +314,14 @@ async fn upload_tar(
     uploaded?;
 
     // 3. Extract on remote and clean up remote temp
-    job.exec(&tar_extract_cmd(remote_dir, &tmp_remote, strip, true))
-        .await
+    job.exec(&tar_extract_cmd(
+        &job.shell,
+        remote_dir,
+        &tmp_remote,
+        strip,
+        true,
+    ))
+    .await
 }
 
 /// Archive `items` (relative to `remote_parent`) on the remote host, download the
@@ -300,8 +337,14 @@ async fn download_tar(
     let (tmp_local, tmp_remote) = job.temp_paths()?;
 
     // 1. Archive on remote
-    job.exec(&tar_create_cmd(&tmp_remote, true, remote_parent, items))
-        .await?;
+    job.exec(&tar_create_cmd(
+        &job.shell,
+        &tmp_remote,
+        LOCAL_IS_WINDOWS,
+        remote_parent,
+        items,
+    )?)
+    .await?;
 
     if job.token.is_cancelled() {
         job.rm_remote(&tmp_remote).await;
@@ -343,11 +386,18 @@ async fn transfer_tar(
     // `job.sftp_id` is the source; the destination archive is named apart so a
     // same-host transfer survives the source clean-up below.
     let (_, src_tmp) = job.temp_paths()?;
-    let dst_tmp = remote_archive(job.transfer_id, true);
+    let dst_shell = shell_of(job.manager, dst_sftp_id).await;
+    let dst_tmp = remote_archive(&dst_shell, job.transfer_id, true);
 
     // 1. Archive on source
-    job.exec(&tar_create_cmd(&src_tmp, false, src_parent, items))
-        .await?;
+    job.exec(&tar_create_cmd(
+        &job.shell,
+        &src_tmp,
+        dst_shell.is_windows(),
+        src_parent,
+        items,
+    )?)
+    .await?;
 
     if job.token.is_cancelled() {
         job.rm_remote(&src_tmp).await;
@@ -370,7 +420,7 @@ async fn transfer_tar(
     streamed?;
 
     // 3. Extract on destination and clean up
-    let cmd = tar_extract_cmd(dst_dir, &dst_tmp, strip, true);
+    let cmd = tar_extract_cmd(&dst_shell, dst_dir, &dst_tmp, strip, true);
     job.manager.exec_command(dst_sftp_id, &cmd).await
 }
 
@@ -402,7 +452,7 @@ pub async fn sftp_upload_batch_tar(
         .filter_map(|p| Path::new(p).file_name()?.to_str().map(str::to_string))
         .collect();
 
-    let job = TarJob::new(&app, &sftp_state, &sftp_id, &transfer_id, &token);
+    let job = TarJob::new(&app, &sftp_state, &sftp_id, &transfer_id, &token).await;
     finish_with(
         &job,
         upload_tar(&job, session, &parent, &names, &remote_dir, false),
@@ -437,7 +487,7 @@ pub async fn sftp_download_batch_tar(
         .filter_map(|p| p.rfind('/').map(|i| p[i + 1..].to_string()))
         .collect();
 
-    let job = TarJob::new(&app, &sftp_state, &sftp_id, &transfer_id, &token);
+    let job = TarJob::new(&app, &sftp_state, &sftp_id, &transfer_id, &token).await;
     finish_with(
         &job,
         download_tar(&job, session, parent, &items, &local_dir, false),
@@ -469,7 +519,7 @@ pub async fn sftp_transfer_batch_tar(
         .filter_map(|p| p.rfind('/').map(|i| p[i + 1..].to_string()))
         .collect();
 
-    let job = TarJob::new(&app, &sftp_state, &src_sftp_id, &transfer_id, &token);
+    let job = TarJob::new(&app, &sftp_state, &src_sftp_id, &transfer_id, &token).await;
     finish_with(
         &job,
         transfer_tar(
@@ -506,7 +556,7 @@ pub async fn sftp_upload_dir_tar(
 
     let (parent, basename) = local_split(&local_path);
 
-    let job = TarJob::new(&app, &sftp_state, &sftp_id, &transfer_id, &token);
+    let job = TarJob::new(&app, &sftp_state, &sftp_id, &transfer_id, &token).await;
     finish_with(
         &job,
         upload_tar(&job, session, &parent, &[basename], &remote_path, true),
@@ -535,7 +585,7 @@ pub async fn sftp_download_dir_tar(
     let (parent, basename) = remote_split(&remote_path);
     let items = [basename.to_string()];
 
-    let job = TarJob::new(&app, &sftp_state, &sftp_id, &transfer_id, &token);
+    let job = TarJob::new(&app, &sftp_state, &sftp_id, &transfer_id, &token).await;
     finish_with(
         &job,
         download_tar(&job, session, parent, &items, &local_path, true),
@@ -562,7 +612,7 @@ pub async fn sftp_transfer_dir_tar(
     let (parent, basename) = remote_split(&src_path);
     let items = [basename.to_string()];
 
-    let job = TarJob::new(&app, &sftp_state, &src_sftp_id, &transfer_id, &token);
+    let job = TarJob::new(&app, &sftp_state, &src_sftp_id, &transfer_id, &token).await;
     finish_with(
         &job,
         transfer_tar(
@@ -599,49 +649,81 @@ mod tests {
         assert_eq!(local_split("logs"), (String::new(), "logs".to_string()));
     }
 
+    const SH: &RemoteShell = &RemoteShell::Posix;
+
+    fn cmd_exe() -> RemoteShell {
+        RemoteShell::Windows {
+            shell: super::super::remote_shell::WinShell::Cmd,
+            temp: r"C:\Temp".into(),
+        }
+    }
+
     #[test]
     fn create_quotes_every_item_and_reports_its_exit_code() {
         assert_eq!(
-            tar_create_cmd("/tmp/a.tar.gz", false, "/srv", &["x".into(), "y z".into()]),
-            "tar -czf '/tmp/a.tar.gz' -C '/srv' 'x' 'y z' 2>&1; echo __TF_EXIT__:$?"
+            tar_create_cmd(
+                SH,
+                "/tmp/a.tar.gz",
+                false,
+                "/srv",
+                &["x".into(), "y z".into()]
+            ),
+            Ok("tar -czf '/tmp/a.tar.gz' -C '/srv' 'x' 'y z' 2>&1; echo __TF_EXIT__:$?".into())
         );
     }
 
     #[test]
     fn create_only_dereferences_when_asked() {
-        let with = tar_create_cmd("/tmp/a", true, "/srv", &["x".into()]);
-        let without = tar_create_cmd("/tmp/a", false, "/srv", &["x".into()]);
+        let with = tar_create_cmd(SH, "/tmp/a", true, "/srv", &["x".into()]).unwrap();
+        let without = tar_create_cmd(SH, "/tmp/a", false, "/srv", &["x".into()]).unwrap();
         assert!(!without.contains("-h "));
-        assert_eq!(with, without.replacen("-C", &format!("{WIN_DEREF}-C"), 1));
+        assert_eq!(
+            with,
+            without.replacen("-C", "-h --ignore-failed-read -C", 1)
+        );
     }
 
     #[test]
     fn extract_makes_the_destination_and_reports_its_exit_code() {
         assert_eq!(
-            tar_extract_cmd("/dest", "/tmp/a.tar.gz", false, false),
+            tar_extract_cmd(SH, "/dest", "/tmp/a.tar.gz", false, false),
             "mkdir -p '/dest' && tar -xzf '/tmp/a.tar.gz' -C '/dest' 2>&1; echo __TF_EXIT__:$?"
         );
     }
 
     #[test]
     fn extract_strips_the_top_level_dir_for_a_whole_directory_transfer() {
-        let cmd = tar_extract_cmd("/dest", "/tmp/a", true, false);
+        let cmd = tar_extract_cmd(SH, "/dest", "/tmp/a", true, false);
         assert!(cmd.contains("--strip-components=1 -C '/dest'"));
     }
 
     #[test]
     fn extract_removing_the_archive_still_reports_the_extraction_exit_code() {
         assert_eq!(
-            tar_extract_cmd("/dest", "/tmp/a", false, true),
+            tar_extract_cmd(SH, "/dest", "/tmp/a", false, true),
             "mkdir -p '/dest' && tar -xzf '/tmp/a' -C '/dest' 2>&1; \
              RC=$?; rm -f '/tmp/a'; echo __TF_EXIT__:$RC"
         );
     }
 
     #[test]
+    fn windows_extract_uses_native_paths_and_cleans_up_on_either_outcome() {
+        assert_eq!(
+            tar_extract_cmd(&cmd_exe(), "/C:/dest dir", "/C:/Temp/a.tar.gz", false, true),
+            r#"(mkdir "C:\dest dir" 2>nul & tar -xzf "C:\Temp\a.tar.gz" -C "C:\dest dir") 2>&1 && (del /f /q "C:\Temp\a.tar.gz" 2>nul & echo __TF_EXIT__:0) || (del /f /q "C:\Temp\a.tar.gz" 2>nul & echo __TF_EXIT__:1)"#
+        );
+    }
+
+    #[test]
+    fn windows_create_at_a_drive_root_archives_from_the_root() {
+        let cmd = tar_create_cmd(&cmd_exe(), "/C:/Temp/a", false, "/C:", &["x".into()]).unwrap();
+        assert!(cmd.contains(r#"-C "C:\." "x""#));
+    }
+
+    #[test]
     fn the_two_ends_of_a_transfer_never_name_the_same_archive() {
-        let src = remote_archive("t1", false);
-        let dst = remote_archive("t1", true);
+        let src = remote_archive(SH, "t1", false);
+        let dst = remote_archive(SH, "t1", true);
         assert_eq!(src, "/tmp/tf_t1.tar.gz");
         assert_eq!(dst, "/tmp/tf_t1_dst.tar.gz");
         assert_ne!(src, dst);
@@ -649,12 +731,12 @@ mod tests {
 
     #[test]
     fn removing_the_source_archive_leaves_the_destination_one_alone() {
-        let dst = remote_archive("t1", true);
-        assert!(!rm_remote_cmd(&remote_archive("t1", false)).contains(&dst));
+        let dst = remote_archive(SH, "t1", true);
+        assert!(!SH.rm(&remote_archive(SH, "t1", false)).contains(&dst));
     }
 
     #[test]
     fn rm_remote_quotes_its_path() {
-        assert_eq!(rm_remote_cmd("/tmp/a b"), "rm -f '/tmp/a b'");
+        assert_eq!(SH.rm("/tmp/a b"), "rm -f '/tmp/a b'");
     }
 }

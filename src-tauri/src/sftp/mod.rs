@@ -4,6 +4,7 @@ pub mod real;
 
 pub use backend::FileBackend;
 
+use crate::commands::sftp::RemoteShell;
 use crate::known_hosts::KnownHostsStore;
 use crate::ssh::client::{authenticate_handle, client_config, JumpHostConnect, SshClient};
 use crate::ssh::live_cells::{own_cell, read_cell};
@@ -16,7 +17,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::io::AsyncReadExt;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OnceCell};
 use tokio::time::{timeout, Duration};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -56,6 +57,7 @@ struct SftpEntry {
     handle: Option<SessionHandle>,
     cancel: CancellationToken,
     _jump_handles: Vec<Arc<Handle<SshClient>>>,
+    tar_shell: Arc<OnceCell<Option<RemoteShell>>>,
 }
 
 pub struct SftpManager {
@@ -91,6 +93,7 @@ impl SftpManager {
                 handle,
                 cancel,
                 _jump_handles: jump_handles,
+                tar_shell: Arc::default(),
             },
         );
         id
@@ -374,6 +377,18 @@ impl SftpManager {
             .map(|e| Arc::clone(&e.backend))
     }
 
+    /// Per-session cache of the remote shell tar commands are written for.
+    pub(crate) async fn tar_shell_cell(
+        &self,
+        id: &str,
+    ) -> Option<Arc<OnceCell<Option<RemoteShell>>>> {
+        self.sessions
+            .lock()
+            .await
+            .get(id)
+            .map(|e| Arc::clone(&e.tar_shell))
+    }
+
     pub async fn close(&self, id: &str) {
         let entry = self.sessions.lock().await.remove(id);
         if let Some(e) = entry {
@@ -422,7 +437,6 @@ impl SftpManager {
     }
 
     /// True only if `cmd` ran and reported exit 0 through its `__TF_EXIT__` marker.
-    /// A non-POSIX shell (Windows `cmd.exe`) never prints the marker.
     pub async fn exec_probe(&self, sftp_id: &str, cmd: &str) -> bool {
         match self.exec_output(sftp_id, cmd).await {
             Ok(text) => exit_status(&text, true).is_ok(),
@@ -430,7 +444,7 @@ impl SftpManager {
         }
     }
 
-    async fn exec_output(&self, sftp_id: &str, cmd: &str) -> Result<String, String> {
+    pub(crate) async fn exec_output(&self, sftp_id: &str, cmd: &str) -> Result<String, String> {
         let handle = {
             let sessions = self.sessions.lock().await;
             sessions
