@@ -350,6 +350,30 @@ pub struct ConnectedSession {
     pub remote_routes: RemoteRouteMap,
 }
 
+/// Runs `cmd` on `channel` and collects stdout; `None` if the exec request fails,
+/// otherwise the output and whether it reached EOF within `limit`.
+async fn exec_collect(
+    channel: russh::Channel<client::Msg>,
+    cmd: &str,
+    limit: std::time::Duration,
+) -> Option<(Vec<u8>, bool)> {
+    channel.exec(true, cmd).await.ok()?;
+    let mut stream = channel.into_stream();
+    let mut out: Vec<u8> = Vec::new();
+    let completed = tokio::time::timeout(limit, async {
+        let mut buf = [0u8; 8192];
+        loop {
+            match stream.read(&mut buf).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => out.extend_from_slice(&buf[..n]),
+            }
+        }
+    })
+    .await
+    .is_ok();
+    Some((out, completed))
+}
+
 async fn bridge_remote_channel(channel: russh::Channel<client::Msg>, route: RemoteRoute) {
     let tcp = match TcpStream::connect((route.target_host.as_str(), route.target_port)).await {
         Ok(t) => t,
@@ -760,20 +784,9 @@ pub async fn connect(
         let key = crate::shell_integration::tmux_session_key(&session_id);
         let probe = crate::shell_integration::persistent_probe_command(&key);
         if let Ok(probe_channel) = final_handle.channel_open_session().await {
-            if probe_channel.exec(true, probe.as_str()).await.is_ok() {
-                let mut stream = probe_channel.into_stream();
-                let mut out: Vec<u8> = Vec::new();
-                let completed = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-                    let mut buf = [0u8; 1024];
-                    loop {
-                        match stream.read(&mut buf).await {
-                            Ok(0) | Err(_) => break,
-                            Ok(n) => out.extend_from_slice(&buf[..n]),
-                        }
-                    }
-                })
-                .await
-                .is_ok();
+            if let Some((out, completed)) =
+                exec_collect(probe_channel, &probe, std::time::Duration::from_secs(5)).await
+            {
                 if completed && !String::from_utf8_lossy(&out).contains("VOLTIUS_PRESENT") {
                     return Err("SESSION_ENDED".to_string());
                 }
@@ -811,19 +824,9 @@ pub async fn connect(
         let key = crate::shell_integration::tmux_session_key(&session_id);
         let capture = crate::shell_integration::capture_history_command(&key, pty_rows);
         if let Ok(cap_channel) = final_handle.channel_open_session().await {
-            if cap_channel.exec(true, capture.as_str()).await.is_ok() {
-                let mut stream = cap_channel.into_stream();
-                let mut history: Vec<u8> = Vec::new();
-                let _ = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-                    let mut buf = [0u8; 8192];
-                    loop {
-                        match stream.read(&mut buf).await {
-                            Ok(0) | Err(_) => break,
-                            Ok(n) => history.extend_from_slice(&buf[..n]),
-                        }
-                    }
-                })
-                .await;
+            if let Some((history, _)) =
+                exec_collect(cap_channel, &capture, std::time::Duration::from_secs(5)).await
+            {
                 if !history.iter().all(|b| b.is_ascii_whitespace()) {
                     // capture-pane emits bare LF; the PTY-less exec channel
                     // does no ONLCR translation, so normalize for xterm.
@@ -949,6 +952,13 @@ pub async fn connect(
         let poll_handle = Arc::clone(&handle);
         let poll_app = app.clone();
         let key = crate::shell_integration::tmux_session_key(&session_id);
+        let keys_handle = Arc::clone(&handle);
+        let keys_cmd = crate::shell_integration::persistent_copy_mode_keys_command(&key);
+        tokio::spawn(async move {
+            if let Ok(channel) = keys_handle.channel_open_session().await {
+                let _ = exec_collect(channel, &keys_cmd, std::time::Duration::from_secs(30)).await;
+            }
+        });
         let cwd_cmd = crate::shell_integration::cwd_probe_command(&key);
         let cwd_event = format!("ssh-cwd-{}", session_id);
         tokio::spawn(async move {
@@ -970,21 +980,11 @@ pub async fn connect(
                     }
                 };
                 failures = 0;
-                if channel.exec(true, cwd_cmd.as_str()).await.is_err() {
+                let Some((out, _)) =
+                    exec_collect(channel, &cwd_cmd, std::time::Duration::from_secs(3)).await
+                else {
                     continue;
-                }
-                let mut stream = channel.into_stream();
-                let mut out: Vec<u8> = Vec::new();
-                let _ = tokio::time::timeout(std::time::Duration::from_secs(3), async {
-                    let mut buf = [0u8; 512];
-                    loop {
-                        match stream.read(&mut buf).await {
-                            Ok(0) | Err(_) => break,
-                            Ok(n) => out.extend_from_slice(&buf[..n]),
-                        }
-                    }
-                })
-                .await;
+                };
                 let path = String::from_utf8_lossy(&out).trim().to_string();
                 if crate::shell_integration::is_live_probe_cwd(&path)
                     && Some(&path) != last.as_ref()

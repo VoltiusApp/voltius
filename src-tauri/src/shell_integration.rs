@@ -484,6 +484,47 @@ true"#,
     encode_wrapper(&script)
 }
 
+/// Binds typed keys to leave copy-mode (which wheel-up enters) and reach the shell.
+/// Below 3.4 only Enter: older tmux runs a paste's first key through bindings, breaking the paste.
+pub fn persistent_copy_mode_keys_command(session_key: &str) -> String {
+    let script = format!(
+        r#"command -v tmux >/dev/null 2>&1 || exit 0
+case "$(tmux -V 2>/dev/null)" in
+  *"tmux "3.[4-9]*|*"tmux "[4-9]*|*"tmux "[1-9][0-9]*) ALL=1 ;;
+  *"tmux "3.[0-3]*|*"tmux "2.[6-9]*) ALL= ;;
+  *) exit 0 ;;
+esac
+i=0
+until tmux -L {socket} has-session -t {key} 2>/dev/null; do
+  [ $i -ge 15 ] && exit 0
+  sleep 1
+  i=$((i+1))
+done
+F=$(mktemp 2>/dev/null) || exit 0
+set -f
+while read -r l; do
+  for k in $l; do
+    [ -n "$ALL" ] || [ "$k" = Enter ] || continue
+    s=$k
+    [ "$k" = '\;' ] && s=0x3b
+    for t in copy-mode copy-mode-vi; do
+      printf 'bind -T %s %s send -X cancel \\; send-keys %s\n' $t "$k" "$s"
+    done
+  done
+done > "$F" <<'KEYS'
+Enter BSpace Tab Space ! '"' '#' '$' % & "'" ( ) * + , - . / : \; < = > ? @ [ '\' ] ^ _ ` '{{' | '}}' '~'
+0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+a b c d e f g h i j k l m n o p r s t u v w x y z
+KEYS
+tmux -L {socket} source-file "$F"
+rm -f "$F"
+"#,
+        socket = TMUX_SOCKET,
+        key = session_key,
+    );
+    encode_wrapper(&script)
+}
+
 /// One-shot exec that dumps the scrollback history of a persistent session,
 /// picking the backend at runtime to mirror `persistent_exec_command`.
 ///
@@ -831,6 +872,41 @@ mod tests {
         assert!(script.contains("grep -qF .voltius_s1"));
         assert!(script.contains("VOLTIUS_PRESENT"));
         assert!(script.trim_end().ends_with("true"));
+    }
+
+    #[test]
+    fn copy_mode_keys_forward_typing_but_keep_exits() {
+        let script = decode_bootstrap(&persistent_copy_mode_keys_command("voltius_s1"));
+        assert!(script.contains("until tmux -L voltius has-session -t voltius_s1"));
+        // Below 3.4 a paste's first key hits bindings, so only Enter is bound there.
+        assert!(script.contains(r#"*"tmux "3.[4-9]*|*"tmux "[4-9]*|*"tmux "[1-9][0-9]*) ALL=1 ;;"#));
+        assert!(script.contains(r#"*"tmux "3.[0-3]*|*"tmux "2.[6-9]*) ALL= ;;"#));
+        assert!(script.contains(r#"[ -n "$ALL" ] || [ "$k" = Enter ] || continue"#));
+        assert!(script.contains("for t in copy-mode copy-mode-vi"));
+        assert!(script.contains(r"send -X cancel \\; send-keys %s"));
+        assert!(script.contains(r#"[ "$k" = '\;' ] && s=0x3b"#));
+        assert!(!script.contains("Any"));
+        assert!(script.contains("tmux -L voltius source-file"));
+        let keys: Vec<&str> = script
+            .split("<<'KEYS'\n")
+            .nth(1)
+            .and_then(|s| s.split("\nKEYS").next())
+            .expect("key list")
+            .split_whitespace()
+            .collect();
+        for printable in (b'!'..=b'~').filter(|b| b.is_ascii_alphanumeric()) {
+            let key = (printable as char).to_string();
+            assert_eq!(keys.contains(&key.as_str()), key != "q", "key {key}");
+        }
+        for named in [
+            "Enter", "BSpace", "Tab", "Space", r"\;", "'{'", "'}'", "\"'\"",
+        ] {
+            assert!(keys.contains(&named), "key {named}");
+        }
+        assert_eq!(keys.len(), 97);
+        for exit in ["Escape", "C-c"] {
+            assert!(!keys.contains(&exit));
+        }
     }
 
     #[test]
