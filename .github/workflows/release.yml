@@ -191,6 +191,13 @@ jobs:
       - name: Install sccache
         uses: mozilla/sccache-action@v0.0.11
 
+      - name: Import the macOS signing certificate
+        if: matrix.platform == 'macos-latest'
+        env:
+          MACOS_SIGNING_CERTIFICATE: ${{ secrets.MACOS_SIGNING_CERTIFICATE }}
+          MACOS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: bash scripts/import-macos-signing-cert.sh
+
       - name: Build and Release Tauri App
         uses: tauri-apps/tauri-action@v1
         env:
@@ -218,6 +225,10 @@ jobs:
           # and `uploadUpdaterJson` in v1 — it must match the pinned major above,
           # or the action ignores it and defaults back to writing the file.
           uploadUpdaterJson: false
+
+      - name: Check the macOS app is certificate-signed
+        if: matrix.platform == 'macos-latest'
+        run: bash scripts/check-macos-signature.sh "target/${{ matrix.target }}/release/bundle/macos/Voltius.app"
 
   # Experimental Android build — sideload APK, not Play Store. Release-signed
   # arm64-v8a only (covers ~all modern phones). tauri-action's `mobile: android`
