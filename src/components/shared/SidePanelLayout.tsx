@@ -1,3 +1,5 @@
+import { panelTransition } from "@/components/shared/panelMotion";
+
 interface Props {
   /** Toolbar + scrollable content */
   children: React.ReactNode;
@@ -31,12 +33,13 @@ export function SidePanelLayout({
         {children}
       </div>
 
-      {/* Animated side panel */}
       <div
-        className="shrink-0 overflow-hidden transition-all duration-200 ease-out relative z-10"
-        style={{ width: panelOpen ? panelWidth : 0, opacity: panelOpen ? 1 : 0 }}
+        className="shrink-0 overflow-hidden relative z-10"
+        style={{ width: panelOpen ? panelWidth : 0, transition: panelTransition(panelOpen, "width") }}
       >
-        {panel}
+        <div className="absolute inset-y-0 left-0" style={{ width: panelWidth, transition: panelTransition(panelOpen, "width") }}>
+          {panel}
+        </div>
       </div>
     </div>
   );
