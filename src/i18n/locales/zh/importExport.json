@@ -27,11 +27,11 @@
       "selectedItem_one": "已选择 {{count}} 个项目",
       "selectedItem_other": "已选择 {{count}} 个项目",
       "autoInclude": {
-        "connections_other": "{{count}} 个连接",
-        "identities_other": "{{count}} 个身份",
-        "keys_other": "{{count}} 个密钥"
+        "connections_other": "{{count}} 个连接"
       },
       "autoIncludeHint": "同时包含：被导出的项目所引用，以确保导入后仍可正常使用",
+      "relatedCredentials": "包含关联的凭据",
+      "relatedCredentialsHint": "这些连接使用的身份和 SSH 密钥。保持不勾选则只导出连接设置，导入后再分配凭据。",
       "checkboxLabel": {
         "connections_one": "连接 ({{count}})",
         "connections_other": "连接 ({{count}})",

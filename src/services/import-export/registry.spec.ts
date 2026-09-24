@@ -34,13 +34,32 @@ describe("buildBundle — INCLUDE selection", () => {
   });
 });
 
-describe("buildBundle — cascade", () => {
-  it("pulls in the identity and key a connection uses even when their types are unchecked", async () => {
-    const stores = storesOf({ connections: [conn({ id: "c1", identity_id: "i1", key_id: "k1" })] });
-    const bundle = await buildBundle(onlyConnections, stores, ["personal"], {}, () => false);
+describe("buildBundle — related credentials", () => {
+  const stores = storesOf({
+    connections: [conn({ id: "c1", identity_id: "i1", key_id: "k1", jump_hosts: [{ id: "j", connection_id: "c2", host: "", port: 22, username: "" }] }), conn({ id: "c2", identity_id: "i1" })],
+  });
+  const single = { single: { key: "connections", id: "c1" } };
+
+  it("pulls in the identity and key a connection uses when asked to", async () => {
+    const bundle = await buildBundle(onlyConnections, stores, ["personal"], single, () => false, { includeRelatedCredentials: true });
     expect(bundle.identities).toHaveLength(1);
     expect(bundle.keys).toHaveLength(1);
     expect(bundle.connections[0]._identity_eid).toBeDefined();
+  });
+
+  it("leaves unchecked identities and keys out by default, still following jump hosts", async () => {
+    const bundle = await buildBundle(onlyConnections, stores, ["personal"], single, () => false);
+    expect(bundle.identities).toEqual([]);
+    expect(bundle.keys).toEqual([]);
+    expect(bundle.connections).toHaveLength(2);
+    expect(bundle.connections.every((c) => c._identity_eid === undefined && c._key_eid === undefined)).toBe(true);
+  });
+
+  it("keeps identity references when identities are checked", async () => {
+    const bundle = await buildBundle({ ...onlyConnections, identities: true }, stores, ["personal"], {}, () => false);
+    expect(bundle.identities).toHaveLength(1);
+    expect(bundle.keys).toEqual([]);
+    expect(bundle.connections[0]._identity_eid).toBe(bundle.identities[0]._eid);
   });
 });
 

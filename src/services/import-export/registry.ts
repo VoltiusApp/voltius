@@ -68,6 +68,7 @@ export async function buildBundle(
   vaultIds: string[],
   selection: SelectionProps,
   canViewSecrets: (vaultId: string) => boolean,
+  { includeRelatedCredentials = false }: { includeRelatedCredentials?: boolean } = {},
 ): Promise<ExportBundle> {
   // 1. Resolve cascade for identities/keys (connections pull in their identities, etc.)
   const selectedByKey: Record<string, unknown[]> = {};
@@ -97,29 +98,31 @@ export async function buildBundle(
   }
 
   // Cascade: connections → identities → keys (including jump host identities)
-  const connItems = selectedByKey["connections"] as Connection[];
-  const cascadedIdentityIds = new Set([
-    ...(selectedByKey["identities"] as { id: string }[]).map(i => i.id),
-    ...connItems.map(c => c.identity_id).filter((id): id is string => !!id),
-    ...connItems.flatMap(c => (c.jump_hosts ?? []).map(jh => jh.identity_id).filter((id): id is string => !!id)),
-  ]);
-  if (enabled["identities"] || cascadedIdentityIds.size > 0) {
-    const effectiveIdentities = stores.identities.filter(i => cascadedIdentityIds.has(i.id));
-    if (effectiveIdentities.length > (selectedByKey["identities"] as unknown[]).length) {
-      selectedByKey["identities"] = effectiveIdentities;
+  if (includeRelatedCredentials) {
+    const connItems = selectedByKey["connections"] as Connection[];
+    const cascadedIdentityIds = new Set([
+      ...(selectedByKey["identities"] as { id: string }[]).map(i => i.id),
+      ...connItems.map(c => c.identity_id).filter((id): id is string => !!id),
+      ...connItems.flatMap(c => (c.jump_hosts ?? []).map(jh => jh.identity_id).filter((id): id is string => !!id)),
+    ]);
+    if (enabled["identities"] || cascadedIdentityIds.size > 0) {
+      const effectiveIdentities = stores.identities.filter(i => cascadedIdentityIds.has(i.id));
+      if (effectiveIdentities.length > (selectedByKey["identities"] as unknown[]).length) {
+        selectedByKey["identities"] = effectiveIdentities;
+      }
     }
-  }
 
-  const idItems = selectedByKey["identities"] as { id: string; key_id?: string }[];
-  const cascadedKeyIds = new Set([
-    ...(selectedByKey["keys"] as { id: string }[]).map(k => k.id),
-    ...idItems.map(i => i.key_id).filter((id): id is string => !!id),
-    ...connItems.map(c => c.key_id).filter((id): id is string => !!id),
-  ]);
-  if (enabled["keys"] || cascadedKeyIds.size > 0) {
-    const effectiveKeys = stores.keys.filter(k => cascadedKeyIds.has(k.id));
-    if (effectiveKeys.length > (selectedByKey["keys"] as unknown[]).length) {
-      selectedByKey["keys"] = effectiveKeys;
+    const idItems = selectedByKey["identities"] as { id: string; key_id?: string }[];
+    const cascadedKeyIds = new Set([
+      ...(selectedByKey["keys"] as { id: string }[]).map(k => k.id),
+      ...idItems.map(i => i.key_id).filter((id): id is string => !!id),
+      ...connItems.map(c => c.key_id).filter((id): id is string => !!id),
+    ]);
+    if (enabled["keys"] || cascadedKeyIds.size > 0) {
+      const effectiveKeys = stores.keys.filter(k => cascadedKeyIds.has(k.id));
+      if (effectiveKeys.length > (selectedByKey["keys"] as unknown[]).length) {
+        selectedByKey["keys"] = effectiveKeys;
+      }
     }
   }
 

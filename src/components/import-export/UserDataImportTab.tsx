@@ -5,6 +5,7 @@ import { USER_DATA_HANDLERS, applyUserDataBundle } from "@/services/user-data/re
 import { fromUserDataJSON } from "@/services/user-data/formats";
 import type { UserDataBundle } from "@/services/user-data/formats";
 import { ActionBtn } from "./shared";
+import { CheckboxBox } from "@/components/shared/Checkbox";
 import { FileInputArea } from "./FileInputArea";
 
 type UserDataImportStatus =
@@ -84,16 +85,7 @@ export function UserDataImportTab({ onClose }: { onClose: () => void }) {
           <div className="flex flex-col gap-2 pt-2 border-t border-(--t-border)">
             {USER_DATA_HANDLERS.filter((h) => status.bundle.sections[h.key]).map((h) => (
               <label key={h.key} className="flex items-center gap-2 cursor-pointer select-none">
-                <span
-                  onClick={() => setIncluded((p) => ({ ...p, [h.key]: !p[h.key] }))}
-                  className="flex items-center justify-center w-4 h-4 rounded-sm transition-colors shrink-0"
-                  style={{
-                    background: included[h.key] ? "var(--t-accent)" : "var(--t-bg-input)",
-                    border: `1px solid ${included[h.key] ? "var(--t-accent)" : "var(--t-border-hover)"}`,
-                  }}
-                >
-                  {included[h.key] && <Icon icon="lucide:check" width={10} color="white" />}
-                </span>
+                <CheckboxBox checked={!!included[h.key]} onClick={() => setIncluded((p) => ({ ...p, [h.key]: !p[h.key] }))} />
                 <Icon icon={h.icon} width={13} className="text-(--t-text-muted)" />
                 <span className="text-sm text-(--t-text-primary)">{t(`importExport.userData.handlers.${h.key}.label`)}</span>
                 {h.key === "themes" && (

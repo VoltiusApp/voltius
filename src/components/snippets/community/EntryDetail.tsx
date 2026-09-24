@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { Checkbox } from "@/components/import-export/shared";
+import { Checkbox } from "@/components/shared/Checkbox";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { CatalogEntry } from "@/services/snippetCatalog";
 import { resolveSelection } from "@/services/snippetCatalogSelection";
