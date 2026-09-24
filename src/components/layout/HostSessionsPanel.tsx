@@ -38,7 +38,7 @@ export function HostSessionsPanel() {
   const newSession = newSessionOnHostItem(t, active, host);
 
   return (
-    <SidePanelColumn testId="host-sessions-panel" open={pinned} columnWidth="16rem" cardEdgeClassName="left-2 right-0">
+    <SidePanelColumn testId="host-sessions-panel" open={pinned} side="left" columnWidth="16rem" cardWidth="15.5rem">
       <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-2 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           {sessionTabIcon(active, connection, false, sessionStatusTone(worstStatus(members)))}

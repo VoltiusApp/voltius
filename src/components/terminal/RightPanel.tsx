@@ -283,7 +283,7 @@ export default function RightPanel() {
   if (!isTerminalView) return null;
 
   return (
-    <SidePanelColumn testId="right-panel" open={rightPanelOpen} columnWidth={PANEL_WIDTH + 16} cardEdgeClassName="right-2" cardStyle={{ width: "20rem" }}>
+    <SidePanelColumn testId="right-panel" open={rightPanelOpen} side="right" columnWidth={PANEL_WIDTH + 16} cardWidth="20rem">
       <PanelContent />
     </SidePanelColumn>
   );
