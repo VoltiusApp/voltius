@@ -1,6 +1,8 @@
+import type { PluginLocale } from "@/plugins/api";
+
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.metrics / mobile.metrics.* —
 // values carried over verbatim, keys shortened now that this catalog is plugin-scoped.
-export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
+export const messages: Record<PluginLocale, Record<string,string>> = {
   en: {
     "title": "Metrics",
     "sshOnly": "Live metrics are only available for SSH sessions. Connect to a host over SSH to see its metrics.",
@@ -40,5 +42,13 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "memory": "Bellek",
     "netRx": "Ağ RX",
     "netTx": "Ağ TX",
+  },
+  cs: {
+    "title": "Metriky",
+    "sshOnly": "Živé metriky jsou dostupné jen pro SSH relace. Pro zobrazení metrik se připojte k hostiteli přes SSH.",
+    "cpu": "CPU",
+    "memory": "Paměť",
+    "netRx": "Síť RX",
+    "netTx": "Síť TX",
   },
 };

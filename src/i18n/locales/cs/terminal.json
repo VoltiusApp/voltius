@@ -1,0 +1,333 @@
+{
+  "terminal": {
+    "shared": {
+      "copied": "Zkopírováno",
+      "insert": "Vložit",
+      "insertAndExecute": "Vložit a spustit",
+      "noActiveSession": "Žádná aktivní relace"
+    },
+    "historyPanel": {
+      "relativeTime": {
+        "justNow": "právě teď",
+        "secondsAgo": "před {{count}} s",
+        "minutesAgo": "před {{count}} min",
+        "hoursAgo": "před {{count}} h",
+        "daysAgo": "před {{count}} d"
+      },
+      "removeFromHistory": "Odebrat z historie",
+      "searchPlaceholder": "Hledat v historii…",
+      "showCurrentOnly": "Zobrazuje se jen aktuální připojení",
+      "showAllConnections": "Zobrazit všechna připojení",
+      "clearAllTitle": "Vymazat celou historii",
+      "noCommandsMatch": "Žádný příkaz neodpovídá",
+      "noHistoryForConnection": "Pro toto připojení zatím není historie",
+      "noHistoryYet": "Zatím žádná historie příkazů.\nZde se zobrazí příkazy, které zadáte."
+    },
+    "multiplayerBar": {
+      "ended": "Ukončeno",
+      "sharing": "Sdílení",
+      "watching": "Sledování",
+      "requestControl": "Požádat o ovládání",
+      "requestPending": "Požádáno — čeká se na hostitele",
+      "youHaveControl": "Ovládání máte vy",
+      "controlRequested": "Žádost o ovládání",
+      "grant": "Povolit",
+      "deny": "Zamítnout",
+      "revoke": "Odebrat",
+      "stopSharingTitle": "Ukončit sdílení",
+      "leaveSessionTitle": "Opustit relaci",
+      "stop": "Ukončit",
+      "leave": "Opustit"
+    },
+    "sftp": {
+      "hostLabel": {
+        "remote": "vzdálený",
+        "localMachine": "Lokální počítač"
+      },
+      "uploadDialogTitle": "Vyberte soubory k nahrání",
+      "downloadDialogTitle": "Stáhnout do složky",
+      "waitingForSession": "Čeká se na relaci",
+      "connecting": "Připojování…",
+      "notSupportedForSessionType": "SFTP není pro tento typ relace podporováno",
+      "followPinned": "Sleduje aktuální adresář terminálu · kliknutím odepnete",
+      "followWaiting": "Sleduje aktuální adresář terminálu · čeká se, až ho shell nahlásí (vyžaduje integraci shellu)",
+      "followTitle": "Sledovat aktuální adresář terminálu",
+      "uploadFiles": "Nahrát soubory",
+      "downloadTitle_one": "Stáhnout „{{name}}“",
+      "downloadTitle_few": "Stáhnout {{count}} položky",
+      "downloadTitle_many": "Stáhnout {{count}} položky",
+      "downloadTitle_other": "Stáhnout {{count}} položek",
+      "selectFilesToDownload": "Vyberte soubory ke stažení",
+      "viewOptions": "Možnosti zobrazení",
+      "moreOptions": "Další možnosti"
+    },
+    "ports": {
+      "badge": {
+        "auto": "Auto",
+        "adHoc": "Ad hoc"
+      },
+      "pauseForwarding": "Pozastavit přesměrování",
+      "resumeForwarding": "Obnovit přesměrování",
+      "saveAsRule": "Uložit jako pravidlo",
+      "copyAddress": "Kopírovat localhost:{{port}}",
+      "openUrl": "Otevřít {{url}}",
+      "sshRequired": "Přesměrování portů vyžaduje SSH relaci.",
+      "empty": "Žádné přesměrované porty. Porty zjištěné na vzdáleném hostiteli se zde objeví automaticky.",
+      "sectionSaved": "ULOŽENÉ",
+      "sectionActive": "AKTIVNÍ",
+      "sectionSuppressed": "POTLAČENÉ",
+      "header": {
+        "title": "Porty",
+        "activeCount": "aktivní: {{count}}",
+        "addTitle": "Přesměrovat port"
+      },
+      "quickForwardPlaceholder": "Přesměrovat port (např. 3000 nebo 3000:8080)",
+      "quickForwardErrors": {
+        "emptyInput": "Zadejte port",
+        "tooManyParts": "Použijte port nebo vzdálený:lokální",
+        "invalidRemotePort": "Port musí být 1–65535",
+        "invalidLocalPort": "Lokální port musí být 1–65535"
+      }
+    },
+    "rightPanel": {
+      "font": "Písmo",
+      "themes": "Motivy",
+      "themeActive": "aktivní",
+      "themeBuiltin": "vestavěný",
+      "themeCustom": "vlastní",
+      "createNewTheme": "Vytvořit nový motiv",
+      "closePanelTitle": "Zavřít panel",
+      "sections": {
+        "history": "Historie",
+        "sftp": "SFTP",
+        "notes": "Poznámky"
+      },
+      "pluginUnavailable": "Tento panel již není dostupný. Plugin, který ho poskytoval, byl odebrán nebo vypnut.",
+      "pluginUnavailableAction": "Zpět na motivy"
+    },
+    "share": {
+      "signInToShare": "Pro sdílení se přihlaste",
+      "signInDescription": "Připojte serverový účet a sdílejte terminál s kolegy.",
+      "signInButton": "Přihlásit se / Zaregistrovat",
+      "proRequired": "Vyžaduje Pro",
+      "proRequiredDescription": "Sdílení terminálu je dostupné od tarifu Pro výše.",
+      "features": [
+        "1 relace s odkazem pozvánky · 1 účastník",
+        "Synchronizace s cloudem v reálném čase",
+        "Teams: 5 relací · 10 účastníků + sdílené trezory"
+      ],
+      "upgradeToPro": "Přejít na Pro",
+      "shareTerminal": "Sdílet terminál",
+      "sessionNamePlaceholder": "Název relace…",
+      "tabPeople": "Lidé",
+      "tabTeam": "Týmový trezor",
+      "tabInviteLink": "Odkaz",
+      "sessionLimitReached": "Dosažen limit relací vašeho tarifu.",
+      "failedToShare": "Sdílení se nezdařilo",
+      "failedToGenerateLink": "Odkaz se nepodařilo vygenerovat",
+      "noVaultsCreateTeamFirst": "Žádné trezory — nejprve vytvořte tým",
+      "allRoles": "všechny role",
+      "startSharingWithVault_one": "Začít sdílet s {{count}} trezorem",
+      "startSharingWithVault_few": "Začít sdílet se {{count}} trezory",
+      "startSharingWithVault_many": "Začít sdílet s {{count}} trezoru",
+      "startSharingWithVault_other": "Začít sdílet s {{count}} trezory",
+      "selectVaultToShare": "Vyberte trezor ke sdílení",
+      "shareCodeDescription": "Sdílejte tento kód — připojit se může kdokoli, kdo ho má:",
+      "generateLinkDescription": "Vygenerujte jednorázový odkaz. Připojit se může kdokoli s účtem Voltius.",
+      "generateInviteLink": "Vygenerovat odkaz pozvánky",
+      "upToParticipants_one": "Až {{count}} účastník",
+      "upToParticipants_few": "Až {{count}} účastníci",
+      "upToParticipants_many": "Až {{count}} účastníka",
+      "upToParticipants_other": "Až {{count}} účastníků",
+      "upgradeToTeamsForParticipants": "Přejděte na Teams pro 10 účastníků + sdílené trezory",
+      "live": "Živě",
+      "waitingForGuests": "Čeká se, až se někdo připojí…",
+      "participantsRatio_one": "{{participantCount}} / {{guestCap}} účastník",
+      "participantsRatio_few": "{{participantCount}} / {{guestCap}} účastníci",
+      "participantsRatio_many": "{{participantCount}} / {{guestCap}} účastníka",
+      "participantsRatio_other": "{{participantCount}} / {{guestCap}} účastníků",
+      "guestsRatio_one": "{{participantCount}} z {{guestCap}} hosta",
+      "guestsRatio_few": "{{participantCount}} ze {{guestCap}} hostů",
+      "guestsRatio_many": "{{participantCount}} z {{guestCap}} hosta",
+      "guestsRatio_other": "{{participantCount}} z {{guestCap}} hostů",
+      "upgradeToTeams": "Přejít na Teams",
+      "upgradeToBusiness": "Přejít na Business",
+      "stopSharing": "Ukončit sdílení",
+      "inviteHasAccess": "Má přístup",
+      "inviteSent": "Pozván(a)",
+      "inviteCapReached": "Dosažen limit",
+      "inviteFailed": "{{name}} se nepodařilo pozvat",
+      "withdrawInvite": "Stáhnout",
+      "uninviteFailed": "Pozvánku se nepodařilo stáhnout",
+      "inviteNoTeammates": "Zatím žádní kolegové",
+      "inviteLoadFailed": "Kolegy se nepodařilo načíst",
+      "peopleSearchPlaceholder": "Hledat podle @přezdívky nebo e-mailu…",
+      "peopleNoMatch": "Výrazu „{{query}}“ neodpovídá nikdo z vašich týmů.",
+      "peopleFindRule": "Lidé mimo vaše týmy se hledají podle @přezdívky nebo celé e-mailové adresy.",
+      "recentLabel": "Nedávné",
+      "recentEmpty": "Zde se zobrazí lidé, které pozvete.",
+      "yourTeamsLabel": "Vaše týmy",
+      "elsewhereLabel": "Jinde ve Voltius",
+      "notInYourTeams": "Není ve vašich týmech",
+      "presenceOnline": "Online",
+      "presenceOffline": "Offline",
+      "forgetPerson": "Odebrat z nedávných",
+      "deepLinkJoinTitle": "Připojit se ke sdílenému terminálu?",
+      "deepLinkJoinBody": "Někdo s vámi sdílí živou terminálovou relaci. Připojením se k ní hned připojíte.",
+      "deepLinkJoinUnknownHost": "Voltius nedokáže zjistit, kdo relaci sdílí, dokud se nepřipojíte.",
+      "deepLinkJoinAction": "Připojit se k relaci",
+      "deepLinkJoinFailed": "K relaci se nepodařilo připojit — odkaz mohl vypršet.",
+      "deepLinkInviteTitle": "Pozvat @{{handle}}?",
+      "deepLinkInviteBody": "Tento odkaz vás žádá o pozvání @{{handle}} do terminálu, který sdílíte. Uvidí vše, co se v něm děje.",
+      "deepLinkInviteUnknownUser": "Přesně @{{handle}} neodpovídá žádný účet Voltius.",
+      "deepLinkInviteNoActiveSession": "Právě nesdílíte žádný terminál. Začněte nějaký sdílet a pak odkaz otevřete znovu.",
+      "deepLinkInviteAction": "Pozvat",
+      "deepLinkInviteFailed": "Pozvánku se nepodařilo odeslat",
+      "getSpokenCode": "Získat kód k přečtení nahlas",
+      "codeExpired": "Kód vypršel — získejte nový",
+      "newCode": "Nový kód",
+      "readAloudHint": "Přečtěte ho nahlas",
+      "expiresIn": "vyprší za {{time}}",
+      "failedToMintCode": "Kód se nepodařilo vytvořit"
+    },
+    "snippetVariableModal": {
+      "on": "Zapnuto",
+      "off": "Vypnuto",
+      "masked": "skryto",
+      "preview": "Náhled",
+      "execute": "Spustit"
+    },
+    "snippets": {
+      "renameFolder": "Přejmenovat složku",
+      "newFolder": "Nová složka",
+      "folderNamePlaceholder": "Název složky",
+      "notRelevantForConnection": "Pro aktuální připojení není relevantní",
+      "removeFromFavorites": "Odebrat z oblíbených",
+      "addToFavorites": "Přidat do oblíbených",
+      "duplicate": "Duplikovat",
+      "moveToFolder": "Přesunout do složky",
+      "back": "Zpět",
+      "unfiled": "Nezařazené",
+      "searchPlaceholder": "Hledat snippety…",
+      "newSnippetTitle": "Nový snippet",
+      "favorites": "Oblíbené",
+      "recent": "Nedávné",
+      "noSnippetsMatch": "Žádný snippet neodpovídá",
+      "noSnippetsYet": "Zatím žádné snippety.\nVytvořte ho kliknutím na +."
+    },
+    "search": {
+      "placeholder": "Najít",
+      "invalid": "Neplatné",
+      "noResults": "Žádné výsledky",
+      "resultCounter": "{{index}} z {{count}}",
+      "matchCase": "Rozlišovat velikost písmen (Alt+C)",
+      "matchWholeWord": "Celá slova (Alt+W)",
+      "useRegex": "Regulární výraz (Alt+R)",
+      "previousMatch": "Předchozí shoda (Shift+Enter)",
+      "nextMatch": "Další shoda (Enter)",
+      "closeTitle": "Zavřít (Escape)"
+    },
+    "overlay": {
+      "continue": "Pokračovat",
+      "connectAndSave": "Připojit a uložit",
+      "continueAndSave": "Pokračovat a uložit",
+      "steps": {
+        "tcpConnection": "TCP spojení",
+        "sshHandshake": "SSH handshake",
+        "authenticating": "Ověřování",
+        "openingShell": "Otevírání shellu",
+        "sftpSubsystem": "Subsystém SFTP",
+        "openingPort": "Otevírání portu",
+        "ready": "Připraveno"
+      },
+      "reconnectWait": {
+        "offline": {
+          "title": "Jste offline",
+          "subtitle": "Znovu se připojí, až bude síť zpět"
+        },
+        "slow": {
+          "title": "Hostitel je stále nedostupný",
+          "subtitle": "Opakuje se každých {{seconds}} s"
+        },
+        "retryNow": "Zkusit nyní"
+      },
+      "connectionError": {
+        "title": "Připojení se nezdařilo",
+        "retry": "Zkusit znovu",
+        "dismiss": "Zavřít"
+      },
+      "hostKeyConflict": {
+        "title": "KLÍČ HOSTITELE SE ZMĚNIL",
+        "descriptionPrefix": "Otisk pro ",
+        "descriptionSuffix": " se změnil.",
+        "replace": "Nahradit",
+        "addAsNew": "Přidat jako nový",
+        "abort": "Přerušit",
+        "stored": "Uložený",
+        "received": "Přijatý"
+      },
+      "passphrasePrompt": {
+        "title": "VYŽADOVÁNA HESLOVÁ FRÁZE KLÍČE",
+        "description": "Tento klíč je šifrovaný. Pro pokračování zadejte heslovou frázi.",
+        "placeholder": "Heslová fráze"
+      },
+      "usernamePrompt": {
+        "title": "VYŽADOVÁNO UŽIVATELSKÉ JMÉNO",
+        "description": "Tento hostitel nemá nastavené uživatelské jméno. Zadejte ho nebo vyberte identitu.",
+        "placeholder": "root"
+      },
+      "authPrompt": {
+        "title": "VYŽADOVÁNO OVĚŘENÍ",
+        "description": "Tento hostitel nemá metodu ověření. Pro pokračování nějakou vyberte.",
+        "modePassword": "Heslo",
+        "modeKey": "Klíč",
+        "modeIdentity": "Identita",
+        "passwordPlaceholder": "Heslo",
+        "keyPassphrasePlaceholder": "Heslová fráze klíče (volitelné)"
+      },
+      "vaultError": {
+        "unreadableTitle": "Trezor nelze přečíst",
+        "unreadableBody": "Přihlašovací údaje tohoto hostitele jsou uložené, ale lokální trezor nelze aktuálním klíčem dešifrovat. Nic nebylo smazáno — pro připojení trezor odemkněte.",
+        "lockedTitle": "Trezor je zamčený",
+        "lockedBody": "Přihlašovací údaje tohoto hostitele jsou uložené v trezoru, který je zamčený. Pro připojení ho odemkněte.",
+        "unlock": "Odemknout trezor",
+        "retry": "Zkusit znovu",
+        "dismiss": "Zavřít kartu"
+      }
+    },
+    "statusBar": {
+      "badge": {
+        "ssh": "SSH",
+        "serial": "SÉRIOVÝ",
+        "local": "LOKÁLNÍ"
+      },
+      "localSystemFallback": "Lokální systém",
+      "serialFallback": "sériový",
+      "pingUp": "Dostupný · {{ms}} ms",
+      "pingDown": "Nedostupný",
+      "pingUnknown": "Neznámý",
+      "copyLabel": "Kopírovat {{text}}",
+      "openPortsPanel": "Otevřít panel portů",
+      "reconnectTitle": "Znovu připojit",
+      "serialClose": "Zavřít sériový port (karta zůstane)",
+      "serialReopen": "Znovu otevřít sériový port",
+      "serialAutoReconnectOn": "Automatické připojení zapnuto — kliknutím přestanete port znovu zabírat",
+      "serialAutoReconnectOff": "Automatické připojení vypnuto — port po výpadku zůstane volný",
+      "serialLineOn": "{{line}} zapnuto — kliknutím vypnete",
+      "serialLineOff": "{{line}} vypnuto — kliknutím zapnete",
+      "serialRtsFlowControlled": "RTS je řízen řízením toku RTS/CTS",
+      "serialBreak": "Odeslat signál break",
+      "systemMetricsTitle": "Systémové metriky",
+      "activeTunnels_one": "{{count}} aktivní tunel",
+      "activeTunnels_few": "{{count}} aktivní tunely",
+      "activeTunnels_many": "{{count}} aktivního tunelu",
+      "activeTunnels_other": "{{count}} aktivních tunelů",
+      "cpu": "CPU {{pct}} %",
+      "copiedBang": "Zkopírováno!",
+      "loadingEllipsis": "načítání…",
+      "sparklineMin": "min. {{value}} ms",
+      "sparklineAvg": "prům. {{value}} ms",
+      "sparklineMax": "max. {{value}} ms"
+    }
+  }
+}

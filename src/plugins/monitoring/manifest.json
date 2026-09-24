@@ -1,7 +1,7 @@
 {
   "id": "plugin-monitoring",
   "name": "System Metrics",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "minAppVersion": "0.35.2",
   "description": "Real-time CPU, RAM, network, and disk metrics for local and SSH sessions.",
   "icon": "lucide:activity",

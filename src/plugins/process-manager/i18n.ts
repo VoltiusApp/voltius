@@ -1,6 +1,8 @@
+import type { PluginLocale } from "@/plugins/api";
+
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.processes / mobile.processes.* and
 // mobile.json's common.action.cancel — values carried over verbatim.
-export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
+export const messages: Record<PluginLocale, Record<string,string>> = {
   en: {
     "title": "Processes",
     "sshOnly": "The process list is only available for SSH sessions. Connect to a host over SSH to see its processes.",
@@ -95,5 +97,24 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "confirmKill": "Sonlandır",
     "confirmForceKill": "Zorla sonlandır",
     "cancel": "İptal",
+  },
+  cs: {
+    "title": "Procesy",
+    "sshOnly": "Seznam procesů je dostupný jen pro SSH relace. Pro zobrazení procesů se připojte k hostiteli přes SSH.",
+    "filterPlaceholder": "Filtrovat procesy…",
+    "sortCpu": "CPU%",
+    "sortMem": "PAM",
+    "sortPid": "PID",
+    "sortName": "Název",
+    "noProcessesFound": "Nenalezeny žádné procesy",
+    "loadingProcesses": "Načítání procesů…",
+    "sheetKillTerm": "Ukončit (SIGTERM)",
+    "sheetForceKill": "Vynutit ukončení (SIGKILL)",
+    "killConfirmTitle": "Ukončit proces?",
+    "forceKillConfirmTitle": "Vynutit ukončení procesu?",
+    "killConfirmBody": "Procesu {{name}} (pid {{pid}}) bude odeslán signál {{signal}}.",
+    "confirmKill": "Ukončit",
+    "confirmForceKill": "Vynutit ukončení",
+    "cancel": "Zrušit",
   },
 };

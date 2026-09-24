@@ -1,0 +1,21 @@
+{
+  "changelog": {
+    "title": "Co je nového",
+    "quickLinks": {
+      "documentation": "Dokumentace"
+    },
+    "loading": "Načítání seznamu změn…",
+    "unavailable": "Seznam změn není offline dostupný. Připojte se znovu a uvidíte, co je nového.",
+    "hidePreviousReleases": "Skrýt předchozí verze",
+    "previousReleases": "Předchozí verze ({{count}})",
+    "newBadge": "Nové",
+    "updateBanner": {
+      "checking": "Hledání aktualizací…",
+      "downloading": "Stahování v{{version}}… {{progress}} %",
+      "ready": "Verze v{{version}} je připravena k instalaci",
+      "restartToUpdate": "Restartovat a aktualizovat",
+      "available": "Je dostupná verze v{{version}}",
+      "download": "Stáhnout"
+    }
+  }
+}

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
 
-export type Locale = "en" | "fr" | "ru" | "zh" | "tr";
+export type Locale = "en" | "fr" | "ru" | "zh" | "tr" | "cs";
 
 export const SUPPORTED_LOCALES: { value: Locale; label: string }[] = [
   { value: "en", label: "English" },
@@ -10,6 +10,7 @@ export const SUPPORTED_LOCALES: { value: Locale; label: string }[] = [
   { value: "ru", label: "Русский" },
   { value: "zh", label: "简体中文" },
   { value: "tr", label: "Türkçe" },
+  { value: "cs", label: "Čeština" },
 ];
 
 interface LocaleStore {

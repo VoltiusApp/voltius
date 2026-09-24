@@ -1,0 +1,186 @@
+{
+  "fileTransfer": {
+    "common": {
+      "localMachine": "Lokální počítač",
+      "remoteFallback": "vzdálený",
+      "itemsCount_one": "{{count}} položka",
+      "itemsCount_few": "{{count}} položky",
+      "itemsCount_many": "{{count}} položky",
+      "itemsCount_other": "{{count}} položek"
+    },
+    "acceleratedBadge": {
+      "title": "Zrychlení přes tar",
+      "description": "Zabaleno do jednoho archivu a rozbaleno na druhé straně — mnohem méně výměn než soubor po souboru.",
+      "howItWorks": "Jak to funguje"
+    },
+    "conflict": {
+      "title": "Soubor již existuje",
+      "conflictOf": "Konflikt {{number}} z {{total}}",
+      "description": "V cíli již existuje položka s tímto názvem. Co chcete udělat?",
+      "skip": "Přeskočit",
+      "skipAll": "Přeskočit vše",
+      "overwrite": "Přepsat",
+      "overwriteAll": "Přepsat vše"
+    },
+    "pane": {
+      "toolbar": {
+        "parentDirectory": "Nadřazený adresář",
+        "homeDirectory": "Domovský adresář",
+        "browse": "Procházet…",
+        "selectFolder": "Vybrat složku",
+        "newFolder": "Nová složka",
+        "newFile": "Nový soubor",
+        "refresh": "Obnovit"
+      },
+      "dropToTransfer": "Pusťte pro přenos",
+      "placeholder": {
+        "folderName": "Název složky",
+        "fileName": "Název souboru"
+      },
+      "emptyDirectory": "Prázdný adresář",
+      "selection": {
+        "selected": "Vybráno: {{count}}",
+        "clear": "Zrušit"
+      },
+      "confirmDelete": {
+        "title": "Potvrdit smazání",
+        "messageSingle": "Smazat „{{name}}“?",
+        "messageMulti": "Smazat položky ({{count}})?"
+      },
+      "menu": {
+        "download_one": "Stáhnout",
+        "download_few": "Stáhnout {{count}} položky",
+        "download_many": "Stáhnout {{count}} položky",
+        "download_other": "Stáhnout {{count}} položek",
+        "copyToTarget_one": "Kopírovat do cíle",
+        "copyToTarget_few": "Kopírovat {{count}} položky do cíle",
+        "copyToTarget_many": "Kopírovat {{count}} položky do cíle",
+        "copyToTarget_other": "Kopírovat {{count}} položek do cíle",
+        "moveToTarget_one": "Přesunout do cíle",
+        "moveToTarget_few": "Přesunout {{count}} položky do cíle",
+        "moveToTarget_many": "Přesunout {{count}} položky do cíle",
+        "moveToTarget_other": "Přesunout {{count}} položek do cíle",
+        "delete_one": "Smazat",
+        "delete_few": "Smazat {{count}} položky",
+        "delete_many": "Smazat {{count}} položky",
+        "delete_other": "Smazat {{count}} položek",
+        "copyPath_one": "Kopírovat cestu",
+        "copyPath_few": "Kopírovat {{count}} cesty",
+        "copyPath_many": "Kopírovat {{count}} cesty",
+        "copyPath_other": "Kopírovat {{count}} cest",
+        "compress": "Komprimovat do .tar.gz",
+        "extractHere": "Rozbalit sem",
+        "openInTerminal": "Otevřít v terminálu",
+        "uploadFiles": "Nahrát soubory",
+        "selectAll": "Vybrat vše",
+        "deselect": "Zrušit výběr",
+        "disconnect": "Odpojit",
+        "hideHiddenFiles": "Skrýt skryté soubory",
+        "showHiddenFiles": "Zobrazit skryté soubory",
+        "sizeColumn": "Sloupec velikost",
+        "dateColumn": "Sloupec datum",
+        "permissionsColumn": "Sloupec oprávnění"
+      },
+      "columns": {
+        "name": "Název",
+        "size": "Velikost",
+        "modified": "Změněno",
+        "permissions": "Práva"
+      }
+    },
+    "side": {
+      "chooseHost": "Vyberte hostitele…",
+      "back": "Zpět",
+      "forward": "Vpřed",
+      "filterPlaceholder": "Filtrovat…",
+      "uploadHere": "Nahrát soubory sem",
+      "selectFilesToDownload": "Vyberte soubory ke stažení",
+      "download_one": "Stáhnout „{{name}}“",
+      "download_few": "Stáhnout {{count}} položky",
+      "download_many": "Stáhnout {{count}} položky",
+      "download_other": "Stáhnout {{count}} položek",
+      "viewOptions": "Možnosti zobrazení",
+      "moreOptions": "Další možnosti",
+      "tryAgain": "Zkusit znovu",
+      "sparkline": {
+        "min": "min. {{value}} ms",
+        "avg": "prům. {{value}} ms",
+        "max": "max. {{value}} ms"
+      }
+    },
+    "page": {
+      "transferLeftToRight_one": "Přenést „{{name}}“ →",
+      "transferLeftToRight_few": "Přenést {{count}} položky →",
+      "transferLeftToRight_many": "Přenést {{count}} položky →",
+      "transferLeftToRight_other": "Přenést {{count}} položek →",
+      "transferRightToLeft_one": "Přenést „{{name}}“ ←",
+      "transferRightToLeft_few": "Přenést {{count}} položky ←",
+      "transferRightToLeft_many": "Přenést {{count}} položky ←",
+      "transferRightToLeft_other": "Přenést {{count}} položek ←",
+      "selectFileLeft": "Vyberte soubor vlevo",
+      "selectFileRight": "Vyberte soubor vpravo",
+      "compareTitle": "Porovnat „{{leftName}}“ ↔ „{{rightName}}“",
+      "compareHint": "Pro porovnání vyberte na každé straně jeden soubor",
+      "selectFilesToUpload": "Vyberte soubory k nahrání",
+      "downloadToFolder": "Stáhnout do složky",
+      "connectionLost": "Spojení ztraceno"
+    },
+    "queue": {
+      "title": "Přenosy",
+      "transferCount_one": "{{count}} přenos",
+      "transferCount_few": "{{count}} přenosy",
+      "transferCount_many": "{{count}} přenosu",
+      "transferCount_other": "{{count}} přenosů",
+      "activeSuffix_one": " · {{count}} aktivní",
+      "activeSuffix_few": " · {{count}} aktivní",
+      "activeSuffix_many": " · {{count}} aktivního",
+      "activeSuffix_other": " · {{count}} aktivních",
+      "combinedThroughput": "Celková propustnost",
+      "cancelAll": "Zrušit všechny přenosy",
+      "clearFinished": "Vymazat dokončené přenosy",
+      "cancelTransfer": "Zrušit přenos",
+      "retryTransfer": "Zopakovat přenos",
+      "mcpTooltip": "Spuštěno klientem {{client}}",
+      "mcpTooltipUnknown": "Spuštěno MCP klientem",
+      "status": {
+        "done": "Hotovo",
+        "error": "Chyba",
+        "cancelled": "Zrušeno"
+      }
+    },
+    "editor": {
+      "common": {
+        "saveCtrlS": "Uložit (Ctrl+S)",
+        "saveFailed": "Uložení se nezdařilo",
+        "retrySave": "Zkusit znovu uložit",
+        "retry": "Zkusit znovu",
+        "dismiss": "Zavřít"
+      },
+      "diff": {
+        "loadError": "Jeden nebo oba soubory pro porovnání se nepodařilo načíst.",
+        "loading": "Načítání porovnání…",
+        "previousChange": "Předchozí změna",
+        "nextChange": "Další změna",
+        "saveErrorLine": "{{label}}: {{msg}}"
+      },
+      "tab": {
+        "autoSave": "Automatické ukládání",
+        "saveFailedReason": "Uložení se nezdařilo: {{error}}",
+        "error": {
+          "default": "Soubor se nepodařilo otevřít.",
+          "tooLarge": "Soubor je příliš velký ({{size}} bajtů, limit {{limit}}). Místo toho ho stáhněte.",
+          "binary": "Binární soubor — nelze upravit. Místo toho ho stáhněte."
+        }
+      },
+      "tabStrip": {
+        "filesTab": "Soubory",
+        "pendingNameFallback": "tento soubor",
+        "pendingNameDiffFallback": "toto porovnání",
+        "diffTitlePrefix": "diff: {{name}}",
+        "discardTitle": "Zahodit neuložené změny?",
+        "discardMessage": "„{{name}}“ obsahuje neuložené změny. Zavřením této karty je zahodíte.",
+        "discard": "Zahodit"
+      }
+    }
+  }
+}

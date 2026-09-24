@@ -1,0 +1,147 @@
+{
+  "logs": {
+    "gate": {
+      "noVaultSelected": {
+        "title": "Není vybrán žádný trezor",
+        "description": "Pro zobrazení auditních logů vyberte jeden trezor."
+      },
+      "restricted": {
+        "title": "Přístup omezen",
+        "description": "Pro přístup k této stránce potřebujete oprávnění Zobrazit auditní log."
+      }
+    },
+    "filters": {
+      "searchPlaceholder": "Filtrovat logy...",
+      "allActors": "Všichni aktéři",
+      "fromDate": "Od data",
+      "toDate": "Do data",
+      "dateRangeSeparator": "až",
+      "reset": "Obnovit",
+      "actionOptions": {
+        "all": "Všechny akce",
+        "memberInvited": "Člen pozván",
+        "memberJoined": "Člen se připojil",
+        "memberRemoved": "Člen odebrán",
+        "memberRoleChanged": "Role změněna",
+        "memberPermissionsChanged": "Oprávnění změněna",
+        "connectionCreated": "Hostitel vytvořen",
+        "connectionUpdated": "Hostitel upraven",
+        "connectionDeleted": "Hostitel smazán",
+        "identityCreated": "Identita vytvořena",
+        "identityUpdated": "Identita upravena",
+        "identityDeleted": "Identita smazána",
+        "keyCreated": "Klíč vytvořen",
+        "keyUpdated": "Klíč upraven",
+        "keyDeleted": "Klíč smazán",
+        "snippetCreated": "Snippet vytvořen",
+        "snippetUpdated": "Snippet upraven",
+        "snippetDeleted": "Snippet smazán",
+        "folderCreated": "Složka vytvořena",
+        "folderUpdated": "Složka upravena",
+        "folderDeleted": "Složka smazána",
+        "portForwardCreated": "Přesměrování portu vytvořeno",
+        "portForwardUpdated": "Přesměrování portu upraveno",
+        "portForwardDeleted": "Přesměrování portu smazáno",
+        "vaultRenamed": "Trezor přejmenován",
+        "vaultKeyRotated": "Klíč obměněn",
+        "roleCreated": "Role vytvořena",
+        "roleUpdated": "Role upravena",
+        "roleDeleted": "Role smazána",
+        "connectionStarted": "Připojení zahájeno",
+        "connectionEnded": "Připojení ukončeno",
+        "secretViewed": "Tajemství zobrazeno",
+        "sessionStarted": "Relace zahájena",
+        "sessionEnded": "Relace ukončena",
+        "sessionJoined": "Připojení k relaci"
+      }
+    },
+    "timeRange": {
+      "lastDay": "Posledních 24 hodin",
+      "lastWeek": "Poslední týden",
+      "lastMonth": "Posledních 30 dní",
+      "all": "Celou dobu",
+      "custom": "Vlastní rozsah"
+    },
+    "layout": {
+      "timeline": "Časová osa",
+      "horizontal": "Vizuální",
+      "list": "Seznam"
+    },
+    "export": {
+      "button": "Exportovat",
+      "failed": "Export se nezdařil"
+    },
+    "badges": {
+      "client": "klient",
+      "clientTooltip": "Nahlášeno klientskou aplikací — neověřeno serverem"
+    },
+    "eventLabels": {
+      "memberInvited": "pozval(a) {{name}}",
+      "memberJoined": "se připojil(a) k týmu jako {{role}}",
+      "memberRemoved": "odebral(a) {{name}}",
+      "memberRoleChanged": "změnil(a) roli uživatele {{name}}",
+      "memberPermissionsChanged": "změnil(a) oprávnění uživatele {{name}}",
+      "vaultCreated": "vytvořil(a) trezor „{{name}}“",
+      "vaultDeleted": "smazal(a) trezor „{{name}}“",
+      "vaultRenamed": "přejmenoval(a) trezor na „{{name}}“",
+      "vaultKeyRotated": "obměnil(a) klíč trezoru „{{name}}“",
+      "roleCreated": "vytvořil(a) roli „{{name}}“",
+      "roleUpdated": "upravil(a) roli „{{name}}“",
+      "roleDeleted": "smazal(a) roli „{{name}}“",
+      "permissionGranted": "udělil(a) oprávnění k {{name}}",
+      "permissionRevoked": "odebral(a) oprávnění k {{name}}",
+      "connectionCreated": "vytvořil(a) hostitele „{{name}}“",
+      "connectionUpdated": "upravil(a) hostitele „{{name}}“",
+      "connectionDeleted": "smazal(a) hostitele „{{name}}“",
+      "connectionStarted": "se připojil(a) k {{name}}",
+      "connectionEnded": "se odpojil(a) od {{name}}",
+      "identityCreated": "vytvořil(a) identitu „{{name}}“",
+      "identityUpdated": "upravil(a) identitu „{{name}}“",
+      "identityDeleted": "smazal(a) identitu „{{name}}“",
+      "keyCreated": "vytvořil(a) klíč „{{name}}“",
+      "keyUpdated": "upravil(a) klíč „{{name}}“",
+      "keyDeleted": "smazal(a) klíč „{{name}}“",
+      "snippetCreated": "vytvořil(a) snippet „{{name}}“",
+      "snippetUpdated": "upravil(a) snippet „{{name}}“",
+      "snippetDeleted": "smazal(a) snippet „{{name}}“",
+      "folderCreated": "vytvořil(a) složku „{{name}}“",
+      "folderUpdated": "upravil(a) složku „{{name}}“",
+      "folderDeleted": "smazal(a) složku „{{name}}“",
+      "portForwardCreated": "vytvořil(a) přesměrování portu „{{name}}“",
+      "portForwardUpdated": "upravil(a) přesměrování portu „{{name}}“",
+      "portForwardDeleted": "smazal(a) přesměrování portu „{{name}}“",
+      "secretViewed": "zobrazil(a) tajemství „{{name}}“",
+      "sessionStarted": "zahájil(a) terminálovou relaci",
+      "sessionEnded": "ukončil(a) terminálovou relaci",
+      "sessionJoined": "se připojil(a) k terminálové relaci",
+      "sessionLeft": "opustil(a) terminálovou relaci",
+      "fallbackUser": "uživatel",
+      "fallbackMember": "člen",
+      "fallbackRole": "člen",
+      "fallbackResource": "prostředek",
+      "fallbackHost": "hostitel"
+    },
+    "timeline": {
+      "today": "Dnes",
+      "yesterday": "Včera",
+      "weekOf": "Týden {{date}}"
+    },
+    "list": {
+      "columns": {
+        "actor": "Aktér",
+        "action": "Akce",
+        "target": "Cíl",
+        "time": "Čas"
+      }
+    },
+    "pagination": {
+      "prev": "Předchozí",
+      "next": "Další",
+      "pageOf": "Stránka {{page}} / {{totalPages}}"
+    },
+    "emptyState": "Filtrům neodpovídají žádné události.",
+    "error": {
+      "retry": "Zkusit znovu"
+    }
+  }
+}
