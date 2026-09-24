@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-09-24
+
+### Added
+
+- Tar-accelerated SFTP transfers for Windows OpenSSH hosts (#345)
+
+### Changed
+
+- Slid side panels in with the terminal's edge instead of wiping them
+
+### Fixed
+
+- Let typing leave tmux copy-mode after scrolling up (#344)
+- Let the Personal vault become a team vault like any other (#349)
+- Kept empty folders visible and included them in JSON exports (#338)
+- Made linked identities and keys opt-in in exports, showed auto-included items, and confirmed saved files (#336)
+- Signed macOS builds with a stable self-signed certificate (#347)
+- Faded the sync menu in and out like the share menu
+
 ## [0.41.0] - 2026-09-23
 
 ### Added
