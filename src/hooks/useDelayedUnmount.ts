@@ -16,3 +16,15 @@ export function useDelayedUnmount(open: boolean, ms: number): boolean {
   }, [open, ms]);
   return mounted;
 }
+
+const POPOVER_EXIT_MS = 140;
+
+export function usePopoverFade(open: boolean) {
+  const mounted = useDelayedUnmount(open, POPOVER_EXIT_MS);
+  return {
+    mounted,
+    className: open ? "animate-fadeIn" : "animate-fadeOut",
+    // Inline, not a Tailwind duration utility: it must beat the `animation` shorthand baked into animate-fade*.
+    style: { animationDuration: open ? "140ms" : "110ms" },
+  };
+}

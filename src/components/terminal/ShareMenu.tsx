@@ -8,7 +8,7 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { buildInviteLink } from "@/services/inviteCode";
 import { uninviteFromSession } from "@/services/teamService";
 import { guestCapFor, highestOwnerTier, inviteSessionOf, membersOfTeams, seatUsage, type InviteSession, type InviteTarget, type ShareTier } from "@/services/teamSharing";
-import { useDelayedUnmount } from "@/hooks/useDelayedUnmount";
+import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { InviteCodeField } from "./InviteCodeField";
@@ -16,7 +16,6 @@ import { SpokenCodeRow } from "./SpokenCodeRow";
 import { PeopleTab } from "./PeopleTab";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 
-const EXIT_MS = 140;
 
 const ROLES = ["owner", "manager", "editor", "member"] as const;
 
@@ -36,7 +35,7 @@ interface ShareMenuProps {
 export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectionName, connectionVaultId, isLoggedIn, tier, onSignIn, onUpgrade }: ShareMenuProps) {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
-  const mounted = useDelayedUnmount(open, EXIT_MS);
+  const fade = usePopoverFade(open);
   const [pos, setPos] = useState({ top: 0, left: 0, originX: 140 });
   const [tab, setTab] = useState<"people" | "invite" | "team">("people");
   const [sessionName, setSessionName] = useState(connectionName);
@@ -229,22 +228,18 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     }
   };
 
-  if (!mounted) return null;
+  if (!fade.mounted) return null;
 
   return createPortal(
     <div
       ref={menuRef}
-      className={`surface-float fixed z-9999 ${open ? "animate-fadeIn" : "animate-fadeOut"}`}
+      className={`surface-float fixed z-9999 ${fade.className}`}
       style={{
         top: pos.top,
         left: pos.left,
         width: 280,
         transformOrigin: `${pos.originX}px top`,
-        // `--animate-fadeIn`/`fadeOut` are the `animation` shorthand (duration baked
-        // in at 0.3s/0.25s) — a Tailwind arbitrary `[animation-duration:...]` utility
-        // competes with that shorthand on generation order, which is not something
-        // to rely on. An inline style always wins the cascade.
-        animationDuration: open ? "140ms" : "110ms",
+        ...fade.style,
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >

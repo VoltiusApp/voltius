@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import i18n from "@/i18n";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 import type { SyncStatus } from "@/services/sync";
 import { syncStatusColor } from "@/services/syncStatus";
 import { runManualSync } from "@/services/syncIntent";
@@ -217,8 +218,9 @@ export function SyncDropdown({ anchorRef, open, onClose, providers, installer }:
   const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
   useClickOutside(panelRef, onClose, open);
+  const fade = usePopoverFade(open);
 
-  if (!open) return null;
+  if (!fade.mounted) return null;
 
   const onAction = (action: SyncProviderAction) => {
     onClose();
@@ -231,7 +233,11 @@ export function SyncDropdown({ anchorRef, open, onClose, providers, installer }:
   const top = rect ? rect.bottom + 6 : 60;
 
   return (
-    <div ref={panelRef} className="surface-float fixed z-50 w-64 overflow-hidden" style={{ top, right }}>
+    <div
+      ref={panelRef}
+      className={`surface-float fixed z-50 w-64 overflow-hidden ${fade.className}`}
+      style={{ top, right, ...fade.style }}
+    >
       <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: "1px solid var(--t-border)" }}>
         <span className="text-xs font-semibold" style={{ color: "var(--t-text-primary)" }}>
           {t("layout.sync.title")}
