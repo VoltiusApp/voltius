@@ -32,17 +32,11 @@
         "connections_one": "{{count}} подключение",
         "connections_few": "{{count}} подключения",
         "connections_many": "{{count}} подключений",
-        "connections_other": "{{count}} подключений",
-        "identities_one": "{{count}} личность",
-        "identities_few": "{{count}} личности",
-        "identities_many": "{{count}} личностей",
-        "identities_other": "{{count}} личностей",
-        "keys_one": "{{count}} ключ",
-        "keys_few": "{{count}} ключа",
-        "keys_many": "{{count}} ключей",
-        "keys_other": "{{count}} ключей"
+        "connections_other": "{{count}} подключений"
       },
       "autoIncludeHint": "Также включено: используется экспортируемыми элементами, чтобы они работали после импорта",
+      "relatedCredentials": "Включить связанные учётные данные",
+      "relatedCredentialsHint": "Личности и SSH-ключи, которые используют эти подключения. Оставьте выключенным, чтобы экспортировать только настройки подключений и назначить учётные данные после импорта.",
       "checkboxLabel": {
         "connections_one": "Подключение ({{count}})",
         "connections_few": "Подключения ({{count}})",

@@ -9,6 +9,7 @@ import { ColorPicker } from "@/components/theme-creator/ColorPicker";
 import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePermission";
 import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
 import { permissionLabel } from "@/components/members/roleChips";
+import { CheckboxBox } from "@/components/shared/Checkbox";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
 
@@ -49,15 +50,7 @@ function PermissionRow({
       onMouseLeave={(e) => { if (!readOnly) (e.currentTarget as HTMLLabelElement).style.background = checked ? "rgba(var(--t-accent-rgb, 99,102,241), 0.08)" : "transparent"; }}
       onClick={() => { if (!readOnly) onToggle(bit); }}
     >
-      <div
-        className="shrink-0 w-4 h-4 rounded-sm flex items-center justify-center border transition-colors"
-        style={{
-          background: checked ? "var(--t-accent)" : "transparent",
-          borderColor: checked ? "var(--t-accent)" : "var(--t-border)",
-        }}
-      >
-        {checked && <Icon icon="lucide:check" width={10} className="text-white" />}
-      </div>
+      <CheckboxBox checked={checked} />
       <div className="flex-1 min-w-0">
         <span className="text-sm font-medium" style={{ color: "var(--t-text-primary)" }}>{tLabel}</span>
         <span className="text-xs ml-2" style={{ color: "var(--t-text-dim)" }}>{tDesc}</span>

@@ -12,6 +12,7 @@ import { useDelayedUnmount } from "@/hooks/useDelayedUnmount";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { InviteCodeField } from "./InviteCodeField";
+import { CheckboxBox } from "@/components/shared/Checkbox";
 import { SpokenCodeRow } from "./SpokenCodeRow";
 import { PeopleTab } from "./PeopleTab";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
@@ -581,15 +582,7 @@ function TeamTab({
                   onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.background = "transparent")}
                   onClick={() => onToggleVault(team.id)}
                 >
-                  <div
-                    className="w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0"
-                    style={{
-                      background: selected ? "var(--t-accent)" : "transparent",
-                      borderColor: selected ? "var(--t-accent)" : "var(--t-border)",
-                    }}
-                  >
-                    {selected && <Icon icon="lucide:check" width={9} style={{ color: "white" }} />}
-                  </div>
+                  <CheckboxBox checked={selected} small />
                   <Icon icon="lucide:vault" width={13} style={{ color: selected ? "var(--t-accent)" : "var(--t-text-secondary)" }} />
                   <span className="text-xs flex-1 truncate">{team.name}</span>
                 </div>

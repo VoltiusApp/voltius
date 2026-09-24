@@ -28,13 +28,11 @@
       "selectedItem_other": "{{count}} éléments sélectionnés",
       "autoInclude": {
         "connections_one": "{{count}} connexion",
-        "connections_other": "{{count}} connexions",
-        "identities_one": "{{count}} identité",
-        "identities_other": "{{count}} identités",
-        "keys_one": "{{count}} clé",
-        "keys_other": "{{count}} clés"
+        "connections_other": "{{count}} connexions"
       },
       "autoIncludeHint": "Également inclus : utilisés par les éléments exportés, pour qu'ils fonctionnent encore après l'import",
+      "relatedCredentials": "Inclure les identifiants liés",
+      "relatedCredentialsHint": "Les identités et clés SSH utilisées par ces connexions. Laissez décoché pour n'exporter que les paramètres de connexion et attribuer les identifiants après l'import.",
       "checkboxLabel": {
         "connections_one": "Connexion ({{count}})",
         "connections_other": "Connexions ({{count}})",

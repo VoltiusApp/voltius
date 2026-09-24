@@ -14,13 +14,11 @@ import { useStoreSlices } from "./useStores";
 import type { SelectionProps } from "@/services/import-export/context";
 import { handlerActive, hasSelection } from "@/services/import-export/context";
 import { SnippetRefError } from "@/services/import-export/snippetRefs";
-import { ActionBtn, Checkbox, VaultChipSelect } from "./shared";
+import { ActionBtn, VaultChipSelect } from "./shared";
+import { Checkbox } from "@/components/shared/Checkbox";
 import { Toggle } from "@/components/shared/Toggle";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { saveTextFile } from "@/services/saveFile";
-
-// Types buildBundle pulls in on its own when exported items reference them.
-const CASCADED_KEYS = ["connections", "identities", "keys"];
 
 export function ExportTab({ selection, preselectedTypes }: {
   selection: SelectionProps;
@@ -49,6 +47,8 @@ export function ExportTab({ selection, preselectedTypes }: {
     ]))
   );
   const toggle = (key: string, v: boolean) => setIncluded(prev => ({ ...prev, [key]: v }));
+
+  const [includeRelatedCredentials, setIncludeRelatedCredentials] = useState(false);
 
   const [format, setFormat] = useState<"json" | "csv">("json");
   const isCsvOnly = format === "csv";
@@ -85,7 +85,7 @@ export function ExportTab({ selection, preselectedTypes }: {
     const enabled: Record<string, boolean> = Object.fromEntries(
       HANDLERS.map(h => [h.key, included[h.key] && (!h.jsonOnly || !isCsvOnly)])
     );
-    buildBundle(enabled, stores, exportVaultIds, selection, canViewSecrets).then(bundle => {
+    buildBundle(enabled, stores, exportVaultIds, selection, canViewSecrets, { includeRelatedCredentials }).then(bundle => {
       if (cancelled) return;
       const counts: Record<string, number> = { folders: bundle.folders.length };
       for (const h of HANDLERS) counts[h.key] = (bundle[h.key as keyof ExportBundle] as unknown[])?.length ?? 0;
@@ -109,7 +109,7 @@ export function ExportTab({ selection, preselectedTypes }: {
     });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [included, format, exportVaultIds, canViewSecrets, stores.connections, stores.identities, stores.keys, stores.snippets, stores.pfRules]);
+  }, [included, includeRelatedCredentials, format, exportVaultIds, canViewSecrets, stores.connections, stores.identities, stores.keys, stores.snippets, stores.pfRules]);
 
   const totalItems = Object.values(bundleCounts).reduce((a, b) => a + b, 0);
   const recapCounts = vaultContentCounts.map((item) => ({
@@ -136,9 +136,10 @@ export function ExportTab({ selection, preselectedTypes }: {
     await saveTextFile(`voltius-export.${ext}`, content);
   };
 
-  const autoIncludes = isCsvOnly ? [] : CASCADED_KEYS
-    .filter(key => (bundleCounts[key] ?? 0) > 0 && !(included[key] && handlerActive(key, selection)))
-    .map(key => t(`importExport.export.autoInclude.${key}`, { count: bundleCounts[key] }));
+  const exportsType = (key: string) => included[key] && handlerActive(key, selection);
+  const showRelatedCredentials = !isCsvOnly && (bundleCounts["connections"] ?? 0) > 0 && !(exportsType("identities") && exportsType("keys"));
+
+  const autoIncludedConnections = !isCsvOnly && !exportsType("connections") ? bundleCounts["connections"] ?? 0 : 0;
 
   return (
     <div className="flex flex-col gap-5 h-full">
@@ -178,6 +179,16 @@ export function ExportTab({ selection, preselectedTypes }: {
               <p className="text-xs text-(--t-text-muted)">
                 {t("importExport.export.selectedItem", { count: bulkCount })}
               </p>
+            )}
+            {showRelatedCredentials && (
+              <div className="flex flex-col gap-1 pt-2.5 border-t border-(--t-border)">
+                <Checkbox
+                  checked={includeRelatedCredentials}
+                  onChange={setIncludeRelatedCredentials}
+                  label={t("importExport.export.relatedCredentials")}
+                />
+                <p className="text-xs text-(--t-text-dim) ml-6">{t("importExport.export.relatedCredentialsHint")}</p>
+              </div>
             )}
           </div>
         </div>
@@ -261,10 +272,10 @@ export function ExportTab({ selection, preselectedTypes }: {
               ) : (
                 <span className="text-sm text-(--t-text-muted) truncate">{t("importExport.export.nothingToExport")}</span>
               )}
-              {autoIncludes.length > 0 && (
+              {autoIncludedConnections > 0 && (
                 <span className="text-xs flex items-center gap-1 text-(--t-text-dim) shrink-0" title={t("importExport.export.autoIncludeHint")}>
                   <Icon icon="lucide:link" width={11} />
-                  +{autoIncludes.join(" + ")}
+                  +{t("importExport.export.autoInclude.connections", { count: autoIncludedConnections })}
                 </span>
               )}
             </>
