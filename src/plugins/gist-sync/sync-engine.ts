@@ -325,17 +325,17 @@ export async function syncNow(): Promise<void> {
   }
 }
 
-// Polling stops on these until the user reconfigures.
+// Polling stops on these until the user reconfigures. Values are catalog keys.
 const FATAL_STATUS_MESSAGES: Record<number, string> = {
-  401: "GitHub PAT is invalid or expired",
-  404: "Gist not found — re-configure in Settings",
+  401: "fatalPatInvalid",
+  404: "fatalGistNotFound",
 };
 
 function _onSyncError(err: unknown) {
   const fatal = err instanceof GistApiError ? FATAL_STATUS_MESSAGES[err.status] : undefined;
   if (fatal) {
     stopPoll();
-    setGistState("error", fatal);
+    setGistState("error", _api.i18n.t(fatal));
     return;
   }
   const isOffline = !navigator.onLine;
