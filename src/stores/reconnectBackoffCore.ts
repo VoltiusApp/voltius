@@ -1,17 +1,30 @@
 import { isMissingUsernameError, isNoAuthError, isPassphraseError } from "@/components/terminal/connection-overlay/utils";
-import type { VaultErrorCode } from "@/services/vaultErrors";
+import type { BackendErrorCode } from "@/services/backendErrors";
 import type { TerminalSession } from "@/types";
 
+/** Failures retrying cannot fix. Wrong credentials stay wrong, and retrying them
+ * only gets the host banned by fail2ban/sshguard. */
+const FINAL_CODES: ReadonlySet<BackendErrorCode> = new Set<BackendErrorCode>([
+  "vault-unreadable",
+  "vault-locked",
+  "ssh-key-rejected",
+  "ssh-password-rejected",
+  "ssh-password-expired",
+  "ssh-prompt-unanswerable",
+  "ssh-no-usable-auth-method",
+]);
+
 /**
- * A failure retrying cannot fix: the user must supply something, or the vault cannot
- * be read. Matched on the code, never the message — the message is translated.
+ * A failure retrying cannot fix: the user must supply something, the credentials
+ * were refused, or the vault cannot be read. Matched on the code where there is
+ * one — a coded failure's message is translated.
  */
-export function stopsRetrying(msg?: string, code?: VaultErrorCode): boolean {
-  if (code) return true;
+export function stopsRetrying(msg?: string, code?: BackendErrorCode): boolean {
+  if (code && FINAL_CODES.has(code)) return true;
   return isPassphraseError(msg) || isNoAuthError(msg) || isMissingUsernameError(msg) || isHostKeyRejected(msg) || isAuthRejected(msg);
 }
 
-// Wrong credentials stay wrong; retrying them only gets the host banned by fail2ban/sshguard.
+// Still matched as text for failures that arrive uncoded, e.g. wrapped by a jump host.
 function isAuthRejected(msg?: string): boolean {
   return !!msg && /authentication rejected|No usable authentication method|can't be answered automatically|requires a new password|FTP login failed/.test(msg);
 }
@@ -49,7 +62,7 @@ export function retryDelay(step: number): number {
 export const STABLE_CONNECTION_MS = 30_000;
 
 /** Wait before auto-retry number `attempt` of a failed connect, or null when no retry can fix it. */
-export function connectRetryDelay(attempt: number, msg?: string, code?: VaultErrorCode): number | null {
+export function connectRetryDelay(attempt: number, msg?: string, code?: BackendErrorCode): number | null {
   return stopsRetrying(msg, code) ? null : retryDelay(attempt);
 }
 
@@ -62,7 +75,7 @@ export interface StrandableSession {
   status: SessionStatus;
   everConnected?: boolean;
   errorMessage?: string;
-  errorCode?: VaultErrorCode;
+  errorCode?: BackendErrorCode;
 }
 
 /** An ssh tab showing a failure the network returning can fix. */
@@ -82,11 +95,11 @@ export interface BackoffStore {
    * so the overlay shows the normal connection steps (TCP step spinning). */
   markReconnecting(sessionId: string): void;
   markConnected(sessionId: string): void;
-  markError(sessionId: string, message: string, code?: VaultErrorCode): void;
+  markError(sessionId: string, message: string, code?: BackendErrorCode): void;
   setWait(sessionId: string, wait: ReconnectWait | undefined): void;
   online(sessionId: string): boolean;
   /** Silent connect attempt: mutates no visible status, returns the outcome. */
-  attempt(sessionId: string): Promise<{ ok: boolean; errorMessage?: string; errorCode?: VaultErrorCode }>;
+  attempt(sessionId: string): Promise<{ ok: boolean; errorMessage?: string; errorCode?: BackendErrorCode }>;
   /** The multiplexer session is gone on the host (attach-only probe failed):
    * tear the session down — retrying can never succeed. */
   sessionEnded(sessionId: string): void;

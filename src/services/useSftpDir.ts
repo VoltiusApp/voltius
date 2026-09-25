@@ -10,14 +10,14 @@ import { sftpConnectToConnection } from "@/services/sftpTarget";
 import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
 import { useDirListing } from "@/components/filetransfer/useDirListing";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
-import { vaultErrorCode, type VaultErrorCode } from "@/services/vaultErrors";
 import { useConnectRetry } from "@/hooks/useConnectRetry";
 import type { Connection } from "@/types";
+import { backendErrorCode, type BackendErrorCode } from "@/services/backendErrors";
 
 export type SftpPhase =
   | { tag: "connecting" }
   | { tag: "connected"; sftpId: string }
-  | { tag: "error"; message: string; errorCode?: VaultErrorCode };
+  | { tag: "error"; message: string; errorCode?: BackendErrorCode };
 
 /** Parent of a POSIX path; "/" stays "/". */
 export function parentDir(path: string): string {
@@ -73,7 +73,7 @@ export function useSftpDir(connection: Connection | undefined) {
         setCwd(home || "/");
         setPhase({ tag: "connected", sftpId });
       } catch (e) {
-        if (!cancelled) setPhase({ tag: "error", message: String(e), errorCode: vaultErrorCode(e) ?? undefined });
+        if (!cancelled) setPhase({ tag: "error", message: String(e), errorCode: backendErrorCode(e) ?? undefined });
       }
     })();
     return () => {

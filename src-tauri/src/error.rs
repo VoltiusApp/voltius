@@ -138,6 +138,31 @@ impl Classify for russh_sftp::client::error::Error {
     }
 }
 
+/// A proxy's own verdicts (a refused CONNECT, a SOCKS reply) have no code;
+/// failing to reach it, or it never answering, do.
+impl Classify for crate::proxy::ProxyError {
+    fn error_code(&self) -> Option<ErrorCode> {
+        use crate::proxy::ProxyError as P;
+        match self {
+            P::Direct(e) | P::Unreachable { source: e, .. } => e.error_code(),
+            P::Timeout { .. } => Some(ErrorCode::TimedOut),
+            P::Rejected { .. } | P::Socks { .. } | P::Protocol { .. } => None,
+        }
+    }
+}
+
+/// A host-key verdict is shown as is, so it has no code.
+impl Classify for crate::ssh::client::HopError {
+    fn error_code(&self) -> Option<ErrorCode> {
+        use crate::ssh::client::HopError as H;
+        match self {
+            H::Proxy(e) => e.error_code(),
+            H::Ssh(e) => e.error_code(),
+            H::HostKey(_) => None,
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum AppError {
     #[error("{0}")]

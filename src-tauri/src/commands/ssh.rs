@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use crate::known_hosts::{KnownHostsStore, PendingConflicts};
 use crate::port_forward::PortForwardManager;
 use crate::proxy::ProxySpec;
@@ -39,7 +40,7 @@ pub async fn ssh_connect(
     legacy_algorithms: Option<bool>,
     initial_cwd: Option<String>,
     proxy: Option<ProxySpec>,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let connected = client::connect(
         app,
         session_id.clone(),

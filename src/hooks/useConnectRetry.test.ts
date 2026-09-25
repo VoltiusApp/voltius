@@ -19,6 +19,9 @@ describe("connectRetryDelay", () => {
     expect(connectRetryDelay(0, "WARNING: Host key changed for h:22!\nStored   : a")).toBeNull();
     expect(connectRetryDelay(0, "Connection aborted by user.")).toBeNull();
     expect(connectRetryDelay(0, "Vault is locked", "vault-locked")).toBeNull();
+    // A coded failure's message arrives translated, so only its code tells.
+    expect(connectRetryDelay(0, "Mot de passe refusé.", "ssh-password-rejected")).toBeNull();
+    expect(connectRetryDelay(0, "Connexion refusée.", "connection-refused")).toBe(FAST_DELAYS_MS[0]);
   });
 });
 

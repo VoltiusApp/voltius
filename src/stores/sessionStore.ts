@@ -25,7 +25,7 @@ import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/crede
 import { resolveFirstHopProxy, type ProxySpec } from "@/services/proxy";
 import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/ephemeralCredentials";
 import { storeSecret, getSecret } from "@/services/vault";
-import { vaultErrorCode, type VaultErrorCode } from "@/services/vaultErrors";
+import { backendErrorCode, describeError, type BackendErrorCode } from "@/services/backendErrors";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { useIdentityStore } from "@/stores/identityStore";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
@@ -78,12 +78,12 @@ interface SessionStore {
   /** Silent reconnect for the auto-backoff loop: performs the same connect as
    * reconnect() but mutates no visible status, returning the outcome so the loop
    * can hold a single steady "reconnecting" state and decide what to surface. */
-  reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<{ ok: boolean; errorMessage?: string; errorCode?: VaultErrorCode }>;
+  reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<{ ok: boolean; errorMessage?: string; errorCode?: BackendErrorCode }>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
   restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
   markConnected: (sessionId: string) => void;
-  markError: (sessionId: string, message: string, code?: VaultErrorCode) => void;
+  markError: (sessionId: string, message: string, code?: BackendErrorCode) => void;
   /** Name a tab. A blank name clears it, so the tab falls back to the connection. */
   renameSession: (sessionId: string, title: string | null) => void;
 }
@@ -375,10 +375,10 @@ function markSessionError(
   set: SessionSetter,
   sessionId: string,
   err: unknown,
-  { onlyIfConnecting = false, code }: { onlyIfConnecting?: boolean; code?: VaultErrorCode } = {},
+  { onlyIfConnecting = false, code }: { onlyIfConnecting?: boolean; code?: BackendErrorCode } = {},
 ) {
-  const msg = err instanceof Error ? err.message : String(err);
-  const errorCode = code ?? vaultErrorCode(err) ?? undefined;
+  const msg = describeError(err, i18n.t);
+  const errorCode = code ?? backendErrorCode(err) ?? undefined;
   set((s) => ({
     sessions: s.sessions.map((sess) =>
       sess.id === sessionId && (!onlyIfConnecting || sess.status === "connecting")
@@ -1018,8 +1018,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     } catch (err) {
       return {
         ok: false,
-        errorMessage: err instanceof Error ? err.message : String(err),
-        errorCode: vaultErrorCode(err) ?? undefined,
+        errorMessage: describeError(err, i18n.t),
+        errorCode: backendErrorCode(err) ?? undefined,
       };
     }
   },

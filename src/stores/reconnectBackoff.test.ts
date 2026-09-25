@@ -12,7 +12,7 @@ import {
   type ReconnectWait,
   type SessionStatus,
 } from "./reconnectBackoffCore.ts";
-import type { VaultErrorCode } from "@/services/vaultErrors";
+import type { BackendErrorCode } from "@/services/backendErrors";
 import { test, vi } from "vitest";
 
 test("reconnectBackoff", async () => {
@@ -38,21 +38,21 @@ const realSetTimeout = globalThis.setTimeout;
 // @ts-expect-error test stub
 globalThis.setTimeout = (fn: () => void) => { fn(); return 0 as unknown as ReturnType<typeof setTimeout>; };
 
-type Attempt = () => Promise<{ ok: boolean; errorMessage?: string; errorCode?: VaultErrorCode }>;
+type Attempt = () => Promise<{ ok: boolean; errorMessage?: string; errorCode?: BackendErrorCode }>;
 
 function makeStore(opts: {
   status: () => SessionStatus;
   exists?: () => boolean;
   online?: () => boolean;
   attempt?: Attempt;
-}): BackoffStore & { attempts: number; reconnecting: number; connected: number; errors: string[]; codes: (VaultErrorCode | undefined)[]; ended: string[]; waits: (ReconnectWait | undefined)[] } {
+}): BackoffStore & { attempts: number; reconnecting: number; connected: number; errors: string[]; codes: (BackendErrorCode | undefined)[]; ended: string[]; waits: (ReconnectWait | undefined)[] } {
   const userAttempt = opts.attempt;
   const s = {
     attempts: 0,
     reconnecting: 0,
     connected: 0,
     errors: [] as string[],
-    codes: [] as (VaultErrorCode | undefined)[],
+    codes: [] as (BackendErrorCode | undefined)[],
     ended: [] as string[],
     waits: [] as (ReconnectWait | undefined)[],
     status: opts.status,
@@ -61,7 +61,7 @@ function makeStore(opts: {
     exists: () => (opts.exists ? opts.exists() : true),
     markReconnecting: () => { s.reconnecting++; },
     markConnected: () => { s.connected++; },
-    markError: (_id: string, msg: string, code?: VaultErrorCode) => { s.errors.push(msg); s.codes.push(code); },
+    markError: (_id: string, msg: string, code?: BackendErrorCode) => { s.errors.push(msg); s.codes.push(code); },
     attempt: async () => {
       s.attempts++;
       return userAttempt ? userAttempt() : { ok: false };
@@ -237,6 +237,16 @@ for (const errorMessage of [
   assertEqual(store.attempts, 1, `not retried into a fail2ban ban: ${errorMessage}`);
 }
 
+await (async () => {
+  // Coded, the message is the translation: only the code can say "rejected".
+  const store = makeStore({
+    status: () => "disconnected",
+    attempt: async () => ({ ok: false, errorMessage: "Authentification par mot de passe refusée", errorCode: "ssh-password-rejected" }),
+  });
+  assertEqual(await runBackoff("s-auth-rejected-fr", store), false, "stops on a coded rejection in any language");
+  assertEqual(store.attempts, 1, "a coded rejection is not retried either");
+})();
+
 globalThis.setTimeout = realSetTimeout;
 
 await (async () => {
@@ -290,6 +300,7 @@ await (async () => {
   assertEqual(strandedByNetwork({ ...base, type: "serial" }), false, "serial does not depend on the network");
   assertEqual(strandedByNetwork({ ...base, errorMessage: "The key is encrypted" }), false, "a passphrase prompt is not dismissed");
   assertEqual(strandedByNetwork({ ...base, errorCode: "vault-unreadable" }), false, "a vault error is not retried");
+  assertEqual(strandedByNetwork({ ...base, errorCode: "host-unreachable" }), true, "a coded network failure is revived");
   assertEqual(strandedByNetwork({ ...base, errorMessage: "SESSION_ENDED" }), false, "an ended session is not resurrected");
 })();
 

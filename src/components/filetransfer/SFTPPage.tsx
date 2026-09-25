@@ -22,7 +22,7 @@ import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboard
 import { buildPasteDeps, executePaste } from "./pasteService";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sftpConnectToConnection } from "@/services/sftpTarget";
-import { vaultErrorCode } from "@/services/vaultErrors";
+import { backendErrorCode } from "@/services/backendErrors";
 import { useConnectRetry } from "@/hooks/useConnectRetry";
 import {
   type HostChoice, type SidePhase, type FileEntry,
@@ -109,7 +109,7 @@ export default function SFTPPage() {
       setPhase({ tag: "connected", sftpId, cwd, selected: [] });
     } catch (e) {
       if (sftpId) sftpClose(sftpId).catch(() => {});
-      if (isCurrent()) setPhase({ tag: "error", message: String(e), errorCode: vaultErrorCode(e) ?? undefined, host });
+      if (isCurrent()) setPhase({ tag: "error", message: String(e), errorCode: backendErrorCode(e) ?? undefined, host });
     }
   }, [setPhaseOf, releaseSide]);
 

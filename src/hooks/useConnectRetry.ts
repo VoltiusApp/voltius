@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import { connectRetryDelay, STABLE_CONNECTION_MS } from "@/stores/reconnectBackoffCore";
-import type { VaultErrorCode } from "@/services/vaultErrors";
+import type { BackendErrorCode } from "@/services/backendErrors";
 
-type RetryPhase = { tag: string; message?: string; errorCode?: VaultErrorCode };
+type RetryPhase = { tag: string; message?: string; errorCode?: BackendErrorCode };
 
 /** Re-run `retry` on the reconnect backoff while `phase` is a retryable error. The schedule
  *  restarts for a new `target`, on `reset`, or once a connection has held for a while. */

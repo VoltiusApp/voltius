@@ -13,6 +13,7 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { latencyColor, latencyTone } from "@/utils/statusTone";
 import { useToggle } from "@/stores/toggleSettingsStore";
+import { isVaultErrorCode } from "@/services/vaultErrors";
 
 const SPARKLINE_MAX = 20;
 
@@ -274,7 +275,7 @@ export function SidePane({
 
         {/* The vault holds the credentials, so the panel's unlock action is the
             way out; the message alone leaves nothing to act on. */}
-        {phase.tag === "error" && phase.errorCode && (
+        {phase.tag === "error" && isVaultErrorCode(phase.errorCode) && (
           <ConnectionOverlay
             sessionId={`sftp-error-${side}`}
             status="error"
@@ -288,7 +289,7 @@ export function SidePane({
           />
         )}
 
-        {phase.tag === "error" && !phase.errorCode && (
+        {phase.tag === "error" && !isVaultErrorCode(phase.errorCode) && (
           <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
             <Icon icon="lucide:wifi-off" width={24} className="text-(--t-status-error)" />
             <p className="text-sm text-(--t-status-error)">{phase.message}</p>

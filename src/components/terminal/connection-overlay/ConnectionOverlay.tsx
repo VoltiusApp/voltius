@@ -9,6 +9,7 @@ import { VaultErrorPanel } from "./VaultErrorPanel";
 import { useConnectionSteps, useHostKeyConflict } from "./hooks";
 import type { ConnectionOverlayProps } from "./types";
 import { isMissingUsernameError, isNoAuthError, isPassphraseError } from "./utils";
+import { isVaultErrorCode } from "@/services/vaultErrors";
 
 export default function ConnectionOverlay({
   sessionId,
@@ -42,7 +43,8 @@ export default function ConnectionOverlay({
   const isError = status === "error";
   const isConnecting = status === "connecting";
   // Outranks the message-based prompts: the credentials are stored, just unreadable.
-  const showVaultError = isError && !!errorCode;
+  const vaultCode = isError && isVaultErrorCode(errorCode) ? errorCode : null;
+  const showVaultError = !!vaultCode;
   const showPassphrasePrompt = isError && !showVaultError && isPassphraseError(errorMessage) && !!onRetryWithPassphrase;
   const showUsernamePrompt = isError && !showVaultError && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
   const showAuthPrompt = isError && !showVaultError && isNoAuthError(errorMessage) && !!onRetryWithAuth;
@@ -62,8 +64,8 @@ export default function ConnectionOverlay({
 
         {conflict && !isError ? (
           <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
-        ) : showVaultError ? (
-          <VaultErrorPanel code={errorCode} onRetry={onRetry} onCancel={onDismiss} />
+        ) : vaultCode ? (
+          <VaultErrorPanel code={vaultCode} onRetry={onRetry} onCancel={onDismiss} />
         ) : showPassphrasePrompt ? (
           <PassphrasePromptPanel
             onSubmit={onRetryWithPassphrase}
