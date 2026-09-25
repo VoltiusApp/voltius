@@ -4,6 +4,54 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
+/// Proxy protocol type.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ProxyType {
+    #[default]
+    Socks5,
+    Http,
+    System,
+}
+
+/// Proxy authentication (username/password for SOCKS5, Basic auth for HTTP CONNECT).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct ProxyAuth {
+    pub username: String,
+    pub password: String,
+}
+
+/// System proxy configuration with credentials.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub struct ProxyConfig {
+    pub proxy_type: ProxyType,
+    pub host: String,
+    pub port: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth: Option<ProxyAuth>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub no_proxy: Option<Vec<String>>,
+}
+
+/// Per-host proxy override. Overrides global proxy settings for specific hosts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct PerHostProxyOverride {
+    pub host_pattern: String,
+    pub proxy_config: ProxyConfig,
+}
+
+/// Global proxy settings (applies to all connections unless overridden).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct GlobalProxySettings {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy_config: Option<ProxyConfig>,
+    #[serde(default)]
+    pub per_host_overrides: Vec<PerHostProxyOverride>,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
 /// Overrides the base config directory. Set once at startup on platforms where
 /// `dirs::config_dir()` doesn't resolve to writable, app-scoped storage — most
 /// importantly Android, where it falls back to an unwritable cwd ("/"). When
@@ -182,6 +230,9 @@ pub struct Connection {
     /// Free-form user notes for this host (reminders, maintenance windows, …).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
+    /// Per-host proxy override. None = inherit global proxy settings.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy_config: Option<ProxyConfig>,
     pub updated_at: String,
     pub deleted_at: Option<String>,
     pub clocks: HashMap<String, String>,
