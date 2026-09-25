@@ -85,7 +85,16 @@
         "tooManyParts": "Use port or remote:local",
         "invalidRemotePort": "Port must be 1–65535",
         "invalidLocalPort": "Local port must be 1–65535"
-      }
+      },
+      "toast": {
+        "viewPorts": "View Ports →",
+        "forwardedOne": "Port {{port}} → localhost:{{localPort}} forwarded",
+        "forwardedMany_one": "{{count}} port forwarded",
+        "forwardedMany_other": "{{count}} ports forwarded",
+        "autoForwardCapped_one": "Auto-forwarding paused — {{count}} port already forwarded",
+        "autoForwardCapped_other": "Auto-forwarding paused — {{count}} ports already forwarded"
+      },
+      "portLabel": "Port {{port}}"
     },
     "rightPanel": {
       "font": "Font",
@@ -316,6 +325,11 @@
       "sparklineMin": "min {{value}}ms",
       "sparklineAvg": "avg {{value}}ms",
       "sparklineMax": "max {{value}}ms"
+    },
+    "xterm": {
+      "linkTooltip": "Alt+click to open",
+      "sessionClosed": "Session closed",
+      "serialClosed": "Serial connection closed"
     }
   }
 }

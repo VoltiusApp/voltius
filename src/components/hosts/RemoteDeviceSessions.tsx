@@ -134,7 +134,7 @@ export function RemoteDeviceSessions() {
                   <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                     <p className="text-sm font-bold truncate text-(--t-text-bright)">{sessionLabel(a)}</p>
                     <p className="text-[11px] truncate text-(--t-text-dim)">
-                      {a.deviceName} · active {relativeAge(a.openedAt)}
+                      {t("hosts.remoteSessions.deviceActive", { device: a.deviceName || t("hosts.remoteSessions.unknownDevice"), age: relativeAge(a.openedAt) })}
                     </p>
                     {a.cwd && <p className="text-[11px] truncate text-(--t-text-dim)">{a.cwd}</p>}
                   </div>

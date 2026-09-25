@@ -1,13 +1,14 @@
 import type { OmniCommand } from "@/plugins/api";
 import { useUIStore } from "@/stores/uiStore";
+import { defineCommand } from "@/commands/defineCommand";
+import { lazyT } from "@/i18n";
 
 export const commands: OmniCommand[] = [
-  {
+  defineCommand({
     id: "core:new-theme",
-    label: "Create Custom Theme",
+    label: lazyT("omni.commands.createTheme"),
     icon: "lucide:palette",
     keywords: ["theme", "color", "appearance", "style", "design", "custom"],
-    section: "Actions",
     execute: () => useUIStore.getState().openThemeCreator(),
-  },
+  }),
 ];

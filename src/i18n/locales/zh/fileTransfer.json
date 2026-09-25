@@ -139,7 +139,9 @@
         "loading": "正在加载差异…",
         "previousChange": "上一个更改",
         "nextChange": "下一个更改",
-        "saveErrorLine": "{{label}}: {{msg}}"
+        "saveErrorLine": "{{label}}: {{msg}}",
+        "applyToRight": "应用到右侧 (→)",
+        "applyToLeft": "应用到左侧 (←)"
       },
       "tab": {
         "autoSave": "自动保存",

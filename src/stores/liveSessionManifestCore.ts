@@ -202,7 +202,8 @@ export function parseManifest(raw: unknown): LiveSessionManifest | null {
   return {
     version: MANIFEST_VERSION,
     deviceId: m.deviceId,
-    deviceName: typeof m.deviceName === "string" && m.deviceName ? m.deviceName : "Unknown device",
+    // Empty when unknown; the UI shows a translated fallback.
+    deviceName: typeof m.deviceName === "string" ? m.deviceName : "",
     updatedAt: typeof m.updatedAt === "string" ? m.updatedAt : "",
     sessions: m.sessions.filter(isValidSession),
     closedSessions: m.closedSessions.filter(isValidClosed),

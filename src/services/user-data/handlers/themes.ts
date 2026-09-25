@@ -17,7 +17,6 @@ interface ThemesData {
 
 export const themesHandler: UserDataHandler = {
   key: "themes",
-  label: "Themes",
   icon: "lucide:palette",
 
   export(): ThemesData {

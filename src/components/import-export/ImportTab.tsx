@@ -645,10 +645,10 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
             );
           })}
         </div>
-        {source.hint && (
+        {source.hintKey && (
           <p className="text-xs text-(--t-text-dim) flex items-center gap-1.5 mt-0.5">
             <Icon icon="lucide:info" width={11} />
-            {source.hint}
+            {t(source.hintKey)}
           </p>
         )}
       </div>
@@ -705,9 +705,9 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
         <FileInputArea
           text={text}
           onChange={setText}
-          placeholder={source.placeholder}
+          placeholder={t(source.placeholderKey)}
           fileAccept={source.fileAccept}
-          openLabel={t("importExport.import.openFileLabel", { sub: source.sub })}
+          openLabel={t("importExport.import.openFileLabel", { sub: t(source.subKey) })}
           hasError={status.type === "error"}
           onClear={() => { setStatus({ type: "idle" }); setImportResult(null); }}
         />

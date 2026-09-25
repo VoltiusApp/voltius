@@ -1,3 +1,5 @@
+import i18n from "@/i18n";
+
 const SHELL_LABELS: Record<string, string> = {
   "wsl": "WSL",
   "pwsh": "Pwsh",
@@ -15,10 +17,7 @@ function titleCase(value: string): string {
 }
 
 export function formatLocalShellTitle(shellPath?: string | null): string {
-  if (!shellPath) return "Local Shell";
-
-  const name = basename(shellPath).replace(/\.exe$/i, "").trim();
-  if (!name) return "Local Shell";
-
-  return `Local Shell › ${SHELL_LABELS[name.toLowerCase()] ?? titleCase(name)}`;
+  const name = shellPath ? basename(shellPath).replace(/\.exe$/i, "").trim() : "";
+  if (!name) return i18n.t("shared.sessionPicker.localShellFallbackName");
+  return i18n.t("common.localShellTitle", { shell: SHELL_LABELS[name.toLowerCase()] ?? titleCase(name) });
 }

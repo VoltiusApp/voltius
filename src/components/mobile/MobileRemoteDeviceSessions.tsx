@@ -68,7 +68,7 @@ export default function MobileRemoteDeviceSessions() {
             <span className="flex flex-col gap-0.5 min-w-0">
               <span className="text-sm font-semibold truncate text-(--t-text-primary)">{sessionLabel(a)}</span>
               <span className="text-[11px] truncate text-(--t-text-dim)">
-                {a.deviceName} · {relativeAge(a.openedAt)}
+                {a.deviceName || t("hosts.remoteSessions.unknownDevice")} · {relativeAge(a.openedAt)}
               </span>
               {a.cwd && <span className="text-[11px] truncate text-(--t-text-dim)">{a.cwd}</span>}
             </span>

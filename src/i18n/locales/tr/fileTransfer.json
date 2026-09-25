@@ -139,7 +139,9 @@
         "loading": "Farklar yükleniyor…",
         "previousChange": "Önceki değişiklik",
         "nextChange": "Sonraki değişiklik",
-        "saveErrorLine": "{{label}}: {{msg}}"
+        "saveErrorLine": "{{label}}: {{msg}}",
+        "applyToRight": "Sağa uygula (→)",
+        "applyToLeft": "Sola uygula (←)"
       },
       "tab": {
         "autoSave": "Otomatik kaydet",

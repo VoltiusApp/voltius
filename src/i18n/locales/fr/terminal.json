@@ -85,7 +85,18 @@
         "tooManyParts": "Utilisez port ou distant:local",
         "invalidRemotePort": "Le port doit être compris entre 1 et 65535",
         "invalidLocalPort": "Le port local doit être compris entre 1 et 65535"
-      }
+      },
+      "toast": {
+        "viewPorts": "Voir les ports →",
+        "forwardedOne": "Port {{port}} → localhost:{{localPort}} redirigé",
+        "forwardedMany_one": "{{count}} port redirigé",
+        "forwardedMany_many": "{{count}} ports redirigés",
+        "forwardedMany_other": "{{count}} ports redirigés",
+        "autoForwardCapped_one": "Redirection automatique suspendue — {{count}} port déjà redirigé",
+        "autoForwardCapped_many": "Redirection automatique suspendue — {{count}} ports déjà redirigés",
+        "autoForwardCapped_other": "Redirection automatique suspendue — {{count}} ports déjà redirigés"
+      },
+      "portLabel": "Port {{port}}"
     },
     "rightPanel": {
       "font": "Police",
@@ -316,6 +327,11 @@
       "sparklineMin": "min {{value}}ms",
       "sparklineAvg": "moy {{value}}ms",
       "sparklineMax": "max {{value}}ms"
+    },
+    "xterm": {
+      "linkTooltip": "Alt+clic pour ouvrir",
+      "sessionClosed": "Session fermée",
+      "serialClosed": "Connexion série fermée"
     }
   }
 }

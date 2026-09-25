@@ -98,7 +98,9 @@
       "unknownType": "Unknown type",
       "invalidKey": "Invalid key",
       "invalidPublicKey": "Not an SSH public key — expected \"ssh-ed25519 AAAA… comment\" on one line. It will not save, and cannot be added to a host.",
-      "keyPassphrasePlaceholder": "Key passphrase"
+      "keyPassphrasePlaceholder": "Key passphrase",
+      "incompleteKey": "Incomplete key",
+      "unrecognizedKey": "Unrecognized key format"
     },
     "identityForm": {
       "titleEdit": "Edit Identity",

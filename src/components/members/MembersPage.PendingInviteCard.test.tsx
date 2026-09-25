@@ -53,7 +53,7 @@ afterEach(() => cleanup());
 test("renders the invitee handle and role", () => {
   render(<PendingInviteCard {...props} />);
   expect(screen.getByText("jade-heron-7715")).toBeTruthy();
-  expect(screen.getByText("member")).toBeTruthy();
+  expect(screen.getByText("members.roleName.member")).toBeTruthy();
 });
 
 test("click revoke calls revokePendingInvitation(teamId, inv.id) then onRevoked(inv.id)", async () => {

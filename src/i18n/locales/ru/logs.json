@@ -119,7 +119,8 @@
       "fallbackMember": "участник",
       "fallbackRole": "участник",
       "fallbackResource": "ресурс",
-      "fallbackHost": "хост"
+      "fallbackHost": "хост",
+      "you": "Вы"
     },
     "timeline": {
       "today": "Сегодня",

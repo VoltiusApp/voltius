@@ -139,7 +139,9 @@
         "loading": "Chargement de la comparaison…",
         "previousChange": "Modification précédente",
         "nextChange": "Modification suivante",
-        "saveErrorLine": "{{label}} : {{msg}}"
+        "saveErrorLine": "{{label}} : {{msg}}",
+        "applyToRight": "Appliquer à droite (→)",
+        "applyToLeft": "Appliquer à gauche (←)"
       },
       "tab": {
         "autoSave": "Enregistrement automatique",

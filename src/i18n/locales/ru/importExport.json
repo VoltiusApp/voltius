@@ -164,6 +164,31 @@
         "vaults_many": "{{count}} хранилищ",
         "vaults_other": "{{count}} хранилищ"
       }
+    },
+    "importers": {
+      "voltius": {
+        "sub": "JSON",
+        "placeholder": "Вставьте сюда JSON Voltius или перетащите файл .json…\n\n{ \"version\": 1, \"connections\": [...] }"
+      },
+      "csv": {
+        "sub": "Таблица",
+        "placeholder": "Вставьте сюда CSV или перетащите файл…\n\nname,host,port,username,auth_type,tags"
+      },
+      "mobaxterm": {
+        "sub": "Локальная установка · авторасшифровка",
+        "hint": "Требуется установленный MobaXterm (только Windows).",
+        "placeholder": "Перетащите сюда MobaXterm.ini или вставьте его содержимое…"
+      },
+      "termius": {
+        "sub": "Локальная установка · автоизвлечение",
+        "hint": "Требуется установленный Termius с выполненным входом.",
+        "placeholder": "Для Termius используйте автоизвлечение. Вставленные устаревшие дампы Termius не поддерживаются для точного импорта."
+      }
+    },
+    "menu": {
+      "export": "Экспорт",
+      "importEllipsis": "Импорт…",
+      "exportEllipsis": "Экспорт…"
     }
   }
 }

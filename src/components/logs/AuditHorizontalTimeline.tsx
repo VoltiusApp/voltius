@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
-import { ACTION_META, FALLBACK_META } from "./AuditEventRow";
+import { ACTION_META, FALLBACK_META, actorName } from "./AuditEventRow";
 import { avatarColor } from "@/components/shared/AvatarStack";
 
 interface Props {
@@ -217,9 +217,9 @@ export function AuditHorizontalTimeline({ logs }: Props) {
               <div
                 className="relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold border-2 shadow-lg transition-transform group-hover:scale-110 group-focus:scale-110"
                 style={{ background: avatarColor(log.actor_name), borderColor: meta.color }}
-                title={log.actor_name}
+                title={actorName(log)}
               >
-                {initials(log.actor_name)}
+                {initials(actorName(log))}
               </div>
               <div
                 className="pointer-events-none absolute z-30 w-72 rounded-xl border border-(--t-border) bg-(--t-bg-card) p-3 opacity-0 shadow-2xl transition-opacity group-hover:opacity-100 group-focus:opacity-100"
@@ -238,7 +238,7 @@ export function AuditHorizontalTimeline({ logs }: Props) {
                     <Icon icon={meta.icon} width={14} />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold text-(--t-text-primary) truncate">{log.actor_name}</div>
+                    <div className="text-xs font-semibold text-(--t-text-primary) truncate">{actorName(log)}</div>
                     <div className="text-sm text-(--t-text-secondary) leading-snug">{meta.label(log)}</div>
                     <div className="mt-1 flex items-center gap-2 text-[11px] text-(--t-text-dim)">
                       <span>{formatTime(log.created_at)}</span>

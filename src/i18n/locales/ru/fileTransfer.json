@@ -164,7 +164,9 @@
         "loading": "Загрузка сравнения…",
         "previousChange": "Предыдущее изменение",
         "nextChange": "Следующее изменение",
-        "saveErrorLine": "{{label}}: {{msg}}"
+        "saveErrorLine": "{{label}}: {{msg}}",
+        "applyToRight": "Применить справа (→)",
+        "applyToLeft": "Применить слева (←)"
       },
       "tab": {
         "autoSave": "Автосохранение",

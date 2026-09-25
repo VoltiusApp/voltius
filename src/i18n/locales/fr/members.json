@@ -285,6 +285,13 @@
       "leavePointAccessEnds": "Vous perdez l'accès aux hôtes, clés et snippets de ce coffre sur tous vos appareils.",
       "leavePointLocalWipe": "Son contenu est supprimé de cet appareil, y compris les mots de passe et clés privées enregistrés.",
       "leavePointIrreversible": "Vous ne pourrez pas revenir sans une nouvelle invitation."
+    },
+    "roleName": {
+      "owner": "Propriétaire",
+      "manager": "Gestionnaire",
+      "editor": "Éditeur",
+      "member": "Membre",
+      "connect-only": "Connexion seule"
     }
   }
 }

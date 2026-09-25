@@ -98,7 +98,9 @@
       "unknownType": "Bilinmeyen tür",
       "invalidKey": "Geçersiz anahtar",
       "invalidPublicKey": "SSH açık anahtarı değil — tek satırda \"ssh-ed25519 AAAA… açıklama\" biçimi bekleniyor. Kaydedilemez ve bir sunucuya eklenemez.",
-      "keyPassphrasePlaceholder": "Anahtar parola ifadesi"
+      "keyPassphrasePlaceholder": "Anahtar parola ifadesi",
+      "incompleteKey": "Eksik anahtar",
+      "unrecognizedKey": "Tanınmayan anahtar biçimi"
     },
     "identityForm": {
       "titleEdit": "Kimliği düzenle",

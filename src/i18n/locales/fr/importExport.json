@@ -132,6 +132,31 @@
         "vaults_one": "{{count}} coffre",
         "vaults_other": "{{count}} coffres"
       }
+    },
+    "importers": {
+      "voltius": {
+        "sub": "JSON",
+        "placeholder": "Collez un JSON Voltius ici, ou déposez un fichier .json…\n\n{ \"version\": 1, \"connections\": [...] }"
+      },
+      "csv": {
+        "sub": "Tableur",
+        "placeholder": "Collez un CSV ici, ou déposez un fichier…\n\nname,host,port,username,auth_type,tags"
+      },
+      "mobaxterm": {
+        "sub": "Installation locale · déchiffrement auto",
+        "hint": "Nécessite que MobaXterm soit installé (Windows uniquement).",
+        "placeholder": "Déposez MobaXterm.ini ici, ou collez son contenu…"
+      },
+      "termius": {
+        "sub": "Installation locale · extraction auto",
+        "hint": "Nécessite que Termius soit installé et connecté.",
+        "placeholder": "Utilisez l'extraction automatique pour Termius. Les anciens exports Termius collés ne permettent pas une importation fidèle."
+      }
+    },
+    "menu": {
+      "export": "Exporter",
+      "importEllipsis": "Importer…",
+      "exportEllipsis": "Exporter…"
     }
   }
 }

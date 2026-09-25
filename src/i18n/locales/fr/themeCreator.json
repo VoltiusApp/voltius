@@ -101,6 +101,7 @@
       "brightMagenta": "Magenta vif",
       "brightCyan": "Cyan vif",
       "brightWhite": "Blanc vif"
-    }
+    },
+    "defaultName": "Mon thème"
   }
 }

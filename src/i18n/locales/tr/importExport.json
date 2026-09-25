@@ -144,6 +144,31 @@
         "vaults_one": "{{count}} kasa",
         "vaults_other": "{{count}} kasa"
       }
+    },
+    "importers": {
+      "voltius": {
+        "sub": "JSON",
+        "placeholder": "Voltius JSON verisini buraya yapıştırın veya bir .json dosyası bırakın…\n\n{ \"version\": 1, \"connections\": [...] }"
+      },
+      "csv": {
+        "sub": "Elektronik tablo",
+        "placeholder": "CSV verisini buraya yapıştırın veya bir dosya bırakın…\n\nname,host,port,username,auth_type,tags"
+      },
+      "mobaxterm": {
+        "sub": "Yerel kurulum · otomatik şifre çözme",
+        "hint": "MobaXterm'in kurulu olmasını gerektirir (yalnızca Windows).",
+        "placeholder": "MobaXterm.ini dosyasını buraya bırakın veya içeriğini yapıştırın…"
+      },
+      "termius": {
+        "sub": "Yerel kurulum · otomatik çıkarma",
+        "hint": "Termius'un kurulu ve oturumun açık olmasını gerektirir.",
+        "placeholder": "Termius için otomatik çıkarmayı kullanın. Yapıştırılan eski Termius dökümleri eksiksiz içe aktarma için desteklenmez."
+      }
+    },
+    "menu": {
+      "export": "Dışa aktar",
+      "importEllipsis": "İçe aktar…",
+      "exportEllipsis": "Dışa aktar…"
     }
   }
 }

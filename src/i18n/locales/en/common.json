@@ -215,6 +215,21 @@
         "snippet": "snippets",
         "port_forward": "port forwarding rules"
       }
-    }
+    },
+    "contentCounts": {
+      "connections_one": "{{count}} connection",
+      "connections_other": "{{count}} connections",
+      "identities_one": "{{count}} identity",
+      "identities_other": "{{count}} identities",
+      "keys_one": "{{count}} key",
+      "keys_other": "{{count}} keys",
+      "snippets_one": "{{count}} snippet",
+      "snippets_other": "{{count}} snippets",
+      "portForwardingRules_one": "{{count}} port forwarding rule",
+      "portForwardingRules_other": "{{count}} port forwarding rules"
+    },
+    "serialDevice": "Serial Device",
+    "localShellTitle": "Local Shell › {{shell}}",
+    "dragItemFallback": "Item"
   }
 }

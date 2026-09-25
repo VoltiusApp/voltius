@@ -25,7 +25,7 @@ export default function MoveToFolderSheet({
             onClick={() => { onPick(target.id); onClose(); }}
           >
             <Icon icon={target.id === null ? "lucide:folder-x" : "lucide:folder"} width={18} className="shrink-0 text-(--t-text-dim)" />
-            <span className="flex-1 min-w-0 text-sm font-medium text-(--t-text-primary) truncate">{target.name}</span>
+            <span className="flex-1 min-w-0 text-sm font-medium text-(--t-text-primary) truncate">{target.id === null ? t("shared.folderSelector.noFolder") : target.name}</span>
             {selected && <Icon icon="lucide:check" width={16} className="shrink-0 text-(--t-accent)" />}
           </button>
         );

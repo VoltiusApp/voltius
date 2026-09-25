@@ -8,7 +8,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { ColorPicker } from "@/components/theme-creator/ColorPicker";
 import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePermission";
 import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
-import { permissionLabel } from "@/components/members/roleChips";
+import { permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { CheckboxBox } from "@/components/shared/Checkbox";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
@@ -281,7 +281,7 @@ function BuiltinRoleCard({ name, permissions }: { name: string; permissions: num
         onClick={() => setExpanded((v) => !v)}
       >
         <Icon icon="lucide:lock" width={13} style={{ color: "var(--t-text-dim)" }} />
-        <span className="flex-1 text-sm font-medium capitalize" style={{ color: "var(--t-text-primary)" }}>{name}</span>
+        <span className="flex-1 text-sm font-medium capitalize" style={{ color: "var(--t-text-primary)" }}>{roleLabel(t, name)}</span>
         <span className="text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>{t("settings.vaults.rolesPanel.builtinBadge")}</span>
         <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={13} style={{ color: "var(--t-text-dim)" }} />
       </button>

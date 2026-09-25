@@ -40,7 +40,6 @@ function normalizeGlobalProxy(raw: unknown): GlobalProxy | null {
 
 export const appSettingsHandler: UserDataHandler = {
   key: "appSettings",
-  label: "App Settings",
   icon: "lucide:settings",
 
   export(): AppSettingsData {

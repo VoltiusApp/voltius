@@ -215,6 +215,16 @@
         "snippet": "代码片段",
         "port_forward": "端口转发规则"
       }
-    }
+    },
+    "contentCounts": {
+      "connections_other": "{{count}} 个连接",
+      "identities_other": "{{count}} 个身份",
+      "keys_other": "{{count}} 个密钥",
+      "snippets_other": "{{count}} 个代码片段",
+      "portForwardingRules_other": "{{count}} 条端口转发规则"
+    },
+    "serialDevice": "串口设备",
+    "localShellTitle": "本地 Shell › {{shell}}",
+    "dragItemFallback": "项目"
   }
 }

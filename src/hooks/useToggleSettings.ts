@@ -54,7 +54,7 @@ export function useToggleSettings(): ToggleItem[] {
       label: t("settings.sync.quickToggleLabel", { label: t(`settings.sync.objectType.${st.id}.label`) }),
       icon: "lucide:cloud",
       description: t("settings.nav.sync.label"),
-      keywords: ["sync", "cloud", "backup", st.id, st.label.toLowerCase()],
+      keywords: ["sync", "cloud", "backup", st.id],
       value: syncTypes[st.id] ?? true,
       onToggle: (v: boolean) => setSyncType(st.id, v),
     })),

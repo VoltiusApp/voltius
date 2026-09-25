@@ -139,7 +139,9 @@
         "loading": "Loading diff…",
         "previousChange": "Previous change",
         "nextChange": "Next change",
-        "saveErrorLine": "{{label}}: {{msg}}"
+        "saveErrorLine": "{{label}}: {{msg}}",
+        "applyToRight": "Apply to right (→)",
+        "applyToLeft": "Apply to left (←)"
       },
       "tab": {
         "autoSave": "Auto-save",

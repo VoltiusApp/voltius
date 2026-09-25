@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
@@ -534,6 +535,13 @@ function PickOverlay({ rect }: { rect: DOMRect | null }) {
 
 // ── ThemeCreator ──────────────────────────────────────────────────────────────
 
+const defaultThemeName = () => i18n.t("themeCreator.defaultName");
+
+/** An unsaved custom theme seeded from `base`. */
+function freshDraft(base: AppTheme): AppTheme {
+  return { ...JSON.parse(JSON.stringify(base)), id: `custom-${Date.now()}`, name: defaultThemeName(), builtIn: false };
+}
+
 export default function ThemeCreator() {
   const { t } = useTranslation();
   const { themeCreatorOpen, themeCreatorEditId, closeThemeCreator } = useUIStore();
@@ -541,12 +549,7 @@ export default function ThemeCreator() {
 
   const panelRef = useRef<HTMLDivElement>(null);
   const [restoreThemeId, setRestoreThemeId] = useState<string | null>(null);
-  const [draft, setDraftRaw] = useState<AppTheme>(() => ({
-    ...JSON.parse(JSON.stringify(getActiveTheme())),
-    id: `custom-${Date.now()}`,
-    name: "My Theme",
-    builtIn: false,
-  }));
+  const [draft, setDraftRaw] = useState<AppTheme>(() => freshDraft(getActiveTheme()));
 
   // Undo/redo history
   const historyRef = useRef<AppTheme[]>([]);
@@ -611,12 +614,7 @@ export default function ThemeCreator() {
         return;
       }
     }
-    const d: AppTheme = {
-      ...JSON.parse(JSON.stringify(active)),
-      id: `custom-${Date.now()}`,
-      name: "My Theme",
-      builtIn: false,
-    };
+    const d = freshDraft(active);
     setDraftRaw(d);
     initHistory(d);
   }, [themeCreatorOpen, themeCreatorEditId, getActiveTheme, customThemes, initHistory]);
@@ -668,7 +666,7 @@ export default function ThemeCreator() {
   }, [pickMode]);
 
   const handleSave = useCallback(() => {
-    const themed = draft.name.trim() ? draft : { ...draft, name: "My Theme" };
+    const themed = draft.name.trim() ? draft : { ...draft, name: defaultThemeName() };
     saveCustomTheme(themed);
     setTheme(themed.id);
     closeThemeCreator();

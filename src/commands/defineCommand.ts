@@ -1,11 +1,14 @@
 import type { OmniCommand } from "@/plugins/api";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
+import { lazyT } from "@/i18n";
 
-type CommandDef = Omit<OmniCommand, "section"> & { section?: string };
+type CommandDef = Omit<OmniCommand, "section"> & { section?: OmniCommand["section"] };
+
+const actionsSection = lazyT("omni.sections.actions");
 
 /** Wrap a command, defaulting it into the "Actions" section. */
 export function defineCommand(def: CommandDef): OmniCommand {
-  return { section: "Actions", ...def };
+  return { section: actionsSection, ...def };
 }
 
 type NavCommandDef = Omit<CommandDef, "execute"> & { nav: NavItem };
