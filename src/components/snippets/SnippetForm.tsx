@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
@@ -232,9 +232,12 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
             {/* Syntax hint */}
             {!showStepList && (
               <p className="mt-1.5 text-xs leading-relaxed" style={{ color: "var(--t-text-dim)" }}>
-                {t("snippets.form.syntaxHintType")} <code className="font-mono bg-(--t-bg-elevated) px-1 rounded-sm" style={{ color: "var(--t-text)" }}>{"{{"}</code> {t("snippets.form.syntaxHintForAutocomplete")}
-                {" "}{t("snippets.form.syntaxHintCustomPrompts")} <code className="font-mono bg-(--t-bg-elevated) px-1 rounded-sm" style={{ color: "var(--t-text)" }}>{"{{name:type}}"}</code>
-                {" "}{t("snippets.form.syntaxHintTypesList")} <code className="font-mono bg-(--t-bg-elevated) px-1 rounded-sm" style={{ color: "var(--t-text)" }}>choice:a,b</code>
+                {/* The {{ … }} syntax goes in as values: literal braces in the string would be read as interpolation. */}
+                <Trans
+                  i18nKey="snippets.form.syntaxHint"
+                  values={{ open: "{{", prompt: "{{name:type}}", choice: "choice:a,b" }}
+                  components={{ code: <code className="font-mono bg-(--t-bg-elevated) px-1 rounded-sm" style={{ color: "var(--t-text)" }} /> }}
+                />
               </p>
             )}
           </div>

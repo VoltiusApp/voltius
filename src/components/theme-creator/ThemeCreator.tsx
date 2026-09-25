@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
@@ -260,8 +260,10 @@ function FontPicker({
 
 // ── Var search overlay ────────────────────────────────────────────────────────
 
+/** Styles the Esc key named inside the overlay hints. */
+const ESC_KBD = <kbd style={{ color: "var(--t-text-primary)" }} />;
+
 function VarSearchOverlay({ varName, onClose }: { varName: string; onClose: () => void }) {
-  const { t } = useTranslation();
   const [rects, setRects] = useState<DOMRect[]>([]);
 
   useEffect(() => {
@@ -294,9 +296,12 @@ function VarSearchOverlay({ varName, onClose }: { varName: string; onClose: () =
         borderRadius: 6, padding: "6px 14px", fontSize: 12,
         color: "var(--t-text-secondary)", pointerEvents: "none", whiteSpace: "nowrap",
       }}>
-        {t("themeCreator.varSearch.usage", { count: rects.length })}{" "}
-        <code style={{ color: "var(--t-accent)" }}>{varName}</code>
-        {" — "}<kbd style={{ color: "var(--t-text-primary)" }}>{t("themeCreator.escKey")}</kbd> {t("themeCreator.varSearch.suffix")}
+        <Trans
+          i18nKey="themeCreator.varSearch.hint"
+          count={rects.length}
+          values={{ name: varName }}
+          components={{ var: <code style={{ color: "var(--t-accent)" }} />, kbd: ESC_KBD }}
+        />
       </div>
     </>,
     document.body
@@ -495,7 +500,6 @@ function ColorEditor({
 // ── Pick-mode overlay ─────────────────────────────────────────────────────────
 
 function PickOverlay({ rect }: { rect: DOMRect | null }) {
-  const { t } = useTranslation();
   if (!rect) return null;
   return createPortal(
     <>
@@ -526,7 +530,7 @@ function PickOverlay({ rect }: { rect: DOMRect | null }) {
         color: "var(--t-text-secondary)",
         pointerEvents: "none",
       }}>
-        {t("themeCreator.pickOverlay.prefix")} <kbd style={{ color: "var(--t-text-primary)" }}>{t("themeCreator.escKey")}</kbd> {t("themeCreator.pickOverlay.suffix")}
+        <Trans i18nKey="themeCreator.pickOverlay.hint" components={{ kbd: ESC_KBD }} />
       </div>
     </>,
     document.body

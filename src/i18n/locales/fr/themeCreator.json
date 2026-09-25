@@ -18,16 +18,13 @@
       "notInstalled": "« {{family}} » n'est pas installée — le terminal utilisera une autre police"
     },
     "varSearch": {
-      "usage_one": "{{count}} élément utilise",
-      "usage_many": "{{count}} éléments utilisent",
-      "usage_other": "{{count}} éléments utilisent",
-      "suffix": "ou cliquez pour fermer"
+      "hint_one": "{{count}} élément utilise <var>{{name}}</var> — <kbd>Échap</kbd> ou cliquez pour fermer",
+      "hint_many": "{{count}} éléments utilisent <var>{{name}}</var> — <kbd>Échap</kbd> ou cliquez pour fermer",
+      "hint_other": "{{count}} éléments utilisent <var>{{name}}</var> — <kbd>Échap</kbd> ou cliquez pour fermer"
     },
     "pickOverlay": {
-      "prefix": "Cliquez sur n'importe quel élément —",
-      "suffix": "pour annuler"
+      "hint": "Cliquez sur n'importe quel élément — <kbd>Échap</kbd> pour annuler"
     },
-    "escKey": "Échap",
     "editor": {
       "general": "Général",
       "name": "Nom",

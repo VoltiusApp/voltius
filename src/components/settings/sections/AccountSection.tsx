@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword, logout, lockVaultSession } from "@/services/account";
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
@@ -439,9 +439,7 @@ export default function AccountSection() {
       {step === "confirm-wipe" && (
         <div className="space-y-3">
           <p className="text-xs text-(--t-text-muted)">
-            {t("settings.account.confirmWipe.descPre")}
-            <strong>{t("settings.account.confirmWipe.descBold")}</strong>
-            {t("settings.account.confirmWipe.descPost")}
+            <Trans i18nKey="settings.account.confirmWipe.desc" components={{ strong: <strong /> }} />
           </p>
           <div className="flex gap-2">
             <button

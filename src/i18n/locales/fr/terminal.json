@@ -264,13 +264,12 @@
       },
       "hostKeyConflict": {
         "title": "CLÉ D'HÔTE MODIFIÉE",
-        "descriptionPrefix": "L'empreinte de ",
-        "descriptionSuffix": " a changé.",
         "replace": "Remplacer",
         "addAsNew": "Ajouter comme nouvelle",
         "abort": "Abandonner",
         "stored": "Enregistrée",
-        "received": "Reçue"
+        "received": "Reçue",
+        "description": "L'empreinte de <host>{{address}}</host> a changé."
       },
       "passphrasePrompt": {
         "title": "PHRASE DE PASSE DE CLÉ REQUISE",

@@ -257,13 +257,12 @@
       },
       "hostKeyConflict": {
         "title": "SUNUCU ANAHTARI DEĞİŞTİ",
-        "descriptionPrefix": "Şu sunucunun parmak izi değişti: ",
-        "descriptionSuffix": ".",
         "replace": "Değiştir",
         "addAsNew": "Yeni olarak ekle",
         "abort": "İptal et",
         "stored": "Kayıtlı",
-        "received": "Alınan"
+        "received": "Alınan",
+        "description": "<host>{{address}}</host> sunucusunun parmak izi değişti."
       },
       "passphrasePrompt": {
         "title": "ANAHTAR PAROLA İFADESİ GEREKLİ",

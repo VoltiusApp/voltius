@@ -119,10 +119,6 @@
       "contentLabel": "Contenu",
       "variablesLabel": "Variables :",
       "autoBadge": "auto",
-      "syntaxHintType": "Tapez",
-      "syntaxHintForAutocomplete": "pour l'auto-complétion.",
-      "syntaxHintCustomPrompts": "Invites personnalisées :",
-      "syntaxHintTypesList": "— texte · nombre · mot de passe · booléen ·",
       "descriptionLabel": "Description (optionnel)",
       "descriptionPlaceholder": "Que fait ce snippet ?",
       "tagsLabel": "Étiquettes",
@@ -145,7 +141,8 @@
         "datetime": "Date + heure — AAAA-MM-JJ HH:MM:SS",
         "timestamp": "Horodatage Unix",
         "clipboard": "Contenu actuel du presse-papiers"
-      }
+      },
+      "syntaxHint": "Tapez <code>{{open}}</code> pour l'auto-complétion. Invites personnalisées : <code>{{prompt}}</code> — types : text · number · password · boolean · <code>{{choice}}</code>"
     },
     "step": {
       "kind": {
