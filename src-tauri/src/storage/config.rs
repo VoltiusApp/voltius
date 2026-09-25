@@ -40,6 +40,26 @@ pub enum ConnectionType {
     Ftp,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProxyMode {
+    Direct,
+    System,
+    Socks5,
+    Http,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProxyOverride {
+    pub mode: ProxyMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JumpHost {
     pub id: String,
@@ -161,6 +181,8 @@ pub struct Connection {
     /// Per-host session persistence override. None inherits the global setting.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub persist_session: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy: Option<ProxyOverride>,
     #[serde(default)]
     pub connection_type: ConnectionType,
     #[serde(default)]
@@ -244,6 +266,8 @@ pub struct ConnectionFormData {
     pub keepalive_preset: Option<String>,
     #[serde(default)]
     pub persist_session: Option<bool>,
+    #[serde(default)]
+    pub proxy: Option<ProxyOverride>,
     #[serde(default)]
     pub connection_type: ConnectionType,
     #[serde(default)]
@@ -1023,6 +1047,7 @@ mod tests {
             shell_integration: None,
             keepalive_preset: None,
             persist_session: None,
+            proxy: None,
             connection_type: ConnectionType::Ssh,
             serial_port: Some("/dev/ttyU0".into()),
             serial_baud: Some(9600),
