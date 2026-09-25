@@ -83,7 +83,7 @@
       "tryAgain": "Tekrar deneyin"
     },
     "newSession": {
-      "searchPlaceholder": "ssh user@host · serial · local …",
+      "searchPlaceholder": "ssh kullanıcı@sunucu · seri · yerel …",
       "sectionQuickConnect": "Hızlı bağlan",
       "sectionRecent": "Son kullanılanlar",
       "sectionLocal": "Yerel",

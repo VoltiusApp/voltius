@@ -124,7 +124,7 @@
         "shortcutsOverrides_one": "{{count}} 个覆盖",
         "shortcutsOverrides_other": "{{count}} 个覆盖",
         "shortcutsDefaults": "默认值",
-        "appSettingsShell": "shell: {{shell}}",
+        "appSettingsShell": "Shell：{{shell}}",
         "appSettingsDefault": "默认设置",
         "recentPeople_one": "{{count}} 位最近联系人",
         "recentPeople_other": "{{count}} 位最近联系人",
