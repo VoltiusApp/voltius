@@ -32,6 +32,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { terminalFontStack } from "@/utils/fontStack";
 import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
 import { getPlatform } from "@/utils/platform";
+import { createOutputDecoder, encodeTerminalInput, type OutputDecoder } from "@/utils/terminalEncoding";
 
 interface UseTerminalOptions {
   sessionId: string;
@@ -163,6 +164,9 @@ type CacheEntry = {
   minimap: MinimapState;
   sessionType: "ssh" | "local" | "serial";
   connectedRef: { current: boolean };
+  /** The session's terminal encoding (undefined = UTF-8), for input and output alike. */
+  encoding: string | undefined;
+  outputDecoder: OutputDecoder;
   /** Clipboard handle of the mount this terminal is currently attached to. Lives
    *  on the entry, not on the hook: a mount that switches session keeps its refs,
    *  so a hook-owned handle would send this terminal's Ctrl+V to the new session. */
@@ -477,8 +481,7 @@ export function writeToSession(sessionId: string, data: string): void {
   if (sess) {
     useCommandHistoryStore.getState().addInput(sessionId, sess.connectionName, sess.connectionId, data);
   }
-  const bytes = new TextEncoder().encode(data);
-  sendSessionInput(sessionId, entry.sessionType, bytes);
+  sendSessionInput(sessionId, entry.sessionType, encodeTerminalInput(data, entry.encoding));
 }
 
 /** Whether the session's xterm is in application-cursor-keys mode (DECCKM).
@@ -701,6 +704,8 @@ useSessionStore.subscribe((state) => {
       entry.fitAddon.fit();
       sendResize(id, entry.sessionType, entry.terminal.cols, entry.terminal.rows);
     } else if (!nowConnected) {
+      // A character cut off by the drop must not prefix the reconnect's output.
+      if (entry.connectedRef.current) entry.outputDecoder.reset();
       entry.connectedRef.current = false;
     }
   }
@@ -868,9 +873,6 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         leave: hideLinkTooltip,
       };
 
-      const encoder = new TextEncoder();
-      const decoder = encoding ? new TextDecoder(encoding) : null;
-
       // Build the cache entry first so closures below can reference it
       const entry: CacheEntry = {
         terminal: term,
@@ -887,6 +889,8 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         // connected before the terminal mounts); ssh and local flip in the
         // store subscription above, once the backend owns the session.
         connectedRef: { current: sessionType === "serial" },
+        encoding,
+        outputDecoder: createOutputDecoder(encoding),
         clip: null,
         inputGateRef: { current: inputGate?.current },
         onClosedRef: { current: onClosed },
@@ -957,17 +961,18 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         return true;
       });
 
-      // Route already-encoded input bytes to the PTY, fanning out to every pane
-      // when split-pane broadcast is active. Shared by typed input (onData) and
-      // synthesized alt-screen scroll arrows so both honor broadcast identically.
-      const routeInputBytes = (bytes: Uint8Array) => {
+      // Route input to the PTY, fanning out to every pane when split-pane
+      // broadcast is active. Shared by typed input (onData) and synthesized
+      // alt-screen scroll arrows so both honor broadcast identically. Each pane
+      // gets the text in its own session's encoding.
+      const routeInput = (data: string) => {
         if (broadcastActiveForSession(sessionId)) {
           for (const target of broadcastTargets()) {
-            sendSessionInput(target.id, target.type === "serial" ? "serial" : target.type as "ssh" | "local", bytes);
+            sendSessionInput(target.id, target.type === "serial" ? "serial" : target.type as "ssh" | "local", encodeTerminalInput(data, target.encoding));
           }
           return;
         }
-        sendSessionInput(sessionId, sessionType, bytes);
+        sendSessionInput(sessionId, sessionType, encodeTerminalInput(data, encoding));
       };
 
       // Alternate-screen scroll: full-screen apps (nano/less/vim) run in the
@@ -1002,7 +1007,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
             alt: false,
             appCursor: term.modes.applicationCursorKeysMode,
           }).repeat(Math.abs(rows));
-          routeInputBytes(encoder.encode(seq));
+          routeInput(seq);
         }
         return false;
       });
@@ -1097,14 +1102,17 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
             .addInput(sessionId, sess.connectionName, sess.connectionId, data);
         }
 
-        routeInputBytes(encoder.encode(data));
+        routeInput(data);
       });
 
       const unlistenPromises: Promise<UnlistenFn>[] = [];
+      const writeOutput = (data: Uint8Array) => {
+        term.write(entry.outputDecoder.decode(data), () => scheduleMinimapNotify(entry));
+      };
 
       if (sessionType === "local") {
         const localListeners = [
-          onLocalOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
+          onLocalOutput(sessionId, writeOutput),
           onLocalClosed(sessionId, (cleanExit) => {
             term.write("\r\n\x1b[90m--- Session closed ---\x1b[0m\r\n");
             entry.onClosedRef.current?.(cleanExit);
@@ -1120,7 +1128,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           .catch((err) => log.debug(`local session ${sessionId} readiness ack failed`, err));
       } else if (sessionType === "serial") {
         unlistenPromises.push(
-          onSerialOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
+          onSerialOutput(sessionId, writeOutput),
         );
         unlistenPromises.push(
           onSerialClosed(sessionId, () => {
@@ -1131,7 +1139,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       } else {
         unlistenPromises.push(
           onSshOutput(sessionId, (data) => {
-            term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry));
+            writeOutput(data);
             noteRestoreOutput(sessionId);
           }),
         );
