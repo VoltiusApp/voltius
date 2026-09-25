@@ -183,13 +183,6 @@
         "message_other": "This will delete the folder, its subfolders, and the {{count}} snippets inside. This cannot be undone.",
         "messageEmpty": "This will delete the folder and everything inside it. This cannot be undone.",
         "confirmLabel": "Delete folder"
-      },
-      "relativeTime": {
-        "justNow": "just now",
-        "secondsAgo": "{{count}}s ago",
-        "minutesAgo": "{{count}}m ago",
-        "hoursAgo": "{{count}}h ago",
-        "daysAgo": "{{count}}d ago"
       }
     },
     "community": {

@@ -237,13 +237,7 @@
       "noOneOnline": "никого нет в сети",
       "onlineCount": "{{count}} в сети",
       "inviteMember": "Пригласить участника",
-      "jumpTo": "Перейти к...",
-      "relativeTime": {
-        "justNow": "только что",
-        "minutesAgo": "{{count}} мин. назад",
-        "hoursAgo": "{{count}} ч. назад",
-        "daysAgo": "{{count}} дн. назад"
-      }
+      "jumpTo": "Перейти к..."
     },
     "vaultMenu": {
       "share": "Поделиться…",

@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { listVaultBackups, restoreVaultBackup, type VaultBackup } from "@/services/vault";
 import { formatSize } from "@/components/filetransfer/SFTPTypes";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { formatDateTime } from "@/utils/localeFormat";
 
 interface Props {
   /** True when the live vault can be read, so restoring displaces something usable. */
@@ -75,7 +76,7 @@ export function VaultBackups({ currentReadable, hideWhenEmpty, className }: Prop
             <div className="flex-1 min-w-0">
               <p className="text-xs truncate text-(--t-text-primary)">{b.file}</p>
               <p className="text-[11px] text-(--t-text-dim)">
-                {new Date(b.stamp_millis).toLocaleString()} · {formatSize(b.size)}
+                {formatDateTime(b.stamp_millis)} · {formatSize(b.size)}
               </p>
             </div>
             {confirming !== b.file && (

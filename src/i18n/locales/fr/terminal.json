@@ -7,13 +7,6 @@
       "noActiveSession": "Aucune session active"
     },
     "historyPanel": {
-      "relativeTime": {
-        "justNow": "à l'instant",
-        "secondsAgo": "il y a {{count}}s",
-        "minutesAgo": "il y a {{count}}min",
-        "hoursAgo": "il y a {{count}}h",
-        "daysAgo": "il y a {{count}}j"
-      },
       "removeFromHistory": "Retirer de l'historique",
       "searchPlaceholder": "Rechercher dans l'historique…",
       "showCurrentOnly": "Affichage de la connexion actuelle uniquement",

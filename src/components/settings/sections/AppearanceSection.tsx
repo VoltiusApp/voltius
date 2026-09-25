@@ -15,6 +15,7 @@ import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { SettingRow, SyncKeyButton } from "./shared";
 import { saveTextFile } from "@/services/saveFile";
+import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 
 function exportTheme(theme: AppTheme) {
   void saveTextFile(
@@ -96,7 +97,7 @@ export default function AppearanceSection() {
           { value: "sunset", label: t("settings.appearance.automation.modeSunset") },
         ];
         const sun = location ? sunTimes(new Date(), location.lat, location.lng) : null;
-        const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const fmt = (d: Date) => formatTime(d, HOUR_MINUTE);
         const useMyLocation = () => {
           if (typeof navigator === "undefined" || !navigator.geolocation) return;
           navigator.geolocation.getCurrentPosition(

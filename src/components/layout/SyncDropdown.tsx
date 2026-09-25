@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import i18n from "@/i18n";
+import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 import type { SyncStatus } from "@/services/sync";
@@ -24,13 +25,10 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-}
 
 function statusLabel(status: SyncStatus, lastSync: Date | null): string {
   if (status === "syncing") return i18n.t("layout.sync.status.syncing");
-  if (status === "success") return lastSync ? i18n.t("layout.sync.status.syncedAt", { time: formatTime(lastSync) }) : i18n.t("layout.sync.status.synced");
+  if (status === "success") return lastSync ? i18n.t("layout.sync.status.syncedAt", { time: formatTime(lastSync, HOUR_MINUTE) }) : i18n.t("layout.sync.status.synced");
   if (status === "error")   return i18n.t("layout.sync.status.error");
   if (status === "offline") return i18n.t("layout.sync.status.offline");
   return i18n.t("layout.sync.status.idle");

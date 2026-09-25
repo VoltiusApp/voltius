@@ -98,10 +98,6 @@
     },
     "remoteSessions": {
       "title": "Live on other devices",
-      "justNow": "just now",
-      "minutesAgo": "{{count}}m ago",
-      "hoursAgo": "{{count}}h ago",
-      "daysAgo": "{{count}}d ago",
       "kill": "Kill session",
       "killing": "Killing session…",
       "undo": "Undo",

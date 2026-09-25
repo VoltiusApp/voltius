@@ -17,7 +17,7 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import {
   type FileEntry, type SortCol, type SortDir, type VisibleCols, type ColumnWidths, type FileColumn,
   DEFAULT_VISIBLE_COLS, COLUMN_MIN_WIDTHS, columnGrid, visibleDataColumns,
-  formatSize, formatPermissions, formatDate,
+  formatSize, formatPermissions, formatModified,
 } from "./SFTPTypes";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useEditorStore } from "@/stores/editorStore";
@@ -28,6 +28,7 @@ import { useFileClipboardStore, sameHost, type FileEndpoint } from "@/stores/fil
 import { writeClipboard } from "@/utils/clipboard";
 import { copyPathText } from "./copyPathText";
 import { parentDir, joinPath, withDriveRootSep } from "./moveTargetCore";
+import { compareStrings } from "@/utils/localeFormat";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
 
@@ -199,7 +200,7 @@ export function FilePane({
     if (sortCol === "size")        return dir * ((a.size ?? 0) - (b.size ?? 0));
     if (sortCol === "modified")    return dir * ((a.modified ?? 0) - (b.modified ?? 0));
     if (sortCol === "permissions") return dir * ((a.permissions ?? 0) - (b.permissions ?? 0));
-    return dir * a.name.localeCompare(b.name);
+    return dir * compareStrings(a.name, b.name);
   });
   const entryIds = visibleEntries.map((f) => f.path);
   const { selectedIdSet, selectionAreaRef, itemAreaRef, dragBox, handleItemSelect, handleSelectionAreaMouseDown, setSelection } =
@@ -1183,7 +1184,7 @@ function FileRow({ file, isSelected, isCut, isDragHover, isLocal, colWidths, vis
       {/* Size reads as a number (right-aligned); date and mode read as text and sit under their header label. */}
       {dataColumns.map((col) => (
         <span key={col} className={`text-xs truncate font-mono min-w-0 px-2 ${col === "size" ? "text-right" : "text-left"}`} style={{ color: dimColor }}>
-          {col === "size" ? (!file.isDir ? formatSize(file.size) : "") : col === "modified" ? (file.modified != null ? formatDate(file.modified) : "") : (file.permissions != null ? formatPermissions(file.permissions) : "")}
+          {col === "size" ? (!file.isDir ? formatSize(file.size) : "") : col === "modified" ? (file.modified != null ? formatModified(file.modified) : "") : (file.permissions != null ? formatPermissions(file.permissions) : "")}
         </span>
       ))}
       {pos && contextActions && <ContextMenu items={contextActions} pos={pos} onClose={close} />}

@@ -231,13 +231,6 @@
         "message_other": "这将删除该文件夹、其子文件夹以及其中的 {{count}} 个片段。此操作无法撤销。",
         "messageEmpty": "这将删除该文件夹及其中的所有内容。此操作无法撤销。",
         "confirmLabel": "删除文件夹"
-      },
-      "relativeTime": {
-        "justNow": "刚刚",
-        "secondsAgo": "{{count}} 秒前",
-        "minutesAgo": "{{count}} 分钟前",
-        "hoursAgo": "{{count}} 小时前",
-        "daysAgo": "{{count}} 天前"
       }
     }
   }

@@ -183,13 +183,6 @@
         "message_other": "Klasör, alt klasörleri ve içindeki {{count}} kod parçacığı silinecek. Bu işlem geri alınamaz.",
         "messageEmpty": "Klasör ve içindeki her şey silinecek. Bu işlem geri alınamaz.",
         "confirmLabel": "Klasörü sil"
-      },
-      "relativeTime": {
-        "justNow": "az önce",
-        "secondsAgo": "{{count}} sn önce",
-        "minutesAgo": "{{count}} dk önce",
-        "hoursAgo": "{{count}} sa önce",
-        "daysAgo": "{{count}} gün önce"
       }
     },
     "community": {

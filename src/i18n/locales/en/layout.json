@@ -231,13 +231,7 @@
       "noOneOnline": "no one online",
       "onlineCount": "{{count}} online",
       "inviteMember": "Invite member",
-      "jumpTo": "Jump to...",
-      "relativeTime": {
-        "justNow": "just now",
-        "minutesAgo": "{{count}}m ago",
-        "hoursAgo": "{{count}}h ago",
-        "daysAgo": "{{count}}d ago"
-      }
+      "jumpTo": "Jump to..."
     },
     "vaultMenu": {
       "share": "Share…",

@@ -13,6 +13,7 @@ vi.mock("react-i18next", () => ({
     t: (key: string, opts?: Record<string, unknown>) =>
       opts?.client ? `${key}:${String(opts.client)}` : key,
   }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 
 const base: Transfer = {

@@ -231,13 +231,7 @@
       "noOneOnline": "无人在线",
       "onlineCount": "{{count}} 人在线",
       "inviteMember": "邀请成员",
-      "jumpTo": "跳转到...",
-      "relativeTime": {
-        "justNow": "刚刚",
-        "minutesAgo": "{{count}} 分钟前",
-        "hoursAgo": "{{count}} 小时前",
-        "daysAgo": "{{count}} 天前"
-      }
+      "jumpTo": "跳转到..."
     },
     "vaultMenu": {
       "share": "共享…",

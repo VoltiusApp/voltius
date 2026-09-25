@@ -19,13 +19,7 @@
       }
     },
     "remoteSessions": {
-      "title": "Активны на других устройствах",
-      "relativeTime": {
-        "justNow": "только что",
-        "minutesAgo": "{{count}} мин назад",
-        "hoursAgo": "{{count}} ч назад",
-        "daysAgo": "{{count}} дн назад"
-      }
+      "title": "Активны на других устройствах"
     },
     "snippets": {
       "searchPlaceholder": "Поиск сниппетов",

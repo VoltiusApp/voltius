@@ -44,6 +44,7 @@ import { StackTab } from "@/components/layout/StackTab";
 import { buildTitlebarItems, stackGroupKey, titlebarKeyGroupOf, visibleTitlebarKeys } from "@/utils/titlebarItems";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useLastActiveByHost, useSessionTabHandlers } from "@/hooks/useTitlebarTabState";
+import { formatTime } from "@/utils/localeFormat";
 
 const appWindow = getCurrentWindow();
 
@@ -801,7 +802,7 @@ function SyncIndicator({
 
   const title = !configured ? t("layout.sync.status.notConfigured") :
     status === "syncing" ? t("layout.sync.status.syncing") :
-    status === "success" ? (lastSync ? t("layout.sync.status.syncedAt", { time: lastSync.toLocaleTimeString() }) : t("layout.sync.status.synced")) :
+    status === "success" ? (lastSync ? t("layout.sync.status.syncedAt", { time: formatTime(lastSync) }) : t("layout.sync.status.synced")) :
     status === "error"   ? (errorSource
       ? t("layout.sync.status.errorDetailFrom", { source: errorSource, error: error ?? t("layout.sync.status.unknown") })
       : t("layout.sync.status.errorDetail", { error: error ?? t("layout.sync.status.unknown") })) :

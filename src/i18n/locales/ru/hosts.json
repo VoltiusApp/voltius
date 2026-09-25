@@ -125,10 +125,6 @@
     },
     "remoteSessions": {
       "title": "Активно на других устройствах",
-      "justNow": "только что",
-      "minutesAgo": "{{count}} мин. назад",
-      "hoursAgo": "{{count}} ч. назад",
-      "daysAgo": "{{count}} дн. назад",
       "kill": "Завершить сессию",
       "killing": "Завершение сессии…",
       "undo": "Отменить",

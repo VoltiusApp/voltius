@@ -18,6 +18,7 @@ import { roleChipColors, roleLabel } from "@/components/members/roleChips";
 import { ChoiceChip } from "./ChoiceChip";
 import type { TeamRole } from "@/stores/teamStore";
 import { assignableRoles } from "./vaultShareModel";
+import { formatDateTime } from "@/utils/localeFormat";
 
 interface Props {
   teamId: string;
@@ -140,7 +141,7 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
                 </span>
                 <span
                   className="text-[11px] text-(--t-text-secondary) flex-1 min-w-0"
-                  title={new Date(grant.expires_at).toLocaleString()}
+                  title={formatDateTime(grant.expires_at)}
                 >
                   {t("members.joinLinks.usesLeft", {
                     count: usesRemaining(grant),

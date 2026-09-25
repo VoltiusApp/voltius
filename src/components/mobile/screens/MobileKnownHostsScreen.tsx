@@ -6,6 +6,7 @@ import KnownHostActionsSheet from "../sheets/KnownHostActionsSheet";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useKnownHostStore } from "@/stores/knownHostStore";
 import type { KnownHost } from "@/types";
+import { compareStrings } from "@/utils/localeFormat";
 
 function truncateFp(fp: string): string {
   const i = fp.indexOf(":");
@@ -23,7 +24,7 @@ export default function MobileKnownHostsScreen() {
   const filtered = useMemo(() =>
     [...knownHosts]
       .filter((h) => !q || h.host.toLowerCase().includes(q) || (h.name ?? "").toLowerCase().includes(q))
-      .sort((a, b) => (a.host + a.port).localeCompare(b.host + b.port)),
+      .sort((a, b) => compareStrings(a.host + a.port, b.host + b.port)),
     [knownHosts, q]);
 
   return (

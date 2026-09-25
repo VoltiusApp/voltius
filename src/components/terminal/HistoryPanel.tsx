@@ -6,21 +6,7 @@ import { useCommandHistoryStore, type CommandHistoryEntry } from "@/stores/comma
 import { useSessionStore } from "@/stores/sessionStore";
 import { broadcastSnippetInject } from "@/services/snippetInject";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
-import i18n from "@/i18n";
-
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts;
-  const s = Math.floor(diff / 1000);
-  if (s < 5) return i18n.t("terminal.historyPanel.relativeTime.justNow");
-  if (s < 60) return i18n.t("terminal.historyPanel.relativeTime.secondsAgo", { count: s });
-  const m = Math.floor(s / 60);
-  if (m < 60) return i18n.t("terminal.historyPanel.relativeTime.minutesAgo", { count: m });
-  const h = Math.floor(m / 60);
-  if (h < 24) return i18n.t("terminal.historyPanel.relativeTime.hoursAgo", { count: h });
-  const d = Math.floor(h / 24);
-  if (d < 7) return i18n.t("terminal.historyPanel.relativeTime.daysAgo", { count: d });
-  return new Date(ts).toLocaleDateString();
-}
+import { formatRelative } from "@/utils/localeFormat";
 
 function HistoryRow({
   entry,
@@ -65,7 +51,7 @@ function HistoryRow({
             className="text-[10px] mt-1 truncate"
             style={{ color: "var(--t-text-muted)" }}
           >
-            {entry.sessionName} · {formatRelativeTime(entry.timestamp)}
+            {entry.sessionName} · {formatRelative(entry.timestamp, { seconds: true, maxDays: 7 })}
           </p>
         </div>
 

@@ -6,6 +6,7 @@ import { inviteByEmailAddress, revokeInvitation } from "@/services/vaultShare";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { ROLE_META, roleLabel } from "@/components/members/roleChips";
+import { formatDate, MONTH_DAY } from "@/utils/localeFormat";
 
 const DAY_MS = 86_400_000;
 
@@ -59,7 +60,7 @@ export function PendingInviteCard({
   // repeating the word.
   const expiryLabel = isExpired
     ? t("members.invite.expiredOn", {
-        date: new Date(inv.expires_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        date: formatDate(inv.expires_at, MONTH_DAY),
       })
     : daysLeft <= 0
       ? t("members.invite.expiresToday")

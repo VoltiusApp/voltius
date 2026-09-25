@@ -32,6 +32,7 @@ import { SelfCard } from "@/components/members/cards/SelfCard";
 import { MemberDetailPanel } from "@/components/members/panels/MemberDetailPanel";
 import { InvitePanel } from "@/components/members/panels/InvitePanel";
 import { SignInToCloudCTA, UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
+import { compareStrings } from "@/utils/localeFormat";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -153,15 +154,15 @@ export default function MembersPage() {
   const sortedMembers = useMemo(() => {
     return [...filteredMembers].sort((a, b) => {
       switch (sortMode) {
-        case "name-asc":  return (a.handle ?? "").localeCompare(b.handle ?? "");
-        case "name-desc": return (b.handle ?? "").localeCompare(a.handle ?? "");
+        case "name-asc":  return compareStrings(a.handle ?? "", b.handle ?? "");
+        case "name-desc": return compareStrings(b.handle ?? "", a.handle ?? "");
         case "newest":    return b.joined_at.localeCompare(a.joined_at);
         case "oldest":    return a.joined_at.localeCompare(b.joined_at);
         case "role-asc": {
           const posA = Math.min(...(a.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           const posB = Math.min(...(b.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           if (posA !== posB) return posA - posB;
-          return (a.handle ?? "").localeCompare(b.handle ?? "");
+          return compareStrings(a.handle ?? "", b.handle ?? "");
         }
         default: return 0;
       }

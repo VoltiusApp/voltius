@@ -225,6 +225,13 @@
     },
     "serialDevice": "串口设备",
     "localShellTitle": "本地 Shell › {{shell}}",
-    "dragItemFallback": "项目"
+    "dragItemFallback": "项目",
+    "relativeTime": {
+      "justNow": "刚刚",
+      "secondsAgo": "{{count}} 秒前",
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "daysAgo": "{{count}} 天前"
+    }
   }
 }

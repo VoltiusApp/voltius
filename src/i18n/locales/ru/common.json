@@ -256,6 +256,13 @@
     },
     "serialDevice": "Последовательное устройство",
     "localShellTitle": "Локальная оболочка › {{shell}}",
-    "dragItemFallback": "Элемент"
+    "dragItemFallback": "Элемент",
+    "relativeTime": {
+      "justNow": "только что",
+      "secondsAgo": "{{count}} с назад",
+      "minutesAgo": "{{count}} мин. назад",
+      "hoursAgo": "{{count}} ч назад",
+      "daysAgo": "{{count}} дн. назад"
+    }
   }
 }

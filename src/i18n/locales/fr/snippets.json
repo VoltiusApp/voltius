@@ -241,13 +241,6 @@
         "message_other": "Cela supprimera le dossier, ses sous-dossiers et le contenu qu'ils renferment ({{count}} snippets). Cette action est irréversible.",
         "messageEmpty": "Cela supprimera le dossier et tout ce qu'il contient. Cette action est irréversible.",
         "confirmLabel": "Supprimer le dossier"
-      },
-      "relativeTime": {
-        "justNow": "à l'instant",
-        "secondsAgo": "il y a {{count}}s",
-        "minutesAgo": "il y a {{count}} min",
-        "hoursAgo": "il y a {{count}} h",
-        "daysAgo": "il y a {{count}} j"
       }
     }
   }

@@ -4,6 +4,7 @@ import { getMyUserId, listMembers } from "@/services/teamService";
 import type { TeamMember, UserSearchResult } from "@/services/teamService";
 import type { Tier } from "@/stores/subscriptionTier";
 import type { RecentPerson } from "@/stores/recentPeopleStore";
+import { compareStrings } from "@/utils/localeFormat";
 
 /**
  * The name to show for a session. `connection_name` is null when the server has
@@ -87,7 +88,7 @@ export async function allTeammates(): Promise<Teammate[]> {
 
   return [...merged.values()].sort((a, b) => {
     if (!!a.is_online !== !!b.is_online) return a.is_online ? -1 : 1;
-    return (a.handle ?? "").localeCompare(b.handle ?? "");
+    return compareStrings(a.handle ?? "", b.handle ?? "");
   });
 }
 

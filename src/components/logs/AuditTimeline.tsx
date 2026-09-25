@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
 import { AuditEventRow } from "./AuditEventRow";
+import { formatDate } from "@/utils/localeFormat";
 
 function formatDayLabel(dateStr: string): string {
   const d = new Date(dateStr);
@@ -11,7 +12,7 @@ function formatDayLabel(dateStr: string): string {
 
   if (d.toDateString() === now.toDateString()) return i18n.t("logs.timeline.today");
   if (d.toDateString() === yesterday.toDateString()) return i18n.t("logs.timeline.yesterday");
-  return d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  return formatDate(d, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 }
 
 function groupByDay(logs: AuditLog[]): Array<{ key: string; label: string; items: AuditLog[] }> {

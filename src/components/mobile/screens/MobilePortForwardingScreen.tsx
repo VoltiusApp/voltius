@@ -21,6 +21,7 @@ import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import { RuleForm } from "@/components/port_forwarding/RuleForm";
 import { scopeItems, folderItemCount } from "@/components/mobile/folders/mobileFolderCore";
 import type { PortForwardingRule, Folder } from "@/types";
+import { compareStrings } from "@/utils/localeFormat";
 
 type FormRule = PortForwardingRule | null | "new" | undefined;
 type AddMode = null | "menu" | "new-folder";
@@ -49,13 +50,13 @@ export default function MobilePortForwardingScreen() {
     [allFolders, selectedVaultIds],
   );
   const nav = useFolderNavigation(pfFolders);
-  const subfolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => a.name.localeCompare(b.name)), [nav.visibleFolders]);
+  const subfolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)), [nav.visibleFolders]);
 
   const rules = useMemo(() => {
     const q = search.trim().toLowerCase();
     return scopeItems(allRules, nav.activeFolderId)
       .filter((r) => !q || r.name.toLowerCase().includes(q) || String(r.local_port).includes(q) || String(r.remote_port).includes(q) || r.remote_host.toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => compareStrings(a.name, b.name));
   }, [allRules, nav.activeFolderId, search]);
 
   const closeForm = () => { setFormRule(undefined); dirtyRef.current = false; };

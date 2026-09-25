@@ -7,13 +7,6 @@
       "noActiveSession": "Нет активной сессии"
     },
     "historyPanel": {
-      "relativeTime": {
-        "justNow": "только что",
-        "secondsAgo": "{{count}} сек назад",
-        "minutesAgo": "{{count}} мин назад",
-        "hoursAgo": "{{count}} ч назад",
-        "daysAgo": "{{count}} дн назад"
-      },
       "removeFromHistory": "Удалить из истории",
       "searchPlaceholder": "Поиск в истории…",
       "showCurrentOnly": "Показано только текущее подключение",

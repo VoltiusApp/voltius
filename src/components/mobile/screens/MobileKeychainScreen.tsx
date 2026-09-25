@@ -20,10 +20,11 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { scopeItems, folderItemCount } from "../folders/mobileFolderCore";
 import type { SshKey, Identity, Folder } from "@/types";
+import { formatDate } from "@/utils/localeFormat";
+import { compareStrings } from "@/utils/localeFormat";
 
 type Sheet = { kind: "key"; item: SshKey } | { kind: "identity"; item: Identity } | null;
 
-function shortDate(iso: string): string { return new Date(iso).toLocaleDateString(); }
 
 function TagChips({ tags }: { tags: string[] }) {
   if (tags.length === 0) return null;
@@ -67,20 +68,20 @@ export default function MobileKeychainScreen() {
     [allFolders, selectedVaultIds],
   );
   const nav = useFolderNavigation(kcFolders);
-  const subFolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => a.name.localeCompare(b.name)), [nav.visibleFolders]);
+  const subFolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)), [nav.visibleFolders]);
 
   const q = search.trim().toLowerCase();
 
   const scopedKeys = useMemo(
     () => scopeItems(keys, nav.activeFolderId)
       .filter((k) => !q || (k.name ?? "").toLowerCase().includes(q) || (k.key_type ?? "").toLowerCase().includes(q) || k.tags.some((t) => t.toLowerCase().includes(q)))
-      .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "")),
+      .sort((a, b) => compareStrings(a.name ?? "", b.name ?? "")),
     [keys, nav.activeFolderId, q],
   );
   const scopedIdentities = useMemo(
     () => scopeItems(identities, nav.activeFolderId)
       .filter((i) => !q || (i.name ?? "").toLowerCase().includes(q) || i.username.toLowerCase().includes(q) || i.tags.some((t) => t.toLowerCase().includes(q)))
-      .sort((a, b) => (a.name ?? a.username).localeCompare(b.name ?? b.username)),
+      .sort((a, b) => compareStrings(a.name ?? a.username, b.name ?? b.username)),
     [identities, nav.activeFolderId, q],
   );
 
@@ -122,7 +123,7 @@ export default function MobileKeychainScreen() {
                 <AvatarTile icon="lucide:key-round" className="w-9 h-9 rounded-lg" iconSize={18} />
                 <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                   <span className="text-sm font-medium text-(--t-text-primary) truncate">{k.name ?? t("mobile.sheets.keychainActions.unnamedKey")}</span>
-                  <span className="text-[11px] text-(--t-text-dim) truncate">{k.key_type ? `${k.key_type} · ` : ""}{t("mobile.keychainScreen.addedOn", { date: shortDate(k.created_at) })}</span>
+                  <span className="text-[11px] text-(--t-text-dim) truncate">{k.key_type ? `${k.key_type} · ` : ""}{t("mobile.keychainScreen.addedOn", { date: formatDate(k.created_at) })}</span>
                   <TagChips tags={k.tags} />
                 </span>
               </button>

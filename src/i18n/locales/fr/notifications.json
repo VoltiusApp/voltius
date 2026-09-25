@@ -3,13 +3,7 @@
     "bell": {
       "title": "Notifications",
       "clearHistory": "Effacer l'historique",
-      "noNotifications": "Aucune notification",
-      "relativeTime": {
-        "justNow": "à l'instant",
-        "minutesAgo": "il y a {{count}} min",
-        "hoursAgo": "il y a {{count}} h",
-        "daysAgo": "il y a {{count}} j"
-      }
+      "noNotifications": "Aucune notification"
     },
     "emailVerification": {
       "banner": {
