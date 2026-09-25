@@ -19,6 +19,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) })
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
+  Trans: ({ i18nKey }: { i18nKey: string }) => i18nKey,
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));

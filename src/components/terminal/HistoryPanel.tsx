@@ -7,6 +7,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { broadcastSnippetInject } from "@/services/snippetInject";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { formatRelative } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 function HistoryRow({
   entry,
@@ -131,12 +132,8 @@ export function HistoryPanel() {
       list = list.filter((e) => e.connectionId === activeSession.connectionId);
     }
     if (query) {
-      const q = query.toLowerCase();
-      list = list.filter(
-        (e) =>
-          e.command.toLowerCase().includes(q) ||
-          e.sessionName.toLowerCase().includes(q),
-      );
+      const match = searchMatcher(query);
+      list = list.filter((e) => match(e.command, e.sessionName));
     }
     return [...list].reverse();
   }, [entries, query, filterCurrent, activeSession]);

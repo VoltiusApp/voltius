@@ -1,3 +1,4 @@
+import { searchMatcher } from "@/utils/search";
 /**
  * Pure data + filtering for the connection icon/distro picker. Kept free of the heavy
  * `virtual:lucide-subset` / iconify imports in `icons.ts` so it can be imported by the
@@ -40,7 +41,6 @@ export type ConnectionIconId = typeof CONNECTION_ICON_OPTIONS[number]["id"];
 /** Case-insensitive filter over CONNECTION_ICON_OPTIONS for the distro/icon picker.
  *  Empty/whitespace query returns the full list (stable order preserved). */
 export function filterIconOptions(query: string): typeof CONNECTION_ICON_OPTIONS[number][] {
-  const q = query.trim().toLowerCase();
-  if (!q) return [...CONNECTION_ICON_OPTIONS];
-  return CONNECTION_ICON_OPTIONS.filter((o) => `${o.label} ${o.id} ${o.group}`.toLowerCase().includes(q));
+  const match = searchMatcher(query);
+  return CONNECTION_ICON_OPTIONS.filter((o) => match(`${o.label} ${o.id} ${o.group}`));
 }

@@ -15,7 +15,7 @@ import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import FolderFormSheet from "@/components/mobile/sheets/FolderFormSheet";
 import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
 import type { Snippet, Folder } from "@/types";
-import { snippetSearchText } from "@/services/snippetSteps";
+import { snippetMatcher, snippetSearchText } from "@/services/snippetSteps";
 import { compareStrings } from "@/utils/localeFormat";
 
 export default function MobileSnippetList({
@@ -54,8 +54,7 @@ export default function MobileSnippetList({
 
   const visible = useMemo(() => {
     const scoped = foldersEnabled ? scopeItems(inVault, nav.activeFolderId) : inVault;
-    const q = search.trim().toLowerCase();
-    return (q ? scoped.filter((s) => s.name.toLowerCase().includes(q) || snippetSearchText(s).toLowerCase().includes(q)) : scoped)
+    return scoped.filter(snippetMatcher(search))
       .sort((a, b) => compareStrings(a.name, b.name));
   }, [foldersEnabled, inVault, nav.activeFolderId, search]);
 

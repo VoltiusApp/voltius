@@ -6,6 +6,7 @@ import { TagBadge } from "@/components/shared/TagBadge";
 import { getTagColorStyle } from "@/utils/tagColors";
 import { PickerSurface } from "./PickerSurface";
 import { compareStrings } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 interface Props {
   value: string[];
@@ -30,9 +31,8 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
 
   const query = input.trim().toLowerCase();
   const suggestions = useMemo(() => {
-    return allTags.filter(
-      (tag) => !value.includes(tag) && (!query || tag.toLowerCase().includes(query)),
-    );
+    const match = searchMatcher(query);
+    return allTags.filter((tag) => !value.includes(tag) && match(tag));
   }, [allTags, value, query]);
 
   const canCreate = query.length > 0 && !value.includes(input.trim()) && !allTags.some((tag) => tag.toLowerCase() === query);

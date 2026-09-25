@@ -187,6 +187,8 @@
       "stack": {
         "sessions_one": "{{host}} · {{count}} oturum",
         "sessions_other": "{{host}} · {{count}} oturum",
+        "heading_one": "<host>{{host}}</host> · {{count}} oturum",
+        "heading_other": "<host>{{host}}</host> · {{count}} oturum",
         "count_one": "{{count}} oturum",
         "count_other": "{{count}} oturum",
         "newSessionOn": "{{host}} üzerinde yeni oturum",

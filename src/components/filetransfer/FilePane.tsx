@@ -29,6 +29,7 @@ import { writeClipboard } from "@/utils/clipboard";
 import { copyPathText } from "./copyPathText";
 import { parentDir, joinPath, withDriveRootSep } from "./moveTargetCore";
 import { compareStrings } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
 
@@ -189,10 +190,10 @@ export function FilePane({
     return () => clearInterval(id);
   }, [autoRefreshEnabled, autoRefreshIntervalMs]);
 
-  const q = filter.trim().toLowerCase();
+  const matchesFilter = searchMatcher(filter);
   const filteredEntries = entries
     .filter((f) => showHidden || !f.name.startsWith("."))
-    .filter((f) => !q || f.name.toLowerCase().includes(q));
+    .filter((f) => matchesFilter(f.name));
   const visibleEntries = [...filteredEntries].sort((a, b) => {
     const dir = sortDir === "asc" ? 1 : -1;
     // dirs always float to top regardless of sort col

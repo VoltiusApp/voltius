@@ -9,7 +9,7 @@ import type { SyncStatus } from "@/services/sync";
 import { syncStatusColor } from "@/services/syncStatus";
 import { runManualSync } from "@/services/syncIntent";
 import { runSyncProviderAction } from "@/services/syncProviderAction";
-import type { SyncProviderAction, SyncProviderView } from "@/services/syncProviders";
+import { VOLTIUS_PROVIDER_ID, type SyncProviderAction, type SyncProviderView } from "@/services/syncProviders";
 import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
@@ -74,7 +74,8 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <Icon icon={provider.icon} width={12} style={{ color: "var(--t-text-dim)" }} />
-          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
+          {/* Plugin providers carry their English product name; keep it out of Turkish casing. */}
+          <span lang={provider.id === VOLTIUS_PROVIDER_ID ? undefined : "en"} className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
             {provider.label}
           </span>
         </div>

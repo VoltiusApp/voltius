@@ -187,6 +187,8 @@
       "stack": {
         "sessions_one": "{{host}} · {{count}} session",
         "sessions_other": "{{host}} · {{count}} sessions",
+        "heading_one": "<host>{{host}}</host> · {{count}} session",
+        "heading_other": "<host>{{host}}</host> · {{count}} sessions",
         "count_one": "{{count}} session",
         "count_other": "{{count}} sessions",
         "newSessionOn": "New session on {{host}}",

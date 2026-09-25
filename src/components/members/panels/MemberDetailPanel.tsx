@@ -21,6 +21,7 @@ import {
   PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState,
 } from "./PermissionOverrideRow";
 import { formatDate } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;
@@ -132,12 +133,12 @@ export function MemberDetailPanel({
     .filter((p) => p !== "CREATE_CUSTOM_ROLES"
       || ((allow | deny) & PERM_BITS.CREATE_CUSTOM_ROLES) !== 0);
 
-  const filterQuery = permissionFilter.trim().toLowerCase();
+  const matchesFilter = searchMatcher(permissionFilter);
   const filteredGroups = PERMISSION_GROUPS
     .map((g) => ({
       key: g.key,
       permissions: g.permissions.filter((p) =>
-        editablePermissions.includes(p) && permissionLabel(t, p).toLowerCase().includes(filterQuery)),
+        editablePermissions.includes(p) && matchesFilter(permissionLabel(t, p))),
     }))
     .filter((g) => g.permissions.length > 0);
 

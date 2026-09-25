@@ -34,6 +34,7 @@ import { snippetScriptText } from "@/services/snippetSteps";
 import { StepListEditor } from "@/components/snippets/StepListEditor";
 import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPanel";
 import { VariableTextarea } from "@/components/snippets/VariableTextarea";
+import { searchMatcher } from "@/utils/search";
 
 interface Props {
   initial?: Snippet;
@@ -367,9 +368,8 @@ function AutocompleteTagInput({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const filtered = suggestions.filter(
-    (s) => !tags.includes(s) && s.toLowerCase().includes(input.toLowerCase()),
-  );
+  const match = searchMatcher(input);
+  const filtered = suggestions.filter((s) => !tags.includes(s) && match(s));
   const showDropdown = open && filtered.length > 0;
 
   return (

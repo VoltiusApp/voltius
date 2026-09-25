@@ -13,6 +13,7 @@ import { useImportStores, useReloadFns, useStoreSlices, useDeleteStores } from "
 import { ActionBtn, VaultChipSelect, useVaultList } from "./shared";
 import { CheckboxBox } from "@/components/shared/Checkbox";
 import { FileInputArea } from "./FileInputArea";
+import { searchMatcher } from "@/utils/search";
 
 type ItemAction = "include" | "skip" | "overwrite";
 type ItemMeta = { isDupe: boolean };
@@ -364,8 +365,8 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
 
   if (step === 2 && status.type === "ready") {
     const { bundle, connectionMeta, keyMeta, identityMeta, snippetMeta, pfRuleMeta } = status;
-    const q = search.toLowerCase();
-    const matches = (strs: (string | undefined)[]) => !q || strs.some(s => s?.toLowerCase().includes(q));
+    const match = searchMatcher(search);
+    const matches = (strs: (string | undefined)[]) => match(...strs);
 
     const totalDupes = [...connectionMeta, ...keyMeta, ...identityMeta, ...snippetMeta, ...pfRuleMeta].filter(m => m.isDupe).length;
     const allDupesSkipped = totalDupes > 0 && [

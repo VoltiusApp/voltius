@@ -33,6 +33,7 @@ import { MemberDetailPanel } from "@/components/members/panels/MemberDetailPanel
 import { InvitePanel } from "@/components/members/panels/InvitePanel";
 import { SignInToCloudCTA, UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
 import { compareStrings } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -143,10 +144,10 @@ export default function MembersPage() {
   }, [teamId, canManageMembers, loadPendingInvitations]);
 
   // Filter + sort
-  const searchLower = search.trim().toLowerCase();
+  const searchLower = search.trim();
   const filteredMembers = useMemo(() => {
     let result = members;
-    if (searchLower) result = result.filter((m) => (m.handle ?? "").toLowerCase().includes(searchLower));
+    if (searchLower) { const match = searchMatcher(searchLower); result = result.filter((m) => match(m.handle)); }
     if (roleFilter.length > 0) result = result.filter((m) => roleFilter.some((rid) => m.role_ids.includes(rid)));
     return result;
   }, [members, searchLower, roleFilter]);

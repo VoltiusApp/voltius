@@ -9,6 +9,7 @@ import { useHostPingStore } from "@/stores/hostPingStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import type { Connection } from "@/types";
 import BottomSheet from "./BottomSheet";
+import { searchMatcher } from "@/utils/search";
 
 function PickRow({ c, pingEnabled, onPick }: { c: Connection; pingEnabled: boolean; onPick: (id: string) => void }) {
   const pingStatus = useHostPingStore((s) => s.statuses[c.id]);
@@ -47,8 +48,8 @@ export default function SftpHostPickerSheet({
   const [q, setQ] = useState("");
   const hosts = useMemo(() => {
     const ssh = connections.filter((c) => c.connection_type !== "serial" && !c.serial_port && c.id !== excludeId);
-    const needle = q.trim().toLowerCase();
-    return needle ? ssh.filter((c) => connectionDisplayName(c).toLowerCase().includes(needle) || (c.host ?? "").toLowerCase().includes(needle)) : ssh;
+    const match = searchMatcher(q);
+    return ssh.filter((c) => match(connectionDisplayName(c), c.host));
   }, [connections, q, excludeId]);
 
   return (

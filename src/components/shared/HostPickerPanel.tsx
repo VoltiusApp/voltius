@@ -13,6 +13,7 @@ import type { SortMode } from "./ToolbarViewControls";
 import { useIsAndroid } from "@/utils/platform";
 import type { Connection } from "@/types";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import { searchMatcher } from "@/utils/search";
 
 export type HostChoice =
   | { kind: "local"; wslDistro?: string }
@@ -48,6 +49,7 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
       .sort((a, b) => compareConnections(a, b, sortMode)),
     [connections, search, sortMode, sshOnly, vaultId],
   );
+  const matchesQuery = searchMatcher(search);
 
   return (
     <div className="flex flex-col h-full bg-(--t-bg-base)">
@@ -118,7 +120,7 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
         )}
 
         {!isAndroid && wslDistros
-          .filter((d) => d.toLowerCase().includes(search.toLowerCase()))
+          .filter((d) => matchesQuery(d))
           .map((d) => {
             const icon = getConnectionIcon(d.split(/[-_ ]/)[0]);
             return (

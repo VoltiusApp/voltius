@@ -187,6 +187,8 @@
       "stack": {
         "sessions_one": "{{host}} · {{count}} 个会话",
         "sessions_other": "{{host}} · {{count}} 个会话",
+        "heading_one": "<host>{{host}}</host> · {{count}} 个会话",
+        "heading_other": "<host>{{host}}</host> · {{count}} 个会话",
         "count_one": "{{count}} 个会话",
         "count_other": "{{count}} 个会话",
         "newSessionOn": "在 {{host}} 上新建会话",

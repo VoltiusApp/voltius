@@ -26,6 +26,7 @@ import {
   PickerTrigger,
 } from "@/components/shared/pickerParts";
 import { formInputClass, formInputStyle } from "@/components/shared/Panel";
+import { searchMatcher } from "@/utils/search";
 
 // ── CSS variable inspector ────────────────────────────────────────────────────
 
@@ -147,9 +148,10 @@ function FontPicker({
   const installed = systemFonts?.some((f) => f.family.toLowerCase() === selected.toLowerCase());
   const missing = systemFonts !== null && !isPreset && !installed;
 
+  const matchesQuery = searchMatcher(query);
   const listed = (systemFonts ?? []).filter((f) => {
     if (monospaceOnly && !showAll && !f.monospace) return false;
-    return f.family.toLowerCase().includes(query.trim().toLowerCase());
+    return matchesQuery(f.family);
   });
 
   const close = () => { setOpen(false); setCustom(false); setQuery(""); };
