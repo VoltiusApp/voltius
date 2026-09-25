@@ -237,6 +237,14 @@
       "minutesAgo": "{{count}}m ago",
       "hoursAgo": "{{count}}h ago",
       "daysAgo": "{{count}}d ago"
+    },
+    "history": {
+      "movedItems_one": "Moved {{count}} item",
+      "movedItems_other": "Moved {{count}} items",
+      "pastedItems_one": "Pasted {{count}} item",
+      "pastedItems_other": "Pasted {{count}} items",
+      "movedToFolder_one": "Moved {{count}} item to folder",
+      "movedToFolder_other": "Moved {{count}} items to folder"
     }
   }
 }

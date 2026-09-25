@@ -2,9 +2,10 @@
   "snippets": {
     "sequence": {
       "summary": {
-        "success": "Snippet ran on {{count}} target(s)",
         "partial": "{{count}} ok — {{details}}",
-        "failed": "failed"
+        "failed": "failed",
+        "success_one": "Snippet ran on {{count}} target",
+        "success_other": "Snippet ran on {{count}} targets"
       },
       "connectFailed": "could not open a terminal session",
       "flatten": {

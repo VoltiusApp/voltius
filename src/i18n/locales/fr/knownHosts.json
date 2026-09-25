@@ -11,7 +11,9 @@
         "title_one": "Supprimer l'hôte connu ?",
         "title_many": "Supprimer {{count}} hôtes connus ?",
         "title_other": "Supprimer {{count}} hôtes connus ?",
-        "message": "Cela supprimera la ou les empreintes de confiance. La prochaine connexion à ces hôtes sera traitée comme nouvelle."
+        "message_one": "Cela supprimera l'empreinte de confiance. La prochaine connexion à cet hôte sera traitée comme nouvelle.",
+        "message_many": "Cela supprimera les empreintes de confiance. La prochaine connexion à ces hôtes sera traitée comme nouvelle.",
+        "message_other": "Cela supprimera les empreintes de confiance. La prochaine connexion à ces hôtes sera traitée comme nouvelle."
       }
     }
   }

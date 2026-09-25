@@ -82,11 +82,11 @@
       "actionSkip": "跳过",
       "actionInclude": "导入",
       "actionOverwrite": "覆盖",
-      "resultImportedWithErrors": "已导入 {{count}} 个项目{{vaultNote}}，{{errors}} 个失败。",
       "resultImportedSuccess_one": "成功导入 {{count}} 个项目{{vaultNote}}。",
       "resultImportedSuccess_other": "成功导入 {{count}} 个项目{{vaultNote}}。",
       "resultVaultNote": "跨 {{count}} 个保险库",
-      "resultError": "错误：{{error}}"
+      "resultError": "错误：{{error}}",
+      "resultImportedWithErrors_other": "已导入 {{count}} 个项目{{vaultNote}}，{{errors}} 个失败。"
     },
     "fileInput": {
       "openFileDefault": "打开文件…",

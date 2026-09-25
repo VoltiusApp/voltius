@@ -250,6 +250,17 @@
       "minutesAgo": "il y a {{count}} min",
       "hoursAgo": "il y a {{count}} h",
       "daysAgo": "il y a {{count}} j"
+    },
+    "history": {
+      "movedItems_one": "{{count}} élément déplacé",
+      "movedItems_many": "{{count}} éléments déplacés",
+      "movedItems_other": "{{count}} éléments déplacés",
+      "pastedItems_one": "{{count}} élément collé",
+      "pastedItems_many": "{{count}} éléments collés",
+      "pastedItems_other": "{{count}} éléments collés",
+      "movedToFolder_one": "{{count}} élément déplacé dans le dossier",
+      "movedToFolder_many": "{{count}} éléments déplacés dans le dossier",
+      "movedToFolder_other": "{{count}} éléments déplacés dans le dossier"
     }
   }
 }

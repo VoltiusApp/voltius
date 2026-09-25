@@ -376,7 +376,7 @@ export async function pasteFromClipboard(
     adapter.setSelection([...itemIds, ...folderIds]);
 
     useHistoryStore.getState().push({
-      label: `Moved ${moved} item${moved === 1 ? "" : "s"}`,
+      label: i18n.t("common.history.movedItems", { count: moved }),
       undo: async () => {
         refuse(blockedForMoves(adapter, movesTo((id) => originOf(id).vaultId)));
         // One call per origin: moveItems takes a single destination folder+vault.
@@ -419,7 +419,7 @@ export async function pasteFromClipboard(
   adapter.setSelection([...createdItemIds, ...createdFolderIds]);
 
   useHistoryStore.getState().push({
-    label: `Pasted ${created} item${created === 1 ? "" : "s"}`,
+    label: i18n.t("common.history.pastedItems", { count: created }),
     undo: async () => {
       refuse(
         blockedForDeletes(adapter, [

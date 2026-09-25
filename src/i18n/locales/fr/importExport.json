@@ -91,12 +91,14 @@
       "actionSkip": "Ignorer",
       "actionInclude": "Importer",
       "actionOverwrite": "Écraser",
-      "resultImportedWithErrors": "{{count}} éléments importés{{vaultNote}}, {{errors}} échec(s).",
       "resultImportedSuccess_one": "{{count}} élément importé avec succès{{vaultNote}}.",
       "resultImportedSuccess_many": "{{count}} éléments importés avec succès{{vaultNote}}.",
       "resultImportedSuccess_other": "{{count}} éléments importés avec succès{{vaultNote}}.",
       "resultVaultNote": " sur {{count}} coffres",
-      "resultError": "Erreur : {{error}}"
+      "resultError": "Erreur : {{error}}",
+      "resultImportedWithErrors_one": "{{count}} élément importé{{vaultNote}}, échecs : {{errors}}.",
+      "resultImportedWithErrors_many": "{{count}} éléments importés{{vaultNote}}, échecs : {{errors}}.",
+      "resultImportedWithErrors_other": "{{count}} éléments importés{{vaultNote}}, échecs : {{errors}}."
     },
     "fileInput": {
       "openFileDefault": "Ouvrir un fichier…",

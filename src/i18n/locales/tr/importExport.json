@@ -83,11 +83,12 @@
       "actionSkip": "Atla",
       "actionInclude": "İçe aktar",
       "actionOverwrite": "Üzerine yaz",
-      "resultImportedWithErrors": "{{count}} öğe içe aktarıldı{{vaultNote}}, {{errors}} öğe başarısız oldu.",
       "resultImportedSuccess_one": "{{count}} öğe başarıyla içe aktarıldı{{vaultNote}}.",
       "resultImportedSuccess_other": "{{count}} öğe başarıyla içe aktarıldı{{vaultNote}}.",
       "resultVaultNote": " ({{count}} kasaya)",
-      "resultError": "Hata: {{error}}"
+      "resultError": "Hata: {{error}}",
+      "resultImportedWithErrors_one": "{{count}} öğe içe aktarıldı{{vaultNote}}, {{errors}} öğe başarısız oldu.",
+      "resultImportedWithErrors_other": "{{count}} öğe içe aktarıldı{{vaultNote}}, {{errors}} öğe başarısız oldu."
     },
     "fileInput": {
       "openFileDefault": "Dosya aç…",

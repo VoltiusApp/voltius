@@ -83,11 +83,12 @@
       "actionSkip": "Skip",
       "actionInclude": "Import",
       "actionOverwrite": "Overwrite",
-      "resultImportedWithErrors": "Imported {{count}} items{{vaultNote}}, {{errors}} failed.",
       "resultImportedSuccess_one": "Successfully imported {{count}} item{{vaultNote}}.",
       "resultImportedSuccess_other": "Successfully imported {{count}} items{{vaultNote}}.",
       "resultVaultNote": " across {{count}} vaults",
-      "resultError": "Error: {{error}}"
+      "resultError": "Error: {{error}}",
+      "resultImportedWithErrors_one": "Imported {{count}} item{{vaultNote}}, {{errors}} failed.",
+      "resultImportedWithErrors_other": "Imported {{count}} items{{vaultNote}}, {{errors}} failed."
     },
     "fileInput": {
       "openFileDefault": "Open file…",

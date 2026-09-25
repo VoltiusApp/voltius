@@ -99,13 +99,16 @@
       "actionSkip": "Пропустить",
       "actionInclude": "Импортировать",
       "actionOverwrite": "Перезаписать",
-      "resultImportedWithErrors": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
       "resultImportedSuccess_one": "Успешно импортирован {{count}} элемент{{vaultNote}}.",
       "resultImportedSuccess_few": "Успешно импортировано {{count}} элемента{{vaultNote}}.",
       "resultImportedSuccess_many": "Успешно импортировано {{count}} элементов{{vaultNote}}.",
       "resultImportedSuccess_other": "Успешно импортировано {{count}} элементов{{vaultNote}}.",
       "resultVaultNote": " в {{count}} хранилищах",
-      "resultError": "Ошибка: {{error}}"
+      "resultError": "Ошибка: {{error}}",
+      "resultImportedWithErrors_one": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
+      "resultImportedWithErrors_few": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
+      "resultImportedWithErrors_many": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
+      "resultImportedWithErrors_other": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}."
     },
     "fileInput": {
       "openFileDefault": "Открыть файл…",

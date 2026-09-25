@@ -176,7 +176,7 @@ export default function KnownHostsPage() {
       {confirmDeleteIds && (
         <ConfirmModal
           title={t("knownHosts.page.confirmDelete.title", { count: confirmDeleteIds.length })}
-          message={t("knownHosts.page.confirmDelete.message")}
+          message={t("knownHosts.page.confirmDelete.message", { count: confirmDeleteIds.length })}
           confirmLabel={t("common.action.delete")}
           onConfirm={confirmDelete}
           onCancel={() => setConfirmDeleteIds(null)}
