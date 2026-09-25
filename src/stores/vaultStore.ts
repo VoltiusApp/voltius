@@ -119,7 +119,8 @@ export const useVaultStore = create<VaultStore>()(
         selectedVaultIds: state.selectedVaultIds,
       }),
       merge: (persisted, current) => {
-        const p = persisted as { vaults?: Vault[]; deletedVaults?: VaultsSection; selectedVaultIds?: string[] };
+        // Nothing is stored yet on a fresh install, and zustand then passes undefined.
+        const p = (persisted ?? {}) as { vaults?: Vault[]; deletedVaults?: VaultsSection; selectedVaultIds?: string[] };
         return {
           ...current,
           vaults: withPersonalFirst(p.vaults ?? []),
