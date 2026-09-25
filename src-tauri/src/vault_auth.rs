@@ -1,3 +1,4 @@
+use crate::error::{AppError, ErrorCode};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use keyring_core::Entry;
 use std::collections::HashMap;
@@ -124,7 +125,7 @@ fn check_roles(
     vault_ids: &[String],
     roles: &HashMap<String, serde_json::Value>,
     jwt_valid: bool,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let team_ids: Vec<&String> = vault_ids
         .iter()
         .filter(|id| roles.contains_key(*id))
@@ -135,9 +136,11 @@ fn check_roles(
     }
 
     if !jwt_valid {
-        return Err("Team vaults require an active server connection. \
-             Please sign in to continue."
-            .to_string());
+        return Err(AppError::coded(
+            ErrorCode::VaultSignInRequired,
+            "Team vaults require an active server connection. \
+             Please sign in to continue.",
+        ));
     }
 
     for vault_id in team_ids {
@@ -148,9 +151,11 @@ fn check_roles(
             VaultRoleEntry::Unknown => continue,
             VaultRoleEntry::Permissions(bits) => {
                 if bits & WRITE_PERMISSIONS == 0 {
-                    return Err("You don't have write access to this vault. Ask a vault \
-                         manager for a role that can make changes."
-                        .to_string());
+                    return Err(AppError::coded(
+                        ErrorCode::VaultReadOnly,
+                        "You don't have write access to this vault. Ask a vault \
+                         manager for a role that can make changes.",
+                    ));
                 }
             }
             VaultRoleEntry::Names(names) => {
@@ -160,10 +165,14 @@ fn check_roles(
                     } else {
                         names.join(", ")
                     };
-                    return Err(format!(
-                        "You don't have write access to this vault (your role: {held}). \
-                         Only owners, managers, and editors can make changes."
-                    ));
+                    return Err(AppError::coded(
+                        ErrorCode::VaultRoleReadOnly,
+                        format!(
+                            "You don't have write access to this vault (your role: {held}). \
+                             Only owners, managers, and editors can make changes."
+                        ),
+                    )
+                    .with_param("role", held));
                 }
             }
         }
@@ -176,7 +185,7 @@ fn check_roles(
 /// Returns `Err(message)` if:
 ///   - Any vault_id is a team vault AND the JWT is missing or expired, OR
 ///   - Any vault_id is a team vault AND the user's role is not a write role.
-pub fn check_vault_write(vault_ids: &[String]) -> Result<(), String> {
+pub fn check_vault_write(vault_ids: &[String]) -> Result<(), AppError> {
     if all_personal(vault_ids) {
         return Ok(());
     }
@@ -188,11 +197,11 @@ pub fn check_vault_write(vault_ids: &[String]) -> Result<(), String> {
         Ok(Some(s)) => s,
         Ok(None) => return Ok(()),
         Err(()) => {
-            return Err(
+            return Err(AppError::coded(
+                ErrorCode::VaultPermissionsUnavailable,
                 "Unable to verify vault permissions (keychain unavailable). \
-                 Please try again."
-                    .to_string(),
-            )
+                 Please try again.",
+            ))
         }
     };
 
@@ -204,9 +213,11 @@ pub fn check_vault_write(vault_ids: &[String]) -> Result<(), String> {
     let roles: HashMap<String, serde_json::Value> = match serde_json::from_str(&roles_json) {
         Ok(m) => m,
         Err(_) => {
-            return Err("Vault permission data is corrupted. \
-                 Please sign in again to refresh access."
-                .to_string())
+            return Err(AppError::coded(
+                ErrorCode::VaultPermissionsCorrupted,
+                "Vault permission data is corrupted. \
+                 Please sign in again to refresh access.",
+            ))
         }
     };
 
@@ -273,7 +284,9 @@ mod tests {
     #[test]
     fn check_roles_team_vault_requires_valid_jwt() {
         let r = roles(&[("team-a", &["editor"])]);
-        let err = check_roles(&[s("team-a")], &r, false).unwrap_err();
+        let err = check_roles(&[s("team-a")], &r, false)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("active server connection"));
     }
 
@@ -286,9 +299,28 @@ mod tests {
     #[test]
     fn check_roles_team_vault_viewer_rejected() {
         let r = roles(&[("team-a", &["viewer"])]);
-        let err = check_roles(&[s("team-a")], &r, true).unwrap_err();
+        let err = check_roles(&[s("team-a")], &r, true)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("viewer"));
         assert!(err.contains("write access"));
+    }
+
+    #[test]
+    fn check_roles_rejections_carry_their_codes() {
+        let viewer = roles(&[("team-a", &["viewer"])]);
+        let err = check_roles(&[s("team-a")], &viewer, true).unwrap_err();
+        assert_eq!(err.code(), Some(ErrorCode::VaultRoleReadOnly));
+        assert_eq!(
+            serde_json::to_value(&err).unwrap()["params"]["role"],
+            "viewer"
+        );
+
+        let signed_out = check_roles(&[s("team-a")], &viewer, false).unwrap_err();
+        assert_eq!(signed_out.code(), Some(ErrorCode::VaultSignInRequired));
+
+        let no_bits = check_roles(&[s("team-a")], &perms(&[("team-a", 0)]), true).unwrap_err();
+        assert_eq!(no_bits.code(), Some(ErrorCode::VaultReadOnly));
     }
 
     #[test]
@@ -306,7 +338,9 @@ mod tests {
     #[test]
     fn check_roles_multi_role_rejected_when_none_is_a_write_role() {
         let r = roles(&[("team-a", &["viewer", "connect-only"])]);
-        let err = check_roles(&[s("team-a")], &r, true).unwrap_err();
+        let err = check_roles(&[s("team-a")], &r, true)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("viewer, connect-only"));
         assert!(err.contains("write access"));
     }
@@ -314,7 +348,9 @@ mod tests {
     #[test]
     fn check_roles_no_roles_for_a_team_vault_rejected() {
         let r = roles(&[("team-a", &[])]);
-        let err = check_roles(&[s("team-a")], &r, true).unwrap_err();
+        let err = check_roles(&[s("team-a")], &r, true)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("none"));
     }
 
@@ -347,7 +383,9 @@ mod tests {
     fn check_roles_bits_without_any_edit_permission_rejected() {
         // connect-only: CONNECT + terminal-session bits, no EDIT_*.
         let r = perms(&[("team-a", 28676)]);
-        let err = check_roles(&[s("team-a")], &r, true).unwrap_err();
+        let err = check_roles(&[s("team-a")], &r, true)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("write access"));
     }
 
@@ -368,7 +406,9 @@ mod tests {
     #[test]
     fn check_roles_bits_still_require_valid_jwt() {
         let r = perms(&[("team-a", 1 << 3)]);
-        let err = check_roles(&[s("team-a")], &r, false).unwrap_err();
+        let err = check_roles(&[s("team-a")], &r, false)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("active server connection"));
     }
 

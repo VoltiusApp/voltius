@@ -22,7 +22,7 @@ test("a failed move still sets the page error", async () => {
 
   await drag.onDropToFolder(["c1"], "f1");
 
-  expect(onError).toHaveBeenCalledWith("Error: boom");
+  expect(onError).toHaveBeenCalledWith("boom");
 });
 
 test("without an error handler a cancelled move settles quietly and a failure still rejects", async () => {

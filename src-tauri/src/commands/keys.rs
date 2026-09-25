@@ -4,6 +4,7 @@ use crate::commands::vault_object::{
     find_mut, finish_update, impl_vault_object, initial_clocks, merge_fields, requested_vault,
     retarget_vault, vault_object_commands,
 };
+use crate::error::AppError;
 use crate::storage::config::{load_keys, save_keys, SshKey, SshKeyFormData};
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
@@ -44,7 +45,7 @@ fn build_key(id: String, data: SshKeyFormData, now: &str, created_at: Option<Str
 }
 
 #[tauri::command]
-pub fn key_update(id: String, data: SshKeyFormData) -> Result<SshKey, String> {
+pub fn key_update(id: String, data: SshKeyFormData) -> Result<SshKey, AppError> {
     let mut keys = load_keys()?;
     let key = find_mut(&mut keys, &id)?;
     let now = Utc::now().to_rfc3339();

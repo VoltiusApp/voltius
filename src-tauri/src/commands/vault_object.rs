@@ -243,7 +243,7 @@ pub fn refile_into_folder<T: VaultObject>(
     folder_id: &Option<String>,
     now: &str,
     folder_of: impl Fn(&mut T) -> &mut Option<String>,
-) -> Result<(), String> {
+) -> Result<(), crate::error::AppError> {
     let named = |item: &T| ids.iter().any(|id| id == item.id());
     let vaults: Vec<String> = vaults_of(items, named).into_iter().collect();
     crate::vault_auth::check_vault_write(&vaults)?;
@@ -286,7 +286,7 @@ macro_rules! vault_create_command {
     ($(#[$meta:meta])* $name:ident, $ty:ty, $form:ty, $build:ident, $load:path, $save:path) => {
         $(#[$meta])*
         #[tauri::command]
-        pub fn $name(data: $form) -> Result<$ty, String> {
+        pub fn $name(data: $form) -> Result<$ty, $crate::error::AppError> {
             let mut items = $load()?;
             let now = chrono::Utc::now().to_rfc3339();
             $crate::vault_auth::check_vault_write(
@@ -307,7 +307,7 @@ macro_rules! vault_adopt_command {
     ($(#[$meta:meta])* $name:ident, $ty:ty, $form:ty, $build:ident, $load:path, $save:path) => {
         $(#[$meta])*
         #[tauri::command]
-        pub fn $name(id: String, data: $form) -> Result<$ty, String> {
+        pub fn $name(id: String, data: $form) -> Result<$ty, $crate::error::AppError> {
             let mut items = $load()?;
             let now = chrono::Utc::now().to_rfc3339();
             $crate::vault_auth::check_vault_write(
@@ -328,13 +328,13 @@ macro_rules! vault_delete_command {
     ($(#[$meta:meta])* $name:ident, $load:path, $save:path) => {
         $(#[$meta])*
         #[tauri::command]
-        pub fn $name(id: String) -> Result<(), String> {
+        pub fn $name(id: String) -> Result<(), $crate::error::AppError> {
             let mut items = $load()?;
             let now = chrono::Utc::now().to_rfc3339();
             let item = $crate::commands::vault_object::find_mut(&mut items, &id)?;
             $crate::vault_auth::check_vault_write(std::slice::from_ref(&item.vault_id))?;
             $crate::commands::vault_object::tombstone(item, &now);
-            $save(&items)
+            Ok($save(&items)?)
         }
     };
 }

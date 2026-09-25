@@ -1,4 +1,4 @@
-use crate::error::AppError;
+use crate::error::{AppError, ErrorCode};
 use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     Key, XChaCha20Poly1305, XNonce,
@@ -24,9 +24,12 @@ struct StoreInner {
 
 const NONCE_LEN: usize = 24;
 
-/// Reported verbatim to the frontend, which classifies the locked vault by matching
-/// it; see `the_locked_error_text_matches_the_frontend`.
-pub const LOCKED_ERR: &str = "Secrets store is locked";
+const LOCKED_ERR: &str = "Secrets store is locked";
+
+/// The frontend offers to unlock on its code; see `a_locked_store_sends_the_vault_locked_code`.
+fn locked() -> AppError {
+    AppError::coded(ErrorCode::VaultLocked, LOCKED_ERR)
+}
 
 /// On-disk / in-blob representation of the secrets store.
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -58,7 +61,7 @@ impl SecretsStore {
 
     pub fn unlock(&self, path: PathBuf, enc_key: [u8; 32]) -> Result<(), AppError> {
         let data = if path.exists() {
-            let bytes = std::fs::read(&path).map_err(|e| format!("Read failed: {e}"))?;
+            let bytes = std::fs::read(&path).map_err(read_failed)?;
             decrypt(&enc_key, &bytes)?
         } else {
             SecretsData::default()
@@ -78,13 +81,13 @@ impl SecretsStore {
 
     pub fn get(&self, key: &str) -> Result<Option<String>, AppError> {
         let guard = self.inner.lock().unwrap();
-        let inner = guard.as_ref().ok_or(LOCKED_ERR)?;
+        let inner = guard.as_ref().ok_or_else(locked)?;
         Ok(inner.secrets.get(key).cloned())
     }
 
     pub fn set(&self, key: String, value: String) -> Result<(), AppError> {
         let mut guard = self.inner.lock().unwrap();
-        let inner = guard.as_mut().ok_or(LOCKED_ERR)?;
+        let inner = guard.as_mut().ok_or_else(locked)?;
         inner.clocks.insert(key.clone(), now_ts());
         inner.secrets.insert(key, value);
         save(inner)
@@ -92,7 +95,7 @@ impl SecretsStore {
 
     pub fn delete(&self, key: &str) -> Result<(), AppError> {
         let mut guard = self.inner.lock().unwrap();
-        let inner = guard.as_mut().ok_or(LOCKED_ERR)?;
+        let inner = guard.as_mut().ok_or_else(locked)?;
         inner.secrets.remove(key);
         // Leave a tombstone (clock without value) so the deletion propagates on sync.
         inner.clocks.insert(key.to_string(), now_ts());
@@ -103,7 +106,7 @@ impl SecretsStore {
     /// A failed write restores the entries, so a retry still finds them to purge.
     pub fn purge(&self, keys: &[String]) -> Result<Vec<String>, AppError> {
         let mut guard = self.inner.lock().unwrap();
-        let inner = guard.as_mut().ok_or(LOCKED_ERR)?;
+        let inner = guard.as_mut().ok_or_else(locked)?;
         let removed: Vec<(String, String, Option<String>)> = keys
             .iter()
             .filter_map(|k| {
@@ -139,7 +142,7 @@ impl SecretsStore {
     /// Export all secrets plus their per-secret clocks (for backup/sync export).
     pub fn export_all(&self) -> Result<SecretsData, AppError> {
         let guard = self.inner.lock().unwrap();
-        let inner = guard.as_ref().ok_or(LOCKED_ERR)?;
+        let inner = guard.as_ref().ok_or_else(locked)?;
         Ok(SecretsData {
             secrets: inner.secrets.clone(),
             clocks: inner.clocks.clone(),
@@ -155,7 +158,7 @@ impl SecretsStore {
         clocks: HashMap<String, String>,
     ) -> Result<(), AppError> {
         let mut guard = self.inner.lock().unwrap();
-        let inner = guard.as_mut().ok_or(LOCKED_ERR)?;
+        let inner = guard.as_mut().ok_or_else(locked)?;
         inner.secrets = secrets;
         inner.clocks = clocks;
         save(inner)
@@ -204,7 +207,7 @@ fn write_atomic_via(
     stage(tmp, path, bytes)?;
     std::fs::rename(tmp, path).map_err(|e| {
         let _ = std::fs::remove_file(tmp);
-        AppError::Msg(format!("Write failed: {e}"))
+        write_failed(e)
     })
 }
 
@@ -213,26 +216,30 @@ fn write_atomic_via(
 /// A failure removes the scratch file, so no half-written sibling is left behind.
 /// The scratch file takes `like`'s permissions, which the rename then carries over.
 fn stage(tmp: &std::path::Path, like: &std::path::Path, bytes: &[u8]) -> Result<(), AppError> {
-    match write_and_sync(tmp, like, bytes) {
-        Ok(()) => Ok(()),
-        Err(e) => {
-            let _ = std::fs::remove_file(tmp);
-            Err(e)
-        }
-    }
+    write_and_sync(tmp, like, bytes).map_err(|e| {
+        let _ = std::fs::remove_file(tmp);
+        write_failed(e)
+    })
 }
 
 fn write_and_sync(
     tmp: &std::path::Path,
     like: &std::path::Path,
     bytes: &[u8],
-) -> Result<(), AppError> {
+) -> std::io::Result<()> {
     use std::io::Write;
-    let mut file = open_staged(tmp, like).map_err(|e| format!("Write failed: {e}"))?;
-    file.write_all(bytes)
-        .map_err(|e| format!("Write failed: {e}"))?;
-    file.sync_all().map_err(|e| format!("Write failed: {e}"))?;
-    Ok(())
+    let mut file = open_staged(tmp, like)?;
+    file.write_all(bytes)?;
+    file.sync_all()
+}
+
+/// Coded after the cause, so a full disk or a denied write reads as such.
+fn write_failed(e: std::io::Error) -> AppError {
+    AppError::caused("Write failed", &e)
+}
+
+fn read_failed(e: std::io::Error) -> AppError {
+    AppError::caused("Read failed", &e)
 }
 
 /// A fresh scratch file wearing `like`'s mode, or owner-only when `like` is not
@@ -280,7 +287,13 @@ fn decrypt(key: &[u8; 32], data: &[u8]) -> Result<SecretsData, AppError> {
     let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     let plaintext = cipher
         .decrypt(nonce, &data[NONCE_LEN..])
-        .map_err(|_| "Decryption failed — wrong key or corrupted file".to_string())?;
+        // Possibly readable with another key: the frontend must not discard it on this.
+        .map_err(|_| {
+            AppError::coded(
+                ErrorCode::VaultUnreadable,
+                "Decryption failed — wrong key or corrupted file",
+            )
+        })?;
     parse_secrets(&plaintext)
 }
 
@@ -326,7 +339,7 @@ pub fn secrets_verify(
         return Ok(());
     }
     // Try to decrypt without mutating state
-    let data = std::fs::read(&path).map_err(|e| format!("Read failed: {e}"))?;
+    let data = std::fs::read(&path).map_err(read_failed)?;
     decrypt(&key, &data).map(|_| ())
 }
 
@@ -350,7 +363,7 @@ pub fn secrets_reencrypt(
         .try_into()
         .map_err(|_| "new_enc_key must be 32 bytes")?;
     let mut guard = state.inner.lock().unwrap();
-    let inner = guard.as_mut().ok_or(LOCKED_ERR)?;
+    let inner = guard.as_mut().ok_or_else(locked)?;
     inner.enc_key = new_key;
     save(inner)
 }
@@ -373,14 +386,14 @@ pub fn secrets_rekey(
 
     let path = secrets_path(&app);
     let data = if path.exists() {
-        let bytes = std::fs::read(&path).map_err(|e| format!("Read failed: {e}"))?;
+        let bytes = std::fs::read(&path).map_err(read_failed)?;
         decrypt(&old_key, &bytes)?
     } else {
         SecretsData::default()
     };
 
     let mut guard = state.inner.lock().unwrap();
-    let inner = guard.as_mut().ok_or(LOCKED_ERR)?;
+    let inner = guard.as_mut().ok_or_else(locked)?;
     inner.secrets = data.secrets;
     inner.clocks = data.clocks;
     inner.enc_key = new_key;
@@ -449,7 +462,7 @@ fn rename_aside(path: &std::path::Path, now: u128) -> Result<String, AppError> {
         return Err("No vault file to set aside".into());
     }
     let (target, file) = next_backup_path(path, now, false)?;
-    std::fs::rename(path, &target).map_err(|e| format!("Set aside failed: {e}"))?;
+    std::fs::rename(path, &target).map_err(|e| AppError::caused("Set aside failed", &e))?;
     Ok(file)
 }
 
@@ -514,7 +527,7 @@ fn restore_backup_at(
     let source = resolve_backup(path, file)?;
 
     // Staged before anything moves, so a failed read cannot leave the vault gone.
-    let bytes = std::fs::read(&source).map_err(|e| format!("Read failed: {e}"))?;
+    let bytes = std::fs::read(&source).map_err(read_failed)?;
     let tmp = temp_path(path)?;
     stage(&tmp, path, &bytes)?;
 
@@ -541,13 +554,13 @@ fn commit_restore(
             Some((target, file))
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-        Err(e) => return Err(format!("Read failed: {e}").into()),
+        Err(e) => return Err(read_failed(e)),
     };
     if let Err(e) = std::fs::rename(tmp, path) {
         if let Some((target, _)) = &displaced {
             let _ = std::fs::remove_file(target);
         }
-        return Err(format!("Restore failed: {e}").into());
+        return Err(AppError::caused("Restore failed", &e));
     }
     Ok(displaced.map(|(_, file)| file))
 }
@@ -1060,11 +1073,29 @@ mod tests {
         assert_eq!(mode_of(&dir.path().join(set_aside)), 0o600);
     }
 
-    // src/services/vault.ts classifies a locked vault by matching this exact text,
-    // so a rename that does not reach the frontend must fail here.
+    // src/services/vault.ts classifies a locked or unreadable vault by these codes;
+    // the payloads are the ones vault.test.ts feeds it.
     #[test]
-    fn the_locked_error_text_matches_the_frontend() {
-        assert_eq!(LOCKED_ERR, "Secrets store is locked");
+    fn a_locked_store_sends_the_vault_locked_code() {
+        let store = SecretsStore::new();
+        let err = store.get("k").unwrap_err();
+        assert_eq!(
+            serde_json::to_value(&err).unwrap(),
+            serde_json::json!({ "code": "vault-locked", "message": "Secrets store is locked" })
+        );
+    }
+
+    #[test]
+    fn a_wrong_key_sends_the_vault_unreadable_code() {
+        let sealed = encrypt(&[1; 32], b"{}").unwrap();
+        let err = decrypt(&[2; 32], &sealed).err().unwrap();
+        assert_eq!(
+            serde_json::to_value(&err).unwrap(),
+            serde_json::json!({
+                "code": "vault-unreadable",
+                "message": "Decryption failed — wrong key or corrupted file",
+            })
+        );
     }
 
     // backup_paths must not mistake an interrupted write for a restorable backup.

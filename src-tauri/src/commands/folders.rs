@@ -3,6 +3,7 @@ use crate::commands::vault_object::{
     initial_clocks, merge_fields, refile_into_folder, requested_vault, subtree_ids, tombstone,
     vault_object_commands, vaults_of,
 };
+use crate::error::AppError;
 use crate::storage::config::{
     load_connections, load_folders, load_identities, load_keys, load_port_forwarding_rules,
     save_connections, save_folders, save_identities, save_keys, save_port_forwarding_rules, Folder,
@@ -50,7 +51,7 @@ fn build_folder(id: String, data: FolderFormData, now: &str, created_at: Option<
 /// Unlike the sibling entities, a folder stamps `pinned` — it is a synced field
 /// here — and authorizes the destination vault before stamping anything.
 #[tauri::command]
-pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, String> {
+pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, AppError> {
     let mut folders = load_folders()?;
     let folder = find_mut(&mut folders, &id)?;
     let effective = effective_vault(&data.vault_id, &folder.vault_id);
@@ -77,10 +78,10 @@ pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, String>
 /// the top level. That is what undoing a folder *creation* needs: it must not
 /// destroy items the user filed in the folder after creating it.
 #[tauri::command]
-pub fn folder_delete(id: String, cascade: Option<bool>) -> Result<(), String> {
+pub fn folder_delete(id: String, cascade: Option<bool>) -> Result<(), AppError> {
     let mut folders = load_folders()?;
     if !folders.iter().any(|f| f.id == id) {
-        return Err(format!("Folder {} not found", id));
+        return Err(format!("Folder {} not found", id).into());
     }
     let now = Utc::now().to_rfc3339();
     let cascading = cascade.unwrap_or(true);
@@ -124,7 +125,7 @@ pub fn folder_delete(id: String, cascade: Option<bool>) -> Result<(), String> {
     for f in folders.iter_mut().filter(|f| doomed.contains(&f.id)) {
         tombstone(f, &now);
     }
-    save_folders(&folders)
+    Ok(save_folders(&folders)?)
 }
 
 /// Move objects of a given type into a folder (or remove from folder if folder_id is null).
@@ -134,7 +135,7 @@ pub fn folder_move_objects(
     object_ids: Vec<String>,
     object_type: String,
     folder_id: Option<String>,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let now = Utc::now().to_rfc3339();
     match object_type.as_str() {
         "connection" => {
@@ -142,23 +143,23 @@ pub fn folder_move_objects(
             refile_into_folder(&mut items, &object_ids, &folder_id, &now, |c| {
                 &mut c.folder_id
             })?;
-            save_connections(&items)
+            Ok(save_connections(&items)?)
         }
         "identity" => {
             let mut items = load_identities()?;
             refile_into_folder(&mut items, &object_ids, &folder_id, &now, |i| {
                 &mut i.folder_id
             })?;
-            save_identities(&items)
+            Ok(save_identities(&items)?)
         }
         "key" => {
             let mut items = load_keys()?;
             refile_into_folder(&mut items, &object_ids, &folder_id, &now, |k| {
                 &mut k.folder_id
             })?;
-            save_keys(&items)
+            Ok(save_keys(&items)?)
         }
-        _ => Err(format!("Unknown object type: {}", object_type)),
+        _ => Err(format!("Unknown object type: {}", object_type).into()),
     }
 }
 

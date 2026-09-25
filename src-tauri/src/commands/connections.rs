@@ -3,6 +3,7 @@ use crate::commands::vault_object::{
     adopt_into, created_at_of, effective_vault, find_mut, impl_vault_object, requested_vault,
     vault_delete_command, vault_list_command,
 };
+use crate::error::AppError;
 use crate::storage::config::{load_connections, save_connections, Connection, ConnectionFormData};
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
@@ -198,7 +199,7 @@ fn build_connection(
 }
 
 #[tauri::command]
-pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
+pub fn connection_save(data: ConnectionFormData) -> Result<Connection, AppError> {
     let mut connections = load_connections()?;
     let now = Utc::now().to_rfc3339();
     check_vault_write(&requested_vault(&data.vault_id))?;
@@ -218,7 +219,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
 /// Replacing rather than rejecting an existing id keeps a retry after a half-done
 /// migration idempotent.
 #[tauri::command]
-pub fn connection_adopt(id: String, data: ConnectionFormData) -> Result<Connection, String> {
+pub fn connection_adopt(id: String, data: ConnectionFormData) -> Result<Connection, AppError> {
     let mut connections = load_connections()?;
     let now = Utc::now().to_rfc3339();
     check_vault_write(&requested_vault(&data.vault_id))?;
@@ -235,7 +236,7 @@ pub fn connection_adopt(id: String, data: ConnectionFormData) -> Result<Connecti
 }
 
 #[tauri::command]
-pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connection, String> {
+pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connection, AppError> {
     let mut connections = load_connections()?;
     let existing = find_mut(&mut connections, &id)?.clone();
     check_vault_write(&[effective_vault(&data.vault_id, &existing.vault_id)])?;

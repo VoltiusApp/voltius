@@ -4,6 +4,7 @@ use crate::commands::vault_object::{
     find_mut, finish_update, impl_vault_object, initial_clocks, merge_fields, requested_vault,
     retarget_vault, vault_object_commands,
 };
+use crate::error::AppError;
 use crate::storage::config::{load_identities, save_identities, Identity, IdentityFormData};
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
@@ -57,7 +58,7 @@ fn build_identity(
 }
 
 #[tauri::command]
-pub fn identity_update(id: String, data: IdentityFormData) -> Result<Identity, String> {
+pub fn identity_update(id: String, data: IdentityFormData) -> Result<Identity, AppError> {
     let mut identities = load_identities()?;
     let identity = find_mut(&mut identities, &id)?;
     let now = Utc::now().to_rfc3339();

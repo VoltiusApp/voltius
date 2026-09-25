@@ -2,9 +2,9 @@ import { test, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
-  unlockError: null as Error | null,
-  getError: null as Error | null,
-  verifyError: null as Error | null,
+  unlockError: null as unknown,
+  getError: null as unknown,
+  verifyError: null as unknown,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -18,12 +18,13 @@ import {
   quarantineVault,
   unlockVaultIfNeeded,
   verifyVaultKey,
-  SECRETS_LOCKED_MESSAGE,
 } from "./vault";
 import { VaultLockedError, VaultUnreadableError, vaultErrorCode } from "./vaultErrors";
 
 const KEY = [1, 2, 3];
-const WRONG_KEY = new Error("Decryption failed — wrong key or corrupted file");
+// What secrets.rs sends over IPC (its `a_wrong_key_sends_…`/`a_locked_store_sends_…` tests).
+const WRONG_KEY = { code: "vault-unreadable", message: "Decryption failed — wrong key or corrupted file" };
+const LOCKED = { code: "vault-locked", message: "Secrets store is locked" };
 
 function routeInvoke() {
   h.invoke.mockImplementation(async (cmd: string) => {
@@ -81,10 +82,10 @@ test("no vault key installed reports the vault as locked", async () => {
   await expect(getLocalSecret("password:c1")).rejects.toThrow("common.error.vaultLocked");
 });
 
-// Rust answers a locked store with a bare string. Without a code it reaches the
-// generic error panel instead of the one offering to unlock.
+// Without a VaultLockedError, Rust's locked store reaches the generic error panel
+// instead of the one offering to unlock.
 test("a locked store reported by Rust carries the vault-locked code", async () => {
-  h.getError = new Error(SECRETS_LOCKED_MESSAGE);
+  h.getError = LOCKED;
   await expect(getLocalSecret("password:c1")).rejects.toSatisfy(
     (e: unknown) => vaultErrorCode(e) === "vault-locked",
   );
@@ -93,7 +94,7 @@ test("a locked store reported by Rust carries the vault-locked code", async () =
 // The store can only answer "locked" while the module thinks it is unlocked, so
 // that flag has drifted and must not be trusted again.
 test("a locked store clears the unlocked flag so the next read unlocks again", async () => {
-  h.getError = new Error(SECRETS_LOCKED_MESSAGE);
+  h.getError = LOCKED;
   await expect(getLocalSecret("password:c1")).rejects.toThrow(VaultLockedError);
 
   h.getError = null;

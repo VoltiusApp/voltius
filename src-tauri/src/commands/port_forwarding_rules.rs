@@ -5,6 +5,7 @@ use crate::commands::vault_object::{
     find_mut, finish_update, impl_vault_object, initial_clocks, merge_fields, requested_vault,
     retarget_vault, vault_object_commands,
 };
+use crate::error::AppError;
 use crate::storage::config::{
     load_port_forwarding_rules, save_port_forwarding_rules, PortForwardingRule,
     PortForwardingRuleFormData,
@@ -72,7 +73,7 @@ fn build_pf_rule(
 pub fn pf_rule_update(
     id: String,
     data: PortForwardingRuleFormData,
-) -> Result<PortForwardingRule, String> {
+) -> Result<PortForwardingRule, AppError> {
     let mut rules = load_port_forwarding_rules()?;
     let rule = find_mut(&mut rules, &id)?;
     let now = Utc::now().to_rfc3339();
@@ -102,7 +103,7 @@ pub fn pf_rule_update(
 }
 
 #[tauri::command]
-pub fn pf_rule_duplicate(id: String) -> Result<PortForwardingRule, String> {
+pub fn pf_rule_duplicate(id: String) -> Result<PortForwardingRule, AppError> {
     let rules = load_port_forwarding_rules()?;
     let source = rules
         .iter()

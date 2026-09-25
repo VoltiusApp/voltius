@@ -5,6 +5,7 @@ import { listVaultBackups, restoreVaultBackup, type VaultBackup } from "@/servic
 import { formatSize } from "@/components/filetransfer/SFTPTypes";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { formatDateTime } from "@/utils/localeFormat";
+import { describeError } from "@/services/backendErrors";
 
 interface Props {
   /** True when the live vault can be read, so restoring displaces something usable. */
@@ -52,7 +53,7 @@ export function VaultBackups({ currentReadable, hideWhenEmpty, className }: Prop
       });
       window.location.reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(describeError(e, t));
       setConfirming(null);
     } finally {
       setBusy(false);

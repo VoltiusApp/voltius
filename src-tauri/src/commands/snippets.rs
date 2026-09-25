@@ -2,6 +2,7 @@ use crate::commands::vault_object::{
     bump, find_mut, finish_update, impl_vault_object, initial_clocks, merge_fields,
     requested_vault, retarget_vault, subtree_ids, tombstone, vault_object_commands,
 };
+use crate::error::AppError;
 use crate::storage::config::{
     load_snippet_folders, load_snippets, save_snippet_folders, save_snippets, Snippet,
     SnippetFolder, SnippetFolderFormData, SnippetFormData,
@@ -74,7 +75,7 @@ fn build_snippet(
 }
 
 #[tauri::command]
-pub fn snippet_update(id: String, data: SnippetFormData) -> Result<Snippet, String> {
+pub fn snippet_update(id: String, data: SnippetFormData) -> Result<Snippet, AppError> {
     let mut snippets = load_snippets()?;
     let snippet = find_mut(&mut snippets, &id)?;
     let now = Utc::now().to_rfc3339();
@@ -160,10 +161,10 @@ pub fn snippet_folder_update(
 /// Soft-delete a snippet folder, everything nested under it, and every snippet
 /// filed in that subtree.
 #[tauri::command]
-pub fn snippet_folder_delete(id: String) -> Result<(), String> {
+pub fn snippet_folder_delete(id: String) -> Result<(), AppError> {
     let mut folders = load_snippet_folders()?;
     if !folders.iter().any(|f| f.id == id) {
-        return Err(format!("SnippetFolder {} not found", id));
+        return Err(format!("SnippetFolder {} not found", id).into());
     }
     let now = Utc::now().to_rfc3339();
     let doomed = subtree_ids(&folders, &id, |f| f.parent_id.as_deref());
@@ -199,7 +200,7 @@ pub fn snippet_folder_delete(id: String) -> Result<(), String> {
     for f in folders.iter_mut().filter(|f| doomed.contains(&f.id)) {
         tombstone(f, &now);
     }
-    save_snippet_folders(&folders)
+    Ok(save_snippet_folders(&folders)?)
 }
 
 #[cfg(test)]

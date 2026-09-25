@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { describeError } from "@/services/backendErrors";
 import { copyRuleSet, deleteTeamObject, upsertTeamObject, type TeamObjectType } from "@/services/teamObjects";
 import { encodeObjectMetadata } from "@/services/teamObjectEnvelope";
 import { parentIdOf } from "@/services/teamObjectAccess";
@@ -27,7 +28,7 @@ export class RuleSetMoveCancelled extends Error {
 }
 
 export const unlessMoveCancelled = (report: (message: string) => void) => (err: unknown): void => {
-  if (!(err instanceof RuleSetMoveCancelled)) report(String(err));
+  if (!(err instanceof RuleSetMoveCancelled)) report(describeError(err, i18n.t));
 };
 
 type MoveConfirmer = (teamId: string, from: string | null, to: string | null) => Promise<boolean>;

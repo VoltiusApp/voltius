@@ -28,7 +28,7 @@ test("a failure reaches onError instead of rejecting", async () => {
   });
 
   await expect(h.onDropToFolder(["a"], "f1")).resolves.toBeUndefined();
-  expect(onError).toHaveBeenCalledWith("Error: nope");
+  expect(onError).toHaveBeenCalledWith("nope");
 });
 
 test("without onError the failure propagates", async () => {
