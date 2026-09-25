@@ -38,6 +38,7 @@
     "serialFallback": "Série",
     "vaultCard": {
       "hostCount_one": "{{count}} hôte",
+      "hostCount_many": "{{count}} hôtes",
       "hostCount_other": "{{count}} hôtes",
       "empty": "Aucun hôte pour l'instant",
       "more": "+{{count}} de plus"

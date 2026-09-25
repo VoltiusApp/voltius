@@ -16,6 +16,7 @@
     "noRoleAddPrompt": "Aucun rôle · Ajouter →",
     "ownerRoleLabel": "propriétaire",
     "count_one": "{{count}} membre",
+    "count_many": "{{count}} membres",
     "count_other": "{{count}} membres",
     "loading": "Chargement des membres…",
     "noMatch": "Aucun membre ne correspond à « {{search}} »",
@@ -119,6 +120,7 @@
       "joinsAs": "Ils rejoignent en tant que",
       "selectRoleHint": "Sélectionnez au moins un rôle avant d'inviter",
       "expiresIn_one": "Expire demain",
+      "expiresIn_many": "Expire dans {{count}} jours",
       "expiresIn_other": "Expire dans {{count}} jours",
       "expiresToday": "Expire aujourd'hui",
       "expired": "Expirée",
@@ -185,6 +187,7 @@
       "assignRoleBulk": "Attribuer un rôle ({{count}})",
       "removeRoleBulk": "Retirer le rôle ({{count}})",
       "kickBulk_one": "Expulser {{count}} membre",
+      "kickBulk_many": "Expulser {{count}} membres",
       "kickBulk_other": "Expulser {{count}} membres"
     },
     "empty": {
@@ -225,14 +228,18 @@
       "shownOnce": "Un lien n'est affiché qu'une fois, à sa création. Rien ne peut le réafficher.",
       "secretNotRecoverable": "Lien non consultable — révoquez-le et créez-en un nouveau.",
       "usesLeft_one": "{{count}} utilisation restante sur {{max}}",
+      "usesLeft_many": "{{count}} utilisations restantes sur {{max}}",
       "usesLeft_other": "{{count}} utilisations restantes sur {{max}}",
       "expiringNow": "expire maintenant",
       "expiresIn": {
         "minutes_one": "{{count}} min restante",
+        "minutes_many": "{{count}} min restantes",
         "minutes_other": "{{count}} min restantes",
         "hours_one": "{{count}} heure restante",
+        "hours_many": "{{count}} heures restantes",
         "hours_other": "{{count}} heures restantes",
         "days_one": "{{count}} jour restant",
+        "days_many": "{{count}} jours restants",
         "days_other": "{{count}} jours restants"
       },
       "ttl": {
@@ -273,9 +280,11 @@
     "leaveTeam": "Quitter l'équipe",
     "offboarding": {
       "removeTitle_one": "Retirer {{names}} de cette équipe ?",
+      "removeTitle_many": "Retirer {{count}} personnes de cette équipe ?",
       "removeTitle_other": "Retirer {{count}} personnes de cette équipe ?",
       "leaveTitle": "Quitter cette équipe ?",
       "removeConfirm_one": "Retirer",
+      "removeConfirm_many": "Retirer {{count}}",
       "removeConfirm_other": "Retirer {{count}}",
       "leaveConfirm": "Quitter l'équipe",
       "pointAccessEnds": "Leur accès aux hôtes, clés et snippets de ce coffre prend fin immédiatement, sur tous leurs appareils.",

@@ -41,6 +41,7 @@ const translations: Record<string, Record<string, unknown>> = {
   Chinese: load(import.meta.glob("./locales/zh/*.json", { eager: true }) as never),
   Turkish: load(import.meta.glob("./locales/tr/*.json", { eager: true }) as never),
 };
+const LOCALE_CODES: Record<string, string> = { English: "en", French: "fr", Russian: "ru", Chinese: "zh", Turkish: "tr" };
 
 const enBaseKeys = new Set(flatten(en).map(baseKey));
 
@@ -58,6 +59,27 @@ describe.each(Object.entries(translations))("locale key parity — %s", (_name, 
 
   it("has no runaway repeated-word values (machine-translation loops)", () => {
     expect(stringValues(locale).filter((v) => REPEATED_WORD.test(v))).toEqual([]);
+  });
+});
+
+// i18next picks the form with Intl.PluralRules, so a plural key missing one of
+// the locale's CLDR categories silently falls back to English for those counts
+// (Russian 2–4 → _few, 5+ → _many; French 1 000 000 → _many).
+function pluralBases(keys: string[]): Set<string> {
+  return new Set(keys.filter((k) => baseKey(k) !== k).map(baseKey));
+}
+const enPluralBases = pluralBases(flatten(en));
+
+describe.each(Object.entries({ English: en, ...translations }))("plural categories — %s", (name, locale) => {
+  it("has every CLDR plural category for every plural key", () => {
+    const keys = flatten(locale);
+    const have = new Set(keys);
+    const categories = new Intl.PluralRules(LOCALE_CODES[name]).resolvedOptions().pluralCategories;
+    const bases = new Set([...enPluralBases, ...pluralBases(keys)]);
+    const missing = [...bases].flatMap((b) =>
+      categories.filter((c) => !have.has(`${b}_${c}`)).map((c) => `${b}_${c}`),
+    );
+    expect(missing).toEqual([]);
   });
 });
 

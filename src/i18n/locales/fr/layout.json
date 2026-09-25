@@ -190,8 +190,10 @@
       "closeTab": "Fermer l'onglet",
       "stack": {
         "sessions_one": "{{host}} · {{count}} session",
+        "sessions_many": "{{host}} · {{count}} sessions",
         "sessions_other": "{{host}} · {{count}} sessions",
         "count_one": "{{count}} session",
+        "count_many": "{{count}} sessions",
         "count_other": "{{count}} sessions",
         "newSessionOn": "Nouvelle session sur {{host}}",
         "closeAll": "Tout fermer ({{count}})",
@@ -216,6 +218,7 @@
         "pane": "{{index}} · {{name}}",
         "splitApart": "Séparer en onglets",
         "closeTab_one": "Fermer l'onglet ({{count}} session)",
+        "closeTab_many": "Fermer l'onglet ({{count}} sessions)",
         "closeTab_other": "Fermer l'onglet ({{count}} sessions)"
       },
       "plan": {

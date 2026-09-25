@@ -19,6 +19,7 @@
     },
     "varSearch": {
       "usage_one": "{{count}} élément utilise",
+      "usage_many": "{{count}} éléments utilisent",
       "usage_other": "{{count}} éléments utilisent",
       "suffix": "ou cliquez pour fermer"
     },

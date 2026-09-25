@@ -383,11 +383,13 @@
         "additionalSeats": "Postes supplémentaires",
         "seatsTotal": "{{from}} → {{to}} au total",
         "priceRow_one": "{{count}} poste × {{price}} $/mois",
+        "priceRow_many": "{{count}} postes × {{price}} $/mois",
         "priceRow_other": "{{count}} postes × {{price}} $/mois",
         "totalPerMonth": "{{amount}} $/mois",
         "proratedNote": "Facturation au prorata appliquée immédiatement pour la période de facturation en cours.",
         "processing": "Traitement…",
         "buyAndInvite_one": "Acheter {{count}} poste et inviter",
+        "buyAndInvite_many": "Acheter {{count}} postes et inviter",
         "buyAndInvite_other": "Acheter {{count}} postes et inviter",
         "errorNotConnected": "Non connecté au serveur",
         "errorNoSubscription": "Aucun abonnement actif trouvé",
@@ -448,6 +450,7 @@
           "sub": "Les plugins installés peuvent ajouter leurs propres commandes au serveur MCP. Désactivez-en un pour le retirer de la liste d'outils sans le désinstaller.",
           "empty": "Aucun plugin installé n'expose d'outils.",
           "count_one": "{{count}} outil",
+          "count_many": "{{count}} outils",
           "count_other": "{{count}} outils"
         }
       }
@@ -576,6 +579,7 @@
           "title": "Rendre privé",
           "confirmAll": "Retirer tous les membres et rendre privé ?",
           "confirm_one": "Retirer {{count}} membre et rendre privé ?",
+          "confirm_many": "Retirer {{count}} membres et rendre privé ?",
           "confirm_other": "Retirer {{count}} membres et rendre privé ?",
           "converting": "Conversion…",
           "confirmBtn": "Confirmer",
@@ -591,6 +595,7 @@
           "failedToast": "Impossible de terminer la suppression de ce coffre-fort — il est toujours là, mais certains de ses éléments ont peut-être déjà été supprimés. {{reason}}"
         },
         "madePrivateToast_one": "Le coffre-fort est maintenant privé. {{count}} membre a perdu l'accès.",
+        "madePrivateToast_many": "Le coffre-fort est maintenant privé. {{count}} membres ont perdu l'accès.",
         "madePrivateToast_other": "Le coffre-fort est maintenant privé. {{count}} membres ont perdu l'accès.",
         "madePrivateToastEmpty": "Le coffre-fort est maintenant privé."
       },
@@ -653,6 +658,7 @@
         "installed": "Installées ({{count}})",
         "browse": "Parcourir",
         "updateCount_one": "• {{count}} mise à jour",
+        "updateCount_many": "• {{count}} mises à jour",
         "updateCount_other": "• {{count}} mises à jour"
       },
       "installed": {
@@ -991,6 +997,7 @@
       "statusRecording": "Appuyez sur une combinaison de touches… (Échap pour annuler)",
       "statusIdle": "Cliquez sur un raccourci pour le modifier.",
       "result_one": "{{count}} résultat",
+      "result_many": "{{count}} résultats",
       "result_other": "{{count}} résultats",
       "noMatch": "Aucun raccourci ne correspond à « {{query}} »",
       "bindingRecordingTitle": "Appuyez sur une combinaison ou Échap pour annuler",

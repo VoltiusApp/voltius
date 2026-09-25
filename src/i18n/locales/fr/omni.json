@@ -30,6 +30,7 @@
     "resume": "Reprendre",
     "join": "Rejoindre",
     "participantCount_one": "{{count}} personne",
+    "participantCount_many": "{{count}} personnes",
     "participantCount_other": "{{count}} personnes",
     "joinCodePrompt": {
       "title": "Rejoindre avec un code d'invitation...",

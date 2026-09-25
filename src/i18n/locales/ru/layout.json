@@ -192,9 +192,11 @@
         "sessions_one": "{{host}} · {{count}} сеанс",
         "sessions_few": "{{host}} · {{count}} сеанса",
         "sessions_many": "{{host}} · {{count}} сеансов",
+        "sessions_other": "{{host}} · {{count}} сеанса",
         "count_one": "{{count}} сеанс",
         "count_few": "{{count}} сеанса",
         "count_many": "{{count}} сеансов",
+        "count_other": "{{count}} сеанса",
         "newSessionOn": "Новый сеанс на {{host}}",
         "closeAll": "Закрыть все ({{count}})",
         "openInSplit": "Открыть в разделённом виде",
@@ -219,7 +221,8 @@
         "splitApart": "Разделить на вкладки",
         "closeTab_one": "Закрыть вкладку ({{count}} сессия)",
         "closeTab_few": "Закрыть вкладку ({{count}} сессии)",
-        "closeTab_many": "Закрыть вкладку ({{count}} сессий)"
+        "closeTab_many": "Закрыть вкладку ({{count}} сессий)",
+        "closeTab_other": "Закрыть вкладку ({{count}} сессии)"
       },
       "plan": {
         "proTrial": "Pro триал — осталось {{daysLeft}} дн.",
