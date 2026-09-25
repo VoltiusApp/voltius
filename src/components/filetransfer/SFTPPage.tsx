@@ -23,6 +23,7 @@ import { buildPasteDeps, executePaste } from "./pasteService";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sftpConnectToConnection } from "@/services/sftpTarget";
 import { vaultErrorCode } from "@/services/vaultErrors";
+import { useConnectRetry } from "@/hooks/useConnectRetry";
 import {
   type HostChoice, type SidePhase, type FileEntry,
   genId,
@@ -133,21 +134,11 @@ export default function SFTPPage() {
 
   // ── Auto-reconnect on error ────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (leftPhase.tag === "error" && leftPhase.host) {
-      const host = leftPhase.host;
-      const t = setTimeout(() => connectSide(host, "left"), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [leftPhase, connectSide]);
-
-  useEffect(() => {
-    if (rightPhase.tag === "error" && rightPhase.host) {
-      const host = rightPhase.host;
-      const t = setTimeout(() => connectSide(host, "right"), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [rightPhase, connectSide]);
+  const reconnectSide = (side: Side, phase: SidePhase) => () => {
+    if (phase.tag === "error" && phase.host) void connectSide(phase.host, side);
+  };
+  useConnectRetry(leftPhase, reconnectSide("left", leftPhase));
+  useConnectRetry(rightPhase, reconnectSide("right", rightPhase));
 
   // ── Detect remote connection loss via Rust sftp-closed event ──────────────
 

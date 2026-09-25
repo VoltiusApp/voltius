@@ -13,12 +13,13 @@ export function stopsRetrying(msg?: string, code?: VaultErrorCode): boolean {
 
 // Wrong credentials stay wrong; retrying them only gets the host banned by fail2ban/sshguard.
 function isAuthRejected(msg?: string): boolean {
-  return !!msg && /authentication rejected|No usable authentication method|can't be answered automatically|requires a new password/.test(msg);
+  return !!msg && /authentication rejected|No usable authentication method|can't be answered automatically|requires a new password|FTP login failed/.test(msg);
 }
 
-// Retrying would re-open the host-key prompt the user just turned down.
+// Retrying would re-open the host-key prompt the user just turned down, or, where
+// there is no prompt (standalone SFTP), meet the same changed key again.
 function isHostKeyRejected(msg?: string): boolean {
-  return !!msg?.includes("Connection aborted by user.");
+  return !!msg && (msg.includes("Connection aborted by user.") || msg.includes("Host key changed for"));
 }
 
 export function isSessionEnded(msg?: string): boolean {
@@ -42,6 +43,14 @@ export const CATCH_UP_DELAYS_MS: readonly number[] = [300, 2000, 5000];
 
 export function retryDelay(step: number): number {
   return FAST_DELAYS_MS[step] ?? SLOW_RETRY_MS;
+}
+
+/** Wait before auto-retry number `attempt` of a connect that failed with msg/code,
+ *  or null to stop and leave the error up: nothing a retry can fix, or the fast
+ *  schedule is spent. For connects with no session behind them (the SFTP panes). */
+export function connectRetryDelay(attempt: number, msg?: string, code?: VaultErrorCode): number | null {
+  if (stopsRetrying(msg, code)) return null;
+  return FAST_DELAYS_MS[attempt] ?? null;
 }
 
 export type SessionStatus = "connected" | "connecting" | "disconnected" | "error" | undefined;
