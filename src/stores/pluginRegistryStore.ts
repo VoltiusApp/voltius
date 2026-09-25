@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
+import { touchAppSetting } from "./appSettingsTimestampStore";
 
 type Overrides = Record<string, boolean>;
 
@@ -29,7 +29,7 @@ export const usePluginRegistryStore = create<PluginRegistryStore>((set, get) => 
   setEnabled: async (id, enabled) => {
     const overrides = { ...get().overrides, [id]: enabled };
     set({ overrides });
-    useAppSettingsTimestampStore.getState().touch();
+    touchAppSetting("appSettings.plugins.overrides");
     await invoke("plugin_registry_save", { overrides }).catch(() => {});
   },
 
