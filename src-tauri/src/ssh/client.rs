@@ -453,13 +453,33 @@ const PASSWORD_WORDS: &[&str] = &[
     "密码",
     "heslo",
 ];
-const NEW_PASSWORD_WORDS: &[&str] = &[
-    "new ", "retype", "again", "confirm", "neu", "nouveau", "нов", "yeni", "新", "nové",
+// PAM's expired-password flow re-asks the current password before the new one.
+const PASSWORD_CHANGE_WORDS: &[&str] = &[
+    "new ",
+    "retype",
+    "again",
+    "confirm",
+    "current",
+    "change",
+    "expired",
+    "neu",
+    "aktuell",
+    "nouveau",
+    "actuel",
+    "нов",
+    "текущ",
+    "смен",
+    "yeni",
+    "mevcut",
+    "新",
+    "当前",
+    "nové",
+    "současné",
 ];
 
 enum PromptKind {
     Password,
-    NewPassword,
+    PasswordChange,
     Other,
 }
 
@@ -467,8 +487,8 @@ fn classify_prompt(p: &Prompt) -> PromptKind {
     let text = p.prompt.to_lowercase();
     if p.echo || !PASSWORD_WORDS.iter().any(|w| text.contains(w)) {
         PromptKind::Other
-    } else if NEW_PASSWORD_WORDS.iter().any(|w| text.contains(w)) {
-        PromptKind::NewPassword
+    } else if PASSWORD_CHANGE_WORDS.iter().any(|w| text.contains(w)) {
+        PromptKind::PasswordChange
     } else {
         PromptKind::Password
     }
@@ -487,7 +507,7 @@ fn answer_prompts(
                 "The server asked \"{}\", which can't be answered automatically.",
                 p.prompt.trim()
             )),
-            PromptKind::NewPassword => Err(PASSWORD_EXPIRED.into()),
+            PromptKind::PasswordChange => Err(PASSWORD_EXPIRED.into()),
             PromptKind::Password if std::mem::replace(sent, true) => Err(KBD_INT_REJECTED.into()),
             PromptKind::Password => Ok(password.to_owned()),
         })
@@ -1261,7 +1281,6 @@ mod tests {
         for text in [
             "Password:",
             "Password for root@fbsd:",
-            "(current) UNIX password:",
             "Parola:",
             "Mot de passe :",
             "Пароль:",
@@ -1272,6 +1291,9 @@ mod tests {
             assert_eq!(got, Ok(vec![SECRET.to_string()]), "{text}");
         }
         for text in [
+            "You are required to change your password immediately (administrator enforced).\n\
+             Changing password for bob.\nCurrent password: ",
+            "(current) UNIX password:",
             "New password:",
             "Retype new password:",
             "Nouveau mot de passe :",
