@@ -110,7 +110,7 @@ pub trait FileBackend: Send + Sync {
             }
             // Remote paths are always POSIX, whatever the host runs.
             let name = p.trim_end_matches('/').rsplit('/').next().unwrap_or(p);
-            let local = Path::new(local_dir).join(name);
+            let local = Path::new(local_dir).join(checked_remote_name(name, true)?);
             let local_str = local.to_string_lossy();
             let is_dir = self.stat(p).await?.unwrap_or(false);
             if is_dir {
@@ -128,5 +128,73 @@ pub trait FileBackend: Send + Sync {
     /// None for transports that don't speak real SFTP.
     fn as_sftp_session(&self) -> Option<Arc<Mutex<SftpSession>>> {
         None
+    }
+}
+
+/// A file name from a server listing, checked to be one plain path component
+/// before it is joined onto a destination folder. The server picks these
+/// names, so `..`, a separator, or a Windows drive would otherwise write
+/// outside the folder the user chose. `local` says the folder is on this
+/// machine, so its platform's rules apply; otherwise it is a POSIX remote.
+pub fn checked_remote_name(name: &str, local: bool) -> Result<&str, String> {
+    if is_plain_name(name, local && cfg!(windows)) {
+        Ok(name)
+    } else {
+        Err(format!(
+            "Refusing unsafe file name from the server: {name:?}"
+        ))
+    }
+}
+
+/// `windows` adds what Windows reads into a name: `\` separates, `C:` is a
+/// drive, and trailing dots and spaces are dropped, so `.. ` means `..`.
+fn is_plain_name(name: &str, windows: bool) -> bool {
+    let dots_only = if windows {
+        name.trim_end_matches(['.', ' ']).is_empty()
+    } else {
+        name.is_empty() || name == "." || name == ".."
+    };
+    let bad_char = |c: char| c == '/' || c == '\0' || (windows && (c == '\\' || c == ':'));
+    !dots_only && !name.contains(bad_char)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_plain_name;
+
+    #[test]
+    fn plain_names_pass_everywhere() {
+        for name in ["file.txt", ".bashrc", "a..b", "name with spaces", "ünïcode"] {
+            assert!(is_plain_name(name, false), "{name}");
+            assert!(is_plain_name(name, true), "{name}");
+        }
+    }
+
+    #[test]
+    fn traversal_is_refused_everywhere() {
+        for name in ["", ".", "..", "../x", "a/b", "/etc/passwd", "a\0b"] {
+            assert!(!is_plain_name(name, false), "{name:?}");
+            assert!(!is_plain_name(name, true), "{name:?}");
+        }
+    }
+
+    #[test]
+    fn windows_separators_and_drives_are_refused_on_windows_only() {
+        for name in [
+            "..\\x",
+            "a\\b",
+            "C:\\Windows",
+            "C:x",
+            "\\\\srv\\share",
+            "...",
+            ".. ",
+            "stream:x",
+        ] {
+            assert!(!is_plain_name(name, true), "{name:?}");
+        }
+        // Legal, and harmless, POSIX names.
+        for name in ["a\\b", "10:30.log", "..."] {
+            assert!(is_plain_name(name, false), "{name:?}");
+        }
     }
 }
