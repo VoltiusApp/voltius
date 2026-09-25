@@ -1,0 +1,28 @@
+{
+  "errors": {
+    "permission-denied": "Permission refusée",
+    "not-found": "Fichier ou dossier introuvable",
+    "already-exists": "Un fichier ou dossier porte déjà ce nom",
+    "storage-full": "Espace disque ou quota insuffisant",
+    "read-only-filesystem": "Le système de fichiers est en lecture seule",
+    "connection-refused": "L'hôte a refusé la connexion — vérifiez l'adresse, le port et que le service est bien lancé",
+    "host-unreachable": "Hôte injoignable — vérifiez l'adresse et votre connexion réseau",
+    "timed-out": "L'opération a expiré",
+    "connection-lost": "La connexion a été perdue",
+    "port-in-use": "Le port {{port}} et les suivants sont déjà utilisés ({{attempts}} essayés)",
+    "remote-forward-denied": "Le serveur a refusé la redirection distante — le port y est peut-être déjà utilisé, ou la redirection n'est pas autorisée",
+    "ssh-key-rejected": "Authentification par clé publique refusée",
+    "ssh-password-rejected": "Authentification par mot de passe refusée — vérifiez le nom d'utilisateur et le mot de passe",
+    "ssh-password-expired": "Le serveur exige un nouveau mot de passe — connectez-vous une fois depuis un terminal pour le changer",
+    "ssh-prompt-unanswerable": "Le serveur a demandé « {{prompt}} », une question à laquelle il est impossible de répondre automatiquement",
+    "ssh-no-usable-auth-method": "Aucune méthode d'authentification utilisable — le serveur n'accepte que : {{methods}}",
+    "ssh-auth-timeout": "L'authentification a expiré après {{seconds}} s — le serveur a accepté la connexion mais n'a jamais répondu. Certains anciens serveurs SSH bloquent à cette étape ; essayez l'option « Algorithmes hérités » de l'hôte, ou une autre méthode d'authentification.",
+    "vault-locked": "$t(common.error.vaultLocked)",
+    "vault-unreadable": "$t(common.error.vaultUnreadable)",
+    "vault-sign-in-required": "Les coffres d'équipe nécessitent une connexion active au serveur. Connectez-vous pour continuer.",
+    "vault-read-only": "Vous n'avez pas le droit d'écriture sur ce coffre. Demandez à un gestionnaire du coffre un rôle qui permet de le modifier.",
+    "vault-role-read-only": "Vous n'avez pas le droit d'écriture sur ce coffre (votre rôle : {{role}}). Seuls les propriétaires, gestionnaires et éditeurs peuvent le modifier.",
+    "vault-permissions-unavailable": "Impossible de vérifier les permissions du coffre, le trousseau est indisponible. Réessayez.",
+    "vault-permissions-corrupted": "Les données de permissions du coffre sont corrompues. Reconnectez-vous pour actualiser vos accès."
+  }
+}

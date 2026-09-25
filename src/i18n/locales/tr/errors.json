@@ -1,0 +1,28 @@
+{
+  "errors": {
+    "permission-denied": "İzin reddedildi",
+    "not-found": "Böyle bir dosya veya klasör yok",
+    "already-exists": "Bu adda bir dosya veya klasör zaten var",
+    "storage-full": "Yeterli disk alanı veya kota kalmadı",
+    "read-only-filesystem": "Dosya sistemi salt okunur",
+    "connection-refused": "Sunucu bağlantıyı reddetti — adresi ve portu, ayrıca hizmetin çalıştığını kontrol edin",
+    "host-unreachable": "Sunucuya ulaşılamıyor — adresi ve ağ bağlantınızı kontrol edin",
+    "timed-out": "İşlem zaman aşımına uğradı",
+    "connection-lost": "Bağlantı koptu",
+    "port-in-use": "{{port}} portu ve sonrakiler zaten kullanımda ({{attempts}} port denendi)",
+    "remote-forward-denied": "Sunucu uzak yönlendirmeyi reddetti — port orada zaten kullanımda olabilir ya da yönlendirmeye izin verilmiyor olabilir",
+    "ssh-key-rejected": "Açık anahtar kimlik doğrulaması reddedildi",
+    "ssh-password-rejected": "Parola kimlik doğrulaması reddedildi — kullanıcı adını ve parolayı kontrol edin",
+    "ssh-password-expired": "Sunucu yeni bir parola istiyor — bir kez terminalden giriş yapıp parolayı orada değiştirin",
+    "ssh-prompt-unanswerable": "Sunucu \"{{prompt}}\" diye sordu; bu soru otomatik olarak yanıtlanamaz",
+    "ssh-no-usable-auth-method": "Kullanılabilir kimlik doğrulama yöntemi yok — sunucu yalnızca şunları kabul ediyor: {{methods}}",
+    "ssh-auth-timeout": "Kimlik doğrulama {{seconds}} sn sonra zaman aşımına uğradı — sunucu bağlantıyı kabul etti ama hiç yanıt vermedi. Bazı eski SSH sunucuları bu adımda takılır; sunucunun \"Eski algoritmalar\" seçeneğini ya da başka bir kimlik doğrulama yöntemini deneyin.",
+    "vault-locked": "$t(common.error.vaultLocked)",
+    "vault-unreadable": "$t(common.error.vaultUnreadable)",
+    "vault-sign-in-required": "Ekip kasaları etkin bir sunucu bağlantısı gerektirir. Devam etmek için oturum açın.",
+    "vault-read-only": "Bu kasaya yazma izniniz yok. Değişiklik yapabilen bir rol için bir kasa yöneticisine başvurun.",
+    "vault-role-read-only": "Bu kasaya yazma izniniz yok (rolünüz: {{role}}). Yalnızca sahipler, yöneticiler ve düzenleyiciler değişiklik yapabilir.",
+    "vault-permissions-unavailable": "Anahtar zinciri kullanılamadığı için kasa izinleri doğrulanamadı. Tekrar deneyin.",
+    "vault-permissions-corrupted": "Kasa izin verileri bozuk. Erişimi yenilemek için tekrar oturum açın."
+  }
+}

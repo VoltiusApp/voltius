@@ -1,0 +1,28 @@
+{
+  "errors": {
+    "permission-denied": "Permission denied",
+    "not-found": "No such file or directory",
+    "already-exists": "A file or folder with that name already exists",
+    "storage-full": "Not enough disk space or quota left",
+    "read-only-filesystem": "The file system is read-only",
+    "connection-refused": "The host refused the connection — check the address and port, and that the service is running",
+    "host-unreachable": "The host is unreachable — check the address and your network connection",
+    "timed-out": "Operation timed out",
+    "connection-lost": "The connection was lost",
+    "port-in-use": "Port {{port}} and the ports after it are already in use ({{attempts}} tried)",
+    "remote-forward-denied": "The server refused the remote forward — the port may already be in use there, or forwarding is not allowed",
+    "ssh-key-rejected": "Public key authentication rejected",
+    "ssh-password-rejected": "Password authentication rejected — check the username and password",
+    "ssh-password-expired": "The server requires a new password — sign in once from a terminal and change it there",
+    "ssh-prompt-unanswerable": "The server asked \"{{prompt}}\", which can't be answered automatically",
+    "ssh-no-usable-auth-method": "No usable authentication method — the server only accepts: {{methods}}",
+    "ssh-auth-timeout": "Authentication timed out after {{seconds}}s — the server accepted the connection but never answered. Some older SSH servers stall here; try the host's \"Legacy Algorithms\" option, or another authentication method.",
+    "vault-locked": "$t(common.error.vaultLocked)",
+    "vault-unreadable": "$t(common.error.vaultUnreadable)",
+    "vault-sign-in-required": "Team vaults require an active server connection. Sign in to continue.",
+    "vault-read-only": "You don't have write access to this vault. Ask a vault manager for a role that can make changes.",
+    "vault-role-read-only": "You don't have write access to this vault (your role: {{role}}). Only owners, managers, and editors can make changes.",
+    "vault-permissions-unavailable": "Unable to verify vault permissions because the keychain is unavailable. Try again.",
+    "vault-permissions-corrupted": "Vault permission data is corrupted. Sign in again to refresh access."
+  }
+}

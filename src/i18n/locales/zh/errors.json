@@ -1,0 +1,28 @@
+{
+  "errors": {
+    "permission-denied": "权限被拒绝",
+    "not-found": "文件或目录不存在",
+    "already-exists": "同名的文件或文件夹已存在",
+    "storage-full": "磁盘空间或配额不足",
+    "read-only-filesystem": "文件系统为只读",
+    "connection-refused": "主机拒绝了连接——请检查地址和端口，并确认服务正在运行",
+    "host-unreachable": "主机无法访问——请检查地址和网络连接",
+    "timed-out": "操作超时",
+    "connection-lost": "连接已断开",
+    "port-in-use": "端口 {{port}} 及其后续端口均已被占用（已尝试 {{attempts}} 个）",
+    "remote-forward-denied": "服务器拒绝了远程转发——该端口可能已在服务器上被占用，或不允许转发",
+    "ssh-key-rejected": "公钥认证被拒绝",
+    "ssh-password-rejected": "密码认证被拒绝——请检查用户名和密码",
+    "ssh-password-expired": "服务器要求设置新密码——请先从终端登录一次并在那里修改密码",
+    "ssh-prompt-unanswerable": "服务器询问“{{prompt}}”，无法自动回答",
+    "ssh-no-usable-auth-method": "没有可用的认证方式——服务器仅接受：{{methods}}",
+    "ssh-auth-timeout": "认证在 {{seconds}} 秒后超时——服务器接受了连接但始终没有响应。一些较旧的 SSH 服务器会卡在这一步；请尝试主机的“传统算法”选项，或换用其他认证方式。",
+    "vault-locked": "$t(common.error.vaultLocked)",
+    "vault-unreadable": "$t(common.error.vaultUnreadable)",
+    "vault-sign-in-required": "团队保险库需要与服务器保持连接。请登录以继续。",
+    "vault-read-only": "您没有此保险库的写入权限。请向保险库管理员申请可以进行修改的角色。",
+    "vault-role-read-only": "您没有此保险库的写入权限（您的角色：{{role}}）。只有所有者、管理员和编辑者可以进行修改。",
+    "vault-permissions-unavailable": "钥匙串不可用，无法验证保险库权限。请重试。",
+    "vault-permissions-corrupted": "保险库权限数据已损坏。请重新登录以刷新访问权限。"
+  }
+}
