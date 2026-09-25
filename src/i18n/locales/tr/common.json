@@ -237,6 +237,14 @@
       "minutesAgo": "{{count}} dk önce",
       "hoursAgo": "{{count}} sa önce",
       "daysAgo": "{{count}} gün önce"
+    },
+    "history": {
+      "movedItems_one": "{{count}} öğe taşındı",
+      "movedItems_other": "{{count}} öğe taşındı",
+      "pastedItems_one": "{{count}} öğe yapıştırıldı",
+      "pastedItems_other": "{{count}} öğe yapıştırıldı",
+      "movedToFolder_one": "{{count}} öğe klasöre taşındı",
+      "movedToFolder_other": "{{count}} öğe klasöre taşındı"
     }
   }
 }

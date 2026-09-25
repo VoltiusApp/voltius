@@ -2,9 +2,10 @@
   "snippets": {
     "sequence": {
       "summary": {
-        "success": "Kod parçacığı {{count}} hedefte çalıştırıldı",
         "partial": "{{count}} başarılı — {{details}}",
-        "failed": "başarısız"
+        "failed": "başarısız",
+        "success_one": "Kod parçacığı {{count}} hedefte çalıştırıldı",
+        "success_other": "Kod parçacığı {{count}} hedefte çalıştırıldı"
       },
       "connectFailed": "terminal oturumu açılamadı",
       "flatten": {

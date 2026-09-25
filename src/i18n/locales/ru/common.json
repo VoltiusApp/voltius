@@ -263,6 +263,20 @@
       "minutesAgo": "{{count}} мин. назад",
       "hoursAgo": "{{count}} ч назад",
       "daysAgo": "{{count}} дн. назад"
+    },
+    "history": {
+      "movedItems_one": "Перемещён {{count}} элемент",
+      "movedItems_few": "Перемещено {{count}} элемента",
+      "movedItems_many": "Перемещено {{count}} элементов",
+      "movedItems_other": "Перемещено {{count}} элемента",
+      "pastedItems_one": "Вставлен {{count}} элемент",
+      "pastedItems_few": "Вставлено {{count}} элемента",
+      "pastedItems_many": "Вставлено {{count}} элементов",
+      "pastedItems_other": "Вставлено {{count}} элемента",
+      "movedToFolder_one": "{{count}} элемент перемещён в папку",
+      "movedToFolder_few": "{{count}} элемента перемещены в папку",
+      "movedToFolder_many": "{{count}} элементов перемещено в папку",
+      "movedToFolder_other": "{{count}} элемента перемещено в папку"
     }
   }
 }

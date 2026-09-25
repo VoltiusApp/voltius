@@ -64,9 +64,11 @@
     },
     "sequence": {
       "summary": {
-        "success": "Snippet exécuté sur {{count}} cible(s)",
         "partial": "{{count}} ok — {{details}}",
-        "failed": "échec"
+        "failed": "échec",
+        "success_one": "Snippet exécuté sur {{count}} cible",
+        "success_many": "Snippet exécuté sur {{count}} cibles",
+        "success_other": "Snippet exécuté sur {{count}} cibles"
       },
       "connectFailed": "impossible d'ouvrir une session terminal",
       "flatten": {

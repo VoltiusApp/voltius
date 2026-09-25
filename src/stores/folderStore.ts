@@ -6,6 +6,7 @@ import { isServerMode } from "@/services/account";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
+import i18n from "@/i18n";
 import { pushCreateHistory } from "@/stores/recreateHistory";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
@@ -353,7 +354,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     }
 
     useHistoryStore.getState().push({
-      label: `Moved ${objectIds.length} ${objectType}(s) to folder`,
+      label: i18n.t("common.history.movedToFolder", { count: objectIds.length }),
       undo: async () => {
         const groups = new Map<string | null, string[]>();
         prevFolderIds.forEach((prevId, oid) => {

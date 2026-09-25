@@ -232,6 +232,11 @@
       "minutesAgo": "{{count}} 分钟前",
       "hoursAgo": "{{count}} 小时前",
       "daysAgo": "{{count}} 天前"
+    },
+    "history": {
+      "movedItems_other": "已移动 {{count}} 个项目",
+      "pastedItems_other": "已粘贴 {{count}} 个项目",
+      "movedToFolder_other": "已将 {{count}} 个项目移至文件夹"
     }
   }
 }

@@ -61,9 +61,9 @@
     },
     "sequence": {
       "summary": {
-        "success": "代码片段已在 {{count}} 个目标上运行",
         "partial": "{{count}} 个成功——{{details}}",
-        "failed": "失败"
+        "failed": "失败",
+        "success_other": "代码片段已在 {{count}} 个目标上运行"
       },
       "connectFailed": "无法打开终端会话",
       "flatten": {
