@@ -9,7 +9,6 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
-use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -86,17 +85,14 @@ pub(crate) async fn sftp_upload_dir_inner(
         pump_chunks(
             app,
             &mut local_file,
-            &mut remote_file,
+            &mut *remote_file,
             transfer_id,
             token,
             &mut transferred,
             total,
         )
         .await?;
-        remote_file
-            .shutdown()
-            .await
-            .map_err(|e| format!("Flush error: {e}"))?;
+        remote_file.close().await?;
     }
     Ok(())
 }
@@ -138,7 +134,7 @@ pub(crate) async fn sftp_download_dir_inner(
 
         pump_chunks(
             app,
-            &mut remote_file,
+            &mut *remote_file,
             &mut local_file,
             transfer_id,
             token,
@@ -146,13 +142,7 @@ pub(crate) async fn sftp_download_dir_inner(
             total,
         )
         .await?;
-        // Properly close the remote handle. `File`'s `Drop` uses a fire-and-forget
-        // close that never decrements russh-sftp's client-side open-handle counter,
-        // so dropping thousands of files (e.g. node_modules) hits "handle limit reached".
-        remote_file
-            .shutdown()
-            .await
-            .map_err(|e| format!("Close error: {e}"))?;
+        remote_file.close().await?;
     }
     Ok(())
 }

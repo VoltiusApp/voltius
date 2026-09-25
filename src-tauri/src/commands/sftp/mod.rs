@@ -1,8 +1,10 @@
 use crate::sftp::{FileBackend, SftpManager};
+use russh_sftp::client::fs::File;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
 use serde::Serialize;
 use std::future::Future;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -125,18 +127,79 @@ macro_rules! backend_transfer_command {
 
 pub(super) use backend_transfer_command;
 
+/// An open remote file that is always closed with `shutdown()`.
+///
+/// russh-sftp's `File` drop sends a close without waiting for the reply, so the
+/// session's open-handle count is never decremented; against a server that
+/// advertises `limits@openssh.com` (OpenSSH 9.x), every open then fails with
+/// "handle limit reached" once enough files have been dropped. `close` shuts the
+/// file down and reports why it couldn't (a write's errors only surface there);
+/// a file dropped unclosed — an early return, a cancelled transfer — is shut
+/// down in the background instead.
+pub(crate) struct SftpFile {
+    file: Option<File>,
+    /// Prefix of `close`'s error: "Flush error" for a write, "Close error" for a read.
+    close_error: &'static str,
+}
+
+impl SftpFile {
+    pub(crate) fn new(file: File, close_error: &'static str) -> Self {
+        Self {
+            file: Some(file),
+            close_error,
+        }
+    }
+
+    pub(crate) async fn close(mut self) -> Result<(), String> {
+        let closed = self.shutdown().await;
+        if closed.is_ok() {
+            // Shut down: nothing left for `Drop` to do.
+            self.file = None;
+        }
+        closed.map_err(|e| format!("{}: {e}", self.close_error))
+    }
+}
+
+impl Deref for SftpFile {
+    type Target = File;
+    fn deref(&self) -> &File {
+        self.file.as_ref().expect("SftpFile used after close")
+    }
+}
+
+impl DerefMut for SftpFile {
+    fn deref_mut(&mut self) -> &mut File {
+        self.file.as_mut().expect("SftpFile used after close")
+    }
+}
+
+impl Drop for SftpFile {
+    fn drop(&mut self) {
+        let Some(mut file) = self.file.take() else {
+            return;
+        };
+        // Outside a runtime there is nothing to await on: `File`'s own drop is the fallback.
+        if let Ok(rt) = tokio::runtime::Handle::try_current() {
+            rt.spawn(async move {
+                let _ = file.shutdown().await;
+            });
+        }
+    }
+}
+
 /// Open a remote file for writing (create + truncate), holding the session lock
 /// for the open alone.
 pub(super) async fn open_remote_write(
     session: &Mutex<SftpSession>,
     path: &str,
-) -> Result<russh_sftp::client::fs::File, String> {
+) -> Result<SftpFile, String> {
     let sftp = session.lock().await;
     sftp.open_with_flags(
         path,
         OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
     )
     .await
+    .map(|f| SftpFile::new(f, "Flush error"))
     .map_err(|e| format!("Cannot create remote file {path}: {e}"))
 }
 
@@ -145,14 +208,14 @@ pub(super) async fn open_remote_write(
 pub(super) async fn open_remote_read(
     session: &Mutex<SftpSession>,
     path: &str,
-) -> Result<(u64, russh_sftp::client::fs::File), String> {
+) -> Result<(u64, SftpFile), String> {
     let sftp = session.lock().await;
     let total = remote_size(&sftp, path).await;
     let file = sftp
         .open(path)
         .await
         .map_err(|e| format!("Cannot open remote file {path}: {e}"))?;
-    Ok((total, file))
+    Ok((total, SftpFile::new(file, "Close error")))
 }
 
 pub(super) async fn remote_size(sftp: &SftpSession, path: &str) -> u64 {

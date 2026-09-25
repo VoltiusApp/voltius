@@ -4,7 +4,7 @@
 
 use crate::commands::sftp::dir::{sftp_download_dir_inner, sftp_upload_dir_inner};
 use crate::commands::sftp::transfer::{sftp_download_inner, sftp_upload_inner};
-use crate::commands::sftp::RemoteFile;
+use crate::commands::sftp::{RemoteFile, SftpFile};
 use crate::sftp::backend::FileBackend;
 use crate::ssh::client::SshClient;
 use crate::ssh::live_cells::read_cell;
@@ -175,7 +175,8 @@ impl FileBackend for RealSftp {
 
     async fn touch(&self, path: &str) -> Result<(), String> {
         let flags = OpenFlags::CREATE | OpenFlags::WRITE | OpenFlags::TRUNCATE;
-        retry_sftp!(self, "touch", |s| s.open_with_flags(path, flags)).map(|_| ())
+        let file = retry_sftp!(self, "touch", |s| s.open_with_flags(path, flags))?;
+        SftpFile::new(file, "touch failed").close().await
     }
 
     async fn rename(&self, from: &str, to: &str) -> Result<(), String> {
@@ -194,24 +195,27 @@ impl FileBackend for RealSftp {
     }
 
     async fn read_file(&self, path: &str) -> Result<Vec<u8>, String> {
-        let mut file = retry_sftp!(self, "open", |s| s.open(path))?;
+        let file = retry_sftp!(self, "open", |s| s.open(path))?;
+        let mut file = SftpFile::new(file, "Close error");
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)
             .await
             .map_err(|e| format!("read failed: {e}"))?;
+        file.close().await?;
         Ok(buf)
     }
 
     async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
         let flags = OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE;
-        let mut file = retry_sftp!(self, "open for write", |s| s.open_with_flags(path, flags))?;
+        let file = retry_sftp!(self, "open for write", |s| s.open_with_flags(path, flags))?;
+        let mut file = SftpFile::new(file, "close failed");
         file.write_all(content.as_bytes())
             .await
             .map_err(|e| format!("write failed: {e}"))?;
         file.flush()
             .await
             .map_err(|e| format!("flush failed: {e}"))?;
-        Ok(())
+        file.close().await
     }
 
     async fn upload_file(
