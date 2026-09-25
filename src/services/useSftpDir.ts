@@ -4,11 +4,10 @@ import i18n from "@/i18n";
 import {
   ftpConnect, sftpClose, sftpCanonicalize, sftpListDir,
   sftpMkdir, sftpRename, sftpDelete, sftpTouch,
-  type RemoteFile,
 } from "@/services/sftp";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sftpConnectToConnection } from "@/services/sftpTarget";
-import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
+import { type FileEntry, genId, mapRemote } from "@/components/filetransfer/SFTPTypes";
 import { vaultErrorCode, type VaultErrorCode } from "@/services/vaultErrors";
 import { useConnectRetry } from "@/hooks/useConnectRetry";
 import type { Connection } from "@/types";
@@ -32,18 +31,6 @@ export function breadcrumbs(path: string): { name: string; path: string }[] {
   let acc = "";
   for (const p of parts) { acc += "/" + p; out.push({ name: p, path: acc }); }
   return out;
-}
-
-function mapRemote(f: RemoteFile): FileEntry {
-  return {
-    name: f.name,
-    path: f.path,
-    size: f.size,
-    isDir: f.is_dir,
-    modified: f.modified ?? undefined,
-    permissions: f.permissions ?? undefined,
-    isSymlink: f.is_symlink,
-  };
 }
 
 /** Standalone remote SFTP browser for one Connection: own SSH/SFTP connection, cwd nav,
