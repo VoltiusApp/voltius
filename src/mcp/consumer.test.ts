@@ -10,6 +10,7 @@ import { buildMonitoringMcpTools } from "@/plugins/monitoring/mcpTools";
 import { buildProcessMcpTools } from "@/plugins/process-manager/mcpTools";
 import { register as registerSshConfig, manifest as sshConfigManifest } from "@/plugins/ssh-config";
 import type { PluginAPI } from "@/plugins/api";
+import { createI18nAPI } from "@/plugins/domains/i18n";
 
 const api = () => ({
   connections: { list: vi.fn().mockResolvedValue([{ id: "c1", name: "Prod", host: "h1", team: true }]) },
@@ -88,6 +89,7 @@ describe("MCP consumer", () => {
       ui: { registerSettingsPage: vi.fn(() => () => {}) },
       lifecycle: { waitForLoginSync: vi.fn(() => Promise.resolve()) },
       log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      i18n: createI18nAPI(),
       mcp: { registerTools: (tools: Parameters<typeof registerContributions>[1]) => registerContributions(sshConfigManifest.id, tools) },
     } as unknown as PluginAPI;
     const cleanupSshConfig = registerSshConfig(sshConfigApi);
