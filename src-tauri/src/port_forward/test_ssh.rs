@@ -138,21 +138,26 @@ where
     port
 }
 
-/// Serve one connection offering only `server_preferred`, and complete the key exchange with it.
-pub async fn connect_to_server(
-    client_config: russh::client::Config,
-    server_preferred: russh::Preferred,
-    behavior: Behavior,
-) -> Result<russh::client::Handle<TestClient>, russh::Error> {
-    let port = serve_one(
+/// Serve one connection offering only `server_preferred`, and return the port —
+/// for callers that need to reach the listener without `russh::client::connect`.
+pub async fn spawn_server(server_preferred: russh::Preferred, behavior: Behavior) -> u16 {
+    serve_one(
         russh::server::Config {
             preferred: server_preferred,
             ..Default::default()
         },
         TestServer { behavior },
     )
-    .await;
+    .await
+}
 
+/// Serve one connection offering only `server_preferred`, and complete the key exchange with it.
+pub async fn connect_to_server(
+    client_config: russh::client::Config,
+    server_preferred: russh::Preferred,
+    behavior: Behavior,
+) -> Result<russh::client::Handle<TestClient>, russh::Error> {
+    let port = spawn_server(server_preferred, behavior).await;
     russh::client::connect(Arc::new(client_config), ("127.0.0.1", port), TestClient).await
 }
 
