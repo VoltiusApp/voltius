@@ -21,6 +21,52 @@ const okJson = (body: unknown) => ({ ok: true, status: 200, json: async () => bo
 const notFound = { ok: false, status: 404, json: async () => ({}) };
 const emptyEntityFiles = () => Object.fromEntries(ENTITY_FILES.map((f) => [f, "[]"]));
 
+/**
+ * One remote device ("remote-1") whose blob decrypts to `remoteFiles`, against
+ * a local disk holding `localFiles`. Records what the sync round writes.
+ */
+function serveRemoteDevice(remoteFiles: Record<string, string>, localFiles: Record<string, string> = {}) {
+  const served = {
+    settingsSaves: [] as string[],
+    stateImports: [] as Array<{ files: Record<string, string> }>,
+  };
+  h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+    switch (cmd) {
+      case "keychain_get":
+        if (args?.key === "server_url") return "https://sync.example.com";
+        if (args?.key === "jwt") return jwt(3600);
+        if (args?.key === "account_id") return "account-1";
+        return null;
+      case "backup_export":
+        return [];
+      case "backup_decrypt":
+        return { files: { ...emptyEntityFiles(), ...remoteFiles }, secrets: {}, secret_clocks: {} };
+      case "settings_save":
+        served.settingsSaves.push(args?.state as string);
+        return undefined;
+      case "state_export_raw":
+        return { files: { ...emptyEntityFiles(), ...localFiles }, secrets: {}, secret_clocks: {} };
+      case "state_import":
+        served.stateImports.push(args as { files: Record<string, string> });
+        return undefined;
+      default:
+        // The store reloads after a write list from disk.
+        return cmd.endsWith("_list") ? [] : null;
+    }
+  });
+
+  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/v1/teams")) return notFound;
+    if (url.endsWith("/v1/sync/devices")) {
+      return okJson({ devices: [{ device_id: "remote-1", metadata: {}, updated_at: "2030-01-01T00:00:00.000Z" }] });
+    }
+    if (url.includes("/v1/sync/blob?device_id=remote-1")) return okJson({ blob: btoa("x") });
+    if (url.endsWith("/v1/sync/blob") && init?.method === "PUT") return okJson({});
+    return notFound;
+  });
+  return served;
+}
+
 beforeEach(() => {
   h.invoke.mockReset();
   h.appFetch.mockReset();
@@ -47,50 +93,15 @@ test("a synced pull writes the raw merge to settings.json but restores this devi
     },
   };
 
-  let savedState: string | null = null;
-
-  h.invoke.mockImplementation(async (cmd: string, args?: { key?: string; state?: string }) => {
-    switch (cmd) {
-      case "keychain_get":
-        if (args?.key === "server_url") return "https://sync.example.com";
-        if (args?.key === "jwt") return jwt(3600);
-        return null;
-      case "secrets_unlock":
-        return undefined;
-      case "backup_decrypt":
-        return {
-          files: { "settings.json": JSON.stringify(remoteBundle), ...emptyEntityFiles() },
-          secrets: {},
-          secret_clocks: {},
-        };
-      case "settings_load":
-        return null;
-      case "settings_save":
-        savedState = args?.state ?? null;
-        return undefined;
-      case "state_export_raw":
-        return { files: emptyEntityFiles(), secrets: {}, secret_clocks: {} };
-      default:
-        return null;
-    }
-  });
-
-  h.appFetch.mockImplementation(async (url: string) => {
-    if (url.endsWith("/v1/teams")) return notFound;
-    if (url.endsWith("/v1/sync/devices")) {
-      return okJson({ devices: [{ device_id: "remote-1", metadata: {}, updated_at: "2030-01-01T00:00:00.000Z" }] });
-    }
-    if (url.includes("/v1/sync/blob?device_id=remote-1")) return okJson({ blob: btoa("x") });
-    return notFound;
-  });
+  const served = serveRemoteDevice({ "settings.json": JSON.stringify(remoteBundle) });
 
   // This device holds preferredShell back — the device-scoped default.
   useSyncPrefsStore.getState().setSettingSync("appSettings.terminal.preferredShell", false);
 
   await syncNow();
 
-  expect(savedState).not.toBeNull();
-  const disk = JSON.parse(savedState as unknown as string);
+  expect(served.settingsSaves).toHaveLength(1);
+  const disk = JSON.parse(served.settingsSaves[0]);
   expect(disk.sections.appSettings.data.terminal.preferredShell).toBe("/bin/zsh");
 
   expect(useTerminalSettingsStore.getState().preferredShell).toBe("/usr/bin/fish");
@@ -117,4 +128,28 @@ test("the status reports success as soon as the work ends, while calls during th
 
   await syncNow();
   expect(deviceListings).toBe(2);
+});
+
+test("a remote rename older than a local last-used touch is still written to disk", async () => {
+  // The remote device renamed the host at 10:00; this one opened it at 10:01.
+  // The merged host's newest clock is still the local 10:01.
+  const local = {
+    id: "c1", name: "orig", last_used_at: "2030-01-01T10:01:00.000Z", updated_at: "2030-01-01T10:01:00.000Z",
+    clocks: { name: "2030-01-01T09:00:00.000Z", last_used_at: "2030-01-01T10:01:00.000Z" },
+  };
+  const remote = {
+    id: "c1", name: "renamed", last_used_at: null, updated_at: "2030-01-01T10:00:00.000Z",
+    clocks: { name: "2030-01-01T10:00:00.000Z" },
+  };
+  const served = serveRemoteDevice(
+    { "connections.json": JSON.stringify([remote]) },
+    { "connections.json": JSON.stringify([local]) },
+  );
+
+  await syncNow();
+
+  expect(served.stateImports).toHaveLength(1);
+  const [written] = JSON.parse(served.stateImports[0].files["connections.json"]);
+  expect(written.name).toBe("renamed");
+  expect(written.last_used_at).toBe(local.last_used_at);
 });

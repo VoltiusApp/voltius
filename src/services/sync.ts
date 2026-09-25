@@ -16,7 +16,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
-import { mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
+import { entitiesDiffer, mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
 import { filterRemoteExcluded, collectExcludedIds } from "./syncExclusion";
 import { GLOBAL_PROXY_SECRET_ID } from "@/services/teamVaultSecretKeys";
 import { filterIncoming, filterOutgoing, restoreLocal } from "@/services/user-data/syncFilter";
@@ -473,77 +473,86 @@ async function completeTeamLoginSetup(): Promise<void> {
   await onTeamLogin();
 }
 
-/**
- * Fetch a remote device's blob, decrypt it, CRDT-merge with local state, and write to disk.
- * Returns true if remote had data newer than local (i.e. local state actually changed).
- * Errors for individual devices are swallowed so one offline device doesn't abort the sync.
- */
-async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) return false;
+/** A merge result: every entity file and both secret maps present. */
+export type MergedPayload = Required<BlobPayload>;
 
+function parseEntities(json: string | undefined): TimestampedEntity[] {
+  try { return JSON.parse(json ?? "[]"); }
+  catch { return []; }
+}
+
+/**
+ * Merge one remote payload into `base`: per-field LWW for every entity file,
+ * per-secret LWW for secrets (issue #35). The result carries ENTITY_FILES
+ * only — the files `state_import` writes. Shared by every pull path (server
+ * pull, sign-in replace, plugin import) so they can't drift apart.
+ */
+export function mergeBlobPayload(base: BlobPayload, remote: BlobPayload): MergedPayload {
+  const files: Record<string, string> = {};
+  for (const file of ENTITY_FILES) {
+    files[file] = JSON.stringify(mergeEntities(parseEntities(base.files[file]), parseEntities(remote.files[file])));
+  }
+  const { secrets, clocks } = mergeSecrets(
+    base.secrets ?? {},
+    base.secret_clocks ?? {},
+    remote.secrets ?? {},
+    remote.secret_clocks ?? {},
+  );
+  return { files, secrets, secret_clocks: clocks };
+}
+
+/** Write a merge result to disk. The stores still need reloading afterwards. */
+export async function importMergedPayload(merged: MergedPayload): Promise<void> {
+  await invoke("state_import", { files: merged.files, secrets: merged.secrets, secretClocks: merged.secret_clocks });
+}
+
+/**
+ * Fetch a remote device's blob, decrypt it and drop this device's sync-excluded
+ * objects from it, then apply the parts that aren't entity files (settings,
+ * live sessions). Null when the device has no blob or can't be reached.
+ */
+async function pullRemotePayload(serverUrl: string, remoteDeviceId: string): Promise<BlobPayload | null> {
   const res = await fetchWithAuth(
     `${serverUrl}/v1/sync/blob?device_id=${encodeURIComponent(remoteDeviceId)}`,
     { method: "GET" },
   );
-  if (res.status === 404) return false; // remote device has no blob yet
-  if (!res.ok) return false; // skip unreachable devices
+  if (res.status === 404) return null; // remote device has no blob yet
+  if (!res.ok) return null; // skip unreachable devices
 
   const { blob: blobB64 } = await res.json();
-  const blobBytes = base64ToByteArray(blobB64);
-
-  const rawRemotePayload = await decryptBlobWithFallback(blobBytes);
   const remotePayload = filterRemoteExcluded(
-    rawRemotePayload,
+    await decryptBlobWithFallback(base64ToByteArray(blobB64)),
     getExcludedObjectIds(),
     ENTITY_FILES,
   );
 
   await applyRemoteSettings(remotePayload);
   applyRemoteLiveSessions(remoteDeviceId, remotePayload);
+  return remotePayload;
+}
+
+/**
+ * Fetch a remote device's blob, decrypt it, CRDT-merge with local state, and write to disk.
+ * Returns true if the merge changed local state.
+ * Errors for individual devices are swallowed so one offline device doesn't abort the sync.
+ */
+async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) return false;
+
+  const remotePayload = await pullRemotePayload(serverUrl, remoteDeviceId);
+  if (!remotePayload) return false;
 
   const localPayload = await invoke<BlobPayload>("state_export_raw");
+  const merged = mergeBlobPayload(localPayload, remotePayload);
 
-  const parse = (payload: BlobPayload, file: string): TimestampedEntity[] => {
-    try { return JSON.parse(payload.files[file] ?? "[]"); }
-    catch { return []; }
-  };
-
-  const mergedFiles: Record<string, string> = {};
-  let anyChange = false;
-  for (const file of ENTITY_FILES) {
-    const local = parse(localPayload, file);
-    const remote = parse(remotePayload, file);
-    const merged = mergeEntities(local, remote);
-    mergedFiles[file] = JSON.stringify(merged);
-    // Detect change: different count, or any entity with a newer clock from remote
-    if (merged.length !== local.length) {
-      anyChange = true;
-    } else {
-      const localById = new Map(local.map((e) => [e.id, e]));
-      for (const m of merged) {
-        const l = localById.get(m.id);
-        if (!l || m.updated_at > l.updated_at) { anyChange = true; break; }
-      }
-    }
-  }
-
-  const localSecrets = localPayload.secrets ?? {};
-  const secretMerge = mergeSecrets(
-    localSecrets,
-    localPayload.secret_clocks ?? {},
-    remotePayload.secrets ?? {},
-    remotePayload.secret_clocks ?? {},
-  );
-  if (!anyChange && secretsDiffer(localSecrets, secretMerge.secrets)) anyChange = true;
-
+  const anyChange =
+    ENTITY_FILES.some((file) =>
+      entitiesDiffer(parseEntities(localPayload.files[file]), parseEntities(merged.files[file])),
+    ) || secretsDiffer(localPayload.secrets ?? {}, merged.secrets);
   if (!anyChange) return false; // remote had nothing new — skip write
 
-  await invoke("state_import", {
-    files: mergedFiles,
-    secrets: secretMerge.secrets,
-    secretClocks: secretMerge.clocks,
-  });
+  await importMergedPayload(merged);
   return true;
 }
 
@@ -649,52 +658,20 @@ export async function syncOnLoginReplace(): Promise<void> {
     if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
     const devices = await listDevices();
-    const excludedIds = getExcludedObjectIds();
 
     // Accumulate remote state starting from empty — local disk never touched
-    let mergedFiles: Record<string, string> = Object.fromEntries(
-      ENTITY_FILES.map((f) => [f, "[]"]),
-    );
-    let mergedSecrets: Record<string, string> = {};
-    let mergedSecretClocks: Record<string, string> = {};
+    let merged: MergedPayload = {
+      files: Object.fromEntries(ENTITY_FILES.map((f) => [f, "[]"])),
+      secrets: {},
+      secret_clocks: {},
+    };
 
     let decryptFailures = 0;
     for (const device of devices) {
       try {
-        const res = await fetchWithAuth(
-          `${serverUrl}/v1/sync/blob?device_id=${encodeURIComponent(device.device_id)}`,
-          { method: "GET" },
-        );
-        if (res.status === 404 || !res.ok) continue;
-
-        const { blob: blobB64 } = await res.json();
-        const blobBytes = base64ToByteArray(blobB64);
-        const remotePayload = filterRemoteExcluded(
-          await decryptBlobWithFallback(blobBytes),
-          excludedIds,
-          ENTITY_FILES,
-        );
-
-        await applyRemoteSettings(remotePayload);
-        applyRemoteLiveSessions(device.device_id, remotePayload);
-
-        const newFiles: Record<string, string> = {};
-        for (const file of ENTITY_FILES) {
-          const parse = (s: string): TimestampedEntity[] => { try { return JSON.parse(s); } catch { return []; } };
-          newFiles[file] = JSON.stringify(
-            mergeEntities(parse(mergedFiles[file]), parse(remotePayload.files[file] ?? "[]")),
-          );
-        }
-        // Per-secret LWW merge: freshest write across devices wins (issue #35).
-        const secretMerge = mergeSecrets(
-          mergedSecrets,
-          mergedSecretClocks,
-          remotePayload.secrets ?? {},
-          remotePayload.secret_clocks ?? {},
-        );
-        mergedSecrets = secretMerge.secrets;
-        mergedSecretClocks = secretMerge.clocks;
-        mergedFiles = newFiles;
+        const remotePayload = await pullRemotePayload(serverUrl, device.device_id);
+        if (!remotePayload) continue;
+        merged = mergeBlobPayload(merged, remotePayload);
       } catch (e) {
         if (e instanceof BlobDecryptError) {
           decryptFailures++;
@@ -709,7 +686,7 @@ export async function syncOnLoginReplace(): Promise<void> {
       console.debug(`[sync] login pull: ${decryptFailures} device blob(s) could not be decrypted with any key`);
     }
 
-    await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets, secretClocks: mergedSecretClocks });
+    await importMergedPayload(merged);
     await reloadAllStores();
     await push();
     await completeTeamLoginSetup();

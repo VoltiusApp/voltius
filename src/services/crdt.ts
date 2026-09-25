@@ -92,6 +92,36 @@ export function mergeEntities<T extends TimestampedEntity>(local: T[], remote: T
   return [...map.values()];
 }
 
+function entityDiffers<T extends TimestampedEntity>(a: T, b: T): boolean {
+  const fields = new Set([...Object.keys(a.clocks), ...Object.keys(b.clocks)]);
+  for (const field of fields) {
+    if (a.clocks[field] !== b.clocks[field]) return true;
+    const key = field === "__deleted__" ? "deleted_at" : field;
+    const valueA = (a as Record<string, unknown>)[key];
+    const valueB = (b as Record<string, unknown>)[key];
+    if (serialised(valueA) !== serialised(valueB)) return true;
+  }
+  return false;
+}
+
+/**
+ * True if `merged` — the result of merging something into `base` — differs
+ * from `base`: an entity added, or any clocked field, clock or deletion changed.
+ *
+ * Deliberately not a comparison of `updated_at`: that is the newest clock, and
+ * a remote field can win while being older than it (B renames at 10:00, A
+ * touches last_used_at at 10:01), so the merge changes the entity without
+ * moving its max timestamp.
+ */
+export function entitiesDiffer<T extends TimestampedEntity>(base: T[], merged: T[]): boolean {
+  if (base.length !== merged.length) return true;
+  const baseById = new Map(base.map((e) => [e.id, e]));
+  return merged.some((m) => {
+    const b = baseById.get(m.id);
+    return !b || entityDiffers(b, m);
+  });
+}
+
 /**
  * Filter out tombstones for UI display.
  * An entity is alive if never deleted, or revived (updated_at > deleted_at).
