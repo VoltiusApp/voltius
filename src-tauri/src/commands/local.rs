@@ -138,37 +138,36 @@ pub async fn local_list_shells() -> Vec<ShellOption> {
 
     #[cfg(not(windows))]
     {
-        let mut seen = std::collections::HashSet::new();
+        use crate::local::flatpak;
 
-        // Current $SHELL first
-        if let Ok(shell) = std::env::var("SHELL") {
-            let name = std::path::Path::new(&shell)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("shell")
-                .to_string();
-            seen.insert(shell.clone());
-            shells.push(ShellOption { name, path: shell });
-        }
-
-        // Common shells
-        for path in &[
+        const COMMON: [&str; 5] = [
             "/bin/zsh",
             "/bin/bash",
             "/bin/fish",
             "/usr/bin/fish",
             "/usr/local/bin/fish",
-        ] {
-            if std::path::Path::new(path).exists() && seen.insert(path.to_string()) {
-                let name = std::path::Path::new(path)
+        ];
+        let (login, installed) = if flatpak::spawns_on_host() {
+            let host = flatpak::probe_host_shells(&COMMON);
+            (host.login, host.installed)
+        } else {
+            let installed = COMMON
+                .iter()
+                .filter(|p| std::path::Path::new(p).exists())
+                .map(|p| p.to_string())
+                .collect();
+            (std::env::var("SHELL").ok(), installed)
+        };
+
+        let mut seen = std::collections::HashSet::new();
+        for path in login.into_iter().chain(installed) {
+            if seen.insert(path.clone()) {
+                let name = std::path::Path::new(&path)
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("shell")
                     .to_string();
-                shells.push(ShellOption {
-                    name,
-                    path: path.to_string(),
-                });
+                shells.push(ShellOption { name, path });
             }
         }
     }
