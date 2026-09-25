@@ -98,35 +98,18 @@ pub async fn connect<S: AsyncRead + AsyncWrite + Unpin>(
     port: u16,
     auth: Option<(&str, &str)>,
 ) -> Result<PrefixedStream<S>, ProxyError> {
+    let io_err = |source: io::Error| ProxyError::Unreachable {
+        proxy: proxy.clone(),
+        source,
+    };
     stream
         .write_all(connect_request(host, port, auth).as_bytes())
         .await
-        .map_err(|source| {
-            if matches!(
-                source.kind(),
-                io::ErrorKind::BrokenPipe | io::ErrorKind::ConnectionReset
-            ) {
-                ProxyError::Protocol {
-                    proxy: proxy.clone(),
-                    detail: "closed before reading reply".into(),
-                }
-            } else {
-                ProxyError::Unreachable {
-                    proxy: proxy.clone(),
-                    source,
-                }
-            }
-        })?;
+        .map_err(io_err)?;
     let mut buf = Vec::with_capacity(1024);
     let mut chunk = [0u8; 1024];
     loop {
-        let n = stream
-            .read(&mut chunk)
-            .await
-            .map_err(|source| ProxyError::Protocol {
-                proxy: proxy.clone(),
-                detail: format!("read error: {source}"),
-            })?;
+        let n = stream.read(&mut chunk).await.map_err(io_err)?;
         if n == 0 {
             return Err(ProxyError::Protocol {
                 proxy,
@@ -240,11 +223,63 @@ mod tests {
 
     #[tokio::test]
     async fn http_connect_eof_before_reply_is_protocol_error() {
-        let (client, server) = duplex(64);
-        drop(server);
+        let (client, mut server) = duplex(4096);
+        tokio::spawn(async move {
+            let mut buf = [0u8; 512];
+            let _ = server.read(&mut buf).await;
+        });
         let err = connect(client, "p:8080".into(), "t", 22, None)
             .await
             .unwrap_err();
         assert!(matches!(err, ProxyError::Protocol { .. }), "{err}");
+    }
+
+    #[derive(Debug)]
+    struct ErrorStream;
+
+    impl AsyncRead for ErrorStream {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+            _buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::ConnectionReset,
+                "connection reset",
+            )))
+        }
+    }
+
+    impl AsyncWrite for ErrorStream {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(buf.len()))
+        }
+
+        fn poll_flush(
+            self: Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+        ) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(
+            self: Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+        ) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    #[tokio::test]
+    async fn http_connect_read_error_is_unreachable_and_transient() {
+        let err = connect(ErrorStream, "p:8080".into(), "t", 22, None)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ProxyError::Unreachable { .. }), "{err}");
+        assert!(err.is_transient());
     }
 }
