@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Connection } from "@/types";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { clearRememberedVars } from "@/stores/hostCommandVarsStore";
+import type { HostFormSecrets } from "@/services/hostForm";
 import {
   useVaultObjectFormShell,
   type VaultObjectFormShell,
@@ -18,9 +19,7 @@ export interface ConnectionFormProps {
   initial?: Connection;
   onSubmit: (
     data: import("@/types").ConnectionFormData,
-    password: string | null,
-    privateKey: string | null,
-    passphrase: string | null,
+    secrets: HostFormSecrets,
   ) => void | Promise<void>;
   onClose: () => void;
   onDuplicate?: () => void;

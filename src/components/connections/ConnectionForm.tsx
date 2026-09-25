@@ -195,9 +195,12 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
           ftp_secure: ftpSecure,
           notes: normalizeNotes(notes),
         } as ConnectionFormData,
-        password: passwordDirty.current ? password : null,
-        privateKey: null,
-        passphrase: null,
+        secrets: {
+          password: passwordDirty.current ? password : null,
+          privateKey: null,
+          passphrase: null,
+          proxyPassword: null,
+        },
       };
     }
     let submitUsername = username;
@@ -236,14 +239,17 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         persist_session: persistSession === "" ? undefined : persistSession === "on",
         notes: normalizeNotes(notes),
       } as ConnectionFormData,
-      password: passwordDirty.current ? password : null,
-      privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
-      passphrase: (!identityId && !keyId && passphraseDirty.current) ? passphrase : null,
+      secrets: {
+        password: passwordDirty.current ? password : null,
+        privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
+        passphrase: (!identityId && !keyId && passphraseDirty.current) ? passphrase : null,
+        proxyPassword: null,
+      },
     };
   };
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
-    onSave: () => { const { data, password: pwd, privateKey: pk, passphrase: pp } = buildSubmit(); return onSubmit(data, pwd, pk, pp) ?? undefined; },
+    onSave: () => { const { data, secrets } = buildSubmit(); return onSubmit(data, secrets) ?? undefined; },
     canSave: () => !!host.trim() && (port === "" || (port >= 1 && port <= 65535)),
   });
   const markDirty = useCallback(() => { userEditedRef.current = true; _markDirty(); }, [_markDirty]);

@@ -41,6 +41,7 @@ import {
   bytesToBase64,
   parseTeamVaultBlobFiles,
 } from "@/services/teamVaultSyncCore";
+import { connectionSecretKeys } from "@/services/teamVaultSecretKeys";
 
 export type { TeamMember };
 
@@ -735,7 +736,7 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[
   const keys = teamOnly(useKeyStore.getState().teamKeys[teamId] ?? []);
   const identities = teamOnly(useIdentityStore.getState().teamIdentities[teamId] ?? []);
   const failedKeys = await deleteSecrets([
-    ...conns.flatMap((c) => [`key:${c.id}`, `password:${c.id}`, `passphrase:${c.id}`]),
+    ...conns.flatMap((c) => connectionSecretKeys(c.id)),
     ...keys.flatMap((k) => [`key:${k.id}:private`, `key:${k.id}:public`, `key:${k.id}:passphrase`]),
     ...identities.map((i) => `identity:${i.id}:password`),
   ]);

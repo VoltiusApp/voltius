@@ -7,7 +7,7 @@ import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
-import { duplicateConnection } from "@/services/connectionDuplicate";
+import { duplicateConnection, copyConnectionSecrets } from "@/services/connectionDuplicate";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -68,7 +68,7 @@ import {
   withdrawOrWarn,
 } from "@/services/vaultObjectSecrets";
 import { transferConnectionSecrets } from "@/services/vaultSecrets";
-import { saveHostFromForm } from "@/services/hostForm";
+import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
@@ -576,9 +576,9 @@ export default function HostsPage() {
     ];
   }, [t, selectedIdSet, selectedConnections, selectedFolders, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect, openSnippetPicker, vaultOptions, connections, identities, keys, scopedFolders]);
 
-  const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => {
+  const handleSubmit = async (data: ConnectionFormData, secrets: HostFormSecrets) => {
     try {
-      const saved = await saveHostFromForm(editing, data, password, privateKey, passphrase, selectedVaultIds[0] ?? "personal");
+      const saved = await saveHostFromForm(editing, data, secrets, selectedVaultIds[0] ?? "personal");
       if (!editing && saved) setEditingId(saved.id);
     } catch (err) {
       setError(String(err));
@@ -678,18 +678,7 @@ export default function HostsPage() {
             vault_id: vaultId,
           });
           if (newConn) {
-            const pwd = await getSecret(`password:${conn.id}`);
-            if (pwd) {
-              await storeSecret(`password:${newConn.id}`, pwd);
-              await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
-            }
-            if (!conn.key_id) {
-              const k = await getSecret(`key:${conn.id}`);
-              if (k) {
-                await storeSecret(`key:${newConn.id}`, k);
-                await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
-              }
-            }
+            await copyConnectionSecrets(conn.id, newConn.id, vaultId, { copyKey: !conn.key_id, publish: "direct" });
           }
         } catch (err) { setError(String(err)); }
       },
@@ -829,18 +818,7 @@ export default function HostsPage() {
             const newKeyId = conn.key_id ? (keyIdMap.get(conn.key_id) ?? conn.key_id) : undefined;
             const newConn = await saveConnection({ name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: [...conn.tags], identity_id: newIdentityId, key_id: newKeyId, folder_id: newFolderId, vault_id: vaultId });
             if (newConn) {
-              const pwd = await getSecret(`password:${conn.id}`);
-              if (pwd) {
-                await storeSecret(`password:${newConn.id}`, pwd);
-                await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
-              }
-              if (!conn.key_id) {
-                const k = await getSecret(`key:${conn.id}`);
-                if (k) {
-                  await storeSecret(`key:${newConn.id}`, k);
-                  await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
-                }
-              }
+              await copyConnectionSecrets(conn.id, newConn.id, vaultId, { copyKey: !conn.key_id, publish: "direct" });
             }
           }
         } catch (err) { setError(String(err)); }

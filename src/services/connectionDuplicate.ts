@@ -2,6 +2,8 @@ import type { Connection, ConnectionFormData } from "@/types";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { getSecret, storeSecret } from "@/services/vault";
 import { publishConnectionSecrets } from "@/services/vaultObjectSecrets";
+import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 
 export interface DuplicateConnectionOpts {
   vaultId?: string;
@@ -10,8 +12,45 @@ export interface DuplicateConnectionOpts {
   keyId?: string;
 }
 
-// Shared by HostsPage's duplicate action and the plugin object-copy path —
-// add any new per-host secret (e.g. a future proxy password) here, once.
+export interface CopyConnectionSecretsOpts {
+  copyKey: boolean;
+  // "grouped": store locally then let publishConnectionSecrets re-publish everything at once
+  // (duplicateConnection). "direct": publish each copied secret to the team vault as it's copied.
+  publish: "grouped" | "direct";
+  swallowFetchErrors?: boolean;
+}
+
+async function copySecretIfPresent(
+  localKeyFor: (id: string) => string,
+  fromId: string,
+  toId: string,
+  vaultId: string,
+  direct: boolean,
+  swallowFetchErrors: boolean,
+): Promise<void> {
+  const fetch = getSecret(localKeyFor(fromId));
+  const value = swallowFetchErrors ? await fetch.catch(() => null) : await fetch;
+  if (!value) return;
+  await storeSecret(localKeyFor(toId), value);
+  if (direct) await saveTeamVaultSecretForVault(vaultId, localKeyFor(toId), value).catch(() => {});
+}
+
+// Shared by HostsPage's duplicate/copy-to-vault actions and the plugin object-copy
+// path — add any new per-host secret here, once.
+export async function copyConnectionSecrets(
+  fromId: string,
+  toId: string,
+  vaultId: string,
+  opts: CopyConnectionSecretsOpts,
+): Promise<void> {
+  const direct = opts.publish === "direct";
+  const swallow = opts.swallowFetchErrors ?? false;
+  await copySecretIfPresent((id) => `password:${id}`, fromId, toId, vaultId, direct, swallow);
+  if (opts.copyKey) await copySecretIfPresent((id) => `key:${id}`, fromId, toId, vaultId, direct, swallow);
+  await copySecretIfPresent(proxyPasswordKey, fromId, toId, vaultId, direct, swallow);
+  if (opts.publish === "grouped") await publishConnectionSecrets(toId, vaultId);
+}
+
 export async function duplicateConnection(
   conn: Connection,
   folderId: string | null,
@@ -28,13 +67,11 @@ export async function duplicateConnection(
     vault_id: vaultId,
   });
   if (conn.connection_type !== "serial") {
-    const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
-    if (pwd) await storeSecret(`password:${created.id}`, pwd);
-    if (!conn.key_id) {
-      const key = await getSecret(`key:${conn.id}`).catch(() => null);
-      if (key) await storeSecret(`key:${created.id}`, key);
-    }
-    await publishConnectionSecrets(created.id, vaultId);
+    await copyConnectionSecrets(conn.id, created.id, vaultId, {
+      copyKey: !conn.key_id,
+      publish: "grouped",
+      swallowFetchErrors: true,
+    });
   }
   return created;
 }

@@ -45,6 +45,7 @@ test("publish covers every local key an object owns, and skips the ones with no 
     "password:c1",
     "key:c1",
     "passphrase:c1",
+    "proxy_password:c1",
   ]);
 
   h.save.mockClear();
@@ -65,6 +66,7 @@ test("unpublish withdraws every local key without reading it", async () => {
     ["v1", "password:c1"],
     ["v1", "key:c1"],
     ["v1", "passphrase:c1"],
+    ["v1", "proxy_password:c1"],
   ]);
   expect(h.getSecret).not.toHaveBeenCalled();
 
