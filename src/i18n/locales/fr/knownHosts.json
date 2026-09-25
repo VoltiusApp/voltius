@@ -9,6 +9,7 @@
       "emptyState": "Aucun hôte connu pour l'instant — ils apparaissent lorsque vous vous connectez à un serveur",
       "confirmDelete": {
         "title_one": "Supprimer l'hôte connu ?",
+        "title_many": "Supprimer {{count}} hôtes connus ?",
         "title_other": "Supprimer {{count}} hôtes connus ?",
         "message": "Cela supprimera la ou les empreintes de confiance. La prochaine connexion à ces hôtes sera traitée comme nouvelle."
       }

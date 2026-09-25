@@ -16,6 +16,7 @@
       "enableCloudSync": "Activer la synchronisation cloud",
       "deleteFolder": "Supprimer le dossier",
       "itemCount_one": "{{count}} élément",
+      "itemCount_many": "{{count}} éléments",
       "itemCount_other": "{{count}} éléments"
     },
     "editPanel": {
