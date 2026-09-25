@@ -8,6 +8,7 @@ import { transferItem } from "@/services/sftpTransferCore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { tarUsable } from "./tarSupport";
 import { joinPath } from "./moveTargetCore";
+import { localPathForRemoteName } from "./remoteName";
 import { type FileEntry } from "./SFTPTypes";
 
 export type UploadTarget = {
@@ -81,12 +82,12 @@ export async function downloadToLocal(files: FileEntry[], sftpId: string, localD
   }
 
   for (const file of files) {
-    await runTransfer(file.name, "←", (tid) => transferItem({
+    await runTransfer(file.name, "←", async (tid) => transferItem({
       from: "remote",
       to: "local",
       srcSftpId: sftpId,
       srcPath: file.path,
-      dstPath: joinPath(localDir, file.name),
+      dstPath: await localPathForRemoteName(localDir, file.name),
       isDir: file.isDir,
       useTar,
       transferId: tid,

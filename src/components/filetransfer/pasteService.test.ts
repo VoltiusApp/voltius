@@ -8,6 +8,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 
 vi.mock("@/services/sftpTransferCore", () => ({ transferItem: vi.fn(async () => {}) }));
 vi.mock("./tarSupport", () => ({ tarUsableForPair: vi.fn(async () => false) }));
+vi.mock("@/utils/platform", () => ({ getPlatform: async () => "windows" }));
 vi.mock("@/services/sftp", () => ({
   fsExists: vi.fn(async () => false), sftpExists: vi.fn(async () => false),
   fsRename: vi.fn(async () => {}), sftpRename: vi.fn(async () => {}),
@@ -159,6 +160,12 @@ describe("buildPasteDeps", () => {
     expect(toast.severity).toBe("error");
     expect(toast.message).toContain("x.txt, y.txt");
     expect(toast.message).toContain("Permission denied");
+  });
+
+  it("refuses to paste a server name that escapes the local folder", async () => {
+    const evil = { ...file("/a/x"), name: "..\\..\\x" };
+    await expect(copyOne(remote("s1", "/a"), local("C:\\b"), evil)).rejects.toThrow("Refusing unsafe file name");
+    expect(transferItem).not.toHaveBeenCalled();
   });
 
   it("never flags a single file as accelerated", async () => {

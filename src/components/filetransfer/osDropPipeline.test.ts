@@ -3,12 +3,15 @@ import type { FileEntry } from "./SFTPTypes";
 
 const m = vi.hoisted(() => ({
   tar: false,
+  platform: "linux",
+  failures: [] as string[],
   sftpUploadBatchTar: vi.fn(async (_a: unknown) => {}),
   sftpDownloadBatchTar: vi.fn(async (_a: unknown) => {}),
   transferItem: vi.fn(async (_a: unknown) => {}),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@/utils/platform", () => ({ getPlatform: async () => m.platform }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/sftp", () => ({
   sftpUploadBatchTar: m.sftpUploadBatchTar,
@@ -21,7 +24,9 @@ vi.mock("./tarSupport", () => ({ tarUsable: vi.fn(async () => m.tar) }));
 vi.mock("@/stores/transferQueueStore", () => ({
   useTransferQueueStore: {
     getState: () => ({
-      runTransfer: async (_label: string, _dir: string, fn: (tid: string) => Promise<void>) => fn("t1"),
+      // Like the real queue: a failed transfer becomes an error row, not a rejection.
+      runTransfer: async (_label: string, _dir: string, fn: (tid: string) => Promise<void>) =>
+        fn("t1").catch((e: unknown) => { m.failures.push(String(e)); }),
       setPending: vi.fn(),
     }),
   },
@@ -36,6 +41,8 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 beforeEach(() => {
   vi.clearAllMocks();
   m.tar = false;
+  m.platform = "linux";
+  m.failures = [];
 });
 
 // "C:" alone is the drive's current directory, not its root: trimming the
@@ -51,6 +58,22 @@ describe("downloadToLocal", () => {
     await downloadToLocal([entry("/r/a.txt"), entry("/r/dir", true)], "s1", "C:\\");
     expect(m.transferItem.mock.calls.map(([a]) => (a as { dstPath: string }).dstPath)).toEqual(["C:\\a.txt", "C:\\dir"]);
     expect(m.transferItem).toHaveBeenCalledWith(expect.objectContaining({ from: "remote", to: "local", srcSftpId: "s1", isDir: true }));
+  });
+
+  // The server names the entries; one called ..\..\x must not land outside the picked folder.
+  it("refuses a server name that escapes the chosen folder on Windows", async () => {
+    m.platform = "windows";
+    await downloadToLocal([entry("/r/ok.txt"), { ...entry("/r/evil"), name: "..\\..\\x" }, { ...entry("/r/d"), name: "C:\\x" }], "s1", "C:\\dl");
+    expect(m.transferItem).toHaveBeenCalledTimes(1);
+    expect(m.transferItem).toHaveBeenCalledWith(expect.objectContaining({ dstPath: "C:\\dl\\ok.txt" }));
+    expect(m.failures).toHaveLength(2);
+    expect(m.failures[0]).toContain("Refusing unsafe file name");
+  });
+
+  it("refuses a parent-directory name on POSIX", async () => {
+    await downloadToLocal([{ ...entry("/r/x"), name: ".." }], "s1", "/home/me");
+    expect(m.transferItem).not.toHaveBeenCalled();
+    expect(m.failures).toHaveLength(1);
   });
 
   it("joins under a POSIX root without doubling the slash", async () => {

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { appCacheDir } from "@tauri-apps/api/path";
 import { breadcrumbs, type useSftpDir } from "@/services/useSftpDir";
 import { formatSize, formatPermissions, formatDate, type FileEntry } from "@/components/filetransfer/SFTPTypes";
-import { joinPath } from "@/components/filetransfer/moveTargetCore";
+import { checkRemoteName, localPathForRemoteName } from "@/components/filetransfer/remoteName";
 import { sftpDownload, sftpDownloadDir } from "@/services/sftp";
 import { useIsAndroid } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
@@ -81,6 +81,7 @@ export default function MobileSftpPane({
         return;
       }
       await runTransfer(f.name, "←", async (tid) => {
+        await checkRemoteName(f.name);
         const tmp = await downloadTempPath(tid, f.name);
         await (f.isDir
           ? sftpDownloadDir({ sftpId, remotePath: f.path, localPath: tmp, transferId: tid })
@@ -89,10 +90,12 @@ export default function MobileSftpPane({
       });
       return;
     }
-    const localPath = joinPath(await appCacheDir(), f.name);
-    await runTransfer(f.name, "←", (tid) => (f.isDir
-      ? sftpDownloadDir({ sftpId, remotePath: f.path, localPath, transferId: tid })
-      : sftpDownload({ sftpId, remotePath: f.path, localPath, transferId: tid })));
+    await runTransfer(f.name, "←", async (tid) => {
+      const localPath = await localPathForRemoteName(await appCacheDir(), f.name);
+      await (f.isDir
+        ? sftpDownloadDir({ sftpId, remotePath: f.path, localPath, transferId: tid })
+        : sftpDownload({ sftpId, remotePath: f.path, localPath, transferId: tid }));
+    });
   };
 
   if (!connection) {
