@@ -4,6 +4,7 @@ import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
 import { avatarColor } from "@/components/shared/AvatarStack";
 import { LOCAL_ACTOR_ID } from "@/services/localAuditService";
+import { formatDate, formatTime, SHORT_DATE, HOUR_MINUTE } from "@/utils/localeFormat";
 
 // ─── Action metadata ──────────────────────────────────────────────────────────
 
@@ -84,8 +85,8 @@ export function AuditEventRow({ log, showDate = false }: Props) {
   const meta = ACTION_META[log.action] ?? FALLBACK_META;
   const actor = actorName(log);
   const time = new Date(log.created_at);
-  const timeStr = time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const dateStr = time.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+  const timeStr = formatTime(time, HOUR_MINUTE);
+  const dateStr = formatDate(time, SHORT_DATE);
 
   return (
     <div

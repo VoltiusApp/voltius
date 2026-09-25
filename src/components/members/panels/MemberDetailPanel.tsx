@@ -20,6 +20,7 @@ import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
 import {
   PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState,
 } from "./PermissionOverrideRow";
+import { formatDate } from "@/utils/localeFormat";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;
@@ -212,9 +213,7 @@ export function MemberDetailPanel({
     await commitOverride(permission, next, false);
   };
 
-  const joinedDate = new Date(member.joined_at).toLocaleDateString(undefined, {
-    year: "numeric", month: "long", day: "numeric",
-  });
+  const joinedDate = formatDate(member.joined_at, { year: "numeric", month: "long", day: "numeric" });
 
   return (
     <>

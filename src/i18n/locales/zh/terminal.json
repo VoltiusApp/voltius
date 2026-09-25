@@ -7,13 +7,6 @@
       "noActiveSession": "没有活跃会话"
     },
     "historyPanel": {
-      "relativeTime": {
-        "justNow": "刚刚",
-        "secondsAgo": "{{count}} 秒前",
-        "minutesAgo": "{{count}} 分钟前",
-        "hoursAgo": "{{count}} 小时前",
-        "daysAgo": "{{count}} 天前"
-      },
       "removeFromHistory": "从历史中移除",
       "searchPlaceholder": "搜索历史…",
       "showCurrentOnly": "仅显示当前连接",

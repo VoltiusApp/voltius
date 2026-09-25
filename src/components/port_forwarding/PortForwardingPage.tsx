@@ -51,12 +51,13 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
+import { compareStrings } from "@/utils/localeFormat";
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
     switch (mode) {
-      case "name-asc": return a.name.localeCompare(b.name);
-      case "name-desc": return b.name.localeCompare(a.name);
+      case "name-asc": return compareStrings(a.name, b.name);
+      case "name-desc": return compareStrings(b.name, a.name);
       case "oldest": return a.created_at.localeCompare(b.created_at);
       case "newest":
       default: return b.created_at.localeCompare(a.created_at);

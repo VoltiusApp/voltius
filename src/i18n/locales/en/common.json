@@ -230,6 +230,13 @@
     },
     "serialDevice": "Serial Device",
     "localShellTitle": "Local Shell › {{shell}}",
-    "dragItemFallback": "Item"
+    "dragItemFallback": "Item",
+    "relativeTime": {
+      "justNow": "just now",
+      "secondsAgo": "{{count}}s ago",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    }
   }
 }

@@ -3,13 +3,7 @@
     "bell": {
       "title": "通知",
       "clearHistory": "清除历史",
-      "noNotifications": "没有通知",
-      "relativeTime": {
-        "justNow": "刚刚",
-        "minutesAgo": "{{count}} 分钟前",
-        "hoursAgo": "{{count}} 小时前",
-        "daysAgo": "{{count}} 天前"
-      }
+      "noNotifications": "没有通知"
     },
     "emailVerification": {
       "banner": {

@@ -1,6 +1,7 @@
 import { resolveLabel } from "@/plugins/resolveLabel";
 import type { SettingsPage } from "@/plugins/api";
 import { attributePage } from "@/plugins/attributePage";
+import { compareStrings } from "@/utils/localeFormat";
 
 export interface NavChild {
   pageId: string;
@@ -31,5 +32,5 @@ export function pluginNavChildren(
     out.push({ pageId: page.id, label: resolveLabel(page.label), icon: page.icon });
   }
 
-  return out.sort((a, b) => a.label.localeCompare(b.label));
+  return out.sort((a, b) => compareStrings(a.label, b.label));
 }

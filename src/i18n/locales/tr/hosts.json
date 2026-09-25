@@ -98,10 +98,6 @@
     },
     "remoteSessions": {
       "title": "Diğer cihazlarda etkin",
-      "justNow": "az önce",
-      "minutesAgo": "{{count}} dk önce",
-      "hoursAgo": "{{count}} sa önce",
-      "daysAgo": "{{count}} gün önce",
       "kill": "Oturumu sonlandır",
       "killing": "Oturum sonlandırılıyor…",
       "undo": "Geri al",

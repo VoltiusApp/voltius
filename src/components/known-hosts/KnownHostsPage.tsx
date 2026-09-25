@@ -15,12 +15,13 @@ import { KnownHostCard } from "./KnownHostCard";
 import { KnownHostsToolbar } from "./KnownHostsToolbar";
 import type { KnownHost, VaultOption } from "@/types";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
+import { compareStrings } from "@/utils/localeFormat";
 
 function sortHosts(hosts: KnownHost[], mode: SortMode): KnownHost[] {
   return [...hosts].sort((a, b) => {
     switch (mode) {
-      case "name-asc":  return (a.host + a.port).localeCompare(b.host + b.port);
-      case "name-desc": return (b.host + b.port).localeCompare(a.host + a.port);
+      case "name-asc":  return compareStrings(a.host + a.port, b.host + b.port);
+      case "name-desc": return compareStrings(b.host + b.port, a.host + a.port);
       case "newest":    return b.created_at.localeCompare(a.created_at);
       case "oldest":    return a.created_at.localeCompare(b.created_at);
       default:          return 0;

@@ -27,6 +27,7 @@ import { KeyFileDropZone } from "./KeyFileDropZone";
 import { KeyGenFields } from "./KeyGenFields";
 import { PublicKeyField, isPublicKeyInvalid } from "./PublicKeyField";
 import { useDerivedPublicKey } from "./useDerivedPublicKey";
+import { formatDate } from "@/utils/localeFormat";
 
 // Re-exported for back-compat (IdentityForm imports KeyFileDropZone from here).
 export { KeyFileDropZone } from "./KeyFileDropZone";
@@ -98,7 +99,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
   const keyInfo = useMemo(() => detectKeyInfo(privateKey, publicKey), [privateKey, publicKey]);
   // Saved as the key's name when the field is left empty, so it is written in
   // the language the key was created in, like any name the user types.
-  const defaultName = `${keyInfo.type ?? t("connections.common.sshKey")} · ${new Date().toLocaleDateString()}`;
+  const defaultName = `${keyInfo.type ?? t("connections.common.sshKey")} · ${formatDate(new Date())}`;
   const privateKeyDirty = useRef(false);
   const publicKeyDirty = useRef(false);
   const passphraseDirty = useRef(false);

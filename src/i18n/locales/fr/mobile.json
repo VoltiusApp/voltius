@@ -19,13 +19,7 @@
       }
     },
     "remoteSessions": {
-      "title": "En direct sur d'autres appareils",
-      "relativeTime": {
-        "justNow": "à l'instant",
-        "minutesAgo": "il y a {{count}} min",
-        "hoursAgo": "il y a {{count}} h",
-        "daysAgo": "il y a {{count}} j"
-      }
+      "title": "En direct sur d'autres appareils"
     },
     "snippets": {
       "searchPlaceholder": "Rechercher des snippets",

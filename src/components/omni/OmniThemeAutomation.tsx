@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useThemeStore } from "@/stores/themeStore";
 import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
+import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 
 const MODES: { id: ThemeMode; icon: string; labelKey: string; descKey: string }[] = [
   { id: "manual", icon: "lucide:hand", labelKey: "omni.theme.modeManual", descKey: "omni.theme.modeManualDesc" },
@@ -34,7 +35,7 @@ export default function OmniThemeAutomation({ onBack, onClose: _onClose }: { onB
   };
 
   const sun = location ? sunTimes(new Date(), location.lat, location.lng) : null;
-  const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const fmt = (d: Date) => formatTime(d, HOUR_MINUTE);
 
   const parse = (s: string) => (s.trim() === "" ? NaN : Number(s));
 

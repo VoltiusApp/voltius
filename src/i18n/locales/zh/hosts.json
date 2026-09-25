@@ -98,10 +98,6 @@
     },
     "remoteSessions": {
       "title": "其他设备上的实时会话",
-      "justNow": "刚刚",
-      "minutesAgo": "{{count}} 分钟前",
-      "hoursAgo": "{{count}} 小时前",
-      "daysAgo": "{{count}} 天前",
       "kill": "结束会话",
       "killing": "正在结束会话…",
       "undo": "撤销",

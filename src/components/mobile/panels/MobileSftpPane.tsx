@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { appCacheDir } from "@tauri-apps/api/path";
 import { breadcrumbs, type useSftpDir } from "@/services/useSftpDir";
-import { formatSize, formatPermissions, formatDate, type FileEntry } from "@/components/filetransfer/SFTPTypes";
+import { formatSize, formatPermissions, formatModified, type FileEntry } from "@/components/filetransfer/SFTPTypes";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
 import { transferItem } from "@/services/sftpTransferCore";
 import { useIsAndroid } from "@/utils/platform";
@@ -15,6 +15,7 @@ import type { Connection } from "@/types";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import BottomSheet from "../sheets/BottomSheet";
+import { compareStrings } from "@/utils/localeFormat";
 
 function isPermissionDenied(msg: string): boolean {
   const m = msg.toLowerCase();
@@ -60,7 +61,7 @@ export default function MobileSftpPane({
 
   const visible = useMemo(() => {
     const filtered = showHidden ? entries : entries.filter((e) => !e.name.startsWith("."));
-    return [...filtered].sort((a, b) => (a.isDir !== b.isDir ? (a.isDir ? -1 : 1) : a.name.localeCompare(b.name)));
+    return [...filtered].sort((a, b) => (a.isDir !== b.isDir ? (a.isDir ? -1 : 1) : compareStrings(a.name, b.name)));
   }, [entries, showHidden]);
 
   const selectedPaths = useMemo(() => new Set(selected.map((s) => s.path)), [selected]);
@@ -217,7 +218,7 @@ export default function MobileSftpPane({
             <DetailRow label={t("mobile.sftp.detail.type")} value={detailFor.isDir ? t("common.entity.folder") : detailFor.isSymlink ? t("mobile.sftp.typeSymlink") : t("mobile.sftp.typeFile")} />
             {!detailFor.isDir && <DetailRow label={t("mobile.sftp.detail.size")} value={formatSize(detailFor.size)} />}
             {detailFor.permissions != null && <DetailRow label={t("mobile.sftp.detail.permissions")} value={`${formatPermissions(detailFor.permissions)} (0o${detailFor.permissions.toString(8)})`} />}
-            {detailFor.modified != null && <DetailRow label={t("mobile.sftp.detail.modified")} value={formatDate(detailFor.modified)} />}
+            {detailFor.modified != null && <DetailRow label={t("mobile.sftp.detail.modified")} value={formatModified(detailFor.modified)} />}
           </div>
         </BottomSheet>
       )}

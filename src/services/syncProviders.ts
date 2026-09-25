@@ -8,6 +8,7 @@ import {
   warnPluginStateOnce,
   type SyncProviderSnapshot,
 } from "./syncStatus";
+import { compareStrings } from "@/utils/localeFormat";
 
 export const SYNC_PROVIDER_PERMISSION = "sync:write";
 export const VOLTIUS_PROVIDER_ID = "voltius";
@@ -107,7 +108,7 @@ export function buildSyncProviders(inputs: SyncProviderInputs): SyncProviderView
   const plugins = inputs.plugins
     .filter((p) => p.manifest.permissions.includes(SYNC_PROVIDER_PERMISSION))
     .map((p) => pluginProvider(p, inputs.settingsPages.find((page) => attributePage(page.id, pluginIds) === p.manifest.id)))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .sort((a, b) => compareStrings(a.label, b.label));
   return [voltiusProvider(inputs.voltius), ...plugins];
 }
 

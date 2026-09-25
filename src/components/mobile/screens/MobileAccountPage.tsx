@@ -11,11 +11,7 @@ import { getCurrentUserEmail, logout } from "@/services/account";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { openPortal } from "@/utils/billing";
-
-function formatPlanDate(date: Date | null): string | null {
-  if (!date) return null;
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date);
-}
+import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
 
 export default function MobileAccountPage() {
   const { t } = useTranslation();
@@ -50,8 +46,8 @@ export default function MobileAccountPage() {
   const isPaidPro = isPro && !isTrialActive;
   const daysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000)) : 0;
   const planValue = isTrialActive ? t("mobile.account.proTrial", { days: daysLeft }) : (TIER_LABEL[tier] ?? tier);
-  const renewalDate = formatPlanDate(renewsAt);
-  const cancellationDate = formatPlanDate(endsAt ?? renewsAt);
+  const renewalDate = formatOptionalDate(renewsAt, SHORT_DATE);
+  const cancellationDate = formatOptionalDate(endsAt ?? renewsAt, SHORT_DATE);
 
   const checkout = async (plan: "pro" | "teams") => {
     if (checkoutBusy) return;

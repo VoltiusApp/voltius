@@ -22,6 +22,7 @@ import {
   useEffectivePinSource,
   nextPersonalPinValue,
 } from "@/hooks/useEffectivePinned";
+import { formatDate, SHORT_DATE } from "@/utils/localeFormat";
 
 // ─────────────────────────────────────────────────────────────────
 // Small shared display components
@@ -93,9 +94,7 @@ export function EmptySection({
 // ─────────────────────────────────────────────────────────────────
 
 export function KeyCardContent({ sshKey, avatarSize, iconSize, isList }: { sshKey: SshKey; avatarSize: number; iconSize: number; isList?: boolean }) {
-  const formattedDate = new Date(sshKey.created_at).toLocaleDateString(undefined, {
-    year: "numeric", month: "short", day: "numeric",
-  });
+  const formattedDate = formatDate(sshKey.created_at, SHORT_DATE);
   const avatar = (
     <AvatarTile icon="lucide:key-round" iconSize={iconSize} size={avatarSize} className="rounded-lg" />
   );
@@ -172,9 +171,7 @@ function KeyCard({
   const isList = layoutMode === "list";
   const avatarSize = isList ? 28 : 48;
   const iconSize = isList ? 14 : 24;
-  const formattedDate = new Date(sshKey.created_at).toLocaleDateString(undefined, {
-    year: "numeric", month: "short", day: "numeric",
-  });
+  const formattedDate = formatDate(sshKey.created_at, SHORT_DATE);
   const contributions = useUIContributions("key.contextMenu", sshKey);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(sshKey.id, "key"));
   const pinKey = useKeyStore((s) => s.pinKey);
@@ -439,9 +436,7 @@ function IdentityCard({
   const effPinned = useEffectivePinned(identity, "identity");
   const pinSource = useEffectivePinSource(identity, "identity");
   const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === identity.vault_id));
-  const formattedDate = new Date(identity.created_at).toLocaleDateString(undefined, {
-    year: "numeric", month: "short", day: "numeric",
-  });
+  const formattedDate = formatDate(identity.created_at, SHORT_DATE);
 
   const isList = layoutMode === "list";
   const avatarSize = isList ? 28 : 48;

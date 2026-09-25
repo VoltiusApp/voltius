@@ -14,6 +14,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { writeClipboard } from "@/utils/clipboard";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
+import { compareStrings } from "@/utils/localeFormat";
 import MoveToFolderSheet from "./MoveToFolderSheet";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 
@@ -38,7 +39,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   const effectivePinned = useEffectivePinned(conn ?? { id: hostId }, "connection");
   const allFolders = useAllFolders();
   const moveObjectsToFolder = useFolderStore((s) => s.moveObjectsToFolder);
-  const folderTargets = buildMoveTargets(allFolders, "connection");
+  const folderTargets = buildMoveTargets(allFolders, "connection", compareStrings);
   const [mode, setMode] = useState<Mode>("menu");
 
   if (!conn) return null;
