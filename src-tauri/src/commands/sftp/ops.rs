@@ -1,4 +1,5 @@
 use super::{get_backend, RemoteFile};
+use crate::error::AppError;
 use crate::known_hosts::KnownHostsStore;
 use crate::proxy::ProxySpec;
 use crate::sftp::SftpManager;
@@ -109,7 +110,7 @@ pub async fn sftp_list_dir(
     sftp_state: State<'_, SftpManager>,
     sftp_id: String,
     path: String,
-) -> Result<Vec<RemoteFile>, String> {
+) -> Result<Vec<RemoteFile>, AppError> {
     get_backend(&sftp_state, &sftp_id)
         .await?
         .list_dir(&path)
@@ -121,7 +122,7 @@ pub async fn sftp_canonicalize(
     sftp_state: State<'_, SftpManager>,
     sftp_id: String,
     path: String,
-) -> Result<String, String> {
+) -> Result<String, AppError> {
     get_backend(&sftp_state, &sftp_id)
         .await?
         .canonicalize(&path)
@@ -133,7 +134,7 @@ pub async fn sftp_mkdir(
     sftp_state: State<'_, SftpManager>,
     sftp_id: String,
     path: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     get_backend(&sftp_state, &sftp_id).await?.mkdir(&path).await
 }
 
@@ -142,7 +143,7 @@ pub async fn sftp_touch(
     sftp_state: State<'_, SftpManager>,
     sftp_id: String,
     path: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     get_backend(&sftp_state, &sftp_id).await?.touch(&path).await
 }
 
@@ -152,7 +153,7 @@ pub async fn sftp_rename(
     sftp_id: String,
     from: String,
     to: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     get_backend(&sftp_state, &sftp_id)
         .await?
         .rename(&from, &to)
@@ -164,7 +165,7 @@ pub async fn sftp_delete(
     sftp_state: State<'_, SftpManager>,
     sftp_id: String,
     path: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     get_backend(&sftp_state, &sftp_id)
         .await?
         .delete(&path)

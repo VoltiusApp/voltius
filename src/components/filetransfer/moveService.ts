@@ -1,6 +1,8 @@
 import type { FileEntry } from "@/components/filetransfer/SFTPTypes";
 import type { PendingTransferAction } from "@/stores/transferQueueStore";
 import { buildMoveTargets } from "./moveTargetCore";
+import { describeError } from "@/services/backendErrors";
+import i18n from "@/i18n";
 
 // Injected I/O so the same flow serves remote (sftp*) and local (fs*) panes and
 // stays unit-testable with fakes.
@@ -29,7 +31,7 @@ export async function runIntraPaneMove(files: FileEntry[], targetDir: string, op
       try {
         if (await ops.exists(target.to)) await ops.del(target.to);
         await ops.rename(target.from, target.to);
-      } catch (e) { ops.onError?.(String(e)); }
+      } catch (e) { ops.onError?.(describeError(e, i18n.t)); }
     }
     ops.onRefresh();
   };

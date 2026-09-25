@@ -12,7 +12,7 @@ import { useDirListing } from "@/components/filetransfer/useDirListing";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
 import { useConnectRetry } from "@/hooks/useConnectRetry";
 import type { Connection } from "@/types";
-import { backendErrorCode, type BackendErrorCode } from "@/services/backendErrors";
+import { backendErrorCode, describeError, type BackendErrorCode } from "@/services/backendErrors";
 
 export type SftpPhase =
   | { tag: "connecting" }
@@ -73,7 +73,7 @@ export function useSftpDir(connection: Connection | undefined) {
         setCwd(home || "/");
         setPhase({ tag: "connected", sftpId });
       } catch (e) {
-        if (!cancelled) setPhase({ tag: "error", message: String(e), errorCode: backendErrorCode(e) ?? undefined });
+        if (!cancelled) setPhase({ tag: "error", message: describeError(e, i18n.t), errorCode: backendErrorCode(e) ?? undefined });
       }
     })();
     return () => {
@@ -97,7 +97,7 @@ export function useSftpDir(connection: Connection | undefined) {
   }, [phase]);
 
   const sftpId = phase.tag === "connected" ? phase.sftpId : null;
-  const { entries, loading: listing, error: listError } = useDirListing(false, sftpId, cwd, refreshTick);
+  const { entries, loading: listing, error: listError, errorCode: listErrorCode } = useDirListing(false, sftpId, cwd, refreshTick);
   const navigate = useCallback((p: string) => { setCwd(p); }, []);
   const goUp = useCallback(() => setCwd((c) => parentDir(c)), []);
   const mkdir = useCallback(async (name: string) => {
@@ -114,5 +114,5 @@ export function useSftpDir(connection: Connection | undefined) {
     if (sftpId) { await sftpDelete(sftpId, f.path); refresh(); }
   }, [sftpId, refresh]);
 
-  return { phase, retrying, sftpId, cwd, entries, listing, listError, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
+  return { phase, retrying, sftpId, cwd, entries, listing, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
 }

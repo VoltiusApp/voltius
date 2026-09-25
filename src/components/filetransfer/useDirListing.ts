@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { sftpListDir, fsListDir, type LocalFile, type RemoteFile } from "@/services/sftp";
 import type { FileEntry } from "./SFTPTypes";
 import { isPlainName } from "./remoteName";
+import { backendErrorCode, describeError, type BackendErrorCode } from "@/services/backendErrors";
+import i18n from "@/i18n";
 
 const mapLocal = (f: LocalFile): FileEntry => ({ name: f.name, path: f.path, size: f.size, isDir: f.is_dir, modified: f.modified ?? undefined });
 const mapRemote = (f: RemoteFile): FileEntry => ({ ...mapLocal(f), permissions: f.permissions ?? undefined, isSymlink: f.is_symlink });
@@ -10,7 +12,7 @@ const mapRemote = (f: RemoteFile): FileEntry => ({ ...mapLocal(f), permissions: 
 export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: string, reloadKey: unknown) {
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; code: BackendErrorCode | null } | null>(null);
   const shownLocation = useRef<string | null>(null);
   const wantedLocation = useRef<string | null>(null);
   const issued = useRef(0);
@@ -40,11 +42,11 @@ export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: stri
       .catch((e) => {
         if (!current() || shownLocation.current === location) return;
         land();
-        setError(String(e));
+        setError({ message: describeError(e, i18n.t), code: backendErrorCode(e) });
       });
   }, [isLocal, sftpId, cwd, reloadKey]);
 
   useEffect(() => () => { wantedLocation.current = null; }, []);
 
-  return { entries, loading, error };
+  return { entries, loading, error: error?.message ?? null, errorCode: error?.code ?? null };
 }

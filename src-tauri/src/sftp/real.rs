@@ -6,6 +6,7 @@ use crate::commands::sftp::dir::{sftp_download_dir_inner, sftp_upload_dir_inner}
 use crate::commands::sftp::editor::read_capped;
 use crate::commands::sftp::transfer::{sftp_download_inner, sftp_upload_inner};
 use crate::commands::sftp::{RemoteFile, SftpFile};
+use crate::error::AppError;
 use crate::sftp::backend::FileBackend;
 use crate::ssh::client::SshClient;
 use crate::ssh::live_cells::read_cell;
@@ -51,15 +52,19 @@ macro_rules! retry_sftp {
         };
         match first {
             Ok(v) => Ok(v),
-            Err(e) if !is_transport_dead(&e) => Err(format!("{} failed: {e}", $what)),
+            Err(e) if !is_transport_dead(&e) => {
+                Err(AppError::caused(format_args!("{} failed", $what), &e))
+            }
             Err(_) => {
                 let handle = read_cell(&this.handle);
                 match open_sftp(&handle, &this.opener).await {
-                    Err(e) => Err(e),
+                    Err(e) => Err(e.into()),
                     Ok(fresh) => {
                         *guard = fresh;
                         let $sftp = &*guard;
-                        $call.await.map_err(|e| format!("{} failed: {e}", $what))
+                        $call
+                            .await
+                            .map_err(|e| AppError::caused(format_args!("{} failed", $what), &e))
                     }
                 }
             }
@@ -132,7 +137,7 @@ impl RealSftp {
 
 #[async_trait]
 impl FileBackend for RealSftp {
-    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String> {
+    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
         let entries = retry_sftp!(self, "read_dir", |s| s.read_dir(path))?;
         let base = path.trim_end_matches('/');
         let mut files: Vec<RemoteFile> = entries
@@ -166,25 +171,25 @@ impl FileBackend for RealSftp {
         }
     }
 
-    async fn canonicalize(&self, path: &str) -> Result<String, String> {
+    async fn canonicalize(&self, path: &str) -> Result<String, AppError> {
         retry_sftp!(self, "canonicalize", |s| s.canonicalize(path))
     }
 
-    async fn mkdir(&self, path: &str) -> Result<(), String> {
+    async fn mkdir(&self, path: &str) -> Result<(), AppError> {
         retry_sftp!(self, "mkdir", |s| s.create_dir(path))
     }
 
-    async fn touch(&self, path: &str) -> Result<(), String> {
+    async fn touch(&self, path: &str) -> Result<(), AppError> {
         let flags = OpenFlags::CREATE | OpenFlags::WRITE | OpenFlags::TRUNCATE;
         let file = retry_sftp!(self, "touch", |s| s.open_with_flags(path, flags))?;
-        SftpFile::new(file, "touch failed").close().await
+        Ok(SftpFile::new(file, "touch failed").close().await?)
     }
 
-    async fn rename(&self, from: &str, to: &str) -> Result<(), String> {
+    async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
         retry_sftp!(self, "rename", |s| s.rename(from, to))
     }
 
-    async fn delete(&self, path: &str) -> Result<(), String> {
+    async fn delete(&self, path: &str) -> Result<(), AppError> {
         remove_recursive(Arc::clone(&self.session), path.to_string()).await
     }
 
@@ -308,7 +313,7 @@ impl FileBackend for RealSftp {
 fn remove_recursive(
     session: Arc<Mutex<SftpSession>>,
     path: String,
-) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>> {
+) -> Pin<Box<dyn Future<Output = Result<(), AppError>> + Send>> {
     Box::pin(async move {
         let is_dir = {
             let sftp = session.lock().await;
@@ -323,7 +328,7 @@ fn remove_recursive(
                 let sftp = session.lock().await;
                 sftp.read_dir(&path)
                     .await
-                    .map_err(|e| format!("read_dir failed: {e}"))?
+                    .map_err(|e| AppError::caused("read_dir failed", &e))?
                     .map(|e| e.file_name())
                     .collect()
             };
@@ -334,12 +339,12 @@ fn remove_recursive(
             let sftp = session.lock().await;
             sftp.remove_dir(&path)
                 .await
-                .map_err(|e| format!("remove_dir failed: {e}"))?;
+                .map_err(|e| AppError::caused("remove_dir failed", &e))?;
         } else {
             let sftp = session.lock().await;
             sftp.remove_file(&path)
                 .await
-                .map_err(|e| format!("remove_file failed: {e}"))?;
+                .map_err(|e| AppError::caused("remove_file failed", &e))?;
         }
 
         Ok(())

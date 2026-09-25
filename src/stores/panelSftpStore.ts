@@ -3,6 +3,7 @@ import i18n from "@/i18n";
 import { invoke } from "@/lib/invoke";
 import { sftpClose, sftpCanonicalize, sftpOpen, fsHomeDir } from "@/services/sftp";
 import type { TerminalSession } from "@/types";
+import { describeError } from "@/services/backendErrors";
 
 // Per-session SFTP connection state for the right-panel SFTP tab. Independent
 // of SFTPPage's own connections so opening the panel never disturbs an
@@ -78,7 +79,7 @@ export const usePanelSftpStore = create<PanelSftpStore>((set, get) => ({
       const sftpId = await sftpOpen(session.id);
       markConnected(sftpId, await sftpCanonicalize(sftpId, "."));
     } catch (e) {
-      set((s) => ({ sessions: { ...s.sessions, [session.id]: { tag: "error", message: String(e) } } }));
+      set((s) => ({ sessions: { ...s.sessions, [session.id]: { tag: "error", message: describeError(e, i18n.t) } } }));
     }
   },
 

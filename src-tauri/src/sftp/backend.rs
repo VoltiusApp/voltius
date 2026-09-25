@@ -6,6 +6,7 @@
 //! backends, which fall back to the per-item `*_batch` methods).
 
 use crate::commands::sftp::RemoteFile;
+use crate::error::AppError;
 use async_trait::async_trait;
 use russh_sftp::client::SftpSession;
 use serde::Serialize;
@@ -29,14 +30,14 @@ impl<R: Runtime> TransferEvents for AppHandle<R> {
 #[async_trait]
 pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
     // ── Browse / metadata ──────────────────────────────────────────────────
-    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String>;
+    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, AppError>;
     /// Some(is_dir) if the path exists, None if it doesn't.
     async fn stat(&self, path: &str) -> Result<Option<bool>, String>;
-    async fn canonicalize(&self, path: &str) -> Result<String, String>;
-    async fn mkdir(&self, path: &str) -> Result<(), String>;
-    async fn touch(&self, path: &str) -> Result<(), String>;
-    async fn rename(&self, from: &str, to: &str) -> Result<(), String>;
-    async fn delete(&self, path: &str) -> Result<(), String>;
+    async fn canonicalize(&self, path: &str) -> Result<String, AppError>;
+    async fn mkdir(&self, path: &str) -> Result<(), AppError>;
+    async fn touch(&self, path: &str) -> Result<(), AppError>;
+    async fn rename(&self, from: &str, to: &str) -> Result<(), AppError>;
+    async fn delete(&self, path: &str) -> Result<(), AppError>;
 
     // ── Editor ─────────────────────────────────────────────────────────────
     async fn file_size(&self, path: &str) -> u64;
@@ -298,6 +299,7 @@ mod tests {
     use super::test_tree::{assert_downloaded, children, lookup, Recorder};
     use super::{is_plain_name, FileBackend};
     use crate::commands::sftp::RemoteFile;
+    use crate::error::AppError;
     use async_trait::async_trait;
     use tokio_util::sync::CancellationToken;
 
@@ -305,7 +307,7 @@ mod tests {
 
     #[async_trait]
     impl FileBackend<Recorder> for TreeBackend {
-        async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String> {
+        async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
             Ok(children(path)
                 .map(|(name, content)| RemoteFile {
                     name: name.into(),
@@ -332,19 +334,19 @@ mod tests {
             let content = lookup(remote_path).flatten().ok_or("not a file")?;
             std::fs::write(local_path, content).map_err(|e| e.to_string())
         }
-        async fn canonicalize(&self, _: &str) -> Result<String, String> {
+        async fn canonicalize(&self, _: &str) -> Result<String, AppError> {
             unimplemented!()
         }
-        async fn mkdir(&self, _: &str) -> Result<(), String> {
+        async fn mkdir(&self, _: &str) -> Result<(), AppError> {
             unimplemented!()
         }
-        async fn touch(&self, _: &str) -> Result<(), String> {
+        async fn touch(&self, _: &str) -> Result<(), AppError> {
             unimplemented!()
         }
-        async fn rename(&self, _: &str, _: &str) -> Result<(), String> {
+        async fn rename(&self, _: &str, _: &str) -> Result<(), AppError> {
             unimplemented!()
         }
-        async fn delete(&self, _: &str) -> Result<(), String> {
+        async fn delete(&self, _: &str) -> Result<(), AppError> {
             unimplemented!()
         }
         async fn file_size(&self, _: &str) -> u64 {

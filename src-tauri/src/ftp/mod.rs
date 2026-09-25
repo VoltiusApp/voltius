@@ -8,6 +8,7 @@
 
 use crate::commands::sftp::editor::read_capped;
 use crate::commands::sftp::{pump_chunks, RemoteFile};
+use crate::error::AppError;
 use crate::sftp::FileBackend;
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
@@ -107,7 +108,7 @@ fn collect_local(
 
 #[async_trait]
 impl FileBackend for FtpBackend {
-    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String> {
+    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
         let lines = {
             let mut ftp = self.inner.lock().await;
             ftp.list(Some(path))
@@ -166,7 +167,7 @@ impl FileBackend for FtpBackend {
         Ok(None)
     }
 
-    async fn canonicalize(&self, path: &str) -> Result<String, String> {
+    async fn canonicalize(&self, path: &str) -> Result<String, AppError> {
         let mut ftp = self.inner.lock().await;
         let prev = ftp.pwd().await.ok();
         if ftp.cwd(path).await.is_ok() {
@@ -181,29 +182,29 @@ impl FileBackend for FtpBackend {
         }
     }
 
-    async fn mkdir(&self, path: &str) -> Result<(), String> {
+    async fn mkdir(&self, path: &str) -> Result<(), AppError> {
         let mut ftp = self.inner.lock().await;
         ftp.mkdir(path)
             .await
-            .map_err(|e| format!("mkdir failed: {e}"))
+            .map_err(|e| format!("mkdir failed: {e}").into())
     }
 
-    async fn touch(&self, path: &str) -> Result<(), String> {
+    async fn touch(&self, path: &str) -> Result<(), AppError> {
         let mut ftp = self.inner.lock().await;
         ftp.put_file(path, &mut tokio::io::empty())
             .await
             .map(|_| ())
-            .map_err(|e| format!("touch failed: {e}"))
+            .map_err(|e| format!("touch failed: {e}").into())
     }
 
-    async fn rename(&self, from: &str, to: &str) -> Result<(), String> {
+    async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
         let mut ftp = self.inner.lock().await;
         ftp.rename(from, to)
             .await
-            .map_err(|e| format!("rename failed: {e}"))
+            .map_err(|e| format!("rename failed: {e}").into())
     }
 
-    async fn delete(&self, path: &str) -> Result<(), String> {
+    async fn delete(&self, path: &str) -> Result<(), AppError> {
         // Files (and symlinks) delete directly; directories need their contents
         // removed first. Gather the tree breadth-first, then delete files, then
         // dirs deepest-first.
@@ -212,7 +213,7 @@ impl FileBackend for FtpBackend {
             return ftp
                 .rm(path)
                 .await
-                .map_err(|e| format!("delete failed: {e}"));
+                .map_err(|e| format!("delete failed: {e}").into());
         }
         let mut dirs = vec![path.to_string()];
         let mut files: Vec<String> = Vec::new();

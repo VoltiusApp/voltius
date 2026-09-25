@@ -16,6 +16,7 @@ vi.mock("@/services/sftp", () => ({
 }));
 
 import { useDirListing } from "./useDirListing";
+import { BackendError } from "@/services/backendErrors";
 
 const listing = (dir: string) => [{ name: "f", path: `${dir}/f`, size: 1, is_dir: false, modified: null }];
 const settle = async (path: string, i: number, outcome: "resolve" | "reject") => {
@@ -86,6 +87,13 @@ describe("useDirListing", () => {
       h.pending.get("/r")![0].resolve(names.map((name) => ({ name, path: `/r/${name}`, size: 1, is_dir: false, modified: null })));
     });
     expect(result.current.entries.map((e) => e.name)).toEqual(["ok"]);
+  });
+
+  it("reports a coded listing error's code beside its message", async () => {
+    const { result } = renderHook(() => useDirListing(false, "s1", "/root", 0));
+    await act(async () => { h.pending.get("/root")![0].reject(new BackendError("permission-denied", "Permission denied")); });
+    expect(result.current.errorCode).toBe("permission-denied");
+    expect(result.current.error).toBeTruthy();
   });
 
   it("does not list while a remote pane has no session", () => {

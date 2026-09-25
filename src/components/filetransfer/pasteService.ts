@@ -12,6 +12,7 @@ import {
   fsExists, sftpExists, fsRename, sftpRename, fsDelete, sftpDelete,
 } from "@/services/sftp";
 import i18n from "@/i18n";
+import { describeError } from "@/services/backendErrors";
 import { notify } from "@/services/saveFile";
 
 export interface PasteDeps {
@@ -78,7 +79,7 @@ export async function executePaste(clip: NonNullable<FileClipboard>, dest: FileE
         await deps.deleteSource(item.path);
       } catch (e) {
         // The copy landed, so the item now exists twice; carry on and say which.
-        if (undeleted.length === 0) firstError = String(e);
+        if (undeleted.length === 0) firstError = describeError(e, i18n.t);
         undeleted.push(item.name);
       }
     }

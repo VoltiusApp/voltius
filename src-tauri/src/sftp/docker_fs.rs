@@ -11,6 +11,7 @@
 
 use crate::commands::sftp::editor::read_limit;
 use crate::commands::sftp::{pump_chunks, RemoteFile, TransferProgress};
+use crate::error::AppError;
 use crate::sftp::backend::FileBackend;
 use crate::ssh::client::SshClient;
 use crate::ssh::live_cells::read_cell;
@@ -241,9 +242,9 @@ impl DockerFs {
         Ok((String::from_utf8_lossy(&out).into_owned(), err, code))
     }
 
-    async fn simple(&self, script: &str, args: &[&str], label: &str) -> Result<(), String> {
+    async fn simple(&self, script: &str, args: &[&str], label: &str) -> Result<(), AppError> {
         let (_out, err, code) = self.run(&self.dexec(script, args)).await?;
-        exit_error(label, code, &err)
+        Ok(exit_error(label, code, &err)?)
     }
 
     /// Wait for a streaming-upload command to finish and report any error.
@@ -355,7 +356,7 @@ impl DockerFs {
 impl FileBackend for DockerFs {
     // ── Browse ──────────────────────────────────────────────────────────────
 
-    async fn canonicalize(&self, path: &str) -> Result<String, String> {
+    async fn canonicalize(&self, path: &str) -> Result<String, AppError> {
         // readlink -f resolves "." and relative paths to an absolute path; fall
         // back to `cd && pwd` for shells whose readlink lacks -f.
         let script = "readlink -f \"$1\" 2>/dev/null || { cd \"$1\" 2>/dev/null && pwd; }";
@@ -366,12 +367,13 @@ impl FileBackend for DockerFs {
                 format!("Cannot resolve path: {path}")
             } else {
                 err.trim().to_string()
-            });
+            }
+            .into());
         }
         Ok(resolved.to_string())
     }
 
-    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String> {
+    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
         // For each entry emit: is_symlink \t is_dir \t size \t mtime \t mode \t name
         // `./$e` everywhere so filenames beginning with '-' aren't parsed as test flags.
         let script = "cd \"$1\" || exit 3; \
@@ -395,7 +397,8 @@ impl FileBackend for DockerFs {
                 } else {
                     err.trim().to_string()
                 }
-            ));
+            )
+            .into());
         }
         let base = path.trim_end_matches('/');
         let mut files: Vec<RemoteFile> = Vec::new();
@@ -453,20 +456,20 @@ impl FileBackend for DockerFs {
         Ok(Some(out.trim() == "d"))
     }
 
-    async fn mkdir(&self, path: &str) -> Result<(), String> {
+    async fn mkdir(&self, path: &str) -> Result<(), AppError> {
         self.simple("mkdir \"$1\"", &[path], "mkdir failed").await
     }
 
-    async fn touch(&self, path: &str) -> Result<(), String> {
+    async fn touch(&self, path: &str) -> Result<(), AppError> {
         self.simple("touch \"$1\"", &[path], "touch failed").await
     }
 
-    async fn rename(&self, from: &str, to: &str) -> Result<(), String> {
+    async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
         self.simple("mv \"$1\" \"$2\"", &[from, to], "rename failed")
             .await
     }
 
-    async fn delete(&self, path: &str) -> Result<(), String> {
+    async fn delete(&self, path: &str) -> Result<(), AppError> {
         self.simple("rm -rf \"$1\"", &[path], "delete failed").await
     }
 

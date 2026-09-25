@@ -30,6 +30,7 @@ import { parentDir, joinPath, withDriveRootSep } from "./moveTargetCore";
 import { useDirListing } from "./useDirListing";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
+import { describeError } from "@/services/backendErrors";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
 
@@ -225,7 +226,7 @@ export function FilePane({
       if (isLocal) { await fsMkdir(fullPath); }
       else if (sftpId) { await sftpMkdir(sftpId, fullPath); }
       onRefresh();
-    } catch (e) { alert(String(e)); }
+    } catch (e) { alert(describeError(e, t)); }
   };
 
   const commitCreateFile = async () => {
@@ -236,7 +237,7 @@ export function FilePane({
       if (isLocal) { await fsTouch(fullPath); }
       else if (sftpId) { await sftpTouch(sftpId, fullPath); }
       onRefresh();
-    } catch (e) { alert(String(e)); }
+    } catch (e) { alert(describeError(e, t)); }
   };
 
   const selectedEntries = visibleEntries.filter((f) => selectedIdSet.has(f.path));
@@ -266,7 +267,7 @@ export function FilePane({
       }
       setSelection([]);
       onRefresh();
-    } catch (e) { alert(String(e)); }
+    } catch (e) { alert(describeError(e, t)); }
   };
 
   const startRename = (f: FileEntry) => { setRenaming(f.path); setRenameVal(f.name); };
@@ -278,7 +279,7 @@ export function FilePane({
       if (isLocal) { await fsRename(f.path, newPath); }
       else { await sftpRename(sftpId!, f.path, newPath); }
       onRefresh();
-    } catch (e) { alert(String(e)); }
+    } catch (e) { alert(describeError(e, t)); }
     setRenaming(null);
   };
 
@@ -380,7 +381,7 @@ export function FilePane({
       if (isLocal) await fsCompress(file.path, archivePath);
       else if (sftpId) await sftpCompress(sftpId, file.path, archivePath);
       onRefresh();
-    } catch (e) { alert(String(e)); }
+    } catch (e) { alert(describeError(e, t)); }
   };
 
   const handleExtract = async (file: FileEntry) => {
@@ -390,7 +391,7 @@ export function FilePane({
       if (isLocal) await fsExtract(file.path, destDir);
       else if (sftpId) await sftpExtract(sftpId, file.path, destDir);
       onRefresh();
-    } catch (e) { alert(String(e)); }
+    } catch (e) { alert(describeError(e, t)); }
   };
 
   const handlePickLocal = async () => {

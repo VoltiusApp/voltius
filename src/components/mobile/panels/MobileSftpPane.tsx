@@ -16,8 +16,11 @@ import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import BottomSheet from "../sheets/BottomSheet";
 import { compareStrings } from "@/utils/localeFormat";
+import { describeError, type BackendErrorCode } from "@/services/backendErrors";
 
-function isPermissionDenied(msg: string): boolean {
+// Coded errors arrive translated, so only an uncoded one is matched by its English text.
+function isPermissionDenied(msg: string, code: BackendErrorCode | null): boolean {
+  if (code) return code === "permission-denied";
   const m = msg.toLowerCase();
   return m.includes("permission denied") || m.includes("eacces");
 }
@@ -37,7 +40,7 @@ export default function MobileSftpPane({
   onClearSelect: () => void;
 }) {
   const { t } = useTranslation();
-  const { phase, retrying, sftpId, cwd, entries, listing, listError, navigate, goUp, reconnect, mkdir, touch, rename, remove } = controller;
+  const { phase, retrying, sftpId, cwd, entries, listing, listError, listErrorCode, navigate, goUp, reconnect, mkdir, touch, rename, remove } = controller;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
   const [showHidden, setShowHidden] = useState(false);
@@ -55,7 +58,7 @@ export default function MobileSftpPane({
 
   const downloadSelected = async () => { for (const f of selected) await download(f); };
   const deleteSelected = async () => {
-    for (const f of selected) { try { await remove(f); } catch (e) { alert(String(e)); } }
+    for (const f of selected) { try { await remove(f); } catch (e) { alert(describeError(e, t)); } }
     setConfirmBatchDelete(false); onClearSelect();
   };
 
@@ -81,7 +84,7 @@ export default function MobileSftpPane({
           if (needsPicker(dir)) return; // user cancelled the folder picker
         }
       } catch (e) {
-        alert(String(e));
+        alert(describeError(e, t));
         return;
       }
       await runTransfer(f.name, "←", async (tid) => {
@@ -149,8 +152,8 @@ export default function MobileSftpPane({
         )}
         {phase.tag === "connected" && listError && (
           <div className="flex flex-col items-center gap-2 pt-10 px-6 text-center text-(--t-text-dim)">
-            <Icon icon={isPermissionDenied(listError) ? "lucide:lock" : "lucide:triangle-alert"} width={26} />
-            <span className="text-sm">{isPermissionDenied(listError) ? t("mobile.sftp.permissionDenied") : listError}</span>
+            <Icon icon={isPermissionDenied(listError, listErrorCode) ? "lucide:lock" : "lucide:triangle-alert"} width={26} />
+            <span className="text-sm">{isPermissionDenied(listError, listErrorCode) ? t("mobile.sftp.permissionDenied") : listError}</span>
             <button onClick={goUp} className="text-sm px-4 py-2 rounded-xl" style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>{t("mobile.sftp.goUp")}</button>
           </div>
         )}
@@ -199,13 +202,13 @@ export default function MobileSftpPane({
             className="w-full rounded-xl px-3 h-11 text-sm outline-none text-(--t-text-primary) mb-2"
             style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
           <button data-sftp-rename-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}
-            onClick={async () => { const f = renaming; const v = renameVal.trim(); setRenaming(null); if (v && v !== f.name) try { await rename(f, v); } catch (e) { alert(String(e)); } }}>{t("common.action.rename")}</button>
+            onClick={async () => { const f = renaming; const v = renameVal.trim(); setRenaming(null); if (v && v !== f.name) try { await rename(f, v); } catch (e) { alert(describeError(e, t)); } }}>{t("common.action.rename")}</button>
         </BottomSheet>
       )}
       {confirmDelete && (
         <BottomSheet title={t("mobile.sftp.deleteConfirmTitle", { name: confirmDelete.name })} onClose={() => setConfirmDelete(null)}>
           <button data-sftp-delete-go className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl" style={{ color: "var(--t-status-error)" }}
-            onClick={async () => { const f = confirmDelete; setConfirmDelete(null); try { await remove(f); } catch (e) { alert(String(e)); } }}>
+            onClick={async () => { const f = confirmDelete; setConfirmDelete(null); try { await remove(f); } catch (e) { alert(describeError(e, t)); } }}>
             <Icon icon="lucide:trash-2" width={18} /><span className="text-sm font-medium">{t("common.action.delete")}</span>
           </button>
           <button className="w-full px-3 py-3.5 rounded-xl text-sm text-(--t-text-dim)" onClick={() => setConfirmDelete(null)}>{t("common.action.cancel")}</button>
@@ -243,7 +246,7 @@ export default function MobileSftpPane({
             className="w-full rounded-xl px-3 h-11 text-sm outline-none text-(--t-text-primary) mb-2"
             style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
           <button data-sftp-mkdir-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}
-            onClick={async () => { const n = newFolderName.trim(); setNewFolder(false); setNewFolderName(""); if (n) try { await mkdir(n); } catch (e) { alert(String(e)); } }}>{t("common.action.create")}</button>
+            onClick={async () => { const n = newFolderName.trim(); setNewFolder(false); setNewFolderName(""); if (n) try { await mkdir(n); } catch (e) { alert(describeError(e, t)); } }}>{t("common.action.create")}</button>
         </BottomSheet>
       )}
       {newFile && (
@@ -252,7 +255,7 @@ export default function MobileSftpPane({
             className="w-full rounded-xl px-3 h-11 text-sm outline-none text-(--t-text-primary) mb-2"
             style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
           <button data-sftp-touch-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}
-            onClick={async () => { const n = newFileName.trim(); setNewFile(false); setNewFileName(""); if (n) try { await touch(n); } catch (e) { alert(String(e)); } }}>{t("common.action.create")}</button>
+            onClick={async () => { const n = newFileName.trim(); setNewFile(false); setNewFileName(""); if (n) try { await touch(n); } catch (e) { alert(describeError(e, t)); } }}>{t("common.action.create")}</button>
         </BottomSheet>
       )}
     </div>
