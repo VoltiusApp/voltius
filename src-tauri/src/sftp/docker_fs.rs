@@ -80,12 +80,12 @@ async fn drain_channel<W: AsyncWrite + Unpin>(
     Ok((code, err))
 }
 
-/// The message a non-zero — or missing — exit status deserves, or `None` when
-/// the command succeeded. `stderr` is used when it says anything.
-fn exit_error(label: &str, code: Option<i32>, stderr: &str) -> Option<String> {
+/// The error a non-zero — or missing — exit status deserves, or `Ok` when the
+/// command succeeded. `stderr` is used when it says anything.
+fn exit_error(label: &str, code: Option<i32>, stderr: &str) -> Result<(), String> {
     match code {
-        Some(0) => None,
-        _ => Some(format!("{label}: {}", exit_detail(code, stderr))),
+        Some(0) => Ok(()),
+        _ => Err(format!("{label}: {}", exit_detail(code, stderr))),
     }
 }
 
@@ -243,10 +243,7 @@ impl DockerFs {
 
     async fn simple(&self, script: &str, args: &[&str], label: &str) -> Result<(), String> {
         let (_out, err, code) = self.run(&self.dexec(script, args)).await?;
-        match exit_error(label, code, &err) {
-            Some(e) => Err(e),
-            None => Ok(()),
-        }
+        exit_error(label, code, &err)
     }
 
     /// Wait for a streaming-upload command to finish and report any error.
@@ -257,14 +254,11 @@ impl DockerFs {
         label: &str,
     ) -> Result<(), String> {
         let (code, err) = drain_channel(channel, &mut tokio::io::sink(), None, None).await?;
-        match exit_error(
+        exit_error(
             &format!("{label} failed"),
             code,
             &String::from_utf8_lossy(&err),
-        ) {
-            Some(e) => Err(e),
-            None => Ok(()),
-        }
+        )
     }
 
     /// Spawn a local `tar` producer and stream its stdout into a container command's stdin.
@@ -350,9 +344,7 @@ impl DockerFs {
         };
         drop(tar_in); // close stdin so local tar finishes
         let extracted = tar.finish("Local tar extraction failed").await;
-        if let Some(e) = exit_error("download failed", code, &String::from_utf8_lossy(&err)) {
-            return Err(e);
-        }
+        exit_error("download failed", code, &String::from_utf8_lossy(&err))?;
         extracted
     }
 }
@@ -457,9 +449,7 @@ impl FileBackend for DockerFs {
         if code == Some(7) {
             return Ok(None);
         }
-        if let Some(e) = exit_error("stat failed", code, &err) {
-            return Err(e);
-        }
+        exit_error("stat failed", code, &err)?;
         Ok(Some(out.trim() == "d"))
     }
 
@@ -496,10 +486,7 @@ impl FileBackend for DockerFs {
         let limit = read_limit(max_bytes).to_string();
         let script = self.dexec("head -c \"$2\" \"$1\"", &[path, &limit]);
         let (out, err, code) = self.run_bytes(&script).await?;
-        match exit_error("read failed", code, &err) {
-            Some(e) => Err(e),
-            None => Ok(out),
-        }
+        exit_error("read failed", code, &err).map(|()| out)
     }
 
     async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
@@ -581,10 +568,7 @@ impl FileBackend for DockerFs {
         )
         .await?;
         local.flush().await.ok();
-        if let Some(e) = exit_error("download failed", code, &String::from_utf8_lossy(&err)) {
-            return Err(e);
-        }
-        Ok(())
+        exit_error("download failed", code, &String::from_utf8_lossy(&err))
     }
 
     // ── Directory / batch transfer (tar streaming) ─────────────────────────────
@@ -742,10 +726,10 @@ mod tests {
 
     #[test]
     fn only_exit_zero_is_a_success() {
-        assert_eq!(exit_error("delete failed", Some(0), ""), None);
+        assert_eq!(exit_error("delete failed", Some(0), ""), Ok(()));
         assert_eq!(
             exit_error("delete failed", Some(1), ""),
-            Some("delete failed: exit 1".to_string())
+            Err("delete failed: exit 1".to_string())
         );
     }
 
@@ -753,7 +737,7 @@ mod tests {
     fn a_missing_exit_status_is_a_failure_not_a_success() {
         assert_eq!(
             exit_error("stat failed", None, ""),
-            Some("stat failed: no exit status".to_string())
+            Err("stat failed: no exit status".to_string())
         );
     }
 
@@ -761,11 +745,11 @@ mod tests {
     fn stderr_wins_over_the_bare_exit_code() {
         assert_eq!(
             exit_error("read failed", Some(2), "  No such file\n"),
-            Some("read failed: No such file".to_string())
+            Err("read failed: No such file".to_string())
         );
         assert_eq!(
             exit_error("read failed", None, "container is not running\n"),
-            Some("read failed: container is not running".to_string())
+            Err("read failed: container is not running".to_string())
         );
     }
 
