@@ -34,10 +34,9 @@ import { vaultOptionsFrom } from "@/hooks/useVaultOptions";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, decryptBlob, forEachRemoteBlob, mergeBlobPayload, importMergedPayload, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { mergeEntities, mergeSecrets } from "@/services/crdt";
 import { filterRemoteExcluded } from "@/services/syncExclusion";
 import type {
   UISlot,
@@ -2303,42 +2302,25 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
       async importStates(encKey, blobs) {
         requirePerm(manifest, "sync:write");
-        let { files: mergedFiles, secrets: mergedSecrets, secret_clocks: mergedSecretClocks } =
-          await invoke<BlobPayload>("state_export_raw");
-        mergedSecretClocks ??= {};
-
-        const parse = (s: string) => {
-          try { return JSON.parse(s ?? "[]"); } catch { return []; }
-        };
+        const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
+        let merged: BlobPayload = await invoke<BlobPayload>("state_export_raw");
+        let readable = 0;
 
         let bestThemeRaw: string | null = null;
         let bestThemeUpdatedAt: string | null = null;
         const excludedIds = getExcludedObjectIds();
 
-        for (const b64 of blobs) {
-          const blobBytes = base64ToByteArray(b64);
-          const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
+        // One device's unreadable blob (another passphrase, corruption) is
+        // skipped like on the server path, so the rest still merge and the
+        // plugin's push after this import still happens.
+        await forEachRemoteBlob(blobs.map((b64, i) => ({ b64, i })), ({ i }) => `gist blob ${i + 1}`, async ({ b64 }) => {
           const remote = filterRemoteExcluded(
-            await invoke<BlobPayload>("backup_decrypt", { encKey: encKeyBytes, blob: blobBytes }),
+            await decryptBlob([encKeyBytes], base64ToByteArray(b64)),
             excludedIds,
             ENTITY_FILES,
           );
-          const newFiles: Record<string, string> = {};
-          for (const file of ENTITY_FILES) {
-            newFiles[file] = JSON.stringify(
-              mergeEntities(parse(mergedFiles[file]), parse(remote.files[file] ?? "[]")),
-            );
-          }
-          // Per-secret LWW merge: freshest write across devices wins (issue #35).
-          const secretMerge = mergeSecrets(
-            mergedSecrets,
-            mergedSecretClocks,
-            remote.secrets,
-            remote.secret_clocks ?? {},
-          );
-          mergedSecrets = secretMerge.secrets;
-          mergedSecretClocks = secretMerge.clocks;
-          mergedFiles = newFiles;
+          merged = mergeBlobPayload(merged, remote);
+          readable++;
 
           const themeRaw = remote.files["theme.json"];
           if (themeRaw) {
@@ -2350,7 +2332,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
               }
             } catch {}
           }
+        });
+        if (readable < blobs.length) {
+          appLog.warn(`[plugin:${id}] sync.importStates: skipped ${blobs.length - readable} of ${blobs.length} device blob(s) that could not be read`);
         }
+        if (readable === 0) return;
 
         // Inbound half of what getPluginSkippedSyncFiles enforces outbound: a
         // device that opted themes out of sync must not have them overwritten
@@ -2372,7 +2358,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           } catch {}
         }
 
-        await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets, secretClocks: mergedSecretClocks });
+        await importMergedPayload(merged);
         for (const reload of Object.values(RELOADABLE_STORES)) {
           await reload();
         }
