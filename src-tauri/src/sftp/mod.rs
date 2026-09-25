@@ -8,8 +8,8 @@ use crate::commands::sftp::RemoteShell;
 use crate::known_hosts::KnownHostsStore;
 use crate::proxy::ProxySpec;
 use crate::ssh::client::{
-    authenticate_handle, client_config, connect_first_hop_retrying, hop_detail, JumpHostConnect,
-    SshClient,
+    authenticate_handle, client_config, connect_first_hop_plain, handshake, hop_detail,
+    JumpHostConnect, SshClient,
 };
 use crate::ssh::live_cells::{own_cell, read_cell};
 use crate::ssh::session::SessionHandle;
@@ -185,20 +185,10 @@ impl SftpManager {
         let mut jump_handles: Vec<Arc<Handle<SshClient>>> = Vec::new();
 
         let mut final_handle: Handle<SshClient> = if jump_hosts.is_empty() {
-            let (h, via, ()) = connect_first_hop_retrying(
-                &config,
-                proxy.as_ref(),
-                host,
-                port,
-                1,
-                || {
-                    let (c, reason) =
-                        SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
-                    (c, reason, ())
-                },
-                |e| format!("SSH connection failed: {e}"),
-            )
-            .await?;
+            let (h, via) =
+                connect_first_hop_plain(&config, proxy.as_ref(), &known_hosts, host, port, 1)
+                    .await
+                    .map_err(|e| e.describe("SSH connection failed"))?;
             emit_step(
                 app,
                 connect_id,
@@ -208,20 +198,16 @@ impl SftpManager {
             h
         } else {
             let first = &jump_hosts[0];
-            let (mut current_handle, via, ()) = connect_first_hop_retrying(
+            let (mut current_handle, via) = connect_first_hop_plain(
                 &config,
                 proxy.as_ref(),
+                &known_hosts,
                 &first.host,
                 first.port,
                 1,
-                || {
-                    let (c, reason) =
-                        SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
-                    (c, reason, ())
-                },
-                |e| format!("Jump host {} connection failed: {}", first.host, e),
             )
-            .await?;
+            .await
+            .map_err(|e| e.describe(&format!("Jump host {} connection failed", first.host)))?;
             emit_step(
                 app,
                 connect_id,
@@ -243,15 +229,15 @@ impl SftpManager {
                     .channel_open_direct_tcpip(&jump.host, jump.port as u32, "127.0.0.1", 0)
                     .await
                     .map_err(|e| format!("Failed to open tunnel to {}: {}", jump.host, e))?;
-                let (next_client, _) =
+                let next_client =
                     SshClient::new(jump.host.clone(), jump.port, Arc::clone(&known_hosts));
-                let mut next_handle = russh::client::connect_stream(
-                    Arc::clone(&config),
-                    channel.into_stream(),
-                    next_client,
-                )
+                let mut next_handle = handshake(next_client, |c| {
+                    russh::client::connect_stream(Arc::clone(&config), channel.into_stream(), c)
+                })
                 .await
-                .map_err(|e| format!("Jump host {} SSH handshake failed: {}", jump.host, e))?;
+                .map_err(|e| {
+                    e.describe(&format!("Jump host {} SSH handshake failed", jump.host))
+                })?;
                 authenticate_handle(
                     &mut next_handle,
                     &jump.username,
@@ -275,15 +261,12 @@ impl SftpManager {
                 .channel_open_direct_tcpip(host, port as u32, "127.0.0.1", 0)
                 .await
                 .map_err(|e| format!("Failed to open tunnel to final host {}: {}", host, e))?;
-            let (final_client, _) =
-                SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
-            let h = russh::client::connect_stream(
-                Arc::clone(&config),
-                channel.into_stream(),
-                final_client,
-            )
+            let final_client = SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
+            let h = handshake(final_client, |c| {
+                russh::client::connect_stream(Arc::clone(&config), channel.into_stream(), c)
+            })
             .await
-            .map_err(|e| format!("Final host {} SSH handshake failed: {}", host, e))?;
+            .map_err(|e| e.describe(&format!("Final host {} SSH handshake failed", host)))?;
             jump_handles.push(Arc::new(current_handle));
             emit_step(
                 app,
