@@ -190,13 +190,40 @@ impl<'a> TarJob<'a> {
         Ok((local, remote_archive(&self.shell, self.transfer_id, false)))
     }
 
+    /// Run `cmd` on this job's host, giving up if the transfer is cancelled.
     async fn exec(&self, cmd: &str) -> Result<(), String> {
-        self.manager.exec_command(self.sftp_id, cmd).await
+        self.manager
+            .exec_command(self.sftp_id, cmd, Some(self.token))
+            .await
     }
 
-    /// Best-effort cleanup of a remote temp archive.
+    /// Best-effort cleanup of a remote temp archive. Not cancellable: it is
+    /// what a cancelled transfer runs on its way out.
     async fn rm_remote(&self, path: &str) {
-        let _ = self.exec(&self.shell.rm(path)).await;
+        let _ = self
+            .manager
+            .exec_command(self.sftp_id, &self.shell.rm(path), None)
+            .await;
+    }
+
+    /// Archive `items` (relative to `parent`) into `archive` on this job's host.
+    /// A failed or cancelled run leaves no archive behind.
+    async fn create_remote(
+        &self,
+        archive: &str,
+        deref: bool,
+        parent: &str,
+        items: &[String],
+    ) -> Result<(), String> {
+        let cmd = tar_create_cmd(&self.shell, archive, deref, parent, items)?;
+        let created = match self.exec(&cmd).await {
+            Ok(()) if self.token.is_cancelled() => Err("Transfer cancelled".into()),
+            r => r,
+        };
+        if created.is_err() {
+            self.rm_remote(archive).await;
+        }
+        created
     }
 }
 
@@ -251,7 +278,7 @@ pub async fn sftp_compress(
         parent,
         &[basename.to_string()],
     )?;
-    sftp_state.exec_command(&sftp_id, &cmd).await
+    sftp_state.exec_command(&sftp_id, &cmd, None).await
 }
 
 /// Extract a remote .tar.gz archive into a destination directory via SSH exec.
@@ -264,7 +291,7 @@ pub async fn sftp_extract(
 ) -> Result<(), String> {
     let shell = shell_of(&sftp_state, &sftp_id).await;
     let cmd = tar_extract_cmd(&shell, &dest_dir, &archive_path, false, false);
-    sftp_state.exec_command(&sftp_id, &cmd).await
+    sftp_state.exec_command(&sftp_id, &cmd, None).await
 }
 
 // ── Tar-based directory transfer ──────────────────────────────────────────────
@@ -337,19 +364,8 @@ async fn download_tar(
     let (tmp_local, tmp_remote) = job.temp_paths()?;
 
     // 1. Archive on remote
-    job.exec(&tar_create_cmd(
-        &job.shell,
-        &tmp_remote,
-        LOCAL_IS_WINDOWS,
-        remote_parent,
-        items,
-    )?)
-    .await?;
-
-    if job.token.is_cancelled() {
-        job.rm_remote(&tmp_remote).await;
-        return Err("Transfer cancelled".into());
-    }
+    job.create_remote(&tmp_remote, LOCAL_IS_WINDOWS, remote_parent, items)
+        .await?;
 
     // 2. Download archive
     let local = tmp_local.to_str().unwrap_or("").to_string();
@@ -390,19 +406,8 @@ async fn transfer_tar(
     let dst_tmp = remote_archive(&dst_shell, job.transfer_id, true);
 
     // 1. Archive on source
-    job.exec(&tar_create_cmd(
-        &job.shell,
-        &src_tmp,
-        dst_shell.is_windows(),
-        src_parent,
-        items,
-    )?)
-    .await?;
-
-    if job.token.is_cancelled() {
-        job.rm_remote(&src_tmp).await;
-        return Err("Transfer cancelled".into());
-    }
+    job.create_remote(&src_tmp, dst_shell.is_windows(), src_parent, items)
+        .await?;
 
     // 2. Stream the archive between hosts
     let streamed = sftp_rr_file_inner(
@@ -421,7 +426,9 @@ async fn transfer_tar(
 
     // 3. Extract on destination and clean up
     let cmd = tar_extract_cmd(&dst_shell, dst_dir, &dst_tmp, strip, true);
-    job.manager.exec_command(dst_sftp_id, &cmd).await
+    job.manager
+        .exec_command(dst_sftp_id, &cmd, Some(job.token))
+        .await
 }
 
 /// Upload multiple local files/directories as a single tar.gz batch.
