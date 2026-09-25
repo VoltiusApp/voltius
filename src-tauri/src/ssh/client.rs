@@ -2,6 +2,8 @@ use crate::known_hosts::{
     ConflictAction, HostKeyConflictEvent, HostKeyStatus, KnownHostsStore, PendingConflicts,
 };
 use crate::port_forward::{RemoteRoute, RemoteRouteMap};
+use crate::ssh::proxy::connect_via_proxy;
+use crate::storage::config::ProxyConfig;
 use russh::client::{self, AuthResult, KeyboardInteractiveAuthResponse, Prompt};
 use russh::keys::ssh_key::{HashAlg, PublicKey};
 use russh::keys::PrivateKeyWithHashAlg;
@@ -714,6 +716,7 @@ pub async fn connect(
     pty_rows: u32,
     legacy_algorithms: bool,
     initial_cwd: Option<String>,
+    proxy_config: Option<ProxyConfig>,
 ) -> Result<ConnectedSession, String> {
     let config = Arc::new(client_config(
         keepalive_interval_secs,
@@ -742,35 +745,58 @@ pub async fn connect(
                 session_id.clone(),
                 Arc::clone(&pending_conflicts),
             );
-            match client::connect(Arc::clone(&config), (host, port), ssh_client).await {
-                Ok(h) => {
-                    final_routes = routes;
-                    final_sshid = sshid;
-                    emit_step(
-                        &app,
-                        &session_id,
-                        SshStep::TcpConnected,
-                        format!("{}:{}", host, port),
-                    );
-                    break h;
-                }
-                Err(e) => {
-                    let reason = rejection_reason.lock().await.take();
-                    // Reason set = deliberate rejection (host-key/abort); don't retry.
-                    if reason.is_none()
-                        && attempt < CONNECT_MAX_ATTEMPTS
-                        && is_transient_connect_error(&e)
-                    {
-                        tokio::time::sleep(std::time::Duration::from_millis(
-                            CONNECT_RETRY_BACKOFF_MS * attempt as u64,
-                        ))
-                        .await;
-                        attempt += 1;
-                        continue;
+            let handle = if let Some(ref proxy) = proxy_config {
+                // Connect via proxy
+                match connect_via_proxy(proxy, host, port, Arc::clone(&config), ssh_client).await {
+                    Ok(h) => h,
+                    Err(e) => {
+                        let reason = rejection_reason.lock().await.take();
+                        if reason.is_none()
+                            && attempt < CONNECT_MAX_ATTEMPTS
+                            && is_transient_connect_error(&e)
+                        {
+                            tokio::time::sleep(std::time::Duration::from_millis(
+                                CONNECT_RETRY_BACKOFF_MS * attempt as u64,
+                            ))
+                            .await;
+                            attempt += 1;
+                            continue;
+                        }
+                        return Err(
+                            reason.unwrap_or_else(|| format!("Proxy connection failed: {}", e))
+                        );
                     }
-                    return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
                 }
-            }
+            } else {
+                // Direct connection
+                match client::connect(Arc::clone(&config), (host, port), ssh_client).await {
+                    Ok(h) => h,
+                    Err(e) => {
+                        let reason = rejection_reason.lock().await.take();
+                        if reason.is_none()
+                            && attempt < CONNECT_MAX_ATTEMPTS
+                            && is_transient_connect_error(&e)
+                        {
+                            tokio::time::sleep(std::time::Duration::from_millis(
+                                CONNECT_RETRY_BACKOFF_MS * attempt as u64,
+                            ))
+                            .await;
+                            attempt += 1;
+                            continue;
+                        }
+                        return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
+                    }
+                }
+            };
+            final_routes = routes;
+            final_sshid = sshid;
+            emit_step(
+                &app,
+                &session_id,
+                SshStep::TcpConnected,
+                format!("{}:{}", host, port),
+            );
+            break handle;
         }
     } else {
         // Rebuilt each attempt: `connect` consumes the handler.
@@ -1197,6 +1223,7 @@ pub async fn connect_authenticated(
     private_key: Option<&str>,
     passphrase: Option<&str>,
     legacy_algorithms: bool,
+    proxy_config: Option<ProxyConfig>,
 ) -> Result<client::Handle<SshClient>, String> {
     let config = client_config(
         0,
@@ -1204,11 +1231,23 @@ pub async fn connect_authenticated(
         legacy_algorithms,
     );
     let (ssh_client, rejection_reason) = SshClient::new(host.to_string(), port, known_hosts);
-    let mut handle = match client::connect(Arc::new(config), (host, port), ssh_client).await {
-        Ok(h) => h,
-        Err(e) => {
-            let reason = rejection_reason.lock().await.take();
-            return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
+    let handle = if let Some(ref proxy) = proxy_config {
+        // Connect via proxy
+        match connect_via_proxy(proxy, host, port, Arc::new(config), ssh_client).await {
+            Ok(h) => h,
+            Err(e) => {
+                let reason = rejection_reason.lock().await.take();
+                return Err(reason.unwrap_or_else(|| format!("Proxy connection failed: {}", e)));
+            }
+        }
+    } else {
+        // Direct connection
+        match client::connect(Arc::new(config), (host, port), ssh_client).await {
+            Ok(h) => h,
+            Err(e) => {
+                let reason = rejection_reason.lock().await.take();
+                return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
+            }
         }
     };
     authenticate_handle(&mut handle, username, password, private_key, passphrase).await?;
