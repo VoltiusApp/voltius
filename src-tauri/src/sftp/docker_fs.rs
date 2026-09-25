@@ -9,6 +9,7 @@
 //! user data. Listing/parsing assumes filenames contain no tab or newline
 //! characters (acceptable for a file manager).
 
+use crate::commands::sftp::editor::read_limit;
 use crate::commands::sftp::{pump_chunks, RemoteFile, TransferProgress};
 use crate::sftp::backend::FileBackend;
 use crate::ssh::client::SshClient;
@@ -165,16 +166,18 @@ impl DockerFs {
         Ok(channel)
     }
 
-    /// Run a command on the host, capturing stdout, stderr, and exit status.
-    async fn run(&self, cmd: &str) -> Result<(String, String, Option<i32>), String> {
+    /// Run a command on the host, capturing raw stdout, stderr, and exit status.
+    async fn run_bytes(&self, cmd: &str) -> Result<(Vec<u8>, String, Option<i32>), String> {
         let mut channel = self.exec_channel(cmd).await?;
         let mut out = Vec::new();
         let (code, err) = drain_channel(&mut channel, &mut out, None, None).await?;
-        Ok((
-            String::from_utf8_lossy(&out).into_owned(),
-            String::from_utf8_lossy(&err).into_owned(),
-            code,
-        ))
+        Ok((out, String::from_utf8_lossy(&err).into_owned(), code))
+    }
+
+    /// `run_bytes` with stdout as text.
+    async fn run(&self, cmd: &str) -> Result<(String, String, Option<i32>), String> {
+        let (out, err, code) = self.run_bytes(cmd).await?;
+        Ok((String::from_utf8_lossy(&out).into_owned(), err, code))
     }
 
     async fn simple(&self, script: &str, args: &[&str], label: &str) -> Result<(), String> {
@@ -441,15 +444,17 @@ impl FileBackend for DockerFs {
             .unwrap_or(0)
     }
 
-    async fn read_file(&self, path: &str) -> Result<Vec<u8>, String> {
-        let (out, err, code) = self.run(&self.dexec("base64 \"$1\"", &[path])).await?;
-        if let Some(e) = exit_error("read failed", code, &err) {
-            return Err(e);
+    async fn read_file(&self, path: &str, max_bytes: u64) -> Result<Vec<u8>, String> {
+        // `head -c` stops at the limit inside the container, so an endless file
+        // (`/dev/zero`) is cut off there rather than streamed here without end.
+        // The channel carries raw bytes, so no base64 round trip is needed.
+        let limit = read_limit(max_bytes).to_string();
+        let script = self.dexec("head -c \"$2\" \"$1\"", &[path, &limit]);
+        let (out, err, code) = self.run_bytes(&script).await?;
+        match exit_error("read failed", code, &err) {
+            Some(e) => Err(e),
+            None => Ok(out),
         }
-        use base64::Engine;
-        base64::engine::general_purpose::STANDARD
-            .decode(out.trim().replace('\n', ""))
-            .map_err(|e| format!("decode failed: {e}"))
     }
 
     async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
