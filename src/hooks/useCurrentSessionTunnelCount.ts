@@ -1,13 +1,5 @@
-import { useEffect, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { useSessionStore } from "@/stores/sessionStore";
-import { getPfState } from "@/services/portForwardingTunnels";
-import type { ActiveTunnel } from "@/types";
-
-interface PfStatePayload {
-  session_id: string;
-  tunnels: ActiveTunnel[];
-}
+import { usePfState } from "@/hooks/usePfStates";
 
 /** Active tunnel count for the *current* host (the active SSH session).
  *
@@ -17,25 +9,10 @@ interface PfStatePayload {
 export function useCurrentSessionTunnelCount(): number {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const sessions = useSessionStore((s) => s.sessions);
-  const [tunnels, setTunnels] = useState<ActiveTunnel[]>([]);
 
   const session = sessions.find((s) => s.id === activeSessionId);
   const isSsh = session?.type === "ssh" && session.status === "connected";
-
-  useEffect(() => {
-    if (!activeSessionId || !isSsh) {
-      setTunnels([]);
-      return;
-    }
-    getPfState(activeSessionId).then((s) => setTunnels(s.tunnels)).catch(() => {});
-
-    let cleanup: (() => void) | undefined;
-    listen<PfStatePayload>("pf-state-changed", ({ payload }) => {
-      if (payload.session_id === activeSessionId) setTunnels(payload.tunnels);
-    }).then((u) => { cleanup = u; });
-
-    return () => { cleanup?.(); };
-  }, [activeSessionId, isSsh]);
+  const tunnels = usePfState(isSsh ? session.id : null)?.tunnels ?? [];
 
   return tunnels.filter((t) => t.state === "active").length;
 }

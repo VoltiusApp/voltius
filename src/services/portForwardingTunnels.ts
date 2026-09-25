@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { ActiveTunnel, TunnelType } from "../types";
 
 export interface PfSessionState {
@@ -8,6 +9,15 @@ export interface PfSessionState {
 
 export function getPfState(sessionId: string): Promise<PfSessionState> {
   return invoke("pf_get_state", { sessionId });
+}
+
+/** Pushed for every terminal of a host whenever its tunnels change. */
+export function onPfStateChanged(
+  callback: (sessionId: string, state: PfSessionState) => void,
+): Promise<UnlistenFn> {
+  return listen<PfSessionState & { session_id: string }>("pf-state-changed", ({ payload }) => {
+    callback(payload.session_id, { tunnels: payload.tunnels, suppressed_ports: payload.suppressed_ports });
+  });
 }
 
 export function openPfTunnel(opts: {

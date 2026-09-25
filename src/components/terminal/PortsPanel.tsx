@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listen } from "@tauri-apps/api/event";
 import { Icon } from "@iconify/react";
 import { PortRow } from "@/components/terminal/PortRow";
 import { PortsPanelHeader } from "@/components/terminal/PortsPanelHeader";
@@ -8,8 +7,8 @@ import { QuickForwardRow } from "@/components/terminal/QuickForwardRow";
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
+import { usePfState } from "@/hooks/usePfStates";
 import {
-  getPfState,
   openPfTunnel,
   closePfTunnel,
   resumeAutoPort,
@@ -19,19 +18,16 @@ import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVau
 import { formatActiveTunnelLabel, formatRuleLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import type { ActiveTunnel, PortForwardingRule } from "@/types";
 
-interface PfStatePayload {
-  session_id: string;
-  tunnels: ActiveTunnel[];
-  suppressed_ports: number[];
-}
-
 export function PortsPanel() {
   const { t } = useTranslation();
   const { sessions, activeSessionId } = useSessionStore();
   const loadRules = usePortForwardingStore((s) => s.loadRules);
   const rules = useAllPortForwardingRules();
-  const [tunnels, setTunnels] = useState<ActiveTunnel[]>([]);
-  const [suppressedPorts, setSuppressedPorts] = useState<number[]>([]);
+  const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const isSshSession = activeSession?.type === "ssh";
+  const pfState = usePfState(isSshSession ? activeSession.id : null);
+  const tunnels = pfState?.tunnels ?? [];
+  const suppressedPorts = pfState?.suppressed_ports ?? [];
   // Ports the user deleted from this panel — hidden even when suppressed
   const [hiddenPorts, setHiddenPorts] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState<Set<string>>(new Set());
@@ -115,32 +111,10 @@ export function PortsPanel() {
     });
   }
 
-  const activeSession = sessions.find((s) => s.id === activeSessionId);
-  const isSshSession = activeSession?.type === "ssh";
-
   useEffect(() => { loadRules(); }, []);
 
   useEffect(() => {
-    if (!activeSessionId || !isSshSession) {
-      setTunnels([]);
-      setSuppressedPorts([]);
-      setHiddenPorts(new Set());
-      return;
-    }
-
-    getPfState(activeSessionId)
-      .then((s) => { setTunnels(s.tunnels); setSuppressedPorts(s.suppressed_ports); })
-      .catch(() => {});
-
-    let cleanup: (() => void) | undefined;
-    listen<PfStatePayload>("pf-state-changed", ({ payload }) => {
-      if (payload.session_id === activeSessionId) {
-        setTunnels(payload.tunnels);
-        setSuppressedPorts(payload.suppressed_ports);
-      }
-    }).then((u) => { cleanup = u; });
-
-    return () => { cleanup?.(); };
+    if (!isSshSession) setHiddenPorts(new Set());
   }, [activeSessionId, isSshSession]);
 
   function setBusyKey(key: string, on: boolean) {
