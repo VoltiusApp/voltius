@@ -269,10 +269,8 @@ impl client::Handler for SshClient {
     }
 }
 
-/// Answers a server-opened `auth-agent@openssh.com` channel. Only a connection
-/// that asked for agent forwarding may reach the local agent; any other server
-/// (a jump host, an SFTP or exec connection, a session with forwarding off)
-/// would otherwise get to sign with the user's keys.
+/// Only a connection that asked for agent forwarding may reach the local agent;
+/// jump hosts, SFTP/exec connections and forwarding-off sessions are refused.
 async fn open_agent_channel(
     enabled: bool,
     channel: russh::Channel<client::Msg>,

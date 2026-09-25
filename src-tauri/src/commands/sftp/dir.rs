@@ -254,8 +254,7 @@ fn collect_local_recursive(
 }
 
 /// Walk a remote tree, returning its relative directory paths (for pre-creating
-/// dirs) and every file as `(absolute, relative, size)`. Every name is checked
-/// (see `checked_remote_name`; `local` when the copy lands on this machine).
+/// dirs) and every file as `(absolute, relative, size)`; `local` as in `checked_remote_name`.
 fn collect_remote_structure<'a>(
     sftp: &'a SftpSession,
     base: &'a str,

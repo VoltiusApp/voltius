@@ -21,9 +21,8 @@ pub async fn bind_with_fallback(local_port: u16) -> Result<(TcpListener, u16), F
     Err(ForwardError::PortInUse(local_port, PORT_ATTEMPTS as u8))
 }
 
-/// Pump a local stream (an accepted TCP connection, the ssh-agent socket)
-/// through an open SSH channel until either side closes or `cancel` fires,
-/// counting every byte in both directions.
+/// Pump a local stream (TCP connection, ssh-agent socket) through an open SSH
+/// channel until either side closes or `cancel` fires, counting every byte.
 pub async fn pump<S>(
     ch: russh::Channel<russh::client::Msg>,
     tcp: S,

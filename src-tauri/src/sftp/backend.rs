@@ -131,11 +131,8 @@ pub trait FileBackend: Send + Sync {
     }
 }
 
-/// A file name from a server listing, checked to be one plain path component
-/// before it is joined onto a destination folder. The server picks these
-/// names, so `..`, a separator, or a Windows drive would otherwise write
-/// outside the folder the user chose. `local` says the folder is on this
-/// machine, so its platform's rules apply; otherwise it is a POSIX remote.
+/// A server-chosen name, refused unless it is one plain path component. `local`:
+/// the destination is this machine, so its platform's rules apply; else POSIX.
 pub fn checked_remote_name(name: &str, local: bool) -> Result<&str, String> {
     if is_plain_name(name, local && cfg!(windows)) {
         Ok(name)

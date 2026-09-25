@@ -79,11 +79,8 @@ fn to_native(sftp_path: &str) -> String {
     native
 }
 
-/// Double-quote `s` for a cmd.exe command line. cmd expands `%VAR%` even inside
-/// quotes, and a caret there is literal, so each `%` steps outside them as `^%`:
-/// any `%…%` pair then spans a name starting with `"` and ending with `^`, which
-/// no variable has, and cmd drops the caret before the program runs. Backslashes
-/// ahead of a quote are doubled so the program's argv parsing keeps them.
+/// cmd expands `%VAR%` even inside quotes, so each `%` steps outside them as `^%`;
+/// backslashes ahead of a quote are doubled so the program's argv parsing keeps them.
 fn cmd_quote(s: &str) -> String {
     let mut out = String::from("\"");
     for (i, part) in s.split('%').enumerate() {
