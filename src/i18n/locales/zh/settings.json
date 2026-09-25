@@ -949,6 +949,9 @@
         "tolerant": { "label": "宽容", "detail": "约 20 秒；适用于不稳定的网络" },
         "off": { "label": "关闭", "detail": "不发送保持连接探测" }
       },
+      "proxy": {
+        "title": "代理"
+      },
       "persistentSessions": {
         "title": "持久会话",
         "desc": "通过在远程 shell 中包裹 tmux 来保持您的 shell 和运行中的进程在断线后存活（回退到 screen）。需要在主机上安装 tmux 或 screen。可以在连接设置的“高级”中按主机覆盖。"

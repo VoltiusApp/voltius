@@ -887,6 +887,9 @@
           "detail": "No keepalive probes"
         }
       },
+      "proxy": {
+        "title": "Proxy"
+      },
       "persistentSessions": {
         "title": "Persistent sessions",
         "desc": "Keep your shell and running processes alive across disconnects by wrapping the remote shell in tmux (falls back to screen). Requires tmux or screen on the host. Can be overridden per host, under Advanced in the connection's settings."

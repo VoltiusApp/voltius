@@ -5,7 +5,7 @@ import { CURSOR_STYLES, useTerminalSettingsStore, type TerminalCursorStyle } fro
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useToggleSettingsStore, TOGGLE_DEFS, type ToggleId } from "@/stores/toggleSettingsStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
-import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
+import { useConnectivitySettingsStore, GLOBAL_PROXY_MODES, type GlobalProxy } from "@/stores/connectivitySettingsStore";
 import { useLocaleStore, SUPPORTED_LOCALES, type Locale } from "@/stores/localeStore";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { lastWriteWins, type UserDataHandler } from "../handler";
@@ -17,6 +17,7 @@ interface AppSettingsData {
   toggles?: Partial<Record<string, boolean>>;
   keepalivePreset?: KeepalivePreset;
   locale?: Locale;
+  proxy?: GlobalProxy;
 }
 
 export const appSettingsHandler: UserDataHandler = {
@@ -36,6 +37,7 @@ export const appSettingsHandler: UserDataHandler = {
       toggles: { ...values },
       keepalivePreset: useConnectivitySettingsStore.getState().keepalivePreset,
       locale: useLocaleStore.getState().locale,
+      proxy: useConnectivitySettingsStore.getState().proxy,
     };
   },
 
@@ -70,6 +72,9 @@ export const appSettingsHandler: UserDataHandler = {
     }
     if (d.locale && SUPPORTED_LOCALES.some((l) => l.value === d.locale)) {
       useLocaleStore.getState().setLocale(d.locale);
+    }
+    if (d.proxy && GLOBAL_PROXY_MODES.includes(d.proxy.mode)) {
+      useConnectivitySettingsStore.setState({ proxy: d.proxy });
     }
   },
 

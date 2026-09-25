@@ -23,6 +23,12 @@ const HAND_WRITTEN: SettingKeyDef[] = [
   { id: "appSettings.keepalivePreset", labelKey: "settings.hosts.keepalive.title" },
   { id: "appSettings.locale", labelKey: "settings.appearance.language.title" },
   {
+    id: "appSettings.proxy",
+    labelKey: "settings.hosts.proxy.title",
+    // The network a machine sits on, not a preference about the app.
+    deviceScoped: true,
+  },
+  {
     id: "themes.location",
     labelKey: "settings.sync.settingKey.themeLocation",
     // Where the person physically is, not a preference about the app.

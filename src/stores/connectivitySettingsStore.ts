@@ -6,9 +6,23 @@ import { getToggle } from "./toggleSettingsStore";
 import { DEFAULT_KEEPALIVE_PRESET, type KeepalivePreset } from "@/utils/keepalive";
 import { CONNECTIVITY_SETTINGS_VERSION, migrateConnectivitySettings } from "./connectivitySettingsMigration";
 
+export type GlobalProxyMode = "none" | "system" | "socks5" | "http";
+
+export interface GlobalProxy {
+  mode: GlobalProxyMode;
+  host?: string;
+  port?: number;
+  username?: string;
+}
+
+export const GLOBAL_PROXY_MODES: GlobalProxyMode[] = ["none", "system", "socks5", "http"];
+export const DEFAULT_GLOBAL_PROXY: GlobalProxy = { mode: "none" };
+
 interface ConnectivitySettingsState {
   keepalivePreset: KeepalivePreset;
   setKeepalivePreset: (preset: KeepalivePreset) => void;
+  proxy: GlobalProxy;
+  setProxy: (proxy: GlobalProxy) => void;
 }
 
 export const useConnectivitySettingsStore = create<ConnectivitySettingsState>()(
@@ -17,6 +31,11 @@ export const useConnectivitySettingsStore = create<ConnectivitySettingsState>()(
       keepalivePreset: DEFAULT_KEEPALIVE_PRESET,
       setKeepalivePreset: (preset) => {
         set({ keepalivePreset: preset });
+        useAppSettingsTimestampStore.getState().touch();
+      },
+      proxy: DEFAULT_GLOBAL_PROXY,
+      setProxy: (proxy) => {
+        set({ proxy });
         useAppSettingsTimestampStore.getState().touch();
       },
     }),
@@ -47,4 +66,12 @@ export function useGlobalKeepalivePreset(): [KeepalivePreset, (p: KeepalivePrese
 /** Per-host value wins; otherwise the global `persistent-sessions` toggle. */
 export function resolvePersistSession(perHost: boolean | undefined): boolean {
   return perHost ?? getToggle("persistent-sessions");
+}
+
+export function getGlobalProxy(): GlobalProxy {
+  return useConnectivitySettingsStore.getState().proxy;
+}
+
+export function useGlobalProxy(): [GlobalProxy, (p: GlobalProxy) => void] {
+  return [useConnectivitySettingsStore((s) => s.proxy), useConnectivitySettingsStore((s) => s.setProxy)];
 }

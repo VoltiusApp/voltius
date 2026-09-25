@@ -887,6 +887,9 @@
           "detail": "Aucune sonde de keepalive"
         }
       },
+      "proxy": {
+        "title": "Proxy"
+      },
       "persistentSessions": {
         "title": "Sessions persistantes",
         "desc": "Maintient votre shell et vos processus actifs lors des déconnexions en enveloppant le shell distant dans tmux (repli sur screen). Nécessite tmux ou screen sur l'hôte. Peut être remplacé par hôte, sous Avancé dans les paramètres de la connexion."

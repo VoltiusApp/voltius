@@ -757,6 +757,9 @@
           "detail": "Bağlantıyı canlı tutma yoklaması yok"
         }
       },
+      "proxy": {
+        "title": "Proxy"
+      },
       "persistentSessions": {
         "title": "Kalıcı oturumlar",
         "desc": "Uzak kabuğu tmux içinde çalıştırarak (tmux yoksa screen kullanılır) kabuğunuzu ve çalışan işlemlerinizi bağlantı kesintilerinde canlı tutar. Sunucuda tmux veya screen gerekir. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir."
