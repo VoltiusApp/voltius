@@ -1,4 +1,4 @@
-import { attachTerminalClipboard, type TerminalClipboardHandle } from "@/components/terminal/terminalClipboard";
+import { bindTerminalContainer, disposeClosedTerminals, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useEffect, useRef, useCallback } from "react";
 import { Terminal, type IBufferCell, type IBufferRange } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -156,9 +156,7 @@ export interface TerminalMinimapController {
   focus: () => void;
 }
 
-type CacheEntry = {
-  terminal: Terminal;
-  fitAddon: FitAddon;
+type CacheEntry = CachedTerminal & {
   searchAddon: SearchAddon;
   search: SearchState;
   minimap: MinimapState;
@@ -167,10 +165,6 @@ type CacheEntry = {
   /** The session's terminal encoding (undefined = UTF-8), for input and output alike. */
   encoding: string | undefined;
   outputDecoder: OutputDecoder;
-  /** Clipboard handle of the mount this terminal is currently attached to. Lives
-   *  on the entry, not on the hook: a mount that switches session keeps its refs,
-   *  so a hook-owned handle would send this terminal's Ctrl+V to the new session. */
-  clip: TerminalClipboardHandle | null;
   /** Mirror of the useTerminal `inputGate` so module-level senders (writeToSession)
    *  honor the same multiplayer control-holder gate as the onData handler. */
   inputGateRef: { current: (() => boolean) | undefined };
@@ -683,13 +677,7 @@ export function handleTerminalSearchNav(sessionId: string, e: KeyboardEvent): bo
 }
 
 useSessionStore.subscribe((state) => {
-  const currentIds = new Set(state.sessions.map((s) => s.id));
-  for (const [id, entry] of terminalCache) {
-    if (!currentIds.has(id)) {
-      entry.dispose();
-      terminalCache.delete(id);
-    }
-  }
+  disposeClosedTerminals(terminalCache, state.sessions);
 
   // Local sessions ride the same transition as SSH: the terminal mounts while
   // the session is still "connecting", so treating it as connected before the
@@ -726,32 +714,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     }
   });
 
-  // Container-specific listeners, registered on each mount and torn down when
-  // the ref detaches. The teardown also pulls the terminal element out of the
-  // container: a pane that switches session keeps the same container node, so
-  // leaving the old element behind would show the previous session's buffer.
   const bindContainer = useCallback((entry: CacheEntry, container: HTMLDivElement) => {
-    const { terminal, fitAddon } = entry;
-    const clip = attachTerminalClipboard(terminal, container, { osc52: true });
-    entry.clip = clip;
-
-    const handleWindowResize = () => fitAddon.fit();
-    window.addEventListener("resize", handleWindowResize);
-
-    let fitTimer: ReturnType<typeof setTimeout> | null = null;
-    const resizeObserver = new ResizeObserver(() => {
-      if (fitTimer !== null) clearTimeout(fitTimer);
-      fitTimer = setTimeout(() => { fitTimer = null; fitAddon.fit(); }, 50);
-    });
-    resizeObserver.observe(container);
-
+    const unbind = bindTerminalContainer(entry, container, { osc52: true });
     mountCleanupRef.current = () => {
-      clip.dispose();
-      if (entry.clip === clip) entry.clip = null;
-      window.removeEventListener("resize", handleWindowResize);
-      resizeObserver.disconnect();
-      if (fitTimer !== null) clearTimeout(fitTimer);
-      terminal.element?.remove();
+      unbind();
       mountCleanupRef.current = null;
     };
   }, []);
