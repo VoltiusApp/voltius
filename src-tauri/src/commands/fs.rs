@@ -303,7 +303,7 @@ pub async fn fs_compress(source_path: String, archive_path: String) -> Result<()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
     let mut cmd = tokio::process::Command::new("tar");
-    cmd.args(["-czf", &archive_path, "-C", &parent, &basename]);
+    cmd.args(["-czf", &archive_path, "-C", &parent, "--", &basename]);
     crate::commands::win_proc::prevent_visible_child_window(&mut cmd);
     let output = cmd
         .output()
