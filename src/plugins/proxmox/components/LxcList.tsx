@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { StatusDot } from "@voltius/ui";
-import { getProxmoxApi } from "../runtime";
+import { getProxmoxApi, useProxmoxT } from "../runtime";
 import { lxcStatusTone } from "../lxcStatusTone";
 import type { LxcAction, LxcContainer } from "../types";
 
@@ -13,17 +13,18 @@ interface Props {
 }
 
 export function LxcList({ containers, onAction, onSnapshots, onShell }: Props) {
+  const t = useProxmoxT();
   const running = containers.filter((c) => c.status === "running").length;
 
   return (
     <div className="flex flex-col h-full">
       <div className="px-3 py-1 border-b border-(--t-border) shrink-0">
-        <span className="text-[10px] text-(--t-text-muted)">{running} running</span>
+        <span className="text-[10px] text-(--t-text-muted)">{t("runningCount", { count: running })}</span>
       </div>
       <div className="flex-1 overflow-y-auto">
         {containers.length === 0 ? (
           <div className="flex items-center justify-center h-20 opacity-40">
-            <p className="text-[11px] text-(--t-text-muted)">No containers</p>
+            <p className="text-[11px] text-(--t-text-muted)">{t("noContainers")}</p>
           </div>
         ) : (
           containers.map((c) => (
@@ -52,6 +53,7 @@ function LxcRow({
   onSnapshots: (vmid: number, vmName: string) => void;
   onShell: (vmid: number, vmName: string) => void;
 }) {
+  const t = useProxmoxT();
   const [busy, setBusy] = useState(false);
   const running = container.status === "running";
 
@@ -60,7 +62,7 @@ function LxcRow({
     try {
       await onAction(container.vmid, action);
     } catch (e) {
-      getProxmoxApi()?.notifications.toast(`Action failed: ${e}`, { severity: "error" });
+      getProxmoxApi()?.notifications.toast(t("actionFailed", { error: String(e) }), { severity: "error" });
     } finally {
       setBusy(false);
     }
@@ -78,7 +80,7 @@ function LxcRow({
         {!running && (
           <Btn
             icon="lucide:play"
-            title="Start"
+            title={t("hostStart")}
             disabled={busy}
             onClick={() => act("start")}
             color="text-(--t-status-connected)"
@@ -86,14 +88,14 @@ function LxcRow({
         )}
         {running && (
           <>
-            <Btn icon="lucide:square" title="Stop" disabled={busy} onClick={() => act("stop")} />
-            <Btn icon="lucide:rotate-ccw" title="Restart" disabled={busy} onClick={() => act("restart")} />
+            <Btn icon="lucide:square" title={t("hostStop")} disabled={busy} onClick={() => act("stop")} />
+            <Btn icon="lucide:rotate-ccw" title={t("hostRestart")} disabled={busy} onClick={() => act("restart")} />
           </>
         )}
         {running && (
           <Btn
             icon="lucide:terminal"
-            title="Open shell"
+            title={t("openShell")}
             disabled={busy}
             onClick={() => onShell(container.vmid, container.name)}
             color="text-(--t-accent) opacity-80 hover:opacity-100"
@@ -101,7 +103,7 @@ function LxcRow({
         )}
         <Btn
           icon="lucide:camera"
-          title="Snapshots"
+          title={t("snapshotsAction")}
           disabled={busy}
           onClick={() => onSnapshots(container.vmid, container.name)}
         />
