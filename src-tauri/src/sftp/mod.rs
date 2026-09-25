@@ -9,6 +9,7 @@ use crate::known_hosts::KnownHostsStore;
 use crate::ssh::client::{authenticate_handle, client_config, JumpHostConnect, SshClient};
 use crate::ssh::live_cells::{own_cell, read_cell};
 use crate::ssh::session::SessionHandle;
+use crate::storage::config::ProxyConfig;
 use docker_fs::DockerFs;
 use real::{RealSftp, SftpOpener};
 use russh::client::Handle;
@@ -170,6 +171,7 @@ impl SftpManager {
         keepalive_interval_secs: u64,
         keepalive_max: usize,
         legacy_algorithms: bool,
+        proxy_config: Option<ProxyConfig>,
     ) -> Result<String, String> {
         let config = Arc::new(client_config(
             keepalive_interval_secs,
@@ -188,13 +190,36 @@ impl SftpManager {
                 SftpStep::TcpConnected,
                 format!("{}:{}", host, port),
             );
-            match russh::client::connect(Arc::clone(&config), (host, port), ssh_client).await {
-                Ok(h) => h,
-                Err(e) => {
-                    let reason = rejection_reason.lock().await.take();
-                    return Err(reason.unwrap_or_else(|| format!("SSH connection failed: {e}")));
+            let handle = if let Some(ref proxy) = proxy_config {
+                // Connect via proxy
+                match crate::ssh::proxy::connect_via_proxy(
+                    proxy,
+                    host,
+                    port,
+                    Arc::clone(&config),
+                    ssh_client,
+                )
+                .await
+                {
+                    Ok(h) => h,
+                    Err(e) => {
+                        let reason = rejection_reason.lock().await.take();
+                        return Err(
+                            reason.unwrap_or_else(|| format!("Proxy connection failed: {e}"))
+                        );
+                    }
                 }
-            }
+            } else {
+                // Direct connection
+                match russh::client::connect(Arc::clone(&config), (host, port), ssh_client).await {
+                    Ok(h) => h,
+                    Err(e) => {
+                        let reason = rejection_reason.lock().await.take();
+                        return Err(reason.unwrap_or_else(|| format!("SSH connection failed: {e}")));
+                    }
+                }
+            };
+            handle
         } else {
             let first = &jump_hosts[0];
             let (first_client, rejection_reason) =

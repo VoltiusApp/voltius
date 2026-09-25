@@ -3,6 +3,7 @@ use crate::known_hosts::KnownHostsStore;
 use crate::sftp::SftpManager;
 use crate::ssh::client::JumpHostConnect;
 use crate::ssh::session::SessionManager;
+use crate::storage::config::ProxyConfig;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 
@@ -35,6 +36,7 @@ pub async fn sftp_connect(
     keepalive_interval_secs: u64,
     keepalive_max: usize,
     legacy_algorithms: Option<bool>,
+    proxy_config: Option<ProxyConfig>,
 ) -> Result<String, String> {
     sftp_state
         .connect(
@@ -51,6 +53,7 @@ pub async fn sftp_connect(
             keepalive_interval_secs,
             keepalive_max,
             legacy_algorithms.unwrap_or(false),
+            proxy_config,
         )
         .await
 }
