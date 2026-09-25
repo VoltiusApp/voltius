@@ -35,7 +35,7 @@ export default function MobileSftpPane({
   onClearSelect: () => void;
 }) {
   const { t } = useTranslation();
-  const { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, reconnect, mkdir, touch, rename, remove } = controller;
+  const { phase, retrying, sftpId, cwd, entries, listing, listError, navigate, goUp, reconnect, mkdir, touch, rename, remove } = controller;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
   const [showHidden, setShowHidden] = useState(false);
@@ -143,7 +143,7 @@ export default function MobileSftpPane({
           <div className="flex flex-col items-center gap-3 pt-10 px-6 text-center text-(--t-text-dim)">
             <Icon icon="lucide:wifi-off" width={26} className="text-(--t-status-error)" />
             <span className="text-sm text-(--t-status-error)">{phase.message}</span>
-            <span className="text-xs text-(--t-text-dim)">{t("mobile.sftp.reconnecting")}</span>
+            {retrying && <span className="text-xs text-(--t-text-dim)">{t("mobile.sftp.reconnecting")}</span>}
             <button data-sftp-reconnect onClick={reconnect} className="text-sm px-4 py-2 rounded-xl"
               style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>{t("mobile.sftp.reconnectNow")}</button>
           </div>
