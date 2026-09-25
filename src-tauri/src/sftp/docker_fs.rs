@@ -22,7 +22,7 @@ use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio_util::sync::CancellationToken;
 
 /// Single-quote a string for the host POSIX shell.
@@ -98,6 +98,67 @@ fn exit_detail(code: Option<i32>, stderr: &str) -> String {
         Some(c) => format!("exit {c}"),
         None => "no exit status".to_string(),
     }
+}
+
+/// How much of a failing local tar's stderr is kept for its error message.
+const STDERR_TAIL: usize = 4096;
+
+/// A local `tar` whose stderr is drained while it runs. Piped and left unread,
+/// stderr fills its pipe (~64 KB of "file changed as we read it" and the like)
+/// and tar blocks on its next warning, hanging the transfer for good.
+struct LocalTar {
+    child: tokio::process::Child,
+    stderr: tokio::task::JoinHandle<Vec<u8>>,
+}
+
+impl LocalTar {
+    /// Spawn `cmd` — tar with its args and data pipe already set — with stderr
+    /// drained in the background.
+    fn spawn(cmd: &mut tokio::process::Command) -> Result<Self, String> {
+        cmd.stderr(Stdio::piped());
+        crate::commands::win_proc::prevent_visible_child_window(cmd);
+        let mut child = cmd.spawn().map_err(|e| format!("tar not found: {e}"))?;
+        let stderr = child.stderr.take().ok_or("tar stderr unavailable")?;
+        Ok(Self {
+            child,
+            stderr: tokio::spawn(read_tail(stderr, STDERR_TAIL)),
+        })
+    }
+
+    /// Stop tar after the transfer failed on the other end.
+    async fn kill(mut self) {
+        let _ = self.child.kill().await;
+    }
+
+    /// Wait for tar to exit; a failure reads `failure: <stderr tail>`.
+    async fn finish(mut self, failure: &str) -> Result<(), String> {
+        let status = self
+            .child
+            .wait()
+            .await
+            .map_err(|e| format!("tar wait error: {e}"))?;
+        if status.success() {
+            return Ok(());
+        }
+        let stderr = self.stderr.await.unwrap_or_default();
+        let detail = String::from_utf8_lossy(&stderr);
+        Err(match detail.trim() {
+            "" => failure.to_string(),
+            detail => format!("{failure}: {detail}"),
+        })
+    }
+}
+
+/// Read `reader` to its end, keeping only its last `keep` bytes.
+async fn read_tail<R: AsyncRead + Unpin>(mut reader: R, keep: usize) -> Vec<u8> {
+    let mut tail = Vec::new();
+    let mut buf = [0u8; 4096];
+    while let Ok(n @ 1..) = reader.read(&mut buf).await {
+        tail.extend_from_slice(&buf[..n]);
+        let excess = tail.len().saturating_sub(keep);
+        tail.drain(..excess);
+    }
+    tail
 }
 
 fn parent_of(path: &str) -> &str {
@@ -215,14 +276,12 @@ impl DockerFs {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), String> {
-        let mut tar_cmd = tokio::process::Command::new("tar");
-        tar_cmd
-            .args(tar_args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        crate::commands::win_proc::prevent_visible_child_window(&mut tar_cmd);
-        let mut child = tar_cmd.spawn().map_err(|e| format!("tar not found: {e}"))?;
-        let mut tar_out = child.stdout.take().ok_or("tar stdout unavailable")?;
+        let mut tar = LocalTar::spawn(
+            tokio::process::Command::new("tar")
+                .args(tar_args)
+                .stdout(Stdio::piped()),
+        )?;
+        let mut tar_out = tar.child.stdout.take().ok_or("tar stdout unavailable")?;
 
         let mut channel = self.exec_channel(remote_cmd).await?;
         let mut writer = channel.make_writer();
@@ -240,20 +299,14 @@ impl DockerFs {
         )
         .await
         {
-            let _ = child.kill().await;
+            tar.kill().await;
             return Err(e);
         }
         writer.flush().await.ok();
         drop(writer);
         channel.eof().await.ok();
 
-        let status = child
-            .wait()
-            .await
-            .map_err(|e| format!("tar wait error: {e}"))?;
-        if !status.success() {
-            return Err("Local tar archiving failed".into());
-        }
+        tar.finish("Local tar archiving failed").await?;
         self.drain_exit(&mut channel, "upload").await
     }
 
@@ -271,14 +324,12 @@ impl DockerFs {
             .await
             .map_err(|e| format!("Cannot create local dir: {e}"))?;
 
-        let mut tar_cmd = tokio::process::Command::new("tar");
-        tar_cmd
-            .args(tar_args)
-            .stdin(Stdio::piped())
-            .stderr(Stdio::piped());
-        crate::commands::win_proc::prevent_visible_child_window(&mut tar_cmd);
-        let mut child = tar_cmd.spawn().map_err(|e| format!("tar not found: {e}"))?;
-        let mut tar_in = child.stdin.take().ok_or("tar stdin unavailable")?;
+        let mut tar = LocalTar::spawn(
+            tokio::process::Command::new("tar")
+                .args(tar_args)
+                .stdin(Stdio::piped()),
+        )?;
+        let mut tar_in = tar.child.stdin.take().ok_or("tar stdin unavailable")?;
 
         let mut channel = self.exec_channel(remote_cmd).await?;
 
@@ -293,22 +344,16 @@ impl DockerFs {
         let (code, err) = match drained {
             Ok(v) => v,
             Err(e) => {
-                let _ = child.kill().await;
+                tar.kill().await;
                 return Err(e);
             }
         };
         drop(tar_in); // close stdin so local tar finishes
-        let status = child
-            .wait()
-            .await
-            .map_err(|e| format!("tar wait error: {e}"))?;
+        let extracted = tar.finish("Local tar extraction failed").await;
         if let Some(e) = exit_error("download failed", code, &String::from_utf8_lossy(&err)) {
             return Err(e);
         }
-        if !status.success() {
-            return Err("Local tar extraction failed".into());
-        }
-        Ok(())
+        extracted
     }
 }
 
@@ -668,6 +713,31 @@ impl FileBackend for DockerFs {
 
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    async fn read_tail_keeps_only_the_end() {
+        let input: Vec<u8> = (0..10_000u32).map(|i| (i % 251) as u8).collect();
+        let tail = read_tail(&input[..], 100).await;
+        assert_eq!(tail, &input[input.len() - 100..]);
+        assert_eq!(read_tail(&b"short"[..], 100).await, b"short");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_chatty_local_process_does_not_block_on_stderr() {
+        // 1 MB of stderr: far past a pipe's buffer, so an undrained stderr hangs here.
+        let tar = LocalTar::spawn(
+            tokio::process::Command::new("sh")
+                .args(["-c", "head -c 1000000 /dev/zero | tr '\\0' x >&2; exit 3"]),
+        )
+        .unwrap();
+        let err =
+            tokio::time::timeout(std::time::Duration::from_secs(10), tar.finish("tar failed"))
+                .await
+                .expect("stderr was not drained")
+                .unwrap_err();
+        assert!(err.starts_with("tar failed: xxx"));
+        assert!(err.len() <= "tar failed: ".len() + STDERR_TAIL);
+    }
     use super::*;
 
     #[test]
