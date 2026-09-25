@@ -38,13 +38,14 @@ export function connectionToFormData(c: Connection): ConnectionFormData {
   };
 }
 
+// Only the listed `?? prev?.x` fields and record bookkeeping fall back to
+// `prev`; every other field comes from `data` alone, so an omitted key stays absent.
 export function connectionFromForm(
   data: ConnectionFormData,
   base: { id: string; now: string; prev?: Connection; pinned?: boolean },
 ): Connection {
   const { id, now, prev } = base;
   return {
-    ...prev,
     ...data,
     id,
     name: data.name,
@@ -68,6 +69,7 @@ export function connectionFromForm(
     ftp_secure: data.ftp_secure ?? prev?.ftp_secure,
     created_at: prev?.created_at ?? now,
     last_used_at: prev?.last_used_at ?? null,
+    deleted_at: prev?.deleted_at,
     updated_at: now,
     clocks: prev ? { ...prev.clocks, updated_at: now } : { created_at: now, updated_at: now },
   };

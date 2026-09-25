@@ -7,6 +7,7 @@ import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
+import { duplicateConnection } from "@/services/connectionDuplicate";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -60,7 +61,6 @@ import { getHostDeleteTargetIds, shouldUseBulkHostContextMenu } from "./hostSele
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import {
-  publishConnectionSecrets,
   publishIdentitySecrets,
   publishKeySecrets,
   unpublishIdentitySecrets,
@@ -404,34 +404,12 @@ export default function HostsPage() {
    * is for members of a subtree being cloned wholesale — only the root of such a
    * clone carries the "(copy)" suffix. Throws; callers surface the error.
    */
-  async function handleDuplicateInto(
+  function handleDuplicateInto(
     conn: Connection,
     folderId: string | null,
     opts: { vaultId?: string; keepName?: boolean; identityId?: string; keyId?: string } = {},
   ) {
-    const newConn = await saveConnection({
-      ...connectionToFormData(conn),
-      // default name kept in English until all creation sites are localized together (see i18n issue #14)
-      name: conn.name ? (opts.keepName ? conn.name : `${conn.name} (copy)`) : undefined,
-      connection_type: conn.connection_type,
-      tags: [...conn.tags],
-      identity_id: opts.identityId ?? conn.identity_id,
-      key_id: opts.keyId ?? conn.key_id,
-      folder_id: folderId ?? undefined,
-      vault_id: opts.vaultId ?? conn.vault_id ?? "personal",
-      jump_hosts: conn.jump_hosts ? conn.jump_hosts.map((j) => ({ ...j })) : undefined,
-      env_vars: conn.env_vars ? conn.env_vars.map((e) => ({ ...e })) : undefined,
-    });
-    if (newConn && conn.connection_type !== "serial") {
-      const pwd = await getSecret(`password:${conn.id}`);
-      if (pwd) await storeSecret(`password:${newConn.id}`, pwd);
-      if (!conn.key_id) {
-        const key = await getSecret(`key:${conn.id}`);
-        if (key) await storeSecret(`key:${newConn.id}`, key);
-      }
-      await publishConnectionSecrets(newConn.id, opts.vaultId ?? conn.vault_id ?? "personal");
-    }
-    return newConn;
+    return duplicateConnection(conn, folderId, opts, saveConnection);
   }
 
   const handleDuplicate = async (conn: Connection) => {

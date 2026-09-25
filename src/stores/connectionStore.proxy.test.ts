@@ -30,4 +30,16 @@ describe("connectionFromForm", () => {
     const c = connectionFromForm(form, { id: "c1", now: "t0" }) as Connection;
     expect(connectionToFormData(c).proxy).toEqual(form.proxy);
   });
+
+  it("clears fields the form omits instead of keeping prev's value (e.g. SSH → FTP switch)", () => {
+    const prev = connectionFromForm(
+      { ...form, identity_id: "id-1", jump_hosts: [{ id: "jh-1", connection_id: "c-9" }], notes: "keep me?" },
+      { id: "c1", now: "t0" },
+    );
+    const ftpForm: ConnectionFormData = { host: "h", port: 21, username: "u", tags: [], connection_type: "ftp" };
+    const next = connectionFromForm(ftpForm, { id: "c1", now: "t1", prev });
+    expect(next.identity_id).toBeUndefined();
+    expect(next.jump_hosts).toBeUndefined();
+    expect(next.notes).toBeUndefined();
+  });
 });

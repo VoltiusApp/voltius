@@ -40,11 +40,11 @@ import {
   transferKeySecrets,
 } from "@/services/vaultSecrets";
 import {
-  publishConnectionSecrets,
   publishIdentitySecrets,
   publishKeySecrets,
   withdrawOrWarn,
 } from "@/services/vaultObjectSecrets";
+import { duplicateConnection } from "@/services/connectionDuplicate";
 import { vaultOf } from "./vaultOf";
 
 export type ObjectTab = "hosts" | "keychain" | "port_forwarding" | "snippets";
@@ -226,23 +226,8 @@ const cloneName = (name: string | undefined, keepName: boolean | undefined): str
   name ? (keepName ? name : `${name} (copy)`) : undefined;
 
 function duplicators(ports: ObjectPorts) {
-  const connection = async (conn: Connection, folderId: string | null, opts: DuplicateOpts = {}) => {
-    const vaultId = opts.vaultId ?? vaultOf(conn);
-    const created = await ports.saveConnection({
-      ...connectionToFormData(conn),
-      name: cloneName(conn.name, opts.keepName),
-      identity_id: opts.identityId ?? conn.identity_id,
-      key_id: opts.keyId ?? conn.key_id,
-      folder_id: folderId ?? undefined,
-      vault_id: vaultId,
-    });
-    if (conn.connection_type !== "serial") {
-      await copySecret(`password:${conn.id}`, `password:${created.id}`);
-      if (!conn.key_id) await copySecret(`key:${conn.id}`, `key:${created.id}`);
-      await publishConnectionSecrets(created.id, vaultId);
-    }
-    return created;
-  };
+  const connection = (conn: Connection, folderId: string | null, opts: DuplicateOpts = {}) =>
+    duplicateConnection(conn, folderId, opts, ports.saveConnection);
 
   const key = async (k: SshKey, folderId: string | null, opts: DuplicateOpts = {}) => {
     const vaultId = opts.vaultId ?? vaultOf(k);
