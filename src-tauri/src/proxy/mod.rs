@@ -229,3 +229,28 @@ pub(crate) fn is_transient_io_kind(kind: io::ErrorKind) -> bool {
             | UnexpectedEof
     )
 }
+
+#[derive(serde::Serialize)]
+pub struct DetectedProxy {
+    kind: &'static str,
+    host: String,
+    port: u16,
+}
+
+#[tauri::command]
+pub async fn proxy_detect_system() -> Option<DetectedProxy> {
+    let spec = tokio::task::spawn_blocking(|| system::detect(""))
+        .await
+        .ok()
+        .flatten()?;
+    let (kind, ep) = match spec {
+        ProxySpec::Socks5(ep) => ("socks5", ep),
+        ProxySpec::Http(ep) => ("http", ep),
+        ProxySpec::Direct | ProxySpec::System => return None,
+    };
+    Some(DetectedProxy {
+        kind,
+        host: ep.host,
+        port: ep.port,
+    })
+}

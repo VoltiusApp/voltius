@@ -807,6 +807,7 @@ pub fn run() {
             commands::mcp::mcp_set_enabled,
             commands::mcp::mcp_status,
             commands::mcp::mcp_notify_tools_changed,
+            proxy::proxy_detect_system,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
