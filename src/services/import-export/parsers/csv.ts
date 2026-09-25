@@ -59,8 +59,9 @@ export function connectionsFromCSV(text: string): ConnectionExport[] {
   for (let i = 1; i < lines.length; i++) {
     const row = parseCSVRow(lines[i]);
     const host = row[hostIdx]?.trim();
-    const username = row[usernameIdx]?.trim();
-    if (!host || !username) continue;
+    // An empty username is asked at login, as for a Termius host without one.
+    const username = row[usernameIdx]?.trim() ?? "";
+    if (!host) continue;
     connections.push({
       name: col("name") >= 0 ? row[col("name")]?.trim() || undefined : undefined,
       host,
