@@ -441,16 +441,37 @@ fn rejected(res: AuthResult) -> Option<MethodSet> {
     }
 }
 
-// "New password:" also says password, but must never get the saved one.
-fn is_password_prompt(p: &Prompt) -> bool {
+const PASSWORD_EXPIRED: &str =
+    "The server requires a new password — sign in once from a terminal and change it there.";
+const PASSWORD_WORDS: &[&str] = &[
+    "password",
+    "passwort",
+    "mot de passe",
+    "пароль",
+    "parola",
+    "şifre",
+    "密码",
+    "heslo",
+];
+const NEW_PASSWORD_WORDS: &[&str] = &[
+    "new ", "retype", "again", "confirm", "neu", "nouveau", "нов", "yeni", "新", "nové",
+];
+
+enum PromptKind {
+    Password,
+    NewPassword,
+    Other,
+}
+
+fn classify_prompt(p: &Prompt) -> PromptKind {
     let text = p.prompt.to_lowercase();
-    !p.echo
-        && ["password", "passwort", "parola", "şifre"]
-            .iter()
-            .any(|w| text.contains(w))
-        && !["new ", "retype", "again", "confirm"]
-            .iter()
-            .any(|w| text.contains(w))
+    if p.echo || !PASSWORD_WORDS.iter().any(|w| text.contains(w)) {
+        PromptKind::Other
+    } else if NEW_PASSWORD_WORDS.iter().any(|w| text.contains(w)) {
+        PromptKind::NewPassword
+    } else {
+        PromptKind::Password
+    }
 }
 
 // Only password prompts get an answer, and only once: being asked again means it was wrong.
@@ -461,17 +482,14 @@ fn answer_prompts(
 ) -> Result<Vec<String>, String> {
     prompts
         .iter()
-        .map(|p| {
-            if !is_password_prompt(p) {
-                Err(format!(
-                    "The server asked \"{}\", which can't be answered automatically.",
-                    p.prompt.trim()
-                ))
-            } else if std::mem::replace(sent, true) {
-                Err(KBD_INT_REJECTED.into())
-            } else {
-                Ok(password.to_owned())
-            }
+        .map(|p| match classify_prompt(p) {
+            PromptKind::Other => Err(format!(
+                "The server asked \"{}\", which can't be answered automatically.",
+                p.prompt.trim()
+            )),
+            PromptKind::NewPassword => Err(PASSWORD_EXPIRED.into()),
+            PromptKind::Password if std::mem::replace(sent, true) => Err(KBD_INT_REJECTED.into()),
+            PromptKind::Password => Ok(password.to_owned()),
         })
         .collect()
 }
@@ -1220,7 +1238,8 @@ fn legacy_preferred() -> russh::Preferred {
 mod tests {
     use super::{
         answer_prompts, authenticate_handle, choose_rsa_hash, client_config, is_windows_sshid,
-        legacy_preferred, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_REJECTED,
+        legacy_preferred, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED,
+        PASSWORD_REJECTED,
     };
     use russh::client::Prompt;
     use russh::keys::ssh_key::HashAlg;
@@ -1239,13 +1258,32 @@ mod tests {
 
     #[test]
     fn only_password_prompts_are_answered_once() {
-        for text in ["Password:", "Password for root@fbsd:", "Parola:"] {
+        for text in [
+            "Password:",
+            "Password for root@fbsd:",
+            "(current) UNIX password:",
+            "Parola:",
+            "Mot de passe :",
+            "Пароль:",
+            "密码：",
+            "Heslo:",
+        ] {
             let got = answer_prompts(&[prompt(text, false)], SECRET, &mut false);
             assert_eq!(got, Ok(vec![SECRET.to_string()]), "{text}");
         }
+        for text in [
+            "New password:",
+            "Retype new password:",
+            "Nouveau mot de passe :",
+            "Новый пароль:",
+            "Yeni parola:",
+            "Nové heslo:",
+        ] {
+            let got = answer_prompts(&[prompt(text, false)], SECRET, &mut false);
+            assert_eq!(got, Err(PASSWORD_EXPIRED.to_string()), "{text}");
+        }
         for p in [
             prompt("Verification code:", false),
-            prompt("New password:", false),
             prompt("Password:", true),
         ] {
             let err = answer_prompts(&[p], SECRET, &mut false).unwrap_err();
