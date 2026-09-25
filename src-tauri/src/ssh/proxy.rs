@@ -1,9 +1,9 @@
-use crate::storage::config::{ProxyConfig, ProxyType, ProxyAuth};
+use crate::storage::config::{ProxyAuth, ProxyConfig, ProxyType};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_rustls::{rustls::ClientConfig as RustlsClientConfig, TlsConnector};
 use url::Url;
@@ -17,7 +17,9 @@ pub fn detect_system_proxy() -> Option<ProxyConfig> {
         use winreg::enums::*;
         use winreg::RegKey;
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        if let Ok(internet_settings) = hkcu.open_subkey(r"Software\Microsoft\Windows\CurrentVersion\Internet Settings") {
+        if let Ok(internet_settings) =
+            hkcu.open_subkey(r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+        {
             let proxy_enable: u32 = internet_settings.get_value("ProxyEnable").unwrap_or(0);
             if proxy_enable == 1 {
                 if let Ok(proxy_server) = internet_settings.get_value::<String, _>("ProxyServer") {
@@ -44,10 +46,7 @@ pub fn detect_system_proxy() -> Option<ProxyConfig> {
     #[cfg(target_os = "macos")]
     {
         use std::process::Command;
-        let output = Command::new("scutil")
-            .arg("--proxy")
-            .output()
-            .ok()?;
+        let output = Command::new("scutil").arg("--proxy").output().ok()?;
         let output = String::from_utf8_lossy(&output.stdout);
         for line in output.lines() {
             if line.contains("HTTPProxy") || line.contains("HTTPSProxy") {
@@ -243,7 +242,11 @@ async fn parse_proxy_url(url: &str, proxy_type: &ProxyType) -> ResolvedProxy {
         proxy_type: proxy_type.clone(),
         host,
         port,
-        username: if username.is_empty() { None } else { Some(username) },
+        username: if username.is_empty() {
+            None
+        } else {
+            Some(username)
+        },
         password,
         bypass_hosts: Vec::new(),
         tls_config: None,
@@ -270,8 +273,8 @@ async fn resolve_system_proxy() -> Option<ResolvedProxy> {
 
 #[cfg(target_os = "windows")]
 async fn detect_windows_system_proxy() -> Result<ResolvedProxy, ProxyError> {
-    use winreg::RegKey;
     use winreg::enums::*;
+    use winreg::RegKey;
 
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let key = hkcu.open_subkey(r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")?;
@@ -402,7 +405,8 @@ pub async fn connect_through_proxy(
                         connect_socks5(proxy, target_host, target_port, timeout_duration).await
                     }
                     ProxyType::Http => {
-                        connect_http_connect(proxy, target_host, target_port, timeout_duration).await
+                        connect_http_connect(proxy, target_host, target_port, timeout_duration)
+                            .await
                     }
                     _ => {
                         let stream = tokio::time::timeout(
@@ -455,9 +459,7 @@ async fn connect_socks5(
         .map_err(|_| ProxyError::HandshakeFailed("SOCKS5 auth response timeout".into()))??;
 
     if auth_response[0] != 0x05 {
-        return Err(ProxyError::HandshakeFailed(
-            "Invalid SOCKS5 version".into(),
-        ));
+        return Err(ProxyError::HandshakeFailed("Invalid SOCKS5 version".into()));
     }
 
     if auth_response[1] == 0x02 {
@@ -668,13 +670,14 @@ pub async fn connect_tls_through_proxy(
     let server_name = ServerName::try_from(server_name)
         .map_err(|_| ProxyError::Tls(tokio_rustls::rustls::Error::InvalidDnsName))?;
 
-    let tls_stream = tokio::time::timeout(timeout_duration, connector.connect(server_name, tcp_stream))
-        .await
-        .map_err(|_| {
-            ProxyError::Tls(tokio_rustls::rustls::Error::General(
-                "TLS handshake timeout".into(),
-            ))
-        })??;
+    let tls_stream =
+        tokio::time::timeout(timeout_duration, connector.connect(server_name, tcp_stream))
+            .await
+            .map_err(|_| {
+                ProxyError::Tls(tokio_rustls::rustls::Error::General(
+                    "TLS handshake timeout".into(),
+                ))
+            })??;
 
     Ok(Box::new(tls_stream))
 }
