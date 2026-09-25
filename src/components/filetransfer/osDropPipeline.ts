@@ -1,10 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import {
-  sftpUpload, sftpUploadDir, sftpUploadDirTar, sftpUploadBatchTar,
-  sftpExists, fsExists, fsCopy,
+  sftpUploadBatchTar, sftpDownloadBatchTar,
+  sftpExists, fsExists,
 } from "@/services/sftp";
+import { transferItem } from "@/services/sftpTransferCore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { tarUsable } from "./tarSupport";
+import { joinPath } from "./moveTargetCore";
 import { type FileEntry } from "./SFTPTypes";
 
 export type UploadTarget = {
@@ -29,17 +32,21 @@ async function statOsPaths(paths: string[]): Promise<FileEntry[]> {
   return items;
 }
 
+/** Queue label for a batch: the item's own name, or a count. */
+export function batchLabel(files: FileEntry[]): string {
+  return files.length === 1 ? files[0].name : i18n.t("fileTransfer.common.itemsCount", { count: files.length });
+}
+
 async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<void> {
   const { runTransfer } = useTransferQueueStore.getState();
-  const dstBase = target.cwd.replace(/\/$/, "");
+  if (!target.isLocal && !target.sftpId) return;
   // Tar archives locally + extracts remotely, so both ends need tar; local targets use fsCopy.
   const useTar = !target.isLocal && target.sftpId ? await tarUsable([target.sftpId], true) : false;
 
   if (useTar && target.sftpId && files.length > 1) {
     const sftpId = target.sftpId;
-    const label = `${files.length} items`;
-    await runTransfer(label, "→", (tid) =>
-      sftpUploadBatchTar({ sftpId, localPaths: files.map((f) => f.path), remoteDir: dstBase, transferId: tid }),
+    await runTransfer(batchLabel(files), "→", (tid) =>
+      sftpUploadBatchTar({ sftpId, localPaths: files.map((f) => f.path), remoteDir: target.cwd, transferId: tid }),
       target.onRefresh,
       true,
     );
@@ -47,20 +54,43 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
   }
 
   for (const file of files) {
-    const destPath = `${dstBase}/${file.name}`;
-    if (target.isLocal) {
-      await runTransfer(file.name, "→", (tid) => fsCopy(file.path, destPath, tid), target.onRefresh);
-    } else if (target.sftpId) {
-      const sftpId = target.sftpId;
-      await runTransfer(file.name, "→", (tid) => file.isDir
-        ? (useTar
-            ? sftpUploadDirTar({ sftpId, localPath: file.path, remotePath: destPath, transferId: tid })
-            : sftpUploadDir({ sftpId, localPath: file.path, remotePath: destPath, transferId: tid }))
-        : sftpUpload({ sftpId, localPath: file.path, remotePath: destPath, transferId: tid }),
-        target.onRefresh,
-        file.isDir && useTar,
-      );
-    }
+    await runTransfer(file.name, "→", (tid) => transferItem({
+      from: "local",
+      to: target.isLocal ? "local" : "remote",
+      dstSftpId: target.sftpId ?? undefined,
+      srcPath: file.path,
+      dstPath: joinPath(target.cwd, file.name),
+      isDir: file.isDir,
+      useTar,
+      transferId: tid,
+    }), target.onRefresh, file.isDir && useTar);
+  }
+}
+
+/** Download remote files into a local folder: one tar batch when tar works on
+ *  both ends and there are several, otherwise item by item. */
+export async function downloadToLocal(files: FileEntry[], sftpId: string, localDir: string): Promise<void> {
+  const { runTransfer } = useTransferQueueStore.getState();
+  // Archives remotely + extracts locally, so both ends need tar.
+  const useTar = await tarUsable([sftpId], true);
+
+  if (useTar && files.length > 1) {
+    await runTransfer(batchLabel(files), "←", (tid) =>
+      sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir, transferId: tid }), undefined, true);
+    return;
+  }
+
+  for (const file of files) {
+    await runTransfer(file.name, "←", (tid) => transferItem({
+      from: "remote",
+      to: "local",
+      srcSftpId: sftpId,
+      srcPath: file.path,
+      dstPath: joinPath(localDir, file.name),
+      isDir: file.isDir,
+      useTar,
+      transferId: tid,
+    }), undefined, file.isDir && useTar);
   }
 }
 
@@ -70,10 +100,9 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
  */
 export async function triggerUpload(items: FileEntry[], target: UploadTarget): Promise<void> {
   if (items.length === 0) return;
-  const dstBase = target.cwd.replace(/\/$/, "");
   const conflicts = (
     await Promise.all(items.map(async (f) => {
-      const dstPath = `${dstBase}/${f.name}`;
+      const dstPath = joinPath(target.cwd, f.name);
       const exists = target.isLocal ? await fsExists(dstPath) : await sftpExists(target.sftpId!, dstPath);
       return exists ? f : null;
     }))
