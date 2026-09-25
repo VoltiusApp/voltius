@@ -79,6 +79,25 @@ fn to_native(sftp_path: &str) -> String {
     native
 }
 
+/// Double-quote `s` for a cmd.exe command line. cmd expands `%VAR%` even inside
+/// quotes, and a caret there is literal, so each `%` steps outside them as `^%`:
+/// any `%…%` pair then spans a name starting with `"` and ending with `^`, which
+/// no variable has, and cmd drops the caret before the program runs. Backslashes
+/// ahead of a quote are doubled so the program's argv parsing keeps them.
+fn cmd_quote(s: &str) -> String {
+    let mut out = String::from("\"");
+    for (i, part) in s.split('%').enumerate() {
+        if i > 0 {
+            out.push_str("^%\"");
+        }
+        let slashes = part.len() - part.trim_end_matches('\\').len();
+        out.push_str(part);
+        out.push_str(&"\\".repeat(slashes));
+        out.push('"');
+    }
+    out
+}
+
 fn to_sftp(native: &str) -> String {
     format!("/{}", native.replace('\\', "/"))
 }
@@ -102,7 +121,7 @@ impl RemoteShell {
             Self::Windows {
                 shell: WinShell::Cmd,
                 ..
-            } => format!("\"{s}\""),
+            } => cmd_quote(s),
             Self::Windows {
                 shell: WinShell::PowerShell,
                 ..
@@ -256,6 +275,20 @@ mod tests {
             r"'C:\it''s'"
         );
         assert_eq!(RemoteShell::Posix.quote_path("/a b"), "'/a b'");
+    }
+
+    #[test]
+    fn cmd_quoting_never_expands_a_variable() {
+        let q = |s| win(WinShell::Cmd).quote(s);
+        assert_eq!(q("a b"), r#""a b""#);
+        assert_eq!(q("%PATH%"), r#"""^%"PATH"^%"""#);
+        assert_eq!(q("50% off"), r#""50"^%" off""#);
+        // A backslash before a quote would escape it for the program, so it's doubled.
+        assert_eq!(q(r"dir\%x"), r#""dir\\"^%"x""#);
+        assert_eq!(
+            win(WinShell::Cmd).quote_path("/C:/Users/%USERNAME%/a"),
+            r#""C:\Users\\"^%"USERNAME"^%"\a""#
+        );
     }
 
     #[test]
