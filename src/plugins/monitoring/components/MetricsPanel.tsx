@@ -1,6 +1,6 @@
 import type { FC } from "react";
 import type { PluginAPI } from "@/plugins/api";
-import { StatusDot, useActiveSession } from "@voltius/ui";
+import { StatusDot, useActiveSession, useT } from "@voltius/ui";
 import { createMetricsService } from "../services";
 import { useHostMetrics } from "../useHostMetrics";
 import { MetricCard } from "./MetricCard";
@@ -29,6 +29,7 @@ export function createMetricsPanel(api: PluginAPI): FC {
   const service = createMetricsService(api.metrics);
 
   return function MetricsPanel() {
+    const t = useT(api);
     const activeSession = useActiveSession(api);
     const isAndroid = isAndroidPlatform();
     const localUnsupported = isAndroid && !!activeSession && activeSession.type !== "ssh";
@@ -42,7 +43,7 @@ export function createMetricsPanel(api: PluginAPI): FC {
     if (!activeSession || activeSession.status !== "connected") {
       return (
         <div className="flex items-center justify-center h-full opacity-40">
-          <p className="text-sm text-(--t-text-muted)">No active session</p>
+          <p className="text-sm text-(--t-text-muted)">{t("noActiveSession")}</p>
         </div>
       );
     }
@@ -51,7 +52,7 @@ export function createMetricsPanel(api: PluginAPI): FC {
       return (
         <div className="flex h-full items-center justify-center px-6 text-center">
           <p className="max-w-[240px] text-[11px] leading-4 text-(--t-text-muted)">
-            Live metrics for this device aren't available on Android. Connect to a host over SSH to see its metrics.
+            {t("androidUnavailable")}
           </p>
         </div>
       );
@@ -69,18 +70,18 @@ export function createMetricsPanel(api: PluginAPI): FC {
 
         {activeSession.type === "serial" ? (
           <div className="px-4 py-3 border-b border-(--t-border) text-[11px] text-(--t-text-dim)">
-            Live metrics are not available for serial sessions.
+            {t("serialUnavailable")}
           </div>
         ) : (
           <>
             <MetricCard
-              label="CPU"
+              label={t("cpu")}
               value={snap ? `${snap.cpu_percent.toFixed(1)}%` : "—"}
               color="#ef4444"
               history={cpuH}
             />
             <MetricCard
-              label="RAM"
+              label={t("memory")}
               value={
                 snap
                   ? `${fmtMem(snap.mem_used_kb)} / ${fmtMem(snap.mem_total_kb)}`
@@ -90,24 +91,24 @@ export function createMetricsPanel(api: PluginAPI): FC {
               history={memH}
             />
             <MetricCard
-              label="RX"
+              label={t("netRx")}
               value={fmtBytes(snap?.net_rx_bytes_per_sec ?? 0)}
               color="#3b82f6"
               history={rxH}
             />
             <MetricCard
-              label="TX"
+              label={t("netTx")}
               value={fmtBytes(snap?.net_tx_bytes_per_sec ?? 0)}
               color="#f59e0b"
               history={txH}
             />
 
             {(disksLoading || disks.length > 0) && (
-              <DiskSection disks={disks} loading={disksLoading} />
+              <DiskSection disks={disks} loading={disksLoading} t={t} />
             )}
           </>
         )}
-        <SystemInfoSection service={service} session={activeSession} />
+        <SystemInfoSection service={service} session={activeSession} t={t} />
       </div>
     );
   };
