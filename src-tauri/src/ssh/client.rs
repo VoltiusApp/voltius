@@ -2,10 +2,10 @@ use crate::known_hosts::{
     ConflictAction, HostKeyConflictEvent, HostKeyStatus, KnownHostsStore, PendingConflicts,
 };
 use crate::port_forward::{RemoteRoute, RemoteRouteMap};
-use russh::client;
+use russh::client::{self, AuthResult, KeyboardInteractiveAuthResponse, Prompt};
 use russh::keys::ssh_key::{HashAlg, PublicKey};
 use russh::keys::PrivateKeyWithHashAlg;
-use russh::ChannelMsg;
+use russh::{ChannelMsg, MethodKind, MethodSet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -420,61 +420,181 @@ fn choose_rsa_hash(reported: Option<Option<HashAlg>>) -> Option<HashAlg> {
     reported.unwrap_or(Some(HashAlg::Sha256))
 }
 
-async fn authenticate_handle_inner(
-    handle: &mut client::Handle<SshClient>,
+const KEY_REJECTED: &str = "Public key authentication rejected.";
+const PASSWORD_REJECTED: &str =
+    "Password authentication rejected — check the username and password.";
+const KBD_INT_REJECTED: &str =
+    "Keyboard-interactive authentication rejected — check the username and password.";
+const KBD_INT_MAX_ROUNDS: usize = 8;
+
+fn auth_err(e: russh::Error) -> String {
+    format!("Auth failed: {}", e)
+}
+
+/// `None` on success, otherwise the methods the server still accepts.
+fn rejected(res: AuthResult) -> Option<MethodSet> {
+    match res {
+        AuthResult::Success => None,
+        AuthResult::Failure {
+            remaining_methods, ..
+        } => Some(remaining_methods),
+    }
+}
+
+// "New password:" also says password, but must never get the saved one.
+fn is_password_prompt(p: &Prompt) -> bool {
+    let text = p.prompt.to_lowercase();
+    !p.echo
+        && ["password", "passwort", "parola", "şifre"]
+            .iter()
+            .any(|w| text.contains(w))
+        && !["new ", "retype", "again", "confirm"]
+            .iter()
+            .any(|w| text.contains(w))
+}
+
+// Only password prompts get an answer, and only once: being asked again means it was wrong.
+fn answer_prompts(
+    prompts: &[Prompt],
+    password: &str,
+    sent: &mut bool,
+) -> Result<Vec<String>, String> {
+    prompts
+        .iter()
+        .map(|p| {
+            if !is_password_prompt(p) {
+                Err(format!(
+                    "The server asked \"{}\", which can't be answered automatically.",
+                    p.prompt.trim()
+                ))
+            } else if std::mem::replace(sent, true) {
+                Err(KBD_INT_REJECTED.into())
+            } else {
+                Ok(password.to_owned())
+            }
+        })
+        .collect()
+}
+
+async fn authenticate_key<H: client::Handler>(
+    handle: &mut client::Handle<H>,
+    username: &str,
+    key_str: &str,
+    passphrase: Option<&str>,
+) -> Result<AuthResult, String> {
+    let key_pair = Arc::new(
+        russh::keys::decode_secret_key(key_str, passphrase)
+            .map_err(|e| format!("Invalid private key: {}", e))?,
+    );
+    let is_rsa = matches!(key_pair.algorithm(), russh::keys::Algorithm::Rsa { .. });
+
+    // Only RSA has a choice of signature hash. Ask the server which it accepts
+    // (`server-sig-algs`, RFC 8308) instead of assuming: dropbear before
+    // 2020.79 — still shipping on plenty of OpenWrt routers — only supports
+    // ssh-rsa, and rejects the rsa-sha2-256 we used to send unconditionally.
+    let hash = if is_rsa {
+        choose_rsa_hash(handle.best_supported_rsa_hash().await.ok().flatten())
+    } else {
+        None
+    };
+
+    let mut res = handle
+        .authenticate_publickey(username, PrivateKeyWithHashAlg::new(key_pair.clone(), hash))
+        .await
+        .map_err(auth_err)?;
+
+    // A server too old to advertise `server-sig-algs` is also too old to accept
+    // rsa-sha2-*. Retrying costs one round trip and only on an already-failed auth.
+    if !res.success() && is_rsa && hash.is_some() {
+        res = handle
+            .authenticate_publickey(username, PrivateKeyWithHashAlg::new(key_pair, None))
+            .await
+            .map_err(auth_err)?;
+    }
+    Ok(res)
+}
+
+// What `ssh` falls back to on `PasswordAuthentication no` + `UsePAM yes` (FreeBSD's default).
+async fn authenticate_keyboard_interactive<H: client::Handler>(
+    handle: &mut client::Handle<H>,
+    username: &str,
+    password: &str,
+) -> Result<(), String> {
+    let mut reply = handle
+        .authenticate_keyboard_interactive_start(username, None::<String>)
+        .await
+        .map_err(auth_err)?;
+    let mut sent = false;
+    for _ in 0..KBD_INT_MAX_ROUNDS {
+        let prompts = match reply {
+            KeyboardInteractiveAuthResponse::Success => return Ok(()),
+            KeyboardInteractiveAuthResponse::Failure { .. } => return Err(KBD_INT_REJECTED.into()),
+            KeyboardInteractiveAuthResponse::InfoRequest { prompts, .. } => prompts,
+        };
+        let answers = answer_prompts(&prompts, password, &mut sent)?;
+        reply = handle
+            .authenticate_keyboard_interactive_respond(answers)
+            .await
+            .map_err(auth_err)?;
+    }
+    Err("Keyboard-interactive authentication gave up: the server kept prompting.".into())
+}
+
+/// Key, then password, or keyboard-interactive with the same password when the
+/// server has no `password` method. Like `ssh`, a "none" request lists them first.
+async fn authenticate_handle_inner<H: client::Handler>(
+    handle: &mut client::Handle<H>,
     username: &str,
     password: Option<&str>,
     private_key: Option<&str>,
     passphrase: Option<&str>,
 ) -> Result<(), String> {
-    let authenticated = if let Some(key_str) = private_key {
-        let key_pair = Arc::new(
-            russh::keys::decode_secret_key(key_str, passphrase)
-                .map_err(|e| format!("Invalid private key: {}", e))?,
-        );
-        let is_rsa = matches!(key_pair.algorithm(), russh::keys::Algorithm::Rsa { .. });
-
-        // Only RSA has a choice of signature hash. Ask the server which it accepts
-        // (`server-sig-algs`, RFC 8308) instead of assuming: dropbear before
-        // 2020.79 — still shipping on plenty of OpenWrt routers — only supports
-        // ssh-rsa, and rejects the rsa-sha2-256 we used to send unconditionally.
-        let hash = if is_rsa {
-            choose_rsa_hash(handle.best_supported_rsa_hash().await.ok().flatten())
-        } else {
-            None
-        };
-
-        let mut res = handle
-            .authenticate_publickey(username, PrivateKeyWithHashAlg::new(key_pair.clone(), hash))
-            .await
-            .map_err(|e| format!("Auth failed: {}", e))?;
-
-        // A server too old to advertise `server-sig-algs` is also too old to accept
-        // rsa-sha2-*. Retrying costs one round trip and only on an already-failed auth.
-        if !res.success() && is_rsa && hash.is_some() {
-            res = handle
-                .authenticate_publickey(username, PrivateKeyWithHashAlg::new(key_pair, None))
-                .await
-                .map_err(|e| format!("Auth failed: {}", e))?;
-        }
-        res
-    } else if let Some(pwd) = password {
-        handle
-            .authenticate_password(username, pwd)
-            .await
-            .map_err(|e| format!("Auth failed: {}", e))?
-    } else {
+    if password.is_none() && private_key.is_none() {
         return Err("No authentication method provided".into());
-    };
-
-    if !authenticated.success() {
-        return Err("Authentication failed".into());
     }
-    Ok(())
+    let Some(mut remaining) = rejected(handle.authenticate_none(username).await.map_err(auth_err)?)
+    else {
+        return Ok(());
+    };
+    let mut key_rejected = false;
+
+    if let Some(key) = private_key.filter(|_| remaining.contains(&MethodKind::PublicKey)) {
+        let Some(m) = rejected(authenticate_key(handle, username, key, passphrase).await?) else {
+            return Ok(());
+        };
+        (remaining, key_rejected) = (m, true);
+    }
+    if let Some(pwd) = password {
+        // A password rejected here would fail keyboard-interactive too; trying both
+        // doubles the failures fail2ban/sshguard count against the host.
+        if remaining.contains(&MethodKind::Password) {
+            let res = handle
+                .authenticate_password(username, pwd)
+                .await
+                .map_err(auth_err)?;
+            return if res.success() {
+                Ok(())
+            } else {
+                Err(PASSWORD_REJECTED.into())
+            };
+        }
+        if remaining.contains(&MethodKind::KeyboardInteractive) {
+            return authenticate_keyboard_interactive(handle, username, pwd).await;
+        }
+    }
+
+    if key_rejected {
+        return Err(KEY_REJECTED.into());
+    }
+    let accepted: Vec<&str> = remaining.iter().map(<&str>::from).collect();
+    Err(format!(
+        "No usable authentication method — the server only accepts: {}.",
+        accepted.join(", ")
+    ))
 }
 
-pub async fn authenticate_handle(
-    handle: &mut client::Handle<SshClient>,
+pub async fn authenticate_handle<H: client::Handler>(
+    handle: &mut client::Handle<H>,
     username: &str,
     password: Option<&str>,
     private_key: Option<&str>,
@@ -1098,8 +1218,166 @@ fn legacy_preferred() -> russh::Preferred {
 
 #[cfg(test)]
 mod tests {
-    use super::{choose_rsa_hash, client_config, is_windows_sshid, legacy_preferred, AUTH_TIMEOUT};
+    use super::{
+        answer_prompts, authenticate_handle, choose_rsa_hash, client_config, is_windows_sshid,
+        legacy_preferred, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_REJECTED,
+    };
+    use russh::client::Prompt;
     use russh::keys::ssh_key::HashAlg;
+    use russh::server::{Auth, Response};
+    use russh::MethodKind::{self, KeyboardInteractive, Password, PublicKey};
+    use std::borrow::Cow;
+
+    const SECRET: &str = "s3cret";
+
+    fn prompt(text: &str, echo: bool) -> Prompt {
+        Prompt {
+            prompt: text.into(),
+            echo,
+        }
+    }
+
+    #[test]
+    fn only_password_prompts_are_answered_once() {
+        for text in ["Password:", "Password for root@fbsd:", "Parola:"] {
+            let got = answer_prompts(&[prompt(text, false)], SECRET, &mut false);
+            assert_eq!(got, Ok(vec![SECRET.to_string()]), "{text}");
+        }
+        for p in [
+            prompt("Verification code:", false),
+            prompt("New password:", false),
+            prompt("Password:", true),
+        ] {
+            let err = answer_prompts(&[p], SECRET, &mut false).unwrap_err();
+            assert!(err.contains("can't be answered"), "{err}");
+        }
+        let again = answer_prompts(&[prompt("Password:", false)], SECRET, &mut true);
+        assert_eq!(again, Err(KBD_INT_REJECTED.to_string()));
+        assert_eq!(answer_prompts(&[], SECRET, &mut false), Ok(vec![]));
+    }
+
+    /// Like sshd: a disabled method always fails, and every rejection relists the enabled ones.
+    struct AuthServer {
+        methods: &'static [MethodKind],
+        kbd_prompt: &'static str,
+        accept_key: bool,
+    }
+
+    impl AuthServer {
+        fn decide(&self, method: MethodKind, ok: bool) -> Auth {
+            if ok && self.methods.contains(&method) {
+                return Auth::Accept;
+            }
+            Auth::Reject {
+                proceed_with_methods: Some(self.methods.into()),
+                partial_success: false,
+            }
+        }
+    }
+
+    impl russh::server::Handler for AuthServer {
+        type Error = russh::Error;
+
+        async fn auth_password(&mut self, _: &str, password: &str) -> Result<Auth, Self::Error> {
+            Ok(self.decide(Password, password == SECRET))
+        }
+
+        async fn auth_publickey(
+            &mut self,
+            _: &str,
+            _: &russh::keys::ssh_key::PublicKey,
+        ) -> Result<Auth, Self::Error> {
+            Ok(self.decide(PublicKey, self.accept_key))
+        }
+
+        async fn auth_keyboard_interactive<'a>(
+            &'a mut self,
+            _: &str,
+            _: &str,
+            response: Option<Response<'a>>,
+        ) -> Result<Auth, Self::Error> {
+            Ok(match response {
+                None if self.methods.contains(&KeyboardInteractive) => Auth::Partial {
+                    name: Cow::Borrowed(""),
+                    instructions: Cow::Borrowed(""),
+                    prompts: Cow::Owned(vec![(Cow::Borrowed(self.kbd_prompt), false)]),
+                },
+                None => self.decide(KeyboardInteractive, false),
+                Some(mut r) => self.decide(
+                    KeyboardInteractive,
+                    r.next().as_deref() == Some(SECRET.as_bytes()),
+                ),
+            })
+        }
+    }
+
+    async fn auth(
+        server: AuthServer,
+        password: Option<&str>,
+        key: Option<&str>,
+    ) -> Result<(), String> {
+        use crate::port_forward::test_ssh::{serve_one, TestClient};
+        let config = russh::server::Config {
+            methods: server.methods.into(),
+            auth_rejection_time: std::time::Duration::ZERO,
+            auth_rejection_time_initial: Some(std::time::Duration::ZERO),
+            ..Default::default()
+        };
+        let port = serve_one(config, server).await;
+        let addr = ("127.0.0.1", port);
+        let mut handle = russh::client::connect(Default::default(), addr, TestClient)
+            .await
+            .unwrap();
+        authenticate_handle(&mut handle, "root", password, key, None).await
+    }
+
+    #[tokio::test]
+    async fn auth_falls_back_key_password_keyboard_interactive() {
+        let key: russh::keys::PrivateKey =
+            russh::keys::ssh_key::private::Ed25519Keypair::from_seed(&[7; 32]).into();
+        let key = key
+            .to_openssh(russh::keys::ssh_key::LineEnding::LF)
+            .unwrap();
+        let key = Some(key.as_str());
+        // FreeBSD: UsePAM yes, PasswordAuthentication no, KbdInteractiveAuthentication yes.
+        const PAM: &[MethodKind] = &[PublicKey, KeyboardInteractive];
+        const ALL: &[MethodKind] = &[PublicKey, Password, KeyboardInteractive];
+        const PWD: &[MethodKind] = &[Password];
+        const KEY: &[MethodKind] = &[PublicKey];
+        const PW: &str = "Password for root@fbsd:";
+        const OTP: &str = "Verification code:";
+        let (ok, bad) = (Some(SECRET), Some("wrong"));
+        let otp = "The server asked \"Verification code:\", which can't be answered automatically.";
+        let no_method = "No usable authentication method — the server only accepts: publickey.";
+
+        let cases = [
+            (PAM, PW, false, ok, None, Ok(())),
+            (PAM, PW, false, bad, None, Err(KBD_INT_REJECTED)),
+            (PAM, PW, false, ok, key, Ok(())),
+            (PAM, OTP, false, ok, None, Err(otp)),
+            (PWD, PW, false, ok, None, Ok(())),
+            (PWD, PW, false, bad, None, Err(PASSWORD_REJECTED)),
+            (ALL, PW, false, ok, None, Ok(())),
+            (ALL, PW, false, bad, None, Err(PASSWORD_REJECTED)),
+            (KEY, PW, true, None, key, Ok(())),
+            (KEY, PW, false, None, key, Err(KEY_REJECTED)),
+            (KEY, PW, false, ok, None, Err(no_method)),
+        ];
+        for (i, (methods, kbd_prompt, accept_key, password, key, want)) in
+            cases.into_iter().enumerate()
+        {
+            let server = AuthServer {
+                methods,
+                kbd_prompt,
+                accept_key,
+            };
+            assert_eq!(
+                auth(server, password, key).await,
+                want.map_err(String::from),
+                "case {i}"
+            );
+        }
+    }
 
     #[test]
     fn server_advertised_rsa_hash_is_honoured() {

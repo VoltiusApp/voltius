@@ -96,6 +96,7 @@ pub async fn pump(
 mod tests {
     use super::*;
     use crate::port_forward::test_ssh::{self, Behavior, GREETING, SAW_EOF};
+    use std::sync::atomic::AtomicU16;
     use tokio::time::{timeout, Duration};
 
     const STEP: Duration = Duration::from_secs(5);
@@ -144,43 +145,41 @@ mod tests {
         assert_eq!(answer, SAW_EOF);
     }
 
+    /// First of `n` consecutive free ports below every OS's ephemeral range. The
+    /// ports after a `bind(0)` result belong to tests running alongside (macOS
+    /// hands them out sequentially), and `bind_with_fallback` connect-probes each
+    /// one — stealing the single connection their one-shot listeners accept.
+    fn free_window(n: u16) -> u16 {
+        static NEXT: AtomicU16 = AtomicU16::new(0);
+        loop {
+            let base = 10_000
+                + (std::process::id() % 10_000) as u16
+                + NEXT.fetch_add(n, Ordering::Relaxed);
+            if (base..base + n).all(|p| std::net::TcpListener::bind(("127.0.0.1", p)).is_ok()) {
+                return base;
+            }
+        }
+    }
+
+    async fn hold(port: u16) {
+        let l = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
+        tokio::spawn(async move { while l.accept().await.is_ok() {} });
+    }
+
     #[tokio::test]
     async fn falls_back_to_the_next_free_port() {
-        let taken = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let port = taken.local_addr().unwrap().port();
-        tokio::spawn(async move {
-            loop {
-                if taken.accept().await.is_err() {
-                    break;
-                }
-            }
-        });
+        let port = free_window(PORT_ATTEMPTS);
+        hold(port).await;
 
         let (_listener, bound) = bind_with_fallback(port).await.unwrap();
-        assert!(bound > port, "expected a later port, got {bound}");
-        assert!(bound < port + PORT_ATTEMPTS);
+        assert_eq!(bound, port + 1);
     }
 
     #[tokio::test]
     async fn reports_the_requested_port_when_every_attempt_is_taken() {
-        // Port 0 asks the OS for an ephemeral port, so every attempt in the
-        // window binds; use a port range held by listeners instead.
-        let mut held = Vec::new();
-        let first = {
-            let probe = TcpListener::bind("127.0.0.1:0").await.unwrap();
-            probe.local_addr().unwrap().port()
-        };
-        for offset in 0..PORT_ATTEMPTS {
-            if let Ok(l) = TcpListener::bind(("127.0.0.1", first + offset)).await {
-                tokio::spawn(async move {
-                    loop {
-                        if l.accept().await.is_err() {
-                            break;
-                        }
-                    }
-                });
-            }
-            held.push(first + offset);
+        let first = free_window(PORT_ATTEMPTS);
+        for port in first..first + PORT_ATTEMPTS {
+            hold(port).await;
         }
         match bind_with_fallback(first).await {
             Err(ForwardError::PortInUse(requested, attempts)) => {

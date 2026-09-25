@@ -118,28 +118,40 @@ pub async fn open_direct_channel(behavior: Behavior) -> (TestSession, Channel<ru
     )
 }
 
+/// Serve one connection on a loopback port with `handler` (the host key is filled
+/// in here) and return the port.
+pub async fn serve_one<H>(mut server_config: russh::server::Config, handler: H) -> u16
+where
+    H: russh::server::Handler + Send + 'static,
+{
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    server_config.keys = vec![host_key()];
+    let server_config = Arc::new(server_config);
+    tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        if let Ok(session) = russh::server::run_stream(server_config, stream, handler).await {
+            let _ = session.await;
+        }
+    });
+    port
+}
+
 /// Serve one connection offering only `server_preferred`, and complete the key exchange with it.
 pub async fn connect_to_server(
     client_config: russh::client::Config,
     server_preferred: russh::Preferred,
     behavior: Behavior,
 ) -> Result<russh::client::Handle<TestClient>, russh::Error> {
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let port = listener.local_addr().unwrap().port();
-
-    let server_config = Arc::new(russh::server::Config {
-        keys: vec![host_key()],
-        preferred: server_preferred,
-        ..Default::default()
-    });
-    tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.unwrap();
-        if let Ok(session) =
-            russh::server::run_stream(server_config, stream, TestServer { behavior }).await
-        {
-            let _ = session.await;
-        }
-    });
+    let port = serve_one(
+        russh::server::Config {
+            preferred: server_preferred,
+            ..Default::default()
+        },
+        TestServer { behavior },
+    )
+    .await;
 
     russh::client::connect(Arc::new(client_config), ("127.0.0.1", port), TestClient).await
 }

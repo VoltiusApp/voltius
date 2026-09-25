@@ -8,7 +8,12 @@ import type { TerminalSession } from "@/types";
  */
 export function stopsRetrying(msg?: string, code?: VaultErrorCode): boolean {
   if (code) return true;
-  return isPassphraseError(msg) || isNoAuthError(msg) || isMissingUsernameError(msg) || isHostKeyRejected(msg);
+  return isPassphraseError(msg) || isNoAuthError(msg) || isMissingUsernameError(msg) || isHostKeyRejected(msg) || isAuthRejected(msg);
+}
+
+// Wrong credentials stay wrong; retrying them only gets the host banned by fail2ban/sshguard.
+function isAuthRejected(msg?: string): boolean {
+  return !!msg && /authentication rejected|No usable authentication method|can't be answered automatically/.test(msg);
 }
 
 // Retrying would re-open the host-key prompt the user just turned down.
