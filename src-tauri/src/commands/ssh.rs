@@ -4,6 +4,7 @@ use crate::ssh::{
     client::{self, JumpHostConnect},
     session::SessionManager,
 };
+use crate::storage::config::ProxyConfig;
 use std::sync::Arc;
 use tauri::AppHandle;
 
@@ -37,6 +38,7 @@ pub async fn ssh_connect(
     rows: Option<u32>,
     legacy_algorithms: Option<bool>,
     initial_cwd: Option<String>,
+    proxy_config: Option<ProxyConfig>,
 ) -> Result<(), String> {
     let connected = client::connect(
         app,
@@ -63,6 +65,7 @@ pub async fn ssh_connect(
         rows.filter(|r| *r > 0).unwrap_or(24),
         legacy_algorithms.unwrap_or(false),
         initial_cwd,
+        proxy_config,
     )
     .await?;
 
@@ -195,6 +198,7 @@ pub async fn ssh_exec_command(
     passphrase: Option<String>,
     command: String,
     legacy_algorithms: Option<bool>,
+    proxy_config: Option<ProxyConfig>,
 ) -> Result<SshExecResult, String> {
     use tokio::time::{timeout, Duration};
 
@@ -207,6 +211,7 @@ pub async fn ssh_exec_command(
         private_key.as_deref(),
         passphrase.as_deref(),
         legacy_algorithms.unwrap_or(false),
+        proxy_config,
     )
     .await?;
 
@@ -270,6 +275,7 @@ pub async fn ssh_kill_persistent(
     passphrase: Option<String>,
     session_id: String,
     legacy_algorithms: Option<bool>,
+    proxy_config: Option<ProxyConfig>,
 ) -> Result<bool, String> {
     use tokio::io::AsyncReadExt;
     use tokio::time::{timeout, Duration};
@@ -283,6 +289,7 @@ pub async fn ssh_kill_persistent(
         private_key.as_deref(),
         passphrase.as_deref(),
         legacy_algorithms.unwrap_or(false),
+        proxy_config,
     )
     .await?;
 
