@@ -8,6 +8,7 @@ import {
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sftpConnectToConnection } from "@/services/sftpTarget";
 import { type FileEntry, genId, mapRemote } from "@/components/filetransfer/SFTPTypes";
+import { joinPath } from "@/components/filetransfer/moveTargetCore";
 import { vaultErrorCode, type VaultErrorCode } from "@/services/vaultErrors";
 import { useConnectRetry } from "@/hooks/useConnectRetry";
 import type { Connection } from "@/types";
@@ -112,15 +113,14 @@ export function useSftpDir(connection: Connection | undefined) {
   const navigate = useCallback((p: string) => { setCwd(p); }, []);
   const goUp = useCallback(() => setCwd((c) => parentDir(c)), []);
   const mkdir = useCallback(async (name: string) => {
-    if (sftpId) { await sftpMkdir(sftpId, `${cwd.replace(/\/$/, "")}/${name}`); refresh(); }
+    if (sftpId) { await sftpMkdir(sftpId, joinPath(cwd, name)); refresh(); }
   }, [sftpId, cwd, refresh]);
   const touch = useCallback(async (name: string) => {
-    if (sftpId) { await sftpTouch(sftpId, `${cwd.replace(/\/$/, "")}/${name}`); refresh(); }
+    if (sftpId) { await sftpTouch(sftpId, joinPath(cwd, name)); refresh(); }
   }, [sftpId, cwd, refresh]);
   const rename = useCallback(async (f: FileEntry, newName: string) => {
     if (!sftpId) return;
-    const dir = f.path.slice(0, f.path.lastIndexOf("/"));
-    await sftpRename(sftpId, f.path, `${dir}/${newName}`); refresh();
+    await sftpRename(sftpId, f.path, joinPath(parentDir(f.path), newName)); refresh();
   }, [sftpId, refresh]);
   const remove = useCallback(async (f: FileEntry) => {
     if (sftpId) { await sftpDelete(sftpId, f.path); refresh(); }

@@ -7,6 +7,7 @@ import { tarUsableForPair } from "./tarSupport";
 import { copyNameCandidate } from "./copyNameCandidate";
 import { sameHost } from "@/stores/fileClipboardStore";
 import { runIntraPaneMove } from "./moveService";
+import { joinPath } from "./moveTargetCore";
 import {
   fsExists, sftpExists, fsRename, sftpRename, fsDelete, sftpDelete,
 } from "@/services/sftp";
@@ -25,9 +26,6 @@ export interface PasteDeps {
   clearClipboard: () => void;
 }
 
-const joinDir = (dir: string, name: string) =>
-  `${dir === "/" ? "" : dir.replace(/\/$/, "")}/${name}`;
-
 // Pick the first non-colliding Explorer name. startN=1 forces a "- Copy" for
 // same-folder pastes; 0 keeps the original name when the folder differs.
 async function uniqueTarget(item: FileEntry, destCwd: string, startN: number, existsInDest: PasteDeps["existsInDest"]): Promise<TransferTarget> {
@@ -36,7 +34,7 @@ async function uniqueTarget(item: FileEntry, destCwd: string, startN: number, ex
   while (true) {
     const name = copyNameCandidate(item.name, item.isDir, n);
     if (!(await existsInDest(name))) {
-      return { srcPath: item.path, dstPath: joinDir(destCwd, name), isDir: item.isDir, name };
+      return { srcPath: item.path, dstPath: joinPath(destCwd, name), isDir: item.isDir, name };
     }
     n++;
   }
@@ -70,7 +68,7 @@ export async function executePaste(clip: NonNullable<FileClipboard>, dest: FileE
     const undeleted: string[] = [];
     let firstError = "";
     for (const item of chosen) {
-      const target: TransferTarget = { srcPath: item.path, dstPath: joinDir(dest.cwd, item.name), isDir: item.isDir, name: item.name };
+      const target: TransferTarget = { srcPath: item.path, dstPath: joinPath(dest.cwd, item.name), isDir: item.isDir, name: item.name };
       try {
         await deps.copyTarget(target);
       } catch {
@@ -114,7 +112,7 @@ export function buildPasteDeps(
   const existsAt = (ep: FileEndpoint, path: string) => (ep.isLocal ? fsExists(path) : sftpExists(ep.sftpId!, path));
 
   return {
-    existsInDest: (name) => existsAt(dest, joinDir(dest.cwd, name)),
+    existsInDest: (name) => existsAt(dest, joinPath(dest.cwd, name)),
     copyTarget: async (target) => {
       let ok = false;
       const useTar = await tarUsableForPair(src, dest);

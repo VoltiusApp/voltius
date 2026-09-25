@@ -35,6 +35,8 @@ test("moveTargetCore", () => {
   assertEqual(joinPath("/", "x"), "/x", "root join no doubled slash");
   assertEqual(joinPath("C:\\Users", "x"), "C:\\Users\\x", "windows join");
   assertEqual(joinPath("C:\\", "x"), "C:\\x", "windows drive root join");
+  assertEqual(joinPath("C:\\Users\\", "x"), "C:\\Users\\x", "windows join strips trailing separator");
+  assertEqual(joinPath("\\\\srv\\share", "x"), "\\\\srv\\share\\x", "unc join");
 
   // isValidMoveTarget — valid: move /src/a.txt into /src/logs
   assertEqual(isValidMoveTarget([f("a.txt", "/src")], "/src/logs"), true, "valid move into sibling folder");

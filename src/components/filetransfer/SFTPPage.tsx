@@ -6,7 +6,6 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import {
   ftpConnect, sftpClose,
-  sftpDownload, sftpDownloadDir, sftpDownloadDirTar,
   sftpUploadBatchTar, sftpDownloadBatchTar, sftpTransferBatchTar,
   sftpExists, fsExists, fsHomeDir, fsCopy, wslHomeDir,
   sftpRename, sftpDelete, fsRename, fsDelete, sftpCanonicalize,
@@ -15,8 +14,9 @@ import {
 import { transferItem } from "@/services/sftpTransferCore";
 import { runIntraPaneMove } from "./moveService";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "./internalDrag";
-import { triggerUpload } from "./osDropPipeline";
-import { tarUsable, tarUsableForPair } from "./tarSupport";
+import { triggerUpload, downloadToLocal, batchLabel } from "./osDropPipeline";
+import { tarUsableForPair } from "./tarSupport";
+import { joinPath } from "./moveTargetCore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
@@ -176,8 +176,7 @@ export default function SFTPPage() {
 
     if (src.tag !== "connected" || dst.tag !== "connected") return;
 
-    const dstBase  = targetFolder ?? dst.cwd;
-    const destPath = `${dstBase.replace(/\/$/, "")}/${file.name}`;
+    const destPath = joinPath(targetFolder ?? dst.cwd, file.name);
     const srcIsLocal = srcHost?.kind === "local";
     const dstIsLocal = dstHost?.kind === "local";
 
@@ -208,12 +207,11 @@ export default function SFTPPage() {
     const dstBase    = targetFolder ?? dst.cwd;
     const srcIsLocal = srcHost?.kind === "local";
     const dstIsLocal = dstHost?.kind === "local";
-    const label      = files.length === 1 ? files[0].name : t("fileTransfer.common.itemsCount", { count: files.length });
+    const label      = batchLabel(files);
 
     if (srcIsLocal && dstIsLocal) {
       for (const file of files) {
-        const destPath = `${dstBase.replace(/\/$/, "")}/${file.name}`;
-        await runTransfer(file.name, dir, (tid) => fsCopy(file.path, destPath, tid), refreshDst);
+        await runTransfer(file.name, dir, (tid) => fsCopy(file.path, joinPath(dstBase, file.name), tid), refreshDst);
       }
     } else if (srcIsLocal && !dstIsLocal && dst.sftpId) {
       await runTransfer(label, dir, (tid) =>
@@ -258,7 +256,7 @@ export default function SFTPPage() {
 
     const conflicts = (
       await Promise.all(files.map(async (f) => {
-        const dstPath = `${dstBase.replace(/\/$/, "")}/${f.name}`;
+        const dstPath = joinPath(dstBase, f.name);
         const exists = dstIsLocal ? await fsExists(dstPath) : await sftpExists(dst.sftpId!, dstPath);
         return exists ? f : null;
       }))
@@ -391,29 +389,8 @@ export default function SFTPPage() {
     const host  = side === "left" ? leftHost  : rightHost;
     if (phase.tag !== "connected" || host?.kind === "local" || !phase.sftpId || files.length === 0) return;
     const dstDir = await pickLocalPath({ directory: true, title: t("fileTransfer.page.downloadToFolder") });
-    if (!dstDir) return;
-    const sftpId = phase.sftpId;
-    const base = dstDir.replace(/[\\/]$/, "");
-    const label = files.length === 1 ? files[0].name : t("fileTransfer.common.itemsCount", { count: files.length });
-    // Archives remotely + extracts locally, so both ends need tar.
-    const useTar = await tarUsable([sftpId], true);
-
-    if (useTar && files.length > 1) {
-      await runTransfer(label, "←", (tid) =>
-        sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir: base, transferId: tid }), undefined, true);
-      return;
-    }
-
-    for (const file of files) {
-      const sep = /\\/.test(base) ? "\\" : "/";
-      const localPath = `${base}${sep}${file.name}`;
-      await runTransfer(file.name, "←", (tid) => file.isDir
-        ? (useTar
-            ? sftpDownloadDirTar({ sftpId, remotePath: file.path, localPath, transferId: tid })
-            : sftpDownloadDir({ sftpId, remotePath: file.path, localPath, transferId: tid }))
-        : sftpDownload({ sftpId, remotePath: file.path, localPath, transferId: tid }), undefined, file.isDir && useTar);
-    }
-  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
+    if (dstDir) await downloadToLocal(files, phase.sftpId, dstDir);
+  }, [leftPhase, rightPhase, leftHost, rightHost]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
