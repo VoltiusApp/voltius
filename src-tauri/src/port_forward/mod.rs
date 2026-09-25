@@ -6,6 +6,7 @@ pub mod socks;
 pub(crate) mod test_ssh;
 pub mod tunnel;
 
+use crate::error::{AppError, Classify, ErrorCode};
 use crate::ssh::live_cells::read_cell;
 use crate::ssh::session::SessionHandle;
 use crate::storage::config::TunnelType;
@@ -201,6 +202,30 @@ impl From<std::io::Error> for ForwardError {
 impl From<russh::Error> for ForwardError {
     fn from(e: russh::Error) -> Self {
         Self::Ssh(e)
+    }
+}
+
+impl Classify for ForwardError {
+    fn error_code(&self) -> Option<ErrorCode> {
+        match self {
+            Self::PortInUse(..) => Some(ErrorCode::PortInUse),
+            Self::Io(e) => e.error_code(),
+            // The only global request a tunnel sends is `tcpip-forward`.
+            Self::Ssh(russh::Error::RequestDenied) => Some(ErrorCode::RemoteForwardDenied),
+            Self::Ssh(e) => e.error_code(),
+        }
+    }
+}
+
+impl From<ForwardError> for AppError {
+    fn from(e: ForwardError) -> Self {
+        let err = AppError::classified(&e);
+        match e {
+            ForwardError::PortInUse(port, attempts) => err
+                .with_param("port", port)
+                .with_param("attempts", attempts),
+            _ => err,
+        }
     }
 }
 
@@ -1110,6 +1135,25 @@ mod tests {
             bytes: Arc::new(AtomicU64::new(0)),
             remote_cleanup: None,
         }
+    }
+
+    #[test]
+    fn forward_errors_reach_the_frontend_with_their_codes() {
+        let in_use = AppError::from(ForwardError::PortInUse(8080, 5));
+        assert_eq!(
+            serde_json::to_value(&in_use).unwrap(),
+            serde_json::json!({
+                "code": "port-in-use",
+                "message": "Port 8080 already in use after 5 attempts",
+                "params": { "port": "8080", "attempts": "5" },
+            })
+        );
+        let denied = AppError::from(ForwardError::Ssh(russh::Error::RequestDenied));
+        assert_eq!(denied.code(), Some(ErrorCode::RemoteForwardDenied));
+        let io = std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+        let low_port = AppError::from(ForwardError::Io(io));
+        assert_eq!(low_port.code(), Some(ErrorCode::PermissionDenied));
+        assert!(low_port.to_string().starts_with("IO error: "));
     }
 
     #[test]

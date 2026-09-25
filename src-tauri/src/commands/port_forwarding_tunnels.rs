@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use crate::port_forward::{ActiveTunnel, PfSessionState, PortForwardManager, TunnelOrigin};
 use crate::ssh::session::SessionManager;
 use crate::storage::config::TunnelType;
@@ -31,7 +32,7 @@ pub async fn pf_tunnel_open(
     target_host: Option<String>,
     rule_id: Option<String>,
     rule_name: Option<String>,
-) -> Result<ActiveTunnel, String> {
+) -> Result<ActiveTunnel, AppError> {
     let handle = state.get_session_handle(&session_id).await?;
 
     let origin = match rule_id {
@@ -48,7 +49,7 @@ pub async fn pf_tunnel_open(
             let rport = remote_port.unwrap_or(local_port);
             pf.open_local_tunnel(&session_id, handle, local_port, rport, host, origin)
                 .await
-                .map_err(|e| e.to_string())
+                .map_err(AppError::from)
         }
         TunnelType::Remote => {
             let routes = state
@@ -69,12 +70,12 @@ pub async fn pf_tunnel_open(
                 origin,
             )
             .await
-            .map_err(|e| e.to_string())
+            .map_err(AppError::from)
         }
         TunnelType::Dynamic => pf
             .open_dynamic_tunnel(&session_id, handle, local_port, origin)
             .await
-            .map_err(|e| e.to_string()),
+            .map_err(AppError::from),
     }
 }
 
@@ -94,11 +95,11 @@ pub async fn pf_tunnel_resume_auto(
     pf: tauri::State<'_, PortForwardManager>,
     session_id: String,
     port: u16,
-) -> Result<ActiveTunnel, String> {
+) -> Result<ActiveTunnel, AppError> {
     let handle = state.get_session_handle(&session_id).await?;
     pf.resume_auto_port(&session_id, handle, port)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(AppError::from)
 }
 
 #[tauri::command]
