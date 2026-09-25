@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod http;
 mod socks;
 pub mod system;
@@ -188,7 +186,7 @@ pub enum ProxyError {
     Direct(io::Error),
     Unreachable { proxy: String, source: io::Error },
     Rejected { target: String, status: String },
-    Socks { proxy: String, detail: String },
+    Socks { detail: String },
     Protocol { proxy: String, detail: String },
     Timeout { proxy: String },
 }
@@ -201,7 +199,7 @@ impl fmt::Display for ProxyError {
             Self::Rejected { target, status } => {
                 write!(f, "Proxy rejected CONNECT to {target}: {status}")
             }
-            Self::Socks { detail, .. } => write!(f, "SOCKS5 proxy refused: {detail}"),
+            Self::Socks { detail } => write!(f, "SOCKS5 proxy refused: {detail}"),
             Self::Protocol { proxy, detail } => write!(f, "Proxy {proxy}: {detail}"),
             Self::Timeout { proxy } => write!(f, "Proxy {proxy} did not answer in time"),
         }

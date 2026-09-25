@@ -6,7 +6,10 @@ pub use backend::FileBackend;
 
 use crate::commands::sftp::RemoteShell;
 use crate::known_hosts::KnownHostsStore;
-use crate::ssh::client::{authenticate_handle, client_config, JumpHostConnect, SshClient};
+use crate::proxy::ProxySpec;
+use crate::ssh::client::{
+    authenticate_handle, client_config, connect_first_hop, hop_detail, JumpHostConnect, SshClient,
+};
 use crate::ssh::live_cells::{own_cell, read_cell};
 use crate::ssh::session::SessionHandle;
 use docker_fs::DockerFs;
@@ -170,6 +173,7 @@ impl SftpManager {
         keepalive_interval_secs: u64,
         keepalive_max: usize,
         legacy_algorithms: bool,
+        proxy: Option<ProxySpec>,
     ) -> Result<String, String> {
         let config = Arc::new(client_config(
             keepalive_interval_secs,
@@ -182,14 +186,18 @@ impl SftpManager {
         let mut final_handle: Handle<SshClient> = if jump_hosts.is_empty() {
             let (ssh_client, rejection_reason) =
                 SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
-            emit_step(
-                app,
-                connect_id,
-                SftpStep::TcpConnected,
-                format!("{}:{}", host, port),
-            );
-            match russh::client::connect(Arc::clone(&config), (host, port), ssh_client).await {
-                Ok(h) => h,
+            match connect_first_hop(Arc::clone(&config), proxy.as_ref(), host, port, ssh_client)
+                .await
+            {
+                Ok((h, via)) => {
+                    emit_step(
+                        app,
+                        connect_id,
+                        SftpStep::TcpConnected,
+                        hop_detail(host, port, "", via.as_deref()),
+                    );
+                    h
+                }
                 Err(e) => {
                     let reason = rejection_reason.lock().await.take();
                     return Err(reason.unwrap_or_else(|| format!("SSH connection failed: {e}")));
@@ -199,9 +207,11 @@ impl SftpManager {
             let first = &jump_hosts[0];
             let (first_client, rejection_reason) =
                 SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
-            let mut current_handle = match russh::client::connect(
+            let (mut current_handle, via) = match connect_first_hop(
                 Arc::clone(&config),
-                (first.host.as_str(), first.port),
+                proxy.as_ref(),
+                &first.host,
+                first.port,
                 first_client,
             )
             .await
@@ -218,7 +228,7 @@ impl SftpManager {
                 app,
                 connect_id,
                 SftpStep::TcpConnected,
-                format!("{}:{} (jump 1)", first.host, first.port),
+                hop_detail(&first.host, first.port, " (jump 1)", via.as_deref()),
             );
             authenticate_handle(
                 &mut current_handle,

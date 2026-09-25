@@ -20,7 +20,6 @@ pub async fn connect(
             source,
         },
         other => ProxyError::Socks {
-            proxy: ep.label(),
             detail: other.to_string(),
         },
     })

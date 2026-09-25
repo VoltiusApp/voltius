@@ -235,3 +235,24 @@ fn debug_redacts_password() {
     assert!(!shown.contains("hunter2"), "{shown}");
     assert!(shown.contains("<redacted>"));
 }
+
+#[tokio::test]
+async fn first_hop_helper_goes_through_proxy_and_reports_via() {
+    let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
+    let (proxy, _) = fake_socks5(ssh, None).await;
+    let spec = ProxySpec::Socks5(endpoint(proxy, None));
+    let (_handle, via) = crate::ssh::client::connect_first_hop(
+        Arc::new(russh::client::Config::default()),
+        Some(&spec),
+        "ssh.test.invalid",
+        22,
+        TestClient,
+    )
+    .await
+    .map_err(|e| e.to_string())
+    .unwrap();
+    assert_eq!(
+        crate::ssh::client::hop_detail("ssh.test.invalid", 22, " (jump 1)", via.as_deref()),
+        format!("ssh.test.invalid:22 (jump 1) via socks5 127.0.0.1:{proxy}")
+    );
+}

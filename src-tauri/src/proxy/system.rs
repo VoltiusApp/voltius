@@ -77,6 +77,7 @@ pub fn parse_proxy_url(url: &str) -> Option<ProxySpec> {
     })
 }
 
+#[cfg(any(target_os = "windows", test))]
 pub fn parse_windows_proxy_server(value: &str) -> Option<ProxySpec> {
     let value = value.trim();
     if value.is_empty() {
@@ -101,6 +102,7 @@ pub fn parse_windows_proxy_server(value: &str) -> Option<ProxySpec> {
         .map(ProxySpec::Socks5)
 }
 
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
 fn glob(pattern: &str, text: &str) -> bool {
     let parts: Vec<&str> = pattern.split('*').collect();
     if parts.len() == 1 {
@@ -124,6 +126,7 @@ fn glob(pattern: &str, text: &str) -> bool {
     true
 }
 
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
 pub fn bypass_matches(patterns: &[&str], host: &str, local_token: bool) -> bool {
     let host = host.to_ascii_lowercase();
     patterns
@@ -138,6 +141,7 @@ pub fn bypass_matches(patterns: &[&str], host: &str, local_token: bool) -> bool 
         })
 }
 
+#[cfg(any(target_os = "macos", test))]
 pub fn parse_scutil(output: &str) -> Option<(ProxySpec, Vec<String>)> {
     let mut map = std::collections::HashMap::new();
     let mut exceptions = Vec::new();
