@@ -3,7 +3,7 @@ import { refEids, stepsFromExport, stepsToExport } from "../snippetRefs";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, SnippetExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
-import { selectionMethods } from "../context";
+import { liveInVault, selectionMethods, skipItem } from "../context";
 import { normalizeSnippetSteps } from "@/services/snippetSteps";
 
 export const snippetsHandler: DataTypeHandler = {
@@ -32,21 +32,14 @@ export const snippetsHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
-    const existingByName = new Map(
-      ctx.existingSnippets
-        .filter(s => !s.deleted_at && (s.vault_id ?? "personal") === ctx.vault_id)
-        .map(s => [s.name, s.id] as const),
-    );
-    const normalized = bundle.snippets.map(raw => normalizeSnippetSteps(raw));
+    const existingByName = new Map(liveInVault(ctx.existingSnippets, ctx.vault_id).map(s => [s.name, s.id] as const));
 
     // A dupe we skip still satisfies calls that point at it — resolve those to
     // the snippet already on this machine rather than failing the caller.
     const eidToId = new Map<string, string>();
-    const toCreate = normalized.filter((s) => {
-      if (!(ctx.skipDupes && existingByName.has(s.name))) return true;
-      if (s._eid) eidToId.set(s._eid, existingByName.get(s.name)!);
-      return false;
-    });
+    const toCreate = bundle.snippets
+      .filter(raw => !skipItem(ctx, raw, existingByName.get(raw.name), eidToId))
+      .map(raw => normalizeSnippetSteps(raw));
 
     // Refs are checked before anything is written, so an unresolvable call
     // costs an error instead of leaving a half-built snippet behind.

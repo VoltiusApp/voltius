@@ -3,7 +3,7 @@ import type { SshKey } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, KeyExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
-import { liveInVault, selectionMethods } from "../context";
+import { liveInVault, selectionMethods, skipItem } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { fetchKeySecrets, storeKeySecrets } from "../secretsLogic";
 
@@ -31,15 +31,9 @@ export const keysHandler: DataTypeHandler = {
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
     const existing = liveInVault(ctx.existingKeys, ctx.vault_id);
-    const existingNames = new Set(existing.map(k => k.name));
     for (const key of bundle.keys) {
-      if (ctx.skipDupes && key.name && existingNames.has(key.name)) {
-        if (key._eid) {
-          const match = existing.find(k => k.name === key.name);
-          if (match) ctx.keyEidMap.set(key._eid, match.id);
-        }
-        continue;
-      }
+      const match = key.name ? existing.find(k => k.name === key.name) : undefined;
+      if (skipItem(ctx, key, match?.id, ctx.keyEidMap)) continue;
       try {
         const saved = await ctx.stores.saveKey({
           name: key.name, key_type: key.key_type,

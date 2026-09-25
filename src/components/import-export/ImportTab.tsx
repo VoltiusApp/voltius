@@ -5,7 +5,7 @@ import LogoSvg from "/logo.svg?react";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { decryptText, fromJSON } from "@/services/import-export/formats";
 import type { ConnectionExport, ExportBundle, FolderExport, IdentityExport, KeyExport, PortForwardingRuleExport, SnippetExport } from "@/services/import-export/formats";
-import { importableFolders, runImport, reloadAll } from "@/services/import-export/registry";
+import { runImport, reloadAll } from "@/services/import-export/registry";
 import { existingConnectionsForVault, newImportCtx } from "@/services/import-export/context";
 import { IMPORTERS, parseImport } from "@/services/import-export/importers";
 import { useImportStores, useReloadFns, useStoreSlices, useDeleteStores } from "./useStores";
@@ -363,20 +363,21 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
         });
         await Promise.all(deleteOps);
 
-        const filteredBundle: ExportBundle = {
-          ...status.bundle,
-          connections: status.bundle.connections.filter((_, i) => getAction(`connections:${i}`) !== "skip"),
-          keys: status.bundle.keys.filter((_, i) => getAction(`keys:${i}`) !== "skip"),
-          identities: status.bundle.identities.filter((_, i) => getAction(`identities:${i}`) !== "skip"),
-          snippets: status.bundle.snippets.filter((_, i) => getAction(`snippets:${i}`) !== "skip"),
-          portForwardingRules: status.bundle.portForwardingRules.filter((_, i) => getAction(`pfRules:${i}`) !== "skip"),
-        };
-        filteredBundle.folders = importableFolders(status.bundle, filteredBundle);
-
-        const result = await runImport(filteredBundle, newImportCtx({
+        // Skipped items stay in the bundle, so a reference to a skipped
+        // duplicate (a connection's identity, a jump host, a snippet call)
+        // resolves to the copy the vault already has.
+        const skippedOf = (type: string, items: object[]) => items.filter((_, i) => getAction(`${type}:${i}`) === "skip");
+        const result = await runImport(status.bundle, newImportCtx({
           vault_id,
           tag: addTag.trim(),
           skipDupes: false,
+          skipped: new Set([
+            ...skippedOf("connections", status.bundle.connections),
+            ...skippedOf("keys", status.bundle.keys),
+            ...skippedOf("identities", status.bundle.identities),
+            ...skippedOf("snippets", status.bundle.snippets),
+            ...skippedOf("pfRules", status.bundle.portForwardingRules),
+          ]),
           existingConnections,
           existingKeys: storeSlices.keys,
           existingIdentities: storeSlices.identities,

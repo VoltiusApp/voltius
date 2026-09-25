@@ -118,6 +118,12 @@ export interface ImportCtx {
   vault_id: string;
   tag: string;
   skipDupes: boolean;
+  /**
+   * Bundle items (the bundle's own objects) the caller chose to leave out, as
+   * the import review screen does per item. When given, it decides instead of
+   * `skipDupes`, and only folders a kept item needs (or empty ones) are made.
+   */
+  skipped?: ReadonlySet<object>;
   existingConnections: Connection[];
   existingKeys: SshKey[];
   existingIdentities: Identity[];
@@ -147,6 +153,20 @@ export function newImportCtx(base: Omit<ImportCtx, EidMapKey>): ImportCtx {
 
 export function existingConnectionsForVault<T extends { vault_id?: string }>(connections: T[], vault_id: string): T[] {
   return connections.filter((connection) => (connection.vault_id ?? "personal") === vault_id);
+}
+
+// Whether a bundle item stays out of the import. A skipped item the vault
+// already has (`matchId`) still resolves references to it — a connection's
+// identity or key, a jump host, a snippet call — to that existing match.
+export function skipItem(
+  ctx: ImportCtx,
+  item: { _eid?: string },
+  matchId: string | undefined,
+  eidMap?: Map<string, string>,
+): boolean {
+  const skip = ctx.skipped ? ctx.skipped.has(item) : ctx.skipDupes && matchId !== undefined;
+  if (skip && item._eid && matchId) eidMap?.set(item._eid, matchId);
+  return skip;
 }
 
 // ─── Shared handler methods ───────────────────────────────────────────────────

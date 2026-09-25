@@ -3,7 +3,7 @@ import type { Connection, JumpHost } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
-import { existingConnectionsForVault, selectionMethods } from "../context";
+import { existingConnectionsForVault, selectionMethods, skipItem } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { fetchConnectionSecrets, storeConnectionSecrets, resolveConnectionKeyEid, resolveConnectionKeyId } from "../secretsLogic";
 
@@ -50,7 +50,6 @@ export const connectionsHandler: DataTypeHandler = {
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
     const existingConnections = existingConnectionsForVault(ctx.existingConnections, ctx.vault_id);
-    const existingSet = new Set(existingConnections.map(c => `${c.host}:${c.port}:${c.username}`));
 
     // Topological sort: connections whose jump host deps are already resolved come first.
     const pending = [...bundle.connections];
@@ -76,26 +75,17 @@ export const connectionsHandler: DataTypeHandler = {
     return { imported, errors };
 
     async function importOne(conn: ConnectionExport) {
-      const key = `${conn.host}:${conn.port}:${conn.username}`;
-      if (ctx.skipDupes && existingSet.has(key)) {
-        // Register existing ID in eid map so other connections can resolve this jump host.
-        if (conn._eid) {
-          const existing = existingConnections.find(c => c.host === conn.host && c.port === conn.port && c.username === conn.username);
-          if (existing) ctx.connectionEidMap.set(conn._eid, existing.id);
-        }
-        // Best-effort: move skipped connection into the imported folder.
-        if (conn._folder_eid) {
-          const newFolderId = ctx.folderEidMap.get(conn._folder_eid);
-          if (newFolderId) {
-            const existing = existingConnections.find(c => c.host === conn.host && c.port === conn.port && c.username === conn.username);
-            if (existing) {
-              try {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { id, created_at, last_used_at, updated_at, deleted_at, clocks, distro, ...existingPassthrough } = existing;
-                await ctx.stores.updateConnection(existing.id, { ...existingPassthrough, folder_id: newFolderId });
-              } catch { /* best-effort */ }
-            }
-          }
+      const existing = existingConnections.find(c => c.host === conn.host && c.port === conn.port && c.username === conn.username);
+      if (skipItem(ctx, conn, existing?.id, ctx.connectionEidMap)) {
+        // Best-effort: move a deduplicated connection into the imported folder.
+        // One the user chose to skip stays where it is.
+        const newFolderId = conn._folder_eid ? ctx.folderEidMap.get(conn._folder_eid) : undefined;
+        if (!ctx.skipped && existing && newFolderId) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { id, created_at, last_used_at, updated_at, deleted_at, clocks, distro, ...existingPassthrough } = existing;
+            await ctx.stores.updateConnection(existing.id, { ...existingPassthrough, folder_id: newFolderId });
+          } catch { /* best-effort */ }
         }
         return;
       }

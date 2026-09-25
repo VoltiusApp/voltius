@@ -244,22 +244,22 @@ function withAncestors(eids: Set<string>, folders: FolderExport[]): Set<string> 
   return eids;
 }
 
-function itemFolderEids(bundle: ExportBundle): Set<string> {
+function itemFolderEids(bundle: ExportBundle, skipped: ReadonlySet<object> = new Set()): Set<string> {
   const items = [...bundle.connections, ...bundle.keys, ...bundle.identities, ...bundle.snippets, ...bundle.portForwardingRules];
-  return new Set(items.flatMap(i => i._folder_eid ? [i._folder_eid] : []));
+  return new Set(items.flatMap(i => i._folder_eid && !skipped.has(i) ? [i._folder_eid] : []));
 }
 
-// Folders of `original` worth importing once items were dropped to make `kept`:
+// Folders of `bundle` worth importing once `skipped` items are left out:
 // ancestors of a kept item, and empty leaf folders with their ancestors.
-export function importableFolders(original: ExportBundle, kept: ExportBundle): FolderExport[] {
-  const holding = itemFolderEids(original);
-  const keptHolding = itemFolderEids(kept);
-  const parents = new Set(original.folders.map(f => f.parent_folder_eid));
-  const seeds = original.folders
+export function importableFolders(bundle: ExportBundle, skipped: ReadonlySet<object>): FolderExport[] {
+  const holding = itemFolderEids(bundle);
+  const keptHolding = itemFolderEids(bundle, skipped);
+  const parents = new Set(bundle.folders.map(f => f.parent_folder_eid));
+  const seeds = bundle.folders
     .filter(f => keptHolding.has(f._eid) || (!holding.has(f._eid) && !parents.has(f._eid)))
     .map(f => f._eid);
-  const keep = withAncestors(new Set(seeds), original.folders);
-  return original.folders.filter(f => keep.has(f._eid));
+  const keep = withAncestors(new Set(seeds), bundle.folders);
+  return bundle.folders.filter(f => keep.has(f._eid));
 }
 
 function matchingFolder(ctx: ImportCtx, folder: FolderExport, parentId: string | undefined): Folder | undefined {
@@ -278,8 +278,10 @@ export async function runImport(
   let errors = 0;
 
   // 1. Folders — reused when the vault already has one of the same name, type and parent
-  const needed = ctx.skipDupes ? neededFolderEids(bundle, ctx) : null;
-  const pending = bundle.folders.filter(f => !needed || needed.has(f._eid));
+  const needed = !ctx.skipped && ctx.skipDupes ? neededFolderEids(bundle, ctx) : null;
+  const pending = ctx.skipped
+    ? importableFolders(bundle, ctx.skipped)
+    : bundle.folders.filter(f => !needed || needed.has(f._eid));
   let maxPasses = pending.length + 1;
   while (pending.length > 0 && maxPasses-- > 0) {
     const remaining: FolderExport[] = [];

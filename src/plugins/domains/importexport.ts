@@ -235,7 +235,7 @@ export async function importObjects(opts: {
     ({ imported, errors } = await runImport(bundle, newImportCtx({
       vault_id: opts.vaultId,
       tag: "",
-      skipDupes: false,
+      skipDupes: true,
       existingConnections: slices.connections,
       existingKeys: slices.keys,
       existingIdentities: slices.identities,

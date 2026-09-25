@@ -176,7 +176,7 @@ describe("importableFolders", () => {
     identities: [], keys: [], snippets: [], portForwardingRules: [],
   };
   const eids = (kept: string[]) =>
-    importableFolders(original, { ...original, connections: original.connections.filter((c) => kept.includes(c._eid!)) }).map((f) => f._eid);
+    importableFolders(original, new Set(original.connections.filter((c) => !kept.includes(c._eid!)))).map((f) => f._eid);
 
   it("drops folders whose every item was skipped, keeping empty ones and their ancestors", () => {
     expect(eids([])).toEqual(["prod", "eu", "empty"]);
@@ -184,5 +184,69 @@ describe("importableFolders", () => {
 
   it("keeps the folders of items still being imported", () => {
     expect(eids(["c3"])).toEqual(["prod", "eu", "lab", "empty"]);
+  });
+});
+
+describe("runImport — references to skipped duplicates", () => {
+  const key = { _eid: "k0", name: "deploy-key", tags: [] };
+  const identity = { _eid: "i0", name: "deploy", username: "root", tags: [], _key_eid: "k0" };
+  const bastion = { _eid: "c0", name: "bastion", host: "bastion", port: 22, username: "root", auth_type: "password", tags: [] };
+  const web = {
+    _eid: "c1", name: "web", host: "web", port: 22, username: "root", auth_type: "key", tags: [],
+    _identity_eid: "i0", _key_eid: "k0",
+    jump_hosts: [{ id: "j", host: "bastion", port: 22, username: "root", _connection_eid: "c0", _identity_eid: "i0" }],
+  };
+  const helper = { _eid: "s0", name: "helper", steps: [{ kind: "script", content: "echo" }], tags: [], only_for_connection_tags: [], only_for_distros: [] };
+  const caller = { _eid: "s1", name: "caller", steps: [{ kind: "snippet", _eid: "s0" }], tags: [], only_for_connection_tags: [], only_for_distros: [] };
+  const bundle = {
+    version: 1, exported_at: "", folders: [],
+    keys: [key], identities: [identity], connections: [bastion, web], snippets: [helper, caller], portForwardingRules: [],
+  } as unknown as ExportBundle;
+
+  type Saved = { name: string; identity_id?: string; key_id?: string; steps?: unknown[]; jump_hosts?: { connection_id: string; identity_id?: string }[] };
+
+  function ctxOf(opts: { skipDupes?: boolean; skipped?: Set<object> }) {
+    const saved = new Map<string, Saved>();
+    const save = async (d: Saved) => { saved.set(d.name, d); return { id: `new-${d.name}` }; };
+    const ctx = newImportCtx({
+      vault_id: "personal", tag: "", skipDupes: opts.skipDupes ?? false, skipped: opts.skipped,
+      existingConnections: [conn({ id: "have-bastion", host: "bastion", username: "root" })],
+      existingKeys: [{ id: "have-key", name: "deploy-key", vault_id: "personal" } as SshKey],
+      existingIdentities: [{ id: "have-identity", name: "deploy", vault_id: "personal" } as Identity],
+      existingSnippets: [{ id: "have-helper", name: "helper", vault_id: "personal" } as Snippet],
+      existingPfRules: [], existingFolders: [],
+      stores: {
+        saveKey: save, saveIdentity: save, saveConnection: save, createSnippet: save,
+        updateSnippet: async (_: string, d: Saved) => { saved.set(d.name, d); },
+        updateConnection: async () => { throw new Error("a skipped connection must stay where it is"); },
+      } as unknown as ImportStores,
+    });
+    return { ctx, saved };
+  }
+
+  it("points kept items at the existing copies of duplicates the user skipped", async () => {
+    const { ctx, saved } = ctxOf({ skipped: new Set([key, identity, bastion, helper]) });
+    const result = await runImport(bundle, ctx);
+    expect(result).toEqual({ imported: 2, errors: 0 });
+    expect([...saved.keys()]).toEqual(["web", "caller"]);
+    expect(saved.get("web")).toMatchObject({ identity_id: "have-identity", key_id: "have-key" });
+    expect(saved.get("web")!.jump_hosts).toMatchObject([{ connection_id: "have-bastion", identity_id: "have-identity" }]);
+    expect(saved.get("caller")!.steps).toEqual([{ kind: "snippet", snippet_id: "have-helper" }]);
+  });
+
+  it("does the same when deduplicating automatically", async () => {
+    const { ctx, saved } = ctxOf({ skipDupes: true });
+    await runImport(bundle, ctx);
+    expect([...saved.keys()]).toEqual(["web", "caller"]);
+    expect(saved.get("web")).toMatchObject({ identity_id: "have-identity", key_id: "have-key" });
+    expect(saved.get("web")!.jump_hosts).toMatchObject([{ connection_id: "have-bastion" }]);
+    expect(saved.get("caller")!.steps).toEqual([{ kind: "snippet", snippet_id: "have-helper" }]);
+  });
+
+  it("imports a duplicate the user kept, pointing references at the new copy", async () => {
+    const { ctx, saved } = ctxOf({ skipped: new Set([key, bastion, helper]) });
+    await runImport(bundle, ctx);
+    expect([...saved.keys()]).toEqual(["deploy", "web", "caller"]);
+    expect(saved.get("web")!.identity_id).toBe("new-deploy");
   });
 });
