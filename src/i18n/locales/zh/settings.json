@@ -151,8 +151,7 @@
         "errorInvalidEmail": "邮箱地址无效",
         "errorSameEmail": "新邮箱必须与当前邮箱不同",
         "errorPasswordRequired": "需要密码以确认更改",
-        "updatedPrefix": "邮箱已更新为 ",
-        "updatedSuffix": "。请查收收件箱中的验证链接。",
+        "updated": "邮箱已更新为 <email>{{email}}</email>。请查收收件箱中的验证链接。",
         "pausedNote": "在验证之前，付费功能将被暂停。",
         "done": "完成",
         "saving": "正在保存…",
@@ -214,9 +213,7 @@
         "sub": "永久删除所有连接、密钥、保险库和密钥链条目"
       },
       "confirmWipe": {
-        "descPre": "这将永久删除 ",
-        "descBold": "所有本地数据",
-        "descPost": "：连接、SSH 密钥、身份、保险库密钥和 OS 密钥链条目。此操作无法撤销。",
+        "desc": "这将永久删除<strong>所有本地数据</strong>：连接、SSH 密钥、身份、保险库密钥和 OS 密钥链条目。此操作无法撤销。",
         "confirm": "擦除全部"
       },
       "setPassword": {
@@ -883,8 +880,7 @@
         "title": "传输",
         "tarAcceleration": {
           "title": "Tar 加速",
-          "descPre": "在传输前将目录打包为单个 tar.gz——对于许多小文件要快得多。需要两端都启用 ",
-          "descPost": "。"
+          "desc": "在传输前将目录打包为单个 tar.gz——对于许多小文件要快得多。需要两端都有 <code>tar</code>。"
         }
       },
       "filePanel": {

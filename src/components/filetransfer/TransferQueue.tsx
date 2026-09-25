@@ -28,6 +28,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
   const aggTotal = active.reduce((acc, tr) => acc + tr.total, 0);
   const overallPct = aggTotal > 0 ? Math.min(100, Math.round((aggTransferred / aggTotal) * 100)) : 0;
   const hasActive = active.length > 0;
+  const transfersLabel = t("fileTransfer.queue.transferCount", { count: transfers.length });
   const badgeCount = hasActive ? active.length : transfers.length;
 
   function statusIcon(tr: Transfer) {
@@ -66,7 +67,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
               background: hasActive ? "color-mix(in srgb, var(--t-accent) 18%, transparent)" : "var(--t-bg-card)",
               color: hasActive ? "var(--t-accent)" : "var(--t-text-dim)",
             }}
-            title={`${t("fileTransfer.queue.transferCount", { count: transfers.length })}${hasActive ? t("fileTransfer.queue.activeSuffix", { count: active.length }) : ""}`}
+            title={hasActive ? t("fileTransfer.queue.transferCountActive", { count: active.length, transfers: transfersLabel }) : transfersLabel}
           >
             {badgeCount}
           </span>

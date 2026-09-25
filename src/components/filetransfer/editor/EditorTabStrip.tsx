@@ -87,7 +87,7 @@ export function EditorTabStrip() {
                   borderRight: "1px solid var(--t-border)",
                   boxShadow: diffTarget ? "inset 0 0 0 2px var(--t-accent)" : undefined,
                 }}
-                title={tab.kind === "diff" ? t("fileTransfer.editor.tabStrip.diffTitlePrefix", { name }) : name}
+                title={tab.kind === "diff" ? t("fileTransfer.editor.tabStrip.diffTitle", { name }) : name}
                 onClick={() => setActiveTab(tab.id)}
                 onPointerDown={(e) => {
                   if (e.button !== 0) return;

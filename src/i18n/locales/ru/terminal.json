@@ -271,13 +271,12 @@
       },
       "hostKeyConflict": {
         "title": "КЛЮЧ ХОСТА ИЗМЕНЁН",
-        "descriptionPrefix": "Отпечаток ",
-        "descriptionSuffix": " изменился.",
         "replace": "Заменить",
         "addAsNew": "Добавить как новый",
         "abort": "Прервать",
         "stored": "Сохранённый",
-        "received": "Полученный"
+        "received": "Полученный",
+        "description": "Отпечаток <host>{{address}}</host> изменился."
       },
       "passphrasePrompt": {
         "title": "ТРЕБУЕТСЯ КОДОВАЯ ФРАЗА КЛЮЧА",

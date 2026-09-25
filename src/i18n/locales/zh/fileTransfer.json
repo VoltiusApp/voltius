@@ -111,8 +111,6 @@
       "title": "传输",
       "transferCount_one": "{{count}} 个传输",
       "transferCount_other": "{{count}} 个传输",
-      "activeSuffix_one": " · {{count}} 个进行中",
-      "activeSuffix_other": " · {{count}} 个进行中",
       "combinedThroughput": "合计吞吐量",
       "cancelAll": "取消所有传输",
       "clearFinished": "清除已完成的传输",
@@ -124,7 +122,8 @@
         "done": "完成",
         "error": "错误",
         "cancelled": "已取消"
-      }
+      },
+      "transferCountActive_other": "{{transfers}} · {{count}} 个进行中"
     },
     "editor": {
       "common": {
@@ -156,10 +155,10 @@
         "filesTab": "文件",
         "pendingNameFallback": "此文件",
         "pendingNameDiffFallback": "此差异",
-        "diffTitlePrefix": "差异：{{name}}",
         "discardTitle": "放弃未保存的更改？",
         "discardMessage": "\"{{name}}\" 有未保存的更改。关闭此标签页将放弃这些更改。",
-        "discard": "放弃"
+        "discard": "放弃",
+        "diffTitle": "差异：{{name}}"
       }
     }
   }

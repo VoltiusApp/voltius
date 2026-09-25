@@ -255,13 +255,12 @@
       },
       "hostKeyConflict": {
         "title": "主机密钥已更改",
-        "descriptionPrefix": "",
-        "descriptionSuffix": " 的指纹已更改。",
         "replace": "替换",
         "addAsNew": "添加为新主机",
         "abort": "中止",
         "stored": "已存储",
-        "received": "已收到"
+        "received": "已收到",
+        "description": "<host>{{address}}</host> 的指纹已更改。"
       },
       "passphrasePrompt": {
         "title": "需要密钥口令",

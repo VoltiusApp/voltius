@@ -257,13 +257,12 @@
       },
       "hostKeyConflict": {
         "title": "HOST KEY CHANGED",
-        "descriptionPrefix": "The fingerprint for ",
-        "descriptionSuffix": " has changed.",
         "replace": "Replace",
         "addAsNew": "Add as new",
         "abort": "Abort",
         "stored": "Stored",
-        "received": "Received"
+        "received": "Received",
+        "description": "The fingerprint for <host>{{address}}</host> has changed."
       },
       "passphrasePrompt": {
         "title": "KEY PASSPHRASE REQUIRED",

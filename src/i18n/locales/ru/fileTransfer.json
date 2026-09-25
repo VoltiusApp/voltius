@@ -134,10 +134,6 @@
       "transferCount_few": "{{count}} передачи",
       "transferCount_many": "{{count}} передач",
       "transferCount_other": "{{count}} передач",
-      "activeSuffix_one": " · {{count}} активна",
-      "activeSuffix_few": " · {{count}} активны",
-      "activeSuffix_many": " · {{count}} активны",
-      "activeSuffix_other": " · {{count}} активны",
       "combinedThroughput": "Суммарная скорость",
       "cancelAll": "Отменить все передачи",
       "clearFinished": "Очистить завершённые передачи",
@@ -149,7 +145,11 @@
         "done": "Готово",
         "error": "Ошибка",
         "cancelled": "Отменено"
-      }
+      },
+      "transferCountActive_one": "{{transfers}} · {{count}} активна",
+      "transferCountActive_few": "{{transfers}} · {{count}} активны",
+      "transferCountActive_many": "{{transfers}} · {{count}} активны",
+      "transferCountActive_other": "{{transfers}} · {{count}} активны"
     },
     "editor": {
       "common": {
@@ -181,10 +181,10 @@
         "filesTab": "Файлы",
         "pendingNameFallback": "этот файл",
         "pendingNameDiffFallback": "это сравнение",
-        "diffTitlePrefix": "сравнение: {{name}}",
         "discardTitle": "Отменить несохранённые изменения?",
         "discardMessage": "\"{{name}}\" содержит несохранённые изменения. Закрытие вкладки приведёт к их потере.",
-        "discard": "Отменить"
+        "discard": "Отменить",
+        "diffTitle": "сравнение: {{name}}"
       }
     }
   }

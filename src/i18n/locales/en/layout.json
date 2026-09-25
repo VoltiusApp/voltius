@@ -43,10 +43,7 @@
       "newHere": "New here? ",
       "e2eeNotice": "Your data is E2E encrypted — the server cannot read it.",
       "openSource": "Open source.",
-      "agreeToTerms": "By creating an account you agree to our ",
-      "and": " and ",
-      "termsOfService": "Terms of Service",
-      "privacyPolicy": "Privacy Policy",
+      "agreeToTerms": "By creating an account you agree to our <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>.",
       "accountCreatedToast": "Account created! Check your email to verify.",
       "vaultUnreadableBodyNoPassword": "This device's secrets file cannot be opened with the key stored on this machine. Nothing has been deleted. Set it aside to start with an empty vault, or restore one of the backups below.",
       "vaultSetAsideLocal": "Set aside and start fresh",
@@ -171,7 +168,6 @@
       "sftpTitle": "File Transfer (SFTP)",
       "unifiedSplitTab": "Unified split tab",
       "splitFallback": "Split",
-      "splitCountSuffix": " + {{count}}",
       "ended": "Ended",
       "watching": "Watching",
       "sharingCurrently": "Currently sharing",
@@ -225,7 +221,8 @@
         "pro": "Pro",
         "upgradeTrial": "Upgrade · 14d Free Trial",
         "upgrade": "Upgrade"
-      }
+      },
+      "splitLabelMore": "{{label}} + {{count}}"
     },
     "vaultHeader": {
       "members": "Members",

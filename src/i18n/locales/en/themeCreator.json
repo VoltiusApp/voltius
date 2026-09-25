@@ -18,15 +18,12 @@
       "notInstalled": "\"{{family}}\" isn't installed — the terminal will fall back to another font"
     },
     "varSearch": {
-      "usage_one": "{{count}} element uses",
-      "usage_other": "{{count}} elements use",
-      "suffix": "or click to close"
+      "hint_one": "{{count}} element uses <var>{{name}}</var> — <kbd>Esc</kbd> or click to close",
+      "hint_other": "{{count}} elements use <var>{{name}}</var> — <kbd>Esc</kbd> or click to close"
     },
     "pickOverlay": {
-      "prefix": "Click any element —",
-      "suffix": "to cancel"
+      "hint": "Click any element — <kbd>Esc</kbd> to cancel"
     },
-    "escKey": "Esc",
     "editor": {
       "general": "General",
       "name": "Name",

@@ -43,10 +43,7 @@
       "newHere": "Nouveau ici ? ",
       "e2eeNotice": "Vos données sont chiffrées de bout en bout — le serveur ne peut pas les lire.",
       "openSource": "Open source.",
-      "agreeToTerms": "En créant un compte, vous acceptez nos ",
-      "and": " et ",
-      "termsOfService": "conditions d'utilisation",
-      "privacyPolicy": "politique de confidentialité",
+      "agreeToTerms": "En créant un compte, vous acceptez nos <terms>conditions d'utilisation</terms> et notre <privacy>politique de confidentialité</privacy>.",
       "accountCreatedToast": "Compte créé ! Vérifiez votre e-mail pour le confirmer.",
       "vaultUnreadableBodyNoPassword": "Le fichier de secrets de cet appareil ne peut pas être ouvert avec la clé enregistrée sur cette machine. Rien n'a été supprimé. Mettez-le de côté pour repartir d'un coffre vide, ou restaurez une des sauvegardes ci-dessous.",
       "vaultSetAsideLocal": "Mettre de côté et repartir à zéro",
@@ -171,7 +168,6 @@
       "sftpTitle": "Transfert de fichiers (SFTP)",
       "unifiedSplitTab": "Onglet divisé unifié",
       "splitFallback": "Division",
-      "splitCountSuffix": " + {{count}}",
       "ended": "Terminée",
       "watching": "En observation",
       "sharingCurrently": "Partage en cours",
@@ -228,7 +224,8 @@
         "pro": "Pro",
         "upgradeTrial": "Mettre à niveau · Essai gratuit de 14j",
         "upgrade": "Mettre à niveau"
-      }
+      },
+      "splitLabelMore": "{{label}} + {{count}}"
     },
     "vaultHeader": {
       "members": "Membres",

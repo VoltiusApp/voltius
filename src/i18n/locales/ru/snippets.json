@@ -125,10 +125,6 @@
       "contentLabel": "Содержимое",
       "variablesLabel": "Переменные:",
       "autoBadge": "авто",
-      "syntaxHintType": "Введите",
-      "syntaxHintForAutocomplete": "для автодополнения.",
-      "syntaxHintCustomPrompts": "Пользовательские подсказки:",
-      "syntaxHintTypesList": "— текст · число · пароль · логическое ·",
       "descriptionLabel": "Описание (необязательно)",
       "descriptionPlaceholder": "Что делает этот сниппет?",
       "tagsLabel": "Теги",
@@ -151,7 +147,8 @@
         "datetime": "Дата и время — ГГГГ-ММ-ДД ЧЧ:ММ:СС",
         "timestamp": "Метка времени Unix",
         "clipboard": "Текущее содержимое буфера обмена"
-      }
+      },
+      "syntaxHint": "Введите <code>{{open}}</code> для автодополнения. Пользовательские подсказки: <code>{{prompt}}</code> — типы: text · number · password · boolean · <code>{{choice}}</code>"
     },
     "step": {
       "kind": {

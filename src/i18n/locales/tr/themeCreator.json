@@ -18,15 +18,12 @@
       "notInstalled": "\"{{family}}\" yüklü değil — terminal başka bir yazı tipi kullanacak"
     },
     "varSearch": {
-      "usage_one": "{{count}} öğe kullanıyor",
-      "usage_other": "{{count}} öğe kullanıyor",
-      "suffix": "veya kapatmak için tıklayın"
+      "hint_one": "<var>{{name}}</var> değişkenini {{count}} öğe kullanıyor — kapatmak için <kbd>Esc</kbd> tuşuna basın veya tıklayın",
+      "hint_other": "<var>{{name}}</var> değişkenini {{count}} öğe kullanıyor — kapatmak için <kbd>Esc</kbd> tuşuna basın veya tıklayın"
     },
     "pickOverlay": {
-      "prefix": "Herhangi bir öğeye tıklayın —",
-      "suffix": "iptal etmek için"
+      "hint": "Herhangi bir öğeye tıklayın — iptal etmek için <kbd>Esc</kbd>"
     },
-    "escKey": "Esc",
     "editor": {
       "general": "Genel",
       "name": "Ad",

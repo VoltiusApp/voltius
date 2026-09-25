@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import LogoBadge from "./LogoBadge";
@@ -265,17 +265,13 @@ export default function AuthPage({ isLocked, vaultUnreadable, onReady }: Props) 
               {t("layout.auth.openSource")}
             </button>
             <br />
-            {t("layout.auth.agreeToTerms")}{" "}
-            <button type="button" onClick={() => void openUrl("https://voltius.app/terms")}
-              className="text-(--t-accent) hover:underline">
-              {t("layout.auth.termsOfService")}
-            </button>{" "}
-            {t("layout.auth.and")}{" "}
-            <button type="button" onClick={() => void openUrl("https://voltius.app/privacy")}
-              className="text-(--t-accent) hover:underline">
-              {t("layout.auth.privacyPolicy")}
-            </button>
-            .
+            <Trans
+              i18nKey="layout.auth.agreeToTerms"
+              components={{
+                terms: <button type="button" onClick={() => void openUrl("https://voltius.app/terms")} className="text-(--t-accent) hover:underline" />,
+                privacy: <button type="button" onClick={() => void openUrl("https://voltius.app/privacy")} className="text-(--t-accent) hover:underline" />,
+              }}
+            />
           </p>
         )}
       </Layout>

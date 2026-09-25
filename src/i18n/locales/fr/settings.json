@@ -257,13 +257,12 @@
         "errorInvalidEmail": "Adresse e-mail invalide",
         "errorSameEmail": "Le nouvel e-mail doit être différent de l'actuel",
         "errorPasswordRequired": "Le mot de passe est requis pour confirmer la modification",
-        "updatedPrefix": "E-mail mis à jour vers ",
-        "updatedSuffix": ". Vérifiez votre boîte de réception pour un lien de vérification.",
         "pausedNote": "Jusqu'à la vérification, les fonctionnalités payantes seront suspendues.",
         "done": "Terminé",
         "saving": "Enregistrement…",
         "save": "Enregistrer",
-        "toastVerification": "E-mail de vérification envoyé à {{email}}."
+        "toastVerification": "E-mail de vérification envoyé à {{email}}.",
+        "updated": "E-mail mis à jour vers <email>{{email}}</email>. Vérifiez votre boîte de réception pour un lien de vérification."
       },
       "handle": {
         "title": "Pseudo",
@@ -320,10 +319,8 @@
         "sub": "Supprime définitivement toutes les connexions, clés, coffre-fort et entrées du trousseau"
       },
       "confirmWipe": {
-        "descPre": "Cela supprimera définitivement ",
-        "descBold": "toutes les données locales",
-        "descPost": " : connexions, clés SSH, identités, secrets du coffre-fort et entrées du trousseau système. Cette action est irréversible.",
-        "confirm": "Tout effacer"
+        "confirm": "Tout effacer",
+        "desc": "Cela supprimera définitivement <strong>toutes les données locales</strong> : connexions, clés SSH, identités, secrets du coffre-fort et entrées du trousseau système. Cette action est irréversible."
       },
       "setPassword": {
         "desc": "Choisissez un mot de passe maître. Vos données existantes seront rechiffrées.",
@@ -815,8 +812,7 @@
         "title": "Transferts",
         "tarAcceleration": {
           "title": "Accélération tar",
-          "descPre": "Compresse les répertoires en une seule archive tar.gz avant le transfert — bien plus rapide pour de nombreux petits fichiers. Nécessite ",
-          "descPost": " des deux côtés."
+          "desc": "Compresse les répertoires en une seule archive tar.gz avant le transfert — bien plus rapide pour de nombreux petits fichiers. Nécessite <code>tar</code> des deux côtés."
         }
       },
       "filePanel": {

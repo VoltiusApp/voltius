@@ -43,10 +43,7 @@
       "newHere": "Yeni misiniz? ",
       "e2eeNotice": "Verileriniz uçtan uca şifrelenir — sunucu bunları okuyamaz.",
       "openSource": "Açık kaynak.",
-      "agreeToTerms": "Hesap oluşturarak şunları kabul etmiş olursunuz: ",
-      "and": " ve ",
-      "termsOfService": "Hizmet Şartları",
-      "privacyPolicy": "Gizlilik Politikası",
+      "agreeToTerms": "Hesap oluşturarak <terms>Hizmet Şartları</terms>'nı ve <privacy>Gizlilik Politikası</privacy>'nı kabul etmiş olursunuz.",
       "accountCreatedToast": "Hesap oluşturuldu! Doğrulamak için e-postanızı kontrol edin.",
       "vaultUnreadableBodyNoPassword": "Bu cihazdaki gizli bilgiler dosyası, bu makinede saklanan anahtarla açılamıyor. Hiçbir şey silinmedi. Boş bir kasayla başlamak için dosyayı kenara ayırın veya aşağıdaki yedeklerden birini geri yükleyin.",
       "vaultSetAsideLocal": "Kenara ayır ve sıfırdan başla",
@@ -171,7 +168,6 @@
       "sftpTitle": "Dosya aktarımı (SFTP)",
       "unifiedSplitTab": "Birleşik bölünmüş sekme",
       "splitFallback": "Bölünmüş",
-      "splitCountSuffix": " + {{count}}",
       "ended": "Sona erdi",
       "watching": "İzleniyor",
       "sharingCurrently": "Şu anda paylaşılıyor",
@@ -225,7 +221,8 @@
         "pro": "Pro",
         "upgradeTrial": "Yükselt · 14 gün ücretsiz deneme",
         "upgrade": "Yükselt"
-      }
+      },
+      "splitLabelMore": "{{label}} + {{count}}"
     },
     "vaultHeader": {
       "members": "Üyeler",

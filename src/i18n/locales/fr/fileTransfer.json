@@ -121,9 +121,6 @@
       "transferCount_one": "{{count}} transfert",
       "transferCount_many": "{{count}} transferts",
       "transferCount_other": "{{count}} transferts",
-      "activeSuffix_one": " · {{count}} actif",
-      "activeSuffix_many": " · {{count}} actifs",
-      "activeSuffix_other": " · {{count}} actifs",
       "combinedThroughput": "Débit combiné",
       "cancelAll": "Annuler tous les transferts",
       "clearFinished": "Effacer les transferts terminés",
@@ -135,7 +132,10 @@
         "done": "Terminé",
         "error": "Erreur",
         "cancelled": "Annulé"
-      }
+      },
+      "transferCountActive_one": "{{transfers}} · {{count}} actif",
+      "transferCountActive_many": "{{transfers}} · {{count}} actifs",
+      "transferCountActive_other": "{{transfers}} · {{count}} actifs"
     },
     "editor": {
       "common": {
@@ -167,10 +167,10 @@
         "filesTab": "Fichiers",
         "pendingNameFallback": "ce fichier",
         "pendingNameDiffFallback": "cette comparaison",
-        "diffTitlePrefix": "diff : {{name}}",
         "discardTitle": "Abandonner les modifications non enregistrées ?",
         "discardMessage": "« {{name}} » contient des modifications non enregistrées. Fermer cet onglet les abandonnera.",
-        "discard": "Abandonner"
+        "discard": "Abandonner",
+        "diffTitle": "diff : {{name}}"
       }
     }
   }

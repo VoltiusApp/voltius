@@ -43,10 +43,7 @@
       "newHere": "新用户？",
       "e2eeNotice": "您的数据已端到端加密——服务器无法读取。",
       "openSource": "开源。",
-      "agreeToTerms": "创建账户即表示您同意我们的",
-      "and": "和",
-      "termsOfService": "服务条款",
-      "privacyPolicy": "隐私政策",
+      "agreeToTerms": "创建账户即表示您同意我们的<terms>服务条款</terms>和<privacy>隐私政策</privacy>。",
       "accountCreatedToast": "账户已创建！请查收邮件进行验证。",
       "vaultUnreadableBodyNoPassword": "无法用本机保存的密钥打开此设备的密钥文件。没有删除任何内容。可以将其搁置以从空保管库开始，或恢复下方的某个备份。",
       "vaultSetAsideLocal": "搁置并重新开始",
@@ -171,7 +168,6 @@
       "sftpTitle": "文件传输 (SFTP)",
       "unifiedSplitTab": "统一分屏标签页",
       "splitFallback": "分屏",
-      "splitCountSuffix": " + {{count}}",
       "ended": "已结束",
       "watching": "正在观看",
       "sharingCurrently": "正在共享",
@@ -225,7 +221,8 @@
         "pro": "Pro",
         "upgradeTrial": "升级 · 14 天免费试用",
         "upgrade": "升级"
-      }
+      },
+      "splitLabelMore": "{{label}} + {{count}}"
     },
     "vaultHeader": {
       "members": "成员",

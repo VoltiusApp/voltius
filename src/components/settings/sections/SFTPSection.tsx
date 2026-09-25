@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { DEFAULT_AUTO_REFRESH_INTERVAL_MS, useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
@@ -58,11 +58,7 @@ export default function SFTPSection() {
           syncKey="appSettings.toggles.sftp-tar"
           title={t("settings.sftp.transfers.tarAcceleration.title")}
           desc={
-            <>
-              {t("settings.sftp.transfers.tarAcceleration.descPre")}
-              <code className="font-mono">tar</code>
-              {t("settings.sftp.transfers.tarAcceleration.descPost")}
-            </>
+            <Trans i18nKey="settings.sftp.transfers.tarAcceleration.desc" components={{ code: <code className="font-mono" /> }} />
           }
           dirty={tarTransferEnabled !== TOGGLE_DEFS["sftp-tar"].default}
           onReset={() => setTarTransferEnabled(TOGGLE_DEFS["sftp-tar"].default)}

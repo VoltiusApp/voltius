@@ -1,4 +1,4 @@
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { DecisionPanel } from "./DecisionPanel";
 import type { HostKeyConflictAction, HostKeyConflictEvent } from "./types";
 import { truncateFp } from "./utils";
@@ -19,11 +19,11 @@ export function HostKeyConflictPanel({
       icon={<WarningIcon />}
       title={t("terminal.overlay.hostKeyConflict.title")}
       description={(
-        <>
-          {t("terminal.overlay.hostKeyConflict.descriptionPrefix")}
-          <span className="font-mono text-text-primary">{conflict.host}:{conflict.port}</span>
-          {t("terminal.overlay.hostKeyConflict.descriptionSuffix")}
-        </>
+        <Trans
+          i18nKey="terminal.overlay.hostKeyConflict.description"
+          values={{ address: `${conflict.host}:${conflict.port}` }}
+          components={{ host: <span className="font-mono text-text-primary" /> }}
+        />
       )}
       actions={[
         {

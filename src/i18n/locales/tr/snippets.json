@@ -57,10 +57,6 @@
       "contentLabel": "İçerik",
       "variablesLabel": "Değişkenler:",
       "autoBadge": "otomatik",
-      "syntaxHintType": "Otomatik tamamlama için",
-      "syntaxHintForAutocomplete": "yazın.",
-      "syntaxHintCustomPrompts": "Özel istemler:",
-      "syntaxHintTypesList": "— türler: text · number · password · boolean ·",
       "descriptionLabel": "Açıklama (isteğe bağlı)",
       "descriptionPlaceholder": "Bu kod parçacığı ne yapar?",
       "tagsLabel": "Etiketler",
@@ -83,7 +79,8 @@
         "datetime": "Tarih + saat — YYYY-MM-DD HH:MM:SS",
         "timestamp": "Unix zaman damgası",
         "clipboard": "Geçerli pano içeriği"
-      }
+      },
+      "syntaxHint": "Otomatik tamamlama için <code>{{open}}</code> yazın. Özel istemler: <code>{{prompt}}</code> — türler: text · number · password · boolean · <code>{{choice}}</code>"
     },
     "step": {
       "kind": {

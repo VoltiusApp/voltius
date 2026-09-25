@@ -257,13 +257,12 @@
         "errorInvalidEmail": "Invalid email address",
         "errorSameEmail": "New email must differ from the current one",
         "errorPasswordRequired": "Password is required to confirm the change",
-        "updatedPrefix": "Email updated to ",
-        "updatedSuffix": ". Check your inbox for a verification link.",
         "pausedNote": "Until verified, paid features will be paused.",
         "done": "Done",
         "saving": "Saving…",
         "save": "Save",
-        "toastVerification": "Verification email sent to {{email}}."
+        "toastVerification": "Verification email sent to {{email}}.",
+        "updated": "Email updated to <email>{{email}}</email>. Check your inbox for a verification link."
       },
       "handle": {
         "title": "Handle",
@@ -320,10 +319,8 @@
         "sub": "Permanently deletes all connections, keys, vault, and keychain entries"
       },
       "confirmWipe": {
-        "descPre": "This will permanently delete ",
-        "descBold": "all local data",
-        "descPost": ": connections, SSH keys, identities, vault secrets, and OS keychain entries. This cannot be undone.",
-        "confirm": "Wipe everything"
+        "confirm": "Wipe everything",
+        "desc": "This will permanently delete <strong>all local data</strong>: connections, SSH keys, identities, vault secrets, and OS keychain entries. This cannot be undone."
       },
       "setPassword": {
         "desc": "Choose a master password. Your existing data will be re-encrypted.",
@@ -809,8 +806,7 @@
         "title": "Transfers",
         "tarAcceleration": {
           "title": "Tar acceleration",
-          "descPre": "Pack directories into a single tar.gz before transfer — much faster for many small files. Requires ",
-          "descPost": " on both sides."
+          "desc": "Pack directories into a single tar.gz before transfer — much faster for many small files. Requires <code>tar</code> on both sides."
         }
       },
       "filePanel": {
