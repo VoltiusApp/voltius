@@ -200,10 +200,52 @@ pub async fn fs_tar_available() -> bool {
         .unwrap_or(false)
 }
 
+/// True if `copy_recursive` recreates `src` as a link instead of following it:
+/// a link to a directory can loop back into the tree being copied, and a
+/// dangling one has nothing to read. Creating links on Windows takes a
+/// privilege most users lack, so a link to a file is still copied there as the
+/// file it points to.
+fn is_copied_as_link(src: &Path, meta: &std::fs::Metadata) -> bool {
+    meta.is_symlink() && !(cfg!(windows) && std::fs::metadata(src).is_ok_and(|m| m.is_file()))
+}
+
+/// Recreate the symlink `src` at `dst`, pointing where it points.
+fn copy_link(src: &Path, dst: &Path) -> std::io::Result<()> {
+    let target = std::fs::read_link(src)?;
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(target, dst)
+    }
+    #[cfg(windows)]
+    {
+        if std::fs::metadata(src).is_ok_and(|m| m.is_dir()) {
+            std::os::windows::fs::symlink_dir(target, dst)
+        } else {
+            std::os::windows::fs::symlink_file(target, dst)
+        }
+    }
+}
+
+/// `path` with its parent resolved but its last component kept as written, so
+/// a link there isn't followed. Parents that don't exist yet stay as written.
+fn resolve_parent(path: &Path) -> PathBuf {
+    match (path.parent(), path.file_name()) {
+        (Some(parent), Some(name)) => resolve_existing(parent).join(name),
+        _ => path.canonicalize().unwrap_or_else(|_| path.to_path_buf()),
+    }
+}
+
+/// `path` canonicalized as far as it exists; the rest is kept as written.
+fn resolve_existing(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| resolve_parent(path))
+}
+
 // Must mirror `copy_recursive`'s traversal so the total matches bytes transferred.
 fn copy_total_bytes(src: &Path) -> std::io::Result<u64> {
     let meta = src.symlink_metadata()?;
-    if meta.is_dir() {
+    if is_copied_as_link(src, &meta) {
+        Ok(0)
+    } else if meta.is_dir() {
         let mut total = 0u64;
         for entry in std::fs::read_dir(src)? {
             total += copy_total_bytes(&entry?.path())?;
@@ -212,6 +254,74 @@ fn copy_total_bytes(src: &Path) -> std::io::Result<u64> {
     } else {
         Ok(std::fs::metadata(src).map(|m| m.len()).unwrap_or(0))
     }
+}
+
+/// Copy `src` to `dst`, reporting bytes copied so far through `emit`.
+///
+/// A copy that would land inside its own source is refused: `dst` is created
+/// before `src` is listed, so the copy would find itself and recurse until the
+/// stack overflows (and a file copied onto itself would be truncated first).
+fn copy_tree(
+    src: &Path,
+    dst: &Path,
+    token: &CancellationToken,
+    emit: &dyn Fn(u64),
+) -> std::io::Result<()> {
+    if resolve_existing(dst).starts_with(resolve_parent(src)) {
+        return Err(std::io::Error::other("Cannot copy an item into itself"));
+    }
+    copy_recursive(src, dst, &mut 0, token, emit)
+}
+
+fn copy_recursive(
+    src: &Path,
+    dst: &Path,
+    transferred: &mut u64,
+    token: &CancellationToken,
+    emit: &dyn Fn(u64),
+) -> std::io::Result<()> {
+    if token.is_cancelled() {
+        return Err(std::io::Error::other("Transfer cancelled"));
+    }
+    let meta = src.symlink_metadata()?;
+    if meta.is_dir() {
+        std::fs::create_dir_all(dst)?;
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            copy_recursive(
+                &entry.path(),
+                &dst.join(entry.file_name()),
+                transferred,
+                token,
+                emit,
+            )?;
+        }
+        return Ok(());
+    }
+    if let Some(parent) = dst.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    if is_copied_as_link(src, &meta) {
+        return copy_link(src, dst);
+    }
+    let mut reader = std::fs::File::open(src)?;
+    let mut writer = std::fs::File::create(dst)?;
+    // Deliberately not `commands::sftp::pump_chunks`: this runs
+    // blocking std::io inside spawn_blocking, not AsyncRead/Write.
+    let mut buf = vec![0u8; COPY_CHUNK_SIZE];
+    loop {
+        if token.is_cancelled() {
+            return Err(std::io::Error::other("Transfer cancelled"));
+        }
+        let n = reader.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        writer.write_all(&buf[..n])?;
+        *transferred += n as u64;
+        emit(*transferred);
+    }
+    Ok(())
 }
 
 /// Recursively copy a file or directory on the local filesystem.
@@ -227,63 +337,12 @@ pub async fn fs_copy(
     let event = format!("sftp-progress-{}", transfer_id);
     let result = tokio::task::spawn_blocking(move || {
         let src = Path::new(&from);
-        let dst = Path::new(&to);
         let total = copy_total_bytes(src).unwrap_or(0);
-        let mut transferred = 0u64;
         let emit = |transferred: u64| {
             let _ = app.emit(&event, TransferProgress { transferred, total });
         };
         emit(0);
-
-        fn copy_recursive(
-            src: &Path,
-            dst: &Path,
-            transferred: &mut u64,
-            token: &CancellationToken,
-            emit: &dyn Fn(u64),
-        ) -> std::io::Result<()> {
-            if token.is_cancelled() {
-                return Err(std::io::Error::other("Transfer cancelled"));
-            }
-            let meta = src.symlink_metadata()?;
-            if meta.is_dir() {
-                std::fs::create_dir_all(dst)?;
-                for entry in std::fs::read_dir(src)? {
-                    let entry = entry?;
-                    copy_recursive(
-                        &entry.path(),
-                        &dst.join(entry.file_name()),
-                        transferred,
-                        token,
-                        emit,
-                    )?;
-                }
-            } else {
-                if let Some(parent) = dst.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                let mut reader = std::fs::File::open(src)?;
-                let mut writer = std::fs::File::create(dst)?;
-                // Deliberately not `commands::sftp::pump_chunks`: this runs
-                // blocking std::io inside spawn_blocking, not AsyncRead/Write.
-                let mut buf = vec![0u8; COPY_CHUNK_SIZE];
-                loop {
-                    if token.is_cancelled() {
-                        return Err(std::io::Error::other("Transfer cancelled"));
-                    }
-                    let n = reader.read(&mut buf)?;
-                    if n == 0 {
-                        break;
-                    }
-                    writer.write_all(&buf[..n])?;
-                    *transferred += n as u64;
-                    emit(*transferred);
-                }
-            }
-            Ok(())
-        }
-
-        copy_recursive(src, dst, &mut transferred, &token, &emit).map_err(|e| e.to_string())
+        copy_tree(src, Path::new(&to), &token, &emit).map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| e.to_string())?;
@@ -395,7 +454,57 @@ pub fn fs_exists_home(path: String) -> Result<bool, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::drive_root;
+    use super::{copy_total_bytes, copy_tree, drive_root};
+    use std::fs;
+    use std::path::Path;
+    use tokio_util::sync::CancellationToken;
+
+    fn copy(src: &Path, dst: &Path) -> std::io::Result<()> {
+        copy_tree(src, dst, &CancellationToken::new(), &|_| {})
+    }
+
+    #[test]
+    fn a_folder_is_not_copied_into_itself() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("a");
+        fs::create_dir(&src).unwrap();
+        fs::write(src.join("f"), "x").unwrap();
+
+        assert!(copy(&src, &src.join("b")).is_err());
+        assert!(!src.join("b").exists());
+        assert!(copy(&src.join("f"), &src.join("f")).is_err());
+        assert_eq!(fs::read_to_string(src.join("f")).unwrap(), "x");
+
+        // A sibling that merely shares the name's prefix is not inside it.
+        copy(&src, &tmp.path().join("ab")).unwrap();
+        assert_eq!(fs::read_to_string(tmp.path().join("ab/f")).unwrap(), "x");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn links_are_copied_as_links() {
+        use std::os::unix::fs::symlink;
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("src");
+        fs::create_dir_all(src.join("sub")).unwrap();
+        fs::write(src.join("sub/f"), "12345").unwrap();
+        symlink("sub", src.join("to_dir")).unwrap();
+        symlink("missing", src.join("dangling")).unwrap();
+        // Following this one would recurse without end.
+        symlink("..", src.join("sub/up")).unwrap();
+
+        let dst = tmp.path().join("dst");
+        copy(&src, &dst).unwrap();
+
+        assert_eq!(fs::read_link(dst.join("to_dir")).unwrap(), Path::new("sub"));
+        assert_eq!(
+            fs::read_link(dst.join("dangling")).unwrap(),
+            Path::new("missing")
+        );
+        assert_eq!(fs::read_link(dst.join("sub/up")).unwrap(), Path::new(".."));
+        assert_eq!(fs::read_to_string(dst.join("sub/f")).unwrap(), "12345");
+        assert_eq!(copy_total_bytes(&src).unwrap(), 5);
+    }
 
     #[test]
     fn bare_drive_spec_becomes_drive_root() {
