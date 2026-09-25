@@ -1,5 +1,6 @@
 import type { SplitTab } from "@/stores/layoutStore";
 import type { TerminalSession } from "@/types";
+import { searchMatcher } from "@/utils/search";
 
 /** A tab name is a label, not a document: long enough to be useful, short
  * enough that the tab still reads as a tab. */
@@ -23,8 +24,7 @@ export function sessionLabel(session: Pick<TerminalSession, "connectionName" | "
 
 /** Search matches the tab name and the connection name, so a renamed tab stays findable by host. */
 export function sessionMatchesQuery(session: Pick<TerminalSession, "connectionName" | "title">, query: string): boolean {
-  const q = query.toLowerCase();
-  return [session.title, session.connectionName].some((name) => name?.toLowerCase().includes(q));
+  return searchMatcher(query)(session.title, session.connectionName);
 }
 
 /**

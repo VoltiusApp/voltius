@@ -1,4 +1,5 @@
 import type { AuditLog } from "@/services/auditService";
+import { searchMatcher } from "@/utils/search";
 
 export type AuditTimeRange = "last-day" | "last-week" | "last-month" | "all" | "custom";
 
@@ -14,22 +15,17 @@ export function getAuditTimeRange(range: AuditTimeRange, now = new Date()): { fr
 }
 
 export function applyAuditLogSearch(logs: AuditLog[], search: string): AuditLog[] {
-  const query = search.trim().toLowerCase();
-  if (!query) return logs;
-
-  return logs.filter((log) => {
-    const haystack = [
-      log.actor_name,
-      log.actor_id,
-      log.action,
-      log.source,
-      log.target_type,
-      log.target_id,
-      log.target_name,
-      log.ip_address,
-      log.metadata ? JSON.stringify(log.metadata) : "",
-    ].join(" ").toLowerCase();
-
-    return haystack.includes(query);
-  });
+  if (!search.trim()) return logs;
+  const match = searchMatcher(search);
+  return logs.filter((log) => match(
+    log.actor_name,
+    log.actor_id,
+    log.action,
+    log.source,
+    log.target_type,
+    log.target_id,
+    log.target_name,
+    log.ip_address,
+    log.metadata ? JSON.stringify(log.metadata) : "",
+  ));
 }

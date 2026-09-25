@@ -60,6 +60,7 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
+import { useSearchMatcher } from "@/utils/search";
 
 export default function KeychainPage() {
   const { t } = useTranslation();
@@ -113,7 +114,8 @@ export default function KeychainPage() {
   const canEditIdentities = selectedVaultIds.some((vid) => can("EDIT_IDENTITIES", vid));
 
   const vaultOptions = useVaultOptions();
-  const q = useMemo(() => search.trim().toLowerCase(), [search]);
+  const q = search.trim();
+  const match = useSearchMatcher(q);
   const scopedFolders = useScopedFolders(folders, accessibleVaultIds, "keychain");
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
@@ -138,26 +140,26 @@ export default function KeychainPage() {
     sortByMode(keys.filter((k) => {
       const kvid = k.vault_id ?? "personal";
       if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(kvid)) return false;
-      if (q && !(k.name ?? "").toLowerCase().includes(q) && !(k.key_type ?? "").toLowerCase().includes(q)) return false;
+      if (!match(k.name, k.key_type)) return false;
       if (tagFilter.length > 0 && !tagFilter.some((t) => k.tags.includes(t))) return false;
       if (activeFolderId) return k.folder_id === activeFolderId;
       return scopedFolders.length === 0 || !k.folder_id || !scopedFolderIds.has(k.folder_id);
     }), sortMode),
-    [keys, q, sortMode, tagFilter, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds],
+    [keys, match, sortMode, tagFilter, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds],
   );
   const filteredIdentities = useMemo(() =>
     sortByMode(
       identities.filter((i) => {
         const ivid = i.vault_id ?? "personal";
         if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(ivid)) return false;
-        if (q && !(i.name ?? "").toLowerCase().includes(q) && !i.username.toLowerCase().includes(q)) return false;
+        if (!match(i.name, i.username)) return false;
         if (tagFilter.length > 0 && !tagFilter.some((t) => i.tags.includes(t))) return false;
         if (activeFolderId) return i.folder_id === activeFolderId;
         return scopedFolders.length === 0 || !i.folder_id || !scopedFolderIds.has(i.folder_id);
       }),
       sortMode,
     ),
-    [identities, q, sortMode, tagFilter, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds],
+    [identities, match, sortMode, tagFilter, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds],
   );
 
   const showPanel = showKeyForm || showIdentityForm || exportingKey !== null;

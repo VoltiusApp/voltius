@@ -7,6 +7,7 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useKnownHostStore } from "@/stores/knownHostStore";
 import type { KnownHost } from "@/types";
 import { compareStrings } from "@/utils/localeFormat";
+import { useSearchMatcher } from "@/utils/search";
 
 function truncateFp(fp: string): string {
   const i = fp.indexOf(":");
@@ -20,12 +21,13 @@ export default function MobileKnownHostsScreen() {
   const [search, setSearch] = useState("");
   const [sheetHost, setSheetHost] = useState<KnownHost | null>(null);
   useEffect(() => { void useKnownHostStore.getState().loadKnownHosts(); }, []);
-  const q = search.trim().toLowerCase();
+  const q = search.trim();
+  const match = useSearchMatcher(q);
   const filtered = useMemo(() =>
     [...knownHosts]
-      .filter((h) => !q || h.host.toLowerCase().includes(q) || (h.name ?? "").toLowerCase().includes(q))
+      .filter((h) => match(h.host, h.name))
       .sort((a, b) => compareStrings(a.host + a.port, b.host + b.port)),
-    [knownHosts, q]);
+    [knownHosts, match]);
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">

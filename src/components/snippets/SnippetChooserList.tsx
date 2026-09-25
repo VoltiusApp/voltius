@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useSnippetStore } from "@/stores/snippetStore";
-import { snippetSearchText } from "@/services/snippetSteps";
+import { snippetMatcher, snippetSearchText } from "@/services/snippetSteps";
 import type { Snippet } from "@/types";
 
 export interface SnippetChooserListProps {
@@ -20,17 +20,9 @@ export function SnippetChooserList({ search, onPick, renderActions, emptyAction,
   const { t } = useTranslation();
   const snippets = useAllSnippets();
   const recentSnippetIds = useSnippetStore((s) => s.recentSnippetIds);
-  const q = search.trim().toLowerCase();
+  const q = search.trim();
 
-  const filtered = useMemo(
-    () => snippets.filter((s) =>
-      !q ||
-      s.name.toLowerCase().includes(q) ||
-      snippetSearchText(s).toLowerCase().includes(q) ||
-      s.tags.some((tag) => tag.toLowerCase().includes(q)),
-    ),
-    [snippets, q],
-  );
+  const filtered = useMemo(() => snippets.filter(snippetMatcher(q)), [snippets, q]);
 
   const recents = useMemo(
     () => recentSnippetIds.flatMap((id) => {

@@ -22,6 +22,7 @@ import { scopeItems, folderItemCount } from "../folders/mobileFolderCore";
 import type { SshKey, Identity, Folder } from "@/types";
 import { formatDate } from "@/utils/localeFormat";
 import { compareStrings } from "@/utils/localeFormat";
+import { useSearchMatcher } from "@/utils/search";
 
 type Sheet = { kind: "key"; item: SshKey } | { kind: "identity"; item: Identity } | null;
 
@@ -70,19 +71,20 @@ export default function MobileKeychainScreen() {
   const nav = useFolderNavigation(kcFolders);
   const subFolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)), [nav.visibleFolders]);
 
-  const q = search.trim().toLowerCase();
+  const q = search.trim();
+  const match = useSearchMatcher(q);
 
   const scopedKeys = useMemo(
     () => scopeItems(keys, nav.activeFolderId)
-      .filter((k) => !q || (k.name ?? "").toLowerCase().includes(q) || (k.key_type ?? "").toLowerCase().includes(q) || k.tags.some((t) => t.toLowerCase().includes(q)))
+      .filter((k) => match(k.name, k.key_type, ...k.tags))
       .sort((a, b) => compareStrings(a.name ?? "", b.name ?? "")),
-    [keys, nav.activeFolderId, q],
+    [keys, nav.activeFolderId, match],
   );
   const scopedIdentities = useMemo(
     () => scopeItems(identities, nav.activeFolderId)
-      .filter((i) => !q || (i.name ?? "").toLowerCase().includes(q) || i.username.toLowerCase().includes(q) || i.tags.some((t) => t.toLowerCase().includes(q)))
+      .filter((i) => match(i.name, i.username, ...i.tags))
       .sort((a, b) => compareStrings(a.name ?? a.username, b.name ?? b.username)),
-    [identities, nav.activeFolderId, q],
+    [identities, nav.activeFolderId, match],
   );
 
   const isEmpty = subFolders.length === 0 && scopedKeys.length === 0 && scopedIdentities.length === 0;

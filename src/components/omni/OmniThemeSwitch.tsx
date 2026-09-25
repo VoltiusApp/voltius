@@ -9,6 +9,7 @@ import { resolveThemePhase, nextTransition } from "@/services/themeAutomation";
 import { getSystemPrefersDark } from "@/services/systemAppearance";
 import type { AppTheme } from "@/themes/types";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 export default function OmniThemeSwitch({ query, onBack, onClose }: { query: string; onBack: () => void; onClose: () => void }) {
   const { t } = useTranslation();
@@ -22,7 +23,7 @@ export default function OmniThemeSwitch({ query, onBack, onClose }: { query: str
   }, [customThemes, pluginThemeMap]);
 
   const themes = useMemo(
-    () => allThemes.filter((th) => !query || th.name.toLowerCase().includes(query)),
+    () => { const match = searchMatcher(query); return allThemes.filter((th) => match(th.name)); },
     [allThemes, query],
   );
 

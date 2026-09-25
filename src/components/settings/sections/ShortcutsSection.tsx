@@ -10,6 +10,7 @@ import {
 } from "@/stores/shortcutStore";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { DirtyDot, ResetButton } from "./shared";
+import { searchMatcher } from "@/utils/search";
 
 const BLOCKED_KEYS = new Set(["Escape", "Tab"]);
 
@@ -31,18 +32,12 @@ function displayDescription(sc: Shortcut, t: TranslateFn): string {
 }
 
 function matchesSearch(sc: Shortcut, q: string, t: TranslateFn): boolean {
-  if (!q) return true;
-  const needle = q.toLowerCase().trim();
-  if (!needle) return true;
-  const haystack = [
+  return searchMatcher(q)(
     displayLabel(sc, t),
     displayDescription(sc, t),
     formatShortcut(sc),
     ...(getAliases(sc.id)?.map((a) => a.label) ?? []),
-  ]
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(needle);
+  );
 }
 
 export default function ShortcutsSection() {

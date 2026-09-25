@@ -164,7 +164,7 @@ export default function HostsPage() {
 
   const vaultOptions = useVaultOptions();
 
-  const searchQuery = search.trim().toLowerCase();
+  const searchQuery = search.trim();
 
   const scopedConnections = useMemo(
     () => connections.filter((c) => {

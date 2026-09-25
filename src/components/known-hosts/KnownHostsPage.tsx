@@ -16,6 +16,7 @@ import { KnownHostsToolbar } from "./KnownHostsToolbar";
 import type { KnownHost, VaultOption } from "@/types";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
 import { compareStrings } from "@/utils/localeFormat";
+import { useSearchMatcher } from "@/utils/search";
 
 function sortHosts(hosts: KnownHost[], mode: SortMode): KnownHost[] {
   return [...hosts].sort((a, b) => {
@@ -48,17 +49,17 @@ export default function KnownHostsPage() {
 
   const vaultOptions = useVaultOptions({ includeUnlinkedTeams: false });
 
-  const q = useMemo(() => search.trim().toLowerCase(), [search]);
+  const q = search.trim();
+  const match = useSearchMatcher(q);
 
   const filtered = useMemo(() => {
     const visible = knownHosts.filter((h) => {
       const hvid = h.vault_id ?? "personal";
       if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(hvid)) return false;
-      if (q && !h.host.toLowerCase().includes(q) && !(h.name ?? "").toLowerCase().includes(q)) return false;
-      return true;
+      return match(h.host, h.name);
     });
     return sortHosts(visible, sortMode);
-  }, [knownHosts, q, sortMode, accessibleVaultIds]);
+  }, [knownHosts, match, sortMode, accessibleVaultIds]);
 
   const orderedIds = useMemo(() => filtered.map((h) => h.id), [filtered]);
 

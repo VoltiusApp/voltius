@@ -29,7 +29,7 @@ import {
   parseVariables,
   needsUserInput,
 } from "@/services/snippetParser";
-import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
+import { snippetMatcher, snippetScriptText } from "@/services/snippetSteps";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { snippetToForm } from "@/utils/snippetForm";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
@@ -392,20 +392,17 @@ export function SnippetsPage() {
   const hasSearch = search.length > 0;
 
   // Base filter: search + vault access
-  const filtered = useMemo(() => sortSnippets(
-    snippets.filter((s) => {
-      const svid = s.vault_id ?? "personal";
-      if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(svid)) return false;
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return (
-        s.name.toLowerCase().includes(q) ||
-        snippetSearchText(s).toLowerCase().includes(q) ||
-        s.tags.some((t) => t.toLowerCase().includes(q))
-      );
-    }),
-    sortMode,
-  ), [snippets, search, sortMode, accessibleVaultIds]);
+  const filtered = useMemo(() => {
+    const matches = snippetMatcher(search);
+    return sortSnippets(
+      snippets.filter((s) => {
+        const svid = s.vault_id ?? "personal";
+        if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(svid)) return false;
+        return matches(s);
+      }),
+      sortMode,
+    );
+  }, [snippets, search, sortMode, accessibleVaultIds]);
 
   // Snippets visible in the current view (respects folder navigation)
   const viewSnippets = useMemo(() => {
