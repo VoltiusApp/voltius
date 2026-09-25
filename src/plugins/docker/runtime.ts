@@ -1,3 +1,4 @@
+import { useT } from "@voltius/ui";
 import type { PluginAPI } from "@/plugins/api";
 import type { ImageUpdateStatus } from "./types";
 
@@ -13,6 +14,11 @@ export function initDockerRuntime(api: PluginAPI): void {
 
 export function getDockerApi(): PluginAPI | null {
   return pluginApi;
+}
+
+/** `t` for the panel's components, which only render after register() ran. */
+export function useDockerT(): PluginAPI["i18n"]["t"] {
+  return useT(pluginApi!);
 }
 
 // ─── Update-check settings ──────────────────────────────────────────────────

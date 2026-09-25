@@ -1,7 +1,10 @@
-import { describe, test, expect, vi, afterEach } from "vitest";
+import { describe, test, expect, vi, afterEach, beforeAll } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { StackList } from "./StackList";
+import { initTestDockerRuntime } from "../testRuntime";
 import type { DockerStack, DockerStackService, PortMapping } from "../types";
+
+beforeAll(() => initTestDockerRuntime());
 
 function port(host: number, container: number): PortMapping {
   return { host_ip: "0.0.0.0", host_port: host, container_port: container, protocol: "tcp" };

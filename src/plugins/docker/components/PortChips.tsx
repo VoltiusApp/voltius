@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import { getDockerApi } from "../runtime";
+import { getDockerApi, useDockerT } from "../runtime";
 import { classifyPorts, actionFor, type ClassifiedPort } from "../ports";
 import type { PortMapping } from "../types";
 
@@ -19,6 +19,7 @@ const SIZE = {
 } as const;
 
 export function PortChips({ ports, sessionId, isRemote, limit, size = "sm", onOverflow }: Props) {
+  const t = useDockerT();
   const [busy, setBusy] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
@@ -47,7 +48,7 @@ export function PortChips({ ports, sessionId, isRemote, limit, size = "sm", onOv
       setDone(k);
       setTimeout(() => setDone((v) => (v === k ? null : v)), 1200);
     } catch (e) {
-      getDockerApi()?.notifications.toast(`Port ${c.port.host_port}: ${e}`, { severity: "error" });
+      getDockerApi()?.notifications.toast(t("portFailed", { port: c.port.host_port, error: String(e) }), { severity: "error" });
     } finally {
       setBusy((v) => (v === k ? null : v));
     }
@@ -62,7 +63,7 @@ export function PortChips({ ports, sessionId, isRemote, limit, size = "sm", onOv
           <button
             key={k}
             disabled={inert || busy === k}
-            title={inert ? (c.inertReason ?? "") : `${c.full} — ${c.kind === "http" ? "open in browser" : "forward and copy address"}`}
+            title={c.inertReason ? t(c.inertReason) : t(c.kind === "http" ? "portOpenInBrowser" : "portForwardAndCopy", { port: c.full })}
             onClick={(e) => { e.stopPropagation(); void open(c); }}
             className={`flex items-center rounded-sm font-mono shrink-0 ${SIZE[size]} ${
               inert
@@ -84,7 +85,7 @@ export function PortChips({ ports, sessionId, isRemote, limit, size = "sm", onOv
       {hidden > 0 && (
         <button
           onClick={(e) => { e.stopPropagation(); onOverflow?.(); }}
-          title="Show all ports"
+          title={t("showAllPorts")}
           className={`rounded-sm font-mono shrink-0 bg-(--t-bg-card-hover) text-(--t-text-muted) hover:text-(--t-text) ${SIZE[size]}`}
         >
           +{hidden}

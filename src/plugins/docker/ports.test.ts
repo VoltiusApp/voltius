@@ -28,11 +28,11 @@ describe("classifyPorts", () => {
   test("udp and unpublished ports are inert with a reason", () => {
     const [udp] = classifyPorts([p({ protocol: "udp" })]);
     expect(udp.kind).toBe("inert");
-    expect(udp.inertReason).toMatch(/UDP/i);
+    expect(udp.inertReason).toBe("portInertUdp");
 
     const [unpub] = classifyPorts([p({ host_port: null, container_port: 80 })]);
     expect(unpub.kind).toBe("inert");
-    expect(unpub.inertReason).toMatch(/not published/i);
+    expect(unpub.inertReason).toBe("portInertUnpublished");
     expect(unpub.short).toBe("80/tcp");
   });
 

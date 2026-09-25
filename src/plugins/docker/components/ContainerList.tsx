@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Icon } from "@iconify/react";
+import { useDockerT } from "../runtime";
 import { ContainerRow } from "./ContainerRow";
 import type { DockerContainer } from "../types";
 import { checkableImage, useImageUpdates } from "../useImageUpdates";
@@ -27,6 +28,7 @@ export function ContainerList({
   onRefresh,
   onToggleStopped,
 }: Props) {
+  const t = useDockerT();
   const visible = showStopped
     ? containers
     : containers.filter((c) => c.state === "running" || c.state === "paused");
@@ -45,17 +47,17 @@ export function ContainerList({
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-1 border-b border-(--t-border) shrink-0">
         <span className="text-[10px] text-(--t-text-muted)">
-          {containers.filter((c) => c.state === "running").length} running
+          {t("runningCount", { count: containers.filter((c) => c.state === "running").length })}
         </span>
         <div className="flex items-center gap-1">
           <button
             onClick={checkAll}
             disabled={isChecking}
-            title="Check containers for image updates"
+            title={t("checkContainerUpdates")}
             className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:circle-arrow-up" width={10} className={isChecking ? "animate-pulse" : ""} />
-            {isChecking ? "checking…" : "updates"}
+            {isChecking ? t("checking") : t("updates")}
           </button>
           <button
             onClick={onToggleStopped}
@@ -65,7 +67,7 @@ export function ContainerList({
                 : "text-(--t-text-muted) hover:bg-(--t-bg-hover)"
             }`}
           >
-            all
+            {t("showStopped")}
           </button>
         </div>
       </div>
@@ -75,7 +77,7 @@ export function ContainerList({
         {visible.length === 0 ? (
           <div className="flex items-center justify-center h-20 opacity-40">
             <p className="text-[11px] text-(--t-text-muted)">
-              {containers.length === 0 ? "No containers" : "No running containers"}
+              {containers.length === 0 ? t("noContainers") : t("noRunningContainers")}
             </p>
           </div>
         ) : (

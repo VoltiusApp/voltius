@@ -46,8 +46,8 @@ export function formatRelativeTime(time: Date | number, locale: string, now = Da
   return rtf.format(0, "second");
 }
 
-export function createI18nAPI(): I18nAPI {
-  let catalog: PluginI18nCatalog = {};
+export function createI18nAPI(initial: PluginI18nCatalog = {}): I18nAPI {
+  let catalog = initial;
   const locale = () => useLocaleStore.getState().locale;
 
   return {

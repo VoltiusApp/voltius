@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { useDockerT } from "../runtime";
 import type { ImageUpdateStatus } from "../types";
 
 /** Compact image-update indicator shared across the Images/Containers/Stacks views. */
@@ -9,6 +10,7 @@ export function UpdateBadge({
   status: ImageUpdateStatus | undefined;
   checking: boolean;
 }) {
+  const t = useDockerT();
   if (checking) {
     return (
       <Icon
@@ -22,16 +24,16 @@ export function UpdateBadge({
   if (status.status === "outdated") {
     return (
       <span
-        title="A newer image is available in the registry"
+        title={t("updateAvailable")}
         className="shrink-0 inline-flex items-center gap-0.5 rounded-sm px-1 text-[9px] font-medium bg-[color-mix(in_srgb,var(--t-status-warning)_16%,transparent)] text-(--t-status-warning)"
       >
-        update
+        {t("update")}
       </span>
     );
   }
   if (status.status === "current") {
     return (
-      <span title="Up to date" className="shrink-0 inline-flex">
+      <span title={t("upToDate")} className="shrink-0 inline-flex">
         <Icon icon="lucide:check" width={11} className="text-(--t-status-connected)" />
       </span>
     );
@@ -39,7 +41,7 @@ export function UpdateBadge({
   // unknown — couldn't resolve the registry digest
   return (
     <span
-      title={status.error ? `Could not check: ${status.error}` : "Update status unknown"}
+      title={status.error ? t("updateCheckFailed", { error: status.error }) : t("updateStatusUnknown")}
       className="shrink-0 inline-flex"
     >
       <Icon icon="lucide:circle-question-mark" width={10} className="text-(--t-text-dim)" />

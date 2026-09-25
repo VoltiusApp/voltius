@@ -8,7 +8,8 @@ export interface ClassifiedPort {
   scheme: "http" | "https";
   full: string;
   short: string;
-  inertReason: string | null;
+  /** Catalog key (i18n.ts) saying why an inert port can't be opened. */
+  inertReason: "portInertUdp" | "portInertUnpublished" | null;
 }
 
 const HTTP_PORTS = new Set([80, 3000, 3001, 4200, 5000, 5173, 7000, 8000, 8008, 8080, 8081, 8888, 9000, 9090]);
@@ -20,10 +21,10 @@ function classify(port: PortMapping): ClassifiedPort {
     : `${port.container_port}/${port.protocol}`;
 
   if (port.protocol !== "tcp") {
-    return { port, kind: "inert", scheme: "http", full, short: full, inertReason: "UDP ports can't be opened from here" };
+    return { port, kind: "inert", scheme: "http", full, short: full, inertReason: "portInertUdp" };
   }
   if (port.host_port == null) {
-    return { port, kind: "inert", scheme: "http", full, short: full, inertReason: "Port is not published to the host" };
+    return { port, kind: "inert", scheme: "http", full, short: full, inertReason: "portInertUnpublished" };
   }
   const https = HTTPS_PORTS.has(port.host_port);
   const web = https || HTTP_PORTS.has(port.host_port);
