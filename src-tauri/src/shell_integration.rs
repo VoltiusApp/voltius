@@ -27,7 +27,8 @@ pub fn prepare_local(shell: &str, session_id: &str) -> std::io::Result<Option<Lo
         .and_then(|s| s.to_str())
         .unwrap_or("")
         .to_lowercase();
-    let temp_dir = std::env::temp_dir();
+    let temp_dir =
+        crate::local::flatpak::host_visible_temp_dir().unwrap_or_else(std::env::temp_dir);
 
     match shell_name.as_str() {
         "bash" | "sh" => {

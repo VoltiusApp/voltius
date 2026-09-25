@@ -1,3 +1,4 @@
+use crate::local::flatpak;
 use crate::local::gate::OutputGate;
 use crate::shell_integration;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
@@ -112,7 +113,11 @@ impl LocalSessionManager {
             }
             #[cfg(not(windows))]
             {
-                std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
+                flatpak::spawns_on_host()
+                    .then(flatpak::host_login_shell)
+                    .flatten()
+                    .or_else(|| std::env::var("SHELL").ok())
+                    .unwrap_or_else(|| "/bin/bash".to_string())
             }
         });
 
@@ -145,24 +150,27 @@ impl LocalSessionManager {
             None
         };
 
-        let mut cmd = if let Some(ref info) = integration {
-            let mut c = CommandBuilder::new(&info.program);
-            for arg in &info.args {
-                c.arg(arg);
-            }
-            for (k, v) in &info.env {
+        let (program, args, mut env) = match integration {
+            Some(ref info) => (info.program.clone(), info.args.clone(), info.env.clone()),
+            None => (shell, Vec::new(), Vec::new()),
+        };
+        env.push(("TERM".into(), "xterm-256color".into()));
+
+        let cmd = if flatpak::spawns_on_host() {
+            flatpak::host_command(&program, &args, &env, cwd.as_deref())
+        } else {
+            let mut c = CommandBuilder::new(&program);
+            c.args(&args);
+            for (k, v) in &env {
                 c.env(k, v);
             }
+            // A directory that has since been removed would fail the spawn outright;
+            // starting in the default one beats not starting at all.
+            if let Some(dir) = cwd.filter(|d| std::path::Path::new(d).is_dir()) {
+                c.cwd(dir);
+            }
             c
-        } else {
-            CommandBuilder::new(&shell)
         };
-        cmd.env("TERM", "xterm-256color");
-        // A directory that has since been removed would fail the spawn outright;
-        // starting in the default one beats not starting at all.
-        if let Some(dir) = cwd.filter(|d| std::path::Path::new(d).is_dir()) {
-            cmd.cwd(dir);
-        }
 
         let child = pair
             .slave
