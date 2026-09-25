@@ -13,7 +13,7 @@ export function stopsRetrying(msg?: string, code?: VaultErrorCode): boolean {
 
 // Wrong credentials stay wrong; retrying them only gets the host banned by fail2ban/sshguard.
 function isAuthRejected(msg?: string): boolean {
-  return !!msg && /authentication rejected|No usable authentication method|can't be answered automatically/.test(msg);
+  return !!msg && /authentication rejected|No usable authentication method|can't be answered automatically|requires a new password/.test(msg);
 }
 
 // Retrying would re-open the host-key prompt the user just turned down.

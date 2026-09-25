@@ -225,14 +225,17 @@ await (async () => {
   assertEqual(store.attempts, 1, "does not re-open the host-key prompt on every retry");
 })();
 
-await (async () => {
+for (const errorMessage of [
+  "Password authentication rejected — check the username and password.",
+  "The server requires a new password — sign in once from a terminal and change it there.",
+]) {
   const store = makeStore({
     status: () => "disconnected",
-    attempt: async () => ({ ok: false, errorMessage: "Password authentication rejected — check the username and password." }),
+    attempt: async () => ({ ok: false, errorMessage }),
   });
-  assertEqual(await runBackoff("s-auth-rejected", store), false, "stops when the server rejects the credentials");
-  assertEqual(store.attempts, 1, "a wrong password is not retried into a fail2ban ban");
-})();
+  assertEqual(await runBackoff("s-auth-rejected", store), false, `stops on: ${errorMessage}`);
+  assertEqual(store.attempts, 1, `not retried into a fail2ban ban: ${errorMessage}`);
+}
 
 globalThis.setTimeout = realSetTimeout;
 
