@@ -9,7 +9,7 @@ const h = vi.hoisted(() => ({
   connections: [{ id: "c1", name: "prod", host: "example.test", port: 22, username: "root" }],
 }));
 
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }), initReactI18next: { type: "3rdParty", init: () => {} } }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/publicKeyStore", () => ({ ensurePublicKey: (...a: unknown[]) => h.ensurePublicKey(...a) }));
 vi.mock("@/services/keyExport", () => ({

@@ -285,6 +285,13 @@
       "leavePointAccessEnds": "你将在所有设备上失去对此保管库中主机、密钥和代码片段的访问权限。",
       "leavePointLocalWipe": "其内容将从此设备删除，包括已保存的密码和私钥。",
       "leavePointIrreversible": "除非收到新的邀请，否则你无法重新加入。"
+    },
+    "roleName": {
+      "owner": "所有者",
+      "manager": "管理员",
+      "editor": "编辑者",
+      "member": "成员",
+      "connect-only": "仅连接"
     }
   }
 }

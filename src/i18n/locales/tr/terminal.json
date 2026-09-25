@@ -85,7 +85,16 @@
         "tooManyParts": "Port veya uzak:yerel biçimini kullanın",
         "invalidRemotePort": "Port 1–65535 arasında olmalıdır",
         "invalidLocalPort": "Yerel port 1–65535 arasında olmalıdır"
-      }
+      },
+      "toast": {
+        "viewPorts": "Portları görüntüle →",
+        "forwardedOne": "{{port}} portu → localhost:{{localPort}} yönlendirildi",
+        "forwardedMany_one": "{{count}} port yönlendirildi",
+        "forwardedMany_other": "{{count}} port yönlendirildi",
+        "autoForwardCapped_one": "Otomatik yönlendirme duraklatıldı — {{count}} port zaten yönlendirildi",
+        "autoForwardCapped_other": "Otomatik yönlendirme duraklatıldı — {{count}} port zaten yönlendirildi"
+      },
+      "portLabel": "Port {{port}}"
     },
     "rightPanel": {
       "font": "Yazı tipi",
@@ -316,6 +325,11 @@
       "sparklineMin": "en az {{value}} ms",
       "sparklineAvg": "ort. {{value}} ms",
       "sparklineMax": "en çok {{value}} ms"
+    },
+    "xterm": {
+      "linkTooltip": "Açmak için Alt+tıklayın",
+      "sessionClosed": "Oturum kapandı",
+      "serialClosed": "Seri bağlantı kapandı"
     }
   }
 }

@@ -101,6 +101,7 @@
       "brightMagenta": "Bright Magenta",
       "brightCyan": "Bright Cyan",
       "brightWhite": "Bright White"
-    }
+    },
+    "defaultName": "My Theme"
   }
 }

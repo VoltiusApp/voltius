@@ -20,7 +20,6 @@ interface UIPrefsData {
 
 export const uiPreferencesHandler: UserDataHandler = {
   key: "uiPreferences",
-  label: "UI Preferences",
   icon: "lucide:layout-dashboard",
 
   export(): UIPrefsData {

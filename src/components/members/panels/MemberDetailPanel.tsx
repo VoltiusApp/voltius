@@ -7,7 +7,7 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/members/panels/RolesPanel";
-import { ROLE_META, RoleBlurb, permissionLabel } from "@/components/members/roleChips";
+import { ROLE_META, RoleBlurb, permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
@@ -96,14 +96,14 @@ export function MemberDetailPanel({
       await runReversible(
         hasRole
           ? {
-              pending: t("members.toast.removingRoleFrom", { role: role.name, name: member.handle }),
-              success: t("members.toast.roleRemovedFrom", { role: role.name, name: member.handle }),
+              pending: t("members.toast.removingRoleFrom", { role: roleLabel(t, role.name), name: member.handle }),
+              success: t("members.toast.roleRemovedFrom", { role: roleLabel(t, role.name), name: member.handle }),
               label: t("members.history.removeRole", { name: member.handle }),
               run: remove, undo: assign, redo: remove,
             }
           : {
-              pending: t("members.toast.assigningRoleTo", { role: role.name, name: member.handle }),
-              success: t("members.toast.roleAssignedTo", { role: role.name, name: member.handle }),
+              pending: t("members.toast.assigningRoleTo", { role: roleLabel(t, role.name), name: member.handle }),
+              success: t("members.toast.roleAssignedTo", { role: roleLabel(t, role.name), name: member.handle }),
               label: t("members.history.assignRole", { name: member.handle }),
               run: assign, undo: remove, redo: assign,
             },
@@ -143,7 +143,7 @@ export function MemberDetailPanel({
   const rolesGranting = (permission: Permission) =>
     teamRoles
       .filter((r) => member.role_ids.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
-      .map((r) => r.name);
+      .map((r) => roleLabel(t, r.name));
 
   const offendingBits = allow & ~viewerEffective;
 
@@ -268,7 +268,7 @@ export function MemberDetailPanel({
                           ? <Icon icon="lucide:check" width={10} />
                           : null
                     }
-                    {role.name}
+                    {roleLabel(t, role.name)}
                     {role.is_builtin
                       ? <Icon icon="lucide:lock" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.6 }} />
                       : <Icon icon="lucide:sparkles" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.7 }} />

@@ -215,6 +215,21 @@
         "snippet": "kod parçacıkları",
         "port_forward": "port yönlendirme kuralları"
       }
-    }
+    },
+    "contentCounts": {
+      "connections_one": "{{count}} bağlantı",
+      "connections_other": "{{count}} bağlantı",
+      "identities_one": "{{count}} kimlik",
+      "identities_other": "{{count}} kimlik",
+      "keys_one": "{{count}} anahtar",
+      "keys_other": "{{count}} anahtar",
+      "snippets_one": "{{count}} kod parçacığı",
+      "snippets_other": "{{count}} kod parçacığı",
+      "portForwardingRules_one": "{{count}} port yönlendirme kuralı",
+      "portForwardingRules_other": "{{count}} port yönlendirme kuralı"
+    },
+    "serialDevice": "Seri cihaz",
+    "localShellTitle": "Yerel kabuk › {{shell}}",
+    "dragItemFallback": "Öğe"
   }
 }

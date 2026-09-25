@@ -2,6 +2,7 @@ import type { MergeView, Chunk } from "@codemirror/merge";
 import type { EditorView } from "@codemirror/view";
 import { ribbonGeometry, type BandAt } from "./diffRibbonGeometry";
 import { applySpec, type ApplyDir } from "./diffApply";
+import i18n from "@/i18n";
 
 const NS = "http://www.w3.org/2000/svg";
 
@@ -54,7 +55,7 @@ export function attachDiffRibbons(view: MergeView, scroller: HTMLElement): DiffR
     const btn = document.createElement("button");
     btn.className = "cm-diff-ribbon-btn";
     btn.textContent = label;
-    btn.title = dir === "toRight" ? "Apply to right (→)" : "Apply to left (←)";
+    btn.title = i18n.t(dir === "toRight" ? "fileTransfer.editor.diff.applyToRight" : "fileTransfer.editor.diff.applyToLeft");
     btn.addEventListener("mousedown", (e) => {
       e.preventDefault();
       if (!view.chunks.includes(chunk)) return;

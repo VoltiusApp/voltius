@@ -44,9 +44,9 @@ const openForm = async () => {
 test("owner is never offered as a link role", async () => {
   render(<JoinLinksTab teamId="t1" roles={ROLES} canMint />);
   await openForm();
-  expect(screen.queryByText("owner")).toBeNull();
-  expect(screen.getByText("member")).toBeTruthy();
-  expect(screen.getByText("connect-only")).toBeTruthy();
+  expect(screen.queryByText("members.roleName.owner")).toBeNull();
+  expect(screen.getByText("members.roleName.member")).toBeTruthy();
+  expect(screen.getByText("members.roleName.connect-only")).toBeTruthy();
 });
 
 test("the default role is the least privileged one, never 'member'", async () => {

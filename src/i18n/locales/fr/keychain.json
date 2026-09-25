@@ -98,7 +98,9 @@
       "unknownType": "Type inconnu",
       "invalidKey": "Clé invalide",
       "invalidPublicKey": "Ce n'est pas une clé publique SSH — format attendu : « ssh-ed25519 AAAA… commentaire » sur une seule ligne. Elle ne sera pas enregistrée et ne peut pas être ajoutée à un hôte.",
-      "keyPassphrasePlaceholder": "Phrase secrète de la clé"
+      "keyPassphrasePlaceholder": "Phrase secrète de la clé",
+      "incompleteKey": "Clé incomplète",
+      "unrecognizedKey": "Format de clé non reconnu"
     },
     "identityForm": {
       "titleEdit": "Modifier l'identité",

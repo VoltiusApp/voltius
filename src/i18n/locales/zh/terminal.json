@@ -85,7 +85,14 @@
         "tooManyParts": "使用端口或 远程：本地",
         "invalidRemotePort": "端口必须为 1-65535",
         "invalidLocalPort": "本地端口必须为 1-65535"
-      }
+      },
+      "toast": {
+        "viewPorts": "查看端口 →",
+        "forwardedOne": "已转发端口 {{port}} → localhost:{{localPort}}",
+        "forwardedMany_other": "已转发 {{count}} 个端口",
+        "autoForwardCapped_other": "自动转发已暂停 — 已转发 {{count}} 个端口"
+      },
+      "portLabel": "端口 {{port}}"
     },
     "rightPanel": {
       "font": "字体",
@@ -316,6 +323,11 @@
       "sparklineMin": "最小 {{value}}ms",
       "sparklineAvg": "平均 {{value}}ms",
       "sparklineMax": "最大 {{value}}ms"
+    },
+    "xterm": {
+      "linkTooltip": "Alt+单击以打开",
+      "sessionClosed": "会话已关闭",
+      "serialClosed": "串口连接已关闭"
     }
   }
 }

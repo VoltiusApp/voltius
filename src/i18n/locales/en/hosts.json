@@ -40,7 +40,8 @@
       "openFilesTitle": "Open files (or double-click)",
       "inUseBy": "In use by {{name}}",
       "inUseByOverflow_one": "In use by {{name}} + {{count}} other",
-      "inUseByOverflow_other": "In use by {{name}} + {{count}} others"
+      "inUseByOverflow_other": "In use by {{name}} + {{count}} others",
+      "filesSuffix": "files"
     },
     "page": {
       "all": "All",
@@ -105,7 +106,9 @@
       "killing": "Killing session…",
       "undo": "Undo",
       "killFailed": "Couldn't kill remotely — open the session to end it",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "deviceActive": "{{device}} · active {{age}}",
+      "unknownDevice": "Unknown device"
     },
     "teamSessions": {
       "title": "Team Sessions",

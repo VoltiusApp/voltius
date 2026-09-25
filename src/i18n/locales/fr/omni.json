@@ -20,7 +20,8 @@
       "actions": "Actions",
       "quickSettings": "Réglages rapides",
       "settings": "Réglages",
-      "joinByInviteCode": "Rejoindre avec un code d'invitation"
+      "joinByInviteCode": "Rejoindre avec un code d'invitation",
+      "importExport": "Import / Export"
     },
     "settingsDescription": "Réglages",
     "pluginSettingsDescription": "Réglages du plugin",
@@ -87,6 +88,32 @@
       "statusManual": "Manuel",
       "statusSystem": "Auto · suit le système",
       "statusUntil": "Auto · {{phase}} jusqu'à {{time}}"
+    },
+    "commands": {
+      "newHost": "Nouvel hôte",
+      "newKey": "Nouvelle clé SSH",
+      "newIdentity": "Nouvelle identité",
+      "settings": "Paramètres",
+      "checkForUpdate": "Vérifier les mises à jour",
+      "whatsNew": "Nouveautés",
+      "portForwarding": "Redirection de ports",
+      "knownHosts": "Hôtes connus",
+      "logs": "Journaux",
+      "newSnippet": "Nouveau snippet",
+      "teamMembers": "Membres de l'équipe",
+      "disconnectAll": "Tout déconnecter",
+      "reportBug": "Signaler un bug",
+      "createTheme": "Créer un thème personnalisé",
+      "importFrom": "Importer depuis {{label}}",
+      "importFromEllipsis": "Importer depuis {{label}}…",
+      "exportAll": "Exporter les données du coffre…",
+      "exportConnections": "Exporter les connexions…",
+      "exportIdentities": "Exporter les identités…",
+      "exportKeys": "Exporter les clés SSH…",
+      "exportSnippets": "Exporter les snippets…",
+      "exportPortForwarding": "Exporter les règles de redirection de ports…",
+      "exportThemes": "Exporter les thèmes personnalisés…",
+      "importThemes": "Importer des thèmes…"
     }
   }
 }

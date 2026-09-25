@@ -340,7 +340,7 @@ function createSerialSession(
   const session: TerminalSession = {
     id: sessionId,
     connectionId: connection.id,
-    connectionName: connection.name?.trim() || connection.serial_port || "Serial",
+    connectionName: connection.name?.trim() || connection.serial_port || i18n.t("home.serialFallback"),
     status: "connecting",
     type: "serial",
     serialConfig: serialParams,
@@ -745,7 +745,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const session: TerminalSession = {
       id: sessionId,
       connectionId: "serial-ephemeral",
-      connectionName: "Serial",
+      connectionName: i18n.t("home.serialFallback"),
       status: "connecting",
       type: "serial",
       initialSerialPort: initialPort,

@@ -60,4 +60,19 @@ useLocaleStore.subscribe((state) => {
 });
 document.documentElement.lang = useLocaleStore.getState().locale;
 
+/** A label that translates on every read, plus its English text for search. */
+export interface LazyLabel {
+  (): string;
+  en: () => string;
+}
+
+/** For UI definitions that live outside components (command lists,
+ *  registries): resolve the label at render, never at module load, so it
+ *  follows the app language. */
+export function lazyT(key: string, options?: Record<string, unknown>): LazyLabel {
+  return Object.assign(() => i18n.t(key, options), {
+    en: () => i18n.t(key, { ...options, lng: "en" }),
+  });
+}
+
 export default i18n;

@@ -103,6 +103,7 @@
       "brightMagenta": "Ярко-пурпурный",
       "brightCyan": "Ярко-голубой",
       "brightWhite": "Ярко-белый"
-    }
+    },
+    "defaultName": "Моя тема"
   }
 }

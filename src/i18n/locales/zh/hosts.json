@@ -40,7 +40,8 @@
       "openFilesTitle": "打开文件（或双击）",
       "inUseBy": "正在被 {{name}} 使用",
       "inUseByOverflow_one": "正在被 {{name}} + {{count}} 人使用",
-      "inUseByOverflow_other": "正在被 {{name}} + {{count}} 人使用"
+      "inUseByOverflow_other": "正在被 {{name}} + {{count}} 人使用",
+      "filesSuffix": "文件"
     },
     "page": {
       "all": "全部",
@@ -105,7 +106,9 @@
       "killing": "正在结束会话…",
       "undo": "撤销",
       "killFailed": "无法远程结束 — 打开会话以将其关闭",
-      "dismiss": "关闭"
+      "dismiss": "关闭",
+      "deviceActive": "{{device}} · {{age}}活跃",
+      "unknownDevice": "未知设备"
     },
     "teamSessions": {
       "title": "团队会话",

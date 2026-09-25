@@ -5,7 +5,7 @@ import type { PendingInvitation, TeamRole } from "@/services/teamService";
 import { inviteByEmailAddress, revokeInvitation } from "@/services/vaultShare";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
-import { ROLE_META } from "@/components/members/roleChips";
+import { ROLE_META, roleLabel } from "@/components/members/roleChips";
 
 const DAY_MS = 86_400_000;
 
@@ -86,7 +86,7 @@ export function PendingInviteCard({
         {isExpired ? t("members.invite.expired") : t("members.pendingBadge")}
       </span>
       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ color: chipColor, background: chipBg }}>
-        {inv.role}
+        {roleLabel(t, inv.role)}
       </span>
 
       <button

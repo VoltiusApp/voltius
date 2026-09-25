@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
 import { avatarColor } from "@/components/shared/AvatarStack";
+import { LOCAL_ACTOR_ID } from "@/services/localAuditService";
 
 // ─── Action metadata ──────────────────────────────────────────────────────────
 
@@ -17,6 +18,11 @@ const fallbackMember = () => i18n.t("logs.eventLabels.fallbackMember");
 const fallbackRole = () => i18n.t("logs.eventLabels.fallbackRole");
 const fallbackResource = () => i18n.t("logs.eventLabels.fallbackResource");
 const fallbackHost = () => i18n.t("logs.eventLabels.fallbackHost");
+
+/** Who did it. The local log's only actor is this user, named in the app language. */
+export function actorName(log: AuditLog): string {
+  return log.actor_id === LOCAL_ACTOR_ID ? i18n.t("logs.eventLabels.you") : log.actor_name;
+}
 
 export const ACTION_META: Record<string, ActionMeta> = {
   "member.invited":              { icon: "lucide:user-plus",              color: "#3b82f6", label: (l) => i18n.t("logs.eventLabels.memberInvited", { name: l.target_name ?? l.target_id ?? fallbackUser() }) },
@@ -76,6 +82,7 @@ interface Props {
 export function AuditEventRow({ log, showDate = false }: Props) {
   const { t } = useTranslation();
   const meta = ACTION_META[log.action] ?? FALLBACK_META;
+  const actor = actorName(log);
   const time = new Date(log.created_at);
   const timeStr = time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const dateStr = time.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
@@ -88,9 +95,9 @@ export function AuditEventRow({ log, showDate = false }: Props) {
       <div
         className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold select-none mt-0.5"
         style={{ background: avatarColor(log.actor_name) }}
-        title={log.actor_name}
+        title={actor}
       >
-        {log.actor_name[0]?.toUpperCase() ?? "?"}
+        {actor[0]?.toUpperCase() ?? "?"}
       </div>
 
       {/* Action dot */}
@@ -104,7 +111,7 @@ export function AuditEventRow({ log, showDate = false }: Props) {
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-sm font-medium text-(--t-text-primary)">{log.actor_name}</span>
+          <span className="text-sm font-medium text-(--t-text-primary)">{actor}</span>
           <span className="text-sm text-(--t-text-secondary)">{meta.label(log)}</span>
           {log.source === "client" && (
             <span

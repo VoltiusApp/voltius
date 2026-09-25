@@ -40,7 +40,8 @@
       "openFilesTitle": "Ouvrir les fichiers (ou double-clic)",
       "inUseBy": "Utilisé par {{name}}",
       "inUseByOverflow_one": "Utilisé par {{name}} + {{count}} autre",
-      "inUseByOverflow_other": "Utilisé par {{name}} + {{count}} autres"
+      "inUseByOverflow_other": "Utilisé par {{name}} + {{count}} autres",
+      "filesSuffix": "fichiers"
     },
     "page": {
       "all": "Tous",
@@ -105,7 +106,9 @@
       "killing": "Fermeture de la session…",
       "undo": "Annuler",
       "killFailed": "Impossible de terminer à distance — ouvrez la session pour la fermer",
-      "dismiss": "Ignorer"
+      "dismiss": "Ignorer",
+      "deviceActive": "{{device}} · actif {{age}}",
+      "unknownDevice": "Appareil inconnu"
     },
     "teamSessions": {
       "title": "Sessions d'équipe",

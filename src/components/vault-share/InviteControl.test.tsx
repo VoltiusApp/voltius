@@ -35,8 +35,8 @@ afterEach(cleanup);
 
 test("owner is never offered as an assignable role", () => {
   render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} usedSeats={1} seatCap={10} onInvited={vi.fn()} />);
-  expect(screen.queryByText("owner")).toBeNull();
-  expect(screen.getByText("manager")).toBeTruthy();
+  expect(screen.queryByText("members.roleName.owner")).toBeNull();
+  expect(screen.getByText("members.roleName.manager")).toBeTruthy();
 });
 
 test("the custom-handle search rule is stated", () => {
@@ -57,14 +57,14 @@ test("with no role named member, the least privileged role is the default", () =
     { id: "r-connect", name: "connect-only", position: 3, is_builtin: true },
   ] as unknown as TeamRole[];
   render(<InviteControl teamId="t1" roles={noMemberRoles} existingIds={new Set()} usedSeats={1} seatCap={10} onInvited={vi.fn()} />);
-  expect(screen.getByText("connect-only").getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByText("members.roleName.connect-only").getAttribute("aria-pressed")).toBe("true");
 });
 
 test("choosing a role and a person invites with that role", async () => {
   h.results = [{ user_id: "u1", handle: "bob-builder", display_name: "bob-builder", is_teammate: false }];
   h.inviteUserById.mockResolvedValue({ status: "pending" });
   render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} usedSeats={1} seatCap={10} onInvited={vi.fn()} />);
-  fireEvent.click(screen.getByText("editor"));
+  fireEvent.click(screen.getByText("members.roleName.editor"));
   fireEvent.click(screen.getByText("members.invite.inviteAction"));
   await waitFor(() => expect(h.inviteUserById).toHaveBeenCalledWith(
     expect.objectContaining({ teamId: "t1", userId: "u1", roleName: "editor", roleId: "r-editor" }),

@@ -119,7 +119,8 @@
       "fallbackMember": "a member",
       "fallbackRole": "member",
       "fallbackResource": "a resource",
-      "fallbackHost": "a host"
+      "fallbackHost": "a host",
+      "you": "You"
     },
     "timeline": {
       "today": "Today",

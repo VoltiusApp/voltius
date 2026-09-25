@@ -215,6 +215,26 @@
         "snippet": "des snippets",
         "port_forward": "des règles de redirection de port"
       }
-    }
+    },
+    "contentCounts": {
+      "connections_one": "{{count}} connexion",
+      "connections_many": "{{count}} connexions",
+      "connections_other": "{{count}} connexions",
+      "identities_one": "{{count}} identité",
+      "identities_many": "{{count}} identités",
+      "identities_other": "{{count}} identités",
+      "keys_one": "{{count}} clé",
+      "keys_many": "{{count}} clés",
+      "keys_other": "{{count}} clés",
+      "snippets_one": "{{count}} snippet",
+      "snippets_many": "{{count}} snippets",
+      "snippets_other": "{{count}} snippets",
+      "portForwardingRules_one": "{{count}} règle de redirection de port",
+      "portForwardingRules_many": "{{count}} règles de redirection de port",
+      "portForwardingRules_other": "{{count}} règles de redirection de port"
+    },
+    "serialDevice": "Périphérique série",
+    "localShellTitle": "Shell local › {{shell}}",
+    "dragItemFallback": "Élément"
   }
 }

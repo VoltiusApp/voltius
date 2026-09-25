@@ -14,7 +14,7 @@ export const PUB_TYPE_MAP: Record<string, string> = {
 export function detectKeyInfo(
   privateKey: string,
   publicKey: string,
-): { type: string | null; valid: boolean; error?: string } {
+): { type: string | null; valid: boolean; /** i18n key */ errorKey?: string } {
   const pk = privateKey.trim();
   if (!pk) return { type: null, valid: true };
 
@@ -32,7 +32,7 @@ export function detectKeyInfo(
 
   if (pk.startsWith("-----BEGIN OPENSSH PRIVATE KEY-----")) {
     if (!pk.includes("-----END OPENSSH PRIVATE KEY-----")) {
-      return { type: null, valid: false, error: "Incomplete key" };
+      return { type: null, valid: false, errorKey: "keychain.keyForm.incompleteKey" };
     }
 
     const pub = publicKey.trim();
@@ -72,5 +72,5 @@ export function detectKeyInfo(
     }
   }
 
-  return { type: null, valid: false, error: "Unrecognized key format" };
+  return { type: null, valid: false, errorKey: "keychain.keyForm.unrecognizedKey" };
 }

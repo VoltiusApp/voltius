@@ -1,9 +1,8 @@
 import i18n from "@/i18n";
 import { resolveHostCommand, type HostCommandSlot } from "./hostCommand";
-import { runSnippetSequence, reportSequenceResult } from "./snippetSequence";
+import { runSnippetSequence, reportSequenceResult, notifySnippets } from "./snippetSequence";
 import { snippetInject } from "./snippetInject";
 import { useSnippetStore } from "@/stores/snippetStore";
-import { useNotificationStore } from "@/stores/notificationStore";
 import { rememberedVars, rememberVars } from "@/stores/hostCommandVarsStore";
 import type { RunTarget } from "./sftpTarget";
 import type { SequencePrompt, SequenceRunResult } from "./snippetSequence";
@@ -28,11 +27,7 @@ export function defaultHostCommandDeps(): HostCommandDeps {
     report: reportSequenceResult,
     enqueue: (p) => useSnippetStore.getState().enqueuePendingSequence(p),
     inject: snippetInject,
-    notifyError: (message) =>
-      useNotificationStore.getState().addToast({
-        source: { kind: "plugin", id: "snippets", name: "Snippets" }, type: "toast",
-        message, severity: "error", duration: 8000,
-      }),
+    notifyError: (message) => notifySnippets(message, "error"),
   };
 }
 

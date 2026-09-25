@@ -119,7 +119,8 @@
       "fallbackMember": "一名成员",
       "fallbackRole": "成员",
       "fallbackResource": "一个资源",
-      "fallbackHost": "一台主机"
+      "fallbackHost": "一台主机",
+      "you": "你"
     },
     "timeline": {
       "today": "今天",

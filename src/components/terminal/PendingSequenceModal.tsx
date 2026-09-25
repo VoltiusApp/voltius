@@ -1,6 +1,5 @@
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
-import { reportSequenceResult } from "@/services/snippetSequence";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { notifySnippets, reportSequenceResult } from "@/services/snippetSequence";
 import { useSnippetStore } from "@/stores/snippetStore";
 import i18n from "@/i18n";
 
@@ -26,13 +25,9 @@ export function PendingSequenceModal() {
         const resume = pending.resume;
         shift();
         resume(values).then(reportSequenceResult).catch((e: unknown) => {
-          useNotificationStore.getState().addToast({
-            source: { kind: "plugin", id: "snippets", name: "Snippets" }, type: "toast",
-            message: i18n.t("snippets.sequence.resumeFailed", {
-              error: e instanceof Error ? e.message : String(e),
-            }),
-            severity: "error", duration: 8000,
-          });
+          notifySnippets(i18n.t("snippets.sequence.resumeFailed", {
+            error: e instanceof Error ? e.message : String(e),
+          }), "error");
         });
       }}
       onClose={() => {

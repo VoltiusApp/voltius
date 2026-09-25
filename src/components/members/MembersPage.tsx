@@ -21,7 +21,7 @@ import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePerm
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
-import { RoleToggleChip } from "@/components/members/roleChips";
+import { RoleToggleChip, roleLabel } from "@/components/members/roleChips";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { PendingInviteCard } from "@/components/members/cards/PendingInviteCard";
@@ -218,7 +218,7 @@ export default function MembersPage() {
       const unassignedRoles = sortedRoles.filter((r) => !member.role_ids.includes(r.id));
 
       const assignedItems: ContextMenuItem[] = assignedRoles.map((r) => ({
-        label: r.name,
+        label: roleLabel(t, r.name),
         icon: "lucide:square-check-big",
         onClick: () => {
           void removeMemberRole(teamId!, member.user_id, r.id).then(() => {
@@ -233,7 +233,7 @@ export default function MembersPage() {
       }));
 
       const unassignedItems: ContextMenuItem[] = unassignedRoles.map((r, i) => ({
-        label: r.name,
+        label: roleLabel(t, r.name),
         icon: "lucide:square",
         divider: i === 0 && assignedItems.length > 0,
         onClick: () => {
@@ -315,7 +315,7 @@ export default function MembersPage() {
         label: t("members.contextMenu.assignRoleBulk", { count: selectedMembers.length }),
         icon: "lucide:shield",
         children: sortedBulkRoles.map((r) => ({
-          label: r.name,
+          label: roleLabel(t, r.name),
           onClick: () => {
             const prevRoleIds = selectedMembers.map((m) => ({ userId: m.user_id, roleIds: [...m.role_ids] }));
             void Promise.all(selectedMembers.map((m) => assignMemberRole(teamId!, m.user_id, r.id))).then(() => {
@@ -340,7 +340,7 @@ export default function MembersPage() {
         label: t("members.contextMenu.removeRoleBulk", { count: selectedMembers.length }),
         icon: "lucide:shield-off",
         children: sortedBulkRoles.map((r) => ({
-          label: r.name,
+          label: roleLabel(t, r.name),
           onClick: () => {
             void Promise.all(
               selectedMembers
