@@ -105,7 +105,8 @@
       "compareHint": "在每侧各选择一个文件进行比较",
       "selectFilesToUpload": "选择要上传的文件",
       "downloadToFolder": "下载到文件夹",
-      "connectionLost": "连接已断开"
+      "connectionLost": "连接已断开",
+      "moveSourceNotDeleted": "已复制，但无法删除 {{names}} 的原始文件：{{error}}"
     },
     "queue": {
       "title": "传输",
