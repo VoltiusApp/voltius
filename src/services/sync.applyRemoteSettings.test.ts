@@ -9,6 +9,8 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
+import { useLocaleStore } from "@/stores/localeStore";
+import { useVaultStore } from "@/stores/vaultStore";
 import { setVaultKey } from "@/services/vault";
 
 function jwt(expOffsetSec: number): string {
@@ -25,12 +27,17 @@ const emptyEntityFiles = () => Object.fromEntries(ENTITY_FILES.map((f) => [f, "[
  * One remote device ("remote-1") whose blob decrypts to `remoteFiles`, against
  * a local disk holding `localFiles`. Records what the sync round writes.
  */
-function serveRemoteDevice(remoteFiles: Record<string, string>, localFiles: Record<string, string> = {}) {
+function serveRemoteDevice(
+  remoteFiles: Record<string, string>,
+  localFiles: Record<string, string> = {},
+  overrides: Record<string, unknown> = {},
+) {
   const served = {
     settingsSaves: [] as string[],
     stateImports: [] as Array<{ files: Record<string, string> }>,
   };
   h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+    if (cmd in overrides) return overrides[cmd];
     switch (cmd) {
       case "keychain_get":
         if (args?.key === "server_url") return "https://sync.example.com";
@@ -105,6 +112,61 @@ test("a synced pull writes the raw merge to settings.json but restores this devi
   expect(disk.sections.appSettings.data.terminal.preferredShell).toBe("/bin/zsh");
 
   expect(useTerminalSettingsStore.getState().preferredShell).toBe("/usr/bin/fish");
+});
+
+// settings.json is only rewritten by a push, so during a pull it holds the
+// state as of the last push — here, before the local edits below.
+const settingsAsOfLastPush = (vaults: Record<string, unknown>) => JSON.stringify({
+  type: "voltius-user-data",
+  version: 2,
+  exported_at: "2020-01-01T00:00:00.000Z",
+  sections: {
+    appSettings: { updated_at: "2020-01-01T00:00:00.000Z", data: { locale: "en" } },
+    vaults: { updated_at: "2020-01-01T00:00:00.000Z", data: vaults },
+  },
+});
+
+const remoteSettings = (sections: Record<string, unknown>) => ({
+  "settings.json": JSON.stringify({ type: "voltius-user-data", version: 2, exported_at: "2030-01-01T00:00:00.000Z", sections }),
+});
+
+test("a local settings edit newer than the remote survives a pull made before its push", async () => {
+  useLocaleStore.setState({ locale: "fr" });
+  useAppSettingsTimestampStore.setState({ updatedAt: "2031-01-01T00:00:00.000Z" });
+  serveRemoteDevice(
+    remoteSettings({ appSettings: { updated_at: "2030-01-01T00:00:00.000Z", data: { locale: "tr" } } }),
+    {},
+    { settings_load: settingsAsOfLastPush({}) },
+  );
+
+  await syncNow();
+
+  expect(useLocaleStore.getState().locale).toBe("fr");
+});
+
+test("a vault created since the last push survives a pull that brings another device's vault", async () => {
+  const personal = { name: "Personal", updatedAt: "2020-01-01T00:00:00.000Z" };
+  useVaultStore.setState({
+    vaults: [
+      { id: "personal", name: "Personal", updatedAt: personal.updatedAt },
+      { id: "v-new", name: "Just created", updatedAt: "2031-01-01T00:00:00.000Z" },
+    ],
+    deletedVaults: {},
+  });
+  serveRemoteDevice(
+    remoteSettings({
+      vaults: {
+        updated_at: "2030-01-01T00:00:00.000Z",
+        data: { personal, "v-remote": { name: "From elsewhere", updatedAt: "2030-01-01T00:00:00.000Z" } },
+      },
+    }),
+    {},
+    { settings_load: settingsAsOfLastPush({ personal }) },
+  );
+
+  await syncNow();
+
+  expect(useVaultStore.getState().vaults.map((v) => v.id).sort()).toEqual(["personal", "v-new", "v-remote"]);
 });
 
 test("the status reports success as soon as the work ends, while calls during the hold are still dropped", async () => {

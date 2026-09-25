@@ -95,9 +95,11 @@ async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
     if (!remoteRaw) return;
     const remote = JSON.parse(remoteRaw) as UserDataBundle;
     if (remote.type !== "voltius-user-data") return;
-    const localRaw = await invoke<string | null>("settings_load");
-    const local = localRaw ? (JSON.parse(localRaw) as UserDataBundle) : null;
-    const { merged, updatedKeys } = mergeUserDataBundle(local, filterIncoming(remote));
+    // The local side is the live stores, not settings.json: that file is only
+    // rewritten by a push, and a sync round pulls before it pushes, so it lags
+    // the latest local edit — merging against it let an older remote section
+    // beat a newer local one (and dropped a just-created vault).
+    const { merged, updatedKeys } = mergeUserDataBundle(outgoingSettings(), filterIncoming(remote));
     if (updatedKeys.length === 0) return;
     await invoke("settings_save", { state: JSON.stringify(merged) });
     // settings.json keeps the merge result; the stores get this device's
@@ -354,19 +356,23 @@ export function getPluginSkippedSyncFiles(): string[] {
 
 /**
  * Ensure settings.json is current before ANY `backup_export` caller reads it.
- * Filtered: this file is both the local merge base and part of the uploaded
- * blob, so a switched-off domain has to be absent from it, not merely ignored
- * on arrival. Every `backup_export` caller (server push, plugin export) must
- * call this first — issue #47 was exactly a second caller skipping a step
- * like this one.
+ * Filtered: this file is part of the uploaded blob (and the same filtered
+ * bundle is the local merge base), so a switched-off domain has to be absent
+ * from it, not merely ignored on arrival. Every `backup_export` caller
+ * (server push, plugin export) must call this first — issue #47 was exactly
+ * a second caller skipping a step like this one.
  */
 export async function writeFilteredSettings(): Promise<void> {
   // Not swallowed: backup_export reads settings.json from disk regardless of
   // this call's outcome, so a hidden failure here would upload the
   // pre-toggle, unfiltered file. A failed sync round is strictly better than
   // uploading held-back data — let this throw and abort the round.
-  const bundle = filterOutgoing(buildUserDataBundle());
-  await invoke("settings_save", { state: JSON.stringify(bundle) });
+  await invoke("settings_save", { state: JSON.stringify(outgoingSettings()) });
+}
+
+/** The live settings bundle as it may leave this device. */
+function outgoingSettings(): UserDataBundle {
+  return filterOutgoing(buildUserDataBundle());
 }
 
 /** Export local data and upload to server. */
