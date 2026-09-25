@@ -6,6 +6,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 
 import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
 import { ENTITY_FILES } from "@/services/sync";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 
 const PLUGIN_ID = "gist-sync-import-test";
 const KEY = "ab".repeat(32);
@@ -35,6 +36,7 @@ let api: PluginAPI;
 beforeEach(() => {
   h.stateImports.length = 0;
   for (const k of Object.keys(payloads)) delete payloads[k];
+  useSyncPrefsStore.setState({ syncTypes: {}, excludedIds: [] });
   h.invoke.mockReset();
   h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
     switch (cmd) {
@@ -69,6 +71,15 @@ test("an unreadable device blob is skipped and the readable ones still merge", a
 
   expect(importedHosts().map((c) => c.id).sort()).toEqual(["local", "remote"]);
   expect(warn).toHaveBeenCalledWith(expect.stringContaining("skipped 1 of 2"));
+});
+
+test("an object held back from sync on this device is not overwritten by a gist blob", async () => {
+  useSyncPrefsStore.setState({ excludedIds: ["local"] });
+  payloads.good = [host("local", "Changed elsewhere", "2030-01-02T00:00:00.000Z")];
+
+  await api.sync.importStates(KEY, [blob("good")]);
+
+  expect(importedHosts()).toEqual([expect.objectContaining({ id: "local", name: "Local" })]);
 });
 
 test("nothing is written when no blob could be read", async () => {

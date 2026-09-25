@@ -34,10 +34,9 @@ import { vaultOptionsFrom } from "@/hooks/useVaultOptions";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, decryptBlob, forEachRemoteBlob, mergeBlobPayload, importMergedPayload, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, openRemoteBlob, forEachRemoteBlob, mergeBlobPayload, importMergedPayload, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { filterRemoteExcluded } from "@/services/syncExclusion";
 import type {
   UISlot,
   ContributedAction,
@@ -2309,16 +2308,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         let bestThemeRaw: string | null = null;
         let bestThemeUpdatedAt: string | null = null;
         const excludedIds = getExcludedObjectIds();
-
         // One device's unreadable blob (another passphrase, corruption) is
         // skipped like on the server path, so the rest still merge and the
         // plugin's push after this import still happens.
         await forEachRemoteBlob(blobs.map((b64, i) => ({ b64, i })), ({ i }) => `gist blob ${i + 1}`, async ({ b64 }) => {
-          const remote = filterRemoteExcluded(
-            await decryptBlob([encKeyBytes], base64ToByteArray(b64)),
-            excludedIds,
-            ENTITY_FILES,
-          );
+          const remote = await openRemoteBlob([encKeyBytes], base64ToByteArray(b64), excludedIds);
           merged = mergeBlobPayload(merged, remote);
           readable++;
 

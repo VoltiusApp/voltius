@@ -260,7 +260,7 @@ function sessionBlobKeys(): number[][] {
  * decrypt) is re-thrown immediately — that is real corruption, not a key mismatch,
  * and trying other keys would only mask it.
  */
-export async function decryptBlob(candidates: number[][], blobBytes: number[]): Promise<BlobPayload> {
+async function decryptBlob(candidates: number[][], blobBytes: number[]): Promise<BlobPayload> {
   for (const encKey of candidates) {
     try {
       return await invoke<BlobPayload>("backup_decrypt", { encKey, blob: blobBytes });
@@ -520,9 +520,24 @@ export async function importMergedPayload(merged: BlobPayload): Promise<void> {
 }
 
 /**
- * Fetch a remote device's blob, decrypt it and drop this device's sync-excluded
- * objects from it, then apply the parts that aren't entity files (settings,
- * live sessions). Null when the device has no blob or can't be reached.
+ * Decrypt another device's blob (see decryptBlob) and drop this device's
+ * sync-excluded objects from it, so remote state can neither modify nor
+ * resurrect them. Every inbound destination — server pull, plugin import —
+ * reads remote blobs through here, mirroring what backup_export strips on the
+ * way out.
+ */
+export async function openRemoteBlob(
+  candidates: number[][],
+  blobBytes: number[],
+  excludedIds: string[] = getExcludedObjectIds(),
+): Promise<BlobPayload> {
+  return filterRemoteExcluded(await decryptBlob(candidates, blobBytes), excludedIds, ENTITY_FILES);
+}
+
+/**
+ * Fetch a remote device's blob, open it (openRemoteBlob), then apply the parts
+ * that aren't entity files (settings, live sessions). Null when the device has
+ * no blob or can't be reached.
  */
 async function pullRemotePayload(serverUrl: string, remoteDeviceId: string): Promise<BlobPayload | null> {
   const res = await fetchWithAuth(
@@ -533,11 +548,7 @@ async function pullRemotePayload(serverUrl: string, remoteDeviceId: string): Pro
   if (!res.ok) return null; // skip unreachable devices
 
   const { blob: blobB64 } = await res.json();
-  const remotePayload = filterRemoteExcluded(
-    await decryptBlob(sessionBlobKeys(), base64ToByteArray(blobB64)),
-    getExcludedObjectIds(),
-    ENTITY_FILES,
-  );
+  const remotePayload = await openRemoteBlob(sessionBlobKeys(), base64ToByteArray(blobB64));
 
   await applyRemoteSettings(remotePayload);
   applyRemoteLiveSessions(remoteDeviceId, remotePayload);
