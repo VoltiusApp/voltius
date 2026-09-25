@@ -2,8 +2,8 @@ use crate::port_forward::ForwardError;
 use russh::ChannelMsg;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 
 /// Number of consecutive ports a tunnel tries before giving up.
@@ -21,14 +21,17 @@ pub async fn bind_with_fallback(local_port: u16) -> Result<(TcpListener, u16), F
     Err(ForwardError::PortInUse(local_port, PORT_ATTEMPTS as u8))
 }
 
-/// Pump an accepted TCP connection through an open SSH channel until either side
-/// closes or `cancel` fires, counting every byte in both directions.
-pub async fn pump(
+/// Pump a local stream (an accepted TCP connection, the ssh-agent socket)
+/// through an open SSH channel until either side closes or `cancel` fires,
+/// counting every byte in both directions.
+pub async fn pump<S>(
     ch: russh::Channel<russh::client::Msg>,
-    tcp: TcpStream,
+    tcp: S,
     cancel: CancellationToken,
     bytes: Arc<AtomicU64>,
-) {
+) where
+    S: AsyncRead + AsyncWrite + Send + 'static,
+{
     let (mut ch_read, ch_write) = ch.split();
     let ch_write = Arc::new(ch_write);
     let mut ch_writer = ch_write.make_writer();
@@ -97,6 +100,7 @@ mod tests {
     use super::*;
     use crate::port_forward::test_ssh::{self, Behavior, GREETING, SAW_EOF};
     use std::sync::atomic::AtomicU16;
+    use tokio::net::TcpStream;
     use tokio::time::{timeout, Duration};
 
     const STEP: Duration = Duration::from_secs(5);
