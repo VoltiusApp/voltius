@@ -1,5 +1,11 @@
-use super::{ProxyEndpoint, ProxySpec};
+#[cfg(any(test, not(any(target_os = "android", target_os = "ios"))))]
+use super::ProxyEndpoint;
+use super::ProxySpec;
 
+#[cfg(any(
+    test,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 fn endpoint(host_port: &str, default_port: u16) -> Option<ProxyEndpoint> {
     let s = host_port.trim().trim_end_matches('/');
     let (host, port) = if let Some(rest) = s.strip_prefix('[') {
@@ -26,6 +32,10 @@ fn endpoint(host_port: &str, default_port: u16) -> Option<ProxyEndpoint> {
     })
 }
 
+#[cfg(any(
+    test,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
@@ -49,6 +59,10 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+#[cfg(any(
+    test,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 pub fn parse_proxy_url(url: &str) -> Option<ProxySpec> {
     let url = url.trim();
     let (scheme, rest) = url.split_once("://").unwrap_or(("http", url));
@@ -184,6 +198,15 @@ pub fn parse_scutil(output: &str) -> Option<(ProxySpec, Vec<String>)> {
     Some((spec, exceptions))
 }
 
+#[cfg(any(
+    test,
+    not(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "android",
+        target_os = "ios"
+    ))
+))]
 pub fn from_env(get: impl Fn(&str) -> Option<String>, host: &str) -> Option<ProxySpec> {
     let var = |names: &[&str]| {
         names

@@ -732,11 +732,14 @@ pub(crate) fn hop_detail(host: &str, port: u16, suffix: &str, via: Option<&str>)
     }
 }
 
-async fn connect_first_hop_retrying<H, T>(
+/// The handler is rebuilt each attempt because `connect_stream` consumes it;
+/// a set rejection reason (host-key/abort) is deliberate and never retried.
+pub(crate) async fn connect_first_hop_retrying<H, T>(
     config: &Arc<client::Config>,
     proxy: Option<&ProxySpec>,
     host: &str,
     port: u16,
+    max_attempts: u32,
     mut make: impl FnMut() -> (H, Arc<Mutex<Option<String>>>, T),
     fail: impl Fn(&HopError) -> String,
 ) -> Result<(client::Handle<H>, Option<String>, T), String>
@@ -750,7 +753,7 @@ where
             Ok((h, via)) => return Ok((h, via, extra)),
             Err(e) => {
                 let reason = rejection_reason.lock().await.take();
-                if reason.is_none() && attempt < CONNECT_MAX_ATTEMPTS && e.is_transient() {
+                if reason.is_none() && attempt < max_attempts && e.is_transient() {
                     tokio::time::sleep(std::time::Duration::from_millis(
                         CONNECT_RETRY_BACKOFF_MS * attempt as u64,
                     ))
@@ -812,6 +815,7 @@ pub async fn connect(
             proxy.as_ref(),
             host,
             port,
+            CONNECT_MAX_ATTEMPTS,
             || {
                 let (c, reason, routes, sshid) = SshClient::new_interactive(
                     host.to_string(),
@@ -842,6 +846,7 @@ pub async fn connect(
             proxy.as_ref(),
             &first.host,
             first.port,
+            CONNECT_MAX_ATTEMPTS,
             || {
                 let (c, reason) =
                     SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
@@ -1241,20 +1246,24 @@ pub async fn connect_authenticated(
     legacy_algorithms: bool,
     proxy: Option<&ProxySpec>,
 ) -> Result<client::Handle<SshClient>, String> {
-    let config = client_config(
+    let config = Arc::new(client_config(
         0,
         client::Config::default().keepalive_max,
         legacy_algorithms,
-    );
-    let (ssh_client, rejection_reason) = SshClient::new(host.to_string(), port, known_hosts);
-    let mut handle = match connect_first_hop(Arc::new(config), proxy, host, port, ssh_client).await
-    {
-        Ok((h, _)) => h,
-        Err(e) => {
-            let reason = rejection_reason.lock().await.take();
-            return Err(reason.unwrap_or_else(|| format!("Connection failed: {e}")));
-        }
-    };
+    ));
+    let (mut handle, _via, ()) = connect_first_hop_retrying(
+        &config,
+        proxy,
+        host,
+        port,
+        1,
+        || {
+            let (c, reason) = SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
+            (c, reason, ())
+        },
+        |e| format!("Connection failed: {e}"),
+    )
+    .await?;
     authenticate_handle(&mut handle, username, password, private_key, passphrase).await?;
     Ok(handle)
 }
@@ -1301,15 +1310,17 @@ fn legacy_preferred() -> russh::Preferred {
 #[cfg(test)]
 mod tests {
     use super::{
-        answer_prompts, authenticate_handle, choose_rsa_hash, client_config, is_windows_sshid,
-        legacy_preferred, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED,
-        PASSWORD_REJECTED,
+        answer_prompts, authenticate_handle, choose_rsa_hash, client, client_config,
+        connect_first_hop_retrying, is_windows_sshid, legacy_preferred, Arc, Mutex, AUTH_TIMEOUT,
+        KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED, PASSWORD_REJECTED,
     };
+    use crate::port_forward::test_ssh::TestClient;
     use russh::client::Prompt;
     use russh::keys::ssh_key::HashAlg;
     use russh::server::{Auth, Response};
     use russh::MethodKind::{self, KeyboardInteractive, Password, PublicKey};
     use std::borrow::Cow;
+    use std::sync::atomic::{AtomicU32, Ordering};
 
     const SECRET: &str = "s3cret";
 
@@ -1586,5 +1597,51 @@ mod tests {
             cipher.first().copied(),
             Some("chacha20-poly1305@openssh.com")
         );
+    }
+
+    /// Runs `connect_first_hop_retrying` against a closed local port so every
+    /// attempt fails immediately; returns the number of `make` calls and the result.
+    async fn run_retrying(max_attempts: u32, rejection: Option<&str>) -> (u32, Result<(), String>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let calls = Arc::new(AtomicU32::new(0));
+        let calls2 = Arc::clone(&calls);
+        let rejection = rejection.map(str::to_string);
+        let result = connect_first_hop_retrying(
+            &Arc::new(client::Config::default()),
+            None,
+            "127.0.0.1",
+            port,
+            max_attempts,
+            move || {
+                calls2.fetch_add(1, Ordering::SeqCst);
+                (TestClient, Arc::new(Mutex::new(rejection.clone())), ())
+            },
+            |e| format!("boom: {e}"),
+        )
+        .await
+        .map(|_| ());
+        (calls.load(Ordering::SeqCst), result)
+    }
+
+    #[tokio::test]
+    async fn retrying_helper_retries_transient_failures_up_to_max_attempts() {
+        let (calls, result) = run_retrying(3, None).await;
+        assert_eq!(calls, 3);
+        assert!(result.unwrap_err().starts_with("boom: "));
+    }
+
+    #[tokio::test]
+    async fn retrying_helper_does_not_retry_a_deliberate_rejection() {
+        let (calls, result) = run_retrying(3, Some("host key rejected")).await;
+        assert_eq!(calls, 1);
+        assert_eq!(result.unwrap_err(), "host key rejected");
+    }
+
+    #[tokio::test]
+    async fn retrying_helper_max_attempts_one_never_retries() {
+        let (calls, _result) = run_retrying(1, None).await;
+        assert_eq!(calls, 1);
     }
 }
