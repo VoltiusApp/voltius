@@ -255,16 +255,8 @@ function main() {
   }
 }
 
-// True when this file is the CLI entry point (`node build-plugins.mjs`), false when
-// it's only imported (e.g. by a test, for buildCatalogFragment/stageReleaseAssets).
-// Node resolves process.argv[1] to an absolute filesystem path — comparing it
-// against the percent-encoded `import.meta.url` (as this used to) breaks on any
-// path containing a space, and never matches at all on Windows (`file:///C:/...`
-// with forward slashes vs argv[1]'s `C:\...`). import.meta.filename is the same
-// absolute-path form process.argv[1] already is, on every platform — except that
-// Node resolves symlinks for the module (import.meta.filename) but not for argv[1],
-// so a script reached through a symlinked directory (macOS's /var -> /private/var,
-// a symlinked checkout) would never match. Resolve argv[1] the same way first.
+// Compare filesystem paths, not import.meta.url (percent-encoded, file:///C:/ on Windows);
+// Node realpaths the module but not argv[1], so resolve argv[1] too.
 export function isCliEntryPoint(metaFilename, argv1) {
   if (!argv1) return false;
   try {

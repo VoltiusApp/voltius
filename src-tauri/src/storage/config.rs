@@ -423,14 +423,13 @@ fn default_config_dir() -> PathBuf {
         .join("voltius")
 }
 
-/// Tests must never touch the developer's real app data: the known-hosts tests
-/// used to overwrite the real known_hosts.json on every `cargo test`.
+// Per test thread: libtest runs each test on its own thread, and the TempDir is removed when it exits.
 #[cfg(test)]
 fn default_config_dir() -> PathBuf {
-    static DIR: OnceLock<tempfile::TempDir> = OnceLock::new();
-    DIR.get_or_init(|| tempfile::tempdir().expect("test config dir"))
-        .path()
-        .to_path_buf()
+    thread_local! {
+        static DIR: tempfile::TempDir = tempfile::tempdir().expect("test config dir");
+    }
+    DIR.with(|d| d.path().to_path_buf())
 }
 
 pub fn config_dir() -> PathBuf {
@@ -1236,10 +1235,6 @@ mod tests {
     }
 
     // ── End-to-end persistence (golden master for the load/save layer) ───────
-    //
-    // Under `cfg(test)` `config_dir()` is a per-process temp dir on every
-    // platform (see `default_config_dir`). Other tests (known hosts) share it, so this one only touches
-    // the connection and identity files and leaves the directory in place.
     #[test]
     fn persistence_round_trip_and_on_disk_migration() {
         // A missing file loads as empty, not an error.
