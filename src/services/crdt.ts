@@ -5,6 +5,20 @@ export interface TimestampedEntity {
   clocks: Record<string, string>;
 }
 
+const serialised = (v: unknown): string => JSON.stringify(v) ?? "";
+
+/**
+ * True when side b's write of a field beats side a's. The newer clock wins.
+ * Equal clocks (two devices writing in the same millisecond, or one bulk
+ * stamp) are settled on the value itself — the greater serialisation wins —
+ * so the outcome doesn't depend on which side is local and both devices
+ * converge. The ids can't settle it: both sides are copies of one entity.
+ */
+function bWins(clockA: string, clockB: string, valueA: unknown, valueB: unknown): boolean {
+  if (clockA !== clockB) return clockB > clockA;
+  return clockB !== "" && serialised(valueB) > serialised(valueA);
+}
+
 /**
  * Per-field LWW merge of two versions of the same entity.
  *
@@ -13,7 +27,7 @@ export interface TimestampedEntity {
  * (treated as "" — always loses to any real timestamp).
  *
  * `deleted_at` uses the dedicated "__deleted__" clock key.
- * Tiebreak on equal clocks: higher `id` string wins (stable, deterministic).
+ * Tiebreak on equal clocks: see `bWins`.
  */
 function mergeTwo<T extends TimestampedEntity>(a: T, b: T): T {
   const allFields = new Set([
@@ -28,7 +42,7 @@ function mergeTwo<T extends TimestampedEntity>(a: T, b: T): T {
   for (const field of allFields) {
     const clockA = a.clocks[field] ?? "";
     const clockB = b.clocks[field] ?? "";
-    if (clockB > clockA || (clockB === clockA && clockB !== "" && b.id > a.id)) {
+    if (bWins(clockA, clockB, (a as Record<string, unknown>)[field], (b as Record<string, unknown>)[field])) {
       merged[field] = (b as Record<string, unknown>)[field];
       mergedClocks[field] = clockB;
     } else {
@@ -39,7 +53,7 @@ function mergeTwo<T extends TimestampedEntity>(a: T, b: T): T {
   // Resolve deleted_at via __deleted__ clock
   const delClockA = a.clocks["__deleted__"] ?? "";
   const delClockB = b.clocks["__deleted__"] ?? "";
-  if (delClockB > delClockA || (delClockB === delClockA && delClockB !== "" && b.id > a.id)) {
+  if (bWins(delClockA, delClockB, a.deleted_at, b.deleted_at)) {
     merged["deleted_at"] = b.deleted_at;
     if (delClockB) mergedClocks["__deleted__"] = delClockB;
   } else {

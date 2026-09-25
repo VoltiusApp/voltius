@@ -40,15 +40,21 @@ test("missing clock loses to any real timestamp", () => {
   expect(mergeOne(remote, local).name).toBe("typed");
 });
 
-test("equal clocks: the id tiebreak is unreachable via mergeEntities, so first-arg value is retained", () => {
-  // mergeEntities only merges two entities that share an `id`, so `b.id > a.id` in
-  // mergeTwo (crdt.ts:31,42) is always false on this path — the tiebreak reduces to
-  // "keep the first (existing/local) value" on equal clocks. Pin that behavior here;
-  // it also documents that the id-tiebreak branch is effectively dead via this entry point.
+test("equal clocks: the same value wins whichever side is local, so devices converge", () => {
+  // Both sides of a merge share one `id`, so the tie is settled on the value
+  // (greater serialisation wins), not on the id — which could never differ.
   const a = conn("id", { name: "A", clocks: { name: "2026-01-01T00:00:00Z" } });
   const b = conn("id", { name: "B", clocks: { name: "2026-01-01T00:00:00Z" } });
-  expect(mergeOne(a, b).name).toBe("A");
+  expect(mergeOne(a, b).name).toBe("B");
   expect(mergeOne(b, a).name).toBe("B");
+  expect(mergeOne(a, b)).toEqual(mergeOne(b, a));
+});
+
+test("equal deletion clocks: the same deletion wins whichever side is local", () => {
+  const at = "2026-01-01T00:00:00Z";
+  const a = conn("id", { deleted_at: "2026-01-01T00:00:00.000Z", clocks: { __deleted__: at } });
+  const b = conn("id", { deleted_at: at, clocks: { __deleted__: at } });
+  expect(mergeOne(a, b)).toEqual(mergeOne(b, a));
 });
 
 test("deletion propagates when __deleted__ clock is newer", () => {
