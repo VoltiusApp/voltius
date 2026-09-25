@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
 vi.mock("@/services/credentials", () => ({ resolveJumpHosts: async () => [{ host: "j" }] }));
+const resolveProxy = vi.fn(async (..._a: unknown[]) => null as unknown);
+vi.mock("@/services/proxy", () => ({ resolveProxy: (...a: unknown[]) => resolveProxy(...a) }));
 
 const { probeTarget, PROBE_TIMEOUT_MS } = await import("./probe");
 import type { PingTarget } from "./pingTargets";
@@ -19,7 +21,11 @@ function target(over: Partial<PingTarget> = {}): PingTarget {
   };
 }
 
-beforeEach(() => { invoke.mockReset(); });
+beforeEach(() => {
+  invoke.mockReset();
+  resolveProxy.mockReset();
+  resolveProxy.mockResolvedValue(null);
+});
 
 describe("probeTarget", () => {
   test("uses the live session and opens no new connection", async () => {
@@ -32,7 +38,7 @@ describe("probeTarget", () => {
   test("falls back to a tcp probe with no session", async () => {
     invoke.mockResolvedValue(30);
     await probeTarget(target());
-    expect(invoke).toHaveBeenCalledWith("ping_host", { host: "h1", port: 22 });
+    expect(invoke).toHaveBeenCalledWith("ping_host", { host: "h1", port: 22, proxy: null });
   });
 
   test("walks the jump chain when the connection has jump hosts and no session", async () => {
@@ -44,6 +50,7 @@ describe("probeTarget", () => {
       host: "h1",
       port: 22,
       jumpHosts: [{ host: "j" }],
+      proxy: null,
     });
   });
 
@@ -71,6 +78,13 @@ describe("probeTarget", () => {
   test("a throwing probe means unknown", async () => {
     invoke.mockRejectedValue(new Error("boom"));
     expect(await probeTarget(target())).toEqual({ status: "unknown" });
+  });
+
+  test("sends the host's proxy to ping_host", async () => {
+    invoke.mockResolvedValue(12);
+    resolveProxy.mockResolvedValue({ kind: "system" });
+    await probeTarget(target());
+    expect(invoke).toHaveBeenCalledWith("ping_host", { host: "h1", port: 22, proxy: { kind: "system" } });
   });
 
   describe("timeout", () => {

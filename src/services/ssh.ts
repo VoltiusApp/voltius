@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import type { ProxySpec } from "@/services/proxy";
 
 export interface JumpHostConnect {
   host: string;
@@ -38,6 +39,7 @@ export async function sshConnect(params: {
   /** Directory the shell starts in. First connect only — a reconnect must not
    * move a session the user has since navigated elsewhere. */
   initialCwd?: string;
+  proxy?: ProxySpec | null;
 }): Promise<void> {
   return invoke("ssh_connect", {
     sessionId: params.sessionId,
@@ -63,6 +65,7 @@ export async function sshConnect(params: {
     cols: params.cols ?? null,
     rows: params.rows ?? null,
     initialCwd: params.initialCwd ?? null,
+    proxy: params.proxy ?? null,
   });
 }
 
@@ -131,6 +134,7 @@ export async function sshExecCommand(params: {
   passphrase?: string;
   command: string;
   legacyAlgorithms?: boolean;
+  proxy?: ProxySpec | null;
 }): Promise<SshExecResult> {
   return invoke("ssh_exec_command", {
     host: params.host,
@@ -141,6 +145,7 @@ export async function sshExecCommand(params: {
     passphrase: params.passphrase ?? null,
     command: params.command,
     legacyAlgorithms: params.legacyAlgorithms ?? false,
+    proxy: params.proxy ?? null,
   });
 }
 
@@ -153,6 +158,7 @@ export async function sshKillPersistent(params: {
   passphrase?: string;
   sessionId: string;
   legacyAlgorithms?: boolean;
+  proxy?: ProxySpec | null;
 }): Promise<boolean> {
   return invoke("ssh_kill_persistent", {
     host: params.host,
@@ -163,6 +169,7 @@ export async function sshKillPersistent(params: {
     passphrase: params.passphrase ?? null,
     sessionId: params.sessionId,
     legacyAlgorithms: params.legacyAlgorithms ?? false,
+    proxy: params.proxy ?? null,
   });
 }
 

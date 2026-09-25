@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { resolveJumpHosts } from "@/services/credentials";
+import { resolveProxy } from "@/services/proxy";
 import type { PingStatus } from "@/stores/hostPingStore";
 import type { PingTarget } from "./pingTargets";
 
@@ -16,15 +17,18 @@ async function runProbe(target: PingTarget): Promise<{ status: PingStatus; laten
     return { status: "up", latencyMs };
   }
 
+  const proxy = await resolveProxy(target.connection);
+
   if (target.connection.jump_hosts?.length) {
     const jumpHosts = await resolveJumpHosts(target.connection);
     latencyMs = await invoke<number | null>("ping_host_via_jumps", {
       host: target.host,
       port: target.port,
       jumpHosts,
+      proxy,
     });
   } else {
-    latencyMs = await invoke<number | null>("ping_host", { host: target.host, port: target.port });
+    latencyMs = await invoke<number | null>("ping_host", { host: target.host, port: target.port, proxy });
   }
 
   if (latencyMs === null || latencyMs === undefined) return { status: "down" };
