@@ -24,6 +24,7 @@ mod network_watch;
 mod port_forward;
 mod processes;
 mod proxmox;
+mod proxy;
 mod scratch;
 mod serial;
 mod sftp;
