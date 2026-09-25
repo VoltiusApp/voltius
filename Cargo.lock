@@ -5566,6 +5566,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-pemfile"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
+dependencies = [
+ "rustls-pki-types",
+]
+
+[[package]]
 name = "rustls-pki-types"
 version = "1.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7742,6 +7751,7 @@ dependencies = [
  "russh-sftp",
  "rustls",
  "rustls-native-certs",
+ "rustls-pemfile",
  "rusty-leveldb",
  "serde",
  "serde_json",
@@ -7765,6 +7775,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tokio-util",
+ "url",
  "uuid",
  "voltius-crypto",
  "voltius-diagnostics",
@@ -7772,6 +7783,7 @@ dependencies = [
  "windows-native-keyring-store",
  "windows-registry 0.6.1",
  "windows-sys 0.59.0",
+ "winreg 0.10.1",
  "x25519-dalek",
 ]
 
