@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, copyFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, copyFileSync, existsSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -294,15 +294,11 @@ describe("CLI entry-point guard", () => {
     expect(isCliEntryPoint("/repo/scripts/build-plugins.mjs", "/repo/node_modules/.bin/vitest")).toBe(false);
   });
 
-  test("end-to-end: the guard fires for a real CLI invocation from a spaced path, without running main()", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "voltius-guard-"));
-    const spacedDir = path.join(dir, "dir with space");
-    mkdirSync(spacedDir, { recursive: true });
-    const probePath = path.join(spacedDir, "probe.mjs");
+  // Importing build-plugins.mjs must NOT trigger main() (which would build all six real
+  // plugins into src-tauri/resources/plugins/); only the probe, as the entry point, prints true.
+  function writeProbe(dir: string): string {
+    const probePath = path.join(dir, "probe.mjs");
     const modulePath = path.join(ROOT, "scripts/build-plugins.mjs");
-    // Importing build-plugins.mjs here must NOT trigger main() (which would build
-    // all six real plugins into src-tauri/resources/plugins/) — only probe.mjs
-    // itself, as the actual CLI entry point, should evaluate as "true".
     writeFileSync(
       probePath,
       [
@@ -310,7 +306,26 @@ describe("CLI entry-point guard", () => {
         `console.log(isCliEntryPoint(import.meta.filename, process.argv[1]));`,
       ].join("\n"),
     );
-    const out = execFileSync("node", [probePath], { cwd: spacedDir }).toString().trim();
+    return probePath;
+  }
+
+  test("end-to-end: the guard fires for a real CLI invocation from a spaced path, without running main()", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "voltius-guard-"));
+    const spacedDir = path.join(dir, "dir with space");
+    mkdirSync(spacedDir, { recursive: true });
+    const out = execFileSync("node", [writeProbe(spacedDir)], { cwd: spacedDir }).toString().trim();
+    expect(out).toBe("true");
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test.skipIf(process.platform === "win32")("end-to-end: the guard fires when the script is reached through a symlinked directory", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "voltius-guard-"));
+    const realDir = path.join(dir, "real");
+    mkdirSync(realDir);
+    const linkDir = path.join(dir, "link");
+    symlinkSync(realDir, linkDir, "dir");
+    writeProbe(realDir);
+    const out = execFileSync("node", [path.join(linkDir, "probe.mjs")]).toString().trim();
     expect(out).toBe("true");
     rmSync(dir, { recursive: true, force: true });
   });
