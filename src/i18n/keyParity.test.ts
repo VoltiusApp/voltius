@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { baseKey } from "./baseKey";
 
 // Covers only host-owned locale files (src/i18n/locales/*). Plugin-owned strings
 // (registered via api.i18n.register — see the four moved mobile screens under
@@ -23,15 +24,6 @@ function load(glob: Record<string, { default: Record<string, unknown> }>) {
     }
   }
   return out;
-}
-
-// CLDR plural categories used across our locales. English only has one/other;
-// Russian's CLDR rules need one/few/many/other, so a locale's key can carry a
-// plural suffix that English doesn't — strip suffixes before comparing bases.
-const PLURAL_SUFFIXES = ["_zero", "_one", "_two", "_few", "_many", "_other"];
-function baseKey(key: string): string {
-  const suffix = PLURAL_SUFFIXES.find((s) => key.endsWith(s));
-  return suffix ? key.slice(0, -suffix.length) : key;
 }
 
 const en = load(import.meta.glob("./locales/en/*.json", { eager: true }) as never);
