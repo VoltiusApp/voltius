@@ -17,6 +17,7 @@ import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from 
 import { triggerUpload, downloadToLocal, batchLabel } from "./osDropPipeline";
 import { tarUsableForPair } from "./tarSupport";
 import { joinPath } from "./moveTargetCore";
+import { localPathForRemoteName } from "./remoteName";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
@@ -176,17 +177,17 @@ export default function SFTPPage() {
 
     if (src.tag !== "connected" || dst.tag !== "connected") return;
 
-    const destPath = joinPath(targetFolder ?? dst.cwd, file.name);
+    const dstBase = targetFolder ?? dst.cwd;
     const srcIsLocal = srcHost?.kind === "local";
     const dstIsLocal = dstHost?.kind === "local";
 
-    await runTransfer(file.name, dir, (tid) => transferItem({
+    await runTransfer(file.name, dir, async (tid) => transferItem({
       from: srcIsLocal ? "local" : "remote",
       to: dstIsLocal ? "local" : "remote",
       srcSftpId: src.sftpId ?? undefined,
       dstSftpId: dst.sftpId ?? undefined,
       srcPath: file.path,
-      dstPath: destPath,
+      dstPath: dstIsLocal && !srcIsLocal ? await localPathForRemoteName(dstBase, file.name) : joinPath(dstBase, file.name),
       isDir: file.isDir,
       useTar,
       transferId: tid,

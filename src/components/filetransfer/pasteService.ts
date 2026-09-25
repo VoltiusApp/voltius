@@ -8,6 +8,7 @@ import { copyNameCandidate } from "./copyNameCandidate";
 import { sameHost } from "@/stores/fileClipboardStore";
 import { runIntraPaneMove } from "./moveService";
 import { joinPath } from "./moveTargetCore";
+import { checkRemoteName } from "./remoteName";
 import {
   fsExists, sftpExists, fsRename, sftpRename, fsDelete, sftpDelete,
 } from "@/services/sftp";
@@ -118,13 +119,17 @@ export function buildPasteDeps(
       const useTar = await tarUsableForPair(src, dest);
       await wiring.runTransfer(
         target.name, "→",
-        (tid) => transferItem({
-          from, to,
-          srcSftpId: src.sftpId ?? undefined,
-          dstSftpId: dest.sftpId ?? undefined,
-          srcPath: target.srcPath, dstPath: target.dstPath,
-          isDir: target.isDir, useTar, transferId: tid,
-        }),
+        async (tid) => {
+          // The name comes from the server listing; it must not climb out of the local folder.
+          if (from === "remote" && to === "local") await checkRemoteName(target.name);
+          return transferItem({
+            from, to,
+            srcSftpId: src.sftpId ?? undefined,
+            dstSftpId: dest.sftpId ?? undefined,
+            srcPath: target.srcPath, dstPath: target.dstPath,
+            isDir: target.isDir, useTar, transferId: tid,
+          });
+        },
         () => { ok = true; },
         target.isDir && useTar,
       );
