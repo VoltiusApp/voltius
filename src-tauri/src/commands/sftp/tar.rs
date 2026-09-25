@@ -44,9 +44,7 @@ fn local_split(path: &str) -> (String, String) {
 }
 
 /// `tar -czf <archive> -C <parent> -- <items…>`, reporting its exit code. `deref`
-/// follows symlinks, for an archive a Windows tar will extract. The `--` keeps
-/// an item named like `--checkpoint-action=exec=…` from being read as an option;
-/// GNU tar, bsdtar (macOS, Windows) and busybox all accept it.
+/// follows symlinks, for an archive a Windows tar will extract.
 fn tar_create_cmd(
     shell: &RemoteShell,
     archive: &str,
@@ -104,8 +102,7 @@ fn remote_archive(shell: &RemoteShell, transfer_id: &str, dst: bool) -> String {
     shell.temp_path(&name)
 }
 
-/// Archive `names` (all relative to `parent`) into `archive` with the local tar;
-/// `--` as in `tar_create_cmd`.
+/// Archive `names` (all relative to `parent`) into `archive` with the local tar.
 async fn local_tar_create(
     archive: &Path,
     deref: bool,
@@ -724,6 +721,40 @@ mod tests {
     fn create_never_reads_an_item_as_an_option() {
         let cmd = tar_create_cmd(SH, "/tmp/a", false, "/srv", &["--version".into()]).unwrap();
         assert!(cmd.contains("-C '/srv' -- '--version'"), "{cmd}");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn real_cmd_exe_keeps_percent_names_literal() {
+        use std::os::windows::process::CommandExt;
+        let run = |line: String| {
+            let out = std::process::Command::new("cmd")
+                .args(["/d", "/c"])
+                .raw_arg(&line)
+                .output()
+                .unwrap();
+            let out = String::from_utf8_lossy(&out.stdout).into_owned();
+            assert!(out.contains("__TF_EXIT__:0"), "{line}\n{out}");
+        };
+        let sftp = |p: &Path| format!("/{}", p.to_str().unwrap().replace('\\', "/"));
+        let (shell, root) = (cmd_exe(), tempfile::tempdir().unwrap());
+        let src = root.path().join("%USERNAME% 50% off");
+        let dst = root.path().join("%OS%");
+        let archive = root.path().join("%TEMP%.tar.gz");
+        std::fs::create_dir(&src).unwrap();
+        std::fs::write(src.join("%PATH%"), b"v").unwrap();
+
+        let items = ["%PATH%".to_string()];
+        run(tar_create_cmd(&shell, &sftp(&archive), false, &sftp(&src), &items).unwrap());
+        run(tar_extract_cmd(
+            &shell,
+            &sftp(&dst),
+            &sftp(&archive),
+            false,
+            true,
+        ));
+        assert_eq!(std::fs::read(dst.join("%PATH%")).unwrap(), b"v");
+        assert!(!archive.exists());
     }
 
     #[tokio::test]
