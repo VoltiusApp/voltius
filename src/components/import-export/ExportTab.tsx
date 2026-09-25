@@ -18,7 +18,7 @@ import { ActionBtn, VaultChipSelect } from "./shared";
 import { Checkbox } from "@/components/shared/Checkbox";
 import { Toggle } from "@/components/shared/Toggle";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
-import { saveTextFile } from "@/services/saveFile";
+import { notify, saveTextFile } from "@/services/saveFile";
 
 export function ExportTab({ selection, preselectedTypes }: {
   selection: SelectionProps;
@@ -125,16 +125,26 @@ export function ExportTab({ selection, preselectedTypes }: {
     return { content: preview, ext: format === "csv" ? "csv" : "json" };
   };
 
-  const handleCopy = async () => {
+  // Without the catch a failed encryption or clipboard write leaves the button
+  // doing nothing at all.
+  const reportingErrors = (action: () => Promise<void>) => async () => {
+    try {
+      await action();
+    } catch (e) {
+      notify("error", t("importExport.export.exportFailed", { error: e instanceof Error ? e.message : String(e) }));
+    }
+  };
+
+  const handleCopy = reportingErrors(async () => {
     const { content } = await getExportContent();
     await writeClipboard(content);
     flashCopied();
-  };
+  });
 
-  const handleDownload = async () => {
+  const handleDownload = reportingErrors(async () => {
     const { content, ext } = await getExportContent();
     await saveTextFile(`voltius-export.${ext}`, content);
-  };
+  });
 
   const exportsType = (key: string) => included[key] && handlerActive(key, selection);
   const showRelatedCredentials = !isCsvOnly && (bundleCounts["connections"] ?? 0) > 0 && !(exportsType("identities") && exportsType("keys"));
