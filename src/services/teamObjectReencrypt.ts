@@ -1,4 +1,5 @@
 import { isEncryptedEnvelope, encodeObjectMetadata } from "@/services/teamObjectEnvelope";
+import { acceptsPlaintextRows, isBoundToRow } from "@/services/teamObjectRows";
 import { reencryptTeamObjects } from "@/services/teamObjects";
 import { buildEditPermissionSnapshot, canEditObjectType } from "@/services/teamObjectEditPermission";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
@@ -58,8 +59,12 @@ async function _runReencryptionPass(
   try {
     const snapshot = await buildEditPermissionSnapshot();
 
+    // Encrypting a row vouches for it, so only rows hydration would accept as
+    // plaintext are migrated (see teamObjectRows).
+    const plaintextAllowed = acceptsPlaintextRows(teamId);
     const pending = objects.filter((o) => {
-      if (!isStillPlaintext(o)) return false;
+      if (!plaintextAllowed || !isStillPlaintext(o)) return false;
+      if (!isBoundToRow(o, o.metadata)) return false;
       return canEditObjectType(snapshot, teamId, o.object_type);
     });
 

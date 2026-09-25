@@ -44,7 +44,8 @@ vi.mock("@/services/teamObjectEnvelope", () => ({
   isEncryptedEnvelope: (m: unknown) =>
     typeof m === "object" && m !== null && (m as Record<string, unknown>).v === 2,
   encodeObjectMetadata: vi.fn(async (_teamId: string, _item: object) => ({ v: 2, enc: "reenc", kv: 1 })),
-  decodeObjectMetadata: vi.fn(async (_teamId: string, metadata: unknown) => metadata),
+  // A fixture envelope's `enc` is the id of the object it holds.
+  decodeObjectMetadata: vi.fn(async (_teamId: string, metadata: unknown) => ({ id: (metadata as { enc: string }).enc })),
 }));
 vi.mock("@/services/teamObjectEditPermission", () => ({
   buildEditPermissionSnapshot: vi.fn(async () => ({})),
@@ -123,8 +124,8 @@ test("stale and not draining: rotates, wrapping for every member with a public k
 test("draining: does not rotate again, and re-encrypts only editable object types", async () => {
   h.status = { stale: false, draining: true };
   h.objects = [
-    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 0 } },
-    { object_id: "k1", object_type: "key", metadata: { v: 2, enc: "old", kv: 0 } },
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "c1", kv: 0 } },
+    { object_id: "k1", object_type: "key", metadata: { v: 2, enc: "k1", kv: 0 } },
   ];
 
   await checkAndRotateTeamKey("t1");
@@ -151,7 +152,7 @@ test("concurrent calls for the same team dedup to one pass", async () => {
 test("draining: re-encrypts a stale secret by decrypting with its OLD key version and re-wrapping under current", async () => {
   h.status = { stale: false, draining: true };
   h.objects = [
-    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 0 } },
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "c1", kv: 0 } },
   ];
   h.secrets = [
     { secret_id: "s1", object_id: "c1", ciphertext: "b64(old-cipher)", key_version: 0 },
@@ -180,7 +181,7 @@ test("draining: reencrypts the legacy blob if stale, using the resolved current 
 test("draining: does not touch a secret already at or ahead of the current version", async () => {
   h.status = { stale: false, draining: true };
   h.objects = [
-    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 1 } },
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "c1", kv: 1 } },
   ];
   h.secrets = [
     { secret_id: "s1", object_id: "c1", ciphertext: "b64(current-cipher)", key_version: 1 },
@@ -197,7 +198,7 @@ test("draining: a legacy secret with no key_version fetches epoch 1, not vault-k
   vi.mocked(getCachedTeamKeyVersion).mockReturnValueOnce(2);
   h.status = { stale: false, draining: true };
   h.objects = [
-    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 2 } },
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "c1", kv: 2 } },
   ];
   h.secrets = [
     // key_version is undefined here (a pre-#217 row).
@@ -212,7 +213,7 @@ test("draining: a legacy secret with no key_version fetches epoch 1, not vault-k
 test("draining: does not re-encrypt a secret belonging to a soft-deleted object", async () => {
   h.status = { stale: false, draining: true };
   h.objects = [
-    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 0 }, deleted_at: "2026-01-01" },
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "c1", kv: 0 }, deleted_at: "2026-01-01" },
   ];
   h.secrets = [
     { secret_id: "s1", object_id: "c1", ciphertext: "b64(old-cipher)", key_version: 0 },
@@ -226,7 +227,7 @@ test("draining: does not re-encrypt a secret belonging to a soft-deleted object"
 test("draining: a failing object batch write does not block the secrets batch that follows", async () => {
   h.status = { stale: false, draining: true };
   h.objects = [
-    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "old", kv: 0 } },
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "c1", kv: 0 } },
   ];
   h.secrets = [
     { secret_id: "s1", object_id: "c1", ciphertext: "b64(old-cipher)", key_version: 0 },

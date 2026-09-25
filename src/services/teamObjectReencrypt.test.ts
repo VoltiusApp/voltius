@@ -27,6 +27,7 @@ vi.mock("@/services/permissions", async (importOriginal) => ({
 }));
 
 import { runReencryptionPass, countUnencryptedObjects } from "./teamObjectReencrypt";
+import { noteTeamRows } from "./teamObjectRows";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 
 const legacy = (id: string, type: string) => ({
@@ -41,6 +42,7 @@ beforeEach(() => {
   h.batches = [];
   h2.allowed = new Set(["EDIT_CONNECTIONS", "EDIT_KEYS", "EDIT_IDENTITIES", "EDIT_FOLDERS", "EDIT_SNIPPETS"]);
   useTeamVaultStateStore.getState().clearAll();
+  localStorage.clear();
 });
 
 test("re-encrypts only the rows that are still plaintext", async () => {
@@ -119,4 +121,25 @@ test("two concurrent passes for the same team send only one set of batches", asy
   // re-PUTing the same rows, which would double the writes and the SSE fan-out.
   expect(h.batches.flat().map((i) => i.object_id).sort()).toEqual(["c1", "c2"]);
   expect(a).toBe(b);
+});
+
+// Encrypting a row vouches for it: a row hydration would refuse must not come
+// out of this pass as a genuine envelope.
+test("leaves plaintext rows alone once this device has seen the team fully encrypted", async () => {
+  noteTeamRows("t1", [{ object_id: "c0", metadata: { v: 2, enc: "already" } }]);
+
+  const done = await runReencryptionPass("t1", [legacy("c1", "connection")] as never);
+
+  expect(done).toBe(0);
+  expect(h.batches).toEqual([]);
+});
+
+test("does not re-encrypt a plaintext row whose metadata names another object", async () => {
+  const done = await runReencryptionPass("t1", [
+    { ...legacy("c1", "connection"), metadata: { id: "c2", name: "moved" } },
+    legacy("c3", "connection"),
+  ] as never);
+
+  expect(done).toBe(1);
+  expect(h.batches.flat().map((i) => i.object_id)).toEqual(["c3"]);
 });
