@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { pushSettingsChange } from "./remoteApplyGuard";
 import type { PluginManifest } from "@/plugins/api";
 

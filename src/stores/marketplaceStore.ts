@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { getVersion } from "@tauri-apps/api/app";
 import { loadPlugin, unloadPlugin, getLoadedPlugins } from "@/plugins/runtime";
 import { importPluginModule, pluginRegisterOf, injectPluginStyle, type PluginModule } from "@/plugins/importPluginModule";

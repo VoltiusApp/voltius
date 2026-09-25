@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { appFetch } from "@/services/http";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 

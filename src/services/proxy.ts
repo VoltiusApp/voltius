@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { Connection, CustomProxyMode, ProxyOverride } from "@/types";
 import i18n from "@/i18n";
 import { getSecret } from "@/services/vault";

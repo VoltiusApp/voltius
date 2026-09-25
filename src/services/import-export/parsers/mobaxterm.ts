@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { ConnectionExport, ExportBundle, IdentityExport } from "../formats";
 
 // INI file format. Each [Bookmarks_N] section has SubRep=FolderName, then

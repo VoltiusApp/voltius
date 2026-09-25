@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { appFetch } from "@/services/http";

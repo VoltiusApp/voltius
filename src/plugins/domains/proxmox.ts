@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { ProxmoxAPI } from "../api";
 
 // LXC management only ever functions over an SSH session — the backend always

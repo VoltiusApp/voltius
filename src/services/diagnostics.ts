@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { setLoggerVerbose } from "@/lib/logger";
 
 export async function setVerboseLogging(enabled: boolean): Promise<void> {

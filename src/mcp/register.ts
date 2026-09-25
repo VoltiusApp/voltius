@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { buildMcpTools, listToolDescriptors, callTool, type McpTool } from "./consumer";
 import { getMcpHostApi } from "./hostApi";
 import { contributionsVersion } from "./contributions";

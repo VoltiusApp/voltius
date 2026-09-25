@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { closePfTunnel, getPfState, openPfTunnel } from "@/services/portForwardingTunnels";
 import { whenLoginSyncSettled } from "@/services/loginSyncGate";

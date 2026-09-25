@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { CURSOR_STYLES, useTerminalSettingsStore, type TerminalCursorStyle } from "@/stores/terminalSettingsStore";

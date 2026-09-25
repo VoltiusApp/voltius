@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { onContributionsChanged } from "./contributions";
 
 const DEBOUNCE_MS = 250;

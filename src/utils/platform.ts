@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 
 /**
  * Host OS reported by the Rust backend (`get_platform`): "android" | "ios" |

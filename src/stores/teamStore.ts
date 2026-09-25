@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";

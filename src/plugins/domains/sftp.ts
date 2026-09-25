@@ -6,7 +6,7 @@ import {
 } from "@/services/sftp";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sftpConnectToConnection } from "@/services/sftpTarget";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { Connection } from "@/types";
 import type { PluginFile, SftpAPI, FileEndpoint } from "../api";
 

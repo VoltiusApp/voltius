@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { isValidSshPublicKey } from "@/services/sshPublicKey";

@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { loadPlugin } from "./runtime";
 import { importPluginModule, pluginRegisterOf, type PluginModule } from "./importPluginModule";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";

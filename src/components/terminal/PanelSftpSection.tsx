@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePanelSftpStore } from "@/stores/panelSftpStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";

@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 
 /** Rejects if the listener did not come up — the caller must revert the toggle. */
 export async function syncMcpServer(enabled: boolean): Promise<void> {

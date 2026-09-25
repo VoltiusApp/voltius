@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { getVaultKey } from "@/services/vault";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";

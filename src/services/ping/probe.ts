@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { resolveJumpHosts } from "@/services/credentials";
 import { resolveFirstHopProxy } from "@/services/proxy";
 import type { PingStatus } from "@/stores/hostPingStore";

@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { ProcessesAPI, StreamsAPI } from "../api";
 
 export function createProcessesAPI(streams: StreamsAPI): ProcessesAPI {

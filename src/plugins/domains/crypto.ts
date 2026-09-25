@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { CryptoAPI } from "../api";
 
 export function createCryptoAPI(): CryptoAPI {

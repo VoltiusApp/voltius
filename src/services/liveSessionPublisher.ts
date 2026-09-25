@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { buildManifest, manifestSignature, type LiveSessionManifest } from "@/stores/liveSessionManifestCore";
 import { useWorkspaceSnapshotStore, readWorkspaceSnapshot } from "@/stores/workspaceSnapshotStore";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";

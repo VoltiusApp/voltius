@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { Identity, IdentityFormData } from "@/types";
 
 export async function listIdentities(): Promise<Identity[]> {

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { appFetch } from "@/services/http";
 import { parseJwtPayload } from "@/utils/emailVerification";
 import { deriveTierFlags, type Tier } from "@/stores/subscriptionTier";

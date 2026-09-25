@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { setVaultKey, getVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNeeded, wipeLocalConfig } from "./vault";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";

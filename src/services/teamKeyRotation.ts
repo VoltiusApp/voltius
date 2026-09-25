@@ -11,7 +11,7 @@ import {
 import { isEncryptedEnvelope, encodeObjectMetadata } from "@/services/teamObjectEnvelope";
 import { decodeTeamObject } from "@/services/teamObjectRows";
 import { buildEditPermissionSnapshot, canEditObjectType } from "@/services/teamObjectEditPermission";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 import { logFailure } from "@/lib/logger";
 

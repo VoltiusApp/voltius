@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { DockerAPI, DockerTarget, StreamsAPI } from "../api";
 
 const t = (target: DockerTarget) => ({ ...target });

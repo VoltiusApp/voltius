@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { save } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { useNotificationStore } from "@/stores/notificationStore";

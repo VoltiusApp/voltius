@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { sftpClose, sftpCanonicalize, sftpOpen, fsHomeDir } from "@/services/sftp";
 import type { TerminalSession } from "@/types";
 

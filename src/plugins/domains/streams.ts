@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { listen } from "@tauri-apps/api/event";
 import type { StreamsAPI, StreamKind } from "../api";
 

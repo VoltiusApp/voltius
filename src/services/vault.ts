@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { clearPersistedAccountUiState } from "@/stores/persistedAccountUiState";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { VaultLockedError, VaultUnreadableError } from "./vaultErrors";

@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 interface SseOpenPayload {

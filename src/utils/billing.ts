@@ -1,5 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 
 export async function openPortal(): Promise<void> {
   const jwt = await invoke<string | null>("keychain_get", { key: "jwt" }).catch(() => null);

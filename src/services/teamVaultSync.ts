@@ -18,7 +18,7 @@
  * into a deletion for the whole team.
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { wrapSessionKeyForUser, unwrapSessionKey, publishMyPublicKey } from "@/services/multiplayerService";
 import * as teamService from "@/services/teamService";

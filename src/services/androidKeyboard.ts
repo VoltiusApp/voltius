@@ -10,7 +10,7 @@
  * Ctrl/Alt latch and application-cursor mode. `showAndroidKeyboard` / `hideAndroidKeyboard`
  * drive the native overlay (Rust `terminal_show/hide_keyboard` → `TerminalKeyboard.kt`).
  */
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { writeToSession } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";

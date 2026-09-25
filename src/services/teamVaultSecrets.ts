@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { getTeamVaultKey, getCachedTeamKeyVersion, getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
 import { listTeamSecrets, upsertTeamSecret } from "@/services/teamObjects";
 import { useTeamStore } from "@/stores/teamStore";

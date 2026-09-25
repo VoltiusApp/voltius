@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { Connection, ConnectionFormData } from "@/types";
 
 export async function listConnections(): Promise<Connection[]> {

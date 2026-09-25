@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { appFetch } from "./http";
 import { parseCatalog, type CatalogEntry } from "./snippetCatalog";
 

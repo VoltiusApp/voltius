@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { appFetch } from "@/services/http";
 import { checkoutRequiresEmailVerification } from "@/utils/emailVerification";

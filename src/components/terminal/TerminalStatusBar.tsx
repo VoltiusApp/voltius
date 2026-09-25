@@ -2,7 +2,7 @@ import { writeClipboard } from "../../utils/clipboard";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { Icon } from "@iconify/react";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { usePluginStore, findRightPanelSectionWithFlag } from "@/stores/pluginStore";

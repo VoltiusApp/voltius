@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { Snippet, SnippetFormData, Folder, FolderFormData } from "@/types";
 
 // ─── Snippets ─────────────────────────────────────────────────────────────────

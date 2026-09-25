@@ -1,7 +1,7 @@
 import { writeClipboard } from "../../utils/clipboard";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";

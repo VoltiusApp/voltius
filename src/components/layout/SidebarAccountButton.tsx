@@ -41,7 +41,7 @@ export function SidebarAccountButton() {
   const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
 
   const refreshAccountInfo = async (): Promise<ActiveAccount> => {
-    const { invoke: inv } = await import("@tauri-apps/api/core");
+    const { invoke: inv } = await import("@/lib/invoke");
     const [mode, email, accountId, serverUrl] = await Promise.all([
       getAccountMode().catch(() => null),
       inv<string | null>("keychain_get", { key: "email" }).catch(() => null),

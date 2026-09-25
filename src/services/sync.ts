@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { logFailure } from "@/lib/logger";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -471,7 +471,7 @@ async function completeTeamLoginSetup(): Promise<void> {
   // Migrate stale keychain entries from the old implementation (one-time).
   const migrated = localStorage.getItem("voltius.team_key_migration_v1");
   if (!migrated) {
-    const { invoke: inv } = await import("@tauri-apps/api/core");
+    const { invoke: inv } = await import("@/lib/invoke");
     const teams = useTeamStore.getState().teams;
     await Promise.allSettled(
       teams.map((t) => inv("keychain_delete", { key: `team_vault_key_${t.id}` }).catch(logFailure(`legacy team key migration team=${t.id}`))),

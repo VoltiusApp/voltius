@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import type { ShellOption } from "@/components/layout/newSessionItems";
 
 /** Detected local shells from the backend (`local_list_shells`), fetched once on mount. */
