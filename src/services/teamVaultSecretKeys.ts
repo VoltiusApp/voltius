@@ -73,7 +73,7 @@ export function localSecretKeyFromTeamSecret(objectId: string, secretType: strin
     case "connection_password": return `password:${objectId}`;
     case "connection_key": return `key:${objectId}`;
     case "connection_passphrase": return `passphrase:${objectId}`;
-    case "connection_proxy_password": return proxyPasswordKey(objectId);
+    case "connection_proxy_password": return objectId === "__global__" ? null : proxyPasswordKey(objectId);
     case "identity_password": return `identity:${objectId}:password`;
     case "key_private": return `key:${objectId}:private`;
     case "key_public": return `key:${objectId}:public`;

@@ -28,8 +28,8 @@ async function copySecretIfPresent(
   direct: boolean,
   swallowFetchErrors: boolean,
 ): Promise<void> {
-  const fetch = getSecret(localKeyFor(fromId));
-  const value = swallowFetchErrors ? await fetch.catch(() => null) : await fetch;
+  const pending = getSecret(localKeyFor(fromId));
+  const value = swallowFetchErrors ? await pending.catch(() => null) : await pending;
   if (!value) return;
   await storeSecret(localKeyFor(toId), value);
   if (direct) await saveTeamVaultSecretForVault(vaultId, localKeyFor(toId), value).catch(() => {});

@@ -52,6 +52,10 @@ it("never maps the global proxy password to a team secret", () => {
   expect(teamSecretFromLocalKey(GLOBAL_PROXY_PASSWORD_KEY)).toBeNull();
 });
 
+it("never maps a team-written __global__ object id back onto this device's global proxy password", () => {
+  expect(localSecretKeyFromTeamSecret("__global__", "connection_proxy_password")).toBeNull();
+});
+
 it("connectionSecretKeys covers every per-connection secret", () => {
   expect(connectionSecretKeys("c")).toEqual(["password:c", "key:c", "passphrase:c", "proxy_password:c"]);
 });
