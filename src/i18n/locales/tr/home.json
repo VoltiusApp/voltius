@@ -9,10 +9,14 @@
       "placeholder": "Sunucularda, oturumlarda ve kod parçacıklarında ara…"
     },
     "stat": {
-      "vaults": "kasa",
-      "hosts": "sunucu",
-      "activeSessions": "etkin oturum",
-      "portForwards": "port yönlendirme"
+      "vaults_one": "kasa",
+      "vaults_other": "kasa",
+      "hosts_one": "sunucu",
+      "hosts_other": "sunucu",
+      "activeSessions_one": "etkin oturum",
+      "activeSessions_other": "etkin oturum",
+      "portForwards_one": "port yönlendirme",
+      "portForwards_other": "port yönlendirme"
     },
     "quickActions": {
       "export": "Dışa aktar",

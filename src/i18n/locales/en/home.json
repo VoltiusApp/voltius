@@ -9,10 +9,14 @@
       "placeholder": "Search hosts, sessions, snippets…"
     },
     "stat": {
-      "vaults": "vaults",
-      "hosts": "hosts",
-      "activeSessions": "active sessions",
-      "portForwards": "port forwards"
+      "vaults_one": "vault",
+      "vaults_other": "vaults",
+      "hosts_one": "host",
+      "hosts_other": "hosts",
+      "activeSessions_one": "active session",
+      "activeSessions_other": "active sessions",
+      "portForwards_one": "port forward",
+      "portForwards_other": "port forwards"
     },
     "quickActions": {
       "export": "Export",

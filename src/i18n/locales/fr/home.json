@@ -9,10 +9,18 @@
       "placeholder": "Rechercher des hôtes, sessions, extraits…"
     },
     "stat": {
-      "vaults": "vaults",
-      "hosts": "hôtes",
-      "activeSessions": "sessions actives",
-      "portForwards": "redirections de port"
+      "vaults_one": "coffre",
+      "vaults_many": "coffres",
+      "vaults_other": "coffres",
+      "hosts_one": "hôte",
+      "hosts_many": "hôtes",
+      "hosts_other": "hôtes",
+      "activeSessions_one": "session active",
+      "activeSessions_many": "sessions actives",
+      "activeSessions_other": "sessions actives",
+      "portForwards_one": "redirection de port",
+      "portForwards_many": "redirections de port",
+      "portForwards_other": "redirections de port"
     },
     "quickActions": {
       "export": "Exporter",
