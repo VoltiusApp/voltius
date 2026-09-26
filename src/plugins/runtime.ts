@@ -38,6 +38,7 @@ import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, ge
 import { useThemeStore } from "@/stores/themeStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
+import { filterRemoteExcluded } from "@/services/syncExclusion";
 import type {
   UISlot,
   ContributedAction,
@@ -2312,14 +2313,16 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
         let bestThemeRaw: string | null = null;
         let bestThemeUpdatedAt: string | null = null;
+        const excludedIds = getExcludedObjectIds();
 
         for (const b64 of blobs) {
           const blobBytes = base64ToByteArray(b64);
           const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
-          const remote = await invoke<BlobPayload>("backup_decrypt", {
-            encKey: encKeyBytes,
-            blob: blobBytes,
-          });
+          const remote = filterRemoteExcluded(
+            await invoke<BlobPayload>("backup_decrypt", { encKey: encKeyBytes, blob: blobBytes }),
+            excludedIds,
+            ENTITY_FILES,
+          );
           const newFiles: Record<string, string> = {};
           for (const file of ENTITY_FILES) {
             newFiles[file] = JSON.stringify(

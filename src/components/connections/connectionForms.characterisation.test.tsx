@@ -90,6 +90,8 @@ vi.mock("@/stores/uiStore", () => ({
 vi.mock("@/stores/toggleSettingsStore", () => ({ useToggle: () => [false, vi.fn()] }));
 vi.mock("@/stores/connectivitySettingsStore", () => ({
   useGlobalKeepalivePreset: () => ["balanced", vi.fn()],
+  useGlobalProxy: () => [{ mode: "none" }, vi.fn()],
+  HOST_PROXY_MODES: ["direct", "system", "socks5", "http"],
 }));
 vi.mock("@/stores/hostCommandVarsStore", () => ({ clearRememberedVars: vi.fn() }));
 vi.mock("@/hooks/useUIContributions", () => ({ useUIContributions: () => [] }));
@@ -302,6 +304,41 @@ test("ssh form hides the advanced block until toggled and submits its host comma
     post_snippet_id: "post-snip",
     terminal_encoding: "utf-8",
   });
+});
+
+test("ssh form submits its proxy override and only a typed proxy password", async () => {
+  const { onSubmit, ref } = renderSsh({ initial: conn({ proxy: { mode: "socks5", host: "p.example", port: 1080 } }) });
+  fireEvent.change(screen.getByLabelText("connections.form.proxy.port"), { target: { value: "1081" } });
+  await act(async () => {
+    ref.current!.flush();
+  });
+  expect(onSubmit.mock.calls[0][0]).toMatchObject({ proxy: { mode: "socks5", host: "p.example", port: 1081 } });
+  expect(onSubmit.mock.calls[0][1].proxyPassword).toBeNull();
+  fireEvent.change(screen.getByLabelText("connections.form.proxy.password"), { target: { value: "pw" } });
+  await act(async () => {
+    ref.current!.flush();
+  });
+  expect(onSubmit.mock.calls[1][1].proxyPassword).toBe("pw");
+});
+
+test.each([
+  [undefined, false],
+  [{ mode: "direct" as const }, false],
+  [{ mode: "system" as const }, false],
+  [{ mode: "socks5" as const, host: "p" }, true],
+  [{ mode: "http" as const, host: "p" }, true],
+])("ssh form reads the saved proxy password only for a custom proxy (%j)", async (proxy, reads) => {
+  const { getSecret } = await import("@/services/vault");
+  renderSsh({ initial: conn({ proxy }) });
+  await act(async () => { await Promise.resolve(); });
+  expect((getSecret as ReturnType<typeof vi.fn>).mock.calls.some(([k]) => k === "proxy_password:c1")).toBe(reads);
+});
+
+test("ssh form locks the proxy fields without edit permission", async () => {
+  renderSsh({ initial: conn({ proxy: { mode: "http", host: "p.example", port: 8080 } }), canEdit: false });
+  await act(async () => { await Promise.resolve(); });
+  expect((screen.getByLabelText("connections.form.proxy.host") as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name: "connections.form.proxy.label" }) as HTMLButtonElement).disabled).toBe(true);
 });
 
 test("serial form submits its host commands with the serial defaults", async () => {

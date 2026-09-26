@@ -887,6 +887,19 @@
           "detail": "No keepalive probes"
         }
       },
+      "proxy": {
+        "title": "Proxy",
+        "desc": "Route SSH, SFTP and reachability checks through a proxy. Hosts can override this.",
+        "modes": {
+          "none": "No proxy",
+          "system": "System",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "detected": "Detected: {{kind}} {{host}}:{{port}}",
+        "detectedNone": "Detected: none (connecting directly)",
+        "passwordSaveFailed": "Couldn't save the proxy password: {{error}}"
+      },
       "persistentSessions": {
         "title": "Persistent sessions",
         "desc": "Keep your shell and running processes alive across disconnects by wrapping the remote shell in tmux (falls back to screen). Requires tmux or screen on the host. Can be overridden per host, under Advanced in the connection's settings."

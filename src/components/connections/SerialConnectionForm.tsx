@@ -121,7 +121,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => {
       const { data, password: pwd, privateKey: pk } = buildSubmit();
-      return onSubmit(data, pwd, pk, null) ?? undefined;
+      return onSubmit(data, { password: pwd, privateKey: pk, passphrase: null, proxyPassword: null }) ?? undefined;
     },
     canSave: () => !!serialPort.trim(),
   });

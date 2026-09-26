@@ -1,6 +1,7 @@
 import i18n from "@/i18n";
 import { ensurePublicKey } from "@/services/publicKeyStore";
 import { resolveConnectionCredentials } from "@/services/credentials";
+import { resolveProxy } from "@/services/proxy";
 import { sshExecCommand } from "@/services/ssh";
 import { isValidSshPublicKey } from "@/services/sshPublicKey";
 import { isSafeFilename, isSafeRelativeDir } from "@/services/sshKeyPath";
@@ -63,6 +64,7 @@ export async function addKeyToHost({
   }
 
   const { username, password, privateKey, passphrase } = await resolveConnectionCredentials(connection);
+  const proxy = await resolveProxy(connection);
 
   // Strip CR/LF: printf writes `comment` verbatim, so an unstripped newline in
   // a model-settable key name (key_create) would smuggle a second, attacker-
@@ -79,6 +81,7 @@ export async function addKeyToHost({
     passphrase,
     command,
     legacyAlgorithms: connection.legacy_algorithms,
+    proxy,
   });
   if (result.exit_code !== 0) {
     const detail = result.stderr.trim();

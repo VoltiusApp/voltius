@@ -18,6 +18,7 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
 import { filterRemoteExcluded, collectExcludedIds } from "./syncExclusion";
+import { GLOBAL_PROXY_SECRET_ID } from "@/services/teamVaultSecretKeys";
 import { filterIncoming, filterOutgoing, restoreLocal } from "@/services/user-data/syncFilter";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
@@ -271,7 +272,8 @@ async function decryptBlobWithFallback(blobBytes: number[]): Promise<BlobPayload
 
 /**
  * Ids of every entity object that must not participate in sync — individually
- * excluded, or belonging to a sync-disabled type. Used to filter both the
+ * excluded, or belonging to a sync-disabled type — plus the global proxy
+ * password's id while `appSettings.proxy` stays on this device. Used to filter both the
  * outbound blob (`backup_export`) and inbound remote payloads (pull merge).
  *
  * Exported so non-server sync destinations (e.g. the gist-sync plugin export
@@ -279,7 +281,7 @@ async function decryptBlobWithFallback(blobBytes: number[]): Promise<BlobPayload
  */
 export function getExcludedObjectIds(): string[] {
   const prefs = useSyncPrefsStore.getState();
-  return collectExcludedIds(
+  const ids = collectExcludedIds(
     [
       { type: "connection", ids: useConnectionStore.getState().connections.map((c) => c.id) },
       { type: "identity", ids: useIdentityStore.getState().identities.map((i) => i.id) },
@@ -299,6 +301,7 @@ export function getExcludedObjectIds(): string[] {
     prefs.isObjectSynced,
     prefs.excludedIds,
   );
+  return prefs.isSettingSynced("appSettings.proxy") ? ids : [...ids, GLOBAL_PROXY_SECRET_ID];
 }
 
 /** `plugin-registry.json` duplicates `appSettings.plugins.overrides`, so every

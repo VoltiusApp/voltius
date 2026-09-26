@@ -2,66 +2,55 @@ import type { Connection, ConnectionFormData } from "@/types";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { storeSecret, deleteSecret } from "@/services/vault";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 
-/**
- * Persist a host from ConnectionForm output: create or update the connection and
- * store/clear its secrets (password/key/passphrase, mirrored to the team vault when
- * applicable). Single source of truth for desktop HostsPage and the mobile host-edit
- * screen. Returns the saved Connection (or null if the store returned nothing on create).
- *
- * `fallbackVaultId` is used on CREATE when the form didn't set a vault_id — desktop
- * passes `selectedVaultIds[0] ?? "personal"`.
- */
+export interface HostFormSecrets {
+  password: string | null;
+  privateKey: string | null;
+  passphrase: string | null;
+  proxyPassword: string | null;
+}
+
+async function persistSecrets(id: string, vaultId: string, secrets: HostFormSecrets, clearEmpty: boolean) {
+  const entries: [string, string | null][] = [
+    [`password:${id}`, secrets.password],
+    [`key:${id}`, secrets.privateKey],
+    [`passphrase:${id}`, secrets.passphrase],
+  ];
+  for (const [localKey, value] of entries) {
+    if (value === null) continue;
+    if (value) {
+      await storeSecret(localKey, value);
+      await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
+    } else if (clearEmpty) {
+      try { await deleteSecret(localKey); } catch { /* best-effort clear */ }
+    }
+  }
+  const proxyValue = secrets.proxyPassword;
+  if (proxyValue === null) return;
+  const proxyKey = proxyPasswordKey(id);
+  if (proxyValue) {
+    await storeSecret(proxyKey, proxyValue);
+    await saveTeamVaultSecretForVault(vaultId, proxyKey, proxyValue);
+  } else if (clearEmpty) {
+    try { await deleteSecret(proxyKey); } catch { /* best-effort clear */ }
+  }
+}
+
+// `fallbackVaultId` applies only on CREATE when the form left vault_id unset.
 export async function saveHostFromForm(
   editing: Connection | null,
   data: ConnectionFormData,
-  password: string | null,
-  privateKey: string | null,
-  passphrase: string | null,
+  secrets: HostFormSecrets,
   fallbackVaultId: string,
 ): Promise<Connection | null> {
   const { updateConnection, saveConnection } = useConnectionStore.getState();
   if (editing) {
     await updateConnection(editing.id, data);
-    if (password !== null) {
-      const localKey = `password:${editing.id}`;
-      if (password) {
-        await storeSecret(localKey, password);
-        await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, password).catch(() => {});
-      } else await deleteSecret(localKey).catch(() => {});
-    }
-    if (privateKey !== null) {
-      const localKey = `key:${editing.id}`;
-      if (privateKey) {
-        await storeSecret(localKey, privateKey);
-        await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, privateKey).catch(() => {});
-      } else await deleteSecret(localKey).catch(() => {});
-    }
-    if (passphrase !== null) {
-      const localKey = `passphrase:${editing.id}`;
-      if (passphrase) {
-        await storeSecret(localKey, passphrase);
-        await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, passphrase).catch(() => {});
-      } else await deleteSecret(localKey).catch(() => {});
-    }
+    await persistSecrets(editing.id, data.vault_id ?? editing.vault_id, secrets, true);
     return editing;
-  } else {
-    const conn = await saveConnection({ ...data, vault_id: data.vault_id ?? fallbackVaultId });
-    if (password && conn) {
-      const localKey = `password:${conn.id}`;
-      await storeSecret(localKey, password);
-      await saveTeamVaultSecretForVault(conn.vault_id, localKey, password).catch(() => {});
-    }
-    if (privateKey && conn) {
-      const localKey = `key:${conn.id}`;
-      await storeSecret(localKey, privateKey);
-      await saveTeamVaultSecretForVault(conn.vault_id, localKey, privateKey).catch(() => {});
-    }
-    if (passphrase && conn) {
-      const localKey = `passphrase:${conn.id}`;
-      await storeSecret(localKey, passphrase);
-      await saveTeamVaultSecretForVault(conn.vault_id, localKey, passphrase).catch(() => {});
-    }
-    return conn ?? null;
   }
+  const conn = await saveConnection({ ...data, vault_id: data.vault_id ?? fallbackVaultId });
+  if (conn) await persistSecrets(conn.id, conn.vault_id, secrets, false);
+  return conn ?? null;
 }

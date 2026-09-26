@@ -5,7 +5,7 @@ import {
   filterRemoteExcluded,
   collectExcludedIds,
 } from "./syncExclusion";
-import { mergeEntities, type TimestampedEntity } from "./crdt";
+import { mergeEntities, mergeSecrets, type TimestampedEntity } from "./crdt";
 
 const ent = (id: string): TimestampedEntity => ({
   id,
@@ -131,5 +131,30 @@ describe("collectExcludedIds", () => {
       ["raw1"],
     );
     expect(new Set(out)).toEqual(new Set(["c2", "i1", "i2", "raw1"]));
+  });
+});
+
+describe("filterRemoteExcluded: global proxy password", () => {
+  it("a newer remote global proxy password neither reaches nor tombstones the local one", () => {
+    const remote = filterRemoteExcluded(
+      {
+        files: {},
+        secrets: { "proxy_password:__global__": "theirs", "proxy_password:h1": "host" },
+        secret_clocks: { "proxy_password:__global__": "2026-09-02", "proxy_password:h1": "2026-09-02" },
+      },
+      ["__global__"],
+      [],
+    );
+    expect(remote.secrets).toEqual({ "proxy_password:h1": "host" });
+    expect(remote.secret_clocks).toEqual({ "proxy_password:h1": "2026-09-02" });
+
+    const merged = mergeSecrets(
+      { "proxy_password:__global__": "mine" },
+      { "proxy_password:__global__": "2026-09-01" },
+      remote.secrets ?? {},
+      remote.secret_clocks ?? {},
+    );
+    expect(merged.secrets["proxy_password:__global__"]).toBe("mine");
+    expect(merged.secrets["proxy_password:h1"]).toBe("host");
   });
 });

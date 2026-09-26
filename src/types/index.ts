@@ -98,6 +98,15 @@ export interface EnvVar {
   value: string;
 }
 
+export type ProxyMode = "direct" | "system" | "socks5" | "http";
+
+export interface ProxyOverride {
+  mode: ProxyMode;
+  host?: string;
+  port?: number;
+  username?: string;
+}
+
 export interface Connection {
   id: string;
   name?: string;
@@ -129,6 +138,7 @@ export interface Connection {
   shell_integration?: boolean;
   keepalive_preset?: KeepalivePreset;
   persist_session?: boolean;
+  proxy?: ProxyOverride;
   connection_type?: "ssh" | "serial" | "ftp";
   ftp_secure?: boolean;
   notes?: string;
@@ -172,6 +182,7 @@ export interface ConnectionFormData {
   shell_integration?: boolean;
   keepalive_preset?: KeepalivePreset;
   persist_session?: boolean;
+  proxy?: ProxyOverride;
   connection_type?: "ssh" | "serial" | "ftp";
   ftp_secure?: boolean;
   notes?: string;
