@@ -118,6 +118,8 @@
       "clearFinished": "清除已完成的传输",
       "cancelTransfer": "取消传输",
       "retryTransfer": "重试传输",
+      "skipped_one": "已跳过 {{count}} 个本系统无法保存的名称：",
+      "skipped_other": "已跳过 {{count}} 个本系统无法保存的名称：",
       "mcpTooltip": "由 {{client}} 启动",
       "mcpTooltipUnknown": "由 MCP 客户端启动",
       "status": {

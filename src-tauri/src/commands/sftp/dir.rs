@@ -2,7 +2,7 @@ use super::{
     backend_transfer_command, get_session, open_remote_read, open_remote_write, pump_chunks,
     sftp_rr_file_inner_accum,
 };
-use crate::sftp::{backend::checked_remote_name, SftpManager};
+use crate::sftp::{backend::skip_unsafe_name, SftpManager};
 use russh_sftp::client::SftpSession;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -115,7 +115,7 @@ pub(crate) async fn sftp_download_dir_inner(
     // Collect remote files recursively
     let (_, remote_entries) = {
         let sftp = session.lock().await;
-        collect_remote_structure(&sftp, remote_path, remote_path, true).await?
+        collect_remote_structure(app, transfer_id, &sftp, remote_path, remote_path, true).await?
     };
 
     let total: u64 = remote_entries.iter().map(|(_, _, size)| size).sum();
@@ -175,7 +175,7 @@ pub async fn sftp_transfer_dir(
     // Collect structure from source (dirs + files with sizes)
     let (dirs, files): (Vec<String>, Vec<(String, String, u64)>) = {
         let sftp = src_session.lock().await;
-        collect_remote_structure(&sftp, &src_path, &src_path, false).await?
+        collect_remote_structure(&app, &transfer_id, &sftp, &src_path, &src_path, false).await?
     };
 
     let total: u64 = files.iter().map(|(_, _, size)| size).sum();
@@ -254,8 +254,10 @@ fn collect_local_recursive(
 }
 
 /// Walk a remote tree, returning its relative directory paths (for pre-creating
-/// dirs) and every file as `(absolute, relative, size)`; `local` as in `checked_remote_name`.
+/// dirs) and every file as `(absolute, relative, size)`; `local` as in `skip_unsafe_name`.
 fn collect_remote_structure<'a>(
+    app: &'a AppHandle,
+    transfer_id: &'a str,
     sftp: &'a SftpSession,
     base: &'a str,
     current: &'a str,
@@ -272,7 +274,10 @@ fn collect_remote_structure<'a>(
         for entry in entries {
             let meta = entry.metadata();
             let name = entry.file_name();
-            let abs = format!("{}/{}", cur, checked_remote_name(&name, local)?);
+            let abs = format!("{cur}/{name}");
+            if skip_unsafe_name(app, transfer_id, &abs, &name, local) {
+                continue;
+            }
             let rel = abs
                 .strip_prefix(base)
                 .unwrap_or(&abs)
@@ -284,7 +289,7 @@ fn collect_remote_structure<'a>(
             if meta.is_dir() {
                 dirs.push(rel);
                 let (mut child_dirs, mut child_files) =
-                    collect_remote_structure(sftp, base, &abs, local).await?;
+                    collect_remote_structure(app, transfer_id, sftp, base, &abs, local).await?;
                 dirs.append(&mut child_dirs);
                 files.append(&mut child_files);
             } else {

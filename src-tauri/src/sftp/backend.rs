@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use russh_sftp::client::SftpSession;
 use std::path::Path;
 use std::sync::Arc;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -110,7 +110,10 @@ pub trait FileBackend: Send + Sync {
             }
             // Remote paths are always POSIX, whatever the host runs.
             let name = p.trim_end_matches('/').rsplit('/').next().unwrap_or(p);
-            let local = Path::new(local_dir).join(checked_remote_name(name, true)?);
+            if skip_unsafe_name(app, transfer_id, p, name, true) {
+                continue;
+            }
+            let local = Path::new(local_dir).join(name);
             let local_str = local.to_string_lossy();
             let is_dir = self.stat(p).await?.unwrap_or(false);
             if is_dir {
@@ -131,16 +134,20 @@ pub trait FileBackend: Send + Sync {
     }
 }
 
-/// A server-chosen name, refused unless it is one plain path component. `local`:
-/// the destination is this machine, so its platform's rules apply; else POSIX.
-pub fn checked_remote_name(name: &str, local: bool) -> Result<&str, String> {
-    if is_plain_name(name, local && cfg!(windows)) {
-        Ok(name)
-    } else {
-        Err(format!(
-            "Refusing unsafe file name from the server: {name:?}"
-        ))
+/// True, after reporting `path` on `sftp-skipped-<id>`, when the server-chosen `name` is not
+/// one plain path component. `local`: the destination is this machine, so its rules apply.
+pub fn skip_unsafe_name(
+    app: &AppHandle,
+    transfer_id: &str,
+    path: &str,
+    name: &str,
+    local: bool,
+) -> bool {
+    let skip = !is_plain_name(name, local && cfg!(windows));
+    if skip {
+        let _ = app.emit(&format!("sftp-skipped-{transfer_id}"), path);
     }
+    skip
 }
 
 /// `windows` adds what Windows reads into a name: `\` separates, `C:` is a

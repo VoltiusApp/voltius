@@ -1234,7 +1234,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         return useTransferQueueStore.getState().transfers.map((t) => ({
           id: t.id, label: t.label, direction: t.direction, status: t.status,
           transferred: t.transferred, total: t.total,
-          speed: t.speed, eta: t.eta, error: t.error,
+          speed: t.speed, eta: t.eta, error: t.error, skipped: t.skipped,
           owner: t.owner?.clientName || undefined,
         }));
       },

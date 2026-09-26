@@ -244,6 +244,15 @@ export async function onTransferProgress(
   );
 }
 
+/** A remote name the local OS can't hold (or a traversal attempt) that the
+ *  backend skipped instead of writing; `path` is its full remote path. */
+export async function onTransferSkipped(
+  transferId: string,
+  callback: (path: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>(`sftp-skipped-${transferId}`, (e) => callback(e.payload));
+}
+
 // ── Local FS ─────────────────────��────────────────────────────────────────────
 
 export async function fsHomeDir(): Promise<string> {

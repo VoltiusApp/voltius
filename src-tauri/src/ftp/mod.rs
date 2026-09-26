@@ -7,7 +7,7 @@
 //! info are best-effort.
 
 use crate::commands::sftp::{pump_chunks, RemoteFile};
-use crate::sftp::{backend::checked_remote_name, FileBackend};
+use crate::sftp::{backend::skip_unsafe_name, FileBackend};
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -430,7 +430,10 @@ impl FileBackend for FtpBackend {
                 if token.is_cancelled() {
                     return Err("Transfer cancelled".into());
                 }
-                let lpath = ldir.join(checked_remote_name(&e.name, true)?);
+                if skip_unsafe_name(app, transfer_id, &e.path, &e.name, true) {
+                    continue;
+                }
+                let lpath = ldir.join(&e.name);
                 if e.is_dir {
                     stack.push((e.path, lpath));
                 } else {

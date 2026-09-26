@@ -118,6 +118,8 @@
       "clearFinished": "Effacer les transferts terminés",
       "cancelTransfer": "Annuler le transfert",
       "retryTransfer": "Réessayer le transfert",
+      "skipped_one": "{{count}} nom ignoré, impossible à enregistrer sur ce système :",
+      "skipped_other": "{{count}} noms ignorés, impossibles à enregistrer sur ce système :",
       "mcpTooltip": "Démarré par {{client}}",
       "mcpTooltipUnknown": "Démarré par un client MCP",
       "status": {
