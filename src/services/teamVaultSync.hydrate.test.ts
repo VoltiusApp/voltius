@@ -19,6 +19,49 @@ import { useConnectionStore } from "@/stores/connectionStore";
 
 beforeEach(() => {
   useConnectionStore.setState({ teamConnections: {} });
+  localStorage.clear();
+});
+
+const row = (id: string, metadata: unknown) => ({
+  object_id: id,
+  object_type: "connection",
+  metadata,
+  updated_at: "2026-09-01T00:00:00.000Z",
+  updated_by: "u1",
+});
+const encrypted = (object: object) => ({ v: 2, enc: JSON.stringify(object) });
+const hostsOf = (teamId: string) => (useConnectionStore.getState().teamConnections[teamId] ?? []).map((c) => c.host);
+
+// The envelope isn't bound to its row, so a server could move one host's
+// envelope under another host's id — and that host's password would follow.
+test("a row whose metadata names another object is dropped", async () => {
+  await _hydrateTeamObjectStores("t1", [
+    row("c1", encrypted({ id: "c2", host: "attacker.example" })),
+    row("c2", encrypted({ id: "c2", host: "10.0.0.2" })),
+  ] as never);
+
+  expect(hostsOf("t1")).toEqual(["10.0.0.2"]);
+});
+
+test("a plaintext row is refused once this device has seen the team fully encrypted", async () => {
+  await _hydrateTeamObjectStores("t1", [row("c1", encrypted({ id: "c1", host: "10.0.0.1" }))] as never);
+
+  await _hydrateTeamObjectStores("t1", [
+    row("c1", encrypted({ id: "c1", host: "10.0.0.1" })),
+    row("c9", { id: "c9", host: "attacker.example" }),
+  ] as never);
+
+  expect(hostsOf("t1")).toEqual(["10.0.0.1"]);
+});
+
+test("plaintext rows stay readable while a team is still migrating", async () => {
+  await _hydrateTeamObjectStores("t1", [
+    row("c1", { id: "c1", host: "10.0.0.1" }),
+    row("c2", encrypted({ id: "c2", host: "10.0.0.2" })),
+  ] as never);
+  await _hydrateTeamObjectStores("t1", [row("c1", { id: "c1", host: "10.0.0.1" })] as never);
+
+  expect(hostsOf("t1")).toEqual(["10.0.0.1"]);
 });
 
 test("hydrates a team holding both legacy and encrypted rows", async () => {

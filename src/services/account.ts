@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
-import { setVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNeeded, wipeLocalConfig } from "./vault";
+import { setVaultKey, getVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNeeded, wipeLocalConfig } from "./vault";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { appFetch, isAbortError } from "@/services/http";
@@ -600,10 +600,7 @@ export async function setMasterPassword(password: string): Promise<void> {
   // If connected to cloud, re-push immediately so other devices get a blob
   // encrypted with the new key — without this, pullAndMerge on any other
   // device would fail to decrypt this device's old blob.
-  if (priorMode === "server") {
-    const { push } = await import("@/services/sync");
-    push().catch(() => {});
-  }
+  if (priorMode === "server") await pushUnderNewVaultKey();
 }
 
 /**
@@ -702,6 +699,38 @@ export async function linkToCloud(
 
 // ─── New account management features ─────────────────────────────────────────
 
+/**
+ * Upload this device's blob now, under the vault key just installed, so other
+ * devices aren't left with only the copy under the old key.
+ */
+async function pushUnderNewVaultKey(): Promise<void> {
+  const { push } = await import("@/services/sync");
+  push().catch(() => {});
+}
+
+/**
+ * Put secrets.enc, and the session, on the dek ahead of a password change.
+ *
+ * The new password reaches only the dek (through the wrapped secrets re-wrapped
+ * for it). A vault still on the kek — linked from a local account, or a legacy
+ * migration whose rekey failed — would then open for nothing, and blobs pushed
+ * under the old kek would stop opening on every other device once they sign in
+ * with the new password. Done before the server call: the current password
+ * reaches the dek as well, so a change that then fails strands nothing.
+ */
+async function moveVaultToDek(kek: number[], dek: number[]): Promise<void> {
+  const opener = await keyThatOpensVault(dek, kek);
+  // Neither key opens it: the password `kek` came from is not this vault's.
+  if (!opener) throw new Error(i18n.t("common.error.currentPasswordIncorrect"));
+  if (opener === kek) {
+    await unlockVaultIfNeeded();
+    await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
+  }
+  if (getVaultKey()?.join(",") === dek.join(",")) return;
+  setVaultKey(dek);
+  await pushUnderNewVaultKey();
+}
+
 export async function changeMasterPassword(
   currentPassword: string,
   newPassword: string,
@@ -730,6 +759,8 @@ export async function changeMasterPassword(
     cachedDek = unwrapped.dek;
     cachedX25519 = unwrapped.x25519_private;
   }
+
+  await moveVaultToDek(old_kek, cachedDek);
 
   const { auth_key: new_auth_key, enc_key: new_kek } = await deriveKeys(newPassword, accountId);
   const new_wrapped_user_secrets = await wrapUserSecrets(new_kek, cachedDek, cachedX25519);
@@ -833,8 +864,7 @@ async function migrateToWrappedUserSecrets(
     setVaultKey(vaultKey);
     await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
 
-    const { push } = await import("@/services/sync");
-    push().catch(() => {});
+    await pushUnderNewVaultKey();
   } catch (e) {
     console.warn("Migration failed, falling back to legacy key:", e);
     setVaultKey(kek);

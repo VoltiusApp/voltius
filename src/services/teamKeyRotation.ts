@@ -8,7 +8,8 @@ import {
   listTeamObjects, reencryptTeamObjects,
   listTeamSecrets, reencryptTeamSecrets,
 } from "@/services/teamObjects";
-import { isEncryptedEnvelope, encodeObjectMetadata, decodeObjectMetadata } from "@/services/teamObjectEnvelope";
+import { isEncryptedEnvelope, encodeObjectMetadata } from "@/services/teamObjectEnvelope";
+import { decodeTeamObject } from "@/services/teamObjectRows";
 import { buildEditPermissionSnapshot, canEditObjectType } from "@/services/teamObjectEditPermission";
 import { invoke } from "@tauri-apps/api/core";
 import { bytesToBase64, base64ToBytes } from "@/services/teamVaultSyncCore";
@@ -182,7 +183,7 @@ async function _drainTeamKeyRotation(teamId: string): Promise<void> {
       // current one — encodeObjectMetadata just JSON.stringifies whatever
       // it's given, so skipping this step would encrypt the ciphertext
       // envelope itself, not the underlying fields.
-      metadata: await encodeObjectMetadata(teamId, await decodeObjectMetadata(teamId, o.metadata)),
+      metadata: await encodeObjectMetadata(teamId, await decodeTeamObject(teamId, o)),
     }),
     `teamKeyRotation: skip poisoned object row team=${teamId}`,
     (items) => reencryptTeamObjects(teamId, items),

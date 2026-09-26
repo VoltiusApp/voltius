@@ -19,6 +19,7 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch, isAbortError: () => false }));
 vi.mock("./vault", () => ({
   setVaultKey: h.setVaultKey,
+  getVaultKey: () => null,
   verifyVaultKey: vi.fn(async () => undefined),
   lockVault: vi.fn(async () => undefined),
   getVaultStatus: vi.fn(async () => ({ exists: false, path: "" })),
