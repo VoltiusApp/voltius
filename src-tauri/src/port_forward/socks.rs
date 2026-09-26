@@ -1,9 +1,10 @@
 use crate::port_forward::ForwardError;
 use crate::ssh::live_cells::read_cell;
 use crate::ssh::session::SessionHandle;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 
@@ -80,7 +81,9 @@ async fn socks_bridge(
 }
 
 /// Perform SOCKS5 handshake; return (target_host, target_port) on success.
-async fn negotiate_socks5(tcp: &mut TcpStream) -> Result<(String, u16), ()> {
+async fn negotiate_socks5<S: AsyncRead + AsyncWrite + Unpin>(
+    tcp: &mut S,
+) -> Result<(String, u16), ()> {
     // --- Auth negotiation ---
     let mut header = [0u8; 2];
     tcp.read_exact(&mut header).await.map_err(|_| ())?;
@@ -120,7 +123,7 @@ async fn negotiate_socks5(tcp: &mut TcpStream) -> Result<(String, u16), ()> {
             // IPv4
             let mut addr = [0u8; 4];
             tcp.read_exact(&mut addr).await.map_err(|_| ())?;
-            format!("{}.{}.{}.{}", addr[0], addr[1], addr[2], addr[3])
+            Ipv4Addr::from(addr).to_string()
         }
         0x03 => {
             // Domain
@@ -131,14 +134,11 @@ async fn negotiate_socks5(tcp: &mut TcpStream) -> Result<(String, u16), ()> {
             String::from_utf8(domain).map_err(|_| ())?
         }
         0x04 => {
-            // IPv6
+            // IPv6, bare: the host of a direct-tcpip request goes to the
+            // server's getaddrinfo, which rejects the `[…]` URL form.
             let mut addr = [0u8; 16];
             tcp.read_exact(&mut addr).await.map_err(|_| ())?;
-            let segments: Vec<String> = addr
-                .chunks(2)
-                .map(|c| format!("{:02x}{:02x}", c[0], c[1]))
-                .collect();
-            format!("[{}]", segments.join(":"))
+            Ipv6Addr::from(addr).to_string()
         }
         _ => {
             let _ = tcp.write_all(&socks5_reply(0x08)).await;
@@ -156,4 +156,45 @@ async fn negotiate_socks5(tcp: &mut TcpStream) -> Result<(String, u16), ()> {
 fn socks5_reply(rep: u8) -> [u8; 10] {
     // VER REP RSV ATYP BND.ADDR(4 bytes IPv4 0.0.0.0) BND.PORT(2 bytes 0)
     [0x05, rep, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::negotiate_socks5;
+    use tokio::io::AsyncWriteExt;
+
+    /// Run a no-auth CONNECT for `atyp` + `addr` to port 443 through the handshake.
+    async fn connect_to(atyp: u8, addr: &[u8]) -> Result<(String, u16), ()> {
+        let (mut client, mut server) = tokio::io::duplex(256);
+        let mut request = vec![0x05, 0x01, 0x00, 0x05, 0x01, 0x00, atyp];
+        request.extend_from_slice(addr);
+        request.extend_from_slice(&443u16.to_be_bytes());
+        client.write_all(&request).await.unwrap();
+        negotiate_socks5(&mut server).await
+    }
+
+    #[tokio::test]
+    async fn an_ipv6_destination_is_passed_on_bare_and_compressed() {
+        let mut addr = [0u8; 16];
+        addr[..4].copy_from_slice(&[0x20, 0x01, 0x0d, 0xb8]);
+        addr[15] = 1;
+        assert_eq!(
+            connect_to(0x04, &addr).await,
+            Ok(("2001:db8::1".to_string(), 443))
+        );
+    }
+
+    #[tokio::test]
+    async fn ipv4_and_domain_destinations_are_unchanged() {
+        assert_eq!(
+            connect_to(0x01, &[10, 0, 0, 7]).await,
+            Ok(("10.0.0.7".to_string(), 443))
+        );
+        let mut domain = vec![11];
+        domain.extend_from_slice(b"example.com");
+        assert_eq!(
+            connect_to(0x03, &domain).await,
+            Ok(("example.com".to_string(), 443))
+        );
+    }
 }

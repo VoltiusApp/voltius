@@ -61,8 +61,7 @@ async fn ping_via_chain(
 
     // Connect + auth through the first jump host
     let first = &jump_hosts[0];
-    let (first_client, _) =
-        SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
+    let first_client = SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
     let mut current = match connect_first_hop(
         Arc::clone(&config),
         proxy.as_ref(),
@@ -98,8 +97,7 @@ async fn ping_via_chain(
             Ok(c) => c,
             Err(_) => return false,
         };
-        let (next_client, _) =
-            SshClient::new(jump.host.clone(), jump.port, Arc::clone(&known_hosts));
+        let next_client = SshClient::new(jump.host.clone(), jump.port, Arc::clone(&known_hosts));
         let mut next =
             match client::connect_stream(Arc::clone(&config), channel.into_stream(), next_client)
                 .await

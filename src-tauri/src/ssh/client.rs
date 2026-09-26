@@ -50,21 +50,17 @@ struct ConflictContext {
 }
 
 /// `new_interactive`'s return: the handler plus the shared slots `connect`
-/// needs after the handshake (rejection reason, remote-forward routes, and the
-/// server's SSH banner for Windows detection).
-type InteractiveClient = (
-    SshClient,
-    Arc<Mutex<Option<String>>>,
-    RemoteRouteMap,
-    Arc<Mutex<Option<Vec<u8>>>>,
-);
+/// needs after the handshake (remote-forward routes, and the server's SSH
+/// banner for Windows detection).
+type InteractiveClient = (SshClient, RemoteRouteMap, Arc<Mutex<Option<Vec<u8>>>>);
 
 pub struct SshClient {
     host: String,
     port: u16,
     known_hosts: Arc<KnownHostsStore>,
-    /// Set by `check_server_key` when the host key has changed without user approval.
-    pub rejection_reason: Arc<Mutex<Option<String>>>,
+    /// Set by `check_server_key` when the host key has changed without user
+    /// approval; `handshake` turns it into the error the user sees.
+    rejection_reason: Arc<Mutex<Option<String>>>,
     conflict_ctx: Option<ConflictContext>,
     /// Remote-forward route table: (bind_host, remote_port) → RemoteRoute.
     /// Populated by PortForwardManager before calling tcpip_forward.
@@ -79,32 +75,23 @@ pub struct SshClient {
 
 impl SshClient {
     /// Non-interactive constructor (exec commands, SFTP, jump hosts).
-    pub fn new(
-        host: String,
-        port: u16,
-        known_hosts: Arc<KnownHostsStore>,
-    ) -> (Self, Arc<Mutex<Option<String>>>) {
-        let rejection_reason = Arc::new(Mutex::new(None::<String>));
-        let remote_routes: RemoteRouteMap = Arc::new(Mutex::new(HashMap::new()));
-        (
-            Self {
-                host,
-                port,
-                known_hosts,
-                rejection_reason: Arc::clone(&rejection_reason),
-                conflict_ctx: None,
-                remote_routes,
-                remote_sshid: Arc::new(Mutex::new(None)),
-                agent_forwarding: false,
-            },
-            rejection_reason,
-        )
+    pub fn new(host: String, port: u16, known_hosts: Arc<KnownHostsStore>) -> Self {
+        Self {
+            host,
+            port,
+            known_hosts,
+            rejection_reason: Arc::new(Mutex::new(None)),
+            conflict_ctx: None,
+            remote_routes: Arc::new(Mutex::new(HashMap::new())),
+            remote_sshid: Arc::new(Mutex::new(None)),
+            agent_forwarding: false,
+        }
     }
 
     /// Interactive constructor for the final SSH session. Beyond the handler it
-    /// hands back the rejection-reason slot, the `RemoteRouteMap`
-    /// PortForwardManager registers routes in, and the remote SSH banner slot
-    /// (`kex_done` fills it; `connect` reads it to detect Windows).
+    /// hands back the `RemoteRouteMap` PortForwardManager registers routes in,
+    /// and the remote SSH banner slot (`kex_done` fills it; `connect` reads it
+    /// to detect Windows).
     pub fn new_interactive(
         host: String,
         port: u16,
@@ -114,28 +101,18 @@ impl SshClient {
         pending_conflicts: Arc<PendingConflicts>,
         agent_forwarding: bool,
     ) -> InteractiveClient {
-        let rejection_reason = Arc::new(Mutex::new(None::<String>));
-        let remote_routes: RemoteRouteMap = Arc::new(Mutex::new(HashMap::new()));
-        let remote_sshid = Arc::new(Mutex::new(None));
-        (
-            Self {
-                host,
-                port,
-                known_hosts,
-                rejection_reason: Arc::clone(&rejection_reason),
-                conflict_ctx: Some(ConflictContext {
-                    app,
-                    session_id,
-                    pending_conflicts,
-                }),
-                remote_routes: Arc::clone(&remote_routes),
-                remote_sshid: Arc::clone(&remote_sshid),
-                agent_forwarding,
-            },
-            rejection_reason,
-            remote_routes,
-            remote_sshid,
-        )
+        let client = Self {
+            conflict_ctx: Some(ConflictContext {
+                app,
+                session_id,
+                pending_conflicts,
+            }),
+            agent_forwarding,
+            ..Self::new(host, port, known_hosts)
+        };
+        let remote_routes = Arc::clone(&client.remote_routes);
+        let remote_sshid = Arc::clone(&client.remote_sshid);
+        (client, remote_routes, remote_sshid)
     }
 }
 
@@ -646,7 +623,7 @@ fn is_windows_sshid(sshid: &[u8]) -> bool {
         .contains("windows")
 }
 
-// Host-key rejections set `rejection_reason` instead, so they never reach here.
+// Host-key rejections are `HandshakeError::HostKey`, so they never reach here.
 fn is_transient_connect_error(e: &russh::Error) -> bool {
     match e {
         russh::Error::IO(io) => proxy::is_transient_io_kind(io.kind()),
@@ -655,6 +632,7 @@ fn is_transient_connect_error(e: &russh::Error) -> bool {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum HopError {
     Proxy(ProxyError),
     Ssh(russh::Error),
@@ -666,6 +644,12 @@ impl std::fmt::Display for HopError {
             Self::Proxy(e) => write!(f, "{e}"),
             Self::Ssh(e) => write!(f, "{e}"),
         }
+    }
+}
+
+impl From<russh::Error> for HopError {
+    fn from(e: russh::Error) -> Self {
+        Self::Ssh(e)
     }
 }
 
@@ -705,39 +689,121 @@ pub(crate) fn hop_detail(host: &str, port: u16, suffix: &str, via: Option<&str>)
     }
 }
 
-/// The handler is rebuilt each attempt because `connect_stream` consumes it;
-/// a set rejection reason (host-key/abort) is deliberate and never retried.
-pub(crate) async fn connect_first_hop_retrying<H, T>(
+/// Why an SSH handshake failed.
+#[derive(Debug)]
+pub(crate) enum HandshakeError {
+    /// `check_server_key` refused the host key. Its message — a changed key,
+    /// possibly a MITM, or the user's Abort in the conflict dialog — is shown
+    /// as is and never retried.
+    HostKey(String),
+    /// Anything else: the proxy, the transport or the protocol.
+    Other(HopError),
+}
+
+impl HandshakeError {
+    /// The message for the user: a host-key verdict as is, any other failure
+    /// as `<context>: <error>`.
+    pub(crate) fn describe(self, context: &str) -> String {
+        match self {
+            Self::HostKey(reason) => reason,
+            Self::Other(e) => format!("{context}: {e}"),
+        }
+    }
+
+    fn is_transient(&self) -> bool {
+        matches!(self, Self::Other(e) if e.is_transient())
+    }
+}
+
+/// Run the handshake `connect` starts with `client` (`connect_first_hop` for
+/// the first hop, `client::connect_stream` for a hop through a jump host).
+/// russh reports a refused host key only as a generic error, so the verdict
+/// the handler recorded is taken back out here.
+pub(crate) async fn handshake<T, E, F, Fut>(
+    client: SshClient,
+    connect: F,
+) -> Result<T, HandshakeError>
+where
+    F: FnOnce(SshClient) -> Fut,
+    Fut: std::future::Future<Output = Result<T, E>>,
+    E: Into<HopError>,
+{
+    let verdict = Arc::clone(&client.rejection_reason);
+    match connect(client).await {
+        Ok(connected) => Ok(connected),
+        Err(e) => Err(match verdict.lock().await.take() {
+            Some(reason) => HandshakeError::HostKey(reason),
+            None => HandshakeError::Other(e.into()),
+        }),
+    }
+}
+
+/// Run `attempt` until it succeeds, fails for good, or has failed transiently
+/// `max_attempts` times, backing off between attempts.
+async fn retry_transient<T, Fut>(
+    max_attempts: u32,
+    mut attempt: impl FnMut() -> Fut,
+) -> Result<T, HandshakeError>
+where
+    Fut: std::future::Future<Output = Result<T, HandshakeError>>,
+{
+    let mut n = 1;
+    loop {
+        match attempt().await {
+            Err(e) if n < max_attempts && e.is_transient() => {
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    CONNECT_RETRY_BACKOFF_MS * n as u64,
+                ))
+                .await;
+                n += 1;
+            }
+            result => return result,
+        }
+    }
+}
+
+/// Dial the first hop (through `proxy` when set) and run its handshake,
+/// retrying transient failures. `make` rebuilds the handler each attempt,
+/// because the handshake consumes it, plus whatever slots `T` the caller
+/// keeps from it.
+pub(crate) async fn connect_first_hop_retrying<T>(
     config: &Arc<client::Config>,
     proxy: Option<&ProxySpec>,
     host: &str,
     port: u16,
     max_attempts: u32,
-    mut make: impl FnMut() -> (H, Arc<Mutex<Option<String>>>, T),
-    fail: impl Fn(&HopError) -> String,
-) -> Result<(client::Handle<H>, Option<String>, T), String>
-where
-    H: client::Handler<Error = russh::Error> + Send + 'static,
-{
-    let mut attempt = 1;
-    loop {
-        let (handler, rejection_reason, extra) = make();
-        match connect_first_hop(Arc::clone(config), proxy, host, port, handler).await {
-            Ok((h, via)) => return Ok((h, via, extra)),
-            Err(e) => {
-                let reason = rejection_reason.lock().await.take();
-                if reason.is_none() && attempt < max_attempts && e.is_transient() {
-                    tokio::time::sleep(std::time::Duration::from_millis(
-                        CONNECT_RETRY_BACKOFF_MS * attempt as u64,
-                    ))
-                    .await;
-                    attempt += 1;
-                    continue;
-                }
-                return Err(reason.unwrap_or_else(|| fail(&e)));
-            }
+    mut make: impl FnMut() -> (SshClient, T),
+) -> Result<(client::Handle<SshClient>, Option<String>, T), HandshakeError> {
+    retry_transient(max_attempts, || {
+        let (handler, extra) = make();
+        let config = Arc::clone(config);
+        async move {
+            let (h, via) =
+                handshake(handler, |c| connect_first_hop(config, proxy, host, port, c)).await?;
+            Ok((h, via, extra))
         }
-    }
+    })
+    .await
+}
+
+/// `connect_first_hop_retrying` for a plain handler (a jump host, SFTP, a
+/// headless command), which keeps no slots besides the handle.
+pub(crate) async fn connect_first_hop_plain(
+    config: &Arc<client::Config>,
+    proxy: Option<&ProxySpec>,
+    known_hosts: &Arc<KnownHostsStore>,
+    host: &str,
+    port: u16,
+    max_attempts: u32,
+) -> Result<(client::Handle<SshClient>, Option<String>), HandshakeError> {
+    let (h, via, ()) = connect_first_hop_retrying(config, proxy, host, port, max_attempts, || {
+        (
+            SshClient::new(host.into(), port, Arc::clone(known_hosts)),
+            (),
+        )
+    })
+    .await?;
+    Ok((h, via))
 }
 
 pub async fn connect(
@@ -790,7 +856,7 @@ pub async fn connect(
             port,
             CONNECT_MAX_ATTEMPTS,
             || {
-                let (c, reason, routes, sshid) = SshClient::new_interactive(
+                let (c, routes, sshid) = SshClient::new_interactive(
                     host.to_string(),
                     port,
                     Arc::clone(&known_hosts),
@@ -799,11 +865,11 @@ pub async fn connect(
                     Arc::clone(&pending_conflicts),
                     agent_forwarding,
                 );
-                (c, reason, (routes, sshid))
+                (c, (routes, sshid))
             },
-            |e| format!("Connection failed: {e}"),
         )
-        .await?;
+        .await
+        .map_err(|e| e.describe("Connection failed"))?;
         final_routes = routes;
         final_sshid = sshid;
         emit_step(
@@ -815,20 +881,16 @@ pub async fn connect(
         h
     } else {
         let first = &jump_hosts[0];
-        let (mut current_handle, via, ()) = connect_first_hop_retrying(
+        let (mut current_handle, via) = connect_first_hop_plain(
             &config,
             proxy.as_ref(),
+            &known_hosts,
             &first.host,
             first.port,
             CONNECT_MAX_ATTEMPTS,
-            || {
-                let (c, reason) =
-                    SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
-                (c, reason, ())
-            },
-            |e| format!("Jump host {} connection failed: {}", first.host, e),
         )
-        .await?;
+        .await
+        .map_err(|e| e.describe(&format!("Jump host {} connection failed", first.host)))?;
         emit_step(
             &app,
             &session_id,
@@ -855,11 +917,13 @@ pub async fn connect(
                 .map_err(|e| format!("Failed to open tunnel to {}: {}", next_host, e))?;
             let stream = channel.into_stream();
 
-            let (next_client, _) =
+            let next_client =
                 SshClient::new(next_host.to_string(), next_port, Arc::clone(&known_hosts));
-            let mut next_handle = client::connect_stream(Arc::clone(&config), stream, next_client)
-                .await
-                .map_err(|e| format!("Jump host {} SSH handshake failed: {}", next_host, e))?;
+            let mut next_handle = handshake(next_client, |c| {
+                client::connect_stream(Arc::clone(&config), stream, c)
+            })
+            .await
+            .map_err(|e| e.describe(&format!("Jump host {} SSH handshake failed", next_host)))?;
 
             authenticate_handle(
                 &mut next_handle,
@@ -888,7 +952,7 @@ pub async fn connect(
             .map_err(|e| format!("Failed to open tunnel to final host {}: {}", host, e))?;
         let stream = channel.into_stream();
 
-        let (final_client, rejection_reason, routes, sshid) = SshClient::new_interactive(
+        let (final_client, routes, sshid) = SshClient::new_interactive(
             host.to_string(),
             port,
             Arc::clone(&known_hosts),
@@ -899,12 +963,11 @@ pub async fn connect(
         );
         final_routes = routes;
         final_sshid = sshid;
-        let h = client::connect_stream(Arc::clone(&config), stream, final_client)
-            .await
-            .map_err(|e| {
-                let _ = rejection_reason;
-                format!("Final host {} SSH handshake failed: {}", host, e)
-            })?;
+        let h = handshake(final_client, |c| {
+            client::connect_stream(Arc::clone(&config), stream, c)
+        })
+        .await
+        .map_err(|e| e.describe(&format!("Final host {} SSH handshake failed", host)))?;
 
         jump_handles.push(Arc::new(current_handle));
         emit_step(
@@ -1226,19 +1289,9 @@ pub async fn connect_authenticated(
         client::Config::default().keepalive_max,
         legacy_algorithms,
     ));
-    let (mut handle, _via, ()) = connect_first_hop_retrying(
-        &config,
-        proxy,
-        host,
-        port,
-        1,
-        || {
-            let (c, reason) = SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
-            (c, reason, ())
-        },
-        |e| format!("Connection failed: {e}"),
-    )
-    .await?;
+    let (mut handle, _via) = connect_first_hop_plain(&config, proxy, &known_hosts, host, port, 1)
+        .await
+        .map_err(|e| e.describe("Connection failed"))?;
     authenticate_handle(&mut handle, username, password, private_key, passphrase).await?;
     Ok(handle)
 }
@@ -1286,10 +1339,11 @@ fn legacy_preferred() -> russh::Preferred {
 mod tests {
     use super::{
         answer_prompts, authenticate_handle, choose_rsa_hash, client, client_config,
-        connect_first_hop_retrying, is_windows_sshid, legacy_preferred, open_agent_channel, Arc,
-        Mutex, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED, PASSWORD_REJECTED,
+        connect_first_hop_retrying, handshake, is_windows_sshid, legacy_preferred,
+        open_agent_channel, retry_transient, Arc, HandshakeError, HopError, Mutex, SshClient,
+        AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED, PASSWORD_REJECTED,
     };
-    use crate::port_forward::test_ssh::TestClient;
+    use crate::known_hosts::KnownHostsStore;
     use russh::client::Prompt;
     use russh::keys::ssh_key::HashAlg;
     use russh::server::{Auth, Response};
@@ -1574,6 +1628,59 @@ mod tests {
         );
     }
 
+    /// A handler for a hop through a jump host: the in-memory store never touches disk.
+    fn jump_client() -> SshClient {
+        SshClient::new("jump".into(), 22, Arc::new(KnownHostsStore::new()))
+    }
+
+    #[tokio::test]
+    async fn a_refused_host_key_behind_a_jump_host_keeps_its_verdict() {
+        let failed = handshake(jump_client(), |c| async move {
+            // What `check_server_key` records before russh fails the handshake.
+            *c.rejection_reason.lock().await = Some("WARNING: Host key changed".into());
+            Err::<(), _>(russh::Error::UnknownKey)
+        })
+        .await
+        .expect_err("the handshake fails");
+        assert_eq!(
+            failed.describe("Final host h SSH handshake failed"),
+            "WARNING: Host key changed"
+        );
+    }
+
+    #[tokio::test]
+    async fn any_other_handshake_failure_is_described_in_context() {
+        let failed = handshake(jump_client(), |_| async { Err::<(), _>(russh::Error::HUP) })
+            .await
+            .expect_err("the handshake fails");
+        assert_eq!(
+            failed.describe("Jump host j SSH handshake failed"),
+            format!("Jump host j SSH handshake failed: {}", russh::Error::HUP)
+        );
+    }
+
+    #[tokio::test]
+    async fn only_transient_failures_are_retried() {
+        let attempts = AtomicU32::new(0);
+        let rejected: Result<(), _> = retry_transient(3, || async {
+            attempts.fetch_add(1, Ordering::SeqCst);
+            Err(HandshakeError::HostKey(
+                "Connection aborted by user.".into(),
+            ))
+        })
+        .await;
+        assert!(matches!(rejected, Err(HandshakeError::HostKey(_))));
+        assert_eq!(attempts.swap(0, Ordering::SeqCst), 1);
+
+        let dropped: Result<(), _> = retry_transient(3, || async {
+            attempts.fetch_add(1, Ordering::SeqCst);
+            Err(HandshakeError::Other(HopError::Ssh(russh::Error::HUP)))
+        })
+        .await;
+        assert!(matches!(dropped, Err(HandshakeError::Other(_))));
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    }
+
     /// Returns how many times `make` ran.
     async fn run_retrying(max_attempts: u32, rejection: Option<&str>) -> (u32, Result<(), String>) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -1590,12 +1697,17 @@ mod tests {
             max_attempts,
             move || {
                 calls2.fetch_add(1, Ordering::SeqCst);
-                (TestClient, Arc::new(Mutex::new(rejection.clone())), ())
+                let rejection_reason = Arc::new(Mutex::new(rejection.clone()));
+                let client = SshClient {
+                    rejection_reason,
+                    ..jump_client()
+                };
+                (client, ())
             },
-            |e| format!("boom: {e}"),
         )
         .await
-        .map(|_| ());
+        .map(|_| ())
+        .map_err(|e| e.describe("boom"));
         (calls.load(Ordering::SeqCst), result)
     }
 
