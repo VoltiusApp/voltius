@@ -6,23 +6,25 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import {
   ftpConnect, sftpClose,
-  sftpDownload, sftpDownloadDir, sftpDownloadDirTar,
   sftpUploadBatchTar, sftpDownloadBatchTar, sftpTransferBatchTar,
   sftpExists, fsExists, fsHomeDir, fsCopy, wslHomeDir,
-  sftpRename, sftpDelete, fsRename, fsDelete,
+  sftpRename, sftpDelete, fsRename, fsDelete, sftpCanonicalize,
   pickLocalPath, pickLocalPaths,
 } from "@/services/sftp";
 import { transferItem } from "@/services/sftpTransferCore";
 import { runIntraPaneMove } from "./moveService";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "./internalDrag";
-import { triggerUpload } from "./osDropPipeline";
-import { tarUsable, tarUsableForPair } from "./tarSupport";
+import { triggerUpload, downloadToLocal, batchLabel } from "./osDropPipeline";
+import { tarUsableForPair } from "./tarSupport";
+import { joinPath } from "./moveTargetCore";
+import { localPathForRemoteName } from "./remoteName";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sftpConnectToConnection } from "@/services/sftpTarget";
 import { vaultErrorCode } from "@/services/vaultErrors";
+import { useConnectRetry } from "@/hooks/useConnectRetry";
 import {
   type HostChoice, type SidePhase, type FileEntry,
   genId,
@@ -40,6 +42,8 @@ import { EditorTabStrip } from "./editor/EditorTabStrip";
 import { EditorTab } from "./editor/EditorTab";
 import { DiffTab } from "./editor/DiffTab";
 import { EditorDropOverlay } from "./editor/EditorDropOverlay";
+
+type Side = "left" | "right";
 
 export default function SFTPPage() {
   const { t } = useTranslation();
@@ -60,6 +64,9 @@ export default function SFTPPage() {
   const [rightRefresh, setRightRefresh] = useState(0);
 
   const openSftpIds = useRef<Set<string>>(new Set());
+  // The connect each side is waiting on; a newer connect, or leaving the side,
+  // makes an older one stale so its session is closed instead of shown.
+  const currentConnect = useRef<Record<Side, string | null>>({ left: null, right: null });
 
   useEffect(() => {
     return () => {
@@ -69,31 +76,45 @@ export default function SFTPPage() {
 
   // ── Connect / disconnect ───────────────────────────────────────────────────
 
-  const connectSide = useCallback(async (host: HostChoice, setPhase: React.Dispatch<React.SetStateAction<SidePhase>>) => {
+  const setPhaseOf = useCallback((side: Side) => (side === "left" ? setLeftPhase : setRightPhase), []);
+
+  const closeSftp = useCallback((sftpId: string) => {
+    openSftpIds.current.delete(sftpId);
+    sftpClose(sftpId).catch(() => {});
+  }, []);
+
+  const connectSide = useCallback(async (host: HostChoice, side: Side) => {
+    const setPhase = setPhaseOf(side);
     const connectId = genId();
+    currentConnect.current[side] = connectId;
+    const isCurrent = () => currentConnect.current[side] === connectId;
     setPhase({ tag: "connecting", connectId, host });
+    let sftpId: string | null = null;
     try {
-      let sftpId: string | null = null;
       let cwd = "/";
       if (host.kind === "local") {
         cwd = host.wslDistro ? await wslHomeDir(host.wslDistro) : await fsHomeDir();
-      } else if (host.connection.connection_type === "ftp") {
-        const creds = await resolveConnectionCredentials(host.connection);
-        sftpId = await ftpConnect({ host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, secure: !!host.connection.ftp_secure });
-        openSftpIds.current.add(sftpId);
-        const { sftpCanonicalize } = await import("@/services/sftp");
-        cwd = await sftpCanonicalize(sftpId, ".");
       } else {
-        sftpId = await sftpConnectToConnection(host.connection, connectId);
+        if (host.connection.connection_type === "ftp") {
+          const creds = await resolveConnectionCredentials(host.connection);
+          sftpId = await ftpConnect({ host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, secure: !!host.connection.ftp_secure });
+        } else {
+          sftpId = await sftpConnectToConnection(host.connection, connectId);
+        }
         openSftpIds.current.add(sftpId);
-        const { sftpCanonicalize } = await import("@/services/sftp");
-        cwd = await sftpCanonicalize(sftpId, ".");
+        if (isCurrent()) cwd = await sftpCanonicalize(sftpId, ".");
+      }
+      if (!isCurrent()) {
+        if (sftpId) closeSftp(sftpId);
+        return;
       }
       setPhase({ tag: "connected", sftpId, cwd, selected: [] });
     } catch (e) {
-      setPhase({ tag: "error", message: String(e), errorCode: vaultErrorCode(e) ?? undefined, host });
+      // A session that opened but could not be used is never shown, so nothing else would close it.
+      if (sftpId) closeSftp(sftpId);
+      if (isCurrent()) setPhase({ tag: "error", message: String(e), errorCode: vaultErrorCode(e) ?? undefined, host });
     }
-  }, []);
+  }, [setPhaseOf, closeSftp]);
 
   useEffect(() => {
     if (!sftpPanelOpen || !pendingSftpConnectionId) return;
@@ -103,34 +124,22 @@ export default function SFTPPage() {
     clearPendingSftpConnection();
     const host: HostChoice = { kind: "remote", connection: conn };
     setLeftHost(host);
-    connectSide(host, setLeftPhase);
+    connectSide(host, "left");
   }, [sftpPanelOpen, pendingSftpConnectionId, clearPendingSftpConnection, connectSide]);
 
-  const disconnectSide = useCallback((setPhase: React.Dispatch<React.SetStateAction<SidePhase>>, currentPhase: SidePhase) => {
-    if (currentPhase.tag === "connected" && currentPhase.sftpId) {
-      openSftpIds.current.delete(currentPhase.sftpId);
-      sftpClose(currentPhase.sftpId).catch(() => {});
-    }
-    setPhase({ tag: "picking" });
-  }, []);
+  const disconnectSide = useCallback((side: Side, currentPhase: SidePhase) => {
+    currentConnect.current[side] = null;
+    if (currentPhase.tag === "connected" && currentPhase.sftpId) closeSftp(currentPhase.sftpId);
+    setPhaseOf(side)({ tag: "picking" });
+  }, [setPhaseOf, closeSftp]);
 
   // ── Auto-reconnect on error ────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (leftPhase.tag === "error" && leftPhase.host) {
-      const host = leftPhase.host;
-      const t = setTimeout(() => connectSide(host, setLeftPhase), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [leftPhase, connectSide]);
-
-  useEffect(() => {
-    if (rightPhase.tag === "error" && rightPhase.host) {
-      const host = rightPhase.host;
-      const t = setTimeout(() => connectSide(host, setRightPhase), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [rightPhase, connectSide]);
+  const reconnectSide = (side: Side, phase: SidePhase) => () => {
+    if (phase.tag === "error" && phase.host) void connectSide(phase.host, side);
+  };
+  useConnectRetry(leftPhase, reconnectSide("left", leftPhase));
+  useConnectRetry(rightPhase, reconnectSide("right", rightPhase));
 
   // ── Detect remote connection loss via Rust sftp-closed event ──────────────
 
@@ -168,18 +177,17 @@ export default function SFTPPage() {
 
     if (src.tag !== "connected" || dst.tag !== "connected") return;
 
-    const dstBase  = targetFolder ?? dst.cwd;
-    const destPath = `${dstBase.replace(/\/$/, "")}/${file.name}`;
+    const dstBase = targetFolder ?? dst.cwd;
     const srcIsLocal = srcHost?.kind === "local";
     const dstIsLocal = dstHost?.kind === "local";
 
-    await runTransfer(file.name, dir, (tid) => transferItem({
+    await runTransfer(file.name, dir, async (tid) => transferItem({
       from: srcIsLocal ? "local" : "remote",
       to: dstIsLocal ? "local" : "remote",
       srcSftpId: src.sftpId ?? undefined,
       dstSftpId: dst.sftpId ?? undefined,
       srcPath: file.path,
-      dstPath: destPath,
+      dstPath: dstIsLocal && !srcIsLocal ? await localPathForRemoteName(dstBase, file.name) : joinPath(dstBase, file.name),
       isDir: file.isDir,
       useTar,
       transferId: tid,
@@ -200,12 +208,11 @@ export default function SFTPPage() {
     const dstBase    = targetFolder ?? dst.cwd;
     const srcIsLocal = srcHost?.kind === "local";
     const dstIsLocal = dstHost?.kind === "local";
-    const label      = files.length === 1 ? files[0].name : t("fileTransfer.common.itemsCount", { count: files.length });
+    const label      = batchLabel(files);
 
     if (srcIsLocal && dstIsLocal) {
       for (const file of files) {
-        const destPath = `${dstBase.replace(/\/$/, "")}/${file.name}`;
-        await runTransfer(file.name, dir, (tid) => fsCopy(file.path, destPath, tid), refreshDst);
+        await runTransfer(file.name, dir, (tid) => fsCopy(file.path, joinPath(dstBase, file.name), tid), refreshDst);
       }
     } else if (srcIsLocal && !dstIsLocal && dst.sftpId) {
       await runTransfer(label, dir, (tid) =>
@@ -250,7 +257,7 @@ export default function SFTPPage() {
 
     const conflicts = (
       await Promise.all(files.map(async (f) => {
-        const dstPath = `${dstBase.replace(/\/$/, "")}/${f.name}`;
+        const dstPath = joinPath(dstBase, f.name);
         const exists = dstIsLocal ? await fsExists(dstPath) : await sftpExists(dst.sftpId!, dstPath);
         return exists ? f : null;
       }))
@@ -383,29 +390,8 @@ export default function SFTPPage() {
     const host  = side === "left" ? leftHost  : rightHost;
     if (phase.tag !== "connected" || host?.kind === "local" || !phase.sftpId || files.length === 0) return;
     const dstDir = await pickLocalPath({ directory: true, title: t("fileTransfer.page.downloadToFolder") });
-    if (!dstDir) return;
-    const sftpId = phase.sftpId;
-    const base = dstDir.replace(/[\\/]$/, "");
-    const label = files.length === 1 ? files[0].name : t("fileTransfer.common.itemsCount", { count: files.length });
-    // Archives remotely + extracts locally, so both ends need tar.
-    const useTar = await tarUsable([sftpId], true);
-
-    if (useTar && files.length > 1) {
-      await runTransfer(label, "←", (tid) =>
-        sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir: base, transferId: tid }), undefined, true);
-      return;
-    }
-
-    for (const file of files) {
-      const sep = /\\/.test(base) ? "\\" : "/";
-      const localPath = `${base}${sep}${file.name}`;
-      await runTransfer(file.name, "←", (tid) => file.isDir
-        ? (useTar
-            ? sftpDownloadDirTar({ sftpId, remotePath: file.path, localPath, transferId: tid })
-            : sftpDownloadDir({ sftpId, remotePath: file.path, localPath, transferId: tid }))
-        : sftpDownload({ sftpId, remotePath: file.path, localPath, transferId: tid }), undefined, file.isDir && useTar);
-    }
-  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
+    if (dstDir) await downloadToLocal(files, phase.sftpId, dstDir);
+  }, [leftPhase, rightPhase, leftHost, rightHost]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
@@ -474,11 +460,11 @@ export default function SFTPPage() {
         <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-(--t-border)">
           <SidePane
             host={leftHost} phase={leftPhase} refreshTick={leftRefresh}
-            onPick={(h) => { setLeftHost(h); connectSide(h, setLeftPhase); }}
+            onPick={(h) => { setLeftHost(h); connectSide(h, "left"); }}
             onNavigate={(p) => setLeftPhase((prev) => prev.tag === "connected" ? { ...prev, cwd: p, selected: [] } : prev)}
             onSelect={(files) => setLeftPhase((prev) => prev.tag === "connected" ? { ...prev, selected: files } : prev)}
             onRefresh={() => setLeftRefresh((n) => n + 1)}
-            onChangeHost={() => { disconnectSide(setLeftPhase, leftPhase); setLeftHost(null); }}
+            onChangeHost={() => { disconnectSide("left", leftPhase); setLeftHost(null); }}
             side="left"
             onDropFiles={(files, fromSide, targetFolder) => { if (fromSide !== "panel") void triggerTransfer(files, fromSide, targetFolder); }}
             onTransferToTarget={(files) => void triggerTransfer(files, "left")}
@@ -503,11 +489,11 @@ export default function SFTPPage() {
         <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-(--t-border)">
           <SidePane
             host={rightHost} phase={rightPhase} refreshTick={rightRefresh}
-            onPick={(h) => { setRightHost(h); connectSide(h, setRightPhase); }}
+            onPick={(h) => { setRightHost(h); connectSide(h, "right"); }}
             onNavigate={(p) => setRightPhase((prev) => prev.tag === "connected" ? { ...prev, cwd: p, selected: [] } : prev)}
             onSelect={(files) => setRightPhase((prev) => prev.tag === "connected" ? { ...prev, selected: files } : prev)}
             onRefresh={() => setRightRefresh((n) => n + 1)}
-            onChangeHost={() => { disconnectSide(setRightPhase, rightPhase); setRightHost(null); }}
+            onChangeHost={() => { disconnectSide("right", rightPhase); setRightHost(null); }}
             side="right"
             onDropFiles={(files, fromSide, targetFolder) => { if (fromSide !== "panel") void triggerTransfer(files, fromSide, targetFolder); }}
             onTransferToTarget={(files) => void triggerTransfer(files, "right")}

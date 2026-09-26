@@ -4,17 +4,19 @@ import i18n from "@/i18n";
 import {
   ftpConnect, sftpClose, sftpCanonicalize, sftpListDir,
   sftpMkdir, sftpRename, sftpDelete, sftpTouch,
-  type RemoteFile,
 } from "@/services/sftp";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sftpConnectToConnection } from "@/services/sftpTarget";
-import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
+import { type FileEntry, genId, mapRemote } from "@/components/filetransfer/SFTPTypes";
+import { joinPath } from "@/components/filetransfer/moveTargetCore";
+import { vaultErrorCode, type VaultErrorCode } from "@/services/vaultErrors";
+import { useConnectRetry } from "@/hooks/useConnectRetry";
 import type { Connection } from "@/types";
 
 export type SftpPhase =
   | { tag: "connecting" }
   | { tag: "connected"; sftpId: string }
-  | { tag: "error"; message: string };
+  | { tag: "error"; message: string; errorCode?: VaultErrorCode };
 
 /** Parent of a POSIX path; "/" stays "/". */
 export function parentDir(path: string): string {
@@ -32,18 +34,6 @@ export function breadcrumbs(path: string): { name: string; path: string }[] {
   return out;
 }
 
-function mapRemote(f: RemoteFile): FileEntry {
-  return {
-    name: f.name,
-    path: f.path,
-    size: f.size,
-    isDir: f.is_dir,
-    modified: f.modified ?? undefined,
-    permissions: f.permissions ?? undefined,
-    isSymlink: f.is_symlink,
-  };
-}
-
 /** Standalone remote SFTP browser for one Connection: own SSH/SFTP connection, cwd nav,
  *  dir listing, file ops. Remote-only (no local FS). Transfers NOT handled here. */
 export function useSftpDir(connection: Connection | undefined) {
@@ -56,7 +46,6 @@ export function useSftpDir(connection: Connection | undefined) {
   const [retryTick, setRetryTick] = useState(0);
   const sftpIdRef = useRef<string | null>(null);
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
-  const reconnect = useCallback(() => setRetryTick((n) => n + 1), []);
 
   // Connect once per connection.
   useEffect(() => {
@@ -86,7 +75,7 @@ export function useSftpDir(connection: Connection | undefined) {
         setCwd(home || "/");
         setPhase({ tag: "connected", sftpId });
       } catch (e) {
-        if (!cancelled) setPhase({ tag: "error", message: String(e) });
+        if (!cancelled) setPhase({ tag: "error", message: String(e), errorCode: vaultErrorCode(e) ?? undefined });
       }
     })();
     return () => {
@@ -97,11 +86,8 @@ export function useSftpDir(connection: Connection | undefined) {
 
   // Auto-reconnect on error. Mobile backgrounding (e.g. SAF picker) freezes the
   // process and trips keepalive; retry so the drop self-heals instead of dead-ending.
-  useEffect(() => {
-    if (phase.tag !== "error") return;
-    const t = setTimeout(() => setRetryTick((n) => n + 1), 2000);
-    return () => clearTimeout(t);
-  }, [phase]);
+  const { retrying, reset: resetRetry } = useConnectRetry(phase, () => setRetryTick((n) => n + 1));
+  const reconnect = useCallback(() => { resetRetry(); setRetryTick((n) => n + 1); }, [resetRetry]);
 
   // Detect connection loss.
   useEffect(() => {
@@ -127,19 +113,18 @@ export function useSftpDir(connection: Connection | undefined) {
   const navigate = useCallback((p: string) => { setCwd(p); }, []);
   const goUp = useCallback(() => setCwd((c) => parentDir(c)), []);
   const mkdir = useCallback(async (name: string) => {
-    if (sftpId) { await sftpMkdir(sftpId, `${cwd.replace(/\/$/, "")}/${name}`); refresh(); }
+    if (sftpId) { await sftpMkdir(sftpId, joinPath(cwd, name)); refresh(); }
   }, [sftpId, cwd, refresh]);
   const touch = useCallback(async (name: string) => {
-    if (sftpId) { await sftpTouch(sftpId, `${cwd.replace(/\/$/, "")}/${name}`); refresh(); }
+    if (sftpId) { await sftpTouch(sftpId, joinPath(cwd, name)); refresh(); }
   }, [sftpId, cwd, refresh]);
   const rename = useCallback(async (f: FileEntry, newName: string) => {
     if (!sftpId) return;
-    const dir = f.path.slice(0, f.path.lastIndexOf("/"));
-    await sftpRename(sftpId, f.path, `${dir}/${newName}`); refresh();
+    await sftpRename(sftpId, f.path, joinPath(parentDir(f.path), newName)); refresh();
   }, [sftpId, refresh]);
   const remove = useCallback(async (f: FileEntry) => {
     if (sftpId) { await sftpDelete(sftpId, f.path); refresh(); }
   }, [sftpId, refresh]);
 
-  return { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
+  return { phase, retrying, sftpId, cwd, entries, listing, listError, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
 }

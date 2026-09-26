@@ -126,7 +126,8 @@
       "compareHint": "Выберите по одному файлу с каждой стороны для сравнения",
       "selectFilesToUpload": "Выберите файлы для загрузки",
       "downloadToFolder": "Скачать в папку",
-      "connectionLost": "Подключение потеряно"
+      "connectionLost": "Подключение потеряно",
+      "moveSourceNotDeleted": "Скопировано, но не удалось удалить исходный файл {{names}}: {{error}}"
     },
     "queue": {
       "title": "Передачи",

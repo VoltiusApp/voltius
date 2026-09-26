@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { appCacheDir } from "@tauri-apps/api/path";
 import { breadcrumbs, type useSftpDir } from "@/services/useSftpDir";
 import { formatSize, formatPermissions, formatDate, type FileEntry } from "@/components/filetransfer/SFTPTypes";
+import { checkRemoteName, localPathForRemoteName } from "@/components/filetransfer/remoteName";
 import { sftpDownload, sftpDownloadDir } from "@/services/sftp";
 import { useIsAndroid } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
@@ -35,7 +36,7 @@ export default function MobileSftpPane({
   onClearSelect: () => void;
 }) {
   const { t } = useTranslation();
-  const { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, reconnect, mkdir, touch, rename, remove } = controller;
+  const { phase, retrying, sftpId, cwd, entries, listing, listError, navigate, goUp, reconnect, mkdir, touch, rename, remove } = controller;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
   const [showHidden, setShowHidden] = useState(false);
@@ -80,6 +81,7 @@ export default function MobileSftpPane({
         return;
       }
       await runTransfer(f.name, "←", async (tid) => {
+        await checkRemoteName(f.name);
         const tmp = await downloadTempPath(tid, f.name);
         await (f.isDir
           ? sftpDownloadDir({ sftpId, remotePath: f.path, localPath: tmp, transferId: tid })
@@ -88,11 +90,12 @@ export default function MobileSftpPane({
       });
       return;
     }
-    const base = (await appCacheDir()).replace(/\/$/, "");
-    const localPath = `${base}/${f.name}`;
-    await runTransfer(f.name, "←", (tid) => (f.isDir
-      ? sftpDownloadDir({ sftpId, remotePath: f.path, localPath, transferId: tid })
-      : sftpDownload({ sftpId, remotePath: f.path, localPath, transferId: tid })));
+    await runTransfer(f.name, "←", async (tid) => {
+      const localPath = await localPathForRemoteName(await appCacheDir(), f.name);
+      await (f.isDir
+        ? sftpDownloadDir({ sftpId, remotePath: f.path, localPath, transferId: tid })
+        : sftpDownload({ sftpId, remotePath: f.path, localPath, transferId: tid }));
+    });
   };
 
   if (!connection) {
@@ -143,7 +146,7 @@ export default function MobileSftpPane({
           <div className="flex flex-col items-center gap-3 pt-10 px-6 text-center text-(--t-text-dim)">
             <Icon icon="lucide:wifi-off" width={26} className="text-(--t-status-error)" />
             <span className="text-sm text-(--t-status-error)">{phase.message}</span>
-            <span className="text-xs text-(--t-text-dim)">{t("mobile.sftp.reconnecting")}</span>
+            {retrying && <span className="text-xs text-(--t-text-dim)">{t("mobile.sftp.reconnecting")}</span>}
             <button data-sftp-reconnect onClick={reconnect} className="text-sm px-4 py-2 rounded-xl"
               style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>{t("mobile.sftp.reconnectNow")}</button>
           </div>

@@ -1,12 +1,25 @@
 import type { HostChoice } from "@/components/shared/HostPickerPanel";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
 import type { VaultErrorCode } from "@/services/vaultErrors";
+import type { RemoteFile } from "@/services/sftp";
 export type { HostChoice };
 
 export type FileEntry = {
   name: string; path: string; size: number; isDir: boolean;
   modified?: number; permissions?: number; isSymlink?: boolean;
 };
+
+export function mapRemote(f: RemoteFile): FileEntry {
+  return {
+    name: f.name,
+    path: f.path,
+    size: f.size,
+    isDir: f.is_dir,
+    modified: f.modified ?? undefined,
+    permissions: f.permissions ?? undefined,
+    isSymlink: f.is_symlink,
+  };
+}
 
 export type SortCol = "name" | "size" | "modified" | "permissions";
 export type SortDir = "asc" | "desc";

@@ -7,22 +7,25 @@ import { tarUsableForPair } from "./tarSupport";
 import { copyNameCandidate } from "./copyNameCandidate";
 import { sameHost } from "@/stores/fileClipboardStore";
 import { runIntraPaneMove } from "./moveService";
+import { joinPath } from "./moveTargetCore";
+import { checkRemoteName } from "./remoteName";
 import {
   fsExists, sftpExists, fsRename, sftpRename, fsDelete, sftpDelete,
 } from "@/services/sftp";
+import i18n from "@/i18n";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 export interface PasteDeps {
   existsInDest: (name: string) => Promise<boolean>;
   copyTarget: (t: TransferTarget) => Promise<void>;
   moveSameHost: (items: FileEntry[], destDir: string) => Promise<void>;
   deleteSource: (path: string) => Promise<void>;
+  /** A cut was copied but these originals could not be deleted; `error` is the first failure. */
+  reportUndeleted: (names: string[], error: string) => void;
   setPending: (p: PendingTransferAction | null) => void;
   refresh: () => void;
   clearClipboard: () => void;
 }
-
-const joinDir = (dir: string, name: string) =>
-  `${dir === "/" ? "" : dir.replace(/\/$/, "")}/${name}`;
 
 // Pick the first non-colliding Explorer name. startN=1 forces a "- Copy" for
 // same-folder pastes; 0 keeps the original name when the folder differs.
@@ -32,7 +35,7 @@ async function uniqueTarget(item: FileEntry, destCwd: string, startN: number, ex
   while (true) {
     const name = copyNameCandidate(item.name, item.isDir, n);
     if (!(await existsInDest(name))) {
-      return { srcPath: item.path, dstPath: joinDir(destCwd, name), isDir: item.isDir, name };
+      return { srcPath: item.path, dstPath: joinPath(destCwd, name), isDir: item.isDir, name };
     }
     n++;
   }
@@ -63,17 +66,26 @@ export async function executePaste(clip: NonNullable<FileClipboard>, dest: FileE
   const conflictPaths = new Set(conflicts.map((f) => f.path));
 
   const run = async (chosen: FileEntry[]) => {
+    const undeleted: string[] = [];
+    let firstError = "";
     for (const item of chosen) {
-      const target: TransferTarget = { srcPath: item.path, dstPath: joinDir(dest.cwd, item.name), isDir: item.isDir, name: item.name };
+      const target: TransferTarget = { srcPath: item.path, dstPath: joinPath(dest.cwd, item.name), isDir: item.isDir, name: item.name };
       try {
         await deps.copyTarget(target);
       } catch {
         continue; // copy failed → keep the source, skip delete
       }
-      await deps.deleteSource(item.path);
+      try {
+        await deps.deleteSource(item.path);
+      } catch (e) {
+        // The copy landed, so the item now exists twice; carry on and say which.
+        if (undeleted.length === 0) firstError = String(e);
+        undeleted.push(item.name);
+      }
     }
     deps.refresh();
     deps.clearClipboard();
+    if (undeleted.length > 0) deps.reportUndeleted(undeleted, firstError);
   };
 
   if (conflicts.length > 0) {
@@ -101,19 +113,23 @@ export function buildPasteDeps(
   const existsAt = (ep: FileEndpoint, path: string) => (ep.isLocal ? fsExists(path) : sftpExists(ep.sftpId!, path));
 
   return {
-    existsInDest: (name) => existsAt(dest, joinDir(dest.cwd, name)),
+    existsInDest: (name) => existsAt(dest, joinPath(dest.cwd, name)),
     copyTarget: async (target) => {
       let ok = false;
       const useTar = await tarUsableForPair(src, dest);
       await wiring.runTransfer(
         target.name, "→",
-        (tid) => transferItem({
-          from, to,
-          srcSftpId: src.sftpId ?? undefined,
-          dstSftpId: dest.sftpId ?? undefined,
-          srcPath: target.srcPath, dstPath: target.dstPath,
-          isDir: target.isDir, useTar, transferId: tid,
-        }),
+        async (tid) => {
+          // The name comes from the server listing; it must not climb out of the local folder.
+          if (from === "remote" && to === "local") await checkRemoteName(target.name);
+          return transferItem({
+            from, to,
+            srcSftpId: src.sftpId ?? undefined,
+            dstSftpId: dest.sftpId ?? undefined,
+            srcPath: target.srcPath, dstPath: target.dstPath,
+            isDir: target.isDir, useTar, transferId: tid,
+          });
+        },
         () => { ok = true; },
         target.isDir && useTar,
       );
@@ -128,6 +144,15 @@ export function buildPasteDeps(
         onRefresh: () => { wiring.refresh(); wiring.clearClipboard(); },
       }),
     deleteSource: (p) => (src.isLocal ? fsDelete(p) : sftpDelete(src.sftpId!, p)),
+    reportUndeleted: (names, error) => {
+      useNotificationStore.getState().addToast({
+        source: { kind: "plugin", id: "system", name: "Voltius" },
+        type: "toast",
+        message: i18n.t("fileTransfer.page.moveSourceNotDeleted", { names: names.join(", "), error }),
+        severity: "error",
+        duration: 8000,
+      });
+    },
     setPending: wiring.setPending,
     refresh: wiring.refresh,
     clearClipboard: wiring.clearClipboard,
