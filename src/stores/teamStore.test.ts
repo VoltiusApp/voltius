@@ -58,6 +58,23 @@ test("loadTeams failure clears loading and leaves teams intact", async () => {
   expect(get().teams.map((t) => t.id)).toEqual(["t1"]); // pre-existing teams preserved on error
 });
 
+test("createTeam stores the listed row, since the create reply has no role_ids or owner_tier", async () => {
+  api.createTeam.mockResolvedValue({ id: "t1", name: "Ops", owner_id: "o", created_at: "" });
+  api.listTeams.mockResolvedValue([team("t1", ["owner"])]);
+  api.listRoles.mockResolvedValue([role("owner", 5)]);
+  const created = await get().createTeam("Ops");
+  expect(created.id).toBe("t1");
+  expect(get().teams).toEqual([team("t1", ["owner"])]);
+  expect(get().activeTeamId).toBe("t1");
+});
+
+test("createTeam keeps a row with empty role_ids when the team list cannot be refetched", async () => {
+  api.createTeam.mockResolvedValue({ id: "t1", name: "Ops", owner_id: "o", created_at: "" });
+  api.listTeams.mockRejectedValue(new Error("offline"));
+  await get().createTeam("Ops");
+  expect(get().teams.map((t) => [t.id, t.role_ids])).toEqual([["t1", []]]);
+});
+
 test("loadMembers / loadRoles store by team id", async () => {
   api.listMembers.mockResolvedValue([member("u1")]);
   api.listRoles.mockResolvedValue([role("r1", 5)]);
