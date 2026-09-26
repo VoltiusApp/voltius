@@ -22,7 +22,7 @@ vi.mock("@/stores/sessionStore", () => ({ getSessionTransportType: io.getSession
 vi.mock("@/services/teamService", () => svc);
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
-import { useTeamSessionStore } from "./teamSessionStore.ts";
+import { attachGuestOutput, useTeamSessionStore } from "./teamSessionStore.ts";
 
 const connStub = () => ({
   close: vi.fn(), requestControl: vi.fn(), grantControl: vi.fn(), revokeControl: vi.fn(),
@@ -157,4 +157,48 @@ test("joinSession calls openWebSocket with no identity string among its argument
   const args = mp.openWebSocket.mock.calls[0];
   expect(args).toContain(sessionKey);
   assertOpenWebSocketArgsCarryNoIdentity(args, ["https://s", "m1", "jwt"]);
+});
+
+// Regression guard: a guest's output was written straight to the terminal view,
+// so whatever the host sent before the view mounted (its initial snapshot) was
+// dropped — the replay buffer meant to catch it was never filled.
+test("a guest's output that arrives before its terminal attaches is replayed, in order", async () => {
+  let cb: any;
+  mp.openWebSocket.mockImplementation((...args: any[]) => {
+    cb = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
+    return connStub();
+  });
+  const localId = await get().joinSession("m1", () => {});
+  const chunk = (b: number) => new Uint8Array([b]);
+
+  cb.onOutput(chunk(1));
+  cb.onOutput(chunk(2));
+  const written: number[] = [];
+  const detach = attachGuestOutput(localId, (d) => written.push(...d));
+  expect(written).toEqual([1, 2]);
+
+  cb.onOutput(chunk(3));
+  expect(written).toEqual([1, 2, 3]);
+
+  detach();
+  cb.onOutput(chunk(4));
+  const rewritten: number[] = [];
+  attachGuestOutput(localId, (d) => rewritten.push(...d));
+  expect(rewritten).toEqual([4]);
+});
+
+test("leaving a guest session drops the output held for it", async () => {
+  let cb: any;
+  mp.openWebSocket.mockImplementation((...args: any[]) => {
+    cb = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
+    return connStub();
+  });
+  const localId = await get().joinSession("m1", () => {});
+  cb.onOutput(new Uint8Array([1]));
+  get().leaveSession(localId);
+  cb.onOutput(new Uint8Array([2]));
+
+  const write = vi.fn();
+  attachGuestOutput(localId, write);
+  expect(write).not.toHaveBeenCalled();
 });

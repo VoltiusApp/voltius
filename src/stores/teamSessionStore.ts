@@ -82,9 +82,29 @@ export interface MultiplayerSessionState {
   // Invite-link sessions only. Retained because the server returns it once, at
   // creation: without it a host who reopens ShareMenu can never see the link again.
   inviteToken?: string;
-  // Runtime-only wiring between the terminal view and store; never persisted.
-  _termWrite?: (data: Uint8Array) => void;
-  _pendingOutput?: Uint8Array;
+}
+
+/** Where each guest session's incoming output goes. The terminal view attaches
+ *  once its xterm exists; output that lands before that — the host's initial
+ *  snapshot, typically — is held and replayed on attach instead of dropped. */
+const guestOutput = new Map<string, { write: ((data: Uint8Array) => void) | null; pending: Uint8Array[] }>();
+
+function deliverGuestOutput(localSessionId: string, data: Uint8Array) {
+  const sink = guestOutput.get(localSessionId);
+  if (sink?.write) sink.write(data);
+  else if (sink) sink.pending.push(data);
+  else guestOutput.set(localSessionId, { write: null, pending: [data] });
+}
+
+/** Send a guest session's output to `write`, starting with whatever was held
+ *  for it. Returns the detach. */
+export function attachGuestOutput(localSessionId: string, write: (data: Uint8Array) => void): () => void {
+  for (const data of guestOutput.get(localSessionId)?.pending ?? []) write(data);
+  const sink = { write, pending: [] };
+  guestOutput.set(localSessionId, sink);
+  return () => {
+    if (guestOutput.get(localSessionId) === sink) guestOutput.delete(localSessionId);
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -219,8 +239,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
 
     const conn = mp.openWebSocket(serverUrl, multiplayerSessionId, jwt, sessionKey, {
       onOutput: (data) => {
-        const conn = get().connections[localSessionId];
-        conn?._termWrite?.(data);
+        if (get().connections[localSessionId]) deliverGuestOutput(localSessionId, data);
       },
       onInput: () => {},
       onControlUpdate: (holderId, requesterId) => {
@@ -284,6 +303,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
   leaveSession: (localSessionId) => {
     const state = get().connections[localSessionId];
     if (state) state.connection.close();
+    guestOutput.delete(localSessionId);
     set((s) => {
       const next = { ...s.connections };
       delete next[localSessionId];

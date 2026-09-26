@@ -8,6 +8,7 @@ import type { RunTarget } from "@/services/sftpTarget";
 import { readSyncProviderInputs, type LoadedPluginSource } from "@/services/syncProviderInputs";
 import { buildSyncProviders, toSyncProviderSummary } from "@/services/syncProviders";
 import { writeClipboard } from "@/utils/clipboard";
+import { encodeTerminalInput } from "@/utils/terminalEncoding";
 import { log as appLog } from "@/lib/logger";
 import i18n from "@/i18n";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
@@ -919,7 +920,7 @@ async function writeSessionBytes(sessionId: string, text: string): Promise<void>
   const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
   if (!session) throw new Error(`Session "${sessionId}" not found`);
   if (!hasInputControl(sessionId)) throw new Error(`Session "${sessionId}" is controlled by another participant`);
-  await sendSessionInput(sessionId, session.type as "ssh" | "local" | "serial", new TextEncoder().encode(text));
+  await sendSessionInput(sessionId, session.type as "ssh" | "local" | "serial", encodeTerminalInput(text, session.encoding));
 }
 
 function createPluginAPI(manifest: PluginManifest): PluginAPI {

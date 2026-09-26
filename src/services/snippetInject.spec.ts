@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   targets: [] as Pick<TerminalSession, "id" | "type">[],
   paste: vi.fn(async (_id: string, _text: string) => true),
   send: vi.fn(async (_id: string, _type: string, _data: Uint8Array) => {}),
+  sessions: [] as Pick<TerminalSession, "id" | "encoding">[],
 }));
 vi.mock("@/stores/layoutStore", () => ({ broadcastActiveForSession: (id: string) => h.broadcasting.has(id) }));
 vi.mock("@/services/broadcast", () => ({
@@ -15,6 +16,7 @@ vi.mock("@/services/broadcast", () => ({
 }));
 vi.mock("@/services/terminalPaste", () => ({ pasteToSession: h.paste }));
 vi.mock("@/services/sessionInput", () => ({ sendSessionInput: h.send }));
+vi.mock("@/stores/sessionStore", () => ({ useSessionStore: { getState: () => ({ sessions: h.sessions }) } }));
 
 import { broadcastSnippetInject, snippetInject } from "./snippetInject";
 
@@ -25,8 +27,15 @@ describe("snippetInject", () => {
     h.broadcasting = new Set();
     h.controlledElsewhere = new Set();
     h.targets = [];
+    h.sessions = [];
     h.paste.mockClear();
     h.send.mockClear();
+  });
+
+  it("execute encodes the command in the session's terminal encoding", async () => {
+    h.sessions = [{ id: "s1", encoding: "gbk" }];
+    await snippetInject("s1", "ssh", "echo 中", true);
+    expect(Array.from(h.send.mock.calls[0][2])).toEqual([...new TextEncoder().encode("echo "), 0xd6, 0xd0, 0x0a]);
   });
 
   it("insert pastes a multi-line snippet instead of writing raw bytes", async () => {

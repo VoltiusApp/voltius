@@ -38,6 +38,7 @@ import { useLayoutStore } from "./layoutStore";
 import { useTerminalCwdStore } from "./terminalCwdStore";
 import { usePanelSftpStore } from "./panelSftpStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
+import { encodeTerminalInput } from "@/utils/terminalEncoding";
 import { cancelBackoff, isSessionEnded, type ReconnectWait } from "./reconnectBackoffCore";
 import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostCommand";
 import { runHostCommand } from "@/services/hostCommandRun";
@@ -717,11 +718,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   connectAt: async (connectionId, cwd) => {
     await get().connect(connectionId);
-    const sessionId = get().activeSessionId;
-    if (sessionId) {
+    const session = get().sessions.find((s) => s.id === get().activeSessionId);
+    if (session) {
       // Brief delay so the shell prompt has time to appear before we send cd
       await new Promise((r) => setTimeout(r, 400));
-      await sshSendInput(sessionId, new TextEncoder().encode(`cd "${cwd}"\r`));
+      await sshSendInput(session.id, encodeTerminalInput(`cd "${cwd}"\r`, session.encoding));
     }
     useUIStore.getState().setActiveNav("terminal");
     useUIStore.getState().setSidebarOpen(false);
