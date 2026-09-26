@@ -273,9 +273,8 @@ async function connectSshSession(
     throw new Error(preflightError);
   }
 
-  const opts = await buildSshConnectOptions(connection, sessionId);
-
   try {
+    const opts = await buildSshConnectOptions(connection, sessionId);
     await withSessionConnectLock(sessionId, () =>
       sshConnect({
         sessionId,
