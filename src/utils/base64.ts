@@ -1,12 +1,10 @@
-// btoa/atob work on "binary strings", one char per byte. Spreading a whole
-// buffer into String.fromCharCode overflows the argument stack (RangeError)
-// somewhere past ~100 KB, so the string is built in chunks.
+// Spreading a whole buffer into String.fromCharCode overflows the argument stack past ~100 KB.
 const CHUNK = 8192;
 
 export function bytesToBase64(bytes: Uint8Array | number[]): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.slice(i, i + CHUNK));
+    binary += String.fromCharCode(...(bytes instanceof Uint8Array ? bytes.subarray(i, i + CHUNK) : bytes.slice(i, i + CHUNK)));
   }
   return btoa(binary);
 }

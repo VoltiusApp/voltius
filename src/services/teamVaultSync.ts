@@ -37,7 +37,7 @@ import {
 } from "@/services/teamVaultRefresh";
 import { classifyTeamObjectListError } from "@/services/teamVaultLoadErrors";
 import {
-  base64ToBytes,
+  base64ToByteArray,
   bytesToBase64,
   parseTeamVaultBlobFiles,
 } from "@/services/teamVaultSyncCore";
@@ -533,7 +533,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     const { blob: blobB64, key_version: blobVersion } = await res.json() as {
       blob: string; updated_at: string; key_version: number;
     };
-    const blobBytes = base64ToBytes(blobB64);
+    const blobBytes = base64ToByteArray(blobB64);
     const currentVersion = getCachedTeamKeyVersion(teamId);
     const blobKey = currentVersion !== undefined && blobVersion !== currentVersion
       ? await getTeamVaultKeyAtVersion(teamId, blobVersion)
@@ -596,7 +596,7 @@ export async function reencryptLegacyBlobIfStale(teamId: string, currentVersion:
   if (blobVersion >= currentVersion) return; // already current or ahead — nothing to do
 
   const oldKey = await getTeamVaultKeyAtVersion(teamId, blobVersion);
-  const blobPayload = await invoke<BlobPayload>("backup_decrypt", { encKey: oldKey, blob: base64ToBytes(blobB64) });
+  const blobPayload = await invoke<BlobPayload>("backup_decrypt", { encKey: oldKey, blob: base64ToByteArray(blobB64) });
   const reencrypted: number[] = await invoke("encrypt_payload", {
     encKey: currentKey,
     files: blobPayload.files,

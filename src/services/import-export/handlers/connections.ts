@@ -3,7 +3,7 @@ import type { Connection, JumpHost } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
-import { existingConnectionsForVault, selectionMethods, skipItem } from "../context";
+import { dupesOf, selectionMethods, skipItem } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { fetchConnectionSecrets, storeConnectionSecrets, resolveConnectionKeyEid, resolveConnectionKeyId } from "../secretsLogic";
 
@@ -49,7 +49,6 @@ export const connectionsHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
-    const existingConnections = existingConnectionsForVault(ctx.existingConnections, ctx.vault_id);
 
     // Topological sort: connections whose jump host deps are already resolved come first.
     const pending = [...bundle.connections];
@@ -75,20 +74,7 @@ export const connectionsHandler: DataTypeHandler = {
     return { imported, errors };
 
     async function importOne(conn: ConnectionExport) {
-      const existing = existingConnections.find(c => c.host === conn.host && c.port === conn.port && c.username === conn.username);
-      if (skipItem(ctx, conn, existing?.id, ctx.connectionEidMap)) {
-        // Best-effort: move a deduplicated connection into the imported folder.
-        // One the user chose to skip stays where it is.
-        const newFolderId = conn._folder_eid ? ctx.folderEidMap.get(conn._folder_eid) : undefined;
-        if (!ctx.skipped && existing && newFolderId) {
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { id, created_at, last_used_at, updated_at, deleted_at, clocks, distro, ...existingPassthrough } = existing;
-            await ctx.stores.updateConnection(existing.id, { ...existingPassthrough, folder_id: newFolderId });
-          } catch { /* best-effort */ }
-        }
-        return;
-      }
+      if (skipItem(ctx, conn, dupesOf(ctx).connection(conn), ctx.connectionEidMap)) return;
       try {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { _eid, password, private_key, passphrase, _identity_eid, _key_eid, _folder_eid, tags, jump_hosts, ...passthrough } = conn;

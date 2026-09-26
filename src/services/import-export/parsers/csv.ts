@@ -51,7 +51,7 @@ export function connectionsFromCSV(text: string): ConnectionExport[] {
 
   const hostIdx = col("host") >= 0 ? col("host") : col("hostname");
   const usernameIdx = col("username") >= 0 ? col("username") : col("user");
-  if (hostIdx === -1 || usernameIdx === -1) {
+  if (hostIdx === -1) {
     throw new Error(i18n.t("common.error.csvMissingColumns"));
   }
 
@@ -59,8 +59,7 @@ export function connectionsFromCSV(text: string): ConnectionExport[] {
   for (let i = 1; i < lines.length; i++) {
     const row = parseCSVRow(lines[i]);
     const host = row[hostIdx]?.trim();
-    // An empty username is asked at login, as for a Termius host without one.
-    const username = row[usernameIdx]?.trim() ?? "";
+    const username = usernameIdx >= 0 ? row[usernameIdx]?.trim() ?? "" : "";
     if (!host) continue;
     connections.push({
       name: col("name") >= 0 ? row[col("name")]?.trim() || undefined : undefined,

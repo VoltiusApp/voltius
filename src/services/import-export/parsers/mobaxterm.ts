@@ -38,7 +38,6 @@ export function connectionsFromMobaXterm(text: string): ConnectionExport[] {
     // fields[0]=flags, [1]=host, [2]=port, [3]=username, [4]=auth
     const host = fields[1]?.trim();
     const port = parseInt(fields[2] ?? "22", 10) || 22;
-    // Sessions often leave the username to be asked at login; keep them.
     const username = fields[3]?.trim() ?? "";
     if (!host) continue;
 

@@ -125,10 +125,10 @@ describe("runImport — empty folders", () => {
     expect(saved.map((d) => [d.name, d.parent_folder_id])).toEqual([["Empty", undefined], ["Child", "id-Empty"]]);
   });
 
-  it("still skips unreferenced folders when deduplicating", async () => {
+  it("keeps empty folders when deduplicating, as the import screen does", async () => {
     const { ctx, saved } = ctxOf(true);
     await runImport(bundle, ctx);
-    expect(saved).toEqual([]);
+    expect(saved.map((d) => d.name)).toEqual(["Empty", "Child"]);
   });
 
   it("reuses a matching folder the vault already has instead of duplicating it", async () => {
@@ -212,13 +212,12 @@ describe("runImport — references to skipped duplicates", () => {
       vault_id: "personal", tag: "", skipDupes: opts.skipDupes ?? false, skipped: opts.skipped,
       existingConnections: [conn({ id: "have-bastion", host: "bastion", username: "root" })],
       existingKeys: [{ id: "have-key", name: "deploy-key", vault_id: "personal" } as SshKey],
-      existingIdentities: [{ id: "have-identity", name: "deploy", vault_id: "personal" } as Identity],
+      existingIdentities: [{ id: "have-identity", name: "deploy", username: "root", vault_id: "personal" } as Identity],
       existingSnippets: [{ id: "have-helper", name: "helper", vault_id: "personal" } as Snippet],
       existingPfRules: [], existingFolders: [],
       stores: {
         saveKey: save, saveIdentity: save, saveConnection: save, createSnippet: save,
         updateSnippet: async (_: string, d: Saved) => { saved.set(d.name, d); },
-        updateConnection: async () => { throw new Error("a skipped connection must stay where it is"); },
       } as unknown as ImportStores,
     });
     return { ctx, saved };
@@ -248,5 +247,20 @@ describe("runImport — references to skipped duplicates", () => {
     await runImport(bundle, ctx);
     expect([...saved.keys()]).toEqual(["deploy", "web", "caller"]);
     expect(saved.get("web")!.identity_id).toBe("new-deploy");
+  });
+
+  it("does not take a same-named identity with another username for a duplicate", async () => {
+    const other = { ...identity, username: "admin" };
+    const { ctx, saved } = ctxOf({ skipDupes: true });
+    await runImport({ ...bundle, identities: [other] }, ctx);
+    expect(saved.has("deploy")).toBe(true);
+  });
+
+  it("matches a connection whose port was exported as a string", async () => {
+    const stringPort = { ...bastion, port: "22" };
+    const { ctx, saved } = ctxOf({ skipDupes: true });
+    await runImport({ ...bundle, connections: [stringPort, web] } as unknown as ExportBundle, ctx);
+    expect(saved.has("bastion")).toBe(false);
+    expect(saved.get("web")!.jump_hosts).toMatchObject([{ connection_id: "have-bastion" }]);
   });
 });

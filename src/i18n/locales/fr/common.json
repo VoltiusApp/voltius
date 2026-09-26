@@ -170,7 +170,7 @@
       "unsupportedUserDataVersion": "Version de données utilisateur non prise en charge : {{version}}",
       "failedToLoadLogs": "Échec du chargement des journaux",
       "couldNotDetectFormat": "Format non reconnu. Formats pris en charge : Voltius JSON, CSV, MobaXterm.ini / .mxtsessions, ou extraction Termius en direct.",
-      "csvMissingColumns": "Le CSV doit contenir au moins les colonnes 'host' et 'username'",
+      "csvMissingColumns": "Le CSV doit contenir une colonne 'host'",
       "termiusDumpInvalidJson": "Le fichier Termius doit être un JSON valide",
       "legacyTermiusUnsupported": "L'ancien format d'export Termius n'est plus pris en charge ; utilisez l'extraction automatique.",
       "termiusExtractionFormat": "L'extraction Termius doit renvoyer { version: 2, records: [...] }",

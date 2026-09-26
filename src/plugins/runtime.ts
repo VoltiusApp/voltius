@@ -142,6 +142,7 @@ import { fetchTeamData } from "@/services/teamVaultSync";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId, isValidPluginId } from "./pluginId";
 import { base64ToBytes, bytesToBase64 } from "@/utils/base64";
+import { base64ToByteArray } from "@/services/teamVaultSyncCore";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -2313,9 +2314,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         let bestThemeUpdatedAt: string | null = null;
 
         for (const b64 of blobs) {
-          const blobBytes: number[] = Array.from(
-            Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)),
-          );
+          const blobBytes = base64ToByteArray(b64);
           const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
           const remote = await invoke<BlobPayload>("backup_decrypt", {
             encKey: encKeyBytes,

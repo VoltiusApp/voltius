@@ -32,7 +32,7 @@ import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { parseUsingEvent } from "@/services/presenceEvent";
-import { bytesToBase64, base64ToBytes } from "@/services/teamVaultSyncCore";
+import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 
 export interface BlobPayload {
   files: Record<string, string>;
@@ -487,7 +487,7 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
   if (!res.ok) return false; // skip unreachable devices
 
   const { blob: blobB64 } = await res.json();
-  const blobBytes = base64ToBytes(blobB64);
+  const blobBytes = base64ToByteArray(blobB64);
 
   const rawRemotePayload = await decryptBlobWithFallback(blobBytes);
   const remotePayload = filterRemoteExcluded(
@@ -665,7 +665,7 @@ export async function syncOnLoginReplace(): Promise<void> {
         if (res.status === 404 || !res.ok) continue;
 
         const { blob: blobB64 } = await res.json();
-        const blobBytes = base64ToBytes(blobB64);
+        const blobBytes = base64ToByteArray(blobB64);
         const remotePayload = filterRemoteExcluded(
           await decryptBlobWithFallback(blobBytes),
           excludedIds,

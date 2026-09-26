@@ -14,4 +14,8 @@ describe("connectionsFromCSV", () => {
       ["db", "db.example.com", 22, ""],
     ]);
   });
+
+  it("accepts a file with no username column", () => {
+    expect(connectionsFromCSV("host,port\nweb.example.com,22").map((c) => [c.host, c.username])).toEqual([["web.example.com", ""]]);
+  });
 });
