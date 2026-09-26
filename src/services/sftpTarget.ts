@@ -1,6 +1,6 @@
 import { sftpOpen, sftpConnect } from "@/services/sftp";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
-import { resolveProxy } from "@/services/proxy";
+import { resolveFirstHopProxy } from "@/services/proxy";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { genId } from "@/components/filetransfer/SFTPTypes";
@@ -31,7 +31,7 @@ export async function sftpConnectToConnection(conn: Connection, connectId: strin
   const [creds, jumpHosts, proxy] = await Promise.all([
     resolveConnectionCredentials(conn),
     resolveJumpHosts(conn),
-    resolveProxy(conn),
+    resolveFirstHopProxy(conn),
   ]);
   const ka = resolveKeepalive(conn.keepalive_preset ?? getGlobalKeepalivePreset());
   return sftpConnect({

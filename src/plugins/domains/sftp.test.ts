@@ -34,6 +34,7 @@ vi.mock("@/services/credentials", () => ({
   resolveJumpHosts: vi.fn(async () => []),
 }));
 vi.mock("@/utils/keepalive", () => ({ resolveKeepalive: () => ({ intervalSecs: 30, max: 3 }) }));
+vi.mock("@/services/proxy", () => ({ resolveFirstHopProxy: vi.fn(async () => null) }));
 vi.mock("@/stores/connectivitySettingsStore", () => ({ getGlobalKeepalivePreset: () => "default" }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 vi.mock("@tauri-apps/api/path", () => ({ appCacheDir: vi.fn(async () => "/cache") }));

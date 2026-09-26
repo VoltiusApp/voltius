@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
 vi.mock("@/services/credentials", () => ({ resolveJumpHosts: async () => [{ host: "j" }] }));
-const resolveProxy = vi.fn(async (..._a: unknown[]) => null as unknown);
-vi.mock("@/services/proxy", () => ({ resolveProxy: (...a: unknown[]) => resolveProxy(...a) }));
+const resolveFirstHopProxy = vi.fn(async (..._a: unknown[]) => null as unknown);
+vi.mock("@/services/proxy", () => ({ resolveFirstHopProxy: (...a: unknown[]) => resolveFirstHopProxy(...a) }));
 
 const { probeTarget, PROBE_TIMEOUT_MS } = await import("./probe");
 import type { PingTarget } from "./pingTargets";
@@ -23,8 +23,8 @@ function target(over: Partial<PingTarget> = {}): PingTarget {
 
 beforeEach(() => {
   invoke.mockReset();
-  resolveProxy.mockReset();
-  resolveProxy.mockResolvedValue(null);
+  resolveFirstHopProxy.mockReset();
+  resolveFirstHopProxy.mockResolvedValue(null);
 });
 
 describe("probeTarget", () => {
@@ -82,7 +82,7 @@ describe("probeTarget", () => {
 
   test("sends the host's proxy to ping_host", async () => {
     invoke.mockResolvedValue(12);
-    resolveProxy.mockResolvedValue({ kind: "system" });
+    resolveFirstHopProxy.mockResolvedValue({ kind: "system" });
     await probeTarget(target());
     expect(invoke).toHaveBeenCalledWith("ping_host", { host: "h1", port: 22, proxy: { kind: "system" } });
   });

@@ -22,7 +22,7 @@ import { getGlobalKeepalivePreset, resolvePersistSession } from "@/stores/connec
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect, serialSetLine } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
-import { resolveProxy, type ProxySpec } from "@/services/proxy";
+import { resolveFirstHopProxy, type ProxySpec } from "@/services/proxy";
 import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/ephemeralCredentials";
 import { storeSecret, getSecret } from "@/services/vault";
 import { vaultErrorCode, type VaultErrorCode } from "@/services/vaultErrors";
@@ -141,7 +141,7 @@ async function buildSshConnectOptions(
   cols?: number;
   rows?: number;
 }> {
-  const [jumpHosts, proxy] = await Promise.all([resolveJumpHosts(connection), resolveProxy(connection)]);
+  const [jumpHosts, proxy] = await Promise.all([resolveJumpHosts(connection), resolveFirstHopProxy(connection)]);
   const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
   const { intervalSecs, max } = resolveKeepalive(connection.keepalive_preset ?? getGlobalKeepalivePreset());
 

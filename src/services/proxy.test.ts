@@ -3,8 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const secrets: Record<string, string> = {};
 vi.mock("@/services/vault", () => ({ getSecret: async (k: string) => secrets[k] ?? null }));
 
-import { DEFAULT_PROXY_PORT, resolveProxy } from "./proxy";
+import { DEFAULT_PROXY_PORT, resolveFirstHopProxy, resolveProxy } from "./proxy";
 import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
+import { useConnectionStore } from "@/stores/connectionStore";
+import type { Connection, JumpHost } from "@/types";
 
 const TYPED_PW = ["typed", "pw"].join("-");
 
@@ -64,5 +66,51 @@ describe("resolveProxy", () => {
       { proxy: { mode: "socks5", host: "typed", port: 9 }, password: TYPED_PW },
     );
     expect(spec).toEqual({ kind: "socks5", host: "typed", port: 9, password: TYPED_PW });
+  });
+});
+
+describe("resolveFirstHopProxy", () => {
+  const conn = (id: string, over: Partial<Connection> = {}) =>
+    ({ id, host: `${id}.example`, port: 22, username: "root", auth_type: "password", tags: [], ...over }) as Connection;
+  const via = (connection_id: string, over: Partial<JumpHost> = {}): JumpHost => ({ id: `j-${connection_id}`, connection_id, ...over });
+
+  beforeEach(() => {
+    for (const k of Object.keys(secrets)) delete secrets[k];
+    setGlobal({ mode: "http", host: "global", port: 3128 });
+    useConnectionStore.setState({ connections: [], teamConnections: {} });
+  });
+
+  it("dials the first bastion through its own override when the target inherits", async () => {
+    secrets[["proxy_password", "bastion"].join(":")] = "bp";
+    useConnectionStore.setState({
+      connections: [conn("bastion", { proxy: { mode: "socks5", host: "bastion-proxy", port: 1080, username: "bu" } })],
+    });
+    expect(await resolveFirstHopProxy(conn("target", { jump_hosts: [via("bastion")] })))
+      .toEqual({ kind: "socks5", host: "bastion-proxy", port: 1080, username: "bu", password: "bp" });
+  });
+
+  it("uses the target's override when the bastion inherits", async () => {
+    useConnectionStore.setState({ connections: [conn("bastion")] });
+    const target = conn("target", { proxy: { mode: "direct" }, jump_hosts: [via("bastion")] });
+    expect(await resolveFirstHopProxy(target)).toEqual({ kind: "direct" });
+  });
+
+  it("matches resolveProxy when there are no jump hosts", async () => {
+    const target = conn("target", { proxy: { mode: "socks5", host: "t", port: 9 } });
+    expect(await resolveFirstHopProxy(target)).toEqual(await resolveProxy(target));
+    expect(await resolveFirstHopProxy(conn("plain"))).toEqual({ kind: "http", host: "global", port: 3128 });
+  });
+
+  it("an inline jump host with no managed connection uses the target's resolution", async () => {
+    const target = conn("target", { proxy: { mode: "system" }, jump_hosts: [via("gone", { host: "b", port: 22 })] });
+    expect(await resolveFirstHopProxy(target)).toEqual({ kind: "system" });
+  });
+
+  it("only the first jump decides the first hop", async () => {
+    useConnectionStore.setState({
+      connections: [conn("first"), conn("second", { proxy: { mode: "socks5", host: "second-proxy" } })],
+    });
+    const target = conn("target", { jump_hosts: [via("first"), via("second")] });
+    expect(await resolveFirstHopProxy(target)).toEqual({ kind: "http", host: "global", port: 3128 });
   });
 });

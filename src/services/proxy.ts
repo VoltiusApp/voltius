@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Connection, ProxyOverride } from "@/types";
 import i18n from "@/i18n";
 import { getSecret } from "@/services/vault";
+import { findConnection } from "@/services/credentials";
 import { getGlobalProxy } from "@/stores/connectivitySettingsStore";
 import { GLOBAL_PROXY_PASSWORD_KEY, proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 
@@ -42,6 +43,12 @@ export async function resolveProxy(
       };
     }
   }
+}
+
+export function resolveFirstHopProxy(conn: Connection): Promise<ProxySpec | null> {
+  const firstJump = conn.jump_hosts?.[0];
+  const bastion = firstJump ? findConnection(firstJump.connection_id) : undefined;
+  return resolveProxy(bastion?.proxy ? bastion : conn);
 }
 
 export interface DetectedProxy {
