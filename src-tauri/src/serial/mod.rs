@@ -1,4 +1,4 @@
 pub mod connect;
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod connect_tests;
