@@ -68,7 +68,24 @@
       "keychainIdentity": "密钥链身份",
       "passphrase": "口令",
       "optional": "（可选）",
-      "keyPassphrasePlaceholder": "密钥口令"
+      "keyPassphrasePlaceholder": "密钥口令",
+      "proxy": {
+        "label": "代理",
+        "inherit": "继承（{{label}}）",
+        "modes": {
+          "direct": "直连",
+          "system": "系统",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "host": "代理主机",
+        "port": "代理端口",
+        "hostMissing": "代理设置为 {{kind}}，但未填写主机",
+        "portInvalid": "端口必须介于 1 到 65535 之间",
+        "username": "代理用户名",
+        "password": "代理密码",
+        "passwordSaved": "••• 已保存"
+      }
     },
     "distroIconPicker": {
       "title": "图标",

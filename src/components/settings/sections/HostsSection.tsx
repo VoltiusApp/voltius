@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DEFAULT_ACTIVE_POLL_INTERVAL_MS,
@@ -8,7 +8,17 @@ import {
   useHostPingStore,
 } from "@/stores/hostPingStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
-import { useGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
+import {
+  DEFAULT_GLOBAL_PROXY,
+  GLOBAL_PROXY_MODES,
+  useGlobalKeepalivePreset,
+  useGlobalProxy,
+  type GlobalProxy,
+} from "@/stores/connectivitySettingsStore";
+import { deleteSecret, getSecret, storeSecret } from "@/services/vault";
+import { detectSystemProxy, type DetectedProxy } from "@/services/proxy";
+import { GLOBAL_PROXY_PASSWORD_KEY } from "@/services/teamVaultSecretKeys";
+import ProxyFields from "@/components/connections/ProxyFields";
 import { DEFAULT_KEEPALIVE_PRESET, KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
@@ -30,6 +40,39 @@ export default function HostsSection() {
   const [shellIntegration, setShellIntegration] = useToggle("shell-integration");
   const [keepalivePreset, setKeepalivePreset] = useGlobalKeepalivePreset();
   const [persistSessions, setPersistSessions] = useToggle("persistent-sessions");
+  const [globalProxy, setGlobalProxy] = useGlobalProxy();
+  const globalProxyModes = useMemo(
+    () => GLOBAL_PROXY_MODES.map((m) => ({ value: m, label: t(`settings.hosts.proxy.modes.${m}`) })),
+    [t],
+  );
+  const [proxyPassword, setProxyPassword] = useState("");
+  const pendingProxyPassword = useRef<string | null>(null);
+  const [proxyPasswordSaved, setProxyPasswordSaved] = useState(false);
+  const [detectedProxy, setDetectedProxy] = useState<DetectedProxy | null>(null);
+  useEffect(() => {
+    getSecret(GLOBAL_PROXY_PASSWORD_KEY).then((v) => setProxyPasswordSaved(!!v)).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (globalProxy.mode !== "system") return;
+    detectSystemProxy().then(setDetectedProxy).catch(() => setDetectedProxy(null));
+  }, [globalProxy.mode]);
+  const [proxyPasswordError, setProxyPasswordError] = useState<string | null>(null);
+  const commitProxyPassword = useCallback(() => {
+    const pw = pendingProxyPassword.current;
+    if (pw === null) return;
+    pendingProxyPassword.current = null;
+    (pw ? storeSecret(GLOBAL_PROXY_PASSWORD_KEY, pw) : deleteSecret(GLOBAL_PROXY_PASSWORD_KEY))
+      .then(() => {
+        if (pendingProxyPassword.current === null) setProxyPassword("");
+        setProxyPasswordSaved(!!pw);
+        setProxyPasswordError(null);
+      })
+      .catch((err: unknown) => {
+        pendingProxyPassword.current ??= pw;
+        setProxyPasswordError(err instanceof Error ? err.message : String(err));
+      });
+  }, []);
+  useEffect(() => commitProxyPassword, [commitProxyPassword]);
   const pollIntervalMs = useHostPingStore((s) => s.pollIntervalMs);
   const setPollIntervalMs = useHostPingStore((s) => s.setPollIntervalMs);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
@@ -120,6 +163,41 @@ export default function HostsSection() {
             onChange={(v) => setKeepalivePreset(v as KeepalivePreset)}
           />
         </SettingRow>
+        <div>
+          <ProxyFields
+            modes={globalProxyModes}
+            value={globalProxy}
+            onChange={(p) => setGlobalProxy(p as GlobalProxy)}
+            password={proxyPassword}
+            passwordSaved={proxyPasswordSaved}
+            onPasswordChange={(pw) => { pendingProxyPassword.current = pw; setProxyPassword(pw); }}
+            onPasswordBlur={commitProxyPassword}
+            passwordError={proxyPasswordError === null ? undefined : t("settings.hosts.proxy.passwordSaveFailed", { error: proxyPasswordError })}
+            className="px-4 pb-3"
+            renderRow={(select) => (
+              <SettingRow
+                syncKey="appSettings.proxy"
+                title={t("settings.hosts.proxy.title")}
+                desc={t("settings.hosts.proxy.desc")}
+                dirty={globalProxy.mode !== DEFAULT_GLOBAL_PROXY.mode}
+                onReset={() => setGlobalProxy(DEFAULT_GLOBAL_PROXY)}
+              >
+                {select}
+              </SettingRow>
+            )}
+          />
+          {globalProxy.mode === "system" && (
+            <p className="px-4 pb-3 -mt-1 text-xs text-(--t-text-dim)">
+              {detectedProxy
+                ? t("settings.hosts.proxy.detected", {
+                  kind: t(`settings.hosts.proxy.modes.${detectedProxy.kind}`),
+                  host: detectedProxy.host,
+                  port: detectedProxy.port,
+                })
+                : t("settings.hosts.proxy.detectedNone")}
+            </p>
+          )}
+        </div>
         <SettingRow
           syncKey="appSettings.toggles.persistent-sessions"
           title={t("settings.hosts.persistentSessions.title")}

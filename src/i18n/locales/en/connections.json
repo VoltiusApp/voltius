@@ -68,7 +68,24 @@
       "keychainIdentity": "Keychain Identity",
       "passphrase": "Passphrase",
       "optional": "(optional)",
-      "keyPassphrasePlaceholder": "Key passphrase"
+      "keyPassphrasePlaceholder": "Key passphrase",
+      "proxy": {
+        "label": "Proxy",
+        "inherit": "Inherit ({{label}})",
+        "modes": {
+          "direct": "Direct",
+          "system": "System",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "host": "Proxy host",
+        "port": "Proxy port",
+        "hostMissing": "Proxy is set to {{kind}} but has no host",
+        "portInvalid": "Port must be between 1 and 65535",
+        "username": "Proxy username",
+        "password": "Proxy password",
+        "passwordSaved": "••• saved"
+      }
     },
     "distroIconPicker": {
       "title": "Icon",

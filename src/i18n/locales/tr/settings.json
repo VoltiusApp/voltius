@@ -758,7 +758,17 @@
         }
       },
       "proxy": {
-        "title": "Proxy"
+        "title": "Proxy",
+        "desc": "SSH, SFTP ve erişilebilirlik denetimlerini bir proxy üzerinden yönlendirir. Her sunucu için ayrı ayarlanabilir.",
+        "modes": {
+          "none": "Proxy yok",
+          "system": "Sistem",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "detected": "Algılanan: {{kind}} {{host}}:{{port}}",
+        "detectedNone": "Algılanan: yok (doğrudan bağlanılıyor)",
+        "passwordSaveFailed": "Proxy parolası kaydedilemedi: {{error}}"
       },
       "persistentSessions": {
         "title": "Kalıcı oturumlar",

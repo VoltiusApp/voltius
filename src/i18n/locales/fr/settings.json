@@ -888,7 +888,17 @@
         }
       },
       "proxy": {
-        "title": "Proxy"
+        "title": "Proxy",
+        "desc": "Fait passer SSH, SFTP et les tests d'accessibilité par un proxy. Peut être remplacé par hôte.",
+        "modes": {
+          "none": "Aucun proxy",
+          "system": "Système",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "detected": "Détecté : {{kind}} {{host}}:{{port}}",
+        "detectedNone": "Détecté : aucun (connexion directe)",
+        "passwordSaveFailed": "Impossible d'enregistrer le mot de passe du proxy : {{error}}"
       },
       "persistentSessions": {
         "title": "Sessions persistantes",

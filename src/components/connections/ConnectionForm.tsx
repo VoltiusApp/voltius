@@ -1,7 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { ConnectionFormData, AuthType, JumpHost, EnvVar } from "@/types";
+import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride } from "@/types";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -30,7 +30,9 @@ import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { useToggle } from "@/stores/toggleSettingsStore";
-import { useGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
+import { HOST_PROXY_MODES, useGlobalKeepalivePreset, useGlobalProxy } from "@/stores/connectivitySettingsStore";
+import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
+import ProxyFields from "./ProxyFields";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle, normalizeDistro } from "@/utils/icons";
 import { DistroIconPicker } from "./DistroIconPicker";
@@ -96,6 +98,10 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [globalShellIntegration] = useToggle("shell-integration");
   const [globalKeepalive] = useGlobalKeepalivePreset();
   const [globalPersist] = useToggle("persistent-sessions");
+  const [globalProxy] = useGlobalProxy();
+  const [proxyOverride, setProxyOverride] = useState<ProxyOverride | null>(initial?.proxy ?? null);
+  const [proxyPassword, setProxyPassword] = useState("");
+  const [proxyPasswordSaved, setProxyPasswordSaved] = useState(false);
   const hostCommands = useHostCommandFields(initial);
   const [keepalivePreset, setKeepalivePreset] = useState<KeepalivePreset | "">(initial?.keepalive_preset ?? "");
   const [persistSession, setPersistSession] = useState<"" | "on" | "off">(
@@ -107,7 +113,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [showDistroPicker, setShowDistroPicker] = useState(false);
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
-  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined);
+  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined || initial?.proxy);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const shell = useConnectionFormShell(initial);
   const { vaultId, pickVault, isPinned, togglePin } = shell;
@@ -116,6 +122,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const passwordDirty = useRef(false);
   const privateKeyDirty = useRef(false);
   const passphraseDirty = useRef(false);
+  const proxyPasswordDirty = useRef(false);
   // Anchor the icon picker to the whole tile+label row so the desktop float matches the
   // row width (as the old inline picker did) instead of overflowing from the 40px tile.
   const iconRowRef = useRef<HTMLDivElement>(null);
@@ -176,6 +183,12 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
       if (v.passphrase && !passphraseDirty.current) setPassphrase(v.passphrase);
     },
   );
+
+  const initialId = initial?.id;
+  useEffect(() => {
+    if (!initialId) return;
+    getSecret(proxyPasswordKey(initialId)).then((v) => setProxyPasswordSaved(!!v)).catch(() => {});
+  }, [initialId]);
 
   const selectedIdentity = relevantIdentities.find((i) => i.id === identityId) ?? null;
 
@@ -238,13 +251,14 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         shell_integration: shellIntegration === "" ? undefined : shellIntegration === "on",
         keepalive_preset: keepalivePreset || undefined,
         persist_session: persistSession === "" ? undefined : persistSession === "on",
+        proxy: proxyOverride ?? undefined,
         notes: normalizeNotes(notes),
       } as ConnectionFormData,
       secrets: {
         password: passwordDirty.current ? password : null,
         privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
         passphrase: (!identityId && !keyId && passphraseDirty.current) ? passphrase : null,
-        proxyPassword: null,
+        proxyPassword: proxyPasswordDirty.current ? proxyPassword : null,
       },
     };
   };
@@ -257,7 +271,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, notes]);
+  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, proxyOverride, proxyPassword, notes]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -293,6 +307,11 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     { value: "on", label: t("connections.common.on") },
     { value: "off", label: t("connections.common.off") },
   ], [globalPersist, t]);
+
+  const proxyModes = useMemo(() => [
+    { value: "", label: t("connections.form.proxy.inherit", { label: t(`settings.hosts.proxy.modes.${globalProxy.mode}`) }) },
+    ...HOST_PROXY_MODES.map((m) => ({ value: m, label: t(`connections.form.proxy.modes.${m}`) })),
+  ], [globalProxy.mode, t]);
 
   const applyIcon = useCallback((nextIcon: string) => {
     setIcon(nextIcon);
@@ -351,7 +370,10 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         passphrase: detectPassphrase,
         legacyAlgorithms,
         command: "{ cat /etc/os-release 2>/dev/null || echo ID=linux; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true",
-        proxy: await resolveProxy({ id: initial?.id ?? "", proxy: initial?.proxy }),
+        proxy: await resolveProxy(
+          { id: initial?.id ?? "", proxy: initial?.proxy },
+          { proxy: proxyOverride, password: proxyPasswordDirty.current ? proxyPassword || undefined : undefined },
+        ),
       });
       const lines = stdout.split(/\r?\n/);
       const idLine = lines.find((line) => line.startsWith("ID="));
@@ -365,7 +387,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     } finally {
       setDetectingDistro(false);
     }
-  }, [applyDetectedDistro, host, identityId, keyId, initial, legacyAlgorithms, passphrase, password, port, privateKey, selectedIdentity, username]);
+  }, [applyDetectedDistro, host, identityId, keyId, initial, legacyAlgorithms, passphrase, password, port, privateKey, proxyOverride, proxyPassword, selectedIdentity, username]);
 
   const panelItems = initial ? buildConnectionMenuItems({
     t,
@@ -497,7 +519,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
             <AdvancedDisclosure
               open={showAdvanced}
               onToggle={() => setShowAdvanced((v) => !v)}
-              hasValues={!!(jumpHosts.length > 0 || envVars.length > 0 || hostCommandFieldsSet(hostCommands) || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegration || keepalivePreset || persistSession)}
+              hasValues={!!(jumpHosts.length > 0 || envVars.length > 0 || hostCommandFieldsSet(hostCommands) || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegration || keepalivePreset || persistSession || proxyOverride)}
             >
                 <button
                   type="button"
@@ -554,6 +576,19 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
                   />
                 </SettingRow>
+                <ProxyFields
+                  modes={proxyModes}
+                  value={proxyOverride ?? { mode: "" }}
+                  onChange={(p) => { markDirty(); setProxyOverride(p.mode ? (p as ProxyOverride) : null); }}
+                  password={proxyPassword}
+                  passwordSaved={proxyPasswordSaved}
+                  onPasswordChange={(pw) => { markDirty(); proxyPasswordDirty.current = true; setProxyPassword(pw); }}
+                  disabled={!!initial && !canEdit}
+                  className="pb-1"
+                  renderRow={(select) => (
+                    <SettingRow icon="lucide:globe" label={t("connections.form.proxy.label")}>{select}</SettingRow>
+                  )}
+                />
                 <SettingRow icon="lucide:layers" label={t("connections.form.persistentSession")}>
                   <FormSelect
                     className="w-36"

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const secrets: Record<string, string> = {};
 vi.mock("@/services/vault", () => ({ getSecret: async (k: string) => secrets[k] ?? null }));
 
-import { resolveProxy } from "./proxy";
+import { DEFAULT_PROXY_PORT, resolveProxy } from "./proxy";
 import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
 
 const TYPED_PW = ["typed", "pw"].join("-");
@@ -42,8 +42,19 @@ describe("resolveProxy", () => {
     expect(await resolveProxy({ id: "c" })).toEqual({ kind: "system" });
   });
 
-  it("custom mode with no host falls back to null instead of a broken spec", async () => {
-    expect(await resolveProxy({ id: "c", proxy: { mode: "socks5" } })).toBeNull();
+  it("custom mode with no host throws instead of silently connecting direct", async () => {
+    await expect(resolveProxy({ id: "c", proxy: { mode: "socks5", port: 1080 } })).rejects.toThrow(/SOCKS5/);
+    await expect(resolveProxy({ id: "c", proxy: { mode: "http", host: "  " } })).rejects.toThrow(/HTTP/);
+    setGlobal({ mode: "socks5" });
+    await expect(resolveProxy({ id: "c" })).rejects.toThrow();
+  });
+
+  it.each([
+    ["socks5", 1080],
+    ["http", 8080],
+  ] as const)("%s with an empty port uses the default port", async (mode, port) => {
+    expect(await resolveProxy({ id: "c", proxy: { mode, host: "h" } })).toEqual({ kind: mode, host: "h", port });
+    expect(DEFAULT_PROXY_PORT[mode]).toBe(port);
   });
 
   it("form overrides win over the saved values", async () => {

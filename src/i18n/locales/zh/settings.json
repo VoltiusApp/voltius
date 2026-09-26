@@ -950,7 +950,17 @@
         "off": { "label": "关闭", "detail": "不发送保持连接探测" }
       },
       "proxy": {
-        "title": "代理"
+        "title": "代理",
+        "desc": "通过代理进行 SSH、SFTP 和可达性检查。可按主机单独覆盖。",
+        "modes": {
+          "none": "不使用代理",
+          "system": "系统",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "detected": "已检测到：{{kind}} {{host}}:{{port}}",
+        "detectedNone": "已检测到：无（直接连接）",
+        "passwordSaveFailed": "无法保存代理密码：{{error}}"
       },
       "persistentSessions": {
         "title": "持久会话",

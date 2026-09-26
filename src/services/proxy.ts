@@ -1,4 +1,6 @@
+import { invoke } from "@tauri-apps/api/core";
 import type { Connection, ProxyOverride } from "@/types";
+import i18n from "@/i18n";
 import { getSecret } from "@/services/vault";
 import { getGlobalProxy } from "@/stores/connectivitySettingsStore";
 import { GLOBAL_PROXY_PASSWORD_KEY, proxyPasswordKey } from "@/services/teamVaultSecretKeys";
@@ -7,6 +9,8 @@ export type ProxySpec =
   | { kind: "direct" }
   | { kind: "system" }
   | { kind: "socks5" | "http"; host: string; port: number; username?: string; password?: string };
+
+export const DEFAULT_PROXY_PORT = { socks5: 1080, http: 8080 } as const;
 
 export async function resolveProxy(
   conn: Pick<Connection, "id" | "proxy">,
@@ -24,15 +28,28 @@ export async function resolveProxy(
       return { kind: "system" };
     case "socks5":
     case "http": {
-      if (!source.host || !source.port) return null;
+      const host = source.host?.trim();
+      if (!host) {
+        throw new Error(i18n.t("connections.form.proxy.hostMissing", { kind: i18n.t(`connections.form.proxy.modes.${source.mode}`) }));
+      }
       const password = overrides?.password ?? (await getSecret(secretKey).catch(() => null)) ?? undefined;
       return {
         kind: source.mode,
-        host: source.host,
-        port: source.port,
+        host,
+        port: source.port || DEFAULT_PROXY_PORT[source.mode],
         ...(source.username ? { username: source.username } : {}),
         ...(password ? { password } : {}),
       };
     }
   }
+}
+
+export interface DetectedProxy {
+  kind: "socks5" | "http";
+  host: string;
+  port: number;
+}
+
+export function detectSystemProxy(): Promise<DetectedProxy | null> {
+  return invoke<DetectedProxy | null>("proxy_detect_system");
 }

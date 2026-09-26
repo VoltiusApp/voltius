@@ -148,6 +148,9 @@ export function SecretInput({
   onToggleShow,
   autoComplete,
   className,
+  id,
+  disabled,
+  onBlur,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -156,15 +159,21 @@ export function SecretInput({
   onToggleShow: () => void;
   autoComplete?: string;
   className?: string;
+  id?: string;
+  disabled?: boolean;
+  onBlur?: () => void;
 }) {
   return (
     <div className="relative">
       <input
+        id={id}
+        disabled={disabled}
         type={show ? "text" : "password"}
         className={`${formInputClass} pr-9${className ? ` ${className}` : ""}`}
         style={formInputStyle}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
         autoComplete={autoComplete}
       />

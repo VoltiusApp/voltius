@@ -888,7 +888,17 @@
         }
       },
       "proxy": {
-        "title": "Proxy"
+        "title": "Proxy",
+        "desc": "Route SSH, SFTP and reachability checks through a proxy. Hosts can override this.",
+        "modes": {
+          "none": "No proxy",
+          "system": "System",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "detected": "Detected: {{kind}} {{host}}:{{port}}",
+        "detectedNone": "Detected: none (connecting directly)",
+        "passwordSaveFailed": "Couldn't save the proxy password: {{error}}"
       },
       "persistentSessions": {
         "title": "Persistent sessions",
