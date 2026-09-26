@@ -2,13 +2,14 @@ use super::{
     backend_transfer_command, get_session, open_remote_write, pump_chunks,
     sftp_rr_file_inner_accum, transfer::download_into,
 };
-use crate::sftp::{backend::skip_unsafe_name, SftpManager};
+use crate::sftp::backend::{skip_unsafe_name, TransferEvents};
+use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
-use tauri::{AppHandle, Runtime, State};
+use tauri::{AppHandle, State};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
@@ -104,8 +105,8 @@ pub(crate) async fn sftp_upload_dir_inner(
 backend_transfer_command!(sftp_download_dir, download_dir, remote_path, local_path);
 
 /// Recursively download a remote directory over a real SFTP session.
-pub(crate) async fn sftp_download_dir_inner<R: Runtime>(
-    app: &AppHandle<R>,
+pub(crate) async fn sftp_download_dir_inner(
+    app: &impl TransferEvents,
     session: Arc<Mutex<SftpSession>>,
     remote_path: &str,
     local_path: &str,
@@ -236,8 +237,8 @@ fn collect_local_recursive(
 
 /// Walk a remote tree, returning its relative directory paths (for pre-creating
 /// dirs) and every file as `(absolute, relative, size)`; `local` as in `skip_unsafe_name`.
-fn collect_remote_structure<'a, R: Runtime>(
-    app: &'a AppHandle<R>,
+fn collect_remote_structure<'a, E: TransferEvents>(
+    app: &'a E,
     transfer_id: &'a str,
     sftp: &'a SftpSession,
     base: &'a str,
@@ -284,14 +285,11 @@ fn collect_remote_structure<'a, R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sftp::backend::test_tree::{
-        assert_downloaded, children, lookup, record_skipped, ROOT,
-    };
+    use crate::sftp::backend::test_tree::{assert_downloaded, children, lookup, Recorder, ROOT};
     use russh_sftp::protocol::{
         Attrs, Data, File, FileAttributes, Handle, Name, OpenFlags, Status, StatusCode,
     };
     use std::collections::HashSet;
-    use tauri::test::mock_app;
 
     /// Serves `test_tree` over SFTP; `listed` ends each directory listing after one batch.
     #[derive(Default)]
@@ -396,13 +394,12 @@ mod tests {
     #[tokio::test]
     async fn sftp_folder_download_skips_and_reports_names_this_system_cannot_hold() {
         let session = serve_tree().await;
-        let app = mock_app();
-        let skipped = record_skipped(&app, "t-sftp");
+        let events = Recorder::default();
         let tmp = tempfile::tempdir().unwrap();
         let dst = tmp.path().join("dst");
 
         sftp_download_dir_inner(
-            app.handle(),
+            &events,
             session,
             ROOT,
             &dst.to_string_lossy(),
@@ -412,25 +409,23 @@ mod tests {
         .await
         .unwrap();
 
-        assert_downloaded(&dst, &skipped);
+        assert_downloaded(&dst, events.skipped("t-sftp"));
     }
 
     #[tokio::test]
     async fn server_to_server_walk_keeps_names_only_the_local_system_refuses() {
         let session = serve_tree().await;
-        let app = mock_app();
-        let skipped = record_skipped(&app, "t-rr");
+        let events = Recorder::default();
         let sftp = session.lock().await;
 
-        let (dirs, files) =
-            collect_remote_structure(app.handle(), "t-rr", &sftp, ROOT, ROOT, false)
-                .await
-                .unwrap();
+        let (dirs, files) = collect_remote_structure(&events, "t-rr", &sftp, ROOT, ROOT, false)
+            .await
+            .unwrap();
 
         let mut rels: Vec<&str> = files.iter().map(|(_, rel, _)| rel.as_str()).collect();
         rels.sort();
         assert_eq!(rels, ["10:30.log", "a\\b", "ok.txt", "sub/inner.txt"]);
         assert_eq!(dirs, ["sub"]);
-        assert_eq!(*skipped.lock().unwrap(), ["/src/../escape"]);
+        assert_eq!(events.skipped("t-rr"), ["/src/../escape"]);
     }
 }

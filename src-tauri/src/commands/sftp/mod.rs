@@ -1,10 +1,10 @@
+use crate::sftp::backend::TransferEvents;
 use crate::sftp::{FileBackend, SftpManager};
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
 use serde::Serialize;
 use std::future::Future;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
@@ -184,8 +184,8 @@ pub(super) async fn tar_backend(
 /// Copy `reader` into `writer` in `CHUNK_SIZE` chunks, emitting transfer
 /// progress after every chunk and honouring cancellation between them.
 /// Neither side is shut down — the caller owns the close, and its wording.
-pub(crate) async fn pump_chunks<RT, R, W>(
-    app: &AppHandle<RT>,
+pub(crate) async fn pump_chunks<R, W>(
+    app: &impl TransferEvents,
     reader: &mut R,
     writer: &mut W,
     transfer_id: &str,
@@ -194,7 +194,6 @@ pub(crate) async fn pump_chunks<RT, R, W>(
     total: u64,
 ) -> Result<(), String>
 where
-    RT: tauri::Runtime,
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
@@ -215,7 +214,7 @@ where
             .await
             .map_err(|e| format!("Write error: {e}"))?;
         *transferred += n as u64;
-        let _ = app.emit(
+        app.send(
             &format!("sftp-progress-{}", transfer_id),
             TransferProgress {
                 transferred: *transferred,

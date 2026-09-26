@@ -2,11 +2,12 @@ use super::{
     backend_transfer_command, get_session, open_remote_read, open_remote_write, pump_chunks,
     remote_size,
 };
+use crate::sftp::backend::TransferEvents;
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
 use std::path::Path;
 use std::sync::Arc;
-use tauri::{AppHandle, Runtime, State};
+use tauri::{AppHandle, State};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
@@ -74,8 +75,8 @@ pub(crate) async fn sftp_download_inner(
 
 /// Download one remote file to `local_path`, creating its parent. A `total` of
 /// None reports progress against this file's own size.
-pub(super) async fn download_into<R: Runtime>(
-    app: &AppHandle<R>,
+pub(super) async fn download_into(
+    app: &impl TransferEvents,
     session: &Mutex<SftpSession>,
     remote_path: &str,
     local_path: &Path,

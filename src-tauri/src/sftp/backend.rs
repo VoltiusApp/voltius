@@ -8,14 +8,26 @@
 use crate::commands::sftp::RemoteFile;
 use async_trait::async_trait;
 use russh_sftp::client::SftpSession;
+use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Runtime, Wry};
+use tauri::{AppHandle, Emitter, Runtime};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
+/// Where a transfer's progress and skipped-name events go: the app, or a test's recorder.
+pub trait TransferEvents: Send + Sync {
+    fn send<S: Serialize + Clone>(&self, event: &str, payload: S);
+}
+
+impl<R: Runtime> TransferEvents for AppHandle<R> {
+    fn send<S: Serialize + Clone>(&self, event: &str, payload: S) {
+        let _ = self.emit(event, payload);
+    }
+}
+
 #[async_trait]
-pub trait FileBackend<R: Runtime = Wry>: Send + Sync {
+pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
     // ── Browse / metadata ──────────────────────────────────────────────────
     async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String>;
     /// Some(is_dir) if the path exists, None if it doesn't.
@@ -34,7 +46,7 @@ pub trait FileBackend<R: Runtime = Wry>: Send + Sync {
     // ── Transfers ──────────────────────────────────────────────────────────
     async fn upload_file(
         &self,
-        app: &AppHandle<R>,
+        app: &E,
         local_path: &str,
         remote_path: &str,
         transfer_id: &str,
@@ -42,7 +54,7 @@ pub trait FileBackend<R: Runtime = Wry>: Send + Sync {
     ) -> Result<(), String>;
     async fn download_file(
         &self,
-        app: &AppHandle<R>,
+        app: &E,
         remote_path: &str,
         local_path: &str,
         transfer_id: &str,
@@ -50,7 +62,7 @@ pub trait FileBackend<R: Runtime = Wry>: Send + Sync {
     ) -> Result<(), String>;
     async fn upload_dir(
         &self,
-        app: &AppHandle<R>,
+        app: &E,
         local_path: &str,
         remote_path: &str,
         transfer_id: &str,
@@ -59,7 +71,7 @@ pub trait FileBackend<R: Runtime = Wry>: Send + Sync {
     /// Per-item fallback: walk the listing and download each file on its own.
     async fn download_dir(
         &self,
-        app: &AppHandle<R>,
+        app: &E,
         remote_path: &str,
         local_path: &str,
         transfer_id: &str,
@@ -94,7 +106,7 @@ pub trait FileBackend<R: Runtime = Wry>: Send + Sync {
     /// here as a safety net.
     async fn upload_batch(
         &self,
-        app: &AppHandle<R>,
+        app: &E,
         local_paths: &[String],
         remote_dir: &str,
         transfer_id: &str,
@@ -122,7 +134,7 @@ pub trait FileBackend<R: Runtime = Wry>: Send + Sync {
     }
     async fn download_batch(
         &self,
-        app: &AppHandle<R>,
+        app: &E,
         remote_paths: &[String],
         local_dir: &str,
         transfer_id: &str,
@@ -160,8 +172,8 @@ pub trait FileBackend<R: Runtime = Wry>: Send + Sync {
 
 /// True, after reporting `path` on `sftp-skipped-<id>`, when the server-chosen `name` is not
 /// one plain path component. `local`: the destination is this machine, so its rules apply.
-pub fn skip_unsafe_name<R: Runtime>(
-    app: &AppHandle<R>,
+pub fn skip_unsafe_name(
+    app: &impl TransferEvents,
     transfer_id: &str,
     path: &str,
     name: &str,
@@ -169,7 +181,7 @@ pub fn skip_unsafe_name<R: Runtime>(
 ) -> bool {
     let skip = !is_plain_name(name, local && cfg!(windows));
     if skip {
-        let _ = app.emit(&format!("sftp-skipped-{transfer_id}"), path);
+        app.send(&format!("sftp-skipped-{transfer_id}"), path);
     }
     skip
 }
@@ -190,9 +202,10 @@ fn is_plain_name(name: &str, windows: bool) -> bool {
 /// escapes on every system; shared by the backend and SFTP download tests.
 #[cfg(test)]
 pub(crate) mod test_tree {
+    use super::TransferEvents;
+    use serde::Serialize;
     use std::path::Path;
-    use std::sync::{Arc, Mutex};
-    use tauri::{Listener, Runtime};
+    use std::sync::Mutex;
 
     pub const ROOT: &str = "/src";
     /// `(parent, name, Some(content))` for a file, `None` for a directory.
@@ -221,18 +234,27 @@ pub(crate) mod test_tree {
             .map(|(_, _, content)| *content)
     }
 
-    pub fn record_skipped<R: Runtime>(
-        app: &tauri::App<R>,
-        transfer_id: &str,
-    ) -> Arc<Mutex<Vec<String>>> {
-        let seen = Arc::new(Mutex::new(Vec::new()));
-        let sink = Arc::clone(&seen);
-        app.listen_any(format!("sftp-skipped-{transfer_id}"), move |e| {
-            sink.lock()
-                .unwrap()
-                .push(serde_json::from_str(e.payload()).unwrap());
-        });
-        seen
+    /// Keeps every event a transfer sends, for the test to read back.
+    #[derive(Default)]
+    pub struct Recorder(Mutex<Vec<(String, serde_json::Value)>>);
+
+    impl TransferEvents for Recorder {
+        fn send<S: Serialize + Clone>(&self, event: &str, payload: S) {
+            let payload = serde_json::to_value(payload).unwrap();
+            self.0.lock().unwrap().push((event.to_string(), payload));
+        }
+    }
+
+    impl Recorder {
+        pub fn skipped(&self, transfer_id: &str) -> Vec<String> {
+            let event = format!("sftp-skipped-{transfer_id}");
+            let events = self.0.lock().unwrap();
+            events
+                .iter()
+                .filter(|(name, _)| *name == event)
+                .map(|(_, payload)| payload.as_str().unwrap().to_string())
+                .collect()
+        }
     }
 
     pub fn expected_skips() -> Vec<String> {
@@ -246,8 +268,7 @@ pub(crate) mod test_tree {
     }
 
     /// `dst` must sit in a directory of its own, so an escape would land beside it.
-    pub fn assert_downloaded(dst: &Path, skipped: &Mutex<Vec<String>>) {
-        let mut skipped = skipped.lock().unwrap().clone();
+    pub fn assert_downloaded(dst: &Path, mut skipped: Vec<String>) {
         skipped.sort();
         assert_eq!(skipped, expected_skips());
 
@@ -272,18 +293,16 @@ pub(crate) mod test_tree {
 
 #[cfg(test)]
 mod tests {
-    use super::test_tree::{assert_downloaded, children, lookup, record_skipped};
+    use super::test_tree::{assert_downloaded, children, lookup, Recorder};
     use super::{is_plain_name, FileBackend};
     use crate::commands::sftp::RemoteFile;
     use async_trait::async_trait;
-    use tauri::test::{mock_app, MockRuntime};
-    use tauri::AppHandle;
     use tokio_util::sync::CancellationToken;
 
     struct TreeBackend;
 
     #[async_trait]
-    impl FileBackend<MockRuntime> for TreeBackend {
+    impl FileBackend<Recorder> for TreeBackend {
         async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String> {
             Ok(children(path)
                 .map(|(name, content)| RemoteFile {
@@ -302,7 +321,7 @@ mod tests {
         }
         async fn download_file(
             &self,
-            _: &AppHandle<MockRuntime>,
+            _: &Recorder,
             remote_path: &str,
             local_path: &str,
             _: &str,
@@ -337,7 +356,7 @@ mod tests {
         }
         async fn upload_file(
             &self,
-            _: &AppHandle<MockRuntime>,
+            _: &Recorder,
             _: &str,
             _: &str,
             _: &str,
@@ -347,7 +366,7 @@ mod tests {
         }
         async fn upload_dir(
             &self,
-            _: &AppHandle<MockRuntime>,
+            _: &Recorder,
             _: &str,
             _: &str,
             _: &str,
@@ -359,14 +378,13 @@ mod tests {
 
     #[tokio::test]
     async fn folder_download_skips_and_reports_names_this_system_cannot_hold() {
-        let app = mock_app();
-        let skipped = record_skipped(&app, "t-dir");
+        let events = Recorder::default();
         let tmp = tempfile::tempdir().unwrap();
         let dst = tmp.path().join("dst");
 
         TreeBackend
             .download_dir(
-                app.handle(),
+                &events,
                 "/src",
                 &dst.to_string_lossy(),
                 "t-dir",
@@ -375,19 +393,18 @@ mod tests {
             .await
             .unwrap();
 
-        assert_downloaded(&dst, &skipped);
+        assert_downloaded(&dst, events.skipped("t-dir"));
     }
 
     #[tokio::test]
     async fn batch_download_skips_a_selected_name_this_system_cannot_hold() {
-        let app = mock_app();
-        let skipped = record_skipped(&app, "t-batch");
+        let events = Recorder::default();
         let tmp = tempfile::tempdir().unwrap();
         let paths = ["/src/ok.txt", "/src/10:30.log", "/src/sub", "/src/.."].map(String::from);
 
         TreeBackend
             .download_batch(
-                app.handle(),
+                &events,
                 &paths,
                 &tmp.path().to_string_lossy(),
                 "t-batch",
@@ -401,7 +418,7 @@ mod tests {
         } else {
             &["/src/.."]
         };
-        assert_eq!(*skipped.lock().unwrap(), expected);
+        assert_eq!(events.skipped("t-batch"), expected);
         assert_eq!(
             std::fs::read_to_string(tmp.path().join("ok.txt")).unwrap(),
             "ok"
