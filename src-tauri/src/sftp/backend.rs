@@ -28,7 +28,9 @@ pub trait FileBackend: Send + Sync {
 
     // ── Editor ─────────────────────────────────────────────────────────────
     async fn file_size(&self, path: &str) -> u64;
-    async fn read_file(&self, path: &str) -> Result<Vec<u8>, String>;
+    /// At most `editor::read_limit(max_bytes)` bytes of `path`: a result longer
+    /// than `max_bytes` means the file is too large for the editor.
+    async fn read_file(&self, path: &str, max_bytes: u64) -> Result<Vec<u8>, String>;
     async fn write_file(&self, path: &str, content: &str) -> Result<(), String>;
 
     // ── Transfers ──────────────────────────────────────────────────────────

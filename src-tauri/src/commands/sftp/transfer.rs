@@ -7,7 +7,6 @@ use russh_sftp::client::SftpSession;
 use std::path::Path;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
-use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -34,18 +33,14 @@ pub(crate) async fn sftp_upload_inner(
     pump_chunks(
         app,
         &mut local_file,
-        &mut remote_file,
+        &mut *remote_file,
         transfer_id,
         token,
         &mut transferred,
         total,
     )
     .await?;
-    remote_file
-        .shutdown()
-        .await
-        .map_err(|e| format!("Flush error: {e}"))?;
-    Ok(())
+    remote_file.close().await
 }
 
 backend_transfer_command!(sftp_download, download_file, remote_path, local_path);
@@ -72,7 +67,7 @@ pub(crate) async fn sftp_download_inner(
     let mut transferred = 0u64;
     pump_chunks(
         app,
-        &mut remote_file,
+        &mut *remote_file,
         &mut local_file,
         transfer_id,
         token,
@@ -80,13 +75,7 @@ pub(crate) async fn sftp_download_inner(
         total,
     )
     .await?;
-    // Properly close the remote read handle; `Drop` alone leaks the client-side
-    // open-handle counter in russh-sftp (fire-and-forget close).
-    remote_file
-        .shutdown()
-        .await
-        .map_err(|e| format!("Close error: {e}"))?;
-    Ok(())
+    remote_file.close().await
 }
 
 // ── Remote → Remote transfer ──────────────────────────────────────────────────
@@ -166,23 +155,14 @@ pub(super) async fn sftp_rr_file_inner_accum(
 
     pump_chunks(
         app,
-        &mut src_file,
-        &mut dst_file,
+        &mut *src_file,
+        &mut *dst_file,
         transfer_id,
         token,
         transferred,
         total,
     )
     .await?;
-    dst_file
-        .shutdown()
-        .await
-        .map_err(|e| format!("Flush error: {e}"))?;
-    // Close the source read handle too; otherwise russh-sftp's client-side
-    // handle counter leaks on the source session across many files.
-    src_file
-        .shutdown()
-        .await
-        .map_err(|e| format!("Close error: {e}"))?;
-    Ok(())
+    dst_file.close().await?;
+    src_file.close().await
 }

@@ -18,7 +18,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::io::AsyncReadExt;
 use tokio::sync::{Mutex, OnceCell};
-use tokio::time::{timeout, Duration};
+use tokio::time::Duration;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -430,35 +430,71 @@ impl SftpManager {
             .clone()
     }
 
-    /// Run a shell command on the remote host associated with an SFTP session.
-    /// The command should append `; echo __TF_EXIT__:$?` to capture exit code.
-    pub async fn exec_command(&self, sftp_id: &str, cmd: &str) -> Result<(), String> {
-        exit_status(&self.exec_output(sftp_id, cmd).await?, false)
+    /// Run a shell command on the remote host associated with an SFTP session
+    /// and wait for it to exit, however long that takes: a tar of a large tree
+    /// runs for minutes. `cancel` (the transfer's token) or closing the session
+    /// stops the wait early, as an error.
+    /// The command must report its exit code through the `__TF_EXIT__` marker
+    /// (see `RemoteShell::status`); output without it is an error.
+    pub async fn exec_command(
+        &self,
+        sftp_id: &str,
+        cmd: &str,
+        cancel: Option<&CancellationToken>,
+    ) -> Result<(), String> {
+        let stop = async {
+            match cancel {
+                Some(token) => token.cancelled().await,
+                None => std::future::pending().await,
+            }
+            "Transfer cancelled".to_string()
+        };
+        exit_status(&self.exec_until(sftp_id, cmd, stop).await?)
     }
 
     /// True only if `cmd` ran and reported exit 0 through its `__TF_EXIT__` marker.
     pub async fn exec_probe(&self, sftp_id: &str, cmd: &str) -> bool {
         match self.exec_output(sftp_id, cmd).await {
-            Ok(text) => exit_status(&text, true).is_ok(),
+            Ok(text) => exit_status(&text).is_ok(),
             Err(_) => false,
         }
     }
 
+    /// Output of a quick probe command, or an error if it hasn't finished in
+    /// `PROBE_TIMEOUT`.
     pub(crate) async fn exec_output(&self, sftp_id: &str, cmd: &str) -> Result<String, String> {
-        let handle = {
+        let stop = async {
+            tokio::time::sleep(PROBE_TIMEOUT).await;
+            format!(
+                "Remote command timed out after {}s",
+                PROBE_TIMEOUT.as_secs()
+            )
+        };
+        self.exec_until(sftp_id, cmd, stop).await
+    }
+
+    /// Run `cmd` and collect its stdout until the channel reaches EOF, or fail
+    /// with `stop`'s message if it resolves first. Partial output is never
+    /// returned: the caller would read a command that is still running as done.
+    async fn exec_until(
+        &self,
+        sftp_id: &str,
+        cmd: &str,
+        stop: impl std::future::Future<Output = String>,
+    ) -> Result<String, String> {
+        let (handle, session_cancel) = {
             let sessions = self.sessions.lock().await;
-            sessions
+            let entry = sessions
                 .get(sftp_id)
-                .ok_or_else(|| format!("SFTP session '{}' not found", sftp_id))?
-                .handle
-                .clone()
-                .ok_or_else(|| {
-                    "Remote command execution not supported for this connection".to_string()
-                })?
+                .ok_or_else(|| format!("SFTP session '{}' not found", sftp_id))?;
+            let handle = entry.handle.clone().ok_or_else(|| {
+                "Remote command execution not supported for this connection".to_string()
+            })?;
+            (handle, entry.cancel.clone())
         };
 
         let handle = read_cell(&handle);
-        let channel = handle
+        let mut channel = handle
             .channel_open_session()
             .await
             .map_err(|e| format!("Channel error: {e}"))?;
@@ -467,24 +503,31 @@ impl SftpManager {
             .await
             .map_err(|e| format!("Exec error: {e}"))?;
 
-        let mut stream = channel.into_stream();
         let mut output = Vec::new();
-        let _ = timeout(Duration::from_secs(120), async {
-            let mut buf = vec![0u8; 4096];
-            loop {
-                match stream.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => output.extend_from_slice(&buf[..n]),
+        let ended = {
+            let mut reader = channel.make_reader();
+            tokio::select! {
+                read = reader.read_to_end(&mut output) => {
+                    read.map(drop).map_err(|e| format!("Remote command failed: {e}"))
                 }
+                why = stop => Err(why),
+                _ = session_cancel.cancelled() => Err("SFTP session closed".to_string()),
             }
-        })
-        .await;
-
-        Ok(String::from_utf8_lossy(&output).into_owned())
+        };
+        // A plain `Channel` doesn't close itself on drop the way a stream does.
+        let _ = channel.close().await;
+        ended.map(|()| String::from_utf8_lossy(&output).into_owned())
     }
 }
 
-fn exit_status(text: &str, require_marker: bool) -> Result<(), String> {
+/// How long a probe (`command -v tar`, `echo %TEMP%`) may take before the host
+/// is treated as unable to run it.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Read the `__TF_EXIT__` marker a finished command printed. Its absence means
+/// the command never got that far — the connection dropped, or the host's shell
+/// didn't understand it — so it is a failure, never a silent success.
+fn exit_status(text: &str) -> Result<(), String> {
     for line in text.lines().rev() {
         if let Some(code_str) = line.strip_prefix("__TF_EXIT__:") {
             let code: i32 = code_str.trim().parse().unwrap_or(1);
@@ -500,11 +543,10 @@ fn exit_status(text: &str, require_marker: bool) -> Result<(), String> {
         }
     }
 
-    if require_marker || text.contains("command not found") || text.contains("No such file") {
-        return Err(text.trim().to_string());
+    match text.trim() {
+        "" => Err("Remote command ended without reporting its exit status".into()),
+        out => Err(out.to_string()),
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -514,19 +556,23 @@ mod tests {
 
     #[test]
     fn exit_status_reads_the_marker() {
-        assert_eq!(exit_status("__TF_EXIT__:0\n", true), Ok(()));
+        assert_eq!(exit_status("__TF_EXIT__:0\n"), Ok(()));
         assert_eq!(
-            exit_status("tar: boom\n__TF_EXIT__:2\n", false),
+            exit_status("tar: boom\n__TF_EXIT__:2\n"),
             Err("tar: boom".into())
         );
     }
 
     #[test]
-    fn missing_marker_fails_only_when_required() {
+    fn a_missing_marker_is_a_failure() {
         let cmd_exe = "The system cannot find the path specified.\r\n";
-        assert_eq!(exit_status(cmd_exe, false), Ok(()));
-        assert!(exit_status(cmd_exe, true).is_err());
-        assert!(exit_status("", true).is_err());
+        assert_eq!(
+            exit_status(cmd_exe),
+            Err("The system cannot find the path specified.".into())
+        );
+        assert!(exit_status("").is_err());
+        // A tar cut off mid-run: some output, no marker.
+        assert!(exit_status("tar: file changed as we read it\n").is_err());
     }
 
     #[tokio::test]

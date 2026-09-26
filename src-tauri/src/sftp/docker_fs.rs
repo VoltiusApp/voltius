@@ -9,6 +9,7 @@
 //! user data. Listing/parsing assumes filenames contain no tab or newline
 //! characters (acceptable for a file manager).
 
+use crate::commands::sftp::editor::read_limit;
 use crate::commands::sftp::{pump_chunks, RemoteFile, TransferProgress};
 use crate::sftp::backend::FileBackend;
 use crate::ssh::client::SshClient;
@@ -21,7 +22,7 @@ use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio_util::sync::CancellationToken;
 
 /// Single-quote a string for the host POSIX shell.
@@ -79,12 +80,12 @@ async fn drain_channel<W: AsyncWrite + Unpin>(
     Ok((code, err))
 }
 
-/// The message a non-zero — or missing — exit status deserves, or `None` when
-/// the command succeeded. `stderr` is used when it says anything.
-fn exit_error(label: &str, code: Option<i32>, stderr: &str) -> Option<String> {
+/// The error a non-zero — or missing — exit status deserves, or `Ok` when the
+/// command succeeded. `stderr` is used when it says anything.
+fn exit_error(label: &str, code: Option<i32>, stderr: &str) -> Result<(), String> {
     match code {
-        Some(0) => None,
-        _ => Some(format!("{label}: {}", exit_detail(code, stderr))),
+        Some(0) => Ok(()),
+        _ => Err(format!("{label}: {}", exit_detail(code, stderr))),
     }
 }
 
@@ -97,6 +98,67 @@ fn exit_detail(code: Option<i32>, stderr: &str) -> String {
         Some(c) => format!("exit {c}"),
         None => "no exit status".to_string(),
     }
+}
+
+/// How much of a failing local tar's stderr is kept for its error message.
+const STDERR_TAIL: usize = 4096;
+
+/// A local `tar` whose stderr is drained while it runs. Piped and left unread,
+/// stderr fills its pipe (~64 KB of "file changed as we read it" and the like)
+/// and tar blocks on its next warning, hanging the transfer for good.
+struct LocalTar {
+    child: tokio::process::Child,
+    stderr: tokio::task::JoinHandle<Vec<u8>>,
+}
+
+impl LocalTar {
+    /// Spawn `cmd` — tar with its args and data pipe already set — with stderr
+    /// drained in the background.
+    fn spawn(cmd: &mut tokio::process::Command) -> Result<Self, String> {
+        cmd.stderr(Stdio::piped());
+        crate::commands::win_proc::prevent_visible_child_window(cmd);
+        let mut child = cmd.spawn().map_err(|e| format!("tar not found: {e}"))?;
+        let stderr = child.stderr.take().ok_or("tar stderr unavailable")?;
+        Ok(Self {
+            child,
+            stderr: tokio::spawn(read_tail(stderr, STDERR_TAIL)),
+        })
+    }
+
+    /// Stop tar after the transfer failed on the other end.
+    async fn kill(mut self) {
+        let _ = self.child.kill().await;
+    }
+
+    /// Wait for tar to exit; a failure reads `failure: <stderr tail>`.
+    async fn finish(mut self, failure: &str) -> Result<(), String> {
+        let status = self
+            .child
+            .wait()
+            .await
+            .map_err(|e| format!("tar wait error: {e}"))?;
+        if status.success() {
+            return Ok(());
+        }
+        let stderr = self.stderr.await.unwrap_or_default();
+        let detail = String::from_utf8_lossy(&stderr);
+        Err(match detail.trim() {
+            "" => failure.to_string(),
+            detail => format!("{failure}: {detail}"),
+        })
+    }
+}
+
+/// Read `reader` to its end, keeping only its last `keep` bytes.
+async fn read_tail<R: AsyncRead + Unpin>(mut reader: R, keep: usize) -> Vec<u8> {
+    let mut tail = Vec::new();
+    let mut buf = [0u8; 4096];
+    while let Ok(n @ 1..) = reader.read(&mut buf).await {
+        tail.extend_from_slice(&buf[..n]);
+        let excess = tail.len().saturating_sub(keep);
+        tail.drain(..excess);
+    }
+    tail
 }
 
 fn parent_of(path: &str) -> &str {
@@ -165,24 +227,23 @@ impl DockerFs {
         Ok(channel)
     }
 
-    /// Run a command on the host, capturing stdout, stderr, and exit status.
-    async fn run(&self, cmd: &str) -> Result<(String, String, Option<i32>), String> {
+    /// Run a command on the host, capturing raw stdout, stderr, and exit status.
+    async fn run_bytes(&self, cmd: &str) -> Result<(Vec<u8>, String, Option<i32>), String> {
         let mut channel = self.exec_channel(cmd).await?;
         let mut out = Vec::new();
         let (code, err) = drain_channel(&mut channel, &mut out, None, None).await?;
-        Ok((
-            String::from_utf8_lossy(&out).into_owned(),
-            String::from_utf8_lossy(&err).into_owned(),
-            code,
-        ))
+        Ok((out, String::from_utf8_lossy(&err).into_owned(), code))
+    }
+
+    /// `run_bytes` with stdout as text.
+    async fn run(&self, cmd: &str) -> Result<(String, String, Option<i32>), String> {
+        let (out, err, code) = self.run_bytes(cmd).await?;
+        Ok((String::from_utf8_lossy(&out).into_owned(), err, code))
     }
 
     async fn simple(&self, script: &str, args: &[&str], label: &str) -> Result<(), String> {
         let (_out, err, code) = self.run(&self.dexec(script, args)).await?;
-        match exit_error(label, code, &err) {
-            Some(e) => Err(e),
-            None => Ok(()),
-        }
+        exit_error(label, code, &err)
     }
 
     /// Wait for a streaming-upload command to finish and report any error.
@@ -193,14 +254,11 @@ impl DockerFs {
         label: &str,
     ) -> Result<(), String> {
         let (code, err) = drain_channel(channel, &mut tokio::io::sink(), None, None).await?;
-        match exit_error(
+        exit_error(
             &format!("{label} failed"),
             code,
             &String::from_utf8_lossy(&err),
-        ) {
-            Some(e) => Err(e),
-            None => Ok(()),
-        }
+        )
     }
 
     /// Spawn a local `tar` producer and stream its stdout into a container command's stdin.
@@ -212,14 +270,12 @@ impl DockerFs {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), String> {
-        let mut tar_cmd = tokio::process::Command::new("tar");
-        tar_cmd
-            .args(tar_args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        crate::commands::win_proc::prevent_visible_child_window(&mut tar_cmd);
-        let mut child = tar_cmd.spawn().map_err(|e| format!("tar not found: {e}"))?;
-        let mut tar_out = child.stdout.take().ok_or("tar stdout unavailable")?;
+        let mut tar = LocalTar::spawn(
+            tokio::process::Command::new("tar")
+                .args(tar_args)
+                .stdout(Stdio::piped()),
+        )?;
+        let mut tar_out = tar.child.stdout.take().ok_or("tar stdout unavailable")?;
 
         let mut channel = self.exec_channel(remote_cmd).await?;
         let mut writer = channel.make_writer();
@@ -237,20 +293,14 @@ impl DockerFs {
         )
         .await
         {
-            let _ = child.kill().await;
+            tar.kill().await;
             return Err(e);
         }
         writer.flush().await.ok();
         drop(writer);
         channel.eof().await.ok();
 
-        let status = child
-            .wait()
-            .await
-            .map_err(|e| format!("tar wait error: {e}"))?;
-        if !status.success() {
-            return Err("Local tar archiving failed".into());
-        }
+        tar.finish("Local tar archiving failed").await?;
         self.drain_exit(&mut channel, "upload").await
     }
 
@@ -268,14 +318,12 @@ impl DockerFs {
             .await
             .map_err(|e| format!("Cannot create local dir: {e}"))?;
 
-        let mut tar_cmd = tokio::process::Command::new("tar");
-        tar_cmd
-            .args(tar_args)
-            .stdin(Stdio::piped())
-            .stderr(Stdio::piped());
-        crate::commands::win_proc::prevent_visible_child_window(&mut tar_cmd);
-        let mut child = tar_cmd.spawn().map_err(|e| format!("tar not found: {e}"))?;
-        let mut tar_in = child.stdin.take().ok_or("tar stdin unavailable")?;
+        let mut tar = LocalTar::spawn(
+            tokio::process::Command::new("tar")
+                .args(tar_args)
+                .stdin(Stdio::piped()),
+        )?;
+        let mut tar_in = tar.child.stdin.take().ok_or("tar stdin unavailable")?;
 
         let mut channel = self.exec_channel(remote_cmd).await?;
 
@@ -290,22 +338,14 @@ impl DockerFs {
         let (code, err) = match drained {
             Ok(v) => v,
             Err(e) => {
-                let _ = child.kill().await;
+                tar.kill().await;
                 return Err(e);
             }
         };
         drop(tar_in); // close stdin so local tar finishes
-        let status = child
-            .wait()
-            .await
-            .map_err(|e| format!("tar wait error: {e}"))?;
-        if let Some(e) = exit_error("download failed", code, &String::from_utf8_lossy(&err)) {
-            return Err(e);
-        }
-        if !status.success() {
-            return Err("Local tar extraction failed".into());
-        }
-        Ok(())
+        let extracted = tar.finish("Local tar extraction failed").await;
+        exit_error("download failed", code, &String::from_utf8_lossy(&err))?;
+        extracted
     }
 }
 
@@ -409,9 +449,7 @@ impl FileBackend for DockerFs {
         if code == Some(7) {
             return Ok(None);
         }
-        if let Some(e) = exit_error("stat failed", code, &err) {
-            return Err(e);
-        }
+        exit_error("stat failed", code, &err)?;
         Ok(Some(out.trim() == "d"))
     }
 
@@ -441,15 +479,14 @@ impl FileBackend for DockerFs {
             .unwrap_or(0)
     }
 
-    async fn read_file(&self, path: &str) -> Result<Vec<u8>, String> {
-        let (out, err, code) = self.run(&self.dexec("base64 \"$1\"", &[path])).await?;
-        if let Some(e) = exit_error("read failed", code, &err) {
-            return Err(e);
-        }
-        use base64::Engine;
-        base64::engine::general_purpose::STANDARD
-            .decode(out.trim().replace('\n', ""))
-            .map_err(|e| format!("decode failed: {e}"))
+    async fn read_file(&self, path: &str, max_bytes: u64) -> Result<Vec<u8>, String> {
+        // `head -c` stops at the limit inside the container, so an endless file
+        // (`/dev/zero`) is cut off there rather than streamed here without end.
+        // The channel carries raw bytes, so no base64 round trip is needed.
+        let limit = read_limit(max_bytes).to_string();
+        let script = self.dexec("head -c \"$2\" \"$1\"", &[path, &limit]);
+        let (out, err, code) = self.run_bytes(&script).await?;
+        exit_error("read failed", code, &err).map(|()| out)
     }
 
     async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
@@ -531,10 +568,7 @@ impl FileBackend for DockerFs {
         )
         .await?;
         local.flush().await.ok();
-        if let Some(e) = exit_error("download failed", code, &String::from_utf8_lossy(&err)) {
-            return Err(e);
-        }
-        Ok(())
+        exit_error("download failed", code, &String::from_utf8_lossy(&err))
     }
 
     // ── Directory / batch transfer (tar streaming) ─────────────────────────────
@@ -663,14 +697,39 @@ impl FileBackend for DockerFs {
 
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    async fn read_tail_keeps_only_the_end() {
+        let input: Vec<u8> = (0..10_000u32).map(|i| (i % 251) as u8).collect();
+        let tail = read_tail(&input[..], 100).await;
+        assert_eq!(tail, &input[input.len() - 100..]);
+        assert_eq!(read_tail(&b"short"[..], 100).await, b"short");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_chatty_local_process_does_not_block_on_stderr() {
+        // 1 MB of stderr: far past a pipe's buffer, so an undrained stderr hangs here.
+        let tar = LocalTar::spawn(
+            tokio::process::Command::new("sh")
+                .args(["-c", "head -c 1000000 /dev/zero | tr '\\0' x >&2; exit 3"]),
+        )
+        .unwrap();
+        let err =
+            tokio::time::timeout(std::time::Duration::from_secs(10), tar.finish("tar failed"))
+                .await
+                .expect("stderr was not drained")
+                .unwrap_err();
+        assert!(err.starts_with("tar failed: xxx"));
+        assert!(err.len() <= "tar failed: ".len() + STDERR_TAIL);
+    }
     use super::*;
 
     #[test]
     fn only_exit_zero_is_a_success() {
-        assert_eq!(exit_error("delete failed", Some(0), ""), None);
+        assert_eq!(exit_error("delete failed", Some(0), ""), Ok(()));
         assert_eq!(
             exit_error("delete failed", Some(1), ""),
-            Some("delete failed: exit 1".to_string())
+            Err("delete failed: exit 1".to_string())
         );
     }
 
@@ -678,7 +737,7 @@ mod tests {
     fn a_missing_exit_status_is_a_failure_not_a_success() {
         assert_eq!(
             exit_error("stat failed", None, ""),
-            Some("stat failed: no exit status".to_string())
+            Err("stat failed: no exit status".to_string())
         );
     }
 
@@ -686,11 +745,11 @@ mod tests {
     fn stderr_wins_over_the_bare_exit_code() {
         assert_eq!(
             exit_error("read failed", Some(2), "  No such file\n"),
-            Some("read failed: No such file".to_string())
+            Err("read failed: No such file".to_string())
         );
         assert_eq!(
             exit_error("read failed", None, "container is not running\n"),
-            Some("read failed: container is not running".to_string())
+            Err("read failed: container is not running".to_string())
         );
     }
 
