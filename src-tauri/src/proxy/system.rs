@@ -92,7 +92,7 @@ pub fn parse_proxy_url(url: &str) -> Option<ProxySpec> {
 }
 
 #[cfg(any(target_os = "windows", test))]
-pub fn parse_windows_proxy_server(value: &str) -> Option<ProxySpec> {
+fn parse_windows_proxy_server(value: &str) -> Option<ProxySpec> {
     let value = value.trim();
     if value.is_empty() {
         return None;
@@ -103,9 +103,8 @@ pub fn parse_windows_proxy_server(value: &str) -> Option<ProxySpec> {
     let entry = |scheme: &str| {
         value.split(';').find_map(|part| {
             let (k, v) = part.split_once('=')?;
-            k.trim()
-                .eq_ignore_ascii_case(scheme)
-                .then(|| v.trim().to_string())
+            let v = v.trim();
+            (k.trim().eq_ignore_ascii_case(scheme) && !v.is_empty()).then(|| v.to_string())
         })
     };
     if let Some(v) = entry("https").or_else(|| entry("http")) {
@@ -141,7 +140,7 @@ fn glob(pattern: &str, text: &str) -> bool {
 }
 
 #[cfg(any(target_os = "windows", target_os = "macos", test))]
-pub fn bypass_matches(patterns: &[&str], host: &str, local_token: bool) -> bool {
+fn bypass_matches(patterns: &[&str], host: &str, local_token: bool) -> bool {
     let host = host.to_ascii_lowercase();
     patterns
         .iter()
@@ -156,7 +155,7 @@ pub fn bypass_matches(patterns: &[&str], host: &str, local_token: bool) -> bool 
 }
 
 #[cfg(any(target_os = "macos", test))]
-pub fn parse_scutil(output: &str) -> Option<(ProxySpec, Vec<String>)> {
+fn parse_scutil(output: &str) -> Option<(ProxySpec, Vec<String>)> {
     let mut map = std::collections::HashMap::new();
     let mut exceptions = Vec::new();
     let mut in_exceptions = false;
@@ -207,7 +206,7 @@ pub fn parse_scutil(output: &str) -> Option<(ProxySpec, Vec<String>)> {
         target_os = "ios"
     ))
 ))]
-pub fn from_env(get: impl Fn(&str) -> Option<String>, host: &str) -> Option<ProxySpec> {
+fn from_env(get: impl Fn(&str) -> Option<String>, host: &str) -> Option<ProxySpec> {
     let var = |names: &[&str]| {
         names
             .iter()
@@ -309,6 +308,18 @@ mod tests {
         );
         assert_eq!(
             parse_windows_proxy_server("socks=c:3"),
+            Some(ProxySpec::Socks5(ep("c", 3)))
+        );
+    }
+
+    #[test]
+    fn windows_empty_scheme_value_falls_back() {
+        assert_eq!(
+            parse_windows_proxy_server("https=;http=a:1"),
+            Some(ProxySpec::Http(ep("a", 1)))
+        );
+        assert_eq!(
+            parse_windows_proxy_server("https= ;http=;socks=c:3"),
             Some(ProxySpec::Socks5(ep("c", 3)))
         );
     }

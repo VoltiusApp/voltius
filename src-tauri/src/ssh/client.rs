@@ -704,8 +704,7 @@ impl HopError {
     }
 }
 
-/// Dials the first hop through `proxy` (or directly) and completes the SSH
-/// handshake; the returned `Option<String>` is the proxy's `via` label.
+/// The returned `Option<String>` is the proxy's `via` label.
 pub(crate) async fn connect_first_hop<H>(
     config: Arc<client::Config>,
     proxy: Option<&ProxySpec>,
@@ -1599,8 +1598,7 @@ mod tests {
         );
     }
 
-    /// Runs `connect_first_hop_retrying` against a closed local port so every
-    /// attempt fails immediately; returns the number of `make` calls and the result.
+    /// Returns how many times `make` ran.
     async fn run_retrying(max_attempts: u32, rejection: Option<&str>) -> (u32, Result<(), String>) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();

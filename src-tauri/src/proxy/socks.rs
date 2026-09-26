@@ -9,6 +9,12 @@ pub async fn connect(
 ) -> Result<Socks5Stream<TcpStream>, ProxyError> {
     let proxy = (ep.host.as_str(), ep.port);
     let result = match ep.auth() {
+        Some((_, "")) => {
+            return Err(ProxyError::Protocol {
+                proxy: ep.label(),
+                detail: "SOCKS5 username set but no password".into(),
+            })
+        }
         Some((user, pass)) => {
             Socks5Stream::connect_with_password(proxy, (host, port), user, pass).await
         }

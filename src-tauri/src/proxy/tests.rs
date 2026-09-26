@@ -145,6 +145,25 @@ async fn socks5_wrong_password_is_a_socks_error() {
 }
 
 #[tokio::test]
+async fn socks5_username_without_password_fails_locally() {
+    for password in [None, Some(String::new())] {
+        let ep = ProxyEndpoint {
+            password,
+            ..endpoint(9, Some(("u", "")))
+        };
+        let err = dial(Some(&ProxySpec::Socks5(ep)), "h", 22)
+            .await
+            .err()
+            .unwrap();
+        assert!(matches!(err, ProxyError::Protocol { .. }), "{err}");
+        assert_eq!(
+            err.to_string(),
+            "Proxy 127.0.0.1:9: SOCKS5 username set but no password"
+        );
+    }
+}
+
+#[tokio::test]
 async fn ssh_through_http_connect_with_banner_in_reply() {
     let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
     let (proxy, line) = fake_http(ssh, None).await;
