@@ -39,6 +39,18 @@ test("skips the key copy (and never even reads it) when copyKey is false", async
   expect(h.storeSecret).not.toHaveBeenCalledWith("key:c2", expect.anything());
 });
 
+test("an inline key travels with its passphrase, and neither is read when copyKey is false", async () => {
+  h.getSecret.mockImplementation(async (k: string) => (k === "key:c1" ? "key-material" : k === "passphrase:c1" ? "pp" : null));
+
+  await copyConnectionSecrets("c1", "c2", "v1", { copyKey: true, publish: "direct" });
+  expect(h.storeSecret).toHaveBeenCalledWith("passphrase:c2", "pp");
+  expect(h.saveTeamVaultSecretForVault).toHaveBeenCalledWith("v1", "passphrase:c2", "pp");
+
+  h.getSecret.mockClear();
+  await copyConnectionSecrets("c1", "c3", "v1", { copyKey: false, publish: "direct" });
+  expect(h.getSecret).not.toHaveBeenCalledWith("passphrase:c1");
+});
+
 test("a secret with no value is skipped entirely: no store, no team save", async () => {
   h.getSecret.mockResolvedValue(null);
 

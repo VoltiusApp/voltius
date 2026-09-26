@@ -4,7 +4,7 @@ import { getSecret, storeSecret } from "@/services/vault";
 import { publishConnectionSecrets } from "@/services/vaultObjectSecrets";
 import { transferConnectionSecrets } from "@/services/vaultSecrets";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
-import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
+import { connectionSecretKeys } from "@/services/teamVaultSecretKeys";
 
 export interface DuplicateConnectionOpts {
   vaultId?: string;
@@ -21,34 +21,23 @@ export interface CopyConnectionSecretsOpts {
   swallowFetchErrors?: boolean;
 }
 
-async function copySecretIfPresent(
-  localKeyFor: (id: string) => string,
-  fromId: string,
-  toId: string,
-  vaultId: string,
-  direct: boolean,
-  swallowFetchErrors: boolean,
-): Promise<void> {
-  const pending = getSecret(localKeyFor(fromId));
-  const value = swallowFetchErrors ? await pending.catch(() => null) : await pending;
-  if (!value) return;
-  await storeSecret(localKeyFor(toId), value);
-  if (direct) await saveTeamVaultSecretForVault(vaultId, localKeyFor(toId), value).catch(() => {});
-}
+const isInlineKeySecret = (localKey: string) => localKey.startsWith("key:") || localKey.startsWith("passphrase:");
 
-// Shared by HostsPage's duplicate/copy-to-vault actions and the plugin object-copy
-// path — add any new per-host secret here, once.
 export async function copyConnectionSecrets(
   fromId: string,
   toId: string,
   vaultId: string,
   opts: CopyConnectionSecretsOpts,
 ): Promise<void> {
-  const direct = opts.publish === "direct";
-  const swallow = opts.swallowFetchErrors ?? false;
-  await copySecretIfPresent((id) => `password:${id}`, fromId, toId, vaultId, direct, swallow);
-  if (opts.copyKey) await copySecretIfPresent((id) => `key:${id}`, fromId, toId, vaultId, direct, swallow);
-  await copySecretIfPresent(proxyPasswordKey, fromId, toId, vaultId, direct, swallow);
+  const targets = connectionSecretKeys(toId);
+  for (const [i, fromKey] of connectionSecretKeys(fromId).entries()) {
+    if (!opts.copyKey && isInlineKeySecret(fromKey)) continue;
+    const pending = getSecret(fromKey);
+    const value = opts.swallowFetchErrors ? await pending.catch(() => null) : await pending;
+    if (!value) continue;
+    await storeSecret(targets[i], value);
+    if (opts.publish === "direct") await saveTeamVaultSecretForVault(vaultId, targets[i], value).catch(() => {});
+  }
   if (opts.publish === "grouped") await publishConnectionSecrets(toId, vaultId);
 }
 
