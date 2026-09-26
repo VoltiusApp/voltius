@@ -184,8 +184,8 @@ pub(super) async fn tar_backend(
 /// Copy `reader` into `writer` in `CHUNK_SIZE` chunks, emitting transfer
 /// progress after every chunk and honouring cancellation between them.
 /// Neither side is shut down — the caller owns the close, and its wording.
-pub(crate) async fn pump_chunks<R, W>(
-    app: &AppHandle,
+pub(crate) async fn pump_chunks<RT, R, W>(
+    app: &AppHandle<RT>,
     reader: &mut R,
     writer: &mut W,
     transfer_id: &str,
@@ -194,6 +194,7 @@ pub(crate) async fn pump_chunks<R, W>(
     total: u64,
 ) -> Result<(), String>
 where
+    RT: tauri::Runtime,
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {

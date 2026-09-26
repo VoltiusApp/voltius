@@ -113,3 +113,4 @@ webpki-roots = "1"
 
 [dev-dependencies]
 tempfile = "3"
+tauri = { version = "2", features = ["test"] }

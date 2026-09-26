@@ -1,6 +1,6 @@
 use super::{
-    backend_transfer_command, get_session, open_remote_read, open_remote_write, pump_chunks,
-    sftp_rr_file_inner_accum,
+    backend_transfer_command, get_session, open_remote_write, pump_chunks,
+    sftp_rr_file_inner_accum, transfer::download_into,
 };
 use crate::sftp::{backend::skip_unsafe_name, SftpManager};
 use russh_sftp::client::SftpSession;
@@ -8,7 +8,7 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Runtime, State};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
@@ -104,8 +104,8 @@ pub(crate) async fn sftp_upload_dir_inner(
 backend_transfer_command!(sftp_download_dir, download_dir, remote_path, local_path);
 
 /// Recursively download a remote directory over a real SFTP session.
-pub(crate) async fn sftp_download_dir_inner(
-    app: &AppHandle,
+pub(crate) async fn sftp_download_dir_inner<R: Runtime>(
+    app: &AppHandle<R>,
     session: Arc<Mutex<SftpSession>>,
     remote_path: &str,
     local_path: &str,
@@ -123,36 +123,17 @@ pub(crate) async fn sftp_download_dir_inner(
 
     let mut transferred = 0u64;
     for (remote_abs, rel, _) in &remote_entries {
-        let local_abs = local_base.join(rel);
-        if let Some(parent) = local_abs.parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .map_err(|e| format!("Cannot create directory: {e}"))?;
-        }
-
-        let (_, mut remote_file) = open_remote_read(&session, remote_abs).await?;
-
-        let mut local_file = tokio::fs::File::create(&local_abs)
-            .await
-            .map_err(|e| format!("Cannot create local file: {e}"))?;
-
-        pump_chunks(
+        download_into(
             app,
-            &mut remote_file,
-            &mut local_file,
+            &session,
+            remote_abs,
+            &local_base.join(rel),
             transfer_id,
             token,
             &mut transferred,
-            total,
+            Some(total),
         )
         .await?;
-        // Properly close the remote handle. `File`'s `Drop` uses a fire-and-forget
-        // close that never decrements russh-sftp's client-side open-handle counter,
-        // so dropping thousands of files (e.g. node_modules) hits "handle limit reached".
-        remote_file
-            .shutdown()
-            .await
-            .map_err(|e| format!("Close error: {e}"))?;
     }
     Ok(())
 }
@@ -255,8 +236,8 @@ fn collect_local_recursive(
 
 /// Walk a remote tree, returning its relative directory paths (for pre-creating
 /// dirs) and every file as `(absolute, relative, size)`; `local` as in `skip_unsafe_name`.
-fn collect_remote_structure<'a>(
-    app: &'a AppHandle,
+fn collect_remote_structure<'a, R: Runtime>(
+    app: &'a AppHandle<R>,
     transfer_id: &'a str,
     sftp: &'a SftpSession,
     base: &'a str,
@@ -298,4 +279,158 @@ fn collect_remote_structure<'a>(
         }
         Ok((dirs, files))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sftp::backend::test_tree::{
+        assert_downloaded, children, lookup, record_skipped, ROOT,
+    };
+    use russh_sftp::protocol::{
+        Attrs, Data, File, FileAttributes, Handle, Name, OpenFlags, Status, StatusCode,
+    };
+    use std::collections::HashSet;
+    use tauri::test::mock_app;
+
+    /// Serves `test_tree` over SFTP; `listed` ends each directory listing after one batch.
+    #[derive(Default)]
+    struct TreeServer {
+        listed: HashSet<String>,
+    }
+
+    fn attrs(content: Option<&str>) -> FileAttributes {
+        let mut attrs = FileAttributes::empty();
+        match content {
+            Some(c) => {
+                attrs.set_regular(true);
+                attrs.size = Some(c.len() as u64);
+            }
+            None => attrs.set_dir(true),
+        }
+        attrs
+    }
+
+    impl russh_sftp::server::Handler for TreeServer {
+        type Error = StatusCode;
+
+        fn unimplemented(&self) -> StatusCode {
+            StatusCode::OpUnsupported
+        }
+
+        async fn opendir(&mut self, id: u32, path: String) -> Result<Handle, StatusCode> {
+            self.listed.remove(&path);
+            Ok(Handle { id, handle: path })
+        }
+
+        async fn readdir(&mut self, id: u32, handle: String) -> Result<Name, StatusCode> {
+            if !self.listed.insert(handle.clone()) {
+                return Err(StatusCode::Eof);
+            }
+            let files = children(&handle)
+                .map(|(name, content)| File::new(name, attrs(content)))
+                .collect();
+            Ok(Name { id, files })
+        }
+
+        async fn stat(&mut self, id: u32, path: String) -> Result<Attrs, StatusCode> {
+            let content = lookup(&path).ok_or(StatusCode::NoSuchFile)?;
+            Ok(Attrs {
+                id,
+                attrs: attrs(content),
+            })
+        }
+
+        async fn open(
+            &mut self,
+            id: u32,
+            filename: String,
+            _: OpenFlags,
+            _: FileAttributes,
+        ) -> Result<Handle, StatusCode> {
+            lookup(&filename).flatten().ok_or(StatusCode::NoSuchFile)?;
+            Ok(Handle {
+                id,
+                handle: filename,
+            })
+        }
+
+        async fn read(
+            &mut self,
+            id: u32,
+            handle: String,
+            offset: u64,
+            len: u32,
+        ) -> Result<Data, StatusCode> {
+            let content = lookup(&handle)
+                .flatten()
+                .ok_or(StatusCode::NoSuchFile)?
+                .as_bytes();
+            let start = offset as usize;
+            if start >= content.len() {
+                return Err(StatusCode::Eof);
+            }
+            let end = content.len().min(start + len as usize);
+            Ok(Data {
+                id,
+                data: content[start..end].to_vec(),
+            })
+        }
+
+        async fn close(&mut self, id: u32, _: String) -> Result<Status, StatusCode> {
+            Ok(Status {
+                id,
+                status_code: StatusCode::Ok,
+                error_message: "Ok".into(),
+                language_tag: "en-US".into(),
+            })
+        }
+    }
+
+    async fn serve_tree() -> Arc<Mutex<SftpSession>> {
+        let (client, server) = tokio::io::duplex(1 << 16);
+        russh_sftp::server::run(server, TreeServer::default()).await;
+        Arc::new(Mutex::new(SftpSession::new(client).await.unwrap()))
+    }
+
+    #[tokio::test]
+    async fn sftp_folder_download_skips_and_reports_names_this_system_cannot_hold() {
+        let session = serve_tree().await;
+        let app = mock_app();
+        let skipped = record_skipped(&app, "t-sftp");
+        let tmp = tempfile::tempdir().unwrap();
+        let dst = tmp.path().join("dst");
+
+        sftp_download_dir_inner(
+            app.handle(),
+            session,
+            ROOT,
+            &dst.to_string_lossy(),
+            "t-sftp",
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+
+        assert_downloaded(&dst, &skipped);
+    }
+
+    #[tokio::test]
+    async fn server_to_server_walk_keeps_names_only_the_local_system_refuses() {
+        let session = serve_tree().await;
+        let app = mock_app();
+        let skipped = record_skipped(&app, "t-rr");
+        let sftp = session.lock().await;
+
+        let (dirs, files) =
+            collect_remote_structure(app.handle(), "t-rr", &sftp, ROOT, ROOT, false)
+                .await
+                .unwrap();
+
+        let mut rels: Vec<&str> = files.iter().map(|(_, rel, _)| rel.as_str()).collect();
+        rels.sort();
+        assert_eq!(rels, ["10:30.log", "a\\b", "ok.txt", "sub/inner.txt"]);
+        assert_eq!(dirs, ["sub"]);
+        assert_eq!(*skipped.lock().unwrap(), ["/src/../escape"]);
+    }
 }
