@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
+import { pushSettingsChange } from "./remoteApplyGuard";
 import type { PluginManifest } from "@/plugins/api";
 
 const TOMBSTONE_FILE = "removed-seeded.json";
@@ -99,19 +99,22 @@ export const useSeededTombstoneStore = create<SeededTombstoneStore>((set, get) =
 
   remove: async (id) => {
     if (get().removed.includes(id)) return;
-    const removed = [...get().removed, id];
-    set({ removed });
-    useAppSettingsTimestampStore.getState().touch();
-    await writeTombstones(removed).catch(() => {});
+    await saveTombstones([...get().removed, id]);
   },
 
   restore: async (id) => {
     if (!get().removed.includes(id)) return;
-    const removed = get().removed.filter((r) => r !== id);
-    set({ removed });
-    useAppSettingsTimestampStore.getState().touch();
-    await writeTombstones(removed).catch(() => {});
+    await saveTombstones(get().removed.filter((r) => r !== id));
   },
 
   hasSeededArtifact: async (id) => (await loadSeededEntries()).has(id),
 }));
+
+// The tombstone file rides in the sync blob (plugins/__meta__), not in the
+// appSettings section, so a change schedules a push without moving that
+// section's clock — moving it would republish stale settings as newest.
+async function saveTombstones(removed: string[]): Promise<void> {
+  useSeededTombstoneStore.setState({ removed });
+  pushSettingsChange();
+  await writeTombstones(removed).catch(() => {});
+}

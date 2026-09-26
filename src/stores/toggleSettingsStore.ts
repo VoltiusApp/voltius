@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
+import { touchAppSetting } from "./appSettingsTimestampStore";
 import { TOGGLE_DEFS, type ToggleDef, type ToggleId } from "./toggleDefs";
 
 export { TOGGLE_DEFS, type ToggleDef, type ToggleId };
@@ -17,7 +17,7 @@ export const useToggleSettingsStore = create<ToggleSettingsState>()(
       values: {},
       set: (id, value) => {
         set((s) => ({ values: { ...s.values, [id]: value } }));
-        useAppSettingsTimestampStore.getState().touch();
+        touchAppSetting(`appSettings.toggles.${id}`);
       },
     }),
     { name: "voltius-toggle-settings" },

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
+import { touchAppSetting } from "./appSettingsTimestampStore";
 
 export type Locale = "en" | "fr" | "ru" | "zh" | "tr";
 
@@ -23,7 +23,7 @@ export const useLocaleStore = create<LocaleStore>()(
       locale: "en",
       setLocale: (locale) => {
         set({ locale });
-        useAppSettingsTimestampStore.getState().touch();
+        touchAppSetting("appSettings.locale");
       },
     }),
     { name: "voltius-locale" },

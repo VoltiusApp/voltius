@@ -10,7 +10,9 @@ export interface UserDataHandler {
   // calls this on the absent-section path, outside of any explicit export flow.
   export(): unknown;
 
-  // Write exported state to stores.
+  // Write exported state to stores. Every store write must happen before the
+  // first await: a remote apply's guard only covers the synchronous part (see
+  // stores/remoteApplyGuard). Disk writes and other awaits go last.
   import(data: unknown): Promise<void>;
 
   // LWW merge: returns the winning value and whether local was overwritten by remote.

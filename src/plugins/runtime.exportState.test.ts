@@ -14,13 +14,14 @@ vi.mock("@tauri-apps/api/core", () => ({
 // runtime.ts pulls from this module.
 const pluginSkippedFilesMock = vi.fn<() => string[]>(() => ["theme.json"]);
 const writeFilteredSettingsMock = vi.fn(async () => {});
-vi.mock("@/services/sync", () => ({
+vi.mock("@/services/sync", async (importOriginal) => ({
+  // The real merge/import helpers, which the plugin import path shares with server sync.
+  ...(await importOriginal<typeof import("@/services/sync")>()),
   getExcludedObjectIds: () => ["excluded-host", "excluded-key", "__global__"],
   getPluginSkippedSyncFiles: () => pluginSkippedFilesMock(),
   writeFilteredSettings: () => writeFilteredSettingsMock(),
   getSyncState: () => ({ status: "idle" }),
   onSyncStateChange: () => () => {},
-  ENTITY_FILES: [],
 }));
 
 import { loadPlugin, unloadPlugin } from "@/plugins/runtime";

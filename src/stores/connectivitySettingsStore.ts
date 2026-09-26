@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
+import { touchAppSetting } from "./appSettingsTimestampStore";
 import { getToggle } from "./toggleSettingsStore";
 import { DEFAULT_KEEPALIVE_PRESET, type KeepalivePreset } from "@/utils/keepalive";
 import type { ProxyMode } from "@/types";
@@ -33,12 +33,12 @@ export const useConnectivitySettingsStore = create<ConnectivitySettingsState>()(
       keepalivePreset: DEFAULT_KEEPALIVE_PRESET,
       setKeepalivePreset: (preset) => {
         set({ keepalivePreset: preset });
-        useAppSettingsTimestampStore.getState().touch();
+        touchAppSetting("appSettings.keepalivePreset");
       },
       proxy: DEFAULT_GLOBAL_PROXY,
       setProxy: (proxy) => {
         set({ proxy });
-        useAppSettingsTimestampStore.getState().touch();
+        touchAppSetting("appSettings.proxy");
       },
     }),
     {
@@ -46,7 +46,7 @@ export const useConnectivitySettingsStore = create<ConnectivitySettingsState>()(
       version: CONNECTIVITY_SETTINGS_VERSION,
       migrate: (persisted, version) => {
         const { state, changed } = migrateConnectivitySettings(persisted, version);
-        if (changed) queueMicrotask(() => useAppSettingsTimestampStore.getState().touch());
+        if (changed) queueMicrotask(() => touchAppSetting("appSettings.keepalivePreset"));
         return state as ConnectivitySettingsState;
       },
     },
