@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
+import { useDockerT } from "../runtime";
 
 /** Prune state shared by the image, network and volume lists. */
 export function usePrune(run: () => Promise<string>, onRefresh: () => void) {
@@ -49,8 +50,8 @@ export function useRowAction<A extends unknown[]>(
 
 interface Props {
   count: number;
-  /** Plural resource name shown beside the count: "images", "networks", "volumes". */
-  noun: string;
+  /** The toolbar count, already pluralized: "3 images". */
+  countLabel: string;
   emptyLabel: string;
   prune: ReturnType<typeof usePrune>;
   /** Extra toolbar content: the count suffix and any action left of prune. */
@@ -63,18 +64,19 @@ interface Props {
  *  prune result line, and a scrolling body with an empty state. */
 export function ResourceList({
   count,
-  noun,
+  countLabel,
   emptyLabel,
   prune,
   countSuffix,
   actions,
   children,
 }: Props) {
+  const t = useDockerT();
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-1 border-b border-(--t-border) shrink-0">
         <span className="text-[10px] text-(--t-text-muted)">
-          {count} {noun}
+          {countLabel}
           {countSuffix}
         </span>
         <div className="flex items-center gap-1">
@@ -85,7 +87,7 @@ export function ResourceList({
             className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-status-warning) hover:bg-(--t-bg-hover) disabled:opacity-40"
           >
             <Icon icon="lucide:trash" width={10} />
-            {prune.pruning ? "pruning…" : "prune"}
+            {prune.pruning ? t("pruning") : t("prune")}
           </button>
         </div>
       </div>

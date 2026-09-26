@@ -19,6 +19,11 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "confirmKill": "Kill",
     "confirmForceKill": "Force kill",
     "cancel": "Cancel",
+    // Desktop panel.
+    "noActiveSession": "No active session",
+    "androidUnavailable": "The process list for this device isn't available on Android. Connect to a host over SSH to see its processes.",
+    "colUser": "User",
+    "killProcessTitle": "Kill process {{pid}}",
   },
   fr: {
     "title": "Processus",
@@ -38,6 +43,10 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "confirmKill": "Tuer",
     "confirmForceKill": "Forcer l'arrêt",
     "cancel": "Annuler",
+    "noActiveSession": "Aucune session active",
+    "androidUnavailable": "La liste des processus de cet appareil n'est pas disponible sur Android. Connectez-vous à un hôte en SSH pour voir ses processus.",
+    "colUser": "Utilisateur",
+    "killProcessTitle": "Tuer le processus {{pid}}",
   },
   ru: {
     "title": "Процессы",
@@ -57,6 +66,10 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "confirmKill": "Завершить",
     "confirmForceKill": "Завершить принудительно",
     "cancel": "Отмена",
+    "noActiveSession": "Нет активной сессии",
+    "androidUnavailable": "Список процессов этого устройства недоступен на Android. Подключитесь к хосту по SSH, чтобы увидеть его процессы.",
+    "colUser": "Пользователь",
+    "killProcessTitle": "Завершить процесс {{pid}}",
   },
   zh: {
     "title": "进程",
@@ -76,6 +89,10 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "confirmKill": "终止",
     "confirmForceKill": "强制终止",
     "cancel": "取消",
+    "noActiveSession": "没有活动会话",
+    "androidUnavailable": "Android 上无法查看此设备的进程列表。请通过 SSH 连接主机以查看其进程。",
+    "colUser": "用户",
+    "killProcessTitle": "终止进程 {{pid}}",
   },
   tr: {
     "title": "İşlemler",
@@ -95,5 +112,9 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "confirmKill": "Sonlandır",
     "confirmForceKill": "Zorla sonlandır",
     "cancel": "İptal",
+    "noActiveSession": "Etkin oturum yok",
+    "androidUnavailable": "Bu cihazın işlem listesi Android'de kullanılamaz. İşlemlerini görmek için bir sunucuya SSH ile bağlanın.",
+    "colUser": "Kullanıcı",
+    "killProcessTitle": "{{pid}} işlemini sonlandır",
   },
 };

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import { getProxmoxApi } from "../runtime";
+import { getProxmoxApi, useProxmoxT } from "../runtime";
 import type { LxcSnapshot } from "../types";
 
 interface Props {
@@ -30,6 +30,7 @@ export function SnapshotList({
   onDelete,
   onBack,
 }: Props) {
+  const t = useProxmoxT();
   const [creating, setCreating] = useState(false);
   const [busySnap, setBusySnap] = useState<string | null>(null);
 
@@ -42,7 +43,7 @@ export function SnapshotList({
       onSnapshotInputChange("");
       onSnapshotDescChange("");
     } catch (e) {
-      getProxmoxApi()?.notifications.toast(`Snapshot failed: ${e}`, { severity: "error" });
+      getProxmoxApi()?.notifications.toast(t("snapshotFailed", { error: String(e) }), { severity: "error" });
     } finally {
       setCreating(false);
     }
@@ -53,7 +54,7 @@ export function SnapshotList({
     try {
       await onRollback(vmid, snapname);
     } catch (e) {
-      getProxmoxApi()?.notifications.toast(`Rollback failed: ${e}`, { severity: "error" });
+      getProxmoxApi()?.notifications.toast(t("rollbackFailed", { error: String(e) }), { severity: "error" });
     } finally {
       setBusySnap(null);
     }
@@ -64,7 +65,7 @@ export function SnapshotList({
     try {
       await onDelete(vmid, snapname);
     } catch (e) {
-      getProxmoxApi()?.notifications.toast(`Delete failed: ${e}`, { severity: "error" });
+      getProxmoxApi()?.notifications.toast(t("deleteFailed", { error: String(e) }), { severity: "error" });
     } finally {
       setBusySnap(null);
     }
@@ -81,7 +82,7 @@ export function SnapshotList({
           <Icon icon="lucide:arrow-left" width={12} />
         </button>
         <span className="text-[11px] font-medium text-(--t-text) truncate">
-          CT {vmid} — {vmName}
+          {t("sheetTitleWithId", { name: vmName, vmid })}
         </span>
       </div>
 
@@ -93,13 +94,13 @@ export function SnapshotList({
             value={snapshotInput}
             onChange={(e) => onSnapshotInputChange(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && create()}
-            placeholder="Snapshot name"
+            placeholder={t("newSnapshotPlaceholder")}
             className="flex-1 min-w-0 bg-(--t-bg-input) border border-(--t-border) rounded-sm px-2 py-0.5 text-[10px] text-(--t-text) placeholder:text-(--t-text-muted) outline-hidden focus:border-(--t-accent)"
           />
           <button
             onClick={create}
             disabled={creating || !snapshotInput.trim()}
-            title="Create snapshot"
+            title={t("createSnapshot")}
             className="px-2 py-0.5 rounded-sm border border-(--t-border) text-[10px] text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
           >
             {creating ? <Icon icon="lucide:loader-circle" width={11} className="animate-spin" /> : "+"}
@@ -109,7 +110,7 @@ export function SnapshotList({
           type="text"
           value={snapshotInputDesc}
           onChange={(e) => onSnapshotDescChange(e.target.value)}
-          placeholder="Description (optional)"
+          placeholder={t("descriptionPlaceholder")}
           className="bg-(--t-bg-input) border border-(--t-border) rounded-sm px-2 py-0.5 text-[10px] text-(--t-text) placeholder:text-(--t-text-muted) outline-hidden focus:border-(--t-accent)"
         />
       </div>
@@ -118,7 +119,7 @@ export function SnapshotList({
       <div className="flex-1 overflow-y-auto">
         {snapshots.length === 0 ? (
           <div className="flex items-center justify-center h-16 opacity-40">
-            <p className="text-[11px] text-(--t-text-muted)">No snapshots</p>
+            <p className="text-[11px] text-(--t-text-muted)">{t("noSnapshots")}</p>
           </div>
         ) : (
           snapshots.map((snap) => (
@@ -134,7 +135,7 @@ export function SnapshotList({
                     {snap.name}
                   </span>
                   {snap.is_current && (
-                    <span className="text-[9px] px-1 rounded-sm bg-(--t-accent) text-white shrink-0">here</span>
+                    <span className="text-[9px] px-1 rounded-sm bg-(--t-accent) text-white shrink-0">{t("hereBadge")}</span>
                   )}
                 </div>
                 {snap.timestamp && (
@@ -149,7 +150,7 @@ export function SnapshotList({
                   <button
                     onClick={() => rollback(snap.name)}
                     disabled={busySnap !== null}
-                    title="Rollback to this snapshot"
+                    title={t("rollbackToSnapshot")}
                     className="p-1 rounded-sm hover:bg-(--t-bg-card-hover) text-(--t-text-muted) hover:text-(--t-text) disabled:opacity-40"
                   >
                     <Icon icon="lucide:history" width={11} />
@@ -157,7 +158,7 @@ export function SnapshotList({
                   <button
                     onClick={() => del(snap.name)}
                     disabled={busySnap !== null}
-                    title="Delete snapshot"
+                    title={t("deleteSnapshot")}
                     className="p-1 rounded-sm hover:bg-(--t-bg-card-hover) text-(--t-status-error) opacity-60 hover:opacity-100 disabled:opacity-40"
                   >
                     <Icon icon="lucide:trash-2" width={11} />

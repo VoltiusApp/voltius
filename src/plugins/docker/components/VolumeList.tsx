@@ -1,5 +1,6 @@
 import { dockerPruneVolumes, dockerRemoveVolume } from "../services";
 import type { DockerVolume } from "../types";
+import { useDockerT } from "../runtime";
 import { ResourceList, ResourceRow, usePrune } from "./resourceList";
 
 interface Props {
@@ -11,14 +12,15 @@ interface Props {
 }
 
 export function VolumeList({ volumes, sessionId, isRemote, localShell, onRefresh }: Props) {
+  const t = useDockerT();
   const ctx = { sessionId, isRemote, localShell };
   const prune = usePrune(() => dockerPruneVolumes(ctx), onRefresh);
 
   return (
     <ResourceList
       count={volumes.length}
-      noun="volumes"
-      emptyLabel="No volumes"
+      countLabel={t("volumesCount", { count: volumes.length })}
+      emptyLabel={t("noVolumes")}
       prune={prune}
     >
       {volumes.map((v) => (
@@ -26,7 +28,7 @@ export function VolumeList({ volumes, sessionId, isRemote, localShell, onRefresh
           key={v.name}
           title={<p className="text-[11px] text-(--t-text) truncate font-mono">{v.name}</p>}
           subtitle={<p className="text-[10px] text-(--t-text-muted)">{v.driver}</p>}
-          removeTitle="Remove volume"
+          removeTitle={t("removeVolume")}
           onRemove={() => dockerRemoveVolume(ctx, v.name)}
           onRefresh={onRefresh}
         />

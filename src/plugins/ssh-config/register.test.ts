@@ -2,6 +2,8 @@ import { describe, test, it, expect, vi, beforeEach } from "vitest";
 import { register, manifest } from "./index";
 import { registerContributions, listContributions, clearContributions } from "@/mcp/contributions";
 import type { PluginAPI } from "@/plugins/api";
+import { createI18nAPI } from "@/plugins/domains/i18n";
+import { messages } from "./i18n";
 
 // ─── Mock API builder ──────────────────────────────────────────────────────
 // Minimal PluginAPI stub exercising only the surface ssh-config's register()
@@ -35,6 +37,7 @@ function makeApi(active: boolean) {
     ui: { registerSettingsPage },
     lifecycle: { waitForLoginSync: vi.fn(() => Promise.resolve()) },
     log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    i18n: createI18nAPI(messages),
     mcp: { registerTools: (tools: Parameters<typeof registerContributions>[1]) => registerContributions(manifest.id, tools) },
   } as unknown as PluginAPI;
 

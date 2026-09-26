@@ -1,3 +1,4 @@
+import type { PluginAPI } from "@/plugins/api";
 import type { DiskInfo } from "../types";
 
 function fmtSize(kb: number): string {
@@ -6,11 +7,19 @@ function fmtSize(kb: number): string {
   return `${(kb / 1024 / 1024 / 1024).toFixed(1)}TB`;
 }
 
-export function DiskSection({ disks, loading = false }: { disks: DiskInfo[]; loading?: boolean }) {
+export function DiskSection({
+  disks,
+  loading = false,
+  t,
+}: {
+  disks: DiskInfo[];
+  loading?: boolean;
+  t: PluginAPI["i18n"]["t"];
+}) {
   return (
     <div className="px-4 pt-3 pb-3 border-b border-(--t-border)">
       <p className="text-[10px] font-semibold uppercase tracking-widest text-(--t-text-dim) mb-2">
-        Disk
+        {t("disk")}
       </p>
       {loading ? (
         <div className="space-y-2.5 animate-pulse">

@@ -2,8 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PortChips } from "./PortChips";
-import { initDockerRuntime } from "../runtime";
-import type { PluginAPI } from "@/plugins/api";
+import { initTestDockerRuntime } from "../testRuntime";
 import type { PortMapping } from "../types";
 
 const reach = vi.fn(async () => ({ address: "http://localhost:8080", localPort: 8080, tunneled: true }));
@@ -15,7 +14,7 @@ function p(over: Partial<PortMapping>): PortMapping {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  initDockerRuntime({ ports: { reach }, notifications: { toast } } as unknown as PluginAPI);
+  initTestDockerRuntime({ ports: { reach }, notifications: { toast } });
 });
 afterEach(cleanup);
 

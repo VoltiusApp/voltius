@@ -1,6 +1,8 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { sync } from "./index";
 import type { PluginAPI, PluginConnection, PluginConnectionInput } from "@/plugins/api";
+import { createI18nAPI } from "@/plugins/domains/i18n";
+import { messages } from "./i18n";
 
 const TAG = "ssh-config";
 
@@ -65,6 +67,7 @@ function makeSyncApi(opts: HarnessOpts) {
     },
     notifications: { toast: vi.fn() },
     log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    i18n: createI18nAPI(messages),
   } as unknown as PluginAPI;
 
   return {

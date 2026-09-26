@@ -99,9 +99,9 @@ export function createMobileMetricsScreen(api: PluginAPI): FC<MobileScreenProps>
             </div>
 
             {(disksLoading || disks.length > 0) && (
-              <DiskSection disks={disks} loading={disksLoading} />
+              <DiskSection disks={disks} loading={disksLoading} t={t} />
             )}
-            <SystemInfoSection service={service} session={session} defaultExpanded />
+            <SystemInfoSection service={service} session={session} defaultExpanded t={t} />
           </div>
         )}
       </div>

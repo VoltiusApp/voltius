@@ -1,7 +1,7 @@
 import { writeClipboard } from "./clipboard";
 import { openExternal } from "./openExternal";
 import React, { useEffect, useRef, useState } from "react";
-import { useAutosave, useCopiedFlash, Icon, InfoTooltip, StatusDot } from "@voltius/ui";
+import { useAutosave, useCopiedFlash, useT, Icon, InfoTooltip, StatusDot } from "@voltius/ui";
 import type { PluginAPI } from "@/plugins/api";
 import {
   setupNewGist,
@@ -112,6 +112,17 @@ function SecretInput({
   );
 }
 
+/** A catalog string whose {{name}} placeholders are styled elements, not text. */
+function Rich({ text, nodes }: { text: string; nodes: Record<string, React.ReactNode> }) {
+  return (
+    <>
+      {text.split(/\{\{(\w+)\}\}/).map((part, i) =>
+        i % 2 ? <React.Fragment key={i}>{nodes[part]}</React.Fragment> : part,
+      )}
+    </>
+  );
+}
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2">
@@ -175,6 +186,7 @@ function GistRow({
   onDeleteRequest,
   onDeleteConfirm,
   onDeleteCancel,
+  t,
 }: {
   gist: GistRegistration;
   isImportSource: boolean;
@@ -188,6 +200,7 @@ function GistRow({
   onDeleteRequest: () => void;
   onDeleteConfirm: () => void;
   onDeleteCancel: () => void;
+  t: PluginAPI["i18n"]["t"];
 }) {
   const url = `https://gist.github.com/${gist.id}`;
   const shortId = `${gist.id.slice(0, 8)}…`;
@@ -200,19 +213,19 @@ function GistRow({
     return (
       <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-(--t-status-error) bg-[color-mix(in_srgb,var(--t-status-error)_6%,transparent)]">
         <span className="text-xs text-(--t-status-error)">
-          Permanently delete <span className="font-mono">{shortId}</span> from GitHub?
+          <Rich text={t("confirmDelete")} nodes={{ id: <span className="font-mono">{shortId}</span> }} />
         </span>
         <div className="flex gap-1.5 shrink-0">
           <Btn variant="secondary" small onClick={onDeleteCancel} disabled={isDeleting}>
-            Cancel
+            {t("cancel")}
           </Btn>
           <Btn variant="danger" small onClick={onDeleteConfirm} disabled={isDeleting}>
             {isDeleting ? (
               <span className="flex items-center gap-1">
                 <Icon icon="lucide:loader-circle" width={11} className="animate-spin" />
-                Deleting…
+                {t("deleting")}
               </span>
-            ) : "Delete"}
+            ) : t("delete")}
           </Btn>
         </div>
       </div>
@@ -229,7 +242,7 @@ function GistRow({
           type="button"
           onClick={() => openExternal(url)}
           className="text-(--t-text-dim) hover:text-(--t-accent) transition-colors"
-          title="Open on GitHub"
+          title={t("openOnGitHub")}
         >
           <Icon icon="lucide:external-link" width={11} />
         </button>
@@ -239,18 +252,18 @@ function GistRow({
       <div className="flex items-center gap-1.5 shrink-0">
         <RolePill
           icon="lucide:arrow-down-to-line"
-          label="Import"
+          label={t("roleImport")}
           active={isImportSource}
           disabled={isImportSource}
-          title="Read from this gist (import source)"
+          title={t("roleImportTitle")}
           onClick={onSetImportSource}
         />
         <RolePill
           icon="lucide:arrow-up-from-line"
-          label="Export"
+          label={t("roleExport")}
           active={isExportDest}
           disabled={isLastExport}
-          title={isLastExport ? "At least one export destination required" : "Write to this gist (export destination)"}
+          title={isLastExport ? t("roleExportLastTitle") : t("roleExportTitle")}
           onClick={() => onToggleExportDest(!isExportDest)}
         />
       </div>
@@ -260,7 +273,7 @@ function GistRow({
         <button
           type="button"
           onClick={handleCopyLink}
-          title="Copy gist URL"
+          title={t("copyGistUrl")}
           className="p-1 rounded-sm text-(--t-text-dim) hover:text-(--t-text-muted) hover:bg-(--t-bg-hover) transition-colors cursor-pointer"
         >
           <Icon icon={copied ? "lucide:check" : "lucide:copy"} width={13} className={copied ? "text-(--t-status-connected)" : ""} />
@@ -268,7 +281,7 @@ function GistRow({
         <button
           type="button"
           onClick={onUnlink}
-          title="Unlink (keep gist on GitHub)"
+          title={t("unlink")}
           className="p-1 rounded-sm text-(--t-text-dim) hover:text-(--t-text-muted) hover:bg-(--t-bg-hover) transition-colors cursor-pointer"
         >
           <Icon icon="lucide:unlink" width={13} />
@@ -276,7 +289,7 @@ function GistRow({
         <button
           type="button"
           onClick={onDeleteRequest}
-          title="Delete gist from GitHub"
+          title={t("deleteFromGitHub")}
           className="p-1 rounded-sm text-(--t-text-dim) hover:text-(--t-status-error) hover:bg-[color-mix(in_srgb,var(--t-status-error)_8%,transparent)] transition-colors cursor-pointer"
         >
           <Icon icon="lucide:trash-2" width={13} />
@@ -290,6 +303,8 @@ function GistRow({
 
 export function createSettingsPage(api: PluginAPI): React.FC {
   return function GistSyncSettings() {
+    const t = useT(api);
+
     // Credentials
     const [pat, setPat] = useState("");
     const [passphrase, setPassphrase] = useState("");
@@ -379,7 +394,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
             if (active) setSourceManifest(m);
           } catch (e) {
             if (active && e instanceof GistApiError && e.status === 404)
-              setError("Import source gist not found — it may have been deleted.");
+              setError(t("errImportSourceMissing"));
           }
         }
       })();
@@ -411,14 +426,21 @@ export function createSettingsPage(api: PluginAPI): React.FC {
 
     // ─── Handlers ─────────────────────────────────────────────────────────────
 
+    /** The stored PAT, or null once the user has been told to enter one first. */
+    const requirePat = async () => {
+      const stored = await api.vault.get("pat");
+      if (!stored) setError(t("errPatFirst"));
+      return stored;
+    };
+
     const handleCreateGist = async () => {
-      const currentPat = await api.vault.get("pat");
-      if (!currentPat) { setError("Enter your GitHub PAT first."); return; }
+      const currentPat = await requirePat();
+      if (!currentPat) return;
       setSaving(true); setError(null);
       try {
         const { id } = await setupNewGist(currentPat);
         const { importId } = await refreshGistState().then((s) => ({ importId: s.importId }));
-        api.notifications.toast("Gist created and registered", { severity: "success" });
+        api.notifications.toast(t("gistCreated"), { severity: "success" });
         if (importId === id) await loadManifestForSource(id, currentPat);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -429,14 +451,14 @@ export function createSettingsPage(api: PluginAPI): React.FC {
 
     const handleLinkGist = async () => {
       if (!linkInput.trim()) return;
-      const currentPat = await api.vault.get("pat");
-      if (!currentPat) { setError("Enter your GitHub PAT first."); return; }
+      const currentPat = await requirePat();
+      if (!currentPat) return;
       setSaving(true); setError(null);
       try {
         await linkExistingGist(currentPat, linkInput.trim());
         const { importId } = await refreshGistState().then((s) => ({ importId: s.importId }));
         setShowLinkInput(false); setLinkInput("");
-        api.notifications.toast("Gist linked", { severity: "success" });
+        api.notifications.toast(t("gistLinked"), { severity: "success" });
         if (importId === linkInput.trim()) await loadManifestForSource(linkInput.trim(), currentPat);
         syncNow().catch(() => {});
       } catch (e) {
@@ -447,13 +469,13 @@ export function createSettingsPage(api: PluginAPI): React.FC {
     };
 
     const handleDetect = async () => {
-      const currentPat = await api.vault.get("pat");
-      if (!currentPat) { setError("Enter your GitHub PAT first."); return; }
+      const currentPat = await requirePat();
+      if (!currentPat) return;
       setDetecting(true); setError(null); setDetectedGists(null); setShowLinkInput(false);
       try {
         const found = await listVoltiusGists(api.http, currentPat);
         setDetectedGists(found);
-        if (found.length === 0) setError("No Voltius gists found on this account.");
+        if (found.length === 0) setError(t("errNoGistsFound"));
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -468,7 +490,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
       try {
         await linkExistingGist(currentPat, gistId);
         const { importId } = await refreshGistState().then((s) => ({ importId: s.importId }));
-        api.notifications.toast("Gist linked", { severity: "success" });
+        api.notifications.toast(t("gistLinked"), { severity: "success" });
         if (importId === gistId) await loadManifestForSource(gistId, currentPat);
         syncNow().catch(() => {});
         // Remove the linked gist from the detected list
@@ -511,10 +533,10 @@ export function createSettingsPage(api: PluginAPI): React.FC {
             setSourceManifest(null);
           }
         }
-        api.notifications.toast("Gist deleted", { severity: "success" });
+        api.notifications.toast(t("gistDeleted"), { severity: "success" });
       } catch (e) {
         api.notifications.toast(
-          `Failed to delete: ${e instanceof Error ? e.message : String(e)}`,
+          t("deleteFailed", { error: e instanceof Error ? e.message : String(e) }),
           { severity: "error" },
         );
       } finally {
@@ -566,22 +588,16 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         setSourceManifest((m) =>
           m ? { ...m, devices: m.devices.filter((d) => d.id !== device.id) } : m,
         );
-        api.notifications.toast(`Removed device: ${device.label}`, { severity: "info" });
+        api.notifications.toast(t("deviceRemoved", { name: device.label }), { severity: "info" });
       } catch (e) {
         api.notifications.toast(
-          `Failed to remove device: ${e instanceof Error ? e.message : String(e)}`,
+          t("removeDeviceFailed", { error: e instanceof Error ? e.message : String(e) }),
           { severity: "error" },
         );
       }
     };
 
-    const formatRelative = (iso: string) => {
-      const diff = Date.now() - new Date(iso).getTime();
-      if (diff < 60_000) return "just now";
-      if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-      if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-      return new Date(iso).toLocaleDateString();
-    };
+    const formatRelative = (iso: string) => api.i18n.formatRelativeTime(new Date(iso));
 
     const configured = gists.length > 0;
 
@@ -592,14 +608,11 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         {/* Header */}
         <div className="flex items-center gap-2">
           <Icon icon="custom:github" width={20} className="text-(--t-text-primary)" />
-          <h2 className="text-base font-semibold text-(--t-text-primary)">GitHub Gist Sync</h2>
+          <h2 className="text-base font-semibold text-(--t-text-primary)">{t("settingsLabel")}</h2>
           {configured && <StatusDot tone={syncError ? "error" : "connected"} />}
         </div>
 
-        <p className="text-sm text-(--t-text-dim) -mt-4">
-          Sync your data across devices via encrypted GitHub Gist — no Voltius account required.
-          Data is XChaCha20-Poly1305 encrypted client-side before upload.
-        </p>
+        <p className="text-sm text-(--t-text-dim) -mt-4">{t("intro")}</p>
 
         {error && (
           <div className="px-3 py-2 rounded-lg text-sm text-(--t-status-error) border border-(--t-status-error) bg-[color-mix(in_srgb,var(--t-status-error)_8%,transparent)]">
@@ -610,17 +623,17 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         {/* Credentials */}
         <div className="flex flex-col gap-3 p-4 rounded-xl bg-(--t-bg-elevated) border border-(--t-border)">
           <p className="text-xs font-semibold text-(--t-text-muted) uppercase tracking-wide">
-            Credentials
+            {t("credentials")}
           </p>
           <SecretInput
-            label="GitHub Personal Access Token"
+            label={t("patLabel")}
             value={pat}
             onChange={setPat}
             placeholder="github_pat_…"
             saveState={patSave.saveState}
             hint={
               <>
-                Needs <code className="text-(--t-accent)">gist</code> scope.{" "}
+                <Rich text={t("patScope")} nodes={{ scope: <code className="text-(--t-accent)">gist</code> }} />{" "}
                 <button
                   type="button"
                   onClick={() => openExternal("https://github.com/settings/tokens")}
@@ -632,18 +645,18 @@ export function createSettingsPage(api: PluginAPI): React.FC {
             }
           />
           <SecretInput
-            label="Sync Passphrase"
+            label={t("passphraseLabel")}
             labelSuffix={
               <>
-                <span className="font-normal text-(--t-text-dim)">— optional</span>
-                <InfoTooltip text="Without a passphrase, data is encrypted using your PAT as the key. If your PAT is compromised, your synced data (including SSH private keys) is also exposed." />
+                <span className="font-normal text-(--t-text-dim)">{t("optional")}</span>
+                <InfoTooltip text={t("passphraseTooltip")} />
               </>
             }
             value={passphrase}
             onChange={setPassphrase}
-            placeholder="Leave empty to use PAT-derived encryption…"
+            placeholder={t("passphrasePlaceholder")}
             saveState={passphraseSave.saveState}
-            hint="Adds an independent encryption layer. Recommended if syncing SSH private keys."
+            hint={t("passphraseHint")}
           />
         </div>
 
@@ -651,11 +664,17 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         <div className="flex flex-col gap-3 p-4 rounded-xl bg-(--t-bg-elevated) border border-(--t-border)">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-(--t-text-muted) uppercase tracking-wide">
-              Gists {gists.length > 0 && `(${gists.length})`}
+              {t("gists")} {gists.length > 0 && `(${gists.length})`}
             </p>
             {gists.length > 0 && (
               <p className="text-[10px] text-(--t-text-dim)">
-                Toggle <span className="font-medium">Import</span> / <span className="font-medium">Export</span> roles per gist
+                <Rich
+                  text={t("rolesHint")}
+                  nodes={{
+                    import: <span className="font-medium">{t("roleImport")}</span>,
+                    export: <span className="font-medium">{t("roleExport")}</span>,
+                  }}
+                />
               </p>
             )}
           </div>
@@ -677,14 +696,15 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                   onDeleteRequest={() => handleDeleteRequest(gist.id)}
                   onDeleteConfirm={() => handleDeleteConfirm(gist.id)}
                   onDeleteCancel={handleDeleteCancel}
+                  t={t}
                 />
               ))}
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 py-4 text-center">
               <Icon icon="custom:github" width={28} className="text-(--t-text-dim) opacity-40" />
-              <p className="text-sm text-(--t-text-dim)">No gists registered yet.</p>
-              <p className="text-xs text-(--t-text-dim) opacity-70">Create a new gist or link an existing one below.</p>
+              <p className="text-sm text-(--t-text-dim)">{t("noGists")}</p>
+              <p className="text-xs text-(--t-text-dim) opacity-70">{t("noGistsSub")}</p>
             </div>
           )}
 
@@ -693,12 +713,12 @@ export function createSettingsPage(api: PluginAPI): React.FC {
               {saving && !showLinkInput ? (
                 <span className="flex items-center gap-1.5">
                   <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
-                  Creating…
+                  {t("creating")}
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5">
                   <Icon icon="lucide:plus" width={13} />
-                  New Gist
+                  {t("newGist")}
                 </span>
               )}
             </Btn>
@@ -706,12 +726,12 @@ export function createSettingsPage(api: PluginAPI): React.FC {
               {detecting ? (
                 <span className="flex items-center gap-1.5">
                   <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
-                  Detecting…
+                  {t("detecting")}
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5">
                   <Icon icon="lucide:scan-search" width={13} />
-                  Auto-detect
+                  {t("autoDetect")}
                 </span>
               )}
             </Btn>
@@ -720,7 +740,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
               onClick={() => { setShowLinkInput((v) => !v); setDetectedGists(null); }}
               className="text-xs text-(--t-text-dim) hover:text-(--t-text-muted) underline underline-offset-2 transition-colors"
             >
-              {showLinkInput ? "Cancel" : "Enter ID manually"}
+              {showLinkInput ? t("cancel") : t("enterIdManually")}
             </button>
           </div>
 
@@ -728,7 +748,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
           {detectedGists !== null && detectedGists.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <p className="text-xs text-(--t-text-dim)">
-                Found {detectedGists.length} Voltius gist{detectedGists.length !== 1 ? "s" : ""} — select to link:
+                {t("foundGists", { count: detectedGists.length })}
               </p>
               {detectedGists.map((g) => {
                 const alreadyLinked = gists.some((r) => r.id === g.id);
@@ -744,16 +764,16 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                         type="button"
                         onClick={() => openExternal(g.url)}
                         className="text-(--t-text-dim) hover:text-(--t-accent) transition-colors"
-                        title="Open on GitHub"
+                        title={t("openOnGitHub")}
                       >
                         <Icon icon="lucide:external-link" width={11} />
                       </button>
                     </div>
                     {alreadyLinked ? (
-                      <span className="text-xs text-(--t-text-dim) opacity-60">linked</span>
+                      <span className="text-xs text-(--t-text-dim) opacity-60">{t("linked")}</span>
                     ) : (
                       <Btn small onClick={() => handleLinkDetected(g.id)} disabled={saving}>
-                        Link
+                        {t("link")}
                       </Btn>
                     )}
                   </div>
@@ -770,13 +790,13 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                 value={linkInput}
                 onChange={(e) => setLinkInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleLinkGist()}
-                placeholder="Gist ID or URL (e.g. a1b2c3d4e5f6…)"
+                placeholder={t("linkPlaceholder")}
                 className="form-input flex-1 px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
                 onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
                 onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
               />
               <Btn onClick={handleLinkGist} disabled={!linkInput.trim() || saving}>
-                {saving ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" /> : "Link"}
+                {saving ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" /> : t("link")}
               </Btn>
             </div>
           )}
@@ -786,19 +806,19 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         {configured && (
           <div className="flex flex-col gap-3 p-4 rounded-xl bg-(--t-bg-elevated) border border-(--t-border)">
             <p className="text-xs font-semibold text-(--t-text-muted) uppercase tracking-wide">
-              Sync
+              {t("sync")}
             </p>
-            <Row label="Status">
+            <Row label={t("status")}>
               <StatusDot tone={syncError ? "error" : "connected"} />
               <span className="text-sm text-(--t-text-primary)">
                 {syncError
                   ? syncError
                   : lastSync
-                    ? `Synced ${formatRelative(lastSync)}`
-                    : "Not yet synced"}
+                    ? t("syncedAgo", { time: formatRelative(lastSync) })
+                    : t("notYetSynced")}
               </span>
             </Row>
-            <Row label="Poll interval">
+            <Row label={t("pollInterval")}>
               <input
                 type="number"
                 min={10}
@@ -807,7 +827,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                 onChange={(e) => setIntervalVal(Number(e.target.value))}
                 className="w-20 px-2 py-1 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
               />
-              <span className="text-sm text-(--t-text-dim)">seconds</span>
+              <span className="text-sm text-(--t-text-dim)">{t("seconds")}</span>
               <SaveIndicator saveState={intervalSave.saveState} />
             </Row>
             <div className="flex justify-end">
@@ -815,9 +835,9 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                 {syncing ? (
                   <span className="flex items-center gap-1.5">
                     <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
-                    Syncing…
+                    {t("syncing")}
                   </span>
-                ) : "Sync Now"}
+                ) : t("syncNow")}
               </Btn>
             </div>
           </div>
@@ -827,7 +847,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         {configured && sourceManifest && sourceManifest.devices.length > 0 && (
           <div className="flex flex-col gap-3 p-4 rounded-xl bg-(--t-bg-elevated) border border-(--t-border)">
             <p className="text-xs font-semibold text-(--t-text-muted) uppercase tracking-wide">
-              Devices — import source ({sourceManifest.devices.length})
+              {t("devicesTitle", { count: sourceManifest.devices.length })}
             </p>
             <div className="flex flex-col gap-1">
               {sourceManifest.devices.map((device) => {
@@ -853,18 +873,18 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                           {device.label}
                           {isMe && (
                             <span className="ml-1.5 text-xs text-(--t-accent)">
-                              (this device)
+                              {t("thisDevice")}
                             </span>
                           )}
                         </p>
                         <p className="text-xs text-(--t-text-dim)">
-                          last push: {formatRelative(device.pushedAt)}
+                          {t("lastPush", { time: formatRelative(device.pushedAt) })}
                         </p>
                       </div>
                     </div>
                     {!isMe && (
                       <Btn variant="danger" small onClick={() => handleRemoveDevice(device)}>
-                        Remove
+                        {t("remove")}
                       </Btn>
                     )}
                   </div>

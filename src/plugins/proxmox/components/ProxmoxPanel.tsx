@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Icon } from "@iconify/react";
-import { getProxmoxApi } from "../runtime";
+import { getProxmoxApi, useProxmoxT } from "../runtime";
 import { createProxmoxService } from "../services";
 import { useActiveSession } from "@voltius/ui";
 import { useIsProxmoxHost } from "../useIsProxmoxHost";
@@ -10,6 +10,7 @@ import { SnapshotList } from "./SnapshotList";
 
 export function ProxmoxPanel() {
   const api = getProxmoxApi();
+  const t = useProxmoxT();
   const activeSession = useActiveSession(api);
   const service = useMemo(() => createProxmoxService(api!.proxmox), [api]);
   const isProxmoxHost = useIsProxmoxHost(api, activeSession);
@@ -20,7 +21,7 @@ export function ProxmoxPanel() {
   if (!px.ready) {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
-        <p className="text-sm text-(--t-text-muted)">No active session</p>
+        <p className="text-sm text-(--t-text-muted)">{t("noActiveSession")}</p>
       </div>
     );
   }
@@ -50,9 +51,9 @@ export function ProxmoxPanel() {
             <Icon icon="devicon:proxmox-plain" width={26} />
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-sm font-bold text-(--t-text-primary)">Proxmox VE not detected</span>
+            <span className="text-sm font-bold text-(--t-text-primary)">{t("notDetectedTitle")}</span>
             <span className="text-xs leading-relaxed text-(--t-text-dim)">
-              This panel requires an SSH connection to a Proxmox VE host.
+              {t("notDetectedSub")}
             </span>
           </div>
         </div>
@@ -70,7 +71,7 @@ export function ProxmoxPanel() {
       api?.ui.setActiveNav("terminal");
     } catch (e) {
       console.error("[proxmox] open shell failed:", e);
-      api?.notifications.toast(`Shell failed: ${e}`, { severity: "error" });
+      api?.notifications.toast(t("shellFailed", { error: String(e) }), { severity: "error" });
     }
   };
 
@@ -82,7 +83,7 @@ export function ProxmoxPanel() {
           <button
             onClick={() => px.fetchContainers()}
             disabled={state.loading}
-            title="Refresh"
+            title={t("refresh")}
             className="p-1 text-(--t-text-muted) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:refresh-cw" width={11} className={state.loading ? "animate-spin" : ""} />

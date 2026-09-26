@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { useT } from "@voltius/ui";
 import type { PluginAPI, PluginConnectionInput, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import manifestJson from "./manifest.json";
+import { messages } from "./i18n";
 
 export const manifest = manifestJson as PluginManifest;
 
@@ -159,7 +161,7 @@ async function ensureKey(
 
   const key = await api.keys.create({ name, tags: [SSH_CONFIG_TAG] }, privateKey, publicKey);
   keyMap[keyPath] = key.id;
-  if (notifyEnabled) api.notifications.toast(`SSH key imported: ${name}`, { severity: "success", duration: 3000 });
+  if (notifyEnabled) api.notifications.toast(api.i18n.t("keyImported", { name }), { severity: "success", duration: 3000 });
   return key.id;
 }
 
@@ -364,7 +366,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
             identityId = identity.id;
             identityMap[host.alias] = identityId;
             say(`create identity ${identityId} for alias "${host.alias}"`);
-            if (notifyEnabled) api.notifications.toast(`SSH identity created: ${host.alias}`, { severity: "success", duration: 3000 });
+            if (notifyEnabled) api.notifications.toast(api.i18n.t("identityCreated", { name: host.alias }), { severity: "success", duration: 3000 });
           }
         }
       }
@@ -385,7 +387,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
       aliasMap[host.alias] = conn.id;
       owner.set(conn.id, host.alias);
       say(`create conn ${conn.id} for alias "${host.alias}"`);
-      if (notifyEnabled) api.notifications.toast(`SSH host added: ${host.alias}`, { severity: "success", duration: 3000 });
+      if (notifyEnabled) api.notifications.toast(api.i18n.t("hostAdded", { name: host.alias }), { severity: "success", duration: 3000 });
     } else {
       const changed =
         existing.host !== data.host ||
@@ -468,6 +470,7 @@ const SYNC_NOW_EVENT = "ssh-config:sync-now";
 
 function createSettingsComponent(api: PluginAPI): React.FC {
   return function SshConfigSettings() {
+    const t = useT(api);
     const [intervalMs, setIntervalMs] = useState<number>(DEFAULT_POLL_INTERVAL);
     const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(DEFAULT_NOTIFICATIONS_ENABLED);
     const [adoptEnabled, setAdoptEnabled] = useState<boolean>(DEFAULT_ADOPT_UNTAGGED_ENABLED);
@@ -561,7 +564,7 @@ function createSettingsComponent(api: PluginAPI): React.FC {
         React.createElement(
           "h3",
           { className: "text-xs font-bold uppercase tracking-widest mb-3", style: dimStyle },
-          "Sync"
+          t("sync")
         ),
         React.createElement(
           "div",
@@ -572,11 +575,11 @@ function createSettingsComponent(api: PluginAPI): React.FC {
             React.createElement(
               "div",
               null,
-              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, "Poll interval"),
+              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, t("pollInterval")),
               React.createElement(
                 "p",
                 { className: "text-xs mt-0.5", style: dimStyle },
-                "How often to check ~/.ssh/config for changes"
+                t("pollIntervalDesc")
               )
             ),
             React.createElement(
@@ -591,11 +594,11 @@ function createSettingsComponent(api: PluginAPI): React.FC {
                 className: "w-20 text-sm text-center rounded-lg px-2 py-1.5",
                 style: inputStyle,
               }),
-              React.createElement("span", { className: "text-xs", style: dimStyle }, "seconds"),
+              React.createElement("span", { className: "text-xs", style: dimStyle }, t("seconds")),
               React.createElement(
                 "button",
                 { onClick: handleSyncNow, disabled: syncing, style: syncBtnStyle },
-                syncing ? "Syncing…" : "Sync now"
+                syncing ? t("syncing") : t("syncNow")
               )
             )
           ),
@@ -606,11 +609,11 @@ function createSettingsComponent(api: PluginAPI): React.FC {
             React.createElement(
               "div",
               null,
-              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, "Notifications"),
+              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, t("notifications")),
               React.createElement(
                 "p",
                 { className: "text-xs mt-0.5", style: dimStyle },
-                "Show a toast when hosts, keys, or identities are created"
+                t("notificationsDesc")
               )
             ),
             React.createElement(
@@ -626,11 +629,11 @@ function createSettingsComponent(api: PluginAPI): React.FC {
             React.createElement(
               "div",
               null,
-              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, "Adopt matching connections"),
+              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, t("adopt")),
               React.createElement(
                 "p",
                 { className: "text-xs mt-0.5", style: dimStyle },
-                "Reuse an existing connection (same host, port, and user) instead of creating a duplicate. Your label and auth stay untouched, and adopted connections are never auto-deleted."
+                t("adoptDesc")
               )
             ),
             React.createElement(
@@ -648,12 +651,13 @@ function createSettingsComponent(api: PluginAPI): React.FC {
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 export const register: PluginRegisterFn = (api) => {
+  api.i18n.register(messages);
   // Settings page is registered regardless of active state so a disabled
   // plugin can still be reviewed/configured before re-enabling. Kept out of the
   // active cleanup below so disabling never removes it (matches gist-sync).
   api.ui.registerSettingsPage({
     id: `${manifest.id}:settings`,
-    label: "SSH Config Sync",
+    label: () => api.i18n.t("settingsLabel"),
     icon: "lucide:file-code",
     component: createSettingsComponent(api),
   });

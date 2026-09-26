@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { Icon } from "@iconify/react";
+import { useDockerT } from "../runtime";
 import { stripAnsi, useLogStream } from "../useLogStream";
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function LogsView({ streamKey, displayName, startStream, onBack }: Props) {
+  const t = useDockerT();
   const start = useCallback(() => startStream(200), [startStream]);
   const { lines, autoScroll, setAutoScroll, bottomRef } = useLogStream(streamKey, start);
 
@@ -28,7 +30,7 @@ export function LogsView({ streamKey, displayName, startStream, onBack }: Props)
         </span>
         <button
           onClick={() => setAutoScroll((v) => !v)}
-          title={autoScroll ? "Disable auto-scroll" : "Enable auto-scroll"}
+          title={autoScroll ? t("disableAutoScroll") : t("enableAutoScroll")}
           className={`p-1 rounded text-[11px] ${
             autoScroll
               ? "text-(--t-status-connected)"
@@ -42,7 +44,7 @@ export function LogsView({ streamKey, displayName, startStream, onBack }: Props)
       {/* Log lines */}
       <div className="flex-1 overflow-y-auto font-mono text-[10px] leading-4 px-2 py-1 select-text">
         {lines.length === 0 && (
-          <p className="text-(--t-text-muted) opacity-50 mt-2">Waiting for logs…</p>
+          <p className="text-(--t-text-muted) opacity-50 mt-2">{t("dockerLogsWaiting")}</p>
         )}
         {lines.map((l, i) => (
           <div

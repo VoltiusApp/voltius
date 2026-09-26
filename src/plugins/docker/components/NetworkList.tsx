@@ -1,5 +1,6 @@
 import { dockerPruneNetworks, dockerRemoveNetwork } from "../services";
 import type { DockerNetwork } from "../types";
+import { useDockerT } from "../runtime";
 import { ResourceList, ResourceRow, usePrune } from "./resourceList";
 
 interface Props {
@@ -11,14 +12,15 @@ interface Props {
 }
 
 export function NetworkList({ networks, sessionId, isRemote, localShell, onRefresh }: Props) {
+  const t = useDockerT();
   const ctx = { sessionId, isRemote, localShell };
   const prune = usePrune(() => dockerPruneNetworks(ctx), onRefresh);
 
   return (
     <ResourceList
       count={networks.length}
-      noun="networks"
-      emptyLabel="No networks"
+      countLabel={t("networksCount", { count: networks.length })}
+      emptyLabel={t("noNetworks")}
       prune={prune}
     >
       {networks.map((n) => (
@@ -31,7 +33,7 @@ export function NetworkList({ networks, sessionId, isRemote, localShell, onRefre
               {n.id.slice(0, 12)}
             </p>
           }
-          removeTitle="Remove network"
+          removeTitle={t("removeNetwork")}
           onRemove={() => dockerRemoveNetwork(ctx, n.id)}
           onRefresh={onRefresh}
         />

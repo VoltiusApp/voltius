@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
-import type { PluginSession } from "@/plugins/api";
+import type { PluginAPI, PluginSession } from "@/plugins/api";
 import type { MetricsService } from "../services";
 import type { SystemInfo } from "../types";
 
@@ -27,10 +27,12 @@ export function SystemInfoSection({
   service,
   session,
   defaultExpanded = false,
+  t,
 }: {
   service: MetricsService;
   session: PluginSession;
   defaultExpanded?: boolean;
+  t: PluginAPI["i18n"]["t"];
 }) {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -63,7 +65,7 @@ export function SystemInfoSection({
         <div className="flex items-center gap-2">
           <Icon icon="lucide:cpu" width={13} className="text-(--t-text-muted)" />
           <span className="text-[11px] font-medium text-(--t-text-muted) uppercase tracking-wide">
-            System Info
+            {t("systemInfo")}
           </span>
         </div>
         <Icon
@@ -76,44 +78,44 @@ export function SystemInfoSection({
       {expanded && (
         <div className="px-4 pb-3">
           {!info ? (
-            <p className="text-[11px] text-(--t-text-dim) py-1">Loading…</p>
+            <p className="text-[11px] text-(--t-text-dim) py-1">{t("loading")}</p>
           ) : (
             <>
               {info.cpu_brand && (
-                <Row icon="lucide:cpu" label="CPU" value={stripCpuFreq(info.cpu_brand)} />
+                <Row icon="lucide:cpu" label={t("cpu")} value={stripCpuFreq(info.cpu_brand)} />
               )}
               {(info.cpu_cores_physical > 0 || info.cpu_cores_logical > 0) && (
                 <Row
                   icon="lucide:layers"
-                  label="Cores"
+                  label={t("cores")}
                   value={`${info.cpu_cores_physical}P / ${info.cpu_cores_logical}L`}
                 />
               )}
               {info.arch && (
-                <Row icon="lucide:cpu" label="Arch" value={info.arch} />
+                <Row icon="lucide:cpu" label={t("arch")} value={info.arch} />
               )}
               {info.mem_total_kb > 0 && (
-                <Row icon="lucide:memory-stick" label="RAM" value={fmtMem(info.mem_total_kb)} />
+                <Row icon="lucide:memory-stick" label={t("memory")} value={fmtMem(info.mem_total_kb)} />
               )}
               {info.gpus.length > 0 && (
                 <Row
                   icon="lucide:monitor"
-                  label={info.gpus.length > 1 ? "GPUs" : "GPU"}
+                  label={info.gpus.length > 1 ? t("gpus") : t("gpu")}
                   value={info.gpus.join(", ")}
                 />
               )}
               {info.host_name && (
-                <Row icon="lucide:server" label="Host" value={info.host_name} />
+                <Row icon="lucide:server" label={t("host")} value={info.host_name} />
               )}
               {info.os_name && (
                 <Row
                   icon="lucide:terminal"
-                  label="OS"
+                  label={t("os")}
                   value={`${info.os_name}${info.os_version ? ` ${info.os_version}` : ""}`}
                 />
               )}
               {info.kernel_version && (
-                <Row icon="lucide:layers-2" label="Kernel" value={info.kernel_version} />
+                <Row icon="lucide:layers-2" label={t("kernel")} value={info.kernel_version} />
               )}
             </>
           )}

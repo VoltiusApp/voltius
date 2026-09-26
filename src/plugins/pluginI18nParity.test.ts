@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { SUPPORTED_LOCALES, type Locale } from "@/stores/localeStore";
+import { baseKey } from "@/i18n/baseKey";
 
 /**
  * Replacement for keyParity.test.ts's coverage over the four mobile screens moved
@@ -51,16 +52,25 @@ describe.each(Object.entries(catalogs))("plugin i18n catalog parity — %s", (_p
     expect(messages[locale]).toBeDefined();
   });
 
-  const enKeys = new Set(Object.keys(messages.en ?? {}));
+  // Compared by base key: a plural's forms differ per locale (ru needs _few/_many).
+  const enKeys = new Set(Object.keys(messages.en ?? {}).map(baseKey));
 
   it.each(ALL_LOCALES.filter((l) => l !== "en"))("%s has no key missing from English (no drift)", (locale) => {
-    const orphaned = Object.keys(messages[locale] ?? {}).filter((k) => !enKeys.has(k));
+    const orphaned = Object.keys(messages[locale] ?? {}).filter((k) => !enKeys.has(baseKey(k)));
     expect(orphaned).toEqual([]);
   });
 
   it.each(ALL_LOCALES.filter((l) => l !== "en"))("%s covers every English key (no untranslated gaps)", (locale) => {
-    const localeKeys = new Set(Object.keys(messages[locale] ?? {}));
+    const localeKeys = new Set(Object.keys(messages[locale] ?? {}).map(baseKey));
     const missing = [...enKeys].filter((k) => !localeKeys.has(k));
+    expect(missing).toEqual([]);
+  });
+
+  // `_other` is what t() falls back to when a locale lacks the exact category.
+  it.each(ALL_LOCALES)("%s gives every plural an _other form", (locale) => {
+    const keys = Object.keys(messages[locale] ?? {});
+    const plurals = new Set(keys.filter((k) => baseKey(k) !== k).map(baseKey));
+    const missing = [...plurals].filter((b) => !keys.includes(`${b}_other`));
     expect(missing).toEqual([]);
   });
 });

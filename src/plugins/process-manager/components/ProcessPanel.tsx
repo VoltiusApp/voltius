@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { PluginAPI } from "@/plugins/api";
-import { useActiveSession } from "@voltius/ui";
+import { useActiveSession, useT } from "@voltius/ui";
 import { createProcessesService } from "../services";
 import { useProcessList } from "../useProcessList";
 import type { ProcessEntry, SortCol } from "../types";
@@ -70,12 +70,14 @@ function ProcessRow({
   onKillRequest,
   onKillConfirm,
   onKillCancel,
+  t,
 }: {
   entry: ProcessEntry;
   confirmPid: number | null;
   onKillRequest: (pid: number) => void;
   onKillConfirm: (pid: number) => void;
   onKillCancel: () => void;
+  t: PluginAPI["i18n"]["t"];
 }) {
   const isConfirming = confirmPid === entry.pid;
   const displayName = entry.name.length > 18 ? entry.name.slice(0, 17) + "…" : entry.name;
@@ -138,14 +140,14 @@ function ProcessRow({
               className="text-[10px] px-1.5 py-0.5 rounded-sm font-medium"
               style={{ background: "var(--t-status-error)", color: "#fff" }}
             >
-              Kill
+              {t("confirmKill")}
             </button>
             <button
               onClick={onKillCancel}
               className="text-[10px] px-1.5 py-0.5 rounded-sm"
               style={{ color: "var(--t-text-muted)", background: "var(--t-bg-elevated)" }}
             >
-              Cancel
+              {t("cancel")}
             </button>
           </>
         ) : (
@@ -155,7 +157,7 @@ function ProcessRow({
             style={{ color: "var(--t-text-muted)" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
-            title={`Kill process ${entry.pid}`}
+            title={t("killProcessTitle", { pid: entry.pid })}
           >
             <Icon icon="lucide:circle-x" width={11} />
           </button>
@@ -171,6 +173,7 @@ export function createProcessPanel(api: PluginAPI): FC {
   const service = createProcessesService(api.processes);
 
   return function ProcessPanel() {
+    const t = useT(api);
     const activeSession = useActiveSession(api);
     const isAndroid = isAndroidPlatform();
     const localUnsupported = isAndroid && !!activeSession && activeSession.type !== "ssh";
@@ -202,7 +205,7 @@ export function createProcessPanel(api: PluginAPI): FC {
     if (!activeSession || activeSession.status !== "connected" || activeSession.type === "serial") {
       return (
         <div className="flex items-center justify-center h-full opacity-40">
-          <p className="text-sm text-(--t-text-muted)">No active session</p>
+          <p className="text-sm text-(--t-text-muted)">{t("noActiveSession")}</p>
         </div>
       );
     }
@@ -211,7 +214,7 @@ export function createProcessPanel(api: PluginAPI): FC {
       return (
         <div className="flex h-full items-center justify-center px-6 text-center">
           <p className="max-w-[240px] text-[11px] leading-4 text-(--t-text-muted)">
-            The process list for this device isn't available on Android. Connect to a host over SSH to see its processes.
+            {t("androidUnavailable")}
           </p>
         </div>
       );
@@ -225,7 +228,7 @@ export function createProcessPanel(api: PluginAPI): FC {
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter processes…"
+            placeholder={t("filterPlaceholder")}
             className="flex-1 bg-transparent text-[11px] text-(--t-text-primary) placeholder:text-(--t-text-dim) outline-hidden"
           />
           {snapshot && (
@@ -240,10 +243,10 @@ export function createProcessPanel(api: PluginAPI): FC {
           className="grid px-3 py-1 border-b border-(--t-border) shrink-0"
           style={{ gridTemplateColumns: "100px 60px 36px 36px 1fr" }}
         >
-          <ColHeader label="Name"  col="name" sortCol={sortCol} sortAsc={sortAsc} onClick={handleSort} />
-          <ColHeader label="User"  col="user" sortCol={sortCol} sortAsc={sortAsc} onClick={handleSort} />
+          <ColHeader label={t("sortName")} col="name" sortCol={sortCol} sortAsc={sortAsc} onClick={handleSort} />
+          <ColHeader label={t("colUser")} col="user" sortCol={sortCol} sortAsc={sortAsc} onClick={handleSort} />
           <ColHeader label="CPU"   col="cpu"  sortCol={sortCol} sortAsc={sortAsc} align="right" onClick={handleSort} />
-          <ColHeader label="Mem"   col="mem"  sortCol={sortCol} sortAsc={sortAsc} align="right" onClick={handleSort} />
+          <ColHeader label={t("sortMem")} col="mem"  sortCol={sortCol} sortAsc={sortAsc} align="right" onClick={handleSort} />
           <div />
         </div>
 
@@ -260,7 +263,7 @@ export function createProcessPanel(api: PluginAPI): FC {
         <div ref={scrollParentRef} className="flex-1 overflow-y-auto min-h-0">
           {entries.length === 0 && snapshot ? (
             <div className="flex items-center justify-center h-16 opacity-40">
-              <p className="text-[11px] text-(--t-text-muted)">No processes found</p>
+              <p className="text-[11px] text-(--t-text-muted)">{t("noProcessesFound")}</p>
             </div>
           ) : (
             <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
@@ -283,6 +286,7 @@ export function createProcessPanel(api: PluginAPI): FC {
                       onKillRequest={(pid) => { setConfirmPid(pid); setKillError(null); }}
                       onKillConfirm={handleKillConfirm}
                       onKillCancel={() => setConfirmPid(null)}
+                      t={t}
                     />
                   </div>
                 );

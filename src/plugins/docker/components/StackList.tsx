@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { StatusDot } from "@voltius/ui";
 import { containerStateTone } from "../containerStateTone";
 import { dockerContainerAction, dockerStackAction, dockerStackUpdate } from "../services";
-import { getDockerApi } from "../runtime";
+import { getDockerApi, useDockerT } from "../runtime";
 import { checkableImage, useImageUpdates } from "../useImageUpdates";
 import type {
   ContainerAction,
@@ -42,6 +42,7 @@ export function StackList({
   onTerminal,
   onRefresh,
 }: Props) {
+  const t = useDockerT();
   const [expandedStackName, setExpandedStackName] = useState<string | null>(selectedStackName);
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
@@ -59,11 +60,11 @@ export function StackList({
     setBusyAction(key);
     try {
       await dockerStackUpdate({ sessionId, isRemote, localShell }, stackName);
-      getDockerApi()?.notifications.toast(`Updated stack ${stackName}`, { severity: "success" });
+      getDockerApi()?.notifications.toast(t("stackUpdated", { name: stackName }), { severity: "success" });
       onRefresh();
       checkAll();
     } catch (e) {
-      getDockerApi()?.notifications.toast(`Stack update failed: ${e}`, { severity: "error" });
+      getDockerApi()?.notifications.toast(t("stackUpdateFailed", { error: String(e) }), { severity: "error" });
     } finally {
       setBusyAction(null);
     }
@@ -95,21 +96,21 @@ export function StackList({
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-1 border-b border-(--t-border) shrink-0">
-        <span className="text-[10px] text-(--t-text-muted)">{stacks.length} stacks</span>
+        <span className="text-[10px] text-(--t-text-muted)">{t("stacksCount", { count: stacks.length })}</span>
         <button
           onClick={checkAll}
           disabled={isChecking || services.length === 0}
-          title="Check the expanded stack's services for image updates"
+          title={t("checkStackUpdates")}
           className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
         >
           <Icon icon="lucide:circle-arrow-up" width={10} className={isChecking ? "animate-pulse" : ""} />
-          {isChecking ? "checking…" : "updates"}
+          {isChecking ? t("checking") : t("updates")}
         </button>
       </div>
 
       {stacks.length === 0 ? (
         <div className="flex items-center justify-center h-20 opacity-40">
-          <p className="text-[11px] text-(--t-text-muted)">No Compose stacks</p>
+          <p className="text-[11px] text-(--t-text-muted)">{t("noStacks")}</p>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
@@ -130,7 +131,7 @@ export function StackList({
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] text-(--t-text) truncate font-medium">{stack.name}</p>
                     <p className="text-[10px] text-(--t-text-muted) truncate">
-                      {stack.status || `${stack.running}/${stack.total} running`}
+                      {stack.status || t("stackRunning", { running: stack.running, total: stack.total })}
                     </p>
                   </div>
                   <span className="text-[10px] text-(--t-text-muted) font-mono shrink-0">
@@ -147,7 +148,7 @@ export function StackList({
                   {stack.running < stack.total && (
                     <Btn
                       icon="lucide:play"
-                      title="Up"
+                      title={t("stackUp")}
                       disabled={busyAction !== null}
                       onClick={() => runAction(stack.name, "up")}
                       busy={busyAction === `${stack.name}:up`}
@@ -157,7 +158,7 @@ export function StackList({
                   {(stack.running > 0 || stack.paused > 0) && (
                     <Btn
                       icon="lucide:square"
-                      title="Stop"
+                      title={t("hostStop")}
                       disabled={busyAction !== null}
                       onClick={() => runAction(stack.name, "stop")}
                       busy={busyAction === `${stack.name}:stop`}
@@ -165,14 +166,14 @@ export function StackList({
                   )}
                   <Btn
                     icon="lucide:rotate-ccw"
-                    title="Restart"
+                    title={t("hostRestart")}
                     disabled={busyAction !== null}
                     onClick={() => runAction(stack.name, "restart")}
                     busy={busyAction === `${stack.name}:restart`}
                   />
                   <Btn
                     icon="lucide:circle-arrow-up"
-                    title="Update stack (compose pull + up -d)"
+                    title={t("stackUpdate")}
                     disabled={busyAction !== null}
                     onClick={() => updateStack(stack.name)}
                     busy={busyAction === `${stack.name}:update`}
@@ -180,14 +181,14 @@ export function StackList({
                   />
                   <Btn
                     icon="lucide:scroll-text"
-                    title="Compose logs"
+                    title={t("composeLogs")}
                     disabled={busyAction !== null}
                     onClick={() => onStackLogs(stack.name)}
                     busy={false}
                   />
                   <Btn
                     icon="lucide:arrow-big-down"
-                    title="Down"
+                    title={t("stackDown")}
                     disabled={busyAction !== null}
                     onClick={() => runAction(stack.name, "down")}
                     busy={busyAction === `${stack.name}:down`}
@@ -203,7 +204,7 @@ export function StackList({
                       </p>
                     )}
                     {stackServices.length === 0 ? (
-                      <p className="text-[10px] text-(--t-text-muted) opacity-60">No services</p>
+                      <p className="text-[10px] text-(--t-text-muted) opacity-60">{t("noServices")}</p>
                     ) : (
                       <div className="rounded-md border border-(--t-border) overflow-hidden">
                         {stackServices.map((service) => {
@@ -257,6 +258,7 @@ function ServiceRow({
   onTerminal: (id: string, name: string) => void;
   onRefresh: () => void;
 }) {
+  const t = useDockerT();
   const [busyAction, setBusyAction] = useState<ContainerAction | null>(null);
 
   const runAction = async (action: ContainerAction) => {
@@ -290,21 +292,21 @@ function ServiceRow({
       <div className="flex items-center gap-0.5 shrink-0">
         {state === "running" && (
           <>
-            <Btn icon="lucide:square" title="Stop" disabled={busy || !service.id} busy={busyAction === "stop"} onClick={() => runAction("stop")} />
-            <Btn icon="lucide:rotate-ccw" title="Restart" disabled={busy || !service.id} busy={busyAction === "restart"} onClick={() => runAction("restart")} />
-            <Btn icon="lucide:pause" title="Pause" disabled={busy || !service.id} busy={busyAction === "pause"} onClick={() => runAction("pause")} />
+            <Btn icon="lucide:square" title={t("hostStop")} disabled={busy || !service.id} busy={busyAction === "stop"} onClick={() => runAction("stop")} />
+            <Btn icon="lucide:rotate-ccw" title={t("hostRestart")} disabled={busy || !service.id} busy={busyAction === "restart"} onClick={() => runAction("restart")} />
+            <Btn icon="lucide:pause" title={t("hostPause")} disabled={busy || !service.id} busy={busyAction === "pause"} onClick={() => runAction("pause")} />
           </>
         )}
         {state === "paused" && (
-          <Btn icon="lucide:play" title="Unpause" disabled={busy || !service.id} busy={busyAction === "unpause"} onClick={() => runAction("unpause")} color="text-(--t-status-connected)" />
+          <Btn icon="lucide:play" title={t("hostResume")} disabled={busy || !service.id} busy={busyAction === "unpause"} onClick={() => runAction("unpause")} color="text-(--t-status-connected)" />
         )}
         {state !== "running" && state !== "paused" && (
-          <Btn icon="lucide:play" title="Start" disabled={busy || !service.id} busy={busyAction === "start"} onClick={() => runAction("start")} color="text-(--t-status-connected)" />
+          <Btn icon="lucide:play" title={t("hostStart")} disabled={busy || !service.id} busy={busyAction === "start"} onClick={() => runAction("start")} color="text-(--t-status-connected)" />
         )}
         <button
           disabled={!service.id}
           onClick={() => onLogs(service.id, service.name || service.service)}
-          title="Logs"
+          title={t("logs")}
           className="p-1 rounded-sm text-(--t-text-muted) hover:bg-(--t-bg-card-hover) hover:text-(--t-text) disabled:opacity-30"
         >
           <Icon icon="lucide:scroll-text" width={12} />
@@ -313,7 +315,7 @@ function ServiceRow({
           <button
             disabled={!service.id}
             onClick={() => onTerminal(service.id, service.name || service.service)}
-            title="Open terminal"
+            title={t("openTerminal")}
             className="p-1 rounded-sm text-(--t-accent) opacity-80 hover:opacity-100 hover:bg-(--t-bg-card-hover) disabled:opacity-30"
           >
             <Icon icon="lucide:terminal" width={12} />
@@ -321,7 +323,7 @@ function ServiceRow({
         )}
         <Btn
           icon="lucide:arrow-big-down"
-          title="Down"
+          title={t("stackDown")}
           disabled={busy || !service.id}
           busy={busyAction === "remove"}
           onClick={() => runAction("remove")}

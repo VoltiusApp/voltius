@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { dockerPruneImages, dockerRemoveImage } from "../services";
 import type { DockerImage, ImageUpdateStatus } from "../types";
-import { getDockerApi } from "../runtime";
+import { getDockerApi, useDockerT } from "../runtime";
 import { checkableImage, useImageUpdates } from "../useImageUpdates";
 import { pullAndMaybeRecreate } from "../updateActions";
 import { UpdateBadge } from "./UpdateBadge";
@@ -15,14 +15,6 @@ function fmtSize(bytes: number): string {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
-function fmtAge(ts: number): string {
-  if (!ts) return "—";
-  const diff = Math.floor(Date.now() / 1000 - ts);
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
-
 interface Props {
   images: DockerImage[];
   sessionId: string;
@@ -32,6 +24,7 @@ interface Props {
 }
 
 export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }: Props) {
+  const t = useDockerT();
   const prune = usePrune(() => dockerPruneImages({ sessionId, isRemote, localShell }), onRefresh);
 
   const imageRefs = useMemo(() => images.map((i) => i.repo_tags[0] ?? ""), [images]);
@@ -56,23 +49,23 @@ export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }
   return (
     <ResourceList
       count={images.length}
-      noun="images"
-      emptyLabel="No images"
+      countLabel={t("imagesCount", { count: images.length })}
+      emptyLabel={t("noImages")}
       prune={prune}
       countSuffix={
         outdatedCount > 0 && (
-          <span className="ml-1.5 text-(--t-status-warning)">· {outdatedCount} outdated</span>
+          <span className="ml-1.5 text-(--t-status-warning)">· {t("outdatedCount", { count: outdatedCount })}</span>
         )
       }
       actions={
         <button
           onClick={checkAll}
           disabled={isChecking}
-          title="Check all images for registry updates"
+          title={t("checkImageUpdates")}
           className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
         >
           <Icon icon="lucide:circle-arrow-up" width={10} className={isChecking ? "animate-pulse" : ""} />
-          {isChecking ? "checking…" : "check updates"}
+          {isChecking ? t("checking") : t("checkUpdates")}
         </button>
       }
     >
@@ -118,6 +111,7 @@ function ImageRow({
   onRefresh: () => void;
   onUpdated: (tag: string) => void;
 }) {
+  const t = useDockerT();
   const [pulling, setPulling] = useState(false);
   const tag = img.repo_tags[0] ?? "<none>";
   const [repo, ver] = tag.includes(":") ? tag.split(":") : [tag, ""];
@@ -130,10 +124,9 @@ function ImageRow({
   const update = async () => {
     setPulling(true);
     try {
-      await pullAndMaybeRecreate({ sessionId, isRemote, localShell, image: tag, recreate: recreateAfterPull });
-      onUpdated(tag);
-    } catch (e) {
-      getDockerApi()?.notifications.toast(`Pull failed: ${e}`, { severity: "error" });
+      if (await pullAndMaybeRecreate({ sessionId, isRemote, localShell, image: tag, recreate: recreateAfterPull })) {
+        onUpdated(tag);
+      }
     } finally {
       setPulling(false);
     }
@@ -156,7 +149,7 @@ function ImageRow({
           disabled={pulling}
           onClick={update}
           title={
-            recreateAfterPull ? `Pull ${tag} and recreate its containers` : `Pull newer image for ${tag}`
+            recreateAfterPull ? t("pullAndRecreateImage", { image: tag }) : t("pullNewerImageFor", { image: tag })
           }
           className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm bg-[color-mix(in_srgb,var(--t-status-warning)_14%,transparent)] text-(--t-status-warning) hover:bg-[color-mix(in_srgb,var(--t-status-warning)_24%,transparent)] disabled:opacity-40 shrink-0"
         >
@@ -165,18 +158,18 @@ function ImageRow({
             width={10}
             className={pulling ? "animate-spin" : ""}
           />
-          {pulling ? (recreateAfterPull ? "updating…" : "pulling…") : recreateAfterPull ? "update" : "pull"}
+          {t(pulling ? (recreateAfterPull ? "updating" : "pulling") : recreateAfterPull ? "update" : "pull")}
         </button>
       )}
 
       <div className="text-right shrink-0">
         <p className="text-[10px] text-(--t-text-muted)">{fmtSize(img.size)}</p>
-        <p className="text-[10px] text-(--t-text-muted)">{fmtAge(img.created)}</p>
+        <p className="text-[10px] text-(--t-text-muted)">{(img.created && getDockerApi()?.i18n.formatRelativeTime(img.created * 1000)) || "—"}</p>
       </div>
       <button
         disabled={busy}
         onClick={remove}
-        title="Remove image"
+        title={t("removeImage")}
         className="opacity-0 group-hover:opacity-100 p-0.5 text-(--t-status-error) opacity-60 hover:opacity-100 disabled:opacity-40 shrink-0"
       >
         <Icon icon="lucide:trash-2" width={11} />

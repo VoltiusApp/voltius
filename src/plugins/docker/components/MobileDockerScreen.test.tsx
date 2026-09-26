@@ -24,6 +24,7 @@ vi.mock("../services", () => ({
 }));
 
 import { createMobileDockerScreen } from "./MobileDockerScreen";
+import { initDockerRuntime } from "../runtime";
 
 const session: PluginSession = {
   id: "s1",
@@ -33,8 +34,9 @@ const session: PluginSession = {
   type: "ssh",
 };
 
+// register() captures the api for the shared components (PortChips) too.
 function makeApi(): PluginAPI {
-  return {
+  const api = {
     i18n: { t: (k: string) => k, getLocale: () => "en", onLocaleChange: () => () => {} },
     sessions: {
       list: () => [session],
@@ -47,6 +49,8 @@ function makeApi(): PluginAPI {
     notifications: { toast: vi.fn() },
     storage: { get: vi.fn(async () => undefined), set: vi.fn(async () => {}) },
   } as unknown as PluginAPI;
+  initDockerRuntime(api);
+  return api;
 }
 
 function container(): DockerContainer {

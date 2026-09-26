@@ -1962,6 +1962,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "ui");
         return i18nApi.t(key, vars);
       },
+      formatRelativeTime(time) {
+        requirePerm(manifest, "ui");
+        return i18nApi.formatRelativeTime(time);
+      },
       getLocale() {
         requirePerm(manifest, "ui");
         return i18nApi.getLocale();

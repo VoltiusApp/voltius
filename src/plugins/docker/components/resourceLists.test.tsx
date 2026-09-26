@@ -27,7 +27,6 @@ vi.mock("../services", () => ({
   dockerRemoveVolume: (...a: unknown[]) => remove.volume(...(a as [])),
   dockerRemoveImage: vi.fn(async () => {}),
 }));
-vi.mock("../runtime", () => ({ getDockerApi: () => null }));
 vi.mock("../useImageUpdates", () => ({
   checkableImage: (t?: string) => t ?? null,
   useImageUpdates: () => ({
@@ -43,11 +42,13 @@ vi.mock("../updateActions", () => ({ pullAndMaybeRecreate: vi.fn() }));
 import { NetworkList } from "./NetworkList";
 import { VolumeList } from "./VolumeList";
 import { ImageList } from "./ImageList";
+import { initTestDockerRuntime } from "../testRuntime";
 
 const ctx = { sessionId: "s1", isRemote: false, localShell: null };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  initTestDockerRuntime();
 });
 
 afterEach(cleanup);
@@ -61,7 +62,7 @@ describe("the docker resource lists", () => {
         onRefresh={vi.fn()}
       />,
     );
-    expect(screen.getByText("1 networks")).toBeTruthy();
+    expect(screen.getByText("1 network")).toBeTruthy();
   });
 
   it("shows its own empty state when there is nothing to list", () => {

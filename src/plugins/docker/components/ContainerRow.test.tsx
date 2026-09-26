@@ -1,8 +1,11 @@
-import { describe, test, expect, vi, afterEach } from "vitest";
+import { describe, test, expect, vi, afterEach, beforeAll } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ContainerRow } from "./ContainerRow";
+import { initTestDockerRuntime } from "../testRuntime";
 import type { DockerContainer, PortMapping } from "../types";
+
+beforeAll(() => initTestDockerRuntime());
 
 function port(host: number, container: number): PortMapping {
   return { host_ip: "0.0.0.0", host_port: host, container_port: container, protocol: "tcp" };

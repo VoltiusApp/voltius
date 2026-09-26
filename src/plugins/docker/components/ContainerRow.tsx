@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import { StatusDot, useCopiedFlash } from "@voltius/ui";
 import { containerStateTone } from "../containerStateTone";
 import { dockerContainerAction, dockerContainerRunCommand } from "../services";
-import { getDockerApi } from "../runtime";
+import { useDockerT } from "../runtime";
 import { pullAndMaybeRecreate } from "../updateActions";
 import type { ContainerAction, DockerContainer, ImageUpdateStatus } from "../types";
 import { UpdateBadge } from "./UpdateBadge";
@@ -43,6 +43,7 @@ export function ContainerRow({
   onRefresh,
   onUpdated,
 }: Props) {
+  const t = useDockerT();
   const [expanded, setExpanded] = useState(false);
   const { busy, act } = useRowAction(
     (action: ContainerAction) =>
@@ -56,17 +57,17 @@ export function ContainerRow({
   const update = async () => {
     setUpdating(true);
     try {
-      await pullAndMaybeRecreate({
+      const pulled = await pullAndMaybeRecreate({
         sessionId,
         isRemote,
         localShell,
         image: container.image,
         recreate: recreateAfterPull,
       });
-      onUpdated?.();
-      onRefresh();
-    } catch (e) {
-      getDockerApi()?.notifications.toast(`Pull failed: ${e}`, { severity: "error" });
+      if (pulled) {
+        onUpdated?.();
+        onRefresh();
+      }
     } finally {
       setUpdating(false);
     }
@@ -128,7 +129,7 @@ export function ContainerRow({
         {!running && !paused && (
           <Btn
             icon="lucide:play"
-            title="Start"
+            title={t("hostStart")}
             disabled={busy}
             onClick={() => act("start")}
             color="text-(--t-status-connected)"
@@ -136,24 +137,24 @@ export function ContainerRow({
         )}
         {running && (
           <>
-            <Btn icon="lucide:square" title="Stop" disabled={busy} onClick={() => act("stop")} />
-            <Btn icon="lucide:rotate-ccw" title="Restart" disabled={busy} onClick={() => act("restart")} />
-            <Btn icon="lucide:pause" title="Pause" disabled={busy} onClick={() => act("pause")} />
+            <Btn icon="lucide:square" title={t("hostStop")} disabled={busy} onClick={() => act("stop")} />
+            <Btn icon="lucide:rotate-ccw" title={t("hostRestart")} disabled={busy} onClick={() => act("restart")} />
+            <Btn icon="lucide:pause" title={t("hostPause")} disabled={busy} onClick={() => act("pause")} />
           </>
         )}
         {paused && (
           <Btn
             icon="lucide:play"
-            title="Resume"
+            title={t("hostResume")}
             disabled={busy}
             onClick={() => act("unpause")}
             color="text-(--t-status-warning)"
           />
         )}
-        <Btn icon="lucide:scroll-text" title="Logs" disabled={busy} onClick={() => onLogs(container.id, name)} />
+        <Btn icon="lucide:scroll-text" title={t("logs")} disabled={busy} onClick={() => onLogs(container.id, name)} />
         <Btn
           icon={copied ? "lucide:check" : "lucide:clipboard-copy"}
-          title="Copy docker run command"
+          title={t("copyRunCommand")}
           disabled={busy}
           onClick={copyRunCommand}
           color={copied ? "text-(--t-status-connected)" : undefined}
@@ -163,8 +164,8 @@ export function ContainerRow({
             icon={updating ? "lucide:loader-circle" : "lucide:download"}
             title={
               recreateAfterPull
-                ? "Pull update and recreate this container"
-                : "Pull newer image"
+                ? t("pullAndRecreateContainer")
+                : t("pullNewerImage")
             }
             disabled={busy || updating}
             onClick={update}
@@ -174,7 +175,7 @@ export function ContainerRow({
         {running && (
           <Btn
             icon="lucide:terminal"
-            title="Open terminal"
+            title={t("openTerminal")}
             disabled={busy}
             onClick={() => onTerminal(container.id, name)}
             color="text-(--t-accent) opacity-80 hover:opacity-100"
@@ -182,7 +183,7 @@ export function ContainerRow({
         )}
         <Btn
           icon="lucide:trash-2"
-          title="Remove"
+          title={t("remove")}
           disabled={busy}
           onClick={() => act("remove")}
           color="text-(--t-status-error) opacity-60 hover:opacity-100"

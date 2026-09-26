@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useActiveSession } from "@voltius/ui";
-import { getDockerApi } from "../runtime";
+import { getDockerApi, useDockerT } from "../runtime";
 import { useDockerList } from "../useDockerList";
 import {
   createDockerListService,
@@ -136,15 +136,16 @@ function reducer(state: DockerState, action: Action): DockerState {
 // Module-level: stateless, so a single instance is fine to share across renders.
 const dockerListService = createDockerListService();
 
-const TABS: { id: DockerView; label: string; icon: string }[] = [
-  { id: "containers", label: "Containers", icon: "lucide:box" },
-  { id: "images", label: "Images", icon: "lucide:layers" },
-  { id: "volumes", label: "Volumes", icon: "lucide:hard-drive" },
-  { id: "networks", label: "Networks", icon: "lucide:network" },
-  { id: "stacks", label: "Stacks", icon: "lucide:boxes" },
+const TABS: { id: DockerView; labelKey: string; icon: string }[] = [
+  { id: "containers", labelKey: "tabContainers", icon: "lucide:box" },
+  { id: "images", labelKey: "tabImages", icon: "lucide:layers" },
+  { id: "volumes", labelKey: "tabVolumes", icon: "lucide:hard-drive" },
+  { id: "networks", labelKey: "tabNetworks", icon: "lucide:network" },
+  { id: "stacks", labelKey: "tabStacks", icon: "lucide:boxes" },
 ];
 
 export function DockerPanel() {
+  const t = useDockerT();
   const activeSession = useActiveSession(getDockerApi());
   const [state, dispatch] = useReducer(reducer, initial);
   const [sysPruning, setSysPruning] = useState(false);
@@ -250,7 +251,7 @@ export function DockerPanel() {
   if (!activeSession || activeSession.status !== "connected") {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
-        <p className="text-sm text-(--t-text-muted)">No active session</p>
+        <p className="text-sm text-(--t-text-muted)">{t("noActiveSession")}</p>
       </div>
     );
   }
@@ -264,9 +265,9 @@ export function DockerPanel() {
             <Icon icon="custom:docker" width={22} />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-(--t-text)">Local Docker isn't available on Android</h3>
+            <h3 className="text-sm font-medium text-(--t-text)">{t("androidLocalTitle")}</h3>
             <p className="mt-1 text-[11px] leading-4 text-(--t-text-muted)">
-              Connect to a host over SSH to manage its Docker.
+              {t("androidLocalSub")}
             </p>
           </div>
         </div>
@@ -306,9 +307,9 @@ export function DockerPanel() {
             <Icon icon="custom:docker" width={22} />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-(--t-text)">Docker is not reachable</h3>
+            <h3 className="text-sm font-medium text-(--t-text)">{t("unreachableTitle")}</h3>
             <p className="mt-1 text-[11px] leading-4 text-(--t-text-muted)">
-              Start Docker in this environment, then refresh.
+              {t("unreachableLocalSub")}
             </p>
           </div>
           <button
@@ -317,7 +318,7 @@ export function DockerPanel() {
             className="inline-flex items-center gap-1.5 rounded-md border border-(--t-border) px-2.5 py-1 text-[11px] text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:refresh-cw" width={12} className={state.loading ? "animate-spin" : ""} />
-            Refresh
+            {t("refresh")}
           </button>
         </div>
       </div>
@@ -358,7 +359,7 @@ export function DockerPanel() {
           <button
             key={tab.id}
             onClick={() => dispatch({ type: "SET_VIEW", view: tab.id })}
-            title={tab.label}
+            title={t(tab.labelKey)}
             className={`flex-1 flex items-center justify-center py-1.5 text-[10px] gap-1 border-b-2 transition-colors ${
               state.view === tab.id
                 ? "border-(--t-accent) text-(--t-text)"
@@ -371,7 +372,7 @@ export function DockerPanel() {
         <div className="flex items-center gap-0.5 px-1.5 border-l border-(--t-border)">
           <button
             onClick={() => dispatch({ type: state.searchOpen ? "CLOSE_SEARCH" : "OPEN_SEARCH" })}
-            title="Search"
+            title={t("search")}
             className="relative p-1 text-(--t-text-muted) hover:text-(--t-text)"
             style={{ color: state.searchOpen ? "var(--t-accent)" : undefined }}
           >
@@ -383,7 +384,7 @@ export function DockerPanel() {
           <button
             onClick={() => fetchForView(state.view)}
             disabled={state.loading}
-            title="Refresh"
+            title={t("refresh")}
             className="p-1 text-(--t-text-muted) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:refresh-cw" width={11} className={state.loading ? "animate-spin" : ""} />
@@ -403,7 +404,7 @@ export function DockerPanel() {
               }
             }}
             disabled={sysPruning}
-            title="System prune (docker system prune -a)"
+            title={t("systemPrune")}
             className="p-1 text-(--t-status-warning) opacity-70 hover:opacity-100 disabled:opacity-40"
           >
             <Icon icon="lucide:flame" width={11} />
@@ -419,7 +420,7 @@ export function DockerPanel() {
             value={state.filters[state.view]}
             onChange={(e) => dispatch({ type: "SET_FILTER", view: state.view as ListView, query: e.target.value })}
             onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); dispatch({ type: "CLOSE_SEARCH" }); } }}
-            placeholder="Filter…"
+            placeholder={t("filterPlaceholder")}
             className="flex-1 bg-transparent text-[11px] text-(--t-text-primary) placeholder:text-(--t-text-dim) outline-hidden"
           />
           <span className="text-[10px] text-(--t-text-dim) shrink-0 tabular-nums">
@@ -427,7 +428,7 @@ export function DockerPanel() {
           </span>
           <button
             onClick={() => dispatch({ type: "CLOSE_SEARCH" })}
-            title="Close search"
+            title={t("closeSearch")}
             className="p-0.5 text-(--t-text-muted) hover:text-(--t-text)"
           >
             <Icon icon="lucide:x" width={11} />

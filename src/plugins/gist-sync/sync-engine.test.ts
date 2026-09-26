@@ -1,5 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import type { PluginAPI } from "@/plugins/api";
+import { createI18nAPI } from "@/plugins/domains/i18n";
+import { messages } from "./i18n";
 
 const getManifest = vi.fn();
 
@@ -32,6 +34,7 @@ function makeApi() {
     sync: { exportState: vi.fn(async () => "blob"), importStates: vi.fn(async () => {}) },
     http: {},
     notifications: { toast: vi.fn(), banner: vi.fn(), progress: vi.fn() },
+    i18n: createI18nAPI(messages),
   } as unknown as PluginAPI;
   return { api };
 }
