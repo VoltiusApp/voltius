@@ -56,10 +56,19 @@ export interface ConnectionExport extends ConnectionPassthrough {
   password?: string;
   private_key?: string;
   passphrase?: string;
+  proxy_password?: string;
   _key_eid?: string;      // → KeyExport._eid in the same bundle
   _identity_eid?: string; // → IdentityExport._eid in the same bundle
   _folder_eid?: string;
   jump_hosts?: JumpHostExport[];
+}
+
+export function secretBearingTypes(bundle: ExportBundle): string[] {
+  const out: string[] = [];
+  if (bundle.connections.some((c) => c.password || c.private_key || c.passphrase || c.proxy_password || c.notes)) out.push("connections");
+  if (bundle.identities.some((i) => i.password)) out.push("identities");
+  if (bundle.keys.some((k) => k.private_key || k.passphrase)) out.push("keys");
+  return out;
 }
 
 export interface SnippetExport {

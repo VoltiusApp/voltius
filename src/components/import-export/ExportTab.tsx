@@ -6,7 +6,7 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { usePermissions } from "@/hooks/usePermission";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
-import { encryptText, toJSON } from "@/services/import-export/formats";
+import { encryptText, secretBearingTypes, toJSON } from "@/services/import-export/formats";
 import { connectionsToCSV } from "@/services/import-export/parsers/csv";
 import type { ExportBundle } from "@/services/import-export/formats";
 import { HANDLERS, buildBundle } from "@/services/import-export/registry";
@@ -90,10 +90,7 @@ export function ExportTab({ selection, preselectedTypes }: {
       const counts: Record<string, number> = { folders: bundle.folders.length };
       for (const h of HANDLERS) counts[h.key] = (bundle[h.key as keyof ExportBundle] as unknown[])?.length ?? 0;
       setBundleCounts(counts);
-      const hasSecrets =
-        bundle.connections.some(c => c.password || c.private_key || c.passphrase || c.notes) ||
-        bundle.identities.some(i => i.password) ||
-        bundle.keys.some(k => k.private_key || k.passphrase);
+      const hasSecrets = secretBearingTypes(bundle).length > 0;
       setBundleHasSecrets(hasSecrets);
       if (hasSecrets && !encryptTouched.current) setEncrypt(true);
       setPreview(isCsvOnly ? connectionsToCSV(bundle.connections) : toJSON(bundle));

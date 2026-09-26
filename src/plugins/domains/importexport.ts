@@ -8,7 +8,7 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { HANDLERS, buildBundle, runImport, reloadAll } from "@/services/import-export/registry";
 import { canFromStoresAsync } from "@/services/permissionsFromStores";
-import { toJSON, encryptText, decryptText, detectFormat } from "@/services/import-export/formats";
+import { toJSON, encryptText, decryptText, detectFormat, secretBearingTypes } from "@/services/import-export/formats";
 import { parseImport } from "@/services/import-export/importers";
 import { connectionsToCSV } from "@/services/import-export/parsers/csv";
 import type { ExportBundle } from "@/services/import-export/formats";
@@ -116,20 +116,6 @@ function bundleCounts(bundle: ExportBundle): Record<string, number> {
     counts[h.key] = (bundle[h.key as keyof ExportBundle] as unknown[] | undefined)?.length ?? 0;
   }
   return counts;
-}
-
-/**
- * Which selected types carry secret material. Mirrors ExportTab's `hasSecrets`
- * check exactly — here it is a refusal rather than a default-on checkbox,
- * because an unencrypted bundle returned over MCP lands in the client's
- * transcript and the model's context, off this machine.
- */
-function secretBearingTypes(bundle: ExportBundle): string[] {
-  const out: string[] = [];
-  if (bundle.connections.some((c) => c.password || c.private_key || c.passphrase || c.notes)) out.push("connections");
-  if (bundle.identities.some((i) => i.password)) out.push("identities");
-  if (bundle.keys.some((k) => k.private_key || k.passphrase)) out.push("keys");
-  return out;
 }
 
 async function canViewSecretsForVault(): Promise<(vaultId: string) => boolean> {
