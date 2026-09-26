@@ -30,12 +30,10 @@ import { snippetsClipboardHalf } from "@/services/clipboard/snippets";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
 import { cloneFolderTree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
-import { connectionToFormData } from "@/stores/connectionStore";
 import { snippetToForm } from "@/utils/snippetForm";
 import { ruleToForm } from "@/utils/portForwardingForm";
 import { getSecret, storeSecret } from "@/services/vault";
 import {
-  transferConnectionSecrets,
   transferIdentitySecrets,
   transferKeySecrets,
 } from "@/services/vaultSecrets";
@@ -44,7 +42,7 @@ import {
   publishKeySecrets,
   withdrawOrWarn,
 } from "@/services/vaultObjectSecrets";
-import { duplicateConnection } from "@/services/connectionDuplicate";
+import { duplicateConnection, moveConnectionToVault } from "@/services/connectionDuplicate";
 import { vaultOf } from "./vaultOf";
 
 export type ObjectTab = "hosts" | "keychain" | "port_forwarding" | "snippets";
@@ -363,9 +361,7 @@ function folderOpsFor(ports: ObjectPorts, tab: ObjectTab): FolderOps {
   const migrateSubtreeItems: FolderOps["migrateSubtreeItems"] = async (rootId, vaultId) => {
     if (tab === "hosts") {
       for (const c of under(ports.connections(), rootId)) {
-        const from = vaultOf(c);
-        await ports.updateConnection(c.id, { ...connectionToFormData(c), vault_id: vaultId });
-        await transferConnectionSecrets(c.id, from, vaultId);
+        await moveConnectionToVault(c, vaultId, ports.updateConnection);
       }
       return;
     }

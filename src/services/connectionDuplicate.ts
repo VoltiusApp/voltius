@@ -2,6 +2,7 @@ import type { Connection, ConnectionFormData } from "@/types";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { getSecret, storeSecret } from "@/services/vault";
 import { publishConnectionSecrets } from "@/services/vaultObjectSecrets";
+import { transferConnectionSecrets } from "@/services/vaultSecrets";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 
@@ -51,6 +52,30 @@ export async function copyConnectionSecrets(
   if (opts.publish === "grouped") await publishConnectionSecrets(toId, vaultId);
 }
 
+export function duplicateFormData(
+  conn: Connection,
+  folderId: string | null,
+  opts: DuplicateConnectionOpts & { vaultId: string },
+): ConnectionFormData {
+  return {
+    ...connectionToFormData(conn),
+    name: conn.name ? (opts.keepName ? conn.name : `${conn.name} (copy)`) : undefined,
+    identity_id: opts.identityId ?? conn.identity_id,
+    key_id: opts.keyId ?? conn.key_id,
+    folder_id: folderId ?? undefined,
+    vault_id: opts.vaultId,
+  };
+}
+
+export async function moveConnectionToVault(
+  conn: Connection,
+  vaultId: string,
+  updateConnection: (id: string, data: ConnectionFormData) => Promise<unknown>,
+): Promise<void> {
+  await updateConnection(conn.id, { ...connectionToFormData(conn), vault_id: vaultId });
+  await transferConnectionSecrets(conn.id, conn.vault_id ?? "personal", vaultId);
+}
+
 export async function duplicateConnection(
   conn: Connection,
   folderId: string | null,
@@ -58,14 +83,7 @@ export async function duplicateConnection(
   saveConnection: (data: ConnectionFormData) => Promise<{ id: string }>,
 ): Promise<{ id: string }> {
   const vaultId = opts.vaultId ?? conn.vault_id ?? "personal";
-  const created = await saveConnection({
-    ...connectionToFormData(conn),
-    name: conn.name ? (opts.keepName ? conn.name : `${conn.name} (copy)`) : undefined,
-    identity_id: opts.identityId ?? conn.identity_id,
-    key_id: opts.keyId ?? conn.key_id,
-    folder_id: folderId ?? undefined,
-    vault_id: vaultId,
-  });
+  const created = await saveConnection(duplicateFormData(conn, folderId, { ...opts, vaultId }));
   if (conn.connection_type !== "serial") {
     await copyConnectionSecrets(conn.id, created.id, vaultId, {
       copyKey: !conn.key_id,
