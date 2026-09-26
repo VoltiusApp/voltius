@@ -440,12 +440,26 @@ fn parse_with_migration<T: serde::de::DeserializeOwned>(data: &str) -> Result<Ve
 
 // ─── File helpers ────────────────────────────────────────────────────────────
 
+#[cfg(not(test))]
+fn default_config_dir() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("voltius")
+}
+
+// Per test thread: libtest runs each test on its own thread, and the TempDir is removed when it exits.
+#[cfg(test)]
+fn default_config_dir() -> PathBuf {
+    thread_local! {
+        static DIR: tempfile::TempDir = tempfile::tempdir().expect("test config dir");
+    }
+    DIR.with(|d| d.path().to_path_buf())
+}
+
 pub fn config_dir() -> PathBuf {
     let dir = match CONFIG_DIR_OVERRIDE.get() {
         Some(base) => base.clone(),
-        None => dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("voltius"),
+        None => default_config_dir(),
     };
     fs::create_dir_all(&dir).ok();
     dir
@@ -1246,18 +1260,8 @@ mod tests {
     }
 
     // ── End-to-end persistence (golden master for the load/save layer) ───────
-    //
-    // Linux only: `config_dir()` resolves via `dirs::config_dir()`, which honors
-    // `XDG_CONFIG_HOME` on Linux but not on macOS/Windows (CI runs on Linux).
-    // Kept in a single test (no `serial_test` dep) because it mutates the
-    // process-global `XDG_CONFIG_HOME`; no other test reads `config_dir()`.
-    #[cfg(target_os = "linux")]
     #[test]
     fn persistence_round_trip_and_on_disk_migration() {
-        let dir = std::env::temp_dir().join(format!("voltius-test-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        std::env::set_var("XDG_CONFIG_HOME", &dir);
-
         // A missing file loads as empty, not an error.
         assert!(load_identities().unwrap().is_empty());
 
@@ -1275,8 +1279,6 @@ mod tests {
         let migrated = load_connections().unwrap();
         assert_eq!(migrated.len(), 1);
         assert_eq!(migrated[0].vault_id, "legacy-team");
-
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     // ── #250: a corrupt entity file must error, not silently look empty ──────

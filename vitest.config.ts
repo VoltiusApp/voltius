@@ -21,6 +21,8 @@ export default defineConfig({
     // `navigator.onLine`) and rely on a fresh module registry + globals per file. Do not
     // disable isolation without giving those tests explicit cross-file resets.
     environment: "jsdom",
+    // Node 25+'s own `localStorage` global shadows jsdom's and is unusable without --localstorage-file.
+    execArgv: ["--no-experimental-webstorage"],
     setupFiles: ["./vitest.setup.ts"],
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",

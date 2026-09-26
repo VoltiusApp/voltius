@@ -6,7 +6,7 @@ use crate::proxy::{self, ProxyError, ProxySpec};
 use russh::client::{self, AuthResult, KeyboardInteractiveAuthResponse, Prompt};
 use russh::keys::ssh_key::{HashAlg, PublicKey};
 use russh::keys::PrivateKeyWithHashAlg;
-use russh::{ChannelMsg, MethodKind, MethodSet};
+use russh::{MethodKind, MethodSet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -72,6 +72,9 @@ pub struct SshClient {
     /// Server's SSH identification banner, captured in `kex_done`. Read after
     /// the handshake to detect Windows OpenSSH (see `is_windows_sshid`).
     remote_sshid: Arc<Mutex<Option<Vec<u8>>>>,
+    /// Whether this connection requested agent forwarding; gates the server's
+    /// agent channels (see `open_agent_channel`).
+    agent_forwarding: bool,
 }
 
 impl SshClient {
@@ -92,6 +95,7 @@ impl SshClient {
                 conflict_ctx: None,
                 remote_routes,
                 remote_sshid: Arc::new(Mutex::new(None)),
+                agent_forwarding: false,
             },
             rejection_reason,
         )
@@ -108,6 +112,7 @@ impl SshClient {
         app: AppHandle,
         session_id: String,
         pending_conflicts: Arc<PendingConflicts>,
+        agent_forwarding: bool,
     ) -> InteractiveClient {
         let rejection_reason = Arc::new(Mutex::new(None::<String>));
         let remote_routes: RemoteRouteMap = Arc::new(Mutex::new(HashMap::new()));
@@ -125,6 +130,7 @@ impl SshClient {
                 }),
                 remote_routes: Arc::clone(&remote_routes),
                 remote_sshid: Arc::clone(&remote_sshid),
+                agent_forwarding,
             },
             rejection_reason,
             remote_routes,
@@ -259,80 +265,48 @@ impl client::Handler for SshClient {
         reply: client::ChannelOpenHandle,
         _session: &mut russh::client::Session,
     ) -> Result<(), Self::Error> {
-        reply.accept().await;
-        #[cfg(unix)]
-        {
-            let sock_path = match std::env::var("SSH_AUTH_SOCK") {
-                Ok(p) => p,
-                Err(_) => return Ok(()),
-            };
-
-            tokio::spawn(async move {
-                let Ok(mut sock) = tokio::net::UnixStream::connect(&sock_path).await else {
-                    return;
-                };
-                let (mut chan_read, chan_write) = channel.split();
-                let mut writer = chan_write.make_writer();
-                let (mut sock_read, mut sock_write) = sock.split();
-                let mut buf = [0u8; 4096];
-
-                loop {
-                    tokio::select! {
-                        n = sock_read.read(&mut buf) => {
-                            match n {
-                                Ok(0) | Err(_) => break,
-                                Ok(n) => { let _ = writer.write_all(&buf[..n]).await; }
-                            }
-                        }
-                        msg = chan_read.wait() => {
-                            match msg {
-                                Some(ChannelMsg::Data { data }) => {
-                                    let _ = sock_write.write_all(&data).await;
-                                }
-                                _ => break,
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        #[cfg(windows)]
-        {
-            tokio::spawn(async move {
-                let Ok(sock) = tokio::net::windows::named_pipe::ClientOptions::new()
-                    .open(r"\\.\pipe\openssh-ssh-agent")
-                else {
-                    return;
-                };
-                let (mut sock_read, mut sock_write) = tokio::io::split(sock);
-                let (mut chan_read, chan_write) = channel.split();
-                let mut writer = chan_write.make_writer();
-                let mut buf = [0u8; 4096];
-
-                loop {
-                    tokio::select! {
-                        n = sock_read.read(&mut buf) => {
-                            match n {
-                                Ok(0) | Err(_) => break,
-                                Ok(n) => { let _ = writer.write_all(&buf[..n]).await; }
-                            }
-                        }
-                        msg = chan_read.wait() => {
-                            match msg {
-                                Some(ChannelMsg::Data { data }) => {
-                                    if sock_write.write_all(&data).await.is_err() { break; }
-                                }
-                                _ => break,
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
+        open_agent_channel(self.agent_forwarding, channel, reply).await;
         Ok(())
     }
+}
+
+/// Only a connection that asked for agent forwarding may reach the local agent;
+/// jump hosts, SFTP/exec connections and forwarding-off sessions are refused.
+async fn open_agent_channel(
+    enabled: bool,
+    channel: russh::Channel<client::Msg>,
+    reply: client::ChannelOpenHandle,
+) {
+    if !enabled {
+        reply
+            .reject(russh::ChannelOpenFailure::AdministrativelyProhibited)
+            .await;
+        return;
+    }
+    match connect_local_agent().await {
+        Ok(agent) => {
+            reply.accept().await;
+            tokio::spawn(crate::port_forward::pipe::pump(
+                channel,
+                agent,
+                tokio_util::sync::CancellationToken::new(),
+                Default::default(),
+            ));
+        }
+        Err(_) => reply.reject(russh::ChannelOpenFailure::ConnectFailed).await,
+    }
+}
+
+#[cfg(unix)]
+async fn connect_local_agent() -> std::io::Result<tokio::net::UnixStream> {
+    let path = std::env::var_os("SSH_AUTH_SOCK").ok_or(std::io::ErrorKind::NotFound)?;
+    tokio::net::UnixStream::connect(path).await
+}
+
+#[cfg(windows)]
+async fn connect_local_agent() -> std::io::Result<tokio::net::windows::named_pipe::NamedPipeClient>
+{
+    tokio::net::windows::named_pipe::ClientOptions::new().open(r"\\.\pipe\openssh-ssh-agent")
 }
 
 pub struct ConnectedSession {
@@ -823,6 +797,7 @@ pub async fn connect(
                     app.clone(),
                     session_id.clone(),
                     Arc::clone(&pending_conflicts),
+                    agent_forwarding,
                 );
                 (c, reason, (routes, sshid))
             },
@@ -920,6 +895,7 @@ pub async fn connect(
             app.clone(),
             session_id.clone(),
             Arc::clone(&pending_conflicts),
+            agent_forwarding,
         );
         final_routes = routes;
         final_sshid = sshid;
@@ -1310,8 +1286,8 @@ fn legacy_preferred() -> russh::Preferred {
 mod tests {
     use super::{
         answer_prompts, authenticate_handle, choose_rsa_hash, client, client_config,
-        connect_first_hop_retrying, is_windows_sshid, legacy_preferred, Arc, Mutex, AUTH_TIMEOUT,
-        KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED, PASSWORD_REJECTED,
+        connect_first_hop_retrying, is_windows_sshid, legacy_preferred, open_agent_channel, Arc,
+        Mutex, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED, PASSWORD_REJECTED,
     };
     use crate::port_forward::test_ssh::TestClient;
     use russh::client::Prompt;
@@ -1641,5 +1617,76 @@ mod tests {
     async fn retrying_helper_max_attempts_one_never_retries() {
         let (calls, _result) = run_retrying(1, None).await;
         assert_eq!(calls, 1);
+    }
+
+    /// Opens an agent channel back to the client as soon as it opens a session,
+    /// like a server that wants to use a forwarded agent.
+    struct AgentProbeServer(Option<tokio::sync::oneshot::Sender<bool>>);
+
+    impl russh::server::Handler for AgentProbeServer {
+        type Error = russh::Error;
+
+        async fn auth_none(&mut self, _: &str) -> Result<Auth, Self::Error> {
+            Ok(Auth::Accept)
+        }
+
+        async fn channel_open_session(
+            &mut self,
+            _: russh::Channel<russh::server::Msg>,
+            reply: russh::server::ChannelOpenHandle,
+            session: &mut russh::server::Session,
+        ) -> Result<(), Self::Error> {
+            reply.accept().await;
+            let (handle, tx) = (session.handle(), self.0.take());
+            tokio::spawn(async move {
+                let opened = handle.channel_open_agent().await.is_ok();
+                tx.map(|tx| tx.send(opened));
+            });
+            Ok(())
+        }
+    }
+
+    struct AgentClient(bool);
+
+    impl russh::client::Handler for AgentClient {
+        type Error = russh::Error;
+
+        async fn check_server_key(
+            &mut self,
+            _: &russh::keys::ssh_key::PublicKey,
+        ) -> Result<bool, Self::Error> {
+            Ok(true)
+        }
+
+        async fn server_channel_open_agent_forward(
+            &mut self,
+            channel: russh::Channel<russh::client::Msg>,
+            reply: russh::client::ChannelOpenHandle,
+            _: &mut russh::client::Session,
+        ) -> Result<(), Self::Error> {
+            open_agent_channel(self.0, channel, reply).await;
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn agent_channels_are_refused_without_forwarding() {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let port = crate::port_forward::test_ssh::serve_one(
+            Default::default(),
+            AgentProbeServer(Some(tx)),
+        )
+        .await;
+        let mut handle =
+            russh::client::connect(Default::default(), ("127.0.0.1", port), AgentClient(false))
+                .await
+                .unwrap();
+        assert!(handle.authenticate_none("root").await.unwrap().success());
+        let _session = handle.channel_open_session().await.unwrap();
+        let opened = tokio::time::timeout(std::time::Duration::from_secs(5), rx)
+            .await
+            .expect("server never heard back")
+            .unwrap();
+        assert!(!opened, "the local agent was handed to the server");
     }
 }
