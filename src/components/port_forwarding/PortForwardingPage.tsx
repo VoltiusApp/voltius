@@ -51,12 +51,14 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
+import { compareStrings } from "@/utils/localeFormat";
+import { useSearchMatcher } from "@/utils/search";
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
     switch (mode) {
-      case "name-asc": return a.name.localeCompare(b.name);
-      case "name-desc": return b.name.localeCompare(a.name);
+      case "name-asc": return compareStrings(a.name, b.name);
+      case "name-desc": return compareStrings(b.name, a.name);
       case "oldest": return a.created_at.localeCompare(b.created_at);
       case "newest":
       default: return b.created_at.localeCompare(a.created_at);
@@ -141,19 +143,19 @@ export function PortForwardingPage() {
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders);
 
-  const q = useMemo(() => search.trim().toLowerCase(), [search]);
+  const q = search.trim();
+  const match = useSearchMatcher(q);
 
   const filtered = useMemo(() => {
     const accessible = rules.filter((r) => {
       const rvid = r.vault_id ?? "personal";
       if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(rvid)) return false;
-      if (q && !r.name.toLowerCase().includes(q) && !r.description?.toLowerCase().includes(q) &&
-          !String(r.local_port).includes(q) && !String(r.remote_port).includes(q)) return false;
+      if (!match(r.name, r.description, r.local_port, r.remote_port)) return false;
       if (activeFolderId) return r.folder_id === activeFolderId;
       return scopedFolders.length === 0 || !r.folder_id || !scopedFolderIds.has(r.folder_id);
     });
     return sortRules(accessible, sortMode as SortMode);
-  }, [rules, accessibleVaultIds, q, sortMode, activeFolderId, scopedFolders, scopedFolderIds]);
+  }, [rules, accessibleVaultIds, match, sortMode, activeFolderId, scopedFolders, scopedFolderIds]);
 
   const filteredIds = useMemo(
     () => [...visibleFolders.map((f) => f.id), ...filtered.map((r) => r.id)],

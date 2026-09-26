@@ -7,13 +7,6 @@
       "noActiveSession": "没有活跃会话"
     },
     "historyPanel": {
-      "relativeTime": {
-        "justNow": "刚刚",
-        "secondsAgo": "{{count}} 秒前",
-        "minutesAgo": "{{count}} 分钟前",
-        "hoursAgo": "{{count}} 小时前",
-        "daysAgo": "{{count}} 天前"
-      },
       "removeFromHistory": "从历史中移除",
       "searchPlaceholder": "搜索历史…",
       "showCurrentOnly": "仅显示当前连接",
@@ -85,7 +78,14 @@
         "tooManyParts": "使用端口或 远程：本地",
         "invalidRemotePort": "端口必须为 1-65535",
         "invalidLocalPort": "本地端口必须为 1-65535"
-      }
+      },
+      "toast": {
+        "viewPorts": "查看端口 →",
+        "forwardedOne": "已转发端口 {{port}} → localhost:{{localPort}}",
+        "forwardedMany_other": "已转发 {{count}} 个端口",
+        "autoForwardCapped_other": "自动转发已暂停 — 已转发 {{count}} 个端口"
+      },
+      "portLabel": "端口 {{port}}"
     },
     "rightPanel": {
       "font": "字体",
@@ -248,13 +248,12 @@
       },
       "hostKeyConflict": {
         "title": "主机密钥已更改",
-        "descriptionPrefix": "",
-        "descriptionSuffix": " 的指纹已更改。",
         "replace": "替换",
         "addAsNew": "添加为新主机",
         "abort": "中止",
         "stored": "已存储",
-        "received": "已收到"
+        "received": "已收到",
+        "description": "<host>{{address}}</host> 的指纹已更改。"
       },
       "passphrasePrompt": {
         "title": "需要密钥口令",
@@ -316,6 +315,11 @@
       "sparklineMin": "最小 {{value}}ms",
       "sparklineAvg": "平均 {{value}}ms",
       "sparklineMax": "最大 {{value}}ms"
+    },
+    "xterm": {
+      "linkTooltip": "Alt+单击以打开",
+      "sessionClosed": "会话已关闭",
+      "serialClosed": "串口连接已关闭"
     }
   }
 }

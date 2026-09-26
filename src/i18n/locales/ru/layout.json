@@ -43,10 +43,7 @@
       "newHere": "Впервые здесь? ",
       "e2eeNotice": "Ваши данные защищены сквозным шифрованием — сервер не может их прочитать.",
       "openSource": "Открытый исходный код.",
-      "agreeToTerms": "Создавая учётную запись, вы соглашаетесь с нашими ",
-      "and": " и ",
-      "termsOfService": "Условиями использования",
-      "privacyPolicy": "Политикой конфиденциальности",
+      "agreeToTerms": "Создавая учётную запись, вы соглашаетесь с нашими <terms>Условиями использования</terms> и <privacy>Политикой конфиденциальности</privacy>.",
       "accountCreatedToast": "Учётная запись создана! Проверьте почту для подтверждения.",
       "vaultUnreadableBodyNoPassword": "Файл секретов этого устройства не открывается ключом, сохранённым на этой машине. Ничего не удалено. Отложите его, чтобы начать с пустым хранилищем, или восстановите одну из копий ниже.",
       "vaultSetAsideLocal": "Отложить и начать заново",
@@ -171,7 +168,6 @@
       "sftpTitle": "Передача файлов (SFTP)",
       "unifiedSplitTab": "Объединённая разделённая вкладка",
       "splitFallback": "Разделение",
-      "splitCountSuffix": " + {{count}}",
       "ended": "Завершено",
       "watching": "Просмотр",
       "sharingCurrently": "Демонстрация активна",
@@ -192,9 +188,15 @@
         "sessions_one": "{{host}} · {{count}} сеанс",
         "sessions_few": "{{host}} · {{count}} сеанса",
         "sessions_many": "{{host}} · {{count}} сеансов",
+        "sessions_other": "{{host}} · {{count}} сеанса",
+        "heading_one": "<host>{{host}}</host> · {{count}} сеанс",
+        "heading_few": "<host>{{host}}</host> · {{count}} сеанса",
+        "heading_many": "<host>{{host}}</host> · {{count}} сеансов",
+        "heading_other": "<host>{{host}}</host> · {{count}} сеанса",
         "count_one": "{{count}} сеанс",
         "count_few": "{{count}} сеанса",
         "count_many": "{{count}} сеансов",
+        "count_other": "{{count}} сеанса",
         "newSessionOn": "Новый сеанс на {{host}}",
         "closeAll": "Закрыть все ({{count}})",
         "openInSplit": "Открыть в разделённом виде",
@@ -219,7 +221,8 @@
         "splitApart": "Разделить на вкладки",
         "closeTab_one": "Закрыть вкладку ({{count}} сессия)",
         "closeTab_few": "Закрыть вкладку ({{count}} сессии)",
-        "closeTab_many": "Закрыть вкладку ({{count}} сессий)"
+        "closeTab_many": "Закрыть вкладку ({{count}} сессий)",
+        "closeTab_other": "Закрыть вкладку ({{count}} сессии)"
       },
       "plan": {
         "proTrial": "Pro триал — осталось {{daysLeft}} дн.",
@@ -228,7 +231,8 @@
         "pro": "Pro",
         "upgradeTrial": "Улучшить · 14 дней бесплатно",
         "upgrade": "Улучшить"
-      }
+      },
+      "splitLabelMore": "{{label}} + {{count}}"
     },
     "vaultHeader": {
       "members": "Участники",
@@ -237,13 +241,7 @@
       "noOneOnline": "никого нет в сети",
       "onlineCount": "{{count}} в сети",
       "inviteMember": "Пригласить участника",
-      "jumpTo": "Перейти к...",
-      "relativeTime": {
-        "justNow": "только что",
-        "minutesAgo": "{{count}} мин. назад",
-        "hoursAgo": "{{count}} ч. назад",
-        "daysAgo": "{{count}} дн. назад"
-      }
+      "jumpTo": "Перейти к..."
     },
     "vaultMenu": {
       "share": "Поделиться…",

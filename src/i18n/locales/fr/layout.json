@@ -43,10 +43,7 @@
       "newHere": "Nouveau ici ? ",
       "e2eeNotice": "Vos données sont chiffrées de bout en bout — le serveur ne peut pas les lire.",
       "openSource": "Open source.",
-      "agreeToTerms": "En créant un compte, vous acceptez nos ",
-      "and": " et ",
-      "termsOfService": "conditions d'utilisation",
-      "privacyPolicy": "politique de confidentialité",
+      "agreeToTerms": "En créant un compte, vous acceptez nos <terms>conditions d'utilisation</terms> et notre <privacy>politique de confidentialité</privacy>.",
       "accountCreatedToast": "Compte créé ! Vérifiez votre e-mail pour le confirmer.",
       "vaultUnreadableBodyNoPassword": "Le fichier de secrets de cet appareil ne peut pas être ouvert avec la clé enregistrée sur cette machine. Rien n'a été supprimé. Mettez-le de côté pour repartir d'un coffre vide, ou restaurez une des sauvegardes ci-dessous.",
       "vaultSetAsideLocal": "Mettre de côté et repartir à zéro",
@@ -171,7 +168,6 @@
       "sftpTitle": "Transfert de fichiers (SFTP)",
       "unifiedSplitTab": "Onglet divisé unifié",
       "splitFallback": "Division",
-      "splitCountSuffix": " + {{count}}",
       "ended": "Terminée",
       "watching": "En observation",
       "sharingCurrently": "Partage en cours",
@@ -190,8 +186,13 @@
       "closeTab": "Fermer l'onglet",
       "stack": {
         "sessions_one": "{{host}} · {{count}} session",
+        "sessions_many": "{{host}} · {{count}} sessions",
         "sessions_other": "{{host}} · {{count}} sessions",
+        "heading_one": "<host>{{host}}</host> · {{count}} session",
+        "heading_many": "<host>{{host}}</host> · {{count}} sessions",
+        "heading_other": "<host>{{host}}</host> · {{count}} sessions",
         "count_one": "{{count}} session",
+        "count_many": "{{count}} sessions",
         "count_other": "{{count}} sessions",
         "newSessionOn": "Nouvelle session sur {{host}}",
         "closeAll": "Tout fermer ({{count}})",
@@ -216,6 +217,7 @@
         "pane": "{{index}} · {{name}}",
         "splitApart": "Séparer en onglets",
         "closeTab_one": "Fermer l'onglet ({{count}} session)",
+        "closeTab_many": "Fermer l'onglet ({{count}} sessions)",
         "closeTab_other": "Fermer l'onglet ({{count}} sessions)"
       },
       "plan": {
@@ -225,7 +227,8 @@
         "pro": "Pro",
         "upgradeTrial": "Mettre à niveau · Essai gratuit de 14j",
         "upgrade": "Mettre à niveau"
-      }
+      },
+      "splitLabelMore": "{{label}} + {{count}}"
     },
     "vaultHeader": {
       "members": "Membres",
@@ -234,13 +237,7 @@
       "noOneOnline": "personne en ligne",
       "onlineCount": "{{count}} en ligne",
       "inviteMember": "Inviter un membre",
-      "jumpTo": "Aller à...",
-      "relativeTime": {
-        "justNow": "à l'instant",
-        "minutesAgo": "il y a {{count}}min",
-        "hoursAgo": "il y a {{count}}h",
-        "daysAgo": "il y a {{count}}j"
-      }
+      "jumpTo": "Aller à..."
     },
     "vaultMenu": {
       "share": "Partager…",

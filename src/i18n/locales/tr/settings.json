@@ -263,13 +263,12 @@
         "errorInvalidEmail": "Geçersiz e-posta adresi",
         "errorSameEmail": "Yeni e-posta mevcut e-postadan farklı olmalıdır",
         "errorPasswordRequired": "Değişikliği onaylamak için parola gereklidir",
-        "updatedPrefix": "E-posta şu adresle güncellendi: ",
-        "updatedSuffix": ". Doğrulama bağlantısı için gelen kutunuzu kontrol edin.",
         "pausedNote": "Doğrulanana kadar ücretli özellikler duraklatılır.",
         "done": "Tamam",
         "saving": "Kaydediliyor…",
         "save": "Kaydet",
-        "toastVerification": "Doğrulama e-postası {{email}} adresine gönderildi."
+        "toastVerification": "Doğrulama e-postası {{email}} adresine gönderildi.",
+        "updated": "E-posta <email>{{email}}</email> olarak güncellendi. Doğrulama bağlantısı için gelen kutunuzu kontrol edin."
       },
       "handle": {
         "title": "Kullanıcı adı",
@@ -326,10 +325,8 @@
         "sub": "Tüm bağlantıları, anahtarları, kasayı ve anahtar zinciri kayıtlarını kalıcı olarak siler"
       },
       "confirmWipe": {
-        "descPre": "Bu işlem ",
-        "descBold": "tüm yerel verileri",
-        "descPost": " (bağlantılar, SSH anahtarları, kimlikler, kasadaki gizli bilgiler ve işletim sistemi anahtar zinciri kayıtları) kalıcı olarak siler. Bu işlem geri alınamaz.",
-        "confirm": "Her şeyi sil"
+        "confirm": "Her şeyi sil",
+        "desc": "Bu işlem <strong>tüm yerel verileri</strong> (bağlantılar, SSH anahtarları, kimlikler, kasadaki gizli bilgiler ve işletim sistemi anahtar zinciri kayıtları) kalıcı olarak siler. Bu işlem geri alınamaz."
       },
       "setPassword": {
         "desc": "Bir ana parola seçin. Mevcut verileriniz yeniden şifrelenecektir.",
@@ -679,8 +676,7 @@
         "title": "Aktarımlar",
         "tarAcceleration": {
           "title": "Tar hızlandırma",
-          "descPre": "Klasörleri aktarımdan önce tek bir tar.gz dosyasında paketler — çok sayıda küçük dosya için çok daha hızlıdır. Her iki tarafta da ",
-          "descPost": " gerekir."
+          "desc": "Klasörleri aktarımdan önce tek bir tar.gz dosyasında paketler — çok sayıda küçük dosya için çok daha hızlıdır. Her iki tarafta da <code>tar</code> gerekir."
         }
       },
       "filePanel": {

@@ -289,6 +289,13 @@
       "leavePointLocalWipe": "Kayıtlı parolalar ve özel anahtarlar dahil, kasanın içeriği bu cihazdan silinir.",
       "leavePointIrreversible": "Yeni bir davet olmadan yeniden katılamazsınız."
     },
-    "leaveTeam": "Ekipten ayrıl"
+    "leaveTeam": "Ekipten ayrıl",
+    "roleName": {
+      "owner": "Sahip",
+      "manager": "Yönetici",
+      "editor": "Düzenleyici",
+      "member": "Üye",
+      "connect-only": "Yalnızca bağlantı"
+    }
   }
 }

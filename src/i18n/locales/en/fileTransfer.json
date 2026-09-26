@@ -111,8 +111,6 @@
       "title": "Transfers",
       "transferCount_one": "{{count}} transfer",
       "transferCount_other": "{{count}} transfers",
-      "activeSuffix_one": " · {{count}} active",
-      "activeSuffix_other": " · {{count}} active",
       "combinedThroughput": "Combined throughput",
       "cancelAll": "Cancel all transfers",
       "clearFinished": "Clear finished transfers",
@@ -124,7 +122,9 @@
         "done": "Done",
         "error": "Error",
         "cancelled": "Cancelled"
-      }
+      },
+      "transferCountActive_one": "{{transfers}} · {{count}} active",
+      "transferCountActive_other": "{{transfers}} · {{count}} active"
     },
     "editor": {
       "common": {
@@ -139,7 +139,9 @@
         "loading": "Loading diff…",
         "previousChange": "Previous change",
         "nextChange": "Next change",
-        "saveErrorLine": "{{label}}: {{msg}}"
+        "saveErrorLine": "{{label}}: {{msg}}",
+        "applyToRight": "Apply to right (→)",
+        "applyToLeft": "Apply to left (←)"
       },
       "tab": {
         "autoSave": "Auto-save",
@@ -154,10 +156,10 @@
         "filesTab": "Files",
         "pendingNameFallback": "this file",
         "pendingNameDiffFallback": "this diff",
-        "diffTitlePrefix": "diff: {{name}}",
         "discardTitle": "Discard unsaved changes?",
         "discardMessage": "\"{{name}}\" has unsaved changes. Closing this tab will discard them.",
-        "discard": "Discard"
+        "discard": "Discard",
+        "diffTitle": "diff: {{name}}"
       }
     }
   }

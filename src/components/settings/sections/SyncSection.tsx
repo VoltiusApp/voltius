@@ -16,12 +16,13 @@ import { setDomainSync, setKeySync } from "@/services/user-data/syncChoice";
 import { heldBackKeys } from "@/services/user-data/syncFilter";
 import { isDeviceScopedDefault } from "@/services/user-data/settingKeys";
 import { SettingsGroup } from "./shared";
+import { formatTime } from "@/utils/localeFormat";
 
 function syncStateLine(t: TFunction, s: { status: SyncStatus; lastSync: Date | null; error: string | null }): string {
   switch (s.status) {
     case "syncing": return t("settings.sync.active.syncing");
     case "error": return t("settings.sync.active.error", { error: s.error ?? "unknown" });
-    case "success": return s.lastSync ? t("settings.sync.active.lastSync", { time: s.lastSync.toLocaleTimeString() }) : "";
+    case "success": return s.lastSync ? t("settings.sync.active.lastSync", { time: formatTime(s.lastSync) }) : "";
     case "offline": return t("settings.sync.active.offline");
     default: return t("settings.sync.active.idle");
   }

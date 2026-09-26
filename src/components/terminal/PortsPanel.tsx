@@ -48,7 +48,7 @@ export function PortsPanel() {
     const key = `save-${tunnel.id}`;
     setBusyKey(key, true);
     try {
-      const defaultName = `Port ${tunnel.remote_port}`;
+      const defaultName = t("terminal.ports.portLabel", { port: tunnel.remote_port });
       const rule = await createPfRule({
         name: defaultName,
         local_port: tunnel.local_port,
@@ -306,7 +306,7 @@ export function PortsPanel() {
             const isError = typeof tunnel.state === "object" && "error" in tunnel.state;
             const label = tunnel.tunnel_type === "dynamic"
               ? `SOCKS5 :${tunnel.local_port}`
-              : `Port ${tunnel.remote_port}`;
+              : t("terminal.ports.portLabel", { port: tunnel.remote_port });
             return (
               <PortRow
                 key={tunnel.id}
@@ -340,7 +340,7 @@ export function PortsPanel() {
             return (
               <PortRow
                 key={`suppressed-${port}`}
-                label={`Port ${port}`}
+                label={t("terminal.ports.portLabel", { port })}
                 portInfo={`${port} → 127.0.0.1:${port}`}
                 isActive={false}
                 isBusy={busy.has(key)}

@@ -183,8 +183,10 @@
     },
     "clipboard": {
       "cut_one": "{{count}} élément coupé",
+      "cut_many": "{{count}} éléments coupés",
       "cut_other": "{{count}} éléments coupés",
       "copied_one": "{{count}} élément copié",
+      "copied_many": "{{count}} éléments copiés",
       "copied_other": "{{count}} éléments copiés",
       "toMove": "{{shortcut}} pour déplacer",
       "toPaste": "{{shortcut}} pour coller",
@@ -192,20 +194,26 @@
       "crossVaultMoveHeading": "Déplacer les éléments vers",
       "crossVaultCopyHeading": "Copier les éléments vers",
       "crossVaultMoveDescription_one": "{{count}} élément quittera son coffre actuel pour rejoindre {{targetVaultName}}.",
+      "crossVaultMoveDescription_many": "{{count}} éléments quitteront leur coffre actuel pour rejoindre {{targetVaultName}}.",
       "crossVaultMoveDescription_other": "{{count}} éléments quitteront leur coffre actuel pour rejoindre {{targetVaultName}}.",
       "crossVaultCopyDescription_one": "{{count}} élément sera copié dans {{targetVaultName}}.",
+      "crossVaultCopyDescription_many": "{{count}} éléments seront copiés dans {{targetVaultName}}.",
       "crossVaultCopyDescription_other": "{{count}} éléments seront copiés dans {{targetVaultName}}.",
       "cascadeMoved_one": "Sa {{names}} l'accompagne.",
+      "cascadeMoved_many": "Ses {{names}} l'accompagnent.",
       "cascadeMoved_other": "Ses {{names}} l'accompagnent.",
       "cascadeCopied_one": "{{names}} est copiée plutôt que déplacée, car des objets qui restent l'utilisent encore.",
+      "cascadeCopied_many": "{{names}} sont copiées plutôt que déplacées, car des objets qui restent les utilisent encore.",
       "cascadeCopied_other": "{{names}} sont copiées plutôt que déplacées, car des objets qui restent les utilisent encore.",
       "cascadeAlsoCopied_one": "Sa {{names}} est également copiée.",
+      "cascadeAlsoCopied_many": "Ses {{names}} sont également copiées.",
       "cascadeAlsoCopied_other": "Ses {{names}} sont également copiées.",
       "pasteRootCrossVault": "Coller au niveau supérieur ne peut pas déplacer des éléments entre coffres tant que plusieurs coffres sont affichés — sélectionnez un seul coffre, ou ouvrez un dossier dans le coffre de destination.",
       "pasteFailed": "Échec du collage : {{error}}",
       "pasteBlocked": "Rien n'a été collé : il vous manque {{permissions}} dans l'un des coffres concernés.",
       "permissionsMissing": "il vous manque {{permissions}} dans l'un des coffres concernés",
       "pasteSkipped_one": "{{count}} élément n'existe plus et a été ignoré.",
+      "pasteSkipped_many": "{{count}} éléments n'existent plus et ont été ignorés.",
       "pasteSkipped_other": "{{count}} éléments n'existent plus et ont été ignorés.",
       "pasteWouldDangle": "Rien n'a été collé : les éléments référencent {{kinds}} qui resteraient dans un autre coffre et cesseraient d'y fonctionner. Déplacez-les d'abord dans le coffre de destination.",
       "kind": {
@@ -215,6 +223,44 @@
         "snippet": "des snippets",
         "port_forward": "des règles de redirection de port"
       }
+    },
+    "contentCounts": {
+      "connections_one": "{{count}} connexion",
+      "connections_many": "{{count}} connexions",
+      "connections_other": "{{count}} connexions",
+      "identities_one": "{{count}} identité",
+      "identities_many": "{{count}} identités",
+      "identities_other": "{{count}} identités",
+      "keys_one": "{{count}} clé",
+      "keys_many": "{{count}} clés",
+      "keys_other": "{{count}} clés",
+      "snippets_one": "{{count}} snippet",
+      "snippets_many": "{{count}} snippets",
+      "snippets_other": "{{count}} snippets",
+      "portForwardingRules_one": "{{count}} règle de redirection de port",
+      "portForwardingRules_many": "{{count}} règles de redirection de port",
+      "portForwardingRules_other": "{{count}} règles de redirection de port"
+    },
+    "serialDevice": "Périphérique série",
+    "localShellTitle": "Shell local › {{shell}}",
+    "dragItemFallback": "Élément",
+    "relativeTime": {
+      "justNow": "à l'instant",
+      "secondsAgo": "il y a {{count}} s",
+      "minutesAgo": "il y a {{count}} min",
+      "hoursAgo": "il y a {{count}} h",
+      "daysAgo": "il y a {{count}} j"
+    },
+    "history": {
+      "movedItems_one": "{{count}} élément déplacé",
+      "movedItems_many": "{{count}} éléments déplacés",
+      "movedItems_other": "{{count}} éléments déplacés",
+      "pastedItems_one": "{{count}} élément collé",
+      "pastedItems_many": "{{count}} éléments collés",
+      "pastedItems_other": "{{count}} éléments collés",
+      "movedToFolder_one": "{{count}} élément déplacé dans le dossier",
+      "movedToFolder_many": "{{count}} éléments déplacés dans le dossier",
+      "movedToFolder_other": "{{count}} éléments déplacés dans le dossier"
     }
   }
 }

@@ -18,7 +18,6 @@ function section(): VaultsSection {
 // The one section that does not merge `lastWriteWins` — see `services/vaultSection`.
 export const vaultsHandler: UserDataHandler = {
   key: "vaults",
-  label: "Vaults",
   icon: "lucide:vault",
 
   export(): VaultsSection {

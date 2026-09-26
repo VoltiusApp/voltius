@@ -13,7 +13,6 @@ interface ShortcutOverride {
 
 export const shortcutsHandler: UserDataHandler = {
   key: "shortcuts",
-  label: "Shortcuts",
   icon: "lucide:keyboard",
 
   export(): ShortcutOverride[] {

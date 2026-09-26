@@ -19,13 +19,7 @@
       }
     },
     "remoteSessions": {
-      "title": "其他设备上的实时会话",
-      "relativeTime": {
-        "justNow": "刚刚",
-        "minutesAgo": "{{count}} 分钟前",
-        "hoursAgo": "{{count}} 小时前",
-        "daysAgo": "{{count}} 天前"
-      }
+      "title": "其他设备上的实时会话"
     },
     "snippets": {
       "searchPlaceholder": "搜索代码片段",

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
 import { Icon } from "@iconify/react";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useUIStore } from "@/stores/uiStore";
 import type { BannerEntry, HistoryEntry, InboxEntry } from "@/stores/notificationStore";
+import { formatRelative } from "@/utils/localeFormat";
 
 const SEVERITY_ICONS: Record<string, string> = {
   info: "lucide:info",
@@ -39,14 +39,6 @@ function subscribeMounts(listener: () => void) {
   return () => {
     mountListeners.delete(listener);
   };
-}
-
-function relativeTime(ms: number): string {
-  const diff = Date.now() - ms;
-  if (diff < 60_000) return i18n.t("notifications.bell.relativeTime.justNow");
-  if (diff < 3_600_000) return i18n.t("notifications.bell.relativeTime.minutesAgo", { count: Math.floor(diff / 60_000) });
-  if (diff < 86_400_000) return i18n.t("notifications.bell.relativeTime.hoursAgo", { count: Math.floor(diff / 3_600_000) });
-  return i18n.t("notifications.bell.relativeTime.daysAgo", { count: Math.floor(diff / 86_400_000) });
 }
 
 function InboxRow({ entry, onAction }: { entry: InboxEntry; onAction: (i: number) => void }) {
@@ -159,7 +151,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
         <p className="text-xs text-(--t-text-secondary) truncate">{entry.message}</p>
       </div>
       <span className="text-xs shrink-0" style={{ color: "var(--t-text-dim)" }}>
-        {relativeTime(entry.dismissedAt)}
+        {formatRelative(entry.dismissedAt)}
       </span>
     </div>
   );

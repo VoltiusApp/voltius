@@ -7,13 +7,22 @@ import type { TeamRole } from "@/services/teamService";
 // have to mock.
 import { PERM_BITS, PERM_META, type Permission } from "@/services/permissions";
 
-export const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
-  owner:          { label: "Owner",        color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  manager:        { label: "Manager",      color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
-  editor:         { label: "Editor",       color: "#34d399", bg: "rgba(52,211,153,0.12)"  },
-  member:         { label: "Member",       color: "var(--t-text-secondary)", bg: "var(--t-bg-elevated)" },
-  "connect-only": { label: "Connect-Only", color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
+export const ROLE_META: Record<string, { color: string; bg: string }> = {
+  owner:          { color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
+  manager:        { color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
+  editor:         { color: "#34d399", bg: "rgba(52,211,153,0.12)"  },
+  member:         { color: "var(--t-text-secondary)", bg: "var(--t-bg-elevated)" },
+  "connect-only": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
 };
+
+/**
+ * A role's display name. The built-in roles arrive from the server as fixed
+ * English ids ("owner", "connect-only") and are translated; a custom role's
+ * name is the team's own words and is shown as written.
+ */
+export function roleLabel(t: TFunction, name: string): string {
+  return Object.prototype.hasOwnProperty.call(ROLE_META, name) ? t(`members.roleName.${name}`) : name;
+}
 
 /**
  * Chip colours for a role: its own colour wins, then the built-in palette,
@@ -51,7 +60,7 @@ export function RolePermissionTooltip({ role, color }: { role: TeamRole; color: 
         color: "var(--t-text-primary)",
       }}
     >
-      <p className="font-semibold mb-1 capitalize">{role.name}</p>
+      <p className="font-semibold mb-1 capitalize">{roleLabel(t, role.name)}</p>
       <ul className="space-y-0.5">
         {permLabels.slice(0, 8).map((l) => (
           <li key={l} className="flex items-center gap-1" style={{ color: "var(--t-text-dim)" }}>
@@ -105,6 +114,7 @@ interface RoleToggleChipProps {
 export function RoleToggleChip({
   name, active, onClick, variant = "chip", color: override, fallbackColor, disabled, blurb,
 }: RoleToggleChipProps) {
+  const { t } = useTranslation();
   const { color, bg } = roleChipColors(name, override, fallbackColor);
 
   const button = (
@@ -119,7 +129,7 @@ export function RoleToggleChip({
       }}
     >
       {variant !== "pill" && active && <Icon icon="lucide:check" width={9} />}
-      {name}
+      {roleLabel(t, name)}
     </button>
   );
 

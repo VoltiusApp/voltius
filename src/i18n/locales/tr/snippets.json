@@ -2,9 +2,10 @@
   "snippets": {
     "sequence": {
       "summary": {
-        "success": "Kod parçacığı {{count}} hedefte çalıştırıldı",
         "partial": "{{count}} başarılı — {{details}}",
-        "failed": "başarısız"
+        "failed": "başarısız",
+        "success_one": "Kod parçacığı {{count}} hedefte çalıştırıldı",
+        "success_other": "Kod parçacığı {{count}} hedefte çalıştırıldı"
       },
       "connectFailed": "terminal oturumu açılamadı",
       "flatten": {
@@ -57,10 +58,6 @@
       "contentLabel": "İçerik",
       "variablesLabel": "Değişkenler:",
       "autoBadge": "otomatik",
-      "syntaxHintType": "Otomatik tamamlama için",
-      "syntaxHintForAutocomplete": "yazın.",
-      "syntaxHintCustomPrompts": "Özel istemler:",
-      "syntaxHintTypesList": "— türler: text · number · password · boolean ·",
       "descriptionLabel": "Açıklama (isteğe bağlı)",
       "descriptionPlaceholder": "Bu kod parçacığı ne yapar?",
       "tagsLabel": "Etiketler",
@@ -83,7 +80,8 @@
         "datetime": "Tarih + saat — YYYY-MM-DD HH:MM:SS",
         "timestamp": "Unix zaman damgası",
         "clipboard": "Geçerli pano içeriği"
-      }
+      },
+      "syntaxHint": "Otomatik tamamlama için <code>{{open}}</code> yazın. Özel istemler: <code>{{prompt}}</code> — türler: text · number · password · boolean · <code>{{choice}}</code>"
     },
     "step": {
       "kind": {
@@ -186,13 +184,6 @@
         "message_other": "Klasör, alt klasörleri ve içindeki {{count}} kod parçacığı silinecek. Bu işlem geri alınamaz.",
         "messageEmpty": "Klasör ve içindeki her şey silinecek. Bu işlem geri alınamaz.",
         "confirmLabel": "Klasörü sil"
-      },
-      "relativeTime": {
-        "justNow": "az önce",
-        "secondsAgo": "{{count}} sn önce",
-        "minutesAgo": "{{count}} dk önce",
-        "hoursAgo": "{{count}} sa önce",
-        "daysAgo": "{{count}} gün önce"
       }
     },
     "community": {

@@ -8,6 +8,7 @@ import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import type { Folder, FolderFormData, VaultOption } from "@/types";
+import { formatDateTime } from "@/utils/localeFormat";
 
 interface FolderEditPanelProps {
   folder: Folder;
@@ -144,7 +145,7 @@ export function FolderEditPanel({
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">{t("folders.editPanel.createdLabel")}</label>
           <p className="text-sm text-(--t-text-secondary)">
-            {new Date(folder.created_at).toLocaleString()}
+            {formatDateTime(folder.created_at)}
           </p>
         </div>
       </div>

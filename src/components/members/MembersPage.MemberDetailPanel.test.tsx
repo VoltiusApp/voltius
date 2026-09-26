@@ -111,15 +111,15 @@ afterEach(() => cleanup());
 
 test("canManageMembers=false: no role-toggle buttons and no remove button", () => {
   render(<MemberDetailPanel {...baseProps} canManageMembers={false} />);
-  expect(screen.queryByRole("button", { name: "editor" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "member" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "members.roleName.editor" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "members.roleName.member" })).toBeNull();
   expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
 });
 
 test("isMe=true: role-toggle buttons and remove button absent even though canManageMembers=true", () => {
   render(<MemberDetailPanel {...baseProps} isMe={true} />);
-  expect(screen.queryByRole("button", { name: "editor" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "member" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "members.roleName.editor" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "members.roleName.member" })).toBeNull();
   expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
 });
 
@@ -133,13 +133,13 @@ test("isTargetOwner=true with owner role: remove button absent; owner role never
   const ownerMember = { ...baseMember, role_ids: ["r-owner"] };
   render(<MemberDetailPanel {...baseProps} member={ownerMember} isTargetOwner={true} />);
   expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "owner" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "members.roleName.owner" })).toBeNull();
   expect(h.remove).not.toHaveBeenCalled();
 });
 
 test("assign path: click editor toggle when member lacks it", async () => {
   render(<MemberDetailPanel {...baseProps} />);
-  fireEvent.click(screen.getByRole("button", { name: "editor" }));
+  fireEvent.click(screen.getByRole("button", { name: "members.roleName.editor" }));
   await waitFor(() => expect(baseProps.onUpdated).toHaveBeenCalled());
   expect(h.assign).toHaveBeenCalledWith("t1", "u1", "r-ed");
   expect(h.remove).not.toHaveBeenCalled();
@@ -148,7 +148,7 @@ test("assign path: click editor toggle when member lacks it", async () => {
 
 test("remove-role path: click member toggle when member has it", async () => {
   render(<MemberDetailPanel {...baseProps} />);
-  fireEvent.click(screen.getByRole("button", { name: "member" }));
+  fireEvent.click(screen.getByRole("button", { name: "members.roleName.member" }));
   await waitFor(() => expect(baseProps.onUpdated).toHaveBeenCalled());
   expect(h.remove).toHaveBeenCalledWith("t1", "u1", "r-mem");
   expect(h.assign).not.toHaveBeenCalled();

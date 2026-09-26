@@ -347,10 +347,10 @@ export interface PluginObjectMoveOutcome {
 
 export interface OmniCommand {
   id: string;
-  label: string;
+  label: PluginLabel;
   icon: string;
   keywords?: string[];
-  section?: string;
+  section?: PluginLabel;
   /** Optional keyboard shortcut. Format: "ctrl+k", "meta+shift+p". First-registered wins on conflict. */
   keybinding?: string;
   /** ID of a core shortcut to resolve as the hint (reactive, updates when user rebinds). */

@@ -257,13 +257,12 @@
         "errorInvalidEmail": "Adresse e-mail invalide",
         "errorSameEmail": "Le nouvel e-mail doit être différent de l'actuel",
         "errorPasswordRequired": "Le mot de passe est requis pour confirmer la modification",
-        "updatedPrefix": "E-mail mis à jour vers ",
-        "updatedSuffix": ". Vérifiez votre boîte de réception pour un lien de vérification.",
         "pausedNote": "Jusqu'à la vérification, les fonctionnalités payantes seront suspendues.",
         "done": "Terminé",
         "saving": "Enregistrement…",
         "save": "Enregistrer",
-        "toastVerification": "E-mail de vérification envoyé à {{email}}."
+        "toastVerification": "E-mail de vérification envoyé à {{email}}.",
+        "updated": "E-mail mis à jour vers <email>{{email}}</email>. Vérifiez votre boîte de réception pour un lien de vérification."
       },
       "handle": {
         "title": "Pseudo",
@@ -320,10 +319,8 @@
         "sub": "Supprime définitivement toutes les connexions, clés, coffre-fort et entrées du trousseau"
       },
       "confirmWipe": {
-        "descPre": "Cela supprimera définitivement ",
-        "descBold": "toutes les données locales",
-        "descPost": " : connexions, clés SSH, identités, secrets du coffre-fort et entrées du trousseau système. Cette action est irréversible.",
-        "confirm": "Tout effacer"
+        "confirm": "Tout effacer",
+        "desc": "Cela supprimera définitivement <strong>toutes les données locales</strong> : connexions, clés SSH, identités, secrets du coffre-fort et entrées du trousseau système. Cette action est irréversible."
       },
       "setPassword": {
         "desc": "Choisissez un mot de passe maître. Vos données existantes seront rechiffrées.",
@@ -383,11 +380,13 @@
         "additionalSeats": "Postes supplémentaires",
         "seatsTotal": "{{from}} → {{to}} au total",
         "priceRow_one": "{{count}} poste × {{price}} $/mois",
+        "priceRow_many": "{{count}} postes × {{price}} $/mois",
         "priceRow_other": "{{count}} postes × {{price}} $/mois",
         "totalPerMonth": "{{amount}} $/mois",
         "proratedNote": "Facturation au prorata appliquée immédiatement pour la période de facturation en cours.",
         "processing": "Traitement…",
         "buyAndInvite_one": "Acheter {{count}} poste et inviter",
+        "buyAndInvite_many": "Acheter {{count}} postes et inviter",
         "buyAndInvite_other": "Acheter {{count}} postes et inviter",
         "errorNotConnected": "Non connecté au serveur",
         "errorNoSubscription": "Aucun abonnement actif trouvé",
@@ -448,6 +447,7 @@
           "sub": "Les plugins installés peuvent ajouter leurs propres commandes au serveur MCP. Désactivez-en un pour le retirer de la liste d'outils sans le désinstaller.",
           "empty": "Aucun plugin installé n'expose d'outils.",
           "count_one": "{{count}} outil",
+          "count_many": "{{count}} outils",
           "count_other": "{{count}} outils"
         }
       }
@@ -576,6 +576,7 @@
           "title": "Rendre privé",
           "confirmAll": "Retirer tous les membres et rendre privé ?",
           "confirm_one": "Retirer {{count}} membre et rendre privé ?",
+          "confirm_many": "Retirer {{count}} membres et rendre privé ?",
           "confirm_other": "Retirer {{count}} membres et rendre privé ?",
           "converting": "Conversion…",
           "confirmBtn": "Confirmer",
@@ -591,6 +592,7 @@
           "failedToast": "Impossible de terminer la suppression de ce coffre-fort — il est toujours là, mais certains de ses éléments ont peut-être déjà été supprimés. {{reason}}"
         },
         "madePrivateToast_one": "Le coffre-fort est maintenant privé. {{count}} membre a perdu l'accès.",
+        "madePrivateToast_many": "Le coffre-fort est maintenant privé. {{count}} membres ont perdu l'accès.",
         "madePrivateToast_other": "Le coffre-fort est maintenant privé. {{count}} membres ont perdu l'accès.",
         "madePrivateToastEmpty": "Le coffre-fort est maintenant privé."
       },
@@ -653,6 +655,7 @@
         "installed": "Installées ({{count}})",
         "browse": "Parcourir",
         "updateCount_one": "• {{count}} mise à jour",
+        "updateCount_many": "• {{count}} mises à jour",
         "updateCount_other": "• {{count}} mises à jour"
       },
       "installed": {
@@ -809,8 +812,7 @@
         "title": "Transferts",
         "tarAcceleration": {
           "title": "Accélération tar",
-          "descPre": "Compresse les répertoires en une seule archive tar.gz avant le transfert — bien plus rapide pour de nombreux petits fichiers. Nécessite ",
-          "descPost": " des deux côtés."
+          "desc": "Compresse les répertoires en une seule archive tar.gz avant le transfert — bien plus rapide pour de nombreux petits fichiers. Nécessite <code>tar</code> des deux côtés."
         }
       },
       "filePanel": {
@@ -991,6 +993,7 @@
       "statusRecording": "Appuyez sur une combinaison de touches… (Échap pour annuler)",
       "statusIdle": "Cliquez sur un raccourci pour le modifier.",
       "result_one": "{{count}} résultat",
+      "result_many": "{{count}} résultats",
       "result_other": "{{count}} résultats",
       "noMatch": "Aucun raccourci ne correspond à « {{query}} »",
       "bindingRecordingTitle": "Appuyez sur une combinaison ou Échap pour annuler",

@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useUIStore } from "@/stores/uiStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
+import i18n from "@/i18n";
 
 interface PfPortDetectedPayload {
   session_id: string;
@@ -28,6 +29,9 @@ export function usePfToastBridge() {
       setRightPanelSection("ports");
       setRightPanelOpen(true);
     };
+    // Built per toast so the texts follow the current app language.
+    const source = () => ({ kind: "plugin" as const, id: "__pf__", name: i18n.t("layout.nav.port-forwarding") });
+    const viewPorts = () => ({ label: i18n.t("terminal.ports.toast.viewPorts"), onClick: openPanel });
 
     function flush() {
       const ports = pendingPorts.current;
@@ -38,23 +42,23 @@ export function usePfToastBridge() {
 
       const message =
         ports.length === 1
-          ? `Port ${ports[0].port} → localhost:${ports[0].tunnel_local_port} forwarded`
-          : `${ports.length} ports forwarded`;
+          ? i18n.t("terminal.ports.toast.forwardedOne", { port: ports[0].port, localPort: ports[0].tunnel_local_port })
+          : i18n.t("terminal.ports.toast.forwardedMany", { count: ports.length });
 
       if (toastIdRef.current) {
         updateToast(toastIdRef.current, {
           message,
           duration: 5000,
-          action: { label: "View Ports →", onClick: openPanel },
+          action: viewPorts(),
         });
       } else {
         const id = addToast({
-          source: { kind: "plugin", id: "__pf__", name: "Port Forwarding" },
+          source: source(),
           type: "toast",
           message,
           severity: "info",
           duration: 5000,
-          action: { label: "View Ports →", onClick: openPanel },
+          action: viewPorts(),
         });
         toastIdRef.current = id;
       }
@@ -63,12 +67,12 @@ export function usePfToastBridge() {
     const cappedPromise = listen<PfAutoForwardCappedPayload>("pf-auto-forward-capped", ({ payload }) => {
       if (!getToggle("forwarding-notifications")) return;
       useNotificationStore.getState().addToast({
-        source: { kind: "plugin", id: "__pf__", name: "Port Forwarding" },
+        source: source(),
         type: "toast",
-        message: `Auto-forwarding paused — ${payload.cap} ports already forwarded`,
+        message: i18n.t("terminal.ports.toast.autoForwardCapped", { count: payload.cap }),
         severity: "warning",
         duration: 8000,
-        action: { label: "View Ports →", onClick: openPanel },
+        action: viewPorts(),
       });
     });
 

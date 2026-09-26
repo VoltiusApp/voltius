@@ -215,6 +215,36 @@
         "snippet": "kod parçacıkları",
         "port_forward": "port yönlendirme kuralları"
       }
+    },
+    "contentCounts": {
+      "connections_one": "{{count}} bağlantı",
+      "connections_other": "{{count}} bağlantı",
+      "identities_one": "{{count}} kimlik",
+      "identities_other": "{{count}} kimlik",
+      "keys_one": "{{count}} anahtar",
+      "keys_other": "{{count}} anahtar",
+      "snippets_one": "{{count}} kod parçacığı",
+      "snippets_other": "{{count}} kod parçacığı",
+      "portForwardingRules_one": "{{count}} port yönlendirme kuralı",
+      "portForwardingRules_other": "{{count}} port yönlendirme kuralı"
+    },
+    "serialDevice": "Seri cihaz",
+    "localShellTitle": "Yerel kabuk › {{shell}}",
+    "dragItemFallback": "Öğe",
+    "relativeTime": {
+      "justNow": "az önce",
+      "secondsAgo": "{{count}} sn önce",
+      "minutesAgo": "{{count}} dk önce",
+      "hoursAgo": "{{count}} sa önce",
+      "daysAgo": "{{count}} gün önce"
+    },
+    "history": {
+      "movedItems_one": "{{count}} öğe taşındı",
+      "movedItems_other": "{{count}} öğe taşındı",
+      "pastedItems_one": "{{count}} öğe yapıştırıldı",
+      "pastedItems_other": "{{count}} öğe yapıştırıldı",
+      "movedToFolder_one": "{{count}} öğe klasöre taşındı",
+      "movedToFolder_other": "{{count}} öğe klasöre taşındı"
     }
   }
 }

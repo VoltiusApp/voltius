@@ -19,13 +19,7 @@
       }
     },
     "remoteSessions": {
-      "title": "En direct sur d'autres appareils",
-      "relativeTime": {
-        "justNow": "à l'instant",
-        "minutesAgo": "il y a {{count}} min",
-        "hoursAgo": "il y a {{count}} h",
-        "daysAgo": "il y a {{count}} j"
-      }
+      "title": "En direct sur d'autres appareils"
     },
     "snippets": {
       "searchPlaceholder": "Rechercher des snippets",
@@ -176,6 +170,7 @@
       "typeSymlink": "Lien symbolique",
       "typeFile": "Fichier",
       "batchDeleteTitle_one": "Supprimer {{count}} élément ?",
+      "batchDeleteTitle_many": "Supprimer {{count}} éléments ?",
       "batchDeleteTitle_other": "Supprimer {{count}} éléments ?",
       "newFileOption": "Nouveau fichier",
       "folderNamePlaceholder": "Nom du dossier",
@@ -238,8 +233,10 @@
         "executeTitle": "Exécuter « {{name}} »",
         "insertTitle": "Insérer « {{name}} »",
         "confirmExecute_one": "Exécuter dans {{count}} cible",
+        "confirmExecute_many": "Exécuter dans {{count}} cibles",
         "confirmExecute_other": "Exécuter dans {{count}} cibles",
         "confirmInsert_one": "Insérer dans {{count}} cible",
+        "confirmInsert_many": "Insérer dans {{count}} cibles",
         "confirmInsert_other": "Insérer dans {{count}} cibles",
         "activeSessions": "Sessions actives",
         "openNewConnection": "Ouvrir une nouvelle connexion",

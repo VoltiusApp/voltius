@@ -1,4 +1,5 @@
 import type { Snippet, SnippetStep } from "@/types";
+import { searchMatcher } from "@/utils/search";
 
 export function stepsFromLegacy(content: string): SnippetStep[] {
   return [{ kind: "script", content }];
@@ -41,6 +42,12 @@ export function snippetScriptText(snippet: Pick<Snippet, "steps">): string {
     .filter((s): s is Extract<SnippetStep, { kind: "script" }> => s.kind === "script")
     .map((s) => s.content)
     .join("\n");
+}
+
+/** A matcher over a snippet's name, script and transfer text, and tags. */
+export function snippetMatcher(query: string): (snippet: Pick<Snippet, "name" | "steps" | "tags">) => boolean {
+  const match = searchMatcher(query);
+  return (s) => match(s.name, snippetSearchText(s), ...s.tags);
 }
 
 export function snippetSearchText(snippet: Pick<Snippet, "steps">): string {

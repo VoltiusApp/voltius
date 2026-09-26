@@ -267,7 +267,7 @@ test("cancelling the bulk confirmation removes nobody", async () => {
 test("bulk assign role: assignMemberRole(editor) for both, push assignRoleBulk", async () => {
   await renderPage();
   selectU1U2();
-  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.assignRoleBulk::editor"));
+  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.assignRoleBulk::members.roleName.editor"));
 
   await waitFor(() => expect(h.push).toHaveBeenCalled());
   expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "u1", "r-ed");
@@ -279,7 +279,7 @@ test("bulk assign role: assignMemberRole(editor) for both, push assignRoleBulk",
 test("bulk remove role: removeMemberRole only for members who have that role", async () => {
   await renderPage();
   selectU1U2();
-  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.removeRoleBulk::editor"));
+  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.removeRoleBulk::members.roleName.editor"));
 
   await waitFor(() => expect(h.push).toHaveBeenCalled());
   // only u1 has r-ed; u2 does not -> exactly one removeMemberRole
@@ -306,7 +306,7 @@ test("single-member context menu kick: confirms, then removeMember + push remove
 test("single-member context menu assign unassigned role: assignMemberRole + push assignRole", async () => {
   await renderPage();
   // u2 lacks editor -> editor appears as an unassigned toggle under Roles
-  fireEvent.click(screen.getByTestId("ctx-u2::members.roles::editor"));
+  fireEvent.click(screen.getByTestId("ctx-u2::members.roles::members.roleName.editor"));
 
   await waitFor(() => expect(h.push).toHaveBeenCalled());
   expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "u2", "r-ed");
@@ -316,7 +316,7 @@ test("single-member context menu assign unassigned role: assignMemberRole + push
 test("single-member context menu remove assigned role: removeMemberRole + push removeRole", async () => {
   await renderPage();
   // u1 has editor -> editor appears as an assigned toggle under Roles
-  fireEvent.click(screen.getByTestId("ctx-u1::members.roles::editor"));
+  fireEvent.click(screen.getByTestId("ctx-u1::members.roles::members.roleName.editor"));
 
   await waitFor(() => expect(h.push).toHaveBeenCalled());
   expect(h.removeMemberRole).toHaveBeenCalledWith("t1", "u1", "r-ed");

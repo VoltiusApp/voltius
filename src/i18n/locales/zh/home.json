@@ -9,10 +9,10 @@
       "placeholder": "搜索主机、会话、代码片段…"
     },
     "stat": {
-      "vaults": "保险库",
-      "hosts": "主机",
-      "activeSessions": "活跃会话",
-      "portForwards": "端口转发"
+      "vaults_other": "保险库",
+      "hosts_other": "主机",
+      "activeSessions_other": "活跃会话",
+      "portForwards_other": "端口转发"
     },
     "quickActions": {
       "export": "导出",

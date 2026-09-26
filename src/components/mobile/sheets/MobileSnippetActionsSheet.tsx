@@ -8,6 +8,7 @@ import { useEffectivePinned } from "@/hooks/useEffectivePinned";
 import { snippetToForm } from "@/utils/snippetForm";
 import { useAllSnippetFolders } from "@/hooks/useAllSnippetFolders";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
+import { compareStrings } from "@/utils/localeFormat";
 import MoveToFolderSheet from "./MoveToFolderSheet";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 
@@ -49,7 +50,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
   if (mode === "move-folder") {
     return (
       <MoveToFolderSheet
-        targets={buildMoveTargets(allSnippetFolders, "snippet")}
+        targets={buildMoveTargets(allSnippetFolders, "snippet", compareStrings)}
         currentFolderId={snippet.folder_id ?? null}
         onPick={(folderId) => { void updateSnippet(snippetId, { ...snippetToForm(snippet), folder_id: folderId ?? undefined }); }}
         onClose={closeSheet}

@@ -20,7 +20,8 @@
       "actions": "Действия",
       "quickSettings": "Быстрые настройки",
       "settings": "Настройки",
-      "joinByInviteCode": "Присоединиться по коду приглашения"
+      "joinByInviteCode": "Присоединиться по коду приглашения",
+      "importExport": "Импорт / Экспорт"
     },
     "settingsDescription": "Настройки",
     "pluginSettingsDescription": "Настройки плагина",
@@ -89,6 +90,32 @@
       "statusManual": "Вручную",
       "statusSystem": "Авто · по системе",
       "statusUntil": "Авто · {{phase}} до {{time}}"
+    },
+    "commands": {
+      "newHost": "Новый хост",
+      "newKey": "Новый SSH-ключ",
+      "newIdentity": "Новая личность",
+      "settings": "Настройки",
+      "checkForUpdate": "Проверить обновления",
+      "whatsNew": "Что нового",
+      "portForwarding": "Проброс портов",
+      "knownHosts": "Известные хосты",
+      "logs": "Журналы",
+      "newSnippet": "Новый сниппет",
+      "teamMembers": "Участники команды",
+      "disconnectAll": "Отключить все",
+      "reportBug": "Сообщить об ошибке",
+      "createTheme": "Создать свою тему",
+      "importFrom": "Импорт из {{label}}",
+      "importFromEllipsis": "Импорт из {{label}}…",
+      "exportAll": "Экспортировать данные хранилища…",
+      "exportConnections": "Экспортировать подключения…",
+      "exportIdentities": "Экспортировать личности…",
+      "exportKeys": "Экспортировать SSH-ключи…",
+      "exportSnippets": "Экспортировать сниппеты…",
+      "exportPortForwarding": "Экспортировать правила проброса портов…",
+      "exportThemes": "Экспортировать свои темы…",
+      "importThemes": "Импортировать темы…"
     }
   }
 }

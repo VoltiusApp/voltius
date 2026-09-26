@@ -151,8 +151,7 @@
         "errorInvalidEmail": "邮箱地址无效",
         "errorSameEmail": "新邮箱必须与当前邮箱不同",
         "errorPasswordRequired": "需要密码以确认更改",
-        "updatedPrefix": "邮箱已更新为 ",
-        "updatedSuffix": "。请查收收件箱中的验证链接。",
+        "updated": "邮箱已更新为 <email>{{email}}</email>。请查收收件箱中的验证链接。",
         "pausedNote": "在验证之前，付费功能将被暂停。",
         "done": "完成",
         "saving": "正在保存…",
@@ -160,22 +159,22 @@
         "toastVerification": "验证邮件已发送到 {{email}}。"
       },
       "handle": {
-        "title": "Handle",
+        "title": "用户名",
         "copy": "复制",
         "copied": "已复制",
-        "choose": "选择 handle",
-        "change": "更改 handle",
-        "chooseSub": "自定义 handle 让您团队以外的人也能搜索到您。",
-        "generatedNote": "您当前的 handle 已经可以让任何知道它的人找到您。",
-        "unverified": "请先验证邮箱，才能选择自定义 handle。",
+        "choose": "选择用户名",
+        "change": "更改用户名",
+        "chooseSub": "自定义用户名让您团队以外的人也能搜索到您。",
+        "generatedNote": "您当前的用户名已经可以让任何知道它的人找到您。",
+        "unverified": "请先验证邮箱，才能选择自定义用户名。",
         "placeholder": "your-handle",
-        "inputLabel": "Handle",
+        "inputLabel": "用户名",
         "save": "保存",
-        "errorInvalid": "Handle 只能包含字母、数字和连字符。",
-        "errorTaken": "该 handle 已被占用。",
-        "errorEmailNotVerified": "请先验证邮箱，然后再选择您的 handle。",
-        "errorCooldown": "您很快就可以再次更改 handle。",
-        "errorGeneric": "无法更新您的 handle。"
+        "errorInvalid": "用户名只能包含字母、数字和连字符。",
+        "errorTaken": "该用户名已被占用。",
+        "errorEmailNotVerified": "请先验证邮箱，然后再选择您的用户名。",
+        "errorCooldown": "您很快就可以再次更改用户名。",
+        "errorGeneric": "无法更新您的用户名。"
       },
       "strangerInvites": {
         "label": "允许任何人邀请",
@@ -214,9 +213,7 @@
         "sub": "永久删除所有连接、密钥、保险库和密钥链条目"
       },
       "confirmWipe": {
-        "descPre": "这将永久删除 ",
-        "descBold": "所有本地数据",
-        "descPost": "：连接、SSH 密钥、身份、保险库密钥和 OS 密钥链条目。此操作无法撤销。",
+        "desc": "这将永久删除<strong>所有本地数据</strong>：连接、SSH 密钥、身份、保险库密钥和 OS 密钥链条目。此操作无法撤销。",
         "confirm": "擦除全部"
       },
       "setPassword": {
@@ -883,8 +880,7 @@
         "title": "传输",
         "tarAcceleration": {
           "title": "Tar 加速",
-          "descPre": "在传输前将目录打包为单个 tar.gz——对于许多小文件要快得多。需要两端都启用 ",
-          "descPost": "。"
+          "desc": "在传输前将目录打包为单个 tar.gz——对于许多小文件要快得多。需要两端都有 <code>tar</code>。"
         }
       },
       "filePanel": {

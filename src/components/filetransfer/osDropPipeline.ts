@@ -6,6 +6,7 @@ import {
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { tarUsable } from "./tarSupport";
 import { type FileEntry } from "./SFTPTypes";
+import i18n from "@/i18n";
 
 export type UploadTarget = {
   isLocal: boolean;
@@ -37,7 +38,7 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
 
   if (useTar && target.sftpId && files.length > 1) {
     const sftpId = target.sftpId;
-    const label = `${files.length} items`;
+    const label = i18n.t("fileTransfer.common.itemsCount", { count: files.length });
     await runTransfer(label, "→", (tid) =>
       sftpUploadBatchTar({ sftpId, localPaths: files.map((f) => f.path), remoteDir: dstBase, transferId: tid }),
       target.onRefresh,

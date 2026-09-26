@@ -7,13 +7,6 @@
       "noActiveSession": "Нет активной сессии"
     },
     "historyPanel": {
-      "relativeTime": {
-        "justNow": "только что",
-        "secondsAgo": "{{count}} сек назад",
-        "minutesAgo": "{{count}} мин назад",
-        "hoursAgo": "{{count}} ч назад",
-        "daysAgo": "{{count}} дн назад"
-      },
       "removeFromHistory": "Удалить из истории",
       "searchPlaceholder": "Поиск в истории…",
       "showCurrentOnly": "Показано только текущее подключение",
@@ -87,7 +80,20 @@
         "tooManyParts": "Используйте формат «порт» или «удалённый:локальный»",
         "invalidRemotePort": "Порт должен быть от 1 до 65535",
         "invalidLocalPort": "Локальный порт должен быть от 1 до 65535"
-      }
+      },
+      "toast": {
+        "viewPorts": "Показать порты →",
+        "forwardedOne": "Порт {{port}} → localhost:{{localPort}} проброшен",
+        "forwardedMany_one": "{{count}} порт проброшен",
+        "forwardedMany_few": "{{count}} порта проброшено",
+        "forwardedMany_many": "{{count}} портов проброшено",
+        "forwardedMany_other": "{{count}} порта проброшено",
+        "autoForwardCapped_one": "Автопроброс приостановлен — уже проброшен {{count}} порт",
+        "autoForwardCapped_few": "Автопроброс приостановлен — уже проброшено {{count}} порта",
+        "autoForwardCapped_many": "Автопроброс приостановлен — уже проброшено {{count}} портов",
+        "autoForwardCapped_other": "Автопроброс приостановлен — уже проброшено {{count}} порта"
+      },
+      "portLabel": "Порт {{port}}"
     },
     "rightPanel": {
       "font": "Шрифт",
@@ -258,13 +264,12 @@
       },
       "hostKeyConflict": {
         "title": "КЛЮЧ ХОСТА ИЗМЕНЁН",
-        "descriptionPrefix": "Отпечаток ",
-        "descriptionSuffix": " изменился.",
         "replace": "Заменить",
         "addAsNew": "Добавить как новый",
         "abort": "Прервать",
         "stored": "Сохранённый",
-        "received": "Полученный"
+        "received": "Полученный",
+        "description": "Отпечаток <host>{{address}}</host> изменился."
       },
       "passphrasePrompt": {
         "title": "ТРЕБУЕТСЯ КОДОВАЯ ФРАЗА КЛЮЧА",
@@ -328,6 +333,11 @@
       "sparklineMin": "мин {{value}}мс",
       "sparklineAvg": "сред {{value}}мс",
       "sparklineMax": "макс {{value}}мс"
+    },
+    "xterm": {
+      "linkTooltip": "Alt+щелчок, чтобы открыть",
+      "sessionClosed": "Сессия закрыта",
+      "serialClosed": "Последовательное подключение закрыто"
     }
   }
 }

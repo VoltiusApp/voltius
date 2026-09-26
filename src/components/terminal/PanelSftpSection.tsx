@@ -173,7 +173,7 @@ export default function PanelSftpSection() {
     if (!dstDir) return;
     const sftpId = panelState.sftpId;
     const base = dstDir.replace(/[\\/]$/, "");
-    const label = files.length === 1 ? files[0].name : `${files.length} items`;
+    const label = files.length === 1 ? files[0].name : t("fileTransfer.common.itemsCount", { count: files.length });
     // Archives remotely + extracts locally, so both ends need tar.
     const useTar = await tarUsable([sftpId], true);
 
@@ -196,7 +196,7 @@ export default function PanelSftpSection() {
         undefined, file.isDir && useTar,
       );
     }
-  }, [panelState, runTransfer]);
+  }, [panelState, runTransfer, t]);
   const handleDownload = useCallback(() => { void downloadFiles(selected); }, [downloadFiles, selected]);
 
   const moveWithin = useCallback(async (files: FileEntry[], targetDir: string) => {

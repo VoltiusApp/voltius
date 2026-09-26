@@ -10,7 +10,7 @@
       "confirmDelete": {
         "title_one": "删除已知主机？",
         "title_other": "删除 {{count}} 个已知主机？",
-        "message": "这将移除受信任的指纹。下次连接这些主机时将被视为新主机。"
+        "message_other": "这将移除受信任的指纹。下次连接这些主机时将被视为新主机。"
       }
     }
   }

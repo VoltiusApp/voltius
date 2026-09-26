@@ -2,9 +2,10 @@
   "snippets": {
     "sequence": {
       "summary": {
-        "success": "Snippet ran on {{count}} target(s)",
         "partial": "{{count}} ok — {{details}}",
-        "failed": "failed"
+        "failed": "failed",
+        "success_one": "Snippet ran on {{count}} target",
+        "success_other": "Snippet ran on {{count}} targets"
       },
       "connectFailed": "could not open a terminal session",
       "flatten": {
@@ -57,10 +58,6 @@
       "contentLabel": "Content",
       "variablesLabel": "Variables:",
       "autoBadge": "auto",
-      "syntaxHintType": "Type",
-      "syntaxHintForAutocomplete": "for autocomplete.",
-      "syntaxHintCustomPrompts": "Custom prompts:",
-      "syntaxHintTypesList": "— text · number · password · boolean ·",
       "descriptionLabel": "Description (optional)",
       "descriptionPlaceholder": "What does this snippet do?",
       "tagsLabel": "Tags",
@@ -83,7 +80,8 @@
         "datetime": "Date + time — YYYY-MM-DD HH:MM:SS",
         "timestamp": "Unix timestamp",
         "clipboard": "Current clipboard contents"
-      }
+      },
+      "syntaxHint": "Type <code>{{open}}</code> for autocomplete. Custom prompts: <code>{{prompt}}</code> — text · number · password · boolean · <code>{{choice}}</code>"
     },
     "step": {
       "kind": {
@@ -186,13 +184,6 @@
         "message_other": "This will delete the folder, its subfolders, and the {{count}} snippets inside. This cannot be undone.",
         "messageEmpty": "This will delete the folder and everything inside it. This cannot be undone.",
         "confirmLabel": "Delete folder"
-      },
-      "relativeTime": {
-        "justNow": "just now",
-        "secondsAgo": "{{count}}s ago",
-        "minutesAgo": "{{count}}m ago",
-        "hoursAgo": "{{count}}h ago",
-        "daysAgo": "{{count}}d ago"
       }
     },
     "community": {

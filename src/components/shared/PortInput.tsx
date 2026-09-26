@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { DropdownMenuItem } from "./DropdownMenuItem";
 import { formInputClass, formInputStyle } from "./Panel";
 import { PickerSurface } from "./PickerSurface";
+import { searchMatcher } from "@/utils/search";
 
 interface Props {
   value: string;
@@ -18,9 +19,8 @@ export function PortInput({ value, ports, onChange, placeholder, className = "",
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = ports.filter(
-    (p) => !value || p.name.toLowerCase().includes(value.toLowerCase()) || p.path.toLowerCase().includes(value.toLowerCase()),
-  );
+  const match = searchMatcher(value);
+  const filtered = ports.filter((p) => match(p.name, p.path));
 
   const showDropdown = () => {
     if (ports.length > 0) setOpen(true);

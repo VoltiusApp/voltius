@@ -83,11 +83,12 @@
       "actionSkip": "Skip",
       "actionInclude": "Import",
       "actionOverwrite": "Overwrite",
-      "resultImportedWithErrors": "Imported {{count}} items{{vaultNote}}, {{errors}} failed.",
       "resultImportedSuccess_one": "Successfully imported {{count}} item{{vaultNote}}.",
       "resultImportedSuccess_other": "Successfully imported {{count}} items{{vaultNote}}.",
       "resultVaultNote": " across {{count}} vaults",
-      "resultError": "Error: {{error}}"
+      "resultError": "Error: {{error}}",
+      "resultImportedWithErrors_one": "Imported {{count}} item{{vaultNote}}, {{errors}} failed.",
+      "resultImportedWithErrors_other": "Imported {{count}} items{{vaultNote}}, {{errors}} failed."
     },
     "fileInput": {
       "openFileDefault": "Open file…",
@@ -132,6 +133,31 @@
         "vaults_one": "{{count}} vault",
         "vaults_other": "{{count}} vaults"
       }
+    },
+    "importers": {
+      "voltius": {
+        "sub": "JSON",
+        "placeholder": "Paste Voltius JSON here, or drop a .json file…\n\n{ \"version\": 1, \"connections\": [...] }"
+      },
+      "csv": {
+        "sub": "Spreadsheet",
+        "placeholder": "Paste CSV here, or drop a file…\n\nname,host,port,username,auth_type,tags"
+      },
+      "mobaxterm": {
+        "sub": "Local install · auto-decrypt",
+        "hint": "Requires MobaXterm to be installed (Windows only).",
+        "placeholder": "Drop MobaXterm.ini here, or paste its contents…"
+      },
+      "termius": {
+        "sub": "Local install · auto-extract",
+        "hint": "Requires Termius to be installed and logged in.",
+        "placeholder": "Use Auto Extract for Termius. Pasted legacy Termius dumps are not supported for faithful import."
+      }
+    },
+    "menu": {
+      "export": "Export",
+      "importEllipsis": "Import…",
+      "exportEllipsis": "Export…"
     }
   }
 }

@@ -215,6 +215,36 @@
         "snippet": "snippets",
         "port_forward": "port forwarding rules"
       }
+    },
+    "contentCounts": {
+      "connections_one": "{{count}} connection",
+      "connections_other": "{{count}} connections",
+      "identities_one": "{{count}} identity",
+      "identities_other": "{{count}} identities",
+      "keys_one": "{{count}} key",
+      "keys_other": "{{count}} keys",
+      "snippets_one": "{{count}} snippet",
+      "snippets_other": "{{count}} snippets",
+      "portForwardingRules_one": "{{count}} port forwarding rule",
+      "portForwardingRules_other": "{{count}} port forwarding rules"
+    },
+    "serialDevice": "Serial Device",
+    "localShellTitle": "Local Shell › {{shell}}",
+    "dragItemFallback": "Item",
+    "relativeTime": {
+      "justNow": "just now",
+      "secondsAgo": "{{count}}s ago",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    },
+    "history": {
+      "movedItems_one": "Moved {{count}} item",
+      "movedItems_other": "Moved {{count}} items",
+      "pastedItems_one": "Pasted {{count}} item",
+      "pastedItems_other": "Pasted {{count}} items",
+      "movedToFolder_one": "Moved {{count}} item to folder",
+      "movedToFolder_other": "Moved {{count}} items to folder"
     }
   }
 }

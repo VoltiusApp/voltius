@@ -23,7 +23,9 @@
       "snippets": "Сниппеты",
       "searchPlaceholder": "Поиск по сообществу",
       "snippetCount_one": "{{count}} сниппет",
-      "snippetCount_other": "{{count}} сниппетов",
+      "snippetCount_few": "{{count}} сниппета",
+      "snippetCount_many": "{{count}} сниппетов",
+      "snippetCount_other": "{{count}} сниппета",
       "by": "автор: {{author}}",
       "updated": "Обновлено {{date}}",
       "back": "Сообщество",
@@ -34,10 +36,14 @@
       "retry": "Повторить",
       "loadFailed": "Не удалось загрузить каталог сообщества.",
       "install_one": "Установить {{count}} сниппет в {{vault}}",
-      "install_other": "Установить {{count}} сниппетов в {{vault}}",
+      "install_few": "Установить {{count}} сниппета в {{vault}}",
+      "install_many": "Установить {{count}} сниппетов в {{vault}}",
+      "install_other": "Установить {{count}} сниппета в {{vault}}",
       "installing": "Установка…",
       "installed_one": "Установлен {{count}} сниппет",
-      "installed_other": "Установлено {{count}} сниппетов",
+      "installed_few": "Установлено {{count}} сниппета",
+      "installed_many": "Установлено {{count}} сниппетов",
+      "installed_other": "Установлено {{count}} сниппета",
       "installFailed": "Ошибка установки: {{error}}",
       "autoIncluded": "Добавлен, потому что его вызывает «{{name}}»",
       "steps": "Шаги",
@@ -119,10 +125,6 @@
       "contentLabel": "Содержимое",
       "variablesLabel": "Переменные:",
       "autoBadge": "авто",
-      "syntaxHintType": "Введите",
-      "syntaxHintForAutocomplete": "для автодополнения.",
-      "syntaxHintCustomPrompts": "Пользовательские подсказки:",
-      "syntaxHintTypesList": "— текст · число · пароль · логическое ·",
       "descriptionLabel": "Описание (необязательно)",
       "descriptionPlaceholder": "Что делает этот сниппет?",
       "tagsLabel": "Теги",
@@ -145,7 +147,8 @@
         "datetime": "Дата и время — ГГГГ-ММ-ДД ЧЧ:ММ:СС",
         "timestamp": "Метка времени Unix",
         "clipboard": "Текущее содержимое буфера обмена"
-      }
+      },
+      "syntaxHint": "Введите <code>{{open}}</code> для автодополнения. Пользовательские подсказки: <code>{{prompt}}</code> — типы: text · number · password · boolean · <code>{{choice}}</code>"
     },
     "step": {
       "kind": {
@@ -257,13 +260,6 @@
         "message_other": "Папка, её подпапки и {{count}} сниппетов внутри будут удалены. Это действие нельзя отменить.",
         "messageEmpty": "Папка и всё её содержимое будут удалены. Это действие нельзя отменить.",
         "confirmLabel": "Удалить папку"
-      },
-      "relativeTime": {
-        "justNow": "только что",
-        "secondsAgo": "{{count}} с назад",
-        "minutesAgo": "{{count}} мин назад",
-        "hoursAgo": "{{count}} ч назад",
-        "daysAgo": "{{count}} дн назад"
       }
     }
   }

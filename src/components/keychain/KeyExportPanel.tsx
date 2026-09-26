@@ -20,6 +20,7 @@ import { KeyCardContent } from "./KeyCards";
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import type { SshKey } from "@/types";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import { compareStrings } from "@/utils/localeFormat";
 
 // ─────────────────────────────────────────────────────────────────
 // sortByMode helper (used by KeychainPage for keys/identities)
@@ -28,8 +29,8 @@ import { connectionDisplayName } from "@/utils/connectionDisplayName";
 export function sortByMode<T extends { name?: string; created_at: string }>(items: T[], mode: SortMode): T[] {
   return [...items].sort((a, b) => {
     switch (mode) {
-      case "name-asc":  return (a.name ?? "").localeCompare(b.name ?? "");
-      case "name-desc": return (b.name ?? "").localeCompare(a.name ?? "");
+      case "name-asc":  return compareStrings(a.name ?? "", b.name ?? "");
+      case "name-desc": return compareStrings(b.name ?? "", a.name ?? "");
       case "newest":    return b.created_at.localeCompare(a.created_at);
       case "oldest":    return a.created_at.localeCompare(b.created_at);
       default:          return 0;

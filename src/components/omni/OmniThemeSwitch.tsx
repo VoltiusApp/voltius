@@ -8,6 +8,8 @@ import { applyThemeToDom } from "@/hooks/useApplyTheme";
 import { resolveThemePhase, nextTransition } from "@/services/themeAutomation";
 import { getSystemPrefersDark } from "@/services/systemAppearance";
 import type { AppTheme } from "@/themes/types";
+import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 export default function OmniThemeSwitch({ query, onBack, onClose }: { query: string; onBack: () => void; onClose: () => void }) {
   const { t } = useTranslation();
@@ -21,7 +23,7 @@ export default function OmniThemeSwitch({ query, onBack, onClose }: { query: str
   }, [customThemes, pluginThemeMap]);
 
   const themes = useMemo(
-    () => allThemes.filter((th) => !query || th.name.toLowerCase().includes(query)),
+    () => { const match = searchMatcher(query); return allThemes.filter((th) => match(th.name)); },
     [allThemes, query],
   );
 
@@ -84,7 +86,7 @@ export default function OmniThemeSwitch({ query, onBack, onClose }: { query: str
     if (!nt) return t("omni.theme.statusSystem");
     return t("omni.theme.statusUntil", {
       phase: phase === "dark" ? t("omni.theme.roleDark") : t("omni.theme.roleLight"),
-      time: nt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      time: formatTime(nt, HOUR_MINUTE),
     });
   };
 

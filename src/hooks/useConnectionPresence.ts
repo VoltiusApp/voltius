@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { Connection } from "@/types";
 import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
 import { useTeamStore } from "@/stores/teamStore";
+import i18n from "@/i18n";
 
 export interface ConnectionPresence {
   primary: { id: string; handle: string };
@@ -39,7 +40,7 @@ export function useConnectionPresence(connection: Connection): ConnectionPresenc
       }
     }
 
-    const resolved = others.map((id) => ({ id, handle: handleById.get(id) ?? "Member" }));
+    const resolved = others.map((id) => ({ id, handle: handleById.get(id) ?? i18n.t("members.roleName.member") }));
     return {
       primary: resolved[0],
       overflow: resolved.length - 1,

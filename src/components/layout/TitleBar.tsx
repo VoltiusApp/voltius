@@ -1,6 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -43,8 +44,14 @@ import { StackTab } from "@/components/layout/StackTab";
 import { buildTitlebarItems, stackGroupKey, titlebarKeyGroupOf, visibleTitlebarKeys } from "@/utils/titlebarItems";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useLastActiveByHost, useSessionTabHandlers } from "@/hooks/useTitlebarTabState";
+import { formatTime } from "@/utils/localeFormat";
 
 const appWindow = getCurrentWindow();
+
+/** A split tab's title, noting how many more sessions it holds. */
+function splitTitle(t: TFunction, label: string, more: number): string {
+  return more > 0 ? t("layout.titleBar.splitLabelMore", { label, count: more }) : label;
+}
 
 export default function TitleBar() {
   const { t } = useTranslation();
@@ -398,7 +405,7 @@ export default function TitleBar() {
                     className="max-w-[140px] truncate"
                     onClick={(e) => startRenameFromLabel(e, isActiveSplitTab, { kind: "split", id: tab.id })}
                   >
-                    {splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback"))}{tabSessionIds.length > 1 ? t("layout.titleBar.splitCountSuffix", { count: tabSessionIds.length - 1 }) : ""}
+                    {splitTitle(t, splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback")), tabSessionIds.length - 1)}
                   </span>
                   <span
                     onClick={(e) => handleUnifiedTabClose(e, tab.id)}
@@ -795,7 +802,7 @@ function SyncIndicator({
 
   const title = !configured ? t("layout.sync.status.notConfigured") :
     status === "syncing" ? t("layout.sync.status.syncing") :
-    status === "success" ? (lastSync ? t("layout.sync.status.syncedAt", { time: lastSync.toLocaleTimeString() }) : t("layout.sync.status.synced")) :
+    status === "success" ? (lastSync ? t("layout.sync.status.syncedAt", { time: formatTime(lastSync) }) : t("layout.sync.status.synced")) :
     status === "error"   ? (errorSource
       ? t("layout.sync.status.errorDetailFrom", { source: errorSource, error: error ?? t("layout.sync.status.unknown") })
       : t("layout.sync.status.errorDetail", { error: error ?? t("layout.sync.status.unknown") })) :

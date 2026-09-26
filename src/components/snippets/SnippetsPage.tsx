@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -30,7 +29,7 @@ import {
   parseVariables,
   needsUserInput,
 } from "@/services/snippetParser";
-import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
+import { snippetMatcher, snippetScriptText } from "@/services/snippetSteps";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { snippetToForm } from "@/utils/snippetForm";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
@@ -67,6 +66,8 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
+import { formatRelative } from "@/utils/localeFormat";
+import { compareStrings } from "@/utils/localeFormat";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,26 +83,12 @@ function isContextuallyRelevant(snippet: Snippet, conn: Connection | undefined):
 
 function sortSnippets(list: Snippet[], mode: SortMode): Snippet[] {
   return [...list].sort((a, b) => {
-    if (mode === "name-asc")  return a.name.localeCompare(b.name);
-    if (mode === "name-desc") return b.name.localeCompare(a.name);
+    if (mode === "name-asc")  return compareStrings(a.name, b.name);
+    if (mode === "name-desc") return compareStrings(b.name, a.name);
     if (mode === "newest")    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     if (mode === "oldest")    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     return 0;
   });
-}
-
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts;
-  const s = Math.floor(diff / 1000);
-  if (s < 5) return i18n.t("snippets.page.relativeTime.justNow");
-  if (s < 60) return i18n.t("snippets.page.relativeTime.secondsAgo", { count: s });
-  const m = Math.floor(s / 60);
-  if (m < 60) return i18n.t("snippets.page.relativeTime.minutesAgo", { count: m });
-  const h = Math.floor(m / 60);
-  if (h < 24) return i18n.t("snippets.page.relativeTime.hoursAgo", { count: h });
-  const d = Math.floor(h / 24);
-  if (d < 7) return i18n.t("snippets.page.relativeTime.daysAgo", { count: d });
-  return new Date(ts).toLocaleDateString();
 }
 
 // ─── Recent section ────────────────────────────────────────────────────────────
@@ -184,7 +171,7 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
                 <p className="text-sm font-bold truncate text-(--t-text-bright) flex-1 min-w-0">{label}</p>
                 {modeBadge}
               </div>
-              <p className="text-xs text-(--t-text-muted) truncate">{formatRelativeTime(entry.timestamp)}</p>
+              <p className="text-xs text-(--t-text-muted) truncate">{formatRelative(entry.timestamp, { seconds: true, maxDays: 7 })}</p>
             </div>
           </div>
 
@@ -221,7 +208,7 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
           <Icon icon={hostIcon} width={10} className="shrink-0 text-(--t-text-dim)" />
           <span className="text-xs text-(--t-text-muted) truncate">{host}</span>
           <span className="text-xs text-(--t-text-dim)">·</span>
-          <span className="text-xs text-(--t-text-dim)">{formatRelativeTime(entry.timestamp)}</span>
+          <span className="text-xs text-(--t-text-dim)">{formatRelative(entry.timestamp, { seconds: true, maxDays: 7 })}</span>
         </div>
       </div>
 
@@ -405,20 +392,17 @@ export function SnippetsPage() {
   const hasSearch = search.length > 0;
 
   // Base filter: search + vault access
-  const filtered = useMemo(() => sortSnippets(
-    snippets.filter((s) => {
-      const svid = s.vault_id ?? "personal";
-      if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(svid)) return false;
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return (
-        s.name.toLowerCase().includes(q) ||
-        snippetSearchText(s).toLowerCase().includes(q) ||
-        s.tags.some((t) => t.toLowerCase().includes(q))
-      );
-    }),
-    sortMode,
-  ), [snippets, search, sortMode, accessibleVaultIds]);
+  const filtered = useMemo(() => {
+    const matches = snippetMatcher(search);
+    return sortSnippets(
+      snippets.filter((s) => {
+        const svid = s.vault_id ?? "personal";
+        if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(svid)) return false;
+        return matches(s);
+      }),
+      sortMode,
+    );
+  }, [snippets, search, sortMode, accessibleVaultIds]);
 
   // Snippets visible in the current view (respects folder navigation)
   const viewSnippets = useMemo(() => {

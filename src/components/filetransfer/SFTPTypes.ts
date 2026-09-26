@@ -1,6 +1,7 @@
 import type { HostChoice } from "@/components/shared/HostPickerPanel";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
 import type { VaultErrorCode } from "@/services/vaultErrors";
+import { formatDate, formatDateTime, MONTH_DAY_TIME, SHORT_DATE } from "@/utils/localeFormat";
 export type { HostChoice };
 
 export type FileEntry = {
@@ -99,16 +100,10 @@ export function formatPermissions(mode: number): string {
   );
 }
 
-export function formatDate(ts: number): string {
+/** A file's mtime (unix seconds), `ls -l` style: time this year, year otherwise. */
+export function formatModified(ts: number): string {
   const d = new Date(ts * 1000);
-  const now = new Date();
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const mon = months[d.getMonth()];
-  const day = String(d.getDate()).padStart(2, " ");
-  if (d.getFullYear() === now.getFullYear()) {
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    return `${mon} ${day} ${hh}:${mm}`;
-  }
-  return `${mon} ${day} ${d.getFullYear()}`;
+  return d.getFullYear() === new Date().getFullYear()
+    ? formatDateTime(d, MONTH_DAY_TIME)
+    : formatDate(d, SHORT_DATE);
 }

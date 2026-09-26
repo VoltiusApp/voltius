@@ -5,6 +5,7 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
+import { compareStrings } from "@/utils/localeFormat";
 import MoveToFolderSheet from "./MoveToFolderSheet";
 import type { PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
@@ -61,7 +62,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
   if (mode === "move-folder") {
     return (
       <MoveToFolderSheet
-        targets={buildMoveTargets(allFolders, "port_forwarding")}
+        targets={buildMoveTargets(allFolders, "port_forwarding", compareStrings)}
         currentFolderId={rule.folder_id ?? null}
         onPick={(folderId) => { void updateRule(rule.id, { ...fields(rule, rule.vault_id), folder_id: folderId ?? undefined }); }}
         onClose={onClose}

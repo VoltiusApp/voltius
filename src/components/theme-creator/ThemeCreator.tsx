@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
@@ -25,6 +26,7 @@ import {
   PickerTrigger,
 } from "@/components/shared/pickerParts";
 import { formInputClass, formInputStyle } from "@/components/shared/Panel";
+import { searchMatcher } from "@/utils/search";
 
 // ── CSS variable inspector ────────────────────────────────────────────────────
 
@@ -146,9 +148,10 @@ function FontPicker({
   const installed = systemFonts?.some((f) => f.family.toLowerCase() === selected.toLowerCase());
   const missing = systemFonts !== null && !isPreset && !installed;
 
+  const matchesQuery = searchMatcher(query);
   const listed = (systemFonts ?? []).filter((f) => {
     if (monospaceOnly && !showAll && !f.monospace) return false;
-    return f.family.toLowerCase().includes(query.trim().toLowerCase());
+    return matchesQuery(f.family);
   });
 
   const close = () => { setOpen(false); setCustom(false); setQuery(""); };
@@ -259,8 +262,10 @@ function FontPicker({
 
 // ── Var search overlay ────────────────────────────────────────────────────────
 
+/** Styles the Esc key named inside the overlay hints. */
+const ESC_KBD = <kbd style={{ color: "var(--t-text-primary)" }} />;
+
 function VarSearchOverlay({ varName, onClose }: { varName: string; onClose: () => void }) {
-  const { t } = useTranslation();
   const [rects, setRects] = useState<DOMRect[]>([]);
 
   useEffect(() => {
@@ -293,9 +298,12 @@ function VarSearchOverlay({ varName, onClose }: { varName: string; onClose: () =
         borderRadius: 6, padding: "6px 14px", fontSize: 12,
         color: "var(--t-text-secondary)", pointerEvents: "none", whiteSpace: "nowrap",
       }}>
-        {t("themeCreator.varSearch.usage", { count: rects.length })}{" "}
-        <code style={{ color: "var(--t-accent)" }}>{varName}</code>
-        {" — "}<kbd style={{ color: "var(--t-text-primary)" }}>{t("themeCreator.escKey")}</kbd> {t("themeCreator.varSearch.suffix")}
+        <Trans
+          i18nKey="themeCreator.varSearch.hint"
+          count={rects.length}
+          values={{ name: varName }}
+          components={{ var: <code style={{ color: "var(--t-accent)" }} />, kbd: ESC_KBD }}
+        />
       </div>
     </>,
     document.body
@@ -494,7 +502,6 @@ function ColorEditor({
 // ── Pick-mode overlay ─────────────────────────────────────────────────────────
 
 function PickOverlay({ rect }: { rect: DOMRect | null }) {
-  const { t } = useTranslation();
   if (!rect) return null;
   return createPortal(
     <>
@@ -525,7 +532,7 @@ function PickOverlay({ rect }: { rect: DOMRect | null }) {
         color: "var(--t-text-secondary)",
         pointerEvents: "none",
       }}>
-        {t("themeCreator.pickOverlay.prefix")} <kbd style={{ color: "var(--t-text-primary)" }}>{t("themeCreator.escKey")}</kbd> {t("themeCreator.pickOverlay.suffix")}
+        <Trans i18nKey="themeCreator.pickOverlay.hint" components={{ kbd: ESC_KBD }} />
       </div>
     </>,
     document.body
@@ -534,6 +541,13 @@ function PickOverlay({ rect }: { rect: DOMRect | null }) {
 
 // ── ThemeCreator ──────────────────────────────────────────────────────────────
 
+const defaultThemeName = () => i18n.t("themeCreator.defaultName");
+
+/** An unsaved custom theme seeded from `base`. */
+function freshDraft(base: AppTheme): AppTheme {
+  return { ...JSON.parse(JSON.stringify(base)), id: `custom-${Date.now()}`, name: defaultThemeName(), builtIn: false };
+}
+
 export default function ThemeCreator() {
   const { t } = useTranslation();
   const { themeCreatorOpen, themeCreatorEditId, closeThemeCreator } = useUIStore();
@@ -541,12 +555,7 @@ export default function ThemeCreator() {
 
   const panelRef = useRef<HTMLDivElement>(null);
   const [restoreThemeId, setRestoreThemeId] = useState<string | null>(null);
-  const [draft, setDraftRaw] = useState<AppTheme>(() => ({
-    ...JSON.parse(JSON.stringify(getActiveTheme())),
-    id: `custom-${Date.now()}`,
-    name: "My Theme",
-    builtIn: false,
-  }));
+  const [draft, setDraftRaw] = useState<AppTheme>(() => freshDraft(getActiveTheme()));
 
   // Undo/redo history
   const historyRef = useRef<AppTheme[]>([]);
@@ -611,12 +620,7 @@ export default function ThemeCreator() {
         return;
       }
     }
-    const d: AppTheme = {
-      ...JSON.parse(JSON.stringify(active)),
-      id: `custom-${Date.now()}`,
-      name: "My Theme",
-      builtIn: false,
-    };
+    const d = freshDraft(active);
     setDraftRaw(d);
     initHistory(d);
   }, [themeCreatorOpen, themeCreatorEditId, getActiveTheme, customThemes, initHistory]);
@@ -668,7 +672,7 @@ export default function ThemeCreator() {
   }, [pickMode]);
 
   const handleSave = useCallback(() => {
-    const themed = draft.name.trim() ? draft : { ...draft, name: "My Theme" };
+    const themed = draft.name.trim() ? draft : { ...draft, name: defaultThemeName() };
     saveCustomTheme(themed);
     setTheme(themed.id);
     closeThemeCreator();

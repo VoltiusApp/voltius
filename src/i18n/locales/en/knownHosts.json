@@ -10,7 +10,8 @@
       "confirmDelete": {
         "title_one": "Delete known host?",
         "title_other": "Delete {{count}} known hosts?",
-        "message": "This will remove the trusted fingerprint(s). The next connection to these hosts will be treated as new."
+        "message_one": "This will remove the trusted fingerprint. The next connection to this host will be treated as new.",
+        "message_other": "This will remove the trusted fingerprints. The next connection to these hosts will be treated as new."
       }
     }
   }

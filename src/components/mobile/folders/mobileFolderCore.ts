@@ -18,14 +18,19 @@ export interface ItemLike {
 }
 
 /** Flattened, depth-first, alpha-within-level folder list for the move picker.
- *  Leads with a synthetic "No folder" (root) entry. */
-export function buildMoveTargets(folders: FolderLike[], objectType: string): MoveTarget[] {
+ *  Leads with a synthetic "No folder" (root) entry, which the sheet labels.
+ *  `compare` orders names; callers pass the app-language collator. */
+export function buildMoveTargets(
+  folders: FolderLike[],
+  objectType: string,
+  compare: (a: string, b: string) => number = (a, b) => a.localeCompare(b),
+): MoveTarget[] {
   const scoped = folders.filter((f) => f.object_type === objectType);
   const out: MoveTarget[] = [{ id: null, name: "No folder", depth: 0 }];
   const walk = (parentId: string | null, depth: number) => {
     const children = scoped
       .filter((f) => (f.parent_folder_id ?? null) === parentId)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => compare(a.name, b.name));
     for (const c of children) {
       out.push({ id: c.id, name: c.name, depth });
       walk(c.id, depth + 1);

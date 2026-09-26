@@ -119,7 +119,8 @@
       "fallbackMember": "bir üye",
       "fallbackRole": "üye",
       "fallbackResource": "bir kaynak",
-      "fallbackHost": "bir sunucu"
+      "fallbackHost": "bir sunucu",
+      "you": "Siz"
     },
     "timeline": {
       "today": "Bugün",

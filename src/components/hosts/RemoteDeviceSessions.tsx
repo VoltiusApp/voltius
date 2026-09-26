@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -11,17 +10,9 @@ import { usePendingKills } from "@/hooks/usePendingKills";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { sessionLabel } from "@/utils/sessionLabel";
+import { formatRelative } from "@/utils/localeFormat";
 
 const KILL_WINDOW_MS = 5000;
-
-function relativeAge(iso: string): string {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (mins < 1) return i18n.t("hosts.remoteSessions.justNow");
-  if (mins < 60) return i18n.t("hosts.remoteSessions.minutesAgo", { count: mins });
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return i18n.t("hosts.remoteSessions.hoursAgo", { count: hours });
-  return i18n.t("hosts.remoteSessions.daysAgo", { count: Math.floor(hours / 24) });
-}
 
 export function RemoteDeviceSessions() {
   const { t } = useTranslation();
@@ -134,7 +125,7 @@ export function RemoteDeviceSessions() {
                   <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                     <p className="text-sm font-bold truncate text-(--t-text-bright)">{sessionLabel(a)}</p>
                     <p className="text-[11px] truncate text-(--t-text-dim)">
-                      {a.deviceName} · active {relativeAge(a.openedAt)}
+                      {t("hosts.remoteSessions.deviceActive", { device: a.deviceName || t("hosts.remoteSessions.unknownDevice"), age: formatRelative(a.openedAt) })}
                     </p>
                     {a.cwd && <p className="text-[11px] truncate text-(--t-text-dim)">{a.cwd}</p>}
                   </div>

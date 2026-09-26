@@ -2,8 +2,9 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
-import { ACTION_META, FALLBACK_META } from "./AuditEventRow";
+import { ACTION_META, FALLBACK_META, actorName } from "./AuditEventRow";
 import { avatarColor } from "@/components/shared/AvatarStack";
+import { formatDate, formatDateTime, formatTime, HOUR_MINUTE, MONTH_DAY, MONTH_DAY_TIME } from "@/utils/localeFormat";
 
 interface Props {
   logs: AuditLog[];
@@ -64,24 +65,24 @@ function bucketLabel(ts: number, unit: "hour" | "day" | "week" | "month"): { lab
   const d = new Date(ts);
   if (unit === "hour") {
     return {
-      label: d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      sublabel: d.toLocaleDateString([], { month: "short", day: "numeric" }),
+      label: formatTime(d, HOUR_MINUTE),
+      sublabel: formatDate(d, MONTH_DAY),
     };
   }
   if (unit === "day") {
     return {
-      label: d.toLocaleDateString([], { weekday: "short", day: "numeric" }),
-      sublabel: d.toLocaleDateString([], { month: "short" }),
+      label: formatDate(d, { weekday: "short", day: "numeric" }),
+      sublabel: formatDate(d, { month: "short" }),
     };
   }
   if (unit === "week") {
     return {
-      label: i18n.t("logs.timeline.weekOf", { date: d.toLocaleDateString([], { month: "short", day: "numeric" }) }),
+      label: i18n.t("logs.timeline.weekOf", { date: formatDate(d, MONTH_DAY) }),
       sublabel: d.getFullYear().toString(),
     };
   }
   return {
-    label: d.toLocaleDateString([], { month: "short" }),
+    label: formatDate(d, { month: "short" }),
     sublabel: d.getFullYear().toString(),
   };
 }
@@ -121,13 +122,8 @@ function buildTimelineScale(logs: AuditLog[]): TimelineScale | null {
   return { min, max, buckets };
 }
 
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function formatEventTime(dateStr: string): string {
+  return formatDateTime(dateStr, MONTH_DAY_TIME);
 }
 
 function initials(name: string): string {
@@ -217,9 +213,9 @@ export function AuditHorizontalTimeline({ logs }: Props) {
               <div
                 className="relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold border-2 shadow-lg transition-transform group-hover:scale-110 group-focus:scale-110"
                 style={{ background: avatarColor(log.actor_name), borderColor: meta.color }}
-                title={log.actor_name}
+                title={actorName(log)}
               >
-                {initials(log.actor_name)}
+                {initials(actorName(log))}
               </div>
               <div
                 className="pointer-events-none absolute z-30 w-72 rounded-xl border border-(--t-border) bg-(--t-bg-card) p-3 opacity-0 shadow-2xl transition-opacity group-hover:opacity-100 group-focus:opacity-100"
@@ -238,10 +234,10 @@ export function AuditHorizontalTimeline({ logs }: Props) {
                     <Icon icon={meta.icon} width={14} />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold text-(--t-text-primary) truncate">{log.actor_name}</div>
+                    <div className="text-xs font-semibold text-(--t-text-primary) truncate">{actorName(log)}</div>
                     <div className="text-sm text-(--t-text-secondary) leading-snug">{meta.label(log)}</div>
                     <div className="mt-1 flex items-center gap-2 text-[11px] text-(--t-text-dim)">
-                      <span>{formatTime(log.created_at)}</span>
+                      <span>{formatEventTime(log.created_at)}</span>
                       {log.source === "client" && <span className="rounded-full border border-(--t-border) px-1.5 py-0.5">{t("logs.badges.client")}</span>}
                     </div>
                   </div>

@@ -7,13 +7,6 @@
       "noActiveSession": "Aucune session active"
     },
     "historyPanel": {
-      "relativeTime": {
-        "justNow": "à l'instant",
-        "secondsAgo": "il y a {{count}}s",
-        "minutesAgo": "il y a {{count}}min",
-        "hoursAgo": "il y a {{count}}h",
-        "daysAgo": "il y a {{count}}j"
-      },
       "removeFromHistory": "Retirer de l'historique",
       "searchPlaceholder": "Rechercher dans l'historique…",
       "showCurrentOnly": "Affichage de la connexion actuelle uniquement",
@@ -54,6 +47,7 @@
       "followTitle": "Suivre le répertoire courant du terminal",
       "uploadFiles": "Envoyer des fichiers",
       "downloadTitle_one": "Télécharger « {{name}} »",
+      "downloadTitle_many": "Télécharger {{count}} éléments",
       "downloadTitle_other": "Télécharger {{count}} éléments",
       "selectFilesToDownload": "Sélectionner des fichiers à télécharger",
       "viewOptions": "Options d'affichage",
@@ -85,7 +79,18 @@
         "tooManyParts": "Utilisez port ou distant:local",
         "invalidRemotePort": "Le port doit être compris entre 1 et 65535",
         "invalidLocalPort": "Le port local doit être compris entre 1 et 65535"
-      }
+      },
+      "toast": {
+        "viewPorts": "Voir les ports →",
+        "forwardedOne": "Port {{port}} → localhost:{{localPort}} redirigé",
+        "forwardedMany_one": "{{count}} port redirigé",
+        "forwardedMany_many": "{{count}} ports redirigés",
+        "forwardedMany_other": "{{count}} ports redirigés",
+        "autoForwardCapped_one": "Redirection automatique suspendue — {{count}} port déjà redirigé",
+        "autoForwardCapped_many": "Redirection automatique suspendue — {{count}} ports déjà redirigés",
+        "autoForwardCapped_other": "Redirection automatique suspendue — {{count}} ports déjà redirigés"
+      },
+      "portLabel": "Port {{port}}"
     },
     "rightPanel": {
       "font": "Police",
@@ -126,19 +131,23 @@
       "noVaultsCreateTeamFirst": "Aucun coffre — créez d'abord une équipe",
       "allRoles": "tous les rôles",
       "startSharingWithVault_one": "Démarrer le partage avec {{count}} coffre",
+      "startSharingWithVault_many": "Démarrer le partage avec {{count}} coffres",
       "startSharingWithVault_other": "Démarrer le partage avec {{count}} coffres",
       "selectVaultToShare": "Sélectionnez un coffre à partager",
       "shareCodeDescription": "Partagez ce code — quiconque le possède peut rejoindre :",
       "generateLinkDescription": "Générez un lien à usage unique. Toute personne ayant un compte Voltius peut rejoindre.",
       "generateInviteLink": "Générer un lien d'invitation",
       "upToParticipants_one": "Jusqu'à {{count}} participant",
+      "upToParticipants_many": "Jusqu'à {{count}} participants",
       "upToParticipants_other": "Jusqu'à {{count}} participants",
       "upgradeToTeamsForParticipants": "Passez à Teams pour 10 participants + coffres partagés",
       "live": "En direct",
       "waitingForGuests": "En attente d'un participant…",
       "participantsRatio_one": "{{participantCount}} / {{guestCap}} participant",
+      "participantsRatio_many": "{{participantCount}} / {{guestCap}} participants",
       "participantsRatio_other": "{{participantCount}} / {{guestCap}} participants",
       "guestsRatio_one": "{{participantCount}} invité sur {{guestCap}}",
+      "guestsRatio_many": "{{participantCount}} invités sur {{guestCap}}",
       "guestsRatio_other": "{{participantCount}} invités sur {{guestCap}}",
       "upgradeToTeams": "Passer à Teams",
       "upgradeToBusiness": "Passer à Business",
@@ -248,13 +257,12 @@
       },
       "hostKeyConflict": {
         "title": "CLÉ D'HÔTE MODIFIÉE",
-        "descriptionPrefix": "L'empreinte de ",
-        "descriptionSuffix": " a changé.",
         "replace": "Remplacer",
         "addAsNew": "Ajouter comme nouvelle",
         "abort": "Abandonner",
         "stored": "Enregistrée",
-        "received": "Reçue"
+        "received": "Reçue",
+        "description": "L'empreinte de <host>{{address}}</host> a changé."
       },
       "passphrasePrompt": {
         "title": "PHRASE DE PASSE DE CLÉ REQUISE",
@@ -309,6 +317,7 @@
       "serialBreak": "Envoyer un signal break",
       "systemMetricsTitle": "Métriques système",
       "activeTunnels_one": "{{count}} tunnel actif",
+      "activeTunnels_many": "{{count}} tunnels actifs",
       "activeTunnels_other": "{{count}} tunnels actifs",
       "cpu": "CPU {{pct}}%",
       "copiedBang": "Copié !",
@@ -316,6 +325,11 @@
       "sparklineMin": "min {{value}}ms",
       "sparklineAvg": "moy {{value}}ms",
       "sparklineMax": "max {{value}}ms"
+    },
+    "xterm": {
+      "linkTooltip": "Alt+clic pour ouvrir",
+      "sessionClosed": "Session fermée",
+      "serialClosed": "Connexion série fermée"
     }
   }
 }

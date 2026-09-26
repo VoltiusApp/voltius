@@ -258,7 +258,7 @@ export default function HostCard({
           </p>
           <p className="text-xs truncate flex-1 text-(--t-text-secondary)">
             {isSerial
-              ? `serial · ${connection.serial_baud ?? 115200} baud`
+              ? `${t("terminal.statusBar.serialFallback")} · ${t("home.hostCard.baud", { rate: connection.serial_baud ?? 115200 })}`
               : `${connection.username}@${connection.host}:${connection.port}${showPingDot && pingStatus === "up" && pingLatency !== undefined ? ` · ${pingLatency}ms` : ""}`
             }
           </p>
@@ -360,7 +360,7 @@ export default function HostCard({
                   {isFtp ? (
                     <>
                       <span className="truncate" style={{ color: "var(--t-terminal-cyan)" }}>{connection.host}</span>
-                      <span className="shrink-0"> · files</span>
+                      <span className="shrink-0"> · {t("hosts.card.filesSuffix")}</span>
                     </>
                   ) : isSerial ? (
                     <>

@@ -20,7 +20,7 @@ import { buildDynamicContext } from "@/services/snippetRunCore";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { MenuItemList, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { runSnippetSequence, reportSequenceResult } from "@/services/snippetSequence";
-import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
+import { snippetMatcher, snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { SnippetForm } from "@/components/snippets/SnippetForm";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
@@ -335,13 +335,7 @@ export function SnippetsPanel() {
 
   const canInject = !!activeSession && activeSession.type !== "multiplayer";
 
-  const allFiltered = snippets.filter(
-    (s) =>
-      !query ||
-      s.name.toLowerCase().includes(query.toLowerCase()) ||
-      snippetSearchText(s).toLowerCase().includes(query.toLowerCase()) ||
-      s.tags.some((t) => t.toLowerCase().includes(query.toLowerCase())),
-  );
+  const allFiltered = snippets.filter(snippetMatcher(query));
 
   async function buildContext(): Promise<DynamicContext> {
     let clipboard = "";

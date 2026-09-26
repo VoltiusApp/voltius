@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import i18n from "@/i18n";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
@@ -18,6 +17,7 @@ import { useVaultAdmin } from "@/components/vault-admin/useVaultAdmin";
 import { VaultAdminSurface } from "@/components/vault-admin/VaultAdminSurface";
 import type { VaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
 import { chevronRotateStyle } from "@/utils/icons";
+import { formatRelative } from "@/utils/localeFormat";
 
 // ─── Members stack ─────────────────────────────────────────────────────────
 
@@ -175,17 +175,6 @@ export function MembersStack({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function relativeTime(date: Date | null): string | null {
-  if (!date) return null;
-  const diffMs = Date.now() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return i18n.t("layout.vaultHeader.relativeTime.justNow");
-  if (diffMin < 60) return i18n.t("layout.vaultHeader.relativeTime.minutesAgo", { count: diffMin });
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return i18n.t("layout.vaultHeader.relativeTime.hoursAgo", { count: diffHr });
-  return i18n.t("layout.vaultHeader.relativeTime.daysAgo", { count: Math.floor(diffHr / 24) });
-}
-
 export default function VaultHeader() {
   const { t } = useTranslation();
   const vaults = useVaultStore((s) => s.vaults);
@@ -247,7 +236,7 @@ export default function VaultHeader() {
   const displayName = vault ? vault.name : (standaloneTeam!.name);
   const initial = displayName.trim().charAt(0).toUpperCase();
   const isE2EE = accountMode === "local";
-  const lastSync = relativeTime(syncState.lastSync);
+  const lastSync = syncState.lastSync ? formatRelative(syncState.lastSync) : null;
   const showSync = syncState.cloudActive && lastSync;
 
   return (

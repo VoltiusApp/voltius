@@ -5,6 +5,8 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { getTagColorStyle } from "@/utils/tagColors";
 import { PickerSurface } from "./PickerSurface";
+import { compareStrings } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 interface Props {
   value: string[];
@@ -24,14 +26,13 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
     const set = new Set<string>();
     const scoped = vaultId ? connections.filter((c) => c.vault_id === vaultId) : connections;
     for (const c of scoped) for (const tag of c.tags) set.add(tag);
-    return [...set].sort((a, b) => a.localeCompare(b));
+    return [...set].sort(compareStrings);
   }, [connections, vaultId]);
 
   const query = input.trim().toLowerCase();
   const suggestions = useMemo(() => {
-    return allTags.filter(
-      (tag) => !value.includes(tag) && (!query || tag.toLowerCase().includes(query)),
-    );
+    const match = searchMatcher(query);
+    return allTags.filter((tag) => !value.includes(tag) && match(tag));
   }, [allTags, value, query]);
 
   const canCreate = query.length > 0 && !value.includes(input.trim()) && !allTags.some((tag) => tag.toLowerCase() === query);

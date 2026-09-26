@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { chevronRotateStyle } from "@/utils/icons";
+import { searchMatcher } from "@/utils/search";
 
 export interface DropdownOption<T extends string> {
   value: T;
@@ -79,9 +80,8 @@ export function ToolbarDropdown<T extends string>({
 
   const menuItems = items ?? [];
   const selectOptions = options ?? [];
-  const filteredOptions = searchQuery
-    ? selectOptions.filter((o) => o.label.toLowerCase().includes(searchQuery.toLowerCase()))
-    : selectOptions;
+  const matchesQuery = searchMatcher(searchQuery);
+  const filteredOptions = selectOptions.filter((o) => matchesQuery(o.label));
   const hasContent = items ? menuItems.length > 0 : selectOptions.length > 0;
   const selectionCount = isMulti ? multiValue.length : 0;
 

@@ -47,6 +47,7 @@
     },
     "avatarStack": {
       "participantCount_one": "{{count}} participant",
+      "participantCount_many": "{{count}} participants",
       "participantCount_other": "{{count}} participants"
     },
     "presence": {
@@ -69,8 +70,10 @@
       "insertTitle": "Insérer dans...",
       "executeTitle": "Exécuter dans...",
       "insertConfirm_one": "Insérer dans {{count}} cible",
+      "insertConfirm_many": "Insérer dans {{count}} cibles",
       "insertConfirm_other": "Insérer dans {{count}} cibles",
       "executeConfirm_one": "Exécuter dans {{count}} cible",
+      "executeConfirm_many": "Exécuter dans {{count}} cibles",
       "executeConfirm_other": "Exécuter dans {{count}} cibles",
       "noActiveSessions": "Aucune session active",
       "activeSessionsHeader": "Sessions actives",
@@ -103,6 +106,7 @@
       "noTagsMatch": "Aucun tag ne correspond à \"{{search}}\"",
       "deleteTagTitle": "Supprimer le tag \"{{tag}}\" ?",
       "deleteTagBody_one": "Ceci retirera le tag de {{count}} hôte. Les hôtes eux-mêmes ne seront pas supprimés.",
+      "deleteTagBody_many": "Ceci retirera le tag de {{count}} hôtes. Les hôtes eux-mêmes ne seront pas supprimés.",
       "deleteTagBody_other": "Ceci retirera le tag de {{count}} hôtes. Les hôtes eux-mêmes ne seront pas supprimés.",
       "renameTagTitle": "Renommer le tag",
       "deleteTagButtonTitle": "Supprimer le tag"

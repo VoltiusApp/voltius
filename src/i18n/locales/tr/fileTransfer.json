@@ -111,8 +111,6 @@
       "title": "Aktarımlar",
       "transferCount_one": "{{count}} aktarım",
       "transferCount_other": "{{count}} aktarım",
-      "activeSuffix_one": " · {{count}} etkin",
-      "activeSuffix_other": " · {{count}} etkin",
       "combinedThroughput": "Toplam aktarım hızı",
       "cancelAll": "Tüm aktarımları iptal et",
       "clearFinished": "Tamamlanan aktarımları temizle",
@@ -124,7 +122,9 @@
         "done": "Tamamlandı",
         "error": "Hata",
         "cancelled": "İptal edildi"
-      }
+      },
+      "transferCountActive_one": "{{transfers}} · {{count}} etkin",
+      "transferCountActive_other": "{{transfers}} · {{count}} etkin"
     },
     "editor": {
       "common": {
@@ -139,7 +139,9 @@
         "loading": "Farklar yükleniyor…",
         "previousChange": "Önceki değişiklik",
         "nextChange": "Sonraki değişiklik",
-        "saveErrorLine": "{{label}}: {{msg}}"
+        "saveErrorLine": "{{label}}: {{msg}}",
+        "applyToRight": "Sağa uygula (→)",
+        "applyToLeft": "Sola uygula (←)"
       },
       "tab": {
         "autoSave": "Otomatik kaydet",
@@ -154,10 +156,10 @@
         "filesTab": "Dosyalar",
         "pendingNameFallback": "bu dosya",
         "pendingNameDiffFallback": "bu karşılaştırma",
-        "diffTitlePrefix": "fark: {{name}}",
         "discardTitle": "Kaydedilmemiş değişiklikler atılsın mı?",
         "discardMessage": "\"{{name}}\" içinde kaydedilmemiş değişiklikler var. Bu sekme kapatılırsa değişiklikler kaybolur.",
-        "discard": "Değişiklikleri at"
+        "discard": "Değişiklikleri at",
+        "diffTitle": "fark: {{name}}"
       }
     }
   }

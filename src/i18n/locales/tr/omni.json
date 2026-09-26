@@ -20,7 +20,8 @@
       "actions": "Eylemler",
       "quickSettings": "Hızlı ayarlar",
       "settings": "Ayarlar",
-      "joinByInviteCode": "Davet koduyla katıl"
+      "joinByInviteCode": "Davet koduyla katıl",
+      "importExport": "İçe / dışa aktar"
     },
     "settingsDescription": "Ayarlar",
     "pluginSettingsDescription": "Eklenti ayarları",
@@ -87,6 +88,32 @@
       "statusManual": "Elle",
       "statusSystem": "Otomatik · sistemi izliyor",
       "statusUntil": "Otomatik · {{phase}}, saat {{time}} olana kadar"
+    },
+    "commands": {
+      "newHost": "Yeni sunucu",
+      "newKey": "Yeni SSH anahtarı",
+      "newIdentity": "Yeni kimlik",
+      "settings": "Ayarlar",
+      "checkForUpdate": "Güncellemeleri denetle",
+      "whatsNew": "Yenilikler",
+      "portForwarding": "Port yönlendirme",
+      "knownHosts": "Bilinen sunucular",
+      "logs": "Günlükler",
+      "newSnippet": "Yeni kod parçacığı",
+      "teamMembers": "Ekip üyeleri",
+      "disconnectAll": "Tümünün bağlantısını kes",
+      "reportBug": "Hata bildir",
+      "createTheme": "Özel tema oluştur",
+      "importFrom": "{{label}} kaynağından içe aktar",
+      "importFromEllipsis": "{{label}} kaynağından içe aktar…",
+      "exportAll": "Kasa verilerini dışa aktar…",
+      "exportConnections": "Bağlantıları dışa aktar…",
+      "exportIdentities": "Kimlikleri dışa aktar…",
+      "exportKeys": "SSH anahtarlarını dışa aktar…",
+      "exportSnippets": "Kod parçacıklarını dışa aktar…",
+      "exportPortForwarding": "Port yönlendirme kurallarını dışa aktar…",
+      "exportThemes": "Özel temaları dışa aktar…",
+      "importThemes": "Temaları içe aktar…"
     }
   }
 }

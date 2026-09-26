@@ -42,7 +42,8 @@
       "inUseByOverflow_one": "Используется пользователем {{name}} + ещё {{count}} человек",
       "inUseByOverflow_few": "Используется пользователем {{name}} + ещё {{count}} человека",
       "inUseByOverflow_many": "Используется пользователем {{name}} + ещё {{count}} человек",
-      "inUseByOverflow_other": "Используется пользователем {{name}} + ещё {{count}} человек"
+      "inUseByOverflow_other": "Используется пользователем {{name}} + ещё {{count}} человек",
+      "filesSuffix": "файлы"
     },
     "page": {
       "all": "Все",
@@ -124,15 +125,13 @@
     },
     "remoteSessions": {
       "title": "Активно на других устройствах",
-      "justNow": "только что",
-      "minutesAgo": "{{count}} мин. назад",
-      "hoursAgo": "{{count}} ч. назад",
-      "daysAgo": "{{count}} дн. назад",
       "kill": "Завершить сессию",
       "killing": "Завершение сессии…",
       "undo": "Отменить",
       "killFailed": "Не удалось завершить удалённо — откройте сессию, чтобы закрыть её",
-      "dismiss": "Закрыть"
+      "dismiss": "Закрыть",
+      "deviceActive": "{{device}} · активна {{age}}",
+      "unknownDevice": "Неизвестное устройство"
     },
     "teamSessions": {
       "title": "Командные сессии",

@@ -82,11 +82,11 @@
       "actionSkip": "跳过",
       "actionInclude": "导入",
       "actionOverwrite": "覆盖",
-      "resultImportedWithErrors": "已导入 {{count}} 个项目{{vaultNote}}，{{errors}} 个失败。",
       "resultImportedSuccess_one": "成功导入 {{count}} 个项目{{vaultNote}}。",
       "resultImportedSuccess_other": "成功导入 {{count}} 个项目{{vaultNote}}。",
       "resultVaultNote": "跨 {{count}} 个保险库",
-      "resultError": "错误：{{error}}"
+      "resultError": "错误：{{error}}",
+      "resultImportedWithErrors_other": "已导入 {{count}} 个项目{{vaultNote}}，{{errors}} 个失败。"
     },
     "fileInput": {
       "openFileDefault": "打开文件…",
@@ -124,13 +124,38 @@
         "shortcutsOverrides_one": "{{count}} 个覆盖",
         "shortcutsOverrides_other": "{{count}} 个覆盖",
         "shortcutsDefaults": "默认值",
-        "appSettingsShell": "shell: {{shell}}",
+        "appSettingsShell": "Shell：{{shell}}",
         "appSettingsDefault": "默认设置",
         "recentPeople_one": "{{count}} 位最近联系人",
         "recentPeople_other": "{{count}} 位最近联系人",
         "vaults_one": "{{count}} 个保险库",
         "vaults_other": "{{count}} 个保险库"
       }
+    },
+    "importers": {
+      "voltius": {
+        "sub": "JSON",
+        "placeholder": "在此粘贴 Voltius JSON，或拖入 .json 文件…\n\n{ \"version\": 1, \"connections\": [...] }"
+      },
+      "csv": {
+        "sub": "电子表格",
+        "placeholder": "在此粘贴 CSV，或拖入文件…\n\nname,host,port,username,auth_type,tags"
+      },
+      "mobaxterm": {
+        "sub": "本地安装 · 自动解密",
+        "hint": "需要已安装 MobaXterm（仅限 Windows）。",
+        "placeholder": "将 MobaXterm.ini 拖到此处，或粘贴其内容…"
+      },
+      "termius": {
+        "sub": "本地安装 · 自动提取",
+        "hint": "需要已安装并登录 Termius。",
+        "placeholder": "请对 Termius 使用自动提取。不支持通过粘贴旧版 Termius 导出数据进行完整导入。"
+      }
+    },
+    "menu": {
+      "export": "导出",
+      "importEllipsis": "导入…",
+      "exportEllipsis": "导出…"
     }
   }
 }

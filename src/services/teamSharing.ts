@@ -4,6 +4,8 @@ import { getMyUserId, listMembers } from "@/services/teamService";
 import type { TeamMember, UserSearchResult } from "@/services/teamService";
 import type { Tier } from "@/stores/subscriptionTier";
 import type { RecentPerson } from "@/stores/recentPeopleStore";
+import { compareStrings } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 /**
  * The name to show for a session. `connection_name` is null when the server has
@@ -87,7 +89,7 @@ export async function allTeammates(): Promise<Teammate[]> {
 
   return [...merged.values()].sort((a, b) => {
     if (!!a.is_online !== !!b.is_online) return a.is_online ? -1 : 1;
-    return (a.handle ?? "").localeCompare(b.handle ?? "");
+    return compareStrings(a.handle ?? "", b.handle ?? "");
   });
 }
 
@@ -171,8 +173,8 @@ export function groupPeople<T extends { user_id: string; handle?: string }>(inpu
   recent: RecentPerson[];
   results: UserSearchResult[];
 }): { recent: RecentPerson[]; teammates: T[]; strangers: UserSearchResult[] } {
-  const q = input.query.trim().toLowerCase();
-  const matches = (handle: string | undefined) => !q || !!handle?.toLowerCase().includes(q);
+  const q = input.query.trim();
+  const matches = searchMatcher(q);
 
   const recent = input.recent.filter((p) => matches(p.handle));
   const recentIds = new Set(recent.map((p) => p.user_id));

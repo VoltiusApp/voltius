@@ -9,10 +9,11 @@ export interface Importer {
   key: string;
   label: string;
   icon: string;
-  sub: string;
+  /** i18n keys, translated where rendered. */
+  subKey: string;
   fileAccept: string;
-  hint?: string;
-  placeholder: string;
+  hintKey?: string;
+  placeholderKey: string;
   parse(text: string): ExportBundle;
   /** Optional: one-step extraction from a locally-installed source app. */
   autoExtract?(): Promise<ExportBundle>;
@@ -27,28 +28,28 @@ export const IMPORTERS: Importer[] = [
     key: "voltius",
     label: "Voltius JSON",
     icon: "lucide:braces",
-    sub: "JSON",
+    subKey: "importExport.importers.voltius.sub",
     fileAccept: ".json",
-    placeholder: 'Paste Voltius JSON here, or drop a .json file…\n\n{ "version": 1, "connections": [...] }',
+    placeholderKey: "importExport.importers.voltius.placeholder",
     parse: fromJSON,
   },
   {
     key: "csv",
     label: "CSV",
     icon: "lucide:table-2",
-    sub: "Spreadsheet",
+    subKey: "importExport.importers.csv.sub",
     fileAccept: ".csv,.txt",
-    placeholder: "Paste CSV here, or drop a file…\n\nname,host,port,username,auth_type,tags",
+    placeholderKey: "importExport.importers.csv.placeholder",
     parse: (text) => connectionsOnlyBundle(connectionsFromCSV(text)),
   },
   {
     key: "mobaxterm",
     label: "MobaXterm",
     icon: "custom:mobaxterm",
-    sub: "Local install · auto-decrypt",
+    subKey: "importExport.importers.mobaxterm.sub",
     fileAccept: ".ini,.mxtsessions,.mobaconf,.txt",
-    hint: "Requires MobaXterm to be installed (Windows only).",
-    placeholder: "Drop MobaXterm.ini here, or paste its contents…",
+    hintKey: "importExport.importers.mobaxterm.hint",
+    placeholderKey: "importExport.importers.mobaxterm.placeholder",
     parse: (text) => connectionsOnlyBundle(connectionsFromMobaXterm(text)),
     autoExtract: extractMobaXtermBundle,
   },
@@ -56,10 +57,10 @@ export const IMPORTERS: Importer[] = [
     key: "termius",
     label: "Termius",
     icon: "simple-icons:termius",
-    sub: "Local install · auto-extract",
+    subKey: "importExport.importers.termius.sub",
     fileAccept: ".json",
-    hint: "Requires Termius to be installed and logged in.",
-    placeholder: "Use Auto Extract for Termius. Pasted legacy Termius dumps are not supported for faithful import.",
+    hintKey: "importExport.importers.termius.hint",
+    placeholderKey: "importExport.importers.termius.placeholder",
     parse: bundleFromTermius,
     autoExtract: extractTermiusBundle,
   },

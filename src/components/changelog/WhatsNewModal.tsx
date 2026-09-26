@@ -228,6 +228,7 @@ function EntryBlock({ entry, installed }: { entry: ChangelogEntry; installed: st
       {entry.groups.map((g) => (
         <div key={g.label} className="space-y-1.5">
           <span
+            lang="en"
             className="inline-block px-1.5 py-0.5 rounded text-[0.65rem] font-bold uppercase tracking-wide"
             style={groupChipStyle(g.label)}
           >

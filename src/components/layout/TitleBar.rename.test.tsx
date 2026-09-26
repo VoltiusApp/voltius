@@ -17,7 +17,11 @@ vi.mock("@tauri-apps/api/window", () => ({
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  // The split tab's title interpolates its label, which these tests click by name.
+  useTranslation: () => ({
+    t: (key: string, o?: { label?: string; count?: number }) =>
+      key === "layout.titleBar.splitLabelMore" ? `${o?.label} + ${o?.count}` : key,
+  }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));

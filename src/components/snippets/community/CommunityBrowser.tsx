@@ -5,6 +5,7 @@ import { fetchCatalog } from "@/services/snippetCatalogFetch";
 import type { CatalogEntry } from "@/services/snippetCatalog";
 import { EntryCard } from "./EntryCard";
 import { EntryDetail } from "./EntryDetail";
+import { searchMatcher } from "@/utils/search";
 
 function Section({ label, count, children }: { label: string; count: number; children: React.ReactNode }) {
   if (count === 0) return null;
@@ -50,10 +51,8 @@ export function CommunityBrowser({ search, layout, onInstalled }: {
   }, [reloadKey]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q || !entries) return entries ?? [];
-    return entries.filter(e =>
-      [e.name, e.description ?? "", e.author ?? "", ...e.tags].some(v => v.toLowerCase().includes(q)));
+    const match = searchMatcher(search);
+    return (entries ?? []).filter(e => match(e.name, e.description, e.author, ...e.tags));
   }, [entries, search]);
 
   const open = entries?.find(e => e.id === openId);

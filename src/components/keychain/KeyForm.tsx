@@ -27,6 +27,7 @@ import { KeyFileDropZone } from "./KeyFileDropZone";
 import { KeyGenFields } from "./KeyGenFields";
 import { PublicKeyField, isPublicKeyInvalid } from "./PublicKeyField";
 import { useDerivedPublicKey } from "./useDerivedPublicKey";
+import { formatDate } from "@/utils/localeFormat";
 
 // Re-exported for back-compat (IdentityForm imports KeyFileDropZone from here).
 export { KeyFileDropZone } from "./KeyFileDropZone";
@@ -96,6 +97,9 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
   const isNew = !initial;
   const [mode, setMode] = useState<KeyFormMode>(initial ? "import" : (initialMode ?? "import"));
   const keyInfo = useMemo(() => detectKeyInfo(privateKey, publicKey), [privateKey, publicKey]);
+  // Saved as the key's name when the field is left empty, so it is written in
+  // the language the key was created in, like any name the user types.
+  const defaultName = `${keyInfo.type ?? t("connections.common.sshKey")} · ${formatDate(new Date())}`;
   const privateKeyDirty = useRef(false);
   const publicKeyDirty = useRef(false);
   const passphraseDirty = useRef(false);
@@ -124,8 +128,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => onSubmit(
-      // Default name kept in English — it can be persisted as the key's name (see i18n issue #14).
-      { name: name.trim() || `${keyInfo.type ?? "SSH Key"} · ${new Date().toLocaleDateString()}`, key_type: keyInfo.type ?? undefined, tags, folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
+      { name: name.trim() || defaultName, key_type: keyInfo.type ?? undefined, tags, folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
       privateKeyDirty.current ? privateKey : null,
       publicKeyDirty.current ? publicKey : null,
       passphraseDirty.current ? passphrase : null,
@@ -214,8 +217,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
               style={formInputStyle}
               value={name}
               onChange={(e) => { markDirty(); setName(e.target.value); }}
-              // Matches the persisted default name fallback above — kept in English (see i18n issue #14).
-              placeholder={`${keyInfo.type ?? "SSH Key"} · ${new Date().toLocaleDateString()}`}
+              placeholder={defaultName}
             />
           </div>
           <TagsAndFolderFields
@@ -265,7 +267,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
                     <>
                       <Icon icon="lucide:circle-x" width={12} className="text-(--t-status-error)" />
                       <span className="text-xs text-(--t-status-error)">
-                        {keyInfo.error ?? t("keychain.keyForm.invalidKey")}
+                        {t(keyInfo.errorKey ?? "keychain.keyForm.invalidKey")}
                       </span>
                     </>
                   )}

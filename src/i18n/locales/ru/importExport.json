@@ -99,13 +99,16 @@
       "actionSkip": "Пропустить",
       "actionInclude": "Импортировать",
       "actionOverwrite": "Перезаписать",
-      "resultImportedWithErrors": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
       "resultImportedSuccess_one": "Успешно импортирован {{count}} элемент{{vaultNote}}.",
       "resultImportedSuccess_few": "Успешно импортировано {{count}} элемента{{vaultNote}}.",
       "resultImportedSuccess_many": "Успешно импортировано {{count}} элементов{{vaultNote}}.",
       "resultImportedSuccess_other": "Успешно импортировано {{count}} элементов{{vaultNote}}.",
       "resultVaultNote": " в {{count}} хранилищах",
-      "resultError": "Ошибка: {{error}}"
+      "resultError": "Ошибка: {{error}}",
+      "resultImportedWithErrors_one": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
+      "resultImportedWithErrors_few": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
+      "resultImportedWithErrors_many": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
+      "resultImportedWithErrors_other": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}."
     },
     "fileInput": {
       "openFileDefault": "Открыть файл…",
@@ -164,6 +167,31 @@
         "vaults_many": "{{count}} хранилищ",
         "vaults_other": "{{count}} хранилищ"
       }
+    },
+    "importers": {
+      "voltius": {
+        "sub": "JSON",
+        "placeholder": "Вставьте сюда JSON Voltius или перетащите файл .json…\n\n{ \"version\": 1, \"connections\": [...] }"
+      },
+      "csv": {
+        "sub": "Таблица",
+        "placeholder": "Вставьте сюда CSV или перетащите файл…\n\nname,host,port,username,auth_type,tags"
+      },
+      "mobaxterm": {
+        "sub": "Локальная установка · авторасшифровка",
+        "hint": "Требуется установленный MobaXterm (только Windows).",
+        "placeholder": "Перетащите сюда MobaXterm.ini или вставьте его содержимое…"
+      },
+      "termius": {
+        "sub": "Локальная установка · автоизвлечение",
+        "hint": "Требуется установленный Termius с выполненным входом.",
+        "placeholder": "Для Termius используйте автоизвлечение. Вставленные устаревшие дампы Termius не поддерживаются для точного импорта."
+      }
+    },
+    "menu": {
+      "export": "Экспорт",
+      "importEllipsis": "Импорт…",
+      "exportEllipsis": "Экспорт…"
     }
   }
 }

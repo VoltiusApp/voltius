@@ -20,7 +20,8 @@
       "actions": "Actions",
       "quickSettings": "Quick Settings",
       "settings": "Settings",
-      "joinByInviteCode": "Join by invite code"
+      "joinByInviteCode": "Join by invite code",
+      "importExport": "Import / Export"
     },
     "settingsDescription": "Settings",
     "pluginSettingsDescription": "Plugin Settings",
@@ -87,6 +88,32 @@
       "statusManual": "Manual",
       "statusSystem": "Auto · following system",
       "statusUntil": "Auto · {{phase}} until {{time}}"
+    },
+    "commands": {
+      "newHost": "New Host",
+      "newKey": "New SSH Key",
+      "newIdentity": "New Identity",
+      "settings": "Settings",
+      "checkForUpdate": "Check for Update",
+      "whatsNew": "What's New",
+      "portForwarding": "Port Forwarding",
+      "knownHosts": "Known Hosts",
+      "logs": "Logs",
+      "newSnippet": "New Snippet",
+      "teamMembers": "Team Members",
+      "disconnectAll": "Disconnect All",
+      "reportBug": "Report a bug",
+      "createTheme": "Create Custom Theme",
+      "importFrom": "Import from {{label}}",
+      "importFromEllipsis": "Import from {{label}}…",
+      "exportAll": "Export vault data…",
+      "exportConnections": "Export connections…",
+      "exportIdentities": "Export identities…",
+      "exportKeys": "Export SSH keys…",
+      "exportSnippets": "Export snippets…",
+      "exportPortForwarding": "Export port forwarding rules…",
+      "exportThemes": "Export custom themes…",
+      "importThemes": "Import themes…"
     }
   }
 }

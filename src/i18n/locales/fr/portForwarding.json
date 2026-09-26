@@ -30,13 +30,16 @@
       },
       "confirmDeleteBulk": {
         "title_one": "Supprimer {{count}} règle",
+        "title_many": "Supprimer {{count}} règles",
         "title_other": "Supprimer {{count}} règles",
         "message_one": "Voulez-vous vraiment supprimer {{count}} règle ? Cette action est irréversible.",
+        "message_many": "Voulez-vous vraiment supprimer {{count}} règles ? Cette action est irréversible.",
         "message_other": "Voulez-vous vraiment supprimer {{count}} règles ? Cette action est irréversible."
       },
       "confirmDeleteFolder": {
         "title": "Supprimer le dossier",
         "message_one": "Cela supprimera le dossier, ses sous-dossiers et le contenu qu'ils renferment ({{count}} règle). Cette action est irréversible.",
+        "message_many": "Cela supprimera le dossier, ses sous-dossiers et le contenu qu'ils renferment ({{count}} règles). Cette action est irréversible.",
         "message_other": "Cela supprimera le dossier, ses sous-dossiers et le contenu qu'ils renferment ({{count}} règles). Cette action est irréversible.",
         "messageEmpty": "Cela supprimera le dossier et tout ce qu'il contient. Cette action est irréversible."
       },
@@ -66,17 +69,22 @@
       "noSshSession": "Aucune session SSH",
       "openUrl": "Ouvrir {{url}}",
       "scopedToConnections_one": "Limité à {{count}} connexion",
+      "scopedToConnections_many": "Limité à {{count}} connexions",
       "scopedToConnections_other": "Limité à {{count}} connexions",
       "connectionsCount_one": "{{count}} connexion",
+      "connectionsCount_many": "{{count}} connexions",
       "connectionsCount_other": "{{count}} connexions"
     },
     "activeTunnels": {
       "sectionTitle": "Redirections actives de session",
       "hostCount_one": "{{count}} hôte",
+      "hostCount_many": "{{count}} hôtes",
       "hostCount_other": "{{count}} hôtes",
       "tunnelCount_one": "{{count}} tunnel",
+      "tunnelCount_many": "{{count}} tunnels",
       "tunnelCount_other": "{{count}} tunnels",
       "forwardCount_one": "{{count}} redirection",
+      "forwardCount_many": "{{count}} redirections",
       "forwardCount_other": "{{count}} redirections",
       "errorCount": "{{count}} erreur",
       "activeCountLabel": "{{count}} active",
