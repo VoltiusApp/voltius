@@ -28,7 +28,7 @@ export function buildTransferTools(ports: ToolSurfacePorts): Tool[] {
       name: "transfer_list",
       description:
         "List the file transfers in the app's queue — the user's own and any this server started — "
-        + "with their progress, speed and errors. The queue holds the last 30 and is not kept "
+        + "with their progress, speed, errors and any remote names skipped as unsafe to write locally. The queue holds the last 30 and is not kept "
         + "across restarts.",
       risk: "auto",
       schema: z.object({}),
