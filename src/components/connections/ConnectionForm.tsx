@@ -11,7 +11,7 @@ import EnvVarsPanel from "./EnvVarsPanel";
 import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
 import { sshExecCommand } from "@/services/ssh";
-import { resolveProxy } from "@/services/proxy";
+import { isCustomProxyMode, resolveProxy } from "@/services/proxy";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
 import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import { useAutosave } from "@/hooks/useAutosave";
@@ -185,10 +185,11 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   );
 
   const initialId = initial?.id;
+  const initialProxyHasPassword = isCustomProxyMode(initial?.proxy?.mode);
   useEffect(() => {
-    if (!initialId) return;
+    if (!initialId || !initialProxyHasPassword) return;
     getSecret(proxyPasswordKey(initialId)).then((v) => setProxyPasswordSaved(!!v)).catch(() => {});
-  }, [initialId]);
+  }, [initialId, initialProxyHasPassword]);
 
   const selectedIdentity = relevantIdentities.find((i) => i.id === identityId) ?? null;
 

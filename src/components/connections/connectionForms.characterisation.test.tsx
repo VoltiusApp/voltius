@@ -321,6 +321,19 @@ test("ssh form submits its proxy override and only a typed proxy password", asyn
   expect(onSubmit.mock.calls[1][1].proxyPassword).toBe("pw");
 });
 
+test.each([
+  [undefined, false],
+  [{ mode: "direct" as const }, false],
+  [{ mode: "system" as const }, false],
+  [{ mode: "socks5" as const, host: "p" }, true],
+  [{ mode: "http" as const, host: "p" }, true],
+])("ssh form reads the saved proxy password only for a custom proxy (%j)", async (proxy, reads) => {
+  const { getSecret } = await import("@/services/vault");
+  renderSsh({ initial: conn({ proxy }) });
+  await act(async () => { await Promise.resolve(); });
+  expect((getSecret as ReturnType<typeof vi.fn>).mock.calls.some(([k]) => k === "proxy_password:c1")).toBe(reads);
+});
+
 test("ssh form locks the proxy fields without edit permission", async () => {
   renderSsh({ initial: conn({ proxy: { mode: "http", host: "p.example", port: 8080 } }), canEdit: false });
   await act(async () => { await Promise.resolve(); });

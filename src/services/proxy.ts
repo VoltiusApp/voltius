@@ -13,6 +13,9 @@ export type ProxySpec =
 
 export const DEFAULT_PROXY_PORT = { socks5: 1080, http: 8080 } as const;
 
+export const isCustomProxyMode = (mode: string | undefined): mode is keyof typeof DEFAULT_PROXY_PORT =>
+  mode === "socks5" || mode === "http";
+
 export async function resolveProxy(
   conn: Pick<Connection, "id" | "proxy">,
   overrides?: { proxy?: ProxyOverride | null; password?: string },
