@@ -4,7 +4,7 @@ import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, IdentityExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
-import { liveInVault, selectionMethods } from "../context";
+import { dupesOf, selectionMethods, skipItem } from "../context";
 import { fetchIdentitySecrets, storeIdentitySecrets } from "../secretsLogic";
 
 export const identitiesHandler: DataTypeHandler = {
@@ -38,16 +38,8 @@ export const identitiesHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
-    const existing = liveInVault(ctx.existingIdentities, ctx.vault_id);
-    const existingNames = new Set(existing.map(i => i.name));
     for (const identity of bundle.identities) {
-      if (ctx.skipDupes && identity.name && existingNames.has(identity.name)) {
-        if (identity._eid) {
-          const match = existing.find(i => i.name === identity.name);
-          if (match) ctx.identityEidMap.set(identity._eid, match.id);
-        }
-        continue;
-      }
+      if (skipItem(ctx, identity, dupesOf(ctx).identity(identity), ctx.identityEidMap)) continue;
       try {
         const saved = await ctx.stores.saveIdentity({
           name: identity.name,

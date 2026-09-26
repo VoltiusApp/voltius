@@ -170,7 +170,7 @@
       "unsupportedUserDataVersion": "不支持的用户数据版本：{{version}}",
       "failedToLoadLogs": "加载日志失败",
       "couldNotDetectFormat": "无法检测格式。支持：Voltius JSON、CSV、MobaXterm.ini / .mxtsessions 或实时 Termius 提取。",
-      "csvMissingColumns": "CSV 必须至少包含 'host' 和 'username' 列",
+      "csvMissingColumns": "CSV 必须包含 'host' 列",
       "termiusDumpInvalidJson": "Termius 导出必须是有效的 JSON",
       "legacyTermiusUnsupported": "不再支持旧版 Termius 导出格式；请使用自动提取。",
       "termiusExtractionFormat": "Termius 提取必须返回 { version: 2, records: [...] }",

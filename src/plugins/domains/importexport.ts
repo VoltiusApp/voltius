@@ -91,7 +91,6 @@ function importStores(): ImportStores {
     saveKey: useKeyStore.getState().saveKey,
     saveIdentity: useIdentityStore.getState().saveIdentity,
     saveConnection: useConnectionStore.getState().saveConnection,
-    updateConnection: useConnectionStore.getState().updateConnection,
     createSnippet: useSnippetStore.getState().createSnippet,
     updateSnippet: useSnippetStore.getState().updateSnippet,
     createPfRule: usePortForwardingStore.getState().createRule,
@@ -235,7 +234,7 @@ export async function importObjects(opts: {
     ({ imported, errors } = await runImport(bundle, newImportCtx({
       vault_id: opts.vaultId,
       tag: "",
-      skipDupes: false,
+      skipDupes: true,
       existingConnections: slices.connections,
       existingKeys: slices.keys,
       existingIdentities: slices.identities,

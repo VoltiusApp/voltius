@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import LogoSvg from "/logo.svg?react";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { decryptText, fromJSON } from "@/services/import-export/formats";
 import type { ConnectionExport, ExportBundle, FolderExport, IdentityExport, KeyExport, PortForwardingRuleExport, SnippetExport } from "@/services/import-export/formats";
-import { importableFolders, runImport, reloadAll } from "@/services/import-export/registry";
-import { existingConnectionsForVault, newImportCtx } from "@/services/import-export/context";
+import { runImport, reloadAll } from "@/services/import-export/registry";
+import { findDupes, newImportCtx } from "@/services/import-export/context";
+import type { Dupes } from "@/services/import-export/context";
 import { IMPORTERS, parseImport } from "@/services/import-export/importers";
 import { useImportStores, useReloadFns, useStoreSlices, useDeleteStores } from "./useStores";
 import { ActionBtn, VaultChipSelect, useVaultList } from "./shared";
@@ -142,7 +143,13 @@ function GroupHeader({ label, icon, included, total, allSkipped, collapsed, onTo
 export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: string; autoTrigger?: boolean }) {
   const { t } = useTranslation();
   const storeSlices = useStoreSlices();
-  const { connections: existingConnections } = storeSlices;
+  const existingItems = useMemo(() => ({
+    existingConnections: storeSlices.connections,
+    existingKeys: storeSlices.keys,
+    existingIdentities: storeSlices.identities,
+    existingSnippets: storeSlices.snippets,
+    existingPfRules: storeSlices.pfRules,
+  }), [storeSlices.connections, storeSlices.keys, storeSlices.identities, storeSlices.snippets, storeSlices.pfRules]);
   const importStores = useImportStores();
   const reloaders = useReloadFns();
   const deletes = useDeleteStores();
@@ -174,38 +181,14 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
   const source = IMPORTERS.find(i => i.key === selectedSource)!;
 
   const applyBundle = useCallback((bundle: ExportBundle) => {
-    const targetVaultSaveIds = targetVaultIds.map(resolveVaultIdForSave);
-    const existingConnSets = targetVaultSaveIds.map(vaultId =>
-      new Set(existingConnectionsForVault(existingConnections, vaultId).map(c => `${c.host}:${c.port}:${c.username}`))
-    );
-    const existingKeySets = targetVaultSaveIds.map(vId =>
-      new Set(storeSlices.keys.filter(k => !k.deleted_at && (k.vault_id ?? "personal") === vId).map(k => k.name))
-    );
-    const existingIdentitySets = targetVaultSaveIds.map(vId =>
-      new Set(storeSlices.identities.filter(i => !i.deleted_at && (i.vault_id ?? "personal") === vId).map(i => i.name))
-    );
-    const existingSnippetSets = targetVaultSaveIds.map(vId =>
-      new Set(storeSlices.snippets.filter(s => !s.deleted_at && (s.vault_id ?? "personal") === vId).map(s => s.name))
-    );
-    const existingPfSets = targetVaultSaveIds.map(vId =>
-      new Set(storeSlices.pfRules.filter(r => !r.deleted_at && (r.vault_id ?? "personal") === vId).map(r => r.name))
-    );
-
-    const connectionMeta = bundle.connections.map(c => ({
-      isDupe: existingConnSets.every(s => s.has(`${c.host}:${c.port}:${c.username}`)),
-    }));
-    const keyMeta = bundle.keys.map(k => ({
-      isDupe: k.name ? existingKeySets.every(s => s.has(k.name!)) : false,
-    }));
-    const identityMeta = bundle.identities.map(i => ({
-      isDupe: i.name ? existingIdentitySets.every(s => s.has(i.name!)) : false,
-    }));
-    const snippetMeta = bundle.snippets.map(s => ({
-      isDupe: existingSnippetSets.every(es => es.has(s.name)),
-    }));
-    const pfRuleMeta = bundle.portForwardingRules.map(r => ({
-      isDupe: existingPfSets.every(s => s.has(r.name)),
-    }));
+    const vaultDupes = targetVaultIds.map(vId => findDupes(existingItems, resolveVaultIdForSave(vId)));
+    const metaOf = <T,>(items: T[], match: (d: Dupes, item: T) => string | undefined) =>
+      items.map(item => ({ isDupe: vaultDupes.every(d => match(d, item) !== undefined) }));
+    const connectionMeta = metaOf(bundle.connections, (d, c) => d.connection(c));
+    const keyMeta = metaOf(bundle.keys, (d, k) => d.key(k));
+    const identityMeta = metaOf(bundle.identities, (d, i) => d.identity(i));
+    const snippetMeta = metaOf(bundle.snippets, (d, s) => d.snippet(s));
+    const pfRuleMeta = metaOf(bundle.portForwardingRules, (d, r) => d.pfRule(r));
 
     const actions = new Map<string, ItemAction>();
     bundle.connections.forEach((_, i) => actions.set(`connections:${i}`, connectionMeta[i].isDupe ? "skip" : "include"));
@@ -217,7 +200,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
 
     setStatus({ type: "ready", bundle, connectionMeta, keyMeta, identityMeta, snippetMeta, pfRuleMeta });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingConnections, storeSlices.keys, storeSlices.identities, storeSlices.snippets, storeSlices.pfRules, targetVaultIds]);
+  }, [existingItems, targetVaultIds]);
 
   const parse = useCallback((raw: string) => {
     const trimmed = raw.trim();
@@ -326,62 +309,34 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
       for (const vaultTargetId of targetVaultIds) {
         const vault_id = resolveVaultIdForSave(vaultTargetId);
 
-        // Delete existing items marked as overwrite before re-importing
-        const deleteOps: Promise<void>[] = [];
-        status.bundle.connections.forEach((c, i) => {
-          if (getAction(`connections:${i}`) === "overwrite") {
-            const ex = storeSlices.connections.find(ec =>
-              !ec.deleted_at && (ec.vault_id ?? "personal") === vault_id &&
-              ec.host === c.host && ec.port === c.port && ec.username === c.username
-            );
-            if (ex) deleteOps.push(deletes.deleteConnection(ex.id));
-          }
-        });
-        status.bundle.keys.forEach((k, i) => {
-          if (getAction(`keys:${i}`) === "overwrite" && k.name) {
-            const ex = storeSlices.keys.find(ek => !ek.deleted_at && (ek.vault_id ?? "personal") === vault_id && ek.name === k.name);
-            if (ex) deleteOps.push(deletes.deleteKey(ex.id));
-          }
-        });
-        status.bundle.identities.forEach((id, i) => {
-          if (getAction(`identities:${i}`) === "overwrite" && id.name) {
-            const ex = storeSlices.identities.find(ei => !ei.deleted_at && (ei.vault_id ?? "personal") === vault_id && ei.name === id.name);
-            if (ex) deleteOps.push(deletes.deleteIdentity(ex.id));
-          }
-        });
-        status.bundle.snippets.forEach((s, i) => {
-          if (getAction(`snippets:${i}`) === "overwrite") {
-            const ex = storeSlices.snippets.find(es => !es.deleted_at && (es.vault_id ?? "personal") === vault_id && es.name === s.name);
-            if (ex) deleteOps.push(deletes.deleteSnippet(ex.id));
-          }
-        });
-        status.bundle.portForwardingRules.forEach((r, i) => {
-          if (getAction(`pfRules:${i}`) === "overwrite") {
-            const ex = storeSlices.pfRules.find(er => !er.deleted_at && (er.vault_id ?? "personal") === vault_id && er.name === r.name);
-            if (ex) deleteOps.push(deletes.deleteRule(ex.id));
-          }
-        });
+        const dupes = findDupes(existingItems, vault_id);
+        const overwritten = <T,>(type: string, items: T[], match: (item: T) => string | undefined, remove: (id: string) => Promise<void>) =>
+          items.flatMap((item, i) => {
+            const id = getAction(`${type}:${i}`) === "overwrite" ? match(item) : undefined;
+            return id ? [remove(id)] : [];
+          });
+        const deleteOps = [
+          ...overwritten("connections", status.bundle.connections, dupes.connection, deletes.deleteConnection),
+          ...overwritten("keys", status.bundle.keys, dupes.key, deletes.deleteKey),
+          ...overwritten("identities", status.bundle.identities, dupes.identity, deletes.deleteIdentity),
+          ...overwritten("snippets", status.bundle.snippets, dupes.snippet, deletes.deleteSnippet),
+          ...overwritten("pfRules", status.bundle.portForwardingRules, dupes.pfRule, deletes.deleteRule),
+        ];
         await Promise.all(deleteOps);
 
-        const filteredBundle: ExportBundle = {
-          ...status.bundle,
-          connections: status.bundle.connections.filter((_, i) => getAction(`connections:${i}`) !== "skip"),
-          keys: status.bundle.keys.filter((_, i) => getAction(`keys:${i}`) !== "skip"),
-          identities: status.bundle.identities.filter((_, i) => getAction(`identities:${i}`) !== "skip"),
-          snippets: status.bundle.snippets.filter((_, i) => getAction(`snippets:${i}`) !== "skip"),
-          portForwardingRules: status.bundle.portForwardingRules.filter((_, i) => getAction(`pfRules:${i}`) !== "skip"),
-        };
-        filteredBundle.folders = importableFolders(status.bundle, filteredBundle);
-
-        const result = await runImport(filteredBundle, newImportCtx({
+        const skippedOf = (type: string, items: object[]) => items.filter((_, i) => getAction(`${type}:${i}`) === "skip");
+        const result = await runImport(status.bundle, newImportCtx({
           vault_id,
           tag: addTag.trim(),
           skipDupes: false,
-          existingConnections,
-          existingKeys: storeSlices.keys,
-          existingIdentities: storeSlices.identities,
-          existingSnippets: storeSlices.snippets,
-          existingPfRules: storeSlices.pfRules,
+          skipped: new Set([
+            ...skippedOf("connections", status.bundle.connections),
+            ...skippedOf("keys", status.bundle.keys),
+            ...skippedOf("identities", status.bundle.identities),
+            ...skippedOf("snippets", status.bundle.snippets),
+            ...skippedOf("pfRules", status.bundle.portForwardingRules),
+          ]),
+          ...existingItems,
           existingFolders: [...storeSlices.folders, ...storeSlices.snippetFolders],
           stores: importStores,
         }));

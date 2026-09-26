@@ -2,7 +2,7 @@ import type { PortForwardingRule } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, PortForwardingRuleExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
-import { liveInVault, selectionMethods } from "../context";
+import { dupesOf, selectionMethods, skipItem } from "../context";
 
 export const portForwardingHandler: DataTypeHandler = {
   key: "portForwardingRules",
@@ -31,9 +31,8 @@ export const portForwardingHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
-    const existingNames = new Set(liveInVault(ctx.existingPfRules, ctx.vault_id).map(r => r.name));
     for (const rule of bundle.portForwardingRules) {
-      if (ctx.skipDupes && existingNames.has(rule.name)) continue;
+      if (skipItem(ctx, rule, dupesOf(ctx).pfRule(rule))) continue;
       try {
         await ctx.stores.createPfRule({
           name: rule.name,

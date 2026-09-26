@@ -2,7 +2,7 @@ import { getSecret } from "@/services/vault";
 import type { Connection, Folder, PortForwardingRule } from "@/types";
 import type { ExportBundle, FolderExport } from "./formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "./context";
-import { existingConnectionsForVault, hasSelection } from "./context";
+import { dupeItems, dupesOf, hasSelection } from "./context";
 import type { DataTypeHandler } from "./handler";
 import { keysHandler } from "./handlers/keys";
 import { identitiesHandler } from "./handlers/identities";
@@ -184,52 +184,6 @@ export async function buildBundle(
 
 // ─── Import helpers ───────────────────────────────────────────────────────────
 
-function neededFolderEids(bundle: ExportBundle, ctx: ImportCtx): Set<string> {
-  const needed = new Set<string>();
-
-  const existingConnSet = new Set(
-    existingConnectionsForVault(ctx.existingConnections, ctx.vault_id).map(c => `${c.host}:${c.port}:${c.username}`)
-  );
-  for (const c of bundle.connections) {
-    if (!ctx.skipDupes || !existingConnSet.has(`${c.host}:${c.port}:${c.username}`))
-      if (c._folder_eid) needed.add(c._folder_eid);
-  }
-
-  const existingKeyNames = new Set(
-    ctx.existingKeys.filter(k => !k.deleted_at && (k.vault_id ?? "personal") === ctx.vault_id).map(k => k.name)
-  );
-  for (const k of bundle.keys) {
-    if (!ctx.skipDupes || !k.name || !existingKeyNames.has(k.name))
-      if (k._folder_eid) needed.add(k._folder_eid);
-  }
-
-  const existingIdentityNames = new Set(
-    ctx.existingIdentities.filter(i => !i.deleted_at && (i.vault_id ?? "personal") === ctx.vault_id).map(i => i.name)
-  );
-  for (const i of bundle.identities) {
-    if (!ctx.skipDupes || !i.name || !existingIdentityNames.has(i.name))
-      if (i._folder_eid) needed.add(i._folder_eid);
-  }
-
-  const existingSnippetNames = new Set(
-    ctx.existingSnippets.filter(s => !s.deleted_at && (s.vault_id ?? "personal") === ctx.vault_id).map(s => s.name)
-  );
-  for (const s of bundle.snippets) {
-    if (!ctx.skipDupes || !existingSnippetNames.has(s.name))
-      if (s._folder_eid) needed.add(s._folder_eid);
-  }
-
-  const existingPfNames = new Set(
-    ctx.existingPfRules.filter(r => !r.deleted_at && (r.vault_id ?? "personal") === ctx.vault_id).map(r => r.name)
-  );
-  for (const r of bundle.portForwardingRules) {
-    if (!ctx.skipDupes || !existingPfNames.has(r.name))
-      if (r._folder_eid) needed.add(r._folder_eid);
-  }
-
-  return withAncestors(needed, bundle.folders);
-}
-
 function withAncestors(eids: Set<string>, folders: FolderExport[]): Set<string> {
   let changed = true;
   while (changed) {
@@ -244,22 +198,22 @@ function withAncestors(eids: Set<string>, folders: FolderExport[]): Set<string> 
   return eids;
 }
 
-function itemFolderEids(bundle: ExportBundle): Set<string> {
+function itemFolderEids(bundle: ExportBundle, skipped: ReadonlySet<object> = new Set()): Set<string> {
   const items = [...bundle.connections, ...bundle.keys, ...bundle.identities, ...bundle.snippets, ...bundle.portForwardingRules];
-  return new Set(items.flatMap(i => i._folder_eid ? [i._folder_eid] : []));
+  return new Set(items.flatMap(i => i._folder_eid && !skipped.has(i) ? [i._folder_eid] : []));
 }
 
-// Folders of `original` worth importing once items were dropped to make `kept`:
+// Folders of `bundle` worth importing once `skipped` items are left out:
 // ancestors of a kept item, and empty leaf folders with their ancestors.
-export function importableFolders(original: ExportBundle, kept: ExportBundle): FolderExport[] {
-  const holding = itemFolderEids(original);
-  const keptHolding = itemFolderEids(kept);
-  const parents = new Set(original.folders.map(f => f.parent_folder_eid));
-  const seeds = original.folders
+export function importableFolders(bundle: ExportBundle, skipped: ReadonlySet<object>): FolderExport[] {
+  const holding = itemFolderEids(bundle);
+  const keptHolding = itemFolderEids(bundle, skipped);
+  const parents = new Set(bundle.folders.map(f => f.parent_folder_eid));
+  const seeds = bundle.folders
     .filter(f => keptHolding.has(f._eid) || (!holding.has(f._eid) && !parents.has(f._eid)))
     .map(f => f._eid);
-  const keep = withAncestors(new Set(seeds), original.folders);
-  return original.folders.filter(f => keep.has(f._eid));
+  const keep = withAncestors(new Set(seeds), bundle.folders);
+  return bundle.folders.filter(f => keep.has(f._eid));
 }
 
 function matchingFolder(ctx: ImportCtx, folder: FolderExport, parentId: string | undefined): Folder | undefined {
@@ -278,8 +232,8 @@ export async function runImport(
   let errors = 0;
 
   // 1. Folders — reused when the vault already has one of the same name, type and parent
-  const needed = ctx.skipDupes ? neededFolderEids(bundle, ctx) : null;
-  const pending = bundle.folders.filter(f => !needed || needed.has(f._eid));
+  ctx.skipped ??= ctx.skipDupes ? dupeItems(bundle, dupesOf(ctx)) : new Set();
+  const pending = importableFolders(bundle, ctx.skipped);
   let maxPasses = pending.length + 1;
   while (pending.length > 0 && maxPasses-- > 0) {
     const remaining: FolderExport[] = [];

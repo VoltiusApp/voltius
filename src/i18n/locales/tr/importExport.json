@@ -17,6 +17,7 @@
       "encryptBackup": "Yedeği şifrele",
       "plaintextSecretsWarning": "Bu dışa aktarma parolaları, anahtarları veya sunucu notlarını düz metin olarak içeriyor. Bilerek şifrelenmemiş bir dosyaya ihtiyacınız yoksa şifrelemeyi açık tutun.",
       "snippetRefMissing": "“{{name}}”, bu dışa aktarmaya dahil olmayan başka bir kod parçacığını ({{target}}) çalıştırıyor. Onu da seçime ekleyin veya o adımı kaldırın.",
+      "exportFailed": "Dışa aktarılamadı: {{error}}",
       "confirmPasswordPlaceholder": "Parolayı onayla",
       "passwordsDontMatch": "Parolalar eşleşmiyor",
       "building": "Hazırlanıyor…",
