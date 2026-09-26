@@ -15,7 +15,10 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/vault", () => ({ getSecret: h.getSecret, storeSecret: h.storeSecret, deleteSecret: h.deleteSecret }));
-vi.mock("@/services/proxy", () => ({ detectSystemProxy: h.detectSystemProxy, DEFAULT_PROXY_PORT: { socks5: 1080, http: 8080 } }));
+vi.mock("@/services/proxy", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/proxy")>()),
+  detectSystemProxy: h.detectSystemProxy,
+}));
 
 import HostsSection from "./HostsSection";
 
@@ -87,4 +90,42 @@ test("system mode shows what the OS proxy detection found", async () => {
   render(<HostsSection />);
   await act(async () => { await Promise.resolve(); });
   expect(screen.getByText(/settings\.hosts\.proxy\.detected .*10\.0\.0\.1/)).toBeTruthy();
+});
+
+test("proxy host and username keystrokes stay local until the field loses focus", () => {
+  renderSocks5();
+  const host = screen.getByLabelText("connections.form.proxy.host") as HTMLInputElement;
+  fireEvent.change(host, { target: { value: "n" } });
+  fireEvent.change(host, { target: { value: "new" } });
+  expect(host.value).toBe("new");
+  expect(useConnectivitySettingsStore.getState().proxy.host).toBe("p");
+  fireEvent.blur(host);
+  expect(useConnectivitySettingsStore.getState().proxy).toEqual({ mode: "socks5", host: "new", port: 1080 });
+
+  const user = screen.getByLabelText("connections.form.proxy.username") as HTMLInputElement;
+  fireEvent.change(user, { target: { value: "bob" } });
+  expect(useConnectivitySettingsStore.getState().proxy.username).toBeUndefined();
+  fireEvent.blur(user);
+  expect(useConnectivitySettingsStore.getState().proxy.username).toBe("bob");
+});
+
+test("the proxy port commits immediately and carries a host still being typed", () => {
+  renderSocks5();
+  const host = screen.getByLabelText("connections.form.proxy.host") as HTMLInputElement;
+  fireEvent.change(host, { target: { value: "typed" } });
+  fireEvent.change(screen.getByLabelText("connections.form.proxy.port"), { target: { value: "9050" } });
+  expect(useConnectivitySettingsStore.getState().proxy).toEqual({ mode: "socks5", host: "typed", port: 9050 });
+});
+
+test("a host typed but never blurred is kept when the section closes", () => {
+  renderSocks5();
+  fireEvent.change(screen.getByLabelText("connections.form.proxy.host"), { target: { value: "late" } });
+  cleanup();
+  expect(useConnectivitySettingsStore.getState().proxy.host).toBe("late");
+});
+
+test("an outside change to the global proxy shows up in the fields", () => {
+  renderSocks5();
+  act(() => { useConnectivitySettingsStore.getState().setProxy({ mode: "socks5", host: "synced", port: 1080 }); });
+  expect((screen.getByLabelText("connections.form.proxy.host") as HTMLInputElement).value).toBe("synced");
 });

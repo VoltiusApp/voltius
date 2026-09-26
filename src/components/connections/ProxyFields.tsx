@@ -2,7 +2,7 @@ import { useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { SecretInput } from "@/components/shared/vaultObjectForm";
-import { DEFAULT_PROXY_PORT } from "@/services/proxy";
+import { DEFAULT_PROXY_PORT, isCustomProxyMode } from "@/services/proxy";
 import { formIdentifierProps, formInputClass, formInputStyle, formLabelClass, formLabelStyle } from "@/components/shared/Panel";
 
 export interface ProxyFieldsValue {
@@ -20,6 +20,7 @@ interface ProxyFieldsProps {
   passwordSaved: boolean;
   onPasswordChange: (pw: string) => void;
   onPasswordBlur?: () => void;
+  onTextBlur?: () => void;
   passwordError?: string;
   disabled?: boolean;
   renderRow?: (select: ReactNode) => ReactNode;
@@ -44,6 +45,7 @@ export default function ProxyFields({
   passwordSaved,
   onPasswordChange,
   onPasswordBlur,
+  onTextBlur,
   passwordError,
   disabled,
   renderRow = (select) => select,
@@ -53,7 +55,7 @@ export default function ProxyFields({
   const id = useId();
   const [badPort, setBadPort] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const custom = value.mode === "socks5" || value.mode === "http";
+  const custom = isCustomProxyMode(value.mode);
 
   const changePort = (text: string) => {
     const port = parsePort(text);
@@ -96,6 +98,7 @@ export default function ProxyFields({
                 placeholder="proxy.example.com"
                 disabled={disabled}
                 onChange={(e) => onChange({ ...value, host: e.target.value.trim() || undefined })}
+                onBlur={onTextBlur}
                 {...formIdentifierProps}
               />
             </div>
@@ -129,6 +132,7 @@ export default function ProxyFields({
                 placeholder={t("connections.form.optional")}
                 disabled={disabled}
                 onChange={(e) => onChange({ ...value, username: e.target.value || undefined })}
+                onBlur={onTextBlur}
                 {...formIdentifierProps}
               />
             </div>

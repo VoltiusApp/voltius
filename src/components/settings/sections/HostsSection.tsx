@@ -45,6 +45,23 @@ export default function HostsSection() {
     () => GLOBAL_PROXY_MODES.map((m) => ({ value: m, label: t(`settings.hosts.proxy.modes.${m}`) })),
     [t],
   );
+  const [proxyDraft, setProxyDraft] = useState(globalProxy);
+  const pendingProxy = useRef<GlobalProxy | null>(null);
+  useEffect(() => {
+    if (pendingProxy.current === null) setProxyDraft(globalProxy);
+  }, [globalProxy]);
+  const commitProxy = useCallback(() => {
+    const next = pendingProxy.current;
+    if (next === null) return;
+    pendingProxy.current = null;
+    setGlobalProxy(next);
+  }, [setGlobalProxy]);
+  useEffect(() => commitProxy, [commitProxy]);
+  const changeProxy = (next: GlobalProxy) => {
+    pendingProxy.current = next;
+    setProxyDraft(next);
+    if (next.mode !== proxyDraft.mode || next.port !== proxyDraft.port) commitProxy();
+  };
   const [proxyPassword, setProxyPassword] = useState("");
   const pendingProxyPassword = useRef<string | null>(null);
   const [proxyPasswordSaved, setProxyPasswordSaved] = useState(false);
@@ -166,8 +183,9 @@ export default function HostsSection() {
         <div>
           <ProxyFields
             modes={globalProxyModes}
-            value={globalProxy}
-            onChange={(p) => setGlobalProxy(p as GlobalProxy)}
+            value={proxyDraft}
+            onChange={(p) => changeProxy(p as GlobalProxy)}
+            onTextBlur={commitProxy}
             password={proxyPassword}
             passwordSaved={proxyPasswordSaved}
             onPasswordChange={(pw) => { pendingProxyPassword.current = pw; setProxyPassword(pw); }}
