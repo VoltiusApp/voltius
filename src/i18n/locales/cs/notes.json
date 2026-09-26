@@ -1,0 +1,54 @@
+{
+  "notes": {
+    "toolbar": {
+      "heading": "Nadpis",
+      "h1": "Nadpis 1",
+      "h2": "Nadpis 2",
+      "h3": "Nadpis 3",
+      "bold": "Tučně",
+      "italic": "Kurzíva",
+      "code": "Vložený kód",
+      "link": "Odkaz",
+      "bullet": "Odrážkový seznam",
+      "ordered": "Číslovaný seznam",
+      "task": "Kontrolní seznam",
+      "codeBlock": "Blok kódu",
+      "more": "Další formátování",
+      "preview": "Náhled",
+      "edit": "Upravit"
+    },
+    "editor": {
+      "placeholder": "Pište poznámky v Markdownu — napište / pro bloky"
+    },
+    "slash": {
+      "h1": "Nadpis 1",
+      "h2": "Nadpis 2",
+      "h3": "Nadpis 3",
+      "bullet": "Odrážkový seznam",
+      "numbered": "Číslovaný seznam",
+      "todo": "Kontrolní seznam",
+      "code": "Blok kódu",
+      "table": "Tabulka",
+      "divider": "Oddělovač",
+      "link": "Odkaz"
+    },
+    "empty": {
+      "title": "Zatím žádné poznámky",
+      "start": "Začít psát"
+    },
+    "code": {
+      "copy": "Kopírovat",
+      "copied": "Zkopírováno",
+      "sendToTerminal": "Odeslat do terminálu"
+    },
+    "panel": {
+      "noHost": "Poznámky se připojují k uloženým hostitelům",
+      "readOnly": "Jen pro čtení",
+      "conflict": "Poznámky byly změněny jinde",
+      "reload": "Znovu načíst",
+      "keepMine": "Ponechat moje",
+      "saveFailed": "Poznámky se nepodařilo uložit: {{error}}",
+      "retry": "Zkusit znovu"
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "panes": {
+    "badge": {
+      "ssh": "SSH",
+      "serial": "SÉRIOVÝ",
+      "multiplayer": "MPX",
+      "local": "LOKÁLNÍ"
+    },
+    "header": {
+      "copied": "Zkopírováno!",
+      "loading": "načítání…",
+      "localSystem": "Lokální systém",
+      "excludedFromBroadcast": "Vyloučeno z vysílání",
+      "mcpBadge": "MCP",
+      "mcpTooltip": "Otevřeno klientem {{client}}",
+      "mcpTooltipUnknown": "Otevřeno MCP klientem",
+      "mcpTooltipDisconnected": "Otevřeno klientem {{client}} (odpojeno)",
+      "disableBroadcast": "Vypnout vysílání",
+      "broadcastInput": "Vysílat vstup",
+      "detachPane": "Oddělit panel",
+      "restorePane": "Obnovit panel",
+      "maximizePane": "Maximalizovat panel",
+      "closePane": "Zavřít panel",
+      "latencyTooltip": "{{ms}} ms — kliknutím zkopírujete",
+      "reconnect": "Znovu připojit",
+      "rename": "Přejmenovat…",
+      "duplicate": "Duplikovat",
+      "duplicateSplit": "Duplikovat do rozdělení",
+      "split": "Rozdělit",
+      "splitLeft": "Rozdělit vlevo",
+      "splitRight": "Rozdělit vpravo",
+      "splitTop": "Rozdělit nahoře",
+      "splitBottom": "Rozdělit dole",
+      "noSessionToSplit": "Otevřete další relaci nebo přetáhněte existující kartu na panel a rozdělte ho.",
+      "sparkline": {
+        "min": "min. {{ms}} ms",
+        "avg": "prům. {{ms}} ms",
+        "max": "max. {{ms}} ms"
+      }
+    },
+    "terminal": {
+      "emptyTitle": "Rozdělená plocha je prázdná",
+      "emptyHint": "Přetáhněte sem kartu relace a začněte rozdělovat panely.",
+      "serialSubtitle": "{{port}} · {{baud}} Bd"
+    },
+    "dragToast": {
+      "alreadyVisible": "Tato relace je v rozdělené ploše už zobrazena.",
+      "invalidDropTarget": "Pro vytvoření rozdělení ji pusťte na aktivní terminál nebo na rozdělený panel.",
+      "cannotDuplicate": "Tuto relaci nelze duplikovat."
+    }
+  }
+}

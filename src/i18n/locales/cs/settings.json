@@ -1,0 +1,1323 @@
+{
+  "settings": {
+    "terminal": {
+      "heading": "Chování terminálu",
+      "preferredShell": {
+        "title": "Preferovaný shell"
+      },
+      "scrollback": {
+        "title": "Historie terminálu",
+        "desc": "Počet uchovaných řádků na terminálovou relaci. Platí pro nové terminály.",
+        "option": "{{count}} řádků"
+      },
+      "cursorStyle": {
+        "title": "Styl kurzoru",
+        "desc": "Tvar kurzoru v terminálu.",
+        "bar": "Svislá čára",
+        "block": "Blok",
+        "underline": "Podtržítko"
+      },
+      "cursorBlink": {
+        "title": "Blikání kurzoru",
+        "desc": "Kurzor v terminálu bliká."
+      },
+      "minimap": {
+        "title": "Minimapa posuvníku",
+        "desc": "Zobrazit vedle terminálů zmenšený přehled historie."
+      },
+      "selectToCopy": {
+        "title": "Kopírovat výběrem",
+        "desc": "Text se zkopíruje do schránky, jakmile ho v terminálu označíte."
+      },
+      "dragSelectsText": {
+        "title": "Tažení označuje text",
+        "desc": "Označovat text obyčejným tažením, i když myš používá program (tmux, vim, htop). Kliknutí program stále dostane; pokud chcete tažení poslat programu, držte při tažení Ctrl."
+      },
+      "ignoreBracketedPaste": {
+        "title": "Prosté vkládání (bez bracketed paste)",
+        "desc": "Vkládat jako prostý text bez značek \\x1b[200~ / \\x1b[201~. Opravuje poškozený vstup (např. „200~“) při vkládání do výzev sudo nebo CLI aplikací, které bracketed paste nepodporují."
+      }
+    },
+    "appearance": {
+      "interface": "Rozhraní",
+      "language": {
+        "title": "Jazyk"
+      },
+      "groupTabsByHost": {
+        "title": "Seskupit karty podle hostitele",
+        "desc": "Relace na stejném hostiteli sdílejí jednu kartu. Najetím na ni mezi nimi přepínáte."
+      },
+      "colorTheme": "Barevný motiv",
+      "import": "Importovat",
+      "importTitle": "Importovat motiv(y)",
+      "exportAll": "Exportovat vše",
+      "exportAllTitle": "Exportovat všechny vlastní motivy",
+      "exportTheme": "Exportovat motiv",
+      "editTheme": "Upravit motiv",
+      "deleteTheme": "Smazat motiv",
+      "newCustomTheme": "Nový vlastní motiv",
+      "uiScale": {
+        "title": "Měřítko rozhraní",
+        "desc": "Zvětšit nebo zmenšit celé rozhraní.",
+        "clickHint": "Kliknutím zadáte hodnotu",
+        "zoomOut": "Zmenšit",
+        "zoomIn": "Zvětšit",
+        "resetTitle": "Obnovit měřítko",
+        "reset": "Obnovit"
+      },
+      "terminalFontSize": {
+        "title": "Velikost písma terminálu",
+        "desc": "Nastavit velikost textu v terminálu samostatně, bez změny měřítka zbytku rozhraní.",
+        "clickHint": "Kliknutím zadáte hodnotu",
+        "zoomOut": "Menší text",
+        "zoomIn": "Větší text",
+        "resetTitle": "Použít velikost písma z motivu",
+        "reset": "Obnovit"
+      },
+      "automation": {
+        "themeMode": "Automatický režim motivu",
+        "title": "Automatický motiv",
+        "desc": "Automaticky přepínat mezi světlým a tmavým motivem",
+        "lightTheme": "Světlý motiv",
+        "darkTheme": "Tmavý motiv",
+        "mode": "Režim",
+        "modeManual": "Ručně",
+        "modeSystem": "Podle systému",
+        "modeSchedule": "Rozvrh",
+        "modeSunset": "Východ / západ slunce",
+        "lightStarts": "Světlý od",
+        "darkStarts": "Tmavý od",
+        "useMyLocation": "Použít mou polohu",
+        "latitude": "Zeměpisná šířka",
+        "longitude": "Zeměpisná délka",
+        "sunToday": "Dnes: východ {{sunrise}}, západ {{sunset}}",
+        "locationNeeded": "Pro východ/západ slunce nastavte polohu"
+      }
+    },
+    "nav": {
+      "appearance": {
+        "label": "Vzhled",
+        "keywords": [
+          "motiv",
+          "barva",
+          "písmo",
+          "rozhraní"
+        ]
+      },
+      "account": {
+        "label": "Účet",
+        "keywords": [
+          "profil",
+          "přihlášení",
+          "ověření"
+        ]
+      },
+      "sync": {
+        "label": "Synchronizace",
+        "keywords": [
+          "záloha",
+          "cloud",
+          "gist",
+          "synchronizace",
+          "pro"
+        ]
+      },
+      "plugins": {
+        "label": "Pluginy",
+        "keywords": [
+          "rozšíření",
+          "doplňky",
+          "marketplace"
+        ]
+      },
+      "integrations": {
+        "label": "Integrace",
+        "keywords": [
+          "mcp",
+          "claude",
+          "claude code",
+          "server",
+          "socket",
+          "agent"
+        ]
+      },
+      "terminal": {
+        "label": "Terminál",
+        "keywords": [
+          "historie",
+          "kurzor",
+          "vkládání",
+          "bracketed",
+          "kopírování",
+          "minimapa",
+          "buffer"
+        ]
+      },
+      "sftp": {
+        "label": "SFTP",
+        "keywords": [
+          "soubor",
+          "přenos",
+          "ftp",
+          "soubory"
+        ]
+      },
+      "portForwarding": {
+        "label": "Přesměrování portů",
+        "keywords": [
+          "tunel",
+          "přesměrování",
+          "porty",
+          "ssh",
+          "auto"
+        ]
+      },
+      "hosts": {
+        "label": "Hostitelé",
+        "keywords": [
+          "ping",
+          "dostupnost",
+          "konektivita",
+          "stav"
+        ]
+      },
+      "shortcuts": {
+        "label": "Klávesové zkratky",
+        "keywords": [
+          "klávesa",
+          "zkratka",
+          "klávesová zkratka",
+          "přemapování",
+          "klávesnice"
+        ]
+      },
+      "diagnostics": {
+        "label": "Diagnostika",
+        "keywords": [
+          "diagnostika",
+          "chyba",
+          "hlášení",
+          "log",
+          "ladění",
+          "problém"
+        ]
+      },
+      "about": {
+        "label": "O aplikaci",
+        "keywords": [
+          "verze",
+          "aktualizace",
+          "vydání",
+          "seznam změn"
+        ]
+      }
+    },
+    "chrome": {
+      "title": "Nastavení",
+      "close": "Zavřít nastavení",
+      "back": "Zpět",
+      "openHint": "Otevřete pomocí Ctrl+,",
+      "expandPluginGroup": "Rozbalit nastavení pluginů",
+      "collapsePluginGroup": "Sbalit nastavení pluginů"
+    },
+    "shared": {
+      "cancel": "Zrušit",
+      "resetToDefault": "Obnovit výchozí",
+      "modifiedFromDefault": "Změněno oproti výchozímu"
+    },
+    "account": {
+      "modeTitle": "Režim účtu",
+      "currentMode": "Aktuální režim",
+      "mode": {
+        "localNoPassword": "Lokální (klíčenka systému)",
+        "local": "Lokální (hlavní heslo)",
+        "server": "Cloudový účet",
+        "unknown": "Neznámý"
+      },
+      "sessionSecurity": {
+        "title": "Zabezpečení relace",
+        "autoLockLabel": "Automaticky zamknout trezor po nečinnosti",
+        "autoLockDesc": "Po vypršení relace zamkne trezor a vyžádá si hlavní heslo.",
+        "noPasswordHint": "Pro automatické zamykání a časový limit relace zapněte hlavní heslo.",
+        "timeout": {
+          "never": "Nikdy",
+          "5min": "5 minut",
+          "15min": "15 minut",
+          "30min": "30 minut",
+          "1h": "1 hodina",
+          "4h": "4 hodiny"
+        }
+      },
+      "email": "E-mail",
+      "editEmail": {
+        "title": "Změnit e-mail",
+        "currentLabel": "Aktuální:",
+        "newPlaceholder": "Nová e-mailová adresa",
+        "passwordPlaceholder": "Aktuální hlavní heslo",
+        "errorInvalidEmail": "Neplatná e-mailová adresa",
+        "errorSameEmail": "Nový e-mail se musí lišit od aktuálního",
+        "errorPasswordRequired": "Pro potvrzení změny je vyžadováno heslo",
+        "updatedPrefix": "E-mail změněn na ",
+        "updatedSuffix": ". Ověřovací odkaz najdete ve své schránce.",
+        "pausedNote": "Do ověření budou placené funkce pozastaveny.",
+        "done": "Hotovo",
+        "saving": "Ukládání…",
+        "save": "Uložit",
+        "toastVerification": "Ověřovací e-mail odeslán na {{email}}."
+      },
+      "handle": {
+        "title": "Přezdívka",
+        "copy": "Kopírovat",
+        "copied": "Zkopírováno",
+        "choose": "Zvolit přezdívku",
+        "change": "Změnit přezdívku",
+        "chooseSub": "Díky vlastní přezdívce vás najdou i lidé mimo vaše týmy.",
+        "generatedNote": "Vaše aktuální přezdívka už funguje pro každého, komu ji dáte.",
+        "unverified": "Pro volbu vlastní přezdívky ověřte svůj e-mail.",
+        "placeholder": "vase-prezdivka",
+        "inputLabel": "Přezdívka",
+        "save": "Uložit",
+        "errorInvalid": "Přezdívka může obsahovat jen písmena, číslice a pomlčky.",
+        "errorTaken": "Tato přezdívka je již obsazená.",
+        "errorEmailNotVerified": "Nejprve ověřte svůj e-mail, pak si zvolte přezdívku.",
+        "errorCooldown": "Přezdívku budete moci brzy změnit znovu.",
+        "errorGeneric": "Přezdívku se nepodařilo změnit."
+      },
+      "strangerInvites": {
+        "label": "Povolit pozvánky od kohokoli",
+        "desc": "Umožní lidem mimo vaše týmy pozvat vás do sdíleného terminálu pomocí @přezdívky nebo e-mailu."
+      },
+      "changeMasterPassword": {
+        "label": "Změnit hlavní heslo",
+        "sub": "Změní heslo bez opětovného šifrování trezoru",
+        "title": "Změnit hlavní heslo",
+        "currentPlaceholder": "Aktuální heslo",
+        "newPlaceholder": "Nové heslo (min. 8 znaků)",
+        "confirmPlaceholder": "Potvrďte nové heslo",
+        "errorCurrentRequired": "Aktuální heslo je povinné",
+        "errorMinLength": "Nové heslo musí mít alespoň 8 znaků",
+        "errorSamePassword": "Nové heslo se musí lišit od aktuálního",
+        "successMsg": "Heslo bylo úspěšně změněno.",
+        "successNote": "Zůstáváte přihlášeni. Položky trezoru se nezměnily.",
+        "done": "Hotovo",
+        "changing": "Změna…",
+        "changeBtn": "Změnit heslo"
+      },
+      "setMasterPassword": {
+        "label": "Nastavit hlavní heslo",
+        "sub": "Chraňte trezor lokálně bez synchronizace s cloudem"
+      },
+      "lockVault": {
+        "label": "Zamknout trezor",
+        "sub": "Zamknout nyní a vyžadovat hlavní heslo"
+      },
+      "signOut": {
+        "label": "Odhlásit se z cloudového účtu",
+        "sub": "Vymaže uložené heslo a synchronizační tokeny"
+      },
+      "wipeData": {
+        "label": "Vymazat všechna lokální data",
+        "sub": "Trvale smaže všechna připojení, klíče, trezor a položky klíčenky"
+      },
+      "confirmWipe": {
+        "descPre": "Tím trvale smažete ",
+        "descBold": "všechna lokální data",
+        "descPost": ": připojení, SSH klíče, identity, tajemství trezoru a položky klíčenky systému. Tuto akci nelze vrátit zpět.",
+        "confirm": "Vymazat vše"
+      },
+      "setPassword": {
+        "desc": "Zvolte hlavní heslo. Vaše stávající data budou znovu zašifrována.",
+        "newPlaceholder": "Nové hlavní heslo",
+        "confirmPlaceholder": "Potvrzení hesla",
+        "submit": "Nastavit heslo"
+      },
+      "error": {
+        "minLength": "Alespoň 4 znaky",
+        "mismatch": "Hesla se neshodují",
+        "updateFailed": "Změna se nezdařila"
+      },
+      "success": {
+        "passwordSet": "Hlavní heslo nastaveno. Váš trezor je nyní chráněn heslem."
+      },
+      "loading": "Probíhá...",
+      "plan": {
+        "title": "Tarif",
+        "badge": {
+          "business": "Business",
+          "teams": "Teams",
+          "proTrial": "Zkušební Pro — zbývá {{daysLeft}} d",
+          "pro": "Pro",
+          "free": "Free"
+        },
+        "manageBilling": "Spravovat fakturaci →",
+        "subscription": {
+          "cancelled": "Končí {{date}}. Do té doby máte přístup.",
+          "cancelledNoPeriod": "Končí na konci období. Do té doby máte přístup.",
+          "renews": "Obnoví se {{date}}.",
+          "active": "Vaše předplatné je aktivní."
+        },
+        "seats": "Místa",
+        "seatsUsed": "Využito {{used}} / {{total}}",
+        "upgradeToPro": "Přejděte na vyšší tarif a odemkněte synchronizaci s cloudem a další",
+        "upgrade": "Upgradovat",
+        "upgradeToTeams": "Vyzkoušejte Teams zdarma na {{days}} dní: sdílené trezory a role pro váš tým. Vyžaduje kartu.",
+        "teamsButton": "Vyzkoušet zdarma →",
+        "viewAllPlans": "Zobrazit všechny tarify →",
+        "feature": {
+          "localVault": "Lokální trezor",
+          "auditLogs": "Auditní logy",
+          "gistSync": "Synchronizace přes GitHub Gist",
+          "realtimeSync": "Synchronizace s cloudem v reálném čase",
+          "unlimitedVaults": "Neomezeně soukromých trezorů",
+          "terminalSharing": "Sdílení terminálu (1 relace · 1 host)",
+          "teamVaults": "Sdílené týmové trezory",
+          "teamSharing": "Týmové sdílení (5 relací · 10 hostů)",
+          "seats": "Místa (dle nákupu)",
+          "customRoles": "Vlastní role"
+        }
+      },
+      "buySeats": {
+        "title": "Žádná volná místa",
+        "seatsUsed": "Využito {{used}} / {{total}} míst",
+        "inviting": "Zvaní",
+        "additionalSeats": "Další místa",
+        "seatsTotal": "celkem {{from}} → {{to}}",
+        "priceRow_one": "{{count}} místo × ${{price}}/měs.",
+        "priceRow_few": "{{count}} místa × ${{price}}/měs.",
+        "priceRow_many": "{{count}} místa × ${{price}}/měs.",
+        "priceRow_other": "{{count}} míst × ${{price}}/měs.",
+        "totalPerMonth": "${{amount}}/měs.",
+        "proratedNote": "Poměrná částka za aktuální fakturační období se naúčtuje okamžitě.",
+        "processing": "Zpracování…",
+        "buyAndInvite_one": "Koupit {{count}} místo a pozvat",
+        "buyAndInvite_few": "Koupit {{count}} místa a pozvat",
+        "buyAndInvite_many": "Koupit {{count}} místa a pozvat",
+        "buyAndInvite_other": "Koupit {{count}} míst a pozvat",
+        "errorNotConnected": "Nepřipojeno k serveru",
+        "errorNoSubscription": "Nebylo nalezeno aktivní předplatné",
+        "errorUpdateSeats": "Místa se nepodařilo aktualizovat: {{status}}"
+      }
+    },
+    "diagnostics": {
+      "intro": "Máte s Voltius potíže? Vytvořte hlášení a pošlete ho vývojáři — pomůže to dohledat chyby, které se těžko reprodukují.",
+      "troubleshootingTitle": "Řešení potíží",
+      "verboseLabel": "Podrobné logování (tato relace)",
+      "verboseSub": "Zaznamenává více podrobností pro diagnostiku potíží. Po restartu Voltius se vrátí do normálu.",
+      "verboseHint": "Podrobné logování je zapnuté. Pro zachycení problému:\n1. Nyní problém zopakujte\n2. Vraťte se a vytvořte hlášení chyby",
+      "reportTitle": "Hlášení chyby",
+      "createButton": "Vytvořit hlášení chyby",
+      "creatingButton": "Shromažďování logů…",
+      "createdButton": "Hlášení uloženo",
+      "reportSub": "Obsahuje logy aplikace a informace o systému. Nikdy neobsahuje vaše hesla, klíče ani obsah terminálu.",
+      "whatsIncluded": "Co obsahuje?",
+      "includedBody": "Obsahuje:\n• Logy aplikace (co Voltius dělal, s odstraněnými citlivými hodnotami)\n• Verzi aplikace, operační systém a aktivní pluginy\nNEOBSAHUJE:\n• Hesla, obsah trezoru ani soukromé klíče\n• Výstup terminálu ani nic, co jste napsali\nHlášení se uloží do vašeho počítače. Nic se neodesílá automaticky — sami se rozhodnete, kde ho sdílet.",
+      "toastSaved": "Hlášení uloženo — {{name}}",
+      "toastError": "Hlášení se nepodařilo vytvořit: {{reason}}",
+      "toastGenericError": "Něco se pokazilo."
+    },
+    "integrations": {
+      "mcp": {
+        "title": "MCP",
+        "sub": "Umožní lokálním MCP klientům (například Claude Code) přes soukromý socket spouštět příkazy, číst, zapisovat a mazat soubory na všech hostitelích ve vašem trezoru i na tomto počítači, vytvářet, měnit nebo mazat uložená připojení, klíče a identity, spouštět vaše uložené snippety na těchto hostitelích, schvalovat klíče SSH hostitelů, číst příkazy, které jste napsali, zobrazovat, rušit nebo opakovat vaše přenosy souborů, zjišťovat, kteří z uložených hostitelů jsou dostupní, přeskupovat karty terminálu a rozdělené panely, spravovat členství a pozvánky vašeho týmu, sdílet terminálové relace s týmem nebo předávat jejich ovládání, číst a měnit všechna nastavení této aplikace a číst vaše předplatné. Schválení probíhá v daném klientovi, ne ve Voltius. Ve výchozím stavu vypnuto. Může také instalovat, aktualizovat a odebírat pluginy a exportovat či importovat vaše uložené objekty.",
+        "running": "Běží",
+        "quickSetup": {
+          "title": "Rychlé nastavení",
+          "help": "Nastaví všechny AI agenty, které na tomto počítači najde, aniž by měnil vaše ostatní nastavení. Vyžaduje Node.js."
+        },
+        "manualSetup": {
+          "toggleLabel": "Ruční nastavení",
+          "toggleSub": "Nemáte nainstalovaný Node.js, nebo váš klient výše uvedený příkaz nepodporuje? Nastavte ho ručně níže."
+        },
+        "setup": {
+          "title": "Nastavení klienta",
+          "clientLabel": "MCP klient",
+          "clients": {
+            "claudeCode": "Claude Code",
+            "mcpServers": "Claude Desktop / Cursor / Cline / Windsurf",
+            "vscode": "VS Code / GitHub Copilot",
+            "opencode": "OpenCode"
+          },
+          "help": {
+            "claudeCode": "Spusťte jednou pro registraci Voltius v Claude Code. Aby se klient mohl připojit, musí být server výše zapnutý.",
+            "mcpServers": "Přidejte tento blok do claude_desktop_config.json (Claude Desktop) nebo .cursor/mcp.json (Cursor, Cline, Windsurf). Aby se klient mohl připojit, musí být server výše zapnutý.",
+            "vscode": "Přidejte tento blok do .vscode/mcp.json. VS Code používá \"servers\", ne \"mcpServers\" — vložený blok ve stylu Cursoru se tiše nenačte.",
+            "opencode": "Přidejte tento blok do opencode.json (projekt) nebo ~/.config/opencode/opencode.json (globálně)."
+          },
+          "exePathLabel": "Cesta ke spustitelnému souboru",
+          "socketLabel": "Cesta k socketu",
+          "copied": "Zkopírováno"
+        },
+        "plugins": {
+          "title": "Nástroje pluginů dostupné klientům",
+          "sub": "Nainstalované pluginy mohou do MCP serveru přidat vlastní příkazy. Vypnutím plugin vyřadíte ze seznamu nástrojů, aniž byste ho odinstalovali.",
+          "empty": "Žádný nainstalovaný plugin neposkytuje nástroje.",
+          "count_one": "{{count}} nástroj",
+          "count_few": "{{count}} nástroje",
+          "count_many": "{{count}} nástroje",
+          "count_other": "{{count}} nástrojů"
+        }
+      }
+    },
+    "mcp": {
+      "consequence": {
+        "autoUpdate": "Vypne automatické stahování aktualizací, takže bezpečnostní opravy přestanou přicházet samy.",
+        "pluginInstallReview": "Vypne obrazovku se souhlasem před instalací pluginu. Plugin žádající o citlivé oprávnění ji stále zobrazí.",
+        "sessionTimeout": "Vypne automatické zamčení trezoru po době nečinnosti."
+      }
+    },
+    "about": {
+      "versionTitle": "Verze",
+      "loading": "Načítání…",
+      "updatesTitle": "Aktualizace",
+      "checkForUpdate": "Zkontrolovat aktualizace",
+      "restartToUpdate": "Restartovat a aktualizovat · v{{version}}",
+      "status": {
+        "idle": "Zatím nekontrolováno",
+        "checking": "Hledání aktualizací…",
+        "upToDate": "Máte nejnovější verzi",
+        "downloading": "Stahování v{{version}} — {{progress}} %",
+        "ready": "Verze v{{version}} je připravena k instalaci"
+      },
+      "autoDownload": {
+        "title": "Automaticky stahovat aktualizace",
+        "desc": "Kontrolovat a stahovat nové verze na pozadí"
+      },
+      "whatsNew": {
+        "title": "Po aktualizaci zobrazit novinky",
+        "desc": "Při novém vydání automaticky otevřít seznam změn"
+      },
+      "linksTitle": "Odkazy",
+      "links": {
+        "github": "GitHub",
+        "documentation": "Dokumentace",
+        "x": "X",
+        "kofi": "Ko-Fi",
+        "contact": "Kontakt"
+      },
+      "reportBug": "Nahlásit chybu"
+    },
+    "sync": {
+      "voltiusCloud": "Voltius Cloud",
+      "active": {
+        "title": "Synchronizace s cloudem aktivní",
+        "syncing": "Synchronizace…",
+        "error": "Chyba: {{error}}",
+        "lastSync": "Poslední synchronizace: {{time}}",
+        "offline": "Offline",
+        "idle": "Zatím nesynchronizováno",
+        "syncNow": "Synchronizovat nyní"
+      },
+      "requiresPro": {
+        "title": "Synchronizace s cloudem",
+        "sub": "Vyžaduje předplatné Pro",
+        "upgrade": "Upgradovat"
+      },
+      "notConnected": {
+        "title": "Cloudový účet není připojen",
+        "sub": "Přihlaste se nebo si vytvořte cloudový účet pro synchronizaci mezi zařízeními.",
+        "signIn": "Přihlásit se"
+      },
+      "providersTitle": "Pluginy synchronizace",
+      "prefsTitle": "Předvolby synchronizace",
+      "prefsFooter": "Vypnuté typy se nikdy nenahrávají. Jednotlivé objekty lze vyloučit také v jejich panelu úprav.",
+      "quickToggleLabel": "Synchronizovat: {{label}}",
+      "objectType": {
+        "connection": {
+          "label": "Hostitelé",
+          "sub": "SSH připojení"
+        },
+        "identity": {
+          "label": "Identity",
+          "sub": "Uživatelská jména a přihlašovací údaje"
+        },
+        "key": {
+          "label": "SSH klíče",
+          "sub": "Páry klíčů uložené v klíčence"
+        },
+        "folder": {
+          "label": "Složky",
+          "sub": "Struktura složek pro organizaci objektů"
+        },
+        "snippet": {
+          "label": "Snippety",
+          "sub": "Uložené příkazy a skripty"
+        },
+        "port-forwarding-rule": {
+          "label": "Přesměrování portů",
+          "sub": "Uložená pravidla tunelů"
+        }
+      },
+      "settingsTitle": "Nastavení",
+      "settingsFooter": "Vše vypnuté zůstává na tomto zařízení. Nikdy se nenahrává, ani šifrovaně. Opětovným zapnutím synchronizace se zveřejní hodnoty tohoto zařízení.",
+      "settingDomain": {
+        "themes": {
+          "label": "Motivy",
+          "sub": "Aktivní motiv a vlastní motivy"
+        },
+        "uiPreferences": {
+          "label": "Rozhraní",
+          "sub": "Měřítko, rozložení a řazení"
+        },
+        "shortcuts": {
+          "label": "Klávesové zkratky",
+          "sub": "Vlastní úpravy kláves"
+        },
+        "appSettings": {
+          "label": "Nastavení aplikace",
+          "sub": "Terminál, SFTP, pluginy, jazyk"
+        },
+        "recentPeople": {
+          "label": "Nedávné osoby",
+          "sub": "Koho jste nedávno pozvali"
+        }
+      },
+      "settingKey": {
+        "preferredShell": "Výchozí shell",
+        "pluginOverrides": "Zapnuté pluginy",
+        "themeLocation": "Poloha pro východ/západ slunce"
+      },
+      "keyButton": {
+        "hold": "Ponechat toto nastavení na tomto zařízení",
+        "resume": "Nesynchronizováno — kliknutím znovu synchronizujete",
+        "deviceDefault": "Nesynchronizováno: specifické pro toto zařízení. Kliknutím ho přesto synchronizujete.",
+        "domainOff": "Synchronizace je pro celou tuto skupinu vypnutá"
+      },
+      "heldBack": {
+        "summary": "Ponecháno na tomto zařízení: {{count}}",
+        "deviceDefault": "výchozí pro zařízení",
+        "yourChoice": "vaše volba",
+        "resume": "Obnovit synchronizaci"
+      }
+    },
+    "vaults": {
+      "general": {
+        "vaultNameLabel": "Název trezoru",
+        "save": "Uložit",
+        "makePrivate": {
+          "title": "Nastavit jako soukromý",
+          "confirmAll": "Odebrat všechny členy a nastavit jako soukromý?",
+          "confirm_one": "Odebrat {{count}} člena a nastavit jako soukromý?",
+          "confirm_few": "Odebrat {{count}} členy a nastavit jako soukromý?",
+          "confirm_many": "Odebrat {{count}} člena a nastavit jako soukromý?",
+          "confirm_other": "Odebrat {{count}} členů a nastavit jako soukromý?",
+          "converting": "Převádění…",
+          "confirmBtn": "Potvrdit",
+          "copyFailedToast": "Nepodařilo se zkopírovat vše z týmu — nic nebylo smazáno a trezor zůstává týmový.",
+          "removeMembersFailedToast": "Členy se nepodařilo odebrat — trezor zůstává týmový. {{reason}}",
+          "failedToast": "Trezor se nepodařilo nastavit jako soukromý — {{reason}}"
+        },
+        "deleteVault": {
+          "title": "Smazat trezor",
+          "confirmDesc": "Trvale smaže tento trezor a jeho položky ({{count}}). Tuto akci nelze vrátit zpět.",
+          "confirmBtn": "Potvrdit smazání",
+          "deleting": "Mazání…",
+          "failedToast": "Mazání trezoru se nepodařilo dokončit — trezor tu stále je, ale některé jeho položky už mohou být pryč. {{reason}}"
+        },
+        "madePrivateToast_one": "Trezor je nyní soukromý. {{count}} člen ztratil přístup.",
+        "madePrivateToast_few": "Trezor je nyní soukromý. {{count}} členové ztratili přístup.",
+        "madePrivateToast_many": "Trezor je nyní soukromý. {{count}} člena ztratilo přístup.",
+        "madePrivateToast_other": "Trezor je nyní soukromý. {{count}} členů ztratilo přístup.",
+        "madePrivateToastEmpty": "Trezor je nyní soukromý."
+      },
+      "rolesPanel": {
+        "permGroup": {
+          "dataAccess": "Přístup k datům",
+          "connectionManagement": "Správa připojení",
+          "teamAdministration": "Správa týmu",
+          "terminalSessions": "Terminálové relace"
+        },
+        "perm": {
+          "VIEW_SECRETS": "Zobrazovat hesla a soukromé klíče v čitelné podobě",
+          "COPY_SECRETS": "Kopírovat hesla a klíče do schránky",
+          "CONNECT": "Spouštět SSH připojení",
+          "EDIT_CONNECTIONS": "Vytvářet, upravovat a mazat připojení",
+          "EDIT_IDENTITIES": "Vytvářet, upravovat a mazat SSH identity",
+          "EDIT_KEYS": "Vytvářet, upravovat a mazat SSH klíče",
+          "EDIT_SNIPPETS": "Vytvářet, upravovat a mazat snippety příkazů",
+          "EDIT_FOLDERS": "Spravovat strukturu složek",
+          "VIEW_AUDIT_LOG": "Číst auditní log aktivity",
+          "INVITE_MEMBERS": "Zvát do trezoru nové členy",
+          "MANAGE_MEMBERS": "Přiřazovat role a odebírat členy",
+          "CREATE_CUSTOM_ROLES": "Vyřazené oprávnění — ponecháno kvůli kompatibilitě",
+          "MANAGE_ROLES": "Vytvářet, upravovat a mazat role",
+          "MANAGE_VAULT": "Přejmenovat trezor a spravovat jeho nastavení",
+          "START_TERMINAL_SESSION": "Zahajovat sdílené terminálové relace",
+          "JOIN_TERMINAL_SESSION": "Připojovat se k existujícím terminálovým relacím",
+          "VIEW_TERMINAL_SESSIONS": "Zobrazovat aktivní terminálové relace"
+        },
+        "builtinBadge": "Vestavěná",
+        "dragToReorder": "Přetažením změníte pořadí",
+        "deleteRoleTitle": "Smazat roli",
+        "clickToConfirm": "Klikněte znovu pro potvrzení",
+        "failedToDelete": "Smazání se nezdařilo",
+        "editRole": "Upravit roli",
+        "newRole": "Nová vlastní role",
+        "roleName": "Název role",
+        "roleNamePlaceholder": "např. Jen čtení, Nasazení, DevOps…",
+        "colorLabel": "Barva",
+        "clearColor": "Vymazat",
+        "preview": "Náhled",
+        "permissionsLabel": "Oprávnění",
+        "saveChanges": "Uložit změny",
+        "createRole": "Vytvořit roli",
+        "errorNameRequired": "Název je povinný",
+        "errorFailedToSave": "Roli se nepodařilo uložit",
+        "builtinRoles": "Vestavěné role",
+        "customRoles": "Vlastní role",
+        "newRoleBtn": "Nová role",
+        "businessFeature": "Funkce tarifu Business",
+        "businessFeatureDesc": "Vlastní role s podrobnými oprávněními jsou dostupné v tarifu Business.",
+        "upgradeBtn": "Přejít na Business",
+        "noCustomRolesCanEdit": "Zatím žádné vlastní role. Vytvořte roli a přiřaďte konkrétní oprávnění.",
+        "noCustomRoles": "Tento tým nemá definované žádné vlastní role."
+      }
+    },
+    "plugins": {
+      "categoryLabel": "Plugin",
+      "tabs": {
+        "installed": "Nainstalované ({{count}})",
+        "browse": "Procházet",
+        "updateCount_one": "• {{count}} aktualizace",
+        "updateCount_few": "• {{count}} aktualizace",
+        "updateCount_many": "• {{count}} aktualizace",
+        "updateCount_other": "• {{count}} aktualizací"
+      },
+      "installed": {
+        "filterPlaceholder": "Filtrovat pluginy…",
+        "scanTitle": "Vyhledat lokální pluginy",
+        "pluginSettingsTitle": "Nastavení {{name}}",
+        "noConfig": "Žádná nastavitelná nastavení.",
+        "bundledBadge": "Přibalený",
+        "settingsTitle": "Nastavení pluginu",
+        "reloadTitle": "Znovu načíst plugin",
+        "uninstallTitle": "Odinstalovat plugin",
+        "noMatch": "Hledání neodpovídá žádný plugin.",
+        "noneInstalled": "Nejsou nainstalovány žádné pluginy.",
+        "sourceLocal": "Lokální",
+        "sourceUrl": "URL",
+        "sourceInstalled": "Nainstalovaný",
+        "unverified": "Neověřený",
+        "update": "Aktualizovat",
+        "updating": "Aktualizace…",
+        "updateTitle": "Aktualizovat na v{{version}}",
+        "confirmUninstallSeeded": {
+          "title": "Odinstalovat {{name}}?",
+          "message": "{{name}} je vestavěný plugin. Odinstalováním ho odeberete ze seznamu — kdykoli ho můžete znovu nainstalovat na kartě Procházet.",
+          "confirm": "Odinstalovat"
+        }
+      },
+      "browse": {
+        "searchPlaceholder": "Hledat pluginy…",
+        "refreshTitle": "Obnovit katalog",
+        "manageSourcesTitle": "Spravovat zdroje",
+        "sourcesHeader": "Zdroje pluginů",
+        "addSource": "Přidat zdroj",
+        "addSourcePlaceholder": "https://example.com/plugins.json",
+        "add": "Přidat",
+        "installedBadge": "Nainstalováno",
+        "byAuthor": "autor: {{author}} · v{{version}}",
+        "noCatalog": "V katalogu nejsou žádné pluginy.",
+        "noResults": "Žádné výsledky.",
+        "removing": "Odebírání…",
+        "uninstall": "Odinstalovat",
+        "installing": "Instalace…",
+        "install": "Nainstalovat",
+        "updateBadge": "dostupná aktualizace",
+        "requiresVersion": "Vyžaduje v{{version}} nebo novější"
+      },
+      "install": {
+        "integrityFailed": "Balíček pluginu neprošel kontrolou integrity — instalace zablokována.",
+        "alreadyInstalling": "Tento plugin se už instaluje — podívejte se do Nastavení › Pluginy.",
+        "failed": "Plugin se nepodařilo nainstalovat.",
+        "versionUnsupported": "Tento plugin vyžaduje aplikaci verze {{version}} nebo novější."
+      },
+      "deepLinkInstall": {
+        "title": "Nainstalovat tento plugin?",
+        "body": "Tento odkaz instaluje plugin. Plugin spouští kód uvnitř Voltius s oprávněními uvedenými níže.",
+        "summary": "{{name}} {{version}} od {{author}}",
+        "source": "Z katalogu {{source}}.",
+        "action": "Nainstalovat",
+        "failed": "Tento odkaz neoznačuje plugin, který by Voltius mohl nainstalovat"
+      },
+      "permissionModal": {
+        "installTitle": "Nainstalovat {{name}}?",
+        "installBody": "Tento plugin běží s plnými oprávněními aplikace. Žádá o tato oprávnění:",
+        "updateTitle": "Aktualizovat {{name}}?",
+        "updateBody": "Tato aktualizace žádá o nová oprávnění. Před pokračováním je zkontrolujte:",
+        "newPermissions": "Nová oprávnění",
+        "noPermissions": "Tento plugin nežádá o žádná zvláštní oprávnění.",
+        "installConfirm": "Nainstalovat",
+        "updateConfirm": "Aktualizovat",
+        "permissions": {
+          "readOnlyHeading": "Přístup jen pro čtení",
+          "readOnlyWarning": "Plugin to uvidí, ale nemůže tím nic změnit ani smazat.",
+          "dangerHeading": "Silná oprávnění",
+          "dangerWarning": "Tato oprávnění dávají pluginu rozsáhlý přístup. Udělte je jen pluginu, kterému důvěřujete.",
+          "terminalRead": {
+            "label": "Číst výstup terminálu",
+            "description": "Číst viditelný výstup a historii vašich terminálových relací."
+          },
+          "terminalStream": {
+            "label": "Živě sledovat výstup terminálu",
+            "description": "Průběžně sledovat vše, co se ve vašich terminálových relacích vypisuje, v okamžiku, kdy se to děje."
+          },
+          "terminalWrite": {
+            "label": "Psát do vašich terminálů",
+            "description": "Posílat vstup a spouštět příkazy ve vašich terminálových relacích — jako byste je psali sami."
+          },
+          "keychainRead": {
+            "label": "Číst vlastní uložená tajemství",
+            "description": "Číst tajemství, která tento plugin dříve uložil do klíčenky vašeho zařízení."
+          },
+          "keychainWrite": {
+            "label": "Ukládat tajemství do zařízení",
+            "description": "Ukládat tajemství do klíčenky operačního systému vašeho zařízení."
+          },
+          "metricsRead": {
+            "label": "Číst systémové metriky",
+            "description": "Číst statistiky CPU, paměti, disku a sítě z připojených hostitelů."
+          },
+          "dockerRead": {
+            "label": "Číst informace o Dockeru",
+            "description": "Vypisovat kontejnery, obrazy, svazky, sítě a stacky a číst logy kontejnerů. Logy mohou obsahovat hesla nebo tokeny."
+          },
+          "processesRead": {
+            "label": "Číst informace o procesech",
+            "description": "Vypisovat běžící procesy na připojených hostitelích."
+          },
+          "processesManage": {
+            "label": "Spravovat procesy",
+            "description": "Vypisovat a ukončovat běžící procesy na připojených hostitelích."
+          },
+          "dockerManage": {
+            "label": "Spravovat Docker",
+            "description": "Vypisovat, spouštět, zastavovat a mazat kontejnery, obrazy, svazky, sítě a stacky. Může to trvale zničit data."
+          },
+          "portsForward": {
+            "label": "Přesměrovat porty na tento počítač",
+            "description": "Otevírat SSH tunely z připojených hostitelů na lokální porty tohoto počítače a otevírat výslednou adresu v prohlížeči nebo ji kopírovat do schránky."
+          },
+          "proxmoxRead": {
+            "label": "Číst informace o Proxmoxu",
+            "description": "Vypisovat LXC kontejnery a jejich snapshoty."
+          },
+          "proxmoxManage": {
+            "label": "Spravovat Proxmox",
+            "description": "Vypisovat a ovládat LXC kontejnery, včetně vytváření, mazání a vracení snapshotů. Může to trvale zničit data."
+          },
+          "sftpRead": {
+            "label": "Číst soubory",
+            "description": "Procházet a číst soubory na uložených SSH/FTP hostitelích a na tomto počítači."
+          },
+          "sftpWrite": {
+            "label": "Zapisovat a přesouvat soubory",
+            "description": "Vytvářet, přejmenovávat, přepisovat a mazat soubory na uložených SSH/FTP hostitelích a na tomto počítači a kopírovat soubory mezi nimi. Může to trvale zničit data."
+          },
+          "audit": {
+            "label": "Zaznamenávat auditní události",
+            "description": "Přidávat do auditního logu záznamy o tom, co udělal. U hostitele v týmovém trezoru se tyto záznamy posílají také na server daného týmu."
+          },
+          "auditRead": {
+            "label": "Číst log aktivity",
+            "description": "Číst log aktivity tohoto zařízení, včetně toho, ke kterým hostitelům se přistupovalo, se kterými soubory se pracovalo a co dělaly ostatní pluginy. Je-li uveden tým, čte také serverový log tohoto týmu — aktivitu všech členů."
+          },
+          "mcpContribute": {
+            "label": "Zpřístupnit nástroje externím AI agentům",
+            "description": "Umožní tomuto pluginu přidat vlastní příkazy do MCP serveru Voltius, takže je může spouštět jakýkoli připojený externí AI agent — s oprávněními tohoto pluginu."
+          },
+          "vaultsRead": {
+            "label": "Vidět vaše trezory",
+            "description": "Vidět názvy vašich trezorů, včetně týmových, a jejich uspořádání."
+          },
+          "vaultsWrite": {
+            "label": "Vytvářet a mazat trezory",
+            "description": "Vytvářet, přejmenovávat a mazat vaše trezory. Smazáním trezoru se může smazat vše, co obsahuje."
+          },
+          "foldersRead": {
+            "label": "Vidět vaše složky",
+            "description": "Vidět složky, do kterých organizujete hostitele, klíče, přesměrování portů a snippety."
+          },
+          "foldersWrite": {
+            "label": "Vytvářet a mazat složky",
+            "description": "Vytvářet, přejmenovávat a mazat složky. Smazáním složky se může smazat vše, co obsahuje."
+          },
+          "sessionsRead": {
+            "label": "Vidět vaše relace",
+            "description": "Vidět, které terminálové relace jsou otevřené a kdy se mění."
+          },
+          "sessionsWrite": {
+            "label": "Otevírat a zavírat relace",
+            "description": "Otevírat nové terminálové relace a zavírat existující."
+          },
+          "connectionsRead": {
+            "label": "Číst vaše připojení",
+            "description": "Číst uložená připojení a jejich podrobnosti."
+          },
+          "connectionsWrite": {
+            "label": "Spravovat vaše připojení",
+            "description": "Vytvářet, upravovat a mazat uložená připojení."
+          },
+          "keysRead": {
+            "label": "Číst vaše SSH klíče",
+            "description": "Vypisovat uložené SSH klíče a přidat klíč do authorized_keys uloženého hostitele přes SSH."
+          },
+          "keysWrite": {
+            "label": "Spravovat vaše SSH klíče",
+            "description": "Vytvářet a mazat SSH klíče vaším jménem."
+          },
+          "identitiesRead": {
+            "label": "Číst vaše identity",
+            "description": "Vypisovat uložené identity."
+          },
+          "identitiesWrite": {
+            "label": "Spravovat vaše identity",
+            "description": "Vytvářet a mazat identity vaším jménem."
+          },
+          "snippetsRead": {
+            "label": "Číst vaše snippety",
+            "description": "Vypisovat uložené snippety a příkazy, které spouštějí."
+          },
+          "snippetsWrite": {
+            "label": "Spravovat vaše snippety",
+            "description": "Vytvářet, upravovat, přesouvat a mazat uložené snippety."
+          },
+          "snippetsRun": {
+            "label": "Spouštět vaše snippety na vašich hostitelích",
+            "description": "Spustit uložený snippet na hostiteli a v případě potřeby se k němu připojit. Jeho příkazy běží s vaším přístupem, přesně jako byste je spustili sami."
+          },
+          "portForwardingRead": {
+            "label": "Číst vaše přesměrování portů",
+            "description": "Vypisovat uložená pravidla přesměrování portů a právě otevřené tunely."
+          },
+          "portForwardingWrite": {
+            "label": "Spravovat vaše přesměrování portů",
+            "description": "Vytvářet, upravovat, přesouvat a mazat uložená pravidla přesměrování portů."
+          },
+          "knownHostsRead": {
+            "label": "Číst vaše známé hostitele",
+            "description": "Vypisovat klíče SSH hostitelů, kterým jste důvěřovali, s jejich otisky."
+          },
+          "knownHostsWrite": {
+            "label": "Důvěřovat klíčům hostitelů a odebírat je",
+            "description": "Schválit klíč SSH hostitele nebo smazat klíč, kterému jste důvěřovali. Důvěryhodný klíč znamená, že připojení k danému hostiteli se přijímají bez dotazu."
+          },
+          "historyRead": {
+            "label": "Číst historii příkazů",
+            "description": "Prohledávat příkazy, které jste zadali v terminálech. Mohou obsahovat hesla nebo tokeny zadané v čitelné podobě."
+          },
+          "transfersRead": {
+            "label": "Vidět přenosy souborů",
+            "description": "Vidět probíhající přenosy souborů, včetně názvů souborů, průběhu a chyb."
+          },
+          "transfersWrite": {
+            "label": "Rušit a opakovat přenosy",
+            "description": "Zrušit probíhající přenos souboru nebo znovu spustit neúspěšný — včetně přenosů, které jste spustili sami."
+          },
+          "healthRead": {
+            "label": "Vidět dostupnost hostitelů",
+            "description": "Vidět, kteří z uložených hostitelů naposledy odpověděli na kontrolu dostupnosti a jak rychle."
+          },
+          "vaultRead": {
+            "label": "Číst váš trezor",
+            "description": "Číst data uložená ve vašem trezoru."
+          },
+          "vaultWrite": {
+            "label": "Zapisovat do vašeho trezoru",
+            "description": "Ukládat a měnit data ve vašem trezoru."
+          },
+          "syncRead": {
+            "label": "Číst synchronizovaná data",
+            "description": "Číst vlastní data tohoto pluginu synchronizovaná mezi vašimi zařízeními a vidět stav synchronizace vaší konfigurace."
+          },
+          "syncWrite": {
+            "label": "Zapisovat synchronizovaná data",
+            "description": "Ukládat a měnit data synchronizovaná mezi vašimi zařízeními."
+          },
+          "panesRead": {
+            "label": "Číst rozložení terminálu",
+            "description": "Vidět otevřené karty a rozdělené panely a jaká relace je v každém z nich."
+          },
+          "panesWrite": {
+            "label": "Uspořádat panely terminálu",
+            "description": "Rozdělovat, přesouvat, oddělovat a aktivovat panely terminálu. Relace zůstávají otevřené; nic se nezavírá."
+          },
+          "teamRead": {
+            "label": "Číst vaše týmy",
+            "description": "Vidět vaše týmy, kdo do nich patří, jejich role a kteří členové mají klíč týmového trezoru."
+          },
+          "teamWrite": {
+            "label": "Spravovat členy týmu",
+            "description": "Zvát lidi do vašich týmů, odebírat členy a měnit jejich role."
+          },
+          "sharingRead": {
+            "label": "Číst sdílené terminály",
+            "description": "Vidět, které vaše terminálové relace jsou sdílené, kdo je sleduje a kdo má ovládání."
+          },
+          "sharingWrite": {
+            "label": "Sdílet živé terminály",
+            "description": "Streamovat živou terminálovou relaci členům vašich týmů, ukončit sdílení a předat ovládání účastníkovi, který o ně požádal."
+          },
+          "settingsRead": {
+            "label": "Číst nastavení aplikace",
+            "description": "Vidět všechna nastavení této aplikace a jejich aktuální hodnoty."
+          },
+          "settingsWrite": {
+            "label": "Měnit nastavení aplikace",
+            "description": "Měnit jakékoli nastavení této aplikace, včetně těch, která vypínají ochranu."
+          },
+          "accountRead": {
+            "label": "Číst vaše předplatné",
+            "description": "Vidět váš tarif, stav zkušební verze, místa a stav fakturace."
+          },
+          "pluginsManage": {
+            "label": "Spravovat pluginy",
+            "description": "Instalovat, aktualizovat, odebírat, zapínat a vypínat pluginy a přidávat zdroje marketplace. Nainstalovaný plugin spouští kód uvnitř Voltius s oprávněními, která deklaruje."
+          },
+          "importExportRead": {
+            "label": "Exportovat vaše data",
+            "description": "Exportovat připojení, identity, SSH klíče, snippety a pravidla přesměrování portů. Balíčky s hesly nebo soukromými klíči lze exportovat jen šifrovaně."
+          },
+          "importExportWrite": {
+            "label": "Importovat data",
+            "description": "Importovat připojení, identity, SSH klíče, snippety a pravidla přesměrování portů do trezoru. Existující položky se nikdy nepřepisují."
+          },
+          "storage": {
+            "label": "Ukládat data pluginu",
+            "description": "Ukládat vlastní nastavení a data tohoto pluginu do vašeho zařízení."
+          },
+          "http": {
+            "label": "Přistupovat k síti",
+            "description": "Odesílat síťové požadavky na externí služby."
+          },
+          "cryptoDerive": {
+            "label": "Odvozovat šifrovací klíče",
+            "description": "Odvodit šifrovací klíč z heslové fráze, kterou zadáte. Neuděluje přístup k vašim uloženým tajemstvím."
+          },
+          "fs": {
+            "label": "Přistupovat k souborům",
+            "description": "Číst a zapisovat soubory ve vašem zařízení."
+          },
+          "ui": {
+            "label": "Zobrazovat prvky rozhraní",
+            "description": "Přidávat do aplikace vlastní panely a ovládací prvky."
+          },
+          "notifications": {
+            "label": "Zobrazovat oznámení",
+            "description": "Zobrazovat vám oznámení a vyskakovací zprávy."
+          },
+          "settingsPage": {
+            "label": "Přidat stránku nastavení",
+            "description": "Přidat do Nastavení vlastní stránku."
+          },
+          "rightPanel": {
+            "label": "Přidat boční panel",
+            "description": "Přidat panel do bočního prostoru relace."
+          },
+          "globalPanel": {
+            "label": "Přidat panel pro celou aplikaci",
+            "description": "Přidat panel dostupný v celé aplikaci."
+          },
+          "themes": {
+            "label": "Přidat barevné motivy",
+            "description": "Přidat vlastní barevné motivy, které si v aplikaci můžete vybrat."
+          },
+          "omniCommands": {
+            "label": "Přidat akce do palety příkazů",
+            "description": "Přidat vlastní akce do palety příkazů."
+          },
+          "uiContributions": {
+            "label": "Přidat prvky rozhraní",
+            "description": "Přidat vlastní prvky do rozhraní aplikace."
+          }
+        }
+      }
+    },
+    "sftp": {
+      "downloads": {
+        "title": "Stahování",
+        "folderLabel": "Složka pro stahování",
+        "notSet": "Nenastaveno — vybere se při prvním stahování",
+        "changeFolder": "Změnit složku"
+      },
+      "transfers": {
+        "title": "Přenosy",
+        "tarAcceleration": {
+          "title": "Zrychlení přes tar",
+          "descPre": "Před přenosem zabalit adresáře do jednoho tar.gz — výrazně rychlejší u mnoha malých souborů. Vyžaduje ",
+          "descPost": " na obou stranách."
+        }
+      },
+      "filePanel": {
+        "showHidden": {
+          "title": "Zobrazit skryté soubory"
+        },
+        "title": "Panel souborů",
+        "autoRefresh": {
+          "title": "Automatické obnovování",
+          "desc": "Na pozadí tiše znovu načítá obsah adresáře"
+        },
+        "refreshInterval": {
+          "title": "Interval obnovování",
+          "desc": "Minimálně 0,5 s",
+          "unit": "s"
+        }
+      },
+      "editor": {
+        "maxBytes": {
+          "title": "Maximální velikost upravitelného souboru"
+        },
+        "title": "Editor",
+        "autoSave": {
+          "title": "Automatické ukládání",
+          "desc": "Automaticky ukládat změny souboru během psaní"
+        }
+      }
+    },
+    "portForwarding": {
+      "automationTitle": "Automatizace",
+      "autoForward": {
+        "title": "Automatické přesměrování portů",
+        "desc": "Zjištěné naslouchající porty se během SSH relací přesměrují automaticky"
+      },
+      "notifications": {
+        "title": "Oznámení o přesměrování",
+        "desc": "Zobrazit oznámení při každém automatickém přesměrování portu"
+      }
+    },
+    "hosts": {
+      "connectivityTitle": "Konektivita",
+      "reachability": {
+        "title": "Kontrola dostupnosti",
+        "desc": "Testuje SSH port a na kartě každého hostitele zobrazuje stavovou tečku a latenci. U jednotlivých hostitelů ji lze vypnout v jejich nastavení."
+      },
+      "pollInterval": {
+        "title": "Interval kontroly",
+        "desc": "Frekvence kontroly na pozadí pro stránku hostitelů."
+      },
+      "ms": "ms",
+      "activeInterval": {
+        "title": "Interval aktivní relace",
+        "desc": "Rychlejší frekvence pro ukazatel latence ve stavovém řádku terminálu."
+      },
+      "keepalive": {
+        "title": "Keepalive",
+        "desc": "Jak rychle se relace prohlásí za ztracenou, když server přestane odpovídat. {{detail}}. Lze přepsat u jednotlivých hostitelů."
+      },
+      "keepalivePresets": {
+        "fast": {
+          "label": "Rychlý",
+          "detail": "Přerušené spojení zjistí za ~4 s"
+        },
+        "balanced": {
+          "label": "Vyvážený",
+          "detail": "~9 s; snese krátký výpadek sítě"
+        },
+        "tolerant": {
+          "label": "Tolerantní",
+          "detail": "~20 s; pro nestabilní sítě"
+        },
+        "off": {
+          "label": "Vypnuto",
+          "detail": "Žádné keepalive testy"
+        }
+      },
+      "persistentSessions": {
+        "title": "Trvalé relace",
+        "desc": "Udržet shell a běžící procesy při odpojení tím, že se vzdálený shell obalí do tmux (záložně do screen). Vyžaduje tmux nebo screen na hostiteli. Lze přepsat u jednotlivých hostitelů v sekci Pokročilé v nastavení připojení."
+      },
+      "terminalTitle": "Terminál",
+      "shellIntegration": {
+        "title": "Integrace shellu",
+        "desc": "Napojí se na vzdálený/lokální shell, aby hlásil pracovní adresář (OSC 7) pro panely souborů sledující aktuální adresář. Pokud uvítací zpráva nebo výzva hostitele vypadá špatně, vypněte ji u něj. Lze přepsat u jednotlivých hostitelů v sekci Pokročilé v nastavení připojení."
+      },
+      "teamPresenceTitle": "Přítomnost v týmu",
+      "teamPresence": {
+        "title": "Sdílet, které hostitele z týmového trezoru používáte",
+        "desc": "Pokud je zapnuto, váš avatar se zobrazí na kartě hostitele, dokud k němu máte otevřený terminál. Vidí ho jen kolegové s přístupem k danému hostiteli."
+      }
+    },
+    "toggleDefs": {
+      "cursorBlink": {
+        "label": "Blikání kurzoru"
+      },
+      "scrollMinimap": {
+        "label": "Minimapa posuvníku"
+      },
+      "selectToCopy": {
+        "label": "Kopírovat výběrem"
+      },
+      "dragSelectsText": {
+        "label": "Tažení označuje text"
+      },
+      "groupTabsByHost": {
+        "label": "Seskupit karty podle hostitele"
+      },
+      "ignoreBracketedPaste": {
+        "label": "Prosté vkládání (bez bracketed paste)"
+      },
+      "autoForward": {
+        "label": "Automatické přesměrování portů"
+      },
+      "forwardingNotifications": {
+        "label": "Oznámení o přesměrování portů"
+      },
+      "sftpTar": {
+        "label": "Zrychlení SFTP přes tar"
+      },
+      "sftpAutoRefresh": {
+        "label": "Automatické obnovování SFTP"
+      },
+      "reachability": {
+        "label": "Kontrola dostupnosti"
+      },
+      "teamPresence": {
+        "label": "Přítomnost v týmu"
+      },
+      "shellIntegration": {
+        "label": "Integrace shellu"
+      },
+      "persistentSessions": {
+        "label": "Trvalé relace"
+      },
+      "restoreWorkspace": {
+        "label": "Obnovit pracovní plochu při spuštění"
+      },
+      "crossDeviceSessions": {
+        "label": "Relace mezi zařízeními"
+      },
+      "changelogPopup": {
+        "label": "Po aktualizaci zobrazit novinky"
+      },
+      "category": {
+        "appearance": "Vzhled",
+        "portForwarding": "Přesměrování portů",
+        "sftp": "SFTP",
+        "hosts": "Hostitelé",
+        "updates": "Aktualizace",
+        "plugins": "Pluginy",
+        "integrations": "Integrace"
+      },
+      "pluginInstallReview": {
+        "label": "Před instalací pluginů zkontrolovat oprávnění"
+      },
+      "mcpServer": {
+        "label": "MCP server"
+      }
+    },
+    "shortcuts": {
+      "searchPlaceholder": "Hledat zkratky…",
+      "clearSearch": "Vymazat hledání",
+      "resetAll": "Obnovit vše",
+      "resetAllTitle": "Obnovit všechny zkratky na výchozí",
+      "statusRecording": "Stiskněte kombinaci kláves… (Esc pro zrušení)",
+      "statusIdle": "Kliknutím na zkratku ji změníte.",
+      "result_one": "{{count}} výsledek",
+      "result_few": "{{count}} výsledky",
+      "result_many": "{{count}} výsledku",
+      "result_other": "{{count}} výsledků",
+      "noMatch": "Výrazu „{{query}}“ neodpovídá žádná zkratka",
+      "bindingRecordingTitle": "Stiskněte kombinaci kláves nebo Esc pro zrušení",
+      "bindingIdleTitle": "Kliknutím změníte",
+      "pressKey": "Stiskněte klávesu…",
+      "conflict": "Konflikt",
+      "aliasTitle": "Pevná zkratka — vždy aktivní",
+      "group": {
+        "global": "Globální",
+        "tabs": "Karty",
+        "navigation": "Navigace",
+        "editing": "Úpravy",
+        "other": "Ostatní"
+      },
+      "items": {
+        "omni": {
+          "label": "Omni hledání",
+          "desc": "Přístup ke všemu z jednoho místa"
+        },
+        "shortcuts": {
+          "label": "Klávesové zkratky",
+          "desc": "Otevřít nastavení zkratek"
+        },
+        "themes": {
+          "label": "Nastavení",
+          "desc": "Otevřít nastavení"
+        },
+        "newTab": {
+          "label": "Nová karta",
+          "desc": "Přejít na zobrazení hostitelů"
+        },
+        "duplicateSession": {
+          "label": "Duplikovat relaci",
+          "desc": "Otevřít druhý terminál na stejném hostiteli"
+        },
+        "duplicateSessionSplit": {
+          "label": "Duplikovat do rozdělení",
+          "desc": "Otevřít druhý terminál vedle aktuálního"
+        },
+        "closeTab": {
+          "label": "Zavřít kartu",
+          "desc": "Zavřít aktivní relaci"
+        },
+        "nextTab": {
+          "label": "Další karta",
+          "desc": "Přepnout na další kartu"
+        },
+        "prevTab": {
+          "label": "Předchozí karta",
+          "desc": "Přepnout na předchozí kartu"
+        },
+        "sidebar": {
+          "label": "Přepnout postranní panel",
+          "desc": "Zobrazit/skrýt postranní panel"
+        },
+        "delete": {
+          "label": "Smazat vybrané",
+          "desc": "Smazat vybrané položky"
+        },
+        "copy": {
+          "label": "Kopírovat",
+          "desc": "Zkopírovat vybrané položky do schránky"
+        },
+        "cut": {
+          "label": "Vyjmout",
+          "desc": "Vyjmout vybrané položky do schránky"
+        },
+        "paste": {
+          "label": "Vložit",
+          "desc": "Vložit položky ze schránky do aktuální složky"
+        },
+        "undo": {
+          "label": "Zpět",
+          "desc": "Vrátit poslední akci"
+        },
+        "redo": {
+          "label": "Znovu",
+          "desc": "Zopakovat poslední vrácenou akci"
+        },
+        "filter": {
+          "label": "Aktivovat filtr",
+          "desc": "Přesunout kurzor do vyhledávacího filtru"
+        },
+        "terminalSearch": {
+          "label": "Najít v terminálu",
+          "desc": "Prohledat historii terminálu"
+        },
+        "history": {
+          "label": "Panel historie",
+          "desc": "Otevřít historii příkazů v pravém panelu"
+        },
+        "snippets": {
+          "label": "Panel snippetů",
+          "desc": "Otevřít snippety v pravém panelu"
+        },
+        "panelThemes": {
+          "label": "Panel motivů",
+          "desc": "Otevřít motivy v pravém panelu"
+        },
+        "panelNotes": {
+          "label": "Panel poznámek",
+          "desc": "Otevřít poznámky k hostiteli v pravém panelu"
+        }
+      }
+    }
+  }
+}

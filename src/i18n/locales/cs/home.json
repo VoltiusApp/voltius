@@ -1,0 +1,48 @@
+{
+  "home": {
+    "greeting": {
+      "morning": "Dobré ráno",
+      "afternoon": "Dobré odpoledne",
+      "evening": "Dobrý večer"
+    },
+    "search": {
+      "placeholder": "Hledat hostitele, relace, snippety…"
+    },
+    "stat": {
+      "vaults": "trezory",
+      "hosts": "hostitelé",
+      "activeSessions": "aktivní relace",
+      "portForwards": "přesměrování portů"
+    },
+    "quickActions": {
+      "export": "Export",
+      "import": "Import"
+    },
+    "recentHosts": {
+      "title": "Nedávní hostitelé",
+      "seeAll": "Zobrazit vše",
+      "prevPage": "Předchozí stránka",
+      "nextPage": "Další stránka",
+      "pageNumber": "Stránka {{number}}"
+    },
+    "allHosts": {
+      "back": "Zpět",
+      "title": "Všichni hostitelé",
+      "empty": "Zatím žádní hostitelé."
+    },
+    "hostCard": {
+      "pin": "Připnout",
+      "unpin": "Odepnout",
+      "baud": "{{rate}} Bd"
+    },
+    "serialFallback": "Sériový port",
+    "vaultCard": {
+      "hostCount_one": "{{count}} hostitel",
+      "hostCount_few": "{{count}} hostitelé",
+      "hostCount_many": "{{count}} hostitele",
+      "hostCount_other": "{{count}} hostitelů",
+      "empty": "Zatím žádní hostitelé",
+      "more": "+{{count}} další"
+    }
+  }
+}

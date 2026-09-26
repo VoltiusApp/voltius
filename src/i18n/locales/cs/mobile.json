@@ -1,0 +1,266 @@
+{
+  "mobile": {
+    "tabBar": {
+      "terminal": "Terminál",
+      "sftp": "SFTP",
+      "more": "Další"
+    },
+    "filterBar": {
+      "placeholder": "Filtrovat…"
+    },
+    "header": {
+      "syncTooltip": "Synchronizace: {{status}}",
+      "syncStatus": {
+        "idle": "Nečinná",
+        "syncing": "Probíhá",
+        "success": "Synchronizováno",
+        "error": "Chyba",
+        "offline": "Offline"
+      }
+    },
+    "remoteSessions": {
+      "title": "Aktivní na jiných zařízeních",
+      "relativeTime": {
+        "justNow": "právě teď",
+        "minutesAgo": "před {{count}} min",
+        "hoursAgo": "před {{count}} h",
+        "daysAgo": "před {{count}} d"
+      }
+    },
+    "snippets": {
+      "searchPlaceholder": "Hledat snippety",
+      "noMatches": "Žádné shody",
+      "empty": "Zatím žádné snippety",
+      "insertAriaLabel": "Vložit",
+      "executeAriaLabel": "Spustit",
+      "moreAriaLabel": "Další",
+      "newFolderTitle": "Nová složka"
+    },
+    "terminalGestures": {
+      "selectAll": "Vše",
+      "paste": "Vložit"
+    },
+    "terminalTopBar": {
+      "exitAriaLabel": "Opustit terminál",
+      "newSessionAriaLabel": "Nová relace",
+      "panelsAriaLabel": "Panely"
+    },
+    "panelItems": {
+      "sftp": "SFTP",
+      "docker": "Docker",
+      "metrics": "Metriky",
+      "processes": "Procesy",
+      "proxmox": "Proxmox"
+    },
+    "morePages": {
+      "keychain": "Klíčenka",
+      "portForwarding": "Přesměrování portů",
+      "knownHosts": "Známí hostitelé",
+      "members": "Členové",
+      "logs": "Logy"
+    },
+    "account": {
+      "title": "Účet",
+      "email": "E-mail",
+      "notSignedIn": "Nepřihlášeno",
+      "plan": "Tarif",
+      "cloudSync": "Synchronizace s cloudem",
+      "off": "Vypnuto",
+      "proTrial": "Zkušební Pro — zbývá {{days}} d",
+      "tier": {
+        "free": "Free",
+        "pro": "Pro",
+        "teams": "Teams",
+        "business": "Business"
+      },
+      "cancelsOn": "Končí {{date}}. Do té doby máte přístup.",
+      "periodEnd": "konec období",
+      "renewsOn": "Obnoví se {{date}}.",
+      "subscriptionActive": "Vaše předplatné je aktivní.",
+      "seats": "Místa",
+      "seatsUsed": "Využito {{used}} / {{total}}",
+      "upgradeToPro": "Přejít na Pro",
+      "upgradeToTeams": "Vyzkoušejte Teams zdarma na {{days}} dní",
+      "teamsTrialNote": "Vyžaduje kartu · během zkušební doby se nic neúčtuje",
+      "manageBilling": "Spravovat fakturaci",
+      "viewAllPlans": "Zobrazit všechny tarify",
+      "signInToSync": "Přihlaste se pro synchronizaci",
+      "signOutConfirm": "Odhlásit se? Váš šifrovaný trezor bude z tohoto zařízení odstraněn a po opětovném přihlášení znovu synchronizován.",
+      "signOut": "Odhlásit se"
+    },
+    "more": {
+      "settings": "Nastavení",
+      "planLabel": "Tarif {{tier}}"
+    },
+    "host": {
+      "newTitle": "Nový hostitel",
+      "editTitle": "Upravit hostitele"
+    },
+    "hostsScreen": {
+      "searchPlaceholder": "Hledat hostitele",
+      "clearSearchAriaLabel": "Vymazat hledání",
+      "emptyNoHosts": "Zatím žádní hostitelé — přidejte je klepnutím na +"
+    },
+    "keychainScreen": {
+      "filterPlaceholder": "Filtrovat klíčenku…",
+      "sshKeysHeader": "SSH KLÍČE",
+      "identitiesHeader": "IDENTITY",
+      "addedOn": "přidáno {{date}}",
+      "noSearchMatches": "Hledání nic neodpovídá",
+      "empty": "Klíčenka je prázdná",
+      "generateKey": "Vygenerovat SSH klíč",
+      "importKey": "Importovat SSH klíč",
+      "newIdentity": "Nová identita"
+    },
+    "knownHostsScreen": {
+      "filterPlaceholder": "Filtrovat hostitele…",
+      "noSearchMatches": "Hledání neodpovídá žádný známý hostitel",
+      "empty": "Zatím žádní známí hostitelé — objeví se, jakmile se připojíte k serveru."
+    },
+    "logsScreen": {
+      "filterPlaceholder": "Filtrovat logy…",
+      "retry": "Zkusit znovu",
+      "prev": "Předchozí",
+      "next": "Další",
+      "pageIndicator": "Stránka {{page}} / {{total}}"
+    },
+    "portForwardingScreen": {
+      "filterPlaceholder": "Filtrovat pravidla…",
+      "summary": "celkem {{total}} · aktivní {{active}}",
+      "noSearchMatches": "Hledání neodpovídá žádné pravidlo",
+      "empty": "Zatím žádná pravidla přesměrování portů",
+      "newRuleLabel": "Nové pravidlo"
+    },
+    "snippetEdit": {
+      "editTitle": "Upravit snippet",
+      "newTitle": "Nový snippet",
+      "namePlaceholder": "Název snippetu",
+      "contentPlaceholder": "echo hello",
+      "delete": "Smazat snippet"
+    },
+    "snippetsScreen": {
+      "newSnippetLabel": "Nový snippet"
+    },
+    "terminalScreen": {
+      "noActiveSessions": "Žádné aktivní relace",
+      "pickHost": "Vyberte hostitele"
+    },
+    "sftp": {
+      "transferFailed": "Přenos se nezdařil",
+      "chooseHost": "Vyberte hostitele",
+      "hidden": "Skryté",
+      "visible": "Viditelné",
+      "connecting": "Připojování…",
+      "reconnecting": "Opětovné připojování…",
+      "reconnectNow": "Znovu připojit nyní",
+      "permissionDenied": "Přístup odepřen",
+      "goUp": "O úroveň výš",
+      "emptyFolder": "Prázdná složka",
+      "selectedCount": "Vybráno: {{count}}",
+      "downloadSelectedAriaLabel": "Stáhnout vybrané",
+      "deleteSelectedAriaLabel": "Smazat vybrané",
+      "clearSelectionAriaLabel": "Zrušit výběr",
+      "copyToOtherPane": "Kopírovat do druhého panelu",
+      "download": "Stáhnout",
+      "details": "Podrobnosti",
+      "copyPath": "Kopírovat cestu",
+      "renameTitle": "Přejmenovat {{name}}",
+      "deleteConfirmTitle": "Smazat {{name}}?",
+      "detail": {
+        "path": "Cesta",
+        "type": "Typ",
+        "size": "Velikost",
+        "permissions": "Oprávnění",
+        "modified": "Změněno"
+      },
+      "typeSymlink": "Symbolický odkaz",
+      "typeFile": "Soubor",
+      "batchDeleteTitle_one": "Smazat {{count}} položku?",
+      "batchDeleteTitle_few": "Smazat {{count}} položky?",
+      "batchDeleteTitle_many": "Smazat {{count}} položky?",
+      "batchDeleteTitle_other": "Smazat {{count}} položek?",
+      "newFileOption": "Nový soubor",
+      "folderNamePlaceholder": "Název složky",
+      "fileNamePlaceholder": "Název souboru"
+    },
+    "folders": {
+      "home": "Domů"
+    },
+    "sheets": {
+      "shared": {
+        "moveToVault": "Přesunout do trezoru",
+        "copyToVault": "Kopírovat do trezoru",
+        "moveToFolder": "Přesunout do složky",
+        "back": "Zpět",
+        "duplicate": "Duplikovat",
+        "pin": "Připnout",
+        "unpin": "Odepnout",
+        "confirmDeleteBody": "Trvale smazat {{name}}? Tuto akci nelze vrátit zpět."
+      },
+      "folderActions": {
+        "renameTitle": "Přejmenovat složku",
+        "deleteTitle": "Smazat složku?",
+        "deleteBody": "Smazat {{name}} a vše, co obsahuje? Tuto akci nelze vrátit zpět."
+      },
+      "hostActions": {
+        "deleteTitle": "Smazat hostitele?",
+        "openFiles": "Otevřít soubory",
+        "copyAddress": "Kopírovat adresu",
+        "copiedAddress": "Zkopírováno: {{host}}",
+        "enableCloudSync": "Zapnout synchronizaci s cloudem",
+        "disableCloudSync": "Vypnout synchronizaci s cloudem",
+        "enableReachabilityCheck": "Zapnout kontrolu dostupnosti",
+        "disableReachabilityCheck": "Vypnout kontrolu dostupnosti"
+      },
+      "keychainActions": {
+        "unnamedKey": "Klíč bez názvu",
+        "deleteKeyTitle": "Smazat klíč?",
+        "deleteIdentityTitle": "Smazat identitu?",
+        "copyPublicKey": "Kopírovat veřejný klíč",
+        "copiedPublicKey": "Veřejný klíč zkopírován",
+        "noPublicKeyStored": "Není uložen žádný veřejný klíč",
+        "copyUsername": "Kopírovat uživatelské jméno",
+        "copiedUsername": "Uživatelské jméno zkopírováno"
+      },
+      "knownHostActions": {
+        "deleteTitle": "Smazat známého hostitele?",
+        "deleteBody": "Tím odeberete důvěryhodný otisk. Další připojení k tomuto hostiteli bude považováno za nové.",
+        "copyFingerprint": "Kopírovat otisk",
+        "copiedFingerprint": "Otisk zkopírován"
+      },
+      "logsExport": {
+        "title": "Exportovat logy",
+        "exportCsv": "Exportovat jako CSV",
+        "exportJson": "Exportovat jako JSON"
+      },
+      "snippetActions": {
+        "deleteTitle": "Smazat snippet?"
+      },
+      "snippetTarget": {
+        "executeTitle": "Spustit „{{name}}“",
+        "insertTitle": "Vložit „{{name}}“",
+        "confirmExecute_one": "Spustit v {{count}} cíli",
+        "confirmExecute_few": "Spustit ve {{count}} cílech",
+        "confirmExecute_many": "Spustit v {{count}} cíle",
+        "confirmExecute_other": "Spustit v {{count}} cílech",
+        "confirmInsert_one": "Vložit do {{count}} cíle",
+        "confirmInsert_few": "Vložit do {{count}} cílů",
+        "confirmInsert_many": "Vložit do {{count}} cíle",
+        "confirmInsert_other": "Vložit do {{count}} cílů",
+        "activeSessions": "Aktivní relace",
+        "openNewConnection": "Otevřít nové připojení",
+        "noHosts": "Žádní hostitelé"
+      },
+      "ruleActions": {
+        "deleteTitle": "Smazat pravidlo?"
+      },
+      "sftpHostPicker": {
+        "noSshHosts": "Žádní SSH hostitelé"
+      },
+      "vaultSwitcher": {
+        "newVault": "Nový trezor",
+        "namePlaceholder": "Název trezoru"
+      }
+    }
+  }
+}

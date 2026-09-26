@@ -1,0 +1,167 @@
+{
+  "portForwarding": {
+    "toolbar": {
+      "filterPlaceholder": "Filtrovat pravidla…",
+      "deleteSelected": "Smazat vybrané",
+      "deleteButton": "SMAZAT",
+      "newRule": "Nové pravidlo",
+      "newFolder": "Nová složka"
+    },
+    "reach": { "copied": "{{address}} zkopírováno do schránky" },
+    "page": {
+      "all": "Vše",
+      "folders": "Složky",
+      "new": "Nové",
+      "noRulesMatchSearch": "Hledání neodpovídá žádné pravidlo.",
+      "folderEmpty": "Tato složka je prázdná.",
+      "noRulesYet": "Zatím žádná pravidla. Začněte vytvořením prvního.",
+      "addRule": "Přidat pravidlo",
+      "ejectMoveTo": "Přesunout do {{name}}",
+      "ejectRemoveFromFolder": "Odebrat ze složky",
+      "total": "celkem {{count}}",
+      "activeCount": "aktivní: {{count}}",
+      "errorCount": "chyby: {{count}}",
+      "contextMenu": {
+        "newRule": "Nové pravidlo"
+      },
+      "confirmDelete": {
+        "title": "Smazat pravidlo",
+        "message": "Toto pravidlo bude trvale smazáno."
+      },
+      "confirmDeleteBulk": {
+        "title_one": "Smazat {{count}} pravidlo",
+        "title_few": "Smazat {{count}} pravidla",
+        "title_many": "Smazat {{count}} pravidla",
+        "title_other": "Smazat {{count}} pravidel",
+        "message_one": "Opravdu chcete smazat {{count}} pravidlo? Tuto akci nelze vrátit zpět.",
+        "message_few": "Opravdu chcete smazat {{count}} pravidla? Tuto akci nelze vrátit zpět.",
+        "message_many": "Opravdu chcete smazat {{count}} pravidla? Tuto akci nelze vrátit zpět.",
+        "message_other": "Opravdu chcete smazat {{count}} pravidel? Tuto akci nelze vrátit zpět."
+      },
+      "confirmDeleteFolder": {
+        "title": "Smazat složku",
+        "message_one": "Smaže se složka, její podsložky a {{count}} pravidlo uvnitř. Tuto akci nelze vrátit zpět.",
+        "message_few": "Smaže se složka, její podsložky a {{count}} pravidla uvnitř. Tuto akci nelze vrátit zpět.",
+        "message_many": "Smaže se složka, její podsložky a {{count}} pravidla uvnitř. Tuto akci nelze vrátit zpět.",
+        "message_other": "Smaže se složka, její podsložky a {{count}} pravidel uvnitř. Tuto akci nelze vrátit zpět.",
+        "messageEmpty": "Smaže se složka a vše, co obsahuje. Tuto akci nelze vrátit zpět."
+      },
+      "vaultCascade": {
+        "moveDescription": "Přesunutím „{{folderName}}“ se do {{targetVaultName}} přesunou také tato pravidla:",
+        "copyDescription": "Zkopírováním „{{folderName}}“ se do {{targetVaultName}} zkopírují také tato pravidla:"
+      },
+      "bulk": {
+        "duplicateRules": "Duplikovat pravidla ({{count}})",
+        "exportRules": "Exportovat pravidla ({{count}})",
+        "deleteRules": "Smazat pravidla ({{count}})"
+      }
+    },
+    "ruleCard": {
+      "pause": "Pozastavit",
+      "resume": "Obnovit",
+      "openWebLink": "Otevřít webový odkaz",
+      "activateInSession": "Aktivovat v relaci",
+      "duplicate": "Duplikovat",
+      "enableCloudSync": "Zapnout synchronizaci s cloudem",
+      "disableCloudSync": "Vypnout synchronizaci s cloudem",
+      "pauseForwarding": "Pozastavit přesměrování",
+      "resumeForwarding": "Obnovit přesměrování",
+      "active": "Aktivní",
+      "error": "Chyba",
+      "stopped": "Zastaveno",
+      "noSshSession": "Žádná SSH relace",
+      "openUrl": "Otevřít {{url}}",
+      "scopedToConnections_one": "Omezeno na {{count}} připojení",
+      "scopedToConnections_few": "Omezeno na {{count}} připojení",
+      "scopedToConnections_many": "Omezeno na {{count}} připojení",
+      "scopedToConnections_other": "Omezeno na {{count}} připojení",
+      "connectionsCount_one": "{{count}} připojení",
+      "connectionsCount_few": "{{count}} připojení",
+      "connectionsCount_many": "{{count}} připojení",
+      "connectionsCount_other": "{{count}} připojení"
+    },
+    "activeTunnels": {
+      "sectionTitle": "Aktivní přesměrování relací",
+      "hostCount_one": "{{count}} hostitel",
+      "hostCount_few": "{{count}} hostitelé",
+      "hostCount_many": "{{count}} hostitele",
+      "hostCount_other": "{{count}} hostitelů",
+      "tunnelCount_one": "{{count}} tunel",
+      "tunnelCount_few": "{{count}} tunely",
+      "tunnelCount_many": "{{count}} tunelu",
+      "tunnelCount_other": "{{count}} tunelů",
+      "forwardCount_one": "{{count}} přesměrování",
+      "forwardCount_few": "{{count}} přesměrování",
+      "forwardCount_many": "{{count}} přesměrování",
+      "forwardCount_other": "{{count}} přesměrování",
+      "errorCount": "chyby: {{count}}",
+      "activeCountLabel": "aktivní: {{count}}",
+      "connected": "Připojeno",
+      "local": "Lokální",
+      "remote": "Vzdálené",
+      "socks5": "SOCKS5",
+      "auto": "Auto",
+      "adHoc": "Ad hoc",
+      "portLabel": "Port {{port}}",
+      "socksPortLabel": "SOCKS5 :{{port}}",
+      "pauseForwarding": "Pozastavit přesměrování",
+      "resumeForwarding": "Obnovit přesměrování",
+      "openUrl": "Otevřít {{url}}"
+    },
+    "ruleForm": {
+      "editRule": "Upravit pravidlo",
+      "newRule": "Nové pravidlo",
+      "general": "Obecné",
+      "name": "Název",
+      "namePlaceholder": "Můj tunel",
+      "description": "Popis",
+      "descriptionPlaceholder": "Vývojový server, proxy databáze…",
+      "type": "Typ",
+      "ports": "Porty",
+      "scope": "Rozsah",
+      "tunnelTypes": {
+        "local": {
+          "label": "Lokální",
+          "title": "Lokální tunel",
+          "summary": "Zpřístupní něco ze SSH serveru na vašem počítači.",
+          "example": "Přes localhost:3000 na svém počítači se dostanete na 127.0.0.1:3000 na serveru.",
+          "diagram": ["Váš počítač", "SSH server", "Vzdálená služba"]
+        },
+        "remote": {
+          "label": "Vzdálený",
+          "title": "Vzdálený tunel",
+          "summary": "Zpřístupní něco z vašeho počítače na SSH serveru.",
+          "example": "Server naslouchá na portu a přeposílá provoz zpět na váš počítač.",
+          "diagram": ["Vzdálení uživatelé", "SSH server", "Váš počítač"]
+        },
+        "dynamic": {
+          "label": "Dynamický",
+          "title": "Dynamická SOCKS proxy",
+          "summary": "Vytvoří lokální SOCKS5 proxy, která posílá provoz aplikací přes SSH server.",
+          "example": "Nasměrujte prohlížeč nebo aplikaci na localhost:1080 a provoz půjde přes server.",
+          "diagram": ["Vaše aplikace", "SOCKS proxy", "SSH server"]
+        }
+      },
+      "localPortOnComputer": "Port na vašem počítači",
+      "localPortHelp": "K tomuto portu se připojujete lokálně, obvykle jako localhost:{{port}}.",
+      "remotePortOnServer": "Port na SSH serveru",
+      "remotePortOnServerHelp": "Port, na kterém služba běží, z pohledu serveru.",
+      "hostOnServer": "Hostitel na SSH serveru",
+      "hostOnServerHelp": "Použijte 127.0.0.1, pokud služba běží přímo na SSH serveru.",
+      "remotePortOpenedOnServer": "Port otevřený na SSH serveru",
+      "remotePortOpenedOnServerHelp": "Na tento port se připojují lidé nebo služby na straně serveru.",
+      "localPortReceivingHelp": "Lokální aplikace nebo služba, která má přijímat přesměrovaný provoz.",
+      "bindAddressOnServer": "Adresa pro naslouchání na SSH serveru",
+      "bindAddressOnServerHelp": "127.0.0.1 ponechá port soukromý pro server. 0.0.0.0 ho může zpřístupnit v síti.",
+      "bindWarning": "0.0.0.0 zpřístupní tento port přes vzdálený server na všech jeho síťových rozhraních.",
+      "hostOnComputer": "Hostitel na vašem počítači",
+      "hostOnComputerHelp": "Použijte 127.0.0.1, pokud cílová aplikace běží na tomto počítači.",
+      "socksProxyPort": "Port SOCKS proxy na vašem počítači",
+      "socksProxyPortHelp": "Nastavte aplikace, aby jako SOCKS5 proxy používaly localhost:{{port}}.",
+      "applyTo": "Použít pro",
+      "allConnections": "Všechna připojení",
+      "specificConnections": "Vybraná připojení",
+      "noSavedConnections": "Žádná uložená připojení."
+    }
+  }
+}
