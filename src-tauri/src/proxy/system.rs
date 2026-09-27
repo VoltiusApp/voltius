@@ -248,13 +248,45 @@ fn detect_os(host: &str) -> Option<ProxySpec> {
     (host.is_empty() || !bypass_matches(&patterns, host, true)).then_some(spec)
 }
 
+/// Returns the value `slot` holds if it is younger than `ttl` at `now`, else
+/// stores and returns a fresh `fetch()`. The lock is held across `fetch`, so a
+/// burst of callers (one reachability ping per host) shares a single fetch.
+#[cfg(any(target_os = "macos", test))]
+fn cached<T: Clone>(
+    slot: &std::sync::Mutex<Option<(std::time::Instant, T)>>,
+    now: std::time::Instant,
+    ttl: std::time::Duration,
+    fetch: impl FnOnce() -> T,
+) -> T {
+    let mut slot = slot.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((at, value)) = slot.as_ref() {
+        if now.saturating_duration_since(*at) < ttl {
+            return value.clone();
+        }
+    }
+    let value = fetch();
+    *slot = Some((now, value.clone()));
+    value
+}
+
+#[cfg(target_os = "macos")]
+fn scutil_proxy() -> Option<(ProxySpec, Vec<String>)> {
+    use std::sync::Mutex;
+    use std::time::{Duration, Instant};
+    type Slot = Mutex<Option<(Instant, Option<(ProxySpec, Vec<String>)>)>>;
+    static CACHE: Slot = Mutex::new(None);
+    cached(&CACHE, Instant::now(), Duration::from_secs(5), || {
+        let out = std::process::Command::new("scutil")
+            .arg("--proxy")
+            .output()
+            .ok()?;
+        parse_scutil(&String::from_utf8_lossy(&out.stdout))
+    })
+}
+
 #[cfg(target_os = "macos")]
 fn detect_os(host: &str) -> Option<ProxySpec> {
-    let out = std::process::Command::new("scutil")
-        .arg("--proxy")
-        .output()
-        .ok()?;
-    let (spec, exceptions) = parse_scutil(&String::from_utf8_lossy(&out.stdout))?;
+    let (spec, exceptions) = scutil_proxy()?;
     let patterns: Vec<&str> = exceptions.iter().map(String::as_str).collect();
     (host.is_empty() || !bypass_matches(&patterns, host, false)).then_some(spec)
 }
@@ -366,6 +398,26 @@ mod tests {
             ProxySpec::Socks5(ep("s.corp", 1080))
         );
         assert!(parse_scutil("<dictionary> {\n  ProxyAutoConfigEnable : 1\n}\n").is_none());
+    }
+
+    #[test]
+    fn cached_reuses_a_value_until_it_expires() {
+        use std::sync::Mutex;
+        use std::time::{Duration, Instant};
+        let slot = Mutex::new(None);
+        let ttl = Duration::from_secs(5);
+        let t0 = Instant::now();
+        let at = |secs| t0 + Duration::from_secs(secs);
+        let mut fetches = 0;
+        let mut fetch = |v: u32| {
+            fetches += 1;
+            v
+        };
+        assert_eq!(cached(&slot, at(0), ttl, || fetch(1)), 1);
+        assert_eq!(cached(&slot, at(4), ttl, || fetch(2)), 1);
+        assert_eq!(cached(&slot, at(5), ttl, || fetch(3)), 3);
+        assert_eq!(cached(&slot, at(6), ttl, || fetch(4)), 3);
+        assert_eq!(fetches, 2);
     }
 
     #[test]
