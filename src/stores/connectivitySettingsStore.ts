@@ -44,11 +44,7 @@ export const useConnectivitySettingsStore = create<ConnectivitySettingsState>()(
     {
       name: "voltius-connectivity-settings",
       version: CONNECTIVITY_SETTINGS_VERSION,
-      migrate: (persisted, version) => {
-        const { state, changed } = migrateConnectivitySettings(persisted, version);
-        if (changed) queueMicrotask(() => touchAppSetting("appSettings.keepalivePreset"));
-        return state as ConnectivitySettingsState;
-      },
+      migrate: (persisted, version) => migrateConnectivitySettings(persisted, version) as ConnectivitySettingsState,
     },
   ),
 );
