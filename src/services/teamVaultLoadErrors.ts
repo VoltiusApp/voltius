@@ -18,3 +18,12 @@ export function classifyTeamObjectListError(err: unknown): TeamObjectListErrorAc
   if (message.toLowerCase().includes("network") || message.toLowerCase().includes("connected")) return "offline";
   return "fallback";
 }
+
+const REVOKED_CODES = new Set(["forbidden", "payment_required", "awaiting_key", "key_mismatch"]);
+const REVOKED_STATUSES = new Set([402, 403, 404]);
+
+export function isAccessRevoked(err: unknown): boolean {
+  if (typeof err === "string") return REVOKED_CODES.has(err);
+  const status = (err as { status?: number } | null)?.status;
+  return status !== undefined && REVOKED_STATUSES.has(status);
+}

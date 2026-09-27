@@ -1,5 +1,5 @@
-import { classifyTeamObjectListError } from "./teamVaultLoadErrors.ts";
-import { test } from "vitest";
+import { classifyTeamObjectListError, isAccessRevoked } from "./teamVaultLoadErrors.ts";
+import { test, expect } from "vitest";
 
 test("teamVaultLoadErrors", async () => {
 function assertEqual<T>(actual: T, expected: T, msg: string) {
@@ -31,4 +31,13 @@ assertEqual(classifyTeamObjectListError(legacyOffline), "offline", "legacy text 
 // Unclassifiable error falls back.
 const unknown = new Error("something else entirely");
 assertEqual(classifyTeamObjectListError(unknown), "fallback", "unrecognized error falls back");
+});
+
+test("isAccessRevoked separates a denial from a transient failure", () => {
+  for (const e of ["forbidden", "payment_required", "awaiting_key", "key_mismatch", { status: 403 }, { status: 404 }, { status: 402 }]) {
+    expect(isAccessRevoked(e)).toBe(true);
+  }
+  for (const e of ["offline", "error", { status: 500 }, { status: 429 }, { offline: true }, new Error("network"), null]) {
+    expect(isAccessRevoked(e)).toBe(false);
+  }
 });

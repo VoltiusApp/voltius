@@ -25,7 +25,8 @@ import * as teamService from "@/services/teamService";
 import { getServerUrl } from "@/services/authTokens";
 import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
-import { storeSecret, deleteLocalSecret } from "@/services/vault";
+import { deleteLocalSecret } from "@/services/vault";
+import { teamSecretCache } from "@/services/teamSecretCache";
 import { logFailure, logSettledFailures } from "@/lib/logger";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
@@ -564,9 +565,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, slices.snippetFolders as Folder[]);
   usePortForwardingStore.getState().setTeamRules(teamId, slices.portForwardingRules as PortForwardingRule[]);
 
-  for (const [k, v] of Object.entries(blobPayload.secrets ?? {})) {
-    await storeSecret(k, v).catch(() => {});
-  }
+  teamSecretCache.replaceTeam(teamId, new Map(Object.entries(blobPayload.secrets ?? {})));
 
   stateStore.setStatus(teamId, "loaded");
 }

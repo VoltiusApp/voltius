@@ -1,5 +1,6 @@
 import { test, expect, vi, beforeEach } from "vitest";
 import { bytesToBase64 } from "@/services/teamVaultSyncCore";
+import { teamSecretCache } from "./teamSecretCache";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -62,6 +63,7 @@ beforeEach(() => {
   h.getTeamVaultKey.mockResolvedValue("ENCKEY");
   h.getCachedTeamKeyVersion.mockReturnValue(1);
   h.getTeamVaultKeyAtVersion.mockResolvedValue("OLD-ENCKEY");
+  teamSecretCache.clearAll();
 });
 
 // ─── saveTeamVaultSecret ────────────────────────────────────────────────────
@@ -182,42 +184,57 @@ test("deleteTeamVaultSecretForVault propagates a failure", async () => {
 
 // ─── hydrateTeamVaultSecrets ─────────────────────────────────────────────────
 
-test("hydrateTeamVaultSecrets decrypts each record and stores the recovered local secret", async () => {
-  h.listTeamSecrets.mockResolvedValue([
-    { object_id: "c1", secret_type: "connection_password", ciphertext: bytesToBase64([1]), key_version: 1 },
-  ]);
-  h.invoke.mockResolvedValue({ files: {}, secrets: { "password:c1": "recovered" } });
-
-  await hydrateTeamVaultSecrets("t1");
-
-  expect(h.invoke).toHaveBeenCalledWith("backup_decrypt", { encKey: "ENCKEY", blob: [1] });
-  expect(h.storeSecret).toHaveBeenCalledWith("password:c1", "recovered");
+const row = (object_id: string, secret_type: string, key_version = 1) => ({
+  secret_id: `${secret_type}:${object_id}`, object_id, secret_type, ciphertext: bytesToBase64(new Uint8Array([1])), key_version,
 });
 
-test("hydrateTeamVaultSecrets skips records whose secret_type has no local-key mapping", async () => {
-  h.listTeamSecrets.mockResolvedValue([
-    { object_id: "c1", secret_type: "bogus_type", ciphertext: bytesToBase64([1]), key_version: 1 },
-  ]);
+function decryptTo(values: Record<string, string>) {
+  h.invoke.mockImplementation(async (cmd: string) => {
+    if (cmd === "backup_decrypt") return { files: {}, secrets: values };
+    return undefined;
+  });
+}
+
+test("hydrate replaces the team's cache with exactly what the server served", async () => {
+  teamSecretCache.set("t1", "password:revoked", "old");
+  h.listTeamSecrets.mockResolvedValue([row("c1", "connection_password")]);
+  decryptTo({ "password:c1": "pw" });
 
   await hydrateTeamVaultSecrets("t1");
 
-  expect(h.invoke).not.toHaveBeenCalled();
+  expect(teamSecretCache.entries("t1")).toEqual(new Map([["password:c1", "pw"]]));
   expect(h.storeSecret).not.toHaveBeenCalled();
 });
 
-test("hydrateTeamVaultSecrets isolates a failing record (allSettled) so siblings still hydrate", async () => {
-  h.listTeamSecrets.mockResolvedValue([
-    { object_id: "bad", secret_type: "connection_password", ciphertext: bytesToBase64([1]), key_version: 1 },
-    { object_id: "good", secret_type: "connection_password", ciphertext: bytesToBase64([2]), key_version: 1 },
-  ]);
-  h.invoke.mockImplementation(async (_cmd: string, args: { blob: number[] }) => {
-    if (args.blob[0] === 1) throw new Error("decrypt failed");
-    return { files: {}, secrets: { "password:good": "ok" } };
-  });
+test("a served row that fails to decrypt keeps its previous value", async () => {
+  teamSecretCache.set("t1", "password:c1", "previous");
+  h.listTeamSecrets.mockResolvedValue([row("c1", "connection_password", 2)]);
+  h.getCachedTeamKeyVersion.mockReturnValue(3);
+  h.getTeamVaultKeyAtVersion.mockRejectedValue(Object.assign(new Error("429"), { status: 429 }));
 
-  await expect(hydrateTeamVaultSecrets("t1")).resolves.toBeUndefined();
-  expect(h.storeSecret).toHaveBeenCalledTimes(1);
-  expect(h.storeSecret).toHaveBeenCalledWith("password:good", "ok");
+  await hydrateTeamVaultSecrets("t1");
+
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("previous");
+});
+
+test("a denial clears the team's cache and rethrows", async () => {
+  teamSecretCache.set("t1", "password:c1", "pw");
+  teamSecretCache.set("t2", "password:c2", "other");
+  h.listTeamSecrets.mockRejectedValue(Object.assign(new Error("403"), { status: 403 }));
+
+  await expect(hydrateTeamVaultSecrets("t1")).rejects.toMatchObject({ status: 403 });
+
+  expect(teamSecretCache.get("t1", "password:c1")).toBeUndefined();
+  expect(teamSecretCache.get("t2", "password:c2")).toBe("other");
+});
+
+test("a transient failure keeps the last served set", async () => {
+  teamSecretCache.set("t1", "password:c1", "pw");
+  h.getTeamVaultKey.mockRejectedValue("offline");
+
+  await expect(hydrateTeamVaultSecrets("t1")).rejects.toBe("offline");
+
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("pw");
 });
 
 // I-F: a rejected record must leave a trace instead of vanishing silently —
@@ -237,16 +254,6 @@ test("hydrateTeamVaultSecrets logs a rejected record, naming the team and secret
   expect(logged).toContain("s-poisoned");
 
   vi.restoreAllMocks();
-});
-
-test("hydrateTeamVaultSecrets does not store when the decrypted payload lacks the expected key", async () => {
-  h.listTeamSecrets.mockResolvedValue([
-    { object_id: "c1", secret_type: "connection_password", ciphertext: bytesToBase64([1]), key_version: 1 },
-  ]);
-  h.invoke.mockResolvedValue({ files: {}, secrets: {} });
-
-  await hydrateTeamVaultSecrets("t1");
-  expect(h.storeSecret).not.toHaveBeenCalled();
 });
 
 test("saveTeamVaultSecret includes the current cached key_version", async () => {

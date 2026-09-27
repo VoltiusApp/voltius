@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { getSecret, storeSecret } from "@/services/vault";
+import { getSecret } from "@/services/vault";
 import { getTeamVaultKey, getCachedTeamKeyVersion, getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
 import { deleteTeamSecret, listTeamSecrets, upsertTeamSecret } from "@/services/teamObjects";
 import { useTeamStore } from "@/stores/teamStore";
@@ -12,6 +12,8 @@ import {
 } from "@/services/teamVaultSecretKeys";
 import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 import { logSettledFailures } from "@/lib/logger";
+import { teamSecretCache } from "@/services/teamSecretCache";
+import { isAccessRevoked } from "@/services/teamVaultLoadErrors";
 
 interface BlobPayload {
   files: Record<string, string>;
@@ -79,25 +81,34 @@ export async function deleteTeamVaultSecretForVault(
 }
 
 export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
-  const [currentKey, records] = await Promise.all([getTeamVaultKey(teamId), listTeamSecrets(teamId)]);
-  const currentVersion = getCachedTeamKeyVersion(teamId);
+  try {
+    const [currentKey, records] = await Promise.all([getTeamVaultKey(teamId), listTeamSecrets(teamId)]);
+    const currentVersion = getCachedTeamKeyVersion(teamId);
+    const previous = teamSecretCache.entries(teamId);
+    const next = new Map<string, string>();
 
-  const results = await Promise.allSettled(records.map(async (record) => {
-    const localKey = localSecretKeyFromTeamSecret(record.object_id, record.secret_type);
-    if (!localKey) return;
-    // A pre-#217 row's key_version is undefined, which is epoch 1 (matching
-    // the server's own COALESCE(...,1) treatment) — never a literal
-    // "undefined" fetch against vault-key/undefined.
-    const recordVersion = record.key_version ?? 1;
-    const encKey = currentVersion !== undefined && recordVersion !== currentVersion
-      ? await getTeamVaultKeyAtVersion(teamId, recordVersion)
-      : currentKey;
-    const blob = base64ToByteArray(record.ciphertext);
-    const payload = await invoke<BlobPayload>("backup_decrypt", { encKey, blob });
-    const value = payload.secrets?.[localKey];
-    if (value) await storeSecret(localKey, value);
-  }));
-  logSettledFailures(results, (i) => `teamVaultSecrets: hydrate team=${teamId} secret=${records[i].secret_id}`);
+    const results = await Promise.allSettled(records.map(async (record) => {
+      const localKey = localSecretKeyFromTeamSecret(record.object_id, record.secret_type);
+      if (!localKey) return;
+      const kept = previous.get(localKey);
+      if (kept !== undefined) next.set(localKey, kept);
+      // A pre-#217 row's key_version is undefined, which is epoch 1 (matching
+      // the server's own COALESCE(...,1) treatment) — never a literal
+      // "undefined" fetch against vault-key/undefined.
+      const recordVersion = record.key_version ?? 1;
+      const encKey = currentVersion !== undefined && recordVersion !== currentVersion
+        ? await getTeamVaultKeyAtVersion(teamId, recordVersion)
+        : currentKey;
+      const payload = await invoke<BlobPayload>("backup_decrypt", { encKey, blob: base64ToByteArray(record.ciphertext) });
+      const value = payload.secrets?.[localKey];
+      if (value) next.set(localKey, value);
+    }));
+    teamSecretCache.replaceTeam(teamId, next);
+    logSettledFailures(results, (i) => `teamVaultSecrets: hydrate team=${teamId} secret=${records[i].secret_id}`);
+  } catch (err) {
+    if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
+    throw err;
+  }
 }
 
 export async function backfillExistingTeamVaultSecrets(teamId: string): Promise<void> {
