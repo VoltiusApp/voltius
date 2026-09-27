@@ -70,25 +70,20 @@ pub fn parse_proxy_url(url: &str) -> Option<ProxySpec> {
         Some((u, h)) => (Some(u), h),
         None => (None, rest),
     };
-    let socks = match scheme.to_ascii_lowercase().as_str() {
-        "socks" | "socks5" | "socks5h" => true,
-        "http" => false,
-        _ => return None,
-    };
-    let mut ep = endpoint(
-        host_port.split('/').next().unwrap_or(""),
-        if socks { 1080 } else { 80 },
-    )?;
+    let (spec, default_port): (fn(ProxyEndpoint) -> ProxySpec, u16) =
+        match scheme.to_ascii_lowercase().as_str() {
+            "socks" | "socks5" | "socks5h" => (ProxySpec::Socks5, 1080),
+            "http" => (ProxySpec::Http, 80),
+            "https" => (ProxySpec::Https, 443),
+            _ => return None,
+        };
+    let mut ep = endpoint(host_port.split('/').next().unwrap_or(""), default_port)?;
     if let Some(info) = userinfo {
         let (u, p) = info.split_once(':').unwrap_or((info, ""));
         ep.username = Some(percent_decode(u));
         ep.password = Some(percent_decode(p));
     }
-    Some(if socks {
-        ProxySpec::Socks5(ep)
-    } else {
-        ProxySpec::Http(ep)
-    })
+    Some(spec(ep))
 }
 
 #[cfg(any(target_os = "windows", test))]
@@ -334,6 +329,10 @@ mod tests {
             parse_windows_proxy_server("http://a:3128"),
             Some(ProxySpec::Http(ep("a", 3128)))
         );
+        assert_eq!(
+            parse_windows_proxy_server("https=https://b:8443"),
+            Some(ProxySpec::Https(ep("b", 8443)))
+        );
         assert_eq!(parse_windows_proxy_server(""), None);
     }
 
@@ -387,7 +386,11 @@ mod tests {
             parse_proxy_url("h:3128"),
             Some(ProxySpec::Http(ep("h", 3128)))
         );
-        assert_eq!(parse_proxy_url("https://h:443"), None);
+        assert_eq!(
+            parse_proxy_url("https://h"),
+            Some(ProxySpec::Https(ep("h", 443)))
+        );
+        assert_eq!(parse_proxy_url("ftp://h:21"), None);
         assert_eq!(
             parse_proxy_url("http://us%40er:p%3Ass@h:8080"),
             Some(ProxySpec::Http(ProxyEndpoint {
@@ -427,6 +430,11 @@ mod tests {
         );
         assert_eq!(from_env(https_only, "git.corp"), None);
         assert_eq!(from_env(https_only, "localhost"), None);
+        let tls = env(&[("HTTPS_PROXY", "https://t:8443")]);
+        assert_eq!(
+            from_env(tls, "x.com"),
+            Some(ProxySpec::Https(ep("t", 8443)))
+        );
         let star = env(&[("ALL_PROXY", "socks5://s:1080"), ("NO_PROXY", "*")]);
         assert_eq!(from_env(star, "x.com"), None);
     }
