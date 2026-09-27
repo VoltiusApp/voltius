@@ -32,6 +32,7 @@ mod shell_integration;
 mod ssh;
 mod storage;
 mod terminal_kbd;
+mod tls;
 mod updater;
 mod vault_auth;
 

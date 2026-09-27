@@ -21,7 +21,6 @@ use tauri::AppHandle;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
-use tokio_rustls::rustls::{ClientConfig, RootCertStore};
 use tokio_rustls::TlsConnector;
 use tokio_util::sync::CancellationToken;
 
@@ -60,8 +59,8 @@ pub async fn connect(
         .map_err(|e| format!("FTP connection failed: {e}"))?;
 
     if secure {
-        let config = build_tls_config()?;
-        let connector = AsyncRustlsConnector::from(TlsConnector::from(Arc::new(config)));
+        let config = crate::tls::client_config().map_err(|e| format!("FTPS: {e}"))?;
+        let connector = AsyncRustlsConnector::from(TlsConnector::from(config));
         ftp = ftp
             .into_secure(connector, host)
             .await
@@ -79,26 +78,6 @@ pub async fn connect(
     Ok(FtpBackend {
         inner: Arc::new(Mutex::new(ftp)),
     })
-}
-
-/// rustls config trusting the OS root store, using the `ring` provider (matches
-/// the rest of the tree). Self-signed/invalid certs are rejected.
-fn build_tls_config() -> Result<ClientConfig, String> {
-    let mut roots = RootCertStore::empty();
-    let loaded = rustls_native_certs::load_native_certs();
-    for cert in loaded.certs {
-        let _ = roots.add(cert);
-    }
-    if roots.is_empty() {
-        return Err("No system root certificates available for FTPS".into());
-    }
-    let provider = Arc::new(tokio_rustls::rustls::crypto::ring::default_provider());
-    let config = ClientConfig::builder_with_provider(provider)
-        .with_safe_default_protocol_versions()
-        .map_err(|e| format!("TLS setup failed: {e}"))?
-        .with_root_certificates(roots)
-        .with_no_client_auth();
-    Ok(config)
 }
 
 fn collect_local(
