@@ -73,3 +73,15 @@ test("deleteTag keeps team connections created or edited while its saves are in 
   expect(teamConn("created")).toBeDefined();
   expect(h.saveTeamVaultObject).toHaveBeenCalledOnce();
 });
+
+test("renameTag retags, rather than reverts, an edit to the same team connection made during its save", async () => {
+  await whileSavesPending(
+    () => useConnectionStore.getState().renameTag("old", "new"),
+    () => useConnectionStore.setState((s) => ({
+      teamConnections: { t1: s.teamConnections.t1.map((c) => (c.id === "tagged" ? { ...c, name: "renamed", updated_at: "t1" } : c)) },
+    })),
+  );
+
+  expect(teamConn("tagged")).toMatchObject({ name: "renamed", tags: ["new", "keep"] });
+  expect(h.saveTeamVaultObject).toHaveBeenCalledTimes(2);
+});

@@ -365,13 +365,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 }));
 
-/**
- * Rewrites the tags of every personal and team connection carrying `tag`, and
- * returns the personal ones as they were. Each team save lands in the map on
- * its own, against the map as it is by then: rebuilding the whole map from a
- * snapshot taken before the (network) saves reverted any team connection
- * created or edited while they were in flight.
- */
+// Returns the personal connections as they were before the rewrite.
 async function retagConnections(tag: string, rewrite: (tags: string[]) => string[]): Promise<Connection[]> {
   const personal = useConnectionStore.getState().connections.filter((c) => c.tags.includes(tag));
   await Promise.all(
@@ -382,11 +376,26 @@ async function retagConnections(tag: string, rewrite: (tags: string[]) => string
   isServerMode().then((s) => { if (s && prefs.isTypeSynced("connection")) scheduleSync(); });
 
   const team = Object.entries(useConnectionStore.getState().teamConnections).flatMap(([teamId, conns]) =>
-    conns.filter((c) => c.tags.includes(tag)).map((c) => ({ teamId, c })),
+    conns.filter((c) => c.tags.includes(tag)).map((c) => ({ teamId, id: c.id })),
   );
-  await Promise.all(team.map(async ({ teamId, c }) => {
-    const updated = await saveStampedTeamObject(teamId, "connection", c, { tags: rewrite(c.tags) });
-    useConnectionStore.setState((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
-  }));
+  await Promise.all(team.map(({ teamId, id }) => retagTeamConnection(teamId, id, tag, rewrite)));
   return personal;
+}
+
+async function retagTeamConnection(
+  teamId: string,
+  id: string,
+  tag: string,
+  rewrite: (tags: string[]) => string[],
+): Promise<void> {
+  const current = () => useConnectionStore.getState().teamConnections[teamId]?.find((c) => c.id === id);
+  for (let c = current(); c?.tags.includes(tag); c = current()) {
+    const updated = await saveStampedTeamObject(teamId, "connection", c, { tags: rewrite(c.tags) });
+    const now = current();
+    if (!now) return;
+    // Edited while the save was in flight: retag that copy rather than revert it.
+    if (now.updated_at !== c.updated_at) continue;
+    useConnectionStore.setState((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
+    return;
+  }
 }
