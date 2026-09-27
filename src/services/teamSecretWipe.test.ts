@@ -195,6 +195,36 @@ test("a pending key with no local value is resolved without being uploaded", asy
   expect(usePendingTeamSecretUploadStore.getState().keysByTeamId["t1"]).toBeUndefined();
 });
 
+test("a pending key whose object left the team is resolved without being read, uploaded, or purged", async () => {
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1"]);
+  h.getLocalSecret.mockImplementation(async (k: string) => (k === "password:c1" ? "pw" : null));
+
+  await sweepLocalTeamSecrets("t1");
+
+  expect(h.getLocalSecret).not.toHaveBeenCalledWith("password:c1");
+  expect(h.writeSecretAt).not.toHaveBeenCalled();
+  expect(h.deleted).not.toContain("password:c1");
+  expect(usePendingTeamSecretUploadStore.getState().keysByTeamId["t1"]).toBeUndefined();
+});
+
+test("a pending key whose local read throws stays queued and is excluded from this sweep's purge", async () => {
+  seed();
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1"]);
+  h.getLocalSecret.mockImplementation(async (k: string) => {
+    if (k === "password:c1") throw new Error("vault locked");
+    return null;
+  });
+
+  await sweepLocalTeamSecrets("t1");
+
+  expect(h.writeSecretAt).not.toHaveBeenCalled();
+  expect(usePendingTeamSecretUploadStore.getState().keysByTeamId["t1"]).toEqual(["password:c1"]);
+  expect(h.deleted).not.toContain("password:c1");
+  expect(h.deleted).toEqual(expect.arrayContaining([
+    "key:c1", "key:k1:passphrase", "key:k1:private", "key:k1:public", "passphrase:c1", "proxy_password:c1",
+  ]));
+});
+
 test("removing the team resolves its pending uploads instead of leaving them queued forever", async () => {
   seed();
   usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1"]);

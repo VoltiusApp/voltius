@@ -38,6 +38,9 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   // either find nothing or, on a team it still belongs to, delete a live vault's
   // credentials.
   "voltius-pending-secret-wipe",
+  // Local secrets a personal→team move of this account's objects failed to
+  // upload. The next account has no business retrying another account's upload.
+  "voltius-pending-team-secret-upload",
 ];
 
 /**

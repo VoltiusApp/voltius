@@ -685,9 +685,17 @@ async function purgeLocalCopies(keys: string[]): Promise<string[]> {
   }
 }
 
-async function purgeTeamObjectSecrets(teamId: string, skip: Set<string> = new Set()): Promise<string[]> {
+async function teamOwnedSecretKeys(teamId: string): Promise<string[]> {
   const { teamObjectSecretKeys } = await import("@/services/teamSecretOwnership");
-  const keys = teamObjectSecretKeys(teamId).filter((k) => !skip.has(k));
+  return teamObjectSecretKeys(teamId);
+}
+
+async function purgeTeamObjectSecrets(
+  teamId: string,
+  skip: Set<string> = new Set(),
+  ownedKeys?: string[],
+): Promise<string[]> {
+  const keys = (ownedKeys ?? await teamOwnedSecretKeys(teamId)).filter((k) => !skip.has(k));
   const failed = await purgeLocalCopies(keys);
   if (failed.length > 0) {
     const { usePendingSecretWipeStore } = await import("@/stores/pendingSecretWipeStore");
@@ -697,7 +705,7 @@ async function purgeTeamObjectSecrets(teamId: string, skip: Set<string> = new Se
 }
 
 /** Retries a failed personal→team upload before the sweep purges its only surviving local copy. */
-async function retryPendingTeamSecretUploads(teamId: string): Promise<Set<string>> {
+async function retryPendingTeamSecretUploads(teamId: string, ownedKeys: Set<string>): Promise<Set<string>> {
   const { usePendingTeamSecretUploadStore } = await import("@/stores/pendingTeamSecretUploadStore");
   const { getLocalSecret } = await import("@/services/vault");
   const store = usePendingTeamSecretUploadStore.getState();
@@ -705,7 +713,15 @@ async function retryPendingTeamSecretUploads(teamId: string): Promise<Set<string
   const stillPending: string[] = [];
 
   for (const key of pending) {
-    const value = await getLocalSecret(key).catch(() => null);
+    if (!ownedKeys.has(key)) continue; // object left the team; resolved below, local copy untouched
+    let value: string | null;
+    try {
+      value = await getLocalSecret(key);
+    } catch (e) {
+      logFailure(`local read for pending team secret upload ${key}`)(e);
+      stillPending.push(key);
+      continue;
+    }
     if (!value) continue;
     try {
       const { writeSecretAt } = await import("@/services/secretRouting");
@@ -721,8 +737,9 @@ async function retryPendingTeamSecretUploads(teamId: string): Promise<Set<string
 }
 
 export async function sweepLocalTeamSecrets(teamId: string): Promise<void> {
-  const stillPending = await retryPendingTeamSecretUploads(teamId);
-  await purgeTeamObjectSecrets(teamId, stillPending);
+  const ownedKeys = await teamOwnedSecretKeys(teamId);
+  const stillPending = await retryPendingTeamSecretUploads(teamId, new Set(ownedKeys));
+  await purgeTeamObjectSecrets(teamId, stillPending, ownedKeys);
 }
 
 /** Retries local-store purges that failed during a sweep or an offboarding wipe. */

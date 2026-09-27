@@ -75,9 +75,16 @@ test("a switch hands the incoming account its own state, not the outgoing one's"
  * account's contents and shows them to the next one. A new persisted store has
  * to land in one of the three lists or this fails.
  */
+// Also matches a store built through `createPendingKeysByTeamStore("voltius-...")`,
+// which hides the persisted name from the first pattern behind a variable.
+const PERSISTED_NAME_PATTERNS = [
+  /name: "(voltius-[a-z0-9-]+)"/g,
+  /createPendingKeysByTeamStore\("(voltius-[a-z0-9-]+)"\)/g,
+];
+
 test("every persisted store is classified as the account's or the machine's", () => {
   const persisted = Object.values(storeSources)
-    .flatMap((source) => [...source.matchAll(/name: "(voltius-[a-z0-9-]+)"/g)].map((m) => m[1]));
+    .flatMap((source) => PERSISTED_NAME_PATTERNS.flatMap((re) => [...source.matchAll(re)].map((m) => m[1])));
 
   expect(persisted.length).toBeGreaterThan(15);
 
