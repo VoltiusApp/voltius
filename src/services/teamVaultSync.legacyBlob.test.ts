@@ -123,11 +123,10 @@ test("blob behind the current version: decrypts with the OLD key, re-encrypts wi
   expect(body.blob).toBe(btoa(String.fromCharCode(9, 9, 9)));
 });
 
-test("fetching a team's legacy blob replaces the team's secret cache, never storing through secrets_set", async () => {
-  const BLOB_SECRETS = { "password:c1": "hunter2" };
+function mockLegacyBlobLoad(secrets: Record<string, string> = {}): void {
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => {
     if (cmd === "keychain_get") return args.key === "server_url" ? "https://s" : futureJwt();
-    if (cmd === "backup_decrypt") return { files: {}, secrets: BLOB_SECRETS };
+    if (cmd === "backup_decrypt") return { files: {}, secrets };
     return null;
   });
   h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
@@ -142,9 +141,30 @@ test("fetching a team's legacy blob replaces the team's secret cache, never stor
     }
     throw new Error(`unexpected fetch ${url} ${method}`);
   });
+}
+
+test("fetching a team's legacy blob replaces the team's secret cache, never storing through secrets_set", async () => {
+  const BLOB_SECRETS = { "password:c1": "hunter2" };
+  mockLegacyBlobLoad(BLOB_SECRETS);
 
   await fetchTeamData("t1");
 
   expect(teamSecretCache.entries("t1")).toEqual(new Map(Object.entries(BLOB_SECRETS)));
   expect(h.invoke.mock.calls.some(([cmd]) => cmd === "secrets_set")).toBe(false);
+});
+
+test("a foreground legacy-blob load purges the team's local secret keys once", async () => {
+  mockLegacyBlobLoad();
+
+  await fetchTeamData("t1");
+
+  expect(h.purge).toHaveBeenCalledTimes(1);
+});
+
+test("a background legacy-blob load never purges", async () => {
+  mockLegacyBlobLoad();
+
+  await fetchTeamData("t1", { background: true });
+
+  expect(h.purge).not.toHaveBeenCalled();
 });

@@ -685,14 +685,18 @@ async function purgeLocalCopies(keys: string[]): Promise<string[]> {
   }
 }
 
-/** Sweeps a team's secret keys out of the local encrypted store, queuing any
- * that fail to purge for a later retry. */
-export async function sweepLocalTeamSecrets(teamId: string): Promise<void> {
+async function purgeTeamObjectSecrets(teamId: string): Promise<string[]> {
   const { teamObjectSecretKeys } = await import("@/services/teamSecretOwnership");
   const failed = await purgeLocalCopies(teamObjectSecretKeys(teamId));
-  if (failed.length === 0) return;
-  const { usePendingSecretWipeStore } = await import("@/stores/pendingSecretWipeStore");
-  usePendingSecretWipeStore.getState().enqueue(teamId, failed);
+  if (failed.length > 0) {
+    const { usePendingSecretWipeStore } = await import("@/stores/pendingSecretWipeStore");
+    usePendingSecretWipeStore.getState().enqueue(teamId, failed);
+  }
+  return failed;
+}
+
+export async function sweepLocalTeamSecrets(teamId: string): Promise<void> {
+  await purgeTeamObjectSecrets(teamId);
 }
 
 /** Retries local-store purges that failed during a sweep or an offboarding wipe. */
@@ -721,8 +725,7 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[
   const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
 
   // Purge before clearing the stores: the key names come from the objects still in them.
-  const { teamObjectSecretKeys } = await import("@/services/teamSecretOwnership");
-  const failedKeys = await purgeLocalCopies(teamObjectSecretKeys(teamId));
+  const failedKeys = await purgeTeamObjectSecrets(teamId);
   teamSecretCache.clearTeam(teamId);
 
   useConnectionStore.getState().setTeamConnections(teamId, []);

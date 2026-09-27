@@ -140,9 +140,11 @@ test("a failed sweep is queued for the next login", async () => {
 
 test("a background refresh that is denied drops the team's cached secrets", async () => {
   teamSecretCache.set("t1", "password:c1", "pw");
+  teamSecretCache.set("t2", "password:c2", "keep");
   h.listTeamObjects.mockRejectedValue(Object.assign(new Error("403"), { status: 403 }));
   await fetchTeamData("t1", { background: true });
   expect(teamSecretCache.get("t1", "password:c1")).toBeUndefined();
+  expect(teamSecretCache.get("t2", "password:c2")).toBe("keep");
 });
 
 test("a background refresh that hits a network error keeps them", async () => {

@@ -113,11 +113,12 @@ test("queues and reports the secrets a failed wipe left on the device", async ()
   await handleRealtimeEvent("membership_changed", "device-1");
 
   await vi.waitFor(() => {
-    // A rejected purge is all-or-nothing: every key of the batch survives, not
-    // just the one that triggered the failure.
-    expect(usePendingSecretWipeStore.getState().keysByTeamId["t2"]).toEqual(
-      expect.arrayContaining(["password:c-t2", "key:k-t2:private"]),
-    );
+    expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({
+      t2: expect.arrayContaining([
+        "password:c-t2", "key:c-t2", "passphrase:c-t2", "proxy_password:c-t2",
+        "key:k-t2:private", "key:k-t2:public", "key:k-t2:passphrase",
+      ]),
+    });
     expect(h.notWiped).toEqual(["t2/team-t2"]);
   });
 });

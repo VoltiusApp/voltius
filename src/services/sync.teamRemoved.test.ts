@@ -117,5 +117,5 @@ test("removal from a team drops its cached secrets and purges local copies in on
 
   await vi.waitFor(() => expect(teamSecretCache.get("t1", "password:c1")).toBeUndefined());
   expect(teamSecretCache.get("t2", "password:c2")).toBe("keep");
-  expect(h.purge).toHaveBeenCalledWith(expect.arrayContaining(["password:c1"]));
+  expect(h.purge.mock.calls).toEqual([[expect.arrayContaining(["password:c1"])]]);
 });
