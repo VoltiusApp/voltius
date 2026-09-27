@@ -4,7 +4,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { usePendingTeamSecretUploadStore } from "@/stores/pendingTeamSecretUploadStore";
 import { readSecretAt, writeSecretAt, removeSecretAt, teamIdOfVault } from "@/services/secretRouting";
-import { secretKeysFor } from "@/services/teamVaultSecretKeys";
+import { secretKeysFor, type SecretObjectKind } from "@/services/teamVaultSecretKeys";
 import { logFailure } from "@/lib/logger";
 
 function toastSecretError(messageKey: string, error: unknown): void {
@@ -26,6 +26,18 @@ async function withdrawOrWarn(withdrawal: Promise<void>): Promise<void> {
   }
 }
 
+/** A value whose team upload failed must survive locally until the retry; a personal source already is local. */
+async function keptLocally(from: string | null, localKey: string, value: string): Promise<boolean> {
+  if (from === null) return true;
+  return writeSecretAt(null, localKey, value).then(
+    () => true,
+    (e) => {
+      logFailure(`secret transfer local fallback ${localKey}`)(e);
+      return false;
+    },
+  );
+}
+
 async function transfer(localKeys: string[], fromVaultId: string, toVaultId: string): Promise<void> {
   const from = teamIdOfVault(fromVaultId);
   const to = teamIdOfVault(toVaultId);
@@ -35,9 +47,10 @@ async function transfer(localKeys: string[], fromVaultId: string, toVaultId: str
     return;
   }
 
-  const moved: string[] = [];
+  const withdraw: string[] = [];
   const pendingUpload: string[] = [];
-  let firstUploadError: unknown;
+  let uploadError: unknown;
+  let leftError: unknown;
   for (const localKey of localKeys) {
     const value = await readSecretAt(from, localKey).catch((e) => {
       logFailure(`secret transfer read ${localKey}`)(e);
@@ -46,50 +59,65 @@ async function transfer(localKeys: string[], fromVaultId: string, toVaultId: str
     if (!value) continue;
     try {
       await writeSecretAt(to, localKey, value);
-      moved.push(localKey);
+      withdraw.push(localKey);
     } catch (e) {
       logFailure(`secret transfer ${localKey}`)(e);
-      if (from === null) {
+      if (to !== null && (await keptLocally(from, localKey, value))) {
         pendingUpload.push(localKey);
-        firstUploadError ??= e;
+        if (from !== null) withdraw.push(localKey);
+        uploadError ??= e;
+      } else {
+        leftError ??= e;
       }
     }
   }
 
-  if (pendingUpload.length > 0 && to) {
-    usePendingTeamSecretUploadStore.getState().enqueue(to, pendingUpload);
-    toastSecretError("common.error.secretsUploadPending", firstUploadError);
+  if (to !== null) {
+    const uploads = usePendingTeamSecretUploadStore.getState();
+    uploads.enqueue(to, pendingUpload);
+    uploads.resolve(to, localKeys.filter((k) => !pendingUpload.includes(k)));
   }
+  if (uploadError !== undefined) toastSecretError("common.error.secretsUploadPending", uploadError);
+  if (leftError !== undefined) toastSecretError("common.error.secretsLeftInSourceVault", leftError);
 
-  if (moved.length === 0) return;
-  await withdrawOrWarn(Promise.all(moved.map((k) => removeSecretAt(from, k))).then(() => undefined));
+  if (withdraw.length === 0) return;
+  await withdrawOrWarn(Promise.all(withdraw.map((k) => removeSecretAt(from, k))).then(() => undefined));
 }
 
-export const transferConnectionSecrets = (id: string, fromVaultId: string, toVaultId: string) =>
-  transfer(secretKeysFor("connection", id), fromVaultId, toVaultId);
-export const transferKeySecrets = (id: string, fromVaultId: string, toVaultId: string) =>
-  transfer(secretKeysFor("key", id), fromVaultId, toVaultId);
-export const transferIdentitySecrets = (id: string, fromVaultId: string, toVaultId: string) =>
-  transfer(secretKeysFor("identity", id), fromVaultId, toVaultId);
+export const transferSecrets = (kind: SecretObjectKind, id: string, fromVaultId: string, toVaultId: string) =>
+  transfer(secretKeysFor(kind, id), fromVaultId, toVaultId);
 
-export async function moveKeyToVault(
+export async function moveWithSecrets(
+  kind: SecretObjectKind,
+  id: string,
+  fromVaultId: string,
+  toVaultId: string,
+  update: () => Promise<unknown>,
+): Promise<void> {
+  const to = teamIdOfVault(toVaultId);
+  // Queued before the update so a concurrent sweep of `to` never purges a copy not yet uploaded.
+  const reserved = teamIdOfVault(fromVaultId) === null && to !== null ? secretKeysFor(kind, id) : [];
+  const uploads = usePendingTeamSecretUploadStore.getState();
+  if (to !== null) uploads.enqueue(to, reserved);
+  try {
+    await update();
+  } catch (e) {
+    if (to !== null) uploads.resolve(to, reserved);
+    throw e;
+  }
+  await transferSecrets(kind, id, fromVaultId, toVaultId);
+}
+
+export const moveKeyToVault = (
   key: SshKey,
   vaultId: string,
   data: SshKeyFormData,
   updateKey: (id: string, data: SshKeyFormData) => Promise<unknown>,
-): Promise<void> {
-  const from = key.vault_id ?? "personal";
-  await updateKey(key.id, data);
-  await transferKeySecrets(key.id, from, vaultId);
-}
+) => moveWithSecrets("key", key.id, key.vault_id ?? "personal", vaultId, () => updateKey(key.id, data));
 
-export async function moveIdentityToVault(
+export const moveIdentityToVault = (
   identity: Identity,
   vaultId: string,
   data: IdentityFormData,
   updateIdentity: (id: string, data: IdentityFormData) => Promise<unknown>,
-): Promise<void> {
-  const from = identity.vault_id ?? "personal";
-  await updateIdentity(identity.id, data);
-  await transferIdentitySecrets(identity.id, from, vaultId);
-}
+) => moveWithSecrets("identity", identity.id, identity.vault_id ?? "personal", vaultId, () => updateIdentity(identity.id, data));

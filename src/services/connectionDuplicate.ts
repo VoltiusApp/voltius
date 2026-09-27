@@ -2,7 +2,7 @@ import type { Connection, ConnectionFormData } from "@/types";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import { transferConnectionSecrets } from "@/services/vaultObjectSecrets";
+import { moveWithSecrets } from "@/services/vaultObjectSecrets";
 import { secretKeysFor } from "@/services/teamVaultSecretKeys";
 
 export interface DuplicateConnectionOpts {
@@ -54,8 +54,8 @@ export async function moveConnectionToVault(
   vaultId: string,
   updateConnection: (id: string, data: ConnectionFormData) => Promise<unknown>,
 ): Promise<void> {
-  await updateConnection(conn.id, { ...connectionToFormData(conn), vault_id: vaultId });
-  await transferConnectionSecrets(conn.id, conn.vault_id ?? "personal", vaultId);
+  await moveWithSecrets("connection", conn.id, conn.vault_id ?? "personal", vaultId, () =>
+    updateConnection(conn.id, { ...connectionToFormData(conn), vault_id: vaultId }));
 }
 
 export async function duplicateConnection(

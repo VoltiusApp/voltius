@@ -32,7 +32,9 @@ const h = vi.hoisted(() => ({
   confirmCrossVault: vi.fn(async () => true),
   getSecret: vi.fn(async (_key: string) => null as string | null),
   storeSecret: vi.fn(async (_key: string, _value: string) => {}),
-  transferConnectionSecrets: vi.fn(async (_id: string, _from: string, _to: string) => {}),
+  moveWithSecrets: vi.fn(async (_k: string, _id: string, _f: string, _t: string, update: () => Promise<unknown>) => {
+    await update();
+  }),
   saveKey: vi.fn(),
   updateKey: vi.fn(async () => {}),
   saveIdentity: vi.fn(),
@@ -224,7 +226,7 @@ vi.mock("@/stores/syncPrefsStore", () => ({
 }));
 vi.mock("@/services/vault", () => ({ storeSecret: h.storeSecret, getSecret: h.getSecret }));
 vi.mock("@/services/vaultObjectSecrets", () => ({
-  transferConnectionSecrets: h.transferConnectionSecrets,
+  moveWithSecrets: h.moveWithSecrets,
   moveKeyToVault: vi.fn(async (
     key: { id: string }, _vaultId: string, data: unknown, updateKey: (id: string, data: unknown) => Promise<unknown>,
   ) => { await updateKey(key.id, data); }),
@@ -417,7 +419,7 @@ test("a cut into a team vault transfers the connection's secret to that vault", 
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.transferConnectionSecrets).toHaveBeenCalledWith("c1", "personal", "team-1");
+  expect(h.moveWithSecrets).toHaveBeenCalledWith("connection", "c1", "personal", "team-1", expect.any(Function));
 });
 
 test("a copy into a team vault stores the duplicate's secret under its new id", async () => {

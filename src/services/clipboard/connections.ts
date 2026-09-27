@@ -3,11 +3,7 @@ import type { VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import type { CascadeEntry } from "@/services/vaultClipboard";
 import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import {
-  transferConnectionSecrets,
-  moveKeyToVault,
-  moveIdentityToVault,
-} from "@/services/vaultObjectSecrets";
+import { moveWithSecrets, moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { nameIsFree } from "@/utils/cloneName";
 import type { ClipboardHalf } from "./types";
@@ -233,16 +229,15 @@ export function connectionsClipboardHalf(
           sameVault.push(id);
           continue;
         }
-        const from = conn.vault_id ?? "personal";
         const links = remappedLinks(conn);
-        await deps.updateConnection(id, {
-          ...connectionToFormData(conn),
-          identity_id: links.identityId,
-          key_id: links.keyId,
-          folder_id: folderId ?? undefined,
-          vault_id: vaultId,
-        });
-        await transferConnectionSecrets(id, from, vaultId);
+        await moveWithSecrets("connection", id, conn.vault_id ?? "personal", vaultId, () =>
+          deps.updateConnection(id, {
+            ...connectionToFormData(conn),
+            identity_id: links.identityId,
+            key_id: links.keyId,
+            folder_id: folderId ?? undefined,
+            vault_id: vaultId,
+          }));
       }
       // moveObjectsToFolder writes through to the DB without touching the connection
       // store, so the reload is what makes the paste visible — as in `onDropToFolder`.

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { Connection, SshKey } from "@/types";
 import { connectionsClipboardHalf, type ConnectionsClipboardDeps } from "./connections";
-import { moveKeyToVault, transferConnectionSecrets } from "@/services/vaultObjectSecrets";
+import { moveKeyToVault, moveWithSecrets } from "@/services/vaultObjectSecrets";
 
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(async () => "material"),
@@ -10,7 +10,9 @@ vi.mock("@/services/vault", () => ({
 vi.mock("@/services/vaultObjectSecrets", () => ({
   moveKeyToVault: vi.fn(async () => {}),
   moveIdentityToVault: vi.fn(async () => {}),
-  transferConnectionSecrets: vi.fn(async () => {}),
+  moveWithSecrets: vi.fn(async (_k: string, _id: string, _f: string, _t: string, update: () => Promise<unknown>) => {
+    await update();
+  }),
 }));
 
 const conn = (over: Partial<Connection> = {}): Connection => ({
@@ -127,6 +129,6 @@ describe("connectionsClipboardHalf", () => {
   it("transfers a moved connection's material on a cross-vault move", async () => {
     const d = deps();
     await connectionsClipboardHalf(d).moveItems(["c1"], "f2", "team-1");
-    expect(transferConnectionSecrets).toHaveBeenCalledWith("c1", "personal", "team-1");
+    expect(moveWithSecrets).toHaveBeenCalledWith("connection", "c1", "personal", "team-1", expect.any(Function));
   });
 });

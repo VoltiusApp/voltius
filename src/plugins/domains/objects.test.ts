@@ -9,7 +9,9 @@ vi.mock("@/services/vault", () => ({
 vi.mock("@/services/vaultObjectSecrets", () => ({
   moveKeyToVault: vi.fn(async () => {}),
   moveIdentityToVault: vi.fn(async () => {}),
-  transferConnectionSecrets: vi.fn(async () => {}),
+  moveWithSecrets: vi.fn(async (_k: string, _id: string, _f: string, _t: string, update: () => Promise<unknown>) => {
+    await update();
+  }),
 }));
 
 const conn = (over: Partial<Connection> = {}): Connection => ({
