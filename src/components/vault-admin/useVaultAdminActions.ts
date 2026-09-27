@@ -102,21 +102,22 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
         const pfApi = await import("@/services/portForwardingRules");
         const { clearTeamKeyCache } = await import("@/services/teamVaultSync");
         const { useTeamVaultStateStore } = await import("@/stores/teamVaultStateStore");
+        const { readSecretAt, writeSecretAt } = await import("@/services/secretRouting");
+        const { secretKeysFor, SECRET_OBJECT_KINDS } = await import("@/services/teamVaultSecretKeys");
+        const { teamSecretCache } = await import("@/services/teamSecretCache");
 
         const vaultId = target.vaultId!;
         const teamId = target.teamId!;
 
         await fetchTeamData(teamId);
+        const copyFailed = () => vaultToast(t("settings.vaults.general.makePrivate.copyFailedToast"), "error");
+        if (useTeamVaultStateStore.getState().credentialsUnavailableByTeamId[teamId]) {
+          await copyFailed();
+          return;
+        }
 
-        // Adopted under each object's own id, never a freshly minted one. The
-        // object's secrets live in the OS keychain under `password:<id>` /
-        // `key:<id>:private` / `identity:<id>:password`, and every cross-reference
-        // (identity_id, key_id, folder_id, parent_folder_id, connection_ids) names
-        // that id too, so a new id would silently strip the copy of its credentials
-        // and its links. `migrateVaultToTeam` preserves ids on the way in for the
-        // same reason. Adopt also replaces an id it has already written, which is
-        // what makes a retry after a partial failure repair the copy rather than
-        // duplicate it.
+        // Own ids: secret keys and cross-references name them, and adopt
+        // overwrites, so a retry repairs a partial copy.
         const conns = useConnectionStore.getState().teamConnections[teamId] ?? [];
         const identities = useIdentityStore.getState().teamIdentities[teamId] ?? [];
         const keys = useKeyStore.getState().teamKeys[teamId] ?? [];
@@ -141,7 +142,21 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
         const rejected = writes.filter((w) => w.status === "rejected");
         if (rejected.length > 0) {
           console.error("Make private aborted: %d of %d writes failed", rejected.length, writes.length, rejected.map((r) => r.reason));
-          await vaultToast(t("settings.vaults.general.makePrivate.copyFailedToast"), "error");
+          await copyFailed();
+          return;
+        }
+
+        // Team secrets live only in memory and on the server, and the server copy goes with the team.
+        const withSecrets = { connection: conns, key: keys, identity: identities };
+        const secretKeys = SECRET_OBJECT_KINDS.flatMap((kind) => withSecrets[kind].flatMap((o) => secretKeysFor(kind, o.id)));
+        const copies = await Promise.allSettled(secretKeys.map(async (k) => {
+          const value = await readSecretAt(teamId, k);
+          if (value) await writeSecretAt(null, k, value);
+        }));
+        const failedCopies = copies.filter((c) => c.status === "rejected");
+        if (failedCopies.length > 0) {
+          console.error("Make private aborted: %d secrets not copied", failedCopies.length, failedCopies.map((r) => r.reason));
+          await copyFailed();
           return;
         }
 
@@ -169,6 +184,7 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
         usePortForwardingStore.getState().clearTeamRules(teamId);
 
         setVaultTeamId(vaultId, null);
+        teamSecretCache.clearTeam(teamId);
         clearTeamKeyCache();
         useTeamVaultStateStore.getState().setStatus(teamId, "idle");
 

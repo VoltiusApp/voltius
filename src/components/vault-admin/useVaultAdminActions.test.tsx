@@ -19,6 +19,11 @@ const h = vi.hoisted(() => ({
 // Object.values(h)) fn.mockReset()` below assumes every entry is a mock.
 const teamVaultState = vi.hoisted(() => ({
   unencryptedCountByTeamId: {} as Record<string, number>,
+  credentialsUnavailableByTeamId: {} as Record<string, boolean>,
+  disk: new Map<string, string>(),
+  failLocalWrites: false,
+  localConnections: [] as { id: string }[],
+  teamConnections: {} as Record<string, unknown[]>,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -26,7 +31,16 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => {}) }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async (cmd: string, args?: { key: string; value: string }) => {
+    if (cmd === "secrets_get") return teamVaultState.disk.get(args!.key) ?? null;
+    if (cmd === "secrets_set") {
+      if (teamVaultState.failLocalWrites) throw new Error("disk full");
+      teamVaultState.disk.set(args!.key, args!.value);
+    }
+    return null;
+  }),
+}));
 vi.mock("@/services/teamService", () => ({
   deleteTeam: h.deleteTeam,
   searchUsers: vi.fn(async () => []),
@@ -42,7 +56,10 @@ vi.mock("@/components/shared/ContentCounts", () => ({ ContentCounts: () => null 
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn(async () => {}) }));
 vi.mock("@/services/teamVaultActivation", () => ({ markTeamVaultLoadedAfterLocalActivation: vi.fn() }));
 vi.mock("@/services/vaultTeamMigration", () => ({
-  reloadLocalVaultObjectStores: h.reloadLocalVaultObjectStores,
+  reloadLocalVaultObjectStores: async () => {
+    teamVaultState.localConnections = [{ id: "c1" }];
+    await h.reloadLocalVaultObjectStores();
+  },
 }));
 vi.mock("@/services/teamVaultSync", () => ({
   fetchTeamData: h.fetchTeamData,
@@ -61,14 +78,12 @@ vi.mock("@/stores/connectionStore", () => ({
   },
   useConnectionStore: {
     getState: () => ({
-      teamConnections: {
-        t1: [{
-          id: "c1", name: "web", host: "h", port: 22, username: "u",
-          auth_type: "password", tags: [], identity_id: "i1", key_id: "k1", folder_id: "f1",
-          notes: "prod box", jump_hosts: [{ id: "j1", connection_id: "c9" }],
-        }],
+      connections: teamVaultState.localConnections,
+      teamConnections: teamVaultState.teamConnections,
+      clearTeamConnections: (teamId: string) => {
+        teamVaultState.teamConnections = {};
+        h.clearTeamConnections(teamId);
       },
-      clearTeamConnections: h.clearTeamConnections,
     }),
   },
 }));
@@ -93,7 +108,7 @@ vi.mock("@/stores/portForwardingStore", () => ({
 vi.mock("@/stores/teamVaultStateStore", () => ({
   useTeamVaultStateStore: Object.assign(
     (sel: (s: unknown) => unknown) => sel({ unencryptedCountByTeamId: teamVaultState.unencryptedCountByTeamId }),
-    { getState: () => ({ setStatus: h.setStatus }) },
+    { getState: () => ({ setStatus: h.setStatus, credentialsUnavailableByTeamId: teamVaultState.credentialsUnavailableByTeamId }) },
   ),
 }));
 vi.mock("@/services/connections", () => ({ adoptConnection: h.adoptConnection }));
@@ -109,6 +124,8 @@ import { useVaultAdminActions } from "./useVaultAdminActions";
 import type { VaultAdminTarget } from "./vaultAdminTarget";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { teamSecretCache } from "@/services/teamSecretCache";
+import { getSecret, setVaultKey } from "@/services/vault";
 
 const ownerRole = {
   id: "r-own", team_id: "t1", name: "owner",
@@ -148,6 +165,19 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   for (const fn of Object.values(h)) fn.mockReset();
   teamVaultState.unencryptedCountByTeamId = {};
+  teamVaultState.credentialsUnavailableByTeamId = {};
+  teamVaultState.disk.clear();
+  teamVaultState.failLocalWrites = false;
+  teamVaultState.localConnections = [];
+  teamVaultState.teamConnections = {
+    t1: [{
+      id: "c1", name: "web", host: "h", port: 22, username: "u",
+      auth_type: "password", tags: [], identity_id: "i1", key_id: "k1", folder_id: "f1",
+      notes: "prod box", jump_hosts: [{ id: "j1", connection_id: "c9" }],
+    }],
+  };
+  teamSecretCache.clearAll();
+  setVaultKey([1]);
   h.deleteTeam.mockResolvedValue(undefined);
   h.fetchTeamData.mockResolvedValue(undefined);
   h.reloadLocalVaultObjectStores.mockResolvedValue(undefined);
@@ -301,4 +331,37 @@ test("a second confirm in the same tick is a no-op, not a second pass", async ()
   // copy attempt or the error toast its own failure raises.
   expect(h.fetchTeamData).toHaveBeenCalledTimes(1);
   expect(h.addToast).not.toHaveBeenCalled();
+});
+
+test("the vault's secrets survive make-private in the local store", async () => {
+  teamSecretCache.set("t1", "password:c1", "pw");
+  teamSecretCache.set("t1", "proxy_password:c1", "proxy");
+
+  clickMakePrivate();
+
+  await waitFor(() => expect(onDone).toHaveBeenCalled());
+  expect(teamVaultState.disk.get("password:c1")).toBe("pw");
+  expect(teamSecretCache.entries("t1").size).toBe(0);
+  expect(await getSecret("password:c1")).toBe("pw");
+  expect(await getSecret("proxy_password:c1")).toBe("proxy");
+});
+
+test("a secret that cannot be copied locally aborts before the team is deleted", async () => {
+  teamSecretCache.set("t1", "password:c1", "pw");
+  teamVaultState.failLocalWrites = true;
+
+  clickMakePrivate();
+
+  await waitFor(() => expect(messages()).toContain("settings.vaults.general.makePrivate.copyFailedToast"));
+  expect(h.deleteTeam).not.toHaveBeenCalled();
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("pw");
+});
+
+test("unavailable team credentials abort before the team is deleted", async () => {
+  teamVaultState.credentialsUnavailableByTeamId = { t1: true };
+
+  clickMakePrivate();
+
+  await waitFor(() => expect(messages()).toContain("settings.vaults.general.makePrivate.copyFailedToast"));
+  expect(h.deleteTeam).not.toHaveBeenCalled();
 });
