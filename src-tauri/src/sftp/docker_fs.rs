@@ -697,6 +697,8 @@ impl FileBackend for DockerFs {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[tokio::test]
     async fn read_tail_keeps_only_the_end() {
         let input: Vec<u8> = (0..10_000u32).map(|i| (i % 251) as u8).collect();
@@ -722,7 +724,6 @@ mod tests {
         assert!(err.starts_with("tar failed: xxx"));
         assert!(err.len() <= "tar failed: ".len() + STDERR_TAIL);
     }
-    use super::*;
 
     #[test]
     fn only_exit_zero_is_a_success() {

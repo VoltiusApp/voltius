@@ -188,19 +188,22 @@ impl<'a> TarJob<'a> {
     }
 
     /// Run `cmd` on this job's host, giving up if the transfer is cancelled.
-    async fn exec(&self, cmd: &str) -> Result<(), String> {
+    async fn exec(&self, cmd: &str, after_cancel: Option<String>) -> Result<(), String> {
         self.manager
-            .exec_command(self.sftp_id, cmd, Some(self.token))
+            .exec_command(self.sftp_id, cmd, Some(self.token), after_cancel)
             .await
     }
 
-    /// Best-effort cleanup of a remote temp archive. Not cancellable: it is
-    /// what a cancelled transfer runs on its way out.
+    /// A step that succeeded after the transfer was cancelled still counts as cancelled.
+    fn unless_cancelled(&self, step: Result<(), String>) -> Result<(), String> {
+        match step {
+            Ok(()) if self.token.is_cancelled() => Err("Transfer cancelled".into()),
+            r => r,
+        }
+    }
+
     async fn rm_remote(&self, path: &str) {
-        let _ = self
-            .manager
-            .exec_command(self.sftp_id, &self.shell.rm(path), None)
-            .await;
+        rm_on(self.manager, self.sftp_id, &self.shell, path).await;
     }
 
     /// Archive `items` (relative to `parent`) into `archive` on this job's host.
@@ -213,15 +216,20 @@ impl<'a> TarJob<'a> {
         items: &[String],
     ) -> Result<(), String> {
         let cmd = tar_create_cmd(&self.shell, archive, deref, parent, items)?;
-        let created = match self.exec(&cmd).await {
-            Ok(()) if self.token.is_cancelled() => Err("Transfer cancelled".into()),
-            r => r,
-        };
+        let created = self.unless_cancelled(self.exec(&cmd, Some(self.shell.rm(archive))).await);
         if created.is_err() {
             self.rm_remote(archive).await;
         }
         created
     }
+}
+
+/// Best-effort cleanup of a remote temp archive. Not cancellable: it is
+/// what a cancelled transfer runs on its way out.
+async fn rm_on(manager: &SftpManager, sftp_id: &str, shell: &RemoteShell, path: &str) {
+    let _ = manager
+        .exec_command(sftp_id, &shell.rm(path), None, None)
+        .await;
 }
 
 /// Run `body` and deregister the transfer whichever way it ends.
@@ -275,7 +283,7 @@ pub async fn sftp_compress(
         parent,
         &[basename.to_string()],
     )?;
-    sftp_state.exec_command(&sftp_id, &cmd, None).await
+    sftp_state.exec_command(&sftp_id, &cmd, None, None).await
 }
 
 /// Extract a remote .tar.gz archive into a destination directory via SSH exec.
@@ -288,7 +296,7 @@ pub async fn sftp_extract(
 ) -> Result<(), String> {
     let shell = shell_of(&sftp_state, &sftp_id).await;
     let cmd = tar_extract_cmd(&shell, &dest_dir, &archive_path, false, false);
-    sftp_state.exec_command(&sftp_id, &cmd, None).await
+    sftp_state.exec_command(&sftp_id, &cmd, None, None).await
 }
 
 // ── Tar-based directory transfer ──────────────────────────────────────────────
@@ -316,11 +324,12 @@ async fn upload_tar(
     let (tmp_local, tmp_remote) = job.temp_paths()?;
 
     // 1. Archive locally
-    local_tar_create(&tmp_local, job.shell.is_windows(), local_parent, names).await?;
-
-    if job.token.is_cancelled() {
+    let created = job.unless_cancelled(
+        local_tar_create(&tmp_local, job.shell.is_windows(), local_parent, names).await,
+    );
+    if created.is_err() {
         let _ = tokio::fs::remove_file(&tmp_local).await;
-        return Err("Transfer cancelled".into());
+        return created;
     }
 
     // 2. Upload archive
@@ -335,16 +344,16 @@ async fn upload_tar(
     )
     .await;
     let _ = tokio::fs::remove_file(&tmp_local).await;
-    uploaded?;
+    if uploaded.is_err() {
+        job.rm_remote(&tmp_remote).await;
+        return uploaded;
+    }
 
     // 3. Extract on remote and clean up remote temp
-    job.exec(&tar_extract_cmd(
-        &job.shell,
-        remote_dir,
-        &tmp_remote,
-        strip,
-        true,
-    ))
+    job.exec(
+        &tar_extract_cmd(&job.shell, remote_dir, &tmp_remote, strip, true),
+        None,
+    )
     .await
 }
 
@@ -377,7 +386,10 @@ async fn download_tar(
     .await;
     // Clean up remote temp regardless of download result
     job.rm_remote(&tmp_remote).await;
-    downloaded?;
+    if downloaded.is_err() {
+        let _ = tokio::fs::remove_file(&tmp_local).await;
+        return downloaded;
+    }
 
     // 3. Extract locally
     local_tar_extract(&tmp_local, local_dir, strip).await
@@ -419,12 +431,15 @@ async fn transfer_tar(
     .await;
     // Clean up source temp regardless
     job.rm_remote(&src_tmp).await;
-    streamed?;
+    if streamed.is_err() {
+        rm_on(job.manager, dst_sftp_id, &dst_shell, &dst_tmp).await;
+        return streamed;
+    }
 
     // 3. Extract on destination and clean up
     let cmd = tar_extract_cmd(&dst_shell, dst_dir, &dst_tmp, strip, true);
     job.manager
-        .exec_command(dst_sftp_id, &cmd, Some(job.token))
+        .exec_command(dst_sftp_id, &cmd, Some(job.token), None)
         .await
 }
 
