@@ -10,7 +10,7 @@ const h = vi.hoisted(() => ({
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
-  deleteSecret: vi.fn(async (k: string) => {
+  deleteLocalSecret: vi.fn(async (k: string) => {
     if (h.failing.has(k)) throw new Error("keychain unavailable");
     h.deleted.push(k);
   }),

@@ -7,7 +7,7 @@ const h = vi.hoisted(() => ({
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
-  deleteSecret: vi.fn(async (k: string) => {
+  deleteLocalSecret: vi.fn(async (k: string) => {
     h.deleted.push(k);
   }),
 }));

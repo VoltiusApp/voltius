@@ -3,16 +3,19 @@ import { test, expect, vi, beforeEach } from "vitest";
 const h = vi.hoisted(() => ({
   deleted: [] as string[],
   failing: new Set<string>(),
+  deleteTeamSecret: vi.fn(),
 }));
 
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
-  deleteSecret: vi.fn(async (k: string) => {
+  deleteLocalSecret: vi.fn(async (k: string) => {
     if (h.failing.has(k)) throw new Error("keychain unavailable");
     h.deleted.push(k);
   }),
 }));
+
+vi.mock("@/services/teamObjects", () => ({ deleteTeamSecret: h.deleteTeamSecret }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
 
@@ -25,6 +28,7 @@ import { useTeamStore } from "@/stores/teamStore";
 beforeEach(() => {
   h.deleted = [];
   h.failing = new Set();
+  h.deleteTeamSecret.mockReset();
   usePendingSecretWipeStore.getState().clearAll();
   useConnectionStore.setState({ teamConnections: {}, connections: [] });
   useKeyStore.setState({ teamKeys: {}, keys: [] });
@@ -82,6 +86,15 @@ test("drain drops queued keys for a team the user has rejoined", async () => {
 
   expect(h.deleted).toEqual([]);
   expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({});
+});
+
+test("the offboarding wipe deletes secrets locally, never through the server", async () => {
+  seed();
+
+  await clearTeamStoresAndSecrets("t1");
+
+  expect(h.deleted).toContain("password:c1");
+  expect(h.deleteTeamSecret).not.toHaveBeenCalled();
 });
 
 test("never wipes a secret a local object of the same id still owns", async () => {

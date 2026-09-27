@@ -25,7 +25,7 @@ import * as teamService from "@/services/teamService";
 import { getServerUrl } from "@/services/authTokens";
 import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
-import { storeSecret, deleteSecret } from "@/services/vault";
+import { storeSecret, deleteLocalSecret } from "@/services/vault";
 import { logFailure, logSettledFailures } from "@/lib/logger";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
@@ -678,7 +678,7 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
  * recorded that it did (issue #233).
  */
 async function deleteSecrets(keys: string[]): Promise<string[]> {
-  const results = await Promise.allSettled(keys.map((k) => deleteSecret(k)));
+  const results = await Promise.allSettled(keys.map((k) => deleteLocalSecret(k)));
   logSettledFailures(results, (i) => `keychain wipe of ${keys[i]}`);
   const failed = results.flatMap((r, i) => (r.status === "rejected" ? [keys[i]] : []));
   return failed;
