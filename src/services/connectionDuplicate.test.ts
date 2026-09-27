@@ -1,21 +1,17 @@
 import { test, expect, vi, beforeEach } from "vitest";
+import { TeamSecretUploadError } from "@/services/secretRouting";
 
 const h = vi.hoisted(() => ({
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
-  publishConnectionSecrets: vi.fn(),
-  saveTeamVaultSecretForVault: vi.fn(),
 }));
 vi.mock("@/services/vault", () => ({ getSecret: h.getSecret, storeSecret: h.storeSecret }));
-vi.mock("@/services/vaultObjectSecrets", () => ({ publishConnectionSecrets: h.publishConnectionSecrets }));
-vi.mock("@/services/teamVaultSecrets", () => ({ saveTeamVaultSecretForVault: h.saveTeamVaultSecretForVault }));
 
 import { copyConnectionSecrets } from "./connectionDuplicate";
 
 beforeEach(() => {
   Object.values(h).forEach((m) => m.mockReset());
-  h.saveTeamVaultSecretForVault.mockResolvedValue(undefined);
-  h.publishConnectionSecrets.mockResolvedValue(undefined);
+  h.storeSecret.mockResolvedValue(undefined);
 });
 
 test("copies the password and proxy password to the new id, and the key only when copyKey is true", async () => {
@@ -23,7 +19,7 @@ test("copies the password and proxy password to the new id, and the key only whe
     k === "password:c1" ? "pw" : k === "proxy_password:c1" ? "proxy" : k === "key:c1" ? "key-material" : null,
   );
 
-  await copyConnectionSecrets("c1", "c2", "v1", { copyKey: true, publish: "direct" });
+  await copyConnectionSecrets("c1", "c2", { copyKey: true });
 
   expect(h.storeSecret).toHaveBeenCalledWith("password:c2", "pw");
   expect(h.storeSecret).toHaveBeenCalledWith("proxy_password:c2", "proxy");
@@ -33,7 +29,7 @@ test("copies the password and proxy password to the new id, and the key only whe
 test("skips the key copy (and never even reads it) when copyKey is false", async () => {
   h.getSecret.mockImplementation(async (k: string) => (k === "password:c1" ? "pw" : null));
 
-  await copyConnectionSecrets("c1", "c2", "v1", { copyKey: false, publish: "direct" });
+  await copyConnectionSecrets("c1", "c2", { copyKey: false });
 
   expect(h.getSecret).not.toHaveBeenCalledWith("key:c1");
   expect(h.storeSecret).not.toHaveBeenCalledWith("key:c2", expect.anything());
@@ -42,52 +38,40 @@ test("skips the key copy (and never even reads it) when copyKey is false", async
 test("an inline key travels with its passphrase, and neither is read when copyKey is false", async () => {
   h.getSecret.mockImplementation(async (k: string) => (k === "key:c1" ? "key-material" : k === "passphrase:c1" ? "pp" : null));
 
-  await copyConnectionSecrets("c1", "c2", "v1", { copyKey: true, publish: "direct" });
+  await copyConnectionSecrets("c1", "c2", { copyKey: true });
   expect(h.storeSecret).toHaveBeenCalledWith("passphrase:c2", "pp");
-  expect(h.saveTeamVaultSecretForVault).toHaveBeenCalledWith("v1", "passphrase:c2", "pp");
 
   h.getSecret.mockClear();
-  await copyConnectionSecrets("c1", "c3", "v1", { copyKey: false, publish: "direct" });
+  await copyConnectionSecrets("c1", "c3", { copyKey: false });
   expect(h.getSecret).not.toHaveBeenCalledWith("passphrase:c1");
 });
 
-test("a secret with no value is skipped entirely: no store, no team save", async () => {
+test("a secret with no value is skipped entirely: no store", async () => {
   h.getSecret.mockResolvedValue(null);
 
-  await copyConnectionSecrets("c1", "c2", "v1", { copyKey: true, publish: "direct" });
+  await copyConnectionSecrets("c1", "c2", { copyKey: true });
 
   expect(h.storeSecret).not.toHaveBeenCalled();
-  expect(h.saveTeamVaultSecretForVault).not.toHaveBeenCalled();
 });
 
-test("direct mode publishes each copied secret to the team vault individually, swallowing a failure on one", async () => {
+test("each copied secret is stored exactly once, with no separate team publish", async () => {
   h.getSecret.mockImplementation(async (k: string) => {
     if (k === "password:c1") return "pw";
     if (k === "proxy_password:c1") return "proxy";
     return null;
   });
-  h.saveTeamVaultSecretForVault.mockImplementation(async (_vaultId: string, key: string) => {
-    if (key === "password:c2") throw new Error("offline");
-  });
 
-  await expect(
-    copyConnectionSecrets("c1", "c2", "v1", { copyKey: false, publish: "direct" }),
-  ).resolves.toBeUndefined();
+  await copyConnectionSecrets("c1", "c2", { copyKey: false });
 
-  expect(h.saveTeamVaultSecretForVault).toHaveBeenCalledWith("v1", "password:c2", "pw");
-  expect(h.saveTeamVaultSecretForVault).toHaveBeenCalledWith("v1", "proxy_password:c2", "proxy");
-  expect(h.publishConnectionSecrets).not.toHaveBeenCalled();
+  expect(h.storeSecret).toHaveBeenCalledTimes(2);
+  expect(h.storeSecret).toHaveBeenCalledWith("password:c2", "pw");
+  expect(h.storeSecret).toHaveBeenCalledWith("proxy_password:c2", "proxy");
 });
 
-test("grouped mode stores locally and republishes once, instead of a per-secret team save", async () => {
-  h.getSecret.mockImplementation(async (k: string) => (k === "password:c1" ? "pw" : null));
-
-  await copyConnectionSecrets("c1", "c2", "v1", { copyKey: true, publish: "grouped" });
-
-  expect(h.storeSecret).toHaveBeenCalledWith("password:c2", "pw");
-  expect(h.saveTeamVaultSecretForVault).not.toHaveBeenCalled();
-  expect(h.publishConnectionSecrets).toHaveBeenCalledTimes(1);
-  expect(h.publishConnectionSecrets).toHaveBeenCalledWith("c2", "v1");
+test("a duplicate completes when a copied secret's team upload fails", async () => {
+  h.getSecret.mockResolvedValue("pw");
+  h.storeSecret.mockRejectedValue(new TeamSecretUploadError("password:new", new Error("403")));
+  await expect(copyConnectionSecrets("old", "new", { copyKey: true })).resolves.toBeUndefined();
 });
 
 test("swallowFetchErrors treats a failed read as a missing secret instead of throwing", async () => {
@@ -97,7 +81,7 @@ test("swallowFetchErrors treats a failed read as a missing secret instead of thr
   });
 
   await expect(
-    copyConnectionSecrets("c1", "c2", "v1", { copyKey: true, publish: "grouped", swallowFetchErrors: true }),
+    copyConnectionSecrets("c1", "c2", { copyKey: true, swallowFetchErrors: true }),
   ).resolves.toBeUndefined();
   expect(h.storeSecret).not.toHaveBeenCalledWith("password:c2", expect.anything());
 });
@@ -109,6 +93,6 @@ test("without swallowFetchErrors, a failed read propagates", async () => {
   });
 
   await expect(
-    copyConnectionSecrets("c1", "c2", "v1", { copyKey: true, publish: "direct" }),
+    copyConnectionSecrets("c1", "c2", { copyKey: true }),
   ).rejects.toThrow("vault locked");
 });

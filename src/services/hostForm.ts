@@ -1,7 +1,6 @@
 import type { Connection, ConnectionFormData } from "@/types";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { storeSecret, deleteSecret } from "@/services/vault";
-import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 
 export interface HostFormSecrets {
@@ -11,7 +10,7 @@ export interface HostFormSecrets {
   proxyPassword: string | null;
 }
 
-async function persistSecrets(id: string, vaultId: string, secrets: HostFormSecrets, clearEmpty: boolean) {
+async function persistSecrets(id: string, secrets: HostFormSecrets, clearEmpty: boolean) {
   const entries: [string, string | null][] = [
     [`password:${id}`, secrets.password],
     [`key:${id}`, secrets.privateKey],
@@ -21,9 +20,8 @@ async function persistSecrets(id: string, vaultId: string, secrets: HostFormSecr
     if (value === null) continue;
     if (value) {
       await storeSecret(localKey, value);
-      await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
     } else if (clearEmpty) {
-      try { await deleteSecret(localKey); } catch { /* best-effort clear */ }
+      await deleteSecret(localKey);
     }
   }
   const proxyValue = secrets.proxyPassword;
@@ -31,9 +29,8 @@ async function persistSecrets(id: string, vaultId: string, secrets: HostFormSecr
   const proxyKey = proxyPasswordKey(id);
   if (proxyValue) {
     await storeSecret(proxyKey, proxyValue);
-    await saveTeamVaultSecretForVault(vaultId, proxyKey, proxyValue);
   } else if (clearEmpty) {
-    try { await deleteSecret(proxyKey); } catch { /* best-effort clear */ }
+    await deleteSecret(proxyKey);
   }
 }
 
@@ -47,10 +44,10 @@ export async function saveHostFromForm(
   const { updateConnection, saveConnection } = useConnectionStore.getState();
   if (editing) {
     await updateConnection(editing.id, data);
-    await persistSecrets(editing.id, data.vault_id ?? editing.vault_id, secrets, true);
+    await persistSecrets(editing.id, secrets, true);
     return editing;
   }
   const conn = await saveConnection({ ...data, vault_id: data.vault_id ?? fallbackVaultId });
-  if (conn) await persistSecrets(conn.id, conn.vault_id, secrets, false);
+  if (conn) await persistSecrets(conn.id, secrets, false);
   return conn ?? null;
 }

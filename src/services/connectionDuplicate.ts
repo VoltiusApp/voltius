@@ -1,9 +1,8 @@
 import type { Connection, ConnectionFormData } from "@/types";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { getSecret, storeSecret } from "@/services/vault";
-import { publishConnectionSecrets } from "@/services/vaultObjectSecrets";
+import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { transferConnectionSecrets } from "@/services/vaultSecrets";
-import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { connectionSecretKeys } from "@/services/teamVaultSecretKeys";
 
 export interface DuplicateConnectionOpts {
@@ -15,9 +14,6 @@ export interface DuplicateConnectionOpts {
 
 export interface CopyConnectionSecretsOpts {
   copyKey: boolean;
-  // "grouped": store locally then let publishConnectionSecrets re-publish everything at once
-  // (duplicateConnection). "direct": publish each copied secret to the team vault as it's copied.
-  publish: "grouped" | "direct";
   swallowFetchErrors?: boolean;
 }
 
@@ -26,7 +22,6 @@ const isInlineKeySecret = (localKey: string) => localKey.startsWith("key:") || l
 export async function copyConnectionSecrets(
   fromId: string,
   toId: string,
-  vaultId: string,
   opts: CopyConnectionSecretsOpts,
 ): Promise<void> {
   const targets = connectionSecretKeys(toId);
@@ -35,10 +30,8 @@ export async function copyConnectionSecrets(
     const pending = getSecret(fromKey);
     const value = opts.swallowFetchErrors ? await pending.catch(() => null) : await pending;
     if (!value) continue;
-    await storeSecret(targets[i], value);
-    if (opts.publish === "direct") await saveTeamVaultSecretForVault(vaultId, targets[i], value).catch(() => {});
+    await storeSecret(targets[i], value).catch(keepCachedOnUploadFailure("copyConnectionSecrets"));
   }
-  if (opts.publish === "grouped") await publishConnectionSecrets(toId, vaultId);
 }
 
 export function duplicateFormData(
@@ -74,9 +67,8 @@ export async function duplicateConnection(
   const vaultId = opts.vaultId ?? conn.vault_id ?? "personal";
   const created = await saveConnection(duplicateFormData(conn, folderId, { ...opts, vaultId }));
   if (conn.connection_type !== "serial") {
-    await copyConnectionSecrets(conn.id, created.id, vaultId, {
+    await copyConnectionSecrets(conn.id, created.id, {
       copyKey: !conn.key_id,
-      publish: "grouped",
       swallowFetchErrors: true,
     });
   }

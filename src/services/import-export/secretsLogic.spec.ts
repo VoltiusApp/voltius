@@ -8,8 +8,6 @@ vi.mock("@/services/vault", () => ({
   getSecret: async () => null,
   storeSecret: async (k: string, v: string) => { h.stored.set(k, v); },
 }));
-vi.mock("@/services/teamVaultSecrets", () => ({ saveTeamVaultSecretForVault: async () => {} }));
-
 import { fetchConnectionSecrets, storeConnectionSecrets } from "./secretsLogic";
 import { secretBearingTypes } from "./formats";
 import { newImportCtx } from "./context";

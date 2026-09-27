@@ -10,7 +10,6 @@ const h = vi.hoisted(() => ({
 const { storeSecret, deleteSecret, saveKey, updateKey } = h;
 
 vi.mock("@/services/vault", () => ({ storeSecret: h.storeSecret, deleteSecret: h.deleteSecret }));
-vi.mock("@/services/teamVaultSecrets", () => ({ saveTeamVaultSecretForVault: vi.fn(async () => {}) }));
 vi.mock("@/stores/keyStore", () => ({ useKeyStore: { getState: () => ({ saveKey: h.saveKey, updateKey: h.updateKey }) } }));
 vi.mock("@/stores/identityStore", () => ({ useIdentityStore: { getState: () => ({}) } }));
 

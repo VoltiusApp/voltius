@@ -413,7 +413,7 @@ test("a cut into a team vault republishes the connection's secret to that vault"
   expect(h.saveTeamVaultSecretForVault).toHaveBeenCalledWith("team-1", "password:c1", "s3cret");
 });
 
-test("a copy into a team vault republishes the duplicate's secret under its new id", async () => {
+test("a copy into a team vault stores the duplicate's secret under its new id", async () => {
   h.folders = [folder("tf", { vault_id: "team-1" })];
   h.connections = [conn("c1", { vault_id: "personal" })];
   h.selected = ["c1"];
@@ -427,7 +427,6 @@ test("a copy into a team vault republishes the duplicate's secret under its new 
   await dispatch("voltius:clipboard-paste");
 
   expect(h.storeSecret).toHaveBeenCalledWith("password:new-conn", "s3cret");
-  expect(h.saveTeamVaultSecretForVault).toHaveBeenCalledWith("team-1", "password:new-conn", "s3cret");
 });
 
 test("a paste at the root leaves each object in the vault it already had", async () => {

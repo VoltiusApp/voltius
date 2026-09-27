@@ -1,17 +1,15 @@
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { storeSecret, deleteSecret } from "@/services/vault";
-import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import type { Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 
 type InlineKeyMaterial = { label?: string; privateKey: string; publicKey: string };
 
-async function writeSecret(vaultId: string, localKey: string, value: string, isNew: boolean) {
+async function writeSecret(localKey: string, value: string, isNew: boolean) {
   if (value) {
     await storeSecret(localKey, value);
-    await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
   } else if (!isNew) {
-    await deleteSecret(localKey).catch(() => {});
+    await deleteSecret(localKey);
   }
 }
 
@@ -27,7 +25,6 @@ export async function saveKeyFromForm(
   const key = editing
     ? (await updateKey(editing.id, data), editing)
     : await saveKey({ ...data, vault_id: data.vault_id ?? fallbackVaultId });
-  const vaultId = data.vault_id ?? key.vault_id;
   const parts: [string, string | null][] = [
     ["private", privateKey],
     ["public", publicKey],
@@ -35,7 +32,7 @@ export async function saveKeyFromForm(
   ];
   for (const [part, value] of parts) {
     if (value === null) continue;
-    await writeSecret(vaultId, `key:${key.id}:${part}`, value, !editing);
+    await writeSecret(`key:${key.id}:${part}`, value, !editing);
   }
   return key;
 }
@@ -68,8 +65,7 @@ export async function saveIdentityFromForm(
     ? (await updateIdentity(editing.id, resolvedData), editing)
     : await saveIdentity({ ...resolvedData, vault_id: resolvedData.vault_id ?? fallbackVaultId });
   if (password !== null) {
-    const vaultId = resolvedData.vault_id ?? identity.vault_id;
-    await writeSecret(vaultId, `identity:${identity.id}:password`, password, !editing);
+    await writeSecret(`identity:${identity.id}:password`, password, !editing);
   }
   return identity;
 }

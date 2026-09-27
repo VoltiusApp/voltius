@@ -1,6 +1,6 @@
 import type { Identity } from "@/types";
 import { storeSecret } from "@/services/vault";
-import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, IdentityExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
@@ -56,10 +56,9 @@ export const identitiesHandler: DataTypeHandler = {
           vault_id: ctx.vault_id,
         });
         if (identity._eid) ctx.identityEidMap.set(identity._eid, saved.id);
-        await storeIdentitySecrets(identity, saved.id, async (key, value) => {
-          await storeSecret(key, value);
-          await saveTeamVaultSecretForVault(ctx.vault_id, key, value).catch(() => {});
-        });
+        await storeIdentitySecrets(identity, saved.id, (key, value) =>
+          storeSecret(key, value).catch(keepCachedOnUploadFailure("import")),
+        );
         imported++;
       } catch { errors++; }
     }

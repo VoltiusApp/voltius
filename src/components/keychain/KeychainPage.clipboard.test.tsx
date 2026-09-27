@@ -383,7 +383,6 @@ test("a copy into a team-vault folder creates the duplicate there with its secre
 
   expect(h.saveKey).toHaveBeenCalledWith(expect.objectContaining({ vault_id: "team-1", folder_id: "tf" }));
   expect(h.storeSecret).toHaveBeenCalledWith("key:new-key:private", "PRIV");
-  expect(h.saveTeamVaultSecretForVault).toHaveBeenCalledWith("team-1", "key:new-key:private", "PRIV");
 });
 
 test("cloning a folder suffixes the root only, not the keys inside it", async () => {

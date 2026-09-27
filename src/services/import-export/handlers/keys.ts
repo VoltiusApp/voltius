@@ -4,7 +4,7 @@ import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, KeyExport, KeyRefExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
 import { dupesOf, resolveRefs, selectionMethods, skipItem } from "../context";
-import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { fetchKeySecrets, storeKeySecrets } from "../secretsLogic";
 
 export const keysHandler: DataTypeHandler = {
@@ -46,10 +46,9 @@ export const keysHandler: DataTypeHandler = {
           folder_id: key._folder_eid ? ctx.folderEidMap.get(key._folder_eid) : undefined,
           vault_id: ctx.vault_id,
         });
-        await storeKeySecrets(key, saved.id, async (k, value) => {
-          await storeSecret(k, value);
-          await saveTeamVaultSecretForVault(ctx.vault_id, k, value).catch(() => {});
-        });
+        await storeKeySecrets(key, saved.id, (k, value) =>
+          storeSecret(k, value).catch(keepCachedOnUploadFailure("import")),
+        );
         if (key._eid) ctx.keyEidMap.set(key._eid, saved.id);
         imported++;
       } catch { errors++; }

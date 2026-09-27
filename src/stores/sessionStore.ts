@@ -26,7 +26,7 @@ import { resolveFirstHopProxy, type ProxySpec } from "@/services/proxy";
 import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/ephemeralCredentials";
 import { storeSecret, getSecret } from "@/services/vault";
 import { vaultErrorCode, type VaultErrorCode } from "@/services/vaultErrors";
-import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { useIdentityStore } from "@/stores/identityStore";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent, type ClientAuditAction } from "@/services/auditReporter";
@@ -492,18 +492,15 @@ async function persistConnectAuth(connection: Connection, override: ConnectRetry
     data.identity_id = undefined;
     data.key_id = undefined;
     data.auth_type = "key";
-    await storeSecret(`key:${connection.id}`, override.privateKey.trim());
-    await saveTeamVaultSecretForVault(connection.vault_id, `key:${connection.id}`, override.privateKey.trim()).catch(() => {});
+    await storeSecret(`key:${connection.id}`, override.privateKey.trim()).catch(keepCachedOnUploadFailure("persistConnectAuth"));
     if (override.passphrase) {
-      await storeSecret(`passphrase:${connection.id}`, override.passphrase);
-      await saveTeamVaultSecretForVault(connection.vault_id, `passphrase:${connection.id}`, override.passphrase).catch(() => {});
+      await storeSecret(`passphrase:${connection.id}`, override.passphrase).catch(keepCachedOnUploadFailure("persistConnectAuth"));
     }
   } else if (override.password) {
     data.identity_id = undefined;
     data.key_id = undefined;
     data.auth_type = "password";
-    await storeSecret(`password:${connection.id}`, override.password);
-    await saveTeamVaultSecretForVault(connection.vault_id, `password:${connection.id}`, override.password).catch(() => {});
+    await storeSecret(`password:${connection.id}`, override.password).catch(keepCachedOnUploadFailure("persistConnectAuth"));
   }
 
   await useConnectionStore.getState().updateConnection(connection.id, data);
@@ -1048,9 +1045,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             return allIdentities.find((i) => i.id === connection.identity_id)?.key_id;
           })();
           if (keyId) {
-            await storeSecret(`key:${keyId}:passphrase`, passphrase);
+            await storeSecret(`key:${keyId}:passphrase`, passphrase).catch(keepCachedOnUploadFailure("reconnectWithPassphrase"));
           } else if (!connection.identity_id) {
-            await storeSecret(`passphrase:${connection.id}`, passphrase);
+            await storeSecret(`passphrase:${connection.id}`, passphrase).catch(keepCachedOnUploadFailure("reconnectWithPassphrase"));
           }
         }
 

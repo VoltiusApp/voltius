@@ -33,6 +33,7 @@ import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { snippetToForm } from "@/utils/snippetForm";
 import { ruleToForm } from "@/utils/portForwardingForm";
 import { getSecret, storeSecret } from "@/services/vault";
+import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import {
   transferIdentitySecrets,
   transferKeySecrets,
@@ -209,7 +210,7 @@ function resolveTab(
 
 const copySecret = async (from: string, to: string): Promise<void> => {
   const value = await getSecret(from).catch(() => null);
-  if (value) await storeSecret(to, value);
+  if (value) await storeSecret(to, value).catch(keepCachedOnUploadFailure("copySecret"));
 };
 
 interface DuplicateOpts {
