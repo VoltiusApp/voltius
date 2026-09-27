@@ -1,6 +1,8 @@
 #[cfg(any(test, not(any(target_os = "android", target_os = "ios"))))]
 use super::ProxyEndpoint;
 use super::ProxySpec;
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
+use std::net::IpAddr;
 
 #[cfg(any(
     test,
@@ -134,18 +136,62 @@ fn glob(pattern: &str, text: &str) -> bool {
     true
 }
 
+/// An IP or CIDR bypass entry as (network, prefix length). Accepts macOS short
+/// forms, where missing IPv4 octets are zero (`169.254/16` is 169.254.0.0/16).
 #[cfg(any(target_os = "windows", target_os = "macos", test))]
-fn bypass_matches(patterns: &[&str], host: &str, local_token: bool) -> bool {
-    let host = host.to_ascii_lowercase();
+fn parse_net(entry: &str) -> Option<(IpAddr, u8)> {
+    let (addr, bits) = match entry.split_once('/') {
+        Some((a, b)) => (a, Some(b.parse::<u8>().ok()?)),
+        None => (entry, None),
+    };
+    let ip = match addr.parse::<IpAddr>() {
+        Ok(ip) => ip,
+        Err(_) if bits.is_some() => {
+            let mut octets = [0u8; 4];
+            for (i, part) in addr.split('.').enumerate() {
+                *octets.get_mut(i)? = part.parse().ok()?;
+            }
+            IpAddr::from(octets)
+        }
+        Err(_) => return None,
+    };
+    let width = if ip.is_ipv4() { 32 } else { 128 };
+    let bits = bits.unwrap_or(width);
+    (bits <= width).then_some((ip, bits))
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
+fn in_net(ip: IpAddr, net: IpAddr, bits: u8) -> bool {
+    let (a, b, width) = match (ip, net) {
+        (IpAddr::V4(a), IpAddr::V4(b)) => (u32::from(a).into(), u32::from(b).into(), 32),
+        (IpAddr::V6(a), IpAddr::V6(b)) => (u128::from(a), u128::from(b), 128),
+        _ => return false,
+    };
+    (a ^ b).checked_shr(width - u32::from(bits)).unwrap_or(0) == 0
+}
+
+/// Whether `host` skips the proxy under a bypass list. Names match exactly or
+/// as `*` globs; `<local>` matches names without a dot (Windows' token, also
+/// standing in for macOS' ExcludeSimpleHostnames). IP and CIDR entries match
+/// literal IP hosts only: like the OS, nothing is resolved.
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
+fn bypass_matches(patterns: &[&str], host: &str) -> bool {
+    let host = host
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .to_ascii_lowercase();
+    let ip = host.parse::<IpAddr>().ok();
     patterns
         .iter()
         .map(|p| p.trim().to_ascii_lowercase())
         .any(|p| {
-            if local_token && p == "<local>" {
-                !host.contains('.')
-            } else {
-                !p.is_empty() && glob(&p, &host)
+            if p == "<local>" {
+                return ip.is_none() && !host.contains('.');
             }
+            if let Some((net, bits)) = parse_net(&p) {
+                return ip.is_some_and(|ip| in_net(ip, net, bits));
+            }
+            !p.is_empty() && glob(&p, &host)
         })
 }
 
@@ -189,6 +235,9 @@ fn parse_scutil(output: &str) -> Option<(ProxySpec, Vec<String>)> {
         .map(ProxySpec::Socks5)
         .or_else(|| pick("HTTPS").map(ProxySpec::Http))
         .or_else(|| pick("HTTP").map(ProxySpec::Http))?;
+    if map.get("ExcludeSimpleHostnames").map(String::as_str) == Some("1") {
+        exceptions.push("<local>".to_string());
+    }
     Some((spec, exceptions))
 }
 
@@ -245,7 +294,7 @@ fn detect_os(host: &str) -> Option<ProxySpec> {
     let spec = parse_windows_proxy_server(&key.get_string("ProxyServer").ok()?)?;
     let overrides = key.get_string("ProxyOverride").unwrap_or_default();
     let patterns: Vec<&str> = overrides.split(';').collect();
-    (host.is_empty() || !bypass_matches(&patterns, host, true)).then_some(spec)
+    (host.is_empty() || !bypass_matches(&patterns, host)).then_some(spec)
 }
 
 /// Returns the value `slot` holds if it is younger than `ttl` at `now`, else
@@ -288,7 +337,7 @@ fn scutil_proxy() -> Option<(ProxySpec, Vec<String>)> {
 fn detect_os(host: &str) -> Option<ProxySpec> {
     let (spec, exceptions) = scutil_proxy()?;
     let patterns: Vec<&str> = exceptions.iter().map(String::as_str).collect();
-    (host.is_empty() || !bypass_matches(&patterns, host, false)).then_some(spec)
+    (host.is_empty() || !bypass_matches(&patterns, host)).then_some(spec)
 }
 
 #[cfg(not(any(
@@ -371,15 +420,56 @@ mod tests {
     #[test]
     fn bypass_local_token_and_wildcards() {
         let list = ["<local>", "*.corp.example", "10.*"];
-        assert!(bypass_matches(&list, "intranet", true));
-        assert!(bypass_matches(&list, "git.corp.example", true));
-        assert!(bypass_matches(&list, "10.1.2.3", true));
-        assert!(!bypass_matches(&list, "github.com", true));
-        assert!(!bypass_matches(&["exact.host"], "other.host", false));
-        assert!(bypass_matches(&["EXACT.host"], "exact.HOST", false));
+        assert!(bypass_matches(&list, "intranet"));
+        assert!(bypass_matches(&list, "git.corp.example"));
+        assert!(bypass_matches(&list, "10.1.2.3"));
+        assert!(!bypass_matches(&list, "github.com"));
+        assert!(
+            !bypass_matches(&list, "::1"),
+            "an IP literal is not a simple name"
+        );
+        assert!(!bypass_matches(&["exact.host"], "other.host"));
+        assert!(bypass_matches(&["EXACT.host"], "exact.HOST"));
+    }
+
+    #[test]
+    fn bypass_ip_and_cidr_entries_match_literal_ips_only() {
+        let list = ["169.254/16", "10.0.0.0/8", "192.168.1.*", "fd00::/8", "::1"];
+        assert!(bypass_matches(&list, "169.254.3.4"));
+        assert!(!bypass_matches(&list, "169.255.0.1"));
+        assert!(bypass_matches(&list, "10.200.0.1"));
+        assert!(bypass_matches(&list, "192.168.1.20"));
+        assert!(!bypass_matches(&list, "192.168.2.20"));
+        assert!(bypass_matches(&list, "fd12:3456::1"));
+        assert!(bypass_matches(&list, "[fd12::1]"));
+        assert!(!bypass_matches(&list, "fe80::1"));
+        assert!(bypass_matches(&list, "0:0:0:0:0:0:0:1"));
+        assert!(
+            !bypass_matches(&list, "ten.example"),
+            "names are never resolved"
+        );
+        assert!(bypass_matches(&["0.0.0.0/0"], "8.8.8.8"));
+        assert!(bypass_matches(&["::/0"], "2001:db8::1"));
+        assert!(!bypass_matches(&["10/33", "1.2.3.4.5/8"], "10.0.0.1"));
     }
 
     const SCUTIL: &str = "<dictionary> {\n  ExceptionsList : <array> {\n    0 : *.local\n    1 : 169.254/16\n  }\n  HTTPEnable : 1\n  HTTPPort : 8080\n  HTTPProxy : web.corp\n  HTTPSEnable : 1\n  HTTPSPort : 8443\n  HTTPSProxy : secure.corp\n  SOCKSEnable : 0\n}\n";
+
+    #[test]
+    fn scutil_exclude_simple_hostnames_bypasses_dotless_names() {
+        let excluding = SCUTIL.replace(
+            "  SOCKSEnable",
+            "  ExcludeSimpleHostnames : 1\n  SOCKSEnable",
+        );
+        let (_, exceptions) = parse_scutil(&excluding).unwrap();
+        let patterns: Vec<&str> = exceptions.iter().map(String::as_str).collect();
+        assert!(bypass_matches(&patterns, "nas"));
+        assert!(bypass_matches(&patterns, "printer.local"));
+        assert!(bypass_matches(&patterns, "169.254.1.1"));
+        assert!(!bypass_matches(&patterns, "github.com"));
+        let (_, exceptions) = parse_scutil(SCUTIL).unwrap();
+        assert!(!exceptions.iter().any(|e| e == "<local>"));
+    }
 
     #[test]
     fn scutil_prefers_socks_then_https_then_http() {
