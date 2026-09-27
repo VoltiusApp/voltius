@@ -19,6 +19,9 @@ export const connectionSecretKeys = (id: string) => [
   proxyPasswordKey(id),
 ];
 
+export const keySecretKeys = (id: string) => [`key:${id}:private`, `key:${id}:public`, `key:${id}:passphrase`];
+export const identitySecretKeys = (id: string) => [`identity:${id}:password`];
+
 export interface TeamSecretKeyParts {
   secretId: string;
   objectId: string;

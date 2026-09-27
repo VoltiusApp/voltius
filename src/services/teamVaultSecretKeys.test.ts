@@ -4,6 +4,8 @@ import {
   localSecretKeyFromTeamSecret,
   connectionSecretKeys,
   GLOBAL_PROXY_PASSWORD_KEY,
+  keySecretKeys,
+  identitySecretKeys,
   type TeamSecretType,
 } from "./teamVaultSecretKeys";
 
@@ -58,4 +60,12 @@ it("never maps a team-written __global__ object id back onto this device's globa
 
 it("connectionSecretKeys covers every per-connection secret", () => {
   expect(connectionSecretKeys("c")).toEqual(["password:c", "key:c", "passphrase:c", "proxy_password:c"]);
+});
+
+test("key and identity secret key lists match what teamSecretFromLocalKey parses", () => {
+  expect(keySecretKeys("k1")).toEqual(["key:k1:private", "key:k1:public", "key:k1:passphrase"]);
+  expect(identitySecretKeys("i1")).toEqual(["identity:i1:password"]);
+  for (const k of [...keySecretKeys("k1"), ...identitySecretKeys("i1")]) {
+    expect(teamSecretFromLocalKey(k)).not.toBeNull();
+  }
 });
