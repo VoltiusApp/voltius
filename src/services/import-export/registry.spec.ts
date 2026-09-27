@@ -68,6 +68,14 @@ describe("buildBundle — related credentials", () => {
     expect(bundle.connections[0].jump_hosts![0]._identity_eid).toBe("ir0");
   });
 
+  it("never exports the source vault's key id, with or without the key", async () => {
+    for (const includeRelatedCredentials of [false, true]) {
+      const bundle = await buildBundle(onlyConnections, stores, ["personal"], single, () => true, { includeRelatedCredentials });
+      expect(bundle.connections[0]).not.toHaveProperty("key_id");
+      expect(bundle.connections[0]._key_eid).toBeDefined();
+    }
+  });
+
   it("writes no key ref when the key has no public half", async () => {
     const noPub = storesOf({ connections: [conn({ id: "c1", key_id: "k2" })], keys: [{ id: "k2", name: "enc", vault_id: "personal", tags: [] } as unknown as SshKey] });
     const bundle = await buildBundle(onlyConnections, noPub, ["personal"], single, () => true);
@@ -247,7 +255,7 @@ describe("runImport — references to skipped duplicates", () => {
     const { ctx, saved } = ctxOf({ skipped: new Set([key, identity, bastion, helper]) });
     const result = await runImport(bundle, ctx);
     expect(result).toEqual({ imported: 2, errors: 0 });
-    expect([...saved.keys()]).toEqual(["web", "caller"]);
+    expect([...saved.keys()]).toEqual(["caller", "web"]);
     expect(saved.get("web")).toMatchObject({ identity_id: "have-identity", key_id: "have-key" });
     expect(saved.get("web")!.jump_hosts).toMatchObject([{ connection_id: "have-bastion", identity_id: "have-identity" }]);
     expect(saved.get("caller")!.steps).toEqual([{ kind: "snippet", snippet_id: "have-helper" }]);
@@ -256,7 +264,7 @@ describe("runImport — references to skipped duplicates", () => {
   it("does the same when deduplicating automatically", async () => {
     const { ctx, saved } = ctxOf({ skipDupes: true });
     await runImport(bundle, ctx);
-    expect([...saved.keys()]).toEqual(["web", "caller"]);
+    expect([...saved.keys()]).toEqual(["caller", "web"]);
     expect(saved.get("web")).toMatchObject({ identity_id: "have-identity", key_id: "have-key" });
     expect(saved.get("web")!.jump_hosts).toMatchObject([{ connection_id: "have-bastion" }]);
     expect(saved.get("caller")!.steps).toEqual([{ kind: "snippet", snippet_id: "have-helper" }]);
@@ -265,7 +273,7 @@ describe("runImport — references to skipped duplicates", () => {
   it("imports a duplicate the user kept, pointing references at the new copy", async () => {
     const { ctx, saved } = ctxOf({ skipped: new Set([key, bastion, helper]) });
     await runImport(bundle, ctx);
-    expect([...saved.keys()]).toEqual(["deploy", "web", "caller"]);
+    expect([...saved.keys()]).toEqual(["deploy", "caller", "web"]);
     expect(saved.get("web")!.identity_id).toBe("new-deploy");
   });
 
@@ -358,5 +366,59 @@ describe("runImport — key duplicates compare public keys (#380)", () => {
     await runImport(bundleOf(`${PUB} comment`), ctx);
     expect(saved.map((d) => d.name)).toEqual(["web"]);
     expect(saved[0].key_id).toBe("have-key");
+  });
+});
+
+describe("connection pre/post-connect snippets", () => {
+  const snippet = (id: string, name: string, steps: unknown[] = []) =>
+    ({ id, name, steps, tags: [], only_for_connection_tags: [], only_for_distros: [], vault_id: "personal" }) as unknown as Snippet;
+
+  it("exports the hook snippets and those they call, referenced by eid", async () => {
+    const stores = storesOf({
+      connections: [conn({ id: "c1", pre_snippet_id: "hook", post_snippet_id: "gone" })],
+      snippets: [snippet("hook", "hook", [{ kind: "snippet", snippet_id: "inner" }]), snippet("inner", "inner"), snippet("other", "other")],
+    });
+    const bundle = await buildBundle(onlyConnections, stores, ["personal"], {}, () => false);
+    expect(bundle.snippets.map((s) => s.name)).toEqual(["hook", "inner"]);
+    const hook = bundle.snippets.find((s) => s.name === "hook")!;
+    expect(bundle.connections[0]._pre_snippet_eid).toBe(hook._eid);
+    expect(bundle.connections[0]._post_snippet_eid).toBeUndefined();
+    expect(bundle.connections[0]).not.toHaveProperty("pre_snippet_id");
+    expect(bundle.connections[0]).not.toHaveProperty("post_snippet_id");
+  });
+
+  function importCtx(existingSnippets: Snippet[]) {
+    type Saved = { name: string; pre_snippet_id?: string; post_snippet_id?: string; key_id?: string };
+    const saved = new Map<string, Saved>();
+    const save = async (d: Saved) => { saved.set(d.name, d); return { id: `new-${d.name}` }; };
+    const ctx = newImportCtx({
+      vault_id: "personal", tag: "", skipDupes: true,
+      existingConnections: [], existingKeys: [], existingIdentities: [], existingSnippets, existingPfRules: [], existingFolders: [],
+      stores: { saveConnection: save, createSnippet: save } as unknown as ImportStores,
+    });
+    return { ctx, saved };
+  }
+  const bundleOf = (web: object, snippets: object[] = [{ _eid: "s0", name: "hook", steps: [], tags: [], only_for_connection_tags: [], only_for_distros: [] }]) => ({
+    version: 1, exported_at: "", folders: [], keys: [], identities: [], portForwardingRules: [], snippets, connections: [web],
+  }) as unknown as ExportBundle;
+  const web = { _eid: "c0", name: "web", host: "web", port: 22, username: "root", auth_type: "password", tags: [] };
+
+  it("points the imported host at the imported hook snippet", async () => {
+    const { ctx, saved } = importCtx([]);
+    await runImport(bundleOf({ ...web, _pre_snippet_eid: "s0" }), ctx);
+    expect(saved.get("web")!.pre_snippet_id).toBe("new-hook");
+  });
+
+  it("points it at the vault's own copy when the hook snippet is a skipped duplicate", async () => {
+    const { ctx, saved } = importCtx([snippet("have-hook", "hook")]);
+    await runImport(bundleOf({ ...web, _post_snippet_eid: "s0" }), ctx);
+    expect(saved.has("hook")).toBe(false);
+    expect(saved.get("web")!.post_snippet_id).toBe("have-hook");
+  });
+
+  it("drops a raw snippet id from an older bundle instead of keeping a dangling reference", async () => {
+    const { ctx, saved } = importCtx([]);
+    await runImport(bundleOf({ ...web, pre_snippet_id: "stale", key_id: "stale-key" }, []), ctx);
+    expect(saved.get("web")).toMatchObject({ pre_snippet_id: undefined, key_id: undefined });
   });
 });

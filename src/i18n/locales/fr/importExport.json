@@ -29,7 +29,9 @@
       "selectedItem_other": "{{count}} éléments sélectionnés",
       "autoInclude": {
         "connections_one": "{{count}} connexion",
-        "connections_other": "{{count}} connexions"
+        "connections_other": "{{count}} connexions",
+        "snippets_one": "{{count}} extrait",
+        "snippets_other": "{{count}} extraits"
       },
       "autoIncludeHint": "Également inclus : utilisés par les éléments exportés, pour qu'ils fonctionnent encore après l'import",
       "relatedCredentials": "Inclure les identifiants liés",

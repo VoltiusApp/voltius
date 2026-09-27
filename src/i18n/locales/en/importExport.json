@@ -29,7 +29,9 @@
       "selectedItem_other": "{{count}} selected items",
       "autoInclude": {
         "connections_one": "{{count}} connection",
-        "connections_other": "{{count}} connections"
+        "connections_other": "{{count}} connections",
+        "snippets_one": "{{count}} snippet",
+        "snippets_other": "{{count}} snippets"
       },
       "autoIncludeHint": "Also included: used by the exported items, so they keep working after import",
       "relatedCredentials": "Include linked credentials",

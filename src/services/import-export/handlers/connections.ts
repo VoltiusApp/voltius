@@ -20,7 +20,7 @@ export const connectionsHandler: DataTypeHandler = {
     connections.forEach((c, i) => ctx.connectionEidMap.set(c.id, `c${i}`));
     bundle.connections = await Promise.all(connections.map(async (c, i): Promise<ConnectionExport> => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id, identity_id, folder_id, vault_id, created_at, last_used_at, updated_at, deleted_at, clocks, distro, jump_hosts, ...passthrough } = c;
+      const { id, identity_id, key_id, folder_id, vault_id, pre_snippet_id, post_snippet_id, created_at, last_used_at, updated_at, deleted_at, clocks, distro, jump_hosts, ...passthrough } = c;
       const secrets = await fetchConnectionSecrets(c.id, ctx.readSecret(c.vault_id));
       return {
         ...passthrough,
@@ -29,6 +29,8 @@ export const connectionsHandler: DataTypeHandler = {
         _key_eid: resolveConnectionKeyEid(c.key_id, ctx.keyEidMap),
         _identity_eid: c.identity_id ? ctx.identityEidMap.get(c.identity_id) : undefined,
         _folder_eid: c.folder_id ? ctx.folderEidMap.get(c.folder_id) : undefined,
+        _pre_snippet_eid: pre_snippet_id ? ctx.snippetEidMap.get(pre_snippet_id) : undefined,
+        _post_snippet_eid: post_snippet_id ? ctx.snippetEidMap.get(post_snippet_id) : undefined,
         jump_hosts: jump_hosts?.map((jh): JumpHostExport => {
           // Jump hosts are live references; materialize the referenced
           // connection's address into the export so other formats / cross-vault
@@ -77,7 +79,7 @@ export const connectionsHandler: DataTypeHandler = {
       if (skipItem(ctx, conn, dupesOf(ctx).connection(conn), ctx.connectionEidMap)) return;
       try {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { _eid, password, private_key, passphrase, proxy_password, _identity_eid, _key_eid, _folder_eid, tags, jump_hosts, ...passthrough } = conn;
+        const { _eid, password, private_key, passphrase, proxy_password, _identity_eid, _key_eid, _folder_eid, _pre_snippet_eid, _post_snippet_eid, tags, jump_hosts, ...passthrough } = conn;
         const resolvedJumpHosts: JumpHost[] | undefined = jump_hosts?.map(jh => ({
           id: crypto.randomUUID(),
           connection_id: jh._connection_eid ? (ctx.connectionEidMap.get(jh._connection_eid) ?? "") : "",
@@ -94,6 +96,8 @@ export const connectionsHandler: DataTypeHandler = {
           identity_id: _identity_eid ? ctx.identityEidMap.get(_identity_eid) : undefined,
           key_id: resolveConnectionKeyId(_key_eid, ctx.keyEidMap),
           folder_id: _folder_eid ? ctx.folderEidMap.get(_folder_eid) : undefined,
+          pre_snippet_id: _pre_snippet_eid ? ctx.snippetEidMap.get(_pre_snippet_eid) : undefined,
+          post_snippet_id: _post_snippet_eid ? ctx.snippetEidMap.get(_post_snippet_eid) : undefined,
           vault_id: ctx.vault_id,
           jump_hosts: resolvedJumpHosts?.length ? resolvedJumpHosts : undefined,
         });

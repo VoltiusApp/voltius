@@ -62,8 +62,9 @@ export interface JumpHostExport {
   _connection_eid?: string; // → ConnectionExport._eid in the same bundle
 }
 
-// identity_id/folder_id/vault_id/jump_hosts are replaced by _eid cross-refs; everything else passes through.
-type ConnectionPassthrough = Omit<ConnectionFormData, "identity_id" | "folder_id" | "vault_id" | "jump_hosts">;
+// Local ids are replaced by _eid cross-refs; everything else passes through.
+type ConnectionPassthrough = Omit<ConnectionFormData,
+  "identity_id" | "key_id" | "folder_id" | "vault_id" | "jump_hosts" | "pre_snippet_id" | "post_snippet_id">;
 
 export interface ConnectionExport extends ConnectionPassthrough {
   _eid?: string;        // → referenced by PortForwardingRuleExport._connection_eids
@@ -74,6 +75,8 @@ export interface ConnectionExport extends ConnectionPassthrough {
   _key_eid?: string;      // → KeyExport._eid in the same bundle
   _identity_eid?: string; // → IdentityExport._eid in the same bundle
   _folder_eid?: string;
+  _pre_snippet_eid?: string;  // → SnippetExport._eid in the same bundle
+  _post_snippet_eid?: string;
   jump_hosts?: JumpHostExport[];
 }
 

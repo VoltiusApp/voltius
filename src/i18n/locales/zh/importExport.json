@@ -28,7 +28,8 @@
       "selectedItem_one": "已选择 {{count}} 个项目",
       "selectedItem_other": "已选择 {{count}} 个项目",
       "autoInclude": {
-        "connections_other": "{{count}} 个连接"
+        "connections_other": "{{count}} 个连接",
+        "snippets_other": "{{count}} 个代码片段"
       },
       "autoIncludeHint": "同时包含：被导出的项目所引用，以确保导入后仍可正常使用",
       "relatedCredentials": "包含关联的凭据",
