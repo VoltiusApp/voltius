@@ -1,15 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import { getSecret } from "@/services/vault";
 import { getTeamVaultKey, getCachedTeamKeyVersion, getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
 import { listTeamSecrets, upsertTeamSecret } from "@/services/teamObjects";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
-import {
-  localSecretKeyFromTeamSecret,
-  teamSecretFromLocalKey,
-  connectionSecretKeys,
-} from "@/services/teamVaultSecretKeys";
+import { localSecretKeyFromTeamSecret, teamSecretFromLocalKey } from "@/services/teamVaultSecretKeys";
 import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 import { logSettledFailures } from "@/lib/logger";
 import { teamSecretCache } from "@/services/teamSecretCache";
@@ -39,11 +34,6 @@ export async function saveTeamVaultSecret(teamId: string, localKey: string, valu
     ciphertext: bytesToBase64(encryptedBlob),
     key_version: keyVersion,
   });
-}
-
-export async function saveExistingTeamVaultSecret(teamId: string, localKey: string): Promise<void> {
-  const value = await getSecret(localKey).catch(() => null);
-  if (value) await saveTeamVaultSecret(teamId, localKey, value);
 }
 
 export function resolveTeamIdForVaultId(vaultId: string | null | undefined): string | null {
@@ -83,24 +73,4 @@ export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
     if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
     throw err;
   }
-}
-
-export async function backfillExistingTeamVaultSecrets(teamId: string): Promise<void> {
-  const { useConnectionStore } = await import("@/stores/connectionStore");
-  const { useIdentityStore } = await import("@/stores/identityStore");
-  const { useKeyStore } = await import("@/stores/keyStore");
-
-  const conns = useConnectionStore.getState().teamConnections[teamId] ?? [];
-  const identities = useIdentityStore.getState().teamIdentities[teamId] ?? [];
-  const keys = useKeyStore.getState().teamKeys[teamId] ?? [];
-
-  await Promise.allSettled([
-    ...conns.flatMap((conn) => connectionSecretKeys(conn.id).map((k) => saveExistingTeamVaultSecret(teamId, k))),
-    ...identities.map((identity) => saveExistingTeamVaultSecret(teamId, `identity:${identity.id}:password`)),
-    ...keys.flatMap((key) => [
-      saveExistingTeamVaultSecret(teamId, `key:${key.id}:private`),
-      saveExistingTeamVaultSecret(teamId, `key:${key.id}:public`),
-      saveExistingTeamVaultSecret(teamId, `key:${key.id}:passphrase`),
-    ]),
-  ]);
 }

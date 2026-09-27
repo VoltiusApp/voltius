@@ -8,7 +8,9 @@ const h = vi.hoisted(() => {
   return {
     saveTeamVaultObject: vi.fn(async (_teamId: string, _kind: string, _item: unknown) => {}),
     removeTeamVaultObject: vi.fn(async () => {}),
-    backfillExistingTeamVaultSecrets: vi.fn(async () => {}),
+    getLocalSecret: vi.fn(async (k: string) => (k === "password:c1" ? "pw" : null)),
+    purgeLocalSecrets: vi.fn(async () => [] as string[]),
+    writeSecretAt: vi.fn(async () => {}),
     reportAuditMutation: vi.fn(),
     scheduleSync: vi.fn(),
     isServerMode: vi.fn(async () => true),
@@ -26,9 +28,8 @@ vi.mock("@/services/teamObjectPersistence", () => ({
   saveTeamVaultObject: h.saveTeamVaultObject,
   removeTeamVaultObject: h.removeTeamVaultObject,
 }));
-vi.mock("@/services/teamVaultSecrets", () => ({
-  backfillExistingTeamVaultSecrets: h.backfillExistingTeamVaultSecrets,
-}));
+vi.mock("@/services/vault", () => ({ getLocalSecret: h.getLocalSecret, purgeLocalSecrets: h.purgeLocalSecrets }));
+vi.mock("@/services/secretRouting", () => ({ writeSecretAt: h.writeSecretAt }));
 vi.mock("@/services/auditMutations", () => ({ reportAuditMutation: h.reportAuditMutation }));
 vi.mock("@/services/sync", () => ({ scheduleSync: h.scheduleSync }));
 vi.mock("@/services/account", () => ({ isServerMode: h.isServerMode }));
@@ -113,14 +114,26 @@ describe("migrateVaultToTeam", () => {
     expect(useConnectionStore.getState().teamConnections[TEAM]).toHaveLength(1);
   });
 
-  test("uploads secrets before the local objects that own them are deleted", async () => {
+  test("secrets are uploaded before the commit point and purged locally before objects are deleted", async () => {
+    useConnectionStore.setState({
+      connections: [{ id: "c1", name: "personal-conn", vault_id: "personal" }] as never,
+      teamConnections: {},
+    });
+
     const order: string[] = [];
-    h.backfillExistingTeamVaultSecrets.mockImplementation(async () => { order.push("secrets"); });
+    h.writeSecretAt.mockImplementation(async () => { order.push("upload"); });
+    const setTeamConnections = vi.spyOn(useConnectionStore.getState(), "setTeamConnections")
+      .mockImplementation(() => { order.push("publish"); });
+    h.purgeLocalSecrets.mockImplementation(async () => { order.push("purge"); return []; });
     h.connections.remove.mockImplementation(async () => { order.push("delete"); });
 
-    await migrateVaultToTeam(VAULT, TEAM);
+    await migrateVaultToTeam("personal", "t1");
 
-    expect(order).toEqual(["secrets", "delete"]);
+    expect(h.writeSecretAt).toHaveBeenCalledWith("t1", "password:c1", "pw");
+    expect(h.purgeLocalSecrets).toHaveBeenCalledWith(["password:c1"]);
+    expect(order).toEqual(["upload", "publish", "purge", "delete"]);
+
+    setTeamConnections.mockRestore();
   });
 
   test("drops the local copies so the team vault is the only source of truth", async () => {
@@ -140,7 +153,24 @@ describe("migrateVaultToTeam", () => {
     await expect(migrateVaultToTeam(VAULT, TEAM)).rejects.toThrow("upload failed");
 
     expect(h.connections.remove).not.toHaveBeenCalled();
-    expect(h.backfillExistingTeamVaultSecrets).not.toHaveBeenCalled();
+    expect(h.writeSecretAt).not.toHaveBeenCalled();
     expect(useConnectionStore.getState().connections).toHaveLength(3);
+  });
+
+  test("a failed secret upload aborts before anything local is touched", async () => {
+    useConnectionStore.setState({
+      connections: [{ id: "c1", name: "personal-conn", vault_id: "personal" }] as never,
+      teamConnections: {},
+    });
+    h.writeSecretAt.mockRejectedValue(new Error("403"));
+    const setTeamConnections = vi.spyOn(useConnectionStore.getState(), "setTeamConnections");
+
+    await expect(migrateVaultToTeam("personal", "t1")).rejects.toThrow("403");
+
+    expect(setTeamConnections).not.toHaveBeenCalled();
+    expect(h.purgeLocalSecrets).not.toHaveBeenCalled();
+    expect(h.connections.remove).not.toHaveBeenCalled();
+
+    setTeamConnections.mockRestore();
   });
 });

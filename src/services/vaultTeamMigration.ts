@@ -1,4 +1,6 @@
 import type { TeamObjectType } from "@/services/teamObjects";
+import { connectionSecretKeys, identitySecretKeys, keySecretKeys } from "@/services/teamVaultSecretKeys";
+import { logFailure } from "@/lib/logger";
 
 interface VaultObject {
   id: string;
@@ -10,7 +12,7 @@ interface ObjectKindSpec<T extends VaultObject> {
   kind: TeamObjectType;
   /** Every object of this kind on local disk, across all vaults. */
   local: T[];
-  /** Fills the store's team slice so the UI and the secret backfill can see them. */
+  /** Fills the store's team slice so the UI can see them. */
   publish: (teamId: string, items: T[]) => void;
   deleteLocal: (id: string) => Promise<void>;
 }
@@ -95,7 +97,8 @@ export async function migrateVaultToTeam(vaultId: string, teamId: string): Promi
     snippetApi,
     pfApi,
     { saveTeamVaultObject },
-    { backfillExistingTeamVaultSecrets },
+    vault,
+    routing,
   ] = await Promise.all([
     importVaultObjectStores(),
     import("@/services/connections"),
@@ -105,7 +108,8 @@ export async function migrateVaultToTeam(vaultId: string, teamId: string): Promi
     import("@/services/snippets"),
     import("@/services/portForwardingRules"),
     import("@/services/teamObjectPersistence"),
-    import("@/services/teamVaultSecrets"),
+    import("@/services/vault"),
+    import("@/services/secretRouting"),
   ]);
 
   const now = new Date().toISOString();
@@ -158,13 +162,21 @@ export async function migrateVaultToTeam(vaultId: string, teamId: string): Promi
     kinds.flatMap((k) => k.items.map((item) => saveTeamVaultObject(teamId, k.kind, item))),
   );
 
+  const idsOf = (kind: TeamObjectType) => kinds.find((k) => k.kind === kind)?.items.map((o) => o.id) ?? [];
+  const secretKeys = [
+    ...idsOf("connection").flatMap((id) => connectionSecretKeys(id)),
+    ...idsOf("identity").flatMap((id) => identitySecretKeys(id)),
+    ...idsOf("key").flatMap((id) => keySecretKeys(id)),
+  ];
+  const present = (await Promise.all(secretKeys.map(async (k) => [k, await vault.getLocalSecret(k)] as const)))
+    .filter((e): e is readonly [string, string] => !!e[1]);
+  await Promise.all(present.map(([k, v]) => routing.writeSecretAt(teamId, k, v)));
+
   // ─── Committed: the team vault now holds the vault's contents ───────────────
 
   for (const k of kinds) k.publish();
 
-  // Secrets are read out of the local keychain, so this has to run before the
-  // local objects (and with them their keychain entries) go away.
-  await backfillExistingTeamVaultSecrets(teamId);
+  await vault.purgeLocalSecrets(present.map(([k]) => k)).catch(logFailure(`convert: purge local secrets team=${teamId}`));
 
   await Promise.allSettled(kinds.flatMap((k) => k.items.map((item) => k.deleteLocal(item.id))));
   await reloadLocalVaultObjectStores().catch(() => {});

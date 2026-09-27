@@ -4,8 +4,6 @@ import { teamSecretCache } from "./teamSecretCache";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
-  getSecret: vi.fn(),
-  storeSecret: vi.fn(),
   getTeamVaultKey: vi.fn(),
   getCachedTeamKeyVersion: vi.fn(),
   getTeamVaultKeyAtVersion: vi.fn(),
@@ -14,13 +12,9 @@ const h = vi.hoisted(() => ({
   resolveTeamIdFromCollections: vi.fn(),
   teams: [] as unknown[],
   vaults: [] as unknown[],
-  teamConnections: {} as Record<string, unknown[]>,
-  teamIdentities: {} as Record<string, unknown[]>,
-  teamKeys: {} as Record<string, unknown[]>,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
-vi.mock("@/services/vault", () => ({ getSecret: h.getSecret, storeSecret: h.storeSecret }));
 vi.mock("@/services/teamVaultSync", () => ({
   getTeamVaultKey: h.getTeamVaultKey,
   getCachedTeamKeyVersion: h.getCachedTeamKeyVersion,
@@ -33,29 +27,17 @@ vi.mock("@/services/teamObjects", () => ({
 vi.mock("@/services/resolveTeamId", () => ({ resolveTeamIdFromCollections: h.resolveTeamIdFromCollections }));
 vi.mock("@/stores/teamStore", () => ({ useTeamStore: { getState: () => ({ teams: h.teams }) } }));
 vi.mock("@/stores/vaultStore", () => ({ useVaultStore: { getState: () => ({ vaults: h.vaults }) } }));
-vi.mock("@/stores/connectionStore", () => ({
-  useConnectionStore: { getState: () => ({ teamConnections: h.teamConnections }) },
-}));
-vi.mock("@/stores/identityStore", () => ({
-  useIdentityStore: { getState: () => ({ teamIdentities: h.teamIdentities }) },
-}));
-vi.mock("@/stores/keyStore", () => ({ useKeyStore: { getState: () => ({ teamKeys: h.teamKeys }) } }));
 
 import {
   saveTeamVaultSecret,
-  saveExistingTeamVaultSecret,
   resolveTeamIdForVaultId,
   hydrateTeamVaultSecrets,
-  backfillExistingTeamVaultSecrets,
 } from "./teamVaultSecrets";
 
 beforeEach(() => {
   Object.values(h).forEach((m) => (m as { mockReset?: () => void }).mockReset?.());
   h.teams = [];
   h.vaults = [];
-  h.teamConnections = {};
-  h.teamIdentities = {};
-  h.teamKeys = {};
   h.getTeamVaultKey.mockResolvedValue("ENCKEY");
   h.getCachedTeamKeyVersion.mockReturnValue(1);
   h.getTeamVaultKeyAtVersion.mockResolvedValue("OLD-ENCKEY");
@@ -92,35 +74,6 @@ test("saveTeamVaultSecret is a no-op for an unrecognized local key (no key fetch
   expect(h.upsertTeamSecret).not.toHaveBeenCalled();
 });
 
-// ─── saveExistingTeamVaultSecret ────────────────────────────────────────────
-
-test("saveExistingTeamVaultSecret reads the local secret then re-saves it into the team vault", async () => {
-  h.getSecret.mockResolvedValue("stored-value");
-  h.invoke.mockResolvedValue([9]);
-
-  await saveExistingTeamVaultSecret("t1", "password:c1");
-
-  expect(h.getSecret).toHaveBeenCalledWith("password:c1");
-  expect(h.upsertTeamSecret).toHaveBeenCalledWith(
-    "t1",
-    expect.objectContaining({ secret_id: "password:c1", object_id: "c1" }),
-  );
-});
-
-test("saveExistingTeamVaultSecret swallows a getSecret rejection and saves nothing", async () => {
-  h.getSecret.mockRejectedValue(new Error("keychain locked"));
-
-  await expect(saveExistingTeamVaultSecret("t1", "password:c1")).resolves.toBeUndefined();
-  expect(h.upsertTeamSecret).not.toHaveBeenCalled();
-});
-
-test("saveExistingTeamVaultSecret skips when the local secret is missing/empty", async () => {
-  h.getSecret.mockResolvedValue("");
-
-  await saveExistingTeamVaultSecret("t1", "password:c1");
-  expect(h.upsertTeamSecret).not.toHaveBeenCalled();
-});
-
 // ─── resolveTeamIdForVaultId ──────────────────────────────────────────────────
 
 test("resolveTeamIdForVaultId delegates to resolveTeamIdFromCollections with the live store snapshots", () => {
@@ -153,7 +106,6 @@ test("hydrate replaces the team's cache with exactly what the server served", as
   await hydrateTeamVaultSecrets("t1");
 
   expect(teamSecretCache.entries("t1")).toEqual(new Map([["password:c1", "pw"]]));
-  expect(h.storeSecret).not.toHaveBeenCalled();
 });
 
 test("a served row that fails to decrypt keeps its previous value", async () => {
@@ -263,66 +215,4 @@ test("hydrateTeamVaultSecrets treats a missing key_version as epoch 1, not a lit
   await hydrateTeamVaultSecrets("t1");
 
   expect(h.getTeamVaultKeyAtVersion).toHaveBeenCalledWith("t1", 1);
-});
-
-// ─── backfillExistingTeamVaultSecrets ────────────────────────────────────────
-
-test("backfillExistingTeamVaultSecrets fans out over connections, identities, and keys with the expected local-key shapes", async () => {
-  h.teamConnections = { t1: [{ id: "conn1" }] };
-  h.teamIdentities = { t1: [{ id: "id1" }] };
-  h.teamKeys = { t1: [{ id: "key1" }] };
-  h.getSecret.mockResolvedValue(null); // short-circuit each saveExisting after the read
-
-  await backfillExistingTeamVaultSecrets("t1");
-
-  const requested = h.getSecret.mock.calls.map((c) => c[0]).sort();
-  expect(requested).toEqual(
-    [
-      "password:conn1",
-      "key:conn1",
-      "passphrase:conn1",
-      "proxy_password:conn1",
-      "identity:id1:password",
-      "key:key1:private",
-      "key:key1:public",
-      "key:key1:passphrase",
-    ].sort(),
-  );
-});
-
-/**
- * The fan-out test above stubs every read to null, so it stops before the
- * publish and passes even when a shape has no team representation at all —
- * which is how `passphrase:<conn_id>` stayed unpublished. This asserts the
- * secrets actually reach the vault.
- */
-test("backfillExistingTeamVaultSecrets publishes every shape it read, including the connection passphrase", async () => {
-  h.teamConnections = { t1: [{ id: "conn1" }] };
-  h.teamIdentities = { t1: [{ id: "id1" }] };
-  h.teamKeys = { t1: [{ id: "key1" }] };
-  h.getSecret.mockResolvedValue("material");
-  h.invoke.mockResolvedValue([1, 2, 3]);
-
-  await backfillExistingTeamVaultSecrets("t1");
-
-  const published = h.upsertTeamSecret.mock.calls
-    .map((c) => [c[1].secret_id, c[1].secret_type])
-    .sort((a, b) => a[0].localeCompare(b[0]));
-  expect(published).toEqual(
-    [
-      ["password:conn1", "connection_password"],
-      ["key:conn1", "connection_key"],
-      ["passphrase:conn1", "connection_passphrase"],
-      ["proxy_password:conn1", "connection_proxy_password"],
-      ["identity:id1:password", "identity_password"],
-      ["key:key1:private", "key_private"],
-      ["key:key1:public", "key_public"],
-      ["key:key1:passphrase", "key_passphrase"],
-    ].sort((a, b) => a[0].localeCompare(b[0])),
-  );
-});
-
-test("backfillExistingTeamVaultSecrets handles an empty team (no per-team collections) without error", async () => {
-  await expect(backfillExistingTeamVaultSecrets("t-empty")).resolves.toBeUndefined();
-  expect(h.getSecret).not.toHaveBeenCalled();
 });
