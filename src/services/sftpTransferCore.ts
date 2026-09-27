@@ -1,4 +1,6 @@
 import type { FileEntry } from "@/components/filetransfer/SFTPTypes";
+import { joinPath } from "@/components/filetransfer/moveTargetCore";
+import { checkRemoteName } from "@/components/filetransfer/remoteName";
 import {
   fsCopy, sftpUpload, sftpUploadDir, sftpUploadDirTar,
   sftpDownload, sftpDownloadDir, sftpDownloadDirTar,
@@ -8,10 +10,9 @@ import type { TransferEndpoint } from "@/types";
 
 export interface TransferTarget { srcPath: string; dstPath: string; isDir: boolean; name: string; }
 
-/** Map selected entries to copy targets under destDir (POSIX join, no doubled slash). */
+/** Map selected entries to copy targets under destDir. */
 export function buildTransferTargets(selected: FileEntry[], destDir: string): TransferTarget[] {
-  const base = destDir === "/" ? "" : destDir.replace(/\/$/, "");
-  return selected.map((f) => ({ srcPath: f.path, dstPath: `${base}/${f.name}`, isDir: f.isDir, name: f.name }));
+  return selected.map((f) => ({ srcPath: f.path, dstPath: joinPath(destDir, f.name), isDir: f.isDir, name: f.name }));
 }
 
 export interface TransferItemArgs {
@@ -45,6 +46,8 @@ export async function transferItem(a: TransferItemArgs): Promise<void> {
   }
   if (from === "remote" && to === "local") {
     if (!srcSftpId) throw new Error("transferItem: missing srcSftpId");
+    const name = srcPath.replace(/\/+$/, "").split("/").pop();
+    if (name) await checkRemoteName(name);
     if (isDir) {
       return useTar
         ? sftpDownloadDirTar({ sftpId: srcSftpId, remotePath: srcPath, localPath: dstPath, transferId })

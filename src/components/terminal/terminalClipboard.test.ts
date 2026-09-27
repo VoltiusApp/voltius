@@ -22,9 +22,14 @@ interface Harness {
   selection: { text: string };
 }
 
-function harness(mouseTracking: "none" | "drag" = "drag"): Harness {
+function harness(
+  mouseTracking: "none" | "drag" = "drag",
+  buffer: "normal" | "alternate" = "alternate",
+): Harness {
   const container = document.createElement("div");
   const screen = document.createElement("div");
+  screen.className = "xterm-screen";
+  screen.getBoundingClientRect = () => new DOMRect(0, 0, 200, 100);
   container.appendChild(screen);
   document.body.appendChild(container);
 
@@ -50,16 +55,23 @@ function harness(mouseTracking: "none" | "drag" = "drag"): Harness {
 
   // Stand-in for xterm's own reporting listener: it forwards to the app only
   // while a mouse protocol is active, exactly like CoreBrowserTerminal.
+  const drag = (e: MouseEvent) => { if (e.buttons) appEvents.push("mousemove"); };
   screen.addEventListener("mousedown", () => {
-    if (coreMouseService.activeProtocol !== "NONE") appEvents.push("mousedown");
+    if (coreMouseService.activeProtocol === "NONE") return;
+    appEvents.push("mousedown");
+    document.addEventListener("mousemove", drag);
   });
   document.addEventListener("mouseup", () => {
+    document.removeEventListener("mousemove", drag);
     if (coreMouseService.activeProtocol !== "NONE") appEvents.push("mouseup");
   });
 
   const term = {
+    element: container,
+    buffer: { active: { type: buffer } },
     modes: { mouseTrackingMode: mouseTracking },
     getSelection: () => selection.text,
+    clearSelection: () => { selection.text = ""; },
     onSelectionChange: () => ({ dispose() {} }),
     paste: () => {},
     loadAddon: () => {},
@@ -80,8 +92,14 @@ function press(target: HTMLElement, init: MouseEventInit = {}) {
   }));
 }
 
+function move(init: MouseEventInit = {}) {
+  document.dispatchEvent(new MouseEvent("mousemove", {
+    bubbles: true, cancelable: true, buttons: 1, clientX: 10, clientY: 10, ...init,
+  }));
+}
+
 function release(init: MouseEventInit = {}) {
-  window.dispatchEvent(new MouseEvent("mouseup", {
+  document.dispatchEvent(new MouseEvent("mouseup", {
     bubbles: true, cancelable: true, button: 0, clientX: 10, clientY: 10, ...init,
   }));
 }
@@ -151,5 +169,30 @@ describe("drag-selects-text over an app holding the mouse", () => {
     await vi.advanceTimersByTimeAsync(30);
     expect(writeClipboard).toHaveBeenCalledWith("copied");
     vi.useRealTimers();
+  });
+
+  it.each([
+    ["top", -5],
+    ["bottom", 130],
+  ])("hands a drag past the %s edge of the alternate screen to the app", (_edge, clientY) => {
+    const h = harness();
+    press(h.screen);
+    move({ clientY: 60 });
+    expect(h.protocol()).toBe("NONE");
+    h.selection.text = "partial";
+    move({ clientY });
+    expect(h.protocol()).toBe("VT200");
+    expect(h.selection.text).toBe("");
+    expect(h.appEvents).toEqual(["mousedown", "mousemove"]);
+    release({ clientY });
+    expect(h.appEvents).toEqual(["mousedown", "mousemove", "mouseup"]);
+  });
+
+  it("keeps a drag past the edge local on the normal screen", () => {
+    const h = harness("drag", "normal");
+    press(h.screen);
+    move({ clientY: -5 });
+    expect(h.protocol()).toBe("NONE");
+    expect(h.appEvents).toEqual([]);
   });
 });

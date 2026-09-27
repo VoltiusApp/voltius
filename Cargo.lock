@@ -7752,6 +7752,7 @@ dependencies = [
  "linux-keyutils-keyring-store",
  "log",
  "machine-uid",
+ "minisign-verify",
  "portable-pty",
  "rand 0.8.6",
  "reqwest",

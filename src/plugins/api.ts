@@ -170,6 +170,8 @@ export interface PluginTransfer {
   speed?: number;
   eta?: number;
   error?: string;
+  /** Remote paths left out because the local OS can't hold the name. */
+  skipped?: string[];
   /** Name of the MCP client that started it; absent for the user's own. */
   owner?: string;
 }

@@ -29,6 +29,19 @@ export interface KeyExport {
   _folder_eid?: string;
 }
 
+// Stand-ins for credentials left out of an export: import links them to the vault's own copy, never creates them.
+export interface KeyRefExport {
+  _eid: string;
+  name?: string;
+  public_key: string;
+}
+
+export interface IdentityRefExport {
+  _eid: string;
+  name: string;
+  username: string;
+}
+
 export interface IdentityExport {
   _eid?: string;
   name?: string;
@@ -49,8 +62,9 @@ export interface JumpHostExport {
   _connection_eid?: string; // → ConnectionExport._eid in the same bundle
 }
 
-// identity_id/folder_id/vault_id/jump_hosts are replaced by _eid cross-refs; everything else passes through.
-type ConnectionPassthrough = Omit<ConnectionFormData, "identity_id" | "folder_id" | "vault_id" | "jump_hosts">;
+// Local ids are replaced by _eid cross-refs; everything else passes through.
+type ConnectionPassthrough = Omit<ConnectionFormData,
+  "identity_id" | "key_id" | "folder_id" | "vault_id" | "jump_hosts" | "pre_snippet_id" | "post_snippet_id">;
 
 export interface ConnectionExport extends ConnectionPassthrough {
   _eid?: string;        // → referenced by PortForwardingRuleExport._connection_eids
@@ -61,6 +75,8 @@ export interface ConnectionExport extends ConnectionPassthrough {
   _key_eid?: string;      // → KeyExport._eid in the same bundle
   _identity_eid?: string; // → IdentityExport._eid in the same bundle
   _folder_eid?: string;
+  _pre_snippet_eid?: string;  // → SnippetExport._eid in the same bundle
+  _post_snippet_eid?: string;
   jump_hosts?: JumpHostExport[];
 }
 
@@ -109,6 +125,8 @@ export interface ExportBundle {
   keys: KeyExport[];
   snippets: SnippetExport[];
   portForwardingRules: PortForwardingRuleExport[];
+  keyRefs?: KeyRefExport[];
+  identityRefs?: IdentityRefExport[];
 }
 
 // ─── JSON ─────────────────────────────────────────────────────────────────────
@@ -137,6 +155,8 @@ export function fromJSON(text: string): ExportBundle {
     keys: Array.isArray(b.keys) ? b.keys : [],
     snippets: Array.isArray(b.snippets) ? b.snippets : [],
     portForwardingRules: Array.isArray(b.portForwardingRules) ? b.portForwardingRules : [],
+    keyRefs: Array.isArray(b.keyRefs) ? b.keyRefs : [],
+    identityRefs: Array.isArray(b.identityRefs) ? b.identityRefs : [],
   };
 }
 

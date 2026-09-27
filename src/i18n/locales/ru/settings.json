@@ -471,12 +471,14 @@
       "updatesTitle": "Обновления",
       "checkForUpdate": "Проверить обновления",
       "restartToUpdate": "Перезапустить для обновления · v{{version}}",
+      "downloadUpdate": "Скачать обновление · v{{version}}",
       "status": {
         "idle": "Ещё не проверялось",
         "checking": "Проверка обновлений…",
         "upToDate": "У вас последняя версия",
         "downloading": "Загрузка v{{version}} — {{progress}}%",
-        "ready": "v{{version}} готова к установке"
+        "ready": "v{{version}} готова к установке",
+        "available": "Доступна v{{version}}"
       },
       "autoDownload": {
         "title": "Автозагрузка обновлений",

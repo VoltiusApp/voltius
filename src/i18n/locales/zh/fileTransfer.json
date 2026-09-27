@@ -105,7 +105,8 @@
       "compareHint": "在每侧各选择一个文件进行比较",
       "selectFilesToUpload": "选择要上传的文件",
       "downloadToFolder": "下载到文件夹",
-      "connectionLost": "连接已断开"
+      "connectionLost": "连接已断开",
+      "moveSourceNotDeleted": "已复制，但无法删除 {{names}} 的原始文件：{{error}}"
     },
     "queue": {
       "title": "传输",
@@ -118,6 +119,8 @@
       "clearFinished": "清除已完成的传输",
       "cancelTransfer": "取消传输",
       "retryTransfer": "重试传输",
+      "skipped_one": "已跳过 {{count}} 个本系统无法保存的名称：",
+      "skipped_other": "已跳过 {{count}} 个本系统无法保存的名称：",
       "mcpTooltip": "由 {{client}} 启动",
       "mcpTooltipUnknown": "由 MCP 客户端启动",
       "status": {

@@ -126,7 +126,8 @@
       "compareHint": "Выберите по одному файлу с каждой стороны для сравнения",
       "selectFilesToUpload": "Выберите файлы для загрузки",
       "downloadToFolder": "Скачать в папку",
-      "connectionLost": "Подключение потеряно"
+      "connectionLost": "Подключение потеряно",
+      "moveSourceNotDeleted": "Скопировано, но не удалось удалить исходный файл {{names}}: {{error}}"
     },
     "queue": {
       "title": "Передачи",
@@ -143,6 +144,10 @@
       "clearFinished": "Очистить завершённые передачи",
       "cancelTransfer": "Отменить передачу",
       "retryTransfer": "Повторить передачу",
+      "skipped_one": "Пропущено {{count}} имя, недопустимое в этой системе:",
+      "skipped_few": "Пропущено {{count}} имени, недопустимых в этой системе:",
+      "skipped_many": "Пропущено {{count}} имён, недопустимых в этой системе:",
+      "skipped_other": "Пропущено {{count}} имени, недопустимых в этой системе:",
       "mcpTooltip": "Запущено клиентом {{client}}",
       "mcpTooltipUnknown": "Запущено MCP-клиентом",
       "status": {

@@ -14,10 +14,11 @@ const LINKS = [
   { icon: "lucide:mail",         key: "contact",       sub: "contact@voltius.app",  href: "mailto:contact@voltius.app" },
 ];
 import {
-  getUpdaterState,
-  onUpdaterStateChange,
+  useUpdaterStatus,
   checkForUpdate,
+  downloadUpdate,
   installUpdate,
+  openDownloadPage,
 } from "@/services/updater";
 import { Toggle } from "@/components/shared/Toggle";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
@@ -27,7 +28,7 @@ import LogoBadge from "@/components/layout/LogoBadge";
 export default function AboutSection() {
   const { t } = useTranslation();
   const [appVersion, setAppVersion] = useState<string | null>(null);
-  const [updater, setUpdater] = useState(getUpdaterState);
+  const updater = useUpdaterStatus();
   const autoUpdate = useUpdaterPrefStore((s) => s.autoUpdate);
   const setAutoUpdate = useUpdaterPrefStore((s) => s.setAutoUpdate);
   const [changelogPopup, setChangelogPopup] = useToggle("changelog-popup");
@@ -35,10 +36,20 @@ export default function AboutSection() {
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion("unknown"));
-    return onUpdaterStateChange(() => setUpdater(getUpdaterState()));
   }, []);
 
   const busy = updater.status === "checking" || updater.status === "downloading";
+  const offered = updater.status === "available" || updater.status === "externalUpdate" ? updater : null;
+  const action =
+    updater.status === "ready"
+      ? { icon: "lucide:refresh-cw", label: t("settings.about.restartToUpdate", { version: updater.version }), run: installUpdate }
+      : offered
+        ? {
+            icon: "lucide:download",
+            label: t("settings.about.downloadUpdate", { version: offered.version }),
+            run: offered.status === "available" ? downloadUpdate : openDownloadPage,
+          }
+        : null;
 
   return (
     <div className="p-6 max-w-lg space-y-6">
@@ -80,6 +91,9 @@ export default function AboutSection() {
                 {updater.status === "ready" && (
                   <Icon icon="lucide:circle-check" width={14} className="shrink-0 text-(--t-status-connected)" />
                 )}
+                {offered && (
+                  <Icon icon="lucide:sparkles" width={14} className="shrink-0 text-(--t-accent)" />
+                )}
                 {updater.status === "upToDate" && (
                   <Icon icon="lucide:circle-check" width={14} className="shrink-0 text-(--t-status-connected)" />
                 )}
@@ -101,6 +115,11 @@ export default function AboutSection() {
                 {updater.status === "ready" && (
                   <span className="text-sm text-(--t-text-primary)">
                     {t("settings.about.status.ready", { version: updater.version })}
+                  </span>
+                )}
+                {offered && (
+                  <span className="text-sm text-(--t-text-primary)">
+                    {t("settings.about.status.available", { version: offered.version })}
                   </span>
                 )}
                 {updater.status === "error" && (
@@ -137,14 +156,13 @@ export default function AboutSection() {
               </div>
             )}
 
-            {/* Restart button */}
-            {updater.status === "ready" && (
+            {action && (
               <button
-                onClick={() => installUpdate()}
+                onClick={() => action.run().catch(() => {})}
                 className="btn btn-primary w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium"
               >
-                <Icon icon="lucide:refresh-cw" width={14} />
-                {t("settings.about.restartToUpdate", { version: updater.version })}
+                <Icon icon={action.icon} width={14} />
+                {action.label}
               </button>
             )}
 

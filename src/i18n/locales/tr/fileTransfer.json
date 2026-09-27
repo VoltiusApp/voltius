@@ -105,7 +105,8 @@
       "compareHint": "Karşılaştırmak için her iki taraftan birer dosya seçin",
       "selectFilesToUpload": "Yüklenecek dosyaları seçin",
       "downloadToFolder": "Klasöre indir",
-      "connectionLost": "Bağlantı koptu"
+      "connectionLost": "Bağlantı koptu",
+      "moveSourceNotDeleted": "Kopyalandı, ancak {{names}} için orijinal silinemedi: {{error}}"
     },
     "queue": {
       "title": "Aktarımlar",
@@ -118,6 +119,8 @@
       "clearFinished": "Tamamlanan aktarımları temizle",
       "cancelTransfer": "Aktarımı iptal et",
       "retryTransfer": "Aktarımı tekrar dene",
+      "skipped_one": "Bu sistemin saklayamadığı {{count}} ad atlandı:",
+      "skipped_other": "Bu sistemin saklayamadığı {{count}} ad atlandı:",
       "mcpTooltip": "Başlatan: {{client}}",
       "mcpTooltipUnknown": "Bir MCP istemcisi tarafından başlatıldı",
       "status": {

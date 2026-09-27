@@ -465,12 +465,14 @@
       "updatesTitle": "Updates",
       "checkForUpdate": "Check for update",
       "restartToUpdate": "Restart to update · v{{version}}",
+      "downloadUpdate": "Download update · v{{version}}",
       "status": {
         "idle": "Not checked yet",
         "checking": "Checking for updates…",
         "upToDate": "You're up to date",
         "downloading": "Downloading v{{version}} — {{progress}}%",
-        "ready": "v{{version}} ready to install"
+        "ready": "v{{version}} ready to install",
+        "available": "v{{version}} available"
       },
       "autoDownload": {
         "title": "Auto-download updates",

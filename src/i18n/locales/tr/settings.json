@@ -643,12 +643,14 @@
       "updatesTitle": "Güncellemeler",
       "checkForUpdate": "Güncellemeleri denetle",
       "restartToUpdate": "Güncellemek için yeniden başlat · v{{version}}",
+      "downloadUpdate": "Güncellemeyi indir · v{{version}}",
       "status": {
         "idle": "Henüz denetlenmedi",
         "checking": "Güncellemeler denetleniyor…",
         "upToDate": "Güncelsiniz",
         "downloading": "v{{version}} indiriliyor — %{{progress}}",
-        "ready": "v{{version}} kurulmaya hazır"
+        "ready": "v{{version}} kurulmaya hazır",
+        "available": "v{{version}} mevcut"
       },
       "autoDownload": {
         "title": "Güncellemeleri otomatik indir",
