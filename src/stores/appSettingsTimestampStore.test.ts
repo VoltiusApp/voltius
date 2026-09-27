@@ -65,3 +65,10 @@ test("a remote apply adopts the remote stamp, held-back leaves included", async 
 
   expect(useAppSettingsTimestampStore.getState().updatedAt).toBe(remoteAt);
 });
+
+test("upgrading seeds every setting's clock with the old section clock", () => {
+  const at = "2029-01-01T00:00:00.000Z";
+  const migrated = useAppSettingsTimestampStore.persist.getOptions().migrate!({ updatedAt: at }, 0) as { clocks: Record<string, string> };
+
+  expect(migrated.clocks).toMatchObject({ locale: at, "terminal.cursorStyle": at, "toggles.persistent-sessions": at });
+});

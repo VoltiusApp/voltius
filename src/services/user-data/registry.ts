@@ -106,13 +106,13 @@ export function mergeUserDataBundle(
     const localData = localSection ? localSection.data : h.export();
     const localTs = localSection ? localSection.updated_at : h.getTimestamp();
     const remoteTs = remoteSection.updated_at;
-    const { value, updated } = h.merge(
+    const { value, updated, updatedAt } = h.merge(
       localData,
       remoteSection.data,
       localTs,
       remoteTs,
     );
-    sections[h.key] = { data: value, updated_at: updated ? remoteTs : localTs };
+    sections[h.key] = { data: value, updated_at: updatedAt ?? (updated ? remoteTs : localTs) };
     if (updated) updatedKeys.push(h.key);
   }
 

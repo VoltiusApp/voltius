@@ -80,14 +80,12 @@ beforeEach(() => {
   useSubscriptionStore.setState({ isPro: true });
   useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: {} });
   useTerminalSettingsStore.setState({ preferredShell: "/usr/bin/fish" });
-  useAppSettingsTimestampStore.setState({ updatedAt: "2020-01-01T00:00:00.000Z" });
+  useAppSettingsTimestampStore.setState({ updatedAt: "2020-01-01T00:00:00.000Z", clocks: {} });
   localStorage.setItem("voltius.device_id", "local-device");
   setVaultKey([1, 2, 3]);
 });
 
-test("a synced pull writes the raw merge to settings.json but restores this device's held-back value to the stores", async () => {
-  // Device A's push (not simulated here) held preferredShell back and is newer,
-  // so the section this device receives carries A's shell.
+test("a synced pull takes the remote's newer settings but never this device's held-back one", async () => {
   const remoteBundle = {
     type: "voltius-user-data",
     version: 2,
@@ -95,7 +93,7 @@ test("a synced pull writes the raw merge to settings.json but restores this devi
     sections: {
       appSettings: {
         updated_at: "2030-01-01T00:00:00.000Z",
-        data: { terminal: { preferredShell: "/bin/zsh" } },
+        data: { terminal: { preferredShell: "/bin/zsh", cursorStyle: "underline" } },
       },
     },
   };
@@ -109,9 +107,9 @@ test("a synced pull writes the raw merge to settings.json but restores this devi
 
   expect(served.settingsSaves).toHaveLength(1);
   const disk = JSON.parse(served.settingsSaves[0]);
-  expect(disk.sections.appSettings.data.terminal.preferredShell).toBe("/bin/zsh");
+  expect(disk.sections.appSettings.data.terminal).toEqual({ cursorStyle: "underline" });
 
-  expect(useTerminalSettingsStore.getState().preferredShell).toBe("/usr/bin/fish");
+  expect(useTerminalSettingsStore.getState()).toMatchObject({ preferredShell: "/usr/bin/fish", cursorStyle: "underline" });
 });
 
 // settings.json is only rewritten by a push, so during a pull it holds the
@@ -132,7 +130,7 @@ const remoteSettings = (sections: Record<string, unknown>) => ({
 
 test("a local settings edit newer than the remote survives a pull made before its push", async () => {
   useLocaleStore.setState({ locale: "fr" });
-  useAppSettingsTimestampStore.setState({ updatedAt: "2031-01-01T00:00:00.000Z" });
+  useAppSettingsTimestampStore.setState({ updatedAt: "2031-01-01T00:00:00.000Z", clocks: { locale: "2031-01-01T00:00:00.000Z" } });
   serveRemoteDevice(
     remoteSettings({ appSettings: { updated_at: "2030-01-01T00:00:00.000Z", data: { locale: "tr" } } }),
     {},

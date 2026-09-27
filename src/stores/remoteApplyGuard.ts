@@ -25,13 +25,7 @@ export function pushSettingsChange(): void {
   import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {});
 }
 
-/**
- * Run `fn` as a remote apply. The guard covers only its synchronous part and
- * is released before any promise `fn` returns settles: the flag is module
- * global, so holding it across an await would stamp a user edit made in that
- * window with the remote timestamp and swallow its push. An async `fn` must
- * therefore make every store write before its first await.
- */
+// Covers only fn's synchronous part: held across an await, it would swallow a user edit made meanwhile.
 export function withRemoteApply<T>(at: string, fn: () => T): T {
   depth++;
   timestamp = at;

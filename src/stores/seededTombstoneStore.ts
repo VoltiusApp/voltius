@@ -110,9 +110,7 @@ export const useSeededTombstoneStore = create<SeededTombstoneStore>((set, get) =
   hasSeededArtifact: async (id) => (await loadSeededEntries()).has(id),
 }));
 
-// The tombstone file rides in the sync blob (plugins/__meta__), not in the
-// appSettings section, so a change schedules a push without moving that
-// section's clock — moving it would republish stale settings as newest.
+// Rides in the blob, not the appSettings section: push without moving that section's clocks.
 async function saveTombstones(removed: string[]): Promise<void> {
   useSeededTombstoneStore.setState({ removed });
   pushSettingsChange();
