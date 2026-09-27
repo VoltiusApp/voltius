@@ -100,23 +100,35 @@ impl SecretsStore {
     }
 
     /// Tombstones only keys that existed, and skips the write when none did.
+    /// A failed write restores the entries, so a retry still finds them to purge.
     pub fn purge(&self, keys: &[String]) -> Result<Vec<String>, AppError> {
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().ok_or(LOCKED_ERR)?;
-        let removed: Vec<String> = keys
+        let removed: Vec<(String, String, Option<String>)> = keys
             .iter()
-            .filter(|k| inner.secrets.remove(k.as_str()).is_some())
-            .cloned()
+            .filter_map(|k| {
+                let value = inner.secrets.remove(k.as_str())?;
+                Some((k.clone(), value, inner.clocks.get(k.as_str()).cloned()))
+            })
             .collect();
         if removed.is_empty() {
-            return Ok(removed);
+            return Ok(Vec::new());
         }
         let now = now_ts();
-        for k in &removed {
+        for (k, _, _) in &removed {
             inner.clocks.insert(k.clone(), now.clone());
         }
-        save(inner)?;
-        Ok(removed)
+        if let Err(e) = save(inner) {
+            for (k, value, clock) in removed {
+                match clock {
+                    Some(c) => inner.clocks.insert(k.clone(), c),
+                    None => inner.clocks.remove(&k),
+                };
+                inner.secrets.insert(k, value);
+            }
+            return Err(e);
+        }
+        Ok(removed.into_iter().map(|(k, _, _)| k).collect())
     }
 
     #[allow(dead_code)]
@@ -1103,6 +1115,32 @@ mod tests {
         let (store, path) = unlocked_store(&dir);
         store.set("password:a".into(), "pw".into()).unwrap();
         store.purge(&["password:a".to_string()]).unwrap();
+        store.lock();
+        store.unlock(path, [7u8; 32]).unwrap();
+        assert_eq!(store.get("password:a").unwrap(), None);
+    }
+
+    fn point_store_at(store: &SecretsStore, path: PathBuf) {
+        store.inner.lock().unwrap().as_mut().unwrap().path = path;
+    }
+
+    #[test]
+    fn a_purge_that_cannot_write_keeps_the_entries_for_a_retry() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, path) = unlocked_store(&dir);
+        store.set("password:a".into(), "pw".into()).unwrap();
+        let clock_before = store.export_all().unwrap().clocks["password:a"].clone();
+
+        point_store_at(&store, dir.path().join("missing").join("secrets.enc"));
+        assert!(store.purge(&["password:a".to_string()]).is_err());
+        assert_eq!(store.get("password:a").unwrap().as_deref(), Some("pw"));
+        assert_eq!(store.export_all().unwrap().clocks["password:a"], clock_before);
+
+        point_store_at(&store, path.clone());
+        assert_eq!(
+            store.purge(&["password:a".to_string()]).unwrap(),
+            vec!["password:a".to_string()]
+        );
         store.lock();
         store.unlock(path, [7u8; 32]).unwrap();
         assert_eq!(store.get("password:a").unwrap(), None);
