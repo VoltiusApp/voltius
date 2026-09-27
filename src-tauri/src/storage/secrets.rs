@@ -99,6 +99,28 @@ impl SecretsStore {
         save(inner)
     }
 
+    /// Remove every key present, tombstoning each removed key. Returns the keys
+    /// actually removed; absent keys are silently skipped and no write happens
+    /// when nothing was removed.
+    pub fn purge(&self, keys: &[String]) -> Result<Vec<String>, AppError> {
+        let mut guard = self.inner.lock().unwrap();
+        let inner = guard.as_mut().ok_or(LOCKED_ERR)?;
+        let removed: Vec<String> = keys
+            .iter()
+            .filter(|k| inner.secrets.remove(k.as_str()).is_some())
+            .cloned()
+            .collect();
+        if removed.is_empty() {
+            return Ok(removed);
+        }
+        let now = now_ts();
+        for k in &removed {
+            inner.clocks.insert(k.clone(), now.clone());
+        }
+        save(inner)?;
+        Ok(removed)
+    }
+
     #[allow(dead_code)]
     pub fn is_unlocked(&self) -> bool {
         self.inner.lock().unwrap().is_some()
@@ -375,6 +397,14 @@ pub fn secrets_set(
 #[tauri::command]
 pub fn secrets_delete(state: tauri::State<SecretsStore>, key: String) -> Result<(), AppError> {
     state.delete(&key)
+}
+
+#[tauri::command]
+pub fn secrets_purge(
+    state: tauri::State<SecretsStore>,
+    keys: Vec<String>,
+) -> Result<Vec<String>, AppError> {
+    state.purge(&keys)
 }
 
 const QUARANTINE_KEEP: usize = 3;
@@ -1033,5 +1063,50 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("secrets.enc.tmp"), b"partial").unwrap();
         assert!(backup_paths(dir.path(), "secrets.enc").is_empty());
+    }
+
+    fn unlocked_store(dir: &tempfile::TempDir) -> (SecretsStore, PathBuf) {
+        let path = dir.path().join("secrets.enc");
+        let store = SecretsStore::new();
+        store.unlock(path.clone(), [7u8; 32]).unwrap();
+        (store, path)
+    }
+
+    #[test]
+    fn purge_removes_only_present_keys_and_tombstones_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, _) = unlocked_store(&dir);
+        store.set("password:a".into(), "pw".into()).unwrap();
+        store.set("key:k:private".into(), "pem".into()).unwrap();
+
+        let removed = store
+            .purge(&["password:a".to_string(), "password:absent".to_string()])
+            .unwrap();
+
+        assert_eq!(removed, vec!["password:a".to_string()]);
+        assert_eq!(store.get("password:a").unwrap(), None);
+        assert_eq!(store.get("key:k:private").unwrap().as_deref(), Some("pem"));
+        let data = store.export_all().unwrap();
+        assert!(data.clocks.contains_key("password:a"));
+        assert!(!data.clocks.contains_key("password:absent"));
+    }
+
+    #[test]
+    fn purge_with_nothing_present_does_not_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, path) = unlocked_store(&dir);
+        assert!(store.purge(&["password:x".to_string()]).unwrap().is_empty());
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn purge_is_persisted() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, path) = unlocked_store(&dir);
+        store.set("password:a".into(), "pw".into()).unwrap();
+        store.purge(&["password:a".to_string()]).unwrap();
+        store.lock();
+        store.unlock(path, [7u8; 32]).unwrap();
+        assert_eq!(store.get("password:a").unwrap(), None);
     }
 }

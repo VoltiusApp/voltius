@@ -13,7 +13,8 @@ vi.mock("@/stores/persistedAccountUiState", () => ({ clearPersistedAccountUiStat
 
 import {
   setVaultKey,
-  getSecret,
+  getLocalSecret,
+  purgeLocalSecrets,
   quarantineVault,
   unlockVaultIfNeeded,
   verifyVaultKey,
@@ -58,7 +59,7 @@ beforeEach(() => {
 test("an unreadable vault raises VaultUnreadableError instead of destroying the file", async () => {
   // #134's second half: the file was readable with another key and got deleted.
   h.unlockError = WRONG_KEY;
-  await expect(getSecret("password:c1")).rejects.toThrow(VaultUnreadableError);
+  await expect(getLocalSecret("password:c1")).rejects.toThrow(VaultUnreadableError);
   expect(invoked("secrets_wipe")).toBe(false);
   expect(invoked("secrets_quarantine")).toBe(false);
 });
@@ -72,19 +73,19 @@ test("a key mismatch in server mode is not self-healed", async () => {
 
 test("unlock failures other than a key mismatch propagate unchanged", async () => {
   h.unlockError = new Error("Read failed: permission denied");
-  await expect(getSecret("password:c1")).rejects.toThrow("permission denied");
+  await expect(getLocalSecret("password:c1")).rejects.toThrow("permission denied");
 });
 
 test("no vault key installed reports the vault as locked", async () => {
   setVaultKey(null as unknown as number[]);
-  await expect(getSecret("password:c1")).rejects.toThrow("common.error.vaultLocked");
+  await expect(getLocalSecret("password:c1")).rejects.toThrow("common.error.vaultLocked");
 });
 
 // Rust answers a locked store with a bare string. Without a code it reaches the
 // generic error panel instead of the one offering to unlock.
 test("a locked store reported by Rust carries the vault-locked code", async () => {
   h.getError = new Error(SECRETS_LOCKED_MESSAGE);
-  await expect(getSecret("password:c1")).rejects.toSatisfy(
+  await expect(getLocalSecret("password:c1")).rejects.toSatisfy(
     (e: unknown) => vaultErrorCode(e) === "vault-locked",
   );
 });
@@ -93,10 +94,10 @@ test("a locked store reported by Rust carries the vault-locked code", async () =
 // that flag has drifted and must not be trusted again.
 test("a locked store clears the unlocked flag so the next read unlocks again", async () => {
   h.getError = new Error(SECRETS_LOCKED_MESSAGE);
-  await expect(getSecret("password:c1")).rejects.toThrow(VaultLockedError);
+  await expect(getLocalSecret("password:c1")).rejects.toThrow(VaultLockedError);
 
   h.getError = null;
-  await expect(getSecret("password:c1")).resolves.toBe("value");
+  await expect(getLocalSecret("password:c1")).resolves.toBe("value");
   expect(h.invoke.mock.calls.filter(([c]) => c === "secrets_unlock")).toHaveLength(2);
 });
 
@@ -117,5 +118,15 @@ test("quarantining sets the file aside and leaves the store ready to unlock agai
   expect(await quarantineVault()).toBe("secrets.enc.1700000000.bak");
 
   h.unlockError = null;
-  await expect(getSecret("password:c1")).resolves.toBe("value");
+  await expect(getLocalSecret("password:c1")).resolves.toBe("value");
+});
+
+test("purgeLocalSecrets sends every key in one call, and none when there are none", async () => {
+  h.invoke.mockImplementation(async (cmd: string) => (cmd === "secrets_purge" ? ["password:c1"] : undefined));
+  await expect(purgeLocalSecrets(["password:c1", "key:c2"])).resolves.toEqual(["password:c1"]);
+  expect(h.invoke).toHaveBeenCalledWith("secrets_purge", { keys: ["password:c1", "key:c2"] });
+
+  h.invoke.mockClear();
+  await expect(purgeLocalSecrets([])).resolves.toEqual([]);
+  expect(h.invoke).not.toHaveBeenCalled();
 });

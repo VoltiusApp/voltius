@@ -149,17 +149,26 @@ export async function resetVault(): Promise<void> {
   }
 }
 
-export async function storeSecret(key: string, value: string): Promise<void> {
+export async function storeLocalSecret(key: string, value: string): Promise<void> {
   await withUnlocked("secrets_set", { key, value });
 }
 
-export async function getSecret(key: string): Promise<string | null> {
+export async function getLocalSecret(key: string): Promise<string | null> {
   return withUnlocked<string | null>("secrets_get", { key });
 }
 
-export async function deleteSecret(key: string): Promise<void> {
+export async function deleteLocalSecret(key: string): Promise<void> {
   await withUnlocked("secrets_delete", { key });
 }
+
+export async function purgeLocalSecrets(keys: string[]): Promise<string[]> {
+  if (keys.length === 0) return [];
+  return withUnlocked<string[]>("secrets_purge", { keys });
+}
+
+export const storeSecret = storeLocalSecret;
+export const getSecret = getLocalSecret;
+export const deleteSecret = deleteLocalSecret;
 
 export function getVaultKey(): number[] | null {
   return pendingKey;

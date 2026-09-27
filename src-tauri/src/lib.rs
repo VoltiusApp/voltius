@@ -321,6 +321,7 @@ pub fn run() {
             storage::secrets::secrets_get,
             storage::secrets::secrets_set,
             storage::secrets::secrets_delete,
+            storage::secrets::secrets_purge,
             storage::secrets::secrets_quarantine,
             storage::secrets::secrets_backups,
             storage::secrets::secrets_restore,
