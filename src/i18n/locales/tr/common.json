@@ -230,6 +230,7 @@
     },
     "serialDevice": "Seri cihaz",
     "localShellTitle": "Yerel kabuk › {{shell}}",
+    "memberFallback": "Üye",
     "dragItemFallback": "Öğe",
     "relativeTime": {
       "justNow": "az önce",

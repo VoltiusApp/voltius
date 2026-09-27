@@ -37,6 +37,7 @@
     "hostCard": {
       "pin": "Sabitle",
       "unpin": "Sabitlemeyi kaldır",
+      "serial": "seri",
       "baud": "{{rate}} baud"
     },
     "serialFallback": "Seri",

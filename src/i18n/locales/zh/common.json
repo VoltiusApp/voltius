@@ -225,6 +225,7 @@
     },
     "serialDevice": "串口设备",
     "localShellTitle": "本地 Shell › {{shell}}",
+    "memberFallback": "成员",
     "dragItemFallback": "项目",
     "relativeTime": {
       "justNow": "刚刚",

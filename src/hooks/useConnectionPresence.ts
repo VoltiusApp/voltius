@@ -40,7 +40,7 @@ export function useConnectionPresence(connection: Connection): ConnectionPresenc
       }
     }
 
-    const resolved = others.map((id) => ({ id, handle: handleById.get(id) ?? i18n.t("members.roleName.member") }));
+    const resolved = others.map((id) => ({ id, handle: handleById.get(id) ?? i18n.t("common.memberFallback") }));
     return {
       primary: resolved[0],
       overflow: resolved.length - 1,

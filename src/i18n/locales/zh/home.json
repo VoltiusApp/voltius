@@ -33,6 +33,7 @@
     "hostCard": {
       "pin": "置顶",
       "unpin": "取消置顶",
+      "serial": "串口",
       "baud": "{{rate}} 波特"
     },
     "serialFallback": "串口",

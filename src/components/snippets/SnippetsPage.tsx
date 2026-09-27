@@ -66,8 +66,7 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
-import { formatRelative } from "@/utils/localeFormat";
-import { compareStrings } from "@/utils/localeFormat";
+import { compareStrings, formatRelative } from "@/utils/localeFormat";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

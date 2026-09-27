@@ -243,6 +243,7 @@
     },
     "serialDevice": "Périphérique série",
     "localShellTitle": "Shell local › {{shell}}",
+    "memberFallback": "Membre",
     "dragItemFallback": "Élément",
     "relativeTime": {
       "justNow": "à l'instant",

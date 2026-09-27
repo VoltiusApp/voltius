@@ -258,7 +258,7 @@ export default function HostCard({
           </p>
           <p className="text-xs truncate flex-1 text-(--t-text-secondary)">
             {isSerial
-              ? `${t("terminal.statusBar.serialFallback")} · ${t("home.hostCard.baud", { rate: connection.serial_baud ?? 115200 })}`
+              ? `${t("home.hostCard.serial")} · ${t("home.hostCard.baud", { rate: connection.serial_baud ?? 115200 })}`
               : `${connection.username}@${connection.host}:${connection.port}${showPingDot && pingStatus === "up" && pingLatency !== undefined ? ` · ${pingLatency}ms` : ""}`
             }
           </p>

@@ -256,6 +256,7 @@
     },
     "serialDevice": "Последовательное устройство",
     "localShellTitle": "Локальная оболочка › {{shell}}",
+    "memberFallback": "Участник",
     "dragItemFallback": "Элемент",
     "relativeTime": {
       "justNow": "только что",

@@ -20,12 +20,10 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { scopeItems, folderItemCount } from "../folders/mobileFolderCore";
 import type { SshKey, Identity, Folder } from "@/types";
-import { formatDate } from "@/utils/localeFormat";
-import { compareStrings } from "@/utils/localeFormat";
+import { compareStrings, formatDate } from "@/utils/localeFormat";
 import { useSearchMatcher } from "@/utils/search";
 
 type Sheet = { kind: "key"; item: SshKey } | { kind: "identity"; item: Identity } | null;
-
 
 function TagChips({ tags }: { tags: string[] }) {
   if (tags.length === 0) return null;

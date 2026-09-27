@@ -41,6 +41,7 @@
     "hostCard": {
       "pin": "Épingler",
       "unpin": "Désépingler",
+      "serial": "série",
       "baud": "{{rate}} bauds"
     },
     "serialFallback": "Série",
