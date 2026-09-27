@@ -1,43 +1,10 @@
 import i18n from "@/i18n";
-import { getSecret } from "@/services/vault";
 import { useNotificationStore } from "@/stores/notificationStore";
-import {
-  saveTeamVaultSecretForVault,
-  deleteTeamVaultSecretForVault,
-} from "@/services/teamVaultSecrets";
-import { connectionSecretKeys } from "@/services/teamVaultSecretKeys";
+import { readSecretAt, writeSecretAt, removeSecretAt, teamIdOfVault } from "@/services/secretRouting";
+import { connectionSecretKeys, keySecretKeys, identitySecretKeys } from "@/services/teamVaultSecretKeys";
+import { logFailure } from "@/lib/logger";
 
-/**
- * The local secret keys each object type owns. Publishing re-encrypts them for
- * the vault the object now lives in; withdrawing removes them from the vault it
- * left, which is the only thing that stops a password staying readable by
- * everyone still in that team.
- */
-const connectionKeys = connectionSecretKeys;
-const sshKeyKeys = (id: string) => [`key:${id}:private`, `key:${id}:public`, `key:${id}:passphrase`];
-const identityKeys = (id: string) => [`identity:${id}:password`];
-
-/** Best-effort, matching every existing publish site: a failure is visible as an object a teammate cannot use. */
-async function publish(localKeys: string[], vaultId: string): Promise<void> {
-  for (const localKey of localKeys) {
-    const value = await getSecret(localKey).catch(() => null);
-    if (value) await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
-  }
-}
-
-/** Throws. A silently failed withdrawal leaves readable key material behind, so callers must report it. */
-async function unpublish(localKeys: string[], vaultId: string): Promise<void> {
-  for (const localKey of localKeys) {
-    await deleteTeamVaultSecretForVault(vaultId, localKey);
-  }
-}
-
-/**
- * Runs a withdrawal for its side effect and reports a failure instead of
- * throwing. The object has already moved by this point, so failing the whole
- * transfer would be wrong — but the material is still readable in the vault it
- * left, and that has to be said out loud rather than swallowed.
- */
+/** Reports a failed withdrawal instead of throwing: the object has already moved, but the material is still readable where it was. */
 export async function withdrawOrWarn(withdrawal: Promise<void>): Promise<void> {
   try {
     await withdrawal;
@@ -54,11 +21,28 @@ export async function withdrawOrWarn(withdrawal: Promise<void>): Promise<void> {
   }
 }
 
-export const publishConnectionSecrets = (id: string, vaultId: string) => publish(connectionKeys(id), vaultId);
-export const unpublishConnectionSecrets = (id: string, vaultId: string) => unpublish(connectionKeys(id), vaultId);
+async function transfer(localKeys: string[], fromVaultId: string, toVaultId: string): Promise<void> {
+  const from = teamIdOfVault(fromVaultId);
+  const to = teamIdOfVault(toVaultId);
+  if (from === to) return;
+  const moved: string[] = [];
+  for (const localKey of localKeys) {
+    const value = await readSecretAt(from, localKey).catch(() => null);
+    if (!value) continue;
+    try {
+      await writeSecretAt(to, localKey, value);
+      moved.push(localKey);
+    } catch (e) {
+      logFailure(`secret transfer ${localKey}`)(e);
+    }
+  }
+  if (moved.length === 0) return;
+  await withdrawOrWarn(Promise.all(moved.map((k) => removeSecretAt(from, k))).then(() => undefined));
+}
 
-export const publishKeySecrets = (id: string, vaultId: string) => publish(sshKeyKeys(id), vaultId);
-export const unpublishKeySecrets = (id: string, vaultId: string) => unpublish(sshKeyKeys(id), vaultId);
-
-export const publishIdentitySecrets = (id: string, vaultId: string) => publish(identityKeys(id), vaultId);
-export const unpublishIdentitySecrets = (id: string, vaultId: string) => unpublish(identityKeys(id), vaultId);
+export const transferConnectionSecrets = (id: string, fromVaultId: string, toVaultId: string) =>
+  transfer(connectionSecretKeys(id), fromVaultId, toVaultId);
+export const transferKeySecrets = (id: string, fromVaultId: string, toVaultId: string) =>
+  transfer(keySecretKeys(id), fromVaultId, toVaultId);
+export const transferIdentitySecrets = (id: string, fromVaultId: string, toVaultId: string) =>
+  transfer(identitySecretKeys(id), fromVaultId, toVaultId);

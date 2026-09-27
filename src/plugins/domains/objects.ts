@@ -34,15 +34,7 @@ import { snippetToForm } from "@/utils/snippetForm";
 import { ruleToForm } from "@/utils/portForwardingForm";
 import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import {
-  transferIdentitySecrets,
-  transferKeySecrets,
-} from "@/services/vaultSecrets";
-import {
-  publishIdentitySecrets,
-  publishKeySecrets,
-  withdrawOrWarn,
-} from "@/services/vaultObjectSecrets";
+import { transferIdentitySecrets, transferKeySecrets } from "@/services/vaultObjectSecrets";
 import { duplicateConnection, moveConnectionToVault } from "@/services/connectionDuplicate";
 import { vaultOf } from "./vaultOf";
 
@@ -240,7 +232,6 @@ function duplicators(ports: ObjectPorts) {
     for (const part of ["private", "public", "passphrase"]) {
       await copySecret(`key:${k.id}:${part}`, `key:${created.id}:${part}`);
     }
-    await publishKeySecrets(created.id, vaultId);
     return created;
   };
 
@@ -255,7 +246,6 @@ function duplicators(ports: ObjectPorts) {
       vault_id: vaultId,
     });
     await copySecret(`identity:${i.id}:password`, `identity:${created.id}:password`);
-    await publishIdentitySecrets(created.id, vaultId);
     return created;
   };
 
@@ -444,7 +434,6 @@ function halfFor(
       saveKey: ports.saveKey,
       updateIdentity: ports.updateIdentity,
       saveIdentity: ports.saveIdentity,
-      withdrawOrWarn: (p) => withdrawOrWarn(p as Promise<void>),
     }, cascadeRemap);
   }
   if (tab === "keychain") {

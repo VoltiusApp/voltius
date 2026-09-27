@@ -23,16 +23,6 @@ vi.mock("@/services/vault", () => ({
   deleteSecret: vi.fn(async () => {}),
 }));
 vi.mock("@/services/vaultObjectSecrets", () => ({
-  publishConnectionSecrets: vi.fn(async () => {}),
-  publishKeySecrets: vi.fn(async () => {}),
-  publishIdentitySecrets: vi.fn(async () => {}),
-  withdrawOrWarn: vi.fn(async (p: Promise<unknown>) => { await p; }),
-}));
-vi.mock("@/services/vaultSecrets", () => ({
-  publishKeySecrets: vi.fn(async () => {}),
-  unpublishKeySecrets: vi.fn(async () => {}),
-  publishIdentitySecrets: vi.fn(async () => {}),
-  unpublishIdentitySecrets: vi.fn(async () => {}),
   transferKeySecrets: vi.fn(async () => {}),
   transferIdentitySecrets: vi.fn(async () => {}),
   transferConnectionSecrets: vi.fn(async () => {}),

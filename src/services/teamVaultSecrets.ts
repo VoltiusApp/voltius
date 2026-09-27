@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getSecret } from "@/services/vault";
 import { getTeamVaultKey, getCachedTeamKeyVersion, getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
-import { deleteTeamSecret, listTeamSecrets, upsertTeamSecret } from "@/services/teamObjects";
+import { listTeamSecrets, upsertTeamSecret } from "@/services/teamObjects";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
@@ -52,32 +52,6 @@ export function resolveTeamIdForVaultId(vaultId: string | null | undefined): str
     useTeamStore.getState().teams,
     useVaultStore.getState().vaults,
   );
-}
-
-export async function saveTeamVaultSecretForVault(
-  vaultId: string | null | undefined,
-  localKey: string,
-  value: string,
-): Promise<void> {
-  const teamId = resolveTeamIdForVaultId(vaultId);
-  if (!teamId) return;
-  await saveTeamVaultSecret(teamId, localKey, value);
-}
-
-/**
- * Withdraws a secret from a team vault. Unlike a failed publish — which shows up
- * as a teammate who cannot connect — a failed withdrawal is silent and leaves the
- * material readable by everyone still in the vault, so callers must surface it.
- */
-export async function deleteTeamVaultSecretForVault(
-  vaultId: string | null | undefined,
-  localKey: string,
-): Promise<void> {
-  const teamId = resolveTeamIdForVaultId(vaultId);
-  if (!teamId) return;
-  const parts = teamSecretFromLocalKey(localKey);
-  if (!parts) return;
-  await deleteTeamSecret(teamId, parts.secretId);
 }
 
 export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {

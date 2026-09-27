@@ -210,7 +210,10 @@ vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(async () => null),
   deleteSecret: vi.fn(async () => {}),
 }));
-vi.mock("@/services/teamVaultSecrets", () => ({ saveTeamVaultSecretForVault: vi.fn(async () => {}) }));
+vi.mock("@/services/vaultObjectSecrets", () => ({
+  transferKeySecrets: vi.fn(async () => {}),
+  transferIdentitySecrets: vi.fn(async () => {}),
+}));
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
 
 import KeychainPage from "./KeychainPage";

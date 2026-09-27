@@ -229,7 +229,11 @@ vi.mock("@/stores/syncPrefsStore", () => ({
   }),
 }));
 vi.mock("@/services/vault", () => ({ storeSecret: vi.fn(async () => {}), getSecret: vi.fn(async () => null) }));
-vi.mock("@/services/teamVaultSecrets", () => ({ saveTeamVaultSecretForVault: vi.fn(async () => {}) }));
+vi.mock("@/services/vaultObjectSecrets", () => ({
+  transferKeySecrets: vi.fn(async () => {}),
+  transferIdentitySecrets: vi.fn(async () => {}),
+  transferConnectionSecrets: vi.fn(async () => {}),
+}));
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
 vi.mock("@/services/hostForm", () => ({ saveHostFromForm: vi.fn() }));
 

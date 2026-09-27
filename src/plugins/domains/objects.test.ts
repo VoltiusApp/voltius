@@ -6,20 +6,10 @@ vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(async () => "material"),
   storeSecret: vi.fn(async () => {}),
 }));
-vi.mock("@/services/vaultSecrets", () => ({
-  publishKeySecrets: vi.fn(async () => {}),
-  unpublishKeySecrets: vi.fn(async () => {}),
-  publishIdentitySecrets: vi.fn(async () => {}),
-  unpublishIdentitySecrets: vi.fn(async () => {}),
+vi.mock("@/services/vaultObjectSecrets", () => ({
   transferKeySecrets: vi.fn(async () => {}),
   transferIdentitySecrets: vi.fn(async () => {}),
   transferConnectionSecrets: vi.fn(async () => {}),
-}));
-vi.mock("@/services/vaultObjectSecrets", () => ({
-  publishConnectionSecrets: vi.fn(async () => {}),
-  publishKeySecrets: vi.fn(async () => {}),
-  publishIdentitySecrets: vi.fn(async () => {}),
-  withdrawOrWarn: vi.fn(async (p: Promise<unknown>) => { await p; }),
 }));
 
 const conn = (over: Partial<Connection> = {}): Connection => ({

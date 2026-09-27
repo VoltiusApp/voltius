@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { keychainClipboardHalf, type KeychainClipboardDeps } from "./keychain";
 import type { Identity, SshKey } from "@/types";
 
-vi.mock("@/services/vaultSecrets", () => ({
+vi.mock("@/services/vaultObjectSecrets", () => ({
   transferKeySecrets: vi.fn(async () => {}),
   transferIdentitySecrets: vi.fn(async () => {}),
 }));

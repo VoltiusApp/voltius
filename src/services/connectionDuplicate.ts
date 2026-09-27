@@ -2,7 +2,7 @@ import type { Connection, ConnectionFormData } from "@/types";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import { transferConnectionSecrets } from "@/services/vaultSecrets";
+import { transferConnectionSecrets } from "@/services/vaultObjectSecrets";
 import { connectionSecretKeys } from "@/services/teamVaultSecretKeys";
 
 export interface DuplicateConnectionOpts {

@@ -1,16 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Connection, SshKey } from "@/types";
 import { connectionsClipboardHalf, type ConnectionsClipboardDeps } from "./connections";
+import { transferKeySecrets, transferConnectionSecrets } from "@/services/vaultObjectSecrets";
 
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(async () => "material"),
   storeSecret: vi.fn(async () => {}),
 }));
-vi.mock("@/services/vaultSecrets", () => ({
-  publishKeySecrets: vi.fn(async () => {}),
-  unpublishKeySecrets: vi.fn(async () => {}),
-  publishIdentitySecrets: vi.fn(async () => {}),
-  unpublishIdentitySecrets: vi.fn(async () => {}),
+vi.mock("@/services/vaultObjectSecrets", () => ({
+  transferKeySecrets: vi.fn(async () => {}),
+  transferIdentitySecrets: vi.fn(async () => {}),
   transferConnectionSecrets: vi.fn(async () => {}),
 }));
 
@@ -37,7 +36,6 @@ const deps = (over: Partial<ConnectionsClipboardDeps> = {}): ConnectionsClipboar
   saveKey: vi.fn(async () => ({ id: "k-copy" })),
   updateIdentity: vi.fn(async () => {}),
   saveIdentity: vi.fn(async () => ({ id: "i-copy" })),
-  withdrawOrWarn: vi.fn(async (p: Promise<unknown>) => p),
   ...over,
 });
 
@@ -113,5 +111,18 @@ describe("connectionsClipboardHalf", () => {
   it("reports a key left outside the destination as dangling", () => {
     const half = connectionsClipboardHalf(deps());
     expect(half.danglingKinds!([{ id: "c1", kind: "connection" }], [], "team-1")).toEqual(["key"]);
+  });
+
+  it("transfers a moved key's material into the destination through the routed seam", async () => {
+    const d = deps();
+    const items = [{ id: "c1", kind: "connection" as const }];
+    await connectionsClipboardHalf(d).applyCascade!(items, [], "team-1", "cut");
+    expect(transferKeySecrets).toHaveBeenCalledWith("k1", "personal", "team-1");
+  });
+
+  it("transfers a moved connection's material on a cross-vault move", async () => {
+    const d = deps();
+    await connectionsClipboardHalf(d).moveItems(["c1"], "f2", "team-1");
+    expect(transferConnectionSecrets).toHaveBeenCalledWith("c1", "personal", "team-1");
   });
 });

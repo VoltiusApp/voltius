@@ -42,8 +42,7 @@ import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import { publishIdentitySecrets, publishKeySecrets } from "@/services/vaultObjectSecrets";
-import { transferKeySecrets, transferIdentitySecrets } from "@/services/vaultSecrets";
+import { transferKeySecrets, transferIdentitySecrets } from "@/services/vaultObjectSecrets";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
 import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
 import { keychainClipboardHalf } from "@/services/clipboard/keychain";
@@ -560,7 +559,6 @@ export default function KeychainPage() {
       if (priv) await storeSecret(`key:${newKey.id}:private`, priv).catch(keepCachedOnUploadFailure("KeychainPage: copy key to vault"));
       if (pub) await storeSecret(`key:${newKey.id}:public`, pub).catch(keepCachedOnUploadFailure("KeychainPage: copy key to vault"));
       if (pass) await storeSecret(`key:${newKey.id}:passphrase`, pass).catch(keepCachedOnUploadFailure("KeychainPage: copy key to vault"));
-      await publishKeySecrets(newKey.id, vaultId);
     } catch (err) { setError(String(err)); }
   };
 
@@ -612,14 +610,12 @@ export default function KeychainPage() {
             ]);
             if (priv) await storeSecret(`key:${newKey.id}:private`, priv).catch(keepCachedOnUploadFailure("KeychainPage: copy identity's key to vault"));
             if (pub) await storeSecret(`key:${newKey.id}:public`, pub).catch(keepCachedOnUploadFailure("KeychainPage: copy identity's key to vault"));
-            await publishKeySecrets(newKey.id, vaultId);
             newKeyId = newKey.id;
           }
 
           const newIdentity = await saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
           const pwd = await getSecret(`identity:${identity.id}:password`);
           if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(keepCachedOnUploadFailure("KeychainPage: copy identity to vault"));
-          await publishIdentitySecrets(newIdentity.id, vaultId);
         } catch (err) { setError(String(err)); }
       },
     });

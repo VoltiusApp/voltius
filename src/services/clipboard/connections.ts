@@ -4,12 +4,10 @@ import type { CascadeEntry } from "@/services/vaultClipboard";
 import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import {
-  publishKeySecrets,
-  unpublishKeySecrets,
-  publishIdentitySecrets,
-  unpublishIdentitySecrets,
   transferConnectionSecrets,
-} from "@/services/vaultSecrets";
+  transferKeySecrets,
+  transferIdentitySecrets,
+} from "@/services/vaultObjectSecrets";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { nameIsFree } from "@/utils/cloneName";
 import type { ClipboardHalf } from "./types";
@@ -36,7 +34,6 @@ export interface ConnectionsClipboardDeps {
   saveKey: (form: KeyFormData) => Promise<{ id: string }>;
   updateIdentity: (id: string, form: IdentityFormData) => Promise<unknown>;
   saveIdentity: (form: IdentityFormData) => Promise<{ id: string }>;
-  withdrawOrWarn: (p: Promise<unknown>) => Promise<unknown>;
 }
 
 // ── Paste cascade: the key/identity a pasted host needs in the destination ──
@@ -169,8 +166,7 @@ export function connectionsClipboardHalf(
             name: key.name, key_type: key.key_type, tags: key.tags,
             folder_id: key.folder_id, vault_id: destination,
           });
-          await publishKeySecrets(key.id, destination);
-          await deps.withdrawOrWarn(unpublishKeySecrets(key.id, from));
+          await transferKeySecrets(key.id, from, destination);
           continue;
         }
         const created = await deps.saveKey({
@@ -182,7 +178,6 @@ export function connectionsClipboardHalf(
         ]);
         if (priv) await storeSecret(`key:${created.id}:private`, priv).catch(keepCachedOnUploadFailure("clipboard: paste key"));
         if (pub) await storeSecret(`key:${created.id}:public`, pub).catch(keepCachedOnUploadFailure("clipboard: paste key"));
-        await publishKeySecrets(created.id, destination);
         cascadeRemap.keys.set(key.id, created.id);
       }
 
@@ -197,8 +192,7 @@ export function connectionsClipboardHalf(
             name: identity.name, username: identity.username, key_id: keyId,
             tags: identity.tags, folder_id: identity.folder_id, vault_id: destination,
           });
-          await publishIdentitySecrets(identity.id, destination);
-          await deps.withdrawOrWarn(unpublishIdentitySecrets(identity.id, from));
+          await transferIdentitySecrets(identity.id, from, destination);
           continue;
         }
         const created = await deps.saveIdentity({
@@ -207,7 +201,6 @@ export function connectionsClipboardHalf(
         });
         const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
         if (pwd) await storeSecret(`identity:${created.id}:password`, pwd).catch(keepCachedOnUploadFailure("clipboard: paste identity"));
-        await publishIdentitySecrets(created.id, destination);
         cascadeRemap.identities.set(identity.id, created.id);
       }
     },

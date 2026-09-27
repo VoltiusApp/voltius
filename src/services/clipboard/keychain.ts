@@ -1,6 +1,6 @@
 import type { Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 import type { VaultClipboardKind } from "@/stores/vaultClipboardStore";
-import { transferKeySecrets, transferIdentitySecrets } from "@/services/vaultSecrets";
+import { transferKeySecrets, transferIdentitySecrets } from "@/services/vaultObjectSecrets";
 import { nameIsFree } from "@/utils/cloneName";
 import type { ClipboardHalf } from "./types";
 

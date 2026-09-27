@@ -11,7 +11,6 @@ const h = vi.hoisted(() => ({
   getTeamVaultKeyAtVersion: vi.fn(),
   listTeamSecrets: vi.fn(),
   upsertTeamSecret: vi.fn(),
-  deleteTeamSecret: vi.fn(),
   resolveTeamIdFromCollections: vi.fn(),
   teams: [] as unknown[],
   vaults: [] as unknown[],
@@ -30,7 +29,6 @@ vi.mock("@/services/teamVaultSync", () => ({
 vi.mock("@/services/teamObjects", () => ({
   listTeamSecrets: h.listTeamSecrets,
   upsertTeamSecret: h.upsertTeamSecret,
-  deleteTeamSecret: h.deleteTeamSecret,
 }));
 vi.mock("@/services/resolveTeamId", () => ({ resolveTeamIdFromCollections: h.resolveTeamIdFromCollections }));
 vi.mock("@/stores/teamStore", () => ({ useTeamStore: { getState: () => ({ teams: h.teams }) } }));
@@ -47,8 +45,6 @@ import {
   saveTeamVaultSecret,
   saveExistingTeamVaultSecret,
   resolveTeamIdForVaultId,
-  saveTeamVaultSecretForVault,
-  deleteTeamVaultSecretForVault,
   hydrateTeamVaultSecrets,
   backfillExistingTeamVaultSecrets,
 } from "./teamVaultSecrets";
@@ -125,7 +121,7 @@ test("saveExistingTeamVaultSecret skips when the local secret is missing/empty",
   expect(h.upsertTeamSecret).not.toHaveBeenCalled();
 });
 
-// ─── resolveTeamIdForVaultId / saveTeamVaultSecretForVault ───────────────────
+// ─── resolveTeamIdForVaultId ──────────────────────────────────────────────────
 
 test("resolveTeamIdForVaultId delegates to resolveTeamIdFromCollections with the live store snapshots", () => {
   h.teams = [{ id: "t1" }];
@@ -134,52 +130,6 @@ test("resolveTeamIdForVaultId delegates to resolveTeamIdFromCollections with the
 
   expect(resolveTeamIdForVaultId("v1")).toBe("t1");
   expect(h.resolveTeamIdFromCollections).toHaveBeenCalledWith("v1", h.teams, h.vaults);
-});
-
-test("saveTeamVaultSecretForVault saves against the resolved team id", async () => {
-  h.resolveTeamIdFromCollections.mockReturnValue("t-resolved");
-  h.invoke.mockResolvedValue([7]);
-
-  await saveTeamVaultSecretForVault("v1", "password:c2", "pw");
-
-  expect(h.upsertTeamSecret).toHaveBeenCalledWith("t-resolved", expect.objectContaining({ object_id: "c2" }));
-});
-
-test("saveTeamVaultSecretForVault is a no-op when the vault resolves to no team", async () => {
-  h.resolveTeamIdFromCollections.mockReturnValue(null);
-
-  await saveTeamVaultSecretForVault("v1", "password:c2", "pw");
-
-  expect(h.getTeamVaultKey).not.toHaveBeenCalled();
-  expect(h.upsertTeamSecret).not.toHaveBeenCalled();
-});
-
-// ─── deleteTeamVaultSecretForVault ───────────────────────────────────────────
-
-test("deleteTeamVaultSecretForVault withdraws the parsed secret id from the resolved team", async () => {
-  h.resolveTeamIdFromCollections.mockReturnValue("t-resolved");
-
-  await deleteTeamVaultSecretForVault("v1", "key:k1:private");
-
-  expect(h.deleteTeamSecret).toHaveBeenCalledWith("t-resolved", "key:k1:private");
-});
-
-test("deleteTeamVaultSecretForVault is a no-op for a personal vault and for an unmappable key", async () => {
-  h.resolveTeamIdFromCollections.mockReturnValue(null);
-  await deleteTeamVaultSecretForVault("personal", "password:c1");
-  expect(h.deleteTeamSecret).not.toHaveBeenCalled();
-
-  h.resolveTeamIdFromCollections.mockReturnValue("t1");
-  await deleteTeamVaultSecretForVault("v1", "not-a-secret-key");
-  expect(h.deleteTeamSecret).not.toHaveBeenCalled();
-});
-
-// A failed withdrawal leaves readable material behind, so it must not be swallowed.
-test("deleteTeamVaultSecretForVault propagates a failure", async () => {
-  h.resolveTeamIdFromCollections.mockReturnValue("t1");
-  h.deleteTeamSecret.mockRejectedValue(new Error("boom"));
-
-  await expect(deleteTeamVaultSecretForVault("v1", "password:c1")).rejects.toThrow("boom");
 });
 
 // ─── hydrateTeamVaultSecrets ─────────────────────────────────────────────────

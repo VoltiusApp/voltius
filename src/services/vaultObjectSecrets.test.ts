@@ -1,102 +1,57 @@
 import { test, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => ({
-  getSecret: vi.fn(),
-  save: vi.fn(),
-  del: vi.fn(),
-  addToast: vi.fn(),
+  read: vi.fn(), write: vi.fn(), remove: vi.fn(), teamOf: vi.fn(), addToast: vi.fn(), logged: vi.fn(),
 }));
-vi.mock("@/services/vault", () => ({ getSecret: h.getSecret }));
+vi.mock("@/services/secretRouting", () => ({
+  readSecretAt: h.read, writeSecretAt: h.write, removeSecretAt: h.remove, teamIdOfVault: h.teamOf,
+}));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/lib/logger", () => ({ logFailure: () => h.logged }));
 vi.mock("@/stores/notificationStore", () => ({
   useNotificationStore: { getState: () => ({ addToast: h.addToast }) },
 }));
-vi.mock("@/services/teamVaultSecrets", () => ({
-  saveTeamVaultSecretForVault: h.save,
-  deleteTeamVaultSecretForVault: h.del,
-}));
 
-import {
-  publishConnectionSecrets,
-  unpublishConnectionSecrets,
-  publishKeySecrets,
-  unpublishKeySecrets,
-  publishIdentitySecrets,
-  unpublishIdentitySecrets,
-  withdrawOrWarn,
-} from "./vaultObjectSecrets";
+import { transferConnectionSecrets, transferKeySecrets, transferIdentitySecrets } from "./vaultObjectSecrets";
 
 beforeEach(() => {
   Object.values(h).forEach((m) => m.mockReset());
-  h.getSecret.mockResolvedValue(null);
-  h.save.mockResolvedValue(undefined);
-  h.del.mockResolvedValue(undefined);
+  h.teamOf.mockImplementation((v: string) => (v.startsWith("team") ? v : null));
+  h.write.mockResolvedValue(undefined);
+  h.remove.mockResolvedValue(undefined);
 });
 
-const keysOf = (calls: unknown[][]) => calls.map((c) => c[1]);
-
-test("publish covers every local key an object owns, and skips the ones with no value", async () => {
-  h.getSecret.mockImplementation(async (k: string) => (k === "password:c1" ? "pw" : null));
-  await publishConnectionSecrets("c1", "v1");
-  expect(h.save.mock.calls).toEqual([["v1", "password:c1", "pw"]]);
-  // A connection owns the passphrase for its inline key too; leaving it out
-  // hands a member an encrypted key they cannot open.
-  expect(h.getSecret.mock.calls.map((c) => c[0])).toEqual([
-    "password:c1",
-    "key:c1",
-    "passphrase:c1",
-    "proxy_password:c1",
-  ]);
-
-  h.save.mockClear();
-  h.getSecret.mockResolvedValue("mat");
-  await publishKeySecrets("k1", "v1");
-  expect(keysOf(h.save.mock.calls)).toEqual(["key:k1:private", "key:k1:public", "key:k1:passphrase"]);
-
-  h.save.mockClear();
-  await publishIdentitySecrets("i1", "v1");
-  expect(keysOf(h.save.mock.calls)).toEqual(["identity:i1:password"]);
+test("personal to team uploads each present secret, then deletes the local copy", async () => {
+  h.read.mockImplementation(async (_t: string | null, k: string) => (k === "password:c1" ? "pw" : null));
+  await transferConnectionSecrets("c1", "personal", "team1");
+  expect(h.read.mock.calls.map((c) => c[1])).toEqual(["password:c1", "key:c1", "passphrase:c1", "proxy_password:c1"]);
+  expect(h.write.mock.calls).toEqual([["team1", "password:c1", "pw"]]);
+  expect(h.remove.mock.calls).toEqual([[null, "password:c1"]]);
 });
 
-// Withdrawal cannot read the value first: the point is to remove ciphertext the
-// caller may no longer be able to decrypt.
-test("unpublish withdraws every local key without reading it", async () => {
-  await unpublishConnectionSecrets("c1", "v1");
-  expect(h.del.mock.calls).toEqual([
-    ["v1", "password:c1"],
-    ["v1", "key:c1"],
-    ["v1", "passphrase:c1"],
-    ["v1", "proxy_password:c1"],
-  ]);
-  expect(h.getSecret).not.toHaveBeenCalled();
-
-  h.del.mockClear();
-  await unpublishKeySecrets("k1", "v1");
-  expect(keysOf(h.del.mock.calls)).toEqual(["key:k1:private", "key:k1:public", "key:k1:passphrase"]);
-
-  h.del.mockClear();
-  await unpublishIdentitySecrets("i1", "v1");
-  expect(keysOf(h.del.mock.calls)).toEqual(["identity:i1:password"]);
+test("team to personal writes the local store and withdraws the team row", async () => {
+  h.read.mockImplementation(async (_t: string | null, k: string) => (k === "key:k1:private" ? "pem" : null));
+  await transferKeySecrets("k1", "team1", "personal");
+  expect(h.write.mock.calls).toEqual([[null, "key:k1:private", "pem"]]);
+  expect(h.remove.mock.calls).toEqual([["team1", "key:k1:private"]]);
 });
 
-test("a failed publish is swallowed but a failed withdrawal throws", async () => {
-  h.getSecret.mockResolvedValue("pw");
-  h.save.mockRejectedValue(new Error("offline"));
-  await expect(publishConnectionSecrets("c1", "v1")).resolves.toBeUndefined();
-
-  h.del.mockRejectedValue(new Error("offline"));
-  await expect(unpublishConnectionSecrets("c1", "v1")).rejects.toThrow("offline");
+test("between two personal vaults nothing moves", async () => {
+  await transferIdentitySecrets("i1", "personal", "vault-b");
+  expect(h.read).not.toHaveBeenCalled();
 });
 
-// The object has already moved, so the transfer must not fail — but leaving the
-// credential readable in the old vault has to be reported.
-test("withdrawOrWarn swallows the rejection and toasts instead", async () => {
-  await expect(withdrawOrWarn(Promise.reject(new Error("offline")))).resolves.toBeUndefined();
-  expect(h.addToast).toHaveBeenCalledWith(
-    expect.objectContaining({ message: "common.error.secretsLeftInSourceVault", severity: "error" }),
-  );
+test("a failed write keeps the source copy and does not throw", async () => {
+  h.read.mockResolvedValue("pw");
+  h.write.mockRejectedValue(new Error("403"));
+  await expect(transferIdentitySecrets("i1", "personal", "team1")).resolves.toBeUndefined();
+  expect(h.remove).not.toHaveBeenCalled();
+  expect(h.logged).toHaveBeenCalled();
+});
 
-  h.addToast.mockClear();
-  await withdrawOrWarn(Promise.resolve());
-  expect(h.addToast).not.toHaveBeenCalled();
+test("a failed withdrawal is reported, not thrown", async () => {
+  h.read.mockResolvedValue("pw");
+  h.remove.mockRejectedValue(new Error("500"));
+  await expect(transferIdentitySecrets("i1", "team1", "team2")).resolves.toBeUndefined();
+  expect(h.addToast).toHaveBeenCalledWith(expect.objectContaining({ severity: "error" }));
 });

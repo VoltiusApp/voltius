@@ -60,13 +60,7 @@ import { SnippetPickerPanel } from "./SnippetPickerPanel";
 import { getHostDeleteTargetIds, shouldUseBulkHostContextMenu } from "./hostSelection";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import {
-  publishIdentitySecrets,
-  publishKeySecrets,
-  unpublishIdentitySecrets,
-  unpublishKeySecrets,
-  withdrawOrWarn,
-} from "@/services/vaultObjectSecrets";
+import { transferIdentitySecrets, transferKeySecrets } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
@@ -361,7 +355,6 @@ export default function HostsPage() {
     saveKey: (form) => useKeyStore.getState().saveKey(form),
     updateIdentity: (id, form) => useIdentityStore.getState().updateIdentity(id, form),
     saveIdentity: (form) => useIdentityStore.getState().saveIdentity(form),
-    withdrawOrWarn: (p) => withdrawOrWarn(p as Promise<void>),
   }, cascadeRemap.current);
 
   // Every mutation below goes through a store method so vault permission checks apply.
@@ -603,16 +596,8 @@ export default function HostsPage() {
           if (keyNeedsMove) await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
           if (identityNeedsMove) await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
           await moveConnectionToVault(conn, vaultId, updateConnection);
-          // The cascade moves the linked key/identity too, so their material has to
-          // travel with them — into the destination and out of the source.
-          if (keyNeedsMove) {
-            await publishKeySecrets(key.id, vaultId);
-            await withdrawOrWarn(unpublishKeySecrets(key.id, key.vault_id ?? "personal"));
-          }
-          if (identityNeedsMove) {
-            await publishIdentitySecrets(identity.id, vaultId);
-            await withdrawOrWarn(unpublishIdentitySecrets(identity.id, identity.vault_id ?? "personal"));
-          }
+          if (keyNeedsMove) await transferKeySecrets(key.id, key.vault_id ?? "personal", vaultId);
+          if (identityNeedsMove) await transferIdentitySecrets(identity.id, identity.vault_id ?? "personal", vaultId);
         } catch (err) { setError(String(err)); }
       },
     });
