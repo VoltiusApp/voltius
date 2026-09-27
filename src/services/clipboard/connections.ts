@@ -230,7 +230,7 @@ export function connectionsClipboardHalf(
           continue;
         }
         const links = remappedLinks(conn);
-        await moveWithSecrets("connection", id, conn.vault_id ?? "personal", vaultId, () =>
+        await moveWithSecrets("connection", conn, vaultId, () =>
           deps.updateConnection(id, {
             ...connectionToFormData(conn),
             identity_id: links.identityId,

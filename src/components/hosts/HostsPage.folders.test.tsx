@@ -238,7 +238,7 @@ vi.mock("@/services/vault", () => ({ storeSecret: vi.fn(async () => {}), getSecr
 vi.mock("@/services/vaultObjectSecrets", () => ({
   moveKeyToVault: h.moveKeyToVault,
   moveIdentityToVault: h.moveIdentityToVault,
-  moveWithSecrets: vi.fn(async (_k: string, _id: string, _f: string, _t: string, update: () => Promise<unknown>) => {
+  moveWithSecrets: vi.fn(async (_k: string, _o: unknown, _t: string, update: () => Promise<unknown>) => {
     await update();
   }),
 }));

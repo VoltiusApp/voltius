@@ -2,6 +2,7 @@ import type { Connection, ConnectionFormData } from "@/types";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { storeSecret, deleteSecret } from "@/services/vault";
 import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
+import { moveWithSecrets } from "@/services/vaultObjectSecrets";
 
 export interface HostFormSecrets {
   password: string | null;
@@ -43,7 +44,7 @@ export async function saveHostFromForm(
 ): Promise<Connection | null> {
   const { updateConnection, saveConnection } = useConnectionStore.getState();
   if (editing) {
-    await updateConnection(editing.id, data);
+    await moveWithSecrets("connection", editing, data.vault_id, () => updateConnection(editing.id, data));
     await persistSecrets(editing.id, secrets, true);
     return editing;
   }

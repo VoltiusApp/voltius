@@ -1,6 +1,7 @@
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { storeSecret, deleteSecret } from "@/services/vault";
+import { moveWithSecrets } from "@/services/vaultObjectSecrets";
 import type { Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 
 type InlineKeyMaterial = { label?: string; privateKey: string; publicKey: string };
@@ -23,7 +24,7 @@ export async function saveKeyFromForm(
 ): Promise<SshKey> {
   const { saveKey, updateKey } = useKeyStore.getState();
   const key = editing
-    ? (await updateKey(editing.id, data), editing)
+    ? (await moveWithSecrets("key", editing, data.vault_id, () => updateKey(editing.id, data)), editing)
     : await saveKey({ ...data, vault_id: data.vault_id ?? fallbackVaultId });
   const parts: [string, string | null][] = [
     ["private", privateKey],
@@ -62,7 +63,7 @@ export async function saveIdentityFromForm(
   }
 
   const identity = editing
-    ? (await updateIdentity(editing.id, resolvedData), editing)
+    ? (await moveWithSecrets("identity", editing, resolvedData.vault_id, () => updateIdentity(editing.id, resolvedData)), editing)
     : await saveIdentity({ ...resolvedData, vault_id: resolvedData.vault_id ?? fallbackVaultId });
   if (password !== null) {
     await writeSecret(`identity:${identity.id}:password`, password, !editing);

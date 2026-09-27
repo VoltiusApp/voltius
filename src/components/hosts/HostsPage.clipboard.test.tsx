@@ -32,7 +32,7 @@ const h = vi.hoisted(() => ({
   confirmCrossVault: vi.fn(async () => true),
   getSecret: vi.fn(async (_key: string) => null as string | null),
   storeSecret: vi.fn(async (_key: string, _value: string) => {}),
-  moveWithSecrets: vi.fn(async (_k: string, _id: string, _f: string, _t: string, update: () => Promise<unknown>) => {
+  moveWithSecrets: vi.fn(async (_k: string, _o: unknown, _t: string, update: () => Promise<unknown>) => {
     await update();
   }),
   saveKey: vi.fn(),
@@ -419,7 +419,7 @@ test("a cut into a team vault transfers the connection's secret to that vault", 
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.moveWithSecrets).toHaveBeenCalledWith("connection", "c1", "personal", "team-1", expect.any(Function));
+  expect(h.moveWithSecrets).toHaveBeenCalledWith("connection", expect.objectContaining({ id: "c1", vault_id: "personal" }), "team-1", expect.any(Function));
 });
 
 test("a copy into a team vault stores the duplicate's secret under its new id", async () => {

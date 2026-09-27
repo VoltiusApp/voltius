@@ -169,14 +169,14 @@ test("a personal to team move queues the object's keys before the update and res
   h.read.mockImplementation(async (_t: string | null, k: string) => (k === "identity:i1:password" ? "pw" : null));
   const update = vi.fn(async () => { calls.push("update"); });
 
-  await moveWithSecrets("identity", "i1", "personal", "team1", update);
+  await moveWithSecrets("identity", { id: "i1", vault_id: "personal" }, "team1", update);
 
   expect(calls).toEqual(["enqueue team1 identity:i1:password", "update", "resolve team1 identity:i1:password"]);
 });
 
 test("a move whose update fails releases the keys it queued", async () => {
   const update = vi.fn(async () => { throw new Error("offline"); });
-  await expect(moveWithSecrets("key", "k1", "personal", "team1", update)).rejects.toThrow("offline");
+  await expect(moveWithSecrets("key", { id: "k1", vault_id: "personal" }, "team1", update)).rejects.toThrow("offline");
   expect(h.enqueue).toHaveBeenCalledWith("team1", ["key:k1:private", "key:k1:public", "key:k1:passphrase"]);
   expect(h.resolve).toHaveBeenCalledWith("team1", ["key:k1:private", "key:k1:public", "key:k1:passphrase"]);
   expect(h.read).not.toHaveBeenCalled();

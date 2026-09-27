@@ -10,13 +10,37 @@ vi.mock("@/stores/connectionStore", () => ({
   useConnectionStore: { getState: () => ({ updateConnection, saveConnection }) },
 }));
 
+const calls: string[] = [];
+const moveWithSecrets = vi.fn(async (_k: string, _o: unknown, _to: unknown, update: () => Promise<unknown>) => {
+  calls.push("move");
+  await update();
+});
+vi.mock("@/services/vaultObjectSecrets", () => ({ moveWithSecrets: (...a: Parameters<typeof moveWithSecrets>) => moveWithSecrets(...a) }));
+
 import { saveHostFromForm } from "./hostForm";
 
 const editing = { id: "c1", vault_id: "team-1" } as never;
 const none = { password: null, privateKey: null, passphrase: null, proxyPassword: null };
 
 describe("saveHostFromForm", () => {
-  beforeEach(() => { vi.clearAllMocks(); storeSecret.mockResolvedValue(undefined); deleteSecret.mockResolvedValue(undefined); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    calls.length = 0;
+    storeSecret.mockResolvedValue(undefined);
+    deleteSecret.mockResolvedValue(undefined);
+  });
+
+  it("an edit that changes the vault moves the host's secrets, then writes the edited ones", async () => {
+    updateConnection.mockImplementation(async () => { calls.push("update"); });
+    storeSecret.mockImplementation(async (k: string) => { calls.push(`store ${k}`); });
+    const personal = { id: "c1", vault_id: "personal" } as never;
+
+    await saveHostFromForm(personal, { tags: [], vault_id: "v-team" }, { ...none, password: "new" }, "personal");
+
+    expect(moveWithSecrets).toHaveBeenCalledWith("connection", personal, "v-team", expect.any(Function));
+    expect(updateConnection).toHaveBeenCalledWith("c1", { tags: [], vault_id: "v-team" });
+    expect(calls).toEqual(["move", "update", "store password:c1"]);
+  });
 
   it("stores the proxy password locally", async () => {
     await saveHostFromForm(editing, { tags: [] }, { ...none, proxyPassword: "pp" }, "personal");

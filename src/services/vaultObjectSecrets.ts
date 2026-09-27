@@ -87,16 +87,18 @@ async function transfer(localKeys: string[], fromVaultId: string, toVaultId: str
 export const transferSecrets = (kind: SecretObjectKind, id: string, fromVaultId: string, toVaultId: string) =>
   transfer(secretKeysFor(kind, id), fromVaultId, toVaultId);
 
+/** Runs `update`, which may move the object out of `current.vault_id`, and carries its secrets along. */
 export async function moveWithSecrets(
   kind: SecretObjectKind,
-  id: string,
-  fromVaultId: string,
-  toVaultId: string,
+  current: { id: string; vault_id?: string | null },
+  toVaultId: string | null | undefined,
   update: () => Promise<unknown>,
 ): Promise<void> {
-  const to = teamIdOfVault(toVaultId);
+  const fromVaultId = current.vault_id ?? "personal";
+  const destination = toVaultId ?? fromVaultId;
+  const to = teamIdOfVault(destination);
   // Queued before the update so a concurrent sweep of `to` never purges a copy not yet uploaded.
-  const reserved = teamIdOfVault(fromVaultId) === null && to !== null ? secretKeysFor(kind, id) : [];
+  const reserved = teamIdOfVault(fromVaultId) === null && to !== null ? secretKeysFor(kind, current.id) : [];
   const uploads = usePendingTeamSecretUploadStore.getState();
   if (to !== null) uploads.enqueue(to, reserved);
   try {
@@ -105,7 +107,7 @@ export async function moveWithSecrets(
     if (to !== null) uploads.resolve(to, reserved);
     throw e;
   }
-  await transferSecrets(kind, id, fromVaultId, toVaultId);
+  await transferSecrets(kind, current.id, fromVaultId, destination);
 }
 
 export const moveKeyToVault = (
@@ -113,11 +115,11 @@ export const moveKeyToVault = (
   vaultId: string,
   data: SshKeyFormData,
   updateKey: (id: string, data: SshKeyFormData) => Promise<unknown>,
-) => moveWithSecrets("key", key.id, key.vault_id ?? "personal", vaultId, () => updateKey(key.id, data));
+) => moveWithSecrets("key", key, vaultId, () => updateKey(key.id, data));
 
 export const moveIdentityToVault = (
   identity: Identity,
   vaultId: string,
   data: IdentityFormData,
   updateIdentity: (id: string, data: IdentityFormData) => Promise<unknown>,
-) => moveWithSecrets("identity", identity.id, identity.vault_id ?? "personal", vaultId, () => updateIdentity(identity.id, data));
+) => moveWithSecrets("identity", identity, vaultId, () => updateIdentity(identity.id, data));
