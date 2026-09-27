@@ -5,18 +5,21 @@ export interface TimestampedEntity {
   clocks: Record<string, string>;
 }
 
-const serialised = (v: unknown): string => JSON.stringify(v) ?? "";
+// Sorted keys: a nested object's key order depends on which side serialised it.
+function canonical(v: unknown): string {
+  return JSON.stringify(v, (_k, x: unknown) =>
+    x && typeof x === "object" && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : x,
+  ) ?? "";
+}
 
-/**
- * True when side b's write of a field beats side a's. The newer clock wins.
- * Equal clocks (two devices writing in the same millisecond, or one bulk
- * stamp) are settled on the value itself — the greater serialisation wins —
- * so the outcome doesn't depend on which side is local and both devices
- * converge. The ids can't settle it: both sides are copies of one entity.
- */
+// Equal clocks settle on the value, so both sides pick the same winner. A side
+// lacking the field (a version that can't store it) keeps its own copy.
 function bWins(clockA: string, clockB: string, valueA: unknown, valueB: unknown): boolean {
   if (clockA !== clockB) return clockB > clockA;
-  return clockB !== "" && serialised(valueB) > serialised(valueA);
+  if (clockB === "" || valueA === undefined || valueB === undefined) return false;
+  return canonical(valueB) > canonical(valueA);
 }
 
 /**
@@ -99,20 +102,12 @@ function entityDiffers<T extends TimestampedEntity>(a: T, b: T): boolean {
     const key = field === "__deleted__" ? "deleted_at" : field;
     const valueA = (a as Record<string, unknown>)[key];
     const valueB = (b as Record<string, unknown>)[key];
-    if (serialised(valueA) !== serialised(valueB)) return true;
+    if (canonical(valueA) !== canonical(valueB)) return true;
   }
   return false;
 }
 
-/**
- * True if `merged` — the result of merging something into `base` — differs
- * from `base`: an entity added, or any clocked field, clock or deletion changed.
- *
- * Deliberately not a comparison of `updated_at`: that is the newest clock, and
- * a remote field can win while being older than it (B renames at 10:00, A
- * touches last_used_at at 10:01), so the merge changes the entity without
- * moving its max timestamp.
- */
+// Field by field, not by `updated_at`: a remote field older than the newest local clock can still win.
 export function entitiesDiffer<T extends TimestampedEntity>(base: T[], merged: T[]): boolean {
   if (base.length !== merged.length) return true;
   const baseById = new Map(base.map((e) => [e.id, e]));
