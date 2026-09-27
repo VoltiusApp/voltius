@@ -5,8 +5,8 @@ import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import {
   transferConnectionSecrets,
-  transferKeySecrets,
-  transferIdentitySecrets,
+  moveKeyToVault,
+  moveIdentityToVault,
 } from "@/services/vaultObjectSecrets";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { nameIsFree } from "@/utils/cloneName";
@@ -160,13 +160,11 @@ export function connectionsClipboardHalf(
         plan.entries.find((e) => e.type === type && e.label === label)?.action ?? "copy";
 
       for (const key of plan.keys) {
-        const from = key.vault_id ?? "personal";
         if (actionOf("key", key.name ?? "Unnamed key") === "move") {
-          await deps.updateKey(key.id, {
+          await moveKeyToVault(key, destination, {
             name: key.name, key_type: key.key_type, tags: key.tags,
             folder_id: key.folder_id, vault_id: destination,
-          });
-          await transferKeySecrets(key.id, from, destination);
+          }, deps.updateKey);
           continue;
         }
         const created = await deps.saveKey({
@@ -182,17 +180,15 @@ export function connectionsClipboardHalf(
       }
 
       for (const identity of plan.identities) {
-        const from = identity.vault_id ?? "personal";
         // Its key travelled first, so the identity follows whichever copy landed.
         const keyId = identity.key_id
           ? cascadeRemap.keys.get(identity.key_id) ?? identity.key_id
           : undefined;
         if (actionOf("identity", identity.name || identity.username) === "move") {
-          await deps.updateIdentity(identity.id, {
+          await moveIdentityToVault(identity, destination, {
             name: identity.name, username: identity.username, key_id: keyId,
             tags: identity.tags, folder_id: identity.folder_id, vault_id: destination,
-          });
-          await transferIdentitySecrets(identity.id, from, destination);
+          }, deps.updateIdentity);
           continue;
         }
         const created = await deps.saveIdentity({

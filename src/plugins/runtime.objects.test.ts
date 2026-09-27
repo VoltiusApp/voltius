@@ -23,8 +23,8 @@ vi.mock("@/services/vault", () => ({
   deleteSecret: vi.fn(async () => {}),
 }));
 vi.mock("@/services/vaultObjectSecrets", () => ({
-  transferKeySecrets: vi.fn(async () => {}),
-  transferIdentitySecrets: vi.fn(async () => {}),
+  moveKeyToVault: vi.fn(async () => {}),
+  moveIdentityToVault: vi.fn(async () => {}),
   transferConnectionSecrets: vi.fn(async () => {}),
 }));
 

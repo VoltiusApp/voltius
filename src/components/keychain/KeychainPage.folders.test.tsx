@@ -38,6 +38,12 @@ const h = vi.hoisted(() => ({
   saveIdentity: vi.fn(async (d: { name?: string }) => ({ id: `new-${d.name}` })),
   confirmModals: [] as Record<string, unknown>[],
   bulkOnDelete: null as ((ids: string[]) => void) | null,
+  moveKeyToVault: vi.fn(async (
+    key: { id: string }, _vaultId: string, data: unknown, updateKey: (id: string, data: unknown) => Promise<unknown>,
+  ) => { await updateKey(key.id, data); }),
+  moveIdentityToVault: vi.fn(async (
+    identity: { id: string }, _vaultId: string, data: unknown, updateIdentity: (id: string, data: unknown) => Promise<unknown>,
+  ) => { await updateIdentity(identity.id, data); }),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -211,8 +217,8 @@ vi.mock("@/services/vault", () => ({
   deleteSecret: vi.fn(async () => {}),
 }));
 vi.mock("@/services/vaultObjectSecrets", () => ({
-  transferKeySecrets: vi.fn(async () => {}),
-  transferIdentitySecrets: vi.fn(async () => {}),
+  moveKeyToVault: h.moveKeyToVault,
+  moveIdentityToVault: h.moveIdentityToVault,
 }));
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
 
@@ -309,6 +315,8 @@ test("moving a folder to a vault cascades over the whole subtree, parents before
   expect(h.updateFolder.mock.calls.map((c) => c[0])).toEqual(["root", "mid", "leaf"]);
   expect(h.updateKey.mock.calls.map((c) => c[0])).toEqual(["k-root", "k-leaf"]);
   expect(h.updateIdentity.mock.calls.map((c) => c[0])).toEqual(["i-mid"]);
+  expect(h.moveKeyToVault.mock.calls.map((c) => c[0].id)).toEqual(["k-root", "k-leaf"]);
+  expect(h.moveIdentityToVault.mock.calls.map((c) => c[0].id)).toEqual(["i-mid"]);
 });
 
 test("an unlinked team is offered as a vault target alongside the linked vaults", () => {

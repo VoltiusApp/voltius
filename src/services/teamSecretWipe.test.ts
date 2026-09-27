@@ -12,6 +12,8 @@ const h = vi.hoisted(() => {
       deleted.push(...keys);
       return keys;
     }),
+    getLocalSecret: vi.fn(async (_key: string) => null as string | null),
+    writeSecretAt: vi.fn(async () => {}),
   };
 });
 
@@ -19,14 +21,18 @@ vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
   purgeLocalSecrets: h.purge,
+  getLocalSecret: h.getLocalSecret,
 }));
 
 vi.mock("@/services/teamObjects", () => ({ deleteTeamSecret: h.deleteTeamSecret }));
 
+vi.mock("@/services/secretRouting", () => ({ writeSecretAt: h.writeSecretAt }));
+
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
 
-import { clearTeamStoresAndSecrets, drainPendingSecretWipes } from "./teamVaultSync";
+import { clearTeamStoresAndSecrets, drainPendingSecretWipes, sweepLocalTeamSecrets } from "./teamVaultSync";
 import { usePendingSecretWipeStore } from "@/stores/pendingSecretWipeStore";
+import { usePendingTeamSecretUploadStore } from "@/stores/pendingTeamSecretUploadStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -36,7 +42,10 @@ beforeEach(() => {
   h.failing.clear();
   h.deleteTeamSecret.mockReset();
   h.purge.mockClear();
+  h.getLocalSecret.mockReset().mockResolvedValue(null);
+  h.writeSecretAt.mockReset().mockResolvedValue(undefined);
   usePendingSecretWipeStore.getState().clearAll();
+  usePendingTeamSecretUploadStore.getState().clearAll();
   useConnectionStore.setState({ teamConnections: {}, connections: [] });
   useKeyStore.setState({ teamKeys: {}, keys: [] });
   useTeamStore.setState({ teams: [] });
@@ -135,4 +144,62 @@ test("never wipes a secret a local object of the same id still owns", async () =
 
   expect(h.deleted).not.toContain("password:c1");
   expect(h.deleted).toContain("key:k1:private");
+});
+
+test("a pending upload whose retry succeeds is purged and resolved", async () => {
+  seed();
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1"]);
+  h.getLocalSecret.mockImplementation(async (k: string) => (k === "password:c1" ? "pw" : null));
+
+  await sweepLocalTeamSecrets("t1");
+
+  expect(h.writeSecretAt).toHaveBeenCalledWith("t1", "password:c1", "pw");
+  expect(usePendingTeamSecretUploadStore.getState().keysByTeamId["t1"]).toBeUndefined();
+  expect(h.deleted).toContain("password:c1");
+});
+
+test("a pending upload whose retry fails again is not purged and stays queued", async () => {
+  seed();
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1"]);
+  h.getLocalSecret.mockImplementation(async (k: string) => (k === "password:c1" ? "pw" : null));
+  h.writeSecretAt.mockRejectedValue(new Error("403"));
+
+  await sweepLocalTeamSecrets("t1");
+
+  expect(usePendingTeamSecretUploadStore.getState().keysByTeamId["t1"]).toEqual(["password:c1"]);
+  expect(h.deleted).not.toContain("password:c1");
+});
+
+test("a key stuck pending does not block the team's other secret keys from purging", async () => {
+  seed();
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1"]);
+  h.getLocalSecret.mockImplementation(async (k: string) => (k === "password:c1" ? "pw" : null));
+  h.writeSecretAt.mockRejectedValue(new Error("403"));
+
+  await sweepLocalTeamSecrets("t1");
+
+  expect(h.deleted).toEqual(expect.arrayContaining([
+    "key:c1", "key:k1:passphrase", "key:k1:private", "key:k1:public",
+    "passphrase:c1", "proxy_password:c1",
+  ]));
+});
+
+test("a pending key with no local value is resolved without being uploaded", async () => {
+  seed();
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1"]);
+  h.getLocalSecret.mockResolvedValue(null);
+
+  await sweepLocalTeamSecrets("t1");
+
+  expect(h.writeSecretAt).not.toHaveBeenCalled();
+  expect(usePendingTeamSecretUploadStore.getState().keysByTeamId["t1"]).toBeUndefined();
+});
+
+test("removing the team resolves its pending uploads instead of leaving them queued forever", async () => {
+  seed();
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1"]);
+
+  await clearTeamStoresAndSecrets("t1");
+
+  expect(usePendingTeamSecretUploadStore.getState().keysByTeamId["t1"]).toBeUndefined();
 });

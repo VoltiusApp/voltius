@@ -1,6 +1,6 @@
 import type { Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 import type { VaultClipboardKind } from "@/stores/vaultClipboardStore";
-import { transferKeySecrets, transferIdentitySecrets } from "@/services/vaultObjectSecrets";
+import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { nameIsFree } from "@/utils/cloneName";
 import type { ClipboardHalf } from "./types";
 
@@ -72,11 +72,10 @@ export function keychainClipboardHalf(deps: KeychainClipboardDeps): ClipboardHal
             sameVaultKeys.push(id);
             continue;
           }
-          await deps.updateKey(id, {
+          await moveKeyToVault(key, vaultId, {
             name: key.name, key_type: key.key_type, tags: key.tags,
             folder_id: folderId ?? undefined, vault_id: vaultId,
-          });
-          await transferKeySecrets(id, key.vault_id ?? "personal", vaultId);
+          }, deps.updateKey);
           continue;
         }
         const identity = deps.identities.find((i) => i.id === id);
@@ -85,11 +84,10 @@ export function keychainClipboardHalf(deps: KeychainClipboardDeps): ClipboardHal
           sameVaultIdentities.push(id);
           continue;
         }
-        await deps.updateIdentity(id, {
+        await moveIdentityToVault(identity, vaultId, {
           name: identity.name, username: identity.username, key_id: identity.key_id,
           tags: identity.tags, folder_id: folderId ?? undefined, vault_id: vaultId,
-        });
-        await transferIdentitySecrets(id, identity.vault_id ?? "personal", vaultId);
+        }, deps.updateIdentity);
       }
       // moveObjectsToFolder writes through to the DB without touching the key/identity
       // stores, so each touched store is reloaded — as in `dropHandler`.

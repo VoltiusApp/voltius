@@ -60,7 +60,7 @@ import { SnippetPickerPanel } from "./SnippetPickerPanel";
 import { getHostDeleteTargetIds, shouldUseBulkHostContextMenu } from "./hostSelection";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import { transferIdentitySecrets, transferKeySecrets } from "@/services/vaultObjectSecrets";
+import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
@@ -77,7 +77,7 @@ export default function HostsPage() {
   const { loadConnections, saveConnection, updateConnection, deleteConnection, renameTag, deleteTag } =
     useConnectionStore();
   const connections = useAllConnections();
-  const { identities } = useIdentityStore();
+  const { identities, updateIdentity } = useIdentityStore();
   const { keys, updateKey } = useKeyStore();
   const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
   const crossVaultPaste = useCrossVaultPasteConfirm();
@@ -353,7 +353,7 @@ export default function HostsPage() {
     duplicateInto: handleDuplicateInto,
     updateKey,
     saveKey: (form) => useKeyStore.getState().saveKey(form),
-    updateIdentity: (id, form) => useIdentityStore.getState().updateIdentity(id, form),
+    updateIdentity,
     saveIdentity: (form) => useIdentityStore.getState().saveIdentity(form),
   }, cascadeRemap.current);
 
@@ -593,11 +593,13 @@ export default function HostsPage() {
       ],
       execute: async () => {
         try {
-          if (keyNeedsMove) await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
-          if (identityNeedsMove) await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
+          if (keyNeedsMove) {
+            await moveKeyToVault(key, vaultId, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }, updateKey);
+          }
+          if (identityNeedsMove) {
+            await moveIdentityToVault(identity, vaultId, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId }, updateIdentity);
+          }
           await moveConnectionToVault(conn, vaultId, updateConnection);
-          if (keyNeedsMove) await transferKeySecrets(key.id, key.vault_id ?? "personal", vaultId);
-          if (identityNeedsMove) await transferIdentitySecrets(identity.id, identity.vault_id ?? "personal", vaultId);
         } catch (err) { setError(String(err)); }
       },
     });
@@ -697,10 +699,10 @@ export default function HostsPage() {
       execute: async () => {
         try {
           for (const key of keyMap.values()) {
-            await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
+            await moveKeyToVault(key, vaultId, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }, updateKey);
           }
           for (const identity of identityMap.values()) {
-            await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
+            await moveIdentityToVault(identity, vaultId, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId }, updateIdentity);
           }
           await migrateFolderTreeToVault(folder, folder.parent_folder_id ?? null, vaultId);
         } catch (err) { setError(String(err)); }

@@ -43,6 +43,12 @@ const h = vi.hoisted(() => ({
   can: vi.fn((_permission: string, _vaultId: string) => true),
   confirmModals: [] as Record<string, unknown>[],
   bulkOnDelete: null as ((ids: string[]) => void) | null,
+  moveKeyToVault: vi.fn(async (
+    key: { id: string }, _vaultId: string, data: unknown, updateKey: (id: string, data: unknown) => Promise<unknown>,
+  ) => { await updateKey(key.id, data); }),
+  moveIdentityToVault: vi.fn(async (
+    identity: { id: string }, _vaultId: string, data: unknown, updateIdentity: (id: string, data: unknown) => Promise<unknown>,
+  ) => { await updateIdentity(identity.id, data); }),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -230,8 +236,8 @@ vi.mock("@/stores/syncPrefsStore", () => ({
 }));
 vi.mock("@/services/vault", () => ({ storeSecret: vi.fn(async () => {}), getSecret: vi.fn(async () => null) }));
 vi.mock("@/services/vaultObjectSecrets", () => ({
-  transferKeySecrets: vi.fn(async () => {}),
-  transferIdentitySecrets: vi.fn(async () => {}),
+  moveKeyToVault: h.moveKeyToVault,
+  moveIdentityToVault: h.moveIdentityToVault,
   transferConnectionSecrets: vi.fn(async () => {}),
 }));
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
@@ -352,6 +358,12 @@ test("moving a folder to a vault carries the whole subtree plus each connection'
   expect(h.updateKey.mock.calls.map((c) => c[0])).toEqual(["k1"]);
   expect(h.updateIdentity.mock.calls.map((c) => c[0])).toEqual(["i1"]);
   expect(h.updateConnection.mock.calls.map((c) => c[0])).toEqual(["c-root", "c-leaf"]);
+  expect(h.moveKeyToVault).toHaveBeenCalledWith(
+    expect.objectContaining({ id: "k1" }), "team-1", expect.objectContaining({ vault_id: "team-1" }), h.updateKey,
+  );
+  expect(h.moveIdentityToVault).toHaveBeenCalledWith(
+    expect.objectContaining({ id: "i1" }), "team-1", expect.objectContaining({ vault_id: "team-1" }), expect.any(Function),
+  );
 });
 
 test("a linked key or identity already in the target vault is left out of the cascade", () => {

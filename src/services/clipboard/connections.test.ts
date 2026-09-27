@@ -1,15 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { Connection, SshKey } from "@/types";
 import { connectionsClipboardHalf, type ConnectionsClipboardDeps } from "./connections";
-import { transferKeySecrets, transferConnectionSecrets } from "@/services/vaultObjectSecrets";
+import { moveKeyToVault, transferConnectionSecrets } from "@/services/vaultObjectSecrets";
 
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(async () => "material"),
   storeSecret: vi.fn(async () => {}),
 }));
 vi.mock("@/services/vaultObjectSecrets", () => ({
-  transferKeySecrets: vi.fn(async () => {}),
-  transferIdentitySecrets: vi.fn(async () => {}),
+  moveKeyToVault: vi.fn(async () => {}),
+  moveIdentityToVault: vi.fn(async () => {}),
   transferConnectionSecrets: vi.fn(async () => {}),
 }));
 
@@ -40,6 +40,8 @@ const deps = (over: Partial<ConnectionsClipboardDeps> = {}): ConnectionsClipboar
 });
 
 describe("connectionsClipboardHalf", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
   it("plans a move of a key no host left behind is using", () => {
     const half = connectionsClipboardHalf(deps());
     const plan = half.planCascade!([{ id: "c1", kind: "connection" }], [], "team-1", "cut");
@@ -117,7 +119,9 @@ describe("connectionsClipboardHalf", () => {
     const d = deps();
     const items = [{ id: "c1", kind: "connection" as const }];
     await connectionsClipboardHalf(d).applyCascade!(items, [], "team-1", "cut");
-    expect(transferKeySecrets).toHaveBeenCalledWith("k1", "personal", "team-1");
+    expect(moveKeyToVault).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "k1" }), "team-1", expect.objectContaining({ vault_id: "team-1" }), d.updateKey,
+    );
   });
 
   it("transfers a moved connection's material on a cross-vault move", async () => {

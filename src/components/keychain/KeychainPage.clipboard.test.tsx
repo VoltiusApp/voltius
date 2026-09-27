@@ -38,8 +38,12 @@ const h = vi.hoisted(() => ({
   confirmCrossVault: vi.fn(async () => true),
   getSecret: vi.fn(async (_k: string) => null as string | null),
   storeSecret: vi.fn(async (_k: string, _v: string) => {}),
-  transferKeySecrets: vi.fn(async (_id: string, _from: string, _to: string) => {}),
-  transferIdentitySecrets: vi.fn(async (_id: string, _from: string, _to: string) => {}),
+  moveKeyToVault: vi.fn(async (
+    key: { id: string }, _vaultId: string, data: unknown, updateKey: (id: string, data: unknown) => Promise<unknown>,
+  ) => { await updateKey(key.id, data); }),
+  moveIdentityToVault: vi.fn(async (
+    identity: { id: string }, _vaultId: string, data: unknown, updateIdentity: (id: string, data: unknown) => Promise<unknown>,
+  ) => { await updateIdentity(identity.id, data); }),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -205,8 +209,8 @@ vi.mock("@/services/vault", () => ({
   storeSecret: h.storeSecret, getSecret: h.getSecret, deleteSecret: vi.fn(async () => {}),
 }));
 vi.mock("@/services/vaultObjectSecrets", () => ({
-  transferKeySecrets: h.transferKeySecrets,
-  transferIdentitySecrets: h.transferIdentitySecrets,
+  moveKeyToVault: h.moveKeyToVault,
+  moveIdentityToVault: h.moveIdentityToVault,
 }));
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
 
@@ -355,7 +359,9 @@ test("a cut into a team vault transfers the key's private material to that vault
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.transferKeySecrets).toHaveBeenCalledWith("k1", "personal", "team-1");
+  expect(h.moveKeyToVault).toHaveBeenCalledWith(
+    expect.objectContaining({ id: "k1" }), "team-1", expect.objectContaining({ vault_id: "team-1" }), h.updateKey,
+  );
 });
 
 test("a cut into a team vault transfers an identity's password to that vault", async () => {
@@ -369,7 +375,9 @@ test("a cut into a team vault transfers an identity's password to that vault", a
   await dispatch("voltius:clipboard-paste");
 
   expect(h.updateIdentity).toHaveBeenCalledWith("i1", expect.objectContaining({ vault_id: "team-1", folder_id: "tf" }));
-  expect(h.transferIdentitySecrets).toHaveBeenCalledWith("i1", "personal", "team-1");
+  expect(h.moveIdentityToVault).toHaveBeenCalledWith(
+    expect.objectContaining({ id: "i1" }), "team-1", expect.objectContaining({ vault_id: "team-1" }), h.updateIdentity,
+  );
 });
 
 test("a copy into a team-vault folder creates the duplicate there with its secret", async () => {

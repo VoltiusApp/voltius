@@ -34,7 +34,7 @@ import { snippetToForm } from "@/utils/snippetForm";
 import { ruleToForm } from "@/utils/portForwardingForm";
 import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import { transferIdentitySecrets, transferKeySecrets } from "@/services/vaultObjectSecrets";
+import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { duplicateConnection, moveConnectionToVault } from "@/services/connectionDuplicate";
 import { vaultOf } from "./vaultOf";
 
@@ -358,19 +358,15 @@ function folderOpsFor(ports: ObjectPorts, tab: ObjectTab): FolderOps {
     }
     if (tab === "keychain") {
       for (const k of under(ports.keys(), rootId)) {
-        const from = vaultOf(k);
-        await ports.updateKey(k.id, {
+        await moveKeyToVault(k, vaultId, {
           name: k.name, key_type: k.key_type, tags: k.tags, folder_id: k.folder_id, vault_id: vaultId,
-        });
-        await transferKeySecrets(k.id, from, vaultId);
+        }, ports.updateKey);
       }
       for (const i of under(ports.identities(), rootId)) {
-        const from = vaultOf(i);
-        await ports.updateIdentity(i.id, {
+        await moveIdentityToVault(i, vaultId, {
           name: i.name, username: i.username, key_id: i.key_id, tags: i.tags,
           folder_id: i.folder_id, vault_id: vaultId,
-        });
-        await transferIdentitySecrets(i.id, from, vaultId);
+        }, ports.updateIdentity);
       }
       return;
     }

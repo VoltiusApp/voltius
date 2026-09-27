@@ -150,6 +150,7 @@
       "failedToListTeamSecrets": "Ekibin gizli bilgileri listelenemedi: {{status}}",
       "failedToDeleteTeamSecret": "Ekibin gizli bilgisi silinemedi: {{status}}",
       "secretsLeftInSourceVault": "Taşındı, ancak kimlik bilgileri kaynak kasadan kaldırılamadı ve orada hâlâ okunabilir: {{error}}",
+      "secretsUploadPending": "Taşındı, ancak kimlik bilgileri henüz yüklenemedi. Bu cihazda kalıyor ve kasa bir sonraki yüklendiğinde yeniden denenecek: {{error}}",
       "failedToSaveTeamSecret": "Ekibin gizli bilgisi kaydedilemedi: {{status}}",
       "keyFetchFailed": "Anahtar alınamadı: {{error}}",
       "failedToUploadVaultKeys": "Kasa anahtarları yüklenemedi: {{status}}",

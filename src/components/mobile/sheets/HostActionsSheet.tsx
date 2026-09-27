@@ -14,6 +14,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { writeClipboard } from "@/utils/clipboard";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
+import { moveConnectionToVault } from "@/services/connectionDuplicate";
 import MoveToFolderSheet from "./MoveToFolderSheet";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 
@@ -65,7 +66,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
       <BottomSheet title={t("mobile.sheets.shared.moveToVault")} onClose={closeSheet} registerBack={false}>
         {moveTargets.map((v) => (
           <Row key={v.id} it={{ icon: "lucide:vault", label: v.name, onTap: () => {
-            void updateConnection(hostId, { ...connectionToFormData(conn), vault_id: v.id });
+            void moveConnectionToVault(conn, v.id, updateConnection);
             closeSheet();
           } }} />
         ))}

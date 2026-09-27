@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { keychainClipboardHalf, type KeychainClipboardDeps } from "./keychain";
+import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import type { Identity, SshKey } from "@/types";
 
 vi.mock("@/services/vaultObjectSecrets", () => ({
-  transferKeySecrets: vi.fn(async () => {}),
-  transferIdentitySecrets: vi.fn(async () => {}),
+  moveKeyToVault: vi.fn(async () => {}),
+  moveIdentityToVault: vi.fn(async () => {}),
 }));
 
 const key = (over: Partial<SshKey> = {}): SshKey =>
@@ -31,6 +32,8 @@ const deps = (over: Partial<KeychainClipboardDeps> = {}): KeychainClipboardDeps 
 });
 
 describe("keychainClipboardHalf", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
   it("reports the key an identity would leave behind as dangling", () => {
     const half = keychainClipboardHalf(deps());
     expect(half.danglingKinds!([{ id: "i1", kind: "identity" }], [], "team-1")).toEqual(["key"]);
@@ -51,13 +54,23 @@ describe("keychainClipboardHalf", () => {
     expect(d.updateKey).not.toHaveBeenCalled();
   });
 
-  it("changes vault through updateKey on a cross-vault move", async () => {
+  it("transfers a moved key's material through the routed seam on a cross-vault move", async () => {
     const d = deps();
     await keychainClipboardHalf(d).moveItems(["k1"], "f2", "team-1");
-    expect(d.updateKey).toHaveBeenCalledWith(
-      "k1", expect.objectContaining({ folder_id: "f2", vault_id: "team-1" }),
+    expect(moveKeyToVault).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "k1" }), "team-1",
+      expect.objectContaining({ folder_id: "f2", vault_id: "team-1" }), d.updateKey,
     );
     expect(d.moveObjectsToFolder).not.toHaveBeenCalled();
+  });
+
+  it("transfers a moved identity's material through the routed seam on a cross-vault move", async () => {
+    const d = deps();
+    await keychainClipboardHalf(d).moveItems(["i1"], "f2", "team-1");
+    expect(moveIdentityToVault).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "i1" }), "team-1",
+      expect.objectContaining({ folder_id: "f2", vault_id: "team-1" }), d.updateIdentity,
+    );
   });
 
   it("points a duplicated identity at the duplicated key", async () => {

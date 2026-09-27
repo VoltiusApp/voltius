@@ -150,6 +150,7 @@
       "failedToListTeamSecrets": "获取团队密钥失败：{{status}}",
       "failedToDeleteTeamSecret": "删除团队密钥失败：{{status}}",
       "secretsLeftInSourceVault": "已移动，但无法从源保险库中删除其凭据，凭据在该保险库中仍可读取：{{error}}",
+      "secretsUploadPending": "已移动，但其凭据暂时无法上传。它们会保留在此设备上，并在下次加载保险库时重试：{{error}}",
       "failedToSaveTeamSecret": "保存团队密钥失败：{{status}}",
       "keyFetchFailed": "获取密钥失败：{{error}}",
       "failedToUploadVaultKeys": "上传保险库密钥失败：{{status}}",

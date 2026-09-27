@@ -225,8 +225,12 @@ vi.mock("@/stores/syncPrefsStore", () => ({
 vi.mock("@/services/vault", () => ({ storeSecret: h.storeSecret, getSecret: h.getSecret }));
 vi.mock("@/services/vaultObjectSecrets", () => ({
   transferConnectionSecrets: h.transferConnectionSecrets,
-  transferKeySecrets: vi.fn(async () => {}),
-  transferIdentitySecrets: vi.fn(async () => {}),
+  moveKeyToVault: vi.fn(async (
+    key: { id: string }, _vaultId: string, data: unknown, updateKey: (id: string, data: unknown) => Promise<unknown>,
+  ) => { await updateKey(key.id, data); }),
+  moveIdentityToVault: vi.fn(async (
+    identity: { id: string }, _vaultId: string, data: unknown, updateIdentity: (id: string, data: unknown) => Promise<unknown>,
+  ) => { await updateIdentity(identity.id, data); }),
 }));
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
 vi.mock("@/services/hostForm", () => ({ saveHostFromForm: vi.fn() }));

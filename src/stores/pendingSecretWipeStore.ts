@@ -1,5 +1,4 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createPendingKeysByTeamStore } from "./pendingKeysByTeamStore";
 
 /**
  * Keychain keys that a team offboarding wipe failed to delete.
@@ -12,39 +11,4 @@ import { persist } from "zustand/middleware";
  *
  * Only key names are persisted, never secret material.
  */
-interface PendingSecretWipeStore {
-  keysByTeamId: Record<string, string[]>;
-  enqueue: (teamId: string, keys: string[]) => void;
-  resolve: (teamId: string, keys: string[]) => void;
-  clearAll: () => void;
-}
-
-export const usePendingSecretWipeStore = create<PendingSecretWipeStore>()(
-  persist(
-    (set) => ({
-      keysByTeamId: {},
-
-      enqueue: (teamId, keys) =>
-        set((s) => {
-          if (keys.length === 0) return s;
-          const merged = [...new Set([...(s.keysByTeamId[teamId] ?? []), ...keys])];
-          return { keysByTeamId: { ...s.keysByTeamId, [teamId]: merged } };
-        }),
-
-      resolve: (teamId, keys) =>
-        set((s) => {
-          const pending = s.keysByTeamId[teamId];
-          if (!pending) return s;
-          const done = new Set(keys);
-          const left = pending.filter((k) => !done.has(k));
-          const next = { ...s.keysByTeamId };
-          if (left.length > 0) next[teamId] = left;
-          else delete next[teamId];
-          return { keysByTeamId: next };
-        }),
-
-      clearAll: () => set({ keysByTeamId: {} }),
-    }),
-    { name: "voltius-pending-secret-wipe" },
-  ),
-);
+export const usePendingSecretWipeStore = createPendingKeysByTeamStore("voltius-pending-secret-wipe");
