@@ -8,6 +8,7 @@ import type { RunTarget } from "@/services/sftpTarget";
 import { readSyncProviderInputs, type LoadedPluginSource } from "@/services/syncProviderInputs";
 import { buildSyncProviders, toSyncProviderSummary } from "@/services/syncProviders";
 import { writeClipboard } from "@/utils/clipboard";
+import { createTextDecoder, encodeTerminalInput } from "@/utils/terminalEncoding";
 import { log as appLog } from "@/lib/logger";
 import i18n from "@/i18n";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
@@ -34,10 +35,9 @@ import { vaultOptionsFrom } from "@/hooks/useVaultOptions";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, openRemoteBlob, forEachRemoteBlob, mergeBlobPayload, importMergedPayload, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { mergeEntities, mergeSecrets } from "@/services/crdt";
 import type {
   UISlot,
   ContributedAction,
@@ -141,6 +141,8 @@ import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId, isValidPluginId } from "./pluginId";
+import { base64ToBytes, bytesToBase64, hexToBytes } from "@/utils/base64";
+import { base64ToByteArray } from "@/services/teamVaultSyncCore";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -919,7 +921,7 @@ async function writeSessionBytes(sessionId: string, text: string): Promise<void>
   const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
   if (!session) throw new Error(`Session "${sessionId}" not found`);
   if (!hasInputControl(sessionId)) throw new Error(`Session "${sessionId}" is controlled by another participant`);
-  await sendSessionInput(sessionId, session.type as "ssh" | "local" | "serial", new TextEncoder().encode(text));
+  await sendSessionInput(sessionId, session.type as "ssh" | "local" | "serial", encodeTerminalInput(text, session.encoding));
 }
 
 function createPluginAPI(manifest: PluginManifest): PluginAPI {
@@ -1234,7 +1236,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         return useTransferQueueStore.getState().transfers.map((t) => ({
           id: t.id, label: t.label, direction: t.direction, status: t.status,
           transferred: t.transferred, total: t.total,
-          speed: t.speed, eta: t.eta, error: t.error,
+          speed: t.speed, eta: t.eta, error: t.error, skipped: t.skipped,
           owner: t.owner?.clientName || undefined,
         }));
       },
@@ -1880,7 +1882,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requireGated("terminal:stream");
         const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (!session) throw new Error(`Session "${sessionId}" not found`);
-        const decoder = new TextDecoder();
+        const decoder = createTextDecoder(session.encoding);
         return onSessionOutput(sessionId, session.type, (data) => cb(decoder.decode(data, { stream: true })));
       },
     },
@@ -2249,22 +2251,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       async getBlob(key) {
         requirePerm(manifest, "sync:read");
         const raw = await storageGet<string>(id, `__sync__${key}`);
-        if (!raw) return null;
-        const binary = atob(raw);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        return bytes;
+        return raw ? base64ToBytes(raw) : null;
       },
       async setBlob(key, data) {
         requirePerm(manifest, "sync:write");
         if (data.length > 1024 * 1024) throw new Error("PluginStorageError: blob exceeds 1MB limit");
-        // Chunked to avoid blocking the main thread on large payloads
-        const CHUNK = 8192;
-        let binary = "";
-        for (let i = 0; i < data.length; i += CHUNK) {
-          binary += String.fromCharCode(...data.subarray(i, i + CHUNK));
-        }
-        await storageSet(id, `__sync__${key}`, btoa(binary));
+        await storageSet(id, `__sync__${key}`, bytesToBase64(data));
       },
       onRemoteChange(key, cb) {
         requirePerm(manifest, "sync:read");
@@ -2277,12 +2269,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
             const current = await storageGet<string>(id, `__sync__${key}`);
             if (current !== lastKnownRaw) {
               lastKnownRaw = current;
-              if (current) {
-                const binary = atob(current);
-                const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                cb(bytes);
-              }
+              if (current) cb(base64ToBytes(current));
             }
           } catch {}
         });
@@ -2301,9 +2288,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       async exportState(encKey, deviceId) {
         requirePerm(manifest, "sync:write");
         await writeFilteredSettings();
-        const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
         const blob: number[] = await invoke("backup_export", {
-          encKey: encKeyBytes,
+          encKey: hexToBytes(encKey),
           accountId: "gist-sync",
           deviceId,
           // Strip cloud-off objects (and their secrets) from third-party sync
@@ -2314,53 +2300,20 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           excludedIds: getExcludedObjectIds(),
           skipFiles: getPluginSkippedSyncFiles(),
         });
-        const CHUNK = 8192;
-        let binary = "";
-        const bytes = new Uint8Array(blob);
-        for (let i = 0; i < bytes.length; i += CHUNK) {
-          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-        }
-        return btoa(binary);
+        return bytesToBase64(blob);
       },
 
       async importStates(encKey, blobs) {
         requirePerm(manifest, "sync:write");
-        let { files: mergedFiles, secrets: mergedSecrets, secret_clocks: mergedSecretClocks } =
-          await invoke<BlobPayload>("state_export_raw");
-        mergedSecretClocks ??= {};
-
-        const parse = (s: string) => {
-          try { return JSON.parse(s ?? "[]"); } catch { return []; }
-        };
+        const encKeyBytes = hexToBytes(encKey);
+        let merged: BlobPayload = await invoke<BlobPayload>("state_export_raw");
 
         let bestThemeRaw: string | null = null;
         let bestThemeUpdatedAt: string | null = null;
-
-        for (const b64 of blobs) {
-          const blobBytes: number[] = Array.from(
-            Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)),
-          );
-          const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
-          const remote = await invoke<BlobPayload>("backup_decrypt", {
-            encKey: encKeyBytes,
-            blob: blobBytes,
-          });
-          const newFiles: Record<string, string> = {};
-          for (const file of ENTITY_FILES) {
-            newFiles[file] = JSON.stringify(
-              mergeEntities(parse(mergedFiles[file]), parse(remote.files[file] ?? "[]")),
-            );
-          }
-          // Per-secret LWW merge: freshest write across devices wins (issue #35).
-          const secretMerge = mergeSecrets(
-            mergedSecrets,
-            mergedSecretClocks,
-            remote.secrets,
-            remote.secret_clocks ?? {},
-          );
-          mergedSecrets = secretMerge.secrets;
-          mergedSecretClocks = secretMerge.clocks;
-          mergedFiles = newFiles;
+        const excludedIds = getExcludedObjectIds();
+        const failed = await forEachRemoteBlob(blobs.map((b64, i) => ({ b64, i })), ({ i }) => `gist blob ${i + 1}`, async ({ b64 }) => {
+          const remote = await openRemoteBlob([encKeyBytes], base64ToByteArray(b64), excludedIds);
+          merged = mergeBlobPayload(merged, remote).payload;
 
           const themeRaw = remote.files["theme.json"];
           if (themeRaw) {
@@ -2372,6 +2325,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
               }
             } catch {}
           }
+        });
+        if (failed.length > 0) {
+          appLog.warn(`[plugin:${id}] sync.importStates: skipped ${failed.length} of ${blobs.length} device blob(s) that could not be read`);
+          // Nothing readable is most likely a wrong key: surface it rather than report success.
+          if (failed.length === blobs.length) throw failed[0].error;
         }
 
         // Inbound half of what getPluginSkippedSyncFiles enforces outbound: a
@@ -2394,10 +2352,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           } catch {}
         }
 
-        await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets, secretClocks: mergedSecretClocks });
+        await importMergedPayload(merged);
         for (const reload of Object.values(RELOADABLE_STORES)) {
           await reload();
         }
+        return { unreadable: failed.map((f) => f.source.i) };
       },
     },
 

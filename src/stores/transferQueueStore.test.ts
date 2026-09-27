@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTransferQueueStore } from "./transferQueueStore";
 
+const skipListeners = new Map<string, (path: string) => void>();
+
 vi.mock("@/services/sftp", () => ({
   sftpCancelTransfer: vi.fn(async () => {}),
   onTransferProgress: vi.fn(async () => () => {}),
+  onTransferSkipped: vi.fn(async (id: string, cb: (path: string) => void) => {
+    skipListeners.set(id, cb);
+    return () => skipListeners.delete(id);
+  }),
 }));
 
 const store = () => useTransferQueueStore.getState();
@@ -25,6 +31,24 @@ describe("runTransfer owner", () => {
   });
 });
 
+describe("skipped names", () => {
+  it("finishes done and lists every name the backend skipped", async () => {
+    await store().runTransfer("logs", "←", async (tid) => {
+      skipListeners.get(tid)!("/var/log/10:30.log");
+      skipListeners.get(tid)!("/var/log/a\\b");
+    });
+    const [tr] = store().transfers;
+    expect(tr.status).toBe("done");
+    expect(tr.skipped).toEqual(["/var/log/10:30.log", "/var/log/a\\b"]);
+    expect(skipListeners.has(tr.id)).toBe(false);
+  });
+
+  it("leaves skipped absent when nothing was skipped", async () => {
+    await store().runTransfer("a.txt", "←", async () => {});
+    expect(store().transfers[0].skipped).toBeUndefined();
+  });
+});
+
 describe("retryTransfer", () => {
   it("re-runs a failed transfer under a new id and keeps the original row", async () => {
     const fn = vi.fn()
@@ -42,7 +66,7 @@ describe("retryTransfer", () => {
     expect(fresh.label).toBe("a.txt");
     expect(original.id).toBe(failed.id);
     expect(original.status).toBe("error");
-    expect(fn).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(fn).toHaveBeenCalledTimes(2));
   });
 
   it("carries the owner and accelerated flag onto the retry", async () => {

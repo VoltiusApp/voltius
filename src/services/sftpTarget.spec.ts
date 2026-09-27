@@ -8,13 +8,30 @@ vi.mock("@/services/credentials", () => ({
   resolveJumpHosts: vi.fn(async () => []),
 }));
 vi.mock("@/utils/keepalive", () => ({ resolveKeepalive: () => ({ intervalSecs: 30, max: 3 }) }));
-vi.mock("@/stores/connectivitySettingsStore", () => ({ getGlobalKeepalivePreset: () => null }));
+
+let connectivityState = { proxy: { mode: "none" } };
+vi.mock("@/stores/connectivitySettingsStore", () => ({
+  getGlobalKeepalivePreset: () => null,
+  getGlobalProxy: () => connectivityState.proxy,
+  useConnectivitySettingsStore: {
+    setState: (partial: Partial<typeof connectivityState>) => {
+      connectivityState = { ...connectivityState, ...partial };
+    },
+    getState: () => connectivityState,
+  },
+}));
+vi.mock("@/services/vault", () => ({ getSecret: vi.fn(async () => null) }));
 vi.mock("@/components/filetransfer/SFTPTypes", () => ({ genId: () => "gen" }));
 
-import { resolveSftpIdForTarget } from "./sftpTarget";
+import { resolveSftpIdForTarget, sftpConnectToConnection } from "./sftpTarget";
+import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
 import type { Connection } from "@/types";
 
-beforeEach(() => { sftpOpen.mockReset(); sftpConnect.mockReset(); });
+beforeEach(() => {
+  sftpOpen.mockReset();
+  sftpConnect.mockReset();
+  connectivityState = { proxy: { mode: "none" } };
+});
 
 describe("resolveSftpIdForTarget", () => {
   it("uses sftp_open for a live session", async () => {
@@ -39,5 +56,15 @@ describe("resolveSftpIdForTarget", () => {
     const conn = { id: "c1", host: "h", port: 22, username: "u", legacy_algorithms: true } as Connection;
     await resolveSftpIdForTarget({ kind: "connection", connection: conn });
     expect(sftpConnect).toHaveBeenCalledWith(expect.objectContaining({ legacyAlgorithms: true }));
+  });
+
+  it("passes the resolved proxy", async () => {
+    useConnectivitySettingsStore.setState({ proxy: { mode: "http", host: "p", port: 3128 } } as never);
+    sftpConnect.mockResolvedValue("sftp-4");
+    const conn = { id: "c1", host: "h", port: 22, username: "u", legacy_algorithms: false } as Connection;
+    await sftpConnectToConnection(conn, "cid");
+    expect(sftpConnect).toHaveBeenCalledWith(
+      expect.objectContaining({ proxy: { kind: "http", host: "p", port: 3128 } }),
+    );
   });
 });

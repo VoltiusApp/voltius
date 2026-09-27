@@ -6,6 +6,7 @@
 //! `suppaftp`'s `list::File` parser (POSIX/DOS/MLSx); permissions and symlink
 //! info are best-effort.
 
+use crate::commands::sftp::editor::read_capped;
 use crate::commands::sftp::{pump_chunks, RemoteFile};
 use crate::sftp::FileBackend;
 use async_trait::async_trait;
@@ -17,7 +18,7 @@ use suppaftp::tokio::{AsyncRustlsConnector, AsyncRustlsFtpStream};
 use suppaftp::types::FileType;
 use suppaftp::Mode;
 use tauri::AppHandle;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
 use tokio_rustls::rustls::{ClientConfig, RootCertStore};
@@ -267,17 +268,21 @@ impl FileBackend for FtpBackend {
         ftp.size(path).await.map(|s| s as u64).unwrap_or(0)
     }
 
-    async fn read_file(&self, path: &str) -> Result<Vec<u8>, String> {
+    async fn read_file(&self, path: &str, max_bytes: u64) -> Result<Vec<u8>, String> {
         let mut ftp = self.inner.lock().await;
         let mut stream = ftp
             .retr_as_stream(path)
             .await
             .map_err(|e| format!("open failed: {e}"))?;
-        let mut buf = Vec::new();
-        stream
-            .read_to_end(&mut buf)
+        let buf = read_capped(&mut stream, max_bytes)
             .await
             .map_err(|e| format!("read failed: {e}"))?;
+        if buf.len() as u64 > max_bytes {
+            // Stopped short of the end: the server is still sending, so the
+            // transfer has to be aborted before the connection is usable again.
+            let _ = ftp.abort(stream).await;
+            return Ok(buf);
+        }
         ftp.finalize_retr_stream(stream)
             .await
             .map_err(|e| format!("read finalize failed: {e}"))?;
@@ -413,36 +418,7 @@ impl FileBackend for FtpBackend {
         Ok(())
     }
 
-    async fn download_dir(
-        &self,
-        app: &AppHandle,
-        remote_path: &str,
-        local_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        let mut stack = vec![(remote_path.to_string(), PathBuf::from(local_path))];
-        while let Some((rdir, ldir)) = stack.pop() {
-            tokio::fs::create_dir_all(&ldir)
-                .await
-                .map_err(|e| format!("Cannot create directory: {e}"))?;
-            for e in self.list_dir(&rdir).await? {
-                if token.is_cancelled() {
-                    return Err("Transfer cancelled".into());
-                }
-                let lpath = ldir.join(&e.name);
-                if e.is_dir {
-                    stack.push((e.path, lpath));
-                } else {
-                    self.download_file(app, &e.path, &lpath.to_string_lossy(), transfer_id, token)
-                        .await?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    // upload_batch / download_batch: the FileBackend per-item defaults.
+    // download_dir / upload_batch / download_batch: the FileBackend per-item defaults.
 }
 
 #[cfg(test)]
@@ -473,7 +449,10 @@ mod tests {
             .expect("connect");
 
         b.write_file("/hello.txt", "hi there").await.expect("write");
-        assert_eq!(b.read_file("/hello.txt").await.expect("read"), b"hi there");
+        assert_eq!(
+            b.read_file("/hello.txt", 1024).await.expect("read"),
+            b"hi there"
+        );
         assert_eq!(b.file_size("/hello.txt").await, 8);
 
         let files = b.list_dir("/").await.expect("list");

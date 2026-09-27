@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { sftpCancelTransfer, onTransferProgress } from "@/services/sftp";
+import { sftpCancelTransfer, onTransferProgress, onTransferSkipped } from "@/services/sftp";
 import { type Transfer, type FileEntry, type ConflictResolution, genId } from "@/components/filetransfer/SFTPTypes";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
 
@@ -83,37 +83,31 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
     };
     set((s) => ({ transfers: [entry, ...s.transfers.slice(0, MAX_TRANSFERS - 1)] }));
     const startTime = Date.now();
-    const unlisten = await onTransferProgress(tid, (p) => {
-      const elapsed = (Date.now() - startTime) / 1000;
-      const speed = elapsed > 0.5 ? p.transferred / elapsed : undefined;
-      const eta = speed && p.total > p.transferred ? Math.round((p.total - p.transferred) / speed) : undefined;
-      set((s) => ({
-        transfers: s.transfers.map((t) =>
-          t.id === tid ? { ...t, transferred: p.transferred, total: p.total, speed, eta } : t,
-        ),
-      }));
-    });
+    const update = (f: (t: Transfer) => Transfer) =>
+      set((s) => ({ transfers: s.transfers.map((t) => (t.id === tid ? f(t) : t)) }));
+    const unlisten = await Promise.all([
+      onTransferProgress(tid, (p) => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const speed = elapsed > 0.5 ? p.transferred / elapsed : undefined;
+        const eta = speed && p.total > p.transferred ? Math.round((p.total - p.transferred) / speed) : undefined;
+        update((t) => ({ ...t, transferred: p.transferred, total: p.total, speed, eta }));
+      }),
+      onTransferSkipped(tid, (path) => update((t) => ({ ...t, skipped: [...(t.skipped ?? []), path] }))),
+    ]);
     try {
       await fn(tid);
-      set((s) => ({
-        transfers: s.transfers.map((t) => (t.id === tid ? { ...t, status: "done" } : t)),
-      }));
+      update((t) => ({ ...t, status: "done" }));
       onDone?.();
     } catch (e) {
       const msg = String(e);
       const wasCancelled = msg.toLowerCase().includes("cancel");
-      set((s) => ({
-        transfers: s.transfers.map((t) => {
-          if (t.id !== tid) return t;
-          if (t.status === "cancelled") return t;
-          return wasCancelled ? { ...t, status: "cancelled" } : { ...t, status: "error", error: msg };
-        }),
-      }));
+      update((t) => {
+        if (t.status === "cancelled") return t;
+        return wasCancelled ? { ...t, status: "cancelled" } : { ...t, status: "error", error: msg };
+      });
     } finally {
-      set((s) => ({
-        transfers: s.transfers.map((t) => (t.id === tid ? { ...t, settled: true } : t)),
-      }));
-      unlisten();
+      update((t) => ({ ...t, settled: true }));
+      for (const off of unlisten) off();
     }
   },
 

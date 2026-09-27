@@ -7,6 +7,8 @@ import type {
   Snippet, SnippetFormData,
   SshKey, SshKeyFormData,
 } from "@/types";
+import { publicKeyBlob } from "@/services/sshPublicKey";
+import type { ConnectionExport, ExportBundle, IdentityExport, KeyExport, KeyRefExport, PortForwardingRuleExport, SnippetExport } from "./formats";
 
 // ─── Store slices ─────────────────────────────────────────────────────────────
 // All data the export/import system reads from Zustand, passed as plain objects
@@ -29,7 +31,6 @@ export interface ImportStores {
   saveKey(data: SshKeyFormData): Promise<SshKey>;
   saveIdentity(data: IdentityFormData): Promise<Identity>;
   saveConnection(data: ConnectionFormData): Promise<Connection>;
-  updateConnection(id: string, data: ConnectionFormData): Promise<void>;
   createSnippet(data: SnippetFormData): Promise<Snippet>;
   updateSnippet(id: string, data: SnippetFormData): Promise<void>;
   createPfRule(data: PortForwardingRuleFormData): Promise<PortForwardingRule>;
@@ -104,10 +105,14 @@ export interface ExportCtx {
   keyEidMap: Map<string, string>;
   identityEidMap: Map<string, string>;
   connectionEidMap: Map<string, string>;
+  snippetEidMap: Map<string, string>;
   allFolders: Folder[];
   allSnippetFolders: Folder[];
   allIdentities: Identity[];
   allKeys: SshKey[];
+  keyRefs: SshKey[];
+  identityRefs: Identity[];
+  publicKey: (key: SshKey) => Promise<string | null>;
 }
 
 // ─── Import context ───────────────────────────────────────────────────────────
@@ -118,8 +123,12 @@ export interface ImportCtx {
   vault_id: string;
   tag: string;
   skipDupes: boolean;
+  // Bundle items the caller chose to leave out; overrides `skipDupes`.
+  skipped?: ReadonlySet<object>;
   existingConnections: Connection[];
   existingKeys: SshKey[];
+  // Public halves of `existingKeys` by id; without it keys match by name alone.
+  existingPublicKeys?: ReadonlyMap<string, string>;
   existingIdentities: Identity[];
   existingSnippets: Snippet[];
   existingPfRules: PortForwardingRule[];
@@ -129,10 +138,11 @@ export interface ImportCtx {
   keyEidMap: Map<string, string>;
   identityEidMap: Map<string, string>;
   connectionEidMap: Map<string, string>;
+  snippetEidMap: Map<string, string>;
   stores: ImportStores;
 }
 
-type EidMapKey = "folderEidMap" | "snippetFolderEidMap" | "keyEidMap" | "identityEidMap" | "connectionEidMap";
+type EidMapKey = "folderEidMap" | "snippetFolderEidMap" | "keyEidMap" | "identityEidMap" | "connectionEidMap" | "snippetEidMap";
 
 export function newImportCtx(base: Omit<ImportCtx, EidMapKey>): ImportCtx {
   return {
@@ -142,11 +152,35 @@ export function newImportCtx(base: Omit<ImportCtx, EidMapKey>): ImportCtx {
     keyEidMap: new Map(),
     identityEidMap: new Map(),
     connectionEidMap: new Map(),
+    snippetEidMap: new Map(),
   };
 }
 
 export function existingConnectionsForVault<T extends { vault_id?: string }>(connections: T[], vault_id: string): T[] {
   return connections.filter((connection) => (connection.vault_id ?? "personal") === vault_id);
+}
+
+// A skipped item the vault already has still resolves references to that existing copy.
+export function skipItem(
+  ctx: ImportCtx,
+  item: { _eid?: string },
+  matchId: string | undefined,
+  eidMap?: Map<string, string>,
+): boolean {
+  const skip = ctx.skipped ? ctx.skipped.has(item) : ctx.skipDupes && matchId !== undefined;
+  if (skip && item._eid && matchId) eidMap?.set(item._eid, matchId);
+  return skip;
+}
+
+export function resolveRefs<T extends { _eid: string }>(
+  refs: T[] | undefined,
+  match: (ref: T) => string | undefined,
+  eidMap: Map<string, string>,
+): void {
+  for (const ref of refs ?? []) {
+    const id = match(ref);
+    if (id) eidMap.set(ref._eid, id);
+  }
 }
 
 // ─── Shared handler methods ───────────────────────────────────────────────────
@@ -206,4 +240,65 @@ export function liveInVault<T extends { deleted_at?: string | null; vault_id?: s
   vault_id: string,
 ): T[] {
   return items.filter((i) => !i.deleted_at && (i.vault_id ?? "personal") === vault_id);
+}
+
+type ExistingItems = Pick<ImportCtx, "existingConnections" | "existingKeys" | "existingPublicKeys" | "existingIdentities" | "existingSnippets" | "existingPfRules">;
+
+const connectionKey = (c: { host?: string; port?: number | string; username?: string }) => `${c.host}:${Number(c.port)}:${c.username ?? ""}`;
+const identityKey = (i: { name?: string; username: string }) => i.name ? `${i.name}\0${i.username}` : undefined;
+
+function idsByKey<T extends { id: string }>(items: T[], key: (item: T) => string | undefined): Map<string, string> {
+  const ids = new Map<string, string>();
+  for (const item of items) {
+    const k = key(item);
+    if (k !== undefined && !ids.has(k)) ids.set(k, item.id);
+  }
+  return ids;
+}
+
+// The existing item each bundle item duplicates, if any: the one definition of a duplicate.
+export function findDupes(existing: ExistingItems, vault_id: string) {
+  const connections = idsByKey(existingConnectionsForVault(existing.existingConnections, vault_id), connectionKey);
+  const liveKeys = liveInVault(existing.existingKeys, vault_id);
+  const blobOf = (id: string) => publicKeyBlob(existing.existingPublicKeys?.get(id));
+  const keysByBlob = idsByKey(liveKeys, k => blobOf(k.id));
+  const keysByName = idsByKey(liveKeys, k => k.name || undefined);
+  const identities = idsByKey(liveInVault(existing.existingIdentities, vault_id), identityKey);
+  const snippets = idsByKey(liveInVault(existing.existingSnippets, vault_id), s => s.name);
+  const pfRules = idsByKey(liveInVault(existing.existingPfRules, vault_id), r => r.name);
+  const lookup = (ids: Map<string, string>, k: string | undefined) => k === undefined ? undefined : ids.get(k);
+  return {
+    connection: (c: ConnectionExport) => lookup(connections, connectionKey(c)),
+    key: (k: KeyExport) => {
+      const blob = publicKeyBlob(k.public_key);
+      const same = lookup(keysByBlob, blob);
+      if (same) return same;
+      const named = lookup(keysByName, k.name || undefined);
+      return named && blob && blobOf(named) ? undefined : named;
+    },
+    keyRef: (r: KeyRefExport) => lookup(keysByBlob, publicKeyBlob(r.public_key)),
+    identity: (i: IdentityExport) => lookup(identities, identityKey(i)),
+    snippet: (s: SnippetExport) => lookup(snippets, s.name),
+    pfRule: (r: PortForwardingRuleExport) => lookup(pfRules, r.name),
+  };
+}
+
+export type Dupes = ReturnType<typeof findDupes>;
+
+const dupesByCtx = new WeakMap<ImportCtx, Dupes>();
+
+export function dupesOf(ctx: ImportCtx): Dupes {
+  let dupes = dupesByCtx.get(ctx);
+  if (!dupes) dupesByCtx.set(ctx, dupes = findDupes(ctx, ctx.vault_id));
+  return dupes;
+}
+
+export function dupeItems(bundle: ExportBundle, dupes: Dupes): Set<object> {
+  return new Set<object>([
+    ...bundle.connections.filter(c => dupes.connection(c)),
+    ...bundle.keys.filter(k => dupes.key(k)),
+    ...bundle.identities.filter(i => dupes.identity(i)),
+    ...bundle.snippets.filter(s => dupes.snippet(s)),
+    ...bundle.portForwardingRules.filter(r => dupes.pfRule(r)),
+  ]);
 }

@@ -4,7 +4,8 @@ import { Icon } from "@iconify/react";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useUIStore, type CloudAuthMode } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { getAccountMode, linkToCloud, setMasterPassword, signInToCloud } from "@/services/account";
+import { authenticateServerAccount, getAccountMode, linkToCloud, setMasterPassword, signInToCloud } from "@/services/account";
+import { addAccount } from "@/services/savedAccounts";
 import { startRealtimeSync, syncOnLogin, syncOnLoginReplace } from "@/services/sync";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { lastServerUrl } from "@/utils/serverInstance";
@@ -16,6 +17,7 @@ export default function CloudAuthModal() {
   const { t } = useTranslation();
   const open = useUIStore((s) => s.cloudAuthOpen);
   const mode = useUIStore((s) => s.cloudAuthMode);
+  const isAdd = useUIStore((s) => s.cloudAuthPurpose === "add");
   const setMode = useUIStore((s) => s.setCloudAuthMode);
   const onClose = useUIStore((s) => s.closeCloudAuth);
   const reloadSubscription = useSubscriptionStore((s) => s.load);
@@ -38,6 +40,11 @@ export default function CloudAuthModal() {
 
   const isRegister = mode === "register";
   const isLocalNoPassword = accountMode === "local-nopassword";
+  // Adding creates an account from nothing, so it needs a password of its own.
+  const needsNewPassword = isRegister && (isAdd || isLocalNoPassword);
+  const [minLength, minLengthError] = isAdd
+    ? [8, "layout.auth.errorMinLength8"]
+    : [4, "layout.cloudAuthModal.errorMinLength4"];
 
   const switchMode = (next: CloudAuthMode) => {
     setMode(next);
@@ -52,14 +59,21 @@ export default function CloudAuthModal() {
     const normalizedUrl = serverUrl.replace(/\/+$/, "");
 
     if (!isRegister && password.length < 1) { setError(t("layout.cloudAuthModal.errorPasswordRequired")); return; }
-    if (isRegister && isLocalNoPassword) {
-      if (password.length < 4) { setError(t("layout.cloudAuthModal.errorMinLength4")); return; }
+    if (needsNewPassword) {
+      if (password.length < minLength) { setError(t(minLengthError)); return; }
       if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
     }
 
     setLoading(true);
     setError("");
     try {
+      if (isAdd) {
+        // Nothing of the current session is touched until the server accepts these.
+        const session = await authenticateServerAccount(isRegister ? "register" : "signin", email, password, normalizedUrl);
+        await addAccount(session);
+        onClose();
+        return;
+      }
       if (isRegister) {
         if (isLocalNoPassword) await setMasterPassword(password);
         await linkToCloud(email, normalizedUrl);
@@ -93,13 +107,14 @@ export default function CloudAuthModal() {
           </div>
           <div>
             <p className="text-base font-semibold text-(--t-text-primary) mb-1">
-              {isRegister ? t("layout.cloudAuthModal.registerTitle") : t("layout.cloudAuthModal.signinTitle")}
+              {isAdd
+                ? t("layout.cloudAuthModal.addTitle")
+                : isRegister ? t("layout.cloudAuthModal.registerTitle") : t("layout.cloudAuthModal.signinTitle")}
             </p>
             <p className="text-sm text-(--t-text-muted) leading-relaxed">
-              {isRegister
-                ? t("layout.cloudAuthModal.registerDesc")
-                : t("layout.cloudAuthModal.signinDesc")
-              }
+              {isAdd
+                ? t("layout.cloudAuthModal.addDesc")
+                : isRegister ? t("layout.cloudAuthModal.registerDesc") : t("layout.cloudAuthModal.signinDesc")}
             </p>
           </div>
         </div>
@@ -126,7 +141,7 @@ export default function CloudAuthModal() {
           {!isRegister && (
             <AuthInput type="password" placeholder={t("layout.auth.masterPasswordPlaceholder")} value={password} onChange={setPassword} />
           )}
-          {isRegister && isLocalNoPassword && (
+          {needsNewPassword && (
             <>
               <AuthInput type="password" placeholder={t("layout.cloudAuthModal.createMasterPasswordPlaceholder")} value={password} onChange={setPassword} />
               <AuthInput type="password" placeholder={t("layout.cloudAuthModal.confirmMasterPasswordPlaceholder")} value={confirm} onChange={setConfirm} />

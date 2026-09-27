@@ -1,12 +1,13 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { createWebglAddon } from "@/utils/webglAddon";
-import { attachTerminalClipboard } from "@/components/terminal/terminalClipboard";
+import { disposeClosedTerminals, reattachTerminal, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useThemeStore } from "@/stores/themeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
-import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { attachGuestOutput, useTeamSessionStore } from "@/stores/teamSessionStore";
 import { terminalFontStack } from "@/utils/fontStack";
 import { clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
 import "@xterm/xterm/css/xterm.css";
@@ -16,131 +17,95 @@ interface Props {
   active?: boolean;
 }
 
-export default function MultiplayerTerminalView({ localSessionId, active }: Props) {
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const cleanupRef = useRef<(() => void) | null>(null);
+// Cached like solo terminals: moving the tab into a split pane remounts the view.
+interface GuestTerminal extends CachedTerminal {
+  dispose: () => void;
+}
 
+const guestTerminals = new Map<string, GuestTerminal>();
 
-  const attach = useCallback(
-    (container: HTMLDivElement | null) => {
-      if (!container || cleanupRef.current) return;
-      containerRef.current = container;
+useSessionStore.subscribe((state) => disposeClosedTerminals(guestTerminals, state.sessions));
 
-      const activeTheme = useThemeStore.getState().getActiveTheme();
-      const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
-      const term = new Terminal({
-        macOptionClickForcesSelection: true,
-        cursorBlink: getToggle("cursor-blink"),
-        cursorStyle,
-        fontSize: activeTheme.terminalFontSize,
-        lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
-        fontFamily: terminalFontStack(activeTheme.terminalFontFamily),
-        scrollback,
-        theme: activeTheme.terminal,
-        allowProposedApi: true,
-      });
+function mountGuestTerminal(localSessionId: string, container: HTMLDivElement): GuestTerminal {
+  const cached = guestTerminals.get(localSessionId);
+  if (cached) {
+    reattachTerminal(cached, container);
+    return cached;
+  }
 
-      const fitAddon = new FitAddon();
-      term.loadAddon(fitAddon);
-      term.open(container);
+  const activeTheme = useThemeStore.getState().getActiveTheme();
+  const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
+  const term = new Terminal({
+    macOptionClickForcesSelection: true,
+    cursorBlink: getToggle("cursor-blink"),
+    cursorStyle,
+    fontSize: activeTheme.terminalFontSize,
+    lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
+    fontFamily: terminalFontStack(activeTheme.terminalFontFamily),
+    scrollback,
+    theme: activeTheme.terminal,
+    allowProposedApi: true,
+  });
 
-      try {
-        term.loadAddon(createWebglAddon());
-      } catch {
-        // fallback to canvas
-      }
+  const fitAddon = new FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(container);
 
-      // Local clipboard parity with solo terminals (copy-on-select, smart Ctrl+C,
-      // Ctrl+Shift+C, paste, right-click). No OSC 52: a guest's clipboard is never
-      // written by the session controller — only by the guest's own action.
-      const clip = attachTerminalClipboard(term, container);
-      term.attachCustomKeyEventHandler((e) => {
-        const r = clip.handleKeyEvent(e);
-        return r != null ? r : true;
-      });
+  try {
+    term.loadAddon(createWebglAddon());
+  } catch {
+    // fallback to canvas
+  }
 
-      fitAddon.fit();
-      termRef.current = term;
-      fitRef.current = fitAddon;
+  const entry: GuestTerminal = { terminal: term, fitAddon, clip: null, dispose: () => {} };
+  term.attachCustomKeyEventHandler((e) => entry.clip?.handleKeyEvent(e) ?? true);
 
-      const encoder = new TextEncoder();
-      const onDataDispose = term.onData((data) => {
-        const state = useTeamSessionStore.getState().connections[localSessionId];
-        if (!state) return;
-        // Only send input when this user is the control holder
-        if (state.role === "guest" && state.controlHolder === state.myUserId) {
-          state.connection.sendInput(encoder.encode(data)).catch(() => {});
-        }
-      });
-
-      const handleWindowResize = () => fitAddon.fit();
-      window.addEventListener("resize", handleWindowResize);
-      const resizeObserver = new ResizeObserver(() => fitAddon.fit());
-      resizeObserver.observe(container);
-
-      cleanupRef.current = () => {
-        onDataDispose.dispose();
-        clip.dispose();
-        window.removeEventListener("resize", handleWindowResize);
-        resizeObserver.disconnect();
-        term.dispose();
-        termRef.current = null;
-        fitRef.current = null;
-        cleanupRef.current = null;
-      };
-
-      // Expose write function via store patch
-      useTeamSessionStore.setState((s) => {
-        const existing = s.connections[localSessionId];
-        if (!existing) return s;
-        return {
-          connections: {
-            ...s.connections,
-            [localSessionId]: {
-              ...existing,
-              _termWrite: (data: Uint8Array) => term.write(data),
-            },
-          },
-        };
-      });
-    },
-    [localSessionId],
-  );
-
-  useEffect(() => {
-    const unsubscribe = useTeamSessionStore.subscribe((state) => {
-      const conn = state.connections[localSessionId];
-      if (conn?._pendingOutput && termRef.current) {
-        termRef.current.write(conn._pendingOutput);
-      }
-    });
-    return unsubscribe;
-  }, [localSessionId]);
-
-  useEffect(() => {
-    if (active) {
-      termRef.current?.focus();
-      fitRef.current?.fit();
+  const encoder = new TextEncoder();
+  const onDataDispose = term.onData((data) => {
+    const state = useTeamSessionStore.getState().connections[localSessionId];
+    if (!state) return;
+    // Only send input when this user is the control holder
+    if (state.role === "guest" && state.controlHolder === state.myUserId) {
+      state.connection.sendInput(encoder.encode(data)).catch(() => {});
     }
-  }, [active]);
+  });
+
+  // Fit before replaying held output so the snapshot lands at the real size.
+  fitAddon.fit();
+  const detachOutput = attachGuestOutput(localSessionId, (data) => term.write(data));
+
+  entry.dispose = () => {
+    detachOutput();
+    onDataDispose.dispose();
+    term.dispose();
+  };
+  guestTerminals.set(localSessionId, entry);
+  return entry;
+}
+
+export default function MultiplayerTerminalView({ localSessionId, active }: Props) {
+  // No OSC 52: a guest's clipboard is written only by the guest's own action, never by the controller.
+  const attach = useTerminalMount((container) => mountGuestTerminal(localSessionId, container), undefined, [localSessionId]);
 
   useEffect(() => {
-    return () => {
-      cleanupRef.current?.();
-    };
-  }, []);
+    if (!active) return;
+    const entry = guestTerminals.get(localSessionId);
+    entry?.terminal.focus();
+    entry?.fitAddon.fit();
+  }, [active, localSessionId]);
 
   // Live theme updates
   useEffect(() => {
-    return subscribeTerminalTheme(() => ({ term: termRef.current, fit: fitRef.current }));
-  }, []);
+    return subscribeTerminalTheme(() => {
+      const entry = guestTerminals.get(localSessionId);
+      return { term: entry?.terminal, fit: entry?.fitAddon };
+    });
+  }, [localSessionId]);
 
   // Live cursor style/blink updates
   useEffect(() => {
-    return subscribeTerminalCursor(() => termRef.current);
-  }, []);
+    return subscribeTerminalCursor(() => guestTerminals.get(localSessionId)?.terminal);
+  }, [localSessionId]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">

@@ -15,7 +15,7 @@ describe("settingKeys", () => {
 
   test("marks exactly the device-scoped keys", () => {
     expect(SETTING_KEYS.filter((k) => k.deviceScoped).map((k) => k.id))
-      .toEqual(["appSettings.terminal.preferredShell", "themes.location"]);
+      .toEqual(["appSettings.terminal.preferredShell", "appSettings.proxy", "themes.location"]);
   });
 
   test("splits an id into its domain and the path within the section", () => {

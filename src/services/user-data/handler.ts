@@ -10,7 +10,8 @@ export interface UserDataHandler {
   // calls this on the absent-section path, outside of any explicit export flow.
   export(): unknown;
 
-  // Write exported state to stores.
+  // Write exported state to stores, all before the first await: a remote
+  // apply's guard only covers the synchronous part.
   import(data: unknown): Promise<void>;
 
   // LWW merge: returns the winning value and whether local was overwritten by remote.
@@ -19,14 +20,14 @@ export interface UserDataHandler {
     remote: unknown,
     localTs: string,
     remoteTs: string,
-  ): { value: unknown; updated: boolean };
+  ): { value: unknown; updated: boolean; updatedAt?: string };
 
   // ISO timestamp of the most recent local change to this domain.
   getTimestamp(): string;
 
-  // Stamp this domain as changed now, so the next merge publishes local values.
-  // Called when the user switches sync back on for the domain.
-  touch(): void;
+  // Stamp this domain (or only the setting at `path`) as changed now, so the
+  // next merge publishes local values. Called when the user switches sync back on.
+  touch(path?: string): void;
 
   // Short human-readable summary of current state, e.g. "3 custom themes".
   describe(): string;

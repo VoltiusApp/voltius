@@ -3,6 +3,10 @@
  * blob's `files` map build/parse. No IO, no crypto — safe to unit test directly.
  */
 
+import { base64ToBytes } from "@/utils/base64";
+
+export { bytesToBase64 } from "@/utils/base64";
+
 export interface TeamVaultSlices {
   connections: unknown[];
   identities: unknown[];
@@ -13,20 +17,10 @@ export interface TeamVaultSlices {
   portForwardingRules: unknown[];
 }
 
-export function bytesToBase64(bytes: number[]): string {
-  const CHUNK = 8192;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.slice(i, i + CHUNK));
-  }
-  return btoa(binary);
-}
-
-export function base64ToBytes(b64: string): number[] {
-  const binary = atob(b64);
-  const out = new Array<number>(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
+// Tauri commands take `Vec<u8>` as a JSON number array, which a Uint8Array
+// does not serialize to.
+export function base64ToByteArray(b64: string): number[] {
+  return Array.from(base64ToBytes(b64));
 }
 
 export function parseTeamVaultFile<T>(json: string | undefined): T[] {

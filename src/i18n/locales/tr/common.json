@@ -170,7 +170,7 @@
       "unsupportedUserDataVersion": "Desteklenmeyen kullanıcı verisi sürümü: {{version}}",
       "failedToLoadLogs": "Günlükler yüklenemedi",
       "couldNotDetectFormat": "Biçim algılanamadı. Desteklenenler: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions veya Termius'tan canlı ayıklama.",
-      "csvMissingColumns": "CSV dosyasında en az 'host' ve 'username' sütunları bulunmalıdır",
+      "csvMissingColumns": "CSV dosyasında bir 'host' sütunu bulunmalıdır",
       "termiusDumpInvalidJson": "Termius dökümü geçerli bir JSON olmalıdır",
       "legacyTermiusUnsupported": "Eski Termius döküm biçimi artık desteklenmiyor; otomatik ayıklamayı kullanın.",
       "termiusExtractionFormat": "Termius ayıklaması { version: 2, records: [...] } döndürmelidir",

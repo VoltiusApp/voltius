@@ -8,8 +8,9 @@ import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
 import {
   localSecretKeyFromTeamSecret,
   teamSecretFromLocalKey,
+  connectionSecretKeys,
 } from "@/services/teamVaultSecretKeys";
-import { bytesToBase64, base64ToBytes } from "@/services/teamVaultSyncCore";
+import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 import { logSettledFailures } from "@/lib/logger";
 
 interface BlobPayload {
@@ -91,7 +92,7 @@ export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
     const encKey = currentVersion !== undefined && recordVersion !== currentVersion
       ? await getTeamVaultKeyAtVersion(teamId, recordVersion)
       : currentKey;
-    const blob = base64ToBytes(record.ciphertext);
+    const blob = base64ToByteArray(record.ciphertext);
     const payload = await invoke<BlobPayload>("backup_decrypt", { encKey, blob });
     const value = payload.secrets?.[localKey];
     if (value) await storeSecret(localKey, value);
@@ -109,11 +110,7 @@ export async function backfillExistingTeamVaultSecrets(teamId: string): Promise<
   const keys = useKeyStore.getState().teamKeys[teamId] ?? [];
 
   await Promise.allSettled([
-    ...conns.flatMap((conn) => [
-      saveExistingTeamVaultSecret(teamId, `password:${conn.id}`),
-      saveExistingTeamVaultSecret(teamId, `key:${conn.id}`),
-      saveExistingTeamVaultSecret(teamId, `passphrase:${conn.id}`),
-    ]),
+    ...conns.flatMap((conn) => connectionSecretKeys(conn.id).map((k) => saveExistingTeamVaultSecret(teamId, k))),
     ...identities.map((identity) => saveExistingTeamVaultSecret(teamId, `identity:${identity.id}:password`)),
     ...keys.flatMap((key) => [
       saveExistingTeamVaultSecret(teamId, `key:${key.id}:private`),

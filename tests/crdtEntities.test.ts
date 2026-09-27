@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { mergeEntities } from "../src/services/crdt.ts";
+import { entitiesDiffer, mergeEntities } from "../src/services/crdt.ts";
 import type { TimestampedEntity } from "../src/services/crdt.ts";
 
 interface Conn extends TimestampedEntity {
@@ -40,15 +40,36 @@ test("missing clock loses to any real timestamp", () => {
   expect(mergeOne(remote, local).name).toBe("typed");
 });
 
-test("equal clocks: the id tiebreak is unreachable via mergeEntities, so first-arg value is retained", () => {
-  // mergeEntities only merges two entities that share an `id`, so `b.id > a.id` in
-  // mergeTwo (crdt.ts:31,42) is always false on this path — the tiebreak reduces to
-  // "keep the first (existing/local) value" on equal clocks. Pin that behavior here;
-  // it also documents that the id-tiebreak branch is effectively dead via this entry point.
+test("equal clocks: the same value wins whichever side is local, so devices converge", () => {
   const a = conn("id", { name: "A", clocks: { name: "2026-01-01T00:00:00Z" } });
   const b = conn("id", { name: "B", clocks: { name: "2026-01-01T00:00:00Z" } });
-  expect(mergeOne(a, b).name).toBe("A");
+  expect(mergeOne(a, b).name).toBe("B");
   expect(mergeOne(b, a).name).toBe("B");
+  expect(mergeOne(a, b)).toEqual(mergeOne(b, a));
+});
+
+test("equal clocks: key order inside an object value does not decide or register as a change", () => {
+  const at = "2026-01-01T00:00:00Z";
+  type Proxied = Conn & { proxy: Record<string, unknown> };
+  const a = { ...conn("id", { clocks: { proxy: at } }), proxy: { host: "p", port: 1 } } as Proxied;
+  const b = { ...conn("id", { clocks: { proxy: at } }), proxy: { port: 1, host: "p" } } as Proxied;
+  expect(entitiesDiffer([a], mergeEntities([a], [b]))).toBe(false);
+  expect(entitiesDiffer([b], mergeEntities([b], [a]))).toBe(false);
+});
+
+test("equal clocks: a side missing the field (a version that can't store it) keeps its copy, so no rewrite loops", () => {
+  const at = "2026-01-01T00:00:00Z";
+  const older = conn("id", { clocks: { proxy: at } });
+  const newer = { ...conn("id", { clocks: { proxy: at } }), proxy: { host: "p" } } as Conn;
+  expect(entitiesDiffer([older], mergeEntities([older], [newer]))).toBe(false);
+  expect(entitiesDiffer([newer], mergeEntities([newer], [older]))).toBe(false);
+});
+
+test("equal deletion clocks: the same deletion wins whichever side is local", () => {
+  const at = "2026-01-01T00:00:00Z";
+  const a = conn("id", { deleted_at: "2026-01-01T00:00:00.000Z", clocks: { __deleted__: at } });
+  const b = conn("id", { deleted_at: at, clocks: { __deleted__: at } });
+  expect(mergeOne(a, b)).toEqual(mergeOne(b, a));
 });
 
 test("deletion propagates when __deleted__ clock is newer", () => {

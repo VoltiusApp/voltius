@@ -29,7 +29,7 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
   dropAccountUiState: h.dropAccountUiState,
 }));
 
-import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, signOutToAddAccount, switchToAccount, type SavedAccount } from "./savedAccounts";
+import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, type SavedAccount } from "./savedAccounts";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 
 const INDEX_KEY = "voltius.saved_accounts";
@@ -223,29 +223,45 @@ test("switchToAccount tears the old session down before reloading", async () => 
   expect(h.reload).toHaveBeenCalled();
 });
 
-/**
- * Sign-out forgets the account by design, and it is otherwise the only way to
- * reach the auth screen — so without this the switcher could never hold a
- * second account.
- */
-test("adding another account keeps the current one in the switcher", async () => {
+const { mode: _mode, ...SESSION_B } = CLOUD_B;
+
+test("adding an account keeps the current one and switches into the new one", async () => {
   activate(CLOUD_A);
   h.store.handle = "alice";
 
-  await signOutToAddAccount();
+  await addAccount(SESSION_B);
 
-  expect((await getSavedAccounts()).map((a) => a.account_id)).toEqual(["a"]);
-  expect(h.store.master_password).toBeUndefined();
+  expect((await getSavedAccounts()).map((a) => a.account_id)).toEqual(["a", "b"]);
+  expect(h.store.account_id).toBe("b");
+  expect(h.store.mode).toBe("server");
+  expect(h.store.master_password).toBe(CLOUD_B.master_password);
   expect(h.store.handle).toBeUndefined();
-  expect(h.wipeLocalConfig).toHaveBeenCalled();
-  expect(h.clearPersistedAccountUiState).toHaveBeenCalled();
+  expect(h.parkAccountUiState).toHaveBeenCalledWith("a");
   expect(h.reload).toHaveBeenCalled();
 });
 
-test("adding another account parks the outgoing account's UI state", async () => {
+// The add is what signs the current account out, so it must not run when the
+// switcher could not keep that account: that would be a one-way trip out.
+test("adding an account leaves the session alone when the current one cannot be saved", async () => {
   activate(CLOUD_A);
-  await signOutToAddAccount();
-  expect(h.parkAccountUiState).toHaveBeenCalledWith("a");
+  h.readFails = true;
+
+  await expect(addAccount(SESSION_B)).rejects.toThrow();
+
+  h.readFails = false;
+  expect(h.store.account_id).toBe("a");
+  expect(h.wipeLocalConfig).not.toHaveBeenCalled();
+  expect(h.reload).not.toHaveBeenCalled();
+});
+
+test("adding the account already signed in does not tear it down", async () => {
+  activate(CLOUD_A);
+  const { mode: _m, ...sessionA } = CLOUD_A;
+
+  await addAccount(sessionA);
+
+  expect(h.wipeLocalConfig).not.toHaveBeenCalled();
+  expect(h.reload).not.toHaveBeenCalled();
 });
 
 /**

@@ -1,7 +1,7 @@
 import { test, expect } from "vitest";
 import {
   bytesToBase64,
-  base64ToBytes,
+  base64ToByteArray,
   buildTeamVaultFiles,
   parseTeamVaultFile,
   parseTeamVaultBlobFiles,
@@ -10,17 +10,17 @@ import {
 
 test("base64 round-trips arbitrary bytes", () => {
   const bytes = [0, 1, 2, 127, 128, 200, 255];
-  expect(base64ToBytes(bytesToBase64(bytes))).toEqual(bytes);
+  expect(base64ToByteArray(bytesToBase64(bytes))).toEqual(bytes);
 });
 
 test("base64 round-trips empty input", () => {
   expect(bytesToBase64([])).toBe("");
-  expect(base64ToBytes("")).toEqual([]);
+  expect(base64ToByteArray("")).toEqual([]);
 });
 
 test("base64 round-trips across the 8192 chunk boundary", () => {
   const bytes = Array.from({ length: 20000 }, (_, i) => i % 256);
-  expect(base64ToBytes(bytesToBase64(bytes))).toEqual(bytes);
+  expect(base64ToByteArray(bytesToBase64(bytes))).toEqual(bytes);
 });
 
 test("parseTeamVaultFile tolerates undefined and malformed json", () => {

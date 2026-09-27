@@ -22,6 +22,7 @@ import { getGlobalKeepalivePreset, resolvePersistSession } from "@/stores/connec
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect, serialSetLine } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { resolveFirstHopProxy, type ProxySpec } from "@/services/proxy";
 import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/ephemeralCredentials";
 import { storeSecret, getSecret } from "@/services/vault";
 import { vaultErrorCode, type VaultErrorCode } from "@/services/vaultErrors";
@@ -38,6 +39,7 @@ import { useLayoutStore } from "./layoutStore";
 import { useTerminalCwdStore } from "./terminalCwdStore";
 import { usePanelSftpStore } from "./panelSftpStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
+import { encodeTerminalInput } from "@/utils/terminalEncoding";
 import { cancelBackoff, isSessionEnded, type ReconnectWait } from "./reconnectBackoffCore";
 import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostCommand";
 import { runHostCommand } from "@/services/hostCommandRun";
@@ -136,10 +138,11 @@ async function buildSshConnectOptions(
   keepaliveIntervalSecs: number;
   keepaliveMax: number;
   persist: boolean;
+  proxy: ProxySpec | null;
   cols?: number;
   rows?: number;
 }> {
-  const jumpHosts = await resolveJumpHosts(connection);
+  const [jumpHosts, proxy] = await Promise.all([resolveJumpHosts(connection), resolveFirstHopProxy(connection)]);
   const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
   const { intervalSecs, max } = resolveKeepalive(connection.keepalive_preset ?? getGlobalKeepalivePreset());
 
@@ -162,6 +165,7 @@ async function buildSshConnectOptions(
     keepaliveIntervalSecs: intervalSecs,
     keepaliveMax: max,
     persist: resolvePersistSession(connection.persist_session),
+    proxy,
     ...dims,
   };
 }
@@ -270,9 +274,8 @@ async function connectSshSession(
     throw new Error(preflightError);
   }
 
-  const opts = await buildSshConnectOptions(connection, sessionId);
-
   try {
+    const opts = await buildSshConnectOptions(connection, sessionId);
     await withSessionConnectLock(sessionId, () =>
       sshConnect({
         sessionId,
@@ -717,11 +720,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   connectAt: async (connectionId, cwd) => {
     await get().connect(connectionId);
-    const sessionId = get().activeSessionId;
-    if (sessionId) {
+    const session = get().sessions.find((s) => s.id === get().activeSessionId);
+    if (session) {
       // Brief delay so the shell prompt has time to appear before we send cd
       await new Promise((r) => setTimeout(r, 400));
-      await sshSendInput(sessionId, new TextEncoder().encode(`cd "${cwd}"\r`));
+      await sshSendInput(session.id, encodeTerminalInput(`cd "${cwd}"\r`, session.encoding));
     }
     useUIStore.getState().setActiveNav("terminal");
     useUIStore.getState().setSidebarOpen(false);
@@ -1198,4 +1201,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
  */
 export function getSessionTransportType(sessionId: string): TerminalSession["type"] {
   return useSessionStore.getState().sessions.find((s) => s.id === sessionId)?.type ?? "ssh";
+}
+
+/** Text as input bytes in the session's terminal encoding; UTF-8 for an unknown id. */
+export function encodeSessionText(sessionId: string, text: string): Uint8Array {
+  return encodeTerminalInput(text, useSessionStore.getState().sessions.find((s) => s.id === sessionId)?.encoding);
 }

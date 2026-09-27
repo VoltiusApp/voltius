@@ -6,7 +6,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
 import { getAccountMode, getMyHandle, lockVaultSession, logout } from "@/services/account";
-import { getSwitchTargets, saveCurrentAccount, signOutToAddAccount, switchToAccount, removeSavedAccount, type ActiveAccount, type SavedAccount } from "@/services/savedAccounts";
+import { getSwitchTargets, saveCurrentAccount, switchToAccount, removeSavedAccount, type ActiveAccount, type SavedAccount } from "@/services/savedAccounts";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
@@ -113,17 +113,6 @@ export function SidebarAccountButton() {
     setOpen(false);
     await logout();
     window.location.reload();
-  };
-
-  const handleAddAccount = async () => {
-    setOpen(false);
-    try {
-      await signOutToAddAccount();
-    } catch (e) {
-      // It signs this account out to reach the auth screen, so it must not run
-      // when the switcher could not keep it: that is a one-way trip out.
-      reportAccountError("saveFailed", e);
-    }
   };
 
   const handleSwitchAccount = async (account: SavedAccount) => {
@@ -282,7 +271,7 @@ export function SidebarAccountButton() {
             <DropdownMenuItem
               icon="lucide:user-plus"
               label={t("layout.sidebarAccount.addAccount")}
-              onClick={() => void handleAddAccount()}
+              onClick={() => { openCloudAuth("signin", "add"); setOpen(false); }}
             />
           )}
 

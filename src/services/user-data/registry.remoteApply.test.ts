@@ -5,6 +5,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
 import { useThemeStore } from "@/stores/themeStore";
+import { useLocaleStore } from "@/stores/localeStore";
 
 const scheduleSync = vi.fn();
 vi.mock("@/services/sync", () => ({ scheduleSync: () => scheduleSync() }));
@@ -66,6 +67,31 @@ describe("applyUserDataBundle — remote apply", () => {
     await flush();
 
     expect(useUIStore.getState().prefsUpdatedAt > REMOTE_TS).toBe(true);
+    expect(scheduleSync).toHaveBeenCalled();
+  });
+
+  it("still applies every remote setting under the guard when a disk write follows them", async () => {
+    const b = bundle();
+    b.sections.appSettings.data = { plugins: { overrides: { "plugin-x": false } }, locale: "fr" };
+    await applyUserDataBundle(b, ["appSettings"], { remote: true });
+    await flush();
+
+    expect(useLocaleStore.getState().locale).toBe("fr");
+    expect(useAppSettingsTimestampStore.getState().updatedAt).toBe(REMOTE_TS);
+    expect(scheduleSync).not.toHaveBeenCalled();
+  });
+
+  it("releases the guard before awaiting, so a user edit made meanwhile stays local", async () => {
+    const b = bundle();
+    b.sections.appSettings.data = { plugins: { overrides: { "plugin-x": false } } };
+    const applying = applyUserDataBundle(b, ["appSettings"], { remote: true });
+
+    // plugin_registry_save is still in flight when the user changes language.
+    useLocaleStore.getState().setLocale("tr");
+    await applying;
+    await flush();
+
+    expect(useAppSettingsTimestampStore.getState().updatedAt > REMOTE_TS).toBe(true);
     expect(scheduleSync).toHaveBeenCalled();
   });
 });

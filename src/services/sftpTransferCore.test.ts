@@ -41,10 +41,12 @@ const m = vi.hoisted(() => ({
   sftpTransferDirTar: vi.fn(async () => {}),
 }));
 vi.mock("@/services/sftp", () => m);
+const platform = vi.hoisted(() => ({ current: "linux" }));
+vi.mock("@/utils/platform", () => ({ getPlatform: async () => platform.current }));
 
 import { transferItem } from "./sftpTransferCore";
 
-beforeEach(() => Object.values(m).forEach((f) => f.mockClear()));
+beforeEach(() => { Object.values(m).forEach((f) => f.mockClear()); platform.current = "linux"; });
 
 describe("transferItem routing", () => {
   const base = { srcPath: "/s", dstPath: "/d", transferId: "t", useTar: true };
@@ -77,6 +79,23 @@ describe("transferItem routing", () => {
   it("remote→remote dir with tar uses sftpTransferDirTar with both channels", async () => {
     await transferItem({ ...base, from: "remote", to: "remote", srcSftpId: "A", dstSftpId: "B", isDir: true });
     expect(m.sftpTransferDirTar).toHaveBeenCalledWith({ srcSftpId: "A", srcPath: "/s", dstSftpId: "B", dstPath: "/d", transferId: "t" });
+  });
+
+  it("refuses a server name the local system reads as a path", async () => {
+    platform.current = "windows";
+    const down = { ...base, from: "remote", to: "local", srcSftpId: "R", isDir: false } as const;
+    await expect(transferItem({ ...down, srcPath: "/r/..\\..\\x", dstPath: "C:\\dl\\..\\..\\x" })).rejects.toThrow("Refusing unsafe file name");
+    await expect(transferItem({ ...down, srcPath: "/r/C:x", isDir: true })).rejects.toThrow("Refusing unsafe file name");
+    expect(m.sftpDownload).not.toHaveBeenCalled();
+    expect(m.sftpDownloadDirTar).not.toHaveBeenCalled();
+    platform.current = "linux";
+    await transferItem({ ...down, srcPath: "/r/a\\b", dstPath: "/dl/a\\b" });
+    expect(m.sftpDownload).toHaveBeenCalledTimes(1);
+  });
+
+  it("downloads a remote directory given with a trailing slash", async () => {
+    await transferItem({ ...base, from: "remote", to: "local", srcSftpId: "R", srcPath: "/var/log/", isDir: true });
+    expect(m.sftpDownloadDirTar).toHaveBeenCalled();
   });
 
   it("throws when a required remote channel is missing", async () => {

@@ -9,10 +9,8 @@ interface PersistedConnectivitySettings {
 export function migrateConnectivitySettings(
   persisted: unknown,
   version: number,
-): { state: PersistedConnectivitySettings; changed: boolean } {
+): PersistedConnectivitySettings {
   const state = (persisted ?? {}) as PersistedConnectivitySettings;
-  if (version < 1 && state.keepalivePreset === "fast") {
-    return { state: { ...state, keepalivePreset: "balanced" }, changed: true };
-  }
-  return { state, changed: false };
+  if (version < 1 && state.keepalivePreset === "fast") return { ...state, keepalivePreset: "balanced" };
+  return state;
 }

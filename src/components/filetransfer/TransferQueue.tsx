@@ -31,6 +31,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
   const badgeCount = hasActive ? active.length : transfers.length;
 
   function statusIcon(tr: Transfer) {
+    if (tr.status === "done" && tr.skipped) return { icon: "lucide:triangle-alert", color: "var(--t-status-warning)", spin: false };
     if (tr.status === "done") return { icon: "lucide:circle-check-big", color: "var(--t-status-connected)", spin: false };
     if (tr.status === "error") return { icon: "lucide:circle-alert", color: "var(--t-status-error)", spin: false };
     if (tr.status === "cancelled") return { icon: "lucide:ban", color: "var(--t-text-dim)", spin: false };
@@ -183,6 +184,14 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
                   )}
                   {tr.status === "error" && tr.error && (
                     <p className="text-xs mt-0.5 leading-snug text-(--t-status-error)">{tr.error}</p>
+                  )}
+                  {tr.status !== "running" && tr.skipped && (
+                    <div className="text-xs mt-0.5 leading-snug">
+                      <p className="text-(--t-status-warning)">{t("fileTransfer.queue.skipped", { count: tr.skipped.length })}</p>
+                      <ul className="max-h-16 overflow-y-auto font-mono text-(--t-text-dim)">
+                        {tr.skipped.map((path) => <li key={path} className="truncate" title={path}>{path}</li>)}
+                      </ul>
+                    </div>
                   )}
                 </div>
               );

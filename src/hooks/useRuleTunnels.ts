@@ -1,18 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listen } from "@tauri-apps/api/event";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useAllConnections } from "@/hooks/useAllConnections";
-import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
-import { getPfState, openPfTunnel, closePfTunnel } from "@/services/portForwardingTunnels";
+import { useConnectedSshPfStates } from "@/hooks/usePfStates";
+import { openPfTunnel, closePfTunnel } from "@/services/portForwardingTunnels";
 import { getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import type { ActiveTunnel, PortForwardingRule, TerminalSession } from "@/types";
-
-interface PfStatePayload {
-  session_id: string;
-  tunnels: ActiveTunnel[];
-  suppressed_ports: number[];
-}
 
 export interface RuleTunnelState {
   sessionId: string;
@@ -38,52 +30,10 @@ export function useRuleTunnels(): {
   stopRule: (rule: PortForwardingRule) => Promise<void>;
 } {
   const { t } = useTranslation();
-  const { sessions, activeSessionId } = useSessionStore();
-  const connections = useAllConnections();
-  const accessibleVaultIds = useAccessibleVaultIds();
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const { sessions: relevantSessions, pfStates } = useConnectedSshPfStates();
 
-  const [tunnelMap, setTunnelMap] = useState<Map<string, ActiveTunnel[]>>(new Map());
   const [busyRuleIds, setBusyRuleIds] = useState<Set<string>>(new Set());
-
-  const relevantSessions = useMemo(() => {
-    return sessions.filter((s) => {
-      if (s.type !== "ssh" || s.status !== "connected") return false;
-      const conn = connections.find((c) => c.id === s.connectionId);
-      if (!conn) return false;
-      return accessibleVaultIds.includes(conn.vault_id ?? "personal");
-    });
-  }, [sessions, connections, accessibleVaultIds]);
-
-  const sessionIdKey = relevantSessions.map((s) => s.id).join(",");
-
-  useEffect(() => {
-    const ids = relevantSessions.map((s) => s.id);
-    for (const sessionId of ids) {
-      getPfState(sessionId)
-        .then((state) => setTunnelMap((prev) => new Map(prev).set(sessionId, state.tunnels)))
-        .catch(() => {});
-    }
-
-    setTunnelMap((prev) => {
-      const next = new Map(prev);
-      for (const key of next.keys()) {
-        if (!ids.includes(key)) next.delete(key);
-      }
-      return next;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionIdKey]);
-
-  useEffect(() => {
-    const ids = relevantSessions.map((s) => s.id);
-    let cleanup: (() => void) | undefined;
-    listen<PfStatePayload>("pf-state-changed", ({ payload }) => {
-      if (!ids.includes(payload.session_id)) return;
-      setTunnelMap((prev) => new Map(prev).set(payload.session_id, payload.tunnels));
-    }).then((u) => { cleanup = u; });
-    return () => { cleanup?.(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionIdKey]);
 
   function setRuleBusy(id: string, on: boolean) {
     setBusyRuleIds((prev) => {
@@ -96,13 +46,13 @@ export function useRuleTunnels(): {
 
   const ruleTunnelState = useMemo(() => {
     const result = new Map<string, RuleTunnelState>();
-    for (const [sessionId, tunnels] of tunnelMap) {
+    for (const [sessionId, { tunnels }] of pfStates) {
       for (const tunnel of tunnels) {
         if (tunnel.origin.type === "rule") result.set(tunnel.origin.rule_id, { sessionId, tunnel });
       }
     }
     return result;
-  }, [tunnelMap]);
+  }, [pfStates]);
 
   const runningRuleCount = useMemo(() => {
     let active = 0;

@@ -17,6 +17,7 @@
       "encryptBackup": "Chiffrer la sauvegarde",
       "plaintextSecretsWarning": "Cet export contient des mots de passe, des clés ou des notes d'hôtes en clair. Laissez le chiffrement activé, sauf si vous avez délibérément besoin d'un fichier non chiffré.",
       "snippetRefMissing": "« {{name}} » exécute un autre snippet ({{target}}) qui ne fait pas partie de cet export. Incluez-le dans la sélection ou supprimez cette étape.",
+      "exportFailed": "Échec de l’export : {{error}}",
       "confirmPasswordPlaceholder": "Confirmer le mot de passe",
       "passwordsDontMatch": "Les mots de passe ne correspondent pas",
       "building": "Génération…",
@@ -28,11 +29,13 @@
       "selectedItem_other": "{{count}} éléments sélectionnés",
       "autoInclude": {
         "connections_one": "{{count}} connexion",
-        "connections_other": "{{count}} connexions"
+        "connections_other": "{{count}} connexions",
+        "snippets_one": "{{count}} extrait",
+        "snippets_other": "{{count}} extraits"
       },
       "autoIncludeHint": "Également inclus : utilisés par les éléments exportés, pour qu'ils fonctionnent encore après l'import",
       "relatedCredentials": "Inclure les identifiants liés",
-      "relatedCredentialsHint": "Les identités et clés SSH utilisées par ces connexions. Laissez décoché pour n'exporter que les paramètres de connexion et attribuer les identifiants après l'import.",
+      "relatedCredentialsHint": "Les identités et clés SSH utilisées par ces connexions. Laissez décoché pour n'exporter que les paramètres de connexion ; à l'import, elles sont reliées à une identité ou une clé correspondante déjà présente dans le coffre.",
       "checkboxLabel": {
         "connections_one": "Connexion ({{count}})",
         "connections_other": "Connexions ({{count}})",
@@ -65,6 +68,9 @@
       "groupConnections": "Connexions",
       "groupKeys": "Clés SSH",
       "groupIdentities": "Identités",
+      "groupLinkedCredentials": "Identifiants liés",
+      "linkedTo": "Lié à « {{name}} » dans ce coffre",
+      "linkedNotFound": "Absent de ce coffre — à attribuer après l'import",
       "groupPortForwarding": "Redirection de ports",
       "selectAll": "Tout sélectionner",
       "deselectAll": "Tout désélectionner",

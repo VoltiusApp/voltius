@@ -1,8 +1,9 @@
 import { getSecret } from "@/services/vault";
-import type { Connection, Folder, PortForwardingRule } from "@/types";
+import { ensurePublicKey } from "@/services/publicKeyStore";
+import type { Connection, Folder, Identity, PortForwardingRule, Snippet, SshKey } from "@/types";
 import type { ExportBundle, FolderExport } from "./formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "./context";
-import { existingConnectionsForVault, hasSelection } from "./context";
+import { dupeItems, dupesOf, hasSelection } from "./context";
 import type { DataTypeHandler } from "./handler";
 import { keysHandler } from "./handlers/keys";
 import { identitiesHandler } from "./handlers/identities";
@@ -11,14 +12,14 @@ import { snippetsHandler } from "./handlers/snippets";
 import { portForwardingHandler } from "./handlers/portForwarding";
 
 // ─── Handler registry ─────────────────────────────────────────────────────────
-// Order matters for import: folders first, then keys → identities → connections
-// (cascade deps), then independent types. Export order doesn't matter.
+// Run in dependency order on export and import: a handler's eid map must be filled
+// before any later handler references it. Folders go first, in the orchestrators.
 
 export const HANDLERS: DataTypeHandler[] = [
   keysHandler,
   identitiesHandler,
-  connectionsHandler,
   snippetsHandler,
+  connectionsHandler,
   portForwardingHandler,
 ];
 
@@ -34,6 +35,21 @@ function collectJumpHostConnectionIds(connections: Connection[], allConnections:
       }
     }
   }
+}
+
+function collectSnippetCalls(ids: (string | undefined)[], all: Snippet[], out: Set<string>): void {
+  for (const id of ids) {
+    const snippet = id && !out.has(id) ? all.find(s => s.id === id) : undefined;
+    if (!snippet) continue;
+    out.add(snippet.id);
+    collectSnippetCalls(snippet.steps.map(st => st.kind === "snippet" ? st.snippet_id : undefined), all, out);
+  }
+}
+
+function notSelected<T extends { id: string }>(all: T[], selected: T[], ids: (string | undefined)[]): T[] {
+  const wanted = new Set(ids);
+  const have = new Set(selected.map(i => i.id));
+  return all.filter(i => wanted.has(i.id) && !have.has(i.id));
 }
 
 function walkParentChain(startId: string, all: Folder[], out: Set<string>) {
@@ -97,34 +113,24 @@ export async function buildBundle(
     if (toAdd.length > 0) selectedByKey["connections"] = [...(selectedByKey["connections"] as Connection[]), ...toAdd];
   }
 
-  // Cascade: connections → identities → keys (including jump host identities)
-  if (includeRelatedCredentials) {
-    const connItems = selectedByKey["connections"] as Connection[];
-    const cascadedIdentityIds = new Set([
-      ...(selectedByKey["identities"] as { id: string }[]).map(i => i.id),
-      ...connItems.map(c => c.identity_id).filter((id): id is string => !!id),
-      ...connItems.flatMap(c => (c.jump_hosts ?? []).map(jh => jh.identity_id).filter((id): id is string => !!id)),
-    ]);
-    if (enabled["identities"] || cascadedIdentityIds.size > 0) {
-      const effectiveIdentities = stores.identities.filter(i => cascadedIdentityIds.has(i.id));
-      if (effectiveIdentities.length > (selectedByKey["identities"] as unknown[]).length) {
-        selectedByKey["identities"] = effectiveIdentities;
-      }
-    }
+  // Cascade: connections → their pre/post-connect snippets and the snippets those call
+  const liveSnippets = stores.snippets.filter(s => !s.deleted_at);
+  const hookSnippetIds = new Set<string>();
+  collectSnippetCalls((selectedByKey["connections"] as Connection[]).flatMap(c => [c.pre_snippet_id, c.post_snippet_id]), liveSnippets, hookSnippetIds);
+  const hookSnippets = notSelected(liveSnippets, selectedByKey["snippets"] as Snippet[], [...hookSnippetIds]);
+  if (hookSnippets.length > 0) selectedByKey["snippets"] = [...selectedByKey["snippets"], ...hookSnippets];
 
-    const idItems = selectedByKey["identities"] as { id: string; key_id?: string }[];
-    const cascadedKeyIds = new Set([
-      ...(selectedByKey["keys"] as { id: string }[]).map(k => k.id),
-      ...idItems.map(i => i.key_id).filter((id): id is string => !!id),
-      ...connItems.map(c => c.key_id).filter((id): id is string => !!id),
-    ]);
-    if (enabled["keys"] || cascadedKeyIds.size > 0) {
-      const effectiveKeys = stores.keys.filter(k => cascadedKeyIds.has(k.id));
-      if (effectiveKeys.length > (selectedByKey["keys"] as unknown[]).length) {
-        selectedByKey["keys"] = effectiveKeys;
-      }
-    }
-  }
+  // Cascade: connections → identities → keys (including jump host identities).
+  // Left out unless asked for, the linked ones travel as refs the importer can relink.
+  const connItems = selectedByKey["connections"] as Connection[];
+  const linkedIdentities = notSelected(stores.identities, selectedByKey["identities"] as Identity[], [
+    ...connItems.map(c => c.identity_id),
+    ...connItems.flatMap(c => (c.jump_hosts ?? []).map(jh => jh.identity_id)),
+  ]);
+  if (includeRelatedCredentials) selectedByKey["identities"] = [...selectedByKey["identities"], ...linkedIdentities];
+  const keyUsers: { key_id?: string }[] = [...(selectedByKey["identities"] as Identity[]), ...connItems];
+  const linkedKeys = notSelected(stores.keys, selectedByKey["keys"] as SshKey[], keyUsers.map(u => u.key_id));
+  if (includeRelatedCredentials) selectedByKey["keys"] = [...selectedByKey["keys"], ...linkedKeys];
 
   // 2. Collect folder IDs from all handlers
   const mainFolderIds = new Set<string>();
@@ -154,10 +160,14 @@ export async function buildBundle(
     keyEidMap: new Map(),
     identityEidMap: new Map(),
     connectionEidMap: new Map(),
+    snippetEidMap: new Map(),
     allFolders: stores.folders,
     allSnippetFolders: stores.snippetFolders,
     allIdentities: stores.identities,
     allKeys: stores.keys,
+    keyRefs: includeRelatedCredentials ? [] : linkedKeys,
+    identityRefs: includeRelatedCredentials ? [] : linkedIdentities,
+    publicKey: (key) => canViewSecrets(key.vault_id ?? "personal") ? ensurePublicKey(key).catch(() => null) : Promise.resolve(null),
   };
 
   // 5. Build bundle — handlers run in registry order so eid maps are ready for deps
@@ -184,52 +194,6 @@ export async function buildBundle(
 
 // ─── Import helpers ───────────────────────────────────────────────────────────
 
-function neededFolderEids(bundle: ExportBundle, ctx: ImportCtx): Set<string> {
-  const needed = new Set<string>();
-
-  const existingConnSet = new Set(
-    existingConnectionsForVault(ctx.existingConnections, ctx.vault_id).map(c => `${c.host}:${c.port}:${c.username}`)
-  );
-  for (const c of bundle.connections) {
-    if (!ctx.skipDupes || !existingConnSet.has(`${c.host}:${c.port}:${c.username}`))
-      if (c._folder_eid) needed.add(c._folder_eid);
-  }
-
-  const existingKeyNames = new Set(
-    ctx.existingKeys.filter(k => !k.deleted_at && (k.vault_id ?? "personal") === ctx.vault_id).map(k => k.name)
-  );
-  for (const k of bundle.keys) {
-    if (!ctx.skipDupes || !k.name || !existingKeyNames.has(k.name))
-      if (k._folder_eid) needed.add(k._folder_eid);
-  }
-
-  const existingIdentityNames = new Set(
-    ctx.existingIdentities.filter(i => !i.deleted_at && (i.vault_id ?? "personal") === ctx.vault_id).map(i => i.name)
-  );
-  for (const i of bundle.identities) {
-    if (!ctx.skipDupes || !i.name || !existingIdentityNames.has(i.name))
-      if (i._folder_eid) needed.add(i._folder_eid);
-  }
-
-  const existingSnippetNames = new Set(
-    ctx.existingSnippets.filter(s => !s.deleted_at && (s.vault_id ?? "personal") === ctx.vault_id).map(s => s.name)
-  );
-  for (const s of bundle.snippets) {
-    if (!ctx.skipDupes || !existingSnippetNames.has(s.name))
-      if (s._folder_eid) needed.add(s._folder_eid);
-  }
-
-  const existingPfNames = new Set(
-    ctx.existingPfRules.filter(r => !r.deleted_at && (r.vault_id ?? "personal") === ctx.vault_id).map(r => r.name)
-  );
-  for (const r of bundle.portForwardingRules) {
-    if (!ctx.skipDupes || !existingPfNames.has(r.name))
-      if (r._folder_eid) needed.add(r._folder_eid);
-  }
-
-  return withAncestors(needed, bundle.folders);
-}
-
 function withAncestors(eids: Set<string>, folders: FolderExport[]): Set<string> {
   let changed = true;
   while (changed) {
@@ -244,22 +208,22 @@ function withAncestors(eids: Set<string>, folders: FolderExport[]): Set<string> 
   return eids;
 }
 
-function itemFolderEids(bundle: ExportBundle): Set<string> {
+function itemFolderEids(bundle: ExportBundle, skipped: ReadonlySet<object> = new Set()): Set<string> {
   const items = [...bundle.connections, ...bundle.keys, ...bundle.identities, ...bundle.snippets, ...bundle.portForwardingRules];
-  return new Set(items.flatMap(i => i._folder_eid ? [i._folder_eid] : []));
+  return new Set(items.flatMap(i => i._folder_eid && !skipped.has(i) ? [i._folder_eid] : []));
 }
 
-// Folders of `original` worth importing once items were dropped to make `kept`:
+// Folders of `bundle` worth importing once `skipped` items are left out:
 // ancestors of a kept item, and empty leaf folders with their ancestors.
-export function importableFolders(original: ExportBundle, kept: ExportBundle): FolderExport[] {
-  const holding = itemFolderEids(original);
-  const keptHolding = itemFolderEids(kept);
-  const parents = new Set(original.folders.map(f => f.parent_folder_eid));
-  const seeds = original.folders
+export function importableFolders(bundle: ExportBundle, skipped: ReadonlySet<object>): FolderExport[] {
+  const holding = itemFolderEids(bundle);
+  const keptHolding = itemFolderEids(bundle, skipped);
+  const parents = new Set(bundle.folders.map(f => f.parent_folder_eid));
+  const seeds = bundle.folders
     .filter(f => keptHolding.has(f._eid) || (!holding.has(f._eid) && !parents.has(f._eid)))
     .map(f => f._eid);
-  const keep = withAncestors(new Set(seeds), original.folders);
-  return original.folders.filter(f => keep.has(f._eid));
+  const keep = withAncestors(new Set(seeds), bundle.folders);
+  return bundle.folders.filter(f => keep.has(f._eid));
 }
 
 function matchingFolder(ctx: ImportCtx, folder: FolderExport, parentId: string | undefined): Folder | undefined {
@@ -278,8 +242,8 @@ export async function runImport(
   let errors = 0;
 
   // 1. Folders — reused when the vault already has one of the same name, type and parent
-  const needed = ctx.skipDupes ? neededFolderEids(bundle, ctx) : null;
-  const pending = bundle.folders.filter(f => !needed || needed.has(f._eid));
+  ctx.skipped ??= ctx.skipDupes ? dupeItems(bundle, dupesOf(ctx)) : new Set();
+  const pending = importableFolders(bundle, ctx.skipped);
   let maxPasses = pending.length + 1;
   while (pending.length > 0 && maxPasses-- > 0) {
     const remaining: FolderExport[] = [];

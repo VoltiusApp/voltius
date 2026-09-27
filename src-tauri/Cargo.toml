@@ -1,6 +1,6 @@
 [package]
 name = "voltius"
-version = "0.42.0"
+version = "0.43.0"
 description = "Open-Source SSH & SFTP Client"
 authors = ["Voltius Contributors"]
 edition = "2021"
@@ -30,6 +30,7 @@ dirs = "6"
 # `des` enables the 3des-cbc cipher for the optional legacy-algorithms toggle.
 russh = { version = "0.62", features = ["des"] }
 russh-sftp = "2.3"
+tokio-socks = "0.5"
 tokio-util = { version = "0.7", default-features = false }
 tauri-plugin-dialog = "2"
 async-trait = "0.1"
@@ -69,6 +70,7 @@ rustls-native-certs = "0.8"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
+minisign-verify = "0.2"
 tauri-plugin-single-instance = "2"
 # machine-uid 0.6 has no Android/iOS backend (its lib.rs fails to compile there).
 # Desktop reads it via raw_machine_id(); mobile uses ANDROID_ID instead (see vault.rs).

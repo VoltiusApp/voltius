@@ -1,11 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
-import { setVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNeeded, wipeLocalConfig } from "./vault";
+import { setVaultKey, getVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNeeded, wipeLocalConfig } from "./vault";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { rememberServer } from "@/utils/serverInstance";
+import { base64ToBytes, hexToBytes } from "@/utils/base64";
+import type { SavedAccount } from "./savedAccounts";
 
 function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
@@ -27,14 +29,6 @@ interface GeneratedUserSecrets {
 interface UnwrappedUserSecrets {
   dek: number[];
   x25519_private: number[];
-}
-
-function hexToBytes(hex: string): number[] {
-  const bytes: number[] = [];
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes.push(parseInt(hex.slice(i, i + 2), 16));
-  }
-  return bytes;
 }
 
 function isHexEncoded32ByteKey(value: string): boolean {
@@ -276,13 +270,7 @@ export async function createLocalAccount(password: string): Promise<void> {
   await keychainSet("mode", "local");
 }
 
-/** Cloud account — registers on server and stores JWT. */
-export async function createServerAccount(
-  email: string,
-  password: string,
-  serverUrl: string,
-): Promise<void> {
-  serverUrl = normalizeServerUrl(serverUrl);
+async function registerServerAccount(email: string, password: string, serverUrl: string) {
   const accountId = crypto.randomUUID();
   const { auth_key, enc_key } = await deriveKeys(password, accountId);
   const secrets = await generateUserSecrets();
@@ -295,8 +283,20 @@ export async function createServerAccount(
     serverUrl, email, accountId, authKey: auth_key,
     publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets,
   });
+  return { accountId, kek: enc_key, secrets, wrapped_user_secrets, data };
+}
 
-  useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek: enc_key });
+/** Cloud account — registers on server and stores JWT. */
+export async function createServerAccount(
+  email: string,
+  password: string,
+  serverUrl: string,
+): Promise<void> {
+  serverUrl = normalizeServerUrl(serverUrl);
+  const { accountId, kek, secrets, wrapped_user_secrets, data } =
+    await registerServerAccount(email, password, serverUrl);
+
+  useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek });
   setVaultKey(secrets.dek);
 
   await persistServerSession({
@@ -600,10 +600,7 @@ export async function setMasterPassword(password: string): Promise<void> {
   // If connected to cloud, re-push immediately so other devices get a blob
   // encrypted with the new key — without this, pullAndMerge on any other
   // device would fail to decrypt this device's old blob.
-  if (priorMode === "server") {
-    const { push } = await import("@/services/sync");
-    push().catch(() => {});
-  }
+  if (priorMode === "server") pushUnderNewVaultKey();
 }
 
 /**
@@ -619,13 +616,7 @@ function authFailure(status: number, expected: string): Error {
   return new Error(i18n.t("common.error.serverError", { status }));
 }
 
-/** Sign in to an existing cloud account (any local mode — replaces local identity). */
-export async function signInToCloud(
-  email: string,
-  password: string,
-  serverUrl: string,
-): Promise<void> {
-  serverUrl = normalizeServerUrl(serverUrl);
+async function signInServerAccount(email: string, password: string, serverUrl: string) {
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
   if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
   const { account_id: accountId } = await res.json();
@@ -638,7 +629,18 @@ export async function signInToCloud(
     body: JSON.stringify({ account_id: accountId, auth_key }),
   });
   if (!loginRes.ok) throw authFailure(loginRes.status, "common.error.invalidEmailOrPassword");
-  const data = await loginRes.json();
+  const data: { jwt_token: string; refresh_token: string; wrapped_user_secrets?: string | null } = await loginRes.json();
+  return { accountId: accountId as string, kek, data };
+}
+
+/** Sign in to an existing cloud account (any local mode — replaces local identity). */
+export async function signInToCloud(
+  email: string,
+  password: string,
+  serverUrl: string,
+): Promise<void> {
+  serverUrl = normalizeServerUrl(serverUrl);
+  const { accountId, kek, data } = await signInServerAccount(email, password, serverUrl);
 
   let vaultKey = kek;
   if (data.wrapped_user_secrets) {
@@ -661,6 +663,31 @@ export async function signInToCloud(
   // config_wipe also clears the JSON entity files; clearLocalEntityState will repopulate
   // them with empty arrays so syncOnLogin starts from a clean slate.
   await wipeLocalConfig();
+}
+
+/** Sign in to, or register, another cloud account without touching the active session. */
+export async function authenticateServerAccount(
+  kind: "signin" | "register",
+  email: string,
+  password: string,
+  serverUrl: string,
+): Promise<Omit<SavedAccount, "mode">> {
+  serverUrl = normalizeServerUrl(serverUrl);
+  const { accountId, data, wrapped_user_secrets } = kind === "register"
+    ? await registerServerAccount(email, password, serverUrl)
+    : await signInServerAccount(email, password, serverUrl).then((r) => ({
+      ...r, wrapped_user_secrets: r.data.wrapped_user_secrets ?? null,
+    }));
+  rememberServer(serverUrl);
+  return {
+    account_id: accountId,
+    email,
+    server_url: serverUrl,
+    master_password: password,
+    jwt: data.jwt_token,
+    refresh_token: data.refresh_token,
+    wrapped_user_secrets,
+  };
 }
 
 /** Link an existing local account to a cloud server — registers and enables sync. */
@@ -702,6 +729,43 @@ export async function linkToCloud(
 
 // ─── New account management features ─────────────────────────────────────────
 
+/** Upload this device's blob under the vault key just installed; never throws. */
+function pushUnderNewVaultKey(): void {
+  import("@/services/sync").then(({ push }) => push()).catch(() => {});
+}
+
+/**
+ * Puts secrets.enc and the session on the dek, the only key the new password reaches.
+ * Returns how to put both back, or null when they were already there.
+ */
+async function moveVaultToDek(kek: number[], dek: number[]): Promise<(() => Promise<void>) | null> {
+  const opener = await keyThatOpensVault(dek, kek);
+  if (!opener) throw new Error(i18n.t("common.error.currentPasswordIncorrect"));
+  const sessionKey = getVaultKey();
+  const rekeyed = opener === kek;
+  if (rekeyed) {
+    await unlockVaultIfNeeded();
+    await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
+  } else if (sessionKey?.join(",") === dek.join(",")) {
+    return null;
+  }
+  setVaultKey(dek);
+  return async () => {
+    if (rekeyed) {
+      await unlockVaultIfNeeded();
+      await invoke("secrets_rekey", { oldEncKey: dek, newEncKey: kek });
+    }
+    if (sessionKey) setVaultKey(sessionKey);
+  };
+}
+
+// The server commits before minting tokens, so only a 4xx or its own answer proves a change did not land.
+async function passwordChangeMayHaveLanded(res: Response | null, newWrapped: string): Promise<boolean> {
+  if (res && res.status >= 400 && res.status < 500) return false;
+  const me = await getMe(5_000);
+  return !me || me.wrapped_user_secrets === newWrapped;
+}
+
 export async function changeMasterPassword(
   currentPassword: string,
   newPassword: string,
@@ -734,12 +798,23 @@ export async function changeMasterPassword(
   const { auth_key: new_auth_key, enc_key: new_kek } = await deriveKeys(newPassword, accountId);
   const new_wrapped_user_secrets = await wrapUserSecrets(new_kek, cachedDek, cachedX25519);
 
+  const undoMove = await moveVaultToDek(old_kek, cachedDek);
+  // The team identity derives from the vault key, so a change that did not land must not keep the move.
+  const undoMoveUnlessLanded = async (res: Response | null) => {
+    if (!undoMove || (await passwordChangeMayHaveLanded(res, new_wrapped_user_secrets))) return;
+    await undoMove().catch((e) => console.warn("Putting the vault back on its old key failed:", e));
+  };
+
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/password`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({ old_auth_key, new_auth_key, new_wrapped_user_secrets }),
+  }).catch(async (e) => {
+    await undoMoveUnlessLanded(null);
+    throw e;
   });
   if (!res.ok) {
+    await undoMoveUnlessLanded(res);
     if (res.status === 401) throw new Error(i18n.t("common.error.currentPasswordIncorrect"));
     throw new Error(i18n.t("common.error.passwordChangeFailed", { status: res.status }));
   }
@@ -750,6 +825,7 @@ export async function changeMasterPassword(
   await keychainSet("refresh_token", data.refresh_token);
   await keychainSet("wrapped_user_secrets", new_wrapped_user_secrets);
   useVaultKeysStore.getState().set({ dek: cachedDek, x25519Private: cachedX25519, kek: new_kek });
+  if (undoMove) pushUnderNewVaultKey();
   reloadSubscription();
 }
 
@@ -788,9 +864,7 @@ async function migrateToWrappedUserSecrets(
     // Derive existing deterministic X25519 keypair from legacy enc_key (= kek)
     const { private_key: legacyX25519PrivateB64 } = await deriveX25519Keypair(kek);
 
-    const legacyX25519Private = Array.from(
-      Uint8Array.from(atob(legacyX25519PrivateB64), (c) => c.charCodeAt(0))
-    );
+    const legacyX25519Private = Array.from(base64ToBytes(legacyX25519PrivateB64));
 
     const secrets = await generateUserSecrets();
     const dek = secrets.dek;
@@ -833,8 +907,7 @@ async function migrateToWrappedUserSecrets(
     setVaultKey(vaultKey);
     await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
 
-    const { push } = await import("@/services/sync");
-    push().catch(() => {});
+    pushUnderNewVaultKey();
   } catch (e) {
     console.warn("Migration failed, falling back to legacy key:", e);
     setVaultKey(kek);

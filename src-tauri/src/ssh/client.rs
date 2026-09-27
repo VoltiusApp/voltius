@@ -2,10 +2,11 @@ use crate::known_hosts::{
     ConflictAction, HostKeyConflictEvent, HostKeyStatus, KnownHostsStore, PendingConflicts,
 };
 use crate::port_forward::{RemoteRoute, RemoteRouteMap};
+use crate::proxy::{self, ProxyError, ProxySpec};
 use russh::client::{self, AuthResult, KeyboardInteractiveAuthResponse, Prompt};
 use russh::keys::ssh_key::{HashAlg, PublicKey};
 use russh::keys::PrivateKeyWithHashAlg;
-use russh::{ChannelMsg, MethodKind, MethodSet};
+use russh::{MethodKind, MethodSet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -71,6 +72,9 @@ pub struct SshClient {
     /// Server's SSH identification banner, captured in `kex_done`. Read after
     /// the handshake to detect Windows OpenSSH (see `is_windows_sshid`).
     remote_sshid: Arc<Mutex<Option<Vec<u8>>>>,
+    /// Whether this connection requested agent forwarding; gates the server's
+    /// agent channels (see `open_agent_channel`).
+    agent_forwarding: bool,
 }
 
 impl SshClient {
@@ -91,6 +95,7 @@ impl SshClient {
                 conflict_ctx: None,
                 remote_routes,
                 remote_sshid: Arc::new(Mutex::new(None)),
+                agent_forwarding: false,
             },
             rejection_reason,
         )
@@ -107,6 +112,7 @@ impl SshClient {
         app: AppHandle,
         session_id: String,
         pending_conflicts: Arc<PendingConflicts>,
+        agent_forwarding: bool,
     ) -> InteractiveClient {
         let rejection_reason = Arc::new(Mutex::new(None::<String>));
         let remote_routes: RemoteRouteMap = Arc::new(Mutex::new(HashMap::new()));
@@ -124,6 +130,7 @@ impl SshClient {
                 }),
                 remote_routes: Arc::clone(&remote_routes),
                 remote_sshid: Arc::clone(&remote_sshid),
+                agent_forwarding,
             },
             rejection_reason,
             remote_routes,
@@ -258,80 +265,48 @@ impl client::Handler for SshClient {
         reply: client::ChannelOpenHandle,
         _session: &mut russh::client::Session,
     ) -> Result<(), Self::Error> {
-        reply.accept().await;
-        #[cfg(unix)]
-        {
-            let sock_path = match std::env::var("SSH_AUTH_SOCK") {
-                Ok(p) => p,
-                Err(_) => return Ok(()),
-            };
-
-            tokio::spawn(async move {
-                let Ok(mut sock) = tokio::net::UnixStream::connect(&sock_path).await else {
-                    return;
-                };
-                let (mut chan_read, chan_write) = channel.split();
-                let mut writer = chan_write.make_writer();
-                let (mut sock_read, mut sock_write) = sock.split();
-                let mut buf = [0u8; 4096];
-
-                loop {
-                    tokio::select! {
-                        n = sock_read.read(&mut buf) => {
-                            match n {
-                                Ok(0) | Err(_) => break,
-                                Ok(n) => { let _ = writer.write_all(&buf[..n]).await; }
-                            }
-                        }
-                        msg = chan_read.wait() => {
-                            match msg {
-                                Some(ChannelMsg::Data { data }) => {
-                                    let _ = sock_write.write_all(&data).await;
-                                }
-                                _ => break,
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        #[cfg(windows)]
-        {
-            tokio::spawn(async move {
-                let Ok(sock) = tokio::net::windows::named_pipe::ClientOptions::new()
-                    .open(r"\\.\pipe\openssh-ssh-agent")
-                else {
-                    return;
-                };
-                let (mut sock_read, mut sock_write) = tokio::io::split(sock);
-                let (mut chan_read, chan_write) = channel.split();
-                let mut writer = chan_write.make_writer();
-                let mut buf = [0u8; 4096];
-
-                loop {
-                    tokio::select! {
-                        n = sock_read.read(&mut buf) => {
-                            match n {
-                                Ok(0) | Err(_) => break,
-                                Ok(n) => { let _ = writer.write_all(&buf[..n]).await; }
-                            }
-                        }
-                        msg = chan_read.wait() => {
-                            match msg {
-                                Some(ChannelMsg::Data { data }) => {
-                                    if sock_write.write_all(&data).await.is_err() { break; }
-                                }
-                                _ => break,
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
+        open_agent_channel(self.agent_forwarding, channel, reply).await;
         Ok(())
     }
+}
+
+/// Only a connection that asked for agent forwarding may reach the local agent;
+/// jump hosts, SFTP/exec connections and forwarding-off sessions are refused.
+async fn open_agent_channel(
+    enabled: bool,
+    channel: russh::Channel<client::Msg>,
+    reply: client::ChannelOpenHandle,
+) {
+    if !enabled {
+        reply
+            .reject(russh::ChannelOpenFailure::AdministrativelyProhibited)
+            .await;
+        return;
+    }
+    match connect_local_agent().await {
+        Ok(agent) => {
+            reply.accept().await;
+            tokio::spawn(crate::port_forward::pipe::pump(
+                channel,
+                agent,
+                tokio_util::sync::CancellationToken::new(),
+                Default::default(),
+            ));
+        }
+        Err(_) => reply.reject(russh::ChannelOpenFailure::ConnectFailed).await,
+    }
+}
+
+#[cfg(unix)]
+async fn connect_local_agent() -> std::io::Result<tokio::net::UnixStream> {
+    let path = std::env::var_os("SSH_AUTH_SOCK").ok_or(std::io::ErrorKind::NotFound)?;
+    tokio::net::UnixStream::connect(path).await
+}
+
+#[cfg(windows)]
+async fn connect_local_agent() -> std::io::Result<tokio::net::windows::named_pipe::NamedPipeClient>
+{
+    tokio::net::windows::named_pipe::ClientOptions::new().open(r"\\.\pipe\openssh-ssh-agent")
 }
 
 pub struct ConnectedSession {
@@ -673,19 +648,95 @@ fn is_windows_sshid(sshid: &[u8]) -> bool {
 
 // Host-key rejections set `rejection_reason` instead, so they never reach here.
 fn is_transient_connect_error(e: &russh::Error) -> bool {
-    use std::io::ErrorKind;
     match e {
-        russh::Error::IO(io) => matches!(
-            io.kind(),
-            ErrorKind::ConnectionReset
-                | ErrorKind::ConnectionAborted
-                | ErrorKind::ConnectionRefused
-                | ErrorKind::TimedOut
-                | ErrorKind::BrokenPipe
-                | ErrorKind::UnexpectedEof
-        ),
+        russh::Error::IO(io) => proxy::is_transient_io_kind(io.kind()),
         russh::Error::HUP | russh::Error::ConnectionTimeout => true,
         _ => false,
+    }
+}
+
+pub(crate) enum HopError {
+    Proxy(ProxyError),
+    Ssh(russh::Error),
+}
+
+impl std::fmt::Display for HopError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Proxy(e) => write!(f, "{e}"),
+            Self::Ssh(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl HopError {
+    fn is_transient(&self) -> bool {
+        match self {
+            Self::Proxy(e) => e.is_transient(),
+            Self::Ssh(e) => is_transient_connect_error(e),
+        }
+    }
+}
+
+/// The returned `Option<String>` is the proxy's `via` label.
+pub(crate) async fn connect_first_hop<H>(
+    config: Arc<client::Config>,
+    proxy: Option<&ProxySpec>,
+    host: &str,
+    port: u16,
+    handler: H,
+) -> Result<(client::Handle<H>, Option<String>), HopError>
+where
+    H: client::Handler<Error = russh::Error> + Send + 'static,
+{
+    let dialed = proxy::dial(proxy, host, port)
+        .await
+        .map_err(HopError::Proxy)?;
+    let handle = client::connect_stream(config, dialed.stream, handler)
+        .await
+        .map_err(HopError::Ssh)?;
+    Ok((handle, dialed.via))
+}
+
+pub(crate) fn hop_detail(host: &str, port: u16, suffix: &str, via: Option<&str>) -> String {
+    match via {
+        Some(v) => format!("{host}:{port}{suffix} via {v}"),
+        None => format!("{host}:{port}{suffix}"),
+    }
+}
+
+/// The handler is rebuilt each attempt because `connect_stream` consumes it;
+/// a set rejection reason (host-key/abort) is deliberate and never retried.
+pub(crate) async fn connect_first_hop_retrying<H, T>(
+    config: &Arc<client::Config>,
+    proxy: Option<&ProxySpec>,
+    host: &str,
+    port: u16,
+    max_attempts: u32,
+    mut make: impl FnMut() -> (H, Arc<Mutex<Option<String>>>, T),
+    fail: impl Fn(&HopError) -> String,
+) -> Result<(client::Handle<H>, Option<String>, T), String>
+where
+    H: client::Handler<Error = russh::Error> + Send + 'static,
+{
+    let mut attempt = 1;
+    loop {
+        let (handler, rejection_reason, extra) = make();
+        match connect_first_hop(Arc::clone(config), proxy, host, port, handler).await {
+            Ok((h, via)) => return Ok((h, via, extra)),
+            Err(e) => {
+                let reason = rejection_reason.lock().await.take();
+                if reason.is_none() && attempt < max_attempts && e.is_transient() {
+                    tokio::time::sleep(std::time::Duration::from_millis(
+                        CONNECT_RETRY_BACKOFF_MS * attempt as u64,
+                    ))
+                    .await;
+                    attempt += 1;
+                    continue;
+                }
+                return Err(reason.unwrap_or_else(|| fail(&e)));
+            }
+        }
     }
 }
 
@@ -714,6 +765,7 @@ pub async fn connect(
     pty_rows: u32,
     legacy_algorithms: bool,
     initial_cwd: Option<String>,
+    proxy: Option<ProxySpec>,
 ) -> Result<ConnectedSession, String> {
     let config = Arc::new(client_config(
         keepalive_interval_secs,
@@ -731,88 +783,57 @@ pub async fn connect(
     let mut final_sshid: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
 
     let mut final_handle: client::Handle<SshClient> = if jump_hosts.is_empty() {
-        // Rebuilt each attempt: `connect` consumes the handler.
-        let mut attempt = 1;
-        loop {
-            let (ssh_client, rejection_reason, routes, sshid) = SshClient::new_interactive(
-                host.to_string(),
-                port,
-                Arc::clone(&known_hosts),
-                app.clone(),
-                session_id.clone(),
-                Arc::clone(&pending_conflicts),
-            );
-            match client::connect(Arc::clone(&config), (host, port), ssh_client).await {
-                Ok(h) => {
-                    final_routes = routes;
-                    final_sshid = sshid;
-                    emit_step(
-                        &app,
-                        &session_id,
-                        SshStep::TcpConnected,
-                        format!("{}:{}", host, port),
-                    );
-                    break h;
-                }
-                Err(e) => {
-                    let reason = rejection_reason.lock().await.take();
-                    // Reason set = deliberate rejection (host-key/abort); don't retry.
-                    if reason.is_none()
-                        && attempt < CONNECT_MAX_ATTEMPTS
-                        && is_transient_connect_error(&e)
-                    {
-                        tokio::time::sleep(std::time::Duration::from_millis(
-                            CONNECT_RETRY_BACKOFF_MS * attempt as u64,
-                        ))
-                        .await;
-                        attempt += 1;
-                        continue;
-                    }
-                    return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
-                }
-            }
-        }
-    } else {
-        // Rebuilt each attempt: `connect` consumes the handler.
-        let first = &jump_hosts[0];
-        let mut current_handle = {
-            let mut attempt = 1;
-            loop {
-                let (first_client, rejection_reason) =
-                    SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
-                match client::connect(
-                    Arc::clone(&config),
-                    (first.host.as_str(), first.port),
-                    first_client,
-                )
-                .await
-                {
-                    Ok(h) => break h,
-                    Err(e) => {
-                        let reason = rejection_reason.lock().await.take();
-                        if reason.is_none()
-                            && attempt < CONNECT_MAX_ATTEMPTS
-                            && is_transient_connect_error(&e)
-                        {
-                            tokio::time::sleep(std::time::Duration::from_millis(
-                                CONNECT_RETRY_BACKOFF_MS * attempt as u64,
-                            ))
-                            .await;
-                            attempt += 1;
-                            continue;
-                        }
-                        return Err(reason.unwrap_or_else(|| {
-                            format!("Jump host {} connection failed: {}", first.host, e)
-                        }));
-                    }
-                }
-            }
-        };
+        let (h, via, (routes, sshid)) = connect_first_hop_retrying(
+            &config,
+            proxy.as_ref(),
+            host,
+            port,
+            CONNECT_MAX_ATTEMPTS,
+            || {
+                let (c, reason, routes, sshid) = SshClient::new_interactive(
+                    host.to_string(),
+                    port,
+                    Arc::clone(&known_hosts),
+                    app.clone(),
+                    session_id.clone(),
+                    Arc::clone(&pending_conflicts),
+                    agent_forwarding,
+                );
+                (c, reason, (routes, sshid))
+            },
+            |e| format!("Connection failed: {e}"),
+        )
+        .await?;
+        final_routes = routes;
+        final_sshid = sshid;
         emit_step(
             &app,
             &session_id,
             SshStep::TcpConnected,
-            format!("{}:{} (jump 1)", first.host, first.port),
+            hop_detail(host, port, "", via.as_deref()),
+        );
+        h
+    } else {
+        let first = &jump_hosts[0];
+        let (mut current_handle, via, ()) = connect_first_hop_retrying(
+            &config,
+            proxy.as_ref(),
+            &first.host,
+            first.port,
+            CONNECT_MAX_ATTEMPTS,
+            || {
+                let (c, reason) =
+                    SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
+                (c, reason, ())
+            },
+            |e| format!("Jump host {} connection failed: {}", first.host, e),
+        )
+        .await?;
+        emit_step(
+            &app,
+            &session_id,
+            SshStep::TcpConnected,
+            hop_detail(&first.host, first.port, " (jump 1)", via.as_deref()),
         );
         authenticate_handle(
             &mut current_handle,
@@ -874,6 +895,7 @@ pub async fn connect(
             app.clone(),
             session_id.clone(),
             Arc::clone(&pending_conflicts),
+            agent_forwarding,
         );
         final_routes = routes;
         final_sshid = sshid;
@@ -1197,20 +1219,26 @@ pub async fn connect_authenticated(
     private_key: Option<&str>,
     passphrase: Option<&str>,
     legacy_algorithms: bool,
+    proxy: Option<&ProxySpec>,
 ) -> Result<client::Handle<SshClient>, String> {
-    let config = client_config(
+    let config = Arc::new(client_config(
         0,
         client::Config::default().keepalive_max,
         legacy_algorithms,
-    );
-    let (ssh_client, rejection_reason) = SshClient::new(host.to_string(), port, known_hosts);
-    let mut handle = match client::connect(Arc::new(config), (host, port), ssh_client).await {
-        Ok(h) => h,
-        Err(e) => {
-            let reason = rejection_reason.lock().await.take();
-            return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
-        }
-    };
+    ));
+    let (mut handle, _via, ()) = connect_first_hop_retrying(
+        &config,
+        proxy,
+        host,
+        port,
+        1,
+        || {
+            let (c, reason) = SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
+            (c, reason, ())
+        },
+        |e| format!("Connection failed: {e}"),
+    )
+    .await?;
     authenticate_handle(&mut handle, username, password, private_key, passphrase).await?;
     Ok(handle)
 }
@@ -1257,15 +1285,17 @@ fn legacy_preferred() -> russh::Preferred {
 #[cfg(test)]
 mod tests {
     use super::{
-        answer_prompts, authenticate_handle, choose_rsa_hash, client_config, is_windows_sshid,
-        legacy_preferred, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED,
-        PASSWORD_REJECTED,
+        answer_prompts, authenticate_handle, choose_rsa_hash, client, client_config,
+        connect_first_hop_retrying, is_windows_sshid, legacy_preferred, open_agent_channel, Arc,
+        Mutex, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED, PASSWORD_REJECTED,
     };
+    use crate::port_forward::test_ssh::TestClient;
     use russh::client::Prompt;
     use russh::keys::ssh_key::HashAlg;
     use russh::server::{Auth, Response};
     use russh::MethodKind::{self, KeyboardInteractive, Password, PublicKey};
     use std::borrow::Cow;
+    use std::sync::atomic::{AtomicU32, Ordering};
 
     const SECRET: &str = "s3cret";
 
@@ -1542,5 +1572,121 @@ mod tests {
             cipher.first().copied(),
             Some("chacha20-poly1305@openssh.com")
         );
+    }
+
+    /// Returns how many times `make` ran.
+    async fn run_retrying(max_attempts: u32, rejection: Option<&str>) -> (u32, Result<(), String>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let calls = Arc::new(AtomicU32::new(0));
+        let calls2 = Arc::clone(&calls);
+        let rejection = rejection.map(str::to_string);
+        let result = connect_first_hop_retrying(
+            &Arc::new(client::Config::default()),
+            None,
+            "127.0.0.1",
+            port,
+            max_attempts,
+            move || {
+                calls2.fetch_add(1, Ordering::SeqCst);
+                (TestClient, Arc::new(Mutex::new(rejection.clone())), ())
+            },
+            |e| format!("boom: {e}"),
+        )
+        .await
+        .map(|_| ());
+        (calls.load(Ordering::SeqCst), result)
+    }
+
+    #[tokio::test]
+    async fn retrying_helper_retries_transient_failures_up_to_max_attempts() {
+        let (calls, result) = run_retrying(3, None).await;
+        assert_eq!(calls, 3);
+        assert!(result.unwrap_err().starts_with("boom: "));
+    }
+
+    #[tokio::test]
+    async fn retrying_helper_does_not_retry_a_deliberate_rejection() {
+        let (calls, result) = run_retrying(3, Some("host key rejected")).await;
+        assert_eq!(calls, 1);
+        assert_eq!(result.unwrap_err(), "host key rejected");
+    }
+
+    #[tokio::test]
+    async fn retrying_helper_max_attempts_one_never_retries() {
+        let (calls, _result) = run_retrying(1, None).await;
+        assert_eq!(calls, 1);
+    }
+
+    /// Opens an agent channel back to the client as soon as it opens a session,
+    /// like a server that wants to use a forwarded agent.
+    struct AgentProbeServer(Option<tokio::sync::oneshot::Sender<bool>>);
+
+    impl russh::server::Handler for AgentProbeServer {
+        type Error = russh::Error;
+
+        async fn auth_none(&mut self, _: &str) -> Result<Auth, Self::Error> {
+            Ok(Auth::Accept)
+        }
+
+        async fn channel_open_session(
+            &mut self,
+            _: russh::Channel<russh::server::Msg>,
+            reply: russh::server::ChannelOpenHandle,
+            session: &mut russh::server::Session,
+        ) -> Result<(), Self::Error> {
+            reply.accept().await;
+            let (handle, tx) = (session.handle(), self.0.take());
+            tokio::spawn(async move {
+                let opened = handle.channel_open_agent().await.is_ok();
+                tx.map(|tx| tx.send(opened));
+            });
+            Ok(())
+        }
+    }
+
+    struct AgentClient(bool);
+
+    impl russh::client::Handler for AgentClient {
+        type Error = russh::Error;
+
+        async fn check_server_key(
+            &mut self,
+            _: &russh::keys::ssh_key::PublicKey,
+        ) -> Result<bool, Self::Error> {
+            Ok(true)
+        }
+
+        async fn server_channel_open_agent_forward(
+            &mut self,
+            channel: russh::Channel<russh::client::Msg>,
+            reply: russh::client::ChannelOpenHandle,
+            _: &mut russh::client::Session,
+        ) -> Result<(), Self::Error> {
+            open_agent_channel(self.0, channel, reply).await;
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn agent_channels_are_refused_without_forwarding() {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let port = crate::port_forward::test_ssh::serve_one(
+            Default::default(),
+            AgentProbeServer(Some(tx)),
+        )
+        .await;
+        let mut handle =
+            russh::client::connect(Default::default(), ("127.0.0.1", port), AgentClient(false))
+                .await
+                .unwrap();
+        assert!(handle.authenticate_none("root").await.unwrap().success());
+        let _session = handle.channel_open_session().await.unwrap();
+        let opened = tokio::time::timeout(std::time::Duration::from_secs(5), rx)
+            .await
+            .expect("server never heard back")
+            .unwrap();
+        assert!(!opened, "the local agent was handed to the server");
     }
 }

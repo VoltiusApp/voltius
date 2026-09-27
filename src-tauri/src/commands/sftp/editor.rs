@@ -2,6 +2,7 @@ use super::get_backend;
 use crate::sftp::SftpManager;
 use serde::Serialize;
 use tauri::State;
+use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[derive(Serialize)]
 pub struct EditorFile {
@@ -40,6 +41,27 @@ pub fn is_binary(sample: &[u8]) -> bool {
 
 pub const SNIFF_BYTES: usize = 8 * 1024;
 
+/// How many bytes a backend reads for an editor capped at `max_bytes`: one past
+/// the cap, so a longer result shows the file is too large without reading it all.
+pub fn read_limit(max_bytes: u64) -> u64 {
+    max_bytes.saturating_add(1)
+}
+
+/// Read `reader` to its end, but never past `read_limit(max_bytes)`. The size a
+/// server reports can't bound the read: it is 0 for `/dev/zero`, `/dev/urandom`
+/// or a FIFO, which never end, and buffering those exhausts memory.
+pub async fn read_capped<R: AsyncRead + Unpin>(
+    reader: R,
+    max_bytes: u64,
+) -> std::io::Result<Vec<u8>> {
+    let mut buf = Vec::new();
+    reader
+        .take(read_limit(max_bytes))
+        .read_to_end(&mut buf)
+        .await?;
+    Ok(buf)
+}
+
 #[tauri::command]
 pub async fn sftp_read_file(
     sftp_state: State<'_, SftpManager>,
@@ -55,7 +77,7 @@ pub async fn sftp_read_file(
             limit: max_bytes,
         });
     }
-    let bytes: Vec<u8> = backend.read_file(&path).await?;
+    let bytes: Vec<u8> = backend.read_file(&path, max_bytes).await?;
     if bytes.len() as u64 > max_bytes {
         return Err(ReadError::TooLarge {
             size: bytes.len() as u64,
@@ -90,7 +112,20 @@ pub async fn sftp_write_file(
 
 #[cfg(test)]
 mod tests {
-    use super::is_binary;
+    use super::{is_binary, read_capped};
+
+    #[tokio::test]
+    async fn an_endless_source_is_read_only_past_the_cap() {
+        let bytes = read_capped(tokio::io::repeat(0), 10).await.unwrap();
+        assert_eq!(bytes.len(), 11);
+    }
+
+    #[tokio::test]
+    async fn a_file_within_the_cap_is_read_whole() {
+        assert_eq!(read_capped(&b"hello"[..], 5).await.unwrap(), b"hello");
+        assert_eq!(read_capped(&b"hello"[..], 4).await.unwrap(), b"hello");
+        assert_eq!(read_capped(&b"hello"[..], 3).await.unwrap(), b"hell");
+    }
 
     #[test]
     fn detects_text() {

@@ -5,6 +5,7 @@ import type { ConnectionFormData } from "@/types";
 import type { SnippetStepExport } from "./snippetRefs";
 import i18n from "@/i18n";
 import { decryptXChaCha20Poly1305, encryptXChaCha20Poly1305 } from "../crypto/xchacha.ts";
+import { base64ToBytes, bytesToBase64 } from "@/utils/base64";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 // _eid fields are export-scoped IDs used only within a bundle for cross-referencing.
@@ -28,6 +29,19 @@ export interface KeyExport {
   _folder_eid?: string;
 }
 
+// Stand-ins for credentials left out of an export: import links them to the vault's own copy, never creates them.
+export interface KeyRefExport {
+  _eid: string;
+  name?: string;
+  public_key: string;
+}
+
+export interface IdentityRefExport {
+  _eid: string;
+  name: string;
+  username: string;
+}
+
 export interface IdentityExport {
   _eid?: string;
   name?: string;
@@ -48,18 +62,30 @@ export interface JumpHostExport {
   _connection_eid?: string; // → ConnectionExport._eid in the same bundle
 }
 
-// identity_id/folder_id/vault_id/jump_hosts are replaced by _eid cross-refs; everything else passes through.
-type ConnectionPassthrough = Omit<ConnectionFormData, "identity_id" | "folder_id" | "vault_id" | "jump_hosts">;
+// Local ids are replaced by _eid cross-refs; everything else passes through.
+type ConnectionPassthrough = Omit<ConnectionFormData,
+  "identity_id" | "key_id" | "folder_id" | "vault_id" | "jump_hosts" | "pre_snippet_id" | "post_snippet_id">;
 
 export interface ConnectionExport extends ConnectionPassthrough {
   _eid?: string;        // → referenced by PortForwardingRuleExport._connection_eids
   password?: string;
   private_key?: string;
   passphrase?: string;
+  proxy_password?: string;
   _key_eid?: string;      // → KeyExport._eid in the same bundle
   _identity_eid?: string; // → IdentityExport._eid in the same bundle
   _folder_eid?: string;
+  _pre_snippet_eid?: string;  // → SnippetExport._eid in the same bundle
+  _post_snippet_eid?: string;
   jump_hosts?: JumpHostExport[];
+}
+
+export function secretBearingTypes(bundle: ExportBundle): string[] {
+  const out: string[] = [];
+  if (bundle.connections.some((c) => c.password || c.private_key || c.passphrase || c.proxy_password || c.notes)) out.push("connections");
+  if (bundle.identities.some((i) => i.password)) out.push("identities");
+  if (bundle.keys.some((k) => k.private_key || k.passphrase)) out.push("keys");
+  return out;
 }
 
 export interface SnippetExport {
@@ -99,6 +125,8 @@ export interface ExportBundle {
   keys: KeyExport[];
   snippets: SnippetExport[];
   portForwardingRules: PortForwardingRuleExport[];
+  keyRefs?: KeyRefExport[];
+  identityRefs?: IdentityRefExport[];
 }
 
 // ─── JSON ─────────────────────────────────────────────────────────────────────
@@ -127,6 +155,8 @@ export function fromJSON(text: string): ExportBundle {
     keys: Array.isArray(b.keys) ? b.keys : [],
     snippets: Array.isArray(b.snippets) ? b.snippets : [],
     portForwardingRules: Array.isArray(b.portForwardingRules) ? b.portForwardingRules : [],
+    keyRefs: Array.isArray(b.keyRefs) ? b.keyRefs : [],
+    identityRefs: Array.isArray(b.identityRefs) ? b.identityRefs : [],
   };
 }
 
@@ -139,17 +169,6 @@ interface EncryptedBundleFile {
   salt: string; // base64, 16 bytes
   nonce: string; // base64, 24 bytes
   data: string; // base64 ciphertext
-}
-
-function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
-  const str = atob(b64);
-  const bytes = new Uint8Array(str.length);
-  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
-  return bytes;
-}
-
-function bytesToB64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes));
 }
 
 async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
@@ -170,9 +189,9 @@ export async function encryptText(plaintext: string, password: string): Promise<
     type: "voltius-encrypted",
     version: 2,
     cipher: "xchacha20poly1305",
-    salt: bytesToB64(salt),
-    nonce: bytesToB64(encrypted.nonce),
-    data: bytesToB64(encrypted.ciphertext),
+    salt: bytesToBase64(salt),
+    nonce: bytesToBase64(encrypted.nonce),
+    data: bytesToBase64(encrypted.ciphertext),
   };
   return JSON.stringify(file, null, 2);
 }
@@ -183,10 +202,10 @@ export async function decryptText(text: string, password: string): Promise<strin
   const obj = parsed as EncryptedBundleFile;
   if (obj?.type !== "voltius-encrypted") throw new Error(i18n.t("common.error.notEncryptedVoltiusBackup"));
   if (obj.version !== 2 || obj.cipher !== "xchacha20poly1305") throw new Error(i18n.t("common.error.unsupportedEncryptedBackup"));
-  const key = await deriveKey(password, b64ToBytes(obj.salt));
+  const key = await deriveKey(password, base64ToBytes(obj.salt));
   let decrypted: Uint8Array;
   try {
-    decrypted = decryptXChaCha20Poly1305(key, b64ToBytes(obj.nonce), b64ToBytes(obj.data));
+    decrypted = decryptXChaCha20Poly1305(key, base64ToBytes(obj.nonce), base64ToBytes(obj.data));
   } catch {
     throw new Error(i18n.t("common.error.wrongPasswordOrCorrupted"));
   }

@@ -7,8 +7,8 @@ import { domainOf } from "./settingKeys";
 // otherwise lose to the other device's newer timestamp, invisibly.
 // Switching OFF pushes too: the copy already on the server has to be withdrawn
 // from that blob now, not merely left out of future ones.
-function publishOrWithdraw(domain: string, synced: boolean): void {
-  if (synced) USER_DATA_HANDLERS.find((h) => h.key === domain)?.touch();
+function publishOrWithdraw(domain: string, synced: boolean, path?: string): void {
+  if (synced) USER_DATA_HANDLERS.find((h) => h.key === domain)?.touch(path);
   else scheduleSync();
 }
 
@@ -19,5 +19,5 @@ export function setDomainSync(domain: string, synced: boolean): void {
 
 export function setKeySync(path: string, synced: boolean): void {
   useSyncPrefsStore.getState().setSettingSync(path, synced);
-  publishOrWithdraw(domainOf(path), synced);
+  publishOrWithdraw(domainOf(path), synced, path);
 }

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listen } from "@tauri-apps/api/event";
 import { Icon } from "@iconify/react";
 import { PortRow } from "@/components/terminal/PortRow";
 import { PortsPanelHeader } from "@/components/terminal/PortsPanelHeader";
@@ -8,8 +7,8 @@ import { QuickForwardRow } from "@/components/terminal/QuickForwardRow";
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
+import { usePfState } from "@/hooks/usePfStates";
 import {
-  getPfState,
   openPfTunnel,
   closePfTunnel,
   resumeAutoPort,
@@ -19,21 +18,20 @@ import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVau
 import { formatActiveTunnelLabel, formatRuleLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import type { ActiveTunnel, PortForwardingRule } from "@/types";
 
-interface PfStatePayload {
-  session_id: string;
-  tunnels: ActiveTunnel[];
-  suppressed_ports: number[];
-}
-
 export function PortsPanel() {
   const { t } = useTranslation();
   const { sessions, activeSessionId } = useSessionStore();
   const loadRules = usePortForwardingStore((s) => s.loadRules);
   const rules = useAllPortForwardingRules();
-  const [tunnels, setTunnels] = useState<ActiveTunnel[]>([]);
-  const [suppressedPorts, setSuppressedPorts] = useState<number[]>([]);
-  // Ports the user deleted from this panel — hidden even when suppressed
-  const [hiddenPorts, setHiddenPorts] = useState<Set<number>>(new Set());
+  const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const isSshSession = activeSession?.type === "ssh";
+  const pfState = usePfState(isSshSession ? activeSession.id : null);
+  const tunnels = pfState?.tunnels ?? [];
+  const suppressedPorts = pfState?.suppressed_ports ?? [];
+  // Ports the user deleted from this panel, per session — hidden even when suppressed
+  const [hiddenPorts, setHiddenPorts] = useState<Set<string>>(new Set());
+  const isHidden = (port: number) => hiddenPorts.has(`${activeSessionId}:${port}`);
+  const hidePort = (port: number) => setHiddenPorts((prev) => new Set(prev).add(`${activeSessionId}:${port}`));
   const [busy, setBusy] = useState<Set<string>>(new Set());
 
   const quickForwardInputRef = useRef<HTMLInputElement>(null);
@@ -115,33 +113,7 @@ export function PortsPanel() {
     });
   }
 
-  const activeSession = sessions.find((s) => s.id === activeSessionId);
-  const isSshSession = activeSession?.type === "ssh";
-
   useEffect(() => { loadRules(); }, []);
-
-  useEffect(() => {
-    if (!activeSessionId || !isSshSession) {
-      setTunnels([]);
-      setSuppressedPorts([]);
-      setHiddenPorts(new Set());
-      return;
-    }
-
-    getPfState(activeSessionId)
-      .then((s) => { setTunnels(s.tunnels); setSuppressedPorts(s.suppressed_ports); })
-      .catch(() => {});
-
-    let cleanup: (() => void) | undefined;
-    listen<PfStatePayload>("pf-state-changed", ({ payload }) => {
-      if (payload.session_id === activeSessionId) {
-        setTunnels(payload.tunnels);
-        setSuppressedPorts(payload.suppressed_ports);
-      }
-    }).then((u) => { cleanup = u; });
-
-    return () => { cleanup?.(); };
-  }, [activeSessionId, isSshSession]);
 
   function setBusyKey(key: string, on: boolean) {
     setBusy((prev) => { const s = new Set(prev); on ? s.add(key) : s.delete(key); return s; });
@@ -210,13 +182,13 @@ export function PortsPanel() {
     setBusyKey(`del-${key}`, true);
     try {
       await closePfTunnel(activeSessionId, tunnelId);
-      setHiddenPorts((prev) => new Set([...prev, port]));
+      hidePort(port);
     } catch (e) { console.error("pf_tunnel_close failed:", e); }
     finally { setBusyKey(`del-${key}`, false); }
   }
 
   function handleSuppressedDelete(port: number) {
-    setHiddenPorts((prev) => new Set([...prev, port]));
+    hidePort(port);
   }
 
   if (!isSshSession) {
@@ -238,9 +210,9 @@ export function PortsPanel() {
 
   const rulePorts = new Set(rules.map((r) => r.remote_port));
   const suppressedRows = suppressedPorts.filter(
-    (p) => !rulePorts.has(p) && !hiddenPorts.has(p),
+    (p) => !rulePorts.has(p) && !isHidden(p),
   );
-  const visibleUnclaimed = unclaimedTunnels.filter((t) => !hiddenPorts.has(t.remote_port));
+  const visibleUnclaimed = unclaimedTunnels.filter((t) => !isHidden(t.remote_port));
 
   const isEmpty = rules.length === 0 && visibleUnclaimed.length === 0 && suppressedRows.length === 0;
   const activeCount = tunnels.filter((t) => t.state === "active").length;

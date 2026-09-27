@@ -17,6 +17,7 @@
       "encryptBackup": "Encrypt backup",
       "plaintextSecretsWarning": "This export contains passwords, keys or host notes in plain text. Keep encryption on unless you deliberately need an unencrypted file.",
       "snippetRefMissing": "“{{name}}” runs another snippet ({{target}}) that isn’t part of this export. Include it in the selection, or remove that step.",
+      "exportFailed": "Couldn't export: {{error}}",
       "confirmPasswordPlaceholder": "Confirm password",
       "passwordsDontMatch": "Passwords don't match",
       "building": "Building…",
@@ -28,11 +29,13 @@
       "selectedItem_other": "{{count}} selected items",
       "autoInclude": {
         "connections_one": "{{count}} connection",
-        "connections_other": "{{count}} connections"
+        "connections_other": "{{count}} connections",
+        "snippets_one": "{{count}} snippet",
+        "snippets_other": "{{count}} snippets"
       },
       "autoIncludeHint": "Also included: used by the exported items, so they keep working after import",
       "relatedCredentials": "Include linked credentials",
-      "relatedCredentialsHint": "The identities and SSH keys these connections use. Leave off to export connection settings only and assign credentials after import.",
+      "relatedCredentialsHint": "The identities and SSH keys these connections use. Leave off to export connection settings only; on import they relink to a matching identity or key already in the vault.",
       "checkboxLabel": {
         "connections_one": "Connection ({{count}})",
         "connections_other": "Connections ({{count}})",
@@ -65,6 +68,9 @@
       "groupConnections": "Connections",
       "groupKeys": "SSH Keys",
       "groupIdentities": "Identities",
+      "groupLinkedCredentials": "Linked credentials",
+      "linkedTo": "Linked to “{{name}}” in this vault",
+      "linkedNotFound": "Not in this vault — assign it after import",
       "groupPortForwarding": "Port Forwarding",
       "selectAll": "Select all",
       "deselectAll": "Deselect all",

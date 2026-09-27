@@ -1,6 +1,7 @@
 import { broadcastActiveForSession } from "@/stores/layoutStore";
 import { broadcastTargets, hasInputControl } from "@/services/broadcast";
 import { sendSessionInput } from "@/services/sessionInput";
+import { encodeSessionText } from "@/stores/sessionStore";
 import type { TerminalSession } from "@/types";
 
 type SessionType = TerminalSession["type"];
@@ -21,7 +22,7 @@ export async function snippetInject(
     return;
   }
   if (!hasInputControl(sessionId)) return;
-  await sendSessionInput(sessionId, sessionType, new TextEncoder().encode(`${text}\n`));
+  await sendSessionInput(sessionId, sessionType, encodeSessionText(sessionId, `${text}\n`));
 }
 
 export async function broadcastSnippetInject(

@@ -126,15 +126,29 @@ export function attachTerminalClipboard(
     parkedProtocol = null;
   };
 
-  // The app was skipped on press, so a click that never became a drag is
-  // handed to it now, press and release together.
-  const replayToApp = (src: MouseEvent) => {
+  // The app was skipped on press, so it gets the press now: with its release for
+  // a click that never became a drag, alone for a drag it takes over.
+  const replayToApp = (src: MouseEvent, withRelease: boolean) => {
     const target = src.target as HTMLElement | null;
     if (!target) return;
     replaying = true;
     target.dispatchEvent(cloneMouse("mousedown", src));
-    document.dispatchEvent(cloneMouse("mouseup", src));
+    if (withRelease) document.dispatchEvent(cloneMouse("mouseup", src));
     replaying = false;
+  };
+
+  // The alternate screen has no scrollback here (tmux keeps it), so a drag past
+  // its edge goes to the app, which scrolls and selects from the same press.
+  const handleMouseMove = (e: MouseEvent) => {
+    const press = pressed;
+    if (!press || replaying || !(e.buttons & 1) || term.buffer.active.type !== "alternate") return;
+    const screen = term.element?.querySelector(".xterm-screen") ?? container;
+    const { top, bottom } = screen.getBoundingClientRect();
+    if (e.clientY >= top && e.clientY < bottom) return;
+    pressed = null;
+    term.clearSelection();
+    unpark();
+    replayToApp(press, false);
   };
 
   // A drag that starts in the terminal often ends outside it (window padding,
@@ -159,7 +173,7 @@ export function attachTerminalClipboard(
     unpark();
     if (press) {
       const moved = Math.abs(e.clientX - press.clientX) + Math.abs(e.clientY - press.clientY) >= 4;
-      if (!moved && !term.getSelection()) replayToApp(press);
+      if (!moved && !term.getSelection()) replayToApp(press, true);
     }
     if (!dragging) return;
     dragging = false;
@@ -176,6 +190,7 @@ export function attachTerminalClipboard(
     }, 20);
   };
   container.addEventListener("mousedown", handleMouseDown, true);
+  window.addEventListener("mousemove", handleMouseMove, true);
   window.addEventListener("mouseup", handleMouseUp);
   window.addEventListener("blur", unpark);
 
@@ -238,6 +253,7 @@ export function attachTerminalClipboard(
     dispose() {
       unpark();
       container.removeEventListener("mousedown", handleMouseDown, true);
+      window.removeEventListener("mousemove", handleMouseMove, true);
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("blur", unpark);
       container.removeEventListener("contextmenu", handleContextMenu);

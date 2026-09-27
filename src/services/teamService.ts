@@ -15,6 +15,8 @@ export interface Team {
   permission_deny?: number;
 }
 
+export type CreatedTeam = Pick<Team, "id" | "name" | "owner_id" | "created_at">;
+
 export interface TeamMember {
   team_id: string;
   user_id: string;
@@ -43,7 +45,7 @@ export interface TeamRole {
 
 // ─── API calls ────────────────────────────────────────────────────────────────
 
-export async function createTeam(name: string): Promise<Team> {
+export async function createTeam(name: string): Promise<CreatedTeam> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams`, {

@@ -2,7 +2,6 @@ import { writeClipboard } from "../../utils/clipboard";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { useHostPingStore } from "@/stores/hostPingStore";
@@ -15,22 +14,17 @@ import { serialAutoReconnectEnabled } from "@/stores/serialAutoReconnect";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
-import { getPfState } from "@/services/portForwardingTunnels";
+import { usePfState } from "@/hooks/usePfStates";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import { metricsStart, metricsStop, onMetricsSnapshot, type MetricsSnapshot } from "@/services/metrics";
 import { getDistroIcon, getDistroColor, getDistroLabel } from "@/utils/icons";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { latencyColor, latencyTone, pingStatusTone } from "@/utils/statusTone";
-import type { ActiveTunnel, SerialConnectParams, SerialLine, SerialLines } from "@/types";
+import type { SerialConnectParams, SerialLine, SerialLines } from "@/types";
 import { serialSendBreak } from "@/services/serial";
 import type { TerminalStatusBarContributionContext } from "@/plugins/api";
 
-interface PfStatePayload {
-  session_id: string;
-  tunnels: ActiveTunnel[];
-  suppressed_ports: number[];
-}
 
 interface Props {
   sessionId: string;
@@ -237,7 +231,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const serialAutoReconnect = session ? serialAutoReconnectEnabled(session, connection) : true;
 
-  const [tunnels, setTunnels] = useState<ActiveTunnel[]>([]);
+  const tunnels = usePfState(sessionType === "ssh" ? sessionId : null)?.tunnels ?? [];
   const [pulse, setPulse] = useState(false);
   const prevCountRef = useRef(0);
 
@@ -352,21 +346,6 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [connectedAt]);
-
-  // ── Port forwarding events ────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (sessionType !== "ssh") return;
-
-    getPfState(sessionId).then((s) => setTunnels(s.tunnels)).catch(() => {});
-
-    let cleanup: (() => void) | undefined;
-    listen<PfStatePayload>("pf-state-changed", ({ payload }) => {
-      if (payload.session_id === sessionId) setTunnels(payload.tunnels);
-    }).then((u) => { cleanup = u; });
-
-    return () => { cleanup?.(); };
-  }, [sessionId, sessionType]);
 
   useEffect(() => {
     const count = tunnels.length;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeSecrets, secretsDiffer } from "./crdt";
+import { entitiesDiffer, mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "./crdt";
 
 const T1 = "2026-07-20T09:00:00Z";
 const T2 = "2026-07-21T12:00:00Z";
@@ -94,5 +94,33 @@ describe("secretsDiffer", () => {
   });
   it("returns false for identical maps", () => {
     expect(secretsDiffer({ a: "1", b: "2" }, { b: "2", a: "1" })).toBe(false);
+  });
+});
+
+describe("entitiesDiffer", () => {
+  // B renamed at 10:00; A then touched last_used_at at 10:01.
+  type Host = TimestampedEntity & { name: string; last_used_at: string | null };
+  const onA: Host = {
+    id: "c1", name: "orig", last_used_at: "2026-07-20T10:01:00Z", updated_at: "2026-07-20T10:01:00Z",
+    clocks: { name: "2026-07-20T09:00:00Z", last_used_at: "2026-07-20T10:01:00Z" },
+  };
+  const onB: Host = {
+    id: "c1", name: "renamed", last_used_at: null, updated_at: "2026-07-20T10:00:00Z",
+    clocks: { name: "2026-07-20T10:00:00Z" },
+  };
+
+  it("sees a remote field that wins while older than the newest local clock", () => {
+    const merged = mergeEntities([onA], [onB]);
+    expect(merged[0].name).toBe("renamed");
+    expect(merged[0].updated_at).toBe(onA.updated_at);
+    expect(entitiesDiffer([onA], merged)).toBe(true);
+  });
+
+  it("is false when the merge kept everything local", () => {
+    expect(entitiesDiffer([onA], mergeEntities([onA], [onA]))).toBe(false);
+  });
+
+  it("sees an entity that arrived from the remote side", () => {
+    expect(entitiesDiffer([], mergeEntities([], [onB]))).toBe(true);
   });
 });

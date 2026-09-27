@@ -30,11 +30,48 @@ export function connectionToFormData(c: Connection): ConnectionFormData {
     pre_snippet_id: c.pre_snippet_id, post_snippet_id: c.post_snippet_id, ask_vars_each_time: c.ask_vars_each_time,
     terminal_encoding: c.terminal_encoding, distro: c.distro, icon: c.icon, pinned: c.pinned,
     ping_disabled: c.ping_disabled, shell_integration: c.shell_integration,
-    keepalive_preset: c.keepalive_preset,
+    keepalive_preset: c.keepalive_preset, persist_session: c.persist_session, proxy: c.proxy,
     connection_type: c.connection_type, serial_port: c.serial_port, serial_baud: c.serial_baud,
     serial_data_bits: c.serial_data_bits, serial_parity: c.serial_parity, serial_stop_bits: c.serial_stop_bits,
     serial_flow_control: c.serial_flow_control, serial_auto_reconnect: c.serial_auto_reconnect, ftp_secure: c.ftp_secure,
     notes: c.notes,
+  };
+}
+
+// Only the listed `?? prev?.x` fields and record bookkeeping fall back to
+// `prev`; every other field comes from `data` alone, so an omitted key stays absent.
+export function connectionFromForm(
+  data: ConnectionFormData,
+  base: { id: string; now: string; prev?: Connection; pinned?: boolean },
+): Connection {
+  const { id, now, prev } = base;
+  return {
+    ...data,
+    id,
+    name: data.name,
+    host: data.host ?? prev?.host ?? "",
+    port: data.port ?? prev?.port ?? 0,
+    username: data.username ?? prev?.username ?? "",
+    auth_type: data.auth_type ?? prev?.auth_type ?? "password",
+    tags: data.tags ?? prev?.tags ?? [],
+    vault_id: data.vault_id ?? prev?.vault_id ?? "personal",
+    distro: data.distro ?? prev?.distro,
+    icon: data.icon ?? prev?.icon,
+    pinned: base.pinned ?? data.pinned,
+    connection_type: data.connection_type ?? prev?.connection_type,
+    serial_port: data.serial_port ?? prev?.serial_port,
+    serial_baud: data.serial_baud ?? prev?.serial_baud,
+    serial_data_bits: data.serial_data_bits ?? prev?.serial_data_bits,
+    serial_parity: data.serial_parity ?? prev?.serial_parity,
+    serial_stop_bits: data.serial_stop_bits ?? prev?.serial_stop_bits,
+    serial_flow_control: data.serial_flow_control ?? prev?.serial_flow_control,
+    serial_auto_reconnect: data.serial_auto_reconnect ?? prev?.serial_auto_reconnect,
+    ftp_secure: data.ftp_secure ?? prev?.ftp_secure,
+    created_at: prev?.created_at ?? now,
+    last_used_at: prev?.last_used_at ?? null,
+    deleted_at: prev?.deleted_at,
+    updated_at: now,
+    clocks: prev ? { ...prev.clocks, updated_at: now } : { created_at: now, updated_at: now },
   };
 }
 
@@ -78,49 +115,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   saveConnection: async (data) => {
     if (isTeamVaultId(data.vault_id)) {
       const now = new Date().toISOString();
-      const conn: Connection = {
-        id: crypto.randomUUID(),
-        name: data.name,
-        host: data.host ?? "",
-        port: data.port ?? 0,
-        username: data.username ?? "",
-        auth_type: data.auth_type ?? "password",
-        tags: data.tags ?? [],
-        identity_id: data.identity_id,
-        key_id: data.key_id,
-        folder_id: data.folder_id,
-        vault_id: data.vault_id,
-        jump_hosts: data.jump_hosts,
-        env_vars: data.env_vars,
-        agent_forwarding: data.agent_forwarding,
-        legacy_algorithms: data.legacy_algorithms,
-        pre_command: data.pre_command,
-        post_command: data.post_command,
-        pre_snippet_id: data.pre_snippet_id,
-        post_snippet_id: data.post_snippet_id,
-        ask_vars_each_time: data.ask_vars_each_time,
-        terminal_encoding: data.terminal_encoding,
-        distro: data.distro,
-        icon: data.icon,
-        pinned: data.pinned,
-        ping_disabled: data.ping_disabled,
-        shell_integration: data.shell_integration,
-        keepalive_preset: data.keepalive_preset,
-        connection_type: data.connection_type,
-        serial_port: data.serial_port,
-        serial_baud: data.serial_baud,
-        serial_data_bits: data.serial_data_bits,
-        serial_parity: data.serial_parity,
-        serial_stop_bits: data.serial_stop_bits,
-        serial_flow_control: data.serial_flow_control,
-        serial_auto_reconnect: data.serial_auto_reconnect,
-        ftp_secure: data.ftp_secure,
-        notes: data.notes,
-        created_at: now,
-        updated_at: now,
-        last_used_at: null,
-        clocks: { created_at: now, updated_at: now },
-      };
+      const conn = connectionFromForm(data, { id: crypto.randomUUID(), now });
       const vaultId = data.vault_id!;
       await saveTeamVaultObject(vaultId, "connection", conn);
       set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, vaultId, conn) }));
@@ -157,47 +152,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const now = new Date().toISOString();
       const prev = teamEntry.item;
       const payload = withPin(data, prev);
-      const updated: Connection = {
-        ...prev,
-        name: data.name,
-        host: data.host ?? prev.host,
-        port: data.port ?? prev.port,
-        username: data.username ?? prev.username,
-        auth_type: data.auth_type ?? prev.auth_type,
-        tags: data.tags ?? prev.tags,
-        identity_id: data.identity_id,
-        key_id: data.key_id,
-        folder_id: data.folder_id,
-        vault_id: data.vault_id ?? prev.vault_id,
-        jump_hosts: data.jump_hosts,
-        env_vars: data.env_vars,
-        agent_forwarding: data.agent_forwarding,
-        legacy_algorithms: data.legacy_algorithms,
-        pre_command: data.pre_command,
-        post_command: data.post_command,
-        pre_snippet_id: data.pre_snippet_id,
-        post_snippet_id: data.post_snippet_id,
-        ask_vars_each_time: data.ask_vars_each_time,
-        terminal_encoding: data.terminal_encoding,
-        distro: data.distro ?? prev.distro,
-        icon: data.icon ?? prev.icon,
-        pinned: payload.pinned,
-        connection_type: data.connection_type ?? prev.connection_type,
-        serial_port: data.serial_port ?? prev.serial_port,
-        serial_baud: data.serial_baud ?? prev.serial_baud,
-        serial_data_bits: data.serial_data_bits ?? prev.serial_data_bits,
-        serial_parity: data.serial_parity ?? prev.serial_parity,
-        serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
-        serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
-        serial_auto_reconnect: data.serial_auto_reconnect ?? prev.serial_auto_reconnect,
-        ftp_secure: data.ftp_secure ?? prev.ftp_secure,
-        notes: data.notes,
-        ping_disabled: data.ping_disabled,
-        shell_integration: data.shell_integration,
-        keepalive_preset: data.keepalive_preset,
-        updated_at: now,
-        clocks: { ...prev.clocks, updated_at: now },
-      };
+      const updated = connectionFromForm(data, { id, now, prev, pinned: payload.pinned });
       const { teamId } = teamEntry;
       const migrated = await migrateVaultObject({
         previousVaultId: teamId,
@@ -229,47 +184,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     const payload = prev ? withPin(data, prev) : data;
     const now = new Date().toISOString();
     const item: Connection = prev
-      ? {
-          ...prev,
-          name: data.name,
-          host: data.host ?? prev.host,
-          port: data.port ?? prev.port,
-          username: data.username ?? prev.username,
-          auth_type: data.auth_type ?? prev.auth_type,
-          tags: data.tags ?? prev.tags,
-          identity_id: data.identity_id,
-          key_id: data.key_id,
-          folder_id: data.folder_id,
-          vault_id: data.vault_id ?? prev.vault_id,
-          jump_hosts: data.jump_hosts,
-          env_vars: data.env_vars,
-          agent_forwarding: data.agent_forwarding,
-          legacy_algorithms: data.legacy_algorithms,
-          pre_command: data.pre_command,
-          post_command: data.post_command,
-          pre_snippet_id: data.pre_snippet_id,
-          post_snippet_id: data.post_snippet_id,
-          ask_vars_each_time: data.ask_vars_each_time,
-          terminal_encoding: data.terminal_encoding,
-          distro: data.distro ?? prev.distro,
-          icon: data.icon ?? prev.icon,
-          pinned: payload.pinned,
-          connection_type: data.connection_type ?? prev.connection_type,
-          serial_port: data.serial_port ?? prev.serial_port,
-          serial_baud: data.serial_baud ?? prev.serial_baud,
-          serial_data_bits: data.serial_data_bits ?? prev.serial_data_bits,
-          serial_parity: data.serial_parity ?? prev.serial_parity,
-          serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
-          serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
-          serial_auto_reconnect: data.serial_auto_reconnect ?? prev.serial_auto_reconnect,
-        ftp_secure: data.ftp_secure ?? prev.ftp_secure,
-          notes: data.notes,
-          ping_disabled: data.ping_disabled,
-          shell_integration: data.shell_integration,
-          keepalive_preset: data.keepalive_preset,
-          updated_at: now,
-          clocks: { ...prev.clocks, updated_at: now },
-        }
+      ? connectionFromForm(data, { id, now, prev, pinned: payload.pinned })
       : ({ id, vault_id: data.vault_id } as Connection);
     const updated = await migrateVaultObject({
       previousVaultId: prev?.vault_id,
@@ -396,39 +311,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   renameTag: async (oldName, newName) => {
-    // Personal connections
-    const toUpdate = get().connections.filter((c) => c.tags.includes(oldName));
-    await Promise.all(
-      toUpdate.map((c) =>
-        api.updateConnection(c.id, {
-          ...connectionToFormData(c),
-          tags: c.tags.map((t) => (t === oldName ? newName : t)),
-        }),
-      ),
-    );
-    const connections = await api.listConnections();
-    set({ connections });
-    const prefs = useSyncPrefsStore.getState();
-    isServerMode().then((s) => { if (s && prefs.isTypeSynced("connection")) scheduleSync(); });
-
-    // Team connections
-    const now = new Date().toISOString();
-    const updatedTeamMap: Record<string, Connection[]> = {};
-    const affectedTeams = new Set<string>();
-    for (const [teamId, conns] of Object.entries(get().teamConnections)) {
-      const updated = conns.map((c) => {
-        if (!c.tags.includes(oldName)) return c;
-        affectedTeams.add(teamId);
-        return { ...c, tags: c.tags.map((t) => (t === oldName ? newName : t)), updated_at: now };
-      });
-      updatedTeamMap[teamId] = updated;
-    }
-    if (affectedTeams.size > 0) {
-      for (const teamId of affectedTeams) {
-        await Promise.all((updatedTeamMap[teamId] ?? []).map((c) => saveTeamVaultObject(teamId, "connection", c)));
-      }
-      set({ teamConnections: updatedTeamMap });
-    }
+    await retagConnections(oldName, (tags) => tags.map((t) => (t === oldName ? newName : t)));
 
     useHistoryStore.getState().push({
       label: `Renamed tag "${oldName}" to "${newName}"`,
@@ -438,40 +321,8 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   deleteTag: async (name) => {
-    // Personal connections
-    const toUpdate = get().connections.filter((c) => c.tags.includes(name));
-    const prevTagsById = new Map(toUpdate.map((c) => [c.id, c.tags]));
-    await Promise.all(
-      toUpdate.map((c) =>
-        api.updateConnection(c.id, {
-          ...connectionToFormData(c),
-          tags: c.tags.filter((t) => t !== name),
-        }),
-      ),
-    );
-    const connections = await api.listConnections();
-    set({ connections });
-    const prefs = useSyncPrefsStore.getState();
-    isServerMode().then((s) => { if (s && prefs.isTypeSynced("connection")) scheduleSync(); });
-
-    // Team connections
-    const now = new Date().toISOString();
-    const updatedTeamMap: Record<string, Connection[]> = {};
-    const affectedTeams = new Set<string>();
-    for (const [teamId, conns] of Object.entries(get().teamConnections)) {
-      const updated = conns.map((c) => {
-        if (!c.tags.includes(name)) return c;
-        affectedTeams.add(teamId);
-        return { ...c, tags: c.tags.filter((t) => t !== name), updated_at: now };
-      });
-      updatedTeamMap[teamId] = updated;
-    }
-    if (affectedTeams.size > 0) {
-      for (const teamId of affectedTeams) {
-        await Promise.all((updatedTeamMap[teamId] ?? []).map((c) => saveTeamVaultObject(teamId, "connection", c)));
-      }
-      set({ teamConnections: updatedTeamMap });
-    }
+    const retagged = await retagConnections(name, (tags) => tags.filter((t) => t !== name));
+    const prevTagsById = new Map(retagged.map((c) => [c.id, c.tags]));
 
     useHistoryStore.getState().push({
       label: `Deleted tag "${name}"`,
@@ -513,3 +364,38 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
   },
 }));
+
+// Returns the personal connections as they were before the rewrite.
+async function retagConnections(tag: string, rewrite: (tags: string[]) => string[]): Promise<Connection[]> {
+  const personal = useConnectionStore.getState().connections.filter((c) => c.tags.includes(tag));
+  await Promise.all(
+    personal.map((c) => api.updateConnection(c.id, { ...connectionToFormData(c), tags: rewrite(c.tags) })),
+  );
+  useConnectionStore.setState({ connections: await api.listConnections() });
+  const prefs = useSyncPrefsStore.getState();
+  isServerMode().then((s) => { if (s && prefs.isTypeSynced("connection")) scheduleSync(); });
+
+  const team = Object.entries(useConnectionStore.getState().teamConnections).flatMap(([teamId, conns]) =>
+    conns.filter((c) => c.tags.includes(tag)).map((c) => ({ teamId, id: c.id })),
+  );
+  await Promise.all(team.map(({ teamId, id }) => retagTeamConnection(teamId, id, tag, rewrite)));
+  return personal;
+}
+
+async function retagTeamConnection(
+  teamId: string,
+  id: string,
+  tag: string,
+  rewrite: (tags: string[]) => string[],
+): Promise<void> {
+  const current = () => useConnectionStore.getState().teamConnections[teamId]?.find((c) => c.id === id);
+  for (let c = current(); c?.tags.includes(tag); c = current()) {
+    const updated = await saveStampedTeamObject(teamId, "connection", c, { tags: rewrite(c.tags) });
+    const now = current();
+    if (!now) return;
+    // Edited while the save was in flight: retag that copy rather than revert it.
+    if (now.updated_at !== c.updated_at) continue;
+    useConnectionStore.setState((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
+    return;
+  }
+}

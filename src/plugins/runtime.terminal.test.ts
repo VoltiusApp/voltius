@@ -21,6 +21,7 @@ vi.mock("@/stores/sessionStore", () => ({
         { id: "s1", type: "ssh" },
         { id: "s2", type: "local" },
         { id: "s3", type: "serial" },
+        { id: "s4", type: "ssh", encoding: "gbk" },
       ],
     }),
   },
@@ -72,6 +73,16 @@ describe("gated terminal verbs", () => {
     loadPlugin(manifest(["terminal:stream"]), register, true, true);
     await captured.terminal.onOutput("s3", () => {});
     expect(onSerialOutput).toHaveBeenCalledWith("s3", expect.any(Function));
+  });
+
+  test("onOutput decodes in the session's encoding, holding a split character", async () => {
+    loadPlugin(manifest(["terminal:stream"]), register, true, true);
+    const chunks: string[] = [];
+    await captured.terminal.onOutput("s4", (text) => chunks.push(text));
+    const emit = (onSshOutput.mock.calls[0] as unknown as [string, (d: Uint8Array) => void])[1];
+    emit(new Uint8Array([0x61, 0xd6]));
+    emit(new Uint8Array([0xd0]));
+    expect(chunks).toEqual(["a", "中"]);
   });
 
   test("onOutput on an unknown sessionId rejects with a not-found error", async () => {
