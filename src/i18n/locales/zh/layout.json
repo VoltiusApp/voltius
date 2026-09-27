@@ -273,6 +273,7 @@
       "checkingForUpdates": "正在检查更新…",
       "downloadingUpdate": "正在下载更新 v{{version}}…",
       "updateReady": "更新 v{{version}} 已就绪——点击查看并重启",
+      "updateAvailable": "更新 v{{version}} 可用——点击查看并下载",
       "settings": "设置",
       "addVault": "添加保险库"
     }

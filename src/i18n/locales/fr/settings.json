@@ -465,12 +465,14 @@
       "updatesTitle": "Mises à jour",
       "checkForUpdate": "Vérifier les mises à jour",
       "restartToUpdate": "Redémarrer pour mettre à jour · v{{version}}",
+      "downloadUpdate": "Télécharger la mise à jour · v{{version}}",
       "status": {
         "idle": "Pas encore vérifié",
         "checking": "Vérification des mises à jour…",
         "upToDate": "Vous êtes à jour",
         "downloading": "Téléchargement de v{{version}} — {{progress}} %",
-        "ready": "v{{version}} prête à installer"
+        "ready": "v{{version}} prête à installer",
+        "available": "v{{version}} disponible"
       },
       "autoDownload": {
         "title": "Téléchargement automatique des mises à jour",
