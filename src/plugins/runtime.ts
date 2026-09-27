@@ -50,7 +50,7 @@ import * as identityService from "@/services/identities";
 import { addKeyToHost } from "@/services/keyExport";
 import { isValidSshPublicKey } from "@/services/sshPublicKey";
 import type { Connection } from "@/types";
-import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteSecret } from "@/services/vault";
+import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteLocalSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { appFetch } from "@/services/http";
 import { sseFetch } from "@/services/sseFetch";
@@ -1016,8 +1016,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async delete(keyId) {
         requirePerm(manifest, "keys:write");
-        await deleteSecret(`key:${keyId}:private`).catch(() => {});
-        await deleteSecret(`key:${keyId}:public`).catch(() => {});
+        await deleteLocalSecret(`key:${keyId}:private`).catch(() => {});
+        await deleteLocalSecret(`key:${keyId}:public`).catch(() => {});
         await keyService.deleteKey(keyId);
       },
       async addToHost({ keyId, connectionId, location, filename }) {

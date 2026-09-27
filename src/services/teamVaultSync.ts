@@ -742,14 +742,18 @@ export async function sweepLocalTeamSecrets(teamId: string): Promise<void> {
   await purgeTeamObjectSecrets(teamId, stillPending, ownedKeys);
 }
 
-/** Retries local-store purges that failed during a sweep or an offboarding wipe. */
+/** Retries failed local-store purges, keeping queued any key now owned locally or still waiting to upload. */
 export async function drainPendingSecretWipes(): Promise<void> {
   const { usePendingSecretWipeStore } = await import("@/stores/pendingSecretWipeStore");
+  const { usePendingTeamSecretUploadStore } = await import("@/stores/pendingTeamSecretUploadStore");
+  const { hasLocalOwner } = await import("@/services/teamSecretOwnership");
   const store = usePendingSecretWipeStore.getState();
+  const awaitingUpload = new Set(Object.values(usePendingTeamSecretUploadStore.getState().keysByTeamId).flat());
 
   for (const [teamId, keys] of Object.entries(store.keysByTeamId)) {
-    const failed = new Set(await purgeLocalCopies(keys));
-    store.resolve(teamId, keys.filter((k) => !failed.has(k)));
+    const purgeable = keys.filter((k) => !awaitingUpload.has(k) && !hasLocalOwner(k));
+    const failed = new Set(await purgeLocalCopies(purgeable));
+    store.resolve(teamId, purgeable.filter((k) => !failed.has(k)));
   }
 }
 

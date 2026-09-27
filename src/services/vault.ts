@@ -200,13 +200,13 @@ export async function unlockVaultIfNeeded(): Promise<void> {
 // ─── Secrets scopés aux plugins ──────────────────────────────────────────
 
 export async function storePluginSecret(pluginId: string, key: string, value: string): Promise<void> {
-  return storeSecret(`plugin:${pluginId}:${key}`, value);
+  return storeLocalSecret(`plugin:${pluginId}:${key}`, value);
 }
 
 export async function getPluginSecret(pluginId: string, key: string): Promise<string | null> {
-  return getSecret(`plugin:${pluginId}:${key}`);
+  return getLocalSecret(`plugin:${pluginId}:${key}`);
 }
 
 export async function deletePluginSecret(pluginId: string, key: string): Promise<void> {
-  return deleteSecret(`plugin:${pluginId}:${key}`);
+  return deleteLocalSecret(`plugin:${pluginId}:${key}`);
 }

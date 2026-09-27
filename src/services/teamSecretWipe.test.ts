@@ -122,6 +122,26 @@ test("drain purges queued keys even for a team the user has rejoined", async () 
   expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({});
 });
 
+test("drain keeps queued a key whose object is now a local one", async () => {
+  usePendingSecretWipeStore.getState().enqueue("t1", ["password:c1", "key:k1:private"]);
+  useConnectionStore.setState({ connections: [{ id: "c1", name: "web", host: "h", port: 22 } as never] });
+
+  await drainPendingSecretWipes();
+
+  expect(h.deleted).toEqual(["key:k1:private"]);
+  expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({ t1: ["password:c1"] });
+});
+
+test("drain keeps queued a key still waiting to upload", async () => {
+  usePendingSecretWipeStore.getState().enqueue("t1", ["password:c1", "key:k1:private"]);
+  usePendingTeamSecretUploadStore.getState().enqueue("t2", ["password:c1"]);
+
+  await drainPendingSecretWipes();
+
+  expect(h.deleted).toEqual(["key:k1:private"]);
+  expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({ t1: ["password:c1"] });
+});
+
 test("the offboarding wipe deletes secrets locally, never through the server", async () => {
   seed();
 

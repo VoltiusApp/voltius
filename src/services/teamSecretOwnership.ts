@@ -38,6 +38,11 @@ export function teamIdOwningSecret(localKey: string): string | null {
   return findTeamEntry(team ?? {}, parts.objectId)?.teamId ?? null;
 }
 
+export function hasLocalOwner(localKey: string): boolean {
+  const parts = teamSecretFromLocalKey(localKey);
+  return parts !== null && localObjectIds(storeSlices()).has(parts.objectId);
+}
+
 export function teamObjectSecretKeys(teamId: string): string[] {
   const s = storeSlices();
   const localIds = localObjectIds(s);

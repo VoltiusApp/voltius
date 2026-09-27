@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createHostPluginAPI } from "./runtime";
 import { saveKey } from "@/services/keys";
-import { storeSecret } from "@/services/vault";
+import { storeSecret, deleteSecret, deleteLocalSecret } from "@/services/vault";
 import { sshExecCommand } from "@/services/ssh";
 import { useConnectionStore } from "@/stores/connectionStore";
 
@@ -14,6 +14,7 @@ vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(async () => "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHqW1p3nMuFvR5NHqhkxLQKfDVZ2VYFOxKvL8dW7dSpq user@host"),
   storeSecret: vi.fn(async () => {}),
   deleteSecret: vi.fn(async () => {}),
+  deleteLocalSecret: vi.fn(async () => {}),
   getPluginSecret: vi.fn(async () => null),
   storePluginSecret: vi.fn(async () => {}),
   deletePluginSecret: vi.fn(async () => {}),
@@ -52,6 +53,15 @@ describe("api.keys.create public-key validation", () => {
     const api = createHostPluginAPI("test:keycreate-none", ["keys:write"]);
     await expect(api.keys.create({}, "PRIVATE")).resolves.toMatchObject({ id: "k1" });
     expect(storeSecret).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("api.keys.delete", () => {
+  it("removes only the local secret copies, never a routed team secret", async () => {
+    const api = createHostPluginAPI("test:keydelete", ["keys:write"]);
+    await api.keys.delete("k1");
+    expect(deleteSecret).not.toHaveBeenCalled();
+    expect(vi.mocked(deleteLocalSecret).mock.calls).toEqual([["key:k1:private"], ["key:k1:public"]]);
   });
 });
 
