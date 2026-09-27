@@ -15,7 +15,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 const pluginSkippedFilesMock = vi.fn<() => string[]>(() => ["theme.json"]);
 const writeFilteredSettingsMock = vi.fn(async () => {});
 vi.mock("@/services/sync", () => ({
-  getExcludedObjectIds: () => ["excluded-host", "excluded-key"],
+  getExcludedObjectIds: () => ["excluded-host", "excluded-key", "__global__"],
   getPluginSkippedSyncFiles: () => pluginSkippedFilesMock(),
   writeFilteredSettings: () => writeFilteredSettingsMock(),
   getSyncState: () => ({ status: "idle" }),
@@ -24,6 +24,8 @@ vi.mock("@/services/sync", () => ({
 }));
 
 import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
+
+const EXCLUDED_HOST_KEY = ["password", "excluded-host"].join(":");
 
 function captureApi(manifest: PluginManifest): PluginAPI {
   let captured: PluginAPI | undefined;
@@ -64,7 +66,7 @@ describe("plugin sync.exportState honours sync exclusions", () => {
     expect(invokeMock).toHaveBeenCalledWith(
       "backup_export",
       expect.objectContaining({
-        excludedIds: ["excluded-host", "excluded-key"],
+        excludedIds: ["excluded-host", "excluded-key", "__global__"],
         skipFiles: ["theme.json"],
       }),
     );
@@ -96,5 +98,40 @@ describe("plugin sync.exportState honours sync exclusions", () => {
       "backup_export",
       expect.objectContaining({ skipFiles: ["theme.json"] }),
     );
+  });
+});
+
+describe("plugin sync.importStates honours sync exclusions", () => {
+  test("an excluded remote secret (the device-scoped global proxy password) neither overwrites nor removes the local one", async () => {
+    const local = {
+      files: {},
+      secrets: { "proxy_password:__global__": "mine", "password:h1": "old" },
+      secret_clocks: { "proxy_password:__global__": "2026-09-01", "password:h1": "2026-09-01" },
+    };
+    const remote = {
+      files: {},
+      secrets: { "proxy_password:__global__": "theirs", "password:h1": "new", [EXCLUDED_HOST_KEY]: "x" },
+      secret_clocks: {
+        "proxy_password:__global__": "2026-09-02",
+        "password:h1": "2026-09-02",
+        [EXCLUDED_HOST_KEY]: "2026-09-02",
+      },
+    };
+    invokeMock.mockReset();
+    invokeMock.mockImplementation(async (cmd: string) =>
+      cmd === "state_export_raw" ? local : cmd === "backup_decrypt" ? remote : cmd.endsWith("_list") ? [] : null,
+    );
+    const api = captureApi({ id: "s3-sync-test", name: "S3", version: "1.0.0", permissions: ["sync:write"] });
+    try {
+      await api.sync.importStates("aabb", [btoa("blob")]);
+    } finally {
+      unloadPlugin("s3-sync-test");
+    }
+
+    const importCall = invokeMock.mock.calls.find(([cmd]) => cmd === "state_import");
+    expect(importCall?.[1]).toMatchObject({
+      secrets: { "proxy_password:__global__": "mine", "password:h1": "new" },
+    });
+    expect((importCall?.[1] as { secrets: Record<string, string> }).secrets).not.toHaveProperty(EXCLUDED_HOST_KEY);
   });
 });

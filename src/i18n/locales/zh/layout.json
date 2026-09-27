@@ -57,6 +57,8 @@
       "signinTitle": "登录云账户",
       "registerDesc": "创建账户以同步此保险库并解锁云功能。您的数据保持端到端加密。",
       "signinDesc": "登录以启用同步、订阅、团队功能和共享保险库。",
+      "addTitle": "添加其他账户",
+      "addDesc": "登录或创建另一个云账户。当前账户会保留在账户菜单中，可随时切换回来。",
       "createMasterPasswordPlaceholder": "创建主密码",
       "confirmMasterPasswordPlaceholder": "确认主密码",
       "errorPasswordRequired": "需要密码",
@@ -273,6 +275,7 @@
       "checkingForUpdates": "正在检查更新…",
       "downloadingUpdate": "正在下载更新 v{{version}}…",
       "updateReady": "更新 v{{version}} 已就绪——点击查看并重启",
+      "updateAvailable": "更新 v{{version}} 可用——点击查看并下载",
       "settings": "设置",
       "addVault": "添加保险库"
     }

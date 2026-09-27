@@ -7,6 +7,7 @@ import { freshPublicKeys, type InviteTarget } from "@/services/teamSharing";
 import { appFetch } from "@/services/http";
 import { normalizeShortCode } from "@/services/shortCode";
 import { openXChaCha20Poly1305, sealXChaCha20Poly1305 } from "@/services/crypto/xchacha";
+import { base64ToBytes, bytesToBase64 } from "@/utils/base64";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,12 +58,11 @@ export async function importSessionKey(rawBytes: Uint8Array): Promise<SessionKey
 
 export async function encryptData(key: SessionKey, plaintext: Uint8Array): Promise<string> {
   const out = sealXChaCha20Poly1305(key, plaintext);
-  return btoa(String.fromCharCode(...out));
+  return bytesToBase64(out);
 }
 
 export async function decryptData(key: SessionKey, b64: string): Promise<Uint8Array> {
-  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  return openXChaCha20Poly1305(key, bytes);
+  return openXChaCha20Poly1305(key, base64ToBytes(b64));
 }
 
 // ─── Private key derivation ───────────────────────────────────────────────────
@@ -327,7 +327,7 @@ export async function createInviteLinkSession(
 
   const sessionKeyBytes = crypto.getRandomValues(new Uint8Array(32));
   const sessionKey = await importSessionKey(sessionKeyBytes);
-  const sessionKeyB64 = btoa(String.fromCharCode(...sessionKeyBytes));
+  const sessionKeyB64 = bytesToBase64(sessionKeyBytes);
 
   const res = await appFetch(`${serverUrl}/v1/terminal-sessions`, {
     method: "POST",
@@ -414,8 +414,7 @@ export async function getMySessionKey(
   const { wrapped_key, raw_key, host_public_key } = await res.json();
 
   if (raw_key) {
-    const keyBytes = Uint8Array.from(atob(raw_key as string), (c) => c.charCodeAt(0));
-    const sessionKey = await importSessionKey(keyBytes);
+    const sessionKey = await importSessionKey(base64ToBytes(raw_key as string));
     return { sessionKey, hostPublicKey: host_public_key as string };
   }
 

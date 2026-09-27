@@ -62,7 +62,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 vi.mock("@/services/teamVaultSyncCore", () => ({
   bytesToBase64: (b: number[]) => `b64(${b.join(",")})`,
-  base64ToBytes: (_s: string) => [1, 2, 3],
+  base64ToByteArray: (_s: string) => [1, 2, 3],
 }));
 
 import { checkAndRotateTeamKey } from "./teamKeyRotation";

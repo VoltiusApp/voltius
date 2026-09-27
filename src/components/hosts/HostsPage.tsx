@@ -7,6 +7,7 @@ import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
+import { duplicateConnection, duplicateFormData, copyConnectionSecrets, moveConnectionToVault } from "@/services/connectionDuplicate";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -60,15 +61,13 @@ import { getHostDeleteTargetIds, shouldUseBulkHostContextMenu } from "./hostSele
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import {
-  publishConnectionSecrets,
   publishIdentitySecrets,
   publishKeySecrets,
   unpublishIdentitySecrets,
   unpublishKeySecrets,
   withdrawOrWarn,
 } from "@/services/vaultObjectSecrets";
-import { transferConnectionSecrets } from "@/services/vaultSecrets";
-import { saveHostFromForm } from "@/services/hostForm";
+import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
@@ -404,61 +403,12 @@ export default function HostsPage() {
    * is for members of a subtree being cloned wholesale — only the root of such a
    * clone carries the "(copy)" suffix. Throws; callers surface the error.
    */
-  async function handleDuplicateInto(
+  function handleDuplicateInto(
     conn: Connection,
     folderId: string | null,
     opts: { vaultId?: string; keepName?: boolean; identityId?: string; keyId?: string } = {},
   ) {
-    const newConn = await saveConnection({
-      // default name kept in English until all creation sites are localized together (see i18n issue #14)
-      name: conn.name ? (opts.keepName ? conn.name : `${conn.name} (copy)`) : undefined,
-      connection_type: conn.connection_type,
-      host: conn.host,
-      port: conn.port,
-      username: conn.username,
-      auth_type: conn.auth_type,
-      tags: [...conn.tags],
-      identity_id: opts.identityId ?? conn.identity_id,
-      key_id: opts.keyId ?? conn.key_id,
-      folder_id: folderId ?? undefined,
-      vault_id: opts.vaultId ?? conn.vault_id ?? "personal",
-      jump_hosts: conn.jump_hosts ? conn.jump_hosts.map((j) => ({ ...j })) : undefined,
-      env_vars: conn.env_vars ? conn.env_vars.map((e) => ({ ...e })) : undefined,
-      agent_forwarding: conn.agent_forwarding,
-      legacy_algorithms: conn.legacy_algorithms,
-      distro: conn.distro,
-      icon: conn.icon,
-      pinned: conn.pinned,
-      ping_disabled: conn.ping_disabled,
-      shell_integration: conn.shell_integration,
-      keepalive_preset: conn.keepalive_preset,
-      persist_session: conn.persist_session,
-      ftp_secure: conn.ftp_secure,
-      notes: conn.notes,
-      serial_port: conn.serial_port,
-      serial_baud: conn.serial_baud,
-      serial_data_bits: conn.serial_data_bits,
-      serial_parity: conn.serial_parity,
-      serial_stop_bits: conn.serial_stop_bits,
-      serial_flow_control: conn.serial_flow_control,
-      serial_auto_reconnect: conn.serial_auto_reconnect,
-      pre_command: conn.pre_command,
-      post_command: conn.post_command,
-      pre_snippet_id: conn.pre_snippet_id,
-      post_snippet_id: conn.post_snippet_id,
-      ask_vars_each_time: conn.ask_vars_each_time,
-      terminal_encoding: conn.terminal_encoding,
-    });
-    if (newConn && conn.connection_type !== "serial") {
-      const pwd = await getSecret(`password:${conn.id}`);
-      if (pwd) await storeSecret(`password:${newConn.id}`, pwd);
-      if (!conn.key_id) {
-        const key = await getSecret(`key:${conn.id}`);
-        if (key) await storeSecret(`key:${newConn.id}`, key);
-      }
-      await publishConnectionSecrets(newConn.id, opts.vaultId ?? conn.vault_id ?? "personal");
-    }
-    return newConn;
+    return duplicateConnection(conn, folderId, opts, saveConnection);
   }
 
   const handleDuplicate = async (conn: Connection) => {
@@ -625,9 +575,9 @@ export default function HostsPage() {
     ];
   }, [t, selectedIdSet, selectedConnections, selectedFolders, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect, openSnippetPicker, vaultOptions, connections, identities, keys, scopedFolders]);
 
-  const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => {
+  const handleSubmit = async (data: ConnectionFormData, secrets: HostFormSecrets) => {
     try {
-      const saved = await saveHostFromForm(editing, data, password, privateKey, passphrase, selectedVaultIds[0] ?? "personal");
+      const saved = await saveHostFromForm(editing, data, secrets, selectedVaultIds[0] ?? "personal");
       if (!editing && saved) setEditingId(saved.id);
     } catch (err) {
       setError(String(err));
@@ -652,19 +602,7 @@ export default function HostsPage() {
         try {
           if (keyNeedsMove) await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
           if (identityNeedsMove) await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
-          await updateConnection(conn.id, {
-            name: conn.name, host: conn.host, port: conn.port,
-            username: conn.username, auth_type: conn.auth_type, tags: conn.tags,
-            identity_id: conn.identity_id, key_id: conn.key_id, folder_id: conn.folder_id, vault_id: vaultId,
-            jump_hosts: conn.jump_hosts, env_vars: conn.env_vars, agent_forwarding: conn.agent_forwarding,
-            legacy_algorithms: conn.legacy_algorithms,
-            pre_command: conn.pre_command, post_command: conn.post_command,
-            pre_snippet_id: conn.pre_snippet_id, post_snippet_id: conn.post_snippet_id, ask_vars_each_time: conn.ask_vars_each_time,
-            terminal_encoding: conn.terminal_encoding,
-            pinned: conn.pinned, ping_disabled: conn.ping_disabled,
-            shell_integration: conn.shell_integration,
-          });
-          await transferConnectionSecrets(conn.id, conn.vault_id ?? "personal", vaultId);
+          await moveConnectionToVault(conn, vaultId, updateConnection);
           // The cascade moves the linked key/identity too, so their material has to
           // travel with them — into the destination and out of the source.
           if (keyNeedsMove) {
@@ -718,27 +656,11 @@ export default function HostsPage() {
           }
 
           const destHasConnName = conn.name && connections.some((c) => (c.vault_id ?? "personal") === vaultId && c.name === conn.name);
-          const newConn = await saveConnection({
-            // default name kept in English until all creation sites are localized together (see i18n issue #14)
-            name: conn.name ? (destHasConnName ? `${conn.name} (copy)` : conn.name) : undefined,
-            host: conn.host, port: conn.port, username: conn.username,
-            auth_type: conn.auth_type, tags: [...conn.tags],
-            identity_id: newIdentityId, key_id: conn.key_id, folder_id: conn.folder_id,
-            vault_id: vaultId,
-          });
+          const newConn = await saveConnection(duplicateFormData(conn, conn.folder_id ?? null, {
+            vaultId, keepName: !destHasConnName, identityId: newIdentityId,
+          }));
           if (newConn) {
-            const pwd = await getSecret(`password:${conn.id}`);
-            if (pwd) {
-              await storeSecret(`password:${newConn.id}`, pwd);
-              await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
-            }
-            if (!conn.key_id) {
-              const k = await getSecret(`key:${conn.id}`);
-              if (k) {
-                await storeSecret(`key:${newConn.id}`, k);
-                await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
-              }
-            }
+            await copyConnectionSecrets(conn.id, newConn.id, vaultId, { copyKey: !conn.key_id, publish: "direct" });
           }
         } catch (err) { setError(String(err)); }
       },
@@ -763,7 +685,6 @@ export default function HostsPage() {
   });
 
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
-    const subFolders = getAllSubFolders(folder.id);
     const allConns = getConnectionsInFolderTree(folder.id);
     const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
 
@@ -790,16 +711,13 @@ export default function HostsPage() {
       items: cascadeItems,
       execute: async () => {
         try {
-          await moveFolderTreeToVault({ root: folder, subFolders, parentFolderId: folder.parent_folder_id ?? null, vaultId, updateFolder });
           for (const key of keyMap.values()) {
             await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
           }
           for (const identity of identityMap.values()) {
             await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
           }
-          for (const conn of allConns) {
-            await updateConnection(conn.id, { name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: conn.tags, identity_id: conn.identity_id, key_id: conn.key_id, folder_id: conn.folder_id, vault_id: vaultId });
-          }
+          await migrateFolderTreeToVault(folder, folder.parent_folder_id ?? null, vaultId);
         } catch (err) { setError(String(err)); }
       },
     });
@@ -873,23 +791,15 @@ export default function HostsPage() {
 
           // Copy connections
           for (const conn of allConns) {
-            const newIdentityId = conn.identity_id ? (identityIdMap.get(conn.identity_id) ?? conn.identity_id) : undefined;
             const newFolderId = conn.folder_id ? (folderIdMap.get(conn.folder_id) ?? newRootId) : newRootId;
-            const newKeyId = conn.key_id ? (keyIdMap.get(conn.key_id) ?? conn.key_id) : undefined;
-            const newConn = await saveConnection({ name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: [...conn.tags], identity_id: newIdentityId, key_id: newKeyId, folder_id: newFolderId, vault_id: vaultId });
+            const newConn = await saveConnection(duplicateFormData(conn, newFolderId, {
+              vaultId,
+              keepName: true,
+              identityId: identityIdMap.get(conn.identity_id ?? ""),
+              keyId: keyIdMap.get(conn.key_id ?? ""),
+            }));
             if (newConn) {
-              const pwd = await getSecret(`password:${conn.id}`);
-              if (pwd) {
-                await storeSecret(`password:${newConn.id}`, pwd);
-                await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
-              }
-              if (!conn.key_id) {
-                const k = await getSecret(`key:${conn.id}`);
-                if (k) {
-                  await storeSecret(`key:${newConn.id}`, k);
-                  await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
-                }
-              }
+              await copyConnectionSecrets(conn.id, newConn.id, vaultId, { copyKey: !conn.key_id, publish: "direct" });
             }
           }
         } catch (err) { setError(String(err)); }
@@ -936,9 +846,7 @@ export default function HostsPage() {
   ) => {
     await moveFolderTreeToVault({ root: folder, subFolders: getAllSubFolders(folder.id), parentFolderId, vaultId, updateFolder });
     for (const conn of getConnectionsInFolderTree(folder.id)) {
-      const from = conn.vault_id ?? "personal";
-      await updateConnection(conn.id, { ...connectionToFormData(conn), vault_id: vaultId });
-      await transferConnectionSecrets(conn.id, from, vaultId);
+      await moveConnectionToVault(conn, vaultId, updateConnection);
     }
   };
 

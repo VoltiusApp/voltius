@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open as dialogOpen } from "@tauri-apps/plugin-dialog";
+import type { ProxySpec } from "@/services/proxy";
 
 export interface RemoteFile {
   name: string;
@@ -40,6 +41,7 @@ export async function sftpConnect(params: {
   keepaliveIntervalSecs: number;
   keepaliveMax: number;
   legacyAlgorithms?: boolean;
+  proxy?: ProxySpec | null;
 }): Promise<string> {
   return invoke("sftp_connect", {
     connectId: params.connectId,
@@ -53,6 +55,7 @@ export async function sftpConnect(params: {
     keepaliveIntervalSecs: params.keepaliveIntervalSecs,
     keepaliveMax: params.keepaliveMax,
     legacyAlgorithms: params.legacyAlgorithms ?? false,
+    proxy: params.proxy ?? null,
   });
 }
 
@@ -242,6 +245,15 @@ export async function onTransferProgress(
   return listen<TransferProgress>(`sftp-progress-${transferId}`, (e) =>
     callback(e.payload),
   );
+}
+
+/** A remote name the local OS can't hold (or a traversal attempt) that the
+ *  backend skipped instead of writing; `path` is its full remote path. */
+export async function onTransferSkipped(
+  transferId: string,
+  callback: (path: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>(`sftp-skipped-${transferId}`, (e) => callback(e.payload));
 }
 
 // ── Local FS ─────────────────────��────────────────────────────────────────────

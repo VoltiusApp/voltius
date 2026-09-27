@@ -43,7 +43,7 @@ fn local_split(path: &str) -> (String, String) {
     )
 }
 
-/// `tar -czf <archive> -C <parent> <items…>`, reporting its exit code. `deref`
+/// `tar -czf <archive> -C <parent> -- <items…>`, reporting its exit code. `deref`
 /// follows symlinks, for an archive a Windows tar will extract.
 fn tar_create_cmd(
     shell: &RemoteShell,
@@ -54,7 +54,7 @@ fn tar_create_cmd(
 ) -> Result<String, String> {
     let quoted: Vec<String> = items.iter().map(|i| shell.quote(i)).collect();
     let tar = format!(
-        "tar -czf {arch} {deref}-C {parent} {items}",
+        "tar -czf {arch} {deref}-C {parent} -- {items}",
         arch = shell.quote_path(archive),
         deref = if deref { shell.deref_flags() } else { "" },
         parent = shell.quote_path(parent),
@@ -114,10 +114,7 @@ async fn local_tar_create(
     if deref {
         cmd.arg("-h");
     }
-    cmd.args(["-C", parent]);
-    for name in names {
-        cmd.arg(name);
-    }
+    cmd.args(["-C", parent, "--"]).args(names);
     crate::commands::win_proc::prevent_visible_child_window(&mut cmd);
     let out = cmd
         .output()
@@ -668,7 +665,7 @@ mod tests {
                 "/srv",
                 &["x".into(), "y z".into()]
             ),
-            Ok("tar -czf '/tmp/a.tar.gz' -C '/srv' 'x' 'y z' 2>&1; echo __TF_EXIT__:$?".into())
+            Ok("tar -czf '/tmp/a.tar.gz' -C '/srv' -- 'x' 'y z' 2>&1; echo __TF_EXIT__:$?".into())
         );
     }
 
@@ -717,7 +714,62 @@ mod tests {
     #[test]
     fn windows_create_at_a_drive_root_archives_from_the_root() {
         let cmd = tar_create_cmd(&cmd_exe(), "/C:/Temp/a", false, "/C:", &["x".into()]).unwrap();
-        assert!(cmd.contains(r#"-C "C:\." "x""#));
+        assert!(cmd.contains(r#"-C "C:\." -- "x""#));
+    }
+
+    #[test]
+    fn create_never_reads_an_item_as_an_option() {
+        let cmd = tar_create_cmd(SH, "/tmp/a", false, "/srv", &["--version".into()]).unwrap();
+        assert!(cmd.contains("-C '/srv' -- '--version'"), "{cmd}");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn real_cmd_exe_keeps_percent_names_literal() {
+        use std::os::windows::process::CommandExt;
+        let run = |line: String| {
+            let out = std::process::Command::new("cmd")
+                .args(["/d", "/c"])
+                .raw_arg(&line)
+                .output()
+                .unwrap();
+            let out = String::from_utf8_lossy(&out.stdout).into_owned();
+            assert!(out.contains("__TF_EXIT__:0"), "{line}\n{out}");
+        };
+        let sftp = |p: &Path| format!("/{}", p.to_str().unwrap().replace('\\', "/"));
+        let (shell, root) = (cmd_exe(), tempfile::tempdir().unwrap());
+        let src = root.path().join("%USERNAME% 50% off");
+        let dst = root.path().join("%OS%");
+        let archive = root.path().join("%TEMP%.tar.gz");
+        std::fs::create_dir(&src).unwrap();
+        std::fs::write(src.join("%PATH%"), b"v").unwrap();
+
+        let items = ["%PATH%".to_string()];
+        run(tar_create_cmd(&shell, &sftp(&archive), false, &sftp(&src), &items).unwrap());
+        run(tar_extract_cmd(
+            &shell,
+            &sftp(&dst),
+            &sftp(&archive),
+            false,
+            true,
+        ));
+        assert_eq!(std::fs::read(dst.join("%PATH%")).unwrap(), b"v");
+        assert!(!archive.exists());
+    }
+
+    #[tokio::test]
+    async fn local_tar_archives_a_file_named_like_an_option() {
+        let (src, dst) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(src.path().join("--version"), b"v").unwrap();
+        let archive = src.path().join("a.tar.gz");
+        let parent = src.path().to_str().unwrap();
+        local_tar_create(&archive, false, parent, &["--version".into()])
+            .await
+            .unwrap();
+        local_tar_extract(&archive, dst.path().to_str().unwrap(), false)
+            .await
+            .unwrap();
+        assert_eq!(std::fs::read(dst.path().join("--version")).unwrap(), b"v");
     }
 
     #[test]

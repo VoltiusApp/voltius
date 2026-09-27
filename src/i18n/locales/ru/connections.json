@@ -68,7 +68,24 @@
       "keychainIdentity": "Личность из Ключей",
       "passphrase": "Кодовая фраза",
       "optional": "(необязательно)",
-      "keyPassphrasePlaceholder": "Кодовая фраза ключа"
+      "keyPassphrasePlaceholder": "Кодовая фраза ключа",
+      "proxy": {
+        "label": "Прокси",
+        "inherit": "Наследовать ({{label}})",
+        "modes": {
+          "direct": "Напрямую",
+          "system": "Системный",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "host": "Хост прокси",
+        "port": "Порт прокси",
+        "hostMissing": "Прокси задан как {{kind}}, но хост не указан",
+        "portInvalid": "Порт должен быть от 1 до 65535",
+        "username": "Пользователь прокси",
+        "password": "Пароль прокси",
+        "passwordSaved": "••• сохранён"
+      }
     },
     "distroIconPicker": {
       "title": "Значок",

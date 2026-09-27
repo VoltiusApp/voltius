@@ -1,5 +1,6 @@
 use super::{get_backend, RemoteFile};
 use crate::known_hosts::KnownHostsStore;
+use crate::proxy::ProxySpec;
 use crate::sftp::SftpManager;
 use crate::ssh::client::JumpHostConnect;
 use crate::ssh::session::SessionManager;
@@ -35,6 +36,7 @@ pub async fn sftp_connect(
     keepalive_interval_secs: u64,
     keepalive_max: usize,
     legacy_algorithms: Option<bool>,
+    proxy: Option<ProxySpec>,
 ) -> Result<String, String> {
     sftp_state
         .connect(
@@ -51,6 +53,7 @@ pub async fn sftp_connect(
             keepalive_interval_secs,
             keepalive_max,
             legacy_algorithms.unwrap_or(false),
+            proxy,
         )
         .await
 }

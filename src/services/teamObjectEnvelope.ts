@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getTeamVaultKey, getCachedTeamKeyVersion, getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
-import { bytesToBase64, base64ToBytes } from "@/services/teamVaultSyncCore";
+import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 
 /**
  * Team object metadata used to be stored server-side as raw JSONB, leaving
@@ -54,7 +54,7 @@ export async function decodeObjectMetadata(teamId: string, metadata: unknown): P
     : currentKey;
   const payload = await invoke<{ files: Record<string, string> }>("backup_decrypt", {
     encKey,
-    blob: base64ToBytes(metadata.enc),
+    blob: base64ToByteArray(metadata.enc),
   });
   // No `?? "{}"` fallback: a payload that decrypts successfully but has no
   // `metadata` key must throw (JSON.parse(undefined) throws SyntaxError),

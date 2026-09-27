@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";
-import type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
+import type { CreatedTeam, Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
 export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation };
 
 interface TeamStore {
@@ -20,7 +20,7 @@ interface TeamStore {
   self: { userId: string; online: boolean } | null;
 
   loadTeams: () => Promise<void>;
-  createTeam: (name: string) => Promise<Team>;
+  createTeam: (name: string) => Promise<CreatedTeam>;
   loadMembers: (teamId: string) => Promise<void>;
   addMember: (teamId: string, email: string, role?: string) => Promise<void>;
   addMemberById: (teamId: string, userId: string, role?: string) => Promise<{ status: "pending" | "already_member" }>;
@@ -123,9 +123,11 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   createTeam: async (name) => {
-    const team = await api.createTeam(name);
-    set((s) => ({ teams: [...s.teams, team], activeTeamId: team.id }));
-    return team;
+    const created = await api.createTeam(name);
+    // The create reply lacks role_ids and owner_tier; the listed row carries them.
+    set((s) => ({ teams: [...s.teams, { ...created, owner_tier: "", role_ids: [] }], activeTeamId: created.id }));
+    await get().loadTeams();
+    return created;
   },
 
   loadMembers: async (teamId) => {

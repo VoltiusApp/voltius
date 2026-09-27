@@ -262,8 +262,7 @@ export async function removeSavedAccount(account_id: string): Promise<void> {
 /**
  * End the current account's session without touching the saved list: flush its
  * work to the server, park its UI state, and leave the machine with no active
- * account. Shared by the switch and by "add another account", which differ only
- * in what they put back afterwards.
+ * account for the switch to fill.
  */
 async function tearDownSession(): Promise<void> {
   await stashUiStateForCurrentAccount().catch(() => {});
@@ -311,15 +310,14 @@ export async function switchToAccount(account: SavedAccount): Promise<void> {
 }
 
 /**
- * Leave the current account signed in to the switcher and land on the auth
- * screen, so a second account can be added.
- *
- * Sign-out cannot do this job: it forgets the account on the way out, by
- * design. Without this the switcher could never hold more than one account,
- * because signing out is otherwise the only way to reach the auth screen.
+ * Add a cloud account whose credentials were already proven, and switch into it.
+ * The current account is saved first, so a keychain that refuses it stops the add
+ * before anything is torn down.
  */
-export async function signOutToAddAccount(): Promise<void> {
+export async function addAccount(session: Omit<SavedAccount, "mode">): Promise<void> {
   await saveCurrentAccount();
-  await tearDownSession();
-  window.location.reload();
+  if ((await keychainGet("account_id")) === session.account_id) return;
+  const entry: SavedAccount = { ...session, mode: "server" };
+  await upsertSavedAccount(entry);
+  await switchToAccount(entry);
 }

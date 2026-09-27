@@ -6,7 +6,7 @@ import { isMobileShell } from "@/utils/platform";
 
 const MIME: Record<string, string> = { json: "application/json", csv: "text/csv" };
 
-function notify(severity: "success" | "error", message: string) {
+export function notify(severity: "success" | "error", message: string) {
   useNotificationStore.getState().addToast({
     source: { kind: "plugin", id: "system", name: "Voltius" },
     type: "toast",

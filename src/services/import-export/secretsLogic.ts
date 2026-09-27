@@ -1,6 +1,8 @@
 // Pure vault key mapping for export/import credential round-trips.
 // No Tauri dependencies — accepts fetchSecret / storeSecret as parameters.
 
+import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
+
 type FetchSecret = (key: string) => Promise<string | null>;
 type StoreSecret = (key: string, value: string) => Promise<void>;
 
@@ -10,6 +12,7 @@ export interface ConnectionSecrets {
   password?: string;
   private_key?: string;
   passphrase?: string;
+  proxy_password?: string;
 }
 
 export async function fetchConnectionSecrets(
@@ -20,6 +23,7 @@ export async function fetchConnectionSecrets(
     password: (await fetchSecret(`password:${connId}`)) ?? undefined,
     private_key: (await fetchSecret(`key:${connId}`)) ?? undefined,
     passphrase: (await fetchSecret(`passphrase:${connId}`)) ?? undefined,
+    proxy_password: (await fetchSecret(proxyPasswordKey(connId))) ?? undefined,
   };
 }
 
@@ -31,6 +35,7 @@ export async function storeConnectionSecrets(
   if (record.password) await storeSecret(`password:${newId}`, record.password);
   if (record.private_key) await storeSecret(`key:${newId}`, record.private_key);
   if (record.passphrase) await storeSecret(`passphrase:${newId}`, record.passphrase);
+  if (record.proxy_password) await storeSecret(proxyPasswordKey(newId), record.proxy_password);
 }
 
 // ─── Identity ─────────────────────────────────────────────────────────────────

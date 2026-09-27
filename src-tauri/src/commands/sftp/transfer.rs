@@ -2,6 +2,7 @@ use super::{
     backend_transfer_command, get_session, open_remote_read, open_remote_write, pump_chunks,
     remote_size,
 };
+use crate::sftp::backend::TransferEvents;
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
 use std::path::Path;
@@ -58,9 +59,34 @@ pub(crate) async fn sftp_download_inner(
     transfer_id: &str,
     token: &CancellationToken,
 ) -> Result<(), String> {
-    let (total, mut remote_file) = open_remote_read(&session, remote_path).await?;
+    let mut transferred = 0u64;
+    download_into(
+        app,
+        &session,
+        remote_path,
+        Path::new(local_path),
+        transfer_id,
+        token,
+        &mut transferred,
+        None,
+    )
+    .await
+}
 
-    if let Some(parent) = Path::new(local_path).parent() {
+/// Download one remote file to `local_path`, creating its parent. A `total` of
+/// None reports progress against this file's own size.
+pub(super) async fn download_into(
+    app: &impl TransferEvents,
+    session: &Mutex<SftpSession>,
+    remote_path: &str,
+    local_path: &Path,
+    transfer_id: &str,
+    token: &CancellationToken,
+    transferred: &mut u64,
+    total: Option<u64>,
+) -> Result<(), String> {
+    let (size, mut remote_file) = open_remote_read(session, remote_path).await?;
+    if let Some(parent) = local_path.parent() {
         tokio::fs::create_dir_all(parent)
             .await
             .map_err(|e| format!("Cannot create local dir: {e}"))?;
@@ -69,24 +95,26 @@ pub(crate) async fn sftp_download_inner(
         .await
         .map_err(|e| format!("Cannot create local file: {e}"))?;
 
-    let mut transferred = 0u64;
     pump_chunks(
         app,
         &mut remote_file,
         &mut local_file,
         transfer_id,
         token,
-        &mut transferred,
-        total,
+        transferred,
+        total.unwrap_or(size),
     )
     .await?;
-    // Properly close the remote read handle; `Drop` alone leaks the client-side
-    // open-handle counter in russh-sftp (fire-and-forget close).
+    // russh-sftp's `Drop` never releases its open-handle count, and tokio's
+    // `File` finishes pending writes after drop, so close both explicitly.
     remote_file
         .shutdown()
         .await
         .map_err(|e| format!("Close error: {e}"))?;
-    Ok(())
+    local_file
+        .flush()
+        .await
+        .map_err(|e| format!("Write error: {e}"))
 }
 
 // ── Remote → Remote transfer ──────────────────────────────────────────────────
