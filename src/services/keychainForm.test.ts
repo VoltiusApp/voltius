@@ -10,17 +10,19 @@ const h = vi.hoisted(() => ({
   saveIdentity: vi.fn(),
   calls: [] as string[],
   moveWithSecrets: vi.fn(),
+  getSecret: vi.fn(),
 }));
 const { storeSecret, deleteSecret, saveKey, updateKey } = h;
 
-vi.mock("@/services/vault", () => ({ storeSecret: h.storeSecret, deleteSecret: h.deleteSecret }));
+vi.mock("@/services/vault", () => ({ storeSecret: h.storeSecret, deleteSecret: h.deleteSecret, getSecret: h.getSecret }));
 vi.mock("@/stores/keyStore", () => ({ useKeyStore: { getState: () => ({ saveKey: h.saveKey, updateKey: h.updateKey }) } }));
 vi.mock("@/stores/identityStore", () => ({
   useIdentityStore: { getState: () => ({ updateIdentity: h.updateIdentity, saveIdentity: h.saveIdentity }) },
 }));
 vi.mock("@/services/vaultObjectSecrets", () => ({ moveWithSecrets: h.moveWithSecrets }));
 
-import { saveKeyFromForm, saveIdentityFromForm } from "./keychainForm";
+import { saveKeyFromForm, saveIdentityFromForm, unlinkIdentityFromHost } from "./keychainForm";
+import { TeamSecretUploadError } from "@/services/secretRouting";
 import type { Identity } from "@/types";
 
 const existing = { id: "k1", vault_id: "personal" } as SshKey;
@@ -77,5 +79,27 @@ describe("saveKeyFromForm", () => {
     await saveKeyFromForm(null, { tags: [] }, "PRIV", "", "", "personal");
     expect(storeSecret.mock.calls).toEqual([["key:new:private", "PRIV"]]);
     expect(deleteSecret).not.toHaveBeenCalled();
+  });
+});
+
+describe("unlinkIdentityFromHost", () => {
+  const identity = { id: "i1", username: "root", key_id: "k1" } as Identity;
+  const host = { id: "c1", name: "web", host: "h", port: 22, tags: [] } as never;
+
+  test("copies the identity's credentials onto the host and survives a failed team upload", async () => {
+    h.getSecret.mockImplementation(async (k: string) => (k === "identity:i1:password" ? "pw" : k === "key:k1:private" ? "pem" : null));
+    h.storeSecret.mockRejectedValue(new TeamSecretUploadError("password:c1", new Error("429")));
+    const updateConnection = vi.fn(async () => {});
+
+    await expect(unlinkIdentityFromHost(identity, host, updateConnection)).resolves.toBeUndefined();
+
+    expect(updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ identity_id: undefined, auth_type: "key", username: "root" }));
+    expect(h.storeSecret.mock.calls).toEqual([["password:c1", "pw"], ["key:c1", "pem"]]);
+  });
+
+  test("any other storage failure still reaches the caller", async () => {
+    h.getSecret.mockResolvedValue("pw");
+    h.storeSecret.mockRejectedValue(new Error("vault locked"));
+    await expect(unlinkIdentityFromHost(identity, host, vi.fn(async () => {}))).rejects.toThrow("vault locked");
   });
 });

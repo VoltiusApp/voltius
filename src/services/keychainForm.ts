@@ -1,8 +1,9 @@
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
-import { storeSecret, deleteSecret } from "@/services/vault";
+import { storeSecret, deleteSecret, getSecret } from "@/services/vault";
+import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { moveWithSecrets } from "@/services/vaultObjectSecrets";
-import type { Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
+import type { AuthType, Connection, ConnectionFormData, Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 
 type InlineKeyMaterial = { label?: string; privateKey: string; publicKey: string };
 
@@ -69,4 +70,27 @@ export async function saveIdentityFromForm(
     await writeSecret(`identity:${identity.id}:password`, password, !editing);
   }
   return identity;
+}
+
+export async function unlinkIdentityFromHost(
+  identity: Identity,
+  conn: Connection,
+  updateConnection: (id: string, data: ConnectionFormData) => Promise<unknown>,
+): Promise<void> {
+  const password = await getSecret(`identity:${identity.id}:password`).catch(() => null);
+  const privateKey = identity.key_id ? await getSecret(`key:${identity.key_id}:private`).catch(() => null) : null;
+  const authType: AuthType = privateKey ? "key" : "password";
+  await updateConnection(conn.id, {
+    name: conn.name,
+    host: conn.host,
+    port: conn.port,
+    username: identity.username,
+    auth_type: authType,
+    tags: conn.tags,
+    identity_id: undefined,
+    folder_id: conn.folder_id,
+  });
+  const keepCached = keepCachedOnUploadFailure("IdentityForm unlink");
+  if (password) await storeSecret(`password:${conn.id}`, password).catch(keepCached);
+  if (privateKey) await storeSecret(`key:${conn.id}`, privateKey).catch(keepCached);
 }
