@@ -56,9 +56,7 @@ export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
       if (!localKey) return;
       const kept = previous.get(localKey);
       if (kept !== undefined) next.set(localKey, kept);
-      // A pre-#217 row's key_version is undefined, which is epoch 1 (matching
-      // the server's own COALESCE(...,1) treatment) — never a literal
-      // "undefined" fetch against vault-key/undefined.
+      // Missing key_version means epoch 1, matching the server's COALESCE(...,1).
       const recordVersion = record.key_version ?? 1;
       const encKey = currentVersion !== undefined && recordVersion !== currentVersion
         ? await getTeamVaultKeyAtVersion(teamId, recordVersion)

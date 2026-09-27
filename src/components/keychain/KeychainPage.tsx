@@ -805,7 +805,6 @@ export default function KeychainPage() {
     return root;
   };
 
-  /** Moves a folder subtree into `vaultId`, reparenting the root and migrating every key/identity it contains. */
   const migrateFolderTreeToVault = async (
     folder: Folder,
     parentFolderId: string | null,
