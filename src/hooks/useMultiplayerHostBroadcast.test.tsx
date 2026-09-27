@@ -17,8 +17,8 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { TerminalSession } from "@/types";
 
 const ID = "local1";
-function Harness({ id = ID, type = "ssh" as TerminalSession["type"] }: { id?: string; type?: TerminalSession["type"] }) {
-  useMultiplayerHostBroadcast(id, type);
+function Harness({ id = ID, type = "ssh" as TerminalSession["type"], encoding }: { id?: string; type?: TerminalSession["type"]; encoding?: string }) {
+  useMultiplayerHostBroadcast(id, type, encoding);
   return null;
 }
 
@@ -65,6 +65,21 @@ test("host role forwards output via connection.sendOutput, does not buffer", asy
 
   expect(sendOutput).toHaveBeenCalledWith(data);
   expect(h.append).not.toHaveBeenCalled();
+});
+
+test("a GBK session reaches the relay as UTF-8, a split character held until whole", async () => {
+  const lst = installListener();
+  const sendOutput = vi.fn(async (_data: Uint8Array) => {});
+  useTeamSessionStore.setState({
+    connections: { [ID]: { role: "host", connection: { sendOutput } } },
+  } as never);
+  render(<Harness encoding="gbk" />);
+  await lst.ready;
+
+  act(() => lst.emit(new Uint8Array([0xd6])));
+  expect(sendOutput).not.toHaveBeenCalled();
+  act(() => lst.emit(new Uint8Array([0xd0])));
+  expect(new TextDecoder().decode(sendOutput.mock.calls[0][0])).toBe("中");
 });
 
 test("a shared local shell forwards its PTY output to the relay", async () => {

@@ -1202,3 +1202,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 export function getSessionTransportType(sessionId: string): TerminalSession["type"] {
   return useSessionStore.getState().sessions.find((s) => s.id === sessionId)?.type ?? "ssh";
 }
+
+/** Text as input bytes in the session's terminal encoding; UTF-8 for an unknown id. */
+export function encodeSessionText(sessionId: string, text: string): Uint8Array {
+  return encodeTerminalInput(text, useSessionStore.getState().sessions.find((s) => s.id === sessionId)?.encoding);
+}

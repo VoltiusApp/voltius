@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useAllConnections } from "@/hooks/useAllConnections";
-import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
-import { usePfStates } from "@/hooks/usePfStates";
+import { useConnectedSshPfStates } from "@/hooks/usePfStates";
 import { openPfTunnel, closePfTunnel } from "@/services/portForwardingTunnels";
 import { getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import type { ActiveTunnel, PortForwardingRule, TerminalSession } from "@/types";
@@ -32,22 +30,10 @@ export function useRuleTunnels(): {
   stopRule: (rule: PortForwardingRule) => Promise<void>;
 } {
   const { t } = useTranslation();
-  const { sessions, activeSessionId } = useSessionStore();
-  const connections = useAllConnections();
-  const accessibleVaultIds = useAccessibleVaultIds();
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const { sessions: relevantSessions, pfStates } = useConnectedSshPfStates();
 
   const [busyRuleIds, setBusyRuleIds] = useState<Set<string>>(new Set());
-
-  const relevantSessions = useMemo(() => {
-    return sessions.filter((s) => {
-      if (s.type !== "ssh" || s.status !== "connected") return false;
-      const conn = connections.find((c) => c.id === s.connectionId);
-      if (!conn) return false;
-      return accessibleVaultIds.includes(conn.vault_id ?? "personal");
-    });
-  }, [sessions, connections, accessibleVaultIds]);
-
-  const pfStates = usePfStates(relevantSessions.map((s) => s.id));
 
   function setRuleBusy(id: string, on: boolean) {
     setBusyRuleIds((prev) => {

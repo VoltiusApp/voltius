@@ -1,8 +1,8 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { createWebglAddon } from "@/utils/webglAddon";
-import { bindTerminalContainer, disposeClosedTerminals, type CachedTerminal } from "@/components/terminal/terminalContainer";
+import { disposeClosedTerminals, reattachTerminal, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useThemeStore } from "@/stores/themeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
@@ -17,9 +17,7 @@ interface Props {
   active?: boolean;
 }
 
-// Guest xterms outlive their view, the way useTerminal caches solo terminals:
-// moving the tab into a split pane remounts the view, and a fresh xterm there
-// would wipe the screen and scrollback. Torn down once the tab is gone.
+// Cached like solo terminals: moving the tab into a split pane remounts the view.
 interface GuestTerminal extends CachedTerminal {
   dispose: () => void;
 }
@@ -28,12 +26,10 @@ const guestTerminals = new Map<string, GuestTerminal>();
 
 useSessionStore.subscribe((state) => disposeClosedTerminals(guestTerminals, state.sessions));
 
-/** The session's cached terminal moved into `container`, or a new one opened there. */
 function mountGuestTerminal(localSessionId: string, container: HTMLDivElement): GuestTerminal {
   const cached = guestTerminals.get(localSessionId);
   if (cached) {
-    if (cached.terminal.element) container.appendChild(cached.terminal.element);
-    cached.fitAddon.fit();
+    reattachTerminal(cached, container);
     return cached;
   }
 
@@ -88,30 +84,8 @@ function mountGuestTerminal(localSessionId: string, container: HTMLDivElement): 
 }
 
 export default function MultiplayerTerminalView({ localSessionId, active }: Props) {
-  const mountCleanupRef = useRef<(() => void) | null>(null);
-
-  const attach = useCallback(
-    (container: HTMLDivElement | null) => {
-      // React hands the ref a null on unmount and when localSessionId changes.
-      if (!container) {
-        mountCleanupRef.current?.();
-        return;
-      }
-      if (mountCleanupRef.current) return;
-
-      const entry = mountGuestTerminal(localSessionId, container);
-
-      // Local clipboard parity with solo terminals (copy-on-select, smart Ctrl+C,
-      // Ctrl+Shift+C, paste, right-click). No OSC 52: a guest's clipboard is never
-      // written by the session controller — only by the guest's own action.
-      const unbind = bindTerminalContainer(entry, container);
-      mountCleanupRef.current = () => {
-        unbind();
-        mountCleanupRef.current = null;
-      };
-    },
-    [localSessionId],
-  );
+  // No OSC 52: a guest's clipboard is written only by the guest's own action, never by the controller.
+  const attach = useTerminalMount((container) => mountGuestTerminal(localSessionId, container), undefined, [localSessionId]);
 
   useEffect(() => {
     if (!active) return;

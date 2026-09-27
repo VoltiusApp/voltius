@@ -8,6 +8,7 @@ import { appFetch } from "@/services/http";
 import { normalizeShortCode } from "@/services/shortCode";
 import { openXChaCha20Poly1305, sealXChaCha20Poly1305 } from "@/services/crypto/xchacha";
 import { base64ToBytes, bytesToBase64 } from "@/utils/base64";
+import { appendOutputBuffer, drainOutputBuffer, type OutputBuffers } from "@/utils/outputBuffer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -437,29 +438,14 @@ export async function endMultiplayerSession(sessionId: string): Promise<void> {
 
 // ─── Per-session output buffer (pre-share scrollback, any transport) ─────────
 
-const MAX_BUFFER_BYTES = 64 * 1024; // 64 KB per session
-
-interface OutputBuffer { chunks: Uint8Array[]; totalBytes: number; }
-const sessionOutputBuffers = new Map<string, OutputBuffer>();
+const sessionOutputBuffers: OutputBuffers = new Map();
 
 export function appendSessionOutputBuffer(sessionId: string, data: Uint8Array): void {
-  let buf = sessionOutputBuffers.get(sessionId);
-  if (!buf) { buf = { chunks: [], totalBytes: 0 }; sessionOutputBuffers.set(sessionId, buf); }
-  buf.chunks.push(data);
-  buf.totalBytes += data.length;
-  while (buf.totalBytes > MAX_BUFFER_BYTES && buf.chunks.length > 0) {
-    buf.totalBytes -= buf.chunks.shift()!.length;
-  }
+  appendOutputBuffer(sessionOutputBuffers, sessionId, data);
 }
 
 export function drainSessionOutputBuffer(sessionId: string): Uint8Array | null {
-  const buf = sessionOutputBuffers.get(sessionId);
-  sessionOutputBuffers.delete(sessionId);
-  if (!buf || buf.chunks.length === 0) return null;
-  const out = new Uint8Array(buf.totalBytes);
-  let offset = 0;
-  for (const chunk of buf.chunks) { out.set(chunk, offset); offset += chunk.length; }
-  return out;
+  return drainOutputBuffer(sessionOutputBuffers, sessionId);
 }
 
 // ─── WebSocket relay ──────────────────────────────────────────────────────────

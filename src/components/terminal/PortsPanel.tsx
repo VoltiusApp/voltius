@@ -28,8 +28,10 @@ export function PortsPanel() {
   const pfState = usePfState(isSshSession ? activeSession.id : null);
   const tunnels = pfState?.tunnels ?? [];
   const suppressedPorts = pfState?.suppressed_ports ?? [];
-  // Ports the user deleted from this panel — hidden even when suppressed
-  const [hiddenPorts, setHiddenPorts] = useState<Set<number>>(new Set());
+  // Ports the user deleted from this panel, per session — hidden even when suppressed
+  const [hiddenPorts, setHiddenPorts] = useState<Set<string>>(new Set());
+  const isHidden = (port: number) => hiddenPorts.has(`${activeSessionId}:${port}`);
+  const hidePort = (port: number) => setHiddenPorts((prev) => new Set(prev).add(`${activeSessionId}:${port}`));
   const [busy, setBusy] = useState<Set<string>>(new Set());
 
   const quickForwardInputRef = useRef<HTMLInputElement>(null);
@@ -113,10 +115,6 @@ export function PortsPanel() {
 
   useEffect(() => { loadRules(); }, []);
 
-  useEffect(() => {
-    if (!isSshSession) setHiddenPorts(new Set());
-  }, [activeSessionId, isSshSession]);
-
   function setBusyKey(key: string, on: boolean) {
     setBusy((prev) => { const s = new Set(prev); on ? s.add(key) : s.delete(key); return s; });
   }
@@ -184,13 +182,13 @@ export function PortsPanel() {
     setBusyKey(`del-${key}`, true);
     try {
       await closePfTunnel(activeSessionId, tunnelId);
-      setHiddenPorts((prev) => new Set([...prev, port]));
+      hidePort(port);
     } catch (e) { console.error("pf_tunnel_close failed:", e); }
     finally { setBusyKey(`del-${key}`, false); }
   }
 
   function handleSuppressedDelete(port: number) {
-    setHiddenPorts((prev) => new Set([...prev, port]));
+    hidePort(port);
   }
 
   if (!isSshSession) {
@@ -212,9 +210,9 @@ export function PortsPanel() {
 
   const rulePorts = new Set(rules.map((r) => r.remote_port));
   const suppressedRows = suppressedPorts.filter(
-    (p) => !rulePorts.has(p) && !hiddenPorts.has(p),
+    (p) => !rulePorts.has(p) && !isHidden(p),
   );
-  const visibleUnclaimed = unclaimedTunnels.filter((t) => !hiddenPorts.has(t.remote_port));
+  const visibleUnclaimed = unclaimedTunnels.filter((t) => !isHidden(t.remote_port));
 
   const isEmpty = rules.length === 0 && visibleUnclaimed.length === 0 && suppressedRows.length === 0;
   const activeCount = tunnels.filter((t) => t.state === "active").length;

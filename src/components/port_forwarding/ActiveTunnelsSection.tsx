@@ -2,11 +2,9 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Icon } from "@iconify/react";
-import { useSessionStore } from "@/stores/sessionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
-import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useUIStore } from "@/stores/uiStore";
-import { usePfStates } from "@/hooks/usePfStates";
+import { useConnectedSshPfStates } from "@/hooks/usePfStates";
 import { closePfTunnel, resumeAutoPort } from "@/services/portForwardingTunnels";
 import { formatActiveTunnelLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
@@ -32,24 +30,12 @@ function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type
 
 export function ActiveTunnelsSection() {
   const { t } = useTranslation();
-  const sessions = useSessionStore((s) => s.sessions);
   const connections = useAllConnections();
-  const accessibleVaultIds = useAccessibleVaultIds();
+  const { sessions: relevantSessions, pfStates: pfStateMap } = useConnectedSshPfStates();
   const layoutMode = useUIStore((s) => s.portForwardingLayoutMode);
 
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [hiddenPorts, setHiddenPorts] = useState<Set<string>>(new Set());
-
-  const relevantSessions = useMemo(() => {
-    return sessions.filter((s) => {
-      if (s.type !== "ssh" || s.status !== "connected") return false;
-      const conn = connections.find((c) => c.id === s.connectionId);
-      if (!conn) return false;
-      return accessibleVaultIds.includes(conn.vault_id ?? "personal");
-    });
-  }, [sessions, connections, accessibleVaultIds]);
-
-  const pfStateMap = usePfStates(relevantSessions.map((s) => s.id));
 
   // Port forwarding is host-scoped: terminals of the same host share one tunnel
   // list, so collapse to a single card per host (first session per connection).

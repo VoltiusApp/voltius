@@ -3,9 +3,10 @@ import i18n from "@/i18n";
 import * as mp from "@/services/multiplayerService";
 import type { ActiveSession, Participant, MultiplayerConnection, SessionKey } from "@/services/multiplayerService";
 import { sendSessionInput } from "@/services/sessionInput";
-import { getSessionTransportType } from "@/stores/sessionStore";
+import { encodeSessionText, getSessionTransportType } from "@/stores/sessionStore";
 import type { TeamMember } from "@/services/teamService";
 import type { InviteTarget } from "@/services/teamSharing";
+import { appendOutputBuffer, drainOutputBuffer, type OutputBuffers } from "@/utils/outputBuffer";
 export type { ActiveSession, Participant };
 
 interface TeamSessionStore {
@@ -84,37 +85,38 @@ export interface MultiplayerSessionState {
   inviteToken?: string;
 }
 
-/** Where each guest session's incoming output goes. The terminal view attaches
- *  once its xterm exists; output that lands before that — the host's initial
- *  snapshot, typically — is held and replayed on attach instead of dropped. */
-const guestOutput = new Map<string, { write: ((data: Uint8Array) => void) | null; pending: Uint8Array[] }>();
+/** Where each guest session's output goes once its view has an xterm; output
+ *  before that (the host's initial snapshot, typically) is held and replayed on attach. */
+const guestSinks = new Map<string, (data: Uint8Array) => void>();
+const guestPending: OutputBuffers = new Map();
 
 function deliverGuestOutput(localSessionId: string, data: Uint8Array) {
-  const sink = guestOutput.get(localSessionId);
-  if (sink?.write) sink.write(data);
-  else if (sink) sink.pending.push(data);
-  else guestOutput.set(localSessionId, { write: null, pending: [data] });
+  const write = guestSinks.get(localSessionId);
+  if (write) write(data);
+  else appendOutputBuffer(guestPending, localSessionId, data);
 }
 
-/** Send a guest session's output to `write`, starting with whatever was held
- *  for it. Returns the detach. */
+/** Send a guest session's output to `write`, starting with whatever was held for it. Returns the detach. */
 export function attachGuestOutput(localSessionId: string, write: (data: Uint8Array) => void): () => void {
-  for (const data of guestOutput.get(localSessionId)?.pending ?? []) write(data);
-  const sink = { write, pending: [] };
-  guestOutput.set(localSessionId, sink);
+  const held = drainOutputBuffer(guestPending, localSessionId);
+  if (held) write(held);
+  guestSinks.set(localSessionId, write);
   return () => {
-    if (guestOutput.get(localSessionId) === sink) guestOutput.delete(localSessionId);
+    if (guestSinks.get(localSessionId) === write) guestSinks.delete(localSessionId);
   };
 }
+
+const relayDecoder = new TextDecoder();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeCallbacks(localSessionId: string, set: any, _get: any) {
   return {
     onOutput: () => {},
     // A guest with control types into whatever the host is running — a local
-    // shell and a serial port as much as an SSH channel.
+    // shell and a serial port as much as an SSH channel. The relay carries UTF-8.
     onInput: (data: Uint8Array) => {
-      sendSessionInput(localSessionId, getSessionTransportType(localSessionId), data).catch(() => {});
+      const bytes = encodeSessionText(localSessionId, relayDecoder.decode(data));
+      sendSessionInput(localSessionId, getSessionTransportType(localSessionId), bytes).catch(() => {});
     },
     onControlUpdate: (holderId: string, requesterId: string | null) => {
       set((s: TeamSessionStore) => ({
@@ -303,7 +305,8 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
   leaveSession: (localSessionId) => {
     const state = get().connections[localSessionId];
     if (state) state.connection.close();
-    guestOutput.delete(localSessionId);
+    guestSinks.delete(localSessionId);
+    drainOutputBuffer(guestPending, localSessionId);
     set((s) => {
       const next = { ...s.connections };
       delete next[localSessionId];

@@ -16,8 +16,11 @@ vi.mock("@/services/broadcast", () => ({
 }));
 vi.mock("@/services/terminalPaste", () => ({ pasteToSession: h.paste }));
 vi.mock("@/services/sessionInput", () => ({ sendSessionInput: h.send }));
-vi.mock("@/stores/sessionStore", () => ({ useSessionStore: { getState: () => ({ sessions: h.sessions }) } }));
+vi.mock("@/stores/sessionStore", () => ({
+  encodeSessionText: (id: string, text: string) => encodeTerminalInput(text, h.sessions.find((s) => s.id === id)?.encoding),
+}));
 
+import { encodeTerminalInput } from "@/utils/terminalEncoding";
 import { broadcastSnippetInject, snippetInject } from "./snippetInject";
 
 const sent = () => h.send.mock.calls.map(([id, type, data]) => [id, type, new TextDecoder().decode(data)]);

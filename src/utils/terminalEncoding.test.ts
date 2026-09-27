@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createOutputDecoder, encodeTerminalInput } from "./terminalEncoding";
+import { createOutputDecoder, createTextDecoder, createUtf8Transcoder, encodeTerminalInput } from "./terminalEncoding";
 
 const bytes = (...b: number[]) => Uint8Array.from(b);
 
@@ -27,6 +27,27 @@ describe("createOutputDecoder", () => {
   it("falls back to UTF-8 for a label the platform does not know", () => {
     const data = bytes(0x41);
     expect(createOutputDecoder("not-an-encoding").decode(data)).toBe(data);
+  });
+});
+
+describe("createUtf8Transcoder", () => {
+  it("re-encodes a legacy stream as UTF-8, holding a split character", () => {
+    const toUtf8 = createUtf8Transcoder("gbk");
+    expect(Array.from(toUtf8(bytes(0x61, 0xd6)))).toEqual([0x61]);
+    expect(new TextDecoder().decode(toUtf8(bytes(0xd0)))).toBe("中");
+  });
+
+  it("passes UTF-8 through", () => {
+    const data = bytes(0xe4, 0xb8, 0xad);
+    expect(createUtf8Transcoder(undefined)(data)).toBe(data);
+  });
+});
+
+describe("createTextDecoder", () => {
+  it("decodes with the session's encoding, UTF-8 when unset or unknown", () => {
+    expect(createTextDecoder("gbk").decode(bytes(0xd6, 0xd0))).toBe("中");
+    expect(createTextDecoder(undefined).encoding).toBe("utf-8");
+    expect(createTextDecoder("not-an-encoding").encoding).toBe("utf-8");
   });
 });
 
@@ -61,6 +82,33 @@ describe("encodeTerminalInput", () => {
     expect(encoded("中", "gbk")).toEqual([0xd6, 0xd0]);
     expect(encoded("é", "iso-8859-1")).toEqual([0xe9]);
     expect(encoded("¥", "gb18030")).toEqual([0x81, 0x30, 0x84, 0x36]);
+  });
+
+  it("follows the WHATWG encoders where a character has more than one sequence", () => {
+    expect(encoded("€", "gb18030")).toEqual([0xa2, 0xe3]);
+    expect(encoded("€", "gbk")).toEqual([0x80]);
+    expect(encoded("═", "big5")).toEqual([0xf9, 0xf9]);
+    expect(encoded("纊", "shift-jis")).toEqual([0xfa, 0x5c]);
+    expect(encoded("¥‾", "shift-jis")).toEqual([0x5c, 0x7e]);
+  });
+
+  it("encodes gb18030's four-byte forms", () => {
+    expect(encoded("😀", "gb18030")).toEqual([0x94, 0x39, 0xfc, 0x36]);
+    expect(roundTrip("😀𠀀ḿ", "gb18030")).toBe("😀𠀀ḿ");
+  });
+
+  it("maps the JIS twins an IME types to the bytes the host decodes", () => {
+    expect(encoded("〜−‖", "shift-jis")).toEqual([0x81, 0x60, 0x81, 0x7c, 0x81, 0x61]);
+    expect(encoded("¢", "euc-jp")).toEqual([0xa1, 0xf1]);
+  });
+
+  it("splits a Vietnamese letter into the precomposed base and mark windows-1258 holds", () => {
+    expect(encoded("ệ", "windows-1258")).toEqual([0xea, 0xf2]);
+    expect(roundTrip("Tiếng Việt", "windows-1258").normalize("NFC")).toBe("Tiếng Việt");
+  });
+
+  it("keeps NUL", () => {
+    expect(encoded("\0a", "big5")).toEqual([0x00, 0x61]);
   });
 
   it("sends ? for a character the encoding cannot hold", () => {

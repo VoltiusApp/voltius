@@ -15,13 +15,18 @@ const svc = vi.hoisted(() => ({
 const io = vi.hoisted(() => ({
   sendSessionInput: vi.fn(async () => {}),
   getSessionTransportType: vi.fn(() => "ssh"),
+  encoding: undefined as string | undefined,
 }));
 vi.mock("@/services/multiplayerService", () => mp);
 vi.mock("@/services/sessionInput", () => ({ sendSessionInput: io.sendSessionInput }));
-vi.mock("@/stores/sessionStore", () => ({ getSessionTransportType: io.getSessionTransportType }));
+vi.mock("@/stores/sessionStore", () => ({
+  getSessionTransportType: io.getSessionTransportType,
+  encodeSessionText: (_id: string, text: string) => encodeTerminalInput(text, io.encoding),
+}));
 vi.mock("@/services/teamService", () => svc);
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
+import { encodeTerminalInput } from "@/utils/terminalEncoding";
 import { attachGuestOutput, useTeamSessionStore } from "./teamSessionStore.ts";
 
 const connStub = () => ({
@@ -48,6 +53,7 @@ beforeEach(() => {
   Object.values(mp).forEach((f) => f.mockClear());
   io.sendSessionInput.mockClear();
   io.getSessionTransportType.mockReset().mockReturnValue("ssh");
+  io.encoding = undefined;
   useTeamSessionStore.setState({ activeSessions: [], connections: {} });
 });
 
@@ -119,10 +125,25 @@ test.each([
 
   await get().startSharing(localId, ["v1"], [], "conn", []);
 
-  const data = new Uint8Array([0x6c, 0x73]);
-  cb.onInput(data);
+  cb.onInput(new Uint8Array([0x6c, 0x73]));
 
-  expect(io.sendSessionInput).toHaveBeenCalledWith(localId, type, data);
+  expect(io.sendSessionInput).toHaveBeenCalledWith(localId, type, expect.anything());
+  expect(Array.from((io.sendSessionInput.mock.calls[0] as unknown[])[2] as Uint8Array)).toEqual([0x6c, 0x73]);
+});
+
+test("a guest's UTF-8 input reaches a GBK host session as GBK", async () => {
+  io.encoding = "gbk";
+  let cb: any;
+  mp.openWebSocket.mockImplementation((...args: any[]) => {
+    cb = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
+    return connStub();
+  });
+  mp.createVaultSession.mockResolvedValueOnce({ sessionId: "m1", sessionKey: new Uint8Array([1]), sessionKeyBytes: new Uint8Array(32) });
+
+  await get().startSharing("gbk-1", ["v1"], [], "conn", []);
+  cb.onInput(new TextEncoder().encode("中"));
+
+  expect(Array.from((io.sendSessionInput.mock.calls[0] as unknown[])[2] as Uint8Array)).toEqual([0xd6, 0xd0]);
 });
 
 // Regression guard: attachAsHost (the host-side path shared by startSharing,
@@ -159,9 +180,7 @@ test("joinSession calls openWebSocket with no identity string among its argument
   assertOpenWebSocketArgsCarryNoIdentity(args, ["https://s", "m1", "jwt"]);
 });
 
-// Regression guard: a guest's output was written straight to the terminal view,
-// so whatever the host sent before the view mounted (its initial snapshot) was
-// dropped — the replay buffer meant to catch it was never filled.
+// Regression guard: output that arrived before the guest view mounted was dropped.
 test("a guest's output that arrives before its terminal attaches is replayed, in order", async () => {
   let cb: any;
   mp.openWebSocket.mockImplementation((...args: any[]) => {
@@ -185,6 +204,22 @@ test("a guest's output that arrives before its terminal attaches is replayed, in
   const rewritten: number[] = [];
   attachGuestOutput(localId, (d) => rewritten.push(...d));
   expect(rewritten).toEqual([4]);
+});
+
+test("output held for a guest view that never attaches keeps only the newest 64 KB", async () => {
+  let cb: any;
+  mp.openWebSocket.mockImplementation((...args: any[]) => {
+    cb = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
+    return connStub();
+  });
+  const localId = await get().joinSession("m1", () => {});
+  for (let i = 0; i < 100; i++) cb.onOutput(new Uint8Array(1024).fill(i));
+
+  const write = vi.fn();
+  attachGuestOutput(localId, write);
+  const held = write.mock.calls[0][0] as Uint8Array;
+  expect(held.length).toBe(64 * 1024);
+  expect(held[held.length - 1]).toBe(99);
 });
 
 test("leaving a guest session drops the output held for it", async () => {

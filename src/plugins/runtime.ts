@@ -8,7 +8,7 @@ import type { RunTarget } from "@/services/sftpTarget";
 import { readSyncProviderInputs, type LoadedPluginSource } from "@/services/syncProviderInputs";
 import { buildSyncProviders, toSyncProviderSummary } from "@/services/syncProviders";
 import { writeClipboard } from "@/utils/clipboard";
-import { encodeTerminalInput } from "@/utils/terminalEncoding";
+import { createTextDecoder, encodeTerminalInput } from "@/utils/terminalEncoding";
 import { log as appLog } from "@/lib/logger";
 import i18n from "@/i18n";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
@@ -1884,7 +1884,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requireGated("terminal:stream");
         const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (!session) throw new Error(`Session "${sessionId}" not found`);
-        const decoder = new TextDecoder();
+        const decoder = createTextDecoder(session.encoding);
         return onSessionOutput(sessionId, session.type, (data) => cb(decoder.decode(data, { stream: true })));
       },
     },

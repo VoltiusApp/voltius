@@ -1,5 +1,5 @@
-import { bindTerminalContainer, disposeClosedTerminals, type CachedTerminal } from "@/components/terminal/terminalContainer";
-import { useEffect, useRef, useCallback } from "react";
+import { disposeClosedTerminals, reattachTerminal, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
+import { useEffect, useCallback } from "react";
 import { Terminal, type IBufferCell, type IBufferRange } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { createWebglAddon } from "@/utils/webglAddon";
@@ -676,7 +676,7 @@ export function handleTerminalSearchNav(sessionId: string, e: KeyboardEvent): bo
   return true;
 }
 
-useSessionStore.subscribe((state) => {
+useSessionStore.subscribe((state, prev) => {
   disposeClosedTerminals(terminalCache, state.sessions);
 
   // Local sessions ride the same transition as SSH: the terminal mounts while
@@ -684,16 +684,16 @@ useSessionStore.subscribe((state) => {
   // backend registered it sent resizes at a session id the backend answered
   // with "Session not found".
   for (const [id, entry] of terminalCache) {
-    if (entry.sessionType === "serial") continue;
     const session = state.sessions.find((s) => s.id === id);
     const nowConnected = session?.status === "connected";
+    // A character cut off by the drop must not prefix the reconnect's output.
+    if (!nowConnected && prev.sessions.find((s) => s.id === id)?.status === "connected") entry.outputDecoder.reset();
+    if (entry.sessionType === "serial") continue;
     if (nowConnected && !entry.connectedRef.current) {
       entry.connectedRef.current = true;
       entry.fitAddon.fit();
       sendResize(id, entry.sessionType, entry.terminal.cols, entry.terminal.rows);
     } else if (!nowConnected) {
-      // A character cut off by the drop must not prefix the reconnect's output.
-      if (entry.connectedRef.current) entry.outputDecoder.reset();
       entry.connectedRef.current = false;
     }
   }
@@ -702,8 +702,6 @@ useSessionStore.subscribe((state) => {
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encoding, onResize }: UseTerminalOptions) {
-  const mountCleanupRef = useRef<(() => void) | null>(null);
-
   // Keep the cached entry's callback refs current on every render
   useEffect(() => {
     const entry = terminalCache.get(sessionId);
@@ -714,39 +712,17 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     }
   });
 
-  const bindContainer = useCallback((entry: CacheEntry, container: HTMLDivElement) => {
-    const unbind = bindTerminalContainer(entry, container, { osc52: true });
-    mountCleanupRef.current = () => {
-      unbind();
-      mountCleanupRef.current = null;
-    };
-  }, []);
-
-  const attach = useCallback(
-    (container: HTMLDivElement | null) => {
-      // React hands the ref a null when the callback identity changes (session
-      // switch on a live pane) as well as on unmount — both mean "detach".
-      if (!container) {
-        mountCleanupRef.current?.();
-        return;
-      }
-      if (mountCleanupRef.current) return;
-
+  const attach = useTerminalMount(
+    (container): CacheEntry => {
       const existing = terminalCache.get(sessionId);
 
       // ── Reuse existing terminal ───────────────────────────────────────────
       if (existing) {
-        const { terminal, fitAddon } = existing;
         existing.inputGateRef.current = inputGate?.current;
         existing.onClosedRef.current = onClosed;
         existing.onResizeRef.current = onResize;
-
-        if (terminal.element) container.appendChild(terminal.element);
-
-        fitAddon.fit();
-
-        bindContainer(existing, container);
-        return;
+        reattachTerminal(existing, container);
+        return existing;
       }
 
       // ── Create new terminal ───────────────────────────────────────────────
@@ -927,10 +903,8 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         return true;
       });
 
-      // Route input to the PTY, fanning out to every pane when split-pane
-      // broadcast is active. Shared by typed input (onData) and synthesized
-      // alt-screen scroll arrows so both honor broadcast identically. Each pane
-      // gets the text in its own session's encoding.
+      // Route input to the PTY, fanning out to every pane (each in its own encoding) under split-pane
+      // broadcast. Shared by typed input and synthesized alt-screen scroll arrows.
       const routeInput = (data: string) => {
         if (broadcastActiveForSession(sessionId)) {
           for (const target of broadcastTargets()) {
@@ -1148,9 +1122,9 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         term.dispose();
       };
 
-      bindContainer(entry, container);
+      return entry;
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    { osc52: true },
     [sessionId, sessionType, encoding],
   );
 
@@ -1187,13 +1161,6 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     window.addEventListener("theme-preview", handler);
     return () => window.removeEventListener("theme-preview", handler);
   }, [sessionId]);
-
-  // Mount-only cleanup — does NOT dispose the terminal (cache survives unmount)
-  useEffect(() => {
-    return () => {
-      mountCleanupRef.current?.();
-    };
-  }, []);
 
   const focus = useCallback(() => {
     terminalCache.get(sessionId)?.terminal.focus();
