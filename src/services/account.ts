@@ -600,7 +600,7 @@ export async function setMasterPassword(password: string): Promise<void> {
   // If connected to cloud, re-push immediately so other devices get a blob
   // encrypted with the new key — without this, pullAndMerge on any other
   // device would fail to decrypt this device's old blob.
-  if (priorMode === "server") await pushUnderNewVaultKey();
+  if (priorMode === "server") pushUnderNewVaultKey();
 }
 
 /**
@@ -699,36 +699,41 @@ export async function linkToCloud(
 
 // ─── New account management features ─────────────────────────────────────────
 
-/**
- * Upload this device's blob now, under the vault key just installed, so other
- * devices aren't left with only the copy under the old key.
- */
-async function pushUnderNewVaultKey(): Promise<void> {
-  const { push } = await import("@/services/sync");
-  push().catch(() => {});
+/** Upload this device's blob under the vault key just installed; never throws. */
+function pushUnderNewVaultKey(): void {
+  import("@/services/sync").then(({ push }) => push()).catch(() => {});
 }
 
 /**
- * Put secrets.enc, and the session, on the dek ahead of a password change.
- *
- * The new password reaches only the dek (through the wrapped secrets re-wrapped
- * for it). A vault still on the kek — linked from a local account, or a legacy
- * migration whose rekey failed — would then open for nothing, and blobs pushed
- * under the old kek would stop opening on every other device once they sign in
- * with the new password. Done before the server call: the current password
- * reaches the dek as well, so a change that then fails strands nothing.
+ * Puts secrets.enc and the session on the dek, the only key the new password reaches.
+ * Returns how to put both back, or null when they were already there.
  */
-async function moveVaultToDek(kek: number[], dek: number[]): Promise<void> {
+async function moveVaultToDek(kek: number[], dek: number[]): Promise<(() => Promise<void>) | null> {
   const opener = await keyThatOpensVault(dek, kek);
-  // Neither key opens it: the password `kek` came from is not this vault's.
   if (!opener) throw new Error(i18n.t("common.error.currentPasswordIncorrect"));
-  if (opener === kek) {
+  const sessionKey = getVaultKey();
+  const rekeyed = opener === kek;
+  if (rekeyed) {
     await unlockVaultIfNeeded();
     await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
+  } else if (sessionKey?.join(",") === dek.join(",")) {
+    return null;
   }
-  if (getVaultKey()?.join(",") === dek.join(",")) return;
   setVaultKey(dek);
-  await pushUnderNewVaultKey();
+  return async () => {
+    if (rekeyed) {
+      await unlockVaultIfNeeded();
+      await invoke("secrets_rekey", { oldEncKey: dek, newEncKey: kek });
+    }
+    if (sessionKey) setVaultKey(sessionKey);
+  };
+}
+
+// The server commits before minting tokens, so only a 4xx or its own answer proves a change did not land.
+async function passwordChangeMayHaveLanded(res: Response | null, newWrapped: string): Promise<boolean> {
+  if (res && res.status >= 400 && res.status < 500) return false;
+  const me = await getMe(5_000);
+  return !me || me.wrapped_user_secrets === newWrapped;
 }
 
 export async function changeMasterPassword(
@@ -760,17 +765,26 @@ export async function changeMasterPassword(
     cachedX25519 = unwrapped.x25519_private;
   }
 
-  await moveVaultToDek(old_kek, cachedDek);
-
   const { auth_key: new_auth_key, enc_key: new_kek } = await deriveKeys(newPassword, accountId);
   const new_wrapped_user_secrets = await wrapUserSecrets(new_kek, cachedDek, cachedX25519);
+
+  const undoMove = await moveVaultToDek(old_kek, cachedDek);
+  // The team identity derives from the vault key, so a change that did not land must not keep the move.
+  const undoMoveUnlessLanded = async (res: Response | null) => {
+    if (!undoMove || (await passwordChangeMayHaveLanded(res, new_wrapped_user_secrets))) return;
+    await undoMove().catch((e) => console.warn("Putting the vault back on its old key failed:", e));
+  };
 
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/password`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({ old_auth_key, new_auth_key, new_wrapped_user_secrets }),
+  }).catch(async (e) => {
+    await undoMoveUnlessLanded(null);
+    throw e;
   });
   if (!res.ok) {
+    await undoMoveUnlessLanded(res);
     if (res.status === 401) throw new Error(i18n.t("common.error.currentPasswordIncorrect"));
     throw new Error(i18n.t("common.error.passwordChangeFailed", { status: res.status }));
   }
@@ -781,6 +795,7 @@ export async function changeMasterPassword(
   await keychainSet("refresh_token", data.refresh_token);
   await keychainSet("wrapped_user_secrets", new_wrapped_user_secrets);
   useVaultKeysStore.getState().set({ dek: cachedDek, x25519Private: cachedX25519, kek: new_kek });
+  if (undoMove) pushUnderNewVaultKey();
   reloadSubscription();
 }
 
@@ -864,7 +879,7 @@ async function migrateToWrappedUserSecrets(
     setVaultKey(vaultKey);
     await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
 
-    await pushUnderNewVaultKey();
+    pushUnderNewVaultKey();
   } catch (e) {
     console.warn("Migration failed, falling back to legacy key:", e);
     setVaultKey(kek);

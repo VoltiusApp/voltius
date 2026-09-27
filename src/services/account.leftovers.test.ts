@@ -126,7 +126,7 @@ test("setMasterPassword re-pushes when the prior mode was server", async () => {
   h.store.account_id = "acc";
   h.store.mode = "server";
   await setMasterPassword("chosen-pw");
-  expect(h.push).toHaveBeenCalledTimes(1);
+  await vi.waitFor(() => expect(h.push).toHaveBeenCalledTimes(1));
   expect(h.store.mode).toBe("local");
 });
 
@@ -168,7 +168,7 @@ test("login migrates a legacy account (no wrapped secrets) and adopts the new de
   expect(h.keysSet).toHaveBeenCalledWith({ dek: DEK, x25519Private: LEGACY_X, kek: KEK });
   expect(h.setVaultKey).toHaveBeenLastCalledWith(DEK);
   expect(h.store.wrapped_user_secrets).toBe("WRAPPED_B64");
-  expect(h.push).toHaveBeenCalledTimes(1);
+  await vi.waitFor(() => expect(h.push).toHaveBeenCalledTimes(1));
 });
 
 test("login migration falls back to the kek when the upload fails", async () => {

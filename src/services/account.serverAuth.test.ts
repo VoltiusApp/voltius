@@ -8,7 +8,9 @@ const h = vi.hoisted(() => ({
   sessionKey: null as number[] | null,
   /** The key secrets.enc is encrypted under; `secrets_rekey` moves it. */
   fileKey: null as number[] | null,
-  push: vi.fn(async () => undefined),
+  push: vi.fn(async () => {
+    h.seq.push("push");
+  }),
   getVaultStatus: vi.fn(async () => ({ exists: false, path: "" })),
   verifyVaultKey: vi.fn(async (_key: number[]) => undefined as void),
   unlockVault: vi.fn(async () => undefined as void),
@@ -32,7 +34,10 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch, isAbortError: () => false }));
 vi.mock("@/services/sync", () => ({ push: h.push }));
 vi.mock("./vault", () => ({
-  setVaultKey: h.setVaultKey,
+  setVaultKey: (key: number[]) => {
+    h.sessionKey = key;
+    h.setVaultKey(key);
+  },
   getVaultKey: () => h.sessionKey,
   verifyVaultKey: h.verifyVaultKey,
   lockVault: vi.fn(async () => undefined),
@@ -513,9 +518,7 @@ test("changeMasterPassword leaves a dek-encrypted vault and the session key as t
   expect(h.push).not.toHaveBeenCalled();
 });
 
-// Only the dek is reachable from the new password. A vault left on the old kek
-// declined every later sign-in, and blobs pushed under it stopped opening on
-// the other devices.
+// Only the dek is reachable from the new password; a vault left on the old kek declined every later sign-in.
 test("changeMasterPassword moves a kek-encrypted vault to the dek before the server change", async () => {
   cloudSessionOn([9, 9, 9]);
   existingVaultOpenedBy([9, 9, 9]);
@@ -526,7 +529,7 @@ test("changeMasterPassword moves a kek-encrypted vault to the dek before the ser
   expect(step("secrets_unlock")).toBeLessThan(step("secrets_rekey"));
   expect(step("secrets_rekey")).toBeLessThan(step("/auth/password"));
   expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]);
-  expect(h.push).toHaveBeenCalled();
+  await vi.waitFor(() => expect(step("push")).toBeGreaterThan(step("/auth/password")));
 });
 
 test("after changeMasterPassword on a kek-encrypted vault, the new password opens it", async () => {
@@ -549,6 +552,55 @@ test("a password change the server rejects leaves the vault open to the current 
 
   expect(h.store.master_password).toBe("old");
   expect(await autoLogin()).toBe("ok");
+});
+
+test("a password change the server refuses puts the vault and the session back on the kek", async () => {
+  cloudSessionOn([9, 9, 9]);
+  existingVaultOpenedBy([9, 9, 9]);
+  h.http["/auth/password"] = err(429);
+
+  await expect(changeMasterPassword("old", "new")).rejects.toThrow("common.error.passwordChangeFailed");
+
+  expect(h.fileKey).toEqual([9, 9, 9]);
+  expect(h.sessionKey).toEqual([9, 9, 9]);
+  expect(step("/auth/me")).toBe(-1);
+  expect(h.push).not.toHaveBeenCalled();
+});
+
+test("a failed password change the server did not record is undone", async () => {
+  cloudSessionOn([9, 9, 9]);
+  existingVaultOpenedBy([9, 9, 9]);
+  h.http["/auth/password"] = err(500);
+  h.http["/auth/me"] = ok({ wrapped_user_secrets: "W" });
+
+  await expect(changeMasterPassword("old", "new")).rejects.toThrow("common.error.passwordChangeFailed");
+
+  expect(h.fileKey).toEqual([9, 9, 9]);
+  expect(h.sessionKey).toEqual([9, 9, 9]);
+});
+
+// The server commits the new password before it mints tokens, so a 5xx can follow a change that landed.
+test("a failed password change the server did record keeps the vault on the dek", async () => {
+  cloudSessionOn([9, 9, 9]);
+  existingVaultOpenedBy([9, 9, 9]);
+  h.http["/auth/password"] = err(500);
+  h.http["/auth/me"] = ok({ wrapped_user_secrets: "WRAPPED_B64" });
+
+  await expect(changeMasterPassword("old", "new")).rejects.toThrow("common.error.passwordChangeFailed");
+
+  expect(h.fileKey).toEqual([1, 1, 1]);
+  expect(h.sessionKey).toEqual([1, 1, 1]);
+});
+
+test("a password change whose outcome is unknown keeps the vault on the dek", async () => {
+  cloudSessionOn([9, 9, 9]);
+  existingVaultOpenedBy([9, 9, 9]);
+  h.appFetch.mockRejectedValue(new Error("offline"));
+
+  await expect(changeMasterPassword("old", "new")).rejects.toThrow("common.error.networkError");
+
+  expect(h.fileKey).toEqual([1, 1, 1]);
+  expect(h.sessionKey).toEqual([1, 1, 1]);
 });
 
 test("changeMasterPassword refuses before the server when the current password opens nothing", async () => {

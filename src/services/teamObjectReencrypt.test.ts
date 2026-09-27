@@ -26,7 +26,7 @@ vi.mock("@/services/permissions", async (importOriginal) => ({
   resolveCan: vi.fn((_snapshot: unknown, permission: string) => h2.allowed.has(permission)),
 }));
 
-import { runReencryptionPass, countUnencryptedObjects } from "./teamObjectReencrypt";
+import { runReencryptionPass } from "./teamObjectReencrypt";
 import { noteTeamRows } from "./teamObjectRows";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 
@@ -77,14 +77,24 @@ test("sends nothing when every row is already encrypted", async () => {
   expect(h.batches).toEqual([]);
 });
 
-test("counts rows still in plaintext regardless of permission", () => {
-  expect(
-    countUnencryptedObjects([
-      legacy("c1", "connection"),
-      legacy("k1", "key"),
-      { ...legacy("c2", "connection"), metadata: { v: 2, enc: "x" } },
-    ] as never),
-  ).toBe(2);
+test("records only plaintext rows it could migrate as still unencrypted", async () => {
+  h2.allowed = new Set();
+
+  await runReencryptionPass("t1", [
+    legacy("c1", "connection"),
+    { ...legacy("c2", "connection"), metadata: { id: "c3" } },
+    { ...legacy("c4", "connection"), metadata: { v: 2, enc: "x" } },
+  ] as never);
+
+  expect(useTeamVaultStateStore.getState().unencryptedCountByTeamId.t1).toBe(1);
+});
+
+test("a team this device has seen fully encrypted records no unencrypted rows", async () => {
+  noteTeamRows("t1", [{ object_id: "c0", metadata: { v: 2, enc: "already" } }]);
+
+  await runReencryptionPass("t1", [legacy("c1", "connection")] as never);
+
+  expect(useTeamVaultStateStore.getState().unencryptedCountByTeamId.t1 ?? 0).toBe(0);
 });
 
 test("records the remaining unencrypted count on useTeamVaultStateStore, keyed by team", async () => {

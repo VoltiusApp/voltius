@@ -54,6 +54,14 @@ test("a plaintext row is refused once this device has seen the team fully encryp
   expect(hostsOf("t1")).toEqual(["10.0.0.1"]);
 });
 
+test("a team with no live rows does not close the plaintext allowance", async () => {
+  await _hydrateTeamObjectStores("t1", [{ ...row("c0", encrypted({ id: "c0" })), deleted_at: "2026-09-02" }] as never);
+
+  await _hydrateTeamObjectStores("t1", [row("c1", { id: "c1", host: "10.0.0.1" })] as never);
+
+  expect(hostsOf("t1")).toEqual(["10.0.0.1"]);
+});
+
 test("plaintext rows stay readable while a team is still migrating", async () => {
   await _hydrateTeamObjectStores("t1", [
     row("c1", { id: "c1", host: "10.0.0.1" }),

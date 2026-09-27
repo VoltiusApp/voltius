@@ -34,6 +34,18 @@ test("getMyX25519Keypair derives once and caches", async () => {
   expect(h.invoke).toHaveBeenCalledWith("derive_x25519_keypair", { encKey: new Uint8Array([1, 2, 3]) });
 });
 
+test("getMyX25519Keypair re-derives once the session moves to another vault key", async () => {
+  h.getVaultKey.mockReturnValue([9, 9, 9]);
+  h.invoke.mockResolvedValueOnce({ public_key: "KEK_PUB", private_key: "KEK_PRIV" });
+  await getMyX25519Keypair();
+
+  h.getVaultKey.mockReturnValue([1, 1, 1]);
+  h.invoke.mockResolvedValueOnce({ public_key: "DEK_PUB", private_key: "DEK_PRIV" });
+
+  expect(await getMyX25519Keypair()).toEqual({ privateKey: "DEK_PRIV", publicKey: "DEK_PUB" });
+  expect(h.invoke).toHaveBeenLastCalledWith("derive_x25519_keypair", { encKey: [1, 1, 1] });
+});
+
 test("getMyX25519Keypair throws when the vault is locked", async () => {
   h.getVaultKey.mockReturnValue(null);
   await expect(getMyX25519Keypair()).rejects.toThrow("common.error.vaultLocked");
