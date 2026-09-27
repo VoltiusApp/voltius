@@ -896,7 +896,8 @@
           "none": "Aucun proxy",
           "system": "Système",
           "socks5": "SOCKS5",
-          "http": "HTTP"
+          "http": "HTTP",
+          "https": "HTTPS"
         },
         "detected": "Détecté : {{kind}} {{host}}:{{port}}",
         "detectedNone": "Détecté : aucun (connexion directe)",

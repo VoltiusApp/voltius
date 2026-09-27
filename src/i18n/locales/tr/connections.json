@@ -76,7 +76,8 @@
           "direct": "Doğrudan",
           "system": "Sistem",
           "socks5": "SOCKS5",
-          "http": "HTTP"
+          "http": "HTTP",
+          "https": "HTTPS"
         },
         "host": "Proxy sunucusu",
         "port": "Proxy portu",

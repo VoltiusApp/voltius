@@ -958,7 +958,8 @@
           "none": "不使用代理",
           "system": "系统",
           "socks5": "SOCKS5",
-          "http": "HTTP"
+          "http": "HTTP",
+          "https": "HTTPS"
         },
         "detected": "已检测到：{{kind}} {{host}}:{{port}}",
         "detectedNone": "已检测到：无（直接连接）",

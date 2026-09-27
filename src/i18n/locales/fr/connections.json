@@ -76,7 +76,8 @@
           "direct": "Direct",
           "system": "Système",
           "socks5": "SOCKS5",
-          "http": "HTTP"
+          "http": "HTTP",
+          "https": "HTTPS"
         },
         "host": "Hôte du proxy",
         "port": "Port du proxy",

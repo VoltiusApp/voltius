@@ -908,7 +908,8 @@
           "none": "Без прокси",
           "system": "Системный",
           "socks5": "SOCKS5",
-          "http": "HTTP"
+          "http": "HTTP",
+          "https": "HTTPS"
         },
         "detected": "Обнаружен: {{kind}} {{host}}:{{port}}",
         "detectedNone": "Обнаружен: нет (прямое подключение)",

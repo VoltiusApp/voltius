@@ -91,7 +91,7 @@ vi.mock("@/stores/toggleSettingsStore", () => ({ useToggle: () => [false, vi.fn(
 vi.mock("@/stores/connectivitySettingsStore", () => ({
   useGlobalKeepalivePreset: () => ["balanced", vi.fn()],
   useGlobalProxy: () => [{ mode: "none" }, vi.fn()],
-  HOST_PROXY_MODES: ["direct", "system", "socks5", "http"],
+  HOST_PROXY_MODES: ["direct", "system", "socks5", "http", "https"],
 }));
 vi.mock("@/stores/hostCommandVarsStore", () => ({ clearRememberedVars: vi.fn() }));
 vi.mock("@/hooks/useUIContributions", () => ({ useUIContributions: () => [] }));

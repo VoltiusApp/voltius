@@ -766,7 +766,8 @@
           "none": "Proxy yok",
           "system": "Sistem",
           "socks5": "SOCKS5",
-          "http": "HTTP"
+          "http": "HTTP",
+          "https": "HTTPS"
         },
         "detected": "Algılanan: {{kind}} {{host}}:{{port}}",
         "detectedNone": "Algılanan: yok (doğrudan bağlanılıyor)",

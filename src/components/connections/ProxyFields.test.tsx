@@ -13,12 +13,13 @@ const modes = [
   { value: "direct", label: "Direct" },
   { value: "socks5", label: "SOCKS5" },
   { value: "http", label: "HTTP CONNECT" },
+  { value: "https", label: "HTTPS" },
 ];
 
 describe("ProxyFields", () => {
   afterEach(cleanup);
 
-  it("shows endpoint fields only for socks5/http", () => {
+  it("shows endpoint fields only for socks5/http/https", () => {
     const { rerender } = render(
       <ProxyFields modes={modes} value={{ mode: "" }} onChange={() => {}} password="" passwordSaved={false} onPasswordChange={() => {}} />,
     );
@@ -32,6 +33,10 @@ describe("ProxyFields", () => {
       <ProxyFields modes={modes} value={{ mode: "http" }} onChange={() => {}} password="" passwordSaved={false} onPasswordChange={() => {}} />,
     );
     expect((screen.getByLabelText(/port/i) as HTMLInputElement).placeholder).toBe("8080");
+    rerender(
+      <ProxyFields modes={modes} value={{ mode: "https" }} onChange={() => {}} password="" passwordSaved={false} onPasswordChange={() => {}} />,
+    );
+    expect((screen.getByLabelText(/port/i) as HTMLInputElement).placeholder).toBe("443");
   });
 
   it("flags a custom proxy with no host before it is used", () => {
