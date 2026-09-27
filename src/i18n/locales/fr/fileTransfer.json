@@ -105,7 +105,8 @@
       "compareHint": "Sélectionnez un fichier de chaque côté pour comparer",
       "selectFilesToUpload": "Sélectionner des fichiers à envoyer",
       "downloadToFolder": "Télécharger vers un dossier",
-      "connectionLost": "Connexion perdue"
+      "connectionLost": "Connexion perdue",
+      "moveSourceNotDeleted": "Copié, mais impossible de supprimer l’original de {{names}} : {{error}}"
     },
     "queue": {
       "title": "Transferts",
@@ -118,6 +119,8 @@
       "clearFinished": "Effacer les transferts terminés",
       "cancelTransfer": "Annuler le transfert",
       "retryTransfer": "Réessayer le transfert",
+      "skipped_one": "{{count}} nom ignoré, impossible à enregistrer sur ce système :",
+      "skipped_other": "{{count}} noms ignorés, impossibles à enregistrer sur ce système :",
       "mcpTooltip": "Démarré par {{client}}",
       "mcpTooltipUnknown": "Démarré par un client MCP",
       "status": {

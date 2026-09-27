@@ -21,8 +21,8 @@ describe("lastWriteWins", () => {
 });
 
 describe("registered handlers", () => {
-  // `vaults` is a keyed map merged row by row; every other section is taken whole.
-  const CUSTOM_MERGE = ["vaults"];
+  // `vaults` merges row by row and `appSettings` setting by setting; every other section is taken whole.
+  const CUSTOM_MERGE = ["vaults", "appSettings"];
 
   test("every handler merges last-write-wins, bar the documented exceptions", () => {
     expect(USER_DATA_HANDLERS.length).toBeGreaterThan(0);

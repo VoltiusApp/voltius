@@ -42,6 +42,14 @@ function norm(path: string): string {
   return path.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
 }
 
+/** `path` is `dir` itself or anywhere beneath it, with `\` and `/` treated alike
+ *  so Windows paths (`C:\data` vs `C:\data\sub`) are caught too. */
+export function isSameOrUnder(path: string, dir: string): boolean {
+  const p = norm(path);
+  const d = norm(dir);
+  return p === d || p.startsWith(d.endsWith("/") ? d : d + "/");
+}
+
 export function isValidMoveTarget(files: FileEntry[], targetDir: string): boolean {
   if (files.length === 0) return false;
   const target = norm(targetDir);
@@ -50,9 +58,8 @@ export function isValidMoveTarget(files: FileEntry[], targetDir: string): boolea
   const srcParent = norm(parentDir(files[0].path));
   if (target === srcParent) return false; // already in this directory
   for (const file of files) {
-    const fp = norm(file.path);
-    if (target === fp) return false; // dropped onto itself
-    if (file.isDir && target.startsWith(fp + "/")) return false; // into own descendant
+    if (target === norm(file.path)) return false; // dropped onto itself
+    if (file.isDir && isSameOrUnder(target, file.path)) return false; // into own descendant
   }
   return true;
 }

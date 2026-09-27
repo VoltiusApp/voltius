@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
+import { touchAppSetting } from "./appSettingsTimestampStore";
 import {
   DEFAULT_COLUMN_WIDTHS, DEFAULT_VISIBLE_COLS,
   type ColumnWidths, type VisibleCols,
@@ -33,21 +33,24 @@ type Updater<T> = T | ((prev: T) => T);
 const applyUpdate = <T,>(update: Updater<T>, prev: T): T =>
   typeof update === "function" ? (update as (p: T) => T)(prev) : update;
 
+// Every setter reports its leaf; the settings registry decides whether it syncs.
+const touchSftp = (key: keyof SftpSettingsStore) => touchAppSetting(`appSettings.sftp.${key}`);
+
 export const useSftpSettingsStore = create<SftpSettingsStore>()(
   persist(
     (set) => ({
       autoRefreshIntervalMs: DEFAULT_AUTO_REFRESH_INTERVAL_MS,
-      setAutoRefreshIntervalMs: (v) => { set({ autoRefreshIntervalMs: v }); useAppSettingsTimestampStore.getState().touch(); },
+      setAutoRefreshIntervalMs: (v) => { set({ autoRefreshIntervalMs: v }); touchSftp("autoRefreshIntervalMs"); },
       editorAutoSave: false,
-      setEditorAutoSave: (v) => { set({ editorAutoSave: v }); useAppSettingsTimestampStore.getState().touch(); },
+      setEditorAutoSave: (v) => { set({ editorAutoSave: v }); touchSftp("editorAutoSave"); },
       editorMaxBytes: DEFAULT_EDITOR_MAX_BYTES,
-      setEditorMaxBytes: (n) => { set({ editorMaxBytes: n }); useAppSettingsTimestampStore.getState().touch(); },
+      setEditorMaxBytes: (n) => { set({ editorMaxBytes: n }); touchSftp("editorMaxBytes"); },
       showHidden: false,
-      setShowHidden: (v) => { set({ showHidden: v }); useAppSettingsTimestampStore.getState().touch(); },
+      setShowHidden: (v) => { set({ showHidden: v }); touchSftp("showHidden"); },
       columnWidths: DEFAULT_COLUMN_WIDTHS,
-      setColumnWidths: (update) => { set((s) => ({ columnWidths: applyUpdate(update, s.columnWidths) })); useAppSettingsTimestampStore.getState().touch(); },
+      setColumnWidths: (update) => { set((s) => ({ columnWidths: applyUpdate(update, s.columnWidths) })); touchSftp("columnWidths"); },
       visibleColumns: DEFAULT_VISIBLE_COLS,
-      setVisibleColumns: (update) => { set((s) => ({ visibleColumns: applyUpdate(update, s.visibleColumns) })); useAppSettingsTimestampStore.getState().touch(); },
+      setVisibleColumns: (update) => { set((s) => ({ visibleColumns: applyUpdate(update, s.visibleColumns) })); touchSftp("visibleColumns"); },
     }),
     { name: "voltius-sftp-settings" },
   ),

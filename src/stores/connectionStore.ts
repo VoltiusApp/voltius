@@ -311,39 +311,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   renameTag: async (oldName, newName) => {
-    // Personal connections
-    const toUpdate = get().connections.filter((c) => c.tags.includes(oldName));
-    await Promise.all(
-      toUpdate.map((c) =>
-        api.updateConnection(c.id, {
-          ...connectionToFormData(c),
-          tags: c.tags.map((t) => (t === oldName ? newName : t)),
-        }),
-      ),
-    );
-    const connections = await api.listConnections();
-    set({ connections });
-    const prefs = useSyncPrefsStore.getState();
-    isServerMode().then((s) => { if (s && prefs.isTypeSynced("connection")) scheduleSync(); });
-
-    // Team connections
-    const now = new Date().toISOString();
-    const updatedTeamMap: Record<string, Connection[]> = {};
-    const affectedTeams = new Set<string>();
-    for (const [teamId, conns] of Object.entries(get().teamConnections)) {
-      const updated = conns.map((c) => {
-        if (!c.tags.includes(oldName)) return c;
-        affectedTeams.add(teamId);
-        return { ...c, tags: c.tags.map((t) => (t === oldName ? newName : t)), updated_at: now };
-      });
-      updatedTeamMap[teamId] = updated;
-    }
-    if (affectedTeams.size > 0) {
-      for (const teamId of affectedTeams) {
-        await Promise.all((updatedTeamMap[teamId] ?? []).map((c) => saveTeamVaultObject(teamId, "connection", c)));
-      }
-      set({ teamConnections: updatedTeamMap });
-    }
+    await retagConnections(oldName, (tags) => tags.map((t) => (t === oldName ? newName : t)));
 
     useHistoryStore.getState().push({
       label: `Renamed tag "${oldName}" to "${newName}"`,
@@ -353,40 +321,8 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   deleteTag: async (name) => {
-    // Personal connections
-    const toUpdate = get().connections.filter((c) => c.tags.includes(name));
-    const prevTagsById = new Map(toUpdate.map((c) => [c.id, c.tags]));
-    await Promise.all(
-      toUpdate.map((c) =>
-        api.updateConnection(c.id, {
-          ...connectionToFormData(c),
-          tags: c.tags.filter((t) => t !== name),
-        }),
-      ),
-    );
-    const connections = await api.listConnections();
-    set({ connections });
-    const prefs = useSyncPrefsStore.getState();
-    isServerMode().then((s) => { if (s && prefs.isTypeSynced("connection")) scheduleSync(); });
-
-    // Team connections
-    const now = new Date().toISOString();
-    const updatedTeamMap: Record<string, Connection[]> = {};
-    const affectedTeams = new Set<string>();
-    for (const [teamId, conns] of Object.entries(get().teamConnections)) {
-      const updated = conns.map((c) => {
-        if (!c.tags.includes(name)) return c;
-        affectedTeams.add(teamId);
-        return { ...c, tags: c.tags.filter((t) => t !== name), updated_at: now };
-      });
-      updatedTeamMap[teamId] = updated;
-    }
-    if (affectedTeams.size > 0) {
-      for (const teamId of affectedTeams) {
-        await Promise.all((updatedTeamMap[teamId] ?? []).map((c) => saveTeamVaultObject(teamId, "connection", c)));
-      }
-      set({ teamConnections: updatedTeamMap });
-    }
+    const retagged = await retagConnections(name, (tags) => tags.filter((t) => t !== name));
+    const prevTagsById = new Map(retagged.map((c) => [c.id, c.tags]));
 
     useHistoryStore.getState().push({
       label: `Deleted tag "${name}"`,
@@ -428,3 +364,38 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
   },
 }));
+
+// Returns the personal connections as they were before the rewrite.
+async function retagConnections(tag: string, rewrite: (tags: string[]) => string[]): Promise<Connection[]> {
+  const personal = useConnectionStore.getState().connections.filter((c) => c.tags.includes(tag));
+  await Promise.all(
+    personal.map((c) => api.updateConnection(c.id, { ...connectionToFormData(c), tags: rewrite(c.tags) })),
+  );
+  useConnectionStore.setState({ connections: await api.listConnections() });
+  const prefs = useSyncPrefsStore.getState();
+  isServerMode().then((s) => { if (s && prefs.isTypeSynced("connection")) scheduleSync(); });
+
+  const team = Object.entries(useConnectionStore.getState().teamConnections).flatMap(([teamId, conns]) =>
+    conns.filter((c) => c.tags.includes(tag)).map((c) => ({ teamId, id: c.id })),
+  );
+  await Promise.all(team.map(({ teamId, id }) => retagTeamConnection(teamId, id, tag, rewrite)));
+  return personal;
+}
+
+async function retagTeamConnection(
+  teamId: string,
+  id: string,
+  tag: string,
+  rewrite: (tags: string[]) => string[],
+): Promise<void> {
+  const current = () => useConnectionStore.getState().teamConnections[teamId]?.find((c) => c.id === id);
+  for (let c = current(); c?.tags.includes(tag); c = current()) {
+    const updated = await saveStampedTeamObject(teamId, "connection", c, { tags: rewrite(c.tags) });
+    const now = current();
+    if (!now) return;
+    // Edited while the save was in flight: retag that copy rather than revert it.
+    if (now.updated_at !== c.updated_at) continue;
+    useConnectionStore.setState((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
+    return;
+  }
+}

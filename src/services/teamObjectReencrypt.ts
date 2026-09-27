@@ -1,18 +1,9 @@
-import { isEncryptedEnvelope, encodeObjectMetadata } from "@/services/teamObjectEnvelope";
+import { encodeObjectMetadata } from "@/services/teamObjectEnvelope";
+import { acceptsPlaintextRows, isTrustedPlaintextRow } from "@/services/teamObjectRows";
 import { reencryptTeamObjects } from "@/services/teamObjects";
 import { buildEditPermissionSnapshot, canEditObjectType } from "@/services/teamObjectEditPermission";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import type { TeamObjectRecord } from "@/services/teamObjects";
-
-/** A live row whose metadata predates #229 and is still stored in the clear. */
-function isStillPlaintext(o: TeamObjectRecord): boolean {
-  return !o.deleted_at && !isEncryptedEnvelope(o.metadata);
-}
-
-/** Rows still holding plaintext metadata, ignoring what the caller may edit. */
-export function countUnencryptedObjects(objects: TeamObjectRecord[]): number {
-  return objects.filter(isStillPlaintext).length;
-}
 
 const BATCH_SIZE = 50;
 
@@ -24,8 +15,8 @@ const BATCH_SIZE = 50;
  * Writes are permission-gated per object type server-side, so the pass filters
  * to the types this member may edit. A team migrates as its privileged members
  * connect, and one whose only such members never reconnect stays plaintext —
- * which is what `countUnencryptedObjects` (and the count this pass records on
- * `useTeamVaultStateStore`) surfaces for issue #229's task 9.
+ * which is what the count this pass records on `useTeamVaultStateStore`
+ * surfaces for issue #229's task 9.
  *
  * Deliberately does NOT go through saveTeamVaultObject: that path stamps the
  * audit log, and re-encryption is not an edit.
@@ -52,16 +43,13 @@ async function _runReencryptionPass(
   teamId: string,
   objects: TeamObjectRecord[],
 ): Promise<number> {
-  const totalUnencrypted = countUnencryptedObjects(objects);
+  const allowPlaintext = acceptsPlaintextRows(teamId);
+  const migratable = objects.filter((o) => !o.deleted_at && isTrustedPlaintextRow(o, allowPlaintext));
   let done = 0;
 
   try {
     const snapshot = await buildEditPermissionSnapshot();
-
-    const pending = objects.filter((o) => {
-      if (!isStillPlaintext(o)) return false;
-      return canEditObjectType(snapshot, teamId, o.object_type);
-    });
+    const pending = migratable.filter((o) => canEditObjectType(snapshot, teamId, o.object_type));
 
     for (let i = 0; i < pending.length; i += BATCH_SIZE) {
       const slice = pending.slice(i, i + BATCH_SIZE);
@@ -82,6 +70,6 @@ async function _runReencryptionPass(
     // "key" object stays counted). Recorded even on zero/failure so a team
     // that finishes migrating — or one with nothing to do — clears its own
     // warning, and a partial failure still reflects whatever progress was made.
-    useTeamVaultStateStore.getState().setUnencryptedCount(teamId, totalUnencrypted - done);
+    useTeamVaultStateStore.getState().setUnencryptedCount(teamId, migratable.length - done);
   }
 }

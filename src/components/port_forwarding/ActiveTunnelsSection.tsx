@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Icon } from "@iconify/react";
-import { useSessionStore } from "@/stores/sessionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
-import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useUIStore } from "@/stores/uiStore";
-import { getPfState, closePfTunnel, resumeAutoPort } from "@/services/portForwardingTunnels";
+import { useConnectedSshPfStates } from "@/hooks/usePfStates";
+import { closePfTunnel, resumeAutoPort } from "@/services/portForwardingTunnels";
 import { formatActiveTunnelLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { sessionLabel } from "@/utils/sessionLabel";
@@ -15,17 +13,6 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { TunnelStatusDot } from "@/components/shared/TunnelStatusDot";
 import type { ActiveTunnel } from "@/types";
-
-interface PfStatePayload {
-  session_id: string;
-  tunnels: ActiveTunnel[];
-  suppressed_ports: number[];
-}
-
-interface SessionPfState {
-  tunnels: ActiveTunnel[];
-  suppressedPorts: number[];
-}
 
 function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type"] }) {
   const { t } = useTranslation();
@@ -43,57 +30,12 @@ function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type
 
 export function ActiveTunnelsSection() {
   const { t } = useTranslation();
-  const sessions = useSessionStore((s) => s.sessions);
   const connections = useAllConnections();
-  const accessibleVaultIds = useAccessibleVaultIds();
+  const { sessions: relevantSessions, pfStates: pfStateMap } = useConnectedSshPfStates();
   const layoutMode = useUIStore((s) => s.portForwardingLayoutMode);
 
-  const [pfStateMap, setPfStateMap] = useState<Map<string, SessionPfState>>(new Map());
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [hiddenPorts, setHiddenPorts] = useState<Set<string>>(new Set());
-
-  const relevantSessions = useMemo(() => {
-    return sessions.filter((s) => {
-      if (s.type !== "ssh" || s.status !== "connected") return false;
-      const conn = connections.find((c) => c.id === s.connectionId);
-      if (!conn) return false;
-      return accessibleVaultIds.includes(conn.vault_id ?? "personal");
-    });
-  }, [sessions, connections, accessibleVaultIds]);
-
-  const sessionIdKey = relevantSessions.map((s) => s.id).join(",");
-
-  useEffect(() => {
-    const ids = relevantSessions.map((s) => s.id);
-
-    for (const sessionId of ids) {
-      getPfState(sessionId)
-        .then((state) => setPfStateMap((prev) => new Map(prev).set(sessionId, { tunnels: state.tunnels, suppressedPorts: state.suppressed_ports })))
-        .catch(() => {});
-    }
-
-    setPfStateMap((prev) => {
-      const next = new Map(prev);
-      for (const key of next.keys()) {
-        if (!ids.includes(key)) next.delete(key);
-      }
-      return next;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionIdKey]);
-
-  useEffect(() => {
-    const ids = relevantSessions.map((s) => s.id);
-    let cleanup: (() => void) | undefined;
-
-    listen<PfStatePayload>("pf-state-changed", ({ payload }) => {
-      if (!ids.includes(payload.session_id)) return;
-      setPfStateMap((prev) => new Map(prev).set(payload.session_id, { tunnels: payload.tunnels, suppressedPorts: payload.suppressed_ports }));
-    }).then((u) => { cleanup = u; });
-
-    return () => { cleanup?.(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionIdKey]);
 
   // Port forwarding is host-scoped: terminals of the same host share one tunnel
   // list, so collapse to a single card per host (first session per connection).
@@ -113,7 +55,7 @@ export function ActiveTunnelsSection() {
         const state = pfStateMap.get(session.id);
         const tunnels = (state?.tunnels ?? []).filter((tunnel) => tunnel.origin.type !== "rule" && !hiddenPorts.has(`${session.id}:${tunnel.remote_port}`));
         const activePorts = new Set(tunnels.map((tunnel) => tunnel.remote_port));
-        const suppressedPorts = (state?.suppressedPorts ?? []).filter((port) => !activePorts.has(port) && !hiddenPorts.has(`${session.id}:${port}`));
+        const suppressedPorts = (state?.suppressed_ports ?? []).filter((port) => !activePorts.has(port) && !hiddenPorts.has(`${session.id}:${port}`));
         const errorCount = tunnels.filter((tunnel) => typeof tunnel.state === "object" && "error" in tunnel.state).length;
         return { session, connection, tunnels, suppressedPorts, errorCount };
       })

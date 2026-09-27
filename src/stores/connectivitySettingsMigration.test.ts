@@ -11,25 +11,25 @@ function assertEqual<T>(actual: T, expected: T, msg: string): void {
 
 assertEqual(
   migrateConnectivitySettings({ keepalivePreset: "fast" }, 0),
-  { state: { keepalivePreset: "balanced" }, changed: true },
+  { keepalivePreset: "balanced" },
   "v0 fast flips to balanced",
 );
 
 assertEqual(
   migrateConnectivitySettings({ keepalivePreset: "fast" }, 1),
-  { state: { keepalivePreset: "fast" }, changed: false },
+  { keepalivePreset: "fast" },
   "v1 fast is left alone",
 );
 
 assertEqual(
   migrateConnectivitySettings({ keepalivePreset: "tolerant" }, 0),
-  { state: { keepalivePreset: "tolerant" }, changed: false },
+  { keepalivePreset: "tolerant" },
   "v0 non-fast is untouched",
 );
 
 assertEqual(
   migrateConnectivitySettings(undefined, 0),
-  { state: {}, changed: false },
+  {},
   "missing data is untouched",
 );
 });

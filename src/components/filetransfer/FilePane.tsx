@@ -7,11 +7,10 @@ import { useDragSelection } from "@/hooks/useDragSelection";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import {
-  sftpListDir, sftpMkdir, sftpTouch, sftpRename, sftpDelete,
+  sftpMkdir, sftpTouch, sftpRename, sftpDelete,
   sftpCompress, sftpExtract,
-  fsListDir, fsMkdir, fsRename, fsDelete, fsTouch, pickLocalPath,
+  fsMkdir, fsRename, fsDelete, fsTouch, pickLocalPath,
   fsCompress, fsExtract,
-  type RemoteFile, type LocalFile,
 } from "@/services/sftp";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import {
@@ -28,6 +27,7 @@ import { useFileClipboardStore, sameHost, type FileEndpoint } from "@/stores/fil
 import { writeClipboard } from "@/utils/clipboard";
 import { copyPathText } from "./copyPathText";
 import { parentDir, joinPath, withDriveRootSep } from "./moveTargetCore";
+import { useDirListing } from "./useDirListing";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
 
@@ -114,9 +114,6 @@ export function FilePane({
   const [autoRefreshEnabled] = useToggle("sftp-autorefresh");
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
 
-  const [entries, setEntries] = useState<FileEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<SortCol>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   // Widths live in the store, not local state, so a pane remount (disconnect,
@@ -164,9 +161,9 @@ export function FilePane({
   const [creatingFile, setCreatingFile] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [autoTick, setAutoTick] = useState(0);
+  const { entries, loading, error } = useDirListing(isLocal, sftpId, cwd, `${refreshTick}:${autoTick}`);
   const focusIndex = useRef<number>(-1);
   const paneRef = useRef<HTMLDivElement>(null);
-  const prevLocationRef = useRef({ isLocal, sftpId, cwd });
   // Type-ahead ("type to select") search state — refs, not state, so keystrokes
   // don't re-render. The scroll bridge is set by VirtualFileList each render.
   const typeAheadBufferRef = useRef("");
@@ -211,23 +208,6 @@ export function FilePane({
   useEffect(() => {
     onSelectRef.current(entries.filter((f) => selectedIdSet.has(f.path)));
   }, [selectedIdSet, entries]);
-
-  useEffect(() => {
-    const prev = prevLocationRef.current;
-    const isPrimaryLoad = isLocal !== prev.isLocal || sftpId !== prev.sftpId || cwd !== prev.cwd;
-    prevLocationRef.current = { isLocal, sftpId, cwd };
-
-    if (isPrimaryLoad) { setLoading(true); setError(null); }
-
-    const load = isLocal
-      ? fsListDir(cwd).then((files) =>
-          files.map<FileEntry>((f: LocalFile) => ({ name: f.name, path: f.path, size: f.size, isDir: f.is_dir, modified: f.modified ?? undefined })))
-      : sftpListDir(sftpId!, cwd).then((files) =>
-          files.map<FileEntry>((f: RemoteFile) => ({ name: f.name, path: f.path, size: f.size, isDir: f.is_dir, modified: f.modified ?? undefined, permissions: f.permissions ?? undefined, isSymlink: f.is_symlink })));
-    load
-      .then((e) => { setEntries(e); if (isPrimaryLoad) setLoading(false); })
-      .catch((e) => { if (isPrimaryLoad) { setError(String(e)); setLoading(false); } });
-  }, [isLocal, sftpId, cwd, refreshTick, autoTick]);
 
   const parentPath = parentDir(cwd) || null;
   const goUp = () => { if (parentPath) onNavigate(parentPath); };

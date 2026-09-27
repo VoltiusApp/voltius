@@ -51,6 +51,7 @@ export type Transfer = {
   speed?: number;   // bytes/sec
   eta?: number;     // seconds remaining
   status: "running" | "done" | "cancelled" | "error"; error?: string;
+  skipped?: string[]; // remote paths refused as local file names
   accelerated?: boolean; // ran via tar acceleration
   /** Set when an MCP client started this transfer; absent for the user's own.
    *  Deliberately NOT mcpOwnershipStore: that store's keepOnly() reaper filters

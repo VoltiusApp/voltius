@@ -92,7 +92,8 @@ export function SidePane({
       ? (getConnectionIconColor(host.connection.icon || host.connection.distro!) ?? "var(--t-bg-card-avatar)")
       : "var(--t-bg-card-avatar)";
 
-  const canChangeHost = phase.tag === "connected" || phase.tag === "error";
+  // Includes connecting, so a slow or hung connect can be abandoned.
+  const canChangeHost = phase.tag !== "picking";
 
   const [filterQuery, setFilterQuery] = useState("");
   const menuBtnRef = useRef<HTMLButtonElement>(null);

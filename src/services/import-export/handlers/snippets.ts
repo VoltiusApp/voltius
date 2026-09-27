@@ -16,11 +16,12 @@ export const snippetsHandler: DataTypeHandler = {
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     // Nested calls travel as `_eid`, so the target must be resolved against the
     // whole selection before any step is written.
-    const idToEid = new Map((items as Snippet[]).map((s, i) => [s.id, `s${i}`] as const));
+    ctx.snippetEidMap.clear();
+    (items as Snippet[]).forEach((s, i) => ctx.snippetEidMap.set(s.id, `s${i}`));
     bundle.snippets = (items as Snippet[]).map((s, i): SnippetExport => ({
       _eid: `s${i}`,
       name: s.name,
-      steps: stepsToExport(s.steps, idToEid, s.name),
+      steps: stepsToExport(s.steps, ctx.snippetEidMap, s.name),
       description: s.description,
       tags: [...s.tags],
       favorite: s.favorite,
@@ -34,7 +35,7 @@ export const snippetsHandler: DataTypeHandler = {
     let imported = 0; let errors = 0;
     // A dupe we skip still satisfies calls that point at it — resolve those to
     // the snippet already on this machine rather than failing the caller.
-    const eidToId = new Map<string, string>();
+    const eidToId = ctx.snippetEidMap;
     const toCreate = bundle.snippets
       .filter(raw => !skipItem(ctx, raw, dupesOf(ctx).snippet(raw), eidToId))
       .map(raw => normalizeSnippetSteps(raw));

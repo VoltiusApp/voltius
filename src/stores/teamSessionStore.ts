@@ -3,9 +3,10 @@ import i18n from "@/i18n";
 import * as mp from "@/services/multiplayerService";
 import type { ActiveSession, Participant, MultiplayerConnection, SessionKey } from "@/services/multiplayerService";
 import { sendSessionInput } from "@/services/sessionInput";
-import { getSessionTransportType } from "@/stores/sessionStore";
+import { encodeSessionText, getSessionTransportType } from "@/stores/sessionStore";
 import type { TeamMember } from "@/services/teamService";
 import type { InviteTarget } from "@/services/teamSharing";
+import { appendOutputBuffer, drainOutputBuffer, type OutputBuffers } from "@/utils/outputBuffer";
 export type { ActiveSession, Participant };
 
 interface TeamSessionStore {
@@ -82,19 +83,40 @@ export interface MultiplayerSessionState {
   // Invite-link sessions only. Retained because the server returns it once, at
   // creation: without it a host who reopens ShareMenu can never see the link again.
   inviteToken?: string;
-  // Runtime-only wiring between the terminal view and store; never persisted.
-  _termWrite?: (data: Uint8Array) => void;
-  _pendingOutput?: Uint8Array;
 }
+
+/** Where each guest session's output goes once its view has an xterm; output
+ *  before that (the host's initial snapshot, typically) is held and replayed on attach. */
+const guestSinks = new Map<string, (data: Uint8Array) => void>();
+const guestPending: OutputBuffers = new Map();
+
+function deliverGuestOutput(localSessionId: string, data: Uint8Array) {
+  const write = guestSinks.get(localSessionId);
+  if (write) write(data);
+  else appendOutputBuffer(guestPending, localSessionId, data);
+}
+
+/** Send a guest session's output to `write`, starting with whatever was held for it. Returns the detach. */
+export function attachGuestOutput(localSessionId: string, write: (data: Uint8Array) => void): () => void {
+  const held = drainOutputBuffer(guestPending, localSessionId);
+  if (held) write(held);
+  guestSinks.set(localSessionId, write);
+  return () => {
+    if (guestSinks.get(localSessionId) === write) guestSinks.delete(localSessionId);
+  };
+}
+
+const relayDecoder = new TextDecoder();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeCallbacks(localSessionId: string, set: any, _get: any) {
   return {
     onOutput: () => {},
     // A guest with control types into whatever the host is running — a local
-    // shell and a serial port as much as an SSH channel.
+    // shell and a serial port as much as an SSH channel. The relay carries UTF-8.
     onInput: (data: Uint8Array) => {
-      sendSessionInput(localSessionId, getSessionTransportType(localSessionId), data).catch(() => {});
+      const bytes = encodeSessionText(localSessionId, relayDecoder.decode(data));
+      sendSessionInput(localSessionId, getSessionTransportType(localSessionId), bytes).catch(() => {});
     },
     onControlUpdate: (holderId: string, requesterId: string | null) => {
       set((s: TeamSessionStore) => ({
@@ -219,8 +241,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
 
     const conn = mp.openWebSocket(serverUrl, multiplayerSessionId, jwt, sessionKey, {
       onOutput: (data) => {
-        const conn = get().connections[localSessionId];
-        conn?._termWrite?.(data);
+        if (get().connections[localSessionId]) deliverGuestOutput(localSessionId, data);
       },
       onInput: () => {},
       onControlUpdate: (holderId, requesterId) => {
@@ -284,6 +305,8 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
   leaveSession: (localSessionId) => {
     const state = get().connections[localSessionId];
     if (state) state.connection.close();
+    guestSinks.delete(localSessionId);
+    drainOutputBuffer(guestPending, localSessionId);
     set((s) => {
       const next = { ...s.connections };
       delete next[localSessionId];

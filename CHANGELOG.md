@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-09-27
+
+### Added
+
+- Proxy support for SSH, SFTP and reachability checks (#361)
+- Relinked imported hosts to keys and identities already in the vault (#375)
+
+### Fixed
+
+- Stopped sync from losing or reverting local changes (#367)
+- Kept the vault openable after a password change, and refused tampered team rows (#368)
+- Fixed legacy terminal encodings, port-forward races and the guest terminal (#366)
+- Made SFTP tar transfers, editor reads and file handles robust (#364)
+- Stopped SFTP retry storms, stale listings and path bugs (#365)
+- Cleaned up tar temp archives after cancelled and failed SFTP transfers (#394)
+- Skipped file names the local OS can't hold instead of failing the SFTP download (#376)
+- Stopped exporting machine-local key and snippet ids on connections (#393)
+- Kept references, large exports and username-less hosts on import (#369)
+- Added another account from a modal instead of signing out (#378)
+- Let a drag selection over tmux scroll past the viewport (#379)
+- Stopped re-downloading updates and honoured auto-download off (#374)
+- Kept the app rendered after turning a vault into a team vault (#386)
+- Supported keyboard-interactive auth for PAM-only servers (#356)
+- Recognised expired passwords and localised password prompts over SSH (#359, #360)
+- Opened the host's shell when running as a Flatpak (#358)
+
+### Security
+
+- Closed agent-forwarding and SFTP file-name security holes (#363)
+
 ## [0.42.0] - 2026-09-24
 
 ### Added

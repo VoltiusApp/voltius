@@ -8,6 +8,7 @@ import type { ConnectionExport, ExportBundle, FolderExport, IdentityExport, KeyE
 import { runImport, reloadAll } from "@/services/import-export/registry";
 import { findDupes, newImportCtx } from "@/services/import-export/context";
 import type { Dupes } from "@/services/import-export/context";
+import { loadPublicKeys } from "@/services/publicKeyStore";
 import { IMPORTERS, parseImport } from "@/services/import-export/importers";
 import { useImportStores, useReloadFns, useStoreSlices, useDeleteStores } from "./useStores";
 import { ActionBtn, VaultChipSelect, useVaultList } from "./shared";
@@ -16,6 +17,7 @@ import { FileInputArea } from "./FileInputArea";
 
 type ItemAction = "include" | "skip" | "overwrite";
 type ItemMeta = { isDupe: boolean };
+type RefMeta = { icon: string; title: string; linkedTo?: string };
 
 type ImportStatus =
   | { type: "idle" }
@@ -29,6 +31,7 @@ type ImportStatus =
       identityMeta: ItemMeta[];
       snippetMeta: ItemMeta[];
       pfRuleMeta: ItemMeta[];
+      refMeta: RefMeta[];
     };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -73,7 +76,7 @@ function DupeControl({ action, onChange }: { action: ItemAction; onChange: (a: I
   );
 }
 
-function ItemRow({ icon, title, sub, folderPath, isDupe, action, onToggle, onActionChange }: {
+function ItemRow({ icon, title, sub, folderPath, isDupe, action, onToggle, onActionChange, readOnly }: {
   icon: string;
   title: string;
   sub: string;
@@ -82,18 +85,20 @@ function ItemRow({ icon, title, sub, folderPath, isDupe, action, onToggle, onAct
   action: ItemAction;
   onToggle: () => void;
   onActionChange: (a: ItemAction) => void;
+  readOnly?: boolean;
 }) {
+  const toggles = !isDupe && !readOnly;
   return (
     <div
-      onClick={isDupe ? undefined : onToggle}
-      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-opacity select-none ${isDupe ? "" : "cursor-pointer"}`}
+      onClick={toggles ? onToggle : undefined}
+      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-opacity select-none ${toggles ? "cursor-pointer" : ""}`}
       style={{
         background: "var(--t-bg-elevated)",
         border: "1px solid var(--t-border)",
         opacity: action === "skip" ? 0.45 : 1,
       }}
     >
-      {!isDupe && <CheckboxBox checked={action !== "skip"} />}
+      {toggles && <CheckboxBox checked={action !== "skip"} />}
       <Icon icon={icon} width={13} style={{ color: "var(--t-text-dim)", flexShrink: 0 }} />
       <div className="flex flex-col min-w-0 flex-1">
         <span className="text-sm text-(--t-text-primary) truncate">{title}</span>
@@ -101,7 +106,7 @@ function ItemRow({ icon, title, sub, folderPath, isDupe, action, onToggle, onAct
           {folderPath ? `${folderPath} · ${sub}` : sub}
         </span>
       </div>
-      {isDupe
+      {isDupe && !readOnly
         ? <DupeControl action={action} onChange={onActionChange} />
         : null}
     </div>
@@ -143,13 +148,20 @@ function GroupHeader({ label, icon, included, total, allSkipped, collapsed, onTo
 export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: string; autoTrigger?: boolean }) {
   const { t } = useTranslation();
   const storeSlices = useStoreSlices();
+  const [publicKeys, setPublicKeys] = useState<ReadonlyMap<string, string>>(new Map());
+  useEffect(() => {
+    let cancelled = false;
+    void loadPublicKeys(storeSlices.keys.filter(k => !k.deleted_at)).then(m => { if (!cancelled) setPublicKeys(m); });
+    return () => { cancelled = true; };
+  }, [storeSlices.keys]);
   const existingItems = useMemo(() => ({
     existingConnections: storeSlices.connections,
     existingKeys: storeSlices.keys,
+    existingPublicKeys: publicKeys,
     existingIdentities: storeSlices.identities,
     existingSnippets: storeSlices.snippets,
     existingPfRules: storeSlices.pfRules,
-  }), [storeSlices.connections, storeSlices.keys, storeSlices.identities, storeSlices.snippets, storeSlices.pfRules]);
+  }), [storeSlices.connections, storeSlices.keys, publicKeys, storeSlices.identities, storeSlices.snippets, storeSlices.pfRules]);
   const importStores = useImportStores();
   const reloaders = useReloadFns();
   const deletes = useDeleteStores();
@@ -189,6 +201,20 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
     const identityMeta = metaOf(bundle.identities, (d, i) => d.identity(i));
     const snippetMeta = metaOf(bundle.snippets, (d, s) => d.snippet(s));
     const pfRuleMeta = metaOf(bundle.portForwardingRules, (d, r) => d.pfRule(r));
+    const linkedName = (match: (d: Dupes) => string | undefined, existing: { id: string; name?: string }[]) => {
+      const ids = vaultDupes.map(match);
+      return ids.every(Boolean) ? existing.find(e => e.id === ids[0])?.name ?? "" : undefined;
+    };
+    const refMeta: RefMeta[] = [
+      ...(bundle.keyRefs ?? []).map(r => ({
+        icon: "lucide:key", title: r.name || t("importExport.import.unnamedKey"),
+        linkedTo: linkedName(d => d.keyRef(r), existingItems.existingKeys),
+      })),
+      ...(bundle.identityRefs ?? []).map(r => ({
+        icon: "lucide:user", title: r.name,
+        linkedTo: linkedName(d => d.identity(r), existingItems.existingIdentities),
+      })),
+    ];
 
     const actions = new Map<string, ItemAction>();
     bundle.connections.forEach((_, i) => actions.set(`connections:${i}`, connectionMeta[i].isDupe ? "skip" : "include"));
@@ -198,7 +224,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
     bundle.portForwardingRules.forEach((_, i) => actions.set(`pfRules:${i}`, pfRuleMeta[i].isDupe ? "skip" : "include"));
     setItemAction(actions);
 
-    setStatus({ type: "ready", bundle, connectionMeta, keyMeta, identityMeta, snippetMeta, pfRuleMeta });
+    setStatus({ type: "ready", bundle, connectionMeta, keyMeta, identityMeta, snippetMeta, pfRuleMeta, refMeta });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingItems, targetVaultIds]);
 
@@ -363,7 +389,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
   // ── Step 2: review ──────────────────────────────────────────────────────────
 
   if (step === 2 && status.type === "ready") {
-    const { bundle, connectionMeta, keyMeta, identityMeta, snippetMeta, pfRuleMeta } = status;
+    const { bundle, connectionMeta, keyMeta, identityMeta, snippetMeta, pfRuleMeta, refMeta } = status;
     const q = search.toLowerCase();
     const matches = (strs: (string | undefined)[]) => !q || strs.some(s => s?.toLowerCase().includes(q));
 
@@ -556,6 +582,19 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
               </div>
             );
           })}
+          {refMeta.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim) mb-1">{t("importExport.import.groupLinkedCredentials")}</span>
+              {refMeta.map((r, i) => (
+                <ItemRow key={i} icon={r.icon} title={r.title} readOnly isDupe={false} action="include"
+                  sub={r.linkedTo === undefined
+                    ? t("importExport.import.linkedNotFound")
+                    : t("importExport.import.linkedTo", { name: r.linkedTo || r.title })}
+                  onToggle={() => {}} onActionChange={() => {}}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {importResult && (

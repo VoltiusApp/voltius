@@ -25,11 +25,12 @@ export function pushSettingsChange(): void {
   import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {});
 }
 
-export async function withRemoteApply<T>(at: string, fn: () => Promise<T>): Promise<T> {
+// Covers only fn's synchronous part: held across an await, it would swallow a user edit made meanwhile.
+export function withRemoteApply<T>(at: string, fn: () => T): T {
   depth++;
   timestamp = at;
   try {
-    return await fn();
+    return fn();
   } finally {
     depth--;
     if (depth === 0) timestamp = null;

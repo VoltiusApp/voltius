@@ -91,3 +91,29 @@ describe("gist-sync engine notifications", () => {
     expect(api.notifications.toast).not.toHaveBeenCalled();
   });
 });
+
+describe("gist-sync pull", () => {
+  test("a device whose blob could not be read is fetched again on the next pull", async () => {
+    const { api } = makeApi();
+    engine.init(api);
+    getManifest.mockResolvedValue({
+      schema: 1,
+      salt: "00",
+      devices: [
+        { id: "bad", pushedAt: "2030-01-01T00:00:00Z" },
+        { id: "good", pushedAt: "2030-01-01T00:00:00Z" },
+      ],
+    });
+    const { getDeviceBlobs } = await import("./gist-api");
+    vi.mocked(getDeviceBlobs).mockResolvedValue([
+      { deviceId: "bad", blob: "b" },
+      { deviceId: "good", blob: "g" },
+    ]);
+    vi.mocked(api.sync.importStates).mockResolvedValue({ unreadable: [0] });
+
+    await engine.pull();
+    await engine.pull();
+
+    expect(vi.mocked(getDeviceBlobs).mock.calls[1][3]).toEqual(["bad"]);
+  });
+});

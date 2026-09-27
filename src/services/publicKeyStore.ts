@@ -54,3 +54,9 @@ export async function ensurePublicKey(sshKey: SshKey): Promise<string | null> {
   await saveTeamVaultSecretForVault(sshKey.vault_id, localKey, result.publicKey).catch(() => {});
   return result.publicKey;
 }
+
+/** Each key's public half by key id, for keys that have or can derive one. */
+export async function loadPublicKeys(keys: SshKey[]): Promise<Map<string, string>> {
+  const entries = await Promise.all(keys.map(async (k) => [k.id, await ensurePublicKey(k).catch(() => null)] as const));
+  return new Map(entries.filter((e): e is readonly [string, string] => !!e[1]));
+}

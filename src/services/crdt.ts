@@ -5,6 +5,23 @@ export interface TimestampedEntity {
   clocks: Record<string, string>;
 }
 
+// Sorted keys: a nested object's key order depends on which side serialised it.
+function canonical(v: unknown): string {
+  return JSON.stringify(v, (_k, x: unknown) =>
+    x && typeof x === "object" && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : x,
+  ) ?? "";
+}
+
+// Equal clocks settle on the value, so both sides pick the same winner. A side
+// lacking the field (a version that can't store it) keeps its own copy.
+function bWins(clockA: string, clockB: string, valueA: unknown, valueB: unknown): boolean {
+  if (clockA !== clockB) return clockB > clockA;
+  if (clockB === "" || valueA === undefined || valueB === undefined) return false;
+  return canonical(valueB) > canonical(valueA);
+}
+
 /**
  * Per-field LWW merge of two versions of the same entity.
  *
@@ -13,7 +30,7 @@ export interface TimestampedEntity {
  * (treated as "" — always loses to any real timestamp).
  *
  * `deleted_at` uses the dedicated "__deleted__" clock key.
- * Tiebreak on equal clocks: higher `id` string wins (stable, deterministic).
+ * Tiebreak on equal clocks: see `bWins`.
  */
 function mergeTwo<T extends TimestampedEntity>(a: T, b: T): T {
   const allFields = new Set([
@@ -28,7 +45,7 @@ function mergeTwo<T extends TimestampedEntity>(a: T, b: T): T {
   for (const field of allFields) {
     const clockA = a.clocks[field] ?? "";
     const clockB = b.clocks[field] ?? "";
-    if (clockB > clockA || (clockB === clockA && clockB !== "" && b.id > a.id)) {
+    if (bWins(clockA, clockB, (a as Record<string, unknown>)[field], (b as Record<string, unknown>)[field])) {
       merged[field] = (b as Record<string, unknown>)[field];
       mergedClocks[field] = clockB;
     } else {
@@ -39,7 +56,7 @@ function mergeTwo<T extends TimestampedEntity>(a: T, b: T): T {
   // Resolve deleted_at via __deleted__ clock
   const delClockA = a.clocks["__deleted__"] ?? "";
   const delClockB = b.clocks["__deleted__"] ?? "";
-  if (delClockB > delClockA || (delClockB === delClockA && delClockB !== "" && b.id > a.id)) {
+  if (bWins(delClockA, delClockB, a.deleted_at, b.deleted_at)) {
     merged["deleted_at"] = b.deleted_at;
     if (delClockB) mergedClocks["__deleted__"] = delClockB;
   } else {
@@ -76,6 +93,28 @@ export function mergeEntities<T extends TimestampedEntity>(local: T[], remote: T
     }
   }
   return [...map.values()];
+}
+
+function entityDiffers<T extends TimestampedEntity>(a: T, b: T): boolean {
+  const fields = new Set([...Object.keys(a.clocks), ...Object.keys(b.clocks)]);
+  for (const field of fields) {
+    if (a.clocks[field] !== b.clocks[field]) return true;
+    const key = field === "__deleted__" ? "deleted_at" : field;
+    const valueA = (a as Record<string, unknown>)[key];
+    const valueB = (b as Record<string, unknown>)[key];
+    if (canonical(valueA) !== canonical(valueB)) return true;
+  }
+  return false;
+}
+
+// Field by field, not by `updated_at`: a remote field older than the newest local clock can still win.
+export function entitiesDiffer<T extends TimestampedEntity>(base: T[], merged: T[]): boolean {
+  if (base.length !== merged.length) return true;
+  const baseById = new Map(base.map((e) => [e.id, e]));
+  return merged.some((m) => {
+    const b = baseById.get(m.id);
+    return !b || entityDiffers(b, m);
+  });
 }
 
 /**

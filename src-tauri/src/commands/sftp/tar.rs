@@ -7,6 +7,7 @@ use super::{
     transfer::sftp_upload_inner,
     TarBackend,
 };
+use crate::sftp::backend::{skip_unsafe_name, TransferEvents};
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
 use std::future::Future;
@@ -28,6 +29,17 @@ fn remote_split(path: &str) -> (&str, &str) {
         Some(i) => (&path[..i], &path[i + 1..]),
         None => (".", path),
     }
+}
+
+/// Basenames of `paths` that are safe to create here; the rest are reported as skipped.
+fn local_safe_items(app: &impl TransferEvents, transfer_id: &str, paths: &[String]) -> Vec<String> {
+    paths
+        .iter()
+        .filter_map(|p| {
+            let (_, name) = remote_split(p);
+            (!skip_unsafe_name(app, transfer_id, p, name, true)).then(|| name.to_string())
+        })
+        .collect()
 }
 
 /// The same split for a local path, where the separator is the platform's.
@@ -187,14 +199,49 @@ impl<'a> TarJob<'a> {
         Ok((local, remote_archive(&self.shell, self.transfer_id, false)))
     }
 
-    async fn exec(&self, cmd: &str) -> Result<(), String> {
-        self.manager.exec_command(self.sftp_id, cmd).await
+    /// Run `cmd` on this job's host, giving up if the transfer is cancelled.
+    async fn exec(&self, cmd: &str, after_cancel: Option<String>) -> Result<(), String> {
+        self.manager
+            .exec_command(self.sftp_id, cmd, Some(self.token), after_cancel)
+            .await
     }
 
-    /// Best-effort cleanup of a remote temp archive.
-    async fn rm_remote(&self, path: &str) {
-        let _ = self.exec(&self.shell.rm(path)).await;
+    /// A step that succeeded after the transfer was cancelled still counts as cancelled.
+    fn unless_cancelled(&self, step: Result<(), String>) -> Result<(), String> {
+        match step {
+            Ok(()) if self.token.is_cancelled() => Err("Transfer cancelled".into()),
+            r => r,
+        }
     }
+
+    async fn rm_remote(&self, path: &str) {
+        rm_on(self.manager, self.sftp_id, &self.shell, path).await;
+    }
+
+    /// Archive `items` (relative to `parent`) into `archive` on this job's host.
+    /// A failed or cancelled run leaves no archive behind.
+    async fn create_remote(
+        &self,
+        archive: &str,
+        deref: bool,
+        parent: &str,
+        items: &[String],
+    ) -> Result<(), String> {
+        let cmd = tar_create_cmd(&self.shell, archive, deref, parent, items)?;
+        let created = self.unless_cancelled(self.exec(&cmd, Some(self.shell.rm(archive))).await);
+        if created.is_err() {
+            self.rm_remote(archive).await;
+        }
+        created
+    }
+}
+
+/// Best-effort cleanup of a remote temp archive. Not cancellable: it is
+/// what a cancelled transfer runs on its way out.
+async fn rm_on(manager: &SftpManager, sftp_id: &str, shell: &RemoteShell, path: &str) {
+    let _ = manager
+        .exec_command(sftp_id, &shell.rm(path), None, None)
+        .await;
 }
 
 /// Run `body` and deregister the transfer whichever way it ends.
@@ -248,7 +295,7 @@ pub async fn sftp_compress(
         parent,
         &[basename.to_string()],
     )?;
-    sftp_state.exec_command(&sftp_id, &cmd).await
+    sftp_state.exec_command(&sftp_id, &cmd, None, None).await
 }
 
 /// Extract a remote .tar.gz archive into a destination directory via SSH exec.
@@ -261,7 +308,7 @@ pub async fn sftp_extract(
 ) -> Result<(), String> {
     let shell = shell_of(&sftp_state, &sftp_id).await;
     let cmd = tar_extract_cmd(&shell, &dest_dir, &archive_path, false, false);
-    sftp_state.exec_command(&sftp_id, &cmd).await
+    sftp_state.exec_command(&sftp_id, &cmd, None, None).await
 }
 
 // ── Tar-based directory transfer ──────────────────────────────────────────────
@@ -289,11 +336,12 @@ async fn upload_tar(
     let (tmp_local, tmp_remote) = job.temp_paths()?;
 
     // 1. Archive locally
-    local_tar_create(&tmp_local, job.shell.is_windows(), local_parent, names).await?;
-
-    if job.token.is_cancelled() {
+    let created = job.unless_cancelled(
+        local_tar_create(&tmp_local, job.shell.is_windows(), local_parent, names).await,
+    );
+    if created.is_err() {
         let _ = tokio::fs::remove_file(&tmp_local).await;
-        return Err("Transfer cancelled".into());
+        return created;
     }
 
     // 2. Upload archive
@@ -308,16 +356,16 @@ async fn upload_tar(
     )
     .await;
     let _ = tokio::fs::remove_file(&tmp_local).await;
-    uploaded?;
+    if uploaded.is_err() {
+        job.rm_remote(&tmp_remote).await;
+        return uploaded;
+    }
 
     // 3. Extract on remote and clean up remote temp
-    job.exec(&tar_extract_cmd(
-        &job.shell,
-        remote_dir,
-        &tmp_remote,
-        strip,
-        true,
-    ))
+    job.exec(
+        &tar_extract_cmd(&job.shell, remote_dir, &tmp_remote, strip, true),
+        None,
+    )
     .await
 }
 
@@ -334,19 +382,8 @@ async fn download_tar(
     let (tmp_local, tmp_remote) = job.temp_paths()?;
 
     // 1. Archive on remote
-    job.exec(&tar_create_cmd(
-        &job.shell,
-        &tmp_remote,
-        LOCAL_IS_WINDOWS,
-        remote_parent,
-        items,
-    )?)
-    .await?;
-
-    if job.token.is_cancelled() {
-        job.rm_remote(&tmp_remote).await;
-        return Err("Transfer cancelled".into());
-    }
+    job.create_remote(&tmp_remote, LOCAL_IS_WINDOWS, remote_parent, items)
+        .await?;
 
     // 2. Download archive
     let local = tmp_local.to_str().unwrap_or("").to_string();
@@ -361,7 +398,10 @@ async fn download_tar(
     .await;
     // Clean up remote temp regardless of download result
     job.rm_remote(&tmp_remote).await;
-    downloaded?;
+    if downloaded.is_err() {
+        let _ = tokio::fs::remove_file(&tmp_local).await;
+        return downloaded;
+    }
 
     // 3. Extract locally
     local_tar_extract(&tmp_local, local_dir, strip).await
@@ -387,19 +427,8 @@ async fn transfer_tar(
     let dst_tmp = remote_archive(&dst_shell, job.transfer_id, true);
 
     // 1. Archive on source
-    job.exec(&tar_create_cmd(
-        &job.shell,
-        &src_tmp,
-        dst_shell.is_windows(),
-        src_parent,
-        items,
-    )?)
-    .await?;
-
-    if job.token.is_cancelled() {
-        job.rm_remote(&src_tmp).await;
-        return Err("Transfer cancelled".into());
-    }
+    job.create_remote(&src_tmp, dst_shell.is_windows(), src_parent, items)
+        .await?;
 
     // 2. Stream the archive between hosts
     let streamed = sftp_rr_file_inner(
@@ -414,11 +443,16 @@ async fn transfer_tar(
     .await;
     // Clean up source temp regardless
     job.rm_remote(&src_tmp).await;
-    streamed?;
+    if streamed.is_err() {
+        rm_on(job.manager, dst_sftp_id, &dst_shell, &dst_tmp).await;
+        return streamed;
+    }
 
     // 3. Extract on destination and clean up
     let cmd = tar_extract_cmd(&dst_shell, dst_dir, &dst_tmp, strip, true);
-    job.manager.exec_command(dst_sftp_id, &cmd).await
+    job.manager
+        .exec_command(dst_sftp_id, &cmd, Some(job.token), None)
+        .await
 }
 
 /// Upload multiple local files/directories as a single tar.gz batch.
@@ -479,16 +513,15 @@ pub async fn sftp_download_batch_tar(
     );
 
     let (parent, _) = remote_split(&remote_paths[0]);
-    let items: Vec<String> = remote_paths
-        .iter()
-        .filter_map(|p| p.rfind('/').map(|i| p[i + 1..].to_string()))
-        .collect();
+    let items = local_safe_items(&app, &transfer_id, &remote_paths);
 
     let job = TarJob::new(&app, &sftp_state, &sftp_id, &transfer_id, &token).await;
-    finish_with(
-        &job,
-        download_tar(&job, session, parent, &items, &local_dir, false),
-    )
+    finish_with(&job, async {
+        if items.is_empty() {
+            return Ok(());
+        }
+        download_tar(&job, session, parent, &items, &local_dir, false).await
+    })
     .await
 }
 
@@ -635,6 +668,25 @@ mod tests {
         assert_eq!(remote_split("/srv/data/logs"), ("/srv/data", "logs"));
         assert_eq!(remote_split("logs"), (".", "logs"));
         assert_eq!(remote_split("/logs"), ("", "logs"));
+    }
+
+    #[test]
+    fn local_safe_items_skips_names_that_would_leave_the_folder() {
+        use crate::sftp::backend::test_tree::Recorder;
+        let rec = Recorder::default();
+        let paths: Vec<String> = ["/srv/ok.txt", "/srv/..", "/srv/10:30.log", "/srv/a\\b"]
+            .map(String::from)
+            .to_vec();
+        let items = local_safe_items(&rec, "t1", &paths);
+        let mut kept = vec!["ok.txt"];
+        let mut skipped = vec!["/srv/.."];
+        if cfg!(windows) {
+            skipped.extend(["/srv/10:30.log", "/srv/a\\b"]);
+        } else {
+            kept.extend(["10:30.log", "a\\b"]);
+        }
+        assert_eq!(items, kept);
+        assert_eq!(rec.skipped("t1"), skipped);
     }
 
     #[test]

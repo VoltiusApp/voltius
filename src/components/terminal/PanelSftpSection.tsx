@@ -10,16 +10,14 @@ import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
-import { tarUsable } from "@/components/filetransfer/tarSupport";
 import {
   pickLocalPath, pickLocalPaths,
-  sftpDownload, sftpDownloadDir, sftpDownloadDirTar, sftpDownloadBatchTar,
   sftpRename, sftpDelete, sftpExists, fsRename, fsDelete, fsExists,
 } from "@/services/sftp";
 import { FilePane } from "@/components/filetransfer/FilePane";
 import { TransferQueue } from "@/components/filetransfer/TransferQueue";
 import { runIntraPaneMove } from "@/components/filetransfer/moveService";
-import { triggerOsDrop, triggerUpload } from "@/components/filetransfer/osDropPipeline";
+import { triggerOsDrop, triggerUpload, downloadToLocal } from "@/components/filetransfer/osDropPipeline";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "@/components/filetransfer/internalDrag";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "@/components/filetransfer/pasteService";
@@ -170,33 +168,8 @@ export default function PanelSftpSection() {
   const downloadFiles = useCallback(async (files: FileEntry[]) => {
     if (files.length === 0 || panelState?.tag !== "connected" || panelState.isLocal || !panelState.sftpId) return;
     const dstDir = await pickLocalPath({ directory: true, title: t("terminal.sftp.downloadDialogTitle") });
-    if (!dstDir) return;
-    const sftpId = panelState.sftpId;
-    const base = dstDir.replace(/[\\/]$/, "");
-    const label = files.length === 1 ? files[0].name : `${files.length} items`;
-    // Archives remotely + extracts locally, so both ends need tar.
-    const useTar = await tarUsable([sftpId], true);
-
-    if (useTar && files.length > 1) {
-      await runTransfer(label, "←", (tid) =>
-        sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir: base, transferId: tid }),
-        undefined, true,
-      );
-      return;
-    }
-
-    for (const file of files) {
-      const sep = /[\\/]/.test(base) && /\\/.test(base) ? "\\" : "/";
-      const localPath = `${base}${sep}${file.name}`;
-      await runTransfer(file.name, "←", (tid) => file.isDir
-        ? (useTar
-            ? sftpDownloadDirTar({ sftpId, remotePath: file.path, localPath, transferId: tid })
-            : sftpDownloadDir({ sftpId, remotePath: file.path, localPath, transferId: tid }))
-        : sftpDownload({ sftpId, remotePath: file.path, localPath, transferId: tid }),
-        undefined, file.isDir && useTar,
-      );
-    }
-  }, [panelState, runTransfer]);
+    if (dstDir) await downloadToLocal(files, panelState.sftpId, dstDir);
+  }, [panelState]);
   const handleDownload = useCallback(() => { void downloadFiles(selected); }, [downloadFiles, selected]);
 
   const moveWithin = useCallback(async (files: FileEntry[], targetDir: string) => {

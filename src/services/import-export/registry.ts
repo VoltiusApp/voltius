@@ -1,5 +1,6 @@
 import { getSecret } from "@/services/vault";
-import type { Connection, Folder, PortForwardingRule } from "@/types";
+import { ensurePublicKey } from "@/services/publicKeyStore";
+import type { Connection, Folder, Identity, PortForwardingRule, Snippet, SshKey } from "@/types";
 import type { ExportBundle, FolderExport } from "./formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "./context";
 import { dupeItems, dupesOf, hasSelection } from "./context";
@@ -11,14 +12,14 @@ import { snippetsHandler } from "./handlers/snippets";
 import { portForwardingHandler } from "./handlers/portForwarding";
 
 // ─── Handler registry ─────────────────────────────────────────────────────────
-// Order matters for import: folders first, then keys → identities → connections
-// (cascade deps), then independent types. Export order doesn't matter.
+// Run in dependency order on export and import: a handler's eid map must be filled
+// before any later handler references it. Folders go first, in the orchestrators.
 
 export const HANDLERS: DataTypeHandler[] = [
   keysHandler,
   identitiesHandler,
-  connectionsHandler,
   snippetsHandler,
+  connectionsHandler,
   portForwardingHandler,
 ];
 
@@ -34,6 +35,21 @@ function collectJumpHostConnectionIds(connections: Connection[], allConnections:
       }
     }
   }
+}
+
+function collectSnippetCalls(ids: (string | undefined)[], all: Snippet[], out: Set<string>): void {
+  for (const id of ids) {
+    const snippet = id && !out.has(id) ? all.find(s => s.id === id) : undefined;
+    if (!snippet) continue;
+    out.add(snippet.id);
+    collectSnippetCalls(snippet.steps.map(st => st.kind === "snippet" ? st.snippet_id : undefined), all, out);
+  }
+}
+
+function notSelected<T extends { id: string }>(all: T[], selected: T[], ids: (string | undefined)[]): T[] {
+  const wanted = new Set(ids);
+  const have = new Set(selected.map(i => i.id));
+  return all.filter(i => wanted.has(i.id) && !have.has(i.id));
 }
 
 function walkParentChain(startId: string, all: Folder[], out: Set<string>) {
@@ -97,34 +113,24 @@ export async function buildBundle(
     if (toAdd.length > 0) selectedByKey["connections"] = [...(selectedByKey["connections"] as Connection[]), ...toAdd];
   }
 
-  // Cascade: connections → identities → keys (including jump host identities)
-  if (includeRelatedCredentials) {
-    const connItems = selectedByKey["connections"] as Connection[];
-    const cascadedIdentityIds = new Set([
-      ...(selectedByKey["identities"] as { id: string }[]).map(i => i.id),
-      ...connItems.map(c => c.identity_id).filter((id): id is string => !!id),
-      ...connItems.flatMap(c => (c.jump_hosts ?? []).map(jh => jh.identity_id).filter((id): id is string => !!id)),
-    ]);
-    if (enabled["identities"] || cascadedIdentityIds.size > 0) {
-      const effectiveIdentities = stores.identities.filter(i => cascadedIdentityIds.has(i.id));
-      if (effectiveIdentities.length > (selectedByKey["identities"] as unknown[]).length) {
-        selectedByKey["identities"] = effectiveIdentities;
-      }
-    }
+  // Cascade: connections → their pre/post-connect snippets and the snippets those call
+  const liveSnippets = stores.snippets.filter(s => !s.deleted_at);
+  const hookSnippetIds = new Set<string>();
+  collectSnippetCalls((selectedByKey["connections"] as Connection[]).flatMap(c => [c.pre_snippet_id, c.post_snippet_id]), liveSnippets, hookSnippetIds);
+  const hookSnippets = notSelected(liveSnippets, selectedByKey["snippets"] as Snippet[], [...hookSnippetIds]);
+  if (hookSnippets.length > 0) selectedByKey["snippets"] = [...selectedByKey["snippets"], ...hookSnippets];
 
-    const idItems = selectedByKey["identities"] as { id: string; key_id?: string }[];
-    const cascadedKeyIds = new Set([
-      ...(selectedByKey["keys"] as { id: string }[]).map(k => k.id),
-      ...idItems.map(i => i.key_id).filter((id): id is string => !!id),
-      ...connItems.map(c => c.key_id).filter((id): id is string => !!id),
-    ]);
-    if (enabled["keys"] || cascadedKeyIds.size > 0) {
-      const effectiveKeys = stores.keys.filter(k => cascadedKeyIds.has(k.id));
-      if (effectiveKeys.length > (selectedByKey["keys"] as unknown[]).length) {
-        selectedByKey["keys"] = effectiveKeys;
-      }
-    }
-  }
+  // Cascade: connections → identities → keys (including jump host identities).
+  // Left out unless asked for, the linked ones travel as refs the importer can relink.
+  const connItems = selectedByKey["connections"] as Connection[];
+  const linkedIdentities = notSelected(stores.identities, selectedByKey["identities"] as Identity[], [
+    ...connItems.map(c => c.identity_id),
+    ...connItems.flatMap(c => (c.jump_hosts ?? []).map(jh => jh.identity_id)),
+  ]);
+  if (includeRelatedCredentials) selectedByKey["identities"] = [...selectedByKey["identities"], ...linkedIdentities];
+  const keyUsers: { key_id?: string }[] = [...(selectedByKey["identities"] as Identity[]), ...connItems];
+  const linkedKeys = notSelected(stores.keys, selectedByKey["keys"] as SshKey[], keyUsers.map(u => u.key_id));
+  if (includeRelatedCredentials) selectedByKey["keys"] = [...selectedByKey["keys"], ...linkedKeys];
 
   // 2. Collect folder IDs from all handlers
   const mainFolderIds = new Set<string>();
@@ -154,10 +160,14 @@ export async function buildBundle(
     keyEidMap: new Map(),
     identityEidMap: new Map(),
     connectionEidMap: new Map(),
+    snippetEidMap: new Map(),
     allFolders: stores.folders,
     allSnippetFolders: stores.snippetFolders,
     allIdentities: stores.identities,
     allKeys: stores.keys,
+    keyRefs: includeRelatedCredentials ? [] : linkedKeys,
+    identityRefs: includeRelatedCredentials ? [] : linkedIdentities,
+    publicKey: (key) => canViewSecrets(key.vault_id ?? "personal") ? ensurePublicKey(key).catch(() => null) : Promise.resolve(null),
   };
 
   // 5. Build bundle — handlers run in registry order so eid maps are ready for deps

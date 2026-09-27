@@ -34,7 +34,7 @@ export function HostAwareTerminalView({
   /** Whether this session's status bar, if rendered, is the one currently on screen. */
   statusBarVisible?: boolean;
 }) {
-  useMultiplayerHostBroadcast(session.id, session.type);
+  useMultiplayerHostBroadcast(session.id, session.type, session.encoding);
   const isSharing = useTeamSessionStore((s) => !!s.connections[session.id]);
 
   const inputGateRef = useRef<() => boolean>(() => true);

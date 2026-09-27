@@ -61,7 +61,7 @@ describe("bundleFromEntries → runImport", () => {
       existingConnections: [], existingKeys: [], existingIdentities: [],
       existingSnippets: [], existingPfRules: [], existingFolders: [],
       folderEidMap: new Map(), snippetFolderEidMap: new Map(), keyEidMap: new Map(),
-      identityEidMap: new Map(), connectionEidMap: new Map(),
+      identityEidMap: new Map(), connectionEidMap: new Map(), snippetEidMap: new Map(),
       stores: {
         saveFolder: async () => ({ id: "folder-main" }),
         saveSnippetFolder: async (d: Record<string, unknown>) => ({ id: "folder-1", ...d }),

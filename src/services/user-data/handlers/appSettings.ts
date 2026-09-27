@@ -5,6 +5,9 @@ import { CURSOR_STYLES, useTerminalSettingsStore, type TerminalCursorStyle } fro
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useToggleSettingsStore, TOGGLE_DEFS, type ToggleId } from "@/stores/toggleSettingsStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
+import { remoteApplyTimestamp } from "@/stores/remoteApplyGuard";
+import { getPath, hasPath, setPath } from "@/utils/dotPath";
 import {
   useConnectivitySettingsStore,
   GLOBAL_PROXY_MODES,
@@ -14,6 +17,7 @@ import {
 import { useLocaleStore, SUPPORTED_LOCALES, type Locale } from "@/stores/localeStore";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { lastWriteWins, type UserDataHandler } from "../handler";
+import { keysForDomain, relPath } from "../settingKeys";
 
 interface AppSettingsData {
   sftp?: { autoRefreshIntervalMs?: number };
@@ -23,7 +27,41 @@ interface AppSettingsData {
   keepalivePreset?: KeepalivePreset;
   locale?: Locale;
   proxy?: GlobalProxy;
+  // Absent from peers that predate per-leaf clocks: every leaf then carries the section's clock.
+  clocks?: Record<string, string>;
 }
+
+function leafClock(data: AppSettingsData, sectionTs: string, leaf: string): string {
+  if (!data.clocks) return sectionTs;
+  const at = data.clocks[leaf];
+  return typeof at === "string" ? at : "";
+}
+
+const mergeAppSettings: UserDataHandler["merge"] = (local, remote, localTs, remoteTs) => {
+  if (!local || !remote) return lastWriteWins(local, remote, localTs, remoteTs);
+  const l = local as AppSettingsData;
+  const r = remote as AppSettingsData;
+  const value = JSON.parse(JSON.stringify(l)) as AppSettingsData;
+  const clocks: Record<string, string> = {};
+  const { isSettingSynced } = useSyncPrefsStore.getState();
+  let updated = false;
+  let updatedAt = localTs;
+  for (const { id } of keysForDomain("appSettings")) {
+    const leaf = relPath(id);
+    const localAt = leafClock(l, localTs, leaf);
+    const remoteAt = leafClock(r, remoteTs, leaf);
+    if (isSettingSynced(id) && hasPath(r, leaf) && remoteAt > localAt) {
+      setPath(value, leaf, getPath(r, leaf));
+      clocks[leaf] = remoteAt;
+      if (remoteAt > updatedAt) updatedAt = remoteAt;
+      updated = true;
+    } else if (localAt) {
+      clocks[leaf] = localAt;
+    }
+  }
+  value.clocks = clocks;
+  return { value, updated, updatedAt };
+};
 
 // Sync input is untrusted: rebuild a fresh object field-by-field instead of
 // trusting the sender's types, so a bad host/port never reaches the Rust IPC.
@@ -56,6 +94,7 @@ export const appSettingsHandler: UserDataHandler = {
       keepalivePreset: useConnectivitySettingsStore.getState().keepalivePreset,
       locale: useLocaleStore.getState().locale,
       proxy: useConnectivitySettingsStore.getState().proxy,
+      clocks: { ...useAppSettingsTimestampStore.getState().clocks },
     };
   },
 
@@ -74,11 +113,8 @@ export const appSettingsHandler: UserDataHandler = {
       const style = d.terminal.cursorStyle;
       if (style && CURSOR_STYLES.includes(style)) s.setCursorStyle(style);
     }
-    if (d.plugins?.overrides) {
-      const overrides = d.plugins.overrides;
-      usePluginRegistryStore.setState({ overrides });
-      await invoke("plugin_registry_save", { overrides }).catch(() => {});
-    }
+    const overrides = d.plugins?.overrides;
+    if (overrides) usePluginRegistryStore.setState({ overrides });
     if (d.toggles) {
       const { set } = useToggleSettingsStore.getState();
       for (const [id, value] of Object.entries(d.toggles)) {
@@ -93,16 +129,20 @@ export const appSettingsHandler: UserDataHandler = {
     }
     const proxy = normalizeGlobalProxy(d.proxy);
     if (proxy) useConnectivitySettingsStore.setState({ proxy });
+    if (d.clocks && typeof d.clocks === "object" && remoteApplyTimestamp() !== null) {
+      useAppSettingsTimestampStore.getState().adoptClocks(d.clocks);
+    }
+    if (overrides) await invoke("plugin_registry_save", { overrides }).catch(() => {});
   },
 
-  merge: lastWriteWins,
+  merge: mergeAppSettings,
 
   getTimestamp(): string {
     return useAppSettingsTimestampStore.getState().updatedAt;
   },
 
-  touch(): void {
-    useAppSettingsTimestampStore.getState().touch();
+  touch(path?: string): void {
+    useAppSettingsTimestampStore.getState().touch(path ? [relPath(path)] : undefined);
   },
 
   describe(): string {
