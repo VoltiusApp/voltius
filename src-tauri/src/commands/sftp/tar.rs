@@ -7,6 +7,7 @@ use super::{
     transfer::sftp_upload_inner,
     TarBackend,
 };
+use crate::sftp::backend::{skip_unsafe_name, TransferEvents};
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
 use std::future::Future;
@@ -28,6 +29,17 @@ fn remote_split(path: &str) -> (&str, &str) {
         Some(i) => (&path[..i], &path[i + 1..]),
         None => (".", path),
     }
+}
+
+/// Basenames of `paths` that are safe to create here; the rest are reported as skipped.
+fn local_safe_items(app: &impl TransferEvents, transfer_id: &str, paths: &[String]) -> Vec<String> {
+    paths
+        .iter()
+        .filter_map(|p| {
+            let (_, name) = remote_split(p);
+            (!skip_unsafe_name(app, transfer_id, p, name, true)).then(|| name.to_string())
+        })
+        .collect()
 }
 
 /// The same split for a local path, where the separator is the platform's.
@@ -479,16 +491,15 @@ pub async fn sftp_download_batch_tar(
     );
 
     let (parent, _) = remote_split(&remote_paths[0]);
-    let items: Vec<String> = remote_paths
-        .iter()
-        .filter_map(|p| p.rfind('/').map(|i| p[i + 1..].to_string()))
-        .collect();
+    let items = local_safe_items(&app, &transfer_id, &remote_paths);
 
     let job = TarJob::new(&app, &sftp_state, &sftp_id, &transfer_id, &token).await;
-    finish_with(
-        &job,
-        download_tar(&job, session, parent, &items, &local_dir, false),
-    )
+    finish_with(&job, async {
+        if items.is_empty() {
+            return Ok(());
+        }
+        download_tar(&job, session, parent, &items, &local_dir, false).await
+    })
     .await
 }
 
@@ -635,6 +646,25 @@ mod tests {
         assert_eq!(remote_split("/srv/data/logs"), ("/srv/data", "logs"));
         assert_eq!(remote_split("logs"), (".", "logs"));
         assert_eq!(remote_split("/logs"), ("", "logs"));
+    }
+
+    #[test]
+    fn local_safe_items_skips_names_that_would_leave_the_folder() {
+        use crate::sftp::backend::test_tree::Recorder;
+        let rec = Recorder::default();
+        let paths: Vec<String> = ["/srv/ok.txt", "/srv/..", "/srv/10:30.log", "/srv/a\\b"]
+            .map(String::from)
+            .to_vec();
+        let items = local_safe_items(&rec, "t1", &paths);
+        let mut kept = vec!["ok.txt"];
+        let mut skipped = vec!["/srv/.."];
+        if cfg!(windows) {
+            skipped.extend(["/srv/10:30.log", "/srv/a\\b"]);
+        } else {
+            kept.extend(["10:30.log", "a\\b"]);
+        }
+        assert_eq!(items, kept);
+        assert_eq!(rec.skipped("t1"), skipped);
     }
 
     #[test]

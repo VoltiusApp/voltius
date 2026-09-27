@@ -1,5 +1,6 @@
 import type { FileEntry } from "@/components/filetransfer/SFTPTypes";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
+import { checkRemoteName } from "@/components/filetransfer/remoteName";
 import {
   fsCopy, sftpUpload, sftpUploadDir, sftpUploadDirTar,
   sftpDownload, sftpDownloadDir, sftpDownloadDirTar,
@@ -45,6 +46,8 @@ export async function transferItem(a: TransferItemArgs): Promise<void> {
   }
   if (from === "remote" && to === "local") {
     if (!srcSftpId) throw new Error("transferItem: missing srcSftpId");
+    const name = srcPath.replace(/\/+$/, "").split("/").pop();
+    if (name) await checkRemoteName(name);
     if (isDir) {
       return useTar
         ? sftpDownloadDirTar({ sftpId: srcSftpId, remotePath: srcPath, localPath: dstPath, transferId })

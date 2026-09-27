@@ -17,7 +17,6 @@ import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from 
 import { triggerUpload, downloadToLocal, batchLabel } from "./osDropPipeline";
 import { tarUsableForPair } from "./tarSupport";
 import { joinPath } from "./moveTargetCore";
-import { localPathForRemoteName } from "./remoteName";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
@@ -63,27 +62,26 @@ export default function SFTPPage() {
   const [rightPhase, setRightPhase] = useState<SidePhase>({ tag: "picking" });
   const [rightRefresh, setRightRefresh] = useState(0);
 
-  const openSftpIds = useRef<Set<string>>(new Set());
-  // The connect each side is waiting on; a newer connect, or leaving the side,
-  // makes an older one stale so its session is closed instead of shown.
+  // A side owns at most one connect in flight and one shown session; a connect
+  // that is no longer current closes its own session when it lands.
   const currentConnect = useRef<Record<Side, string | null>>({ left: null, right: null });
+  const shownSftp = useRef<Record<Side, string | null>>({ left: null, right: null });
 
-  useEffect(() => {
-    return () => {
-      openSftpIds.current.forEach((id) => sftpClose(id).catch(() => {}));
-    };
+  const releaseSide = useCallback((side: Side) => {
+    currentConnect.current[side] = null;
+    const sftpId = shownSftp.current[side];
+    shownSftp.current[side] = null;
+    if (sftpId) sftpClose(sftpId).catch(() => {});
   }, []);
+
+  useEffect(() => () => { releaseSide("left"); releaseSide("right"); }, [releaseSide]);
 
   // ── Connect / disconnect ───────────────────────────────────────────────────
 
   const setPhaseOf = useCallback((side: Side) => (side === "left" ? setLeftPhase : setRightPhase), []);
 
-  const closeSftp = useCallback((sftpId: string) => {
-    openSftpIds.current.delete(sftpId);
-    sftpClose(sftpId).catch(() => {});
-  }, []);
-
   const connectSide = useCallback(async (host: HostChoice, side: Side) => {
+    releaseSide(side);
     const setPhase = setPhaseOf(side);
     const connectId = genId();
     currentConnect.current[side] = connectId;
@@ -101,20 +99,19 @@ export default function SFTPPage() {
         } else {
           sftpId = await sftpConnectToConnection(host.connection, connectId);
         }
-        openSftpIds.current.add(sftpId);
         if (isCurrent()) cwd = await sftpCanonicalize(sftpId, ".");
       }
       if (!isCurrent()) {
-        if (sftpId) closeSftp(sftpId);
+        if (sftpId) sftpClose(sftpId).catch(() => {});
         return;
       }
+      shownSftp.current[side] = sftpId;
       setPhase({ tag: "connected", sftpId, cwd, selected: [] });
     } catch (e) {
-      // A session that opened but could not be used is never shown, so nothing else would close it.
-      if (sftpId) closeSftp(sftpId);
+      if (sftpId) sftpClose(sftpId).catch(() => {});
       if (isCurrent()) setPhase({ tag: "error", message: String(e), errorCode: vaultErrorCode(e) ?? undefined, host });
     }
-  }, [setPhaseOf, closeSftp]);
+  }, [setPhaseOf, releaseSide]);
 
   useEffect(() => {
     if (!sftpPanelOpen || !pendingSftpConnectionId) return;
@@ -127,19 +124,18 @@ export default function SFTPPage() {
     connectSide(host, "left");
   }, [sftpPanelOpen, pendingSftpConnectionId, clearPendingSftpConnection, connectSide]);
 
-  const disconnectSide = useCallback((side: Side, currentPhase: SidePhase) => {
-    currentConnect.current[side] = null;
-    if (currentPhase.tag === "connected" && currentPhase.sftpId) closeSftp(currentPhase.sftpId);
+  const disconnectSide = useCallback((side: Side) => {
+    releaseSide(side);
     setPhaseOf(side)({ tag: "picking" });
-  }, [setPhaseOf, closeSftp]);
+  }, [setPhaseOf, releaseSide]);
 
   // ── Auto-reconnect on error ────────────────────────────────────────────────
 
   const reconnectSide = (side: Side, phase: SidePhase) => () => {
     if (phase.tag === "error" && phase.host) void connectSide(phase.host, side);
   };
-  useConnectRetry(leftPhase, reconnectSide("left", leftPhase));
-  useConnectRetry(rightPhase, reconnectSide("right", rightPhase));
+  useConnectRetry(leftPhase, reconnectSide("left", leftPhase), leftHost);
+  useConnectRetry(rightPhase, reconnectSide("right", rightPhase), rightHost);
 
   // ── Detect remote connection loss via Rust sftp-closed event ──────────────
 
@@ -181,13 +177,13 @@ export default function SFTPPage() {
     const srcIsLocal = srcHost?.kind === "local";
     const dstIsLocal = dstHost?.kind === "local";
 
-    await runTransfer(file.name, dir, async (tid) => transferItem({
+    await runTransfer(file.name, dir, (tid) => transferItem({
       from: srcIsLocal ? "local" : "remote",
       to: dstIsLocal ? "local" : "remote",
       srcSftpId: src.sftpId ?? undefined,
       dstSftpId: dst.sftpId ?? undefined,
       srcPath: file.path,
-      dstPath: dstIsLocal && !srcIsLocal ? await localPathForRemoteName(dstBase, file.name) : joinPath(dstBase, file.name),
+      dstPath: joinPath(dstBase, file.name),
       isDir: file.isDir,
       useTar,
       transferId: tid,
@@ -464,7 +460,7 @@ export default function SFTPPage() {
             onNavigate={(p) => setLeftPhase((prev) => prev.tag === "connected" ? { ...prev, cwd: p, selected: [] } : prev)}
             onSelect={(files) => setLeftPhase((prev) => prev.tag === "connected" ? { ...prev, selected: files } : prev)}
             onRefresh={() => setLeftRefresh((n) => n + 1)}
-            onChangeHost={() => { disconnectSide("left", leftPhase); setLeftHost(null); }}
+            onChangeHost={() => { disconnectSide("left"); setLeftHost(null); }}
             side="left"
             onDropFiles={(files, fromSide, targetFolder) => { if (fromSide !== "panel") void triggerTransfer(files, fromSide, targetFolder); }}
             onTransferToTarget={(files) => void triggerTransfer(files, "left")}
@@ -493,7 +489,7 @@ export default function SFTPPage() {
             onNavigate={(p) => setRightPhase((prev) => prev.tag === "connected" ? { ...prev, cwd: p, selected: [] } : prev)}
             onSelect={(files) => setRightPhase((prev) => prev.tag === "connected" ? { ...prev, selected: files } : prev)}
             onRefresh={() => setRightRefresh((n) => n + 1)}
-            onChangeHost={() => { disconnectSide("right", rightPhase); setRightHost(null); }}
+            onChangeHost={() => { disconnectSide("right"); setRightHost(null); }}
             side="right"
             onDropFiles={(files, fromSide, targetFolder) => { if (fromSide !== "panel") void triggerTransfer(files, fromSide, targetFolder); }}
             onTransferToTarget={(files) => void triggerTransfer(files, "right")}

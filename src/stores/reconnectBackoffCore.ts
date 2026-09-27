@@ -45,12 +45,12 @@ export function retryDelay(step: number): number {
   return FAST_DELAYS_MS[step] ?? SLOW_RETRY_MS;
 }
 
-/** Wait before auto-retry number `attempt` of a connect that failed with msg/code,
- *  or null to stop and leave the error up: nothing a retry can fix, or the fast
- *  schedule is spent. For connects with no session behind them (the SFTP panes). */
+/** How long a connection must hold before its next drop starts the schedule from the top. */
+export const STABLE_CONNECTION_MS = 30_000;
+
+/** Wait before auto-retry number `attempt` of a failed connect, or null when no retry can fix it. */
 export function connectRetryDelay(attempt: number, msg?: string, code?: VaultErrorCode): number | null {
-  if (stopsRetrying(msg, code)) return null;
-  return FAST_DELAYS_MS[attempt] ?? null;
+  return stopsRetrying(msg, code) ? null : retryDelay(attempt);
 }
 
 export type SessionStatus = "connected" | "connecting" | "disconnected" | "error" | undefined;

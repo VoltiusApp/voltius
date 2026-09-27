@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import i18n from "@/i18n";
 import {
-  ftpConnect, sftpClose, sftpCanonicalize, sftpListDir,
+  ftpConnect, sftpClose, sftpCanonicalize,
   sftpMkdir, sftpRename, sftpDelete, sftpTouch,
 } from "@/services/sftp";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sftpConnectToConnection } from "@/services/sftpTarget";
-import { type FileEntry, genId, mapRemote } from "@/components/filetransfer/SFTPTypes";
+import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
+import { useDirListing } from "@/components/filetransfer/useDirListing";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
 import { vaultErrorCode, type VaultErrorCode } from "@/services/vaultErrors";
 import { useConnectRetry } from "@/hooks/useConnectRetry";
@@ -39,9 +40,6 @@ export function breadcrumbs(path: string): { name: string; path: string }[] {
 export function useSftpDir(connection: Connection | undefined) {
   const [phase, setPhase] = useState<SftpPhase>({ tag: "connecting" });
   const [cwd, setCwd] = useState<string>("/");
-  const [entries, setEntries] = useState<FileEntry[]>([]);
-  const [listing, setListing] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const [retryTick, setRetryTick] = useState(0);
   const sftpIdRef = useRef<string | null>(null);
@@ -86,7 +84,7 @@ export function useSftpDir(connection: Connection | undefined) {
 
   // Auto-reconnect on error. Mobile backgrounding (e.g. SAF picker) freezes the
   // process and trips keepalive; retry so the drop self-heals instead of dead-ending.
-  const { retrying, reset: resetRetry } = useConnectRetry(phase, () => setRetryTick((n) => n + 1));
+  const { retrying, reset: resetRetry } = useConnectRetry(phase, () => setRetryTick((n) => n + 1), connection?.id);
   const reconnect = useCallback(() => { resetRetry(); setRetryTick((n) => n + 1); }, [resetRetry]);
 
   // Detect connection loss.
@@ -98,18 +96,8 @@ export function useSftpDir(connection: Connection | undefined) {
     return () => { un.then((fn) => fn()); };
   }, [phase]);
 
-  // List on cwd / refresh change.
-  useEffect(() => {
-    if (phase.tag !== "connected") return;
-    let cancelled = false;
-    setListing(true); setListError(null);
-    sftpListDir(phase.sftpId, cwd)
-      .then((files) => { if (!cancelled) { setEntries(files.map(mapRemote)); setListing(false); } })
-      .catch((e) => { if (!cancelled) { setListError(String(e)); setListing(false); } });
-    return () => { cancelled = true; };
-  }, [phase, cwd, refreshTick]);
-
   const sftpId = phase.tag === "connected" ? phase.sftpId : null;
+  const { entries, loading: listing, error: listError } = useDirListing(false, sftpId, cwd, refreshTick);
   const navigate = useCallback((p: string) => { setCwd(p); }, []);
   const goUp = useCallback(() => setCwd((c) => parentDir(c)), []);
   const mkdir = useCallback(async (name: string) => {

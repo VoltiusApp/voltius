@@ -8,12 +8,11 @@ import { copyNameCandidate } from "./copyNameCandidate";
 import { sameHost } from "@/stores/fileClipboardStore";
 import { runIntraPaneMove } from "./moveService";
 import { joinPath } from "./moveTargetCore";
-import { checkRemoteName } from "./remoteName";
 import {
   fsExists, sftpExists, fsRename, sftpRename, fsDelete, sftpDelete,
 } from "@/services/sftp";
 import i18n from "@/i18n";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { notify } from "@/services/saveFile";
 
 export interface PasteDeps {
   existsInDest: (name: string) => Promise<boolean>;
@@ -119,17 +118,13 @@ export function buildPasteDeps(
       const useTar = await tarUsableForPair(src, dest);
       await wiring.runTransfer(
         target.name, "→",
-        async (tid) => {
-          // The name comes from the server listing; it must not climb out of the local folder.
-          if (from === "remote" && to === "local") await checkRemoteName(target.name);
-          return transferItem({
-            from, to,
-            srcSftpId: src.sftpId ?? undefined,
-            dstSftpId: dest.sftpId ?? undefined,
-            srcPath: target.srcPath, dstPath: target.dstPath,
-            isDir: target.isDir, useTar, transferId: tid,
-          });
-        },
+        (tid) => transferItem({
+          from, to,
+          srcSftpId: src.sftpId ?? undefined,
+          dstSftpId: dest.sftpId ?? undefined,
+          srcPath: target.srcPath, dstPath: target.dstPath,
+          isDir: target.isDir, useTar, transferId: tid,
+        }),
         () => { ok = true; },
         target.isDir && useTar,
       );
@@ -144,15 +139,8 @@ export function buildPasteDeps(
         onRefresh: () => { wiring.refresh(); wiring.clearClipboard(); },
       }),
     deleteSource: (p) => (src.isLocal ? fsDelete(p) : sftpDelete(src.sftpId!, p)),
-    reportUndeleted: (names, error) => {
-      useNotificationStore.getState().addToast({
-        source: { kind: "plugin", id: "system", name: "Voltius" },
-        type: "toast",
-        message: i18n.t("fileTransfer.page.moveSourceNotDeleted", { names: names.join(", "), error }),
-        severity: "error",
-        duration: 8000,
-      });
-    },
+    reportUndeleted: (names, error) =>
+      notify("error", i18n.t("fileTransfer.page.moveSourceNotDeleted", { names: names.join(", "), error })),
     setPending: wiring.setPending,
     refresh: wiring.refresh,
     clearClipboard: wiring.clearClipboard,

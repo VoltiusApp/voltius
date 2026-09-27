@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({ platform: "linux" }));
 vi.mock("@/utils/platform", () => ({ getPlatform: async () => h.platform }));
 
-import { isPlainName, checkRemoteName, localPathForRemoteName } from "./remoteName";
+import { isPlainName, checkRemoteName } from "./remoteName";
 
 beforeEach(() => { h.platform = "linux"; });
 
@@ -36,15 +36,11 @@ describe("isPlainName", () => {
   });
 });
 
-describe("localPathForRemoteName", () => {
-  it("joins a plain name", async () => {
+describe("checkRemoteName", () => {
+  it("applies the local system's rules", async () => {
     h.platform = "windows";
-    await expect(localPathForRemoteName("C:\\dl", "a.txt")).resolves.toBe("C:\\dl\\a.txt");
-  });
-
-  it("refuses an escaping name with the local system's rules", async () => {
-    h.platform = "windows";
-    await expect(localPathForRemoteName("C:\\dl", "..\\..\\x")).rejects.toThrow("Refusing unsafe file name");
+    await expect(checkRemoteName("a.txt")).resolves.toBeUndefined();
+    await expect(checkRemoteName("..\\..\\x")).rejects.toThrow("Refusing unsafe file name");
     await expect(checkRemoteName("C:\\x")).rejects.toThrow();
     h.platform = "macos";
     await expect(checkRemoteName("..")).rejects.toThrow();

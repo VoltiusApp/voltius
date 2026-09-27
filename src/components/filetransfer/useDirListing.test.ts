@@ -60,4 +60,36 @@ describe("useDirListing", () => {
     expect(result.current.error).toBe("denied");
     expect(result.current.loading).toBe(false);
   });
+
+  // Auto-refresh ticks faster than a slow listing returns; cancelling on each tick meant nothing ever landed.
+  it("lets a slow listing land even after a reload was issued", async () => {
+    const { result, rerender } = renderHook(({ tick }) => useDirListing(false, "s1", "/big", tick), { initialProps: { tick: 0 } });
+    rerender({ tick: 1 });
+    rerender({ tick: 2 });
+    await settle("/big", 0, "resolve");
+    expect(result.current.loading).toBe(false);
+    expect(result.current.entries.map((e) => e.path)).toEqual(["/big/f"]);
+  });
+
+  it("does not let an older reload overwrite a newer one", async () => {
+    const { result, rerender } = renderHook(({ tick }) => useDirListing(true, null, "/d", tick), { initialProps: { tick: 0 } });
+    rerender({ tick: 1 });
+    await act(async () => { h.pending.get("/d")![1].resolve([{ name: "new", path: "/d/new", size: 1, is_dir: false, modified: null }]); });
+    await settle("/d", 0, "resolve");
+    expect(result.current.entries.map((e) => e.name)).toEqual(["new"]);
+  });
+
+  it("hides remote entries whose name is not one path segment", async () => {
+    const { result } = renderHook(() => useDirListing(false, "s1", "/r", 0));
+    const names = ["ok", "a/../../x", "..", "."];
+    await act(async () => {
+      h.pending.get("/r")![0].resolve(names.map((name) => ({ name, path: `/r/${name}`, size: 1, is_dir: false, modified: null })));
+    });
+    expect(result.current.entries.map((e) => e.name)).toEqual(["ok"]);
+  });
+
+  it("does not list while a remote pane has no session", () => {
+    renderHook(() => useDirListing(false, null, "/r", 0));
+    expect(h.pending.size).toBe(0);
+  });
 });

@@ -8,7 +8,6 @@ import { transferItem } from "@/services/sftpTransferCore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { tarUsable } from "./tarSupport";
 import { joinPath } from "./moveTargetCore";
-import { localPathForRemoteName } from "./remoteName";
 import { type FileEntry } from "./SFTPTypes";
 
 export type UploadTarget = {
@@ -33,7 +32,6 @@ async function statOsPaths(paths: string[]): Promise<FileEntry[]> {
   return items;
 }
 
-/** Queue label for a batch: the item's own name, or a count. */
 export function batchLabel(files: FileEntry[]): string {
   return files.length === 1 ? files[0].name : i18n.t("fileTransfer.common.itemsCount", { count: files.length });
 }
@@ -68,8 +66,6 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
   }
 }
 
-/** Download remote files into a local folder: one tar batch when tar works on
- *  both ends and there are several, otherwise item by item. */
 export async function downloadToLocal(files: FileEntry[], sftpId: string, localDir: string): Promise<void> {
   const { runTransfer } = useTransferQueueStore.getState();
   // Archives remotely + extracts locally, so both ends need tar.
@@ -82,12 +78,12 @@ export async function downloadToLocal(files: FileEntry[], sftpId: string, localD
   }
 
   for (const file of files) {
-    await runTransfer(file.name, "←", async (tid) => transferItem({
+    await runTransfer(file.name, "←", (tid) => transferItem({
       from: "remote",
       to: "local",
       srcSftpId: sftpId,
       srcPath: file.path,
-      dstPath: await localPathForRemoteName(localDir, file.name),
+      dstPath: joinPath(localDir, file.name),
       isDir: file.isDir,
       useTar,
       transferId: tid,
