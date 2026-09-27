@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
   purge: vi.fn(),
+  getLocalSecret: vi.fn(async (_key: string) => null as string | null),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
@@ -21,6 +22,7 @@ vi.mock("@/services/vault", () => ({
   getSecret: h.getSecret,
   storeSecret: h.storeSecret,
   purgeLocalSecrets: h.purge,
+  getLocalSecret: h.getLocalSecret,
 }));
 vi.mock("@/services/teamObjects", () => ({ listTeamObjects: vi.fn(async () => []) }));
 
