@@ -1,34 +1,38 @@
 #[cfg(any(test, not(any(target_os = "android", target_os = "ios"))))]
 use super::ProxyEndpoint;
 use super::ProxySpec;
-#[cfg(any(target_os = "windows", target_os = "macos", test))]
+#[cfg(any(test, not(any(target_os = "android", target_os = "ios"))))]
 use std::net::IpAddr;
+
+/// Splits `host[:port]`, `[v6][:port]` or a bare IPv6 literal (no port).
+/// `None` when a port is present but malformed.
+#[cfg(any(test, not(any(target_os = "android", target_os = "ios"))))]
+fn split_host_port(s: &str) -> Option<(&str, Option<u16>)> {
+    let (host, port) = match s.strip_prefix('[') {
+        Some(rest) => {
+            let (h, tail) = rest.split_once(']')?;
+            (h, tail.strip_prefix(':'))
+        }
+        None => match s.split_once(':') {
+            Some((h, p)) if !p.contains(':') => (h, Some(p)),
+            _ => (s, None),
+        },
+    };
+    Some((host, port.map(str::parse).transpose().ok()?))
+}
 
 #[cfg(any(
     test,
     not(any(target_os = "macos", target_os = "android", target_os = "ios"))
 ))]
 fn endpoint(host_port: &str, default_port: u16) -> Option<ProxyEndpoint> {
-    let s = host_port.trim().trim_end_matches('/');
-    let (host, port) = if let Some(rest) = s.strip_prefix('[') {
-        let (h, tail) = rest.split_once(']')?;
-        let port = match tail.strip_prefix(':') {
-            Some(p) => p.parse().ok()?,
-            None => default_port,
-        };
-        (h, port)
-    } else {
-        match s.split_once(':') {
-            Some((h, p)) => (h, p.parse().ok()?),
-            None => (s, default_port),
-        }
-    };
+    let (host, port) = split_host_port(host_port.trim().trim_end_matches('/'))?;
     if host.is_empty() {
         return None;
     }
     Some(ProxyEndpoint {
         host: host.to_string(),
-        port,
+        port: port.unwrap_or(default_port),
         username: None,
         password: None,
     })
@@ -112,7 +116,7 @@ fn parse_windows_proxy_server(value: &str) -> Option<ProxySpec> {
         .map(ProxySpec::Socks5)
 }
 
-#[cfg(any(target_os = "windows", target_os = "macos", test))]
+#[cfg(any(test, not(any(target_os = "android", target_os = "ios"))))]
 fn glob(pattern: &str, text: &str) -> bool {
     let parts: Vec<&str> = pattern.split('*').collect();
     if parts.len() == 1 {
@@ -138,7 +142,7 @@ fn glob(pattern: &str, text: &str) -> bool {
 
 /// An IP or CIDR bypass entry as (network, prefix length). Accepts macOS short
 /// forms, where missing IPv4 octets are zero (`169.254/16` is 169.254.0.0/16).
-#[cfg(any(target_os = "windows", target_os = "macos", test))]
+#[cfg(any(test, not(any(target_os = "android", target_os = "ios"))))]
 fn parse_net(entry: &str) -> Option<(IpAddr, u8)> {
     let (addr, bits) = match entry.split_once('/') {
         Some((a, b)) => (a, Some(b.parse::<u8>().ok()?)),
@@ -160,7 +164,7 @@ fn parse_net(entry: &str) -> Option<(IpAddr, u8)> {
     (bits <= width).then_some((ip, bits))
 }
 
-#[cfg(any(target_os = "windows", target_os = "macos", test))]
+#[cfg(any(test, not(any(target_os = "android", target_os = "ios"))))]
 fn in_net(ip: IpAddr, net: IpAddr, bits: u8) -> bool {
     let (a, b, width) = match (ip, net) {
         (IpAddr::V4(a), IpAddr::V4(b)) => (u32::from(a).into(), u32::from(b).into(), 32),
@@ -170,29 +174,50 @@ fn in_net(ip: IpAddr, net: IpAddr, bits: u8) -> bool {
     (a ^ b).checked_shr(width - u32::from(bits)).unwrap_or(0) == 0
 }
 
-/// Whether `host` skips the proxy under a bypass list. Names match exactly or
-/// as `*` globs; `<local>` matches names without a dot (Windows' token, also
-/// standing in for macOS' ExcludeSimpleHostnames). IP and CIDR entries match
-/// literal IP hosts only: like the OS, nothing is resolved.
-#[cfg(any(target_os = "windows", target_os = "macos", test))]
-fn bypass_matches(patterns: &[&str], host: &str) -> bool {
+/// Whether `host:port` skips the proxy under a bypass list (Windows
+/// ProxyOverride, macOS ExceptionsList or NO_PROXY). An entry may end in
+/// `:port` to match that port only. Names match exactly or as `*` globs, and
+/// with `suffix_names` (NO_PROXY) `corp`, `.corp` and `*.corp` all cover
+/// `corp` and its subdomains; `<local>` matches names without a dot (Windows'
+/// token, also standing in for macOS' ExcludeSimpleHostnames). IP and CIDR
+/// entries match literal IP hosts only: like the OS, nothing is resolved.
+#[cfg(any(test, not(any(target_os = "android", target_os = "ios"))))]
+fn bypass_matches<'a>(
+    entries: impl IntoIterator<Item = &'a str>,
+    host: &str,
+    port: u16,
+    suffix_names: bool,
+) -> bool {
     let host = host
         .trim_start_matches('[')
         .trim_end_matches(']')
         .to_ascii_lowercase();
+    if host.is_empty() {
+        return false;
+    }
     let ip = host.parse::<IpAddr>().ok();
-    patterns
-        .iter()
-        .map(|p| p.trim().to_ascii_lowercase())
-        .any(|p| {
-            if p == "<local>" {
-                return ip.is_none() && !host.contains('.');
-            }
-            if let Some((net, bits)) = parse_net(&p) {
-                return ip.is_some_and(|ip| in_net(ip, net, bits));
-            }
-            !p.is_empty() && glob(&p, &host)
-        })
+    entries.into_iter().any(|entry| {
+        let entry = entry.trim().to_ascii_lowercase();
+        let Some((pattern, only_port)) = split_host_port(&entry) else {
+            return false;
+        };
+        if pattern.is_empty() || only_port.is_some_and(|p| p != port) {
+            return false;
+        }
+        if pattern == "<local>" {
+            return ip.is_none() && !host.contains('.');
+        }
+        if let Some((net, bits)) = parse_net(pattern) {
+            return ip.is_some_and(|ip| in_net(ip, net, bits));
+        }
+        if suffix_names && pattern != "*" {
+            let domain = pattern.trim_start_matches('*').trim_start_matches('.');
+            return host
+                .strip_suffix(domain)
+                .is_some_and(|rest| rest.is_empty() || rest.ends_with('.'));
+        }
+        glob(pattern, &host)
+    })
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -250,33 +275,24 @@ fn parse_scutil(output: &str) -> Option<(ProxySpec, Vec<String>)> {
         target_os = "ios"
     ))
 ))]
-fn from_env(get: impl Fn(&str) -> Option<String>, host: &str) -> Option<ProxySpec> {
+fn from_env(get: impl Fn(&str) -> Option<String>, host: &str, port: u16) -> Option<ProxySpec> {
     let var = |names: &[&str]| {
         names
             .iter()
             .find_map(|n| get(n).filter(|v| !v.trim().is_empty()))
     };
     let raw = var(&["ALL_PROXY", "all_proxy"]).or_else(|| var(&["HTTPS_PROXY", "https_proxy"]))?;
-    if let Some(no_proxy) = var(&["NO_PROXY", "no_proxy"]) {
-        let host = host.to_ascii_lowercase();
-        let skip = no_proxy
-            .split(',')
-            .map(|e| e.trim().to_ascii_lowercase())
-            .any(|e| {
-                e == "*"
-                    || (!e.is_empty()
-                        && (host == e.trim_start_matches('.')
-                            || host.ends_with(&format!(".{}", e.trim_start_matches('.')))))
-            });
-        if skip && !host.is_empty() {
-            return None;
-        }
+    let no_proxy = var(&["NO_PROXY", "no_proxy"]).unwrap_or_default();
+    if bypass_matches(no_proxy.split(','), host, port, true) {
+        return None;
     }
     parse_proxy_url(&raw)
 }
 
-pub fn detect(host: &str) -> Option<ProxySpec> {
-    let found = detect_os(host);
+/// The system proxy for a connection to `host:port`, or `None` to connect
+/// directly. An empty `host` skips the bypass list (used to show the setting).
+pub fn detect(host: &str, port: u16) -> Option<ProxySpec> {
+    let found = detect_os(host, port);
     if found.is_none() {
         log::info!("system proxy: none usable, connecting directly");
     }
@@ -284,7 +300,7 @@ pub fn detect(host: &str) -> Option<ProxySpec> {
 }
 
 #[cfg(target_os = "windows")]
-fn detect_os(host: &str) -> Option<ProxySpec> {
+fn detect_os(host: &str, port: u16) -> Option<ProxySpec> {
     let key = windows_registry::CURRENT_USER
         .open(r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
         .ok()?;
@@ -293,8 +309,7 @@ fn detect_os(host: &str) -> Option<ProxySpec> {
     }
     let spec = parse_windows_proxy_server(&key.get_string("ProxyServer").ok()?)?;
     let overrides = key.get_string("ProxyOverride").unwrap_or_default();
-    let patterns: Vec<&str> = overrides.split(';').collect();
-    (host.is_empty() || !bypass_matches(&patterns, host)).then_some(spec)
+    (!bypass_matches(overrides.split(';'), host, port, false)).then_some(spec)
 }
 
 /// Returns the value `slot` holds if it is younger than `ttl` at `now`, else
@@ -334,10 +349,10 @@ fn scutil_proxy() -> Option<(ProxySpec, Vec<String>)> {
 }
 
 #[cfg(target_os = "macos")]
-fn detect_os(host: &str) -> Option<ProxySpec> {
+fn detect_os(host: &str, port: u16) -> Option<ProxySpec> {
     let (spec, exceptions) = scutil_proxy()?;
-    let patterns: Vec<&str> = exceptions.iter().map(String::as_str).collect();
-    (host.is_empty() || !bypass_matches(&patterns, host)).then_some(spec)
+    let exceptions = exceptions.iter().map(String::as_str);
+    (!bypass_matches(exceptions, host, port, false)).then_some(spec)
 }
 
 #[cfg(not(any(
@@ -346,12 +361,12 @@ fn detect_os(host: &str) -> Option<ProxySpec> {
     target_os = "android",
     target_os = "ios"
 )))]
-fn detect_os(host: &str) -> Option<ProxySpec> {
-    from_env(|k| std::env::var(k).ok(), host)
+fn detect_os(host: &str, port: u16) -> Option<ProxySpec> {
+    from_env(|k| std::env::var(k).ok(), host, port)
 }
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
-fn detect_os(_host: &str) -> Option<ProxySpec> {
+fn detect_os(_host: &str, _port: u16) -> Option<ProxySpec> {
     None
 }
 
@@ -417,40 +432,77 @@ mod tests {
         assert_eq!(parse_windows_proxy_server(""), None);
     }
 
+    /// A glob-style (Windows/macOS) bypass check for an SSH connection on port 22.
+    fn bypassed(list: &[&str], host: &str) -> bool {
+        bypass_matches(list.iter().copied(), host, 22, false)
+    }
+
     #[test]
     fn bypass_local_token_and_wildcards() {
         let list = ["<local>", "*.corp.example", "10.*"];
-        assert!(bypass_matches(&list, "intranet"));
-        assert!(bypass_matches(&list, "git.corp.example"));
-        assert!(bypass_matches(&list, "10.1.2.3"));
-        assert!(!bypass_matches(&list, "github.com"));
+        assert!(bypassed(&list, "intranet"));
+        assert!(bypassed(&list, "git.corp.example"));
+        assert!(bypassed(&list, "10.1.2.3"));
+        assert!(!bypassed(&list, "github.com"));
         assert!(
-            !bypass_matches(&list, "::1"),
+            !bypassed(&list, "::1"),
             "an IP literal is not a simple name"
         );
-        assert!(!bypass_matches(&["exact.host"], "other.host"));
-        assert!(bypass_matches(&["EXACT.host"], "exact.HOST"));
+        assert!(!bypassed(&["exact.host"], "other.host"));
+        assert!(bypassed(&["EXACT.host"], "exact.HOST"));
     }
 
     #[test]
     fn bypass_ip_and_cidr_entries_match_literal_ips_only() {
         let list = ["169.254/16", "10.0.0.0/8", "192.168.1.*", "fd00::/8", "::1"];
-        assert!(bypass_matches(&list, "169.254.3.4"));
-        assert!(!bypass_matches(&list, "169.255.0.1"));
-        assert!(bypass_matches(&list, "10.200.0.1"));
-        assert!(bypass_matches(&list, "192.168.1.20"));
-        assert!(!bypass_matches(&list, "192.168.2.20"));
-        assert!(bypass_matches(&list, "fd12:3456::1"));
-        assert!(bypass_matches(&list, "[fd12::1]"));
-        assert!(!bypass_matches(&list, "fe80::1"));
-        assert!(bypass_matches(&list, "0:0:0:0:0:0:0:1"));
+        assert!(bypassed(&list, "169.254.3.4"));
+        assert!(!bypassed(&list, "169.255.0.1"));
+        assert!(bypassed(&list, "10.200.0.1"));
+        assert!(bypassed(&list, "192.168.1.20"));
+        assert!(!bypassed(&list, "192.168.2.20"));
+        assert!(bypassed(&list, "fd12:3456::1"));
+        assert!(bypassed(&list, "[fd12::1]"));
+        assert!(!bypassed(&list, "fe80::1"));
+        assert!(bypassed(&list, "0:0:0:0:0:0:0:1"));
+        assert!(!bypassed(&list, "ten.example"), "names are never resolved");
+        assert!(bypassed(&["0.0.0.0/0"], "8.8.8.8"));
+        assert!(bypassed(&["::/0"], "2001:db8::1"));
+        assert!(!bypassed(&["10/33", "1.2.3.4.5/8"], "10.0.0.1"));
+    }
+
+    #[test]
+    fn bypass_entries_with_a_port_match_that_port_only() {
+        let list = [
+            "git.corp:22",
+            "*.lab:2222",
+            "[fd00::1]:22",
+            "10.0.0.0/8",
+            "any.host",
+        ];
+        let bypass = |host, port| bypass_matches(list, host, port, false);
+        assert!(bypass("git.corp", 22) && !bypass("git.corp", 443));
+        assert!(bypass("box.lab", 2222) && !bypass("box.lab", 22));
+        assert!(bypass("fd00::1", 22) && !bypass("fd00::1", 23));
+        assert!(bypass("10.1.1.1", 2200), "portless entries match any port");
+        assert!(bypass("any.host", 8022));
+        assert!(!bypass("", 22), "no target, nothing to bypass");
+        assert!(!bypass_matches(["git.corp:x"], "git.corp", 22, false));
+    }
+
+    #[test]
+    fn no_proxy_names_cover_subdomains() {
+        let list = ["corp", ".lab", "*.test", "git.example:22"];
+        let bypass = |host, port| bypass_matches(list, host, port, true);
+        assert!(bypass("corp", 22) && bypass("a.b.corp", 22));
+        assert!(bypass("lab", 22) && bypass("x.lab", 22));
+        assert!(bypass("test", 22) && bypass("x.test", 22));
+        assert!(!bypass("notcorp", 22));
+        assert!(bypass("git.example", 22) && bypass("a.git.example", 22));
+        assert!(!bypass("git.example", 443));
         assert!(
-            !bypass_matches(&list, "ten.example"),
-            "names are never resolved"
+            !bypassed(&["corp"], "a.corp"),
+            "glob lists match names exactly"
         );
-        assert!(bypass_matches(&["0.0.0.0/0"], "8.8.8.8"));
-        assert!(bypass_matches(&["::/0"], "2001:db8::1"));
-        assert!(!bypass_matches(&["10/33", "1.2.3.4.5/8"], "10.0.0.1"));
     }
 
     const SCUTIL: &str = "<dictionary> {\n  ExceptionsList : <array> {\n    0 : *.local\n    1 : 169.254/16\n  }\n  HTTPEnable : 1\n  HTTPPort : 8080\n  HTTPProxy : web.corp\n  HTTPSEnable : 1\n  HTTPSPort : 8443\n  HTTPSProxy : secure.corp\n  SOCKSEnable : 0\n}\n";
@@ -463,10 +515,10 @@ mod tests {
         );
         let (_, exceptions) = parse_scutil(&excluding).unwrap();
         let patterns: Vec<&str> = exceptions.iter().map(String::as_str).collect();
-        assert!(bypass_matches(&patterns, "nas"));
-        assert!(bypass_matches(&patterns, "printer.local"));
-        assert!(bypass_matches(&patterns, "169.254.1.1"));
-        assert!(!bypass_matches(&patterns, "github.com"));
+        assert!(bypassed(&patterns, "nas"));
+        assert!(bypassed(&patterns, "printer.local"));
+        assert!(bypassed(&patterns, "169.254.1.1"));
+        assert!(!bypassed(&patterns, "github.com"));
         let (_, exceptions) = parse_scutil(SCUTIL).unwrap();
         assert!(!exceptions.iter().any(|e| e == "<local>"));
     }
@@ -559,7 +611,7 @@ mod tests {
             ("HTTPS_PROXY", "http://h:3128"),
         ]);
         assert_eq!(
-            from_env(both, "x.com"),
+            from_env(both, "x.com", 22),
             Some(ProxySpec::Socks5(ep("s", 1080)))
         );
         let https_only = env(&[
@@ -567,17 +619,26 @@ mod tests {
             ("no_proxy", ".corp,localhost"),
         ]);
         assert_eq!(
-            from_env(https_only, "x.com"),
+            from_env(https_only, "x.com", 22),
             Some(ProxySpec::Http(ep("h", 3128)))
         );
-        assert_eq!(from_env(https_only, "git.corp"), None);
-        assert_eq!(from_env(https_only, "localhost"), None);
+        assert_eq!(from_env(https_only, "git.corp", 22), None);
+        assert_eq!(from_env(https_only, "localhost", 22), None);
         let tls = env(&[("HTTPS_PROXY", "https://t:8443")]);
         assert_eq!(
-            from_env(tls, "x.com"),
+            from_env(tls, "x.com", 22),
             Some(ProxySpec::Https(ep("t", 8443)))
         );
         let star = env(&[("ALL_PROXY", "socks5://s:1080"), ("NO_PROXY", "*")]);
-        assert_eq!(from_env(star, "x.com"), None);
+        assert_eq!(from_env(star, "x.com", 22), None);
+        let with_port = env(&[
+            ("ALL_PROXY", "socks5://s:1080"),
+            ("NO_PROXY", "git.corp:22"),
+        ]);
+        assert_eq!(from_env(with_port, "git.corp", 22), None);
+        assert_eq!(
+            from_env(with_port, "git.corp", 2222),
+            Some(ProxySpec::Socks5(ep("s", 1080)))
+        );
     }
 }

@@ -55,7 +55,7 @@ pub(crate) async fn dial_with_timeout(
     let spec = match spec {
         Some(ProxySpec::System) => {
             let target = host.to_string();
-            detected = tokio::task::spawn_blocking(move || system::detect(&target))
+            detected = tokio::task::spawn_blocking(move || system::detect(&target, port))
                 .await
                 .ok()
                 .flatten();
@@ -260,7 +260,7 @@ pub struct DetectedProxy {
 
 #[tauri::command]
 pub async fn proxy_detect_system() -> Option<DetectedProxy> {
-    let spec = tokio::task::spawn_blocking(|| system::detect(""))
+    let spec = tokio::task::spawn_blocking(|| system::detect("", 0))
         .await
         .ok()
         .flatten()?;
