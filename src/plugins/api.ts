@@ -1317,9 +1317,10 @@ export interface PluginAPI {
     /**
      * CRDT-merge one or more remote encrypted blobs into local state, then
      * reload all entity stores. blobs: base64-encoded (same format as exportState).
-     * Requires sync:write.
+     * Unreadable blobs are skipped and their indices returned; rejects if none
+     * could be read. Requires sync:write.
      */
-    importStates(encKey: string, blobs: string[]): Promise<void>;
+    importStates(encKey: string, blobs: string[]): Promise<{ unreadable: number[] }>;
   };
 
   // Inter-plugin communication (always available), plus plugin inventory and

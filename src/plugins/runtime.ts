@@ -140,7 +140,7 @@ import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId, isValidPluginId } from "./pluginId";
-import { base64ToBytes, bytesToBase64 } from "@/utils/base64";
+import { base64ToBytes, bytesToBase64, hexToBytes } from "@/utils/base64";
 import { base64ToByteArray } from "@/services/teamVaultSyncCore";
 
 const STREAM_PERM: Record<StreamKind, string> = {
@@ -2283,9 +2283,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       async exportState(encKey, deviceId) {
         requirePerm(manifest, "sync:write");
         await writeFilteredSettings();
-        const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
         const blob: number[] = await invoke("backup_export", {
-          encKey: encKeyBytes,
+          encKey: hexToBytes(encKey),
           accountId: "gist-sync",
           deviceId,
           // Strip cloud-off objects (and their secrets) from third-party sync
@@ -2301,20 +2300,15 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
       async importStates(encKey, blobs) {
         requirePerm(manifest, "sync:write");
-        const encKeyBytes = Array.from(new Uint8Array(encKey.match(/.{2}/g)!.map((b) => parseInt(b, 16))));
+        const encKeyBytes = hexToBytes(encKey);
         let merged: BlobPayload = await invoke<BlobPayload>("state_export_raw");
-        let readable = 0;
 
         let bestThemeRaw: string | null = null;
         let bestThemeUpdatedAt: string | null = null;
         const excludedIds = getExcludedObjectIds();
-        // One device's unreadable blob (another passphrase, corruption) is
-        // skipped like on the server path, so the rest still merge and the
-        // plugin's push after this import still happens.
-        await forEachRemoteBlob(blobs.map((b64, i) => ({ b64, i })), ({ i }) => `gist blob ${i + 1}`, async ({ b64 }) => {
+        const failed = await forEachRemoteBlob(blobs.map((b64, i) => ({ b64, i })), ({ i }) => `gist blob ${i + 1}`, async ({ b64 }) => {
           const remote = await openRemoteBlob([encKeyBytes], base64ToByteArray(b64), excludedIds);
-          merged = mergeBlobPayload(merged, remote);
-          readable++;
+          merged = mergeBlobPayload(merged, remote).payload;
 
           const themeRaw = remote.files["theme.json"];
           if (themeRaw) {
@@ -2327,10 +2321,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
             } catch {}
           }
         });
-        if (readable < blobs.length) {
-          appLog.warn(`[plugin:${id}] sync.importStates: skipped ${blobs.length - readable} of ${blobs.length} device blob(s) that could not be read`);
+        if (failed.length > 0) {
+          appLog.warn(`[plugin:${id}] sync.importStates: skipped ${failed.length} of ${blobs.length} device blob(s) that could not be read`);
+          // Nothing readable is most likely a wrong key: surface it rather than report success.
+          if (failed.length === blobs.length) throw failed[0].error;
         }
-        if (readable === 0) return;
 
         // Inbound half of what getPluginSkippedSyncFiles enforces outbound: a
         // device that opted themes out of sync must not have them overwritten
@@ -2356,6 +2351,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         for (const reload of Object.values(RELOADABLE_STORES)) {
           await reload();
         }
+        return { unreadable: failed.map((f) => f.source.i) };
       },
     },
 

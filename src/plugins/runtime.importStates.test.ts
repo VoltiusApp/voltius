@@ -67,9 +67,10 @@ test("an unreadable device blob is skipped and the readable ones still merge", a
   payloads.good = [host("remote", "Remote", "2030-01-02T00:00:00.000Z")];
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-  await api.sync.importStates(KEY, [blob("other"), blob("good")]);
+  const { unreadable } = await api.sync.importStates(KEY, [blob("other"), blob("good")]);
 
   expect(importedHosts().map((c) => c.id).sort()).toEqual(["local", "remote"]);
+  expect(unreadable).toEqual([0]);
   expect(warn).toHaveBeenCalledWith(expect.stringContaining("skipped 1 of 2"));
 });
 
@@ -82,11 +83,11 @@ test("an object held back from sync on this device is not overwritten by a gist 
   expect(importedHosts()).toEqual([expect.objectContaining({ id: "local", name: "Local" })]);
 });
 
-test("nothing is written when no blob could be read", async () => {
+test("no readable blob rejects, so a wrong passphrase is reported, and nothing is written", async () => {
   payloads.other = "wrong-key";
   vi.spyOn(console, "warn").mockImplementation(() => {});
 
-  await api.sync.importStates(KEY, [blob("other")]);
+  await expect(api.sync.importStates(KEY, [blob("other")])).rejects.toThrow();
 
   expect(h.stateImports).toHaveLength(0);
 });

@@ -302,8 +302,10 @@ export async function pull(): Promise<boolean> {
   const blobs = await getDeviceBlobs(_api.http, pat, importSourceId, changedDevices.map((d) => d.id));
   if (blobs.length === 0) return false;
 
-  await _api.sync.importStates(encKey, blobs);
-  for (const d of changedDevices) _lastSeenPushedAt[d.id] = d.pushedAt;
+  // An app older than the unreadable report resolves with undefined.
+  const { unreadable = [] } = (await _api.sync.importStates(encKey, blobs.map((b) => b.blob))) ?? {};
+  const retry = new Set(unreadable.map((i) => blobs[i]?.deviceId));
+  for (const d of changedDevices) if (!retry.has(d.id)) _lastSeenPushedAt[d.id] = d.pushedAt;
   return true;
 }
 

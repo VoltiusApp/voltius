@@ -107,7 +107,7 @@ export async function getDeviceBlobs(
   pat: string,
   gistId: string,
   deviceIds: string[],
-): Promise<string[]> {
+): Promise<Array<{ deviceId: string; blob: string }>> {
   // Fetch gist once, extract all requested device files
   const res = await http.stream(`${BASE}/gists/${gistId}`, {
     headers: headers(pat),
@@ -115,7 +115,7 @@ export async function getDeviceBlobs(
   await checkResponse(res, "getDeviceBlobs");
   const data: GistResponse = await res.json();
 
-  const blobs: string[] = [];
+  const blobs: Array<{ deviceId: string; blob: string }> = [];
   for (const deviceId of deviceIds) {
     const filename = `device-${deviceId}.b64`;
     const file = data.files[filename];
@@ -126,7 +126,7 @@ export async function getDeviceBlobs(
       const rawRes = await http.stream(file.raw_url, { headers: headers(pat) });
       if (rawRes.ok) content = await rawRes.text();
     }
-    if (content) blobs.push(content);
+    if (content) blobs.push({ deviceId, blob: content });
   }
   return blobs;
 }

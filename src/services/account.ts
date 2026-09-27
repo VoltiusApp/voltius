@@ -6,7 +6,7 @@ import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { rememberServer } from "@/utils/serverInstance";
-import { base64ToBytes } from "@/utils/base64";
+import { base64ToBytes, hexToBytes } from "@/utils/base64";
 
 function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
@@ -28,14 +28,6 @@ interface GeneratedUserSecrets {
 interface UnwrappedUserSecrets {
   dek: number[];
   x25519_private: number[];
-}
-
-function hexToBytes(hex: string): number[] {
-  const bytes: number[] = [];
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes.push(parseInt(hex.slice(i, i + 2), 16));
-  }
-  return bytes;
 }
 
 function isHexEncoded32ByteKey(value: string): boolean {
