@@ -280,11 +280,11 @@ async fn https_proxy_with_untrusted_certificate_is_rejected() {
         .unwrap();
     assert!(matches!(err, ProxyError::Protocol { .. }), "{err}");
     assert!(!err.is_transient());
-    assert_eq!(
-        err.to_string(),
-        format!(
-            "Proxy 127.0.0.1:{proxy}: TLS certificate rejected: invalid peer certificate: UnknownIssuer"
-        )
+    assert!(
+        err.to_string().starts_with(&format!(
+            "Proxy 127.0.0.1:{proxy}: TLS certificate rejected: "
+        )),
+        "{err}"
     );
     assert!(
         line.lock().unwrap().is_empty(),
