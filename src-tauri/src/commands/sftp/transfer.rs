@@ -35,18 +35,14 @@ pub(crate) async fn sftp_upload_inner(
     pump_chunks(
         app,
         &mut local_file,
-        &mut remote_file,
+        &mut *remote_file,
         transfer_id,
         token,
         &mut transferred,
         total,
     )
     .await?;
-    remote_file
-        .shutdown()
-        .await
-        .map_err(|e| format!("Flush error: {e}"))?;
-    Ok(())
+    remote_file.close().await
 }
 
 backend_transfer_command!(sftp_download, download_file, remote_path, local_path);
@@ -97,7 +93,7 @@ pub(super) async fn download_into(
 
     pump_chunks(
         app,
-        &mut remote_file,
+        &mut *remote_file,
         &mut local_file,
         transfer_id,
         token,
@@ -105,12 +101,8 @@ pub(super) async fn download_into(
         total.unwrap_or(size),
     )
     .await?;
-    // russh-sftp's `Drop` never releases its open-handle count, and tokio's
-    // `File` finishes pending writes after drop, so close both explicitly.
-    remote_file
-        .shutdown()
-        .await
-        .map_err(|e| format!("Close error: {e}"))?;
+    remote_file.close().await?;
+    // tokio's `File` finishes pending writes after drop, so flush before reporting done.
     local_file
         .flush()
         .await
@@ -194,23 +186,14 @@ pub(super) async fn sftp_rr_file_inner_accum(
 
     pump_chunks(
         app,
-        &mut src_file,
-        &mut dst_file,
+        &mut *src_file,
+        &mut *dst_file,
         transfer_id,
         token,
         transferred,
         total,
     )
     .await?;
-    dst_file
-        .shutdown()
-        .await
-        .map_err(|e| format!("Flush error: {e}"))?;
-    // Close the source read handle too; otherwise russh-sftp's client-side
-    // handle counter leaks on the source session across many files.
-    src_file
-        .shutdown()
-        .await
-        .map_err(|e| format!("Close error: {e}"))?;
-    Ok(())
+    dst_file.close().await?;
+    src_file.close().await
 }

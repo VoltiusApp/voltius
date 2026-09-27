@@ -10,7 +10,6 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
-use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -87,17 +86,14 @@ pub(crate) async fn sftp_upload_dir_inner(
         pump_chunks(
             app,
             &mut local_file,
-            &mut remote_file,
+            &mut *remote_file,
             transfer_id,
             token,
             &mut transferred,
             total,
         )
         .await?;
-        remote_file
-            .shutdown()
-            .await
-            .map_err(|e| format!("Flush error: {e}"))?;
+        remote_file.close().await?;
     }
     Ok(())
 }

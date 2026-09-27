@@ -146,7 +146,9 @@ export function ExportTab({ selection, preselectedTypes }: {
   const exportsType = (key: string) => included[key] && handlerActive(key, selection);
   const showRelatedCredentials = !isCsvOnly && (bundleCounts["connections"] ?? 0) > 0 && !(exportsType("identities") && exportsType("keys"));
 
-  const autoIncludedConnections = !isCsvOnly && !exportsType("connections") ? bundleCounts["connections"] ?? 0 : 0;
+  const autoIncluded = isCsvOnly ? [] : (["connections", "snippets"] as const)
+    .map(key => ({ key, count: exportsType(key) ? 0 : bundleCounts[key] ?? 0 }))
+    .filter(a => a.count > 0);
 
   return (
     <div className="flex flex-col gap-5 h-full">
@@ -279,12 +281,12 @@ export function ExportTab({ selection, preselectedTypes }: {
               ) : (
                 <span className="text-sm text-(--t-text-muted) truncate">{t("importExport.export.nothingToExport")}</span>
               )}
-              {autoIncludedConnections > 0 && (
-                <span className="text-xs flex items-center gap-1 text-(--t-text-dim) shrink-0" title={t("importExport.export.autoIncludeHint")}>
+              {autoIncluded.map(({ key, count }) => (
+                <span key={key} className="text-xs flex items-center gap-1 text-(--t-text-dim) shrink-0" title={t("importExport.export.autoIncludeHint")}>
                   <Icon icon="lucide:link" width={11} />
-                  +{t("importExport.export.autoInclude.connections", { count: autoIncludedConnections })}
+                  +{t(`importExport.export.autoInclude.${key}`, { count })}
                 </span>
-              )}
+              ))}
             </>
           )}
         </div>

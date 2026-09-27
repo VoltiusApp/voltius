@@ -105,7 +105,8 @@
       "compareHint": "Select one file on each side to compare",
       "selectFilesToUpload": "Select files to upload",
       "downloadToFolder": "Download to folder",
-      "connectionLost": "Connection lost"
+      "connectionLost": "Connection lost",
+      "moveSourceNotDeleted": "Copied, but could not remove the original of {{names}}: {{error}}"
     },
     "queue": {
       "title": "Transfers",

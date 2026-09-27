@@ -105,7 +105,8 @@
       "compareHint": "Sélectionnez un fichier de chaque côté pour comparer",
       "selectFilesToUpload": "Sélectionner des fichiers à envoyer",
       "downloadToFolder": "Télécharger vers un dossier",
-      "connectionLost": "Connexion perdue"
+      "connectionLost": "Connexion perdue",
+      "moveSourceNotDeleted": "Copié, mais impossible de supprimer l’original de {{names}} : {{error}}"
     },
     "queue": {
       "title": "Transferts",

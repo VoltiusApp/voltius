@@ -105,6 +105,7 @@ export interface ExportCtx {
   keyEidMap: Map<string, string>;
   identityEidMap: Map<string, string>;
   connectionEidMap: Map<string, string>;
+  snippetEidMap: Map<string, string>;
   allFolders: Folder[];
   allSnippetFolders: Folder[];
   allIdentities: Identity[];
@@ -137,10 +138,11 @@ export interface ImportCtx {
   keyEidMap: Map<string, string>;
   identityEidMap: Map<string, string>;
   connectionEidMap: Map<string, string>;
+  snippetEidMap: Map<string, string>;
   stores: ImportStores;
 }
 
-type EidMapKey = "folderEidMap" | "snippetFolderEidMap" | "keyEidMap" | "identityEidMap" | "connectionEidMap";
+type EidMapKey = "folderEidMap" | "snippetFolderEidMap" | "keyEidMap" | "identityEidMap" | "connectionEidMap" | "snippetEidMap";
 
 export function newImportCtx(base: Omit<ImportCtx, EidMapKey>): ImportCtx {
   return {
@@ -150,6 +152,7 @@ export function newImportCtx(base: Omit<ImportCtx, EidMapKey>): ImportCtx {
     keyEidMap: new Map(),
     identityEidMap: new Map(),
     connectionEidMap: new Map(),
+    snippetEidMap: new Map(),
   };
 }
 

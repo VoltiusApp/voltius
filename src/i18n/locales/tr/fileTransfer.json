@@ -105,7 +105,8 @@
       "compareHint": "Karşılaştırmak için her iki taraftan birer dosya seçin",
       "selectFilesToUpload": "Yüklenecek dosyaları seçin",
       "downloadToFolder": "Klasöre indir",
-      "connectionLost": "Bağlantı koptu"
+      "connectionLost": "Bağlantı koptu",
+      "moveSourceNotDeleted": "Kopyalandı, ancak {{names}} için orijinal silinemedi: {{error}}"
     },
     "queue": {
       "title": "Aktarımlar",

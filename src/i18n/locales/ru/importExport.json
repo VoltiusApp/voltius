@@ -33,7 +33,11 @@
         "connections_one": "{{count}} подключение",
         "connections_few": "{{count}} подключения",
         "connections_many": "{{count}} подключений",
-        "connections_other": "{{count}} подключений"
+        "connections_other": "{{count}} подключений",
+        "snippets_one": "{{count}} сниппет",
+        "snippets_few": "{{count}} сниппета",
+        "snippets_many": "{{count}} сниппетов",
+        "snippets_other": "{{count}} сниппетов"
       },
       "autoIncludeHint": "Также включено: используется экспортируемыми элементами, чтобы они работали после импорта",
       "relatedCredentials": "Включить связанные учётные данные",

@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import { appCacheDir } from "@tauri-apps/api/path";
 import { breadcrumbs, type useSftpDir } from "@/services/useSftpDir";
 import { formatSize, formatPermissions, formatDate, type FileEntry } from "@/components/filetransfer/SFTPTypes";
-import { sftpDownload, sftpDownloadDir } from "@/services/sftp";
+import { joinPath } from "@/components/filetransfer/moveTargetCore";
+import { transferItem } from "@/services/sftpTransferCore";
 import { useIsAndroid } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
 import { needsPicker } from "@/components/terminal/androidDownloadDir";
@@ -35,7 +36,7 @@ export default function MobileSftpPane({
   onClearSelect: () => void;
 }) {
   const { t } = useTranslation();
-  const { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, reconnect, mkdir, touch, rename, remove } = controller;
+  const { phase, retrying, sftpId, cwd, entries, listing, listError, navigate, goUp, reconnect, mkdir, touch, rename, remove } = controller;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
   const [showHidden, setShowHidden] = useState(false);
@@ -66,6 +67,9 @@ export default function MobileSftpPane({
 
   const download = async (f: FileEntry) => {
     if (!sftpId) return;
+    const fetchTo = (localPath: string, transferId: string) => transferItem({
+      from: "remote", to: "local", srcSftpId: sftpId, srcPath: f.path, dstPath: localPath, isDir: f.isDir, useTar: false, transferId,
+    });
     // Android: stream to a temp path, then publish into the user's SAF download folder
     // (picked once, persisted) so the file lands somewhere visible to the system Files app.
     if (isAndroid) {
@@ -81,18 +85,12 @@ export default function MobileSftpPane({
       }
       await runTransfer(f.name, "←", async (tid) => {
         const tmp = await downloadTempPath(tid, f.name);
-        await (f.isDir
-          ? sftpDownloadDir({ sftpId, remotePath: f.path, localPath: tmp, transferId: tid })
-          : sftpDownload({ sftpId, remotePath: f.path, localPath: tmp, transferId: tid }));
+        await fetchTo(tmp, tid);
         await downloadPublish(tmp, f.name);
       });
       return;
     }
-    const base = (await appCacheDir()).replace(/\/$/, "");
-    const localPath = `${base}/${f.name}`;
-    await runTransfer(f.name, "←", (tid) => (f.isDir
-      ? sftpDownloadDir({ sftpId, remotePath: f.path, localPath, transferId: tid })
-      : sftpDownload({ sftpId, remotePath: f.path, localPath, transferId: tid })));
+    await runTransfer(f.name, "←", async (tid) => fetchTo(joinPath(await appCacheDir(), f.name), tid));
   };
 
   if (!connection) {
@@ -143,7 +141,7 @@ export default function MobileSftpPane({
           <div className="flex flex-col items-center gap-3 pt-10 px-6 text-center text-(--t-text-dim)">
             <Icon icon="lucide:wifi-off" width={26} className="text-(--t-status-error)" />
             <span className="text-sm text-(--t-status-error)">{phase.message}</span>
-            <span className="text-xs text-(--t-text-dim)">{t("mobile.sftp.reconnecting")}</span>
+            {retrying && <span className="text-xs text-(--t-text-dim)">{t("mobile.sftp.reconnecting")}</span>}
             <button data-sftp-reconnect onClick={reconnect} className="text-sm px-4 py-2 rounded-xl"
               style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>{t("mobile.sftp.reconnectNow")}</button>
           </div>
