@@ -1,9 +1,9 @@
 import { storeSecret } from "@/services/vault";
 import type { SshKey } from "@/types";
 import type { DataTypeHandler } from "../handler";
-import type { ExportBundle, KeyExport } from "../formats";
+import type { ExportBundle, KeyExport, KeyRefExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
-import { dupesOf, selectionMethods, skipItem } from "../context";
+import { dupesOf, resolveRefs, selectionMethods, skipItem } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { fetchKeySecrets, storeKeySecrets } from "../secretsLogic";
 
@@ -26,10 +26,17 @@ export const keysHandler: DataTypeHandler = {
       ...(await fetchKeySecrets(k.id, ctx.readSecret(k.vault_id))),
       _folder_eid: k.folder_id ? ctx.folderEidMap.get(k.folder_id) : undefined,
     })));
+    const refs = await Promise.all(ctx.keyRefs.map(async (k, i): Promise<KeyRefExport | null> => {
+      const public_key = await ctx.publicKey(k);
+      return public_key ? { _eid: `kr${i}`, name: k.name, public_key } : null;
+    }));
+    bundle.keyRefs = refs.filter((r): r is KeyRefExport => r !== null);
+    ctx.keyRefs.forEach((k, i) => { if (refs[i]) ctx.keyEidMap.set(k.id, `kr${i}`); });
   },
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
+    resolveRefs(bundle.keyRefs, dupesOf(ctx).keyRef, ctx.keyEidMap);
     for (const key of bundle.keys) {
       if (skipItem(ctx, key, dupesOf(ctx).key(key), ctx.keyEidMap)) continue;
       try {

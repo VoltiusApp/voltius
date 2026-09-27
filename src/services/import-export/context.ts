@@ -7,7 +7,8 @@ import type {
   Snippet, SnippetFormData,
   SshKey, SshKeyFormData,
 } from "@/types";
-import type { ConnectionExport, ExportBundle, IdentityExport, KeyExport, PortForwardingRuleExport, SnippetExport } from "./formats";
+import { publicKeyBlob } from "@/services/sshPublicKey";
+import type { ConnectionExport, ExportBundle, IdentityExport, KeyExport, KeyRefExport, PortForwardingRuleExport, SnippetExport } from "./formats";
 
 // ─── Store slices ─────────────────────────────────────────────────────────────
 // All data the export/import system reads from Zustand, passed as plain objects
@@ -108,6 +109,9 @@ export interface ExportCtx {
   allSnippetFolders: Folder[];
   allIdentities: Identity[];
   allKeys: SshKey[];
+  keyRefs: SshKey[];
+  identityRefs: Identity[];
+  publicKey: (key: SshKey) => Promise<string | null>;
 }
 
 // ─── Import context ───────────────────────────────────────────────────────────
@@ -122,6 +126,8 @@ export interface ImportCtx {
   skipped?: ReadonlySet<object>;
   existingConnections: Connection[];
   existingKeys: SshKey[];
+  // Public halves of `existingKeys` by id; without it keys match by name alone.
+  existingPublicKeys?: ReadonlyMap<string, string>;
   existingIdentities: Identity[];
   existingSnippets: Snippet[];
   existingPfRules: PortForwardingRule[];
@@ -161,6 +167,17 @@ export function skipItem(
   const skip = ctx.skipped ? ctx.skipped.has(item) : ctx.skipDupes && matchId !== undefined;
   if (skip && item._eid && matchId) eidMap?.set(item._eid, matchId);
   return skip;
+}
+
+export function resolveRefs<T extends { _eid: string }>(
+  refs: T[] | undefined,
+  match: (ref: T) => string | undefined,
+  eidMap: Map<string, string>,
+): void {
+  for (const ref of refs ?? []) {
+    const id = match(ref);
+    if (id) eidMap.set(ref._eid, id);
+  }
 }
 
 // ─── Shared handler methods ───────────────────────────────────────────────────
@@ -222,7 +239,7 @@ export function liveInVault<T extends { deleted_at?: string | null; vault_id?: s
   return items.filter((i) => !i.deleted_at && (i.vault_id ?? "personal") === vault_id);
 }
 
-type ExistingItems = Pick<ImportCtx, "existingConnections" | "existingKeys" | "existingIdentities" | "existingSnippets" | "existingPfRules">;
+type ExistingItems = Pick<ImportCtx, "existingConnections" | "existingKeys" | "existingPublicKeys" | "existingIdentities" | "existingSnippets" | "existingPfRules">;
 
 const connectionKey = (c: { host?: string; port?: number | string; username?: string }) => `${c.host}:${Number(c.port)}:${c.username ?? ""}`;
 const identityKey = (i: { name?: string; username: string }) => i.name ? `${i.name}\0${i.username}` : undefined;
@@ -239,14 +256,24 @@ function idsByKey<T extends { id: string }>(items: T[], key: (item: T) => string
 // The existing item each bundle item duplicates, if any: the one definition of a duplicate.
 export function findDupes(existing: ExistingItems, vault_id: string) {
   const connections = idsByKey(existingConnectionsForVault(existing.existingConnections, vault_id), connectionKey);
-  const keys = idsByKey(liveInVault(existing.existingKeys, vault_id), k => k.name || undefined);
+  const liveKeys = liveInVault(existing.existingKeys, vault_id);
+  const blobOf = (id: string) => publicKeyBlob(existing.existingPublicKeys?.get(id));
+  const keysByBlob = idsByKey(liveKeys, k => blobOf(k.id));
+  const keysByName = idsByKey(liveKeys, k => k.name || undefined);
   const identities = idsByKey(liveInVault(existing.existingIdentities, vault_id), identityKey);
   const snippets = idsByKey(liveInVault(existing.existingSnippets, vault_id), s => s.name);
   const pfRules = idsByKey(liveInVault(existing.existingPfRules, vault_id), r => r.name);
   const lookup = (ids: Map<string, string>, k: string | undefined) => k === undefined ? undefined : ids.get(k);
   return {
     connection: (c: ConnectionExport) => lookup(connections, connectionKey(c)),
-    key: (k: KeyExport) => lookup(keys, k.name || undefined),
+    key: (k: KeyExport) => {
+      const blob = publicKeyBlob(k.public_key);
+      const same = lookup(keysByBlob, blob);
+      if (same) return same;
+      const named = lookup(keysByName, k.name || undefined);
+      return named && blob && blobOf(named) ? undefined : named;
+    },
+    keyRef: (r: KeyRefExport) => lookup(keysByBlob, publicKeyBlob(r.public_key)),
     identity: (i: IdentityExport) => lookup(identities, identityKey(i)),
     snippet: (s: SnippetExport) => lookup(snippets, s.name),
     pfRule: (r: PortForwardingRuleExport) => lookup(pfRules, r.name),

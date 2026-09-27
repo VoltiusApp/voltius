@@ -33,7 +33,7 @@
       },
       "autoIncludeHint": "Also included: used by the exported items, so they keep working after import",
       "relatedCredentials": "Include linked credentials",
-      "relatedCredentialsHint": "The identities and SSH keys these connections use. Leave off to export connection settings only and assign credentials after import.",
+      "relatedCredentialsHint": "The identities and SSH keys these connections use. Leave off to export connection settings only; on import they relink to a matching identity or key already in the vault.",
       "checkboxLabel": {
         "connections_one": "Connection ({{count}})",
         "connections_other": "Connections ({{count}})",
@@ -66,6 +66,9 @@
       "groupConnections": "Connections",
       "groupKeys": "SSH Keys",
       "groupIdentities": "Identities",
+      "groupLinkedCredentials": "Linked credentials",
+      "linkedTo": "Linked to “{{name}}” in this vault",
+      "linkedNotFound": "Not in this vault — assign it after import",
       "groupPortForwarding": "Port Forwarding",
       "selectAll": "Select all",
       "deselectAll": "Deselect all",

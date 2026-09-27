@@ -29,6 +29,19 @@ export interface KeyExport {
   _folder_eid?: string;
 }
 
+// Stand-ins for credentials left out of an export: import links them to the vault's own copy, never creates them.
+export interface KeyRefExport {
+  _eid: string;
+  name?: string;
+  public_key: string;
+}
+
+export interface IdentityRefExport {
+  _eid: string;
+  name: string;
+  username: string;
+}
+
 export interface IdentityExport {
   _eid?: string;
   name?: string;
@@ -109,6 +122,8 @@ export interface ExportBundle {
   keys: KeyExport[];
   snippets: SnippetExport[];
   portForwardingRules: PortForwardingRuleExport[];
+  keyRefs?: KeyRefExport[];
+  identityRefs?: IdentityRefExport[];
 }
 
 // ─── JSON ─────────────────────────────────────────────────────────────────────
@@ -137,6 +152,8 @@ export function fromJSON(text: string): ExportBundle {
     keys: Array.isArray(b.keys) ? b.keys : [],
     snippets: Array.isArray(b.snippets) ? b.snippets : [],
     portForwardingRules: Array.isArray(b.portForwardingRules) ? b.portForwardingRules : [],
+    keyRefs: Array.isArray(b.keyRefs) ? b.keyRefs : [],
+    identityRefs: Array.isArray(b.identityRefs) ? b.identityRefs : [],
   };
 }
 

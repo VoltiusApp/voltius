@@ -1,9 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Connection, Folder, FolderFormData, Identity, PortForwardingRule, Snippet, SshKey } from "@/types";
 import type { ExportBundle } from "./formats";
 import type { ImportStores, StoreSlices } from "./context";
 import { newImportCtx } from "./context";
 import { buildBundle, importableFolders, runImport } from "./registry";
+
+const PUB = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKey";
+vi.mock("@/services/vault", () => ({ getSecret: vi.fn(async () => null), storeSecret: vi.fn(async () => {}) }));
+vi.mock("@/services/publicKeyStore", () => ({ ensurePublicKey: vi.fn(async (k: { id: string }) => k.id === "k1" ? `${PUB} me@a` : null) }));
 
 const conn = (over: Partial<Connection>) =>
   ({ name: "c", host: "h", port: 22, username: "u", tags: [], vault_id: "personal", ...over }) as Connection;
@@ -52,7 +56,23 @@ describe("buildBundle — related credentials", () => {
     expect(bundle.identities).toEqual([]);
     expect(bundle.keys).toEqual([]);
     expect(bundle.connections).toHaveLength(2);
-    expect(bundle.connections.every((c) => c._identity_eid === undefined && c._key_eid === undefined)).toBe(true);
+    expect(bundle.keyRefs).toEqual([]);
+    expect(bundle.connections.every((c) => c._key_eid === undefined)).toBe(true);
+  });
+
+  it("exports left-out credentials as refs carrying no secret", async () => {
+    const bundle = await buildBundle(onlyConnections, stores, ["personal"], single, () => true);
+    expect(bundle.keyRefs).toEqual([{ _eid: "kr0", name: "key", public_key: `${PUB} me@a` }]);
+    expect(bundle.identityRefs).toEqual([{ _eid: "ir0", name: "id", username: "u" }]);
+    expect(bundle.connections[0]).toMatchObject({ _key_eid: "kr0", _identity_eid: "ir0" });
+    expect(bundle.connections[0].jump_hosts![0]._identity_eid).toBe("ir0");
+  });
+
+  it("writes no key ref when the key has no public half", async () => {
+    const noPub = storesOf({ connections: [conn({ id: "c1", key_id: "k2" })], keys: [{ id: "k2", name: "enc", vault_id: "personal", tags: [] } as unknown as SshKey] });
+    const bundle = await buildBundle(onlyConnections, noPub, ["personal"], single, () => true);
+    expect(bundle.keyRefs).toEqual([]);
+    expect(bundle.connections[0]._key_eid).toBeUndefined();
   });
 
   it("keeps identity references when identities are checked", async () => {
@@ -262,5 +282,81 @@ describe("runImport — references to skipped duplicates", () => {
     await runImport({ ...bundle, connections: [stringPort, web] } as unknown as ExportBundle, ctx);
     expect(saved.has("bastion")).toBe(false);
     expect(saved.get("web")!.jump_hosts).toMatchObject([{ connection_id: "have-bastion" }]);
+  });
+});
+
+describe("runImport — refs to credentials left out of the export", () => {
+  const web = { _eid: "c0", name: "web", host: "web", port: 22, username: "root", auth_type: "key", tags: [], _key_eid: "kr0", _identity_eid: "ir0" };
+  const bundleOf = (publicKey: string) => ({
+    version: 1, exported_at: "", folders: [], keys: [], identities: [], snippets: [], portForwardingRules: [],
+    connections: [web],
+    keyRefs: [{ _eid: "kr0", name: "laptop key", public_key: publicKey }],
+    identityRefs: [{ _eid: "ir0", name: "deploy", username: "root" }],
+  }) as unknown as ExportBundle;
+
+  function ctxOf() {
+    const saved: { name: string; key_id?: string; identity_id?: string }[] = [];
+    const save = async (d: { name: string }) => { saved.push(d); return { id: `new-${d.name}` }; };
+    const ctx = newImportCtx({
+      vault_id: "personal", tag: "", skipDupes: false, skipped: new Set(),
+      existingConnections: [],
+      existingKeys: [{ id: "have-key", name: "Marelis ED25519", vault_id: "personal" } as SshKey],
+      existingPublicKeys: new Map([["have-key", `${PUB} other@b`]]),
+      existingIdentities: [{ id: "have-identity", name: "deploy", username: "root", vault_id: "personal" } as Identity],
+      existingSnippets: [], existingPfRules: [], existingFolders: [],
+      stores: { saveKey: save, saveIdentity: save, saveConnection: save } as unknown as ImportStores,
+    });
+    return { ctx, saved };
+  }
+
+  it("links the host to the local key with the same public key, whatever its name", async () => {
+    const { ctx, saved } = ctxOf();
+    const result = await runImport(bundleOf(`${PUB} me@a`), ctx);
+    expect(result).toEqual({ imported: 1, errors: 0 });
+    expect(saved).toEqual([expect.objectContaining({ name: "web", key_id: "have-key", identity_id: "have-identity" })]);
+  });
+
+  it("creates nothing for a ref the vault has no match for", async () => {
+    const { ctx, saved } = ctxOf();
+    await runImport(bundleOf("ssh-ed25519 AAAAOtherKey"), ctx);
+    expect(saved.map((d) => d.name)).toEqual(["web"]);
+    expect(saved[0].key_id).toBeUndefined();
+  });
+});
+
+describe("runImport — key duplicates compare public keys (#380)", () => {
+  const web = { _eid: "c0", name: "web", host: "web", port: 22, username: "root", auth_type: "key", tags: [], _key_eid: "k0" };
+  const bundleOf = (public_key: string) => ({
+    version: 1, exported_at: "", folders: [], identities: [], snippets: [], portForwardingRules: [],
+    keys: [{ _eid: "k0", name: "deploy-key", private_key: "PRIVATE", public_key, tags: [] }],
+    connections: [web],
+  }) as unknown as ExportBundle;
+
+  function ctxOf() {
+    const saved: { name: string; key_id?: string }[] = [];
+    const save = async (d: { name: string }) => { saved.push(d); return { id: `new-${d.name}` }; };
+    const ctx = newImportCtx({
+      vault_id: "personal", tag: "", skipDupes: true,
+      existingConnections: [],
+      existingKeys: [{ id: "have-key", name: "deploy-key", vault_id: "personal" } as SshKey],
+      existingPublicKeys: new Map([["have-key", PUB]]),
+      existingIdentities: [], existingSnippets: [], existingPfRules: [], existingFolders: [],
+      stores: { saveKey: save, saveConnection: save } as unknown as ImportStores,
+    });
+    return { ctx, saved };
+  }
+
+  it("imports a same-named key with other key material and points the host at it", async () => {
+    const { ctx, saved } = ctxOf();
+    await runImport(bundleOf("ssh-ed25519 AAAAOtherKey"), ctx);
+    expect(saved.map((d) => d.name)).toEqual(["deploy-key", "web"]);
+    expect(saved[1].key_id).toBe("new-deploy-key");
+  });
+
+  it("skips a same-named key with the same public key and points the host at the existing one", async () => {
+    const { ctx, saved } = ctxOf();
+    await runImport(bundleOf(`${PUB} comment`), ctx);
+    expect(saved.map((d) => d.name)).toEqual(["web"]);
+    expect(saved[0].key_id).toBe("have-key");
   });
 });

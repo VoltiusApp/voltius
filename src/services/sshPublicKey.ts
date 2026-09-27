@@ -26,3 +26,9 @@ const SSH_PUBLIC_KEY =
 export function isValidSshPublicKey(value: string): boolean {
   return SSH_PUBLIC_KEY.test(value.trim());
 }
+
+/** The key type and base64 body without the comment: what makes two public keys the same key. */
+export function publicKeyBlob(value: string | null | undefined): string | undefined {
+  const [type, body] = value?.trim().split(/[ \t]+/) ?? [];
+  return type && body ? `${type} ${body}` : undefined;
+}

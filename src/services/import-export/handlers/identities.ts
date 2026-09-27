@@ -4,7 +4,7 @@ import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, IdentityExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
-import { dupesOf, selectionMethods, skipItem } from "../context";
+import { dupesOf, resolveRefs, selectionMethods, skipItem } from "../context";
 import { fetchIdentitySecrets, storeIdentitySecrets } from "../secretsLogic";
 
 export const identitiesHandler: DataTypeHandler = {
@@ -33,11 +33,17 @@ export const identitiesHandler: DataTypeHandler = {
       _key_eid: i.key_id ? ctx.keyEidMap.get(i.key_id) : undefined,
       _folder_eid: i.folder_id ? ctx.folderEidMap.get(i.folder_id) : undefined,
     })));
+    bundle.identityRefs = ctx.identityRefs.flatMap((i, idx) => {
+      if (!i.name) return [];
+      ctx.identityEidMap.set(i.id, `ir${idx}`);
+      return [{ _eid: `ir${idx}`, name: i.name, username: i.username }];
+    });
     void connIdentityIds; // cascade resolved in registry orchestrator
   },
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
+    resolveRefs(bundle.identityRefs, dupesOf(ctx).identity, ctx.identityEidMap);
     for (const identity of bundle.identities) {
       if (skipItem(ctx, identity, dupesOf(ctx).identity(identity), ctx.identityEidMap)) continue;
       try {

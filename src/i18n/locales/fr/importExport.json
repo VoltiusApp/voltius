@@ -33,7 +33,7 @@
       },
       "autoIncludeHint": "Également inclus : utilisés par les éléments exportés, pour qu'ils fonctionnent encore après l'import",
       "relatedCredentials": "Inclure les identifiants liés",
-      "relatedCredentialsHint": "Les identités et clés SSH utilisées par ces connexions. Laissez décoché pour n'exporter que les paramètres de connexion et attribuer les identifiants après l'import.",
+      "relatedCredentialsHint": "Les identités et clés SSH utilisées par ces connexions. Laissez décoché pour n'exporter que les paramètres de connexion ; à l'import, elles sont reliées à une identité ou une clé correspondante déjà présente dans le coffre.",
       "checkboxLabel": {
         "connections_one": "Connexion ({{count}})",
         "connections_other": "Connexions ({{count}})",
@@ -66,6 +66,9 @@
       "groupConnections": "Connexions",
       "groupKeys": "Clés SSH",
       "groupIdentities": "Identités",
+      "groupLinkedCredentials": "Identifiants liés",
+      "linkedTo": "Lié à « {{name}} » dans ce coffre",
+      "linkedNotFound": "Absent de ce coffre — à attribuer après l'import",
       "groupPortForwarding": "Redirection de ports",
       "selectAll": "Tout sélectionner",
       "deselectAll": "Tout désélectionner",

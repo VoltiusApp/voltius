@@ -32,7 +32,7 @@
       },
       "autoIncludeHint": "同时包含：被导出的项目所引用，以确保导入后仍可正常使用",
       "relatedCredentials": "包含关联的凭据",
-      "relatedCredentialsHint": "这些连接使用的身份和 SSH 密钥。保持不勾选则只导出连接设置，导入后再分配凭据。",
+      "relatedCredentialsHint": "这些连接使用的身份和 SSH 密钥。保持不勾选则只导出连接设置；导入时会重新关联到保险库中已有的匹配身份或密钥。",
       "checkboxLabel": {
         "connections_one": "连接 ({{count}})",
         "connections_other": "连接 ({{count}})",
@@ -65,6 +65,9 @@
       "groupConnections": "连接",
       "groupKeys": "SSH 密钥",
       "groupIdentities": "身份",
+      "groupLinkedCredentials": "关联的凭据",
+      "linkedTo": "已关联到此保险库中的“{{name}}”",
+      "linkedNotFound": "此保险库中没有 — 导入后再分配",
       "groupPortForwarding": "端口转发",
       "selectAll": "全选",
       "deselectAll": "取消全选",
