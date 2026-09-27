@@ -4,7 +4,7 @@ import { useKeyStore } from "@/stores/keyStore";
 import { findTeamEntry, type TeamMap } from "@/stores/teamVaultMap";
 import {
   teamSecretFromLocalKey,
-  secretKeysFor,
+  secretKeysOfObjects,
   secretObjectKindOf,
   SECRET_OBJECT_KINDS,
   type SecretObjectKind,
@@ -46,7 +46,5 @@ export function hasLocalOwner(localKey: string): boolean {
 export function teamObjectSecretKeys(teamId: string): string[] {
   const s = storeSlices();
   const localIds = localObjectIds(s);
-  return SECRET_OBJECT_KINDS.flatMap((kind) =>
-    (s[kind].team?.[teamId] ?? []).filter((o) => !localIds.has(o.id)).flatMap((o) => secretKeysFor(kind, o.id)),
-  );
+  return secretKeysOfObjects((kind) => (s[kind].team?.[teamId] ?? []).map((o) => o.id).filter((id) => !localIds.has(id)));
 }

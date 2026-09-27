@@ -1,5 +1,5 @@
 import type { TeamObjectType } from "@/services/teamObjects";
-import { secretKeysFor, SECRET_OBJECT_KINDS } from "@/services/teamVaultSecretKeys";
+import { secretKeysOfObjects } from "@/services/teamVaultSecretKeys";
 import { logFailure } from "@/lib/logger";
 
 interface VaultObject {
@@ -163,7 +163,7 @@ export async function migrateVaultToTeam(vaultId: string, teamId: string): Promi
   );
 
   const idsOf = (kind: TeamObjectType) => kinds.find((k) => k.kind === kind)?.items.map((o) => o.id) ?? [];
-  const secretKeys = SECRET_OBJECT_KINDS.flatMap((kind) => idsOf(kind).flatMap((id) => secretKeysFor(kind, id)));
+  const secretKeys = secretKeysOfObjects(idsOf);
   const present = (await Promise.all(secretKeys.map(async (k) => [k, await vault.getLocalSecret(k)] as const)))
     .filter((e): e is readonly [string, string] => !!e[1]);
   await Promise.all(present.map(([k, v]) => routing.writeSecretAt(teamId, k, v)));

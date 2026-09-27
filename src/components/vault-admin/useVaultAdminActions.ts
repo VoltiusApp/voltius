@@ -103,7 +103,7 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
         const { clearTeamKeyCache } = await import("@/services/teamVaultSync");
         const { useTeamVaultStateStore } = await import("@/stores/teamVaultStateStore");
         const { readSecretAt, writeSecretAt } = await import("@/services/secretRouting");
-        const { secretKeysFor, SECRET_OBJECT_KINDS } = await import("@/services/teamVaultSecretKeys");
+        const { secretKeysOfObjects } = await import("@/services/teamVaultSecretKeys");
         const { teamSecretCache } = await import("@/services/teamSecretCache");
 
         const vaultId = target.vaultId!;
@@ -148,7 +148,7 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
 
         // Team secrets live only in memory and on the server, and the server copy goes with the team.
         const withSecrets = { connection: conns, key: keys, identity: identities };
-        const secretKeys = SECRET_OBJECT_KINDS.flatMap((kind) => withSecrets[kind].flatMap((o) => secretKeysFor(kind, o.id)));
+        const secretKeys = secretKeysOfObjects((kind) => withSecrets[kind].map((o) => o.id));
         const copies = await Promise.allSettled(secretKeys.map(async (k) => {
           const value = await readSecretAt(teamId, k);
           if (value) await writeSecretAt(null, k, value);

@@ -23,6 +23,9 @@ const SECRET_KEYS: Record<SecretObjectKind, (id: string) => string[]> = {
 
 export const secretKeysFor = (kind: SecretObjectKind, id: string): string[] => SECRET_KEYS[kind](id);
 
+export const secretKeysOfObjects = (idsOf: (kind: SecretObjectKind) => string[]): string[] =>
+  SECRET_OBJECT_KINDS.flatMap((kind) => idsOf(kind).flatMap((id) => secretKeysFor(kind, id)));
+
 export function secretObjectKindOf(secretType: TeamSecretType): SecretObjectKind {
   if (secretType === "identity_password") return "identity";
   return secretType.startsWith("key_") ? "key" : "connection";

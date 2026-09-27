@@ -87,7 +87,6 @@ async function transfer(localKeys: string[], fromVaultId: string, toVaultId: str
 export const transferSecrets = (kind: SecretObjectKind, id: string, fromVaultId: string, toVaultId: string) =>
   transfer(secretKeysFor(kind, id), fromVaultId, toVaultId);
 
-/** Runs `update`, which may move the object out of `current.vault_id`, and carries its secrets along. */
 export async function moveWithSecrets(
   kind: SecretObjectKind,
   current: { id: string; vault_id?: string | null },
