@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   failing: new Set<string>(),
   notWiped: [] as string[],
   departures: new Map<string, string>(),
+  ownershipThrowsFor: new Set<string>(),
 }));
 
 vi.mock("@/services/vault", () => ({
@@ -18,6 +19,17 @@ vi.mock("@/services/vault", () => ({
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
+
+vi.mock("@/services/teamSecretOwnership", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/services/teamSecretOwnership")>();
+  return {
+    ...real,
+    teamObjectSecretKeys: (tid: string) => {
+      if (h.ownershipThrowsFor.has(tid)) throw new Error("store blew up");
+      return real.teamObjectSecretKeys(tid);
+    },
+  };
+});
 
 vi.mock("@/services/teamService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/teamService")>()),
@@ -55,6 +67,7 @@ vi.mock("@/stores/vaultStore", () => ({
 }));
 
 import { handleRealtimeEvent } from "./sync";
+import { teamSecretCache } from "@/services/teamSecretCache";
 import { usePendingSecretWipeStore } from "@/stores/pendingSecretWipeStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
@@ -67,6 +80,7 @@ beforeEach(() => {
   h.failing = new Set();
   h.notWiped = [];
   h.departures = new Map();
+  h.ownershipThrowsFor = new Set();
   vi.mocked(notifyMembershipEnded).mockClear();
   vi.mocked(notifySecretsNotWiped).mockClear();
   usePendingSecretWipeStore.getState().clearAll();
@@ -161,4 +175,15 @@ test("a voluntary leave still wipes, and only the notice is suppressed", async (
 
   await vi.waitFor(() => expect(h.deleted).toContain("password:c-t5"));
   expect(notifyMembershipEnded).not.toHaveBeenCalled();
+});
+
+test("a wipe that throws still leaves the removed member without the team's cached secrets", async () => {
+  seedTeam("t6");
+  h.ownershipThrowsFor.add("t6");
+  teamSecretCache.set("t6", "password:c-t6", "pw");
+
+  await handleRealtimeEvent("membership_changed", "device-1");
+
+  await vi.waitFor(() => expect(notifyMembershipEnded).toHaveBeenCalledWith("team-t6"));
+  expect(teamSecretCache.get("t6", "password:c-t6")).toBeUndefined();
 });

@@ -35,6 +35,7 @@ vi.mock("@/services/teamDataManager", () => ({
 import { clearTeamStoresAndSecrets } from "./teamVaultSync";
 import { handleRealtimeEvent } from "./sync";
 import { teamSecretCache } from "@/services/teamSecretCache";
+import { usePendingTeamSecretUploadStore } from "@/stores/pendingTeamSecretUploadStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -44,6 +45,7 @@ beforeEach(() => {
   h.deleted.length = 0;
   h.purge.mockClear();
   teamSecretCache.clearAll();
+  usePendingTeamSecretUploadStore.getState().clearAll();
   useConnectionStore.setState({ teamConnections: {} });
   useKeyStore.setState({ teamKeys: {} });
   useIdentityStore.setState({ teamIdentities: {} });
@@ -118,4 +120,16 @@ test("removal from a team drops its cached secrets and purges local copies in on
   await vi.waitFor(() => expect(teamSecretCache.get("t1", "password:c1")).toBeUndefined());
   expect(teamSecretCache.get("t2", "password:c2")).toBe("keep");
   expect(h.purge.mock.calls).toEqual([[expect.arrayContaining(["password:c1"])]]);
+});
+
+test("removal from a team drops its pending uploads and purges their local copies", async () => {
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1"]);
+  usePendingTeamSecretUploadStore.getState().enqueue("t2", ["password:c2"]);
+  useTeamStore.setState({ teams: [{ id: "t1", name: "Ops", role_ids: [] } as never] });
+  seedTeamObjects();
+
+  await handleRealtimeEvent("membership_changed", "device-1");
+
+  await vi.waitFor(() => expect(h.deleted).toContain("password:c1"));
+  expect(usePendingTeamSecretUploadStore.getState().keysByTeamId).toEqual({ t2: ["password:c2"] });
 });

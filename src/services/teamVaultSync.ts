@@ -754,9 +754,8 @@ export async function drainPendingSecretWipes(): Promise<void> {
 }
 
 /**
- * Empties the team's store slices and wipes its secrets from the keychain.
- * Returns the keychain keys that survived the wipe — a caller offboarding the
- * user from the team must treat a non-empty result as secrets still on disk.
+ * Empties the team's store slices and purges its secrets from the local store,
+ * except keys still waiting to upload. Returns the keys that survived the purge.
  */
 export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[]> {
   const { useConnectionStore } = await import("@/stores/connectionStore");
@@ -767,11 +766,10 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[
   const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
   const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
 
-  // Purge before clearing the stores: the key names come from the objects still in them.
-  const failedKeys = await purgeTeamObjectSecrets(teamId);
   const { usePendingTeamSecretUploadStore } = await import("@/stores/pendingTeamSecretUploadStore");
-  const pendingUploads = usePendingTeamSecretUploadStore.getState();
-  pendingUploads.resolve(teamId, pendingUploads.keysByTeamId[teamId] ?? []);
+  const pendingUploads = new Set(usePendingTeamSecretUploadStore.getState().keysByTeamId[teamId] ?? []);
+  // Purge before clearing the stores: the key names come from the objects still in them.
+  const failedKeys = await purgeTeamObjectSecrets(teamId, pendingUploads);
   teamSecretCache.clearTeam(teamId);
 
   useConnectionStore.getState().setTeamConnections(teamId, []);

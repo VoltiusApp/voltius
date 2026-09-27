@@ -814,6 +814,11 @@ async function offboardFromTeam(tid: string, teamName: string): Promise<void> {
   const step = <T,>(what: string, fn: () => Promise<T> | T) =>
     guarded(`offboarding ${tid}: ${what}`, fn);
 
+  await step("drop the cached team secrets", async () => {
+    const { teamSecretCache } = await import("@/services/teamSecretCache");
+    teamSecretCache.clearTeam(tid);
+  });
+
   // membership_changed carries no reason, so a departure this client caused
   // itself is only recognisable from the marker it left behind.
   const departure = await step("read the departure marker", async () => {
@@ -833,6 +838,13 @@ async function offboardFromTeam(tid: string, teamName: string): Promise<void> {
   await step("evict the vault key", async () => {
     const { deleteTeamKey } = await import("@/services/teamVaultSync");
     deleteTeamKey(tid);
+  });
+
+  // Their local copies are the team's too, so the wipe below must not skip them.
+  await step("drop the team's pending uploads", async () => {
+    const { usePendingTeamSecretUploadStore } = await import("@/stores/pendingTeamSecretUploadStore");
+    const uploads = usePendingTeamSecretUploadStore.getState();
+    uploads.resolve(tid, uploads.keysByTeamId[tid] ?? []);
   });
 
   // Wipe before anything else: the wipe names its keychain entries from the
