@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { create } from "zustand";
+import { create, type StoreApi, type UseBoundStore } from "zustand";
 import type { PfSessionState } from "@/services/portForwardingTunnels";
 import type { ActiveTunnel, TerminalSession } from "@/types";
 
@@ -12,7 +12,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: h.listen }));
 vi.mock("@/hooks/useAllConnections", () => ({ useAllConnections: () => [] }));
 vi.mock("@/hooks/useAccessibleVaultIds", () => ({ useAccessibleVaultIds: () => [] }));
-const sessionStore = vi.hoisted(() => ({ current: null as unknown as ReturnType<typeof create<{ sessions: Pick<TerminalSession, "id" | "status">[] }>> }));
+type SessionsStore = UseBoundStore<StoreApi<{ sessions: Pick<TerminalSession, "id" | "status">[] }>>;
+const sessionStore = vi.hoisted(() => ({ current: null as unknown as SessionsStore }));
 vi.mock("@/stores/sessionStore", () => {
   sessionStore.current = create(() => ({ sessions: [] as Pick<TerminalSession, "id" | "status">[] }));
   return { useSessionStore: sessionStore.current };
