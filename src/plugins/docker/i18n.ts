@@ -1,7 +1,9 @@
+import type { PluginLocale } from "@/plugins/api";
+
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.docker / mobile.docker.* /
 // mobile.dockerLogs.* / mobile.hostActions.* / mobile.panelCommon.* and mobile.json's
 // common.action.{remove,cancel} — values carried over verbatim.
-export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> = {
+export const messages: Record<PluginLocale, Record<string,string>> = {
   en: {
     "title": "Docker",
     "filterAll": "All",
@@ -141,5 +143,33 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "hostStart": "Başlat",
     "dockerLogsWaiting": "Günlükler bekleniyor…",
     "dockerLogsSessionNotConnected": "Oturum bağlı değil.",
+  },
+  cs: {
+    "title": "Docker",
+    "filterAll": "Vše",
+    "filterRunning": "Běžící",
+    "needsSshTitle": "Docker vyžaduje SSH relaci",
+    "needsSshSub": "Otevřete Docker z hostitele připojeného přes SSH.",
+    "sessionNotConnected": "Relace není připojena",
+    "sessionNotConnectedSub": "Pro správu Dockeru na tomto hostiteli se znovu připojte.",
+    "unreachableTitle": "Docker není dostupný",
+    "unreachableSub": "Spusťte Docker na hostiteli a pak obnovte.",
+    "refresh": "Obnovit",
+    "noContainers": "Žádné kontejnery",
+    "noRunningContainers": "Žádné běžící kontejnery",
+    "tapRunningToShowAll": "Klepnutím na Běžící zobrazíte vše.",
+    "logs": "Logy",
+    "execShell": "Spustit shell",
+    "removeConfirmTitle": "Odebrat kontejner?",
+    "removeConfirmBody": "{{name}} bude odebrán. Tuto akci nelze vrátit zpět.",
+    "remove": "Odebrat",
+    "cancel": "Zrušit",
+    "hostStop": "Zastavit",
+    "hostRestart": "Restartovat",
+    "hostPause": "Pozastavit",
+    "hostResume": "Obnovit",
+    "hostStart": "Spustit",
+    "dockerLogsWaiting": "Čeká se na logy…",
+    "dockerLogsSessionNotConnected": "Relace není připojena.",
   },
 };

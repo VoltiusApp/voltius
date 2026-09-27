@@ -1,0 +1,19 @@
+{
+  "knownHosts": {
+    "toolbar": {
+      "deleteSelected": "Smazat vybrané",
+      "deleteButton": "SMAZAT"
+    },
+    "page": {
+      "noSearchResults": "Hledání neodpovídá žádný známý hostitel",
+      "emptyState": "Zatím žádní známí hostitelé — objeví se, jakmile se připojíte k serveru",
+      "confirmDelete": {
+        "title_one": "Smazat známého hostitele?",
+        "title_few": "Smazat {{count}} známé hostitele?",
+        "title_many": "Smazat {{count}} známého hostitele?",
+        "title_other": "Smazat {{count}} známých hostitelů?",
+        "message": "Tím odeberete důvěryhodné otisky. Další připojení k těmto hostitelům bude považováno za nové."
+      }
+    }
+  }
+}

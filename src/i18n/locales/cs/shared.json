@@ -1,0 +1,143 @@
+{
+  "shared": {
+    "errorBanner": {
+      "dismiss": "zavřít"
+    },
+    "trialExpiredModal": {
+      "title": "Vaše zkušební verze Pro skončila",
+      "subtitle": "Tyto tři funkce dnes přestanou fungovat:",
+      "freeNote": "Lokální trezor, auditní logy a synchronizace přes GitHub Gist zůstávají navždy zdarma.",
+      "teamsPrompt": "Pracujete s dalšími lidmi? Vyzkoušejte Teams zdarma na {{days}} dní (vyžaduje kartu).",
+      "upgradeButton": "Přejít na Pro",
+      "laterButton": "Možná později"
+    },
+    "createVaultModal": {
+      "title": "Nový trezor",
+      "subtitle": "Trezory udržují vaše přihlašovací údaje v pořádku",
+      "nameLabel": "Název trezoru",
+      "namePlaceholder": "např. Práce, Osobní, Staging…",
+      "createButton": "Vytvořit trezor"
+    },
+    "vaultCascadeModal": {
+      "headingMove": "Přesunout propojené položky do",
+      "headingCopy": "Kopírovat propojené položky do",
+      "fallbackDescriptionMoved": "Následující propojené položky jsou v jiném trezoru a budou přesunuty také:",
+      "fallbackDescriptionCopied": "Následující propojené položky jsou v jiném trezoru a budou zkopírovány také:",
+      "confirmMove": "Přesunout vše",
+      "confirmCopy": "Kopírovat vše",
+      "typeLabel": {
+        "identity": "Identita",
+        "key": "SSH klíč"
+      }
+    },
+    "formSelect": {
+      "title": "Vybrat"
+    },
+    "folderSelector": {
+      "noFolder": "Bez složky",
+      "namePlaceholder": "Název složky",
+      "newFolder": "Nová složka"
+    },
+    "tagSelector": {
+      "placeholder": "Přidat štítky…",
+      "removeTag": "Odebrat štítek {{tag}}"
+    },
+    "portInput": {
+      "placeholder": "/dev/ttyUSB0 nebo COM3"
+    },
+    "avatarStack": {
+      "participantCount_one": "{{count}} účastník",
+      "participantCount_few": "{{count}} účastníci",
+      "participantCount_many": "{{count}} účastníka",
+      "participantCount_other": "{{count}} účastníků"
+    },
+    "presence": {
+      "hasControl": "Má ovládání"
+    },
+    "panel": {
+      "saveState": {
+        "dirty": "Úpravy...",
+        "saving": "Ukládání...",
+        "saved": "Uloženo"
+      }
+    },
+    "vaultPicker": {
+      "memberBadge": "člen"
+    },
+    "pickers": {
+      "thisComputer": "Tento počítač"
+    },
+    "sessionPicker": {
+      "insertTitle": "Vložit do...",
+      "executeTitle": "Spustit v...",
+      "insertConfirm_one": "Vložit do {{count}} cíle",
+      "insertConfirm_few": "Vložit do {{count}} cílů",
+      "insertConfirm_many": "Vložit do {{count}} cíle",
+      "insertConfirm_other": "Vložit do {{count}} cílů",
+      "executeConfirm_one": "Spustit v {{count}} cíli",
+      "executeConfirm_few": "Spustit ve {{count}} cílech",
+      "executeConfirm_many": "Spustit v {{count}} cíle",
+      "executeConfirm_other": "Spustit v {{count}} cílech",
+      "noActiveSessions": "Žádné aktivní relace",
+      "activeSessionsHeader": "Aktivní relace",
+      "openNewConnectionHeader": "Otevřít nové připojení",
+      "localShellFallbackName": "Lokální shell",
+      "sshSessionSub": "SSH relace",
+      "noRemoteHostsFound": "Nenalezeni žádní vzdálení hostitelé",
+      "noHostsFound": "Nenalezeni žádní hostitelé"
+    },
+    "hostPicker": {
+      "selectHostTitle": "Vybrat hostitele",
+      "filterPlaceholder": "Filtrovat hostitele...",
+      "localMachineName": "Lokální počítač",
+      "wslSub": "WSL",
+      "noHostsConfigured": "Nejsou nastaveni žádní hostitelé",
+      "noHostsMatch": "Žádný hostitel neodpovídá"
+    },
+    "sort": {
+      "nameAsc": "A → Z",
+      "nameDesc": "Z → A",
+      "newest": "Nejnovější první",
+      "oldest": "Nejstarší první"
+    },
+    "tagFilter": {
+      "filterByTag": "Filtrovat podle štítku",
+      "emptyTitle": "Přidat štítky",
+      "emptyDescription": "Štítky vám pomohou filtrovat hostitele. Štítek můžete přidat při úpravě hostitele.",
+      "searchPlaceholder": "Filtrovat štítky...",
+      "clearSelection": "Zrušit výběr ({{count}})",
+      "noTagsMatch": "Výrazu „{{search}}“ neodpovídá žádný štítek",
+      "deleteTagTitle": "Smazat štítek „{{tag}}“?",
+      "deleteTagBody_one": "Štítek bude odebrán z {{count}} hostitele. Samotní hostitelé smazáni nebudou.",
+      "deleteTagBody_few": "Štítek bude odebrán ze {{count}} hostitelů. Samotní hostitelé smazáni nebudou.",
+      "deleteTagBody_many": "Štítek bude odebrán z {{count}} hostitele. Samotní hostitelé smazáni nebudou.",
+      "deleteTagBody_other": "Štítek bude odebrán z {{count}} hostitelů. Samotní hostitelé smazáni nebudou.",
+      "renameTagTitle": "Přejmenovat štítek",
+      "deleteTagButtonTitle": "Smazat štítek"
+    },
+    "vaultUnavailable": {
+      "note": "Trezor se nepodařilo přečíst, uložená tajemství proto nejsou zobrazena. Pokud pole necháte prázdné, uložená hodnota zůstane; zadáním nové hodnoty ji nahradíte."
+    },
+    "storedSecrets": {
+      "forbidden": "Vaše role v tomto trezoru nemůže vidět uložená tajemství, proto jsou tato pole prázdná. Připojení přesto funguje — uložený údaj se použije, aniž by byl zobrazen."
+    },
+    "teamCredentials": {
+      "unavailable": "Uložené přihlašovací údaje tohoto týmového trezoru se nepodařilo načíst, takže hostitelé vyžadující uložené heslo, klíč nebo heslovou frázi se nepřipojí. Požádejte správce trezoru, aby vaší roli udělil přístup k tajemstvím trezoru."
+    },
+    "vaultBackups": {
+      "title": "Zálohy trezoru",
+      "description": "Soubory trezoru odložené stranou, když je nebylo možné otevřít. Obnovením se záloha stane vaším trezorem a aktuální trezor se uloží jako nová záloha — nic se nesmaže.",
+      "empty": "Na tomto zařízení nejsou žádné zálohy trezoru.",
+      "restore": "Obnovit",
+      "confirm": "Obnovit tuto zálohu",
+      "cancel": "Zrušit",
+      "warn": "Tato záloha se stane vaším trezorem. Otevírá se hlavním heslem, které platilo v době jejího vytvoření, takže budete odhlášeni a vyzváni k odemčení.",
+      "warnReadable": "Váš aktuální trezor je čitelný. Obnovení ho nahradí — uloží se jako nová záloha a budete odhlášeni a vyzváni k odemčení heslem, kterým byl obnovený soubor vytvořen.",
+      "restoredToast": "Záloha obnovena. Váš předchozí trezor byl uložen jako {{file}}.",
+      "restoredToastNoPrevious": "Záloha obnovena."
+    },
+    "tunnelStatus": {
+      "noRemoteListener": "Na vzdáleném portu nic nenaslouchá"
+    }
+  }
+}

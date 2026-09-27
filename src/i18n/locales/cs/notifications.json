@@ -1,0 +1,88 @@
+{
+  "notifications": {
+    "bell": {
+      "title": "Oznámení",
+      "clearHistory": "Vymazat historii",
+      "noNotifications": "Žádná oznámení",
+      "relativeTime": {
+        "justNow": "právě teď",
+        "minutesAgo": "před {{count}} min",
+        "hoursAgo": "před {{count}} h",
+        "daysAgo": "před {{count}} d"
+      }
+    },
+    "emailVerification": {
+      "banner": {
+        "message": "Ověřte svůj e-mail a odemkněte cloudové funkce. Odkaz jsme poslali na {{email}}.",
+        "yourEmail": "váš e-mail",
+        "resend": "Poslat e-mail znovu",
+        "resending": "Odesílání...",
+        "verified": "Ověřil(a) jsem",
+        "checking": "Kontrola...",
+        "dismissAriaLabel": "Zavřít upozornění na ověření e-mailu"
+      },
+      "modal": {
+        "title": "Nejprve ověřte svůj e-mail",
+        "body": "Cloudové tarify vyžadují ověřenou e-mailovou adresu. Najděte ověřovací odkaz ve své schránce, nebo si pošlete nový.",
+        "resend": "Poslat e-mail znovu",
+        "resending": "Odesílání..."
+      },
+      "toast": {
+        "sent": "Ověřovací e-mail byl odeslán.",
+        "sendFailed": "Ověřovací e-mail se nepodařilo znovu odeslat.",
+        "refreshFailed": "Relaci se nepodařilo obnovit.",
+        "verified": "E-mail ověřen.",
+        "verifiedPending": "Zatím neověřeno. Otevřete odkaz v e-mailu a zkuste to znovu.",
+        "verifiedOther": "E-mail ověřen pro {{email}}.",
+        "verifiedSwitch": "Přepnout",
+        "verifiedUnknown": "E-mail ověřen. Pokračujte přihlášením."
+      }
+    },
+    "progressToast": {
+      "timedOut": "Časový limit operace vypršel"
+    },
+    "seededPluginsFailed": {
+      "message": "Vestavěné pluginy se nepodařilo načíst, aplikace proto běží bez nich. Jde o chybu — nahlaste ji prosím.",
+      "action": "Diagnostika"
+    },
+    "inbox": {
+      "someone": "Někdo",
+      "invite": {
+        "message": "{{inviter}} vás pozval(a) do týmu {{team}}",
+        "accept": "Přijmout",
+        "decline": "Odmítnout"
+      },
+      "session": {
+        "message": "Kolega sdílel relaci {{name}}",
+        "join": "Připojit se",
+        "joined": "Připojeno"
+      },
+      "sessionInvite": {
+        "message": "{{inviter}} vás pozval(a) do relace {{name}}"
+      },
+      "sessionKnock": {
+        "message": "{{inviter}} chce sdílet terminál",
+        "join": "Připojit se",
+        "decline": "Odmítnout",
+        "blockPermanently": "Trvale zablokovat"
+      },
+      "control": {
+        "request": "{{requester}} žádá o ovládání",
+        "grant": "Povolit",
+        "deny": "Zamítnout",
+        "granted": "Ovládání máte vy"
+      },
+      "awaitingKey": {
+        "message": "Čeká se, až vlastník týmu {{team}} udělí přístup k trezoru"
+      },
+      "membershipEnded": {
+        "message": "Byli jste odebráni z týmu {{team}}. Jeho hostitelé, klíče a snippety byly z tohoto zařízení odstraněny a přihlašovací údaje, které jste tam používali, byste měli změnit.",
+        "review": "Zkontrolovat přihlašovací údaje"
+      },
+      "secretsNotWiped": {
+        "message": "Některé přihlašovací údaje týmu {{team}} se nepodařilo z tohoto zařízení odstranit. Zůstanou zde čitelné, dokud se odstranění nezdaří.",
+        "retry": "Odstranit je nyní"
+      }
+    }
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "keychain": {
+    "common": {
+      "general": "Obecné",
+      "label": "Označení",
+      "tags": "Štítky",
+      "folder": "Složka",
+      "optional": "(volitelné)",
+      "username": "Uživatelské jméno",
+      "password": "Heslo",
+      "privateKey": "Soukromý klíč",
+      "publicKey": "Veřejný klíč",
+      "passphrase": "Heslová fráze",
+      "addToHost": "Přidat k hostiteli",
+      "disableCloudSync": "Vypnout synchronizaci s cloudem",
+      "enableCloudSync": "Zapnout synchronizaci s cloudem",
+      "cloudSyncDisabledTitle": "Synchronizace s cloudem vypnuta"
+    },
+    "toolbar": {
+      "filterPlaceholder": "Filtrovat...",
+      "newKey": "Nový klíč",
+      "newKeyOptionsAriaLabel": "Možnosti nového klíče",
+      "generateKeyPair": "Vygenerovat pár klíčů",
+      "newIdentity": "Nová identita",
+      "newFolder": "Nová složka"
+    },
+    "page": {
+      "all": "Vše",
+      "folders": "Složky",
+      "new": "Nové",
+      "pinned": "Připnuté",
+      "ejectMoveTo": "Přesunout do {{name}}",
+      "ejectRemoveFromFolder": "Odebrat ze složky",
+      "bulk": {
+        "moveItemsTo_one": "Přesunout {{count}} položku do",
+        "moveItemsTo_few": "Přesunout {{count}} položky do",
+        "moveItemsTo_many": "Přesunout {{count}} položky do",
+        "moveItemsTo_other": "Přesunout {{count}} položek do",
+        "copyItemsTo_one": "Kopírovat {{count}} položku do",
+        "copyItemsTo_few": "Kopírovat {{count}} položky do",
+        "copyItemsTo_many": "Kopírovat {{count}} položky do",
+        "copyItemsTo_other": "Kopírovat {{count}} položek do",
+        "enableCloudSync": "Zapnout synchronizaci s cloudem ({{count}})",
+        "disableCloudSync": "Vypnout synchronizaci s cloudem ({{count}})",
+        "exportPublicKeys_one": "Exportovat {{count}} veřejný klíč",
+        "exportPublicKeys_few": "Exportovat {{count}} veřejné klíče",
+        "exportPublicKeys_many": "Exportovat {{count}} veřejného klíče",
+        "exportPublicKeys_other": "Exportovat {{count}} veřejných klíčů",
+        "deleteItems_one": "Smazat {{count}} položku",
+        "deleteItems_few": "Smazat {{count}} položky",
+        "deleteItems_many": "Smazat {{count}} položky",
+        "deleteItems_other": "Smazat {{count}} položek"
+      },
+      "confirmDeleteFolder": {
+        "title": "Smazat složku",
+        "message_one": "Smaže se složka, její podsložky a {{count}} položka uvnitř. Tuto akci nelze vrátit zpět.",
+        "message_few": "Smaže se složka, její podsložky a {{count}} položky uvnitř. Tuto akci nelze vrátit zpět.",
+        "message_many": "Smaže se složka, její podsložky a {{count}} položky uvnitř. Tuto akci nelze vrátit zpět.",
+        "message_other": "Smaže se složka, její podsložky a {{count}} položek uvnitř. Tuto akci nelze vrátit zpět.",
+        "messageEmpty": "Smaže se složka a vše, co obsahuje. Tuto akci nelze vrátit zpět."
+      },
+      "confirmDelete": {
+        "title_one": "Smazat {{count}} položku",
+        "title_few": "Smazat {{count}} položky",
+        "title_many": "Smazat {{count}} položky",
+        "title_other": "Smazat {{count}} položek",
+        "message_one": "Opravdu chcete smazat {{count}} položku? Tuto akci nelze vrátit zpět.",
+        "message_few": "Opravdu chcete smazat {{count}} položky? Tuto akci nelze vrátit zpět.",
+        "message_many": "Opravdu chcete smazat {{count}} položky? Tuto akci nelze vrátit zpět.",
+        "message_other": "Opravdu chcete smazat {{count}} položek? Tuto akci nelze vrátit zpět.",
+        "folderCascade_one": "Smazána bude také {{count}} položka zařazená ve vybraných složkách.",
+        "folderCascade_few": "Smazány budou také {{count}} položky zařazené ve vybraných složkách.",
+        "folderCascade_many": "Smazáno bude také {{count}} položky zařazené ve vybraných složkách.",
+        "folderCascade_other": "Smazáno bude také {{count}} položek zařazených ve vybraných složkách."
+      },
+      "vaultCascade": {
+        "moveDescription": "Přesunutím „{{folderName}}“ se do {{targetVaultName}} přesunou také tyto položky:",
+        "copyDescription": "Zkopírováním „{{folderName}}“ se do {{targetVaultName}} zkopírují také tyto položky:"
+      }
+    },
+    "cards": {
+      "addedOn": "přidáno {{date}}",
+      "passwordBadge": "Heslo",
+      "sshKeysLabel": "SSH klíče",
+      "identitiesLabel": "Identity",
+      "keySection": {
+        "emptyTitle": "Zatím žádné SSH klíče",
+        "emptyDescription": "Ukládejte opakovaně použitelné páry SSH klíčů",
+        "addButton": "Přidat klíč"
+      },
+      "identitySection": {
+        "emptyTitle": "Zatím žádné identity",
+        "emptyDescription": "Spojte uživatelské jméno s přihlašovacími údaji a používejte je u více hostitelů",
+        "addButton": "Přidat identitu"
+      },
+      "pin": {
+        "unpinForMe": "Odepnout pro mě",
+        "showInMyView": "Zobrazit v mém pohledu",
+        "hideForMe": "Skrýt pro mě",
+        "pinForMe": "Připnout pro mě",
+        "unpin": "Odepnout",
+        "pin": "Připnout",
+        "unpinForTeam": "Odepnout pro tým",
+        "pinForTeam": "Připnout pro tým"
+      }
+    },
+    "keyForm": {
+      "titleEdit": "Upravit klíč",
+      "modeImport": "Importovat",
+      "modeGenerate": "Vygenerovat",
+      "sectionKeyMaterial": "Materiál klíče",
+      "sectionImportFromFile": "Importovat ze souboru",
+      "sectionKeyExport": "Export klíče",
+      "unknownType": "Neznámý typ",
+      "invalidKey": "Neplatný klíč",
+      "invalidPublicKey": "Nejde o veřejný SSH klíč — očekává se „ssh-ed25519 AAAA… komentář“ na jednom řádku. Nepůjde uložit ani přidat k hostiteli.",
+      "keyPassphrasePlaceholder": "Heslová fráze klíče"
+    },
+    "identityForm": {
+      "titleEdit": "Upravit identitu",
+      "sectionCredentials": "Přihlašovací údaje",
+      "sectionNewKeyMaterial": "Materiál nového klíče",
+      "sectionLinkedTo": "Propojeno s",
+      "sshKeyLabel": "SSH klíč",
+      "noKey": "Bez klíče",
+      "newKeyInline": "Nový klíč (přímo zde)...",
+      "unnamedKey": "Klíč bez názvu",
+      "namePlaceholder": "Moje identita (volitelné)",
+      "keyLabel": "Označení klíče",
+      "keyLabelPlaceholder": "Můj SSH klíč (volitelné)",
+      "editHostTitle": "Upravit hostitele",
+      "unlinkTitle": "Odpojit — zkopírovat přihlašovací údaje přímo do hostitele"
+    },
+    "exportPanel": {
+      "exportSectionLabel": "Export",
+      "destinationHost": "Cílový hostitel",
+      "selectHostPlaceholder": "Vyberte hostitele…",
+      "location": "Umístění",
+      "filename": "Název souboru",
+      "unixOnlyNotice": "Export klíčů zatím podporuje pouze systémy UNIX. Skript exportu můžete upravit v sekci Pokročilé.",
+      "missingPublicKeyNotice": "Tento klíč nemá veřejnou část, kterou by šlo odeslat. Otevřete ho v Klíčence a vložte jeho řádek .pub — nebo doplňte heslovou frázi, aby šlo veřejnou část odvodit ze soukromé.",
+      "advanced": "Pokročilé",
+      "exportScriptLabel": "Skript exportu",
+      "successMessage": "Klíč byl úspěšně exportován",
+      "exportingLabel": "Exportování…",
+      "publicKeyNotFoundError": "Veřejný klíč nebyl nalezen",
+      "multilinePublicKeyError": "Veřejný klíč není platný — musí být na jednom řádku",
+      "invalidPublicKeyError": "Veřejný klíč není platný — musí jít o veřejný SSH klíč ve tvaru „typ base64 [komentář]“",
+      "invalidLocationError": "Umístění musí být cesta ve vzdáleném domovském adresáři bez segmentu „..“",
+      "invalidFilenameError": "Název souboru nesmí obsahovat oddělovač cesty",
+      "remoteCommandFailedError": "Vzdálený příkaz selhal: {{detail}}",
+      "remoteCommandFailedUnknownError": "Vzdálený příkaz selhal (návratový kód {{code}})"
+    },
+    "dropZone": {
+      "loaded": "Soubor klíče načten",
+      "error": "Soubor nelze přečíst",
+      "dropToLoad": "Pusťte pro načtení souboru klíče",
+      "dropHere": "Přetáhněte sem soubor klíče",
+      "hint": ".pem, .key, .pub nebo jakýkoli soubor SSH klíče"
+    },
+    "genFields": {
+      "sectionKeyType": "Typ klíče",
+      "ellipticCurve": "Eliptická křivka",
+      "keySizeBits": "Velikost klíče (bity)",
+      "passphrasePlaceholder": "Volitelná heslová fráze",
+      "savePassphrase": "Uložit heslovou frázi",
+      "cipher": "Šifra",
+      "rounds": "Iterace",
+      "roundsTooltip": "Počet iterací bcrypt-pbkdf použitých k odvození šifrovacího klíče z heslové fráze. Vyšší hodnoty zpomalují útoky hrubou silou za cenu mírně pomalejšího načítání klíče. Výchozí hodnota OpenSSH je 16; 100 je dobrý kompromis.",
+      "generating": "Generování…"
+    }
+  }
+}

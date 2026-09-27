@@ -1,0 +1,94 @@
+{
+  "omni": {
+    "searchPlaceholder": "Hledat hostitele, klíče, identity a příkazy...",
+    "categoryBadges": {
+      "all": "Vše",
+      "join": "join> Relace",
+      "snippets": "> Snippety",
+      "marketplace": "m> Marketplace",
+      "settings": "@ Nastavení"
+    },
+    "sections": {
+      "quickConnect": "Rychlé připojení",
+      "activeConnections": "Aktivní připojení",
+      "teamSessions": "Týmové relace",
+      "recent": "Nedávné",
+      "hosts": "Hostitelé",
+      "local": "Lokální",
+      "keychain": "Klíčenka",
+      "snippets": "Snippety",
+      "actions": "Akce",
+      "quickSettings": "Rychlá nastavení",
+      "settings": "Nastavení",
+      "joinByInviteCode": "Připojit se pomocí kódu pozvánky"
+    },
+    "settingsDescription": "Nastavení",
+    "pluginSettingsDescription": "Nastavení pluginu",
+    "editHost": "Upravit hostitele",
+    "deleteHost": "Smazat hostitele",
+    "resume": "Pokračovat",
+    "join": "Připojit se",
+    "participantCount_one": "{{count}} osoba",
+    "participantCount_few": "{{count}} osoby",
+    "participantCount_many": "{{count}} osoby",
+    "participantCount_other": "{{count}} osob",
+    "joinCodePrompt": {
+      "title": "Připojit se pomocí kódu pozvánky...",
+      "subtitle": "Vložte sem kód pozvánky a připojte se k soukromé relaci"
+    },
+    "joinCodeEntered": {
+      "title": "Připojit se pomocí kódu pozvánky"
+    },
+    "quickConnect": {
+      "connectTo": "Připojit k {{user}}@{{host}}",
+      "portSsh": "Port {{port}} — SSH",
+      "serialConnection": "Sériové připojení",
+      "configurePortAndBaud": "Nastavit port a rychlost",
+      "localShellNamed": "Lokální shell ({{shell}})",
+      "localShell": "Lokální shell",
+      "openLocalTerminal": "Otevřít lokální terminál"
+    },
+    "localShellDefault": "Lokální shell",
+    "emptyState": {
+      "noSnippets": "Zatím žádné snippety",
+      "marketplaceComingSoon": "Marketplace již brzy",
+      "noSessionsMatch": "Výrazu „{{query}}“ neodpovídá žádná relace",
+      "noActiveTeamSessions": "Žádné aktivní týmové relace",
+      "noResultsFor": "Žádné výsledky pro „{{query}}“"
+    },
+    "theme": {
+      "toggle": "Přepnout světlý / tmavý motiv",
+      "toggleDesc": "Přepínat mezi světlým a tmavým motivem",
+      "switch": "Změnit motiv…",
+      "switchDesc": "Vyberte motiv s živým náhledem",
+      "automation": "Automatické přepínání motivu…",
+      "automationDesc": "Ručně, podle systému, podle rozvrhu nebo podle východu/západu slunce",
+      "backSwitch": "Změnit motiv",
+      "backAutomation": "Automatické přepínání motivu",
+      "searchThemes": "Hledat motivy…",
+      "roleLight": "Světlý",
+      "roleDark": "Tmavý",
+      "setAsLight": "Nastavit jako světlý",
+      "setAsDark": "Nastavit jako tmavý",
+      "keyHints": "Alt+L nastavit světlý · Alt+D nastavit tmavý · Enter použít",
+      "modeManual": "Ručně",
+      "modeManualDesc": "Použít vybraný motiv bez automatiky",
+      "modeSystem": "Podle systému",
+      "modeSystemDesc": "Řídit se světlým/tmavým režimem systému",
+      "modeSchedule": "Rozvrh",
+      "modeScheduleDesc": "Přepínat v pevně daných časech",
+      "modeSunset": "Východ / západ slunce",
+      "modeSunsetDesc": "Ve dne světlý, v noci tmavý, podle vaší polohy",
+      "lightStarts": "Světlý od",
+      "darkStarts": "Tmavý od",
+      "useMyLocation": "Použít mou polohu",
+      "latitude": "Zeměpisná šířka",
+      "longitude": "Zeměpisná délka",
+      "locationNeeded": "Pro východ/západ slunce nastavte polohu",
+      "sunToday": "Dnes: východ {{sunrise}}, západ {{sunset}}",
+      "statusManual": "Ručně",
+      "statusSystem": "Auto · podle systému",
+      "statusUntil": "Auto · {{phase}} do {{time}}"
+    }
+  }
+}

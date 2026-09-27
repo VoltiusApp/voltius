@@ -1,0 +1,32 @@
+{
+  "folders": {
+    "card": {
+      "pin": "Připnout",
+      "unpin": "Odepnout",
+      "openFolder": "Otevřít složku",
+      "cloudSyncDisabled": "Synchronizace s cloudem vypnuta",
+      "unpinForMe": "Odepnout pro mě",
+      "showInMyView": "Zobrazit v mém pohledu",
+      "hideForMe": "Skrýt pro mě",
+      "pinForMe": "Připnout pro mě",
+      "unpinForTeam": "Odepnout pro tým",
+      "pinForTeam": "Připnout pro tým",
+      "exportFolder": "Exportovat složku",
+      "disableCloudSync": "Vypnout synchronizaci s cloudem",
+      "enableCloudSync": "Zapnout synchronizaci s cloudem",
+      "deleteFolder": "Smazat složku",
+      "itemCount_one": "{{count}} položka",
+      "itemCount_few": "{{count}} položky",
+      "itemCount_many": "{{count}} položky",
+      "itemCount_other": "{{count}} položek"
+    },
+    "editPanel": {
+      "nameLabel": "Název",
+      "cloudSyncLabel": "Synchronizace s cloudem",
+      "syncedToCloud": "Synchronizováno s cloudem",
+      "notSynced": "Nesynchronizováno",
+      "syncDisabledGlobally": "Synchronizace složek je globálně vypnuta v Nastavení → Synchronizace s cloudem.",
+      "createdLabel": "Vytvořeno"
+    }
+  }
+}
