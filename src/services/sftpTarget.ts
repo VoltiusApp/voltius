@@ -1,5 +1,6 @@
 import { sftpOpen, sftpConnect } from "@/services/sftp";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { resolveFirstHopProxy } from "@/services/proxy";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { genId } from "@/components/filetransfer/SFTPTypes";
@@ -27,9 +28,10 @@ export async function resolveSftpIdForTarget(target: RunTarget): Promise<string>
 }
 
 export async function sftpConnectToConnection(conn: Connection, connectId: string): Promise<string> {
-  const [creds, jumpHosts] = await Promise.all([
+  const [creds, jumpHosts, proxy] = await Promise.all([
     resolveConnectionCredentials(conn),
     resolveJumpHosts(conn),
+    resolveFirstHopProxy(conn),
   ]);
   const ka = resolveKeepalive(conn.keepalive_preset ?? getGlobalKeepalivePreset());
   return sftpConnect({
@@ -44,5 +46,6 @@ export async function sftpConnectToConnection(conn: Connection, connectId: strin
     keepaliveIntervalSecs: ka.intervalSecs,
     keepaliveMax: ka.max,
     legacyAlgorithms: conn.legacy_algorithms,
+    proxy,
   });
 }

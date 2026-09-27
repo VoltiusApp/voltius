@@ -103,6 +103,16 @@ describe("session error state", () => {
     expect(failed.errorCode).toBe("vault-unreadable");
   });
 
+  test("a proxy with no host fails a quick-connect session instead of leaving it connecting", async () => {
+    const quick = { ...connection, id: "q1", key_id: "k1", proxy: { mode: "socks5" } } as Connection;
+
+    await expect(useSessionStore.getState().connectDirect(quick)).rejects.toThrow(/no host/);
+
+    const failed = useSessionStore.getState().sessions[0];
+    expect(failed.status).toBe("error");
+    expect(failed.errorMessage).toMatch(/no host/);
+  });
+
   test("markConnecting clears a stale vault code along with the message", () => {
     seed({ status: "error", errorMessage: "boom", errorCode: "vault-unreadable" });
     useSessionStore.getState().markConnecting("s1");

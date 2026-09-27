@@ -118,6 +118,8 @@
       "clearFinished": "Clear finished transfers",
       "cancelTransfer": "Cancel transfer",
       "retryTransfer": "Retry transfer",
+      "skipped_one": "Skipped {{count}} name this system can't store:",
+      "skipped_other": "Skipped {{count}} names this system can't store:",
       "mcpTooltip": "Started by {{client}}",
       "mcpTooltipUnknown": "Started by an MCP client",
       "status": {

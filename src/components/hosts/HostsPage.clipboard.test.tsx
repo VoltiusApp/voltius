@@ -156,7 +156,16 @@ vi.mock("@/stores/connectionStore", () => ({
     renameTag: vi.fn(),
     deleteTag: vi.fn(),
   }),
-  connectionToFormData: (c: Connection) => ({ ...c }),
+  connectionToFormData: (c: Connection) => {
+    const form = { ...c } as Partial<Connection>;
+    delete form.id;
+    delete form.created_at;
+    delete form.updated_at;
+    delete form.deleted_at;
+    delete form.last_used_at;
+    delete form.clocks;
+    return form;
+  },
 }));
 vi.mock("@/stores/folderStore", () => ({
   useFolderStore: selectorStore({

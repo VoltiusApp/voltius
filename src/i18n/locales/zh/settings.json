@@ -359,12 +359,14 @@
       "updatesTitle": "更新",
       "checkForUpdate": "检查更新",
       "restartToUpdate": "重启以更新 · v{{version}}",
+      "downloadUpdate": "下载更新 · v{{version}}",
       "status": {
         "idle": "尚未检查",
         "checking": "正在检查更新…",
         "upToDate": "已是最新版本",
         "downloading": "正在下载 v{{version}} — {{progress}}%",
-        "ready": "v{{version}} 已准备好安装"
+        "ready": "v{{version}} 已准备好安装",
+        "available": "v{{version}} 可用"
       },
       "autoDownload": {
         "title": "自动下载更新",
@@ -948,6 +950,19 @@
         "balanced": { "label": "均衡", "detail": "约 9 秒；容忍短暂的网络波动" },
         "tolerant": { "label": "宽容", "detail": "约 20 秒；适用于不稳定的网络" },
         "off": { "label": "关闭", "detail": "不发送保持连接探测" }
+      },
+      "proxy": {
+        "title": "代理",
+        "desc": "通过代理进行 SSH、SFTP 和可达性检查。可按主机单独覆盖。",
+        "modes": {
+          "none": "不使用代理",
+          "system": "系统",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "detected": "已检测到：{{kind}} {{host}}:{{port}}",
+        "detectedNone": "已检测到：无（直接连接）",
+        "passwordSaveFailed": "无法保存代理密码：{{error}}"
       },
       "persistentSessions": {
         "title": "持久会话",

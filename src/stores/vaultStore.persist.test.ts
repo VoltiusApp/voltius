@@ -25,3 +25,12 @@ test("state saved before personal was persisted still restores the built-in pers
   expect(restored.vaults.map((v) => v.id)).toEqual(["personal", "v1"]);
   expect(restored.vaults[0].teamId).toBeUndefined();
 });
+
+test("a fresh install with nothing stored restores the built-in defaults", () => {
+  const { merge } = useVaultStore.persist.getOptions();
+  const restored = merge!(undefined as unknown as Persisted, useVaultStore.getState());
+
+  expect(restored.vaults.map((v) => v.id)).toEqual(["personal"]);
+  expect(restored.deletedVaults).toEqual({});
+  expect(restored.selectedVaultIds).toEqual(["personal"]);
+});

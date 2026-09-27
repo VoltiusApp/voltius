@@ -418,36 +418,7 @@ impl FileBackend for FtpBackend {
         Ok(())
     }
 
-    async fn download_dir(
-        &self,
-        app: &AppHandle,
-        remote_path: &str,
-        local_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        let mut stack = vec![(remote_path.to_string(), PathBuf::from(local_path))];
-        while let Some((rdir, ldir)) = stack.pop() {
-            tokio::fs::create_dir_all(&ldir)
-                .await
-                .map_err(|e| format!("Cannot create directory: {e}"))?;
-            for e in self.list_dir(&rdir).await? {
-                if token.is_cancelled() {
-                    return Err("Transfer cancelled".into());
-                }
-                let lpath = ldir.join(&e.name);
-                if e.is_dir {
-                    stack.push((e.path, lpath));
-                } else {
-                    self.download_file(app, &e.path, &lpath.to_string_lossy(), transfer_id, token)
-                        .await?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    // upload_batch / download_batch: the FileBackend per-item defaults.
+    // download_dir / upload_batch / download_batch: the FileBackend per-item defaults.
 }
 
 #[cfg(test)]

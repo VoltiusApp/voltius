@@ -17,7 +17,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { FIRST_PARTY_PLUGIN_IDS, releaseTagFor } from "./build-plugins.mjs";
+import { FIRST_PARTY_PLUGIN_IDS, isCliEntryPoint, releaseTagFor } from "./build-plugins.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -111,6 +111,6 @@ function main() {
   console.log(`check-plugin-versions: all ${FIRST_PARTY_PLUGIN_IDS.length} plugins OK.`);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isCliEntryPoint(import.meta.filename, process.argv[1])) {
   main();
 }

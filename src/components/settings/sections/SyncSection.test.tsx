@@ -108,9 +108,12 @@ describe("held-back settings summary", () => {
   );
   afterEach(cleanup);
 
-  test("counts the device-scoped default under App settings", () => {
+  test("counts the device-scoped defaults under App settings", () => {
     const { container } = render(<SyncSection />);
-    expect(el(container, "held-back-appSettings")?.textContent).toContain("1");
+    expect(el(container, "held-back-appSettings")?.textContent).toContain('"count":2');
+    fireEvent.click(el(container, "held-back-appSettings")!);
+    expect(el(container, "resume-appSettings.terminal.preferredShell")).toBeTruthy();
+    expect(el(container, "resume-appSettings.proxy")).toBeTruthy();
   });
 
   test("lists a held-back key and resumes it", () => {

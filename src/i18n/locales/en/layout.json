@@ -273,6 +273,7 @@
       "checkingForUpdates": "Checking for updates…",
       "downloadingUpdate": "Downloading update v{{version}}…",
       "updateReady": "Update v{{version}} ready — click to view & restart",
+      "updateAvailable": "Update v{{version}} available — click to view & download",
       "settings": "Settings",
       "addVault": "Add vault"
     }

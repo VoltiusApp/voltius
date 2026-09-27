@@ -273,6 +273,7 @@
       "checkingForUpdates": "Recherche de mises à jour…",
       "downloadingUpdate": "Téléchargement de la mise à jour v{{version}}…",
       "updateReady": "Mise à jour v{{version}} prête — cliquez pour voir et redémarrer",
+      "updateAvailable": "Mise à jour v{{version}} disponible — cliquez pour voir et télécharger",
       "settings": "Paramètres",
       "addVault": "Ajouter un coffre"
     }

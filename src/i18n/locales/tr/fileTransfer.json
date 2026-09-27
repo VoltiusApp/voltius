@@ -118,6 +118,8 @@
       "clearFinished": "Tamamlanan aktarımları temizle",
       "cancelTransfer": "Aktarımı iptal et",
       "retryTransfer": "Aktarımı tekrar dene",
+      "skipped_one": "Bu sistemin saklayamadığı {{count}} ad atlandı:",
+      "skipped_other": "Bu sistemin saklayamadığı {{count}} ad atlandı:",
       "mcpTooltip": "Başlatan: {{client}}",
       "mcpTooltipUnknown": "Bir MCP istemcisi tarafından başlatıldı",
       "status": {

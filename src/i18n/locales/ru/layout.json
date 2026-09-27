@@ -276,6 +276,7 @@
       "checkingForUpdates": "Проверка обновлений…",
       "downloadingUpdate": "Загрузка обновления v{{version}}…",
       "updateReady": "Обновление v{{version}} готово — нажмите, чтобы посмотреть и перезапустить",
+      "updateAvailable": "Доступно обновление v{{version}} — нажмите, чтобы посмотреть и скачать",
       "settings": "Настройки",
       "addVault": "Добавить хранилище"
     }

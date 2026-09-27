@@ -273,6 +273,7 @@
       "checkingForUpdates": "Güncellemeler denetleniyor…",
       "downloadingUpdate": "v{{version}} güncellemesi indiriliyor…",
       "updateReady": "v{{version}} güncellemesi hazır — görüntülemek ve yeniden başlatmak için tıklayın",
+      "updateAvailable": "v{{version}} güncellemesi mevcut — görüntülemek ve indirmek için tıklayın",
       "settings": "Ayarlar",
       "addVault": "Kasa ekle"
     }

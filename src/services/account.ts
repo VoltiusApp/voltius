@@ -6,6 +6,7 @@ import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { rememberServer } from "@/utils/serverInstance";
+import { base64ToBytes } from "@/utils/base64";
 
 function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
@@ -788,9 +789,7 @@ async function migrateToWrappedUserSecrets(
     // Derive existing deterministic X25519 keypair from legacy enc_key (= kek)
     const { private_key: legacyX25519PrivateB64 } = await deriveX25519Keypair(kek);
 
-    const legacyX25519Private = Array.from(
-      Uint8Array.from(atob(legacyX25519PrivateB64), (c) => c.charCodeAt(0))
-    );
+    const legacyX25519Private = Array.from(base64ToBytes(legacyX25519PrivateB64));
 
     const secrets = await generateUserSecrets();
     const dek = secrets.dek;

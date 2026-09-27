@@ -30,21 +30,19 @@ import { snippetsClipboardHalf } from "@/services/clipboard/snippets";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
 import { cloneFolderTree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
-import { connectionToFormData } from "@/stores/connectionStore";
 import { snippetToForm } from "@/utils/snippetForm";
 import { ruleToForm } from "@/utils/portForwardingForm";
 import { getSecret, storeSecret } from "@/services/vault";
 import {
-  transferConnectionSecrets,
   transferIdentitySecrets,
   transferKeySecrets,
 } from "@/services/vaultSecrets";
 import {
-  publishConnectionSecrets,
   publishIdentitySecrets,
   publishKeySecrets,
   withdrawOrWarn,
 } from "@/services/vaultObjectSecrets";
+import { duplicateConnection, moveConnectionToVault } from "@/services/connectionDuplicate";
 import { vaultOf } from "./vaultOf";
 
 export type ObjectTab = "hosts" | "keychain" | "port_forwarding" | "snippets";
@@ -226,23 +224,8 @@ const cloneName = (name: string | undefined, keepName: boolean | undefined): str
   name ? (keepName ? name : `${name} (copy)`) : undefined;
 
 function duplicators(ports: ObjectPorts) {
-  const connection = async (conn: Connection, folderId: string | null, opts: DuplicateOpts = {}) => {
-    const vaultId = opts.vaultId ?? vaultOf(conn);
-    const created = await ports.saveConnection({
-      ...connectionToFormData(conn),
-      name: cloneName(conn.name, opts.keepName),
-      identity_id: opts.identityId ?? conn.identity_id,
-      key_id: opts.keyId ?? conn.key_id,
-      folder_id: folderId ?? undefined,
-      vault_id: vaultId,
-    });
-    if (conn.connection_type !== "serial") {
-      await copySecret(`password:${conn.id}`, `password:${created.id}`);
-      if (!conn.key_id) await copySecret(`key:${conn.id}`, `key:${created.id}`);
-      await publishConnectionSecrets(created.id, vaultId);
-    }
-    return created;
-  };
+  const connection = (conn: Connection, folderId: string | null, opts: DuplicateOpts = {}) =>
+    duplicateConnection(conn, folderId, opts, ports.saveConnection);
 
   const key = async (k: SshKey, folderId: string | null, opts: DuplicateOpts = {}) => {
     const vaultId = opts.vaultId ?? vaultOf(k);
@@ -378,9 +361,7 @@ function folderOpsFor(ports: ObjectPorts, tab: ObjectTab): FolderOps {
   const migrateSubtreeItems: FolderOps["migrateSubtreeItems"] = async (rootId, vaultId) => {
     if (tab === "hosts") {
       for (const c of under(ports.connections(), rootId)) {
-        const from = vaultOf(c);
-        await ports.updateConnection(c.id, { ...connectionToFormData(c), vault_id: vaultId });
-        await transferConnectionSecrets(c.id, from, vaultId);
+        await moveConnectionToVault(c, vaultId, ports.updateConnection);
       }
       return;
     }

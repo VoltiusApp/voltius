@@ -614,6 +614,26 @@ mod tests {
     }
 
     #[test]
+    fn strip_excluded_withholds_the_global_proxy_password_by_its_id_segment() {
+        let mut files = HashMap::new();
+        let mut secrets: HashMap<String, String> = [
+            ("proxy_password:__global__", "g"),
+            ("proxy_password:h1", "h"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+        let mut clocks = secrets.clone();
+        let excluded: HashSet<String> = ["__global__".to_string()].into_iter().collect();
+        strip_excluded(&mut files, &mut secrets, &mut clocks, &excluded);
+        assert_eq!(
+            secrets.keys().collect::<Vec<_>>(),
+            vec!["proxy_password:h1"]
+        );
+        assert_eq!(clocks.keys().collect::<Vec<_>>(), vec!["proxy_password:h1"]);
+    }
+
+    #[test]
     fn strip_excluded_empty_set_is_noop() {
         let mut files = HashMap::new();
         files.insert(

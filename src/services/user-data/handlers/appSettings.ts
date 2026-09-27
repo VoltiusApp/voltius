@@ -5,7 +5,12 @@ import { CURSOR_STYLES, useTerminalSettingsStore, type TerminalCursorStyle } fro
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useToggleSettingsStore, TOGGLE_DEFS, type ToggleId } from "@/stores/toggleSettingsStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
-import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
+import {
+  useConnectivitySettingsStore,
+  GLOBAL_PROXY_MODES,
+  type GlobalProxy,
+  type GlobalProxyMode,
+} from "@/stores/connectivitySettingsStore";
 import { useLocaleStore, SUPPORTED_LOCALES, type Locale } from "@/stores/localeStore";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { lastWriteWins, type UserDataHandler } from "../handler";
@@ -17,6 +22,20 @@ interface AppSettingsData {
   toggles?: Partial<Record<string, boolean>>;
   keepalivePreset?: KeepalivePreset;
   locale?: Locale;
+  proxy?: GlobalProxy;
+}
+
+// Sync input is untrusted: rebuild a fresh object field-by-field instead of
+// trusting the sender's types, so a bad host/port never reaches the Rust IPC.
+function normalizeGlobalProxy(raw: unknown): GlobalProxy | null {
+  if (!raw || typeof raw !== "object") return null;
+  const { mode, host, port, username } = raw as Record<string, unknown>;
+  if (typeof mode !== "string" || !GLOBAL_PROXY_MODES.includes(mode as GlobalProxyMode)) return null;
+  const out: GlobalProxy = { mode: mode as GlobalProxyMode };
+  if (typeof host === "string" && host.trim()) out.host = host.trim();
+  if (typeof port === "number" && Number.isInteger(port) && port >= 1 && port <= 65535) out.port = port;
+  if (typeof username === "string" && username.trim()) out.username = username.trim();
+  return out;
 }
 
 export const appSettingsHandler: UserDataHandler = {
@@ -36,6 +55,7 @@ export const appSettingsHandler: UserDataHandler = {
       toggles: { ...values },
       keepalivePreset: useConnectivitySettingsStore.getState().keepalivePreset,
       locale: useLocaleStore.getState().locale,
+      proxy: useConnectivitySettingsStore.getState().proxy,
     };
   },
 
@@ -71,6 +91,8 @@ export const appSettingsHandler: UserDataHandler = {
     if (d.locale && SUPPORTED_LOCALES.some((l) => l.value === d.locale)) {
       useLocaleStore.getState().setLocale(d.locale);
     }
+    const proxy = normalizeGlobalProxy(d.proxy);
+    if (proxy) useConnectivitySettingsStore.setState({ proxy });
   },
 
   merge: lastWriteWins,

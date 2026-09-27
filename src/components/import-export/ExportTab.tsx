@@ -6,7 +6,7 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { usePermissions } from "@/hooks/usePermission";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
-import { encryptText, toJSON } from "@/services/import-export/formats";
+import { encryptText, secretBearingTypes, toJSON } from "@/services/import-export/formats";
 import { connectionsToCSV } from "@/services/import-export/parsers/csv";
 import type { ExportBundle } from "@/services/import-export/formats";
 import { HANDLERS, buildBundle } from "@/services/import-export/registry";
@@ -18,7 +18,7 @@ import { ActionBtn, VaultChipSelect } from "./shared";
 import { Checkbox } from "@/components/shared/Checkbox";
 import { Toggle } from "@/components/shared/Toggle";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
-import { saveTextFile } from "@/services/saveFile";
+import { notify, saveTextFile } from "@/services/saveFile";
 
 export function ExportTab({ selection, preselectedTypes }: {
   selection: SelectionProps;
@@ -90,10 +90,7 @@ export function ExportTab({ selection, preselectedTypes }: {
       const counts: Record<string, number> = { folders: bundle.folders.length };
       for (const h of HANDLERS) counts[h.key] = (bundle[h.key as keyof ExportBundle] as unknown[])?.length ?? 0;
       setBundleCounts(counts);
-      const hasSecrets =
-        bundle.connections.some(c => c.password || c.private_key || c.passphrase || c.notes) ||
-        bundle.identities.some(i => i.password) ||
-        bundle.keys.some(k => k.private_key || k.passphrase);
+      const hasSecrets = secretBearingTypes(bundle).length > 0;
       setBundleHasSecrets(hasSecrets);
       if (hasSecrets && !encryptTouched.current) setEncrypt(true);
       setPreview(isCsvOnly ? connectionsToCSV(bundle.connections) : toJSON(bundle));
@@ -125,16 +122,26 @@ export function ExportTab({ selection, preselectedTypes }: {
     return { content: preview, ext: format === "csv" ? "csv" : "json" };
   };
 
-  const handleCopy = async () => {
+  // Without the catch a failed encryption or clipboard write leaves the button
+  // doing nothing at all.
+  const reportingErrors = (action: () => Promise<void>) => async () => {
+    try {
+      await action();
+    } catch (e) {
+      notify("error", t("importExport.export.exportFailed", { error: e instanceof Error ? e.message : String(e) }));
+    }
+  };
+
+  const handleCopy = reportingErrors(async () => {
     const { content } = await getExportContent();
     await writeClipboard(content);
     flashCopied();
-  };
+  });
 
-  const handleDownload = async () => {
+  const handleDownload = reportingErrors(async () => {
     const { content, ext } = await getExportContent();
     await saveTextFile(`voltius-export.${ext}`, content);
-  };
+  });
 
   const exportsType = (key: string) => included[key] && handlerActive(key, selection);
   const showRelatedCredentials = !isCsvOnly && (bundleCounts["connections"] ?? 0) > 0 && !(exportsType("identities") && exportsType("keys"));

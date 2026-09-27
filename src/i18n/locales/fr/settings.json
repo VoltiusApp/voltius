@@ -465,12 +465,14 @@
       "updatesTitle": "Mises à jour",
       "checkForUpdate": "Vérifier les mises à jour",
       "restartToUpdate": "Redémarrer pour mettre à jour · v{{version}}",
+      "downloadUpdate": "Télécharger la mise à jour · v{{version}}",
       "status": {
         "idle": "Pas encore vérifié",
         "checking": "Vérification des mises à jour…",
         "upToDate": "Vous êtes à jour",
         "downloading": "Téléchargement de v{{version}} — {{progress}} %",
-        "ready": "v{{version}} prête à installer"
+        "ready": "v{{version}} prête à installer",
+        "available": "v{{version}} disponible"
       },
       "autoDownload": {
         "title": "Téléchargement automatique des mises à jour",
@@ -886,6 +888,19 @@
           "label": "Désactivé",
           "detail": "Aucune sonde de keepalive"
         }
+      },
+      "proxy": {
+        "title": "Proxy",
+        "desc": "Fait passer SSH, SFTP et les tests d'accessibilité par un proxy. Peut être remplacé par hôte.",
+        "modes": {
+          "none": "Aucun proxy",
+          "system": "Système",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "detected": "Détecté : {{kind}} {{host}}:{{port}}",
+        "detectedNone": "Détecté : aucun (connexion directe)",
+        "passwordSaveFailed": "Impossible d'enregistrer le mot de passe du proxy : {{error}}"
       },
       "persistentSessions": {
         "title": "Sessions persistantes",

@@ -170,7 +170,7 @@
       "unsupportedUserDataVersion": "Unsupported user data version: {{version}}",
       "failedToLoadLogs": "Failed to load logs",
       "couldNotDetectFormat": "Could not detect format. Supported: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions, or live Termius extraction.",
-      "csvMissingColumns": "CSV must have at least 'host' and 'username' columns",
+      "csvMissingColumns": "CSV must have a 'host' column",
       "termiusDumpInvalidJson": "Termius dump must be valid JSON",
       "legacyTermiusUnsupported": "Legacy Termius dump format is no longer supported; use Auto Extract.",
       "termiusExtractionFormat": "Termius extraction must return { version: 2, records: [...] }",

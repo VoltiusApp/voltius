@@ -1,16 +1,22 @@
 use crate::known_hosts::KnownHostsStore;
-use crate::ssh::client::{authenticate_handle, JumpHostConnect, SshClient};
+use crate::proxy::ProxySpec;
+use crate::ssh::client::{authenticate_handle, connect_first_hop, JumpHostConnect, SshClient};
 use crate::ssh::session::SessionManager;
 use russh::client;
 use std::sync::Arc;
 use std::time::Duration;
 
 #[tauri::command]
-pub async fn ping_host(host: String, port: u16) -> Option<u32> {
+pub async fn ping_host(host: String, port: u16, proxy: Option<ProxySpec>) -> Option<u32> {
+    let limit = if matches!(proxy, None | Some(ProxySpec::Direct)) {
+        1500
+    } else {
+        5000
+    };
     let start = std::time::Instant::now();
     tokio::time::timeout(
-        Duration::from_millis(1500),
-        tokio::net::TcpStream::connect(format!("{}:{}", host, port)),
+        Duration::from_millis(limit),
+        crate::proxy::dial(proxy.as_ref(), &host, port),
     )
     .await
     .ok()
@@ -24,12 +30,13 @@ pub async fn ping_host_via_jumps(
     port: u16,
     jump_hosts: Vec<JumpHostConnect>,
     known_hosts: tauri::State<'_, Arc<KnownHostsStore>>,
+    proxy: Option<ProxySpec>,
 ) -> Result<Option<u32>, ()> {
     let kh = Arc::clone(&*known_hosts);
     let start = std::time::Instant::now();
     let reachable = tokio::time::timeout(
         Duration::from_secs(8),
-        ping_via_chain(host, port, jump_hosts, kh),
+        ping_via_chain(host, port, jump_hosts, kh, proxy),
     )
     .await
     .unwrap_or(false);
@@ -41,12 +48,13 @@ async fn ping_via_chain(
     port: u16,
     jump_hosts: Vec<JumpHostConnect>,
     known_hosts: Arc<KnownHostsStore>,
+    proxy: Option<ProxySpec>,
 ) -> bool {
     let config = Arc::new(client::Config::default());
 
-    // No jumps — plain TCP
+    // No jumps — plain TCP (or proxied)
     if jump_hosts.is_empty() {
-        return tokio::net::TcpStream::connect(format!("{}:{}", host, port))
+        return crate::proxy::dial(proxy.as_ref(), &host, port)
             .await
             .is_ok();
     }
@@ -55,12 +63,15 @@ async fn ping_via_chain(
     let first = &jump_hosts[0];
     let (first_client, _) =
         SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
-    let mut current = match client::connect(
+    let mut current = match connect_first_hop(
         Arc::clone(&config),
-        (first.host.as_str(), first.port),
+        proxy.as_ref(),
+        &first.host,
+        first.port,
         first_client,
     )
     .await
+    .map(|(h, _)| h)
     {
         Ok(h) => h,
         Err(_) => return false,
