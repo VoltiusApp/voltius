@@ -7,6 +7,7 @@ import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { rememberServer } from "@/utils/serverInstance";
 import { base64ToBytes } from "@/utils/base64";
+import type { SavedAccount } from "./savedAccounts";
 
 function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
@@ -277,13 +278,7 @@ export async function createLocalAccount(password: string): Promise<void> {
   await keychainSet("mode", "local");
 }
 
-/** Cloud account — registers on server and stores JWT. */
-export async function createServerAccount(
-  email: string,
-  password: string,
-  serverUrl: string,
-): Promise<void> {
-  serverUrl = normalizeServerUrl(serverUrl);
+async function registerServerAccount(email: string, password: string, serverUrl: string) {
   const accountId = crypto.randomUUID();
   const { auth_key, enc_key } = await deriveKeys(password, accountId);
   const secrets = await generateUserSecrets();
@@ -296,8 +291,20 @@ export async function createServerAccount(
     serverUrl, email, accountId, authKey: auth_key,
     publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets,
   });
+  return { accountId, kek: enc_key, secrets, wrapped_user_secrets, data };
+}
 
-  useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek: enc_key });
+/** Cloud account — registers on server and stores JWT. */
+export async function createServerAccount(
+  email: string,
+  password: string,
+  serverUrl: string,
+): Promise<void> {
+  serverUrl = normalizeServerUrl(serverUrl);
+  const { accountId, kek, secrets, wrapped_user_secrets, data } =
+    await registerServerAccount(email, password, serverUrl);
+
+  useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek });
   setVaultKey(secrets.dek);
 
   await persistServerSession({
@@ -620,13 +627,7 @@ function authFailure(status: number, expected: string): Error {
   return new Error(i18n.t("common.error.serverError", { status }));
 }
 
-/** Sign in to an existing cloud account (any local mode — replaces local identity). */
-export async function signInToCloud(
-  email: string,
-  password: string,
-  serverUrl: string,
-): Promise<void> {
-  serverUrl = normalizeServerUrl(serverUrl);
+async function signInServerAccount(email: string, password: string, serverUrl: string) {
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
   if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
   const { account_id: accountId } = await res.json();
@@ -639,7 +640,18 @@ export async function signInToCloud(
     body: JSON.stringify({ account_id: accountId, auth_key }),
   });
   if (!loginRes.ok) throw authFailure(loginRes.status, "common.error.invalidEmailOrPassword");
-  const data = await loginRes.json();
+  const data: { jwt_token: string; refresh_token: string; wrapped_user_secrets?: string | null } = await loginRes.json();
+  return { accountId: accountId as string, kek, data };
+}
+
+/** Sign in to an existing cloud account (any local mode — replaces local identity). */
+export async function signInToCloud(
+  email: string,
+  password: string,
+  serverUrl: string,
+): Promise<void> {
+  serverUrl = normalizeServerUrl(serverUrl);
+  const { accountId, kek, data } = await signInServerAccount(email, password, serverUrl);
 
   let vaultKey = kek;
   if (data.wrapped_user_secrets) {
@@ -662,6 +674,31 @@ export async function signInToCloud(
   // config_wipe also clears the JSON entity files; clearLocalEntityState will repopulate
   // them with empty arrays so syncOnLogin starts from a clean slate.
   await wipeLocalConfig();
+}
+
+/** Sign in to, or register, another cloud account without touching the active session. */
+export async function authenticateServerAccount(
+  kind: "signin" | "register",
+  email: string,
+  password: string,
+  serverUrl: string,
+): Promise<Omit<SavedAccount, "mode">> {
+  serverUrl = normalizeServerUrl(serverUrl);
+  const { accountId, data, wrapped_user_secrets } = kind === "register"
+    ? await registerServerAccount(email, password, serverUrl)
+    : await signInServerAccount(email, password, serverUrl).then((r) => ({
+      ...r, wrapped_user_secrets: r.data.wrapped_user_secrets ?? null,
+    }));
+  rememberServer(serverUrl);
+  return {
+    account_id: accountId,
+    email,
+    server_url: serverUrl,
+    master_password: password,
+    jwt: data.jwt_token,
+    refresh_token: data.refresh_token,
+    wrapped_user_secrets,
+  };
 }
 
 /** Link an existing local account to a cloud server — registers and enables sync. */

@@ -57,6 +57,8 @@
       "signinTitle": "Connexion au compte cloud",
       "registerDesc": "Créez un compte pour synchroniser ce coffre et débloquer les fonctionnalités cloud. Vos données restent chiffrées de bout en bout.",
       "signinDesc": "Connectez-vous pour activer la synchronisation, les abonnements, les fonctionnalités d'équipe et les coffres partagés.",
+      "addTitle": "Ajouter un autre compte",
+      "addDesc": "Connectez-vous à un autre compte cloud ou créez-en un. Le compte actuel reste dans le menu du compte pour y revenir.",
       "createMasterPasswordPlaceholder": "Créer un mot de passe principal",
       "confirmMasterPasswordPlaceholder": "Confirmer le mot de passe principal",
       "errorPasswordRequired": "Mot de passe requis",

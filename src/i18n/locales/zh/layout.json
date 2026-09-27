@@ -57,6 +57,8 @@
       "signinTitle": "登录云账户",
       "registerDesc": "创建账户以同步此保险库并解锁云功能。您的数据保持端到端加密。",
       "signinDesc": "登录以启用同步、订阅、团队功能和共享保险库。",
+      "addTitle": "添加其他账户",
+      "addDesc": "登录或创建另一个云账户。当前账户会保留在账户菜单中，可随时切换回来。",
       "createMasterPasswordPlaceholder": "创建主密码",
       "confirmMasterPasswordPlaceholder": "确认主密码",
       "errorPasswordRequired": "需要密码",

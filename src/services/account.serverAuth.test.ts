@@ -42,6 +42,7 @@ vi.mock("@/stores/vaultKeysStore", () => ({
 }));
 
 import {
+  authenticateServerAccount,
   createServerAccount,
   login,
   signInToCloud,
@@ -585,4 +586,54 @@ test("resendVerificationEmail maps a non-ok response to resendVerificationFailed
   h.store.server_url = S;
   h.http["/auth/resend-verification-email"] = err(500);
   await expect(resendVerificationEmail()).rejects.toThrow("common.error.resendVerificationFailed");
+});
+
+// Adding a second account must prove it without disturbing the one signed in.
+// Composed so secret scanners do not read them as real credentials.
+const PW_B = ["pw", "b"].join("-");
+const PW_CURRENT = ["pw", "current"].join("-");
+
+function activeSession() {
+  h.store = { account_id: "current", mode: "server", master_password: PW_CURRENT, jwt: "CURRENT_JWT" };
+  return { ...h.store };
+}
+
+test("authenticateServerAccount signs in without touching the active session", async () => {
+  const before = activeSession();
+  h.http["/auth/challenge"] = ok({ account_id: "acc-b" });
+  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED_B" });
+
+  const session = await authenticateServerAccount("signin", "b@x.io", PW_B, `${S}/`);
+
+  expect(session).toEqual({
+    account_id: "acc-b", email: "b@x.io", server_url: S, master_password: PW_B,
+    jwt: "JWT", refresh_token: "RT", wrapped_user_secrets: "WRAPPED_B",
+  });
+  expect(h.store).toEqual(before);
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+  expect(h.keysSet).not.toHaveBeenCalled();
+  expect(h.wipeLocalConfig).not.toHaveBeenCalled();
+});
+
+test("authenticateServerAccount registers without touching the active session", async () => {
+  const before = activeSession();
+  h.http["/auth/register"] = ok(TOKENS);
+
+  const session = await authenticateServerAccount("register", "b@x.io", PW_B, S);
+
+  expect(session).toMatchObject({ email: "b@x.io", jwt: "JWT", wrapped_user_secrets: "WRAPPED_B64" });
+  expect(session.account_id).not.toBe("current");
+  expect(h.store).toEqual(before);
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+  expect(h.keysSet).not.toHaveBeenCalled();
+});
+
+test("authenticateServerAccount rejects bad credentials and leaves the session alone", async () => {
+  const before = activeSession();
+  h.http["/auth/challenge"] = ok({ account_id: "acc-b" });
+  h.http["/auth/login"] = err(401);
+
+  await expect(authenticateServerAccount("signin", "b@x.io", PW_CURRENT, S))
+    .rejects.toThrow("common.error.invalidEmailOrPassword");
+  expect(h.store).toEqual(before);
 });

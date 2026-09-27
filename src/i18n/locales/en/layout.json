@@ -57,6 +57,8 @@
       "signinTitle": "Sign in to cloud account",
       "registerDesc": "Create an account to sync this vault and unlock cloud features. Your data stays end-to-end encrypted.",
       "signinDesc": "Sign in to enable sync, subscriptions, team features, and shared vaults.",
+      "addTitle": "Add another account",
+      "addDesc": "Sign in to or create another cloud account. The current one stays in the account menu to switch back to.",
       "createMasterPasswordPlaceholder": "Create master password",
       "confirmMasterPasswordPlaceholder": "Confirm master password",
       "errorPasswordRequired": "Password required",

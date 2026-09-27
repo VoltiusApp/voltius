@@ -9,7 +9,6 @@ const h = vi.hoisted(() => ({
   getSwitchTargets: vi.fn(async (): Promise<SavedAccount[]> => []),
   saveCurrentAccount: vi.fn(async () => {}),
   switchToAccount: vi.fn(async () => {}),
-  signOutToAddAccount: vi.fn(async () => {}),
   removeSavedAccount: vi.fn(async () => {}),
   keychain: {} as Record<string, string | null>,
 }));
@@ -34,7 +33,6 @@ vi.mock("@/services/savedAccounts", () => ({
   getSwitchTargets: h.getSwitchTargets,
   saveCurrentAccount: h.saveCurrentAccount,
   switchToAccount: h.switchToAccount,
-  signOutToAddAccount: h.signOutToAddAccount,
   removeSavedAccount: h.removeSavedAccount,
 }));
 
@@ -163,10 +161,13 @@ test("the auto-lock row opens the account settings section", async () => {
   expect(useUIStore.getState().settingsSection).toBe("account");
 });
 
-test("a cloud account can add another one without signing out", async () => {
+test("adding another account opens the sign-in modal and leaves the session alone", async () => {
+  useUIStore.setState({ cloudAuthOpen: false });
   await openMenu();
   await userEvent.click(await screen.findByText("layout.sidebarAccount.addAccount"));
-  expect(h.signOutToAddAccount).toHaveBeenCalled();
+
+  expect(useUIStore.getState()).toMatchObject({ cloudAuthOpen: true, cloudAuthPurpose: "add" });
+  expect(h.switchToAccount).not.toHaveBeenCalled();
 });
 
 test("a local account is not offered the add-account route", async () => {
@@ -223,19 +224,4 @@ test("the header still reads Cloud account on the official instance", async () =
   await openMenu();
 
   await screen.findByText("layout.sidebarAccount.modeCloud");
-});
-
-test("adding another account stops when the current one could not be saved", async () => {
-  h.signOutToAddAccount.mockRejectedValueOnce(new Error("Saved accounts could not be read"));
-  await openMenu();
-
-  await userEvent.click(await screen.findByText("layout.sidebarAccount.addAccount"));
-
-  await waitFor(() =>
-    expect(
-      useNotificationStore.getState().toasts.some((toast) =>
-        toast.message.startsWith("layout.sidebarAccount.saveFailed"),
-      ),
-    ).toBe(true),
-  );
 });

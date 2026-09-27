@@ -57,6 +57,8 @@
       "signinTitle": "Bulut hesabında oturum aç",
       "registerDesc": "Bu kasayı eşitlemek ve bulut özelliklerini açmak için bir hesap oluşturun. Verileriniz uçtan uca şifreli kalır.",
       "signinDesc": "Eşitlemeyi, abonelikleri, ekip özelliklerini ve paylaşılan kasaları etkinleştirmek için oturum açın.",
+      "addTitle": "Başka bir hesap ekle",
+      "addDesc": "Başka bir bulut hesabında oturum açın veya yeni bir hesap oluşturun. Mevcut hesap, geri dönebilmeniz için hesap menüsünde kalır.",
       "createMasterPasswordPlaceholder": "Ana parola oluşturun",
       "confirmMasterPasswordPlaceholder": "Ana parolayı onaylayın",
       "errorPasswordRequired": "Parola gerekli",
