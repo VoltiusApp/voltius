@@ -59,6 +59,29 @@ impl KnownHostsStore {
         }
     }
 
+    /// An in-memory store already trusting each `(host, port, fingerprint)`. For tests.
+    #[cfg(test)]
+    pub fn pinned(keys: &[(&str, u16, &str)]) -> Self {
+        let entries = keys
+            .iter()
+            .map(|&(host, port, fingerprint)| KnownHost {
+                id: Uuid::new_v4().to_string(),
+                host: host.to_string(),
+                port,
+                fingerprint: fingerprint.to_string(),
+                name: None,
+                vault_id: "personal".to_string(),
+                created_at: String::new(),
+                updated_at: String::new(),
+                deleted_at: None,
+                clocks: HashMap::new(),
+            })
+            .collect();
+        Self {
+            entries: Mutex::new(entries),
+        }
+    }
+
     /// Load from disk, migrating the old HashMap-based format if present.
     pub fn load() -> Arc<Self> {
         // A corrupt file is already renamed aside by load_json, so this fallback loses nothing.

@@ -11,7 +11,7 @@ use tokio::net::TcpListener;
 
 /// Derived at runtime rather than embedded as a key file: the client here
 /// accepts any host key, so the seed only has to be stable within a test run.
-fn host_key() -> PrivateKey {
+pub fn host_key() -> PrivateKey {
     let mut seed = [0u8; 32];
     for (i, b) in seed.iter_mut().enumerate() {
         *b = i as u8;

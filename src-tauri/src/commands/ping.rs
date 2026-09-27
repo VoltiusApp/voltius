@@ -1,6 +1,6 @@
 use crate::known_hosts::KnownHostsStore;
 use crate::proxy::ProxySpec;
-use crate::ssh::client::{authenticate_handle, connect_first_hop, JumpHostConnect, SshClient};
+use crate::ssh::client::{chain_jumps, JumpHostConnect};
 use crate::ssh::session::SessionManager;
 use russh::client;
 use std::sync::Arc;
@@ -59,66 +59,21 @@ async fn ping_via_chain(
             .is_ok();
     }
 
-    // Connect + auth through the first jump host
     let first = &jump_hosts[0];
-    let first_client = SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
-    let mut current = match connect_first_hop(
-        Arc::clone(&config),
-        proxy.as_ref(),
-        &first.host,
-        first.port,
-        first_client,
-    )
-    .await
-    .map(|(h, _)| h)
-    {
-        Ok(h) => h,
-        Err(_) => return false,
+    let Ok((mut current, _)) = first
+        .connect_first(&config, proxy.as_ref(), &known_hosts, 1)
+        .await
+    else {
+        return false;
     };
-    if authenticate_handle(
-        &mut current,
-        &first.username,
-        first.password.as_deref(),
-        first.private_key.as_deref(),
-        first.passphrase.as_deref(),
-    )
-    .await
-    .is_err()
-    {
+    if first.authenticate(&mut current).await.is_err() {
         return false;
     }
-
-    // Chain remaining jump hosts
-    for jump in &jump_hosts[1..] {
-        let channel = match current
-            .channel_open_direct_tcpip(jump.host.as_str(), jump.port as u32, "127.0.0.1", 0)
-            .await
-        {
-            Ok(c) => c,
-            Err(_) => return false,
-        };
-        let next_client = SshClient::new(jump.host.clone(), jump.port, Arc::clone(&known_hosts));
-        let mut next =
-            match client::connect_stream(Arc::clone(&config), channel.into_stream(), next_client)
-                .await
-            {
-                Ok(h) => h,
-                Err(_) => return false,
-            };
-        if authenticate_handle(
-            &mut next,
-            &jump.username,
-            jump.password.as_deref(),
-            jump.private_key.as_deref(),
-            jump.passphrase.as_deref(),
-        )
-        .await
-        .is_err()
-        {
-            return false;
-        }
-        current = next;
-    }
+    let Ok((current, _passed)) =
+        chain_jumps(current, &jump_hosts[1..], &config, &known_hosts, |_| {}).await
+    else {
+        return false;
+    };
 
     // Probe the final host via direct-tcpip — success means it's reachable
     current
