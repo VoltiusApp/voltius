@@ -99,9 +99,7 @@ impl SecretsStore {
         save(inner)
     }
 
-    /// Remove every key present, tombstoning each removed key. Returns the keys
-    /// actually removed; absent keys are silently skipped and no write happens
-    /// when nothing was removed.
+    /// Tombstones only keys that existed, and skips the write when none did.
     pub fn purge(&self, keys: &[String]) -> Result<Vec<String>, AppError> {
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().ok_or(LOCKED_ERR)?;
