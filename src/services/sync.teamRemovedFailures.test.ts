@@ -10,9 +10,10 @@ const h = vi.hoisted(() => ({
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
-  deleteLocalSecret: vi.fn(async (k: string) => {
-    if (h.failing.has(k)) throw new Error("keychain unavailable");
-    h.deleted.push(k);
+  purgeLocalSecrets: vi.fn(async (keys: string[]) => {
+    if (keys.some((k) => h.failing.has(k))) throw new Error("keychain unavailable");
+    h.deleted.push(...keys);
+    return keys;
   }),
 }));
 
@@ -112,7 +113,11 @@ test("queues and reports the secrets a failed wipe left on the device", async ()
   await handleRealtimeEvent("membership_changed", "device-1");
 
   await vi.waitFor(() => {
-    expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({ t2: ["password:c-t2"] });
+    // A rejected purge is all-or-nothing: every key of the batch survives, not
+    // just the one that triggered the failure.
+    expect(usePendingSecretWipeStore.getState().keysByTeamId["t2"]).toEqual(
+      expect.arrayContaining(["password:c-t2", "key:k-t2:private"]),
+    );
     expect(h.notWiped).toEqual(["t2/team-t2"]);
   });
 });

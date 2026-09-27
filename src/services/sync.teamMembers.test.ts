@@ -3,6 +3,7 @@ import { test, expect, vi, beforeEach } from "vitest";
 const h = vi.hoisted(() => ({
   reconcileTeamVaultKeys: vi.fn(async () => {}),
   checkAndRotateTeamKey: vi.fn(async () => {}),
+  fetchTeamData: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
@@ -22,6 +23,7 @@ vi.mock("@/services/teamService", async (importOriginal) => ({
 vi.mock("@/services/teamVaultSync", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/teamVaultSync")>()),
   reconcileTeamVaultKeys: h.reconcileTeamVaultKeys,
+  fetchTeamData: h.fetchTeamData,
 }));
 
 vi.mock("@/services/teamKeyRotation", () => ({
@@ -33,6 +35,7 @@ import { handleRealtimeEvent } from "./sync";
 beforeEach(() => {
   h.reconcileTeamVaultKeys.mockClear();
   h.checkAndRotateTeamKey.mockClear();
+  h.fetchTeamData.mockClear();
 });
 
 test("a team_members event checks for a DEK rotation alongside key reconciliation", async () => {
@@ -40,4 +43,9 @@ test("a team_members event checks for a DEK rotation alongside key reconciliatio
 
   expect(h.reconcileTeamVaultKeys).toHaveBeenCalledWith("t1");
   expect(h.checkAndRotateTeamKey).toHaveBeenCalledWith("t1");
+});
+
+test("a role or permission change refreshes the team's vault in the background", async () => {
+  await handleRealtimeEvent("team_members:t1", "dev1");
+  await vi.waitFor(() => expect(h.fetchTeamData).toHaveBeenCalledWith("t1", { background: true }));
 });

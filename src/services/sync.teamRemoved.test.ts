@@ -1,15 +1,20 @@
 import { test, expect, vi, beforeEach } from "vitest";
 
-const h = vi.hoisted(() => ({
-  deleted: [] as string[],
-}));
+const h = vi.hoisted(() => {
+  const deleted: string[] = [];
+  return {
+    deleted,
+    purge: vi.fn(async (keys: string[]) => {
+      deleted.push(...keys);
+      return keys;
+    }),
+  };
+});
 
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
-  deleteLocalSecret: vi.fn(async (k: string) => {
-    h.deleted.push(k);
-  }),
+  purgeLocalSecrets: h.purge,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
@@ -29,13 +34,16 @@ vi.mock("@/services/teamDataManager", () => ({
 
 import { clearTeamStoresAndSecrets } from "./teamVaultSync";
 import { handleRealtimeEvent } from "./sync";
+import { teamSecretCache } from "@/services/teamSecretCache";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
 
 beforeEach(() => {
-  h.deleted = [];
+  h.deleted.length = 0;
+  h.purge.mockClear();
+  teamSecretCache.clearAll();
   useConnectionStore.setState({ teamConnections: {} });
   useKeyStore.setState({ teamKeys: {} });
   useIdentityStore.setState({ teamIdentities: {} });
@@ -97,4 +105,17 @@ test("wipes the keychain before onTeamRemoved empties the stores", async () => {
     ),
   );
   expect(useConnectionStore.getState().teamConnections.t1 ?? []).toEqual([]);
+});
+
+test("removal from a team drops its cached secrets and purges local copies in one call", async () => {
+  teamSecretCache.set("t1", "password:c1", "pw");
+  teamSecretCache.set("t2", "password:c2", "keep");
+  useTeamStore.setState({ teams: [{ id: "t1", name: "Ops", role_ids: [] } as never] });
+  seedTeamObjects();
+
+  await handleRealtimeEvent("membership_changed", "device-1");
+
+  await vi.waitFor(() => expect(teamSecretCache.get("t1", "password:c1")).toBeUndefined());
+  expect(teamSecretCache.get("t2", "password:c2")).toBe("keep");
+  expect(h.purge).toHaveBeenCalledWith(expect.arrayContaining(["password:c1"]));
 });

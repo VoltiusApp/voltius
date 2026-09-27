@@ -5,22 +5,24 @@ const h = vi.hoisted(() => ({
   appFetch: vi.fn(),
   listTeamObjects: vi.fn(),
   hydrateTeamVaultSecrets: vi.fn(),
-  backfillExistingTeamVaultSecrets: vi.fn(),
   checkAndRotateTeamKey: vi.fn(),
+  purge: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 vi.mock("@/services/teamObjects", () => ({ listTeamObjects: h.listTeamObjects }));
 vi.mock("@/services/teamVaultSecrets", () => ({
   hydrateTeamVaultSecrets: h.hydrateTeamVaultSecrets,
-  backfillExistingTeamVaultSecrets: h.backfillExistingTeamVaultSecrets,
 }));
 vi.mock("@/services/teamKeyRotation", () => ({
   checkAndRotateTeamKey: h.checkAndRotateTeamKey,
 }));
+vi.mock("@/services/vault", async (orig) => ({ ...(await orig<typeof import("@/services/vault")>()), purgeLocalSecrets: h.purge }));
 
 import { fetchTeamData, clearTeamKeyCache } from "./teamVaultSync";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import { teamSecretCache } from "@/services/teamSecretCache";
+import { usePendingSecretWipeStore } from "@/stores/pendingSecretWipeStore";
 
 const HOST = {
   object_id: "c1",
@@ -46,9 +48,11 @@ beforeEach(() => {
   h.appFetch.mockReset();
   h.listTeamObjects.mockReset().mockResolvedValue([HOST]);
   h.hydrateTeamVaultSecrets.mockReset().mockResolvedValue(undefined);
-  h.backfillExistingTeamVaultSecrets.mockReset().mockResolvedValue(undefined);
   h.checkAndRotateTeamKey.mockReset().mockResolvedValue(undefined);
+  h.purge.mockReset().mockImplementation(async (keys: string[]) => keys);
   useTeamVaultStateStore.getState().clearAll();
+  teamSecretCache.clearAll();
+  usePendingSecretWipeStore.getState().clearAll();
   clearTeamKeyCache();
 });
 
@@ -116,4 +120,34 @@ test("a plain forbidden failure never requests a rotation", async () => {
   await fetchTeamData("t1");
 
   expect(h.checkAndRotateTeamKey).not.toHaveBeenCalled();
+});
+
+test("a foreground load sweeps the team's secret keys out of the local store", async () => {
+  await fetchTeamData("t1");
+  expect(h.purge).toHaveBeenCalledWith(expect.arrayContaining(["password:c1", "key:c1", "passphrase:c1", "proxy_password:c1"]));
+});
+
+test("a background refresh never sweeps", async () => {
+  await fetchTeamData("t1", { background: true });
+  expect(h.purge).not.toHaveBeenCalled();
+});
+
+test("a failed sweep is queued for the next login", async () => {
+  h.purge.mockRejectedValue(new Error("locked"));
+  await fetchTeamData("t1");
+  expect(usePendingSecretWipeStore.getState().keysByTeamId["t1"]).toEqual(expect.arrayContaining(["password:c1"]));
+});
+
+test("a background refresh that is denied drops the team's cached secrets", async () => {
+  teamSecretCache.set("t1", "password:c1", "pw");
+  h.listTeamObjects.mockRejectedValue(Object.assign(new Error("403"), { status: 403 }));
+  await fetchTeamData("t1", { background: true });
+  expect(teamSecretCache.get("t1", "password:c1")).toBeUndefined();
+});
+
+test("a background refresh that hits a network error keeps them", async () => {
+  teamSecretCache.set("t1", "password:c1", "pw");
+  h.listTeamObjects.mockRejectedValue(Object.assign(new Error("net"), { offline: true }));
+  await fetchTeamData("t1", { background: true });
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("pw");
 });

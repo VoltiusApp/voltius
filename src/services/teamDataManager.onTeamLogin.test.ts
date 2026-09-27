@@ -22,7 +22,7 @@ vi.mock("@/stores/teamStore", () => ({
   useTeamStore: { getState: () => ({ teams: h.teams }) },
 }));
 
-import { onTeamLogin } from "./teamDataManager";
+import { onTeamLogin, onSessionEnd } from "./teamDataManager";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -50,4 +50,11 @@ test("a rotation-check failure for one team does not block the others (allSettle
   await expect(onTeamLogin()).resolves.toBeUndefined();
 
   expect(h.checkAndRotateTeamKey).toHaveBeenCalledWith("t2");
+});
+
+test("session end drops every cached team secret", async () => {
+  const { teamSecretCache } = await import("@/services/teamSecretCache");
+  teamSecretCache.set("t1", "password:c1", "pw");
+  onSessionEnd();
+  expect(teamSecretCache.get("t1", "password:c1")).toBeUndefined();
 });

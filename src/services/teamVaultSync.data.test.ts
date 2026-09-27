@@ -7,7 +7,7 @@ const h = vi.hoisted(() => ({
   unwrap: vi.fn(),
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
-  deleteSecret: vi.fn(),
+  purge: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
@@ -20,7 +20,7 @@ vi.mock("@/services/multiplayerService", () => ({
 vi.mock("@/services/vault", () => ({
   getSecret: h.getSecret,
   storeSecret: h.storeSecret,
-  deleteSecret: h.deleteSecret,
+  purgeLocalSecrets: h.purge,
 }));
 vi.mock("@/services/teamObjects", () => ({ listTeamObjects: vi.fn(async () => []) }));
 
@@ -57,10 +57,10 @@ beforeEach(() => {
   h.unwrap.mockReset();
   h.getSecret.mockReset();
   h.storeSecret.mockReset();
-  h.deleteSecret.mockReset();
+  h.purge.mockReset();
   h.getSecret.mockResolvedValue(null);
   h.storeSecret.mockResolvedValue(undefined);
-  h.deleteSecret.mockResolvedValue(undefined);
+  h.purge.mockImplementation(async (keys: string[]) => keys);
   clearTeamKeyCache();
 });
 afterEach(() => {
@@ -90,7 +90,8 @@ test("clearing a team vault deletes every secret it owns, passphrases included",
 
   await fetchTeamData(teamId);
 
-  expect(h.deleteSecret.mock.calls.map((c) => c[0]).sort()).toEqual(
+  expect(h.purge).toHaveBeenCalledTimes(1);
+  expect(h.purge.mock.calls[0][0].sort()).toEqual(
     [
       "password:c1",
       "key:c1",

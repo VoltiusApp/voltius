@@ -9,9 +9,10 @@ const h = vi.hoisted(() => ({
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
-  deleteLocalSecret: vi.fn(async (k: string) => {
-    if (h.failing.has(k)) throw new Error("keychain unavailable");
-    h.deleted.push(k);
+  purgeLocalSecrets: vi.fn(async (keys: string[]) => {
+    if (h.failing.size > 0) throw new Error("keychain unavailable");
+    h.deleted.push(...keys);
+    return keys;
   }),
 }));
 
@@ -42,14 +43,17 @@ function seed(): void {
   useKeyStore.setState({ teamKeys: { t1: [{ id: "k1", name: "deploy" } as never] } });
 }
 
-test("reports the keys a partial wipe failed to delete", async () => {
+test("reports every key when the purge call rejects", async () => {
   seed();
-  h.failing = new Set(["password:c1", "key:k1:private"]);
+  h.failing = new Set(["locked"]);
 
   const failed = await clearTeamStoresAndSecrets("t1");
 
-  expect([...failed].sort()).toEqual(["key:k1:private", "password:c1"]);
-  expect(h.deleted).toContain("key:c1");
+  expect([...failed].sort()).toEqual([
+    "key:c1", "key:k1:passphrase", "key:k1:private", "key:k1:public",
+    "passphrase:c1", "password:c1", "proxy_password:c1",
+  ]);
+  expect(h.deleted).toEqual([]);
 });
 
 test("reports nothing when every delete succeeds", async () => {
@@ -67,24 +71,23 @@ test("drain retries queued keys and empties the queue on success", async () => {
   expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({});
 });
 
-test("drain keeps the keys it still could not delete", async () => {
+test("drain keeps every key when the purge call rejects", async () => {
   usePendingSecretWipeStore.getState().enqueue("t1", ["password:c1", "key:k1:private"]);
-  h.failing = new Set(["key:k1:private"]);
+  h.failing = new Set(["locked"]);
 
   await drainPendingSecretWipes();
 
-  expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({ t1: ["key:k1:private"] });
+  expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({ t1: ["password:c1", "key:k1:private"] });
 });
 
-test("drain drops queued keys for a team the user has rejoined", async () => {
-  // Those keychain entries have since been re-hydrated for a team the user is
-  // a member of again — deleting them now would break a live vault.
+test("drain purges queued keys even for a team the user has rejoined", async () => {
+  // After Phase 1 no team secret belongs in the local store, member or not.
   usePendingSecretWipeStore.getState().enqueue("t1", ["password:c1"]);
   useTeamStore.setState({ teams: [{ id: "t1", name: "Ops", role_ids: [] } as never] });
 
   await drainPendingSecretWipes();
 
-  expect(h.deleted).toEqual([]);
+  expect(h.deleted).toEqual(["password:c1"]);
   expect(usePendingSecretWipeStore.getState().keysByTeamId).toEqual({});
 });
 

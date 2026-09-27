@@ -25,9 +25,9 @@ import * as teamService from "@/services/teamService";
 import { getServerUrl } from "@/services/authTokens";
 import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
-import { deleteLocalSecret } from "@/services/vault";
+import { purgeLocalSecrets } from "@/services/vault";
 import { teamSecretCache } from "@/services/teamSecretCache";
-import { logFailure, logSettledFailures } from "@/lib/logger";
+import { logFailure } from "@/lib/logger";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
@@ -36,13 +36,12 @@ import {
   TeamVaultRefreshQueue,
   type TeamVaultRefreshOptions,
 } from "@/services/teamVaultRefresh";
-import { classifyTeamObjectListError } from "@/services/teamVaultLoadErrors";
+import { classifyTeamObjectListError, isAccessRevoked } from "@/services/teamVaultLoadErrors";
 import {
   base64ToByteArray,
   bytesToBase64,
   parseTeamVaultBlobFiles,
 } from "@/services/teamVaultSyncCore";
-import { connectionSecretKeys } from "@/services/teamVaultSecretKeys";
 
 export type { TeamMember };
 
@@ -459,7 +458,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       void import("@/services/teamObjectReencrypt")
         .then(({ runReencryptionPass }) => runReencryptionPass(teamId, objects))
         .catch(() => {});
-      const { backfillExistingTeamVaultSecrets, hydrateTeamVaultSecrets } = await import("@/services/teamVaultSecrets");
+      const { hydrateTeamVaultSecrets } = await import("@/services/teamVaultSecrets");
       // Credentials are what makes a host connectable, so a failure here is not
       // cosmetic: the vault renders fully populated and every host needing a
       // stored secret then fails at authentication. Record it instead of
@@ -474,12 +473,15 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
           : false;
       }
       stateStore.setCredentialsUnavailable(teamId, !credentialsOk);
-      if (!options.background) await backfillExistingTeamVaultSecrets(teamId).catch(() => {});
+      if (!options.background) await sweepLocalTeamSecrets(teamId);
       stateStore.setStatus(teamId, "loaded");
       return;
     }
   } catch (err) {
-    if (options.background) return;
+    if (options.background) {
+      if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
+      return;
+    }
     const action = classifyTeamObjectListError(err);
     if (action === "fallback") {
       // Fall through to legacy key/blob loading. Some clients may hit transient
@@ -496,7 +498,10 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   try {
     key = await getTeamVaultKey(teamId);
   } catch (err) {
-    if (options.background) return;
+    if (options.background) {
+      if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
+      return;
+    }
     const validStatuses = ["offline", "forbidden", "payment_required", "awaiting_key", "key_mismatch", "error"] as const;
     type Thrown = typeof validStatuses[number];
     let status: Thrown | "loaded" = validStatuses.includes(err as Thrown) ? (err as Thrown) : "error";
@@ -566,6 +571,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   usePortForwardingStore.getState().setTeamRules(teamId, slices.portForwardingRules as PortForwardingRule[]);
 
   teamSecretCache.replaceTeam(teamId, new Map(Object.entries(blobPayload.secrets ?? {})));
+  if (!options.background) await sweepLocalTeamSecrets(teamId);
 
   stateStore.setStatus(teamId, "loaded");
 }
@@ -669,39 +675,33 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
 }
 
 
-/**
- * Deletes `keys` from the keychain, returning the ones that did not go away.
- *
- * `Promise.allSettled` on its own made a partial wipe indistinguishable from a
- * clean one: a rejected delete leaves the plaintext secret on disk and nothing
- * recorded that it did (issue #233).
- */
-async function deleteSecrets(keys: string[]): Promise<string[]> {
-  const results = await Promise.allSettled(keys.map((k) => deleteLocalSecret(k)));
-  logSettledFailures(results, (i) => `keychain wipe of ${keys[i]}`);
-  const failed = results.flatMap((r, i) => (r.status === "rejected" ? [keys[i]] : []));
-  return failed;
+async function purgeLocalCopies(keys: string[]): Promise<string[]> {
+  try {
+    await purgeLocalSecrets(keys);
+    return [];
+  } catch (e) {
+    logFailure(`local secret purge of ${keys.length} keys`)(e);
+    return keys;
+  }
 }
 
-/**
- * Retries keychain deletions left over from a failed offboarding wipe.
- *
- * Called once per login. A team the user belongs to again is dropped without
- * deleting anything: those entries have since been re-hydrated for a live
- * vault, and the queue only ever meant "these should not be on this device".
- */
+/** Sweeps a team's secret keys out of the local encrypted store, queuing any
+ * that fail to purge for a later retry. */
+export async function sweepLocalTeamSecrets(teamId: string): Promise<void> {
+  const { teamObjectSecretKeys } = await import("@/services/teamSecretOwnership");
+  const failed = await purgeLocalCopies(teamObjectSecretKeys(teamId));
+  if (failed.length === 0) return;
+  const { usePendingSecretWipeStore } = await import("@/stores/pendingSecretWipeStore");
+  usePendingSecretWipeStore.getState().enqueue(teamId, failed);
+}
+
+/** Retries local-store purges that failed during a sweep or an offboarding wipe. */
 export async function drainPendingSecretWipes(): Promise<void> {
   const { usePendingSecretWipeStore } = await import("@/stores/pendingSecretWipeStore");
-  const { useTeamStore } = await import("@/stores/teamStore");
   const store = usePendingSecretWipeStore.getState();
-  const currentTeamIds = new Set(useTeamStore.getState().teams.map((t) => t.id));
 
   for (const [teamId, keys] of Object.entries(store.keysByTeamId)) {
-    if (currentTeamIds.has(teamId)) {
-      store.resolve(teamId, keys);
-      continue;
-    }
-    const failed = new Set(await deleteSecrets(keys));
+    const failed = new Set(await purgeLocalCopies(keys));
     store.resolve(teamId, keys.filter((k) => !failed.has(k)));
   }
 }
@@ -720,27 +720,10 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[
   const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
   const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
 
-  // Wipe secrets from disk before clearing in-memory state so we still have the IDs.
-  // A local object holding the same id owns those same keychain entries, so
-  // wiping them would destroy credentials the user still has every right to:
-  // make-private adopts a team's objects locally under their original ids
-  // (#249). No genuine removal reaches this filter — a member losing access has
-  // no local copy of the team's objects.
-  const localIds = new Set<string>([
-    ...useConnectionStore.getState().connections.map((c) => c.id),
-    ...useKeyStore.getState().keys.map((k) => k.id),
-    ...useIdentityStore.getState().identities.map((i) => i.id),
-  ]);
-  const teamOnly = <T extends { id: string }>(items: T[]) => items.filter((i) => !localIds.has(i.id));
-
-  const conns = teamOnly(useConnectionStore.getState().teamConnections[teamId] ?? []);
-  const keys = teamOnly(useKeyStore.getState().teamKeys[teamId] ?? []);
-  const identities = teamOnly(useIdentityStore.getState().teamIdentities[teamId] ?? []);
-  const failedKeys = await deleteSecrets([
-    ...conns.flatMap((c) => connectionSecretKeys(c.id)),
-    ...keys.flatMap((k) => [`key:${k.id}:private`, `key:${k.id}:public`, `key:${k.id}:passphrase`]),
-    ...identities.map((i) => `identity:${i.id}:password`),
-  ]);
+  // Purge before clearing the stores: the key names come from the objects still in them.
+  const { teamObjectSecretKeys } = await import("@/services/teamSecretOwnership");
+  const failedKeys = await purgeLocalCopies(teamObjectSecretKeys(teamId));
+  teamSecretCache.clearTeam(teamId);
 
   useConnectionStore.getState().setTeamConnections(teamId, []);
   useIdentityStore.getState().setTeamIdentities(teamId, []);

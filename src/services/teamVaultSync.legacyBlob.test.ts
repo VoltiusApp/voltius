@@ -7,7 +7,7 @@ const h = vi.hoisted(() => ({
   unwrap: vi.fn(),
   getSecret: vi.fn(),
   storeSecret: vi.fn(),
-  deleteSecret: vi.fn(),
+  purge: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
@@ -20,7 +20,7 @@ vi.mock("@/services/multiplayerService", () => ({
 vi.mock("@/services/vault", () => ({
   getSecret: h.getSecret,
   storeSecret: h.storeSecret,
-  deleteSecret: h.deleteSecret,
+  purgeLocalSecrets: h.purge,
 }));
 vi.mock("@/services/teamObjects", () => ({ listTeamObjects: vi.fn(async () => []) }));
 
@@ -48,7 +48,7 @@ beforeEach(() => {
   h.unwrap.mockReset();
   h.getSecret.mockReset();
   h.storeSecret.mockReset();
-  h.deleteSecret.mockReset();
+  h.purge.mockReset().mockImplementation(async (keys: string[]) => keys);
   clearTeamKeyCache();
   teamSecretCache.clearAll();
 });
