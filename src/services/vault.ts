@@ -166,9 +166,28 @@ export async function purgeLocalSecrets(keys: string[]): Promise<string[]> {
   return withUnlocked<string[]>("secrets_purge", { keys });
 }
 
-export const storeSecret = storeLocalSecret;
-export const getSecret = getLocalSecret;
-export const deleteSecret = deleteLocalSecret;
+async function routeOf(key: string) {
+  const [{ teamIdOwningSecret }, routing] = await Promise.all([
+    import("@/services/teamSecretOwnership"),
+    import("@/services/secretRouting"),
+  ]);
+  return { teamId: teamIdOwningSecret(key), routing };
+}
+
+export async function getSecret(key: string): Promise<string | null> {
+  const { teamId, routing } = await routeOf(key);
+  return routing.readSecretAt(teamId, key);
+}
+
+export async function storeSecret(key: string, value: string): Promise<void> {
+  const { teamId, routing } = await routeOf(key);
+  await routing.writeSecretAt(teamId, key, value);
+}
+
+export async function deleteSecret(key: string): Promise<void> {
+  const { teamId, routing } = await routeOf(key);
+  await routing.removeSecretAt(teamId, key);
+}
 
 export function getVaultKey(): number[] | null {
   return pendingKey;
