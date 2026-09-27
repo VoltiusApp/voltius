@@ -217,6 +217,17 @@ test("a served row that fails to decrypt keeps its previous value", async () => 
   expect(teamSecretCache.get("t1", "password:c1")).toBe("previous");
 });
 
+test("a successfully decrypted payload lacking the expected key keeps the previous value and adds nothing new", async () => {
+  teamSecretCache.set("t1", "password:c1", "previous");
+  h.listTeamSecrets.mockResolvedValue([row("c1", "connection_password"), row("c2", "connection_password")]);
+  decryptTo({});
+
+  await hydrateTeamVaultSecrets("t1");
+
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("previous");
+  expect(teamSecretCache.get("t1", "password:c2")).toBeUndefined();
+});
+
 test("a denial clears the team's cache and rethrows", async () => {
   teamSecretCache.set("t1", "password:c1", "pw");
   teamSecretCache.set("t2", "password:c2", "other");
