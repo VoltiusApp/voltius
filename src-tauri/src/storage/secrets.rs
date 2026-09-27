@@ -1134,7 +1134,10 @@ mod tests {
         point_store_at(&store, dir.path().join("missing").join("secrets.enc"));
         assert!(store.purge(&["password:a".to_string()]).is_err());
         assert_eq!(store.get("password:a").unwrap().as_deref(), Some("pw"));
-        assert_eq!(store.export_all().unwrap().clocks["password:a"], clock_before);
+        assert_eq!(
+            store.export_all().unwrap().clocks["password:a"],
+            clock_before
+        );
 
         point_store_at(&store, path.clone());
         assert_eq!(
