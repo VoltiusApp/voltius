@@ -3,7 +3,7 @@ import { connectionToFormData } from "@/stores/connectionStore";
 import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { transferConnectionSecrets } from "@/services/vaultObjectSecrets";
-import { connectionSecretKeys } from "@/services/teamVaultSecretKeys";
+import { secretKeysFor } from "@/services/teamVaultSecretKeys";
 
 export interface DuplicateConnectionOpts {
   vaultId?: string;
@@ -24,8 +24,8 @@ export async function copyConnectionSecrets(
   toId: string,
   opts: CopyConnectionSecretsOpts,
 ): Promise<void> {
-  const targets = connectionSecretKeys(toId);
-  for (const [i, fromKey] of connectionSecretKeys(fromId).entries()) {
+  const targets = secretKeysFor("connection", toId);
+  for (const [i, fromKey] of secretKeysFor("connection", fromId).entries()) {
     if (!opts.copyKey && isInlineKeySecret(fromKey)) continue;
     const pending = getSecret(fromKey);
     const value = opts.swallowFetchErrors ? await pending.catch(() => null) : await pending;

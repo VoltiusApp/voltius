@@ -4,7 +4,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { usePendingTeamSecretUploadStore } from "@/stores/pendingTeamSecretUploadStore";
 import { readSecretAt, writeSecretAt, removeSecretAt, teamIdOfVault } from "@/services/secretRouting";
-import { connectionSecretKeys, keySecretKeys, identitySecretKeys } from "@/services/teamVaultSecretKeys";
+import { secretKeysFor } from "@/services/teamVaultSecretKeys";
 import { logFailure } from "@/lib/logger";
 
 function toastSecretError(messageKey: string, error: unknown): void {
@@ -66,11 +66,11 @@ async function transfer(localKeys: string[], fromVaultId: string, toVaultId: str
 }
 
 export const transferConnectionSecrets = (id: string, fromVaultId: string, toVaultId: string) =>
-  transfer(connectionSecretKeys(id), fromVaultId, toVaultId);
+  transfer(secretKeysFor("connection", id), fromVaultId, toVaultId);
 export const transferKeySecrets = (id: string, fromVaultId: string, toVaultId: string) =>
-  transfer(keySecretKeys(id), fromVaultId, toVaultId);
+  transfer(secretKeysFor("key", id), fromVaultId, toVaultId);
 export const transferIdentitySecrets = (id: string, fromVaultId: string, toVaultId: string) =>
-  transfer(identitySecretKeys(id), fromVaultId, toVaultId);
+  transfer(secretKeysFor("identity", id), fromVaultId, toVaultId);
 
 export async function moveKeyToVault(
   key: SshKey,

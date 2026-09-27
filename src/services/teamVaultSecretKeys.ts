@@ -12,15 +12,21 @@ export const proxyPasswordKey = (connectionId: string) => `proxy_password:${conn
 export const GLOBAL_PROXY_SECRET_ID = "__global__";
 export const GLOBAL_PROXY_PASSWORD_KEY = proxyPasswordKey(GLOBAL_PROXY_SECRET_ID);
 
-export const connectionSecretKeys = (id: string) => [
-  `password:${id}`,
-  `key:${id}`,
-  `passphrase:${id}`,
-  proxyPasswordKey(id),
-];
+export type SecretObjectKind = "connection" | "key" | "identity";
+export const SECRET_OBJECT_KINDS: readonly SecretObjectKind[] = ["connection", "key", "identity"];
 
-export const keySecretKeys = (id: string) => [`key:${id}:private`, `key:${id}:public`, `key:${id}:passphrase`];
-export const identitySecretKeys = (id: string) => [`identity:${id}:password`];
+const SECRET_KEYS: Record<SecretObjectKind, (id: string) => string[]> = {
+  connection: (id) => [`password:${id}`, `key:${id}`, `passphrase:${id}`, proxyPasswordKey(id)],
+  key: (id) => [`key:${id}:private`, `key:${id}:public`, `key:${id}:passphrase`],
+  identity: (id) => [`identity:${id}:password`],
+};
+
+export const secretKeysFor = (kind: SecretObjectKind, id: string): string[] => SECRET_KEYS[kind](id);
+
+export function secretObjectKindOf(secretType: TeamSecretType): SecretObjectKind {
+  if (secretType === "identity_password") return "identity";
+  return secretType.startsWith("key_") ? "key" : "connection";
+}
 
 export interface TeamSecretKeyParts {
   secretId: string;

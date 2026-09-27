@@ -2,10 +2,9 @@ import { test, it, expect } from "vitest";
 import {
   teamSecretFromLocalKey,
   localSecretKeyFromTeamSecret,
-  connectionSecretKeys,
+  secretKeysFor,
+  secretObjectKindOf,
   GLOBAL_PROXY_PASSWORD_KEY,
-  keySecretKeys,
-  identitySecretKeys,
   type TeamSecretType,
 } from "./teamVaultSecretKeys";
 
@@ -58,14 +57,18 @@ it("never maps a team-written __global__ object id back onto this device's globa
   expect(localSecretKeyFromTeamSecret("__global__", "connection_proxy_password")).toBeNull();
 });
 
-it("connectionSecretKeys covers every per-connection secret", () => {
-  expect(connectionSecretKeys("c")).toEqual(["password:c", "key:c", "passphrase:c", "proxy_password:c"]);
+it("secretKeysFor covers every per-connection secret", () => {
+  expect(secretKeysFor("connection", "c")).toEqual(["password:c", "key:c", "passphrase:c", "proxy_password:c"]);
 });
 
-test("key and identity secret key lists match what teamSecretFromLocalKey parses", () => {
-  expect(keySecretKeys("k1")).toEqual(["key:k1:private", "key:k1:public", "key:k1:passphrase"]);
-  expect(identitySecretKeys("i1")).toEqual(["identity:i1:password"]);
-  for (const k of [...keySecretKeys("k1"), ...identitySecretKeys("i1")]) {
-    expect(teamSecretFromLocalKey(k)).not.toBeNull();
+test("every kind's secret keys parse back to that kind and object", () => {
+  expect(secretKeysFor("key", "k1")).toEqual(["key:k1:private", "key:k1:public", "key:k1:passphrase"]);
+  expect(secretKeysFor("identity", "i1")).toEqual(["identity:i1:password"]);
+  for (const kind of ["connection", "key", "identity"] as const) {
+    for (const k of secretKeysFor(kind, "o1")) {
+      const parts = teamSecretFromLocalKey(k);
+      expect(parts?.objectId).toBe("o1");
+      expect(secretObjectKindOf(parts!.secretType)).toBe(kind);
+    }
   }
 });

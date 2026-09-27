@@ -4,44 +4,44 @@ import { useKeyStore } from "@/stores/keyStore";
 import { findTeamEntry, type TeamMap } from "@/stores/teamVaultMap";
 import {
   teamSecretFromLocalKey,
-  connectionSecretKeys,
-  keySecretKeys,
-  identitySecretKeys,
+  secretKeysFor,
+  secretObjectKindOf,
+  SECRET_OBJECT_KINDS,
+  type SecretObjectKind,
 } from "@/services/teamVaultSecretKeys";
 
 interface Owned {
   id: string;
 }
 
-function ownerIn(local: Owned[] | undefined, team: TeamMap<Owned> | undefined, id: string): string | null {
-  if ((local ?? []).some((o) => o.id === id)) return null;
-  return findTeamEntry(team ?? {}, id)?.teamId ?? null;
+type Slices = Record<SecretObjectKind, { local: Owned[] | undefined; team: TeamMap<Owned> | undefined }>;
+
+function storeSlices(): Slices {
+  const c = useConnectionStore.getState();
+  const k = useKeyStore.getState();
+  const i = useIdentityStore.getState();
+  return {
+    connection: { local: c.connections, team: c.teamConnections },
+    key: { local: k.keys, team: k.teamKeys },
+    identity: { local: i.identities, team: i.teamIdentities },
+  };
 }
+
+const localObjectIds = (s: Slices) =>
+  new Set(SECRET_OBJECT_KINDS.flatMap((kind) => (s[kind].local ?? []).map((o) => o.id)));
 
 export function teamIdOwningSecret(localKey: string): string | null {
   const parts = teamSecretFromLocalKey(localKey);
   if (!parts) return null;
-  if (parts.secretType === "identity_password") {
-    const s = useIdentityStore.getState();
-    return ownerIn(s.identities, s.teamIdentities, parts.objectId);
-  }
-  if (parts.secretType.startsWith("key_")) {
-    const s = useKeyStore.getState();
-    return ownerIn(s.keys, s.teamKeys, parts.objectId);
-  }
-  const s = useConnectionStore.getState();
-  return ownerIn(s.connections, s.teamConnections, parts.objectId);
+  const { local, team } = storeSlices()[secretObjectKindOf(parts.secretType)];
+  if ((local ?? []).some((o) => o.id === parts.objectId)) return null;
+  return findTeamEntry(team ?? {}, parts.objectId)?.teamId ?? null;
 }
 
 export function teamObjectSecretKeys(teamId: string): string[] {
-  const c = useConnectionStore.getState();
-  const i = useIdentityStore.getState();
-  const k = useKeyStore.getState();
-  const localIds = new Set([...(c.connections ?? []), ...(i.identities ?? []), ...(k.keys ?? [])].map((o) => o.id));
-  const teamOnly = (items: Owned[] | undefined) => (items ?? []).map((o) => o.id).filter((id) => !localIds.has(id));
-  return [
-    ...teamOnly(c.teamConnections?.[teamId]).flatMap((id) => connectionSecretKeys(id)),
-    ...teamOnly(k.teamKeys?.[teamId]).flatMap((id) => keySecretKeys(id)),
-    ...teamOnly(i.teamIdentities?.[teamId]).flatMap((id) => identitySecretKeys(id)),
-  ];
+  const s = storeSlices();
+  const localIds = localObjectIds(s);
+  return SECRET_OBJECT_KINDS.flatMap((kind) =>
+    (s[kind].team?.[teamId] ?? []).filter((o) => !localIds.has(o.id)).flatMap((o) => secretKeysFor(kind, o.id)),
+  );
 }
