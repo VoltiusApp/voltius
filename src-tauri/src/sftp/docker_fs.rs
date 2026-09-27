@@ -561,7 +561,7 @@ impl FileBackend for DockerFs {
         let remote_script = "mkdir -p \"$1\" && tar -C \"$1\" --strip-components=1 -xzf -";
         self.tar_into_container(
             app,
-            &["-C", parent, "-czf", "-", base],
+            &["-C", parent, "-czf", "-", "--", base],
             &self.dexec(remote_script, &[remote_path]),
             transfer_id,
             token,
@@ -585,7 +585,7 @@ impl FileBackend for DockerFs {
             .parent()
             .and_then(|p| p.to_str())
             .unwrap_or(".");
-        let mut args: Vec<&str> = vec!["-C", parent, "-czf", "-"];
+        let mut args: Vec<&str> = vec!["-C", parent, "-czf", "-", "--"];
         for p in local_paths {
             if let Some(name) = Path::new(p).file_name().and_then(|n| n.to_str()) {
                 args.push(name);
@@ -614,7 +614,7 @@ impl FileBackend for DockerFs {
     ) -> Result<(), String> {
         let parent = parent_of(remote_path).to_string();
         let base = basename_of(remote_path).to_string();
-        let remote_cmd = self.dexec("tar -C \"$1\" -czf - \"$2\"", &[&parent, &base]);
+        let remote_cmd = self.dexec("tar -C \"$1\" -czf - -- \"$2\"", &[&parent, &base]);
         self.tar_from_container(
             app,
             &remote_cmd,
@@ -639,7 +639,7 @@ impl FileBackend for DockerFs {
             return Ok(());
         }
         let parent = parent_of(&remote_paths[0]).to_string();
-        // sh -c 'cd "$1"; shift; tar -czf - "$@"' x <parent> <base…>
+        // sh -c 'cd "$1"; shift; tar -czf - -- "$@"' x <parent> <base…>
         let mut args: Vec<&str> = vec![&parent];
         let basenames: Vec<String> = remote_paths
             .iter()
@@ -648,7 +648,7 @@ impl FileBackend for DockerFs {
         for b in &basenames {
             args.push(b);
         }
-        let remote_cmd = self.dexec("cd \"$1\" || exit 3; shift; tar -czf - \"$@\"", &args);
+        let remote_cmd = self.dexec("cd \"$1\" || exit 3; shift; tar -czf - -- \"$@\"", &args);
         self.tar_from_container(
             app,
             &remote_cmd,

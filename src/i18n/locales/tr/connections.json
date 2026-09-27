@@ -68,7 +68,24 @@
       "keychainIdentity": "Anahtar zinciri kimliği",
       "passphrase": "Parola ifadesi",
       "optional": "(isteğe bağlı)",
-      "keyPassphrasePlaceholder": "Anahtar parola ifadesi"
+      "keyPassphrasePlaceholder": "Anahtar parola ifadesi",
+      "proxy": {
+        "label": "Proxy",
+        "inherit": "Devral ({{label}})",
+        "modes": {
+          "direct": "Doğrudan",
+          "system": "Sistem",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "host": "Proxy sunucusu",
+        "port": "Proxy portu",
+        "hostMissing": "Proxy {{kind}} olarak ayarlı ancak sunucu belirtilmemiş",
+        "portInvalid": "Port 1 ile 65535 arasında olmalıdır",
+        "username": "Proxy kullanıcı adı",
+        "password": "Proxy parolası",
+        "passwordSaved": "••• kayıtlı"
+      }
     },
     "distroIconPicker": {
       "title": "Simge",

@@ -465,12 +465,14 @@
       "updatesTitle": "Updates",
       "checkForUpdate": "Check for update",
       "restartToUpdate": "Restart to update · v{{version}}",
+      "downloadUpdate": "Download update · v{{version}}",
       "status": {
         "idle": "Not checked yet",
         "checking": "Checking for updates…",
         "upToDate": "You're up to date",
         "downloading": "Downloading v{{version}} — {{progress}}%",
-        "ready": "v{{version}} ready to install"
+        "ready": "v{{version}} ready to install",
+        "available": "v{{version}} available"
       },
       "autoDownload": {
         "title": "Auto-download updates",
@@ -886,6 +888,19 @@
           "label": "Off",
           "detail": "No keepalive probes"
         }
+      },
+      "proxy": {
+        "title": "Proxy",
+        "desc": "Route SSH, SFTP and reachability checks through a proxy. Hosts can override this.",
+        "modes": {
+          "none": "No proxy",
+          "system": "System",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "detected": "Detected: {{kind}} {{host}}:{{port}}",
+        "detectedNone": "Detected: none (connecting directly)",
+        "passwordSaveFailed": "Couldn't save the proxy password: {{error}}"
       },
       "persistentSessions": {
         "title": "Persistent sessions",

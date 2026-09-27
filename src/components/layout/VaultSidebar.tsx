@@ -15,7 +15,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { CreateVaultModal } from "@/components/shared/CreateVaultModal";
 import { Modal } from "@/components/shared/Modal";
 import { openBillingCheckout } from "@/services/billingCheckout";
-import { getUpdaterState, onUpdaterStateChange, type UpdaterStatus } from "@/services/updater";
+import { useUpdaterStatus } from "@/services/updater";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import type { MyPendingInvitation } from "@/stores/teamStore";
 import { useVaultAdmin } from "@/components/vault-admin/useVaultAdmin";
@@ -604,8 +604,7 @@ function VaultButton({
 function WhatsNewButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
-  const [updater, setUpdater] = useState<UpdaterStatus>(getUpdaterState);
-  useEffect(() => onUpdaterStateChange(() => setUpdater(getUpdaterState())), []);
+  const updater = useUpdaterStatus();
 
   let icon = "lucide:megaphone";
   let title = t("layout.vaultSidebar.whatsNew");
@@ -620,6 +619,9 @@ function WhatsNewButton({ onClick }: { onClick: () => void }) {
     icon = "lucide:download";
     title = t("layout.vaultSidebar.downloadingUpdate", { version: updater.version });
     iconClass = "animate-bounce";
+  } else if (updater.status === "available") {
+    icon = "lucide:download";
+    title = t("layout.vaultSidebar.updateAvailable", { version: updater.version });
   } else if (ready) {
     icon = "lucide:download";
     title = t("layout.vaultSidebar.updateReady", { version: updater.version });

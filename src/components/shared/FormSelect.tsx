@@ -18,9 +18,10 @@ interface Props {
   className?: string;
   /** Accessible name when no visible <label> points at the trigger. */
   ariaLabel?: string;
+  disabled?: boolean;
 }
 
-export function FormSelect({ value, options, onChange, className = "", ariaLabel }: Props) {
+export function FormSelect({ value, options, onChange, className = "", ariaLabel, disabled }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -35,8 +36,9 @@ export function FormSelect({ value, options, onChange, className = "", ariaLabel
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
+        disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className="form-input w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm"
+        className="form-input w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm disabled:opacity-50"
         style={formInputStyle}
       >
         <span className="text-(--t-text-primary)">{selectedLabel}</span>

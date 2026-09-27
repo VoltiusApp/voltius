@@ -12,7 +12,7 @@ import { isEncryptedEnvelope, encodeObjectMetadata } from "@/services/teamObject
 import { decodeTeamObject } from "@/services/teamObjectRows";
 import { buildEditPermissionSnapshot, canEditObjectType } from "@/services/teamObjectEditPermission";
 import { invoke } from "@tauri-apps/api/core";
-import { bytesToBase64, base64ToBytes } from "@/services/teamVaultSyncCore";
+import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 import { logFailure } from "@/lib/logger";
 
 const BATCH_SIZE = 50;
@@ -202,7 +202,7 @@ async function _drainTeamKeyRotation(teamId: string): Promise<void> {
       const oldKey = await getTeamVaultKeyAtVersion(teamId, epochOf(s.key_version));
       const decrypted = await invoke<{ secrets: Record<string, string> }>("backup_decrypt", {
         encKey: oldKey,
-        blob: base64ToBytes(s.ciphertext),
+        blob: base64ToByteArray(s.ciphertext),
       });
       // The secret's own localKey namespacing (password:<id>, key:<id>:private,
       // etc.) round-trips through the same encrypt_payload "secrets" map the

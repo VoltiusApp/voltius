@@ -68,7 +68,24 @@
       "keychainIdentity": "Identité du trousseau",
       "passphrase": "Phrase secrète",
       "optional": "(facultatif)",
-      "keyPassphrasePlaceholder": "Phrase secrète de la clé"
+      "keyPassphrasePlaceholder": "Phrase secrète de la clé",
+      "proxy": {
+        "label": "Proxy",
+        "inherit": "Hérite ({{label}})",
+        "modes": {
+          "direct": "Direct",
+          "system": "Système",
+          "socks5": "SOCKS5",
+          "http": "HTTP"
+        },
+        "host": "Hôte du proxy",
+        "port": "Port du proxy",
+        "hostMissing": "Le proxy est en mode {{kind}} mais n'a pas d'hôte",
+        "portInvalid": "Le port doit être compris entre 1 et 65535",
+        "username": "Utilisateur du proxy",
+        "password": "Mot de passe du proxy",
+        "passwordSaved": "••• enregistré"
+      }
     },
     "distroIconPicker": {
       "title": "Icône",

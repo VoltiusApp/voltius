@@ -2,10 +2,22 @@ export type TeamSecretType =
   | "connection_password"
   | "connection_key"
   | "connection_passphrase"
+  | "connection_proxy_password"
   | "identity_password"
   | "key_private"
   | "key_public"
   | "key_passphrase";
+
+export const proxyPasswordKey = (connectionId: string) => `proxy_password:${connectionId}`;
+export const GLOBAL_PROXY_SECRET_ID = "__global__";
+export const GLOBAL_PROXY_PASSWORD_KEY = proxyPasswordKey(GLOBAL_PROXY_SECRET_ID);
+
+export const connectionSecretKeys = (id: string) => [
+  `password:${id}`,
+  `key:${id}`,
+  `passphrase:${id}`,
+  proxyPasswordKey(id),
+];
 
 export interface TeamSecretKeyParts {
   secretId: string;
@@ -35,6 +47,11 @@ export function teamSecretFromLocalKey(localKey: string): TeamSecretKeyParts | n
     return { secretId: localKey, objectId: connectionKeyMatch[1], secretType: "connection_key" };
   }
 
+  const proxyPasswordMatch = /^proxy_password:(.+)$/.exec(localKey);
+  if (proxyPasswordMatch && proxyPasswordMatch[1] !== GLOBAL_PROXY_SECRET_ID) {
+    return { secretId: localKey, objectId: proxyPasswordMatch[1], secretType: "connection_proxy_password" };
+  }
+
   const identityPasswordMatch = /^identity:(.+):password$/.exec(localKey);
   if (identityPasswordMatch) {
     return { secretId: localKey, objectId: identityPasswordMatch[1], secretType: "identity_password" };
@@ -57,6 +74,7 @@ export function localSecretKeyFromTeamSecret(objectId: string, secretType: strin
     case "connection_password": return `password:${objectId}`;
     case "connection_key": return `key:${objectId}`;
     case "connection_passphrase": return `passphrase:${objectId}`;
+    case "connection_proxy_password": return objectId === GLOBAL_PROXY_SECRET_ID ? null : proxyPasswordKey(objectId);
     case "identity_password": return `identity:${objectId}:password`;
     case "key_private": return `key:${objectId}:private`;
     case "key_public": return `key:${objectId}:public`;

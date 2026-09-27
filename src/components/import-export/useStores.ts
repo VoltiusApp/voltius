@@ -33,10 +33,10 @@ export function useImportStores(): ImportStores {
   const { saveFolder: saveSnippetFolder } = useSnippetFolderStore();
   const { saveKey } = useKeyStore();
   const { saveIdentity } = useIdentityStore();
-  const { saveConnection, updateConnection } = useConnectionStore();
+  const { saveConnection } = useConnectionStore();
   const { createSnippet, updateSnippet } = useSnippetStore();
   const { createRule: createPfRule } = usePortForwardingStore();
-  return { saveFolder, saveSnippetFolder, saveKey, saveIdentity, saveConnection, updateConnection, createSnippet, updateSnippet, createPfRule };
+  return { saveFolder, saveSnippetFolder, saveKey, saveIdentity, saveConnection, createSnippet, updateSnippet, createPfRule };
 }
 
 export function useDeleteStores() {

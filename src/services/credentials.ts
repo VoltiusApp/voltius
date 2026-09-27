@@ -30,7 +30,7 @@ async function findIdentity(id: string) {
   return identity;
 }
 
-function findConnection(id: string): Connection | undefined {
+export function findConnection(id: string): Connection | undefined {
   const { connections, teamConnections } = useConnectionStore.getState();
   const all = [...connections, ...Object.values(teamConnections).flat()];
   return all.find((c) => c.id === id);

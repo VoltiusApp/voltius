@@ -7,6 +7,7 @@ import { getToggle } from "@/stores/toggleSettingsStore";
 import { publishLiveSessionsNow } from "@/services/liveSessionPublisher";
 import { sshKillPersistent } from "@/services/ssh";
 import { resolveConnectionCredentials } from "@/services/credentials";
+import { resolveProxy } from "@/services/proxy";
 import type { TerminalSession, Connection } from "@/types";
 
 function connectionExists(connectionId: string): boolean {
@@ -97,6 +98,7 @@ export async function killRemoteSession(
       passphrase: creds.passphrase,
       sessionId: j.sessionId,
       legacyAlgorithms: connection.legacy_algorithms,
+      proxy: await resolveProxy(connection),
     });
   } catch {
     return { ok: false, reason: "error" };

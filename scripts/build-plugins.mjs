@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, existsSync, readFileSync, realpathSync, writeFileSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -255,15 +255,15 @@ function main() {
   }
 }
 
-// True when this file is the CLI entry point (`node build-plugins.mjs`), false when
-// it's only imported (e.g. by a test, for buildCatalogFragment/stageReleaseAssets).
-// Node resolves process.argv[1] to an absolute filesystem path — comparing it
-// against the percent-encoded `import.meta.url` (as this used to) breaks on any
-// path containing a space, and never matches at all on Windows (`file:///C:/...`
-// with forward slashes vs argv[1]'s `C:\...`). import.meta.filename is the same
-// absolute-path form process.argv[1] already is, on every platform.
+// Compare filesystem paths, not import.meta.url (percent-encoded, file:///C:/ on Windows);
+// Node realpaths the module but not argv[1], so resolve argv[1] too.
 export function isCliEntryPoint(metaFilename, argv1) {
-  return metaFilename === argv1;
+  if (!argv1) return false;
+  try {
+    return metaFilename === realpathSync(argv1);
+  } catch {
+    return metaFilename === argv1;
+  }
 }
 
 if (isCliEntryPoint(import.meta.filename, process.argv[1])) {

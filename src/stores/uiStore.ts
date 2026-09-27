@@ -77,6 +77,8 @@ export type KeychainPendingAction =
   | { action: "edit-identity"; id: string }
   | null;
 export type CloudAuthMode = "signin" | "register";
+/** `link` moves the current local account to the cloud; `add` signs in to another one beside it. */
+export type CloudAuthPurpose = "link" | "add";
 
 interface UIStore {
   sidebarOpen: boolean;
@@ -96,6 +98,7 @@ interface UIStore {
   notificationFocusId: string | null;
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
+  cloudAuthPurpose: CloudAuthPurpose;
   settingsSection: SettingsSection;
   /** Mobile drill-down page: null = section list, otherwise the open section. */
   settingsSubPage: SettingsSection | null;
@@ -143,7 +146,7 @@ interface UIStore {
   setNotificationCenterOpen: (open: boolean) => void;
   openNotificationCenter: (focusId?: string | null) => void;
   clearNotificationFocus: () => void;
-  openCloudAuth: (mode?: CloudAuthMode) => void;
+  openCloudAuth: (mode?: CloudAuthMode, purpose?: CloudAuthPurpose) => void;
   closeCloudAuth: () => void;
   setCloudAuthMode: (mode: CloudAuthMode) => void;
   setSettingsSection: (section: SettingsSection) => void;
@@ -216,6 +219,7 @@ export const useUIStore = create<UIStore>()(
         notificationFocusId: null as string | null,
         cloudAuthOpen: false,
         cloudAuthMode: "signin" as CloudAuthMode,
+        cloudAuthPurpose: "link" as CloudAuthPurpose,
         settingsSection: "appearance" as SettingsSection,
         settingsSubPage: null as SettingsSection | null,
         settingsPluginPageId: null as string | null,
@@ -267,7 +271,7 @@ export const useUIStore = create<UIStore>()(
         setNotificationCenterOpen: (open) => set((s) => ({ notificationCenterOpen: open, notificationFocusId: open ? s.notificationFocusId : null })),
         openNotificationCenter: (focusId) => set({ notificationCenterOpen: true, notificationFocusId: focusId ?? null }),
         clearNotificationFocus: () => set({ notificationFocusId: null }),
-        openCloudAuth: (mode) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin" }),
+        openCloudAuth: (mode, purpose) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin", cloudAuthPurpose: purpose ?? "link" }),
         closeCloudAuth: () => set({ cloudAuthOpen: false }),
         setCloudAuthMode: (mode) => set({ cloudAuthMode: mode }),
         // Selecting a builtin section must drop any plugin target, or

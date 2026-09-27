@@ -7,10 +7,10 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useUIStore } from "@/stores/uiStore";
 import {
-  getUpdaterState,
-  onUpdaterStateChange,
+  useUpdaterStatus,
   installUpdate,
   checkForUpdate,
+  downloadUpdate,
   openDownloadPage,
   type UpdaterStatus,
 } from "@/services/updater";
@@ -44,7 +44,7 @@ function WhatsNewInner() {
   const [installed, setInstalled] = useState<string | null>(null);
   const [entries, setEntries] = useState<ChangelogEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updater, setUpdater] = useState<UpdaterStatus>(getUpdaterState);
+  const updater = useUpdaterStatus();
   const [showOlder, setShowOlder] = useState(false);
 
   useEffect(() => {
@@ -53,9 +53,8 @@ function WhatsNewInner() {
     fetchChangelog()
       .then((raw) => { if (alive) setEntries(raw ? parseChangelog(raw) : null); })
       .finally(() => { if (alive) setLoading(false); });
-    const unsub = onUpdaterStateChange(() => setUpdater(getUpdaterState()));
     checkForUpdate().catch(() => {});
-    return () => { alive = false; unsub(); };
+    return () => { alive = false; };
   }, []);
 
   function handleClose() {
@@ -175,7 +174,8 @@ function UpdateBanner({ state }: { state: UpdaterStatus }) {
     );
   }
 
-  if (state.status === "externalUpdate") {
+  if (state.status === "available" || state.status === "externalUpdate") {
+    const download = state.status === "available" ? downloadUpdate : openDownloadPage;
     return (
       <div className="flex items-center gap-3 px-5 py-3 border-b border-(--t-border) bg-(--t-bg-elevated) shrink-0">
         <Icon icon="lucide:sparkles" width={15} className="text-(--t-accent) shrink-0" />
@@ -183,7 +183,7 @@ function UpdateBanner({ state }: { state: UpdaterStatus }) {
           {t("changelog.updateBanner.available", { version: state.version })}
         </span>
         <button
-          onClick={() => openDownloadPage().catch(() => {})}
+          onClick={() => download().catch(() => {})}
           className="btn btn-primary ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0"
         >
           <Icon icon="lucide:download" width={13} />
