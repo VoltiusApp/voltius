@@ -39,11 +39,14 @@ async function keptLocally(from: string | null, localKey: string, value: string)
   );
 }
 
+const transferCanRead = (fromTeamId: string | null): boolean =>
+  fromTeamId === null || !useTeamVaultStateStore.getState().credentialsUnavailableByTeamId[fromTeamId];
+
 async function transfer(localKeys: string[], fromVaultId: string, toVaultId: string): Promise<void> {
   const from = teamIdOfVault(fromVaultId);
   const to = teamIdOfVault(toVaultId);
   if (from === to) return;
-  if (from !== null && useTeamVaultStateStore.getState().credentialsUnavailableByTeamId[from]) {
+  if (!transferCanRead(from)) {
     toastSecretError("common.error.secretsLeftInSourceVault", new Error(`${from}: credentials unavailable`));
     return;
   }
@@ -113,9 +116,9 @@ export async function moveWithSecrets(
   const destination = toVaultId ?? fromVaultId;
   const from = teamIdOfVault(fromVaultId);
   const to = teamIdOfVault(destination);
-  const moving = from !== to;
+  const editsAtSource = from !== to && transferCanRead(from);
   // Edits land at the source so the transfer carries them: a queued retry must never upload an older value.
-  if (moving) {
+  if (editsAtSource) {
     await applyEdits(
       edits,
       (k, v) => writeSecretAt(from, k, v).catch(keepCachedOnUploadFailure(`secret edit before move ${k}`)),
@@ -133,7 +136,7 @@ export async function moveWithSecrets(
     throw e;
   }
   await transferSecrets(kind, current.id, fromVaultId, destination);
-  if (!moving) await applyEdits(edits, storeSecret, deleteSecret);
+  if (!editsAtSource) await applyEdits(edits, storeSecret, deleteSecret);
 }
 
 export const moveKeyToVault = (
