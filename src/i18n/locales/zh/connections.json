@@ -76,7 +76,8 @@
           "direct": "直连",
           "system": "系统",
           "socks5": "SOCKS5",
-          "http": "HTTP"
+          "http": "HTTP",
+          "https": "HTTPS"
         },
         "host": "代理主机",
         "port": "代理端口",

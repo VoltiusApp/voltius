@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -9,15 +8,7 @@ import { useToggle } from "@/stores/toggleSettingsStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { getJoinableSessions, joinRemoteSession } from "@/services/crossDeviceSessions";
 import { sessionLabel } from "@/utils/sessionLabel";
-
-function relativeAge(iso: string): string {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (mins < 1) return i18n.t("mobile.remoteSessions.relativeTime.justNow");
-  if (mins < 60) return i18n.t("mobile.remoteSessions.relativeTime.minutesAgo", { count: mins });
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return i18n.t("mobile.remoteSessions.relativeTime.hoursAgo", { count: hours });
-  return i18n.t("mobile.remoteSessions.relativeTime.daysAgo", { count: Math.floor(hours / 24) });
-}
+import { formatRelative } from "@/utils/localeFormat";
 
 /** Mobile "Live on other devices" strip — phone-native styling over the same pure
  * getJoinableSessions()/joinRemoteSession() as the desktop RemoteDeviceSessions card.
@@ -68,7 +59,7 @@ export default function MobileRemoteDeviceSessions() {
             <span className="flex flex-col gap-0.5 min-w-0">
               <span className="text-sm font-semibold truncate text-(--t-text-primary)">{sessionLabel(a)}</span>
               <span className="text-[11px] truncate text-(--t-text-dim)">
-                {a.deviceName} · {relativeAge(a.openedAt)}
+                {a.deviceName || t("hosts.remoteSessions.unknownDevice")} · {formatRelative(a.openedAt)}
               </span>
               {a.cwd && <span className="text-[11px] truncate text-(--t-text-dim)">{a.cwd}</span>}
             </span>

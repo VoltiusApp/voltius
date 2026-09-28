@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword, logout, lockVaultSession } from "@/services/account";
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
@@ -19,6 +19,7 @@ import { canLockVault } from "@/utils/accountMode";
 import { sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
 import EditEmailModal from "./EditEmailModal";
 import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
+import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
 
 type AccountStep = "idle" | "set-password" | "loading" | "confirm-wipe";
 
@@ -439,9 +440,7 @@ export default function AccountSection() {
       {step === "confirm-wipe" && (
         <div className="space-y-3">
           <p className="text-xs text-(--t-text-muted)">
-            {t("settings.account.confirmWipe.descPre")}
-            <strong>{t("settings.account.confirmWipe.descBold")}</strong>
-            {t("settings.account.confirmWipe.descPost")}
+            <Trans i18nKey="settings.account.confirmWipe.desc" components={{ strong: <strong /> }} />
           </p>
           <div className="flex gap-2">
             <button
@@ -502,11 +501,6 @@ export default function AccountSection() {
 
 // ─── Plans section ────────────────────────────────────────────────────────────
 
-function formatPlanDate(date: Date | null): string | null {
-  if (!date) return null;
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date);
-}
-
 function PlansSection() {
   const { t } = useTranslation();
   const { tier, trialEndsAt, isTrialActive, isPro, isTeams, isBusiness, usedSeats, totalSeats, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
@@ -524,8 +518,8 @@ function PlansSection() {
   const isPaidPro = isPro && !isTrialActive;
 
   const badgeColor = isPro ? "#f59e0b" : "var(--t-text-muted)";
-  const renewalDate = formatPlanDate(renewsAt);
-  const cancellationDate = formatPlanDate(endsAt ?? renewsAt);
+  const renewalDate = formatOptionalDate(renewsAt, SHORT_DATE);
+  const cancellationDate = formatOptionalDate(endsAt ?? renewsAt, SHORT_DATE);
 
   return (
     <div>

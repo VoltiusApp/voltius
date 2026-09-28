@@ -2,13 +2,14 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import i18n from "@/i18n";
+import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 import type { SyncStatus } from "@/services/sync";
 import { syncStatusColor } from "@/services/syncStatus";
 import { runManualSync } from "@/services/syncIntent";
 import { runSyncProviderAction } from "@/services/syncProviderAction";
-import type { SyncProviderAction, SyncProviderView } from "@/services/syncProviders";
+import { VOLTIUS_PROVIDER_ID, type SyncProviderAction, type SyncProviderView } from "@/services/syncProviders";
 import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
@@ -24,13 +25,10 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-}
 
 function statusLabel(status: SyncStatus, lastSync: Date | null): string {
   if (status === "syncing") return i18n.t("layout.sync.status.syncing");
-  if (status === "success") return lastSync ? i18n.t("layout.sync.status.syncedAt", { time: formatTime(lastSync) }) : i18n.t("layout.sync.status.synced");
+  if (status === "success") return lastSync ? i18n.t("layout.sync.status.syncedAt", { time: formatTime(lastSync, HOUR_MINUTE) }) : i18n.t("layout.sync.status.synced");
   if (status === "error")   return i18n.t("layout.sync.status.error");
   if (status === "offline") return i18n.t("layout.sync.status.offline");
   return i18n.t("layout.sync.status.idle");
@@ -76,7 +74,8 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <Icon icon={provider.icon} width={12} style={{ color: "var(--t-text-dim)" }} />
-          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
+          {/* Plugin providers carry their English product name; keep it out of Turkish casing. */}
+          <span lang={provider.id === VOLTIUS_PROVIDER_ID ? undefined : "en"} className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
             {provider.label}
           </span>
         </div>

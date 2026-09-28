@@ -4,10 +4,10 @@ import { persist } from "zustand/middleware";
 import { touchAppSetting } from "./appSettingsTimestampStore";
 import { getToggle } from "./toggleSettingsStore";
 import { DEFAULT_KEEPALIVE_PRESET, type KeepalivePreset } from "@/utils/keepalive";
-import type { ProxyMode } from "@/types";
+import type { CustomProxyMode, ProxyMode } from "@/types";
 import { CONNECTIVITY_SETTINGS_VERSION, migrateConnectivitySettings } from "./connectivitySettingsMigration";
 
-export type GlobalProxyMode = "none" | "system" | "socks5" | "http";
+export type GlobalProxyMode = "none" | "system" | CustomProxyMode;
 
 export interface GlobalProxy {
   mode: GlobalProxyMode;
@@ -16,8 +16,9 @@ export interface GlobalProxy {
   username?: string;
 }
 
-export const GLOBAL_PROXY_MODES: GlobalProxyMode[] = ["none", "system", "socks5", "http"];
-export const HOST_PROXY_MODES: ProxyMode[] = ["direct", "system", "socks5", "http"];
+const CUSTOM_PROXY_MODES: CustomProxyMode[] = ["socks5", "http", "https"];
+export const GLOBAL_PROXY_MODES: GlobalProxyMode[] = ["none", "system", ...CUSTOM_PROXY_MODES];
+export const HOST_PROXY_MODES: ProxyMode[] = ["direct", "system", ...CUSTOM_PROXY_MODES];
 export const DEFAULT_GLOBAL_PROXY: GlobalProxy = { mode: "none" };
 
 interface ConnectivitySettingsState {

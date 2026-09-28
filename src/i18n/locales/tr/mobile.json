@@ -19,13 +19,7 @@
       }
     },
     "remoteSessions": {
-      "title": "Diğer cihazlarda canlı",
-      "relativeTime": {
-        "justNow": "az önce",
-        "minutesAgo": "{{count}} dk önce",
-        "hoursAgo": "{{count}} sa önce",
-        "daysAgo": "{{count}} gün önce"
-      }
+      "title": "Diğer cihazlarda canlı"
     },
     "snippets": {
       "searchPlaceholder": "Kod parçacıklarında ara",

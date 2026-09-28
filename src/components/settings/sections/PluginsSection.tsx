@@ -21,6 +21,7 @@ import { useBrowseCatalog } from "@/hooks/useBrowseCatalog";
 import { DirtyDot, ResetButton, SettingRow } from "./shared";
 import { useIsAndroid } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
+import { searchMatcher } from "@/utils/search";
 
 // ─── Auto-generated settings form ─────────────────────────────────────────
 
@@ -318,11 +319,7 @@ export function InstalledTab() {
   );
   const allExternal = installedMeta;
 
-  const matchesSearch = (name: string, description?: string) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return name.toLowerCase().includes(q) || (description ?? "").toLowerCase().includes(q);
-  };
+  const matchesSearch = searchMatcher(search);
 
   const filteredBundled = allBundled.filter(({ manifest }) =>
     matchesSearch(manifest.name, manifest.description),
@@ -604,8 +601,9 @@ function BrowseTab() {
 
   const allTags = [...new Set(merged.flatMap((p) => p.tags))].sort();
 
+  const match = searchMatcher(search);
   const filtered = merged.filter((p) => {
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = match(p.name, p.description);
     const matchTag = !activeTag || p.tags.includes(activeTag);
     return matchSearch && matchTag;
   });

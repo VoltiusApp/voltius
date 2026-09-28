@@ -3,21 +3,20 @@ import { persist } from "zustand/middleware";
 import { domainOf, settingKey } from "@/services/user-data/settingKeys";
 
 // ─── Registry ────────────────────────────────────────────────────────────────
-// Add new syncable object types here. AccountSection reads this automatically.
+// Add new syncable object types here. SyncSection reads this automatically;
+// labels live in settings.sync.objectType.<id>.{label,sub}.
 
 export interface SyncObjectTypeDef {
   id: string;
-  label: string;
-  sub: string;
 }
 
 export const SYNC_OBJECT_TYPES: SyncObjectTypeDef[] = [
-  { id: "connection", label: "Hosts",       sub: "SSH connections" },
-  { id: "identity",   label: "Identities",  sub: "Usernames and credentials" },
-  { id: "key",        label: "SSH Keys",    sub: "Key pairs stored in keychain" },
-  { id: "folder",     label: "Folders",     sub: "Folder structure for organizing objects" },
-  { id: "snippet",    label: "Snippets",    sub: "Saved commands and scripts" },
-  { id: "port-forwarding-rule", label: "Port Forwarding", sub: "Saved tunnel rules" },
+  { id: "connection" },
+  { id: "identity" },
+  { id: "key" },
+  { id: "folder" },
+  { id: "snippet" },
+  { id: "port-forwarding-rule" },
 ];
 
 export interface SyncSettingDomainDef {

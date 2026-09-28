@@ -7,6 +7,7 @@ import { Pills } from "./Pills";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { getTagColorStyle } from "@/utils/tagColors";
 import { chevronRotateStyle } from "@/utils/icons";
+import { searchMatcher } from "@/utils/search";
 
 /** Focus a search/filter input when the user presses the `filter` shortcut (Ctrl+F). */
 export function useFilterShortcut(ref: RefObject<HTMLInputElement | null>) {
@@ -208,9 +209,8 @@ function TagFilterButton({
 
   const isActive = tagFilter.length > 0;
 
-  const filteredTags = tagSearch.trim()
-    ? availableTags.filter((tag) => tag.toLowerCase().includes(tagSearch.toLowerCase()))
-    : availableTags;
+  const matchesTag = searchMatcher(tagSearch);
+  const filteredTags = availableTags.filter((tag) => matchesTag(tag));
 
   const toggleTag = (tag: string) => {
     onTagFilterChange(

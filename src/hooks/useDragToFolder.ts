@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import i18n from "@/i18n";
 
 // HTML5 drag-and-drop is unreliable inside the Tauri WebView2 on Windows when
 // `dragDropEnabled: true` is set in tauri.conf.json — Tauri's OLE drop target
@@ -222,7 +223,7 @@ export function useDragToFolder({
       const ps = el.querySelectorAll("p, span[data-card-title]");
       const title = (ps[0]?.textContent ?? "").trim();
       const sub = (ps[1]?.textContent ?? "").trim();
-      return { title: title || "Item", subtitle: sub || null };
+      return { title: title || i18n.t("common.dragItemFallback"), subtitle: sub || null };
     }
 
     function readSourceAvatar(el: HTMLElement): HTMLElement | null {

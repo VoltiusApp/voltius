@@ -47,6 +47,7 @@ pub enum ProxyMode {
     System,
     Socks5,
     Http,
+    Https,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

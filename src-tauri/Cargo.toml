@@ -114,4 +114,6 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 webpki-roots = "1"
 
 [dev-dependencies]
+# Issues throwaway certificates for the TLS proxy tests, so no private key is committed.
+rcgen = { version = "0.13", default-features = false, features = ["crypto", "ring"] }
 tempfile = "3"

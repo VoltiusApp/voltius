@@ -1,8 +1,11 @@
 use super::*;
 use crate::port_forward::test_ssh::{spawn_server, Behavior, TestClient};
-use std::sync::{Arc, Mutex};
-use tokio::io::{copy_bidirectional, AsyncReadExt, AsyncWriteExt};
+use std::sync::{Arc, LazyLock, Mutex};
+use tokio::io::{copy_bidirectional, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tokio_rustls::rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
+use tokio_rustls::rustls::{ClientConfig, RootCertStore, ServerConfig};
+use tokio_rustls::TlsAcceptor;
 
 fn endpoint(port: u16, auth: Option<(&str, &str)>) -> ProxyEndpoint {
     ProxyEndpoint {
@@ -66,52 +69,121 @@ async fn fake_socks5(
     (port, requested)
 }
 
-async fn fake_http(upstream: u16, expect_auth: Option<&'static str>) -> (u16, Arc<Mutex<String>>) {
+/// A throwaway CA and a proxy certificate it issues for 127.0.0.1, made once per test run.
+struct TestPki {
+    ca: CertificateDer<'static>,
+    proxy_cert: CertificateDer<'static>,
+    proxy_key: Vec<u8>,
+}
+
+static TEST_PKI: LazyLock<TestPki> = LazyLock::new(|| {
+    let ca_key = rcgen::KeyPair::generate().unwrap();
+    let mut ca_params = rcgen::CertificateParams::new(Vec::<String>::new()).unwrap();
+    ca_params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+    let ca = ca_params.self_signed(&ca_key).unwrap();
+    let proxy_key = rcgen::KeyPair::generate().unwrap();
+    let proxy_cert = rcgen::CertificateParams::new(vec!["127.0.0.1".to_string()])
+        .unwrap()
+        .signed_by(&proxy_key, &ca, &ca_key)
+        .unwrap();
+    TestPki {
+        ca: ca.der().clone(),
+        proxy_cert: proxy_cert.der().clone(),
+        proxy_key: proxy_key.serialize_der(),
+    }
+});
+
+fn test_acceptor() -> TlsAcceptor {
+    let pki = &*TEST_PKI;
+    let config = ServerConfig::builder_with_provider(crate::tls::provider())
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_no_client_auth()
+        .with_single_cert(
+            vec![pki.proxy_cert.clone()],
+            PrivatePkcs8KeyDer::from(pki.proxy_key.clone()).into(),
+        )
+        .unwrap();
+    TlsAcceptor::from(Arc::new(config))
+}
+
+fn trusting_test_ca() -> Arc<ClientConfig> {
+    let mut roots = RootCertStore::empty();
+    roots.add(TEST_PKI.ca.clone()).unwrap();
+    crate::tls::client_config_with_roots(roots).unwrap()
+}
+
+async fn fake_http(
+    upstream: u16,
+    expect_auth: Option<&'static str>,
+    tls: Option<TlsAcceptor>,
+) -> (u16, Arc<Mutex<String>>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let request_line = Arc::new(Mutex::new(String::new()));
     let seen = Arc::clone(&request_line);
     tokio::spawn(async move {
-        let (mut c, _) = listener.accept().await.unwrap();
-        let mut buf = Vec::new();
-        let mut chunk = [0u8; 512];
-        while !buf.windows(4).any(|w| w == b"\r\n\r\n") {
-            let n = c.read(&mut chunk).await.unwrap();
-            buf.extend_from_slice(&chunk[..n]);
-        }
-        let text = String::from_utf8_lossy(&buf).to_string();
-        *seen.lock().unwrap() = text.lines().next().unwrap_or("").to_string();
-        if let Some(token) = expect_auth {
-            if !text.contains(&format!("Proxy-Authorization: Basic {token}\r\n")) {
-                c.write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\n\r\n")
-                    .await
-                    .unwrap();
-                return;
+        let (tcp, _) = listener.accept().await.unwrap();
+        match tls {
+            None => serve_connect(tcp, upstream, expect_auth, seen).await,
+            Some(acceptor) => {
+                if let Ok(c) = acceptor.accept(tcp).await {
+                    serve_connect(c, upstream, expect_auth, seen).await;
+                }
             }
         }
-        let mut up = TcpStream::connect(("127.0.0.1", upstream)).await.unwrap();
-        let mut banner = vec![0u8; 256];
-        let n = up.read(&mut banner).await.unwrap();
-        let mut reply = b"HTTP/1.1 200 Connection established\r\n\r\n".to_vec();
-        reply.extend_from_slice(&banner[..n]);
-        c.write_all(&reply).await.unwrap();
-        let _ = copy_bidirectional(&mut c, &mut up).await;
     });
     (port, request_line)
+}
+
+async fn serve_connect<S: AsyncRead + AsyncWrite + Unpin>(
+    mut c: S,
+    upstream: u16,
+    expect_auth: Option<&'static str>,
+    seen: Arc<Mutex<String>>,
+) {
+    let mut buf = Vec::new();
+    let mut chunk = [0u8; 512];
+    while !buf.windows(4).any(|w| w == b"\r\n\r\n") {
+        let n = c.read(&mut chunk).await.unwrap();
+        buf.extend_from_slice(&chunk[..n]);
+    }
+    let text = String::from_utf8_lossy(&buf).to_string();
+    *seen.lock().unwrap() = text.lines().next().unwrap_or("").to_string();
+    if let Some(token) = expect_auth {
+        if !text.contains(&format!("Proxy-Authorization: Basic {token}\r\n")) {
+            c.write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\n\r\n")
+                .await
+                .unwrap();
+            return;
+        }
+    }
+    let mut up = TcpStream::connect(("127.0.0.1", upstream)).await.unwrap();
+    let mut banner = vec![0u8; 256];
+    let n = up.read(&mut banner).await.unwrap();
+    let mut reply = b"HTTP/1.1 200 Connection established\r\n\r\n".to_vec();
+    reply.extend_from_slice(&banner[..n]);
+    c.write_all(&reply).await.unwrap();
+    let _ = copy_bidirectional(&mut c, &mut up).await;
 }
 
 async fn ssh_over(spec: ProxySpec) -> Result<Option<String>, String> {
     let dialed = dial(Some(&spec), "ssh.test.invalid", 22)
         .await
         .map_err(|e| e.to_string())?;
+    ssh_handshake(dialed.stream).await?;
+    Ok(dialed.via)
+}
+
+async fn ssh_handshake(stream: ProxiedStream) -> Result<(), String> {
     russh::client::connect_stream(
         Arc::new(russh::client::Config::default()),
-        dialed.stream,
+        stream,
         TestClient,
     )
     .await
-    .map_err(|e| e.to_string())?;
-    Ok(dialed.via)
+    .map(drop)
+    .map_err(|e| e.to_string())
 }
 
 #[tokio::test]
@@ -166,7 +238,7 @@ async fn socks5_username_without_password_fails_locally() {
 #[tokio::test]
 async fn ssh_through_http_connect_with_banner_in_reply() {
     let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
-    let (proxy, line) = fake_http(ssh, None).await;
+    let (proxy, line) = fake_http(ssh, None, None).await;
     let via = ssh_over(ProxySpec::Http(endpoint(proxy, None)))
         .await
         .unwrap();
@@ -178,9 +250,52 @@ async fn ssh_through_http_connect_with_banner_in_reply() {
 }
 
 #[tokio::test]
+async fn ssh_through_https_proxy_with_banner_in_reply() {
+    let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
+    let (proxy, line) = fake_http(ssh, None, Some(test_acceptor())).await;
+    let stream = https::connect(
+        &endpoint(proxy, None),
+        trusting_test_ca(),
+        "ssh.test.invalid",
+        22,
+    )
+    .await
+    .unwrap();
+    ssh_handshake(ProxiedStream::Https(Box::new(stream)))
+        .await
+        .unwrap();
+    assert_eq!(
+        line.lock().unwrap().as_str(),
+        "CONNECT ssh.test.invalid:22 HTTP/1.1"
+    );
+}
+
+#[tokio::test]
+async fn https_proxy_with_untrusted_certificate_is_rejected() {
+    let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
+    let (proxy, line) = fake_http(ssh, None, Some(test_acceptor())).await;
+    let err = dial(Some(&ProxySpec::Https(endpoint(proxy, None))), "h", 22)
+        .await
+        .err()
+        .unwrap();
+    assert!(matches!(err, ProxyError::Protocol { .. }), "{err}");
+    assert!(!err.is_transient());
+    assert!(
+        err.to_string().starts_with(&format!(
+            "Proxy 127.0.0.1:{proxy}: TLS certificate rejected: "
+        )),
+        "{err}"
+    );
+    assert!(
+        line.lock().unwrap().is_empty(),
+        "CONNECT sent over untrusted TLS"
+    );
+}
+
+#[tokio::test]
 async fn http_connect_wrong_auth_reports_407() {
     let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
-    let (proxy, _) = fake_http(ssh, Some("dTpw")).await;
+    let (proxy, _) = fake_http(ssh, Some("dTpw"), None).await;
     let err = ssh_over(ProxySpec::Http(endpoint(proxy, Some(("u", "x")))))
         .await
         .unwrap_err();
@@ -244,6 +359,11 @@ fn spec_deserializes_from_frontend_json() {
     assert_eq!(
         serde_json::from_str::<ProxySpec>(r#"{"kind":"system"}"#).unwrap(),
         ProxySpec::System
+    );
+    assert_eq!(
+        serde_json::from_str::<ProxySpec>(r#"{"kind":"https","host":"127.0.0.1","port":443}"#)
+            .unwrap(),
+        ProxySpec::Https(endpoint(443, None))
     );
 }
 

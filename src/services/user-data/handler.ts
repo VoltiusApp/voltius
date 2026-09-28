@@ -3,7 +3,6 @@
 
 export interface UserDataHandler {
   readonly key: string;
-  readonly label: string;
   readonly icon: string;
 
   // Read current state from stores. Must be side-effect free: mergeUserDataBundle

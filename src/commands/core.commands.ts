@@ -4,11 +4,12 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { checkForUpdate } from "@/services/updater";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { defineCommand, navCommand, pendingActionCommand } from "./defineCommand";
+import { lazyT } from "@/i18n";
 
 export const commands: OmniCommand[] = [
   pendingActionCommand({
     id: "core:new-host",
-    label: "New Host",
+    label: lazyT("omni.commands.newHost"),
     icon: "lucide:server",
     keywords: ["add", "create", "ssh", "connection", "server"],
     setter: "setHomePendingAction",
@@ -17,7 +18,7 @@ export const commands: OmniCommand[] = [
   }),
   pendingActionCommand({
     id: "core:new-key",
-    label: "New SSH Key",
+    label: lazyT("omni.commands.newKey"),
     icon: "lucide:key-round",
     keywords: ["add", "create", "key", "keychain", "ssh", "rsa", "ed25519"],
     setter: "setKeychainPendingAction",
@@ -26,7 +27,7 @@ export const commands: OmniCommand[] = [
   }),
   pendingActionCommand({
     id: "core:new-identity",
-    label: "New Identity",
+    label: lazyT("omni.commands.newIdentity"),
     icon: "lucide:id-card",
     keywords: ["add", "create", "identity", "credential", "user"],
     setter: "setKeychainPendingAction",
@@ -35,14 +36,14 @@ export const commands: OmniCommand[] = [
   }),
   defineCommand({
     id: "core:settings",
-    label: "Settings",
+    label: lazyT("omni.commands.settings"),
     icon: "lucide:settings",
     keywords: ["preferences", "config", "options", "appearance", "theme"],
     execute: () => useUIStore.getState().openSettings(),
   }),
   defineCommand({
     id: "core:check-for-update",
-    label: "Check for Update",
+    label: lazyT("omni.commands.checkForUpdate"),
     icon: "lucide:refresh-cw",
     keywords: ["update", "version", "upgrade", "release", "changelog"],
     execute: () => {
@@ -52,35 +53,35 @@ export const commands: OmniCommand[] = [
   }),
   defineCommand({
     id: "core:whats-new",
-    label: "What's New",
+    label: lazyT("omni.commands.whatsNew"),
     icon: "lucide:megaphone",
     keywords: ["changelog", "release", "notes", "news", "update", "version"],
     execute: () => useUIStore.getState().openWhatsNew(),
   }),
   navCommand({
     id: "core:port-forwarding",
-    label: "Port Forwarding",
+    label: lazyT("omni.commands.portForwarding"),
     icon: "lucide:arrow-left-right",
     keywords: ["tunnel", "forward", "port", "proxy"],
     nav: "port-forwarding",
   }),
   navCommand({
     id: "core:known-hosts",
-    label: "Known Hosts",
+    label: lazyT("omni.commands.knownHosts"),
     icon: "lucide:shield-check",
     keywords: ["known", "hosts", "fingerprint", "trust", "security"],
     nav: "known-hosts",
   }),
   navCommand({
     id: "core:logs",
-    label: "Logs",
+    label: lazyT("omni.commands.logs"),
     icon: "lucide:scroll-text",
     keywords: ["log", "debug", "console", "output", "trace"],
     nav: "logs",
   }),
   pendingActionCommand({
     id: "core:new-snippet",
-    label: "New Snippet",
+    label: lazyT("omni.commands.newSnippet"),
     icon: "lucide:braces",
     keywords: ["add", "create", "snippet", "command", "text", "macro"],
     setter: "setSnippetsPendingAction",
@@ -89,7 +90,7 @@ export const commands: OmniCommand[] = [
   }),
   defineCommand({
     id: "core:team-members",
-    label: "Team Members",
+    label: lazyT("omni.commands.teamMembers"),
     icon: "lucide:users",
     keywords: ["team", "members", "people", "invite", "manage", "roles"],
     execute: () => {
@@ -100,7 +101,7 @@ export const commands: OmniCommand[] = [
   }),
   defineCommand({
     id: "core:disconnect-all",
-    label: "Disconnect All",
+    label: lazyT("omni.commands.disconnectAll"),
     icon: "lucide:unplug",
     keywords: ["close", "end", "stop", "quit", "sessions", "all", "kill"],
     execute: () => {

@@ -558,6 +558,10 @@ mod tests {
         assert_eq!(p.mode, ProxyMode::Http);
         assert_eq!(p.port, Some(3128));
         assert_eq!(out["proxy"]["mode"], "http");
+        assert_eq!(
+            serde_json::from_str::<ProxyMode>(r#""https""#).unwrap(),
+            ProxyMode::Https
+        );
     }
 
     #[test]

@@ -14,6 +14,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useNotificationStore } from "@/stores/notificationStore";
+import type { ToastSeverity } from "@/plugins/api";
 import { useUIStore } from "@/stores/uiStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { waitForConnectedSessionIds } from "@/components/shared/sessionPickerTargets";
@@ -500,13 +501,18 @@ export function buildSummaryMessage(result: SequenceRunResult): { message: strin
   };
 }
 
-export function reportSequenceResult(result: SequenceRunResult): void {
-  const { message, severity } = buildSummaryMessage(result);
+/** Toast attributed to Snippets, named in the current app language. */
+export function notifySnippets(message: string, severity: ToastSeverity, duration = 8000): void {
   useNotificationStore.getState().addToast({
-    source: { kind: "plugin", id: "snippets", name: "Snippets" },
+    source: { kind: "plugin", id: "snippets", name: i18n.t("layout.nav.snippets") },
     type: "toast",
     message,
     severity,
-    duration: severity === "success" ? 4000 : 8000,
+    duration,
   });
+}
+
+export function reportSequenceResult(result: SequenceRunResult): void {
+  const { message, severity } = buildSummaryMessage(result);
+  notifySnippets(message, severity, severity === "success" ? 4000 : 8000);
 }

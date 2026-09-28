@@ -200,7 +200,7 @@ test("every ticked role is handed to the shared invite, in selection order", asy
   h.assign.mockResolvedValue(undefined);
   render(<InvitePanel {...baseProps} teamRoles={roles} />);
 
-  fireEvent.click(screen.getByText("editor"));
+  fireEvent.click(screen.getByText("members.roleName.editor"));
   await typeAndDebounce("in");
   vi.useRealTimers();
   fireEvent.click(screen.getByText("included-alpha-3140"));
@@ -378,7 +378,7 @@ test("no role selected: the Add action is disabled, a hint is shown, clicking do
   render(<InvitePanel {...baseProps} />);
 
   // "member" is auto-selected on mount; untick it so nothing is selected.
-  fireEvent.click(screen.getByText("member"));
+  fireEvent.click(screen.getByText("members.roleName.member"));
   expect(screen.getByText("members.invite.selectRoleHint")).toBeTruthy();
 
   await typeAndDebounce("in");
@@ -395,7 +395,7 @@ test("no role selected: the email-invite action is disabled, clicking does nothi
   h.searchUsers.mockResolvedValue([]);
   render(<InvitePanel {...baseProps} />);
 
-  fireEvent.click(screen.getByText("member"));
+  fireEvent.click(screen.getByText("members.roleName.member"));
   await typeAndDebounce("a@b.com");
   vi.useRealTimers();
 

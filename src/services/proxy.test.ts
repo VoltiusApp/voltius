@@ -54,6 +54,7 @@ describe("resolveProxy", () => {
   it.each([
     ["socks5", 1080],
     ["http", 8080],
+    ["https", 443],
   ] as const)("%s with an empty port uses the default port", async (mode, port) => {
     expect(await resolveProxy({ id: "c", proxy: { mode, host: "h" } })).toEqual({ kind: mode, host: "h", port });
     expect(DEFAULT_PROXY_PORT[mode]).toBe(port);

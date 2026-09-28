@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Connection, ProxyOverride } from "@/types";
+import type { Connection, CustomProxyMode, ProxyOverride } from "@/types";
 import i18n from "@/i18n";
 import { getSecret } from "@/services/vault";
 import { findConnection } from "@/services/credentials";
@@ -9,12 +9,12 @@ import { GLOBAL_PROXY_PASSWORD_KEY, proxyPasswordKey } from "@/services/teamVaul
 export type ProxySpec =
   | { kind: "direct" }
   | { kind: "system" }
-  | { kind: "socks5" | "http"; host: string; port: number; username?: string; password?: string };
+  | { kind: CustomProxyMode; host: string; port: number; username?: string; password?: string };
 
-export const DEFAULT_PROXY_PORT = { socks5: 1080, http: 8080 } as const;
+export const DEFAULT_PROXY_PORT: Record<CustomProxyMode, number> = { socks5: 1080, http: 8080, https: 443 };
 
-export const isCustomProxyMode = (mode: string | undefined): mode is keyof typeof DEFAULT_PROXY_PORT =>
-  mode === "socks5" || mode === "http";
+export const isCustomProxyMode = (mode: string | undefined): mode is CustomProxyMode =>
+  mode !== undefined && Object.prototype.hasOwnProperty.call(DEFAULT_PROXY_PORT, mode);
 
 export async function resolveProxy(
   conn: Pick<Connection, "id" | "proxy">,
@@ -31,7 +31,8 @@ export async function resolveProxy(
     case "system":
       return { kind: "system" };
     case "socks5":
-    case "http": {
+    case "http":
+    case "https": {
       const host = source.host?.trim();
       if (!host) {
         throw new Error(i18n.t("connections.form.proxy.hostMissing", { kind: i18n.t(`connections.form.proxy.modes.${source.mode}`) }));
@@ -55,7 +56,7 @@ export function resolveFirstHopProxy(conn: Connection): Promise<ProxySpec | null
 }
 
 export interface DetectedProxy {
-  kind: "socks5" | "http";
+  kind: CustomProxyMode;
   host: string;
   port: number;
 }

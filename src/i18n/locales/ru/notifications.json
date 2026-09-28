@@ -3,13 +3,7 @@
     "bell": {
       "title": "Уведомления",
       "clearHistory": "Очистить историю",
-      "noNotifications": "Нет уведомлений",
-      "relativeTime": {
-        "justNow": "только что",
-        "minutesAgo": "{{count}} мин. назад",
-        "hoursAgo": "{{count}} ч. назад",
-        "daysAgo": "{{count}} дн. назад"
-      }
+      "noNotifications": "Нет уведомлений"
     },
     "emailVerification": {
       "banner": {

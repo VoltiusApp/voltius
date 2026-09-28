@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerDivider, PickerFooterAction } from "@/components/shared/pickerParts";
@@ -38,7 +38,12 @@ export function HostStackMenu({ host, members, labels, shownId, activeSessionId,
       <div ref={surfaceRef} {...hoverBind} data-testid="stack-menu-surface" className="-m-1.5 p-1.5">
         <div className="flex items-center justify-between pl-3 pr-1.5">
           <p className="pt-1 pb-1 text-[11px] font-bold uppercase tracking-widest text-(--t-text-dim)">
-            {t("layout.titleBar.stack.sessions", { host, count: members.length })}
+            <Trans
+              i18nKey="layout.titleBar.stack.heading"
+              count={members.length}
+              values={{ host }}
+              components={{ host: <span lang="en" /> }}
+            />
           </p>
           <button
             type="button"

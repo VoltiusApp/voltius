@@ -21,7 +21,7 @@ import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePerm
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
-import { RoleToggleChip } from "@/components/members/roleChips";
+import { RoleToggleChip, roleLabel } from "@/components/members/roleChips";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { PendingInviteCard } from "@/components/members/cards/PendingInviteCard";
@@ -32,6 +32,8 @@ import { SelfCard } from "@/components/members/cards/SelfCard";
 import { MemberDetailPanel } from "@/components/members/panels/MemberDetailPanel";
 import { InvitePanel } from "@/components/members/panels/InvitePanel";
 import { SignInToCloudCTA, UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
+import { compareStrings } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -142,10 +144,10 @@ export default function MembersPage() {
   }, [teamId, canManageMembers, loadPendingInvitations]);
 
   // Filter + sort
-  const searchLower = search.trim().toLowerCase();
+  const searchLower = search.trim();
   const filteredMembers = useMemo(() => {
     let result = members;
-    if (searchLower) result = result.filter((m) => (m.handle ?? "").toLowerCase().includes(searchLower));
+    if (searchLower) { const match = searchMatcher(searchLower); result = result.filter((m) => match(m.handle)); }
     if (roleFilter.length > 0) result = result.filter((m) => roleFilter.some((rid) => m.role_ids.includes(rid)));
     return result;
   }, [members, searchLower, roleFilter]);
@@ -153,15 +155,15 @@ export default function MembersPage() {
   const sortedMembers = useMemo(() => {
     return [...filteredMembers].sort((a, b) => {
       switch (sortMode) {
-        case "name-asc":  return (a.handle ?? "").localeCompare(b.handle ?? "");
-        case "name-desc": return (b.handle ?? "").localeCompare(a.handle ?? "");
+        case "name-asc":  return compareStrings(a.handle ?? "", b.handle ?? "");
+        case "name-desc": return compareStrings(b.handle ?? "", a.handle ?? "");
         case "newest":    return b.joined_at.localeCompare(a.joined_at);
         case "oldest":    return a.joined_at.localeCompare(b.joined_at);
         case "role-asc": {
           const posA = Math.min(...(a.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           const posB = Math.min(...(b.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           if (posA !== posB) return posA - posB;
-          return (a.handle ?? "").localeCompare(b.handle ?? "");
+          return compareStrings(a.handle ?? "", b.handle ?? "");
         }
         default: return 0;
       }
@@ -218,7 +220,7 @@ export default function MembersPage() {
       const unassignedRoles = sortedRoles.filter((r) => !member.role_ids.includes(r.id));
 
       const assignedItems: ContextMenuItem[] = assignedRoles.map((r) => ({
-        label: r.name,
+        label: roleLabel(t, r.name),
         icon: "lucide:square-check-big",
         onClick: () => {
           void removeMemberRole(teamId!, member.user_id, r.id).then(() => {
@@ -233,7 +235,7 @@ export default function MembersPage() {
       }));
 
       const unassignedItems: ContextMenuItem[] = unassignedRoles.map((r, i) => ({
-        label: r.name,
+        label: roleLabel(t, r.name),
         icon: "lucide:square",
         divider: i === 0 && assignedItems.length > 0,
         onClick: () => {
@@ -315,7 +317,7 @@ export default function MembersPage() {
         label: t("members.contextMenu.assignRoleBulk", { count: selectedMembers.length }),
         icon: "lucide:shield",
         children: sortedBulkRoles.map((r) => ({
-          label: r.name,
+          label: roleLabel(t, r.name),
           onClick: () => {
             const prevRoleIds = selectedMembers.map((m) => ({ userId: m.user_id, roleIds: [...m.role_ids] }));
             void Promise.all(selectedMembers.map((m) => assignMemberRole(teamId!, m.user_id, r.id))).then(() => {
@@ -340,7 +342,7 @@ export default function MembersPage() {
         label: t("members.contextMenu.removeRoleBulk", { count: selectedMembers.length }),
         icon: "lucide:shield-off",
         children: sortedBulkRoles.map((r) => ({
-          label: r.name,
+          label: roleLabel(t, r.name),
           onClick: () => {
             void Promise.all(
               selectedMembers

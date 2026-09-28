@@ -33,6 +33,7 @@ import { terminalFontStack } from "@/utils/fontStack";
 import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
 import { getPlatform } from "@/utils/platform";
 import { createOutputDecoder, encodeTerminalInput, type OutputDecoder } from "@/utils/terminalEncoding";
+import i18n from "@/i18n";
 
 interface UseTerminalOptions {
   sessionId: string;
@@ -60,6 +61,11 @@ function sendResize(sessionId: string, sessionType: "ssh" | "local" | "serial", 
   void sendSessionResize(sessionId, sessionType, cols, rows).catch((err) => {
     log.debug(`terminal resize failed for ${sessionType} session ${sessionId}`, err);
   });
+}
+
+/** Dim marker line written into the buffer when a session ends. */
+function closedBanner(key: string): string {
+  return `\r\n\x1b[90m--- ${i18n.t(key)} ---\x1b[0m\r\n`;
 }
 
 function isHttpUrl(uri: string) {
@@ -794,7 +800,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
             tooltip.style.transform = "translateY(0)";
           });
         }
-        linkTooltip.textContent = "Alt+click to open";
+        linkTooltip.textContent = i18n.t("terminal.xterm.linkTooltip");
         linkTooltip.style.left = `${event.clientX + 12}px`;
         linkTooltip.style.top = `${event.clientY + 12}px`;
       };
@@ -1054,7 +1060,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         const localListeners = [
           onLocalOutput(sessionId, writeOutput),
           onLocalClosed(sessionId, (cleanExit) => {
-            term.write("\r\n\x1b[90m--- Session closed ---\x1b[0m\r\n");
+            term.write(closedBanner("terminal.xterm.sessionClosed"));
             entry.onClosedRef.current?.(cleanExit);
           }),
         ];
@@ -1072,7 +1078,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         );
         unlistenPromises.push(
           onSerialClosed(sessionId, () => {
-            term.write("\r\n\x1b[90m--- Serial connection closed ---\x1b[0m\r\n");
+            term.write(closedBanner("terminal.xterm.serialClosed"));
             entry.onClosedRef.current?.(false);
           }),
         );

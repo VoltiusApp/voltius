@@ -3,6 +3,8 @@ import type { AnyAuditAction, AuditTarget } from "@/services/auditContext";
 import { applyAuditFilters, csvEscape } from "@/services/auditExportCore";
 
 const LOCAL_AUDIT_KEY = "voltius-local-audit-logs";
+/** The only actor in the local log: this user. */
+export const LOCAL_ACTOR_ID = "local-user";
 
 /**
  * Ring-buffer bound for the per-vault local log.
@@ -212,7 +214,7 @@ export async function reportLocalClientEvent(
     id: db.nextId,
     team_id: "local",
     vault_id: event.vault_id ?? vaultId,
-    actor_id: "local-user",
+    actor_id: LOCAL_ACTOR_ID,
     actor_name: "You",
     action: event.action,
     source: "client",

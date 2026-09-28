@@ -5,6 +5,7 @@ import type { TeamRole } from "@/stores/teamStore";
 import { useUserSearch } from "@/hooks/useUserSearch";
 import { assignableRoles, seatState } from "./vaultShareModel";
 import { ChoiceChip } from "./ChoiceChip";
+import { roleLabel } from "@/components/members/roleChips";
 import { inviteUserById, inviteByEmailAddress } from "@/services/vaultShare";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -104,7 +105,7 @@ export function InviteControl({ teamId, roles, existingIds, usedSeats, seatCap, 
           {options.map((r) => (
             <ChoiceChip
               key={r.id}
-              label={r.name}
+              label={roleLabel(t, r.name)}
               capitalize
               selected={r.id === roleId}
               onClick={() => setRoleId(r.id)}

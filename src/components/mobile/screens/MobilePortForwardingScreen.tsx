@@ -21,6 +21,8 @@ import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import { RuleForm } from "@/components/port_forwarding/RuleForm";
 import { scopeItems, folderItemCount } from "@/components/mobile/folders/mobileFolderCore";
 import type { PortForwardingRule, Folder } from "@/types";
+import { compareStrings } from "@/utils/localeFormat";
+import { searchMatcher } from "@/utils/search";
 
 type FormRule = PortForwardingRule | null | "new" | undefined;
 type AddMode = null | "menu" | "new-folder";
@@ -49,13 +51,13 @@ export default function MobilePortForwardingScreen() {
     [allFolders, selectedVaultIds],
   );
   const nav = useFolderNavigation(pfFolders);
-  const subfolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => a.name.localeCompare(b.name)), [nav.visibleFolders]);
+  const subfolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)), [nav.visibleFolders]);
 
   const rules = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const match = searchMatcher(search);
     return scopeItems(allRules, nav.activeFolderId)
-      .filter((r) => !q || r.name.toLowerCase().includes(q) || String(r.local_port).includes(q) || String(r.remote_port).includes(q) || r.remote_host.toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .filter((r) => match(r.name, r.local_port, r.remote_port, r.remote_host))
+      .sort((a, b) => compareStrings(a.name, b.name));
   }, [allRules, nav.activeFolderId, search]);
 
   const closeForm = () => { setFormRule(undefined); dirtyRef.current = false; };
@@ -91,7 +93,7 @@ export default function MobilePortForwardingScreen() {
               <button className="flex-1 min-w-0 text-left" onClick={() => setSheetRule(rule)}>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-(--t-text-primary) truncate">{rule.name}</span>
-                  <span className="shrink-0 rounded-sm px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-(--t-text-dim)" style={{ background: "var(--t-bg-card)" }}>{rule.tunnel_type}</span>
+                  <span lang="en" className="shrink-0 rounded-sm px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-(--t-text-dim)" style={{ background: "var(--t-bg-card)" }}>{rule.tunnel_type}</span>
                 </div>
                 <div className="text-[11px] text-(--t-text-dim) truncate">{st.statusLabel}</div>
                 <div className="text-[11px] font-mono text-(--t-text-dim) truncate">{rule.local_port} &rarr; {rule.remote_host}:{rule.remote_port}</div>

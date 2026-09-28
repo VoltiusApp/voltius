@@ -8,8 +8,9 @@ import { scheduleSync, syncNow } from "@/services/sync";
 let deviceNameCache: string | null = null;
 
 async function getDeviceName(): Promise<string> {
-  if (deviceNameCache) return deviceNameCache;
-  deviceNameCache = await invoke<string>("device_hostname").catch(() => "Unknown device");
+  if (deviceNameCache !== null) return deviceNameCache;
+  // Empty when unknown: each viewer names it in their own language.
+  deviceNameCache = await invoke<string>("device_hostname").catch(() => "");
   return deviceNameCache;
 }
 

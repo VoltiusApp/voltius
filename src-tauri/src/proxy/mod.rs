@@ -1,4 +1,5 @@
 mod http;
+mod https;
 mod socks;
 pub mod system;
 #[cfg(test)]
@@ -13,6 +14,7 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
+use tokio_rustls::client::TlsStream;
 use tokio_socks::tcp::Socks5Stream;
 
 pub const PROXY_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(15);
@@ -24,12 +26,14 @@ pub enum ProxySpec {
     System,
     Socks5(ProxyEndpoint),
     Http(ProxyEndpoint),
+    Https(ProxyEndpoint),
 }
 
 pub enum ProxiedStream {
     Tcp(TcpStream),
     Socks(Socks5Stream<TcpStream>),
     Http(PrefixedStream<TcpStream>),
+    Https(Box<PrefixedStream<TlsStream<TcpStream>>>),
 }
 
 pub struct Dialed {
@@ -71,28 +75,46 @@ pub(crate) async fn dial_with_timeout(
         }
         Some(ProxySpec::Socks5(ep)) => {
             let stream = bounded(ep, limit, socks::connect(ep, host, port)).await?;
-            Ok(Dialed {
-                stream: ProxiedStream::Socks(stream),
-                via: Some(format!("socks5 {}", ep.label())),
-            })
+            Ok(Dialed::through("socks5", ep, ProxiedStream::Socks(stream)))
         }
         Some(ProxySpec::Http(ep)) => {
             let stream = bounded(ep, limit, async {
-                let tcp = TcpStream::connect((ep.host.as_str(), ep.port))
-                    .await
-                    .map_err(|source| ProxyError::Unreachable {
-                        proxy: ep.label(),
-                        source,
-                    })?;
-                http::connect(tcp, ep.label(), host, port, ep.auth()).await
+                http::connect(open(ep).await?, ep.label(), host, port, ep.auth()).await
             })
             .await?;
-            Ok(Dialed {
-                stream: ProxiedStream::Http(stream),
-                via: Some(format!("http {}", ep.label())),
-            })
+            Ok(Dialed::through("http", ep, ProxiedStream::Http(stream)))
+        }
+        Some(ProxySpec::Https(ep)) => {
+            let config = crate::tls::client_config().map_err(|detail| ProxyError::Protocol {
+                proxy: ep.label(),
+                detail,
+            })?;
+            let stream = bounded(ep, limit, https::connect(ep, config, host, port)).await?;
+            Ok(Dialed::through(
+                "https",
+                ep,
+                ProxiedStream::Https(Box::new(stream)),
+            ))
         }
     }
+}
+
+impl Dialed {
+    fn through(scheme: &str, ep: &ProxyEndpoint, stream: ProxiedStream) -> Self {
+        Self {
+            stream,
+            via: Some(format!("{scheme} {}", ep.label())),
+        }
+    }
+}
+
+async fn open(ep: &ProxyEndpoint) -> Result<TcpStream, ProxyError> {
+    TcpStream::connect((ep.host.as_str(), ep.port))
+        .await
+        .map_err(|source| ProxyError::Unreachable {
+            proxy: ep.label(),
+            source,
+        })
 }
 
 async fn bounded<T>(
@@ -111,6 +133,7 @@ macro_rules! each_stream {
             ProxiedStream::Tcp($s) => $e,
             ProxiedStream::Socks($s) => $e,
             ProxiedStream::Http($s) => $e,
+            ProxiedStream::Https($s) => $e,
         }
     };
 }
@@ -244,6 +267,7 @@ pub async fn proxy_detect_system() -> Option<DetectedProxy> {
     let (kind, ep) = match spec {
         ProxySpec::Socks5(ep) => ("socks5", ep),
         ProxySpec::Http(ep) => ("http", ep),
+        ProxySpec::Https(ep) => ("https", ep),
         ProxySpec::Direct | ProxySpec::System => return None,
     };
     Some(DetectedProxy {

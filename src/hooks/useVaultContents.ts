@@ -5,8 +5,8 @@ import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 
 export interface VaultObjectType {
+  /** Also names the count's label: common.contentCounts.<key>. */
   key: "connections" | "identities" | "keys" | "snippets" | "portForwardingRules";
-  label: string;
   icon: string;
   count: number;
 }
@@ -25,10 +25,10 @@ export function useVaultContents(vaultId?: string): VaultObjectType[] {
     vaultId ? items.filter((i) => (i.vault_id ?? "personal") === vaultId) : items;
 
   return [
-    { key: "connections",         label: "connections",              icon: "lucide:server",     count: filter(connections).length },
-    { key: "identities",          label: "identities",               icon: "lucide:id-card", count: filter(identities).length },
-    { key: "keys",                label: "keys",                     icon: "lucide:key-round",  count: filter(keys).length },
-    { key: "snippets",            label: "snippets",                 icon: "lucide:braces",     count: filter(snippets).length },
-    { key: "portForwardingRules", label: "port forwarding rules",    icon: "lucide:network",    count: filter(pfRules).length },
+    { key: "connections",         icon: "lucide:server",     count: filter(connections).length },
+    { key: "identities",          icon: "lucide:id-card",    count: filter(identities).length },
+    { key: "keys",                icon: "lucide:key-round",  count: filter(keys).length },
+    { key: "snippets",            icon: "lucide:braces",     count: filter(snippets).length },
+    { key: "portForwardingRules", icon: "lucide:network",    count: filter(pfRules).length },
   ];
 }

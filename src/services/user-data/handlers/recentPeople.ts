@@ -5,7 +5,6 @@ import { lastWriteWins, type UserDataHandler } from "../handler";
 
 export const recentPeopleHandler: UserDataHandler = {
   key: "recentPeople",
-  label: "Recent People",
   icon: "lucide:users-round",
 
   export(): RecentPerson[] {

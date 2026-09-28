@@ -6,6 +6,7 @@ import type { Transfer } from "./SFTPTypes";
 afterEach(() => cleanup());
 
 vi.mock("react-i18next", () => ({
+  initReactI18next: { type: "3rdParty", init: () => {} },
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, unknown>) =>
       opts?.count !== undefined ? `${key}:${String(opts.count)}` : key,

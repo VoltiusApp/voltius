@@ -4,10 +4,9 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useVaultStore } from "@/stores/vaultStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { VaultBadge } from "@/components/shared/VaultBadge";
 import { pingStatusTone } from "@/utils/statusTone";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
@@ -32,27 +31,6 @@ type Row =
   | { kind: "quick-connect"; intent: Exclude<QuickConnectIntent, null> }
   | { kind: "host"; connection: Connection }
   | { kind: "local-shell"; shell: ShellOption | null };
-
-function VaultBadge({ vaultId }: { vaultId: string | undefined }) {
-  const vaults = useVaultStore((s) => s.vaults);
-  const teams = useTeamStore((s) => s.teams);
-  const effectiveId = vaultId ?? "personal";
-  const vault = vaults.find((v) => v.id === effectiveId || v.teamId === effectiveId);
-  const team = !vault ? teams.find((t) => t.id === effectiveId) : undefined;
-  const name = vault?.name ?? team?.name ?? "Personal";
-  const isPersonal = effectiveId === "personal";
-  return (
-    <span
-      className="shrink-0 flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-sm border"
-      style={isPersonal
-        ? { background: "var(--t-bg-elevated)", color: "var(--t-text-muted)", borderColor: "var(--t-border)" }
-        : { background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", color: "var(--t-accent)", borderColor: "color-mix(in srgb, var(--t-accent) 30%, transparent)" }}
-    >
-      <Icon icon="lucide:vault" width={10} />
-      {name}
-    </span>
-  );
-}
 
 export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps) {
   const { t } = useTranslation();

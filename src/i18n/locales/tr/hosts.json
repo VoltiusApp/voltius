@@ -40,7 +40,8 @@
       "openFilesTitle": "Dosyaları aç (veya çift tıklayın)",
       "inUseBy": "{{name}} tarafından kullanılıyor",
       "inUseByOverflow_one": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor",
-      "inUseByOverflow_other": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor"
+      "inUseByOverflow_other": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor",
+      "filesSuffix": "dosyalar"
     },
     "page": {
       "all": "Tümü",
@@ -97,15 +98,13 @@
     },
     "remoteSessions": {
       "title": "Diğer cihazlarda etkin",
-      "justNow": "az önce",
-      "minutesAgo": "{{count}} dk önce",
-      "hoursAgo": "{{count}} sa önce",
-      "daysAgo": "{{count}} gün önce",
       "kill": "Oturumu sonlandır",
       "killing": "Oturum sonlandırılıyor…",
       "undo": "Geri al",
       "killFailed": "Uzaktan sonlandırılamadı — sonlandırmak için oturumu açın",
-      "dismiss": "Kapat"
+      "dismiss": "Kapat",
+      "deviceActive": "{{device}} · {{age}} etkin",
+      "unknownDevice": "Bilinmeyen cihaz"
     },
     "teamSessions": {
       "title": "Ekip oturumları",

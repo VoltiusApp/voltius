@@ -76,7 +76,8 @@
           "direct": "Напрямую",
           "system": "Системный",
           "socks5": "SOCKS5",
-          "http": "HTTP"
+          "http": "HTTP",
+          "https": "HTTPS"
         },
         "host": "Хост прокси",
         "port": "Порт прокси",

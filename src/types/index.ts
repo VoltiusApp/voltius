@@ -98,7 +98,8 @@ export interface EnvVar {
   value: string;
 }
 
-export type ProxyMode = "direct" | "system" | "socks5" | "http";
+export type CustomProxyMode = "socks5" | "http" | "https";
+export type ProxyMode = "direct" | "system" | CustomProxyMode;
 
 export interface ProxyOverride {
   mode: ProxyMode;

@@ -61,9 +61,9 @@
     },
     "sequence": {
       "summary": {
-        "success": "代码片段已在 {{count}} 个目标上运行",
         "partial": "{{count}} 个成功——{{details}}",
-        "failed": "失败"
+        "failed": "失败",
+        "success_other": "代码片段已在 {{count}} 个目标上运行"
       },
       "connectFailed": "无法打开终端会话",
       "flatten": {
@@ -116,10 +116,6 @@
       "contentLabel": "内容",
       "variablesLabel": "变量：",
       "autoBadge": "自动",
-      "syntaxHintType": "类型",
-      "syntaxHintForAutocomplete": "用于自动补全。",
-      "syntaxHintCustomPrompts": "自定义提示：",
-      "syntaxHintTypesList": "— 文本 · 数字 · 密码 · 布尔值 ·",
       "descriptionLabel": "描述（可选）",
       "descriptionPlaceholder": "这个代码片段做什么？",
       "tagsLabel": "标签",
@@ -142,7 +138,8 @@
         "datetime": "日期 + 时间 — YYYY-MM-DD HH:MM:SS",
         "timestamp": "Unix 时间戳",
         "clipboard": "当前剪贴板内容"
-      }
+      },
+      "syntaxHint": "输入 <code>{{open}}</code> 以自动补全。自定义提示：<code>{{prompt}}</code> — 类型：text · number · password · boolean · <code>{{choice}}</code>"
     },
     "step": {
       "kind": {
@@ -234,13 +231,6 @@
         "message_other": "这将删除该文件夹、其子文件夹以及其中的 {{count}} 个片段。此操作无法撤销。",
         "messageEmpty": "这将删除该文件夹及其中的所有内容。此操作无法撤销。",
         "confirmLabel": "删除文件夹"
-      },
-      "relativeTime": {
-        "justNow": "刚刚",
-        "secondsAgo": "{{count}} 秒前",
-        "minutesAgo": "{{count}} 分钟前",
-        "hoursAgo": "{{count}} 小时前",
-        "daysAgo": "{{count}} 天前"
       }
     }
   }

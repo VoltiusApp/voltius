@@ -1,3 +1,4 @@
+import { normalizeForSearch } from "@/utils/search";
 // Type-ahead ("type to select") navigation for the file list, matching
 // Windows Explorer semantics. Kept pure and UI-free so it can be unit-tested;
 // the buffer/timeout bookkeeping lives in the FilePane keydown handler.
@@ -24,8 +25,8 @@ export function resolveTypeAheadIndex(
   const n = names.length;
   if (n === 0 || buffer.length === 0) return -1;
 
-  const key = (isRepeat ? buffer[0] : buffer).toLowerCase();
-  const matches = (i: number) => names[i].toLowerCase().startsWith(key);
+  const key = normalizeForSearch(isRepeat ? buffer[0] : buffer);
+  const matches = (i: number) => normalizeForSearch(names[i]).startsWith(key);
 
   if (isRepeat) {
     // Cycle to the next matching entry after the current one, wrapping around.

@@ -20,7 +20,8 @@
       "actions": "操作",
       "quickSettings": "快速设置",
       "settings": "设置",
-      "joinByInviteCode": "通过邀请码加入"
+      "joinByInviteCode": "通过邀请码加入",
+      "importExport": "导入 / 导出"
     },
     "settingsDescription": "设置",
     "pluginSettingsDescription": "插件设置",
@@ -87,6 +88,32 @@
       "statusManual": "手动",
       "statusSystem": "自动 · 跟随系统",
       "statusUntil": "自动 · {{phase}} 直到 {{time}}"
+    },
+    "commands": {
+      "newHost": "新建主机",
+      "newKey": "新建 SSH 密钥",
+      "newIdentity": "新建身份",
+      "settings": "设置",
+      "checkForUpdate": "检查更新",
+      "whatsNew": "更新日志",
+      "portForwarding": "端口转发",
+      "knownHosts": "已知主机",
+      "logs": "日志",
+      "newSnippet": "新建代码片段",
+      "teamMembers": "团队成员",
+      "disconnectAll": "全部断开",
+      "reportBug": "报告问题",
+      "createTheme": "创建自定义主题",
+      "importFrom": "从 {{label}} 导入",
+      "importFromEllipsis": "从 {{label}} 导入…",
+      "exportAll": "导出保管库数据…",
+      "exportConnections": "导出连接…",
+      "exportIdentities": "导出身份…",
+      "exportKeys": "导出 SSH 密钥…",
+      "exportSnippets": "导出代码片段…",
+      "exportPortForwarding": "导出端口转发规则…",
+      "exportThemes": "导出自定义主题…",
+      "importThemes": "导入主题…"
     }
   }
 }

@@ -1,4 +1,4 @@
-import { formatPermissions, formatSize, formatDate } from "./SFTPTypes.ts";
+import { formatPermissions, formatSize, formatModified } from "./SFTPTypes.ts";
 import { test } from "vitest";
 
 test("SFTPTypes.format", async () => {
@@ -19,13 +19,13 @@ function assertEqual(actual: unknown, expected: unknown, msg: string) {
   assertEqual(formatSize(2048), "2.0 KB", "size KB");
 }
 {
-  // 14 days after epoch — stays "Jan 15 1970" in any realistic TZ offset
-  assertEqual(formatDate(1209600), "Jan 15 1970", "date past-year branch");
+  // 14 days after epoch — stays "Jan 15, 1970" in any realistic TZ offset
+  assertEqual(formatModified(1209600), "Jan 15, 1970", "date past-year branch");
 
-  // current-year branch → "Mon DD HH:MM" shape (TZ/clock independent on shape)
+  // current-year branch → "Mon D, HH:MM" shape (TZ/clock independent on shape)
   const nowTs = Math.floor(Date.now() / 1000);
-  const s = formatDate(nowTs);
-  const shapeOk = /^[A-Z][a-z]{2} [ 0-9]\d \d{2}:\d{2}$/.test(s);
+  const s = formatModified(nowTs);
+  const shapeOk = /^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2}( [AP]M)?$/.test(s);
   assertEqual(shapeOk, true, "date current-year shape");
 }
 

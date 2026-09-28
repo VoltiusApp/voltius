@@ -15,12 +15,14 @@ import { KnownHostCard } from "./KnownHostCard";
 import { KnownHostsToolbar } from "./KnownHostsToolbar";
 import type { KnownHost, VaultOption } from "@/types";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
+import { compareStrings } from "@/utils/localeFormat";
+import { useSearchMatcher } from "@/utils/search";
 
 function sortHosts(hosts: KnownHost[], mode: SortMode): KnownHost[] {
   return [...hosts].sort((a, b) => {
     switch (mode) {
-      case "name-asc":  return (a.host + a.port).localeCompare(b.host + b.port);
-      case "name-desc": return (b.host + b.port).localeCompare(a.host + a.port);
+      case "name-asc":  return compareStrings(a.host + a.port, b.host + b.port);
+      case "name-desc": return compareStrings(b.host + b.port, a.host + a.port);
       case "newest":    return b.created_at.localeCompare(a.created_at);
       case "oldest":    return a.created_at.localeCompare(b.created_at);
       default:          return 0;
@@ -47,17 +49,17 @@ export default function KnownHostsPage() {
 
   const vaultOptions = useVaultOptions({ includeUnlinkedTeams: false });
 
-  const q = useMemo(() => search.trim().toLowerCase(), [search]);
+  const q = search.trim();
+  const match = useSearchMatcher(q);
 
   const filtered = useMemo(() => {
     const visible = knownHosts.filter((h) => {
       const hvid = h.vault_id ?? "personal";
       if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(hvid)) return false;
-      if (q && !h.host.toLowerCase().includes(q) && !(h.name ?? "").toLowerCase().includes(q)) return false;
-      return true;
+      return match(h.host, h.name);
     });
     return sortHosts(visible, sortMode);
-  }, [knownHosts, q, sortMode, accessibleVaultIds]);
+  }, [knownHosts, match, sortMode, accessibleVaultIds]);
 
   const orderedIds = useMemo(() => filtered.map((h) => h.id), [filtered]);
 
@@ -175,7 +177,7 @@ export default function KnownHostsPage() {
       {confirmDeleteIds && (
         <ConfirmModal
           title={t("knownHosts.page.confirmDelete.title", { count: confirmDeleteIds.length })}
-          message={t("knownHosts.page.confirmDelete.message")}
+          message={t("knownHosts.page.confirmDelete.message", { count: confirmDeleteIds.length })}
           confirmLabel={t("common.action.delete")}
           onConfirm={confirmDelete}
           onCancel={() => setConfirmDeleteIds(null)}

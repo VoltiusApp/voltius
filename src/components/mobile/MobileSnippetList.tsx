@@ -15,7 +15,8 @@ import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import FolderFormSheet from "@/components/mobile/sheets/FolderFormSheet";
 import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
 import type { Snippet, Folder } from "@/types";
-import { snippetSearchText } from "@/services/snippetSteps";
+import { snippetMatcher, snippetSearchText } from "@/services/snippetSteps";
+import { compareStrings } from "@/utils/localeFormat";
 
 export default function MobileSnippetList({
   currentSessionId, addFolderOpen = false, onCloseAddFolder,
@@ -47,15 +48,14 @@ export default function MobileSnippetList({
   );
 
   const subFolders = useMemo(
-    () => (foldersEnabled ? [...nav.visibleFolders].sort((a, b) => a.name.localeCompare(b.name)) : []),
+    () => (foldersEnabled ? [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)) : []),
     [foldersEnabled, nav.visibleFolders],
   );
 
   const visible = useMemo(() => {
     const scoped = foldersEnabled ? scopeItems(inVault, nav.activeFolderId) : inVault;
-    const q = search.trim().toLowerCase();
-    return (q ? scoped.filter((s) => s.name.toLowerCase().includes(q) || snippetSearchText(s).toLowerCase().includes(q)) : scoped)
-      .sort((a, b) => a.name.localeCompare(b.name));
+    return scoped.filter(snippetMatcher(search))
+      .sort((a, b) => compareStrings(a.name, b.name));
   }, [foldersEnabled, inVault, nav.activeFolderId, search]);
 
   const targetVaultId = nav.folderPath[nav.folderPath.length - 1]?.vault_id ?? selectedVaultIds[0] ?? "personal";

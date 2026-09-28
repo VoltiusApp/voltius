@@ -403,6 +403,10 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
     ? `${connection.username}@${connection.host}`
     : (serialConfig?.port ?? "");
 
+  const serialLabel = serialConfig
+    ? t("panes.terminal.serialSubtitle", { port: serialConfig.port, baud: serialConfig.baud })
+    : t("terminal.statusBar.serialFallback");
+
   const ctxItems = useMemo<ContextMenuItem[]>(() => {
     if (sessionType === "ssh" && connection) {
       return [
@@ -776,7 +780,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
             <>
               <Icon icon="lucide:ethernet-port" width={11} className="text-(--t-text-dim)" />
               <span
-                title={serialConfig ? `${serialConfig.port} · ${serialConfig.baud} baud` : t("terminal.statusBar.serialFallback")}
+                title={serialLabel}
                 onClick={handleCopyHost}
                 className={`flex items-center px-1 text-(--t-text-dim) ${statusBarItemClass}`}
                 style={{
@@ -787,7 +791,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                   cursor: "pointer",
                 }}
               >
-                {copied ? t("terminal.statusBar.copiedBang") : (serialConfig ? `${serialConfig.port} · ${serialConfig.baud} baud` : t("terminal.statusBar.serialFallback"))}
+                {copied ? t("terminal.statusBar.copiedBang") : serialLabel}
               </span>
               <StatusBarButton
                 icon={isDisconnectedOrError ? "lucide:plug" : "lucide:unplug"}

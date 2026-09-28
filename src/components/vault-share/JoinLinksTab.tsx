@@ -14,10 +14,11 @@ import {
   type JoinGrant,
 } from "@/services/teamJoinGrants";
 import { clampMaxUses, clampTtlSecs, expiresIn, TTL_PRESETS, USES_PRESETS, usesRemaining } from "./joinLinkModel";
-import { roleChipColors } from "@/components/members/roleChips";
+import { roleChipColors, roleLabel } from "@/components/members/roleChips";
 import { ChoiceChip } from "./ChoiceChip";
 import type { TeamRole } from "@/stores/teamStore";
 import { assignableRoles } from "./vaultShareModel";
+import { formatDateTime } from "@/utils/localeFormat";
 
 interface Props {
   teamId: string;
@@ -140,7 +141,7 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
                 </span>
                 <span
                   className="text-[11px] text-(--t-text-secondary) flex-1 min-w-0"
-                  title={new Date(grant.expires_at).toLocaleString()}
+                  title={formatDateTime(grant.expires_at)}
                 >
                   {t("members.joinLinks.usesLeft", {
                     count: usesRemaining(grant),
@@ -212,7 +213,7 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
               {options.map((r) => (
                 <ChoiceChip
                   key={r.id}
-                  label={r.name}
+                  label={roleLabel(t, r.name)}
                   capitalize
                   selected={r.name === role}
                   onClick={() => setRole(r.name as GrantableRole)}

@@ -1,15 +1,25 @@
 import type { OmniCommand } from "@/plugins/api";
 import { useUIStore } from "@/stores/uiStore";
 import { IMPORTERS } from "@/services/import-export/importers";
+import { defineCommand } from "@/commands/defineCommand";
+import { lazyT } from "@/i18n";
 
 const open = useUIStore.getState;
 
-const importerCommands: OmniCommand[] = IMPORTERS.map(importer => ({
+const section = lazyT("omni.sections.importExport");
+
+type IECommandDef = Omit<OmniCommand, "section">;
+
+const ieCommand = (def: IECommandDef): OmniCommand => defineCommand({ ...def, section });
+
+const importerCommands: OmniCommand[] = IMPORTERS.map(importer => ieCommand({
   id: `import-export:import-${importer.key}`,
-  label: `Import from ${importer.label}${importer.autoExtract ? "" : "…"}`,
+  label: lazyT(
+    importer.autoExtract ? "omni.commands.importFrom" : "omni.commands.importFromEllipsis",
+    { label: importer.label },
+  ),
   icon: importer.icon,
   keywords: ["import", importer.key, importer.label.toLowerCase(), "sessions", "hosts", "connections"],
-  section: "Import / Export",
   execute: () => open().openImportExport("import", {
     source: importer.key,
     autoTrigger: !!importer.autoExtract,
@@ -18,71 +28,63 @@ const importerCommands: OmniCommand[] = IMPORTERS.map(importer => ({
 
 export const commands: OmniCommand[] = [
   // ── Vault export ───────────────────────────────────────────────────────────
-  {
+  ieCommand({
     id: "import-export:export-all",
-    label: "Export vault data…",
+    label: lazyT("omni.commands.exportAll"),
     icon: "lucide:upload",
     keywords: ["export", "backup", "save", "json", "csv", "download", "vault"],
-    section: "Import / Export",
     execute: () => open().openImportExport("export"),
-  },
-  {
+  }),
+  ieCommand({
     id: "import-export:export-connections",
-    label: "Export connections…",
+    label: lazyT("omni.commands.exportConnections"),
     icon: "lucide:server",
     keywords: ["export", "connections", "hosts", "ssh"],
-    section: "Import / Export",
     execute: () => open().openImportExport("export", { preselectedTypes: ["connections"] }),
-  },
-  {
+  }),
+  ieCommand({
     id: "import-export:export-identities",
-    label: "Export identities…",
+    label: lazyT("omni.commands.exportIdentities"),
     icon: "lucide:id-card",
     keywords: ["export", "identities", "users"],
-    section: "Import / Export",
     execute: () => open().openImportExport("export", { preselectedTypes: ["identities"] }),
-  },
-  {
+  }),
+  ieCommand({
     id: "import-export:export-keys",
-    label: "Export SSH keys…",
+    label: lazyT("omni.commands.exportKeys"),
     icon: "lucide:key",
     keywords: ["export", "keys", "ssh", "keychain"],
-    section: "Import / Export",
     execute: () => open().openImportExport("export", { preselectedTypes: ["keys"] }),
-  },
-  {
+  }),
+  ieCommand({
     id: "import-export:export-snippets",
-    label: "Export snippets…",
+    label: lazyT("omni.commands.exportSnippets"),
     icon: "lucide:braces",
     keywords: ["export", "snippets", "commands"],
-    section: "Import / Export",
     execute: () => open().openImportExport("export", { preselectedTypes: ["snippets"] }),
-  },
-  {
+  }),
+  ieCommand({
     id: "import-export:export-port-forwarding",
-    label: "Export port forwarding rules…",
+    label: lazyT("omni.commands.exportPortForwarding"),
     icon: "lucide:arrow-right-left",
     keywords: ["export", "port", "forwarding", "rules", "tunnel"],
-    section: "Import / Export",
     execute: () => open().openImportExport("export", { preselectedTypes: ["portForwardingRules"] }),
-  },
+  }),
   // ── Vault import ───────────────────────────────────────────────────────────
   ...importerCommands,
   // ── User data ──────────────────────────────────────────────────────────────
-  {
+  ieCommand({
     id: "import-export:export-themes",
-    label: "Export custom themes…",
+    label: lazyT("omni.commands.exportThemes"),
     icon: "lucide:palette",
     keywords: ["export", "themes", "colors", "appearance"],
-    section: "Import / Export",
     execute: () => open().openThemeImportExport("export"),
-  },
-  {
+  }),
+  ieCommand({
     id: "import-export:import-themes",
-    label: "Import themes…",
+    label: lazyT("omni.commands.importThemes"),
     icon: "lucide:palette",
     keywords: ["import", "themes", "colors", "appearance"],
-    section: "Import / Export",
     execute: () => open().openThemeImportExport("import"),
-  },
+  }),
 ];

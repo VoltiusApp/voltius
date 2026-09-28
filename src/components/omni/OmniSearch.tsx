@@ -5,7 +5,8 @@ import { Icon } from "@iconify/react";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
-import { resolveLabel } from "@/plugins/resolveLabel";
+import { englishLabel, resolveLabel } from "@/plugins/resolveLabel";
+import { VaultBadge } from "@/components/shared/VaultBadge";
 import { useUIStore } from "@/stores/uiStore";
 import type { SettingsSection } from "@/stores/uiStore";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -19,7 +20,9 @@ import {
 import { broadcastSnippetInject } from "@/services/snippetInject";
 import { runSnippetSequence, reportSequenceResult } from "@/services/snippetSequence";
 import { getActiveRunnableSession } from "@/services/snippetRun";
-import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
+import { snippetMatcher, snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
+import { searchMatcher } from "@/utils/search";
+import { matchesSearch } from "@/utils/connectionFilter";
 import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -29,8 +32,6 @@ import { sessionLabel, sessionMatchesQuery } from "@/utils/sessionLabel";
 import { getSettingsNav } from "@/components/settings/settingsNav";
 import { useLocaleStore } from "@/stores/localeStore";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
-import { useVaultStore } from "@/stores/vaultStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
@@ -94,26 +95,6 @@ function detectCategory(raw: string): { category: Category; query: string } {
 }
 
 
-function VaultBadge({ vaultId, vaults, teams }: { vaultId: string | undefined; vaults: import("@/stores/vaultStore").Vault[]; teams: import("@/stores/teamStore").Team[] }) {
-  const effectiveId = vaultId ?? "personal";
-  const vault = vaults.find((v) => v.id === effectiveId || v.teamId === effectiveId);
-  const team = !vault ? teams.find((t) => t.id === effectiveId) : undefined;
-  const name = vault?.name ?? team?.name ?? "Personal";
-  const isPersonal = effectiveId === "personal";
-  return (
-    <span
-      className="shrink-0 flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-sm border"
-      style={isPersonal
-        ? { background: "var(--t-bg-elevated)", color: "var(--t-text-muted)", borderColor: "var(--t-border)" }
-        : { background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", color: "var(--t-accent)", borderColor: "color-mix(in srgb, var(--t-accent) 30%, transparent)" }
-      }
-    >
-      <Icon icon="lucide:vault" width={10} />
-      {name}
-    </span>
-  );
-}
-
 export default function OmniSearch({ onClose }: OmniSearchProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -130,8 +111,6 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const { trackUsed, setGlobalPendingInject } = useSnippetStore();
   const identities = useIdentityStore((s) => s.identities);
   const keys = useKeyStore((s) => s.keys);
-  const vaults = useVaultStore((s) => s.vaults);
-  const teams = useTeamStore((s) => s.teams);
   const { activeSessions: teamSessions, fetchActiveSessions } = useTeamSessionStore();
   const mpConnections = useTeamSessionStore((s) => s.connections);
   const myMpSessionIds = useMemo(
@@ -205,28 +184,18 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   );
 
   const items: OmniItem[] = useMemo(() => {
+    const match = searchMatcher(q);
+    const snippetMatches = snippetMatcher(q);
+    const settingsMatches = (a: OmniItem) =>
+      a.kind === "action" &&
+      match(a.label, ...(nav.find((n) => `open-settings:${n.id}` === a.id)?.keywords ?? []));
+    const toggleMatches = (a: OmniItem) => a.kind === "toggle" && match(a.label, ...(a.keywords ?? []));
+
     if (category === "settings") {
-      const navItems = settingsItems.filter((a) => {
-        if (!q) return true;
-        if (a.kind !== "action") return false;
-        if (a.label.toLowerCase().includes(q)) return true;
-        const navEntry = nav.find((n) => `open-settings:${n.id}` === a.id);
-        return navEntry?.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
-      });
-      const filteredToggles = toggleItems.filter((t) =>
-        t.kind === "toggle" && (!q || t.label.toLowerCase().includes(q) || t.keywords?.some((k) => k.toLowerCase().includes(q))),
-      );
-      return [...navItems, ...filteredToggles];
+      return [...settingsItems.filter((a) => !q || settingsMatches(a)), ...toggleItems.filter(toggleMatches)];
     }
     if (category === "snippets") {
-      return snippets
-        .filter((s) =>
-          !q ||
-          s.name.toLowerCase().includes(q) ||
-          snippetSearchText(s).toLowerCase().includes(q) ||
-          s.tags.some((t) => t.toLowerCase().includes(q)),
-        )
-        .map((s): OmniItem => ({ kind: "snippet", snippet: s }));
+      return snippets.filter(snippetMatches).map((s): OmniItem => ({ kind: "snippet", snippet: s }));
     }
     if (category === "marketplace") return [];
     if (category === "join") {
@@ -234,7 +203,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         return [{ kind: "join-code", id: "", label: "", icon: "", code: query.trim() }];
       }
       const sessionItems = teamSessions
-        .filter((s) => !q || sessionDisplayName(s).toLowerCase().includes(q))
+        .filter((s) => match(sessionDisplayName(s)))
         .map((s): OmniItem => ({ kind: "team-session", session: s, alreadyIn: myMpSessionIds.has(s.id) }));
       return [...sessionItems, { kind: "join-code-prompt", id: "", label: "", icon: "" }];
     }
@@ -256,14 +225,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     // Active SSH sessions
     result.push(
       ...activeSessions
-        .filter((s) => !q || sessionMatchesQuery(s, q))
+        .filter((s) => sessionMatchesQuery(s, q))
         .map((s): OmniItem => ({ kind: "session", session: s, connection: connectionById.get(s.connectionId) })),
     );
 
     // Active team sessions
     result.push(
       ...teamSessions
-        .filter((s) => !q || sessionDisplayName(s).toLowerCase().includes(q))
+        .filter((s) => match(sessionDisplayName(s)))
         .map((s): OmniItem => ({ kind: "team-session", session: s, alreadyIn: myMpSessionIds.has(s.id) })),
     );
 
@@ -273,14 +242,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     // Hosts
-    const filteredHosts = connections.filter((c) => {
-      if (q) {
-        return (c.name ?? "").toLowerCase().includes(q) ||
-          c.host.toLowerCase().includes(q) ||
-          c.username.toLowerCase().includes(q);
-      }
-      return !activeConnectionIds.has(c.id) && !c.last_used_at;
-    });
+    const filteredHosts = connections.filter((c) =>
+      q ? matchesSearch(c, q) : !activeConnectionIds.has(c.id) && !c.last_used_at,
+    );
     result.push(...filteredHosts.map((c): OmniItem => ({ kind: "host", connection: c })));
 
     // Local shells — single entry when no query, expands to per-shell rows when query matches "local"/a shell name
@@ -291,38 +255,31 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     // SSH Keys
     result.push(
       ...keys
-        .filter((k) => !q || (k.name ?? "").toLowerCase().includes(q) || (k.key_type ?? "").toLowerCase().includes(q))
+        .filter((k) => match(k.name, k.key_type))
         .map((k): OmniItem => ({ kind: "key", key: k })),
     );
 
     // Identities
     result.push(
       ...identities
-        .filter((i) => !q || (i.name ?? "").toLowerCase().includes(q) || i.username.toLowerCase().includes(q))
+        .filter((i) => match(i.name, i.username))
         .map((i): OmniItem => ({ kind: "identity", identity: i })),
     );
 
     // Snippets
     if (q) {
       result.push(
-        ...snippets
-          .filter((s) =>
-            s.name.toLowerCase().includes(q) ||
-            snippetSearchText(s).toLowerCase().includes(q) ||
-            s.tags.some((t) => t.toLowerCase().includes(q)),
-          )
-          .map((s): OmniItem => ({ kind: "snippet", snippet: s })),
+        ...snippets.filter(snippetMatches).map((s): OmniItem => ({ kind: "snippet", snippet: s })),
       );
     }
 
     // Plugin + core commands
-    const filteredPluginCmds = pluginCommands.filter((cmd) => {
-      if (!q) return true;
-      return cmd.label.toLowerCase().includes(q) ||
-        cmd.keywords?.some((k) => k.toLowerCase().includes(q));
-    });
+    const resolvedPluginCmds = pluginCommands.map((cmd) => ({ cmd, label: resolveLabel(cmd.label) }));
+    const filteredPluginCmds = resolvedPluginCmds.filter(({ cmd, label }) =>
+      match(label, englishLabel(cmd.label), ...(cmd.keywords ?? [])),
+    );
     result.push(
-      ...filteredPluginCmds.map((cmd): OmniItem => {
+      ...filteredPluginCmds.map(({ cmd, label }): OmniItem => {
         let keybinding = cmd.keybinding;
         if (!keybinding && cmd.shortcutId) {
           const sc = shortcuts.find((s) => s.id === cmd.shortcutId);
@@ -331,9 +288,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         return {
           kind: "action",
           id: `plugin:${cmd.id}`,
-          label: cmd.label,
+          label,
           icon: cmd.icon,
-          description: cmd.section,
+          description: cmd.section === undefined ? undefined : resolveLabel(cmd.section),
           keybinding,
         };
       }),
@@ -344,31 +301,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       { kind: "action", id: "theme:switch", label: t("omni.theme.switch"), icon: "lucide:palette", description: t("omni.theme.switchDesc") },
       { kind: "action", id: "theme:automation", label: t("omni.theme.automation"), icon: "lucide:clock", description: t("omni.theme.automationDesc") },
     ];
-    const filteredThemeActions = themeActions.filter(
-      (a) => a.kind === "action" && (!q || a.label.toLowerCase().includes(q) || a.description?.toLowerCase().includes(q)),
-    );
+    const filteredThemeActions = themeActions.filter((a) => a.kind === "action" && match(a.label, a.description));
     result.push(...filteredThemeActions);
 
     // Toggle settings (only when query matches — avoids flooding the empty state)
-    if (q) {
-      result.push(
-        ...toggleItems.filter((t) =>
-          t.kind === "toggle" && (t.label.toLowerCase().includes(q) || t.keywords?.some((k) => k.toLowerCase().includes(q))),
-        ),
-      );
-    }
+    if (q) result.push(...toggleItems.filter(toggleMatches));
 
     // Settings pages (only when query matches — avoids flooding the empty state)
-    if (q) {
-      result.push(
-        ...settingsItems.filter((a) => {
-          if (a.kind !== "action") return false;
-          if (a.label.toLowerCase().includes(q)) return true;
-          const navEntry = nav.find((n) => `open-settings:${n.id}` === a.id);
-          return navEntry?.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
-        }),
-      );
-    }
+    if (q) result.push(...settingsItems.filter(settingsMatches));
 
     return result;
   }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells, nav, t]);
@@ -500,7 +440,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           const { sessionId, inviteToken } = await resolveJoinInput(item.code);
           await joinTeamSessionAndOpenTab({
             sessionId,
-            connectionName: "Shared Terminal",
+            connectionName: t("hosts.teamSessions.sharedTerminalFallback"),
             inviteToken,
           });
           setSidebarOpen(false);
@@ -516,7 +456,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     },
     [setActive, setActiveNav, onClose, setSidebarOpen,
      openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
-     connections, trackUsed, setGlobalPendingInject],
+     connections, trackUsed, setGlobalPendingInject, t],
   );
 
   useEffect(() => {
@@ -576,7 +516,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
             {sessionLabel(item.session)}
           </span>
-          <VaultBadge vaultId={item.connection?.vault_id} vaults={vaults} teams={teams} />
+          <VaultBadge vaultId={item.connection?.vault_id} />
           <span className="text-xs shrink-0 text-(--t-text-dim)">
             {item.session.status}
           </span>
@@ -602,7 +542,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {conn.name || `${conn.username}@${conn.host}`}
             </span>
           </div>
-          <VaultBadge vaultId={conn.vault_id} vaults={vaults} teams={teams} />
+          <VaultBadge vaultId={conn.vault_id} />
           <span className="text-xs shrink-0 group-hover/row:hidden text-(--t-text-muted)">
             ssh, {conn.username}
           </span>
@@ -648,7 +588,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.key.name}
             </span>
           </div>
-          <VaultBadge vaultId={item.key.vault_id} vaults={vaults} teams={teams} />
+          <VaultBadge vaultId={item.key.vault_id} />
           {item.key.key_type && (
             <span className="text-xs font-mono shrink-0 px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-accent)">
               {item.key.key_type}
@@ -675,7 +615,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.identity.name ?? item.identity.username}
             </span>
           </div>
-          <VaultBadge vaultId={item.identity.vault_id} vaults={vaults} teams={teams} />
+          <VaultBadge vaultId={item.identity.vault_id} />
           <span className="text-xs shrink-0 text-(--t-text-muted)">
             {item.identity.username}
           </span>
@@ -736,7 +676,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {snippetSearchText(item.snippet)}
             </p>
           </div>
-          <VaultBadge vaultId={item.snippet.vault_id} vaults={vaults} teams={teams} />
+          <VaultBadge vaultId={item.snippet.vault_id} />
           {item.snippet.tags.length > 0 && (
             <span className="text-[10px] shrink-0 text-(--t-text-muted)">
               {item.snippet.tags[0]}

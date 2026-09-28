@@ -7,13 +7,6 @@
       "noActiveSession": "No active session"
     },
     "historyPanel": {
-      "relativeTime": {
-        "justNow": "just now",
-        "secondsAgo": "{{count}}s ago",
-        "minutesAgo": "{{count}}m ago",
-        "hoursAgo": "{{count}}h ago",
-        "daysAgo": "{{count}}d ago"
-      },
       "removeFromHistory": "Remove from history",
       "searchPlaceholder": "Search history…",
       "showCurrentOnly": "Showing current connection only",
@@ -85,7 +78,16 @@
         "tooManyParts": "Use port or remote:local",
         "invalidRemotePort": "Port must be 1–65535",
         "invalidLocalPort": "Local port must be 1–65535"
-      }
+      },
+      "toast": {
+        "viewPorts": "View Ports →",
+        "forwardedOne": "Port {{port}} → localhost:{{localPort}} forwarded",
+        "forwardedMany_one": "{{count}} port forwarded",
+        "forwardedMany_other": "{{count}} ports forwarded",
+        "autoForwardCapped_one": "Auto-forwarding paused — {{count}} port already forwarded",
+        "autoForwardCapped_other": "Auto-forwarding paused — {{count}} ports already forwarded"
+      },
+      "portLabel": "Port {{port}}"
     },
     "rightPanel": {
       "font": "Font",
@@ -248,13 +250,12 @@
       },
       "hostKeyConflict": {
         "title": "HOST KEY CHANGED",
-        "descriptionPrefix": "The fingerprint for ",
-        "descriptionSuffix": " has changed.",
         "replace": "Replace",
         "addAsNew": "Add as new",
         "abort": "Abort",
         "stored": "Stored",
-        "received": "Received"
+        "received": "Received",
+        "description": "The fingerprint for <host>{{address}}</host> has changed."
       },
       "passphrasePrompt": {
         "title": "KEY PASSPHRASE REQUIRED",
@@ -316,6 +317,11 @@
       "sparklineMin": "min {{value}}ms",
       "sparklineAvg": "avg {{value}}ms",
       "sparklineMax": "max {{value}}ms"
+    },
+    "xterm": {
+      "linkTooltip": "Alt+click to open",
+      "sessionClosed": "Session closed",
+      "serialClosed": "Serial connection closed"
     }
   }
 }

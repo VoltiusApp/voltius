@@ -285,6 +285,13 @@
       "leavePointLocalWipe": "Its contents are deleted from this device, including saved passwords and private keys.",
       "leavePointIrreversible": "You cannot rejoin without a new invitation."
     },
-    "leaveTeam": "Leave team"
+    "leaveTeam": "Leave team",
+    "roleName": {
+      "owner": "Owner",
+      "manager": "Manager",
+      "editor": "Editor",
+      "member": "Member",
+      "connect-only": "Connect-only"
+    }
   }
 }

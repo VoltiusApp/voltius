@@ -40,6 +40,7 @@ vi.mock("@/hooks/useEffectivePinned", () => ({ useEffectivePinned: () => false }
 vi.mock("@/stores/notificationStore", () => ({ useNotificationStore: { getState: () => ({ addToast: vi.fn() }) } }));
 vi.mock("@/utils/connectionDisplayName", () => ({ connectionDisplayName: (c: Connection) => c.name ?? c.host }));
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn() }));
+vi.mock("@/utils/localeFormat", () => ({ compareStrings: (a: string, b: string) => a.localeCompare(b) }));
 vi.mock("@/components/mobile/folders/mobileFolderCore", () => ({ buildMoveTargets: () => [] }));
 vi.mock("@/services/connectionDuplicate", () => ({ moveConnectionToVault: h.moveConnectionToVault }));
 vi.mock("./MoveToFolderSheet", () => ({ default: () => null }));

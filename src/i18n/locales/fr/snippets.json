@@ -23,6 +23,7 @@
       "snippets": "Snippets",
       "searchPlaceholder": "Rechercher dans la communauté",
       "snippetCount_one": "{{count}} snippet",
+      "snippetCount_many": "{{count}} snippets",
       "snippetCount_other": "{{count}} snippets",
       "by": "par {{author}}",
       "updated": "Mis à jour le {{date}}",
@@ -34,9 +35,11 @@
       "retry": "Réessayer",
       "loadFailed": "Impossible de charger le catalogue communautaire.",
       "install_one": "Installer {{count}} snippet dans {{vault}}",
+      "install_many": "Installer {{count}} snippets dans {{vault}}",
       "install_other": "Installer {{count}} snippets dans {{vault}}",
       "installing": "Installation…",
       "installed_one": "{{count}} snippet installé",
+      "installed_many": "{{count}} snippets installés",
       "installed_other": "{{count}} snippets installés",
       "installFailed": "Échec de l’installation : {{error}}",
       "autoIncluded": "Inclus car « {{name}} » l’appelle",
@@ -61,9 +64,11 @@
     },
     "sequence": {
       "summary": {
-        "success": "Snippet exécuté sur {{count}} cible(s)",
         "partial": "{{count}} ok — {{details}}",
-        "failed": "échec"
+        "failed": "échec",
+        "success_one": "Snippet exécuté sur {{count}} cible",
+        "success_many": "Snippet exécuté sur {{count}} cibles",
+        "success_other": "Snippet exécuté sur {{count}} cibles"
       },
       "connectFailed": "impossible d'ouvrir une session terminal",
       "flatten": {
@@ -116,10 +121,6 @@
       "contentLabel": "Contenu",
       "variablesLabel": "Variables :",
       "autoBadge": "auto",
-      "syntaxHintType": "Tapez",
-      "syntaxHintForAutocomplete": "pour l'auto-complétion.",
-      "syntaxHintCustomPrompts": "Invites personnalisées :",
-      "syntaxHintTypesList": "— texte · nombre · mot de passe · booléen ·",
       "descriptionLabel": "Description (optionnel)",
       "descriptionPlaceholder": "Que fait ce snippet ?",
       "tagsLabel": "Étiquettes",
@@ -142,7 +143,8 @@
         "datetime": "Date + heure — AAAA-MM-JJ HH:MM:SS",
         "timestamp": "Horodatage Unix",
         "clipboard": "Contenu actuel du presse-papiers"
-      }
+      },
+      "syntaxHint": "Tapez <code>{{open}}</code> pour l'auto-complétion. Invites personnalisées : <code>{{prompt}}</code> — types : text · number · password · boolean · <code>{{choice}}</code>"
     },
     "step": {
       "kind": {
@@ -211,36 +213,36 @@
       "bulk": {
         "duplicateSnippets": "Dupliquer {{count}} snippets",
         "moveItemsTo_one": "Déplacer {{count}} élément vers",
+        "moveItemsTo_many": "Déplacer {{count}} éléments vers",
         "moveItemsTo_other": "Déplacer {{count}} éléments vers",
         "copyItemsTo_one": "Copier {{count}} élément vers",
+        "copyItemsTo_many": "Copier {{count}} éléments vers",
         "copyItemsTo_other": "Copier {{count}} éléments vers",
         "enableCloudSync": "Activer la synchronisation cloud ({{count}})",
         "disableCloudSync": "Désactiver la synchronisation cloud ({{count}})",
         "exportSnippets_one": "Exporter {{count}} snippet",
+        "exportSnippets_many": "Exporter {{count}} snippets",
         "exportSnippets_other": "Exporter {{count}} snippets",
         "deleteSnippets": "Supprimer {{count}} snippets"
       },
       "confirmDelete": {
         "title_one": "Supprimer {{count}} élément",
+        "title_many": "Supprimer {{count}} éléments",
         "title_other": "Supprimer {{count}} éléments",
         "message_one": "Voulez-vous vraiment supprimer {{count}} élément ? Cette action est irréversible.",
+        "message_many": "Voulez-vous vraiment supprimer {{count}} éléments ? Cette action est irréversible.",
         "message_other": "Voulez-vous vraiment supprimer {{count}} éléments ? Cette action est irréversible.",
         "folderCascade_one": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} snippet).",
+        "folderCascade_many": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} snippets).",
         "folderCascade_other": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} snippets)."
       },
       "confirmDeleteFolder": {
         "title": "Supprimer \"{{name}}\" ?",
         "message_one": "Cela supprimera le dossier, ses sous-dossiers et le contenu qu'ils renferment ({{count}} snippet). Cette action est irréversible.",
+        "message_many": "Cela supprimera le dossier, ses sous-dossiers et le contenu qu'ils renferment ({{count}} snippets). Cette action est irréversible.",
         "message_other": "Cela supprimera le dossier, ses sous-dossiers et le contenu qu'ils renferment ({{count}} snippets). Cette action est irréversible.",
         "messageEmpty": "Cela supprimera le dossier et tout ce qu'il contient. Cette action est irréversible.",
         "confirmLabel": "Supprimer le dossier"
-      },
-      "relativeTime": {
-        "justNow": "à l'instant",
-        "secondsAgo": "il y a {{count}}s",
-        "minutesAgo": "il y a {{count}} min",
-        "hoursAgo": "il y a {{count}} h",
-        "daysAgo": "il y a {{count}} j"
       }
     }
   }
