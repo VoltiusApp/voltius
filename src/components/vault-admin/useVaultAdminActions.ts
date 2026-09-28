@@ -105,6 +105,7 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
         const { readSecretAt, writeSecretAt } = await import("@/services/secretRouting");
         const { secretKeysOfObjects } = await import("@/services/teamVaultSecretKeys");
         const { teamSecretCache } = await import("@/services/teamSecretCache");
+        const { listTeamObjects } = await import("@/services/teamObjects");
 
         const vaultId = target.vaultId!;
         const teamId = target.teamId!;
@@ -112,8 +113,9 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
         await fetchTeamData(teamId);
         const copyFailed = () => vaultToast(t("settings.vaults.general.makePrivate.copyFailedToast"), "error");
         const loadState = useTeamVaultStateStore.getState();
-        // A failed load empties the team slices: adopting nothing then deleting the team destroys it all.
-        if (loadState.statusByTeamId[teamId] !== "loaded" || loadState.credentialsUnavailableByTeamId[teamId]) {
+        const loaded = loadState.statusByTeamId[teamId] === "loaded" && !loadState.credentialsUnavailableByTeamId[teamId];
+        // A failed load empties the slices and a legacy-blob fallback may be stale: only a readable object list is authoritative.
+        if (!loaded || !(await listTeamObjects(teamId).then(() => true, () => false))) {
           await copyFailed();
           return;
         }

@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   markSelfDeparture: vi.fn(),
   addToast: vi.fn(),
   fetchTeamData: vi.fn(async (_id: string) => {}),
+  listTeamObjects: vi.fn(async (_id: string) => [] as unknown[]),
   clearTeamKeyCache: vi.fn(),
   reloadLocalVaultObjectStores: vi.fn(async () => {}),
   adoptConnection: vi.fn(async (_id: string, _c: unknown) => {}),
@@ -62,6 +63,7 @@ vi.mock("@/services/vaultTeamMigration", () => ({
     await h.reloadLocalVaultObjectStores();
   },
 }));
+vi.mock("@/services/teamObjects", () => ({ listTeamObjects: h.listTeamObjects }));
 vi.mock("@/services/teamVaultSync", () => ({
   fetchTeamData: h.fetchTeamData,
   clearTeamKeyCache: h.clearTeamKeyCache,
@@ -186,6 +188,7 @@ beforeEach(() => {
   setVaultKey([1]);
   h.deleteTeam.mockResolvedValue(undefined);
   h.fetchTeamData.mockResolvedValue(undefined);
+  h.listTeamObjects.mockResolvedValue([]);
   h.reloadLocalVaultObjectStores.mockResolvedValue(undefined);
   h.adoptConnection.mockResolvedValue(undefined);
   h.t.mockImplementation((k: string) => k);
@@ -385,3 +388,25 @@ test.each(["error", "offline", "forbidden", "awaiting_key", "key_mismatch", "loa
     expect(h.markSelfDeparture).not.toHaveBeenCalled();
   },
 );
+
+test.each([
+  ["a stale legacy blob marked loaded", "loaded"],
+  ["a missing blob marked error", "error"],
+])("a failing object list after %s aborts before the team is deleted", async (_case, status) => {
+  teamVaultState.statusByTeamId = { t1: status };
+  h.listTeamObjects.mockRejectedValue(Object.assign(new Error("boom"), { status: 500 }));
+
+  clickMakePrivate();
+
+  await waitFor(() => expect(messages()).toContain("settings.vaults.general.makePrivate.copyFailedToast"));
+  expect(h.adoptConnection).not.toHaveBeenCalled();
+  expect(h.deleteTeam).not.toHaveBeenCalled();
+});
+
+test("make-private re-reads the object list itself rather than trusting a loaded status", async () => {
+  clickMakePrivate();
+
+  await waitFor(() => expect(h.deleteTeam).toHaveBeenCalled());
+  expect(h.listTeamObjects).toHaveBeenCalledWith("t1");
+  expect(h.listTeamObjects.mock.invocationCallOrder[0]).toBeLessThan(h.adoptConnection.mock.invocationCallOrder[0]);
+});

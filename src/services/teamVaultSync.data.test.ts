@@ -36,6 +36,7 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { listTeamObjects } from "@/services/teamObjects";
 
 function futureJwt(): string {
   const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -215,4 +216,33 @@ test("fetchTeamData still reports a revocation when the 403'd team is no longer 
   await fetchTeamData(teamId);
 
   expect(useTeamVaultStateStore.getState().statusByTeamId[teamId]).toBe("forbidden");
+});
+
+function blob404(): void {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockImplementation(async (url: string) => {
+    if (url.endsWith("/vault-key")) return res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" });
+    if (url.endsWith("/sync-blob")) return res(404);
+    throw new Error(`unexpected fetch ${url}`);
+  });
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
+  h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
+}
+
+test("a failed object list followed by a missing legacy blob is an error, not an empty vault", async () => {
+  blob404();
+  vi.mocked(listTeamObjects).mockRejectedValueOnce(Object.assign(new Error("boom"), { status: 500 }));
+
+  await fetchTeamData("t-list-500");
+
+  expect(useTeamVaultStateStore.getState().statusByTeamId["t-list-500"]).toBe("error");
+});
+
+test("a team whose object list is genuinely empty and has no blob loads as empty", async () => {
+  blob404();
+  vi.mocked(listTeamObjects).mockResolvedValueOnce([]);
+
+  await fetchTeamData("t-empty");
+
+  expect(useTeamVaultStateStore.getState().statusByTeamId["t-empty"]).toBe("loaded");
 });

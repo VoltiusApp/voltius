@@ -449,6 +449,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     return;
   }
 
+  let objectListFailed = false;
   try {
     const objects = await listTeamObjects(teamId);
     if (objects.length > 0) {
@@ -484,6 +485,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     }
     const action = classifyTeamObjectListError(err);
     if (action === "fallback") {
+      objectListFailed = true;
       // Fall through to legacy key/blob loading. Some clients may hit transient
       // object-route failures immediately after invitation while the legacy blob
       // route already has the vault data available.
@@ -528,7 +530,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       // No blob yet — owner hasn't pushed data. Show as empty vault.
       if (options.background) return;
       await clearTeamStoresAndSecrets(teamId);
-      stateStore.setStatus(teamId, "loaded");
+      stateStore.setStatus(teamId, objectListFailed ? "error" : "loaded");
       return;
     }
     if (!res.ok) {
