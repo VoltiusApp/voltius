@@ -5,6 +5,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { deleteTeam } from "@/services/teamService";
 import { markSelfDeparture } from "@/services/teamOffboarding";
 import { userFacingReason } from "@/services/errorReason";
+import { logFailure } from "@/lib/logger";
 import { reloadLocalVaultObjectStores } from "@/services/vaultTeamMigration";
 import { deleteVaultWithContents } from "@/services/vaultObjectStores";
 import { makePrivateMemberMessage, type VaultAdminTarget } from "./vaultAdminTarget";
@@ -114,11 +115,15 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
         const copyFailed = () => vaultToast(t("settings.vaults.general.makePrivate.copyFailedToast"), "error");
         const loadState = useTeamVaultStateStore.getState();
         const loaded = loadState.statusByTeamId[teamId] === "loaded" && !loadState.credentialsUnavailableByTeamId[teamId];
-        // A failed load empties the slices and a legacy-blob fallback may be stale: only a readable object list is authoritative.
-        if (!loaded || !(await listTeamObjects(teamId).then(() => true, () => false))) {
-          await copyFailed();
-          return;
-        }
+        const listedIds = loaded
+          ? await listTeamObjects(teamId).then(
+            (records) => records.filter((r) => !r.deleted_at).map((r) => r.object_id),
+            (e) => {
+              logFailure("makePrivate: list team objects")(e);
+              return null;
+            },
+          )
+          : null;
 
         // Own ids: secret keys and cross-references name them, and adopt
         // overwrites, so a retry repairs a partial copy.
@@ -128,8 +133,15 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
         const folders = useFolderStore.getState().teamFolders[teamId] ?? [];
         const snippets = useSnippetStore.getState().teamSnippets[teamId] ?? [];
         const snippetFolders = useSnippetFolderStore.getState().teamSnippetFolders[teamId] ?? [];
-        const portRules = (usePortForwardingStore.getState().teamRules[teamId] ?? [])
-          .filter((r) => !r.deleted_at || r.updated_at > r.deleted_at);
+        const teamRules = usePortForwardingStore.getState().teamRules[teamId] ?? [];
+        const portRules = teamRules.filter((r) => !r.deleted_at || r.updated_at > r.deleted_at);
+
+        const loadedIds = new Set([...conns, ...identities, ...keys, ...folders, ...snippets, ...snippetFolders, ...teamRules].map((o) => o.id));
+        // A failed or legacy-blob load can be empty or stale: every object the server lists must be in the loaded stores.
+        if (!listedIds || listedIds.some((id) => !loadedIds.has(id))) {
+          await copyFailed();
+          return;
+        }
 
         const writes = await Promise.allSettled([
           ...conns.map((c) => connApi.adoptConnection(c.id, { ...connectionToFormData(c), vault_id: vaultId })),

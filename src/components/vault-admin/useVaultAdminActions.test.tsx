@@ -410,3 +410,25 @@ test("make-private re-reads the object list itself rather than trusting a loaded
   expect(h.listTeamObjects).toHaveBeenCalledWith("t1");
   expect(h.listTeamObjects.mock.invocationCallOrder[0]).toBeLessThan(h.adoptConnection.mock.invocationCallOrder[0]);
 });
+
+const listed = (object_id: string, deleted_at?: string) =>
+  ({ object_id, object_type: "connection", metadata: {}, updated_at: "", updated_by: "", deleted_at });
+
+test("a listed object missing from the loaded stores aborts before anything is adopted or deleted", async () => {
+  h.listTeamObjects.mockResolvedValue([listed("c1"), listed("c-created-after-blob")]);
+
+  clickMakePrivate();
+
+  await waitFor(() => expect(messages()).toContain("settings.vaults.general.makePrivate.copyFailedToast"));
+  expect(h.adoptConnection).not.toHaveBeenCalled();
+  expect(h.deleteTeam).not.toHaveBeenCalled();
+});
+
+test("every listed object present in the stores proceeds, ignoring deleted records", async () => {
+  h.listTeamObjects.mockResolvedValue([listed("c1"), listed("c-gone", "2026-01-01T00:00:00Z")]);
+
+  clickMakePrivate();
+
+  await waitFor(() => expect(h.deleteTeam).toHaveBeenCalledWith("t1"));
+  expect(h.adoptConnection).toHaveBeenCalledWith("c1", expect.anything());
+});
