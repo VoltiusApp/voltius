@@ -1,8 +1,7 @@
 import type { Connection, ConnectionFormData } from "@/types";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { storeSecret, deleteSecret } from "@/services/vault";
 import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
-import { moveWithSecrets } from "@/services/vaultObjectSecrets";
+import { moveWithSecrets, storeNewSecrets, type SecretEdit } from "@/services/vaultObjectSecrets";
 
 export interface HostFormSecrets {
   password: string | null;
@@ -11,29 +10,12 @@ export interface HostFormSecrets {
   proxyPassword: string | null;
 }
 
-async function persistSecrets(id: string, secrets: HostFormSecrets, clearEmpty: boolean) {
-  const entries: [string, string | null][] = [
-    [`password:${id}`, secrets.password],
-    [`key:${id}`, secrets.privateKey],
-    [`passphrase:${id}`, secrets.passphrase],
-  ];
-  for (const [localKey, value] of entries) {
-    if (value === null) continue;
-    if (value) {
-      await storeSecret(localKey, value);
-    } else if (clearEmpty) {
-      await deleteSecret(localKey);
-    }
-  }
-  const proxyValue = secrets.proxyPassword;
-  if (proxyValue === null) return;
-  const proxyKey = proxyPasswordKey(id);
-  if (proxyValue) {
-    await storeSecret(proxyKey, proxyValue);
-  } else if (clearEmpty) {
-    await deleteSecret(proxyKey);
-  }
-}
+const secretEdits = (id: string, secrets: HostFormSecrets): SecretEdit[] => [
+  [`password:${id}`, secrets.password],
+  [`key:${id}`, secrets.privateKey],
+  [`passphrase:${id}`, secrets.passphrase],
+  [proxyPasswordKey(id), secrets.proxyPassword],
+];
 
 // `fallbackVaultId` applies only on CREATE when the form left vault_id unset.
 export async function saveHostFromForm(
@@ -44,11 +26,10 @@ export async function saveHostFromForm(
 ): Promise<Connection | null> {
   const { updateConnection, saveConnection } = useConnectionStore.getState();
   if (editing) {
-    await moveWithSecrets("connection", editing, data.vault_id, () => updateConnection(editing.id, data));
-    await persistSecrets(editing.id, secrets, true);
+    await moveWithSecrets("connection", editing, data.vault_id, () => updateConnection(editing.id, data), secretEdits(editing.id, secrets));
     return editing;
   }
   const conn = await saveConnection({ ...data, vault_id: data.vault_id ?? fallbackVaultId });
-  if (conn) await persistSecrets(conn.id, secrets, false);
+  if (conn) await storeNewSecrets(secretEdits(conn.id, secrets));
   return conn ?? null;
 }

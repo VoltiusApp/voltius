@@ -10,12 +10,15 @@ vi.mock("@/stores/connectionStore", () => ({
   useConnectionStore: { getState: () => ({ updateConnection, saveConnection }) },
 }));
 
-const calls: string[] = [];
-const moveWithSecrets = vi.fn(async (_k: string, _o: unknown, _to: unknown, update: () => Promise<unknown>) => {
-  calls.push("move");
-  await update();
+const { calls, moveWithSecrets } = vi.hoisted(() => ({ calls: [] as string[], moveWithSecrets: vi.fn() }));
+vi.mock("@/services/vaultObjectSecrets", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/vaultObjectSecrets")>();
+  moveWithSecrets.mockImplementation(async (...a: Parameters<typeof actual.moveWithSecrets>) => {
+    calls.push("move");
+    await actual.moveWithSecrets(...a);
+  });
+  return { ...actual, moveWithSecrets: (...a: Parameters<typeof actual.moveWithSecrets>) => moveWithSecrets(...a) };
 });
-vi.mock("@/services/vaultObjectSecrets", () => ({ moveWithSecrets: (...a: Parameters<typeof moveWithSecrets>) => moveWithSecrets(...a) }));
 
 import { saveHostFromForm } from "./hostForm";
 
@@ -30,15 +33,17 @@ describe("saveHostFromForm", () => {
     deleteSecret.mockResolvedValue(undefined);
   });
 
-  it("an edit that changes the vault moves the host's secrets, then writes the edited ones", async () => {
+  it("an edit hands its secret fields to the move, which writes them after a same-location update", async () => {
     updateConnection.mockImplementation(async () => { calls.push("update"); });
     storeSecret.mockImplementation(async (k: string) => { calls.push(`store ${k}`); });
     const personal = { id: "c1", vault_id: "personal" } as never;
 
-    await saveHostFromForm(personal, { tags: [], vault_id: "v-team" }, { ...none, password: "new" }, "personal");
+    await saveHostFromForm(personal, { tags: [], vault_id: "v-other" }, { ...none, password: "new" }, "personal");
 
-    expect(moveWithSecrets).toHaveBeenCalledWith("connection", personal, "v-team", expect.any(Function));
-    expect(updateConnection).toHaveBeenCalledWith("c1", { tags: [], vault_id: "v-team" });
+    expect(moveWithSecrets).toHaveBeenCalledWith("connection", personal, "v-other", expect.any(Function), [
+      ["password:c1", "new"], ["key:c1", null], ["passphrase:c1", null], ["proxy_password:c1", null],
+    ]);
+    expect(updateConnection).toHaveBeenCalledWith("c1", { tags: [], vault_id: "v-other" });
     expect(calls).toEqual(["move", "update", "store password:c1"]);
   });
 

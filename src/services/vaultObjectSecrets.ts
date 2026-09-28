@@ -3,7 +3,8 @@ import type { SshKey, SshKeyFormData, Identity, IdentityFormData } from "@/types
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { usePendingTeamSecretUploadStore } from "@/stores/pendingTeamSecretUploadStore";
-import { readSecretAt, writeSecretAt, removeSecretAt, teamIdOfVault } from "@/services/secretRouting";
+import { storeSecret, deleteSecret } from "@/services/vault";
+import { readSecretAt, writeSecretAt, removeSecretAt, teamIdOfVault, keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { secretKeysFor, type SecretObjectKind } from "@/services/teamVaultSecretKeys";
 import { logFailure } from "@/lib/logger";
 
@@ -87,17 +88,42 @@ async function transfer(localKeys: string[], fromVaultId: string, toVaultId: str
 export const transferSecrets = (kind: SecretObjectKind, id: string, fromVaultId: string, toVaultId: string) =>
   transfer(secretKeysFor(kind, id), fromVaultId, toVaultId);
 
+export type SecretEdit = readonly [localKey: string, value: string | null];
+
+async function applyEdits(
+  edits: readonly SecretEdit[],
+  store: (localKey: string, value: string) => Promise<void>,
+  clear: (localKey: string) => Promise<void>,
+): Promise<void> {
+  for (const [localKey, value] of edits) {
+    if (value !== null) await (value ? store(localKey, value) : clear(localKey));
+  }
+}
+
+export const storeNewSecrets = (edits: readonly SecretEdit[]) => applyEdits(edits, storeSecret, async () => {});
+
 export async function moveWithSecrets(
   kind: SecretObjectKind,
   current: { id: string; vault_id?: string | null },
   toVaultId: string | null | undefined,
   update: () => Promise<unknown>,
+  edits: readonly SecretEdit[] = [],
 ): Promise<void> {
   const fromVaultId = current.vault_id ?? "personal";
   const destination = toVaultId ?? fromVaultId;
+  const from = teamIdOfVault(fromVaultId);
   const to = teamIdOfVault(destination);
+  const moving = from !== to;
+  // Edits land at the source so the transfer carries them: a queued retry must never upload an older value.
+  if (moving) {
+    await applyEdits(
+      edits,
+      (k, v) => writeSecretAt(from, k, v).catch(keepCachedOnUploadFailure(`secret edit before move ${k}`)),
+      (k) => removeSecretAt(from, k),
+    );
+  }
   // Queued before the update so a concurrent sweep of `to` never purges a copy not yet uploaded.
-  const reserved = teamIdOfVault(fromVaultId) === null && to !== null ? secretKeysFor(kind, current.id) : [];
+  const reserved = from === null && to !== null ? secretKeysFor(kind, current.id) : [];
   const uploads = usePendingTeamSecretUploadStore.getState();
   if (to !== null) uploads.enqueue(to, reserved);
   try {
@@ -107,6 +133,7 @@ export async function moveWithSecrets(
     throw e;
   }
   await transferSecrets(kind, current.id, fromVaultId, destination);
+  if (!moving) await applyEdits(edits, storeSecret, deleteSecret);
 }
 
 export const moveKeyToVault = (

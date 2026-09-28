@@ -1,19 +1,11 @@
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
-import { storeSecret, deleteSecret, getSecret } from "@/services/vault";
+import { storeSecret, getSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import { moveWithSecrets } from "@/services/vaultObjectSecrets";
+import { moveWithSecrets, storeNewSecrets, type SecretEdit } from "@/services/vaultObjectSecrets";
 import type { AuthType, Connection, ConnectionFormData, Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 
 type InlineKeyMaterial = { label?: string; privateKey: string; publicKey: string };
-
-async function writeSecret(localKey: string, value: string, isNew: boolean) {
-  if (value) {
-    await storeSecret(localKey, value);
-  } else if (!isNew) {
-    await deleteSecret(localKey);
-  }
-}
 
 export async function saveKeyFromForm(
   editing: SshKey | null,
@@ -24,18 +16,17 @@ export async function saveKeyFromForm(
   fallbackVaultId: string,
 ): Promise<SshKey> {
   const { saveKey, updateKey } = useKeyStore.getState();
-  const key = editing
-    ? (await moveWithSecrets("key", editing, data.vault_id, () => updateKey(editing.id, data)), editing)
-    : await saveKey({ ...data, vault_id: data.vault_id ?? fallbackVaultId });
-  const parts: [string, string | null][] = [
-    ["private", privateKey],
-    ["public", publicKey],
-    ["passphrase", passphrase],
+  const edits = (id: string): SecretEdit[] => [
+    [`key:${id}:private`, privateKey],
+    [`key:${id}:public`, publicKey],
+    [`key:${id}:passphrase`, passphrase],
   ];
-  for (const [part, value] of parts) {
-    if (value === null) continue;
-    await writeSecret(`key:${key.id}:${part}`, value, !editing);
+  if (editing) {
+    await moveWithSecrets("key", editing, data.vault_id, () => updateKey(editing.id, data), edits(editing.id));
+    return editing;
   }
+  const key = await saveKey({ ...data, vault_id: data.vault_id ?? fallbackVaultId });
+  await storeNewSecrets(edits(key.id));
   return key;
 }
 
@@ -63,12 +54,13 @@ export async function saveIdentityFromForm(
     resolvedData = { ...data, key_id: inlineKeyId.current };
   }
 
-  const identity = editing
-    ? (await moveWithSecrets("identity", editing, resolvedData.vault_id, () => updateIdentity(editing.id, resolvedData)), editing)
-    : await saveIdentity({ ...resolvedData, vault_id: resolvedData.vault_id ?? fallbackVaultId });
-  if (password !== null) {
-    await writeSecret(`identity:${identity.id}:password`, password, !editing);
+  const edits = (id: string): SecretEdit[] => [[`identity:${id}:password`, password]];
+  if (editing) {
+    await moveWithSecrets("identity", editing, resolvedData.vault_id, () => updateIdentity(editing.id, resolvedData), edits(editing.id));
+    return editing;
   }
+  const identity = await saveIdentity({ ...resolvedData, vault_id: resolvedData.vault_id ?? fallbackVaultId });
+  await storeNewSecrets(edits(identity.id));
   return identity;
 }
 

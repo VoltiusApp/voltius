@@ -51,7 +51,6 @@ interface UpdateOptions<D extends { vault_id?: string | null }> {
   update: (id: string, data: D) => Promise<unknown>;
 }
 
-/** Records an edit whose replay carries the object's secrets along when it changes vault. */
 export function pushUpdateHistory<D extends { vault_id?: string | null }>(opts: UpdateOptions<D>): void {
   const { kind, id, before, after, update } = opts;
   const replay = (from: D, to: D) => async () => {

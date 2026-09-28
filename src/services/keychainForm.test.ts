@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   saveIdentity: vi.fn(),
   calls: [] as string[],
   moveWithSecrets: vi.fn(),
+  realMove: null as unknown as (...a: never[]) => Promise<void>,
   getSecret: vi.fn(),
 }));
 const { storeSecret, deleteSecret, saveKey, updateKey } = h;
@@ -19,7 +20,11 @@ vi.mock("@/stores/keyStore", () => ({ useKeyStore: { getState: () => ({ saveKey:
 vi.mock("@/stores/identityStore", () => ({
   useIdentityStore: { getState: () => ({ updateIdentity: h.updateIdentity, saveIdentity: h.saveIdentity }) },
 }));
-vi.mock("@/services/vaultObjectSecrets", () => ({ moveWithSecrets: h.moveWithSecrets }));
+vi.mock("@/services/vaultObjectSecrets", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/vaultObjectSecrets")>();
+  h.realMove = actual.moveWithSecrets;
+  return { ...actual, moveWithSecrets: h.moveWithSecrets };
+});
 
 import { saveKeyFromForm, saveIdentityFromForm, unlinkIdentityFromHost } from "./keychainForm";
 import { TeamSecretUploadError } from "@/services/secretRouting";
@@ -30,27 +35,31 @@ const existing = { id: "k1", vault_id: "personal" } as SshKey;
 beforeEach(() => {
   vi.clearAllMocks();
   h.calls.length = 0;
-  h.moveWithSecrets.mockImplementation(async (_k: string, _o: unknown, _to: unknown, update: () => Promise<unknown>) => {
+  h.moveWithSecrets.mockImplementation(async (...a: never[]) => {
     h.calls.push("move");
-    await update();
+    await h.realMove(...a);
   });
   h.updateKey.mockImplementation(async () => { h.calls.push("update"); });
   h.updateIdentity.mockImplementation(async () => { h.calls.push("update"); });
   h.storeSecret.mockImplementation(async (k: string) => { h.calls.push(`store ${k}`); });
 });
 
-describe("editing into another vault", () => {
-  test("a key moves its secrets with it, then writes the edited halves", async () => {
-    await saveKeyFromForm(existing, { tags: [], vault_id: "v-team" }, null, null, "pass", "personal");
-    expect(h.moveWithSecrets).toHaveBeenCalledWith("key", existing, "v-team", expect.any(Function));
-    expect(updateKey).toHaveBeenCalledWith("k1", { tags: [], vault_id: "v-team" });
+describe("editing hands the edited fields to the move", () => {
+  test("a key passes its halves, written after a same-location update", async () => {
+    await saveKeyFromForm(existing, { tags: [], vault_id: "v-other" }, null, null, "pass", "personal");
+    expect(h.moveWithSecrets).toHaveBeenCalledWith("key", existing, "v-other", expect.any(Function), [
+      ["key:k1:private", null], ["key:k1:public", null], ["key:k1:passphrase", "pass"],
+    ]);
+    expect(updateKey).toHaveBeenCalledWith("k1", { tags: [], vault_id: "v-other" });
     expect(h.calls).toEqual(["move", "update", "store key:k1:passphrase"]);
   });
 
-  test("an identity moves its secret with it, then writes the edited password", async () => {
-    const identity = { id: "i1", vault_id: "v-team" } as Identity;
+  test("an identity passes its password, written after a same-location update", async () => {
+    const identity = { id: "i1", vault_id: "v-other" } as Identity;
     await saveIdentityFromForm(identity, { vault_id: "personal" } as never, "pw", undefined, { current: null }, "personal");
-    expect(h.moveWithSecrets).toHaveBeenCalledWith("identity", identity, "personal", expect.any(Function));
+    expect(h.moveWithSecrets).toHaveBeenCalledWith("identity", identity, "personal", expect.any(Function), [
+      ["identity:i1:password", "pw"],
+    ]);
     expect(h.updateIdentity).toHaveBeenCalledWith("i1", { vault_id: "personal" });
     expect(h.calls).toEqual(["move", "update", "store identity:i1:password"]);
   });
