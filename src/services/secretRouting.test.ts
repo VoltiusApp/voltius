@@ -25,10 +25,12 @@ import {
   readSecretAt, writeSecretAt, removeSecretAt, keepCachedOnUploadFailure, TeamSecretUploadError,
 } from "./secretRouting";
 import { teamSecretCache } from "./teamSecretCache";
+import { usePendingTeamSecretUploadStore } from "@/stores/pendingTeamSecretUploadStore";
 
 beforeEach(() => {
   Object.values(h).forEach((m) => m.mockReset());
   teamSecretCache.clearAll();
+  usePendingTeamSecretUploadStore.getState().clearAll();
 });
 
 test("a team-owned key is never read from the local store, even when it has a value", async () => {
@@ -92,4 +94,38 @@ test("keepCachedOnUploadFailure swallows only upload failures", () => {
   expect(() => handler(new TeamSecretUploadError("password:c1", new Error("x")))).not.toThrow();
   expect(h.logged).toHaveBeenCalled();
   expect(() => handler(new Error("vault locked"))).toThrow("vault locked");
+});
+
+const pendingIn = (teamId: string) => usePendingTeamSecretUploadStore.getState().keysByTeamId[teamId] ?? [];
+
+test("a successful upload of a key queued for retry settles it, so the retry never re-uploads an older copy", async () => {
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1", "key:c1"]);
+  usePendingTeamSecretUploadStore.getState().enqueue("t2", ["password:c1"]);
+  h.saveTeamVaultSecret.mockResolvedValue(undefined);
+
+  await writeSecretAt("t1", "password:c1", "newest");
+
+  expect(pendingIn("t1")).toEqual(["key:c1"]);
+  expect(pendingIn("t2")).toEqual(["password:c1"]);
+  expect(h.storeLocalSecret).not.toHaveBeenCalled();
+});
+
+test("a failed upload of a key queued for retry refreshes the local copy the retry will upload", async () => {
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["password:c1"]);
+  h.saveTeamVaultSecret.mockRejectedValue(new Error("503"));
+  h.storeLocalSecret.mockResolvedValue(undefined);
+
+  await expect(writeSecretAt("t1", "password:c1", "newest")).rejects.toBeInstanceOf(TeamSecretUploadError);
+
+  expect(h.storeLocalSecret).toHaveBeenCalledWith("password:c1", "newest");
+  expect(pendingIn("t1")).toEqual(["password:c1"]);
+});
+
+test("a failed upload of a key not queued for retry leaves the local store alone", async () => {
+  usePendingTeamSecretUploadStore.getState().enqueue("t2", ["password:c1"]);
+  h.saveTeamVaultSecret.mockRejectedValue(new Error("503"));
+
+  await expect(writeSecretAt("t1", "password:c1", "newest")).rejects.toBeInstanceOf(TeamSecretUploadError);
+
+  expect(h.storeLocalSecret).not.toHaveBeenCalled();
 });

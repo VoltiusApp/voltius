@@ -4,6 +4,7 @@ import { teamSecretFromLocalKey } from "@/services/teamVaultSecretKeys";
 import { resolveTeamIdForVaultId, saveTeamVaultSecret } from "@/services/teamVaultSecrets";
 import { deleteTeamSecret } from "@/services/teamObjects";
 import { logFailure } from "@/lib/logger";
+import { usePendingTeamSecretUploadStore } from "@/stores/pendingTeamSecretUploadStore";
 
 export class TeamSecretUploadError extends Error {
   constructor(readonly localKey: string, readonly reason: unknown) {
@@ -21,11 +22,17 @@ export async function readSecretAt(teamId: string | null, localKey: string): Pro
 export async function writeSecretAt(teamId: string | null, localKey: string, value: string): Promise<void> {
   if (!teamId) return storeLocalSecret(localKey, value);
   teamSecretCache.set(teamId, localKey, value);
+  const uploads = () => usePendingTeamSecretUploadStore.getState();
   try {
     await saveTeamVaultSecret(teamId, localKey, value);
   } catch (e) {
+    // A queued retry uploads the local copy, so it must hold the newest value.
+    if (uploads().keysByTeamId[teamId]?.includes(localKey)) {
+      await storeLocalSecret(localKey, value).catch(logFailure(`refresh queued team secret ${localKey}`));
+    }
     throw new TeamSecretUploadError(localKey, e);
   }
+  uploads().resolve(teamId, [localKey]);
 }
 
 export async function removeSecretAt(teamId: string | null, localKey: string): Promise<void> {
