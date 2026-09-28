@@ -1,6 +1,9 @@
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
+import { useTeamStore } from "@/stores/teamStore";
+import { useVaultStore } from "@/stores/vaultStore";
+import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
 import { findTeamEntry, type TeamMap } from "@/stores/teamVaultMap";
 import {
   teamSecretFromLocalKey,
@@ -12,6 +15,7 @@ import {
 
 interface Owned {
   id: string;
+  vault_id?: string | null;
 }
 
 type Slices = Record<SecretObjectKind, { local: Owned[] | undefined; team: TeamMap<Owned> | undefined }>;
@@ -27,24 +31,31 @@ function storeSlices(): Slices {
   };
 }
 
-const localObjectIds = (s: Slices) =>
-  new Set(SECRET_OBJECT_KINDS.flatMap((kind) => (s[kind].local ?? []).map((o) => o.id)));
+// A local row left behind by a move into a team vault keeps the team's vault_id and owns nothing.
+function localOwnerIds(s: Slices, kinds: readonly SecretObjectKind[] = SECRET_OBJECT_KINDS): Set<string> {
+  const { teams } = useTeamStore.getState();
+  const { vaults } = useVaultStore.getState();
+  return new Set(kinds.flatMap((kind) => (s[kind].local ?? [])
+    .filter((o) => resolveTeamIdFromCollections(o.vault_id, teams, vaults) === null)
+    .map((o) => o.id)));
+}
 
 export function teamIdOwningSecret(localKey: string): string | null {
   const parts = teamSecretFromLocalKey(localKey);
   if (!parts) return null;
-  const { local, team } = storeSlices()[secretObjectKindOf(parts.secretType)];
-  if ((local ?? []).some((o) => o.id === parts.objectId)) return null;
-  return findTeamEntry(team ?? {}, parts.objectId)?.teamId ?? null;
+  const s = storeSlices();
+  const kind = secretObjectKindOf(parts.secretType);
+  if (localOwnerIds(s, [kind]).has(parts.objectId)) return null;
+  return findTeamEntry(s[kind].team ?? {}, parts.objectId)?.teamId ?? null;
 }
 
 export function hasLocalOwner(localKey: string): boolean {
   const parts = teamSecretFromLocalKey(localKey);
-  return parts !== null && localObjectIds(storeSlices()).has(parts.objectId);
+  return parts !== null && localOwnerIds(storeSlices()).has(parts.objectId);
 }
 
 export function teamObjectSecretKeys(teamId: string): string[] {
   const s = storeSlices();
-  const localIds = localObjectIds(s);
+  const localIds = localOwnerIds(s);
   return secretKeysOfObjects((kind) => (s[kind].team?.[teamId] ?? []).map((o) => o.id).filter((id) => !localIds.has(id)));
 }

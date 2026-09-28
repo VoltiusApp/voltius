@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   notWiped: [] as string[],
   departures: new Map<string, string>(),
   ownershipThrowsFor: new Set<string>(),
+  linkedVaults: [] as { id: string; teamId: string }[],
 }));
 
 vi.mock("@/services/vault", () => ({
@@ -55,14 +56,15 @@ vi.mock("@/services/teamInbox", () => ({
   }),
 }));
 
-// The step that unlinks local vaults sits between the removal event and the
-// rest of the offboarding sequence; a store that throws on read is the
-// cheapest stand-in for "anything in here throws".
+// Stand-in for "any later offboarding step throws": unlinking the team's local vault fails.
 vi.mock("@/stores/vaultStore", () => ({
   useVaultStore: {
-    getState: () => {
-      throw new Error("vaultStore blew up");
-    },
+    getState: () => ({
+      vaults: h.linkedVaults,
+      setVaultTeamId: () => {
+        throw new Error("vaultStore blew up");
+      },
+    }),
   },
 }));
 
@@ -96,6 +98,7 @@ beforeEach(() => {
  * the next test's stores.
  */
 function seedTeam(tid: string): void {
+  h.linkedVaults.push({ id: `v-${tid}`, teamId: tid });
   useTeamStore.setState((s) => ({
     teams: [...s.teams, { id: tid, name: `team-${tid}`, role_ids: [] } as never],
   }));

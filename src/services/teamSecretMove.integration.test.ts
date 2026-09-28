@@ -41,7 +41,7 @@ vi.mock("@/services/teamObjectReencrypt", () => ({ runReencryptionPass: vi.fn(as
 
 import { fetchTeamData } from "./teamVaultSync";
 import { moveConnectionToVault } from "./connectionDuplicate";
-import { getSecret, setVaultKey } from "./vault";
+import { getSecret, setVaultKey, storeSecret } from "./vault";
 import { teamSecretCache } from "./teamSecretCache";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -56,9 +56,10 @@ const teamRow = (metadata: object) => ({
   updated_at: new Date().toISOString(), deleted_at: null,
 });
 
-async function moveToTeamVault(conn: Connection, data: ConnectionFormData) {
-  useConnectionStore.setState({ connections: [], teamConnections: { t1: [{ ...conn, ...data } as Connection] } });
-  h.teamRows = [teamRow({ ...conn, ...data })];
+async function moveToTeamVault(conn: Connection, data: ConnectionFormData, keepLocalRow = false) {
+  const moved = { ...conn, ...data } as Connection;
+  useConnectionStore.setState({ connections: keepLocalRow ? [moved] : [], teamConnections: { t1: [moved] } });
+  h.teamRows = [teamRow(moved)];
 }
 
 beforeEach(() => {
@@ -117,4 +118,37 @@ test("a foreground offline load keeps the pending queue and the local copy", asy
   expect(usePendingTeamSecretUploadStore.getState().keysByTeamId.t1).toEqual(["password:c1"]);
   expect(h.disk.get("password:c1")).toBe("pw");
   expect(h.disk.has("key:c1")).toBe(false);
+});
+
+test("the owner still reads and edits a moved host's secret while its local row stays behind", async () => {
+  h.disk.set("password:c1", "pw");
+
+  await moveConnectionToVault({ ...HOST, vault_id: "personal" }, "v-team", async (_id, data) =>
+    moveToTeamVault(HOST, data, true));
+
+  expect(useConnectionStore.getState().connections[0].vault_id).toBe("v-team");
+  expect(h.uploaded.get("password:c1")).toBe("pw");
+  expect(h.disk.has("password:c1")).toBe(false);
+  expect(await getSecret("password:c1")).toBe("pw");
+
+  await storeSecret("password:c1", "pw2");
+  expect(h.uploaded.get("password:c1")).toBe("pw2");
+  expect(h.disk.has("password:c1")).toBe(false);
+});
+
+test("the sweep uploads a queued secret of a moved host whose local row stays behind", async () => {
+  h.disk.set("password:c1", "pw");
+  h.uploadError = new Error("429");
+
+  await moveConnectionToVault({ ...HOST, vault_id: "personal" }, "v-team", async (_id, data) =>
+    moveToTeamVault(HOST, data, true));
+  expect(usePendingTeamSecretUploadStore.getState().keysByTeamId.t1).toEqual(["password:c1"]);
+
+  h.uploadError = null;
+  await fetchTeamData("t1");
+
+  expect(h.uploaded.get("password:c1")).toBe("pw");
+  expect(usePendingTeamSecretUploadStore.getState().keysByTeamId.t1).toBeUndefined();
+  expect(h.disk.has("password:c1")).toBe(false);
+  expect(await getSecret("password:c1")).toBe("pw");
 });
