@@ -5,7 +5,7 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
-import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
+import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory } from "@/stores/recreateHistory";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
@@ -171,12 +171,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         return connections ? { connections, teamConnections: next } : { teamConnections: next };
       });
       reportAuditMutation("connection", "updated", { id: updated.id, name: updated.name ?? updated.host, vault_id: updated.vault_id });
-      const prevData: ConnectionFormData = connectionToFormData(prev);
-      useHistoryStore.getState().push({
-        label: `Updated connection "${prev.name ?? prev.host}"`,
-        undo: async () => { await useConnectionStore.getState().updateConnection(id, prevData); },
-        redo: async () => { await useConnectionStore.getState().updateConnection(id, data); },
-      });
+      recordConnectionUpdate(prev, data);
       return;
     }
 
@@ -208,14 +203,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
     if (prev) reportAuditMutation("connection", "updated", { id, name: data.name ?? prev.name ?? prev.host, vault_id: data.vault_id ?? prev.vault_id });
-    if (prev) {
-      const prevData: ConnectionFormData = connectionToFormData(prev);
-      useHistoryStore.getState().push({
-        label: `Updated connection "${prev.name ?? prev.host}"`,
-        undo: async () => { await useConnectionStore.getState().updateConnection(id, prevData); },
-        redo: async () => { await useConnectionStore.getState().updateConnection(id, data); },
-      });
-    }
+    if (prev) recordConnectionUpdate(prev, data);
   },
 
   deleteConnection: async (id) => {
@@ -398,4 +386,15 @@ async function retagTeamConnection(
     useConnectionStore.setState((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
     return;
   }
+}
+
+function recordConnectionUpdate(prev: Connection, data: ConnectionFormData): void {
+  pushUpdateHistory({
+    label: `Updated connection "${prev.name ?? prev.host}"`,
+    kind: "connection",
+    id: prev.id,
+    before: connectionToFormData(prev),
+    after: data,
+    update: (id, d) => useConnectionStore.getState().updateConnection(id, d),
+  });
 }

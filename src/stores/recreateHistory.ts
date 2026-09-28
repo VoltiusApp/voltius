@@ -1,4 +1,5 @@
 import { useHistoryStore } from "@/stores/historyStore";
+import type { SecretObjectKind } from "@/services/teamVaultSecretKeys";
 
 interface RecreateOptions<T extends { id: string }, D> {
   label: string;
@@ -39,4 +40,23 @@ export function pushCreateHistory<T extends { id: string }, D>(opts: RecreateOpt
 export function pushDeleteHistory<T extends { id: string }, D>(opts: RecreateOptions<T, D>): void {
   const pair = recreatePair(opts);
   useHistoryStore.getState().push({ label: opts.label, undo: pair.recreate, redo: pair.remove });
+}
+
+interface UpdateOptions<D extends { vault_id?: string | null }> {
+  label: string;
+  kind: SecretObjectKind;
+  id: string;
+  before: D;
+  after: D;
+  update: (id: string, data: D) => Promise<unknown>;
+}
+
+/** Records an edit whose replay carries the object's secrets along when it changes vault. */
+export function pushUpdateHistory<D extends { vault_id?: string | null }>(opts: UpdateOptions<D>): void {
+  const { kind, id, before, after, update } = opts;
+  const replay = (from: D, to: D) => async () => {
+    const { moveWithSecrets } = await import("@/services/vaultObjectSecrets");
+    await moveWithSecrets(kind, { id, vault_id: from.vault_id ?? to.vault_id }, to.vault_id, () => update(id, to));
+  };
+  useHistoryStore.getState().push({ label: opts.label, undo: replay(after, before), redo: replay(before, after) });
 }

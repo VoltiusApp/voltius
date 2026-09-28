@@ -4,8 +4,7 @@ import * as api from "@/services/identities";
 import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { useHistoryStore } from "@/stores/historyStore";
-import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
+import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory } from "@/stores/recreateHistory";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
@@ -132,12 +131,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         return localIdentities ? { identities: localIdentities, teamIdentities: next } : { teamIdentities: next };
       });
       reportAuditMutation("identity", "updated", { id: migrated.id, name: migrated.name ?? migrated.username, vault_id: migrated.vault_id });
-      const prevData = identityToFormData(prev);
-      useHistoryStore.getState().push({
-        label: `Updated identity "${prev.name ?? prev.username}"`,
-        undo: async () => { await useIdentityStore.getState().updateIdentity(id, prevData); },
-        redo: async () => { await useIdentityStore.getState().updateIdentity(id, data); },
-      });
+      recordIdentityUpdate(prev, data);
       return;
     }
 
@@ -169,14 +163,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "identity")) scheduleSync(); });
     if (prev) reportAuditMutation("identity", "updated", { id, name: data.name ?? prev.name ?? prev.username, vault_id: data.vault_id ?? prev.vault_id });
-    if (prev) {
-      const prevData = identityToFormData(prev);
-      useHistoryStore.getState().push({
-        label: `Updated identity "${prev.name ?? prev.username}"`,
-        undo: async () => { await useIdentityStore.getState().updateIdentity(id, prevData); },
-        redo: async () => { await useIdentityStore.getState().updateIdentity(id, data); },
-      });
-    }
+    if (prev) recordIdentityUpdate(prev, data);
   },
 
   pinIdentity: async (id, pinned) => {
@@ -241,3 +228,14 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     }
   },
 }));
+
+function recordIdentityUpdate(prev: Identity, data: IdentityFormData): void {
+  pushUpdateHistory({
+    label: `Updated identity "${prev.name ?? prev.username}"`,
+    kind: "identity",
+    id: prev.id,
+    before: identityToFormData(prev),
+    after: data,
+    update: (id, d) => useIdentityStore.getState().updateIdentity(id, d),
+  });
+}
