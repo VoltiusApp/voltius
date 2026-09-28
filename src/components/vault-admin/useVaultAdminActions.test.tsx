@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
 const teamVaultState = vi.hoisted(() => ({
   unencryptedCountByTeamId: {} as Record<string, number>,
   credentialsUnavailableByTeamId: {} as Record<string, boolean>,
+  statusByTeamId: {} as Record<string, string>,
   disk: new Map<string, string>(),
   failLocalWrites: false,
   localConnections: [] as { id: string }[],
@@ -108,7 +109,11 @@ vi.mock("@/stores/portForwardingStore", () => ({
 vi.mock("@/stores/teamVaultStateStore", () => ({
   useTeamVaultStateStore: Object.assign(
     (sel: (s: unknown) => unknown) => sel({ unencryptedCountByTeamId: teamVaultState.unencryptedCountByTeamId }),
-    { getState: () => ({ setStatus: h.setStatus, credentialsUnavailableByTeamId: teamVaultState.credentialsUnavailableByTeamId }) },
+    { getState: () => ({
+      setStatus: h.setStatus,
+      credentialsUnavailableByTeamId: teamVaultState.credentialsUnavailableByTeamId,
+      statusByTeamId: teamVaultState.statusByTeamId,
+    }) },
   ),
 }));
 vi.mock("@/services/connections", () => ({ adoptConnection: h.adoptConnection }));
@@ -166,6 +171,7 @@ beforeEach(() => {
   for (const fn of Object.values(h)) fn.mockReset();
   teamVaultState.unencryptedCountByTeamId = {};
   teamVaultState.credentialsUnavailableByTeamId = {};
+  teamVaultState.statusByTeamId = { t1: "loaded" };
   teamVaultState.disk.clear();
   teamVaultState.failLocalWrites = false;
   teamVaultState.localConnections = [];
@@ -365,3 +371,17 @@ test("unavailable team credentials abort before the team is deleted", async () =
   await waitFor(() => expect(messages()).toContain("settings.vaults.general.makePrivate.copyFailedToast"));
   expect(h.deleteTeam).not.toHaveBeenCalled();
 });
+
+test.each(["error", "offline", "forbidden", "awaiting_key", "key_mismatch", "loading", undefined])(
+  "a vault load ending in %s aborts before the team is deleted",
+  async (status) => {
+    teamVaultState.statusByTeamId = status ? { t1: status } : {};
+
+    clickMakePrivate();
+
+    await waitFor(() => expect(messages()).toContain("settings.vaults.general.makePrivate.copyFailedToast"));
+    expect(h.adoptConnection).not.toHaveBeenCalled();
+    expect(h.deleteTeam).not.toHaveBeenCalled();
+    expect(h.markSelfDeparture).not.toHaveBeenCalled();
+  },
+);

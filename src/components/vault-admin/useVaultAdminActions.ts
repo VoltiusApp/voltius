@@ -111,7 +111,9 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
 
         await fetchTeamData(teamId);
         const copyFailed = () => vaultToast(t("settings.vaults.general.makePrivate.copyFailedToast"), "error");
-        if (useTeamVaultStateStore.getState().credentialsUnavailableByTeamId[teamId]) {
+        const loadState = useTeamVaultStateStore.getState();
+        // A failed load empties the team slices: adopting nothing then deleting the team destroys it all.
+        if (loadState.statusByTeamId[teamId] !== "loaded" || loadState.credentialsUnavailableByTeamId[teamId]) {
           await copyFailed();
           return;
         }
