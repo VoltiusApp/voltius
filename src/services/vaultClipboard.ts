@@ -225,12 +225,14 @@ function pasteMoves(
       sourceVaultId: adapter.vaultIdOf(item.id),
       destinationVaultId,
       removesFromSource,
+      objectId: item.id,
     })),
     ...liveFolders.map((id) => ({
       permissions: folderPermissions(adapter, id),
       sourceVaultId: adapter.vaultIdOf(id),
       destinationVaultId,
       removesFromSource,
+      objectId: id,
     })),
   ];
 }

@@ -472,27 +472,58 @@ test("a rejected paste does not stall the pastes queued behind it", async () => 
   await expect(runPaste(() => pasteFromClipboard(cut, adapter()))).resolves.toMatchObject({ moved: 1 });
 });
 
-test("undoing a cross-vault cut is refused for an object its own mask withholds", async () => {
+test("cutting c-locked to another vault is refused", async () => {
+  const a = adapter({
+    targetVaultId: () => "team-1",
+    vaultIdOf: () => "personal",
+    can: (_p, _v, id) => id !== "c-locked",
+  });
+  const r = await pasteFromClipboard(
+    { tab: "hosts", mode: "cut", items: [{ id: "c-locked", kind: "connection" }], folderIds: [], sourceVaultIds: ["personal"] },
+    a,
+  );
+  expect(a.moveItems).not.toHaveBeenCalled();
+  expect(r.blocked).toContain(EDIT);
+});
+
+test("cutting c-open to another vault is not refused", async () => {
+  const a = adapter({
+    targetVaultId: () => "team-1",
+    vaultIdOf: () => "personal",
+    can: (_p, _v, id) => id !== "c-locked",
+  });
+  const r = await pasteFromClipboard(
+    { tab: "hosts", mode: "cut", items: [{ id: "c-open", kind: "connection" }], folderIds: [], sourceVaultIds: ["personal"] },
+    a,
+  );
+  expect(a.moveItems).toHaveBeenCalledWith(["c-open"], "dest", "team-1");
+  expect(r.blocked).toBeUndefined();
+});
+
+test("undoing a cross-vault cut is refused once the object's own mask is revoked", async () => {
   resetHistory();
   const vaults: Record<string, string> = { "c-locked": "personal" };
+  const revoked = { id: null as string | null };
   const a = adapter({
     targetVaultId: () => "team-1",
     vaultIdOf: (id) => vaults[id] ?? "personal",
     moveItems: vi.fn(async (ids: string[], _folderId, vaultId) => {
       for (const id of ids) if (vaultId) vaults[id] = vaultId;
     }),
-    can: (_p, _v, id) => id !== "c-locked",
+    can: (_p, _v, id) => id !== revoked.id,
   });
   await pasteFromClipboard(
     { tab: "hosts", mode: "cut", items: [{ id: "c-locked", kind: "connection" }], folderIds: [], sourceVaultIds: ["personal"] },
     a,
   );
+  expect(a.moveItems).toHaveBeenCalledWith(["c-locked"], "dest", "team-1");
   (a.moveItems as ReturnType<typeof vi.fn>).mockClear();
+  revoked.id = "c-locked";
   await useHistoryStore.getState().undo();
   expect(a.moveItems).not.toHaveBeenCalled();
 });
 
-test("undoing a cross-vault cut proceeds for an object its own mask permits", async () => {
+test("undoing a cross-vault cut proceeds when the object's own mask still permits it", async () => {
   resetHistory();
   const vaults: Record<string, string> = { "c-open": "personal" };
   const a = adapter({
