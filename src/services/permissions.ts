@@ -65,10 +65,7 @@ export interface RuleEntry {
 
 type MemberMasks = { user_id?: string; role_ids: string[]; permission_allow?: number; permission_deny?: number };
 
-/**
- * Preview only; decisions read the server's my_permissions. Keep in sync with
- * object_permissions() in server/src/permissions.rs.
- */
+// Preview only; decisions read the server's my_permissions. Keep in sync with object_permissions() in server/src/permissions.rs.
 export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[], entries: RuleEntry[] | null): number {
   const teamDeny = member.permission_deny ?? 0;
   const base = effectivePermissions(member, roles);
