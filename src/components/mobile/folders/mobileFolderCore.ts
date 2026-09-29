@@ -17,6 +17,10 @@ export interface ItemLike {
   folder_id?: string | null;
 }
 
+function rootedParentId(parentId: string | null | undefined, knownIds: ReadonlySet<string>): string | null {
+  return parentId && knownIds.has(parentId) ? parentId : null;
+}
+
 /** Flattened, depth-first, alpha-within-level folder list for the move picker.
  *  Leads with a synthetic "No folder" (root) entry, which the sheet labels.
  *  `compare` orders names; callers pass the app-language collator. */
@@ -26,10 +30,11 @@ export function buildMoveTargets(
   compare: (a: string, b: string) => number = (a, b) => a.localeCompare(b),
 ): MoveTarget[] {
   const scoped = folders.filter((f) => f.object_type === objectType);
+  const known = new Set(scoped.map((f) => f.id));
   const out: MoveTarget[] = [{ id: null, name: "No folder", depth: 0 }];
   const walk = (parentId: string | null, depth: number) => {
     const children = scoped
-      .filter((f) => (f.parent_folder_id ?? null) === parentId)
+      .filter((f) => rootedParentId(f.parent_folder_id, known) === parentId)
       .sort((a, b) => compare(a.name, b.name));
     for (const c of children) {
       out.push({ id: c.id, name: c.name, depth });
@@ -41,8 +46,8 @@ export function buildMoveTargets(
 }
 
 /** Items whose folder_id matches the active scope (null === root / no folder). */
-export function scopeItems<T extends ItemLike>(items: T[], folderId: string | null): T[] {
-  return items.filter((i) => (i.folder_id ?? null) === folderId);
+export function scopeItems<T extends ItemLike>(items: T[], folderId: string | null, knownFolderIds?: ReadonlySet<string>): T[] {
+  return items.filter((i) => (knownFolderIds ? rootedParentId(i.folder_id, knownFolderIds) : (i.folder_id ?? null)) === folderId);
 }
 
 export function folderItemCount(items: ItemLike[], folderId: string): number {

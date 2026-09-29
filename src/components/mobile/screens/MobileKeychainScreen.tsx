@@ -67,22 +67,23 @@ export default function MobileKeychainScreen() {
     [allFolders, selectedVaultIds],
   );
   const nav = useFolderNavigation(kcFolders);
+  const kcFolderIds = useMemo(() => new Set(kcFolders.map((f) => f.id)), [kcFolders]);
   const subFolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)), [nav.visibleFolders]);
 
   const q = search.trim();
   const match = useSearchMatcher(q);
 
   const scopedKeys = useMemo(
-    () => scopeItems(keys, nav.activeFolderId)
+    () => scopeItems(keys, nav.activeFolderId, kcFolderIds)
       .filter((k) => match(k.name, k.key_type, ...k.tags))
       .sort((a, b) => compareStrings(a.name ?? "", b.name ?? "")),
-    [keys, nav.activeFolderId, match],
+    [keys, nav.activeFolderId, kcFolderIds, match],
   );
   const scopedIdentities = useMemo(
-    () => scopeItems(identities, nav.activeFolderId)
+    () => scopeItems(identities, nav.activeFolderId, kcFolderIds)
       .filter((i) => match(i.name, i.username, ...i.tags))
       .sort((a, b) => compareStrings(a.name ?? a.username, b.name ?? b.username)),
-    [identities, nav.activeFolderId, match],
+    [identities, nav.activeFolderId, kcFolderIds, match],
   );
 
   const isEmpty = subFolders.length === 0 && scopedKeys.length === 0 && scopedIdentities.length === 0;

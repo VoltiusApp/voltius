@@ -120,6 +120,7 @@ export default function MobileHostsScreen() {
     [allFolders, selectedVaultIds],
   );
   const nav = useFolderNavigation(connFolders);
+  const connFolderIds = useMemo(() => new Set(connFolders.map((f) => f.id)), [connFolders]);
 
   const subFolders = useMemo(
     () => [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)),
@@ -132,7 +133,7 @@ export default function MobileHostsScreen() {
   );
 
   const visible = useMemo(() => {
-    const scoped = scopeItems(inVault, nav.activeFolderId);
+    const scoped = scopeItems(inVault, nav.activeFolderId, connFolderIds);
     const match = searchMatcher(search);
     const filtered = scoped.filter((c) => match(connectionDisplayName(c), c.host, ...(c.tags ?? [])));
     const sorted = [...filtered].sort((a, b) => compareStrings(connectionDisplayName(a), connectionDisplayName(b)));
@@ -140,7 +141,7 @@ export default function MobileHostsScreen() {
     const pinned = sorted.filter((c) => isPinnedFn(c, "connection"));
     const rest = sorted.filter((c) => !isPinnedFn(c, "connection"));
     return [...pinned, ...rest];
-  }, [inVault, nav.activeFolderId, search, isPinnedFn]);
+  }, [inVault, nav.activeFolderId, connFolderIds, search, isPinnedFn]);
 
   const handleConnect = (id: string) => {
     // FTP hosts have no terminal — open the file browser instead.

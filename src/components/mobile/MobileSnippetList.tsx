@@ -41,6 +41,7 @@ export default function MobileSnippetList({
     [allSnippetFolders, selectedVaultIds],
   );
   const nav = useFolderNavigation(snFolders);
+  const snFolderIds = useMemo(() => new Set(snFolders.map((f) => f.id)), [snFolders]);
 
   const inVault = useMemo(
     () => snippets.filter((s) => !s.deleted_at && selectedVaultIds.includes(s.vault_id ?? "personal")),
@@ -53,10 +54,10 @@ export default function MobileSnippetList({
   );
 
   const visible = useMemo(() => {
-    const scoped = foldersEnabled ? scopeItems(inVault, nav.activeFolderId) : inVault;
+    const scoped = foldersEnabled ? scopeItems(inVault, nav.activeFolderId, snFolderIds) : inVault;
     return scoped.filter(snippetMatcher(search))
       .sort((a, b) => compareStrings(a.name, b.name));
-  }, [foldersEnabled, inVault, nav.activeFolderId, search]);
+  }, [foldersEnabled, inVault, nav.activeFolderId, snFolderIds, search]);
 
   const targetVaultId = nav.folderPath[nav.folderPath.length - 1]?.vault_id ?? selectedVaultIds[0] ?? "personal";
   const createFolder = (name: string) =>

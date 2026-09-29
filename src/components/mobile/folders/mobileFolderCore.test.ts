@@ -1,6 +1,6 @@
 // src/components/mobile/folders/mobileFolderCore.test.ts
 import { buildMoveTargets, scopeItems, folderItemCount, type FolderLike } from "./mobileFolderCore.ts";
-import { test } from "vitest";
+import { test, expect } from "vitest";
 
 test("mobileFolderCore", async () => {
 function assertEqual<T>(actual: T, expected: T, msg: string): void {
@@ -44,4 +44,11 @@ const folders: FolderLike[] = [
   const items = [{ folder_id: "b" }, { folder_id: "b" }, { folder_id: "a" }];
   assertEqual(folderItemCount(items, "b"), 2, "folderItemCount");
 }
+});
+
+test("mobile root shows items and folders filed under a hidden folder", () => {
+  const folders = [{ id: "f1", name: "F", object_type: "connection" }, { id: "f2", name: "G", object_type: "connection", parent_folder_id: "hidden" }];
+  expect(buildMoveTargets(folders, "connection").map((t) => t.id)).toEqual([null, "f1", "f2"]);
+  expect(scopeItems([{ folder_id: "hidden" }, { folder_id: "f1" }], null, new Set(["f1", "f2"])))
+    .toEqual([{ folder_id: "hidden" }]);
 });

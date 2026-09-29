@@ -51,14 +51,15 @@ export default function MobilePortForwardingScreen() {
     [allFolders, selectedVaultIds],
   );
   const nav = useFolderNavigation(pfFolders);
+  const pfFolderIds = useMemo(() => new Set(pfFolders.map((f) => f.id)), [pfFolders]);
   const subfolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)), [nav.visibleFolders]);
 
   const rules = useMemo(() => {
     const match = searchMatcher(search);
-    return scopeItems(allRules, nav.activeFolderId)
+    return scopeItems(allRules, nav.activeFolderId, pfFolderIds)
       .filter((r) => match(r.name, r.local_port, r.remote_port, r.remote_host))
       .sort((a, b) => compareStrings(a.name, b.name));
-  }, [allRules, nav.activeFolderId, search]);
+  }, [allRules, nav.activeFolderId, pfFolderIds, search]);
 
   const closeForm = () => { setFormRule(undefined); dirtyRef.current = false; };
   const targetVaultId = nav.folderPath[nav.folderPath.length - 1]?.vault_id ?? selectedVaultIds[0] ?? "personal";
