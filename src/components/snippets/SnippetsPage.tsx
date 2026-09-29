@@ -576,7 +576,7 @@ export function SnippetsPage() {
     const selectedSnippetFolderIds = selectedFolders.map((f) => f.id);
     const { isObjectSynced } = useSyncPrefsStore.getState();
     const allSynced = selectedSnippets.every((s) => isObjectSynced(s.id, "snippet"));
-    const allCanEdit = selectedSnippets.every((s) => can("EDIT_SNIPPETS", s.vault_id ?? "personal"));
+    const allCanEdit = selectedSnippets.every((s) => can("EDIT_SNIPPETS", s.vault_id ?? "personal", s.id));
     const bulkVaultChildren = (operation: TransferOperation): ContextMenuItem[] => vaultOptions
       .filter((v) => [...selectedSnippets.map((s) => s.vault_id ?? "personal"), ...selectedFolders.map((f) => f.vault_id ?? "personal")].some((sourceVaultId) => sourceVaultId !== v.id))
       .filter((v) => buildTeamVaultTransferPlan({
@@ -909,7 +909,7 @@ export function SnippetsPage() {
 
   function renderCard(s: Snippet) {
     const svid = s.vault_id ?? "personal";
-    const canEdit = can("EDIT_SNIPPETS", svid);
+    const canEdit = can("EDIT_SNIPPETS", svid, s.id);
     const otherVaults = vaultOptions.filter((v) => v.id !== svid);
     const syncEnabled = useSyncPrefsStore.getState().isObjectSynced(s.id, "snippet");
     return (

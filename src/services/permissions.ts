@@ -2,6 +2,7 @@ import type { Team, TeamMember, TeamRole } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
 import { vaultById } from "@/services/vaultLookup";
 import type { TeamObjectType } from "@/services/teamObjects";
+import type { ObjectAccessIndex } from "@/stores/teamObjectAccessStore";
 
 export type Permission =
   | "VIEW_SECRETS"
@@ -181,6 +182,7 @@ export interface PermissionSnapshot {
   membersByTeam: Record<string, TeamMember[]>;
   rolesByTeam: Record<string, TeamRole[]>;
   vaults: Vault[];
+  objectAccess?: ObjectAccessIndex;
 }
 
 /**
@@ -188,17 +190,23 @@ export interface PermissionSnapshot {
  * without React/stores. Branch order is identical to the prior hook closure.
  * - "personal" and non-team vaults always return true.
  * - Team vaults: OR all assigned role bits and check the requested bit.
+ * - With `objectId`, the server's per-object mask when known.
  * - Returns false (pessimistic) when data is not yet loaded.
  */
 export function resolveCan(
   snapshot: PermissionSnapshot,
   permission: Permission,
   vaultId: string,
+  objectId?: string,
 ): boolean {
   const vault = vaultById(snapshot.vaults, vaultId);
   if (vault && !vault.teamId) return true;
 
   const teamId = vault?.teamId ?? vaultId;
+
+  const objectMask = objectId === undefined ? undefined : snapshot.objectAccess?.[teamId]?.[objectId]?.myPermissions;
+  if (objectMask !== undefined) return (objectMask & PERM_BITS[permission]) !== 0;
+
   const roles = snapshot.rolesByTeam[teamId] ?? [];
   const members = snapshot.membersByTeam[teamId];
 

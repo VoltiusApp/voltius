@@ -472,7 +472,7 @@ export default function HostsPage() {
     if (totalSelected === 0) return undefined;
     const { isObjectSynced } = useSyncPrefsStore.getState();
     const allSynced = selectedConns.every((c) => isObjectSynced(c.id, "connection"));
-    const allCanEdit = selectedConns.every((c) => can("EDIT_CONNECTIONS", c.vault_id ?? "personal"));
+    const allCanEdit = selectedConns.every((c) => can("EDIT_CONNECTIONS", c.vault_id ?? "personal", c.id));
     const bulkVaultChildren = (operation: TransferOperation): ContextMenuItem[] => vaultOptions
       .filter((v) => [...selectedConns.map((c) => c.vault_id ?? "personal"), ...selectedFolders.map((f) => f.vault_id ?? "personal")].some((sourceVaultId) => sourceVaultId !== v.id))
       .filter((v) => buildTeamVaultTransferPlan({
@@ -867,7 +867,7 @@ export default function HostsPage() {
               onExport={() => useUIStore.getState().openImportExport("export", { bulk: { connections: connections.filter((c) => c.folder_id === editingFolder.id).map((c) => c.id) } })}
               onClose={() => setEditingFolderId(null)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-              canEdit={can("EDIT_CONNECTIONS", editingFolder.vault_id ?? "personal")}
+              canEdit={can("EDIT_CONNECTIONS", editingFolder.vault_id ?? "personal", editingFolder.id)}
               onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
               onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
             />
@@ -883,7 +883,7 @@ export default function HostsPage() {
               onConnect={editing ? () => void handleConnect(editing) : undefined}
               onDelete={editing ? () => { deleteConnection(editing.id); setShowSerialForm(false); setEditingId(null); } : undefined}
               vaults={editing ? vaultOptions.filter((v) => v.id !== (editing.vault_id ?? "personal")) : []}
-              canEdit={editing ? can("EDIT_CONNECTIONS", editing.vault_id ?? "personal") : false}
+              canEdit={editing ? can("EDIT_CONNECTIONS", editing.vault_id ?? "personal", editing.id) : false}
               onMoveToVault={editing ? (vaultId) => { void handleMoveConnectionToVault(editing, vaultId); } : undefined}
               onCopyToVault={editing ? (vaultId) => { void handleCopyConnectionToVault(editing, vaultId); } : undefined}
             />
@@ -899,7 +899,7 @@ export default function HostsPage() {
               onConnect={editing ? () => void handleConnect(editing) : undefined}
               onDelete={editing ? () => { deleteConnection(editing.id); setShowForm(false); setEditingId(null); } : undefined}
               vaults={editing ? vaultOptions.filter((v) => v.id !== (editing.vault_id ?? "personal")) : []}
-              canEdit={editing ? can("EDIT_CONNECTIONS", editing.vault_id ?? "personal") : false}
+              canEdit={editing ? can("EDIT_CONNECTIONS", editing.vault_id ?? "personal", editing.id) : false}
               onMoveToVault={editing ? (vaultId) => { void handleMoveConnectionToVault(editing, vaultId); } : undefined}
               onCopyToVault={editing ? (vaultId) => { void handleCopyConnectionToVault(editing, vaultId); } : undefined}
             />
@@ -1023,7 +1023,7 @@ export default function HostsPage() {
                     style={layoutMode === "grid" ? { gridTemplateColumns: HOST_GRID_COLS } : undefined}
                   >
                     {visibleFolders.map((folder) => {
-                      const canEditFolder = can("EDIT_FOLDERS", folder.vault_id ?? "personal");
+                      const canEditFolder = can("EDIT_FOLDERS", folder.vault_id ?? "personal", folder.id);
                       return (
                         <FolderCard
                           key={folder.id}
@@ -1055,7 +1055,7 @@ export default function HostsPage() {
               )}
 
               {/* ── Eject drop zone (in DOM whenever inside folder, visible only while dragging) ── */}
-              {activeFolderId && can("EDIT_FOLDERS", folderPath[folderPath.length - 1]?.vault_id ?? "personal") && (
+              {activeFolderId && can("EDIT_FOLDERS", folderPath[folderPath.length - 1]?.vault_id ?? "personal", folderPath[folderPath.length - 1]?.id) && (
                 <FolderEjectZone
                   label={ejectTargetFolderId
                     ? t("hosts.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name })
@@ -1076,7 +1076,7 @@ export default function HostsPage() {
                   >
                     {pinnedHosts.map((conn) => {
                       const connVaultId = conn.vault_id ?? "personal";
-                      const canEdit = can("EDIT_CONNECTIONS", connVaultId);
+                      const canEdit = can("EDIT_CONNECTIONS", connVaultId, conn.id);
                       const otherVaults = vaultOptions.filter((v) => v.id !== connVaultId);
                       return (
                         <HostCard
@@ -1148,7 +1148,7 @@ export default function HostsPage() {
                     {(showForm || showSerialForm) && !editing && <DraftHostCard layout={layoutMode} serial={showSerialForm} />}
                     {filtered.map((conn) => {
                       const connVaultId = conn.vault_id ?? "personal";
-                      const canEdit = can("EDIT_CONNECTIONS", connVaultId);
+                      const canEdit = can("EDIT_CONNECTIONS", connVaultId, conn.id);
                       const otherVaults = vaultOptions.filter((v) => v.id !== connVaultId);
                       return (
                         <HostCard

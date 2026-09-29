@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { useTeamObjectAccessStore } from "@/stores/teamObjectAccessStore";
 import { getMyUserId } from "@/services/teamService";
 import {
   resolveCan,
@@ -19,13 +20,14 @@ export type { Permission };
  * - Team vaults: OR all assigned role bits and check the requested bit.
  * - Returns false (pessimistic) when data is not yet loaded.
  */
-export function usePermissions(): (permission: Permission, vaultId: string) => boolean {
+export function usePermissions(): (permission: Permission, vaultId: string, objectId?: string) => boolean {
   const teams = useTeamStore((s) => s.teams);
   const membersByTeam = useTeamStore((s) => s.membersByTeam);
   const rolesByTeam = useTeamStore((s) => s.rolesByTeam);
   const loadTeams = useTeamStore((s) => s.loadTeams);
   const loadMembers = useTeamStore((s) => s.loadMembers);
   const loadRoles = useTeamStore((s) => s.loadRoles);
+  const objectAccess = useTeamObjectAccessStore((s) => s.byTeam);
   const [myUserId, setMyUserId] = useState("");
 
   useEffect(() => {
@@ -40,11 +42,12 @@ export function usePermissions(): (permission: Permission, vaultId: string) => b
     }
   }, [teams, membersByTeam, rolesByTeam, loadTeams, loadMembers, loadRoles]);
 
-  return useCallback((permission: Permission, vaultId: string): boolean => {
+  return useCallback((permission: Permission, vaultId: string, objectId?: string): boolean => {
     return resolveCan(
-      { myUserId, teams, membersByTeam, rolesByTeam, vaults: useVaultStore.getState().vaults },
+      { myUserId, teams, membersByTeam, rolesByTeam, objectAccess, vaults: useVaultStore.getState().vaults },
       permission,
       vaultId,
+      objectId,
     );
-  }, [teams, membersByTeam, rolesByTeam, myUserId]);
+  }, [teams, membersByTeam, rolesByTeam, objectAccess, myUserId]);
 }

@@ -29,7 +29,7 @@ export function NotesPanel() {
 function NotesPanelBody({ session, connection }: { session: TerminalSession; connection: Connection }) {
   const { t } = useTranslation();
   const can = usePermissions();
-  const readOnly = !can("EDIT_CONNECTIONS", connection.vault_id ?? "personal");
+  const readOnly = !can("EDIT_CONNECTIONS", connection.vault_id ?? "personal", connection.id);
   const [mode, setMode] = useState<NotesMode>("preview");
   const save = useCallback((notes: string | undefined) => saveHostNotes(connection.id, notes), [connection.id]);
   const notes = useNotesDraft(connection.notes, save);

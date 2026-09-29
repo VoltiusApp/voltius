@@ -29,7 +29,7 @@ export function useStoredSecrets<K extends string>(
   apply: (values: Partial<Record<K, string>>) => void,
 ): StoredSecretsState {
   const can = usePermissions();
-  const mayView = can("VIEW_SECRETS", vaultId || "personal");
+  const mayView = can("VIEW_SECRETS", vaultId || "personal", id);
   const [unavailable, setUnavailable] = useState(false);
   const applyRef = useRef(apply);
   applyRef.current = apply;

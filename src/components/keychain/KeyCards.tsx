@@ -373,7 +373,7 @@ export function KeySection({
         {showDraft && <DraftCard icon="lucide:key-round" label={t("keychain.toolbar.newKey")} />}
         {keys.map((k) => {
           const vaultId = k.vault_id ?? "personal";
-          const canEdit = can("EDIT_KEYS", vaultId);
+          const canEdit = can("EDIT_KEYS", vaultId, k.id);
           return (
             <KeyCard
               key={k.id}
@@ -674,7 +674,7 @@ export function IdentitySection({
         {showDraft && <DraftCard icon="lucide:id-card" label={t("keychain.toolbar.newIdentity")} />}
         {identities.map((i) => {
           const vaultId = i.vault_id ?? "personal";
-          const canEdit = can("EDIT_IDENTITIES", vaultId);
+          const canEdit = can("EDIT_IDENTITIES", vaultId, i.id);
           return (
             <IdentityCard
               key={i.id}

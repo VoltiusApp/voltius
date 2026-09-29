@@ -307,3 +307,28 @@ test("View leads the data-access group and Administrator has its own group first
   expect(PERMISSION_GROUPS[0]).toEqual({ key: "administration", permissions: ["ADMINISTRATOR"] });
   expect(PERMISSION_GROUPS[1].permissions[0]).toBe("VIEW");
 });
+
+describe("resolveCan with an object id", () => {
+  const base = snap({
+    vaults: [vault("t1", "t1")],
+    rolesByTeam: { t1: [role("r1", PERM_BITS.VIEW | PERM_BITS.EDIT_CONNECTIONS)] },
+    membersByTeam: { t1: [member("u1", ["r1"])] },
+    objectAccess: {
+      t1: {
+        locked: { type: "connection", ruleSetId: "s1", myPermissions: PERM_BITS.VIEW, parentId: null, deleted: false },
+        opened: { type: "connection", ruleSetId: "s2", myPermissions: PERM_BITS.VIEW | PERM_BITS.CONNECT, parentId: null, deleted: false },
+      },
+    },
+  });
+
+  it("reads the object's mask, not the team's", () => {
+    expect(resolveCan(base, "EDIT_CONNECTIONS", "t1", "locked")).toBe(false);
+    expect(resolveCan(base, "CONNECT", "t1", "opened")).toBe(true);
+  });
+  it("falls back to the team mask for an object with no entry", () => {
+    expect(resolveCan(base, "EDIT_CONNECTIONS", "t1", "unknown")).toBe(true);
+  });
+  it("ignores the object id in a personal vault", () => {
+    expect(resolveCan(snap({ objectAccess: base.objectAccess }), "EDIT_CONNECTIONS", "personal", "locked")).toBe(true);
+  });
+});

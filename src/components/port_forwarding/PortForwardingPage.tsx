@@ -434,7 +434,7 @@ export function PortForwardingPage() {
   // ── Drag-to-folder ────────────────────────────────────────────────────────
 
   const visibleFolderIds = useMemo(() => new Set(visibleFolders.map((f) => f.id)), [visibleFolders]);
-  const canEdit = (vaultId: string) => can("EDIT_CONNECTIONS", vaultId);
+  const canEdit = (vaultId: string, objectId?: string) => can("EDIT_CONNECTIONS", vaultId, objectId);
 
   const {
     isDragging,
@@ -482,7 +482,7 @@ export function PortForwardingPage() {
     const n = selectedRules.length;
     // Folders count too: a folder-only selection still needs cut/copy.
     if (n + selectedFolders.length < 2) return undefined;
-    const allCanEdit = selectedRules.every((r) => canEdit(r.vault_id ?? "personal"));
+    const allCanEdit = selectedRules.every((r) => canEdit(r.vault_id ?? "personal", r.id));
     const sharedVaults = vaultOptions.filter((v) =>
       selectedRules.some((r) => (r.vault_id ?? "personal") !== v.id),
     );
@@ -529,7 +529,7 @@ export function PortForwardingPage() {
               onDelete={(f) => setConfirmDeleteFolderId(f.id)}
               onClose={() => setEditingFolderId(null)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-              canEdit={canEdit(editingFolder.vault_id ?? "personal")}
+              canEdit={canEdit(editingFolder.vault_id ?? "personal", editingFolder.id)}
               onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
               onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
               onExport={() => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: rules.filter((r) => r.folder_id === editingFolder.id).map((r) => r.id) } })}
@@ -609,7 +609,7 @@ export function PortForwardingPage() {
                   style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } : undefined}
                 >
                   {visibleFolders.map((folder) => {
-                    const folderCanEdit = canEdit(folder.vault_id ?? "personal");
+                    const folderCanEdit = canEdit(folder.vault_id ?? "personal", folder.id);
                     return (
                       <FolderCard
                         key={folder.id}
@@ -701,7 +701,7 @@ export function PortForwardingPage() {
                         statusLabel={statusLabel}
                         isBusy={isBusy}
                         webUrl={webUrl}
-                        canEdit={canEdit(rule.vault_id)}
+                        canEdit={canEdit(rule.vault_id, rule.id)}
                         vaults={vaultOptions.filter((v) => v.id !== (rule.vault_id ?? "personal"))}
                         onSelect={(id, e) => handleItemSelect(id, e)}
                         onEdit={openEdit}

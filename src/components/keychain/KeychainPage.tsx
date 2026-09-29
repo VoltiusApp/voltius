@@ -857,7 +857,7 @@ export default function KeychainPage() {
               onExport={() => useUIStore.getState().openImportExport("export", { bulk: { keys: keys.filter((k) => k.folder_id === editingFolder.id).map((k) => k.id), identities: identities.filter((i) => i.folder_id === editingFolder.id).map((i) => i.id) } })}
               onClose={() => setEditingFolderId(null)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-              canEdit={can("EDIT_KEYS", editingFolder.vault_id ?? "personal")}
+              canEdit={can("EDIT_KEYS", editingFolder.vault_id ?? "personal", editingFolder.id)}
               onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
               onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
             />
@@ -880,7 +880,7 @@ export default function KeychainPage() {
               flushRef={keyFormFlushRef}
               isDirtyRef={keyFormIsDirtyRef}
               vaults={editingKey ? vaultOptions.filter((v) => v.id !== (editingKey.vault_id ?? "personal")) : []}
-              canEdit={editingKey ? can("EDIT_KEYS", editingKey.vault_id ?? "personal") : false}
+              canEdit={editingKey ? can("EDIT_KEYS", editingKey.vault_id ?? "personal", editingKey.id) : false}
               onMoveToVault={editingKey ? (vaultId) => { void handleMoveKeyToVault(editingKey, vaultId); } : undefined}
               onCopyToVault={editingKey ? (vaultId) => { void handleCopyKeyToVault(editingKey, vaultId); } : undefined}
             />
@@ -895,7 +895,7 @@ export default function KeychainPage() {
               flushRef={identityFormFlushRef}
               isDirtyRef={identityFormIsDirtyRef}
               vaults={editingIdentity ? vaultOptions.filter((v) => v.id !== (editingIdentity.vault_id ?? "personal")) : []}
-              canEdit={editingIdentity ? can("EDIT_IDENTITIES", editingIdentity.vault_id ?? "personal") : false}
+              canEdit={editingIdentity ? can("EDIT_IDENTITIES", editingIdentity.vault_id ?? "personal", editingIdentity.id) : false}
               onMoveToVault={editingIdentity ? (vaultId) => { void handleMoveIdentityToVault(editingIdentity, vaultId); } : undefined}
               onCopyToVault={editingIdentity ? (vaultId) => { void handleCopyIdentityToVault(editingIdentity, vaultId); } : undefined}
             />
@@ -995,7 +995,7 @@ export default function KeychainPage() {
                       onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                       {...folderDropProps(folder.id)}
                       vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
-                      canEdit={can("EDIT_KEYS", folder.vault_id ?? "personal")}
+                      canEdit={can("EDIT_KEYS", folder.vault_id ?? "personal", folder.id)}
                       onMoveToVault={(vaultId) => handleMoveFolderToVault(folder, vaultId)}
                       onCopyToVault={(vaultId) => handleCopyFolderToVault(folder, vaultId)}
                       bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}
