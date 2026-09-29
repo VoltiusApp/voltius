@@ -5,7 +5,7 @@ const h = vi.hoisted(() => ({
   rotateCalls: [] as { user_id: string; wrapped_key: string }[][],
   members: [] as { user_id: string; public_key: string }[],
   allowed: new Set<string>(),
-  objects: [] as { object_id: string; object_type: string; metadata: unknown; deleted_at?: string }[],
+  objects: [] as { object_id: string; object_type: string; metadata: unknown; deleted_at?: string; my_permissions?: number }[],
   secrets: [] as { secret_id: string; object_id: string; ciphertext: string; key_version: number }[],
   reencryptObjectCalls: [] as unknown[],
   reencryptSecretCalls: [] as unknown[],
@@ -47,13 +47,20 @@ vi.mock("@/services/teamObjectEnvelope", () => ({
   // A fixture envelope's `enc` is the id of the object it holds.
   decodeObjectMetadata: vi.fn(async (_teamId: string, metadata: unknown) => ({ id: (metadata as { enc: string }).enc })),
 }));
-vi.mock("@/services/teamObjectEditPermission", () => ({
-  buildEditPermissionSnapshot: vi.fn(async () => ({})),
-  // Uses the real `objectType` argument (not just a fixed "connection" check)
-  // so the "draining" test below can actually distinguish an editable type
-  // ("connection") from one the caller cannot edit ("key").
-  canEditObjectType: vi.fn((_snapshot: unknown, _teamId: string, objectType: string) => h.allowed.has(objectType)),
-}));
+vi.mock("@/services/teamObjectEditPermission", async () => {
+  const { PERM_BITS, EDIT_PERMISSION_OF } = await import("@/services/permissions");
+  return {
+    buildEditPermissionSnapshot: vi.fn(async () => ({})),
+    // `myPermissions`, when present, wins over the type-level `h.allowed` set.
+    canEditObjectType: vi.fn((_snapshot: unknown, _teamId: string, objectType: string, myPermissions?: number) => {
+      if (myPermissions !== undefined) {
+        const permission = EDIT_PERMISSION_OF[objectType as keyof typeof EDIT_PERMISSION_OF];
+        return permission !== undefined && (myPermissions & PERM_BITS[permission]) !== 0;
+      }
+      return h.allowed.has(objectType);
+    }),
+  };
+});
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string, _args: Record<string, unknown>) => {
     if (cmd === "backup_decrypt") return { secrets: { "password:c1": "hunter2" } };
@@ -68,6 +75,7 @@ vi.mock("@/services/teamVaultSyncCore", () => ({
 
 import { checkAndRotateTeamKey } from "./teamKeyRotation";
 import { getTeamVaultKeyAtVersion, getCachedTeamKeyVersion } from "@/services/teamVaultSync";
+import { PERM_BITS } from "@/services/permissions";
 
 beforeEach(() => {
   h.status = { stale: false, draining: false };
@@ -132,6 +140,21 @@ test("draining: does not rotate again, and re-encrypts only editable object type
 
   expect(h.rotateCalls).toHaveLength(0);
   expect(h.reencryptObjectCalls.flat().map((i: unknown) => (i as { object_id: string }).object_id)).toEqual(["c1"]);
+});
+
+test("draining: an object's own my_permissions lacking the edit bit excludes it and its secret", async () => {
+  h.status = { stale: false, draining: true };
+  h.objects = [
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "c1", kv: 0 }, my_permissions: PERM_BITS.VIEW },
+  ];
+  h.secrets = [
+    { secret_id: "s1", object_id: "c1", ciphertext: "b64(old-cipher)", key_version: 0 },
+  ];
+
+  await checkAndRotateTeamKey("t1");
+
+  expect(h.reencryptObjectCalls).toHaveLength(0);
+  expect(h.reencryptSecretCalls).toHaveLength(0);
 });
 
 test("stale and draining: drains, does not also rotate (serialization rule)", async () => {

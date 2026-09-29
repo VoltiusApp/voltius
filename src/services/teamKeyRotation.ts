@@ -154,9 +154,7 @@ async function _drainTeamKeyRotation(teamId: string): Promise<void> {
   ]);
   const snapshot = await buildEditPermissionSnapshot();
 
-  const objectTypeById = new Map(
-    objects.filter((o) => !o.deleted_at).map((o) => [o.object_id, o.object_type] as const),
-  );
+  const rowById = new Map(objects.filter((o) => !o.deleted_at).map((o) => [o.object_id, o] as const));
 
   // Strictly behind current, never equal-or-ahead: a row already on or ahead
   // of this client's freshly-resolved "current" must never be rewritten
@@ -165,13 +163,13 @@ async function _drainTeamKeyRotation(teamId: string): Promise<void> {
     if (o.deleted_at) return false;
     if (!isEncryptedEnvelope(o.metadata)) return false; // #229's own migration pass handles these
     const kv = (o.metadata as { kv?: number }).kv;
-    return epochOf(kv) < currentVersion && canEditObjectType(snapshot, teamId, o.object_type);
+    return epochOf(kv) < currentVersion && canEditObjectType(snapshot, teamId, o.object_type, o.my_permissions);
   });
 
   const staleSecrets = secrets.filter((s) => {
     if (epochOf(s.key_version) >= currentVersion) return false;
-    const objectType = objectTypeById.get(s.object_id);
-    return objectType !== undefined && canEditObjectType(snapshot, teamId, objectType);
+    const owner = rowById.get(s.object_id);
+    return owner !== undefined && canEditObjectType(snapshot, teamId, owner.object_type, owner.my_permissions);
   });
 
   await settleInBatches(

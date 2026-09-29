@@ -29,6 +29,7 @@ vi.mock("@/services/permissions", async (importOriginal) => ({
 import { runReencryptionPass } from "./teamObjectReencrypt";
 import { noteTeamRows } from "./teamObjectRows";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import { PERM_BITS } from "@/services/permissions";
 
 const legacy = (id: string, type: string) => ({
   object_id: id,
@@ -142,6 +143,16 @@ test("leaves plaintext rows alone once this device has seen the team fully encry
 
   expect(done).toBe(0);
   expect(h.batches).toEqual([]);
+});
+
+test("a row's own my_permissions overrides the team-role grant", async () => {
+  const done = await runReencryptionPass("t1", [
+    legacy("c1", "connection"),
+    { ...legacy("c2", "connection"), my_permissions: PERM_BITS.VIEW },
+  ] as never);
+
+  expect(done).toBe(1);
+  expect(h.batches.flat().map((i) => i.object_id)).toEqual(["c1"]);
 });
 
 test("does not re-encrypt a plaintext row whose metadata names another object", async () => {

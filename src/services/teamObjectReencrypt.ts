@@ -49,7 +49,7 @@ async function _runReencryptionPass(
 
   try {
     const snapshot = await buildEditPermissionSnapshot();
-    const pending = migratable.filter((o) => canEditObjectType(snapshot, teamId, o.object_type));
+    const pending = migratable.filter((o) => canEditObjectType(snapshot, teamId, o.object_type, o.my_permissions));
 
     for (let i = 0; i < pending.length; i += BATCH_SIZE) {
       const slice = pending.slice(i, i + BATCH_SIZE);

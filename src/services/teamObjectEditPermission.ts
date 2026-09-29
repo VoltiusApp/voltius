@@ -1,4 +1,4 @@
-import { resolveCan, EDIT_PERMISSION_OF } from "@/services/permissions";
+import { resolveCan, EDIT_PERMISSION_OF, PERM_BITS } from "@/services/permissions";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { getMyUserId } from "@/services/teamService";
@@ -36,7 +36,10 @@ export function canEditObjectType(
   snapshot: EditPermissionSnapshot,
   teamId: string,
   objectType: TeamObjectType | string,
+  myPermissions?: number,
 ): boolean {
   const permission = EDIT_PERMISSION_OF[objectType as TeamObjectType];
-  return permission !== undefined && resolveCan(snapshot, permission, teamId);
+  if (permission === undefined) return false;
+  if (myPermissions !== undefined) return (myPermissions & PERM_BITS[permission]) !== 0;
+  return resolveCan(snapshot, permission, teamId);
 }
