@@ -157,7 +157,8 @@
         "noSubjectsLeft": "Every role and member is already listed",
         "use": "Use",
         "roleCount_one": "{{count}} role",
-        "roleCount_other": "{{count}} roles"
+        "roleCount_other": "{{count}} roles",
+        "loadFailed": "Could not load permissions"
       }
     }
   }

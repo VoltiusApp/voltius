@@ -162,7 +162,8 @@
         "use": "Utiliser",
         "roleCount_one": "{{count}} rôle",
         "roleCount_many": "{{count}} rôles",
-        "roleCount_other": "{{count}} rôles"
+        "roleCount_other": "{{count}} rôles",
+        "loadFailed": "Impossible de charger les permissions"
       }
     }
   }

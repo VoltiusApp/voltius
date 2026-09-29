@@ -109,10 +109,17 @@ export function PermissionsSection({ objectId, vaultId, type }: { objectId: stri
   const [added, setAdded] = useState<Subject[]>([]);
   const [error, setError] = useState<string | null>(null);
   const chain = useRef(Promise.resolve());
-  // Reset during render, not in an effect: a passive effect would overwrite a toggle clicked right after load.
+  const lastSaved = useRef(ruleSet.entries);
+  const pending = useRef(0);
+  const generation = useRef(0);
+  // Reset during render: an effect would clobber a click made right after load.
+  // A reload that lands while saves are queued predates them, so the draft is kept.
   if (loaded !== ruleSet.entries) {
     setLoaded(ruleSet.entries);
-    setDraft(ruleSet.entries);
+    if (pending.current === 0) {
+      lastSaved.current = ruleSet.entries;
+      setDraft(ruleSet.entries);
+    }
   }
 
   if (!teamId || !entries || !supported || !access || access.deleted) return null;
@@ -158,16 +165,22 @@ export function PermissionsSection({ objectId, vaultId, type }: { objectId: stri
   const change = (permission: Permission, next: OverrideState) => {
     const current = entryFor(draft, selected);
     const masks = applyOverrideState(permission, current?.allow ?? 0, current?.deny ?? 0, next);
-    const saved = draft;
     const nextDraft = withEntry(draft, selected, masks.allow, masks.deny);
+    const gen = generation.current;
     setDraft(nextDraft);
     setError(null);
+    pending.current += 1;
     chain.current = chain.current.then(async () => {
       try {
+        if (gen !== generation.current) return;
         await saveObjectRules(target, nextDraft);
+        lastSaved.current = nextDraft;
       } catch (e) {
-        setDraft(saved);
+        generation.current += 1;
+        setDraft(lastSaved.current);
         setError(errorText(e));
+      } finally {
+        pending.current -= 1;
       }
     });
   };
@@ -221,7 +234,7 @@ export function PermissionsSection({ objectId, vaultId, type }: { objectId: stri
         })}
       </div>
       {(error || ruleSet.status === "error") && (
-        <p className="text-xs text-(--t-status-error)">{error ?? t("common.error.failedToLoadRuleSet", { status: "" })}</p>
+        <p className="text-xs text-(--t-status-error)">{error ?? ruleSet.error ?? t("shared.permissions.section.loadFailed")}</p>
       )}
     </FormSection>
   );

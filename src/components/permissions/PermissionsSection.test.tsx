@@ -151,3 +151,80 @@ test("a member added from the picker gets their own rule", async () => {
     [{ subject_type: "member", subject_id: "u2", allow: PERM_BITS.CONNECT, deny: 0 }],
   ));
 });
+
+const deferred = () => {
+  let resolve!: () => void;
+  let reject!: (e: Error) => void;
+  const promise = new Promise<void>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+};
+const radio = async (permission: string, state: string) =>
+  within(await screen.findByRole("radiogroup", { name: `members.permission.${permission}` }))
+    .getByRole("radio", { name: `members.permissions.state.${state}` });
+const checked = async (permission: string, state: string) => (await radio(permission, state)).getAttribute("aria-checked");
+
+test("a failed save drops the saves queued behind it and shows what the server holds", async () => {
+  seed();
+  const first = deferred();
+  vi.mocked(saveObjectRules).mockReturnValueOnce(first.promise);
+  render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  await waitFor(async () => expect((await radio("CONNECT", "deny")).hasAttribute("disabled")).toBe(false));
+  fireEvent.click(await radio("CONNECT", "deny"));
+  fireEvent.click(await radio("VIEW", "deny"));
+  first.reject(new Error("boom"));
+  expect(await screen.findByText("boom")).toBeTruthy();
+  await new Promise((r) => setTimeout(r, 0));
+  expect(saveObjectRules).toHaveBeenCalledTimes(1);
+  expect(await checked("CONNECT", "inherit")).toBe("true");
+  expect(await checked("VIEW", "inherit")).toBe("true");
+});
+
+test("a failed save after a successful one falls back to the saved rules", async () => {
+  seed({ ruleSetId: "sOwn" });
+  vi.mocked(saveObjectRules).mockResolvedValueOnce().mockRejectedValueOnce(new Error("boom"));
+  render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  await waitFor(async () => expect((await radio("CONNECT", "deny")).hasAttribute("disabled")).toBe(false));
+  fireEvent.click(await radio("CONNECT", "deny"));
+  fireEvent.click(await radio("VIEW", "deny"));
+  expect(await screen.findByText("boom")).toBeTruthy();
+  expect(await checked("CONNECT", "deny")).toBe("true");
+  expect(await checked("VIEW", "inherit")).toBe("true");
+});
+
+test("a rule-set reload during queued saves keeps the newer draft", async () => {
+  seed();
+  const connectDeny = [{ subject_type: "everyone" as const, subject_id: null, allow: 0, deny: PERM_BITS.CONNECT }];
+  vi.mocked(getRuleSet).mockImplementation(async (_team, setId) => (setId === "sNew" ? connectDeny : []));
+  const first = deferred();
+  const second = deferred();
+  vi.mocked(saveObjectRules)
+    .mockImplementationOnce(async () => {
+      await first.promise;
+      const c1 = useTeamObjectAccessStore.getState().byTeam.t1.c1;
+      useTeamObjectAccessStore.getState().upsert("t1", "c1", { ...c1, ruleSetId: "sNew" });
+    })
+    .mockReturnValueOnce(second.promise);
+  render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  await waitFor(async () => expect((await radio("CONNECT", "deny")).hasAttribute("disabled")).toBe(false));
+  fireEvent.click(await radio("CONNECT", "deny"));
+  fireEvent.click(await radio("VIEW", "deny"));
+  first.resolve();
+  await waitFor(() => expect(getRuleSet).toHaveBeenCalledWith("t1", "sNew"));
+  await waitFor(async () => expect((await radio("VIEW", "deny")).hasAttribute("disabled")).toBe(false));
+  expect(await checked("VIEW", "deny")).toBe("true");
+  second.resolve();
+  await waitFor(() => expect(saveObjectRules).toHaveBeenCalledTimes(2));
+  expect(await checked("VIEW", "deny")).toBe("true");
+  expect(await checked("CONNECT", "deny")).toBe("true");
+});
+
+test("a failed load shows the server's error, never empty brackets", async () => {
+  seed();
+  vi.mocked(getRuleSet).mockRejectedValue(new Error("Could not load permissions (500)"));
+  const { unmount } = render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  expect(await screen.findByText("Could not load permissions (500)")).toBeTruthy();
+  unmount();
+  vi.mocked(getRuleSet).mockRejectedValue("offline");
+  render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  expect(await screen.findByText("shared.permissions.section.loadFailed")).toBeTruthy();
+});

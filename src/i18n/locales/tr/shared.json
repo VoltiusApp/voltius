@@ -157,7 +157,8 @@
         "noSubjectsLeft": "Tüm roller ve üyeler zaten listede",
         "use": "Kullan",
         "roleCount_one": "{{count}} rol",
-        "roleCount_other": "{{count}} rol"
+        "roleCount_other": "{{count}} rol",
+        "loadFailed": "İzinler yüklenemedi"
       }
     }
   }

@@ -167,7 +167,8 @@
         "roleCount_one": "{{count}} роль",
         "roleCount_few": "{{count}} роли",
         "roleCount_many": "{{count}} ролей",
-        "roleCount_other": "{{count}} роли"
+        "roleCount_other": "{{count}} роли",
+        "loadFailed": "Не удалось загрузить права"
       }
     }
   }
