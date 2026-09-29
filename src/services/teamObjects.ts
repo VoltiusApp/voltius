@@ -2,6 +2,7 @@ import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, tryRefreshJwt } from "@/services/authTokens";
 import { clientHeaders } from "@/services/clientHeaders";
+import type { RuleEntry } from "@/services/permissions";
 
 export type TeamObjectType =
   | "connection"
@@ -40,6 +41,7 @@ export interface UpsertTeamObject<T = unknown> {
   name?: string | null;
   folder_id?: string | null;
   metadata: T;
+  rule_set_id?: string | null;
 }
 
 export interface UpsertTeamSecret {
@@ -125,6 +127,35 @@ export async function upsertTeamObject(teamId: string, object: UpsertTeamObject)
 export async function deleteTeamObject(teamId: string, objectId: string): Promise<void> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/objects/${objectId}`, { method: "DELETE" });
   await ensureOk(res, "common.error.failedToDeleteTeamObject");
+}
+
+async function ruleSetRequest(teamId: string, path: string, init: RequestInit, messageKey: string): Promise<Response> {
+  const res = await fetchTeamApi(`/v1/teams/${teamId}/rule-sets${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json" },
+  });
+  if (res.status === 413) throw apiError(i18n.t("common.error.tooManyRuleEntries"), { status: 413 });
+  await ensureOk(res, messageKey);
+  return res;
+}
+
+export async function createRuleSet(teamId: string, entries: RuleEntry[]): Promise<string> {
+  const res = await ruleSetRequest(teamId, "", { method: "POST", body: JSON.stringify({ entries }) }, "common.error.failedToSaveRuleSet");
+  return ((await res.json()) as { id: string }).id;
+}
+
+export async function copyRuleSet(teamId: string, setId: string): Promise<string> {
+  const res = await ruleSetRequest(teamId, `/${setId}/copy`, { method: "POST" }, "common.error.failedToSaveRuleSet");
+  return ((await res.json()) as { id: string }).id;
+}
+
+export async function getRuleSet(teamId: string, setId: string): Promise<RuleEntry[]> {
+  const res = await ruleSetRequest(teamId, `/${setId}`, { method: "GET" }, "common.error.failedToLoadRuleSet");
+  return ((await res.json()) as { entries: RuleEntry[] }).entries;
+}
+
+export async function putRuleSet(teamId: string, setId: string, entries: RuleEntry[]): Promise<void> {
+  await ruleSetRequest(teamId, `/${setId}`, { method: "PUT", body: JSON.stringify({ entries }) }, "common.error.failedToSaveRuleSet");
 }
 
 /**
