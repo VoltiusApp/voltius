@@ -584,7 +584,7 @@ export function SnippetsPage() {
         operation,
         targetVaultId: v.id,
         selected: { snippetIds: selectedSnippets.map((s) => s.id), snippetFolderIds: selectedSnippetFolderIds },
-        can: (permission, vaultId) => can(permission, vaultId),
+        can,
         connections: [],
         identities: [],
         keys: [],

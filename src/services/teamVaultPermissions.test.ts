@@ -105,3 +105,24 @@ test("destination permissions are returned in sorted (not insertion) order", () 
   // EDIT_IDENTITIES is inserted before EDIT_FOLDERS, but output must be alphabetical.
   expect(plan.destinationPermissions).toEqual(["EDIT_FOLDERS", "EDIT_IDENTITIES"]);
 });
+
+test("a copy is refused when one object's own rules withhold its secrets despite a vault-level grant", () => {
+  const plan = buildTeamVaultTransferPlan(base({
+    operation: "copy",
+    selected: { connectionIds: ["c1", "c2"] },
+    connections: [conn({ id: "c1", vault_id: "team-b" }), conn({ id: "c2", vault_id: "team-b" })],
+    can: (perm, _vault, objectId) => !(objectId === "c2" && perm === "COPY_SECRETS"),
+  }));
+  expect(plan.allowed).toBe(false);
+});
+
+test("secrets are checked on objects, not on folders that hold none", () => {
+  const plan = buildTeamVaultTransferPlan(base({
+    operation: "copy",
+    selected: { folderIds: ["f1"] },
+    folders: [fld({ id: "f1", vault_id: "team-b" })],
+    connections: [conn({ id: "c1", vault_id: "team-b", folder_id: "f1" })],
+    can: (perm, _vault, objectId) => !(objectId === "f1" && perm === "VIEW_SECRETS"),
+  }));
+  expect(plan.allowed).toBe(true);
+});

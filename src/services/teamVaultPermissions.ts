@@ -24,7 +24,7 @@ export interface BuildTransferPlanInput {
   operation: TransferOperation;
   targetVaultId: string;
   selected: TransferSelection;
-  can: (permission: TeamVaultPermission, vaultId: string) => boolean;
+  can: (permission: TeamVaultPermission, vaultId: string, objectId?: string) => boolean;
   connections: Connection[];
   identities: Identity[];
   keys: SshKey[];
@@ -159,19 +159,20 @@ export function buildTeamVaultTransferPlan(input: BuildTransferPlanInput): TeamV
   for (const permission of destinationPermissions) {
     if (!input.can(permission, input.targetVaultId)) deniedReasons.push(`Missing ${permission} on ${input.targetVaultId}`);
   }
-  const sourceVaultIds = new Set([
-    ...[...connections.values()].map(vaultIdOf),
-    ...[...identities.values()].map(vaultIdOf),
-    ...[...keys.values()].map(vaultIdOf),
-    ...[...folders.values()].map(vaultIdOf),
-    ...[...snippets.values()].map(vaultIdOf),
-    ...[...snippetFolders.values()].map(vaultIdOf),
-  ]);
-  for (const vaultId of sourceVaultIds) {
-    for (const permission of sourcePermissions) {
-      if (!input.can(permission, vaultId)) deniedReasons.push(`Missing ${permission} on ${vaultId}`);
+  const checkSource = (items: Iterable<{ id: string; vault_id?: string }>, edit: TeamVaultPermission, hasSecrets: boolean) => {
+    for (const item of items) {
+      for (const permission of sourcePermissions) {
+        const applies = permission === edit || (hasSecrets && (permission === "VIEW_SECRETS" || permission === "COPY_SECRETS"));
+        if (applies && !input.can(permission, vaultIdOf(item), item.id)) deniedReasons.push(`Missing ${permission} on ${item.id}`);
+      }
     }
-  }
+  };
+  checkSource(connections.values(), "EDIT_CONNECTIONS", true);
+  checkSource(identities.values(), "EDIT_IDENTITIES", true);
+  checkSource(keys.values(), "EDIT_KEYS", true);
+  checkSource(folders.values(), "EDIT_FOLDERS", false);
+  checkSource(snippetFolders.values(), "EDIT_FOLDERS", false);
+  checkSource(snippets.values(), "EDIT_SNIPPETS", false);
 
   return {
     operation: input.operation,

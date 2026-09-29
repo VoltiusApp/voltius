@@ -291,7 +291,7 @@ export default function KeychainPage() {
         operation,
         targetVaultId: v.id,
         selected: { keyIds: selectedKeyIds, identityIds: selectedIdentityIds, folderIds: selectedFolderIds },
-        can: (permission, vaultId) => can(permission, vaultId),
+        can,
         connections: [],
         identities,
         keys,

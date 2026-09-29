@@ -480,7 +480,7 @@ export default function HostsPage() {
         operation,
         targetVaultId: v.id,
         selected: { connectionIds: ids, folderIds },
-        can: (permission, vaultId) => can(permission, vaultId),
+        can,
         connections,
         identities,
         keys,
