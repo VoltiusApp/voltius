@@ -50,6 +50,3 @@ export const objectAccess = (teamId: string, objectId: string): ObjectAccess | u
 
 export const ruleSetsSupported = (teamId: string): boolean =>
   useTeamObjectAccessStore.getState().supportedByTeam[teamId] ?? false;
-
-export const teamHasRuleSets = (teamId: string): boolean =>
-  Object.values(teamAccessEntries(teamId)).some((e) => e.ruleSetId !== null);

@@ -140,15 +140,6 @@
         "line": "{{subject}} · {{permission}}: {{before}} → {{after}}",
         "confirm": "Taşı",
         "cancelled": "Taşıma iptal edildi"
-      },
-      "firstRule": {
-        "title": "Nesne izinleri açılsın mı?",
-        "body": "Bu ilk kuraldan sonra eski uygulamalar bu kasayı açamaz ve Görüntüle izni olmayan üyeler hiçbir şey görmez. Etkilenen üyeler:",
-        "affected_one": "{{count}} üye etkileniyor",
-        "affected_other": "{{count}} üye etkileniyor",
-        "oldApp": "uygulamayı güncellemeli",
-        "noView": "Görüntüle izni yok",
-        "confirm": "Kuralı kaydet"
       }
     }
   }

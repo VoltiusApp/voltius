@@ -1,7 +1,7 @@
 import { test, expect, beforeEach } from "vitest";
 import { buildAccessEntries, parentIdOf } from "./teamObjectAccess";
 import {
-  useTeamObjectAccessStore, objectAccess, ruleSetsSupported, teamHasRuleSets,
+  useTeamObjectAccessStore, objectAccess, ruleSetsSupported,
 } from "@/stores/teamObjectAccessStore";
 import type { TeamObjectRecord } from "./teamObjects";
 
@@ -46,7 +46,6 @@ test("store helpers", () => {
   s.replaceTeam("t1", { c1: { type: "connection", ruleSetId: "s1", myPermissions: 1, parentId: null, deleted: false } }, true);
   expect(objectAccess("t1", "c1")?.ruleSetId).toBe("s1");
   expect(ruleSetsSupported("t1")).toBe(true);
-  expect(teamHasRuleSets("t1")).toBe(true);
   s.clearTeam("t1");
   expect(objectAccess("t1", "c1")).toBeUndefined();
   expect(ruleSetsSupported("t1")).toBe(false);

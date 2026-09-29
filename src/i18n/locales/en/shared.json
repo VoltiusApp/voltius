@@ -140,15 +140,6 @@
         "line": "{{subject}} · {{permission}}: {{before}} → {{after}}",
         "confirm": "Move",
         "cancelled": "Move cancelled"
-      },
-      "firstRule": {
-        "title": "Turn on object permissions?",
-        "body": "After this first rule, older apps can no longer open this vault, and members without the View permission see nothing. Affected members:",
-        "affected_one": "{{count}} member affected",
-        "affected_other": "{{count}} members affected",
-        "oldApp": "needs to update the app",
-        "noView": "has no View permission",
-        "confirm": "Save rule"
       }
     }
   }

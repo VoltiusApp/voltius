@@ -14,28 +14,6 @@ export function RuleSetPromptHost() {
   const { prompt } = head;
   const roles = rolesByTeam[prompt.teamId] ?? [];
 
-  if (prompt.kind === "firstRule") {
-    return (
-      <ConfirmModal
-        tone="warning"
-        title={t("shared.permissions.firstRule.title")}
-        message={t("shared.permissions.firstRule.body")}
-        confirmLabel={t("shared.permissions.firstRule.confirm")}
-        onConfirm={() => answer(true)}
-        onCancel={() => answer(false)}
-      >
-        <p className="text-xs font-medium text-(--t-text-primary)">
-          {t("shared.permissions.firstRule.affected", { count: prompt.members.length })}
-        </p>
-        <ul className="text-xs text-(--t-text-secondary) space-y-1 max-h-48 overflow-y-auto">
-          {prompt.members.map(({ member, reason }) => (
-            <li key={member.user_id}>@{member.handle ?? "?"} · {t(`shared.permissions.firstRule.${reason}`)}</li>
-          ))}
-        </ul>
-      </ConfirmModal>
-    );
-  }
-
   const subjectName = (s: RuleSetChange["subject"]) =>
     s.type === "everyone" ? t("shared.permissions.everyone") : roleLabel(t, roles.find((r) => r.id === s.roleId)?.name ?? "?");
 

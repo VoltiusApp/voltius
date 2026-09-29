@@ -1,10 +1,7 @@
 import { create } from "zustand";
 import type { RuleSetChange } from "@/services/ruleSetDiff";
-import type { TeamMember } from "@/services/teamService";
 
-export type RuleSetPrompt =
-  | { kind: "move"; teamId: string; changes: RuleSetChange[] | null }
-  | { kind: "firstRule"; teamId: string; members: { member: TeamMember; reason: "oldApp" | "noView" }[] };
+export type RuleSetPrompt = { kind: "move"; teamId: string; changes: RuleSetChange[] | null };
 
 interface Pending {
   prompt: RuleSetPrompt;

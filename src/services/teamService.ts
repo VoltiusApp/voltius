@@ -30,8 +30,6 @@ export interface TeamMember {
   is_online?: boolean;
   /** An older server (no migration 035) omits this. Never render a bare "@" when absent. */
   handle?: string;
-  last_client_version?: string | null;
-  last_client_rule_sets?: boolean;
 }
 
 export interface TeamRole {

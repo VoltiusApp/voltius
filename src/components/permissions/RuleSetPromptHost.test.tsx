@@ -28,16 +28,3 @@ test("the move warning lists changes and resolves on confirm", async () => {
   fireEvent.click(screen.getByText("shared.permissions.moveWarning.confirm"));
   expect(await answer).toBe(true);
 });
-
-test("the first-rule warning names each member and why", async () => {
-  const answer = useRuleSetPromptStore.getState().ask({
-    kind: "firstRule", teamId: "t1",
-    members: [{ member: { user_id: "u2", handle: "bob", role_ids: [] } as never, reason: "oldApp" }],
-  });
-  render(<RuleSetPromptHost />);
-  expect(screen.getByText(/@bob/)).toBeTruthy();
-  expect(screen.getByText(/shared.permissions.firstRule.oldApp/)).toBeTruthy();
-  expect(screen.getByText(/shared.permissions.firstRule.affected/)).toBeTruthy();
-  fireEvent.click(screen.getByText("common.action.cancel"));
-  expect(await answer).toBe(false);
-});
