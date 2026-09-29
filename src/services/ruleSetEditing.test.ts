@@ -64,6 +64,22 @@ test("a subfolder synced with its parent is un-synced, not its parent's set edit
   expect(saveTeamVaultObject).toHaveBeenCalledWith("t1", "folder", { id: "fSub" }, { ruleSetId: "sSub" });
 });
 
+test("an object moved out without Manage still shares its old folder's set, so editing it forks", async () => {
+  useTeamObjectAccessStore.getState().replaceTeam("t1", { ...tree, cMoved: e({ ruleSetId: "sA", parentId: "fB" }) }, true);
+  vi.mocked(createRuleSet).mockResolvedValueOnce("sFork");
+  await saveObjectRules({ teamId: "t1", objectId: "cMoved", type: "connection" }, everyoneDenyView);
+  expect(putRuleSet).not.toHaveBeenCalled();
+  expect(saveTeamVaultObject).toHaveBeenCalledWith("t1", "connection", { id: "cMoved" }, { ruleSetId: "sFork" });
+});
+
+test("a folder whose set is shared outside its synced subtree forks instead of editing it", async () => {
+  useTeamObjectAccessStore.getState().replaceTeam("t1", { ...tree, cMoved: e({ ruleSetId: "sA", parentId: "fB" }) }, true);
+  vi.mocked(createRuleSet).mockResolvedValueOnce("sFork");
+  await saveObjectRules({ teamId: "t1", objectId: "fA", type: "folder" }, everyoneDenyView);
+  expect(putRuleSet).not.toHaveBeenCalled();
+  expect(saveTeamVaultObject).toHaveBeenCalledWith("t1", "folder", { id: "fA" }, { ruleSetId: "sFork" });
+});
+
 test("Sync now points back at the parent's set", async () => {
   await syncWithFolder({ teamId: "t1", objectId: "cOwn", type: "connection" });
   expect(saveTeamVaultObject).toHaveBeenCalledWith("t1", "connection", { id: "cOwn" }, { ruleSetId: "sA" });

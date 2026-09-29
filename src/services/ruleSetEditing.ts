@@ -1,8 +1,8 @@
 import { createRuleSet, putRuleSet, type TeamObjectType } from "@/services/teamObjects";
 import { findTeamItem, saveTeamVaultObject } from "@/services/teamObjectPersistence";
-import { isSynced, setOfParent } from "@/services/ruleSetPointers";
+import { isFolderType, isSynced, setOfParent, syncedSubtree } from "@/services/ruleSetPointers";
 import type { RuleEntry } from "@/services/permissions";
-import { teamAccessEntries } from "@/stores/teamObjectAccessStore";
+import { teamAccessEntries, type TeamAccessEntries } from "@/stores/teamObjectAccessStore";
 
 export interface RuleTarget {
   teamId: string;
@@ -15,11 +15,16 @@ async function repoint(target: RuleTarget, ruleSetId: string | null): Promise<vo
   if (item) await saveTeamVaultObject(target.teamId, target.type, item, { ruleSetId });
 }
 
+function sharedBeyond(all: TeamAccessEntries, target: RuleTarget, ruleSetId: string): boolean {
+  const own = new Set([target.objectId, ...(isFolderType(target.type) ? syncedSubtree(all, target.objectId) : [])]);
+  return Object.entries(all).some(([id, entry]) => !entry.deleted && entry.ruleSetId === ruleSetId && !own.has(id));
+}
+
 export async function saveObjectRules(target: RuleTarget, entries: RuleEntry[]): Promise<void> {
   const all = teamAccessEntries(target.teamId);
   const current = all[target.objectId];
   if (!current) return;
-  if (current.ruleSetId !== null && !isSynced(all, target.objectId)) {
+  if (current.ruleSetId !== null && !isSynced(all, target.objectId) && !sharedBeyond(all, target, current.ruleSetId)) {
     await putRuleSet(target.teamId, current.ruleSetId, entries);
     return;
   }
