@@ -9,6 +9,7 @@ import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory } from "@/store
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { rulesSourceOf } from "@/services/ruleSetIntent";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
@@ -117,7 +118,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const now = new Date().toISOString();
       const conn = connectionFromForm(data, { id: crypto.randomUUID(), now });
       const vaultId = data.vault_id!;
-      await saveTeamVaultObject(vaultId, "connection", conn);
+      await saveTeamVaultObject(vaultId, "connection", conn, { rulesFrom: rulesSourceOf(data) });
       set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, vaultId, conn) }));
       reportAuditMutation("connection", "created", { id: conn.id, name: conn.name ?? conn.host, vault_id: conn.vault_id });
       pushCreateHistory({

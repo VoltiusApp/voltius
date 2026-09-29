@@ -6,6 +6,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useEffectivePinned } from "@/hooks/useEffectivePinned";
 import { snippetToForm } from "@/utils/snippetForm";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { useAllSnippetFolders } from "@/hooks/useAllSnippetFolders";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
 import { compareStrings } from "@/utils/localeFormat";
@@ -64,7 +65,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
       <BottomSheet title={copy ? t("mobile.sheets.shared.copyToVault") : t("mobile.sheets.shared.moveToVault")} onClose={closeSheet} registerBack={false}>
         {vaultTargets.map((v) => (
           <Row key={v.id} it={{ icon: "lucide:vault", label: v.name, onTap: () => {
-            if (copy) void createSnippet({ ...snippetToForm(snippet), name: `${snippet.name} (copy)`, vault_id: v.id, favorite: false });
+            if (copy) void createSnippet(copyingRulesOf({ ...snippetToForm(snippet), name: `${snippet.name} (copy)`, vault_id: v.id, favorite: false }, snippet.id));
             else void updateSnippet(snippetId, { ...snippetToForm(snippet), vault_id: v.id });
             closeSheet();
           } }} />
@@ -77,7 +78,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
   const items: SheetAction[] = [
     { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { closeSheet(); push({ kind: "snippet-edit", snippetId }); } },
     { icon: "lucide:copy", label: t("mobile.sheets.shared.duplicate"), slug: "duplicate", onTap: () => {
-        void createSnippet({ ...snippetToForm(snippet), name: `${snippet.name} (copy)`, favorite: false });
+        void createSnippet(copyingRulesOf({ ...snippetToForm(snippet), name: `${snippet.name} (copy)`, favorite: false }, snippet.id));
         closeSheet();
       } },
     { icon: pinned ? "lucide:pin-off" : "lucide:pin", label: pinned ? t("mobile.sheets.shared.unpin") : t("mobile.sheets.shared.pin"), slug: pinned ? "unpin" : "pin", onTap: () => { void pinSnippet(snippetId, !pinned); closeSheet(); } },

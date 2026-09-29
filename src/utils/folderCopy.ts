@@ -1,4 +1,5 @@
 import type { Folder } from "@/types";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 
 type SaveFolder<T> = (data: {
   name: string;
@@ -46,22 +47,22 @@ export async function cloneFolderTree<T extends { id: string }>({
   saveFolder,
 }: CloneFolderTreeInput<T>): Promise<{ root: T; folderIdMap: Map<string, string> }> {
   // default name suffix kept in English until all creation sites are localized together (see i18n issue #14)
-  const newRoot = await saveFolder({
+  const newRoot = await saveFolder(copyingRulesOf({
     name: keepName ? root.name : `${root.name} (copy)`,
     object_type: root.object_type,
     parent_folder_id: parentFolderId ?? undefined,
     vault_id: vaultId,
-  });
+  }, root.id));
   const folderIdMap = new Map<string, string>([[root.id, newRoot.id]]);
 
   // BFS order guarantees a parent is created before its children.
   for (const sf of subFolders) {
-    const created = await saveFolder({
+    const created = await saveFolder(copyingRulesOf({
       name: sf.name,
       object_type: sf.object_type,
       parent_folder_id: folderIdMap.get(sf.parent_folder_id ?? "") ?? newRoot.id,
       vault_id: vaultId,
-    });
+    }, sf.id));
     folderIdMap.set(sf.id, created.id);
   }
 

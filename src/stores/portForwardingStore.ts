@@ -7,6 +7,7 @@ import { reportAuditMutation } from "@/services/auditMutations";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { isTeamVaultId, upsertById, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap } from "@/stores/teamVaultMap";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { copyingRulesOf, rulesSourceOf } from "@/services/ruleSetIntent";
 
 function toFormData(rule: PortForwardingRule, vaultId = rule.vault_id): PortForwardingRuleFormData {
   return {
@@ -93,7 +94,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
         },
       };
       const vaultId = data.vault_id;
-      await saveTeamVaultObject(vaultId, "port_forwarding_rule", rule);
+      await saveTeamVaultObject(vaultId, "port_forwarding_rule", rule, { rulesFrom: rulesSourceOf(data) });
       set((s) => ({ teamRules: upsertInTeamMap(s.teamRules, vaultId, rule) }));
       reportAuditMutation("port_forward", "created", { id: rule.id, name: rule.name, vault_id: rule.vault_id }, { tunnel_type: rule.tunnel_type });
       return rule;
@@ -194,7 +195,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
   duplicateRule: async (id) => {
     const teamEntry = findTeamEntry(get().teamRules, id);
     if (teamEntry) {
-      return get().createRule({ ...toFormData(teamEntry.item), name: `${teamEntry.item.name} (copy)` });
+      return get().createRule(copyingRulesOf({ ...toFormData(teamEntry.item), name: `${teamEntry.item.name} (copy)` }, teamEntry.item.id));
     }
 
     const rule = await api.duplicatePfRule(id);

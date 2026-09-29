@@ -148,3 +148,16 @@ test("a duplicate copies an un-synced source's set and follows the folder otherw
   expect(copyRuleSet).toHaveBeenCalledExactlyOnceWith("t1", "sOwn");
   expect(sent().map((b) => b.rule_set_id)).toEqual(["sCopy", "sB"]);
 });
+
+test("duplicating an un-synced object copies its own set server-side", async () => {
+  vi.mocked(copyRuleSet).mockResolvedValueOnce("sCopy");
+  await saveTeamVaultObject("t1", "connection", { id: "dup", folder_id: "fA" }, { rulesFrom: "cOwn" });
+  expect(copyRuleSet).toHaveBeenCalledWith("t1", "sOwn");
+  expect(sent()[0].rule_set_id).toBe("sCopy");
+});
+
+test("duplicating a synced object syncs the copy with its destination", async () => {
+  await saveTeamVaultObject("t1", "connection", { id: "dup", folder_id: "fB" }, { rulesFrom: "cSynced" });
+  expect(copyRuleSet).not.toHaveBeenCalled();
+  expect(sent()[0].rule_set_id).toBe("sB");
+});

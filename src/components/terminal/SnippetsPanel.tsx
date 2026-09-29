@@ -26,6 +26,7 @@ import { SnippetForm } from "@/components/snippets/SnippetForm";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { itemsInFolderSubtree } from "@/utils/folderTree";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 import type { Snippet, Folder, SnippetFormData, FolderFormData } from "@/types";
 import type { Connection } from "@/types";
 
@@ -408,7 +409,7 @@ export function SnippetsPanel() {
   }
 
   async function handleDuplicate(snippet: Snippet) {
-    await createSnippet({
+    await createSnippet(copyingRulesOf({
       name: `${snippet.name} (copy)`,
       steps: snippet.steps,
       description: snippet.description,
@@ -418,7 +419,7 @@ export function SnippetsPanel() {
       only_for_connection_tags: [...snippet.only_for_connection_tags],
       only_for_distros: [...snippet.only_for_distros],
       vault_id: snippet.vault_id,
-    });
+    }, snippet.id));
   }
 
   function toggleFolderCollapse(id: string) {

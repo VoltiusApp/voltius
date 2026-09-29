@@ -14,6 +14,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { folderSubtreeIds } from "@/utils/folderTree";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { rulesSourceOf } from "@/services/ruleSetIntent";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
@@ -82,7 +83,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         clocks: { created_at: now, updated_at: now },
       };
       const vaultId = data.vault_id;
-      await saveTeamVaultObject(vaultId, "folder", folder);
+      await saveTeamVaultObject(vaultId, "folder", folder, { rulesFrom: rulesSourceOf(data) });
       set((s) => ({ teamFolders: upsertInTeamMap(s.teamFolders, vaultId, folder) }));
       reportAuditMutation("folder", "created", { id: folder.id, name: folder.name, vault_id: folder.vault_id }, { object_type: folder.object_type });
       pushCreateHistory({

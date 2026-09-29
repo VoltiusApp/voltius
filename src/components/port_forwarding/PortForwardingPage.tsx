@@ -51,6 +51,7 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings } from "@/utils/localeFormat";
 import { useSearchMatcher } from "@/utils/search";
 
@@ -213,10 +214,10 @@ export function PortForwardingPage() {
 
   const handleCopyRuleToVault = (rule: PortForwardingRule, vaultId: string) => {
     const destHasName = rules.some((r) => (r.vault_id ?? "personal") === vaultId && r.name === rule.name);
-    void createRule(ruleToForm(rule, {
+    void createRule(copyingRulesOf(ruleToForm(rule, {
       name: destHasName ? `${rule.name} (copy)` : rule.name,
       vault_id: vaultId,
-    }));
+    }), rule.id));
   };
 
   // ── Vault move / copy for folders ─────────────────────────────────────────
@@ -271,7 +272,7 @@ export function PortForwardingPage() {
         for (const r of treeRules) {
           const newFolderId = r.folder_id ? (folderIdMap.get(r.folder_id) ?? newRootId) : newRootId;
           const destHasRule = rules.some((x) => (x.vault_id ?? "personal") === vaultId && x.name === r.name);
-          await createRule({ name: destHasRule ? `${r.name} (copy)` : r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type ?? "local", bind_host: r.bind_host ?? "127.0.0.1", target_host: r.target_host ?? "127.0.0.1", description: r.description, connection_ids: r.connection_ids, folder_id: newFolderId, vault_id: vaultId });
+          await createRule(copyingRulesOf({ name: destHasRule ? `${r.name} (copy)` : r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type ?? "local", bind_host: r.bind_host ?? "127.0.0.1", target_host: r.target_host ?? "127.0.0.1", description: r.description, connection_ids: r.connection_ids, folder_id: newFolderId, vault_id: vaultId }, r.id));
         }
       },
     });
@@ -288,12 +289,12 @@ export function PortForwardingPage() {
     rule: PortForwardingRule,
     folderId: string | null,
     opts: { vaultId?: string; keepName?: boolean } = {},
-  ) => createRule(ruleToForm(rule, {
+  ) => createRule(copyingRulesOf(ruleToForm(rule, {
     // default name suffix kept in English until all creation sites are localized together (see i18n issue #14)
     name: opts.keepName ? rule.name : `${rule.name} (copy)`,
     folder_id: folderId ?? undefined,
     vault_id: opts.vaultId ?? rule.vault_id,
-  }));
+  }), rule.id));
 
   /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */
   const copyFolderInto = async (

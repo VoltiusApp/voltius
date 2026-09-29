@@ -4,6 +4,7 @@ import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { moveWithSecrets } from "@/services/vaultObjectSecrets";
 import { secretKeysFor } from "@/services/teamVaultSecretKeys";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 
 export interface DuplicateConnectionOpts {
   vaultId?: string;
@@ -39,14 +40,14 @@ export function duplicateFormData(
   folderId: string | null,
   opts: DuplicateConnectionOpts & { vaultId: string },
 ): ConnectionFormData {
-  return {
+  return copyingRulesOf({
     ...connectionToFormData(conn),
     name: conn.name ? (opts.keepName ? conn.name : `${conn.name} (copy)`) : undefined,
     identity_id: opts.identityId ?? conn.identity_id,
     key_id: opts.keyId ?? conn.key_id,
     folder_id: folderId ?? undefined,
     vault_id: opts.vaultId,
-  };
+  }, conn.id);
 }
 
 export async function moveConnectionToVault(

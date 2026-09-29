@@ -18,6 +18,7 @@ import { moveConnectionToVault } from "@/services/connectionDuplicate";
 import { compareStrings } from "@/utils/localeFormat";
 import MoveToFolderSheet from "./MoveToFolderSheet";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 
 type Mode = "menu" | "confirm-delete" | "move" | "move-folder";
 
@@ -97,7 +98,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
       closeSheet();
     } }] : []),
     { icon: "lucide:copy", label: t("mobile.sheets.shared.duplicate"), slug: "duplicate", onTap: () => {
-        void saveConnection({ ...connectionToFormData(conn), name: `${name} copy` });
+        void saveConnection(copyingRulesOf({ ...connectionToFormData(conn), name: `${name} copy` }, conn.id));
         closeSheet();
       } },
     { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-to-folder", onTap: () => setMode("move-folder") },

@@ -1,5 +1,7 @@
 import { test, expect, vi, beforeEach } from "vitest";
 import { TeamSecretUploadError } from "@/services/secretRouting";
+import type { Connection } from "@/types";
+import { rulesSourceOf } from "./ruleSetIntent";
 
 const h = vi.hoisted(() => ({
   getSecret: vi.fn(),
@@ -7,7 +9,11 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock("@/services/vault", () => ({ getSecret: h.getSecret, storeSecret: h.storeSecret }));
 
-import { copyConnectionSecrets } from "./connectionDuplicate";
+import { copyConnectionSecrets, duplicateFormData } from "./connectionDuplicate";
+
+const conn = {
+  id: "c1", name: "web", host: "web.example", port: 22, username: "root", tags: [], vault_id: "personal",
+} as unknown as Connection;
 
 beforeEach(() => {
   Object.values(h).forEach((m) => m.mockReset());
@@ -95,4 +101,9 @@ test("without swallowFetchErrors, a failed read propagates", async () => {
   await expect(
     copyConnectionSecrets("c1", "c2", { copyKey: true }),
   ).rejects.toThrow("vault locked");
+});
+
+test("the duplicate form carries its source for rule copying", () => {
+  const form = duplicateFormData(conn, null, { vaultId: "t1" });
+  expect(rulesSourceOf(form)).toBe(conn.id);
 });

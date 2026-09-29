@@ -9,6 +9,7 @@ import { compareStrings } from "@/utils/localeFormat";
 import MoveToFolderSheet from "./MoveToFolderSheet";
 import type { PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 
 type Mode = "menu" | "confirm-delete" | "move" | "copy" | "move-folder";
 
@@ -91,7 +92,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
         {otherVaults.map((v) => (
           <Row key={v.id} it={{ icon: "lucide:copy", label: v.name, slug: "copy-target", onTap: () => {
             const dup = allKnown.some((r) => r.vault_id === v.id && r.name === rule.name);
-            void createRule({ ...fields(rule, v.id), name: dup ? `${rule.name} (copy)` : rule.name });
+            void createRule(copyingRulesOf({ ...fields(rule, v.id), name: dup ? `${rule.name} (copy)` : rule.name }, rule.id));
             onClose();
           } }} />
         ))}

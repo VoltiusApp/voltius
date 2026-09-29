@@ -66,6 +66,7 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings, formatRelative } from "@/utils/localeFormat";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -700,7 +701,7 @@ export function SnippetsPage() {
   }
 
   async function handleDuplicate(snippet: Snippet) {
-    await createSnippet({
+    await createSnippet(copyingRulesOf({
       name: `${snippet.name} (copy)`,
       steps: snippet.steps,
       description: snippet.description,
@@ -710,7 +711,7 @@ export function SnippetsPage() {
       only_for_connection_tags: [...snippet.only_for_connection_tags],
       only_for_distros: [...snippet.only_for_distros],
       vault_id: snippet.vault_id,
-    });
+    }, snippet.id));
   }
 
   async function handleToggleFavorite(snippet: Snippet) {
@@ -778,12 +779,12 @@ export function SnippetsPage() {
 
   async function handleCopyToVault(snippet: Snippet, vaultId: string) {
     const destHasName = snippets.some((s) => (s.vault_id ?? "personal") === vaultId && s.name === snippet.name);
-    await createSnippet({
+    await createSnippet(copyingRulesOf({
       ...snippetToForm(snippet),
       name: destHasName ? `${snippet.name} (copy)` : snippet.name,
       vault_id: vaultId,
       favorite: false,
-    });
+    }, snippet.id));
   }
 
   // ── Folder vault move / copy ──────────────────────────────────────────────
@@ -826,7 +827,7 @@ export function SnippetsPage() {
       for (const s of treeSnippets) {
         const newFolderId = s.folder_id ? (folderIdMap.get(s.folder_id) ?? newRootId) : newRootId;
         const destHasSnippetName = snippets.some((x) => (x.vault_id ?? "personal") === vaultId && x.name === s.name);
-        await createSnippet({ ...snippetToForm(s), name: destHasSnippetName ? `${s.name} (copy)` : s.name, folder_id: newFolderId, vault_id: vaultId, favorite: false });
+        await createSnippet(copyingRulesOf({ ...snippetToForm(s), name: destHasSnippetName ? `${s.name} (copy)` : s.name, folder_id: newFolderId, vault_id: vaultId, favorite: false }, s.id));
       }
     } catch (err) { console.error(err); }
   }
@@ -843,14 +844,14 @@ export function SnippetsPage() {
     folderId: string | null,
     opts: { vaultId?: string; keepName?: boolean } = {},
   ) {
-    return createSnippet({
+    return createSnippet(copyingRulesOf({
       ...snippetToForm(snippet),
       // default name suffix kept in English until all creation sites are localized together (see i18n issue #14)
       name: opts.keepName ? snippet.name : `${snippet.name} (copy)`,
       folder_id: folderId ?? undefined,
       vault_id: opts.vaultId ?? snippet.vault_id,
       favorite: false,
-    });
+    }, snippet.id));
   }
 
   /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */

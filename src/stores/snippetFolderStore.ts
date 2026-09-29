@@ -4,6 +4,7 @@ import * as api from "@/services/snippets";
 import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { rulesSourceOf } from "@/services/ruleSetIntent";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
@@ -56,7 +57,7 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
         clocks: { created_at: now, updated_at: now },
       };
       const vaultId = data.vault_id;
-      await saveTeamVaultObject(vaultId, "snippet_folder", folder);
+      await saveTeamVaultObject(vaultId, "snippet_folder", folder, { rulesFrom: rulesSourceOf(data) });
       set((s) => ({ teamSnippetFolders: upsertInTeamMap(s.teamSnippetFolders, vaultId, folder) }));
       return folder;
     }

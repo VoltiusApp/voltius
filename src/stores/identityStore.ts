@@ -8,6 +8,7 @@ import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory } from "@/store
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { rulesSourceOf } from "@/services/ruleSetIntent";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
@@ -67,7 +68,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         clocks: { created_at: now, updated_at: now },
       };
       const vaultId = data.vault_id!;
-      await saveTeamVaultObject(vaultId, "identity", identity);
+      await saveTeamVaultObject(vaultId, "identity", identity, { rulesFrom: rulesSourceOf(data) });
       set((s) => ({ teamIdentities: upsertInTeamMap(s.teamIdentities, vaultId, identity) }));
       reportAuditMutation("identity", "created", { id: identity.id, name: identity.name ?? identity.username, vault_id: identity.vault_id });
       pushCreateHistory({

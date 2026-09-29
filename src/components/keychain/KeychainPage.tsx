@@ -59,6 +59,7 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { useSearchMatcher } from "@/utils/search";
 
 export default function KeychainPage() {
@@ -727,14 +728,14 @@ export default function KeychainPage() {
     opts: { vaultId?: string; keepName?: boolean } = {},
   ) {
     const vaultId = opts.vaultId ?? key.vault_id ?? "personal";
-    const newKey = await saveKey({
+    const newKey = await saveKey(copyingRulesOf({
       // default name kept in English until all creation sites are localized together (see i18n issue #14)
       name: key.name ? (opts.keepName ? key.name : `${key.name} (copy)`) : undefined,
       key_type: key.key_type,
       tags: [...key.tags],
       folder_id: folderId ?? undefined,
       vault_id: vaultId,
-    });
+    }, key.id));
     // Same copy as plugins/domains/objects.ts duplicators.key; kept apart: component vs plugin ports.
     for (const part of ["private", "public", "passphrase"]) {
       const value = await getSecret(`key:${key.id}:${part}`);
@@ -752,7 +753,7 @@ export default function KeychainPage() {
     opts: { vaultId?: string; keepName?: boolean; keyId?: string } = {},
   ) {
     const vaultId = opts.vaultId ?? identity.vault_id ?? "personal";
-    const newIdentity = await saveIdentity({
+    const newIdentity = await saveIdentity(copyingRulesOf({
       // default name kept in English until all creation sites are localized together (see i18n issue #14)
       name: identity.name ? (opts.keepName ? identity.name : `${identity.name} (copy)`) : undefined,
       username: identity.username,
@@ -760,7 +761,7 @@ export default function KeychainPage() {
       tags: [...identity.tags],
       folder_id: folderId ?? undefined,
       vault_id: vaultId,
-    });
+    }, identity.id));
     const pwd = await getSecret(`identity:${identity.id}:password`);
     if (pwd) {
       const localKey = `identity:${newIdentity.id}:password`;

@@ -36,6 +36,7 @@ import { getSecret, storeSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { duplicateConnection, moveConnectionToVault } from "@/services/connectionDuplicate";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { vaultOf } from "./vaultOf";
 
 export type ObjectTab = "hosts" | "keychain" | "port_forwarding" | "snippets";
@@ -222,13 +223,13 @@ function duplicators(ports: ObjectPorts) {
 
   const key = async (k: SshKey, folderId: string | null, opts: DuplicateOpts = {}) => {
     const vaultId = opts.vaultId ?? vaultOf(k);
-    const created = await ports.saveKey({
+    const created = await ports.saveKey(copyingRulesOf({
       name: cloneName(k.name, opts.keepName),
       key_type: k.key_type,
       tags: [...k.tags],
       folder_id: folderId ?? undefined,
       vault_id: vaultId,
-    });
+    }, k.id));
     for (const part of ["private", "public", "passphrase"]) {
       await copySecret(`key:${k.id}:${part}`, `key:${created.id}:${part}`);
     }
@@ -237,33 +238,33 @@ function duplicators(ports: ObjectPorts) {
 
   const identity = async (i: Identity, folderId: string | null, opts: DuplicateOpts = {}) => {
     const vaultId = opts.vaultId ?? vaultOf(i);
-    const created = await ports.saveIdentity({
+    const created = await ports.saveIdentity(copyingRulesOf({
       name: cloneName(i.name, opts.keepName),
       username: i.username,
       key_id: opts.keyId ?? i.key_id,
       tags: [...i.tags],
       folder_id: folderId ?? undefined,
       vault_id: vaultId,
-    });
+    }, i.id));
     await copySecret(`identity:${i.id}:password`, `identity:${created.id}:password`);
     return created;
   };
 
   const snippet = (s: Snippet, folderId: string | null, opts: DuplicateOpts = {}) =>
-    ports.createSnippet({
+    ports.createSnippet(copyingRulesOf({
       ...snippetToForm(s),
       name: cloneName(s.name, opts.keepName) ?? s.name,
       folder_id: folderId ?? undefined,
       vault_id: opts.vaultId ?? s.vault_id,
       favorite: false,
-    });
+    }, s.id));
 
   const rule = (r: PortForwardingRule, folderId: string | null, opts: DuplicateOpts = {}) =>
-    ports.createRule(ruleToForm(r, {
+    ports.createRule(copyingRulesOf(ruleToForm(r, {
       name: cloneName(r.name, opts.keepName) ?? r.name,
       folder_id: folderId ?? undefined,
       vault_id: opts.vaultId ?? r.vault_id,
-    }));
+    }), r.id));
 
   return { connection, key, identity, snippet, rule };
 }
