@@ -19,12 +19,10 @@
       "itemCount_other": "{{count}} items"
     },
     "editPanel": {
+      "title": "Edit Folder",
+      "general": "General",
       "nameLabel": "Name",
-      "cloudSyncLabel": "Cloud Sync",
-      "syncedToCloud": "Synced to cloud",
-      "notSynced": "Not synced",
-      "syncDisabledGlobally": "Folder sync is disabled globally in Settings → Cloud Sync.",
-      "createdLabel": "Created"
+      "parentLabel": "Parent folder"
     }
   }
 }

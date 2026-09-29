@@ -1,6 +1,6 @@
 import { describe, it, test, expect } from "vitest";
 import type { Folder } from "@/types";
-import { folderOptionsFor, folderSubtreeIds, itemsInFolderSubtree, rootedParentId } from "./folderTree";
+import { folderOptionsFor, folderSubtreeIds, foldersOutsideSubtree, itemsInFolderSubtree, rootedParentId } from "./folderTree";
 
 function folder(id: string, parent?: string): Folder {
   return {
@@ -27,6 +27,13 @@ describe("folderSubtreeIds", () => {
 
   it("terminates on a parent cycle", () => {
     expect(folderSubtreeIds([folder("a", "b"), folder("b", "a")], "a")).toEqual(new Set(["a", "b"]));
+  });
+});
+
+describe("foldersOutsideSubtree", () => {
+  it("drops the root and its descendants, keeps everything else", () => {
+    const folders = [folder("root"), folder("child", "root"), folder("sibling"), folder("nested", "sibling")];
+    expect(foldersOutsideSubtree(folders, "root").map((f) => f.id)).toEqual(["sibling", "nested"]);
   });
 });
 

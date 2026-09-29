@@ -43,7 +43,7 @@ import { RuleCard } from "./RuleCard";
 import { RuleForm } from "./RuleForm";
 import type { Folder, PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
-import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -520,7 +520,7 @@ export function PortForwardingPage() {
     <>
     <SidePanelLayout
       panelOpen={showForm || editingFolder !== null}
-      panelWidth={editingFolder !== null && !showForm ? 280 : 340}
+      panelWidth={editingFolder !== null && !showForm ? 320 : 340}
       panel={
         <>
           {editingFolder !== null && !showForm && (
@@ -529,8 +529,11 @@ export function PortForwardingPage() {
               onUpdate={(id, data) => void updateFolder(id, data)}
               onDelete={(f) => setConfirmDeleteFolderId(f.id)}
               onClose={() => setEditingFolderId(null)}
+              onOpen={() => { navigateInto(editingFolder); setEditingFolderId(null); }}
+              onSelectSelf={() => selectSingle(editingFolder.id)}
+              parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-              canEdit={canEdit(editingFolder.vault_id ?? "personal", editingFolder.id)}
+              canEdit={can("EDIT_FOLDERS", editingFolder.vault_id ?? "personal", editingFolder.id)}
               onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
               onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
               onExport={() => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: rules.filter((r) => r.folder_id === editingFolder.id).map((r) => r.id) } })}

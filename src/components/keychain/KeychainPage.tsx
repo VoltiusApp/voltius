@@ -51,7 +51,7 @@ import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
-import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -847,7 +847,7 @@ export default function KeychainPage() {
     <>
     <SidePanelLayout
       panelOpen={showPanel || editingFolder !== null}
-      panelWidth={editingFolder !== null && !showPanel ? 280 : 340}
+      panelWidth={editingFolder !== null && !showPanel ? 320 : 340}
       panel={
         <>
           {editingFolder !== null && !showPanel && (
@@ -857,8 +857,11 @@ export default function KeychainPage() {
               onDelete={(f) => setConfirmDeleteFolderId(f.id)}
               onExport={() => useUIStore.getState().openImportExport("export", { bulk: { keys: keys.filter((k) => k.folder_id === editingFolder.id).map((k) => k.id), identities: identities.filter((i) => i.folder_id === editingFolder.id).map((i) => i.id) } })}
               onClose={() => setEditingFolderId(null)}
+              onOpen={() => { navigateInto(editingFolder); setEditingFolderId(null); }}
+              onSelectSelf={() => selectSingle(editingFolder.id)}
+              parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-              canEdit={can("EDIT_KEYS", editingFolder.vault_id ?? "personal", editingFolder.id)}
+              canEdit={can("EDIT_FOLDERS", editingFolder.vault_id ?? "personal", editingFolder.id)}
               onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
               onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
             />

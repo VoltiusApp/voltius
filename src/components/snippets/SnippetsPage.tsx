@@ -57,7 +57,7 @@ import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget } from "@/stores/snippetRecentStore";
 import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
-import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -950,7 +950,7 @@ export function SnippetsPage() {
     <>
     <SidePanelLayout
       panelOpen={ep.panelOpen || folderEp.panelOpen}
-      panelWidth={360}
+      panelWidth={editingFolder !== null ? 320 : 360}
       panel={
         editingFolder !== null ? (
           <FolderEditPanel
@@ -959,7 +959,10 @@ export function SnippetsPage() {
             onUpdate={(id, data) => void updateFolder(id, data)}
             onDelete={(f) => setConfirmDeleteFolder(f)}
             onClose={folderEp.closeEdit}
-            canEdit
+            onOpen={() => { navigateInto(editingFolder); folderEp.closeEdit(); }}
+            onSelectSelf={() => selectSingle(editingFolder.id)}
+            parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
+            canEdit={can("EDIT_FOLDERS", editingFolder.vault_id ?? "personal", editingFolder.id)}
             syncObjectType="snippet"
             vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
             onMoveToVault={(vaultId) => void handleMoveFolderToVault(editingFolder, vaultId)}

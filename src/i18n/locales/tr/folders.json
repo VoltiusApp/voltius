@@ -19,12 +19,10 @@
       "itemCount_other": "{{count}} öğe"
     },
     "editPanel": {
+      "title": "Klasörü düzenle",
+      "general": "Genel",
       "nameLabel": "Ad",
-      "cloudSyncLabel": "Bulut eşitlemesi",
-      "syncedToCloud": "Buluta eşitlendi",
-      "notSynced": "Eşitlenmedi",
-      "syncDisabledGlobally": "Klasör eşitlemesi Ayarlar → Bulut eşitlemesi bölümünden genel olarak devre dışı bırakılmış.",
-      "createdLabel": "Oluşturulma"
+      "parentLabel": "Üst klasör"
     }
   }
 }

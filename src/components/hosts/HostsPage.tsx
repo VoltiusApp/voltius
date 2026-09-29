@@ -62,7 +62,7 @@ import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/t
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
-import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -850,7 +850,7 @@ export default function HostsPage() {
     <>
     <SidePanelLayout
       panelOpen={showForm || showSerialForm || editingFolder !== null || showSnippetPicker}
-      panelWidth={showSnippetPicker ? 300 : editingFolder !== null ? 280 : 320}
+      panelWidth={showSnippetPicker ? 300 : 320}
       className="chrome-canvas"
       panel={
         <>
@@ -867,8 +867,11 @@ export default function HostsPage() {
               onDelete={(f) => setConfirmDeleteFolderId(f.id)}
               onExport={() => useUIStore.getState().openImportExport("export", { bulk: { connections: connections.filter((c) => c.folder_id === editingFolder.id).map((c) => c.id) } })}
               onClose={() => setEditingFolderId(null)}
+              onOpen={() => { navigateInto(editingFolder); setEditingFolderId(null); }}
+              onSelectSelf={() => selectSingle(editingFolder.id)}
+              parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-              canEdit={can("EDIT_CONNECTIONS", editingFolder.vault_id ?? "personal", editingFolder.id)}
+              canEdit={can("EDIT_FOLDERS", editingFolder.vault_id ?? "personal", editingFolder.id)}
               onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
               onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
             />

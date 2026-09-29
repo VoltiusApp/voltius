@@ -21,12 +21,10 @@
       "itemCount_other": "{{count}} элементов"
     },
     "editPanel": {
+      "title": "Изменить папку",
+      "general": "Общее",
       "nameLabel": "Название",
-      "cloudSyncLabel": "Облачная синхронизация",
-      "syncedToCloud": "Синхронизировано с облаком",
-      "notSynced": "Не синхронизировано",
-      "syncDisabledGlobally": "Синхронизация папок отключена глобально в Настройки → Облачная синхронизация.",
-      "createdLabel": "Создано"
+      "parentLabel": "Родительская папка"
     }
   }
 }

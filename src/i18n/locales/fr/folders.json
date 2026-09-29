@@ -20,12 +20,10 @@
       "itemCount_other": "{{count}} éléments"
     },
     "editPanel": {
+      "title": "Modifier le dossier",
+      "general": "Général",
       "nameLabel": "Nom",
-      "cloudSyncLabel": "Synchronisation cloud",
-      "syncedToCloud": "Synchronisé avec le cloud",
-      "notSynced": "Non synchronisé",
-      "syncDisabledGlobally": "La synchronisation des dossiers est désactivée globalement dans Paramètres → Synchronisation cloud.",
-      "createdLabel": "Créé le"
+      "parentLabel": "Dossier parent"
     }
   }
 }

@@ -6,17 +6,9 @@ import { GLASS_BG, GLASS_BG_HOVER, GLASS_SHADOW, GLASS_SHADOW_HOVER } from "@/co
 import { CardActionButton } from "@/components/shared/CardActionButton";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { vaultMenuItems } from "@/utils/vaultMenuItems";
-import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
-import { useFolderStore } from "@/stores/folderStore";
-import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
-import { useTeamStore } from "@/stores/teamStore";
-import {
-  useEffectivePinned,
-  useEffectivePinSource,
-  nextPersonalPinValue,
-} from "@/hooks/useEffectivePinned";
+import { buildFolderMenuItems } from "@/utils/folderMenuItems";
+import { useFolderPin } from "./useFolderPin";
 import type { Folder, VaultOption } from "@/types";
 
 interface FolderCardProps {
@@ -76,38 +68,7 @@ export function FolderCard({
   const { pos: ctxPos, open: openCtx, close: closeCtx } = useContextMenu();
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(folder.id, "folder"));
   const toggleSync = useSyncPrefsStore((s) => s.toggleExcluded);
-  const isSnippetFolder = folder.object_type === "snippet_folder";
-  const folderType: "folder" | "snippet_folder" = isSnippetFolder ? "snippet_folder" : "folder";
-  const pinFolder = useFolderStore((s) => s.pinFolder);
-  const pinFolderForTeam = useFolderStore((s) => s.pinFolderForTeam);
-  const pinSnippetFolder = useSnippetFolderStore((s) => s.pinSnippetFolder);
-  const pinSnippetFolderForTeam = useSnippetFolderStore((s) => s.pinSnippetFolderForTeam);
-  const effPinned = useEffectivePinned(folder, folderType);
-  const pinSource = useEffectivePinSource(folder, folderType);
-  const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === folder.vault_id));
-  const pinPersonal = (pinned: boolean | null) => {
-    if (isSnippetFolder) pinSnippetFolder(folder.id, pinned).catch(() => {});
-    else pinFolder(folder.id, pinned).catch(() => {});
-  };
-  const pinTeam = (pinned: boolean) => {
-    if (isSnippetFolder) pinSnippetFolderForTeam(folder.id, pinned).catch(() => {});
-    else pinFolderForTeam(folder.id, pinned).catch(() => {});
-  };
-  const handlePinClick = () => {
-    if (!isTeamVault) {
-      pinPersonal(!effPinned);
-    } else {
-      pinPersonal(nextPersonalPinValue(pinSource));
-    }
-  };
-  const pinIcon = pinSource === "team-hidden" ? "lucide:pin-off" : "lucide:pin";
-  const pinColor =
-    pinSource === "personal" || pinSource === "team+personal"
-      ? "var(--t-accent)"
-      : pinSource === "team"
-      ? "var(--t-text-secondary)"
-      : "var(--t-text-dim)";
-  const pinAlwaysVisible = pinSource !== "none" && pinSource !== "team-hidden";
+  const { effPinned, pinIcon, pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem } = useFolderPin(folder, canEdit);
   const activeMenuItems = isSelected && bulkContextMenuItems?.length ? bulkContextMenuItems : undefined;
 
   const handleRenameCommit = () => {
@@ -237,7 +198,7 @@ export function FolderCard({
 
         <div className="flex items-center gap-1 shrink-0">
           <button
-            onClick={(e) => { e.stopPropagation(); handlePinClick(); }}
+            onClick={(e) => { e.stopPropagation(); togglePin(); }}
             className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-(--t-text-bright)"}`}
             style={{ color: pinColor }}
             title={effPinned ? t("folders.card.unpin") : t("folders.card.pin")}
@@ -258,44 +219,26 @@ export function FolderCard({
         <ContextMenu
           pos={ctxPos}
           onClose={closeCtx}
-          items={[
-            ...(activeMenuItems ?? [
-            { label: t("folders.card.openFolder"), icon: "lucide:folder-open", onClick: onClick, shortcut: "↩" },
-            ...(canEdit ? [
+          items={activeMenuItems ?? buildFolderMenuItems({
+            t,
+            onOpen: onClick,
+            editItems: canEdit ? [
               { label: t("common.action.rename"), icon: "lucide:pencil", onClick: () => { setRenameValue(folder.name); setRenaming(true); } },
               { label: t("common.action.edit"), icon: "lucide:settings-2", onClick: () => onEdit?.() },
-            ] : []),
-            {
-              label: isTeamVault
-                ? (pinSource === "personal" || pinSource === "team+personal")
-                  ? t("folders.card.unpinForMe")
-                  : pinSource === "team-hidden"
-                  ? t("folders.card.showInMyView")
-                  : pinSource === "team"
-                  ? t("folders.card.hideForMe")
-                  : t("folders.card.pinForMe")
-                : effPinned ? t("folders.card.unpin") : t("folders.card.pin"),
-              icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effPinned))
-                ? "lucide:pin-off"
-                : "lucide:pin",
-              onClick: handlePinClick,
-              divider: true as const,
-            },
-            ...(canEdit && isTeamVault ? [{
-              label: folder.pinned ? t("folders.card.unpinForTeam") : t("folders.card.pinForTeam"),
-              icon: "lucide:users",
-              onClick: () => pinTeam(!folder.pinned),
-            }] : []),
-            { label: t("folders.card.exportFolder"), icon: "lucide:upload", onClick: () => onExport?.() },
-            ...(onShare ? [{ label: t("snippets.community.shareTitle"), icon: "lucide:globe", onClick: onShare }] : []),
-            ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
-            ...clipboardMenuItems(t),
-            ...(canEdit ? [
-              { label: isSynced ? t("folders.card.disableCloudSync") : t("folders.card.enableCloudSync"), icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", onClick: () => toggleSync(folder.id), divider: true as const },
-              { label: t("folders.card.deleteFolder"), icon: "lucide:trash-2", onClick: () => onDelete(folder), danger: true as const, shortcut: getShortcutHint("delete") },
-            ] : []),
-            ]),
-          ]}
+            ] : [],
+            pinItem,
+            pinTeamItem,
+            onExport,
+            onShare,
+            vaults,
+            canEdit,
+            onMoveToVault,
+            onCopyToVault,
+            clipboard: clipboardMenuItems(t),
+            isSynced,
+            onToggleSync: () => toggleSync(folder.id),
+            onDelete: () => onDelete(folder),
+          })}
         />
       )}
     </>

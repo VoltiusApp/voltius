@@ -9,7 +9,7 @@ interface Props {
   value: string | null;
   folders: Folder[];
   onChange: (id: string | null) => void;
-  onCreateFolder: (name: string) => Promise<string>;
+  onCreateFolder?: (name: string) => Promise<string>;
 }
 
 export default function FolderSelector({ value, folders, onChange, onCreateFolder }: Props) {
@@ -31,7 +31,7 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
 
   const handleCreate = async () => {
     const name = newName.trim();
-    if (!name || saving) return;
+    if (!name || saving || !onCreateFolder) return;
     setSaving(true);
     try {
       const id = await onCreateFolder(name);
@@ -77,9 +77,9 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
           />
         ))}
 
-        <PickerDivider edge />
+        {onCreateFolder && <PickerDivider edge />}
 
-        {creating ? (
+        {onCreateFolder && (creating ? (
           <div className="flex items-center gap-1.5 px-2 py-1.5">
             <Icon icon="lucide:folder-plus" width={13} className="text-(--t-text-dim) shrink-0" />
             <input
@@ -121,7 +121,7 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
             label={t("shared.folderSelector.newFolder")}
             onClick={() => setCreating(true)}
           />
-        )}
+        ))}
       </PickerSurface>
     </div>
   );
