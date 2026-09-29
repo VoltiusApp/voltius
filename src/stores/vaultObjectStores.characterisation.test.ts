@@ -223,7 +223,7 @@ describe.each(adapters)("$name store", (a) => {
   test("a create into a team vault persists the object and lands it in the team map", async () => {
     seedTeam(a, {});
     await a.create(a.form({ vault_id: "team-a" }));
-    expect(h.saveTeamVaultObject).toHaveBeenCalledWith("team-a", a.persistKind, expect.objectContaining({ vault_id: "team-a" }));
+    expect(h.saveTeamVaultObject).toHaveBeenCalledWith("team-a", a.persistKind, expect.objectContaining({ vault_id: "team-a" }), { rulesFrom: undefined });
     expect(teamMap(a)["team-a"]).toHaveLength(1);
     expect(localList(a)).toHaveLength(0);
   });
