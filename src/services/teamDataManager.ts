@@ -19,6 +19,7 @@ import { useKeyStore } from "@/stores/keyStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { useTeamObjectAccessStore } from "@/stores/teamObjectAccessStore";
 import { fetchTeamData, clearTeamKeyCache, reconcileTeamVaultKeys, drainPendingSecretWipes } from "@/services/teamVaultSync";
 import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
 import { teamSecretCache } from "@/services/teamSecretCache";
@@ -168,5 +169,6 @@ export function onSessionEnd(): void {
   useFolderStore.getState().clearTeamFolders();
   useSnippetStore.getState().clearTeamSnippets();
   useSnippetFolderStore.getState().clearTeamSnippetFolders();
+  useTeamObjectAccessStore.getState().clearAll();
   useTeamVaultStateStore.getState().clearAll();
 }

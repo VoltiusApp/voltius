@@ -658,6 +658,14 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
 
   const usable = decoded.filter((o): o is TeamObjectRecord & { metadata: object } => o !== null);
 
+  const { buildAccessEntries } = await import("@/services/teamObjectAccess");
+  const { useTeamObjectAccessStore } = await import("@/stores/teamObjectAccessStore");
+  const access = buildAccessEntries(objects, new Map(usable.map((o) => [o.object_id, o.metadata])));
+  if (access.supported === false) useTeamObjectAccessStore.getState().clearTeam(teamId);
+  else useTeamObjectAccessStore.getState().replaceTeam(
+    teamId, access.entries, access.supported ?? useTeamObjectAccessStore.getState().supportedByTeam[teamId] ?? false,
+  );
+
   const byType = <T>(type: TeamObjectRecord["object_type"]): T[] =>
     usable
       .filter((o) => o.object_type === type)
@@ -784,6 +792,8 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[
   // Purge before clearing the stores: the key names come from the objects still in them.
   const failedKeys = await purgeTeamObjectSecrets(teamId, pendingUploads);
   teamSecretCache.clearTeam(teamId);
+  const { useTeamObjectAccessStore } = await import("@/stores/teamObjectAccessStore");
+  useTeamObjectAccessStore.getState().clearTeam(teamId);
 
   useConnectionStore.getState().setTeamConnections(teamId, []);
   useIdentityStore.getState().setTeamIdentities(teamId, []);

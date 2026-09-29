@@ -35,6 +35,7 @@ vi.mock("@/services/multiplayerService", () => ({
 
 import { fetchTeamData, clearTeamKeyCache } from "./teamVaultSync";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import { objectAccess } from "@/stores/teamObjectAccessStore";
 
 beforeEach(() => {
   clearTeamKeyCache();
@@ -74,4 +75,16 @@ test("a 426 on the vault key after a fallback shows update_required", async () =
   h.routes = { "/vault-key": 426 };
   await fetchTeamData("t1");
   expect(useTeamVaultStateStore.getState().statusByTeamId.t1).toBe("update_required");
+});
+
+test("hydrate records my_permissions and the parent; clearing the team drops them", async () => {
+  h.list = async () => [{
+    object_id: "c1", object_type: "connection", metadata: { id: "c1", folder_id: "f1" },
+    updated_at: "", updated_by: "u", rule_set_id: "s1", my_permissions: 5,
+  }];
+  await fetchTeamData("t1");
+  expect(objectAccess("t1", "c1")).toMatchObject({ myPermissions: 5, ruleSetId: "s1", parentId: "f1" });
+  const { clearTeamStoresAndSecrets } = await import("./teamVaultSync");
+  await clearTeamStoresAndSecrets("t1");
+  expect(objectAccess("t1", "c1")).toBeUndefined();
 });

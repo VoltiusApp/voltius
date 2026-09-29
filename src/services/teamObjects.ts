@@ -21,6 +21,8 @@ export interface TeamObjectRecord<T = unknown> {
   updated_at: string;
   updated_by: string;
   deleted_at?: string | null;
+  rule_set_id?: string | null;
+  my_permissions?: number;
 }
 
 export interface TeamSecretRecord {
