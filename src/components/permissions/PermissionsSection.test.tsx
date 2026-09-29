@@ -24,6 +24,7 @@ vi.mock("@/services/ruleSetEditing", () => ({ saveObjectRules: vi.fn(), syncWith
 vi.mock("@/services/teamObjects", () => ({ getRuleSet: vi.fn() }));
 vi.mock("@/stores/teamStore", () => ({
   useTeamStore: (sel: (s: object) => unknown) => sel({
+    teams: [{ id: "t1" }],
     rolesByTeam: { t1: h.roles },
     membersByTeam: { t1: [{ user_id: "u2", handle: "bob", role_ids: [] }] },
   }),
@@ -35,7 +36,7 @@ vi.mock("@/stores/snippetFolderStore", () => ({
   useSnippetFolderStore: (sel: (s: object) => unknown) => sel({ teamSnippetFolders: {} }),
 }));
 vi.mock("@/stores/vaultStore", () => ({
-  useVaultStore: (sel: (s: object) => unknown) => sel({ vaults: [{ id: "t1", name: "Team", teamId: "t1" }] }),
+  useVaultStore: (sel: (s: object) => unknown) => sel({ vaults: [{ id: "v-local", name: "Team", teamId: "t1" }] }),
 }));
 
 const seed = (over: Partial<ObjectAccess> = {}) => useTeamObjectAccessStore.getState().replaceTeam("t1", {

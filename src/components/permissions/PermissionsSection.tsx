@@ -13,6 +13,7 @@ import {
   type OverrideState, type Permission, type RuleEntry,
 } from "@/services/permissions";
 import type { TeamObjectType } from "@/services/teamObjects";
+import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
 import type { TeamRole } from "@/services/teamService";
 import { useTeamObjectAccessStore } from "@/stores/teamObjectAccessStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -104,7 +105,8 @@ export function PermissionsSection(props: PermissionsSectionProps) {
 
 function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps) {
   const { t } = useTranslation();
-  const teamId = useVaultStore((s) => s.vaults.find((v) => v.id === vaultId)?.teamId ?? null);
+  const teams = useTeamStore((s) => s.teams);
+  const teamId = useVaultStore((s) => resolveTeamIdFromCollections(vaultId, teams, s.vaults));
   const entries = useTeamObjectAccessStore((s) => (teamId ? s.byTeam[teamId] : undefined));
   const supported = useTeamObjectAccessStore((s) => (teamId ? s.supportedByTeam[teamId] ?? false : false));
   const rolesByTeam = useTeamStore((s) => s.rolesByTeam);
