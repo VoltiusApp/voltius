@@ -28,8 +28,9 @@ export function pointerForSave({ entries, objectId, nextParentId, canManageAtRoo
   const target = setOfParent(entries, nextParentId);
   if (!current) return target;
   if (current.deleted || current.parentId === nextParentId) return undefined;
-  if (!isSynced(entries, objectId) || target === current.ruleSetId) return undefined;
   const destination = nextParentId ? entries[nextParentId] : undefined;
+  if (nextParentId && (!destination || destination.deleted)) return undefined;
+  if (!isSynced(entries, objectId) || target === current.ruleSetId) return undefined;
   const mayManageDestination = destination ? canManage(destination.myPermissions) : canManageAtRoot;
   return canManage(current.myPermissions) && mayManageDestination ? target : undefined;
 }

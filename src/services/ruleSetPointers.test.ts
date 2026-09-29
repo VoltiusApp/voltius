@@ -10,6 +10,7 @@ const e = (over: Partial<ObjectAccess>): ObjectAccess => ({
 const tree: TeamAccessEntries = {
   fA: e({ type: "folder", ruleSetId: "sA" }),
   fB: e({ type: "folder", ruleSetId: "sB" }),
+  fTrashed: e({ type: "folder", ruleSetId: "sT", deleted: true }),
   fSub: e({ type: "folder", ruleSetId: "sA", parentId: "fA" }),
   cSynced: e({ ruleSetId: "sA", parentId: "fA" }),
   cOwn: e({ ruleSetId: "sOwn", parentId: "fA" }),
@@ -42,6 +43,11 @@ test("an un-synced object keeps its own set wherever it goes", () => {
 test("a mover without Manage keeps the current set", () => {
   expect(at("cLocked", "fB")).toBeUndefined();
   expect(at("cSynced", null, false)).toBeUndefined();
+});
+
+test("an object moved into a hidden or deleted folder keeps its pointer", () => {
+  expect(at("cSynced", "hiddenFolder")).toBeUndefined();
+  expect(at("cSynced", "fTrashed")).toBeUndefined();
 });
 
 test("an undo restore of a deleted object never repoints", () => {
