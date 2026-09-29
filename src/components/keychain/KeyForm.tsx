@@ -28,6 +28,7 @@ import { KeyGenFields } from "./KeyGenFields";
 import { PublicKeyField, isPublicKeyInvalid } from "./PublicKeyField";
 import { useDerivedPublicKey } from "./useDerivedPublicKey";
 import { formatDate } from "@/utils/localeFormat";
+import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 
 // Re-exported for back-compat (IdentityForm imports KeyFileDropZone from here).
 export { KeyFileDropZone } from "./KeyFileDropZone";
@@ -324,6 +325,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
             </div>
           </div>
         )}
+        {initial && <PermissionsSection objectId={initial.id} vaultId={initial.vault_id} type="key" />}
       </div>
     </PanelShell>
   );

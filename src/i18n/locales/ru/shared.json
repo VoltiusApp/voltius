@@ -148,6 +148,26 @@
         "line": "{{subject}} · {{permission}}: {{before}} → {{after}}",
         "confirm": "Переместить",
         "cancelled": "Перемещение отменено"
+      },
+      "section": {
+        "title": "Права доступа",
+        "titleKey": "Кто может использовать этот ключ",
+        "titleIdentity": "Кто может использовать эту идентичность",
+        "adminNote": "Владельцы и администраторы всегда могут использовать любой ключ.",
+        "syncedWith": "Синхронизировано с {{folder}}",
+        "syncedTeam": "Использует права команды",
+        "notSynced": "Не синхронизировано",
+        "syncNow": "Синхронизировать",
+        "ownPermissions": "Собственные права",
+        "useTeams": "Использовать права команды",
+        "addSubject": "Добавить роль или участника",
+        "searchSubjects": "Поиск ролей и участников…",
+        "noSubjectsLeft": "Все роли и участники уже в списке",
+        "use": "Использовать",
+        "roleCount_one": "{{count}} роль",
+        "roleCount_few": "{{count}} роли",
+        "roleCount_many": "{{count}} ролей",
+        "roleCount_other": "{{count}} роли"
       }
     }
   }

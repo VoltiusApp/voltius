@@ -35,6 +35,7 @@ import { StepListEditor } from "@/components/snippets/StepListEditor";
 import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPanel";
 import { VariableTextarea } from "@/components/snippets/VariableTextarea";
 import { searchMatcher } from "@/utils/search";
+import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 
 interface Props {
   initial?: Snippet;
@@ -319,6 +320,7 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
             />
           </div>
         </FormSection>
+        {initial && <PermissionsSection objectId={initial.id} vaultId={initial.vault_id} type="snippet" />}
       </div>
     </PanelShell>
 

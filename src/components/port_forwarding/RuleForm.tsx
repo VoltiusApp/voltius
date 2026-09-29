@@ -10,6 +10,7 @@ import { VaultPicker } from "@/components/shared/VaultPicker";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { useConnectionStore } from "@/stores/connectionStore";
 import type { PortForwardingRule, PortForwardingRuleFormData, TunnelType } from "@/types";
+import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 
 interface Props {
   rule?: PortForwardingRule | null;
@@ -357,7 +358,7 @@ export function RuleForm({ rule, onSave, onClose, isDirtyRef }: Props) {
             </div>
           )}
         </FormSection>
-
+        {rule && <PermissionsSection objectId={rule.id} vaultId={rule.vault_id} type="port_forwarding_rule" />}
       </div>
     </PanelShell>
   );

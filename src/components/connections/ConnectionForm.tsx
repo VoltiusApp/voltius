@@ -36,6 +36,7 @@ import ProxyFields from "./ProxyFields";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle, normalizeDistro } from "@/utils/icons";
 import { DistroIconPicker } from "./DistroIconPicker";
+import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 import {
   PanelShell,
   PanelHeader,
@@ -723,6 +724,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
           </FormSection>
 
           <NotesSection value={notes} onChange={(v) => { markDirty(); setNotes(v); }} readOnly={!canEdit} />
+          {initial && <PermissionsSection objectId={initial.id} vaultId={initial.vault_id} type="connection" />}
         </div>
       </div>
     </PanelShell>

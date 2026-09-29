@@ -144,6 +144,25 @@
         "line": "{{subject}} · {{permission}} : {{before}} → {{after}}",
         "confirm": "Déplacer",
         "cancelled": "Déplacement annulé"
+      },
+      "section": {
+        "title": "Permissions",
+        "titleKey": "Qui peut utiliser cette clé",
+        "titleIdentity": "Qui peut utiliser cette identité",
+        "adminNote": "Les propriétaires et les administrateurs peuvent toujours utiliser toutes les clés.",
+        "syncedWith": "Synchronisé avec {{folder}}",
+        "syncedTeam": "Utilise les permissions de l'équipe",
+        "notSynced": "Non synchronisé",
+        "syncNow": "Synchroniser",
+        "ownPermissions": "Permissions propres",
+        "useTeams": "Utiliser celles de l'équipe",
+        "addSubject": "Ajouter un rôle ou un membre",
+        "searchSubjects": "Rechercher des rôles et des membres…",
+        "noSubjectsLeft": "Tous les rôles et membres sont déjà listés",
+        "use": "Utiliser",
+        "roleCount_one": "{{count}} rôle",
+        "roleCount_many": "{{count}} rôles",
+        "roleCount_other": "{{count}} rôles"
       }
     }
   }

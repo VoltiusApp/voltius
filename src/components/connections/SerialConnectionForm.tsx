@@ -34,6 +34,7 @@ import {
   type ConnectionFormProps,
 } from "./formShared";
 import { formatNumber } from "@/utils/localeFormat";
+import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 
 const BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 
@@ -308,6 +309,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
           </FormSection>
 
           <NotesSection value={notes} onChange={(v) => { markDirty(); setNotes(v); }} readOnly={!canEdit} />
+          {initial && <PermissionsSection objectId={initial.id} vaultId={initial.vault_id} type="connection" />}
         </div>
       </div>
     </PanelShell>

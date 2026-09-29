@@ -140,6 +140,24 @@
         "line": "{{subject}} · {{permission}}: {{before}} → {{after}}",
         "confirm": "Move",
         "cancelled": "Move cancelled"
+      },
+      "section": {
+        "title": "Permissions",
+        "titleKey": "Who can use this key",
+        "titleIdentity": "Who can use this identity",
+        "adminNote": "Owners and admins can always use every key.",
+        "syncedWith": "Synced with {{folder}}",
+        "syncedTeam": "Uses the team's permissions",
+        "notSynced": "Not synced",
+        "syncNow": "Sync now",
+        "ownPermissions": "Own permissions",
+        "useTeams": "Use team's",
+        "addSubject": "Add role or member",
+        "searchSubjects": "Search roles and members…",
+        "noSubjectsLeft": "Every role and member is already listed",
+        "use": "Use",
+        "roleCount_one": "{{count}} role",
+        "roleCount_other": "{{count}} roles"
       }
     }
   }

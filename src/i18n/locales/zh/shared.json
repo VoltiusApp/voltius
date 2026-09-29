@@ -140,6 +140,24 @@
         "line": "{{subject}} · {{permission}}：{{before}} → {{after}}",
         "confirm": "移动",
         "cancelled": "已取消移动"
+      },
+      "section": {
+        "title": "权限",
+        "titleKey": "谁可以使用此密钥",
+        "titleIdentity": "谁可以使用此身份",
+        "adminNote": "所有者和管理员始终可以使用所有密钥。",
+        "syncedWith": "与 {{folder}} 同步",
+        "syncedTeam": "使用团队权限",
+        "notSynced": "未同步",
+        "syncNow": "立即同步",
+        "ownPermissions": "独立权限",
+        "useTeams": "使用团队权限",
+        "addSubject": "添加角色或成员",
+        "searchSubjects": "搜索角色和成员…",
+        "noSubjectsLeft": "所有角色和成员都已列出",
+        "use": "使用",
+        "roleCount_one": "{{count}} 个角色",
+        "roleCount_other": "{{count}} 个角色"
       }
     }
   }

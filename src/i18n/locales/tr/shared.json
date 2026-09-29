@@ -140,6 +140,24 @@
         "line": "{{subject}} · {{permission}}: {{before}} → {{after}}",
         "confirm": "Taşı",
         "cancelled": "Taşıma iptal edildi"
+      },
+      "section": {
+        "title": "İzinler",
+        "titleKey": "Bu anahtarı kimler kullanabilir",
+        "titleIdentity": "Bu kimliği kimler kullanabilir",
+        "adminNote": "Sahipler ve yöneticiler her anahtarı her zaman kullanabilir.",
+        "syncedWith": "{{folder}} ile eşitlendi",
+        "syncedTeam": "Ekibin izinlerini kullanır",
+        "notSynced": "Eşitlenmedi",
+        "syncNow": "Şimdi eşitle",
+        "ownPermissions": "Kendi izinleri",
+        "useTeams": "Ekibinkileri kullan",
+        "addSubject": "Rol veya üye ekle",
+        "searchSubjects": "Rol ve üye ara…",
+        "noSubjectsLeft": "Tüm roller ve üyeler zaten listede",
+        "use": "Kullan",
+        "roleCount_one": "{{count}} rol",
+        "roleCount_other": "{{count}} rol"
       }
     }
   }

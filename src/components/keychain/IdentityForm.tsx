@@ -38,6 +38,7 @@ import type { Connection, Identity, IdentityFormData } from "@/types";
 import { buildKeychainMenuItems } from "@/utils/keychainMenuItems";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 
 // ─────────────────────────────────────────────────────────────────
 
@@ -410,6 +411,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
             </div>
           </FormSection>
         )}
+        {initial && <PermissionsSection objectId={initial.id} vaultId={initial.vault_id} type="identity" />}
       </div>
     </PanelShell>
   );
