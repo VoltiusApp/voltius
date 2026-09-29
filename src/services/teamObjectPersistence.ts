@@ -94,7 +94,7 @@ function recordSaved(
   useTeamObjectAccessStore.getState().upsert(teamId, item.id, { type: objectType, ruleSetId, myPermissions, parentId, deleted: false });
 }
 
-async function teamItemOf(teamId: string, type: TeamObjectType, id: string): Promise<PersistableTeamObject | undefined> {
+export async function findTeamItem(teamId: string, type: TeamObjectType, id: string): Promise<PersistableTeamObject | undefined> {
   const lists: Record<TeamObjectType, () => Promise<PersistableTeamObject[] | undefined>> = {
     connection: async () => (await import("@/stores/connectionStore")).useConnectionStore.getState().teamConnections[teamId],
     identity: async () => (await import("@/stores/identityStore")).useIdentityStore.getState().teamIdentities[teamId],
@@ -125,7 +125,7 @@ export async function saveTeamVaultObject<T extends PersistableTeamObject>(
   if (applied === undefined || opts.cascade === false || !isFolderType(objectType) || !entries[item.id]) return;
   for (const id of syncedSubtree(entries, item.id)) {
     const entry = entries[id];
-    const child = await teamItemOf(teamId, entry.type, id);
+    const child = await findTeamItem(teamId, entry.type, id);
     if (child) await saveTeamVaultObject(teamId, entry.type, child, { ruleSetId: applied, cascade: false });
   }
 }
