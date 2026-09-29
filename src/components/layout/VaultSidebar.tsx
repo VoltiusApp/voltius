@@ -433,7 +433,7 @@ function TeamVaultBadge({ teamId }: { teamId: string }) {
   let spin = false;
   let opacity = 1;
 
-  const isError = status === "error" || status === "forbidden" || status === "payment_required";
+  const isError = status === "error" || status === "forbidden" || status === "payment_required" || status === "update_required";
 
   if (status === "loading") {
     icon = "lucide:loader";

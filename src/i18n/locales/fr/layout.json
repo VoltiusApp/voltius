@@ -79,10 +79,13 @@
         "keyMismatchTitle": "Cet appareil ne peut pas ouvrir la clé du coffre",
         "keyMismatchBody": "Votre clé est bien sur le serveur, mais les clés de compte de cet appareil ne correspondent pas. Déconnectez-vous de ce compte puis reconnectez-vous avec votre mot de passe principal.",
         "errorTitle": "Impossible de charger le coffre d'équipe",
-        "errorBody": "Une erreur s'est produite. Réessayez."
+        "errorBody": "Une erreur s'est produite. Réessayez.",
+        "updateRequiredTitle": "Mise à jour requise",
+        "updateRequiredBody": "Ce coffre d'équipe utilise des fonctionnalités que cette version de Voltius ne prend pas en charge. Mettez à jour Voltius pour l'ouvrir."
       },
       "manageSubscription": "Gérer l'abonnement →",
-      "tryAgain": "Réessayer"
+      "tryAgain": "Réessayer",
+      "checkForUpdates": "Rechercher des mises à jour"
     },
     "newSession": {
       "searchPlaceholder": "ssh utilisateur@hôte · série · local …",

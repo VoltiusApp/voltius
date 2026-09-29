@@ -7,6 +7,7 @@ export type TeamVaultStatus =
   | "offline"
   | "forbidden"
   | "payment_required"
+  | "update_required"
   | "awaiting_key"
   | "key_mismatch"
   | "error";
@@ -20,6 +21,7 @@ const BLOCKED_STATUSES = new Set<TeamVaultStatus>([
   "offline",
   "forbidden",
   "payment_required",
+  "update_required",
   "awaiting_key",
   "key_mismatch",
   "error",

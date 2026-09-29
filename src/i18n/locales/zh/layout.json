@@ -79,10 +79,13 @@
         "keyMismatchTitle": "本设备无法打开保险库密钥",
         "keyMismatchBody": "您的密钥已在服务器上，但本设备的账户密钥与之不匹配。请退出该账户，并使用主密码重新登录。",
         "errorTitle": "无法加载团队保险库",
-        "errorBody": "出错了。请重试。"
+        "errorBody": "出错了。请重试。",
+        "updateRequiredTitle": "需要更新",
+        "updateRequiredBody": "此团队保险库使用了当前版本 Voltius 不支持的功能。请更新 Voltius 后打开。"
       },
       "manageSubscription": "管理订阅 →",
-      "tryAgain": "重试"
+      "tryAgain": "重试",
+      "checkForUpdates": "检查更新"
     },
     "newSession": {
       "searchPlaceholder": "ssh user@host · 串口 · 本地 …",

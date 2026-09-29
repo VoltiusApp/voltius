@@ -79,10 +79,13 @@
         "keyMismatchTitle": "Bu cihaz kasa anahtarını açamıyor",
         "keyMismatchBody": "Anahtarınız sunucuda, ancak bu cihazdaki hesap anahtarları onunla eşleşmiyor. Bu hesabın oturumunu kapatın, ardından ana parolanızla yeniden oturum açın.",
         "errorTitle": "Ekip kasası yüklenemedi",
-        "errorBody": "Bir sorun oluştu. Tekrar deneyin."
+        "errorBody": "Bir sorun oluştu. Tekrar deneyin.",
+        "updateRequiredTitle": "Güncelleme gerekli",
+        "updateRequiredBody": "Bu ekip kasası, bu Voltius sürümünün desteklemediği özellikler kullanıyor. Açmak için Voltius'u güncelleyin."
       },
       "manageSubscription": "Aboneliği yönet →",
-      "tryAgain": "Tekrar deneyin"
+      "tryAgain": "Tekrar deneyin",
+      "checkForUpdates": "Güncellemeleri denetle"
     },
     "newSession": {
       "searchPlaceholder": "ssh kullanıcı@sunucu · seri · yerel …",

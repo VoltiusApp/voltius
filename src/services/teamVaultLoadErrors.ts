@@ -1,6 +1,8 @@
 import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
 
-export type TeamObjectListErrorAction = "fallback" | Extract<TeamVaultStatus, "offline" | "forbidden" | "payment_required">;
+export type TeamObjectListErrorAction =
+  | "fallback"
+  | Extract<TeamVaultStatus, "offline" | "forbidden" | "payment_required" | "update_required">;
 
 export function classifyTeamObjectListError(err: unknown): TeamObjectListErrorAction {
   // Prefer machine-readable classification data (set by fetchTeamApi via
@@ -10,6 +12,7 @@ export function classifyTeamObjectListError(err: unknown): TeamObjectListErrorAc
   if (meta?.offline) return "offline";
   if (meta?.status === 403) return "forbidden";
   if (meta?.status === 402) return "payment_required";
+  if (meta?.status === 426) return "update_required";
 
   // Legacy fallback for callers/errors that don't set status/offline.
   const message = err instanceof Error ? err.message : String(err);

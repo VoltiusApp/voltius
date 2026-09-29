@@ -11,6 +11,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import { ownerHandle } from "@/services/teamVaultFirstAccess";
+import { checkForUpdate } from "@/services/updater";
 
 export default function TeamVaultStatePanel({
   status,
@@ -81,6 +82,11 @@ export default function TeamVaultStatePanel({
       title: t("layout.mainPanel.teamVault.errorTitle"),
       body: t("layout.mainPanel.teamVault.errorBody"),
     },
+    update_required: {
+      icon: "lucide:circle-arrow-up",
+      title: t("layout.mainPanel.teamVault.updateRequiredTitle"),
+      body: t("layout.mainPanel.teamVault.updateRequiredBody"),
+    },
   };
 
   const cfg = configs[status] ?? configs.error;
@@ -110,6 +116,15 @@ export default function TeamVaultStatePanel({
             style={{ background: "var(--t-accent)", color: "#fff" }}
           >
             {t("layout.mainPanel.manageSubscription")}
+          </button>
+        )}
+        {status === "update_required" && (
+          <button
+            onClick={() => void checkForUpdate()}
+            className="mt-2 text-sm px-3 py-1.5 rounded-lg"
+            style={{ background: "var(--t-accent)", color: "#fff" }}
+          >
+            {t("layout.mainPanel.checkForUpdates")}
           </button>
         )}
         {(!status || status === "error" || status === "awaiting_key") && (

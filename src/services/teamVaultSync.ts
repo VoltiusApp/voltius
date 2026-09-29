@@ -133,6 +133,8 @@ export function getCachedTeamKeyVersion(teamId: string): number | undefined {
  *                        caller's role lacks VIEW_SECRETS — callers that can
  *                        tell the two apart should; see fetchTeamData)
  *   "payment_required" — server returned 402 (subscription lapsed)
+ *   "update_required"  — server returned 426 (this client is missing a
+ *                        capability the team vault now requires)
  *   "awaiting_key"     — server returned 404 (no wrapped key for this member yet)
  *   "key_mismatch"     — the key arrived but this device's identity cannot open
  *                        it; retrying cannot help, unlike "error" (#228)
@@ -197,6 +199,7 @@ async function _fetchAndUnwrapVaultKeyUrl(
 
   if (res.status === 403) throw "forbidden";
   if (res.status === 402) throw "payment_required";
+  if (res.status === 426) throw "update_required";
   if (res.status === 404) throw "awaiting_key";
   if (!res.ok) throw "error";
 
@@ -504,7 +507,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
       return;
     }
-    const validStatuses = ["offline", "forbidden", "payment_required", "awaiting_key", "key_mismatch", "error"] as const;
+    const validStatuses = ["offline", "forbidden", "payment_required", "update_required", "awaiting_key", "key_mismatch", "error"] as const;
     type Thrown = typeof validStatuses[number];
     let status: Thrown | "loaded" = validStatuses.includes(err as Thrown) ? (err as Thrown) : "error";
     // A 403 here means one of two very different things: the caller was removed
@@ -531,6 +534,12 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       if (options.background) return;
       await clearTeamStoresAndSecrets(teamId);
       stateStore.setStatus(teamId, objectListFailed ? "error" : "loaded");
+      return;
+    }
+    if (res.status === 403 && !objectListFailed) {
+      if (options.background) return;
+      await clearTeamStoresAndSecrets(teamId);
+      stateStore.setStatus(teamId, "loaded");
       return;
     }
     if (!res.ok) {

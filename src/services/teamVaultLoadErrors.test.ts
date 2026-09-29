@@ -33,6 +33,10 @@ const unknown = new Error("something else entirely");
 assertEqual(classifyTeamObjectListError(unknown), "fallback", "unrecognized error falls back");
 });
 
+test("a 426 is update_required, never the legacy fallback", () => {
+  expect(classifyTeamObjectListError({ status: 426 })).toBe("update_required");
+});
+
 test("isAccessRevoked separates a denial from a transient failure", () => {
   for (const e of ["forbidden", "payment_required", "awaiting_key", "key_mismatch", { status: 403 }, { status: 404 }, { status: 402 }]) {
     expect(isAccessRevoked(e)).toBe(true);

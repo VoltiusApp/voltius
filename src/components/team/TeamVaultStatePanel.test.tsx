@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -9,8 +9,10 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/teamVaultSync", () => ({ fetchTeamData: vi.fn(async () => {}) }));
+vi.mock("@/services/updater", () => ({ checkForUpdate: vi.fn(async () => {}) }));
 
 import TeamVaultStatePanel from "./TeamVaultStatePanel";
+import { checkForUpdate } from "@/services/updater";
 import { useTeamStore } from "@/stores/teamStore";
 import type { Team, TeamMember } from "@/services/teamService";
 
@@ -56,4 +58,12 @@ test("an unrecognised status falls back to the generic error", () => {
   render(<TeamVaultStatePanel status="banana" teamId="t1" />);
 
   expect(screen.getByText("layout.mainPanel.teamVault.errorTitle")).toBeTruthy();
+});
+
+test("update_required explains itself and offers a check for updates", () => {
+  render(<TeamVaultStatePanel status="update_required" teamId="t1" />);
+
+  expect(screen.getByText("layout.mainPanel.teamVault.updateRequiredTitle")).toBeTruthy();
+  fireEvent.click(screen.getByText("layout.mainPanel.checkForUpdates"));
+  expect(checkForUpdate).toHaveBeenCalled();
 });
