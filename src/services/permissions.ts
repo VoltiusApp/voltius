@@ -55,6 +55,31 @@ export const OBJECT_RULE_BITS = PERM_BITS.VIEW | PERM_BITS.CONNECT | PERM_BITS.V
   | PERM_BITS.COPY_SECRETS | PERM_BITS.EDIT_CONNECTIONS | PERM_BITS.EDIT_IDENTITIES | PERM_BITS.EDIT_KEYS
   | PERM_BITS.EDIT_FOLDERS | PERM_BITS.EDIT_SNIPPETS | PERM_BITS.MANAGE_ROLES;
 
+export const OBJECT_RULE_PERMISSIONS = (Object.keys(PERM_BITS) as Permission[]).filter((p) => (OBJECT_RULE_BITS & PERM_BITS[p]) !== 0);
+
+export type OverrideState = "deny" | "inherit" | "allow";
+
+export function overrideStateOf(permission: Permission, allow: number, deny: number): OverrideState {
+  const bit = PERM_BITS[permission];
+  if ((deny & bit) !== 0) return "deny";
+  if ((allow & bit) !== 0) return "allow";
+  return "inherit";
+}
+
+export function applyOverrideState(
+  permission: Permission,
+  allow: number,
+  deny: number,
+  next: OverrideState,
+): { allow: number; deny: number } {
+  const bit = PERM_BITS[permission];
+  const clearedAllow = allow & ~bit;
+  const clearedDeny = deny & ~bit;
+  if (next === "allow") return { allow: clearedAllow | bit, deny: clearedDeny };
+  if (next === "deny") return { allow: clearedAllow, deny: clearedDeny | bit };
+  return { allow: clearedAllow, deny: clearedDeny };
+}
+
 export type RuleSubjectType = "everyone" | "role" | "member";
 
 export interface RuleEntry {

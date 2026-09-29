@@ -37,6 +37,11 @@ import { EmailVerificationRequiredModal } from "@/components/notifications/Email
 import { DeepLinkConfirmModal } from "@/components/terminal/DeepLinkConfirmModal";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 import { GlobalTransferQueue } from "@/components/filetransfer/GlobalTransferQueue";
+import { RuleSetPromptHost } from "@/components/permissions/RuleSetPromptHost";
+import { setRuleSetMoveConfirmer } from "@/services/teamObjectPersistence";
+import { confirmRuleSetMove } from "@/services/ruleSetMoveGuard";
+
+setRuleSetMoveConfirmer(confirmRuleSetMove);
 
 function App() {
   const [ready, setReady] = useState(false);
@@ -88,6 +93,7 @@ function App() {
       <WhatsNewModal />
       <EmailVerificationRequiredModal />
       <DeepLinkConfirmModal />
+      <RuleSetPromptHost />
       <GlobalTransferQueue />
 
       {/* Global snippet variable modal — triggered from OmniSearch, the

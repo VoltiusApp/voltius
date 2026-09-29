@@ -130,6 +130,26 @@
     },
     "tunnelStatus": {
       "noRemoteListener": "远程端口上没有服务在监听"
+    },
+    "permissions": {
+      "everyone": "@所有人",
+      "moveWarning": {
+        "title": "权限将发生变化",
+        "body": "移动到此处将应用该文件夹的权限：",
+        "bodyUnknown": "移动到此处将应用该文件夹的权限。",
+        "line": "{{subject}} · {{permission}}：{{before}} → {{after}}",
+        "confirm": "移动",
+        "cancelled": "已取消移动"
+      },
+      "firstRule": {
+        "title": "启用对象权限？",
+        "body": "添加第一条规则后，旧版应用将无法打开此保险库，没有\"查看\"权限的成员将什么都看不到。受影响的成员：",
+        "affected_one": "{{count}} 名成员受影响",
+        "affected_other": "{{count}} 名成员受影响",
+        "oldApp": "需要更新应用",
+        "noView": "没有\"查看\"权限",
+        "confirm": "保存规则"
+      }
     }
   }
 }

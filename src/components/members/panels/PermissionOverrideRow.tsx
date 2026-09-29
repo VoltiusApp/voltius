@@ -1,36 +1,15 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { PERM_BITS, type Permission } from "@/services/permissions";
+import { type Permission, type OverrideState } from "@/services/permissions";
 import { permissionLabel } from "@/components/members/roleChips";
 
-export type OverrideState = "deny" | "inherit" | "allow";
+export { overrideStateOf, applyOverrideState, type OverrideState } from "@/services/permissions";
 
 const STATES: { value: OverrideState; icon: string; color: string }[] = [
   { value: "deny",    icon: "lucide:x",     color: "var(--t-status-error)" },
   { value: "inherit", icon: "lucide:minus", color: "var(--t-text-dim)" },
   { value: "allow",   icon: "lucide:check", color: "#34d399" },
 ];
-
-export function overrideStateOf(permission: Permission, allow: number, deny: number): OverrideState {
-  const bit = PERM_BITS[permission];
-  if ((deny & bit) !== 0) return "deny";
-  if ((allow & bit) !== 0) return "allow";
-  return "inherit";
-}
-
-export function applyOverrideState(
-  permission: Permission,
-  allow: number,
-  deny: number,
-  next: OverrideState,
-): { allow: number; deny: number } {
-  const bit = PERM_BITS[permission];
-  const clearedAllow = allow & ~bit;
-  const clearedDeny = deny & ~bit;
-  if (next === "allow") return { allow: clearedAllow | bit, deny: clearedDeny };
-  if (next === "deny") return { allow: clearedAllow, deny: clearedDeny | bit };
-  return { allow: clearedAllow, deny: clearedDeny };
-}
 
 export interface PermissionOverrideRowProps {
   permission: Permission;

@@ -134,6 +134,27 @@
     },
     "tunnelStatus": {
       "noRemoteListener": "Rien n'écoute sur le port distant"
+    },
+    "permissions": {
+      "everyone": "@tout le monde",
+      "moveWarning": {
+        "title": "Les permissions vont changer",
+        "body": "Le déplacement applique les permissions de ce dossier :",
+        "bodyUnknown": "Le déplacement applique les permissions de ce dossier.",
+        "line": "{{subject}} · {{permission}} : {{before}} → {{after}}",
+        "confirm": "Déplacer",
+        "cancelled": "Déplacement annulé"
+      },
+      "firstRule": {
+        "title": "Activer les permissions par objet ?",
+        "body": "Après cette première règle, les anciennes versions de l'app ne peuvent plus ouvrir ce coffre, et les membres sans la permission Afficher ne voient plus rien. Membres concernés :",
+        "affected_one": "{{count}} membre concerné",
+        "affected_many": "{{count}} membres concernés",
+        "affected_other": "{{count}} membres concernés",
+        "oldApp": "doit mettre à jour l'app",
+        "noView": "n'a pas la permission Afficher",
+        "confirm": "Enregistrer la règle"
+      }
     }
   }
 }

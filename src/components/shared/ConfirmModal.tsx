@@ -14,9 +14,10 @@ interface Props {
   busy?: boolean;
   /** Label shown on the confirm button while `busy` is true, in place of `confirmLabel`. */
   busyLabel?: string;
+  children?: React.ReactNode;
 }
 
-export function ConfirmModal({ title, message, confirmLabel, tone = "danger", onConfirm, onCancel, busy = false, busyLabel }: Props) {
+export function ConfirmModal({ title, message, confirmLabel, tone = "danger", onConfirm, onCancel, busy = false, busyLabel, children }: Props) {
   const { t } = useTranslation();
   const accent = tone === "warning" ? "var(--t-status-warning)" : "var(--t-status-error)";
   const icon = tone === "warning" ? "lucide:lock" : "lucide:triangle-alert";
@@ -34,6 +35,7 @@ export function ConfirmModal({ title, message, confirmLabel, tone = "danger", on
           <h2 className="text-sm font-semibold text-(--t-text-bright)">{title}</h2>
         </div>
         <p className="text-sm text-(--t-text-secondary)">{message}</p>
+        {children}
         <div className="flex gap-2 justify-end">
           <button
             onClick={onCancel}
