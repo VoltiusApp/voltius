@@ -17,6 +17,7 @@ export interface ItemLike {
   folder_id?: string | null;
 }
 
+// Same as rootedParentId in utils/folderTree: this module stays import-free for strip-types tests.
 function rootedParentId(parentId: string | null | undefined, knownIds: ReadonlySet<string>): string | null {
   return parentId && knownIds.has(parentId) ? parentId : null;
 }
