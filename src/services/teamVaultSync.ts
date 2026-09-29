@@ -501,13 +501,6 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   try {
     key = await getTeamVaultKey(teamId);
   } catch (err) {
-    if (options.background) {
-      if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
-      return;
-    }
-    const validStatuses = ["offline", "forbidden", "payment_required", "update_required", "awaiting_key", "key_mismatch", "error"] as const;
-    type Thrown = typeof validStatuses[number];
-    let status: Thrown | "loaded" = validStatuses.includes(err as Thrown) ? (err as Thrown) : "error";
     // A 403 here means one of two very different things: the caller was removed
     // from the team, or their role simply lacks VIEW_SECRETS (connect-only,
     // issue #187). The route cannot tell them apart, but the client can — a
@@ -515,9 +508,14 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     // the team is still listed is a role restriction, and such a member reads
     // this vault through the object routes only: the empty list they just got
     // IS their view of the vault, so show it rather than a false revocation.
-    if (status === "forbidden" && (await _isStillATeamMember(teamId))) {
-      status = "loaded";
+    const emptyView = err === "forbidden" && (await _isStillATeamMember(teamId));
+    if (options.background && !emptyView) {
+      if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
+      return;
     }
+    const validStatuses = ["offline", "forbidden", "payment_required", "update_required", "awaiting_key", "key_mismatch", "error"] as const;
+    type Thrown = typeof validStatuses[number];
+    const status: Thrown | "loaded" = emptyView ? "loaded" : validStatuses.includes(err as Thrown) ? (err as Thrown) : "error";
     // Clear team store slices so stale data doesn't linger
     await clearTeamStoresAndSecrets(teamId);
     stateStore.setStatus(teamId, status);
@@ -527,17 +525,10 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   let blobPayload: BlobPayload;
   try {
     const res = await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}/sync-blob`, { method: "GET" });
-    if (res.status === 404) {
-      // No blob yet — owner hasn't pushed data. Show as empty vault.
-      if (options.background) return;
+    // After a successful object list, no readable blob means the empty list is the member's view.
+    if (res.status === 404 || (res.status === 403 && !objectListFailed)) {
       await clearTeamStoresAndSecrets(teamId);
       stateStore.setStatus(teamId, objectListFailed ? "error" : "loaded");
-      return;
-    }
-    if (res.status === 403 && !objectListFailed) {
-      if (options.background) return;
-      await clearTeamStoresAndSecrets(teamId);
-      stateStore.setStatus(teamId, "loaded");
       return;
     }
     if (!res.ok) {

@@ -37,6 +37,7 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { listTeamObjects } from "@/services/teamObjects";
+import { teamSecretCache } from "./teamSecretCache";
 
 function futureJwt(): string {
   const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -245,4 +246,38 @@ test("a team whose object list is genuinely empty and has no blob loads as empty
   await fetchTeamData("t-empty");
 
   expect(useTeamVaultStateStore.getState().statusByTeamId["t-empty"]).toBe("loaded");
+});
+
+function staleTeam(teamId: string, blobStatus: number, keyStatus = 200): void {
+  useTeamStore.setState({ teams: [{ id: teamId, role_ids: [] }] as never });
+  useConnectionStore.getState().setTeamConnections(teamId, [{ id: "stale" }] as never);
+  useFolderStore.getState().setTeamFolders(teamId, [{ id: "stale-folder" }] as never);
+  teamSecretCache.set(teamId, "password:stale", "pw");
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockImplementation(async (url: string) => {
+    if (url.endsWith("/vault-key")) return keyStatus === 200 ? res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" }) : res(keyStatus);
+    if (url.endsWith("/sync-blob")) return res(blobStatus);
+    throw new Error(`unexpected fetch ${url}`);
+  });
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
+  h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
+  vi.mocked(listTeamObjects).mockResolvedValueOnce([]);
+}
+
+const expectEmptied = (teamId: string) => {
+  expect(useConnectionStore.getState().teamConnections[teamId] ?? []).toEqual([]);
+  expect(useFolderStore.getState().teamFolders[teamId] ?? []).toEqual([]);
+  expect(teamSecretCache.entries(teamId).size).toBe(0);
+};
+
+test.each([
+  ["the legacy blob is forbidden", "t-bg-403", 403, 200],
+  ["there is no legacy blob", "t-bg-404", 404, 200],
+  ["the key route 403s a listed member", "t-bg-key-403", 404, 403],
+])("a background refetch whose object list is empty clears the team when %s", async (_, teamId, blobStatus, keyStatus) => {
+  staleTeam(teamId, blobStatus, keyStatus);
+
+  await fetchTeamData(teamId, { background: true });
+
+  expectEmptied(teamId);
 });
