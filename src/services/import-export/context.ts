@@ -95,7 +95,7 @@ export function hasSelection(s: SelectionProps): boolean {
 export type SecretGate = (object: { id: string; vault_id?: string }) => boolean;
 
 export interface ExportCtx {
-  /** Resolves null when the caller may not both view and copy this object's secrets (#190, #387). */
+  /** Resolves null when the caller may not both view and copy this object's secrets. */
   readSecret: (object: { id: string; vault_id?: string }) => (key: string) => Promise<string | null>;
   folderEidMap: Map<string, string>;
   snippetFolderEidMap: Map<string, string>;

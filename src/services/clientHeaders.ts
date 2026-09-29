@@ -12,7 +12,7 @@ export function clientVersion(): Promise<string | null> {
   return versionPromise;
 }
 
-// Compatibility signals only, never authorization: the server refuses rule-set teams to clients without them.
+// Compatibility signals only, never authorization: the server refuses every team route to clients without them.
 export async function clientHeaders(): Promise<Record<string, string>> {
   const version = await clientVersion();
   return {
