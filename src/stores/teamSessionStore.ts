@@ -157,6 +157,14 @@ function makeCallbacks(localSessionId: string, set: any, _get: any) {
 type SetState = StoreApi<TeamSessionStore>["setState"];
 type GetState = StoreApi<TeamSessionStore>["getState"];
 
+async function teamConnectionIdOf(localSessionId: string, vaultIds: string[]): Promise<string | null> {
+  const { useSessionStore } = await import("@/stores/sessionStore");
+  const { useConnectionStore } = await import("@/stores/connectionStore");
+  const connectionId = useSessionStore.getState().sessions.find((s) => s.id === localSessionId)?.connectionId;
+  const teamConnections = useConnectionStore.getState().teamConnections;
+  return connectionId && vaultIds.some((v) => teamConnections[v]?.some((c) => c.id === connectionId)) ? connectionId : null;
+}
+
 /**
  * Shared tail for every host-side share-start path: resolve server/JWT/identity,
  * carry over pre-share scrollback, open the websocket, and record the connection (#66).
@@ -205,7 +213,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
   },
 
   startSharing: async (localSessionId, vaultIds, allowedRoles, connectionName, members, vaultOwnerTier) => {
-    const { sessionId, sessionKey, sessionKeyBytes } = await mp.createVaultSession(vaultIds, allowedRoles, connectionName, members);
+    const { sessionId, sessionKey, sessionKeyBytes } = await mp.createVaultSession(vaultIds, allowedRoles, connectionName, members, await teamConnectionIdOf(localSessionId, vaultIds));
     await attachAsHost(localSessionId, sessionId, sessionKey, set, get, { vaultOwnerTier, sessionKeyBytes });
     return sessionId;
   },

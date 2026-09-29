@@ -232,6 +232,7 @@ export async function createVaultSession(
   allowedRoles: string[],
   connectionName: string,
   members: teamService.TeamMember[],
+  connectionObjectId: string | null = null,
 ): Promise<{ sessionId: string; sessionKey: SessionKey; sessionKeyBytes: Uint8Array }> {
   const { sessionKey, sessionKeyBytes, wrappedKeys } = await prepareWrappedSessionKey(members);
 
@@ -249,6 +250,7 @@ export async function createVaultSession(
       visibility: "vault",
       participant_keys: wrappedKeys,
       allowed_roles: allowedRoles,
+      connection_object_id: connectionObjectId,
     }),
   });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToCreateSession", { status: res.status }));

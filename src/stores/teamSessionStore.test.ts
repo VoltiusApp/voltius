@@ -17,11 +17,19 @@ const io = vi.hoisted(() => ({
   getSessionTransportType: vi.fn(() => "ssh"),
   encoding: undefined as string | undefined,
 }));
+const stores = vi.hoisted(() => ({
+  sessions: [] as { id: string; connectionId: string }[],
+  teamConnections: {} as Record<string, { id: string }[]>,
+}));
 vi.mock("@/services/multiplayerService", () => mp);
 vi.mock("@/services/sessionInput", () => ({ sendSessionInput: io.sendSessionInput }));
 vi.mock("@/stores/sessionStore", () => ({
   getSessionTransportType: io.getSessionTransportType,
   encodeSessionText: (_id: string, text: string) => encodeTerminalInput(text, io.encoding),
+  useSessionStore: { getState: () => ({ sessions: stores.sessions }) },
+}));
+vi.mock("@/stores/connectionStore", () => ({
+  useConnectionStore: { getState: () => ({ teamConnections: stores.teamConnections }) },
 }));
 vi.mock("@/services/teamService", () => svc);
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
@@ -54,6 +62,8 @@ beforeEach(() => {
   io.sendSessionInput.mockClear();
   io.getSessionTransportType.mockReset().mockReturnValue("ssh");
   io.encoding = undefined;
+  stores.sessions = [];
+  stores.teamConnections = {};
   useTeamSessionStore.setState({ activeSessions: [], connections: {} });
 });
 
@@ -152,6 +162,28 @@ test("a guest's UTF-8 input reaches a GBK host session as GBK", async () => {
 // That leak point is gone; this proves it stays gone by inspecting every
 // argument openWebSocket actually receives, not just this call site's own
 // (now email-free) signature.
+test("startSharing passes the team connection id when the local session is on a team host", async () => {
+  mp.openWebSocket.mockImplementation(() => connStub());
+  mp.createVaultSession.mockResolvedValueOnce({ sessionId: "m1", sessionKey: new Uint8Array([1]), sessionKeyBytes: new Uint8Array(32) });
+  stores.sessions = [{ id: "local1", connectionId: "c1" }];
+  stores.teamConnections = { t1: [{ id: "c1" }] };
+
+  await get().startSharing("local1", ["t1"], [], "conn", []);
+
+  expect(mp.createVaultSession).toHaveBeenCalledWith(["t1"], [], "conn", [], "c1");
+});
+
+test("startSharing passes null when the local session's connection is not on any shared vault", async () => {
+  mp.openWebSocket.mockImplementation(() => connStub());
+  mp.createVaultSession.mockResolvedValueOnce({ sessionId: "m1", sessionKey: new Uint8Array([1]), sessionKeyBytes: new Uint8Array(32) });
+  stores.sessions = [{ id: "local1", connectionId: "c1" }];
+  stores.teamConnections = {};
+
+  await get().startSharing("local1", ["t1"], [], "conn", []);
+
+  expect(mp.createVaultSession).toHaveBeenCalledWith(["t1"], [], "conn", [], null);
+});
+
 test("startSharing's attachAsHost calls openWebSocket with no identity string among its arguments", async () => {
   mp.openWebSocket.mockImplementation(() => connStub());
   const sessionKey = new Uint8Array([7]);

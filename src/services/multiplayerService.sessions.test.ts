@@ -80,6 +80,17 @@ test("createVaultSession wraps to the server's current public key, not the calle
   );
 });
 
+test("createVaultSession sends connection_object_id when given, null otherwise", async () => {
+  h.appFetch.mockResolvedValue(okJson({ session_id: "sess-1" }));
+  const members = [{ user_id: "u1", team_id: "t1", public_key: "pk1" }] as any;
+
+  await createVaultSession(["t1"], [], "prod", members, "c1");
+  expect(JSON.parse(h.appFetch.mock.calls[0][1].body).connection_object_id).toBe("c1");
+
+  await createVaultSession(["t1"], [], "prod", members);
+  expect(JSON.parse(h.appFetch.mock.calls[1][1].body).connection_object_id).toBeNull();
+});
+
 test("createVaultSession throws when not connected", async () => {
   h.getServerUrlValue.mockResolvedValue(null);
   await expect(createVaultSession([], [], "x", [] as any)).rejects.toThrow("common.error.notConnectedToServer");
