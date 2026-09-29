@@ -133,8 +133,6 @@ export function getCachedTeamKeyVersion(teamId: string): number | undefined {
  *                        caller's role lacks VIEW_SECRETS — callers that can
  *                        tell the two apart should; see fetchTeamData)
  *   "payment_required" — server returned 402 (subscription lapsed)
- *   "update_required"  — server returned 426 (this client is missing a
- *                        capability the team vault now requires)
  *   "awaiting_key"     — server returned 404 (no wrapped key for this member yet)
  *   "key_mismatch"     — the key arrived but this device's identity cannot open
  *                        it; retrying cannot help, unlike "error" (#228)
