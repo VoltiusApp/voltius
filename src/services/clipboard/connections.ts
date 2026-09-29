@@ -6,6 +6,7 @@ import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { moveWithSecrets, moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { nameIsFree } from "@/utils/cloneName";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 import type { ClipboardHalf } from "./types";
 
 type KeyFormData = SshKeyFormData;
@@ -163,9 +164,9 @@ export function connectionsClipboardHalf(
           }, deps.updateKey);
           continue;
         }
-        const created = await deps.saveKey({
+        const created = await deps.saveKey(copyingRulesOf({
           name: key.name, key_type: key.key_type, tags: key.tags, vault_id: destination,
-        });
+        }, key.id));
         const [priv, pub] = await Promise.all([
           getSecret(`key:${key.id}:private`).catch(() => null),
           getSecret(`key:${key.id}:public`).catch(() => null),
@@ -187,10 +188,10 @@ export function connectionsClipboardHalf(
           }, deps.updateIdentity);
           continue;
         }
-        const created = await deps.saveIdentity({
+        const created = await deps.saveIdentity(copyingRulesOf({
           name: identity.name, username: identity.username, key_id: keyId,
           tags: identity.tags, vault_id: destination,
-        });
+        }, identity.id));
         const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
         if (pwd) await storeSecret(`identity:${created.id}:password`, pwd).catch(keepCachedOnUploadFailure("clipboard: paste identity"));
         cascadeRemap.identities.set(identity.id, created.id);

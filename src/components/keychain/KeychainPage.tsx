@@ -552,7 +552,7 @@ export default function KeychainPage() {
 
   const handleCopyKeyToVault = async (key: SshKey, vaultId: string) => {
     try {
-      const newKey = await saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
+      const newKey = await saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
       const [priv, pub, pass] = await Promise.all([
         getSecret(`key:${key.id}:private`),
         getSecret(`key:${key.id}:public`),
@@ -603,7 +603,7 @@ export default function KeychainPage() {
           let newKeyId = identity.key_id;
 
           if (keyNeedsCopy) {
-            const newKey = await saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
+            const newKey = await saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
             const [priv, pub] = await Promise.all([
               getSecret(`key:${key.id}:private`),
               getSecret(`key:${key.id}:public`),
@@ -613,7 +613,7 @@ export default function KeychainPage() {
             newKeyId = newKey.id;
           }
 
-          const newIdentity = await saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
+          const newIdentity = await saveIdentity(copyingRulesOf({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId }, identity.id));
           const pwd = await getSecret(`identity:${identity.id}:password`);
           if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(keepCachedOnUploadFailure("KeychainPage: copy identity to vault"));
         } catch (err) { setError(String(err)); }
@@ -695,7 +695,7 @@ export default function KeychainPage() {
           });
           const keyIdMap = new Map<string, string>();
           for (const key of treeKeys) {
-            const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
+            const newKey = await useKeyStore.getState().saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
             const [priv, pub] = await Promise.all([
               getSecret(`key:${key.id}:private`),
               getSecret(`key:${key.id}:public`),
@@ -706,7 +706,7 @@ export default function KeychainPage() {
           }
           for (const identity of treeIdentities) {
             const newKeyId = identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined;
-            const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
+            const newIdentity = await useIdentityStore.getState().saveIdentity(copyingRulesOf({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId }, identity.id));
             const pwd = await getSecret(`identity:${identity.id}:password`);
             if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(keepCachedOnUploadFailure("KeychainPage: copy folder identity"));
           }

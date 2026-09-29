@@ -70,6 +70,7 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
+import { copyingRulesOf } from "@/services/ruleSetIntent";
 
 
 export default function HostsPage() {
@@ -625,7 +626,7 @@ export default function HostsPage() {
           let newIdentityId = conn.identity_id;
 
           if (keyNeedsCopy) {
-            const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
+            const newKey = await useKeyStore.getState().saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
             const [priv, pub] = await Promise.all([
               getSecret(`key:${key.id}:private`),
               getSecret(`key:${key.id}:public`),
@@ -636,7 +637,7 @@ export default function HostsPage() {
           }
 
           if (identityNeedsCopy) {
-            const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
+            const newIdentity = await useIdentityStore.getState().saveIdentity(copyingRulesOf({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId }, identity.id));
             const pwd = await getSecret(`identity:${identity.id}:password`);
             if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(keepCachedOnUploadFailure("HostsPage: copy identity to vault"));
             newIdentityId = newIdentity.id;
@@ -747,7 +748,7 @@ export default function HostsPage() {
           // Copy keys
           const keyIdMap = new Map<string, string>();
           for (const key of keyMap.values()) {
-            const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
+            const newKey = await useKeyStore.getState().saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
             const [priv, pub] = await Promise.all([
               getSecret(`key:${key.id}:private`),
               getSecret(`key:${key.id}:public`),
@@ -765,7 +766,7 @@ export default function HostsPage() {
           const identityIdMap = new Map<string, string>();
           for (const identity of identityMap.values()) {
             const newKeyId = identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined;
-            const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
+            const newIdentity = await useIdentityStore.getState().saveIdentity(copyingRulesOf({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId }, identity.id));
             const pwd = await getSecret(`identity:${identity.id}:password`);
             if (pwd) {
               await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(keepCachedOnUploadFailure("HostsPage: copy folder identity"));
