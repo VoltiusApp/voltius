@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   drainPendingSecretWipes: vi.fn(async () => {}),
   checkAndRotateTeamKey: vi.fn(async (_teamId: string) => {}),
   teams: [] as { id: string }[],
+  saveTeamVaultObject: vi.fn(async () => {}),
 }));
 
 vi.mock("@/services/teamVaultSync", () => ({
@@ -22,7 +23,14 @@ vi.mock("@/stores/teamStore", () => ({
   useTeamStore: { getState: () => ({ teams: h.teams }) },
 }));
 
+vi.mock("@/services/teamObjectPersistence", () => ({
+  saveTeamVaultObject: h.saveTeamVaultObject,
+  removeTeamVaultObject: vi.fn(async () => {}),
+}));
+
 import { onTeamLogin, onSessionEnd } from "./teamDataManager";
+import { useHistoryStore } from "@/stores/historyStore";
+import { pushTeamDeleteHistory } from "@/stores/recreateHistory";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -57,4 +65,17 @@ test("session end drops every cached team secret", async () => {
   teamSecretCache.set("t1", "password:c1", "pw");
   onSessionEnd();
   expect(teamSecretCache.get("t1", "password:c1")).toBeUndefined();
+});
+
+test("session end drops undo history, so a team delete holding secrets can no longer be undone", async () => {
+  const { teamSecretCache } = await import("@/services/teamSecretCache");
+  teamSecretCache.set("t1", "password:c1", "pw");
+  const putBack = vi.fn();
+  pushTeamDeleteHistory({ label: "del", teamId: "t1", type: "connection", item: { id: "c1" }, putBack, remove: async () => {} });
+  expect(useHistoryStore.getState().past).toHaveLength(1);
+  onSessionEnd();
+  expect(useHistoryStore.getState()).toMatchObject({ past: [], future: [], canUndo: false, canRedo: false });
+  await useHistoryStore.getState().undo();
+  expect(h.saveTeamVaultObject).not.toHaveBeenCalled();
+  expect(putBack).not.toHaveBeenCalled();
 });

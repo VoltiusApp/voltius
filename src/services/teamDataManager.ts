@@ -20,6 +20,7 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useTeamObjectAccessStore } from "@/stores/teamObjectAccessStore";
+import { useHistoryStore } from "@/stores/historyStore";
 import { fetchTeamData, clearTeamKeyCache, reconcileTeamVaultKeys, drainPendingSecretWipes } from "@/services/teamVaultSync";
 import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
 import { teamSecretCache } from "@/services/teamSecretCache";
@@ -163,6 +164,7 @@ export async function refreshAwaitingKeyTeams(): Promise<void> {
 export function onSessionEnd(): void {
   clearTeamKeyCache();
   teamSecretCache.clearAll();
+  useHistoryStore.getState().clear();
   useConnectionStore.getState().clearTeamConnections();
   useIdentityStore.getState().clearTeamIdentities();
   useKeyStore.getState().clearTeamKeys();

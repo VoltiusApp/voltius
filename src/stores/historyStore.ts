@@ -28,6 +28,7 @@ interface HistoryStore {
   withoutHistory: <T>(fn: () => Promise<T>) => Promise<T>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
+  clear: () => void;
 }
 
 const MAX_HISTORY = 50;
@@ -120,4 +121,6 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
       }));
     }
   },
+
+  clear: () => set({ past: [], future: [], canUndo: false, canRedo: false }),
 }));
