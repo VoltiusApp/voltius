@@ -1,6 +1,7 @@
 import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
 import { getJwt, isJwtExpiredOrExpiring, tryRefreshJwt } from "@/services/authTokens";
+import { clientHeaders } from "@/services/clientHeaders";
 
 interface AuthFetchOptions {
   json?: boolean;
@@ -18,7 +19,9 @@ export async function fetchAuth(
     jwt = await tryRefreshJwt();
     if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
   }
+  const capability = await clientHeaders();
   const makeHeaders = (token: string) => ({
+    ...capability,
     ...(init.headers as Record<string, string>),
     ...(opts.json ? { "Content-Type": "application/json" } : {}),
     Authorization: `Bearer ${token}`,

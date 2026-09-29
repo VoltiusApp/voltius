@@ -1,22 +1,7 @@
-import { getVersion } from "@tauri-apps/api/app";
 import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, tryRefreshJwt } from "@/services/authTokens";
-
-// Cached: the app version cannot change while the process runs. Caching the
-// in-flight *promise* (not just the resolved value) means concurrent callers
-// share one getVersion() call instead of each firing their own. A rejection
-// clears the cache so the next call retries rather than inheriting a
-// poisoned value forever — see src/stores/marketplaceStore.ts for the sibling
-// pattern this follows.
-let versionPromise: Promise<string | null> | null = null;
-function clientVersion(): Promise<string | null> {
-  versionPromise ??= getVersion().catch(() => {
-    versionPromise = null; // retry next call rather than caching the failure
-    return null;
-  });
-  return versionPromise;
-}
+import { clientHeaders } from "@/services/clientHeaders";
 
 export type TeamObjectType =
   | "connection"
@@ -97,16 +82,11 @@ async function fetchTeamApi(path: string, init: RequestInit): Promise<Response> 
   if (!jwt || isJwtExpiredOrExpiring(jwt)) jwt = await tryRefreshJwt();
   if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
 
-  const version = await clientVersion();
+  const capability = await clientHeaders();
   const makeHeaders = (token: string) => ({
+    ...capability,
     ...(init.headers as Record<string, string>),
     Authorization: `Bearer ${token}`,
-    // Lets a server opt into refusing writes from builds that predate the
-    // encrypted metadata format (#229). Compatibility only — spoofable, and
-    // never used for authorization. Omitted (rather than a fabricated
-    // sentinel) when the version can't be resolved: an absent header reads
-    // honestly as "unknown", unlike a lied-about "0.0.0".
-    ...(version !== null ? { "X-Client-Version": version } : {}),
   });
 
   let res = await appFetch(`${serverUrl}${path}`, { ...init, headers: makeHeaders(jwt) });
