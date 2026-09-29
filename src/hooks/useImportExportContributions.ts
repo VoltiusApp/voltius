@@ -26,7 +26,7 @@ export function useImportExportContributions() {
 
     const unregs = [
       registerContribution(ID, "connection.contextMenu", (conn: Connection) => exportItem("connections", conn.id)),
-      registerContribution(ID, "connection.panelActions", (conn: Connection) => exportItem("connections", conn.id)),
+      registerContribution(ID, "connection.panelActions", (conn: Connection | undefined) => conn ? exportItem("connections", conn.id) : []),
       registerContribution(ID, "key.contextMenu", (key: SshKey) => exportItem("keys", key.id)),
       registerContribution(ID, "key.panelActions", (key: SshKey | undefined) => key ? exportItem("keys", key.id) : []),
       registerContribution(ID, "identity.contextMenu", (identity: Identity) => exportItem("identities", identity.id)),
