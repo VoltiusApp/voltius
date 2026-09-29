@@ -52,14 +52,14 @@ function clickPerm(perm: keyof typeof PERM_BITS) {
   fireEvent.click(label!);
 }
 
-test("create: createRole(teamId, trimmed name, permissions=0, undefined color) then onClose", async () => {
+test("create: createRole(teamId, trimmed name, permissions=View, undefined color) then onClose", async () => {
   const onClose = vi.fn();
   render(<RoleModal teamId="t1" role={null} onClose={onClose} />);
   fireEvent.change(nameInput(), { target: { value: "  Dev  " } });
   fireEvent.click(screen.getByText("settings.vaults.rolesPanel.createRole"));
 
   await waitFor(() => expect(api.createRole).toHaveBeenCalled());
-  expect(api.createRole).toHaveBeenCalledWith("t1", "Dev", 0, undefined);
+  expect(api.createRole).toHaveBeenCalledWith("t1", "Dev", PERM_BITS.VIEW, undefined);
   expect(api.updateRole).not.toHaveBeenCalled();
   await waitFor(() => expect(onClose).toHaveBeenCalled());
 });
@@ -73,7 +73,7 @@ test("permission toggle flips exactly the clicked bit into the saved permissions
 
   await waitFor(() => expect(api.createRole).toHaveBeenCalled());
   expect(api.createRole).toHaveBeenCalledWith(
-    "t1", "Perms", PERM_BITS.VIEW_SECRETS | PERM_BITS.COPY_SECRETS, undefined,
+    "t1", "Perms", PERM_BITS.VIEW | PERM_BITS.VIEW_SECRETS | PERM_BITS.COPY_SECRETS, undefined,
   );
 });
 
@@ -85,7 +85,7 @@ test("permission toggle twice on same bit clears it (XOR)", async () => {
   fireEvent.click(screen.getByText("settings.vaults.rolesPanel.createRole"));
 
   await waitFor(() => expect(api.createRole).toHaveBeenCalled());
-  expect(api.createRole).toHaveBeenCalledWith("t1", "Perms", 0, undefined);
+  expect(api.createRole).toHaveBeenCalledWith("t1", "Perms", PERM_BITS.VIEW, undefined);
 });
 
 test("preset color select then create: color forwarded to createRole", async () => {
@@ -95,7 +95,7 @@ test("preset color select then create: color forwarded to createRole", async () 
   fireEvent.click(screen.getByText("settings.vaults.rolesPanel.createRole"));
 
   await waitFor(() => expect(api.createRole).toHaveBeenCalled());
-  expect(api.createRole).toHaveBeenCalledWith("t1", "Colorful", 0, "#8b5cf6");
+  expect(api.createRole).toHaveBeenCalledWith("t1", "Colorful", PERM_BITS.VIEW, "#8b5cf6");
 });
 
 test("preset color toggled off (click same swatch twice): undefined color", async () => {
@@ -106,7 +106,7 @@ test("preset color toggled off (click same swatch twice): undefined color", asyn
   fireEvent.click(screen.getByText("settings.vaults.rolesPanel.createRole"));
 
   await waitFor(() => expect(api.createRole).toHaveBeenCalled());
-  expect(api.createRole).toHaveBeenCalledWith("t1", "Colorful", 0, undefined);
+  expect(api.createRole).toHaveBeenCalledWith("t1", "Colorful", PERM_BITS.VIEW, undefined);
 });
 
 test("edit: updateRole(teamId, roleId, {name, permissions, color}) preserving untouched fields", async () => {

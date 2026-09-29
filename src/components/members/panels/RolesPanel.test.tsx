@@ -1,15 +1,19 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 
-const api = vi.hoisted(() => ({ listRoles: vi.fn(), listMembers: vi.fn(), updateRole: vi.fn(async () => {}), getMyUserId: vi.fn(async () => "") }));
+const api = vi.hoisted(() => ({
+  listRoles: vi.fn(), listMembers: vi.fn(), updateRole: vi.fn(async () => {}),
+  createRole: vi.fn(async (_teamId: string, _name: string, _permissions: number, _color?: string) => ({}) as TeamRole),
+  getMyUserId: vi.fn(async () => ""),
+}));
 vi.mock("@/services/teamService", () => api);
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => {}) }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/components/theme-creator/ColorPicker", () => ({ ColorPicker: () => null }));
 
-import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
+import { TeamRolesPanel, RoleModal } from "@/components/members/panels/RolesPanel";
 import { PERM_BITS } from "@/hooks/usePermission";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -23,6 +27,7 @@ beforeEach(() => {
   localStorage.clear();
   Object.values(api).forEach((f) => (f as ReturnType<typeof vi.fn>).mockReset?.());
   api.updateRole.mockResolvedValue(undefined);
+  api.createRole.mockResolvedValue({} as TeamRole);
   useTeamStore.setState({ teams: [], membersByTeam: {}, rolesByTeam: {}, pendingInvitationsByTeam: {}, myPendingInvitations: [], activeTeamId: null, loading: false });
   useSubscriptionStore.setState({ isBusiness: true });
 });
@@ -50,4 +55,12 @@ test("non-business → business upsell shown, gating irrelevant", async () => {
   render(<TeamRolesPanel teamId="t1" myUserId="me" />);
   expect(await screen.findByText("settings.vaults.rolesPanel.businessFeature")).toBeTruthy();
   expect(screen.queryByText("settings.vaults.rolesPanel.newRoleBtn")).toBeNull();
+});
+
+test("a new role starts with View checked", async () => {
+  render(<RoleModal teamId="t1" role={null} onClose={() => {}} />);
+  fireEvent.change(screen.getByPlaceholderText("settings.vaults.rolesPanel.roleNamePlaceholder"), { target: { value: "auditors" } });
+  fireEvent.click(screen.getByText("settings.vaults.rolesPanel.createRole"));
+  await waitFor(() => expect(api.createRole).toHaveBeenCalled());
+  expect(api.createRole.mock.calls[0][2] & PERM_BITS.VIEW).toBe(PERM_BITS.VIEW);
 });

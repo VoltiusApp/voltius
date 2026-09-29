@@ -260,7 +260,7 @@ function permProps(overrides: Partial<{
 test("permission overrides: renders one row per permission and sends the new masks", async () => {
   render(<MemberDetailPanel {...permProps()} />);
 
-  expect(screen.getAllByRole("radiogroup")).toHaveLength(16);
+  expect(screen.getAllByRole("radiogroup")).toHaveLength(18);
 
   const row = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
   fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
@@ -279,7 +279,7 @@ test("permission overrides: renders one row per permission and sends the new mas
 test("permission overrides: the filter narrows visible rows and hides empty groups", () => {
   render(<MemberDetailPanel {...permProps()} />);
 
-  expect(screen.getAllByRole("radiogroup")).toHaveLength(16);
+  expect(screen.getAllByRole("radiogroup")).toHaveLength(18);
 
   fireEvent.change(screen.getByPlaceholderText("members.permissions.filterPlaceholder"), {
     target: { value: "secrets" },

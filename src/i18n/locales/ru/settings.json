@@ -605,12 +605,15 @@
       },
       "rolesPanel": {
         "permGroup": {
+          "administration": "Администрирование",
           "dataAccess": "Доступ к данным",
           "connectionManagement": "Управление подключениями",
           "teamAdministration": "Администрирование команды",
           "terminalSessions": "Сессии терминала"
         },
         "perm": {
+          "VIEW": "Видеть объект",
+          "ADMINISTRATOR": "Все права на все объекты, независимо от их правил",
           "VIEW_SECRETS": "Просматривать пароли и приватные ключи в открытом виде",
           "COPY_SECRETS": "Копировать пароли и ключи в буфер обмена",
           "CONNECT": "Запускать SSH-подключения",
@@ -642,6 +645,7 @@
         "clearColor": "Очистить",
         "preview": "Предпросмотр",
         "permissionsLabel": "Права доступа",
+        "objectOverrideNote": "Любой хост, ключ, идентичность, сниппет или папка могут их переопределить.",
         "saveChanges": "Сохранить изменения",
         "createRole": "Создать роль",
         "errorNameRequired": "Требуется название",

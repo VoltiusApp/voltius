@@ -15,6 +15,7 @@ import { CheckboxBox } from "@/components/shared/Checkbox";
 
 // Maps the canonical group keys onto this screen's own (already-translated) i18n names.
 const GROUP_LABEL_KEY: Record<PermissionGroupKey, string> = {
+  administration: "administration",
   secrets: "dataAccess",
   vaultContent: "connectionManagement",
   team: "teamAdministration",
@@ -113,7 +114,7 @@ export function RoleModal({
   const { t } = useTranslation();
   const { createRole, updateRole } = useTeamStore();
   const [name, setName] = useState(role?.name ?? "");
-  const [permissions, setPermissions] = useState(role?.permissions ?? 0);
+  const [permissions, setPermissions] = useState(role?.permissions ?? PERM_BITS.VIEW);
   const [color, setColor] = useState<string>(role?.color ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -235,6 +236,7 @@ export function RoleModal({
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--t-text-dim)" }}>
               {t("settings.vaults.rolesPanel.permissionsLabel")}
             </label>
+            <p className="text-xs text-(--t-text-dim) px-3 mb-2">{t("settings.vaults.rolesPanel.objectOverrideNote")}</p>
             <PermissionGrid value={permissions} onChange={setPermissions} />
           </div>
 

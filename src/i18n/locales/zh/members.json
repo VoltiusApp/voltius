@@ -49,7 +49,9 @@
       "MANAGE_VAULT": "管理保险库",
       "START_TERMINAL_SESSION": "启动会话",
       "JOIN_TERMINAL_SESSION": "加入会话",
-      "VIEW_TERMINAL_SESSIONS": "查看会话"
+      "VIEW_TERMINAL_SESSIONS": "查看会话",
+      "VIEW": "查看",
+      "ADMINISTRATOR": "管理员"
     },
     "permissions": {
       "title": "权限",
@@ -66,6 +68,7 @@
       "overrideMarker": "存在权限覆盖",
       "filterPlaceholder": "筛选权限…",
       "group": {
+        "administration": "管理",
         "secrets": "密钥与连接",
         "vaultContent": "保险库内容",
         "team": "团队与保险库",

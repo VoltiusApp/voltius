@@ -1,19 +1,8 @@
-import { resolveCan, type Permission } from "@/services/permissions";
+import { resolveCan, EDIT_PERMISSION_OF } from "@/services/permissions";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { getMyUserId } from "@/services/teamService";
 import type { TeamObjectType } from "@/services/teamObjects";
-
-/** Server-side truth is `edit_permission_for_str` in routes/team_objects.rs. */
-const EDIT_PERMISSION: Record<string, Permission> = {
-  connection: "EDIT_CONNECTIONS",
-  port_forwarding_rule: "EDIT_CONNECTIONS",
-  snippet: "EDIT_SNIPPETS",
-  identity: "EDIT_IDENTITIES",
-  key: "EDIT_KEYS",
-  folder: "EDIT_FOLDERS",
-  snippet_folder: "EDIT_FOLDERS",
-};
 
 export interface EditPermissionSnapshot {
   myUserId: string;
@@ -48,6 +37,6 @@ export function canEditObjectType(
   teamId: string,
   objectType: TeamObjectType | string,
 ): boolean {
-  const permission = EDIT_PERMISSION[objectType];
+  const permission = EDIT_PERMISSION_OF[objectType as TeamObjectType];
   return permission !== undefined && resolveCan(snapshot, permission, teamId);
 }

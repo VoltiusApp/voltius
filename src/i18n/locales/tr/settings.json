@@ -518,12 +518,15 @@
       },
       "rolesPanel": {
         "permGroup": {
+          "administration": "Yönetim",
           "dataAccess": "Veri Erişimi",
           "connectionManagement": "Bağlantı Yönetimi",
           "teamAdministration": "Ekip Yönetimi",
           "terminalSessions": "Terminal Oturumları"
         },
         "perm": {
+          "VIEW": "Bir nesneyi görmek",
+          "ADMINISTRATOR": "Kurallarından bağımsız olarak her nesnede her izin",
           "VIEW_SECRETS": "Parolaları ve özel anahtarları düz metin olarak görme",
           "COPY_SECRETS": "Parolaları ve anahtarları panoya kopyalama",
           "CONNECT": "SSH bağlantıları başlatma",
@@ -555,6 +558,7 @@
         "clearColor": "Temizle",
         "preview": "Önizleme",
         "permissionsLabel": "İzinler",
+        "objectOverrideNote": "Her ana bilgisayar, anahtar, kimlik, parçacık veya klasör bunları geçersiz kılabilir.",
         "saveChanges": "Değişiklikleri kaydet",
         "createRole": "Rol oluştur",
         "errorNameRequired": "Ad gereklidir",

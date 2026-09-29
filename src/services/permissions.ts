@@ -1,6 +1,7 @@
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
 import { vaultById } from "@/services/vaultLookup";
+import type { TeamObjectType } from "@/services/teamObjects";
 
 export type Permission =
   | "VIEW_SECRETS"
@@ -19,7 +20,9 @@ export type Permission =
   | "JOIN_TERMINAL_SESSION"
   | "VIEW_TERMINAL_SESSIONS"
   | "MANAGE_ROLES"
-  | "EDIT_SNIPPETS";
+  | "EDIT_SNIPPETS"
+  | "VIEW"
+  | "ADMINISTRATOR";
 
 // Bitmask values for each permission — must stay in sync with server/src/permissions.rs
 // JS bitwise ops coerce to 32-bit signed, so bit 31 and above cannot be used here.
@@ -41,6 +44,68 @@ export const PERM_BITS: Record<Permission, number> = {
   VIEW_TERMINAL_SESSIONS: 1 << 14,  // 16384
   MANAGE_ROLES:           1 << 15,  // 32768
   EDIT_SNIPPETS:          1 << 16,  // 65536
+  VIEW:                   1 << 17,  // 131072
+  ADMINISTRATOR:          1 << 18,  // 262144
+};
+
+export const ALL_PERMISSION_BITS = Object.values(PERM_BITS).reduce((a, b) => a | b, 0);
+
+export const OBJECT_RULE_BITS = PERM_BITS.VIEW | PERM_BITS.CONNECT | PERM_BITS.VIEW_SECRETS
+  | PERM_BITS.COPY_SECRETS | PERM_BITS.EDIT_CONNECTIONS | PERM_BITS.EDIT_IDENTITIES | PERM_BITS.EDIT_KEYS
+  | PERM_BITS.EDIT_FOLDERS | PERM_BITS.EDIT_SNIPPETS | PERM_BITS.MANAGE_ROLES;
+
+export type RuleSubjectType = "everyone" | "role" | "member";
+
+export interface RuleEntry {
+  subject_type: RuleSubjectType;
+  subject_id: string | null;
+  allow: number;
+  deny: number;
+}
+
+type MemberMasks = { user_id?: string; role_ids: string[]; permission_allow?: number; permission_deny?: number };
+
+/**
+ * Preview only; decisions read the server's my_permissions. Keep in sync with
+ * object_permissions() in server/src/permissions.rs.
+ */
+export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[], entries: RuleEntry[] | null): number {
+  const teamDeny = member.permission_deny ?? 0;
+  const base = effectivePermissions(member, roles);
+  if (base & PERM_BITS.ADMINISTRATOR) return ALL_PERMISSION_BITS & ~teamDeny;
+  if (!entries) return base;
+  const layer = (match: (e: RuleEntry) => boolean) => entries.filter(match).reduce(
+    (acc, e) => ({ allow: acc.allow | e.allow, deny: acc.deny | e.deny }), { allow: 0, deny: 0 });
+  const every = layer((e) => e.subject_type === "everyone");
+  const byRole = layer((e) => e.subject_type === "role" && member.role_ids.includes(e.subject_id ?? ""));
+  const mine = layer((e) => e.subject_type === "member" && e.subject_id === member.user_id);
+  let p = (base & ~every.deny) | every.allow;
+  p = (p & ~byRole.deny) | byRole.allow;
+  p = (p & ~mine.deny) | mine.allow;
+  p &= ~teamDeny;
+  return p & PERM_BITS.VIEW ? p : 0;
+}
+
+export const EDIT_PERMISSION_OF: Record<TeamObjectType, Permission> = {
+  connection: "EDIT_CONNECTIONS",
+  port_forwarding_rule: "EDIT_CONNECTIONS",
+  snippet: "EDIT_SNIPPETS",
+  identity: "EDIT_IDENTITIES",
+  key: "EDIT_KEYS",
+  folder: "EDIT_FOLDERS",
+  snippet_folder: "EDIT_FOLDERS",
+};
+
+const CREDENTIAL_ROWS: Permission[] = ["VIEW", "CONNECT", "VIEW_SECRETS", "COPY_SECRETS"];
+
+export const OBJECT_RULE_ROWS: Record<TeamObjectType, Permission[]> = {
+  connection: [...CREDENTIAL_ROWS, "EDIT_CONNECTIONS", "MANAGE_ROLES"],
+  port_forwarding_rule: [...CREDENTIAL_ROWS, "EDIT_CONNECTIONS", "MANAGE_ROLES"],
+  key: [...CREDENTIAL_ROWS, "EDIT_KEYS", "MANAGE_ROLES"],
+  identity: [...CREDENTIAL_ROWS, "EDIT_IDENTITIES", "MANAGE_ROLES"],
+  snippet: ["VIEW", "EDIT_SNIPPETS", "MANAGE_ROLES"],
+  folder: [...CREDENTIAL_ROWS, "EDIT_FOLDERS", "EDIT_CONNECTIONS", "EDIT_KEYS", "EDIT_IDENTITIES", "MANAGE_ROLES"],
+  snippet_folder: ["VIEW", "EDIT_FOLDERS", "EDIT_SNIPPETS", "MANAGE_ROLES"],
 };
 
 export function effectivePermissions(
@@ -177,16 +242,19 @@ export const PERM_META: Record<Permission, { label: string; description: string 
   START_TERMINAL_SESSION: { label: "Start sessions",     description: "Start multiplayer terminal sessions" },
   JOIN_TERMINAL_SESSION:  { label: "Join sessions",      description: "Join existing terminal sessions" },
   VIEW_TERMINAL_SESSIONS: { label: "View sessions",      description: "See active terminal sessions" },
+  VIEW:                   { label: "View",               description: "See the object at all" },
+  ADMINISTRATOR:          { label: "Administrator",      description: "Every permission on every object; object rules do not apply" },
 };
 
-export type PermissionGroupKey = "secrets" | "vaultContent" | "team" | "sessions";
+export type PermissionGroupKey = "administration" | "secrets" | "vaultContent" | "team" | "sessions";
 
 /**
  * How the member-permissions list clusters its rows. Every `Permission` must
  * appear in exactly one group — `permissions.test.ts` asserts the partition.
  */
 export const PERMISSION_GROUPS: { key: PermissionGroupKey; permissions: Permission[] }[] = [
-  { key: "secrets", permissions: ["VIEW_SECRETS", "COPY_SECRETS", "CONNECT"] },
+  { key: "administration", permissions: ["ADMINISTRATOR"] },
+  { key: "secrets", permissions: ["VIEW", "VIEW_SECRETS", "COPY_SECRETS", "CONNECT"] },
   { key: "vaultContent", permissions: ["EDIT_CONNECTIONS", "EDIT_IDENTITIES", "EDIT_KEYS", "EDIT_FOLDERS", "EDIT_SNIPPETS"] },
   { key: "team", permissions: ["INVITE_MEMBERS", "MANAGE_MEMBERS", "MANAGE_ROLES", "MANAGE_VAULT", "VIEW_AUDIT_LOG", "CREATE_CUSTOM_ROLES"] },
   { key: "sessions", permissions: ["START_TERMINAL_SESSION", "JOIN_TERMINAL_SESSION", "VIEW_TERMINAL_SESSIONS"] },

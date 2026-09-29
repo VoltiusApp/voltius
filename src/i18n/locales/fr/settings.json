@@ -600,12 +600,15 @@
       },
       "rolesPanel": {
         "permGroup": {
+          "administration": "Administration",
           "dataAccess": "Accès aux données",
           "connectionManagement": "Gestion des connexions",
           "teamAdministration": "Administration d'équipe",
           "terminalSessions": "Sessions de terminal"
         },
         "perm": {
+          "VIEW": "Voir un objet",
+          "ADMINISTRATOR": "Toutes les permissions sur tous les objets, quelles que soient leurs règles",
           "VIEW_SECRETS": "Voir les mots de passe et clés privées en clair",
           "COPY_SECRETS": "Copier les mots de passe et clés dans le presse-papiers",
           "CONNECT": "Lancer des connexions SSH",
@@ -637,6 +640,7 @@
         "clearColor": "Effacer",
         "preview": "Aperçu",
         "permissionsLabel": "Permissions",
+        "objectOverrideNote": "Chaque hôte, clé, identité, snippet ou dossier peut les remplacer.",
         "saveChanges": "Enregistrer les modifications",
         "createRole": "Créer le rôle",
         "errorNameRequired": "Le nom est requis",

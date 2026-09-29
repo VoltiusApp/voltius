@@ -1,7 +1,8 @@
 import { test, expect, describe, it } from "vitest";
 import {
   resolveCan, PERM_BITS, effectivePermissions, crossesVaultKeyGate, resolveMemberReadOnlyReason,
-  PERMISSION_GROUPS, type Permission, type PermissionSnapshot,
+  PERMISSION_GROUPS, resolveObjectPermissions, ALL_PERMISSION_BITS, OBJECT_RULE_BITS, OBJECT_RULE_ROWS,
+  type Permission, type PermissionSnapshot, type RuleEntry,
 } from "./permissions.ts";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
@@ -255,4 +256,54 @@ test("resolveCan uses team-level deny in the team fallback (before membersByTeam
   });
   expect(resolveCan(s, "VIEW_SECRETS", "t1")).toBe(false);
   expect(resolveCan(s, "CONNECT", "t1")).toBe(true);
+});
+
+const B = PERM_BITS;
+const everyone = (allow: number, deny = 0): RuleEntry => ({ subject_type: "everyone", subject_id: null, allow, deny });
+const roleRule = (id: string, allow: number, deny = 0): RuleEntry => ({ subject_type: "role", subject_id: id, allow, deny });
+const memberRule = (id: string, allow: number, deny = 0): RuleEntry => ({ subject_type: "member", subject_id: id, allow, deny });
+const m = (roleIds: string[], allow = 0, deny = 0) => ({ ...member("u1", roleIds), permission_allow: allow, permission_deny: deny });
+
+describe("resolveObjectPermissions (mirror of server object_permissions)", () => {
+  const roles = [role("dev", B.VIEW | B.CONNECT), role("ops", B.VIEW | B.EDIT_CONNECTIONS), role("own", B.ADMINISTRATOR)];
+
+  it("no rule set returns the team mask", () => {
+    expect(resolveObjectPermissions(m(["dev"]), roles, null)).toBe(B.VIEW | B.CONNECT);
+  });
+  it("@everyone deny removes, then a role allow restores (more specific wins)", () => {
+    const p = resolveObjectPermissions(m(["dev"]), roles, [everyone(0, B.CONNECT), roleRule("dev", B.CONNECT)]);
+    expect(p & B.CONNECT).toBe(B.CONNECT);
+  });
+  it("within the role layer allow beats deny", () => {
+    const p = resolveObjectPermissions(m(["dev", "ops"]), roles, [roleRule("dev", 0, B.CONNECT), roleRule("ops", B.CONNECT)]);
+    expect(p & B.CONNECT).toBe(B.CONNECT);
+  });
+  it("a member rule beats every role rule", () => {
+    const p = resolveObjectPermissions(m(["dev"]), roles, [roleRule("dev", B.CONNECT), memberRule("u1", 0, B.CONNECT)]);
+    expect(p & B.CONNECT).toBe(0);
+  });
+  it("D8: a team-level deny stays absolute", () => {
+    const p = resolveObjectPermissions(m(["dev"], 0, B.CONNECT), roles, [memberRule("u1", B.CONNECT)]);
+    expect(p & B.CONNECT).toBe(0);
+  });
+  it("no VIEW means nothing at all", () => {
+    expect(resolveObjectPermissions(m(["dev"]), roles, [everyone(0, B.VIEW)])).toBe(0);
+  });
+  it("Administrator ignores rules but not the team deny", () => {
+    expect(resolveObjectPermissions(m(["own"], 0, B.COPY_SECRETS), roles, [everyone(0, B.VIEW)]))
+      .toBe(ALL_PERMISSION_BITS & ~B.COPY_SECRETS);
+  });
+});
+
+test("object rules never carry Administrator or team-only bits", () => {
+  expect(OBJECT_RULE_BITS & B.ADMINISTRATOR).toBe(0);
+  expect(OBJECT_RULE_BITS & B.INVITE_MEMBERS).toBe(0);
+  for (const rows of Object.values(OBJECT_RULE_ROWS)) {
+    for (const p of rows) expect(OBJECT_RULE_BITS & B[p]).toBe(B[p]);
+  }
+});
+
+test("View leads the data-access group and Administrator has its own group first", () => {
+  expect(PERMISSION_GROUPS[0]).toEqual({ key: "administration", permissions: ["ADMINISTRATOR"] });
+  expect(PERMISSION_GROUPS[1].permissions[0]).toBe("VIEW");
 });

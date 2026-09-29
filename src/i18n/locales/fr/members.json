@@ -50,7 +50,9 @@
       "MANAGE_VAULT": "Gérer le coffre-fort",
       "START_TERMINAL_SESSION": "Démarrer des sessions",
       "JOIN_TERMINAL_SESSION": "Rejoindre des sessions",
-      "VIEW_TERMINAL_SESSIONS": "Voir les sessions"
+      "VIEW_TERMINAL_SESSIONS": "Voir les sessions",
+      "VIEW": "Afficher",
+      "ADMINISTRATOR": "Administrateur"
     },
     "permissions": {
       "title": "Permissions",
@@ -67,6 +69,7 @@
       "overrideMarker": "Permissions personnalisées",
       "filterPlaceholder": "Filtrer les permissions…",
       "group": {
+        "administration": "Administration",
         "secrets": "Secrets et connexion",
         "vaultContent": "Contenu du coffre-fort",
         "team": "Équipe et coffre-fort",

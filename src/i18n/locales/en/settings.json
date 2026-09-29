@@ -595,12 +595,15 @@
       },
       "rolesPanel": {
         "permGroup": {
+          "administration": "Administration",
           "dataAccess": "Data Access",
           "connectionManagement": "Connection Management",
           "teamAdministration": "Team Administration",
           "terminalSessions": "Terminal Sessions"
         },
         "perm": {
+          "VIEW": "See an object at all",
+          "ADMINISTRATOR": "Every permission on every object, whatever its rules",
           "VIEW_SECRETS": "See passwords and private keys in plain text",
           "COPY_SECRETS": "Copy passwords and keys to clipboard",
           "CONNECT": "Launch SSH connections",
@@ -632,6 +635,7 @@
         "clearColor": "Clear",
         "preview": "Preview",
         "permissionsLabel": "Permissions",
+        "objectOverrideNote": "Any host, key, identity, snippet or folder can override these.",
         "saveChanges": "Save changes",
         "createRole": "Create role",
         "errorNameRequired": "Name is required",

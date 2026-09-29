@@ -471,12 +471,15 @@
       },
       "rolesPanel": {
         "permGroup": {
+          "administration": "管理",
           "dataAccess": "数据访问",
           "connectionManagement": "连接管理",
           "teamAdministration": "团队管理",
           "terminalSessions": "终端会话"
         },
         "perm": {
+          "VIEW": "查看对象",
+          "ADMINISTRATOR": "对所有对象拥有全部权限，不受对象规则限制",
           "VIEW_SECRETS": "以明文查看密码和私钥",
           "COPY_SECRETS": "将密码和密钥复制到剪贴板",
           "CONNECT": "启动 SSH 连接",
@@ -508,6 +511,7 @@
         "clearColor": "清除",
         "preview": "预览",
         "permissionsLabel": "权限",
+        "objectOverrideNote": "任何主机、密钥、身份、代码片段或文件夹都可以覆盖这些权限。",
         "saveChanges": "保存更改",
         "createRole": "创建角色",
         "errorNameRequired": "名称为必填项",
