@@ -71,6 +71,7 @@ import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
+import { unlessMoveCancelled } from "@/services/teamObjectPersistence";
 
 
 export default function HostsPage() {
@@ -104,6 +105,7 @@ export default function HostsPage() {
   const editing = editingId ? (connections.find((c) => c.id === editingId) ?? null) : null;
   const isEditingSerial = editing?.connection_type === "serial";
   const [error, setError] = useState<string | null>(null);
+  const reportError = unlessMoveCancelled(setError);
   const formRef = useRef<ConnectionFormHandle>(null);
   const serialFormRef = useRef<ConnectionFormHandle>(null);
   const hostFormSessionKeyRef = useRef<string>("new");
@@ -574,7 +576,7 @@ export default function HostsPage() {
       const saved = await saveHostFromForm(editing, data, secrets, selectedVaultIds[0] ?? "personal");
       if (!editing && saved) setEditingId(saved.id);
     } catch (err) {
-      setError(String(err));
+      reportError(err);
     }
   };
 
@@ -601,7 +603,7 @@ export default function HostsPage() {
             await moveIdentityToVault(identity, vaultId, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId }, updateIdentity);
           }
           await moveConnectionToVault(conn, vaultId, updateConnection);
-        } catch (err) { setError(String(err)); }
+        } catch (err) { reportError(err); }
       },
     });
   };
@@ -706,7 +708,7 @@ export default function HostsPage() {
             await moveIdentityToVault(identity, vaultId, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId }, updateIdentity);
           }
           await migrateFolderTreeToVault(folder, folder.parent_folder_id ?? null, vaultId);
-        } catch (err) { setError(String(err)); }
+        } catch (err) { reportError(err); }
       },
     });
   };
@@ -863,7 +865,7 @@ export default function HostsPage() {
           {!showSnippetPicker && editingFolder && (
             <FolderEditPanel
               folder={editingFolder}
-              onUpdate={(id, data) => void updateFolder(id, data)}
+              onUpdate={updateFolder}
               onDelete={(f) => setConfirmDeleteFolderId(f.id)}
               onExport={() => useUIStore.getState().openImportExport("export", { bulk: { connections: connections.filter((c) => c.folder_id === editingFolder.id).map((c) => c.id) } })}
               onClose={() => setEditingFolderId(null)}

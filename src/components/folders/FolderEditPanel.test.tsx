@@ -1,9 +1,10 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { useEffect, useRef, useState } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Folder } from "@/types";
 import { FolderEditPanel } from "./FolderEditPanel";
 import { FolderCard } from "./FolderCard";
+import { RuleSetMoveCancelled } from "@/services/teamObjectPersistence";
 
 const pins = vi.hoisted(() => ({ folder: vi.fn(async () => {}), snippetFolder: vi.fn(async () => {}) }));
 
@@ -72,6 +73,15 @@ test("changing the parent saves it", () => {
   fireEvent.click(screen.getByRole("button", { name: /shared.folderSelector.noFolder/ }));
   fireEvent.click(screen.getByText(other.name));
   expect(onUpdate).toHaveBeenCalledWith(folder.id, expect.objectContaining({ parent_folder_id: other.id }));
+});
+
+test("a cancelled parent change puts the old parent back", async () => {
+  const onUpdate = vi.fn(async () => { throw new RuleSetMoveCancelled(); });
+  render(<FolderEditPanel folder={folder} parentOptions={[other]} onUpdate={onUpdate} onDelete={vi.fn()} onClose={vi.fn()} onOpen={vi.fn()} onSelectSelf={vi.fn()} canEdit />);
+  fireEvent.click(screen.getByRole("button", { name: /shared.folderSelector.noFolder/ }));
+  fireEvent.click(screen.getByText(other.name));
+  expect(screen.getByRole("button", { name: new RegExp(other.name) })).toBeTruthy();
+  await waitFor(() => expect(screen.getByRole("button", { name: /shared.folderSelector.noFolder/ })).toBeTruthy());
 });
 
 test("the parent list only offers folders in the panel's vault, and follows a vault change", () => {

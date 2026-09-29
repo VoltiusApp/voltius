@@ -10,6 +10,7 @@ import {
   type ClipboardAdapter,
   type PasteResult,
 } from "@/services/vaultClipboard";
+import { RuleSetMoveCancelled } from "@/services/teamObjectPersistence";
 
 export interface PageClipboardAdapter extends ClipboardAdapter {
   getSelection: () => string[];
@@ -173,6 +174,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
             useVaultClipboardStore.getState().clear();
           }
         } catch (e) {
+          if (e instanceof RuleSetMoveCancelled) return;
           // Caught here so a rejected paste (IPC/network/permission failure)
           // can't stall every later paste on this page.
           // Said out loud too: a swallowed rejection is a Ctrl+V that does nothing.

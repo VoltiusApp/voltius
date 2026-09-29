@@ -5,6 +5,7 @@ import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useHistoryStore } from "@/stores/historyStore";
+import { RuleSetMoveCancelled } from "@/services/teamObjectPersistence";
 
 function baseAdapter(over = {}) {
   return {
@@ -298,6 +299,19 @@ test("a paste that rejects raises an error toast", async () => {
   expect(toast.severity).toBe("error");
   expect(toast.message).toContain("Connection c1 not found");
   expect(spy).toHaveBeenCalled();
+  spy.mockRestore();
+});
+
+test("a paste whose move warning is cancelled raises no toast", async () => {
+  const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+  const a = baseAdapter({ moveItems: vi.fn(async () => { throw new RuleSetMoveCancelled(); }) });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(a.moveItems).toHaveBeenCalled());
+  await new Promise((r) => setTimeout(r, 0));
+  expect(useNotificationStore.getState().toasts).toEqual([]);
+  expect(spy).not.toHaveBeenCalled();
   spy.mockRestore();
 });
 

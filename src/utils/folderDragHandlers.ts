@@ -1,3 +1,5 @@
+import { RuleSetMoveCancelled, unlessMoveCancelled } from "@/services/teamObjectPersistence";
+
 interface FolderDragHandlersInput {
   /** Refiles items under `folderId`; null is the root. */
   moveItems: (ids: string[], folderId: string | null) => Promise<void>;
@@ -26,11 +28,11 @@ export function folderDragHandlers({
   onError,
 }: FolderDragHandlersInput): FolderDragHandlers {
   const guard = async (run: () => Promise<void>) => {
-    if (!onError) return run();
     try {
       await run();
     } catch (err) {
-      onError(String(err));
+      if (onError) unlessMoveCancelled(onError)(err);
+      else if (!(err instanceof RuleSetMoveCancelled)) throw err;
     }
   };
   return {

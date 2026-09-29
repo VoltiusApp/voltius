@@ -526,7 +526,7 @@ export function PortForwardingPage() {
           {editingFolder !== null && !showForm && (
             <FolderEditPanel
               folder={editingFolder}
-              onUpdate={(id, data) => void updateFolder(id, data)}
+              onUpdate={updateFolder}
               onDelete={(f) => setConfirmDeleteFolderId(f.id)}
               onClose={() => setEditingFolderId(null)}
               onOpen={() => { navigateInto(editingFolder); setEditingFolderId(null); }}

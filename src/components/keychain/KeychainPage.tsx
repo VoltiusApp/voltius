@@ -61,6 +61,7 @@ import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { useSearchMatcher } from "@/utils/search";
+import { unlessMoveCancelled } from "@/services/teamObjectPersistence";
 
 export default function KeychainPage() {
   const { t } = useTranslation();
@@ -94,6 +95,7 @@ export default function KeychainPage() {
   const identityFormVersion = useSyncedFormKey(editingIdentity?.updated_at, showIdentityForm, () => identityFormIsDirtyRef.current);
   const [exportingKey, setExportingKey] = useState<SshKey | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const reportError = unlessMoveCancelled(setError);
   const layoutMode = useUIStore((s) => s.keychainLayoutMode);
   const setLayoutMode = useUIStore((s) => s.setKeychainLayoutMode);
   const sortMode = useUIStore((s) => s.keychainSortMode);
@@ -461,7 +463,7 @@ export default function KeychainPage() {
       const key = await saveKeyFromForm(editingKey, data, privateKey, publicKey, passphrase, selectedVaultIds[0] ?? "personal");
       if (!editingKey) setEditingKeyId(key.id);
     } catch (err) {
-      setError(String(err));
+      reportError(err);
     }
   };
 
@@ -476,7 +478,7 @@ export default function KeychainPage() {
       );
       if (!editingIdentity) setEditingIdentityId(identity.id);
     } catch (err) {
-      setError(String(err));
+      reportError(err);
     }
   };
 
@@ -547,7 +549,7 @@ export default function KeychainPage() {
     try {
       await moveKeyToVault(key, vaultId, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }, updateKey);
     }
-    catch (err) { setError(String(err)); }
+    catch (err) { reportError(err); }
   };
 
   const handleCopyKeyToVault = async (key: SshKey, vaultId: string) => {
@@ -583,7 +585,7 @@ export default function KeychainPage() {
             name: identity.name, username: identity.username,
             key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId,
           }, updateIdentity);
-        } catch (err) { setError(String(err)); }
+        } catch (err) { reportError(err); }
       },
     });
   };
@@ -666,7 +668,7 @@ export default function KeychainPage() {
       execute: async () => {
         try {
           await migrateFolderTreeToVault(folder, folder.parent_folder_id ?? null, vaultId);
-        } catch (err) { setError(String(err)); }
+        } catch (err) { reportError(err); }
       },
     });
   };
@@ -853,7 +855,7 @@ export default function KeychainPage() {
           {editingFolder !== null && !showPanel && (
             <FolderEditPanel
               folder={editingFolder}
-              onUpdate={(id, data) => void updateFolder(id, data)}
+              onUpdate={updateFolder}
               onDelete={(f) => setConfirmDeleteFolderId(f.id)}
               onExport={() => useUIStore.getState().openImportExport("export", { bulk: { keys: keys.filter((k) => k.folder_id === editingFolder.id).map((k) => k.id), identities: identities.filter((i) => i.folder_id === editingFolder.id).map((i) => i.id) } })}
               onClose={() => setEditingFolderId(null)}

@@ -956,7 +956,7 @@ export function SnippetsPage() {
           <FolderEditPanel
             key={editingFolder.id}
             folder={editingFolder}
-            onUpdate={(id, data) => void updateFolder(id, data)}
+            onUpdate={updateFolder}
             onDelete={(f) => setConfirmDeleteFolder(f)}
             onClose={folderEp.closeEdit}
             onOpen={() => { navigateInto(editingFolder); folderEp.closeEdit(); }}

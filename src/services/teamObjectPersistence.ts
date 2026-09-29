@@ -26,6 +26,10 @@ export class RuleSetMoveCancelled extends Error {
   }
 }
 
+export const unlessMoveCancelled = (report: (message: string) => void) => (err: unknown): void => {
+  if (!(err instanceof RuleSetMoveCancelled)) report(String(err));
+};
+
 type MoveConfirmer = (teamId: string, from: string | null, to: string | null) => Promise<boolean>;
 let confirmMove: MoveConfirmer = async () => true;
 
