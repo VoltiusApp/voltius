@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
@@ -26,6 +27,7 @@ interface FolderEditPanelProps {
   onUpdate: (id: string, data: FolderFormData) => void;
   onDelete: (folder: Folder) => void;
   onExport?: () => void;
+  onShare?: () => void;
   onClose: () => void;
   onOpen: () => void;
   onSelectSelf: () => void;
@@ -43,6 +45,7 @@ export function FolderEditPanel({
   onUpdate,
   onDelete,
   onExport,
+  onShare,
   onClose,
   onOpen,
   onSelectSelf,
@@ -102,11 +105,12 @@ export function FolderEditPanel({
     pinItem: pin.pinItem,
     pinTeamItem: pin.pinTeamItem,
     onExport,
+    onShare,
     vaults,
     canEdit,
     onMoveToVault,
     onCopyToVault,
-    clipboard: clipboardMenuItems(t).map((i) => ({ ...i, onClick: () => { onSelectSelf(); i.onClick?.(); } })),
+    clipboard: clipboardMenuItems(t).map((i) => ({ ...i, onClick: () => { flushSync(onSelectSelf); i.onClick?.(); } })),
     isSynced,
     onToggleSync: () => toggleExcluded(folder.id),
     onDelete: () => onDelete(folder),
@@ -132,7 +136,7 @@ export function FolderEditPanel({
           </div>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("folders.editPanel.parentLabel")}</label>
-            <FolderSelector value={parentId} folders={parentOptions ?? []} onChange={handleParentChange} />
+            <FolderSelector value={parentId} folders={(parentOptions ?? []).filter((f) => (f.vault_id ?? "personal") === vaultId)} onChange={handleParentChange} />
           </div>
         </FormSection>
         <PermissionsSection objectId={folder.id} vaultId={folder.vault_id} type={syncObjectType === "snippet" ? "snippet_folder" : "folder"} />

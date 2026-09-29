@@ -999,7 +999,7 @@ export default function KeychainPage() {
                       onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                       {...folderDropProps(folder.id)}
                       vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
-                      canEdit={can("EDIT_KEYS", folder.vault_id ?? "personal", folder.id)}
+                      canEdit={can("EDIT_FOLDERS", folder.vault_id ?? "personal", folder.id)}
                       onMoveToVault={(vaultId) => handleMoveFolderToVault(folder, vaultId)}
                       onCopyToVault={(vaultId) => handleCopyFolderToVault(folder, vaultId)}
                       bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}

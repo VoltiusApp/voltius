@@ -613,7 +613,7 @@ export function PortForwardingPage() {
                   style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } : undefined}
                 >
                   {visibleFolders.map((folder) => {
-                    const folderCanEdit = canEdit(folder.vault_id ?? "personal", folder.id);
+                    const folderCanEdit = can("EDIT_FOLDERS", folder.vault_id ?? "personal", folder.id);
                     return (
                       <FolderCard
                         key={folder.id}

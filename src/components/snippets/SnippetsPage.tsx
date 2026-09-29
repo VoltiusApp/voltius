@@ -968,6 +968,7 @@ export function SnippetsPage() {
             onMoveToVault={(vaultId) => void handleMoveFolderToVault(editingFolder, vaultId)}
             onCopyToVault={(vaultId) => void handleCopyFolderToVault(editingFolder, vaultId)}
             onExport={() => useUIStore.getState().openImportExport("export", { bulk: { snippets: snippets.filter((s) => s.folder_id === editingFolder.id).map((s) => s.id) } })}
+            onShare={() => setSharing({ snippets: snippets.filter((s) => s.folder_id === editingFolder.id && !s.deleted_at), packName: editingFolder.name })}
           />
         ) : ep.editing !== null ? (
           <SnippetForm
@@ -1112,7 +1113,7 @@ export function SnippetsPage() {
                         onDelete={(f) => setConfirmDeleteFolder(f)}
                         onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
                         onEdit={() => { ep.closeEdit(); folderEp.transitionToExisting(folder); }}
-                        canEdit
+                        canEdit={can("EDIT_FOLDERS", folder.vault_id ?? "personal", folder.id)}
                         onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                         {...folderDropProps(folder.id)}
                         vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
