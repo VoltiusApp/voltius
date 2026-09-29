@@ -218,6 +218,22 @@ test("a rule-set reload during queued saves keeps the newer draft", async () => 
   expect(await checked("CONNECT", "deny")).toBe("true");
 });
 
+test("switching to another object while a save is pending shows that object's own rules", async () => {
+  useTeamObjectAccessStore.getState().replaceTeam("t1", {
+    c1: { type: "connection", ruleSetId: "s1", myPermissions: ALL_PERMISSION_BITS, parentId: null, deleted: false },
+    c2: { type: "connection", ruleSetId: "s2", myPermissions: ALL_PERMISSION_BITS, parentId: null, deleted: false },
+  }, true);
+  const viewDeny = [{ subject_type: "everyone" as const, subject_id: null, allow: 0, deny: PERM_BITS.VIEW }];
+  vi.mocked(getRuleSet).mockImplementation(async (_team, setId) => (setId === "s2" ? viewDeny : []));
+  vi.mocked(saveObjectRules).mockReturnValueOnce(deferred().promise);
+  const { rerender } = render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  await waitFor(async () => expect((await radio("CONNECT", "deny")).hasAttribute("disabled")).toBe(false));
+  fireEvent.click(await radio("CONNECT", "deny"));
+  rerender(<PermissionsSection objectId="c2" vaultId="t1" type="connection" />);
+  await waitFor(async () => expect(await checked("VIEW", "deny")).toBe("true"));
+  expect(await checked("CONNECT", "inherit")).toBe("true");
+});
+
 test("a failed load shows the server's error, never empty brackets", async () => {
   seed();
   vi.mocked(getRuleSet).mockRejectedValue(new Error("Could not load permissions (500)"));

@@ -92,7 +92,17 @@ function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd }:
   );
 }
 
-export function PermissionsSection({ objectId, vaultId, type }: { objectId: string; vaultId?: string; type: TeamObjectType }) {
+interface PermissionsSectionProps {
+  objectId: string;
+  vaultId?: string;
+  type: TeamObjectType;
+}
+
+export function PermissionsSection(props: PermissionsSectionProps) {
+  return <ObjectPermissions key={props.objectId} {...props} />;
+}
+
+function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps) {
   const { t } = useTranslation();
   const teamId = useVaultStore((s) => s.vaults.find((v) => v.id === vaultId)?.teamId ?? null);
   const entries = useTeamObjectAccessStore((s) => (teamId ? s.byTeam[teamId] : undefined));
