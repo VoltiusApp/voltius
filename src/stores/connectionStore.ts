@@ -5,11 +5,11 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
-import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory } from "@/stores/recreateHistory";
+import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory, pushTeamDeleteHistory } from "@/stores/recreateHistory";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
-import { copyingRulesOf, rulesSourceOf } from "@/services/ruleSetIntent";
+import { rulesSourceOf } from "@/services/ruleSetIntent";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
@@ -214,12 +214,15 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       await removeTeamVaultObject(teamId, id);
       set((s) => ({ teamConnections: removeFromTeamMap(s.teamConnections, teamId, id) }));
       reportAuditMutation("connection", "deleted", { id: prev.id, name: prev.name ?? prev.host, vault_id: prev.vault_id });
-      const prevData: ConnectionFormData = connectionToFormData(prev);
-      pushDeleteHistory({
+      pushTeamDeleteHistory({
         label: `Deleted connection "${prev.name ?? prev.host}"`,
-        id,
-        data: copyingRulesOf(prevData, id),
-        create: (d) => useConnectionStore.getState().saveConnection(d),
+        teamId,
+        type: "connection",
+        item: prev,
+        putBack: (c) => {
+          set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, c) }));
+          reportAuditMutation("connection", "created", { id: c.id, name: c.name ?? c.host, vault_id: c.vault_id });
+        },
         remove: (cid) => useConnectionStore.getState().deleteConnection(cid),
       });
       return;

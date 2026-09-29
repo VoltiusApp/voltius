@@ -105,6 +105,14 @@ test("undo restore of a deleted restricted object keeps its pointer", async () =
   expect(sent()[0].rule_set_id).toBeUndefined();
 });
 
+test("restoring a deleted object on its own set sends no rule_set_id and copies nothing", async () => {
+  await removeTeamVaultObject("t1", "cOwn");
+  await saveTeamVaultObject("t1", "connection", { id: "cOwn", folder_id: "fA" });
+  expect(sent()[0].rule_set_id).toBeUndefined();
+  expect(copyRuleSet).not.toHaveBeenCalled();
+  expect(objectAccess("t1", "cOwn")).toMatchObject({ ruleSetId: "sOwn", deleted: false });
+});
+
 test("a synced move asks, then repoints and records the new set", async () => {
   const confirm = vi.fn(async () => true);
   setRuleSetMoveConfirmer(confirm);

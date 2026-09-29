@@ -8,7 +8,7 @@ import {
   ruleSetsSupported, teamAccessEntries, useTeamObjectAccessStore, type TeamAccessEntries,
 } from "@/stores/teamObjectAccessStore";
 
-interface PersistableTeamObject {
+export interface PersistableTeamObject {
   id: string;
   name?: string;
   folder_id?: string;

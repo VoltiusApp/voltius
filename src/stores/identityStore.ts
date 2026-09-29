@@ -4,11 +4,11 @@ import * as api from "@/services/identities";
 import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory } from "@/stores/recreateHistory";
+import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory, pushTeamDeleteHistory } from "@/stores/recreateHistory";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
-import { copyingRulesOf, rulesSourceOf } from "@/services/ruleSetIntent";
+import { rulesSourceOf } from "@/services/ruleSetIntent";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
@@ -199,12 +199,15 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
       await removeTeamVaultObject(teamId, id);
       set((s) => ({ teamIdentities: removeFromTeamMap(s.teamIdentities, teamId, id) }));
       reportAuditMutation("identity", "deleted", { id: prev.id, name: prev.name ?? prev.username, vault_id: prev.vault_id });
-      const prevData = identityToFormData(prev);
-      pushDeleteHistory({
+      pushTeamDeleteHistory({
         label: `Deleted identity "${prev.name ?? prev.username}"`,
-        id,
-        data: copyingRulesOf(prevData, id),
-        create: (d) => useIdentityStore.getState().saveIdentity(d),
+        teamId,
+        type: "identity",
+        item: prev,
+        putBack: (i) => {
+          set((s) => ({ teamIdentities: upsertInTeamMap(s.teamIdentities, teamId, i) }));
+          reportAuditMutation("identity", "created", { id: i.id, name: i.name ?? i.username, vault_id: i.vault_id });
+        },
         remove: (iid) => useIdentityStore.getState().deleteIdentity(iid),
       });
       return;

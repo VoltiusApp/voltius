@@ -4,11 +4,11 @@ import * as api from "@/services/keys";
 import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory } from "@/stores/recreateHistory";
+import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory, pushTeamDeleteHistory } from "@/stores/recreateHistory";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
-import { copyingRulesOf, rulesSourceOf } from "@/services/ruleSetIntent";
+import { rulesSourceOf } from "@/services/ruleSetIntent";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
@@ -198,12 +198,15 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       await removeTeamVaultObject(teamId, id);
       set((s) => ({ teamKeys: removeFromTeamMap(s.teamKeys, teamId, id) }));
       reportAuditMutation("key", "deleted", { id: prev.id, name: prev.name ?? "unnamed", vault_id: prev.vault_id }, { key_type: prev.key_type });
-      const prevData = keyToFormData(prev);
-      pushDeleteHistory({
+      pushTeamDeleteHistory({
         label: `Deleted key "${prev.name ?? "unnamed"}"`,
-        id,
-        data: copyingRulesOf(prevData, id),
-        create: (d) => useKeyStore.getState().saveKey(d),
+        teamId,
+        type: "key",
+        item: prev,
+        putBack: (k) => {
+          set((s) => ({ teamKeys: upsertInTeamMap(s.teamKeys, teamId, k) }));
+          reportAuditMutation("key", "created", { id: k.id, name: k.name ?? "unnamed", vault_id: k.vault_id }, { key_type: k.key_type });
+        },
         remove: (kid) => useKeyStore.getState().deleteKey(kid),
       });
       return;

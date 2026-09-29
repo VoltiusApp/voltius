@@ -8,10 +8,10 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { useHistoryStore } from "@/stores/historyStore";
-import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
+import { pushCreateHistory, pushDeleteHistory, pushTeamDeleteHistory } from "@/stores/recreateHistory";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
-import { copyingRulesOf, rulesSourceOf } from "@/services/ruleSetIntent";
+import { rulesSourceOf } from "@/services/ruleSetIntent";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 
@@ -214,12 +214,15 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       await removeTeamVaultObject(teamId, id);
       set((s) => ({ teamSnippets: removeFromTeamMap(s.teamSnippets, teamId, id) }));
       reportAuditMutation("snippet", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id });
-      const prevData = snippetToFormData(prev);
-      pushDeleteHistory({
+      pushTeamDeleteHistory({
         label: `Deleted snippet "${prev.name}"`,
-        id,
-        data: copyingRulesOf(prevData, id),
-        create: (d) => useSnippetStore.getState().createSnippet(d),
+        teamId,
+        type: "snippet",
+        item: prev,
+        putBack: (sn) => {
+          set((s) => ({ teamSnippets: upsertInTeamMap(s.teamSnippets, teamId, sn) }));
+          reportAuditMutation("snippet", "created", { id: sn.id, name: sn.name, vault_id: sn.vault_id });
+        },
         remove: (sid) => useSnippetStore.getState().deleteSnippet(sid),
       });
       return;

@@ -11,6 +11,7 @@ const h = vi.hoisted(() => {
   return {
     saveTeamVaultObject: vi.fn(async (_teamId: string, _kind: string, _item: unknown) => {}),
     removeTeamVaultObject: vi.fn(async (_teamId: string, _id: string) => {}),
+    writeSecretAt: vi.fn(async (_teamId: string, _key: string, _value: string) => {}),
     reportAuditMutation: vi.fn(),
     scheduleSync: vi.fn(),
     isServerMode: vi.fn(async () => true),
@@ -28,6 +29,10 @@ const h = vi.hoisted(() => {
 vi.mock("@/services/teamObjectPersistence", () => ({
   saveTeamVaultObject: h.saveTeamVaultObject,
   removeTeamVaultObject: h.removeTeamVaultObject,
+}));
+vi.mock("@/services/secretRouting", () => ({
+  writeSecretAt: h.writeSecretAt,
+  keepCachedOnUploadFailure: () => () => {},
 }));
 vi.mock("@/services/auditMutations", () => ({ reportAuditMutation: h.reportAuditMutation }));
 vi.mock("@/services/sync", () => ({ scheduleSync: h.scheduleSync }));
@@ -79,6 +84,7 @@ import { usePortForwardingStore } from "./portForwardingStore";
 import { useTeamStore } from "./teamStore";
 import { useSyncPrefsStore } from "./syncPrefsStore";
 import { useHistoryStore } from "./historyStore";
+import { teamSecretCache } from "@/services/teamSecretCache";
 
 type Bag = Record<string, unknown>;
 type Store = { getState: () => Bag; setState: (s: Bag) => void };
@@ -322,12 +328,27 @@ describe.each(adapters)("$name store", (a) => {
 });
 
 describe.each(adapters.filter((a) => ["connection", "identity", "key", "snippet"].includes(a.name)))("$name delete undo", (a) => {
-  test("undoing a team delete recreates the object carrying the original's rules", async () => {
-    seedTeam(a, { "team-a": [a.seed({ vault_id: "team-a" })] });
+  test("undoing a team delete restores the original object, and redo deletes it again", async () => {
+    const original = a.seed({ vault_id: "team-a", folder_id: "f1" });
+    seedTeam(a, { "team-a": [original] });
     await a.remove("x1");
+    expect(teamMap(a)["team-a"]).toEqual([]);
     await useHistoryStore.getState().undo();
-    expect(h.saveTeamVaultObject).toHaveBeenCalledWith("team-a", a.persistKind, expect.objectContaining({ vault_id: "team-a" }), { rulesFrom: "x1" });
+    expect(h.saveTeamVaultObject.mock.calls).toEqual([["team-a", a.persistKind, original]]);
+    expect(teamMap(a)["team-a"]).toEqual([original]);
+    await useHistoryStore.getState().redo();
+    expect(h.removeTeamVaultObject.mock.calls).toEqual([["team-a", "x1"], ["team-a", "x1"]]);
+    expect(teamMap(a)["team-a"]).toEqual([]);
   });
+});
+
+test("undoing a team connection delete re-uploads its cached secrets", async () => {
+  teamSecretCache.set("team-a", "password:x1", "pw");
+  seedTeam(adapters[0], { "team-a": [adapters[0].seed({ vault_id: "team-a" })] });
+  await adapters[0].remove("x1");
+  await useHistoryStore.getState().undo();
+  expect(h.writeSecretAt.mock.calls).toEqual([["team-a", "password:x1", "pw"]]);
+  teamSecretCache.clearAll();
 });
 
 describe("audit reporting", () => {
