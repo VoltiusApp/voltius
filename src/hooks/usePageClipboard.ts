@@ -105,7 +105,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
       deleteItems: (ids) => ref.current.deleteItems(ids),
       deleteFolder: (id) => ref.current.deleteFolder(id),
       setSelection: (ids) => ref.current.setSelection(ids),
-      can: (permission, vaultId) => ref.current.can(permission, vaultId),
+      can: (permission, vaultId, objectId) => ref.current.can(permission, vaultId, objectId),
     };
 
     const fill = (mode: "copy" | "cut") => () => {

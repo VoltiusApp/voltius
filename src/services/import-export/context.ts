@@ -92,14 +92,11 @@ export function hasSelection(s: SelectionProps): boolean {
 // Handlers read allFolders/allIdentities/allKeys for cascade resolution
 // and write into the eid maps so later handlers can cross-reference.
 
+export type SecretGate = (object: { id: string; vault_id?: string }) => boolean;
+
 export interface ExportCtx {
-  /**
-   * Reads an object's stored secret, or resolves null when the caller's role in
-   * `vaultId` lacks VIEW_SECRETS. Every handler goes through this rather than
-   * `getSecret` so a bundle can never carry plaintext its builder is not
-   * allowed to see (issue #190).
-   */
-  readSecret: (vaultId: string | undefined) => (key: string) => Promise<string | null>;
+  /** Resolves null when the caller may not both view and copy this object's secrets (#190, #387). */
+  readSecret: (object: { id: string; vault_id?: string }) => (key: string) => Promise<string | null>;
   folderEidMap: Map<string, string>;
   snippetFolderEidMap: Map<string, string>;
   keyEidMap: Map<string, string>;

@@ -12,7 +12,7 @@ import { toJSON, encryptText, decryptText, detectFormat, secretBearingTypes } fr
 import { parseImport } from "@/services/import-export/importers";
 import { connectionsToCSV } from "@/services/import-export/parsers/csv";
 import type { ExportBundle } from "@/services/import-export/formats";
-import type { ImportStores, ReloadFns, StoreSlices } from "@/services/import-export/context";
+import type { ImportStores, ReloadFns, SecretGate, StoreSlices } from "@/services/import-export/context";
 import { liveInVault, newImportCtx } from "@/services/import-export/context";
 import { loadPublicKeys } from "@/services/publicKeyStore";
 import type { PortForwardingRule } from "@/types";
@@ -118,9 +118,9 @@ function bundleCounts(bundle: ExportBundle): Record<string, number> {
   return counts;
 }
 
-async function canViewSecretsForVault(): Promise<(vaultId: string) => boolean> {
+async function mayExportSecretsGate(): Promise<SecretGate> {
   const can = await canFromStoresAsync();
-  return (vaultId) => can("VIEW_SECRETS", vaultId);
+  return (o) => can("VIEW_SECRETS", o.vault_id ?? "personal", o.id) && can("COPY_SECRETS", o.vault_id ?? "personal", o.id);
 }
 
 export async function exportObjects(opts: {
@@ -151,8 +151,8 @@ export async function exportObjects(opts: {
   let bundle: ExportBundle;
   try {
     // An export is a read of every secret it carries, so it obeys the same
-    // VIEW_SECRETS gate the editors do (issue #190).
-    bundle = await buildBundle(enabled, storeSlices(), opts.vaultIds, {}, await canViewSecretsForVault());
+    // per-object View and Copy secrets gate the editors do (issue #190).
+    bundle = await buildBundle(enabled, storeSlices(), opts.vaultIds, {}, await mayExportSecretsGate());
   } catch (e) {
     return failed(e instanceof Error ? e.message : String(e));
   }

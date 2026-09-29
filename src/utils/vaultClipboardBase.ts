@@ -31,7 +31,7 @@ interface VaultClipboardBaseInput {
   scopedVaultId: string | null;
   accessibleVaultIds: string[];
   vaultOptions: { id: string; name: string }[];
-  can: (permission: Permission, vaultId: string) => boolean;
+  can: (permission: Permission, vaultId: string, objectId?: string) => boolean;
   confirmCrossVault: PageClipboardAdapter["confirmCrossVault"];
   setSelection: (ids: string[]) => void;
   /** Carries a folder subtree, contents included, into another vault. */
@@ -133,7 +133,7 @@ export function vaultClipboardBase({
       canMoveFolder: (id, parentFolderId) =>
         parentFolderId !== id
         && !(parentFolderId !== null && descendantFolders(folders, id).some((f) => f.id === parentFolderId)),
-      can: (permission, vaultId) => can(permission as Permission, vaultId),
+      can: (permission, vaultId, objectId) => can(permission as Permission, vaultId, objectId),
       // A same-vault move only reparents; a cross-vault one has to carry the whole
       // subtree, otherwise it would keep a stale vault_id alongside its new folder's.
       moveFolder: async (id, parentFolderId, vaultId) => {

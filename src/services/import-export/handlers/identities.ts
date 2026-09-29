@@ -28,7 +28,7 @@ export const identitiesHandler: DataTypeHandler = {
       _eid: ctx.identityEidMap.get(i.id),
       name: i.name,
       username: i.username,
-      ...(await fetchIdentitySecrets(i.id, ctx.readSecret(i.vault_id))),
+      ...(await fetchIdentitySecrets(i.id, ctx.readSecret(i))),
       tags: i.tags,
       _key_eid: i.key_id ? ctx.keyEidMap.get(i.key_id) : undefined,
       _folder_eid: i.folder_id ? ctx.folderEidMap.get(i.folder_id) : undefined,

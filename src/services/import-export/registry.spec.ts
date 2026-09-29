@@ -6,7 +6,10 @@ import { newImportCtx } from "./context";
 import { buildBundle, importableFolders, runImport } from "./registry";
 
 const PUB = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKey";
-vi.mock("@/services/vault", () => ({ getSecret: vi.fn(async () => null), storeSecret: vi.fn(async () => {}) }));
+vi.mock("@/services/vault", () => ({
+  getSecret: vi.fn(async (key: string) => key.startsWith("password:") ? `pw-${key.slice("password:".length)}` : null),
+  storeSecret: vi.fn(async () => {}),
+}));
 vi.mock("@/services/publicKeyStore", () => ({ ensurePublicKey: vi.fn(async (k: { id: string }) => k.id === "k1" ? `${PUB} me@a` : null) }));
 
 const conn = (over: Partial<Connection>) =>
@@ -420,5 +423,18 @@ describe("connection pre/post-connect snippets", () => {
     const { ctx, saved } = importCtx([]);
     await runImport(bundleOf({ ...web, pre_snippet_id: "stale", key_id: "stale-key" }, []), ctx);
     expect(saved.get("web")).toMatchObject({ pre_snippet_id: undefined, key_id: undefined });
+  });
+});
+
+describe("buildBundle — per-object secret gate", () => {
+  it("exports only what each object's own rules allow", async () => {
+    const gate = (o: { id: string }) => o.id !== "locked";
+    const stores = storesOf({
+      connections: [conn({ id: "locked", name: "locked", vault_id: "t1" }), conn({ id: "open", name: "open", vault_id: "t1" })],
+    });
+    const bundle = await buildBundle(onlyConnections, stores, ["t1"], {}, gate);
+    const byId = Object.fromEntries(bundle.connections.map((c) => [c.name, c]));
+    expect(byId.locked.password).toBeUndefined();
+    expect(byId.open.password).toBe("pw-open");
   });
 });

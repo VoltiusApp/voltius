@@ -86,7 +86,7 @@ export interface ClipboardAdapter {
   deleteItems: (ids: string[]) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
   setSelection: (ids: string[]) => void;
-  can: (permission: string, vaultId: string) => boolean;
+  can: (permission: string, vaultId: string, objectId?: string) => boolean;
 }
 
 /**
@@ -132,6 +132,7 @@ interface VaultMove {
   destinationVaultId: string | null;
   /** A move also deletes from the source, so the source must authorize too. */
   removesFromSource: boolean;
+  objectId?: string;
 }
 
 const itemPermissions = (kind: string): string[] => [EDIT_PERMISSION[kind] ?? "EDIT_CONNECTIONS"];
@@ -164,7 +165,7 @@ function blockedForMoves(adapter: ClipboardAdapter, moves: VaultMove[]): string[
     if (destination === null || source === destination) continue;
     for (const permission of move.permissions) {
       if (!adapter.can(permission, destination)) blocked.add(permission);
-      if (move.removesFromSource && source !== null && !adapter.can(permission, source)) {
+      if (move.removesFromSource && source !== null && !adapter.can(permission, source, move.objectId)) {
         blocked.add(permission);
       }
     }
@@ -182,7 +183,7 @@ function blockedForDeletes(
     if (!adapter.exists(target.id)) continue;
     const vaultId = adapter.vaultIdOf(target.id);
     for (const permission of target.permissions) {
-      if (!adapter.can(permission, vaultId)) blocked.add(permission);
+      if (!adapter.can(permission, vaultId, target.id)) blocked.add(permission);
     }
   }
   return [...blocked];
@@ -353,12 +354,14 @@ export async function pasteFromClipboard(
         sourceVaultId: adapter.vaultIdOf(id),
         destinationVaultId: destination(id),
         removesFromSource: true,
+        objectId: id,
       })),
       ...folderIds.map((id) => ({
         permissions: folderPermissions(adapter, id),
         sourceVaultId: adapter.vaultIdOf(id),
         destinationVaultId: destination(id),
         removesFromSource: true,
+        objectId: id,
       })),
     ];
 

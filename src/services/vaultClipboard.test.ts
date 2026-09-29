@@ -471,3 +471,43 @@ test("a rejected paste does not stall the pastes queued behind it", async () => 
   await expect(runPaste(async () => { throw new Error("boom"); })).rejects.toThrow("boom");
   await expect(runPaste(() => pasteFromClipboard(cut, adapter()))).resolves.toMatchObject({ moved: 1 });
 });
+
+test("undoing a cross-vault cut is refused for an object its own mask withholds", async () => {
+  resetHistory();
+  const vaults: Record<string, string> = { "c-locked": "personal" };
+  const a = adapter({
+    targetVaultId: () => "team-1",
+    vaultIdOf: (id) => vaults[id] ?? "personal",
+    moveItems: vi.fn(async (ids: string[], _folderId, vaultId) => {
+      for (const id of ids) if (vaultId) vaults[id] = vaultId;
+    }),
+    can: (_p, _v, id) => id !== "c-locked",
+  });
+  await pasteFromClipboard(
+    { tab: "hosts", mode: "cut", items: [{ id: "c-locked", kind: "connection" }], folderIds: [], sourceVaultIds: ["personal"] },
+    a,
+  );
+  (a.moveItems as ReturnType<typeof vi.fn>).mockClear();
+  await useHistoryStore.getState().undo();
+  expect(a.moveItems).not.toHaveBeenCalled();
+});
+
+test("undoing a cross-vault cut proceeds for an object its own mask permits", async () => {
+  resetHistory();
+  const vaults: Record<string, string> = { "c-open": "personal" };
+  const a = adapter({
+    targetVaultId: () => "team-1",
+    vaultIdOf: (id) => vaults[id] ?? "personal",
+    moveItems: vi.fn(async (ids: string[], _folderId, vaultId) => {
+      for (const id of ids) if (vaultId) vaults[id] = vaultId;
+    }),
+    can: (_p, _v, id) => id !== "c-locked",
+  });
+  await pasteFromClipboard(
+    { tab: "hosts", mode: "cut", items: [{ id: "c-open", kind: "connection" }], folderIds: [], sourceVaultIds: ["personal"] },
+    a,
+  );
+  (a.moveItems as ReturnType<typeof vi.fn>).mockClear();
+  await useHistoryStore.getState().undo();
+  expect(a.moveItems).toHaveBeenCalledWith(["c-open"], null, "personal");
+});

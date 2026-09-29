@@ -30,7 +30,11 @@ export function ExportTab({ selection, preselectedTypes }: {
   const can = usePermissions();
   // Stable across renders so it can sit in the bundle effect's dep list without
   // rebuilding the preview on every keystroke.
-  const canViewSecrets = useCallback((vaultId: string) => can("VIEW_SECRETS", vaultId), [can]);
+  const mayExportSecrets = useCallback(
+    (o: { id: string; vault_id?: string }) =>
+      can("VIEW_SECRETS", o.vault_id ?? "personal", o.id) && can("COPY_SECRETS", o.vault_id ?? "personal", o.id),
+    [can],
+  );
   const vaultContentCounts = useVaultContents();
 
   const isSingleItem = !!selection.single;
@@ -85,7 +89,7 @@ export function ExportTab({ selection, preselectedTypes }: {
     const enabled: Record<string, boolean> = Object.fromEntries(
       HANDLERS.map(h => [h.key, included[h.key] && (!h.jsonOnly || !isCsvOnly)])
     );
-    buildBundle(enabled, stores, exportVaultIds, selection, canViewSecrets, { includeRelatedCredentials }).then(bundle => {
+    buildBundle(enabled, stores, exportVaultIds, selection, mayExportSecrets, { includeRelatedCredentials }).then(bundle => {
       if (cancelled) return;
       const counts: Record<string, number> = { folders: bundle.folders.length };
       for (const h of HANDLERS) counts[h.key] = (bundle[h.key as keyof ExportBundle] as unknown[])?.length ?? 0;
@@ -106,7 +110,7 @@ export function ExportTab({ selection, preselectedTypes }: {
     });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [included, includeRelatedCredentials, format, exportVaultIds, canViewSecrets, stores.connections, stores.identities, stores.keys, stores.snippets, stores.pfRules]);
+  }, [included, includeRelatedCredentials, format, exportVaultIds, mayExportSecrets, stores.connections, stores.identities, stores.keys, stores.snippets, stores.pfRules]);
 
   const totalItems = Object.values(bundleCounts).reduce((a, b) => a + b, 0);
   const recapCounts = vaultContentCounts.map((item) => ({

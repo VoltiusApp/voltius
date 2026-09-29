@@ -69,7 +69,7 @@ export interface ObjectsAPI {
 export interface ObjectPorts {
   /** Loads the lazily-hydrated stores. See `run` for why it is not optional. */
   hydrate(): Promise<void>;
-  can(permission: string, vaultId: string): boolean;
+  can(permission: string, vaultId: string, objectId?: string): boolean;
   isTeamVault(vaultId: string): boolean;
   vaults(): { id: string; name: string }[];
   accessibleVaultIds(): string[];

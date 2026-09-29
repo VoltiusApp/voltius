@@ -541,7 +541,7 @@ const objectPorts: ObjectPorts = {
       ]),
     );
   },
-  can: (permission, vaultId) => canFromStores(_myUserId)(permission as Permission, vaultId),
+  can: (permission, vaultId, objectId) => canFromStores(_myUserId)(permission as Permission, vaultId, objectId),
   isTeamVault: isTeamVaultId,
   vaults: () => vaultOptionsFrom(useVaultStore.getState().vaults, useTeamStore.getState().teams),
   /**

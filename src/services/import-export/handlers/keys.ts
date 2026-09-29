@@ -23,7 +23,7 @@ export const keysHandler: DataTypeHandler = {
       name: k.name,
       key_type: k.key_type,
       tags: k.tags,
-      ...(await fetchKeySecrets(k.id, ctx.readSecret(k.vault_id))),
+      ...(await fetchKeySecrets(k.id, ctx.readSecret(k))),
       _folder_eid: k.folder_id ? ctx.folderEidMap.get(k.folder_id) : undefined,
     })));
     const refs = await Promise.all(ctx.keyRefs.map(async (k, i): Promise<KeyRefExport | null> => {

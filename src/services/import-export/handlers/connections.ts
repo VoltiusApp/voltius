@@ -21,7 +21,7 @@ export const connectionsHandler: DataTypeHandler = {
     bundle.connections = await Promise.all(connections.map(async (c, i): Promise<ConnectionExport> => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, identity_id, key_id, folder_id, vault_id, pre_snippet_id, post_snippet_id, created_at, last_used_at, updated_at, deleted_at, clocks, distro, jump_hosts, ...passthrough } = c;
-      const secrets = await fetchConnectionSecrets(c.id, ctx.readSecret(c.vault_id));
+      const secrets = await fetchConnectionSecrets(c.id, ctx.readSecret(c));
       return {
         ...passthrough,
         _eid: `c${i}`,

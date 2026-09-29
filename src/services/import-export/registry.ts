@@ -2,7 +2,7 @@ import { getSecret } from "@/services/vault";
 import { ensurePublicKey } from "@/services/publicKeyStore";
 import type { Connection, Folder, Identity, PortForwardingRule, Snippet, SshKey } from "@/types";
 import type { ExportBundle, FolderExport } from "./formats";
-import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "./context";
+import type { ExportCtx, ImportCtx, ReloadFns, SecretGate, SelectionProps, StoreSlices } from "./context";
 import { dupeItems, dupesOf, hasSelection } from "./context";
 import type { DataTypeHandler } from "./handler";
 import { keysHandler } from "./handlers/keys";
@@ -83,7 +83,7 @@ export async function buildBundle(
   stores: StoreSlices,
   vaultIds: string[],
   selection: SelectionProps,
-  canViewSecrets: (vaultId: string) => boolean,
+  mayExportSecrets: SecretGate,
   { includeRelatedCredentials = false }: { includeRelatedCredentials?: boolean } = {},
 ): Promise<ExportBundle> {
   // 1. Resolve cascade for identities/keys (connections pull in their identities, etc.)
@@ -151,8 +151,8 @@ export async function buildBundle(
   const snippetFolderEidMap = buildFolderEidMap(neededSnippet, stores.snippetFolders, "f", folderEidMap.size);
 
   const ctx: ExportCtx = {
-    readSecret: (vaultId) =>
-      canViewSecrets(vaultId ?? "personal")
+    readSecret: (object) =>
+      mayExportSecrets(object)
         ? (key) => getSecret(key).catch(() => null)
         : async () => null,
     folderEidMap,
@@ -167,7 +167,7 @@ export async function buildBundle(
     allKeys: stores.keys,
     keyRefs: includeRelatedCredentials ? [] : linkedKeys,
     identityRefs: includeRelatedCredentials ? [] : linkedIdentities,
-    publicKey: (key) => canViewSecrets(key.vault_id ?? "personal") ? ensurePublicKey(key).catch(() => null) : Promise.resolve(null),
+    publicKey: (key) => mayExportSecrets(key) ? ensurePublicKey(key).catch(() => null) : Promise.resolve(null),
   };
 
   // 5. Build bundle — handlers run in registry order so eid maps are ready for deps
