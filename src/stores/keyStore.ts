@@ -8,7 +8,7 @@ import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory } from "@/store
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
-import { rulesSourceOf } from "@/services/ruleSetIntent";
+import { copyingRulesOf, rulesSourceOf } from "@/services/ruleSetIntent";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
@@ -202,7 +202,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       pushDeleteHistory({
         label: `Deleted key "${prev.name ?? "unnamed"}"`,
         id,
-        data: prevData,
+        data: copyingRulesOf(prevData, id),
         create: (d) => useKeyStore.getState().saveKey(d),
         remove: (kid) => useKeyStore.getState().deleteKey(kid),
       });

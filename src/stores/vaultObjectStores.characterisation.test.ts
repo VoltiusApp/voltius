@@ -321,6 +321,15 @@ describe.each(adapters)("$name store", (a) => {
   });
 });
 
+describe.each(adapters.filter((a) => ["connection", "identity", "key", "snippet"].includes(a.name)))("$name delete undo", (a) => {
+  test("undoing a team delete recreates the object carrying the original's rules", async () => {
+    seedTeam(a, { "team-a": [a.seed({ vault_id: "team-a" })] });
+    await a.remove("x1");
+    await useHistoryStore.getState().undo();
+    expect(h.saveTeamVaultObject).toHaveBeenCalledWith("team-a", a.persistKind, expect.objectContaining({ vault_id: "team-a" }), { rulesFrom: "x1" });
+  });
+});
+
 describe("audit reporting", () => {
   test("the five audited stores report a create; the snippet folder store reports none", async () => {
     for (const a of adapters) {

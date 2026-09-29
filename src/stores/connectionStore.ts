@@ -9,7 +9,7 @@ import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory } from "@/store
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
-import { rulesSourceOf } from "@/services/ruleSetIntent";
+import { copyingRulesOf, rulesSourceOf } from "@/services/ruleSetIntent";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
@@ -218,7 +218,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       pushDeleteHistory({
         label: `Deleted connection "${prev.name ?? prev.host}"`,
         id,
-        data: prevData,
+        data: copyingRulesOf(prevData, id),
         create: (d) => useConnectionStore.getState().saveConnection(d),
         remove: (cid) => useConnectionStore.getState().deleteConnection(cid),
       });

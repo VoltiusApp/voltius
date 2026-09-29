@@ -11,7 +11,7 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
-import { rulesSourceOf } from "@/services/ruleSetIntent";
+import { copyingRulesOf, rulesSourceOf } from "@/services/ruleSetIntent";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 
@@ -218,7 +218,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       pushDeleteHistory({
         label: `Deleted snippet "${prev.name}"`,
         id,
-        data: prevData,
+        data: copyingRulesOf(prevData, id),
         create: (d) => useSnippetStore.getState().createSnippet(d),
         remove: (sid) => useSnippetStore.getState().deleteSnippet(sid),
       });
