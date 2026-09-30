@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { BusinessLockBanner } from "@/components/shared/BusinessLockBanner";
 import { FormSection } from "@/components/shared/Panel";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerOption, PickerSearch } from "@/components/shared/pickerParts";
 import { PermissionOverrideRow } from "@/components/members/panels/PermissionOverrideRow";
 import { permissionLabel, roleLabel } from "@/components/members/roleChips";
+import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useRuleSet } from "@/hooks/useRuleSet";
 import { saveObjectRules, syncWithFolder } from "@/services/ruleSetEditing";
 import { isSynced, setOfParent } from "@/services/ruleSetPointers";
@@ -44,13 +46,14 @@ function listedSubjects(entries: RuleEntry[], roles: TeamRole[], added: Subject[
   return all.filter((s, i) => all.findIndex((o) => subjectKey(o) === subjectKey(s)) === i);
 }
 
-function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd }: {
+function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd, disabled }: {
   listed: Subject[];
   candidates: Subject[];
   selected: Subject;
   nameOf: (s: Subject) => string;
   onSelect: (s: Subject) => void;
   onAdd: (s: Subject) => void;
+  disabled: boolean;
 }) {
   const { t } = useTranslation();
   const [picking, setPicking] = useState(false);
@@ -71,10 +74,12 @@ function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd }:
           {nameOf(s)}
         </button>
       ))}
-      <button ref={addRef} type="button" onClick={() => setPicking(true)} className="px-2 py-0.5 rounded-md text-xs text-(--t-accent)">
-        {t("shared.permissions.section.addSubject")}
-      </button>
-      <PickerSurface open={picking} onClose={() => setPicking(false)} anchorRef={addRef} width="content" minWidth="14rem" align="right">
+      {!disabled && (
+        <button ref={addRef} type="button" onClick={() => setPicking(true)} className="px-2 py-0.5 rounded-md text-xs text-(--t-accent)">
+          {t("shared.permissions.section.addSubject")}
+        </button>
+      )}
+      {!disabled && <PickerSurface open={picking} onClose={() => setPicking(false)} anchorRef={addRef} width="content" minWidth="14rem" align="right">
         <div className="sticky top-0 bg-(--t-bg-card) p-1.5">
           <PickerSearch value={query} onChange={setQuery} placeholder={t("shared.permissions.section.searchSubjects")} />
         </div>
@@ -88,7 +93,7 @@ function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd }:
               onClick={() => { onAdd(s); setPicking(false); setQuery(""); }}
             />
           ))}
-      </PickerSurface>
+      </PickerSurface>}
     </div>
   );
 }
@@ -115,6 +120,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   const teamSnippetFolders = useSnippetFolderStore((s) => s.teamSnippetFolders);
   const access = entries?.[objectId];
   const ruleSet = useRuleSet(teamId ?? "", access?.ruleSetId ?? null);
+  const { locked } = useBusinessLock(teamId);
   const [draft, setDraft] = useState<RuleEntry[]>(ruleSet.entries);
   const [loaded, setLoaded] = useState(ruleSet.entries);
   const [selected, setSelected] = useState<Subject>({ type: "everyone" });
@@ -174,10 +180,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
     return { from: sourceOf(from), grants: from.length > 0 };
   };
 
-  const change = (permission: Permission, next: OverrideState) => {
-    const current = entryFor(draft, selected);
-    const masks = applyOverrideState(permission, current?.allow ?? 0, current?.deny ?? 0, next);
-    const nextDraft = withEntry(draft, selected, masks.allow, masks.deny);
+  const save = (nextDraft: RuleEntry[]) => {
     const gen = generation.current;
     setDraft(nextDraft);
     setError(null);
@@ -197,6 +200,12 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
     });
   };
 
+  const change = (permission: Permission, next: OverrideState) => {
+    const current = entryFor(draft, selected);
+    const masks = applyOverrideState(permission, current?.allow ?? 0, current?.deny ?? 0, next);
+    save(withEntry(draft, selected, masks.allow, masks.deny));
+  };
+
   const title = type === "key" ? "shared.permissions.section.titleKey"
     : type === "identity" ? "shared.permissions.section.titleIdentity"
     : "shared.permissions.section.title";
@@ -210,6 +219,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
 
   return (
     <FormSection label={t(title)}>
+      <BusinessLockBanner teamId={teamId} onClear={!synced && draft.length > 0 ? async () => save([]) : undefined} />
       {isCredential && <p className="text-xs text-(--t-text-dim)">{t("shared.permissions.section.adminNote")}</p>}
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="text-(--t-text-secondary)">{banner}</span>
@@ -230,6 +240,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
         nameOf={nameOf}
         onSelect={setSelected}
         onAdd={(s) => { setAdded((a) => [...a, s]); setSelected(s); }}
+        disabled={locked}
       />
       <div>
         {OBJECT_RULE_ROWS[type].map((permission) => {
@@ -244,7 +255,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
               state={overrideStateOf(permission, current?.allow ?? 0, current?.deny ?? 0)}
               inheritedFrom={p.from}
               inheritedGrants={p.grants && !needsConnect}
-              disabled={ruleSet.status !== "ok" || needsConnect}
+              disabled={locked || ruleSet.status !== "ok" || needsConnect}
               onChange={(next) => change(permission, next)}
             />
           );
