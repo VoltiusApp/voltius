@@ -63,11 +63,7 @@ export function filterRemoteExcluded(
 
 export type SecretMaps = Required<Pick<BlobPayload, "secrets" | "secret_clocks">>;
 
-/**
- * `secrets` and `secret_clocks` of `payload`, narrowed to the keys whose
- * object id (see secretObjectId) passes `keep`. Both maps are filtered alike,
- * so no dropped secret leaves a clock behind to read as a tombstone.
- */
+/** Both maps filtered alike, so no dropped secret leaves a clock behind to read as a tombstone. */
 export function filterSecrets(
   payload: BlobPayload,
   keep: (objectId: string | null) => boolean,

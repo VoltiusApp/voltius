@@ -3,7 +3,8 @@ import { test, expect, vi, beforeEach } from "vitest";
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   lockVault: vi.fn(async () => undefined),
-  wipeLocalConfig: vi.fn(async () => undefined),
+  wipeLocalConfig: vi.fn(async (_carry?: Record<string, string>) => undefined),
+  readLocalSecrets: vi.fn(async (_keys: string[]) => ({}) as Record<string, string>),
   push: vi.fn(async () => undefined),
   stopRealtimeSync: vi.fn(),
   clearPersistedAccountUiState: vi.fn(),
@@ -19,7 +20,11 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
-vi.mock("./vault", () => ({ lockVault: h.lockVault, wipeLocalConfig: h.wipeLocalConfig }));
+vi.mock("./vault", () => ({
+  lockVault: h.lockVault,
+  wipeLocalConfig: h.wipeLocalConfig,
+  readLocalSecrets: h.readLocalSecrets,
+}));
 vi.mock("@/services/sync", () => ({ push: h.push, stopRealtimeSync: h.stopRealtimeSync }));
 vi.mock("@/stores/persistedAccountUiState", () => ({
   clearPersistedAccountUiState: h.clearPersistedAccountUiState,
@@ -31,6 +36,7 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
 
 import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, type SavedAccount } from "./savedAccounts";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
+import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
 
 const INDEX_KEY = "voltius.saved_accounts";
 const entryKey = (id: string) => `voltius.saved_account.${id}`;
@@ -221,6 +227,15 @@ test("switchToAccount tears the old session down before reloading", async () => 
   expect(h.clearPersistedAccountUiState).toHaveBeenCalled();
   expect(sessionStorage.setItem).toHaveBeenCalledWith("voltius.replace-sync-on-login", "1");
   expect(h.reload).toHaveBeenCalled();
+});
+
+test("switchToAccount carries the device-only proxy password, read before the vault locks, through the wipe", async () => {
+  activate(CLOUD_A);
+  h.readLocalSecrets.mockResolvedValueOnce({ [GLOBAL_PROXY_PASSWORD_KEY]: "proxy-pw" });
+  await switchToAccount(CLOUD_B);
+  expect(h.readLocalSecrets).toHaveBeenCalledWith([GLOBAL_PROXY_PASSWORD_KEY]);
+  expect(h.readLocalSecrets.mock.invocationCallOrder[0]).toBeLessThan(h.lockVault.mock.invocationCallOrder[0]);
+  expect(h.wipeLocalConfig).toHaveBeenCalledWith({ [GLOBAL_PROXY_PASSWORD_KEY]: "proxy-pw" });
 });
 
 const { mode: _mode, ...SESSION_B } = CLOUD_B;

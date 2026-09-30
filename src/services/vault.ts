@@ -46,7 +46,20 @@ async function ensureUnlocked(): Promise<void> {
   if (unlocked) return;
   if (!pendingKey) throw new VaultLockedError();
   await invokeDecrypting("secrets_unlock", { encKey: pendingKey });
+  // Before `unlocked`, so no concurrent caller reads the vault ahead of the restore.
+  await restoreCarriedSecrets().catch(() => {});
   unlocked = true;
+}
+
+const CARRIED_SECRETS_KEY = "carried_device_secrets";
+
+async function restoreCarriedSecrets(): Promise<void> {
+  const raw = await invoke<string | null>("keychain_get", { key: CARRIED_SECRETS_KEY });
+  if (!raw) return;
+  for (const [key, value] of Object.entries(JSON.parse(raw) as Record<string, string>)) {
+    await invoke("secrets_set", { key, value });
+  }
+  await invoke("keychain_delete", { key: CARRIED_SECRETS_KEY });
 }
 
 /**
@@ -132,8 +145,22 @@ export async function getVaultStatus(): Promise<{ exists: boolean; path: string 
  * the incoming cloud pull — and so the previous account's secrets.enc, which the
  * incoming key cannot open, is gone before that key is installed.
  */
-export async function wipeLocalConfig(): Promise<void> {
+export async function wipeLocalConfig(carry: Record<string, string> = {}): Promise<void> {
+  // Carried through the keychain and written back into the next vault on its first unlock.
+  if (Object.keys(carry).length > 0) {
+    await invoke("keychain_set", { key: CARRIED_SECRETS_KEY, value: JSON.stringify(carry) }).catch(() => {});
+  }
   await invoke("config_wipe");
+}
+
+/** The present values of `keys`; empty when the vault can't be read. */
+export async function readLocalSecrets(keys: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const key of keys) {
+    const value = await getLocalSecret(key).catch(() => null);
+    if (value != null) out[key] = value;
+  }
+  return out;
 }
 
 export async function resetVault(): Promise<void> {

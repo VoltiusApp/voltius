@@ -6,7 +6,7 @@ import { useUIStore, type CloudAuthMode } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { authenticateServerAccount, getAccountMode, linkToCloud, setMasterPassword, signInToCloud } from "@/services/account";
 import { addAccount } from "@/services/savedAccounts";
-import { readDeviceSecrets, startRealtimeSync, syncOnLogin, syncOnLoginReplace } from "@/services/sync";
+import { startRealtimeSync, syncOnLogin, syncOnLoginReplace } from "@/services/sync";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { lastServerUrl } from "@/utils/serverInstance";
 
@@ -79,10 +79,8 @@ export default function CloudAuthModal() {
         await linkToCloud(email, normalizedUrl);
         syncOnLogin().catch(() => {});
       } else {
-        // Read before signInToCloud wipes the vault they live in.
-        const deviceSecrets = await readDeviceSecrets();
         await signInToCloud(email, password, normalizedUrl);
-        syncOnLoginReplace(deviceSecrets).catch(() => {});
+        syncOnLoginReplace().catch(() => {});
       }
       startRealtimeSync();
       await reloadSubscription().catch(() => {});

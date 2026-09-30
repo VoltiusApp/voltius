@@ -25,6 +25,7 @@ vi.mock("./vault", () => ({
   getVaultStatus: vi.fn(async () => ({ exists: false, path: "" })),
   unlockVaultIfNeeded: vi.fn(async () => undefined),
   wipeLocalConfig: h.wipeLocalConfig,
+  readLocalSecrets: vi.fn(async () => ({})),
   resetVault: vi.fn(async () => undefined),
 }));
 vi.mock("@/stores/subscriptionStore", () => ({

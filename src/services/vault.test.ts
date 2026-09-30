@@ -18,6 +18,7 @@ import {
   quarantineVault,
   unlockVaultIfNeeded,
   verifyVaultKey,
+  wipeLocalConfig,
   SECRETS_LOCKED_MESSAGE,
 } from "./vault";
 import { VaultLockedError, VaultUnreadableError, vaultErrorCode } from "./vaultErrors";
@@ -129,4 +130,30 @@ test("purgeLocalSecrets sends every key in one call, and none when there are non
   h.invoke.mockClear();
   await expect(purgeLocalSecrets([])).resolves.toEqual([]);
   expect(h.invoke).not.toHaveBeenCalled();
+});
+
+test("secrets carried through a wipe land in the next vault on its first unlock, once", async () => {
+  const keychain: Record<string, string> = {};
+  const vault: Record<string, string> = {};
+  h.invoke.mockImplementation(async (cmd: string, args?: Record<string, string>) => {
+    if (cmd === "keychain_set") keychain[args!.key] = args!.value;
+    if (cmd === "keychain_get") return keychain[args!.key] ?? null;
+    if (cmd === "keychain_delete") delete keychain[args!.key];
+    if (cmd === "secrets_set") vault[args!.key] = args!.value;
+    return undefined;
+  });
+
+  await wipeLocalConfig({ "proxy_password:__global__": "proxy-pw" });
+  expect(invoked("config_wipe")).toBe(true);
+  setVaultKey([9, 9, 9]);
+  await unlockVaultIfNeeded();
+
+  expect(vault).toEqual({ "proxy_password:__global__": "proxy-pw" });
+  expect(keychain).toEqual({});
+});
+
+test("a wipe with nothing to carry leaves the keychain alone", async () => {
+  await wipeLocalConfig();
+  expect(invoked("keychain_set")).toBe(false);
+  expect(invoked("config_wipe")).toBe(true);
 });

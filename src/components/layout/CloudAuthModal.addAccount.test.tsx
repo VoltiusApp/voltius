@@ -23,7 +23,6 @@ vi.mock("@/services/account", () => ({
 }));
 vi.mock("@/services/savedAccounts", () => ({ addAccount: h.addAccount }));
 vi.mock("@/services/sync", () => ({
-  readDeviceSecrets: vi.fn(async () => ({ secrets: {}, secret_clocks: {} })),
   startRealtimeSync: vi.fn(),
   syncOnLogin: vi.fn(async () => {}),
   syncOnLoginReplace: vi.fn(async () => {}),

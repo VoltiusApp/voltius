@@ -5,7 +5,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 vi.mock("@/services/teamDataManager", () => ({ onTeamLogin: vi.fn(async () => {}) }));
 
-import { readDeviceSecrets, syncOnLoginReplace, ENTITY_FILES } from "./sync";
+import { syncOnLoginReplace, ENTITY_FILES } from "./sync";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { setVaultKey } from "@/services/vault";
@@ -20,15 +20,13 @@ const okJson = (body: unknown) => ({ ok: true, status: 200, json: async () => bo
 const notFound = { ok: false, status: 404, json: async () => ({}) };
 const emptyEntityFiles = () => Object.fromEntries(ENTITY_FILES.map((f) => [f, "[]"]));
 
-// Secret keys are assembled so secret scanners don't read the fixtures as credentials.
+// Assembled so secret scanners don't read the fixtures as credentials.
 const LOCAL_HOST_KEY = ["password", "local-host"].join(":");
 const REMOTE_HOST_KEY = ["password", "remote-host"].join(":");
 
-// The vault being signed out of: the device's global proxy password plus a host password.
 const LOCAL_SECRETS = { [PROXY_KEY]: "proxy-pw", [LOCAL_HOST_KEY]: "old" };
 const LOCAL_CLOCKS = { [PROXY_KEY]: "2026-01-01T00:00:00.000Z", [LOCAL_HOST_KEY]: "2026-01-01T00:00:00.000Z" };
 
-/** One remote device holding `password:remote-host`; records what the replace writes. */
 function serve() {
   const imports: Array<{ secrets: Record<string, string>; secretClocks: Record<string, string> }> = [];
   h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
@@ -78,8 +76,7 @@ beforeEach(() => {
 test("a replacing login keeps the device-only global proxy password and nothing else local", async () => {
   const imports = serve();
 
-  const kept = await readDeviceSecrets();
-  await syncOnLoginReplace(kept);
+  await syncOnLoginReplace();
 
   expect(imports).toHaveLength(1);
   expect(imports[0].secrets).toEqual({ [PROXY_KEY]: "proxy-pw", [REMOTE_HOST_KEY]: "new" });
@@ -90,14 +87,7 @@ test("once the proxy setting syncs, its password is the account's to restore, no
   useSyncPrefsStore.getState().setSettingSync("appSettings.proxy", true);
   const imports = serve();
 
-  const kept = await readDeviceSecrets();
-  await syncOnLoginReplace(kept);
+  await syncOnLoginReplace();
 
-  expect(kept).toEqual({ secrets: {}, secret_clocks: {} });
   expect(imports[0].secrets).toEqual({ [REMOTE_HOST_KEY]: "new" });
-});
-
-test("an unreadable vault keeps nothing rather than failing the sign-in", async () => {
-  h.invoke.mockRejectedValue(new Error("Secrets store is locked"));
-  await expect(readDeviceSecrets()).resolves.toEqual({ secrets: {}, secret_clocks: {} });
 });
