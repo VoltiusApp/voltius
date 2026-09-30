@@ -156,6 +156,7 @@
         "searchSubjects": "Search roles and members…",
         "noSubjectsLeft": "Every role and member is already listed",
         "use": "Use",
+        "requiresConnect": "Needs {{connect}}",
         "roleCount_one": "{{count}} role",
         "roleCount_other": "{{count}} roles",
         "loadFailed": "Could not load permissions"

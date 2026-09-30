@@ -164,6 +164,7 @@
         "searchSubjects": "Поиск ролей и участников…",
         "noSubjectsLeft": "Все роли и участники уже в списке",
         "use": "Использовать",
+        "requiresConnect": "Требуется {{connect}}",
         "roleCount_one": "{{count}} роль",
         "roleCount_few": "{{count}} роли",
         "roleCount_many": "{{count}} ролей",

@@ -156,6 +156,7 @@
         "searchSubjects": "搜索角色和成员…",
         "noSubjectsLeft": "所有角色和成员都已列出",
         "use": "使用",
+        "requiresConnect": "需要{{connect}}",
         "roleCount_one": "{{count}} 个角色",
         "roleCount_other": "{{count}} 个角色",
         "loadFailed": "无法加载权限"

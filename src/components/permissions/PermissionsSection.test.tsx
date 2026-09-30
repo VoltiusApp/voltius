@@ -245,3 +245,17 @@ test("a failed load shows the server's error, never empty brackets", async () =>
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
   expect(await screen.findByText("shared.permissions.section.loadFailed")).toBeTruthy();
 });
+
+test("denying Connect locks View secrets and Copy secrets, which depend on it", async () => {
+  seed();
+  render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  const viewSecrets = await screen.findByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  expect(within(viewSecrets).getByRole("radio", { name: "members.permissions.state.allow" }).hasAttribute("disabled")).toBe(false);
+
+  fireEvent.click(within(await connectRow()).getByRole("radio", { name: "members.permissions.state.deny" }));
+
+  await waitFor(() => expect(within(viewSecrets).getByRole("radio", { name: "members.permissions.state.allow" }).hasAttribute("disabled")).toBe(true));
+  const copySecrets = screen.getByRole("radiogroup", { name: "members.permission.COPY_SECRETS" });
+  expect(within(copySecrets).getByRole("radio", { name: "members.permissions.state.allow" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getAllByText("shared.permissions.section.requiresConnect")).toHaveLength(2);
+});

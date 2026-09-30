@@ -14,6 +14,7 @@ import {
   nextPersonalPinValue,
 } from "@/hooks/useEffectivePinned";
 import { useTeamStore } from "@/stores/teamStore";
+import { useCanConnect } from "@/hooks/useCanConnect";
 
 function isSerialConn(c: Connection): boolean {
   return c.connection_type === "serial" || !!c.serial_port;
@@ -36,6 +37,7 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
   const isPinned = useEffectivePinned(connection, "connection");
   const pinSource = useEffectivePinSource(connection, "connection");
   const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === connection.vault_id));
+  const canConnect = useCanConnect(connection);
   const [pingEnabled] = useToggle("reachability");
   const pingStatus = useHostPingStore((s) => s.statuses[connection.id]);
   const isSerial = isSerialConn(connection);
@@ -58,9 +60,10 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
 
   return (
     <div
-      className="surface-glass group relative flex flex-col items-center gap-2 p-3 rounded-xl cursor-pointer transition-all shrink-0"
+      className={`surface-glass group relative flex flex-col items-center gap-2 p-3 rounded-xl transition-all shrink-0 ${canConnect ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
       style={{ width: "7.5rem" }}
-      onClick={() => onConnect(connection)}
+      title={canConnect ? undefined : t("common.error.connectNotAllowed")}
+      onClick={() => { if (canConnect) onConnect(connection); }}
     >
       <button
         className={`absolute top-1.5 right-1.5 transition-opacity p-0.5 rounded-sm ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}

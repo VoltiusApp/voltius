@@ -467,14 +467,14 @@ test("choosing allow on a bit the viewer lacks sends no request", async () => {
 
 const keyRole: TeamRole = {
   id: "r-key", team_id: "t1", name: "key-role", is_builtin: false,
-  permissions: PERM_BITS.VIEW_SECRETS, position: 2, created_at: "",
+  permissions: PERM_BITS.CONNECT, position: 2, created_at: "",
 };
 const keyMember: TeamMember = { ...targetMember, role_ids: ["r-key"] };
 
 test("a gate-crossing change opens the dialog and writes nothing yet", async () => {
   render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
 
-  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  const row = screen.getByRole("radiogroup", { name: "members.permission.CONNECT" });
   fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
 
   expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
@@ -484,7 +484,7 @@ test("a gate-crossing change opens the dialog and writes nothing yet", async () 
 test("every row is inert while the revoke dialog is open", async () => {
   render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
 
-  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  const row = screen.getByRole("radiogroup", { name: "members.permission.CONNECT" });
   fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
   await screen.findByText("members.revokeKeyAccess.title");
 
@@ -498,12 +498,12 @@ test("confirming the dialog writes, then kicks rotation after the write resolves
 
   render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
 
-  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  const row = screen.getByRole("radiogroup", { name: "members.permission.CONNECT" });
   fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
   fireEvent.click(await screen.findByRole("button", { name: "members.revokeKeyAccess.confirm" }));
 
   await waitFor(() =>
-    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.VIEW_SECRETS),
+    expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.CONNECT),
   );
   expect(h.rotate).not.toHaveBeenCalled();
 
@@ -514,7 +514,7 @@ test("confirming the dialog writes, then kicks rotation after the write resolves
 test("cancelling the dialog writes nothing and rotates nothing", async () => {
   render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
 
-  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  const row = screen.getByRole("radiogroup", { name: "members.permission.CONNECT" });
   fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
   fireEvent.click(await screen.findByRole("button", { name: "common.action.cancel" }));
 
@@ -540,7 +540,7 @@ test("a rejected write after confirming does not rotate", async () => {
   h.setPerms.mockRejectedValueOnce(new Error("boom"));
   render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
 
-  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  const row = screen.getByRole("radiogroup", { name: "members.permission.CONNECT" });
   fireEvent.click(within(row).getByRole("radio", { name: /deny/i }));
   fireEvent.click(await screen.findByRole("button", { name: "members.revokeKeyAccess.confirm" }));
 
@@ -550,11 +550,11 @@ test("a rejected write after confirming does not rotate", async () => {
 
 test("clearing an allow grant crosses the gate too", async () => {
   const rolelessMember = {
-    ...targetMember, role_ids: [], permission_allow: PERM_BITS.VIEW_SECRETS, permission_deny: 0,
+    ...targetMember, role_ids: [], permission_allow: PERM_BITS.CONNECT, permission_deny: 0,
   };
   render(<MemberDetailPanel {...permProps({ member: rolelessMember })} />);
 
-  const row = screen.getByRole("radiogroup", { name: "members.permission.VIEW_SECRETS" });
+  const row = screen.getByRole("radiogroup", { name: "members.permission.CONNECT" });
   fireEvent.click(within(row).getByRole("radio", { name: /inherit/i }));
 
   expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();

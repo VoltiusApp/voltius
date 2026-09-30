@@ -160,6 +160,7 @@
         "searchSubjects": "Rechercher des rôles et des membres…",
         "noSubjectsLeft": "Tous les rôles et membres sont déjà listés",
         "use": "Utiliser",
+        "requiresConnect": "Nécessite {{connect}}",
         "roleCount_one": "{{count}} rôle",
         "roleCount_many": "{{count}} rôles",
         "roleCount_other": "{{count}} rôles",

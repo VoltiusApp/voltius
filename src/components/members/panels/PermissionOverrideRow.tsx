@@ -13,10 +13,11 @@ export interface PermissionOverrideRowProps {
   disabled: boolean;
   onChange: (next: OverrideState) => void;
   label?: string;
+  note?: string;
 }
 
 export function PermissionOverrideRow({
-  permission, state, inheritedFrom, inheritedGrants, disabled, onChange, label,
+  permission, state, inheritedFrom, inheritedGrants, disabled, onChange, label, note,
 }: PermissionOverrideRowProps) {
   const { t } = useTranslation();
   const shown = label ?? permissionLabel(t, permission);
@@ -30,8 +31,8 @@ export function PermissionOverrideRow({
       <div className="min-w-0">
         <p className="text-xs text-(--t-text-primary) truncate">{shown}</p>
         <p className="text-[10px] text-(--t-text-dim) truncate">
-          {source}
-          {state === "inherit" && (
+          {note ?? source}
+          {!note && state === "inherit" && (
             <> · {inheritedGrants ? t("members.permissions.effectiveAllowed") : t("members.permissions.effectiveDenied")}</>
           )}
         </p>

@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   identities: [] as { id: string; username: string; key_id?: string }[],
   connections: [] as Connection[],
   loadIdentities: vi.fn(async () => undefined),
+  can: vi.fn((_permission: string, _vaultId: string, _objectId?: string) => true),
 }));
 
 vi.mock("@/services/vault", () => ({ getSecret: h.getSecret }));
@@ -17,11 +18,14 @@ vi.mock("@/stores/identityStore", () => ({
 vi.mock("@/stores/connectionStore", () => ({
   useConnectionStore: { getState: () => ({ connections: h.connections, teamConnections: {} }) },
 }));
+vi.mock("@/services/permissionsFromStores", () => ({
+  canConnect: async (vaultId: string | undefined, objectId: string) => h.can("CONNECT", vaultId ?? "", objectId),
+}));
 vi.mock("@/services/ephemeralCredentials", () => ({
   withEphemeralCredentials: (_id: string, resolved: unknown) => resolved,
 }));
 
-import { resolveConnectionCredentials, resolveJumpHosts } from "./credentials";
+import { ConnectNotAllowedError, resolveConnectionCredentials, resolveJumpHosts } from "./credentials";
 import { VaultUnreadableError } from "./vaultErrors";
 
 const conn = (over: Partial<Connection> = {}) =>
@@ -32,6 +36,23 @@ beforeEach(() => {
   h.getSecret.mockResolvedValue(null);
   h.identities = [];
   h.connections = [];
+  h.can.mockReset();
+  h.can.mockReturnValue(true);
+});
+
+test("a host the member may not connect to yields no credentials at all", async () => {
+  h.can.mockImplementation((permission, vaultId, objectId) => !(permission === "CONNECT" && vaultId === "t1" && objectId === "c1"));
+  h.getSecret.mockResolvedValue("pw");
+
+  await expect(resolveConnectionCredentials(conn({ vault_id: "t1" }))).rejects.toThrow(ConnectNotAllowedError);
+  expect(h.getSecret).not.toHaveBeenCalled();
+});
+
+test("a jump host the member may not connect to blocks the whole chain", async () => {
+  h.connections = [conn({ id: "jump", vault_id: "t1" })];
+  h.can.mockImplementation((permission, _vaultId, objectId) => !(permission === "CONNECT" && objectId === "jump"));
+
+  await expect(resolveJumpHosts(conn({ jump_hosts: [{ id: "j1", connection_id: "jump" }] }))).rejects.toThrow(ConnectNotAllowedError);
 });
 
 test("a stored password is resolved", async () => {

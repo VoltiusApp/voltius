@@ -71,6 +71,7 @@
       "notAuthenticated": "Kimlik doğrulanmadı",
       "invalidSessionKey": "Oturum anahtarı 32 bayt olmalıdır",
       "sessionExpired": "Oturumun süresi doldu — lütfen yeniden oturum açın",
+      "connectNotAllowed": "Bu sunucuya bağlanma izniniz yok",
       "vaultLocked": "Kasa kilitli",
       "vaultUnreadable": "Bu cihazın kasası anahtarınızla açılamıyor",
       "identityUnproven": "Bu cihaz hesap anahtarlarınızı doğrulayamadı. Oturumu kapatıp ana parolanızla yeniden oturum açın.",

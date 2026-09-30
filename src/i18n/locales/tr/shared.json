@@ -156,6 +156,7 @@
         "searchSubjects": "Rol ve üye ara…",
         "noSubjectsLeft": "Tüm roller ve üyeler zaten listede",
         "use": "Kullan",
+        "requiresConnect": "{{connect}} gerekir",
         "roleCount_one": "{{count}} rol",
         "roleCount_other": "{{count}} rol",
         "loadFailed": "İzinler yüklenemedi"
