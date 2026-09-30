@@ -2,7 +2,7 @@ import i18n from "@/i18n";
 import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId, listMembers } from "@/services/teamService";
 import type { TeamMember, UserSearchResult } from "@/services/teamService";
-import type { Tier } from "@/stores/subscriptionTier";
+import { TIER_RANK, type Tier } from "@/stores/subscriptionTier";
 import type { RecentPerson } from "@/stores/recentPeopleStore";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
@@ -32,8 +32,6 @@ export function guestCapFor(tier: string | undefined): number {
   return tier === "business" ? 50 : tier === "teams" ? 10 : 1;
 }
 
-const OWNER_TIER_RANK: Record<string, number> = { business: 2, teams: 1 };
-
 /**
  * Highest owner tier across the given team vaults. A shared session's guest cap
  * comes from the owner's plan, so sharing to several vaults takes the best one.
@@ -42,7 +40,7 @@ export function highestOwnerTier(teamIds: string[]): string {
   const { teams } = useTeamStore.getState();
   return teamIds
     .map((id) => teams.find((t) => t.id === id)?.owner_tier ?? "free")
-    .reduce((best, t) => ((OWNER_TIER_RANK[t] ?? 0) > (OWNER_TIER_RANK[best] ?? 0) ? t : best), "free");
+    .reduce((best, t) => ((TIER_RANK[t as Tier] ?? 0) > (TIER_RANK[best as Tier] ?? 0) ? t : best), "free");
 }
 
 /** Members of the given team vaults, loading any the UI has not visited yet. */

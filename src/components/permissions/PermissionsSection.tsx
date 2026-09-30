@@ -75,25 +75,27 @@ function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd, d
         </button>
       ))}
       {!disabled && (
-        <button ref={addRef} type="button" onClick={() => setPicking(true)} className="px-2 py-0.5 rounded-md text-xs text-(--t-accent)">
-          {t("shared.permissions.section.addSubject")}
-        </button>
+        <>
+          <button ref={addRef} type="button" onClick={() => setPicking(true)} className="px-2 py-0.5 rounded-md text-xs text-(--t-accent)">
+            {t("shared.permissions.section.addSubject")}
+          </button>
+          <PickerSurface open={picking} onClose={() => setPicking(false)} anchorRef={addRef} width="content" minWidth="14rem" align="right">
+            <div className="sticky top-0 bg-(--t-bg-card) p-1.5">
+              <PickerSearch value={query} onChange={setQuery} placeholder={t("shared.permissions.section.searchSubjects")} />
+            </div>
+            {matches.length === 0
+              ? <p className="px-3 py-2 text-xs text-(--t-text-dim)">{t("shared.permissions.section.noSubjectsLeft")}</p>
+              : matches.map((s) => (
+                <PickerOption
+                  key={subjectKey(s)}
+                  label={nameOf(s)}
+                  active={false}
+                  onClick={() => { onAdd(s); setPicking(false); setQuery(""); }}
+                />
+              ))}
+          </PickerSurface>
+        </>
       )}
-      {!disabled && <PickerSurface open={picking} onClose={() => setPicking(false)} anchorRef={addRef} width="content" minWidth="14rem" align="right">
-        <div className="sticky top-0 bg-(--t-bg-card) p-1.5">
-          <PickerSearch value={query} onChange={setQuery} placeholder={t("shared.permissions.section.searchSubjects")} />
-        </div>
-        {matches.length === 0
-          ? <p className="px-3 py-2 text-xs text-(--t-text-dim)">{t("shared.permissions.section.noSubjectsLeft")}</p>
-          : matches.map((s) => (
-            <PickerOption
-              key={subjectKey(s)}
-              label={nameOf(s)}
-              active={false}
-              onClick={() => { onAdd(s); setPicking(false); setQuery(""); }}
-            />
-          ))}
-      </PickerSurface>}
     </div>
   );
 }
