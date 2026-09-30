@@ -1,6 +1,6 @@
 // src/stores/subscriptionTier.test.ts
 import { test, expect } from "vitest";
-import { deriveTierFlags } from "./subscriptionTier.ts";
+import { deriveTierFlags, tierAtLeast } from "./subscriptionTier.ts";
 
 const NOW = new Date("2026-07-21T00:00:00Z");
 const soon = Math.floor(new Date("2026-07-22T00:00:00Z").getTime() / 1000);
@@ -55,4 +55,17 @@ test("expired pro-trial still reads as pro (locks current 'trust server tier' be
   const f = deriveTierFlags({ tier: "pro", trial_ends_at: past, trial_used: true }, NOW);
   expect(f.isPro).toBe(true);
   expect(f.isTrialActive).toBe(false);
+});
+
+test("tierAtLeast orders free < pro < teams < business", () => {
+  expect(tierAtLeast("business", "business")).toBe(true);
+  expect(tierAtLeast("teams", "business")).toBe(false);
+  expect(tierAtLeast("teams", "teams")).toBe(true);
+  expect(tierAtLeast("pro", "teams")).toBe(false);
+});
+
+test("tierAtLeast treats an unknown or missing tier as free", () => {
+  expect(tierAtLeast(undefined, "pro")).toBe(false);
+  expect(tierAtLeast("", "pro")).toBe(false);
+  expect(tierAtLeast("mystery", "free")).toBe(true);
 });

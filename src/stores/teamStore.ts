@@ -104,6 +104,7 @@ export const useTeamStore = create<TeamStore>()(
       const same =
         prev.length === fresh.length &&
         fresh.every((t, i) => t.id === prev[i].id && t.name === prev[i].name &&
+          t.owner_tier === prev[i].owner_tier &&
           t.permission_allow === prev[i].permission_allow &&
           t.permission_deny === prev[i].permission_deny &&
           JSON.stringify(t.role_ids) === JSON.stringify(prev[i].role_ids));

@@ -181,3 +181,13 @@ test("loadTeams omits a team whose roles cannot be resolved", async () => {
   await get().loadTeams();
   expect(cachedRoles()).toEqual({});
 });
+
+test("loadTeams replaces the list when only the owner's tier changed", async () => {
+  api.listTeams.mockResolvedValue([team("t1")]);
+  await get().loadTeams();
+  const before = get().teams;
+  api.listTeams.mockResolvedValue([{ ...team("t1"), owner_tier: "business" }]);
+  await get().loadTeams();
+  expect(get().teams).not.toBe(before);
+  expect(get().teams[0].owner_tier).toBe("business");
+});

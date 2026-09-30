@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { tierAtLeast } from "@/stores/subscriptionTier";
 import { buildInviteLink } from "@/services/inviteCode";
 import { uninviteFromSession } from "@/services/teamService";
 import { guestCapFor, highestOwnerTier, inviteSessionOf, membersOfTeams, seatUsage, type InviteSession, type InviteTarget, type ShareTier } from "@/services/teamSharing";
@@ -72,7 +73,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const inviteSession = inviteSessionOf(activeMp, matchingActiveSession);
 
   // Vaults whose owner has a qualifying plan (teams/business) — free-tier users can share to these
-  const qualifyingVaults = teams.filter((t) => t.owner_tier === "teams" || t.owner_tier === "business");
+  const qualifyingVaults = teams.filter((t) => tierAtLeast(t.owner_tier, "teams"));
   const hasQualifyingVaults = qualifyingVaults.length > 0;
 
   // For free/pro users, team sharing is only allowed when the connection itself lives in a qualifying vault.
