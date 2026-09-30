@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Team vault secrets now stay in memory only. Local copies of team passwords are removed on upgrade, since team vaults are online only (#402)
 - `HTTPS_PROXY`/`ALL_PROXY` and Windows proxy values with an `https://` scheme are now used as HTTPS proxies instead of being ignored. A plain proxy set as `https://` now fails the TLS handshake instead of connecting directly (#397)
 - FTPS on Android now also trusts the bundled webpki root certificates (#397)
-- Once a team sets its first per-object rule, members on 0.43.0 or older must update before they can open that team's vault (#405)
+- Per-object permissions are always on for every team vault, so members on 0.43.0 or older must update before they can open a team vault (#405)
+- Self-hosted servers need the matching server release for per-object permissions: `ghcr.io/voltiusapp/voltius-server:sha-b305624` or newer (VoltiusApp/server#61)
 
 ### Fixed
 
