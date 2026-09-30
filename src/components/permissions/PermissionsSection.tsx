@@ -164,7 +164,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   ].filter((s) => !listed.some((l) => subjectKey(l) === subjectKey(s)));
 
   const rolesGranting = (bit: number, roleIds?: string[]) =>
-    roles.filter((r) => (!roleIds || roleIds.includes(r.id)) && (r.permissions & bit) !== 0).map((r) => roleLabel(t, r.name));
+    roles.filter((r) => (!locked || r.is_builtin) && (!roleIds || roleIds.includes(r.id)) && (r.permissions & bit) !== 0).map((r) => roleLabel(t, r.name));
   const sourceOf = (from: string[]) =>
     from.length > 2 ? [t("shared.permissions.section.roleCount", { count: from.length })] : from;
 
@@ -230,7 +230,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
           <BusinessLapseNotice
             teamId={teamId}
             message={t("shared.businessLock.objectLapsed")}
-            removeLabel={t("shared.businessLock.clear")}
+            removeLabel={t("shared.businessLock.removeRules")}
             onRemove={!synced && draft.length > 0 ? async () => save([]) : undefined}
           />
           {isCredential && <p className="text-xs text-(--t-text-dim)">{t("shared.permissions.section.adminNote")}</p>}

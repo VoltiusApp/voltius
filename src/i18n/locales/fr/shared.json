@@ -169,7 +169,7 @@
       "upgradeLabel": "Débloquez-les pour cette équipe.",
       "upgrade": "Passer à Business",
       "ownerOnly": "Seul le propriétaire de l'équipe peut changer de forfait.",
-      "clear": "Supprimer les règles",
+      "removeRules": "Supprimer les règles",
       "confirmClear": "Cliquez à nouveau pour supprimer",
       "rolesBody": "Les rôles personnalisés nécessitent le forfait Business de l'équipe.",
       "memberLapsed": "Forfait Business expiré : les permissions accordées à {{name}} sont désactivées ; les restrictions restent appliquées.",

@@ -604,18 +604,20 @@ test("locked: override rows are disabled and Clear writes 0/0 without an undo en
   expect(h.push).not.toHaveBeenCalled();
 });
 
+test("locked: a custom role is not credited as a source", () => {
+  lock.value = { locked: true, isOwner: true };
+  const denied = { ...targetMember, permission_deny: PERM_BITS.VIEW_AUDIT_LOG };
+  render(<MemberDetailPanel {...permProps({ member: denied, teamRoles: [viewerRole, { ...targetRole, permissions: PERM_BITS.EDIT_KEYS }] })} />);
+  const text = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" }).parentElement!.textContent;
+  expect(text).toContain("members.permissions.notGranted");
+  expect(text).toContain("members.permissions.effectiveDenied");
+});
+
 test("locked: no Clear when the viewer may not edit this member", () => {
   lock.value = { locked: true, isOwner: false };
   const denied = { ...targetMember, permission_deny: PERM_BITS.EDIT_KEYS };
   render(<MemberDetailPanel {...permProps({ member: denied, canManageMembers: false })} />);
   expect(screen.getByText("shared.businessLock.memberLapsed")).toBeTruthy();
-  expect(screen.queryByText("shared.businessLock.removeOverrides")).toBeNull();
-});
-
-test("locked: no Clear when there is nothing to clear", () => {
-  lock.value = { locked: true, isOwner: true };
-  render(<MemberDetailPanel {...permProps()} />);
-  expect(screen.getByText("shared.businessLock.memberLine")).toBeTruthy();
   expect(screen.queryByText("shared.businessLock.removeOverrides")).toBeNull();
 });
 
@@ -644,10 +646,11 @@ test("locked: a Clear never crosses the vault key gate, so it writes 0/0 with no
   expect(h.rotate).not.toHaveBeenCalled();
 });
 
-test("locked member without overrides: one line, no permission rows", () => {
+test("locked member without overrides: one line, no Clear, no permission rows", () => {
   lock.value = { locked: true, isOwner: true };
   render(<MemberDetailPanel {...permProps()} />);
   expect(screen.getByText("shared.businessLock.memberLine")).toBeTruthy();
+  expect(screen.queryByText("shared.businessLock.removeOverrides")).toBeNull();
   expect(screen.queryByText("members.permissions.filterPlaceholder")).toBeNull();
   expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
 });

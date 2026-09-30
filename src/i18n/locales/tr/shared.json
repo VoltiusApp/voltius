@@ -164,7 +164,7 @@
       "upgradeLabel": "Bu ekip için kilidini açın.",
       "upgrade": "Business'a yükselt",
       "ownerOnly": "Yalnızca ekip sahibi yükseltebilir.",
-      "clear": "Kuralları kaldır",
+      "removeRules": "Kuralları kaldır",
       "confirmClear": "Kaldırmak için tekrar tıklayın",
       "rolesBody": "Özel roller ekibin Business planını gerektirir.",
       "memberLapsed": "Business planının süresi doldu: {{name}} için verilen izinler kapalı; kısıtlamalar geçerli olmaya devam ediyor.",

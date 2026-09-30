@@ -164,7 +164,7 @@
       "upgradeLabel": "Unlock them for this team.",
       "upgrade": "Upgrade to Business",
       "ownerOnly": "Only the team owner can upgrade.",
-      "clear": "Remove rules",
+      "removeRules": "Remove rules",
       "confirmClear": "Click again to remove",
       "rolesBody": "Custom roles need the team's Business plan.",
       "memberLapsed": "Business plan lapsed: permissions granted to {{name}} are off; restrictions still apply.",

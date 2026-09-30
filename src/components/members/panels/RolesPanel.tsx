@@ -302,14 +302,12 @@ function RoleCard({
   teamId,
   role,
   canEdit,
-  canDelete = canEdit,
   dragHandleProps,
   isDragOver,
 }: {
   teamId: string;
   role: TeamRole;
   canEdit: boolean;
-  canDelete?: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
   isDragOver?: boolean;
 }) {
@@ -374,7 +372,7 @@ function RoleCard({
               <Icon icon="lucide:pencil" width={13} />
             </button>
           )}
-          {canDelete && (
+          {canEdit && (
             <button
               onClick={() => void handleDelete()}
               disabled={deleting}
@@ -534,7 +532,6 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
                 teamId={teamId}
                 role={role}
                 canEdit={canEdit}
-                canDelete={canEdit}
                 isDragOver={dropIdx === idx && dragIdx !== null && dragIdx !== idx}
                 dragHandleProps={canEdit ? {
                   draggable: true,

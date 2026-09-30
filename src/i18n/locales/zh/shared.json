@@ -164,7 +164,7 @@
       "upgradeLabel": "为此团队解锁。",
       "upgrade": "升级到 Business",
       "ownerOnly": "只有团队所有者可以升级。",
-      "clear": "移除规则",
+      "removeRules": "移除规则",
       "confirmClear": "再次点击以移除",
       "rolesBody": "自定义角色需要团队的 Business 套餐。",
       "memberLapsed": "Business 套餐已失效：授予 {{name}} 的权限已关闭；限制仍然生效。",

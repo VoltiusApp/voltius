@@ -147,7 +147,7 @@ export function MemberDetailPanel({
 
   const rolesGranting = (permission: Permission) =>
     teamRoles
-      .filter((r) => member.role_ids.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
+      .filter((r) => (!locked || r.is_builtin) && member.role_ids.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
       .map((r) => roleLabel(t, r.name));
 
   const offendingBits = allow & ~viewerEffective;
@@ -327,7 +327,7 @@ export function MemberDetailPanel({
             <>
             <BusinessLapseNotice
               teamId={teamId}
-              message={t("shared.businessLock.memberLapsed", { name: member.handle })}
+              message={t("shared.businessLock.memberLapsed", { name: member.handle ?? "?" })}
               removeLabel={t("shared.businessLock.removeOverrides")}
               onRemove={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
             />
