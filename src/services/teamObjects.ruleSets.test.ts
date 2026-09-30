@@ -4,6 +4,7 @@ const h = vi.hoisted(() => ({
   requests: [] as { url: string; method: string; body: string }[],
   status: 204,
   body: {} as unknown,
+  loadTeams: vi.fn(async () => {}),
 }));
 
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn(async () => "0.33.0") }));
@@ -22,6 +23,7 @@ vi.mock("@/services/http", () => ({
   }),
 }));
 
+vi.mock("@/stores/teamStore", () => ({ useTeamStore: { getState: () => ({ loadTeams: h.loadTeams }) } }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
 import { createRuleSet, copyRuleSet, getRuleSet, putRuleSet, upsertTeamObject } from "./teamObjects";
@@ -30,6 +32,7 @@ beforeEach(() => {
   h.requests = [];
   h.status = 204;
   h.body = {};
+  h.loadTeams.mockClear();
 });
 
 test("createRuleSet posts entries and returns the id", async () => {
@@ -65,4 +68,16 @@ test("an absent rule_set_id is not serialized, null is", async () => {
   await upsertTeamObject("t1", { object_id: "c1", object_type: "connection", metadata: {}, rule_set_id: null });
   expect("rule_set_id" in JSON.parse(h.requests[0].body)).toBe(false);
   expect(JSON.parse(h.requests[1].body).rule_set_id).toBeNull();
+});
+
+test("a 402 on a rule-set call is the Business-plan refusal and reloads teams", async () => {
+  h.status = 402;
+  await expect(createRuleSet("t1", [])).rejects.toMatchObject({ status: 402, message: "common.error.businessPlanRequired" });
+  await vi.waitFor(() => expect(h.loadTeams).toHaveBeenCalledTimes(1));
+});
+
+test("a 402 on a non-rule-set call stays the vault-subscription error", async () => {
+  h.status = 402;
+  await expect(upsertTeamObject("t1", {} as never)).rejects.toMatchObject({ status: 402, message: "common.error.teamVaultRequiresSubscription" });
+  expect(h.loadTeams).not.toHaveBeenCalled();
 });
