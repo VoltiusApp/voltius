@@ -301,6 +301,15 @@ test("locked object with no rules shows only the one-line lock", async () => {
   expect(screen.queryAllByRole("radio")).toHaveLength(0);
 });
 
+test("locked object whose rules are still loading shows the notice, not the one-line lock", async () => {
+  lock.value = { locked: true, isOwner: true };
+  seed({ ruleSetId: "sOwn" });
+  vi.mocked(getRuleSet).mockReturnValue(new Promise(() => {}));
+  render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  expect(await screen.findByText("shared.businessLock.objectLapsed")).toBeTruthy();
+  expect(screen.queryByText("shared.businessLock.objectLine")).toBeNull();
+});
+
 test("locked: Sync now still works", async () => {
   lock.value = { locked: true, isOwner: true };
   seed({ ruleSetId: "sOwn" });

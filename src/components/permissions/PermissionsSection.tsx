@@ -219,7 +219,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   const connectDenied = connectState === "deny" || (connectState === "inherit" && !preview("CONNECT").grants);
   const connectLabel = isCredential ? t("shared.permissions.section.use") : permissionLabel(t, "CONNECT");
 
-  const hasRules = draft.length > 0;
+  const hasRules = draft.length > 0 || ruleSet.status !== "ok";
 
   return (
     <FormSection label={t(title)}>
@@ -231,7 +231,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
             teamId={teamId}
             message={t("shared.businessLock.objectLapsed")}
             removeLabel={t("shared.businessLock.clear")}
-            onRemove={!synced && hasRules ? async () => save([]) : undefined}
+            onRemove={!synced && draft.length > 0 ? async () => save([]) : undefined}
           />
           {isCredential && <p className="text-xs text-(--t-text-dim)">{t("shared.permissions.section.adminNote")}</p>}
           <div className="flex items-center justify-between gap-2 text-xs">
