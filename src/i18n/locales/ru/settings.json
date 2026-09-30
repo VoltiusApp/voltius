@@ -656,9 +656,6 @@
         "builtinRoles": "Встроенные роли",
         "customRoles": "Пользовательские роли",
         "newRoleBtn": "Новая роль",
-        "businessFeature": "Функция тарифа Business",
-        "businessFeatureDesc": "Пользовательские роли с детальными правами доступны на тарифе Business.",
-        "upgradeBtn": "Перейти на Business",
         "noCustomRolesCanEdit": "Пользовательских ролей пока нет. Создайте роль, чтобы назначить конкретные права.",
         "noCustomRoles": "Для этой команды не определено пользовательских ролей."
       }

@@ -651,9 +651,6 @@
         "builtinRoles": "Rôles intégrés",
         "customRoles": "Rôles personnalisés",
         "newRoleBtn": "Nouveau rôle",
-        "businessFeature": "Fonctionnalité du plan Business",
-        "businessFeatureDesc": "Les rôles personnalisés avec des permissions granulaires sont disponibles dans le plan Business.",
-        "upgradeBtn": "Passer au plan Business",
         "noCustomRolesCanEdit": "Aucun rôle personnalisé pour l'instant. Créez-en un pour attribuer des permissions spécifiques.",
         "noCustomRoles": "Aucun rôle personnalisé défini pour cette équipe."
       }

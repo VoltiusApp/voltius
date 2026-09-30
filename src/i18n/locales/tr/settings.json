@@ -569,9 +569,6 @@
         "builtinRoles": "Yerleşik roller",
         "customRoles": "Özel roller",
         "newRoleBtn": "Yeni rol",
-        "businessFeature": "Business planı özelliği",
-        "businessFeatureDesc": "Ayrıntılı izinlere sahip özel roller Business planında kullanılabilir.",
-        "upgradeBtn": "Business'a yükselt",
         "noCustomRolesCanEdit": "Henüz özel rol yok. Belirli izinler atamak için bir rol oluşturun.",
         "noCustomRoles": "Bu ekip için özel rol tanımlanmamış."
       }

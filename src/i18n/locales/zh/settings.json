@@ -522,9 +522,6 @@
         "builtinRoles": "内置角色",
         "customRoles": "自定义角色",
         "newRoleBtn": "新建角色",
-        "businessFeature": "Business 套餐功能",
-        "businessFeatureDesc": "具有细粒度权限的自定义角色在 Business 套餐中可用。",
-        "upgradeBtn": "升级到 Business",
         "noCustomRolesCanEdit": "暂无自定义角色。创建一个以分配特定权限。",
         "noCustomRoles": "此团队未定义自定义角色。"
       }

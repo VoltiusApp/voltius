@@ -646,9 +646,6 @@
         "builtinRoles": "Built-in roles",
         "customRoles": "Custom roles",
         "newRoleBtn": "New role",
-        "businessFeature": "Business plan feature",
-        "businessFeatureDesc": "Custom roles with granular permissions are available on the Business plan.",
-        "upgradeBtn": "Upgrade to Business",
         "noCustomRolesCanEdit": "No custom roles yet. Create one to assign specific permissions.",
         "noCustomRoles": "No custom roles defined for this team."
       }
