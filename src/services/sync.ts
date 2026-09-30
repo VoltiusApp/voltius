@@ -142,9 +142,14 @@ async function tryRefreshJwt(): Promise<string | null> {
 
   const wasProBefore = useSubscriptionStore.getState().isPro;
   const wasTeamsBefore = useSubscriptionStore.getState().isTeams;
+  const wasTierBefore = useSubscriptionStore.getState().tier;
   await useSubscriptionStore.getState().load().catch(logFailure("subscription load"));
   const isProNow = useSubscriptionStore.getState().isPro;
   const isTeamsNow = useSubscriptionStore.getState().isTeams;
+  if (useSubscriptionStore.getState().tier !== wasTierBefore) {
+    const { useTeamStore } = await import("@/stores/teamStore");
+    void useTeamStore.getState().loadTeams().catch(logFailure("teams reload after tier change"));
+  }
 
   if (wasProBefore && !isProNow) {
     const { useNotificationStore } = await import("@/stores/notificationStore");
