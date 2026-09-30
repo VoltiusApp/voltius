@@ -263,6 +263,7 @@ export function MemberDetailPanel({
                 .sort((a, b) => a.position - b.position).map((role) => {
 
                 const hasRole = member.role_ids.includes(role.id);
+                const lockedOut = locked && !role.is_builtin && !hasRole;
                 const meta = ROLE_META[role.name];
                 const color = role.color ?? meta?.color ?? "var(--t-accent)";
                 const bg = meta?.bg ?? `${color}1a`;
@@ -270,7 +271,8 @@ export function MemberDetailPanel({
                   <div key={role.id} className="flex flex-col gap-1">
                   <button
                     onClick={() => void handleToggleRole(role)}
-                    disabled={toggling === role.id || (locked && !role.is_builtin && !hasRole)}
+                    disabled={toggling === role.id || lockedOut}
+                    title={lockedOut ? t("shared.businessLock.title") : undefined}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     style={{
                       background: justToggled === role.id ? "rgba(52,211,153,0.15)" : hasRole ? bg : "var(--t-bg-elevated)",

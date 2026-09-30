@@ -507,7 +507,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           )}
         </div>
 
-        {locked && <BusinessLockBanner teamId={teamId} />}
+        <BusinessLockBanner teamId={teamId} />
         {customRoles.length === 0 ? (
           !locked && (
             <div
