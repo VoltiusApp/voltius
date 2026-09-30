@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
+import { refuseIfPlanRequired } from "@/services/planRequired";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, tryRefreshJwt } from "@/services/authTokens";
 import { clientHeaders } from "@/services/clientHeaders";
 import type { RuleEntry } from "@/services/permissions";
@@ -134,6 +135,7 @@ async function ruleSetRequest(teamId: string, path: string, init: RequestInit, m
     ...init,
     headers: { "Content-Type": "application/json" },
   });
+  refuseIfPlanRequired(res);
   if (res.status === 413) throw apiError(i18n.t("common.error.tooManyRuleEntries"), { status: 413 });
   await ensureOk(res, messageKey);
   return res;

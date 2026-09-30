@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
 import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
+import { refuseIfPlanRequired } from "@/services/planRequired";
 import { getJwt, getServerUrl } from "@/services/authTokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -196,6 +197,7 @@ export async function assignMemberRole(
     body: JSON.stringify({ role_id: roleId }),
   });
   if (!res.ok) {
+    refuseIfPlanRequired(res);
     if (res.status === 403) throw new Error(i18n.t("common.error.insufficientPermissionAssignRoles"));
     throw new Error(i18n.t("common.error.failedToAssignRole", { status: res.status }));
   }
@@ -230,6 +232,7 @@ export async function setMemberPermissions(
     body: JSON.stringify({ allow, deny }),
   });
   if (!res.ok) {
+    refuseIfPlanRequired(res);
     if (res.status === 403) throw new Error(i18n.t("common.error.insufficientPermissionSetMemberPermissions"));
     throw new Error(i18n.t("common.error.failedToSetMemberPermissions", { status: res.status }));
   }
@@ -258,6 +261,7 @@ export async function createRole(
     body: JSON.stringify({ name, permissions, color }),
   });
   if (!res.ok) {
+    refuseIfPlanRequired(res);
     if (res.status === 409) throw new Error(i18n.t("common.error.roleNameExists"));
     throw new Error(i18n.t("common.error.failedToCreateRole", { status: res.status }));
   }
@@ -276,6 +280,7 @@ export async function updateRole(
     body: JSON.stringify(updates),
   });
   if (!res.ok) {
+    refuseIfPlanRequired(res);
     if (res.status === 403) throw new Error(i18n.t("common.error.cannotModifyBuiltinRoles"));
     throw new Error(i18n.t("common.error.failedToUpdateRole", { status: res.status }));
   }
