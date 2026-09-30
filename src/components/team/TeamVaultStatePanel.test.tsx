@@ -15,6 +15,7 @@ import TeamVaultStatePanel from "./TeamVaultStatePanel";
 import { checkForUpdate } from "@/services/updater";
 import { useTeamStore } from "@/stores/teamStore";
 import type { Team, TeamMember } from "@/services/teamService";
+import { PERM_BITS } from "@/services/permissions";
 
 const TEAM: Team = {
   id: "t1", name: "Ops", owner_id: "u9", owner_tier: "team", created_at: "", role_ids: [],
@@ -66,4 +67,22 @@ test("update_required explains itself and offers a check for updates", () => {
   expect(screen.getByText("layout.mainPanel.teamVault.updateRequiredTitle")).toBeTruthy();
   fireEvent.click(screen.getByText("layout.mainPanel.checkForUpdates"));
   expect(checkForUpdate).toHaveBeenCalled();
+});
+
+test("a member locked out by the lapse is told why", () => {
+  useTeamStore.setState({
+    teams: [{ ...TEAM, owner_tier: "teams", permission_allow: PERM_BITS.VIEW | PERM_BITS.CONNECT }],
+    rolesByTeam: { t1: [] },
+  });
+  render(<TeamVaultStatePanel status="forbidden" teamId="t1" />);
+  expect(screen.getByText("layout.mainPanel.teamVault.planLapsedTitle")).toBeTruthy();
+});
+
+test("a forbidden member whose access never came from Business gets the generic copy", () => {
+  useTeamStore.setState({
+    teams: [{ ...TEAM, owner_tier: "teams", role_ids: ["b"], permission_deny: PERM_BITS.CONNECT }],
+    rolesByTeam: { t1: [{ id: "b", team_id: "t1", name: "member", permissions: PERM_BITS.VIEW | PERM_BITS.CONNECT, is_builtin: true, position: 3, created_at: "" }] },
+  });
+  render(<TeamVaultStatePanel status="forbidden" teamId="t1" />);
+  expect(screen.getByText("layout.mainPanel.teamVault.forbiddenTitle")).toBeTruthy();
 });

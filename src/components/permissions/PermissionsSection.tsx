@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BusinessLapseNotice } from "@/components/shared/BusinessLockBanner";
+import { BusinessLapseNotice, BusinessLockLine } from "@/components/shared/BusinessLockBanner";
 import { FormSection } from "@/components/shared/Panel";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerOption, PickerSearch } from "@/components/shared/pickerParts";
@@ -219,57 +219,65 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   const connectDenied = connectState === "deny" || (connectState === "inherit" && !preview("CONNECT").grants);
   const connectLabel = isCredential ? t("shared.permissions.section.use") : permissionLabel(t, "CONNECT");
 
+  const hasRules = draft.length > 0;
+
   return (
     <FormSection label={t(title)}>
-      <BusinessLapseNotice
-        teamId={teamId}
-        message={t("shared.businessLock.title")}
-        removeLabel={t("shared.businessLock.clear")}
-        onRemove={!synced && draft.length > 0 ? async () => save([]) : undefined}
-      />
-      {isCredential && <p className="text-xs text-(--t-text-dim)">{t("shared.permissions.section.adminNote")}</p>}
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <span className="text-(--t-text-secondary)">{banner}</span>
-        {!synced && (
-          <button
-            type="button"
-            className="text-(--t-accent)"
-            onClick={() => void syncWithFolder(target).catch((e) => setError(errorText(e)))}
-          >
-            {t(parentSet === null ? "shared.permissions.section.useTeams" : "shared.permissions.section.syncNow")}
-          </button>
-        )}
-      </div>
-      <SubjectChips
-        listed={listed}
-        candidates={candidates}
-        selected={selected}
-        nameOf={nameOf}
-        onSelect={setSelected}
-        onAdd={(s) => { setAdded((a) => [...a, s]); setSelected(s); }}
-        disabled={locked}
-      />
-      <div>
-        {OBJECT_RULE_ROWS[type].map((permission) => {
-          const p = preview(permission);
-          const needsConnect = connectDenied && (permission === "VIEW_SECRETS" || permission === "COPY_SECRETS");
-          return (
-            <PermissionOverrideRow
-              key={permission}
-              permission={permission}
-              label={isCredential && permission === "CONNECT" ? connectLabel : undefined}
-              note={needsConnect ? t("shared.permissions.section.requiresConnect", { connect: connectLabel }) : undefined}
-              state={overrideStateOf(permission, current?.allow ?? 0, current?.deny ?? 0)}
-              inheritedFrom={p.from}
-              inheritedGrants={p.grants && !needsConnect}
-              disabled={locked || ruleSet.status !== "ok" || needsConnect}
-              onChange={(next) => change(permission, next)}
-            />
-          );
-        })}
-      </div>
-      {(error || ruleSet.status === "error") && (
-        <p className="text-xs text-(--t-status-error)">{error ?? ruleSet.error ?? t("shared.permissions.section.loadFailed")}</p>
+      {locked && !hasRules ? (
+        <BusinessLockLine teamId={teamId} label={t("shared.businessLock.objectLine")} />
+      ) : (
+        <>
+          <BusinessLapseNotice
+            teamId={teamId}
+            message={t("shared.businessLock.objectLapsed")}
+            removeLabel={t("shared.businessLock.clear")}
+            onRemove={!synced && hasRules ? async () => save([]) : undefined}
+          />
+          {isCredential && <p className="text-xs text-(--t-text-dim)">{t("shared.permissions.section.adminNote")}</p>}
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-(--t-text-secondary)">{banner}</span>
+            {!synced && (
+              <button
+                type="button"
+                className="text-(--t-accent)"
+                onClick={() => void syncWithFolder(target).catch((e) => setError(errorText(e)))}
+              >
+                {t(parentSet === null ? "shared.permissions.section.useTeams" : "shared.permissions.section.syncNow")}
+              </button>
+            )}
+          </div>
+          <SubjectChips
+            listed={listed}
+            candidates={candidates}
+            selected={selected}
+            nameOf={nameOf}
+            onSelect={setSelected}
+            onAdd={(s) => { setAdded((a) => [...a, s]); setSelected(s); }}
+            disabled={locked}
+          />
+          <div>
+            {OBJECT_RULE_ROWS[type].map((permission) => {
+              const p = preview(permission);
+              const needsConnect = connectDenied && (permission === "VIEW_SECRETS" || permission === "COPY_SECRETS");
+              return (
+                <PermissionOverrideRow
+                  key={permission}
+                  permission={permission}
+                  label={isCredential && permission === "CONNECT" ? connectLabel : undefined}
+                  note={needsConnect ? t("shared.permissions.section.requiresConnect", { connect: connectLabel }) : undefined}
+                  state={overrideStateOf(permission, current?.allow ?? 0, current?.deny ?? 0)}
+                  inheritedFrom={p.from}
+                  inheritedGrants={p.grants && !needsConnect}
+                  disabled={locked || ruleSet.status !== "ok" || needsConnect}
+                  onChange={(next) => change(permission, next)}
+                />
+              );
+            })}
+          </div>
+          {(error || ruleSet.status === "error") && (
+            <p className="text-xs text-(--t-status-error)">{error ?? ruleSet.error ?? t("shared.permissions.section.loadFailed")}</p>
+          )}
+        </>
       )}
     </FormSection>
   );

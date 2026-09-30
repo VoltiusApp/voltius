@@ -2,10 +2,7 @@ import { test, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
-vi.mock("@/components/shared/BusinessLockBanner", () => ({
-  BusinessLapseNotice: ({ onRemove }: { onRemove?: () => Promise<void> }) =>
-    lock.value.locked ? <div>business-lock{onRemove && <button onClick={() => void onRemove()}>clear-rules</button>}</div> : null,
-}));
+vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 import { PermissionsSection } from "./PermissionsSection";
 import { saveObjectRules, syncWithFolder } from "@/services/ruleSetEditing";
 import { getRuleSet } from "@/services/teamObjects";
@@ -275,12 +272,13 @@ test("locked + own rules: rows and add-subject disabled, Clear saves an empty se
   vi.mocked(getRuleSet).mockResolvedValue(everyoneDenyConnect);
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
 
-  const clear = await screen.findByText("clear-rules");
+  const clear = await screen.findByText("shared.businessLock.clear");
   const connect = await connectRow();
   expect((within(connect).getByRole("radio", { name: "members.permissions.state.inherit" }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.queryByText("shared.permissions.section.addSubject")).toBeNull();
 
   fireEvent.click(clear);
+  fireEvent.click(screen.getByText("shared.businessLock.confirmClear"));
   await waitFor(() => expect(saveObjectRules).toHaveBeenCalledWith({ teamId: "t1", objectId: "c1", type: "connection" }, []));
 });
 
@@ -290,13 +288,23 @@ test("locked + synced with its folder: banner but no Clear", async () => {
   vi.mocked(getRuleSet).mockResolvedValue(everyoneDenyConnect);
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
   expect(await screen.findByText("shared.permissions.section.syncedWith Prod")).toBeTruthy();
-  expect(screen.getByText("business-lock")).toBeTruthy();
-  expect(screen.queryByText("clear-rules")).toBeNull();
+  expect(screen.getByText("shared.businessLock.objectLapsed")).toBeTruthy();
+  expect(screen.queryByText("shared.businessLock.clear")).toBeNull();
+});
+
+test("locked object with no rules shows only the one-line lock", async () => {
+  lock.value = { locked: true, isOwner: true };
+  seed({ ruleSetId: null });
+  render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  expect(await screen.findByText("shared.businessLock.objectLine")).toBeTruthy();
+  expect(screen.queryByText("shared.businessLock.objectLapsed")).toBeNull();
+  expect(screen.queryAllByRole("radio")).toHaveLength(0);
 });
 
 test("locked: Sync now still works", async () => {
   lock.value = { locked: true, isOwner: true };
   seed({ ruleSetId: "sOwn" });
+  vi.mocked(getRuleSet).mockResolvedValue(everyoneDenyConnect);
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
   fireEvent.click(await screen.findByText("shared.permissions.section.syncNow"));
   expect(syncWithFolder).toHaveBeenCalledWith({ teamId: "t1", objectId: "c1", type: "connection" });
