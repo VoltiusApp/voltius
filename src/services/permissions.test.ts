@@ -362,7 +362,40 @@ describe("lapse principle (mirror of server lapse math)", () => {
   });
 
   it("a custom-role administrator loses the bypass when locked", () => {
-    expect(resolveObjectPermissions(m(["auditor"]), roles, [everyone(0, B.VIEW)], true)).toBe(0);
+    const both = m(["member", "auditor"]);
+    expect(resolveObjectPermissions(both, roles, null, false)).toBe(ALL_PERMISSION_BITS);
+    expect(resolveObjectPermissions(both, roles, null, true)).toBe(builtin.permissions);
+    expect(resolveObjectPermissions(both, roles, [everyone(0, B.VIEW)], true)).toBe(0);
+  });
+
+  it("a built-in administrator keeps the bypass when locked", () => {
+    const owner = role("owner", B.ADMINISTRATOR, { is_builtin: true });
+    expect(resolveObjectPermissions(m(["owner"]), [owner], [everyone(0, B.VIEW)], true)).toBe(ALL_PERMISSION_BITS);
+  });
+
+  it("a role-layer deny aimed at a held custom role still applies when locked", () => {
+    const both = m(["member", "auditor"]);
+    expect(resolveObjectPermissions(both, roles, [roleRule("auditor", 0, B.EDIT_KEYS)], true))
+      .toBe(B.VIEW | B.CONNECT | B.VIEW_SECRETS);
+    expect(resolveObjectPermissions(both, roles, [roleRule("auditor", 0, B.VIEW)], true)).toBe(0);
+  });
+
+  it("locked is never wider than Business", () => {
+    const bits = [B.VIEW, B.CONNECT, B.VIEW_SECRETS, B.COPY_SECRETS, B.EDIT_CONNECTIONS];
+    const masks = Array.from({ length: 1 << bits.length }, (_, i) =>
+      bits.reduce((acc, b, j) => (i & (1 << j) ? acc | b : acc), 0));
+    for (const base of masks) {
+      const layered = [role("b", base, { is_builtin: true }), role("c", base ^ masks[masks.length - 1])];
+      for (const allow of masks) {
+        for (const deny of masks) {
+          const entries = [everyone(allow, deny), roleRule("b", deny, allow), roleRule("c", allow, deny), memberRule("u1", allow, deny)];
+          const who = m(["b", "c"], allow, deny & ~base);
+          const locked = resolveObjectPermissions(who, layered, entries, true);
+          const business = resolveObjectPermissions(who, layered, entries, false);
+          expect(locked & ~business, `base=${base} allow=${allow} deny=${deny}`).toBe(0);
+        }
+      }
+    }
   });
 
   it("clearing overrides never crosses the key gate on a locked team", () => {
