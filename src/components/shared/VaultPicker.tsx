@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId } from "@/services/teamService";
-import { effectivePermissions, PERM_BITS } from "@/hooks/usePermission";
+import { canEditConnectionsIn } from "@/services/permissions";
 import { PickerSurface } from "./PickerSurface";
 
 export function VaultPicker({
@@ -49,11 +49,7 @@ export function VaultPicker({
 
   const canWrite = (vId: string): boolean => {
     if (vId === "personal") return true;
-    const member = membersByTeam[vId]?.find((m) => m.user_id === myUserId);
-    if (!member || !myUserId) return true; // optimistic while loading
-    const roles = rolesByTeam[vId] ?? [];
-    if (roles.length === 0) return true; // optimistic while loading
-    return (effectivePermissions(member, roles) & PERM_BITS.EDIT_CONNECTIONS) !== 0;
+    return canEditConnectionsIn(vId, myUserId, { teams, membersByTeam, rolesByTeam });
   };
 
   const linkedTeamIds = new Set(vaults.map((v) => v.teamId).filter(Boolean));

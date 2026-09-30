@@ -425,7 +425,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
   const myMember = members.find((m) => m.user_id === myUserId);
 
   const canEdit = myMember
-    ? (effectivePermissions(myMember, roles) & PERM_BITS.MANAGE_ROLES) !== 0
+    ? (effectivePermissions(myMember, roles, locked) & PERM_BITS.MANAGE_ROLES) !== 0
     : false;
 
   const builtinRoles = roles.filter((r) => r.is_builtin).sort((a, b) => a.position - b.position);

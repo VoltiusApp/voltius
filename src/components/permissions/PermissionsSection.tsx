@@ -175,7 +175,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
       const others = draft.filter((e) => !(e.subject_type === "member" && e.subject_id === selected.id));
       return {
         from: sourceOf(rolesGranting(bit, member?.role_ids ?? [])),
-        grants: member ? (resolveObjectPermissions(member, roles, others) & bit) !== 0 : false,
+        grants: member ? (resolveObjectPermissions(member, roles, others, locked) & bit) !== 0 : false,
       };
     }
     const from = rolesGranting(bit, selected.type === "role" ? [selected.id] : undefined);

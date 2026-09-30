@@ -3,6 +3,7 @@ import type { Vault } from "@/stores/vaultStore";
 import { vaultById } from "@/services/vaultLookup";
 import type { TeamObjectType } from "@/services/teamObjects";
 import type { ObjectAccessIndex } from "@/stores/teamObjectAccessStore";
+import { isBusinessLocked } from "@/stores/subscriptionTier";
 
 export type Permission =
   | "VIEW_SECRETS"
@@ -89,12 +90,13 @@ export interface RuleEntry {
   deny: number;
 }
 
-type MemberMasks = { user_id?: string; role_ids: string[]; permission_allow?: number; permission_deny?: number };
+type Masks = { role_ids: string[]; permission_allow?: number; permission_deny?: number };
+type MemberMasks = Masks & { user_id?: string };
 
 // Preview only; decisions read the server's my_permissions. Keep in sync with object_permissions() in server/src/permissions.rs.
-export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[], entries: RuleEntry[] | null): number {
+export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[], entries: RuleEntry[] | null, locked: boolean): number {
   const teamDeny = member.permission_deny ?? 0;
-  const base = effectivePermissions(member, roles);
+  const base = effectivePermissions(member, roles, locked);
   if (base & PERM_BITS.ADMINISTRATOR) return withDependencies(ALL_PERMISSION_BITS & ~teamDeny);
   if (!entries) return base;
   const layer = (match: (e: RuleEntry) => boolean) => entries.filter(match).reduce(
@@ -102,9 +104,9 @@ export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[],
   const every = layer((e) => e.subject_type === "everyone");
   const byRole = layer((e) => e.subject_type === "role" && member.role_ids.includes(e.subject_id ?? ""));
   const mine = layer((e) => e.subject_type === "member" && e.subject_id === member.user_id);
-  let p = (base & ~every.deny) | every.allow;
-  p = (p & ~byRole.deny) | byRole.allow;
-  p = (p & ~mine.deny) | mine.allow;
+  let p = locked
+    ? base & ~(every.deny | byRole.deny | mine.deny)
+    : (((((base & ~every.deny) | every.allow) & ~byRole.deny) | byRole.allow) & ~mine.deny) | mine.allow;
   p &= ~teamDeny;
   return p & PERM_BITS.VIEW ? withDependencies(p) : 0;
 }
@@ -141,30 +143,44 @@ export function isTeamOwner(team: { owner_id: string } | undefined, myUserId: st
   return !!myUserId && team?.owner_id === myUserId;
 }
 
-export function effectivePermissions(
-  member: { role_ids: string[]; permission_allow?: number; permission_deny?: number },
-  roles: TeamRole[],
-): number {
+export function effectivePermissions(member: Masks, roles: TeamRole[], locked: boolean): number {
+  const allow = member.permission_allow ?? 0;
+  const deny = member.permission_deny ?? 0;
   const union = member.role_ids.reduce((acc, rid) => {
     const role = roles.find((r) => r.id === rid);
-    return acc | (role?.permissions ?? 0);
+    return !role || (locked && !role.is_builtin) ? acc : acc | role.permissions;
   }, 0);
-  return withDependencies((union | (member.permission_allow ?? 0)) & ~(member.permission_deny ?? 0));
+  return withDependencies(locked ? union & ~deny : (union | allow) & ~deny);
 }
 
 const VAULT_KEY_GATE = PERM_BITS.CONNECT;
 
-export function crossesVaultKeyGate(
-  member: { role_ids: string[]; permission_allow?: number; permission_deny?: number },
-  roles: TeamRole[],
-  next: { allow: number; deny: number },
-): boolean {
-  const before = effectivePermissions(member, roles) & VAULT_KEY_GATE;
+export function crossesVaultKeyGate(member: Masks, roles: TeamRole[], next: { allow: number; deny: number }, locked: boolean): boolean {
+  const before = effectivePermissions(member, roles, locked) & VAULT_KEY_GATE;
   const after = effectivePermissions(
     { role_ids: member.role_ids, permission_allow: next.allow, permission_deny: next.deny },
     roles,
+    locked,
   ) & VAULT_KEY_GATE;
   return before !== 0 && after === 0;
+}
+
+export function lostAccessToLapse(member: Masks, roles: TeamRole[]): boolean {
+  return (effectivePermissions(member, roles, false) & VAULT_KEY_GATE) !== 0
+    && (effectivePermissions(member, roles, true) & VAULT_KEY_GATE) === 0;
+}
+
+export function canEditConnectionsIn(
+  teamId: string,
+  myUserId: string,
+  s: { teams: Team[]; membersByTeam: Record<string, TeamMember[]>; rolesByTeam: Record<string, TeamRole[]> },
+): boolean {
+  const member = s.membersByTeam[teamId]?.find((m) => m.user_id === myUserId);
+  if (!member || !myUserId) return true;
+  const roles = s.rolesByTeam[teamId] ?? [];
+  if (roles.length === 0) return true;
+  const locked = isBusinessLocked(s.teams.find((t) => t.id === teamId));
+  return (effectivePermissions(member, roles, locked) & PERM_BITS.EDIT_CONNECTIONS) !== 0;
 }
 
 /** True if member holds the builtin role with the given name in this team. */
@@ -244,18 +260,19 @@ export function resolveCan(
 
   const roles = snapshot.rolesByTeam[teamId] ?? [];
   const members = snapshot.membersByTeam[teamId];
+  const locked = isBusinessLocked(snapshot.teams.find((t) => t.id === teamId));
 
   if (!snapshot.myUserId) return false;
 
   if (members) {
     const member = members.find((m) => m.user_id === snapshot.myUserId);
     if (!member) return false;
-    return (effectivePermissions(member, roles) & PERM_BITS[permission]) !== 0;
+    return (effectivePermissions(member, roles, locked) & PERM_BITS[permission]) !== 0;
   }
 
   const myTeam = snapshot.teams.find((t) => t.id === teamId);
   if (!myTeam || roles.length === 0) return false;
-  return (effectivePermissions(myTeam, roles) & PERM_BITS[permission]) !== 0;
+  return (effectivePermissions(myTeam, roles, locked) & PERM_BITS[permission]) !== 0;
 }
 
 /**

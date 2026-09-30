@@ -12,7 +12,7 @@ describe("cacheVaultRoles", () => {
     const { cacheVaultRoles } = await import("@/stores/teamStore");
     await cacheVaultRoles(
       [{
-        id: "t1", name: "T", owner_id: "u1", owner_tier: "pro", created_at: "",
+        id: "t1", name: "T", owner_id: "u1", owner_tier: "business", created_at: "",
         role_ids: ["r1"], permission_allow: 0, permission_deny: PERM_BITS.EDIT_CONNECTIONS,
       }] as never,
       { t1: [{ id: "r1", team_id: "t1", name: "editor", permissions: PERM_BITS.EDIT_CONNECTIONS | PERM_BITS.CONNECT, is_builtin: true, position: 2, created_at: "" }] },
@@ -27,7 +27,7 @@ describe("cacheVaultRoles", () => {
     const { cacheVaultRoles } = await import("@/stores/teamStore");
     await cacheVaultRoles(
       [{
-        id: "t1", name: "T", owner_id: "u1", owner_tier: "pro", created_at: "",
+        id: "t1", name: "T", owner_id: "u1", owner_tier: "business", created_at: "",
         role_ids: ["r1"], permission_allow: PERM_BITS.EDIT_KEYS, permission_deny: 0,
       }] as never,
       { t1: [{ id: "r1", team_id: "t1", name: "connect", permissions: PERM_BITS.CONNECT, is_builtin: true, position: 4, created_at: "" }] },

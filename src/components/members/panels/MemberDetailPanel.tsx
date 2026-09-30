@@ -125,7 +125,7 @@ export function MemberDetailPanel({
 
   const allow = member.permission_allow ?? 0;
   const deny = member.permission_deny ?? 0;
-  const viewerEffective = viewer ? effectivePermissions(viewer, teamRoles) : 0;
+  const viewerEffective = viewer ? effectivePermissions(viewer, teamRoles, locked) : 0;
 
   // A server predating overrides omits both masks; a zero mask serializes as 0.
   const serverSupportsOverrides =
@@ -194,7 +194,7 @@ export function MemberDetailPanel({
 
   const clearOverrides = async () => {
     const cleared = { allow: 0, deny: 0 };
-    if (crossesVaultKeyGate(member, teamRoles, cleared)) {
+    if (crossesVaultKeyGate(member, teamRoles, cleared, locked)) {
       setPendingRevoke("clear");
       return;
     }
@@ -227,7 +227,7 @@ export function MemberDetailPanel({
       return;
     }
     const updated = applyOverrideState(permission, allow, deny, next);
-    if (crossesVaultKeyGate(member, teamRoles, updated)) {
+    if (crossesVaultKeyGate(member, teamRoles, updated, locked)) {
       setPendingRevoke({ permission, next });
       return;
     }

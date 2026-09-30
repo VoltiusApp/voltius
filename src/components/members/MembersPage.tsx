@@ -115,7 +115,7 @@ export default function MembersPage() {
   const myMember = members.find((m) => m.user_id === myUserId);
 
   // Compute effective permissions from role bits
-  const myEffectivePerms = myMember ? effectivePermissions(myMember, teamRoles) : 0;
+  const myEffectivePerms = myMember ? effectivePermissions(myMember, teamRoles, businessLocked) : 0;
   const canManageMembers = (myEffectivePerms & PERM_BITS.MANAGE_MEMBERS) !== 0;
   const canManageRoles = (myEffectivePerms & PERM_BITS.MANAGE_ROLES) !== 0;
   const canInvite = (myEffectivePerms & PERM_BITS.INVITE_MEMBERS) !== 0;

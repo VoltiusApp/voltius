@@ -13,6 +13,7 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { firstViewNav, mobileFirstViewTarget, selectedTeamId } from "@/services/teamVaultFirstAccess";
 import { isMobileShell } from "@/utils/platform";
 import { effectivePermissions } from "@/services/permissions";
+import { isBusinessLocked } from "@/stores/subscriptionTier";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
@@ -113,7 +114,7 @@ function applyFirstViewNav(teamId: string): void {
   const team = teams.find((t) => t.id === teamId);
   const roles = rolesByTeam[teamId];
   if (!team || !roles || roles.length === 0) return;
-  const nav = firstViewNav(effectivePermissions(team, roles));
+  const nav = firstViewNav(effectivePermissions(team, roles, isBusinessLocked(team)));
   if (isMobileShell()) {
     const { tab, screen } = mobileFirstViewTarget(nav);
     useMobileNavStore.getState().setTab(tab);

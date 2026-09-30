@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId } from "@/services/teamService";
-import { effectivePermissions, PERM_BITS } from "@/hooks/usePermission";
+import { canEditConnectionsIn } from "@/services/permissions";
 
 export function Radio({ checked, onChange, label, sub }: { checked: boolean; onChange: () => void; label: string; sub?: string }) {
   return (
@@ -57,11 +57,7 @@ export function useVaultList(writableOnly = false) {
 
   const canWrite = (vId: string): boolean => {
     if (vId === "personal") return true;
-    const member = membersByTeam[vId]?.find((m) => m.user_id === myUserId);
-    if (!member || !myUserId) return true;
-    const roles = rolesByTeam[vId] ?? [];
-    if (roles.length === 0) return true;
-    return (effectivePermissions(member, roles) & PERM_BITS.EDIT_CONNECTIONS) !== 0;
+    return canEditConnectionsIn(vId, myUserId, { teams, membersByTeam, rolesByTeam });
   };
 
   const linkedTeamIds = new Set(vaults.map(v => v.teamId).filter(Boolean));

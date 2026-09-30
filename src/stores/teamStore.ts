@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";
+import { isBusinessLocked } from "@/stores/subscriptionTier";
 import type { CreatedTeam, Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
 export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation };
 
@@ -73,7 +74,7 @@ export async function cacheVaultRoles(
         .map((rid) => roles!.find((r) => r.id === rid)?.permissions)
         .filter((p): p is number => typeof p === "number");
       if (resolved.length < t.role_ids.length) return;
-      bits[t.id] = effectivePermissions(t, roles!);
+      bits[t.id] = effectivePermissions(t, roles!, isBusinessLocked(t));
     }),
   );
   await invoke("keychain_set", {
