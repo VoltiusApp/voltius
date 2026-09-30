@@ -8,7 +8,7 @@ import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePer
 import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
 import { permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { CheckboxBox } from "@/components/shared/Checkbox";
-import { BusinessLapseNotice } from "@/components/shared/BusinessLockBanner";
+import { UpgradeAction } from "@/components/shared/BusinessLockBanner";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
@@ -507,19 +507,25 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           )}
         </div>
 
-        <BusinessLapseNotice teamId={teamId} message={t("shared.businessLock.title")} removeLabel={t("shared.businessLock.clear")} />
-        {customRoles.length === 0 ? (
-          !locked && (
-            <div
-              className="rounded-xl p-4 text-center"
-              style={{ border: "1px dashed var(--t-border)" }}
-            >
-              <Icon icon="lucide:shield-off" width={22} className="mx-auto mb-2" style={{ color: "var(--t-text-dim)" }} />
-              <p className="text-xs" style={{ color: "var(--t-text-dim)" }}>
-                {canEdit ? t("settings.vaults.rolesPanel.noCustomRolesCanEdit") : t("settings.vaults.rolesPanel.noCustomRoles")}
-              </p>
+        {locked ? (
+          <div className="rounded-xl p-4 flex flex-col items-center gap-3 text-center border border-(--t-border) bg-(--t-bg-card)">
+            <Icon icon="lucide:lock" width={20} className="text-(--t-text-dim)" />
+            <div>
+              <p className="text-sm font-medium text-(--t-text-primary)">{t("shared.businessLock.title")}</p>
+              <p className="text-xs mt-1 max-w-[220px] text-(--t-text-dim)">{t("shared.businessLock.rolesBody")}</p>
             </div>
-          )
+            <UpgradeAction teamId={teamId} look="button" />
+          </div>
+        ) : customRoles.length === 0 ? (
+          <div
+            className="rounded-xl p-4 text-center"
+            style={{ border: "1px dashed var(--t-border)" }}
+          >
+            <Icon icon="lucide:shield-off" width={22} className="mx-auto mb-2" style={{ color: "var(--t-text-dim)" }} />
+            <p className="text-xs" style={{ color: "var(--t-text-dim)" }}>
+              {canEdit ? t("settings.vaults.rolesPanel.noCustomRolesCanEdit") : t("settings.vaults.rolesPanel.noCustomRoles")}
+            </p>
+          </div>
         ) : (
           <div className="space-y-2">
             {customRoles.map((role, idx) => (
@@ -527,10 +533,10 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
                 key={role.id}
                 teamId={teamId}
                 role={role}
-                canEdit={canEdit && !locked}
+                canEdit={canEdit}
                 canDelete={canEdit}
                 isDragOver={dropIdx === idx && dragIdx !== null && dragIdx !== idx}
-                dragHandleProps={canEdit && !locked ? {
+                dragHandleProps={canEdit ? {
                   draggable: true,
                   onDragStart: (e) => { e.stopPropagation(); handleDragStart(idx); },
                   onDragOver: (e) => handleDragOver(e, idx),

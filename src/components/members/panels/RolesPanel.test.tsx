@@ -14,9 +14,7 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/components/theme-creator/ColorPicker", () => ({ ColorPicker: () => null }));
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
-vi.mock("@/components/shared/BusinessLockBanner", () => ({
-  BusinessLapseNotice: () => (lock.value.locked ? <div>business-lock</div> : null),
-}));
+vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 
 import { TeamRolesPanel, RoleModal } from "@/components/members/panels/RolesPanel";
 import { PERM_BITS } from "@/hooks/usePermission";
@@ -52,24 +50,24 @@ test("business but NO MANAGE_ROLES → no 'New role' button, read-only empty sta
   expect(screen.queryByText("settings.vaults.rolesPanel.newRoleBtn")).toBeNull();
 });
 
-test("locked team → banner, no New role, existing custom roles still listed with delete only", async () => {
+test("a locked team shows the Business card instead of the custom roles list", async () => {
   lock.value = { locked: true, isOwner: true };
-  api.listRoles.mockResolvedValue([role("r1", PERM_BITS.MANAGE_ROLES, true), role("legacy", PERM_BITS.VIEW_SECRETS)]);
+  api.listRoles.mockResolvedValue([role("r1", PERM_BITS.MANAGE_ROLES, true), role("auditor", PERM_BITS.VIEW_SECRETS)]);
   api.listMembers.mockResolvedValue([member("me", ["r1"])]);
   render(<TeamRolesPanel teamId="t1" myUserId="me" />);
-  expect(await screen.findByText("business-lock")).toBeTruthy();
-  expect(screen.getByText("legacy")).toBeTruthy();
+  expect(await screen.findByText("shared.businessLock.rolesBody")).toBeTruthy();
+  expect(screen.queryByText("auditor")).toBeNull();
+  expect(screen.getByText("shared.businessLock.upgrade")).toBeTruthy();
   expect(screen.queryByText("settings.vaults.rolesPanel.newRoleBtn")).toBeNull();
-  expect(screen.queryByTitle("settings.vaults.rolesPanel.editRole")).toBeNull();
-  expect(screen.getByTitle("settings.vaults.rolesPanel.deleteRoleTitle")).toBeTruthy();
 });
 
-test("locked team with no custom roles shows only the banner", async () => {
+test("a locked team with no custom roles shows the card, not the empty state", async () => {
   lock.value = { locked: true, isOwner: false };
   api.listRoles.mockResolvedValue([role("r1", PERM_BITS.MANAGE_ROLES, true)]);
   api.listMembers.mockResolvedValue([member("me", ["r1"])]);
   render(<TeamRolesPanel teamId="t1" myUserId="me" />);
-  expect(await screen.findByText("business-lock")).toBeTruthy();
+  expect(await screen.findByText("shared.businessLock.rolesBody")).toBeTruthy();
+  expect(screen.getByText("shared.businessLock.ownerOnly")).toBeTruthy();
   expect(screen.queryByText("settings.vaults.rolesPanel.noCustomRolesCanEdit")).toBeNull();
 });
 

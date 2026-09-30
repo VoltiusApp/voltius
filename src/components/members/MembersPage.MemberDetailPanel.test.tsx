@@ -64,10 +64,7 @@ vi.mock("@/services/teamKeyRotation", () => ({
 
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
-vi.mock("@/components/shared/BusinessLockBanner", () => ({
-  BusinessLapseNotice: ({ onRemove }: { onRemove?: () => Promise<void> }) =>
-    lock.value.locked ? <div>business-lock{onRemove && <button onClick={() => void onRemove()}>clear-rules</button>}</div> : null,
-}));
+vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 
 import { MemberDetailPanel } from "./panels/MemberDetailPanel";
 import { useTeamStore } from "@/stores/teamStore";
@@ -245,6 +242,11 @@ const targetMember: TeamMember = {
   invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z",
   role_ids: ["r-target"], permission_allow: 0, permission_deny: 0,
 };
+
+function clearRules() {
+  fireEvent.click(screen.getByText("shared.businessLock.removeOverrides"));
+  fireEvent.click(screen.getByText("shared.businessLock.confirmClear"));
+}
 
 function permProps(overrides: Partial<{
   member: TeamMember; isMe: boolean; teamRoles: TeamRole[];
@@ -596,7 +598,7 @@ test("locked: override rows are disabled and Clear writes 0/0 without an undo en
   const row = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
   expect((within(row).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(true);
 
-  fireEvent.click(screen.getByText("clear-rules"));
+  clearRules();
 
   await waitFor(() => expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0));
   expect(h.push).not.toHaveBeenCalled();
@@ -606,15 +608,15 @@ test("locked: no Clear when the viewer may not edit this member", () => {
   lock.value = { locked: true, isOwner: false };
   const denied = { ...targetMember, permission_deny: PERM_BITS.EDIT_KEYS };
   render(<MemberDetailPanel {...permProps({ member: denied, canManageMembers: false })} />);
-  expect(screen.getByText("business-lock")).toBeTruthy();
-  expect(screen.queryByText("clear-rules")).toBeNull();
+  expect(screen.getByText("shared.businessLock.memberLapsed")).toBeTruthy();
+  expect(screen.queryByText("shared.businessLock.removeOverrides")).toBeNull();
 });
 
 test("locked: no Clear when there is nothing to clear", () => {
   lock.value = { locked: true, isOwner: true };
   render(<MemberDetailPanel {...permProps()} />);
-  expect(screen.getByText("business-lock")).toBeTruthy();
-  expect(screen.queryByText("clear-rules")).toBeNull();
+  expect(screen.getByText("shared.businessLock.memberLine")).toBeTruthy();
+  expect(screen.queryByText("shared.businessLock.removeOverrides")).toBeNull();
 });
 
 test("locked: New role hidden; a custom role cannot be added, a held builtin can still be toggled", () => {
@@ -635,9 +637,17 @@ test("locked: a Clear never crosses the vault key gate, so it writes 0/0 with no
   lock.value = { locked: true, isOwner: true };
   render(<MemberDetailPanel {...gateClearProps()} />);
 
-  fireEvent.click(screen.getByText("clear-rules"));
+  clearRules();
 
   await waitFor(() => expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0));
   expect(screen.queryByText("members.revokeKeyAccess.title")).toBeNull();
   expect(h.rotate).not.toHaveBeenCalled();
+});
+
+test("locked member without overrides: one line, no permission rows", () => {
+  lock.value = { locked: true, isOwner: true };
+  render(<MemberDetailPanel {...permProps()} />);
+  expect(screen.getByText("shared.businessLock.memberLine")).toBeTruthy();
+  expect(screen.queryByText("members.permissions.filterPlaceholder")).toBeNull();
+  expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
 });

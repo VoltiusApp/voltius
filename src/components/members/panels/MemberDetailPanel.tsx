@@ -9,7 +9,7 @@ import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/members/panels/RolesPanel";
 import { ROLE_META, RoleBlurb, permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
-import { BusinessLapseNotice } from "@/components/shared/BusinessLockBanner";
+import { BusinessLapseNotice, BusinessLockLine } from "@/components/shared/BusinessLockBanner";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
@@ -321,58 +321,64 @@ export function MemberDetailPanel({
         {/* Permissions */}
         {serverSupportsOverrides && (
         <FormSection label={t("members.permissions.title")}>
-          <BusinessLapseNotice
-            teamId={teamId}
-            message={t("shared.businessLock.title")}
-            removeLabel={t("shared.businessLock.clear")}
-            onRemove={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
-          />
-          {readOnlyReason && (
-            <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>
-          )}
-          {editablePermissions.length > 6 && (
-            <div className="relative mb-2">
-              <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--t-text-dim)" }} />
-              <input
-                value={permissionFilter}
-                onChange={(e) => setPermissionFilter(e.target.value)}
-                placeholder={t("members.permissions.filterPlaceholder")}
-                className="w-full pl-8 pr-7 py-1.5 rounded-lg outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary)"
-                style={{ fontSize: 12 }}
-              />
-              {permissionFilter && (
-                <button onClick={() => setPermissionFilter("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70">
-                  <Icon icon="lucide:x" width={12} style={{ color: "var(--t-text-dim)" }} />
-                </button>
-              )}
-            </div>
-          )}
-          {filteredGroups.length === 0 && (
-            <p className="text-xs text-(--t-text-dim) px-1 py-2">{t("common.state.noResults")}</p>
-          )}
-          <div className="space-y-4">
-            {filteredGroups.map((g) => (
-              <div key={g.key}>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim) opacity-70 mb-0.5">
-                  {t(`members.permissions.group.${g.key}`)}
-                </p>
-                {g.permissions.map((permission) => {
-                  const granting = rolesGranting(permission);
-                  return (
-                    <PermissionOverrideRow
-                      key={permission}
-                      permission={permission}
-                      state={overrideStateOf(permission, allow, deny)}
-                      inheritedFrom={granting}
-                      inheritedGrants={granting.length > 0}
-                      disabled={rowDisabled(permission)}
-                      onChange={(next) => void handleOverride(permission, next)}
-                    />
-                  );
-                })}
+          {locked && (allow | deny) === 0 ? (
+            <BusinessLockLine teamId={teamId} label={t("shared.businessLock.memberLine")} />
+          ) : (
+            <>
+            <BusinessLapseNotice
+              teamId={teamId}
+              message={t("shared.businessLock.memberLapsed", { name: member.handle })}
+              removeLabel={t("shared.businessLock.removeOverrides")}
+              onRemove={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
+            />
+            {readOnlyReason && (
+              <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>
+            )}
+            {editablePermissions.length > 6 && (
+              <div className="relative mb-2">
+                <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--t-text-dim)" }} />
+                <input
+                  value={permissionFilter}
+                  onChange={(e) => setPermissionFilter(e.target.value)}
+                  placeholder={t("members.permissions.filterPlaceholder")}
+                  className="w-full pl-8 pr-7 py-1.5 rounded-lg outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary)"
+                  style={{ fontSize: 12 }}
+                />
+                {permissionFilter && (
+                  <button onClick={() => setPermissionFilter("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70">
+                    <Icon icon="lucide:x" width={12} style={{ color: "var(--t-text-dim)" }} />
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
+            )}
+            {filteredGroups.length === 0 && (
+              <p className="text-xs text-(--t-text-dim) px-1 py-2">{t("common.state.noResults")}</p>
+            )}
+            <div className="space-y-4">
+              {filteredGroups.map((g) => (
+                <div key={g.key}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim) opacity-70 mb-0.5">
+                    {t(`members.permissions.group.${g.key}`)}
+                  </p>
+                  {g.permissions.map((permission) => {
+                    const granting = rolesGranting(permission);
+                    return (
+                      <PermissionOverrideRow
+                        key={permission}
+                        permission={permission}
+                        state={overrideStateOf(permission, allow, deny)}
+                        inheritedFrom={granting}
+                        inheritedGrants={granting.length > 0}
+                        disabled={rowDisabled(permission)}
+                        onChange={(next) => void handleOverride(permission, next)}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            </>
+          )}
         </FormSection>
         )}
 
