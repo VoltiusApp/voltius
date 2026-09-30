@@ -3,6 +3,7 @@ import { useAllIdentities } from "@/hooks/useAllIdentities";
 import { useAllKeys } from "@/hooks/useAllKeys";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
+import { useVaultStore } from "@/stores/vaultStore";
 
 export interface VaultObjectType {
   /** Also names the count's label: common.contentCounts.<key>. */
@@ -20,9 +21,11 @@ export function useVaultContents(vaultId?: string): VaultObjectType[] {
   const keys = useAllKeys();
   const snippets = useAllSnippets();
   const pfRules = useAllPortForwardingRules();
+  // A linked team vault is selected by its local id, but its objects carry the team id.
+  const teamId = useVaultStore((s) => (vaultId ? s.vaults.find((v) => v.id === vaultId)?.teamId : undefined));
 
   const filter = <T extends { vault_id?: string }>(items: T[]) =>
-    vaultId ? items.filter((i) => (i.vault_id ?? "personal") === vaultId) : items;
+    vaultId ? items.filter((i) => [vaultId, teamId].includes(i.vault_id ?? "personal")) : items;
 
   return [
     { key: "connections",         icon: "lucide:server",     count: filter(connections).length },

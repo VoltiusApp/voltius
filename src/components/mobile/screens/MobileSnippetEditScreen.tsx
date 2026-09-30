@@ -3,7 +3,9 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import MobileEditHeader from "../MobileEditHeader";
 import { useSnippetStore } from "@/stores/snippetStore";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useAllSnippets } from "@/hooks/useAllSnippets";
+import { useVaultScope } from "@/hooks/useVaultScope";
+import { snippetToForm } from "@/utils/snippetForm";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { StepListEditor } from "@/components/snippets/StepListEditor";
@@ -13,7 +15,7 @@ import type { Snippet, SnippetFormData, SnippetStep } from "@/types";
 
 export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: string }) {
   const pop = useMobileNavStore((s) => s.pop);
-  const snippets = useSnippetStore((s) => s.snippets);
+  const snippets = useAllSnippets();
   const editing = snippetId ? snippets.find((s) => s.id === snippetId) ?? null : null;
   useCloseWhenGone(snippetId, editing !== null, pop);
   return <MobileSnippetEditor editing={editing} />;
@@ -28,11 +30,11 @@ const MobileSnippetEditor = withEditAccess("snippet", (p: EditorProps) => p.edit
 function MobileSnippetEditorFields({ editing, readOnly }: EditorProps & EditAccessProps) {
   const { t } = useTranslation();
   const pop = useMobileNavStore((s) => s.pop);
-  const snippets = useSnippetStore((s) => s.snippets);
+  const snippets = useAllSnippets();
   const createSnippet = useSnippetStore((s) => s.createSnippet);
   const updateSnippet = useSnippetStore((s) => s.updateSnippet);
   const deleteSnippet = useSnippetStore((s) => s.deleteSnippet);
-  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
+  const { createVaultId } = useVaultScope();
 
   const [name, setName] = useState(editing?.name ?? "");
   const [steps, setSteps] = useState<SnippetStep[]>(editing?.steps ?? [{ kind: "script", content: "" }]);
@@ -49,22 +51,13 @@ function MobileSnippetEditorFields({ editing, readOnly }: EditorProps & EditAcce
   const save = async () => {
     if (!canSave) return;
     if (editing) {
-      const data: SnippetFormData = {
-        name: name.trim(), steps,
-        description: editing.description,
-        tags: editing.tags, folder_id: editing.folder_id,
-        favorite: editing.favorite,
-        only_for_connection_tags: editing.only_for_connection_tags,
-        only_for_distros: editing.only_for_distros,
-        vault_id: editing.vault_id,
-      };
-      await updateSnippet(editing.id, data);
+      await updateSnippet(editing.id, { ...snippetToForm(editing), name: name.trim(), steps });
     } else {
       const data: SnippetFormData = {
         name: name.trim(), steps,
         tags: [], favorite: false,
         only_for_connection_tags: [], only_for_distros: [],
-        vault_id: selectedVaultIds[0] ?? "personal",
+        vault_id: createVaultId,
       };
       await createSnippet(data);
     }

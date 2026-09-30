@@ -7,7 +7,10 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { useFolderStore } from "@/stores/folderStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useOtherVaultOptions } from "@/hooks/useVaultOptions";
+import { usePermissions } from "@/hooks/usePermission";
+import { useCanConnect } from "@/hooks/useCanConnect";
+import { isTeamVaultId } from "@/stores/teamVaultMap";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useEffectivePinned } from "@/hooks/useEffectivePinned";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -35,13 +38,14 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   const updateConnection = useConnectionStore((s) => s.updateConnection);
   const deleteConnection = useConnectionStore((s) => s.deleteConnection);
   const connect = useSessionStore((s) => s.connect);
-  const vaults = useVaultStore((s) => s.vaults);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(hostId, "connection"));
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const effectivePinned = useEffectivePinned(conn ?? { id: hostId }, "connection");
   const allFolders = useAllFolders();
   const moveObjectsToFolder = useFolderStore((s) => s.moveObjectsToFolder);
-  const folderTargets = buildMoveTargets(allFolders, "connection", compareStrings);
+  const moveTargets = useOtherVaultOptions(conn?.vault_id);
+  const can = usePermissions();
+  const canConnect = useCanConnect(conn ?? { id: hostId, vault_id: "personal" });
   const [mode, setMode] = useState<Mode>("menu");
 
   if (!conn) return null;
@@ -49,7 +53,8 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   const isSerial = conn.connection_type === "serial" || !!conn.serial_port;
   const isFtp = conn.connection_type === "ftp";
   const currentVaultId = conn.vault_id ?? "personal";
-  const moveTargets = vaults.filter((v) => v.id !== currentVaultId);
+  const canEdit = can("EDIT_CONNECTIONS", currentVaultId, conn.id);
+  const isTeamHost = isTeamVaultId(conn.vault_id);
 
   if (mode === "confirm-delete") {
     return (
@@ -80,7 +85,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   if (mode === "move-folder") {
     return (
       <MoveToFolderSheet
-        targets={folderTargets}
+        targets={buildMoveTargets(allFolders, "connection", currentVaultId, compareStrings)}
         currentFolderId={conn.folder_id ?? null}
         onPick={(folderId) => { void (async () => { await moveObjectsToFolder([hostId], "connection", folderId); await useConnectionStore.getState().loadConnections(); })(); }}
         onClose={closeSheet}
@@ -89,30 +94,32 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   }
 
   const items: SheetAction[] = [
-    ...(!isSerial && !isFtp ? [{ icon: "lucide:terminal", label: t("common.action.connect"), slug: "connect", onTap: () => { closeSheet(); void connect(hostId).catch(console.error); setTab("terminal"); } }] : []),
-    { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { closeSheet(); push({ kind: "host-edit", hostId }); } },
-    ...(!isSerial ? [{ icon: "lucide:folder-open", label: isFtp ? t("mobile.sheets.hostActions.openFiles") : t("mobile.panelItems.sftp"), slug: isFtp ? "open-files" : "sftp", onTap: () => { closeSheet(); push({ kind: "panel-sftp", connectionId: hostId }); } }] : []),
+    ...(canConnect && !isSerial && !isFtp ? [{ icon: "lucide:terminal", label: t("common.action.connect"), slug: "connect", onTap: () => { closeSheet(); void connect(hostId).catch(console.error); setTab("terminal"); } }] : []),
+    ...(canEdit ? [{ icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { closeSheet(); push({ kind: "host-edit", hostId }); } }] : []),
+    ...(canConnect && !isSerial ? [{ icon: "lucide:folder-open", label: isFtp ? t("mobile.sheets.hostActions.openFiles") : t("mobile.panelItems.sftp"), slug: isFtp ? "open-files" : "sftp", onTap: () => { closeSheet(); push({ kind: "panel-sftp", connectionId: hostId }); } }] : []),
     ...(conn.host ? [{ icon: "lucide:clipboard-copy", label: t("mobile.sheets.hostActions.copyAddress"), slug: "copy-address", onTap: () => {
       void writeClipboard(conn.host);
       useNotificationStore.getState().addToast({ source: { kind: "plugin", id: "core", name: "Voltius" }, type: "toast", message: t("mobile.sheets.hostActions.copiedAddress", { host: conn.host }), severity: "success", duration: 2000 });
       closeSheet();
     } }] : []),
-    { icon: "lucide:copy", label: t("mobile.sheets.shared.duplicate"), slug: "duplicate", onTap: () => {
-        void saveConnection(copyingRulesOf({ ...connectionToFormData(conn), name: `${name} copy` }, conn.id));
-        closeSheet();
-      } },
-    { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-to-folder", onTap: () => setMode("move-folder") },
+    ...(canEdit ? [
+      { icon: "lucide:copy", label: t("mobile.sheets.shared.duplicate"), slug: "duplicate", onTap: () => {
+          void saveConnection(copyingRulesOf({ ...connectionToFormData(conn), name: `${name} copy` }, conn.id));
+          closeSheet();
+        } },
+      { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-to-folder", onTap: () => setMode("move-folder") },
+    ] : []),
     { icon: effectivePinned ? "lucide:pin-off" : "lucide:pin", label: effectivePinned ? t("mobile.sheets.shared.unpin") : t("mobile.sheets.shared.pin"), slug: effectivePinned ? "unpin" : "pin", onTap: () => {
         pinConnection(hostId, !effectivePinned).catch(() => {});
       } },
-    ...(moveTargets.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move-to-vault", onTap: () => setMode("move") }] : []),
-    { icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", label: isSynced ? t("mobile.sheets.hostActions.disableCloudSync") : t("mobile.sheets.hostActions.enableCloudSync"), slug: isSynced ? "disable-cloud-sync" : "enable-cloud-sync", onTap: () => {
+    ...(canEdit && moveTargets.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move-to-vault", onTap: () => setMode("move") }] : []),
+    ...(!isTeamHost ? [{ icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", label: isSynced ? t("mobile.sheets.hostActions.disableCloudSync") : t("mobile.sheets.hostActions.enableCloudSync"), slug: isSynced ? "disable-cloud-sync" : "enable-cloud-sync", onTap: () => {
         useSyncPrefsStore.getState().toggleExcluded(hostId);
-      } },
-    ...(!isSerial ? [{ icon: conn.ping_disabled ? "lucide:wifi" : "lucide:wifi-off", label: conn.ping_disabled ? t("mobile.sheets.hostActions.enableReachabilityCheck") : t("mobile.sheets.hostActions.disableReachabilityCheck"), slug: conn.ping_disabled ? "enable-reachability-check" : "disable-reachability-check", onTap: () => {
+      } }] : []),
+    ...(canEdit && !isSerial ? [{ icon: conn.ping_disabled ? "lucide:wifi" : "lucide:wifi-off", label: conn.ping_disabled ? t("mobile.sheets.hostActions.enableReachabilityCheck") : t("mobile.sheets.hostActions.disableReachabilityCheck"), slug: conn.ping_disabled ? "enable-reachability-check" : "disable-reachability-check", onTap: () => {
         void updateConnection(hostId, { ...connectionToFormData(conn), ping_disabled: !conn.ping_disabled });
       } }] : []),
-    { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
+    ...(canEdit ? [{ icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") }] : []),
   ];
 
   return (

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import MobileEditHeader from "../MobileEditHeader";
 import { IdentityForm } from "@/components/keychain/IdentityForm";
 import { useAllIdentities } from "@/hooks/useAllIdentities";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useVaultScope } from "@/hooks/useVaultScope";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { saveIdentityFromForm } from "@/services/keychainForm";
@@ -12,7 +12,7 @@ export default function MobileIdentityEditScreen({ identityId }: { identityId?: 
   const { t } = useTranslation();
   const pop = useMobileNavStore((s) => s.pop);
   const identities = useAllIdentities();
-  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
+  const { createVaultId } = useVaultScope();
   const [editingId, setEditingId] = useState<string | undefined>(identityId);
   const editing = editingId ? identities.find((i) => i.id === editingId) ?? null : null;
   useCloseWhenGone(editingId, editing !== null, pop);
@@ -39,7 +39,7 @@ export default function MobileIdentityEditScreen({ identityId }: { identityId?: 
           flushRef={flushRef}
           onSubmit={async (data, password, inlineKeyMaterial) => {
             const saved = await saveIdentityFromForm(
-              editing, data, password, inlineKeyMaterial, inlineKeyIdRef, selectedVaultIds[0] ?? "personal",
+              editing, data, password, inlineKeyMaterial, inlineKeyIdRef, createVaultId,
             );
             if (!editing) setEditingId(saved.id);
           }}

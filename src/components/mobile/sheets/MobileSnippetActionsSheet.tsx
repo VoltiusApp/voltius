@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSnippetStore } from "@/stores/snippetStore";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useAllSnippets } from "@/hooks/useAllSnippets";
+import { useOtherVaultOptions } from "@/hooks/useVaultOptions";
+import { usePermissions } from "@/hooks/usePermission";
 import { useEffectivePinned } from "@/hooks/useEffectivePinned";
 import { snippetToForm } from "@/utils/snippetForm";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
@@ -21,20 +23,21 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
   const { t } = useTranslation();
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
   const push = useMobileNavStore((s) => s.push);
-  const snippet = useSnippetStore((s) => s.snippets.find((x) => x.id === snippetId));
+  const snippet = useAllSnippets().find((x) => x.id === snippetId);
   const createSnippet = useSnippetStore((s) => s.createSnippet);
   const updateSnippet = useSnippetStore((s) => s.updateSnippet);
   const deleteSnippet = useSnippetStore((s) => s.deleteSnippet);
   const pinSnippet = useSnippetStore((s) => s.pinSnippet);
-  const vaults = useVaultStore((s) => s.vaults);
   const allSnippetFolders = useAllSnippetFolders();
   // useEffectivePinned is a hook — must be called unconditionally BEFORE any early return
   const pinned = useEffectivePinned(snippet ?? ({} as never), "snippet");
+  const vaultTargets = useOtherVaultOptions(snippet?.vault_id);
+  const can = usePermissions();
   const [mode, setMode] = useState<Mode>("menu");
 
   if (!snippet) return null;
   const currentVaultId = snippet.vault_id ?? "personal";
-  const vaultTargets = vaults.filter((v) => v.id !== currentVaultId);
+  const canEdit = can("EDIT_SNIPPETS", currentVaultId, snippet.id);
 
   if (mode === "confirm-delete") {
     return (
@@ -51,7 +54,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
   if (mode === "move-folder") {
     return (
       <MoveToFolderSheet
-        targets={buildMoveTargets(allSnippetFolders, "snippet", compareStrings)}
+        targets={buildMoveTargets(allSnippetFolders, "snippet", currentVaultId, compareStrings)}
         currentFolderId={snippet.folder_id ?? null}
         onPick={(folderId) => { void updateSnippet(snippetId, { ...snippetToForm(snippet), folder_id: folderId ?? undefined }); }}
         onClose={closeSheet}
@@ -76,16 +79,20 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
   }
 
   const items: SheetAction[] = [
-    { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { closeSheet(); push({ kind: "snippet-edit", snippetId }); } },
-    { icon: "lucide:copy", label: t("mobile.sheets.shared.duplicate"), slug: "duplicate", onTap: () => {
-        void createSnippet(copyingRulesOf({ ...snippetToForm(snippet), name: `${snippet.name} (copy)`, favorite: false }, snippet.id));
-        closeSheet();
-      } },
+    ...(canEdit ? [
+      { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { closeSheet(); push({ kind: "snippet-edit", snippetId }); } },
+      { icon: "lucide:copy", label: t("mobile.sheets.shared.duplicate"), slug: "duplicate", onTap: () => {
+          void createSnippet(copyingRulesOf({ ...snippetToForm(snippet), name: `${snippet.name} (copy)`, favorite: false }, snippet.id));
+          closeSheet();
+        } },
+    ] : []),
     { icon: pinned ? "lucide:pin-off" : "lucide:pin", label: pinned ? t("mobile.sheets.shared.unpin") : t("mobile.sheets.shared.pin"), slug: pinned ? "unpin" : "pin", onTap: () => { void pinSnippet(snippetId, !pinned); closeSheet(); } },
-    ...(vaultTargets.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move-to-vault", onTap: () => setMode("move") }] : []),
+    ...(canEdit && vaultTargets.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move-to-vault", onTap: () => setMode("move") }] : []),
     ...(vaultTargets.length > 0 ? [{ icon: "lucide:copy-plus", label: t("mobile.sheets.shared.copyToVault"), slug: "copy-to-vault", onTap: () => setMode("copy") }] : []),
-    { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-to-folder", onTap: () => setMode("move-folder") },
-    { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
+    ...(canEdit ? [
+      { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-to-folder", onTap: () => setMode("move-folder") },
+      { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
+    ] : []),
   ];
 
   return (

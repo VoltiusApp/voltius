@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useOtherVaultOptions } from "@/hooks/useVaultOptions";
+import { usePermissions } from "@/hooks/usePermission";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
 import { compareStrings } from "@/utils/localeFormat";
@@ -42,11 +43,13 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
   const createRule = usePortForwardingStore((s) => s.createRule);
   const allRules = usePortForwardingStore((s) => s.rules);
   const teamRules = usePortForwardingStore((s) => s.teamRules);
-  const vaults = useVaultStore((s) => s.vaults);
+  const otherVaults = useOtherVaultOptions(rule.vault_id, { includeUnlinkedTeams: false });
+  const can = usePermissions();
   const [mode, setMode] = useState<Mode>("menu");
 
   const allFolders = useAllFolders();
-  const otherVaults = vaults.filter((v) => v.id !== rule.vault_id);
+  const vaultId = rule.vault_id ?? "personal";
+  const canEdit = can("EDIT_CONNECTIONS", vaultId, rule.id);
 
   if (mode === "confirm-delete") {
     return (
@@ -63,7 +66,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
   if (mode === "move-folder") {
     return (
       <MoveToFolderSheet
-        targets={buildMoveTargets(allFolders, "port_forwarding", compareStrings)}
+        targets={buildMoveTargets(allFolders, "port_forwarding", vaultId, compareStrings)}
         currentFolderId={rule.folder_id ?? null}
         onPick={(folderId) => { void updateRule(rule.id, { ...fields(rule, rule.vault_id), folder_id: folderId ?? undefined }); }}
         onClose={onClose}
@@ -102,11 +105,13 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
   }
 
   const items: SheetAction[] = [
-    { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { onEdit(rule); onClose(); } },
-    { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
-    ...(otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move", onTap: () => setMode("move") }] : []),
+    ...(canEdit ? [
+      { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { onEdit(rule); onClose(); } },
+      { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
+    ] : []),
+    ...(canEdit && otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move", onTap: () => setMode("move") }] : []),
     ...(otherVaults.length > 0 ? [{ icon: "lucide:copy", label: t("mobile.sheets.shared.copyToVault"), slug: "copy", onTap: () => setMode("copy") }] : []),
-    { icon: "lucide:trash-2", label: t("common.action.delete"), slug: "delete", danger: true, onTap: () => setMode("confirm-delete") },
+    ...(canEdit ? [{ icon: "lucide:trash-2", label: t("common.action.delete"), slug: "delete", danger: true, onTap: () => setMode("confirm-delete") }] : []),
   ];
 
   return (

@@ -11,6 +11,8 @@ import { useAllFolders } from "@/hooks/useAllFolders";
 import { ensurePublicKey } from "@/services/publicKeyStore";
 import { writeClipboard } from "@/utils/clipboard";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
+import { usePermissions } from "@/hooks/usePermission";
+import { compareStrings } from "@/utils/localeFormat";
 import type { SshKey, Identity } from "@/types";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 
@@ -34,14 +36,17 @@ export default function KeychainItemActionsSheet(props: Props) {
   const moveObjectsToFolder = useFolderStore((s) => s.moveObjectsToFolder);
   const push = useMobileNavStore((s) => s.push);
   const allFolders = useAllFolders();
+  const can = usePermissions();
   const [mode, setMode] = useState<Mode>("menu");
+  const vaultId = item.vault_id ?? "personal";
+  const canEdit = can(kind === "key" ? "EDIT_KEYS" : "EDIT_IDENTITIES", vaultId, item.id);
 
   const name = item.name ?? (kind === "key" ? t("mobile.sheets.keychainActions.unnamedKey") : (item as Identity).username);
 
   if (mode === "move-folder") {
     return (
       <MoveToFolderSheet
-        targets={buildMoveTargets(allFolders, "keychain")}
+        targets={buildMoveTargets(allFolders, "keychain", vaultId, compareStrings)}
         currentFolderId={item.folder_id ?? null}
         onPick={(folderId) => { void (async () => { await moveObjectsToFolder([item.id], kind === "key" ? "key" : "identity", folderId); if (kind === "key") await useKeyStore.getState().loadKeys(); else await useIdentityStore.getState().loadIdentities(); })(); }}
         onClose={onClose}
@@ -66,10 +71,10 @@ export default function KeychainItemActionsSheet(props: Props) {
   }
 
   const items: SheetAction[] = [
-    { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => {
+    ...(canEdit ? [{ icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => {
       push(kind === "key" ? { kind: "key-edit", keyId: item.id } : { kind: "identity-edit", identityId: item.id });
       onClose();
-    } },
+    } }] : []),
     kind === "key"
       ? { icon: "lucide:clipboard-copy", label: t("mobile.sheets.keychainActions.copyPublicKey"), slug: "copy-public-key", onTap: async () => {
           const pub = await ensurePublicKey(item as SshKey);
@@ -82,8 +87,10 @@ export default function KeychainItemActionsSheet(props: Props) {
           toast(t("mobile.sheets.keychainActions.copiedUsername"), "success");
           onClose();
         } },
-    { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
-    { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
+    ...(canEdit ? [
+      { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
+      { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
+    ] : []),
   ];
 
   return (

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSnippetStore } from "@/stores/snippetStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useSnippetTargetPicker } from "@/hooks/useSnippetTargetPicker";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { runSnippetSequence, reportSequenceResult } from "@/services/snippetSequence";
@@ -19,7 +19,7 @@ export default function MobileSnippetTargetSheet(
   const { t } = useTranslation();
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
   const setTab = useMobileNavStore((s) => s.setTab);
-  const snippet = useSnippetStore((s) => s.snippets.find((x) => x.id === snippetId));
+  const snippet = useAllSnippets().find((x) => x.id === snippetId);
   const p = useSnippetTargetPicker();
 
   // Pre-select the terminal's current session once (multi-target path from the terminal sheet).
@@ -41,9 +41,7 @@ export default function MobileSnippetTargetSheet(
         const s = p.activeSessions.find((x) => x.id === id);
         return s ? [{ kind: "session" as const, sessionId: s.id, sessionType: s.type }] : [];
       });
-      const connTargets: RunTarget[] = useConnectionStore.getState().connections
-        .filter((c) => p.selectedConnectionIds.has(c.id))
-        .map((c) => ({ kind: "connection" as const, connection: c }));
+      const connTargets: RunTarget[] = p.selectedConnections.map((c) => ({ kind: "connection" as const, connection: c }));
       const targets = [...sessionTargets, ...connTargets];
       if (targets.length === 0) return;
       useSnippetStore.getState().trackUsed(sn.id);

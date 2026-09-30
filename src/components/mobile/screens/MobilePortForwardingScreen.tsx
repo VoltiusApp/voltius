@@ -3,12 +3,11 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useAllFolders } from "@/hooks/useAllFolders";
-import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useRuleTunnels } from "@/hooks/useRuleTunnels";
 import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { useFolderStore } from "@/stores/folderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useMobileFolderScope } from "@/components/mobile/folders/useMobileFolderScope";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import MobileFilterBar from "@/components/mobile/MobileFilterBar";
 import MobilePanelHeader from "@/components/mobile/panels/MobilePanelHeader";
@@ -30,10 +29,11 @@ type AddMode = null | "menu" | "new-folder";
 
 export default function MobilePortForwardingScreen() {
   const { t } = useTranslation();
-  const allRules = useAllPortForwardingRules();
   const allFolders = useAllFolders();
-  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
-  const { runningRuleCount, statusFor, startRule, stopRule } = useRuleTunnels();
+  const { inScope, can, nav, folderIds: pfFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "port_forwarding");
+  const everyRule = useAllPortForwardingRules();
+  const allRules = useMemo(() => everyRule.filter(inScope), [everyRule, inScope]);
+  const { statusFor, startRule, stopRule } = useRuleTunnels();
   const createRule = usePortForwardingStore((s) => s.createRule);
   const updateRule = usePortForwardingStore((s) => s.updateRule);
   const saveFolder = useFolderStore((s) => s.saveFolder);
@@ -47,12 +47,6 @@ export default function MobilePortForwardingScreen() {
   const [folderSheet, setFolderSheet] = useState<Folder | null>(null);
   const dirtyRef = useRef<boolean>(false);
 
-  const pfFolders = useMemo(
-    () => allFolders.filter((f) => f.object_type === "port_forwarding" && selectedVaultIds.includes(f.vault_id ?? "personal")),
-    [allFolders, selectedVaultIds],
-  );
-  const nav = useFolderNavigation(pfFolders);
-  const pfFolderIds = useMemo(() => new Set(pfFolders.map((f) => f.id)), [pfFolders]);
   const subfolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)), [nav.visibleFolders]);
 
   const rules = useMemo(() => {
@@ -62,10 +56,10 @@ export default function MobilePortForwardingScreen() {
       .sort((a, b) => compareStrings(a.name, b.name));
   }, [allRules, nav.activeFolderId, pfFolderIds, search]);
 
+  const canCreateRule = can("EDIT_CONNECTIONS", targetVaultId);
   const closeForm = () => { setFormRule(undefined); dirtyRef.current = false; };
   const shownRuleId = formRule && formRule !== "new" ? formRule.id : null;
   useCloseWhenGone(shownRuleId, allRules.some((r) => r.id === shownRuleId), closeForm);
-  const targetVaultId = nav.folderPath[nav.folderPath.length - 1]?.vault_id ?? selectedVaultIds[0] ?? "personal";
   const createFolder = (name: string) =>
     void saveFolder({ name, object_type: "port_forwarding", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
 
@@ -74,19 +68,19 @@ export default function MobilePortForwardingScreen() {
       {nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={() => nav.setFolderPath((p) => p.slice(0, -1))} />)}
       <MobilePanelHeader
         title={t("mobile.morePages.portForwarding")}
-        right={
+        right={canCreateRule || canCreateFolder ? (
           <button data-pf-add onClick={() => setAddMode("menu")} className="p-2 text-(--t-text-primary)">
             <Icon icon="lucide:plus" width={22} />
           </button>
-        }
+        ) : undefined}
       />
       <MobileFilterBar value={search} onChange={setSearch} placeholder={t("mobile.portForwardingScreen.filterPlaceholder")} />
       <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
-      <div className="px-4 py-1 text-xs text-(--t-text-dim)">{t("mobile.portForwardingScreen.summary", { total: allRules.length, active: runningRuleCount.active })}</div>
+      <div className="px-4 py-1 text-xs text-(--t-text-dim)">{t("mobile.portForwardingScreen.summary", { total: allRules.length, active: allRules.filter((r) => statusFor(r).status === "active").length })}</div>
 
       <div className="flex-1 overflow-y-auto pb-4">
         {!search && subfolders.map((f) => (
-          <MobileFolderRow key={f.id} name={f.name} count={folderItemCount(allRules, f.id)} onOpen={() => nav.navigateInto(f)} onActions={() => setFolderSheet(f)} />
+          <MobileFolderRow key={f.id} name={f.name} count={folderItemCount(allRules, f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />
         ))}
 
         {rules.map((rule) => {
@@ -132,8 +126,8 @@ export default function MobilePortForwardingScreen() {
 
       {addMode === "menu" && (
         <AddChoiceSheet
-          items={[{ slug: "item", icon: "lucide:arrow-left-right", label: t("mobile.portForwardingScreen.newRuleLabel"), onTap: () => { setAddMode(null); setFormRule("new"); } }]}
-          onNewFolder={() => setAddMode("new-folder")}
+          items={canCreateRule ? [{ slug: "item", icon: "lucide:arrow-left-right", label: t("mobile.portForwardingScreen.newRuleLabel"), onTap: () => { setAddMode(null); setFormRule("new"); } }] : []}
+          onNewFolder={canCreateFolder ? () => setAddMode("new-folder") : undefined}
           onClose={() => setAddMode(null)}
         />
       )}

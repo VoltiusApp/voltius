@@ -91,6 +91,14 @@ describe("saveKeyFromForm", () => {
   });
 });
 
+describe("saveIdentityFromForm", () => {
+  test("an inline key is filed in the identity's vault, not the personal one", async () => {
+    h.saveIdentity.mockResolvedValue({ id: "i-new" });
+    await saveIdentityFromForm(null, { username: "root", tags: [] }, null, { privateKey: "PRIV", publicKey: "" }, { current: null }, "team-1");
+    expect(saveKey).toHaveBeenCalledWith(expect.objectContaining({ vault_id: "team-1" }));
+  });
+});
+
 describe("unlinkIdentityFromHost", () => {
   const identity = { id: "i1", username: "root", key_id: "k1" } as Identity;
   const host = { id: "c1", name: "web", host: "h", port: 22, tags: [] } as never;

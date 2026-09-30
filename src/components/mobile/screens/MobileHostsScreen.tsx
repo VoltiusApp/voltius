@@ -3,9 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useAllFolders } from "@/hooks/useAllFolders";
-import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useFolderStore } from "@/stores/folderStore";
-import { useVaultStore } from "@/stores/vaultStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
@@ -16,6 +14,7 @@ import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { pingStatusMotion, pingStatusTone } from "@/utils/statusTone";
 import { scopeItems, folderItemCount } from "@/components/mobile/folders/mobileFolderCore";
+import { useMobileFolderScope } from "@/components/mobile/folders/useMobileFolderScope";
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
@@ -99,7 +98,7 @@ export default function MobileHostsScreen() {
   const { t } = useTranslation();
   const connections = useAllConnections();
   const allFolders = useAllFolders();
-  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
+  const { inScope, can, nav, folderIds: connFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "connection");
   const connect = useSessionStore((s) => s.connect);
   const setTab = useMobileNavStore((s) => s.setTab);
   const push = useMobileNavStore((s) => s.push);
@@ -115,22 +114,12 @@ export default function MobileHostsScreen() {
   const [addMode, setAddMode] = useState<AddMode>(null);
   const [folderSheet, setFolderSheet] = useState<Folder | null>(null);
 
-  const connFolders = useMemo(
-    () => allFolders.filter((f) => f.object_type === "connection" && selectedVaultIds.includes(f.vault_id ?? "personal")),
-    [allFolders, selectedVaultIds],
-  );
-  const nav = useFolderNavigation(connFolders);
-  const connFolderIds = useMemo(() => new Set(connFolders.map((f) => f.id)), [connFolders]);
-
   const subFolders = useMemo(
     () => [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)),
     [nav.visibleFolders],
   );
 
-  const inVault = useMemo(
-    () => connections.filter((c) => selectedVaultIds.includes(c.vault_id ?? "personal")),
-    [connections, selectedVaultIds],
-  );
+  const inVault = useMemo(() => connections.filter(inScope), [connections, inScope]);
 
   const visible = useMemo(() => {
     const scoped = scopeItems(inVault, nav.activeFolderId, connFolderIds);
@@ -156,14 +145,14 @@ export default function MobileHostsScreen() {
 
   const teamCredentialsUnavailable = useTeamCredentialsUnavailable();
 
-  const targetVaultId = (nav.folderPath[nav.folderPath.length - 1]?.vault_id) ?? selectedVaultIds[0] ?? "personal";
+  const canCreateHost = can("EDIT_CONNECTIONS", targetVaultId);
   const createFolder = (name: string) =>
     void saveFolder({ name, object_type: "connection", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={() => nav.setFolderPath((p) => p.slice(0, -1))} />)}
-      <MobileHeader onAdd={() => setAddMode("menu")} />
+      <MobileHeader onAdd={canCreateHost || canCreateFolder ? () => setAddMode("menu") : undefined} />
       <div className="shrink-0 px-3 py-2">
         <div className="flex items-center gap-2 rounded-xl px-3 h-10"
           style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>
@@ -188,7 +177,7 @@ export default function MobileHostsScreen() {
             name={f.name}
             count={folderItemCount(inVault, f.id)}
             onOpen={() => nav.navigateInto(f)}
-            onActions={() => setFolderSheet(f)}
+            onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined}
           />
         ))}
         {visible.length === 0 && subFolders.length === 0 && (
@@ -211,8 +200,8 @@ export default function MobileHostsScreen() {
 
       {addMode === "menu" && (
         <AddChoiceSheet
-          items={[{ slug: "item", icon: "lucide:server", label: t("mobile.host.newTitle"), onTap: () => { setAddMode(null); push({ kind: "host-edit" }); } }]}
-          onNewFolder={() => setAddMode("new-folder")}
+          items={canCreateHost ? [{ slug: "item", icon: "lucide:server", label: t("mobile.host.newTitle"), onTap: () => { setAddMode(null); push({ kind: "host-edit" }); } }] : []}
+          onNewFolder={canCreateFolder ? () => setAddMode("new-folder") : undefined}
           onClose={() => setAddMode(null)}
         />
       )}

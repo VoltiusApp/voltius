@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import MobileEditHeader from "../MobileEditHeader";
 import ConnectionForm, { type ConnectionFormHandle } from "@/components/connections/ConnectionForm";
 import { useAllConnections } from "@/hooks/useAllConnections";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useVaultScope } from "@/hooks/useVaultScope";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { saveHostFromForm } from "@/services/hostForm";
@@ -12,7 +12,7 @@ export default function MobileHostEditScreen({ hostId }: { hostId?: string }) {
   const { t } = useTranslation();
   const pop = useMobileNavStore((s) => s.pop);
   const connections = useAllConnections();
-  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
+  const { createVaultId } = useVaultScope();
   // Track the edited host id locally: a new host's first autosave CREATES a connection,
   // and we must switch to editing it so later debounce fires UPDATE rather than create
   // duplicates (mirrors desktop HostsPage.handleSubmit).
@@ -42,7 +42,7 @@ export default function MobileHostEditScreen({ hostId }: { hostId?: string }) {
           hideChrome
           initial={editing ?? undefined}
           onSubmit={async (data, secrets) => {
-            const saved = await saveHostFromForm(editing, data, secrets, selectedVaultIds[0] ?? "personal");
+            const saved = await saveHostFromForm(editing, data, secrets, createVaultId);
             if (!editing && saved) setEditingId(saved.id);
           }}
           onClose={pop}

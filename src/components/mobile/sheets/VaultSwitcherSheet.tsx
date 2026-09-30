@@ -7,6 +7,8 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useOrphanVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { unknownVaultLabel } from "@/hooks/accessibleVaults";
+import { openVault } from "@/services/openVault";
+import { VaultLimitModal, useVaultLimitReached } from "@/components/shared/VaultLimitModal";
 
 export default function VaultSwitcherSheet() {
   const { t } = useTranslation();
@@ -17,16 +19,19 @@ export default function VaultSwitcherSheet() {
   const addVault = useVaultStore((s) => s.addVault);
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
   const orphanVaultIds = useOrphanVaultIds();
+  const vaultLimitReached = useVaultLimitReached();
+  const [limitOpen, setLimitOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
 
   // Teams that are linked to a local vault already appear as that vault.
   const linkedTeamIds = new Set(vaults.map((v) => v.teamId).filter(Boolean));
   const entries = [
-    ...vaults.map((v) => ({ id: v.id, name: v.name, icon: "lucide:vault" })),
-    ...teams.filter((team) => !linkedTeamIds.has(team.id)).map((team) => ({ id: team.id, name: team.name, icon: "lucide:users-round" })),
+    ...vaults.map((v) => ({ id: v.id, teamId: v.teamId, name: v.name, icon: "lucide:vault" })),
+    ...teams.filter((team) => !linkedTeamIds.has(team.id)).map((team) => ({ id: team.id, teamId: team.id, name: team.name, icon: "lucide:users-round" })),
     ...orphanVaultIds.map((id) => ({
       id,
+      teamId: undefined,
       name: unknownVaultLabel(id),
       icon: "lucide:circle-help",
     })),
@@ -50,7 +55,7 @@ export default function VaultSwitcherSheet() {
             data-vault-entry={e.id}
             className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left"
             style={{ background: active ? "var(--t-bg-card)" : "transparent" }}
-            onClick={() => { selectVaultOnly(e.id); closeSheet(); }}
+            onClick={() => { openVault(e.id, e.teamId); closeSheet(); }}
           >
             <Icon icon={e.icon} width={18} className="text-(--t-text-dim)" />
             <span className="flex-1 text-sm font-medium text-(--t-text-primary)">{e.name}</span>
@@ -87,12 +92,13 @@ export default function VaultSwitcherSheet() {
         <button
           data-vault-new
           className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left active:bg-(--t-bg-card) text-(--t-accent)"
-          onClick={() => setCreating(true)}
+          onClick={() => (vaultLimitReached ? setLimitOpen(true) : setCreating(true))}
         >
           <Icon icon="lucide:plus" width={18} />
           <span className="text-sm font-medium">{t("mobile.sheets.vaultSwitcher.newVault")}</span>
         </button>
       )}
+      {limitOpen && <VaultLimitModal onClose={() => setLimitOpen(false)} />}
     </BottomSheet>
   );
 }

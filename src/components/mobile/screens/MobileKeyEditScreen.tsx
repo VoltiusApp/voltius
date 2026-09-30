@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import MobileEditHeader from "../MobileEditHeader";
 import { KeyForm } from "@/components/keychain/KeyForm";
 import { useAllKeys } from "@/hooks/useAllKeys";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useVaultScope } from "@/hooks/useVaultScope";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { saveKeyFromForm } from "@/services/keychainForm";
@@ -12,7 +12,7 @@ export default function MobileKeyEditScreen({ keyId, mode }: { keyId?: string; m
   const { t } = useTranslation();
   const pop = useMobileNavStore((s) => s.pop);
   const keys = useAllKeys();
-  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
+  const { createVaultId } = useVaultScope();
   // A new key's first autosave CREATES it; switch to editing so later passes update
   // that key rather than minting a second one (mirrors MobileHostEditScreen).
   const [editingId, setEditingId] = useState<string | undefined>(keyId);
@@ -40,7 +40,7 @@ export default function MobileKeyEditScreen({ keyId, mode }: { keyId?: string; m
           initialMode={mode}
           flushRef={flushRef}
           onSubmit={async (data, privateKey, publicKey, passphrase) => {
-            const saved = await saveKeyFromForm(editing, data, privateKey, publicKey, passphrase, selectedVaultIds[0] ?? "personal");
+            const saved = await saveKeyFromForm(editing, data, privateKey, publicKey, passphrase, createVaultId);
             if (!editing) setEditingId(saved.id);
           }}
           onClose={pop}

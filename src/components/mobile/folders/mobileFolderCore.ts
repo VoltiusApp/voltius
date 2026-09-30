@@ -5,6 +5,7 @@ export interface FolderLike {
   name: string;
   object_type: string;
   parent_folder_id?: string | null;
+  vault_id?: string | null;
 }
 
 export interface MoveTarget {
@@ -22,15 +23,16 @@ function rootedParentId(parentId: string | null | undefined, knownIds: ReadonlyS
   return parentId && knownIds.has(parentId) ? parentId : null;
 }
 
-/** Flattened, depth-first, alpha-within-level folder list for the move picker.
- *  Leads with a synthetic "No folder" (root) entry, which the sheet labels.
- *  `compare` orders names; callers pass the app-language collator. */
+/** Flattened, depth-first, alpha-within-level folder list for the move picker,
+ *  limited to the item's own vault. Leads with a synthetic "No folder" (root) entry,
+ *  which the sheet labels. `compare` orders names; callers pass the app-language collator. */
 export function buildMoveTargets(
   folders: FolderLike[],
   objectType: string,
+  vaultId: string,
   compare: (a: string, b: string) => number = (a, b) => a.localeCompare(b),
 ): MoveTarget[] {
-  const scoped = folders.filter((f) => f.object_type === objectType);
+  const scoped = folders.filter((f) => f.object_type === objectType && (f.vault_id ?? "personal") === vaultId);
   const known = new Set(scoped.map((f) => f.id));
   const out: MoveTarget[] = [{ id: null, name: "No folder", depth: 0 }];
   const walk = (parentId: string | null, depth: number) => {

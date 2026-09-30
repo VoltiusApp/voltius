@@ -6,7 +6,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useOrphanVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { unknownVaultLabel } from "@/hooks/accessibleVaults";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
-import { onVaultSelect } from "@/services/teamDataManager";
+import { openVault } from "@/services/openVault";
 import LogoBadge from "./LogoBadge";
 import { useUIStore } from "@/stores/uiStore";
 import { useRipple } from "@/hooks/useRipple";
@@ -14,7 +14,7 @@ import { SidebarAccountButton } from "./SidebarAccountButton";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { CreateVaultModal } from "@/components/shared/CreateVaultModal";
 import { Modal } from "@/components/shared/Modal";
-import { openBillingCheckout } from "@/services/billingCheckout";
+import { VaultLimitModal, useVaultLimitReached } from "@/components/shared/VaultLimitModal";
 import { useUpdaterStatus } from "@/services/updater";
 import { acceptInvitation, declineInvitation } from "@/services/invitationActions";
 import type { MyPendingInvitation } from "@/stores/teamStore";
@@ -35,7 +35,6 @@ export default function VaultSidebar() {
   const homeView = useUIStore((s) => s.homeView);
   const setHomeView = useUIStore((s) => s.setHomeView);
   const openSettings = useUIStore((s) => s.openSettings);
-  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const openWhatsNew = useUIStore((s) => s.openWhatsNew);
   const openVaultSharePending = useUIStore((s) => s.openVaultSharePending);
 
@@ -50,7 +49,7 @@ export default function VaultSidebar() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showVaultLimitModal, setShowVaultLimitModal] = useState(false);
   const [selectedInvite, setSelectedInvite] = useState<MyPendingInvitation | null>(null);
-  const isPro = useSubscriptionStore((s) => s.isPro);
+  const vaultLimitReached = useVaultLimitReached();
   const accountMode = useSubscriptionStore((s) => s.accountMode);
   const isCloudAccount = accountMode === "server";
 
@@ -60,9 +59,8 @@ export default function VaultSidebar() {
   }, [isCloudAccount, loadMyPendingInvitations]);
 
   const switchToVault = (vault: { id: string; teamId?: string | null }) => {
-    selectVaultOnly(vault.id);
+    openVault(vault.id, vault.teamId);
     setHomeView(false);
-    if (vault.teamId) onVaultSelect(vault.teamId).catch(() => {});
   };
 
   // One menu for the whole rail: only one row can be right-clicked at a time, so
@@ -94,15 +92,11 @@ export default function VaultSidebar() {
   };
 
   const handleAddVaultClick = () => {
-    if (!isPro && vaults.length >= 1) {
+    if (vaultLimitReached) {
       setShowVaultLimitModal(true);
       return;
     }
     setShowCreateModal(true);
-  };
-
-  const handleUpgradePro = async () => {
-    if (await openBillingCheckout("pro")) setShowVaultLimitModal(false);
   };
 
   const handleCreateVault = (name: string) => {
@@ -226,15 +220,7 @@ export default function VaultSidebar() {
       )}
 
       {showVaultLimitModal && (
-        <VaultLimitModal
-          isCloudAccount={isCloudAccount}
-          onClose={() => setShowVaultLimitModal(false)}
-          onSignIn={() => {
-            setShowVaultLimitModal(false);
-            openCloudAuth("signin");
-          }}
-          onUpgrade={() => void handleUpgradePro()}
-        />
+        <VaultLimitModal onClose={() => setShowVaultLimitModal(false)} />
       )}
 
       <div className="flex-1" />
@@ -365,60 +351,6 @@ function PendingInviteModal({
             style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-muted)", opacity: loading ? 0.6 : 1 }}
           >
             {loading === "decline" ? t("layout.vaultSidebar.declining") : t("layout.vaultSidebar.decline")}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function VaultLimitModal({
-  isCloudAccount,
-  onClose,
-  onSignIn,
-  onUpgrade,
-}: {
-  isCloudAccount: boolean;
-  onClose: () => void;
-  onSignIn: () => void;
-  onUpgrade: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <Modal onClose={onClose} blur>
-      <div
-        className="flex flex-col gap-4 bg-(--t-bg-base) border border-(--t-border) p-6"
-        style={{ width: "min(25rem, 92vw)", borderRadius: "0.933rem", boxShadow: "var(--t-elev-3)" }}
-      >
-        <div className="flex items-start gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)" }}
-          >
-            <Icon icon="lucide:vault" width={20} style={{ color: "var(--t-accent)" }} />
-          </div>
-          <div>
-            <p className="text-base font-semibold text-(--t-text-primary) mb-1">
-              {t("layout.vaultSidebar.multipleVaultsTitle")}
-            </p>
-            <p className="text-sm text-(--t-text-muted) leading-relaxed">
-              {t("layout.vaultSidebar.multipleVaultsBody")}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={isCloudAccount ? onUpgrade : onSignIn}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity"
-          >
-            {isCloudAccount ? t("layout.vaultSidebar.upgradeToPro") : t("layout.vaultSidebar.signInOrCreate")}
-          </button>
-          <button
-            onClick={onClose}
-            className="w-full py-2.5 rounded-lg text-sm text-(--t-text-muted) hover:text-(--t-text-primary) transition-colors"
-          >
-            {t("layout.vaultSidebar.maybeLater")}
           </button>
         </div>
       </div>

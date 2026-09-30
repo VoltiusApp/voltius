@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { matchesSearch } from "@/utils/connectionFilter";
@@ -11,7 +11,7 @@ import { useLocalShells } from "@/hooks/useLocalShells";
 
 export function useSnippetTargetPicker() {
   const sessions = useSessionStore((s) => s.sessions);
-  const connections = useConnectionStore((s) => s.connections);
+  const connections = useAllConnections();
   const [search, setSearch] = useState("");
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
@@ -54,16 +54,19 @@ export function useSnippetTargetPicker() {
     });
   }
 
+  const selectedConnections = useMemo(
+    () => connections.filter((c) => selectedConnectionIds.has(c.id)),
+    [connections, selectedConnectionIds],
+  );
+
   const totalSelected = selectedSessionIds.size + selectedConnectionIds.size + (localShell !== null ? 1 : 0);
 
   async function confirm(onResolved: (ids: string[]) => void): Promise<void> {
     const sessionIds = [...selectedSessionIds];
-    const pickedConnections = connections.filter((c) => selectedConnectionIds.has(c.id));
-
     onResolved(sessionIds);
 
-    const connectionSessionIds = pickedConnections.length > 0
-      ? await useSessionStore.getState().connectMany(pickedConnections.map((conn) => conn.id)).catch(() => [])
+    const connectionSessionIds = selectedConnections.length > 0
+      ? await useSessionStore.getState().connectMany(selectedConnections.map((conn) => conn.id)).catch(() => [])
       : [];
 
     const localSessionId = localShell !== null
@@ -100,7 +103,7 @@ export function useSnippetTargetPicker() {
   return {
     search, setSearch, isAndroid, shells,
     activeSessions, filteredSessions, filteredHosts,
-    selectedSessionIds, selectedConnectionIds, localShell, setLocalShell,
+    selectedSessionIds, selectedConnectionIds, selectedConnections, localShell, setLocalShell,
     toggleSession, toggleConnection, totalSelected, confirm,
   };
 }
