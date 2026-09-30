@@ -1,7 +1,7 @@
 ---
 name: "\U0001F41B Bug report"
 about: Create a report to help us improve the Tauri app
-title: "[BUG] "
+title: ""
 assignees: ''
 type: Bug
 
