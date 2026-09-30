@@ -26,8 +26,10 @@ fn split_host_port(s: &str) -> Option<(&str, Option<u16>)> {
     not(any(target_os = "macos", target_os = "android", target_os = "ios"))
 ))]
 fn endpoint(host_port: &str, default_port: u16) -> Option<ProxyEndpoint> {
-    let (host, port) = split_host_port(host_port.trim().trim_end_matches('/'))?;
-    if host.is_empty() {
+    let s = host_port.trim().trim_end_matches('/');
+    let (host, port) = split_host_port(s)?;
+    // An unbracketed IPv6 host can't carry a port unambiguously, so refuse it.
+    if host.is_empty() || (host.contains(':') && !s.starts_with('[')) {
         return None;
     }
     Some(ProxyEndpoint {
@@ -174,13 +176,8 @@ fn in_net(ip: IpAddr, net: IpAddr, bits: u8) -> bool {
     (a ^ b).checked_shr(width - u32::from(bits)).unwrap_or(0) == 0
 }
 
-/// Whether `host:port` skips the proxy under a bypass list (Windows
-/// ProxyOverride, macOS ExceptionsList or NO_PROXY). An entry may end in
-/// `:port` to match that port only. Names match exactly or as `*` globs, and
-/// with `suffix_names` (NO_PROXY) `corp`, `.corp` and `*.corp` all cover
-/// `corp` and its subdomains; `<local>` matches names without a dot (Windows'
-/// token, also standing in for macOS' ExcludeSimpleHostnames). IP and CIDR
-/// entries match literal IP hosts only: like the OS, nothing is resolved.
+/// `suffix_names` is NO_PROXY semantics (`corp` covers subdomains); otherwise
+/// names are exact or `*` globs. Hostnames are never resolved to match IP entries.
 #[cfg(any(test, not(any(target_os = "android", target_os = "ios"))))]
 fn bypass_matches<'a>(
     entries: impl IntoIterator<Item = &'a str>,
@@ -211,6 +208,9 @@ fn bypass_matches<'a>(
             return ip.is_some_and(|ip| in_net(ip, net, bits));
         }
         if suffix_names && pattern != "*" {
+            if ip.is_some() {
+                return false;
+            }
             let domain = pattern.trim_start_matches('*').trim_start_matches('.');
             return host
                 .strip_suffix(domain)
@@ -312,9 +312,7 @@ fn detect_os(host: &str, port: u16) -> Option<ProxySpec> {
     (!bypass_matches(overrides.split(';'), host, port, false)).then_some(spec)
 }
 
-/// Returns the value `slot` holds if it is younger than `ttl` at `now`, else
-/// stores and returns a fresh `fetch()`. The lock is held across `fetch`, so a
-/// burst of callers (one reachability ping per host) shares a single fetch.
+/// The lock is held across `fetch`, so a burst of pings shares one fetch.
 #[cfg(any(target_os = "macos", test))]
 fn cached<T: Clone>(
     slot: &std::sync::Mutex<Option<(std::time::Instant, T)>>,
@@ -334,12 +332,12 @@ fn cached<T: Clone>(
 }
 
 #[cfg(target_os = "macos")]
-fn scutil_proxy() -> Option<(ProxySpec, Vec<String>)> {
+fn scutil_proxy(ttl: std::time::Duration) -> Option<(ProxySpec, Vec<String>)> {
     use std::sync::Mutex;
-    use std::time::{Duration, Instant};
+    use std::time::Instant;
     type Slot = Mutex<Option<(Instant, Option<(ProxySpec, Vec<String>)>)>>;
     static CACHE: Slot = Mutex::new(None);
-    cached(&CACHE, Instant::now(), Duration::from_secs(5), || {
+    cached(&CACHE, Instant::now(), ttl, || {
         let out = std::process::Command::new("scutil")
             .arg("--proxy")
             .output()
@@ -350,7 +348,9 @@ fn scutil_proxy() -> Option<(ProxySpec, Vec<String>)> {
 
 #[cfg(target_os = "macos")]
 fn detect_os(host: &str, port: u16) -> Option<ProxySpec> {
-    let (spec, exceptions) = scutil_proxy()?;
+    // No host means the settings screen asked: always show the live value.
+    let ttl = std::time::Duration::from_secs(if host.is_empty() { 0 } else { 5 });
+    let (spec, exceptions) = scutil_proxy(ttl)?;
     let exceptions = exceptions.iter().map(String::as_str);
     (!bypass_matches(exceptions, host, port, false)).then_some(spec)
 }
@@ -497,6 +497,11 @@ mod tests {
         assert!(bypass("lab", 22) && bypass("x.lab", 22));
         assert!(bypass("test", 22) && bypass("x.test", 22));
         assert!(!bypass("notcorp", 22));
+        assert!(
+            !bypass_matches(["0.1", "168.1.1"], "10.0.0.1", 22, true)
+                && !bypass_matches(["168.1.1"], "192.168.1.1", 22, true),
+            "names never suffix-match IP hosts"
+        );
         assert!(bypass("git.example", 22) && bypass("a.git.example", 22));
         assert!(!bypass("git.example", 443));
         assert!(
@@ -559,7 +564,8 @@ mod tests {
         assert_eq!(cached(&slot, at(4), ttl, || fetch(2)), 1);
         assert_eq!(cached(&slot, at(5), ttl, || fetch(3)), 3);
         assert_eq!(cached(&slot, at(6), ttl, || fetch(4)), 3);
-        assert_eq!(fetches, 2);
+        assert_eq!(cached(&slot, at(6), Duration::ZERO, || fetch(5)), 5);
+        assert_eq!(fetches, 3);
     }
 
     #[test]
@@ -585,6 +591,11 @@ mod tests {
             Some(ProxySpec::Https(ep("h", 443)))
         );
         assert_eq!(parse_proxy_url("ftp://h:21"), None);
+        assert_eq!(parse_proxy_url("http://fd00::1:3128"), None);
+        assert_eq!(
+            parse_proxy_url("http://[fd00::1]:3128"),
+            Some(ProxySpec::Http(ep("fd00::1", 3128)))
+        );
         assert_eq!(
             parse_proxy_url("http://us%40er:p%3Ass@h:8080"),
             Some(ProxySpec::Http(ProxyEndpoint {
