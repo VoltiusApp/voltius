@@ -543,6 +543,7 @@ function WhatsNewButton({ onClick }: { onClick: () => void }) {
   let iconClass = "";
   let iconStyle: React.CSSProperties | undefined;
   const ready = updater.status === "ready";
+  const pending = ready || updater.status === "available" || updater.status === "externalUpdate";
   if (updater.status === "checking") {
     icon = "lucide:loader-circle";
     title = t("layout.vaultSidebar.checkingForUpdates");
@@ -551,7 +552,7 @@ function WhatsNewButton({ onClick }: { onClick: () => void }) {
     icon = "lucide:download";
     title = t("layout.vaultSidebar.downloadingUpdate", { version: updater.version });
     iconClass = "animate-bounce";
-  } else if (updater.status === "available") {
+  } else if (updater.status === "available" || updater.status === "externalUpdate") {
     icon = "lucide:download";
     title = t("layout.vaultSidebar.updateAvailable", { version: updater.version });
   } else if (ready) {
@@ -587,7 +588,7 @@ function WhatsNewButton({ onClick }: { onClick: () => void }) {
     >
       {rippleEls}
       <Icon icon={icon} width={20} className={iconClass} style={iconStyle} />
-      {ready && (
+      {pending && (
         <span
           className="absolute rounded-full"
           style={{ top: 8, right: 8, width: 8, height: 8, background: "var(--t-accent)" }}

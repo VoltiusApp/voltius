@@ -5,7 +5,10 @@ import { Icon } from "@iconify/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Modal, ModalCard } from "@/components/shared/Modal";
+import { Toggle } from "@/components/shared/Toggle";
 import { useUIStore } from "@/stores/uiStore";
+import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
+import { useIsAndroid } from "@/utils/platform";
 import {
   useUpdaterStatus,
   installUpdate,
@@ -46,6 +49,9 @@ function WhatsNewInner() {
   const [loading, setLoading] = useState(true);
   const updater = useUpdaterStatus();
   const [showOlder, setShowOlder] = useState(false);
+  const isAndroid = useIsAndroid();
+  const autoUpdate = useUpdaterPrefStore((s) => s.autoUpdate);
+  const setAutoUpdate = useUpdaterPrefStore((s) => s.setAutoUpdate);
 
   useEffect(() => {
     let alive = true;
@@ -76,6 +82,19 @@ function WhatsNewInner() {
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--t-border) shrink-0">
           <Icon icon="lucide:megaphone" width={18} className="text-(--t-accent)" />
           <h2 className="text-sm font-semibold text-(--t-text-primary)">{t("changelog.title")}</h2>
+          {!isAndroid && (
+            <div
+              className="flex items-center gap-2 ml-3 pl-3 border-l border-(--t-border)"
+              title={t("settings.about.autoDownload.desc")}
+            >
+              <span className="text-xs text-(--t-text-dim)">{t("changelog.autoDownload")}</span>
+              <Toggle
+                checked={autoUpdate}
+                onChange={setAutoUpdate}
+                aria-label={t("settings.about.autoDownload.title")}
+              />
+            </div>
+          )}
           <div className="ml-auto flex items-center gap-1">
             {getQuickLinks(t).map(({ icon, href, title }) => (
               <button

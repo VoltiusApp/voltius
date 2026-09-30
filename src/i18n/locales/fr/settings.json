@@ -476,7 +476,7 @@
       },
       "autoDownload": {
         "title": "Téléchargement automatique des mises à jour",
-        "desc": "Vérifier et télécharger les nouvelles versions en arrière-plan"
+        "desc": "Télécharger les nouvelles versions en arrière-plan. Voltius les recherche dans tous les cas."
       },
       "whatsNew": {
         "title": "Afficher les nouveautés après les mises à jour",

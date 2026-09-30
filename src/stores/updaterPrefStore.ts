@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getAutoUpdate, setAutoUpdate as setAutoUpdateRust } from "@/services/updater";
+import { downloadUpdate, getAutoUpdate, getUpdaterState, setAutoUpdate as setAutoUpdateRust } from "@/services/updater";
 
 /**
  * Reactive mirror of the Rust-owned auto-update preference (config_dir/updater.json).
@@ -27,5 +27,6 @@ export const useUpdaterPrefStore = create<UpdaterPrefState>((set) => ({
   setAutoUpdate: (enabled) => {
     set({ autoUpdate: enabled });
     setAutoUpdateRust(enabled).catch(() => {});
+    if (enabled && getUpdaterState().status === "available") downloadUpdate().catch(() => {});
   },
 }));

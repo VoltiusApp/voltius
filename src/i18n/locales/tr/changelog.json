@@ -1,6 +1,7 @@
 {
   "changelog": {
     "title": "Yenilikler",
+    "autoDownload": "Otomatik indir",
     "quickLinks": {
       "documentation": "Belgeler"
     },

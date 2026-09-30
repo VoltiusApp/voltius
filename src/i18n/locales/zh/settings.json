@@ -367,7 +367,7 @@
       },
       "autoDownload": {
         "title": "自动下载更新",
-        "desc": "在后台检查并下载新版本"
+        "desc": "在后台下载新版本。无论是否开启，Voltius 都会检查更新。"
       },
       "whatsNew": {
         "title": "更新后显示新内容",

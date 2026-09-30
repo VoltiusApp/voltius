@@ -473,7 +473,7 @@
       },
       "autoDownload": {
         "title": "Auto-download updates",
-        "desc": "Check & download new versions in the background"
+        "desc": "Download new versions in the background. Voltius checks for them either way."
       },
       "whatsNew": {
         "title": "Show what's new after updates",
