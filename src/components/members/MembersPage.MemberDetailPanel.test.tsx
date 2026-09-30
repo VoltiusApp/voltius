@@ -62,6 +62,13 @@ vi.mock("@/services/teamKeyRotation", () => ({
   checkAndRotateTeamKey: (...a: unknown[]) => h.rotate(...a),
 }));
 
+const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
+vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
+vi.mock("@/components/shared/BusinessLockBanner", () => ({
+  BusinessLockBanner: ({ onClear }: { onClear?: () => Promise<void> }) =>
+    lock.value.locked ? <div>business-lock{onClear && <button onClick={() => void onClear()}>clear-rules</button>}</div> : null,
+}));
+
 import { MemberDetailPanel } from "./panels/MemberDetailPanel";
 import { useTeamStore } from "@/stores/teamStore";
 
@@ -104,6 +111,7 @@ beforeEach(() => {
   h.setPerms.mockResolvedValue(undefined);
   h.rotate.mockResolvedValue(undefined);
   mockStore.membersByTeam = {};
+  lock.value = { locked: false, isOwner: true };
   baseProps.onClose = vi.fn();
   baseProps.onUpdated = vi.fn();
 });
@@ -579,4 +587,40 @@ test("a write in flight disables the other rows too", async () => {
   await waitFor(() =>
     expect((within(row2).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(false),
   );
+});
+
+test("locked: override rows are disabled and Clear writes 0/0 without an undo entry", async () => {
+  lock.value = { locked: true, isOwner: true };
+  const denied = { ...targetMember, permission_deny: PERM_BITS.EDIT_KEYS };
+  render(<MemberDetailPanel {...permProps({ member: denied })} />);
+  const row = screen.getByRole("radiogroup", { name: "members.permission.EDIT_KEYS" });
+  expect((within(row).getByRole("radio", { name: /deny/i }) as HTMLButtonElement).disabled).toBe(true);
+
+  fireEvent.click(screen.getByText("clear-rules"));
+
+  await waitFor(() => expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0));
+  expect(h.push).not.toHaveBeenCalled();
+});
+
+test("locked: no Clear when the viewer may not edit this member", () => {
+  lock.value = { locked: true, isOwner: false };
+  const denied = { ...targetMember, permission_deny: PERM_BITS.EDIT_KEYS };
+  render(<MemberDetailPanel {...permProps({ member: denied, canManageMembers: false })} />);
+  expect(screen.getByText("business-lock")).toBeTruthy();
+  expect(screen.queryByText("clear-rules")).toBeNull();
+});
+
+test("locked: no Clear when there is nothing to clear", () => {
+  lock.value = { locked: true, isOwner: true };
+  render(<MemberDetailPanel {...permProps()} />);
+  expect(screen.getByText("business-lock")).toBeTruthy();
+  expect(screen.queryByText("clear-rules")).toBeNull();
+});
+
+test("locked: New role hidden; a custom role cannot be added, a held builtin can still be toggled", () => {
+  lock.value = { locked: true, isOwner: true };
+  render(<MemberDetailPanel {...baseProps} />);
+  expect(screen.queryByText("members.newRole")).toBeNull();
+  expect((screen.getByRole("button", { name: "members.roleName.editor" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name: "members.roleName.member" }) as HTMLButtonElement).disabled).toBe(false);
 });

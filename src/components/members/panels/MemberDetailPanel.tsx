@@ -3,11 +3,13 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
-import { useHistoryStore } from "@/stores/historyStore";
+import { useHistoryStore, type HistoryEntry } from "@/stores/historyStore";
 import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/members/panels/RolesPanel";
 import { ROLE_META, RoleBlurb, permissionLabel, roleLabel } from "@/components/members/roleChips";
+import { useBusinessLock } from "@/hooks/useBusinessLock";
+import { BusinessLockBanner } from "@/components/shared/BusinessLockBanner";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
@@ -48,6 +50,7 @@ export function MemberDetailPanel({
 }: MemberDetailPanelProps) {
   const { t } = useTranslation();
   const push = useHistoryStore((s) => s.push);
+  const { locked } = useBusinessLock(teamId);
 
   const [error, setError] = useState("");
   const [toggling, setToggling] = useState<string | null>(null);
@@ -164,11 +167,33 @@ export function MemberDetailPanel({
   // A whole-mask notHeld lock still lets the admin clear the very bit that
   // caused it — clearing it produces a mask the server accepts.
   const rowDisabled = (permission: Permission) =>
-    overriding || pendingRevoke !== null || (readOnlyReasonKind !== null &&
+    locked || overriding || pendingRevoke !== null || (readOnlyReasonKind !== null &&
       (readOnlyReasonKind !== "notHeld" || (PERM_BITS[permission] & offendingBits) === 0));
 
   const write = (masks: { allow: number; deny: number }) => () =>
     useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
+
+  const applyMasks = async (
+    masks: { allow: number; deny: number },
+    rotate: boolean,
+    history?: HistoryEntry,
+  ) => {
+    setError("");
+    setOverriding(true);
+    try {
+      await write(masks)();
+      if (history) push(history);
+      onUpdated();
+      if (rotate) void checkAndRotateTeamKey(teamId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("members.error.failedToUpdatePermissions"));
+    } finally {
+      setOverriding(false);
+    }
+  };
+
+  const clearOverrides = () =>
+    applyMasks({ allow: 0, deny: 0 }, crossesVaultKeyGate(member, teamRoles, { allow: 0, deny: 0 }));
 
   const commitOverride = async (permission: Permission, next: OverrideState, rotate: boolean) => {
     const updated = applyOverrideState(permission, allow, deny, next);
@@ -181,24 +206,13 @@ export function MemberDetailPanel({
       const masks = applyOverrideState(permission, m.permission_allow ?? 0, m.permission_deny ?? 0, state);
       return useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
     };
-    setError("");
-    setOverriding(true);
-    try {
-      // No toast here: a bit flip already gets its own inline row feedback,
-      // and a toast per click was noisy against runReversible's other callers.
-      await write(updated)();
-      push({
-        label: t("members.history.changePermissions", { name: member.handle }),
-        undo: at(overrideStateOf(permission, allow, deny)),
-        redo: at(next),
-      });
-      onUpdated();
-      if (rotate) void checkAndRotateTeamKey(teamId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("members.error.failedToUpdatePermissions"));
-    } finally {
-      setOverriding(false);
-    }
+    // No toast here: a bit flip already gets its own inline row feedback,
+    // and a toast per click was noisy against runReversible's other callers.
+    await applyMasks(updated, rotate, {
+      label: t("members.history.changePermissions", { name: member.handle }),
+      undo: at(overrideStateOf(permission, allow, deny)),
+      redo: at(next),
+    });
   };
 
   const handleOverride = async (permission: Permission, next: OverrideState) => {
@@ -250,7 +264,7 @@ export function MemberDetailPanel({
                   <div key={role.id} className="flex flex-col gap-1">
                   <button
                     onClick={() => void handleToggleRole(role)}
-                    disabled={toggling === role.id}
+                    disabled={toggling === role.id || (locked && !role.is_builtin && !hasRole)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     style={{
                       background: justToggled === role.id ? "rgba(52,211,153,0.15)" : hasRole ? bg : "var(--t-bg-elevated)",
@@ -278,6 +292,7 @@ export function MemberDetailPanel({
                   </div>
                 );
               })}
+              {!locked && (
               <button
                 onClick={() => setCreatingRole(true)}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
@@ -288,6 +303,7 @@ export function MemberDetailPanel({
                 <Icon icon="lucide:plus" width={10} />
                 {t("members.newRole")}
               </button>
+              )}
             </div>
           ) : (
             <RoleBadges member={member} roles={teamRoles} />
@@ -297,6 +313,10 @@ export function MemberDetailPanel({
         {/* Permissions */}
         {serverSupportsOverrides && (
         <FormSection label={t("members.permissions.title")}>
+          <BusinessLockBanner
+            teamId={teamId}
+            onClear={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
+          />
           {readOnlyReason && (
             <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>
           )}
