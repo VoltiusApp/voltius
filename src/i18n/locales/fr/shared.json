@@ -163,6 +163,15 @@
         "roleCount_other": "{{count}} rôles",
         "loadFailed": "Impossible de charger les permissions"
       }
+    },
+    "businessLock": {
+      "title": "Fonctionnalité du forfait Business",
+      "body": "Les rôles personnalisés et les permissions par membre et par objet nécessitent le forfait Business de l'équipe. Les règles existantes restent appliquées et peuvent être supprimées.",
+      "upgradeLabel": "Débloquez-les pour cette équipe.",
+      "upgrade": "Passer à Business",
+      "ownerOnly": "Seul le propriétaire de l'équipe peut changer de forfait.",
+      "clear": "Supprimer les règles",
+      "confirmClear": "Cliquez à nouveau pour supprimer"
     }
   }
 }

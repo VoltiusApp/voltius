@@ -158,6 +158,15 @@
         "roleCount_other": "{{count}} roles",
         "loadFailed": "Could not load permissions"
       }
+    },
+    "businessLock": {
+      "title": "Business plan feature",
+      "body": "Custom roles, per-member and per-object permissions need the team's Business plan. Existing rules stay enforced and can be removed.",
+      "upgradeLabel": "Unlock them for this team.",
+      "upgrade": "Upgrade to Business",
+      "ownerOnly": "Only the team owner can upgrade.",
+      "clear": "Remove rules",
+      "confirmClear": "Click again to remove"
     }
   }
 }

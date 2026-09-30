@@ -158,6 +158,15 @@
         "roleCount_other": "{{count}} 个角色",
         "loadFailed": "无法加载权限"
       }
+    },
+    "businessLock": {
+      "title": "Business 套餐功能",
+      "body": "自定义角色以及按成员、按对象的权限需要团队的 Business 套餐。现有规则仍然生效，并且可以删除。",
+      "upgradeLabel": "为此团队解锁。",
+      "upgrade": "升级到 Business",
+      "ownerOnly": "只有团队所有者可以升级。",
+      "clear": "移除规则",
+      "confirmClear": "再次点击以移除"
     }
   }
 }

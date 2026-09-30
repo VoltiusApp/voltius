@@ -1,4 +1,4 @@
-import { PERM_BITS } from "@/services/permissions";
+import { PERM_BITS, isTeamOwner } from "@/services/permissions";
 
 /** What a vault-admin surface acts on. Mirrors `VaultDetail` in VaultsSection. */
 export interface VaultAdminTarget {
@@ -34,7 +34,7 @@ export function vaultAdminCapabilities(
   const team = target.teamId ? teams.find((t) => t.id === target.teamId) : undefined;
   const roles = target.teamId ? rolesByTeam[target.teamId] ?? [] : [];
   const myRoles = (team?.role_ids ?? []).flatMap((rid) => roles.filter((role) => role.id === rid));
-  const isOwner = !!myUserId && team?.owner_id === myUserId;
+  const isOwner = isTeamOwner(team, myUserId);
   const managesVault = myRoles.some((r) => ((r.permissions ?? 0) & (PERM_BITS.MANAGE_VAULT | PERM_BITS.ADMINISTRATOR)) !== 0);
 
   return {

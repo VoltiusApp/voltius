@@ -185,7 +185,8 @@
       "failedToRedeemInviteCode": "Échec de l'utilisation du code d'invitation : {{status}}",
       "inviteCodeMalformed": "Ce code n'a pas le bon format",
       "inviteCodeNotFound": "Ce code a expiré ou est incorrect",
-      "inviteCodeTooManyAttempts": "Trop de tentatives — patientez un instant et réessayez"
+      "inviteCodeTooManyAttempts": "Trop de tentatives — patientez un instant et réessayez",
+      "businessPlanRequired": "Cela nécessite le forfait Business de l'équipe."
     },
     "clipboard": {
       "cut_one": "{{count}} élément coupé",

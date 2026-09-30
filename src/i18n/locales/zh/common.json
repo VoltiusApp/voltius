@@ -185,7 +185,8 @@
       "failedToRedeemInviteCode": "使用邀请码失败：{{status}}",
       "inviteCodeMalformed": "该邀请码格式不正确",
       "inviteCodeNotFound": "该邀请码已过期或不正确",
-      "inviteCodeTooManyAttempts": "尝试次数过多 — 请稍后重试"
+      "inviteCodeTooManyAttempts": "尝试次数过多 — 请稍后重试",
+      "businessPlanRequired": "此操作需要团队的 Business 套餐。"
     },
     "clipboard": {
       "cut_one": "已剪切 {{count}} 个项目",

@@ -185,7 +185,8 @@
       "failedToRedeemInviteCode": "Не удалось использовать код приглашения: {{status}}",
       "inviteCodeMalformed": "Код указан в неверном формате",
       "inviteCodeNotFound": "Код истёк или указан неверно",
-      "inviteCodeTooManyAttempts": "Слишком много попыток — подождите и попробуйте снова"
+      "inviteCodeTooManyAttempts": "Слишком много попыток — подождите и попробуйте снова",
+      "businessPlanRequired": "Для этого нужен тариф Business команды."
     },
     "clipboard": {
       "cut_one": "Вырезан {{count}} элемент",

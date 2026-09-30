@@ -137,6 +137,10 @@ export const OBJECT_RULE_ROWS: Record<TeamObjectType, Permission[]> = {
   snippet_folder: ["VIEW", "EDIT_FOLDERS", "EDIT_SNIPPETS", "MANAGE_ROLES"],
 };
 
+export function isTeamOwner(team: { owner_id: string } | undefined, myUserId: string): boolean {
+  return !!myUserId && team?.owner_id === myUserId;
+}
+
 export function effectivePermissions(
   member: { role_ids: string[]; permission_allow?: number; permission_deny?: number },
   roles: TeamRole[],

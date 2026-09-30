@@ -1,6 +1,6 @@
 import { test, expect, describe, it } from "vitest";
 import {
-  resolveCan, PERM_BITS, effectivePermissions, crossesVaultKeyGate, resolveMemberReadOnlyReason,
+  resolveCan, PERM_BITS, effectivePermissions, isTeamOwner, crossesVaultKeyGate, resolveMemberReadOnlyReason,
   PERMISSION_GROUPS, resolveObjectPermissions, ALL_PERMISSION_BITS, OBJECT_RULE_BITS, OBJECT_RULE_ROWS,
   type Permission, type PermissionSnapshot, type RuleEntry,
 } from "./permissions.ts";
@@ -328,4 +328,11 @@ describe("resolveCan with an object id", () => {
   it("ignores the object id in a personal vault", () => {
     expect(resolveCan(snap({ objectAccess: base.objectAccess }), "EDIT_CONNECTIONS", "personal", "locked")).toBe(true);
   });
+});
+
+test("isTeamOwner compares the team's owner_id with the signed-in user", () => {
+  expect(isTeamOwner({ owner_id: "u1" }, "u1")).toBe(true);
+  expect(isTeamOwner({ owner_id: "u1" }, "u2")).toBe(false);
+  expect(isTeamOwner({ owner_id: "" }, "")).toBe(false);
+  expect(isTeamOwner(undefined, "u1")).toBe(false);
 });

@@ -185,7 +185,8 @@
       "failedToRedeemInviteCode": "Failed to use invite code: {{status}}",
       "inviteCodeMalformed": "That code is not in the right format",
       "inviteCodeNotFound": "That code has expired or is incorrect",
-      "inviteCodeTooManyAttempts": "Too many attempts — wait a moment and try again"
+      "inviteCodeTooManyAttempts": "Too many attempts — wait a moment and try again",
+      "businessPlanRequired": "This needs the team's Business plan."
     },
     "clipboard": {
       "cut_one": "{{count}} item cut",

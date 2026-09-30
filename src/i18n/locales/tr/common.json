@@ -185,7 +185,8 @@
       "failedToRedeemInviteCode": "Davet kodu kullanılamadı: {{status}}",
       "inviteCodeMalformed": "Bu kodun biçimi hatalı",
       "inviteCodeNotFound": "Bu kodun süresi dolmuş veya kod yanlış",
-      "inviteCodeTooManyAttempts": "Çok fazla deneme — biraz bekleyip yeniden deneyin"
+      "inviteCodeTooManyAttempts": "Çok fazla deneme — biraz bekleyip yeniden deneyin",
+      "businessPlanRequired": "Bu, ekibin Business planını gerektirir."
     },
     "clipboard": {
       "cut_one": "{{count}} öğe kesildi",
