@@ -14,10 +14,12 @@ const h = vi.hoisted(() => ({
   removeMemberRole: vi.fn(),
   removeMember: vi.fn(),
   push: vi.fn(),
+  teams: [] as { id: string; name: string; owner_id: string; owner_tier: string; created_at: string; role_ids: string[] }[],
   teamRoles: [
     { id: "r-owner", team_id: "t1", name: "owner", is_builtin: true, permissions: 0, position: 0, created_at: "" },
     { id: "r-mem", team_id: "t1", name: "member", is_builtin: true, permissions: 0, position: 1, created_at: "" },
     { id: "r-ed", team_id: "t1", name: "editor", is_builtin: false, permissions: 0, position: 2, created_at: "" },
+    { id: "r-view", team_id: "t1", name: "connect-only", is_builtin: true, permissions: 0, position: 3, created_at: "" },
   ],
   members: [
     { team_id: "t1", user_id: "me", invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z", handle: "merry-quartz-2597", public_key: "pk", role_ids: ["r-mem"] },
@@ -124,7 +126,7 @@ vi.mock("@/stores/vaultStore", () => {
 
 vi.mock("@/stores/teamStore", () => {
   const state = {
-    teams: [],
+    teams: h.teams,
     loadTeams: h.loadTeams,
     membersByTeam: { t1: h.members },
     loadMembers: h.loadMembers,
@@ -204,7 +206,7 @@ beforeEach(() => {
   h.removeMemberRole.mockResolvedValue(undefined);
   h.removeMember.mockResolvedValue(undefined);
 });
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); h.teams.length = 0; });
 
 async function renderPage() {
   render(<MembersPage />);
@@ -321,4 +323,32 @@ test("single-member context menu remove assigned role: removeMemberRole + push r
   await waitFor(() => expect(h.push).toHaveBeenCalled());
   expect(h.removeMemberRole).toHaveBeenCalledWith("t1", "u1", "r-ed");
   expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.removeRole" }));
+});
+
+const lockTeam = () => h.teams.push({ id: "t1", name: "T", owner_id: "someone", owner_tier: "teams", created_at: "", role_ids: [] });
+
+test("locked team: the per-member Roles menu omits unassigned custom roles, keeps builtin and assigned ones", async () => {
+  lockTeam();
+  await renderPage();
+  expect(screen.queryByTestId("ctx-u2::members.roles::members.roleName.editor")).toBeNull();
+  expect(screen.getByTestId("ctx-u2::members.roles::members.roleName.connect-only")).toBeTruthy();
+  expect(screen.getByTestId("ctx-u1::members.roles::members.roleName.editor")).toBeTruthy();
+});
+
+test("locked team: bulk Assign role omits a custom role not held by everyone, keeps builtin", async () => {
+  lockTeam();
+  await renderPage();
+  selectU1U2();
+  const base = "bulk-u1::members.contextMenu.assignRoleBulk::";
+  expect(screen.queryByTestId(`${base}members.roleName.editor`)).toBeNull();
+  expect(screen.getByTestId(`${base}members.roleName.connect-only`)).toBeTruthy();
+  expect(screen.getByTestId("bulk-u1::members.contextMenu.removeRoleBulk::members.roleName.editor")).toBeTruthy();
+});
+
+test("a refused assign from the per-member menu is reported, not left unhandled", async () => {
+  h.assignMemberRole.mockRejectedValue(new Error("plan required"));
+  await renderPage();
+  fireEvent.click(screen.getByTestId("ctx-u2::members.roles::members.roleName.editor"));
+  await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+  expect(h.push).not.toHaveBeenCalled();
 });
