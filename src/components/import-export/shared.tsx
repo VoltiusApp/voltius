@@ -55,16 +55,11 @@ export function useVaultList(writableOnly = false) {
     getMyUserId().then((id) => { if (id) setMyUserId(id); }).catch(() => {});
   }, []);
 
-  const canWrite = (vId: string): boolean => {
-    if (vId === "personal") return true;
-    return canEditConnectionsIn(vId, myUserId, { teams, membersByTeam, rolesByTeam });
-  };
-
   const linkedTeamIds = new Set(vaults.map(v => v.teamId).filter(Boolean));
   return [
     ...vaults.map(v => ({ id: v.teamId ?? v.id, name: v.name })),
     ...teams.filter(t => !linkedTeamIds.has(t.id)).map(t => ({ id: t.id, name: t.name })),
-  ].filter(v => !writableOnly || canWrite(v.id));
+  ].filter(v => !writableOnly || canEditConnectionsIn(v.id, myUserId, { teams, membersByTeam, rolesByTeam }));
 }
 
 export function VaultChipSelect({ selectedIds, onChange, writableOnly = false }: {

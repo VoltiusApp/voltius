@@ -3,7 +3,7 @@ import type { Vault } from "@/stores/vaultStore";
 import { vaultById } from "@/services/vaultLookup";
 import type { TeamObjectType } from "@/services/teamObjects";
 import type { ObjectAccessIndex } from "@/stores/teamObjectAccessStore";
-import { isBusinessLocked } from "@/stores/subscriptionTier";
+import { teamLocked } from "@/stores/subscriptionTier";
 
 export type Permission =
   | "VIEW_SECRETS"
@@ -175,12 +175,12 @@ export function canEditConnectionsIn(
   myUserId: string,
   s: { teams: Team[]; membersByTeam: Record<string, TeamMember[]>; rolesByTeam: Record<string, TeamRole[]> },
 ): boolean {
+  if (teamId === "personal") return true;
   const member = s.membersByTeam[teamId]?.find((m) => m.user_id === myUserId);
   if (!member || !myUserId) return true;
   const roles = s.rolesByTeam[teamId] ?? [];
   if (roles.length === 0) return true;
-  const locked = isBusinessLocked(s.teams.find((t) => t.id === teamId));
-  return (effectivePermissions(member, roles, locked) & PERM_BITS.EDIT_CONNECTIONS) !== 0;
+  return (effectivePermissions(member, roles, teamLocked(s.teams, teamId)) & PERM_BITS.EDIT_CONNECTIONS) !== 0;
 }
 
 /** True if member holds the builtin role with the given name in this team. */
@@ -260,7 +260,7 @@ export function resolveCan(
 
   const roles = snapshot.rolesByTeam[teamId] ?? [];
   const members = snapshot.membersByTeam[teamId];
-  const locked = isBusinessLocked(snapshot.teams.find((t) => t.id === teamId));
+  const locked = teamLocked(snapshot.teams, teamId);
 
   if (!snapshot.myUserId) return false;
 

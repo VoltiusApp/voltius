@@ -11,6 +11,10 @@ export function isBusinessLocked(team: { owner_tier?: string } | undefined): boo
   return !!team?.owner_tier && !tierAtLeast(team.owner_tier, "business");
 }
 
+export function teamLocked(teams: { id: string; owner_tier?: string }[], teamId: string): boolean {
+  return isBusinessLocked(teams.find((t) => t.id === teamId));
+}
+
 export interface TierFlagsInput {
   tier?: string;
   trial_ends_at?: number;

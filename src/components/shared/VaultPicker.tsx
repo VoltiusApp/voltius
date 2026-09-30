@@ -47,10 +47,7 @@ export function VaultPicker({
       .sort((a, b) => a.position - b.position)[0]?.name ?? "";
   };
 
-  const canWrite = (vId: string): boolean => {
-    if (vId === "personal") return true;
-    return canEditConnectionsIn(vId, myUserId, { teams, membersByTeam, rolesByTeam });
-  };
+  const canWrite = (vId: string): boolean => canEditConnectionsIn(vId, myUserId, { teams, membersByTeam, rolesByTeam });
 
   const linkedTeamIds = new Set(vaults.map((v) => v.teamId).filter(Boolean));
   // Use teamId (the portable team UUID) as the ID for team-linked vaults so the

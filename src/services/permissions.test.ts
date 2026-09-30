@@ -420,4 +420,9 @@ describe("lapse principle (mirror of server lapse math)", () => {
     s.teams[0].owner_tier = "business";
     expect(canEditConnectionsIn("t1", "u1", s)).toBe(true);
   });
+
+  it("canEditConnectionsIn always allows the personal vault", () => {
+    const s = { teams: [], membersByTeam: { personal: [member("u1", [])] }, rolesByTeam: { personal: [role("x", 0)] } };
+    expect(canEditConnectionsIn("personal", "u1", s)).toBe(true);
+  });
 });

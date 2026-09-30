@@ -4,7 +4,7 @@ import { vaultById } from "@/services/vaultLookup";
 import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId } from "@/services/teamService";
 import { effectivePermissions, PERM_BITS } from "@/hooks/usePermission";
-import { isBusinessLocked } from "@/stores/subscriptionTier";
+import { teamLocked } from "@/stores/subscriptionTier";
 
 /**
  * Maps a local vault UUID to the stored team ID at save time, so vault_id is
@@ -53,7 +53,7 @@ export function useDefaultVaultId(): string {
       const member = members.find((m) => m.user_id === myUserId);
       if (!member) continue;
       if (roles.length === 0) return resolvedId; // optimistic while roles loading
-      if ((effectivePermissions(member, roles, isBusinessLocked(teams.find((t) => t.id === teamId))) & PERM_BITS.EDIT_CONNECTIONS) !== 0) return resolvedId;
+      if ((effectivePermissions(member, roles, teamLocked(teams, teamId)) & PERM_BITS.EDIT_CONNECTIONS) !== 0) return resolvedId;
     }
     return "personal";
   }, [selectedVaultIds, teams, membersByTeam, rolesByTeam, myUserId]);

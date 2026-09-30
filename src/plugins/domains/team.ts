@@ -1,7 +1,7 @@
 import type { Team, TeamMember, TeamRole, PendingInvitation } from "@/services/teamService";
 import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { failed, type DomainResult } from "./result";
-import { isBusinessLocked } from "@/stores/subscriptionTier";
+import { teamLocked } from "@/stores/subscriptionTier";
 import { planRequiredError } from "@/services/planRequired";
 
 /**
@@ -212,7 +212,7 @@ export async function setMemberRole(
   if (!resolved.ok) return resolved;
   const roleId = resolved.result;
   const isCustom = ports.roles(teamId).some((r: TeamRole) => r.id === roleId && !r.is_builtin);
-  if (isCustom && isBusinessLocked(ports.teams().find((t: Team) => t.id === teamId))) {
+  if (isCustom && teamLocked(ports.teams(), teamId)) {
     return failed(planRequiredError());
   }
   try {
