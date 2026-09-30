@@ -9,7 +9,7 @@ const member = (over: Partial<TeamMember> = {}): TeamMember => ({
 
 function ports(over: Partial<TeamPorts> = {}): TeamPorts {
   return {
-    teams: () => [{ id: "t1", name: "Team One", owner_id: "u0", owner_tier: "teams", created_at: "", role_ids: ["r1"] }],
+    teams: () => [{ id: "t1", name: "Team One", owner_id: "u0", owner_tier: "business", created_at: "", role_ids: ["r1"] }],
     loadTeams: vi.fn(async () => {}),
     members: () => [member()],
     loadMembers: vi.fn(async () => {}),
@@ -35,7 +35,7 @@ function ports(over: Partial<TeamPorts> = {}): TeamPorts {
 test("listTeams resolves role ids to names and carries the vault status", async () => {
   const teams = await listTeams(ports());
   expect(teams).toEqual([
-    { id: "t1", name: "Team One", ownerTier: "teams", myRoles: ["manager"], myRoleIds: ["r1"], vaultStatus: "loaded" },
+    { id: "t1", name: "Team One", ownerTier: "business", myRoles: ["manager"], myRoleIds: ["r1"], vaultStatus: "loaded" },
   ]);
 });
 
@@ -224,7 +224,7 @@ test("listTeams still reports a team whose roles cannot be read", async () => {
     vaultStatus: () => "forbidden",
   });
   expect(await listTeams(p)).toEqual([
-    { id: "t1", name: "Team One", ownerTier: "teams", myRoles: ["r1"], myRoleIds: ["r1"], vaultStatus: "forbidden" },
+    { id: "t1", name: "Team One", ownerTier: "business", myRoles: ["r1"], myRoleIds: ["r1"], vaultStatus: "forbidden" },
   ]);
 });
 
@@ -252,4 +252,31 @@ test("keyStatus keeps a team whose member load rejects, explained by its vault s
   expect(rows.map((r) => [r.teamId, r.vaultStatus, r.members.length])).toEqual([
     ["t1", "loaded", 1], ["t2", "forbidden", 0],
   ]);
+});
+
+const lockedTeams = () => [{ id: "t1", name: "Team One", owner_id: "u0", owner_tier: "teams", created_at: "", role_ids: ["r1"] }];
+
+test("setMemberRole refuses a custom role on a locked team BEFORE removing anything", async () => {
+  const removeMemberRole = vi.fn(async () => {});
+  const assignMemberRole = vi.fn(async () => {});
+  const p = ports({
+    teams: lockedTeams,
+    members: () => [member({ user_id: "u2", role_ids: ["r1"] })], removeMemberRole, assignMemberRole,
+  });
+  const res = await setMemberRole(p, "t1", "u2", "operator");
+  expect(res.ok).toBe(false);
+  expect(removeMemberRole).not.toHaveBeenCalled();
+  expect(assignMemberRole).not.toHaveBeenCalled();
+});
+
+test("setMemberRole still assigns a builtin role on a locked team", async () => {
+  const removeMemberRole = vi.fn(async () => {});
+  const assignMemberRole = vi.fn(async () => {});
+  const p = ports({
+    teams: lockedTeams,
+    members: () => [member({ user_id: "u2", role_ids: ["r3"] })], removeMemberRole, assignMemberRole,
+  });
+  expect(await setMemberRole(p, "t1", "u2", "manager")).toEqual({ ok: true, result: null });
+  expect(removeMemberRole).toHaveBeenCalledWith("t1", "u2", "r3");
+  expect(assignMemberRole).toHaveBeenCalledWith("t1", "u2", "r1");
 });

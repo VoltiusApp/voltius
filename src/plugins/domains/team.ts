@@ -1,6 +1,8 @@
 import type { Team, TeamMember, TeamRole, PendingInvitation } from "@/services/teamService";
 import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { failed, type DomainResult } from "./result";
+import { isBusinessLocked } from "@/stores/subscriptionTier";
+import { planRequiredError } from "@/services/planRequired";
 
 /**
  * The team operations this domain needs, as plain functions. Every `load*` is
@@ -209,6 +211,10 @@ export async function setMemberRole(
   const resolved = await resolveRoleId(ports, teamId, role);
   if (!resolved.ok) return resolved;
   const roleId = resolved.result;
+  const isCustom = ports.roles(teamId).some((r: TeamRole) => r.id === roleId && !r.is_builtin);
+  if (isCustom && isBusinessLocked(ports.teams().find((t: Team) => t.id === teamId))) {
+    return failed(planRequiredError());
+  }
   try {
     for (const existing of target.role_ids) {
       if (existing !== roleId) await ports.removeMemberRole(teamId, userId, existing);

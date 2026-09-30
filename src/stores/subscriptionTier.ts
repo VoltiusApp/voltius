@@ -7,6 +7,10 @@ export function tierAtLeast(tier: string | undefined, plan: Tier): boolean {
   return (TIER_RANK[tier as Tier] ?? 0) >= TIER_RANK[plan];
 }
 
+export function isBusinessLocked(team: { owner_tier?: string } | undefined): boolean {
+  return !!team?.owner_tier && !tierAtLeast(team.owner_tier, "business");
+}
+
 export interface TierFlagsInput {
   tier?: string;
   trial_ends_at?: number;
