@@ -376,7 +376,7 @@
           "teamVaults": "Paylaşılan ekip kasaları",
           "teamSharing": "Ekip paylaşımı (5 oturum · 10 konuk)",
           "seats": "Lisanslar (satın alınan kadar)",
-          "customRoles": "Özel roller"
+          "granularPermissions": "Özel roller, üye ve nesne bazlı izinler"
         }
       },
       "buySeats": {

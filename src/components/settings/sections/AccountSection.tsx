@@ -78,7 +78,7 @@ const PLAN_FEATURES = [
   { id: "teamVaults",       free: false, pro: false, teams: true,  business: true  },
   { id: "teamSharing",      free: false, pro: false, teams: true,  business: true  },
   { id: "seats",            free: false, pro: false, teams: true,  business: true  },
-  { id: "customRoles",      free: false, pro: false, teams: false, business: true  },
+  { id: "granularPermissions", free: false, pro: false, teams: false, business: true  },
 ];
 
 async function openCheckout(plan: "pro" | "teams") {

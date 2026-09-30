@@ -184,7 +184,7 @@ on macOS and Windows after installation.
 | **Auto-Updates** | ✅ | ✅ | ✅ | ? | ? |
 | **Modern UI/UX** | ✅ | ✅ | 🟡 | ✅ | 🟡 |
 | **AI assistant** | ❌ | ✅ | ✅ | ? | ? |
-| **Permissions** | ✅ Teams RBAC / Business custom roles | ✅ Granular perms | ? | ? | ? |
+| **Permissions** | ✅ Teams built-in roles / Business custom roles + per-object | ✅ Granular perms | ? | ? | ? |
 | **Terminal sharing** | ✅ Pro (1 session · 1 guest) / Teams (5 · 10) / Business (20 · 50) | ✅ needs Teams plan | ? | ? | ? |
 | **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** | ? | Local Only / Manual |
 | **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ | ? | ❌ |
