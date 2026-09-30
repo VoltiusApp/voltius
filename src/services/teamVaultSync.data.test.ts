@@ -38,6 +38,7 @@ import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { listTeamObjects } from "@/services/teamObjects";
 import { teamSecretCache } from "./teamSecretCache";
+import { PERM_BITS } from "@/services/permissions";
 
 function futureJwt(): string {
   const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -203,6 +204,27 @@ test("fetchTeamData shows an empty vault, not a revocation, when the key route 4
 
   expect(useTeamVaultStateStore.getState().statusByTeamId[teamId]).toBe("loaded");
   expect(useConnectionStore.getState().teamConnections[teamId] ?? []).toEqual([]);
+});
+
+test.each([
+  ["lost Connect to the lapse", "plan_lapsed", { role_ids: [], permission_allow: PERM_BITS.VIEW | PERM_BITS.CONNECT }],
+  ["never had Connect from Business", "loaded", { role_ids: ["b"], permission_deny: PERM_BITS.CONNECT }],
+])("a listed member on a locked team who %s gets %s on a key-route 403", async (_why, expected, masks) => {
+  const teamId = `t-lapse-${expected}`;
+  const builtin = { id: "b", team_id: teamId, name: "member", permissions: PERM_BITS.VIEW | PERM_BITS.CONNECT, is_builtin: true, position: 3, created_at: "" };
+  useTeamStore.setState({
+    teams: [{ id: teamId, owner_tier: "teams", ...masks }] as never,
+    rolesByTeam: { [teamId]: [builtin] },
+  });
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockImplementation(async (url: string) => {
+    if (url.endsWith("/vault-key")) return res(403);
+    throw new Error(`unexpected fetch ${url}`);
+  });
+
+  await fetchTeamData(teamId);
+
+  expect(useTeamVaultStateStore.getState().statusByTeamId[teamId]).toBe(expected);
 });
 
 test("fetchTeamData still reports a revocation when the 403'd team is no longer listed", async () => {

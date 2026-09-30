@@ -3,7 +3,7 @@ import type { Vault } from "@/stores/vaultStore";
 import { vaultById } from "@/services/vaultLookup";
 import type { TeamObjectType } from "@/services/teamObjects";
 import type { ObjectAccessIndex } from "@/stores/teamObjectAccessStore";
-import { teamLocked } from "@/stores/subscriptionTier";
+import { isBusinessLocked, teamLocked } from "@/stores/subscriptionTier";
 
 export type Permission =
   | "VIEW_SECRETS"
@@ -168,6 +168,10 @@ export function crossesVaultKeyGate(member: Masks, roles: TeamRole[], next: { al
 export function lostAccessToLapse(member: Masks, roles: TeamRole[]): boolean {
   return (effectivePermissions(member, roles, false) & VAULT_KEY_GATE) !== 0
     && (effectivePermissions(member, roles, true) & VAULT_KEY_GATE) === 0;
+}
+
+export function planLapsedFor(team: (Masks & { owner_tier?: string }) | undefined, roles: TeamRole[]): boolean {
+  return !!team && isBusinessLocked(team) && lostAccessToLapse(team, roles);
 }
 
 export function canEditConnectionsIn(

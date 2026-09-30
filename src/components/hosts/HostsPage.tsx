@@ -953,7 +953,7 @@ export default function HostsPage() {
 
         {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
 
-        {teamCredentialsUnavailable && <TeamCredentialsNote className="mx-5 mt-3" />}
+        {teamCredentialsUnavailable && <TeamCredentialsNote reason={teamCredentialsUnavailable} className="mx-5 mt-3" />}
 
         <DragSelectSurface
           selectionAreaRef={selectionAreaRef}

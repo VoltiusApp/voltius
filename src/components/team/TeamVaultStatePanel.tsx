@@ -12,8 +12,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import { ownerHandle } from "@/services/teamVaultFirstAccess";
 import { checkForUpdate } from "@/services/updater";
-import { isTeamOwner, lostAccessToLapse } from "@/services/permissions";
-import { isBusinessLocked } from "@/stores/subscriptionTier";
+import { isTeamOwner } from "@/services/permissions";
 import { useMyUserId } from "@/hooks/useMyUserId";
 
 export default function TeamVaultStatePanel({
@@ -27,7 +26,6 @@ export default function TeamVaultStatePanel({
   const team = useTeamStore((s) => s.teams.find((t) => t.id === teamId));
   const members = useTeamStore((s) => s.membersByTeam[teamId]);
   const loadMembers = useTeamStore((s) => s.loadMembers);
-  const roles = useTeamStore((s) => s.rolesByTeam[teamId]);
   const myUserId = useMyUserId();
   const isOwner = isTeamOwner(team, myUserId);
 
@@ -40,7 +38,6 @@ export default function TeamVaultStatePanel({
   // Generic until the handle resolves: a name flashing in from blank reads worse
   // than the sentence that never had one.
   const owner = ownerHandle(team, members);
-  const lapsed = status === "forbidden" && !!team && !!roles && isBusinessLocked(team) && lostAccessToLapse(team, roles);
 
   const configs: Record<string, { icon: string; title: string; body: string }> = {
     offline: {
@@ -48,17 +45,16 @@ export default function TeamVaultStatePanel({
       title: t("layout.mainPanel.teamVault.offlineTitle"),
       body: t("layout.mainPanel.teamVault.offlineBody"),
     },
-    forbidden: lapsed
-      ? {
-        icon: "lucide:lock",
-        title: t("layout.mainPanel.teamVault.planLapsedTitle"),
-        body: t("layout.mainPanel.teamVault.planLapsedBody"),
-      }
-      : {
-        icon: "lucide:shield-off",
-        title: t("layout.mainPanel.teamVault.forbiddenTitle"),
-        body: t("layout.mainPanel.teamVault.forbiddenBody"),
-      },
+    forbidden: {
+      icon: "lucide:shield-off",
+      title: t("layout.mainPanel.teamVault.forbiddenTitle"),
+      body: t("layout.mainPanel.teamVault.forbiddenBody"),
+    },
+    plan_lapsed: {
+      icon: "lucide:lock",
+      title: t("layout.mainPanel.teamVault.planLapsedTitle"),
+      body: t("layout.mainPanel.teamVault.planLapsedBody"),
+    },
     // Member has joined the team but no vault owner has distributed a key yet
     // (issue #41). Distinct from a hard error — a key-holder self-heals this on
     // their next sync, so present it as a benign waiting state, not a failure.

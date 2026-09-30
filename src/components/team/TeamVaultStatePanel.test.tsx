@@ -69,20 +69,18 @@ test("update_required explains itself and offers a check for updates", () => {
   expect(checkForUpdate).toHaveBeenCalled();
 });
 
-test("a member locked out by the lapse is told why", () => {
+test("plan_lapsed tells the member the Business plan lapsed", () => {
+  render(<TeamVaultStatePanel status="plan_lapsed" teamId="t1" />);
+  expect(screen.getByText("layout.mainPanel.teamVault.planLapsedTitle")).toBeTruthy();
+  expect(screen.getByText("layout.mainPanel.teamVault.planLapsedBody")).toBeTruthy();
+});
+
+test("forbidden keeps the generic copy even for a lapsed member", () => {
   useTeamStore.setState({
     teams: [{ ...TEAM, owner_tier: "teams", permission_allow: PERM_BITS.VIEW | PERM_BITS.CONNECT }],
     rolesByTeam: { t1: [] },
   });
   render(<TeamVaultStatePanel status="forbidden" teamId="t1" />);
-  expect(screen.getByText("layout.mainPanel.teamVault.planLapsedTitle")).toBeTruthy();
-});
-
-test("a forbidden member whose access never came from Business gets the generic copy", () => {
-  useTeamStore.setState({
-    teams: [{ ...TEAM, owner_tier: "teams", role_ids: ["b"], permission_deny: PERM_BITS.CONNECT }],
-    rolesByTeam: { t1: [{ id: "b", team_id: "t1", name: "member", permissions: PERM_BITS.VIEW | PERM_BITS.CONNECT, is_builtin: true, position: 3, created_at: "" }] },
-  });
-  render(<TeamVaultStatePanel status="forbidden" teamId="t1" />);
   expect(screen.getByText("layout.mainPanel.teamVault.forbiddenTitle")).toBeTruthy();
+  expect(screen.queryByText("layout.mainPanel.teamVault.planLapsedTitle")).toBeNull();
 });

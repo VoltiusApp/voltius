@@ -2,7 +2,7 @@ import { test, expect, describe, it } from "vitest";
 import {
   resolveCan, PERM_BITS, effectivePermissions, isTeamOwner, crossesVaultKeyGate, resolveMemberReadOnlyReason,
   PERMISSION_GROUPS, resolveObjectPermissions, ALL_PERMISSION_BITS, OBJECT_RULE_BITS, OBJECT_RULE_ROWS,
-  lostAccessToLapse, canEditConnectionsIn,
+  lostAccessToLapse, canEditConnectionsIn, planLapsedFor,
   type Permission, type PermissionSnapshot, type RuleEntry,
 } from "./permissions.ts";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
@@ -407,6 +407,14 @@ describe("lapse principle (mirror of server lapse math)", () => {
     expect(lostAccessToLapse({ role_ids: [], permission_allow: B.VIEW | B.CONNECT }, roles)).toBe(true);
     expect(lostAccessToLapse({ role_ids: ["member"] }, roles)).toBe(false);
     expect(lostAccessToLapse({ role_ids: ["member"], permission_deny: B.CONNECT }, roles)).toBe(false);
+  });
+
+  it("planLapsedFor needs a listed team below Business that lost Connect to the lapse", () => {
+    const grant = { role_ids: [], permission_allow: B.VIEW | B.CONNECT };
+    expect(planLapsedFor({ ...grant, owner_tier: "teams" }, roles)).toBe(true);
+    expect(planLapsedFor({ ...grant, owner_tier: "business" }, roles)).toBe(false);
+    expect(planLapsedFor({ role_ids: ["member"], owner_tier: "teams" }, roles)).toBe(false);
+    expect(planLapsedFor(undefined, roles)).toBe(false);
   });
 
   it("canEditConnectionsIn reads the team's plan", () => {

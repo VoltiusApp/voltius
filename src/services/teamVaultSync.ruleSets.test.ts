@@ -21,7 +21,7 @@ vi.mock("@/services/authFetch", () => ({
   }),
 }));
 vi.mock("@/stores/teamStore", () => ({
-  useTeamStore: { getState: () => ({ teams: [{ id: "t1" }] }) },
+  useTeamStore: { getState: () => ({ teams: [{ id: "t1" }], rolesByTeam: {} }) },
 }));
 vi.mock("@/services/teamService", async (orig) => ({
   ...(await orig<typeof import("@/services/teamService")>()),

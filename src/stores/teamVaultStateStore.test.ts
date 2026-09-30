@@ -5,6 +5,7 @@ test("a team vault that cannot show its contents is blocked", () => {
   expect(isBlockedTeamVaultStatus("awaiting_key")).toBe(true);
   expect(isBlockedTeamVaultStatus("offline")).toBe(true);
   expect(isBlockedTeamVaultStatus("forbidden")).toBe(true);
+  expect(isBlockedTeamVaultStatus("plan_lapsed")).toBe(true);
   expect(isBlockedTeamVaultStatus("payment_required")).toBe(true);
   expect(isBlockedTeamVaultStatus("error")).toBe(true);
 });

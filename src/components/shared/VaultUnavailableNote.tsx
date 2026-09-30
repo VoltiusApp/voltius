@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { statusSurface } from "./statusSurface";
 import type { StoredSecretsState } from "@/hooks/useStoredSecrets";
+import type { TeamCredentialsReason } from "@/hooks/useBlockedTeamVault";
 
 /** One warning row: an icon and a sentence on the shared warning surface. */
 function WarningNote({ icon, text, className }: { icon: string; text: string; className?: string }) {
@@ -42,7 +43,14 @@ export function StoredSecretsNote({ state, className }: {
  * server — so without this the first sign of trouble is an authentication
  * failure at connect time (issue #190).
  */
-export function TeamCredentialsNote({ className }: { className?: string }) {
+export function TeamCredentialsNote({ reason, className }: { reason: TeamCredentialsReason; className?: string }) {
   const { t } = useTranslation();
-  return <WarningNote icon="lucide:key-round" text={t("shared.teamCredentials.unavailable")} className={className} />;
+  const lapsed = reason === "plan_lapsed";
+  return (
+    <WarningNote
+      icon={lapsed ? "lucide:lock" : "lucide:key-round"}
+      text={t(lapsed ? "layout.mainPanel.teamVault.planLapsedBody" : "shared.teamCredentials.unavailable")}
+      className={className}
+    />
+  );
 }

@@ -508,14 +508,14 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     // the team is still listed is a role restriction, and such a member reads
     // this vault through the object routes only: the empty list they just got
     // IS their view of the vault, so show it rather than a false revocation.
-    const emptyView = err === "forbidden" && (await _isStillATeamMember(teamId));
-    if (options.background && !emptyView) {
+    const memberView = err === "forbidden" ? await _memberViewStatus(teamId) : null;
+    if (options.background && !memberView) {
       if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
       return;
     }
     const validStatuses = ["offline", "forbidden", "payment_required", "update_required", "awaiting_key", "key_mismatch", "error"] as const;
     type Thrown = typeof validStatuses[number];
-    const status: Thrown | "loaded" = emptyView ? "loaded" : validStatuses.includes(err as Thrown) ? (err as Thrown) : "error";
+    const status = memberView ?? (validStatuses.includes(err as Thrown) ? (err as Thrown) : "error");
     // Clear team store slices so stale data doesn't linger
     await clearTeamStoresAndSecrets(teamId);
     stateStore.setStatus(teamId, status);
@@ -617,13 +617,17 @@ export async function reencryptLegacyBlobIfStale(teamId: string, currentVersion:
 }
 
 /**
- * True when the client still lists `teamId` among the caller's teams. The
+ * Null when the client no longer lists `teamId` among the caller's teams. The
  * server drops revoked teams from that list and `onTeamRemoved` clears the
  * store, so this separates "your role can't do that" from "you were removed".
  */
-async function _isStillATeamMember(teamId: string): Promise<boolean> {
+async function _memberViewStatus(teamId: string): Promise<"loaded" | "plan_lapsed" | null> {
   const { useTeamStore } = await import("@/stores/teamStore");
-  return useTeamStore.getState().teams.some((t) => t.id === teamId);
+  const { planLapsedFor } = await import("@/services/permissions");
+  const { teams, rolesByTeam } = useTeamStore.getState();
+  const team = teams.find((t) => t.id === teamId);
+  if (!team) return null;
+  return planLapsedFor(team, rolesByTeam[teamId] ?? []) ? "plan_lapsed" : "loaded";
 }
 
 export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<void> {

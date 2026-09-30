@@ -169,7 +169,7 @@ export default function MobileHostsScreen() {
       </div>
       <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
       <div className="flex-1 overflow-y-auto">
-        {teamCredentialsUnavailable && <TeamCredentialsNote className="mx-4 mt-3" />}
+        {teamCredentialsUnavailable && <TeamCredentialsNote reason={teamCredentialsUnavailable} className="mx-4 mt-3" />}
         {!nav.activeFolderId && <MobileRemoteDeviceSessions />}
         {!search && subFolders.map((f) => (
           <MobileFolderRow

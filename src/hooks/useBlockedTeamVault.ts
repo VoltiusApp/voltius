@@ -2,6 +2,7 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { isBlockedTeamVaultStatus, useTeamVaultStateStore, type TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { selectedTeamId } from "@/services/teamVaultFirstAccess";
+import { planLapsedFor } from "@/services/permissions";
 
 /** The team vault currently on screen, or null when the selection is not one. */
 export function useSelectedTeamId(): string | null {
@@ -24,12 +25,17 @@ export function useBlockedTeamVault(): { teamId: string; status: TeamVaultStatus
   return { teamId, status: status! };
 }
 
+export type TeamCredentialsReason = "unavailable" | "plan_lapsed";
+
 /**
- * True when the team vault on screen loaded its hosts but not the credentials
- * behind them. The vault is browsable, so this warns in place rather than
- * replacing the page the way a blocked status does (issue #190).
+ * Why the team vault on screen loaded its hosts but not the credentials
+ * behind them, or null. The vault is browsable, so this warns in place rather
+ * than replacing the page the way a blocked status does (issue #190).
  */
-export function useTeamCredentialsUnavailable(): boolean {
+export function useTeamCredentialsUnavailable(): TeamCredentialsReason | null {
   const teamId = useSelectedTeamId();
-  return useTeamVaultStateStore((s) => (teamId ? s.credentialsUnavailableByTeamId[teamId] ?? false : false));
+  const unavailable = useTeamVaultStateStore((s) => (teamId ? s.credentialsUnavailableByTeamId[teamId] ?? false : false));
+  const lapsed = useTeamStore((s) => !!teamId && planLapsedFor(s.teams.find((t) => t.id === teamId), s.rolesByTeam[teamId] ?? []));
+  if (!unavailable) return null;
+  return lapsed ? "plan_lapsed" : "unavailable";
 }

@@ -377,6 +377,9 @@ function TeamVaultBadge({ teamId }: { teamId: string }) {
     // Benign, self-healing wait (issue #41) — not an error, so no alert triangle.
     icon = "lucide:clock";
     opacity = 0.5;
+  } else if (status === "plan_lapsed") {
+    icon = "lucide:lock";
+    opacity = 0.5;
   } else if (isError) {
     icon = "lucide:triangle-alert";
   } else {
