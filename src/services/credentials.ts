@@ -1,6 +1,6 @@
 import type { Connection } from "@/types";
 import { useIdentityStore } from "@/stores/identityStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { findAnyConnection } from "@/stores/connectionStore";
 import { getSecret } from "@/services/vault";
 import { resolveCredentials, type ResolvedCredentials } from "@/services/credentialLogic";
 import { withEphemeralCredentials } from "@/services/ephemeralCredentials";
@@ -39,11 +39,7 @@ async function findIdentity(id: string) {
   return identity;
 }
 
-export function findConnection(id: string): Connection | undefined {
-  const { connections, teamConnections } = useConnectionStore.getState();
-  const all = [...connections, ...Object.values(teamConnections).flat()];
-  return all.find((c) => c.id === id);
-}
+export const findConnection = findAnyConnection;
 
 export async function resolveJumpHosts(conn: Connection): Promise<ResolvedJumpHost[]> {
   if (!conn.jump_hosts?.length) return [];

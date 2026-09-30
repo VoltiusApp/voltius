@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { allConnections } from "@/stores/connectionStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { buildPingTargets } from "@/services/ping/pingTargets";
 import { probeTarget } from "@/services/ping/probe";
@@ -24,12 +24,8 @@ export function useHostPingPolling() {
     // Stores are read through getState() rather than subscribed to: a write to
     // the connection store must not restart the schedule or trigger a probe.
     const tick = () => {
-      const { connections, teamConnections } = useConnectionStore.getState();
       const { sessions } = useSessionStore.getState();
-      const targets = buildPingTargets(
-        [...connections, ...Object.values(teamConnections).flat()],
-        sessions,
-      );
+      const targets = buildPingTargets(allConnections(), sessions);
 
       const { pollIntervalMs, activePollIntervalMs, setStatus } = useHostPingStore.getState();
       const selected = selectDue(targets, dueAt, Date.now(), activePollIntervalMs, pollIntervalMs);

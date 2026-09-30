@@ -59,6 +59,7 @@ vi.mock("@/stores/connectionStore", () => ({
     const state = { pinConnection: h.pinConnection, setDistro: h.setDistro };
     return sel ? sel(state) : state;
   },
+  findAnyConnection: () => undefined,
 }));
 vi.mock("@/stores/teamStore", () => ({
   // The forms resolve VIEW_SECRETS through `usePermissions`, which reads the
@@ -92,6 +93,7 @@ vi.mock("@/stores/uiStore", () => ({
     const state = { setActiveNav: vi.fn() };
     return sel ? sel(state) : state;
   },
+  findAnyConnection: () => undefined,
 }));
 vi.mock("@/stores/toggleSettingsStore", () => ({ useToggle: () => [false, vi.fn()] }));
 vi.mock("@/stores/connectivitySettingsStore", () => ({

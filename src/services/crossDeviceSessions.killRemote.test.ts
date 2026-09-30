@@ -17,7 +17,7 @@ vi.mock("@/stores/crossDeviceSessionsStore", () => ({
   useCrossDeviceSessionsStore: { getState: () => ({ markClosed }) },
 }));
 vi.mock("@/stores/connectionStore", () => ({
-  useConnectionStore: { getState: () => ({ connections: conns, teamConnections: {} }) },
+  findAnyConnection: (id: string) => conns.find((c) => c.id === id),
 }));
 
 let conns: Connection[] = [];

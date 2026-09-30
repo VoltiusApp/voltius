@@ -35,7 +35,7 @@ import { TabDragGhost } from "./editor/TabDragGhost";
 import { triggerOsDrop as triggerOsDropPipeline } from "./osDropPipeline";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { findAnyConnection } from "@/stores/connectionStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { EditorTabStrip } from "./editor/EditorTabStrip";
 import { EditorTab } from "./editor/EditorTab";
@@ -115,8 +115,7 @@ export default function SFTPPage() {
 
   useEffect(() => {
     if (!sftpPanelOpen || !pendingSftpConnectionId) return;
-    const { connections, teamConnections } = useConnectionStore.getState();
-    const conn = [...connections, ...Object.values(teamConnections).flat()].find((c) => c.id === pendingSftpConnectionId);
+    const conn = findAnyConnection(pendingSftpConnectionId);
     if (!conn) return;
     clearPendingSftpConnection();
     const host: HostChoice = { kind: "remote", connection: conn };

@@ -17,6 +17,7 @@ vi.mock("@/stores/identityStore", () => ({
 }));
 vi.mock("@/stores/connectionStore", () => ({
   useConnectionStore: { getState: () => ({ connections: h.connections, teamConnections: {} }) },
+  findAnyConnection: (id: string) => h.connections.find((c: { id: string }) => c.id === id),
 }));
 vi.mock("@/services/permissionsFromStores", () => ({
   canConnect: async (vaultId: string | undefined, objectId: string) => h.can("CONNECT", vaultId ?? "", objectId),

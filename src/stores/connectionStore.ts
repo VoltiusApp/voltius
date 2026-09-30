@@ -357,6 +357,16 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 }));
 
+/** Personal and in-memory team connections — the non-React counterpart of `useAllConnections`. */
+export function allConnections(): Connection[] {
+  const { connections, teamConnections } = useConnectionStore.getState();
+  return [...connections, ...Object.values(teamConnections).flat()];
+}
+
+export function findAnyConnection(id: string): Connection | undefined {
+  return allConnections().find((c) => c.id === id);
+}
+
 // Returns the personal connections as they were before the rewrite.
 async function retagConnections(tag: string, rewrite: (tags: string[]) => string[]): Promise<Connection[]> {
   const personal = useConnectionStore.getState().connections.filter((c) => c.tags.includes(tag));

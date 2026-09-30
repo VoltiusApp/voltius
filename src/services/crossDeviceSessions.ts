@@ -1,21 +1,17 @@
 import { resolveRemoteSessions, type RemoteSession } from "@/stores/liveSessionManifestCore";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { findAnyConnection } from "@/stores/connectionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
 import { publishLiveSessionsNow } from "@/services/liveSessionPublisher";
 import { sshKillPersistent } from "@/services/ssh";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { resolveProxy } from "@/services/proxy";
-import type { TerminalSession, Connection } from "@/types";
+import type { TerminalSession } from "@/types";
 
 function connectionExists(connectionId: string): boolean {
-  const { connections, teamConnections } = useConnectionStore.getState();
-  return (
-    connections.some((c) => c.id === connectionId) ||
-    Object.values(teamConnections).flat().some((c) => c.id === connectionId)
-  );
+  return findAnyConnection(connectionId) !== undefined;
 }
 
 function remote() {
@@ -67,11 +63,6 @@ export function sessionEnded(sessionId: string): void {
   publishLiveSessionsNow();
 }
 
-function findConnection(connectionId: string): Connection | undefined {
-  const { connections, teamConnections } = useConnectionStore.getState();
-  return [...connections, ...Object.values(teamConnections).flat()].find((c) => c.id === connectionId);
-}
-
 /** Destroy a persistent session on a host this device is not attached to, then
  * tombstone it so its card/tab disappears everywhere. Headless (no tab): reuses
  * the tabless kill command. ProxyJump and interactive-only auth cannot be
@@ -80,7 +71,7 @@ function findConnection(connectionId: string): Connection | undefined {
 export async function killRemoteSession(
   j: RemoteSession,
 ): Promise<{ ok: true } | { ok: false; reason: "unsupported" | "error" }> {
-  const connection = findConnection(j.connectionId);
+  const connection = findAnyConnection(j.connectionId);
   if (!connection) return { ok: false, reason: "unsupported" };
   if (connection.jump_hosts?.length) return { ok: false, reason: "unsupported" };
 
