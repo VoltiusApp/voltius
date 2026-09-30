@@ -61,7 +61,7 @@ export function MemberDetailPanel({
   const [permissionFilter, setPermissionFilter] = useState("");
   // Stores the intent, not the computed masks — commitOverride recomputes them
   // from the render current at confirm time, in case member state changed meanwhile.
-  const [pendingRevoke, setPendingRevoke] = useState<{ permission: Permission; next: OverrideState } | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<{ permission: Permission; next: OverrideState } | "clear" | null>(null);
 
   const canChangeRoles = canManageMembers && !isMe;
   const canRemove = canManageMembers && !isTargetOwner && !isMe;
@@ -192,8 +192,14 @@ export function MemberDetailPanel({
     }
   };
 
-  const clearOverrides = () =>
-    applyMasks({ allow: 0, deny: 0 }, crossesVaultKeyGate(member, teamRoles, { allow: 0, deny: 0 }));
+  const clearOverrides = async () => {
+    const cleared = { allow: 0, deny: 0 };
+    if (crossesVaultKeyGate(member, teamRoles, cleared)) {
+      setPendingRevoke("clear");
+      return;
+    }
+    await applyMasks(cleared, false);
+  };
 
   const commitOverride = async (permission: Permission, next: OverrideState, rotate: boolean) => {
     const updated = applyOverrideState(permission, allow, deny, next);
@@ -424,9 +430,10 @@ export function MemberDetailPanel({
         confirmLabel={t("members.revokeKeyAccess.confirm")}
         onCancel={() => setPendingRevoke(null)}
         onConfirm={() => {
-          const { permission, next } = pendingRevoke;
+          const pending = pendingRevoke;
           setPendingRevoke(null);
-          void commitOverride(permission, next, true);
+          if (pending === "clear") void applyMasks({ allow: 0, deny: 0 }, true);
+          else void commitOverride(pending.permission, pending.next, true);
         }}
       />
     )}

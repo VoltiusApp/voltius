@@ -624,3 +624,37 @@ test("locked: New role hidden; a custom role cannot be added, a held builtin can
   expect((screen.getByRole("button", { name: "members.roleName.editor" }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole("button", { name: "members.roleName.member" }) as HTMLButtonElement).disabled).toBe(false);
 });
+
+const gateViewerRole: TeamRole = { ...viewerRole, permissions: PERM_BITS.MANAGE_MEMBERS | PERM_BITS.CONNECT };
+const gateClearProps = () => permProps({
+  member: { ...targetMember, role_ids: [], permission_allow: PERM_BITS.CONNECT },
+  teamRoles: [gateViewerRole, targetRole],
+});
+
+test("locked: a Clear that crosses the vault key gate confirms first, then writes and rotates", async () => {
+  lock.value = { locked: true, isOwner: true };
+  render(<MemberDetailPanel {...gateClearProps()} />);
+
+  fireEvent.click(screen.getByText("clear-rules"));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(h.setPerms).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "members.revokeKeyAccess.confirm" }));
+
+  await waitFor(() => expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, 0));
+  await waitFor(() => expect(h.rotate).toHaveBeenCalledWith("t1"));
+  expect(h.push).not.toHaveBeenCalled();
+});
+
+test("locked: cancelling a gate-crossing Clear writes and rotates nothing", async () => {
+  lock.value = { locked: true, isOwner: true };
+  render(<MemberDetailPanel {...gateClearProps()} />);
+
+  fireEvent.click(screen.getByText("clear-rules"));
+  fireEvent.click(await screen.findByRole("button", { name: "common.action.cancel" }));
+
+  expect(screen.queryByText("members.revokeKeyAccess.title")).toBeNull();
+  expect(h.setPerms).not.toHaveBeenCalled();
+  expect(h.rotate).not.toHaveBeenCalled();
+});
