@@ -72,9 +72,9 @@ function connectOnlyTeam(teamId: string) {
   h.rolesByTeam = { [teamId]: [{ id: "r1", name: "connect-only", permissions: CONNECT_ONLY }] };
 }
 
-function secretsReaderTeam(teamId: string) {
+function membersManagerTeam(teamId: string) {
   h.teams = [{ id: teamId, role_ids: ["r1"] }];
-  h.rolesByTeam = { [teamId]: [{ id: "r1", name: "reader", permissions: PERM_BITS.VIEW_SECRETS }] };
+  h.rolesByTeam = { [teamId]: [{ id: "r1", name: "people", permissions: PERM_BITS.MANAGE_MEMBERS }] };
 }
 
 /** A team whose vault unlocks on the next fetch, selected and on screen. */
@@ -140,15 +140,15 @@ test("on mobile a connect-only member lands on the hosts tab", async () => {
   expect(h.push).not.toHaveBeenCalled();
 });
 
-test("on mobile a secrets reader is pushed to the keychain page under More", async () => {
+test("on mobile a members manager is pushed to the members page under More", async () => {
   h.isMobileShell.mockImplementation(() => true);
-  secretsReaderTeam("t1");
+  membersManagerTeam("t1");
   unlockingOnScreen("t1");
 
   await refreshAwaitingKeyTeams();
 
   expect(h.setTab).toHaveBeenCalledWith("more");
-  expect(h.push).toHaveBeenCalledWith({ kind: "more-page", page: "keychain" });
+  expect(h.push).toHaveBeenCalledWith({ kind: "more-page", page: "members" });
 });
 
 test("on mobile the desktop nav is left alone", async () => {
