@@ -1,7 +1,7 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 
-const h = vi.hoisted(() => ({ lock: { locked: true, isOwner: true }, checkout: vi.fn(async () => true) }));
+const h = vi.hoisted(() => ({ lock: { locked: true, isOwner: true as boolean | null }, checkout: vi.fn(async () => true) }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => h.lock }));
@@ -29,6 +29,14 @@ test("anyone else is told only the owner can upgrade", () => {
   render(<BusinessLockBanner teamId="t1" />);
   expect(screen.getByText("shared.businessLock.ownerOnly")).toBeTruthy();
   expect(screen.queryByText("shared.businessLock.upgrade")).toBeNull();
+});
+
+test("while the user id is unknown neither the upgrade strip nor the owner-only line shows", () => {
+  h.lock = { locked: true, isOwner: null };
+  render(<BusinessLockBanner teamId="t1" />);
+  expect(screen.queryByText("shared.businessLock.ownerOnly")).toBeNull();
+  expect(screen.queryByText("shared.businessLock.upgrade")).toBeNull();
+  expect(screen.getByText("shared.businessLock.title")).toBeTruthy();
 });
 
 test("Remove rules needs a second click", async () => {

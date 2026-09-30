@@ -27,15 +27,14 @@ export function BusinessLockBanner({ teamId, onClear }: { teamId: string; onClea
           <p className="text-xs text-(--t-text-dim)">{t("shared.businessLock.body")}</p>
         </div>
       </div>
-      {isOwner ? (
+      {isOwner === true && (
         <UpgradeStrip
           label={t("shared.businessLock.upgradeLabel")}
           buttonLabel={t("shared.businessLock.upgrade")}
           onClick={() => void openBillingCheckout("business")}
         />
-      ) : (
-        <p className="text-xs text-(--t-text-dim)">{t("shared.businessLock.ownerOnly")}</p>
       )}
+      {isOwner === false && <p className="text-xs text-(--t-text-dim)">{t("shared.businessLock.ownerOnly")}</p>}
       {onClear && (
         <button
           type="button"

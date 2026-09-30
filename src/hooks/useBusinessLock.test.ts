@@ -34,12 +34,12 @@ test("an unknown team or a just-created row with no tier yet is not locked", () 
   expect(renderHook(() => useBusinessLock(null)).result.current.locked).toBe(false);
 });
 
-test("isOwner is the team's owner_id, and nobody while the user id is unknown", () => {
+test("isOwner is the team's owner_id, and null while the user id is unknown", () => {
   useTeamStore.setState({ teams: [team("teams", "u1")] });
   expect(renderHook(() => useBusinessLock("t1")).result.current.isOwner).toBe(true);
   useTeamStore.setState({ teams: [team("teams", "someone-else")] });
   expect(renderHook(() => useBusinessLock("t1")).result.current.isOwner).toBe(false);
   me.id = "";
   useTeamStore.setState({ teams: [team("teams", "")] });
-  expect(renderHook(() => useBusinessLock("t1")).result.current.isOwner).toBe(false);
+  expect(renderHook(() => useBusinessLock("t1")).result.current.isOwner).toBeNull();
 });
