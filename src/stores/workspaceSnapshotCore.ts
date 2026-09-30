@@ -86,8 +86,9 @@ export function buildSnapshot(input: {
   layout: SnapshotLayout;
   activeSessionId: string | null;
   now?: Date;
+  isTeamConnection?: (connectionId: string) => boolean;
 }): WorkspaceSnapshot {
-  const sessions = input.sessions.filter(isSnapshotable).map((s): SnapshotSession => {
+  const sessions = input.sessions.filter((s) => isSnapshotable(s) && !input.isTeamConnection?.(s.connectionId)).map((s): SnapshotSession => {
     const offset = input.scrollOffsets?.[s.id] ?? 0;
     return {
       id: s.id,

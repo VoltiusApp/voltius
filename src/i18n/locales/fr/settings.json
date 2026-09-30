@@ -572,6 +572,7 @@
     },
     "vaults": {
       "general": {
+        "renameFailedToast": "Impossible de renommer ce coffre. {{reason}}",
         "vaultNameLabel": "Nom du coffre-fort",
         "save": "Enregistrer",
         "makePrivate": {

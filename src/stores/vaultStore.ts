@@ -31,7 +31,13 @@ interface VaultStore {
   removeVault: (id: string) => void;
   setVaultTeamId: (vaultId: string, teamId: string | null) => void;
   applySyncedVaults: (section: VaultsSection) => void;
+  /** Server names of the caller's teams, held in memory only. */
+  teamNames: Record<string, string>;
+  applyTeamNames: (names: Record<string, string>) => void;
 }
+
+const withTeamNames = (vaults: Vault[], names: Record<string, string>): Vault[] =>
+  vaults.map((v) => (v.teamId && names[v.teamId] !== undefined ? { ...v, name: names[v.teamId] } : v));
 
 export const useVaultStore = create<VaultStore>()(
   persist(
@@ -39,6 +45,8 @@ export const useVaultStore = create<VaultStore>()(
       vaults: [PERSONAL_VAULT],
       deletedVaults: {},
       selectedVaultIds: ["personal"],
+      teamNames: {},
+      applyTeamNames: (names) => set((s) => ({ teamNames: names, vaults: withTeamNames(s.vaults, names) })),
       toggleVault: (id) =>
         set((s) => ({
           selectedVaultIds: s.selectedVaultIds.includes(id)
@@ -103,7 +111,7 @@ export const useVaultStore = create<VaultStore>()(
           }
 
           return {
-            vaults: withPersonalFirst(alive.map(([id, row]) => vaultRowToVault(id, row))),
+            vaults: withTeamNames(withPersonalFirst(alive.map(([id, row]) => vaultRowToVault(id, row))), s.teamNames),
             deletedVaults: Object.fromEntries(dead),
             selectedVaultIds,
           };
@@ -114,7 +122,7 @@ export const useVaultStore = create<VaultStore>()(
     {
       name: "voltius-vaults",
       partialize: (state) => ({
-        vaults: state.vaults,
+        vaults: state.vaults.map((v) => (v.teamId ? { ...v, name: "" } : v)),
         deletedVaults: state.deletedVaults,
         selectedVaultIds: state.selectedVaultIds,
       }),

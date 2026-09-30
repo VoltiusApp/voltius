@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
-import { deleteTeam } from "@/services/teamService";
+import { deleteTeam, renameTeam } from "@/services/teamService";
 import { markSelfDeparture } from "@/services/teamOffboarding";
 import { userFacingReason } from "@/services/errorReason";
 import { logFailure } from "@/lib/logger";
@@ -58,7 +58,21 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
 
   const rename = (nextName: string) => {
     const trimmed = nextName.trim();
-    if (!trimmed || !target.vaultId || trimmed === target.name) return;
+    if (!trimmed || trimmed === target.name) return;
+    const teamId = target.teamId;
+    if (teamId) {
+      void exclusive(async () => {
+        try {
+          await renameTeam(teamId, trimmed);
+          await useTeamStore.getState().loadTeams();
+          cb?.onRenamed?.(trimmed);
+        } catch (e) {
+          await failToast("settings.vaults.general.renameFailedToast", e);
+        }
+      });
+      return;
+    }
+    if (!target.vaultId) return;
     renameVault(target.vaultId, trimmed);
     cb?.onRenamed?.(trimmed);
   };

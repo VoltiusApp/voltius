@@ -569,6 +569,7 @@
     },
     "vaults": {
       "general": {
+        "renameFailedToast": "Couldn't rename this vault. {{reason}}",
         "vaultNameLabel": "Vault name",
         "save": "Save",
         "makePrivate": {

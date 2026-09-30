@@ -575,6 +575,7 @@
     },
     "vaults": {
       "general": {
+        "renameFailedToast": "Не удалось переименовать хранилище. {{reason}}",
         "vaultNameLabel": "Название хранилища",
         "save": "Сохранить",
         "makePrivate": {

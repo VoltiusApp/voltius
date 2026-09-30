@@ -492,6 +492,7 @@
     },
     "vaults": {
       "general": {
+        "renameFailedToast": "Bu kasa yeniden adlandırılamadı. {{reason}}",
         "vaultNameLabel": "Kasa adı",
         "save": "Kaydet",
         "makePrivate": {

@@ -445,6 +445,7 @@
     },
     "vaults": {
       "general": {
+        "renameFailedToast": "无法重命名此保险库。{{reason}}",
         "vaultNameLabel": "保险库名称",
         "save": "保存",
         "makePrivate": {

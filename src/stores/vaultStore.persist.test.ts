@@ -34,3 +34,23 @@ test("a fresh install with nothing stored restores the built-in defaults", () =>
   expect(restored.deletedVaults).toEqual({});
   expect(restored.selectedVaultIds).toEqual(["personal"]);
 });
+
+test("a team vault's name is never written to disk and comes from the server", () => {
+  const { partialize, merge } = useVaultStore.persist.getOptions();
+  useVaultStore.setState({ vaults: [{ id: "personal", name: "Personal" }, { id: "v-team", name: "old local name", teamId: "t1" }] });
+
+  const saved = JSON.parse(JSON.stringify(partialize!(useVaultStore.getState()))) as Persisted;
+  expect(JSON.stringify(saved)).not.toContain("old local name");
+
+  useVaultStore.setState(merge!(saved, useVaultStore.getState()));
+  useVaultStore.getState().applyTeamNames({ t1: "Ops" });
+  expect(useVaultStore.getState().vaults.find((v) => v.id === "v-team")?.name).toBe("Ops");
+});
+
+test("synced vault rows keep the server's team name", () => {
+  useVaultStore.getState().applyTeamNames({ t1: "Ops" });
+  useVaultStore.getState().applySyncedVaults({
+    "v-team": { name: "stale name from another device", teamId: "t1", updatedAt: "2026-09-30T00:00:00.000Z" },
+  });
+  expect(useVaultStore.getState().vaults.find((v) => v.id === "v-team")?.name).toBe("Ops");
+});

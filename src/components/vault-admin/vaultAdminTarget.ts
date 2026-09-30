@@ -1,3 +1,5 @@
+import { PERM_BITS } from "@/services/permissions";
+
 /** What a vault-admin surface acts on. Mirrors `VaultDetail` in VaultsSection. */
 export interface VaultAdminTarget {
   kind: "local" | "cloud";
@@ -23,25 +25,24 @@ export interface VaultAdminCapabilities {
 export function vaultAdminCapabilities(
   target: VaultAdminTarget,
   teams: { id: string; role_ids: string[] }[],
-  rolesByTeam: Record<string, { id: string; name: string; is_builtin: boolean }[]>,
+  rolesByTeam: Record<string, { id: string; name: string; is_builtin: boolean; permissions?: number }[]>,
 ): VaultAdminCapabilities {
   const isTeam = !!target.teamId;
   const isLocal = target.kind === "local";
 
-  const isOwner = (() => {
-    if (!target.teamId) return false;
+  const myRoles = (() => {
+    if (!target.teamId) return [];
     const myRoleIds = teams.find((team) => team.id === target.teamId)?.role_ids ?? [];
     const roles = rolesByTeam[target.teamId] ?? [];
-    return myRoleIds.some((rid) => {
-      const r = roles.find((role) => role.id === rid);
-      return r?.is_builtin && r.name === "owner";
-    });
+    return myRoleIds.flatMap((rid) => roles.filter((role) => role.id === rid));
   })();
+  const isOwner = myRoles.some((r) => r.is_builtin && r.name === "owner");
+  const managesVault = myRoles.some((r) => ((r.permissions ?? 0) & (PERM_BITS.MANAGE_VAULT | PERM_BITS.ADMINISTRATOR)) !== 0);
 
   return {
     isTeam,
     isOwner,
-    canRename: isLocal,
+    canRename: isTeam ? isOwner || managesVault : isLocal,
     // Delete now takes the vault's contents with it, and a team vault's contents
     // are the members' — held server-side, not this device's to destroy. Making
     // it private first is the step that takes ownership of them; deleting the

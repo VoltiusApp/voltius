@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
@@ -83,8 +82,10 @@ export async function cacheVaultRoles(
   }).catch(() => {});
 }
 
+// Team vaults are online-only: the team list lives in memory, and a copy left by older builds is dropped.
+try { localStorage.removeItem("voltius-teams"); } catch {}
+
 export const useTeamStore = create<TeamStore>()(
-  persist(
   (set, get) => ({
   teams: [],
   membersByTeam: {},
@@ -291,8 +292,4 @@ export const useTeamStore = create<TeamStore>()(
     return membersByTeam[activeTeamId] ?? [];
   },
   }),
-  {
-    name: "voltius-teams",
-    partialize: (state) => ({ teams: state.teams }),
-  }
-));
+);

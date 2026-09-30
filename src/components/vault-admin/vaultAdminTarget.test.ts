@@ -1,5 +1,6 @@
 import { test, expect } from "vitest";
 import { vaultAdminCapabilities, type VaultAdminTarget } from "./vaultAdminTarget";
+import { PERM_BITS } from "@/services/permissions";
 
 const ownerRole = { id: "r-own", name: "owner", is_builtin: true };
 const memberRole = { id: "r-mem", name: "member", is_builtin: true };
@@ -48,10 +49,17 @@ test("a team vault member is not offered make-private", () => {
   expect(caps.canMakePrivate).toBe(false);
 });
 
-test("a standalone team vault has no local vault, so no rename and no delete", () => {
+test("a standalone team vault has no local vault to delete, but its owner renames the team", () => {
   expect(vaultAdminCapabilities(standaloneTeam, teamsAsOwner, roles)).toEqual({
-    isTeam: true, isOwner: true, canRename: false, canDelete: false, canMakePrivate: false,
+    isTeam: true, isOwner: true, canRename: true, canDelete: false, canMakePrivate: false,
   });
+});
+
+test("renaming a team vault renames the team, so it needs Manage vault", () => {
+  expect(vaultAdminCapabilities(teamVault, teamsAsMember, roles).canRename).toBe(false);
+  const managers = { t1: [{ id: "r-mem", name: "manager", is_builtin: false, permissions: PERM_BITS.MANAGE_VAULT }] };
+  expect(vaultAdminCapabilities(teamVault, teamsAsMember, managers).canRename).toBe(true);
+  expect(vaultAdminCapabilities(standaloneTeam, teamsAsMember, managers).canRename).toBe(true);
 });
 
 test("a non-builtin role literally named owner does not grant ownership", () => {

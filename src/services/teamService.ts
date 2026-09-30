@@ -63,6 +63,16 @@ export async function deleteTeam(teamId: string): Promise<void> {
   if (!res.ok) throw new Error(i18n.t("common.error.failedToDeleteTeam", { status: res.status }));
 }
 
+export async function renameTeam(teamId: string, name: string): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToRenameTeam", { status: res.status }));
+}
+
 export async function listTeams(): Promise<Team[]> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) return [];
