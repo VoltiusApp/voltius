@@ -161,12 +161,17 @@
     },
     "businessLock": {
       "title": "Business plan feature",
-      "body": "Custom roles, per-member and per-object permissions need the team's Business plan. Existing rules stay enforced and can be removed.",
       "upgradeLabel": "Unlock them for this team.",
       "upgrade": "Upgrade to Business",
       "ownerOnly": "Only the team owner can upgrade.",
       "clear": "Remove rules",
-      "confirmClear": "Click again to remove"
+      "confirmClear": "Click again to remove",
+      "rolesBody": "Custom roles need the team's Business plan.",
+      "memberLapsed": "Business plan lapsed: permissions granted to {{name}} are off; restrictions still apply.",
+      "objectLapsed": "Business plan lapsed: allow rules are off; deny rules still apply.",
+      "memberLine": "Per-member permissions need Business.",
+      "objectLine": "Per-object permissions need Business.",
+      "removeOverrides": "Remove overrides"
     }
   }
 }

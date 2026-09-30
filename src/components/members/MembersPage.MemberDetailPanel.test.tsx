@@ -65,8 +65,8 @@ vi.mock("@/services/teamKeyRotation", () => ({
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
 vi.mock("@/components/shared/BusinessLockBanner", () => ({
-  BusinessLockBanner: ({ onClear }: { onClear?: () => Promise<void> }) =>
-    lock.value.locked ? <div>business-lock{onClear && <button onClick={() => void onClear()}>clear-rules</button>}</div> : null,
+  BusinessLapseNotice: ({ onRemove }: { onRemove?: () => Promise<void> }) =>
+    lock.value.locked ? <div>business-lock{onRemove && <button onClick={() => void onRemove()}>clear-rules</button>}</div> : null,
 }));
 
 import { MemberDetailPanel } from "./panels/MemberDetailPanel";

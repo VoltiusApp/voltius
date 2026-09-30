@@ -161,12 +161,17 @@
     },
     "businessLock": {
       "title": "Business 套餐功能",
-      "body": "自定义角色以及按成员、按对象的权限需要团队的 Business 套餐。现有规则仍然生效，并且可以删除。",
       "upgradeLabel": "为此团队解锁。",
       "upgrade": "升级到 Business",
       "ownerOnly": "只有团队所有者可以升级。",
       "clear": "移除规则",
-      "confirmClear": "再次点击以移除"
+      "confirmClear": "再次点击以移除",
+      "rolesBody": "自定义角色需要团队的 Business 套餐。",
+      "memberLapsed": "Business 套餐已失效：授予 {{name}} 的权限已关闭；限制仍然生效。",
+      "objectLapsed": "Business 套餐已失效：允许规则已关闭；拒绝规则仍然生效。",
+      "memberLine": "按成员的权限需要 Business 套餐。",
+      "objectLine": "按对象的权限需要 Business 套餐。",
+      "removeOverrides": "移除覆盖设置"
     }
   }
 }

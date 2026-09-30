@@ -166,12 +166,17 @@
     },
     "businessLock": {
       "title": "Fonctionnalité du forfait Business",
-      "body": "Les rôles personnalisés et les permissions par membre et par objet nécessitent le forfait Business de l'équipe. Les règles existantes restent appliquées et peuvent être supprimées.",
       "upgradeLabel": "Débloquez-les pour cette équipe.",
       "upgrade": "Passer à Business",
       "ownerOnly": "Seul le propriétaire de l'équipe peut changer de forfait.",
       "clear": "Supprimer les règles",
-      "confirmClear": "Cliquez à nouveau pour supprimer"
+      "confirmClear": "Cliquez à nouveau pour supprimer",
+      "rolesBody": "Les rôles personnalisés nécessitent le forfait Business de l'équipe.",
+      "memberLapsed": "Forfait Business expiré : les permissions accordées à {{name}} sont désactivées ; les restrictions restent appliquées.",
+      "objectLapsed": "Forfait Business expiré : les règles d'autorisation sont désactivées ; les règles de refus restent appliquées.",
+      "memberLine": "Les permissions par membre nécessitent le forfait Business.",
+      "objectLine": "Les permissions par objet nécessitent le forfait Business.",
+      "removeOverrides": "Supprimer les dérogations"
     }
   }
 }

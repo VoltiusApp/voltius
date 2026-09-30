@@ -70,6 +70,8 @@
         "offlineBody": "Les coffres d'équipe nécessitent une connexion internet. Votre coffre personnel reste disponible hors ligne.",
         "forbiddenTitle": "Accès révoqué",
         "forbiddenBody": "Vous n'avez plus accès à ce coffre d'équipe. Contactez le propriétaire de l'équipe.",
+        "planLapsedTitle": "Forfait Business expiré",
+        "planLapsedBody": "Votre accès venait de permissions Business. Demandez au propriétaire de l'équipe de renouveler Business.",
         "waitingForAccessTitle": "En attente d'accès",
         "waitingForAccessBody": "Un propriétaire du coffre d'équipe doit vous accorder l'accès. Cela se fait automatiquement à la prochaine connexion d'un propriétaire.",
         "waitingForAccessBodyNamed": "En attente que {{owner}} vous accorde l'accès — une seule connexion de sa part suffit.",

@@ -70,6 +70,8 @@
         "offlineBody": "Team vaults require an internet connection. Your personal vault is available offline.",
         "forbiddenTitle": "Access revoked",
         "forbiddenBody": "You no longer have access to this team vault. Contact the team owner.",
+        "planLapsedTitle": "Business plan lapsed",
+        "planLapsedBody": "Your access came from Business permissions. Ask the team owner to renew Business.",
         "waitingForAccessTitle": "Waiting for access",
         "waitingForAccessBody": "A team vault owner needs to grant you access. This happens automatically the next time an owner is online.",
         "waitingForAccessBodyNamed": "Waiting for {{owner}} to grant access — they need to come online once.",

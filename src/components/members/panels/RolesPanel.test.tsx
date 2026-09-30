@@ -15,7 +15,7 @@ vi.mock("@/components/theme-creator/ColorPicker", () => ({ ColorPicker: () => nu
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
 vi.mock("@/components/shared/BusinessLockBanner", () => ({
-  BusinessLockBanner: () => (lock.value.locked ? <div>business-lock</div> : null),
+  BusinessLapseNotice: () => (lock.value.locked ? <div>business-lock</div> : null),
 }));
 
 import { TeamRolesPanel, RoleModal } from "@/components/members/panels/RolesPanel";

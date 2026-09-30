@@ -161,12 +161,17 @@
     },
     "businessLock": {
       "title": "Business planı özelliği",
-      "body": "Özel roller ile üye ve nesne bazlı izinler ekibin Business planını gerektirir. Mevcut kurallar uygulanmaya devam eder ve kaldırılabilir.",
       "upgradeLabel": "Bu ekip için kilidini açın.",
       "upgrade": "Business'a yükselt",
       "ownerOnly": "Yalnızca ekip sahibi yükseltebilir.",
       "clear": "Kuralları kaldır",
-      "confirmClear": "Kaldırmak için tekrar tıklayın"
+      "confirmClear": "Kaldırmak için tekrar tıklayın",
+      "rolesBody": "Özel roller ekibin Business planını gerektirir.",
+      "memberLapsed": "Business planının süresi doldu: {{name}} için verilen izinler kapalı; kısıtlamalar geçerli olmaya devam ediyor.",
+      "objectLapsed": "Business planının süresi doldu: izin kuralları kapalı; engelleme kuralları geçerli olmaya devam ediyor.",
+      "memberLine": "Üye bazlı izinler Business planını gerektirir.",
+      "objectLine": "Nesne bazlı izinler Business planını gerektirir.",
+      "removeOverrides": "Geçersiz kılmaları kaldır"
     }
   }
 }

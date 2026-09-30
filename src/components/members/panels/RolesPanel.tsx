@@ -8,7 +8,7 @@ import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePer
 import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
 import { permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { CheckboxBox } from "@/components/shared/Checkbox";
-import { BusinessLockBanner } from "@/components/shared/BusinessLockBanner";
+import { BusinessLapseNotice } from "@/components/shared/BusinessLockBanner";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
@@ -507,7 +507,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           )}
         </div>
 
-        <BusinessLockBanner teamId={teamId} />
+        <BusinessLapseNotice teamId={teamId} message={t("shared.businessLock.title")} removeLabel={t("shared.businessLock.clear")} />
         {customRoles.length === 0 ? (
           !locked && (
             <div

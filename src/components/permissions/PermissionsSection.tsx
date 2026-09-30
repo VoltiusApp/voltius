@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BusinessLockBanner } from "@/components/shared/BusinessLockBanner";
+import { BusinessLapseNotice } from "@/components/shared/BusinessLockBanner";
 import { FormSection } from "@/components/shared/Panel";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerOption, PickerSearch } from "@/components/shared/pickerParts";
@@ -221,7 +221,12 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
 
   return (
     <FormSection label={t(title)}>
-      <BusinessLockBanner teamId={teamId} onClear={!synced && draft.length > 0 ? async () => save([]) : undefined} />
+      <BusinessLapseNotice
+        teamId={teamId}
+        message={t("shared.businessLock.title")}
+        removeLabel={t("shared.businessLock.clear")}
+        onRemove={!synced && draft.length > 0 ? async () => save([]) : undefined}
+      />
       {isCredential && <p className="text-xs text-(--t-text-dim)">{t("shared.permissions.section.adminNote")}</p>}
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="text-(--t-text-secondary)">{banner}</span>

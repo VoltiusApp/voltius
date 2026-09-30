@@ -9,7 +9,7 @@ import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/members/panels/RolesPanel";
 import { ROLE_META, RoleBlurb, permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
-import { BusinessLockBanner } from "@/components/shared/BusinessLockBanner";
+import { BusinessLapseNotice } from "@/components/shared/BusinessLockBanner";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
@@ -321,9 +321,11 @@ export function MemberDetailPanel({
         {/* Permissions */}
         {serverSupportsOverrides && (
         <FormSection label={t("members.permissions.title")}>
-          <BusinessLockBanner
+          <BusinessLapseNotice
             teamId={teamId}
-            onClear={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
+            message={t("shared.businessLock.title")}
+            removeLabel={t("shared.businessLock.clear")}
+            onRemove={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
           />
           {readOnlyReason && (
             <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>

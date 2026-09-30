@@ -70,6 +70,8 @@
         "offlineBody": "Ekip kasaları internet bağlantısı gerektirir. Kişisel kasanızı çevrimdışıyken de kullanabilirsiniz.",
         "forbiddenTitle": "Erişim iptal edildi",
         "forbiddenBody": "Bu ekip kasasına artık erişiminiz yok. Ekip sahibiyle iletişime geçin.",
+        "planLapsedTitle": "Business planının süresi doldu",
+        "planLapsedBody": "Erişiminiz Business izinlerinden geliyordu. Ekip sahibinden Business'ı yenilemesini isteyin.",
         "waitingForAccessTitle": "Erişim bekleniyor",
         "waitingForAccessBody": "Bir ekip kasası sahibinin size erişim vermesi gerekiyor. Bu, bir sahip bir sonraki çevrimiçi olduğunda otomatik olarak gerçekleşir.",
         "waitingForAccessBodyNamed": "Erişim için {{owner}} bekleniyor — bir kez çevrimiçi olması yeterli.",
