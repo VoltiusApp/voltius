@@ -47,8 +47,8 @@ test("no Connect on the host closes the gate", () => {
   expect(offered(host())).toBe(false);
 });
 
-test("a server without picks closes the gate", () => {
-  h.status = "unsupported";
+test.each(["unsupported", "unknown"])("the gate stays closed while picks are %s", (status) => {
+  h.status = status;
   expect(offered(host())).toBe(false);
 });
 

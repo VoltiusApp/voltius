@@ -9,7 +9,7 @@ vi.mock("@/stores/subscriptionStore", () => ({ useSubscriptionStore: { getState:
 
 import {
   listTeamObjects, upsertTeamObject, deleteTeamObject,
-  listTeamSecrets, upsertTeamSecret, deleteTeamSecret, deleteTeamObjectPref,
+  listTeamSecrets, upsertTeamSecret, deleteTeamSecret, deleteTeamObjectPref, listIdentityPicks,
 } from "./teamObjects";
 
 function jwt(): string {
@@ -144,4 +144,34 @@ test("deleteTeamObject issues DELETE to object URL", async () => {
   const [url, init] = h.appFetch.mock.calls[0];
   expect(url).toBe("https://s/v1/teams/t1/objects/o9");
   expect(init.method).toBe("DELETE");
+});
+
+const picks = { objects: [{ object_id: "h1", identity_id: "own", updated_at: "" }], defaults: [] };
+
+test("identity picks are listed only once the server advertises them", async () => {
+  connected();
+  h.appFetch.mockResolvedValueOnce(okJson({ self_hosted: true, identity_picks: true })).mockResolvedValueOnce(okJson(picks));
+  await expect(listIdentityPicks()).resolves.toEqual(picks);
+  expect(h.appFetch.mock.calls.map(([url]) => url)).toEqual(["https://s/v1/meta", "https://s/v1/my/identity-picks"]);
+  expect(h.appFetch.mock.calls[0][1].headers?.Authorization).toBeUndefined();
+});
+
+test.each([[{ self_hosted: true }], [{ identity_picks: false }]])("a server whose meta lacks the flag has no picks: %j", async (meta) => {
+  connected();
+  h.appFetch.mockResolvedValueOnce(okJson(meta));
+  await expect(listIdentityPicks()).resolves.toBeNull();
+  expect(h.appFetch).toHaveBeenCalledTimes(1);
+});
+
+test.each([503, 401, 404])("a %i from meta is a failure, never an unsupported server", async (code) => {
+  connected();
+  h.appFetch.mockResolvedValueOnce(status(code));
+  await expect(listIdentityPicks()).rejects.toMatchObject({ status: code });
+  expect(h.appFetch).toHaveBeenCalledTimes(1);
+});
+
+test("a network error reaching meta rejects", async () => {
+  connected();
+  h.appFetch.mockRejectedValueOnce(new TypeError("network"));
+  await expect(listIdentityPicks()).rejects.toThrow("network");
 });

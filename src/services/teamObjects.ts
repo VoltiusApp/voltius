@@ -79,9 +79,14 @@ async function ensureOk(res: Response, messageKey: string, opts?: { ignoreStatus
   throw apiError(i18n.t(messageKey, { status: res.status }), { status: res.status });
 }
 
-async function fetchTeamApi(path: string, init: RequestInit, opts?: { passPaymentRequired?: boolean }): Promise<Response> {
+async function requireServerUrl(): Promise<string> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw apiError(i18n.t("common.error.notConnectedToServer"), { offline: true });
+  return serverUrl;
+}
+
+async function fetchTeamApi(path: string, init: RequestInit, opts?: { passPaymentRequired?: boolean }): Promise<Response> {
+  const serverUrl = await requireServerUrl();
 
   let jwt = await getJwt();
   if (!jwt || isJwtExpiredOrExpiring(jwt)) jwt = await tryRefreshJwt();
@@ -217,9 +222,16 @@ export interface IdentityPicksRecord {
   defaults: { team_id: string; identity_id: string; updated_at: string }[];
 }
 
+async function serverOffersIdentityPicks(): Promise<boolean> {
+  const res = await appFetch(`${await requireServerUrl()}/v1/meta`, { method: "GET" });
+  await ensureOk(res, "common.error.failedToListIdentityPicks");
+  const meta: { identity_picks?: unknown } = await res.json();
+  return meta.identity_picks === true;
+}
+
 export async function listIdentityPicks(): Promise<IdentityPicksRecord | null> {
+  if (!(await serverOffersIdentityPicks())) return null;
   const res = await fetchTeamApi("/v1/my/identity-picks", { method: "GET" });
-  if (res.status === 404) return null;
   await ensureOk(res, "common.error.failedToListIdentityPicks");
   return res.json();
 }

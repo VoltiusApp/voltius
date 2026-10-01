@@ -24,11 +24,11 @@ test("load replaces picks from the server", async () => {
   expect(useIdentityPickStore.getState()).toMatchObject({ byObject: { h1: "own" }, byTeam: { t1: "own" }, status: "loaded" });
 });
 
-test("load failure keeps cached picks", async () => {
-  useIdentityPickStore.setState({ byObject: { h1: "own" } });
+test.each(["unknown", "loaded"] as const)("load failure keeps cached picks and the %s status", async (status) => {
+  useIdentityPickStore.setState({ byObject: { h1: "own" }, status });
   h.listIdentityPicks.mockRejectedValue(new Error("offline"));
   await expect(useIdentityPickStore.getState().load()).rejects.toThrow("offline");
-  expect(useIdentityPickStore.getState().byObject).toEqual({ h1: "own" });
+  expect(useIdentityPickStore.getState()).toMatchObject({ byObject: { h1: "own" }, status });
 });
 
 test("a server without the routes is unsupported and holds no picks", async () => {

@@ -19,7 +19,7 @@ import {
   type CredentialSnapshot,
 } from "@/services/credentialScope";
 
-function useCredentialSnapshot(): { snapshot: CredentialSnapshot; supported: boolean } {
+function useCredentialSnapshot(): { snapshot: CredentialSnapshot; picksLoaded: boolean } {
   const identities = useIdentityStore((s) => s.identities);
   const teamIdentities = useIdentityStore((s) => s.teamIdentities);
   const teamKeys = useKeyStore((s) => s.teamKeys);
@@ -27,7 +27,7 @@ function useCredentialSnapshot(): { snapshot: CredentialSnapshot; supported: boo
   const vaults = useVaultStore((s) => s.vaults);
   const byObject = useIdentityPickStore((s) => s.byObject);
   const byTeam = useIdentityPickStore((s) => s.byTeam);
-  const supported = useIdentityPickStore((s) => s.status !== "unsupported");
+  const picksLoaded = useIdentityPickStore((s) => s.status === "loaded");
   const hydrated = useTeamSecretsHydrated((s) => s.byTeam);
   const snapshot = useMemo<CredentialSnapshot>(
     () => toCredentialSnapshot({
@@ -37,7 +37,7 @@ function useCredentialSnapshot(): { snapshot: CredentialSnapshot; supported: boo
     }),
     [teams, vaults, identities, teamIdentities, teamKeys, byObject, byTeam, hydrated],
   );
-  return { snapshot, supported };
+  return { snapshot, picksLoaded };
 }
 
 export const NO_CONNECTION = { id: "", vault_id: "", username: "", host: "" } as unknown as Connection;
@@ -45,7 +45,7 @@ export const NO_CONNECTION = { id: "", vault_id: "", username: "", host: "" } as
 export type CredentialPlanResult = ReturnType<typeof useCredentialPlan>;
 
 export function useCredentialPlan(conn: Connection) {
-  const { snapshot, supported } = useCredentialSnapshot();
+  const { snapshot, picksLoaded } = useCredentialSnapshot();
   const can = usePermissions();
   return useMemo(() => {
     const scope = buildCredentialScope(conn, snapshot, can);
@@ -58,9 +58,9 @@ export function useCredentialPlan(conn: Connection) {
       hostIdentity: hostIdentityOf(conn, snapshot),
       hasSharedCredential: scope.hostHasSharedCredential,
       isOwn: (id: string) => isOwnIdentityIn(snapshot, id),
-      picksOffered: !!scope.teamId && supported && isSshConnection(conn) && can("CONNECT", scope.teamId, conn.id),
+      picksOffered: !!scope.teamId && picksLoaded && isSshConnection(conn) && can("CONNECT", scope.teamId, conn.id),
     };
-  }, [conn, snapshot, can, supported]);
+  }, [conn, snapshot, can, picksLoaded]);
 }
 
 export function useVaultPickChoices(teamId: string) {
