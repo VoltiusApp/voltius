@@ -58,6 +58,7 @@ pub fn spawn_channel_io_split(
 
     tokio::spawn(async move {
         let mut remote_exit = false;
+        let mut paused = false;
         loop {
             tokio::select! {
                 _ = shutdown_rx.recv() => break,
@@ -70,10 +71,14 @@ pub fn spawn_channel_io_split(
                         (Some(SessionInput::Resize(cols, rows)), None) => vec![Action::WindowChange(cols, rows)],
                         (Some(SessionInput::Colors(colors)), Some(c)) => c.on_colors(colors),
                         (Some(SessionInput::Colors(_)), None) => Vec::new(),
+                        (Some(SessionInput::PauseOutput(p)), _) => {
+                            paused = p;
+                            Vec::new()
+                        }
                     };
                     if !apply(actions, &mut writer, &write_half, &app, &event_name, &mux_event).await { break; }
                 }
-                msg = read_half.wait() => {
+                msg = read_half.wait(), if !paused => {
                     match msg {
                         Some(ChannelMsg::Data { data }) | Some(ChannelMsg::ExtendedData { data, .. }) => {
                             let actions = match control.as_mut() {

@@ -6,7 +6,8 @@ import { createWebglAddon } from "@/utils/webglAddon";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { onSshOutput, onSshClosed, onSshCwd, onSshMuxMode, sshSetTerminalColors } from "@/services/ssh";
+import { onSshOutput, onSshClosed, onSshCwd, onSshMuxMode, sshSetOutputPaused, sshSetTerminalColors } from "@/services/ssh";
+import { createOutputFlow, type OutputFlow } from "@/components/terminal/outputFlow";
 import { suppressTerminalQueries } from "@/components/terminal/terminalQueries";
 import { currentTerminalColors } from "@/utils/terminalColors";
 import { localReady, onLocalOutput, onLocalClosed } from "@/services/local";
@@ -1051,8 +1052,13 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       let queryGuard: IDisposable | null = null;
       const unlistenPromises: Promise<UnlistenFn>[] = [];
-      const writeOutput = (data: Uint8Array) => {
-        term.write(entry.outputDecoder.decode(data), () => scheduleMinimapNotify(entry));
+      const writeOutput = (data: Uint8Array, flow?: OutputFlow) => {
+        const text = entry.outputDecoder.decode(data);
+        flow?.written(text.length);
+        term.write(text, () => {
+          flow?.processed(text.length);
+          scheduleMinimapNotify(entry);
+        });
       };
 
       if (sessionType === "local") {
@@ -1082,9 +1088,12 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }),
         );
       } else {
+        const sshFlow = createOutputFlow((paused) => {
+          sshSetOutputPaused(sessionId, paused).catch(() => {});
+        });
         unlistenPromises.push(
           onSshOutput(sessionId, (data) => {
-            writeOutput(data);
+            writeOutput(data, sshFlow);
             noteRestoreOutput(sessionId);
           }),
         );

@@ -70,6 +70,16 @@ impl SessionManager {
             .map_err(|e| format!("Failed to resize: {}", e))
     }
 
+    pub async fn set_output_paused(&self, id: &str, paused: bool) -> Result<(), String> {
+        let sessions = self.sessions.lock().await;
+        let session = sessions.get(id).ok_or("Session not found")?;
+        session
+            .input_tx
+            .send(SessionInput::PauseOutput(paused))
+            .await
+            .map_err(|e| format!("Failed to pause output: {}", e))
+    }
+
     pub async fn set_terminal_colors(
         &self,
         id: &str,

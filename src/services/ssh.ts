@@ -195,6 +195,10 @@ export async function onSshClosed(
   });
 }
 
+export async function sshSetOutputPaused(sessionId: string, paused: boolean): Promise<void> {
+  return invoke("ssh_set_output_paused", { sessionId, paused });
+}
+
 export async function sshSetTerminalColors(sessionId: string, colors: TerminalColors): Promise<void> {
   return invoke("ssh_set_terminal_colors", { sessionId, colors });
 }

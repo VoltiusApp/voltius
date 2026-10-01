@@ -182,6 +182,15 @@ pub async fn ssh_resize(
 }
 
 #[tauri::command]
+pub async fn ssh_set_output_paused(
+    state: tauri::State<'_, SessionManager>,
+    session_id: String,
+    paused: bool,
+) -> Result<(), String> {
+    state.set_output_paused(&session_id, paused).await
+}
+
+#[tauri::command]
 pub async fn ssh_set_terminal_colors(
     state: tauri::State<'_, SessionManager>,
     session_id: String,
