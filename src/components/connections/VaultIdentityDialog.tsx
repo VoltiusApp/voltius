@@ -3,10 +3,10 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useIdentityPickStore } from "@/stores/identityPickStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { useVaultIdentityDialogStore } from "@/stores/vaultIdentityDialogStore";
 import { notifyError } from "@/utils/notifyError";
 import { useVaultPickChoices } from "@/hooks/useCredentialPlan";
+import { useTeamName } from "@/hooks/useTeamName";
 
 function Choice({ icon, title, subtitle, selected, onClick }: { icon: string; title: string; subtitle: string; selected: boolean; onClick: () => void }) {
   return (
@@ -31,7 +31,7 @@ export function VaultIdentityDialog({ teamId, onClose }: { teamId: string; onClo
   const choices = useVaultPickChoices(teamId);
   const current = useIdentityPickStore((s) => s.byTeam[teamId] ?? null);
   const setVaultDefault = useIdentityPickStore((s) => s.setVaultDefault);
-  const vault = useTeamStore((s) => s.teams.find((team) => team.id === teamId)?.name ?? "");
+  const vault = useTeamName(teamId);
   const [selected, setSelected] = useState<string | null>(current);
 
   const save = () => {

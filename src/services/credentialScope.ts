@@ -53,12 +53,18 @@ function lookupPickable(teamId: string, snapshot: CredentialSnapshot, can: Can):
   };
 }
 
-function anyIdentity(snapshot: CredentialSnapshot, id: string): Identity | undefined {
-  return snapshot.ownIdentities.find((i) => i.id === id) ?? Object.values(snapshot.teamIdentities).flat().find((i) => i.id === id);
+export type IdentityCollections = Pick<CredentialSnapshot, "ownIdentities" | "teamIdentities">;
+
+export function findIdentityIn(c: IdentityCollections, id: string): Identity | undefined {
+  return c.ownIdentities.find((i) => i.id === id) ?? Object.values(c.teamIdentities).flat().find((i) => i.id === id);
+}
+
+export function isOwnIdentityIn(c: Pick<IdentityCollections, "ownIdentities">, id: string): boolean {
+  return c.ownIdentities.some((i) => i.id === id);
 }
 
 export function hostIdentityOf(conn: ScopedConnection, snapshot: CredentialSnapshot): PickTarget | null {
-  return conn.identity_id ? anyIdentity(snapshot, conn.identity_id) ?? null : null;
+  return conn.identity_id ? findIdentityIn(snapshot, conn.identity_id) ?? null : null;
 }
 
 function hostHasSharedCredential(conn: ScopedConnection, teamId: string, snapshot: CredentialSnapshot): boolean {
@@ -107,7 +113,7 @@ export function describePickIssue(
   plan: Extract<CredentialPlan, { kind: "unavailable" }>,
   snapshot: CredentialSnapshot,
 ): IdentityPickIssue {
-  const picked = anyIdentity(snapshot, plan.identityId);
+  const picked = findIdentityIn(snapshot, plan.identityId);
   const fallback = hostIdentityOf(conn, snapshot);
   return {
     connectionId: conn.id,

@@ -6,7 +6,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string, o?: Re
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/stores/identityStore", () => ({
-  useIdentityStore: (sel: (s: unknown) => unknown) => sel({ teamIdentities: { t1: [{ id: "shared", name: "ops-deploy", username: "deploy" }] } }),
+  useIdentityStore: (sel: (s: unknown) => unknown) => sel({ identities: [], teamIdentities: { t1: [{ id: "shared", name: "ops-deploy", username: "deploy" }] } }),
 }));
 
 import { AuditEventRow } from "./AuditEventRow";

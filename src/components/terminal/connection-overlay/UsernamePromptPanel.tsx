@@ -6,7 +6,7 @@ import { formIdentifierProps } from "@/components/shared/Panel";
 import { DecisionPanel } from "./DecisionPanel";
 import { OverlayIdentityField } from "./OverlayIdentityField";
 import { identityOverride, type SaveTarget } from "./saveTarget";
-import type { ConnectRetryOverride } from "./types";
+import type { ConnectRetryOverride } from "@/types";
 
 export function UsernamePromptPanel({
   vaultId,
@@ -81,15 +81,15 @@ export function UsernamePromptPanel({
     >
       <div className="w-full flex flex-col gap-2.5 text-left">
         <OverlayIdentityField
-            vaultId={vaultId}
-            connectionId={connectionId}
-            hostName={hostName ?? ""}
-            identityId={identityId}
-            onIdentityChange={setIdentityId}
-            saveTarget={saveTarget}
-            onSaveTargetChange={setSaveTarget}
-            onGoToKeychain={goToKeychain}
-          />
+          vaultId={vaultId}
+          connectionId={connectionId}
+          hostName={hostName ?? ""}
+          identityId={identityId}
+          onIdentityChange={setIdentityId}
+          saveTarget={saveTarget}
+          onSaveTargetChange={setSaveTarget}
+          onGoToKeychain={goToKeychain}
+        />
 
         {!identityId && (
           <input

@@ -89,6 +89,13 @@ export function strandedByNetwork(s: StrandableSession): boolean {
   );
 }
 
+export interface ReconnectAttemptResult {
+  ok: boolean;
+  errorMessage?: string;
+  errorCode?: BackendErrorCode;
+  identityPick?: IdentityPickIssue;
+}
+
 export interface BackoffStore {
   status(sessionId: string): SessionStatus;
   exists(sessionId: string): boolean;
@@ -100,7 +107,7 @@ export interface BackoffStore {
   setWait(sessionId: string, wait: ReconnectWait | undefined): void;
   online(sessionId: string): boolean;
   /** Silent connect attempt: mutates no visible status, returns the outcome. */
-  attempt(sessionId: string): Promise<{ ok: boolean; errorMessage?: string; errorCode?: BackendErrorCode; identityPick?: IdentityPickIssue }>;
+  attempt(sessionId: string): Promise<ReconnectAttemptResult>;
   /** The multiplexer session is gone on the host (attach-only probe failed):
    * tear the session down — retrying can never succeed. */
   sessionEnded(sessionId: string): void;

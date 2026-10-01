@@ -224,6 +224,19 @@ export type SerialLine = "dtr" | "rts";
 
 export type SerialLines = Record<SerialLine, boolean>;
 
+export type IdentitySaveAs = "pick" | "vault-default";
+
+/** Overlay-supplied auth; a field left undefined resolves from the host's stored config. */
+export interface ConnectRetryOverride {
+  username?: string;
+  identityId?: string | null;
+  keyId?: string | null;
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
+  saveAs?: IdentitySaveAs;
+}
+
 export interface TerminalSession {
   id: string;
   connectionId: string;

@@ -94,6 +94,16 @@ test("an unreadable vault propagates out of jump host resolution too", async () 
   await expect(resolveJumpHosts(withJump)).rejects.toThrow(VaultUnreadableError);
 });
 
+test("a jump host snapshot with an identity resolves that identity's secrets", async () => {
+  h.identities = [{ id: "i1", username: "jump", key_id: "k1" }];
+  h.getSecret.mockImplementation(async (k) => ({ "key:k1:private": "PRIV", "key:k1:passphrase": "PASS" })[k] ?? null);
+  const withJump = conn({ jump_hosts: [{ connection_id: "c-gone", host: "jh", port: 22, identity_id: "i1" }] } as Partial<Connection>);
+
+  await expect(resolveJumpHosts(withJump)).resolves.toEqual([
+    { host: "jh", port: 22, username: "jump", password: undefined, privateKey: "PRIV", passphrase: "PASS" },
+  ]);
+});
+
 test("jump hosts still resolve when their secrets are merely absent", async () => {
   const withJump = conn({
     jump_hosts: [{ connection_id: "c-gone", host: "jh", port: 2222, username: "ju" }],

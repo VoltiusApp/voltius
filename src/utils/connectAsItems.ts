@@ -7,7 +7,7 @@ export type ConnectAsCurrent = { kind: "pick"; id: string } | { kind: "host" } |
 export function buildConnectAsItems({
   choices,
   current,
-  ownIds,
+  isOwn,
   hostLabel,
   hasPick,
   vaultName,
@@ -17,7 +17,7 @@ export function buildConnectAsItems({
 }: {
   choices: PickTarget[];
   current: ConnectAsCurrent;
-  ownIds: Set<string>;
+  isOwn: (id: string) => boolean;
   hostLabel: string | null;
   hasPick: boolean;
   vaultName: string;
@@ -27,8 +27,8 @@ export function buildConnectAsItems({
 }): ContextMenuItem[] {
   const items: ContextMenuItem[] = choices.map((c) => ({
     label: c.name ?? c.username,
-    icon: current.kind === "pick" && c.id === current.id ? "lucide:check" : ownIds.has(c.id) ? "lucide:user-round" : "lucide:key-round",
-    hint: ownIds.has(c.id) ? t("hosts.connectAs.yours") : undefined,
+    icon: current.kind === "pick" && c.id === current.id ? "lucide:check" : isOwn(c.id) ? "lucide:user-round" : "lucide:key-round",
+    hint: isOwn(c.id) ? t("hosts.connectAs.yours") : undefined,
     onClick: () => onPick(c.id),
   }));
   if (hostLabel) {

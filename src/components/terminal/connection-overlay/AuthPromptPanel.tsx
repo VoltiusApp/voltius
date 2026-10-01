@@ -12,7 +12,7 @@ import KeySelector from "@/components/connections/KeySelector";
 import { DecisionPanel } from "./DecisionPanel";
 import { OverlayIdentityField } from "./OverlayIdentityField";
 import { identityOverride, repairSaveTarget, type SaveTarget } from "./saveTarget";
-import type { ConnectRetryOverride } from "./types";
+import type { ConnectRetryOverride } from "@/types";
 
 export type AuthMode = "password" | "key" | "identity";
 

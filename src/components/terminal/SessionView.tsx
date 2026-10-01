@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
-import type { ConnectRetryOverride } from "@/components/terminal/connection-overlay/types";
 import { wakeBackoff } from "@/stores/reconnectBackoffCore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { hasInputControl } from "@/services/broadcast";
@@ -13,7 +12,7 @@ import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast
 import ConnectionOverlay, { getSshSteps, getSerialSteps } from "@/components/terminal/connection-overlay";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { getConnectionIcon } from "@/utils/icons";
-import type { TerminalSession } from "@/types";
+import type { ConnectRetryOverride, TerminalSession } from "@/types";
 import { EphemeralSerialConfigOverlay } from "@/components/connections/EphemeralSerialConfigOverlay";
 import { needsConnectionOverlay } from "./sessionOverlay";
 

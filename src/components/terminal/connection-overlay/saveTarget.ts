@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import type { PillOption } from "@/components/shared/Pills";
-import type { ConnectRetryOverride, IdentitySaveAs } from "./types";
+import type { ConnectRetryOverride, IdentitySaveAs } from "@/types";
 
 export type SaveTarget = "host" | IdentitySaveAs;
 

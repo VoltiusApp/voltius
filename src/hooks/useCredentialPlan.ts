@@ -11,6 +11,7 @@ import { planCredentials } from "@/services/credentialPlan";
 import {
   buildCredentialScope,
   hostIdentityOf,
+  isOwnIdentityIn,
   isSshConnection,
   pickChoices,
   pickGroups,
@@ -56,7 +57,7 @@ export function useCredentialPlan(conn: Connection) {
       choices: [...groups.own, ...groups.shared],
       hostIdentity: hostIdentityOf(conn, snapshot),
       hasSharedCredential: scope.hostHasSharedCredential,
-      ownIds: new Set(snapshot.ownIdentities.map((i) => i.id)),
+      isOwn: (id: string) => isOwnIdentityIn(snapshot, id),
       picksOffered: !!scope.teamId && supported && isSshConnection(conn) && can("CONNECT", scope.teamId, conn.id),
     };
   }, [conn, snapshot, can, supported]);

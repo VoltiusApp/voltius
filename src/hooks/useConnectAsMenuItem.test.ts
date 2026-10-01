@@ -11,7 +11,7 @@ vi.mock("@/stores/teamStore", () => ({ useTeamStore: (sel: (s: unknown) => unkno
 import { useConnectAsMenuItem } from "./useConnectAsMenuItem";
 
 const credential = (picksOffered: boolean) =>
-  ({ plan: { kind: "host" }, teamId: "t1", choices: [{ id: "a", username: "u" }], hostIdentity: null, hasSharedCredential: true, ownIds: new Set(), picksOffered }) as never;
+  ({ plan: { kind: "host" }, teamId: "t1", choices: [{ id: "a", username: "u" }], hostIdentity: null, hasSharedCredential: true, isOwn: () => false, picksOffered }) as never;
 
 test("Connect as follows the single pick gate", () => {
   const closed = renderHook(() => useConnectAsMenuItem({ id: "c", connection_type: "ssh" } as never, credential(false)));
@@ -21,7 +21,7 @@ test("Connect as follows the single pick gate", () => {
 });
 
 test("a stale pick with nothing else to choose can still be cleared", () => {
-  const bare = { plan: { kind: "unavailable" }, teamId: "t1", choices: [], hostIdentity: null, hasSharedCredential: false, ownIds: new Set(), picksOffered: true } as never;
+  const bare = { plan: { kind: "unavailable" }, teamId: "t1", choices: [], hostIdentity: null, hasSharedCredential: false, isOwn: () => false, picksOffered: true } as never;
   h.byObject = {};
   expect(renderHook(() => useConnectAsMenuItem({ id: "c" } as never, bare)).result.current).toBeUndefined();
   h.byObject = { c: "gone" };

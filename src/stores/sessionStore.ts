@@ -1,8 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import type { Connection, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
-
-import type { ConnectRetryOverride, IdentitySaveAs } from "@/components/terminal/connection-overlay/types";
+import type { Connection, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
@@ -18,11 +16,9 @@ import { storeSecret, getSecret } from "@/services/vault";
 import { identityPickIssueOf, type IdentityPickIssue } from "@/services/credentialPlan";
 import { backendErrorCode, describeError, type BackendErrorCode } from "@/services/backendErrors";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import { useIdentityStore } from "@/stores/identityStore";
 import { useIdentityPickStore } from "@/stores/identityPickStore";
-import { useTeamStore } from "@/stores/teamStore";
-import { useVaultStore } from "@/stores/vaultStore";
-import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
+import { findLoadedIdentity, isOwnLoadedIdentity } from "@/services/loadedIdentities";
+import { resolveTeamIdForVaultId } from "@/services/teamVaultSecrets";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent, type ClientAuditAction } from "@/services/auditReporter";
 import { useConnectionStore, connectionToFormData } from "./connectionStore";
@@ -35,7 +31,7 @@ import { useTerminalCwdStore } from "./terminalCwdStore";
 import { usePanelSftpStore } from "./panelSftpStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
 import { encodeTerminalInput } from "@/utils/terminalEncoding";
-import { cancelBackoff, isSessionEnded, type ReconnectWait } from "./reconnectBackoffCore";
+import { cancelBackoff, isSessionEnded, type ReconnectAttemptResult, type ReconnectWait } from "./reconnectBackoffCore";
 import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostCommand";
 import { runHostCommand } from "@/services/hostCommandRun";
 
@@ -73,7 +69,7 @@ interface SessionStore {
   /** Silent reconnect for the auto-backoff loop: performs the same connect as
    * reconnect() but mutates no visible status, returning the outcome so the loop
    * can hold a single steady "reconnecting" state and decide what to surface. */
-  reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<{ ok: boolean; errorMessage?: string; errorCode?: BackendErrorCode; identityPick?: IdentityPickIssue }>;
+  reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<ReconnectAttemptResult>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
   restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
@@ -119,8 +115,7 @@ function reportConnectionAudit(connection: Connection, action: ClientAuditAction
     target_id: connection.id,
     target_name: connection.name?.trim() || `${connection.username}@${connection.host}:${connection.port}`,
   };
-  const isOwn = (id: string) => useIdentityStore.getState().identities.some((i) => i.id === id);
-  void connectionAuditMetadata(creds, isOwn).then((metadata) =>
+  void connectionAuditMetadata(creds, isOwnLoadedIdentity).then((metadata) =>
     reportAuditClientEvent(context, action, metadata ? { ...target, metadata } : target),
   ).catch(() => {});
 }
@@ -428,11 +423,6 @@ function passphraseSecretKey(connection: Connection, credentials: ResolvedCreden
   return credentials.identityId || connection.identity_id ? null : `passphrase:${connection.id}`;
 }
 
-function findIdentityById(id: string) {
-  const { identities, teamIdentities } = useIdentityStore.getState();
-  return [...identities, ...Object.values(teamIdentities).flat()].find((i) => i.id === id);
-}
-
 async function resolveOverrideAuth(connection: Connection, override: ConnectRetryOverride): Promise<ResolvedCredentials> {
   const base = await resolveConnectionCredentials(connection).catch((err) => {
     if (identityPickIssueOf(err)) return { username: connection.username } as ResolvedCredentials;
@@ -442,7 +432,7 @@ async function resolveOverrideAuth(connection: Connection, override: ConnectRetr
   const tolerant = (key: string) => getSecret(key).catch(() => null);
 
   if (override.identityId) {
-    const identity = findIdentityById(override.identityId);
+    const identity = findLoadedIdentity(override.identityId);
     if (identity) return identityCredentials(identity, tolerant);
   } else if (override.keyId) {
     return {
@@ -475,7 +465,7 @@ async function persistConnectAuth(connection: Connection, override: ConnectRetry
   }
 
   if (override.identityId) {
-    const identity = findIdentityById(override.identityId);
+    const identity = findLoadedIdentity(override.identityId);
     data.identity_id = override.identityId;
     data.key_id = undefined;
     data.auth_type = identity?.key_id ? "key" : "password";
@@ -605,7 +595,7 @@ async function connectConnection(
 async function saveIdentityChoice(connection: Connection, saveAs: IdentitySaveAs, identityId: string): Promise<void> {
   const picks = useIdentityPickStore.getState();
   if (saveAs === "pick") return picks.setHostPick(connection.id, identityId);
-  const teamId = resolveTeamIdFromCollections(connection.vault_id, useTeamStore.getState().teams, useVaultStore.getState().vaults);
+  const teamId = resolveTeamIdForVaultId(connection.vault_id);
   if (teamId) await picks.setVaultDefault(teamId, identityId);
 }
 

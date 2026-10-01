@@ -5,10 +5,12 @@ import { useTeamStore } from "@/stores/teamStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { NO_CONNECTION, useCredentialPlan } from "@/hooks/useCredentialPlan";
+import { useTeamName } from "@/hooks/useTeamName";
 import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { Pills } from "@/components/shared/Pills";
 import IdentitySelector from "@/components/connections/IdentitySelector";
+import { PickerSectionLabel } from "@/components/shared/pickerParts";
 import { defaultSaveTarget, repairSaveTarget, saveTargetOptions, type SaveTarget } from "./saveTarget";
 
 export function OverlayIdentityField({
@@ -37,7 +39,7 @@ export function OverlayIdentityField({
   const teams = useTeamStore((s) => s.teams);
   const can = usePermissions();
   const connection = useAllConnections().find((c) => c.id === connectionId);
-  const { teamId, groups, picksOffered, ownIds } = useCredentialPlan(connection ?? NO_CONNECTION);
+  const { teamId, groups, picksOffered, isOwn } = useCredentialPlan(connection ?? NO_CONNECTION);
 
   useEffect(() => {
     void loadIdentities();
@@ -50,9 +52,9 @@ export function OverlayIdentityField({
   );
   const shared = teamId ? groups.shared : personal;
   const own = picksOffered ? groups.own : undefined;
-  const vaultName = teams.find((team) => team.id === teamId)?.name ?? "";
+  const vaultName = useTeamName(teamId);
   const canEditHost = !!teamId && !!connectionId && can("EDIT_CONNECTIONS", teamId, connectionId);
-  const kind = identityId && ownIds.has(identityId) ? "own" : "team";
+  const kind = identityId && isOwn(identityId) ? "own" : "team";
   const showTarget = picksOffered && !!identityId && !repairVia;
 
   useEffect(() => {
@@ -73,9 +75,9 @@ export function OverlayIdentityField({
       />
       {showTarget && (
         <div className="flex flex-col gap-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-(--t-text-dim) px-0.5">
+          <PickerSectionLabel>
             {t(kind === "own" ? "terminal.overlay.saveTarget.rememberFor" : "terminal.overlay.saveTarget.saveFor")}
-          </p>
+          </PickerSectionLabel>
           <Pills options={saveTargetOptions(kind, canEditHost, vaultName, t)} value={saveTarget} onChange={onSaveTargetChange} />
           <p className="text-xs px-0.5 text-(--t-text-dim)">
             {kind === "own" ? t("terminal.overlay.saveTarget.ownNote") : t("terminal.overlay.saveTarget.teamNote", { host: hostName })}

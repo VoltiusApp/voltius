@@ -5,6 +5,7 @@ import type { AuditLog } from "@/services/auditService";
 import { avatarColor } from "@/components/shared/AvatarStack";
 import { LOCAL_ACTOR_ID } from "@/services/localAuditService";
 import { useIdentityStore } from "@/stores/identityStore";
+import { findIdentityIn } from "@/services/credentialScope";
 import { formatDate, formatTime, SHORT_DATE, HOUR_MINUTE } from "@/utils/localeFormat";
 
 // ─── Action metadata ──────────────────────────────────────────────────────────
@@ -105,7 +106,7 @@ export function AuditEventRow({ log, showDate = false }: Props) {
   const source = isConnect ? (meta.identity_source as string | undefined) : undefined;
   const fingerprint = isConnect && typeof meta.key_fingerprint === "string" ? meta.key_fingerprint : undefined;
   const sharedName = useIdentityStore((s) =>
-    source === "team" ? Object.values(s.teamIdentities).flat().find((i) => i.id === meta.identity_id)?.name : undefined,
+    source === "team" ? findIdentityIn({ ownIdentities: s.identities, teamIdentities: s.teamIdentities }, String(meta.identity_id))?.name : undefined,
   );
   const actor = actorName(log);
   const time = new Date(log.created_at);
