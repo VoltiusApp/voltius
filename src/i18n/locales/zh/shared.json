@@ -86,7 +86,8 @@
       "localMachineName": "本地计算机",
       "wslSub": "WSL",
       "noHostsConfigured": "未配置主机",
-      "noHostsMatch": "没有匹配的主机"
+      "noHostsMatch": "没有匹配的主机",
+      "allVaults": "所有保险库"
     },
     "sort": {
       "nameAsc": "A → Z",

@@ -282,6 +282,6 @@ export function neutralTileStyle(): CSSProperties {
   return glossyTileStyle("var(--t-bg-card-avatar)");
 }
 
-export function chevronRotateStyle(open: boolean): CSSProperties {
-  return { transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" };
+export function chevronRotateStyle(open: boolean, degrees = 180): CSSProperties {
+  return { transition: "transform 150ms", transform: open ? `rotate(${degrees}deg)` : "rotate(0deg)" };
 }

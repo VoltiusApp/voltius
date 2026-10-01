@@ -89,7 +89,8 @@
       "localMachineName": "Machine locale",
       "wslSub": "WSL",
       "noHostsConfigured": "Aucun hôte configuré",
-      "noHostsMatch": "Aucun hôte ne correspond"
+      "noHostsMatch": "Aucun hôte ne correspond",
+      "allVaults": "Tous les coffres"
     },
     "sort": {
       "nameAsc": "A → Z",

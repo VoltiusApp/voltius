@@ -92,7 +92,8 @@
       "localMachineName": "Локальная машина",
       "wslSub": "WSL",
       "noHostsConfigured": "Нет настроенных хостов",
-      "noHostsMatch": "Нет подходящих хостов"
+      "noHostsMatch": "Нет подходящих хостов",
+      "allVaults": "Все хранилища"
     },
     "sort": {
       "nameAsc": "А → Я",

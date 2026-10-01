@@ -86,7 +86,8 @@
       "localMachineName": "Yerel bilgisayar",
       "wslSub": "WSL",
       "noHostsConfigured": "Yapılandırılmış sunucu yok",
-      "noHostsMatch": "Eşleşen sunucu yok"
+      "noHostsMatch": "Eşleşen sunucu yok",
+      "allVaults": "Tüm kasalar"
     },
     "sort": {
       "nameAsc": "A → Z",

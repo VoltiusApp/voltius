@@ -86,7 +86,8 @@
       "localMachineName": "Local Machine",
       "wslSub": "WSL",
       "noHostsConfigured": "No hosts configured",
-      "noHostsMatch": "No hosts match"
+      "noHostsMatch": "No hosts match",
+      "allVaults": "All vaults"
     },
     "sort": {
       "nameAsc": "A → Z",
