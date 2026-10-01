@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSessionStore, type ConnectRetryOverride } from "@/stores/sessionStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import type { ConnectRetryOverride } from "@/components/terminal/connection-overlay/types";
 import { wakeBackoff } from "@/stores/reconnectBackoffCore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { hasInputControl } from "@/services/broadcast";

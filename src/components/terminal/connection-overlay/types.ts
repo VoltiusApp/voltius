@@ -36,6 +36,8 @@ export type HostKeyConflictAction = "add_new" | "replace" | "abort";
  * keychain identity, an existing key, or inline password / private key material.
  * Any field left undefined is resolved from the host's stored config instead.
  */
+export type IdentitySaveAs = "pick" | "vault-default";
+
 export interface ConnectRetryOverride {
   username?: string;
   identityId?: string | null;
@@ -43,7 +45,7 @@ export interface ConnectRetryOverride {
   password?: string;
   privateKey?: string;
   passphrase?: string;
-  saveAs?: "pick" | "vault-default";
+  saveAs?: IdentitySaveAs;
 }
 
 export interface ConnectionOverlayProps {

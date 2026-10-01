@@ -166,3 +166,35 @@ test("Connect & Save with a pick never touches the host", async () => {
   expect(h.setHostPick).toHaveBeenCalledWith("c1", "own");
   expect(h.updateConnection).not.toHaveBeenCalled();
 });
+
+const sshSession = async () => {
+  h.resolve.mockResolvedValue({ username: "root" });
+  await useSessionStore.getState().connect("c1").catch(() => {});
+  const id = useSessionStore.getState().sessions[0].id;
+  useSessionStore.setState((s) => ({ sessions: s.sessions.map((x) => ({ ...x, type: "ssh" as const })) }));
+  h.updateConnection.mockClear();
+  h.setHostPick.mockClear();
+  return id;
+};
+
+test("a save target from a failed attempt is not inherited by the next Connect & Save", async () => {
+  const id = await sshSession();
+  h.sshConnect.mockRejectedValueOnce(new Error("auth failed"));
+  await useSessionStore.getState().retryConnect(id, { identityId: "own", saveAs: "pick" }, false);
+
+  await useSessionStore.getState().retryConnect(id, { identityId: "shared" }, true);
+
+  expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ identity_id: "shared" }));
+  expect(h.setHostPick).not.toHaveBeenCalled();
+});
+
+test("a typed password after a stale save target still saves on the host", async () => {
+  const id = await sshSession();
+  h.sshConnect.mockRejectedValueOnce(new Error("auth failed"));
+  await useSessionStore.getState().retryConnect(id, { identityId: "own", saveAs: "pick" }, false);
+
+  await useSessionStore.getState().retryConnect(id, { password: "pw" }, true);
+
+  expect(h.updateConnection).toHaveBeenCalled();
+  expect(h.setHostPick).not.toHaveBeenCalled();
+});

@@ -1,8 +1,8 @@
 import type { TFunction } from "i18next";
 import type { PillOption } from "@/components/shared/Pills";
-import type { ConnectRetryOverride } from "./types";
+import type { ConnectRetryOverride, IdentitySaveAs } from "./types";
 
-export type SaveTarget = "host" | "pick" | "vault-default";
+export type SaveTarget = "host" | IdentitySaveAs;
 
 export function saveTargetOptions(kind: "own" | "team", canEditHost: boolean, vaultName: string, t: TFunction): PillOption<SaveTarget>[] {
   return kind === "own"

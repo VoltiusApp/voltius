@@ -2,20 +2,7 @@ import { create } from "zustand";
 import i18n from "@/i18n";
 import type { Connection, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
 
-/**
- * Auth/username supplied through the connection overlay when a host is missing
- * credentials. Mirrors the connection form's choices: an existing identity, an
- * existing key, or inline password / private key material.
- */
-export interface ConnectRetryOverride {
-  username?: string;
-  identityId?: string | null;
-  keyId?: string | null;
-  password?: string;
-  privateKey?: string;
-  passphrase?: string;
-  saveAs?: "pick" | "vault-default";
-}
+import type { ConnectRetryOverride, IdentitySaveAs } from "@/components/terminal/connection-overlay/types";
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
@@ -609,7 +596,7 @@ async function connectConnection(
   return sessionId;
 }
 
-async function saveIdentityChoice(connection: Connection, saveAs: "pick" | "vault-default", identityId: string): Promise<void> {
+async function saveIdentityChoice(connection: Connection, saveAs: IdentitySaveAs, identityId: string): Promise<void> {
   const picks = useIdentityPickStore.getState();
   if (saveAs === "pick") return picks.setHostPick(connection.id, identityId);
   const teamId = resolveTeamIdFromCollections(connection.vault_id, useTeamStore.getState().teams, useVaultStore.getState().vaults);
@@ -1102,6 +1089,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     for (const [k, v] of Object.entries(override)) {
       if (v !== undefined) (merged as Record<string, unknown>)[k] = v;
     }
+    merged.saveAs = override.saveAs;
     connectOverrides.set(sessionId, merged);
 
     markSessionConnecting(set, sessionId);
