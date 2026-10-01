@@ -277,6 +277,10 @@ const TMUX_CC_VERSIONS: &str = r#"*"tmux "3.[2-9]*|*"tmux "[4-9]*|*"tmux "[1-9][
 
 pub const CONTROL_MODE_MARKER: &str = "VOLTIUS_CC";
 
+fn tmux_cc_case(action: &str) -> String {
+    format!(r#"case "$(tmux -V 2>/dev/null)" in {TMUX_CC_VERSIONS}) {action} ;; esac"#)
+}
+
 fn mode_style(colors: &crate::ssh::control_mode::TerminalColors) -> String {
     format!("fg={},bg={}", colors.selection_fg, colors.selection_bg)
 }
@@ -472,7 +476,7 @@ pub fn persistent_attach_command(session_key: &str) -> String {
     let script = format!(
         r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
   CC=
-  case "$(tmux -V 2>/dev/null)" in {cc}) CC=-CC ;; esac
+  {cc}
   exec tmux -L {socket} $CC attach-session -t {key} <&2
 elif command -v screen >/dev/null 2>&1; then
   exec screen -x -S {key} <&2
@@ -482,7 +486,7 @@ exit 97
 "#,
         socket = TMUX_SOCKET,
         key = session_key,
-        cc = TMUX_CC_VERSIONS,
+        cc = tmux_cc_case("CC=-CC"),
     );
     encode_wrapper(&script)
 }
@@ -550,10 +554,10 @@ rm -f "$F"
 pub fn legacy_mode_style_command(colors: &crate::ssh::control_mode::TerminalColors) -> String {
     let script = format!(
         r#"command -v tmux >/dev/null 2>&1 || exit 0
-case "$(tmux -V 2>/dev/null)" in {cc}) exit 0 ;; esac
+{cc}
 tmux -L {socket} set -g mode-style '{style}' 2>/dev/null
 true"#,
-        cc = TMUX_CC_VERSIONS,
+        cc = tmux_cc_case("exit 0"),
         socket = TMUX_SOCKET,
         style = mode_style(colors),
     );
@@ -581,7 +585,7 @@ true"#,
 pub fn capture_history_command(session_key: &str, pty_rows: u32) -> String {
     format!(
         r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
-  case "$(tmux -V 2>/dev/null)" in {cc}) printf {marker}; exit 0 ;; esac
+  {cc}
   tmux -L {socket} capture-pane -t {key} -peJ -S -50000 -E -1 2>/dev/null
 elif command -v screen >/dev/null 2>&1; then
   f=$(mktemp 2>/dev/null) || exit 0
@@ -597,8 +601,7 @@ true"#,
         socket = TMUX_SOCKET,
         key = session_key,
         rows = pty_rows,
-        cc = TMUX_CC_VERSIONS,
-        marker = CONTROL_MODE_MARKER,
+        cc = tmux_cc_case(&format!("printf {CONTROL_MODE_MARKER}; exit 0")),
     )
 }
 

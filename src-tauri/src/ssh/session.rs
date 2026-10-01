@@ -50,34 +50,29 @@ impl SessionManager {
             .ok_or_else(|| "Session not found".into())
     }
 
-    pub async fn send_data(&self, id: &str, data: &[u8]) -> Result<(), String> {
+    async fn send_input(&self, id: &str, input: SessionInput, what: &str) -> Result<(), String> {
         let sessions = self.sessions.lock().await;
         let session = sessions.get(id).ok_or("Session not found")?;
         session
             .input_tx
-            .send(SessionInput::Data(data.to_vec()))
+            .send(input)
             .await
-            .map_err(|e| format!("Failed to send data: {}", e))
+            .map_err(|e| format!("Failed to {what}: {e}"))
+    }
+
+    pub async fn send_data(&self, id: &str, data: &[u8]) -> Result<(), String> {
+        self.send_input(id, SessionInput::Data(data.to_vec()), "send data")
+            .await
     }
 
     pub async fn resize(&self, id: &str, cols: u32, rows: u32) -> Result<(), String> {
-        let sessions = self.sessions.lock().await;
-        let session = sessions.get(id).ok_or("Session not found")?;
-        session
-            .input_tx
-            .send(SessionInput::Resize(cols, rows))
+        self.send_input(id, SessionInput::Resize(cols, rows), "resize")
             .await
-            .map_err(|e| format!("Failed to resize: {}", e))
     }
 
     pub async fn set_output_paused(&self, id: &str, paused: bool) -> Result<(), String> {
-        let sessions = self.sessions.lock().await;
-        let session = sessions.get(id).ok_or("Session not found")?;
-        session
-            .input_tx
-            .send(SessionInput::PauseOutput(paused))
+        self.send_input(id, SessionInput::PauseOutput(paused), "pause output")
             .await
-            .map_err(|e| format!("Failed to pause output: {}", e))
     }
 
     pub async fn set_terminal_colors(
