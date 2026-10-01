@@ -9,6 +9,7 @@ import { closePfTunnel, resumeAutoPort } from "@/services/portForwardingTunnels"
 import { formatActiveTunnelLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { sessionLabel } from "@/utils/sessionLabel";
+import { sessionUserAtHost } from "@/components/terminal/sessionOverlay";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { TunnelStatusDot } from "@/components/shared/TunnelStatusDot";
@@ -144,7 +145,7 @@ export function ActiveTunnelsSection() {
                     <StatusDot tone="connected" label={t("portForwarding.activeTunnels.connected")} />
                   </div>
                   <p className="truncate text-xs text-(--t-text-dim)">
-                    {connection ? `${connection.username}@${connection.host}:${connection.port}` : session.id}
+                    {connection ? `${sessionUserAtHost(session, connection)}:${connection.port}` : session.id}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">

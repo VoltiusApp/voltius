@@ -21,6 +21,7 @@ import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import { closeSession } from "@/services/closeSession";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import { sessionLabel } from "@/utils/sessionLabel";
+import { sessionUserAtHost } from "@/components/terminal/sessionOverlay";
 import { focusSession } from "@/hooks/useTerminal";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { StatusDot } from "@/components/shared/StatusDot";
@@ -142,7 +143,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const subtitle = session.type === "serial" && session.serialConfig
     ? `${session.serialConfig.port} · ${session.serialConfig.baud}`
     : session.type === "ssh" && connection
-      ? `${connection.username}@${connection.host}`
+      ? sessionUserAtHost(session, connection)
       : null;
 
   // ── Latency history buffer ────────────────────────────────────────────────
