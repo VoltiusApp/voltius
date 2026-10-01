@@ -51,10 +51,20 @@ test("copyRuleSet posts to the copy route", async () => {
   expect(h.requests[0].url).toBe("https://example.test/v1/teams/t1/rule-sets/s1/copy");
 });
 
-test("getRuleSet returns the entries", async () => {
+test("getRuleSet returns the entries and their stamp", async () => {
   h.status = 200;
-  h.body = { id: "s1", entries: [{ subject_type: "role", subject_id: "r1", allow: 4, deny: 0 }], updated_at: "", updated_by: "u" };
-  expect(await getRuleSet("t1", "s1")).toEqual((h.body as { entries: unknown }).entries);
+  const entries = [{ subject_type: "role", subject_id: "r1", allow: 4, deny: 0 }];
+  h.body = { id: "s1", entries, updated_at: "2026-10-01T10:00:00.123456Z", updated_by: "u" };
+  expect(await getRuleSet("t1", "s1")).toEqual({ entries, updatedAt: "2026-10-01T10:00:00.123456Z" });
+});
+
+test("putRuleSet sends the stamp it saw only when it has one; 409 keeps its status", async () => {
+  await putRuleSet("t1", "s1", [], "2026-10-01T10:00:00.123456Z");
+  await putRuleSet("t1", "s1", []);
+  expect(JSON.parse(h.requests[0].body)).toEqual({ entries: [], expected_updated_at: "2026-10-01T10:00:00.123456Z" });
+  expect(JSON.parse(h.requests[1].body)).toEqual({ entries: [] });
+  h.status = 409;
+  await expect(putRuleSet("t1", "s1", [], "x")).rejects.toMatchObject({ status: 409 });
 });
 
 test("putRuleSet replaces entries; 413 is a readable error", async () => {

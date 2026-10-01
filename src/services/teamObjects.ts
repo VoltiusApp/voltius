@@ -151,13 +151,21 @@ export async function copyRuleSet(teamId: string, setId: string): Promise<string
   return ((await res.json()) as { id: string }).id;
 }
 
-export async function getRuleSet(teamId: string, setId: string): Promise<RuleEntry[]> {
-  const res = await ruleSetRequest(teamId, `/${setId}`, { method: "GET" }, "common.error.failedToLoadRuleSet");
-  return ((await res.json()) as { entries: RuleEntry[] }).entries;
+export interface RuleSetSnapshot {
+  entries: RuleEntry[];
+  updatedAt: string | null;
 }
 
-export async function putRuleSet(teamId: string, setId: string, entries: RuleEntry[]): Promise<void> {
-  await ruleSetRequest(teamId, `/${setId}`, { method: "PUT", body: JSON.stringify({ entries }) }, "common.error.failedToSaveRuleSet");
+export async function getRuleSet(teamId: string, setId: string): Promise<RuleSetSnapshot> {
+  const res = await ruleSetRequest(teamId, `/${setId}`, { method: "GET" }, "common.error.failedToLoadRuleSet");
+  const body = (await res.json()) as { entries: RuleEntry[]; updated_at?: string };
+  return { entries: body.entries, updatedAt: body.updated_at ?? null };
+}
+
+// A stale `expectedUpdatedAt` is refused with 409; servers predating it ignore the field.
+export async function putRuleSet(teamId: string, setId: string, entries: RuleEntry[], expectedUpdatedAt: string | null = null): Promise<void> {
+  const body = expectedUpdatedAt === null ? { entries } : { entries, expected_updated_at: expectedUpdatedAt };
+  await ruleSetRequest(teamId, `/${setId}`, { method: "PUT", body: JSON.stringify(body) }, "common.error.failedToSaveRuleSet");
 }
 
 /**

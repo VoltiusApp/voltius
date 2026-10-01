@@ -11,7 +11,7 @@ vi.mock("@/services/teamObjects", () => ({
 beforeEach(() => { resetMoveGuardForTests(); useRuleSetPromptStore.setState({ queue: [] }); });
 
 test("one prompt answers a burst of identical moves", async () => {
-  vi.mocked(getRuleSet).mockResolvedValue([{ subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.VIEW }]);
+  vi.mocked(getRuleSet).mockResolvedValue({ entries: [{ subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.VIEW }], updatedAt: null });
   const all = Promise.all([confirmRuleSetMove("t1", null, "s1"), confirmRuleSetMove("t1", null, "s1")]);
   await vi.waitFor(() => expect(useRuleSetPromptStore.getState().queue).toHaveLength(1));
   useRuleSetPromptStore.getState().answer(false);
@@ -20,7 +20,7 @@ test("one prompt answers a burst of identical moves", async () => {
 });
 
 test("no effective change needs no prompt", async () => {
-  vi.mocked(getRuleSet).mockResolvedValue([]);
+  vi.mocked(getRuleSet).mockResolvedValue({ entries: [], updatedAt: null });
   expect(await confirmRuleSetMove("t1", "a", "b")).toBe(true);
   expect(useRuleSetPromptStore.getState().queue).toHaveLength(0);
 });

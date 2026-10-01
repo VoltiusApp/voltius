@@ -1,16 +1,21 @@
 import { test, expect, afterEach, beforeEach, vi } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
+import { act, render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 import { PermissionsSection } from "./PermissionsSection";
-import { saveObjectRules, syncWithFolder } from "@/services/ruleSetEditing";
+import { saveObjectRules, syncWithFolder, type RuleEdit, type RuleTarget } from "@/services/ruleSetEditing";
 import { getRuleSet } from "@/services/teamObjects";
-import { ALL_PERMISSION_BITS, PERM_BITS } from "@/services/permissions";
+import { ALL_PERMISSION_BITS, PERM_BITS, type RuleEntry } from "@/services/permissions";
 import { useTeamObjectAccessStore, type ObjectAccess } from "@/stores/teamObjectAccessStore";
 
 const h = vi.hoisted(() => ({
   roles: [] as { id: string; name: string; permissions: number; is_builtin?: boolean }[],
+  sets: {} as Record<string, RuleEntry[]>,
+  sse: new Set<(teamId: string) => void>(),
+}));
+vi.mock("@/services/sync", () => ({
+  onTeamSseEvent: (fn: (teamId: string) => void) => { h.sse.add(fn); return () => { h.sse.delete(fn); }; },
 }));
 
 vi.mock("react-i18next", () => ({
@@ -47,13 +52,25 @@ const seed = (over: Partial<ObjectAccess> = {}) => useTeamObjectAccessStore.getS
   c1: { type: "connection", ruleSetId: "sA", myPermissions: ALL_PERMISSION_BITS, parentId: "fA", deleted: false, ...over },
 }, true);
 
+const setOf = (objectId: string) => useTeamObjectAccessStore.getState().byTeam.t1[objectId].ruleSetId ?? "none";
+const serverSave = async (target: RuleTarget, edit: RuleEdit) => {
+  const id = setOf(target.objectId);
+  h.sets[id] = edit(h.sets[id] ?? []);
+  return h.sets[id];
+};
+const everyoneDenyConnect = [{ subject_type: "everyone" as const, subject_id: null, allow: 0, deny: PERM_BITS.CONNECT }];
+
+const teamEvent = () => act(() => h.sse.forEach((fn) => fn("t1")));
+const target = { teamId: "t1", objectId: "c1", type: "connection" };
+
 const connectRow = () => screen.findByRole("radiogroup", { name: "members.permission.CONNECT" });
 
 beforeEach(() => {
   lock.value = { locked: false, isOwner: true };
   h.roles = [{ id: "r1", name: "sysadmin", permissions: PERM_BITS.CONNECT }];
-  vi.mocked(getRuleSet).mockResolvedValue([]);
-  vi.mocked(saveObjectRules).mockResolvedValue();
+  h.sets = {};
+  vi.mocked(getRuleSet).mockImplementation(async (_team, setId) => ({ entries: h.sets[setId] ?? [], updatedAt: null }));
+  vi.mocked(saveObjectRules).mockImplementation(serverSave);
   vi.mocked(syncWithFolder).mockResolvedValue();
 });
 
@@ -81,10 +98,8 @@ test("a synced host names its folder and saves an @everyone deny", async () => {
   expect(await screen.findByText("shared.permissions.section.syncedWith Prod")).toBeTruthy();
   const connect = await connectRow();
   fireEvent.click(within(connect).getByRole("radio", { name: "members.permissions.state.deny" }));
-  await waitFor(() => expect(saveObjectRules).toHaveBeenCalledWith(
-    { teamId: "t1", objectId: "c1", type: "connection" },
-    [{ subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.CONNECT }],
-  ));
+  await waitFor(() => expect(h.sets.sA).toEqual([{ subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.CONNECT }]));
+  expect(saveObjectRules).toHaveBeenCalledWith(target, expect.any(Function));
 });
 
 test("keys say Use for Connect", async () => {
@@ -151,29 +166,27 @@ test("a member added from the picker gets their own rule", async () => {
   fireEvent.click(await screen.findByText("shared.permissions.section.addSubject"));
   fireEvent.click(await screen.findByText("@bob"));
   fireEvent.click(within(await connectRow()).getByRole("radio", { name: "members.permissions.state.allow" }));
-  await waitFor(() => expect(saveObjectRules).toHaveBeenCalledWith(
-    { teamId: "t1", objectId: "c1", type: "connection" },
-    [{ subject_type: "member", subject_id: "u2", allow: PERM_BITS.CONNECT, deny: 0 }],
-  ));
+  await waitFor(() => expect(h.sets.sA).toEqual([{ subject_type: "member", subject_id: "u2", allow: PERM_BITS.CONNECT, deny: 0 }]));
 });
 
 const deferred = () => {
   let resolve!: () => void;
   let reject!: (e: Error) => void;
-  const promise = new Promise<void>((res, rej) => { resolve = res; reject = rej; });
+  const promise = new Promise<null>((res, rej) => { resolve = () => res(null); reject = rej; });
   return { promise, resolve, reject };
 };
 const radio = async (permission: string, state: string) =>
   within(await screen.findByRole("radiogroup", { name: `members.permission.${permission}` }))
     .getByRole("radio", { name: `members.permissions.state.${state}` });
 const checked = async (permission: string, state: string) => (await radio(permission, state)).getAttribute("aria-checked");
+const rowsEnabled = () => waitFor(async () => expect((await radio("CONNECT", "deny")).hasAttribute("disabled")).toBe(false));
 
 test("a failed save drops the saves queued behind it and shows what the server holds", async () => {
   seed();
   const first = deferred();
   vi.mocked(saveObjectRules).mockReturnValueOnce(first.promise);
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
-  await waitFor(async () => expect((await radio("CONNECT", "deny")).hasAttribute("disabled")).toBe(false));
+  await rowsEnabled();
   fireEvent.click(await radio("CONNECT", "deny"));
   fireEvent.click(await radio("VIEW", "deny"));
   first.reject(new Error("boom"));
@@ -186,9 +199,9 @@ test("a failed save drops the saves queued behind it and shows what the server h
 
 test("a failed save after a successful one falls back to the saved rules", async () => {
   seed({ ruleSetId: "sOwn" });
-  vi.mocked(saveObjectRules).mockResolvedValueOnce().mockRejectedValueOnce(new Error("boom"));
+  vi.mocked(saveObjectRules).mockImplementationOnce(serverSave).mockRejectedValueOnce(new Error("boom"));
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
-  await waitFor(async () => expect((await radio("CONNECT", "deny")).hasAttribute("disabled")).toBe(false));
+  await rowsEnabled();
   fireEvent.click(await radio("CONNECT", "deny"));
   fireEvent.click(await radio("VIEW", "deny"));
   expect(await screen.findByText("boom")).toBeTruthy();
@@ -196,21 +209,57 @@ test("a failed save after a successful one falls back to the saved rules", async
   expect(await checked("VIEW", "inherit")).toBe("true");
 });
 
-test("a rule-set reload during queued saves keeps the newer draft", async () => {
+test("another client's edit shows up on the team's change event", async () => {
+  seed({ ruleSetId: "sOwn" });
+  render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  await rowsEnabled();
+  h.sets.sOwn = everyoneDenyConnect;
+  await teamEvent();
+  await waitFor(async () => expect(await checked("CONNECT", "deny")).toBe("true"));
+});
+
+test("a save keeps another client's edit made while the section was open", async () => {
+  seed({ ruleSetId: "sOwn" });
+  render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  await rowsEnabled();
+  const theirs = { subject_type: "member" as const, subject_id: "u2", allow: PERM_BITS.CONNECT, deny: 0 };
+  h.sets.sOwn = [theirs];
+  fireEvent.click(await radio("VIEW", "deny"));
+  await waitFor(() => expect(h.sets.sOwn).toEqual([theirs, { subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.VIEW }]));
+  expect(await screen.findByRole("button", { name: "@bob" })).toBeTruthy();
+});
+
+test("a reload that lands during queued saves is picked up once they drain", async () => {
+  seed({ ruleSetId: "sOwn" });
+  const first = deferred();
+  vi.mocked(saveObjectRules).mockImplementationOnce(async (t, edit) => { await first.promise; return serverSave(t, edit); });
+  render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
+  await rowsEnabled();
+  fireEvent.click(await radio("CONNECT", "deny"));
+  h.sets.sOwn = [{ subject_type: "member", subject_id: "u2", allow: PERM_BITS.VIEW, deny: 0 }];
+  await teamEvent();
+  expect(await checked("CONNECT", "deny")).toBe("true");
+  expect(screen.queryByRole("button", { name: "@bob" })).toBeNull();
+  first.resolve();
+  expect(await screen.findByRole("button", { name: "@bob" })).toBeTruthy();
+  expect(await checked("CONNECT", "deny")).toBe("true");
+});
+
+test("a repoint during queued saves keeps the newer draft", async () => {
   seed();
-  const connectDeny = [{ subject_type: "everyone" as const, subject_id: null, allow: 0, deny: PERM_BITS.CONNECT }];
-  vi.mocked(getRuleSet).mockImplementation(async (_team, setId) => (setId === "sNew" ? connectDeny : []));
   const first = deferred();
   const second = deferred();
   vi.mocked(saveObjectRules)
-    .mockImplementationOnce(async () => {
+    .mockImplementationOnce(async (_t, edit) => {
       await first.promise;
+      h.sets.sNew = edit(h.sets.sA ?? []);
       const c1 = useTeamObjectAccessStore.getState().byTeam.t1.c1;
       useTeamObjectAccessStore.getState().upsert("t1", "c1", { ...c1, ruleSetId: "sNew" });
+      return h.sets.sNew;
     })
-    .mockReturnValueOnce(second.promise);
+    .mockImplementationOnce(async (t, edit) => { await second.promise; return serverSave(t, edit); });
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
-  await waitFor(async () => expect((await radio("CONNECT", "deny")).hasAttribute("disabled")).toBe(false));
+  await rowsEnabled();
   fireEvent.click(await radio("CONNECT", "deny"));
   fireEvent.click(await radio("VIEW", "deny"));
   first.resolve();
@@ -219,6 +268,7 @@ test("a rule-set reload during queued saves keeps the newer draft", async () => 
   expect(await checked("VIEW", "deny")).toBe("true");
   second.resolve();
   await waitFor(() => expect(saveObjectRules).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(h.sets.sNew).toEqual([{ subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.CONNECT | PERM_BITS.VIEW }]));
   expect(await checked("VIEW", "deny")).toBe("true");
   expect(await checked("CONNECT", "deny")).toBe("true");
 });
@@ -228,11 +278,10 @@ test("switching to another object while a save is pending shows that object's ow
     c1: { type: "connection", ruleSetId: "s1", myPermissions: ALL_PERMISSION_BITS, parentId: null, deleted: false },
     c2: { type: "connection", ruleSetId: "s2", myPermissions: ALL_PERMISSION_BITS, parentId: null, deleted: false },
   }, true);
-  const viewDeny = [{ subject_type: "everyone" as const, subject_id: null, allow: 0, deny: PERM_BITS.VIEW }];
-  vi.mocked(getRuleSet).mockImplementation(async (_team, setId) => (setId === "s2" ? viewDeny : []));
+  h.sets.s2 = [{ subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.VIEW }];
   vi.mocked(saveObjectRules).mockReturnValueOnce(deferred().promise);
   const { rerender } = render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
-  await waitFor(async () => expect((await radio("CONNECT", "deny")).hasAttribute("disabled")).toBe(false));
+  await rowsEnabled();
   fireEvent.click(await radio("CONNECT", "deny"));
   rerender(<PermissionsSection objectId="c2" vaultId="t1" type="connection" />);
   await waitFor(async () => expect(await checked("VIEW", "deny")).toBe("true"));
@@ -264,12 +313,10 @@ test("denying Connect locks View secrets and Copy secrets, which depend on it", 
   expect(screen.getAllByText("shared.permissions.section.requiresConnect")).toHaveLength(2);
 });
 
-const everyoneDenyConnect = [{ subject_type: "everyone" as const, subject_id: null, allow: 0, deny: PERM_BITS.CONNECT }];
-
 test("locked + own rules: rows and add-subject disabled, Clear saves an empty set", async () => {
   lock.value = { locked: true, isOwner: true };
   seed({ ruleSetId: "sOwn" });
-  vi.mocked(getRuleSet).mockResolvedValue(everyoneDenyConnect);
+  h.sets.sOwn = everyoneDenyConnect;
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
 
   const clear = await screen.findByText("shared.businessLock.removeRules");
@@ -279,13 +326,14 @@ test("locked + own rules: rows and add-subject disabled, Clear saves an empty se
 
   fireEvent.click(clear);
   fireEvent.click(screen.getByText("shared.businessLock.confirmClear"));
-  await waitFor(() => expect(saveObjectRules).toHaveBeenCalledWith({ teamId: "t1", objectId: "c1", type: "connection" }, []));
+  await waitFor(() => expect(h.sets.sOwn).toEqual([]));
+  expect(saveObjectRules).toHaveBeenCalledWith(target, expect.any(Function));
 });
 
 test("locked + synced with its folder: banner but no Clear", async () => {
   lock.value = { locked: true, isOwner: true };
   seed();
-  vi.mocked(getRuleSet).mockResolvedValue(everyoneDenyConnect);
+  h.sets.sA = everyoneDenyConnect;
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
   expect(await screen.findByText("shared.permissions.section.syncedWith Prod")).toBeTruthy();
   expect(screen.getByText("shared.businessLock.objectLapsed")).toBeTruthy();
@@ -317,7 +365,7 @@ test("locked: only built-in roles are credited as sources", async () => {
     { id: "rb", name: "ops", permissions: PERM_BITS.CONNECT, is_builtin: true },
   ];
   seed({ ruleSetId: "sOwn" });
-  vi.mocked(getRuleSet).mockResolvedValue([{ subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.VIEW_SECRETS }]);
+  h.sets.sOwn = [{ subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.VIEW_SECRETS }];
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
   const text = (await connectRow()).parentElement!.textContent;
   expect(text).toContain("members.permissions.inheritedFrom ops");
@@ -327,7 +375,7 @@ test("locked: only built-in roles are credited as sources", async () => {
 test("locked: Sync now still works", async () => {
   lock.value = { locked: true, isOwner: true };
   seed({ ruleSetId: "sOwn" });
-  vi.mocked(getRuleSet).mockResolvedValue(everyoneDenyConnect);
+  h.sets.sOwn = everyoneDenyConnect;
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
   fireEvent.click(await screen.findByText("shared.permissions.section.syncNow"));
   expect(syncWithFolder).toHaveBeenCalledWith({ teamId: "t1", objectId: "c1", type: "connection" });

@@ -8,7 +8,7 @@ import { PermissionOverrideRow } from "@/components/members/panels/PermissionOve
 import { permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useRuleSet } from "@/hooks/useRuleSet";
-import { saveObjectRules, syncWithFolder } from "@/services/ruleSetEditing";
+import { saveObjectRules, syncWithFolder, type RuleEdit } from "@/services/ruleSetEditing";
 import { isSynced, setOfParent } from "@/services/ruleSetPointers";
 import {
   OBJECT_RULE_ROWS, PERM_BITS, applyOverrideState, overrideStateOf, resolveObjectPermissions,
@@ -133,7 +133,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   const pending = useRef(0);
   const generation = useRef(0);
   // Reset during render: an effect would clobber a click made right after load.
-  // A reload that lands while saves are queued predates them, so the draft is kept.
+  // A reload that lands while saves are queued is skipped; draining the queue reloads.
   if (loaded !== ruleSet.entries) {
     setLoaded(ruleSet.entries);
     if (pending.current === 0) {
@@ -182,30 +182,33 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
     return { from: sourceOf(from), grants: from.length > 0 };
   };
 
-  const save = (nextDraft: RuleEntry[]) => {
+  const save = (edit: RuleEdit) => {
     const gen = generation.current;
-    setDraft(nextDraft);
+    setDraft(edit);
     setError(null);
     pending.current += 1;
     chain.current = chain.current.then(async () => {
       try {
         if (gen !== generation.current) return;
-        await saveObjectRules(target, nextDraft);
-        lastSaved.current = nextDraft;
+        const saved = await saveObjectRules(target, edit);
+        if (saved) lastSaved.current = saved;
       } catch (e) {
         generation.current += 1;
         setDraft(lastSaved.current);
         setError(errorText(e));
       } finally {
         pending.current -= 1;
+        if (pending.current === 0) ruleSet.reload();
       }
     });
   };
 
   const change = (permission: Permission, next: OverrideState) => {
-    const current = entryFor(draft, selected);
-    const masks = applyOverrideState(permission, current?.allow ?? 0, current?.deny ?? 0, next);
-    save(withEntry(draft, selected, masks.allow, masks.deny));
+    save((entries) => {
+      const current = entryFor(entries, selected);
+      const masks = applyOverrideState(permission, current?.allow ?? 0, current?.deny ?? 0, next);
+      return withEntry(entries, selected, masks.allow, masks.deny);
+    });
   };
 
   const title = type === "key" ? "shared.permissions.section.titleKey"
@@ -231,7 +234,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
             teamId={teamId}
             message={t("shared.businessLock.objectLapsed")}
             removeLabel={t("shared.businessLock.removeRules")}
-            onRemove={!synced && draft.length > 0 ? async () => save([]) : undefined}
+            onRemove={!synced && draft.length > 0 ? async () => save(() => []) : undefined}
           />
           {isCredential && <p className="text-xs text-(--t-text-dim)">{t("shared.permissions.section.adminNote")}</p>}
           <div className="flex items-center justify-between gap-2 text-xs">
