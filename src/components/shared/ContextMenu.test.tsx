@@ -72,9 +72,18 @@ test("a root menu opened near the right edge renders inside the window", () => {
   const width = window.innerWidth;
   window.innerWidth = 1280;
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 190, height: 120 } as DOMRect);
-  render(<ContextMenu items={[{ label: "Change", onClick: () => {} }]} pos={{ x: 1180, y: 40 }} onClose={() => {}} />);
-  const menu = screen.getByText("Change").closest("[data-menu-portal]") as HTMLElement;
-  expect(menu.style.left).toBe("1082px");
-  vi.restoreAllMocks();
-  window.innerWidth = width;
+  try {
+    render(<ContextMenu items={[{ label: "Change", onClick: () => {} }]} pos={{ x: 1180, y: 40 }} onClose={() => {}} />);
+    const menu = screen.getByText("Change").closest("[data-menu-portal]") as HTMLElement;
+    expect(menu.style.left).toBe("1082px");
+  } finally {
+    vi.restoreAllMocks();
+    window.innerWidth = width;
+  }
+});
+
+test("labels and hints never wrap, so the measured width is the final width", () => {
+  render(<ContextMenu items={[{ label: "A long label", hint: "a hint", onClick: () => {} }]} pos={{ x: 0, y: 0 }} onClose={() => {}} />);
+  expect(screen.getByText("A long label").className).toContain("whitespace-nowrap");
+  expect(screen.getByText("a hint").className).toContain("whitespace-nowrap");
 });

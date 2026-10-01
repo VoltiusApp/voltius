@@ -85,10 +85,10 @@ export function MenuItemList({
               }}
             >
               {item.icon && <Icon icon={item.icon} width={16} className="shrink-0" />}
-              <span className="flex-1 text-left text-sm font-medium" style={{ color: item.danger ? "var(--t-status-error)" : "var(--t-text-primary)" }}>
+              <span className="flex-1 text-left text-sm font-medium whitespace-nowrap" style={{ color: item.danger ? "var(--t-status-error)" : "var(--t-text-primary)" }}>
                 {item.label}
               </span>
-              {item.hint && <span className="text-xs shrink-0 text-(--t-text-dim)">{item.hint}</span>}
+              {item.hint && <span className="text-xs shrink-0 whitespace-nowrap text-(--t-text-dim)">{item.hint}</span>}
               {item.shortcut && !item.children && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-sm font-mono shrink-0 bg-(--t-bg-elevated) text-(--t-text-dim) border border-(--t-border)">
                   {item.shortcut}
