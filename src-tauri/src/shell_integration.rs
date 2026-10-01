@@ -414,7 +414,7 @@ set -g default-terminal "xterm-256color"
 set -g history-limit 50000
 set -sg escape-time 0
 set -g destroy-unattached off
-set -ga terminal-overrides ',*:cnorm=\E[?25h'
+set -ga terminal-overrides ',*:cnorm=\E[?25h:Tc'
 EOF
     [ -n "$TMUX_PREFIX_NONE" ] && echo "set -g prefix None" >> "$TMUX_CONF"
     exec tmux -L {socket} -f "$TMUX_CONF" $CC new-session -A -s {key} $SZ "$V" <&2
@@ -861,6 +861,7 @@ mod tests {
         // cnorm/ve stripped of ?12l so multiplexer redraws don't disable the
         // user's cursor-blink setting (xterm.js maps DECRST 12 to blink off).
         assert!(script.contains("cnorm=\\E[?25h"));
+        assert!(script.contains(r"set -ga terminal-overrides ',*:cnorm=\E[?25h:Tc'"));
         assert!(script.contains("ti@:te@:ve=\\E[?25h"));
         assert!(script.contains("will not survive disconnects"));
         assert!(!inner.contains('"'));
