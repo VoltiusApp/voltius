@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { createWebglAddon } from "@/utils/webglAddon";
+import { suppressTerminalQueries } from "@/components/terminal/terminalQueries";
 import { disposeClosedTerminals, reattachTerminal, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useThemeStore } from "@/stores/themeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
@@ -50,6 +51,7 @@ function mountGuestTerminal(localSessionId: string, container: HTMLDivElement): 
   const fitAddon = new FitAddon();
   term.loadAddon(fitAddon);
   term.open(container);
+  const queryGuard = suppressTerminalQueries(term);
 
   try {
     term.loadAddon(createWebglAddon());
@@ -77,6 +79,7 @@ function mountGuestTerminal(localSessionId: string, container: HTMLDivElement): 
   entry.dispose = () => {
     detachOutput();
     onDataDispose.dispose();
+    queryGuard.dispose();
     term.dispose();
   };
   guestTerminals.set(localSessionId, entry);
