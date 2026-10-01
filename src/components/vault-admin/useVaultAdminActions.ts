@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
-import { deleteTeam } from "@/services/teamService";
+import { deleteTeam, renameTeam } from "@/services/teamService";
 import { markSelfDeparture } from "@/services/teamOffboarding";
 import { userFacingReason } from "@/services/errorReason";
 import { logFailure } from "@/lib/logger";
@@ -14,6 +14,11 @@ export interface VaultAdminCallbacks {
   onRenamed?: (name: string) => void;
   /** Fired after a successful delete or make-private, for hosts that must close. */
   onDone?: () => void;
+}
+
+export function deselectVault(id: string) {
+  const { selectedVaultIds, toggleVault } = useVaultStore.getState();
+  if (selectedVaultIds.includes(id)) toggleVault(id);
 }
 
 async function vaultToast(message: string, severity: "info" | "error") {
@@ -58,7 +63,21 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
 
   const rename = (nextName: string) => {
     const trimmed = nextName.trim();
-    if (!trimmed || !target.vaultId || trimmed === target.name) return;
+    if (!trimmed || trimmed === target.name) return;
+    const teamId = target.teamId;
+    if (teamId) {
+      void exclusive(async () => {
+        try {
+          await renameTeam(teamId, trimmed);
+          await useTeamStore.getState().loadTeams();
+          cb?.onRenamed?.(trimmed);
+        } catch (e) {
+          await failToast("settings.vaults.general.renameFailedToast", e);
+        }
+      });
+      return;
+    }
+    if (!target.vaultId) return;
     renameVault(target.vaultId, trimmed);
     cb?.onRenamed?.(trimmed);
   };
@@ -72,13 +91,26 @@ export function useVaultAdminActions(target: VaultAdminTarget, cb?: VaultAdminCa
    * stays filed under a named vault instead of becoming an orphan.
    */
   const remove = () => exclusive(async () => {
-    if (!target.vaultId) return;
-    try {
-      await deleteVaultWithContents(target.vaultId);
-    } catch (e) {
-      console.error("Failed to delete vault:", e);
-      await failToast("settings.vaults.general.deleteVault.failedToast", e);
-      return;
+    const { vaultId, teamId } = target;
+    if (teamId) {
+      try {
+        // "leave", not "self-deleted": the echo must still wipe this device's team copies, just without a removal notice.
+        markSelfDeparture(teamId, "leave");
+        await deleteTeam(teamId);
+      } catch (e) {
+        await failToast("settings.vaults.general.deleteVault.teamFailedToast", e);
+        return;
+      }
+      deselectVault(teamId);
+    }
+    if (vaultId) {
+      try {
+        await deleteVaultWithContents(vaultId);
+      } catch (e) {
+        console.error("Failed to delete vault:", e);
+        await failToast("settings.vaults.general.deleteVault.failedToast", e);
+        return;
+      }
     }
     cb?.onDone?.();
   });

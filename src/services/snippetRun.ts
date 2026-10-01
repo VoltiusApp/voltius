@@ -1,5 +1,5 @@
 import { useSessionStore } from "@/stores/sessionStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { allConnections } from "@/stores/connectionStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { broadcastSnippetInject } from "@/services/snippetInject";
 import { buildDynamicContext, resolveSnippetPayload, type SnippetPendingInject } from "@/services/snippetRunCore";
@@ -43,8 +43,7 @@ export async function runSnippetIntoSessions(
     .filter((s): s is TerminalSession => !!s && isRunnableSession(s));
   if (targets.length === 0) return false;
 
-  const { connections, teamConnections } = useConnectionStore.getState();
-  const allConns = [...connections, ...Object.values(teamConnections).flat()];
+  const allConns = allConnections();
 
   // Only read the clipboard when the snippet actually uses {{clipboard}} — otherwise
   // every run would trigger a clipboard-permission prompt (notably on Android).

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { useIsAndroid } from "@/utils/platform";
+import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 
 interface Pos { top?: number; bottom?: number; left?: number; right?: number; width?: number; maxHeight: number }
 
@@ -40,7 +41,7 @@ export function PickerSurface({
   gap?: number;
 }) {
   const isAndroid = useIsAndroid();
-  const surfaceRef = useRef<HTMLDivElement>(null);
+  const popover = useAnchoredPopover(open && !isAndroid, onClose, anchorRef);
   const [pos, setPos] = useState<Pos>({ left: 0, width: 0, maxHeight });
 
   // Desktop: measure the anchor on open, and keep the float pinned to it while open as the
@@ -73,31 +74,18 @@ export function PickerSurface({
     };
   }, [open, isAndroid, anchorRef, width, maxHeight, align, gap]);
 
-  // Desktop: outside-mousedown dismiss (ignores the anchor so the trigger toggles cleanly).
-  useEffect(() => {
-    if (!open || isAndroid) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Node;
-      // A submenu portals to the body, so it is not a DOM descendant of the surface
-      // that opened it. Dismissing on it would unmount the row before its click fires.
-      if ((t as Element).closest?.("[data-menu-portal]")) return;
-      if (!anchorRef.current?.contains(t) && !surfaceRef.current?.contains(t)) onClose();
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open, isAndroid, anchorRef, onClose]);
-
-  if (!open) return null;
-
   if (isAndroid) {
-    return <BottomSheet title={title} onClose={onClose}>{children}</BottomSheet>;
+    return open ? <BottomSheet title={title} onClose={onClose}>{children}</BottomSheet> : null;
   }
+
+  if (!popover.mounted) return null;
 
   return createPortal(
     <div
-      ref={surfaceRef}
-      className={`${glass ? "surface-glass-solid rounded-[var(--r-md)] animate-fadeIn" : "surface-float"} fixed p-1.5 z-9999 flex flex-col overflow-y-auto`}
+      ref={popover.panelRef}
+      className={`${glass ? "surface-glass-solid rounded-[var(--r-md)]" : "surface-float"} ${popover.className} fixed p-1.5 z-9999 flex flex-col overflow-y-auto`}
       style={{
+        ...popover.style,
         top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right,
         width: pos.width, minWidth, maxHeight: pos.maxHeight,
       }}

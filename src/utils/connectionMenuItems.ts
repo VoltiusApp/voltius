@@ -13,7 +13,7 @@ export interface ConnectionMenuOptions {
   pingDisabled: boolean;
   connectShortcut?: string;
   duplicateShortcut?: string;
-  onConnect: () => void;
+  onConnect?: () => void;
   onDuplicate?: () => void;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
@@ -45,7 +45,7 @@ export function buildConnectionMenuItems({
   t,
 }: ConnectionMenuOptions): ContextMenuItem[] {
   return [
-    { label: t("common.action.connect"), icon: "lucide:terminal", onClick: onConnect, shortcut: connectShortcut },
+    ...(onConnect ? [{ label: t("common.action.connect"), icon: "lucide:terminal", onClick: onConnect, shortcut: connectShortcut }] : []),
     ...(canEdit && onDuplicate ? [{ label: t("common.action.duplicate"), icon: "lucide:copy", onClick: onDuplicate, shortcut: duplicateShortcut }] : []),
     ...extras,
     ...contributions.map((a, i) => ({ ...a, divider: i === 0 })),

@@ -14,10 +14,9 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useAllKeys } from "@/hooks/useAllKeys";
 import { useAllIdentities } from "@/hooks/useAllIdentities";
 import { useAllFolders } from "@/hooks/useAllFolders";
-import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useFolderStore } from "@/stores/folderStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useMobileFolderScope } from "../folders/useMobileFolderScope";
 import { scopeItems, folderItemCount } from "../folders/mobileFolderCore";
 import type { SshKey, Identity, Folder } from "@/types";
 import { compareStrings, formatDate } from "@/utils/localeFormat";
@@ -47,10 +46,12 @@ function SectionHeader({ label, count }: { label: string; count: number }) {
 
 export default function MobileKeychainScreen() {
   const { t } = useTranslation();
-  const keys = useAllKeys();
-  const identities = useAllIdentities();
   const allFolders = useAllFolders();
-  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
+  const { inScope, can, nav, folderIds: kcFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "keychain");
+  const allKeys = useAllKeys();
+  const allIdentities = useAllIdentities();
+  const keys = useMemo(() => allKeys.filter(inScope), [allKeys, inScope]);
+  const identities = useMemo(() => allIdentities.filter(inScope), [allIdentities, inScope]);
   const push = useMobileNavStore((s) => s.push);
   const saveFolder = useFolderStore((s) => s.saveFolder);
   const updateFolder = useFolderStore((s) => s.updateFolder);
@@ -62,12 +63,6 @@ export default function MobileKeychainScreen() {
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [folderSheet, setFolderSheet] = useState<Folder | null>(null);
 
-  const kcFolders = useMemo(
-    () => allFolders.filter((f) => f.object_type === "keychain" && selectedVaultIds.includes(f.vault_id ?? "personal")),
-    [allFolders, selectedVaultIds],
-  );
-  const nav = useFolderNavigation(kcFolders);
-  const kcFolderIds = useMemo(() => new Set(kcFolders.map((f) => f.id)), [kcFolders]);
   const subFolders = useMemo(() => [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)), [nav.visibleFolders]);
 
   const q = search.trim();
@@ -89,7 +84,8 @@ export default function MobileKeychainScreen() {
   const isEmpty = subFolders.length === 0 && scopedKeys.length === 0 && scopedIdentities.length === 0;
   const folderCount = (id: string) => folderItemCount(keys, id) + folderItemCount(identities, id);
 
-  const targetVaultId = nav.folderPath[nav.folderPath.length - 1]?.vault_id ?? selectedVaultIds[0] ?? "personal";
+  const canCreateKey = can("EDIT_KEYS", targetVaultId);
+  const canCreateIdentity = can("EDIT_IDENTITIES", targetVaultId);
   const createFolder = (name: string) =>
     void saveFolder({ name, object_type: "keychain", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
 
@@ -98,11 +94,11 @@ export default function MobileKeychainScreen() {
       {nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={() => nav.setFolderPath((p) => p.slice(0, -1))} />)}
       <MobilePanelHeader
         title={t("mobile.morePages.keychain")}
-        right={
+        right={canCreateKey || canCreateIdentity || canCreateFolder ? (
           <button data-keychain-add onClick={() => setAddMenuOpen(true)} className="p-2 text-(--t-text-primary)">
             <Icon icon="lucide:plus" width={20} />
           </button>
-        }
+        ) : undefined}
       />
       <MobileFilterBar value={search} onChange={setSearch} placeholder={t("mobile.keychainScreen.filterPlaceholder")} />
       <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
@@ -111,7 +107,7 @@ export default function MobileKeychainScreen() {
         {!search && subFolders.length > 0 && (
           <div className="px-2 pt-1">
             {subFolders.map((f) => (
-              <MobileFolderRow key={f.id} name={f.name} count={folderCount(f.id)} onOpen={() => nav.navigateInto(f)} onActions={() => setFolderSheet(f)} />
+              <MobileFolderRow key={f.id} name={f.name} count={folderCount(f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />
             ))}
           </div>
         )}
@@ -163,11 +159,15 @@ export default function MobileKeychainScreen() {
       {addMenuOpen && (
         <AddChoiceSheet
           items={[
-            { slug: "generate-key", icon: "lucide:sparkles", label: t("mobile.keychainScreen.generateKey"), onTap: () => { setAddMenuOpen(false); push({ kind: "key-edit", mode: "generate" }); } },
-            { slug: "import-key", icon: "lucide:import", label: t("mobile.keychainScreen.importKey"), onTap: () => { setAddMenuOpen(false); push({ kind: "key-edit", mode: "import" }); } },
-            { slug: "identity", icon: "lucide:user-plus", label: t("mobile.keychainScreen.newIdentity"), onTap: () => { setAddMenuOpen(false); push({ kind: "identity-edit" }); } },
+            ...(canCreateKey ? [
+              { slug: "generate-key", icon: "lucide:sparkles", label: t("mobile.keychainScreen.generateKey"), onTap: () => { setAddMenuOpen(false); push({ kind: "key-edit", mode: "generate" }); } },
+              { slug: "import-key", icon: "lucide:import", label: t("mobile.keychainScreen.importKey"), onTap: () => { setAddMenuOpen(false); push({ kind: "key-edit", mode: "import" }); } },
+            ] : []),
+            ...(canCreateIdentity ? [
+              { slug: "identity", icon: "lucide:user-plus", label: t("mobile.keychainScreen.newIdentity"), onTap: () => { setAddMenuOpen(false); push({ kind: "identity-edit" }); } },
+            ] : []),
           ]}
-          onNewFolder={() => { setAddMenuOpen(false); setAddFolderOpen(true); }}
+          onNewFolder={canCreateFolder ? () => { setAddMenuOpen(false); setAddFolderOpen(true); } : undefined}
           onClose={() => setAddMenuOpen(false)}
         />
       )}

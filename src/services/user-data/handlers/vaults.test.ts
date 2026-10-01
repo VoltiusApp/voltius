@@ -106,7 +106,7 @@ describe("vaultsHandler export/import", () => {
     useVaultStore.getState().setVaultTeamId("personal", "t1");
     const section = vaultsHandler.export() as VaultsSection;
 
-    expect(section.personal).toMatchObject({ name: "Personal", teamId: "t1" });
+    expect(section.personal).toMatchObject({ name: "", teamId: "t1" });
   });
 
   test("importing a personal row links the built-in vault instead of adding a second one", async () => {

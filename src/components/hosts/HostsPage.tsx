@@ -32,6 +32,7 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { usePermissions } from "@/hooks/usePermission";
+import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
@@ -188,6 +189,8 @@ export default function HostsPage() {
   const scopedFolders = useScopedFolders(folders, accessibleVaultIds, "connection");
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
+  useCloseWhenGone(editingId, editing !== null, () => { setShowForm(false); setShowSerialForm(false); setEditingId(null); });
+  useCloseWhenGone(editingFolderId, editingFolder !== null, () => setEditingFolderId(null));
 
   const {
     folderPath,
@@ -874,7 +877,6 @@ export default function HostsPage() {
               onSelectSelf={() => selectSingle(editingFolder.id)}
               parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-              canEdit={can("EDIT_FOLDERS", editingFolder.vault_id ?? "personal", editingFolder.id)}
               onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
               onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
             />
@@ -890,7 +892,6 @@ export default function HostsPage() {
               onConnect={editing ? () => void handleConnect(editing) : undefined}
               onDelete={editing ? () => { deleteConnection(editing.id); setShowSerialForm(false); setEditingId(null); } : undefined}
               vaults={editing ? vaultOptions.filter((v) => v.id !== (editing.vault_id ?? "personal")) : []}
-              canEdit={editing ? can("EDIT_CONNECTIONS", editing.vault_id ?? "personal", editing.id) : false}
               onMoveToVault={editing ? (vaultId) => { void handleMoveConnectionToVault(editing, vaultId); } : undefined}
               onCopyToVault={editing ? (vaultId) => { void handleCopyConnectionToVault(editing, vaultId); } : undefined}
             />
@@ -906,7 +907,6 @@ export default function HostsPage() {
               onConnect={editing ? () => void handleConnect(editing) : undefined}
               onDelete={editing ? () => { deleteConnection(editing.id); setShowForm(false); setEditingId(null); } : undefined}
               vaults={editing ? vaultOptions.filter((v) => v.id !== (editing.vault_id ?? "personal")) : []}
-              canEdit={editing ? can("EDIT_CONNECTIONS", editing.vault_id ?? "personal", editing.id) : false}
               onMoveToVault={editing ? (vaultId) => { void handleMoveConnectionToVault(editing, vaultId); } : undefined}
               onCopyToVault={editing ? (vaultId) => { void handleCopyConnectionToVault(editing, vaultId); } : undefined}
             />

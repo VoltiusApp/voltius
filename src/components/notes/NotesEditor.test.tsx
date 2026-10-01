@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { act, forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useState } from "react";
 import { EditorState, type Extension } from "@codemirror/state";
 import { keymap, type EditorView } from "@codemirror/view";
@@ -78,7 +78,7 @@ describe("NotesEditor", () => {
     ["notes.toolbar.heading", "notes.toolbar.h2", "Ctrl+Shift+2", "## title"],
     ["notes.toolbar.more", "notes.toolbar.codeBlock", null, "\n```\n\n```title"],
     ["notes.toolbar.more", "notes.toolbar.code", null, "``title"],
-  ])("the %s menu runs %s without taking focus from the editor", (trigger, row, shortcut, expected) => {
+  ])("the %s menu runs %s without taking focus from the editor", async (trigger, row, shortcut, expected) => {
     const { onChange } = renderEditor({ value: "title" });
     const button = screen.getByTitle(trigger);
     expect(fireEvent.mouseDown(button)).toBe(false);
@@ -88,7 +88,7 @@ describe("NotesEditor", () => {
     expect(fireEvent.mouseDown(item)).toBe(false);
     fireEvent.click(item);
     expect(onChange).toHaveBeenLastCalledWith(expected);
-    expect(screen.queryByText(row)).toBeNull();
+    await waitFor(() => expect(screen.queryByText(row)).toBeNull());
   });
 
   test("the toolbar keeps to one row: headings and code live in menus", () => {

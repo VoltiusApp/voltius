@@ -110,9 +110,6 @@
     "vaultUnavailable": {
       "note": "Kasa okunamadığı için kayıtlı gizli bilgiler burada gösterilmiyor. Kayıtlı değeri korumak için alanı boş bırakın; yeni bir değer yazarsanız kayıtlı değerin yerini alır."
     },
-    "storedSecrets": {
-      "forbidden": "Bu kasadaki rolünüz kayıtlı gizli bilgileri göremediği için bu alanlar boş bırakıldı. Bağlanmaya devam edebilirsiniz — kayıtlı kimlik bilgisi size gösterilmeden kullanılır."
-    },
     "teamCredentials": {
       "unavailable": "Bu ekip kasasının kayıtlı kimlik bilgileri yüklenemedi; bu nedenle kayıtlı parola, anahtar veya parola ifadesi gerektiren sunuculara bağlanılamayacak. Bir kasa yöneticisinden, rolünüze kasadaki gizli bilgilere erişim izni vermesini isteyin."
     },
@@ -156,6 +153,7 @@
         "searchSubjects": "Rol ve üye ara…",
         "noSubjectsLeft": "Tüm roller ve üyeler zaten listede",
         "use": "Kullan",
+        "requiresConnect": "{{connect}} gerekir",
         "roleCount_one": "{{count}} rol",
         "roleCount_other": "{{count}} rol",
         "loadFailed": "İzinler yüklenemedi"

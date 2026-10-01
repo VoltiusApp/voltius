@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, type RefAttributes, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ConnectionFormData } from "@/types";
 import { useAutosave } from "@/hooks/useAutosave";
@@ -35,11 +35,12 @@ import {
 } from "./formShared";
 import { formatNumber } from "@/utils/localeFormat";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
+import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 
 const BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 
-const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProps>(function SerialConnectionForm(
-  { initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, canEdit },
+const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFormProps & EditAccessProps>(function SerialConnectionFormEditor(
+  { initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, readOnly },
   ref,
 ) {
   const { t } = useTranslation();
@@ -126,6 +127,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
       return onSubmit(data, { password: pwd, privateKey: pk, passphrase: null, proxyPassword: null }) ?? undefined;
     },
     canSave: () => !!serialPort.trim(),
+    readOnly,
   });
   const markDirty = useCallback(() => {
     userEditedRef.current = true;
@@ -143,7 +145,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
     ? [
         ...(onConnect ? [{ label: t("common.action.connect"), icon: "lucide:terminal", onClick: () => onConnect() }] : []),
         ...(onDuplicate ? [{ label: t("connections.serialForm.duplicate"), icon: "lucide:copy", onClick: () => onDuplicate(), divider: true as const }] : []),
-        ...(canEdit && onDelete ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(), danger: true as const, divider: true as const }] : []),
+        ...(!readOnly && onDelete ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(), danger: true as const, divider: true as const }] : []),
       ]
     : [];
 
@@ -152,7 +154,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:ethernet-port"}
         title={initial ? t("connections.serialForm.titleEdit") : t("connections.serialForm.titleNew")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} disabled={readOnly} />}
         onClose={handleClose}
         saveState={initial ? saveState : undefined}
         actions={initial ? (
@@ -166,6 +168,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
       <div className="flex flex-col flex-1 overflow-y-auto">
         <div className="flex-1 px-4 py-4 space-y-3">
 
+          <ReadOnlyFields readOnly={readOnly} className="space-y-3">
           <FormSection label={t("connections.common.general")}>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.labelField")}</label>
@@ -307,14 +310,17 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
               <HostCommandFields connectionId={initial?.id} fields={hostCommands} markDirty={markDirty} />
             </AdvancedDisclosure>
           </FormSection>
+          </ReadOnlyFields>
 
-          <NotesSection value={notes} onChange={(v) => { markDirty(); setNotes(v); }} readOnly={!canEdit} />
+          <NotesSection value={notes} onChange={(v) => { markDirty(); setNotes(v); }} readOnly={readOnly} />
           {initial && <PermissionsSection objectId={initial.id} vaultId={initial.vault_id} type="connection" />}
         </div>
       </div>
     </PanelShell>
   );
 });
+
+const SerialConnectionForm = withEditAccess("connection", (p: ConnectionFormProps & RefAttributes<ConnectionFormHandle>) => p.initial, SerialConnectionFormEditor);
 
 export default SerialConnectionForm;
 export type { ConnectionFormHandle as SerialConnectionFormHandle };

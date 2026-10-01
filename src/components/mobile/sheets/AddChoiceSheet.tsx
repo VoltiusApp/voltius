@@ -8,14 +8,14 @@ export default function AddChoiceSheet({
   items, onNewFolder, onClose,
 }: {
   items: SheetAction[];
-  onNewFolder: () => void;
+  onNewFolder?: () => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   return (
     <BottomSheet title={t("common.action.add")} onClose={onClose} registerBack={false}>
       {items.map((it) => <Row key={it.slug} {...it} />)}
-      <Row slug="folder" icon="lucide:folder-plus" label={t("mobile.snippets.newFolderTitle")} onTap={onNewFolder} />
+      {onNewFolder && <Row slug="folder" icon="lucide:folder-plus" label={t("mobile.snippets.newFolderTitle")} onTap={onNewFolder} />}
     </BottomSheet>
   );
 }

@@ -11,7 +11,7 @@ import { writeClipboard } from "@/utils/clipboard";
 import { createTextDecoder, encodeTerminalInput } from "@/utils/terminalEncoding";
 import { log as appLog } from "@/lib/logger";
 import i18n from "@/i18n";
-import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
+import { useConnectionStore, connectionToFormData, findAnyConnection } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { localConnect, localSendInput } from "@/services/local";
@@ -174,14 +174,6 @@ interface SessionSnapshot {
   localShell?: string;
 }
 
-function findConnection(connectionId: string) {
-  const { connections, teamConnections } = useConnectionStore.getState();
-  return (
-    connections.find((c) => c.id === connectionId) ??
-    Object.values(teamConnections).flat().find((c) => c.id === connectionId)
-  );
-}
-
 /** In-memory team connections, keyed off the teams the user is actually in so a
  * stale cache for a team they left cannot resurface. Mirrors `useAllConnections`. */
 function teamConnectionList() {
@@ -264,7 +256,7 @@ function ensureLifecycleSetup() {
     for (const [sid, snap] of currentMap) {
       const prev = prevSessions.get(sid);
       if (snap.status === "connected" && prev?.status !== "connected") {
-        const conn = findConnection(snap.connectionId);
+        const conn = findAnyConnection(snap.connectionId);
         if (conn) _onConnectionEstablished.forEach((cb) => safeCall(cb, conn as PluginConnection));
         const session: PluginSession = { id: sid, ...snap };
         _onSessionConnected.forEach((cb) => safeCall(cb, session));
@@ -275,7 +267,7 @@ function ensureLifecycleSetup() {
       if (snap.status !== "connected") continue;
       const curr = currentMap.get(sid);
       if (!curr || curr.status === "disconnected") {
-        const conn = findConnection(snap.connectionId);
+        const conn = findAnyConnection(snap.connectionId);
         if (conn) _onConnectionClosed.forEach((cb) => safeCall(cb, conn as PluginConnection));
         const session: PluginSession = { id: sid, ...snap };
         _onSessionDisconnected.forEach((cb) => safeCall(cb, session));
@@ -649,7 +641,7 @@ const snippetPorts: SnippetPorts = {
         if (s) targets.push({ kind: "session", sessionId: s.id, sessionType: s.type, label: s.connectionName });
         else unknown.push(ref.session_id);
       } else if (ref.connection_id) {
-        const c = findConnection(ref.connection_id);
+        const c = findAnyConnection(ref.connection_id);
         if (c) targets.push({ kind: "connection", connection: c });
         else unknown.push(ref.connection_id);
       }
@@ -982,7 +974,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const cryptoApi = createCryptoAPI();
   const i18nApi = createI18nAPI();
   const proxmoxApi = createProxmoxAPI();
-  const sftpApi = createSftpAPI(findConnection);
+  const sftpApi = createSftpAPI(findAnyConnection);
   _sftpDisposers.set(id, () => sftpApi.dispose());
   const dockerApi = createDockerAPI(streamsApi);
   const vaultsApi = createVaultsAPI(vaultPorts);
@@ -1546,7 +1538,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         }
         if (!whileActive("audit.record")) return;
 
-        const conn = connectionId ? findConnection(connectionId) : undefined;
+        const conn = connectionId ? findAnyConnection(connectionId) : undefined;
         // A scope matching no connection may still be a team id: the membership
         // verbs scope on the team, and only a team context is forwarded to the
         // team server. Promote ONLY on kind === "team" — for an unknown id

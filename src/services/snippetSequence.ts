@@ -12,7 +12,7 @@ import { snippetInject } from "./snippetInject";
 import { readClipboard } from "@/utils/clipboard";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { allConnections } from "@/stores/connectionStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import type { ToastSeverity } from "@/plugins/api";
 import { useUIStore } from "@/stores/uiStore";
@@ -270,8 +270,7 @@ export function buildTargetContext(target: RunTarget, clipboard = ""): DynamicCo
   }
   if (target.context) return { ...target.context, clipboard };
   const sess = useSessionStore.getState().sessions.find((s) => s.id === target.sessionId);
-  const conns = useConnectionStore.getState().connections;
-  return buildDynamicContext(sess, conns, clipboard);
+  return buildDynamicContext(sess, allConnections(), clipboard);
 }
 
 async function prepareTarget(target: RunTarget, steps: LeafStep[]): Promise<PreparedTarget> {

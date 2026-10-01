@@ -55,21 +55,25 @@ export function filterRemoteExcluded(
     if (content != null) files[f] = filterEntityArrayJson(content, excluded);
   }
 
-  const keep = (key: string): boolean => {
-    const id = secretObjectId(key);
-    return !(id != null && excluded.has(id));
-  };
-  const filterMap = (m: Record<string, string> | undefined): Record<string, string> => {
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(m ?? {})) if (keep(k)) out[k] = v;
-    return out;
-  };
-
   return {
     files,
-    secrets: filterMap(payload.secrets),
-    secret_clocks: filterMap(payload.secret_clocks),
+    ...filterSecrets(payload, (id) => !(id != null && excluded.has(id))),
   };
+}
+
+export type SecretMaps = Required<Pick<BlobPayload, "secrets" | "secret_clocks">>;
+
+/** Both maps filtered alike, so no dropped secret leaves a clock behind to read as a tombstone. */
+export function filterSecrets(
+  payload: BlobPayload,
+  keep: (objectId: string | null) => boolean,
+): SecretMaps {
+  const filterMap = (m: Record<string, string> | undefined): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(m ?? {})) if (keep(secretObjectId(k))) out[k] = v;
+    return out;
+  };
+  return { secrets: filterMap(payload.secrets), secret_clocks: filterMap(payload.secret_clocks) };
 }
 
 /**

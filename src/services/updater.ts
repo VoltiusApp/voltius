@@ -54,12 +54,12 @@ export async function openDownloadPage() {
   await openUrl("https://voltius.app/download");
 }
 
-/** Whether the background updater loop is allowed to run. */
+/** Whether updates download without asking; checks always run. */
 export async function getAutoUpdate(): Promise<boolean> {
   return invoke<boolean>("updater_get_auto");
 }
 
-/** Enable/disable the background updater loop. */
+/** Enable/disable downloading updates without asking. */
 export async function setAutoUpdate(enabled: boolean): Promise<void> {
   await invoke("updater_set_auto", { enabled });
 }

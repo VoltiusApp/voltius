@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamObjectAccessStore } from "@/stores/teamObjectAccessStore";
-import { getMyUserId } from "@/services/teamService";
+import { useMyUserId } from "@/hooks/useMyUserId";
 import {
   resolveCan,
+  EDIT_PERMISSION_OF,
   PERM_BITS,
   effectivePermissions,
   hasBuiltinRole,
   type Permission,
 } from "@/services/permissions";
+import type { TeamObjectType } from "@/services/teamObjects";
 
 export { PERM_BITS, effectivePermissions, hasBuiltinRole };
 export type { Permission };
@@ -28,11 +30,7 @@ export function usePermissions(): (permission: Permission, vaultId: string, obje
   const loadMembers = useTeamStore((s) => s.loadMembers);
   const loadRoles = useTeamStore((s) => s.loadRoles);
   const objectAccess = useTeamObjectAccessStore((s) => s.byTeam);
-  const [myUserId, setMyUserId] = useState("");
-
-  useEffect(() => {
-    getMyUserId().then((id) => { if (id) setMyUserId(id); }).catch(() => {});
-  }, []);
+  const myUserId = useMyUserId();
 
   useEffect(() => {
     if (teams.length === 0) { loadTeams().catch(() => {}); return; }
@@ -50,4 +48,10 @@ export function usePermissions(): (permission: Permission, vaultId: string, obje
       objectId,
     );
   }, [teams, membersByTeam, rolesByTeam, objectAccess, myUserId]);
+}
+
+/** Whether the caller may edit `object`; a not-yet-saved object is always editable. */
+export function useCanEditObject(type: TeamObjectType, object?: { id: string; vault_id?: string }): boolean {
+  const can = usePermissions();
+  return !object || can(EDIT_PERMISSION_OF[type], object.vault_id || "personal", object.id);
 }

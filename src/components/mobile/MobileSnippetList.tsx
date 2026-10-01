@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useAllSnippetFolders } from "@/hooks/useAllSnippetFolders";
-import { useFolderNavigation } from "@/hooks/useFolderNavigation";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useAllSnippets } from "@/hooks/useAllSnippets";
+import { useMobileFolderScope } from "@/components/mobile/folders/useMobileFolderScope";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { scopeItems, folderItemCount } from "@/components/mobile/folders/mobileFolderCore";
@@ -22,9 +22,9 @@ export default function MobileSnippetList({
   currentSessionId, addFolderOpen = false, onCloseAddFolder,
 }: { currentSessionId?: string; addFolderOpen?: boolean; onCloseAddFolder?: () => void }) {
   const { t } = useTranslation();
-  const snippets = useSnippetStore((s) => s.snippets);
+  const snippets = useAllSnippets();
   const allSnippetFolders = useAllSnippetFolders();
-  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
+  const { inScope, nav, folderIds: snFolderIds, targetVaultId, canEditFolder } = useMobileFolderScope(allSnippetFolders, "snippet");
   const openSheet = useMobileNavStore((s) => s.openSheet);
   const setTab = useMobileNavStore((s) => s.setTab);
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
@@ -36,16 +36,9 @@ export default function MobileSnippetList({
 
   const foldersEnabled = !currentSessionId;
 
-  const snFolders = useMemo(
-    () => allSnippetFolders.filter((f) => f.object_type === "snippet" && selectedVaultIds.includes(f.vault_id ?? "personal")),
-    [allSnippetFolders, selectedVaultIds],
-  );
-  const nav = useFolderNavigation(snFolders);
-  const snFolderIds = useMemo(() => new Set(snFolders.map((f) => f.id)), [snFolders]);
-
   const inVault = useMemo(
-    () => snippets.filter((s) => !s.deleted_at && selectedVaultIds.includes(s.vault_id ?? "personal")),
-    [snippets, selectedVaultIds],
+    () => snippets.filter((s) => !s.deleted_at && inScope(s)),
+    [snippets, inScope],
   );
 
   const subFolders = useMemo(
@@ -59,7 +52,6 @@ export default function MobileSnippetList({
       .sort((a, b) => compareStrings(a.name, b.name));
   }, [foldersEnabled, inVault, nav.activeFolderId, snFolderIds, search]);
 
-  const targetVaultId = nav.folderPath[nav.folderPath.length - 1]?.vault_id ?? selectedVaultIds[0] ?? "personal";
   const createFolder = (name: string) =>
     void saveFolder({ name, object_type: "snippet", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
 
@@ -95,7 +87,7 @@ export default function MobileSnippetList({
             name={f.name}
             count={folderItemCount(inVault, f.id)}
             onOpen={() => nav.navigateInto(f)}
-            onActions={() => setFolderSheet(f)}
+            onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined}
           />
         ))}
         {visible.length === 0 && subFolders.length === 0 && (

@@ -16,7 +16,8 @@ const h = vi.hoisted(() => ({
   unlockVault: vi.fn(async () => undefined as void),
   unlocked: false,
   rekeyError: null as Error | null,
-  wipeLocalConfig: vi.fn(async () => undefined),
+  wipeLocalConfig: vi.fn(async (_carry?: Record<string, string>) => undefined),
+  readLocalSecrets: vi.fn(async (_keys: string[]) => ({}) as Record<string, string>),
   load: vi.fn(async () => undefined),
   keysSet: vi.fn(),
   store: {} as Record<string, string | null>,
@@ -44,6 +45,7 @@ vi.mock("./vault", () => ({
   getVaultStatus: h.getVaultStatus,
   unlockVaultIfNeeded: h.unlockVault,
   wipeLocalConfig: h.wipeLocalConfig,
+  readLocalSecrets: h.readLocalSecrets,
   resetVault: vi.fn(async () => undefined),
 }));
 vi.mock("@/stores/subscriptionStore", () => ({
@@ -69,6 +71,7 @@ import {
 } from "./account";
 import { VaultUnreadableError } from "./vaultErrors";
 import { DEFAULT_SERVER_URL, lastServerUrl } from "@/utils/serverInstance";
+import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
 
 const S = "https://srv";
 const TOKENS = { jwt_token: "JWT", refresh_token: "RT" };
@@ -133,6 +136,7 @@ const err = (status: number, body: unknown = {}) => ({ ok: false, status, body }
 
 beforeEach(() => {
   for (const m of [h.invoke, h.appFetch, h.setVaultKey, h.wipeLocalConfig, h.load, h.keysSet]) m.mockReset();
+  h.readLocalSecrets.mockReset().mockResolvedValue({});
   h.getVaultStatus.mockReset();
   h.getVaultStatus.mockResolvedValue({ exists: false, path: "" });
   h.verifyVaultKey.mockReset();
@@ -436,6 +440,21 @@ test("signInToCloud wipes the previous local vault on success", async () => {
   expect(h.wipeLocalConfig).toHaveBeenCalledTimes(1);
   expect(h.store.mode).toBe("server");
   expect(h.load).toHaveBeenCalled();
+});
+
+test("signInToCloud carries the device-only proxy password, read under the outgoing key, through the wipe", async () => {
+  h.sessionKey = [7, 7, 7];
+  let keyWhenRead: number[] | null = null;
+  h.readLocalSecrets.mockImplementation(async () => {
+    keyWhenRead = h.sessionKey;
+    return { [GLOBAL_PROXY_PASSWORD_KEY]: "proxy-pw" };
+  });
+  h.http["/auth/challenge"] = ok({ account_id: "acc" });
+  h.http["/auth/login"] = ok(TOKENS);
+  await signInToCloud("a@b.co", "pw", S);
+  expect(h.readLocalSecrets).toHaveBeenCalledWith([GLOBAL_PROXY_PASSWORD_KEY]);
+  expect(keyWhenRead).toEqual([7, 7, 7]);
+  expect(h.wipeLocalConfig).toHaveBeenCalledWith({ [GLOBAL_PROXY_PASSWORD_KEY]: "proxy-pw" });
 });
 
 // ─── linkToCloud ─────────────────────────────────────────────────────────────

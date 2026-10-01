@@ -148,7 +148,8 @@ test("can() passes the resolved user id from getMyUserId once it loads", async (
 test("can() passes an empty user id when getMyUserId resolves null", async () => {
   h.getMyUserId.mockResolvedValue(null);
   const { result } = renderHook(() => usePermissions());
-  await waitFor(() => expect(h.getMyUserId).toHaveBeenCalled());
-  result.current("CONNECT", "v1");
-  expect(last(h.resolveCan.mock.calls)[0].myUserId).toBe("");
+  await waitFor(() => {
+    result.current("CONNECT", "v1");
+    expect(last(h.resolveCan.mock.calls)[0].myUserId).toBe("");
+  });
 });

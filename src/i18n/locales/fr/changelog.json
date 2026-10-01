@@ -1,6 +1,7 @@
 {
   "changelog": {
     "title": "Nouveautés",
+    "autoDownload": "Téléchargement auto",
     "quickLinks": {
       "documentation": "Documentation"
     },

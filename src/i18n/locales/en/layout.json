@@ -247,6 +247,7 @@
       "rename": "Rename…",
       "makePrivate": "Make private…",
       "delete": "Delete vault…",
+      "leave": "Leave vault…",
       "openMenu": "Vault menu"
     },
     "vaultSidebar": {

@@ -356,9 +356,7 @@ pub fn spawn_background_checks(handle: AppHandle) {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(4 * 60 * 60));
         loop {
             interval.tick().await;
-            if crate::commands::sync::updater_auto_enabled() {
-                check_for_update(&handle, true).await;
-            }
+            check_for_update(&handle, crate::commands::sync::updater_auto_enabled()).await;
         }
     });
 }

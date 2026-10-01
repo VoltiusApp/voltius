@@ -1,10 +1,9 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import i18n from "@/i18n";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
-import { useClickOutside } from "@/hooks/useClickOutside";
-import { usePopoverFade } from "@/hooks/useDelayedUnmount";
+import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 import type { SyncStatus } from "@/services/sync";
 import { syncStatusColor } from "@/services/syncStatus";
 import { runManualSync } from "@/services/syncIntent";
@@ -215,9 +214,7 @@ interface SyncDropdownProps {
 
 export function SyncDropdown({ anchorRef, open, onClose, providers, installer }: SyncDropdownProps) {
   const { t } = useTranslation();
-  const panelRef = useRef<HTMLDivElement>(null);
-  useClickOutside(panelRef, onClose, open);
-  const fade = usePopoverFade(open);
+  const fade = useAnchoredPopover(open, onClose, anchorRef);
 
   if (!fade.mounted) return null;
 
@@ -233,7 +230,7 @@ export function SyncDropdown({ anchorRef, open, onClose, providers, installer }:
 
   return (
     <div
-      ref={panelRef}
+      ref={fade.panelRef}
       className={`surface-float fixed z-50 w-64 overflow-hidden ${fade.className}`}
       style={{ top, right, ...fade.style }}
     >

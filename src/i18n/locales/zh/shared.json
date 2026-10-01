@@ -110,9 +110,6 @@
     "vaultUnavailable": {
       "note": "无法读取保管库，因此此处不显示已保存的密钥。留空以保留已保存的内容；输入新值将替换它。"
     },
-    "storedSecrets": {
-      "forbidden": "你在此保险库中的角色无法查看已存储的密钥，因此这些字段留空。连接仍然可用——已保存的凭据会被使用，但不会显示。"
-    },
     "teamCredentials": {
       "unavailable": "无法加载此团队保险库中存储的凭据，因此需要已保存密码、密钥或密钥口令的主机将无法连接。请让保险库管理员为你的角色授予访问保险库密钥的权限。"
     },
@@ -156,6 +153,7 @@
         "searchSubjects": "搜索角色和成员…",
         "noSubjectsLeft": "所有角色和成员都已列出",
         "use": "使用",
+        "requiresConnect": "需要{{connect}}",
         "roleCount_one": "{{count}} 个角色",
         "roleCount_other": "{{count}} 个角色",
         "loadFailed": "无法加载权限"

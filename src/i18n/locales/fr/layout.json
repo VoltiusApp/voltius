@@ -251,6 +251,7 @@
       "rename": "Renommer…",
       "makePrivate": "Rendre privé…",
       "delete": "Supprimer le coffre…",
+      "leave": "Quitter le coffre-fort…",
       "openMenu": "Menu du coffre"
     },
     "vaultSidebar": {

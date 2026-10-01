@@ -49,29 +49,6 @@ export interface SettingDef {
   set?(value: unknown): void;
 }
 
-const TOGGLE_CATEGORY_PREFIX = "settings.toggleDefs.category.";
-
-/** Les catégories que TOGGLE_DEFS déclare réellement, lues sur ses littéraux :
- *  ajouter une bascule dans une nouvelle catégorie casse la compilation de
- *  TOGGLE_SECTION au lieu de la ranger silencieusement dans "appearance". */
-type ToggleCategory =
-  (typeof TOGGLE_DEFS)[ToggleId]["descriptionKey"] extends `${typeof TOGGLE_CATEGORY_PREFIX}${infer C}`
-    ? C
-    : never;
-
-/** La catégorie déclarée par TOGGLE_DEFS, traduite en section de l'écran Settings.
- *  `updates` vise `about` : c'est AboutSection qui rend la bascule du changelog
- *  et la préférence de mise à jour automatique. */
-export const TOGGLE_SECTION: Record<ToggleCategory, SettingsSection> = {
-  appearance: "appearance",
-  portForwarding: "portForwarding",
-  sftp: "sftp",
-  hosts: "hosts",
-  updates: "about",
-  plugins: "plugins",
-  integrations: "integrations",
-};
-
 /** Éteindre est la seule direction dangereuse d'une bascule de sûreté. */
 const turningOff: SettingConsequence["weakens"] = (next) => next === false;
 
@@ -97,13 +74,12 @@ export const GUARDED: Record<string, SettingConsequence> = {
 function toggleDefs(): SettingDef[] {
   return (Object.keys(TOGGLE_DEFS) as ToggleId[]).map((id) => {
     const def = TOGGLE_DEFS[id];
-    const category = def.descriptionKey.slice(TOGGLE_CATEGORY_PREFIX.length) as ToggleCategory;
     const key = `toggles.${id}`;
     return {
       key,
       type: "boolean" as const,
       default: def.default,
-      section: TOGGLE_SECTION[category],
+      section: def.section,
       labelKey: def.labelKey,
       writable: true,
       consequence: GUARDED[key],

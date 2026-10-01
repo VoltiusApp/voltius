@@ -11,6 +11,7 @@ import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVau
 import { useConnectionStore } from "@/stores/connectionStore";
 import type { PortForwardingRule, PortForwardingRuleFormData, TunnelType } from "@/types";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
+import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 
 interface Props {
   rule?: PortForwardingRule | null;
@@ -94,7 +95,9 @@ function FieldHelp({ children }: { children: React.ReactNode }) {
   return <p className="mt-1 text-[10px] leading-relaxed text-(--t-text-dim)">{children}</p>;
 }
 
-export function RuleForm({ rule, onSave, onClose, isDirtyRef }: Props) {
+export const RuleForm = withEditAccess("port_forwarding_rule", (p: Props) => p.rule ?? undefined, RuleFormEditor);
+
+function RuleFormEditor({ rule, onSave, onClose, isDirtyRef, readOnly }: Props & EditAccessProps) {
   const { t } = useTranslation();
   const TUNNEL_TYPES = useMemo(() => buildTunnelTypes(t), [t]);
   const userEditedRef = useRef(false);
@@ -175,6 +178,7 @@ export function RuleForm({ rule, onSave, onClose, isDirtyRef }: Props) {
   const { schedule, markDirty: markAutosaveDirty, flushAndClose, saveState } = useAutosave({
     onSave: () => onSave(buildSaveData()) ?? undefined,
     canSave,
+    readOnly,
   });
 
   function markDirty() {
@@ -206,11 +210,12 @@ export function RuleForm({ rule, onSave, onClose, isDirtyRef }: Props) {
       <PanelHeader
         title={rule ? t("portForwarding.ruleForm.editRule") : t("portForwarding.ruleForm.newRule")}
         icon="lucide:network"
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(v) => { vaultPickerTouched.current = true; markDirty(); setVaultId(v); }} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={(v) => { vaultPickerTouched.current = true; markDirty(); setVaultId(v); }} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}
       />
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <ReadOnlyFields readOnly={readOnly} className="space-y-4">
         <FormSection label={t("portForwarding.ruleForm.general")}>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.name")}</label>
@@ -358,6 +363,7 @@ export function RuleForm({ rule, onSave, onClose, isDirtyRef }: Props) {
             </div>
           )}
         </FormSection>
+        </ReadOnlyFields>
         {rule && <PermissionsSection objectId={rule.id} vaultId={rule.vault_id} type="port_forwarding_rule" />}
       </div>
     </PanelShell>

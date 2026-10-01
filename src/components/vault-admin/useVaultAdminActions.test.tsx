@@ -3,6 +3,9 @@ import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/re
 
 const h = vi.hoisted(() => ({
   deleteTeam: vi.fn(async (_id: string) => {}),
+  renameTeam: vi.fn(async (_id: string, _name: string) => {}),
+  loadTeams: vi.fn(async () => {}),
+  renameVault: vi.fn(),
   markSelfDeparture: vi.fn(),
   addToast: vi.fn(),
   fetchTeamData: vi.fn(async (_id: string) => {}),
@@ -13,6 +16,7 @@ const h = vi.hoisted(() => ({
   clearTeamConnections: vi.fn(),
   setStatus: vi.fn(),
   setVaultTeamId: vi.fn(),
+  deleteVaultWithContents: vi.fn(async (_id: string) => {}),
   t: vi.fn((k: string) => k),
 }));
 
@@ -45,6 +49,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 vi.mock("@/services/teamService", () => ({
   deleteTeam: h.deleteTeam,
+  renameTeam: h.renameTeam,
   searchUsers: vi.fn(async () => []),
   getMyUserId: vi.fn(async () => "me"),
   inviteByEmail: vi.fn(),
@@ -63,6 +68,7 @@ vi.mock("@/services/vaultTeamMigration", () => ({
     await h.reloadLocalVaultObjectStores();
   },
 }));
+vi.mock("@/services/vaultObjectStores", () => ({ deleteVaultWithContents: h.deleteVaultWithContents }));
 vi.mock("@/services/teamObjects", () => ({ listTeamObjects: h.listTeamObjects }));
 vi.mock("@/services/teamVaultSync", () => ({
   fetchTeamData: h.fetchTeamData,
@@ -191,6 +197,7 @@ beforeEach(() => {
   h.listTeamObjects.mockResolvedValue([]);
   h.reloadLocalVaultObjectStores.mockResolvedValue(undefined);
   h.adoptConnection.mockResolvedValue(undefined);
+  h.deleteVaultWithContents.mockResolvedValue(undefined);
   h.t.mockImplementation((k: string) => k);
   onDone.mockReset();
   useVaultStore.setState({ setVaultTeamId: h.setVaultTeamId });
@@ -431,4 +438,88 @@ test("every listed object present in the stores proceeds, ignoring deleted recor
 
   await waitFor(() => expect(h.deleteTeam).toHaveBeenCalledWith("t1"));
   expect(h.adoptConnection).toHaveBeenCalledWith("c1", expect.anything());
+});
+
+function RenameProbe({ of }: { of: VaultAdminTarget }) {
+  const { rename } = useVaultAdminActions(of);
+  return <button onClick={() => rename("Ops")}>rename</button>;
+}
+
+test("renaming a team vault renames the team on the server, not a local copy", async () => {
+  useVaultStore.setState({ renameVault: h.renameVault });
+  useTeamStore.setState({ loadTeams: h.loadTeams });
+  render(<RenameProbe of={target} />);
+  fireEvent.click(screen.getByText("rename"));
+
+  await waitFor(() => expect(h.loadTeams).toHaveBeenCalled());
+  expect(h.renameTeam).toHaveBeenCalledWith("t1", "Ops");
+  expect(h.renameVault).not.toHaveBeenCalled();
+});
+
+test("a refused team rename says so and changes nothing locally", async () => {
+  useVaultStore.setState({ renameVault: h.renameVault });
+  h.renameTeam.mockRejectedValue(new Error("403"));
+  render(<RenameProbe of={target} />);
+  fireEvent.click(screen.getByText("rename"));
+
+  await waitFor(() => expect(messages()).toContain("settings.vaults.general.renameFailedToast"));
+  expect(h.renameVault).not.toHaveBeenCalled();
+});
+
+test("renaming a private vault stays local", () => {
+  useVaultStore.setState({ renameVault: h.renameVault });
+  render(<RenameProbe of={{ kind: "local", vaultId: "v2", teamId: null, name: "Mine" }} />);
+  fireEvent.click(screen.getByText("rename"));
+
+  expect(h.renameVault).toHaveBeenCalledWith("v2", "Ops");
+  expect(h.renameTeam).not.toHaveBeenCalled();
+});
+
+function DeleteProbe({ of }: { of: VaultAdminTarget }) {
+  const { remove } = useVaultAdminActions(of, { onDone });
+  return <button onClick={() => void remove()}>delete</button>;
+}
+
+test("deleting a private vault sweeps it locally and never touches the server", async () => {
+  render(<DeleteProbe of={{ kind: "local", vaultId: "v2", teamId: null, name: "Mine" }} />);
+  fireEvent.click(screen.getByText("delete"));
+
+  await waitFor(() => expect(onDone).toHaveBeenCalled());
+  expect(h.deleteVaultWithContents).toHaveBeenCalledWith("v2");
+  expect(h.deleteTeam).not.toHaveBeenCalled();
+});
+
+test("deleting a linked team vault deletes the team, then its local record", async () => {
+  render(<DeleteProbe of={target} />);
+  fireEvent.click(screen.getByText("delete"));
+
+  await waitFor(() => expect(onDone).toHaveBeenCalled());
+  expect(h.markSelfDeparture).toHaveBeenCalledWith("t1", "leave");
+  expect(h.markSelfDeparture.mock.invocationCallOrder[0])
+    .toBeLessThan(h.deleteTeam.mock.invocationCallOrder[0]);
+  expect(h.deleteTeam).toHaveBeenCalledWith("t1");
+  expect(h.deleteTeam.mock.invocationCallOrder[0])
+    .toBeLessThan(h.deleteVaultWithContents.mock.invocationCallOrder[0]);
+  expect(h.deleteVaultWithContents).toHaveBeenCalledWith("v1");
+});
+
+test("deleting a standalone team vault deletes the team and drops it from the selection", async () => {
+  useVaultStore.setState({ selectedVaultIds: ["personal", "t1"] });
+  render(<DeleteProbe of={{ kind: "cloud", vaultId: null, teamId: "t1", name: "Theirs" }} />);
+  fireEvent.click(screen.getByText("delete"));
+
+  await waitFor(() => expect(onDone).toHaveBeenCalled());
+  expect(h.deleteTeam).toHaveBeenCalledWith("t1");
+  expect(h.deleteVaultWithContents).not.toHaveBeenCalled();
+  expect(useVaultStore.getState().selectedVaultIds).toEqual(["personal"]);
+});
+
+test("a refused team delete keeps the local record and says nothing was deleted", async () => {
+  h.deleteTeam.mockRejectedValue(new Error("403"));
+  render(<DeleteProbe of={target} />);
+  fireEvent.click(screen.getByText("delete"));
+
+  await waitFor(() => expect(messages()).toContain("settings.vaults.general.deleteVault.teamFailedToast"));
+  expect(h.deleteVaultWithContents).not.toHaveBeenCalled();
+  expect(onDone).not.toHaveBeenCalled();
 });

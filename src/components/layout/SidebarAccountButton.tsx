@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
+import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 import { getAccountMode, getMyHandle, lockVaultSession, logout } from "@/services/account";
 import { getSwitchTargets, saveCurrentAccount, switchToAccount, removeSavedAccount, type ActiveAccount, type SavedAccount } from "@/services/savedAccounts";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
@@ -28,8 +29,8 @@ export function SidebarAccountButton() {
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const uiScale = useUIStore((s) => s.uiScale);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const popover = useAnchoredPopover(open, () => setOpen(false), buttonRef);
   const [pos, setPos] = useState({ bottom: 0, left: 0 });
   const [accountMode, setAccountMode] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
@@ -56,23 +57,6 @@ export function SidebarAccountButton() {
   };
 
   useEffect(() => { refreshAccountInfo(); }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        buttonRef.current && !buttonRef.current.contains(e.target as Node) &&
-        dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
-      ) setOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
 
   const openDropdown = async () => {
     // Close without waiting on the keychain — the refresh below only matters
@@ -182,10 +166,10 @@ export function SidebarAccountButton() {
         <Icon icon="lucide:circle-user" width={18} />
       </button>
 
-      {open && createPortal(
+      {popover.mounted && createPortal(
         <div
-          ref={dropdownRef}
-          className="surface-float fixed p-1.5 z-9999 flex flex-col min-w-56"
+          ref={popover.panelRef}
+          className="fixed z-9999"
           style={{
             bottom: pos.bottom,
             left: pos.left,
@@ -194,125 +178,127 @@ export function SidebarAccountButton() {
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {(accountEmail || accountMode) && (
-            <>
-              <div className="px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Icon icon={accountIcon(currentInstance)} width={16} style={{ color: "var(--t-text-dim)" }} />
-                  <span className="text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>
-                    {accountEmail ?? t("layout.sidebarAccount.localAccountFallback")}
+          <div className={`surface-float p-1.5 flex flex-col min-w-56 ${popover.className}`} style={popover.style}>
+            {(accountEmail || accountMode) && (
+              <>
+                <div className="px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Icon icon={accountIcon(currentInstance)} width={16} style={{ color: "var(--t-text-dim)" }} />
+                    <span className="text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>
+                      {accountEmail ?? t("layout.sidebarAccount.localAccountFallback")}
+                    </span>
+                  </div>
+                  {accountHandle && (
+                    <button
+                      type="button"
+                      onClick={copyHandle}
+                      title={t("layout.sidebarAccount.copyHandle")}
+                      className="flex items-center gap-1 mt-0.5 text-xs transition-colors"
+                      style={{ color: "var(--t-text-dim)" }}
+                    >
+                      <span className="truncate">@{accountHandle}</span>
+                      <Icon icon={handleCopied ? "lucide:check" : "lucide:copy"} width={11} />
+                    </button>
+                  )}
+                  {accountMode && (
+                    <span className="text-xs mt-0.5 block truncate" style={{ color: "var(--t-text-dim)" }} title={currentInstance ? accountServerUrl ?? undefined : undefined}>
+                      {currentInstance ?? (accountMode === "server" ? t("layout.sidebarAccount.modeCloud") : accountMode === "local" ? t("layout.sidebarAccount.modeLocalPassword") : t("layout.sidebarAccount.modeLocal"))}
+                    </span>
+                  )}
+                </div>
+                <div className="h-px bg-(--t-bg-input) -mx-1.5 my-0.5" />
+              </>
+            )}
+
+            {canLock && (
+              <DropdownMenuItem
+                icon="lucide:lock"
+                label={t("layout.sidebarAccount.lockVault")}
+                sublabel={autoLockSublabel}
+                onClick={() => void handleLockVault()}
+              />
+            )}
+
+            {canLock && (
+              <DropdownMenuItem
+                icon="lucide:timer"
+                label={t("layout.sidebarAccount.autoLock")}
+                onClick={() => { setOpen(false); useUIStore.getState().openSettings("account"); }}
+              />
+            )}
+
+            <DropdownMenuItem
+              icon="lucide:bug"
+              label={t("layout.sidebarAccount.reportBug")}
+              onClick={() => { setOpen(false); useUIStore.getState().openSettings("diagnostics"); }}
+            />
+
+            <DropdownMenuItem
+              icon="lucide:palette"
+              label={t("layout.sidebarAccount.appearance")}
+              onClick={() => { setOpen(false); useUIStore.getState().openSettings("appearance"); }}
+            />
+            <DropdownMenuItem
+              icon="lucide:sun-moon"
+              label={t("layout.sidebarAccount.toggleTheme")}
+              onClick={() => { setOpen(false); useThemeStore.getState().toggleLightDark(); }}
+            />
+
+            {accountMode !== "server" && (
+              <DropdownMenuItem
+                icon="lucide:log-in"
+                label={t("layout.sidebarAccount.signInSignUp")}
+                onClick={() => { openCloudAuth("signin"); setOpen(false); }}
+              />
+            )}
+
+            {accountMode === "server" && (
+              <DropdownMenuItem
+                icon="lucide:user-plus"
+                label={t("layout.sidebarAccount.addAccount")}
+                onClick={() => { openCloudAuth("signin", "add"); setOpen(false); }}
+              />
+            )}
+
+            {accountMode === "server" && (
+              <DropdownMenuItem icon="lucide:log-out" label={t("common.action.disconnect")} onClick={() => void handleDisconnect()} />
+            )}
+
+            {switchTargets.length > 0 && (
+              <>
+                <div className="h-px bg-(--t-bg-input) -mx-1.5 my-0.5" />
+                <div className="px-3 pt-2 pb-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--t-text-dim)" }}>
+                    {t("layout.sidebarAccount.switchAccount")}
                   </span>
                 </div>
-                {accountHandle && (
-                  <button
-                    type="button"
-                    onClick={copyHandle}
-                    title={t("layout.sidebarAccount.copyHandle")}
-                    className="flex items-center gap-1 mt-0.5 text-xs transition-colors"
-                    style={{ color: "var(--t-text-dim)" }}
-                  >
-                    <span className="truncate">@{accountHandle}</span>
-                    <Icon icon={handleCopied ? "lucide:check" : "lucide:copy"} width={11} />
-                  </button>
-                )}
-                {accountMode && (
-                  <span className="text-xs mt-0.5 block truncate" style={{ color: "var(--t-text-dim)" }} title={currentInstance ? accountServerUrl ?? undefined : undefined}>
-                    {currentInstance ?? (accountMode === "server" ? t("layout.sidebarAccount.modeCloud") : accountMode === "local" ? t("layout.sidebarAccount.modeLocalPassword") : t("layout.sidebarAccount.modeLocal"))}
-                  </span>
-                )}
-              </div>
-              <div className="h-px bg-(--t-bg-input) -mx-1.5 my-0.5" />
-            </>
-          )}
-
-          {canLock && (
-            <DropdownMenuItem
-              icon="lucide:lock"
-              label={t("layout.sidebarAccount.lockVault")}
-              sublabel={autoLockSublabel}
-              onClick={() => void handleLockVault()}
-            />
-          )}
-
-          {canLock && (
-            <DropdownMenuItem
-              icon="lucide:timer"
-              label={t("layout.sidebarAccount.autoLock")}
-              onClick={() => { setOpen(false); useUIStore.getState().openSettings("account"); }}
-            />
-          )}
-
-          <DropdownMenuItem
-            icon="lucide:bug"
-            label={t("layout.sidebarAccount.reportBug")}
-            onClick={() => { setOpen(false); useUIStore.getState().openSettings("diagnostics"); }}
-          />
-
-          <DropdownMenuItem
-            icon="lucide:palette"
-            label={t("layout.sidebarAccount.appearance")}
-            onClick={() => { setOpen(false); useUIStore.getState().openSettings("appearance"); }}
-          />
-          <DropdownMenuItem
-            icon="lucide:sun-moon"
-            label={t("layout.sidebarAccount.toggleTheme")}
-            onClick={() => { setOpen(false); useThemeStore.getState().toggleLightDark(); }}
-          />
-
-          {accountMode !== "server" && (
-            <DropdownMenuItem
-              icon="lucide:log-in"
-              label={t("layout.sidebarAccount.signInSignUp")}
-              onClick={() => { openCloudAuth("signin"); setOpen(false); }}
-            />
-          )}
-
-          {accountMode === "server" && (
-            <DropdownMenuItem
-              icon="lucide:user-plus"
-              label={t("layout.sidebarAccount.addAccount")}
-              onClick={() => { openCloudAuth("signin", "add"); setOpen(false); }}
-            />
-          )}
-
-          {accountMode === "server" && (
-            <DropdownMenuItem icon="lucide:log-out" label={t("common.action.disconnect")} onClick={() => void handleDisconnect()} />
-          )}
-
-          {switchTargets.length > 0 && (
-            <>
-              <div className="h-px bg-(--t-bg-input) -mx-1.5 my-0.5" />
-              <div className="px-3 pt-2 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--t-text-dim)" }}>
-                  {t("layout.sidebarAccount.switchAccount")}
-                </span>
-              </div>
-              {switchTargets.map((account) => {
-                const instance = instanceLabel(account.server_url);
-                return (
-                  <DropdownMenuItem
-                    key={account.account_id}
-                    icon={accountIcon(instance)}
-                    iconSize={16}
-                    label={account.email ?? t("layout.sidebarAccount.localAccountFallback")}
-                    sublabel={instance ?? (account.mode === "server" ? t("layout.sidebarAccount.savedAccountCloud") : t("layout.sidebarAccount.savedAccountLocal"))}
-                    title={instance ? account.server_url ?? undefined : undefined}
-                    onClick={() => requestSwitch(account)}
-                    trailing={
-                      <button
-                        type="button"
-                        title={t("layout.sidebarAccount.removeSavedAccount")}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded-sm transition-opacity text-(--t-text-dim) hover:text-(--t-status-error)"
-                        onClick={(e) => void handleRemoveSavedAccount(e, account.account_id)}
-                      >
-                        <Icon icon="lucide:x" width={12} />
-                      </button>
-                    }
-                  />
-                );
-              })}
-            </>
-          )}
+                {switchTargets.map((account) => {
+                  const instance = instanceLabel(account.server_url);
+                  return (
+                    <DropdownMenuItem
+                      key={account.account_id}
+                      icon={accountIcon(instance)}
+                      iconSize={16}
+                      label={account.email ?? t("layout.sidebarAccount.localAccountFallback")}
+                      sublabel={instance ?? (account.mode === "server" ? t("layout.sidebarAccount.savedAccountCloud") : t("layout.sidebarAccount.savedAccountLocal"))}
+                      title={instance ? account.server_url ?? undefined : undefined}
+                      onClick={() => requestSwitch(account)}
+                      trailing={
+                        <button
+                          type="button"
+                          title={t("layout.sidebarAccount.removeSavedAccount")}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded-sm transition-opacity text-(--t-text-dim) hover:text-(--t-status-error)"
+                          onClick={(e) => void handleRemoveSavedAccount(e, account.account_id)}
+                        >
+                          <Icon icon="lucide:x" width={12} />
+                        </button>
+                      }
+                    />
+                  );
+                })}
+              </>
+            )}
+          </div>
         </div>,
         document.body,
       )}

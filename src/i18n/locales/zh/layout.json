@@ -247,6 +247,7 @@
       "rename": "重命名…",
       "makePrivate": "设为私有…",
       "delete": "删除保险库…",
+      "leave": "退出保险库…",
       "openMenu": "保险库菜单"
     },
     "vaultSidebar": {

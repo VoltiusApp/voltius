@@ -9,7 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
-import { getMyUserId } from "@/services/teamService";
+import { useMyUserId } from "@/hooks/useMyUserId";
 import { getMyHandle } from "@/services/account";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
@@ -58,7 +58,7 @@ export default function MembersPage() {
   const clearMembersRolesPending = useUIStore((s) => s.clearMembersRolesPending);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
-  const [myUserId, setMyUserId] = useState("");
+  const myUserId = useMyUserId();
   const [myHandle, setMyHandle] = useState<string | null>(null);
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -87,7 +87,6 @@ export default function MembersPage() {
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
 
   useEffect(() => {
-    getMyUserId().then((id) => { if (id) setMyUserId(id); }).catch(() => {});
     // getMyHandle() resolves to "" (never rejects) on a keychain miss with no
     // server to fall back to, so this always settles the loading skeleton.
     getMyHandle().then(setMyHandle).catch(() => setMyHandle(""));

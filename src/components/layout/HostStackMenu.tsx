@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { PickerSurface } from "@/components/shared/PickerSurface";
@@ -25,13 +24,6 @@ export function HostStackMenu({ host, members, labels, shownId, activeSessionId,
   const { t } = useTranslation();
   const shown = shownMember(members, shownId, undefined)!;
   const newSession = newSessionOnHostItem(t, shown, host);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
 
   return (
     <PickerSurface open={open} onClose={onClose} anchorRef={anchorRef} width="content" minWidth="16rem" gap={0} glass>

@@ -870,10 +870,6 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
-        if (isSplitPaneTerminal && e.key === "Escape" && layout.maximizedPaneId) {
-          if (e.type === "keydown") useLayoutStore.getState().setMaximized(null);
-          return false;
-        }
         if (isSplitPaneTerminal && e.ctrlKey && e.shiftKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
           if (e.type === "keydown") {
             const direction = e.key === "ArrowLeft" ? "left" : e.key === "ArrowRight" ? "right" : e.key === "ArrowUp" ? "up" : "down";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import i18n from "@/i18n";
-import { GUARDED, settingDef, settingDefs, TOGGLE_SECTION } from "./settingsManifest";
+import { GUARDED, settingDef, settingDefs } from "./settingsManifest";
 import { TOGGLE_DEFS } from "@/stores/toggleSettingsStore";
 import { SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { useThemeStore } from "@/stores/themeStore";
@@ -92,15 +92,6 @@ describe("settingsManifest", () => {
       expect(label, d.key).not.toBe(d.labelKey);
       expect(label.startsWith("key '"), `${d.key} → ${d.labelKey}: ${label}`).toBe(false);
       expect(label.trim(), d.key).not.toBe("");
-    }
-  });
-
-  test("toute catégorie déclarée par TOGGLE_DEFS est mappée sur une section", () => {
-    const prefix = "settings.toggleDefs.category.";
-    for (const def of Object.values(TOGGLE_DEFS)) {
-      const category = def.descriptionKey.slice(prefix.length);
-      expect(def.descriptionKey.startsWith(prefix), def.descriptionKey).toBe(true);
-      expect(Object.keys(TOGGLE_SECTION)).toContain(category);
     }
   });
 

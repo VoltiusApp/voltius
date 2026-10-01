@@ -1,5 +1,5 @@
 import { writeClipboard } from "../../utils/clipboard";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
@@ -8,7 +8,7 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { buildInviteLink } from "@/services/inviteCode";
 import { uninviteFromSession } from "@/services/teamService";
 import { guestCapFor, highestOwnerTier, inviteSessionOf, membersOfTeams, seatUsage, type InviteSession, type InviteTarget, type ShareTier } from "@/services/teamSharing";
-import { usePopoverFade } from "@/hooks/useDelayedUnmount";
+import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { InviteCodeField } from "./InviteCodeField";
@@ -35,8 +35,7 @@ interface ShareMenuProps {
 
 export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectionName, connectionVaultId, isLoggedIn, tier, onSignIn, onUpgrade }: ShareMenuProps) {
   const { t } = useTranslation();
-  const menuRef = useRef<HTMLDivElement>(null);
-  const fade = usePopoverFade(open);
+  const fade = useAnchoredPopover(open, onClose, anchorRef);
   const [pos, setPos] = useState({ top: 0, left: 0, originX: 140 });
   const [tab, setTab] = useState<"people" | "invite" | "team">("people");
   const [sessionName, setSessionName] = useState(connectionName);
@@ -118,18 +117,6 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
       setInviteLinkToken(null);
       setAutoCopied(false);
     }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        anchorRef.current && !anchorRef.current.contains(e.target as Node) &&
-        menuRef.current && !menuRef.current.contains(e.target as Node)
-      ) onClose();
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
   const toggleVault = (id: string) => {
@@ -233,7 +220,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
 
   return createPortal(
     <div
-      ref={menuRef}
+      ref={fade.panelRef}
       className={`surface-float fixed z-9999 ${fade.className}`}
       style={{
         top: pos.top,

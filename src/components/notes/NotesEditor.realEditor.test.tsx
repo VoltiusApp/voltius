@@ -85,8 +85,7 @@ describe("NotesEditor with the real CodeMirror", () => {
     const row = menu === "notes.toolbar.heading" ? "notes.toolbar.h1" : "notes.toolbar.code";
     expect(screen.getByText(row)).toBeTruthy();
     act(() => { fireEvent.keyDown(editorView().contentDOM, { key: "Escape" }); });
-    await settle();
-    expect(screen.queryByText(row)).toBeNull();
+    await waitFor(() => expect(screen.queryByText(row)).toBeNull());
     expect(document.querySelector(".cm-editor")).toBeTruthy();
     act(() => { fireEvent.keyDown(editorView().contentDOM, { key: "Escape" }); });
     await settle();

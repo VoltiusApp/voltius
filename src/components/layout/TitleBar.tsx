@@ -678,7 +678,7 @@ function NewTabButton() {
         {rippleEls}
         <Icon icon="lucide:plus" width={22} />
       </button>
-      {open && <NewSessionPopover anchorRef={buttonRef} onClose={() => setOpen(false)} />}
+      <NewSessionPopover open={open} anchorRef={buttonRef} onClose={() => setOpen(false)} />
     </>
   );
 }

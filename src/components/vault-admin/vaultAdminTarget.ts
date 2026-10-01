@@ -1,3 +1,5 @@
+import { PERM_BITS } from "@/services/permissions";
+
 /** What a vault-admin surface acts on. Mirrors `VaultDetail` in VaultsSection. */
 export interface VaultAdminTarget {
   kind: "local" | "cloud";
@@ -12,43 +14,38 @@ export interface VaultAdminCapabilities {
   canRename: boolean;
   canDelete: boolean;
   canMakePrivate: boolean;
+  canLeave: boolean;
 }
 
 /**
  * Conditions carried over from the former VaultGeneralTab: `cloud` is a
- * standalone team vault with no local row to rename or delete, and "personal" is
- * the built-in vault that must always exist. `canDelete` additionally refuses a
- * team vault — see the note on it.
+ * standalone team vault with no local row, and "personal" is
+ * the built-in vault that must always exist.
  */
 export function vaultAdminCapabilities(
   target: VaultAdminTarget,
-  teams: { id: string; role_ids: string[] }[],
-  rolesByTeam: Record<string, { id: string; name: string; is_builtin: boolean }[]>,
+  teams: { id: string; owner_id: string; role_ids: string[] }[],
+  rolesByTeam: Record<string, { id: string; name: string; is_builtin: boolean; permissions?: number }[]>,
+  myUserId: string,
 ): VaultAdminCapabilities {
   const isTeam = !!target.teamId;
   const isLocal = target.kind === "local";
 
-  const isOwner = (() => {
-    if (!target.teamId) return false;
-    const myRoleIds = teams.find((team) => team.id === target.teamId)?.role_ids ?? [];
-    const roles = rolesByTeam[target.teamId] ?? [];
-    return myRoleIds.some((rid) => {
-      const r = roles.find((role) => role.id === rid);
-      return r?.is_builtin && r.name === "owner";
-    });
-  })();
+  const team = target.teamId ? teams.find((t) => t.id === target.teamId) : undefined;
+  const roles = target.teamId ? rolesByTeam[target.teamId] ?? [] : [];
+  const myRoles = (team?.role_ids ?? []).flatMap((rid) => roles.filter((role) => role.id === rid));
+  const isOwner = !!myUserId && team?.owner_id === myUserId;
+  const managesVault = myRoles.some((r) => ((r.permissions ?? 0) & (PERM_BITS.MANAGE_VAULT | PERM_BITS.ADMINISTRATOR)) !== 0);
 
   return {
     isTeam,
     isOwner,
-    canRename: isLocal,
-    // Delete now takes the vault's contents with it, and a team vault's contents
-    // are the members' — held server-side, not this device's to destroy. Making
-    // it private first is the step that takes ownership of them; deleting the
-    // team is the step that destroys them for everyone. Both are one item up
-    // this same menu, so there is nothing to reach that this refusal blocks.
-    canDelete: isLocal && !isTeam && target.vaultId !== "personal",
+    canRename: isTeam ? isOwner || managesVault : isLocal,
+    // The server lets only the owner delete a team, and that deletes it for every member.
+    canDelete: isTeam ? isOwner : isLocal && target.vaultId !== "personal",
     canMakePrivate: isTeam && isOwner && isLocal && target.vaultId !== null,
+    // The server refuses an owner leaving their own team.
+    canLeave: isTeam && !!myUserId && !isOwner,
   };
 }
 

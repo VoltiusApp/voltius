@@ -44,6 +44,7 @@ import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useEditPanel } from "@/hooks/useEditPanel";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
+import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { SnippetsToolbar } from "./SnippetsToolbar";
 import { CommunityBrowser } from "./community/CommunityBrowser";
 import { ShareSnippetModal } from "./community/ShareSnippetModal";
@@ -355,6 +356,8 @@ export function SnippetsPage() {
   const liveEditingSnippet = ep.editing && ep.editing !== "new"
     ? (snippets.find((s) => s.id === (ep.editing as Snippet).id) ?? (ep.editing as Snippet))
     : null;
+  useCloseWhenGone(liveEditingSnippet?.id, snippets.some((s) => s.id === liveEditingSnippet?.id), ep.closeEdit);
+  useCloseWhenGone(editingFolder?.id, folders.some((f) => f.id === editingFolder?.id), folderEp.closeEdit);
   const snippetFormVersion = useSyncedFormKey(
     liveEditingSnippet?.updated_at,
     ep.panelOpen && ep.editing !== "new",
@@ -962,7 +965,6 @@ export function SnippetsPage() {
             onOpen={() => { navigateInto(editingFolder); folderEp.closeEdit(); }}
             onSelectSelf={() => selectSingle(editingFolder.id)}
             parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
-            canEdit={can("EDIT_FOLDERS", editingFolder.vault_id ?? "personal", editingFolder.id)}
             syncObjectType="snippet"
             vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
             onMoveToVault={(vaultId) => void handleMoveFolderToVault(editingFolder, vaultId)}

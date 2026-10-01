@@ -20,9 +20,11 @@ import {
 import { useLocalShells } from "@/hooks/useLocalShells";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useIsAndroid } from "@/utils/platform";
+import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 import type { Connection } from "@/types";
 
 interface NewSessionPopoverProps {
+  open: boolean;
   anchorRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }
@@ -32,12 +34,21 @@ type Row =
   | { kind: "host"; connection: Connection }
   | { kind: "local-shell"; shell: ShellOption | null };
 
-export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps) {
+export function NewSessionPopover({ open, anchorRef, onClose }: NewSessionPopoverProps) {
+  const popover = useAnchoredPopover(open, onClose, anchorRef);
+  if (!popover.mounted) return null;
+  return <NewSessionPanel popover={popover} anchorRef={anchorRef} onClose={onClose} />;
+}
+
+function NewSessionPanel({ popover, anchorRef, onClose }: {
+  popover: ReturnType<typeof useAnchoredPopover>;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
 
   const connections = useAllConnections();
@@ -52,17 +63,6 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
     [shells, isAndroid],
   );
   const shellNeedsPath = useMemo(() => localShellNeedsPath(shells), [shells]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (panelRef.current?.contains(target)) return;
-      if (anchorRef.current?.contains(target)) return; // let the "+" button's onClick toggle it closed
-      onClose();
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [onClose, anchorRef]);
 
   // Position under the anchor button.
   useEffect(() => {
@@ -192,9 +192,9 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
 
   return createPortal(
     <div
-      ref={panelRef}
-      className="fixed z-100 w-[22rem] overflow-hidden surface-glass-solid animate-fadeIn shadow-xl"
-      style={{ top: pos.top, left: pos.left, borderRadius: "var(--r-lg)" }}
+      ref={popover.panelRef}
+      className={`fixed z-100 w-[22rem] overflow-hidden surface-glass-solid shadow-xl ${popover.className}`}
+      style={{ ...popover.style, top: pos.top, left: pos.left, borderRadius: "var(--r-lg)" }}
     >
       <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-b-(--t-border)">
         <Icon icon="lucide:search" width={15} className="text-(--t-accent) shrink-0" />

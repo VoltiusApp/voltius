@@ -1,11 +1,20 @@
 import type { Connection } from "@/types";
 import { useIdentityStore } from "@/stores/identityStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { findAnyConnection } from "@/stores/connectionStore";
 import { getSecret } from "@/services/vault";
 import { resolveCredentials, type ResolvedCredentials } from "@/services/credentialLogic";
 import { withEphemeralCredentials } from "@/services/ephemeralCredentials";
+import { canConnect } from "@/services/permissionsFromStores";
+import i18n from "@/i18n";
 
 export type { ResolvedCredentials } from "@/services/credentialLogic";
+
+export class ConnectNotAllowedError extends Error {
+  constructor() {
+    super(i18n.t("common.error.connectNotAllowed"));
+    this.name = "ConnectNotAllowedError";
+  }
+}
 
 export interface ResolvedJumpHost {
   host: string;
@@ -30,11 +39,7 @@ async function findIdentity(id: string) {
   return identity;
 }
 
-export function findConnection(id: string): Connection | undefined {
-  const { connections, teamConnections } = useConnectionStore.getState();
-  const all = [...connections, ...Object.values(teamConnections).flat()];
-  return all.find((c) => c.id === id);
-}
+export const findConnection = findAnyConnection;
 
 export async function resolveJumpHosts(conn: Connection): Promise<ResolvedJumpHost[]> {
   if (!conn.jump_hosts?.length) return [];
@@ -88,6 +93,7 @@ export async function resolveJumpHosts(conn: Connection): Promise<ResolvedJumpHo
  * must let a VaultError reach the user rather than connect with no credentials.
  */
 export async function resolveConnectionCredentials(conn: Connection): Promise<ResolvedCredentials> {
+  if (!(await canConnect(conn.vault_id, conn.id))) throw new ConnectNotAllowedError();
   const resolved = await resolveCredentials(conn, findIdentity, getSecret);
   return withEphemeralCredentials(conn.id, resolved);
 }

@@ -75,18 +75,22 @@ export function InviteControl({ teamId, roles, existingIds, usedSeats, seatCap, 
           />
         </div>
 
-        {search.open && search.results.map((u) => (
-          <div key={u.user_id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-(--t-bg-card)">
-            <span className="text-xs flex-1 text-(--t-text-primary) break-all">{u.handle}</span>
-            <button
-              onClick={() => void invite(u.user_id, u.handle)}
-              className="px-3 py-1 rounded-lg text-[11px] font-medium"
-              style={{ background: "var(--t-accent)", color: "var(--t-on-accent, #fff)" }}
-            >
-              {t("members.invite.inviteAction")}
-            </button>
+        {search.open && search.results.length > 0 && (
+          <div ref={search.dropdownRef} className="flex flex-col gap-1.5">
+            {search.results.map((u) => (
+              <div key={u.user_id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-(--t-bg-card)">
+                <span className="text-xs flex-1 text-(--t-text-primary) break-all">{u.handle}</span>
+                <button
+                  onClick={() => void invite(u.user_id, u.handle)}
+                  className="px-3 py-1 rounded-lg text-[11px] font-medium"
+                  style={{ background: "var(--t-accent)", color: "var(--t-on-accent, #fff)" }}
+                >
+                  {t("members.invite.inviteAction")}
+                </button>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
 
         {isEmail && (
           <button onClick={() => void inviteEmail()} className="px-3 py-1.5 rounded-lg text-[11px] border border-(--t-border) text-(--t-text-secondary) self-start">

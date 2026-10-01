@@ -4,7 +4,7 @@ import { FormSection } from "@/components/shared/Panel";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerOption, PickerSearch } from "@/components/shared/pickerParts";
 import { PermissionOverrideRow } from "@/components/members/panels/PermissionOverrideRow";
-import { roleLabel } from "@/components/members/roleChips";
+import { permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { useRuleSet } from "@/hooks/useRuleSet";
 import { saveObjectRules, syncWithFolder } from "@/services/ruleSetEditing";
 import { isSynced, setOfParent } from "@/services/ruleSetPointers";
@@ -204,6 +204,9 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
     ? (parentName ? t("shared.permissions.section.syncedWith", { folder: parentName }) : t("shared.permissions.section.syncedTeam"))
     : t(parentSet === null ? "shared.permissions.section.ownPermissions" : "shared.permissions.section.notSynced");
   const current = entryFor(draft, selected);
+  const connectState = overrideStateOf("CONNECT", current?.allow ?? 0, current?.deny ?? 0);
+  const connectDenied = connectState === "deny" || (connectState === "inherit" && !preview("CONNECT").grants);
+  const connectLabel = isCredential ? t("shared.permissions.section.use") : permissionLabel(t, "CONNECT");
 
   return (
     <FormSection label={t(title)}>
@@ -231,15 +234,17 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
       <div>
         {OBJECT_RULE_ROWS[type].map((permission) => {
           const p = preview(permission);
+          const needsConnect = connectDenied && (permission === "VIEW_SECRETS" || permission === "COPY_SECRETS");
           return (
             <PermissionOverrideRow
               key={permission}
               permission={permission}
-              label={isCredential && permission === "CONNECT" ? t("shared.permissions.section.use") : undefined}
+              label={isCredential && permission === "CONNECT" ? connectLabel : undefined}
+              note={needsConnect ? t("shared.permissions.section.requiresConnect", { connect: connectLabel }) : undefined}
               state={overrideStateOf(permission, current?.allow ?? 0, current?.deny ?? 0)}
               inheritedFrom={p.from}
-              inheritedGrants={p.grants}
-              disabled={ruleSet.status !== "ok"}
+              inheritedGrants={p.grants && !needsConnect}
+              disabled={ruleSet.status !== "ok" || needsConnect}
               onChange={(next) => change(permission, next)}
             />
           );

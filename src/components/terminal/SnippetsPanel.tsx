@@ -24,6 +24,7 @@ import { snippetMatcher, snippetScriptText, snippetSearchText } from "@/services
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { SnippetForm } from "@/components/snippets/SnippetForm";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
+import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { itemsInFolderSubtree } from "@/utils/folderTree";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
@@ -309,6 +310,10 @@ export function SnippetsPanel() {
     setEditingSnippetId(null);
     setCreatedSnippetId(null);
   }, []);
+  const shownSnippetId = editingSnippetId === "new" ? createdSnippetId : editingSnippetId;
+  useCloseWhenGone(shownSnippetId, snippets.some((s) => s.id === shownSnippetId), closeSnippetEditor);
+  const shownFolderId = editingFolder && editingFolder !== "new" ? editingFolder.id : null;
+  useCloseWhenGone(shownFolderId, folders.some((f) => f.id === shownFolderId), () => setEditingFolder(null));
 
   const handleSnippetFormSubmit = useCallback(async (data: SnippetFormData) => {
     if (editingSnippetId === "new") {

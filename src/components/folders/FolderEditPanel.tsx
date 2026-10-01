@@ -21,6 +21,7 @@ import { RuleSetMoveCancelled } from "@/services/teamObjectPersistence";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { buildFolderMenuItems } from "@/utils/folderMenuItems";
 import { useFolderPin } from "./useFolderPin";
+import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 import type { Folder, FolderFormData, VaultOption } from "@/types";
 
 interface FolderEditPanelProps {
@@ -34,14 +35,15 @@ interface FolderEditPanelProps {
   onSelectSelf: () => void;
   parentOptions?: Folder[];
   vaults?: VaultOption[];
-  canEdit?: boolean;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
   /** Sync object type used to check per-object and global sync state. Defaults to "folder". */
   syncObjectType?: string;
 }
 
-export function FolderEditPanel({
+export const FolderEditPanel = withEditAccess("folder", (p: FolderEditPanelProps) => p.folder, FolderEditPanelEditor);
+
+function FolderEditPanelEditor({
   folder,
   onUpdate,
   onDelete,
@@ -52,18 +54,18 @@ export function FolderEditPanel({
   onSelectSelf,
   parentOptions,
   vaults,
-  canEdit,
   onMoveToVault,
   onCopyToVault,
   syncObjectType = "folder",
-}: FolderEditPanelProps) {
+  readOnly,
+}: FolderEditPanelProps & EditAccessProps) {
   const { t } = useTranslation();
   const [name, setName]         = useState(folder.name);
   const [vaultId, setVaultId]   = useState(folder.vault_id ?? "personal");
   const [parentId, setParentId] = useState<string | null>(folder.parent_folder_id ?? null);
   const isSynced     = useSyncPrefsStore((s) => s.isObjectSynced(folder.id, syncObjectType));
   const toggleExcluded = useSyncPrefsStore((s) => s.toggleExcluded);
-  const pin = useFolderPin(folder, canEdit);
+  const pin = useFolderPin(folder, !readOnly);
 
   useEffect(() => {
     setName(folder.name);
@@ -82,6 +84,7 @@ export function FolderEditPanel({
   const { schedule, markDirty, flushAndClose, saveState } = useAutosave({
     onSave: () => onUpdate(folder.id, buildFormData()),
     canSave: () => !!name.trim(),
+    readOnly,
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,7 +114,7 @@ export function FolderEditPanel({
     onExport,
     onShare,
     vaults,
-    canEdit,
+    canEdit: !readOnly,
     onMoveToVault,
     onCopyToVault,
     clipboard: clipboardMenuItems(t).map((i) => ({ ...i, onClick: () => { flushSync(onSelectSelf); i.onClick?.(); } })),
@@ -125,12 +128,13 @@ export function FolderEditPanel({
       <PanelHeader
         icon="lucide:pencil"
         title={t("folders.editPanel.title")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={handleVaultChange} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={handleVaultChange} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}
         actions={<><PinButton pinned={pin.effPinned} onToggle={pin.togglePin} /><PanelActionsMenu items={menuItems} /></>}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        <ReadOnlyFields readOnly={readOnly}>
         <FormSection label={t("folders.editPanel.general")}>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("folders.editPanel.nameLabel")}</label>
@@ -143,6 +147,7 @@ export function FolderEditPanel({
             <FolderSelector value={parentId} folders={(parentOptions ?? []).filter((f) => (f.vault_id ?? "personal") === vaultId)} onChange={handleParentChange} />
           </div>
         </FormSection>
+        </ReadOnlyFields>
         <PermissionsSection objectId={folder.id} vaultId={folder.vault_id} type={syncObjectType === "snippet" ? "snippet_folder" : "folder"} />
       </div>
     </PanelShell>

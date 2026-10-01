@@ -32,6 +32,6 @@ test("plugin secrets stay in the local store without consulting ownership", asyn
   await getPluginSecret("p", "token");
   await deletePluginSecret("p", "token");
   expect(h.owner).not.toHaveBeenCalled();
-  expect(vi.mocked(invoke).mock.calls.map((c) => c[0]).filter((c) => c !== "secrets_unlock"))
+  expect(vi.mocked(invoke).mock.calls.map((c) => c[0]).filter((c) => c !== "secrets_unlock" && c !== "keychain_get"))
     .toEqual(["secrets_set", "secrets_get", "secrets_delete"]);
 });

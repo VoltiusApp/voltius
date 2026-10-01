@@ -7,13 +7,13 @@ const labels = (caps: VaultAdminCapabilities, memberCount: number | null = null,
   vaultMenuItems({ caps, memberCount, canShare, t, on: vi.fn() }).map((i) => i.label);
 
 const privateCaps: VaultAdminCapabilities =
-  { isTeam: false, isOwner: false, canRename: true, canDelete: true, canMakePrivate: false };
+  { isTeam: false, isOwner: false, canRename: true, canDelete: true, canMakePrivate: false, canLeave: false };
 const ownerCaps: VaultAdminCapabilities =
-  { isTeam: true, isOwner: true, canRename: true, canDelete: true, canMakePrivate: true };
+  { isTeam: true, isOwner: true, canRename: true, canDelete: true, canMakePrivate: true, canLeave: false };
 const memberCaps: VaultAdminCapabilities =
-  { isTeam: true, isOwner: false, canRename: true, canDelete: true, canMakePrivate: false };
+  { isTeam: true, isOwner: false, canRename: true, canDelete: false, canMakePrivate: false, canLeave: true };
 const cloudCaps: VaultAdminCapabilities =
-  { isTeam: true, isOwner: true, canRename: false, canDelete: false, canMakePrivate: false };
+  { isTeam: true, isOwner: true, canRename: false, canDelete: false, canMakePrivate: false, canLeave: false };
 
 test("a private vault gets no members, roles or make-private entries", () => {
   expect(labels(privateCaps)).toEqual([
@@ -85,4 +85,16 @@ test("clicking an item reports its action", () => {
   const items = vaultMenuItems({ caps: ownerCaps, memberCount: 4, canShare: true, t, on });
   items.find((i) => i.label === "layout.vaultMenu.rename")!.onClick!();
   expect(on).toHaveBeenCalledWith("rename");
+});
+
+test("a team member can leave the vault, as the last and destructive entry", () => {
+  const items = vaultMenuItems({ caps: memberCaps, memberCount: 4, canShare: true, t, on: vi.fn() });
+  const last = items[items.length - 1];
+  expect(last.label).toBe("layout.vaultMenu.leave");
+  expect(last.danger).toBe(true);
+  expect(items.map((i) => i.label)).not.toContain("layout.vaultMenu.delete");
+});
+
+test("an owner is never offered leave", () => {
+  expect(labels(ownerCaps, 4)).not.toContain("layout.vaultMenu.leave");
 });

@@ -9,7 +9,8 @@ import {
 } from "@/stores/persistedAccountUiState";
 import { instanceLabel } from "@/utils/serverInstance";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
-import { lockVault, wipeLocalConfig } from "./vault";
+import { lockVault, readLocalSecrets, wipeLocalConfig } from "./vault";
+import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
 
 /**
  * The keychain entries that make up an account session. A SavedAccount is a
@@ -272,13 +273,14 @@ async function tearDownSession(): Promise<void> {
   // state is on the server before we tear down the session.
   await push().catch(() => {});
   stopRealtimeSync();
+  const carried = await readLocalSecrets(deviceScopedSecretKeys());
   await lockVault();
   // Wipe secrets.enc and all entity files. The old secrets.enc is encrypted with the
   // current account's key; the new account's key cannot open it, causing
   // "Decryption failed — wrong key or corrupted file" in secrets_unlock.
   // config_wipe removes both secrets.enc and the config dir; syncOnLogin
   // will repopulate entity files from the cloud pull after reload.
-  await wipeLocalConfig().catch(() => {});
+  await wipeLocalConfig(carried).catch(() => {});
 
   // Clear every account-scoped keychain entry before writing the target's — the
   // same list sign-out clears. A key left behind is served to the incoming

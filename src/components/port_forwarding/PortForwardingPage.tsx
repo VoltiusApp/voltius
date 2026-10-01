@@ -47,6 +47,7 @@ import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree } from "
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
+import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
@@ -132,6 +133,8 @@ export function PortForwardingPage() {
   const scopedFolders = useScopedFolders(folders, accessibleVaultIds, "port_forwarding");
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
+  useCloseWhenGone(editingRuleId, editingRule !== null, closeForm);
+  useCloseWhenGone(editingFolderId, editingFolder !== null, () => setEditingFolderId(null));
 
   const {
     folderPath,
@@ -533,7 +536,6 @@ export function PortForwardingPage() {
               onSelectSelf={() => selectSingle(editingFolder.id)}
               parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-              canEdit={can("EDIT_FOLDERS", editingFolder.vault_id ?? "personal", editingFolder.id)}
               onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
               onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
               onExport={() => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: rules.filter((r) => r.folder_id === editingFolder.id).map((r) => r.id) } })}

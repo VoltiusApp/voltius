@@ -19,6 +19,7 @@ import { VaultPicker } from "@/components/shared/VaultPicker";
 import { unlinkIdentityFromHost } from "@/services/keychainForm";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
 import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
+import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 import {
   PanelShell, PanelHeader, FormSection,
   formInputClass, formInputStyle, formLabelClass, formLabelStyle, formIdentifierProps,
@@ -132,13 +133,14 @@ export interface IdentityFormProps {
   flushRef?: { current: (() => void) | null };
   isDirtyRef?: React.MutableRefObject<boolean>;
   vaults?: import("@/types").VaultOption[];
-  canEdit?: boolean;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
   hideChrome?: boolean;
 }
 
-export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, isDirtyRef, vaults, canEdit, onMoveToVault, onCopyToVault, hideChrome }: IdentityFormProps) {
+export const IdentityForm = withEditAccess("identity", (p: IdentityFormProps) => p.initial, IdentityFormEditor);
+
+function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, isDirtyRef, vaults, onMoveToVault, onCopyToVault, hideChrome, readOnly }: IdentityFormProps & EditAccessProps) {
   const { t } = useTranslation();
   const { loadKeys } = useKeyStore();
   const { connections, loadConnections, updateConnection } = useConnectionStore();
@@ -202,6 +204,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
     canSave: () =>
       !!username.trim()
       && (!isInline || (!!inlinePrivKey.trim() && !isPublicKeyInvalid(inlinePublicKey))),
+    readOnly,
   });
   const markDirty = useCallback(() => {
     if (isDirtyRef) isDirtyRef.current = true;
@@ -239,7 +242,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:plus"}
         title={initial ? t("keychain.identityForm.titleEdit") : t("keychain.toolbar.newIdentity")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}
         actions={initial ? (() => {
@@ -247,7 +250,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
             t,
             contributions,
             vaults,
-            canEdit,
+            canEdit: !readOnly,
             isSynced,
             onMoveToVault,
             onCopyToVault,
@@ -265,6 +268,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
       )}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <StoredSecretsNote state={storedSecrets} />
+        <ReadOnlyFields readOnly={readOnly} className="space-y-3">
         <FormSection label={t("keychain.common.general")}>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.label")}</label>
@@ -303,6 +307,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
             />
           </div>
 
+          {storedSecrets !== "forbidden" && (
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.password")}</label>
             <SecretInput
@@ -313,6 +318,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
               onToggleShow={handleTogglePassword}
             />
           </div>
+          )}
 
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("keychain.identityForm.sshKeyLabel")}</label>
@@ -359,6 +365,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
             />
           </FormSection>
         )}
+        </ReadOnlyFields>
 
         {initial && linkedHosts.length > 0 && (
           <FormSection label={t("keychain.identityForm.sectionLinkedTo")}>

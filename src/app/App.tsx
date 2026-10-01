@@ -27,6 +27,8 @@ import { startLiveSessionPublisher } from "@/services/liveSessionPublisher";
 import { startCrossDeviceSessions } from "@/services/crossDeviceSessions";
 import { startNetworkWatch } from "@/stores/reconnectBackoff";
 import { startTeamInbox } from "@/services/teamInbox";
+import { startTeamVaultNames } from "@/services/teamVaultNames";
+import { startTeamDataScrub } from "@/services/teamDataScrub";
 import { startDeepLinks } from "@/services/deepLink";
 import { NotificationToastContainer } from "@/components/notifications/NotificationToastContainer";
 import ThemeCreator from "@/components/theme-creator/ThemeCreator";
@@ -58,6 +60,8 @@ function App() {
   useChangelogAutoOpen();
   useEffect(() => { initUpdaterListener(); useUpdaterPrefStore.getState().load(); }, []);
   useEffect(() => startTeamInbox(), []);
+  useEffect(() => startTeamVaultNames(), []);
+  useEffect(() => startTeamDataScrub(), []);
   useEffect(() => startDeepLinks(), []);
   useEffect(() => startNetworkWatch(), []);
   useEffect(() => {

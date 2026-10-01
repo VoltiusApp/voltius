@@ -27,18 +27,13 @@ export function VaultUnavailableNote({ className }: { className?: string }) {
   return <WarningNote icon="lucide:shield-alert" text={t("shared.vaultUnavailable.note")} className={className} />;
 }
 
-/**
- * Renders whichever explanation a `useStoredSecrets` result calls for, so the
- * three editors that load stored secrets don't each spell out the same pair.
- */
+/** A forbidden result explains itself: the editor hides its secret fields. */
 export function StoredSecretsNote({ state, className }: {
   state: StoredSecretsState;
   className?: string;
 }) {
-  const { t } = useTranslation();
-  if (state === "ok") return null;
-  if (state === "unavailable") return <VaultUnavailableNote className={className} />;
-  return <WarningNote icon="lucide:eye-off" text={t("shared.storedSecrets.forbidden")} className={className} />;
+  if (state !== "unavailable") return null;
+  return <VaultUnavailableNote className={className} />;
 }
 
 /**

@@ -10,8 +10,8 @@ function member(role_ids: string[]): TeamMember {
 }
 
 test("effectivePermissions ORs bits across all assigned roles", () => {
-  const roles = [role("a", PERM_BITS.VIEW_SECRETS), role("b", PERM_BITS.EDIT_CONNECTIONS)];
-  expect(effectivePermissions(member(["a", "b"]), roles)).toBe(PERM_BITS.VIEW_SECRETS | PERM_BITS.EDIT_CONNECTIONS);
+  const roles = [role("a", PERM_BITS.CONNECT), role("b", PERM_BITS.EDIT_CONNECTIONS)];
+  expect(effectivePermissions(member(["a", "b"]), roles)).toBe(PERM_BITS.CONNECT | PERM_BITS.EDIT_CONNECTIONS);
 });
 
 test("effectivePermissions ignores role_ids not present in roles list", () => {

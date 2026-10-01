@@ -95,7 +95,7 @@ type MemberMasks = { user_id?: string; role_ids: string[]; permission_allow?: nu
 export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[], entries: RuleEntry[] | null): number {
   const teamDeny = member.permission_deny ?? 0;
   const base = effectivePermissions(member, roles);
-  if (base & PERM_BITS.ADMINISTRATOR) return ALL_PERMISSION_BITS & ~teamDeny;
+  if (base & PERM_BITS.ADMINISTRATOR) return withDependencies(ALL_PERMISSION_BITS & ~teamDeny);
   if (!entries) return base;
   const layer = (match: (e: RuleEntry) => boolean) => entries.filter(match).reduce(
     (acc, e) => ({ allow: acc.allow | e.allow, deny: acc.deny | e.deny }), { allow: 0, deny: 0 });
@@ -106,7 +106,13 @@ export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[],
   p = (p & ~byRole.deny) | byRole.allow;
   p = (p & ~mine.deny) | mine.allow;
   p &= ~teamDeny;
-  return p & PERM_BITS.VIEW ? p : 0;
+  return p & PERM_BITS.VIEW ? withDependencies(p) : 0;
+}
+
+/** A secret that can be read can be used, so reading one requires Connect (or Administrator). Mirrors the server. */
+export function withDependencies(p: number): number {
+  if (p & (PERM_BITS.CONNECT | PERM_BITS.ADMINISTRATOR)) return p;
+  return p & ~(PERM_BITS.VIEW_SECRETS | PERM_BITS.COPY_SECRETS);
 }
 
 export const EDIT_PERMISSION_OF: Record<TeamObjectType, Permission> = {
@@ -139,10 +145,10 @@ export function effectivePermissions(
     const role = roles.find((r) => r.id === rid);
     return acc | (role?.permissions ?? 0);
   }, 0);
-  return (union | (member.permission_allow ?? 0)) & ~(member.permission_deny ?? 0);
+  return withDependencies((union | (member.permission_allow ?? 0)) & ~(member.permission_deny ?? 0));
 }
 
-const VAULT_KEY_GATE = PERM_BITS.CONNECT | PERM_BITS.VIEW_SECRETS;
+const VAULT_KEY_GATE = PERM_BITS.CONNECT;
 
 export function crossesVaultKeyGate(
   member: { role_ids: string[]; permission_allow?: number; permission_deny?: number },

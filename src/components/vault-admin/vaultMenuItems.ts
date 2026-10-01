@@ -2,7 +2,7 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import type { VaultAdminCapabilities } from "./vaultAdminTarget";
 
 export type VaultMenuAction =
-  | "share" | "members" | "roles" | "rename" | "makePrivate" | "delete";
+  | "share" | "members" | "roles" | "rename" | "makePrivate" | "delete" | "leave";
 
 /**
  * Built from what the vault is, never from disabled rows: a private vault has no
@@ -58,6 +58,16 @@ export function vaultMenuItems({
       danger: true,
       divider: !caps.canMakePrivate,
       onClick: () => on("delete"),
+    });
+  }
+
+  if (caps.canLeave) {
+    items.push({
+      label: t("layout.vaultMenu.leave"),
+      icon: "lucide:log-out",
+      danger: true,
+      divider: true,
+      onClick: () => on("leave"),
     });
   }
 

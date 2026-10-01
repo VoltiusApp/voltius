@@ -15,7 +15,8 @@ export function useSelectedAuditContext(): AuditContext | null {
 
   const vault = vaults.find((v) => v.id === vid);
   if (!vault) return null;
-  if (vault.teamId) return { kind: "team", teamId: vault.teamId, vaultId: vault.id };
+  // The local id means nothing to the server, and team rows carry no vault_id: filtering by it empties the trail.
+  if (vault.teamId) return { kind: "team", teamId: vault.teamId };
 
   return { kind: "local", vaultId: vault.id };
 }

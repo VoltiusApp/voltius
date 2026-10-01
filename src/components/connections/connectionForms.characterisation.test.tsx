@@ -33,6 +33,12 @@ const h = vi.hoisted(() => ({
   defaultVaultId: "personal",
 }));
 
+// A team connection the caller holds no role in, so the forms open it read-only.
+function lockedConn(over: Partial<Connection> = {}): Connection {
+  h.teams = [{ id: "team-1" }];
+  return conn({ vault_id: "team-1", ...over });
+}
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -53,6 +59,7 @@ vi.mock("@/stores/connectionStore", () => ({
     const state = { pinConnection: h.pinConnection, setDistro: h.setDistro };
     return sel ? sel(state) : state;
   },
+  findAnyConnection: () => undefined,
 }));
 vi.mock("@/stores/teamStore", () => ({
   // The forms resolve VIEW_SECRETS through `usePermissions`, which reads the
@@ -86,6 +93,7 @@ vi.mock("@/stores/uiStore", () => ({
     const state = { setActiveNav: vi.fn() };
     return sel ? sel(state) : state;
   },
+  findAnyConnection: () => undefined,
 }));
 vi.mock("@/stores/toggleSettingsStore", () => ({ useToggle: () => [false, vi.fn()] }));
 vi.mock("@/stores/connectivitySettingsStore", () => ({
@@ -185,6 +193,8 @@ vi.mock("./JumpHostsPanel", () => ({ default: () => null }));
 vi.mock("./EnvVarsPanel", () => ({ default: () => null }));
 
 const { default: ConnectionForm } = await import("./ConnectionForm");
+const { useTeamObjectAccessStore } = await import("@/stores/teamObjectAccessStore");
+const { PERM_BITS } = await import("@/services/permissions");
 const { default: SerialConnectionForm } = await import("./SerialConnectionForm");
 type FormHandle = { flush: () => void; isDirty: () => boolean };
 
@@ -214,7 +224,7 @@ function renderSsh(props: Partial<Parameters<typeof ConnectionForm>[0]> = {}) {
   const onSubmit = vi.fn();
   const ref = createRef<FormHandle>();
   render(
-    <ConnectionForm ref={ref} onSubmit={onSubmit} onClose={vi.fn()} canEdit {...props} />,
+    <ConnectionForm ref={ref} onSubmit={onSubmit} onClose={vi.fn()} {...props} />,
   );
   return { onSubmit, ref };
 }
@@ -222,7 +232,7 @@ function renderSerial(props: Partial<Parameters<typeof SerialConnectionForm>[0]>
   const onSubmit = vi.fn();
   const ref = createRef<FormHandle>();
   render(
-    <SerialConnectionForm ref={ref} onSubmit={onSubmit} onClose={vi.fn()} canEdit {...props} />,
+    <SerialConnectionForm ref={ref} onSubmit={onSubmit} onClose={vi.fn()} {...props} />,
   );
   return { onSubmit, ref };
 }
@@ -335,7 +345,7 @@ test.each([
 });
 
 test("ssh form locks the proxy fields without edit permission", async () => {
-  renderSsh({ initial: conn({ proxy: { mode: "http", host: "p.example", port: 8080 } }), canEdit: false });
+  renderSsh({ initial: lockedConn({ proxy: { mode: "http", host: "p.example", port: 8080 } }) });
   await act(async () => { await Promise.resolve(); });
   expect((screen.getByLabelText("connections.form.proxy.host") as HTMLInputElement).disabled).toBe(true);
   expect((screen.getByRole("button", { name: "connections.form.proxy.label" }) as HTMLButtonElement).disabled).toBe(true);
@@ -414,8 +424,8 @@ test.each([
 });
 
 test.each([
-  ["ssh", (canEdit: boolean) => renderSsh({ initial: conn(), canEdit })],
-  ["serial", (canEdit: boolean) => renderSerial({ initial: conn({ connection_type: "serial", serial_port: "/dev/ttyS0" }) as Connection, canEdit })],
+  ["ssh", (canEdit: boolean) => renderSsh({ initial: (canEdit ? conn : lockedConn)() })],
+  ["serial", (canEdit: boolean) => renderSerial({ initial: (canEdit ? conn : lockedConn)({ connection_type: "serial", serial_port: "/dev/ttyS0" }) })],
 ])("%s form renders notes read-only without edit permission", async (_kind, mount) => {
   mount(true);
   await act(async () => { await Promise.resolve(); });
@@ -448,4 +458,48 @@ test("the ssh username field opts out of OS capitalisation and autocorrect", () 
   expect(username.getAttribute("autocapitalize")).toBe("off");
   expect(username.getAttribute("autocorrect")).toBe("off");
   expect(username.getAttribute("spellcheck")).toBe("false");
+});
+
+function grantOnC1(permissions: number) {
+  useTeamObjectAccessStore.getState().replaceTeam("team-1", {
+    c1: { type: "connection", ruleSetId: "s1", myPermissions: permissions, parentId: null, deleted: false },
+  }, true);
+}
+
+test("ssh form locks its fields and drops unsaved input when edit access is revoked", async () => {
+  h.teams = [{ id: "team-1" }];
+  grantOnC1(PERM_BITS.VIEW | PERM_BITS.VIEW_SECRETS | PERM_BITS.EDIT_CONNECTIONS);
+  const { onSubmit } = renderSsh({ initial: conn({ vault_id: "team-1" }) });
+  const hostInput = () => screen.getByPlaceholderText("connections.form.hostPlaceholder") as HTMLInputElement;
+  expect(hostInput().matches(":disabled")).toBe(false);
+  fireEvent.change(hostInput(), { target: { value: "typed.example" } });
+
+  act(() => grantOnC1(PERM_BITS.VIEW | PERM_BITS.VIEW_SECRETS));
+
+  expect(hostInput().matches(":disabled")).toBe(true);
+  expect(hostInput().value).toBe("h.example");
+  await act(async () => { vi.advanceTimersByTime(5000); });
+  expect(onSubmit).not.toHaveBeenCalled();
+  useTeamObjectAccessStore.getState().clearAll();
+});
+
+test("ssh form hides its secret fields without View secrets, with no banner", async () => {
+  h.teams = [{ id: "team-1" }];
+  grantOnC1(PERM_BITS.VIEW | PERM_BITS.EDIT_CONNECTIONS);
+  renderSsh({ initial: conn({ vault_id: "team-1" }) });
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.queryByText("connections.common.password")).toBeNull();
+  expect(screen.queryByPlaceholderText("-----BEGIN OPENSSH PRIVATE KEY-----\n...")).toBeNull();
+  expect(screen.queryByRole("status")).toBeNull();
+
+  act(() => grantOnC1(PERM_BITS.VIEW | PERM_BITS.EDIT_CONNECTIONS | PERM_BITS.VIEW_SECRETS));
+  expect(screen.getByText("connections.common.password")).toBeTruthy();
+  useTeamObjectAccessStore.getState().clearAll();
+});
+
+test("a new ssh host keeps its secret fields in a vault whose secrets the caller cannot view", () => {
+  h.teams = [{ id: "team-1" }];
+  h.defaultVaultId = "team-1";
+  renderSsh();
+  expect(screen.getByText("connections.common.password")).toBeTruthy();
 });

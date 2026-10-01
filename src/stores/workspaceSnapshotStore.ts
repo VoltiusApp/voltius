@@ -11,6 +11,7 @@ import { useLayoutStore } from "./layoutStore";
 import { useTerminalCwdStore } from "./terminalCwdStore";
 import { getToggle } from "./toggleSettingsStore";
 import { getScrollOffset, subscribeTerminalScroll } from "@/hooks/useTerminal";
+import { isTeamConnection } from "@/services/teamConnectionIds";
 
 interface WorkspaceSnapshotState {
   snapshot: WorkspaceSnapshot | null;
@@ -74,6 +75,7 @@ export function startWorkspaceSnapshotSync(): void {
         scrollOffsets,
         layout,
         activeSessionId,
+        isTeamConnection,
       }),
     );
   };

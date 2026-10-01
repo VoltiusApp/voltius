@@ -17,8 +17,8 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { entitiesDiffer, mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
-import { filterRemoteExcluded, collectExcludedIds } from "./syncExclusion";
-import { GLOBAL_PROXY_SECRET_ID } from "@/services/teamVaultSecretKeys";
+import { filterRemoteExcluded, filterSecrets, collectExcludedIds, type SecretMaps } from "./syncExclusion";
+import { deviceScopedSecretIds } from "@/services/deviceScopedSecrets";
 import { filterIncoming, filterOutgoing, restoreLocal } from "@/services/user-data/syncFilter";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
@@ -277,9 +277,9 @@ async function decryptBlob(candidates: number[][], blobBytes: number[]): Promise
 
 /**
  * Ids of every entity object that must not participate in sync — individually
- * excluded, or belonging to a sync-disabled type — plus the global proxy
- * password's id while `appSettings.proxy` stays on this device. Used to filter both the
- * outbound blob (`backup_export`) and inbound remote payloads (pull merge).
+ * excluded, or belonging to a sync-disabled type — plus deviceScopedSecretIds.
+ * Used to filter both the outbound blob (`backup_export`) and inbound remote
+ * payloads (pull merge).
  *
  * Exported so non-server sync destinations (e.g. the gist-sync plugin export
  * path, issue #47) apply the same exclusion filter as the built-in server sync.
@@ -306,7 +306,7 @@ export function getExcludedObjectIds(): string[] {
     prefs.isObjectSynced,
     prefs.excludedIds,
   );
-  return prefs.isSettingSynced("appSettings.proxy") ? ids : [...ids, GLOBAL_PROXY_SECRET_ID];
+  return [...ids, ...deviceScopedSecretIds()];
 }
 
 /** `plugin-registry.json` duplicates `appSettings.plugins.overrides`, so every
@@ -642,12 +642,22 @@ export async function syncNow(forcePush = false): Promise<void> {
   }
 }
 
+const noSecrets = (): SecretMaps => ({ secrets: {}, secret_clocks: {} });
+
+async function readDeviceSecrets(): Promise<SecretMaps> {
+  const ids = new Set(deviceScopedSecretIds());
+  if (ids.size === 0) return noSecrets();
+  const local = await invoke<BlobPayload>("state_export_raw");
+  return filterSecrets(local, (id) => id != null && ids.has(id));
+}
+
 /**
  * Sign-in sync for EXISTING cloud accounts.
  *
  * Unlike syncOnLogin (which merges local + remote), this function starts from
  * an empty accumulator and merges ONLY remote device blobs together.
- * Local disk state is NEVER read — guaranteed no local contamination.
+ * Local disk state is NEVER read — guaranteed no local contamination — except
+ * the device-scoped secrets, which no account blob carries.
  *
  * Use this when switching from any local account into an existing cloud account.
  * For new cloud accounts (linkToCloud), use syncOnLogin instead.
@@ -670,8 +680,7 @@ export async function syncOnLoginReplace(): Promise<void> {
     // Accumulate remote state starting from empty — local disk never touched
     let merged: MergedPayload = {
       files: Object.fromEntries(ENTITY_FILES.map((f) => [f, "[]"])),
-      secrets: {},
-      secret_clocks: {},
+      ...(await readDeviceSecrets()),
     };
 
     await forEachRemoteBlob(devices, deviceLabel, async (device) => {

@@ -14,6 +14,7 @@ import { useConnectionPresence } from "@/hooks/useConnectionPresence";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
+import { useCanConnect } from "@/hooks/useCanConnect";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
@@ -68,6 +69,8 @@ export default function HostCard({
   const isFtp = connection.connection_type === "ftp";
   const protocolLabel = isSerial ? "SERIAL" : isFtp ? (connection.ftp_secure ? "FTPS" : "FTP") : "SSH";
   const contributions = useUIContributions("connection.contextMenu", connection);
+  const canConnect = useCanConnect(connection);
+  const connectTitle = !canConnect ? t("common.error.connectNotAllowed") : isFtp ? t("hosts.card.openFilesTitle") : t("hosts.card.connectTitle");
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(connection.id, "connection"));
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const pinConnectionForTeam = useConnectionStore((s) => s.pinConnectionForTeam);
@@ -161,7 +164,7 @@ export default function HostCard({
       pingDisabled: connection.ping_disabled ?? false,
       connectShortcut: "↩",
       duplicateShortcut: "D",
-      onConnect: () => onConnect(connection),
+      onConnect: canConnect ? () => onConnect(connection) : undefined,
       onDuplicate: () => onDuplicate(connection),
       onMoveToVault: onMoveToVault ? (vId) => onMoveToVault(connection, vId) : undefined,
       onCopyToVault: onCopyToVault ? (vId) => onCopyToVault(connection, vId) : undefined,
@@ -241,7 +244,7 @@ export default function HostCard({
       className={dimmed ? "opacity-50" : ""}
       onPointerDown={onPointerDown}
       onClick={(e) => onSelect?.(connection.id, e)}
-      onDoubleClick={() => onConnect(connection)}
+      onDoubleClick={() => { if (canConnect) onConnect(connection); }}
       bulkContextMenuItems={bulkContextMenuItems}
       contextMenuItems={contextMenuItems}
     >
@@ -270,13 +273,14 @@ export default function HostCard({
             {syncIcon}
             {canEdit && <CardActionButton icon="lucide:square-pen" title={t("common.action.edit")} onClick={() => onEdit(connection)} />}
             {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(connection.id)} danger />}
-            {!isSerial && !isFtp && <CardActionButton icon="lucide:folder-open" title={t("hosts.card.openInSftp")} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />}
+            {canConnect && !isSerial && !isFtp && <CardActionButton icon="lucide:folder-open" title={t("hosts.card.openInSftp")} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />}
             <button
+              disabled={!canConnect}
               onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
-              className="flex items-center justify-center p-1.5 rounded-lg transition-colors text-(--t-accent)"
+              className="flex items-center justify-center p-1.5 rounded-lg transition-colors text-(--t-accent) disabled:opacity-40 disabled:cursor-not-allowed"
               onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in srgb, var(--t-accent) 16%, transparent)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              title={isFtp ? t("hosts.card.openFilesTitle") : t("hosts.card.connectTitle")}
+              title={connectTitle}
             >
               <Icon icon={isFtp ? "lucide:folder-open" : "lucide:terminal"} width={18} />
             </button>
@@ -338,7 +342,7 @@ export default function HostCard({
                 {canEdit && (
                   <CardActionButton icon="lucide:square-pen" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(connection)} />
                 )}
-                {!isSerial && !isFtp && (
+                {canConnect && !isSerial && !isFtp && (
                   <CardActionButton icon="lucide:folder-open" title={t("hosts.card.openInSftp")} reveal={false} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />
                 )}
               </div>
@@ -346,10 +350,11 @@ export default function HostCard({
               {/* Terminal connect button — bleeds into card's bottom-right corner */}
               <button
                 ref={terminalBtnRef}
+                disabled={!canConnect}
                 onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
-                className="terminal-connect-btn -mt-5 -mr-[calc(0.75rem+2px)] -mb-[calc(0.75rem+2px)] pr-[calc(0.75rem+2px)] pb-3.5 pt-2.5 pl-3 rounded-tl-xl rounded-br-2xl bg-(--t-bg-terminal) text-(--t-terminal-foreground) hover:brightness-150 transition-all text-xs flex flex-col min-w-0 overflow-hidden max-w-[75%]"
+                className="terminal-connect-btn disabled:opacity-40 disabled:cursor-not-allowed -mt-5 -mr-[calc(0.75rem+2px)] -mb-[calc(0.75rem+2px)] pr-[calc(0.75rem+2px)] pb-3.5 pt-2.5 pl-3 rounded-tl-xl rounded-br-2xl bg-(--t-bg-terminal) text-(--t-terminal-foreground) hover:brightness-150 transition-all text-xs flex flex-col min-w-0 overflow-hidden max-w-[75%]"
                 style={{ fontFamily: "var(--t-terminal-font-family)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), inset 1px 0 0 rgba(255,255,255,0.07)" }}
-                title={isFtp ? t("hosts.card.openFilesTitle") : t("hosts.card.connectTitle")}
+                title={connectTitle}
               >
                 <div className="flex gap-1 mb-1.5 shrink-0">
                   <span className="w-2 h-2 rounded-full bg-[#ff5f56]" />

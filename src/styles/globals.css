@@ -653,6 +653,9 @@ button svg *,
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 22%, transparent);
 }
 
+.form-input:disabled { opacity: 0.6; }
+fieldset:disabled :is(input, textarea, button) { cursor: default; }
+
 @keyframes voltius-kill-drain { from { width: 100%; } to { width: 0%; } }
 
 @keyframes clipboard-pill-in {

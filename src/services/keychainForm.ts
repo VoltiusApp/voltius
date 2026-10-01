@@ -46,7 +46,7 @@ export async function saveIdentityFromForm(
   if (inlineKeyMaterial?.privateKey) {
     const { saveKey, updateKey } = useKeyStore.getState();
     const { label, privateKey, publicKey } = inlineKeyMaterial;
-    const keyData: SshKeyFormData = { name: label || undefined, tags: [] };
+    const keyData: SshKeyFormData = { name: label || undefined, tags: [], vault_id: data.vault_id ?? editing?.vault_id ?? fallbackVaultId };
     if (inlineKeyId.current) await updateKey(inlineKeyId.current, keyData);
     else inlineKeyId.current = (await saveKey(keyData)).id;
     await storeSecret(`key:${inlineKeyId.current}:private`, privateKey);

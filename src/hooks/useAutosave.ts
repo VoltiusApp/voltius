@@ -8,10 +8,12 @@ const SAVED_DISPLAY_MS = 2000;
 export function useAutosave({
   onSave,
   canSave,
+  readOnly = false,
   delay = DEFAULT_DELAY,
 }: {
   onSave: () => void | Promise<void>;
   canSave?: () => boolean;
+  readOnly?: boolean;
   delay?: number;
 }) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -21,7 +23,7 @@ export function useAutosave({
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
   const canSaveRef = useRef(canSave);
-  canSaveRef.current = canSave;
+  canSaveRef.current = readOnly ? () => false : canSave;
 
   const markDirty = useCallback(() => { dirtyRef.current = true; }, []);
 

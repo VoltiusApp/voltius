@@ -10,9 +10,11 @@ import { PickerSurface } from "./PickerSurface";
 export function VaultPicker({
   vaultId,
   onChange,
+  disabled,
 }: {
   vaultId: string;
   onChange: (id: string) => void;
+  disabled?: boolean;
 }) {
   const { t } = useTranslation();
   const { vaults, selectVaultOnly } = useVaultStore();
@@ -78,12 +80,13 @@ export function VaultPicker({
       <button
         ref={triggerRef}
         type="button"
+        disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 text-xs select-none transition-opacity hover:opacity-80"
+        className="flex items-center gap-1 text-xs select-none transition-opacity enabled:hover:opacity-80"
         style={{ color: "var(--t-text-dim)" }}
       >
         <span>{label}</span>
-        <Icon icon="lucide:chevron-down" width={11} style={{ color: "var(--t-text-dim)" }} />
+        {!disabled && <Icon icon="lucide:chevron-down" width={11} style={{ color: "var(--t-text-dim)" }} />}
       </button>
 
       <PickerSurface

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { isTeamConnection } from "@/services/teamConnectionIds";
 
 export interface CommandHistoryEntry {
   id: string;
@@ -8,6 +9,8 @@ export interface CommandHistoryEntry {
   sessionId: string;
   sessionName: string;
   connectionId: string;
+  /** Typed on a team host: kept in memory, never written to disk. */
+  team?: true;
 }
 
 interface CommandHistoryStore {
@@ -58,6 +61,7 @@ export const useCommandHistoryStore = create<CommandHistoryStore>()(
                   sessionId,
                   sessionName,
                   connectionId,
+                  ...(isTeamConnection(connectionId) ? { team: true as const } : {}),
                 });
               }
               buf = "";
@@ -89,7 +93,7 @@ export const useCommandHistoryStore = create<CommandHistoryStore>()(
     }),
     {
       name: "voltius-command-history",
-      partialize: (s) => ({ entries: s.entries }),
+      partialize: (s) => ({ entries: s.entries.filter((e) => !e.team) }),
     },
   ),
 );

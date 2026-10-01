@@ -3,7 +3,7 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 
 export default function MobileFolderRow({
   name, count, onOpen, onActions,
-}: { name: string; count: number; onOpen: () => void; onActions: () => void }) {
+}: { name: string; count: number; onOpen: () => void; onActions?: () => void }) {
   return (
     <div className="flex items-center" data-mobile-folder>
       <button
@@ -15,9 +15,11 @@ export default function MobileFolderRow({
         <span className="text-xs text-(--t-text-dim) shrink-0">{count}</span>
         <Icon icon="lucide:chevron-right" width={18} className="text-(--t-text-dim) shrink-0" />
       </button>
-      <button data-mobile-folder-actions className="p-3 text-(--t-text-dim)" onClick={onActions}>
-        <Icon icon="lucide:ellipsis-vertical" width={18} />
-      </button>
+      {onActions && (
+        <button data-mobile-folder-actions className="p-3 text-(--t-text-dim)" onClick={onActions}>
+          <Icon icon="lucide:ellipsis-vertical" width={18} />
+        </button>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { useUIStore } from "@/stores/uiStore";
 import type { BannerEntry, HistoryEntry, InboxEntry } from "@/stores/notificationStore";
 import { formatRelative } from "@/utils/localeFormat";
+import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 
 const SEVERITY_ICONS: Record<string, string> = {
   info: "lucide:info",
@@ -175,7 +176,8 @@ export function NotificationBell() {
   const clearFocus = useUIStore((s) => s.clearNotificationFocus);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const popover = useAnchoredPopover(open, () => setOpen(false), buttonRef);
+  const dropdownRef = popover.panelRef;
 
   const mounts = useSyncExternalStore(subscribeMounts, () => mountVersion);
   useEffect(() => {
@@ -218,20 +220,6 @@ export function NotificationBell() {
     }
     clearFocus();
   }, [open, pos, focusId, inbox, clearFocus]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        buttonRef.current && !buttonRef.current.contains(e.target as Node) &&
-        dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
 
   const handleOpen = () => setOpen(!open);
 
@@ -279,11 +267,12 @@ export function NotificationBell() {
         </button>
       </div>
 
-      {open && pos && createPortal(
+      {popover.mounted && pos && createPortal(
         <div
           ref={dropdownRef}
-          className="surface-float"
+          className={`surface-float ${popover.className}`}
           style={{
+            ...popover.style,
             position: "fixed",
             top: pos.top,
             width: "min(20rem, calc(100vw - 1rem))",

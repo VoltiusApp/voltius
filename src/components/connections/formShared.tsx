@@ -27,7 +27,6 @@ export interface ConnectionFormProps {
   onDelete?: () => void;
   /** Other vaults available for move/copy (excludes the connection's current vault) */
   vaults?: import("@/types").VaultOption[];
-  canEdit?: boolean;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
 }

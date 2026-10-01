@@ -3,21 +3,38 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import MobileEditHeader from "../MobileEditHeader";
 import { useSnippetStore } from "@/stores/snippetStore";
-import { useVaultStore } from "@/stores/vaultStore";
+import { useAllSnippets } from "@/hooks/useAllSnippets";
+import { useVaultScope } from "@/hooks/useVaultScope";
+import { snippetToForm } from "@/utils/snippetForm";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { StepListEditor } from "@/components/snippets/StepListEditor";
 import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPanel";
-import type { SnippetFormData, SnippetStep } from "@/types";
+import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
+import type { Snippet, SnippetFormData, SnippetStep } from "@/types";
 
 export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: string }) {
+  const pop = useMobileNavStore((s) => s.pop);
+  const snippets = useAllSnippets();
+  const editing = snippetId ? snippets.find((s) => s.id === snippetId) ?? null : null;
+  useCloseWhenGone(snippetId, editing !== null, pop);
+  return <MobileSnippetEditor editing={editing} />;
+}
+
+interface EditorProps {
+  editing: Snippet | null;
+}
+
+const MobileSnippetEditor = withEditAccess("snippet", (p: EditorProps) => p.editing ?? undefined, MobileSnippetEditorFields);
+
+function MobileSnippetEditorFields({ editing, readOnly }: EditorProps & EditAccessProps) {
   const { t } = useTranslation();
   const pop = useMobileNavStore((s) => s.pop);
-  const snippets = useSnippetStore((s) => s.snippets);
+  const snippets = useAllSnippets();
   const createSnippet = useSnippetStore((s) => s.createSnippet);
   const updateSnippet = useSnippetStore((s) => s.updateSnippet);
   const deleteSnippet = useSnippetStore((s) => s.deleteSnippet);
-  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
-  const editing = snippetId ? snippets.find((s) => s.id === snippetId) ?? null : null;
+  const { createVaultId } = useVaultScope();
 
   const [name, setName] = useState(editing?.name ?? "");
   const [steps, setSteps] = useState<SnippetStep[]>(editing?.steps ?? [{ kind: "script", content: "" }]);
@@ -29,27 +46,18 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
   const showStepList = forceSequence || !singleStep;
   const content = singleStep?.content ?? "";
 
-  const canSave = name.trim().length > 0 && steps.some((s) => s.kind !== "script" || s.content.trim());
+  const canSave = !readOnly && name.trim().length > 0 && steps.some((s) => s.kind !== "script" || s.content.trim());
 
   const save = async () => {
     if (!canSave) return;
     if (editing) {
-      const data: SnippetFormData = {
-        name: name.trim(), steps,
-        description: editing.description,
-        tags: editing.tags, folder_id: editing.folder_id,
-        favorite: editing.favorite,
-        only_for_connection_tags: editing.only_for_connection_tags,
-        only_for_distros: editing.only_for_distros,
-        vault_id: editing.vault_id,
-      };
-      await updateSnippet(editing.id, data);
+      await updateSnippet(editing.id, { ...snippetToForm(editing), name: name.trim(), steps });
     } else {
       const data: SnippetFormData = {
         name: name.trim(), steps,
         tags: [], favorite: false,
         only_for_connection_tags: [], only_for_distros: [],
-        vault_id: selectedVaultIds[0] ?? "personal",
+        vault_id: createVaultId,
       };
       await createSnippet(data);
     }
@@ -65,7 +73,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
         saveAttr="mobile-snippet-save"
         saveDisabled={!canSave}
       />
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+      <ReadOnlyFields readOnly={readOnly} className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         <input
           data-mobile-snippet-name
           value={name}
@@ -101,7 +109,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
             </button>
           </div>
         )}
-        {editing && (
+        {editing && !readOnly && (
           <button
             data-mobile-snippet-delete
             onClick={() => { void deleteSnippet(editing.id); pop(); }}
@@ -111,7 +119,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
             <Icon icon="lucide:trash-2" width={16} /> {t("mobile.snippetEdit.delete")}
           </button>
         )}
-      </div>
+      </ReadOnlyFields>
 
       {remotePick && (
         <div className="absolute inset-0 z-40 bg-(--t-bg-base)">

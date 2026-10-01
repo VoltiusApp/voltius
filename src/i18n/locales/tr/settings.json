@@ -492,6 +492,7 @@
     },
     "vaults": {
       "general": {
+        "renameFailedToast": "Bu kasa yeniden adlandırılamadı. {{reason}}",
         "vaultNameLabel": "Kasa adı",
         "save": "Kaydet",
         "makePrivate": {
@@ -508,9 +509,11 @@
         "deleteVault": {
           "title": "Kasayı sil",
           "confirmDesc": "Bu kasayı ve içindeki {{count}} öğeyi kalıcı olarak siler. Bu işlem geri alınamaz.",
+          "confirmDescTeam": "Bu kasayı ve içindeki {{count}} öğeyi tüm üyeler için kalıcı olarak siler. Bu işlem geri alınamaz.",
           "confirmBtn": "Silmeyi onayla",
           "deleting": "Siliniyor…",
-          "failedToast": "Bu kasa tamamen silinemedi — hâlâ burada ancak bazı öğeleri silinmiş olabilir. {{reason}}"
+          "failedToast": "Bu kasa tamamen silinemedi — hâlâ burada ancak bazı öğeleri silinmiş olabilir. {{reason}}",
+          "teamFailedToast": "Bu kasa silinemedi — hiçbir şey silinmedi. {{reason}}"
         },
         "madePrivateToast_one": "Kasa artık özel. {{count}} üyenin erişimi kaldırıldı.",
         "madePrivateToast_other": "Kasa artık özel. {{count}} üyenin erişimi kaldırıldı.",
@@ -655,7 +658,7 @@
       },
       "autoDownload": {
         "title": "Güncellemeleri otomatik indir",
-        "desc": "Yeni sürümleri arka planda denetleyip indirir"
+        "desc": "Yeni sürümleri arka planda indirir. Voltius her durumda güncellemeleri denetler."
       },
       "whatsNew": {
         "title": "Güncellemelerden sonra yenilikleri göster",
@@ -839,15 +842,6 @@
       },
       "changelogPopup": {
         "label": "Güncellemelerden Sonra Yenilikleri Göster"
-      },
-      "category": {
-        "appearance": "Görünüm",
-        "portForwarding": "Port Yönlendirme",
-        "sftp": "SFTP",
-        "hosts": "Sunucular",
-        "updates": "Güncellemeler",
-        "plugins": "Eklentiler",
-        "integrations": "Entegrasyonlar"
       },
       "pluginInstallReview": {
         "label": "Eklentileri kurmadan önce izinleri incele"

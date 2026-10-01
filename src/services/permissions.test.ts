@@ -33,10 +33,10 @@ test("personal vault always allowed, even with no user", () => {
 test("a personal vault turned into a team vault is gated by its team roles", () => {
   const s = snap({
     vaults: [vault("personal", "t1")],
-    rolesByTeam: { t1: [role("r1", PERM_BITS.VIEW_SECRETS)] },
+    rolesByTeam: { t1: [role("r1", PERM_BITS.CONNECT)] },
     membersByTeam: { t1: [member("u1", ["r1"])] },
   });
-  expect(resolveCan(s, "VIEW_SECRETS", "personal")).toBe(true);
+  expect(resolveCan(s, "CONNECT", "personal")).toBe(true);
   expect(resolveCan(s, "EDIT_KEYS", "personal")).toBe(false);
 });
 
@@ -52,10 +52,10 @@ test("no user id → denied for a team vault", () => {
 test("member found: bit set grants, bit clear denies (via vault.teamId)", () => {
   const s = snap({
     vaults: [vault("v1", "t1")],
-    rolesByTeam: { t1: [role("r1", PERM_BITS.VIEW_SECRETS)] },
+    rolesByTeam: { t1: [role("r1", PERM_BITS.CONNECT)] },
     membersByTeam: { t1: [member("u1", ["r1"])] },
   });
-  expect(resolveCan(s, "VIEW_SECRETS", "v1")).toBe(true);
+  expect(resolveCan(s, "CONNECT", "v1")).toBe(true);
   expect(resolveCan(s, "EDIT_KEYS", "v1")).toBe(false);
 });
 
@@ -131,60 +131,57 @@ describe("effectivePermissions with member overrides", () => {
 });
 
 describe("crossesVaultKeyGate", () => {
-  it("role grants VIEW_SECRETS only; deny VIEW_SECRETS crosses the gate", () => {
-    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS)];
+  it("role grants CONNECT only; deny CONNECT crosses the gate", () => {
+    const roles: TeamRole[] = [role("r1", PERM_BITS.CONNECT)];
     const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
-    expect(
-      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS }),
-    ).toBe(true);
+    expect(crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.CONNECT })).toBe(true);
   });
 
-  it("already denying VIEW_SECRETS; submitting the identical deny again does not cross", () => {
-    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS)];
-    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: PERM_BITS.VIEW_SECRETS };
-    expect(
-      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS }),
-    ).toBe(false);
+  it("already denying CONNECT; submitting the identical deny again does not cross", () => {
+    const roles: TeamRole[] = [role("r1", PERM_BITS.CONNECT)];
+    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: PERM_BITS.CONNECT };
+    expect(crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.CONNECT })).toBe(false);
   });
 
-  it("role grants VIEW_SECRETS and CONNECT; deny VIEW_SECRETS only does not cross (CONNECT still gates)", () => {
+  it("role grants VIEW_SECRETS and CONNECT; deny VIEW_SECRETS only does not cross", () => {
     const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS | PERM_BITS.CONNECT)];
     const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
-    expect(
-      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS }),
-    ).toBe(false);
+    expect(crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS })).toBe(false);
   });
 
-  it("role grants VIEW_SECRETS and COPY_SECRETS; deny COPY_SECRETS only does not cross", () => {
-    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS | PERM_BITS.COPY_SECRETS)];
+  it("role grants VIEW_SECRETS and CONNECT; deny CONNECT crosses, since secrets depend on it", () => {
+    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS | PERM_BITS.CONNECT)];
     const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
-    expect(
-      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.COPY_SECRETS }),
-    ).toBe(false);
+    expect(crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.CONNECT })).toBe(true);
   });
 
-  it("roleless member with allow VIEW_SECRETS; clearing to inherit crosses", () => {
-    const roles: TeamRole[] = [];
-    const m = { ...member("u1", []), permission_allow: PERM_BITS.VIEW_SECRETS, permission_deny: 0 };
-    expect(
-      crossesVaultKeyGate(m, roles, { allow: 0, deny: 0 }),
-    ).toBe(true);
+  it("roleless member with allow CONNECT; clearing to inherit crosses", () => {
+    const m = { ...member("u1", []), permission_allow: PERM_BITS.CONNECT, permission_deny: 0 };
+    expect(crossesVaultKeyGate(m, [], { allow: 0, deny: 0 })).toBe(true);
   });
 
-  it("role grants VIEW_SECRETS; deny EDIT_KEYS does not cross", () => {
-    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS)];
+  it("role grants CONNECT; deny EDIT_KEYS does not cross", () => {
+    const roles: TeamRole[] = [role("r1", PERM_BITS.CONNECT)];
     const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
-    expect(
-      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.EDIT_KEYS }),
-    ).toBe(false);
+    expect(crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.EDIT_KEYS })).toBe(false);
+  });
+});
+
+describe("Connect dependency (mirror of server with_dependencies)", () => {
+  it("View secrets and Copy secrets without Connect grant nothing", () => {
+    const roles = [role("r1", PERM_BITS.VIEW | PERM_BITS.VIEW_SECRETS | PERM_BITS.COPY_SECRETS)];
+    expect(effectivePermissions({ role_ids: ["r1"] }, roles)).toBe(PERM_BITS.VIEW);
   });
 
-  it("role grants VIEW_SECRETS and an unrelated bit; deny VIEW_SECRETS still crosses", () => {
-    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS | PERM_BITS.EDIT_KEYS)];
-    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
-    expect(
-      crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS }),
-    ).toBe(true);
+  it("denying Connect on an object also removes its secrets", () => {
+    const roles = [role("r1", PERM_BITS.VIEW | PERM_BITS.CONNECT | PERM_BITS.VIEW_SECRETS | PERM_BITS.COPY_SECRETS)];
+    const entries: RuleEntry[] = [{ subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.CONNECT }];
+    expect(resolveObjectPermissions({ ...member("u1", ["r1"]) }, roles, entries)).toBe(PERM_BITS.VIEW);
+  });
+
+  it("Administrator satisfies the dependency", () => {
+    const roles = [role("r1", PERM_BITS.ADMINISTRATOR | PERM_BITS.VIEW_SECRETS)];
+    expect(effectivePermissions({ role_ids: ["r1"] }, roles)).toBe(PERM_BITS.ADMINISTRATOR | PERM_BITS.VIEW_SECRETS);
   });
 });
 

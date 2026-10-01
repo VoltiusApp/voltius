@@ -24,10 +24,15 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/utils/icons", () => ({ getConnectionIcon: () => null, getConnectionIconColor: () => null }));
-vi.mock("@/components/shared/PickerSurface", () => ({
-  PickerSurface: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
-    open ? <div data-testid="stack-menu">{children}</div> : null,
-}));
+vi.mock("@/components/shared/PickerSurface", async () => {
+  const { useAnchoredPopover } = await import("@/hooks/useAnchoredPopover");
+  return {
+    PickerSurface: ({ open, onClose, anchorRef, children }: { open: boolean; onClose: () => void; anchorRef: { readonly current: HTMLElement | null }; children: React.ReactNode }) => {
+      const popover = useAnchoredPopover(open, onClose, anchorRef);
+      return open ? <div ref={popover.panelRef} data-testid="stack-menu">{children}</div> : null;
+    },
+  };
+});
 
 const focusSession = vi.hoisted(() => vi.fn());
 vi.mock("@/hooks/useTerminal", async () => {

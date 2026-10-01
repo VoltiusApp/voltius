@@ -1,6 +1,7 @@
 {
   "changelog": {
     "title": "更新日志",
+    "autoDownload": "自动下载",
     "quickLinks": {
       "documentation": "文档"
     },

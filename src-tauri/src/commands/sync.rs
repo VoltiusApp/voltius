@@ -491,7 +491,7 @@ struct UpdaterPrefs {
     auto: bool,
 }
 
-/// Whether the background updater loop may run. Missing/unreadable file ⇒ enabled.
+/// Whether updates download without asking. Missing/unreadable file ⇒ enabled.
 pub fn updater_auto_enabled() -> bool {
     match fs::read_to_string(config_dir().join("updater.json")) {
         Ok(s) => serde_json::from_str::<UpdaterPrefs>(&s)
