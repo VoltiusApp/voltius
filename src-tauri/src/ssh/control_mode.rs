@@ -1116,6 +1116,7 @@ mod docker_harness {
             }
         }
         let _ = child.kill();
+        let _ = child.wait();
         (parser, started)
     }
 
