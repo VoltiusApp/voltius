@@ -48,7 +48,7 @@ test("SnippetForm creates folders its own page can show", () => {
  *  and what the shared shell offers. */
 test("the shared form chrome creates and offers the caller's folder type", () => {
   const src = read(SHARED);
-  expect(src).toContain("folderOptionsFor(folders, folderType)");
+  expect(src).toContain("folderOptionsFor(vaultFolders, folderType)");
   expect(src).toMatch(/saveFolder\(\{ name, object_type: folderType/);
 });
 
