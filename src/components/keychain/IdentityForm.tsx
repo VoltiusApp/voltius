@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
+import { useFolderField } from "@/hooks/useFolderField";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent } from "@/services/auditReporter";
 import { useKeyStore } from "@/stores/keyStore";
@@ -157,7 +158,7 @@ function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, is
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [keyId, setKeyId] = useState<string | null | "__inline__">(initial?.key_id ?? null);
-  const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
+  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
   const [inlineKeyLabel, setInlineKeyLabel] = useState("");
   const [inlinePrivKey, setInlinePrivKey] = useState("");
   const [inlinePublicKey, setInlinePublicKey] = useState("");
@@ -193,11 +194,11 @@ function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, is
       const keyMaterial = isInline
         ? { label: inlineKeyLabel || undefined, privateKey: inlinePrivKey, publicKey: inlinePublicKey }
         : undefined;
-      return onSubmit(
+      return keepSavedOnCancel(onSubmit(
         { name: name.trim() || undefined, username, key_id: isInline ? undefined : (keyId ?? undefined), tags, folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
         passwordDirty.current ? password : null,
         keyMaterial,
-      ) ?? undefined;
+      ));
     },
     // Same rule as KeyForm: an inline public half that is not a key is never
     // persisted, and the inline error under the field says why.

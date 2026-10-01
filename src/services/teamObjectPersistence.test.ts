@@ -33,7 +33,7 @@ import { copyRuleSet, upsertTeamObject } from "@/services/teamObjects";
 import { objectAccess, useTeamObjectAccessStore, type ObjectAccess, type TeamAccessEntries } from "@/stores/teamObjectAccessStore";
 import { PERM_BITS } from "./permissions";
 import {
-  RuleSetMoveCancelled, removeTeamVaultObject, saveTeamVaultObject, setRuleSetMoveConfirmer,
+  RuleSetMoveCancelled, passMoveCancelled, removeTeamVaultObject, revertIfMoveCancelled, saveTeamVaultObject, setRuleSetMoveConfirmer,
 } from "./teamObjectPersistence";
 
 const MANAGE = PERM_BITS.VIEW | PERM_BITS.MANAGE_ROLES;
@@ -168,4 +168,20 @@ test("duplicating a synced object syncs the copy with its destination", async ()
   await saveTeamVaultObject("t1", "connection", { id: "dup", folder_id: "fB" }, { rulesFrom: "cSynced" });
   expect(copyRuleSet).not.toHaveBeenCalled();
   expect(sent()[0].rule_set_id).toBe("sB");
+});
+
+test("a save handler reports real failures but hands a cancelled move back to the editor", () => {
+  const report = vi.fn();
+  passMoveCancelled(report)(new Error("boom"));
+  expect(report).toHaveBeenCalledTimes(1);
+  expect(() => passMoveCancelled(report)(new RuleSetMoveCancelled())).toThrow(RuleSetMoveCancelled);
+  expect(report).toHaveBeenCalledTimes(1);
+});
+
+test("a cancelled move reverts, any other failure still propagates", () => {
+  const revert = vi.fn();
+  revertIfMoveCancelled(revert)(new RuleSetMoveCancelled());
+  expect(revert).toHaveBeenCalledTimes(1);
+  expect(() => revertIfMoveCancelled(revert)(new Error("boom"))).toThrow("boom");
+  expect(revert).toHaveBeenCalledTimes(1);
 });

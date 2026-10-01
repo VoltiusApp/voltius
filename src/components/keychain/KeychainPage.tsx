@@ -62,7 +62,7 @@ import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { useSearchMatcher } from "@/utils/search";
-import { unlessMoveCancelled } from "@/services/teamObjectPersistence";
+import { passMoveCancelled, unlessMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
 
 export default function KeychainPage() {
@@ -98,6 +98,7 @@ export default function KeychainPage() {
   const [exportingKey, setExportingKey] = useState<SshKey | null>(null);
   const [error, setError] = useState<string | null>(null);
   const reportError = unlessMoveCancelled(setError);
+  const reportSaveError = passMoveCancelled(setError);
   const layoutMode = useUIStore((s) => s.keychainLayoutMode);
   const setLayoutMode = useUIStore((s) => s.setKeychainLayoutMode);
   const sortMode = useUIStore((s) => s.keychainSortMode);
@@ -469,7 +470,7 @@ export default function KeychainPage() {
       const key = await saveKeyFromForm(editingKey, data, privateKey, publicKey, passphrase, selectedVaultIds[0] ?? "personal");
       if (!editingKey) setEditingKeyId(key.id);
     } catch (err) {
-      reportError(err);
+      reportSaveError(err);
     }
   };
 
@@ -484,7 +485,7 @@ export default function KeychainPage() {
       );
       if (!editingIdentity) setEditingIdentityId(identity.id);
     } catch (err) {
-      reportError(err);
+      reportSaveError(err);
     }
   };
 

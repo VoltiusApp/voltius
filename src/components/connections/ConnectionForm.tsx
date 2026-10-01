@@ -15,6 +15,7 @@ import { isCustomProxyMode, resolveProxy } from "@/services/proxy";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
 import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import { useAutosave } from "@/hooks/useAutosave";
+import { useFolderField } from "@/hooks/useFolderField";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent } from "@/services/auditReporter";
 import { useUIContributions } from "@/hooks/useUIContributions";
@@ -87,7 +88,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [identityId, setIdentityId] = useState<string | null>(initial?.identity_id ?? null);
   const [keyId, setKeyId] = useState<string | null>(initial?.key_id ?? null);
-  const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
+  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
   const [jumpHosts, setJumpHosts] = useState<JumpHost[]>(initial?.jump_hosts ?? []);
   const [showChaining, setShowChaining] = useState(false);
   const [envVars, setEnvVars] = useState<EnvVar[]>(initial?.env_vars ?? []);
@@ -270,7 +271,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   };
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
-    onSave: () => { const { data, secrets } = buildSubmit(); return onSubmit(data, secrets) ?? undefined; },
+    onSave: () => { const { data, secrets } = buildSubmit(); return keepSavedOnCancel(onSubmit(data, secrets)); },
     canSave: () => !!host.trim() && (port === "" || (port >= 1 && port <= 65535)),
     readOnly,
   });

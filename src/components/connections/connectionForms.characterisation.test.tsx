@@ -196,6 +196,7 @@ const { default: ConnectionForm } = await import("./ConnectionForm");
 const { useTeamObjectAccessStore } = await import("@/stores/teamObjectAccessStore");
 const { PERM_BITS } = await import("@/services/permissions");
 const { default: SerialConnectionForm } = await import("./SerialConnectionForm");
+const { RuleSetMoveCancelled } = await import("@/services/teamObjectPersistence");
 type FormHandle = { flush: () => void; isDirty: () => boolean };
 
 globalThis.ResizeObserver ??= class {
@@ -421,6 +422,18 @@ test.each([
   fireEvent.change(notes, { target: { value: "   " } });
   await act(async () => { ref.current!.flush(); });
   expect(onSubmit.mock.calls[onSubmit.mock.calls.length - 1][0].notes).toBeUndefined();
+});
+
+test.each([
+  ["ssh", () => renderSsh({ initial: conn(), onSubmit: vi.fn(async () => { throw new RuleSetMoveCancelled(); }) })],
+  ["serial", () => renderSerial({ initial: conn({ connection_type: "serial", serial_port: "/dev/ttyS0" }) as Connection, onSubmit: vi.fn(async () => { throw new RuleSetMoveCancelled(); }) })],
+])("%s form puts the saved folder back when the move is cancelled", async (_kind, mount) => {
+  const { ref } = mount();
+  await act(async () => { await Promise.resolve(); });
+  fireEvent.click(document.querySelector("[data-folder-pick]")!);
+  expect(document.querySelector("[data-folder-selector]")?.getAttribute("data-value")).toBe("f1");
+  await act(async () => { ref.current!.flush(); });
+  expect(document.querySelector("[data-folder-selector]")?.getAttribute("data-value")).toBe("");
 });
 
 test.each([

@@ -31,6 +31,16 @@ export const unlessMoveCancelled = (report: (message: string) => void) => (err: 
   if (!(err instanceof RuleSetMoveCancelled)) report(describeError(err, i18n.t));
 };
 
+export const passMoveCancelled = (report: (message: string) => void) => (err: unknown): void => {
+  if (err instanceof RuleSetMoveCancelled) throw err;
+  report(describeError(err, i18n.t));
+};
+
+export const revertIfMoveCancelled = (revert: () => void) => (err: unknown): void => {
+  if (!(err instanceof RuleSetMoveCancelled)) throw err;
+  revert();
+};
+
 type MoveConfirmer = (teamId: string, from: string | null, to: string | null) => Promise<boolean>;
 let confirmMove: MoveConfirmer = async () => true;
 

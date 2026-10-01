@@ -140,6 +140,7 @@ const { KeyForm } = await import("./KeyForm");
 const { IdentityForm } = await import("./IdentityForm");
 const { useTeamObjectAccessStore } = await import("@/stores/teamObjectAccessStore");
 const { PERM_BITS } = await import("@/services/permissions");
+const { RuleSetMoveCancelled } = await import("@/services/teamObjectPersistence");
 
 beforeEach(() => {
   h.folders = [
@@ -248,6 +249,19 @@ test.each([
   expect(isDirtyRef.current).toBe(false);
   fireEvent.click(document.querySelector("[data-tag-selector]")!);
   expect(isDirtyRef.current).toBe(true);
+});
+
+test.each([
+  ["key", () => renderKey({ initial: key(), onSubmit: vi.fn(async () => { throw new RuleSetMoveCancelled(); }) })],
+  ["identity", () => renderIdentity({ initial: identity(), onSubmit: vi.fn(async () => { throw new RuleSetMoveCancelled(); }) })],
+])("%s form puts the saved folder back when the move is cancelled", async (_kind, mount) => {
+  const { flushRef } = mount();
+  fireEvent.click(document.querySelector("[data-folder-pick]")!);
+  expect(document.querySelector("[data-folder-selector]")?.getAttribute("data-value")).toBe("f1");
+  await act(async () => {
+    flushRef.current!();
+  });
+  expect(document.querySelector("[data-folder-selector]")?.getAttribute("data-value")).toBe("");
 });
 
 test("the key form submits the typed material with a generated default name", async () => {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
+import { useFolderField } from "@/hooks/useFolderField";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
 import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import {
@@ -96,7 +97,7 @@ function KeyFormEditor({ initial, initialMode, onSubmit, onClose, onExport, onDe
   const [publicKey, setPublicKey] = useState("");
   const [passphrase, setPassphrase] = useState("");
   const [showPassphrase, setShowPassphrase] = useState(false);
-  const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
+  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
   const isNew = !initial;
   const [mode, setMode] = useState<KeyFormMode>(initial ? "import" : (initialMode ?? "import"));
   const keyInfo = useMemo(() => detectKeyInfo(privateKey, publicKey), [privateKey, publicKey]);
@@ -130,12 +131,12 @@ function KeyFormEditor({ initial, initialMode, onSubmit, onClose, onExport, onDe
   const isSynced = initial ? isObjectSynced(initial.id, "key") : true;
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
-    onSave: () => onSubmit(
+    onSave: () => keepSavedOnCancel(onSubmit(
       { name: name.trim() || defaultName, key_type: keyInfo.type ?? undefined, tags, folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
       privateKeyDirty.current ? privateKey : null,
       publicKeyDirty.current ? publicKey : null,
       passphraseDirty.current ? passphrase : null,
-    ) ?? undefined,
+    )),
     // A public half that is not a key is never persisted: autosave holds until
     // the field is emptied or corrected, and the inline error says why.
     canSave: () => (!!privateKey.trim() || (!isNew && !privateKeyDirty.current)) && !isPublicKeyInvalid(publicKey),

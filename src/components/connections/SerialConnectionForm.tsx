@@ -2,6 +2,7 @@ import { forwardRef, type RefAttributes, useCallback, useEffect, useImperativeHa
 import { useTranslation } from "react-i18next";
 import type { ConnectionFormData } from "@/types";
 import { useAutosave } from "@/hooks/useAutosave";
+import { useFolderField } from "@/hooks/useFolderField";
 import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { serialListPorts } from "@/services/serial";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
@@ -72,7 +73,7 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
     ),
   );
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
-  const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
+  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
 
@@ -124,7 +125,7 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => {
       const { data, password: pwd, privateKey: pk } = buildSubmit();
-      return onSubmit(data, { password: pwd, privateKey: pk, passphrase: null, proxyPassword: null }) ?? undefined;
+      return keepSavedOnCancel(onSubmit(data, { password: pwd, privateKey: pk, passphrase: null, proxyPassword: null }));
     },
     canSave: () => !!serialPort.trim(),
     readOnly,

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
+import { useFolderField } from "@/hooks/useFolderField";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import FolderSelector from "@/components/shared/FolderSelector";
 import TagSelector from "@/components/shared/TagSelector";
@@ -68,7 +69,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
   const [name, setName]         = useState(initial?.name ?? "");
   const [steps, setSteps]       = useState<SnippetStep[]>(initial?.steps ?? [{ kind: "script", content: "" }]);
   const [description, setDesc]  = useState(initial?.description ?? "");
-  const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
+  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
   const [tags, setTags]         = useState<string[]>(initial?.tags ?? []);
   const [connTags, setConnTags] = useState<string[]>(initial?.only_for_connection_tags ?? []);
   const [connTagInput, setConnTagInput] = useState("");
@@ -105,7 +106,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
   });
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
-    onSave: () => onSubmit(buildData()) ?? undefined,
+    onSave: () => keepSavedOnCancel(onSubmit(buildData())),
     canSave: () => steps.length > 0 && steps.some((s) => s.kind !== "script" || s.content.trim()),
     readOnly,
   });
