@@ -8,7 +8,7 @@ const team = { id: "team", username: "deploy", name: "ops-root" };
 test("lists choices, the host default, then the vault default", () => {
   const onPick = vi.fn();
   const onOpen = vi.fn();
-  const items = buildConnectAsItems({ choices: [own, team], currentPickId: "own", ownIds: new Set(["own"]), hostLabel: "ops-deploy", vaultName: "Ops", t, onPick, onOpenVaultDefault: onOpen });
+  const items = buildConnectAsItems({ choices: [own, team], current: { kind: "pick", id: "own" }, ownIds: new Set(["own"]), hostLabel: "ops-deploy", vaultName: "Ops", t, onPick, onOpenVaultDefault: onOpen });
 
   expect(items.map((i) => [i.label, i.icon, i.hint])).toEqual([
     ["Alice (laptop key)", "lucide:check", "hosts.connectAs.yours"],
@@ -25,8 +25,13 @@ test("lists choices, the host default, then the vault default", () => {
 });
 
 test("without a pick the host default is checked; without a shared credential it is absent", () => {
-  const items = buildConnectAsItems({ choices: [own], currentPickId: null, ownIds: new Set(["own"]), hostLabel: "ops-deploy", vaultName: "Ops", t, onPick: vi.fn(), onOpenVaultDefault: vi.fn() });
+  const items = buildConnectAsItems({ choices: [own], current: { kind: "host" }, ownIds: new Set(["own"]), hostLabel: "ops-deploy", vaultName: "Ops", t, onPick: vi.fn(), onOpenVaultDefault: vi.fn() });
   expect(items[1].icon).toBe("lucide:check");
-  const bare = buildConnectAsItems({ choices: [own], currentPickId: null, ownIds: new Set(["own"]), hostLabel: null, vaultName: "Ops", t, onPick: vi.fn(), onOpenVaultDefault: vi.fn() });
+  const bare = buildConnectAsItems({ choices: [own], current: { kind: "host" }, ownIds: new Set(["own"]), hostLabel: null, vaultName: "Ops", t, onPick: vi.fn(), onOpenVaultDefault: vi.fn() });
   expect(bare.map((i) => i.label)).toEqual(["Alice (laptop key)", "hosts.connectAs.vaultDefault:Ops"]);
+});
+
+test("an unavailable choice checks nothing", () => {
+  const items = buildConnectAsItems({ choices: [own], current: { kind: "none" }, ownIds: new Set(["own"]), hostLabel: "ops-deploy", vaultName: "Ops", t, onPick: vi.fn(), onOpenVaultDefault: vi.fn() });
+  expect(items.map((i) => i.icon)).not.toContain("lucide:check");
 });

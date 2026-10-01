@@ -5,6 +5,7 @@ import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useIdentityPickStore } from "@/stores/identityPickStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultIdentityDialogStore } from "@/stores/vaultIdentityDialogStore";
+import { notifyError } from "@/utils/notifyError";
 import { useVaultPickChoices } from "@/hooks/useCredentialPlan";
 
 function Choice({ icon, title, subtitle, selected, onClick }: { icon: string; title: string; subtitle: string; selected: boolean; onClick: () => void }) {
@@ -34,7 +35,7 @@ export function VaultIdentityDialog({ teamId, onClose }: { teamId: string; onClo
   const [selected, setSelected] = useState<string | null>(current);
 
   const save = () => {
-    void setVaultDefault(teamId, selected).then(onClose, () => {});
+    void setVaultDefault(teamId, selected).then(onClose, notifyError);
   };
 
   return (

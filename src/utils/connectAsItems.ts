@@ -2,9 +2,11 @@ import type { TFunction } from "i18next";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import type { PickTarget } from "@/services/credentialPlan";
 
+export type ConnectAsCurrent = { kind: "pick"; id: string } | { kind: "host" } | { kind: "none" };
+
 export function buildConnectAsItems({
   choices,
-  currentPickId,
+  current,
   ownIds,
   hostLabel,
   vaultName,
@@ -13,7 +15,7 @@ export function buildConnectAsItems({
   onOpenVaultDefault,
 }: {
   choices: PickTarget[];
-  currentPickId: string | null;
+  current: ConnectAsCurrent;
   ownIds: Set<string>;
   hostLabel: string | null;
   vaultName: string;
@@ -23,14 +25,14 @@ export function buildConnectAsItems({
 }): ContextMenuItem[] {
   const items: ContextMenuItem[] = choices.map((c) => ({
     label: c.name ?? c.username,
-    icon: c.id === currentPickId ? "lucide:check" : ownIds.has(c.id) ? "lucide:user-round" : "lucide:key-round",
+    icon: current.kind === "pick" && c.id === current.id ? "lucide:check" : ownIds.has(c.id) ? "lucide:user-round" : "lucide:key-round",
     hint: ownIds.has(c.id) ? t("hosts.connectAs.yours") : undefined,
     onClick: () => onPick(c.id),
   }));
   if (hostLabel) {
     items.push({
       label: hostLabel,
-      icon: currentPickId ? "lucide:server" : "lucide:check",
+      icon: current.kind === "host" ? "lucide:check" : "lucide:server",
       hint: t("hosts.connectAs.hostDefault"),
       onClick: () => onPick(null),
     });

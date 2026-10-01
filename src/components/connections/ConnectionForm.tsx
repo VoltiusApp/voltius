@@ -28,6 +28,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { useCanConnect } from "@/hooks/useCanConnect";
 import { useConnectAsMenuItem } from "@/hooks/useConnectAsMenuItem";
+import { NO_CONNECTION, useCredentialPlan } from "@/hooks/useCredentialPlan";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
@@ -398,7 +399,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   }, [applyDetectedDistro, host, identityId, keyId, initial, legacyAlgorithms, passphrase, password, port, privateKey, proxyOverride, proxyPassword, selectedIdentity, username]);
 
   const canConnect = useCanConnect({ id: initial?.id ?? "", vault_id: initial?.vault_id ?? "" });
-  const connectAs = useConnectAsMenuItem(initial, () => onConnect?.());
+  const connectAs = useConnectAsMenuItem(initial, useCredentialPlan(initial ?? NO_CONNECTION), () => onConnect?.());
   const panelItems = initial ? buildConnectionMenuItems({
     t,
     canEdit: !readOnly,

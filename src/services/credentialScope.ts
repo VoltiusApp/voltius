@@ -16,6 +16,27 @@ export interface CredentialSnapshot {
   teamSecret: (teamId: string, key: string) => string | undefined;
 }
 
+export function toCredentialSnapshot(s: {
+  teams: CredentialSnapshot["teams"];
+  vaults: CredentialSnapshot["vaults"];
+  identities: Identity[];
+  teamIdentities: CredentialSnapshot["teamIdentities"];
+  teamKeys: CredentialSnapshot["teamKeys"];
+  byObject: Record<string, string>;
+  byTeam: Record<string, string>;
+  teamSecret: CredentialSnapshot["teamSecret"];
+}): CredentialSnapshot {
+  return {
+    teams: s.teams,
+    vaults: s.vaults,
+    ownIdentities: s.identities,
+    teamIdentities: s.teamIdentities,
+    teamKeys: s.teamKeys,
+    picks: { byObject: s.byObject, byTeam: s.byTeam },
+    teamSecret: s.teamSecret,
+  };
+}
+
 function lookupPickable(teamId: string, snapshot: CredentialSnapshot, can: Can): (id: string) => PickTarget | PickIssueReason {
   return (id) => {
     const own = snapshot.ownIdentities.find((i) => i.id === id);

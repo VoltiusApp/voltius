@@ -4,18 +4,19 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useIdentityPickStore } from "@/stores/identityPickStore";
 import { teamSecretCache } from "@/services/teamSecretCache";
-import type { CredentialSnapshot } from "./credentialScope";
+import { toCredentialSnapshot, type CredentialSnapshot } from "./credentialScope";
 
 export function credentialSnapshotFromStores(): CredentialSnapshot {
   const { identities, teamIdentities } = useIdentityStore.getState();
   const { byObject, byTeam } = useIdentityPickStore.getState();
-  return {
+  return toCredentialSnapshot({
     teams: useTeamStore.getState().teams,
     vaults: useVaultStore.getState().vaults,
-    ownIdentities: identities,
+    identities,
     teamIdentities,
     teamKeys: useKeyStore.getState().teamKeys,
-    picks: { byObject, byTeam },
+    byObject,
+    byTeam,
     teamSecret: teamSecretCache.get,
-  };
+  });
 }

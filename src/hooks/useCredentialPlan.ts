@@ -8,7 +8,7 @@ import { useIdentityPickStore } from "@/stores/identityPickStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { teamSecretCache } from "@/services/teamSecretCache";
 import { planCredentials } from "@/services/credentialPlan";
-import { buildCredentialScope, hostIdentityOf, pickChoices, type CredentialSnapshot } from "@/services/credentialScope";
+import { buildCredentialScope, hostIdentityOf, pickChoices, toCredentialSnapshot, type CredentialSnapshot } from "@/services/credentialScope";
 
 function useCredentialSnapshot(): { snapshot: CredentialSnapshot; supported: boolean } {
   const identities = useIdentityStore((s) => s.identities);
@@ -20,11 +20,15 @@ function useCredentialSnapshot(): { snapshot: CredentialSnapshot; supported: boo
   const byTeam = useIdentityPickStore((s) => s.byTeam);
   const supported = useIdentityPickStore((s) => s.status !== "unsupported");
   const snapshot = useMemo<CredentialSnapshot>(
-    () => ({ teams, vaults, ownIdentities: identities, teamIdentities, teamKeys, picks: { byObject, byTeam }, teamSecret: teamSecretCache.get }),
+    () => toCredentialSnapshot({ teams, vaults, identities, teamIdentities, teamKeys, byObject, byTeam, teamSecret: teamSecretCache.get }),
     [teams, vaults, identities, teamIdentities, teamKeys, byObject, byTeam],
   );
   return { snapshot, supported };
 }
+
+export const NO_CONNECTION = { id: "", vault_id: "", username: "", host: "" } as unknown as Connection;
+
+export type CredentialPlanResult = ReturnType<typeof useCredentialPlan>;
 
 export function useCredentialPlan(conn: Connection) {
   const { snapshot, supported } = useCredentialSnapshot();

@@ -73,9 +73,9 @@ export default function HostCard({
   const protocolLabel = isSerial ? "SERIAL" : isFtp ? (connection.ftp_secure ? "FTPS" : "FTP") : "SSH";
   const contributions = useUIContributions("connection.contextMenu", connection);
   const canConnect = useCanConnect(connection);
-  const connectAs = useConnectAsMenuItem(connection, () => onConnect(connection));
-  const { plan } = useCredentialPlan(connection);
-  const shownUsername = effectiveUsername(connection, plan);
+  const credential = useCredentialPlan(connection);
+  const connectAs = useConnectAsMenuItem(connection, credential, () => onConnect(connection));
+  const shownUsername = effectiveUsername(connection, credential.plan);
   const connectTitle = !canConnect ? t("common.error.connectNotAllowed") : isFtp ? t("hosts.card.openFilesTitle") : t("hosts.card.connectTitle");
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(connection.id, "connection"));
   const pinConnection = useConnectionStore((s) => s.pinConnection);
