@@ -34,6 +34,7 @@ import { encodeTerminalInput } from "@/utils/terminalEncoding";
 import { cancelBackoff, isSessionEnded, type ReconnectAttemptResult, type ReconnectWait } from "./reconnectBackoffCore";
 import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostCommand";
 import { runHostCommand } from "@/services/hostCommandRun";
+import { notifyError } from "@/utils/notifyError";
 
 /** `background: true` opens the session without taking the user's active tab. */
 export type OpenOptions = { background?: boolean };
@@ -115,7 +116,8 @@ function reportConnectionAudit(connection: Connection, action: ClientAuditAction
     target_id: connection.id,
     target_name: connection.name?.trim() || `${connection.username}@${connection.host}:${connection.port}`,
   };
-  void connectionAuditMetadata(creds, isOwnLoadedIdentity).then((metadata) =>
+  const teamCreds = resolveTeamIdForVaultId(connection.vault_id) ? creds : undefined;
+  void connectionAuditMetadata(teamCreds, isOwnLoadedIdentity).then((metadata) =>
     reportAuditClientEvent(context, action, metadata ? { ...target, metadata } : target),
   ).catch(() => {});
 }
@@ -1101,7 +1103,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
 
       if (save && merged.saveAs && merged.identityId) {
-        await saveIdentityChoice(connection, merged.saveAs, merged.identityId).catch(() => {});
+        await saveIdentityChoice(connection, merged.saveAs, merged.identityId).catch(notifyError);
       } else if (save) {
         if (ephemeralConnections.has(connection.id)) {
           // Intentionally not caught (unlike the saved-host path below): a failed

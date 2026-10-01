@@ -77,6 +77,7 @@ export interface StrandableSession {
   everConnected?: boolean;
   errorMessage?: string;
   errorCode?: BackendErrorCode;
+  identityPick?: IdentityPickIssue;
 }
 
 /** An ssh tab showing a failure the network returning can fix. */
@@ -84,6 +85,7 @@ export function strandedByNetwork(s: StrandableSession): boolean {
   return (
     s.type === "ssh" &&
     s.status === "error" &&
+    !s.identityPick &&
     !isSessionEnded(s.errorMessage) &&
     !stopsRetrying(s.errorMessage, s.errorCode)
   );

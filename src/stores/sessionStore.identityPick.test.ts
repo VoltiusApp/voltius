@@ -6,6 +6,7 @@ const connection = { id: "c1", name: "db-01", host: "h1", port: 22, username: "r
 const sharedHost = { ...connection, id: "c2", identity_id: "shared" } as Connection;
 const keyHost = { ...connection, id: "c3", key_id: "k9" } as Connection;
 const orphanHost = { ...connection, id: "c4", identity_id: "gone" } as Connection;
+const personalHost = { ...connection, id: "c5", vault_id: "personal" } as Connection;
 const issue = { connectionId: "c1", connectionName: "db-01", via: "pick" as const, reason: "missing" as const, hasFallback: true, fallbackName: "ops-deploy" };
 
 const h = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ const h = vi.hoisted(() => ({
   updateConnection: vi.fn(async () => {}),
   setHostPick: vi.fn(async () => {}),
   storeSecret: vi.fn(async () => {}),
+  notifyError: vi.fn(),
 }));
 
 vi.mock("@/services/ssh", () => ({
@@ -28,7 +30,7 @@ vi.mock("@/services/credentials", () => ({
   resolveJumpHosts: vi.fn(async () => []),
 }));
 vi.mock("@/stores/connectionStore", () => ({
-  useConnectionStore: { getState: () => ({ connections: [connection, sharedHost, keyHost, orphanHost], teamConnections: {}, setLastUsed: vi.fn(async () => {}), updateConnection: h.updateConnection }) },
+  useConnectionStore: { getState: () => ({ connections: [connection, sharedHost, keyHost, orphanHost, personalHost], teamConnections: {}, setLastUsed: vi.fn(async () => {}), updateConnection: h.updateConnection }) },
   connectionToFormData: (c: unknown) => ({ ...(c as object) }),
 }));
 vi.mock("@/stores/identityPickStore", () => ({
@@ -46,8 +48,13 @@ vi.mock("./layoutStore", () => ({ useLayoutStore: { getState: () => ({ setSplitT
 vi.mock("@/services/hostCommandRun", () => ({ runHostCommand: vi.fn(async () => {}) }));
 vi.mock("@/services/auditReporter", () => ({ reportAuditClientEvent: vi.fn() }));
 vi.mock("@/services/connectionAuditMetadata", () => ({
-  connectionAuditMetadata: vi.fn(async () => ({ identity_source: "own", key_fingerprint: "SHA256:x" })),
+  connectionAuditMetadata: vi.fn(async (creds: unknown) => (creds ? { identity_source: "own", key_fingerprint: "SHA256:x" } : undefined)),
 }));
+vi.mock("@/services/teamVaultSecrets", async (orig) => ({
+  ...(await orig<typeof import("@/services/teamVaultSecrets")>()),
+  resolveTeamIdForVaultId: (vaultId: string) => (vaultId === "t1" ? "t1" : null),
+}));
+vi.mock("@/utils/notifyError", () => ({ notifyError: h.notifyError }));
 vi.mock("@/services/auditContextResolver", () => ({ auditContextForVaultId: vi.fn(() => ({})) }));
 
 import { reportAuditClientEvent } from "@/services/auditReporter";
@@ -270,4 +277,25 @@ describe("use the host credential this time, through a passphrase prompt", () =>
     await useSessionStore.getState().reconnectWithPassphrase(id, "pp", false);
     expect(h.resolve).toHaveBeenLastCalledWith(expect.objectContaining({ id: "c1" }), { skipPick: false });
   });
+});
+
+test("a pick that fails to save is reported, and the connection still goes ahead", async () => {
+  const id = await sshSession();
+  const failure = new Error("Couldn't save your identity choice");
+  h.setHostPick.mockRejectedValueOnce(failure);
+
+  await useSessionStore.getState().retryConnect(id, { identityId: "own", saveAs: "pick" }, true);
+
+  expect(h.notifyError).toHaveBeenCalledWith(failure);
+  expect(useSessionStore.getState().sessions[0].status).toBe("connected");
+});
+
+test("a personal host reports its connection exactly as before, with no identity metadata", async () => {
+  h.resolve.mockResolvedValue({ username: "alice", privateKey: "P", identityId: "own", keyId: "k1" });
+  await useSessionStore.getState().connect("c5");
+
+  await vi.waitFor(() => expect(reportAuditClientEvent).toHaveBeenCalled());
+  const target = vi.mocked(reportAuditClientEvent).mock.calls[0][2] as Record<string, unknown>;
+  expect(target).not.toHaveProperty("metadata");
+  expect(connectionAuditMetadata).toHaveBeenCalledWith(undefined, expect.any(Function));
 });
