@@ -63,10 +63,21 @@ export async function onTeamLogin(): Promise<void> {
 export function startIdentityPickRefresh(): () => void {
   const refresh = () => {
     if (useTeamStore.getState().teams.length === 0) return;
-    useIdentityPickStore.getState().load().catch(logFailure("identity picks focus refresh"));
+    useIdentityPickStore.getState().load().catch(logFailure("identity picks refresh"));
   };
+  const teamIds = () => new Set(useTeamStore.getState().teams.map((t) => t.id));
+  let known = teamIds();
+  const unsubscribe = useTeamStore.subscribe(() => {
+    const current = teamIds();
+    const gained = [...current].some((id) => !known.has(id));
+    known = current;
+    if (gained && useIdentityPickStore.getState().status !== "loaded") refresh();
+  });
   window.addEventListener("focus", refresh);
-  return () => window.removeEventListener("focus", refresh);
+  return () => {
+    window.removeEventListener("focus", refresh);
+    unsubscribe();
+  };
 }
 
 /**

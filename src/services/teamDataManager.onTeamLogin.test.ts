@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   teams: [] as { id: string }[],
   saveTeamVaultObject: vi.fn(async () => {}),
   loadPicks: vi.fn(async () => {}),
+  pickStatus: "unknown" as string,
+  listeners: new Set<() => void>(),
 }));
 
 vi.mock("@/services/teamVaultSync", () => ({
@@ -21,11 +23,17 @@ vi.mock("@/services/teamKeyRotation", () => ({
   checkAndRotateTeamKey: h.checkAndRotateTeamKey,
 }));
 vi.mock("@/stores/teamStore", () => ({
-  useTeamStore: { getState: () => ({ teams: h.teams }) },
+  useTeamStore: {
+    getState: () => ({ teams: h.teams }),
+    subscribe: (fn: () => void) => {
+      h.listeners.add(fn);
+      return () => h.listeners.delete(fn);
+    },
+  },
 }));
 
 vi.mock("@/stores/identityPickStore", () => ({
-  useIdentityPickStore: { getState: () => ({ load: h.loadPicks }) },
+  useIdentityPickStore: { getState: () => ({ load: h.loadPicks, status: h.pickStatus }) },
 }));
 
 vi.mock("@/services/teamObjectPersistence", () => ({
@@ -40,7 +48,14 @@ import { pushTeamDeleteHistory } from "@/stores/recreateHistory";
 beforeEach(() => {
   vi.clearAllMocks();
   h.teams = [];
+  h.pickStatus = "unknown";
+  h.listeners.clear();
 });
+
+const setTeams = (teams: { id: string }[]) => {
+  h.teams = teams;
+  h.listeners.forEach((fn) => fn());
+};
 
 // #217: the realtime team_members handler (sync.ts) is the only other place
 // rotation gets checked. A client offline when a member was removed never
@@ -109,4 +124,27 @@ test("window focus refetches identity picks once, only for a team member, and sw
   stop();
   window.dispatchEvent(new Event("focus"));
   expect(h.loadPicks).toHaveBeenCalledTimes(1);
+});
+
+test("joining a first team mid-session loads identity picks once", () => {
+  startIdentityPickRefresh();
+  setTeams([{ id: "t1" }]);
+  expect(h.loadPicks).toHaveBeenCalledTimes(1);
+});
+
+test("a team change after picks loaded does not reload them", () => {
+  h.pickStatus = "loaded";
+  startIdentityPickRefresh();
+  expect(h.listeners.size).toBe(1);
+  setTeams([{ id: "t1" }]);
+  expect(h.loadPicks).not.toHaveBeenCalled();
+});
+
+test("the cleanup stops reacting to team changes", () => {
+  const stop = startIdentityPickRefresh();
+  expect(h.listeners.size).toBe(1);
+  stop();
+  expect(h.listeners.size).toBe(0);
+  setTeams([{ id: "t1" }]);
+  expect(h.loadPicks).not.toHaveBeenCalled();
 });
