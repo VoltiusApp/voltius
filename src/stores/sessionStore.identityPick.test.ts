@@ -28,8 +28,12 @@ vi.mock("@/stores/connectionStore", () => ({
 vi.mock("./layoutStore", () => ({ useLayoutStore: { getState: () => ({ setSplitTabActive: vi.fn() }) } }));
 vi.mock("@/services/hostCommandRun", () => ({ runHostCommand: vi.fn(async () => {}) }));
 vi.mock("@/services/auditReporter", () => ({ reportAuditClientEvent: vi.fn() }));
+vi.mock("@/services/connectionAuditMetadata", () => ({
+  connectionAuditMetadata: vi.fn(async () => ({ identity_source: "own", key_fingerprint: "SHA256:x" })),
+}));
 vi.mock("@/services/auditContextResolver", () => ({ auditContextForVaultId: vi.fn(() => ({})) }));
 
+import { reportAuditClientEvent } from "@/services/auditReporter";
 import { useSessionStore } from "./sessionStore";
 
 const unavailable = () => new IdentityPickUnavailableError(issue, "Your identity for db-01 isn't available");
@@ -84,4 +88,17 @@ test("the silent reconnect attempt reports the issue for the backoff loop", asyn
   const result = await useSessionStore.getState().reconnectAttempt(id);
 
   expect(result).toMatchObject({ ok: false, identityPick: issue });
+});
+
+test("connection.started carries the identity metadata of the credentials used", async () => {
+  h.resolve.mockResolvedValue({ username: "alice", privateKey: "P", identityId: "own", keyId: "k1" });
+  await useSessionStore.getState().connect("c1");
+
+  await vi.waitFor(() =>
+    expect(reportAuditClientEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      "connection.started",
+      expect.objectContaining({ metadata: { identity_source: "own", key_fingerprint: "SHA256:x" } }),
+    ),
+  );
 });
