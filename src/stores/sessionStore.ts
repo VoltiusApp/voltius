@@ -420,6 +420,12 @@ function markSessionDisconnected(set: SessionSetter, sessionId: string) {
 const connectOverrides = new Map<string, ConnectRetryOverride>();
 const skipPickOnce = new Set<string>();
 
+function setSkipPick(set: SessionSetter, sessionId: string, on: boolean) {
+  if (on) skipPickOnce.add(sessionId);
+  else skipPickOnce.delete(sessionId);
+  patchSession(set, sessionId, { skipIdentityPick: on || undefined });
+}
+
 function resolveSessionCredentials(connection: Connection, sessionId: string): Promise<ResolvedCredentials> {
   return resolveConnectionCredentials(connection, { skipPick: skipPickOnce.has(sessionId) });
 }
@@ -430,7 +436,8 @@ function passphraseSecretKey(connection: Connection, credentials: ResolvedCreden
 }
 
 async function resolveOverrideAuth(connection: Connection, override: ConnectRetryOverride): Promise<ResolvedCredentials> {
-  const base = await resolveConnectionCredentials(connection).catch((err) => {
+  const typedHostSecret = !override.identityId && (override.keyId || override.password !== undefined || override.privateKey !== undefined || override.passphrase !== undefined);
+  const base = await resolveConnectionCredentials(connection, { skipPick: !!typedHostSecret }).catch((err) => {
     if (identityPickIssueOf(err)) return { username: connection.username } as ResolvedCredentials;
     throw err;
   });
@@ -940,8 +947,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
 
     markSessionConnecting(set, sessionId);
-    if (options?.skipIdentityPick) skipPickOnce.add(sessionId);
-    else skipPickOnce.delete(sessionId);
+    setSkipPick(set, sessionId, !!options?.skipIdentityPick);
 
     let credentials: ResolvedCredentials | undefined;
     try {
@@ -963,7 +969,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...opts,
         });
       });
-      skipPickOnce.delete(sessionId);
+      setSkipPick(set, sessionId, false);
       markSshConnected(set, sessionId, credentials?.username);
       reportConnectionAudit(connection, "connection.started", credentials);
       void runHostCommand(connection, "pre", sessionId, "ssh");
@@ -1012,7 +1018,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...opts,
         });
       });
-      skipPickOnce.delete(sessionId);
+      setSkipPick(set, sessionId, false);
       patchSession(set, sessionId, { connectedUsername: credentials?.username });
       void runHostCommand(connection, "pre", sessionId, "ssh");
       return { ok: true };
@@ -1057,7 +1063,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...opts,
         });
       });
-      skipPickOnce.delete(sessionId);
+      setSkipPick(set, sessionId, false);
       markSshConnected(set, sessionId, credentials?.username);
       reportConnectionAudit(connection, "connection.started", credentials && { ...credentials, passphrase });
       void runHostCommand(connection, "pre", sessionId, "ssh");
@@ -1071,7 +1077,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!session || session.type !== "ssh") return;
     let connection = findConnection(session.connectionId);
     if (!connection) return;
-    skipPickOnce.delete(sessionId);
+    setSkipPick(set, sessionId, false);
 
     // Carry overrides across the two-step prompt flow: a username entered first
     // must survive into the subsequent auth prompt.

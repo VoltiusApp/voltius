@@ -340,3 +340,48 @@ describe("a session records the username it authenticated as", () => {
     expect(connectedAs()).toBe("alice");
   });
 });
+
+describe("use the host credential this time, then type a secret", () => {
+  const resolveBy = (_c: unknown, opts?: { skipPick?: boolean }) =>
+    Promise.resolve(opts?.skipPick ? { username: "root" } : { username: "alice", identityId: "own", password: "pw" });
+
+  test("the typed password goes out with the host's username, not the pick's", async () => {
+    const id = await sessionOn("c1");
+    h.resolve.mockImplementation(resolveBy);
+    h.sshConnect.mockRejectedValueOnce(new Error("auth failed"));
+    await useSessionStore.getState().reconnect(id, { skipIdentityPick: true });
+
+    await useSessionStore.getState().retryConnect(id, { password: "hostpw" }, false);
+
+    expect(h.sshConnect).toHaveBeenLastCalledWith(expect.objectContaining({ username: "root", password: "hostpw" }));
+  });
+
+  test("a typed username still wins", async () => {
+    const id = await sessionOn("c1");
+    h.resolve.mockImplementation(resolveBy);
+
+    await useSessionStore.getState().retryConnect(id, { username: "ops", password: "pw" }, false);
+
+    expect(h.sshConnect).toHaveBeenLastCalledWith(expect.objectContaining({ username: "ops", password: "pw" }));
+  });
+
+  test("a username-only retry keeps the pick's credentials", async () => {
+    const id = await sessionOn("c1");
+    h.resolve.mockImplementation(resolveBy);
+
+    await useSessionStore.getState().retryConnect(id, { username: "ops" }, false);
+
+    expect(h.sshConnect).toHaveBeenLastCalledWith(expect.objectContaining({ username: "ops", password: "pw" }));
+  });
+
+  test("the session records the one-shot skip until the next action", async () => {
+    const id = await sessionOn("c1");
+    h.resolve.mockImplementation(resolveBy);
+    h.sshConnect.mockRejectedValueOnce(new Error("Connection refused"));
+    await useSessionStore.getState().reconnect(id, { skipIdentityPick: true });
+    expect(useSessionStore.getState().sessions[0].skipIdentityPick).toBe(true);
+
+    await useSessionStore.getState().reconnect(id);
+    expect(useSessionStore.getState().sessions[0].skipIdentityPick).toBeUndefined();
+  });
+});
