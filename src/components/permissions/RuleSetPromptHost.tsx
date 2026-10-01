@@ -2,20 +2,19 @@ import { useTranslation } from "react-i18next";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useRuleSetPromptStore } from "@/stores/ruleSetPromptStore";
 import { useTeamStore } from "@/stores/teamStore";
-import { permissionLabel, roleLabel } from "@/components/members/roleChips";
-import type { RuleSetChange } from "@/services/ruleSetDiff";
+import { permissionLabel, ruleSubjectLabel } from "@/components/members/roleChips";
+import { ruleSubjectKey, type RuleSubject } from "@/services/permissions";
 
 export function RuleSetPromptHost() {
   const { t } = useTranslation();
   const head = useRuleSetPromptStore((s) => s.queue[0]);
   const answer = useRuleSetPromptStore((s) => s.answer);
   const rolesByTeam = useTeamStore((s) => s.rolesByTeam);
+  const membersByTeam = useTeamStore((s) => s.membersByTeam);
   if (!head) return null;
   const { prompt } = head;
-  const roles = rolesByTeam[prompt.teamId] ?? [];
-
-  const subjectName = (s: RuleSetChange["subject"]) =>
-    s.type === "everyone" ? t("shared.permissions.everyone") : roleLabel(t, roles.find((r) => r.id === s.roleId)?.name ?? "?");
+  const subjectName = (s: RuleSubject) =>
+    ruleSubjectLabel(t, s, rolesByTeam[prompt.teamId] ?? [], membersByTeam[prompt.teamId] ?? []);
 
   return (
     <ConfirmModal
@@ -29,7 +28,7 @@ export function RuleSetPromptHost() {
       {prompt.changes && (
         <ul className="text-xs text-(--t-text-secondary) space-y-1 max-h-48 overflow-y-auto">
           {prompt.changes.flatMap((c) => c.bits.map((b) => (
-            <li key={`${subjectName(c.subject)}:${b.permission}`}>
+            <li key={`${ruleSubjectKey(c.subject)}:${b.permission}`}>
               {t("shared.permissions.moveWarning.line", {
                 subject: subjectName(c.subject),
                 permission: permissionLabel(t, b.permission),
