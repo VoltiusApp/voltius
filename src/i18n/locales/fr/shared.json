@@ -166,7 +166,6 @@
     },
     "businessLock": {
       "title": "Fonctionnalité du forfait Business",
-      "upgradeLabel": "Débloquez-les pour cette équipe.",
       "upgrade": "Passer à Business",
       "ownerOnly": "Seul le propriétaire de l'équipe peut changer de forfait.",
       "removeRules": "Supprimer les règles",

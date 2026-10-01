@@ -161,7 +161,6 @@
     },
     "businessLock": {
       "title": "Business 套餐功能",
-      "upgradeLabel": "为此团队解锁。",
       "upgrade": "升级到 Business",
       "ownerOnly": "只有团队所有者可以升级。",
       "removeRules": "移除规则",

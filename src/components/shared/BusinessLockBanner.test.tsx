@@ -57,7 +57,7 @@ test("no Remove without onRemove", () => {
   expect(screen.queryByText("remove")).toBeNull();
 });
 
-test("the line is one row with an upgrade link for the owner only", () => {
+test("the line is one sentence with an upgrade link for the owner only", () => {
   render(<BusinessLockLine teamId="t1" label="line" />);
   expect(screen.getByText("line")).toBeTruthy();
   fireEvent.click(screen.getByText("shared.businessLock.upgrade"));

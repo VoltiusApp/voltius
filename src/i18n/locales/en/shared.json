@@ -161,7 +161,6 @@
     },
     "businessLock": {
       "title": "Business plan feature",
-      "upgradeLabel": "Unlock them for this team.",
       "upgrade": "Upgrade to Business",
       "ownerOnly": "Only the team owner can upgrade.",
       "removeRules": "Remove rules",

@@ -161,7 +161,6 @@
     },
     "businessLock": {
       "title": "Business planı özelliği",
-      "upgradeLabel": "Bu ekip için kilidini açın.",
       "upgrade": "Business'a yükselt",
       "ownerOnly": "Yalnızca ekip sahibi yükseltebilir.",
       "removeRules": "Kuralları kaldır",

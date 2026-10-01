@@ -171,7 +171,6 @@
     },
     "businessLock": {
       "title": "Функция тарифа Business",
-      "upgradeLabel": "Откройте их для этой команды.",
       "upgrade": "Перейти на Business",
       "ownerOnly": "Сменить тариф может только владелец команды.",
       "removeRules": "Удалить правила",
