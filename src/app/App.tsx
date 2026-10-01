@@ -26,6 +26,7 @@ import { restoreWorkspaceOnLaunch } from "@/stores/workspaceRestore";
 import { startLiveSessionPublisher } from "@/services/liveSessionPublisher";
 import { startCrossDeviceSessions } from "@/services/crossDeviceSessions";
 import { startNetworkWatch } from "@/stores/reconnectBackoff";
+import { startIdentityPickRefresh } from "@/services/teamDataManager";
 import { startTeamInbox } from "@/services/teamInbox";
 import { startTeamVaultNames } from "@/services/teamVaultNames";
 import { startTeamDataScrub } from "@/services/teamDataScrub";
@@ -65,6 +66,7 @@ function App() {
   useEffect(() => startTeamDataScrub(), []);
   useEffect(() => startDeepLinks(), []);
   useEffect(() => startNetworkWatch(), []);
+  useEffect(() => startIdentityPickRefresh(), []);
   useEffect(() => {
     if (ready) {
       useDeepLinkStore.getState().setReady(true);

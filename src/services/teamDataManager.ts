@@ -60,6 +60,15 @@ export async function onTeamLogin(): Promise<void> {
   ]);
 }
 
+export function startIdentityPickRefresh(): () => void {
+  const refresh = () => {
+    if (useTeamStore.getState().teams.length === 0) return;
+    useIdentityPickStore.getState().load().catch(logFailure("identity picks focus refresh"));
+  };
+  window.addEventListener("focus", refresh);
+  return () => window.removeEventListener("focus", refresh);
+}
+
 /**
  * Ensure team vault data is loaded when the user selects a team vault.
  * No-op if already loading or loaded.

@@ -33,7 +33,7 @@ vi.mock("@/services/teamObjectPersistence", () => ({
   removeTeamVaultObject: vi.fn(async () => {}),
 }));
 
-import { onTeamLogin, onSessionEnd } from "./teamDataManager";
+import { onTeamLogin, onSessionEnd, startIdentityPickRefresh } from "./teamDataManager";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushTeamDeleteHistory } from "@/stores/recreateHistory";
 
@@ -94,4 +94,19 @@ test("session end drops undo history, so a team delete holding secrets can no lo
   await useHistoryStore.getState().undo();
   expect(h.saveTeamVaultObject).not.toHaveBeenCalled();
   expect(putBack).not.toHaveBeenCalled();
+});
+
+test("window focus refetches identity picks once, only for a team member, and swallows failures", async () => {
+  const stop = startIdentityPickRefresh();
+  window.dispatchEvent(new Event("focus"));
+  expect(h.loadPicks).not.toHaveBeenCalled();
+
+  h.teams = [{ id: "t1" }, { id: "t2" }];
+  h.loadPicks.mockRejectedValueOnce(new Error("offline"));
+  window.dispatchEvent(new Event("focus"));
+  expect(h.loadPicks).toHaveBeenCalledTimes(1);
+
+  stop();
+  window.dispatchEvent(new Event("focus"));
+  expect(h.loadPicks).toHaveBeenCalledTimes(1);
 });
