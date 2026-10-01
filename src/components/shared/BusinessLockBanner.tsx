@@ -43,18 +43,20 @@ export function BusinessLapseNotice({ teamId, message, removeLabel, onRemove }: 
         <Icon icon="lucide:lock" width={14} className="mt-0.5 shrink-0 text-(--t-text-dim)" />
         <p className="text-xs text-(--t-text-primary)">{message}</p>
       </div>
-      <UpgradeAction teamId={teamId} look="button" />
-      {onRemove && (
-        <button
-          type="button"
-          onClick={() => void remove()}
-          onBlur={() => setConfirming(false)}
-          disabled={busy}
-          className="text-xs text-(--t-status-error) disabled:opacity-50"
-        >
-          {confirming ? t("shared.businessLock.confirmClear") : removeLabel}
-        </button>
-      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <UpgradeAction teamId={teamId} look="button" />
+        {onRemove && (
+          <button
+            type="button"
+            onClick={() => void remove()}
+            onBlur={() => setConfirming(false)}
+            disabled={busy}
+            className="text-xs text-(--t-status-error) disabled:opacity-50"
+          >
+            {confirming ? t("shared.businessLock.confirmClear") : removeLabel}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
