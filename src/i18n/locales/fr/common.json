@@ -67,6 +67,7 @@
       "fileSaveFailed": "Impossible d'enregistrer le fichier : {{error}}"
     },
     "error": {
+      "identityPickUnavailable": "Votre identité pour {{host}} n'est pas disponible",
       "failedToListIdentityPicks": "Impossible de charger vos choix d'identité ({{status}})",
       "failedToSaveIdentityPick": "Impossible d'enregistrer votre choix d'identité ({{status}})",
       "notConnectedToServer": "Non connecté au serveur",

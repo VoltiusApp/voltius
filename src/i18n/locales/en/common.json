@@ -67,6 +67,7 @@
       "fileSaveFailed": "Couldn't save the file: {{error}}"
     },
     "error": {
+      "identityPickUnavailable": "Your identity for {{host}} isn't available",
       "failedToListIdentityPicks": "Couldn't load your identity choices ({{status}})",
       "failedToSaveIdentityPick": "Couldn't save your identity choice ({{status}})",
       "notConnectedToServer": "Not connected to server",

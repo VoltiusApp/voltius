@@ -67,6 +67,7 @@
       "fileSaveFailed": "Dosya kaydedilemedi: {{error}}"
     },
     "error": {
+      "identityPickUnavailable": "{{host}} için kimliğiniz kullanılamıyor",
       "failedToListIdentityPicks": "Kimlik seçimleriniz yüklenemedi ({{status}})",
       "failedToSaveIdentityPick": "Kimlik seçiminiz kaydedilemedi ({{status}})",
       "notConnectedToServer": "Sunucuya bağlı değil",

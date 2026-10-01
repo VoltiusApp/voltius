@@ -1,5 +1,6 @@
 import { test, expect, vi, beforeEach } from "vitest";
 import type { Connection } from "@/types";
+import type { CredentialSnapshot } from "@/services/credentialScope";
 
 const h = vi.hoisted(() => ({
   getSecret: vi.fn(async (_key: string) => null as string | null),
@@ -7,6 +8,7 @@ const h = vi.hoisted(() => ({
   connections: [] as Connection[],
   loadIdentities: vi.fn(async () => undefined),
   can: vi.fn((_permission: string, _vaultId: string, _objectId?: string) => true),
+  snapshot: null as unknown as CredentialSnapshot,
 }));
 
 vi.mock("@/services/vault", () => ({ getSecret: h.getSecret }));
@@ -21,13 +23,16 @@ vi.mock("@/stores/connectionStore", () => ({
 }));
 vi.mock("@/services/permissionsFromStores", () => ({
   canConnect: async (vaultId: string | undefined, objectId: string) => h.can("CONNECT", vaultId ?? "", objectId),
+  canFromStoresAsync: async () => (p: string, v: string, o?: string) => h.can(p, v, o),
 }));
+vi.mock("@/services/credentialSnapshot", () => ({ credentialSnapshotFromStores: () => h.snapshot }));
 vi.mock("@/services/ephemeralCredentials", () => ({
   withEphemeralCredentials: (_id: string, resolved: unknown) => resolved,
 }));
 
 import { ConnectNotAllowedError, resolveConnectionCredentials, resolveJumpHosts } from "./credentials";
 import { VaultUnreadableError } from "./vaultErrors";
+import { IdentityPickUnavailableError } from "./credentialPlan";
 
 const conn = (over: Partial<Connection> = {}) =>
   ({ id: "c1", username: "root", host: "h", port: 22, ...over }) as Connection;
@@ -39,6 +44,10 @@ beforeEach(() => {
   h.connections = [];
   h.can.mockReset();
   h.can.mockReturnValue(true);
+  h.snapshot = {
+    teams: [], vaults: [], ownIdentities: [], teamIdentities: {}, teamKeys: {},
+    picks: { byObject: {}, byTeam: {} }, teamSecret: () => undefined,
+  };
 });
 
 test("a host the member may not connect to yields no credentials at all", async () => {
@@ -93,4 +102,44 @@ test("jump hosts still resolve when their secrets are merely absent", async () =
   await expect(resolveJumpHosts(withJump)).resolves.toEqual([
     { host: "jh", port: 2222, username: "ju", password: undefined, privateKey: undefined },
   ]);
+});
+
+const ownIdentity = { id: "own", username: "alice", key_id: "k-own", tags: [] };
+
+test("a pick on a team host resolves the picked identity's secrets", async () => {
+  h.snapshot.teams = [{ id: "t1" }];
+  h.snapshot.ownIdentities = [ownIdentity as never];
+  h.snapshot.picks.byObject = { c1: "own" };
+  h.getSecret.mockImplementation(async (k) => (k === "key:k-own:private" ? "PRIV" : k === "password:c1" ? "shared-pw" : null));
+
+  const creds = await resolveConnectionCredentials(conn({ vault_id: "t1" }));
+
+  expect(creds).toMatchObject({ username: "alice", privateKey: "PRIV", identityId: "own", keyId: "k-own" });
+  expect(creds.password).toBeUndefined();
+});
+
+test("an unusable pick throws before any secret is read", async () => {
+  h.snapshot.teams = [{ id: "t1" }];
+  h.snapshot.picks.byObject = { c1: "gone" };
+
+  await expect(resolveConnectionCredentials(conn({ vault_id: "t1" }))).rejects.toBeInstanceOf(IdentityPickUnavailableError);
+  expect(h.getSecret).not.toHaveBeenCalled();
+});
+
+test("skipPick uses the host credential once", async () => {
+  h.snapshot.teams = [{ id: "t1" }];
+  h.snapshot.picks.byObject = { c1: "gone" };
+  h.getSecret.mockImplementation(async (k) => (k === "password:c1" ? "pw" : null));
+
+  await expect(resolveConnectionCredentials(conn({ vault_id: "t1" }), { skipPick: true })).resolves.toMatchObject({ password: "pw" });
+});
+
+test("a jump host with an unusable pick blocks the chain and names the jump host", async () => {
+  h.snapshot.teams = [{ id: "t1" }];
+  h.snapshot.picks.byObject = { jump: "gone" };
+  h.connections = [conn({ id: "jump", name: "bastion", vault_id: "t1" })];
+
+  const err = await resolveJumpHosts(conn({ jump_hosts: [{ id: "j1", connection_id: "jump" }] })).catch((e) => e);
+  expect(err).toBeInstanceOf(IdentityPickUnavailableError);
+  expect(err.issue.connectionName).toBe("bastion");
 });

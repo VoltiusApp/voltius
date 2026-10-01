@@ -2,9 +2,12 @@ import type { Connection } from "@/types";
 import { useIdentityStore } from "@/stores/identityStore";
 import { findAnyConnection } from "@/stores/connectionStore";
 import { getSecret } from "@/services/vault";
-import { resolveCredentials, type ResolvedCredentials } from "@/services/credentialLogic";
+import { identityCredentials, resolveCredentials, type ResolvedCredentials } from "@/services/credentialLogic";
+import { IdentityPickUnavailableError, planCredentials } from "@/services/credentialPlan";
+import { buildCredentialScope, connectionLabel, describePickIssue } from "@/services/credentialScope";
+import { credentialSnapshotFromStores } from "@/services/credentialSnapshot";
 import { withEphemeralCredentials } from "@/services/ephemeralCredentials";
-import { canConnect } from "@/services/permissionsFromStores";
+import { canConnect, canFromStoresAsync } from "@/services/permissionsFromStores";
 import i18n from "@/i18n";
 
 export type { ResolvedCredentials } from "@/services/credentialLogic";
@@ -92,8 +95,21 @@ export async function resolveJumpHosts(conn: Connection): Promise<ResolvedJumpHo
  * that was never stored and throws when the vault is locked or undecryptable. Callers
  * must let a VaultError reach the user rather than connect with no credentials.
  */
-export async function resolveConnectionCredentials(conn: Connection): Promise<ResolvedCredentials> {
+export async function resolveConnectionCredentials(
+  conn: Connection,
+  { skipPick = false }: { skipPick?: boolean } = {},
+): Promise<ResolvedCredentials> {
   if (!(await canConnect(conn.vault_id, conn.id))) throw new ConnectNotAllowedError();
-  const resolved = await resolveCredentials(conn, findIdentity, getSecret);
+  const snapshot = credentialSnapshotFromStores();
+  const plan = planCredentials(buildCredentialScope(conn, snapshot, await canFromStoresAsync()), { skipPick });
+  if (plan.kind === "unavailable") {
+    throw new IdentityPickUnavailableError(
+      describePickIssue(conn, plan, snapshot),
+      i18n.t("common.error.identityPickUnavailable", { host: connectionLabel(conn) }),
+    );
+  }
+  const resolved = plan.kind === "host"
+    ? await resolveCredentials(conn, findIdentity, getSecret)
+    : await identityCredentials(plan.identity, getSecret);
   return withEphemeralCredentials(conn.id, resolved);
 }

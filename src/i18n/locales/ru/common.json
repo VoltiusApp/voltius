@@ -67,6 +67,7 @@
       "fileSaveFailed": "Не удалось сохранить файл: {{error}}"
     },
     "error": {
+      "identityPickUnavailable": "Ваша личность для {{host}} недоступна",
       "failedToListIdentityPicks": "Не удалось загрузить выбор личностей ({{status}})",
       "failedToSaveIdentityPick": "Не удалось сохранить выбор личности ({{status}})",
       "notConnectedToServer": "Нет подключения к серверу",

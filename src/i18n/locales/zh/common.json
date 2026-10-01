@@ -67,6 +67,7 @@
       "fileSaveFailed": "无法保存文件：{{error}}"
     },
     "error": {
+      "identityPickUnavailable": "你在 {{host}} 的身份不可用",
       "failedToListIdentityPicks": "无法加载你的身份选择（{{status}}）",
       "failedToSaveIdentityPick": "无法保存你的身份选择（{{status}}）",
       "notConnectedToServer": "未连接到服务器",
