@@ -48,3 +48,17 @@ test("with a shared credential the host default already clears the pick", () => 
   const items = buildConnectAsItems({ choices: [own], current: { kind: "pick", id: "own" }, isOwn: (id: string) => id === "own", hostLabel: "ops-deploy", hasPick: true, vaultName: "Ops", t, onPick: vi.fn(), onOpenVaultDefault: vi.fn() });
   expect(items.map((i) => i.label)).not.toContain("hosts.connectAs.clearPick");
 });
+
+test("the host's own identity is listed once, as the host default", () => {
+  const items = buildConnectAsItems({ choices: [own, team], current: { kind: "host" }, isOwn: (id: string) => id === "own", hostLabel: "ops-root", hostIdentityId: "team", hasPick: false, vaultName: "Ops", t, onPick: vi.fn(), onOpenVaultDefault: vi.fn() });
+  expect(items.map((i) => [i.label, i.icon])).toEqual([
+    ["Alice (laptop key)", "lucide:user-round"],
+    ["ops-root", "lucide:check"],
+    ["hosts.connectAs.vaultDefault:Ops", "lucide:user-round-cog"],
+  ]);
+});
+
+test("a pick of the host's own identity checks the host default", () => {
+  const items = buildConnectAsItems({ choices: [own, team], current: { kind: "pick", id: "team" }, isOwn: (id: string) => id === "own", hostLabel: "ops-root", hostIdentityId: "team", hasPick: true, vaultName: "Ops", t, onPick: vi.fn(), onOpenVaultDefault: vi.fn() });
+  expect(items.filter((i) => i.icon === "lucide:check").map((i) => i.label)).toEqual(["ops-root"]);
+});

@@ -9,6 +9,7 @@ export function buildConnectAsItems({
   current,
   isOwn,
   hostLabel,
+  hostIdentityId,
   hasPick,
   vaultName,
   t,
@@ -19,13 +20,16 @@ export function buildConnectAsItems({
   current: ConnectAsCurrent;
   isOwn: (id: string) => boolean;
   hostLabel: string | null;
+  hostIdentityId?: string;
   hasPick: boolean;
   vaultName: string;
   t: TFunction;
   onPick: (identityId: string | null) => void;
   onOpenVaultDefault: () => void;
 }): ContextMenuItem[] {
-  const items: ContextMenuItem[] = choices.map((c) => ({
+  const onHost = current.kind === "host" || (current.kind === "pick" && current.id === hostIdentityId);
+  const listed = hostLabel ? choices.filter((c) => c.id !== hostIdentityId) : choices;
+  const items: ContextMenuItem[] = listed.map((c) => ({
     label: c.name ?? c.username,
     icon: current.kind === "pick" && c.id === current.id ? "lucide:check" : isOwn(c.id) ? "lucide:user-round" : "lucide:key-round",
     hint: isOwn(c.id) ? t("hosts.connectAs.yours") : undefined,
@@ -34,7 +38,7 @@ export function buildConnectAsItems({
   if (hostLabel) {
     items.push({
       label: hostLabel,
-      icon: current.kind === "host" ? "lucide:check" : "lucide:server",
+      icon: onHost ? "lucide:check" : "lucide:server",
       hint: t("hosts.connectAs.hostDefault"),
       onClick: () => onPick(null),
     });

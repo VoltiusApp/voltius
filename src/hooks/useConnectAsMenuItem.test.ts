@@ -28,3 +28,11 @@ test("a stale pick with nothing else to choose can still be cleared", () => {
   const menu = renderHook(() => useConnectAsMenuItem({ id: "c" } as never, bare)).result.current;
   expect(menu?.children?.map((i) => i.label)).toContain("hosts.connectAs.clearPick");
 });
+
+test("the host's own identity appears only as the host default", () => {
+  h.byObject = {};
+  const shared = { id: "a", username: "u", name: "ops-deploy" };
+  const cred = { plan: { kind: "host" }, teamId: "t1", choices: [shared], hostIdentity: shared, hasSharedCredential: true, isOwn: () => false, picksOffered: true } as never;
+  const menu = renderHook(() => useConnectAsMenuItem({ id: "c" } as never, cred)).result.current;
+  expect(menu?.children?.filter((i) => i.label === "ops-deploy").map((i) => i.hint)).toEqual(["hosts.connectAs.hostDefault"]);
+});

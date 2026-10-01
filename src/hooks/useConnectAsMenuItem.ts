@@ -34,6 +34,7 @@ export function useConnectAsMenuItem(conn: Connection | undefined, credential: C
       current,
       isOwn,
       hostLabel: hasSharedCredential ? (hostIdentity ? hostIdentity.name ?? hostIdentity.username : t("connections.form.connectAsHost")) : null,
+      hostIdentityId: hostIdentity?.id,
       hasPick: !!currentPickId,
       vaultName,
       t,
