@@ -12,6 +12,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectedSince } from "@/services/sessionUptime";
 import { serialAutoReconnectEnabled } from "@/stores/serialAutoReconnect";
 import { useAllConnections } from "@/hooks/useAllConnections";
+import { sessionUserAtHost } from "@/components/terminal/sessionOverlay";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { usePfState } from "@/hooks/usePfStates";
@@ -230,6 +231,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
   const setSerialAutoReconnect = useSessionStore((s) => s.setSerialAutoReconnect);
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const serialAutoReconnect = session ? serialAutoReconnectEnabled(session, connection) : true;
+  const userAtHost = connection ? sessionUserAtHost(session, connection) : "";
 
   const tunnels = usePfState(sessionType === "ssh" ? sessionId : null)?.tunnels ?? [];
   const [pulse, setPulse] = useState(false);
@@ -400,7 +402,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
   // ── Context menu items ────────────────────────────────────────────────────
 
   const copyHostText = sessionType === "ssh" && connection
-    ? `${connection.username}@${connection.host}`
+    ? userAtHost
     : (serialConfig?.port ?? "");
 
   const serialLabel = serialConfig
@@ -411,9 +413,9 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
     if (sessionType === "ssh" && connection) {
       return [
         {
-          label: t("terminal.statusBar.copyLabel", { text: `${connection.username}@${connection.host}` }),
+          label: t("terminal.statusBar.copyLabel", { text: userAtHost }),
           icon: "lucide:copy",
-          onClick: () => writeClipboard(`${connection.username}@${connection.host}`).catch(() => {}),
+          onClick: () => writeClipboard(userAtHost).catch(() => {}),
         },
         {
           label: t("terminal.statusBar.copyLabel", { text: connection.host }),
@@ -462,7 +464,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
       ];
     }
     return [];
-  }, [sessionType, connection, serialConfig, connectionName, sessionId, toggleRightPanel, disconnect, t]);
+  }, [sessionType, connection, userAtHost, serialConfig, connectionName, sessionId, toggleRightPanel, disconnect, t]);
 
   const statusBarContributionContext = useMemo<TerminalStatusBarContributionContext>(() => ({
     sessionId,
@@ -694,7 +696,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                   </div>
                 )}
                 <span
-                  title={`${connection.username}@${connection.host}`}
+                  title={userAtHost}
                   onClick={handleCopyHost}
                   className={`flex items-center px-1 text-(--t-text-dim) ${statusBarItemClass}`}
                   style={{
@@ -705,7 +707,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                     cursor: "pointer",
                   }}
                 >
-                  {copied ? t("terminal.statusBar.copiedBang") : `${connection.username}@${connection.host}`}
+                  {copied ? t("terminal.statusBar.copiedBang") : userAtHost}
                 </span>
               </div>
               {isDisconnectedOrError && (

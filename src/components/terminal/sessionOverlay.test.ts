@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import type { TerminalSession } from "@/types";
-import { needsConnectionOverlay } from "./sessionOverlay";
+import { needsConnectionOverlay, sessionUserAtHost, sshOverlaySubtitle } from "./sessionOverlay";
 
 const session = (type: TerminalSession["type"], status: TerminalSession["status"]) =>
   ({ id: "s1", connectionId: "c1", connectionName: "x", type, status }) as TerminalSession;
@@ -23,5 +23,25 @@ describe("needsConnectionOverlay", () => {
 
   test("a multiplayer session never gets the overlay", () => {
     expect(needsConnectionOverlay(session("multiplayer", "connecting"))).toBe(false);
+  });
+});
+
+describe("the username shown for an SSH session", () => {
+  const host = { username: "root", host: "web-01", port: 2222 };
+  const alice = { id: "own", username: "alice" };
+
+  test("the overlay subtitle shows who the plan connects as", () => {
+    expect(sshOverlaySubtitle(host, { kind: "pick", identity: alice })).toBe("alice@web-01:2222");
+    expect(sshOverlaySubtitle(host, { kind: "default", identity: alice })).toBe("alice@web-01:2222");
+  });
+
+  test("without a pick the overlay subtitle is the host's own user, as before", () => {
+    expect(sshOverlaySubtitle(host, { kind: "host" })).toBe("root@web-01:2222");
+  });
+
+  test("the status bar shows the user the session authenticated as, else the host's", () => {
+    expect(sessionUserAtHost({ connectedUsername: "alice" }, host)).toBe("alice@web-01");
+    expect(sessionUserAtHost({}, host)).toBe("root@web-01");
+    expect(sessionUserAtHost(undefined, host)).toBe("root@web-01");
   });
 });

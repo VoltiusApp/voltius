@@ -299,3 +299,30 @@ test("a personal host reports its connection exactly as before, with no identity
   expect(target).not.toHaveProperty("metadata");
   expect(connectionAuditMetadata).toHaveBeenCalledWith(undefined, expect.any(Function));
 });
+
+describe("a session records the username it authenticated as", () => {
+  const connectedAs = () => useSessionStore.getState().sessions[0].connectedUsername;
+
+  test("on connect", async () => {
+    h.resolve.mockResolvedValue({ username: "alice", password: "pw", identityId: "own" });
+    await useSessionStore.getState().connect("c1");
+    expect(connectedAs()).toBe("alice");
+  });
+
+  test("on reconnect, overlay retry and a backoff attempt", async () => {
+    const id = await sessionOn("c1");
+    expect(connectedAs()).toBe("root");
+
+    h.resolve.mockResolvedValueOnce({ username: "alice", password: "pw", identityId: "own" });
+    await useSessionStore.getState().reconnect(id);
+    expect(connectedAs()).toBe("alice");
+
+    h.resolve.mockResolvedValueOnce({ username: "root", password: "pw" });
+    await useSessionStore.getState().retryConnect(id, { identityId: "shared" }, false);
+    expect(connectedAs()).toBe("deploy");
+
+    h.resolve.mockResolvedValueOnce({ username: "alice", password: "pw", identityId: "own" });
+    await useSessionStore.getState().reconnectAttempt(id);
+    expect(connectedAs()).toBe("alice");
+  });
+});

@@ -11,10 +11,11 @@ import { TerminalStatusBar } from "@/components/terminal/TerminalStatusBar";
 import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast";
 import ConnectionOverlay, { getSshSteps, getSerialSteps } from "@/components/terminal/connection-overlay";
 import { useAllConnections } from "@/hooks/useAllConnections";
+import { NO_CONNECTION, useCredentialPlan } from "@/hooks/useCredentialPlan";
 import { getConnectionIcon } from "@/utils/icons";
 import type { ConnectRetryOverride, TerminalSession } from "@/types";
 import { EphemeralSerialConfigOverlay } from "@/components/connections/EphemeralSerialConfigOverlay";
-import { needsConnectionOverlay } from "./sessionOverlay";
+import { needsConnectionOverlay, sshOverlaySubtitle } from "./sessionOverlay";
 
 export function HostAwareTerminalView({
   session,
@@ -89,6 +90,7 @@ function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }
   const { t } = useTranslation();
   const connections = useAllConnections();
   const connection = connections.find((c) => c.id === session.connectionId);
+  const { plan } = useCredentialPlan(connection ?? NO_CONNECTION);
   const connectSerialEphemeralFinalize = useSessionStore((s) => s.connectSerialEphemeralFinalize);
   const resetSerialEphemeral = useSessionStore((s) => s.resetSerialEphemeral);
   const reconnect = useSessionStore((s) => s.reconnect);
@@ -139,7 +141,7 @@ function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }
 
   const displayIcon = connection ? (connection.icon || connection.distro) : null;
   const icon = displayIcon ? (getConnectionIcon(displayIcon) ?? "lucide:monitor") : "lucide:monitor";
-  const subtitle = connection ? `${connection.username}@${connection.host}:${connection.port}` : undefined;
+  const subtitle = connection ? sshOverlaySubtitle(connection, plan) : undefined;
   return (
     <ConnectionOverlay
       sessionId={session.id}

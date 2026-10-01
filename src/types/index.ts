@@ -256,6 +256,7 @@ export interface TerminalSession {
    * rather than ask for credentials. The message is translated and cannot be matched. */
   errorCode?: BackendErrorCode;
   identityPick?: IdentityPickIssue;
+  connectedUsername?: string;
   /** Why the auto-reconnect loop is holding off: no network, or past its fast retries. */
   reconnectWait?: "offline" | "slow";
   encoding?: string;

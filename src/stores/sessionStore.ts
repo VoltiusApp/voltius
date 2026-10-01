@@ -284,11 +284,7 @@ async function connectSshSession(
         ...opts,
       }),
     );
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
-      ),
-    }));
+    markSshConnected(set, sessionId, connection.username);
 
     useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
     reportConnectionAudit(connection, "connection.started", credentials);
@@ -409,6 +405,10 @@ function markSessionConnecting(set: SessionSetter, sessionId: string) {
     identityPick: undefined,
     reconnectWait: undefined,
   });
+}
+
+function markSshConnected(set: SessionSetter, sessionId: string, username: string | undefined) {
+  patchSession(set, sessionId, { status: "connected", everConnected: true, connectedUsername: username });
 }
 
 function markSessionDisconnected(set: SessionSetter, sessionId: string) {
@@ -964,11 +964,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         });
       });
       skipPickOnce.delete(sessionId);
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
-        ),
-      }));
+      markSshConnected(set, sessionId, credentials?.username);
       reportConnectionAudit(connection, "connection.started", credentials);
       void runHostCommand(connection, "pre", sessionId, "ssh");
     } catch (err) {
@@ -997,9 +993,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       const connection = findConnection(session.connectionId);
       if (!connection) return { ok: false, errorMessage: i18n.t("common.error.connectionConfigNotFound") };
       // A dropped tab's xterm buffer still holds its output: replaying history would duplicate it.
+      let credentials: ResolvedCredentials | undefined;
       await withSessionConnectLock(sessionId, async () => {
         await sshDisconnectForReconnect(sessionId);
-        const credentials = await resolveConnectionCredentials(connection);
+        credentials = await resolveConnectionCredentials(connection);
         const opts = await buildSshConnectOptions(connection, sessionId);
         await sshConnect({
           sessionId,
@@ -1015,6 +1012,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...opts,
         });
       });
+      patchSession(set, sessionId, { connectedUsername: credentials?.username });
       void runHostCommand(connection, "pre", sessionId, "ssh");
       return { ok: true };
     } catch (err) {
@@ -1059,11 +1057,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         });
       });
       skipPickOnce.delete(sessionId);
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
-        ),
-      }));
+      markSshConnected(set, sessionId, credentials?.username);
       reportConnectionAudit(connection, "connection.started", credentials && { ...credentials, passphrase });
       void runHostCommand(connection, "pre", sessionId, "ssh");
     } catch (err) {
@@ -1153,11 +1147,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (ephemeralConnections.has(conn.id)) {
         setEphemeralCredentials(conn.id, { username, password, privateKey, passphrase });
       }
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
-        ),
-      }));
+      markSshConnected(set, sessionId, username);
       useConnectionStore.getState().setLastUsed(conn.id).catch(() => {});
       reportConnectionAudit(conn, "connection.started", resolved);
       void runHostCommand(conn, "pre", sessionId, "ssh");
