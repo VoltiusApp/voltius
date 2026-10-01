@@ -52,12 +52,14 @@ export default function ConnectionOverlay({
   const isConnecting = status === "connecting";
   // Outranks the message-based prompts: the credentials are stored, just unreadable.
   const vaultCode = isError && isVaultErrorCode(errorCode) ? errorCode : null;
+  const pickIsHere = !!identityPick && identityPick.connectionId === connectionId;
   const showIdentityPick = isError && !!identityPick && !choosing;
-  const showChooser = isError && !!identityPick && choosing && !!onRetryWithAuth;
+  const showChooser = isError && pickIsHere && choosing && !!onRetryWithAuth;
   const showVaultError = !identityPick && !!vaultCode;
-  const showPassphrasePrompt = !identityPick && isError && !showVaultError && isPassphraseError(errorMessage) && !!onRetryWithPassphrase;
-  const showUsernamePrompt = !identityPick && isError && !showVaultError && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
-  const showAuthPrompt = !identityPick && isError && !showVaultError && isNoAuthError(errorMessage) && !!onRetryWithAuth;
+  const prompting = isError && !identityPick && !vaultCode;
+  const showPassphrasePrompt = prompting && isPassphraseError(errorMessage) && !!onRetryWithPassphrase;
+  const showUsernamePrompt = prompting && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
+  const showAuthPrompt = prompting && isNoAuthError(errorMessage) && !!onRetryWithAuth;
   const showSpecialPanel =
     (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
 
@@ -75,17 +77,23 @@ export default function ConnectionOverlay({
         {conflict && !isError ? (
           <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
         ) : showIdentityPick ? (
-          <IdentityUnavailablePanel issue={identityPick} onChoose={() => setChoosing(true)} onUseHost={onUseHostCredential} onCancel={onDismiss} />
+          <IdentityUnavailablePanel
+            issue={identityPick}
+            onChoose={pickIsHere ? () => setChoosing(true) : undefined}
+            onUseHost={pickIsHere ? onUseHostCredential : undefined}
+            onCancel={onDismiss}
+          />
         ) : showChooser ? (
           <AuthPromptPanel
             vaultId={vaultId}
             connectionId={connectionId}
             hostName={name}
             initialMode="identity"
+            repairVia={identityPick.via}
             onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
             onCancel={onDismiss}
           />
-        ) : vaultCode ? (
+        ) : showVaultError && vaultCode ? (
           <VaultErrorPanel code={vaultCode} onRetry={onRetry} onCancel={onDismiss} />
         ) : showPassphrasePrompt ? (
           <PassphrasePromptPanel

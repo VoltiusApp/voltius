@@ -10,7 +10,7 @@ import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { Pills } from "@/components/shared/Pills";
 import IdentitySelector from "@/components/connections/IdentitySelector";
-import { defaultSaveTarget, saveTargetOptions, type SaveTarget } from "./saveTarget";
+import { defaultSaveTarget, repairSaveTarget, saveTargetOptions, type SaveTarget } from "./saveTarget";
 
 export function OverlayIdentityField({
   vaultId,
@@ -20,6 +20,7 @@ export function OverlayIdentityField({
   onIdentityChange,
   saveTarget,
   onSaveTargetChange,
+  repairVia,
   onGoToKeychain,
 }: {
   vaultId?: string;
@@ -29,6 +30,7 @@ export function OverlayIdentityField({
   onIdentityChange: (id: string | null) => void;
   saveTarget: SaveTarget;
   onSaveTargetChange: (target: SaveTarget) => void;
+  repairVia?: "pick" | "default";
   onGoToKeychain: () => void;
 }) {
   const { t } = useTranslation();
@@ -52,12 +54,13 @@ export function OverlayIdentityField({
   const vaultName = teams.find((team) => team.id === teamId)?.name ?? "";
   const canEditHost = !!teamId && !!connectionId && can("EDIT_CONNECTIONS", teamId, connectionId);
   const kind = own?.some((i) => i.id === identityId) ? "own" : "team";
-  const showTarget = !!own && !!identityId;
+  const showTarget = !!own && !!identityId && !repairVia;
 
   useEffect(() => {
-    if (showTarget) onSaveTargetChange(defaultSaveTarget(kind, canEditHost));
+    if (repairVia) onSaveTargetChange(repairSaveTarget(repairVia));
+    else if (showTarget) onSaveTargetChange(defaultSaveTarget(kind, canEditHost));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identityId, kind, canEditHost, showTarget]);
+  }, [identityId, kind, canEditHost, showTarget, repairVia]);
 
   return (
     <>

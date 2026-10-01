@@ -11,7 +11,7 @@ import { Pills } from "@/components/shared/Pills";
 import KeySelector from "@/components/connections/KeySelector";
 import { DecisionPanel } from "./DecisionPanel";
 import { OverlayIdentityField } from "./OverlayIdentityField";
-import { identityOverride, type SaveTarget } from "./saveTarget";
+import { identityOverride, repairSaveTarget, type SaveTarget } from "./saveTarget";
 import type { ConnectRetryOverride } from "./types";
 
 export type AuthMode = "password" | "key" | "identity";
@@ -29,6 +29,7 @@ export function AuthPromptPanel({
   connectionId,
   hostName,
   initialMode,
+  repairVia,
   onSubmit,
   onCancel,
 }: {
@@ -36,6 +37,7 @@ export function AuthPromptPanel({
   connectionId?: string;
   hostName?: string;
   initialMode?: AuthMode;
+  repairVia?: "pick" | "default";
   onSubmit: (override: ConnectRetryOverride, save: boolean) => void;
   onCancel?: () => void;
 }) {
@@ -47,7 +49,7 @@ export function AuthPromptPanel({
 
   const [mode, setMode] = useState<AuthMode>(initialMode ?? "password");
   const [identityId, setIdentityId] = useState<string | null>(null);
-  const [saveTarget, setSaveTarget] = useState<SaveTarget>("host");
+  const [saveTarget, setSaveTarget] = useState<SaveTarget>(repairVia ? repairSaveTarget(repairVia) : "host");
   const [keyId, setKeyId] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [privateKey, setPrivateKey] = useState("");
@@ -124,7 +126,7 @@ export function AuthPromptPanel({
       ]}
     >
       <div className="w-full flex flex-col gap-2.5 text-left">
-        <Pills options={authModes} value={mode} onChange={setMode} />
+        {!repairVia && <Pills options={authModes} value={mode} onChange={setMode} />}
 
         {mode === "password" && (
           <div className="relative">
@@ -198,6 +200,7 @@ export function AuthPromptPanel({
             onIdentityChange={setIdentityId}
             saveTarget={saveTarget}
             onSaveTargetChange={setSaveTarget}
+            repairVia={repairVia}
             onGoToKeychain={goToKeychain}
           />
         )}

@@ -11,14 +11,13 @@ export function IdentityUnavailablePanel({
   onCancel,
 }: {
   issue: IdentityPickIssue;
-  onChoose: () => void;
+  onChoose?: () => void;
   onUseHost?: () => void;
   onCancel?: () => void;
 }) {
   const { t } = useTranslation();
-  const actions: DecisionPanelAction[] = [
-    { label: t("terminal.overlay.identityPick.choose"), variant: "primary", onClick: onChoose },
-  ];
+  const actions: DecisionPanelAction[] = [];
+  if (onChoose) actions.push({ label: t("terminal.overlay.identityPick.choose"), variant: "primary", onClick: onChoose });
   if (issue.hasFallback && onUseHost) {
     actions.push({
       label: issue.fallbackName

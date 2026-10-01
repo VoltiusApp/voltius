@@ -20,6 +20,10 @@ export function defaultSaveTarget(kind: "own" | "team", canEditHost: boolean): S
   return kind === "team" && canEditHost ? "host" : "pick";
 }
 
+export function repairSaveTarget(via: "pick" | "default"): SaveTarget {
+  return via === "pick" ? "pick" : "vault-default";
+}
+
 export function identityOverride(identityId: string, target: SaveTarget): ConnectRetryOverride {
   return target === "host" ? { identityId } : { identityId, saveAs: target };
 }
