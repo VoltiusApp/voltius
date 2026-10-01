@@ -15,6 +15,9 @@ import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { useCanConnect } from "@/hooks/useCanConnect";
+import { useConnectAsMenuItem } from "@/hooks/useConnectAsMenuItem";
+import { useCredentialPlan } from "@/hooks/useCredentialPlan";
+import { effectiveUsername } from "@/services/credentialScope";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
@@ -70,6 +73,9 @@ export default function HostCard({
   const protocolLabel = isSerial ? "SERIAL" : isFtp ? (connection.ftp_secure ? "FTPS" : "FTP") : "SSH";
   const contributions = useUIContributions("connection.contextMenu", connection);
   const canConnect = useCanConnect(connection);
+  const connectAs = useConnectAsMenuItem(connection, () => onConnect(connection));
+  const { plan } = useCredentialPlan(connection);
+  const shownUsername = effectiveUsername(connection, plan);
   const connectTitle = !canConnect ? t("common.error.connectNotAllowed") : isFtp ? t("hosts.card.openFilesTitle") : t("hosts.card.connectTitle");
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(connection.id, "connection"));
   const pinConnection = useConnectionStore((s) => s.pinConnection);
@@ -165,6 +171,7 @@ export default function HostCard({
       connectShortcut: "↩",
       duplicateShortcut: "D",
       onConnect: canConnect ? () => onConnect(connection) : undefined,
+      connectAs: canConnect ? connectAs : undefined,
       onDuplicate: () => onDuplicate(connection),
       onMoveToVault: onMoveToVault ? (vId) => onMoveToVault(connection, vId) : undefined,
       onCopyToVault: onCopyToVault ? (vId) => onCopyToVault(connection, vId) : undefined,
@@ -262,7 +269,7 @@ export default function HostCard({
           <p className="text-xs truncate flex-1 text-(--t-text-secondary)">
             {isSerial
               ? `${t("home.hostCard.serial")} · ${t("home.hostCard.baud", { rate: connection.serial_baud ?? 115200 })}`
-              : `${connection.username}@${connection.host}:${connection.port}${showPingDot && pingStatus === "up" && pingLatency !== undefined ? ` · ${pingLatency}ms` : ""}`
+              : `${shownUsername}@${connection.host}:${connection.port}${showPingDot && pingStatus === "up" && pingLatency !== undefined ? ` · ${pingLatency}ms` : ""}`
             }
           </p>
           {connection.tags.length > 0 && (
@@ -375,7 +382,7 @@ export default function HostCard({
                   ) : (
                     <>
                       <span className="truncate">
-                        <span style={{ color: "var(--t-terminal-green)" }}>{connection.username}</span>
+                        <span style={{ color: "var(--t-terminal-green)" }}>{shownUsername}</span>
                         <span>@</span>
                         <span style={{ color: "var(--t-terminal-cyan)" }}>{connection.host}</span>
                       </span>

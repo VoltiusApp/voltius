@@ -86,7 +86,8 @@
         "username": "Proxy username",
         "password": "Proxy password",
         "passwordSaved": "••• saved"
-      }
+      },
+      "connectAsHost": "Host credential"
     },
     "distroIconPicker": {
       "title": "Icon",
@@ -185,6 +186,14 @@
       "sectionSerialPort": "Serial Port",
       "customBaudButton": "Custom",
       "presetBaudButton": "Preset"
+    },
+    "vaultIdentity": {
+      "title": "Your identity for {{vault}}",
+      "subtitle": "Only you. Teammates never see it.",
+      "useOn": "Use on {{vault}} hosts with no shared credential",
+      "none": "No default",
+      "noneHint": "Hosts without a credential ask you, as today",
+      "footnote": "Hosts with a shared credential keep it. Override one host with Connect as."
     }
   }
 }

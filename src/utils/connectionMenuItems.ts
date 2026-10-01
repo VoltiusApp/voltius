@@ -14,6 +14,8 @@ export interface ConnectionMenuOptions {
   connectShortcut?: string;
   duplicateShortcut?: string;
   onConnect?: () => void;
+  /** Inserted right after Connect */
+  connectAs?: ContextMenuItem;
   onDuplicate?: () => void;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
@@ -35,6 +37,7 @@ export function buildConnectionMenuItems({
   connectShortcut,
   duplicateShortcut,
   onConnect,
+  connectAs,
   onDuplicate,
   onMoveToVault,
   onCopyToVault,
@@ -46,6 +49,7 @@ export function buildConnectionMenuItems({
 }: ConnectionMenuOptions): ContextMenuItem[] {
   return [
     ...(onConnect ? [{ label: t("common.action.connect"), icon: "lucide:terminal", onClick: onConnect, shortcut: connectShortcut }] : []),
+    ...(onConnect && connectAs ? [connectAs] : []),
     ...(canEdit && onDuplicate ? [{ label: t("common.action.duplicate"), icon: "lucide:copy", onClick: onDuplicate, shortcut: duplicateShortcut }] : []),
     ...extras,
     ...contributions.map((a, i) => ({ ...a, divider: i === 0 })),

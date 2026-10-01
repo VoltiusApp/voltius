@@ -86,7 +86,8 @@
         "username": "Proxy kullanıcı adı",
         "password": "Proxy parolası",
         "passwordSaved": "••• kayıtlı"
-      }
+      },
+      "connectAsHost": "Sunucu kimlik bilgisi"
     },
     "distroIconPicker": {
       "title": "Simge",
@@ -185,6 +186,14 @@
       "sectionSerialPort": "Seri port",
       "customBaudButton": "Özel",
       "presetBaudButton": "Hazır ayar"
+    },
+    "vaultIdentity": {
+      "title": "{{vault}} için kimliğiniz",
+      "subtitle": "Yalnızca siz. Ekip arkadaşlarınız bunu asla görmez.",
+      "useOn": "Paylaşılan kimlik bilgisi olmayan {{vault}} sunucularında kullan",
+      "none": "Varsayılan yok",
+      "noneHint": "Kimlik bilgisi olmayan sunucular şimdiki gibi size sorar",
+      "footnote": "Paylaşılan kimlik bilgisi olan sunucular onu korur. Tek bir sunucu için Farklı kimlikle bağlan'ı kullanın."
     }
   }
 }

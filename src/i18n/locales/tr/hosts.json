@@ -141,6 +141,12 @@
       "failed": "{{host}} için sunucu komutu başarısız oldu: {{error}}",
       "missingSnippet": "{{host}} için sunucu komutunun kod parçacığı bulunamadı",
       "postPromptTimedOut": "{{host}} için son komut atlandı: 60 saniye içinde yanıt gelmedi"
+    },
+    "connectAs": {
+      "title": "Farklı kimlikle bağlan",
+      "yours": "sizin",
+      "hostDefault": "sunucu varsayılanı",
+      "vaultDefault": "{{vault}} için kimliğim…"
     }
   }
 }

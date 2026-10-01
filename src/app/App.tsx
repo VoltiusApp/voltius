@@ -40,6 +40,7 @@ import { DeepLinkConfirmModal } from "@/components/terminal/DeepLinkConfirmModal
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 import { GlobalTransferQueue } from "@/components/filetransfer/GlobalTransferQueue";
 import { RuleSetPromptHost } from "@/components/permissions/RuleSetPromptHost";
+import { VaultIdentityDialogHost } from "@/components/connections/VaultIdentityDialog";
 import { setRuleSetMoveConfirmer } from "@/services/teamObjectPersistence";
 import { confirmRuleSetMove } from "@/services/ruleSetMoveGuard";
 
@@ -98,6 +99,7 @@ function App() {
       <EmailVerificationRequiredModal />
       <DeepLinkConfirmModal />
       <RuleSetPromptHost />
+      <VaultIdentityDialogHost />
       <GlobalTransferQueue />
 
       {/* Global snippet variable modal — triggered from OmniSearch, the

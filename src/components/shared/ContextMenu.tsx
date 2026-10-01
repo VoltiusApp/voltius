@@ -15,6 +15,8 @@ export interface ContextMenuItem {
   children?: ContextMenuItem[];
   /** Keyboard shortcut hint displayed on the right (e.g. "Delete", "Ctrl+K") */
   shortcut?: string;
+  /** Dim text after the label, e.g. "yours" */
+  hint?: string;
 }
 
 // ── Shared item-list renderer (no positioning) ────────────────────────────────
@@ -86,6 +88,7 @@ export function MenuItemList({
               <span className="flex-1 text-left text-sm font-medium" style={{ color: item.danger ? "var(--t-status-error)" : "var(--t-text-primary)" }}>
                 {item.label}
               </span>
+              {item.hint && <span className="text-xs shrink-0 text-(--t-text-dim)">{item.hint}</span>}
               {item.shortcut && !item.children && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-sm font-mono shrink-0 bg-(--t-bg-elevated) text-(--t-text-dim) border border-(--t-border)">
                   {item.shortcut}

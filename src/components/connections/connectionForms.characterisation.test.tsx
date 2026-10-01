@@ -103,6 +103,7 @@ vi.mock("@/stores/connectivitySettingsStore", () => ({
 }));
 vi.mock("@/stores/hostCommandVarsStore", () => ({ clearRememberedVars: vi.fn() }));
 vi.mock("@/hooks/useUIContributions", () => ({ useUIContributions: () => [] }));
+vi.mock("@/hooks/useConnectAsMenuItem", () => ({ useConnectAsMenuItem: () => undefined }));
 vi.mock("@/hooks/useEffectivePinned", () => ({
   useEffectivePinned: () => h.effectivePinned,
   useEffectivePinSource: () => h.pinSource,

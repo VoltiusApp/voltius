@@ -86,7 +86,8 @@
         "username": "Utilisateur du proxy",
         "password": "Mot de passe du proxy",
         "passwordSaved": "••• enregistré"
-      }
+      },
+      "connectAsHost": "Identifiant de l'hôte"
     },
     "distroIconPicker": {
       "title": "Icône",
@@ -185,6 +186,14 @@
       "sectionSerialPort": "Port série",
       "customBaudButton": "Personnalisé",
       "presetBaudButton": "Prédéfini"
+    },
+    "vaultIdentity": {
+      "title": "Votre identité pour {{vault}}",
+      "subtitle": "Vous seul. Vos coéquipiers ne la voient jamais.",
+      "useOn": "Utiliser sur les hôtes {{vault}} sans identifiant partagé",
+      "none": "Aucune par défaut",
+      "noneHint": "Les hôtes sans identifiant vous le demandent, comme aujourd'hui",
+      "footnote": "Les hôtes avec un identifiant partagé le conservent. Changez-le pour un hôte avec « Se connecter en tant que »."
     }
   }
 }

@@ -141,6 +141,12 @@
       "failed": "{{host}} 的主机命令执行失败：{{error}}",
       "missingSnippet": "{{host}} 的主机命令代码片段缺失",
       "postPromptTimedOut": "{{host}} 的后置命令已跳过：60 秒内无响应"
+    },
+    "connectAs": {
+      "title": "以…身份连接",
+      "yours": "你的",
+      "hostDefault": "主机默认",
+      "vaultDefault": "我在 {{vault}} 的身份…"
     }
   }
 }
