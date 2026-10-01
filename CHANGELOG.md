@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Updated the bundled SSH library (`russh`) to 0.63.3, picking up fixes for a malicious server opening channels the client never asked for, a memory-exhaustion flood during rekeying, and a crash on a cipher negotiated without a MAC
+- Updated `pageant` to 0.2.3, fixing an out-of-bounds read when talking to a malicious Pageant agent on Windows
+
 ## [0.45.0] - 2026-10-01
 
 ### Added

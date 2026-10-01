@@ -5,8 +5,8 @@ use crate::known_hosts::{
 use crate::port_forward::{RemoteRoute, RemoteRouteMap};
 use crate::proxy::{self, ProxyError, ProxySpec};
 use russh::client::{self, AuthResult, KeyboardInteractiveAuthResponse, Prompt};
-use russh::keys::ssh_key::{HashAlg, PublicKey};
-use russh::keys::PrivateKeyWithHashAlg;
+use russh::keys::ssh_key::HashAlg;
+use russh::keys::{PrivateKeyWithHashAlg, PublicKeyOrCertificate};
 use russh::{MethodKind, MethodSet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -131,8 +131,16 @@ impl client::Handler for SshClient {
 
     async fn check_server_key(
         &mut self,
-        server_public_key: &PublicKey,
+        server_key: &PublicKeyOrCertificate,
     ) -> Result<bool, Self::Error> {
+        // Host certificates are never advertised, so one arriving is unexpected: fail closed.
+        let PublicKeyOrCertificate::PublicKey {
+            key: server_public_key,
+            ..
+        } = server_key
+        else {
+            return Ok(false);
+        };
         let fp = server_public_key.fingerprint(HashAlg::Sha256).to_string();
 
         match self.known_hosts.check(&self.host, self.port, &fp).await {
@@ -1332,6 +1340,7 @@ fn legacy_preferred() -> russh::Preferred {
         cipher: ciphers.into(),
         mac: macs.into(),
         key: base.key,
+        host_key_certificates: base.host_key_certificates,
         compression: base.compression,
     }
 }
@@ -1856,7 +1865,7 @@ mod tests {
 
         async fn check_server_key(
             &mut self,
-            _: &russh::keys::ssh_key::PublicKey,
+            _: &russh::keys::PublicKeyOrCertificate,
         ) -> Result<bool, Self::Error> {
             Ok(true)
         }
