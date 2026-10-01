@@ -9,11 +9,12 @@ vi.mock("@/stores/teamStore", () => ({ useTeamStore: (sel: (s: unknown) => unkno
 
 import { useConnectAsMenuItem } from "./useConnectAsMenuItem";
 
-const credential = { plan: { kind: "host" }, teamId: "t1", choices: [{ id: "a", username: "u" }], hostIdentity: null, hasSharedCredential: true, ownIds: new Set(), supported: true } as never;
+const credential = (picksOffered: boolean) =>
+  ({ plan: { kind: "host" }, teamId: "t1", choices: [{ id: "a", username: "u" }], hostIdentity: null, hasSharedCredential: true, ownIds: new Set(), picksOffered }) as never;
 
-test("serial hosts get no Connect as; ssh hosts do", () => {
-  const serial = renderHook(() => useConnectAsMenuItem({ id: "c", connection_type: "serial" } as never, credential));
-  expect(serial.result.current).toBeUndefined();
-  const ssh = renderHook(() => useConnectAsMenuItem({ id: "c", connection_type: "ssh" } as never, credential));
-  expect(ssh.result.current?.label).toBe("hosts.connectAs.title");
+test("Connect as follows the single pick gate", () => {
+  const closed = renderHook(() => useConnectAsMenuItem({ id: "c", connection_type: "ssh" } as never, credential(false)));
+  expect(closed.result.current).toBeUndefined();
+  const open = renderHook(() => useConnectAsMenuItem({ id: "c", connection_type: "ssh" } as never, credential(true)));
+  expect(open.result.current?.label).toBe("hosts.connectAs.title");
 });

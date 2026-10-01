@@ -4,7 +4,7 @@ import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
 import type { CredentialPlan, CredentialScope, IdentityPickIssue, PickIssueReason, PickTarget } from "./credentialPlan";
 
 export type Can = (permission: Permission, vaultId: string, objectId?: string) => boolean;
-export type ScopedConnection = Pick<Connection, "id" | "vault_id" | "identity_id" | "key_id" | "name" | "username" | "host">;
+export type ScopedConnection = Pick<Connection, "id" | "vault_id" | "identity_id" | "key_id" | "name" | "username" | "host" | "connection_type">;
 
 export interface CredentialSnapshot {
   teams: { id: string; name?: string }[];
@@ -63,23 +63,34 @@ function hostHasSharedCredential(conn: ScopedConnection, teamId: string, snapsho
   return !!snapshot.teamSecret(teamId, `password:${conn.id}`) || !!snapshot.teamSecret(teamId, `key:${conn.id}`);
 }
 
+export function isSshConnection(conn: Pick<Connection, "connection_type">): boolean {
+  return !conn.connection_type || conn.connection_type === "ssh";
+}
+
 export function buildCredentialScope(conn: ScopedConnection, snapshot: CredentialSnapshot, can: Can): CredentialScope {
   const teamId = resolveTeamIdFromCollections(conn.vault_id, snapshot.teams, snapshot.vaults);
   if (!teamId) {
     return { teamId: null, hostPickId: null, vaultDefaultId: null, hostHasSharedCredential: true, lookup: () => "missing" };
   }
+  const picks = isSshConnection(conn) ? snapshot.picks : { byObject: {}, byTeam: {} };
   return {
     teamId,
-    hostPickId: snapshot.picks.byObject[conn.id] ?? null,
-    vaultDefaultId: snapshot.picks.byTeam[teamId] ?? null,
+    hostPickId: picks.byObject[conn.id] ?? null,
+    vaultDefaultId: picks.byTeam[teamId] ?? null,
     hostHasSharedCredential: hostHasSharedCredential(conn, teamId, snapshot),
     lookup: lookupPickable(teamId, snapshot, can),
   };
 }
 
-export function pickChoices(teamId: string, snapshot: CredentialSnapshot, can: Can): PickTarget[] {
+export function pickGroups(teamId: string, snapshot: CredentialSnapshot, can: Can): { own: Identity[]; shared: Identity[] } {
   const usable = lookupPickable(teamId, snapshot, can);
-  return [...snapshot.ownIdentities, ...(snapshot.teamIdentities[teamId] ?? [])].filter((i) => typeof usable(i.id) !== "string");
+  const keep = (list: Identity[]) => list.filter((i) => typeof usable(i.id) !== "string");
+  return { own: keep(snapshot.ownIdentities), shared: keep(snapshot.teamIdentities[teamId] ?? []) };
+}
+
+export function pickChoices(teamId: string, snapshot: CredentialSnapshot, can: Can): Identity[] {
+  const { own, shared } = pickGroups(teamId, snapshot, can);
+  return [...own, ...shared];
 }
 
 export function connectionLabel(conn: Pick<Connection, "name" | "username" | "host">): string {

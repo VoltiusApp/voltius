@@ -411,7 +411,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
     isSynced,
     pingDisabled,
     onConnect: canConnect ? () => onConnect?.() : undefined,
-    connectAs: canConnect ? connectAs : undefined,
+    connectAs,
     onDuplicate: () => onDuplicate?.(),
     onMoveToVault,
     onCopyToVault,

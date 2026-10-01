@@ -2,11 +2,10 @@ import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
-import { useVaultStore } from "@/stores/vaultStore";
-import { useIdentityPickStore } from "@/stores/identityPickStore";
 import { usePermissions } from "@/hooks/usePermission";
+import { useAllConnections } from "@/hooks/useAllConnections";
+import { NO_CONNECTION, useCredentialPlan } from "@/hooks/useCredentialPlan";
 import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
-import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { Pills } from "@/components/shared/Pills";
 import IdentitySelector from "@/components/connections/IdentitySelector";
@@ -36,25 +35,25 @@ export function OverlayIdentityField({
   const { t } = useTranslation();
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const teams = useTeamStore((s) => s.teams);
-  const vaults = useVaultStore((s) => s.vaults);
-  const picksSupported = useIdentityPickStore((s) => s.status !== "unsupported");
   const can = usePermissions();
+  const connection = useAllConnections().find((c) => c.id === connectionId);
+  const { teamId, groups, picksOffered, ownIds } = useCredentialPlan(connection ?? NO_CONNECTION);
 
   useEffect(() => {
     void loadIdentities();
   }, [loadIdentities]);
 
   const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
-  const shared = useMemo(
+  const personal = useMemo(
     () => selectVaultScopedItems({ vaultId: vaultId ?? "personal", localItems: identities, teamItems: teamIdentities, teamVaultIds, resolveVaultId: resolveVaultIdForSave }),
     [vaultId, identities, teamIdentities, teamVaultIds],
   );
-  const teamId = resolveTeamIdFromCollections(vaultId, teams, vaults);
-  const own = teamId && picksSupported ? identities : undefined;
+  const shared = teamId ? groups.shared : personal;
+  const own = picksOffered ? groups.own : undefined;
   const vaultName = teams.find((team) => team.id === teamId)?.name ?? "";
   const canEditHost = !!teamId && !!connectionId && can("EDIT_CONNECTIONS", teamId, connectionId);
-  const kind = own?.some((i) => i.id === identityId) ? "own" : "team";
-  const showTarget = !!own && !!identityId && !repairVia;
+  const kind = identityId && ownIds.has(identityId) ? "own" : "team";
+  const showTarget = picksOffered && !!identityId && !repairVia;
 
   useEffect(() => {
     if (repairVia) onSaveTargetChange(repairSaveTarget(repairVia));

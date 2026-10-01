@@ -171,7 +171,7 @@ export default function HostCard({
       connectShortcut: "↩",
       duplicateShortcut: "D",
       onConnect: canConnect ? () => onConnect(connection) : undefined,
-      connectAs: canConnect ? connectAs : undefined,
+      connectAs,
       onDuplicate: () => onDuplicate(connection),
       onMoveToVault: onMoveToVault ? (vId) => onMoveToVault(connection, vId) : undefined,
       onCopyToVault: onCopyToVault ? (vId) => onCopyToVault(connection, vId) : undefined,

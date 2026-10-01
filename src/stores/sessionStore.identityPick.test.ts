@@ -207,7 +207,8 @@ test("a typed password after a stale save target still saves on the host", async
 const sessionOn = async (connectionId: string) => {
   h.resolve.mockResolvedValueOnce({ username: "root", password: "pw" });
   await useSessionStore.getState().connect(connectionId);
-  return useSessionStore.getState().sessions.at(-1)!.id;
+  const { sessions } = useSessionStore.getState();
+  return sessions[sessions.length - 1].id;
 };
 
 describe("a saved passphrase goes to the key that was used", () => {

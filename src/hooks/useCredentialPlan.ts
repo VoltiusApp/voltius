@@ -8,7 +8,15 @@ import { useIdentityPickStore } from "@/stores/identityPickStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { teamSecretCache } from "@/services/teamSecretCache";
 import { planCredentials } from "@/services/credentialPlan";
-import { buildCredentialScope, hostIdentityOf, pickChoices, toCredentialSnapshot, type CredentialSnapshot } from "@/services/credentialScope";
+import {
+  buildCredentialScope,
+  hostIdentityOf,
+  isSshConnection,
+  pickChoices,
+  pickGroups,
+  toCredentialSnapshot,
+  type CredentialSnapshot,
+} from "@/services/credentialScope";
 
 function useCredentialSnapshot(): { snapshot: CredentialSnapshot; supported: boolean } {
   const identities = useIdentityStore((s) => s.identities);
@@ -35,14 +43,16 @@ export function useCredentialPlan(conn: Connection) {
   const can = usePermissions();
   return useMemo(() => {
     const scope = buildCredentialScope(conn, snapshot, can);
+    const groups = scope.teamId ? pickGroups(scope.teamId, snapshot, can) : { own: [], shared: [] };
     return {
       plan: planCredentials(scope),
       teamId: scope.teamId,
-      choices: scope.teamId ? pickChoices(scope.teamId, snapshot, can) : [],
+      groups,
+      choices: [...groups.own, ...groups.shared],
       hostIdentity: hostIdentityOf(conn, snapshot),
       hasSharedCredential: scope.hostHasSharedCredential,
       ownIds: new Set(snapshot.ownIdentities.map((i) => i.id)),
-      supported,
+      picksOffered: !!scope.teamId && supported && isSshConnection(conn) && can("CONNECT", scope.teamId, conn.id),
     };
   }, [conn, snapshot, can, supported]);
 }

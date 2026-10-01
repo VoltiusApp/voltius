@@ -10,12 +10,12 @@ import { buildConnectAsItems, type ConnectAsCurrent } from "@/utils/connectAsIte
 
 export function useConnectAsMenuItem(conn: Connection | undefined, credential: CredentialPlanResult, afterPick?: () => void): ContextMenuItem | undefined {
   const { t } = useTranslation();
-  const { plan, teamId, choices, hostIdentity, hasSharedCredential, ownIds, supported } = credential;
+  const { plan, teamId, choices, hostIdentity, hasSharedCredential, ownIds, picksOffered } = credential;
   const setHostPick = useIdentityPickStore((s) => s.setHostPick);
   const currentPickId = useIdentityPickStore((s) => (conn ? s.byObject[conn.id] ?? null : null));
   const vaultName = useTeamStore((s) => s.teams.find((team) => team.id === teamId)?.name ?? "");
   const openDefault = useVaultIdentityDialogStore((s) => s.open);
-  if (!conn || conn.connection_type === "serial" || !teamId || !supported) return undefined;
+  if (!conn || !teamId || !picksOffered) return undefined;
   if (choices.length === 0 && !hasSharedCredential) return undefined;
 
   const current: ConnectAsCurrent =

@@ -10,10 +10,10 @@ import { connectAsSummary } from "./connectAsSummary";
 
 export function YouConnectAsRow({ connection, credential }: { connection: Connection; credential: CredentialPlanResult }) {
   const { t } = useTranslation();
-  const { plan, teamId, ownIds, hostIdentity, hasSharedCredential, supported } = credential;
+  const { plan, ownIds, hostIdentity, hasSharedCredential, picksOffered } = credential;
   const menu = useConnectAsMenuItem(connection, credential);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  if (!teamId || !supported) return null;
+  if (!picksOffered) return null;
   const s = connectAsSummary(plan, ownIds, hostIdentity, hasSharedCredential, t);
 
   return (

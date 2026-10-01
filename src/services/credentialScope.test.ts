@@ -6,6 +6,7 @@ import {
   describePickIssue,
   effectiveUsername,
   pickChoices,
+  pickGroups,
   type Can,
   type CredentialSnapshot,
 } from "./credentialScope";
@@ -63,6 +64,13 @@ describe("buildCredentialScope", () => {
     expect(s.lookup("shared")).toBe("missing");
   });
 
+  test.each(["ftp", "serial"] as const)("a %s team host ignores picks and the vault default", (type) => {
+    const picks = { byObject: { h1: "own" }, byTeam: { t1: "keyless" } };
+    const s = buildCredentialScope({ ...teamHost, connection_type: type }, snapshot({ picks }), allow);
+    expect(s.teamId).toBe("t1");
+    expect(planCredentials(s)).toEqual({ kind: "host" });
+  });
+
   test("picks are read per host and per team", () => {
     const s = buildCredentialScope(teamHost, snapshot({ picks: { byObject: { h1: "own" }, byTeam: { t1: "keyless" } } }), allow);
     expect(s.hostPickId).toBe("own");
@@ -73,6 +81,8 @@ describe("buildCredentialScope", () => {
 test("pickChoices lists own identities then usable team identities", () => {
   const denyKey: Can = (_p, _v, o) => o !== "k1";
   expect(pickChoices("t1", snapshot(), denyKey).map((c) => c.id)).toEqual(["own", "keyless"]);
+  const groups = pickGroups("t1", snapshot(), denyKey);
+  expect([groups.own.map((c) => c.id), groups.shared.map((c) => c.id)]).toEqual([["own"], ["keyless"]]);
 });
 
 test("describePickIssue names the host, the identity when known, and the fallback", () => {
