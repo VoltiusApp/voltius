@@ -141,7 +141,7 @@ function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }
 
   const displayIcon = connection ? (connection.icon || connection.distro) : null;
   const icon = displayIcon ? (getConnectionIcon(displayIcon) ?? "lucide:monitor") : "lucide:monitor";
-  const subtitle = connection ? sshOverlaySubtitle(connection, plan) : undefined;
+  const subtitle = connection ? sshOverlaySubtitle(connection, plan, session.skipIdentityPick) : undefined;
   return (
     <ConnectionOverlay
       sessionId={session.id}

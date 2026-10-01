@@ -7,8 +7,8 @@ export function needsConnectionOverlay(session: TerminalSession): boolean {
   return session.status === "connecting" || session.status === "error";
 }
 
-export function sshOverlaySubtitle(conn: Pick<Connection, "username" | "host" | "port">, plan: CredentialPlan): string {
-  return `${effectiveUsername(conn, plan)}@${conn.host}:${conn.port}`;
+export function sshOverlaySubtitle(conn: Pick<Connection, "username" | "host" | "port">, plan: CredentialPlan, skipPick = false): string {
+  return `${effectiveUsername(conn, skipPick ? { kind: "host" } : plan)}@${conn.host}:${conn.port}`;
 }
 
 export function sessionUserAtHost(session: Pick<TerminalSession, "connectedUsername"> | undefined, conn: Pick<Connection, "username" | "host">): string {

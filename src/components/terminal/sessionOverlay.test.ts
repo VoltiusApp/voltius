@@ -39,6 +39,10 @@ describe("the username shown for an SSH session", () => {
     expect(sshOverlaySubtitle(host, { kind: "host" })).toBe("root@web-01:2222");
   });
 
+  test("after use-host-this-time the subtitle shows the host's own user", () => {
+    expect(sshOverlaySubtitle(host, { kind: "pick", identity: alice }, true)).toBe("root@web-01:2222");
+  });
+
   test("the status bar shows the user the session authenticated as, else the host's", () => {
     expect(sessionUserAtHost({ connectedUsername: "alice" }, host)).toBe("alice@web-01");
     expect(sessionUserAtHost({}, host)).toBe("root@web-01");
