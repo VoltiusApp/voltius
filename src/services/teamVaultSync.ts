@@ -624,10 +624,11 @@ export async function reencryptLegacyBlobIfStale(teamId: string, currentVersion:
 async function _memberViewStatus(teamId: string): Promise<"loaded" | "plan_lapsed" | null> {
   const { useTeamStore } = await import("@/stores/teamStore");
   const { planLapsedFor } = await import("@/services/permissions");
-  const { teams, rolesByTeam } = useTeamStore.getState();
-  const team = teams.find((t) => t.id === teamId);
+  const store = useTeamStore.getState();
+  const team = store.teams.find((t) => t.id === teamId);
   if (!team) return null;
-  return planLapsedFor(team, rolesByTeam[teamId] ?? []) ? "plan_lapsed" : "loaded";
+  if (!store.rolesByTeam[teamId] && !(await store.loadRoles(teamId).then(() => true, () => false))) return "loaded";
+  return planLapsedFor(team, useTeamStore.getState().rolesByTeam[teamId] ?? []) ? "plan_lapsed" : "loaded";
 }
 
 export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<void> {
