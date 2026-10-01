@@ -87,7 +87,14 @@
         "password": "代理密码",
         "passwordSaved": "••• 已保存"
       },
-      "connectAsHost": "主机凭据"
+      "connectAsHost": "主机凭据",
+      "sharedWithTeam": "与团队共享",
+      "youConnectAs": "你的连接身份",
+      "change": "更改",
+      "connectAsYours": "{{username}} · 你的，仅你可见",
+      "connectAsTeam": "{{username}} · 团队身份",
+      "connectAsAsk": "连接时会询问你",
+      "connectAsUnavailable": "你选择的身份不可用"
     },
     "distroIconPicker": {
       "title": "图标",

@@ -87,7 +87,14 @@
         "password": "Proxy password",
         "passwordSaved": "••• saved"
       },
-      "connectAsHost": "Host credential"
+      "connectAsHost": "Host credential",
+      "sharedWithTeam": "shared with the team",
+      "youConnectAs": "You connect as",
+      "change": "Change",
+      "connectAsYours": "{{username}} · yours, only you",
+      "connectAsTeam": "{{username}} · team identity",
+      "connectAsAsk": "You'll be asked when you connect",
+      "connectAsUnavailable": "Your chosen identity isn't available"
     },
     "distroIconPicker": {
       "title": "Icon",

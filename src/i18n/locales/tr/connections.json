@@ -87,7 +87,14 @@
         "password": "Proxy parolası",
         "passwordSaved": "••• kayıtlı"
       },
-      "connectAsHost": "Sunucu kimlik bilgisi"
+      "connectAsHost": "Sunucu kimlik bilgisi",
+      "sharedWithTeam": "ekiple paylaşılan",
+      "youConnectAs": "Bağlandığınız kimlik",
+      "change": "Değiştir",
+      "connectAsYours": "{{username}} · sizin, yalnızca siz",
+      "connectAsTeam": "{{username}} · ekip kimliği",
+      "connectAsAsk": "Bağlanırken sorulacak",
+      "connectAsUnavailable": "Seçtiğiniz kimlik kullanılamıyor"
     },
     "distroIconPicker": {
       "title": "Simge",

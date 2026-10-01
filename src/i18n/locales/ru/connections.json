@@ -87,7 +87,14 @@
         "password": "Пароль прокси",
         "passwordSaved": "••• сохранён"
       },
-      "connectAsHost": "Учётные данные хоста"
+      "connectAsHost": "Учётные данные хоста",
+      "sharedWithTeam": "общая для команды",
+      "youConnectAs": "Вы подключаетесь как",
+      "change": "Изменить",
+      "connectAsYours": "{{username}} · ваша, только вы",
+      "connectAsTeam": "{{username}} · личность команды",
+      "connectAsAsk": "Будет запрошено при подключении",
+      "connectAsUnavailable": "Выбранная личность недоступна"
     },
     "distroIconPicker": {
       "title": "Значок",

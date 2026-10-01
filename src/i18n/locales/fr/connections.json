@@ -87,7 +87,14 @@
         "password": "Mot de passe du proxy",
         "passwordSaved": "••• enregistré"
       },
-      "connectAsHost": "Identifiant de l'hôte"
+      "connectAsHost": "Identifiant de l'hôte",
+      "sharedWithTeam": "partagée avec l'équipe",
+      "youConnectAs": "Vous vous connectez en tant que",
+      "change": "Modifier",
+      "connectAsYours": "{{username}} · la vôtre, vous seul",
+      "connectAsTeam": "{{username}} · identité d'équipe",
+      "connectAsAsk": "Il vous sera demandé à la connexion",
+      "connectAsUnavailable": "Votre identité choisie n'est pas disponible"
     },
     "distroIconPicker": {
       "title": "Icône",

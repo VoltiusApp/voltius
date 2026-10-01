@@ -51,6 +51,7 @@ import {
   formLabelStyle,
   formIdentifierProps,
 } from "@/components/shared/Panel";
+import { YouConnectAsRow } from "./YouConnectAsRow";
 import { SecretInput, TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
 import { normalizeNotes } from "@/components/notes/notesText";
 import {
@@ -399,7 +400,9 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   }, [applyDetectedDistro, host, identityId, keyId, initial, legacyAlgorithms, passphrase, password, port, privateKey, proxyOverride, proxyPassword, selectedIdentity, username]);
 
   const canConnect = useCanConnect({ id: initial?.id ?? "", vault_id: initial?.vault_id ?? "" });
-  const connectAs = useConnectAsMenuItem(initial, useCredentialPlan(initial ?? NO_CONNECTION), () => onConnect?.());
+  const credential = useCredentialPlan(initial ?? NO_CONNECTION);
+  const isTeamHost = !!initial && !!credential.teamId;
+  const connectAs = useConnectAsMenuItem(initial, credential, () => onConnect?.());
   const panelItems = initial ? buildConnectionMenuItems({
     t,
     canEdit: !readOnly,
@@ -618,7 +621,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
           <FormSection label={isFtp ? t("connections.form.sectionCredentials") : t("connections.form.sectionIdentity")}>
             {!isFtp && (
             <div>
-              <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.keychainIdentity")}</label>
+              <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.keychainIdentity")}{isTeamHost && <span className="font-normal text-(--t-text-dim)"> · {t("connections.form.sharedWithTeam")}</span>}</label>
               <IdentitySelector
                 value={identityId}
                 identities={relevantIdentities}
@@ -734,6 +737,8 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                 </div>
               </div>
             )}
+
+            {initial && !isFtp && <YouConnectAsRow connection={initial} credential={credential} />}
           </FormSection>
           </ReadOnlyFields>
 
