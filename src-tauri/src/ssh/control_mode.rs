@@ -307,14 +307,18 @@ pub fn sync_bytes(
     visible: &[Vec<u8>],
 ) -> Vec<u8> {
     let mut out = SYNC_RESET.as_bytes().to_vec();
-    let history = if s.history_size == 0 { &[][..] } else { history };
+    let history = if s.history_size == 0 {
+        &[][..]
+    } else {
+        history
+    };
     let normal = if s.alternate_on { saved } else { visible };
     let blank = Vec::new();
     let padding = (s.pane_height as usize).saturating_sub(normal.len());
     let lines = history
         .iter()
         .chain(normal)
-        .chain(std::iter::repeat(&blank).take(padding));
+        .chain(std::iter::repeat_n(&blank, padding));
     for (i, line) in lines.enumerate() {
         if i > 0 {
             out.extend_from_slice(b"\r\n");
@@ -331,7 +335,9 @@ pub fn sync_bytes(
             out.extend_from_slice(b"\x1b[m");
         }
     }
-    out.extend_from_slice(format!("\x1b[{};{}r", s.scroll_upper + 1, s.scroll_lower + 1).as_bytes());
+    out.extend_from_slice(
+        format!("\x1b[{};{}r", s.scroll_upper + 1, s.scroll_lower + 1).as_bytes(),
+    );
     if s.origin {
         out.extend_from_slice(b"\x1b[?6h");
     }
@@ -433,8 +439,7 @@ impl ControlSession {
         }
         if !was_control && self.demux.is_control() {
             self.started.store(true, Ordering::Relaxed);
-            let (line, kinds) =
-                sync_command(&self.key, self.cols, self.rows, self.colors.as_ref());
+            let (line, kinds) = sync_command(&self.key, self.cols, self.rows, self.colors.as_ref());
             self.pending.extend(kinds);
             self.snapshot = Some(Snapshot::default());
             actions.push(Action::Send(line.into_bytes()));
@@ -545,7 +550,10 @@ mod tests {
     #[test]
     fn marker_split_across_reads() {
         let mut d = Demux::default();
-        assert_eq!(d.feed(b"ab\x1bP10"), vec![Event::Passthrough(b"ab".to_vec())]);
+        assert_eq!(
+            d.feed(b"ab\x1bP10"),
+            vec![Event::Passthrough(b"ab".to_vec())]
+        );
         assert!(!d.is_control());
         assert_eq!(d.feed(b"00p%output %0 x\r\n"), vec![out("%0", b"x")]);
         assert!(d.is_control());
@@ -554,7 +562,10 @@ mod tests {
     #[test]
     fn held_escape_is_released_when_it_is_not_the_marker() {
         let mut d = Demux::default();
-        assert_eq!(d.feed(b"abc\x1b"), vec![Event::Passthrough(b"abc".to_vec())]);
+        assert_eq!(
+            d.feed(b"abc\x1b"),
+            vec![Event::Passthrough(b"abc".to_vec())]
+        );
         assert_eq!(d.feed(b"[m"), vec![Event::Passthrough(b"\x1b[m".to_vec())]);
         assert!(!d.is_control());
     }
@@ -720,8 +731,14 @@ mod tests {
         assert_eq!(cmds.len(), kinds.len());
         assert_eq!(cmds[0], "refresh-client -C 100x30");
         assert!(cmds[1].starts_with("set -p -t voltius_s1 window-style"));
-        assert_eq!(cmds[2], format!("display -p -t voltius_s1 '{STATE_FORMAT}'"));
-        assert_eq!(cmds[3], "capture-pane -p -e -J -t voltius_s1 -S -50000 -E -1");
+        assert_eq!(
+            cmds[2],
+            format!("display -p -t voltius_s1 '{STATE_FORMAT}'")
+        );
+        assert_eq!(
+            cmds[3],
+            "capture-pane -p -e -J -t voltius_s1 -S -50000 -E -1"
+        );
         assert_eq!(cmds[4], "capture-pane -p -e -q -a -t voltius_s1");
         assert_eq!(cmds[5], "capture-pane -p -e -t voltius_s1");
         use ReplyKind::*;
@@ -810,7 +827,10 @@ mod tests {
         assert!(text[..alt].ends_with("\x1b[3;1H"));
         assert!(text[alt..].contains("\x1b[5;1H  ALT"));
         let tail = &text[text.rfind("\x1b[3;8r").expect("scroll region")..];
-        assert_eq!(tail, "\x1b[3;8r\x1b[5;3H\x1b[?1h\x1b=\x1b[?1002h\x1b[?1006h");
+        assert_eq!(
+            tail,
+            "\x1b[3;8r\x1b[5;3H\x1b[?1h\x1b=\x1b[?1002h\x1b[?1006h"
+        );
     }
 
     #[test]
@@ -872,17 +892,13 @@ mod tests {
         );
         assert_eq!(s.on_resize(100, 30), vec![Action::WindowChange(100, 30)]);
         assert!(s.on_colors(colors()).is_empty());
-        assert!(!s
-            .started_flag()
-            .load(std::sync::atomic::Ordering::Relaxed));
+        assert!(!s.started_flag().load(std::sync::atomic::Ordering::Relaxed));
     }
 
     #[test]
     fn marker_starts_the_sync_and_the_snapshot_replaces_held_output() {
         let mut s = started_session();
-        assert!(s
-            .started_flag()
-            .load(std::sync::atomic::Ordering::Relaxed));
+        assert!(s.started_flag().load(std::sync::atomic::Ordering::Relaxed));
         assert!(s
             .on_output(b"%output %0 already-in-snapshot\r\n")
             .is_empty());

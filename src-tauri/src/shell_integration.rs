@@ -962,8 +962,9 @@ mod tests {
         assert!(script.contains(r#"*"tmux "2.[6-9]*) ;;"#));
         assert!(script.contains("*) exit 0 ;;"));
         assert!(script.contains("until tmux -L voltius has-session -t voltius_s1"));
-        assert!(script
-            .contains(r"printf 'bind -T %s Enter send -X cancel \; send-keys Enter\n' $t"));
+        assert!(
+            script.contains(r"printf 'bind -T %s Enter send -X cancel \; send-keys Enter\n' $t")
+        );
         assert!(script.contains("MouseDragEnd1Pane send -X copy-selection-no-clear"));
         assert!(script.contains("set -g mode-style 'fg=#101820,bg=#c8d0e0'"));
         assert!(script.contains("tmux -L voltius source-file"));

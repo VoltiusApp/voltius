@@ -70,6 +70,40 @@ impl SessionManager {
             .map_err(|e| format!("Failed to resize: {}", e))
     }
 
+    pub async fn set_terminal_colors(
+        &self,
+        id: &str,
+        colors: crate::ssh::control_mode::TerminalColors,
+    ) -> Result<(), String> {
+        if !colors.is_valid() {
+            return Err("Invalid terminal colors".into());
+        }
+        let (input_tx, persist, handle) = {
+            let sessions = self.sessions.lock().await;
+            let session = sessions.get(id).ok_or("Session not found")?;
+            (
+                session.input_tx.clone(),
+                session.persist,
+                Arc::clone(&session.handle),
+            )
+        };
+        let style = crate::shell_integration::legacy_mode_style_command(&colors);
+        input_tx
+            .send(SessionInput::Colors(colors))
+            .await
+            .map_err(|e| format!("Failed to set colors: {}", e))?;
+        if persist {
+            tokio::spawn(async move {
+                if let Ok(channel) = handle.channel_open_session().await {
+                    let _ =
+                        crate::ssh::client::exec_collect(channel, &style, Duration::from_secs(10))
+                            .await;
+                }
+            });
+        }
+        Ok(())
+    }
+
     /// Latency of an SSH global-request round-trip on an existing session.
     /// None when the session is unknown, the peer never replies, or the
     /// connection is gone — callers treat that as "not measurable here".

@@ -296,7 +296,7 @@ pub struct ConnectedSession {
 
 /// Runs `cmd` on `channel` and collects stdout; `None` if the exec request fails,
 /// otherwise the output and whether it reached EOF within `limit`.
-async fn exec_collect(
+pub(crate) async fn exec_collect(
     channel: russh::Channel<client::Msg>,
     cmd: &str,
     limit: std::time::Duration,
@@ -339,6 +339,7 @@ async fn bridge_remote_channel(channel: russh::Channel<client::Msg>, route: Remo
 pub enum SessionInput {
     Data(Vec<u8>),
     Resize(u32, u32),
+    Colors(crate::ssh::control_mode::TerminalColors),
 }
 
 fn emit_step(app: &AppHandle, session_id: &str, step: SshStep, detail: impl Into<String>) {
@@ -888,7 +889,10 @@ pub async fn connect(
     legacy_algorithms: bool,
     initial_cwd: Option<String>,
     proxy: Option<ProxySpec>,
+    terminal_colors: Option<crate::ssh::control_mode::TerminalColors>,
 ) -> Result<ConnectedSession, AppError> {
+    let terminal_colors =
+        terminal_colors.filter(crate::ssh::control_mode::TerminalColors::is_valid);
     let config = Arc::new(client_config(
         keepalive_interval_secs,
         keepalive_max,
@@ -1071,7 +1075,10 @@ pub async fn connect(
             if let Some((history, _)) =
                 exec_collect(cap_channel, &capture, std::time::Duration::from_secs(5)).await
             {
-                if !history.iter().all(|b| b.is_ascii_whitespace()) {
+                if !history.iter().all(|b| b.is_ascii_whitespace())
+                    && !history
+                        .starts_with(crate::shell_integration::CONTROL_MODE_MARKER.as_bytes())
+                {
                     // capture-pane emits bare LF; the PTY-less exec channel
                     // does no ONLCR translation, so normalize for xterm.
                     let mut out: Vec<u8> =
@@ -1192,12 +1199,25 @@ pub async fn connect(
     // multiplexer for the active pane's cwd and push it to the same store the
     // SFTP panel's "follow cwd" reads. Non-persistent sessions get cwd straight
     // from OSC 7 and need no polling.
+    let control = persist.then(|| {
+        crate::ssh::control_mode::ControlSession::new(
+            crate::shell_integration::tmux_session_key(&session_id),
+            pty_cols,
+            pty_rows,
+            terminal_colors.clone(),
+        )
+    });
+    let control_started = control.as_ref().map(|c| c.started_flag());
+
     if persist {
         let poll_handle = Arc::clone(&handle);
         let poll_app = app.clone();
         let key = crate::shell_integration::tmux_session_key(&session_id);
         let keys_handle = Arc::clone(&handle);
-        let keys_cmd = crate::shell_integration::persistent_legacy_setup_command(&key, None);
+        let keys_cmd = crate::shell_integration::persistent_legacy_setup_command(
+            &key,
+            terminal_colors.as_ref(),
+        );
         tokio::spawn(async move {
             if let Ok(channel) = keys_handle.channel_open_session().await {
                 let _ = exec_collect(channel, &keys_cmd, std::time::Duration::from_secs(30)).await;
@@ -1211,6 +1231,12 @@ pub async fn connect(
             let mut failures = 0u32;
             loop {
                 interval.tick().await;
+                if control_started
+                    .as_ref()
+                    .is_some_and(|f| f.load(std::sync::atomic::Ordering::Relaxed))
+                {
+                    break;
+                }
                 // The session handle is explicitly disconnected on teardown, so
                 // a run of failed channel opens means it's gone — stop polling.
                 let channel = match poll_handle.channel_open_session().await {
@@ -1240,8 +1266,13 @@ pub async fn connect(
         });
     }
 
-    let io =
-        crate::ssh::channel_io::spawn_channel_io_split(app, &session_id, read_half, write_half);
+    let io = crate::ssh::channel_io::spawn_channel_io_split(
+        app,
+        &session_id,
+        read_half,
+        write_half,
+        control,
+    );
 
     Ok(ConnectedSession {
         handle,

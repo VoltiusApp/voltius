@@ -5,6 +5,7 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::ssh::client::{ConnectedSession, SessionInput, SshClient};
+use crate::ssh::control_mode::{Action, ControlSession};
 use crate::ssh::session::SessionManager;
 
 /// Channels the frontend drives a session's channel with.
@@ -34,7 +35,7 @@ pub fn spawn_channel_io(
     channel: russh::Channel<russh::client::Msg>,
 ) -> ChannelIo {
     let (read_half, write_half) = channel.split();
-    spawn_channel_io_split(app, session_id, read_half, write_half)
+    spawn_channel_io_split(app, session_id, read_half, write_half, None)
 }
 
 /// `spawn_channel_io` for callers that already split the channel — the terminal
@@ -44,12 +45,14 @@ pub fn spawn_channel_io_split(
     session_id: &str,
     mut read_half: russh::ChannelReadHalf,
     write_half: russh::ChannelWriteHalf<russh::client::Msg>,
+    mut control: Option<ControlSession>,
 ) -> ChannelIo {
     let (input_tx, mut input_rx) = mpsc::channel::<SessionInput>(256);
     let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
 
     let event_name = format!("ssh-output-{}", session_id);
     let close_event = format!("ssh-closed-{}", session_id);
+    let mux_event = format!("ssh-mux-mode-{}", session_id);
 
     let mut writer = write_half.make_writer();
 
@@ -59,20 +62,25 @@ pub fn spawn_channel_io_split(
             tokio::select! {
                 _ = shutdown_rx.recv() => break,
                 input = input_rx.recv() => {
-                    match input {
-                        Some(SessionInput::Data(data)) => {
-                            if writer.write_all(&data).await.is_err() { break; }
-                        }
-                        Some(SessionInput::Resize(cols, rows)) => {
-                            let _ = write_half.window_change(cols, rows, 0, 0).await;
-                        }
-                        None => break,
-                    }
+                    let actions = match (input, control.as_mut()) {
+                        (None, _) => break,
+                        (Some(SessionInput::Data(d)), Some(c)) => c.on_input(d),
+                        (Some(SessionInput::Data(d)), None) => vec![Action::Send(d)],
+                        (Some(SessionInput::Resize(cols, rows)), Some(c)) => c.on_resize(cols, rows),
+                        (Some(SessionInput::Resize(cols, rows)), None) => vec![Action::WindowChange(cols, rows)],
+                        (Some(SessionInput::Colors(colors)), Some(c)) => c.on_colors(colors),
+                        (Some(SessionInput::Colors(_)), None) => Vec::new(),
+                    };
+                    if !apply(actions, &mut writer, &write_half, &app, &event_name, &mux_event).await { break; }
                 }
                 msg = read_half.wait() => {
                     match msg {
                         Some(ChannelMsg::Data { data }) | Some(ChannelMsg::ExtendedData { data, .. }) => {
-                            let _ = app.emit(&event_name, data.as_ref());
+                            let actions = match control.as_mut() {
+                                Some(c) => c.on_output(&data),
+                                None => vec![Action::Emit(data.to_vec())],
+                            };
+                            if !apply(actions, &mut writer, &write_half, &app, &event_name, &mux_event).await { break; }
                         }
                         Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => {
                             let _ = app.emit(&close_event, remote_exit);
@@ -92,6 +100,47 @@ pub fn spawn_channel_io_split(
         input_tx,
         shutdown_tx,
     }
+}
+
+#[derive(Clone, serde::Serialize)]
+struct MuxMode {
+    control: bool,
+    tmux: String,
+}
+
+async fn apply(
+    actions: Vec<Action>,
+    writer: &mut (impl tokio::io::AsyncWrite + Unpin),
+    write_half: &russh::ChannelWriteHalf<russh::client::Msg>,
+    app: &AppHandle,
+    output_event: &str,
+    mux_event: &str,
+) -> bool {
+    for action in actions {
+        match action {
+            Action::Emit(data) => {
+                let _ = app.emit(output_event, data.as_slice());
+            }
+            Action::Send(data) => {
+                if writer.write_all(&data).await.is_err() {
+                    return false;
+                }
+            }
+            Action::WindowChange(cols, rows) => {
+                let _ = write_half.window_change(cols, rows, 0, 0).await;
+            }
+            Action::Started { tmux } => {
+                let _ = app.emit(
+                    mux_event,
+                    MuxMode {
+                        control: true,
+                        tmux,
+                    },
+                );
+            }
+        }
+    }
+    true
 }
 
 /// Open a PTY channel on an existing SSH handle, run `command` in it, and

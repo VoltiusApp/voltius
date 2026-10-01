@@ -40,6 +40,7 @@ pub async fn ssh_connect(
     legacy_algorithms: Option<bool>,
     initial_cwd: Option<String>,
     proxy: Option<ProxySpec>,
+    terminal_colors: Option<crate::ssh::control_mode::TerminalColors>,
 ) -> Result<(), AppError> {
     let connected = client::connect(
         app,
@@ -67,6 +68,7 @@ pub async fn ssh_connect(
         legacy_algorithms.unwrap_or(false),
         initial_cwd,
         proxy,
+        terminal_colors,
     )
     .await?;
 
@@ -177,6 +179,15 @@ pub async fn ssh_resize(
     rows: u32,
 ) -> Result<(), String> {
     state.resize(&session_id, cols, rows).await
+}
+
+#[tauri::command]
+pub async fn ssh_set_terminal_colors(
+    state: tauri::State<'_, SessionManager>,
+    session_id: String,
+    colors: crate::ssh::control_mode::TerminalColors,
+) -> Result<(), String> {
+    state.set_terminal_colors(&session_id, colors).await
 }
 
 #[derive(serde::Serialize)]
