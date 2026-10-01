@@ -13,8 +13,8 @@ export function reportAuditClientEvent(
 
   const event = {
     action,
-    ...opts,
     occurred_at: new Date().toISOString(),
+    ...opts,
   };
 
   if (context.kind === "team") {

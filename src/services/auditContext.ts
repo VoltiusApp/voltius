@@ -8,6 +8,7 @@ export interface AuditTarget {
   target_id?: string;
   target_name?: string;
   metadata?: Record<string, unknown>;
+  occurred_at?: string;
 }
 
 export function auditContextKey(context: AuditContext): string {

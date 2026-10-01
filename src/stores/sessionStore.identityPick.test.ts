@@ -34,6 +34,7 @@ vi.mock("@/services/connectionAuditMetadata", () => ({
 vi.mock("@/services/auditContextResolver", () => ({ auditContextForVaultId: vi.fn(() => ({})) }));
 
 import { reportAuditClientEvent } from "@/services/auditReporter";
+import { connectionAuditMetadata } from "@/services/connectionAuditMetadata";
 import { useSessionStore } from "./sessionStore";
 
 const unavailable = () => new IdentityPickUnavailableError(issue, "Your identity for db-01 isn't available");
@@ -101,4 +102,31 @@ test("connection.started carries the identity metadata of the credentials used",
       expect.objectContaining({ metadata: { identity_source: "own", key_fingerprint: "SHA256:x" } }),
     ),
   );
+  expect(connectionAuditMetadata).toHaveBeenCalledWith(
+    expect.objectContaining({ identityId: "own", keyId: "k1" }),
+    expect.any(Function),
+  );
+});
+
+test("a reconnect reports the credentials it used and the stamp taken before fingerprinting", async () => {
+  h.resolve.mockResolvedValue({ username: "root", password: "pw" });
+  await useSessionStore.getState().connect("c1");
+  const id = useSessionStore.getState().sessions[0].id;
+  vi.clearAllMocks();
+
+  let release!: (v: Record<string, unknown>) => void;
+  vi.mocked(connectionAuditMetadata).mockImplementationOnce(() => new Promise((r) => { release = r; }));
+  h.resolve.mockResolvedValue({ username: "alice", privateKey: "P", identityId: "own", keyId: "k1" });
+  await useSessionStore.getState().reconnect(id);
+  const before = new Date().toISOString();
+  await new Promise((r) => setTimeout(r, 5));
+  release({ identity_source: "own" });
+
+  await vi.waitFor(() => expect(reportAuditClientEvent).toHaveBeenCalled());
+  expect(connectionAuditMetadata).toHaveBeenLastCalledWith(
+    expect.objectContaining({ identityId: "own", keyId: "k1" }),
+    expect.any(Function),
+  );
+  const target = vi.mocked(reportAuditClientEvent).mock.calls[0][2] as { occurred_at: string };
+  expect(target.occurred_at <= before).toBe(true);
 });

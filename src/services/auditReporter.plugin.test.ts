@@ -6,7 +6,7 @@ const reportLocalClientEvent = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/services/auditService", () => ({ reportClientEvent }));
 vi.mock("@/services/localAuditService", () => ({ reportLocalClientEvent }));
 
-const { reportPluginAuditEvent, localSinkVaultId, boundLocalMetadata } = await import("@/services/auditReporter");
+const { reportAuditClientEvent, reportPluginAuditEvent, localSinkVaultId, boundLocalMetadata } = await import("@/services/auditReporter");
 
 beforeEach(() => {
   reportClientEvent.mockClear();
@@ -150,5 +150,17 @@ describe("boundLocalMetadata", () => {
     const circular: Record<string, unknown> = { command: "ls" };
     circular.self = circular;
     expect(boundLocalMetadata(circular)).toEqual({ localMetadata_dropped: true });
+  });
+});
+
+describe("reportAuditClientEvent", () => {
+  test("a pre-captured occurred_at wins over the report time", () => {
+    reportAuditClientEvent({ kind: "local", vaultId: "personal" }, "connection.started", { occurred_at: "2020-01-01T00:00:00.000Z" });
+    expect(reportLocalClientEvent.mock.calls[0][1]).toMatchObject({ occurred_at: "2020-01-01T00:00:00.000Z" });
+  });
+
+  test("without one it stamps the current time", () => {
+    reportAuditClientEvent({ kind: "local", vaultId: "personal" }, "connection.started");
+    expect(reportLocalClientEvent.mock.calls[0][1].occurred_at).not.toBe("2020-01-01T00:00:00.000Z");
   });
 });

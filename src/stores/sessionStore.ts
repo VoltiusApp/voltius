@@ -122,6 +122,7 @@ export function connectionForSession(session: TerminalSession): Connection | und
 function reportConnectionAudit(connection: Connection, action: ClientAuditAction, creds?: ResolvedCredentials): void {
   const context = auditContextForVaultId(connection.vault_id);
   const target = {
+    occurred_at: new Date().toISOString(),
     target_type: "connection",
     target_id: connection.id,
     target_name: connection.name?.trim() || `${connection.username}@${connection.host}:${connection.port}`,
@@ -129,7 +130,7 @@ function reportConnectionAudit(connection: Connection, action: ClientAuditAction
   const isOwn = (id: string) => useIdentityStore.getState().identities.some((i) => i.id === id);
   void connectionAuditMetadata(creds, isOwn).then((metadata) =>
     reportAuditClientEvent(context, action, metadata ? { ...target, metadata } : target),
-  );
+  ).catch(() => {});
 }
 
 async function buildSshConnectOptions(
