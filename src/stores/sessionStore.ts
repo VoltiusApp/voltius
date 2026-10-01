@@ -420,6 +420,10 @@ function markSessionDisconnected(set: SessionSetter, sessionId: string) {
 const connectOverrides = new Map<string, ConnectRetryOverride>();
 const skipPickOnce = new Set<string>();
 
+function resolveSessionCredentials(connection: Connection, sessionId: string): Promise<ResolvedCredentials> {
+  return resolveConnectionCredentials(connection, { skipPick: skipPickOnce.has(sessionId) });
+}
+
 function passphraseSecretKey(connection: Connection, credentials: ResolvedCredentials): string | null {
   if (credentials.keyId) return `key:${credentials.keyId}:passphrase`;
   return credentials.identityId || connection.identity_id ? null : `passphrase:${connection.id}`;
@@ -943,7 +947,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       await withSessionConnectLock(sessionId, async () => {
         await sshDisconnectForReconnect(sessionId);
-        credentials = await resolveConnectionCredentials(connection, { skipPick: skipPickOnce.has(sessionId) });
+        credentials = await resolveSessionCredentials(connection, sessionId);
         const opts = await buildSshConnectOptions(connection, sessionId);
         await sshConnect({
           sessionId,
@@ -1035,7 +1039,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       await withSessionConnectLock(sessionId, async () => {
         await sshDisconnectForReconnect(sessionId);
-        credentials = await resolveConnectionCredentials(connection, { skipPick: skipPickOnce.has(sessionId) });
+        credentials = await resolveSessionCredentials(connection, sessionId);
 
         const target = save ? passphraseSecretKey(connection, credentials) : null;
         if (target) await storeSecret(target, passphrase).catch(keepCachedOnUploadFailure("reconnectWithPassphrase"));
