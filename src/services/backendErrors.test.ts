@@ -26,6 +26,22 @@ describe("describeError", () => {
     expect(describeError(err, i18n.t)).toBe("Something new");
   });
 
+  it("names the proxy or jump host the failure happened at", async () => {
+    const viaProxy = new BackendError("connection-refused", "Proxy corp:3128 unreachable: refused", {
+      proxy: "corp:3128",
+      jumpHost: "bastion",
+    });
+    expect(describeError(viaProxy, i18n.t)).toBe(`Proxy corp:3128: ${i18n.t("errors.connection-refused")}`);
+    const atJump = new BackendError("timed-out", "Jump host bastion connection failed: timed out", { jumpHost: "bastion" });
+    await i18n.changeLanguage("fr");
+    expect(describeError(atJump, i18n.t)).toBe("Hôte relais bastion : L'opération a expiré");
+  });
+
+  it("keeps the message when stringified for the logs", () => {
+    const err = new BackendError("not-found", "remove_file failed: /x: No such file");
+    expect(JSON.parse(JSON.stringify(err))).toMatchObject({ code: "not-found", message: "remove_file failed: /x: No such file" });
+  });
+
   it("passes uncoded errors through", () => {
     expect(describeError("Transfer cancelled", i18n.t)).toBe("Transfer cancelled");
     expect(describeError(new Error("boom"), i18n.t)).toBe("boom");

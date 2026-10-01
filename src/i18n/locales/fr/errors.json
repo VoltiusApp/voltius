@@ -24,5 +24,9 @@
     "vault-role-read-only": "Vous n'avez pas le droit d'écriture sur ce coffre (votre rôle : {{role}}). Seuls les propriétaires, gestionnaires et éditeurs peuvent le modifier.",
     "vault-permissions-unavailable": "Impossible de vérifier les permissions du coffre, le trousseau est indisponible. Réessayez.",
     "vault-permissions-corrupted": "Les données de permissions du coffre sont corrompues. Reconnectez-vous pour actualiser vos accès."
+  },
+  "errorAt": {
+    "proxy": "Proxy {{proxy}} : {{cause}}",
+    "jumpHost": "Hôte relais {{jumpHost}} : {{cause}}"
   }
 }

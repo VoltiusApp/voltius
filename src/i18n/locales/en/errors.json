@@ -24,5 +24,9 @@
     "vault-role-read-only": "You don't have write access to this vault (your role: {{role}}). Only owners, managers, and editors can make changes.",
     "vault-permissions-unavailable": "Unable to verify vault permissions because the keychain is unavailable. Try again.",
     "vault-permissions-corrupted": "Vault permission data is corrupted. Sign in again to refresh access."
+  },
+  "errorAt": {
+    "proxy": "Proxy {{proxy}}: {{cause}}",
+    "jumpHost": "Jump host {{jumpHost}}: {{cause}}"
   }
 }

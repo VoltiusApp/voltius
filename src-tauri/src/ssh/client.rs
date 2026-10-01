@@ -824,7 +824,12 @@ impl JumpHostConnect {
             max_attempts,
         )
         .await
-        .map_err(|e| e.describe(&format!("Jump host {} connection failed", self.host)))
+        .map_err(|e| self.failed(e.describe(&format!("Jump host {} connection failed", self.host))))
+    }
+
+    /// Names this hop beside the code, so the translation says which machine failed.
+    fn failed(&self, e: AppError) -> AppError {
+        e.with_param("jumpHost", &self.host)
     }
 
     pub(crate) async fn authenticate(
@@ -849,7 +854,9 @@ impl JumpHostConnect {
         known_hosts: &Arc<KnownHostsStore>,
     ) -> Result<client::Handle<SshClient>, AppError> {
         let handler = SshClient::new(self.host.clone(), self.port, Arc::clone(known_hosts));
-        let mut handle = tunnel_hop(via, config, "jump host", handler).await?;
+        let mut handle = tunnel_hop(via, config, "jump host", handler)
+            .await
+            .map_err(|e| self.failed(e))?;
         self.authenticate(&mut handle).await?;
         Ok(handle)
     }

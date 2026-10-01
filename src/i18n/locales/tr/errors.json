@@ -24,5 +24,9 @@
     "vault-role-read-only": "Bu kasaya yazma izniniz yok (rolünüz: {{role}}). Yalnızca sahipler, yöneticiler ve düzenleyiciler değişiklik yapabilir.",
     "vault-permissions-unavailable": "Anahtar zinciri kullanılamadığı için kasa izinleri doğrulanamadı. Tekrar deneyin.",
     "vault-permissions-corrupted": "Kasa izin verileri bozuk. Erişimi yenilemek için tekrar oturum açın."
+  },
+  "errorAt": {
+    "proxy": "Proxy {{proxy}}: {{cause}}",
+    "jumpHost": "Atlama sunucusu {{jumpHost}}: {{cause}}"
   }
 }

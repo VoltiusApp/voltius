@@ -73,6 +73,11 @@ error_codes! {
 /// each library's error kinds are mapped; sites wrap them with [`AppError::caused`].
 pub trait Classify {
     fn error_code(&self) -> Option<ErrorCode>;
+
+    /// Values the code's translation interpolates, or that name where it failed.
+    fn error_params(&self) -> Vec<(&'static str, String)> {
+        Vec::new()
+    }
 }
 
 impl Classify for ErrorKind {
@@ -139,7 +144,7 @@ impl Classify for russh_sftp::client::error::Error {
 }
 
 /// A proxy's own verdicts (a refused CONNECT, a SOCKS reply) have no code;
-/// failing to reach it, or it never answering, do.
+/// failing to reach it, or it never answering, do, and name the proxy.
 impl Classify for crate::proxy::ProxyError {
     fn error_code(&self) -> Option<ErrorCode> {
         use crate::proxy::ProxyError as P;
@@ -147,6 +152,14 @@ impl Classify for crate::proxy::ProxyError {
             P::Direct(e) | P::Unreachable { source: e, .. } => e.error_code(),
             P::Timeout { .. } => Some(ErrorCode::TimedOut),
             P::Rejected { .. } | P::Socks { .. } | P::Protocol { .. } => None,
+        }
+    }
+
+    fn error_params(&self) -> Vec<(&'static str, String)> {
+        use crate::proxy::ProxyError as P;
+        match self {
+            P::Unreachable { proxy, .. } | P::Timeout { proxy } => vec![("proxy", proxy.clone())],
+            _ => Vec::new(),
         }
     }
 }
@@ -159,6 +172,14 @@ impl Classify for crate::ssh::client::HopError {
             H::Proxy(e) => e.error_code(),
             H::Ssh(e) => e.error_code(),
             H::HostKey(_) => None,
+        }
+    }
+
+    fn error_params(&self) -> Vec<(&'static str, String)> {
+        use crate::ssh::client::HopError as H;
+        match self {
+            H::Proxy(e) => e.error_params(),
+            H::Ssh(_) | H::HostKey(_) => Vec::new(),
         }
     }
 }
@@ -207,19 +228,24 @@ impl AppError {
     /// `"{context}: {cause}"` — the text such sites always built — coded after
     /// the cause when it has one.
     pub fn caused(context: impl Display, cause: &(impl Classify + Display)) -> Self {
-        Self::maybe_coded(cause.error_code(), format!("{context}: {cause}"))
+        Self::maybe_coded(cause, format!("{context}: {cause}"))
     }
 
     /// `cause`'s own text, coded after it when it has a code.
     pub fn classified(cause: &(impl Classify + Display)) -> Self {
-        Self::maybe_coded(cause.error_code(), cause.to_string())
+        Self::maybe_coded(cause, cause.to_string())
     }
 
-    fn maybe_coded(code: Option<ErrorCode>, message: String) -> Self {
-        match code {
-            Some(code) => AppError::coded(code, message),
-            None => AppError::Msg(message),
-        }
+    fn maybe_coded(cause: &impl Classify, message: String) -> Self {
+        let Some(code) = cause.error_code() else {
+            return AppError::Msg(message);
+        };
+        cause
+            .error_params()
+            .into_iter()
+            .fold(AppError::coded(code, message), |err, (k, v)| {
+                err.with_param(k, v)
+            })
     }
 
     pub fn code(&self) -> Option<ErrorCode> {
@@ -388,6 +414,26 @@ mod tests {
             Some(ErrorCode::TimedOut)
         );
         assert_eq!(russh::Error::NotAuthenticated.error_code(), None);
+    }
+
+    #[test]
+    fn an_unreachable_proxy_is_named_beside_the_hosts_code() {
+        use crate::proxy::ProxyError;
+        use crate::ssh::client::HopError;
+        let refused = HopError::Proxy(ProxyError::Unreachable {
+            proxy: "corp:3128".into(),
+            source: std::io::Error::from(ErrorKind::ConnectionRefused),
+        });
+        let json = serde_json::to_value(AppError::caused("Connection failed", &refused)).unwrap();
+        assert_eq!(json["code"], "connection-refused");
+        assert_eq!(json["params"]["proxy"], "corp:3128");
+
+        let target = HopError::Proxy(ProxyError::Direct(std::io::Error::from(
+            ErrorKind::ConnectionRefused,
+        )));
+        let json = serde_json::to_value(AppError::caused("Connection failed", &target)).unwrap();
+        assert_eq!(json["code"], "connection-refused");
+        assert!(json.get("params").is_none());
     }
 
     #[test]

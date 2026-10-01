@@ -215,17 +215,23 @@ impl Classify for ForwardError {
             Self::Ssh(e) => e.error_code(),
         }
     }
+
+    fn error_params(&self) -> Vec<(&'static str, String)> {
+        match self {
+            Self::PortInUse(port, attempts) => {
+                vec![
+                    ("port", port.to_string()),
+                    ("attempts", attempts.to_string()),
+                ]
+            }
+            _ => Vec::new(),
+        }
+    }
 }
 
 impl From<ForwardError> for AppError {
     fn from(e: ForwardError) -> Self {
-        let err = AppError::classified(&e);
-        match e {
-            ForwardError::PortInUse(port, attempts) => err
-                .with_param("port", port)
-                .with_param("attempts", attempts),
-            _ => err,
-        }
+        AppError::classified(&e)
     }
 }
 
