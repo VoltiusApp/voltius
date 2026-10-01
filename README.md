@@ -93,6 +93,12 @@ On older dnf, replace the `curl` line with `sudo dnf config-manager --add-repo h
 yay -S voltius-bin   # prebuilt binary, tracks releases
 ```
 Community-maintained by [ezhkov](https://aur.archlinux.org/account/ezhkov/), not published by this repo's CI. `voltius` (builds from source) and `voltius-git` (latest `main`) are also available. If any of these are ever behind, a direct download is the maintained fallback.
+
+**Flatpak (FlatPark)**
+```bash
+flatpak install https://dl.flatpark.org/app.voltius.Voltius.flatpakref
+```
+Community-maintained by [jing2uo](https://github.com/jing2uo) on [FlatPark](https://flatpark.org/apps/app.voltius.Voltius), not published by this repo's CI. It installs the official `.deb` unmodified and follows releases automatically. `x86_64` only for now.
 </details>
 
 ### <img src=".github/media/icons/apple.svg" alt="" height="22" align="center" /> macOS — Homebrew
