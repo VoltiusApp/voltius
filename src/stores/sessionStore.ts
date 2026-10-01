@@ -1012,6 +1012,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...opts,
         });
       });
+      skipPickOnce.delete(sessionId);
       patchSession(set, sessionId, { connectedUsername: credentials?.username });
       void runHostCommand(connection, "pre", sessionId, "ssh");
       return { ok: true };
@@ -1070,6 +1071,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!session || session.type !== "ssh") return;
     let connection = findConnection(session.connectionId);
     if (!connection) return;
+    skipPickOnce.delete(sessionId);
 
     // Carry overrides across the two-step prompt flow: a username entered first
     // must survive into the subsequent auth prompt.

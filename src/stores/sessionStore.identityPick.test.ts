@@ -266,6 +266,20 @@ describe("use the host credential this time, through a passphrase prompt", () =>
     expect(h.resolve).toHaveBeenLastCalledWith(expect.objectContaining({ id: "c1" }), { skipPick: false });
   });
 
+  test.each([
+    ["an overlay retry", (id: string) => useSessionStore.getState().retryConnect(id, { password: "pw" }, false)],
+    ["a backoff success", (id: string) => useSessionStore.getState().reconnectAttempt(id)],
+  ])("%s after a failed host-this-time attempt drops the one-shot skip", async (_label, recover) => {
+    const id = await sessionOn("c1");
+    h.resolve.mockResolvedValue({ username: "deploy", privateKey: "P", keyId: "teamKey" });
+    h.sshConnect.mockRejectedValueOnce(new Error("Connection refused"));
+    await useSessionStore.getState().reconnect(id, { skipIdentityPick: true });
+
+    await recover(id);
+    await useSessionStore.getState().reconnectWithPassphrase(id, "pp", false);
+    expect(h.resolve).toHaveBeenLastCalledWith(expect.objectContaining({ id: "c1" }), { skipPick: false });
+  });
+
   test("a plain reconnect in between drops the one-shot skip", async () => {
     const id = await sessionOn("c1");
     h.resolve.mockResolvedValue({ username: "deploy", privateKey: "P", keyId: "teamKey" });
