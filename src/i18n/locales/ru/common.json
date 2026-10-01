@@ -67,6 +67,8 @@
       "fileSaveFailed": "Не удалось сохранить файл: {{error}}"
     },
     "error": {
+      "failedToListIdentityPicks": "Не удалось загрузить выбор личностей ({{status}})",
+      "failedToSaveIdentityPick": "Не удалось сохранить выбор личности ({{status}})",
       "notConnectedToServer": "Нет подключения к серверу",
       "notAuthenticated": "Не выполнена аутентификация",
       "invalidSessionKey": "Ключ сессии должен быть длиной 32 байта",

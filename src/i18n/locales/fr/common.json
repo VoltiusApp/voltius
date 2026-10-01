@@ -67,6 +67,8 @@
       "fileSaveFailed": "Impossible d'enregistrer le fichier : {{error}}"
     },
     "error": {
+      "failedToListIdentityPicks": "Impossible de charger vos choix d'identité ({{status}})",
+      "failedToSaveIdentityPick": "Impossible d'enregistrer votre choix d'identité ({{status}})",
       "notConnectedToServer": "Non connecté au serveur",
       "notAuthenticated": "Non authentifié",
       "invalidSessionKey": "La clé de session doit faire 32 octets",

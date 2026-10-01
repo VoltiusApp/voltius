@@ -212,6 +212,34 @@ export async function deleteTeamObjectPref(teamId: string, objectId: string): Pr
   await ensureOk(res, "common.error.failedToDeleteTeamObjectPref", { ignoreStatus: 404 });
 }
 
+export interface IdentityPicksRecord {
+  objects: { object_id: string; identity_id: string; updated_at: string }[];
+  defaults: { team_id: string; identity_id: string; updated_at: string }[];
+}
+
+export async function listIdentityPicks(): Promise<IdentityPicksRecord | null> {
+  const res = await fetchTeamApi("/v1/my/identity-picks", { method: "GET" });
+  if (res.status === 404) return null;
+  await ensureOk(res, "common.error.failedToListIdentityPicks");
+  return res.json();
+}
+
+async function writeIdentityPick(path: string, identityId: string | null): Promise<void> {
+  const res = await fetchTeamApi(
+    `/v1/my/identity-picks/${path}`,
+    identityId === null
+      ? { method: "DELETE" }
+      : { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identity_id: identityId }) },
+  );
+  await ensureOk(res, "common.error.failedToSaveIdentityPick");
+}
+
+export const setObjectPick = (objectId: string, identityId: string | null) =>
+  writeIdentityPick(`objects/${encodeURIComponent(objectId)}`, identityId);
+
+export const setTeamDefaultPick = (teamId: string, identityId: string | null) =>
+  writeIdentityPick(`teams/${teamId}`, identityId);
+
 export async function listTeamSecrets(teamId: string): Promise<TeamSecretRecord[]> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/secrets`, { method: "GET" });
   await ensureOk(res, "common.error.failedToListTeamSecrets");

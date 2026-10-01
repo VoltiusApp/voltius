@@ -67,6 +67,8 @@
       "fileSaveFailed": "Couldn't save the file: {{error}}"
     },
     "error": {
+      "failedToListIdentityPicks": "Couldn't load your identity choices ({{status}})",
+      "failedToSaveIdentityPick": "Couldn't save your identity choice ({{status}})",
       "notConnectedToServer": "Not connected to server",
       "notAuthenticated": "Not authenticated",
       "invalidSessionKey": "Session key must be 32 bytes",

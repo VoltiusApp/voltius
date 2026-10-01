@@ -41,6 +41,8 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   // Local secrets a personal→team move of this account's objects failed to
   // upload. The next account has no business retrying another account's upload.
   "voltius-pending-team-secret-upload",
+  // Which identity this account chose per shared host: ids only, never secrets.
+  "voltius-identity-picks",
 ];
 
 /**

@@ -67,6 +67,8 @@
       "fileSaveFailed": "无法保存文件：{{error}}"
     },
     "error": {
+      "failedToListIdentityPicks": "无法加载你的身份选择（{{status}}）",
+      "failedToSaveIdentityPick": "无法保存你的身份选择（{{status}}）",
       "notConnectedToServer": "未连接到服务器",
       "notAuthenticated": "未认证",
       "invalidSessionKey": "会话密钥必须为 32 字节",
