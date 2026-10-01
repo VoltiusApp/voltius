@@ -114,6 +114,14 @@ test("an older server never receives rule_set_id", async () => {
   expect(sent()[0].rule_set_id).toBeUndefined();
 });
 
+test("without rule-set support detected, a save still names its folder so a current server can apply its rules", async () => {
+  useTeamObjectAccessStore.getState().clearTeam("t1");
+  await saveTeamVaultObject("t1", "connection", { id: "new", folder_id: "fHidden" });
+  await saveTeamVaultObject("t1", "connection", { id: "new2" });
+  expect(sent().map((b) => b.rules_from_folder)).toEqual(["fHidden", undefined]);
+  expect(fetchTeamData).not.toHaveBeenCalled();
+});
+
 test("a plain edit omits the key", async () => {
   await saveTeamVaultObject("t1", "connection", { id: "cSynced", folder_id: "fA" });
   expect(sent()[0].rule_set_id).toBeUndefined();

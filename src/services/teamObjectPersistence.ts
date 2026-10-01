@@ -136,7 +136,7 @@ export async function saveTeamVaultObject<T extends PersistableTeamObject>(
   opts: SaveTeamObjectOptions = {},
 ): Promise<void> {
   if (!ruleSetsSupported(teamId)) {
-    await upsertWithPointer(teamId, objectType, item, undefined);
+    await upsertWithPointer(teamId, objectType, item, undefined, parentIdOf(item) ?? undefined);
     return;
   }
   const entries = teamAccessEntries(teamId);
