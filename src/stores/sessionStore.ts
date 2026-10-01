@@ -25,6 +25,7 @@ import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/crede
 import { resolveFirstHopProxy, type ProxySpec } from "@/services/proxy";
 import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/ephemeralCredentials";
 import { storeSecret, getSecret } from "@/services/vault";
+import { identityPickIssueOf, type IdentityPickIssue } from "@/services/credentialPlan";
 import { backendErrorCode, describeError, type BackendErrorCode } from "@/services/backendErrors";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -74,16 +75,16 @@ interface SessionStore {
   markConnecting: (sessionId: string) => void;
   setReconnectWait: (sessionId: string, wait: ReconnectWait | undefined) => void;
   removeSession: (sessionId: string) => void;
-  reconnect: (sessionId: string, options?: { restore?: boolean }) => Promise<void>;
+  reconnect: (sessionId: string, options?: { restore?: boolean; skipIdentityPick?: boolean }) => Promise<void>;
   /** Silent reconnect for the auto-backoff loop: performs the same connect as
    * reconnect() but mutates no visible status, returning the outcome so the loop
    * can hold a single steady "reconnecting" state and decide what to surface. */
-  reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<{ ok: boolean; errorMessage?: string; errorCode?: BackendErrorCode }>;
+  reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<{ ok: boolean; errorMessage?: string; errorCode?: BackendErrorCode; identityPick?: IdentityPickIssue }>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
   restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
   markConnected: (sessionId: string) => void;
-  markError: (sessionId: string, message: string, code?: BackendErrorCode) => void;
+  markError: (sessionId: string, message: string, code?: BackendErrorCode, identityPick?: IdentityPickIssue) => void;
   /** Name a tab. A blank name clears it, so the tab falls back to the connection. */
   renameSession: (sessionId: string, title: string | null) => void;
 }
@@ -375,14 +376,15 @@ function markSessionError(
   set: SessionSetter,
   sessionId: string,
   err: unknown,
-  { onlyIfConnecting = false, code }: { onlyIfConnecting?: boolean; code?: BackendErrorCode } = {},
+  { onlyIfConnecting = false, code, identityPick }: { onlyIfConnecting?: boolean; code?: BackendErrorCode; identityPick?: IdentityPickIssue } = {},
 ) {
   const msg = describeError(err, i18n.t);
   const errorCode = code ?? backendErrorCode(err) ?? undefined;
+  const pick = identityPick ?? identityPickIssueOf(err);
   set((s) => ({
     sessions: s.sessions.map((sess) =>
       sess.id === sessionId && (!onlyIfConnecting || sess.status === "connecting")
-        ? { ...sess, status: "error" as const, errorMessage: msg, errorCode }
+        ? { ...sess, status: "error" as const, errorMessage: msg, errorCode, identityPick: pick }
         : sess,
     ),
   }));
@@ -411,6 +413,7 @@ function markSessionConnecting(set: SessionSetter, sessionId: string) {
     status: "connecting",
     errorMessage: undefined,
     errorCode: undefined,
+    identityPick: undefined,
     reconnectWait: undefined,
   });
 }
@@ -915,7 +918,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       ),
     })),
 
-  markError: (sessionId, message, code) => markSessionError(set, sessionId, message, { code }),
+  markError: (sessionId, message, code, identityPick) => markSessionError(set, sessionId, message, { code, identityPick }),
 
   reconnect: async (sessionId, options) => {
     const session = get().sessions.find((s) => s.id === sessionId);
@@ -946,7 +949,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       await withSessionConnectLock(sessionId, async () => {
         await sshDisconnectForReconnect(sessionId);
-        const credentials = await resolveConnectionCredentials(connection);
+        const credentials = await resolveConnectionCredentials(connection, { skipPick: !!options?.skipIdentityPick });
         const opts = await buildSshConnectOptions(connection, sessionId);
         await sshConnect({
           sessionId,
@@ -976,7 +979,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         sessionEnded(sessionId);
         return;
       }
-      markSessionError(set, sessionId, msg);
+      markSessionError(set, sessionId, identityPickIssueOf(err) ? err : msg);
     }
   },
 
@@ -1020,6 +1023,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         ok: false,
         errorMessage: describeError(err, i18n.t),
         errorCode: backendErrorCode(err) ?? undefined,
+        identityPick: identityPickIssueOf(err),
       };
     }
   },

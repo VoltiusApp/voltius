@@ -16,7 +16,7 @@ const liveStore = (restore: boolean): BackoffStore => ({
   exists: (id) => useSessionStore.getState().sessions.some((s) => s.id === id),
   markReconnecting: (id) => useSessionStore.getState().markConnecting(id),
   markConnected: (id) => useSessionStore.getState().markConnected(id),
-  markError: (id, msg, code) => useSessionStore.getState().markError(id, msg, code),
+  markError: (id, msg, code, identityPick) => useSessionStore.getState().markError(id, msg, code, identityPick),
   setWait: (id, wait) => useSessionStore.getState().setReconnectWait(id, wait),
   online: (id) =>
     navigator.onLine !== false || useSessionStore.getState().sessions.find((s) => s.id === id)?.type !== "ssh",

@@ -1,5 +1,6 @@
 import type { KeepalivePreset } from "@/utils/keepalive";
 import type { BackendErrorCode } from "@/services/backendErrors";
+import type { IdentityPickIssue } from "@/services/credentialPlan";
 
 export type AuthType = "password" | "key";
 
@@ -241,6 +242,7 @@ export interface TerminalSession {
   /** Set when the failure was the vault itself, so the overlay can offer to unlock
    * rather than ask for credentials. The message is translated and cannot be matched. */
   errorCode?: BackendErrorCode;
+  identityPick?: IdentityPickIssue;
   /** Why the auto-reconnect loop is holding off: no network, or past its fast retries. */
   reconnectWait?: "offline" | "slow";
   encoding?: string;
