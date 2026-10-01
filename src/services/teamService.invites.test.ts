@@ -9,7 +9,8 @@ vi.mock("@/services/authTokens", () => ({
   tryRefreshJwt: async () => "jwt",
 }));
 
-import { declineSessionInvite, getUserPublicKey, uninviteFromSession } from "./teamService";
+import i18n from "@/i18n";
+import { declineSessionInvite, getUserPublicKey, inviteByEmail, uninviteFromSession } from "./teamService";
 
 beforeEach(() => h.appFetch.mockReset());
 
@@ -43,4 +44,14 @@ test("a 500 from the key lookup throws instead of masquerading as a missing user
   // Assert on the status code, not the full translated message, so this survives
   // the copy changing (it already broke once when the i18n key gained real text).
   await expect(getUserPublicKey("u1")).rejects.toThrow("500");
+});
+
+test("an invite refused because the operator turned invites off is not reported as missing permission", async () => {
+  h.appFetch.mockResolvedValue({ ok: false, status: 403, json: async () => ({ error: "TEAM_INVITES_DISABLED" }) });
+  await expect(inviteByEmail("t1", "a@b.co")).rejects.toThrow(i18n.t("common.error.teamInvitesDisabled"));
+});
+
+test("a plain 403 on invite still means missing permission", async () => {
+  h.appFetch.mockResolvedValue({ ok: false, status: 403, json: async () => ({}) });
+  await expect(inviteByEmail("t1", "a@b.co")).rejects.toThrow(i18n.t("common.error.noPermissionInviteMembers"));
 });

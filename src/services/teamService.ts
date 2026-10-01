@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { featureDisabledError } from "@/services/featureDisabled";
 import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
 import { refuseIfPlanRequired } from "@/services/planRequired";
 import { getJwt, getServerUrl } from "@/services/authTokens";
@@ -142,7 +143,7 @@ export async function addMember(
   });
   if (!res.ok) {
     if (res.status === 404) throw new Error(i18n.t("common.error.userNotFoundVoltiusAccount"));
-    throw new Error(i18n.t("common.error.failedToAddMember", { status: res.status }));
+    throw (await featureDisabledError(res)) ?? new Error(i18n.t("common.error.failedToAddMember", { status: res.status }));
   }
 }
 
@@ -161,7 +162,7 @@ export async function addMemberById(
     if (res.status === 404) throw new Error(i18n.t("common.error.userNotFound"));
     if (res.status === 400) throw new Error(i18n.t("common.error.cannotAddYourself"));
     if (res.status === 402) throw Object.assign(new Error(i18n.t("common.error.seatLimitReached")), { code: 402 });
-    throw new Error(i18n.t("common.error.failedToAddMember", { status: res.status }));
+    throw (await featureDisabledError(res)) ?? new Error(i18n.t("common.error.failedToAddMember", { status: res.status }));
   }
   return res.json();
 }
@@ -459,6 +460,8 @@ export async function inviteByEmail(
   });
   if (!res.ok) {
     if (res.status === 402) throw Object.assign(new Error(i18n.t("common.error.seatLimitReached")), { code: 402 });
+    const disabled = await featureDisabledError(res);
+    if (disabled) throw disabled;
     if (res.status === 403) throw new Error(i18n.t("common.error.noPermissionInviteMembers"));
     throw new Error(i18n.t("common.error.failedToInviteMember", { status: res.status }));
   }

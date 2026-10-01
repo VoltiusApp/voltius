@@ -1,4 +1,5 @@
 import { invoke } from "@/lib/invoke";
+import { featureDisabledError } from "@/services/featureDisabled";
 import i18n from "@/i18n";
 import { setVaultKey, getVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNeeded, wipeLocalConfig, readLocalSecrets } from "./vault";
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
@@ -81,7 +82,7 @@ async function registerOnServer(args: {
   });
 
   if (res.status === 409) throw new Error(i18n.t("common.error.emailAlreadyRegistered"));
-  if (!res.ok) throw new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
+  if (!res.ok) throw (await featureDisabledError(res)) ?? new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
   return res.json();
 }
 

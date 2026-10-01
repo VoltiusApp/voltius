@@ -193,6 +193,11 @@ test("createServerAccount maps 409 to emailAlreadyRegistered", async () => {
   await expect(createServerAccount("a@b.co", "pw", S)).rejects.toThrow("common.error.emailAlreadyRegistered");
 });
 
+test("createServerAccount says registration is off rather than that it failed", async () => {
+  h.http["/auth/register"] = err(403, { error: "REGISTRATION_DISABLED" });
+  await expect(createServerAccount("a@b.co", "pw", S)).rejects.toThrow("common.error.registrationDisabled");
+});
+
 test("createServerAccount maps other non-ok to registrationFailed", async () => {
   h.http["/auth/register"] = err(500);
   await expect(createServerAccount("a@b.co", "pw", S)).rejects.toThrow("common.error.registrationFailed");

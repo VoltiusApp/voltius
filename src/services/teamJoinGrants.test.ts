@@ -51,6 +51,14 @@ test("a 400 on redeem means the redeemer published no key; on any other call it 
   });
 });
 
+test("minting on a server whose operator turned invites off says so", async () => {
+  h.fetchAuthJson.mockResolvedValueOnce({ ok: false, status: 403, json: () => Promise.resolve({ error: "TEAM_INVITES_DISABLED" }) });
+  await expect(createJoinGrant("t1", { role: "member", maxUses: 1, expiresInSecs: 3600 })).rejects.toMatchObject({
+    code: "invites_disabled",
+    message: "common.error.teamInvitesDisabled",
+  });
+});
+
 test("every refusal is a JoinGrantError, so `instanceof` is a usable guard", async () => {
   h.fetchAuthJson.mockResolvedValueOnce(fail(410));
   await expect(revokeJoinGrant("t1", "g1")).rejects.toBeInstanceOf(JoinGrantError);

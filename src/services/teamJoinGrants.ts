@@ -1,6 +1,7 @@
 import i18n from "@/i18n";
 import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
 import { getServerUrl } from "@/services/authTokens";
+import { featureDisabledError } from "@/services/featureDisabled";
 
 // A grant confers team membership, never vault access: the vault key is wrapped
 // per member with X25519, so it follows separately and the redeemer sits in
@@ -52,6 +53,7 @@ export type JoinGrantErrorCode =
   | "exhausted"
   | "seat_limit"
   | "no_public_key"
+  | "invites_disabled"
   | "unknown";
 
 /** Carries a code so callers never match on a translated message. */
@@ -105,7 +107,10 @@ export async function createJoinGrant(
       expires_in_secs: opts.expiresInSecs,
     }),
   });
-  if (!res.ok) throw grantError(res.status, false);
+  if (!res.ok) {
+    const disabled = await featureDisabledError(res);
+    throw disabled ? new JoinGrantError("invites_disabled", disabled.message) : grantError(res.status, false);
+  }
   return res.json();
 }
 
