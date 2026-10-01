@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::AppHandle;
 use tauri::Emitter;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::sync::{oneshot, Mutex};
 
@@ -292,6 +292,18 @@ pub struct ConnectedSession {
     pub _jump_handles: Vec<Arc<client::Handle<SshClient>>>,
     /// Shared remote-forward route table for this session.
     pub remote_routes: RemoteRouteMap,
+}
+
+pub(crate) fn spawn_exec(
+    handle: Arc<client::Handle<SshClient>>,
+    cmd: String,
+    limit: std::time::Duration,
+) {
+    tokio::spawn(async move {
+        if let Ok(channel) = handle.channel_open_session().await {
+            let _ = exec_collect(channel, &cmd, limit).await;
+        }
+    });
 }
 
 /// Runs `cmd` on `channel` and collects stdout; `None` if the exec request fails,
@@ -1157,6 +1169,7 @@ pub async fn connect(
     // A plain `request_shell` has nowhere to carry the prefix, so it goes in over
     // stdin below instead.
     let cd_over_stdin = exec_cmd.is_none() && !cd_prefix.is_empty();
+    let wrapped = persist && exec_cmd.is_some();
     match exec_cmd {
         Some(cmd) => channel
             .exec(false, cmd.as_bytes())
@@ -1168,62 +1181,52 @@ pub async fn connect(
             .map_err(|e| format!("Shell request failed: {}", e))?,
     }
 
-    // I/O loop
     let (read_half, write_half) = channel.split();
-    let mut writer = write_half.make_writer();
 
     // `export KEY=val` is POSIX syntax; on a Windows cmd.exe/PowerShell shell it
     // would just echo errors, so skip it there (see `remote_is_windows`).
-    if !env_vars.is_empty() && !remote_is_windows {
-        let mut exports = String::new();
+    let mut startup = String::new();
+    if !remote_is_windows {
         for (key, value) in &env_vars {
-            exports.push_str(&format!("export {}={}\n", key, shell_escape(value)));
+            startup.push_str(&format!("export {}={}\n", key, shell_escape(value)));
         }
-        let _ = writer.write_all(exports.as_bytes()).await;
+        // Before pre_command: a host command that changes directory itself must win.
+        if cd_over_stdin {
+            startup.push_str(&format!("{}\n", cd_prefix.trim_end()));
+        }
     }
-
-    // Before pre_command: a host command that changes directory itself must win.
-    if cd_over_stdin && !remote_is_windows {
-        let _ = writer.write_all(cd_prefix.trim_end().as_bytes()).await;
-        let _ = writer.write_all(b"\n").await;
-    }
-
     if let Some(cmd) = pre_command {
-        let _ = writer.write_all(format!("{}\n", cmd).as_bytes()).await;
+        startup.push_str(&format!("{}\n", cmd));
     }
 
     let handle = Arc::new(final_handle);
 
-    // Persistent sessions run inside tmux/screen, and neither forwards the
-    // shell's OSC 7 to the outer terminal (screen drops it; tmux keeps it for
-    // itself), so the frontend's OSC 7 handler never sees a cwd. Poll the
-    // multiplexer for the active pane's cwd and push it to the same store the
-    // SFTP panel's "follow cwd" reads. Non-persistent sessions get cwd straight
-    // from OSC 7 and need no polling.
-    let control = persist.then(|| {
+    let control = if wrapped {
         crate::ssh::control_mode::ControlSession::new(
             crate::shell_integration::tmux_session_key(&session_id),
             pty_cols,
             pty_rows,
             terminal_colors.clone(),
         )
-    });
-    let control_started = control.as_ref().map(|c| c.started_flag());
+    } else {
+        crate::ssh::control_mode::ControlSession::raw()
+    };
+    let osc7_seen = control.osc7_flag();
 
+    // Multiplexers keep the shell's OSC 7 for themselves (control mode passes it
+    // through once the shell emits one), so poll the pane's cwd until then.
     if persist {
         let poll_handle = Arc::clone(&handle);
         let poll_app = app.clone();
         let key = crate::shell_integration::tmux_session_key(&session_id);
-        let keys_handle = Arc::clone(&handle);
-        let keys_cmd = crate::shell_integration::persistent_legacy_setup_command(
-            &key,
-            terminal_colors.as_ref(),
+        spawn_exec(
+            Arc::clone(&handle),
+            crate::shell_integration::persistent_legacy_setup_command(
+                &key,
+                terminal_colors.as_ref(),
+            ),
+            std::time::Duration::from_secs(30),
         );
-        tokio::spawn(async move {
-            if let Ok(channel) = keys_handle.channel_open_session().await {
-                let _ = exec_collect(channel, &keys_cmd, std::time::Duration::from_secs(30)).await;
-            }
-        });
         let cwd_cmd = crate::shell_integration::cwd_probe_command(&key);
         let cwd_event = format!("ssh-cwd-{}", session_id);
         tokio::spawn(async move {
@@ -1232,10 +1235,7 @@ pub async fn connect(
             let mut failures = 0u32;
             loop {
                 interval.tick().await;
-                if control_started
-                    .as_ref()
-                    .is_some_and(|f| f.load(std::sync::atomic::Ordering::Relaxed))
-                {
+                if osc7_seen.load(std::sync::atomic::Ordering::Relaxed) {
                     break;
                 }
                 // The session handle is explicitly disconnected on teardown, so
@@ -1274,6 +1274,12 @@ pub async fn connect(
         write_half,
         control,
     );
+    if !startup.is_empty() {
+        let _ = io
+            .input_tx
+            .send(SessionInput::Data(startup.into_bytes()))
+            .await;
+    }
 
     Ok(ConnectedSession {
         handle,

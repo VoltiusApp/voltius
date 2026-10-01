@@ -277,6 +277,8 @@ const TMUX_CC_VERSIONS: &str = r#"*"tmux "3.[2-9]*|*"tmux "[4-9]*|*"tmux "[1-9][
 
 pub const CONTROL_MODE_MARKER: &str = "VOLTIUS_CC";
 
+const RAW_SENTINEL: &str = r"printf '\033P1000r\033\\'";
+
 fn tmux_cc_case(action: &str) -> String {
     format!(r#"case "$(tmux -V 2>/dev/null)" in {TMUX_CC_VERSIONS}) {action} ;; esac"#)
 }
@@ -409,6 +411,7 @@ if command -v tmux >/dev/null 2>&1; then
       S=$(stty size <&2 2>/dev/null)
       [ -n "$S" ] && SZ="-x ${{S#* }} -y ${{S% *}}" ;;
   esac
+  [ -n "$CC" ] || {raw}
   TMUX_CONF=$(mktemp 2>/dev/null)
   if [ -n "$TMUX_CONF" ]; then
     cat > "$TMUX_CONF" <<'EOF'
@@ -425,6 +428,7 @@ EOF
   fi
   exec tmux -L {socket} $CC new-session -A -s {key} $SZ "$V" <&2
 elif command -v screen >/dev/null 2>&1; then
+  {raw}
   V="{screen_strip}$V"
   screen -wipe >/dev/null 2>&1
   for d in $(screen -ls 2>/dev/null | grep -F .{key} | awk '{{print $1}}' | tail -n +2); do
@@ -451,6 +455,7 @@ EOF
   V="{screen_notice}; $V"
   exec screen -S {key} -D -R sh -c "$V" <&2
 else
+  {raw}
   {no_mux_notice}
   exec sh -c "$V" <&2
 fi
@@ -460,6 +465,7 @@ fi
         inner = inner,
         tmux_strip = TMUX_ENV_STRIP,
         cc = TMUX_CC_VERSIONS,
+        raw = RAW_SENTINEL,
         screen_strip = SCREEN_ENV_STRIP,
         screen_notice = notice_printf(SCREEN_DEGRADED_NOTICE),
         no_mux_notice =
@@ -477,16 +483,20 @@ pub fn persistent_attach_command(session_key: &str) -> String {
         r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
   CC=
   {cc}
+  [ -n "$CC" ] || {raw}
   exec tmux -L {socket} $CC attach-session -t {key} <&2
 elif command -v screen >/dev/null 2>&1; then
+  {raw}
   exec screen -x -S {key} <&2
 fi
+{raw}
 printf '\r\n[voltius] session has ended\r\n'
 exit 97
 "#,
         socket = TMUX_SOCKET,
         key = session_key,
         cc = tmux_cc_case("CC=-CC"),
+        raw = RAW_SENTINEL,
     );
     encode_wrapper(&script)
 }
@@ -939,6 +949,21 @@ mod tests {
         ));
         assert!(script
             .contains(r#"exec tmux -L voltius $CC new-session -A -s voltius_s1 $SZ "$V" <&2"#));
+    }
+
+    #[test]
+    fn every_branch_but_control_mode_announces_raw_output() {
+        let sentinel = r"printf '\033P1000r\033\\'";
+        for script in [
+            decode_bootstrap(&persistent_exec_command(
+                "voltius_s1",
+                &ssh_exec_command(""),
+            )),
+            decode_bootstrap(&persistent_attach_command("voltius_s1")),
+        ] {
+            assert_eq!(script.matches(sentinel).count(), 3, "{script}");
+            assert!(script.contains(&format!(r#"[ -n "$CC" ] || {sentinel}"#)));
+        }
     }
 
     #[test]

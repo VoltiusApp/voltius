@@ -35,26 +35,53 @@ pub fn spawn_channel_io(
     channel: russh::Channel<russh::client::Msg>,
 ) -> ChannelIo {
     let (read_half, write_half) = channel.split();
-    spawn_channel_io_split(app, session_id, read_half, write_half, None)
+    spawn_channel_io_split(
+        app,
+        session_id,
+        read_half,
+        write_half,
+        ControlSession::raw(),
+    )
 }
 
-/// `spawn_channel_io` for callers that already split the channel — the terminal
-/// session writes its env exports through the write half before the loop starts.
+enum Write {
+    Data(Vec<u8>),
+    Resize(u32, u32),
+}
+
+/// `spawn_channel_io` for callers that already split the channel.
 pub fn spawn_channel_io_split(
     app: AppHandle,
     session_id: &str,
     mut read_half: russh::ChannelReadHalf,
     write_half: russh::ChannelWriteHalf<russh::client::Msg>,
-    mut control: Option<ControlSession>,
+    mut session: ControlSession,
 ) -> ChannelIo {
     let (input_tx, mut input_rx) = mpsc::channel::<SessionInput>(256);
     let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
+    let (writes_tx, mut writes_rx) = mpsc::unbounded_channel::<Write>();
 
     let event_name = format!("ssh-output-{}", session_id);
     let close_event = format!("ssh-closed-{}", session_id);
     let mux_event = format!("ssh-mux-mode-{}", session_id);
 
-    let mut writer = write_half.make_writer();
+    // Writes wait on russh's session loop, which waits on this read loop while
+    // output is paused, so the read loop must never await a write.
+    tokio::spawn(async move {
+        let mut writer = write_half.make_writer();
+        while let Some(write) = writes_rx.recv().await {
+            match write {
+                Write::Data(data) => {
+                    if writer.write_all(&data).await.is_err() {
+                        break;
+                    }
+                }
+                Write::Resize(cols, rows) => {
+                    let _ = write_half.window_change(cols, rows, 0, 0).await;
+                }
+            }
+        }
+    });
 
     tokio::spawn(async move {
         let mut remote_exit = false;
@@ -63,29 +90,22 @@ pub fn spawn_channel_io_split(
             tokio::select! {
                 _ = shutdown_rx.recv() => break,
                 input = input_rx.recv() => {
-                    let actions = match (input, control.as_mut()) {
-                        (None, _) => break,
-                        (Some(SessionInput::Data(d)), Some(c)) => c.on_input(d),
-                        (Some(SessionInput::Data(d)), None) => vec![Action::Send(d)],
-                        (Some(SessionInput::Resize(cols, rows)), Some(c)) => c.on_resize(cols, rows),
-                        (Some(SessionInput::Resize(cols, rows)), None) => vec![Action::WindowChange(cols, rows)],
-                        (Some(SessionInput::Colors(colors)), Some(c)) => c.on_colors(colors),
-                        (Some(SessionInput::Colors(_)), None) => Vec::new(),
-                        (Some(SessionInput::PauseOutput(p)), _) => {
+                    let actions = match input {
+                        None => break,
+                        Some(SessionInput::Data(data)) => session.on_input(data),
+                        Some(SessionInput::Resize(cols, rows)) => session.on_resize(cols, rows),
+                        Some(SessionInput::Colors(colors)) => session.on_colors(colors),
+                        Some(SessionInput::PauseOutput(p)) => {
                             paused = p;
                             Vec::new()
                         }
                     };
-                    if !apply(actions, &mut writer, &write_half, &app, &event_name, &mux_event).await { break; }
+                    apply(actions, &writes_tx, &app, &event_name, &mux_event);
                 }
                 msg = read_half.wait(), if !paused => {
                     match msg {
                         Some(ChannelMsg::Data { data }) | Some(ChannelMsg::ExtendedData { data, .. }) => {
-                            let actions = match control.as_mut() {
-                                Some(c) => c.on_output(&data),
-                                None => vec![Action::Emit(data.to_vec())],
-                            };
-                            if !apply(actions, &mut writer, &write_half, &app, &event_name, &mux_event).await { break; }
+                            apply(session.on_output(&data), &writes_tx, &app, &event_name, &mux_event);
                         }
                         Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => {
                             let _ = app.emit(&close_event, remote_exit);
@@ -113,26 +133,23 @@ struct MuxMode {
     tmux: String,
 }
 
-async fn apply(
+fn apply(
     actions: Vec<Action>,
-    writer: &mut (impl tokio::io::AsyncWrite + Unpin),
-    write_half: &russh::ChannelWriteHalf<russh::client::Msg>,
+    writes: &mpsc::UnboundedSender<Write>,
     app: &AppHandle,
     output_event: &str,
     mux_event: &str,
-) -> bool {
+) {
     for action in actions {
         match action {
             Action::Emit(data) => {
                 let _ = app.emit(output_event, data.as_slice());
             }
             Action::Send(data) => {
-                if writer.write_all(&data).await.is_err() {
-                    return false;
-                }
+                let _ = writes.send(Write::Data(data));
             }
             Action::WindowChange(cols, rows) => {
-                let _ = write_half.window_change(cols, rows, 0, 0).await;
+                let _ = writes.send(Write::Resize(cols, rows));
             }
             Action::Started { tmux } => {
                 let _ = app.emit(
@@ -145,7 +162,6 @@ async fn apply(
             }
         }
     }
-    true
 }
 
 /// Open a PTY channel on an existing SSH handle, run `command` in it, and

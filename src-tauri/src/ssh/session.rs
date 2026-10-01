@@ -50,11 +50,18 @@ impl SessionManager {
             .ok_or_else(|| "Session not found".into())
     }
 
-    async fn send_input(&self, id: &str, input: SessionInput, what: &str) -> Result<(), String> {
+    async fn input_tx(&self, id: &str) -> Result<tokio::sync::mpsc::Sender<SessionInput>, String> {
         let sessions = self.sessions.lock().await;
-        let session = sessions.get(id).ok_or("Session not found")?;
-        session
+        Ok(sessions
+            .get(id)
+            .ok_or("Session not found")?
             .input_tx
+            .clone())
+    }
+
+    async fn send_input(&self, id: &str, input: SessionInput, what: &str) -> Result<(), String> {
+        self.input_tx(id)
+            .await?
             .send(input)
             .await
             .map_err(|e| format!("Failed to {what}: {e}"))
@@ -83,28 +90,16 @@ impl SessionManager {
         if !colors.is_valid() {
             return Err("Invalid terminal colors".into());
         }
-        let (input_tx, persist, handle) = {
+        let (persist, handle) = {
             let sessions = self.sessions.lock().await;
             let session = sessions.get(id).ok_or("Session not found")?;
-            (
-                session.input_tx.clone(),
-                session.persist,
-                Arc::clone(&session.handle),
-            )
+            (session.persist, Arc::clone(&session.handle))
         };
         let style = crate::shell_integration::legacy_mode_style_command(&colors);
-        input_tx
-            .send(SessionInput::Colors(colors))
-            .await
-            .map_err(|e| format!("Failed to set colors: {}", e))?;
+        self.send_input(id, SessionInput::Colors(colors), "set colors")
+            .await?;
         if persist {
-            tokio::spawn(async move {
-                if let Ok(channel) = handle.channel_open_session().await {
-                    let _ =
-                        crate::ssh::client::exec_collect(channel, &style, Duration::from_secs(10))
-                            .await;
-                }
-            });
+            crate::ssh::client::spawn_exec(handle, style, Duration::from_secs(10));
         }
         Ok(())
     }

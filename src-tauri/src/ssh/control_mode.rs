@@ -3,11 +3,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 const MARKER: &[u8] = b"\x1bP1000p";
+const RAW_SENTINEL: &[u8] = b"\x1bP1000r\x1b\\";
 const MARKER_WINDOW: usize = 64 * 1024;
 
 #[derive(Debug, PartialEq)]
 pub enum Event {
     Passthrough(Vec<u8>),
+    RawMode,
     Output { pane: String, data: Vec<u8> },
     Reply { ok: bool, lines: Vec<Vec<u8>> },
 }
@@ -18,54 +20,61 @@ struct Block {
     lines: Vec<Vec<u8>>,
 }
 
+#[derive(Default, PartialEq)]
+enum Mode {
+    #[default]
+    Undecided,
+    Raw,
+    Control,
+    Exited,
+}
+
 #[derive(Default)]
 pub struct Demux {
-    control: bool,
-    exited: bool,
+    mode: Mode,
     scanned: usize,
     buf: Vec<u8>,
     block: Option<Block>,
 }
 
+fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+fn held_prefix(buf: &[u8], needle: &[u8]) -> usize {
+    (1..needle.len())
+        .rev()
+        .find(|&k| buf.ends_with(&needle[..k]))
+        .unwrap_or(0)
+}
+
 impl Demux {
+    pub fn raw() -> Self {
+        Self {
+            mode: Mode::Raw,
+            ..Self::default()
+        }
+    }
+
     pub fn is_control(&self) -> bool {
-        self.control
+        self.mode == Mode::Control
     }
 
     pub fn feed(&mut self, bytes: &[u8]) -> Vec<Event> {
         let mut events = Vec::new();
-        if self.exited {
-            return events;
-        }
-        if !self.control {
-            if self.scanned >= MARKER_WINDOW {
+        match self.mode {
+            Mode::Exited => return events,
+            Mode::Raw => {
                 events.push(Event::Passthrough(bytes.to_vec()));
                 return events;
             }
-            self.buf.extend_from_slice(bytes);
-            match self.buf.windows(MARKER.len()).position(|w| w == MARKER) {
-                Some(at) => {
-                    if at > 0 {
-                        events.push(Event::Passthrough(self.buf[..at].to_vec()));
-                    }
-                    self.buf.drain(..at + MARKER.len());
-                    self.control = true;
-                }
-                None => {
-                    let held = (1..MARKER.len())
-                        .rev()
-                        .find(|&k| self.buf.ends_with(&MARKER[..k]))
-                        .unwrap_or(0);
-                    let ready = self.buf.len() - held;
-                    self.scanned += ready;
-                    if ready > 0 {
-                        events.push(Event::Passthrough(self.buf.drain(..ready).collect()));
-                    }
+            Mode::Undecided => {
+                self.buf.extend_from_slice(bytes);
+                if !self.decide(&mut events) {
                     return events;
                 }
             }
-        } else {
-            self.buf.extend_from_slice(bytes);
+            Mode::Control => self.buf.extend_from_slice(bytes),
         }
         while let Some(nl) = self.buf.iter().position(|&b| b == b'\n') {
             let mut line: Vec<u8> = self.buf.drain(..=nl).collect();
@@ -76,12 +85,54 @@ impl Demux {
             if let Some(event) = self.line(line) {
                 events.push(event);
             }
-            if self.exited {
+            if self.mode == Mode::Exited {
                 self.buf.clear();
                 break;
             }
         }
         events
+    }
+
+    fn passthrough(&mut self, end: usize, events: &mut Vec<Event>) {
+        if end > 0 {
+            events.push(Event::Passthrough(self.buf.drain(..end).collect()));
+        }
+    }
+
+    fn decide(&mut self, events: &mut Vec<Event>) -> bool {
+        let marker = find(&self.buf, MARKER);
+        let sentinel = find(&self.buf, RAW_SENTINEL);
+        if let Some(m) = marker.filter(|&m| sentinel.is_none_or(|s| m < s)) {
+            self.passthrough(m, events);
+            self.buf.drain(..MARKER.len());
+            self.mode = Mode::Control;
+            return true;
+        }
+        match sentinel {
+            Some(s) => {
+                self.passthrough(s, events);
+                self.buf.drain(..RAW_SENTINEL.len());
+                self.go_raw(events);
+                false
+            }
+            None => {
+                let held = held_prefix(&self.buf, MARKER).max(held_prefix(&self.buf, RAW_SENTINEL));
+                let ready = self.buf.len() - held;
+                self.scanned += ready;
+                self.passthrough(ready, events);
+                if self.scanned >= MARKER_WINDOW {
+                    self.go_raw(events);
+                }
+                false
+            }
+        }
+    }
+
+    fn go_raw(&mut self, events: &mut Vec<Event>) {
+        self.mode = Mode::Raw;
+        events.push(Event::RawMode);
+        let rest = self.buf.len();
+        self.passthrough(rest, events);
     }
 
     fn line(&mut self, line: Vec<u8>) -> Option<Event> {
@@ -121,7 +172,7 @@ impl Demux {
             return Some(Event::Output { pane, data });
         }
         if tag == b"%exit" {
-            self.exited = true;
+            self.mode = Mode::Exited;
         }
         None
     }
@@ -272,7 +323,10 @@ pub fn sync_command(
     rows: u32,
     colors: Option<&TerminalColors>,
 ) -> (String, Vec<ReplyKind>) {
-    let mut cmds = vec![(encode_resize(cols, rows), ReplyKind::Ignore)];
+    let mut cmds = vec![
+        (encode_resize(cols, rows), ReplyKind::Ignore),
+        ("set -g window-size smallest".to_string(), ReplyKind::Ignore),
+    ];
     if let Some(c) = colors {
         cmds.push((window_style_command(key, c), ReplyKind::Ignore));
     }
@@ -300,11 +354,17 @@ fn cup(out: &mut Vec<u8>, y: u32, x: u32) {
     out.extend_from_slice(format!("\x1b[{};{}H", y + 1, x + 1).as_bytes());
 }
 
+fn push_row(out: &mut Vec<u8>, row: &[u8]) {
+    out.extend_from_slice(row);
+    out.extend_from_slice(b"\x1b[m");
+}
+
 pub fn sync_bytes(
     s: &PaneState,
     history: &[Vec<u8>],
     saved: &[Vec<u8>],
     visible: &[Vec<u8>],
+    rows: u32,
 ) -> Vec<u8> {
     let mut out = SYNC_RESET.as_bytes().to_vec();
     let history = if s.history_size == 0 {
@@ -314,7 +374,7 @@ pub fn sync_bytes(
     };
     let normal = if s.alternate_on { saved } else { visible };
     let blank = Vec::new();
-    let padding = (s.pane_height as usize).saturating_sub(normal.len());
+    let padding = (s.pane_height.max(rows) as usize).saturating_sub(normal.len());
     let lines = history
         .iter()
         .chain(normal)
@@ -323,16 +383,14 @@ pub fn sync_bytes(
         if i > 0 {
             out.extend_from_slice(b"\r\n");
         }
-        out.extend_from_slice(line);
-        out.extend_from_slice(b"\x1b[m");
+        push_row(&mut out, line);
     }
     if s.alternate_on {
         cup(&mut out, s.saved_y, s.saved_x);
         out.extend_from_slice(b"\x1b[?1049h");
         for (y, line) in visible.iter().enumerate() {
             cup(&mut out, y as u32, 0);
-            out.extend_from_slice(line);
-            out.extend_from_slice(b"\x1b[m");
+            push_row(&mut out, line);
         }
     }
     out.extend_from_slice(
@@ -380,6 +438,13 @@ struct Snapshot {
     state: Option<PaneState>,
     history: Vec<Vec<u8>>,
     saved: Vec<Vec<u8>>,
+    replies_left: usize,
+}
+
+enum Phase {
+    Undecided(Vec<u8>),
+    Raw,
+    Control,
 }
 
 pub struct ControlSession {
@@ -388,10 +453,11 @@ pub struct ControlSession {
     rows: u32,
     colors: Option<TerminalColors>,
     demux: Demux,
+    phase: Phase,
     pending: VecDeque<ReplyKind>,
     snapshot: Option<Snapshot>,
     pane: Option<String>,
-    started: Arc<AtomicBool>,
+    osc7: Arc<AtomicBool>,
 }
 
 impl ControlSession {
@@ -400,17 +466,26 @@ impl ControlSession {
             key,
             cols,
             rows,
-            colors: colors.filter(TerminalColors::is_valid),
+            colors,
             demux: Demux::default(),
+            phase: Phase::Undecided(Vec::new()),
             pending: VecDeque::new(),
             snapshot: None,
             pane: None,
-            started: Arc::new(AtomicBool::new(false)),
+            osc7: Arc::new(AtomicBool::new(false)),
         }
     }
 
-    pub fn started_flag(&self) -> Arc<AtomicBool> {
-        Arc::clone(&self.started)
+    pub fn raw() -> Self {
+        Self {
+            demux: Demux::raw(),
+            phase: Phase::Raw,
+            ..Self::new(String::new(), 0, 0, None)
+        }
+    }
+
+    pub fn osc7_flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.osc7)
     }
 
     fn target(&self) -> &str {
@@ -422,15 +497,34 @@ impl ControlSession {
         Action::Send(cmd.into_bytes())
     }
 
+    fn send_keys(&mut self, data: &[u8]) -> Vec<Action> {
+        let target = self.target().to_string();
+        encode_input(&target, data)
+            .into_iter()
+            .map(|cmd| self.command(cmd))
+            .collect()
+    }
+
     pub fn on_output(&mut self, bytes: &[u8]) -> Vec<Action> {
         let was_control = self.demux.is_control();
         let mut actions = Vec::new();
         for event in self.demux.feed(bytes) {
             match event {
                 Event::Passthrough(data) => actions.push(Action::Emit(data)),
+                Event::RawMode => {
+                    if let Phase::Undecided(queued) = std::mem::replace(&mut self.phase, Phase::Raw)
+                    {
+                        if !queued.is_empty() {
+                            actions.push(Action::Send(queued));
+                        }
+                    }
+                }
                 Event::Output { pane, data } => {
                     let ours = self.pane.as_ref().is_none_or(|p| *p == pane);
                     if self.snapshot.is_none() && ours {
+                        if find(&data, b"\x1b]7;").is_some() {
+                            self.osc7.store(true, Ordering::Relaxed);
+                        }
                         actions.push(Action::Emit(data));
                     }
                 }
@@ -438,15 +532,25 @@ impl ControlSession {
             }
         }
         if !was_control && self.demux.is_control() {
-            self.started.store(true, Ordering::Relaxed);
+            let queued = match std::mem::replace(&mut self.phase, Phase::Control) {
+                Phase::Undecided(queued) => queued,
+                _ => Vec::new(),
+            };
             let (line, kinds) = sync_command(&self.key, self.cols, self.rows, self.colors.as_ref());
+            self.snapshot = Some(Snapshot {
+                replies_left: kinds.len(),
+                ..Snapshot::default()
+            });
             self.pending.extend(kinds);
-            self.snapshot = Some(Snapshot::default());
             actions.push(Action::Send(line.into_bytes()));
+            if !queued.is_empty() {
+                actions.extend(self.send_keys(&queued));
+            }
         }
         actions
     }
 
+    // tmux stops a `;` list at its first error, so the rest of the sync never replies.
     fn reply(&mut self, ok: bool, lines: Vec<Vec<u8>>, actions: &mut Vec<Action>) {
         let Some(kind) = self.pending.pop_front() else {
             return;
@@ -454,14 +558,19 @@ impl ControlSession {
         let Some(snapshot) = self.snapshot.as_mut() else {
             return;
         };
+        snapshot.replies_left -= 1;
+        if !ok {
+            let rest = snapshot.replies_left;
+            self.snapshot = None;
+            self.pending.drain(..rest.min(self.pending.len()));
+            actions.push(Action::Started {
+                tmux: String::new(),
+            });
+            return;
+        }
         match kind {
             ReplyKind::Ignore => {}
-            ReplyKind::State => {
-                snapshot.state = lines
-                    .first()
-                    .filter(|_| ok)
-                    .and_then(|l| PaneState::parse(l))
-            }
+            ReplyKind::State => snapshot.state = lines.first().and_then(|l| PaneState::parse(l)),
             ReplyKind::History => snapshot.history = lines,
             ReplyKind::Saved => snapshot.saved = lines,
             ReplyKind::Visible => {
@@ -479,6 +588,7 @@ impl ControlSession {
                             &snapshot.history,
                             &snapshot.saved,
                             &lines,
+                            self.rows,
                         )));
                     }
                     None => actions.push(Action::Started {
@@ -490,35 +600,32 @@ impl ControlSession {
     }
 
     pub fn on_input(&mut self, data: Vec<u8>) -> Vec<Action> {
-        if !self.demux.is_control() {
-            return vec![Action::Send(data)];
+        match &mut self.phase {
+            Phase::Undecided(queued) => {
+                queued.extend(data);
+                Vec::new()
+            }
+            Phase::Raw => vec![Action::Send(data)],
+            Phase::Control => self.send_keys(&data),
         }
-        let target = self.target().to_string();
-        encode_input(&target, &data)
-            .into_iter()
-            .map(|cmd| self.command(cmd))
-            .collect()
     }
 
     pub fn on_resize(&mut self, cols: u32, rows: u32) -> Vec<Action> {
         self.cols = cols;
         self.rows = rows;
-        if !self.demux.is_control() {
-            return vec![Action::WindowChange(cols, rows)];
+        match self.phase {
+            Phase::Control => vec![self.command(encode_resize(cols, rows))],
+            _ => vec![Action::WindowChange(cols, rows)],
         }
-        vec![self.command(encode_resize(cols, rows))]
     }
 
     pub fn on_colors(&mut self, colors: TerminalColors) -> Vec<Action> {
-        if !colors.is_valid() {
-            return Vec::new();
-        }
         let cmd = window_style_command(self.target(), &colors);
         self.colors = Some(colors);
-        if !self.demux.is_control() {
-            return Vec::new();
+        match self.phase {
+            Phase::Control => vec![self.command(cmd)],
+            _ => Vec::new(),
         }
-        vec![self.command(cmd)]
     }
 }
 
@@ -571,16 +678,75 @@ mod tests {
     }
 
     #[test]
-    fn marker_is_only_recognised_near_the_start() {
+    fn without_marker_or_sentinel_the_stream_turns_raw_after_the_window() {
         let mut d = Demux::default();
         let filler = vec![b'x'; MARKER_WINDOW + 10];
-        d.feed(&filler);
+        assert_eq!(
+            d.feed(&filler),
+            vec![Event::Passthrough(filler.clone()), Event::RawMode]
+        );
         let events = d.feed(b"\x1bP1000p%exit\r\n");
         assert_eq!(
             events,
             vec![Event::Passthrough(b"\x1bP1000p%exit\r\n".to_vec())]
         );
         assert!(!d.is_control());
+    }
+
+    #[test]
+    fn bytes_held_at_the_window_boundary_are_flushed() {
+        let mut d = Demux::default();
+        let mut chunk = vec![b'x'; MARKER_WINDOW + 10];
+        chunk.push(0x1b);
+        let mut out = Vec::new();
+        for e in d.feed(&chunk).into_iter().chain(d.feed(b"[1m")) {
+            if let Event::Passthrough(b) = e {
+                out.extend(b);
+            }
+        }
+        chunk.extend_from_slice(b"[1m");
+        assert_eq!(out, chunk);
+    }
+
+    #[test]
+    fn raw_sentinel_decides_raw_and_is_stripped() {
+        let mut d = Demux::default();
+        assert_eq!(
+            d.feed(b"motd\x1bP1000r\x1b\\$ prompt"),
+            vec![
+                Event::Passthrough(b"motd".to_vec()),
+                Event::RawMode,
+                Event::Passthrough(b"$ prompt".to_vec())
+            ]
+        );
+        assert_eq!(
+            d.feed(b"\x1bP1000p"),
+            vec![Event::Passthrough(b"\x1bP1000p".to_vec())]
+        );
+        assert!(!d.is_control());
+    }
+
+    #[test]
+    fn raw_sentinel_split_across_reads() {
+        let mut d = Demux::default();
+        assert_eq!(
+            d.feed(b"a\x1bP100"),
+            vec![Event::Passthrough(b"a".to_vec())]
+        );
+        assert_eq!(d.feed(b"0r\x1b"), vec![]);
+        assert_eq!(
+            d.feed(b"\\b"),
+            vec![Event::RawMode, Event::Passthrough(b"b".to_vec())]
+        );
+    }
+
+    #[test]
+    fn raw_demux_never_scans() {
+        let mut d = Demux::raw();
+        assert_eq!(
+            d.feed(b"\x1bP1000p"),
+            vec![Event::Passthrough(b"\x1bP1000p".to_vec())]
+        );
     }
 
     #[test]
@@ -730,22 +896,29 @@ mod tests {
         let cmds: Vec<&str> = line.trim_end().split(" ; ").collect();
         assert_eq!(cmds.len(), kinds.len());
         assert_eq!(cmds[0], "refresh-client -C 100x30");
-        assert!(cmds[1].starts_with("set -p -t voltius_s1 window-style"));
+        assert_eq!(cmds[1], "set -g window-size smallest");
+        assert!(cmds[2].starts_with("set -p -t voltius_s1 window-style"));
         assert_eq!(
-            cmds[2],
+            cmds[3],
             format!("display -p -t voltius_s1 '{STATE_FORMAT}'")
         );
         assert_eq!(
-            cmds[3],
+            cmds[4],
             "capture-pane -p -e -J -t voltius_s1 -S -50000 -E -1"
         );
-        assert_eq!(cmds[4], "capture-pane -p -e -q -a -t voltius_s1");
-        assert_eq!(cmds[5], "capture-pane -p -e -t voltius_s1");
+        assert_eq!(cmds[5], "capture-pane -p -e -q -a -t voltius_s1");
+        assert_eq!(cmds[6], "capture-pane -p -e -t voltius_s1");
         use ReplyKind::*;
-        assert_eq!(kinds, vec![Ignore, Ignore, State, History, Saved, Visible]);
+        assert_eq!(
+            kinds,
+            vec![Ignore, Ignore, Ignore, State, History, Saved, Visible]
+        );
         let (bare, bare_kinds) = sync_command("voltius_s1", 80, 24, None);
         assert!(!bare.contains("window-style"));
-        assert_eq!(bare_kinds, vec![Ignore, State, History, Saved, Visible]);
+        assert_eq!(
+            bare_kinds,
+            vec![Ignore, Ignore, State, History, Saved, Visible]
+        );
     }
 
     fn rows(lines: &[&str]) -> Vec<Vec<u8>> {
@@ -771,7 +944,7 @@ mod tests {
             cursor_y: 1,
             ..state(2)
         };
-        let bytes = sync_bytes(&s, &rows(&["h1", "h2"]), &[], &rows(&["s1", "s2"]));
+        let bytes = sync_bytes(&s, &rows(&["h1", "h2"]), &[], &rows(&["s1", "s2"]), 2);
         let text = String::from_utf8(bytes).unwrap();
         assert!(text.starts_with(SYNC_RESET));
         let body = &text[SYNC_RESET.len()..];
@@ -784,7 +957,7 @@ mod tests {
     fn sync_ignores_history_when_history_size_is_zero() {
         let s = state(2);
         let text =
-            String::from_utf8(sync_bytes(&s, &rows(&["$ "]), &[], &rows(&["$ ", ""]))).unwrap();
+            String::from_utf8(sync_bytes(&s, &rows(&["$ "]), &[], &rows(&["$ ", ""]), 2)).unwrap();
         assert_eq!(text.matches("$ ").count(), 1);
     }
 
@@ -794,9 +967,28 @@ mod tests {
             history_size: 1,
             ..state(3)
         };
-        let text = String::from_utf8(sync_bytes(&s, &rows(&["h"]), &[], &rows(&["$ "]))).unwrap();
+        let text =
+            String::from_utf8(sync_bytes(&s, &rows(&["h"]), &[], &rows(&["$ "]), 3)).unwrap();
         let body = &text[SYNC_RESET.len()..];
         assert_eq!(body.matches("\r\n").count(), 3);
+    }
+
+    #[test]
+    fn sync_pads_to_the_client_rows_when_the_pane_is_shorter() {
+        let s = PaneState {
+            history_size: 1,
+            ..state(3)
+        };
+        let text = String::from_utf8(sync_bytes(
+            &s,
+            &rows(&["h"]),
+            &[],
+            &rows(&["a", "b", "c"]),
+            5,
+        ))
+        .unwrap();
+        let body = &text[SYNC_RESET.len()..];
+        assert_eq!(body.matches("\r\n").count(), 5);
     }
 
     #[test]
@@ -820,6 +1012,7 @@ mod tests {
             &[],
             &rows(&["n1", "n2"]),
             &rows(&["", "", "", "", "  ALT"]),
+            10,
         ))
         .unwrap();
         let alt = text.find("\x1b[?1049h").expect("enters alternate screen");
@@ -843,7 +1036,7 @@ mod tests {
             cursor_y: 4,
             ..state(10)
         };
-        let text = String::from_utf8(sync_bytes(&s, &[], &[], &rows(&[""]))).unwrap();
+        let text = String::from_utf8(sync_bytes(&s, &[], &[], &rows(&[""]), 10)).unwrap();
         assert!(text.ends_with("\x1b[3;8r\x1b[?6h\x1b[3;1H\x1b[?25l"));
     }
 
@@ -875,36 +1068,107 @@ mod tests {
 
     fn finish_sync(s: &mut ControlSession, first: u32) -> Vec<Action> {
         let mut replies = begin_end(first, &[]);
-        replies.extend(begin_end(first + 1, &[STATE_2_ROWS]));
-        replies.extend(begin_end(first + 2, &["old"]));
-        replies.extend(begin_end(first + 3, &[]));
-        replies.extend(begin_end(first + 4, &["$ ls", "$ "]));
+        replies.extend(begin_end(first + 1, &[]));
+        replies.extend(begin_end(first + 2, &[STATE_2_ROWS]));
+        replies.extend(begin_end(first + 3, &["old"]));
+        replies.extend(begin_end(first + 4, &[]));
+        replies.extend(begin_end(first + 5, &["$ ls", "$ "]));
         s.on_output(&replies)
     }
 
     #[test]
     fn raw_session_passes_everything_straight_through() {
-        let mut s = ControlSession::new("voltius_s1".into(), 80, 24, None);
-        assert_eq!(s.on_output(b"hello"), vec![Action::Emit(b"hello".to_vec())]);
+        let mut s = ControlSession::raw();
+        assert_eq!(
+            s.on_output(b"hello\x1bP1000p"),
+            vec![Action::Emit(b"hello\x1bP1000p".to_vec())]
+        );
         assert_eq!(
             s.on_input(b"ls\r".to_vec()),
             vec![Action::Send(b"ls\r".to_vec())]
         );
         assert_eq!(s.on_resize(100, 30), vec![Action::WindowChange(100, 30)]);
         assert!(s.on_colors(colors()).is_empty());
-        assert!(!s.started_flag().load(std::sync::atomic::Ordering::Relaxed));
+    }
+
+    #[test]
+    fn input_waits_for_the_multiplexer_decision_then_goes_raw() {
+        let mut s = ControlSession::new("voltius_s1".into(), 80, 24, None);
+        assert!(s.on_input(b"export A=1\n".to_vec()).is_empty());
+        assert_eq!(
+            s.on_output(b"banner "),
+            vec![Action::Emit(b"banner ".to_vec())]
+        );
+        assert_eq!(
+            s.on_output(b"\x1bP1000r\x1b\\$ "),
+            vec![
+                Action::Send(b"export A=1\n".to_vec()),
+                Action::Emit(b"$ ".to_vec())
+            ]
+        );
+        assert_eq!(
+            s.on_input(b"ls\r".to_vec()),
+            vec![Action::Send(b"ls\r".to_vec())]
+        );
+    }
+
+    #[test]
+    fn queued_input_follows_the_sync_line_as_send_keys() {
+        let mut s = ControlSession::new("voltius_s1".into(), 80, 24, None);
+        assert!(s.on_input(b"ls\r".to_vec()).is_empty());
+        let (line, _) = sync_command("voltius_s1", 80, 24, None);
+        assert_eq!(
+            s.on_output(b"\x1bP1000p"),
+            vec![
+                Action::Send(line.into_bytes()),
+                Action::Send(b"send-keys -H -t voltius_s1 6c 73 0d\n".to_vec())
+            ]
+        );
+    }
+
+    #[test]
+    fn a_sync_error_abandons_the_snapshot_and_streams() {
+        let mut s = started_session();
+        let mut replies = begin_end(2, &[]);
+        replies.extend(begin_end(3, &[]));
+        replies.extend(b"%begin 1 4 1\r\nno such session\r\n%error 1 4 1\r\n");
+        assert_eq!(
+            s.on_output(&replies),
+            vec![Action::Started {
+                tmux: String::new()
+            }]
+        );
+        assert_eq!(
+            s.on_output(b"%output %0 x\r\n"),
+            vec![Action::Emit(b"x".to_vec())]
+        );
+        s.on_input(b"y".to_vec());
+        assert!(s.on_output(&begin_end(5, &["late"])).is_empty());
+        assert_eq!(
+            s.on_output(b"%output %0 z\r\n"),
+            vec![Action::Emit(b"z".to_vec())]
+        );
+    }
+
+    #[test]
+    fn osc7_in_control_output_is_flagged() {
+        let mut s = started_session();
+        finish_sync(&mut s, 2);
+        let flag = s.osc7_flag();
+        assert!(!flag.load(std::sync::atomic::Ordering::Relaxed));
+        s.on_output(b"%output %0 \\033]7;file://h/tmp\\007\r\n");
+        assert!(flag.load(std::sync::atomic::Ordering::Relaxed));
     }
 
     #[test]
     fn marker_starts_the_sync_and_the_snapshot_replaces_held_output() {
         let mut s = started_session();
-        assert!(s.started_flag().load(std::sync::atomic::Ordering::Relaxed));
         assert!(s
             .on_output(b"%output %0 already-in-snapshot\r\n")
             .is_empty());
         let actions = finish_sync(&mut s, 2);
         let state = PaneState::parse(STATE_2_ROWS.as_bytes()).unwrap();
-        let expected = sync_bytes(&state, &rows(&["old"]), &[], &rows(&["$ ls", "$ "]));
+        let expected = sync_bytes(&state, &rows(&["old"]), &[], &rows(&["$ ls", "$ "]), 2);
         assert_eq!(
             actions,
             vec![
@@ -937,11 +1201,6 @@ mod tests {
                 b"set -p -t %0 window-style 'fg=#101820,bg=#fafaf0'\n".to_vec()
             )]
         );
-        let bad = TerminalColors {
-            fg: "nope".into(),
-            ..colors()
-        };
-        assert!(s.on_colors(bad).is_empty());
     }
 
     #[test]
@@ -958,8 +1217,8 @@ mod tests {
             actions.as_slice(),
             [Action::Started { .. }, Action::Emit(_)]
         ));
-        let mut late = begin_end(7, &["ignored"]);
-        late.extend(begin_end(8, &[]));
+        let mut late = begin_end(8, &["ignored"]);
+        late.extend(begin_end(9, &[]));
         assert!(s.on_output(&late).is_empty());
     }
 
@@ -975,10 +1234,11 @@ mod tests {
     fn unparsable_state_still_streams_without_a_snapshot() {
         let mut s = started_session();
         let mut replies = begin_end(2, &[]);
-        replies.extend(begin_end(3, &["garbage"]));
-        replies.extend(begin_end(4, &[]));
+        replies.extend(begin_end(3, &[]));
+        replies.extend(begin_end(4, &["garbage"]));
         replies.extend(begin_end(5, &[]));
-        replies.extend(begin_end(6, &["$ "]));
+        replies.extend(begin_end(6, &[]));
+        replies.extend(begin_end(7, &["$ "]));
         assert_eq!(
             s.on_output(&replies),
             vec![Action::Started {
@@ -1237,7 +1497,7 @@ mod docker_harness {
     #[test]
     #[ignore = "needs docker"]
     fn queries_are_answered_once_with_theme_colours() {
-        let app = r"sleep 2; stty raw -echo; printf '\033[c\033]11;?\033\\'; ( sleep 1; kill $$ ) & cat > /tmp/r";
+        let app = r"until tmux -L t show -p -t $TMUX_PANE window-style 2>/dev/null | grep -q fafa; do sleep 0.1; done; stty raw -echo; printf '\033[c\033]11;?\033\\'; ( sleep 1; kill $$ ) & cat > /tmp/r";
         let colors = TerminalColors {
             fg: "#101820".into(),
             bg: "#fafaf0".into(),
@@ -1247,7 +1507,7 @@ mod docker_harness {
         for (image, base) in IMAGES {
             ensure_image(image, base);
             let host = start(image, app);
-            attach(&host, Some(colors.clone()), Duration::from_secs(4));
+            attach(&host, Some(colors.clone()), Duration::from_secs(6));
             let replies =
                 String::from_utf8_lossy(&docker(&["exec", &host.0, "cat", "/tmp/r"]).stdout)
                     .into_owned();
