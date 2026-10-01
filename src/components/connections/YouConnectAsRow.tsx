@@ -13,7 +13,7 @@ export function YouConnectAsRow({ connection, credential }: { connection: Connec
   const { plan, isOwn, hostIdentity, hasSharedCredential, picksOffered } = credential;
   const menu = useConnectAsMenuItem(connection, credential);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  if (!picksOffered) return null;
+  if (!picksOffered && plan.kind === "host") return null;
   const s = connectAsSummary(plan, isOwn, hostIdentity, hasSharedCredential, t);
 
   return (
