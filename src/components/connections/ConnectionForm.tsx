@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride } from "@/types";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { useIdentityStore } from "@/stores/identityStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { useKeyStore } from "@/stores/keyStore";
 import JumpHostsPanel from "./JumpHostsPanel";
 import EnvVarsPanel from "./EnvVarsPanel";
@@ -15,7 +14,6 @@ import { isCustomProxyMode, resolveProxy } from "@/services/proxy";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
 import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import { useAutosave } from "@/hooks/useAutosave";
-import { useFolderField } from "@/hooks/useFolderField";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent } from "@/services/auditReporter";
 import { useUIContributions } from "@/hooks/useUIContributions";
@@ -35,7 +33,7 @@ import { useToggle } from "@/stores/toggleSettingsStore";
 import { HOST_PROXY_MODES, useGlobalKeepalivePreset, useGlobalProxy } from "@/stores/connectivitySettingsStore";
 import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 import ProxyFields from "./ProxyFields";
-import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
+import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
 import { getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle, normalizeDistro } from "@/utils/icons";
 import { DistroIconPicker } from "./DistroIconPicker";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
@@ -88,7 +86,6 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [identityId, setIdentityId] = useState<string | null>(initial?.identity_id ?? null);
   const [keyId, setKeyId] = useState<string | null>(initial?.key_id ?? null);
-  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
   const [jumpHosts, setJumpHosts] = useState<JumpHost[]>(initial?.jump_hosts ?? []);
   const [showChaining, setShowChaining] = useState(false);
   const [envVars, setEnvVars] = useState<EnvVar[]>(initial?.env_vars ?? []);
@@ -120,7 +117,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined || initial?.proxy);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const shell = useConnectionFormShell(initial);
-  const { vaultId, pickVault, isPinned, togglePin } = shell;
+  const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
   const userEditedRef = useRef(false);
   const prevVaultIdRef = useRef(vaultId);
   const passwordDirty = useRef(false);
@@ -133,26 +130,8 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const { keys, teamKeys, loadKeys } = useKeyStore();
-  const teams = useTeamStore((s) => s.teams);
-  const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
-  const relevantIdentities = useMemo(() => {
-    return selectVaultScopedItems({
-      vaultId,
-      localItems: identities,
-      teamItems: teamIdentities,
-      teamVaultIds,
-      resolveVaultId: resolveVaultIdForSave,
-    });
-  }, [vaultId, identities, teamIdentities, teamVaultIds]);
-  const relevantKeys = useMemo(() => {
-    return selectVaultScopedItems({
-      vaultId,
-      localItems: keys,
-      teamItems: teamKeys,
-      teamVaultIds,
-      resolveVaultId: resolveVaultIdForSave,
-    });
-  }, [vaultId, keys, teamKeys, teamVaultIds]);
+  const relevantIdentities = useVaultScopedItems(vaultId, identities, teamIdentities);
+  const relevantKeys = useVaultScopedItems(vaultId, keys, teamKeys);
   useEffect(() => {
     if (prevVaultIdRef.current !== vaultId) {
       prevVaultIdRef.current = vaultId;
@@ -479,8 +458,6 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
               folderType="connection"
               tags={tags}
               onChangeTags={setTags}
-              folderId={folderId}
-              onChangeFolderId={setFolderId}
               markDirty={markDirty}
             />
           </FormSection>

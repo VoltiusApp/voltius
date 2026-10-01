@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useIdentityStore } from "@/stores/identityStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
-import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
-import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
+import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
 import IdentitySelector from "@/components/connections/IdentitySelector";
 import { formIdentifierProps } from "@/components/shared/Panel";
 import { DecisionPanel } from "./DecisionPanel";
@@ -22,7 +20,6 @@ export function UsernamePromptPanel({
 }) {
   const { t } = useTranslation();
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
-  const teams = useTeamStore((s) => s.teams);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
 
   const [identityId, setIdentityId] = useState<string | null>(null);
@@ -32,11 +29,7 @@ export function UsernamePromptPanel({
     void loadIdentities();
   }, [loadIdentities]);
 
-  const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
-  const relevantIdentities = useMemo(
-    () => selectVaultScopedItems({ vaultId: vaultId ?? "personal", localItems: identities, teamItems: teamIdentities, teamVaultIds, resolveVaultId: resolveVaultIdForSave }),
-    [vaultId, identities, teamIdentities, teamVaultIds],
-  );
+  const relevantIdentities = useVaultScopedItems(vaultId, identities, teamIdentities);
 
   const trimmed = username.trim();
   // An identity carries its own username (and auth), so picking one is enough.

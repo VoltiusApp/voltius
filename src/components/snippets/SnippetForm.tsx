@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useFolderField } from "@/hooks/useFolderField";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
 import FolderSelector from "@/components/shared/FolderSelector";
 import TagSelector from "@/components/shared/TagSelector";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
@@ -58,7 +59,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
   const pinSource = useEffectivePinSource(initial ?? { id: "", favorite: false }, "snippet");
   const isPinned = effPinned;
   const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
-  const { folders, saveFolder } = useSnippetFolderStore();
+  const { folders: personalFolders, teamSnippetFolders, saveFolder } = useSnippetFolderStore();
   const defaultVaultId = useDefaultVaultId();
   const connections = useAllConnections();
   const allConnectionTags = useMemo(
@@ -79,6 +80,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
   const [vaultId, setVaultId]   = useState(initial?.vault_id ?? defaultVaultId);
   const [remotePick, setRemotePick] = useState<{ index: number; field: "from_path" | "to_path"; isDir: boolean } | null>(null);
   const vaultTouched = useRef(false);
+  const folders = useVaultScopedItems(vaultId, personalFolders, teamSnippetFolders);
 
   // Single-script fast path: keep the plain textarea when the snippet is just one script step.
   const [forceSequence, setForceSequence] = useState(false);
@@ -150,7 +152,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
         icon="lucide:braces"
         // "Untitled snippet" is the persisted default name when left blank; kept in English until all creation sites are localized together (see i18n issue #14)
         title={isNew ? t("snippets.toolbar.newSnippet") : (name.trim() || "Untitled snippet")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultTouched.current = true; setVaultId(id); markDirty(); }} disabled={readOnly} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultTouched.current = true; if (id !== vaultId) setFolderId(null); setVaultId(id); markDirty(); }} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}
         actions={

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
-import { useFolderField } from "@/hooks/useFolderField";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
 import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import {
@@ -97,7 +96,6 @@ function KeyFormEditor({ initial, initialMode, onSubmit, onClose, onExport, onDe
   const [publicKey, setPublicKey] = useState("");
   const [passphrase, setPassphrase] = useState("");
   const [showPassphrase, setShowPassphrase] = useState(false);
-  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
   const isNew = !initial;
   const [mode, setMode] = useState<KeyFormMode>(initial ? "import" : (initialMode ?? "import"));
   const keyInfo = useMemo(() => detectKeyInfo(privateKey, publicKey), [privateKey, publicKey]);
@@ -109,7 +107,7 @@ function KeyFormEditor({ initial, initialMode, onSubmit, onClose, onExport, onDe
   const passphraseDirty = useRef(false);
   const pinKey = useKeyStore((s) => s.pinKey);
   const shell = useVaultObjectFormShell({ initial, folderType: "keychain", objectType: "key", pin: pinKey });
-  const { vaultId, pickVault, isPinned, togglePin } = shell;
+  const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
 
   const storedSecrets = useStoredSecrets(
     initial?.id,
@@ -232,8 +230,6 @@ function KeyFormEditor({ initial, initialMode, onSubmit, onClose, onExport, onDe
             folderType="keychain"
             tags={tags}
             onChangeTags={setTags}
-            folderId={folderId}
-            onChangeFolderId={setFolderId}
             markDirty={markDirty}
           />
         </FormSection>

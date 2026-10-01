@@ -27,7 +27,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
 vi.mock("@/stores/folderStore", () => ({
-  useFolderStore: () => ({ folders: h.folders, loadFolders: h.loadFolders, saveFolder: h.saveFolder }),
+  useFolderStore: () => ({ folders: h.folders, teamFolders: {}, loadFolders: h.loadFolders, saveFolder: h.saveFolder }),
 }));
 vi.mock("@/stores/keyStore", () => ({
   useKeyStore: (sel?: (s: unknown) => unknown) => {

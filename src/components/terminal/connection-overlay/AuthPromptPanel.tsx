@@ -4,10 +4,8 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
-import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
-import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
+import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
 import { Pills } from "@/components/shared/Pills";
 import IdentitySelector from "@/components/connections/IdentitySelector";
 import KeySelector from "@/components/connections/KeySelector";
@@ -36,7 +34,6 @@ export function AuthPromptPanel({
   const { t } = useTranslation();
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const { keys, teamKeys, loadKeys } = useKeyStore();
-  const teams = useTeamStore((s) => s.teams);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const authModes = useMemo(() => getAuthModes(t), [t]);
 
@@ -54,15 +51,8 @@ export function AuthPromptPanel({
     void loadKeys();
   }, [loadIdentities, loadKeys]);
 
-  const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
-  const relevantIdentities = useMemo(
-    () => selectVaultScopedItems({ vaultId: vaultId ?? "personal", localItems: identities, teamItems: teamIdentities, teamVaultIds, resolveVaultId: resolveVaultIdForSave }),
-    [vaultId, identities, teamIdentities, teamVaultIds],
-  );
-  const relevantKeys = useMemo(
-    () => selectVaultScopedItems({ vaultId: vaultId ?? "personal", localItems: keys, teamItems: teamKeys, teamVaultIds, resolveVaultId: resolveVaultIdForSave }),
-    [vaultId, keys, teamKeys, teamVaultIds],
-  );
+  const relevantIdentities = useVaultScopedItems(vaultId, identities, teamIdentities);
+  const relevantKeys = useVaultScopedItems(vaultId, keys, teamKeys);
 
   const hasAuth =
     mode === "password" ? !!password :

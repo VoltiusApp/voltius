@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import type { Folder, FolderFormData } from "@/types";
 import { useFolderStore } from "@/stores/folderStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
+import { useFolderField } from "@/hooks/useFolderField";
 import {
   useEffectivePinned,
   useEffectivePinSource,
@@ -21,6 +23,7 @@ interface EditedObject {
   vault_id?: string;
   pinned?: boolean;
   favorite?: boolean;
+  folder_id?: string | null;
 }
 
 type PinObjectType = Parameters<typeof useEffectivePinned>[1];
@@ -30,6 +33,9 @@ export interface VaultObjectFormShell {
   /** Vault chosen in the picker; also flags the form as no longer following the default. */
   pickVault: (id: string, markDirty: () => void) => void;
   folderOptions: Folder[];
+  folderId: string | null;
+  setFolderId: (id: string | null) => void;
+  keepSavedOnCancel: ReturnType<typeof useFolderField>["keepSavedOnCancel"];
   saveFolder: (data: FolderFormData) => Promise<Folder>;
   isPinned: boolean;
   togglePin: () => void;
@@ -62,8 +68,10 @@ export function useVaultObjectFormShell({
     }
   }, [isNew, defaultVaultId]);
 
-  const { folders, loadFolders, saveFolder } = useFolderStore();
-  const folderOptions = useMemo(() => folderOptionsFor(folders, folderType), [folders, folderType]);
+  const { folders, teamFolders, loadFolders, saveFolder } = useFolderStore();
+  const vaultFolders = useVaultScopedItems(vaultId, folders, teamFolders);
+  const folderOptions = useMemo(() => folderOptionsFor(vaultFolders, folderType), [vaultFolders, folderType]);
+  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
   useEffect(() => {
     void loadFolders();
   }, [loadFolders]);
@@ -79,11 +87,12 @@ export function useVaultObjectFormShell({
 
   const pickVault = useCallback((id: string, markDirty: () => void) => {
     vaultPickerTouched.current = true;
+    if (id !== vaultId) setFolderId(null);
     setVaultId(id);
     markDirty();
-  }, []);
+  }, [vaultId]);
 
-  return { vaultId, pickVault, folderOptions, saveFolder, isPinned, togglePin };
+  return { vaultId, pickVault, folderOptions, folderId, setFolderId, keepSavedOnCancel, saveFolder, isPinned, togglePin };
 }
 
 interface TagsAndFolderFieldsProps {
@@ -93,8 +102,6 @@ interface TagsAndFolderFieldsProps {
   folderType: Parameters<typeof folderOptionsFor>[1];
   tags: string[];
   onChangeTags: (next: string[]) => void;
-  folderId: string | null;
-  onChangeFolderId: (id: string | null) => void;
   markDirty: () => void;
 }
 
@@ -105,12 +112,10 @@ export function TagsAndFolderFields({
   folderType,
   tags,
   onChangeTags,
-  folderId,
-  onChangeFolderId,
   markDirty,
 }: TagsAndFolderFieldsProps) {
   const { t } = useTranslation();
-  const { vaultId, folderOptions, saveFolder } = shell;
+  const { vaultId, folderOptions, folderId, setFolderId, saveFolder } = shell;
   return (
     <>
       <div>
@@ -126,11 +131,11 @@ export function TagsAndFolderFields({
         <FolderSelector
           value={folderId}
           folders={folderOptions}
-          onChange={(id) => { markDirty(); onChangeFolderId(id); }}
+          onChange={(id) => { markDirty(); setFolderId(id); }}
           onCreateFolder={async (name) => {
             const folder = await saveFolder({ name, object_type: folderType, vault_id: resolveVaultIdForSave(vaultId) || undefined });
             markDirty();
-            onChangeFolderId(folder.id);
+            setFolderId(folder.id);
             return folder.id;
           }}
         />

@@ -21,6 +21,7 @@ function conn(over: Partial<Connection> = {}): Connection {
 
 const h = vi.hoisted(() => ({
   folders: [] as unknown[],
+  teamFolders: {} as Record<string, unknown[]>,
   saveFolder: vi.fn(async (input: unknown) => ({ id: "f-new", ...(input as object) })),
   loadFolders: vi.fn(async () => {}),
   pinConnection: vi.fn(async (_id: string, _pinned: boolean) => {}),
@@ -48,10 +49,10 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/stores/folderStore", () => ({
   useFolderStore: Object.assign(
     (sel?: (s: unknown) => unknown) => {
-      const state = { folders: h.folders, loadFolders: h.loadFolders, saveFolder: h.saveFolder };
+      const state = { folders: h.folders, teamFolders: h.teamFolders, loadFolders: h.loadFolders, saveFolder: h.saveFolder };
       return sel ? sel(state) : state;
     },
-    { getState: () => ({ folders: h.folders, loadFolders: h.loadFolders, saveFolder: h.saveFolder }) },
+    { getState: () => ({ folders: h.folders, teamFolders: h.teamFolders, loadFolders: h.loadFolders, saveFolder: h.saveFolder }) },
   ),
 }));
 vi.mock("@/stores/connectionStore", () => ({
@@ -211,6 +212,12 @@ beforeEach(() => {
     { id: "f1", name: "One", object_type: "connection", vault_id: "personal" },
     { id: "s1", name: "Snip", object_type: "snippet", vault_id: "personal" },
   ];
+  h.teamFolders = {
+    "team-1": [
+      { id: "t1", name: "Prod", object_type: "connection", vault_id: "team-1" },
+      { id: "t2", name: "Staging", object_type: "connection", vault_id: "team-1" },
+    ],
+  };
   h.teams = [];
   h.effectivePinned = false;
   h.defaultVaultId = "personal";
@@ -259,6 +266,29 @@ test.each([
   });
   expect(h.saveFolder).toHaveBeenCalledWith({ name: "made", object_type: "connection", vault_id: "personal" });
   expect(document.querySelector("[data-folder-selector]")?.getAttribute("data-value")).toBe("f-new");
+});
+
+test.each([
+  ["ssh", renderSsh],
+  ["serial", renderSerial],
+])("%s form lists the team vault's folders and keeps the object's team folder", (_kind, mount) => {
+  h.teams = [{ id: "team-1" }];
+  mount({ initial: conn({ vault_id: "team-1", folder_id: "t2" }) });
+  const selector = document.querySelector("[data-folder-selector]");
+  expect(selector?.getAttribute("data-count")).toBe("2");
+  expect(selector?.getAttribute("data-value")).toBe("t2");
+});
+
+test.each([
+  ["ssh", renderSsh],
+  ["serial", renderSerial],
+])("%s form clears the folder when the vault changes", (_kind, mount) => {
+  h.teams = [{ id: "team-1" }];
+  mount({ initial: conn({ folder_id: "f1" }) });
+  fireEvent.click(document.querySelector("[data-vault-picker]")!);
+  const selector = document.querySelector("[data-folder-selector]");
+  expect(selector?.getAttribute("data-value")).toBe("");
+  expect(selector?.getAttribute("data-count")).toBe("2");
 });
 
 // ── shared header: vault picker + pin ───────────────────────────────────────
