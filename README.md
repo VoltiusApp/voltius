@@ -107,7 +107,7 @@ Community-maintained by [jing2uo](https://github.com/jing2uo) on [FlatPark](http
 brew install --cask voltiusapp/voltius/voltius
 ```
 
-Voltius is ad-hoc signed but not yet notarized (no Apple Developer account yet).
+Voltius is signed with its own certificate but not notarized (no Apple Developer account yet).
 If macOS Gatekeeper blocks the first launch, right-click the app and choose
 **Open**. To clear the quarantine flag from an existing installation instead,
 run:
