@@ -991,3 +991,278 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod docker_harness {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::process::{Command, Stdio};
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+
+    const IMAGES: &[(&str, &str)] = &[
+        ("tmuxh:ubuntu-22-04", "ubuntu:22.04"),
+        ("tmuxh:debian-bookworm", "debian:bookworm"),
+        ("tmuxh:ubuntu-24-04", "ubuntu:24.04"),
+        ("tmuxh:debian-trixie-slim", "debian:trixie-slim"),
+        ("tmuxh:ubuntu-26-04", "ubuntu:26.04"),
+    ];
+
+    fn docker(args: &[&str]) -> std::process::Output {
+        Command::new("docker")
+            .args(args)
+            .output()
+            .expect("docker runs")
+    }
+
+    fn ensure_image(tag: &str, base: &str) {
+        if docker(&["image", "inspect", tag]).status.success() {
+            return;
+        }
+        let dockerfile = format!(
+            "FROM {base}\nRUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y tmux >/dev/null && rm -rf /var/lib/apt/lists/*\n"
+        );
+        let mut child = Command::new("docker")
+            .args(["build", "-q", "-t", tag, "-"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(dockerfile.as_bytes())
+            .unwrap();
+        assert!(child.wait().unwrap().success(), "build {tag}");
+    }
+
+    struct Host(String);
+
+    impl Drop for Host {
+        fn drop(&mut self) {
+            docker(&["rm", "-f", &self.0]);
+        }
+    }
+
+    fn start(image: &str, workload: &str) -> Host {
+        let name = format!(
+            "voltius-cc-{}-{}",
+            std::process::id(),
+            image.replace([':', '.'], "-")
+        );
+        docker(&["rm", "-f", &name]);
+        let env = format!("W={workload}");
+        let boot = r#"tmux -L t -f /dev/null new-session -d -s s -x 80 -y 24 "$W"; sleep 600"#;
+        assert!(
+            docker(&["run", "-d", "--name", &name, "-e", &env, image, "sh", "-c", boot])
+                .status
+                .success()
+        );
+        let host = Host(name);
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !docker(&["exec", &host.0, "tmux", "-L", "t", "has-session", "-t", "s"])
+            .status
+            .success()
+        {
+            assert!(Instant::now() < deadline, "tmux never came up");
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        host
+    }
+
+    fn attach(
+        host: &Host,
+        colors: Option<TerminalColors>,
+        settle: Duration,
+    ) -> (vt100::Parser, Vec<String>) {
+        let mut child = Command::new("docker")
+            .args([
+                "exec", "-i", &host.0, "tmux", "-L", "t", "-C", "attach", "-t", "s",
+            ])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut stdin = child.stdin.take().unwrap();
+        let mut stdout = child.stdout.take().unwrap();
+        let (tx, rx) = mpsc::channel::<Vec<u8>>();
+        std::thread::spawn(move || {
+            let mut buf = [0u8; 65536];
+            while let Ok(n) = stdout.read(&mut buf) {
+                if n == 0 || tx.send(buf[..n].to_vec()).is_err() {
+                    break;
+                }
+            }
+        });
+        let mut session = ControlSession::new("s".into(), 80, 24, colors);
+        let mut parser = vt100::Parser::new(24, 80, 100_000);
+        let mut started = Vec::new();
+        let mut feed = |bytes: &[u8], parser: &mut vt100::Parser, started: &mut Vec<String>| {
+            for action in session.on_output(bytes) {
+                match action {
+                    Action::Emit(b) => parser.process(&b),
+                    Action::Send(b) => stdin.write_all(&b).unwrap(),
+                    Action::Started { tmux } => started.push(tmux),
+                    Action::WindowChange(..) => {}
+                }
+            }
+        };
+        feed(b"\x1bP1000p", &mut parser, &mut started);
+        let deadline = Instant::now() + settle;
+        while Instant::now() < deadline {
+            if let Ok(chunk) = rx.recv_timeout(Duration::from_millis(50)) {
+                feed(&chunk, &mut parser, &mut started);
+            }
+        }
+        let _ = child.kill();
+        (parser, started)
+    }
+
+    fn tmux_screen(host: &Host) -> Vec<String> {
+        let out = docker(&[
+            "exec",
+            &host.0,
+            "tmux",
+            "-L",
+            "t",
+            "capture-pane",
+            "-p",
+            "-t",
+            "s",
+        ]);
+        normalise(&String::from_utf8_lossy(&out.stdout))
+    }
+
+    fn normalise(text: &str) -> Vec<String> {
+        let mut rows: Vec<String> = text.lines().map(|l| l.trim_end().to_string()).collect();
+        while rows.last().is_some_and(|r| r.is_empty()) {
+            rows.pop();
+        }
+        rows
+    }
+
+    fn all_rows(parser: &mut vt100::Parser) -> Vec<String> {
+        let screen = parser.screen_mut();
+        screen.set_scrollback(usize::MAX);
+        let max = screen.scrollback();
+        let mut rows = Vec::new();
+        for offset in (1..=max).rev() {
+            screen.set_scrollback(offset);
+            rows.push(screen.rows(0, 80).next().unwrap_or_default());
+        }
+        screen.set_scrollback(0);
+        rows.extend(screen.rows(0, 80));
+        rows
+    }
+
+    #[test]
+    #[ignore = "needs docker"]
+    fn mid_burst_attach_is_gap_free_and_matches_tmux() {
+        for (image, base) in IMAGES {
+            ensure_image(image, base);
+            let host = start(
+                image,
+                "i=0; while [ $i -lt 20000 ]; do i=$((i+1)); echo L$i; done; sleep 600",
+            );
+            std::thread::sleep(Duration::from_millis(150));
+            let (mut parser, started) = attach(&host, None, Duration::from_secs(6));
+            assert_eq!(started.len(), 1, "{image}: started once");
+            assert_eq!(
+                normalise(&parser.screen().contents()),
+                tmux_screen(&host),
+                "{image}: screen"
+            );
+            let numbers: Vec<u32> = all_rows(&mut parser)
+                .iter()
+                .filter_map(|r| r.trim_end().strip_prefix('L')?.parse().ok())
+                .collect();
+            assert!(numbers.len() > 1000, "{image}: history present");
+            assert!(
+                numbers.windows(2).all(|w| w[1] == w[0] + 1),
+                "{image}: no gap or duplicate"
+            );
+            assert_eq!(*numbers.last().unwrap(), 20000, "{image}: last line");
+        }
+    }
+
+    #[test]
+    #[ignore = "needs docker"]
+    fn fresh_session_shows_the_prompt_once() {
+        for (image, base) in IMAGES {
+            ensure_image(image, base);
+            let host = start(image, "PS1=PROMPT; export PS1; exec sh");
+            let (mut parser, _) = attach(&host, None, Duration::from_secs(2));
+            let rows = all_rows(&mut parser);
+            assert_eq!(
+                rows.iter().filter(|r| r.contains("PROMPT")).count(),
+                1,
+                "{image}: {rows:?}"
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "needs docker"]
+    fn alternate_screen_app_is_rebuilt_with_its_modes() {
+        let app = r"printf 'NORMAL1\nNORMAL2\n'; printf '\033[?1049h\033[3;8r\033[?1h\033=\033[?1002h\033[?1006h\033[5;3HALTSCREEN'; sleep 600";
+        for (image, base) in IMAGES {
+            ensure_image(image, base);
+            let host = start(image, app);
+            std::thread::sleep(Duration::from_millis(300));
+            let (mut parser, _) = attach(&host, None, Duration::from_secs(2));
+            let screen = parser.screen();
+            assert!(screen.alternate_screen(), "{image}: alt screen");
+            assert!(screen.application_cursor(), "{image}: DECCKM");
+            assert_eq!(
+                screen.mouse_protocol_mode(),
+                vt100::MouseProtocolMode::ButtonMotion,
+                "{image}"
+            );
+            assert_eq!(
+                normalise(&screen.contents()),
+                tmux_screen(&host),
+                "{image}: alt contents"
+            );
+            parser.process(b"\x1b[?1049l");
+            let normal = normalise(&parser.screen().contents());
+            assert!(
+                normal.iter().any(|r| r == "NORMAL1") && normal.iter().any(|r| r == "NORMAL2"),
+                "{image}: {normal:?}"
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "needs docker"]
+    fn queries_are_answered_once_with_theme_colours() {
+        let app = r"sleep 2; stty raw -echo; printf '\033[c\033]11;?\033\\'; ( sleep 1; kill $$ ) & cat > /tmp/r";
+        let colors = TerminalColors {
+            fg: "#101820".into(),
+            bg: "#fafaf0".into(),
+            selection_fg: "#101820".into(),
+            selection_bg: "#c8d0e0".into(),
+        };
+        for (image, base) in IMAGES {
+            ensure_image(image, base);
+            let host = start(image, app);
+            attach(&host, Some(colors.clone()), Duration::from_secs(4));
+            let replies =
+                String::from_utf8_lossy(&docker(&["exec", &host.0, "cat", "/tmp/r"]).stdout)
+                    .into_owned();
+            assert_eq!(
+                replies.matches("\x1b[?1;2").count(),
+                1,
+                "{image}: one DA reply in {replies:?}"
+            );
+            assert!(
+                replies.contains("\x1b]11;rgb:fa"),
+                "{image}: theme background in {replies:?}"
+            );
+            assert!(
+                !replies.contains("rgb:0000/0000/0000"),
+                "{image}: no black default"
+            );
+        }
+    }
+}
