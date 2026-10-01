@@ -56,7 +56,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
       <MoveToFolderSheet
         targets={buildMoveTargets(allSnippetFolders, "snippet", currentVaultId, compareStrings)}
         currentFolderId={snippet.folder_id ?? null}
-        onPick={(folderId) => { void updateSnippet(snippetId, { ...snippetToForm(snippet), folder_id: folderId ?? undefined }); }}
+        onPick={(folderId) => updateSnippet(snippetId, { ...snippetToForm(snippet), folder_id: folderId ?? undefined })}
         onClose={closeSheet}
       />
     );

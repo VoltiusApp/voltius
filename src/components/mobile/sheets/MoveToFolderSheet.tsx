@@ -2,13 +2,17 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import type { MoveTarget } from "@/components/mobile/folders/mobileFolderCore";
+import { unlessMoveCancelled } from "@/services/teamObjectPersistence";
+import { notify } from "@/services/saveFile";
+
+const reportError = unlessMoveCancelled((message) => notify("error", message));
 
 export default function MoveToFolderSheet({
   targets, currentFolderId, onPick, onClose,
 }: {
   targets: MoveTarget[];
   currentFolderId: string | null;
-  onPick: (folderId: string | null) => void;
+  onPick: (folderId: string | null) => Promise<unknown>;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -22,7 +26,7 @@ export default function MoveToFolderSheet({
             data-move-target={target.id ?? "root"}
             className="w-full flex items-center gap-2 px-3 py-3 rounded-xl text-left active:bg-(--t-bg-card)"
             style={{ paddingLeft: `${12 + target.depth * 16}px` }}
-            onClick={() => { onPick(target.id); onClose(); }}
+            onClick={() => { onPick(target.id).catch(reportError); onClose(); }}
           >
             <Icon icon={target.id === null ? "lucide:folder-x" : "lucide:folder"} width={18} className="shrink-0 text-(--t-text-dim)" />
             <span className="flex-1 min-w-0 text-sm font-medium text-(--t-text-primary) truncate">{target.id === null ? t("shared.folderSelector.noFolder") : target.name}</span>

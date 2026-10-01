@@ -68,7 +68,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
       <MoveToFolderSheet
         targets={buildMoveTargets(allFolders, "port_forwarding", vaultId, compareStrings)}
         currentFolderId={rule.folder_id ?? null}
-        onPick={(folderId) => { void updateRule(rule.id, { ...fields(rule, rule.vault_id), folder_id: folderId ?? undefined }); }}
+        onPick={(folderId) => updateRule(rule.id, { ...fields(rule, rule.vault_id), folder_id: folderId ?? undefined })}
         onClose={onClose}
       />
     );
