@@ -145,6 +145,218 @@ pub fn decode_octal(data: &[u8]) -> Vec<u8> {
     out
 }
 
+const SEND_KEYS_CHUNK: usize = 256;
+
+pub const STATE_FORMAT: &str = "#{pane_id} #{version} #{alternate_on} #{alternate_saved_x} #{alternate_saved_y} #{cursor_x} #{cursor_y} #{cursor_flag} #{insert_flag} #{keypad_cursor_flag} #{keypad_flag} #{mouse_standard_flag} #{mouse_button_flag} #{mouse_all_flag} #{mouse_sgr_flag} #{mouse_utf8_flag} #{wrap_flag} #{origin_flag} #{scroll_region_upper} #{scroll_region_lower} #{history_size} #{pane_height}";
+
+const SYNC_RESET: &str = "\x1b[?1049l\x1b[r\x1b[m\x1b[?6l\x1b[?7h\x1b[4l\x1b[?1l\x1b>\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?25h\x1b[H\x1b[2J\x1b[3J";
+
+#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalColors {
+    pub fg: String,
+    pub bg: String,
+    pub selection_fg: String,
+    pub selection_bg: String,
+}
+
+impl TerminalColors {
+    pub fn is_valid(&self) -> bool {
+        [&self.fg, &self.bg, &self.selection_fg, &self.selection_bg]
+            .iter()
+            .all(|c| {
+                c.len() == 7 && c.starts_with('#') && c[1..].bytes().all(|b| b.is_ascii_hexdigit())
+            })
+    }
+}
+
+pub fn encode_input(target: &str, bytes: &[u8]) -> Vec<String> {
+    bytes
+        .chunks(SEND_KEYS_CHUNK)
+        .map(|chunk| {
+            let hex: Vec<String> = chunk.iter().map(|b| format!("{b:02x}")).collect();
+            format!("send-keys -H -t {target} {}\n", hex.join(" "))
+        })
+        .collect()
+}
+
+pub fn encode_resize(cols: u32, rows: u32) -> String {
+    format!("refresh-client -C {cols}x{rows}\n")
+}
+
+pub fn window_style_command(target: &str, colors: &TerminalColors) -> String {
+    format!(
+        "set -p -t {target} window-style 'fg={},bg={}'\n",
+        colors.fg, colors.bg
+    )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ReplyKind {
+    Ignore,
+    State,
+    History,
+    Saved,
+    Visible,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct PaneState {
+    pub pane_id: String,
+    pub version: String,
+    pub alternate_on: bool,
+    pub saved_x: u32,
+    pub saved_y: u32,
+    pub cursor_x: u32,
+    pub cursor_y: u32,
+    pub cursor_visible: bool,
+    pub insert: bool,
+    pub app_cursor: bool,
+    pub app_keypad: bool,
+    pub mouse_standard: bool,
+    pub mouse_button: bool,
+    pub mouse_all: bool,
+    pub mouse_sgr: bool,
+    pub mouse_utf8: bool,
+    pub wrap: bool,
+    pub origin: bool,
+    pub scroll_upper: u32,
+    pub scroll_lower: u32,
+    pub history_size: u32,
+    pub pane_height: u32,
+}
+
+impl PaneState {
+    pub fn parse(line: &[u8]) -> Option<Self> {
+        let text = std::str::from_utf8(line).ok()?;
+        let f: Vec<&str> = text.split(' ').collect();
+        if f.len() != 22 {
+            return None;
+        }
+        let n = |i: usize| f[i].parse::<u32>().unwrap_or(0);
+        let b = |i: usize| f[i] == "1";
+        Some(Self {
+            pane_id: f[0].to_string(),
+            version: f[1].to_string(),
+            alternate_on: b(2),
+            saved_x: n(3),
+            saved_y: n(4),
+            cursor_x: n(5),
+            cursor_y: n(6),
+            cursor_visible: b(7),
+            insert: b(8),
+            app_cursor: b(9),
+            app_keypad: b(10),
+            mouse_standard: b(11),
+            mouse_button: b(12),
+            mouse_all: b(13),
+            mouse_sgr: b(14),
+            mouse_utf8: b(15),
+            wrap: b(16),
+            origin: b(17),
+            scroll_upper: n(18),
+            scroll_lower: n(19),
+            history_size: n(20),
+            pane_height: n(21),
+        })
+    }
+}
+
+pub fn sync_command(
+    key: &str,
+    cols: u32,
+    rows: u32,
+    colors: Option<&TerminalColors>,
+) -> (String, Vec<ReplyKind>) {
+    let mut cmds = vec![(encode_resize(cols, rows), ReplyKind::Ignore)];
+    if let Some(c) = colors {
+        cmds.push((window_style_command(key, c), ReplyKind::Ignore));
+    }
+    cmds.push((
+        format!("display -p -t {key} '{STATE_FORMAT}'"),
+        ReplyKind::State,
+    ));
+    cmds.push((
+        format!("capture-pane -p -e -J -t {key} -S -50000 -E -1"),
+        ReplyKind::History,
+    ));
+    cmds.push((
+        format!("capture-pane -p -e -q -a -t {key}"),
+        ReplyKind::Saved,
+    ));
+    cmds.push((format!("capture-pane -p -e -t {key}"), ReplyKind::Visible));
+    let line: Vec<&str> = cmds.iter().map(|(c, _)| c.trim_end()).collect();
+    (
+        format!("{}\n", line.join(" ; ")),
+        cmds.into_iter().map(|(_, k)| k).collect(),
+    )
+}
+
+fn cup(out: &mut Vec<u8>, y: u32, x: u32) {
+    out.extend_from_slice(format!("\x1b[{};{}H", y + 1, x + 1).as_bytes());
+}
+
+pub fn sync_bytes(
+    s: &PaneState,
+    history: &[Vec<u8>],
+    saved: &[Vec<u8>],
+    visible: &[Vec<u8>],
+) -> Vec<u8> {
+    let mut out = SYNC_RESET.as_bytes().to_vec();
+    let history = if s.history_size == 0 { &[][..] } else { history };
+    let normal = if s.alternate_on { saved } else { visible };
+    let blank = Vec::new();
+    let padding = (s.pane_height as usize).saturating_sub(normal.len());
+    let lines = history
+        .iter()
+        .chain(normal)
+        .chain(std::iter::repeat(&blank).take(padding));
+    for (i, line) in lines.enumerate() {
+        if i > 0 {
+            out.extend_from_slice(b"\r\n");
+        }
+        out.extend_from_slice(line);
+        out.extend_from_slice(b"\x1b[m");
+    }
+    if s.alternate_on {
+        cup(&mut out, s.saved_y, s.saved_x);
+        out.extend_from_slice(b"\x1b[?1049h");
+        for (y, line) in visible.iter().enumerate() {
+            cup(&mut out, y as u32, 0);
+            out.extend_from_slice(line);
+            out.extend_from_slice(b"\x1b[m");
+        }
+    }
+    out.extend_from_slice(format!("\x1b[{};{}r", s.scroll_upper + 1, s.scroll_lower + 1).as_bytes());
+    if s.origin {
+        out.extend_from_slice(b"\x1b[?6h");
+    }
+    let y = if s.origin {
+        s.cursor_y.saturating_sub(s.scroll_upper)
+    } else {
+        s.cursor_y
+    };
+    cup(&mut out, y, s.cursor_x);
+    let modes: [(bool, &[u8]); 10] = [
+        (!s.wrap, b"\x1b[?7l"),
+        (s.insert, b"\x1b[4h"),
+        (s.app_cursor, b"\x1b[?1h"),
+        (s.app_keypad, b"\x1b="),
+        (s.mouse_standard, b"\x1b[?1000h"),
+        (s.mouse_button, b"\x1b[?1002h"),
+        (s.mouse_all, b"\x1b[?1003h"),
+        (s.mouse_utf8, b"\x1b[?1005h"),
+        (s.mouse_sgr, b"\x1b[?1006h"),
+        (!s.cursor_visible, b"\x1b[?25l"),
+    ];
+    for (on, seq) in modes {
+        if on {
+            out.extend_from_slice(seq);
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -269,5 +481,189 @@ mod tests {
         d.feed(b"\x1bP1000p");
         assert!(d.feed(b"%exit\r\n\x1b\\").is_empty());
         assert!(d.feed(b"%output %0 late\r\n").is_empty());
+    }
+
+    fn colors() -> TerminalColors {
+        TerminalColors {
+            fg: "#101820".into(),
+            bg: "#fafaf0".into(),
+            selection_fg: "#101820".into(),
+            selection_bg: "#c8d0e0".into(),
+        }
+    }
+
+    const STATE_3_2A: &[u8] =
+        b"%0 3.2a 0 4294967295 4294967295 2 0 1 0 0 0 0 0 0 0 0 1 0 0 29 0 30";
+
+    #[test]
+    fn encode_input_is_hex_send_keys_in_bounded_chunks() {
+        assert_eq!(
+            encode_input("%0", b"ls\r"),
+            vec!["send-keys -H -t %0 6c 73 0d\n".to_string()]
+        );
+        let cmds = encode_input("%3", &[0xc3; 300]);
+        assert_eq!(cmds.len(), 2);
+        assert_eq!(cmds[0].matches("c3").count(), 256);
+        assert_eq!(cmds[1].matches("c3").count(), 44);
+        assert!(cmds
+            .iter()
+            .all(|c| c.starts_with("send-keys -H -t %3 ") && c.ends_with('\n')));
+    }
+
+    #[test]
+    fn encode_input_chunks_a_megabyte_paste() {
+        let cmds = encode_input("%0", &vec![b'a'; 1 << 20]);
+        assert_eq!(cmds.len(), 4096);
+        assert!(cmds.iter().all(|c| c.len() < 1100));
+    }
+
+    #[test]
+    fn resize_and_window_style_commands() {
+        assert_eq!(encode_resize(120, 40), "refresh-client -C 120x40\n");
+        assert_eq!(
+            window_style_command("voltius_s1", &colors()),
+            "set -p -t voltius_s1 window-style 'fg=#101820,bg=#fafaf0'\n"
+        );
+    }
+
+    #[test]
+    fn only_six_digit_hex_colours_are_valid() {
+        assert!(colors().is_valid());
+        for bad in ["red", "#fff", "#12345g", "#1234567", "'; rm -rf /", ""] {
+            let c = TerminalColors {
+                bg: bad.into(),
+                ..colors()
+            };
+            assert!(!c.is_valid(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn pane_state_parses_the_real_reply() {
+        let s = PaneState::parse(STATE_3_2A).expect("parses");
+        assert_eq!(s.pane_id, "%0");
+        assert_eq!(s.version, "3.2a");
+        assert!(!s.alternate_on);
+        assert_eq!((s.cursor_x, s.cursor_y), (2, 0));
+        assert!(s.cursor_visible && s.wrap && !s.origin);
+        assert_eq!((s.scroll_upper, s.scroll_lower), (0, 29));
+        assert_eq!((s.history_size, s.pane_height), (0, 30));
+        assert!(PaneState::parse(b"%0 3.2a 0").is_none());
+    }
+
+    #[test]
+    fn sync_command_is_one_atomic_line_with_matching_reply_kinds() {
+        let (line, kinds) = sync_command("voltius_s1", 100, 30, Some(&colors()));
+        assert!(line.ends_with('\n'));
+        assert_eq!(line.matches('\n').count(), 1);
+        let cmds: Vec<&str> = line.trim_end().split(" ; ").collect();
+        assert_eq!(cmds.len(), kinds.len());
+        assert_eq!(cmds[0], "refresh-client -C 100x30");
+        assert!(cmds[1].starts_with("set -p -t voltius_s1 window-style"));
+        assert_eq!(cmds[2], format!("display -p -t voltius_s1 '{STATE_FORMAT}'"));
+        assert_eq!(cmds[3], "capture-pane -p -e -J -t voltius_s1 -S -50000 -E -1");
+        assert_eq!(cmds[4], "capture-pane -p -e -q -a -t voltius_s1");
+        assert_eq!(cmds[5], "capture-pane -p -e -t voltius_s1");
+        use ReplyKind::*;
+        assert_eq!(kinds, vec![Ignore, Ignore, State, History, Saved, Visible]);
+        let (bare, bare_kinds) = sync_command("voltius_s1", 80, 24, None);
+        assert!(!bare.contains("window-style"));
+        assert_eq!(bare_kinds, vec![Ignore, State, History, Saved, Visible]);
+    }
+
+    fn rows(lines: &[&str]) -> Vec<Vec<u8>> {
+        lines.iter().map(|l| l.as_bytes().to_vec()).collect()
+    }
+
+    fn state(height: u32) -> PaneState {
+        PaneState {
+            pane_id: "%0".into(),
+            cursor_visible: true,
+            wrap: true,
+            scroll_lower: height - 1,
+            pane_height: height,
+            ..PaneState::default()
+        }
+    }
+
+    #[test]
+    fn sync_writes_history_then_screen_then_cursor() {
+        let s = PaneState {
+            history_size: 2,
+            cursor_x: 3,
+            cursor_y: 1,
+            ..state(2)
+        };
+        let bytes = sync_bytes(&s, &rows(&["h1", "h2"]), &[], &rows(&["s1", "s2"]));
+        let text = String::from_utf8(bytes).unwrap();
+        assert!(text.starts_with(SYNC_RESET));
+        let body = &text[SYNC_RESET.len()..];
+        assert!(body.starts_with("h1\x1b[m\r\nh2\x1b[m\r\ns1\x1b[m\r\ns2\x1b[m"));
+        assert!(body.ends_with("\x1b[1;2r\x1b[2;4H"));
+        assert!(!body.contains("?1049h"));
+    }
+
+    #[test]
+    fn sync_ignores_history_when_history_size_is_zero() {
+        let s = state(2);
+        let text =
+            String::from_utf8(sync_bytes(&s, &rows(&["$ "]), &[], &rows(&["$ ", ""]))).unwrap();
+        assert_eq!(text.matches("$ ").count(), 1);
+    }
+
+    #[test]
+    fn sync_pads_the_normal_screen_to_pane_height() {
+        let s = PaneState {
+            history_size: 1,
+            ..state(3)
+        };
+        let text = String::from_utf8(sync_bytes(&s, &rows(&["h"]), &[], &rows(&["$ "]))).unwrap();
+        let body = &text[SYNC_RESET.len()..];
+        assert_eq!(body.matches("\r\n").count(), 3);
+    }
+
+    #[test]
+    fn sync_rebuilds_the_alternate_screen_over_the_saved_one() {
+        let s = PaneState {
+            alternate_on: true,
+            saved_x: 0,
+            saved_y: 2,
+            cursor_x: 2,
+            cursor_y: 4,
+            app_cursor: true,
+            app_keypad: true,
+            mouse_button: true,
+            mouse_sgr: true,
+            scroll_upper: 2,
+            scroll_lower: 7,
+            ..state(10)
+        };
+        let text = String::from_utf8(sync_bytes(
+            &s,
+            &[],
+            &rows(&["n1", "n2"]),
+            &rows(&["", "", "", "", "  ALT"]),
+        ))
+        .unwrap();
+        let alt = text.find("\x1b[?1049h").expect("enters alternate screen");
+        assert!(text[..alt].contains("n1\x1b[m\r\nn2"));
+        assert!(text[..alt].ends_with("\x1b[3;1H"));
+        assert!(text[alt..].contains("\x1b[5;1H  ALT"));
+        let tail = &text[text.rfind("\x1b[3;8r").expect("scroll region")..];
+        assert_eq!(tail, "\x1b[3;8r\x1b[5;3H\x1b[?1h\x1b=\x1b[?1002h\x1b[?1006h");
+    }
+
+    #[test]
+    fn sync_restores_origin_relative_cursor_and_hidden_cursor() {
+        let s = PaneState {
+            origin: true,
+            cursor_visible: false,
+            scroll_upper: 2,
+            scroll_lower: 7,
+            cursor_y: 4,
+            ..state(10)
+        };
+        let text = String::from_utf8(sync_bytes(&s, &[], &[], &rows(&[""]))).unwrap();
+        assert!(text.ends_with("\x1b[3;8r\x1b[?6h\x1b[3;1H\x1b[?25l"));
     }
 }
