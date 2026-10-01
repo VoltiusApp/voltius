@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
@@ -129,6 +129,12 @@ export function MenuItemList({
 
 // ── Right-click context menu (fixed, portal) ──────────────────────────────────
 
+const VIEWPORT_MARGIN = 8;
+
+export function fitWithin(start: number, size: number, limit: number): number {
+  return Math.min(start, Math.max(VIEWPORT_MARGIN, limit - size - VIEWPORT_MARGIN));
+}
+
 interface ContextMenuProps {
   items: ContextMenuItem[];
   pos: { x: number; y: number };
@@ -139,6 +145,12 @@ interface ContextMenuProps {
 export function ContextMenu({ items, pos, onClose, direction = "down" }: ContextMenuProps) {
   const uiScale = useUIStore((s) => s.uiScale);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [left, setLeft] = useState(pos.x);
+
+  useLayoutEffect(() => {
+    const width = menuRef.current?.getBoundingClientRect().width ?? 0;
+    setLeft(fitWithin(pos.x, width, window.innerWidth));
+  }, [pos.x, uiScale, items]);
 
   // Closing from window capture rather than behind a full-screen backdrop: the
   // backdrop swallowed the next right-click, so with one menu open, right-
@@ -171,7 +183,7 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
       data-menu-portal=""
       className="surface-float fixed z-100 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
       style={{
-        left: pos.x,
+        left,
         maxHeight,
         transform: `scale(${uiScale})`,
         ...placement,
