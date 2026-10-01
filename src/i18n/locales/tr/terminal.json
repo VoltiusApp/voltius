@@ -292,6 +292,16 @@
         "choose": "Başka bir kimlik seç",
         "useHostNamed": "Bu sefer {{name}} (sunucu) kullan",
         "useHost": "Bu sefer sunucunun kimlik bilgisini kullan"
+      },
+      "saveTarget": {
+        "rememberFor": "Şunun için hatırla",
+        "saveFor": "Şunun için kaydet",
+        "thisHost": "Bu sunucu",
+        "allVaultHosts": "Tüm {{vault}} sunucuları",
+        "everyone": "Herkes",
+        "onlyMe": "Yalnızca ben",
+        "ownNote": "Yalnızca siz. Ekip arkadaşlarınız sunucunun kendi ayarlarını kullanmaya devam eder.",
+        "teamNote": "Herkes, {{host}} sunucusunu tüm ekip için günceller. Yalnızca ben, sunucuyu olduğu gibi bırakır."
       }
     },
     "statusBar": {

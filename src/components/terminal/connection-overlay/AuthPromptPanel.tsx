@@ -2,16 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
 import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { Pills } from "@/components/shared/Pills";
-import IdentitySelector from "@/components/connections/IdentitySelector";
 import KeySelector from "@/components/connections/KeySelector";
 import { DecisionPanel } from "./DecisionPanel";
+import { OverlayIdentityField } from "./OverlayIdentityField";
+import { identityOverride, type SaveTarget } from "./saveTarget";
 import type { ConnectRetryOverride } from "./types";
 
 export type AuthMode = "password" | "key" | "identity";
@@ -26,17 +26,20 @@ function getAuthModes(t: TFunction) {
 
 export function AuthPromptPanel({
   vaultId,
+  connectionId,
+  hostName,
   initialMode,
   onSubmit,
   onCancel,
 }: {
   vaultId?: string;
+  connectionId?: string;
+  hostName?: string;
   initialMode?: AuthMode;
   onSubmit: (override: ConnectRetryOverride, save: boolean) => void;
   onCancel?: () => void;
 }) {
   const { t } = useTranslation();
-  const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const { keys, teamKeys, loadKeys } = useKeyStore();
   const teams = useTeamStore((s) => s.teams);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
@@ -44,6 +47,7 @@ export function AuthPromptPanel({
 
   const [mode, setMode] = useState<AuthMode>(initialMode ?? "password");
   const [identityId, setIdentityId] = useState<string | null>(null);
+  const [saveTarget, setSaveTarget] = useState<SaveTarget>("host");
   const [keyId, setKeyId] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [privateKey, setPrivateKey] = useState("");
@@ -52,15 +56,10 @@ export function AuthPromptPanel({
   const [showPassphrase, setShowPassphrase] = useState(false);
 
   useEffect(() => {
-    void loadIdentities();
     void loadKeys();
-  }, [loadIdentities, loadKeys]);
+  }, [loadKeys]);
 
   const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
-  const relevantIdentities = useMemo(
-    () => selectVaultScopedItems({ vaultId: vaultId ?? "personal", localItems: identities, teamItems: teamIdentities, teamVaultIds, resolveVaultId: resolveVaultIdForSave }),
-    [vaultId, identities, teamIdentities, teamVaultIds],
-  );
   const relevantKeys = useMemo(
     () => selectVaultScopedItems({ vaultId: vaultId ?? "personal", localItems: keys, teamItems: teamKeys, teamVaultIds, resolveVaultId: resolveVaultIdForSave }),
     [vaultId, keys, teamKeys, teamVaultIds],
@@ -72,7 +71,7 @@ export function AuthPromptPanel({
     !!identityId;
 
   const buildOverride = (): ConnectRetryOverride => {
-    if (mode === "identity") return { identityId };
+    if (mode === "identity") return identityId ? identityOverride(identityId, saveTarget) : { identityId };
     if (mode === "key") return keyId ? { keyId } : { privateKey: privateKey.trim() || undefined, passphrase: passphrase || undefined };
     return { password: password || undefined };
   };
@@ -97,7 +96,7 @@ export function AuthPromptPanel({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasAuth, mode, identityId, keyId, password, privateKey, passphrase, onSubmit]);
+  }, [hasAuth, mode, identityId, saveTarget, keyId, password, privateKey, passphrase, onSubmit]);
 
   return (
     <DecisionPanel
@@ -191,10 +190,14 @@ export function AuthPromptPanel({
         )}
 
         {mode === "identity" && (
-          <IdentitySelector
-            value={identityId}
-            identities={relevantIdentities}
-            onChange={setIdentityId}
+          <OverlayIdentityField
+            vaultId={vaultId}
+            connectionId={connectionId}
+            hostName={hostName ?? ""}
+            identityId={identityId}
+            onIdentityChange={setIdentityId}
+            saveTarget={saveTarget}
+            onSaveTargetChange={setSaveTarget}
             onGoToKeychain={goToKeychain}
           />
         )}

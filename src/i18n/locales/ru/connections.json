@@ -161,7 +161,9 @@
       "title": "Личность",
       "noIdentityInline": "Без личности — данные указаны вручную",
       "badgeKey": "ключ",
-      "badgePwd": "пароль"
+      "badgePwd": "пароль",
+      "sharedGroup": "Хранилище {{vault}} · общее",
+      "ownGroup": "Ваши личности · только вы"
     },
     "jumpHostsPanel": {
       "dragToReorderAriaLabel": "Перетащите для изменения порядка",

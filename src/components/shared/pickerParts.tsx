@@ -175,3 +175,7 @@ export function PickerSearch({
     </div>
   );
 }
+
+export function PickerSectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-(--t-text-dim)">{children}</p>;
+}

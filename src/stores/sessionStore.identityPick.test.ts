@@ -8,6 +8,8 @@ const issue = { connectionId: "c1", connectionName: "db-01", via: "pick" as cons
 const h = vi.hoisted(() => ({
   resolve: vi.fn(),
   sshConnect: vi.fn(async () => {}),
+  updateConnection: vi.fn(async () => {}),
+  setHostPick: vi.fn(async () => {}),
 }));
 
 vi.mock("@/services/ssh", () => ({
@@ -22,8 +24,18 @@ vi.mock("@/services/credentials", () => ({
   resolveJumpHosts: vi.fn(async () => []),
 }));
 vi.mock("@/stores/connectionStore", () => ({
-  useConnectionStore: { getState: () => ({ connections: [connection], teamConnections: {}, setLastUsed: vi.fn(async () => {}) }) },
-  connectionToFormData: vi.fn(),
+  useConnectionStore: { getState: () => ({ connections: [connection], teamConnections: {}, setLastUsed: vi.fn(async () => {}), updateConnection: h.updateConnection }) },
+  connectionToFormData: (c: unknown) => ({ ...(c as object) }),
+}));
+vi.mock("@/stores/identityPickStore", () => ({
+  useIdentityPickStore: { getState: () => ({ setHostPick: h.setHostPick, setVaultDefault: vi.fn(async () => {}) }) },
+}));
+vi.mock("@/stores/identityStore", () => ({
+  useIdentityStore: { getState: () => ({ identities: [{ id: "own", username: "alice" }], teamIdentities: { t1: [{ id: "shared", username: "deploy" }] } }) },
+}));
+vi.mock("@/services/vault", async (orig) => ({
+  ...(await orig<typeof import("@/services/vault")>()),
+  getSecret: async (k: string) => (k.startsWith("identity:") ? "pw" : null),
 }));
 vi.mock("./layoutStore", () => ({ useLayoutStore: { getState: () => ({ setSplitTabActive: vi.fn() }) } }));
 vi.mock("@/services/hostCommandRun", () => ({ runHostCommand: vi.fn(async () => {}) }));
@@ -129,4 +141,28 @@ test("a reconnect reports the credentials it used and the stamp taken before fin
   );
   const target = vi.mocked(reportAuditClientEvent).mock.calls[0][2] as { occurred_at: string };
   expect(target.occurred_at <= before).toBe(true);
+});
+
+test("Connect & Save with Everyone writes the host exactly as before", async () => {
+  h.resolve.mockResolvedValue({ username: "root" });
+  await useSessionStore.getState().connect("c1").catch(() => {});
+  const id = useSessionStore.getState().sessions[0].id;
+  useSessionStore.setState((s) => ({ sessions: s.sessions.map((x) => ({ ...x, type: "ssh" as const })) }));
+
+  await useSessionStore.getState().retryConnect(id, { identityId: "shared" }, true);
+
+  expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ identity_id: "shared" }));
+  expect(h.setHostPick).not.toHaveBeenCalled();
+});
+
+test("Connect & Save with a pick never touches the host", async () => {
+  h.resolve.mockResolvedValue({ username: "root" });
+  await useSessionStore.getState().connect("c1").catch(() => {});
+  const id = useSessionStore.getState().sessions[0].id;
+  useSessionStore.setState((s) => ({ sessions: s.sessions.map((x) => ({ ...x, type: "ssh" as const })) }));
+
+  await useSessionStore.getState().retryConnect(id, { identityId: "own", saveAs: "pick" }, true);
+
+  expect(h.setHostPick).toHaveBeenCalledWith("c1", "own");
+  expect(h.updateConnection).not.toHaveBeenCalled();
 });

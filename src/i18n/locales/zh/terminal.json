@@ -290,6 +290,16 @@
         "choose": "选择其他身份",
         "useHostNamed": "本次使用 {{name}}（主机）",
         "useHost": "本次使用主机的凭据"
+      },
+      "saveTarget": {
+        "rememberFor": "记住用于",
+        "saveFor": "保存给",
+        "thisHost": "此主机",
+        "allVaultHosts": "{{vault}} 的所有主机",
+        "everyone": "所有人",
+        "onlyMe": "仅我自己",
+        "ownNote": "仅限你自己。队友仍使用主机自身的设置。",
+        "teamNote": "“所有人”会为整个团队更新 {{host}}。“仅我自己”不改动主机。"
       }
     },
     "statusBar": {

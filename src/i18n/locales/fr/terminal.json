@@ -299,6 +299,16 @@
         "choose": "Choisir une autre identité",
         "useHostNamed": "Utiliser {{name}} (hôte) cette fois",
         "useHost": "Utiliser l'identifiant de l'hôte cette fois"
+      },
+      "saveTarget": {
+        "rememberFor": "Mémoriser pour",
+        "saveFor": "Enregistrer pour",
+        "thisHost": "Cet hôte",
+        "allVaultHosts": "Tous les hôtes {{vault}}",
+        "everyone": "Tout le monde",
+        "onlyMe": "Moi seulement",
+        "ownNote": "Vous seul. Vos coéquipiers gardent les réglages de l'hôte.",
+        "teamNote": "« Tout le monde » modifie {{host}} pour toute l'équipe. « Moi seulement » laisse l'hôte tel quel."
       }
     },
     "statusBar": {

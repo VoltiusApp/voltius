@@ -22,6 +22,7 @@ export default function ConnectionOverlay({
   subtitle,
   icon,
   vaultId,
+  connectionId,
   steps: stepConfigs,
   stepEventName,
   conflictEventName,
@@ -78,6 +79,8 @@ export default function ConnectionOverlay({
         ) : showChooser ? (
           <AuthPromptPanel
             vaultId={vaultId}
+            connectionId={connectionId}
+            hostName={name}
             initialMode="identity"
             onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
             onCancel={onDismiss}
@@ -92,12 +95,16 @@ export default function ConnectionOverlay({
         ) : showUsernamePrompt ? (
           <UsernamePromptPanel
             vaultId={vaultId}
+            connectionId={connectionId}
+            hostName={name}
             onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
             onCancel={onDismiss}
           />
         ) : showAuthPrompt ? (
           <AuthPromptPanel
             vaultId={vaultId}
+            connectionId={connectionId}
+            hostName={name}
             onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
             onCancel={onDismiss}
           />

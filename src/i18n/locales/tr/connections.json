@@ -161,7 +161,9 @@
       "title": "Kimlik",
       "noIdentityInline": "Kimlik yok — satır içi kimlik bilgileri",
       "badgeKey": "anahtar",
-      "badgePwd": "parola"
+      "badgePwd": "parola",
+      "sharedGroup": "{{vault}} kasası · paylaşılan",
+      "ownGroup": "Kimlikleriniz · yalnızca siz"
     },
     "jumpHostsPanel": {
       "dragToReorderAriaLabel": "Yeniden sıralamak için sürükleyin",

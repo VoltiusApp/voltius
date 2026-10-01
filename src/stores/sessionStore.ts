@@ -14,6 +14,7 @@ export interface ConnectRetryOverride {
   password?: string;
   privateKey?: string;
   passphrase?: string;
+  saveAs?: "pick" | "vault-default";
 }
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
@@ -31,6 +32,10 @@ import { identityPickIssueOf, type IdentityPickIssue } from "@/services/credenti
 import { backendErrorCode, describeError, type BackendErrorCode } from "@/services/backendErrors";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { useIdentityStore } from "@/stores/identityStore";
+import { useIdentityPickStore } from "@/stores/identityPickStore";
+import { useTeamStore } from "@/stores/teamStore";
+import { useVaultStore } from "@/stores/vaultStore";
+import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent, type ClientAuditAction } from "@/services/auditReporter";
 import { useConnectionStore, connectionToFormData } from "./connectionStore";
@@ -604,6 +609,13 @@ async function connectConnection(
   return sessionId;
 }
 
+async function saveIdentityChoice(connection: Connection, saveAs: "pick" | "vault-default", identityId: string): Promise<void> {
+  const picks = useIdentityPickStore.getState();
+  if (saveAs === "pick") return picks.setHostPick(connection.id, identityId);
+  const teamId = resolveTeamIdFromCollections(connection.vault_id, useTeamStore.getState().teams, useVaultStore.getState().vaults);
+  if (teamId) await picks.setVaultDefault(teamId, identityId);
+}
+
 export const useSessionStore = create<SessionStore>((set, get) => ({
   sessions: [],
   activeSessionId: null,
@@ -1111,7 +1123,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         return;
       }
 
-      if (save) {
+      if (save && merged.saveAs && merged.identityId) {
+        await saveIdentityChoice(connection, merged.saveAs, merged.identityId).catch(() => {});
+      } else if (save) {
         if (ephemeralConnections.has(connection.id)) {
           // Intentionally not caught (unlike the saved-host path below): a failed
           // create must surface as a connect error rather than let the session

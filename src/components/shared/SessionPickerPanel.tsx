@@ -6,6 +6,7 @@ import { formatLocalShellTitle } from "@/utils/localShellTitle";
 import { sessionLabel } from "@/utils/sessionLabel";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { HostRow } from "./HostPickerPanel";
+import { PickerSectionLabel } from "./pickerParts";
 import { useSnippetTargetPicker } from "@/hooks/useSnippetTargetPicker";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 
@@ -68,9 +69,9 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
 
           {picker.filteredSessions.length > 0 && (
             <>
-              <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-(--t-text-dim)">
+              <PickerSectionLabel>
                 {t("shared.sessionPicker.activeSessionsHeader")}
-              </p>
+              </PickerSectionLabel>
               {picker.filteredSessions.map((s) => (
                 <HostRow
                   key={s.id}
@@ -95,9 +96,9 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
             </>
           )}
 
-          <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-(--t-text-dim)">
+          <PickerSectionLabel>
             {t("shared.sessionPicker.openNewConnectionHeader")}
-          </p>
+          </PickerSectionLabel>
 
           {/* Local shell rows */}
           {!picker.search && !picker.isAndroid && (picker.shells.length > 0 ? picker.shells : [{ name: t("shared.sessionPicker.localShellFallbackName"), path: "" }]).map((s) => {

@@ -43,6 +43,7 @@ export interface ConnectRetryOverride {
   password?: string;
   privateKey?: string;
   passphrase?: string;
+  saveAs?: "pick" | "vault-default";
 }
 
 export interface ConnectionOverlayProps {
@@ -56,6 +57,7 @@ export interface ConnectionOverlayProps {
   icon: string;
   /** Vault the connection belongs to — scopes the identity/key pickers shown in the auth prompt. */
   vaultId?: string;
+  connectionId?: string;
   steps: readonly StepConfig[];
   stepEventName: string;
   conflictEventName?: string;

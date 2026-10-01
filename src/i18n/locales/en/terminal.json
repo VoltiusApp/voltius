@@ -292,6 +292,16 @@
         "choose": "Choose another identity",
         "useHostNamed": "Use {{name}} (host) this time",
         "useHost": "Use the host's credential this time"
+      },
+      "saveTarget": {
+        "rememberFor": "Remember for",
+        "saveFor": "Save for",
+        "thisHost": "This host",
+        "allVaultHosts": "All {{vault}} hosts",
+        "everyone": "Everyone",
+        "onlyMe": "Only me",
+        "ownNote": "Only you. Teammates keep the host's own settings.",
+        "teamNote": "Everyone updates {{host}} for the whole team. Only me leaves the host as it is."
       }
     },
     "statusBar": {

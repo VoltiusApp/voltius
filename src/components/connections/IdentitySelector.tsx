@@ -6,23 +6,43 @@ import {
   PickerDivider,
   PickerFooterAction,
   PickerOption,
+  PickerSectionLabel,
   PickerTrigger,
 } from "@/components/shared/pickerParts";
 
 interface Props {
   value: string | null;
   identities: Identity[];
+  ownIdentities?: Identity[];
+  sharedLabel?: string;
   onChange: (id: string | null) => void;
   onGoToKeychain: () => void;
 }
 
-export default function IdentitySelector({ value, identities, onChange, onGoToKeychain }: Props) {
+export default function IdentitySelector({ value, identities, ownIdentities, sharedLabel, onChange, onGoToKeychain }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const selected = identities.find((i) => i.id === value) ?? null;
+  const selected = [...identities, ...(ownIdentities ?? [])].find((i) => i.id === value) ?? null;
   const displayLabel = selected ? (selected.name ?? selected.username) : t("connections.identitySelector.noIdentityInline");
+
+  const option = (identity: Identity) => (
+    <PickerOption
+      key={identity.id}
+      icon="lucide:user"
+      label={identity.name ?? identity.username}
+      labelTone="primary"
+      sublabel={identity.name ? identity.username : undefined}
+      badge={(
+        <span className="text-xs shrink-0 text-(--t-text-dim)">
+          {identity.key_id ? t("connections.identitySelector.badgeKey") : t("connections.identitySelector.badgePwd")}
+        </span>
+      )}
+      active={value === identity.id}
+      onClick={() => { onChange(identity.id); setOpen(false); }}
+    />
+  );
 
   return (
     <div>
@@ -43,23 +63,16 @@ export default function IdentitySelector({ value, identities, onChange, onGoToKe
           onClick={() => { onChange(null); setOpen(false); }}
         />
 
-        {identities.length > 0 && <PickerDivider />}
-        {identities.map((identity) => (
-          <PickerOption
-            key={identity.id}
-            icon="lucide:user"
-            label={identity.name ?? identity.username}
-            labelTone="primary"
-            sublabel={identity.name ? identity.username : undefined}
-            badge={(
-              <span className="text-xs shrink-0 text-(--t-text-dim)">
-                {identity.key_id ? t("connections.identitySelector.badgeKey") : t("connections.identitySelector.badgePwd")}
-              </span>
-            )}
-            active={value === identity.id}
-            onClick={() => { onChange(identity.id); setOpen(false); }}
-          />
-        ))}
+        {(identities.length > 0 || (ownIdentities?.length ?? 0) > 0) && <PickerDivider />}
+        {ownIdentities && identities.length > 0 && sharedLabel && <PickerSectionLabel>{sharedLabel}</PickerSectionLabel>}
+        {identities.map(option)}
+        {ownIdentities && ownIdentities.length > 0 && (
+          <>
+            {identities.length > 0 && <PickerDivider />}
+            <PickerSectionLabel>{t("connections.identitySelector.ownGroup")}</PickerSectionLabel>
+            {ownIdentities.map(option)}
+          </>
+        )}
 
         <PickerDivider edge />
         <PickerFooterAction

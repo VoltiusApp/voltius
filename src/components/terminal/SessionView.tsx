@@ -150,6 +150,7 @@ function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }
       subtitle={subtitle}
       icon={icon}
       vaultId={connection?.vault_id}
+      connectionId={connection?.id}
       steps={getSshSteps()}
       stepEventName={`ssh-step-${session.id}`}
       conflictEventName={`ssh-host-key-conflict-${session.id}`}

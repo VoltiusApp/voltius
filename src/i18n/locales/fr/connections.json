@@ -161,7 +161,9 @@
       "title": "Identité",
       "noIdentityInline": "Aucune identité — identifiants en ligne",
       "badgeKey": "clé",
-      "badgePwd": "mdp"
+      "badgePwd": "mdp",
+      "sharedGroup": "Coffre {{vault}} · partagé",
+      "ownGroup": "Vos identités · vous seul"
     },
     "jumpHostsPanel": {
       "dragToReorderAriaLabel": "Glisser pour réorganiser",

@@ -161,7 +161,9 @@
       "title": "身份",
       "noIdentityInline": "无身份——内联凭据",
       "badgeKey": "密钥",
-      "badgePwd": "密码"
+      "badgePwd": "密码",
+      "sharedGroup": "{{vault}} 保险库 · 共享",
+      "ownGroup": "你的身份 · 仅你可见"
     },
     "jumpHostsPanel": {
       "dragToReorderAriaLabel": "拖拽排序",

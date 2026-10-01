@@ -161,7 +161,9 @@
       "title": "Identity",
       "noIdentityInline": "No identity — inline credentials",
       "badgeKey": "key",
-      "badgePwd": "pwd"
+      "badgePwd": "pwd",
+      "sharedGroup": "{{vault}} vault · shared",
+      "ownGroup": "Your identities · only you"
     },
     "jumpHostsPanel": {
       "dragToReorderAriaLabel": "Drag to reorder",
