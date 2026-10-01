@@ -302,12 +302,14 @@ function RoleCard({
   teamId,
   role,
   canEdit,
+  canDelete,
   dragHandleProps,
   isDragOver,
 }: {
   teamId: string;
   role: TeamRole;
   canEdit: boolean;
+  canDelete: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
   isDragOver?: boolean;
 }) {
@@ -372,7 +374,7 @@ function RoleCard({
               <Icon icon="lucide:pencil" width={13} />
             </button>
           )}
-          {canEdit && (
+          {canDelete && (
             <button
               onClick={() => void handleDelete()}
               disabled={deleting}
@@ -425,6 +427,8 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
   const canEdit = myMember
     ? (effectivePermissions(myMember, roles, locked) & PERM_BITS.MANAGE_ROLES) !== 0
     : false;
+
+  const editable = canEdit && !locked;
 
   const builtinRoles = roles.filter((r) => r.is_builtin).sort((a, b) => a.position - b.position);
   const rawCustomRoles = roles.filter((r) => !r.is_builtin).sort((a, b) => a.position - b.position);
@@ -491,7 +495,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           <h4 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
             {t("settings.vaults.rolesPanel.customRoles")}
           </h4>
-          {!locked && canEdit && (
+          {editable && (
             <button
               onClick={() => setCreating(true)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors"
@@ -505,8 +509,8 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           )}
         </div>
 
-        {locked ? (
-          <div className="rounded-xl p-4 flex flex-col items-center gap-3 text-center border border-(--t-border) bg-(--t-bg-card)">
+        {locked && (
+          <div className="rounded-xl p-4 mb-2 flex flex-col items-center gap-3 text-center border border-(--t-border) bg-(--t-bg-card)">
             <Icon icon="lucide:lock" width={20} className="text-(--t-text-dim)" />
             <div>
               <p className="text-sm font-medium text-(--t-text-primary)">{t("shared.businessLock.title")}</p>
@@ -514,7 +518,8 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
             </div>
             <UpgradeAction teamId={teamId} look="button" />
           </div>
-        ) : customRoles.length === 0 ? (
+        )}
+        {!locked && customRoles.length === 0 && (
           <div
             className="rounded-xl p-4 text-center"
             style={{ border: "1px dashed var(--t-border)" }}
@@ -524,16 +529,18 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
               {canEdit ? t("settings.vaults.rolesPanel.noCustomRolesCanEdit") : t("settings.vaults.rolesPanel.noCustomRoles")}
             </p>
           </div>
-        ) : (
+        )}
+        {customRoles.length > 0 && (
           <div className="space-y-2">
             {customRoles.map((role, idx) => (
               <RoleCard
                 key={role.id}
                 teamId={teamId}
                 role={role}
-                canEdit={canEdit}
+                canEdit={editable}
+                canDelete={canEdit}
                 isDragOver={dropIdx === idx && dragIdx !== null && dragIdx !== idx}
-                dragHandleProps={canEdit ? {
+                dragHandleProps={editable ? {
                   draggable: true,
                   onDragStart: (e) => { e.stopPropagation(); handleDragStart(idx); },
                   onDragOver: (e) => handleDragOver(e, idx),
