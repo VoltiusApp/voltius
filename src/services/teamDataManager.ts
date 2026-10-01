@@ -22,6 +22,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useTeamObjectAccessStore } from "@/stores/teamObjectAccessStore";
 import { useHistoryStore } from "@/stores/historyStore";
+import { useIdentityPickStore } from "@/stores/identityPickStore";
 import { fetchTeamData, clearTeamKeyCache, reconcileTeamVaultKeys, drainPendingSecretWipes } from "@/services/teamVaultSync";
 import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
 import { teamSecretCache } from "@/services/teamSecretCache";
@@ -42,8 +43,9 @@ export async function onTeamLogin(): Promise<void> {
   await drainPendingSecretWipes().catch(logFailure("pending secret wipe drain"));
 
   const teamIds = useTeamStore.getState().teams.map((t) => t.id);
-  await Promise.allSettled(
-    teamIds.map(async (teamId) => {
+  await Promise.allSettled([
+    ...(teamIds.length > 0 ? [useIdentityPickStore.getState().load()] : []),
+    ...teamIds.map(async (teamId) => {
       await fetchTeamData(teamId);
       // A key-holder redistributes to any member who joined while it was
       // offline — self-heals the async invite-acceptance lockout (issue #41).
@@ -55,7 +57,7 @@ export async function onTeamLogin(): Promise<void> {
       // unrelated membership event happened to fire (#217).
       await checkAndRotateTeamKey(teamId).catch(logFailure(`onTeamLogin: checkAndRotateTeamKey team=${teamId}`));
     }),
-  );
+  ]);
 }
 
 /**

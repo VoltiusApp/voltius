@@ -18,5 +18,6 @@ export function credentialSnapshotFromStores(): CredentialSnapshot {
     byObject,
     byTeam,
     teamSecret: teamSecretCache.get,
+    secretsHydrated: teamSecretCache.isHydrated,
   });
 }

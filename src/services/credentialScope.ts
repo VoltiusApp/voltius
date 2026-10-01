@@ -14,6 +14,7 @@ export interface CredentialSnapshot {
   teamKeys: Record<string, SshKey[]>;
   picks: { byObject: Record<string, string>; byTeam: Record<string, string> };
   teamSecret: (teamId: string, key: string) => string | undefined;
+  secretsHydrated: (teamId: string) => boolean;
 }
 
 export function toCredentialSnapshot(s: {
@@ -25,6 +26,7 @@ export function toCredentialSnapshot(s: {
   byObject: Record<string, string>;
   byTeam: Record<string, string>;
   teamSecret: CredentialSnapshot["teamSecret"];
+  secretsHydrated: CredentialSnapshot["secretsHydrated"];
 }): CredentialSnapshot {
   return {
     teams: s.teams,
@@ -34,6 +36,7 @@ export function toCredentialSnapshot(s: {
     teamKeys: s.teamKeys,
     picks: { byObject: s.byObject, byTeam: s.byTeam },
     teamSecret: s.teamSecret,
+    secretsHydrated: s.secretsHydrated,
   };
 }
 
@@ -76,7 +79,7 @@ export function buildCredentialScope(conn: ScopedConnection, snapshot: Credentia
   return {
     teamId,
     hostPickId: picks.byObject[conn.id] ?? null,
-    vaultDefaultId: picks.byTeam[teamId] ?? null,
+    vaultDefaultId: snapshot.secretsHydrated(teamId) ? picks.byTeam[teamId] ?? null : null,
     hostHasSharedCredential: hostHasSharedCredential(conn, teamId, snapshot),
     lookup: lookupPickable(teamId, snapshot, can),
   };

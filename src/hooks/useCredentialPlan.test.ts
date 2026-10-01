@@ -1,5 +1,5 @@
 import { beforeEach, test, expect, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import type { Connection } from "@/types";
 
 const h = vi.hoisted(() => ({
@@ -17,6 +17,7 @@ vi.mock("@/stores/identityPickStore", () => ({
 }));
 vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => (_p: string, _v: string, o?: string) => !h.denied.has(o ?? "") }));
 
+import { teamSecretCache } from "@/services/teamSecretCache";
 import { useCredentialPlan } from "./useCredentialPlan";
 
 const host = (over: Partial<Connection> = {}) => ({ id: "c1", vault_id: "t1", connection_type: "ssh", username: "root", host: "db-01", ...over }) as Connection;
@@ -25,6 +26,7 @@ const offered = (conn: Connection) => renderHook(() => useCredentialPlan(conn)).
 beforeEach(() => {
   h.status = "loaded";
   h.denied = new Set();
+  teamSecretCache.replaceTeam("t1", new Map());
 });
 
 test("picks are offered on an SSH team host the member can connect to", () => {
@@ -53,4 +55,19 @@ test("a server without picks closes the gate", () => {
 test("an FTP team host with a vault default still plans the host credential", () => {
   expect(renderHook(() => useCredentialPlan(host({ connection_type: "ftp" }))).result.current.plan).toEqual({ kind: "host" });
   expect(renderHook(() => useCredentialPlan(host())).result.current.plan.kind).toBe("default");
+});
+
+test("the plan recomputes once the team's secrets hydrate", () => {
+  teamSecretCache.clearAll();
+  const { result } = renderHook(() => useCredentialPlan(host()));
+  expect(result.current.plan).toEqual({ kind: "host" });
+  act(() => teamSecretCache.replaceTeam("t1", new Map()));
+  expect(result.current.plan.kind).toBe("default");
+});
+
+test("a shared password that arrives with the secrets keeps the host credential", () => {
+  teamSecretCache.clearAll();
+  const { result } = renderHook(() => useCredentialPlan(host()));
+  act(() => teamSecretCache.replaceTeam("t1", new Map([["password:c1", "pw"]])));
+  expect(result.current.plan).toEqual({ kind: "host" });
 });

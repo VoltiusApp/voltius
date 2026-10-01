@@ -46,7 +46,7 @@ beforeEach(() => {
   h.can.mockReturnValue(true);
   h.snapshot = {
     teams: [], vaults: [], ownIdentities: [], teamIdentities: {}, teamKeys: {},
-    picks: { byObject: {}, byTeam: {} }, teamSecret: () => undefined,
+    picks: { byObject: {}, byTeam: {} }, teamSecret: () => undefined, secretsHydrated: () => true,
   };
 });
 
@@ -124,6 +124,18 @@ test("an unusable pick throws before any secret is read", async () => {
 
   await expect(resolveConnectionCredentials(conn({ vault_id: "t1" }))).rejects.toBeInstanceOf(IdentityPickUnavailableError);
   expect(h.getSecret).not.toHaveBeenCalled();
+});
+
+test("the vault default waits until the team's secrets have hydrated", async () => {
+  h.snapshot.teams = [{ id: "t1" }];
+  h.snapshot.ownIdentities = [ownIdentity as never];
+  h.snapshot.picks.byTeam = { t1: "own" };
+  h.snapshot.secretsHydrated = () => false;
+  h.getSecret.mockImplementation(async (k) => (k === "key:k-own:private" ? "PRIV" : k === "password:c1" ? "shared-pw" : null));
+
+  await expect(resolveConnectionCredentials(conn({ vault_id: "t1" }))).resolves.toMatchObject({ username: "root", password: "shared-pw" });
+  h.snapshot.secretsHydrated = () => true;
+  await expect(resolveConnectionCredentials(conn({ vault_id: "t1" }))).resolves.toMatchObject({ username: "alice", identityId: "own" });
 });
 
 test("skipPick uses the host credential once", async () => {

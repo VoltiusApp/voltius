@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   checkAndRotateTeamKey: vi.fn(async (_teamId: string) => {}),
   teams: [] as { id: string }[],
   saveTeamVaultObject: vi.fn(async () => {}),
+  loadPicks: vi.fn(async () => {}),
 }));
 
 vi.mock("@/services/teamVaultSync", () => ({
@@ -21,6 +22,10 @@ vi.mock("@/services/teamKeyRotation", () => ({
 }));
 vi.mock("@/stores/teamStore", () => ({
   useTeamStore: { getState: () => ({ teams: h.teams }) },
+}));
+
+vi.mock("@/stores/identityPickStore", () => ({
+  useIdentityPickStore: { getState: () => ({ load: h.loadPicks }) },
 }));
 
 vi.mock("@/services/teamObjectPersistence", () => ({
@@ -47,6 +52,17 @@ test("onTeamLogin checks rotation for every team the user belongs to", async () 
   await onTeamLogin();
 
   expect(h.checkAndRotateTeamKey.mock.calls.map((c) => c[0]).sort()).toEqual(["t1", "t2"]);
+});
+
+test("identity picks load once per login, not once per team, and not at all without teams", async () => {
+  h.teams = [{ id: "t1" }, { id: "t2" }];
+  await onTeamLogin();
+  expect(h.loadPicks).toHaveBeenCalledTimes(1);
+
+  h.loadPicks.mockClear();
+  h.teams = [];
+  await onTeamLogin();
+  expect(h.loadPicks).not.toHaveBeenCalled();
 });
 
 test("a rotation-check failure for one team does not block the others (allSettled)", async () => {

@@ -25,6 +25,7 @@ const snapshot = (over: Partial<CredentialSnapshot> = {}): CredentialSnapshot =>
   teamKeys: { t1: [key] },
   picks: { byObject: {}, byTeam: {} },
   teamSecret: () => undefined,
+  secretsHydrated: () => true,
   ...over,
 });
 const allow: Can = () => true;
@@ -69,6 +70,19 @@ describe("buildCredentialScope", () => {
     const s = buildCredentialScope({ ...teamHost, connection_type: type }, snapshot({ picks }), allow);
     expect(s.teamId).toBe("t1");
     expect(planCredentials(s)).toEqual({ kind: "host" });
+  });
+
+  test("the vault default waits for the team's secrets, so a stored host password is not overridden at startup", () => {
+    const picks = { byObject: {}, byTeam: { t1: "keyless" } };
+    const before = buildCredentialScope(teamHost, snapshot({ picks, secretsHydrated: () => false }), allow);
+    expect(planCredentials(before)).toEqual({ kind: "host" });
+    const after = buildCredentialScope(teamHost, snapshot({ picks }), allow);
+    expect(planCredentials(after)).toEqual({ kind: "default", identity: keyless });
+  });
+
+  test("a host pick applies before the team's secrets hydrate", () => {
+    const s = buildCredentialScope(teamHost, snapshot({ picks: { byObject: { h1: "own" }, byTeam: {} }, secretsHydrated: () => false }), allow);
+    expect(planCredentials(s)).toEqual({ kind: "pick", identity: own });
   });
 
   test("picks are read per host and per team", () => {

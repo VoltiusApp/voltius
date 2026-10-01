@@ -1,5 +1,5 @@
 import { test, expect, beforeEach } from "vitest";
-import { teamSecretCache } from "./teamSecretCache";
+import { teamSecretCache, useTeamSecretsHydrated } from "./teamSecretCache";
 
 beforeEach(() => teamSecretCache.clearAll());
 
@@ -41,4 +41,20 @@ test("delete removes one key", () => {
   teamSecretCache.delete("t1", "a");
   expect(teamSecretCache.get("t1", "a")).toBeUndefined();
   expect(teamSecretCache.get("t1", "b")).toBe("2");
+});
+
+test("a team counts as hydrated from replaceTeam until it is cleared", () => {
+  expect(teamSecretCache.isHydrated("t1")).toBe(false);
+  teamSecretCache.set("t1", "k", "1");
+  expect(teamSecretCache.isHydrated("t1")).toBe(false);
+  teamSecretCache.replaceTeam("t1", new Map());
+  expect(teamSecretCache.isHydrated("t1")).toBe(true);
+  const version = useTeamSecretsHydrated.getState().byTeam.t1;
+  teamSecretCache.set("t1", "k", "2");
+  expect(useTeamSecretsHydrated.getState().byTeam.t1).toBe(version + 1);
+  teamSecretCache.clearTeam("t1");
+  expect(teamSecretCache.isHydrated("t1")).toBe(false);
+  teamSecretCache.replaceTeam("t2", new Map());
+  teamSecretCache.clearAll();
+  expect(teamSecretCache.isHydrated("t2")).toBe(false);
 });

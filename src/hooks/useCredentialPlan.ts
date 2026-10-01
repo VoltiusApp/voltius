@@ -6,7 +6,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useIdentityPickStore } from "@/stores/identityPickStore";
 import { usePermissions } from "@/hooks/usePermission";
-import { teamSecretCache } from "@/services/teamSecretCache";
+import { teamSecretCache, useTeamSecretsHydrated } from "@/services/teamSecretCache";
 import { planCredentials } from "@/services/credentialPlan";
 import {
   buildCredentialScope,
@@ -27,9 +27,14 @@ function useCredentialSnapshot(): { snapshot: CredentialSnapshot; supported: boo
   const byObject = useIdentityPickStore((s) => s.byObject);
   const byTeam = useIdentityPickStore((s) => s.byTeam);
   const supported = useIdentityPickStore((s) => s.status !== "unsupported");
+  const hydrated = useTeamSecretsHydrated((s) => s.byTeam);
   const snapshot = useMemo<CredentialSnapshot>(
-    () => toCredentialSnapshot({ teams, vaults, identities, teamIdentities, teamKeys, byObject, byTeam, teamSecret: teamSecretCache.get }),
-    [teams, vaults, identities, teamIdentities, teamKeys, byObject, byTeam],
+    () => toCredentialSnapshot({
+      teams, vaults, identities, teamIdentities, teamKeys, byObject, byTeam,
+      teamSecret: teamSecretCache.get,
+      secretsHydrated: (teamId) => teamId in hydrated,
+    }),
+    [teams, vaults, identities, teamIdentities, teamKeys, byObject, byTeam, hydrated],
   );
   return { snapshot, supported };
 }

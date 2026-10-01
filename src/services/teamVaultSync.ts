@@ -685,8 +685,6 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
 
   const { useTeamObjectPrefsStore } = await import("@/stores/teamObjectPrefsStore");
   await useTeamObjectPrefsStore.getState().load(teamId).catch(() => {});
-  const { useIdentityPickStore } = await import("@/stores/identityPickStore");
-  await useIdentityPickStore.getState().load().catch(() => {});
 }
 
 
