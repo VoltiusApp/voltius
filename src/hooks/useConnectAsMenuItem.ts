@@ -16,7 +16,7 @@ export function useConnectAsMenuItem(conn: Connection | undefined, credential: C
   const vaultName = useTeamStore((s) => s.teams.find((team) => team.id === teamId)?.name ?? "");
   const openDefault = useVaultIdentityDialogStore((s) => s.open);
   if (!conn || !teamId || !picksOffered) return undefined;
-  if (choices.length === 0 && !hasSharedCredential) return undefined;
+  if (choices.length === 0 && !hasSharedCredential && !currentPickId) return undefined;
 
   const current: ConnectAsCurrent =
     plan.kind === "unavailable" ? { kind: "none" } : currentPickId ? { kind: "pick", id: currentPickId } : { kind: "host" };
@@ -34,6 +34,7 @@ export function useConnectAsMenuItem(conn: Connection | undefined, credential: C
       current,
       ownIds,
       hostLabel: hasSharedCredential ? (hostIdentity ? hostIdentity.name ?? hostIdentity.username : t("connections.form.connectAsHost")) : null,
+      hasPick: !!currentPickId,
       vaultName,
       t,
       onPick,

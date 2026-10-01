@@ -156,7 +156,8 @@
       "title": "Se connecter en tant que",
       "yours": "la vôtre",
       "hostDefault": "par défaut de l'hôte",
-      "vaultDefault": "Mon identité pour {{vault}}…"
+      "vaultDefault": "Mon identité pour {{vault}}…",
+      "clearPick": "Effacer mon choix"
     }
   }
 }

@@ -146,7 +146,8 @@
       "title": "Farklı kimlikle bağlan",
       "yours": "sizin",
       "hostDefault": "sunucu varsayılanı",
-      "vaultDefault": "{{vault}} için kimliğim…"
+      "vaultDefault": "{{vault}} için kimliğim…",
+      "clearPick": "Seçimimi temizle"
     }
   }
 }

@@ -146,7 +146,8 @@
       "title": "以…身份连接",
       "yours": "你的",
       "hostDefault": "主机默认",
-      "vaultDefault": "我在 {{vault}} 的身份…"
+      "vaultDefault": "我在 {{vault}} 的身份…",
+      "clearPick": "清除我的选择"
     }
   }
 }

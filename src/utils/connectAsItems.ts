@@ -9,6 +9,7 @@ export function buildConnectAsItems({
   current,
   ownIds,
   hostLabel,
+  hasPick,
   vaultName,
   t,
   onPick,
@@ -18,6 +19,7 @@ export function buildConnectAsItems({
   current: ConnectAsCurrent;
   ownIds: Set<string>;
   hostLabel: string | null;
+  hasPick: boolean;
   vaultName: string;
   t: TFunction;
   onPick: (identityId: string | null) => void;
@@ -36,6 +38,8 @@ export function buildConnectAsItems({
       hint: t("hosts.connectAs.hostDefault"),
       onClick: () => onPick(null),
     });
+  } else if (hasPick) {
+    items.push({ label: t("hosts.connectAs.clearPick"), icon: "lucide:eraser", onClick: () => onPick(null) });
   }
   items.push({ label: t("hosts.connectAs.vaultDefault", { vault: vaultName }), icon: "lucide:user-round-cog", divider: true, onClick: onOpenVaultDefault });
   return items;

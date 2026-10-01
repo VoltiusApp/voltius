@@ -146,7 +146,8 @@
       "title": "Connect as",
       "yours": "yours",
       "hostDefault": "host default",
-      "vaultDefault": "My identity for {{vault}}…"
+      "vaultDefault": "My identity for {{vault}}…",
+      "clearPick": "Clear my choice"
     }
   }
 }

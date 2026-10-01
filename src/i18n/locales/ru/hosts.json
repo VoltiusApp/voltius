@@ -175,7 +175,8 @@
       "title": "Подключиться как",
       "yours": "ваша",
       "hostDefault": "по умолчанию хоста",
-      "vaultDefault": "Моя личность для {{vault}}…"
+      "vaultDefault": "Моя личность для {{vault}}…",
+      "clearPick": "Сбросить мой выбор"
     }
   }
 }
