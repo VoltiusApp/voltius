@@ -10,6 +10,8 @@ vi.mock("@xterm/addon-webgl", async () => ({ WebglAddon: (await import("@/hooks/
 vi.mock("@/components/terminal/terminalClipboard", () => ({
   attachTerminalClipboard: () => ({ handleKeyEvent: () => null, dispose() {} }),
 }));
+const queries = vi.hoisted(() => ({ suppress: vi.fn(() => ({ dispose: vi.fn() })) }));
+vi.mock("@/components/terminal/terminalQueries", () => ({ suppressTerminalQueries: queries.suppress }));
 const h = vi.hoisted(() => ({
   detach: vi.fn(),
   write: null as ((data: Uint8Array) => void) | null,
@@ -69,4 +71,11 @@ test("the terminal is written by the session's output and torn down with its tab
   useSessionStore.setState({ sessions: [] });
   expect(dispose).toHaveBeenCalledTimes(1);
   expect(h.detach).toHaveBeenCalledTimes(1);
+});
+
+test("a guest terminal never answers terminal queries itself", () => {
+  useSessionStore.setState({ sessions: [guest("g3")] });
+  queries.suppress.mockClear();
+  render(<MultiplayerTerminalView localSessionId="g3" />);
+  expect(queries.suppress).toHaveBeenCalledTimes(1);
 });

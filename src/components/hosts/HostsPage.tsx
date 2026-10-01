@@ -72,7 +72,7 @@ import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
-import { unlessMoveCancelled } from "@/services/teamObjectPersistence";
+import { passMoveCancelled, unlessMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
 
 
@@ -108,6 +108,7 @@ export default function HostsPage() {
   const isEditingSerial = editing?.connection_type === "serial";
   const [error, setError] = useState<string | null>(null);
   const reportError = unlessMoveCancelled(setError);
+  const reportSaveError = passMoveCancelled(setError);
   const formRef = useRef<ConnectionFormHandle>(null);
   const serialFormRef = useRef<ConnectionFormHandle>(null);
   const hostFormSessionKeyRef = useRef<string>("new");
@@ -580,7 +581,7 @@ export default function HostsPage() {
       const saved = await saveHostFromForm(editing, data, secrets, selectedVaultIds[0] ?? "personal");
       if (!editing && saved) setEditingId(saved.id);
     } catch (err) {
-      reportError(err);
+      reportSaveError(err);
     }
   };
 

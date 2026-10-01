@@ -345,6 +345,8 @@ pub fn run() {
             commands::ssh::ssh_disconnect,
             commands::ssh::ssh_send_input,
             commands::ssh::ssh_resize,
+            commands::ssh::ssh_set_terminal_colors,
+            commands::ssh::ssh_set_output_paused,
             commands::ssh::ssh_detect_distro,
             commands::ssh::ssh_get_system_info,
             commands::ssh::ssh_exec_command,

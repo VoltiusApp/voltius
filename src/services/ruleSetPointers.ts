@@ -11,6 +11,12 @@ export function setOfParent(entries: TeamAccessEntries, parentId: string | null)
   return parent && !parent.deleted ? parent.ruleSetId : null;
 }
 
+export function isUnresolvedParent(entries: TeamAccessEntries, parentId: string | null): boolean {
+  if (!parentId) return false;
+  const parent = entries[parentId];
+  return !parent || parent.deleted;
+}
+
 export function isSynced(entries: TeamAccessEntries, objectId: string): boolean {
   const entry = entries[objectId];
   return !!entry && entry.ruleSetId === setOfParent(entries, entry.parentId);
@@ -26,10 +32,10 @@ export function pointerForSave({ entries, objectId, nextParentId, canManageAtRoo
 }): Pointer {
   const current = entries[objectId];
   const target = setOfParent(entries, nextParentId);
-  if (!current) return target;
+  if (!current) return isUnresolvedParent(entries, nextParentId) ? undefined : target;
   if (current.deleted || current.parentId === nextParentId) return undefined;
+  if (isUnresolvedParent(entries, nextParentId)) return undefined;
   const destination = nextParentId ? entries[nextParentId] : undefined;
-  if (nextParentId && (!destination || destination.deleted)) return undefined;
   if (!isSynced(entries, objectId) || target === current.ruleSetId) return undefined;
   const mayManageDestination = destination ? canManage(destination.myPermissions) : canManageAtRoot;
   return canManage(current.myPermissions) && mayManageDestination ? target : undefined;

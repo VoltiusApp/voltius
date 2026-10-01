@@ -82,6 +82,11 @@ export function applyOverrideState(
 }
 
 export type RuleSubjectType = "everyone" | "role" | "member";
+export type RuleSubject = { type: "everyone" } | { type: "role" | "member"; id: string };
+
+export const ruleSubjectOf = (e: RuleEntry): RuleSubject =>
+  e.subject_type === "everyone" ? { type: "everyone" } : { type: e.subject_type, id: e.subject_id! };
+export const ruleSubjectKey = (s: RuleSubject) => (s.type === "everyone" ? "everyone" : `${s.type}:${s.id}`);
 
 export interface RuleEntry {
   subject_type: RuleSubjectType;

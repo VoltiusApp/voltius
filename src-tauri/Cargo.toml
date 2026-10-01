@@ -117,3 +117,4 @@ webpki-roots = "1"
 # Issues throwaway certificates for the TLS proxy tests, so no private key is committed.
 rcgen = { version = "0.13", default-features = false, features = ["crypto", "ring"] }
 tempfile = "3"
+vt100 = "0.16"

@@ -72,12 +72,11 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
     ),
   );
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
-  const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
 
   const shell = useConnectionFormShell(initial);
-  const { vaultId, pickVault, isPinned, togglePin } = shell;
+  const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
   const userEditedRef = useRef(false);
 
   useEffect(() => {
@@ -124,7 +123,7 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => {
       const { data, password: pwd, privateKey: pk } = buildSubmit();
-      return onSubmit(data, { password: pwd, privateKey: pk, passphrase: null, proxyPassword: null }) ?? undefined;
+      return keepSavedOnCancel(onSubmit(data, { password: pwd, privateKey: pk, passphrase: null, proxyPassword: null }));
     },
     canSave: () => !!serialPort.trim(),
     readOnly,
@@ -186,8 +185,6 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
               folderType="connection"
               tags={tags}
               onChangeTags={setTags}
-              folderId={folderId}
-              onChangeFolderId={setFolderId}
               markDirty={markDirty}
             />
           </FormSection>

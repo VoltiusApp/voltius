@@ -1,21 +1,23 @@
-import { OBJECT_RULE_PERMISSIONS, overrideStateOf, type OverrideState, type Permission, type RuleEntry } from "@/services/permissions";
+import {
+  OBJECT_RULE_PERMISSIONS, overrideStateOf, ruleSubjectKey, ruleSubjectOf,
+  type OverrideState, type Permission, type RuleEntry, type RuleSubject,
+} from "@/services/permissions";
 
 export interface RuleSetChange {
-  subject: { type: "everyone" } | { type: "role"; roleId: string };
+  subject: RuleSubject;
   bits: { permission: Permission; before: OverrideState; after: OverrideState }[];
 }
 
-const keyOf = (e: RuleEntry) => `${e.subject_type}:${e.subject_id ?? ""}`;
+const keyOf = (e: RuleEntry) => ruleSubjectKey(ruleSubjectOf(e));
+const RANK: Record<RuleEntry["subject_type"], number> = { everyone: 0, role: 1, member: 2 };
 
 export function describeRuleSetChange(from: RuleEntry[], to: RuleEntry[]): RuleSetChange[] {
-  const listed = (e: RuleEntry) => e.subject_type !== "member";
-  const before = new Map(from.filter(listed).map((e) => [keyOf(e), e]));
-  const after = new Map(to.filter(listed).map((e) => [keyOf(e), e]));
-  const subjects = [...new Set([...before.keys(), ...after.keys()])].sort((a, b) =>
-    (a.startsWith("everyone") ? 0 : 1) - (b.startsWith("everyone") ? 0 : 1));
-  return subjects.flatMap((key) => {
-    const was = before.get(key);
-    const now = after.get(key);
+  const before = new Map(from.map((e) => [keyOf(e), e]));
+  const after = new Map(to.map((e) => [keyOf(e), e]));
+  const entries = [...new Set([...before.keys(), ...after.keys()])]
+    .map((key) => ({ was: before.get(key), now: after.get(key) }))
+    .sort((a, b) => RANK[(a.now ?? a.was)!.subject_type] - RANK[(b.now ?? b.was)!.subject_type]);
+  return entries.flatMap(({ was, now }) => {
     const bits = OBJECT_RULE_PERMISSIONS
       .map((permission) => ({
         permission,
@@ -23,11 +25,6 @@ export function describeRuleSetChange(from: RuleEntry[], to: RuleEntry[]): RuleS
         after: overrideStateOf(permission, now?.allow ?? 0, now?.deny ?? 0),
       }))
       .filter((b) => b.before !== b.after);
-    if (bits.length === 0) return [];
-    const entry = (now ?? was)!;
-    const subject = entry.subject_type === "everyone"
-      ? { type: "everyone" as const }
-      : { type: "role" as const, roleId: entry.subject_id! };
-    return [{ subject, bits }];
+    return bits.length === 0 ? [] : [{ subject: ruleSubjectOf((now ?? was)!), bits }];
   });
 }

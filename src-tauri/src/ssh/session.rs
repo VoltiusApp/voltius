@@ -50,24 +50,58 @@ impl SessionManager {
             .ok_or_else(|| "Session not found".into())
     }
 
-    pub async fn send_data(&self, id: &str, data: &[u8]) -> Result<(), String> {
+    async fn input_tx(&self, id: &str) -> Result<tokio::sync::mpsc::Sender<SessionInput>, String> {
         let sessions = self.sessions.lock().await;
-        let session = sessions.get(id).ok_or("Session not found")?;
-        session
+        Ok(sessions
+            .get(id)
+            .ok_or("Session not found")?
             .input_tx
-            .send(SessionInput::Data(data.to_vec()))
+            .clone())
+    }
+
+    async fn send_input(&self, id: &str, input: SessionInput, what: &str) -> Result<(), String> {
+        self.input_tx(id)
+            .await?
+            .send(input)
             .await
-            .map_err(|e| format!("Failed to send data: {}", e))
+            .map_err(|e| format!("Failed to {what}: {e}"))
+    }
+
+    pub async fn send_data(&self, id: &str, data: &[u8]) -> Result<(), String> {
+        self.send_input(id, SessionInput::Data(data.to_vec()), "send data")
+            .await
     }
 
     pub async fn resize(&self, id: &str, cols: u32, rows: u32) -> Result<(), String> {
-        let sessions = self.sessions.lock().await;
-        let session = sessions.get(id).ok_or("Session not found")?;
-        session
-            .input_tx
-            .send(SessionInput::Resize(cols, rows))
+        self.send_input(id, SessionInput::Resize(cols, rows), "resize")
             .await
-            .map_err(|e| format!("Failed to resize: {}", e))
+    }
+
+    pub async fn set_output_paused(&self, id: &str, paused: bool) -> Result<(), String> {
+        self.send_input(id, SessionInput::PauseOutput(paused), "pause output")
+            .await
+    }
+
+    pub async fn set_terminal_colors(
+        &self,
+        id: &str,
+        colors: crate::ssh::control_mode::TerminalColors,
+    ) -> Result<(), String> {
+        if !colors.is_valid() {
+            return Err("Invalid terminal colors".into());
+        }
+        let (persist, handle) = {
+            let sessions = self.sessions.lock().await;
+            let session = sessions.get(id).ok_or("Session not found")?;
+            (session.persist, Arc::clone(&session.handle))
+        };
+        let style = crate::shell_integration::legacy_mode_style_command(&colors);
+        self.send_input(id, SessionInput::Colors(colors), "set colors")
+            .await?;
+        if persist {
+            crate::ssh::client::spawn_exec(handle, style, Duration::from_secs(10));
+        }
+        Ok(())
     }
 
     /// Latency of an SSH global-request round-trip on an existing session.

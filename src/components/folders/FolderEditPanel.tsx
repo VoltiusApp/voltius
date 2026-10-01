@@ -17,7 +17,7 @@ import { PinButton } from "@/components/shared/PinButton";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import FolderSelector from "@/components/shared/FolderSelector";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
-import { RuleSetMoveCancelled } from "@/services/teamObjectPersistence";
+import { revertIfMoveCancelled } from "@/services/teamObjectPersistence";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { buildFolderMenuItems } from "@/utils/folderMenuItems";
 import { useFolderPin } from "./useFolderPin";
@@ -100,10 +100,8 @@ function FolderEditPanelEditor({
 
   const handleParentChange = (id: string | null) => {
     setParentId(id);
-    void Promise.resolve(onUpdate(folder.id, buildFormData({ parent_folder_id: id ?? undefined }))).catch((err) => {
-      if (!(err instanceof RuleSetMoveCancelled)) throw err;
-      setParentId(folder.parent_folder_id ?? null);
-    });
+    void Promise.resolve(onUpdate(folder.id, buildFormData({ parent_folder_id: id ?? undefined })))
+      .catch(revertIfMoveCancelled(() => setParentId(folder.parent_folder_id ?? null)));
   };
 
   const menuItems = buildFolderMenuItems({

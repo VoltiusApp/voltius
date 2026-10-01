@@ -29,7 +29,6 @@ import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerDivider, PickerOption, PickerTrigger } from "@/components/shared/pickerParts";
 import { PinButton } from "@/components/shared/PinButton";
 import { useIdentityStore } from "@/stores/identityStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { KeyFileDropZone } from "./KeyForm";
 import { PublicKeyField, isPublicKeyInvalid } from "./PublicKeyField";
 import { useDerivedPublicKey } from "./useDerivedPublicKey";
@@ -37,7 +36,7 @@ import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { Connection, Identity, IdentityFormData } from "@/types";
 import { buildKeychainMenuItems } from "@/utils/keychainMenuItems";
-import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
+import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 
@@ -56,16 +55,7 @@ function KeySelector({
 }) {
   const { t } = useTranslation();
   const { keys: personalKeys, teamKeys } = useKeyStore();
-  const teams = useTeamStore((s) => s.teams);
-  const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
-  const effectiveVaultId = vaultId || "personal";
-  const keys = useMemo(() => selectVaultScopedItems({
-    vaultId: effectiveVaultId,
-    localItems: personalKeys,
-    teamItems: teamKeys,
-    teamVaultIds,
-    resolveVaultId: resolveVaultIdForSave,
-  }), [effectiveVaultId, personalKeys, teamKeys, teamVaultIds]);
+  const keys = useVaultScopedItems(vaultId, personalKeys, teamKeys);
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isInline = value === "__inline__";
@@ -147,7 +137,7 @@ function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, is
   const { setActiveNav, setHomePendingAction } = useUIStore();
   const pinIdentity = useIdentityStore((s) => s.pinIdentity);
   const shell = useVaultObjectFormShell({ initial, folderType: "keychain", objectType: "identity", pin: pinIdentity });
-  const { vaultId, pickVault, isPinned, togglePin } = shell;
+  const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
   const contributions = useUIContributions("identity.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "identity") : true;
@@ -157,7 +147,6 @@ function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, is
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [keyId, setKeyId] = useState<string | null | "__inline__">(initial?.key_id ?? null);
-  const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
   const [inlineKeyLabel, setInlineKeyLabel] = useState("");
   const [inlinePrivKey, setInlinePrivKey] = useState("");
   const [inlinePublicKey, setInlinePublicKey] = useState("");
@@ -193,11 +182,11 @@ function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, is
       const keyMaterial = isInline
         ? { label: inlineKeyLabel || undefined, privateKey: inlinePrivKey, publicKey: inlinePublicKey }
         : undefined;
-      return onSubmit(
+      return keepSavedOnCancel(onSubmit(
         { name: name.trim() || undefined, username, key_id: isInline ? undefined : (keyId ?? undefined), tags, folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
         passwordDirty.current ? password : null,
         keyMaterial,
-      ) ?? undefined;
+      ));
     },
     // Same rule as KeyForm: an inline public half that is not a key is never
     // persisted, and the inline error under the field says why.
@@ -286,8 +275,6 @@ function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, is
             folderType="keychain"
             tags={tags}
             onChangeTags={setTags}
-            folderId={folderId}
-            onChangeFolderId={setFolderId}
             markDirty={markDirty}
           />
         </FormSection>

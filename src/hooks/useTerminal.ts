@@ -1,12 +1,15 @@
 import { disposeClosedTerminals, reattachTerminal, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useEffect, useCallback } from "react";
-import { Terminal, type IBufferCell, type IBufferRange } from "@xterm/xterm";
+import { Terminal, type IBufferCell, type IBufferRange, type IDisposable } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { createWebglAddon } from "@/utils/webglAddon";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { onSshOutput, onSshClosed, onSshCwd } from "@/services/ssh";
+import { onSshOutput, onSshClosed, onSshCwd, onSshMuxMode, sshSetOutputPaused, sshSetTerminalColors } from "@/services/ssh";
+import { createOutputFlow, type OutputFlow } from "@/components/terminal/outputFlow";
+import { suppressTerminalQueries } from "@/components/terminal/terminalQueries";
+import { currentTerminalColors } from "@/utils/terminalColors";
 import { localReady, onLocalOutput, onLocalClosed } from "@/services/local";
 import { onSerialOutput, onSerialClosed } from "@/services/serial";
 import { sendSessionInput as sendSessionInputRaw, sendSessionResize } from "@/services/sessionInput";
@@ -1047,9 +1050,15 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         routeInput(data);
       });
 
+      let queryGuard: IDisposable | null = null;
       const unlistenPromises: Promise<UnlistenFn>[] = [];
-      const writeOutput = (data: Uint8Array) => {
-        term.write(entry.outputDecoder.decode(data), () => scheduleMinimapNotify(entry));
+      const writeOutput = (data: Uint8Array, flow?: OutputFlow) => {
+        const text = entry.outputDecoder.decode(data);
+        flow?.written(text.length);
+        term.write(text, () => {
+          flow?.processed(text.length);
+          scheduleMinimapNotify(entry);
+        });
       };
 
       if (sessionType === "local") {
@@ -1079,9 +1088,12 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }),
         );
       } else {
+        const sshFlow = createOutputFlow((paused) => {
+          sshSetOutputPaused(sessionId, paused).catch(() => {});
+        });
         unlistenPromises.push(
           onSshOutput(sessionId, (data) => {
-            writeOutput(data);
+            writeOutput(data, sshFlow);
             noteRestoreOutput(sessionId);
           }),
         );
@@ -1095,6 +1107,11 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         unlistenPromises.push(
           onSshCwd(sessionId, (cwd) => {
             if (cwd) useTerminalCwdStore.getState().setCwd(sessionId, cwd);
+          }),
+        );
+        unlistenPromises.push(
+          onSshMuxMode(sessionId, (mode) => {
+            if (mode.control && !queryGuard) queryGuard = suppressTerminalQueries(term);
           }),
         );
       }
@@ -1121,6 +1138,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         entry.minimap.subscribers.clear();
         hideLinkTooltip();
         Promise.all(unlistenPromises).then((fns) => fns.forEach((fn) => fn()));
+        queryGuard?.dispose();
         term.dispose();
       };
 
@@ -1146,6 +1164,18 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       return { term: entry?.terminal, fit: entry?.fitAddon };
     });
   }, [sessionId]);
+
+  useEffect(() => {
+    if (sessionType === "local" || sessionType === "serial") return;
+    let last = JSON.stringify(currentTerminalColors());
+    return useThemeStore.subscribe(() => {
+      const colors = currentTerminalColors();
+      const next = JSON.stringify(colors);
+      if (!colors || next === last) return;
+      last = next;
+      sshSetTerminalColors(sessionId, colors).catch(() => {});
+    });
+  }, [sessionId, sessionType]);
 
   // Live cursor style/blink updates
   useEffect(() => {

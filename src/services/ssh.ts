@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/invoke";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import type { ProxySpec } from "@/services/proxy";
+import { currentTerminalColors, type TerminalColors } from "@/utils/terminalColors";
 
 export interface JumpHostConnect {
   host: string;
@@ -66,6 +67,7 @@ export async function sshConnect(params: {
     rows: params.rows ?? null,
     initialCwd: params.initialCwd ?? null,
     proxy: params.proxy ?? null,
+    terminalColors: currentTerminalColors(),
   });
 }
 
@@ -190,6 +192,23 @@ export async function onSshClosed(
 ): Promise<UnlistenFn> {
   return listen<boolean>(`ssh-closed-${sessionId}`, (event) => {
     callback(event.payload === true);
+  });
+}
+
+export async function sshSetOutputPaused(sessionId: string, paused: boolean): Promise<void> {
+  return invoke("ssh_set_output_paused", { sessionId, paused });
+}
+
+export async function sshSetTerminalColors(sessionId: string, colors: TerminalColors): Promise<void> {
+  return invoke("ssh_set_terminal_colors", { sessionId, colors });
+}
+
+export async function onSshMuxMode(
+  sessionId: string,
+  callback: (mode: { control: boolean; tmux: string }) => void,
+): Promise<UnlistenFn> {
+  return listen<{ control: boolean; tmux: string }>(`ssh-mux-mode-${sessionId}`, (event) => {
+    callback(event.payload);
   });
 }
 

@@ -48,7 +48,7 @@ export default function KeychainItemActionsSheet(props: Props) {
       <MoveToFolderSheet
         targets={buildMoveTargets(allFolders, "keychain", vaultId, compareStrings)}
         currentFolderId={item.folder_id ?? null}
-        onPick={(folderId) => { void (async () => { await moveObjectsToFolder([item.id], kind === "key" ? "key" : "identity", folderId); if (kind === "key") await useKeyStore.getState().loadKeys(); else await useIdentityStore.getState().loadIdentities(); })(); }}
+        onPick={async (folderId) => { await moveObjectsToFolder([item.id], kind === "key" ? "key" : "identity", folderId); if (kind === "key") await useKeyStore.getState().loadKeys(); else await useIdentityStore.getState().loadIdentities(); }}
         onClose={onClose}
       />
     );

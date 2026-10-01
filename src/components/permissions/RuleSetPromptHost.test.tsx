@@ -9,8 +9,10 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/stores/teamStore", () => ({
-  useTeamStore: (selector: (s: { rolesByTeam: Record<string, { id: string; name: string }[]> }) => unknown) =>
-    selector({ rolesByTeam: { t1: [{ id: "r1", name: "sysadmin" }] } }),
+  useTeamStore: (selector: (s: object) => unknown) => selector({
+    rolesByTeam: { t1: [{ id: "r1", name: "sysadmin" }] },
+    membersByTeam: { t1: [{ user_id: "u1", handle: "alice" }] },
+  }),
 }));
 
 afterEach(() => {
@@ -21,10 +23,14 @@ afterEach(() => {
 test("the move warning lists changes and resolves on confirm", async () => {
   const answer = useRuleSetPromptStore.getState().ask({
     kind: "move", teamId: "t1",
-    changes: [{ subject: { type: "role", roleId: "r1" }, bits: [{ permission: "CONNECT", before: "inherit", after: "deny" }] }],
+    changes: [
+      { subject: { type: "role", id: "r1" }, bits: [{ permission: "CONNECT", before: "inherit", after: "deny" }] },
+      { subject: { type: "member", id: "u1" }, bits: [{ permission: "VIEW", before: "deny", after: "inherit" }] },
+    ],
   });
   render(<RuleSetPromptHost />);
   expect(screen.getByText(/sysadmin/)).toBeTruthy();
+  expect(screen.getByText(/@alice/)).toBeTruthy();
   fireEvent.click(screen.getByText("shared.permissions.moveWarning.confirm"));
   expect(await answer).toBe(true);
 });

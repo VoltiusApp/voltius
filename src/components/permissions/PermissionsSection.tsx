@@ -5,14 +5,14 @@ import { FormSection } from "@/components/shared/Panel";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerOption, PickerSearch } from "@/components/shared/pickerParts";
 import { PermissionOverrideRow } from "@/components/members/panels/PermissionOverrideRow";
-import { permissionLabel, roleLabel } from "@/components/members/roleChips";
+import { permissionLabel, roleLabel, ruleSubjectLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useRuleSet } from "@/hooks/useRuleSet";
-import { saveObjectRules, syncWithFolder } from "@/services/ruleSetEditing";
+import { saveObjectRules, syncWithFolder, type RuleEdit } from "@/services/ruleSetEditing";
 import { isSynced, setOfParent } from "@/services/ruleSetPointers";
 import {
-  OBJECT_RULE_ROWS, PERM_BITS, applyOverrideState, overrideStateOf, resolveObjectPermissions,
-  type OverrideState, type Permission, type RuleEntry,
+  OBJECT_RULE_ROWS, PERM_BITS, applyOverrideState, overrideStateOf, resolveObjectPermissions, ruleSubjectKey, ruleSubjectOf,
+  type OverrideState, type Permission, type RuleEntry, type RuleSubject,
 } from "@/services/permissions";
 import type { TeamObjectType } from "@/services/teamObjects";
 import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
@@ -23,36 +23,33 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 
-type Subject = { type: "everyone" } | { type: "role"; id: string } | { type: "member"; id: string };
-
-const subjectKey = (s: Subject) => (s.type === "everyone" ? "everyone" : `${s.type}:${s.id}`);
-const subjectIdOf = (s: Subject) => (s.type === "everyone" ? null : s.id);
-const entryFor = (entries: RuleEntry[], s: Subject) =>
+const subjectIdOf = (s: RuleSubject) => (s.type === "everyone" ? null : s.id);
+const entryFor = (entries: RuleEntry[], s: RuleSubject) =>
   entries.find((e) => e.subject_type === s.type && (e.subject_id ?? null) === subjectIdOf(s));
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-function withEntry(entries: RuleEntry[], s: Subject, allow: number, deny: number): RuleEntry[] {
+function withEntry(entries: RuleEntry[], s: RuleSubject, allow: number, deny: number): RuleEntry[] {
   const rest = entries.filter((e) => e !== entryFor(entries, s));
   return allow === 0 && deny === 0 ? rest : [...rest, { subject_type: s.type, subject_id: subjectIdOf(s), allow, deny }];
 }
 
-function listedSubjects(entries: RuleEntry[], roles: TeamRole[], added: Subject[]): Subject[] {
-  const all: Subject[] = [
+function listedSubjects(entries: RuleEntry[], roles: TeamRole[], added: RuleSubject[]): RuleSubject[] {
+  const all: RuleSubject[] = [
     { type: "everyone" },
     ...roles.filter((r) => entries.some((e) => e.subject_type === "role" && e.subject_id === r.id)).map((r) => ({ type: "role" as const, id: r.id })),
-    ...entries.filter((e) => e.subject_type === "member").map((e) => ({ type: "member" as const, id: e.subject_id! })),
+    ...entries.filter((e) => e.subject_type === "member").map(ruleSubjectOf),
     ...added,
   ];
-  return all.filter((s, i) => all.findIndex((o) => subjectKey(o) === subjectKey(s)) === i);
+  return all.filter((s, i) => all.findIndex((o) => ruleSubjectKey(o) === ruleSubjectKey(s)) === i);
 }
 
 function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd, disabled }: {
-  listed: Subject[];
-  candidates: Subject[];
-  selected: Subject;
-  nameOf: (s: Subject) => string;
-  onSelect: (s: Subject) => void;
-  onAdd: (s: Subject) => void;
+  listed: RuleSubject[];
+  candidates: RuleSubject[];
+  selected: RuleSubject;
+  nameOf: (s: RuleSubject) => string;
+  onSelect: (s: RuleSubject) => void;
+  onAdd: (s: RuleSubject) => void;
   disabled: boolean;
 }) {
   const { t } = useTranslation();
@@ -65,11 +62,11 @@ function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd, d
     <div className="flex flex-wrap gap-1.5">
       {listed.map((s) => (
         <button
-          key={subjectKey(s)}
+          key={ruleSubjectKey(s)}
           type="button"
           onClick={() => onSelect(s)}
           className="px-2 py-0.5 rounded-md text-xs bg-(--t-bg-base) border border-(--t-border-hover) text-(--t-text-primary)"
-          style={subjectKey(s) === subjectKey(selected) ? { background: "var(--t-bg-elevated)" } : undefined}
+          style={ruleSubjectKey(s) === ruleSubjectKey(selected) ? { background: "var(--t-bg-elevated)" } : undefined}
         >
           {nameOf(s)}
         </button>
@@ -87,7 +84,7 @@ function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd, d
               ? <p className="px-3 py-2 text-xs text-(--t-text-dim)">{t("shared.permissions.section.noSubjectsLeft")}</p>
               : matches.map((s) => (
                 <PickerOption
-                  key={subjectKey(s)}
+                  key={ruleSubjectKey(s)}
                   label={nameOf(s)}
                   active={false}
                   onClick={() => { onAdd(s); setPicking(false); setQuery(""); }}
@@ -125,15 +122,15 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   const { locked } = useBusinessLock(teamId);
   const [draft, setDraft] = useState<RuleEntry[]>(ruleSet.entries);
   const [loaded, setLoaded] = useState(ruleSet.entries);
-  const [selected, setSelected] = useState<Subject>({ type: "everyone" });
-  const [added, setAdded] = useState<Subject[]>([]);
+  const [selected, setSelected] = useState<RuleSubject>({ type: "everyone" });
+  const [added, setAdded] = useState<RuleSubject[]>([]);
   const [error, setError] = useState<string | null>(null);
   const chain = useRef(Promise.resolve());
   const lastSaved = useRef(ruleSet.entries);
   const pending = useRef(0);
   const generation = useRef(0);
   // Reset during render: an effect would clobber a click made right after load.
-  // A reload that lands while saves are queued predates them, so the draft is kept.
+  // A reload that lands while saves are queued is skipped; draining the queue reloads.
   if (loaded !== ruleSet.entries) {
     setLoaded(ruleSet.entries);
     if (pending.current === 0) {
@@ -154,14 +151,11 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   const target = { teamId, objectId, type };
   const isCredential = type === "key" || type === "identity";
   const listed = listedSubjects(draft, roles, added);
-  const nameOf = (s: Subject) =>
-    s.type === "everyone" ? t("shared.permissions.everyone")
-      : s.type === "role" ? roleLabel(t, roles.find((r) => r.id === s.id)?.name ?? "?")
-      : `@${members.find((m) => m.user_id === s.id)?.handle ?? "?"}`;
-  const candidates: Subject[] = [
+  const nameOf = (s: RuleSubject) => ruleSubjectLabel(t, s, roles, members);
+  const candidates: RuleSubject[] = [
     ...roles.map((r) => ({ type: "role" as const, id: r.id })),
     ...members.map((m) => ({ type: "member" as const, id: m.user_id })),
-  ].filter((s) => !listed.some((l) => subjectKey(l) === subjectKey(s)));
+  ].filter((s) => !listed.some((l) => ruleSubjectKey(l) === ruleSubjectKey(s)));
 
   const rolesGranting = (bit: number, roleIds?: string[]) =>
     roles.filter((r) => (!locked || r.is_builtin) && (!roleIds || roleIds.includes(r.id)) && (r.permissions & bit) !== 0).map((r) => roleLabel(t, r.name));
@@ -182,30 +176,33 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
     return { from: sourceOf(from), grants: from.length > 0 };
   };
 
-  const save = (nextDraft: RuleEntry[]) => {
+  const save = (edit: RuleEdit) => {
     const gen = generation.current;
-    setDraft(nextDraft);
+    setDraft(edit);
     setError(null);
     pending.current += 1;
     chain.current = chain.current.then(async () => {
       try {
         if (gen !== generation.current) return;
-        await saveObjectRules(target, nextDraft);
-        lastSaved.current = nextDraft;
+        const saved = await saveObjectRules(target, edit);
+        if (saved) lastSaved.current = saved;
       } catch (e) {
         generation.current += 1;
         setDraft(lastSaved.current);
         setError(errorText(e));
       } finally {
         pending.current -= 1;
+        if (pending.current === 0) ruleSet.reload();
       }
     });
   };
 
   const change = (permission: Permission, next: OverrideState) => {
-    const current = entryFor(draft, selected);
-    const masks = applyOverrideState(permission, current?.allow ?? 0, current?.deny ?? 0, next);
-    save(withEntry(draft, selected, masks.allow, masks.deny));
+    save((entries) => {
+      const current = entryFor(entries, selected);
+      const masks = applyOverrideState(permission, current?.allow ?? 0, current?.deny ?? 0, next);
+      return withEntry(entries, selected, masks.allow, masks.deny);
+    });
   };
 
   const title = type === "key" ? "shared.permissions.section.titleKey"
@@ -231,7 +228,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
             teamId={teamId}
             message={t("shared.businessLock.objectLapsed")}
             removeLabel={t("shared.businessLock.removeRules")}
-            onRemove={!synced && draft.length > 0 ? async () => save([]) : undefined}
+            onRemove={!synced && draft.length > 0 ? async () => save(() => []) : undefined}
           />
           {isCredential && <p className="text-xs text-(--t-text-dim)">{t("shared.permissions.section.adminNote")}</p>}
           <div className="flex items-center justify-between gap-2 text-xs">

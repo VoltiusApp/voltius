@@ -1,13 +1,11 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useIdentityStore } from "@/stores/identityStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { NO_CONNECTION, useCredentialPlan } from "@/hooks/useCredentialPlan";
 import { useTeamName } from "@/hooks/useTeamName";
-import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
-import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
+import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
 import { Pills } from "@/components/shared/Pills";
 import IdentitySelector from "@/components/connections/IdentitySelector";
 import { PickerSectionLabel } from "@/components/shared/pickerParts";
@@ -36,7 +34,6 @@ export function OverlayIdentityField({
 }) {
   const { t } = useTranslation();
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
-  const teams = useTeamStore((s) => s.teams);
   const can = usePermissions();
   const connection = useAllConnections().find((c) => c.id === connectionId);
   const { teamId, groups, picksOffered, isOwn } = useCredentialPlan(connection ?? NO_CONNECTION);
@@ -45,11 +42,7 @@ export function OverlayIdentityField({
     void loadIdentities();
   }, [loadIdentities]);
 
-  const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
-  const personal = useMemo(
-    () => selectVaultScopedItems({ vaultId: vaultId ?? "personal", localItems: identities, teamItems: teamIdentities, teamVaultIds, resolveVaultId: resolveVaultIdForSave }),
-    [vaultId, identities, teamIdentities, teamVaultIds],
-  );
+  const personal = useVaultScopedItems(vaultId, identities, teamIdentities);
   const shared = teamId ? groups.shared : personal;
   const own = picksOffered ? groups.own : undefined;
   const vaultName = useTeamName(teamId);

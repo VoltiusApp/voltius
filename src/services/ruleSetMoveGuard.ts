@@ -6,7 +6,7 @@ import { useRuleSetPromptStore } from "@/stores/ruleSetPromptStore";
 const ANSWER_TTL_MS = 5000;
 const answers = new Map<string, { at: number; answer: Promise<boolean> }>();
 
-const entriesOf = (teamId: string, setId: string | null) => (setId ? getRuleSet(teamId, setId) : Promise.resolve([]));
+const entriesOf = async (teamId: string, setId: string | null) => (setId ? (await getRuleSet(teamId, setId)).entries : []);
 
 async function changesBetween(teamId: string, from: string | null, to: string | null): Promise<RuleSetChange[] | null> {
   try {

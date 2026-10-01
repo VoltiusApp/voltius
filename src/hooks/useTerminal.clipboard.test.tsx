@@ -12,6 +12,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 vi.mock("@/services/ssh", () => ({
   sshSendInput: vi.fn(), sshResize: vi.fn(),
   onSshOutput: vi.fn(async () => () => {}), onSshClosed: vi.fn(async () => () => {}), onSshCwd: vi.fn(async () => () => {}),
+  onSshMuxMode: vi.fn(async () => () => {}), sshSetTerminalColors: vi.fn(async () => {}), sshSetOutputPaused: vi.fn(async () => {}),
 }));
 vi.mock("@/services/local", () => ({
   localSendInput: vi.fn(), localResize: vi.fn(), localReady: vi.fn(async () => {}),
