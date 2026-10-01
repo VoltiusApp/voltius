@@ -1,8 +1,11 @@
-import { test, expect, vi, beforeEach } from "vitest";
+import { describe, test, expect, vi, beforeEach } from "vitest";
 import type { Connection } from "@/types";
 import { IdentityPickUnavailableError } from "@/services/credentialPlan";
 
 const connection = { id: "c1", name: "db-01", host: "h1", port: 22, username: "root", connection_type: "ssh", vault_id: "t1" } as unknown as Connection;
+const sharedHost = { ...connection, id: "c2", identity_id: "shared" } as Connection;
+const keyHost = { ...connection, id: "c3", key_id: "k9" } as Connection;
+const orphanHost = { ...connection, id: "c4", identity_id: "gone" } as Connection;
 const issue = { connectionId: "c1", connectionName: "db-01", via: "pick" as const, reason: "missing" as const, hasFallback: true, fallbackName: "ops-deploy" };
 
 const h = vi.hoisted(() => ({
@@ -10,6 +13,7 @@ const h = vi.hoisted(() => ({
   sshConnect: vi.fn(async () => {}),
   updateConnection: vi.fn(async () => {}),
   setHostPick: vi.fn(async () => {}),
+  storeSecret: vi.fn(async () => {}),
 }));
 
 vi.mock("@/services/ssh", () => ({
@@ -24,18 +28,19 @@ vi.mock("@/services/credentials", () => ({
   resolveJumpHosts: vi.fn(async () => []),
 }));
 vi.mock("@/stores/connectionStore", () => ({
-  useConnectionStore: { getState: () => ({ connections: [connection], teamConnections: {}, setLastUsed: vi.fn(async () => {}), updateConnection: h.updateConnection }) },
+  useConnectionStore: { getState: () => ({ connections: [connection, sharedHost, keyHost, orphanHost], teamConnections: {}, setLastUsed: vi.fn(async () => {}), updateConnection: h.updateConnection }) },
   connectionToFormData: (c: unknown) => ({ ...(c as object) }),
 }));
 vi.mock("@/stores/identityPickStore", () => ({
   useIdentityPickStore: { getState: () => ({ setHostPick: h.setHostPick, setVaultDefault: vi.fn(async () => {}) }) },
 }));
 vi.mock("@/stores/identityStore", () => ({
-  useIdentityStore: { getState: () => ({ identities: [{ id: "own", username: "alice" }], teamIdentities: { t1: [{ id: "shared", username: "deploy" }] } }) },
+  useIdentityStore: { getState: () => ({ identities: [{ id: "own", username: "alice" }], teamIdentities: { t1: [{ id: "shared", username: "deploy", key_id: "teamKey" }] } }) },
 }));
 vi.mock("@/services/vault", async (orig) => ({
   ...(await orig<typeof import("@/services/vault")>()),
   getSecret: async (k: string) => (k.startsWith("identity:") ? "pw" : null),
+  storeSecret: h.storeSecret,
 }));
 vi.mock("./layoutStore", () => ({ useLayoutStore: { getState: () => ({ setSplitTabActive: vi.fn() }) } }));
 vi.mock("@/services/hostCommandRun", () => ({ runHostCommand: vi.fn(async () => {}) }));
@@ -197,4 +202,71 @@ test("a typed password after a stale save target still saves on the host", async
 
   expect(h.updateConnection).toHaveBeenCalled();
   expect(h.setHostPick).not.toHaveBeenCalled();
+});
+
+const sessionOn = async (connectionId: string) => {
+  h.resolve.mockResolvedValueOnce({ username: "root", password: "pw" });
+  await useSessionStore.getState().connect(connectionId);
+  return useSessionStore.getState().sessions.at(-1)!.id;
+};
+
+describe("a saved passphrase goes to the key that was used", () => {
+  test("a pick's personal key gets it, never the team key or the host", async () => {
+    const id = await sessionOn("c2");
+    h.resolve.mockResolvedValueOnce({ username: "alice", privateKey: "P", identityId: "own", keyId: "ownKey" });
+    await useSessionStore.getState().reconnectWithPassphrase(id, "pp", true);
+
+    expect(h.storeSecret.mock.calls).toEqual([["key:ownKey:passphrase", "pp"]]);
+  });
+
+  test("a keyless pick on a host with a shared key saves nothing", async () => {
+    const id = await sessionOn("c2");
+    h.resolve.mockResolvedValueOnce({ username: "alice", password: "pw", identityId: "own" });
+    await useSessionStore.getState().reconnectWithPassphrase(id, "pp", true);
+
+    expect(h.storeSecret).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ["the host key", "c3", { keyId: "k9" }, ["key:k9:passphrase", "pp"]],
+    ["the host identity's key", "c2", { identityId: "shared", keyId: "teamKey" }, ["key:teamKey:passphrase", "pp"]],
+    ["an inline host key", "c1", {}, ["passphrase:c1", "pp"]],
+    ["nowhere when the host identity is not loaded", "c4", {}, undefined],
+  ])("without a pick it saves to %s, as before", async (_label, connId, creds, expected) => {
+    const id = await sessionOn(connId);
+    h.resolve.mockResolvedValueOnce({ username: "root", privateKey: "P", ...creds });
+    await useSessionStore.getState().reconnectWithPassphrase(id, "pp", true);
+
+    expect(h.storeSecret.mock.calls[0]).toEqual(expected);
+  });
+});
+
+describe("use the host credential this time, through a passphrase prompt", () => {
+  const passphraseFailure = () => h.sshConnect.mockRejectedValueOnce(new Error("Key is encrypted: passphrase required"));
+
+  test("the passphrase retry keeps skipping the pick, then the next reconnect uses it again", async () => {
+    const id = await sessionOn("c1");
+    h.resolve.mockResolvedValue({ username: "deploy", privateKey: "P", keyId: "teamKey" });
+    passphraseFailure();
+    await useSessionStore.getState().reconnect(id, { skipIdentityPick: true });
+
+    await useSessionStore.getState().reconnectWithPassphrase(id, "pp", false);
+    expect(h.resolve).toHaveBeenLastCalledWith(expect.objectContaining({ id: "c1" }), { skipPick: true });
+    expect(useSessionStore.getState().sessions[0].status).toBe("connected");
+
+    await useSessionStore.getState().reconnectWithPassphrase(id, "pp", false);
+    expect(h.resolve).toHaveBeenLastCalledWith(expect.objectContaining({ id: "c1" }), { skipPick: false });
+  });
+
+  test("a plain reconnect in between drops the one-shot skip", async () => {
+    const id = await sessionOn("c1");
+    h.resolve.mockResolvedValue({ username: "deploy", privateKey: "P", keyId: "teamKey" });
+    passphraseFailure();
+    await useSessionStore.getState().reconnect(id, { skipIdentityPick: true });
+    passphraseFailure();
+    await useSessionStore.getState().reconnect(id);
+
+    await useSessionStore.getState().reconnectWithPassphrase(id, "pp", false);
+    expect(h.resolve).toHaveBeenLastCalledWith(expect.objectContaining({ id: "c1" }), { skipPick: false });
+  });
 });

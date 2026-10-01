@@ -421,6 +421,12 @@ function markSessionDisconnected(set: SessionSetter, sessionId: string) {
 // Auth/username supplied through the overlay, carried across the two-step prompt
 // flow (username first, then auth) for a single session. Cleared on success.
 const connectOverrides = new Map<string, ConnectRetryOverride>();
+const skipPickOnce = new Set<string>();
+
+function passphraseSecretKey(connection: Connection, credentials: ResolvedCredentials): string | null {
+  if (credentials.keyId) return `key:${credentials.keyId}:passphrase`;
+  return credentials.identityId || connection.identity_id ? null : `passphrase:${connection.id}`;
+}
 
 function findIdentityById(id: string) {
   const { identities, teamIdentities } = useIdentityStore.getState();
@@ -938,12 +944,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
 
     markSessionConnecting(set, sessionId);
+    if (options?.skipIdentityPick) skipPickOnce.add(sessionId);
+    else skipPickOnce.delete(sessionId);
 
     let credentials: ResolvedCredentials | undefined;
     try {
       await withSessionConnectLock(sessionId, async () => {
         await sshDisconnectForReconnect(sessionId);
-        credentials = await resolveConnectionCredentials(connection, { skipPick: !!options?.skipIdentityPick });
+        credentials = await resolveConnectionCredentials(connection, { skipPick: skipPickOnce.has(sessionId) });
         const opts = await buildSshConnectOptions(connection, sessionId);
         await sshConnect({
           sessionId,
@@ -959,6 +967,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...opts,
         });
       });
+      skipPickOnce.delete(sessionId);
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
@@ -1034,21 +1043,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       await withSessionConnectLock(sessionId, async () => {
         await sshDisconnectForReconnect(sessionId);
-        credentials = await resolveConnectionCredentials(connection);
+        credentials = await resolveConnectionCredentials(connection, { skipPick: skipPickOnce.has(sessionId) });
 
-        if (save) {
-          const keyId = connection.key_id ?? (() => {
-            if (!connection.identity_id) return undefined;
-            const { identities, teamIdentities } = useIdentityStore.getState();
-            const allIdentities = [...identities, ...Object.values(teamIdentities).flat()];
-            return allIdentities.find((i) => i.id === connection.identity_id)?.key_id;
-          })();
-          if (keyId) {
-            await storeSecret(`key:${keyId}:passphrase`, passphrase).catch(keepCachedOnUploadFailure("reconnectWithPassphrase"));
-          } else if (!connection.identity_id) {
-            await storeSecret(`passphrase:${connection.id}`, passphrase).catch(keepCachedOnUploadFailure("reconnectWithPassphrase"));
-          }
-        }
+        const target = save ? passphraseSecretKey(connection, credentials) : null;
+        if (target) await storeSecret(target, passphrase).catch(keepCachedOnUploadFailure("reconnectWithPassphrase"));
 
         const opts = await buildSshConnectOptions(connection, sessionId);
         await sshConnect({
@@ -1064,6 +1062,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...opts,
         });
       });
+      skipPickOnce.delete(sessionId);
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
@@ -1181,6 +1180,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       dropEphemeralConnection(closing.connectionId);
     }
     connectOverrides.delete(sessionId);
+    skipPickOnce.delete(sessionId);
     set({
       sessions: remaining,
       activeSessionId:
