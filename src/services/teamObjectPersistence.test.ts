@@ -17,6 +17,10 @@ vi.mock("@/services/teamObjectEnvelope", () => ({
   })),
 }));
 
+vi.mock("@/services/teamVaultSync", () => ({
+  fetchTeamData: vi.fn(async () => {}),
+}));
+
 vi.mock("@/services/permissionsFromStores", () => ({
   canFromStoresAsync: async () => () => true,
 }));
@@ -30,6 +34,7 @@ vi.mock("@/stores/folderStore", () => ({
 }));
 
 import { copyRuleSet, upsertTeamObject } from "@/services/teamObjects";
+import { fetchTeamData } from "@/services/teamVaultSync";
 import { objectAccess, useTeamObjectAccessStore, type ObjectAccess, type TeamAccessEntries } from "@/stores/teamObjectAccessStore";
 import { PERM_BITS } from "./permissions";
 import {
@@ -44,6 +49,7 @@ const tree: TeamAccessEntries = {
   fA: e({ type: "folder", ruleSetId: "sA" }),
   fB: e({ type: "folder", ruleSetId: "sB" }),
   fSub: e({ type: "folder", ruleSetId: "sA", parentId: "fA" }),
+  fTrashed: e({ type: "folder", ruleSetId: "sT", deleted: true }),
   cSynced: e({ ruleSetId: "sA", parentId: "fA" }),
   cOwn: e({ ruleSetId: "sOwn", parentId: "fA" }),
   cDeep: e({ ruleSetId: "sA", parentId: "fSub" }),
@@ -85,6 +91,21 @@ test("sends an encrypted envelope and no plaintext name or folder id", async () 
 test("create inside a folder sends the folder's set", async () => {
   await saveTeamVaultObject("t1", "connection", { id: "new", folder_id: "fB" });
   expect(sent()[0].rule_set_id).toBe("sB");
+});
+
+test("create inside a folder the client cannot resolve lets the server pick the folder's set, then refetches", async () => {
+  await saveTeamVaultObject("t1", "connection", { id: "new", folder_id: "fHidden" });
+  await saveTeamVaultObject("t1", "connection", { id: "new2", folder_id: "fTrashed" });
+  expect(sent().map((b) => [b.rule_set_id, b.rules_from_folder])).toEqual([[undefined, "fHidden"], [undefined, "fTrashed"]]);
+  expect(fetchTeamData).toHaveBeenCalledWith("t1", { background: true });
+});
+
+test("a resolved folder, the root or an edit never sends the folder hint", async () => {
+  await saveTeamVaultObject("t1", "connection", { id: "new", folder_id: "fB" });
+  await saveTeamVaultObject("t1", "connection", { id: "new2" });
+  await saveTeamVaultObject("t1", "connection", { id: "cSynced", folder_id: "fHidden" });
+  expect(sent().map((b) => b.rules_from_folder)).toEqual([undefined, undefined, undefined]);
+  expect(fetchTeamData).not.toHaveBeenCalled();
 });
 
 test("an older server never receives rule_set_id", async () => {

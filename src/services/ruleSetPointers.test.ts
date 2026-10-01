@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { pointerForSave, setOfParent, isSynced, syncedSubtree } from "./ruleSetPointers";
+import { isUnresolvedParent, pointerForSave, setOfParent, isSynced, syncedSubtree } from "./ruleSetPointers";
 import type { ObjectAccess, TeamAccessEntries } from "@/stores/teamObjectAccessStore";
 import { PERM_BITS } from "./permissions";
 
@@ -24,7 +24,18 @@ const at = (objectId: string, nextParentId: string | null, canManageAtRoot = tru
 test("a new object takes its folder's set, or team-wide at the root", () => {
   expect(at("new", "fB")).toBe("sB");
   expect(at("new", null)).toBeNull();
-  expect(at("new", "hiddenFolder")).toBeNull();
+});
+
+test("a new object in a hidden or deleted folder sends no pointer", () => {
+  expect(at("new", "hiddenFolder")).toBeUndefined();
+  expect(at("new", "fTrashed")).toBeUndefined();
+});
+
+test("a parent is unresolved when unknown or deleted, never at the root", () => {
+  expect(isUnresolvedParent(tree, "hiddenFolder")).toBe(true);
+  expect(isUnresolvedParent(tree, "fTrashed")).toBe(true);
+  expect(isUnresolvedParent(tree, "fA")).toBe(false);
+  expect(isUnresolvedParent(tree, null)).toBe(false);
 });
 
 test("an edit that does not move keeps the pointer", () => {

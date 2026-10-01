@@ -43,6 +43,7 @@ export interface UpsertTeamObject<T = unknown> {
   folder_id?: string | null;
   metadata: T;
   rule_set_id?: string | null;
+  rules_from_folder?: string;
 }
 
 export interface UpsertTeamSecret {

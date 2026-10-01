@@ -3,7 +3,8 @@ import { describeError } from "@/services/backendErrors";
 import { copyRuleSet, deleteTeamObject, upsertTeamObject, type TeamObjectType } from "@/services/teamObjects";
 import { encodeObjectMetadata } from "@/services/teamObjectEnvelope";
 import { parentIdOf } from "@/services/teamObjectAccess";
-import { isFolderType, isSynced, pointerForSave, syncedSubtree, type Pointer } from "@/services/ruleSetPointers";
+import { isFolderType, isSynced, isUnresolvedParent, pointerForSave, syncedSubtree, type Pointer } from "@/services/ruleSetPointers";
+import { logFailure } from "@/lib/logger";
 import { PERM_BITS, type Permission } from "@/services/permissions";
 import {
   ruleSetsSupported, teamAccessEntries, useTeamObjectAccessStore, type TeamAccessEntries,
@@ -80,13 +81,19 @@ async function decidePointer(
   return pointer;
 }
 
+function unresolvedFolderOf(item: PersistableTeamObject, pointer: Pointer, entries: TeamAccessEntries): string | undefined {
+  const parentId = parentIdOf(item);
+  if (entries[item.id] || pointer !== undefined || !parentId) return undefined;
+  return isUnresolvedParent(entries, parentId) ? parentId : undefined;
+}
+
 async function upsertWithPointer(
-  teamId: string, objectType: TeamObjectType, item: PersistableTeamObject, pointer: Pointer,
+  teamId: string, objectType: TeamObjectType, item: PersistableTeamObject, pointer: Pointer, rulesFromFolder?: string,
 ): Promise<Pointer> {
   // name and folder_id are null: every field lives in the encrypted metadata.
   const body = { object_id: item.id, object_type: objectType, name: null, folder_id: null, metadata: await encodeObjectMetadata(teamId, item) };
   try {
-    await upsertTeamObject(teamId, { ...body, rule_set_id: pointer });
+    await upsertTeamObject(teamId, { ...body, rule_set_id: pointer, rules_from_folder: rulesFromFolder });
     return pointer;
   } catch (e) {
     if ((e as { status?: number }).status !== 409 || pointer === undefined) throw e;
@@ -135,8 +142,13 @@ export async function saveTeamVaultObject<T extends PersistableTeamObject>(
   const entries = teamAccessEntries(teamId);
   const can = await (await import("@/services/permissionsFromStores")).canFromStoresAsync();
   const pointer = await decidePointer(teamId, item, opts, entries, can);
-  const applied = await upsertWithPointer(teamId, objectType, item, pointer);
+  const rulesFromFolder = unresolvedFolderOf(item, pointer, entries);
+  const applied = await upsertWithPointer(teamId, objectType, item, pointer, rulesFromFolder);
   recordSaved(teamId, objectType, item, applied, entries, can);
+  if (rulesFromFolder) {
+    const { fetchTeamData } = await import("@/services/teamVaultSync");
+    fetchTeamData(teamId, { background: true }).catch(logFailure(`refetch after folder-hinted create team=${teamId}`));
+  }
   if (applied === undefined || opts.cascade === false || !isFolderType(objectType) || !entries[item.id]) return;
   for (const id of syncedSubtree(entries, item.id)) {
     const entry = entries[id];
