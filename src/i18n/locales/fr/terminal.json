@@ -291,6 +291,14 @@
         "unlock": "Déverrouiller le coffre",
         "retry": "Réessayer",
         "dismiss": "Fermer l'onglet"
+      },
+      "identityPick": {
+        "title": "Votre identité n'est pas disponible",
+        "missingBody": "Vous avez choisi une identité pour {{host}}, mais elle n'est pas sur cet appareil ou a été supprimée. Aucune connexion n'a été tentée.",
+        "forbiddenBody": "Vous avez choisi {{identity}} pour {{host}}, mais vous ne pouvez plus l'utiliser. Aucune connexion n'a été tentée.",
+        "choose": "Choisir une autre identité",
+        "useHostNamed": "Utiliser {{name}} (hôte) cette fois",
+        "useHost": "Utiliser l'identifiant de l'hôte cette fois"
       }
     },
     "statusBar": {

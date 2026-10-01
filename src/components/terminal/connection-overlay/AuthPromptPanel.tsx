@@ -14,7 +14,7 @@ import KeySelector from "@/components/connections/KeySelector";
 import { DecisionPanel } from "./DecisionPanel";
 import type { ConnectRetryOverride } from "./types";
 
-type AuthMode = "password" | "key" | "identity";
+export type AuthMode = "password" | "key" | "identity";
 
 function getAuthModes(t: TFunction) {
   return [
@@ -26,10 +26,12 @@ function getAuthModes(t: TFunction) {
 
 export function AuthPromptPanel({
   vaultId,
+  initialMode,
   onSubmit,
   onCancel,
 }: {
   vaultId?: string;
+  initialMode?: AuthMode;
   onSubmit: (override: ConnectRetryOverride, save: boolean) => void;
   onCancel?: () => void;
 }) {
@@ -40,7 +42,7 @@ export function AuthPromptPanel({
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const authModes = useMemo(() => getAuthModes(t), [t]);
 
-  const [mode, setMode] = useState<AuthMode>("password");
+  const [mode, setMode] = useState<AuthMode>(initialMode ?? "password");
   const [identityId, setIdentityId] = useState<string | null>(null);
   const [keyId, setKeyId] = useState<string | null>(null);
   const [password, setPassword] = useState("");

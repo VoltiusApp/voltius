@@ -284,6 +284,14 @@
         "unlock": "Kasanın kilidini aç",
         "retry": "Tekrar dene",
         "dismiss": "Sekmeyi kapat"
+      },
+      "identityPick": {
+        "title": "Kimliğiniz kullanılamıyor",
+        "missingBody": "{{host}} için bir kimlik seçtiniz, ancak bu cihazda yok veya kaldırılmış. Bağlantı denenmedi.",
+        "forbiddenBody": "{{host}} için {{identity}} kimliğini seçtiniz, ancak artık kullanamazsınız. Bağlantı denenmedi.",
+        "choose": "Başka bir kimlik seç",
+        "useHostNamed": "Bu sefer {{name}} (sunucu) kullan",
+        "useHost": "Bu sefer sunucunun kimlik bilgisini kullan"
       }
     },
     "statusBar": {

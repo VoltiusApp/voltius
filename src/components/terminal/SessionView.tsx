@@ -159,6 +159,8 @@ function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }
       onRetryWithPassphrase={
         session.type === "ssh" ? (passphrase, save) => void reconnectWithPassphrase(session.id, passphrase, save) : undefined
       }
+      identityPick={session.identityPick}
+      onUseHostCredential={session.type === "ssh" ? () => void reconnect(session.id, { skipIdentityPick: true }) : undefined}
       onRetryWithAuth={
         session.type === "ssh" ? (override: ConnectRetryOverride, save) => void retryConnect(session.id, override, save) : undefined
       }

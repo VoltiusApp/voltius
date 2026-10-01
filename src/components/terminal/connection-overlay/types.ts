@@ -1,3 +1,4 @@
+import type { IdentityPickIssue } from "@/services/credentialPlan";
 import type { ReactNode } from "react";
 import type { KnownHost, TerminalSession } from "@/types";
 import type { BackendErrorCode } from "@/services/backendErrors";
@@ -67,6 +68,8 @@ export interface ConnectionOverlayProps {
   onRetryWithPassphrase?: (passphrase: string, save: boolean) => void;
   /** Retry the connection with auth/username supplied through the overlay. */
   onRetryWithAuth?: (override: ConnectRetryOverride, save: boolean) => void;
+  identityPick?: IdentityPickIssue;
+  onUseHostCredential?: () => void;
 }
 
 export interface DecisionPanelAction {

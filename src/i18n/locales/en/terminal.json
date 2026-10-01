@@ -284,6 +284,14 @@
         "unlock": "Unlock vault",
         "retry": "Try again",
         "dismiss": "Close tab"
+      },
+      "identityPick": {
+        "title": "Your identity isn't available",
+        "missingBody": "You chose an identity for {{host}}, but it isn't on this device or was removed. No connection was attempted.",
+        "forbiddenBody": "You chose {{identity}} for {{host}}, but you can no longer use it. No connection was attempted.",
+        "choose": "Choose another identity",
+        "useHostNamed": "Use {{name}} (host) this time",
+        "useHost": "Use the host's credential this time"
       }
     },
     "statusBar": {

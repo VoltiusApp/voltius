@@ -282,6 +282,14 @@
         "unlock": "解锁保险库",
         "retry": "重试",
         "dismiss": "关闭标签页"
+      },
+      "identityPick": {
+        "title": "你的身份不可用",
+        "missingBody": "你为 {{host}} 选择了一个身份，但它不在此设备上或已被删除。未尝试连接。",
+        "forbiddenBody": "你为 {{host}} 选择了 {{identity}}，但你已无法再使用它。未尝试连接。",
+        "choose": "选择其他身份",
+        "useHostNamed": "本次使用 {{name}}（主机）",
+        "useHost": "本次使用主机的凭据"
       }
     },
     "statusBar": {
