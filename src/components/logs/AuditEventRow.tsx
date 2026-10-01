@@ -4,6 +4,7 @@ import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
 import { avatarColor } from "@/components/shared/AvatarStack";
 import { LOCAL_ACTOR_ID } from "@/services/localAuditService";
+import { useIdentityStore } from "@/stores/identityStore";
 import { formatDate, formatTime, SHORT_DATE, HOUR_MINUTE } from "@/utils/localeFormat";
 
 // ─── Action metadata ──────────────────────────────────────────────────────────
@@ -75,6 +76,22 @@ export const FALLBACK_META: ActionMeta = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+function AuditBadge({ accent, title, children }: { accent?: boolean; title?: string; children: React.ReactNode }) {
+  return (
+    <span
+      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+      title={title}
+      style={
+        accent
+          ? { background: "color-mix(in srgb, var(--t-accent) 14%, transparent)", color: "var(--t-accent)", border: "1px solid color-mix(in srgb, var(--t-accent) 35%, transparent)" }
+          : { background: "var(--t-bg-elevated)", color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }
+      }
+    >
+      {children}
+    </span>
+  );
+}
+
 interface Props {
   log: AuditLog;
   showDate?: boolean;
@@ -82,7 +99,14 @@ interface Props {
 
 export function AuditEventRow({ log, showDate = false }: Props) {
   const { t } = useTranslation();
-  const meta = ACTION_META[log.action] ?? FALLBACK_META;
+  const actionMeta = ACTION_META[log.action] ?? FALLBACK_META;
+  const meta = log.metadata ?? {};
+  const isConnect = log.action === "connection.started";
+  const source = isConnect ? (meta.identity_source as string | undefined) : undefined;
+  const fingerprint = isConnect && typeof meta.key_fingerprint === "string" ? meta.key_fingerprint : undefined;
+  const sharedName = useIdentityStore((s) =>
+    source === "team" ? Object.values(s.teamIdentities).flat().find((i) => i.id === meta.identity_id)?.name : undefined,
+  );
   const actor = actorName(log);
   const time = new Date(log.created_at);
   const timeStr = formatTime(time, HOUR_MINUTE);
@@ -104,28 +128,26 @@ export function AuditEventRow({ log, showDate = false }: Props) {
       {/* Action dot */}
       <div
         className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-1"
-        style={{ background: `${meta.color}22`, color: meta.color }}
+        style={{ background: `${actionMeta.color}22`, color: actionMeta.color }}
       >
-        <Icon icon={meta.icon} width={11} />
+        <Icon icon={actionMeta.icon} width={11} />
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm font-medium text-(--t-text-primary)">{actor}</span>
-          <span className="text-sm text-(--t-text-secondary)">{meta.label(log)}</span>
-          {log.source === "client" && (
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-              style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
-              title={t("logs.badges.clientTooltip")}
-            >
-              {t("logs.badges.client")}
-            </span>
-          )}
+          <span className="text-sm text-(--t-text-secondary)">{actionMeta.label(log)}</span>
+          {source === "own" && <AuditBadge accent title={t("logs.badges.ownKeyTooltip")}>{t("logs.badges.ownKey")}</AuditBadge>}
+          {source === "team" && <AuditBadge>{sharedName ? t("logs.badges.shared", { name: sharedName }) : t("logs.badges.sharedUnknown")}</AuditBadge>}
+          {log.source === "client" && <AuditBadge title={t("logs.badges.clientTooltip")}>{t("logs.badges.client")}</AuditBadge>}
         </div>
-        {log.ip_address && (
-          <div className="text-xs text-(--t-text-dim) mt-0.5">{log.ip_address}</div>
+        {(log.ip_address || fingerprint) && (
+          <div className="text-xs text-(--t-text-dim) mt-0.5">
+            {log.ip_address}
+            {log.ip_address && fingerprint && " · "}
+            {fingerprint && <span className="font-mono">{fingerprint}</span>}
+          </div>
         )}
       </div>
 

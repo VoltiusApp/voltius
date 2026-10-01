@@ -73,7 +73,11 @@
     },
     "badges": {
       "client": "client",
-      "clientTooltip": "Signalé par l'application cliente — non-officiel"
+      "clientTooltip": "Signalé par l'application cliente — non-officiel",
+      "ownKey": "clé personnelle",
+      "ownKeyTooltip": "Connecté avec l'identité du membre ; elle ne quitte jamais son appareil",
+      "shared": "partagée · {{name}}",
+      "sharedUnknown": "partagée"
     },
     "eventLabels": {
       "memberInvited": "a invité {{name}}",

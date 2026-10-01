@@ -73,7 +73,11 @@
     },
     "badges": {
       "client": "istemci",
-      "clientTooltip": "İstemci uygulaması tarafından bildirildi — kesin kaynak değildir"
+      "clientTooltip": "İstemci uygulaması tarafından bildirildi — kesin kaynak değildir",
+      "ownKey": "kendi anahtarı",
+      "ownKeyTooltip": "Üyenin kendi kimliğiyle bağlanıldı; kimlik cihazından hiç çıkmaz",
+      "shared": "paylaşılan · {{name}}",
+      "sharedUnknown": "paylaşılan"
     },
     "eventLabels": {
       "memberInvited": "davet etti: {{name}}",

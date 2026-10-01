@@ -73,7 +73,11 @@
     },
     "badges": {
       "client": "client",
-      "clientTooltip": "Reported by the client app — non-authoritative"
+      "clientTooltip": "Reported by the client app — non-authoritative",
+      "ownKey": "own key",
+      "ownKeyTooltip": "Connected with the member's own identity; it never leaves their device",
+      "shared": "shared · {{name}}",
+      "sharedUnknown": "shared"
     },
     "eventLabels": {
       "memberInvited": "invited {{name}}",

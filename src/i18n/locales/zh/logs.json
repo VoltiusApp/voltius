@@ -73,7 +73,11 @@
     },
     "badges": {
       "client": "客户端",
-      "clientTooltip": "由客户端应用报告——非权威"
+      "clientTooltip": "由客户端应用报告——非权威",
+      "ownKey": "自有密钥",
+      "ownKeyTooltip": "使用成员自己的身份连接；该身份从不离开其设备",
+      "shared": "共享 · {{name}}",
+      "sharedUnknown": "共享"
     },
     "eventLabels": {
       "memberInvited": "邀请了 {{name}}",
