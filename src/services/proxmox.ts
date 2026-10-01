@@ -24,6 +24,7 @@ export async function registerLxcExecSession(opts: {
         status: "connecting" as const,
         type: "ssh" as const,
         containerExec: { kind: "lxc" as const, vmid, parentSessionId },
+        connectedUsername: s.sessions.find((x) => x.id === parentSessionId)?.connectedUsername,
       },
     ],
     activeSessionId: execSessionId,

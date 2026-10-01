@@ -2136,6 +2136,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
                   status: "connecting" as const,
                   type: "ssh" as const,
                   containerExec: { kind: "docker" as const, containerId, parentSessionId: target.sessionId },
+                  connectedUsername: parent?.connectedUsername,
                 },
               ],
               activeSessionId: execSessionId,
