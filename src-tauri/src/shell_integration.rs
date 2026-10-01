@@ -273,6 +273,14 @@ pub const MAX_EXEC_COMMAND_LEN: usize = 8192;
 
 const TMUX_SOCKET: &str = "voltius";
 
+const TMUX_CC_VERSIONS: &str = r#"*"tmux "3.[2-9]*|*"tmux "[4-9]*|*"tmux "[1-9][0-9]*"#;
+
+pub const CONTROL_MODE_MARKER: &str = "VOLTIUS_CC";
+
+fn mode_style(colors: &crate::ssh::control_mode::TerminalColors) -> String {
+    format!("fg={},bg={}", colors.selection_fg, colors.selection_bg)
+}
+
 /// Prepended to the pane command so the session shell no longer looks like it
 /// is inside a multiplexer (#159). The persistence wrapper is an implementation
 /// detail, but tmux exports `$TMUX` into the shell it starts, and a tmux client
@@ -389,6 +397,14 @@ if command -v tmux >/dev/null 2>&1; then
       tmux -L {socket} set -g prefix None >/dev/null 2>&1
       TMUX_PREFIX_NONE=1 ;;
   esac
+  CC=
+  SZ=
+  case "$(tmux -V 2>/dev/null)" in
+    {cc})
+      CC=-CC
+      S=$(stty size <&2 2>/dev/null)
+      [ -n "$S" ] && SZ="-x ${{S#* }} -y ${{S% *}}" ;;
+  esac
   TMUX_CONF=$(mktemp 2>/dev/null)
   if [ -n "$TMUX_CONF" ]; then
     cat > "$TMUX_CONF" <<'EOF'
@@ -401,9 +417,9 @@ set -g destroy-unattached off
 set -ga terminal-overrides ',*:cnorm=\E[?25h'
 EOF
     [ -n "$TMUX_PREFIX_NONE" ] && echo "set -g prefix None" >> "$TMUX_CONF"
-    exec tmux -L {socket} -f "$TMUX_CONF" new-session -A -s {key} "$V" <&2
+    exec tmux -L {socket} -f "$TMUX_CONF" $CC new-session -A -s {key} $SZ "$V" <&2
   fi
-  exec tmux -L {socket} new-session -A -s {key} "$V" <&2
+  exec tmux -L {socket} $CC new-session -A -s {key} $SZ "$V" <&2
 elif command -v screen >/dev/null 2>&1; then
   V="{screen_strip}$V"
   screen -wipe >/dev/null 2>&1
@@ -439,6 +455,7 @@ fi
         key = session_key,
         inner = inner,
         tmux_strip = TMUX_ENV_STRIP,
+        cc = TMUX_CC_VERSIONS,
         screen_strip = SCREEN_ENV_STRIP,
         screen_notice = notice_printf(SCREEN_DEGRADED_NOTICE),
         no_mux_notice =
@@ -454,7 +471,9 @@ fi
 pub fn persistent_attach_command(session_key: &str) -> String {
     let script = format!(
         r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
-  exec tmux -L {socket} attach-session -t {key} <&2
+  CC=
+  case "$(tmux -V 2>/dev/null)" in {cc}) CC=-CC ;; esac
+  exec tmux -L {socket} $CC attach-session -t {key} <&2
 elif command -v screen >/dev/null 2>&1; then
   exec screen -x -S {key} <&2
 fi
@@ -463,6 +482,7 @@ exit 97
 "#,
         socket = TMUX_SOCKET,
         key = session_key,
+        cc = TMUX_CC_VERSIONS,
     );
     encode_wrapper(&script)
 }
@@ -485,14 +505,26 @@ true"#,
     encode_wrapper(&script)
 }
 
-/// Binds typed keys to leave copy-mode (which wheel-up enters) and reach the shell.
-/// Below 3.4 only Enter: older tmux runs a paste's first key through bindings, breaking the paste.
-pub fn persistent_copy_mode_keys_command(session_key: &str) -> String {
+/// Legacy tmux (< 3.2) only: Enter leaves wheel-entered copy-mode, a drag keeps
+/// its highlight (3.0+), and the selection takes the theme colours.
+pub fn persistent_legacy_setup_command(
+    session_key: &str,
+    colors: Option<&crate::ssh::control_mode::TerminalColors>,
+) -> String {
+    let style = colors
+        .map(|c| {
+            format!(
+                "printf '%s\\n' \"set -g mode-style '{}'\" >> \"$F\"\n",
+                mode_style(c)
+            )
+        })
+        .unwrap_or_default();
     let script = format!(
         r#"command -v tmux >/dev/null 2>&1 || exit 0
+NC=
 case "$(tmux -V 2>/dev/null)" in
-  *"tmux "3.[4-9]*|*"tmux "[4-9]*|*"tmux "[1-9][0-9]*) ALL=1 ;;
-  *"tmux "3.[0-3]*|*"tmux "2.[6-9]*) ALL= ;;
+  *"tmux "3.[01]*) NC=1 ;;
+  *"tmux "2.[6-9]*) ;;
   *) exit 0 ;;
 esac
 i=0
@@ -502,26 +534,28 @@ until tmux -L {socket} has-session -t {key} 2>/dev/null; do
   i=$((i+1))
 done
 F=$(mktemp 2>/dev/null) || exit 0
-set -f
-while read -r l; do
-  for k in $l; do
-    [ -n "$ALL" ] || [ "$k" = Enter ] || continue
-    s=$k
-    [ "$k" = '\;' ] && s=0x3b
-    for t in copy-mode copy-mode-vi; do
-      printf 'bind -T %s %s send -X cancel \\; send-keys %s\n' $t "$k" "$s"
-    done
-  done
-done > "$F" <<'KEYS'
-Enter BSpace Tab Space ! '"' '#' '$' % & "'" ( ) * + , - . / : \; < = > ? @ [ '\' ] ^ _ ` '{{' | '}}' '~'
-0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
-a b c d e f g h i j k l m n o p r s t u v w x y z
-KEYS
-tmux -L {socket} source-file "$F"
+for t in copy-mode copy-mode-vi; do
+  printf 'bind -T %s Enter send -X cancel \; send-keys Enter\n' $t
+  [ -n "$NC" ] && printf 'bind -T %s MouseDragEnd1Pane send -X copy-selection-no-clear\n' $t
+done > "$F"
+{style}tmux -L {socket} source-file "$F"
 rm -f "$F"
 "#,
         socket = TMUX_SOCKET,
         key = session_key,
+    );
+    encode_wrapper(&script)
+}
+
+pub fn legacy_mode_style_command(colors: &crate::ssh::control_mode::TerminalColors) -> String {
+    let script = format!(
+        r#"command -v tmux >/dev/null 2>&1 || exit 0
+case "$(tmux -V 2>/dev/null)" in {cc}) exit 0 ;; esac
+tmux -L {socket} set -g mode-style '{style}' 2>/dev/null
+true"#,
+        cc = TMUX_CC_VERSIONS,
+        socket = TMUX_SOCKET,
+        style = mode_style(colors),
     );
     encode_wrapper(&script)
 }
@@ -547,6 +581,7 @@ rm -f "$F"
 pub fn capture_history_command(session_key: &str, pty_rows: u32) -> String {
     format!(
         r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+  case "$(tmux -V 2>/dev/null)" in {cc}) printf {marker}; exit 0 ;; esac
   tmux -L {socket} capture-pane -t {key} -peJ -S -50000 -E -1 2>/dev/null
 elif command -v screen >/dev/null 2>&1; then
   f=$(mktemp 2>/dev/null) || exit 0
@@ -562,6 +597,8 @@ true"#,
         socket = TMUX_SOCKET,
         key = session_key,
         rows = pty_rows,
+        cc = TMUX_CC_VERSIONS,
+        marker = CONTROL_MODE_MARKER,
     )
 }
 
@@ -875,39 +912,70 @@ mod tests {
         assert!(script.trim_end().ends_with("true"));
     }
 
+    fn test_colors() -> crate::ssh::control_mode::TerminalColors {
+        crate::ssh::control_mode::TerminalColors {
+            fg: "#101820".into(),
+            bg: "#fafaf0".into(),
+            selection_fg: "#101820".into(),
+            selection_bg: "#c8d0e0".into(),
+        }
+    }
+
     #[test]
-    fn copy_mode_keys_forward_typing_but_keep_exits() {
-        let script = decode_bootstrap(&persistent_copy_mode_keys_command("voltius_s1"));
+    fn persistent_wrapper_attaches_in_control_mode_on_tmux_3_2_and_later() {
+        let script = decode_bootstrap(&persistent_exec_command(
+            "voltius_s1",
+            &ssh_exec_command(""),
+        ));
+        assert!(script.contains(&format!("    {TMUX_CC_VERSIONS})")));
+        assert!(script.contains("CC=-CC"));
+        assert!(script.contains("S=$(stty size <&2 2>/dev/null)"));
+        assert!(script.contains(
+            r#"exec tmux -L voltius -f "$TMUX_CONF" $CC new-session -A -s voltius_s1 $SZ "$V" <&2"#
+        ));
+        assert!(script
+            .contains(r#"exec tmux -L voltius $CC new-session -A -s voltius_s1 $SZ "$V" <&2"#));
+    }
+
+    #[test]
+    fn persistent_attach_uses_control_mode_on_tmux_3_2_and_later() {
+        let script = decode_bootstrap(&persistent_attach_command("voltius_s1"));
+        assert!(script.contains(TMUX_CC_VERSIONS));
+        assert!(script.contains("exec tmux -L voltius $CC attach-session -t voltius_s1 <&2"));
+    }
+
+    #[test]
+    fn capture_history_defers_to_the_control_mode_sync() {
+        let cmd = capture_history_command("voltius_s1", 40);
+        let marker = cmd.find("printf VOLTIUS_CC").expect("marker");
+        assert!(marker < cmd.find("capture-pane").unwrap());
+        assert!(cmd.contains(TMUX_CC_VERSIONS));
+    }
+
+    #[test]
+    fn legacy_setup_only_touches_tmux_below_3_2() {
+        let script = decode_bootstrap(&persistent_legacy_setup_command(
+            "voltius_s1",
+            Some(&test_colors()),
+        ));
+        assert!(script.contains(r#"*"tmux "3.[01]*) NC=1 ;;"#));
+        assert!(script.contains(r#"*"tmux "2.[6-9]*) ;;"#));
+        assert!(script.contains("*) exit 0 ;;"));
         assert!(script.contains("until tmux -L voltius has-session -t voltius_s1"));
-        // Below 3.4 a paste's first key hits bindings, so only Enter is bound there.
-        assert!(script.contains(r#"*"tmux "3.[4-9]*|*"tmux "[4-9]*|*"tmux "[1-9][0-9]*) ALL=1 ;;"#));
-        assert!(script.contains(r#"*"tmux "3.[0-3]*|*"tmux "2.[6-9]*) ALL= ;;"#));
-        assert!(script.contains(r#"[ -n "$ALL" ] || [ "$k" = Enter ] || continue"#));
-        assert!(script.contains("for t in copy-mode copy-mode-vi"));
-        assert!(script.contains(r"send -X cancel \\; send-keys %s"));
-        assert!(script.contains(r#"[ "$k" = '\;' ] && s=0x3b"#));
-        assert!(!script.contains("Any"));
+        assert!(script
+            .contains(r"printf 'bind -T %s Enter send -X cancel \; send-keys Enter\n' $t"));
+        assert!(script.contains("MouseDragEnd1Pane send -X copy-selection-no-clear"));
+        assert!(script.contains("set -g mode-style 'fg=#101820,bg=#c8d0e0'"));
         assert!(script.contains("tmux -L voltius source-file"));
-        let keys: Vec<&str> = script
-            .split("<<'KEYS'\n")
-            .nth(1)
-            .and_then(|s| s.split("\nKEYS").next())
-            .expect("key list")
-            .split_whitespace()
-            .collect();
-        for printable in (b'!'..=b'~').filter(|b| b.is_ascii_alphanumeric()) {
-            let key = (printable as char).to_string();
-            assert_eq!(keys.contains(&key.as_str()), key != "q", "key {key}");
-        }
-        for named in [
-            "Enter", "BSpace", "Tab", "Space", r"\;", "'{'", "'}'", "\"'\"",
-        ] {
-            assert!(keys.contains(&named), "key {named}");
-        }
-        assert_eq!(keys.len(), 97);
-        for exit in ["Escape", "C-c"] {
-            assert!(!keys.contains(&exit));
-        }
+        let plain = decode_bootstrap(&persistent_legacy_setup_command("voltius_s1", None));
+        assert!(!plain.contains("mode-style"));
+    }
+
+    #[test]
+    fn legacy_mode_style_skips_control_mode_hosts() {
+        let script = decode_bootstrap(&legacy_mode_style_command(&test_colors()));
+        assert!(script.contains(&format!("{TMUX_CC_VERSIONS}) exit 0 ;;")));
+        assert!(script.contains("tmux -L voltius set -g mode-style 'fg=#101820,bg=#c8d0e0'"));
     }
 
     #[test]

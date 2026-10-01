@@ -1197,7 +1197,7 @@ pub async fn connect(
         let poll_app = app.clone();
         let key = crate::shell_integration::tmux_session_key(&session_id);
         let keys_handle = Arc::clone(&handle);
-        let keys_cmd = crate::shell_integration::persistent_copy_mode_keys_command(&key);
+        let keys_cmd = crate::shell_integration::persistent_legacy_setup_command(&key, None);
         tokio::spawn(async move {
             if let Ok(channel) = keys_handle.channel_open_session().await {
                 let _ = exec_collect(channel, &keys_cmd, std::time::Duration::from_secs(30)).await;
