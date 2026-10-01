@@ -1,3 +1,7 @@
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
 const MARKER: &[u8] = b"\x1bP1000p";
 const MARKER_WINDOW: usize = 64 * 1024;
 
@@ -357,6 +361,162 @@ pub fn sync_bytes(
     out
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Action {
+    Emit(Vec<u8>),
+    Send(Vec<u8>),
+    WindowChange(u32, u32),
+    Started { tmux: String },
+}
+
+#[derive(Default)]
+struct Snapshot {
+    state: Option<PaneState>,
+    history: Vec<Vec<u8>>,
+    saved: Vec<Vec<u8>>,
+}
+
+pub struct ControlSession {
+    key: String,
+    cols: u32,
+    rows: u32,
+    colors: Option<TerminalColors>,
+    demux: Demux,
+    pending: VecDeque<ReplyKind>,
+    snapshot: Option<Snapshot>,
+    pane: Option<String>,
+    started: Arc<AtomicBool>,
+}
+
+impl ControlSession {
+    pub fn new(key: String, cols: u32, rows: u32, colors: Option<TerminalColors>) -> Self {
+        Self {
+            key,
+            cols,
+            rows,
+            colors: colors.filter(TerminalColors::is_valid),
+            demux: Demux::default(),
+            pending: VecDeque::new(),
+            snapshot: None,
+            pane: None,
+            started: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    pub fn started_flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.started)
+    }
+
+    fn target(&self) -> &str {
+        self.pane.as_deref().unwrap_or(&self.key)
+    }
+
+    fn command(&mut self, cmd: String) -> Action {
+        self.pending.push_back(ReplyKind::Ignore);
+        Action::Send(cmd.into_bytes())
+    }
+
+    pub fn on_output(&mut self, bytes: &[u8]) -> Vec<Action> {
+        let was_control = self.demux.is_control();
+        let mut actions = Vec::new();
+        for event in self.demux.feed(bytes) {
+            match event {
+                Event::Passthrough(data) => actions.push(Action::Emit(data)),
+                Event::Output { pane, data } => {
+                    let ours = self.pane.as_ref().is_none_or(|p| *p == pane);
+                    if self.snapshot.is_none() && ours {
+                        actions.push(Action::Emit(data));
+                    }
+                }
+                Event::Reply { ok, lines } => self.reply(ok, lines, &mut actions),
+            }
+        }
+        if !was_control && self.demux.is_control() {
+            self.started.store(true, Ordering::Relaxed);
+            let (line, kinds) =
+                sync_command(&self.key, self.cols, self.rows, self.colors.as_ref());
+            self.pending.extend(kinds);
+            self.snapshot = Some(Snapshot::default());
+            actions.push(Action::Send(line.into_bytes()));
+        }
+        actions
+    }
+
+    fn reply(&mut self, ok: bool, lines: Vec<Vec<u8>>, actions: &mut Vec<Action>) {
+        let Some(kind) = self.pending.pop_front() else {
+            return;
+        };
+        let Some(snapshot) = self.snapshot.as_mut() else {
+            return;
+        };
+        match kind {
+            ReplyKind::Ignore => {}
+            ReplyKind::State => {
+                snapshot.state = lines
+                    .first()
+                    .filter(|_| ok)
+                    .and_then(|l| PaneState::parse(l))
+            }
+            ReplyKind::History => snapshot.history = lines,
+            ReplyKind::Saved => snapshot.saved = lines,
+            ReplyKind::Visible => {
+                let Some(snapshot) = self.snapshot.take() else {
+                    return;
+                };
+                match snapshot.state {
+                    Some(state) => {
+                        self.pane = Some(state.pane_id.clone());
+                        actions.push(Action::Started {
+                            tmux: state.version.clone(),
+                        });
+                        actions.push(Action::Emit(sync_bytes(
+                            &state,
+                            &snapshot.history,
+                            &snapshot.saved,
+                            &lines,
+                        )));
+                    }
+                    None => actions.push(Action::Started {
+                        tmux: String::new(),
+                    }),
+                }
+            }
+        }
+    }
+
+    pub fn on_input(&mut self, data: Vec<u8>) -> Vec<Action> {
+        if !self.demux.is_control() {
+            return vec![Action::Send(data)];
+        }
+        let target = self.target().to_string();
+        encode_input(&target, &data)
+            .into_iter()
+            .map(|cmd| self.command(cmd))
+            .collect()
+    }
+
+    pub fn on_resize(&mut self, cols: u32, rows: u32) -> Vec<Action> {
+        self.cols = cols;
+        self.rows = rows;
+        if !self.demux.is_control() {
+            return vec![Action::WindowChange(cols, rows)];
+        }
+        vec![self.command(encode_resize(cols, rows))]
+    }
+
+    pub fn on_colors(&mut self, colors: TerminalColors) -> Vec<Action> {
+        if !colors.is_valid() {
+            return Vec::new();
+        }
+        let cmd = window_style_command(self.target(), &colors);
+        self.colors = Some(colors);
+        if !self.demux.is_control() {
+            return Vec::new();
+        }
+        vec![self.command(cmd)]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -665,5 +825,153 @@ mod tests {
         };
         let text = String::from_utf8(sync_bytes(&s, &[], &[], &rows(&[""]))).unwrap();
         assert!(text.ends_with("\x1b[3;8r\x1b[?6h\x1b[3;1H\x1b[?25l"));
+    }
+
+    fn begin_end(number: u32, lines: &[&str]) -> Vec<u8> {
+        let mut out = format!("%begin 1 {number} 1\r\n").into_bytes();
+        for l in lines {
+            out.extend_from_slice(l.as_bytes());
+            out.extend_from_slice(b"\r\n");
+        }
+        out.extend_from_slice(format!("%end 1 {number} 1\r\n").as_bytes());
+        out
+    }
+
+    fn started_session() -> ControlSession {
+        let mut s = ControlSession::new("voltius_s1".into(), 80, 2, None);
+        let actions = s.on_output(b"motd\r\n\x1bP1000p%begin 1 1 0\r\n%end 1 1 0\r\n");
+        let (line, _) = sync_command("voltius_s1", 80, 2, None);
+        assert_eq!(
+            actions,
+            vec![
+                Action::Emit(b"motd\r\n".to_vec()),
+                Action::Send(line.into_bytes())
+            ]
+        );
+        s
+    }
+
+    const STATE_2_ROWS: &str = "%0 3.6 0 4294967295 4294967295 2 1 1 0 0 0 0 0 0 0 0 1 0 0 1 1 2";
+
+    fn finish_sync(s: &mut ControlSession, first: u32) -> Vec<Action> {
+        let mut replies = begin_end(first, &[]);
+        replies.extend(begin_end(first + 1, &[STATE_2_ROWS]));
+        replies.extend(begin_end(first + 2, &["old"]));
+        replies.extend(begin_end(first + 3, &[]));
+        replies.extend(begin_end(first + 4, &["$ ls", "$ "]));
+        s.on_output(&replies)
+    }
+
+    #[test]
+    fn raw_session_passes_everything_straight_through() {
+        let mut s = ControlSession::new("voltius_s1".into(), 80, 24, None);
+        assert_eq!(s.on_output(b"hello"), vec![Action::Emit(b"hello".to_vec())]);
+        assert_eq!(
+            s.on_input(b"ls\r".to_vec()),
+            vec![Action::Send(b"ls\r".to_vec())]
+        );
+        assert_eq!(s.on_resize(100, 30), vec![Action::WindowChange(100, 30)]);
+        assert!(s.on_colors(colors()).is_empty());
+        assert!(!s
+            .started_flag()
+            .load(std::sync::atomic::Ordering::Relaxed));
+    }
+
+    #[test]
+    fn marker_starts_the_sync_and_the_snapshot_replaces_held_output() {
+        let mut s = started_session();
+        assert!(s
+            .started_flag()
+            .load(std::sync::atomic::Ordering::Relaxed));
+        assert!(s
+            .on_output(b"%output %0 already-in-snapshot\r\n")
+            .is_empty());
+        let actions = finish_sync(&mut s, 2);
+        let state = PaneState::parse(STATE_2_ROWS.as_bytes()).unwrap();
+        let expected = sync_bytes(&state, &rows(&["old"]), &[], &rows(&["$ ls", "$ "]));
+        assert_eq!(
+            actions,
+            vec![
+                Action::Started { tmux: "3.6".into() },
+                Action::Emit(expected)
+            ]
+        );
+        assert_eq!(
+            s.on_output(b"%output %0 live\\015\\012\r\n"),
+            vec![Action::Emit(b"live\r\n".to_vec())]
+        );
+        assert!(s.on_output(b"%output %7 other-pane\r\n").is_empty());
+    }
+
+    #[test]
+    fn control_input_and_resize_become_commands_targeting_the_pane() {
+        let mut s = started_session();
+        finish_sync(&mut s, 2);
+        assert_eq!(
+            s.on_input(b"ls\r".to_vec()),
+            vec![Action::Send(b"send-keys -H -t %0 6c 73 0d\n".to_vec())]
+        );
+        assert_eq!(
+            s.on_resize(120, 40),
+            vec![Action::Send(b"refresh-client -C 120x40\n".to_vec())]
+        );
+        assert_eq!(
+            s.on_colors(colors()),
+            vec![Action::Send(
+                b"set -p -t %0 window-style 'fg=#101820,bg=#fafaf0'\n".to_vec()
+            )]
+        );
+        let bad = TerminalColors {
+            fg: "nope".into(),
+            ..colors()
+        };
+        assert!(s.on_colors(bad).is_empty());
+    }
+
+    #[test]
+    fn input_and_resize_during_sync_keep_reply_order() {
+        let mut s = started_session();
+        let typed = s.on_input(b"x".to_vec());
+        assert_eq!(
+            typed,
+            vec![Action::Send(b"send-keys -H -t voltius_s1 78\n".to_vec())]
+        );
+        s.on_resize(90, 2);
+        let actions = finish_sync(&mut s, 2);
+        assert!(matches!(
+            actions.as_slice(),
+            [Action::Started { .. }, Action::Emit(_)]
+        ));
+        let mut late = begin_end(7, &["ignored"]);
+        late.extend(begin_end(8, &[]));
+        assert!(s.on_output(&late).is_empty());
+    }
+
+    #[test]
+    fn colours_given_at_connect_go_into_the_sync_line() {
+        let mut s = ControlSession::new("voltius_s1".into(), 80, 24, Some(colors()));
+        let actions = s.on_output(b"\x1bP1000p");
+        let (line, _) = sync_command("voltius_s1", 80, 24, Some(&colors()));
+        assert_eq!(actions, vec![Action::Send(line.into_bytes())]);
+    }
+
+    #[test]
+    fn unparsable_state_still_streams_without_a_snapshot() {
+        let mut s = started_session();
+        let mut replies = begin_end(2, &[]);
+        replies.extend(begin_end(3, &["garbage"]));
+        replies.extend(begin_end(4, &[]));
+        replies.extend(begin_end(5, &[]));
+        replies.extend(begin_end(6, &["$ "]));
+        assert_eq!(
+            s.on_output(&replies),
+            vec![Action::Started {
+                tmux: String::new()
+            }]
+        );
+        assert_eq!(
+            s.on_output(b"%output %4 x\r\n"),
+            vec![Action::Emit(b"x".to_vec())]
+        );
     }
 }
