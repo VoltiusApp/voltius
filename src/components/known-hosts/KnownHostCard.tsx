@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
-import { isTlsPin } from "@/services/knownHosts";
+import { fingerprintLabel, isTlsPin } from "@/services/knownHosts";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import type { KnownHost, VaultOption } from "@/types";
@@ -49,6 +49,7 @@ export function KnownHostCard({
       {t("knownHosts.tlsBadge")}
     </span>
   );
+  const fingerprint = fingerprintLabel(host.fingerprint, t, truncateFingerprint);
   const contextMenuItems = [
     ...vaultMenuItems(otherVaults, canEdit, onMoveVault, onCopyVault, t),
     ...(canEdit && onDelete
@@ -92,7 +93,7 @@ export function KnownHostCard({
               )}
             </div>
             <p className="text-xs text-(--t-text-dim) font-mono shrink-0 hidden md:block">
-              {truncateFingerprint(host.fingerprint)}
+              {fingerprint}
             </p>
           </div>
         ) : (
@@ -108,7 +109,7 @@ export function KnownHostCard({
               </p>
             )}
             <p className="text-xs text-(--t-text-dim) font-mono truncate mt-1">
-              {truncateFingerprint(host.fingerprint)}
+              {fingerprint}
             </p>
           </>
         )}

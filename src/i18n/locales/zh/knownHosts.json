@@ -1,6 +1,7 @@
 {
   "knownHosts": {
     "tlsBadge": "TLS",
+    "caVerified": "证书颁发机构",
     "toolbar": {
       "deleteSelected": "删除所选",
       "deleteButton": "删除"

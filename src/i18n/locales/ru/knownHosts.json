@@ -1,6 +1,7 @@
 {
   "knownHosts": {
     "tlsBadge": "TLS",
+    "caVerified": "Центр сертификации",
     "toolbar": {
       "deleteSelected": "Удалить выбранные",
       "deleteButton": "УДАЛИТЬ"

@@ -1,6 +1,6 @@
 use crate::known_hosts::{ConflictPrompt, KnownHostsStore};
 use crate::proxy::{self, ProxiedStream, ProxyError, ProxySpec};
-use crate::tls::{root_store, PinningVerifier, TLS_PIN_PREFIX};
+use crate::tls::{root_store, PinningVerifier, TLS_PIN_PREFIX, TLS_WEBPKI_MARKER};
 use hyper::Uri;
 use hyper_util::client::legacy::connect::{Connected, Connection};
 use hyper_util::rt::TokioIo;
@@ -14,6 +14,7 @@ use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::rustls::pki_types::ServerName;
+use tokio_rustls::rustls::RootCertStore;
 use tokio_rustls::TlsConnector;
 
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -71,6 +72,7 @@ struct Inner {
     proxy: Option<ProxySpec>,
     known_hosts: Arc<KnownHostsStore>,
     policy: Mutex<PinPolicy>,
+    roots: Option<Arc<RootCertStore>>,
 }
 
 enum PinPolicy {
@@ -89,11 +91,22 @@ impl DavConnector {
         known_hosts: Arc<KnownHostsStore>,
         prompt: Option<ConflictPrompt>,
     ) -> Self {
+        Self::trusting(proxy, known_hosts, prompt, None)
+    }
+
+    /// `roots`: None trusts the system store.
+    fn trusting(
+        proxy: Option<ProxySpec>,
+        known_hosts: Arc<KnownHostsStore>,
+        prompt: Option<ConflictPrompt>,
+        roots: Option<Arc<RootCertStore>>,
+    ) -> Self {
         Self {
             inner: Arc::new(Inner {
                 proxy,
                 known_hosts,
                 policy: Mutex::new(PinPolicy::Probing(prompt)),
+                roots,
             }),
         }
     }
@@ -131,8 +144,16 @@ impl DavConnector {
             .into_iter()
             .filter(|fp| fp.starts_with(TLS_PIN_PREFIX))
             .collect();
-        let fp = match handshake(&host, stream, pins).await {
-            Ok(tls) => return Ok(DavIo::Tls(Box::new(tls))),
+        let fp = match handshake(inner, &host, stream, pins).await {
+            Ok((tls, ca_verified)) => {
+                if ca_verified {
+                    inner
+                        .known_hosts
+                        .add_once(&host, port, TLS_WEBPKI_MARKER)
+                        .await;
+                }
+                return Ok(DavIo::Tls(Box::new(tls)));
+            }
             Err((err, None)) => return Err(err),
             Err((_, Some(fp))) => fp,
         };
@@ -149,9 +170,9 @@ impl DavConnector {
                 .map_err(io::Error::other)?,
         }
         let stream = dial(inner, &host, port).await?;
-        handshake(&host, stream, vec![fp])
+        handshake(inner, &host, stream, vec![fp])
             .await
-            .map(|tls| DavIo::Tls(Box::new(tls)))
+            .map(|(tls, _)| DavIo::Tls(Box::new(tls)))
             .map_err(|(err, _)| err)
     }
 }
@@ -181,14 +202,20 @@ fn dial_error(e: ProxyError) -> io::Error {
     io::Error::new(kind, e.to_string())
 }
 
-/// Err carries the refused certificate's fingerprint when only the pin check failed.
+/// Ok tells whether a CA vouched for the certificate; Err carries the refused
+/// certificate's fingerprint when only the pin check failed.
 async fn handshake(
+    inner: &Inner,
     host: &str,
     stream: ProxiedStream,
     pins: Vec<String>,
-) -> Result<TlsStream<ProxiedStream>, (io::Error, Option<String>)> {
+) -> Result<(TlsStream<ProxiedStream>, bool), (io::Error, Option<String>)> {
     let setup = |e: String| (io::Error::other(e), None);
-    let verifier = PinningVerifier::new(root_store().map_err(setup)?, pins).map_err(setup)?;
+    let roots = match &inner.roots {
+        Some(roots) => Arc::clone(roots),
+        None => root_store().map_err(setup)?,
+    };
+    let verifier = PinningVerifier::new(roots, pins).map_err(setup)?;
     let config = verifier.client_config().map_err(setup)?;
     let name = ServerName::try_from(host.to_string()).map_err(|e| setup(e.to_string()))?;
     match timeout(
@@ -201,7 +228,7 @@ async fn handshake(
             io::Error::new(io::ErrorKind::TimedOut, "TLS handshake timed out"),
             None,
         )),
-        Ok(Ok(tls)) => Ok(tls),
+        Ok(Ok(tls)) => Ok((tls, verifier.accepted_by_webpki())),
         Ok(Err(e)) => Err((e, verifier.rejected_fingerprint())),
     }
 }
@@ -225,7 +252,7 @@ impl tower_service::Service<Uri> for DavConnector {
 mod tests {
     use super::*;
     use crate::known_hosts::{ConflictAction, PendingConflicts};
-    use crate::tls::pin_tests::{self_signed, serve_tls};
+    use crate::tls::pin_tests::{ca_signed, self_signed, serve_tls};
     use crate::tls::tls_fingerprint;
 
     fn connector(store: &Arc<KnownHostsStore>, prompt: Option<ConflictPrompt>) -> DavConnector {
@@ -315,6 +342,52 @@ mod tests {
             .expect("must be refused");
         assert!(err.to_string().contains("not trusted"), "{err}");
         assert!(store.fingerprints_for("127.0.0.1", port).await.is_empty());
+    }
+
+    fn marked(port: u16) -> Arc<KnownHostsStore> {
+        Arc::new(KnownHostsStore::pinned(&[(
+            "127.0.0.1",
+            port,
+            TLS_WEBPKI_MARKER,
+        )]))
+    }
+
+    #[tokio::test]
+    async fn a_ca_signed_server_is_remembered_once() {
+        let (leaf, ca) = ca_signed();
+        let port = serve_tls(&leaf).await;
+        let mut roots = RootCertStore::empty();
+        roots.add(ca).unwrap();
+        let store = Arc::new(KnownHostsStore::new());
+        let c = DavConnector::trusting(None, Arc::clone(&store), None, Some(Arc::new(roots)));
+        c.open(uri(port)).await.unwrap();
+        c.open(uri(port)).await.unwrap();
+        let entries = store.fingerprints_for("127.0.0.1", port).await;
+        assert_eq!(entries, [TLS_WEBPKI_MARKER]);
+    }
+
+    #[tokio::test]
+    async fn a_self_signed_certificate_on_a_ca_host_is_refused_without_a_prompt() {
+        let leaf = self_signed();
+        let port = serve_tls(&leaf).await;
+        let store = marked(port);
+        let err = connector(&store, None).open(uri(port)).await.err().unwrap();
+        assert!(err.to_string().contains("Host key changed for"), "{err}");
+        let entries = store.fingerprints_for("127.0.0.1", port).await;
+        assert_eq!(entries, [TLS_WEBPKI_MARKER]);
+    }
+
+    #[tokio::test]
+    async fn replacing_a_ca_host_with_a_self_signed_certificate_supersedes_the_marker() {
+        let leaf = self_signed();
+        let port = serve_tls(&leaf).await;
+        let store = marked(port);
+        connector(&store, Some(replacing()))
+            .open(uri(port))
+            .await
+            .unwrap();
+        let entries = store.fingerprints_for("127.0.0.1", port).await;
+        assert_eq!(entries, [tls_fingerprint(&leaf.cert)]);
     }
 
     #[tokio::test]

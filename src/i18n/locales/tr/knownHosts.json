@@ -1,6 +1,7 @@
 {
   "knownHosts": {
     "tlsBadge": "TLS",
+    "caVerified": "Sertifika yetkilisi",
     "toolbar": {
       "deleteSelected": "Seçilenleri sil",
       "deleteButton": "SİL"

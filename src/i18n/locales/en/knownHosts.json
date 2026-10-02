@@ -1,6 +1,7 @@
 {
   "knownHosts": {
     "tlsBadge": "TLS",
+    "caVerified": "Certificate authority",
     "toolbar": {
       "deleteSelected": "Delete selected",
       "deleteButton": "DELETE"

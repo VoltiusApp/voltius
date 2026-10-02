@@ -1,4 +1,5 @@
 use sha2::{Digest, Sha256};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use tokio_rustls::rustls::client::danger::{
     HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
@@ -11,6 +12,8 @@ use tokio_rustls::rustls::{
 };
 
 pub const TLS_PIN_PREFIX: &str = "tls-sha256:";
+/// Known-hosts entry for a host whose certificate a CA vouched for; never a pin.
+pub const TLS_WEBPKI_MARKER: &str = "tls-webpki";
 
 /// rustls config trusting the OS root store, using the `ring` provider (matches
 /// the rest of the tree). Self-signed/invalid certs are rejected. On Android the
@@ -69,6 +72,7 @@ pub struct PinningVerifier {
     webpki: Arc<WebPkiServerVerifier>,
     pins: Vec<String>,
     rejected: Mutex<Option<String>>,
+    webpki_accepted: AtomicBool,
 }
 
 impl PinningVerifier {
@@ -80,6 +84,7 @@ impl PinningVerifier {
             webpki,
             pins,
             rejected: Mutex::new(None),
+            webpki_accepted: AtomicBool::new(false),
         }))
     }
 
@@ -95,6 +100,10 @@ impl PinningVerifier {
 
     pub fn rejected_fingerprint(&self) -> Option<String> {
         self.rejected.lock().unwrap().clone()
+    }
+
+    pub fn accepted_by_webpki(&self) -> bool {
+        self.webpki_accepted.load(Ordering::Relaxed)
     }
 }
 
@@ -114,7 +123,10 @@ impl ServerCertVerifier for PinningVerifier {
             ocsp_response,
             now,
         ) {
-            Ok(verified) => Ok(verified),
+            Ok(verified) => {
+                self.webpki_accepted.store(true, Ordering::Relaxed);
+                Ok(verified)
+            }
             Err(e) => {
                 let fp = tls_fingerprint(end_entity);
                 if self.pins.contains(&fp) {
@@ -170,7 +182,7 @@ pub(crate) mod pin_tests {
         }
     }
 
-    fn ca_signed() -> (Leaf, CertificateDer<'static>) {
+    pub(crate) fn ca_signed() -> (Leaf, CertificateDer<'static>) {
         let ca_key = rcgen::KeyPair::generate().unwrap();
         let mut ca_params = rcgen::CertificateParams::new(Vec::<String>::new()).unwrap();
         ca_params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
@@ -223,7 +235,7 @@ pub(crate) mod pin_tests {
         port: u16,
         roots: RootCertStore,
         pins: Vec<String>,
-    ) -> (bool, Option<String>) {
+    ) -> (bool, Option<String>, bool) {
         let verifier = PinningVerifier::new(Arc::new(roots), pins).unwrap();
         let connector = TlsConnector::from(verifier.client_config().unwrap());
         let tcp = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
@@ -231,7 +243,16 @@ pub(crate) mod pin_tests {
             .connect(ServerName::try_from("127.0.0.1").unwrap(), tcp)
             .await
             .is_ok();
-        (ok, verifier.rejected_fingerprint())
+        (
+            ok,
+            verifier.rejected_fingerprint(),
+            verifier.accepted_by_webpki(),
+        )
+    }
+
+    #[test]
+    fn the_ca_marker_is_never_read_as_a_pin() {
+        assert!(!TLS_WEBPKI_MARKER.starts_with(TLS_PIN_PREFIX));
     }
 
     #[test]
@@ -248,7 +269,7 @@ pub(crate) mod pin_tests {
         let port = serve_tls(&leaf).await;
         let mut roots = RootCertStore::empty();
         roots.add(ca).unwrap();
-        assert_eq!(handshake(port, roots, vec![]).await, (true, None));
+        assert_eq!(handshake(port, roots, vec![]).await, (true, None, true));
     }
 
     #[tokio::test]
@@ -257,7 +278,7 @@ pub(crate) mod pin_tests {
         let port = serve_tls(&leaf).await;
         assert_eq!(
             handshake(port, unrelated_roots(), vec![]).await,
-            (false, Some(tls_fingerprint(&leaf.cert)))
+            (false, Some(tls_fingerprint(&leaf.cert)), false)
         );
     }
 
@@ -266,6 +287,9 @@ pub(crate) mod pin_tests {
         let leaf = self_signed();
         let port = serve_tls(&leaf).await;
         let pins = vec![tls_fingerprint(&leaf.cert)];
-        assert_eq!(handshake(port, unrelated_roots(), pins).await, (true, None));
+        assert_eq!(
+            handshake(port, unrelated_roots(), pins).await,
+            (true, None, false)
+        );
     }
 }

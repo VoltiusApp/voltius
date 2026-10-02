@@ -1,11 +1,18 @@
 import { invoke } from "@/lib/invoke";
+import type { TFunction } from "i18next";
 import type { KnownHost } from "@/types";
 
-/** Mirrors `TLS_PIN_PREFIX` in src-tauri/src/tls.rs. */
+/** Mirror `TLS_PIN_PREFIX` and `TLS_WEBPKI_MARKER` in src-tauri/src/tls.rs. */
 export const TLS_PIN_PREFIX = "tls-sha256:";
+export const TLS_WEBPKI_MARKER = "tls-webpki";
 
 export function isTlsPin(fingerprint: string): boolean {
-  return fingerprint.startsWith(TLS_PIN_PREFIX);
+  return fingerprint.startsWith(TLS_PIN_PREFIX) || fingerprint === TLS_WEBPKI_MARKER;
+}
+
+/** The CA marker holds no digest, so it is shown by name. */
+export function fingerprintLabel(fingerprint: string, t: TFunction, truncate: (fp: string) => string): string {
+  return fingerprint === TLS_WEBPKI_MARKER ? t("knownHosts.caVerified") : truncate(fingerprint);
 }
 
 export async function listKnownHosts(): Promise<KnownHost[]> {

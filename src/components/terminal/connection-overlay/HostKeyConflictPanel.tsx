@@ -2,6 +2,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { DecisionPanel } from "./DecisionPanel";
 import type { HostKeyConflictAction, HostKeyConflictEvent } from "./types";
 import { truncateFp } from "./utils";
+import { fingerprintLabel } from "@/services/knownHosts";
 
 export function HostKeyConflictPanel({
   conflict,
@@ -49,7 +50,7 @@ export function HostKeyConflictPanel({
         {conflict.stored_entries.slice(0, 2).map((entry) => (
           <div key={entry.id} className="p-2 rounded-sm bg-(--t-bg-elevated)">
             <p className="text-(--t-text-dim) text-xs mb-0.5">{t("terminal.overlay.hostKeyConflict.stored")}</p>
-            <p className="font-mono text-xs text-text-secondary break-all">{truncateFp(entry.fingerprint)}</p>
+            <p className="font-mono text-xs text-text-secondary break-all">{fingerprintLabel(entry.fingerprint, t, truncateFp)}</p>
           </div>
         ))}
         <div className="p-2 rounded-sm bg-yellow-500/5 border border-yellow-500/20">

@@ -83,6 +83,26 @@ fn changed_warning(host: &str, port: u16, stored: &[KnownHost], received: &str) 
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
+fn new_entry(host: &str, port: u16, fingerprint: String, vault_id: &str) -> KnownHost {
+    let now = Utc::now().to_rfc3339();
+    KnownHost {
+        id: Uuid::new_v4().to_string(),
+        host: host.to_string(),
+        port,
+        fingerprint,
+        name: None,
+        vault_id: vault_id.to_string(),
+        created_at: now.clone(),
+        updated_at: now,
+        deleted_at: None,
+        clocks: HashMap::new(),
+    }
+}
+
+fn live_for(e: &KnownHost, host: &str, port: u16) -> bool {
+    e.deleted_at.is_none() && e.host == host && e.port == port
+}
+
 pub struct KnownHostsStore {
     entries: Mutex<Vec<KnownHost>>,
 }
@@ -101,17 +121,8 @@ impl KnownHostsStore {
     pub fn pinned(keys: &[(&str, u16, &str)]) -> Self {
         let entries = keys
             .iter()
-            .map(|&(host, port, fingerprint)| KnownHost {
-                id: Uuid::new_v4().to_string(),
-                host: host.to_string(),
-                port,
-                fingerprint: fingerprint.to_string(),
-                name: None,
-                vault_id: "personal".to_string(),
-                created_at: String::new(),
-                updated_at: String::new(),
-                deleted_at: None,
-                clocks: HashMap::new(),
+            .map(|&(host, port, fingerprint)| {
+                new_entry(host, port, fingerprint.to_string(), "personal")
             })
             .collect();
         Self {
@@ -143,7 +154,6 @@ impl KnownHostsStore {
             if old_path.exists() {
                 if let Ok(data) = std::fs::read_to_string(&old_path) {
                     if let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&data) {
-                        let now = Utc::now().to_rfc3339();
                         for (key, fingerprint) in map {
                             let mut parts = key.splitn(2, ':');
                             let host = parts.next().unwrap_or("").to_string();
@@ -151,18 +161,7 @@ impl KnownHostsStore {
                             if !entries.iter().any(|e| {
                                 e.host == host && e.port == port && e.fingerprint == fingerprint
                             }) {
-                                entries.push(KnownHost {
-                                    id: Uuid::new_v4().to_string(),
-                                    host,
-                                    port,
-                                    fingerprint,
-                                    name: None,
-                                    vault_id: "personal".to_string(),
-                                    created_at: now.clone(),
-                                    updated_at: now.clone(),
-                                    deleted_at: None,
-                                    clocks: HashMap::new(),
-                                });
+                                entries.push(new_entry(&host, port, fingerprint, "personal"));
                             }
                         }
                         save_known_hosts(&entries).ok();
@@ -180,10 +179,8 @@ impl KnownHostsStore {
     /// Check whether `fingerprint` matches any stored entry for `host:port`.
     pub async fn check(&self, host: &str, port: u16, fingerprint: &str) -> HostKeyStatus {
         let entries = self.entries.lock().await;
-        let matching: Vec<&KnownHost> = entries
-            .iter()
-            .filter(|e| e.deleted_at.is_none() && e.host == host && e.port == port)
-            .collect();
+        let matching: Vec<&KnownHost> =
+            entries.iter().filter(|e| live_for(e, host, port)).collect();
 
         if matching.is_empty() {
             return HostKeyStatus::Unknown;
@@ -251,23 +248,24 @@ impl KnownHostsStore {
         fingerprint: String,
         vault_id: &str,
     ) -> KnownHost {
-        let now = Utc::now().to_rfc3339();
-        let entry = KnownHost {
-            id: Uuid::new_v4().to_string(),
-            host: host.to_string(),
-            port,
-            fingerprint,
-            name: None,
-            vault_id: vault_id.to_string(),
-            created_at: now.clone(),
-            updated_at: now,
-            deleted_at: None,
-            clocks: HashMap::new(),
-        };
+        let entry = new_entry(host, port, fingerprint, vault_id);
         let mut entries = self.entries.lock().await;
         entries.push(entry.clone());
         save_known_hosts(&entries).ok();
         entry
+    }
+
+    /// Adds `fingerprint` for host:port unless a live entry already holds it.
+    pub async fn add_once(&self, host: &str, port: u16, fingerprint: &str) {
+        let mut entries = self.entries.lock().await;
+        if entries
+            .iter()
+            .any(|e| live_for(e, host, port) && e.fingerprint == fingerprint)
+        {
+            return;
+        }
+        entries.push(new_entry(host, port, fingerprint.to_string(), "personal"));
+        save_known_hosts(&entries).ok();
     }
 
     /// Soft-delete all entries for host:port and add a new one ("Replace" resolution).
@@ -282,7 +280,7 @@ impl KnownHostsStore {
         {
             let mut entries = self.entries.lock().await;
             for e in entries.iter_mut() {
-                if e.host == host && e.port == port && e.deleted_at.is_none() {
+                if live_for(e, host, port) {
                     e.deleted_at = Some(now.clone());
                     e.updated_at = now.clone();
                 }
@@ -355,7 +353,7 @@ impl KnownHostsStore {
             .lock()
             .await
             .iter()
-            .filter(|e| e.deleted_at.is_none() && e.host == host && e.port == port)
+            .filter(|e| live_for(e, host, port))
             .cloned()
             .collect()
     }
