@@ -65,7 +65,7 @@ export function buildImportExportTools(ports: ToolSurfacePorts): Tool[] {
     {
       name: "import_objects",
       description:
-        "Import a bundle produced by export_objects, or a Termius, MobaXterm, ZOC or CSV export, into "
+        "Import a bundle produced by export_objects, or a Termius, MobaXterm, ZOC, PuTTY or CSV export, into "
         + "one vault. Give it `content` or a `path` — a path must be under the user's home "
         + "directory. An encrypted bundle needs the passphrase it was exported with. Importing "
         + "only ever adds: existing items are matched and skipped, never overwritten. With "

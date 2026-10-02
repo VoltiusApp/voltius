@@ -159,6 +159,11 @@
         "sub": "主机目录 · .zhd",
         "hint": "文件位于 Documents\\ZOC9 Files\\Options（Windows）或 ~/Library/Application Support/ZOC9 Files/Options（macOS）。将导入 SSH 和串口条目，已保存的密码不会导入。",
         "placeholder": "将 HostDirectory.zhd 拖到此处，或粘贴其内容…"
+      },
+      "putty": {
+        "sub": "注册表导出 · 会话文件",
+        "hint": "在 Windows 上运行 reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg，然后将文件拖到此处。在 Linux 或 macOS 上，粘贴 tail -n +1 ~/.putty/sessions/* 的输出。将导入 SSH 和串口会话、代理和隧道，密钥文件不会导入。",
+        "placeholder": "将 PuTTY .reg 导出文件拖到此处，或粘贴会话文件…"
       }
     },
     "menu": {

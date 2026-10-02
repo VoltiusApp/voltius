@@ -5,6 +5,7 @@ import { connectionsFromCSV } from "./parsers/csv";
 import { connectionsFromMobaXterm, extractMobaXtermBundle } from "./parsers/mobaxterm";
 import { bundleFromTermius, extractTermiusBundle } from "./parsers/termius";
 import { bundleFromZoc } from "./parsers/zoc";
+import { bundleFromPutty } from "./parsers/putty";
 
 export interface Importer {
   key: string;
@@ -71,6 +72,16 @@ export const IMPORTERS: Importer[] = [
     placeholderKey: "importExport.importers.zoc.placeholder",
     parse: bundleFromZoc,
   },
+  {
+    key: "putty",
+    label: "PuTTY",
+    icon: "custom:putty",
+    subKey: "importExport.importers.putty.sub",
+    fileAccept: ".reg,.txt",
+    hintKey: "importExport.importers.putty.hint",
+    placeholderKey: "importExport.importers.putty.placeholder",
+    parse: bundleFromPutty,
+  },
 ];
 
 export function parseImport(text: string): ExportBundle | "encrypted" {
@@ -81,5 +92,6 @@ export function parseImport(text: string): ExportBundle | "encrypted" {
   if (detected === "mobaxterm") return importedBundle({ connections: connectionsFromMobaXterm(text) });
   if (detected === "termius") return bundleFromTermius(text);
   if (detected === "zoc") return bundleFromZoc(text);
+  if (detected === "putty") return bundleFromPutty(text);
   throw new Error(i18n.t("common.error.couldNotDetectFormat"));
 }

@@ -174,6 +174,11 @@
         "sub": "Ana Bilgisayar Dizini · .zhd",
         "hint": "Dosya Documents\\ZOC9 Files\\Options (Windows) veya ~/Library/Application Support/ZOC9 Files/Options (macOS) konumundadır. SSH ve seri bağlantı kayıtları içe aktarılır; kayıtlı parolalar aktarılmaz.",
         "placeholder": "HostDirectory.zhd dosyasını buraya bırakın veya içeriğini yapıştırın…"
+      },
+      "putty": {
+        "sub": "Kayıt defteri dışa aktarımı · oturum dosyaları",
+        "hint": "Windows'ta reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg komutunu çalıştırıp dosyayı buraya bırakın. Linux veya macOS'ta tail -n +1 ~/.putty/sessions/* çıktısını yapıştırın. SSH ve seri oturumlar, proxy'ler ve tüneller içe aktarılır; anahtar dosyaları aktarılmaz.",
+        "placeholder": "PuTTY .reg dışa aktarımını buraya bırakın veya oturum dosyalarını yapıştırın…"
       }
     },
     "menu": {

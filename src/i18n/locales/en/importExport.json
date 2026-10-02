@@ -162,6 +162,11 @@
         "sub": "Host Directory · .zhd",
         "hint": "Find it in Documents\\ZOC9 Files\\Options (Windows) or ~/Library/Application Support/ZOC9 Files/Options (macOS). SSH and serial entries are imported; saved passwords are not.",
         "placeholder": "Drop HostDirectory.zhd here, or paste its contents…"
+      },
+      "putty": {
+        "sub": "Registry export · session files",
+        "hint": "On Windows, run reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg and drop the file here. On Linux or macOS, paste the output of tail -n +1 ~/.putty/sessions/*. SSH and serial sessions, proxies and tunnels are imported; key files are not.",
+        "placeholder": "Drop a PuTTY .reg export here, or paste session files…"
       }
     },
     "menu": {

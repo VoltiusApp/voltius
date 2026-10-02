@@ -180,6 +180,11 @@
         "sub": "Répertoire d'hôtes · .zhd",
         "hint": "Il se trouve dans Documents\\ZOC9 Files\\Options (Windows) ou ~/Library/Application Support/ZOC9 Files/Options (macOS). Les entrées SSH et série sont importées ; les mots de passe enregistrés ne le sont pas.",
         "placeholder": "Déposez HostDirectory.zhd ici, ou collez son contenu…"
+      },
+      "putty": {
+        "sub": "Export du registre · fichiers de session",
+        "hint": "Sous Windows, exécutez reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg et déposez le fichier ici. Sous Linux ou macOS, collez la sortie de tail -n +1 ~/.putty/sessions/*. Les sessions SSH et série, les proxys et les tunnels sont importés ; les fichiers de clé ne le sont pas.",
+        "placeholder": "Déposez un export .reg de PuTTY ici, ou collez des fichiers de session…"
       }
     },
     "menu": {

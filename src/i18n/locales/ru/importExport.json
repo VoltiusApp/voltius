@@ -198,6 +198,11 @@
         "sub": "Каталог хостов · .zhd",
         "hint": "Файл находится в Documents\\ZOC9 Files\\Options (Windows) или ~/Library/Application Support/ZOC9 Files/Options (macOS). Импортируются записи SSH и последовательного порта; сохранённые пароли не переносятся.",
         "placeholder": "Перетащите сюда HostDirectory.zhd или вставьте его содержимое…"
+      },
+      "putty": {
+        "sub": "Экспорт реестра · файлы сеансов",
+        "hint": "В Windows выполните reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg и перетащите файл сюда. В Linux или macOS вставьте вывод команды tail -n +1 ~/.putty/sessions/*. Импортируются сеансы SSH и последовательного порта, прокси и туннели; файлы ключей не переносятся.",
+        "placeholder": "Перетащите сюда экспорт PuTTY .reg или вставьте файлы сеансов…"
       }
     },
     "menu": {

@@ -6,6 +6,7 @@ import type { SnippetStepExport } from "./snippetRefs";
 import i18n from "@/i18n";
 import { decryptXChaCha20Poly1305, encryptXChaCha20Poly1305 } from "../crypto/xchacha.ts";
 import { base64ToBytes, bytesToBase64 } from "@/utils/base64";
+import { isPuttyExport } from "./parsers/putty";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 // _eid fields are export-scoped IDs used only within a bundle for cross-referencing.
@@ -218,9 +219,10 @@ export async function decryptText(text: string, password: string): Promise<strin
 
 // ─── Format detection ──────────────────────────────────────────────────────────
 
-export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "termius" | "zoc" | "voltius-encrypted" | null {
+export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "termius" | "zoc" | "putty" | "voltius-encrypted" | null {
   const t = text.trim();
   if (/^ZOC[\d.]+ \/\/ HOST DIRECTORY/.test(t)) return "zoc";
+  if (isPuttyExport(t)) return "putty";
   if (t.startsWith("{")) {
     if (/"type"\s*:\s*"voltius-encrypted"/.test(t.slice(0, 120))) return "voltius-encrypted";
     if (/"records"\s*:/.test(t.slice(0, 300)) && /"version"\s*:\s*[12]/.test(t.slice(0, 300))) return "termius";
