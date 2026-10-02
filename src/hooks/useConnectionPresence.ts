@@ -2,13 +2,11 @@ import { useMemo } from "react";
 import type { Connection } from "@/types";
 import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
 import { useTeamStore } from "@/stores/teamStore";
-import { resolvePeerName } from "@/services/peerName";
+import { avatarLabel, resolvePeerName } from "@/services/peerName";
 
 export interface ConnectionPresence {
-  primary: { id: string; name: string };
+  primary: { id: string; name: string; avatar: string };
   overflow: number;
-  /** All non-self handles in usage order (primary first). Useful for tooltips. */
-  allHandles: string[];
 }
 
 /**
@@ -32,11 +30,13 @@ export function useConnectionPresence(connection: Connection): ConnectionPresenc
     const others = myUserId ? userIds.filter((id) => id !== myUserId) : userIds.slice();
     if (others.length === 0) return null;
 
-    const resolved = others.map((id) => ({ id, name: resolvePeerName(membersByTeam, id, { teamId: vaultId }).primary }));
+    const resolved = others.map((id) => {
+      const peer = resolvePeerName(membersByTeam, id, { teamId: vaultId });
+      return { id, name: peer.primary, avatar: avatarLabel(peer) };
+    });
     return {
       primary: resolved[0],
       overflow: resolved.length - 1,
-      allHandles: resolved.map((r) => r.name),
     };
   }, [vaultId, connection.id, userIds, myUserId, membersByTeam]);
 }

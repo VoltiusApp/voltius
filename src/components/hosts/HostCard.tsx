@@ -134,7 +134,7 @@ export default function HostCard({
     : "";
   const presenceAvatar = presence && (
     <span className="flex items-center" title={presenceTitle}>
-      <MiniAvatar name={presence.primary.name} size={18} />
+      <MiniAvatar name={presence.primary.avatar} size={18} />
       {presence.overflow > 0 && (
         <span className="ml-1 text-[10px] font-semibold px-1 rounded-full bg-(--t-bg-elevated) text-(--t-text-dim)">
           +{presence.overflow}
