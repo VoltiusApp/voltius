@@ -35,6 +35,7 @@ import { InvitePanel } from "@/components/members/panels/InvitePanel";
 import { SignInToCloudCTA, UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
+import { memberLabel } from "@/services/peerName";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -148,7 +149,7 @@ export default function MembersPage() {
   const searchLower = search.trim();
   const filteredMembers = useMemo(() => {
     let result = members;
-    if (searchLower) { const match = searchMatcher(searchLower); result = result.filter((m) => match(m.handle)); }
+    if (searchLower) { const match = searchMatcher(searchLower); result = result.filter((m) => match(m.handle) || (!!m.member_name && match(m.member_name))); }
     if (roleFilter.length > 0) result = result.filter((m) => roleFilter.some((rid) => m.role_ids.includes(rid)));
     return result;
   }, [members, searchLower, roleFilter]);
@@ -156,15 +157,15 @@ export default function MembersPage() {
   const sortedMembers = useMemo(() => {
     return [...filteredMembers].sort((a, b) => {
       switch (sortMode) {
-        case "name-asc":  return compareStrings(a.handle ?? "", b.handle ?? "");
-        case "name-desc": return compareStrings(b.handle ?? "", a.handle ?? "");
+        case "name-asc":  return compareStrings(memberLabel(a), memberLabel(b));
+        case "name-desc": return compareStrings(memberLabel(b), memberLabel(a));
         case "newest":    return b.joined_at.localeCompare(a.joined_at);
         case "oldest":    return a.joined_at.localeCompare(b.joined_at);
         case "role-asc": {
           const posA = Math.min(...(a.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           const posB = Math.min(...(b.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           if (posA !== posB) return posA - posB;
-          return compareStrings(a.handle ?? "", b.handle ?? "");
+          return compareStrings(memberLabel(a), memberLabel(b));
         }
         default: return 0;
       }
@@ -226,7 +227,7 @@ export default function MembersPage() {
         onClick: () => {
           void removeMemberRole(teamId!, member.user_id, r.id).then(() => {
             push({
-              label: t("members.history.removeRole", { name: member.handle }),
+              label: t("members.history.removeRole", { name: memberLabel(member) }),
               undo: async () => { await assignMemberRole(teamId!, member.user_id, r.id); reload(); },
               redo: async () => { await removeMemberRole(teamId!, member.user_id, r.id); reload(); },
             });
@@ -242,12 +243,12 @@ export default function MembersPage() {
         onClick: () => {
           const name = roleLabel(t, r.name);
           void runTeamAction({
-            pending: t("members.toast.assigningRoleTo", { role: name, name: member.handle }),
-            success: t("members.toast.roleAssignedTo", { role: name, name: member.handle }),
+            pending: t("members.toast.assigningRoleTo", { role: name, name: memberLabel(member) }),
+            success: t("members.toast.roleAssignedTo", { role: name, name: memberLabel(member) }),
             run: () => assignMemberRole(teamId!, member.user_id, r.id),
           }).then(() => {
             push({
-              label: t("members.history.assignRole", { name: member.handle }),
+              label: t("members.history.assignRole", { name: memberLabel(member) }),
               undo: async () => { await removeMemberRole(teamId!, member.user_id, r.id); reload(); },
               redo: async () => { await assignMemberRole(teamId!, member.user_id, r.id); reload(); },
             });
@@ -280,8 +281,8 @@ export default function MembersPage() {
               label: connectionName,
               onClick: () => {
                 void runTeamAction({
-                  pending: t("members.toast.invitingToSession", { name: member.handle }),
-                  success: t("members.toast.invitedToSession", { name: member.handle }),
+                  pending: t("members.toast.invitingToSession", { name: memberLabel(member) }),
+                  success: t("members.toast.invitedToSession", { name: memberLabel(member) }),
                   run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, { ...member, handle: member.handle ?? "" }),
                 }).catch(() => { /* toast already reports the failure */ });
               },

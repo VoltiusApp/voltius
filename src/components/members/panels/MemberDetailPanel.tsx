@@ -24,6 +24,7 @@ import {
 } from "./PermissionOverrideRow";
 import { formatDate } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
+import { memberLabel } from "@/services/peerName";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;
@@ -101,15 +102,15 @@ export function MemberDetailPanel({
       await runReversible(
         hasRole
           ? {
-              pending: t("members.toast.removingRoleFrom", { role: roleLabel(t, role.name), name: member.handle }),
-              success: t("members.toast.roleRemovedFrom", { role: roleLabel(t, role.name), name: member.handle }),
-              label: t("members.history.removeRole", { name: member.handle }),
+              pending: t("members.toast.removingRoleFrom", { role: roleLabel(t, role.name), name: memberLabel(member) }),
+              success: t("members.toast.roleRemovedFrom", { role: roleLabel(t, role.name), name: memberLabel(member) }),
+              label: t("members.history.removeRole", { name: memberLabel(member) }),
               run: remove, undo: assign, redo: remove,
             }
           : {
-              pending: t("members.toast.assigningRoleTo", { role: roleLabel(t, role.name), name: member.handle }),
-              success: t("members.toast.roleAssignedTo", { role: roleLabel(t, role.name), name: member.handle }),
-              label: t("members.history.assignRole", { name: member.handle }),
+              pending: t("members.toast.assigningRoleTo", { role: roleLabel(t, role.name), name: memberLabel(member) }),
+              success: t("members.toast.roleAssignedTo", { role: roleLabel(t, role.name), name: memberLabel(member) }),
+              label: t("members.history.assignRole", { name: memberLabel(member) }),
               run: assign, undo: remove, redo: assign,
             },
       );
@@ -215,7 +216,7 @@ export function MemberDetailPanel({
     // No toast here: a bit flip already gets its own inline row feedback,
     // and a toast per click was noisy against runReversible's other callers.
     await applyMasks(updated, rotate, {
-      label: t("members.history.changePermissions", { name: member.handle }),
+      label: t("members.history.changePermissions", { name: memberLabel(member) }),
       undo: at(overrideStateOf(permission, allow, deny)),
       redo: at(next),
     });
@@ -248,7 +249,7 @@ export function MemberDetailPanel({
     <PanelShell>
       <PanelHeader
         icon="lucide:user"
-        title={member.handle ?? "?"}
+        title={memberLabel(member)}
         subtitle={<RoleBadges member={member} roles={teamRoles} />}
         onClose={onClose}
       />
@@ -327,7 +328,7 @@ export function MemberDetailPanel({
             <>
             <BusinessLapseNotice
               teamId={teamId}
-              message={t("shared.businessLock.memberLapsed", { name: member.handle ?? "?" })}
+              message={t("shared.businessLock.memberLapsed", { name: memberLabel(member) })}
               removeLabel={t("shared.businessLock.removeOverrides")}
               onRemove={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
             />
@@ -435,8 +436,8 @@ export function MemberDetailPanel({
     {pendingRevoke && (
       <ConfirmModal
         tone="warning"
-        title={t("members.revokeKeyAccess.title", { name: member.handle ?? "?" })}
-        message={t("members.revokeKeyAccess.body", { name: member.handle ?? "?" })}
+        title={t("members.revokeKeyAccess.title", { name: memberLabel(member) })}
+        message={t("members.revokeKeyAccess.body", { name: memberLabel(member) })}
         confirmLabel={t("members.revokeKeyAccess.confirm")}
         onCancel={() => setPendingRevoke(null)}
         onConfirm={() => {

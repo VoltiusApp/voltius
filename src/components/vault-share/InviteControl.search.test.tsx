@@ -7,7 +7,10 @@ const h = vi.hoisted(() => ({
   searchUsers: vi.fn(),
 }));
 
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("react-i18next", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-i18next")>()),
+  useTranslation: () => ({ t: (k: string) => k }),
+}));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/vaultShare", () => ({
   inviteUserById: h.inviteUserById,

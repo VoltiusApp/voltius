@@ -12,6 +12,7 @@ import { AuditHorizontalTimeline } from "./AuditHorizontalTimeline";
 import { AuditList } from "./AuditList";
 import { AuditExportButton } from "./AuditExportButton";
 import { applyAuditLogSearch } from "./auditLogToolbarUtils";
+import { actorName } from "./AuditEventRow";
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
@@ -102,7 +103,7 @@ export default function AuditLogsPage() {
 
   const actors = useMemo(() => {
     const seen = new Map<string, string>();
-    for (const log of logs) seen.set(log.actor_id, log.actor_name);
+    for (const log of logs) seen.set(log.actor_id, actorName(log));
     return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
   }, [logs]);
 

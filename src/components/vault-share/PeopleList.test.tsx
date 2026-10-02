@@ -1,7 +1,10 @@
 import { test, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("react-i18next", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-i18next")>()),
+  useTranslation: () => ({ t: (k: string) => k }),
+}));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/components/shared/PresenceAvatar", () => ({
   PresenceAvatar: ({ handle }: { handle: string }) => <div>{`avatar:${handle}`}</div>,
@@ -10,7 +13,7 @@ vi.mock("@/components/shared/PresenceAvatar", () => ({
 import { PeopleList, type Person } from "./PeopleList";
 
 const person = (over: Partial<Person>): Person => ({
-  userId: "u1", handle: "bob-builder", roleNames: ["member"], online: false, state: "member", ...over,
+  userId: "u1", label: "bob-builder", roleNames: ["member"], online: false, state: "member", ...over,
 });
 
 afterEach(cleanup);

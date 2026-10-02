@@ -17,6 +17,7 @@ import { useRecentPeopleStore } from "@/stores/recentPeopleStore";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 import { ContextMenu } from "@/components/shared/ContextMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { usePeerResolver } from "@/services/peerName";
 
 interface PeopleTabProps {
   session: InviteSession;
@@ -111,6 +112,7 @@ function PersonRow({
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const { target, isStranger, isOnline, onContextMenu } = entry;
+  const peer = usePeerResolver();
   const actionable = !hasAccess && !inFlight && !invited && !capBlocked;
   const presenceLabel =
     isOnline === undefined ? "" : t(isOnline ? "terminal.share.presenceOnline" : "terminal.share.presenceOffline");
@@ -132,7 +134,7 @@ function PersonRow({
           <StatusDot tone={isOnline ? "connected" : "idle"} size="sm" label={presenceLabel} />
         )}
         <span className="flex-1 min-w-0 text-left">
-          <span className="text-xs truncate block">{target.handle ? `@${target.handle}` : "?"}</span>
+          <span className="text-xs truncate block">{peer(target.user_id, { fallbackHandle: target.handle }).primary}</span>
         </span>
         {isStranger && (
           <span

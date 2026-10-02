@@ -13,7 +13,10 @@ const h = vi.hoisted(() => ({
   keyHolders: [] as string[],
 }));
 
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("react-i18next", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-i18next")>()),
+  useTranslation: () => ({ t: (k: string) => k }),
+}));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 // A button per handler, so a no-op handler fails rather than passes.
 vi.mock("./PeopleList", () => ({
@@ -24,7 +27,7 @@ vi.mock("./PeopleList", () => ({
     onGrantKey,
     onCopyInviteLink,
   }: {
-    people: { userId: string; handle: string; invitationId?: string; state: string }[];
+    people: { userId: string; label: string; invitationId?: string; state: string }[];
     onRemove: (p: unknown) => void;
     onRevoke: (p: unknown) => void;
     onGrantKey: (p: unknown) => void;
@@ -130,13 +133,13 @@ test("Remove and Grant now run the real calls, not a no-op", () => {
   render(<VaultShareSheet vaultId="v1" variant="full" />);
 
   fireEvent.click(screen.getByText("remove:u1"));
-  expect(h.removeTeamMember).toHaveBeenCalledWith({ teamId: "t1", userId: "u1", handle: "bob" });
+  expect(h.removeTeamMember).toHaveBeenCalledWith({ teamId: "t1", userId: "u1", handle: "@bob" });
 
   fireEvent.click(screen.getByText("grant:u1"));
   expect(h.grantVaultKeyToMember).toHaveBeenCalledWith({
     teamId: "t1",
     userId: "u1",
-    handle: "bob",
+    handle: "@bob",
     publicKey: "pk-bob",
   });
 });

@@ -32,6 +32,7 @@ import {
   useEffectivePinSource,
   nextPersonalPinValue,
 } from "@/hooks/useEffectivePinned";
+import { memberLabel } from "@/services/peerName";
 
 const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
 
@@ -89,7 +90,7 @@ export default function HostCard({
     if (!isTeamVault || pinSource === "none" || pinSource === "personal") return undefined;
     const updatedBy = (connection as { updated_by?: string }).updated_by;
     const member = updatedBy ? teamMembers.find((m) => m.user_id === updatedBy) : undefined;
-    return member?.handle ?? t("hosts.card.teamMemberFallback");
+    return member ? memberLabel(member) : t("hosts.card.teamMemberFallback");
   })();
   const handlePinClick = () => {
     if (!isTeamVault) {
