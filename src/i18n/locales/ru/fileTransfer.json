@@ -38,6 +38,7 @@
         "fileName": "Имя файла"
       },
       "emptyDirectory": "Пустой каталог",
+      "refreshFailed": "Не удалось обновить: {{reason}}",
       "selection": {
         "selected": "Выбрано: {{count}}",
         "clear": "Очистить"

@@ -36,6 +36,7 @@
         "fileName": "File name"
       },
       "emptyDirectory": "Empty directory",
+      "refreshFailed": "Couldn't refresh: {{reason}}",
       "selection": {
         "selected": "{{count}} selected",
         "clear": "Clear"

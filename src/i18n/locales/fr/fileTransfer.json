@@ -37,6 +37,7 @@
         "fileName": "Nom du fichier"
       },
       "emptyDirectory": "Dossier vide",
+      "refreshFailed": "Actualisation impossible : {{reason}}",
       "selection": {
         "selected": "{{count}} sélectionné(s)",
         "clear": "Effacer"

@@ -36,6 +36,7 @@
         "fileName": "Dosya adı"
       },
       "emptyDirectory": "Dizin boş",
+      "refreshFailed": "Yenilenemedi: {{reason}}",
       "selection": {
         "selected": "{{count}} seçili",
         "clear": "Temizle"

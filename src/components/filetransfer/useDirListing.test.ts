@@ -96,6 +96,48 @@ describe("useDirListing", () => {
     expect(result.current.error).toBeTruthy();
   });
 
+  it("keeps the shown entries and reports a failed refresh until a reload succeeds", async () => {
+    const { result, rerender } = renderHook(({ tick }) => useDirListing(false, "s1", "/d", tick), { initialProps: { tick: 0 } });
+    await settle("/d", 0, "resolve");
+    rerender({ tick: 1 });
+    await settle("/d", 1, "reject");
+    expect(result.current.entries.map((e) => e.path)).toEqual(["/d/f"]);
+    expect(result.current.error).toBeNull();
+    expect(result.current.refreshError).toBe("denied");
+
+    rerender({ tick: 2 });
+    await settle("/d", 2, "resolve");
+    expect(result.current.refreshError).toBeNull();
+  });
+
+  it("keeps reporting a failed directory as an error, not a failed refresh", async () => {
+    const { result, rerender } = renderHook(({ tick }) => useDirListing(false, "s1", "/d", tick), { initialProps: { tick: 0 } });
+    await settle("/d", 0, "reject");
+    rerender({ tick: 1 });
+    await settle("/d", 1, "reject");
+    expect(result.current.error).toBe("denied");
+    expect(result.current.refreshError).toBeNull();
+  });
+
+  it("stops loading when a refresh of the directory shown fails after leaving and coming back", async () => {
+    const { result, rerender } = renderHook(({ cwd }) => useDirListing(false, "s1", cwd, 0), { initialProps: { cwd: "/a" } });
+    await settle("/a", 0, "resolve");
+    rerender({ cwd: "/b" });
+    rerender({ cwd: "/a" });
+    await settle("/a", 1, "reject");
+    expect(result.current.loading).toBe(false);
+    expect(result.current.refreshError).toBe("denied");
+  });
+
+  it("drops a failed refresh's report on leaving the directory", async () => {
+    const { result, rerender } = renderHook(({ cwd, tick }) => useDirListing(false, "s1", cwd, tick), { initialProps: { cwd: "/a", tick: 0 } });
+    await settle("/a", 0, "resolve");
+    rerender({ cwd: "/a", tick: 1 });
+    await settle("/a", 1, "reject");
+    rerender({ cwd: "/b", tick: 1 });
+    expect(result.current.refreshError).toBeNull();
+  });
+
   it("does not list while a remote pane has no session", () => {
     renderHook(() => useDirListing(false, null, "/r", 0));
     expect(h.pending.size).toBe(0);

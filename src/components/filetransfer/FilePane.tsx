@@ -164,7 +164,7 @@ export function FilePane({
   const [creatingFile, setCreatingFile] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [autoTick, setAutoTick] = useState(0);
-  const { entries, loading, error } = useDirListing(isLocal, sftpId, cwd, `${refreshTick}:${autoTick}`);
+  const { entries, loading, error, refreshError } = useDirListing(isLocal, sftpId, cwd, `${refreshTick}:${autoTick}`);
   const focusIndex = useRef<number>(-1);
   const paneRef = useRef<HTMLDivElement>(null);
   // Type-ahead ("type to select") search state — refs, not state, so keystrokes
@@ -464,6 +464,12 @@ export function FilePane({
         <IconBtn icon="lucide:file-plus" title={t("fileTransfer.pane.toolbar.newFile")} onClick={handleNewFile} />
         <IconBtn icon="lucide:refresh-cw" title={t("fileTransfer.pane.toolbar.refresh")} onClick={onRefresh} />
       </div>
+
+      {refreshError && (
+        <div className="shrink-0 px-3 py-1 text-xs truncate text-(--t-status-error) border-b border-(--t-border)" title={refreshError}>
+          {t("fileTransfer.pane.refreshFailed", { reason: refreshError })}
+        </div>
+      )}
 
       <ColumnHeaders
         sortCol={sortCol} sortDir={sortDir} isLocal={isLocal} colWidths={colWidths} visibleCols={visibleCols}

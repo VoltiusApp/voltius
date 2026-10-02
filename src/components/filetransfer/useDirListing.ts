@@ -13,16 +13,18 @@ export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: stri
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; code: BackendErrorCode | null } | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const shownLocation = useRef<string | null>(null);
   const wantedLocation = useRef<string | null>(null);
   const issued = useRef(0);
   const landed = useRef(0);
+  const shownFailed = useRef(false);
 
   useEffect(() => {
     if (!isLocal && !sftpId) return;
     const location = `${isLocal}\n${sftpId}\n${cwd}`;
     wantedLocation.current = location;
-    if (shownLocation.current !== location) { setLoading(true); setError(null); }
+    if (shownLocation.current !== location) { setLoading(true); setError(null); setRefreshError(null); }
 
     // A reload never cancels the one in flight: on a listing slower than auto-refresh, nothing would ever land.
     const seq = ++issued.current;
@@ -36,17 +38,26 @@ export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: stri
       .then((e) => {
         if (!current()) return;
         land();
+        shownFailed.current = false;
         setEntries(e);
         setError(null);
+        setRefreshError(null);
       })
       .catch((e) => {
-        if (!current() || shownLocation.current === location) return;
+        if (!current()) return;
+        const message = describeError(e, i18n.t);
+        const refreshing = shownLocation.current === location && !shownFailed.current;
         land();
-        setError({ message: describeError(e, i18n.t), code: backendErrorCode(e) });
+        if (refreshing) {
+          setRefreshError(message);
+          return;
+        }
+        shownFailed.current = true;
+        setError({ message, code: backendErrorCode(e) });
       });
   }, [isLocal, sftpId, cwd, reloadKey]);
 
   useEffect(() => () => { wantedLocation.current = null; }, []);
 
-  return { entries, loading, error: error?.message ?? null, errorCode: error?.code ?? null };
+  return { entries, loading, error: error?.message ?? null, errorCode: error?.code ?? null, refreshError };
 }

@@ -36,6 +36,7 @@
         "fileName": "文件名称"
       },
       "emptyDirectory": "空目录",
+      "refreshFailed": "刷新失败：{{reason}}",
       "selection": {
         "selected": "已选择 {{count}} 项",
         "clear": "清除"
