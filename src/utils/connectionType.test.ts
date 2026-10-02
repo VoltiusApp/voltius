@@ -34,7 +34,7 @@ describe("parseWebdavUrl", () => {
   });
 
   it("rejects what the backend would reject", () => {
-    for (const raw of ["", "nas.local/dav", "ftp://h/", "https://u:p@h/", "https://h/?x=1", "https://h/#f"]) {
+    for (const raw of ["", "nas.local/dav", "ftp://h/", "https://u:p@h/", "https://h/?x=1", "https://h/#f", "https://h/?", "https://h/#"]) {
       expect(parseWebdavUrl(raw), raw).toBeNull();
     }
   });

@@ -21,6 +21,7 @@ import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
 import { connectFileBackend } from "@/services/sftpTarget";
+import { resolveKnownHostConflict } from "@/services/knownHosts";
 import { connectErrorPhase, useConnectRetry } from "@/hooks/useConnectRetry";
 import {
   type HostChoice, type SidePhase, type FileEntry,
@@ -66,10 +67,13 @@ export default function SFTPPage() {
   const shownSftp = useRef<Record<Side, string | null>>({ left: null, right: null });
 
   const releaseSide = useCallback((side: Side) => {
+    const connectId = currentConnect.current[side];
     currentConnect.current[side] = null;
     const sftpId = shownSftp.current[side];
     shownSftp.current[side] = null;
     if (sftpId) sftpClose(sftpId).catch(() => {});
+    // A certificate prompt nobody can answer any more would hold the connect forever.
+    else if (connectId) resolveKnownHostConflict(connectId, "abort").catch(() => {});
   }, []);
 
   useEffect(() => () => { releaseSide("left"); releaseSide("right"); }, [releaseSide]);

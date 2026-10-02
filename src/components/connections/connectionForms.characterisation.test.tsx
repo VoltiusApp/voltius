@@ -584,3 +584,15 @@ test("webdav form refuses to save an unusable URL", async () => {
   expect(onSubmit).not.toHaveBeenCalled();
   expect(document.querySelector("[data-webdav-url-error]")).toBeTruthy();
 });
+
+test("leaving webdav resets the port its URL derived", async () => {
+  const { onSubmit, ref } = renderSsh({
+    initial: conn({ connection_type: "webdav", webdav_url: "https://dav.example/files/", host: "dav.example", port: 443 }),
+  });
+  fireEvent.click(screen.getByText("connections.form.protocolWebdav"));
+  fireEvent.click(screen.getByText("connections.form.protocolSsh"));
+  await act(async () => {
+    ref.current!.flush();
+  });
+  expect(onSubmit.mock.calls[onSubmit.mock.calls.length - 1][0]).toMatchObject({ host: "dav.example", port: 22 });
+});

@@ -263,7 +263,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => { const { data, secrets } = buildSubmit(); return keepSavedOnCancel(onSubmit(data, secrets)); },
-    canSave: () => (isWebdav ? !!parseWebdavUrl(webdavUrl) : !!host.trim() && (port === "" || (port >= 1 && port <= 65535))),
+    canSave: () => (isWebdav ? !!webdavTarget : !!host.trim() && (port === "" || (port >= 1 && port <= 65535))),
     readOnly,
   });
   const markDirty = useCallback(() => { userEditedRef.current = true; _markDirty(); }, [_markDirty]);
@@ -509,7 +509,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   const next = v as Protocol;
                   setProtocol(next);
                   if (next !== "webdav") {
-                    setPort((p) => (p === "" || Object.values(DEFAULT_PORT).includes(p) ? DEFAULT_PORT[next] : p));
+                    setPort((p) => (isWebdav || p === "" || Object.values(DEFAULT_PORT).includes(p) ? DEFAULT_PORT[next] : p));
                   }
                 }}
               />
