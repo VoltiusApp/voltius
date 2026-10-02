@@ -70,6 +70,7 @@ describe("first-party rail order", () => {
         registerMobileScreen: () => () => {},
       },
       events: { on: () => () => {} },
+      sessions: { list: () => [], onDisconnected: () => () => {} },
       streams: { start: async () => "", stop: async () => {} },
       docker: {},
       proxmox: {},
