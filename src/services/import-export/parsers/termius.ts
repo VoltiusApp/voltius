@@ -11,7 +11,7 @@ import type {
 } from "../formats";
 
 // Termius stores its data in Chromium IndexedDB. The Rust extractor
-// (`termius_extract` Tauri command) walks the leveldb, decodes the V8
+// (`termius_extract` Tauri command) reads its IndexedDB store, decodes the V8
 // Structured-Clone envelope, decrypts every per-field encrypted blob with
 // XSalsa20-Poly1305, and returns one TermiusRecord per IndexedDB row. Each
 // record carries:

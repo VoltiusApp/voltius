@@ -34,10 +34,9 @@ impl<'a> Parser<'a> {
         Some(b)
     }
 
-    /// Chromium's IndexedDB version varint, then Blink and V8 `0xff <version>` headers; the
-    /// version varint can contain 0x6f, so scanning for the first 'o' is not safe.
+    /// Blink and V8 `0xff <version>` headers; the Blink trailer offset can contain 0x6f, so
+    /// scanning for the first 'o' is not safe.
     fn skip_value_headers(&mut self) -> Option<()> {
-        self.varint()?;
         while self.peek()? == 0xff {
             self.pos += 1;
             self.varint()?;
@@ -169,9 +168,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 pub(crate) mod build {
     pub fn envelope() -> Vec<u8> {
-        let mut out = Vec::new();
-        push_varint(14208, &mut out);
-        out.extend_from_slice(&[0xff, 0x15, 0xfe]);
+        let mut out = vec![0xff, 0x15, 0xfe];
         out.extend_from_slice(&[0; 12]);
         out.extend_from_slice(&[0xff, 0x10, b'o']);
         out

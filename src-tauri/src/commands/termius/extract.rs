@@ -1,7 +1,6 @@
 use super::keys::fetch_master_key;
-use super::leveldb::{build_db_name_map, decode_idb_key, read_all_entries};
-use super::paths::{copy_db_to_temp, termius_db_dir};
-use super::v8;
+use super::paths::{read_temp_copy, termius_stores, TermiusStore};
+use super::{leveldb, sqlite, v8, IdbRecord};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use crypto_secretbox::{aead::Aead, KeyInit, XSalsa20Poly1305};
 use serde::Serialize;
@@ -208,38 +207,42 @@ pub fn termius_extract() -> Result<TermiusSnapshot, String> {
 }
 
 fn termius_extract_inner() -> Result<TermiusSnapshot, String> {
-    let dir = termius_db_dir()?;
+    let stores = termius_stores()?;
     let key = fetch_master_key()?;
     let cipher = XSalsa20Poly1305::new(&key.into());
 
-    let temp = copy_db_to_temp(&dir)?;
-    let entries = read_all_entries(&temp);
-    let _ = std::fs::remove_dir_all(&temp);
-    let entries = entries?;
+    let mut errors = Vec::new();
+    for store in &stores {
+        match extract_store(store, &cipher) {
+            Ok(records) => {
+                return Ok(TermiusSnapshot {
+                    version: 2,
+                    records,
+                })
+            }
+            Err(e) => errors.push(format!("{}: {e}", store.dir().display())),
+        }
+    }
+    Err(errors.join("\n"))
+}
 
-    let db_names = build_db_name_map(&entries);
+fn extract_store(
+    store: &TermiusStore,
+    cipher: &XSalsa20Poly1305,
+) -> Result<Vec<TermiusRecord>, String> {
+    let values = read_temp_copy(store.dir(), |temp| match store {
+        TermiusStore::Sqlite(_) => sqlite::read_records(temp),
+        TermiusStore::LevelDb(_) => leveldb::read_records(temp),
+    })?;
+    let value_count = values.len();
 
     let mut records: Vec<TermiusRecord> = Vec::new();
     let mut decoded_count = 0usize;
-    for (k, v) in &entries {
-        let Some(idb) = decode_idb_key(k) else {
+    for IdbRecord { db_name, value } in values {
+        let Some(envelope) = v8::decode_envelope(&value) else {
             continue;
         };
-        // Object-store DATA entries only. Index id 1 is the primary store;
-        // anything else (2 = exists, 0x1f/0x20/0x21/0x22/0x23 = indexes) is
-        // either internal or a denormalised index, which we don't need
-        // because we read the full value.
-        if idb.index_id != 0x01 || idb.object_store_id != 0x01 {
-            continue;
-        }
-
-        let Some(db_name) = db_names.get(&idb.db_id) else {
-            continue;
-        };
-        let Some(envelope) = v8::decode_envelope(v) else {
-            continue;
-        };
-        let Some(rec) = extract_record(envelope, &cipher) else {
+        let Some(rec) = extract_record(envelope, cipher) else {
             continue;
         };
         decoded_count += 1;
@@ -249,7 +252,7 @@ fn termius_extract_inner() -> Result<TermiusSnapshot, String> {
         }
 
         records.push(TermiusRecord {
-            db_name: db_name.clone(),
+            db_name,
             termius_id: rec.termius_id,
             local_id: rec.local_id,
             updated_at: rec.updated_at,
@@ -260,14 +263,9 @@ fn termius_extract_inner() -> Result<TermiusSnapshot, String> {
         });
     }
 
-    // If no records came through at all, give a clearer error than "no items".
-    // This usually means the schema-detection (db name map) misfired.
     if records.is_empty() {
         return Err(format!(
-            "Extracted 0 records from {} leveldb entries (decoded {}, db_name map has {} entries). Termius's IndexedDB schema may have changed.",
-            entries.len(),
-            decoded_count,
-            db_names.len(),
+            "Extracted 0 records from {value_count} IndexedDB values (decoded {decoded_count}). Termius's IndexedDB schema may have changed.",
         ));
     }
 
@@ -275,11 +273,7 @@ fn termius_extract_inner() -> Result<TermiusSnapshot, String> {
     records.sort_by(|a, b| {
         (a.db_name.as_str(), a.termius_id).cmp(&(b.db_name.as_str(), b.termius_id))
     });
-
-    Ok(TermiusSnapshot {
-        version: 2,
-        records,
-    })
+    Ok(records)
 }
 
 /// Diagnostic: redact secrets in a snapshot and write it to the given path.
@@ -322,11 +316,14 @@ fn redact_secret(obj: &mut Map<String, Value>, field: &str, tag: &str) {
 pub fn termius_extract_leveldb_keys(path: String) -> Result<String, String> {
     use sha2::{Digest, Sha256};
 
-    let dir = termius_db_dir()?;
-    let temp = copy_db_to_temp(&dir)?;
-    let entries = read_all_entries(&temp);
-    let _ = std::fs::remove_dir_all(&temp);
-    let entries = entries?;
+    let dir = termius_stores()?
+        .into_iter()
+        .find_map(|store| match store {
+            TermiusStore::LevelDb(dir) => Some(dir),
+            TermiusStore::Sqlite(_) => None,
+        })
+        .ok_or("Termius stores its data in SQLite, not LevelDB")?;
+    let entries = read_temp_copy(&dir, leveldb::read_all_entries)?;
 
     #[derive(Serialize)]
     struct Entry {

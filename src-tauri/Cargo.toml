@@ -58,6 +58,8 @@ base64 = "0.22"
 hostname = "0.4"
 crypto_secretbox = "0.1"
 rusty-leveldb = "4"
+rusqlite = { version = "0.40", features = ["bundled"] }
+ruzstd = "0.9"
 portable-pty = "0.9"
 ssh-key = { version = "0.6", features = ["ed25519", "p256", "p384", "p521", "rsa", "encryption"] }
 rsa = { version = "0.9", features = ["getrandom"] }

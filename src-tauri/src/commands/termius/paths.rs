@@ -2,9 +2,24 @@
 
 use std::path::{Path, PathBuf};
 
-const TERMIUS_DB_SUBPATH: &str = "Termius/IndexedDB/file__0.indexeddb.leveldb";
+const TERMIUS_DB_SUBPATH: &str = "Termius/IndexedDB";
+const SQLITE_STORE: &str = "file__0";
+const LEVELDB_STORE: &str = "file__0.indexeddb.leveldb";
 
-/// Returns all plausible Termius database locations for this platform. Termius
+pub(super) enum TermiusStore {
+    Sqlite(PathBuf),
+    LevelDb(PathBuf),
+}
+
+impl TermiusStore {
+    pub(super) fn dir(&self) -> &Path {
+        match self {
+            TermiusStore::Sqlite(dir) | TermiusStore::LevelDb(dir) => dir,
+        }
+    }
+}
+
+/// Returns all plausible Termius IndexedDB locations for this platform. Termius
 /// ships through several channels — classic installer, Microsoft Store (which
 /// sandboxes the app under Packages/), and standalone — each with a different
 /// data directory.
@@ -55,12 +70,21 @@ fn termius_db_candidates() -> Vec<PathBuf> {
     out
 }
 
-pub(super) fn termius_db_dir() -> Result<PathBuf, String> {
+/// Every IndexedDB store found, SQLite first: Chromium may leave the old LevelDB behind.
+pub(super) fn termius_stores() -> Result<Vec<TermiusStore>, String> {
     let candidates = termius_db_candidates();
-    for path in &candidates {
-        if path.is_dir() {
-            return Ok(path.clone());
-        }
+    let stores: Vec<TermiusStore> = candidates
+        .iter()
+        .flat_map(|idb| {
+            [
+                TermiusStore::Sqlite(idb.join(SQLITE_STORE)),
+                TermiusStore::LevelDb(idb.join(LEVELDB_STORE)),
+            ]
+        })
+        .filter(|store| store.dir().is_dir())
+        .collect();
+    if !stores.is_empty() {
+        return Ok(stores);
     }
     Err(format!(
         "Termius database not found. Looked in:\n  {}",
@@ -72,10 +96,20 @@ pub(super) fn termius_db_dir() -> Result<PathBuf, String> {
     ))
 }
 
+pub(super) fn read_temp_copy<T>(
+    src: &Path,
+    read: impl FnOnce(&Path) -> Result<T, String>,
+) -> Result<T, String> {
+    let temp = copy_db_to_temp(src)?;
+    let out = read(&temp);
+    let _ = std::fs::remove_dir_all(&temp);
+    out
+}
+
 // Importing a desktop Termius install; the whole module is unreachable on Android.
 #[allow(clippy::disallowed_methods)]
-pub(super) fn copy_db_to_temp(src: &Path) -> Result<PathBuf, String> {
-    let temp = std::env::temp_dir().join(format!("voltius-termius-ldb-{}", std::process::id()));
+fn copy_db_to_temp(src: &Path) -> Result<PathBuf, String> {
+    let temp = std::env::temp_dir().join(format!("voltius-termius-idb-{}", std::process::id()));
     if temp.exists() {
         let _ = std::fs::remove_dir_all(&temp);
     }

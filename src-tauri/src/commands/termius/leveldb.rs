@@ -1,3 +1,4 @@
+use super::IdbRecord;
 use rusty_leveldb::compressor::{Compressor, SnappyCompressor};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -7,13 +8,13 @@ use std::path::{Path, PathBuf};
 /// A Chromium IndexedDB key. We only care about a subset:
 ///   `0x00 <db_id> <store_id> <index_id> <user_key…>`
 /// Index id 1 is the primary object-store data; 2 is the "exists" sidecar.
-pub(super) struct IdbKey {
-    pub(super) db_id: u8,
-    pub(super) object_store_id: u8,
-    pub(super) index_id: u8,
+struct IdbKey {
+    db_id: u8,
+    object_store_id: u8,
+    index_id: u8,
 }
 
-pub(super) fn decode_idb_key(key: &[u8]) -> Option<IdbKey> {
+fn decode_idb_key(key: &[u8]) -> Option<IdbKey> {
     if key.len() < 4 || key[0] != 0x00 {
         return None;
     }
@@ -32,7 +33,7 @@ pub(super) fn decode_idb_key(key: &[u8]) -> Option<IdbKey> {
 // 1-byte length prefix and 1-byte padding). We walk *every* db_id at object
 // store id 1 and pull the name.
 
-pub(super) fn build_db_name_map(entries: &[(Vec<u8>, Vec<u8>)]) -> HashMap<u8, String> {
+fn build_db_name_map(entries: &[(Vec<u8>, Vec<u8>)]) -> HashMap<u8, String> {
     let mut out = HashMap::new();
     for (k, v) in entries {
         // We're looking for keys starting `00 <db_id> 00 00 32 01 00`.
@@ -356,8 +357,34 @@ pub(super) fn read_all_entries(dir: &Path) -> Result<RawLevelDbEntries, String> 
     Ok(newest.into_entries())
 }
 
+// Index id 1 of object store 1 holds the records; other ids are internal or index sidecars.
+pub(super) fn read_records(dir: &Path) -> Result<Vec<IdbRecord>, String> {
+    let entries = read_all_entries(dir)?;
+    let db_names = build_db_name_map(&entries);
+    Ok(entries
+        .iter()
+        .filter_map(|(k, v)| {
+            let idb = decode_idb_key(k)?;
+            if idb.index_id != 0x01 || idb.object_store_id != 0x01 {
+                return None;
+            }
+            Some(IdbRecord {
+                db_name: db_names.get(&idb.db_id)?.clone(),
+                value: strip_idb_version(v)?.to_vec(),
+            })
+        })
+        .collect())
+}
+
+fn strip_idb_version(value: &[u8]) -> Option<&[u8]> {
+    let mut pos = 0;
+    super::read_varint(value, &mut pos)?;
+    value.get(pos..)
+}
+
 #[cfg(test)]
 mod tests {
+    use super::super::hex_to_bytes;
     use super::*;
     use rusty_leveldb::CompressorId;
 
@@ -383,6 +410,14 @@ mod tests {
         let entries = vec![(key, val)];
         let map = build_db_name_map(&entries);
         assert_eq!(map.get(&0x10).map(String::as_str), Some("hosts"));
+    }
+
+    #[test]
+    fn strips_a_version_varint_that_contains_0x6f() {
+        assert_eq!(
+            strip_idb_version(&[0x80, 0x6f, 0xff, 0x15]),
+            Some(&[0xff, 0x15][..])
+        );
     }
 
     struct BackToFrontCmp;
@@ -459,27 +494,5 @@ mod tests {
             bytewise_open.is_err(),
             "fixture must reproduce the comparator mismatch"
         );
-    }
-
-    fn hex_to_bytes(hex: &str) -> Vec<u8> {
-        let mut out = Vec::with_capacity(hex.len() / 2);
-        let bytes = hex.as_bytes();
-        let mut i = 0;
-        while i + 1 < bytes.len() {
-            let hi = char_to_nibble(bytes[i]);
-            let lo = char_to_nibble(bytes[i + 1]);
-            out.push((hi << 4) | lo);
-            i += 2;
-        }
-        out
-    }
-
-    fn char_to_nibble(b: u8) -> u8 {
-        match b {
-            b'0'..=b'9' => b - b'0',
-            b'a'..=b'f' => 10 + b - b'a',
-            b'A'..=b'F' => 10 + b - b'A',
-            _ => 0,
-        }
     }
 }
