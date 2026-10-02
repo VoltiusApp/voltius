@@ -1,3 +1,4 @@
+use crate::error::{AppError, ErrorCode};
 use crate::known_hosts::{ConflictPrompt, KnownHostsStore};
 use crate::proxy::{self, ProxiedStream, ProxySpec};
 use crate::tls::{root_store, PinningVerifier, TLS_PIN_PREFIX, TLS_WEBPKI_MARKER};
@@ -7,6 +8,7 @@ use hyper_util::rt::TokioIo;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
@@ -18,6 +20,10 @@ use tokio_rustls::rustls::RootCertStore;
 use tokio_rustls::TlsConnector;
 
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+#[cfg(not(test))]
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
+#[cfg(test)]
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(2);
 
 pub enum DavIo {
     Plain(ProxiedStream),
@@ -73,6 +79,23 @@ struct Inner {
     known_hosts: Arc<KnownHostsStore>,
     policy: Mutex<PinPolicy>,
     roots: Option<Arc<RootCertStore>>,
+    /// Bumped when a certificate prompt opens and when it closes: odd while one is open.
+    prompt_epoch: AtomicU64,
+}
+
+struct PromptOpen<'a>(&'a AtomicU64);
+
+impl<'a> PromptOpen<'a> {
+    fn new(epoch: &'a AtomicU64) -> Self {
+        epoch.fetch_add(1, Ordering::SeqCst);
+        Self(epoch)
+    }
+}
+
+impl Drop for PromptOpen<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
 }
 
 enum PinPolicy {
@@ -107,6 +130,7 @@ impl DavConnector {
                 known_hosts,
                 policy: Mutex::new(PinPolicy::Probing(prompt)),
                 roots,
+                prompt_epoch: AtomicU64::new(0),
             }),
         }
     }
@@ -116,23 +140,35 @@ impl DavConnector {
         *self.inner.policy.lock().await = PinPolicy::Stopped;
     }
 
+    /// Bounds a request's wait for an answer; time spent on a certificate prompt does not count.
+    pub async fn bounded<T>(
+        &self,
+        op: &str,
+        request: impl Future<Output = Result<T, AppError>>,
+    ) -> Result<T, AppError> {
+        tokio::pin!(request);
+        let epoch_now = || self.inner.prompt_epoch.load(Ordering::SeqCst);
+        loop {
+            let epoch = epoch_now();
+            match timeout(RESPONSE_TIMEOUT, &mut request).await {
+                Ok(result) => return result,
+                Err(_) if epoch % 2 == 1 || epoch_now() != epoch => {}
+                Err(_) => {
+                    return Err(AppError::coded(
+                        ErrorCode::TimedOut,
+                        format!(
+                            "{op} failed: the server did not answer within {} s",
+                            RESPONSE_TIMEOUT.as_secs()
+                        ),
+                    ))
+                }
+            }
+        }
+    }
+
     async fn open(&self, uri: Uri) -> io::Result<DavIo> {
         let inner = &self.inner;
-        let https = match uri.scheme_str() {
-            Some("https") => true,
-            Some("http") => false,
-            other => {
-                return Err(io::Error::other(format!(
-                    "unsupported URL scheme {other:?}"
-                )))
-            }
-        };
-        let host = uri
-            .host()
-            .ok_or_else(|| io::Error::other("URL has no host"))?
-            .trim_matches(['[', ']'])
-            .to_string();
-        let port = uri.port_u16().unwrap_or(if https { 443 } else { 80 });
+        let (https, host, port) = endpoint(&uri)?;
         let stream = dial(inner, &host, port).await?;
         if !https {
             return Ok(DavIo::Plain(stream));
@@ -163,11 +199,14 @@ impl DavConnector {
                     "The certificate of {host}:{port} is not trusted. Reconnect to review it."
                 )))
             }
-            PinPolicy::Probing(prompt) => inner
-                .known_hosts
-                .verify_or_prompt(&host, port, fp.clone(), prompt.as_ref())
-                .await
-                .map_err(io::Error::other)?,
+            PinPolicy::Probing(prompt) => {
+                let _open = PromptOpen::new(&inner.prompt_epoch);
+                inner
+                    .known_hosts
+                    .verify_or_prompt(&host, port, fp.clone(), prompt.as_ref())
+                    .await
+                    .map_err(io::Error::other)?
+            }
         }
         let stream = dial(inner, &host, port).await?;
         handshake(inner, &host, stream, vec![fp])
@@ -175,6 +214,26 @@ impl DavConnector {
             .map(|(tls, _)| DavIo::Tls(Box::new(tls)))
             .map_err(|(err, _)| err)
     }
+}
+
+/// `(https, host, port)`, the host without IPv6 brackets.
+fn endpoint(uri: &Uri) -> io::Result<(bool, String, u16)> {
+    let https = match uri.scheme_str() {
+        Some("https") => true,
+        Some("http") => false,
+        other => {
+            return Err(io::Error::other(format!(
+                "unsupported URL scheme {other:?}"
+            )))
+        }
+    };
+    let host = uri
+        .host()
+        .ok_or_else(|| io::Error::other("URL has no host"))?
+        .trim_matches(['[', ']'])
+        .to_string();
+    let port = uri.port_u16().unwrap_or(if https { 443 } else { 80 });
+    Ok((https, host, port))
 }
 
 async fn dial(inner: &Inner, host: &str, port: u16) -> io::Result<ProxiedStream> {
@@ -242,7 +301,7 @@ impl tower_service::Service<Uri> for DavConnector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::known_hosts::{answering, ConflictAction};
+    use crate::known_hosts::{answering, ConflictAction, HostKeyConflictEvent};
     use crate::tls::pin_tests::{ca_signed, self_signed, serve_tls};
     use crate::tls::tls_fingerprint;
 
@@ -365,6 +424,53 @@ mod tests {
             .unwrap();
         let entries = store.fingerprints_for("127.0.0.1", port).await;
         assert_eq!(entries, [tls_fingerprint(&leaf.cert)]);
+    }
+
+    #[test]
+    fn endpoints_default_their_port_and_unbracket_ipv6() {
+        let of = |raw: &str| endpoint(&raw.parse().unwrap()).unwrap();
+        assert_eq!(of("https://[::1]:8443/"), (true, "::1".into(), 8443));
+        assert_eq!(of("https://h/dav/"), (true, "h".into(), 443));
+        assert_eq!(of("http://h/dav/"), (false, "h".into(), 80));
+    }
+
+    #[tokio::test]
+    async fn a_request_that_never_answers_times_out() {
+        let c = connector(&Arc::new(KnownHostsStore::new()), None);
+        let err = c
+            .bounded("List", std::future::pending::<Result<(), AppError>>())
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), Some(ErrorCode::TimedOut), "{err}");
+    }
+
+    fn slow(prompt: ConflictPrompt, delay: Duration) -> ConflictPrompt {
+        let answer: Arc<dyn Fn(HostKeyConflictEvent) + Send + Sync> = Arc::from(prompt.emit);
+        ConflictPrompt {
+            emit: Box::new(move |event| {
+                let answer = Arc::clone(&answer);
+                tokio::spawn(async move {
+                    tokio::time::sleep(delay).await;
+                    answer(event);
+                });
+            }),
+            ..prompt
+        }
+    }
+
+    #[tokio::test]
+    async fn time_on_a_certificate_prompt_is_not_a_timeout() {
+        let leaf = self_signed();
+        let port = serve_tls(&leaf).await;
+        let store = marked(port);
+        let c = connector(&store, Some(slow(replacing(), RESPONSE_TIMEOUT * 2)));
+        c.bounded("Connect", async {
+            c.open(uri(port))
+                .await
+                .map_err(|e| AppError::caused("Connect", &e))
+        })
+        .await
+        .unwrap();
     }
 
     #[tokio::test]

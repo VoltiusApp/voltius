@@ -35,11 +35,13 @@ type Body = BoxBody<Bytes, std::io::Error>;
 
 const PROPFIND_BODY: &str = r#"<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>"#;
 const UPLOAD_PIPE: usize = 256 * 1024;
+const REFUSAL_GRACE: Duration = Duration::from_secs(1);
 // Below Apache's 5 s keep-alive, so a pooled connection is dropped before the server closes it.
 const POOL_IDLE: Duration = Duration::from_secs(4);
 
 pub struct WebDavBackend {
     client: Client<DavConnector, Body>,
+    connector: DavConnector,
     base: DavBase,
     auth: HeaderValue,
 }
@@ -66,7 +68,7 @@ fn basic_auth(username: &str, password: &str) -> HeaderValue {
     value
 }
 
-pub(crate) fn status_error(op: &str, status: StatusCode) -> AppError {
+fn status_error(op: &str, status: StatusCode) -> AppError {
     status_error_with(op, status, status_code(status))
 }
 
@@ -162,10 +164,18 @@ impl WebDavBackend {
         let req = req
             .body(body)
             .map_err(|e| AppError::from(format!("{op}: {e}")))?;
-        self.client
-            .request(req)
-            .await
-            .map_err(|e| transport_error(op, &e))
+        let transfer = req.method() == Method::GET || req.method() == Method::PUT;
+        let response = async {
+            self.client
+                .request(req)
+                .await
+                .map_err(|e| transport_error(op, &e))
+        };
+        if transfer {
+            response.await
+        } else {
+            self.connector.bounded(op, response).await
+        }
     }
 
     async fn expect_ok(
@@ -216,19 +226,40 @@ impl WebDavBackend {
         }
         match resp.status() {
             StatusCode::NOT_FOUND => Ok(None),
-            StatusCode::MULTI_STATUS => {
-                let bytes = resp
-                    .into_body()
-                    .collect()
-                    .await
-                    .map_err(|e| transport_error("List", &e))?
-                    .to_bytes();
-                multistatus::parse(&String::from_utf8_lossy(&bytes))
-                    .map(Some)
-                    .map_err(AppError::from)
-            }
-            other => Err(status_error("List", other)),
+            _ => self.multistatus("List", resp).await.map(Some),
         }
+    }
+
+    async fn multistatus(
+        &self,
+        op: &str,
+        resp: Response<Incoming>,
+    ) -> Result<Vec<DavEntry>, AppError> {
+        if resp.status() != StatusCode::MULTI_STATUS {
+            return Err(status_error(op, resp.status()));
+        }
+        let body = async {
+            resp.into_body()
+                .collect()
+                .await
+                .map_err(|e| transport_error(op, &e))
+        };
+        let bytes = self.connector.bounded(op, body).await?.to_bytes();
+        Ok(multistatus::parse(&String::from_utf8_lossy(&bytes))?)
+    }
+
+    /// Each entry with its path under the base; a listing none of whose entries lies
+    /// under the base is an error, not an empty folder.
+    fn located(&self, entries: Vec<DavEntry>) -> Result<Vec<(String, DavEntry)>, AppError> {
+        let any = !entries.is_empty();
+        let located: Vec<_> = entries
+            .into_iter()
+            .filter_map(|e| Some((self.base.path_of(&e.href)?, e)))
+            .collect();
+        if any && located.is_empty() {
+            return Err("The server returned entries outside the WebDAV folder".into());
+        }
+        Ok(located)
     }
 
     async fn stat_entry(&self, path: &str) -> Result<Option<DavEntry>, AppError> {
@@ -246,12 +277,16 @@ impl WebDavBackend {
         })
     }
 
-    fn to_remote_files(&self, dir: &str, entries: Vec<DavEntry>) -> Vec<RemoteFile> {
+    fn to_remote_files(
+        &self,
+        dir: &str,
+        entries: Vec<DavEntry>,
+    ) -> Result<Vec<RemoteFile>, AppError> {
         let dir = normalize(dir);
-        let mut files: Vec<RemoteFile> = entries
+        let mut files: Vec<RemoteFile> = self
+            .located(entries)?
             .into_iter()
-            .filter_map(|e| {
-                let path = self.base.path_of(&e.href)?;
+            .filter_map(|(path, e)| {
                 if path == dir {
                     return None;
                 }
@@ -272,7 +307,7 @@ impl WebDavBackend {
             })
             .collect();
         sort_listing(&mut files);
-        files
+        Ok(files)
     }
 }
 
@@ -289,6 +324,7 @@ pub async fn connect(
         client: Client::builder(TokioExecutor::new())
             .pool_idle_timeout(POOL_IDLE)
             .build(connector.clone()),
+        connector,
         base: DavBase::parse(url)?,
         auth: basic_auth(username, password),
     };
@@ -309,10 +345,15 @@ pub async fn connect(
             .send_propfind("Connect", backend.base.url(), "0")
             .await?;
     }
-    if resp.status() != StatusCode::MULTI_STATUS {
-        return Err(status_error("Connect", resp.status()));
+    let entries = backend.multistatus("Connect", resp).await?;
+    let is_folder = backend
+        .located(entries)?
+        .iter()
+        .any(|(path, e)| path == "/" && e.is_dir);
+    if !is_folder {
+        return Err("The URL is not a WebDAV folder".into());
     }
-    connector.stop_prompting().await;
+    backend.connector.stop_prompting().await;
     Ok(backend)
 }
 
@@ -323,7 +364,7 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
             .propfind(&self.base.dir_url_for(path), "1")
             .await?
             .ok_or_else(|| status_error("List", StatusCode::NOT_FOUND))?;
-        Ok(self.to_remote_files(path, entries))
+        self.to_remote_files(path, entries)
     }
 
     async fn stat(&self, path: &str) -> Result<Option<bool>, String> {
@@ -459,7 +500,12 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
                 Ok(_) => pump.await,
             },
             result = &mut pump => match result {
-                Err(e) => Err(e),
+                Err(e) if token.is_cancelled() => Err(e),
+                // The server's refusal can land just after the broken pipe it causes.
+                Err(e) => match tokio::time::timeout(REFUSAL_GRACE, &mut put).await {
+                    Ok(Err(refused)) => Err(refused.into()),
+                    _ => Err(e),
+                },
                 Ok(()) => put.await.map(|_| ()).map_err(Into::into),
             },
         }
@@ -590,26 +636,74 @@ mod tests {
 
     #[tokio::test]
     async fn connect_follows_a_same_origin_redirect_once() {
-        let (port, seen) = canned(vec![]).await;
-        drop(seen);
-        let (port2, seen2) = canned(vec![reply(
+        let unused = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let other = unused.local_addr().unwrap().port();
+        drop(unused);
+        let (port, seen) = canned(vec![reply(
             "301 Moved Permanently",
-            &format!("Location: http://127.0.0.1:{port}/x/\r\n"),
+            &format!("Location: http://127.0.0.1:{other}/x/\r\n"),
             "",
         )])
         .await;
-        let err = backend(port2).await.err().unwrap();
+        let err = backend(port).await.err().unwrap();
         assert!(err.to_string().contains("redirected"), "{err}");
-        assert_eq!(seen2.lock().unwrap().len(), 1);
-        let (port3, seen3) = canned(vec![
+        assert_eq!(seen.lock().unwrap().len(), 1);
+
+        let root2 = ROOT.replace("/dav/", "/dav2/");
+        let (port, seen) = canned(vec![
             reply("301 Moved Permanently", "Location: /dav2/\r\n", ""),
-            multistatus(ROOT),
+            multistatus(&root2),
         ])
         .await;
-        backend(port3).await.unwrap();
-        assert!(seen3.lock().unwrap()[1]
+        backend(port).await.unwrap();
+        assert!(seen.lock().unwrap()[1]
             .head
             .starts_with("PROPFIND /dav2/ HTTP/1.1"));
+
+        let (port, seen) = canned(vec![
+            reply("301 Moved Permanently", "Location: /dav2/\r\n", ""),
+            reply("301 Moved Permanently", "Location: /dav3/\r\n", ""),
+            multistatus(&root2.replace("/dav2/", "/dav3/")),
+        ])
+        .await;
+        let err = backend(port).await.err().unwrap();
+        assert!(err.to_string().contains("HTTP 301"), "{err}");
+        assert_eq!(seen.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn connect_requires_the_url_to_be_a_folder() {
+        let file = ROOT.replace("<d:collection/>", "");
+        let (port, _) = canned(vec![multistatus(&file)]).await;
+        let err = backend(port).await.err().unwrap();
+        assert!(err.to_string().contains("not a WebDAV folder"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn a_listing_outside_the_base_is_an_error() {
+        let elsewhere = LISTING.replace("/dav/", "/other/");
+        let (port, _) = canned(vec![multistatus(ROOT), multistatus(&elsewhere)]).await;
+        let b = backend(port).await.unwrap();
+        let err = FileBackend::<Recorder>::list_dir(&b, "/")
+            .await
+            .err()
+            .unwrap();
+        assert!(
+            err.to_string().contains("outside the WebDAV folder"),
+            "{err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn connect_times_out_when_the_server_never_answers() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (_tcp, _) = listener.accept().await.unwrap();
+            std::future::pending::<()>().await;
+        });
+        let err = backend(port).await.err().unwrap();
+        assert_eq!(err.code(), Some(ErrorCode::TimedOut), "{err}");
     }
 
     #[tokio::test]
@@ -734,7 +828,7 @@ mod tests {
         assert!(err.to_string().contains("Upload failed: HTTP 507"), "{err}");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn the_servers_refusal_wins_over_the_broken_pipe_it_causes() {
         let tmp = tempfile::tempdir().unwrap();
         let local = tmp.path().join("big.bin");

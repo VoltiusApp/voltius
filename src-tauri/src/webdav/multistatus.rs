@@ -183,12 +183,14 @@ mod tests {
         );
     }
 
+    const OPEN: &str = r#"<d:multistatus xmlns:d="DAV:">"#;
+
     #[test]
     fn mismatched_tags_are_an_error() {
-        assert!(parse("<a></b>").is_err());
+        let xml = format!("{OPEN}<d:response><d:href>/a</d:response></d:href></d:multistatus>");
+        let err = parse(&xml).unwrap_err();
+        assert!(!err.contains("not a multistatus"), "{err}");
     }
-
-    const OPEN: &str = r#"<d:multistatus xmlns:d="DAV:">"#;
 
     #[test]
     fn nested_lock_href_is_ignored() {

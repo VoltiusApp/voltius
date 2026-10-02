@@ -50,7 +50,7 @@ pub struct SshClient {
     host: String,
     port: u16,
     known_hosts: Arc<KnownHostsStore>,
-    conflict_ctx: Option<ConflictPrompt>,
+    conflict_prompt: Option<ConflictPrompt>,
     /// Remote-forward route table: (bind_host, remote_port) → RemoteRoute.
     /// Populated by PortForwardManager before calling tcpip_forward.
     pub remote_routes: RemoteRouteMap,
@@ -69,7 +69,7 @@ impl SshClient {
             host,
             port,
             known_hosts,
-            conflict_ctx: None,
+            conflict_prompt: None,
             remote_routes: Arc::new(Mutex::new(HashMap::new())),
             remote_sshid: Arc::new(Mutex::new(None)),
             agent_forwarding: false,
@@ -90,7 +90,7 @@ impl SshClient {
         agent_forwarding: bool,
     ) -> InteractiveClient {
         let client = Self {
-            conflict_ctx: Some(ConflictPrompt::via_app(
+            conflict_prompt: Some(ConflictPrompt::via_app(
                 app,
                 "ssh-host-key-conflict",
                 session_id,
@@ -136,7 +136,7 @@ impl client::Handler for SshClient {
         let fp = server_public_key.fingerprint(HashAlg::Sha256).to_string();
 
         self.known_hosts
-            .verify_or_prompt(&self.host, self.port, fp, self.conflict_ctx.as_ref())
+            .verify_or_prompt(&self.host, self.port, fp, self.conflict_prompt.as_ref())
             .await
             .map(|()| true)
             .map_err(HopError::HostKey)
