@@ -40,6 +40,7 @@ import { EditorTabStrip } from "./editor/EditorTabStrip";
 import { EditorTab } from "./editor/EditorTab";
 import { DiffTab } from "./editor/DiffTab";
 import { EditorDropOverlay } from "./editor/EditorDropOverlay";
+import { isFileOnlyProtocol } from "@/utils/connectionType";
 
 type Side = "left" | "right";
 
@@ -396,13 +397,15 @@ export default function SFTPPage() {
 
   const { connectLocalAt, connectAt } = useSessionStore();
 
-  const makeOpenInTerminal = useCallback((host: HostChoice | null) => (path: string) => {
-    if (!host) return;
-    if (host.kind === "local") {
-      connectLocalAt(path).catch(() => {});
-    } else {
-      connectAt(host.connection.id, path).catch(() => {});
-    }
+  const makeOpenInTerminal = useCallback((host: HostChoice | null) => {
+    if (!host || (host.kind === "remote" && isFileOnlyProtocol(host.connection))) return undefined;
+    return (path: string) => {
+      if (host.kind === "local") {
+        connectLocalAt(path).catch(() => {});
+      } else {
+        connectAt(host.connection.id, path).catch(() => {});
+      }
+    };
   }, [connectLocalAt, connectAt]);
 
   const leftSelected  = leftPhase.tag  === "connected" ? leftPhase.selected  : [];
