@@ -26,25 +26,50 @@ pub fn parse(xml: &str) -> Result<Vec<DavEntry>, String> {
     let mut reader = NsReader::from_str(xml);
     let mut entries = Vec::new();
     let mut current: Option<DavEntry> = None;
+    let mut response_depth: Option<usize> = None;
     let mut field: Option<Field> = None;
     let mut text = String::new();
+    let mut depth = 0usize;
+    let mut closed = false;
     loop {
         match reader.read_resolved_event().map_err(|e| bad(&e))? {
-            (ResolveResult::Bound(ns), Event::Start(e)) if ns.as_ref() == DAV => {
-                match e.local_name().as_ref() {
-                    b"response" => current = Some(DavEntry::default()),
-                    b"collection" => mark_dir(&mut current),
-                    b"href" => field = Some(Field::Href),
-                    b"getcontentlength" => field = Some(Field::Length),
-                    b"getlastmodified" => field = Some(Field::Modified),
-                    _ => {}
+            (ns, Event::Start(e)) => {
+                let dav = matches!(ns, ResolveResult::Bound(n) if n.as_ref() == DAV);
+                let name = e.local_name();
+                if depth == 0 && !(dav && name.as_ref() == b"multistatus") {
+                    return Err(bad(&"not a multistatus document"));
+                }
+                depth += 1;
+                if dav {
+                    match name.as_ref() {
+                        b"response" => {
+                            current = Some(DavEntry::default());
+                            response_depth = Some(depth);
+                        }
+                        b"collection" => mark_dir(&mut current),
+                        b"href" if response_depth == Some(depth - 1) => {
+                            if current.as_ref().is_some_and(|c| c.href.is_empty()) {
+                                field = Some(Field::Href);
+                            }
+                        }
+                        b"getcontentlength" => field = Some(Field::Length),
+                        b"getlastmodified" => field = Some(Field::Modified),
+                        _ => {}
+                    }
                 }
                 text.clear();
             }
-            (ResolveResult::Bound(ns), Event::Empty(e))
-                if ns.as_ref() == DAV && e.local_name().as_ref() == b"collection" =>
-            {
-                mark_dir(&mut current)
+            (ns, Event::Empty(e)) => {
+                let dav = matches!(ns, ResolveResult::Bound(n) if n.as_ref() == DAV);
+                let name = e.local_name();
+                if depth == 0 {
+                    if !(dav && name.as_ref() == b"multistatus") {
+                        return Err(bad(&"not a multistatus document"));
+                    }
+                    closed = true;
+                } else if dav && name.as_ref() == b"collection" {
+                    mark_dir(&mut current);
+                }
             }
             (_, Event::Text(t)) if field.is_some() => {
                 text.push_str(&t.decode().map_err(|e| bad(&e))?)
@@ -55,29 +80,39 @@ pub fn parse(xml: &str) -> Result<Vec<DavEntry>, String> {
             (_, Event::GeneralRef(r)) if field.is_some() => {
                 if let Some(ch) = r.resolve_char_ref().map_err(|e| bad(&e))? {
                     text.push(ch);
-                } else if let Some(v) = resolve_predefined_entity(&r.decode().map_err(|e| bad(&e))?)
-                {
+                } else {
+                    let name = r.decode().map_err(|e| bad(&e))?;
+                    let v = resolve_predefined_entity(&name)
+                        .ok_or_else(|| bad(&format!("unknown entity &{name};")))?;
                     text.push_str(v);
                 }
             }
-            (ResolveResult::Bound(ns), Event::End(e)) if ns.as_ref() == DAV => {
-                match e.local_name().as_ref() {
-                    b"response" => {
-                        if let Some(entry) = current.take().filter(|c| !c.href.is_empty()) {
-                            entries.push(entry);
+            (ns, Event::End(e)) => {
+                depth = depth.saturating_sub(1);
+                if matches!(ns, ResolveResult::Bound(n) if n.as_ref() == DAV) {
+                    match e.local_name().as_ref() {
+                        b"multistatus" if depth == 0 => closed = true,
+                        b"response" => {
+                            response_depth = None;
+                            if let Some(entry) = current.take().filter(|c| !c.href.is_empty()) {
+                                entries.push(entry);
+                            }
                         }
-                    }
-                    b"href" | b"getcontentlength" | b"getlastmodified" => {
-                        if let (Some(f), Some(entry)) = (field.take(), current.as_mut()) {
-                            apply(f, text.trim(), entry);
+                        b"href" | b"getcontentlength" | b"getlastmodified" => {
+                            if let (Some(f), Some(entry)) = (field.take(), current.as_mut()) {
+                                apply(f, text.trim(), entry);
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
             (_, Event::Eof) => break,
             _ => {}
         }
+    }
+    if !closed {
+        return Err(bad(&"truncated or not a multistatus document"));
     }
     Ok(entries)
 }
@@ -131,7 +166,7 @@ mod tests {
     #[test]
     fn apache_live_props_under_another_prefix() {
         let e = entries(include_str!("fixtures/apache.xml"));
-        assert_eq!(e[0].is_dir, true);
+        assert!(e[0].is_dir);
         assert_eq!(e[1].href, "http://nas.local/dav/r%C3%A9sum%C3%A9.pdf");
         assert_eq!((e[1].is_dir, e[1].size), (false, Some(42)));
     }
@@ -151,5 +186,44 @@ mod tests {
     #[test]
     fn mismatched_tags_are_an_error() {
         assert!(parse("<a></b>").is_err());
+    }
+
+    const OPEN: &str = r#"<d:multistatus xmlns:d="DAV:">"#;
+
+    #[test]
+    fn nested_lock_href_is_ignored() {
+        let xml = format!(
+            "{OPEN}<d:response><d:href>/a</d:href><d:propstat><d:prop><d:lockdiscovery><d:activelock><d:locktoken><d:href>opaquelocktoken:1</d:href></d:locktoken></d:activelock></d:lockdiscovery></d:prop></d:propstat></d:response></d:multistatus>"
+        );
+        assert_eq!(entries(&xml)[0].href, "/a");
+    }
+
+    #[test]
+    fn truncated_body_is_an_error() {
+        let xml = format!(
+            "{OPEN}<d:response><d:href>/a</d:href></d:response><d:response><d:href>/b</d:href>"
+        );
+        assert!(parse(&xml).is_err());
+    }
+
+    #[test]
+    fn unknown_entity_is_an_error() {
+        let xml =
+            format!("{OPEN}<d:response><d:href>/a&nbsp;b</d:href></d:response></d:multistatus>");
+        assert!(parse(&xml).is_err());
+    }
+
+    #[test]
+    fn non_multistatus_root_or_empty_input_is_an_error() {
+        assert!(parse("").is_err());
+        assert!(parse("<html><body/></html>").is_err());
+        assert!(parse(r#"<multistatus xmlns="urn:other"></multistatus>"#).is_err());
+    }
+
+    #[test]
+    fn char_ref_in_href_decodes() {
+        let xml =
+            format!("{OPEN}<d:response><d:href>/a&#x26;b</d:href></d:response></d:multistatus>");
+        assert_eq!(entries(&xml)[0].href, "/a&b");
     }
 }
