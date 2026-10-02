@@ -12,7 +12,7 @@ use crate::sftp::FileBackend;
 use async_trait::async_trait;
 use base64::Engine;
 use bytes::Bytes;
-use connector::DavConnector;
+use connector::{DavConnector, RESPONSE_TIMEOUT, SLOW_RESPONSE_TIMEOUT};
 use futures_util::TryStreamExt;
 use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyExt, BodyStream, Empty, Full, StreamBody};
@@ -137,6 +137,17 @@ fn propfind_headers(depth: &'static str) -> Vec<(HeaderName, String)> {
     ]
 }
 
+/// GET/PUT stream for as long as they take; DELETE/MOVE may recurse through a large folder.
+fn response_window(method: &Method) -> Option<Duration> {
+    if method == Method::GET || method == Method::PUT {
+        None
+    } else if method == Method::DELETE || method.as_str() == "MOVE" {
+        Some(SLOW_RESPONSE_TIMEOUT)
+    } else {
+        Some(RESPONSE_TIMEOUT)
+    }
+}
+
 fn location_of(resp: &Response<Incoming>) -> String {
     resp.headers()
         .get(header::LOCATION)
@@ -164,17 +175,16 @@ impl WebDavBackend {
         let req = req
             .body(body)
             .map_err(|e| AppError::from(format!("{op}: {e}")))?;
-        let transfer = req.method() == Method::GET || req.method() == Method::PUT;
+        let window = response_window(req.method());
         let response = async {
             self.client
                 .request(req)
                 .await
                 .map_err(|e| transport_error(op, &e))
         };
-        if transfer {
-            response.await
-        } else {
-            self.connector.bounded(op, response).await
+        match window {
+            None => response.await,
+            Some(window) => self.connector.bounded(op, window, response).await,
         }
     }
 
@@ -244,7 +254,11 @@ impl WebDavBackend {
                 .await
                 .map_err(|e| transport_error(op, &e))
         };
-        let bytes = self.connector.bounded(op, body).await?.to_bytes();
+        let bytes = self
+            .connector
+            .bounded(op, RESPONSE_TIMEOUT, body)
+            .await?
+            .to_bytes();
         Ok(multistatus::parse(&String::from_utf8_lossy(&bytes))?)
     }
 
@@ -263,10 +277,14 @@ impl WebDavBackend {
     }
 
     async fn stat_entry(&self, path: &str) -> Result<Option<DavEntry>, AppError> {
-        Ok(self
-            .propfind(&self.base.url_for(path), "0")
-            .await?
-            .and_then(|entries| entries.into_iter().next()))
+        let Some(entries) = self.propfind(&self.base.url_for(path), "0").await? else {
+            return Ok(None);
+        };
+        let path = normalize(path);
+        let mut located = self.located(entries)?;
+        // Servers that renormalise Unicode names answer under a spelling that differs from the request.
+        let i = located.iter().position(|(at, _)| *at == path).unwrap_or(0);
+        Ok((i < located.len()).then(|| located.swap_remove(i).1))
     }
 
     /// Folders must be addressed with a trailing `/` (nginx refuses otherwise).
@@ -677,6 +695,36 @@ mod tests {
         let (port, _) = canned(vec![multistatus(&file)]).await;
         let err = backend(port).await.err().unwrap();
         assert!(err.to_string().contains("not a WebDAV folder"), "{err}");
+    }
+
+    #[test]
+    fn only_deletes_and_moves_get_the_slow_window() {
+        assert_eq!(response_window(&Method::GET), None);
+        assert_eq!(response_window(&Method::PUT), None);
+        assert_eq!(
+            response_window(&Method::DELETE),
+            Some(SLOW_RESPONSE_TIMEOUT)
+        );
+        assert_eq!(
+            response_window(&method("MOVE")),
+            Some(SLOW_RESPONSE_TIMEOUT)
+        );
+        assert_eq!(response_window(&method("PROPFIND")), Some(RESPONSE_TIMEOUT));
+        assert_eq!(response_window(&method("MKCOL")), Some(RESPONSE_TIMEOUT));
+    }
+
+    #[tokio::test]
+    async fn stat_ignores_an_entry_outside_the_base() {
+        let mixed = r#"<d:multistatus xmlns:d="DAV:">
+          <d:response><d:href>/other/Alpha</d:href><d:propstat><d:prop><d:resourcetype/></d:prop></d:propstat></d:response>
+          <d:response><d:href>/dav/Alpha/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>
+        </d:multistatus>"#;
+        let (port, _) = canned(vec![multistatus(ROOT), multistatus(mixed)]).await;
+        let b = backend(port).await.unwrap();
+        assert_eq!(
+            FileBackend::<Recorder>::stat(&b, "/Alpha").await.unwrap(),
+            Some(true)
+        );
     }
 
     #[tokio::test]

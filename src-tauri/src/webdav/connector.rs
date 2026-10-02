@@ -21,9 +21,10 @@ use tokio_rustls::TlsConnector;
 
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 #[cfg(not(test))]
-const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
+pub const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 #[cfg(test)]
-const RESPONSE_TIMEOUT: Duration = Duration::from_secs(2);
+pub const RESPONSE_TIMEOUT: Duration = Duration::from_secs(2);
+pub const SLOW_RESPONSE_TIMEOUT: Duration = Duration::from_secs(600);
 
 pub enum DavIo {
     Plain(ProxiedStream),
@@ -144,13 +145,14 @@ impl DavConnector {
     pub async fn bounded<T>(
         &self,
         op: &str,
+        window: Duration,
         request: impl Future<Output = Result<T, AppError>>,
     ) -> Result<T, AppError> {
         tokio::pin!(request);
         let epoch_now = || self.inner.prompt_epoch.load(Ordering::SeqCst);
         loop {
             let epoch = epoch_now();
-            match timeout(RESPONSE_TIMEOUT, &mut request).await {
+            match timeout(window, &mut request).await {
                 Ok(result) => return result,
                 Err(_) if epoch % 2 == 1 || epoch_now() != epoch => {}
                 Err(_) => {
@@ -158,7 +160,7 @@ impl DavConnector {
                         ErrorCode::TimedOut,
                         format!(
                             "{op} failed: the server did not answer within {} s",
-                            RESPONSE_TIMEOUT.as_secs()
+                            window.as_secs()
                         ),
                     ))
                 }
@@ -438,7 +440,11 @@ mod tests {
     async fn a_request_that_never_answers_times_out() {
         let c = connector(&Arc::new(KnownHostsStore::new()), None);
         let err = c
-            .bounded("List", std::future::pending::<Result<(), AppError>>())
+            .bounded(
+                "List",
+                RESPONSE_TIMEOUT,
+                std::future::pending::<Result<(), AppError>>(),
+            )
             .await
             .unwrap_err();
         assert_eq!(err.code(), Some(ErrorCode::TimedOut), "{err}");
@@ -464,7 +470,7 @@ mod tests {
         let port = serve_tls(&leaf).await;
         let store = marked(port);
         let c = connector(&store, Some(slow(replacing(), RESPONSE_TIMEOUT * 2)));
-        c.bounded("Connect", async {
+        c.bounded("Connect", RESPONSE_TIMEOUT, async {
             c.open(uri(port))
                 .await
                 .map_err(|e| AppError::caused("Connect", &e))
