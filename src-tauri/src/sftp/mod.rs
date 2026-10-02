@@ -5,7 +5,8 @@ pub mod real;
 pub use backend::FileBackend;
 
 use crate::commands::sftp::RemoteShell;
-use crate::known_hosts::KnownHostsStore;
+use crate::error::AppError;
+use crate::known_hosts::{ConflictPrompt, KnownHostsStore};
 use crate::proxy::ProxySpec;
 use crate::ssh::client::{
     authenticate_handle, chain_jumps, client_config, connect_first_hop_plain, hop_detail,
@@ -156,6 +157,22 @@ impl SftpManager {
         secure: bool,
     ) -> Result<String, String> {
         let backend = crate::ftp::connect(host, port, username, password, secure).await?;
+        Ok(self
+            .register(Arc::new(backend), None, CancellationToken::new(), vec![])
+            .await)
+    }
+
+    pub async fn connect_webdav(
+        &self,
+        url: &str,
+        username: &str,
+        password: &str,
+        proxy: Option<ProxySpec>,
+        known_hosts: Arc<KnownHostsStore>,
+        prompt: Option<ConflictPrompt>,
+    ) -> Result<String, AppError> {
+        let backend =
+            crate::webdav::connect(url, username, password, proxy, known_hosts, prompt).await?;
         Ok(self
             .register(Arc::new(backend), None, CancellationToken::new(), vec![])
             .await)

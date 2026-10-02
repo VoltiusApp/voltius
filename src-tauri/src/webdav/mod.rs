@@ -329,17 +329,19 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
     }
 
     async fn mkdir(&self, path: &str) -> Result<(), AppError> {
+        let already_exists =
+            |status| status_error_with("Create folder", status, Some(ErrorCode::AlreadyExists));
+        // rclone answers 201 to MKCOL on an existing folder.
+        if self.stat_entry(path).await?.is_some() {
+            return Err(already_exists(StatusCode::METHOD_NOT_ALLOWED));
+        }
         let url = self.base.dir_url_for(path);
         let resp = self
             .send("Create folder", method("MKCOL"), &url, &[], empty())
             .await?;
         let status = resp.status();
         match status {
-            StatusCode::METHOD_NOT_ALLOWED => Err(status_error_with(
-                "Create folder",
-                status,
-                Some(ErrorCode::AlreadyExists),
-            )),
+            StatusCode::METHOD_NOT_ALLOWED => Err(already_exists(status)),
             status if status.is_success() => Ok(()),
             status => Err(status_error("Create folder", status)),
         }
@@ -757,6 +759,7 @@ mod tests {
     async fn mkdir_maps_405_to_already_exists() {
         let (port, _) = canned(vec![
             multistatus(ROOT),
+            reply("404 Not Found", "", ""),
             reply("405 Method Not Allowed", "", ""),
         ])
         .await;
@@ -765,6 +768,17 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(err.code(), Some(ErrorCode::AlreadyExists));
+    }
+
+    #[tokio::test]
+    async fn mkdir_on_an_existing_folder_never_sends_mkcol() {
+        let (port, seen) = canned(vec![multistatus(ROOT), multistatus(FOLDER)]).await;
+        let b = backend(port).await.unwrap();
+        let err = FileBackend::<Recorder>::mkdir(&b, "/Alpha")
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), Some(ErrorCode::AlreadyExists));
+        assert_eq!(seen.lock().unwrap().len(), 2);
     }
 
     #[tokio::test]
@@ -826,5 +840,85 @@ mod tests {
         });
         let err = backend(port).await.err().unwrap();
         assert_eq!(err.code(), Some(ErrorCode::ConnectionLost), "{err}");
+    }
+
+    // rclone serve webdav <root> --addr 127.0.0.1:8090 --user u --pass p
+    // WEBDAV_TEST_URL=http://127.0.0.1:8090/ cargo test --lib webdav::tests::real_server_contract -- --ignored
+    #[tokio::test]
+    #[ignore]
+    async fn real_server_contract() {
+        let url = std::env::var("WEBDAV_TEST_URL").expect("WEBDAV_TEST_URL");
+        let b = connect(&url, "u", "p", None, Arc::new(KnownHostsStore::new()), None)
+            .await
+            .unwrap();
+        let events = Recorder::default();
+        let token = CancellationToken::new();
+        let fb: &dyn FileBackend<Recorder> = &b;
+
+        fb.mkdir("/t dir").await.unwrap();
+        assert_eq!(
+            fb.mkdir("/t dir").await.unwrap_err().code(),
+            Some(ErrorCode::AlreadyExists)
+        );
+        fb.write_file("/t dir/a #1.txt", "hello").await.unwrap();
+        assert_eq!(fb.read_file("/t dir/a #1.txt", 3).await.unwrap(), b"hell");
+        assert_eq!(fb.file_size("/t dir/a #1.txt").await, 5);
+        let listed = fb.list_dir("/t dir").await.unwrap();
+        assert_eq!(
+            listed.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(),
+            ["/t dir/a #1.txt"]
+        );
+
+        let tmp = tempfile::tempdir().unwrap();
+        let big = tmp.path().join("big.bin");
+        std::fs::write(&big, vec![7u8; 3 * 1024 * 1024]).unwrap();
+        fb.upload_file(
+            &events,
+            &big.to_string_lossy(),
+            "/t dir/big.bin",
+            "u1",
+            &token,
+        )
+        .await
+        .unwrap();
+        assert_eq!(fb.file_size("/t dir/big.bin").await, 3 * 1024 * 1024);
+
+        let cancelled = CancellationToken::new();
+        cancelled.cancel();
+        assert!(fb
+            .upload_file(
+                &events,
+                &big.to_string_lossy(),
+                "/t dir/c.bin",
+                "u2",
+                &cancelled
+            )
+            .await
+            .is_err());
+        assert!(fb.stat("/t dir").await.unwrap().unwrap());
+
+        let out = tmp.path().join("down.bin");
+        fb.download_file(
+            &events,
+            "/t dir/big.bin",
+            &out.to_string_lossy(),
+            "d1",
+            &token,
+        )
+        .await
+        .unwrap();
+        assert_eq!(std::fs::metadata(&out).unwrap().len(), 3 * 1024 * 1024);
+
+        fb.write_file("/t dir/b.txt", "x").await.unwrap();
+        assert_eq!(
+            fb.rename("/t dir/a #1.txt", "/t dir/b.txt")
+                .await
+                .unwrap_err()
+                .code(),
+            Some(ErrorCode::AlreadyExists)
+        );
+        fb.rename("/t dir", "/t dir 2").await.unwrap();
+        fb.delete("/t dir 2").await.unwrap();
+        assert_eq!(fb.stat("/t dir 2").await.unwrap(), None);
     }
 }

@@ -395,6 +395,7 @@ pub fn run() {
             commands::sftp::sftp_stat,
             commands::sftp::sftp_connect,
             commands::sftp::ftp_connect,
+            commands::sftp::webdav_connect,
             commands::sftp::sftp_open,
             commands::sftp::sftp_close,
             commands::sftp::sftp_list_dir,

@@ -1,5 +1,5 @@
 use percent_encoding::{percent_decode_str, utf8_percent_encode, AsciiSet, CONTROLS};
-use url::{Host, Url};
+use url::Url;
 
 const SEGMENT: &AsciiSet = &CONTROLS
     .add(b' ')
@@ -48,18 +48,6 @@ impl DavBase {
 
     pub fn url(&self) -> &Url {
         &self.url
-    }
-
-    pub fn host(&self) -> String {
-        match self.url.host() {
-            Some(Host::Ipv6(ip)) => ip.to_string(),
-            Some(host) => host.to_string(),
-            None => String::new(),
-        }
-    }
-
-    pub fn port(&self) -> u16 {
-        self.url.port_or_known_default().unwrap_or(80)
     }
 
     pub fn url_for(&self, path: &str) -> Url {
@@ -147,16 +135,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_adds_the_trailing_slash_and_default_ports() {
+    fn parse_adds_the_trailing_slash() {
         let b = base("https://cloud.example.com/remote.php/dav/files/me");
         assert_eq!(
             b.url().as_str(),
             "https://cloud.example.com/remote.php/dav/files/me/"
         );
-        assert_eq!((b.host().as_str(), b.port()), ("cloud.example.com", 443));
-        assert_eq!(base("http://nas.local").port(), 80);
-        assert_eq!(base("http://nas.local:5005/dav/").port(), 5005);
-        assert_eq!(base("https://[::1]:8443/").host(), "::1");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use super::{get_backend, RemoteFile};
 use crate::error::AppError;
-use crate::known_hosts::KnownHostsStore;
+use crate::known_hosts::{ConflictPrompt, KnownHostsStore, PendingConflicts};
 use crate::proxy::ProxySpec;
 use crate::sftp::SftpManager;
 use crate::ssh::client::JumpHostConnect;
@@ -82,6 +82,40 @@ pub async fn ftp_connect(
 ) -> Result<String, String> {
     sftp_state
         .connect_ftp(&host, port, &username, password.as_deref(), secure)
+        .await
+}
+
+/// `interactive`: the caller shows the certificate-conflict dialog for `connect_id`.
+#[tauri::command]
+pub async fn webdav_connect(
+    app: AppHandle,
+    sftp_state: State<'_, SftpManager>,
+    known_hosts: State<'_, Arc<KnownHostsStore>>,
+    pending: State<'_, Arc<PendingConflicts>>,
+    connect_id: String,
+    url: String,
+    username: String,
+    password: Option<String>,
+    proxy: Option<ProxySpec>,
+    interactive: bool,
+) -> Result<String, AppError> {
+    let prompt = interactive.then(|| {
+        ConflictPrompt::via_app(
+            app,
+            "sftp-host-key-conflict",
+            connect_id,
+            Arc::clone(&*pending),
+        )
+    });
+    sftp_state
+        .connect_webdav(
+            &url,
+            &username,
+            password.as_deref().unwrap_or_default(),
+            proxy,
+            Arc::clone(&*known_hosts),
+            prompt,
+        )
         .await
 }
 
