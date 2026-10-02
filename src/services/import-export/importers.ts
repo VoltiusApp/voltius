@@ -64,7 +64,7 @@ export const IMPORTERS: Importer[] = [
   {
     key: "zoc",
     label: "ZOC Terminal",
-    icon: "lucide:square-terminal",
+    icon: "custom:zoc",
     subKey: "importExport.importers.zoc.sub",
     fileAccept: ".zhd,.txt",
     hintKey: "importExport.importers.zoc.hint",
