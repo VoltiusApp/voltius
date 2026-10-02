@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { ActionBtn } from "./shared";
+import { decodeLegacyText } from "@/utils/decodeLegacyText";
 
 interface FileInputAreaProps {
   text: string;
@@ -23,28 +24,22 @@ export function FileInputArea({
   const [dragging, setDragging] = useState(false);
   const resolvedOpenLabel = openLabel ?? t("importExport.fileInput.openFileDefault");
 
+  const loadFile = (file: File | undefined) => {
+    if (file) void file.arrayBuffer().then((buf) => onChange(decodeLegacyText(new Uint8Array(buf))));
+  };
+
   const handleFileOpen = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = fileAccept;
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => onChange(String(e.target?.result ?? ""));
-      reader.readAsText(file);
-    };
+    input.onchange = () => loadFile(input.files?.[0]);
     input.click();
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => onChange(String(ev.target?.result ?? ""));
-    reader.readAsText(file);
+    loadFile(e.dataTransfer.files[0]);
   };
 
   const handleClear = () => {

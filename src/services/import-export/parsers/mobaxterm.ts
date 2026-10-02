@@ -1,4 +1,5 @@
 import { invoke } from "@/lib/invoke";
+import { importedBundle } from "../formats";
 import type { ConnectionExport, ExportBundle, IdentityExport } from "../formats";
 
 // INI file format. Each [Bookmarks_N] section has SubRep=FolderName, then
@@ -99,14 +100,5 @@ export async function extractMobaXtermBundle(): Promise<ExportBundle> {
     password: cr.password,
   }));
 
-  return {
-    version: 1,
-    exported_at: "",
-    folders: [],
-    connections,
-    identities,
-    keys: [],
-    snippets: [],
-    portForwardingRules: [],
-  };
+  return importedBundle({ connections, identities });
 }

@@ -1,9 +1,10 @@
 import i18n from "@/i18n";
-import { fromJSON, detectFormat } from "./formats";
-import type { ConnectionExport, ExportBundle } from "./formats";
+import { fromJSON, detectFormat, importedBundle } from "./formats";
+import type { ExportBundle } from "./formats";
 import { connectionsFromCSV } from "./parsers/csv";
 import { connectionsFromMobaXterm, extractMobaXtermBundle } from "./parsers/mobaxterm";
 import { bundleFromTermius, extractTermiusBundle } from "./parsers/termius";
+import { bundleFromZoc } from "./parsers/zoc";
 
 export interface Importer {
   key: string;
@@ -17,10 +18,6 @@ export interface Importer {
   parse(text: string): ExportBundle;
   /** Optional: one-step extraction from a locally-installed source app. */
   autoExtract?(): Promise<ExportBundle>;
-}
-
-function connectionsOnlyBundle(connections: ConnectionExport[]): ExportBundle {
-  return { version: 1, exported_at: "", folders: [], connections, identities: [], keys: [], snippets: [], portForwardingRules: [] };
 }
 
 export const IMPORTERS: Importer[] = [
@@ -40,7 +37,7 @@ export const IMPORTERS: Importer[] = [
     subKey: "importExport.importers.csv.sub",
     fileAccept: ".csv,.txt",
     placeholderKey: "importExport.importers.csv.placeholder",
-    parse: (text) => connectionsOnlyBundle(connectionsFromCSV(text)),
+    parse: (text) => importedBundle({ connections: connectionsFromCSV(text) }),
   },
   {
     key: "mobaxterm",
@@ -50,7 +47,7 @@ export const IMPORTERS: Importer[] = [
     fileAccept: ".ini,.mxtsessions,.mobaconf,.txt",
     hintKey: "importExport.importers.mobaxterm.hint",
     placeholderKey: "importExport.importers.mobaxterm.placeholder",
-    parse: (text) => connectionsOnlyBundle(connectionsFromMobaXterm(text)),
+    parse: (text) => importedBundle({ connections: connectionsFromMobaXterm(text) }),
     autoExtract: extractMobaXtermBundle,
   },
   {
@@ -64,14 +61,25 @@ export const IMPORTERS: Importer[] = [
     parse: bundleFromTermius,
     autoExtract: extractTermiusBundle,
   },
+  {
+    key: "zoc",
+    label: "ZOC Terminal",
+    icon: "lucide:square-terminal",
+    subKey: "importExport.importers.zoc.sub",
+    fileAccept: ".zhd,.txt",
+    hintKey: "importExport.importers.zoc.hint",
+    placeholderKey: "importExport.importers.zoc.placeholder",
+    parse: bundleFromZoc,
+  },
 ];
 
 export function parseImport(text: string): ExportBundle | "encrypted" {
   const detected = detectFormat(text.trim());
   if (detected === "voltius-encrypted") return "encrypted";
   if (detected === "json") return fromJSON(text);
-  if (detected === "csv") return connectionsOnlyBundle(connectionsFromCSV(text));
-  if (detected === "mobaxterm") return connectionsOnlyBundle(connectionsFromMobaXterm(text));
+  if (detected === "csv") return importedBundle({ connections: connectionsFromCSV(text) });
+  if (detected === "mobaxterm") return importedBundle({ connections: connectionsFromMobaXterm(text) });
   if (detected === "termius") return bundleFromTermius(text);
+  if (detected === "zoc") return bundleFromZoc(text);
   throw new Error(i18n.t("common.error.couldNotDetectFormat"));
 }

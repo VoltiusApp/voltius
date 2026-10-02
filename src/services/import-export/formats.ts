@@ -129,6 +129,10 @@ export interface ExportBundle {
   identityRefs?: IdentityRefExport[];
 }
 
+export function importedBundle(parts: Partial<Omit<ExportBundle, "version" | "exported_at">>): ExportBundle {
+  return { version: 1, exported_at: "", folders: [], connections: [], identities: [], keys: [], snippets: [], portForwardingRules: [], ...parts };
+}
+
 // ─── JSON ─────────────────────────────────────────────────────────────────────
 
 export function toJSON(bundle: ExportBundle): string {
@@ -214,8 +218,9 @@ export async function decryptText(text: string, password: string): Promise<strin
 
 // ─── Format detection ──────────────────────────────────────────────────────────
 
-export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "termius" | "voltius-encrypted" | null {
+export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "termius" | "zoc" | "voltius-encrypted" | null {
   const t = text.trim();
+  if (/^ZOC[\d.]+ \/\/ HOST DIRECTORY/.test(t)) return "zoc";
   if (t.startsWith("{")) {
     if (/"type"\s*:\s*"voltius-encrypted"/.test(t.slice(0, 120))) return "voltius-encrypted";
     if (/"records"\s*:/.test(t.slice(0, 300)) && /"version"\s*:\s*[12]/.test(t.slice(0, 300))) return "termius";

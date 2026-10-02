@@ -241,7 +241,8 @@ export function liveInVault<T extends { deleted_at?: string | null; vault_id?: s
 
 type ExistingItems = Pick<ImportCtx, "existingConnections" | "existingKeys" | "existingPublicKeys" | "existingIdentities" | "existingSnippets" | "existingPfRules">;
 
-const connectionKey = (c: { host?: string; port?: number | string; username?: string }) => `${c.host}:${Number(c.port)}:${c.username ?? ""}`;
+const connectionKey = (c: { host?: string; port?: number | string; username?: string; connection_type?: string; serial_port?: string }) =>
+  c.connection_type === "serial" ? `serial:${c.serial_port ?? ""}` : `${c.host}:${Number(c.port)}:${c.username ?? ""}`;
 const identityKey = (i: { name?: string; username: string }) => i.name ? `${i.name}\0${i.username}` : undefined;
 
 function idsByKey<T extends { id: string }>(items: T[], key: (item: T) => string | undefined): Map<string, string> {

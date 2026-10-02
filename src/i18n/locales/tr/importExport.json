@@ -169,6 +169,11 @@
         "sub": "Yerel kurulum · otomatik çıkarma",
         "hint": "Termius'un kurulu ve oturumun açık olmasını gerektirir.",
         "placeholder": "Termius için otomatik çıkarmayı kullanın. Yapıştırılan eski Termius dökümleri eksiksiz içe aktarma için desteklenmez."
+      },
+      "zoc": {
+        "sub": "Ana Bilgisayar Dizini · .zhd",
+        "hint": "Dosya Documents\\ZOC9 Files\\Options (Windows) veya ~/Library/Application Support/ZOC9 Files/Options (macOS) konumundadır. SSH ve seri bağlantı kayıtları içe aktarılır; kayıtlı parolalar aktarılmaz.",
+        "placeholder": "HostDirectory.zhd dosyasını buraya bırakın veya içeriğini yapıştırın…"
       }
     },
     "menu": {

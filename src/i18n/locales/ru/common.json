@@ -184,7 +184,7 @@
       "notVoltiusUserDataFile": "Это не файл пользовательских данных Voltius",
       "unsupportedUserDataVersion": "Неподдерживаемая версия пользовательских данных: {{version}}",
       "failedToLoadLogs": "Не удалось загрузить журнал",
-      "couldNotDetectFormat": "Не удалось определить формат. Поддерживаются: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions, а также прямой экспорт из Termius.",
+      "couldNotDetectFormat": "Не удалось определить формат. Поддерживаются: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions, ZOC HostDirectory.zhd, а также прямой экспорт из Termius.",
       "csvMissingColumns": "В CSV должен быть столбец 'host'",
       "termiusDumpInvalidJson": "Дамп Termius должен быть корректным JSON",
       "legacyTermiusUnsupported": "Старый формат дампа Termius больше не поддерживается; используйте автоэкспорт.",

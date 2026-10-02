@@ -157,6 +157,11 @@
         "sub": "Local install · auto-extract",
         "hint": "Requires Termius to be installed and logged in.",
         "placeholder": "Use Auto Extract for Termius. Pasted legacy Termius dumps are not supported for faithful import."
+      },
+      "zoc": {
+        "sub": "Host Directory · .zhd",
+        "hint": "Find it in Documents\\ZOC9 Files\\Options (Windows) or ~/Library/Application Support/ZOC9 Files/Options (macOS). SSH and serial entries are imported; saved passwords are not.",
+        "placeholder": "Drop HostDirectory.zhd here, or paste its contents…"
       }
     },
     "menu": {

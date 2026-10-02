@@ -175,6 +175,11 @@
         "sub": "Installation locale · extraction auto",
         "hint": "Nécessite que Termius soit installé et connecté.",
         "placeholder": "Utilisez l'extraction automatique pour Termius. Les anciens exports Termius collés ne permettent pas une importation fidèle."
+      },
+      "zoc": {
+        "sub": "Répertoire d'hôtes · .zhd",
+        "hint": "Il se trouve dans Documents\\ZOC9 Files\\Options (Windows) ou ~/Library/Application Support/ZOC9 Files/Options (macOS). Les entrées SSH et série sont importées ; les mots de passe enregistrés ne le sont pas.",
+        "placeholder": "Déposez HostDirectory.zhd ici, ou collez son contenu…"
       }
     },
     "menu": {

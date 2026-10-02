@@ -154,6 +154,11 @@
         "sub": "本地安装 · 自动提取",
         "hint": "需要已安装并登录 Termius。",
         "placeholder": "请对 Termius 使用自动提取。不支持通过粘贴旧版 Termius 导出数据进行完整导入。"
+      },
+      "zoc": {
+        "sub": "主机目录 · .zhd",
+        "hint": "文件位于 Documents\\ZOC9 Files\\Options（Windows）或 ~/Library/Application Support/ZOC9 Files/Options（macOS）。将导入 SSH 和串口条目，已保存的密码不会导入。",
+        "placeholder": "将 HostDirectory.zhd 拖到此处，或粘贴其内容…"
       }
     },
     "menu": {
