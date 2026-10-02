@@ -94,6 +94,7 @@ const baseProps = {
   teamRoles,
   canManageMembers: true,
   isTargetOwner: false,
+  canNameMembers: false,
   onClose: vi.fn(),
   onUpdated: vi.fn(),
 };
@@ -259,6 +260,7 @@ function permProps(overrides: Partial<{
     teamId: "t1",
     teamRoles: [viewerRole, targetRole],
     canManageMembers: true,
+    canNameMembers: false,
     isTargetOwner: false,
     viewer: viewerMember,
     onClose: vi.fn(),

@@ -35,7 +35,7 @@ import { InvitePanel } from "@/components/members/panels/InvitePanel";
 import { SignInToCloudCTA, UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
-import { memberLabel, memberSortKey } from "@/services/memberLabel";
+import { memberLabel, memberSortKey, memberNamingSupported } from "@/services/memberLabel";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -118,6 +118,7 @@ export default function MembersPage() {
   // Compute effective permissions from role bits
   const myEffectivePerms = myMember ? effectivePermissions(myMember, teamRoles, businessLocked) : 0;
   const canManageMembers = (myEffectivePerms & PERM_BITS.MANAGE_MEMBERS) !== 0;
+  const canNameMembers = canManageMembers && memberNamingSupported(members);
   const canManageRoles = (myEffectivePerms & PERM_BITS.MANAGE_ROLES) !== 0;
   const canInvite = (myEffectivePerms & PERM_BITS.INVITE_MEMBERS) !== 0;
 
@@ -537,6 +538,7 @@ const vaultTabs = selectedVaultIds.length > 1
               teamId={teamId}
               teamRoles={teamRoles}
               canManageMembers={canManageMembers}
+              canNameMembers={canNameMembers}
               isTargetOwner={isOwnerMember(detailMember)}
               viewer={myMember}
               onClose={() => setShowDetailPanel(false)}
@@ -549,6 +551,7 @@ const vaultTabs = selectedVaultIds.length > 1
                 teamId={teamId}
                 existingIds={existingMemberIds}
                 teamRoles={teamRoles}
+                canNameMembers={canNameMembers}
                 onClose={() => setShowInvitePanel(false)}
                 onMemberAdded={reload}
               />

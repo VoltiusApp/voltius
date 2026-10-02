@@ -99,7 +99,14 @@
       "loadFailed": "无法加载列表——请重试",
       "tabLinks": "链接"
     },
+    "detail": {
+      "nameLabel": "在此团队中的名称",
+      "nameHint": "留空则显示其用户名。"
+    },
     "invite": {
+      "nameLabel": "在此团队中的名称",
+      "namePlaceholder": "例如 Jan Novák",
+      "nameHint": "团队成员将看到此名称而不是其用户名。只有管理员可以更改。",
       "title": "邀请成员",
       "seatsLabel": "座位",
       "seatsSummary": "已使用 {{used}} · 可用 {{available}} · 总共 {{total}}",

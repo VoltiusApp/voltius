@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useTeamStore } from "@/stores/teamStore";
@@ -24,6 +24,7 @@ import {
 } from "./PermissionOverrideRow";
 import { formatDate } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
+import { MemberNameInput } from "@/components/members/MemberNameInput";
 import { memberLabel } from "@/services/memberLabel";
 
 export interface MemberDetailPanelProps {
@@ -32,6 +33,7 @@ export interface MemberDetailPanelProps {
   teamId: string;
   teamRoles: TeamRole[];
   canManageMembers: boolean;
+  canNameMembers: boolean;
   isTargetOwner: boolean;
   viewer?: TeamMember;
   onClose: () => void;
@@ -47,11 +49,34 @@ const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
 };
 
 export function MemberDetailPanel({
-  member, isMe, teamId, teamRoles, canManageMembers, isTargetOwner, viewer, onClose, onUpdated,
+  member, isMe, teamId, teamRoles, canManageMembers, canNameMembers, isTargetOwner, viewer, onClose, onUpdated,
 }: MemberDetailPanelProps) {
   const { t } = useTranslation();
   const push = useHistoryStore((s) => s.push);
   const { locked } = useBusinessLock(teamId);
+
+  const setStoredName = useTeamStore((s) => s.setMemberName);
+  const [draftName, setDraftName] = useState(member.member_name ?? "");
+  useEffect(() => setDraftName(member.member_name ?? ""), [member.member_name]);
+  const [nameError, setNameError] = useState("");
+  const skipNameCommit = useRef(false);
+
+  const commitName = async () => {
+    if (skipNameCommit.current) {
+      skipNameCommit.current = false;
+      return;
+    }
+    const next = draftName.trim() || null;
+    if (next === (member.member_name ?? null)) return;
+    setNameError("");
+    try {
+      await setStoredName(teamId, member.user_id, next);
+      onUpdated();
+    } catch (e) {
+      setNameError(e instanceof Error ? e.message : String(e));
+      setDraftName(member.member_name ?? "");
+    }
+  };
 
   const [error, setError] = useState("");
   const [toggling, setToggling] = useState<string | null>(null);
@@ -250,11 +275,33 @@ export function MemberDetailPanel({
       <PanelHeader
         icon="lucide:user"
         title={memberLabel(member)}
-        subtitle={<RoleBadges member={member} roles={teamRoles} />}
+        subtitle={<>{member.member_name && member.handle && <span className="mr-2">@{member.handle}</span>}<RoleBadges member={member} roles={teamRoles} /></>}
         onClose={onClose}
       />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {canNameMembers && (
+          <FormSection label={t("members.detail.nameLabel")}>
+            <MemberNameInput
+              aria-label={t("members.detail.nameLabel")}
+              value={draftName}
+              placeholder={member.handle ? `@${member.handle}` : ""}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={() => void commitName()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") {
+                  skipNameCommit.current = true;
+                  setDraftName(member.member_name ?? "");
+                  e.currentTarget.blur();
+                }
+              }}
+            />
+            {nameError && <p className="text-[11px] mt-1.5" style={{ color: "var(--t-status-error)" }}>{nameError}</p>}
+            <p className="text-[11px] mt-1.5" style={{ color: "var(--t-text-secondary)" }}>{t("members.detail.nameHint")}</p>
+          </FormSection>
+        )}
+
         {/* Roles */}
         <FormSection label={t("members.roles")}>
           {canChangeRoles ? (
