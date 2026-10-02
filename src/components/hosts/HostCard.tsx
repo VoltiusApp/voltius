@@ -129,12 +129,12 @@ export default function HostCard({
   const presence = useConnectionPresence(connection);
   const presenceTitle = presence
     ? presence.overflow > 0
-      ? t("hosts.card.inUseByOverflow", { name: presence.primary.handle, count: presence.overflow })
-      : t("hosts.card.inUseBy", { name: presence.primary.handle })
+      ? t("hosts.card.inUseByOverflow", { name: presence.primary.name, count: presence.overflow })
+      : t("hosts.card.inUseBy", { name: presence.primary.name })
     : "";
   const presenceAvatar = presence && (
     <span className="flex items-center" title={presenceTitle}>
-      <MiniAvatar name={presence.primary.handle} size={18} />
+      <MiniAvatar name={presence.primary.name} size={18} />
       {presence.overflow > 0 && (
         <span className="ml-1 text-[10px] font-semibold px-1 rounded-full bg-(--t-bg-elevated) text-(--t-text-dim)">
           +{presence.overflow}
