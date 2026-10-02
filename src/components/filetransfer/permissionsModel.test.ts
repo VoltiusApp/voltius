@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  commonValue, cycleBit, modeChange, nameChange, parseOctal, symbolicMode, toOctal, triBits,
+  canEditPermissions, commonValue, cycleBit, modeChange, nameChange, parseOctal, symbolicMode, toOctal, triBits,
   type Tri,
 } from "./permissionsModel";
+import type { FileEntry } from "./SFTPTypes";
 
 const bits = (mode: number) => triBits([mode]);
 
@@ -97,5 +98,16 @@ describe("owner fields", () => {
     expect(nameChange("voltius", " www ")).toBe("www");
     expect(nameChange(null, "")).toBeUndefined();
     expect(nameChange(null, "root")).toBe("root");
+  });
+});
+
+describe("canEditPermissions", () => {
+  const entry = (over: Partial<FileEntry>): FileEntry => ({ name: "f", path: "/f", size: 0, isDir: false, permissions: 0o644, ...over });
+
+  it("offers the action only when every entry has a mode and none is a symlink", () => {
+    expect(canEditPermissions([entry({}), entry({ isDir: true })])).toBe(true);
+    expect(canEditPermissions([entry({}), entry({ permissions: undefined })])).toBe(false);
+    expect(canEditPermissions([entry({ isSymlink: true })])).toBe(false);
+    expect(canEditPermissions([])).toBe(false);
   });
 });

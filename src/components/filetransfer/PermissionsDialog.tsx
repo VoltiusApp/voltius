@@ -17,15 +17,15 @@ import {
 type Scope = NonNullable<AttrChange["recurse"]>;
 
 const INPUT_CLASS =
-  "form-input px-2 h-7 rounded-md text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) placeholder:text-(--t-text-dim) disabled:opacity-50";
+  "form-input px-2 rounded-md outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) placeholder:text-(--t-text-dim) disabled:opacity-50";
 
 function shared<K extends keyof OwnerInfo>(owners: OwnerInfo[] | null | "loading", key: K): OwnerInfo[K] | null {
   return Array.isArray(owners) ? commonValue(owners.map((o) => o[key])) : null;
 }
 
-function NameInput({ label, value, onChange, placeholder, hint, disabled }: {
+function NameInput({ label, value, onChange, placeholder, hint, disabled, inputClass }: {
   label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; hint?: string; disabled: boolean;
+  placeholder?: string; hint?: string; disabled: boolean; inputClass: string;
 }) {
   return (
     <input
@@ -36,17 +36,19 @@ function NameInput({ label, value, onChange, placeholder, hint, disabled }: {
       placeholder={placeholder ?? label}
       disabled={disabled}
       spellCheck={false}
-      className={INPUT_CLASS}
+      className={inputClass}
       style={{ width: 0, flex: 1 }}
     />
   );
 }
 
-export function PermissionsDialog({ sftpId, files, onClose, onApplied }: {
+export function PermissionsDialog({ sftpId, files, onClose, onApplied, touch = false }: {
   sftpId: string;
   files: FileEntry[];
   onClose: () => void;
   onApplied: () => void;
+  /** Finger-sized checkbox cells and inputs. */
+  touch?: boolean;
 }) {
   const { t } = useTranslation();
   const paths = useMemo(() => files.map((f) => f.path), [files]);
@@ -119,6 +121,9 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied }: {
   const folder = commonValue(paths.map(parentDir));
   const ownerDisabled = !hasShell || busy;
   const mixedName = t("fileTransfer.permissions.mixed");
+  const cell = touch ? "2.75rem" : "1.75rem";
+  const inputClass = `${INPUT_CLASS} ${touch ? "h-10 text-sm" : "h-7 text-xs"}`;
+  const buttonClass = touch ? "px-4 py-2.5 rounded-lg text-sm font-medium" : "px-3 py-1.5 rounded-md text-xs font-medium";
 
   return (
     <Modal onClose={onClose} onEnter={() => void apply()}>
@@ -132,7 +137,7 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied }: {
         </div>
 
         <div className="flex items-start gap-5">
-          <div style={{ display: "grid", gridTemplateColumns: "auto repeat(3, 1.75rem)", columnGap: "0.25rem", rowGap: "0.375rem", alignItems: "center" }}>
+          <div style={{ display: "grid", gridTemplateColumns: `auto repeat(3, ${cell})`, gridAutoRows: touch ? cell : undefined, columnGap: "0.25rem", rowGap: touch ? 0 : "0.375rem", alignItems: "center" }}>
             <span />
             {["r", "w", "x"].map((letter, col) => (
               <span key={letter} title={what[col]} className="text-xs font-mono text-(--t-text-dim)" style={{ textAlign: "center" }}>{letter}</span>
@@ -151,7 +156,7 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied }: {
                       aria-label={t("fileTransfer.permissions.bit", { who: whoLabel, what: whatLabel })}
                       disabled={busy}
                       onClick={() => toggle(i)}
-                      className="flex justify-center"
+                      className="flex items-center justify-center h-full"
                     >
                       <CheckboxBox checked={bits[i]} />
                     </button>
@@ -160,7 +165,7 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied }: {
               </Fragment>
             ))}
           </div>
-          <div className="flex flex-col gap-1.5" style={{ paddingTop: "1.375rem" }}>
+          <div className="flex flex-col gap-1.5" style={{ paddingTop: touch ? cell : "1.375rem" }}>
             <input
               value={octalDraft ?? toOctal(bits) ?? ""}
               onChange={(e) => editOctal(e.target.value.trim())}
@@ -170,7 +175,7 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied }: {
               disabled={busy}
               maxLength={4}
               spellCheck={false}
-              className={`${INPUT_CLASS} font-mono`}
+              className={`${inputClass} font-mono`}
               style={{ width: "4.5rem" }}
             />
             <span className="text-xs font-mono text-(--t-text-secondary)">{symbolicMode(bits)}</span>
@@ -187,6 +192,7 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied }: {
               placeholder={hasShell && commonOwner == null ? mixedName : undefined}
               hint={commonUid != null ? t("fileTransfer.permissions.uid", { id: commonUid }) : undefined}
               disabled={ownerDisabled}
+              inputClass={inputClass}
             />
             <span className="text-xs text-(--t-text-dim)">:</span>
             <NameInput
@@ -196,6 +202,7 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied }: {
               placeholder={hasShell && commonGroup == null ? mixedName : undefined}
               hint={commonGid != null ? t("fileTransfer.permissions.gid", { id: commonGid }) : undefined}
               disabled={ownerDisabled}
+              inputClass={inputClass}
             />
           </div>
           {owners === null && (
@@ -232,10 +239,10 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied }: {
         )}
 
         <div className="flex gap-2 justify-end pt-1">
-          <button onClick={onClose} className="btn btn-secondary px-3 py-1.5 rounded-md text-xs font-medium">
+          <button onClick={onClose} className={`btn btn-secondary ${buttonClass}`}>
             {t("common.action.cancel")}
           </button>
-          <button onClick={() => void apply()} disabled={busy} className="btn btn-primary px-3 py-1.5 rounded-md text-xs font-medium">
+          <button onClick={() => void apply()} disabled={busy} className={`btn btn-primary ${buttonClass}`}>
             {single
               ? t("fileTransfer.permissions.apply")
               : t("fileTransfer.permissions.applyItems", { count: files.length })}

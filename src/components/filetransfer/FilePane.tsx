@@ -14,6 +14,7 @@ import {
 } from "@/services/sftp";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { PermissionsDialog } from "./PermissionsDialog";
+import { canEditPermissions } from "./permissionsModel";
 import {
   type FileEntry, type SortCol, type SortDir, type VisibleCols, type ColumnWidths, type FileColumn,
   DEFAULT_VISIBLE_COLS, COLUMN_MIN_WIDTHS, columnGrid, visibleDataColumns,
@@ -636,8 +637,7 @@ function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsCtx, t: 
 
   // Rename / Delete
   if (single) items.push({ label: t("common.action.rename"), icon: "lucide:pencil", onClick: () => ctx.onStartRename(single) });
-  // A symlink lists the link's own mode, and applying it would land on the target.
-  if (ctx.onPermissions && files.length > 0 && files.every((f) => f.permissions != null && !f.isSymlink)) {
+  if (ctx.onPermissions && canEditPermissions(files)) {
     items.push({ label: t("fileTransfer.pane.menu.permissions"), icon: "lucide:key-round", onClick: () => ctx.onPermissions!(files) });
   }
   if (files.length > 0) {

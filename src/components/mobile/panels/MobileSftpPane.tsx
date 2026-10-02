@@ -5,6 +5,8 @@ import { appCacheDir } from "@tauri-apps/api/path";
 import { breadcrumbs, type useSftpDir } from "@/services/useSftpDir";
 import { formatSize, formatPermissions, formatModified, type FileEntry } from "@/components/filetransfer/SFTPTypes";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
+import { PermissionsDialog } from "@/components/filetransfer/PermissionsDialog";
+import { canEditPermissions } from "@/components/filetransfer/permissionsModel";
 import { transferItem } from "@/services/sftpTransferCore";
 import { useIsAndroid } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
@@ -40,7 +42,7 @@ export default function MobileSftpPane({
   onClearSelect: () => void;
 }) {
   const { t } = useTranslation();
-  const { phase, retrying, sftpId, cwd, entries, listing, listError, listErrorCode, navigate, goUp, reconnect, mkdir, touch, rename, remove } = controller;
+  const { phase, retrying, sftpId, cwd, entries, listing, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
   const [showHidden, setShowHidden] = useState(false);
@@ -55,6 +57,7 @@ export default function MobileSftpPane({
   const [newFileName, setNewFileName] = useState("");
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const [detailFor, setDetailFor] = useState<FileEntry | null>(null);
+  const [permissionsFor, setPermissionsFor] = useState<FileEntry[] | null>(null);
 
   const downloadSelected = async () => { for (const f of selected) await download(f); };
   const deleteSelected = async () => {
@@ -177,6 +180,11 @@ export default function MobileSftpPane({
           <button data-sftp-sel-download onClick={() => void downloadSelected()} className="p-1.5 rounded-lg text-(--t-text-dim)" aria-label={t("mobile.sftp.downloadSelectedAriaLabel")}>
             <Icon icon="lucide:download" width={16} />
           </button>
+          {sftpId && canEditPermissions(selected) && (
+            <button data-sftp-sel-permissions onClick={() => setPermissionsFor(selected)} className="p-1.5 rounded-lg text-(--t-text-dim)" aria-label={t("fileTransfer.pane.menu.permissions")}>
+              <Icon icon="lucide:key-round" width={16} />
+            </button>
+          )}
           <button data-sftp-sel-delete onClick={() => setConfirmBatchDelete(true)} className="p-1.5 rounded-lg" style={{ color: "var(--t-status-error)" }} aria-label={t("mobile.sftp.deleteSelectedAriaLabel")}>
             <Icon icon="lucide:trash-2" width={16} />
           </button>
@@ -192,6 +200,9 @@ export default function MobileSftpPane({
           <SheetItem icon="lucide:download" label={t("mobile.sftp.download")} onTap={() => { const f = sheetFor; setSheetFor(null); void download(f); }} />
           <SheetItem icon="lucide:info" label={t("mobile.sftp.details")} onTap={() => { setDetailFor(sheetFor); setSheetFor(null); }} />
           <SheetItem icon="lucide:pencil" label={t("common.action.rename")} onTap={() => { setRenaming(sheetFor); setRenameVal(sheetFor.name); setSheetFor(null); }} />
+          {sftpId && canEditPermissions([sheetFor]) && (
+            <SheetItem icon="lucide:key-round" label={t("fileTransfer.pane.menu.permissions")} onTap={() => { setPermissionsFor([sheetFor]); setSheetFor(null); }} />
+          )}
           <SheetItem icon="lucide:clipboard" label={t("mobile.sftp.copyPath")} onTap={() => { void writeClipboard(sheetFor.path); setSheetFor(null); }} />
           <SheetItem icon="lucide:trash-2" label={t("common.action.delete")} danger onTap={() => { setConfirmDelete(sheetFor); setSheetFor(null); }} />
         </BottomSheet>
@@ -213,6 +224,15 @@ export default function MobileSftpPane({
           </button>
           <button className="w-full px-3 py-3.5 rounded-xl text-sm text-(--t-text-dim)" onClick={() => setConfirmDelete(null)}>{t("common.action.cancel")}</button>
         </BottomSheet>
+      )}
+      {permissionsFor && sftpId && (
+        <PermissionsDialog
+          touch
+          sftpId={sftpId}
+          files={permissionsFor}
+          onClose={() => setPermissionsFor(null)}
+          onApplied={() => { setPermissionsFor(null); refresh(); }}
+        />
       )}
       {detailFor && (
         <BottomSheet title={detailFor.name} onClose={() => setDetailFor(null)}>

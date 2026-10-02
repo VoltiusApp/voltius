@@ -1,4 +1,11 @@
+import type { FileEntry } from "./SFTPTypes";
+
 export type Tri = boolean | "mixed";
+
+/** A symlink lists the link's own mode, and applying it would land on the target. */
+export function canEditPermissions(files: FileEntry[]): boolean {
+  return files.length > 0 && files.every((f) => f.permissions != null && !f.isSymlink);
+}
 
 /** Grid order: owner rwx, group rwx, others rwx, then setuid, setgid, sticky. */
 export const MODE_BITS = [
