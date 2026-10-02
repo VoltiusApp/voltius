@@ -1,4 +1,4 @@
-import { sftpOpen, sftpConnect } from "@/services/sftp";
+import { sftpOpen, sftpConnect, ftpConnect, webdavConnect } from "@/services/sftp";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import { resolveFirstHopProxy } from "@/services/proxy";
 import { resolveKeepalive } from "@/utils/keepalive";
@@ -24,7 +24,20 @@ export async function resolveSftpIdForTarget(target: RunTarget): Promise<string>
   if (target.kind === "session") {
     return sftpOpen(target.sessionId);
   }
-  return sftpConnectToConnection(target.connection, genId());
+  return connectFileBackend(target.connection, genId());
+}
+
+/** `interactive`: only a caller that renders the host-key conflict overlay for `connectId`. */
+export async function connectFileBackend(conn: Connection, connectId: string, interactive = false): Promise<string> {
+  if (conn.connection_type === "ftp") {
+    const creds = await resolveConnectionCredentials(conn);
+    return ftpConnect({ host: conn.host, port: conn.port, username: creds.username, password: creds.password, secure: !!conn.ftp_secure });
+  }
+  if (conn.connection_type === "webdav") {
+    const [creds, proxy] = await Promise.all([resolveConnectionCredentials(conn), resolveFirstHopProxy(conn)]);
+    return webdavConnect({ connectId, url: conn.webdav_url ?? "", username: creds.username, password: creds.password, proxy, interactive });
+  }
+  return sftpConnectToConnection(conn, connectId);
 }
 
 export async function sftpConnectToConnection(conn: Connection, connectId: string): Promise<string> {

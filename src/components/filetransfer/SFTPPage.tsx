@@ -5,7 +5,7 @@ import { invoke } from "@/lib/invoke";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import {
-  ftpConnect, sftpClose,
+  sftpClose,
   sftpUploadBatchTar, sftpDownloadBatchTar, sftpTransferBatchTar,
   sftpExists, fsExists, fsHomeDir, fsCopy, wslHomeDir,
   sftpRename, sftpDelete, fsRename, fsDelete, sftpCanonicalize,
@@ -20,8 +20,7 @@ import { joinPath } from "./moveTargetCore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
-import { resolveConnectionCredentials } from "@/services/credentials";
-import { sftpConnectToConnection } from "@/services/sftpTarget";
+import { connectFileBackend } from "@/services/sftpTarget";
 import { connectErrorPhase, useConnectRetry } from "@/hooks/useConnectRetry";
 import {
   type HostChoice, type SidePhase, type FileEntry,
@@ -92,12 +91,7 @@ export default function SFTPPage() {
       if (host.kind === "local") {
         cwd = host.wslDistro ? await wslHomeDir(host.wslDistro) : await fsHomeDir();
       } else {
-        if (host.connection.connection_type === "ftp") {
-          const creds = await resolveConnectionCredentials(host.connection);
-          sftpId = await ftpConnect({ host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, secure: !!host.connection.ftp_secure });
-        } else {
-          sftpId = await sftpConnectToConnection(host.connection, connectId);
-        }
+        sftpId = await connectFileBackend(host.connection, connectId, true);
         if (isCurrent()) cwd = await sftpCanonicalize(sftpId, ".");
       }
       if (!isCurrent()) {

@@ -1,11 +1,10 @@
 import {
-  ftpConnect, sftpClose, sftpListDir, sftpMkdir, sftpRename,
+  sftpClose, sftpListDir, sftpMkdir, sftpRename,
   sftpDelete, sftpReadFile, sftpWriteFile, sftpUpload, sftpUploadDir, sftpDownload,
   sftpDownloadDir, sftpTransfer, sftpTransferDir,
   fsListDir, fsMkdir, fsRename, fsDelete, fsCopy, fsReadFile,
 } from "@/services/sftp";
-import { resolveConnectionCredentials } from "@/services/credentials";
-import { sftpConnectToConnection } from "@/services/sftpTarget";
+import { connectFileBackend } from "@/services/sftpTarget";
 import { invoke } from "@/lib/invoke";
 import type { Connection } from "@/types";
 import type { PluginFile, SftpAPI, FileEndpoint } from "../api";
@@ -18,7 +17,7 @@ const DEFAULT_MAX_READ_BYTES = 256 * 1024;
 /**
  * File access over the same backend the SFTP tab drives.
  *
- * FTP and SFTP both resolve to one opaque `sftpId` and share every `sftp_*`
+ * FTP, WebDAV and SFTP all resolve to one opaque `sftpId` and share every `sftp_*`
  * command, so a single target model covers both — the only divergence is which
  * connect call opens the handle. `"local"` is a target too, dispatching to the
  * `fs_*` commands, which is what lets one `transfer` verb express every
@@ -35,17 +34,7 @@ export function createSftpAPI(
   const openHandle = async (target: string): Promise<string> => {
     const conn = findConnection(target);
     if (!conn) throw new Error(`Unknown connection "${target}"`);
-    if (conn.connection_type === "ftp") {
-      const creds = await resolveConnectionCredentials(conn);
-      return ftpConnect({
-        host: conn.host,
-        port: conn.port,
-        username: creds.username,
-        password: creds.password,
-        secure: !!conn.ftp_secure,
-      });
-    }
-    return sftpConnectToConnection(conn, crypto.randomUUID());
+    return connectFileBackend(conn, crypto.randomUUID());
   };
 
   /** Cached by target so repeated calls reuse one connection, and a failed

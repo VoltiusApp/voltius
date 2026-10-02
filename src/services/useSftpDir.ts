@@ -2,11 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import i18n from "@/i18n";
 import {
-  ftpConnect, sftpClose, sftpCanonicalize,
+  sftpClose, sftpCanonicalize,
   sftpMkdir, sftpRename, sftpDelete, sftpTouch,
 } from "@/services/sftp";
-import { resolveConnectionCredentials } from "@/services/credentials";
-import { sftpConnectToConnection } from "@/services/sftpTarget";
+import { connectFileBackend } from "@/services/sftpTarget";
 import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
 import { useDirListing } from "@/components/filetransfer/useDirListing";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
@@ -52,20 +51,7 @@ export function useSftpDir(connection: Connection | undefined) {
     setPhase({ tag: "connecting" });
     (async () => {
       try {
-        const connectId = genId();
-        let sftpId: string;
-        if (connection.connection_type === "ftp") {
-          const creds = await resolveConnectionCredentials(connection);
-          sftpId = await ftpConnect({
-            host: connection.host,
-            port: connection.port,
-            username: creds.username,
-            password: creds.password,
-            secure: !!connection.ftp_secure,
-          });
-        } else {
-          sftpId = await sftpConnectToConnection(connection, connectId);
-        }
+        const sftpId = await connectFileBackend(connection, genId());
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
         sftpIdRef.current = sftpId;
         const home = await sftpCanonicalize(sftpId, ".");

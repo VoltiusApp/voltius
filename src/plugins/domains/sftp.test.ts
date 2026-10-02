@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const svc = vi.hoisted(() => ({
   sftpConnect: vi.fn(async () => "sftp-1"),
   ftpConnect: vi.fn(async () => "ftp-1"),
+  webdavConnect: vi.fn(async (_p: unknown) => "dav-1"),
   sftpClose: vi.fn(async () => {}),
   sftpListDir: vi.fn(async () => [
     { name: "a.txt", path: "/srv/a.txt", size: 3, is_dir: false, is_symlink: false, modified: 1 },
@@ -44,12 +45,21 @@ import { createSftpAPI } from "./sftp";
 const SSH = { id: "c-ssh", host: "h", port: 22, username: "u" } as never;
 const FTP = { id: "c-ftp", host: "f", port: 21, username: "u", connection_type: "ftp" } as never;
 const SSH2 = { id: "c-ssh2", host: "h2", port: 22, username: "u" } as never;
+const DAV = { id: "c-dav", host: "d", port: 443, username: "u", connection_type: "webdav", webdav_url: "https://d/dav/" } as never;
 const find = (id: string) =>
-  id === "c-ssh" ? SSH : id === "c-ssh2" ? SSH2 : id === "c-ftp" ? FTP : undefined;
+  id === "c-ssh" ? SSH : id === "c-ssh2" ? SSH2 : id === "c-ftp" ? FTP : id === "c-dav" ? DAV : undefined;
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("createSftpAPI", () => {
+  it("opens a WebDAV connection over webdavConnect, never prompting", async () => {
+    const api = createSftpAPI(find);
+    await api.list("c-dav", "/");
+    expect(svc.webdavConnect).toHaveBeenCalledTimes(1);
+    expect(svc.webdavConnect.mock.calls[0][0]).toMatchObject({ url: "https://d/dav/", interactive: false });
+    expect(svc.sftpConnect).not.toHaveBeenCalled();
+  });
+
   it("opens an FTP connection over ftpConnect and an SSH one over sftpConnect", async () => {
     const api = createSftpAPI(find);
     await api.list("c-ftp", "/");
