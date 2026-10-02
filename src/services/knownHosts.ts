@@ -38,6 +38,11 @@ export async function resolveKnownHostConflict(
   return invoke("known_host_resolve", { sessionId, action });
 }
 
+/** Aborts a connect's certificate prompt, even one it has not reached yet. */
+export async function cancelKnownHostPrompt(sessionId: string): Promise<void> {
+  return invoke("known_host_cancel", { sessionId });
+}
+
 export interface TrustOutcome {
   entry: KnownHost;
   superseded: KnownHost[];

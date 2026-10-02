@@ -1,7 +1,7 @@
 use crate::storage::config::{config_dir, load_known_hosts, save_known_hosts, KnownHost};
 use chrono::Utc;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{oneshot, Mutex};
@@ -15,11 +15,51 @@ pub enum ConflictAction {
     Abort,
 }
 
-pub struct PendingConflicts(pub Mutex<HashMap<String, oneshot::Sender<ConflictAction>>>);
+#[derive(Default)]
+struct Slots {
+    waiting: HashMap<String, oneshot::Sender<ConflictAction>>,
+    aborted: VecDeque<String>,
+}
+
+const MAX_EARLY_ABORTS: usize = 32;
+const ABORTED_BY_USER: &str = "Connection aborted by user.";
+
+pub struct PendingConflicts(Mutex<Slots>);
 
 impl PendingConflicts {
     pub fn new() -> Self {
-        Self(Mutex::new(HashMap::new()))
+        Self(Mutex::new(Slots::default()))
+    }
+
+    pub async fn resolve(&self, session_id: &str, action: ConflictAction) {
+        if let Some(tx) = self.0.lock().await.waiting.remove(session_id) {
+            let _ = tx.send(action);
+        }
+    }
+
+    /// Aborts the session's prompt, or refuses it in advance if it has not been shown yet.
+    pub async fn cancel(&self, session_id: &str) {
+        let mut slots = self.0.lock().await;
+        if let Some(tx) = slots.waiting.remove(session_id) {
+            let _ = tx.send(ConflictAction::Abort);
+            return;
+        }
+        if slots.aborted.len() >= MAX_EARLY_ABORTS {
+            slots.aborted.pop_front();
+        }
+        slots.aborted.push_back(session_id.to_string());
+    }
+
+    /// None when the session was cancelled before its prompt was shown.
+    async fn wait(&self, session_id: &str) -> Option<oneshot::Receiver<ConflictAction>> {
+        let mut slots = self.0.lock().await;
+        if let Some(i) = slots.aborted.iter().position(|id| id == session_id) {
+            slots.aborted.remove(i);
+            return None;
+        }
+        let (tx, rx) = oneshot::channel();
+        slots.waiting.insert(session_id.to_string(), tx);
+        Some(rx)
     }
 }
 
@@ -211,13 +251,9 @@ impl KnownHostsStore {
                 let Some(prompt) = prompt else {
                     return Err(changed_warning(host, port, &stored, &fingerprint));
                 };
-                let (tx, rx) = oneshot::channel::<ConflictAction>();
-                prompt
-                    .pending
-                    .0
-                    .lock()
-                    .await
-                    .insert(prompt.session_id.clone(), tx);
+                let Some(rx) = prompt.pending.wait(&prompt.session_id).await else {
+                    return Err(ABORTED_BY_USER.into());
+                };
                 (prompt.emit)(HostKeyConflictEvent {
                     session_id: prompt.session_id.clone(),
                     host: host.to_string(),
@@ -234,7 +270,7 @@ impl KnownHostsStore {
                         self.replace_all(host, port, fingerprint, "personal").await;
                         Ok(())
                     }
-                    _ => Err("Connection aborted by user.".into()),
+                    _ => Err(ABORTED_BY_USER.into()),
                 }
             }
         }
@@ -502,6 +538,7 @@ pub(crate) fn answering(
                 .0
                 .try_lock()
                 .unwrap()
+                .waiting
                 .remove(&event.session_id)
                 .unwrap();
             seen.lock().unwrap().push(event);
@@ -569,5 +606,42 @@ mod verify_tests {
             .unwrap_err();
         assert!(err.contains("aborted"), "{err}");
         assert_eq!(store.fingerprints_for("h", 443).await, ["tls-sha256:aa"]);
+    }
+
+    #[tokio::test]
+    async fn a_cancel_sent_before_the_prompt_refuses_it_without_asking() {
+        let store = KnownHostsStore::pinned(&[("h", 443, "tls-sha256:aa")]);
+        let seen = Arc::default();
+        let prompt = answering(|| ConflictAction::Replace, Arc::clone(&seen));
+        prompt.pending.cancel("s1").await;
+        let err = store
+            .verify_or_prompt("h", 443, "tls-sha256:bb".into(), Some(&prompt))
+            .await
+            .unwrap_err();
+        assert!(err.contains("aborted"), "{err}");
+        assert!(seen.lock().unwrap().is_empty());
+
+        store
+            .verify_or_prompt("h", 443, "tls-sha256:bb".into(), Some(&prompt))
+            .await
+            .expect("the early cancel is used up by the first prompt");
+    }
+
+    #[tokio::test]
+    async fn an_answer_without_a_prompt_is_not_kept() {
+        let pending = PendingConflicts::new();
+        pending.resolve("s1", ConflictAction::Abort).await;
+        assert!(pending.wait("s1").await.is_some());
+    }
+
+    #[tokio::test]
+    async fn early_cancels_beyond_the_cap_drop_the_oldest() {
+        let pending = PendingConflicts::new();
+        for i in 0..=MAX_EARLY_ABORTS {
+            pending.cancel(&i.to_string()).await;
+        }
+        assert!(pending.wait("0").await.is_some());
+        assert!(pending.wait("1").await.is_none());
+        assert!(pending.wait(&MAX_EARLY_ABORTS.to_string()).await.is_none());
     }
 }

@@ -21,7 +21,7 @@ import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
 import { connectFileBackend } from "@/services/sftpTarget";
-import { resolveKnownHostConflict } from "@/services/knownHosts";
+import { cancelKnownHostPrompt } from "@/services/knownHosts";
 import { connectErrorPhase, useConnectRetry } from "@/hooks/useConnectRetry";
 import {
   type HostChoice, type SidePhase, type FileEntry,
@@ -65,15 +65,17 @@ export default function SFTPPage() {
   // that is no longer current closes its own session when it lands.
   const currentConnect = useRef<Record<Side, string | null>>({ left: null, right: null });
   const shownSftp = useRef<Record<Side, string | null>>({ left: null, right: null });
+  const opening = useRef<Record<Side, string | null>>({ left: null, right: null });
 
   const releaseSide = useCallback((side: Side) => {
-    const connectId = currentConnect.current[side];
     currentConnect.current[side] = null;
+    const openingId = opening.current[side];
+    opening.current[side] = null;
     const sftpId = shownSftp.current[side];
     shownSftp.current[side] = null;
     if (sftpId) sftpClose(sftpId).catch(() => {});
     // A certificate prompt nobody can answer any more would hold the connect forever.
-    else if (connectId) resolveKnownHostConflict(connectId, "abort").catch(() => {});
+    if (openingId) cancelKnownHostPrompt(openingId).catch(() => {});
   }, []);
 
   useEffect(() => () => { releaseSide("left"); releaseSide("right"); }, [releaseSide]);
@@ -95,7 +97,12 @@ export default function SFTPPage() {
       if (host.kind === "local") {
         cwd = host.wslDistro ? await wslHomeDir(host.wslDistro) : await fsHomeDir();
       } else {
-        sftpId = await connectFileBackend(host.connection, connectId, true);
+        opening.current[side] = connectId;
+        try {
+          sftpId = await connectFileBackend(host.connection, connectId, true);
+        } finally {
+          if (opening.current[side] === connectId) opening.current[side] = null;
+        }
         if (isCurrent()) cwd = await sftpCanonicalize(sftpId, ".");
       }
       if (!isCurrent()) {

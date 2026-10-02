@@ -77,8 +77,15 @@ pub async fn known_host_resolve(
         "replace" => ConflictAction::Replace,
         _ => ConflictAction::Abort,
     };
-    if let Some(tx) = pending.0.lock().await.remove(&session_id) {
-        let _ = tx.send(conflict_action);
-    }
+    pending.resolve(&session_id, conflict_action).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn known_host_cancel(
+    pending: tauri::State<'_, Arc<PendingConflicts>>,
+    session_id: String,
+) -> Result<(), String> {
+    pending.cancel(&session_id).await;
     Ok(())
 }
