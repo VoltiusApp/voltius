@@ -67,7 +67,19 @@ fn basic_auth(username: &str, password: &str) -> HeaderValue {
 }
 
 pub(crate) fn status_error(op: &str, status: StatusCode) -> AppError {
-    let code = match status.as_u16() {
+    status_error_with(op, status, status_code(status))
+}
+
+fn status_error_with(op: &str, status: StatusCode, code: Option<ErrorCode>) -> AppError {
+    let message = format!("{op} failed: HTTP {status}");
+    match code {
+        Some(code) => AppError::coded(code, message),
+        None => message.into(),
+    }
+}
+
+fn status_code(status: StatusCode) -> Option<ErrorCode> {
+    match status.as_u16() {
         401 => Some(ErrorCode::LoginRejected),
         403 => Some(ErrorCode::PermissionDenied),
         404 | 409 => Some(ErrorCode::NotFound),
@@ -75,11 +87,6 @@ pub(crate) fn status_error(op: &str, status: StatusCode) -> AppError {
         423 => Some(ErrorCode::ResourceLocked),
         507 => Some(ErrorCode::StorageFull),
         _ => None,
-    };
-    let message = format!("{op} failed: HTTP {status}");
-    match code {
-        Some(code) => AppError::coded(code, message),
-        None => message.into(),
     }
 }
 
@@ -326,10 +333,12 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
         let resp = self
             .send("Create folder", method("MKCOL"), &url, &[], empty())
             .await?;
-        match resp.status() {
-            StatusCode::METHOD_NOT_ALLOWED => Err(AppError::coded(
-                ErrorCode::AlreadyExists,
-                "Create folder failed: HTTP 405 Method Not Allowed",
+        let status = resp.status();
+        match status {
+            StatusCode::METHOD_NOT_ALLOWED => Err(status_error_with(
+                "Create folder",
+                status,
+                Some(ErrorCode::AlreadyExists),
             )),
             status if status.is_success() => Ok(()),
             status => Err(status_error("Create folder", status)),
@@ -436,6 +445,7 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
         };
         tokio::pin!(put, pump);
         tokio::select! {
+            biased;
             early = &mut put => match early {
                 Err(e) => Err(e.into()),
                 Ok(_) => pump.await,
@@ -499,7 +509,7 @@ mod test_server;
 
 #[cfg(test)]
 mod tests {
-    use super::test_server::{canned, canned_early, multistatus, reply};
+    use super::test_server::{canned, canned_early, canned_then_close, multistatus, reply};
     use super::*;
     use crate::error::ErrorCode;
     use crate::sftp::backend::test_tree::Recorder;
@@ -699,7 +709,7 @@ mod tests {
         let b = backend(port).await.unwrap();
         let tmp = tempfile::tempdir().unwrap();
         let local = tmp.path().join("big.bin");
-        std::fs::write(&local, vec![7u8; 4 * 1024 * 1024]).unwrap();
+        std::fs::write(&local, vec![7u8; 32 * 1024 * 1024]).unwrap();
         let result = tokio::time::timeout(
             Duration::from_secs(10),
             b.upload_file(
@@ -713,7 +723,34 @@ mod tests {
         .await
         .expect("upload hung after the server refused it");
         let err = AppError::from(result.unwrap_err());
-        assert!(err.to_string().contains("507"), "{err}");
+        assert!(err.to_string().contains("Upload failed: HTTP 507"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn the_servers_refusal_wins_over_the_broken_pipe_it_causes() {
+        let tmp = tempfile::tempdir().unwrap();
+        let local = tmp.path().join("big.bin");
+        std::fs::write(&local, vec![7u8; 8 * 1024 * 1024]).unwrap();
+        for _ in 0..20 {
+            let (port, _) = canned_then_close(vec![
+                multistatus(ROOT),
+                reply("507 Insufficient Storage", "", ""),
+            ])
+            .await;
+            let b = backend(port).await.unwrap();
+            let err = AppError::from(
+                b.upload_file(
+                    &Recorder::default(),
+                    &local.to_string_lossy(),
+                    "/big.bin",
+                    "t4",
+                    &CancellationToken::new(),
+                )
+                .await
+                .unwrap_err(),
+            );
+            assert!(err.to_string().contains("Upload failed: HTTP 507"), "{err}");
+        }
     }
 
     #[tokio::test]

@@ -10,15 +10,27 @@ pub struct Seen {
 
 /// Answers each connection's single request with the next canned response, then closes it.
 pub async fn canned(responses: Vec<String>) -> (u16, Arc<Mutex<Vec<Seen>>>) {
-    serve(responses, true).await
+    serve(responses, Mode::Normal).await
 }
 
 /// Replies right after the request head and keeps the socket open without reading the body.
 pub async fn canned_early(responses: Vec<String>) -> (u16, Arc<Mutex<Vec<Seen>>>) {
-    serve(responses, false).await
+    serve(responses, Mode::Hold).await
 }
 
-async fn serve(responses: Vec<String>, read_body: bool) -> (u16, Arc<Mutex<Vec<Seen>>>) {
+/// Replies right after the request head, then half-closes without reading the body.
+pub async fn canned_then_close(responses: Vec<String>) -> (u16, Arc<Mutex<Vec<Seen>>>) {
+    serve(responses, Mode::Close).await
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Mode {
+    Normal,
+    Hold,
+    Close,
+}
+
+async fn serve(responses: Vec<String>, mode: Mode) -> (u16, Arc<Mutex<Vec<Seen>>>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let seen = Arc::new(Mutex::new(Vec::new()));
@@ -49,7 +61,7 @@ async fn serve(responses: Vec<String>, read_body: bool) -> (u16, Arc<Mutex<Vec<S
                         .map(|v| v.trim().parse::<usize>().unwrap())
                 })
                 .unwrap_or(0);
-            while read_body && buf.len() < head_end + len {
+            while mode == Mode::Normal && buf.len() < head_end + len {
                 let n = tcp.read(&mut chunk).await.unwrap();
                 if n == 0 {
                     break;
@@ -61,13 +73,19 @@ async fn serve(responses: Vec<String>, read_body: bool) -> (u16, Arc<Mutex<Vec<S
                 body: buf[head_end..].to_vec(),
             });
             tcp.write_all(response.as_bytes()).await.unwrap();
-            if read_body {
-                let _ = tcp.shutdown().await;
-            } else {
-                tokio::spawn(async move {
-                    let _hold = tcp;
-                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-                });
+            match mode {
+                Mode::Normal => {
+                    let _ = tcp.shutdown().await;
+                }
+                Mode::Hold | Mode::Close => {
+                    if mode == Mode::Close {
+                        let _ = tcp.shutdown().await;
+                    }
+                    tokio::spawn(async move {
+                        let _hold = tcp;
+                        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                    });
+                }
             }
         }
     });
