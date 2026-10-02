@@ -415,17 +415,19 @@ fn migrate_shell_integration(obj: &mut serde_json::Map<String, serde_json::Value
 /// supplies a valid enum variant instead of the record failing to deserialize
 /// (which would silently drop it). New code only ever writes valid variants.
 fn migrate_enum_fields(obj: &mut serde_json::Map<String, serde_json::Value>) {
-    if !matches!(
-        obj.get("auth_type").and_then(|v| v.as_str()),
-        Some("password") | Some("key")
-    ) {
-        obj.remove("auth_type");
-    }
-    if !matches!(
-        obj.get("connection_type").and_then(|v| v.as_str()),
-        Some("ssh") | Some("serial") | Some("ftp")
-    ) {
-        obj.remove("connection_type");
+    drop_unless_valid::<AuthType>(obj, "auth_type");
+    drop_unless_valid::<ConnectionType>(obj, "connection_type");
+}
+
+fn drop_unless_valid<T: serde::de::DeserializeOwned>(
+    obj: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) {
+    if obj
+        .get(key)
+        .is_some_and(|v| serde_json::from_value::<T>(v.clone()).is_err())
+    {
+        obj.remove(key);
     }
 }
 
@@ -1204,6 +1206,21 @@ mod tests {
         // FTP is a valid connection_type and must survive a load round-trip.
         let ftp = migrate_enums(serde_json::json!({ "connection_type": "ftp" }));
         assert_eq!(ftp.get("connection_type").unwrap(), "ftp");
+
+        let webdav = migrate_enums(serde_json::json!({ "connection_type": "webdav" }));
+        assert_eq!(webdav.get("connection_type").unwrap(), "webdav");
+    }
+
+    #[test]
+    fn saved_webdav_connection_survives_load() {
+        let mut json = serde_json::to_value(sample_connection()).unwrap();
+        json["connection_type"] = "webdav".into();
+        json["webdav_url"] = "https://h/dav/".into();
+        let data = serde_json::to_string(&vec![json]).unwrap();
+        let loaded = parse_with_migration::<Connection>(&data).unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].connection_type, ConnectionType::Webdav);
+        assert_eq!(loaded[0].webdav_url.as_deref(), Some("https://h/dav/"));
     }
 
     #[test]
