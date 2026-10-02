@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn extract_record_separates_foreign_keys_from_plaintext() {
-        let mut bytes = vec![b'o'];
+        let mut bytes = envelope();
         push_key_int("id", 45716684, &mut bytes);
         push_key_str("updated_at", "2026-05-25T10:07:45", &mut bytes);
         push_key_str("status", "SYNCHRONIZED", &mut bytes);

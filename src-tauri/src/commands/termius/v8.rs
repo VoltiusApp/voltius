@@ -6,16 +6,15 @@
 
 use serde_json::{Map, Number, Value};
 
+const BLINK_TRAILER_OFFSET_TAG: u8 = 0xfe;
+const BLINK_TRAILER_OFFSET_LEN: usize = 1 + 8 + 4;
+
 pub(super) fn decode_envelope(bytes: &[u8]) -> Option<Value> {
     let mut p = Parser { bytes, pos: 0 };
-    // Skip leading version/header bytes until the first 'o' (object start).
-    while p.pos < p.bytes.len() && p.bytes[p.pos] != b'o' {
-        p.pos += 1;
-    }
-    if p.pos >= p.bytes.len() {
+    p.skip_value_headers()?;
+    if p.advance()? != b'o' {
         return None;
     }
-    p.pos += 1; // consume 'o'
     p.read_object()
 }
 
@@ -35,18 +34,22 @@ impl<'a> Parser<'a> {
         Some(b)
     }
 
-    fn varint(&mut self) -> Option<u64> {
-        let mut v = 0u64;
-        let mut s = 0u32;
-        while s < 64 {
-            let b = self.advance()?;
-            v |= ((b & 0x7f) as u64) << s;
-            if b & 0x80 == 0 {
-                return Some(v);
+    /// Chromium's IndexedDB version varint, then Blink and V8 `0xff <version>` headers; the
+    /// version varint can contain 0x6f, so scanning for the first 'o' is not safe.
+    fn skip_value_headers(&mut self) -> Option<()> {
+        self.varint()?;
+        while self.peek()? == 0xff {
+            self.pos += 1;
+            self.varint()?;
+            if self.peek() == Some(BLINK_TRAILER_OFFSET_TAG) {
+                self.pos += BLINK_TRAILER_OFFSET_LEN;
             }
-            s += 7;
         }
-        None
+        Some(())
+    }
+
+    fn varint(&mut self) -> Option<u64> {
+        super::read_varint(self.bytes, &mut self.pos)
     }
 
     /// Skip alignment padding (V8 aligns 2-byte strings to even byte
@@ -165,6 +168,15 @@ impl<'a> Parser<'a> {
 // the decoder tests here and the record-extraction tests in `extract`.
 #[cfg(test)]
 pub(crate) mod build {
+    pub fn envelope() -> Vec<u8> {
+        let mut out = Vec::new();
+        push_varint(14208, &mut out);
+        out.extend_from_slice(&[0xff, 0x15, 0xfe]);
+        out.extend_from_slice(&[0; 12]);
+        out.extend_from_slice(&[0xff, 0x10, b'o']);
+        out
+    }
+
     pub fn push_varint(mut v: u64, out: &mut Vec<u8>) {
         loop {
             let mut b = (v & 0x7f) as u8;
@@ -227,7 +239,7 @@ mod tests {
 
     #[test]
     fn v8_decodes_flat_object() {
-        let mut bytes = vec![b'o'];
+        let mut bytes = envelope();
         push_key_int("id", 7347589, &mut bytes);
         push_key_str("updated_at", "2026-04-08T16:37:59", &mut bytes);
         push_key_str("status", "SYNCHRONIZED", &mut bytes);
@@ -247,7 +259,7 @@ mod tests {
 
     #[test]
     fn v8_decodes_nested_object_for_foreign_keys() {
-        let mut bytes = vec![b'o'];
+        let mut bytes = envelope();
         push_key_int("id", 45716684, &mut bytes);
         push_key_obj_id("ssh_config", 45672876, &mut bytes);
         push_key_null("group", &mut bytes);
