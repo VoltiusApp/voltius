@@ -313,6 +313,15 @@ pub async fn sftp_extract(
 
 // ── Tar-based directory transfer ──────────────────────────────────────────────
 
+/// True if the session can run commands on its host, as compress and extract do.
+#[tauri::command]
+pub async fn sftp_can_exec(
+    sftp_state: State<'_, SftpManager>,
+    sftp_id: String,
+) -> Result<bool, String> {
+    Ok(sftp_state.can_exec(&sftp_id).await)
+}
+
 /// True if the remote host has a tar and a temp dir the archive can be staged in.
 #[tauri::command]
 pub async fn sftp_tar_available(

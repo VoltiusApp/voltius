@@ -8,7 +8,7 @@ import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import {
   sftpMkdir, sftpTouch, sftpRename, sftpDelete,
-  sftpCompress, sftpExtract,
+  sftpCompress, sftpExtract, sftpCanExec,
   fsMkdir, fsRename, fsDelete, fsTouch, pickLocalPath,
   fsCompress, fsExtract,
 } from "@/services/sftp";
@@ -44,6 +44,7 @@ type SelectionActionsCtx = {
   onDelete: (files: FileEntry[]) => Promise<void>;
   onCompress: (file: FileEntry) => Promise<void>;
   onExtract: (file: FileEntry) => Promise<void>;
+  canArchive: boolean;
   onOpenInTerminal?: (path: string) => void;
   onPanelDownload?: (files: FileEntry[]) => void;
   /** Optional override for the Edit action — used by panel embedding to also open the SFTP panel. */
@@ -165,6 +166,14 @@ export function FilePane({
   const [newItemName, setNewItemName] = useState("");
   const [autoTick, setAutoTick] = useState(0);
   const { entries, loading, error, refreshError } = useDirListing(isLocal, sftpId, cwd, `${refreshTick}:${autoTick}`);
+  const [canArchive, setCanArchive] = useState(isLocal);
+  useEffect(() => {
+    setCanArchive(isLocal);
+    if (isLocal || !sftpId) return;
+    let live = true;
+    sftpCanExec(sftpId).then((ok) => { if (live) setCanArchive(ok); }, () => {});
+    return () => { live = false; };
+  }, [isLocal, sftpId]);
   const focusIndex = useRef<number>(-1);
   const paneRef = useRef<HTMLDivElement>(null);
   // Type-ahead ("type to select") search state — refs, not state, so keystrokes
@@ -406,7 +415,7 @@ export function FilePane({
   const selectionActionsCtx: SelectionActionsCtx = {
     isLocal, sftpId, hostLabel: resolvedHostLabel, canTransferToTarget: canTransferToTarget ?? false,
     onTransferToTarget, onStartRename: startRename, onDelete: handleDelete,
-    onCompress: handleCompress, onExtract: handleExtract,
+    onCompress: handleCompress, onExtract: handleExtract, canArchive,
     onOpenInTerminal, onPanelDownload, onEdit, setSelection, onRefresh,
   };
 
@@ -583,7 +592,7 @@ export function openFileForEdit(
 // Single source of truth for file-level actions. Used by both the per-item
 // right-click context menu and the pane ellipsis menu.
 
-function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsCtx, t: TFunction): ContextMenuItem[] {
+export function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsCtx, t: TFunction): ContextMenuItem[] {
   const items: ContextMenuItem[] = [];
   const single = files.length === 1 ? files[0] : null;
 
@@ -638,7 +647,7 @@ function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsCtx, t: 
   }
 
   // Archive (single file only)
-  if (single) {
+  if (single && ctx.canArchive) {
     items.push({ label: t("fileTransfer.pane.menu.compress"), icon: "lucide:archive", onClick: () => ctx.onCompress(single), divider: true });
     if (!single.isDir && /\.(tar\.gz|tgz)$/i.test(single.name)) {
       items.push({ label: t("fileTransfer.pane.menu.extractHere"), icon: "lucide:package-open", onClick: () => ctx.onExtract(single) });

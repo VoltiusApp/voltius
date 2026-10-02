@@ -417,6 +417,7 @@ pub fn run() {
             commands::sftp::sftp_download_dir_tar,
             commands::sftp::sftp_transfer_dir_tar,
             commands::sftp::sftp_tar_available,
+            commands::sftp::sftp_can_exec,
             commands::sftp::sftp_upload_batch_tar,
             commands::sftp::sftp_download_batch_tar,
             commands::downloads::download_temp_path,

@@ -191,6 +191,11 @@ export async function sftpCancelTransfer(transferId: string): Promise<void> {
   return invoke("sftp_cancel_transfer", { transferId });
 }
 
+/** True if the session can run commands on its host (false for FTP and WebDAV). */
+export async function sftpCanExec(sftpId: string): Promise<boolean> {
+  return invoke("sftp_can_exec", { sftpId });
+}
+
 /** True if `tar` is available on the remote host. */
 export async function sftpTarAvailable(sftpId: string): Promise<boolean> {
   return invoke("sftp_tar_available", { sftpId });

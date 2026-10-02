@@ -84,13 +84,13 @@ impl SftpManager {
         }
     }
 
-    /// Register a backend under a fresh id and return that id.
     /// A backend with no SSH connection underneath.
     async fn register_standalone(&self, backend: Arc<dyn FileBackend>) -> String {
         self.register(backend, None, CancellationToken::new(), vec![])
             .await
     }
 
+    /// Register a backend under a fresh id and return that id.
     async fn register(
         &self,
         backend: Arc<dyn FileBackend>,
@@ -333,13 +333,19 @@ impl SftpManager {
         Ok(id)
     }
 
+    async fn with_entry<T>(&self, id: &str, read: impl FnOnce(&SftpEntry) -> T) -> Option<T> {
+        self.sessions.lock().await.get(id).map(read)
+    }
+
     /// Fetch the file backend for an id.
     pub async fn backend(&self, id: &str) -> Option<Arc<dyn FileBackend>> {
-        self.sessions
-            .lock()
+        self.with_entry(id, |e| Arc::clone(&e.backend)).await
+    }
+
+    pub async fn can_exec(&self, id: &str) -> bool {
+        self.with_entry(id, |e| e.handle.is_some())
             .await
-            .get(id)
-            .map(|e| Arc::clone(&e.backend))
+            .unwrap_or(false)
     }
 
     /// Per-session cache of the remote shell tar commands are written for.
@@ -347,11 +353,7 @@ impl SftpManager {
         &self,
         id: &str,
     ) -> Option<Arc<OnceCell<Option<RemoteShell>>>> {
-        self.sessions
-            .lock()
-            .await
-            .get(id)
-            .map(|e| Arc::clone(&e.tar_shell))
+        self.with_entry(id, |e| Arc::clone(&e.tar_shell)).await
     }
 
     pub async fn close(&self, id: &str) {
