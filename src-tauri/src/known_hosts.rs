@@ -360,6 +360,14 @@ impl KnownHostsStore {
             .collect()
     }
 
+    pub async fn fingerprints_for(&self, host: &str, port: u16) -> Vec<String> {
+        self.entries_for(host, port)
+            .await
+            .into_iter()
+            .map(|e| e.fingerprint)
+            .collect()
+    }
+
     /// Move an entry to a different vault.
     pub async fn move_vault(&self, id: &str, vault_id: &str) {
         let now = Utc::now().to_rfc3339();

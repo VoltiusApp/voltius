@@ -70,7 +70,12 @@ impl Connection for DavIo {
 struct Inner {
     proxy: Option<ProxySpec>,
     known_hosts: Arc<KnownHostsStore>,
-    prompt: Mutex<Option<ConflictPrompt>>,
+    policy: Mutex<PinPolicy>,
+}
+
+enum PinPolicy {
+    Probing(Option<ConflictPrompt>),
+    Stopped,
 }
 
 #[derive(Clone)]
@@ -88,19 +93,27 @@ impl DavConnector {
             inner: Arc::new(Inner {
                 proxy,
                 known_hosts,
-                prompt: Mutex::new(prompt),
+                policy: Mutex::new(PinPolicy::Probing(prompt)),
             }),
         }
     }
 
-    /// After the connect probe nobody shows a dialog, so a later change is refused.
+    /// After the connect probe no new certificate is trusted, only already pinned ones.
     pub async fn stop_prompting(&self) {
-        self.inner.prompt.lock().await.take();
+        *self.inner.policy.lock().await = PinPolicy::Stopped;
     }
 
     async fn open(&self, uri: Uri) -> io::Result<DavIo> {
         let inner = &self.inner;
-        let https = uri.scheme_str() == Some("https");
+        let https = match uri.scheme_str() {
+            Some("https") => true,
+            Some("http") => false,
+            other => {
+                return Err(io::Error::other(format!(
+                    "unsupported URL scheme {other:?}"
+                )))
+            }
+        };
         let host = uri
             .host()
             .ok_or_else(|| io::Error::other("URL has no host"))?
@@ -113,10 +126,9 @@ impl DavConnector {
         }
         let pins: Vec<String> = inner
             .known_hosts
-            .entries_for(&host, port)
+            .fingerprints_for(&host, port)
             .await
             .into_iter()
-            .map(|e| e.fingerprint)
             .filter(|fp| fp.starts_with(TLS_PIN_PREFIX))
             .collect();
         let fp = match handshake(&host, stream, pins).await {
@@ -124,13 +136,17 @@ impl DavConnector {
             Err((err, None)) => return Err(err),
             Err((_, Some(fp))) => fp,
         };
-        {
-            let prompt = inner.prompt.lock().await;
-            inner
+        match &*inner.policy.lock().await {
+            PinPolicy::Stopped => {
+                return Err(io::Error::other(format!(
+                    "The certificate of {host}:{port} is not trusted. Reconnect to review it."
+                )))
+            }
+            PinPolicy::Probing(prompt) => inner
                 .known_hosts
                 .verify_or_prompt(&host, port, fp.clone(), prompt.as_ref())
                 .await
-                .map_err(io::Error::other)?;
+                .map_err(io::Error::other)?,
         }
         let stream = dial(inner, &host, port).await?;
         handshake(&host, stream, vec![fp])
@@ -245,12 +261,7 @@ mod tests {
         let store = Arc::new(KnownHostsStore::new());
         let io = connector(&store, None).open(uri(port)).await.unwrap();
         assert!(matches!(io, DavIo::Tls(_)));
-        let pins: Vec<_> = store
-            .entries_for("127.0.0.1", port)
-            .await
-            .into_iter()
-            .map(|e| e.fingerprint)
-            .collect();
+        let pins = store.fingerprints_for("127.0.0.1", port).await;
         assert_eq!(pins, [tls_fingerprint(&leaf.cert)]);
     }
 
@@ -267,12 +278,7 @@ mod tests {
             .open(uri(port))
             .await
             .unwrap();
-        let pins: Vec<_> = store
-            .entries_for("127.0.0.1", port)
-            .await
-            .into_iter()
-            .map(|e| e.fingerprint)
-            .collect();
+        let pins = store.fingerprints_for("127.0.0.1", port).await;
         assert_eq!(pins, [tls_fingerprint(&leaf.cert)]);
     }
 
@@ -292,7 +298,23 @@ mod tests {
             .expect("must not wait on a prompt")
             .err()
             .expect("must be refused");
-        assert!(err.to_string().contains("changed"), "{err}");
+        assert!(err.to_string().contains("not trusted"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn an_unpinned_certificate_after_connect_is_refused_and_not_pinned() {
+        let leaf = self_signed();
+        let port = serve_tls(&leaf).await;
+        let store = Arc::new(KnownHostsStore::new());
+        let c = connector(&store, None);
+        c.stop_prompting().await;
+        let err = tokio::time::timeout(Duration::from_secs(5), c.open(uri(port)))
+            .await
+            .expect("must not wait on a prompt")
+            .err()
+            .expect("must be refused");
+        assert!(err.to_string().contains("not trusted"), "{err}");
+        assert!(store.fingerprints_for("127.0.0.1", port).await.is_empty());
     }
 
     #[tokio::test]
