@@ -35,6 +35,7 @@ mod terminal_kbd;
 mod tls;
 mod updater;
 mod vault_auth;
+mod webdav;
 
 use commands::http::HttpSseStreamManager;
 use docker::stream::DockerLogStreamManager;
