@@ -28,6 +28,7 @@ import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
 import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
+import { isFileOnlyProtocol } from "@/utils/connectionType";
 
 function MobileHostRow({
   c,
@@ -133,9 +134,9 @@ export default function MobileHostsScreen() {
   }, [inVault, nav.activeFolderId, connFolderIds, search, isPinnedFn]);
 
   const handleConnect = (id: string) => {
-    // FTP hosts have no terminal — open the file browser instead.
+    // File-only hosts (FTP, WebDAV) have no terminal — open the file browser instead.
     const c = connections.find((x) => x.id === id);
-    if (c?.connection_type === "ftp") {
+    if (c && isFileOnlyProtocol(c)) {
       push({ kind: "panel-sftp", connectionId: id });
       return;
     }

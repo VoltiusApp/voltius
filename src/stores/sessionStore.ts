@@ -35,6 +35,7 @@ import { cancelBackoff, isSessionEnded, type ReconnectAttemptResult, type Reconn
 import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostCommand";
 import { runHostCommand } from "@/services/hostCommandRun";
 import { notifyError } from "@/utils/notifyError";
+import { isFileOnlyProtocol } from "@/utils/connectionType";
 
 /** `background: true` opens the session without taking the user's active tab. */
 export type OpenOptions = { background?: boolean };
@@ -542,8 +543,8 @@ function beginConnection(set: SessionSetter, connectionId: string, initialCwd?: 
 
   const sessionId = crypto.randomUUID();
 
-  // FTP hosts have no terminal — open the file browser instead.
-  if (connection.connection_type === "ftp") {
+  // File-only hosts (FTP, WebDAV) have no terminal — open the file browser instead.
+  if (isFileOnlyProtocol(connection)) {
     useUIStore.getState().openSftpWith(connectionId);
     return sessionId;
   }
@@ -575,8 +576,8 @@ async function connectConnection(
 
   const sessionId = crypto.randomUUID();
 
-  // FTP hosts have no terminal — open the file browser instead.
-  if (connection.connection_type === "ftp") {
+  // File-only hosts (FTP, WebDAV) have no terminal — open the file browser instead.
+  if (isFileOnlyProtocol(connection)) {
     useUIStore.getState().openSftpWith(connectionId);
     return sessionId;
   }

@@ -21,6 +21,7 @@ import { waitForConnectedSessionIds } from "@/components/shared/sessionPickerTar
 import i18n from "@/i18n";
 import type { Snippet, Connection, TerminalSession } from "@/types";
 import type { ParsedVariable, DynamicContext } from "./snippetParser";
+import { isFileOnlyProtocol } from "@/utils/connectionType";
 
 type TransferStep = Extract<LeafStep, { kind: "transfer" }>;
 
@@ -197,7 +198,7 @@ export interface TerminalConnectDeps {
  * When a sequence has script steps, saved-host targets need a live terminal.
  * Connect them on the fly (via `connectMany`), wait for them to reach a terminal
  * session, and rewrite each into a `{ kind: "session" }` target. Hosts that fail
- * to connect (or have no terminal, e.g. FTP) become `{ kind: "failed" }`.
+ * to connect (or have no terminal, e.g. FTP or WebDAV) become `{ kind: "failed" }`.
  * Existing session targets pass through untouched.
  *
  * `openedSessionIds` are the freshly-connected sessions, for the caller to
@@ -209,7 +210,7 @@ export async function resolveTerminalTargets(
 ): Promise<{ resolutions: TerminalResolution[]; openedSessionIds: string[] }> {
   const connectable = targets.filter(
     (t): t is Extract<RunTarget, { kind: "connection" }> =>
-      t.kind === "connection" && t.connection.connection_type !== "ftp",
+      t.kind === "connection" && !isFileOnlyProtocol(t.connection),
   );
   if (connectable.length === 0) {
     return {
