@@ -63,6 +63,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), String>;
+    /// Per-item fallback: create the tree, then upload each file on its own.
     async fn upload_dir(
         &self,
         app: &E,
@@ -70,7 +71,29 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         remote_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String>;
+    ) -> Result<(), String> {
+        let local_base = PathBuf::from(local_path);
+        let mut dirs: Vec<PathBuf> = Vec::new();
+        let mut files: Vec<PathBuf> = Vec::new();
+        collect_local(&local_base, &local_base, &mut dirs, &mut files)?;
+
+        let base = remote_path.trim_end_matches('/');
+        let _ = self.mkdir(base).await;
+        for d in &dirs {
+            let rd = format!("{}/{}", base, d.to_string_lossy().replace('\\', "/"));
+            let _ = self.mkdir(&rd).await;
+        }
+        for f in &files {
+            if token.is_cancelled() {
+                return Err("Transfer cancelled".into());
+            }
+            let la = local_base.join(f);
+            let rp = format!("{}/{}", base, f.to_string_lossy().replace('\\', "/"));
+            self.upload_file(app, &la.to_string_lossy(), &rp, transfer_id, token)
+                .await?;
+        }
+        Ok(())
+    }
     /// Per-item fallback: walk the listing and download each file on its own.
     async fn download_dir(
         &self,
@@ -203,6 +226,31 @@ fn is_plain_name(name: &str, windows: bool) -> bool {
 
 /// A remote tree holding names some local systems can't store, and one that
 /// escapes on every system; shared by the backend and SFTP download tests.
+fn collect_local(
+    base: &Path,
+    current: &Path,
+    dirs: &mut Vec<PathBuf>,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), String> {
+    for entry in std::fs::read_dir(current)
+        .map_err(|e| format!("Cannot read dir {}: {e}", current.display()))?
+    {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let p = entry.path();
+        let rel = p
+            .strip_prefix(base)
+            .map_err(|e| e.to_string())?
+            .to_path_buf();
+        if p.is_dir() {
+            dirs.push(rel);
+            collect_local(base, &p, dirs, files)?;
+        } else {
+            files.push(rel);
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 pub(crate) mod test_tree {
     use super::TransferEvents;
@@ -303,7 +351,10 @@ mod tests {
     use async_trait::async_trait;
     use tokio_util::sync::CancellationToken;
 
-    struct TreeBackend;
+    #[derive(Default)]
+    struct TreeBackend {
+        log: std::sync::Mutex<Vec<String>>,
+    }
 
     #[async_trait]
     impl FileBackend<Recorder> for TreeBackend {
@@ -337,8 +388,9 @@ mod tests {
         async fn canonicalize(&self, _: &str) -> Result<String, AppError> {
             unimplemented!()
         }
-        async fn mkdir(&self, _: &str) -> Result<(), AppError> {
-            unimplemented!()
+        async fn mkdir(&self, path: &str) -> Result<(), AppError> {
+            self.log.lock().unwrap().push(format!("mkdir {path}"));
+            Ok(())
         }
         async fn touch(&self, _: &str) -> Result<(), AppError> {
             unimplemented!()
@@ -362,21 +414,12 @@ mod tests {
             &self,
             _: &Recorder,
             _: &str,
-            _: &str,
-            _: &str,
-            _: &CancellationToken,
-        ) -> Result<(), String> {
-            unimplemented!()
-        }
-        async fn upload_dir(
-            &self,
-            _: &Recorder,
-            _: &str,
-            _: &str,
+            remote_path: &str,
             _: &str,
             _: &CancellationToken,
         ) -> Result<(), String> {
-            unimplemented!()
+            self.log.lock().unwrap().push(format!("put {remote_path}"));
+            Ok(())
         }
     }
 
@@ -386,7 +429,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let dst = tmp.path().join("dst");
 
-        TreeBackend
+        TreeBackend::default()
             .download_dir(
                 &events,
                 "/src",
@@ -406,7 +449,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let paths = ["/src/ok.txt", "/src/10:30.log", "/src/sub", "/src/.."].map(String::from);
 
-        TreeBackend
+        TreeBackend::default()
             .download_batch(
                 &events,
                 &paths,
@@ -468,5 +511,31 @@ mod tests {
         for name in ["a\\b", "10:30.log", "..."] {
             assert!(is_plain_name(name, false), "{name:?}");
         }
+    }
+
+    #[tokio::test]
+    async fn folder_upload_creates_the_tree_then_uploads_each_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("sub")).unwrap();
+        std::fs::write(tmp.path().join("a.txt"), "a").unwrap();
+        std::fs::write(tmp.path().join("sub/b.txt"), "b").unwrap();
+        let backend = TreeBackend::default();
+
+        backend
+            .upload_dir(
+                &Recorder::default(),
+                &tmp.path().to_string_lossy(),
+                "/dst/",
+                "t-up",
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+
+        let log = backend.log.lock().unwrap().clone();
+        assert_eq!(log[..2], ["mkdir /dst", "mkdir /dst/sub"]);
+        let mut puts = log[2..].to_vec();
+        puts.sort();
+        assert_eq!(puts, ["put /dst/a.txt", "put /dst/sub/b.txt"]);
     }
 }

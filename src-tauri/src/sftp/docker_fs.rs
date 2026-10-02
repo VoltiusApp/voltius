@@ -10,7 +10,7 @@
 //! characters (acceptable for a file manager).
 
 use crate::commands::sftp::editor::read_limit;
-use crate::commands::sftp::{pump_chunks, RemoteFile, TransferProgress};
+use crate::commands::sftp::{pump_chunks, sort_listing, RemoteFile, TransferProgress};
 use crate::error::AppError;
 use crate::sftp::backend::FileBackend;
 use crate::ssh::client::SshClient;
@@ -432,11 +432,7 @@ impl FileBackend for DockerFs {
                 permissions: u32::from_str_radix(p.trim(), 8).ok(),
             });
         }
-        files.sort_by(|a, b| {
-            b.is_dir
-                .cmp(&a.is_dir)
-                .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-        });
+        sort_listing(&mut files);
         Ok(files)
     }
 

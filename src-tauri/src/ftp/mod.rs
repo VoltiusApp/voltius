@@ -7,11 +7,11 @@
 //! info are best-effort.
 
 use crate::commands::sftp::editor::read_capped;
-use crate::commands::sftp::{pump_chunks, RemoteFile};
+use crate::commands::sftp::{pump_chunks, sort_listing, RemoteFile};
 use crate::error::AppError;
 use crate::sftp::FileBackend;
 use async_trait::async_trait;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::UNIX_EPOCH;
 use suppaftp::list::File as FtpFile;
@@ -81,31 +81,6 @@ pub async fn connect(
     })
 }
 
-fn collect_local(
-    base: &Path,
-    current: &Path,
-    dirs: &mut Vec<PathBuf>,
-    files: &mut Vec<PathBuf>,
-) -> Result<(), String> {
-    for entry in std::fs::read_dir(current)
-        .map_err(|e| format!("Cannot read dir {}: {e}", current.display()))?
-    {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let p = entry.path();
-        let rel = p
-            .strip_prefix(base)
-            .map_err(|e| e.to_string())?
-            .to_path_buf();
-        if p.is_dir() {
-            dirs.push(rel);
-            collect_local(base, &p, dirs, files)?;
-        } else {
-            files.push(rel);
-        }
-    }
-    Ok(())
-}
-
 #[async_trait]
 impl FileBackend for FtpBackend {
     async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
@@ -144,11 +119,7 @@ impl FileBackend for FtpBackend {
                 permissions: None,
             });
         }
-        files.sort_by(|a, b| {
-            b.is_dir
-                .cmp(&a.is_dir)
-                .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-        });
+        sort_listing(&mut files);
         Ok(files)
     }
 
@@ -367,38 +338,7 @@ impl FileBackend for FtpBackend {
         Ok(())
     }
 
-    async fn upload_dir(
-        &self,
-        app: &AppHandle,
-        local_path: &str,
-        remote_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), String> {
-        let local_base = PathBuf::from(local_path);
-        let mut dirs: Vec<PathBuf> = Vec::new();
-        let mut files: Vec<PathBuf> = Vec::new();
-        collect_local(&local_base, &local_base, &mut dirs, &mut files)?;
-
-        let base = remote_path.trim_end_matches('/');
-        let _ = self.mkdir(base).await;
-        for d in &dirs {
-            let rd = format!("{}/{}", base, d.to_string_lossy().replace('\\', "/"));
-            let _ = self.mkdir(&rd).await;
-        }
-        for f in &files {
-            if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
-            }
-            let la = local_base.join(f);
-            let rp = format!("{}/{}", base, f.to_string_lossy().replace('\\', "/"));
-            self.upload_file(app, &la.to_string_lossy(), &rp, transfer_id, token)
-                .await?;
-        }
-        Ok(())
-    }
-
-    // download_dir / upload_batch / download_batch: the FileBackend per-item defaults.
+    // download_dir / upload_dir / upload_batch / download_batch: the FileBackend per-item defaults.
 }
 
 #[cfg(test)]

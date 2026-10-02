@@ -37,6 +37,14 @@ pub struct RemoteFile {
     pub permissions: Option<u32>,
 }
 
+pub(crate) fn sort_listing(files: &mut [RemoteFile]) {
+    files.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+}
+
 #[derive(Serialize, Clone)]
 pub struct TransferProgress {
     pub transferred: u64,
@@ -286,4 +294,34 @@ where
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod listing_tests {
+    use super::{sort_listing, RemoteFile};
+
+    fn entry(name: &str, is_dir: bool) -> RemoteFile {
+        RemoteFile {
+            name: name.into(),
+            path: format!("/{name}"),
+            size: 0,
+            is_dir,
+            is_symlink: false,
+            modified: None,
+            permissions: None,
+        }
+    }
+
+    #[test]
+    fn folders_first_then_names_ignoring_case() {
+        let mut files = vec![
+            entry("b.txt", false),
+            entry("Zed", true),
+            entry("A.txt", false),
+            entry("alpha", true),
+        ];
+        sort_listing(&mut files);
+        let names: Vec<_> = files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, ["alpha", "Zed", "A.txt", "b.txt"]);
+    }
 }

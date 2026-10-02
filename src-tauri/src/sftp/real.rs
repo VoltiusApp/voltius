@@ -5,7 +5,7 @@
 use crate::commands::sftp::dir::{sftp_download_dir_inner, sftp_upload_dir_inner};
 use crate::commands::sftp::editor::read_capped;
 use crate::commands::sftp::transfer::{sftp_download_inner, sftp_upload_inner};
-use crate::commands::sftp::{RemoteFile, SftpFile};
+use crate::commands::sftp::{sort_listing, RemoteFile, SftpFile};
 use crate::error::AppError;
 use crate::sftp::backend::FileBackend;
 use crate::ssh::client::SshClient;
@@ -156,11 +156,7 @@ impl FileBackend for RealSftp {
                 }
             })
             .collect();
-        files.sort_by(|a, b| {
-            b.is_dir
-                .cmp(&a.is_dir)
-                .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-        });
+        sort_listing(&mut files);
         Ok(files)
     }
 
