@@ -32,6 +32,8 @@ export interface TeamMember {
   is_online?: boolean;
   /** An older server (no migration 035) omits this. Never render a bare "@" when absent. */
   handle?: string;
+  /** Undefined on an older server; null when no admin has named this member. */
+  member_name?: string | null;
 }
 
 export interface TeamRole {
@@ -151,12 +153,13 @@ export async function addMemberById(
   teamId: string,
   userId: string,
   role?: string,
+  name?: string,
 ): Promise<{ status: "pending" | "already_member" }> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`, {
     method: "POST",
-    body: JSON.stringify({ user_id: userId, role }),
+    body: JSON.stringify({ user_id: userId, role, name }),
   });
   if (!res.ok) {
     if (res.status === 404) throw new Error(i18n.t("common.error.userNotFound"));
@@ -236,6 +239,20 @@ export async function setMemberPermissions(
     refuseIfPlanRequired(res);
     if (res.status === 403) throw new Error(i18n.t("common.error.insufficientPermissionSetMemberPermissions"));
     throw new Error(i18n.t("common.error.failedToSetMemberPermissions", { status: res.status }));
+  }
+}
+
+export async function setMemberName(teamId: string, userId: string, name: string | null): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}/name`, {
+    method: "PUT",
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    if (res.status === 403) throw new Error(i18n.t("common.error.insufficientPermissionNameMembers"));
+    if (res.status === 422) throw new Error(i18n.t("common.error.invalidMemberName"));
+    throw new Error(i18n.t("common.error.failedToNameMember", { status: res.status }));
   }
 }
 
@@ -437,6 +454,7 @@ export interface PendingInvitation {
   role: string;
   /** The field name is the alias, the value is not: this holds the inviter's handle. */
   invited_by_display_name: string | null;
+  member_name?: string | null;
   created_at: string;
   expires_at: string;
   /**
@@ -451,12 +469,13 @@ export async function inviteByEmail(
   teamId: string,
   email: string,
   role?: string,
+  name?: string,
 ): Promise<{ status: "added" | "invited" }> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/invite`, {
     method: "POST",
-    body: JSON.stringify({ email, role }),
+    body: JSON.stringify({ email, role, name }),
   });
   if (!res.ok) {
     if (res.status === 402) throw Object.assign(new Error(i18n.t("common.error.seatLimitReached")), { code: 402 });

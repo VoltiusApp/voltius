@@ -23,7 +23,8 @@ interface TeamStore {
   createTeam: (name: string) => Promise<CreatedTeam>;
   loadMembers: (teamId: string) => Promise<void>;
   addMember: (teamId: string, email: string, role?: string) => Promise<void>;
-  addMemberById: (teamId: string, userId: string, role?: string) => Promise<{ status: "pending" | "already_member" }>;
+  addMemberById: (teamId: string, userId: string, role?: string, name?: string) => Promise<{ status: "pending" | "already_member" }>;
+  setMemberName: (teamId: string, userId: string, name: string | null) => Promise<void>;
   removeMember: (teamId: string, userId: string) => Promise<void>;
   setActiveTeam: (teamId: string | null) => void;
   getActiveMembers: () => TeamMember[];
@@ -151,8 +152,8 @@ export const useTeamStore = create<TeamStore>()(
     await get().loadMembers(teamId);
   },
 
-  addMemberById: async (teamId, userId, role) => {
-    const result = await api.addMemberById(teamId, userId, role);
+  addMemberById: async (teamId, userId, role, name) => {
+    const result = await api.addMemberById(teamId, userId, role, name);
     // Pending invites don't appear in the members list yet; reload to pick up any state changes
     await get().loadMembers(teamId);
     return result;
@@ -274,6 +275,11 @@ export const useTeamStore = create<TeamStore>()(
         ),
       },
     }));
+  },
+
+  setMemberName: async (teamId, userId, name) => {
+    await api.setMemberName(teamId, userId, name);
+    await get().loadMembers(teamId);
   },
 
   setMemberPermissions: async (teamId, userId, allow, deny) => {

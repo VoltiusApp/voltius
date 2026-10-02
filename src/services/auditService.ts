@@ -11,6 +11,7 @@ export interface AuditLog {
   vault_id: string | null;
   actor_id: string;
   actor_name: string;
+  actor_member_name?: string | null;
   action: string;
   source: "server" | "client";
   target_type: string | null;
