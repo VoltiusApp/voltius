@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<multistatus xmlns="DAV:">
+<response><href>/files/</href><propstat><prop><resourcetype><collection/></resourcetype></prop><status>HTTP/1.1 200 OK</status></propstat></response>
+<response><href>/files/a&amp;b.txt</href><propstat><prop><resourcetype/><getcontentlength>7</getcontentlength></prop><status>HTTP/1.1 200 OK</status></propstat></response>
+</multistatus>

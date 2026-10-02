@@ -17,6 +17,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 url = "2"
+quick-xml = "0.39"
+httpdate = "1"
 percent-encoding = "2"
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-shell = "2"

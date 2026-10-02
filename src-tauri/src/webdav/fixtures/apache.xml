@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:" xmlns:ns0="DAV:">
+<D:response xmlns:lp1="DAV:">
+<D:href>http://nas.local/dav/</D:href>
+<D:propstat><D:prop><lp1:resourcetype><D:collection/></lp1:resourcetype></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+</D:response>
+<D:response xmlns:lp1="DAV:">
+<D:href>http://nas.local/dav/r%C3%A9sum%C3%A9.pdf</D:href>
+<D:propstat><D:prop><lp1:resourcetype/><lp1:getcontentlength>42</lp1:getcontentlength><lp1:getlastmodified>Sat, 03 Oct 2026 12:00:00 GMT</lp1:getlastmodified></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+</D:response>
+</D:multistatus>
