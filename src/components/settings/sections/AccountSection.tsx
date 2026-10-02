@@ -294,7 +294,7 @@ export default function AccountSection() {
                     <p className="text-xs mt-0.5 text-(--t-text-muted)">{t("settings.account.handle.generatedNote")}</p>
                   </>
                 )}
-                {!emailVerified && (
+                {!emailVerified && !handleManaged && (
                   <p className="text-xs mt-1.5 text-(--t-status-error)">{t("settings.account.handle.unverified")}</p>
                 )}
               </div>
