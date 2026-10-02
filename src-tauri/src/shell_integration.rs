@@ -169,14 +169,14 @@ function global:prompt {\n\
 
 /// POSIX wrapper that detects $SHELL at runtime, writes a per-session rcfile
 /// under /tmp, and execs into a hooked interactive shell. NOT invoked
-/// directly — `ssh_exec_command` wraps it in a base64 bootstrap so it's
+/// directly — `ssh_exec_command` wraps it in a printf bootstrap so it's
 /// safe to send regardless of the remote login shell's syntax (fish/csh
 /// would otherwise choke on POSIX case/heredoc).
 ///
 /// The `<&2` on every exec is load-bearing: when run via
-/// `echo b64 | base64 -d | sh`, the inner sh's stdin is the pipe from
-/// base64. After exec, the new shell would inherit that already-closed pipe
-/// and immediately exit on EOF (printing "exit" and looping reconnect).
+/// `printf '…' | sh`, the inner sh's stdin is the pipe from printf. After
+/// exec, the new shell would inherit that already-closed pipe and
+/// immediately exit on EOF (printing "exit" and looping reconnect).
 /// Duplicating stderr — which still holds the pty file description sshd
 /// created — restores the real PTY.
 ///
@@ -236,8 +236,15 @@ EOF
   # sh via an $ENV file keeps integration working; without this branch the
   # `exec bash` above would fail with 127, the sh would exit, and the session
   # would loop disconnect/reconnect.
-  ENVF=$(mktemp 2>/dev/null) || exec sh -i <&2
+  ENVF=$(mktemp 2>/dev/null) || exec sh -l -i <&2
   cat > "$ENVF" <<'EOF'
+# A login shell would read $ENV only after /etc/profile, which may repoint it
+# (OpenWrt: /etc/shinit), so run that chain here.
+__voltius_env=$ENV
+[ -r /etc/profile ] && . /etc/profile
+[ -r "$HOME/.profile" ] && . "$HOME/.profile"
+[ "${ENV-}" != "$__voltius_env" ] && [ -r "${ENV-}" ] && . "$ENV"
+unset __voltius_env
 __voltius_pwd() { printf '\033]7;file://%s%s\007' "${HOSTNAME:-}" "$PWD"; }
 PS1='$(__voltius_pwd)'"${PS1:-$ }"
 EOF
@@ -253,8 +260,8 @@ esac
 pub const MOTD_PREAMBLE: &str = "[ ! -e $HOME/.hushlogin ] && { [ -r /run/motd.dynamic ] && cat /run/motd.dynamic; [ -r /etc/motd ] && cat /etc/motd; }";
 
 /// Build the SSH exec payload. The remote login shell (whatever it may be:
-/// bash, zsh, fish, csh, dash) only needs to parse `echo ... | base64 -d |
-/// sh` — a syntax common to every Unix shell. The decoded POSIX wrapper then
+/// bash, zsh, fish, csh, dash) only needs to parse `printf '...' | sh` — a
+/// syntax common to every Unix shell. The decoded POSIX wrapper then
 /// runs under /bin/sh and execs into the user's actual shell with OSC 7
 /// emission hooked.
 ///
@@ -333,7 +340,7 @@ pub fn tmux_session_key(session_id: &str) -> String {
 
 /// Wrap `inner` (the existing exec bootstrap) in tmux, else screen, else a
 /// plain shell. `inner` must contain no double quotes: it is embedded in the
-/// double-quoted multiplexer command. The outer sh's stdin is the base64
+/// double-quoted multiplexer command. The outer sh's stdin is the printf
 /// pipe, so the pty is re-attached with `<&2`: stderr still holds the
 /// original pty file description sshd created. Re-opening the device by path
 /// (`</dev/tty` or the pts path) breaks modern tmux — 3.4+ rejects
@@ -717,10 +724,22 @@ pub fn wsl_exec_command() -> String {
 }
 
 fn encode_wrapper(script: &str) -> String {
-    use base64::engine::general_purpose;
-    use base64::Engine;
-    let encoded = general_purpose::STANDARD.encode(script);
-    format!("echo {encoded} | base64 -d | sh")
+    format!("printf '{}' | sh", printf_escape(script))
+}
+
+/// `script` as a printf format any login shell passes through unchanged, inside
+/// single or double quotes. busybox builds such as OpenWrt's ship no `base64`.
+fn printf_escape(script: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::with_capacity(script.len() * 5 / 4);
+    for c in script.chars() {
+        if !c.is_ascii() || c.is_ascii_alphanumeric() || " -_.,:;/=+(){}[]<>|&*?#@^~".contains(c) {
+            out.push(c);
+        } else {
+            let _ = write!(out, "\\{:03o}", c as u32);
+        }
+    }
+    out
 }
 
 /// Container wrapper (docker exec / pct exec). Like SSH_WRAPPER, but:
@@ -728,7 +747,7 @@ fn encode_wrapper(script: &str) -> String {
 ///     fallback is a POSIX `sh` whose `$ENV` startup file hooks OSC 7 into PS1
 ///     via command substitution (`$(__voltius_pwd)` re-runs every prompt and
 ///     emits the sequence — portable across dash and busybox ash).
-///   - No `</dev/tty` is needed: it's run via `eval "$(… | base64 -d)"`, so the
+///   - No `</dev/tty` is needed: it's run via `eval "$(printf …)"`, so the
 ///     wrapping shell keeps the container TTY on stdin and `exec sh -i`
 ///     inherits it directly (no pipe to escape from).
 const CONTAINER_WRAPPER: &str = r#"if command -v bash >/dev/null 2>&1; then
@@ -755,17 +774,12 @@ fi
 "#;
 
 /// Build the argument for `sh -c '<…>'` inside a container (the caller prefixes
-/// `docker exec -it <cid>` or `pct exec <vmid> --`). Base64-decodes the wrapper
-/// and `eval`s it (keeping the container TTY on stdin); if `base64` is missing,
-/// falls back to a plain interactive shell so the session still opens.
+/// `docker exec -it <cid>` or `pct exec <vmid> --`). `eval`s the wrapper so the
+/// container TTY stays on stdin. Single-quote-free, so the caller can wrap it.
 pub fn container_exec_payload() -> String {
-    use base64::engine::general_purpose;
-    use base64::Engine;
-    let encoded = general_purpose::STANDARD.encode(CONTAINER_WRAPPER);
-    // Single-quote-free (only double quotes + base64 alphabet) so the caller can
-    // safely wrap the whole thing in single quotes for the host shell.
     format!(
-        "if command -v base64 >/dev/null 2>&1; then eval \"$(printf %s \"{encoded}\" | base64 -d)\"; else exec sh -i; fi"
+        "eval \"$(printf \"{}\")\"",
+        printf_escape(CONTAINER_WRAPPER)
     )
 }
 
@@ -812,15 +826,27 @@ esac
 #[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
-    use base64::engine::general_purpose;
-    use base64::Engine;
+
+    fn bootstrap_format(cmd: &str) -> &str {
+        cmd.strip_prefix("printf '")
+            .and_then(|s| s.strip_suffix("' | sh"))
+            .expect("bootstrap shape")
+    }
 
     fn decode_bootstrap(cmd: &str) -> String {
-        let b64 = cmd
-            .strip_prefix("echo ")
-            .and_then(|s| s.split(" |").next())
-            .expect("bootstrap shape");
-        String::from_utf8(general_purpose::STANDARD.decode(b64).unwrap()).unwrap()
+        unescape_printf(bootstrap_format(cmd))
+    }
+
+    fn unescape_printf(escaped: &str) -> String {
+        let mut out = String::new();
+        let mut rest = escaped;
+        while let Some(i) = rest.find('\\') {
+            out.push_str(&rest[..i]);
+            out.push(u8::from_str_radix(&rest[i + 1..i + 4], 8).unwrap() as char);
+            rest = &rest[i + 4..];
+        }
+        out.push_str(rest);
+        out
     }
 
     #[test]
@@ -900,6 +926,59 @@ mod tests {
         // Inside the decoded /bin/sh wrapper, and before it execs the login shell.
         assert!(cd < decoded.find(SSH_WRAPPER).unwrap());
         assert!(!decode_bootstrap(&ssh_exec_command("")).contains("cd '"));
+    }
+
+    fn bootstrap_payloads() -> Vec<String> {
+        let key = tmux_session_key("s1");
+        vec![
+            ssh_exec_command("cd '/srv/app' 2>/dev/null; "),
+            persistent_exec_command(&key, &ssh_exec_command("")),
+            persistent_attach_command(&key),
+            persistent_legacy_setup_command(&key, Some(&test_colors())),
+            cwd_probe_command(&key),
+            force_kill_command("s1"),
+            wsl_exec_command(),
+        ]
+    }
+
+    #[test]
+    fn bootstrap_escapes_survive_any_login_shell_quoting() {
+        let mut escaped: Vec<String> = bootstrap_payloads()
+            .iter()
+            .map(|cmd| bootstrap_format(cmd).to_string())
+            .collect();
+        escaped.push(printf_escape(CONTAINER_WRAPPER));
+        for e in escaped {
+            for bad in ['\'', '"', '$', '`', '!', '%', '\n', '\t'] {
+                assert!(!e.contains(bad), "{bad:?} must be octal-escaped");
+            }
+            for (i, _) in e.match_indices('\\') {
+                assert!(
+                    e.as_bytes()[i + 1..i + 4]
+                        .iter()
+                        .all(|b| (b'0'..=b'7').contains(b)),
+                    "backslash must open a three-digit octal escape"
+                );
+            }
+        }
+        assert!(!container_exec_payload().contains('\''));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bootstrap_decodes_with_plain_sh_printf() {
+        for cmd in bootstrap_payloads() {
+            let printf = cmd.strip_suffix(" | sh").unwrap();
+            let out = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(printf)
+                .output()
+                .expect("sh runs");
+            assert_eq!(
+                String::from_utf8(out.stdout).unwrap(),
+                decode_bootstrap(&cmd)
+            );
+        }
     }
 
     #[test]
