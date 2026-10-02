@@ -6,6 +6,7 @@ import type { TeamMember, TeamRole } from "@/services/teamService";
 // and i18n in at runtime, which every consumer of this leaf module would then
 // have to mock.
 import { PERM_BITS, PERM_META, type Permission, type RuleSubject } from "@/services/permissions";
+import { memberLabel } from "@/services/memberLabel";
 
 export const ROLE_META: Record<string, { color: string; bg: string }> = {
   owner:          { color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
@@ -27,7 +28,7 @@ export function roleLabel(t: TFunction, name: string): string {
 export function ruleSubjectLabel(t: TFunction, s: RuleSubject, roles: TeamRole[], members: TeamMember[]): string {
   if (s.type === "everyone") return t("shared.permissions.everyone");
   if (s.type === "role") return roleLabel(t, roles.find((r) => r.id === s.id)?.name ?? "?");
-  return `@${members.find((m) => m.user_id === s.id)?.handle ?? "?"}`;
+  return memberLabel(members.find((m) => m.user_id === s.id));
 }
 
 /**

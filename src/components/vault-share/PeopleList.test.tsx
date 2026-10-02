@@ -10,7 +10,7 @@ vi.mock("@/components/shared/PresenceAvatar", () => ({
 import { PeopleList, type Person } from "./PeopleList";
 
 const person = (over: Partial<Person>): Person => ({
-  userId: "u1", handle: "bob-builder", roleNames: ["member"], online: false, state: "member", ...over,
+  userId: "u1", label: "bob-builder", roleNames: ["member"], online: false, state: "member", ...over,
 });
 
 afterEach(cleanup);

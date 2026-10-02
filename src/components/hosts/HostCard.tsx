@@ -33,6 +33,7 @@ import {
   useEffectivePinSource,
   nextPersonalPinValue,
 } from "@/hooks/useEffectivePinned";
+import { memberLabel } from "@/services/memberLabel";
 
 const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
 
@@ -90,7 +91,7 @@ export default function HostCard({
     if (!isTeamVault || pinSource === "none" || pinSource === "personal") return undefined;
     const updatedBy = (connection as { updated_by?: string }).updated_by;
     const member = updatedBy ? teamMembers.find((m) => m.user_id === updatedBy) : undefined;
-    return member?.handle ?? t("hosts.card.teamMemberFallback");
+    return member ? memberLabel(member) : t("hosts.card.teamMemberFallback");
   })();
   const handlePinClick = () => {
     if (!isTeamVault) {
@@ -130,12 +131,12 @@ export default function HostCard({
   const presence = useConnectionPresence(connection);
   const presenceTitle = presence
     ? presence.overflow > 0
-      ? t("hosts.card.inUseByOverflow", { name: presence.primary.handle, count: presence.overflow })
-      : t("hosts.card.inUseBy", { name: presence.primary.handle })
+      ? t("hosts.card.inUseByOverflow", { name: presence.primary.name, count: presence.overflow })
+      : t("hosts.card.inUseBy", { name: presence.primary.name })
     : "";
   const presenceAvatar = presence && (
     <span className="flex items-center" title={presenceTitle}>
-      <MiniAvatar name={presence.primary.handle} size={18} />
+      <MiniAvatar name={presence.primary.avatar} size={18} />
       {presence.overflow > 0 && (
         <span className="ml-1 text-[10px] font-semibold px-1 rounded-full bg-(--t-bg-elevated) text-(--t-text-dim)">
           +{presence.overflow}

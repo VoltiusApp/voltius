@@ -24,7 +24,7 @@ vi.mock("./PeopleList", () => ({
     onGrantKey,
     onCopyInviteLink,
   }: {
-    people: { userId: string; handle: string; invitationId?: string; state: string }[];
+    people: { userId: string; label: string; invitationId?: string; state: string }[];
     onRemove: (p: unknown) => void;
     onRevoke: (p: unknown) => void;
     onGrantKey: (p: unknown) => void;
@@ -130,13 +130,13 @@ test("Remove and Grant now run the real calls, not a no-op", () => {
   render(<VaultShareSheet vaultId="v1" variant="full" />);
 
   fireEvent.click(screen.getByText("remove:u1"));
-  expect(h.removeTeamMember).toHaveBeenCalledWith({ teamId: "t1", userId: "u1", handle: "bob" });
+  expect(h.removeTeamMember).toHaveBeenCalledWith({ teamId: "t1", userId: "u1", label: "@bob" });
 
   fireEvent.click(screen.getByText("grant:u1"));
   expect(h.grantVaultKeyToMember).toHaveBeenCalledWith({
     teamId: "t1",
     userId: "u1",
-    handle: "bob",
+    label: "@bob",
     publicKey: "pk-bob",
   });
 });

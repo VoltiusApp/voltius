@@ -43,6 +43,7 @@ vi.mock("@/stores/sessionStore", () => ({
 }));
 
 import { MultiplayerBar } from "./MultiplayerBar";
+import { useTeamStore } from "@/stores/teamStore";
 
 const LOCAL_ID = "local1";
 
@@ -76,7 +77,10 @@ beforeEach(() => {
   h.leave.mockReset();
   h.removeSession.mockReset();
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  useTeamStore.setState({ membersByTeam: {} });
+});
 
 test("no connection entry -> renders nothing", () => {
   state.connections = {};
@@ -201,4 +205,14 @@ test("a guest with no pending request still sees the request button", () => {
   state.connections = { [LOCAL_ID]: mk({ role: "guest", myUserId: "g1", controlHolder: "h1", controlRequester: null }) };
   render(<MultiplayerBar localSessionId={LOCAL_ID} />);
   expect(screen.getByText("terminal.multiplayerBar.requestControl")).toBeTruthy();
+});
+
+test("control holder's avatar tooltip carries the member name and the has-control text", () => {
+  useTeamStore.setState({
+    membersByTeam: { t1: [{ team_id: "t1", user_id: "u2", handle: "swift-otter-1", member_name: "Jan Novák", role_ids: [] } as never] },
+  });
+  state.connections[LOCAL_ID] = mk({ controlHolder: "u2", participants: [{ user_id: "u2", handle: "swift-otter-1" }] });
+  const { container } = render(<MultiplayerBar localSessionId={LOCAL_ID} />);
+  const tip = container.querySelector('[title*="Jan Novák"]')?.getAttribute("title");
+  expect(tip).toBe("Jan Novák · shared.presence.hasControl");
 });

@@ -94,6 +94,7 @@ const baseProps = {
   teamRoles,
   canManageMembers: true,
   isTargetOwner: false,
+  canNameMembers: false,
   onClose: vi.fn(),
   onUpdated: vi.fn(),
 };
@@ -259,6 +260,7 @@ function permProps(overrides: Partial<{
     teamId: "t1",
     teamRoles: [viewerRole, targetRole],
     canManageMembers: true,
+    canNameMembers: false,
     isTargetOwner: false,
     viewer: viewerMember,
     onClose: vi.fn(),
@@ -653,4 +655,12 @@ test("locked member without overrides: one line, no Clear, no permission rows", 
   expect(screen.queryByText("shared.businessLock.removeOverrides")).toBeNull();
   expect(screen.queryByText("members.permissions.filterPlaceholder")).toBeNull();
   expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
+});
+
+test("Invited by shows the inviter's member name from the roster", () => {
+  const inviter: TeamMember = { ...baseMember, user_id: "u9", handle: "quiet-otter-1", member_name: "Jan" };
+  mockStore.membersByTeam = { t1: [inviter] };
+  render(<MemberDetailPanel {...baseProps} member={{ ...baseMember, invited_by_display_name: "quiet-otter-1" }} />);
+  expect(screen.getByText("Jan")).toBeTruthy();
+  expect(screen.queryByText("quiet-otter-1")).toBeNull();
 });

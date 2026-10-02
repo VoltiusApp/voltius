@@ -17,6 +17,7 @@ import { useRecentPeopleStore } from "@/stores/recentPeopleStore";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 import { ContextMenu } from "@/components/shared/ContextMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { usePeerResolver } from "@/services/peerName";
 
 interface PeopleTabProps {
   session: InviteSession;
@@ -111,6 +112,7 @@ function PersonRow({
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const { target, isStranger, isOnline, onContextMenu } = entry;
+  const peer = usePeerResolver();
   const actionable = !hasAccess && !inFlight && !invited && !capBlocked;
   const presenceLabel =
     isOnline === undefined ? "" : t(isOnline ? "terminal.share.presenceOnline" : "terminal.share.presenceOffline");
@@ -132,7 +134,7 @@ function PersonRow({
           <StatusDot tone={isOnline ? "connected" : "idle"} size="sm" label={presenceLabel} />
         )}
         <span className="flex-1 min-w-0 text-left">
-          <span className="text-xs truncate block">{target.handle ? `@${target.handle}` : "?"}</span>
+          <span className="text-xs truncate block">{peer(target.user_id, { fallbackHandle: target.handle }).primary}</span>
         </span>
         {isStranger && (
           <span
@@ -192,6 +194,7 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
   const { t } = useTranslation();
   const teams = useTeamStore((s) => s.teams);
   const recent = useRecentPeopleStore((s) => s.recent);
+  const peerOf = usePeerResolver();
   const forget = useRecentPeopleStore((s) => s.forget);
   const search = useUserSearch();
 
@@ -235,7 +238,7 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
         last_invited_at: new Date().toISOString(),
       });
     } catch {
-      setError(t("terminal.share.inviteFailed", { name: target.handle }));
+      setError(t("terminal.share.inviteFailed", { name: peerOf(target.user_id, { fallbackHandle: target.handle }).primary }));
     } finally {
       setInFlight(target.user_id, false);
     }
@@ -256,7 +259,13 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
     }
   };
 
-  const groups = groupPeople({ query: search.query, teammates, recent, results: search.results });
+  const groups = groupPeople({
+    query: search.query,
+    teammates,
+    recent,
+    results: search.results,
+    nameOf: (id) => peerOf(id).name,
+  });
 
   const recentEntries: RowEntry[] = groups.recent.map((p) => {
     // Recent wins the dedupe, so a teammate listed here is dropped from the

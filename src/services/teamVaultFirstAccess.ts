@@ -13,14 +13,13 @@ import type { MobileScreen, MobileTab } from "@/stores/mobileNavCore";
 import { PERM_BITS } from "@/services/permissions";
 
 /**
- * Handle of the member who owns the team, or null when the roster has not
- * loaded yet or the server predates handles (migration 035). Callers fall back
- * to the generic copy — a blank name flashing into the sentence reads as a bug.
+ * Name (else handle) of the member who owns the team, or null when the roster has not
+ * loaded yet or the server predates handles. Callers fall back to the generic copy.
  */
-export function ownerHandle(team: Team | undefined, members: TeamMember[] | undefined): string | null {
+export function ownerLabel(team: Team | undefined, members: TeamMember[] | undefined): string | null {
   if (!team || !members) return null;
-  const handle = members.find((m) => m.user_id === team.owner_id)?.handle?.trim();
-  return handle ? handle : null;
+  const owner = members.find((m) => m.user_id === team.owner_id);
+  return owner?.member_name?.trim() || owner?.handle?.trim() || null;
 }
 
 /**

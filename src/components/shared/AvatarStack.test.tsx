@@ -29,6 +29,15 @@ describe("handleInitials", () => {
     expect(handleInitials(undefined)).toBe("?");
   });
 
+  test("handles names, @handles and non-ASCII letters", () => {
+    expect(handleInitials("amber-lynx-4410")).toBe("AL");
+    expect(handleInitials("@amber-lynx-4410")).toBe("AL");
+    expect(handleInitials("Jan Novák")).toBe("JN");
+    expect(handleInitials("Šárka Dvořáková")).toBe("ŠD");
+    expect(handleInitials("IT Desk")).toBe("ID");
+    expect(handleInitials("4410")).toBe("?");
+  });
+
   test("gives a different answer than a naive two-character slice", () => {
     // MultiplayerBar used to slice(0, 2), which yields "ME" for this handle —
     // the first two letters of one word rather than one from each word.

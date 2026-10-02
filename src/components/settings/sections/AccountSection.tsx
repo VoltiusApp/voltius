@@ -114,6 +114,7 @@ export default function AccountSection() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [handle, setHandle] = useState<string | null>(null);
   const [handleIsCustom, setHandleIsCustom] = useState(false);
+  const [handleManaged, setHandleManaged] = useState(false);
   // `null` until /auth/me answers — the claim control renders in neither state
   // until then, so a verified user never sees the "verify your email" row flash.
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
@@ -157,6 +158,7 @@ export default function AccountSection() {
       if (me.handle) setHandle(me.handle);
       setHandleIsCustom(!!me.handle_is_custom);
       setEmailVerified(!!me.email_verified);
+      setHandleManaged(!!me.handle_managed);
       if (typeof me.allow_stranger_invites === "boolean") setAllowStrangerInvites(me.allow_stranger_invites);
     }).catch(() => {});
     setStep("idle");
@@ -278,15 +280,21 @@ export default function AccountSection() {
                     control is what made the old tier gate unreadable. */}
                 <button
                   type="button"
-                  disabled={!emailVerified}
+                  disabled={!emailVerified || handleManaged}
                   onClick={() => handleField.start(handleIsCustom ? (handle ?? "") : "")}
                   className="text-xs px-2.5 py-1 rounded-md font-medium bg-(--t-accent) text-white hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
                 >
                   {handleIsCustom ? t("settings.account.handle.change") : t("settings.account.handle.choose")}
                 </button>
-                <p className="text-xs mt-1.5 text-(--t-text-dim)">{t("settings.account.handle.chooseSub")}</p>
-                <p className="text-xs mt-0.5 text-(--t-text-muted)">{t("settings.account.handle.generatedNote")}</p>
-                {!emailVerified && (
+                {handleManaged ? (
+                  <p className="text-xs mt-1.5 text-(--t-text-dim)">{t("settings.account.handle.managed")}</p>
+                ) : (
+                  <>
+                    <p className="text-xs mt-1.5 text-(--t-text-dim)">{t("settings.account.handle.chooseSub")}</p>
+                    <p className="text-xs mt-0.5 text-(--t-text-muted)">{t("settings.account.handle.generatedNote")}</p>
+                  </>
+                )}
+                {!emailVerified && !handleManaged && (
                   <p className="text-xs mt-1.5 text-(--t-status-error)">{t("settings.account.handle.unverified")}</p>
                 )}
               </div>

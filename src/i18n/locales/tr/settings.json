@@ -279,6 +279,7 @@
         "chooseSub": "Özel bir kullanıcı adı, ekipleriniz dışındaki kişilerin sizi bulabilmesini sağlar.",
         "generatedNote": "Mevcut kullanıcı adınız, onu verdiğiniz herkes için zaten geçerlidir.",
         "unverified": "Özel bir kullanıcı adı seçmek için e-postanızı doğrulayın.",
+        "managed": "Kuruluşunuz tarafından yönetiliyor. Değiştirmek için yöneticinize başvurun.",
         "placeholder": "kullanici-adiniz",
         "inputLabel": "Kullanıcı adı",
         "save": "Kaydet",

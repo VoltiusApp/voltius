@@ -97,6 +97,7 @@ const baseProps = {
   teamId: "t1",
   existingIds: new Set<string>(),
   teamRoles,
+  canNameMembers: false,
   onClose: vi.fn(),
   onMemberAdded: vi.fn(),
 };

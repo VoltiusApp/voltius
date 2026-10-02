@@ -99,7 +99,14 @@
       "loadFailed": "Couldn't load everyone — try again",
       "tabLinks": "Links"
     },
+    "detail": {
+      "nameLabel": "Name in this team",
+      "nameHint": "Leave empty to show their handle."
+    },
     "invite": {
+      "nameLabel": "Name in this team",
+      "namePlaceholder": "e.g. Jan Novák",
+      "nameHint": "Teammates see this instead of their handle. Only admins can change it.",
       "title": "Invite member",
       "seatsLabel": "Seats",
       "seatsSummary": "{{used}} used · {{available}} available · {{total}} total",

@@ -2,13 +2,11 @@ import { useMemo } from "react";
 import type { Connection } from "@/types";
 import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
 import { useTeamStore } from "@/stores/teamStore";
-import i18n from "@/i18n";
+import { avatarLabel, resolvePeerName } from "@/services/peerName";
 
 export interface ConnectionPresence {
-  primary: { id: string; handle: string };
+  primary: { id: string; name: string; avatar: string };
   overflow: number;
-  /** All non-self handles in usage order (primary first). Useful for tooltips. */
-  allHandles: string[];
 }
 
 /**
@@ -32,19 +30,13 @@ export function useConnectionPresence(connection: Connection): ConnectionPresenc
     const others = myUserId ? userIds.filter((id) => id !== myUserId) : userIds.slice();
     if (others.length === 0) return null;
 
-    // Build a flat lookup across all loaded teams (a user appears once per team).
-    const handleById = new Map<string, string>();
-    for (const members of Object.values(membersByTeam)) {
-      for (const m of members) {
-        if (m.handle && !handleById.has(m.user_id)) handleById.set(m.user_id, m.handle);
-      }
-    }
-
-    const resolved = others.map((id) => ({ id, handle: handleById.get(id) ?? i18n.t("common.memberFallback") }));
+    const resolved = others.map((id) => {
+      const peer = resolvePeerName(membersByTeam, id, { teamId: vaultId });
+      return { id, name: peer.primary, avatar: avatarLabel(peer) };
+    });
     return {
       primary: resolved[0],
       overflow: resolved.length - 1,
-      allHandles: resolved.map((r) => r.handle),
     };
   }, [vaultId, connection.id, userIds, myUserId, membersByTeam]);
 }

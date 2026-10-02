@@ -13,11 +13,12 @@ interface Props {
   teamId: string;
   pendingUser: { user_id: string; handle: string } | null;
   pendingRole: string;
+  pendingName?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClose, onSuccess }: Props) {
+export default function BuySeatsModal({ teamId, pendingUser, pendingRole, pendingName, onClose, onSuccess }: Props) {
   const { t } = useTranslation();
   const { usedSeats, totalSeats } = useSubscriptionStore();
   const addMemberById = useTeamStore((s) => s.addMemberById);
@@ -51,7 +52,7 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
 
       // Add the pending user if there is one
       if (pendingUser) {
-        await addMemberById(teamId, pendingUser.user_id, pendingRole);
+        await addMemberById(teamId, pendingUser.user_id, pendingRole, pendingName);
       }
 
       onSuccess();

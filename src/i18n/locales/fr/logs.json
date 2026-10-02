@@ -83,6 +83,8 @@
       "memberInvited": "a invité {{name}}",
       "memberJoined": "a rejoint l'équipe en tant que {{role}}",
       "memberRemoved": "a retiré {{name}}",
+      "memberRenamed": "a nommé {{name}} « {{to}} »",
+      "memberNameRemoved": "a retiré le nom de {{name}}",
       "memberRoleChanged": "a changé le rôle de {{name}}",
       "memberPermissionsChanged": "a changé les permissions de {{name}}",
       "vaultCreated": "a créé le coffre « {{name}} »",

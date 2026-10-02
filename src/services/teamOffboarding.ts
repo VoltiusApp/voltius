@@ -4,6 +4,7 @@ import type { TeamMember } from "@/services/teamService";
 import { useHistoryStore } from "@/stores/historyStore";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { userFacingReason } from "@/services/errorReason";
+import { memberLabel } from "@/services/memberLabel";
 
 export type DepartMode = "remove" | "leave";
 
@@ -86,7 +87,7 @@ export async function departMembers(
 
   const snapshots = members.map((m) => ({ user_id: m.user_id, role_ids: [...m.role_ids] }));
   const count = members.length;
-  const names = members.map((m) => m.handle ?? "").join(", ");
+  const names = members.map((m) => memberLabel(m, "")).join(", ");
   const store = () => useTeamStore.getState();
 
   if (opts.mode === "leave") markSelfDeparture(teamId, "leave");

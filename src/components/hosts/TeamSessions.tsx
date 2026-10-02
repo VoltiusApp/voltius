@@ -14,6 +14,7 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { isJoinInput, resolveJoinInput } from "@/services/resolveJoinInput";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { sessionDisplayName } from "@/services/teamSharing";
+import { avatarLabel, usePeerResolver } from "@/services/peerName";
 
 function JoinByCodeButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
@@ -33,6 +34,7 @@ function JoinByCodeButton({ onClick }: { onClick: () => void }) {
 
 export function TeamSessions() {
   const { t } = useTranslation();
+  const peer = usePeerResolver();
   const { activeSessions: rawSessions, fetchActiveSessions } = useTeamSessionStore();
   const setActive = useSessionStore((s) => s.setActive);
   const homeView = useUIStore((s) => s.homeView);
@@ -235,7 +237,7 @@ export function TeamSessions() {
             ? useMpStore.getState().connections[liveLocalId]?.participants
             : undefined;
           const participants = (liveParticipants ?? session.participants)?.map((p) => ({
-            name: p.handle,
+            name: avatarLabel(peer(p.user_id, { fallbackHandle: p.handle })),
           }));
 
           return (

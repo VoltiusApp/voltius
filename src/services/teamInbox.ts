@@ -14,6 +14,7 @@ import { declineSessionInvite, getMyUserId } from "@/services/teamService";
 import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
 import { sessionDisplayName } from "@/services/teamSharing";
+import { resolvePeerName } from "@/services/peerName";
 
 const APP_SOURCE = { kind: "app", area: "team" } as const;
 
@@ -167,8 +168,8 @@ export function reconcileSessions(
           ? `@${s.invited_by_handle}`
           : i18n.t("notifications.inbox.someone")
         : invited
-          ? (s.participants?.find((p) => p.user_id === s.invited_by)?.handle ??
-              i18n.t("notifications.inbox.someone"))
+          ? peerLabel(s.invited_by as string, s.participants?.find((p) => p.user_id === s.invited_by)?.handle) ??
+              i18n.t("notifications.inbox.someone")
           : "";
       const kind: InboxKind = knock ? "sessionKnock" : invited ? "sessionInvite" : "sessionShared";
       const name = sessionDisplayName(s);
@@ -224,6 +225,11 @@ export function reconcileSessions(
   reconcile(["sessionShared", "sessionInvite", "sessionKnock"], entries);
 }
 
+function peerLabel(userId: string, fallbackHandle: string | undefined): string | null {
+  const peer = resolvePeerName(useTeamStore.getState().membersByTeam, userId, { fallbackHandle });
+  return peer.name ?? (peer.handle ? `@${peer.handle}` : null);
+}
+
 export function reconcileControlRequests(connections: Record<string, MultiplayerSessionState>): void {
   const derived = Object.entries(connections)
     .filter(
@@ -233,7 +239,7 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
       const requesterId = c.controlRequester as string;
       const id = `control:${localSessionId}:${requesterId}`;
       const requester =
-        c.participants.find((p) => p.user_id === requesterId)?.handle ??
+        peerLabel(requesterId, c.participants.find((p) => p.user_id === requesterId)?.handle) ??
         i18n.t("notifications.inbox.someone");
       return {
         id,

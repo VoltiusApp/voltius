@@ -25,8 +25,9 @@ export async function inviteUserById(args: {
   handle: string;
   roleName: string;
   roleId?: string;
+  memberName?: string;
 }): Promise<{ status: "pending" | "already_member" }> {
-  const { teamId, userId, handle, roleName, roleId } = args;
+  const { teamId, userId, handle, roleName, roleId, memberName } = args;
   const { addMemberById, assignMemberRole } = useTeamStore.getState();
 
   const result = await runTeamAction({
@@ -36,7 +37,7 @@ export async function inviteUserById(args: {
         ? i18n.t("members.toast.invitationSentToUser", { name: handle })
         : i18n.t("members.toast.userAdded", { name: handle }),
     error: (e: Error) => i18n.t("members.error.inviteFailed", { name: handle, reason: inviteFailureReason(e) }),
-    run: () => addMemberById(teamId, userId, roleName),
+    run: () => addMemberById(teamId, userId, roleName, memberName),
   });
 
   if (result.status === "already_member" && roleId) {
@@ -63,8 +64,9 @@ export async function inviteUserWithRoles(args: {
   handle: string;
   roleIds: string[];
   roles: TeamRole[];
+  memberName?: string;
 }): Promise<{ status: "pending" | "already_member" }> {
-  const { teamId, userId, handle, roleIds, roles } = args;
+  const { teamId, userId, handle, roleIds, roles, memberName } = args;
   const chosen = roleIds.map((id) => roles.find((r) => r.id === id)).filter((r): r is TeamRole => !!r);
   const [first, ...rest] = chosen.length > 0 ? chosen : [leastPrivilegedRole(roles)].filter((r): r is TeamRole => !!r);
 
@@ -74,6 +76,7 @@ export async function inviteUserWithRoles(args: {
     handle,
     roleName: first?.name ?? "connect-only",
     roleId: first?.id,
+    memberName,
   });
 
   if (result.status === "already_member") {
@@ -91,26 +94,27 @@ export async function inviteByEmailAddress(args: {
   teamId: string;
   email: string;
   roleName: string;
+  memberName?: string;
 }): Promise<{ status: "added" | "invited" }> {
-  const { teamId, email, roleName } = args;
+  const { teamId, email, roleName, memberName } = args;
   return runTeamAction({
     pending: i18n.t("members.toast.invitingUser", { name: email }),
     success: i18n.t("members.toast.invitationSentToUser", { name: email }),
     error: (e: Error) => i18n.t("members.error.inviteFailed", { name: email, reason: inviteFailureReason(e) }),
-    run: () => inviteByEmail(teamId, email, roleName),
+    run: () => inviteByEmail(teamId, email, roleName, memberName),
   });
 }
 
 export async function removeTeamMember(args: {
   teamId: string;
   userId: string;
-  handle: string;
+  label: string;
 }): Promise<void> {
-  const { teamId, userId, handle } = args;
+  const { teamId, userId, label } = args;
   await runTeamAction({
-    pending: i18n.t("members.toast.removingMember", { name: handle }),
-    success: i18n.t("members.toast.memberRemoved", { name: handle }),
-    error: (e: Error) => i18n.t("members.error.removeFailed", { name: handle, reason: userFacingReason(e) }),
+    pending: i18n.t("members.toast.removingMember", { name: label }),
+    success: i18n.t("members.toast.memberRemoved", { name: label }),
+    error: (e: Error) => i18n.t("members.error.removeFailed", { name: label, reason: userFacingReason(e) }),
     run: () => useTeamStore.getState().removeMember(teamId, userId),
   });
 }
@@ -134,14 +138,14 @@ export async function revokeInvitation(args: {
 export async function grantVaultKeyToMember(args: {
   teamId: string;
   userId: string;
-  handle: string;
+  label: string;
   publicKey: string;
 }): Promise<void> {
-  const { teamId, userId, handle, publicKey } = args;
+  const { teamId, userId, label, publicKey } = args;
   await runTeamAction({
-    pending: i18n.t("members.toast.grantingKey", { name: handle }),
-    success: i18n.t("members.toast.keyGranted", { name: handle }),
-    error: (e: Error) => i18n.t("members.error.grantKeyFailed", { name: handle, reason: userFacingReason(e) }),
+    pending: i18n.t("members.toast.grantingKey", { name: label }),
+    success: i18n.t("members.toast.keyGranted", { name: label }),
+    error: (e: Error) => i18n.t("members.error.grantKeyFailed", { name: label, reason: userFacingReason(e) }),
     run: async () => {
       if (!publicKey) throw new Error(i18n.t("members.error.memberHasNoPublicKey"));
       const { getTeamVaultKey, distributeKeyToNewMember } = await import("@/services/teamVaultSync");

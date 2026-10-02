@@ -168,3 +168,30 @@ test("the stranger-invite toggle disables itself mid-flight so a second click ca
   resolveUpdate();
   await waitFor(() => expect(toggle.hasAttribute("disabled")).toBe(false));
 });
+
+test("managed handle: change button disabled with the reason", async () => {
+  h.getMe.mockResolvedValue({ handle: "jnovak", handle_is_custom: true, email_verified: true, handle_managed: true });
+  render(<AccountSection />);
+  const button = await screen.findByRole("button", { name: "settings.account.handle.change" });
+  expect((button as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText("settings.account.handle.managed")).toBeTruthy();
+  expect(screen.queryByText("settings.account.handle.chooseSub")).toBeNull();
+  expect(screen.queryByText("settings.account.handle.generatedNote")).toBeNull();
+});
+
+test("managed and unverified: no verify-to-choose hint", async () => {
+  h.getMe.mockResolvedValue({ handle: "jnovak", handle_is_custom: true, email_verified: false, handle_managed: true });
+  render(<AccountSection />);
+  const button = await screen.findByRole("button", { name: "settings.account.handle.change" });
+  expect((button as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText("settings.account.handle.managed")).toBeTruthy();
+  expect(screen.queryByText("settings.account.handle.unverified")).toBeNull();
+});
+
+test("unmanaged handle: button enabled, no managed note", async () => {
+  h.getMe.mockResolvedValue({ handle: "jnovak", handle_is_custom: true, email_verified: true, handle_managed: false });
+  render(<AccountSection />);
+  const button = await screen.findByRole("button", { name: "settings.account.handle.change" });
+  expect((button as HTMLButtonElement).disabled).toBe(false);
+  expect(screen.queryByText("settings.account.handle.managed")).toBeNull();
+});

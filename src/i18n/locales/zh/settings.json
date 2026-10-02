@@ -167,6 +167,7 @@
         "chooseSub": "自定义用户名让您团队以外的人也能搜索到您。",
         "generatedNote": "您当前的用户名已经可以让任何知道它的人找到您。",
         "unverified": "请先验证邮箱，才能选择自定义用户名。",
+        "managed": "由你的组织管理。如需更改，请联系管理员。",
         "placeholder": "your-handle",
         "inputLabel": "用户名",
         "save": "保存",

@@ -18,6 +18,7 @@ import { VaultAdminSurface } from "@/components/vault-admin/VaultAdminSurface";
 import type { VaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
 import { chevronRotateStyle } from "@/utils/icons";
 import { formatRelative } from "@/utils/localeFormat";
+import { memberAvatarLabel, memberLabel } from "@/services/memberLabel";
 
 // ─── Members stack ─────────────────────────────────────────────────────────
 
@@ -103,7 +104,7 @@ export function MembersStack({
           {visible.map((m, i) => (
             <div
               key={m.user_id}
-              title={m.handle}
+              title={memberLabel(m)}
               style={{
                 marginLeft: i === 0 ? 0 : -9,
                 zIndex: MAX_STACK - i,
@@ -116,7 +117,7 @@ export function MembersStack({
                 transition: "border-color 0.2s, opacity 0.2s",
               }}
             >
-              <MiniAvatar name={m.handle} size={24} />
+              <MiniAvatar name={memberAvatarLabel(m)} size={24} />
             </div>
           ))}
           <AvatarOverflow count={overflow} size={24} ringColor="var(--t-bg-chrome)" />

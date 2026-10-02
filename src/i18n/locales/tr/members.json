@@ -103,7 +103,14 @@
       "loadFailed": "Kişilerin tümü yüklenemedi — tekrar deneyin",
       "tabLinks": "Bağlantılar"
     },
+    "detail": {
+      "nameLabel": "Bu ekipteki adı",
+      "nameHint": "Kullanıcı adını göstermek için boş bırakın."
+    },
     "invite": {
+      "nameLabel": "Bu ekipteki adı",
+      "namePlaceholder": "ör. Jan Novák",
+      "nameHint": "Ekip üyeleri kullanıcı adı yerine bunu görür. Yalnızca yöneticiler değiştirebilir.",
       "title": "Üye davet et",
       "seatsLabel": "Lisanslar",
       "seatsSummary": "{{used}} kullanılan · {{available}} boş · {{total}} toplam",

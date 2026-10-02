@@ -100,7 +100,14 @@
       "loadFailed": "Impossible de charger la liste — réessayez",
       "tabLinks": "Liens"
     },
+    "detail": {
+      "nameLabel": "Nom dans cette équipe",
+      "nameHint": "Laisser vide pour afficher son identifiant."
+    },
     "invite": {
+      "nameLabel": "Nom dans cette équipe",
+      "namePlaceholder": "ex. Jan Novák",
+      "nameHint": "Les membres de l'équipe le voient à la place de son identifiant. Seuls les administrateurs peuvent le modifier.",
       "title": "Inviter un membre",
       "seatsLabel": "Postes",
       "seatsSummary": "{{used}} utilisés · {{available}} disponibles · {{total}} au total",

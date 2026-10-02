@@ -83,6 +83,8 @@
       "memberInvited": "davet etti: {{name}}",
       "memberJoined": "ekibe {{role}} olarak katıldı",
       "memberRemoved": "ekipten çıkardı: {{name}}",
+      "memberRenamed": "{{name}} için “{{to}}” adını verdi",
+      "memberNameRemoved": "{{name}} adlı üyenin adını kaldırdı",
       "memberRoleChanged": "rolü değiştirdi: {{name}}",
       "memberPermissionsChanged": "izinleri değiştirdi: {{name}}",
       "vaultCreated": "\"{{name}}\" kasasını oluşturdu",

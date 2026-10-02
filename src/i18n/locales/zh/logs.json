@@ -83,6 +83,8 @@
       "memberInvited": "邀请了 {{name}}",
       "memberJoined": "以 {{role}} 身份加入了团队",
       "memberRemoved": "移除了 {{name}}",
+      "memberRenamed": "将 {{name}} 命名为“{{to}}”",
+      "memberNameRemoved": "移除了 {{name}} 的名称",
       "memberRoleChanged": "更改了 {{name}} 的角色",
       "memberPermissionsChanged": "更改了 {{name}} 的权限",
       "vaultCreated": "创建了保险库 \"{{name}}\"",

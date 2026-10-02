@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { ownerHandle, firstViewNav, mobileFirstViewTarget, selectedTeamId } from "./teamVaultFirstAccess.ts";
+import { ownerLabel, firstViewNav, mobileFirstViewTarget, selectedTeamId } from "./teamVaultFirstAccess.ts";
 import { PERM_BITS } from "./permissions.ts";
 import type { Team, TeamMember } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
@@ -17,17 +17,21 @@ function member(user_id: string, handle?: string): TeamMember {
   };
 }
 
-test("ownerHandle finds the owner's handle", () => {
-  expect(ownerHandle(team("u9"), [member("u1", "alice"), member("u9", "bob")])).toBe("bob");
+test("ownerLabel finds the owner's handle", () => {
+  expect(ownerLabel(team("u9"), [member("u1", "alice"), member("u9", "bob")])).toBe("bob");
 });
 
-test("ownerHandle is null when the roster has not loaded", () => {
-  expect(ownerHandle(team("u9"), undefined)).toBeNull();
+test("ownerLabel prefers the owner's member name", () => {
+  expect(ownerLabel(team("u9"), [{ ...member("u9", "bob"), member_name: "Bob B" }])).toBe("Bob B");
 });
 
-test("ownerHandle is null when the server omits handles", () => {
-  expect(ownerHandle(team("u9"), [member("u9")])).toBeNull();
-  expect(ownerHandle(team("u9"), [member("u9", "   ")])).toBeNull();
+test("ownerLabel is null when the roster has not loaded", () => {
+  expect(ownerLabel(team("u9"), undefined)).toBeNull();
+});
+
+test("ownerLabel is null when the server omits handles", () => {
+  expect(ownerLabel(team("u9"), [member("u9")])).toBeNull();
+  expect(ownerLabel(team("u9"), [member("u9", "   ")])).toBeNull();
 });
 
 test("connect-only lands on connections, never the keychain", () => {

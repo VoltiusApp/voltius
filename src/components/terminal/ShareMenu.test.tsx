@@ -116,7 +116,7 @@ test("with a guest present, the chips render and the waiting line does not", () 
   };
   renderMenu();
 
-  expect(screen.getByText("Guest")).toBeTruthy();
+  expect(screen.getByText("@Guest")).toBeTruthy();
   expect(screen.queryByText("terminal.share.waitingForGuests")).toBeNull();
 });
 

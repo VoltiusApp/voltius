@@ -5,6 +5,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { AvatarOverflow } from "@/components/shared/AvatarStack";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { avatarLabel, usePeerResolver } from "@/services/peerName";
 
 const MAX_VISIBLE_PARTICIPANTS = 5;
 
@@ -13,6 +14,7 @@ interface MultiplayerBarProps {
 }
 
 export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
+  const peer = usePeerResolver();
   const { t } = useTranslation();
   const mpState = useTeamSessionStore((s) => s.connections[localSessionId]);
   const requestControl = useTeamSessionStore((s) => s.requestControl);
@@ -68,14 +70,17 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
 
       {/* Participants */}
       <div className="flex items-center gap-1.5 flex-1">
-        {mpState.participants.slice(0, MAX_VISIBLE_PARTICIPANTS).map((p) => (
-          <PresenceAvatar
-            key={p.user_id}
-            handle={p.handle}
-            size={24}
-            hasControl={p.user_id === mpState.controlHolder}
-          />
-        ))}
+        {mpState.participants.slice(0, MAX_VISIBLE_PARTICIPANTS).map((p) => {
+          const who = peer(p.user_id, { fallbackHandle: p.handle });
+          return (
+            <PresenceAvatar
+              key={p.user_id}
+              handle={avatarLabel(who)}
+              size={24}
+              hasControl={p.user_id === mpState.controlHolder}
+            />
+          );
+        })}
         <AvatarOverflow
           count={mpState.participants.length - MAX_VISIBLE_PARTICIPANTS}
           size={24}

@@ -5,7 +5,7 @@ import { roleChipColors } from "@/components/members/roleChips";
 
 export type Person = {
   userId: string;
-  handle: string;
+  label: string;
   roleNames: string[];
   online: boolean;
   state: "member" | "pending" | "awaiting_key";
@@ -35,10 +35,10 @@ export function PeopleList({ people, canManage, onRemove, onRevoke, onGrantKey, 
           {/* Wraps rather than squeezes: at the popover's width, flexing a long
               handle against the chips shredded it into a five-line column. */}
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            <PresenceAvatar handle={p.handle} size={26} online={p.online} />
+            <PresenceAvatar handle={p.label} size={26} online={p.online} />
             {/* No truncation: read before granting access. */}
             <span className="text-xs text-(--t-text-primary) break-all flex-1 basis-32 min-w-0">
-              {p.handle}
+              {p.label}
             </span>
 
             {p.state === "pending" && (

@@ -6,6 +6,7 @@ import type { LayoutMode } from "@/components/shared/ToolbarViewControls";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { RoleBadges } from "@/components/members/roleBadges";
+import { memberAvatarLabel, memberLabel, secondaryHandle } from "@/services/memberLabel";
 
 export interface MemberCardProps {
   member: TeamMember;
@@ -24,7 +25,7 @@ export interface MemberCardProps {
 }
 
 export function MemberAvatar({ member, size }: { member: TeamMember; size: number }) {
-  return <PresenceAvatar handle={member.handle} size={size} online={member.is_online} animate />;
+  return <PresenceAvatar handle={memberAvatarLabel(member)} size={size} online={member.is_online} animate />;
 }
 
 export function MemberCard({
@@ -56,11 +57,14 @@ export function MemberCard({
         </div>
         <div className="w-full min-w-0 flex flex-col items-center gap-1">
           <div className="flex items-center gap-1 justify-center">
-            <p className="text-xs font-medium truncate text-(--t-text-bright) max-w-[120px]">{member.handle}</p>
+            <p className="text-xs font-medium truncate text-(--t-text-bright) max-w-[120px]">{memberLabel(member)}</p>
             {isMe && (
               <span className="text-[9px] px-1 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>{t("members.youBadge")}</span>
             )}
           </div>
+          {secondaryHandle(member) && (
+            <p className="text-[10px] truncate max-w-[120px] text-(--t-text-secondary)">{secondaryHandle(member)}</p>
+          )}
           <RoleBadges member={member} roles={roles} canManage={canManage} onAddRole={onAddRole} />
         </div>
       </BaseCard>
@@ -81,12 +85,15 @@ export function MemberCard({
       <MemberAvatar member={member} size={32} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium truncate text-(--t-text-bright)">{member.handle}</p>
+          <p className="text-sm font-medium truncate text-(--t-text-bright)">{memberLabel(member)}</p>
           {isOwner && <Icon icon="lucide:crown" width={11} style={{ color: "#a78bfa", flexShrink: 0 }} />}
           {isMe && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>{t("members.youBadge")}</span>
           )}
         </div>
+        {secondaryHandle(member) && (
+          <p className="text-[11px] truncate text-(--t-text-secondary)">{secondaryHandle(member)}</p>
+        )}
       </div>
       <RoleBadges member={member} roles={roles} canManage={canManage} onAddRole={onAddRole} />
     </BaseCard>

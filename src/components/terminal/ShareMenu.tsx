@@ -17,6 +17,7 @@ import { CheckboxBox } from "@/components/shared/Checkbox";
 import { SpokenCodeRow } from "./SpokenCodeRow";
 import { PeopleTab } from "./PeopleTab";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
+import { avatarLabel, usePeerResolver } from "@/services/peerName";
 
 
 const ROLES = ["owner", "manager", "editor", "member"] as const;
@@ -434,6 +435,7 @@ function ActiveSharingView({
 }) {
   const { t } = useTranslation();
   const participantCount = inviteSession.participantIds.length;
+  const peer = usePeerResolver();
   // An invite_link session retains no per-user session key (#66) — inviting into it
   // would always throw cannotInviteWithoutSessionKey, so don't offer the action.
   const canInviteDirectly = !!activeMp.sessionKeyBytes;
@@ -461,22 +463,25 @@ function ActiveSharingView({
 
       {participantCount > 0 && (
         <div className="flex flex-wrap gap-1 mb-3">
-          {activeMp.participants.map((p) => (
-            <div
-              key={p.user_id}
-              className="flex items-center gap-1.5 pl-0.5 pr-2 py-0.5 rounded-full text-[10px]"
-              style={{
-                background: p.user_id === activeMp.controlHolder
-                  ? "color-mix(in srgb, var(--t-accent) 15%, transparent)"
-                  : "var(--t-bg-elevated)",
-                color: p.user_id === activeMp.controlHolder ? "var(--t-accent)" : "var(--t-text-secondary)",
-                border: "1px solid var(--t-border)",
-              }}
-            >
-              <PresenceAvatar handle={p.handle} size={20} hasControl={p.user_id === activeMp.controlHolder} />
-              {p.handle}
-            </div>
-          ))}
+          {activeMp.participants.map((p) => {
+            const who = peer(p.user_id, { fallbackHandle: p.handle });
+            return (
+              <div
+                key={p.user_id}
+                className="flex items-center gap-1.5 pl-0.5 pr-2 py-0.5 rounded-full text-[10px]"
+                style={{
+                  background: p.user_id === activeMp.controlHolder
+                    ? "color-mix(in srgb, var(--t-accent) 15%, transparent)"
+                    : "var(--t-bg-elevated)",
+                  color: p.user_id === activeMp.controlHolder ? "var(--t-accent)" : "var(--t-text-secondary)",
+                  border: "1px solid var(--t-border)",
+                }}
+              >
+                <PresenceAvatar handle={avatarLabel(who)} size={20} hasControl={p.user_id === activeMp.controlHolder} />
+                {who.primary}
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -83,6 +83,8 @@
       "memberInvited": "invited {{name}}",
       "memberJoined": "joined the team as {{role}}",
       "memberRemoved": "removed {{name}}",
+      "memberRenamed": "named {{name}} “{{to}}”",
+      "memberNameRemoved": "removed the name of {{name}}",
       "memberRoleChanged": "changed role for {{name}}",
       "memberPermissionsChanged": "changed permissions for {{name}}",
       "vaultCreated": "created vault \"{{name}}\"",

@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TeamMember } from "@/services/teamService";
 import { departConsequences, departMembers, type DepartMode } from "@/services/teamOffboarding";
+import { memberLabel } from "@/services/memberLabel";
 
 interface OffboardingDialogProps {
   members: TeamMember[];
@@ -20,7 +21,7 @@ interface OffboardingDialogProps {
 export function OffboardingDialog({ members, teamId, mode, onClose, onDone }: OffboardingDialogProps) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
-  const consequences = departConsequences(mode, members.map((m) => m.handle ?? ""));
+  const consequences = departConsequences(mode, members.map((m) => memberLabel(m)));
 
   const confirm = async () => {
     setBusy(true);

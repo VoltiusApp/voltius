@@ -13,6 +13,8 @@ import {
   fsCompress, fsExtract,
 } from "@/services/sftp";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { PermissionsDialog } from "./PermissionsDialog";
+import { canEditPermissions } from "./permissionsModel";
 import {
   type FileEntry, type SortCol, type SortDir, type VisibleCols, type ColumnWidths, type FileColumn,
   DEFAULT_VISIBLE_COLS, COLUMN_MIN_WIDTHS, columnGrid, visibleDataColumns,
@@ -45,6 +47,7 @@ type SelectionActionsCtx = {
   onCompress: (file: FileEntry) => Promise<void>;
   onExtract: (file: FileEntry) => Promise<void>;
   canArchive: boolean;
+  onPermissions?: (files: FileEntry[]) => void;
   onOpenInTerminal?: (path: string) => void;
   onPanelDownload?: (files: FileEntry[]) => void;
   /** Optional override for the Edit action — used by panel embedding to also open the SFTP panel. */
@@ -139,6 +142,7 @@ export function FilePane({
   const setShowHidden = useSftpSettingsStore((s) => s.setShowHidden);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [viewMenuPos, setViewMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [permissionsFor, setPermissionsFor] = useState<FileEntry[] | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; resolve: (ok: boolean) => void } | null>(null);
 
   const appConfirm = (title: string, message: string): Promise<boolean> =>
@@ -416,6 +420,7 @@ export function FilePane({
     isLocal, sftpId, hostLabel: resolvedHostLabel, canTransferToTarget: canTransferToTarget ?? false,
     onTransferToTarget, onStartRename: startRename, onDelete: handleDelete,
     onCompress: handleCompress, onExtract: handleExtract, canArchive,
+    onPermissions: !isLocal && sftpId ? setPermissionsFor : undefined,
     onOpenInTerminal, onPanelDownload, onEdit, setSelection, onRefresh,
   };
 
@@ -561,6 +566,14 @@ export function FilePane({
           onCancel={() => { const r = confirmDialog.resolve; setConfirmDialog(null); r(false); }}
         />
       )}
+      {permissionsFor && sftpId && (
+        <PermissionsDialog
+          sftpId={sftpId}
+          files={permissionsFor}
+          onClose={() => setPermissionsFor(null)}
+          onApplied={() => { setPermissionsFor(null); onRefresh(); }}
+        />
+      )}
 
     </div>
   );
@@ -639,6 +652,9 @@ export function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsC
 
   // Rename / Delete
   if (single) items.push({ label: t("common.action.rename"), icon: "lucide:pencil", onClick: () => ctx.onStartRename(single) });
+  if (ctx.onPermissions && canEditPermissions(files)) {
+    items.push({ label: t("fileTransfer.pane.menu.permissions"), icon: "lucide:key-round", onClick: () => ctx.onPermissions!(files) });
+  }
   if (files.length > 0) {
     items.push({
       label: t("fileTransfer.pane.menu.delete", { count: files.length }),

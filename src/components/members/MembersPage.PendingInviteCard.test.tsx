@@ -22,6 +22,7 @@ vi.mock("@/services/teamActionFeedback", () => ({
 }));
 
 import { PendingInviteCard } from "./cards/PendingInviteCard";
+import { useTeamStore } from "@/stores/teamStore";
 
 const inv = {
   id: "inv1",
@@ -133,4 +134,16 @@ test("both actions are permanent buttons, not hover-only", () => {
 
   expect(screen.getByTitle("members.revokeInvitationTitle").className).not.toContain("group-hover");
   expect(screen.getByTitle("members.invite.resendTitle").className).not.toContain("group-hover");
+});
+
+test("invited by shows the inviter's name from the roster, and the invitation's own name leads", () => {
+  useTeamStore.setState({
+    membersByTeam: { t1: [{ team_id: "t1", user_id: "u9", handle: "quiet-otter-1", member_name: "Jan", public_key: "", invited_by_display_name: null, joined_at: "", role_ids: [] }] },
+  });
+  render(<PendingInviteCard {...props} inv={{ ...inv, member_name: "Kasia", invited_by_display_name: "quiet-otter-1" }} />);
+  expect(screen.getByText("Kasia")).toBeTruthy();
+  expect(screen.getByText("jade-heron-7715")).toBeTruthy();
+  expect(screen.getByText(/Jan/)).toBeTruthy();
+  expect(screen.queryByText(/quiet-otter-1/)).toBeNull();
+  useTeamStore.setState({ membersByTeam: {} });
 });

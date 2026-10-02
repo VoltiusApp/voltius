@@ -9,6 +9,7 @@ import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { seatAvailability } from "@/services/seatMath";
 import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { RoleToggleChip } from "@/components/members/roleChips";
+import { MemberNameInput } from "@/components/members/MemberNameInput";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
 import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason } from "@/services/vaultShare";
 import { assignableRoles, leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
@@ -21,11 +22,12 @@ export interface InvitePanelProps {
   teamId: string;
   existingIds: Set<string>;
   teamRoles: TeamRole[];
+  canNameMembers: boolean;
   onClose: () => void;
   onMemberAdded: () => void;
 }
 
-export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }: InvitePanelProps) {
+export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, onClose, onMemberAdded }: InvitePanelProps) {
   const { t } = useTranslation();
   const { usedSeats, effectiveSeats, load: reloadSubscription } = useSubscriptionStore();
   const { query, setQuery, results, searching, open, setOpen, inputRef, dropdownRef, reset } =
@@ -33,6 +35,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [adding, setAdding] = useState<string | null>(null);
   const [sendingInvite, setSendingInvite] = useState(false);
+  const [memberName, setMemberName] = useState("");
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [buySeatsFor, setBuySeatsFor] = useState<UserSearchResult | null | undefined>(undefined);
@@ -41,6 +44,8 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
   // caps at 10 however many seats were bought, and pre-checking the purchased
   // number sends invites it then rejects with 402.
   const { atLimit: isAtSeatLimit } = seatAvailability(usedSeats, effectiveSeats);
+
+  const nameToSend = canNameMembers ? memberName.trim() || undefined : undefined;
 
   const builtinRoles = useMemo(() => assignableRoles(teamRoles), [teamRoles]);
   const defaultMemberRoleId = useMemo(
@@ -87,8 +92,10 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
         handle: user.handle,
         roleIds: selectedRoleIds,
         roles: teamRoles,
+        memberName: nameToSend,
       });
       reset();
+      setMemberName("");
       setSuccess(result.status === "pending"
         ? t("members.toast.invitationSentToUser", { name: user.handle })
         : t("members.toast.userAdded", { name: user.handle }));
@@ -111,8 +118,9 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
     setSendingInvite(true); setError(""); setSuccess("");
     try {
       const invitedEmail = query;
-      await inviteByEmailAddress({ teamId, email: invitedEmail, roleName: primaryRoleName });
+      await inviteByEmailAddress({ teamId, email: invitedEmail, roleName: primaryRoleName, memberName: nameToSend });
       reset();
+      setMemberName("");
       setSuccess(t("members.toast.invitationSentToEmail", { email: invitedEmail }));
       await reloadSubscription();
       onMemberAdded();
@@ -136,9 +144,11 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
           teamId={teamId}
           pendingUser={buySeatsFor ?? null}
           pendingRole={primaryRoleName}
+          pendingName={nameToSend}
           onClose={() => setBuySeatsFor(undefined)}
           onSuccess={async () => {
             setBuySeatsFor(undefined);
+            setMemberName("");
             await reloadSubscription();
             onMemberAdded();
           }}
@@ -203,6 +213,18 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
               }}
             />
           </FormSection>
+
+          {canNameMembers && (
+            <FormSection label={t("members.invite.nameLabel")}>
+              <MemberNameInput
+                aria-label={t("members.invite.nameLabel")}
+                value={memberName}
+                placeholder={t("members.invite.namePlaceholder")}
+                onChange={(e) => setMemberName(e.target.value)}
+              />
+              <p className="text-[11px] mt-1.5" style={{ color: "var(--t-text-secondary)" }}>{t("members.invite.nameHint")}</p>
+            </FormSection>
+          )}
 
           {error && <p className="text-xs px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}
           {success && (

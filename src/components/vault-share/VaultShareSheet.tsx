@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import { memberLabel } from "@/services/memberLabel";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -91,7 +92,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
     const roleName = (id: string) => roles.find((r) => r.id === id)?.name ?? "";
     const members: Person[] = (membersByTeam[teamId] ?? []).map((m) => ({
       userId: m.user_id,
-      handle: m.handle ?? "?",
+      label: memberLabel(m),
       roleNames: m.role_ids.map(roleName).filter(Boolean),
       online: !!m.is_online,
       state: keyHolders && !keyHolders.has(m.user_id) ? "awaiting_key" : "member",
@@ -99,7 +100,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
     }));
     const pending: Person[] = (pendingInvitationsByTeam[teamId] ?? []).map((inv) => ({
       userId: inv.id,
-      handle: inv.display_name,
+      label: inv.member_name ?? inv.display_name,
       roleNames: [inv.role],
       online: false,
       state: "pending",
@@ -147,13 +148,13 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
   };
 
   const handleRemove = (p: Person) =>
-    void removeTeamMember({ teamId, userId: p.userId, handle: p.handle })
+    void removeTeamMember({ teamId, userId: p.userId, label: p.label })
       .then(reloadMembers)
       .catch(() => {});
 
   const handleRevoke = (p: Person) =>
     p.invitationId &&
-    void revokeInvitation({ teamId, invitationId: p.invitationId, name: p.handle })
+    void revokeInvitation({ teamId, invitationId: p.invitationId, name: p.label })
       .then(reloadMembers)
       .catch(() => {});
 
@@ -161,7 +162,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
     void grantVaultKeyToMember({
       teamId,
       userId: p.userId,
-      handle: p.handle,
+      label: p.label,
       publicKey: p.publicKey ?? "",
     })
       .then(reloadMembers)

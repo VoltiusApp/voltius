@@ -2,8 +2,8 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
-import { ACTION_META, FALLBACK_META, actorName } from "./AuditEventRow";
-import { avatarColor } from "@/components/shared/AvatarStack";
+import { ACTION_META, FALLBACK_META, actorName, actorTitle } from "./AuditEventRow";
+import { avatarColor, handleInitials } from "@/components/shared/AvatarStack";
 import { formatDate, formatDateTime, formatTime, HOUR_MINUTE, MONTH_DAY, MONTH_DAY_TIME } from "@/utils/localeFormat";
 
 interface Props {
@@ -126,15 +126,6 @@ function formatEventTime(dateStr: string): string {
   return formatDateTime(dateStr, MONTH_DAY_TIME);
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+|@/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "?";
-}
-
 function buildTimelineEvents(logs: AuditLog[], scale: TimelineScale | null): TimelineEvent[] {
   const ordered = [...logs].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
   const lastByLane = Array.from({ length: 6 }, () => -100);
@@ -213,9 +204,9 @@ export function AuditHorizontalTimeline({ logs }: Props) {
               <div
                 className="relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold border-2 shadow-lg transition-transform group-hover:scale-110 group-focus:scale-110"
                 style={{ background: avatarColor(log.actor_name), borderColor: meta.color }}
-                title={actorName(log)}
+                title={actorTitle(log)}
               >
-                {initials(actorName(log))}
+                {handleInitials(actorName(log))}
               </div>
               <div
                 className="pointer-events-none absolute z-30 w-72 rounded-xl border border-(--t-border) bg-(--t-bg-card) p-3 opacity-0 shadow-2xl transition-opacity group-hover:opacity-100 group-focus:opacity-100"

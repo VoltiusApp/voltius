@@ -44,9 +44,8 @@ test("single other user → primary set, overflow 0, handle resolved", () => {
   useConnectionPresenceStore.setState({ myUserId: "me", usageByConnection: { c1: ["me", "u1"] } } as never);
   useTeamStore.setState({ membersByTeam: { "team-1": [{ user_id: "u1", handle: "amber-lynx-4410" }] } } as never);
   const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
-  expect(result.current?.primary).toEqual({ id: "u1", handle: "amber-lynx-4410" });
+  expect(result.current?.primary).toEqual({ id: "u1", name: "@amber-lynx-4410", avatar: "amber-lynx-4410" });
   expect(result.current?.overflow).toBe(0);
-  expect(result.current?.allHandles).toEqual(["amber-lynx-4410"]);
 });
 
 test("two others → overflow 1, order preserved (usage order, self filtered)", () => {
@@ -62,13 +61,12 @@ test("two others → overflow 1, order preserved (usage order, self filtered)", 
   const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
   expect(result.current?.primary.id).toBe("u1");
   expect(result.current?.overflow).toBe(1);
-  expect(result.current?.allHandles).toEqual(["amber-lynx-4410", "brisk-otter-8823"]);
 });
 
 test('unknown user id falls back to "Member"', () => {
   useConnectionPresenceStore.setState({ myUserId: null, usageByConnection: { c1: ["u9"] } } as never);
   const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
-  expect(result.current?.primary.handle).toBe("Member");
+  expect(result.current?.primary.name).toBe("Member");
 });
 
 test("myUserId null → no self filtering (all users are others)", () => {
@@ -76,17 +74,26 @@ test("myUserId null → no self filtering (all users are others)", () => {
   useTeamStore.setState({ membersByTeam: { "team-1": [{ user_id: "me", handle: "merry-quartz-2597" }] } } as never);
   const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
   expect(result.current).not.toBeNull();
-  expect(result.current?.primary.handle).toBe("merry-quartz-2597");
+  expect(result.current?.primary.name).toBe("@merry-quartz-2597");
 });
 
-test("cross-team dedup: first occurrence of a user_id wins", () => {
+test("uses the member name from the host's own team only", () => {
   useConnectionPresenceStore.setState({ myUserId: null, usageByConnection: { c1: ["u1"] } } as never);
   useTeamStore.setState({
     membersByTeam: {
-      A: [{ user_id: "u1", handle: "first-heron-1001" }],
-      B: [{ user_id: "u1", handle: "second-heron-2002" }],
+      A: [{ user_id: "u1", handle: "first-heron-1001", member_name: "Other Team Name" }],
+      "team-1": [{ user_id: "u1", handle: "first-heron-1001", member_name: "Jan" }],
     },
   } as never);
   const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
-  expect(result.current?.primary.handle).toBe("first-heron-1001");
+  expect(result.current?.primary.name).toBe("Jan");
+});
+
+test("a member name is the label and the avatar string, without an @", () => {
+  useConnectionPresenceStore.setState({ myUserId: null, usageByConnection: { c1: ["u1"] } } as never);
+  useTeamStore.setState({
+    membersByTeam: { "team-1": [{ user_id: "u1", handle: "jnovak", member_name: "Jan Novák" }] },
+  } as never);
+  const { result } = renderHook(() => useConnectionPresence(conn("c1", "team-1")));
+  expect(result.current?.primary).toEqual({ id: "u1", name: "Jan Novák", avatar: "Jan Novák" });
 });

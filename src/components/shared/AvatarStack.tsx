@@ -12,15 +12,12 @@ export function avatarColor(name: string | undefined): string {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
 
-/** Initials for a handle. Generated handles are `adjective-noun-NNNN` drawn
- *  from only 20 adjectives, so a single leading letter collides constantly —
- *  every `merry-*` user would render an identical "M" across 8 colours.
- *  Returns "?" for a missing or empty handle (e.g. an older server that
- *  omits `handle` before migration 035). */
-export function handleInitials(handle: string | undefined): string {
-  if (!handle) return "?";
-  const words = handle.split(/[-_]/).filter((w) => /^[a-z]/i.test(w));
-  const initials = words.slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+/** Initials for a member name or handle: one letter from each of the first two words.
+ *  Returns "?" when no word starts with a letter. */
+export function handleInitials(label: string | undefined): string {
+  if (!label) return "?";
+  const words = label.replace(/^@/, "").split(/[\s_-]+/).filter((w) => /^\p{L}/u.test(w));
+  const initials = words.slice(0, 2).map((w) => Array.from(w)[0].toLocaleUpperCase()).join("");
   return initials || "?";
 }
 

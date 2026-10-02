@@ -253,7 +253,28 @@ test("uses the inviter's display name from participants when available", () => {
     "me",
   );
   const entry = get().inbox.find((e) => e.id === "session:s1");
-  expect(entry?.message).toContain("\"inviter\":\"Alice\"");
+  expect(entry?.message).toContain("\"inviter\":\"@Alice\"");
+});
+
+const roster = (user_id: string, handle: string, member_name: string | null) =>
+  useTeamStore.setState({ membersByTeam: { t1: [{ team_id: "t1", user_id, handle, member_name, public_key: "", invited_by_display_name: null, joined_at: "", role_ids: [] }] } });
+
+test("a session invite names the inviter by their member name", () => {
+  roster("alice", "amber-lynx-1", "Alice K");
+  reconcileSessions(
+    [session({ id: "s1", invited_by: "alice", participants: [{ user_id: "alice", handle: "amber-lynx-1" }] })],
+    new Set(),
+    "me",
+  );
+  expect(get().inbox.find((e) => e.id === "session:s1")?.message).toContain('"inviter":"Alice K"');
+  useTeamStore.setState({ membersByTeam: {} });
+});
+
+test("a control request names the requester by their member name", () => {
+  roster("guest1", "brisk-otter-8823", "Gus");
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  expect(get().inbox.find((x) => x.kind === "controlRequest")?.message).toContain('"requester":"Gus"');
+  useTeamStore.setState({ membersByTeam: {} });
 });
 
 test("a redacted invite renders as a knock from the inviter alone", () => {

@@ -19,6 +19,7 @@ export function applyAuditLogSearch(logs: AuditLog[], search: string): AuditLog[
   const match = searchMatcher(search);
   return logs.filter((log) => match(
     log.actor_name,
+    log.actor_member_name,
     log.actor_id,
     log.action,
     log.source,
