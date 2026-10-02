@@ -559,7 +559,7 @@ test("webdav form submits the URL with the host and port it derives", async () =
   await act(async () => {
     ref.current!.flush();
   });
-  expect(onSubmit.mock.calls.at(-1)![0]).toMatchObject({
+  expect(onSubmit.mock.calls[onSubmit.mock.calls.length - 1][0]).toMatchObject({
     connection_type: "webdav",
     webdav_url: "http://nas.local:5005/dav/",
     host: "nas.local",

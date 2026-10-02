@@ -523,6 +523,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   value={webdavUrl}
                   onChange={(e) => { markDirty(); setWebdavUrl(e.target.value); }}
                   placeholder={t("connections.form.webdavUrlPlaceholder")}
+                  {...formIdentifierProps}
                 />
                 {webdavUrl.trim() !== "" && !webdavTarget && (
                   <p className="mt-1 text-xs text-(--t-status-error)" data-webdav-url-error>{t("connections.form.webdavUrlInvalid")}</p>
