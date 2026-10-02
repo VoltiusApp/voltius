@@ -3,6 +3,7 @@ use chrono::Utc;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 use tokio::sync::{oneshot, Mutex};
 use uuid::Uuid;
 
@@ -42,6 +43,42 @@ pub struct HostKeyConflictEvent {
     pub port: u16,
     pub stored_entries: Vec<KnownHost>,
     pub new_fingerprint: String,
+}
+
+pub struct ConflictPrompt {
+    pub session_id: String,
+    pub pending: Arc<PendingConflicts>,
+    pub emit: Box<dyn Fn(HostKeyConflictEvent) + Send + Sync>,
+}
+
+impl ConflictPrompt {
+    pub fn via_app(
+        app: AppHandle,
+        event_prefix: &str,
+        session_id: String,
+        pending: Arc<PendingConflicts>,
+    ) -> Self {
+        let event = format!("{event_prefix}-{session_id}");
+        Self {
+            session_id,
+            pending,
+            emit: Box::new(move |payload| {
+                let _ = app.emit(&event, payload);
+            }),
+        }
+    }
+}
+
+fn changed_warning(host: &str, port: u16, stored: &[KnownHost], received: &str) -> String {
+    let stored_fps: Vec<&str> = stored.iter().map(|e| e.fingerprint.as_str()).collect();
+    format!(
+        "WARNING: Host key changed for {host}:{port}!\n\
+         Stored   : {}\n\
+         Received : {received}\n\n\
+         This may indicate a MITM attack. \
+         Remove the host from Known Hosts to reconnect.",
+        stored_fps.join(", "),
+    )
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -156,6 +193,53 @@ impl KnownHostsStore {
         }
         HostKeyStatus::Changed {
             stored: matching.into_iter().cloned().collect(),
+        }
+    }
+
+    /// Ok when `fingerprint` is trusted for host:port; a first sight is pinned silently.
+    pub async fn verify_or_prompt(
+        &self,
+        host: &str,
+        port: u16,
+        fingerprint: String,
+        prompt: Option<&ConflictPrompt>,
+    ) -> Result<(), String> {
+        match self.check(host, port, &fingerprint).await {
+            HostKeyStatus::Known => Ok(()),
+            HostKeyStatus::Unknown => {
+                self.add_new(host, port, fingerprint, "personal").await;
+                Ok(())
+            }
+            HostKeyStatus::Changed { stored } => {
+                let Some(prompt) = prompt else {
+                    return Err(changed_warning(host, port, &stored, &fingerprint));
+                };
+                let (tx, rx) = oneshot::channel::<ConflictAction>();
+                prompt
+                    .pending
+                    .0
+                    .lock()
+                    .await
+                    .insert(prompt.session_id.clone(), tx);
+                (prompt.emit)(HostKeyConflictEvent {
+                    session_id: prompt.session_id.clone(),
+                    host: host.to_string(),
+                    port,
+                    stored_entries: stored,
+                    new_fingerprint: fingerprint.clone(),
+                });
+                match rx.await {
+                    Ok(ConflictAction::AddNew) => {
+                        self.add_new(host, port, fingerprint, "personal").await;
+                        Ok(())
+                    }
+                    Ok(ConflictAction::Replace) => {
+                        self.replace_all(host, port, fingerprint, "personal").await;
+                        Ok(())
+                    }
+                    _ => Err("Connection aborted by user.".into()),
+                }
+            }
         }
     }
 
@@ -393,5 +477,93 @@ mod trust_tests {
         assert_eq!(entry.fingerprint, "SHA256:new");
         assert_eq!(superseded.len(), 1);
         assert_eq!(superseded[0].fingerprint, "SHA256:old");
+    }
+}
+
+#[cfg(test)]
+mod verify_tests {
+    use super::*;
+
+    fn answering(
+        action: fn() -> ConflictAction,
+        seen: Arc<std::sync::Mutex<Vec<HostKeyConflictEvent>>>,
+    ) -> ConflictPrompt {
+        let pending = Arc::new(PendingConflicts::new());
+        let answer = Arc::clone(&pending);
+        ConflictPrompt {
+            session_id: "s1".into(),
+            pending,
+            emit: Box::new(move |event| {
+                let tx = answer
+                    .0
+                    .try_lock()
+                    .unwrap()
+                    .remove(&event.session_id)
+                    .unwrap();
+                seen.lock().unwrap().push(event);
+                let _ = tx.send(action());
+            }),
+        }
+    }
+
+    #[tokio::test]
+    async fn an_unknown_fingerprint_is_pinned_without_asking() {
+        let store = KnownHostsStore::new();
+        store
+            .verify_or_prompt("h", 443, "tls-sha256:aa".into(), None)
+            .await
+            .unwrap();
+        let pinned = store.entries_for("h", 443).await;
+        assert_eq!(pinned.len(), 1);
+        assert_eq!(pinned[0].fingerprint, "tls-sha256:aa");
+    }
+
+    #[tokio::test]
+    async fn a_known_fingerprint_passes() {
+        let store = KnownHostsStore::pinned(&[("h", 443, "tls-sha256:aa")]);
+        store
+            .verify_or_prompt("h", 443, "tls-sha256:aa".into(), None)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_changed_fingerprint_without_a_prompt_is_refused() {
+        let store = KnownHostsStore::pinned(&[("h", 443, "tls-sha256:aa")]);
+        let err = store
+            .verify_or_prompt("h", 443, "tls-sha256:bb".into(), None)
+            .await
+            .unwrap_err();
+        assert!(err.contains("changed"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn replace_supersedes_the_old_pin_after_asking() {
+        let store = KnownHostsStore::pinned(&[("h", 443, "tls-sha256:aa")]);
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let prompt = answering(|| ConflictAction::Replace, Arc::clone(&seen));
+        store
+            .verify_or_prompt("h", 443, "tls-sha256:bb".into(), Some(&prompt))
+            .await
+            .unwrap();
+        let pinned: Vec<_> = store
+            .entries_for("h", 443)
+            .await
+            .into_iter()
+            .map(|e| e.fingerprint)
+            .collect();
+        assert_eq!(pinned, ["tls-sha256:bb"]);
+        assert_eq!(seen.lock().unwrap()[0].new_fingerprint, "tls-sha256:bb");
+    }
+
+    #[tokio::test]
+    async fn abort_refuses() {
+        let store = KnownHostsStore::pinned(&[("h", 443, "tls-sha256:aa")]);
+        let prompt = answering(|| ConflictAction::Abort, Arc::default());
+        let err = store
+            .verify_or_prompt("h", 443, "tls-sha256:bb".into(), Some(&prompt))
+            .await
+            .unwrap_err();
+        assert!(err.contains("aborted"), "{err}");
     }
 }

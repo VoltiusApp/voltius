@@ -1,7 +1,5 @@
 use crate::error::{AppError, ErrorCode};
-use crate::known_hosts::{
-    ConflictAction, HostKeyConflictEvent, HostKeyStatus, KnownHostsStore, PendingConflicts,
-};
+use crate::known_hosts::{ConflictPrompt, KnownHostsStore, PendingConflicts};
 use crate::port_forward::{RemoteRoute, RemoteRouteMap};
 use crate::proxy::{self, ProxyError, ProxySpec};
 use russh::client::{self, AuthResult, KeyboardInteractiveAuthResponse, Prompt};
@@ -15,7 +13,7 @@ use tauri::AppHandle;
 use tauri::Emitter;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,13 +41,6 @@ pub struct SshStepEvent {
     pub detail: String,
 }
 
-// Optional context for interactive conflict resolution (absent in non-interactive/exec use).
-struct ConflictContext {
-    app: AppHandle,
-    session_id: String,
-    pending_conflicts: Arc<PendingConflicts>,
-}
-
 /// `new_interactive`'s return: the handler plus the shared slots `connect`
 /// needs after the handshake (remote-forward routes, and the server's SSH
 /// banner for Windows detection).
@@ -59,7 +50,7 @@ pub struct SshClient {
     host: String,
     port: u16,
     known_hosts: Arc<KnownHostsStore>,
-    conflict_ctx: Option<ConflictContext>,
+    conflict_ctx: Option<ConflictPrompt>,
     /// Remote-forward route table: (bind_host, remote_port) → RemoteRoute.
     /// Populated by PortForwardManager before calling tcpip_forward.
     pub remote_routes: RemoteRouteMap,
@@ -99,11 +90,12 @@ impl SshClient {
         agent_forwarding: bool,
     ) -> InteractiveClient {
         let client = Self {
-            conflict_ctx: Some(ConflictContext {
+            conflict_ctx: Some(ConflictPrompt::via_app(
                 app,
+                "ssh-host-key-conflict",
                 session_id,
                 pending_conflicts,
-            }),
+            )),
             agent_forwarding,
             ..Self::new(host, port, known_hosts)
         };
@@ -143,71 +135,11 @@ impl client::Handler for SshClient {
         };
         let fp = server_public_key.fingerprint(HashAlg::Sha256).to_string();
 
-        match self.known_hosts.check(&self.host, self.port, &fp).await {
-            HostKeyStatus::Known => Ok(true),
-
-            HostKeyStatus::Unknown => {
-                // Trust On First Use: accept and persist.
-                self.known_hosts
-                    .add_new(&self.host, self.port, fp, "personal")
-                    .await;
-                Ok(true)
-            }
-
-            HostKeyStatus::Changed { stored } => {
-                if let Some(ctx) = &self.conflict_ctx {
-                    // Interactive mode: pause and let the user decide.
-                    let (tx, rx) = oneshot::channel::<ConflictAction>();
-                    ctx.pending_conflicts
-                        .0
-                        .lock()
-                        .await
-                        .insert(ctx.session_id.clone(), tx);
-
-                    let _ = ctx.app.emit(
-                        &format!("ssh-host-key-conflict-{}", ctx.session_id),
-                        HostKeyConflictEvent {
-                            session_id: ctx.session_id.clone(),
-                            host: self.host.clone(),
-                            port: self.port,
-                            stored_entries: stored,
-                            new_fingerprint: fp.clone(),
-                        },
-                    );
-
-                    match rx.await {
-                        Ok(ConflictAction::AddNew) => {
-                            self.known_hosts
-                                .add_new(&self.host, self.port, fp, "personal")
-                                .await;
-                            Ok(true)
-                        }
-                        Ok(ConflictAction::Replace) => {
-                            self.known_hosts
-                                .replace_all(&self.host, self.port, fp, "personal")
-                                .await;
-                            Ok(true)
-                        }
-                        _ => Err(HopError::HostKey("Connection aborted by user.".into())),
-                    }
-                } else {
-                    // Non-interactive: reject with a descriptive message.
-                    let stored_fps: Vec<String> =
-                        stored.iter().map(|e| e.fingerprint.clone()).collect();
-                    Err(HopError::HostKey(format!(
-                        "WARNING: Host key changed for {}:{}!\n\
-                         Stored   : {}\n\
-                         Received : {}\n\n\
-                         This may indicate a MITM attack. \
-                         Remove the host from Known Hosts to reconnect.",
-                        self.host,
-                        self.port,
-                        stored_fps.join(", "),
-                        fp
-                    )))
-                }
-            }
-        }
+        self.known_hosts
+            .verify_or_prompt(&self.host, self.port, fp, self.conflict_ctx.as_ref())
+            .await
+            .map(|()| true)
+            .map_err(HopError::HostKey)
     }
 
     async fn server_channel_open_forwarded_tcpip(
