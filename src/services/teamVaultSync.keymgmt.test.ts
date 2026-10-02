@@ -135,3 +135,56 @@ test("initTeamVaultKey caches epoch 1 for a freshly minted key, keeping key and 
   // trusts "a key is cached implies a version is cached" (#217).
   expect(getCachedTeamKeyVersion("team-7")).toBe(1);
 });
+
+test("distributeKeyToNewMember names the epoch of the key it wrapped", async () => {
+  h.unwrap.mockResolvedValue(new Uint8Array(32).fill(1));
+  h.getUserPublicKey.mockResolvedValue({ user_id: "w", handle: "w", public_key: "wpk" });
+  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/vault-key") && (!init || init.method === "GET"))
+      return res(200, { wrapped_key: "wk", wrapped_by_user_id: "w", key_version: 4 });
+    if (init?.method === "PUT") return res(204);
+    throw new Error("unexpected");
+  });
+
+  await distributeKeyToNewMember("team-8", "u9", "pk9");
+  const put = h.appFetch.mock.calls.find(([, init]) => init?.method === "PUT")!;
+  expect(JSON.parse(put[1].body).key_version).toBe(4);
+});
+
+test("distributeKeyToNewMember re-wraps the rotated key when the server says its cached one is stale", async () => {
+  h.unwrap
+    .mockResolvedValueOnce(new Uint8Array(32).fill(4))
+    .mockResolvedValueOnce(new Uint8Array(32).fill(5));
+  h.getUserPublicKey.mockResolvedValue({ user_id: "w", handle: "w", public_key: "wpk" });
+  h.wrap.mockImplementation(async (key: Uint8Array, pub: string) => `wrapped-${key[0]}-for-${pub}`);
+  let serverEpoch = 4;
+  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/vault-key") && (!init || init.method === "GET")) {
+      const v = serverEpoch;
+      serverEpoch = 5;
+      return res(200, { wrapped_key: `wk${v}`, wrapped_by_user_id: "w", key_version: v });
+    }
+    if (init?.method === "PUT") return JSON.parse(String(init.body)).key_version === 5 ? res(204) : res(409);
+    throw new Error("unexpected");
+  });
+
+  await distributeKeyToNewMember("team-9", "u9", "pk9");
+
+  const puts = h.appFetch.mock.calls.filter(([, init]) => init?.method === "PUT").map(([, init]) => JSON.parse(init.body));
+  expect(puts.map((b) => b.key_version)).toEqual([4, 5]);
+  expect(puts[1].keys).toEqual([{ user_id: "u9", wrapped_key: "wrapped-5-for-pk9" }]);
+});
+
+test("distributeKeyToNewMember gives up after a second conflict", async () => {
+  h.unwrap.mockResolvedValue(new Uint8Array(32).fill(1));
+  h.getUserPublicKey.mockResolvedValue({ user_id: "w", handle: "w", public_key: "wpk" });
+  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/vault-key") && (!init || init.method === "GET"))
+      return res(200, { wrapped_key: "wk", wrapped_by_user_id: "w", key_version: 2 });
+    if (init?.method === "PUT") return res(409);
+    throw new Error("unexpected");
+  });
+
+  await expect(distributeKeyToNewMember("team-10", "u9", "pk9")).rejects.toThrow();
+  expect(h.appFetch.mock.calls.filter(([, init]) => init?.method === "PUT")).toHaveLength(2);
+});

@@ -322,11 +322,7 @@ export async function initTeamVaultKey(
     keys.push({ user_id: member.user_id, wrapped_key: wrapped });
   }
 
-  const res = await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}/vault-key`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ keys }),
-  });
+  const res = await putVaultKeys(serverUrl, teamId, keys, mintedFreshKey ? 1 : getCachedTeamKeyVersion(teamId));
   if (!res.ok) throw new Error(i18n.t("common.error.failedToUploadVaultKeys", { status: res.status }));
 
   _teamKeyCache.set(teamId, Array.from(rawKey));
@@ -346,25 +342,40 @@ export async function distributeKeyToNewMember(
 ): Promise<void> {
   if (!memberPublicKey) return;
 
-  let rawKey: number[];
-  try {
-    rawKey = await getTeamVaultKey(teamId);
-  } catch {
-    return;
-  }
-
-  const rawKeyBytes = new Uint8Array(rawKey);
-  const wrapped = await wrapSessionKeyForUser(rawKeyBytes, memberPublicKey);
-
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
-  const res = await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}/vault-key`, {
+  for (let attempt = 0; ; attempt++) {
+    let rawKey: number[];
+    try {
+      rawKey = await getTeamVaultKey(teamId);
+    } catch {
+      return;
+    }
+    const version = getCachedTeamKeyVersion(teamId);
+    const wrapped = await wrapSessionKeyForUser(new Uint8Array(rawKey), memberPublicKey);
+    const res = await putVaultKeys(serverUrl, teamId, [{ user_id: memberUserId, wrapped_key: wrapped }], version);
+    // 409: another member rotated since this key was cached; wrap the new one instead.
+    if (res.status === 409 && attempt === 0) {
+      deleteTeamKey(teamId);
+      continue;
+    }
+    if (!res.ok) throw new Error(i18n.t("common.error.failedToDistributeVaultKey", { status: res.status }));
+    return;
+  }
+}
+
+function putVaultKeys(
+  serverUrl: string,
+  teamId: string,
+  keys: { user_id: string; wrapped_key: string }[],
+  keyVersion: number | undefined,
+): Promise<Response> {
+  return fetchWithAuth(`${serverUrl}/v1/teams/${teamId}/vault-key`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ keys: [{ user_id: memberUserId, wrapped_key: wrapped }] }),
+    body: JSON.stringify({ keys, key_version: keyVersion }),
   });
-  if (!res.ok) throw new Error(i18n.t("common.error.failedToDistributeVaultKey", { status: res.status }));
 }
 
 /**
