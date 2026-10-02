@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
+import { isTlsPin } from "@/services/knownHosts";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import type { KnownHost, VaultOption } from "@/types";
@@ -43,6 +44,11 @@ export function KnownHostCard({
   onCopyVault,
 }: KnownHostCardProps) {
   const { t } = useTranslation();
+  const tlsBadge = isTlsPin(host.fingerprint) && (
+    <span className="ml-1.5 px-1 py-px rounded text-[10px] font-semibold bg-(--t-bg-elevated) text-(--t-text-dim)" data-tls-badge>
+      {t("knownHosts.tlsBadge")}
+    </span>
+  );
   const contextMenuItems = [
     ...vaultMenuItems(otherVaults, canEdit, onMoveVault, onCopyVault, t),
     ...(canEdit && onDelete
@@ -77,6 +83,7 @@ export function KnownHostCard({
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-(--t-text-primary) truncate">
                 {host.name ?? `${host.host}:${host.port}`}
+                {tlsBadge}
               </p>
               {host.name && (
                 <p className="text-xs text-(--t-text-dim) truncate">
@@ -93,6 +100,7 @@ export function KnownHostCard({
           <>
             <p className="text-sm font-medium text-(--t-text-primary) truncate">
               {host.name ?? `${host.host}:${host.port}`}
+              {tlsBadge}
             </p>
             {host.name && (
               <p className="text-xs text-(--t-text-dim) truncate mt-0.5">

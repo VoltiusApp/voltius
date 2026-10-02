@@ -1,6 +1,13 @@
 import { invoke } from "@/lib/invoke";
 import type { KnownHost } from "@/types";
 
+/** Mirrors `TLS_PIN_PREFIX` in src-tauri/src/tls.rs. */
+export const TLS_PIN_PREFIX = "tls-sha256:";
+
+export function isTlsPin(fingerprint: string): boolean {
+  return fingerprint.startsWith(TLS_PIN_PREFIX);
+}
+
 export async function listKnownHosts(): Promise<KnownHost[]> {
   return invoke("known_host_list");
 }

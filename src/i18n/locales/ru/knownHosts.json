@@ -1,5 +1,6 @@
 {
   "knownHosts": {
+    "tlsBadge": "TLS",
     "toolbar": {
       "deleteSelected": "Удалить выбранные",
       "deleteButton": "УДАЛИТЬ"

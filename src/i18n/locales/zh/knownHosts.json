@@ -1,5 +1,6 @@
 {
   "knownHosts": {
+    "tlsBadge": "TLS",
     "toolbar": {
       "deleteSelected": "删除所选",
       "deleteButton": "删除"
