@@ -965,7 +965,6 @@ export function SnippetsPage() {
             onOpen={() => { navigateInto(editingFolder); folderEp.closeEdit(); }}
             onSelectSelf={() => selectSingle(editingFolder.id)}
             parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
-            syncObjectType="snippet"
             vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
             onMoveToVault={(vaultId) => void handleMoveFolderToVault(editingFolder, vaultId)}
             onCopyToVault={(vaultId) => void handleCopyFolderToVault(editingFolder, vaultId)}

@@ -7,6 +7,7 @@ import { FolderCard } from "./FolderCard";
 import { RuleSetMoveCancelled } from "@/services/teamObjectPersistence";
 
 const pins = vi.hoisted(() => ({ folder: vi.fn(async () => {}), snippetFolder: vi.fn(async () => {}) }));
+const isObjectSynced = vi.hoisted(() => vi.fn((_id: string, _type: string) => true));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -42,10 +43,10 @@ vi.mock("@/stores/teamStore", () => ({
   useTeamStore: selectorStore({ teams: [], membersByTeam: {}, rolesByTeam: {}, loadTeams: async () => {}, loadMembers: async () => {}, loadRoles: async () => {} }),
 }));
 vi.mock("@/stores/syncPrefsStore", () => ({
-  useSyncPrefsStore: selectorStore({ isObjectSynced: () => true, toggleExcluded: vi.fn() }),
+  useSyncPrefsStore: selectorStore({ isObjectSynced, toggleExcluded: vi.fn() }),
 }));
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); isObjectSynced.mockImplementation(() => true); });
 
 const makeFolder = (id: string, name: string, over: Partial<Folder> = {}): Folder => ({
   id, name, object_type: "connection", vault_id: "personal", created_at: "", updated_at: "", clocks: {}, ...over,
@@ -118,10 +119,23 @@ test("Cut selects the folder before the clipboard event reads the selection", ()
 
 test("pinning a snippet folder goes through the snippet folder store", () => {
   const snippetFolder = makeFolder("s1", "Snips", { object_type: "snippet" });
-  render(<FolderEditPanel folder={snippetFolder} onUpdate={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} onOpen={vi.fn()} onSelectSelf={vi.fn()} syncObjectType="snippet" />);
+  render(<FolderEditPanel folder={snippetFolder} onUpdate={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} onOpen={vi.fn()} onSelectSelf={vi.fn()} />);
   fireEvent.click(screen.getByTitle("common.action.pin"));
   expect(pins.snippetFolder).toHaveBeenCalledWith("s1", true);
   expect(pins.folder).not.toHaveBeenCalled();
+});
+
+test("a snippet folder's panel and card agree on cloud sync", () => {
+  isObjectSynced.mockImplementation((_id, type) => type !== "snippet");
+  const snippetFolder = makeFolder("s1", "Snips", { object_type: "snippet" });
+  const { container } = render(<FolderCard folder={snippetFolder} canEdit itemCount={0} layout="list" onClick={vi.fn()} onRename={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} />);
+  fireEvent.contextMenu(container.querySelector("[data-folder-card]")!);
+  expect(screen.getByText("folders.card.disableCloudSync")).toBeTruthy();
+  cleanup();
+
+  render(<FolderEditPanel folder={snippetFolder} onUpdate={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} onOpen={vi.fn()} onSelectSelf={vi.fn()} />);
+  fireEvent.click(screen.getByTitle("common.action.moreOptions"));
+  expect(screen.getByText("folders.card.disableCloudSync")).toBeTruthy();
 });
 
 test("the panel's … menu is the card's right-click menu minus Rename/Edit", () => {

@@ -298,7 +298,7 @@ export function getExcludedObjectIds(): string[] {
       { type: "key", ids: useKeyStore.getState().keys.map((k) => k.id) },
       {
         type: "folder",
-        // Snippet folders ride the `folder` type deliberately: FolderCard reads
+        // Snippet folders ride the `folder` type deliberately: useFolderSync reads
         // isObjectSynced(id, "folder") for both trees, so one toggle has to
         // govern both or a snippet folder would show as held back while still
         // syncing.

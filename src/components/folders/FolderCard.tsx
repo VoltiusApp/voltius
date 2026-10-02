@@ -5,10 +5,10 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import { GLASS_BG, GLASS_BG_HOVER, GLASS_SHADOW, GLASS_SHADOW_HOVER } from "@/components/shared/BaseCard";
 import { CardActionButton } from "@/components/shared/CardActionButton";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
-import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { buildFolderMenuItems } from "@/utils/folderMenuItems";
 import { useFolderPin } from "./useFolderPin";
+import { useFolderSync } from "./useFolderSync";
 import type { Folder, VaultOption } from "@/types";
 
 interface FolderCardProps {
@@ -66,8 +66,7 @@ export function FolderCard({
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
   const { pos: ctxPos, open: openCtx, close: closeCtx } = useContextMenu();
-  const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(folder.id, "folder"));
-  const toggleSync = useSyncPrefsStore((s) => s.toggleExcluded);
+  const sync = useFolderSync(folder);
   const { effPinned, pinIcon, pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem } = useFolderPin(folder, canEdit);
   const activeMenuItems = isSelected && bulkContextMenuItems?.length ? bulkContextMenuItems : undefined;
 
@@ -205,7 +204,7 @@ export function FolderCard({
           >
             <Icon icon={pinIcon} width={16} />
           </button>
-          {!isSynced && (
+          {!sync.isSynced && (
             <span title={t("folders.card.cloudSyncDisabled")} className="text-(--t-text-dim) flex items-center">
               <Icon icon="lucide:cloud-off" width={18} />
             </span>
@@ -235,8 +234,7 @@ export function FolderCard({
             onMoveToVault,
             onCopyToVault,
             clipboard: clipboardMenuItems(t),
-            isSynced,
-            onToggleSync: () => toggleSync(folder.id),
+            ...sync,
             onDelete: () => onDelete(folder),
           })}
         />

@@ -69,5 +69,5 @@ export function useFolderPin(folder: Folder, canEdit?: boolean) {
     }
     : null;
 
-  return { effPinned, pinIcon, pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem };
+  return { folderType, effPinned, pinIcon, pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem };
 }

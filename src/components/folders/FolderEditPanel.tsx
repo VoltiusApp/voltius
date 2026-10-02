@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useAutosave } from "@/hooks/useAutosave";
-import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import {
   PanelShell,
   PanelHeader,
@@ -21,6 +20,7 @@ import { revertIfMoveCancelled } from "@/services/teamObjectPersistence";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { buildFolderMenuItems } from "@/utils/folderMenuItems";
 import { useFolderPin } from "./useFolderPin";
+import { useFolderSync } from "./useFolderSync";
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 import type { Folder, FolderFormData, VaultOption } from "@/types";
 
@@ -37,8 +37,6 @@ interface FolderEditPanelProps {
   vaults?: VaultOption[];
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
-  /** Sync object type used to check per-object and global sync state. Defaults to "folder". */
-  syncObjectType?: string;
 }
 
 export const FolderEditPanel = withEditAccess("folder", (p: FolderEditPanelProps) => p.folder, FolderEditPanelEditor);
@@ -56,15 +54,13 @@ function FolderEditPanelEditor({
   vaults,
   onMoveToVault,
   onCopyToVault,
-  syncObjectType = "folder",
   readOnly,
 }: FolderEditPanelProps & EditAccessProps) {
   const { t } = useTranslation();
   const [name, setName]         = useState(folder.name);
   const [vaultId, setVaultId]   = useState(folder.vault_id ?? "personal");
   const [parentId, setParentId] = useState<string | null>(folder.parent_folder_id ?? null);
-  const isSynced     = useSyncPrefsStore((s) => s.isObjectSynced(folder.id, syncObjectType));
-  const toggleExcluded = useSyncPrefsStore((s) => s.toggleExcluded);
+  const sync = useFolderSync(folder);
   const pin = useFolderPin(folder, !readOnly);
 
   useEffect(() => {
@@ -116,8 +112,7 @@ function FolderEditPanelEditor({
     onMoveToVault,
     onCopyToVault,
     clipboard: clipboardMenuItems(t).map((i) => ({ ...i, onClick: () => { flushSync(onSelectSelf); i.onClick?.(); } })),
-    isSynced,
-    onToggleSync: () => toggleExcluded(folder.id),
+    ...sync,
     onDelete: () => onDelete(folder),
   });
 
@@ -146,7 +141,7 @@ function FolderEditPanelEditor({
           </div>
         </FormSection>
         </ReadOnlyFields>
-        <PermissionsSection objectId={folder.id} vaultId={folder.vault_id} type={syncObjectType === "snippet" ? "snippet_folder" : "folder"} />
+        <PermissionsSection objectId={folder.id} vaultId={folder.vault_id} type={pin.folderType} />
       </div>
     </PanelShell>
   );
