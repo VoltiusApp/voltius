@@ -1,3 +1,672 @@
 pub mod connector;
 pub mod multistatus;
 pub mod paths;
+
+use crate::commands::sftp::editor::read_capped;
+use crate::commands::sftp::{pump_chunks, sort_listing, RemoteFile};
+use crate::error::{AppError, ErrorCode};
+use crate::known_hosts::{ConflictPrompt, KnownHostsStore};
+use crate::proxy::ProxySpec;
+use crate::sftp::backend::TransferEvents;
+use crate::sftp::FileBackend;
+use async_trait::async_trait;
+use base64::Engine;
+use bytes::Bytes;
+use connector::DavConnector;
+use futures_util::TryStreamExt;
+use http_body_util::combinators::BoxBody;
+use http_body_util::{BodyExt, BodyStream, Empty, Full, StreamBody};
+use hyper::body::{Frame, Incoming};
+use hyper::header::{self, HeaderName, HeaderValue};
+use hyper::{Method, Request, Response, StatusCode};
+use hyper_util::client::legacy::Client;
+use hyper_util::rt::TokioExecutor;
+use multistatus::DavEntry;
+use paths::{normalize, DavBase};
+use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::io::{AsyncRead, AsyncWriteExt};
+use tokio_util::io::{ReaderStream, StreamReader};
+use tokio_util::sync::CancellationToken;
+use url::Url;
+
+type Body = BoxBody<Bytes, std::io::Error>;
+
+const PROPFIND_BODY: &str = r#"<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>"#;
+const UPLOAD_PIPE: usize = 256 * 1024;
+// Below Apache's 5 s keep-alive, so a pooled connection is dropped before the server closes it.
+const POOL_IDLE: Duration = Duration::from_secs(4);
+
+pub struct WebDavBackend {
+    client: Client<DavConnector, Body>,
+    base: DavBase,
+    auth: HeaderValue,
+}
+
+fn method(name: &'static str) -> Method {
+    Method::from_bytes(name.as_bytes()).expect("WebDAV method names are valid tokens")
+}
+
+fn empty() -> Body {
+    Empty::new().map_err(|never| match never {}).boxed()
+}
+
+fn full(data: impl Into<Bytes>) -> Body {
+    Full::new(data.into())
+        .map_err(|never| match never {})
+        .boxed()
+}
+
+fn basic_auth(username: &str, password: &str) -> HeaderValue {
+    let token = base64::engine::general_purpose::STANDARD.encode(format!("{username}:{password}"));
+    let mut value =
+        HeaderValue::from_str(&format!("Basic {token}")).expect("base64 is header-safe");
+    value.set_sensitive(true);
+    value
+}
+
+pub(crate) fn status_error(op: &str, status: StatusCode) -> AppError {
+    let code = match status.as_u16() {
+        401 => Some(ErrorCode::LoginRejected),
+        403 => Some(ErrorCode::PermissionDenied),
+        404 | 409 => Some(ErrorCode::NotFound),
+        405 | 412 => Some(ErrorCode::AlreadyExists),
+        423 => Some(ErrorCode::ResourceLocked),
+        507 => Some(ErrorCode::StorageFull),
+        _ => None,
+    };
+    let message = format!("{op} failed: HTTP {status}");
+    match code {
+        Some(code) => AppError::coded(code, message),
+        None => message.into(),
+    }
+}
+
+fn transport_error(op: &str, err: &(dyn std::error::Error + 'static)) -> AppError {
+    let mut cause = Some(err);
+    while let Some(e) = cause {
+        if let Some(io) = e.downcast_ref::<std::io::Error>() {
+            return AppError::caused(op, io);
+        }
+        cause = e.source();
+    }
+    format!("{op}: {err}").into()
+}
+
+fn body_reader(resp: Response<Incoming>) -> impl AsyncRead + Unpin + Send {
+    let frames = BodyStream::new(resp.into_body())
+        .try_filter_map(|frame| futures_util::future::ready(Ok(frame.into_data().ok())))
+        .map_err(std::io::Error::other);
+    StreamReader::new(Box::pin(frames))
+}
+
+fn propfind_headers(depth: &'static str) -> Vec<(HeaderName, String)> {
+    vec![
+        (HeaderName::from_static("depth"), depth.into()),
+        (
+            header::CONTENT_TYPE,
+            "application/xml; charset=utf-8".into(),
+        ),
+    ]
+}
+
+fn location_of(resp: &Response<Incoming>) -> String {
+    resp.headers()
+        .get(header::LOCATION)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_string()
+}
+
+impl WebDavBackend {
+    async fn send(
+        &self,
+        op: &str,
+        method: Method,
+        url: &Url,
+        headers: &[(HeaderName, String)],
+        body: Body,
+    ) -> Result<Response<Incoming>, AppError> {
+        let mut req = Request::builder()
+            .method(method)
+            .uri(url.as_str())
+            .header(header::AUTHORIZATION, self.auth.clone());
+        for (name, value) in headers {
+            req = req.header(name, value);
+        }
+        let req = req
+            .body(body)
+            .map_err(|e| AppError::from(format!("{op}: {e}")))?;
+        self.client
+            .request(req)
+            .await
+            .map_err(|e| transport_error(op, &e))
+    }
+
+    async fn expect_ok(
+        &self,
+        op: &str,
+        method: Method,
+        url: &Url,
+        headers: &[(HeaderName, String)],
+        body: Body,
+    ) -> Result<Response<Incoming>, AppError> {
+        let resp = self.send(op, method, url, headers, body).await?;
+        if resp.status().is_success() {
+            Ok(resp)
+        } else {
+            Err(status_error(op, resp.status()))
+        }
+    }
+
+    async fn send_propfind(
+        &self,
+        op: &str,
+        url: &Url,
+        depth: &'static str,
+    ) -> Result<Response<Incoming>, AppError> {
+        self.send(
+            op,
+            method("PROPFIND"),
+            url,
+            &propfind_headers(depth),
+            full(PROPFIND_BODY),
+        )
+        .await
+    }
+
+    /// None when the server answers 404; one same-origin redirect (Apache's missing `/`) is followed.
+    async fn propfind(
+        &self,
+        url: &Url,
+        depth: &'static str,
+    ) -> Result<Option<Vec<DavEntry>>, AppError> {
+        let mut resp = self.send_propfind("List", url, depth).await?;
+        if resp.status().is_redirection() {
+            let next = url
+                .join(&location_of(&resp))
+                .map_err(|e| AppError::from(format!("List: {e}")))?;
+            if next.origin() != url.origin() {
+                return Err(status_error("List", resp.status()));
+            }
+            resp = self.send_propfind("List", &next, depth).await?;
+        }
+        match resp.status() {
+            StatusCode::NOT_FOUND => Ok(None),
+            StatusCode::MULTI_STATUS => {
+                let bytes = resp
+                    .into_body()
+                    .collect()
+                    .await
+                    .map_err(|e| transport_error("List", &e))?
+                    .to_bytes();
+                multistatus::parse(&String::from_utf8_lossy(&bytes))
+                    .map(Some)
+                    .map_err(AppError::from)
+            }
+            other => Err(status_error("List", other)),
+        }
+    }
+
+    async fn stat_entry(&self, path: &str) -> Result<Option<DavEntry>, AppError> {
+        Ok(self
+            .propfind(&self.base.url_for(path), "0")
+            .await?
+            .and_then(|entries| entries.into_iter().next()))
+    }
+
+    /// Folders must be addressed with a trailing `/` (nginx refuses otherwise).
+    async fn target_url(&self, path: &str) -> Result<Url, AppError> {
+        Ok(match self.stat_entry(path).await? {
+            Some(entry) if entry.is_dir => self.base.dir_url_for(path),
+            _ => self.base.url_for(path),
+        })
+    }
+
+    fn to_remote_files(&self, dir: &str, entries: Vec<DavEntry>) -> Vec<RemoteFile> {
+        let dir = normalize(dir);
+        let mut files: Vec<RemoteFile> = entries
+            .into_iter()
+            .filter_map(|e| {
+                let path = self.base.path_of(&e.href)?;
+                if path == dir {
+                    return None;
+                }
+                let name = path
+                    .rsplit('/')
+                    .next()
+                    .filter(|n| !n.is_empty())?
+                    .to_string();
+                Some(RemoteFile {
+                    name,
+                    path,
+                    size: e.size.unwrap_or(0),
+                    is_dir: e.is_dir,
+                    is_symlink: false,
+                    modified: e.modified,
+                    permissions: None,
+                })
+            })
+            .collect();
+        sort_listing(&mut files);
+        files
+    }
+}
+
+pub async fn connect(
+    url: &str,
+    username: &str,
+    password: &str,
+    proxy: Option<ProxySpec>,
+    known_hosts: Arc<KnownHostsStore>,
+    prompt: Option<ConflictPrompt>,
+) -> Result<WebDavBackend, AppError> {
+    let connector = DavConnector::new(proxy, known_hosts, prompt);
+    let mut backend = WebDavBackend {
+        client: Client::builder(TokioExecutor::new())
+            .pool_idle_timeout(POOL_IDLE)
+            .build(connector.clone()),
+        base: DavBase::parse(url)?,
+        auth: basic_auth(username, password),
+    };
+    let mut resp = backend
+        .send_propfind("Connect", backend.base.url(), "0")
+        .await?;
+    if resp.status().is_redirection() {
+        let location = location_of(&resp);
+        backend.base = backend
+            .base
+            .same_origin_redirect(&location)
+            .ok_or_else(|| {
+                AppError::from(format!(
+                    "The server redirected to another address ({location}); use that URL instead"
+                ))
+            })?;
+        resp = backend
+            .send_propfind("Connect", backend.base.url(), "0")
+            .await?;
+    }
+    if resp.status() != StatusCode::MULTI_STATUS {
+        return Err(status_error("Connect", resp.status()));
+    }
+    connector.stop_prompting().await;
+    Ok(backend)
+}
+
+#[async_trait]
+impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
+    async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
+        let entries = self
+            .propfind(&self.base.dir_url_for(path), "1")
+            .await?
+            .ok_or_else(|| status_error("List", StatusCode::NOT_FOUND))?;
+        Ok(self.to_remote_files(path, entries))
+    }
+
+    async fn stat(&self, path: &str) -> Result<Option<bool>, String> {
+        Ok(self.stat_entry(path).await?.map(|e| e.is_dir))
+    }
+
+    async fn canonicalize(&self, path: &str) -> Result<String, AppError> {
+        Ok(normalize(path))
+    }
+
+    async fn mkdir(&self, path: &str) -> Result<(), AppError> {
+        self.expect_ok(
+            "Create folder",
+            method("MKCOL"),
+            &self.base.dir_url_for(path),
+            &[],
+            empty(),
+        )
+        .await
+        .map(|_| ())
+    }
+
+    async fn touch(&self, path: &str) -> Result<(), AppError> {
+        self.expect_ok(
+            "Create file",
+            Method::PUT,
+            &self.base.url_for(path),
+            &[(header::CONTENT_LENGTH, "0".into())],
+            empty(),
+        )
+        .await
+        .map(|_| ())
+    }
+
+    async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
+        let src = self.target_url(from).await?;
+        let dst = if src.path().ends_with('/') {
+            self.base.dir_url_for(to)
+        } else {
+            self.base.url_for(to)
+        };
+        let headers = [
+            (HeaderName::from_static("destination"), dst.to_string()),
+            (HeaderName::from_static("overwrite"), "F".to_string()),
+        ];
+        self.expect_ok("Rename", method("MOVE"), &src, &headers, empty())
+            .await
+            .map(|_| ())
+    }
+
+    async fn delete(&self, path: &str) -> Result<(), AppError> {
+        let url = self.target_url(path).await?;
+        self.expect_ok("Delete", Method::DELETE, &url, &[], empty())
+            .await
+            .map(|_| ())
+    }
+
+    async fn file_size(&self, path: &str) -> u64 {
+        self.stat_entry(path)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|e| e.size)
+            .unwrap_or(0)
+    }
+
+    async fn read_file(&self, path: &str, max_bytes: u64) -> Result<Vec<u8>, String> {
+        let resp = self
+            .expect_ok("Read", Method::GET, &self.base.url_for(path), &[], empty())
+            .await?;
+        read_capped(body_reader(resp), max_bytes)
+            .await
+            .map_err(|e| format!("read failed: {e}"))
+    }
+
+    async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
+        let headers = [(header::CONTENT_LENGTH, content.len().to_string())];
+        self.expect_ok(
+            "Write",
+            Method::PUT,
+            &self.base.url_for(path),
+            &headers,
+            full(content.to_owned()),
+        )
+        .await
+        .map(|_| ())
+        .map_err(Into::into)
+    }
+
+    async fn upload_file(
+        &self,
+        app: &E,
+        local_path: &str,
+        remote_path: &str,
+        transfer_id: &str,
+        token: &CancellationToken,
+    ) -> Result<(), String> {
+        let mut local = tokio::fs::File::open(local_path)
+            .await
+            .map_err(|e| format!("Cannot open local file: {e}"))?;
+        let total = local.metadata().await.map(|m| m.len()).unwrap_or(0);
+        let (mut tx, rx) = tokio::io::duplex(UPLOAD_PIPE);
+        let body = StreamBody::new(ReaderStream::new(rx).map_ok(Frame::data)).boxed();
+        // nginx's dav module answers 411 to a chunked PUT, so the length is always sent.
+        let headers = [(header::CONTENT_LENGTH, total.to_string())];
+        let url = self.base.url_for(remote_path);
+        let put = self.expect_ok("Upload", Method::PUT, &url, &headers, body);
+        let pump = async move {
+            let mut transferred = 0u64;
+            pump_chunks(
+                app,
+                &mut local,
+                &mut tx,
+                transfer_id,
+                token,
+                &mut transferred,
+                total,
+            )
+            .await
+        };
+        match tokio::join!(put, pump) {
+            (_, Err(e)) if token.is_cancelled() => Err(e),
+            (Err(e), _) => Err(e.into()),
+            (Ok(_), result) => result,
+        }
+    }
+
+    async fn download_file(
+        &self,
+        app: &E,
+        remote_path: &str,
+        local_path: &str,
+        transfer_id: &str,
+        token: &CancellationToken,
+    ) -> Result<(), String> {
+        if let Some(parent) = Path::new(local_path).parent() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| format!("Cannot create local dir: {e}"))?;
+        }
+        let resp = self
+            .expect_ok(
+                "Download",
+                Method::GET,
+                &self.base.url_for(remote_path),
+                &[],
+                empty(),
+            )
+            .await?;
+        let total = resp
+            .headers()
+            .get(header::CONTENT_LENGTH)
+            .and_then(|v| v.to_str().ok()?.parse().ok())
+            .unwrap_or(0);
+        let mut local = tokio::fs::File::create(local_path)
+            .await
+            .map_err(|e| format!("Cannot create local file: {e}"))?;
+        let mut reader = body_reader(resp);
+        let mut transferred = 0u64;
+        pump_chunks(
+            app,
+            &mut reader,
+            &mut local,
+            transfer_id,
+            token,
+            &mut transferred,
+            total,
+        )
+        .await?;
+        local.flush().await.ok();
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_server;
+
+#[cfg(test)]
+mod tests {
+    use super::test_server::{canned, multistatus, reply};
+    use super::*;
+    use crate::error::ErrorCode;
+    use crate::sftp::backend::test_tree::Recorder;
+
+    const ROOT: &str = r#"<d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response></d:multistatus>"#;
+    const LISTING: &str = r#"<d:multistatus xmlns:d="DAV:">
+      <d:response><d:href>/dav/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>
+      <d:response><d:href>/dav/b%20file.txt</d:href><d:propstat><d:prop><d:resourcetype/><d:getcontentlength>5</d:getcontentlength></d:prop></d:propstat></d:response>
+      <d:response><d:href>/dav/Alpha/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>
+    </d:multistatus>"#;
+    const FOLDER: &str = r#"<d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/Alpha/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response></d:multistatus>"#;
+
+    async fn backend(port: u16) -> Result<WebDavBackend, AppError> {
+        connect(
+            &format!("http://127.0.0.1:{port}/dav"),
+            "u",
+            "p",
+            None,
+            Arc::new(KnownHostsStore::new()),
+            None,
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn connect_then_list_over_fresh_connections() {
+        let (port, seen) = canned(vec![multistatus(ROOT), multistatus(LISTING)]).await;
+        let b = backend(port).await.unwrap();
+        let files = FileBackend::<Recorder>::list_dir(&b, "/").await.unwrap();
+        let names: Vec<_> = files
+            .iter()
+            .map(|f| (f.name.as_str(), f.path.as_str(), f.is_dir))
+            .collect();
+        assert_eq!(
+            names,
+            [
+                ("Alpha", "/Alpha", true),
+                ("b file.txt", "/b file.txt", false)
+            ]
+        );
+        let seen = seen.lock().unwrap();
+        assert!(seen[0].head.starts_with("PROPFIND /dav/ HTTP/1.1"));
+        assert!(seen[0]
+            .head
+            .to_ascii_lowercase()
+            .contains("authorization: basic dtpw"));
+        assert!(seen[1].head.to_ascii_lowercase().contains("depth: 1"));
+    }
+
+    #[tokio::test]
+    async fn connect_reports_a_rejected_login() {
+        let (port, _) = canned(vec![reply(
+            "401 Unauthorized",
+            "WWW-Authenticate: Basic\r\n",
+            "",
+        )])
+        .await;
+        let err = backend(port).await.err().unwrap();
+        assert_eq!(err.code(), Some(ErrorCode::LoginRejected));
+    }
+
+    #[tokio::test]
+    async fn connect_reports_a_missing_base_path() {
+        let (port, _) = canned(vec![reply("404 Not Found", "", "")]).await;
+        assert_eq!(
+            backend(port).await.err().unwrap().code(),
+            Some(ErrorCode::NotFound)
+        );
+    }
+
+    #[tokio::test]
+    async fn connect_follows_a_same_origin_redirect_once() {
+        let (port, seen) = canned(vec![]).await;
+        drop(seen);
+        let (port2, seen2) = canned(vec![reply(
+            "301 Moved Permanently",
+            &format!("Location: http://127.0.0.1:{port}/x/\r\n"),
+            "",
+        )])
+        .await;
+        let err = backend(port2).await.err().unwrap();
+        assert!(err.to_string().contains("redirected"), "{err}");
+        assert_eq!(seen2.lock().unwrap().len(), 1);
+        let (port3, seen3) = canned(vec![
+            reply("301 Moved Permanently", "Location: /dav2/\r\n", ""),
+            multistatus(ROOT),
+        ])
+        .await;
+        backend(port3).await.unwrap();
+        assert!(seen3.lock().unwrap()[1]
+            .head
+            .starts_with("PROPFIND /dav2/ HTTP/1.1"));
+    }
+
+    #[tokio::test]
+    async fn deleting_a_folder_targets_its_slash_url() {
+        let (port, seen) = canned(vec![
+            multistatus(ROOT),
+            multistatus(FOLDER),
+            reply("204 No Content", "", ""),
+        ])
+        .await;
+        let b = backend(port).await.unwrap();
+        FileBackend::<Recorder>::delete(&b, "/Alpha").await.unwrap();
+        assert!(seen.lock().unwrap()[2]
+            .head
+            .starts_with("DELETE /dav/Alpha/ HTTP/1.1"));
+    }
+
+    #[tokio::test]
+    async fn rename_never_overwrites() {
+        let (port, seen) = canned(vec![
+            multistatus(ROOT),
+            reply("404 Not Found", "", ""),
+            reply("412 Precondition Failed", "", ""),
+        ])
+        .await;
+        let b = backend(port).await.unwrap();
+        let err = FileBackend::<Recorder>::rename(&b, "/a.txt", "/b c.txt")
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), Some(ErrorCode::AlreadyExists));
+        let head = seen.lock().unwrap()[2].head.to_ascii_lowercase();
+        assert!(head.starts_with("move /dav/a.txt http/1.1"));
+        assert!(head.contains(&format!(
+            "destination: http://127.0.0.1:{port}/dav/b%20c.txt"
+        )));
+        assert!(head.contains("overwrite: f"));
+    }
+
+    #[tokio::test]
+    async fn upload_streams_the_file_with_its_length_and_reports_progress() {
+        let (port, seen) = canned(vec![multistatus(ROOT), reply("201 Created", "", "")]).await;
+        let b = backend(port).await.unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let local = tmp.path().join("up.bin");
+        std::fs::write(&local, b"hello webdav").unwrap();
+        let events = Recorder::default();
+        b.upload_file(
+            &events,
+            &local.to_string_lossy(),
+            "/up.bin",
+            "t1",
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        let seen = seen.lock().unwrap();
+        assert!(seen[1].head.starts_with("PUT /dav/up.bin HTTP/1.1"));
+        assert!(seen[1]
+            .head
+            .to_ascii_lowercase()
+            .contains("content-length: 12"));
+        assert_eq!(seen[1].body, b"hello webdav");
+    }
+
+    #[tokio::test]
+    async fn download_writes_the_body() {
+        let (port, _) = canned(vec![multistatus(ROOT), reply("200 OK", "", "remote bytes")]).await;
+        let b = backend(port).await.unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let local = tmp.path().join("d/out.txt");
+        b.download_file(
+            &Recorder::default(),
+            "/x.txt",
+            &local.to_string_lossy(),
+            "t2",
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(std::fs::read_to_string(local).unwrap(), "remote bytes");
+    }
+
+    #[test]
+    fn statuses_map_to_error_codes() {
+        let code = |s: u16| status_error("Op", StatusCode::from_u16(s).unwrap()).code();
+        assert_eq!(code(401), Some(ErrorCode::LoginRejected));
+        assert_eq!(code(403), Some(ErrorCode::PermissionDenied));
+        assert_eq!(code(404), Some(ErrorCode::NotFound));
+        assert_eq!(code(405), Some(ErrorCode::AlreadyExists));
+        assert_eq!(code(409), Some(ErrorCode::NotFound));
+        assert_eq!(code(412), Some(ErrorCode::AlreadyExists));
+        assert_eq!(code(423), Some(ErrorCode::ResourceLocked));
+        assert_eq!(code(507), Some(ErrorCode::StorageFull));
+        assert_eq!(code(500), None);
+    }
+}
