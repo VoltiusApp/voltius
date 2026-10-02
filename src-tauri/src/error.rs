@@ -58,6 +58,9 @@ error_codes! {
     SshPromptUnanswerable,
     SshNoUsableAuthMethod,
     SshAuthTimeout,
+    // HTTP file servers (WebDAV).
+    LoginRejected,
+    ResourceLocked,
     // Vault access. Shares its first two codes with the frontend's own VaultError.
     // Params: `role` for VaultRoleReadOnly.
     VaultLocked,

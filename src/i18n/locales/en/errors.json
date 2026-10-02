@@ -17,6 +17,8 @@
     "ssh-prompt-unanswerable": "The server asked \"{{prompt}}\", which can't be answered automatically",
     "ssh-no-usable-auth-method": "No usable authentication method — the server only accepts: {{methods}}",
     "ssh-auth-timeout": "Authentication timed out after {{seconds}}s — the server accepted the connection but never answered. Some older SSH servers stall here; try the host's \"Legacy Algorithms\" option, or another authentication method.",
+    "login-rejected": "The server rejected the username or password",
+    "resource-locked": "The file is locked on the server — someone else may have it open",
     "vault-locked": "$t(common.error.vaultLocked)",
     "vault-unreadable": "$t(common.error.vaultUnreadable)",
     "vault-sign-in-required": "Team vaults require an active server connection. Sign in to continue.",

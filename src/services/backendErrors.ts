@@ -23,6 +23,8 @@ export const BACKEND_ERROR_CODES = [
   "ssh-prompt-unanswerable",
   "ssh-no-usable-auth-method",
   "ssh-auth-timeout",
+  "login-rejected",
+  "resource-locked",
   "vault-locked",
   "vault-unreadable",
   "vault-sign-in-required",

@@ -17,6 +17,8 @@
     "ssh-prompt-unanswerable": "Le serveur a demandé « {{prompt}} », une question à laquelle il est impossible de répondre automatiquement",
     "ssh-no-usable-auth-method": "Aucune méthode d'authentification utilisable — le serveur n'accepte que : {{methods}}",
     "ssh-auth-timeout": "L'authentification a expiré après {{seconds}} s — le serveur a accepté la connexion mais n'a jamais répondu. Certains anciens serveurs SSH bloquent à cette étape ; essayez l'option « Algorithmes hérités » de l'hôte, ou une autre méthode d'authentification.",
+    "login-rejected": "Le serveur a refusé le nom d'utilisateur ou le mot de passe",
+    "resource-locked": "Le fichier est verrouillé sur le serveur — quelqu'un d'autre l'a peut-être ouvert",
     "vault-locked": "$t(common.error.vaultLocked)",
     "vault-unreadable": "$t(common.error.vaultUnreadable)",
     "vault-sign-in-required": "Les coffres d'équipe nécessitent une connexion active au serveur. Connectez-vous pour continuer.",

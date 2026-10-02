@@ -17,6 +17,8 @@
     "ssh-prompt-unanswerable": "Sunucu \"{{prompt}}\" diye sordu; bu soru otomatik olarak yanıtlanamaz",
     "ssh-no-usable-auth-method": "Kullanılabilir kimlik doğrulama yöntemi yok — sunucu yalnızca şunları kabul ediyor: {{methods}}",
     "ssh-auth-timeout": "Kimlik doğrulama {{seconds}} sn sonra zaman aşımına uğradı — sunucu bağlantıyı kabul etti ama hiç yanıt vermedi. Bazı eski SSH sunucuları bu adımda takılır; sunucunun \"Eski algoritmalar\" seçeneğini ya da başka bir kimlik doğrulama yöntemini deneyin.",
+    "login-rejected": "Sunucu kullanıcı adını veya parolayı reddetti",
+    "resource-locked": "Dosya sunucuda kilitli — başka biri açmış olabilir",
     "vault-locked": "$t(common.error.vaultLocked)",
     "vault-unreadable": "$t(common.error.vaultUnreadable)",
     "vault-sign-in-required": "Ekip kasaları etkin bir sunucu bağlantısı gerektirir. Devam etmek için oturum açın.",

@@ -17,6 +17,8 @@
     "ssh-prompt-unanswerable": "服务器询问“{{prompt}}”，无法自动回答",
     "ssh-no-usable-auth-method": "没有可用的认证方式——服务器仅接受：{{methods}}",
     "ssh-auth-timeout": "认证在 {{seconds}} 秒后超时——服务器接受了连接但始终没有响应。一些较旧的 SSH 服务器会卡在这一步；请尝试主机的“传统算法”选项，或换用其他认证方式。",
+    "login-rejected": "服务器拒绝了用户名或密码",
+    "resource-locked": "文件在服务器上已被锁定——可能有其他人正在使用",
     "vault-locked": "$t(common.error.vaultLocked)",
     "vault-unreadable": "$t(common.error.vaultUnreadable)",
     "vault-sign-in-required": "团队保险库需要与服务器保持连接。请登录以继续。",
