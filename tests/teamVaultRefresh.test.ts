@@ -18,9 +18,9 @@ test("team vault refresh queue coalesces overlapping refreshes per team", async 
     releases.push(resolve);
   });
 
-  const first = queue.run("team-a", refresh);
-  const second = queue.run("team-a", refresh);
-  const third = queue.run("team-a", refresh);
+  const first = queue.run("team-a", {}, refresh);
+  const second = queue.run("team-a", {}, refresh);
+  const third = queue.run("team-a", {}, refresh);
   expect(second).toBe(third);
   expect(runs).toBe(1);
 
@@ -32,6 +32,6 @@ test("team vault refresh queue coalesces overlapping refreshes per team", async 
   expect(runs).toBe(2);
 
   let runsB = 0;
-  await queue.run("team-b", () => { runsB += 1; return Promise.resolve(); });
+  await queue.run("team-b", {}, () => { runsB += 1; return Promise.resolve(); });
   expect(runsB).toBe(1);
 });
