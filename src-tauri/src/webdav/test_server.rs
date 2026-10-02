@@ -10,6 +10,15 @@ pub struct Seen {
 
 /// Answers each connection's single request with the next canned response, then closes it.
 pub async fn canned(responses: Vec<String>) -> (u16, Arc<Mutex<Vec<Seen>>>) {
+    serve(responses, true).await
+}
+
+/// Replies right after the request head and keeps the socket open without reading the body.
+pub async fn canned_early(responses: Vec<String>) -> (u16, Arc<Mutex<Vec<Seen>>>) {
+    serve(responses, false).await
+}
+
+async fn serve(responses: Vec<String>, read_body: bool) -> (u16, Arc<Mutex<Vec<Seen>>>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let seen = Arc::new(Mutex::new(Vec::new()));
@@ -40,7 +49,7 @@ pub async fn canned(responses: Vec<String>) -> (u16, Arc<Mutex<Vec<Seen>>>) {
                         .map(|v| v.trim().parse::<usize>().unwrap())
                 })
                 .unwrap_or(0);
-            while buf.len() < head_end + len {
+            while read_body && buf.len() < head_end + len {
                 let n = tcp.read(&mut chunk).await.unwrap();
                 if n == 0 {
                     break;
@@ -52,7 +61,14 @@ pub async fn canned(responses: Vec<String>) -> (u16, Arc<Mutex<Vec<Seen>>>) {
                 body: buf[head_end..].to_vec(),
             });
             tcp.write_all(response.as_bytes()).await.unwrap();
-            let _ = tcp.shutdown().await;
+            if read_body {
+                let _ = tcp.shutdown().await;
+            } else {
+                tokio::spawn(async move {
+                    let _hold = tcp;
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                });
+            }
         }
     });
     (port, seen)

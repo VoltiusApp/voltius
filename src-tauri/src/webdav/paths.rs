@@ -103,12 +103,13 @@ impl DavBase {
     }
 
     pub fn same_origin_redirect(&self, location: &str) -> Option<DavBase> {
-        let target = self.url.join(location).ok()?;
-        if target.origin() != self.url.origin() {
-            return None;
-        }
-        DavBase::parse(target.as_str()).ok()
+        DavBase::parse(same_origin_join(&self.url, location)?.as_str()).ok()
     }
+}
+
+pub fn same_origin_join(base: &Url, location: &str) -> Option<Url> {
+    let target = base.join(location).ok()?;
+    (target.origin() == base.origin()).then_some(target)
 }
 
 fn decoded_segments(path: &str) -> Option<Vec<String>> {

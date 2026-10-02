@@ -22,7 +22,7 @@ use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::TokioExecutor;
 use multistatus::DavEntry;
-use paths::{normalize, DavBase};
+use paths::{normalize, same_origin_join, DavBase};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -71,7 +71,7 @@ pub(crate) fn status_error(op: &str, status: StatusCode) -> AppError {
         401 => Some(ErrorCode::LoginRejected),
         403 => Some(ErrorCode::PermissionDenied),
         404 | 409 => Some(ErrorCode::NotFound),
-        405 | 412 => Some(ErrorCode::AlreadyExists),
+        412 => Some(ErrorCode::AlreadyExists),
         423 => Some(ErrorCode::ResourceLocked),
         507 => Some(ErrorCode::StorageFull),
         _ => None,
@@ -84,14 +84,25 @@ pub(crate) fn status_error(op: &str, status: StatusCode) -> AppError {
 }
 
 fn transport_error(op: &str, err: &(dyn std::error::Error + 'static)) -> AppError {
+    let mut innermost = err;
+    let mut lost = false;
     let mut cause = Some(err);
     while let Some(e) = cause {
         if let Some(io) = e.downcast_ref::<std::io::Error>() {
             return AppError::caused(op, io);
         }
+        if let Some(h) = e.downcast_ref::<hyper::Error>() {
+            lost |= h.is_incomplete_message() || h.is_closed();
+        }
+        innermost = e;
         cause = e.source();
     }
-    format!("{op}: {err}").into()
+    let message = format!("{op}: {innermost}");
+    if lost {
+        AppError::coded(ErrorCode::ConnectionLost, message)
+    } else {
+        message.into()
+    }
 }
 
 fn body_reader(resp: Response<Incoming>) -> impl AsyncRead + Unpin + Send {
@@ -153,7 +164,9 @@ impl WebDavBackend {
         body: Body,
     ) -> Result<Response<Incoming>, AppError> {
         let resp = self.send(op, method, url, headers, body).await?;
-        if resp.status().is_success() {
+        if resp.status() == StatusCode::MULTI_STATUS {
+            Err(format!("{op} partially failed: some items could not be changed").into())
+        } else if resp.status().is_success() {
             Ok(resp)
         } else {
             Err(status_error(op, resp.status()))
@@ -184,12 +197,8 @@ impl WebDavBackend {
     ) -> Result<Option<Vec<DavEntry>>, AppError> {
         let mut resp = self.send_propfind("List", url, depth).await?;
         if resp.status().is_redirection() {
-            let next = url
-                .join(&location_of(&resp))
-                .map_err(|e| AppError::from(format!("List: {e}")))?;
-            if next.origin() != url.origin() {
-                return Err(status_error("List", resp.status()));
-            }
+            let next = same_origin_join(url, &location_of(&resp))
+                .ok_or_else(|| status_error("List", resp.status()))?;
             resp = self.send_propfind("List", &next, depth).await?;
         }
         match resp.status() {
@@ -313,15 +322,18 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
     }
 
     async fn mkdir(&self, path: &str) -> Result<(), AppError> {
-        self.expect_ok(
-            "Create folder",
-            method("MKCOL"),
-            &self.base.dir_url_for(path),
-            &[],
-            empty(),
-        )
-        .await
-        .map(|_| ())
+        let url = self.base.dir_url_for(path);
+        let resp = self
+            .send("Create folder", method("MKCOL"), &url, &[], empty())
+            .await?;
+        match resp.status() {
+            StatusCode::METHOD_NOT_ALLOWED => Err(AppError::coded(
+                ErrorCode::AlreadyExists,
+                "Create folder failed: HTTP 405 Method Not Allowed",
+            )),
+            status if status.is_success() => Ok(()),
+            status => Err(status_error("Create folder", status)),
+        }
     }
 
     async fn touch(&self, path: &str) -> Result<(), AppError> {
@@ -422,10 +434,16 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
             )
             .await
         };
-        match tokio::join!(put, pump) {
-            (_, Err(e)) if token.is_cancelled() => Err(e),
-            (Err(e), _) => Err(e.into()),
-            (Ok(_), result) => result,
+        tokio::pin!(put, pump);
+        tokio::select! {
+            early = &mut put => match early {
+                Err(e) => Err(e.into()),
+                Ok(_) => pump.await,
+            },
+            result = &mut pump => match result {
+                Err(e) => Err(e),
+                Ok(()) => put.await.map(|_| ()).map_err(Into::into),
+            },
         }
     }
 
@@ -481,7 +499,7 @@ mod test_server;
 
 #[cfg(test)]
 mod tests {
-    use super::test_server::{canned, multistatus, reply};
+    use super::test_server::{canned, canned_early, multistatus, reply};
     use super::*;
     use crate::error::ErrorCode;
     use crate::sftp::backend::test_tree::Recorder;
@@ -636,6 +654,7 @@ mod tests {
             .to_ascii_lowercase()
             .contains("content-length: 12"));
         assert_eq!(seen[1].body, b"hello webdav");
+        assert!(events.count("sftp-progress-t1") >= 1);
     }
 
     #[tokio::test]
@@ -662,11 +681,113 @@ mod tests {
         assert_eq!(code(401), Some(ErrorCode::LoginRejected));
         assert_eq!(code(403), Some(ErrorCode::PermissionDenied));
         assert_eq!(code(404), Some(ErrorCode::NotFound));
-        assert_eq!(code(405), Some(ErrorCode::AlreadyExists));
+        assert_eq!(code(405), None);
         assert_eq!(code(409), Some(ErrorCode::NotFound));
         assert_eq!(code(412), Some(ErrorCode::AlreadyExists));
         assert_eq!(code(423), Some(ErrorCode::ResourceLocked));
         assert_eq!(code(507), Some(ErrorCode::StorageFull));
         assert_eq!(code(500), None);
+    }
+
+    #[tokio::test]
+    async fn upload_stops_when_the_server_refuses_early() {
+        let (port, _) = canned_early(vec![
+            multistatus(ROOT),
+            reply("507 Insufficient Storage", "", ""),
+        ])
+        .await;
+        let b = backend(port).await.unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let local = tmp.path().join("big.bin");
+        std::fs::write(&local, vec![7u8; 4 * 1024 * 1024]).unwrap();
+        let result = tokio::time::timeout(
+            Duration::from_secs(10),
+            b.upload_file(
+                &Recorder::default(),
+                &local.to_string_lossy(),
+                "/big.bin",
+                "t3",
+                &CancellationToken::new(),
+            ),
+        )
+        .await
+        .expect("upload hung after the server refused it");
+        let err = AppError::from(result.unwrap_err());
+        assert!(err.to_string().contains("507"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn mkdir_maps_405_to_already_exists() {
+        let (port, _) = canned(vec![
+            multistatus(ROOT),
+            reply("405 Method Not Allowed", "", ""),
+        ])
+        .await;
+        let b = backend(port).await.unwrap();
+        let err = FileBackend::<Recorder>::mkdir(&b, "/Alpha")
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), Some(ErrorCode::AlreadyExists));
+    }
+
+    #[tokio::test]
+    async fn a_partial_207_on_delete_is_an_error() {
+        let (port, _) = canned(vec![
+            multistatus(ROOT),
+            multistatus(FOLDER),
+            multistatus(ROOT),
+        ])
+        .await;
+        let b = backend(port).await.unwrap();
+        let err = FileBackend::<Recorder>::delete(&b, "/Alpha")
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("partially failed"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn list_follows_a_same_origin_redirect_and_refuses_a_foreign_one() {
+        let (port, seen) = canned(vec![
+            multistatus(ROOT),
+            reply("301 Moved Permanently", "Location: /dav/Alpha/\r\n", ""),
+            multistatus(LISTING),
+        ])
+        .await;
+        let b = backend(port).await.unwrap();
+        FileBackend::<Recorder>::list_dir(&b, "/Alpha")
+            .await
+            .unwrap();
+        assert!(seen.lock().unwrap()[2]
+            .head
+            .starts_with("PROPFIND /dav/Alpha/ HTTP/1.1"));
+
+        let (port, seen) = canned(vec![
+            multistatus(ROOT),
+            reply(
+                "301 Moved Permanently",
+                "Location: http://example.invalid/x/\r\n",
+                "",
+            ),
+        ])
+        .await;
+        let b = backend(port).await.unwrap();
+        assert!(FileBackend::<Recorder>::list_dir(&b, "/Alpha")
+            .await
+            .is_err());
+        assert_eq!(seen.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_connection_closed_before_any_response_is_connection_lost() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            use tokio::io::AsyncReadExt;
+            let (mut tcp, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 4096];
+            let _ = tcp.read(&mut buf).await;
+        });
+        let err = backend(port).await.err().unwrap();
+        assert_eq!(err.code(), Some(ErrorCode::ConnectionLost), "{err}");
     }
 }

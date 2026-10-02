@@ -297,6 +297,15 @@ pub(crate) mod test_tree {
     }
 
     impl Recorder {
+        pub fn count(&self, event: &str) -> usize {
+            self.0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(n, _)| n == event)
+                .count()
+        }
+
         pub fn skipped(&self, transfer_id: &str) -> Vec<String> {
             let event = format!("sftp-skipped-{transfer_id}");
             let events = self.0.lock().unwrap();
