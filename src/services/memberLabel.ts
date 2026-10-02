@@ -11,9 +11,9 @@ export interface PeerContext {
   fallbackHandle?: string;
 }
 
-export function memberLabel(m: Pick<TeamMember, "member_name" | "handle"> | undefined): string {
+export function memberLabel(m: Pick<TeamMember, "member_name" | "handle"> | undefined, fallback = "?"): string {
   if (m?.member_name) return m.member_name;
-  return m?.handle ? `@${m.handle}` : "?";
+  return m?.handle ? `@${m.handle}` : fallback;
 }
 
 export function memberSortKey(m: Pick<TeamMember, "member_name" | "handle">): string {

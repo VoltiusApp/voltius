@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import i18n from "@/i18n";
 import type { TeamMember } from "@/services/teamService";
 import { useTeamStore } from "@/stores/teamStore";
-import type { PeerContext, PeerName } from "@/services/memberLabel";
+import { memberLabel, type PeerContext, type PeerName } from "@/services/memberLabel";
 
 export { memberLabel, memberSortKey, avatarLabel, memberNamingSupported } from "@/services/memberLabel";
 export type { PeerContext, PeerName } from "@/services/memberLabel";
@@ -18,7 +18,7 @@ export function resolvePeerName(
     .filter((m): m is TeamMember => !!m);
   const name = rows.find((m) => m.member_name)?.member_name ?? null;
   const handle = rows.find((m) => m.handle)?.handle ?? ctx.fallbackHandle ?? null;
-  const primary = name ?? (handle ? `@${handle}` : i18n.t("common.memberFallback"));
+  const primary = memberLabel({ member_name: name, handle: handle ?? undefined }, i18n.t("common.memberFallback"));
   return { name, handle, primary };
 }
 
