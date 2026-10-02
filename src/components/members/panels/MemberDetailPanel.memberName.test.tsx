@@ -19,7 +19,7 @@ vi.mock("@/components/shared/Panel", () => ({
 }));
 vi.mock("@/components/members/panels/RolesPanel", () => ({ RoleModal: () => null, TeamRolesPanel: () => null }));
 vi.mock("@/stores/teamStore", () => {
-  const state = { setMemberName: h.setMemberName };
+  const state = { setMemberName: h.setMemberName, membersByTeam: {} };
   const useTeamStore = Object.assign(
     (sel: (s: typeof state) => unknown) => sel(state),
     { getState: () => state },

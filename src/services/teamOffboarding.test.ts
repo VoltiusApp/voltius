@@ -132,3 +132,9 @@ test("a team deleted by its own owner is marked apart from a leave", async () =>
   expect(selfDeparture("t7")).toBe("self-deleted");
   expect(selfDeparture("t6")).toBeUndefined();
 });
+
+test("the undo label names a member by their member name", async () => {
+  await departMembers("t1", [{ ...member("a"), member_name: "Jan" }, member("b")], { mode: "remove" });
+
+  expect(h.push.mock.calls[0][0].label).toContain("Jan, @user-b");
+});

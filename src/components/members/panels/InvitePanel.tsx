@@ -148,6 +148,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
           onClose={() => setBuySeatsFor(undefined)}
           onSuccess={async () => {
             setBuySeatsFor(undefined);
+            setMemberName("");
             await reloadSubscription();
             onMemberAdded();
           }}

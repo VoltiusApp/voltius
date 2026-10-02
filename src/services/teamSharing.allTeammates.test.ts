@@ -113,3 +113,11 @@ test("freshPublicKeys queries each distinct team_id once", async () => {
   expect(api.listMembers).toHaveBeenCalledTimes(2);
   expect([...keys.keys()].sort()).toEqual(["alice", "bob"]);
 });
+
+test("sorts teammates by member name when they have one", async () => {
+  const zed = member("zed", { handle: "aaa-handle", member_name: "Zed" });
+  const abe = member("abe", { handle: "zzz-handle", member_name: "Abe" });
+  seedStore({ teams: ["t1"], members: { t1: [zed, abe] }, myUserId: me.user_id });
+  const list = await allTeammates();
+  expect(list.map((m) => m.user_id)).toEqual(["abe", "zed"]);
+});

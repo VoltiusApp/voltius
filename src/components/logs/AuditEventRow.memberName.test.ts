@@ -1,9 +1,9 @@
 import { test, expect, vi } from "vitest";
 
-vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/i18n", () => ({ default: { t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) } }));
 vi.mock("@/stores/identityStore", () => ({ useIdentityStore: { getState: () => ({ identities: [] }) } }));
 
-import { actorName } from "@/components/logs/AuditEventRow";
+import { actorName, actorTitle, ACTION_META } from "@/components/logs/AuditEventRow";
 import type { AuditLog } from "@/services/auditService";
 
 const log = (over: Partial<AuditLog>): AuditLog => ({
@@ -19,4 +19,15 @@ test("audit actor shows the member name when the server sends one", () => {
 test("audit actor falls back to the handle", () => {
   expect(actorName(log({ actor_member_name: null }))).toBe("swift-otter-1");
   expect(actorName(log({}))).toBe("swift-otter-1");
+});
+
+test("actor tooltip adds the handle only when a member name is shown", () => {
+  expect(actorTitle(log({ actor_member_name: "Jan" }))).toBe("Jan (@swift-otter-1)");
+  expect(actorTitle(log({}))).toBe("swift-otter-1");
+});
+
+test("rename label reads differently when the name was cleared", () => {
+  const rename = (metadata: Record<string, unknown>) => ACTION_META["member.renamed"].label(log({ action: "member.renamed", target_name: "bob", metadata }));
+  expect(rename({ old: null, new: "Jan" })).toBe('logs.eventLabels.memberRenamed:{"name":"bob","to":"Jan"}');
+  expect(rename({ old: "Jan", new: null })).toBe('logs.eventLabels.memberNameRemoved:{"name":"bob"}');
 });

@@ -130,13 +130,13 @@ test("Remove and Grant now run the real calls, not a no-op", () => {
   render(<VaultShareSheet vaultId="v1" variant="full" />);
 
   fireEvent.click(screen.getByText("remove:u1"));
-  expect(h.removeTeamMember).toHaveBeenCalledWith({ teamId: "t1", userId: "u1", handle: "@bob" });
+  expect(h.removeTeamMember).toHaveBeenCalledWith({ teamId: "t1", userId: "u1", label: "@bob" });
 
   fireEvent.click(screen.getByText("grant:u1"));
   expect(h.grantVaultKeyToMember).toHaveBeenCalledWith({
     teamId: "t1",
     userId: "u1",
-    handle: "@bob",
+    label: "@bob",
     publicKey: "pk-bob",
   });
 });

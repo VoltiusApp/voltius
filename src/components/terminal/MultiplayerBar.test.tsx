@@ -77,7 +77,10 @@ beforeEach(() => {
   h.leave.mockReset();
   h.removeSession.mockReset();
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  useTeamStore.setState({ membersByTeam: {} });
+});
 
 test("no connection entry -> renders nothing", () => {
   state.connections = {};
@@ -212,5 +215,4 @@ test("control holder's avatar tooltip carries the member name and the has-contro
   const { container } = render(<MultiplayerBar localSessionId={LOCAL_ID} />);
   const tip = container.querySelector('[title*="Jan Novák"]')?.getAttribute("title");
   expect(tip).toBe("Jan Novák · shared.presence.hasControl");
-  useTeamStore.setState({ membersByTeam: {} });
 });

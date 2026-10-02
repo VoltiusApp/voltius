@@ -48,7 +48,11 @@ vi.mock("@/components/shared/SidePanelLayout", () => ({
 vi.mock("@/components/shared/DragSelectSurface", () => ({
   DragSelectSurface: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock("@/components/shared/ToolbarViewControls", () => ({ ToolbarViewControls: () => null }));
+vi.mock("@/components/shared/ToolbarViewControls", () => ({
+  ToolbarViewControls: ({ search, onSearchChange }: { search: string; onSearchChange: (v: string) => void }) => (
+    <input value={search} onChange={(e) => onSearchChange(e.target.value)} />
+  ),
+}));
 
 // Exposes each card's onClick (selection) and flattens context-menu / bulk-menu
 // items into clickable leaf buttons so their handlers can be invoked directly.
@@ -77,6 +81,7 @@ vi.mock("@/components/shared/BaseCard", () => ({
         >
           {id}
         </button>
+        <div data-testid={`body-${id}`}>{props.children as React.ReactNode}</div>
         {renderMenu(props.contextMenuItems as ContextMenuItem[] | undefined, `ctx-${id}`)}
         {renderMenu(props.bulkContextMenuItems as ContextMenuItem[] | undefined, `bulk-${id}`)}
       </div>
@@ -206,7 +211,7 @@ beforeEach(() => {
   h.removeMemberRole.mockResolvedValue(undefined);
   h.removeMember.mockResolvedValue(undefined);
 });
-afterEach(() => { cleanup(); h.teams.length = 0; });
+afterEach(() => { cleanup(); h.teams.length = 0; h.members.length = 3; });
 
 async function renderPage() {
   render(<MembersPage />);
@@ -351,4 +356,30 @@ test("a refused assign from the per-member menu is reported, not left unhandled"
   fireEvent.click(screen.getByTestId("ctx-u2::members.roles::members.roleName.editor"));
   await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
   expect(h.push).not.toHaveBeenCalled();
+});
+
+const namedMember = (user_id: string, handle: string, member_name: string | null) => ({
+  team_id: "t1", user_id, invited_by_display_name: null, joined_at: "2024-01-05T00:00:00Z", handle, member_name, public_key: "pk", role_ids: ["r-mem"],
+});
+
+test("roster shows member names with their handles", async () => {
+  h.members.push(namedMember("u3", "swift-otter-1", "Jan Novák"));
+  await renderPage();
+  expect(screen.getByText("Jan Novák")).toBeTruthy();
+  expect(screen.getByText("@swift-otter-1")).toBeTruthy();
+});
+
+test("search matches a member name", async () => {
+  h.members.push(namedMember("u3", "swift-otter-1", "Jan Novák"));
+  await renderPage();
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "novák" } });
+  expect(screen.queryByTestId("card-u1")).toBeNull();
+  expect(screen.getByTestId("card-u3")).toBeTruthy();
+});
+
+test("names and handles sort together alphabetically", async () => {
+  h.members.push(namedMember("u3", "zed-1", "Jan"), namedMember("u4", "zzz-9", "Aaron"));
+  await renderPage();
+  const ids = screen.getAllByTestId(/^card-/).map((c) => c.getAttribute("data-testid"));
+  expect(ids).toEqual(["card-u4", "card-u1", "card-u2", "card-u3", "card-me"]);
 });

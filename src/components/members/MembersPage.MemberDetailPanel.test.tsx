@@ -656,3 +656,11 @@ test("locked member without overrides: one line, no Clear, no permission rows", 
   expect(screen.queryByText("members.permissions.filterPlaceholder")).toBeNull();
   expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
 });
+
+test("Invited by shows the inviter's member name from the roster", () => {
+  const inviter: TeamMember = { ...baseMember, user_id: "u9", handle: "quiet-otter-1", member_name: "Jan" };
+  mockStore.membersByTeam = { t1: [inviter] };
+  render(<MemberDetailPanel {...baseProps} member={{ ...baseMember, invited_by_display_name: "quiet-otter-1" }} />);
+  expect(screen.getByText("Jan")).toBeTruthy();
+  expect(screen.queryByText("quiet-otter-1")).toBeNull();
+});

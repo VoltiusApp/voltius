@@ -84,7 +84,7 @@
       "memberJoined": "joined the team as {{role}}",
       "memberRemoved": "removed {{name}}",
       "memberRenamed": "named {{name}} “{{to}}”",
-      "memberNameCleared": "(no name)",
+      "memberNameRemoved": "removed the name of {{name}}",
       "memberRoleChanged": "changed role for {{name}}",
       "memberPermissionsChanged": "changed permissions for {{name}}",
       "vaultCreated": "created vault \"{{name}}\"",

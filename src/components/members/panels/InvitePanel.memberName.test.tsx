@@ -3,6 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/re
 import type { TeamRole } from "@/stores/teamStore";
 
 const h = vi.hoisted(() => ({
+  usedSeats: 0,
   inviteUserWithRoles: vi.fn(),
   inviteByEmailAddress: vi.fn(),
 }));
@@ -31,9 +32,11 @@ vi.mock("@/hooks/useUserSearch", () => ({
   }),
 }));
 vi.mock("@/stores/subscriptionStore", () => ({
-  useSubscriptionStore: () => ({ usedSeats: 0, effectiveSeats: 10, load: vi.fn() }),
+  useSubscriptionStore: () => ({ usedSeats: h.usedSeats, effectiveSeats: 10, load: vi.fn() }),
 }));
-vi.mock("@/components/settings/BuySeatsModal", () => ({ default: () => null }));
+vi.mock("@/components/settings/BuySeatsModal", () => ({
+  default: ({ onSuccess }: { onSuccess: () => void }) => <button onClick={onSuccess}>seats-bought</button>,
+}));
 vi.mock("@/components/members/SeatsMeter", () => ({ SeatsMeter: () => null }));
 
 import { InvitePanel } from "./InvitePanel";
@@ -44,7 +47,8 @@ const roles: TeamRole[] = [
 
 afterEach(() => {
   cleanup();
-  Object.values(h).forEach((m) => m.mockReset());
+  Object.values(h).forEach((m) => typeof m !== "number" && m.mockReset());
+  h.usedSeats = 0;
 });
 
 function renderPanel(canNameMembers: boolean) {
@@ -83,4 +87,14 @@ test("blank name is not sent", async () => {
   await waitFor(() =>
     expect(h.inviteByEmailAddress).toHaveBeenCalledWith(expect.objectContaining({ memberName: undefined })),
   );
+});
+
+test("a name typed before buying seats does not leak into the next invite", () => {
+  h.usedSeats = 10;
+  renderPanel(true);
+  const input = screen.getByLabelText("members.invite.nameLabel") as HTMLInputElement;
+  fireEvent.change(input, { target: { value: "Jan" } });
+  fireEvent.click(screen.getByText("members.invite.inviteArrow"));
+  fireEvent.click(screen.getByText("seats-bought"));
+  expect(input.value).toBe("");
 });

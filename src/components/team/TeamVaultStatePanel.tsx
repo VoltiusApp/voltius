@@ -10,7 +10,7 @@ import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
 import { fetchTeamData } from "@/services/teamVaultSync";
-import { ownerHandle } from "@/services/teamVaultFirstAccess";
+import { ownerLabel } from "@/services/teamVaultFirstAccess";
 import { checkForUpdate } from "@/services/updater";
 import { isTeamOwner } from "@/services/permissions";
 import { useMyUserId } from "@/hooks/useMyUserId";
@@ -37,7 +37,7 @@ export default function TeamVaultStatePanel({
 
   // Generic until the handle resolves: a name flashing in from blank reads worse
   // than the sentence that never had one.
-  const owner = ownerHandle(team, members);
+  const owner = ownerLabel(team, members);
 
   const configs: Record<string, { icon: string; title: string; body: string }> = {
     offline: {

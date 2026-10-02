@@ -108,13 +108,13 @@ export async function inviteByEmailAddress(args: {
 export async function removeTeamMember(args: {
   teamId: string;
   userId: string;
-  handle: string;
+  label: string;
 }): Promise<void> {
-  const { teamId, userId, handle } = args;
+  const { teamId, userId, label } = args;
   await runTeamAction({
-    pending: i18n.t("members.toast.removingMember", { name: handle }),
-    success: i18n.t("members.toast.memberRemoved", { name: handle }),
-    error: (e: Error) => i18n.t("members.error.removeFailed", { name: handle, reason: userFacingReason(e) }),
+    pending: i18n.t("members.toast.removingMember", { name: label }),
+    success: i18n.t("members.toast.memberRemoved", { name: label }),
+    error: (e: Error) => i18n.t("members.error.removeFailed", { name: label, reason: userFacingReason(e) }),
     run: () => useTeamStore.getState().removeMember(teamId, userId),
   });
 }
@@ -138,14 +138,14 @@ export async function revokeInvitation(args: {
 export async function grantVaultKeyToMember(args: {
   teamId: string;
   userId: string;
-  handle: string;
+  label: string;
   publicKey: string;
 }): Promise<void> {
-  const { teamId, userId, handle, publicKey } = args;
+  const { teamId, userId, label, publicKey } = args;
   await runTeamAction({
-    pending: i18n.t("members.toast.grantingKey", { name: handle }),
-    success: i18n.t("members.toast.keyGranted", { name: handle }),
-    error: (e: Error) => i18n.t("members.error.grantKeyFailed", { name: handle, reason: userFacingReason(e) }),
+    pending: i18n.t("members.toast.grantingKey", { name: label }),
+    success: i18n.t("members.toast.keyGranted", { name: label }),
+    error: (e: Error) => i18n.t("members.error.grantKeyFailed", { name: label, reason: userFacingReason(e) }),
     run: async () => {
       if (!publicKey) throw new Error(i18n.t("members.error.memberHasNoPublicKey"));
       const { getTeamVaultKey, distributeKeyToNewMember } = await import("@/services/teamVaultSync");

@@ -6,7 +6,7 @@ import type { LayoutMode } from "@/components/shared/ToolbarViewControls";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { RoleBadges } from "@/components/members/roleBadges";
-import { memberLabel } from "@/services/memberLabel";
+import { memberAvatarLabel, memberLabel, secondaryHandle } from "@/services/memberLabel";
 
 export interface MemberCardProps {
   member: TeamMember;
@@ -25,7 +25,7 @@ export interface MemberCardProps {
 }
 
 export function MemberAvatar({ member, size }: { member: TeamMember; size: number }) {
-  return <PresenceAvatar handle={member.member_name ?? member.handle} size={size} online={member.is_online} animate />;
+  return <PresenceAvatar handle={memberAvatarLabel(member)} size={size} online={member.is_online} animate />;
 }
 
 export function MemberCard({
@@ -62,6 +62,9 @@ export function MemberCard({
               <span className="text-[9px] px-1 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>{t("members.youBadge")}</span>
             )}
           </div>
+          {secondaryHandle(member) && (
+            <p className="text-[10px] truncate max-w-[120px] text-(--t-text-secondary)">{secondaryHandle(member)}</p>
+          )}
           <RoleBadges member={member} roles={roles} canManage={canManage} onAddRole={onAddRole} />
         </div>
       </BaseCard>
@@ -88,8 +91,8 @@ export function MemberCard({
             <span className="text-[10px] px-1.5 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>{t("members.youBadge")}</span>
           )}
         </div>
-        {member.member_name && member.handle && (
-          <p className="text-[11px] truncate text-(--t-text-secondary)">@{member.handle}</p>
+        {secondaryHandle(member) && (
+          <p className="text-[11px] truncate text-(--t-text-secondary)">{secondaryHandle(member)}</p>
         )}
       </div>
       <RoleBadges member={member} roles={roles} canManage={canManage} onAddRole={onAddRole} />

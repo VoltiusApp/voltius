@@ -194,6 +194,7 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
   const { t } = useTranslation();
   const teams = useTeamStore((s) => s.teams);
   const recent = useRecentPeopleStore((s) => s.recent);
+  const peerOf = usePeerResolver();
   const forget = useRecentPeopleStore((s) => s.forget);
   const search = useUserSearch();
 
@@ -237,7 +238,7 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
         last_invited_at: new Date().toISOString(),
       });
     } catch {
-      setError(t("terminal.share.inviteFailed", { name: target.handle }));
+      setError(t("terminal.share.inviteFailed", { name: peerOf(target.user_id, { fallbackHandle: target.handle }).primary }));
     } finally {
       setInFlight(target.user_id, false);
     }
@@ -258,7 +259,13 @@ export function PeopleTab({ session, invitedThisSession, guestCap, tier, onUpgra
     }
   };
 
-  const groups = groupPeople({ query: search.query, teammates, recent, results: search.results });
+  const groups = groupPeople({
+    query: search.query,
+    teammates,
+    recent,
+    results: search.results,
+    nameOf: (id) => peerOf(id).name,
+  });
 
   const recentEntries: RowEntry[] = groups.recent.map((p) => {
     // Recent wins the dedupe, so a teammate listed here is dropped from the

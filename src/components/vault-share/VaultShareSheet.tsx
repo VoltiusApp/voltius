@@ -148,7 +148,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
   };
 
   const handleRemove = (p: Person) =>
-    void removeTeamMember({ teamId, userId: p.userId, handle: p.label })
+    void removeTeamMember({ teamId, userId: p.userId, label: p.label })
       .then(reloadMembers)
       .catch(() => {});
 
@@ -162,7 +162,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
     void grantVaultKeyToMember({
       teamId,
       userId: p.userId,
-      handle: p.label,
+      label: p.label,
       publicKey: p.publicKey ?? "",
     })
       .then(reloadMembers)

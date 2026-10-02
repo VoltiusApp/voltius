@@ -25,7 +25,7 @@ import {
 import { formatDate } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
 import { MemberNameInput } from "@/components/members/MemberNameInput";
-import { memberLabel } from "@/services/memberLabel";
+import { inviterLabel, memberLabel, secondaryHandle } from "@/services/memberLabel";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;
@@ -56,6 +56,7 @@ export function MemberDetailPanel({
   const { locked } = useBusinessLock(teamId);
 
   const setStoredName = useTeamStore((s) => s.setMemberName);
+  const roster = useTeamStore((s) => s.membersByTeam[teamId]);
   const [draftName, setDraftName] = useState(member.member_name ?? "");
   useEffect(() => setDraftName(member.member_name ?? ""), [member.member_name]);
   const [nameError, setNameError] = useState("");
@@ -275,7 +276,7 @@ export function MemberDetailPanel({
       <PanelHeader
         icon="lucide:user"
         title={memberLabel(member)}
-        subtitle={<>{member.member_name && member.handle && <span className="mr-2">@{member.handle}</span>}<RoleBadges member={member} roles={teamRoles} /></>}
+        subtitle={<>{secondaryHandle(member) && <span className="mr-2">{secondaryHandle(member)}</span>}<RoleBadges member={member} roles={teamRoles} /></>}
         onClose={onClose}
       />
 
@@ -440,7 +441,7 @@ export function MemberDetailPanel({
             {member.invited_by_display_name && (
               <div className="flex items-center justify-between gap-4">
                 <span className="text-(--t-text-dim) shrink-0">{t("members.invitedBy")}</span>
-                <span className="text-(--t-text-primary) truncate">{member.invited_by_display_name}</span>
+                <span className="text-(--t-text-primary) truncate">{inviterLabel(member.invited_by_display_name, roster)}</span>
               </div>
             )}
           </div>

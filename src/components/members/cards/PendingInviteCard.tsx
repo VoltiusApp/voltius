@@ -6,6 +6,8 @@ import { inviteByEmailAddress, revokeInvitation } from "@/services/vaultShare";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { ROLE_META, roleLabel } from "@/components/members/roleChips";
+import { useTeamStore } from "@/stores/teamStore";
+import { inviterLabel } from "@/services/memberLabel";
 import { formatDate, MONTH_DAY } from "@/utils/localeFormat";
 
 const DAY_MS = 86_400_000;
@@ -20,6 +22,7 @@ export function PendingInviteCard({
   onResent?: () => void;
 }) {
   const { t } = useTranslation();
+  const roster = useTeamStore((s) => s.membersByTeam[teamId]);
   const [revoking, setRevoking] = useState(false);
   const [resending, setResending] = useState(false);
 
@@ -68,12 +71,13 @@ export function PendingInviteCard({
 
   return (
     <BaseCard isList>
-      <MiniAvatar name={inv.display_name} size={32} />
+      <MiniAvatar name={inv.member_name ?? inv.display_name} size={32} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate text-(--t-text-bright)">{inv.display_name}</p>
+        <p className="text-sm font-medium truncate text-(--t-text-bright)">{inv.member_name ?? inv.display_name}</p>
+        {inv.member_name && <p className="text-[10px] truncate text-(--t-text-dim)">{inv.display_name}</p>}
         <p className="text-[10px] truncate" style={{ color: isExpired ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
           {expiryLabel}
-          {inv.invited_by_display_name && <> · {t("members.invitedBy")} {inv.invited_by_display_name}</>}
+          {inv.invited_by_display_name && <> · {t("members.invitedBy")} {inviterLabel(inv.invited_by_display_name, roster)}</>}
         </p>
       </div>
 

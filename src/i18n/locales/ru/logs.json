@@ -84,7 +84,7 @@
       "memberJoined": "присоединился(лась) к команде как {{role}}",
       "memberRemoved": "удалил(а) {{name}}",
       "memberRenamed": "назвал(а) {{name}} «{{to}}»",
-      "memberNameCleared": "(без имени)",
+      "memberNameRemoved": "убрал(а) имя {{name}}",
       "memberRoleChanged": "изменил(а) роль для {{name}}",
       "memberPermissionsChanged": "изменил(а) разрешения для {{name}}",
       "vaultCreated": "создал(а) хранилище \"{{name}}\"",
