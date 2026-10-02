@@ -109,6 +109,8 @@ export interface ProxyOverride {
   username?: string;
 }
 
+export type ConnectionType = "ssh" | "serial" | "ftp" | "webdav";
+
 export interface Connection {
   id: string;
   name?: string;
@@ -141,8 +143,9 @@ export interface Connection {
   keepalive_preset?: KeepalivePreset;
   persist_session?: boolean;
   proxy?: ProxyOverride;
-  connection_type?: "ssh" | "serial" | "ftp";
+  connection_type?: ConnectionType;
   ftp_secure?: boolean;
+  webdav_url?: string;
   notes?: string;
   serial_port?: string;
   serial_baud?: number;
@@ -185,8 +188,9 @@ export interface ConnectionFormData {
   keepalive_preset?: KeepalivePreset;
   persist_session?: boolean;
   proxy?: ProxyOverride;
-  connection_type?: "ssh" | "serial" | "ftp";
+  connection_type?: ConnectionType;
   ftp_secure?: boolean;
+  webdav_url?: string;
   notes?: string;
   serial_port?: string;
   serial_baud?: number;

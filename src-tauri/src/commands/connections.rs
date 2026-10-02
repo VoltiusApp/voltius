@@ -4,7 +4,9 @@ use crate::commands::vault_object::{
     vault_delete_command, vault_list_command,
 };
 use crate::error::AppError;
-use crate::storage::config::{load_connections, save_connections, Connection, ConnectionFormData};
+use crate::storage::config::{
+    load_connections, save_connections, Connection, ConnectionFormData, ConnectionType,
+};
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -61,6 +63,7 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         serial_flow_control: data.serial_flow_control,
         serial_auto_reconnect: data.serial_auto_reconnect,
         ftp_secure: data.ftp_secure,
+        webdav_url: data.webdav_url,
         notes: data.notes,
         created_at: existing.created_at.clone(),
         last_used_at: existing.last_used_at.clone(),
@@ -121,7 +124,7 @@ connection_clocks! {
         terminal_encoding, distro, icon, ping_disabled,
         shell_integration, keepalive_preset, persist_session, proxy, connection_type, serial_port, serial_baud,
         serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control,
-        serial_auto_reconnect, ftp_secure,
+        serial_auto_reconnect, ftp_secure, webdav_url,
         notes,
     ],
     by_id: [jump_hosts, env_vars],
@@ -193,13 +196,24 @@ fn build_connection(
         serial_flow_control: data.serial_flow_control,
         serial_auto_reconnect: data.serial_auto_reconnect,
         ftp_secure: data.ftp_secure,
+        webdav_url: data.webdav_url,
         notes: data.notes,
         clocks,
     }
 }
 
+fn check_webdav_url(data: &ConnectionFormData) -> Result<(), AppError> {
+    if data.connection_type != ConnectionType::Webdav {
+        return Ok(());
+    }
+    crate::webdav::paths::DavBase::parse(data.webdav_url.as_deref().unwrap_or_default())
+        .map(|_| ())
+        .map_err(AppError::from)
+}
+
 #[tauri::command]
 pub fn connection_save(data: ConnectionFormData) -> Result<Connection, AppError> {
+    check_webdav_url(&data)?;
     let mut connections = load_connections()?;
     let now = Utc::now().to_rfc3339();
     check_vault_write(&requested_vault(&data.vault_id))?;
@@ -240,6 +254,7 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
     let mut connections = load_connections()?;
     let existing = find_mut(&mut connections, &id)?.clone();
     check_vault_write(&[effective_vault(&data.vault_id, &existing.vault_id)])?;
+    check_webdav_url(&data)?;
 
     let now = Utc::now().to_rfc3339();
     let mut updated = merge_form_into_connection(&existing, data);
@@ -339,6 +354,7 @@ mod tests {
             serial_flow_control: Some("none".into()),
             serial_auto_reconnect: Some(true),
             ftp_secure: false,
+            webdav_url: None,
             notes: Some("orig note".into()),
             updated_at: "2026-01-01T00:00:00Z".into(),
             deleted_at: None,
@@ -402,6 +418,7 @@ mod tests {
             serial_flow_control: Some("rtscts".into()),
             serial_auto_reconnect: Some(false),
             ftp_secure: true,
+            webdav_url: Some("https://dav.example.com/".into()),
             notes: Some("new note".into()),
         }
     }
@@ -529,12 +546,39 @@ mod tests {
     }
 
     /// Pins the exact set of fields `bump_changed_clocks` tracks when everything
-    /// changes (37 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
+    /// changes (38 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
     /// `shell_integration`, `keepalive_preset`, `persist_session`, `proxy`;
     /// `pinned` is excluded as device-local).
     /// Since Phase 1, create-time init and update-time bump both derive from the
     /// single `connection_clocks!` list, so this set equals the one seeded by
     /// `initial_clocks` — see `initial_clocks_match_bumpable_field_set`.
+    #[test]
+    fn webdav_form_payload_deserializes_and_merges() {
+        let json = r#"{"host":"cloud.example.com","port":443,"username":"u",
+            "auth_type":"password","tags":[],"connection_type":"webdav",
+            "webdav_url":"https://cloud.example.com/dav/"}"#;
+        let data: ConnectionFormData = serde_json::from_str(json).unwrap();
+        assert_eq!(data.connection_type, ConnectionType::Webdav);
+        check_webdav_url(&data).unwrap();
+        let merged = merge_form_into_connection(&sample_connection(), data);
+        assert_eq!(
+            merged.webdav_url.as_deref(),
+            Some("https://cloud.example.com/dav/")
+        );
+    }
+
+    #[test]
+    fn a_webdav_host_needs_a_usable_url() {
+        for url in [None, Some("ftp://h/"), Some("https://u:p@h/")] {
+            let data = ConnectionFormData {
+                connection_type: ConnectionType::Webdav,
+                webdav_url: url.map(String::from),
+                ..sample_form()
+            };
+            assert!(check_webdav_url(&data).is_err(), "{url:?}");
+        }
+    }
+
     #[test]
     fn ftp_form_payload_deserializes_and_merges() {
         // Mirrors what the connection form sends for a new FTP host.
@@ -612,10 +656,11 @@ mod tests {
             "terminal_encoding",
             "username",
             "vault_id",
+            "webdav_url",
         ];
         expected.sort();
         assert_eq!(keys, expected);
-        assert_eq!(keys.len(), 37);
+        assert_eq!(keys.len(), 38);
     }
 
     /// Phase 1 reconciliation: the clocks seeded for a brand-new connection
@@ -635,6 +680,6 @@ mod tests {
         let bumpable: HashSet<String> = new.clocks.into_keys().collect();
 
         assert_eq!(seeded, bumpable);
-        assert_eq!(seeded.len(), 37);
+        assert_eq!(seeded.len(), 38);
     }
 }

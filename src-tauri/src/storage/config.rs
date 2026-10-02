@@ -38,6 +38,7 @@ pub enum ConnectionType {
     Ssh,
     Serial,
     Ftp,
+    Webdav,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -202,6 +203,8 @@ pub struct Connection {
     /// FTP only: use explicit FTPS (AUTH TLS) instead of plain FTP.
     #[serde(default)]
     pub ftp_secure: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub webdav_url: Option<String>,
     /// Free-form user notes for this host (reminders, maintenance windows, …).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
@@ -286,6 +289,8 @@ pub struct ConnectionFormData {
     pub serial_auto_reconnect: Option<bool>,
     #[serde(default)]
     pub ftp_secure: bool,
+    #[serde(default)]
+    pub webdav_url: Option<String>,
     #[serde(default)]
     pub notes: Option<String>,
 }
@@ -1072,6 +1077,7 @@ mod tests {
             serial_flow_control: Some("none".into()),
             serial_auto_reconnect: Some(true),
             ftp_secure: false,
+            webdav_url: None,
             notes: Some("maintenance window: Sat".into()),
             updated_at: "2026-01-02T00:00:00Z".into(),
             deleted_at: None,

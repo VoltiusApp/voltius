@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { SerialConnectParams } from "@/types";
+import type { ConnectionType, SerialConnectParams } from "@/types";
 import type { AppTheme } from "@/themes/types";
 import type { Locale } from "@/stores/localeStore";
 import type { PluginAuditAction } from "@/services/auditContext";
@@ -55,7 +55,7 @@ export interface PluginConnection extends PluginObjectPlacement {
   // Display-only fields — already present at runtime (runtime.ts:389 returns
   // full Connection records cast to PluginConnection[]); exposed here so the
   // agent UI can render a real per-host avatar. Optional and additive.
-  connection_type?: "ssh" | "serial" | "ftp";
+  connection_type?: ConnectionType;
   icon?: string;
   distro?: string;
   serial_port?: string;
