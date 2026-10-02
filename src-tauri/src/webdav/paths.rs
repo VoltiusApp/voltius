@@ -83,14 +83,23 @@ impl DavBase {
     }
 
     pub fn path_of(&self, href: &str) -> Option<String> {
-        let full = decode(self.url.join(href).ok()?.path());
-        let base = decode(self.url.path());
-        let rel = if format!("{full}/") == base {
-            ""
-        } else {
-            full.strip_prefix(base.as_str())?
-        };
-        Some(format!("/{}", rel.trim_end_matches('/')))
+        let joined = self.url.join(href).ok()?;
+        if joined.origin() != self.url.origin() {
+            return None;
+        }
+        let base = decoded_segments(self.url.path())?;
+        let full = decoded_segments(joined.path())?;
+        if full.len() < base.len() || full[..base.len()] != base[..] {
+            return None;
+        }
+        let rest = &full[base.len()..];
+        if rest
+            .iter()
+            .any(|s| s.contains('/') || s == "." || s == "..")
+        {
+            return None;
+        }
+        Some(format!("/{}", rest.join("/")))
     }
 
     pub fn same_origin_redirect(&self, location: &str) -> Option<DavBase> {
@@ -102,8 +111,16 @@ impl DavBase {
     }
 }
 
-fn decode(path: &str) -> String {
-    percent_decode_str(path).decode_utf8_lossy().into_owned()
+fn decoded_segments(path: &str) -> Option<Vec<String>> {
+    path.split('/')
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            percent_decode_str(s)
+                .decode_utf8()
+                .ok()
+                .map(|c| c.into_owned())
+        })
+        .collect()
 }
 
 pub fn normalize(path: &str) -> String {
@@ -209,5 +226,27 @@ mod tests {
             .same_origin_redirect("https://evil.example/dav/")
             .is_none());
         assert!(b.same_origin_redirect("http://h/dav/").is_none());
+    }
+
+    #[test]
+    fn hrefs_cannot_escape_or_split_names() {
+        let b = base("https://h/dav/");
+        for href in [
+            "/dav/..%2F..%2Fetc%2Fpasswd",
+            "/dav/%2e%2e/x",
+            "/dav/a%2Fb",
+            "https://evil.example/dav/x",
+            "http://h/dav/x",
+            "/dav/%FF",
+        ] {
+            assert_eq!(b.path_of(href), None, "{href}");
+        }
+    }
+
+    #[test]
+    fn encoded_base_segments_match_decoded() {
+        let b = base("https://h/my%20files/");
+        assert_eq!(b.path_of("/my files/a.txt").as_deref(), Some("/a.txt"));
+        assert_eq!(b.path_of("/my%20files/a.txt").as_deref(), Some("/a.txt"));
     }
 }
