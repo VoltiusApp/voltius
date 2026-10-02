@@ -64,9 +64,7 @@ pub(super) async fn get_backend(
         .ok_or_else(|| format!("SFTP session '{}' not found", sftp_id))
 }
 
-pub(super) fn shell_quote(s: &str) -> String {
-    format!("'{}'", s.replace('\'', r"'\''"))
-}
+pub(super) use crate::ssh::exec::shell_quote;
 
 pub(super) fn temp_archive_name(transfer_id: &str) -> String {
     format!("tf_{}.tar.gz", transfer_id)

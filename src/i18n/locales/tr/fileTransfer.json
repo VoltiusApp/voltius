@@ -56,6 +56,7 @@
         "delete_other": "{{count}} öğeyi sil",
         "copyPath_one": "Yolu kopyala",
         "copyPath_other": "{{count}} yolu kopyala",
+        "permissions": "İzinler…",
         "compress": ".tar.gz olarak sıkıştır",
         "extractHere": "Buraya çıkar",
         "openInTerminal": "Terminalde aç",
@@ -75,6 +76,29 @@
         "modified": "Değiştirilme",
         "permissions": "İzinler"
       }
+    },
+    "permissions": {
+      "items_one": "{{count}} öğe",
+      "items_other": "{{count}} öğe",
+      "bit": "{{who}}: {{what}}",
+      "read": "Okuma",
+      "write": "Yazma",
+      "execute": "Çalıştırma",
+      "owner": "Sahip",
+      "group": "Grup",
+      "others": "Diğerleri",
+      "octal": "Sekizlik mod",
+      "uid": "uid {{id}}",
+      "gid": "gid {{id}}",
+      "mixed": "karışık",
+      "noShell": "Sahibi veya bir klasörün içeriğini değiştirmek için ana makinede bir POSIX kabuğu gerekir.",
+      "recurse": "Alt öğeler dahil",
+      "scopeAll": "Tümü",
+      "scopeFiles": "Dosyalar",
+      "scopeDirs": "Klasörler",
+      "apply": "Uygula",
+      "applyItems_one": "{{count}} öğeye uygula",
+      "applyItems_other": "{{count}} öğeye uygula"
     },
     "side": {
       "chooseHost": "Sunucu seç…",

@@ -3,6 +3,7 @@ use tokio::time::{timeout, Duration};
 
 use super::types::{parse_lxc_list, parse_lxc_snapshots, LxcAction, LxcContainer, LxcSnapshot};
 use crate::ssh::client::SshClient;
+use crate::ssh::exec::shell_quote;
 
 type SshHandle = Arc<russh::client::Handle<SshClient>>;
 
@@ -83,10 +84,6 @@ async fn exec_command_timeout(
     .await;
 
     exec_result(cmd, code, stdout, stderr)
-}
-
-fn shell_quote(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "'\\''"))
 }
 
 pub async fn list_containers(handle: &SshHandle) -> Result<Vec<LxcContainer>, String> {

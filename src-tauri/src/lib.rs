@@ -402,6 +402,8 @@ pub fn run() {
             commands::sftp::sftp_touch,
             commands::sftp::sftp_rename,
             commands::sftp::sftp_delete,
+            commands::sftp::sftp_owners,
+            commands::sftp::sftp_set_attrs,
             commands::sftp::sftp_upload,
             commands::sftp::sftp_download,
             commands::sftp::sftp_upload_dir,

@@ -110,6 +110,31 @@ export async function sftpDelete(sftpId: string, path: string): Promise<void> {
   return invoke("sftp_delete", { sftpId, path });
 }
 
+export interface OwnerInfo {
+  uid: number;
+  gid: number;
+  user: string;
+  group: string;
+}
+
+export interface AttrChange {
+  paths: string[];
+  set: number;
+  clear: number;
+  owner?: string;
+  group?: string;
+  recurse?: "all" | "files" | "dirs";
+}
+
+/** null when the host has no POSIX shell to report owners. */
+export async function sftpOwners(sftpId: string, paths: string[]): Promise<OwnerInfo[] | null> {
+  return invoke("sftp_owners", { sftpId, paths });
+}
+
+export async function sftpSetAttrs(sftpId: string, change: AttrChange): Promise<void> {
+  return invoke("sftp_set_attrs", { sftpId, change });
+}
+
 // ── Transfer ──────────────────────────────��──────────────────────────────���────
 
 export async function sftpUpload(params: {

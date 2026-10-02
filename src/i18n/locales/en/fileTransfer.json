@@ -56,6 +56,7 @@
         "delete_other": "Delete {{count}} items",
         "copyPath_one": "Copy path",
         "copyPath_other": "Copy {{count}} paths",
+        "permissions": "Permissions…",
         "compress": "Compress to .tar.gz",
         "extractHere": "Extract here",
         "openInTerminal": "Open in terminal",
@@ -75,6 +76,29 @@
         "modified": "Modified",
         "permissions": "Perms"
       }
+    },
+    "permissions": {
+      "items_one": "{{count}} item",
+      "items_other": "{{count}} items",
+      "bit": "{{who}}: {{what}}",
+      "read": "Read",
+      "write": "Write",
+      "execute": "Execute",
+      "owner": "Owner",
+      "group": "Group",
+      "others": "Others",
+      "octal": "Octal mode",
+      "uid": "uid {{id}}",
+      "gid": "gid {{id}}",
+      "mixed": "mixed",
+      "noShell": "Changing the owner or a folder's contents needs a POSIX shell on the host.",
+      "recurse": "Recursive",
+      "scopeAll": "All",
+      "scopeFiles": "Files",
+      "scopeDirs": "Folders",
+      "apply": "Apply",
+      "applyItems_one": "Apply to {{count}}",
+      "applyItems_other": "Apply to {{count}}"
     },
     "side": {
       "chooseHost": "Choose host…",

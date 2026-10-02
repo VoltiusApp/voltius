@@ -8,6 +8,7 @@ use super::log_stream::{emit_error, emit_line, log_event};
 use super::recreate::{build_network_connects, build_run_args, build_run_command, parse_inspect};
 use super::types::*;
 use crate::ssh::client::SshClient;
+use crate::ssh::exec::shell_quote;
 
 type SshHandle = Arc<russh::client::Handle<SshClient>>;
 
@@ -50,10 +51,6 @@ async fn exec_command_timeout(
     .await;
 
     Ok(String::from_utf8_lossy(&output).to_string())
-}
-
-fn shell_quote(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "'\\''"))
 }
 
 fn build_stack_logs_cmd(stack_name: &str, tail: u32) -> String {

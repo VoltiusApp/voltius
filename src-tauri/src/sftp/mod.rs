@@ -1,3 +1,4 @@
+pub mod attrs;
 pub mod backend;
 pub mod docker_fs;
 pub mod real;
@@ -11,6 +12,7 @@ use crate::ssh::client::{
     authenticate_handle, chain_jumps, client_config, connect_first_hop_plain, hop_detail,
     tunnel_hop, JumpHostConnect, SshClient,
 };
+use crate::ssh::exec::open_exec;
 use crate::ssh::live_cells::{own_cell, read_cell};
 use crate::ssh::session::SessionHandle;
 use docker_fs::DockerFs;
@@ -496,21 +498,6 @@ async fn run_after_exit<H: russh::client::Handler + 'static>(
         drain(&mut cleanup, &session_cancel).await;
         let _ = cleanup.close().await;
     }
-}
-
-async fn open_exec<H: russh::client::Handler>(
-    handle: &Handle<H>,
-    cmd: &str,
-) -> Result<Channel<Msg>, String> {
-    let channel = handle
-        .channel_open_session()
-        .await
-        .map_err(|e| format!("Channel error: {e}"))?;
-    channel
-        .exec(true, cmd)
-        .await
-        .map_err(|e| format!("Exec error: {e}"))?;
-    Ok(channel)
 }
 
 /// Discard `channel`'s output until it ends; false if the session closed first.

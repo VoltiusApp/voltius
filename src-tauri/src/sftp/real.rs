@@ -7,15 +7,17 @@ use crate::commands::sftp::editor::read_capped;
 use crate::commands::sftp::transfer::{sftp_download_inner, sftp_upload_inner};
 use crate::commands::sftp::{RemoteFile, SftpFile};
 use crate::error::AppError;
+use crate::sftp::attrs::{apply_mode, apply_via_shell, AttrChange};
 use crate::sftp::backend::FileBackend;
 use crate::ssh::client::SshClient;
+use crate::ssh::exec::{run_captured, sh_c, Captured};
 use crate::ssh::live_cells::read_cell;
 use crate::ssh::session::SessionHandle;
 use async_trait::async_trait;
 use russh::client::Handle;
 use russh_sftp::client::error::Error as SftpError;
 use russh_sftp::client::SftpSession;
-use russh_sftp::protocol::OpenFlags;
+use russh_sftp::protocol::{FileAttributes, OpenFlags};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -191,6 +193,32 @@ impl FileBackend for RealSftp {
 
     async fn delete(&self, path: &str) -> Result<(), AppError> {
         remove_recursive(Arc::clone(&self.session), path.to_string()).await
+    }
+
+    async fn run_sh(&self, script: &str, args: &[&str]) -> Result<Captured, String> {
+        let handle = read_cell(&self.handle);
+        run_captured(&*handle, &sh_c(script, args)).await
+    }
+
+    async fn set_attrs(&self, change: &AttrChange) -> Result<(), AppError> {
+        if change.needs_shell() {
+            return apply_via_shell(self, change).await;
+        }
+        if !change.changes_mode() {
+            return Ok(());
+        }
+        for path in &change.paths {
+            let current = retry_sftp!(self, "stat", |s| s.metadata(path.as_str()))?;
+            let mut attrs = FileAttributes::empty();
+            attrs.permissions = Some(apply_mode(
+                current.permissions.unwrap_or(0),
+                change.set,
+                change.clear,
+            ));
+            retry_sftp!(self, "chmod", |s| s
+                .set_metadata(path.as_str(), attrs.clone()))?;
+        }
+        Ok(())
     }
 
     async fn file_size(&self, path: &str) -> u64 {

@@ -56,6 +56,7 @@
         "delete_other": "删除 {{count}} 个项目",
         "copyPath_one": "复制路径",
         "copyPath_other": "复制 {{count}} 个路径",
+        "permissions": "权限…",
         "compress": "压缩为 .tar.gz",
         "extractHere": "解压到此处",
         "openInTerminal": "在终端中打开",
@@ -75,6 +76,29 @@
         "modified": "修改时间",
         "permissions": "权限"
       }
+    },
+    "permissions": {
+      "items_one": "{{count}} 个项目",
+      "items_other": "{{count}} 个项目",
+      "bit": "{{who}}: {{what}}",
+      "read": "读取",
+      "write": "写入",
+      "execute": "执行",
+      "owner": "所有者",
+      "group": "组",
+      "others": "其他人",
+      "octal": "八进制模式",
+      "uid": "uid {{id}}",
+      "gid": "gid {{id}}",
+      "mixed": "混合",
+      "noShell": "更改所有者或文件夹内容需要主机上有 POSIX shell。",
+      "recurse": "递归",
+      "scopeAll": "全部",
+      "scopeFiles": "文件",
+      "scopeDirs": "文件夹",
+      "apply": "应用",
+      "applyItems_one": "应用到 {{count}} 项",
+      "applyItems_other": "应用到 {{count}} 项"
     },
     "side": {
       "chooseHost": "选择主机…",

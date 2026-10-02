@@ -7,6 +7,8 @@
 
 use crate::commands::sftp::RemoteFile;
 use crate::error::AppError;
+use crate::sftp::attrs::{apply_via_shell, AttrChange};
+use crate::ssh::exec::Captured;
 use async_trait::async_trait;
 use russh_sftp::client::SftpSession;
 use serde::Serialize;
@@ -38,6 +40,14 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
     async fn touch(&self, path: &str) -> Result<(), AppError>;
     async fn rename(&self, from: &str, to: &str) -> Result<(), AppError>;
     async fn delete(&self, path: &str) -> Result<(), AppError>;
+
+    /// Run a POSIX `sh` script with `args` as `$1…` on the host the files live on.
+    async fn run_sh(&self, _script: &str, _args: &[&str]) -> Result<Captured, String> {
+        Err("This connection cannot run commands on the host".into())
+    }
+    async fn set_attrs(&self, change: &AttrChange) -> Result<(), AppError> {
+        apply_via_shell(self, change).await
+    }
 
     // ── Editor ─────────────────────────────────────────────────────────────
     async fn file_size(&self, path: &str) -> u64;

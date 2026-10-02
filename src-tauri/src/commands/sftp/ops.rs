@@ -2,6 +2,7 @@ use super::{get_backend, RemoteFile};
 use crate::error::AppError;
 use crate::known_hosts::KnownHostsStore;
 use crate::proxy::ProxySpec;
+use crate::sftp::attrs::{owners, AttrChange, OwnerInfo};
 use crate::sftp::SftpManager;
 use crate::ssh::client::JumpHostConnect;
 use crate::ssh::session::SessionManager;
@@ -169,5 +170,33 @@ pub async fn sftp_delete(
     get_backend(&sftp_state, &sftp_id)
         .await?
         .delete(&path)
+        .await
+}
+
+// ── Attributes ────────────────────────────────────────────────────────────────
+
+/// Owner and group of each path, or None when the host has no POSIX shell to ask.
+#[tauri::command]
+pub async fn sftp_owners(
+    sftp_state: State<'_, SftpManager>,
+    sftp_id: String,
+    paths: Vec<String>,
+) -> Result<Option<Vec<OwnerInfo>>, AppError> {
+    let backend = get_backend(&sftp_state, &sftp_id).await?;
+    Ok(owners(&*backend, &paths).await)
+}
+
+#[tauri::command]
+pub async fn sftp_set_attrs(
+    sftp_state: State<'_, SftpManager>,
+    sftp_id: String,
+    change: AttrChange,
+) -> Result<(), AppError> {
+    if change.paths.is_empty() {
+        return Ok(());
+    }
+    get_backend(&sftp_state, &sftp_id)
+        .await?
+        .set_attrs(&change)
         .await
 }
