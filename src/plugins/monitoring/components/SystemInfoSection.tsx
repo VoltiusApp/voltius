@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import type { PluginAPI, PluginSession } from "@/plugins/api";
-import type { MetricsService } from "../services";
+import { systemInfoKey, type HostMetricsHub } from "../hostMetricsHub";
 import type { SystemInfo } from "../types";
 
 function fmtMem(kb: number): string {
@@ -24,24 +24,25 @@ function Row({ icon, label, value }: { icon: string; label: string; value: strin
 }
 
 export function SystemInfoSection({
-  service,
+  hub,
   session,
   defaultExpanded = false,
   t,
 }: {
-  service: MetricsService;
+  hub: HostMetricsHub;
   session: PluginSession;
   defaultExpanded?: boolean;
   t: PluginAPI["i18n"]["t"];
 }) {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const infoKey = systemInfoKey(session);
 
   useEffect(() => {
     let cancelled = false;
     setInfo(null);
-    service
-      .getSystemInfo(session.id, session.type, session.connectionName)
+    hub
+      .systemInfo(session)
       .then((nextInfo) => {
         if (!cancelled) setInfo(nextInfo);
       })
@@ -52,7 +53,7 @@ export function SystemInfoSection({
     return () => {
       cancelled = true;
     };
-  }, [service, session.id, session.type, session.connectionName]);
+  }, [hub, infoKey]);
 
   return (
     <div className="border-t border-(--t-border) shrink-0">

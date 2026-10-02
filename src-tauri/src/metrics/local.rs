@@ -22,7 +22,7 @@ impl LocalMetrics {
             sys,
             networks,
             disks,
-            disk_tick: 0,
+            disk_tick: 9,
             last_disks,
         }
     }

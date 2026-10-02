@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useT, useSessionById, MobileScreenHeader } from "@voltius/ui";
 import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
-import { createMetricsService } from "../services";
+import type { HostMetricsHub } from "../hostMetricsHub";
 import { useHostMetrics } from "../useHostMetrics";
 import { Sparkline } from "./Sparkline";
 import { DiskSection } from "./DiskSection";
@@ -38,9 +38,7 @@ function MobileMetricCard({ label, value, color, history }: {
   );
 }
 
-export function createMobileMetricsScreen(api: PluginAPI): FC<MobileScreenProps> {
-  const service = createMetricsService(api.metrics);
-
+export function createMobileMetricsScreen(api: PluginAPI, hub: HostMetricsHub): FC<MobileScreenProps> {
   return function MobileMetricsScreen({ sessionId, onBack }) {
     const t = useT(api);
     const session = useSessionById(api, sessionId);
@@ -53,7 +51,7 @@ export function createMobileMetricsScreen(api: PluginAPI): FC<MobileScreenProps>
       return () => document.removeEventListener("visibilitychange", onVis);
     }, []);
 
-    const { snap, disks, disksLoading, cpuH, memH, rxH, txH } = useHostMetrics(service, session ?? undefined, {
+    const { snap, disks, disksLoading, cpuH, memH, rxH, txH } = useHostMetrics(hub, session ?? undefined, {
       paused,
     });
 
@@ -101,7 +99,7 @@ export function createMobileMetricsScreen(api: PluginAPI): FC<MobileScreenProps>
             {(disksLoading || disks.length > 0) && (
               <DiskSection disks={disks} loading={disksLoading} t={t} />
             )}
-            <SystemInfoSection service={service} session={session} defaultExpanded t={t} />
+            <SystemInfoSection hub={hub} session={session} defaultExpanded t={t} />
           </div>
         )}
       </div>

@@ -1,114 +1,33 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { PluginSession } from "@/plugins/api";
-import type { MetricsService } from "./services";
-import type { DiskInfo, MetricsSnapshot } from "./types";
+import { EMPTY_HOST_METRICS, hostKey, type HostMetrics, type HostMetricsHub } from "./hostMetricsHub";
 
-const MAX_HISTORY = 60;
-
-function pushHistory(arr: number[], val: number): number[] {
-  const next = [...arr, val];
-  if (next.length > MAX_HISTORY) next.shift();
-  return next;
-}
-
-/** Live host metrics for one session, with cpu/mem/rx/tx sparkline buffers + disk snapshot.
- *  Streams only while connected, non-serial, not unsupported, and not paused. The stream is
- *  started with `isRemote = session.type === "ssh"` (matching the desktop MetricsPanel).
+/** Live metrics for the session's host. Tabs of the same host share one stream and history.
  *  Shared by desktop MetricsPanel + mobile Metrics screen. */
 export function useHostMetrics(
-  service: MetricsService,
+  hub: HostMetricsHub,
   session: PluginSession | undefined,
   opts: { paused?: boolean; localUnsupported?: boolean } = {},
-) {
-  const paused = opts.paused ?? false;
-  const localUnsupported = opts.localUnsupported ?? false;
+): HostMetrics {
+  const streaming =
+    !!session &&
+    session.status === "connected" &&
+    session.type !== "serial" &&
+    !opts.localUnsupported &&
+    !opts.paused;
+  const key = streaming ? hostKey(session) : null;
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
-  const streamIdRef = useRef<string | null>(null);
-  const unlistenRef = useRef<(() => void) | null>(null);
-
-  const [snap, setSnap] = useState<MetricsSnapshot | null>(null);
-  const [disks, setDisks] = useState<DiskInfo[]>([]);
-  const [disksLoading, setDisksLoading] = useState(false);
-  const [cpuH, setCpuH] = useState<number[]>([]);
-  const [memH, setMemH] = useState<number[]>([]);
-  const [rxH, setRxH] = useState<number[]>([]);
-  const [txH, setTxH] = useState<number[]>([]);
-
-  const stopStream = useCallback(async () => {
-    unlistenRef.current?.();
-    unlistenRef.current = null;
-    if (streamIdRef.current) {
-      await service.metricsStop(streamIdRef.current).catch(() => {});
-      streamIdRef.current = null;
-    }
-  }, [service]);
+  const subscribe = useCallback(
+    (listener: () => void) => (key && sessionRef.current ? hub.subscribe(sessionRef.current, listener) : () => {}),
+    [hub, key],
+  );
+  const metrics = useSyncExternalStore(subscribe, () => (key ? hub.metrics(key) : EMPTY_HOST_METRICS));
 
   useEffect(() => {
-    if (
-      !session ||
-      session.status !== "connected" ||
-      session.type === "serial" ||
-      localUnsupported ||
-      paused
-    ) {
-      stopStream();
-      setSnap(null);
-      setCpuH([]);
-      setMemH([]);
-      setRxH([]);
-      setTxH([]);
-      setDisks([]);
-      setDisksLoading(false);
-      return;
-    }
+    if (key && sessionRef.current) hub.ensureLive(sessionRef.current);
+  }, [hub, key, session?.id]);
 
-    let cancelled = false;
-    // New session (or restart): drop the previous host's buffers so its sparklines
-    // don't linger while the new host's stream fills in fresh samples.
-    setSnap(null);
-    setCpuH([]);
-    setMemH([]);
-    setRxH([]);
-    setTxH([]);
-    setDisks([]);
-    setDisksLoading(true);
-
-    (async () => {
-      await stopStream();
-      if (cancelled) return;
-
-      try {
-        const sid = await service.metricsStart(session.id, session.type === "ssh");
-        if (cancelled) { service.metricsStop(sid).catch(() => {}); return; }
-        streamIdRef.current = sid;
-
-        const unlisten = await service.onMetricsSnapshot(sid, (s) => {
-          if (cancelled) return;
-          setSnap(s);
-          setCpuH((h) => pushHistory(h, s.cpu_percent));
-          setMemH((h) => pushHistory(h, s.mem_total_kb > 0 ? (s.mem_used_kb / s.mem_total_kb) * 100 : 0));
-          setRxH((h) => pushHistory(h, s.net_rx_bytes_per_sec));
-          setTxH((h) => pushHistory(h, s.net_tx_bytes_per_sec));
-          if (s.disks) {
-            setDisks(s.disks);
-            setDisksLoading(false);
-          }
-        });
-
-        if (cancelled) { unlisten(); service.metricsStop(sid).catch(() => {}); return; }
-        unlistenRef.current = unlisten;
-      } catch (e) {
-        console.error("[monitoring] metrics_start failed:", e);
-        if (!cancelled) setDisksLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      stopStream();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, session?.status, session?.type, localUnsupported, paused]);
-
-  return { snap, disks, disksLoading, cpuH, memH, rxH, txH };
+  return metrics;
 }

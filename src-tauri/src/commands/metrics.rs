@@ -22,10 +22,15 @@ pub async fn metrics_start(
         let app = app.clone();
         tokio::spawn(async move {
             let mut state = RemoteMetricsState::new();
+            // The first sample's cpu/net deltas run from boot, so it only primes the counters.
+            let mut primed = false;
             loop {
                 match state.snapshot(&handle).await {
                     Ok(snap) => {
-                        let _ = app.emit(&event, &snap);
+                        if primed {
+                            let _ = app.emit(&event, &snap);
+                        }
+                        primed = true;
                     }
                     Err(_) => break,
                 }

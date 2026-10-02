@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import type { PluginAPI } from "@/plugins/api";
 import { StatusDot, useActiveSession, useT } from "@voltius/ui";
-import { createMetricsService } from "../services";
+import type { HostMetricsHub } from "../hostMetricsHub";
 import { useHostMetrics } from "../useHostMetrics";
 import { MetricCard } from "./MetricCard";
 import { DiskSection } from "./DiskSection";
@@ -25,9 +25,7 @@ function fmtMem(kb: number): string {
   return `${(kb / 1024 / 1024).toFixed(1)}GB`;
 }
 
-export function createMetricsPanel(api: PluginAPI): FC {
-  const service = createMetricsService(api.metrics);
-
+export function createMetricsPanel(api: PluginAPI, hub: HostMetricsHub): FC {
   return function MetricsPanel() {
     const t = useT(api);
     const activeSession = useActiveSession(api);
@@ -35,7 +33,7 @@ export function createMetricsPanel(api: PluginAPI): FC {
     const localUnsupported = isAndroid && !!activeSession && activeSession.type !== "ssh";
 
     const { snap, disks, disksLoading, cpuH, memH, rxH, txH } = useHostMetrics(
-      service,
+      hub,
       activeSession ?? undefined,
       { localUnsupported },
     );
@@ -108,7 +106,7 @@ export function createMetricsPanel(api: PluginAPI): FC {
             )}
           </>
         )}
-        <SystemInfoSection service={service} session={activeSession} t={t} />
+        <SystemInfoSection hub={hub} session={activeSession} t={t} />
       </div>
     );
   };

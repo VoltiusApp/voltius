@@ -15,8 +15,6 @@ pub struct RemoteMetricsState {
     prev_cpu_total: u64,
     prev_net_rx: u64,
     prev_net_tx: u64,
-    disk_tick: u32,
-    last_disks: Vec<DiskInfo>,
 }
 
 impl RemoteMetricsState {
@@ -26,8 +24,6 @@ impl RemoteMetricsState {
             prev_cpu_total: 0,
             prev_net_rx: 0,
             prev_net_tx: 0,
-            disk_tick: 0,
-            last_disks: vec![],
         }
     }
 
@@ -119,28 +115,21 @@ impl RemoteMetricsState {
 
         let mem_used_kb = mem_total_kb.saturating_sub(mem_avail_kb);
 
-        self.disk_tick += 1;
-        let disks = if self.disk_tick >= 10 {
-            self.disk_tick = 0;
-            for line in text.lines() {
-                let line = line.trim();
-                if line.starts_with("DISK ") {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 4 {
-                        let total_kb: u64 = parts[1].parse().unwrap_or(0);
-                        let used_kb: u64 = parts[2].parse().unwrap_or(0);
-                        self.last_disks = vec![DiskInfo {
-                            mount: parts[3].to_string(),
-                            used_kb,
-                            total_kb,
-                        }];
-                    }
-                }
-            }
-            Some(self.last_disks.clone())
-        } else {
-            None
-        };
+        let disks: Vec<DiskInfo> = text
+            .lines()
+            .filter_map(|line| {
+                let parts: Vec<&str> = line
+                    .trim()
+                    .strip_prefix("DISK ")?
+                    .split_whitespace()
+                    .collect();
+                (parts.len() >= 3).then(|| DiskInfo {
+                    mount: parts[2].to_string(),
+                    used_kb: parts[1].parse().unwrap_or(0),
+                    total_kb: parts[0].parse().unwrap_or(0),
+                })
+            })
+            .collect();
 
         Ok(MetricsSnapshot {
             ts: now_ms(),
@@ -149,7 +138,26 @@ impl RemoteMetricsState {
             mem_total_kb,
             net_rx_bytes_per_sec: net_rx_per_sec,
             net_tx_bytes_per_sec: net_tx_per_sec,
-            disks,
+            disks: Some(disks),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_sample_carries_the_root_disk() {
+        let mut state = RemoteMetricsState::new();
+        let text = "cpu  10 0 10 80 0 0 0 0\nNET 100 200\nDISK 1000 250 /\n";
+        for _ in 0..2 {
+            let disks = state.parse(text).unwrap().disks.unwrap();
+            assert_eq!(disks.len(), 1);
+            assert_eq!(
+                (disks[0].mount.as_str(), disks[0].used_kb, disks[0].total_kb),
+                ("/", 250, 1000)
+            );
+        }
     }
 }
