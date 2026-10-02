@@ -545,13 +545,6 @@ mod tests {
         assert!(diff_ids.clocks.contains_key("env_vars"));
     }
 
-    /// Pins the exact set of fields `bump_changed_clocks` tracks when everything
-    /// changes (38 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
-    /// `shell_integration`, `keepalive_preset`, `persist_session`, `proxy`;
-    /// `pinned` is excluded as device-local).
-    /// Since Phase 1, create-time init and update-time bump both derive from the
-    /// single `connection_clocks!` list, so this set equals the one seeded by
-    /// `initial_clocks` — see `initial_clocks_match_bumpable_field_set`.
     #[test]
     fn webdav_form_payload_deserializes_and_merges() {
         let json = r#"{"host":"cloud.example.com","port":443,"username":"u",
@@ -609,6 +602,13 @@ mod tests {
         );
     }
 
+    /// Pins the exact set of fields `bump_changed_clocks` tracks when everything
+    /// changes (38 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
+    /// `shell_integration`, `keepalive_preset`, `persist_session`, `proxy`;
+    /// `pinned` is excluded as device-local).
+    /// Since Phase 1, create-time init and update-time bump both derive from the
+    /// single `connection_clocks!` list, so this set equals the one seeded by
+    /// `initial_clocks` — see `initial_clocks_match_bumpable_field_set`.
     #[test]
     fn bump_covers_the_expected_field_set() {
         let old = sample_connection();
