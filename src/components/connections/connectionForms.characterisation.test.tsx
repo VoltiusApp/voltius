@@ -585,14 +585,41 @@ test("webdav form refuses to save an unusable URL", async () => {
   expect(document.querySelector("[data-webdav-url-error]")).toBeTruthy();
 });
 
+const usernameField = () => screen.getByText("connections.common.username").parentElement!.querySelector("input")!;
+const pickProtocol = (current: string, next: string) => {
+  fireEvent.click(screen.getAllByText(`connections.form.${current}`)[0]);
+  const options = screen.getAllByText(`connections.form.${next}`);
+  fireEvent.click(options[options.length - 1]);
+};
+
 test("leaving webdav resets the port its URL derived", async () => {
   const { onSubmit, ref } = renderSsh({
     initial: conn({ connection_type: "webdav", webdav_url: "https://dav.example/files/", host: "dav.example", port: 443 }),
   });
-  fireEvent.click(screen.getByText("connections.form.protocolWebdav"));
-  fireEvent.click(screen.getByText("connections.form.protocolSsh"));
+  pickProtocol("protocolWebdav", "protocolSsh");
   await act(async () => {
     ref.current!.flush();
   });
   expect(onSubmit.mock.calls[onSubmit.mock.calls.length - 1][0]).toMatchObject({ host: "dav.example", port: 22 });
+});
+
+test("a new file-only host starts with no username", () => {
+  renderSsh({ initial: { connection_type: "ftp" } as Connection });
+  expect(usernameField().value).toBe("");
+});
+
+test("switching protocol swaps an untouched default username", () => {
+  renderSsh();
+  expect(usernameField().value).toBe("root");
+  pickProtocol("protocolSsh", "protocolWebdav");
+  expect(usernameField().value).toBe("");
+  pickProtocol("protocolWebdav", "protocolSsh");
+  expect(usernameField().value).toBe("root");
+});
+
+test("switching protocol keeps a typed username", () => {
+  renderSsh();
+  fireEvent.change(usernameField(), { target: { value: "alice" } });
+  pickProtocol("protocolSsh", "protocolFtp");
+  expect(usernameField().value).toBe("alice");
 });

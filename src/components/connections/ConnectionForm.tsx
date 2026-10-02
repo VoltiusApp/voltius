@@ -75,6 +75,7 @@ type Props = ConnectionFormProps & {
 
 type Protocol = "ssh" | "ftp" | "webdav";
 const DEFAULT_PORT: Record<Exclude<Protocol, "webdav">, number> = { ssh: 22, ftp: 21 };
+const DEFAULT_USERNAME: Record<Protocol, string> = { ssh: "root", ftp: "", webdav: "" };
 const initialProtocol = (type?: ConnectionType): Protocol => (type === "ftp" || type === "webdav" ? type : "ssh");
 
 const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccessProps>(function ConnectionFormEditor({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, hideChrome, onMoveToVault, onCopyToVault, readOnly }, ref) {
@@ -82,8 +83,8 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [name, setName] = useState(initial?.name ?? "");
   const [host, setHost] = useState(initial?.host ?? "");
   const [port, setPort] = useState<number | "">(initial?.port ?? 22);
-  const [username, setUsername] = useState(initial?.username ?? "root");
   const [protocol, setProtocol] = useState<Protocol>(initialProtocol(initial?.connection_type));
+  const [username, setUsername] = useState(initial?.username ?? DEFAULT_USERNAME[protocol]);
   const [ftpSecure, setFtpSecure] = useState(initial?.ftp_secure ?? false);
   const [webdavUrl, setWebdavUrl] = useState(initial?.webdav_url ?? "");
   const isFtp = protocol === "ftp";
@@ -508,6 +509,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   markDirty();
                   const next = v as Protocol;
                   setProtocol(next);
+                  setUsername((u) => (u === DEFAULT_USERNAME[protocol] ? DEFAULT_USERNAME[next] : u));
                   if (next !== "webdav") {
                     setPort((p) => (isWebdav || p === "" || Object.values(DEFAULT_PORT).includes(p) ? DEFAULT_PORT[next] : p));
                   }
@@ -660,7 +662,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                     style={formInputStyle}
                     value={username}
                     onChange={(e) => { markDirty(); setUsername(e.target.value); }}
-                    placeholder="root"
+                    placeholder={DEFAULT_USERNAME[protocol]}
                     {...formIdentifierProps}
                   />
                 </div>
