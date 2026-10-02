@@ -434,7 +434,7 @@ async function _healKeyMismatchOnce(teamId: string, err: unknown): Promise<boole
  * surfaced via the store status.
  */
 export async function fetchTeamData(teamId: string, options: TeamVaultRefreshOptions = {}): Promise<void> {
-  return _teamRefreshQueue.run(teamId, () => _fetchTeamData(teamId, options));
+  return _teamRefreshQueue.run(teamId, options, (merged) => _fetchTeamData(teamId, merged));
 }
 
 async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions): Promise<void> {
