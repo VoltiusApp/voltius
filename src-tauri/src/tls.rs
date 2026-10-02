@@ -8,7 +8,8 @@ use tokio_rustls::rustls::client::WebPkiServerVerifier;
 use tokio_rustls::rustls::crypto::{ring, CryptoProvider};
 use tokio_rustls::rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use tokio_rustls::rustls::{
-    ClientConfig, DigitallySignedStruct, Error as TlsError, RootCertStore, SignatureScheme,
+    ClientConfig, ConfigBuilder, DigitallySignedStruct, Error as TlsError, RootCertStore,
+    SignatureScheme, WantsVerifier,
 };
 
 pub const TLS_PIN_PREFIX: &str = "tls-sha256:";
@@ -54,12 +55,20 @@ pub fn tls_fingerprint(cert: &CertificateDer<'_>) -> String {
 }
 
 pub fn client_config_with_roots(roots: RootCertStore) -> Result<Arc<ClientConfig>, String> {
-    let config = ClientConfig::builder_with_provider(provider())
-        .with_safe_default_protocol_versions()
-        .map_err(|e| format!("TLS setup failed: {e}"))?
+    let config = config_builder()?
         .with_root_certificates(roots)
         .with_no_client_auth();
     Ok(Arc::new(config))
+}
+
+fn config_builder() -> Result<ConfigBuilder<ClientConfig, WantsVerifier>, String> {
+    ClientConfig::builder_with_provider(provider())
+        .with_safe_default_protocol_versions()
+        .map_err(setup_failed)
+}
+
+fn setup_failed(e: impl std::fmt::Display) -> String {
+    format!("TLS setup failed: {e}")
 }
 
 pub fn provider() -> Arc<CryptoProvider> {
@@ -79,7 +88,7 @@ impl PinningVerifier {
     pub fn new(roots: Arc<RootCertStore>, pins: Vec<String>) -> Result<Arc<Self>, String> {
         let webpki = WebPkiServerVerifier::builder_with_provider(roots, provider())
             .build()
-            .map_err(|e| format!("TLS setup failed: {e}"))?;
+            .map_err(setup_failed)?;
         Ok(Arc::new(Self {
             webpki,
             pins,
@@ -89,9 +98,7 @@ impl PinningVerifier {
     }
 
     pub fn client_config(self: &Arc<Self>) -> Result<Arc<ClientConfig>, String> {
-        let config = ClientConfig::builder_with_provider(provider())
-            .with_safe_default_protocol_versions()
-            .map_err(|e| format!("TLS setup failed: {e}"))?
+        let config = config_builder()?
             .dangerous()
             .with_custom_certificate_verifier(Arc::clone(self) as Arc<dyn ServerCertVerifier>)
             .with_no_client_auth();

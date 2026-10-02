@@ -1,5 +1,5 @@
 use crate::known_hosts::{ConflictPrompt, KnownHostsStore};
-use crate::proxy::{self, ProxiedStream, ProxyError, ProxySpec};
+use crate::proxy::{self, ProxiedStream, ProxySpec};
 use crate::tls::{root_store, PinningVerifier, TLS_PIN_PREFIX, TLS_WEBPKI_MARKER};
 use hyper::Uri;
 use hyper_util::client::legacy::connect::{Connected, Connection};
@@ -188,18 +188,9 @@ async fn dial(inner: &Inner, host: &str, port: u16) -> io::Result<ProxiedStream>
             io::ErrorKind::TimedOut,
             format!("{host}:{port} did not respond"),
         )),
-        Ok(Err(e)) => Err(dial_error(e)),
+        Ok(Err(e)) => Err(io::Error::other(e)),
         Ok(Ok(dialed)) => Ok(dialed.stream),
     }
-}
-
-fn dial_error(e: ProxyError) -> io::Error {
-    let kind = match &e {
-        ProxyError::Direct(io) | ProxyError::Unreachable { source: io, .. } => io.kind(),
-        ProxyError::Timeout { .. } => io::ErrorKind::TimedOut,
-        _ => io::ErrorKind::Other,
-    };
-    io::Error::new(kind, e.to_string())
 }
 
 /// Ok tells whether a CA vouched for the certificate; Err carries the refused
@@ -251,7 +242,7 @@ impl tower_service::Service<Uri> for DavConnector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::known_hosts::{ConflictAction, PendingConflicts};
+    use crate::known_hosts::{answering, ConflictAction};
     use crate::tls::pin_tests::{ca_signed, self_signed, serve_tls};
     use crate::tls::tls_fingerprint;
 
@@ -264,21 +255,7 @@ mod tests {
     }
 
     fn replacing() -> ConflictPrompt {
-        let pending = Arc::new(PendingConflicts::new());
-        let answer = Arc::clone(&pending);
-        ConflictPrompt {
-            session_id: "c1".into(),
-            pending,
-            emit: Box::new(move |event| {
-                let tx = answer
-                    .0
-                    .try_lock()
-                    .unwrap()
-                    .remove(&event.session_id)
-                    .unwrap();
-                let _ = tx.send(ConflictAction::Replace);
-            }),
-        }
+        answering(|| ConflictAction::Replace, Arc::default())
     }
 
     #[tokio::test]

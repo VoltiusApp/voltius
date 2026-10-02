@@ -85,6 +85,12 @@ impl SftpManager {
     }
 
     /// Register a backend under a fresh id and return that id.
+    /// A backend with no SSH connection underneath.
+    async fn register_standalone(&self, backend: Arc<dyn FileBackend>) -> String {
+        self.register(backend, None, CancellationToken::new(), vec![])
+            .await
+    }
+
     async fn register(
         &self,
         backend: Arc<dyn FileBackend>,
@@ -157,9 +163,7 @@ impl SftpManager {
         secure: bool,
     ) -> Result<String, String> {
         let backend = crate::ftp::connect(host, port, username, password, secure).await?;
-        Ok(self
-            .register(Arc::new(backend), None, CancellationToken::new(), vec![])
-            .await)
+        Ok(self.register_standalone(Arc::new(backend)).await)
     }
 
     pub async fn connect_webdav(
@@ -173,9 +177,7 @@ impl SftpManager {
     ) -> Result<String, AppError> {
         let backend =
             crate::webdav::connect(url, username, password, proxy, known_hosts, prompt).await?;
-        Ok(self
-            .register(Arc::new(backend), None, CancellationToken::new(), vec![])
-            .await)
+        Ok(self.register_standalone(Arc::new(backend)).await)
     }
 
     pub async fn connect(

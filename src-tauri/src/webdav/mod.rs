@@ -6,7 +6,7 @@ use crate::commands::sftp::editor::read_capped;
 use crate::commands::sftp::{pump_chunks, sort_listing, RemoteFile};
 use crate::error::{AppError, ErrorCode};
 use crate::known_hosts::{ConflictPrompt, KnownHostsStore};
-use crate::proxy::ProxySpec;
+use crate::proxy::{ProxyError, ProxySpec};
 use crate::sftp::backend::TransferEvents;
 use crate::sftp::FileBackend;
 use async_trait::async_trait;
@@ -96,7 +96,13 @@ fn transport_error(op: &str, err: &(dyn std::error::Error + 'static)) -> AppErro
     let mut cause = Some(err);
     while let Some(e) = cause {
         if let Some(io) = e.downcast_ref::<std::io::Error>() {
-            return AppError::caused(op, io);
+            return match io
+                .get_ref()
+                .and_then(|inner| inner.downcast_ref::<ProxyError>())
+            {
+                Some(proxy) => AppError::caused(op, proxy),
+                None => AppError::caused(op, io),
+            };
         }
         if let Some(h) = e.downcast_ref::<hyper::Error>() {
             lost |= h.is_incomplete_message() || h.is_closed();
@@ -840,6 +846,37 @@ mod tests {
         });
         let err = backend(port).await.err().unwrap();
         assert_eq!(err.code(), Some(ErrorCode::ConnectionLost), "{err}");
+    }
+
+    #[tokio::test]
+    async fn an_unreachable_proxy_is_named_in_the_error() {
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let proxy_port = closed.local_addr().unwrap().port();
+        drop(closed);
+        let proxy = ProxySpec::Http(crate::proxy::ProxyEndpoint {
+            host: "127.0.0.1".into(),
+            port: proxy_port,
+            username: None,
+            password: None,
+        });
+        let err = connect(
+            "http://127.0.0.1:1/dav/",
+            "u",
+            "p",
+            Some(proxy),
+            Arc::new(KnownHostsStore::new()),
+            None,
+        )
+        .await
+        .err()
+        .unwrap();
+        assert_eq!(err.code(), Some(ErrorCode::ConnectionRefused), "{err}");
+        let json = serde_json::to_value(&err).unwrap();
+        assert_eq!(
+            json["params"]["proxy"],
+            format!("127.0.0.1:{proxy_port}"),
+            "{json}"
+        );
     }
 
     // rclone serve webdav <root> --addr 127.0.0.1:8090 --user u --pass p

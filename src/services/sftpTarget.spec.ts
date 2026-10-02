@@ -2,7 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const sftpOpen = vi.fn();
 const sftpConnect = vi.fn();
-vi.mock("@/services/sftp", () => ({ sftpOpen: (...a: unknown[]) => sftpOpen(...a), sftpConnect: (...a: unknown[]) => sftpConnect(...a) }));
+const ftpConnect = vi.fn();
+const webdavConnect = vi.fn();
+vi.mock("@/services/sftp", () => ({
+  sftpOpen: (...a: unknown[]) => sftpOpen(...a),
+  sftpConnect: (...a: unknown[]) => sftpConnect(...a),
+  ftpConnect: (...a: unknown[]) => ftpConnect(...a),
+  webdavConnect: (...a: unknown[]) => webdavConnect(...a),
+}));
 vi.mock("@/services/credentials", () => ({
   resolveConnectionCredentials: vi.fn(async () => ({ username: "u", password: "p" })),
   resolveJumpHosts: vi.fn(async () => []),
@@ -23,13 +30,12 @@ vi.mock("@/stores/connectivitySettingsStore", () => ({
 vi.mock("@/services/vault", () => ({ getSecret: vi.fn(async () => null) }));
 vi.mock("@/components/filetransfer/SFTPTypes", () => ({ genId: () => "gen" }));
 
-import { resolveSftpIdForTarget, sftpConnectToConnection } from "./sftpTarget";
+import { connectFileBackend, resolveSftpIdForTarget, sftpConnectToConnection } from "./sftpTarget";
 import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
 import type { Connection } from "@/types";
 
 beforeEach(() => {
-  sftpOpen.mockReset();
-  sftpConnect.mockReset();
+  for (const fn of [sftpOpen, sftpConnect, ftpConnect, webdavConnect]) fn.mockReset();
   connectivityState = { proxy: { mode: "none" } };
 });
 
@@ -66,5 +72,37 @@ describe("resolveSftpIdForTarget", () => {
     expect(sftpConnect).toHaveBeenCalledWith(
       expect.objectContaining({ proxy: { kind: "http", host: "p", port: 3128 } }),
     );
+  });
+});
+
+describe("connectFileBackend", () => {
+  const conn = (over: Partial<Connection>) => ({ id: "c1", host: "h", port: 22, username: "u", ...over }) as Connection;
+
+  it("opens FTP hosts over ftpConnect", async () => {
+    ftpConnect.mockResolvedValue("ftp-1");
+    await expect(connectFileBackend(conn({ connection_type: "ftp", port: 21, ftp_secure: true }), "k")).resolves.toBe("ftp-1");
+    expect(ftpConnect).toHaveBeenCalledWith({ host: "h", port: 21, username: "u", password: "p", secure: true });
+  });
+
+  it("opens WebDAV hosts with their URL, proxy and interactivity", async () => {
+    useConnectivitySettingsStore.setState({ proxy: { mode: "http", host: "p", port: 3128 } } as never);
+    webdavConnect.mockResolvedValue("dav-1");
+    const c = conn({ connection_type: "webdav", webdav_url: "https://h/dav/" });
+    await expect(connectFileBackend(c, "k", true)).resolves.toBe("dav-1");
+    expect(webdavConnect).toHaveBeenCalledWith({
+      connectId: "k", url: "https://h/dav/", username: "u", password: "p", proxy: { kind: "http", host: "p", port: 3128 }, interactive: true,
+    });
+  });
+
+  it("is non-interactive unless asked", async () => {
+    await connectFileBackend(conn({ connection_type: "webdav", webdav_url: "https://h/dav/" }), "k");
+    expect(webdavConnect.mock.calls[0][0].interactive).toBe(false);
+  });
+
+  it("opens everything else over SFTP", async () => {
+    sftpConnect.mockResolvedValue("sftp-1");
+    await expect(connectFileBackend(conn({}), "k")).resolves.toBe("sftp-1");
+    expect(ftpConnect).not.toHaveBeenCalled();
+    expect(webdavConnect).not.toHaveBeenCalled();
   });
 });

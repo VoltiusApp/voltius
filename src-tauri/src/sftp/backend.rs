@@ -224,8 +224,6 @@ fn is_plain_name(name: &str, windows: bool) -> bool {
     !dots_only && !name.contains(bad_char)
 }
 
-/// A remote tree holding names some local systems can't store, and one that
-/// escapes on every system; shared by the backend and SFTP download tests.
 fn collect_local(
     base: &Path,
     current: &Path,
@@ -251,6 +249,8 @@ fn collect_local(
     Ok(())
 }
 
+/// A remote tree holding names some local systems can't store, and one that
+/// escapes on every system; shared by the backend and SFTP download tests.
 #[cfg(test)]
 pub(crate) mod test_tree {
     use super::TransferEvents;

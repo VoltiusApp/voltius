@@ -229,6 +229,8 @@ impl fmt::Display for ProxyError {
     }
 }
 
+impl std::error::Error for ProxyError {}
+
 impl ProxyError {
     pub fn is_transient(&self) -> bool {
         match self {

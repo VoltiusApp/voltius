@@ -486,31 +486,33 @@ mod trust_tests {
     }
 }
 
+/// A prompt that answers every conflict with `action` and records what it was shown.
+#[cfg(test)]
+pub(crate) fn answering(
+    action: fn() -> ConflictAction,
+    seen: Arc<std::sync::Mutex<Vec<HostKeyConflictEvent>>>,
+) -> ConflictPrompt {
+    let pending = Arc::new(PendingConflicts::new());
+    let answer = Arc::clone(&pending);
+    ConflictPrompt {
+        session_id: "s1".into(),
+        pending,
+        emit: Box::new(move |event| {
+            let tx = answer
+                .0
+                .try_lock()
+                .unwrap()
+                .remove(&event.session_id)
+                .unwrap();
+            seen.lock().unwrap().push(event);
+            let _ = tx.send(action());
+        }),
+    }
+}
+
 #[cfg(test)]
 mod verify_tests {
     use super::*;
-
-    fn answering(
-        action: fn() -> ConflictAction,
-        seen: Arc<std::sync::Mutex<Vec<HostKeyConflictEvent>>>,
-    ) -> ConflictPrompt {
-        let pending = Arc::new(PendingConflicts::new());
-        let answer = Arc::clone(&pending);
-        ConflictPrompt {
-            session_id: "s1".into(),
-            pending,
-            emit: Box::new(move |event| {
-                let tx = answer
-                    .0
-                    .try_lock()
-                    .unwrap()
-                    .remove(&event.session_id)
-                    .unwrap();
-                seen.lock().unwrap().push(event);
-                let _ = tx.send(action());
-            }),
-        }
-    }
 
     #[tokio::test]
     async fn an_unknown_fingerprint_is_pinned_without_asking() {
@@ -541,6 +543,7 @@ mod verify_tests {
             .await
             .unwrap_err();
         assert!(err.contains("changed"), "{err}");
+        assert_eq!(store.fingerprints_for("h", 443).await, ["tls-sha256:aa"]);
     }
 
     #[tokio::test]
@@ -552,13 +555,7 @@ mod verify_tests {
             .verify_or_prompt("h", 443, "tls-sha256:bb".into(), Some(&prompt))
             .await
             .unwrap();
-        let pinned: Vec<_> = store
-            .entries_for("h", 443)
-            .await
-            .into_iter()
-            .map(|e| e.fingerprint)
-            .collect();
-        assert_eq!(pinned, ["tls-sha256:bb"]);
+        assert_eq!(store.fingerprints_for("h", 443).await, ["tls-sha256:bb"]);
         assert_eq!(seen.lock().unwrap()[0].new_fingerprint, "tls-sha256:bb");
     }
 
@@ -571,5 +568,6 @@ mod verify_tests {
             .await
             .unwrap_err();
         assert!(err.contains("aborted"), "{err}");
+        assert_eq!(store.fingerprints_for("h", 443).await, ["tls-sha256:aa"]);
     }
 }
