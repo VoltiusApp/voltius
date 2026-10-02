@@ -32,7 +32,7 @@ import {
   useEffectivePinSource,
   nextPersonalPinValue,
 } from "@/hooks/useEffectivePinned";
-import { memberLabel } from "@/services/peerName";
+import { memberLabel } from "@/services/memberLabel";
 
 const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
 

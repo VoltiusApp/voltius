@@ -1,7 +1,7 @@
-import { memberLabel } from "@/services/peerName";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import { memberLabel } from "@/services/memberLabel";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";

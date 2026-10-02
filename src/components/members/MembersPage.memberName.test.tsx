@@ -86,7 +86,9 @@ vi.mock("@/stores/teamStore", () => {
     membersByTeam: {
       t1: [{ team_id: "t1", user_id: "me", invited_by_display_name: null, joined_at: "2024-01-01T00:00:00Z", handle: "merry-quartz-2597", public_key: "pk", role_ids: [] },
         { team_id: "t1", user_id: "u2", invited_by_display_name: null, joined_at: "2024-01-02T00:00:00Z", handle: "swift-otter-1", member_name: "Jan Novák", public_key: "pk", role_ids: [] },
-        { team_id: "t1", user_id: "u3", invited_by_display_name: null, joined_at: "2024-01-03T00:00:00Z", handle: "brave-owl-2", member_name: null, public_key: "pk", role_ids: [] }],
+        { team_id: "t1", user_id: "u3", invited_by_display_name: null, joined_at: "2024-01-03T00:00:00Z", handle: "brave-owl-2", member_name: null, public_key: "pk", role_ids: [] },
+        { team_id: "t1", user_id: "u4", invited_by_display_name: null, joined_at: "2024-01-04T00:00:00Z", handle: "zed-1", member_name: "Zoe", public_key: "pk", role_ids: [] },
+        { team_id: "t1", user_id: "u5", invited_by_display_name: null, joined_at: "2024-01-05T00:00:00Z", handle: "mike-3", member_name: null, public_key: "pk", role_ids: [] }],
     },
     loadMembers: h.loadMembers,
     rolesByTeam: { t1: [] },
@@ -169,4 +171,13 @@ test("search matches a member name", async () => {
   fireEvent.change(screen.getByRole("textbox"), { target: { value: "novák" } });
   expect(screen.queryByText("@brave-owl-2")).toBeNull();
   expect(screen.getByText("Jan Novák")).toBeTruthy();
+});
+
+test("names and handles sort together alphabetically", async () => {
+  render(<MembersPage />);
+  await screen.findByText("Jan Novák");
+  const order = screen.getAllByTestId("card").map((c) => c.textContent ?? "")
+    .map((t) => ["brave-owl-2", "Jan Novák", "mike-3", "Zoe"].find((k) => t.includes(k)))
+    .filter(Boolean);
+  expect(order).toEqual(["brave-owl-2", "Jan Novák", "mike-3", "Zoe"]);
 });

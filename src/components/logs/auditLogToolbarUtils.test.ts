@@ -45,3 +45,8 @@ test("applyAuditLogSearch: searches serialized metadata", () => {
   const logs = [log({ metadata: { host: "10.0.0.9" } }), log({ metadata: null })];
   expect(applyAuditLogSearch(logs, "10.0.0.9")).toHaveLength(1);
 });
+
+test("applyAuditLogSearch: matches the actor's member name", () => {
+  const logs = [log({ actor_name: "swift-otter-1", actor_member_name: "Jan Novák" }), log({ actor_name: "Bob" })];
+  expect(applyAuditLogSearch(logs, "novák").map((l) => l.actor_name)).toEqual(["swift-otter-1"]);
+});

@@ -83,7 +83,7 @@
       "memberInvited": "пригласил(а) {{name}}",
       "memberJoined": "присоединился(лась) к команде как {{role}}",
       "memberRemoved": "удалил(а) {{name}}",
-      "memberRenamed": "Назвал(а) {{name}} «{{to}}»",
+      "memberRenamed": "назвал(а) {{name}} «{{to}}»",
       "memberNameCleared": "(без имени)",
       "memberRoleChanged": "изменил(а) роль для {{name}}",
       "memberPermissionsChanged": "изменил(а) разрешения для {{name}}",

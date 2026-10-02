@@ -83,7 +83,7 @@
       "memberInvited": "invited {{name}}",
       "memberJoined": "joined the team as {{role}}",
       "memberRemoved": "removed {{name}}",
-      "memberRenamed": "Named {{name}} “{{to}}”",
+      "memberRenamed": "named {{name}} “{{to}}”",
       "memberNameCleared": "(no name)",
       "memberRoleChanged": "changed role for {{name}}",
       "memberPermissionsChanged": "changed permissions for {{name}}",

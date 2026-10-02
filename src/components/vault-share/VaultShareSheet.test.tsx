@@ -13,10 +13,7 @@ const h = vi.hoisted(() => ({
   keyHolders: [] as string[],
 }));
 
-vi.mock("react-i18next", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("react-i18next")>()),
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 // A button per handler, so a no-op handler fails rather than passes.
 vi.mock("./PeopleList", () => ({

@@ -2,30 +2,10 @@ import { useCallback } from "react";
 import i18n from "@/i18n";
 import type { TeamMember } from "@/services/teamService";
 import { useTeamStore } from "@/stores/teamStore";
+import type { PeerContext, PeerName } from "@/services/memberLabel";
 
-export interface PeerName {
-  name: string | null;
-  handle: string | null;
-  primary: string;
-}
-
-export interface PeerContext {
-  teamId?: string;
-  fallbackHandle?: string;
-}
-
-export function memberLabel(m: Pick<TeamMember, "member_name" | "handle"> | undefined): string {
-  if (m?.member_name) return m.member_name;
-  return m?.handle ? `@${m.handle}` : "?";
-}
-
-export function avatarLabel(p: PeerName): string {
-  return p.name ?? p.handle ?? "?";
-}
-
-export function memberNamingSupported(members: TeamMember[] | undefined): boolean {
-  return !!members?.some((m) => "member_name" in m);
-}
+export { memberLabel, memberSortKey, avatarLabel, memberNamingSupported } from "@/services/memberLabel";
+export type { PeerContext, PeerName } from "@/services/memberLabel";
 
 export function resolvePeerName(
   membersByTeam: Record<string, TeamMember[]>,

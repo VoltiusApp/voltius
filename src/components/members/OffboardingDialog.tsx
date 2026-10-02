@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TeamMember } from "@/services/teamService";
 import { departConsequences, departMembers, type DepartMode } from "@/services/teamOffboarding";
-import { memberLabel } from "@/services/peerName";
+import { memberLabel } from "@/services/memberLabel";
 
 interface OffboardingDialogProps {
   members: TeamMember[];

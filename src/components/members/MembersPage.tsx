@@ -35,7 +35,7 @@ import { InvitePanel } from "@/components/members/panels/InvitePanel";
 import { SignInToCloudCTA, UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
-import { memberLabel } from "@/services/peerName";
+import { memberLabel, memberSortKey } from "@/services/memberLabel";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -149,7 +149,7 @@ export default function MembersPage() {
   const searchLower = search.trim();
   const filteredMembers = useMemo(() => {
     let result = members;
-    if (searchLower) { const match = searchMatcher(searchLower); result = result.filter((m) => match(m.handle) || (!!m.member_name && match(m.member_name))); }
+    if (searchLower) { const match = searchMatcher(searchLower); result = result.filter((m) => match(m.handle, m.member_name)); }
     if (roleFilter.length > 0) result = result.filter((m) => roleFilter.some((rid) => m.role_ids.includes(rid)));
     return result;
   }, [members, searchLower, roleFilter]);
@@ -157,15 +157,15 @@ export default function MembersPage() {
   const sortedMembers = useMemo(() => {
     return [...filteredMembers].sort((a, b) => {
       switch (sortMode) {
-        case "name-asc":  return compareStrings(memberLabel(a), memberLabel(b));
-        case "name-desc": return compareStrings(memberLabel(b), memberLabel(a));
+        case "name-asc":  return compareStrings(memberSortKey(a), memberSortKey(b));
+        case "name-desc": return compareStrings(memberSortKey(b), memberSortKey(a));
         case "newest":    return b.joined_at.localeCompare(a.joined_at);
         case "oldest":    return a.joined_at.localeCompare(b.joined_at);
         case "role-asc": {
           const posA = Math.min(...(a.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           const posB = Math.min(...(b.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           if (posA !== posB) return posA - posB;
-          return compareStrings(memberLabel(a), memberLabel(b));
+          return compareStrings(memberSortKey(a), memberSortKey(b));
         }
         default: return 0;
       }

@@ -24,7 +24,7 @@ import {
 } from "./PermissionOverrideRow";
 import { formatDate } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
-import { memberLabel } from "@/services/peerName";
+import { memberLabel } from "@/services/memberLabel";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;

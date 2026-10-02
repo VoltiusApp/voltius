@@ -6,7 +6,7 @@ import type { LayoutMode } from "@/components/shared/ToolbarViewControls";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { RoleBadges } from "@/components/members/roleBadges";
-import { memberLabel } from "@/services/peerName";
+import { memberLabel } from "@/services/memberLabel";
 
 export interface MemberCardProps {
   member: TeamMember;

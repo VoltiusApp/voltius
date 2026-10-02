@@ -6,7 +6,7 @@ import type { TeamMember, TeamRole } from "@/services/teamService";
 // and i18n in at runtime, which every consumer of this leaf module would then
 // have to mock.
 import { PERM_BITS, PERM_META, type Permission, type RuleSubject } from "@/services/permissions";
-import { memberLabel } from "@/services/peerName";
+import { memberLabel } from "@/services/memberLabel";
 
 export const ROLE_META: Record<string, { color: string; bg: string }> = {
   owner:          { color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },

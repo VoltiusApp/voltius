@@ -18,7 +18,7 @@ import { VaultAdminSurface } from "@/components/vault-admin/VaultAdminSurface";
 import type { VaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
 import { chevronRotateStyle } from "@/utils/icons";
 import { formatRelative } from "@/utils/localeFormat";
-import { memberLabel } from "@/services/peerName";
+import { memberLabel } from "@/services/memberLabel";
 
 // ─── Members stack ─────────────────────────────────────────────────────────
 

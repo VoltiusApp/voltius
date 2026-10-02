@@ -76,7 +76,6 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
             <PresenceAvatar
               key={p.user_id}
               handle={avatarLabel(who)}
-              title={who.primary}
               size={24}
               hasControl={p.user_id === mpState.controlHolder}
             />

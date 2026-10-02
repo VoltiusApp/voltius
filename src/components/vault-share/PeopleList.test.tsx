@@ -1,10 +1,7 @@
 import { test, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
-vi.mock("react-i18next", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("react-i18next")>()),
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/components/shared/PresenceAvatar", () => ({
   PresenceAvatar: ({ handle }: { handle: string }) => <div>{`avatar:${handle}`}</div>,
