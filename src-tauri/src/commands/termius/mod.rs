@@ -26,3 +26,16 @@ mod paths;
 mod v8;
 
 pub use extract::*;
+
+fn read_varint(bytes: &[u8], pos: &mut usize) -> Option<u64> {
+    let mut out = 0u64;
+    for shift in (0..64).step_by(7) {
+        let b = *bytes.get(*pos)?;
+        *pos += 1;
+        out |= u64::from(b & 0x7f) << shift;
+        if b & 0x80 == 0 {
+            return Some(out);
+        }
+    }
+    None
+}
