@@ -1,7 +1,8 @@
 import { forwardRef, type RefAttributes, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride } from "@/types";
+import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride, ConnectionType } from "@/types";
+import { parseWebdavUrl } from "@/utils/connectionType";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
@@ -72,15 +73,23 @@ type Props = ConnectionFormProps & {
   hideChrome?: boolean;
 };
 
+type Protocol = "ssh" | "ftp" | "webdav";
+const DEFAULT_PORT: Record<Exclude<Protocol, "webdav">, number> = { ssh: 22, ftp: 21 };
+const initialProtocol = (type?: ConnectionType): Protocol => (type === "ftp" || type === "webdav" ? type : "ssh");
+
 const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccessProps>(function ConnectionFormEditor({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, hideChrome, onMoveToVault, onCopyToVault, readOnly }, ref) {
   const { t } = useTranslation();
   const [name, setName] = useState(initial?.name ?? "");
   const [host, setHost] = useState(initial?.host ?? "");
   const [port, setPort] = useState<number | "">(initial?.port ?? 22);
   const [username, setUsername] = useState(initial?.username ?? "root");
-  const [protocol, setProtocol] = useState<"ssh" | "ftp">(initial?.connection_type === "ftp" ? "ftp" : "ssh");
+  const [protocol, setProtocol] = useState<Protocol>(initialProtocol(initial?.connection_type));
   const [ftpSecure, setFtpSecure] = useState(initial?.ftp_secure ?? false);
+  const [webdavUrl, setWebdavUrl] = useState(initial?.webdav_url ?? "");
   const isFtp = protocol === "ftp";
+  const isWebdav = protocol === "webdav";
+  const fileOnly = protocol !== "ssh";
+  const webdavTarget = isWebdav ? parseWebdavUrl(webdavUrl) : null;
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [password, setPassword] = useState("");
   const [privateKey, setPrivateKey] = useState("");
@@ -182,27 +191,27 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const selectedIdentity = relevantIdentities.find((i) => i.id === identityId) ?? null;
 
   const buildSubmit = () => {
-    if (isFtp) {
+    if (fileOnly) {
       return {
         data: {
           name: name.trim() || undefined,
-          host,
-          port: port || 21,
+          host: webdavTarget?.host ?? host,
+          port: webdavTarget?.port ?? (port || DEFAULT_PORT.ftp),
           username,
           auth_type: "password",
           tags,
           folder_id: folderId ?? undefined,
           vault_id: resolveVaultIdForSave(vaultId),
           icon: icon || undefined,
-          connection_type: "ftp",
-          ftp_secure: ftpSecure,
+          connection_type: protocol,
+          ...(isFtp ? { ftp_secure: ftpSecure } : { webdav_url: webdavTarget?.url, proxy: proxyOverride ?? undefined }),
           notes: normalizeNotes(notes),
         } as ConnectionFormData,
         secrets: {
           password: passwordDirty.current ? password : null,
           privateKey: null,
           passphrase: null,
-          proxyPassword: null,
+          proxyPassword: isWebdav && proxyPasswordDirty.current ? proxyPassword : null,
         },
       };
     }
@@ -254,14 +263,14 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => { const { data, secrets } = buildSubmit(); return keepSavedOnCancel(onSubmit(data, secrets)); },
-    canSave: () => !!host.trim() && (port === "" || (port >= 1 && port <= 65535)),
+    canSave: () => (isWebdav ? !!parseWebdavUrl(webdavUrl) : !!host.trim() && (port === "" || (port >= 1 && port <= 65535))),
     readOnly,
   });
   const markDirty = useCallback(() => { userEditedRef.current = true; _markDirty(); }, [_markDirty]);
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, proxyOverride, proxyPassword, notes]);
+  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, webdavUrl, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, proxyOverride, proxyPassword, notes]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -400,6 +409,22 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
     onDelete: onDelete ? () => onDelete() : undefined,
   }) : [];
 
+  const proxyFields = (
+  <ProxyFields
+    modes={proxyModes}
+    value={proxyOverride ?? { mode: "" }}
+    onChange={(p) => { markDirty(); setProxyOverride(p.mode ? (p as ProxyOverride) : null); }}
+    password={proxyPassword}
+    passwordSaved={proxyPasswordSaved}
+    onPasswordChange={(pw) => { markDirty(); proxyPasswordDirty.current = true; setProxyPassword(pw); }}
+    disabled={readOnly}
+    className="pb-1"
+    renderRow={(select) => (
+      <SettingRow icon="lucide:globe" label={t("connections.form.proxy.label")}>{select}</SettingRow>
+    )}
+  />
+  );
+
   return (
     <div className="relative flex flex-col h-full overflow-hidden">
     <PanelShell>
@@ -474,42 +499,68 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
               <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.protocol")}</label>
               <FormSelect
                 value={protocol}
-                options={[{ value: "ssh", label: t("connections.form.protocolSsh") }, { value: "ftp", label: t("connections.form.protocolFtp") }]}
+                options={[
+                  { value: "ssh", label: t("connections.form.protocolSsh") },
+                  { value: "ftp", label: t("connections.form.protocolFtp") },
+                  { value: "webdav", label: t("connections.form.protocolWebdav") },
+                ]}
                 onChange={(v) => {
                   markDirty();
-                  const next = v as "ssh" | "ftp";
+                  const next = v as Protocol;
                   setProtocol(next);
-                  setPort((p) => (next === "ftp" ? (p === 22 || p === "" ? 21 : p) : (p === 21 || p === "" ? 22 : p)));
+                  if (next !== "webdav") {
+                    setPort((p) => (p === "" || Object.values(DEFAULT_PORT).includes(p) ? DEFAULT_PORT[next] : p));
+                  }
                 }}
               />
             </div>
-            <div className="flex gap-2.5">
-              <div className="flex-1">
-                <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.hostIp")} <span className="text-(--t-accent)">*</span></label>
+            {isWebdav ? (
+              <div>
+                <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.webdavUrl")} <span className="text-(--t-accent)">*</span></label>
                 <input
                   className={formInputClass}
                   style={formInputStyle}
-                  value={host}
-                  onChange={(e) => { markDirty(); setHost(e.target.value); }}
-                  placeholder={t("connections.form.hostPlaceholder")}
+                  value={webdavUrl}
+                  onChange={(e) => { markDirty(); setWebdavUrl(e.target.value); }}
+                  placeholder={t("connections.form.webdavUrlPlaceholder")}
                 />
+                {webdavUrl.trim() !== "" && !webdavTarget && (
+                  <p className="mt-1 text-xs text-(--t-status-error)" data-webdav-url-error>{t("connections.form.webdavUrlInvalid")}</p>
+                )}
+                {webdavTarget && !webdavTarget.secure && (
+                  <p className="mt-1 text-xs text-(--t-status-warning)" data-webdav-plaintext>{t("connections.form.webdavPlaintextWarning")}</p>
+                )}
               </div>
-              <div className="w-20">
-                <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.port")} <span className="text-(--t-accent)">*</span></label>
-                <input
-                  className={formInputClass}
-                  style={{ ...formInputStyle, MozAppearance: "textfield" }}
-                  value={port}
-                  placeholder="22"
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, "");
-                    markDirty();
-                    setPort(raw === "" ? "" : Math.min(65535, Math.max(1, Number(raw))));
-                  }}
-                />
+            ) : (
+              <div className="flex gap-2.5">
+                <div className="flex-1">
+                  <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.hostIp")} <span className="text-(--t-accent)">*</span></label>
+                  <input
+                    className={formInputClass}
+                    style={formInputStyle}
+                    value={host}
+                    onChange={(e) => { markDirty(); setHost(e.target.value); }}
+                    placeholder={t("connections.form.hostPlaceholder")}
+                  />
+                </div>
+                <div className="w-20">
+                  <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.port")} <span className="text-(--t-accent)">*</span></label>
+                  <input
+                    className={formInputClass}
+                    style={{ ...formInputStyle, MozAppearance: "textfield" }}
+                    value={port}
+                    placeholder="22"
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      markDirty();
+                      setPort(raw === "" ? "" : Math.min(65535, Math.max(1, Number(raw))));
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-            {!isFtp && (<>
+            )}
+            {isWebdav && proxyFields}
+            {!fileOnly && (<>
             <AdvancedDisclosure
               open={showAdvanced}
               onToggle={() => setShowAdvanced((v) => !v)}
@@ -570,19 +621,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                     onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
                   />
                 </SettingRow>
-                <ProxyFields
-                  modes={proxyModes}
-                  value={proxyOverride ?? { mode: "" }}
-                  onChange={(p) => { markDirty(); setProxyOverride(p.mode ? (p as ProxyOverride) : null); }}
-                  password={proxyPassword}
-                  passwordSaved={proxyPasswordSaved}
-                  onPasswordChange={(pw) => { markDirty(); proxyPasswordDirty.current = true; setProxyPassword(pw); }}
-                  disabled={readOnly}
-                  className="pb-1"
-                  renderRow={(select) => (
-                    <SettingRow icon="lucide:globe" label={t("connections.form.proxy.label")}>{select}</SettingRow>
-                  )}
-                />
+                {proxyFields}
                 <SettingRow icon="lucide:layers" label={t("connections.form.persistentSession")}>
                   <FormSelect
                     className="w-36"
@@ -596,8 +635,8 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
             </>)}
           </FormSection>
 
-          <FormSection label={isFtp ? t("connections.form.sectionCredentials") : t("connections.form.sectionIdentity")}>
-            {!isFtp && (
+          <FormSection label={fileOnly ? t("connections.form.sectionCredentials") : t("connections.form.sectionIdentity")}>
+            {!fileOnly && (
             <div>
               <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.keychainIdentity")}{isTeamHost && <span className="font-normal text-(--t-text-dim)"> · {t("connections.form.sharedWithTeam")}</span>}</label>
               <IdentitySelector
@@ -609,7 +648,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
             </div>
             )}
 
-            {(isFtp || !identityId) && (
+            {(fileOnly || !identityId) && (
               <>
                 <div>
                   <label className={formLabelClass} style={formLabelStyle}>
@@ -649,7 +688,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   </SettingRow>
                 )}
 
-                {!isFtp && (
+                {!fileOnly && (
                 <div>
                   <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.privateKey")}</label>
                   <KeySelector
@@ -716,7 +755,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
               </div>
             )}
 
-            {initial && !isFtp && <YouConnectAsRow connection={initial} credential={credential} />}
+            {initial && !fileOnly && <YouConnectAsRow connection={initial} credential={credential} />}
           </FormSection>
           </ReadOnlyFields>
 
