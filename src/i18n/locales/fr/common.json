@@ -119,6 +119,7 @@
       "cannotDeleteBuiltinRoles": "Impossible de supprimer les rôles intégrés",
       "noPermissionInviteMembers": "Vous n'avez pas la permission d'inviter des membres",
       "teamInvitesDisabled": "L'administrateur de ce serveur a désactivé les nouvelles invitations d'équipe.",
+      "handleManaged": "Votre organisation gère les identifiants sur ce serveur.",
       "failedToCreateTeam": "Échec de la création de l'équipe : {{status}}",
       "failedToRenameTeam": "Échec du renommage de l'équipe : {{status}}",
       "failedToDeleteTeam": "Échec de la suppression de l'équipe : {{status}}",

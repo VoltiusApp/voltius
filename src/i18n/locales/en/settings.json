@@ -273,6 +273,7 @@
         "chooseSub": "A custom handle makes you findable by people outside your teams.",
         "generatedNote": "Your current handle already works for anyone you give it to.",
         "unverified": "Verify your email to choose a custom handle.",
+        "managed": "Managed by your organization. Ask your administrator to change it.",
         "placeholder": "your-handle",
         "inputLabel": "Handle",
         "save": "Save",

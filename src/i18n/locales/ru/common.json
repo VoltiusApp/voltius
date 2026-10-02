@@ -119,6 +119,7 @@
       "cannotDeleteBuiltinRoles": "Встроенные роли нельзя удалять",
       "noPermissionInviteMembers": "У вас нет прав на приглашение участников",
       "teamInvitesDisabled": "Администратор этого сервера отключил новые приглашения в команду.",
+      "handleManaged": "На этом сервере псевдонимами управляет ваша организация.",
       "failedToCreateTeam": "Не удалось создать команду: {{status}}",
       "failedToRenameTeam": "Не удалось переименовать команду: {{status}}",
       "failedToDeleteTeam": "Не удалось удалить команду: {{status}}",

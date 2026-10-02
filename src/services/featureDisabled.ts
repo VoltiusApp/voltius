@@ -3,6 +3,7 @@ import i18n from "@/i18n";
 const MESSAGE_KEYS: Record<string, string> = {
   REGISTRATION_DISABLED: "common.error.registrationDisabled",
   TEAM_INVITES_DISABLED: "common.error.teamInvitesDisabled",
+  HANDLE_MANAGED: "common.error.handleManaged",
 };
 
 /** The server's 403 for a feature its operator switched off, or null for any other refusal. */

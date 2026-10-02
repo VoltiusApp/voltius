@@ -119,6 +119,7 @@
       "cannotDeleteBuiltinRoles": "Cannot delete builtin roles",
       "noPermissionInviteMembers": "You don't have permission to invite members",
       "teamInvitesDisabled": "This server's administrator has disabled new team invitations.",
+      "handleManaged": "Your organization manages handles on this server.",
       "failedToCreateTeam": "Failed to create team: {{status}}",
       "failedToRenameTeam": "Failed to rename team: {{status}}",
       "failedToDeleteTeam": "Failed to delete team: {{status}}",

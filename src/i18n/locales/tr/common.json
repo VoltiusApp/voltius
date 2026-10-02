@@ -119,6 +119,7 @@
       "cannotDeleteBuiltinRoles": "Yerleşik roller silinemez",
       "noPermissionInviteMembers": "Üye davet etme izniniz yok",
       "teamInvitesDisabled": "Bu sunucunun yöneticisi yeni ekip davetlerini devre dışı bıraktı.",
+      "handleManaged": "Bu sunucuda kullanıcı adlarını kuruluşunuz yönetiyor.",
       "failedToCreateTeam": "Ekip oluşturulamadı: {{status}}",
       "failedToRenameTeam": "Ekip yeniden adlandırılamadı: {{status}}",
       "failedToDeleteTeam": "Ekip silinemedi: {{status}}",

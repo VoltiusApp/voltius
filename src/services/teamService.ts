@@ -351,7 +351,7 @@ export async function claimHandle(handle: string): Promise<void> {
     method: "PUT",
     body: JSON.stringify({ handle }),
   });
-  if (!res.ok) throw new HandleClaimError(res.status);
+  if (!res.ok) throw (await featureDisabledError(res)) ?? new HandleClaimError(res.status);
 }
 
 /**
