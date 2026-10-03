@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { invoke } from "@/lib/invoke";
+import { decodeLegacyText } from "@/utils/decodeLegacyText";
 import { detectFormat } from "../formats";
-import { bundleFromPutty } from "./putty";
+import { bundleFromPutty, extractPuttyBundle } from "./putty";
+
+vi.mock("@/lib/invoke", () => ({ invoke: vi.fn() }));
 
 const SERIAL_DEFAULTS = { SerialLine: "/dev/ttyS0", SerialSpeed: 9600, SerialDataBits: 8, SerialStopHalfbits: 2, SerialParity: 0, SerialFlowControl: 1 };
 const NO_PROXY = { ProxyMethod: 0, ProxyHost: "proxy", ProxyPort: 80, ProxyUsername: "", ProxyPassword: "" };
@@ -25,12 +29,61 @@ const unixSessions: [string, Record<string, string | number>][] = [
 const sessionFile = (fields: Record<string, string | number>) => ["Present=1", ...Object.entries(fields).map(([k, v]) => `${k}=${v}`)].join("\n");
 const tailOutput = unixSessions.map(([file, fields]) => `==> ${file} <==\n${sessionFile(fields)}\n`).join("\n");
 
+// Trimmed from `reg export HKCU\Software\SimonTatham\PuTTY\Sessions` after saving in Windows PuTTY 0.85;
+// Caf%E9 stands in for a session name in the ANSI codepage, which PuTTY escapes byte by byte.
+const regExport = [
+  "Windows Registry Editor Version 5.00",
+  "",
+  "[HKEY_CURRENT_USER\\Software\\SimonTatham\\PuTTY\\Sessions]",
+  "",
+  "[HKEY_CURRENT_USER\\Software\\SimonTatham\\PuTTY\\Sessions\\Caf%E9%20lab]",
+  '"HostName"="root@[2001:db8::5]"',
+  '"PortNumber"=dword:00000016',
+  '"Protocol"="ssh"',
+  '"SerialLine"="COM1"',
+  "",
+  "[HKEY_CURRENT_USER\\Software\\SimonTatham\\PuTTY\\Sessions\\COM%20console]",
+  '"HostName"=""',
+  '"PortNumber"=dword:00000000',
+  '"Protocol"="serial"',
+  '"SerialDataBits"=dword:00000008',
+  '"SerialFlowControl"=dword:00000001',
+  '"SerialLine"="COM3"',
+  '"SerialParity"=dword:00000000',
+  '"SerialSpeed"=dword:0001c200',
+  '"SerialStopHalfbits"=dword:00000002',
+  "",
+  "[HKEY_CURRENT_USER\\Software\\SimonTatham\\PuTTY\\Sessions\\Default%20Settings]",
+  '"HostName"=""',
+  "",
+  "[HKEY_CURRENT_USER\\Software\\SimonTatham\\PuTTY\\Sessions\\Prod%20API]",
+  '"HostName"="deploy@api.example.com"',
+  '"PortNumber"=dword:000008ae',
+  '"Protocol"="ssh"',
+  '"UserName"=""',
+  "",
+].join("\r\n");
+const utf16le = (text: string) => new Uint8Array([0xff, 0xfe, ...Array.from(text).flatMap((c) => [c.charCodeAt(0) & 0xff, c.charCodeAt(0) >> 8])]);
+
 const ssh = (fields: object) => ({ port: 22, username: "", auth_type: "password", tags: [], connection_type: "ssh", ...fields });
 
 describe("bundleFromPutty", () => {
   it("is detected from a session file and from tail output", () => {
     expect(detectFormat(tailOutput)).toBe("putty");
     expect(detectFormat(sessionFile(unixSessions[3][1]))).toBe("putty");
+  });
+
+  it("reads a UTF-16 reg export, with ANSI session names", () => {
+    const text = decodeLegacyText(utf16le(regExport));
+    expect(detectFormat(text)).toBe("putty");
+    expect(bundleFromPutty(text).connections.map(({ _eid, ...c }) => c)).toEqual([
+      ssh({ name: "Café lab", host: "2001:db8::5", username: "root" }),
+      {
+        name: "COM console", tags: [], connection_type: "serial", serial_port: "COM3", serial_baud: 115200,
+        serial_data_bits: 8, serial_parity: "none", serial_stop_bits: 1, serial_flow_control: "xon-xoff",
+      },
+      ssh({ name: "Prod API", host: "api.example.com", port: 2222, username: "deploy" }),
+    ]);
   });
 
   it("imports SSH and serial sessions and skips telnet", () => {
@@ -105,5 +158,11 @@ describe("bundleFromPutty", () => {
     expect(folders).toEqual([{ _eid: "pf0", name: "Databases", object_type: "connection" }]);
     expect(connections.map((c) => [c.name, c._folder_eid])).toEqual([["db", "pf0"], ["misc", undefined]]);
   });
-});
 
+  it("auto-extracts the sessions the backend reads, and says so when there are none", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(tailOutput);
+    expect((await extractPuttyBundle()).connections).toHaveLength(5);
+    vi.mocked(invoke).mockResolvedValueOnce("");
+    await expect(extractPuttyBundle()).rejects.toThrow();
+  });
+});

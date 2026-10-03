@@ -49,7 +49,7 @@
       "importFrom": "导入来源",
       "importInto": "导入到",
       "autoExtractTitle": "从 {{label}} 自动提取",
-      "autoExtractDescription": "读取并解密您本地的 {{label}} 数据——无需手动导出",
+      "autoExtractDescription": "读取您本地的 {{label}} 数据——无需手动导出",
       "extracting": "正在提取…",
       "extractFrom": "从 {{label}} 提取",
       "orImportFromFile": "或从文件导入",
@@ -161,8 +161,8 @@
         "placeholder": "将 HostDirectory.zhd 拖到此处，或粘贴其内容…"
       },
       "putty": {
-        "sub": "注册表导出 · 会话文件",
-        "hint": "在 Windows 上运行 reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg，然后将文件拖到此处。在 Linux 或 macOS 上，粘贴 tail -n +1 ~/.putty/sessions/* 的输出。将导入 SSH 和串口会话、代理和隧道，密钥文件不会导入。",
+        "sub": ".reg 或会话",
+        "hint": "在 Windows 上从注册表读取已保存的会话，在 Linux 和 macOS 上从 ~/.putty/sessions 读取。也可以拖入 .reg 导出文件或粘贴会话文件。将导入 SSH 和串口会话、代理和隧道，密钥文件不会导入。",
         "placeholder": "将 PuTTY .reg 导出文件拖到此处，或粘贴会话文件…"
       }
     },

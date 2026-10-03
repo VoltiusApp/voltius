@@ -372,6 +372,7 @@ pub fn run() {
             commands::termius::termius_extract_debug,
             commands::termius::termius_extract_leveldb_keys,
             commands::mobaxterm::mobaxterm_extract,
+            commands::putty::putty_sessions,
             commands::fs::fs_home_dir,
             commands::fs::fs_list_dir,
             commands::wsl::wsl_list_distros,

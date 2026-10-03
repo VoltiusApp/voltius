@@ -51,7 +51,7 @@
       "importFrom": "Import from",
       "importInto": "Import into",
       "autoExtractTitle": "Auto-extract from {{label}}",
-      "autoExtractDescription": "Reads and decrypts your local {{label}} data — no manual export needed",
+      "autoExtractDescription": "Reads your local {{label}} data — no manual export needed",
       "extracting": "Extracting…",
       "extractFrom": "Extract from {{label}}",
       "orImportFromFile": "or import from file",
@@ -164,8 +164,8 @@
         "placeholder": "Drop HostDirectory.zhd here, or paste its contents…"
       },
       "putty": {
-        "sub": "Registry export · session files",
-        "hint": "On Windows, run reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg and drop the file here. On Linux or macOS, paste the output of tail -n +1 ~/.putty/sessions/*. SSH and serial sessions, proxies and tunnels are imported; key files are not.",
+        "sub": ".reg or session",
+        "hint": "Reads saved sessions from the registry on Windows, or from ~/.putty/sessions on Linux and macOS. You can also drop a .reg export or paste session files. SSH and serial sessions, proxies and tunnels are imported; key files are not.",
         "placeholder": "Drop a PuTTY .reg export here, or paste session files…"
       }
     },

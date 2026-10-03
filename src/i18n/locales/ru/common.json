@@ -185,6 +185,7 @@
       "unsupportedUserDataVersion": "Неподдерживаемая версия пользовательских данных: {{version}}",
       "failedToLoadLogs": "Не удалось загрузить журнал",
       "couldNotDetectFormat": "Не удалось определить формат. Поддерживаются: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions, ZOC HostDirectory.zhd, PuTTY .reg / файлы сеансов, а также прямой экспорт из Termius.",
+      "noPuttySessions": "Сохранённые сеансы PuTTY или KiTTY для этого пользователя не найдены.",
       "csvMissingColumns": "В CSV должен быть столбец 'host'",
       "termiusDumpInvalidJson": "Дамп Termius должен быть корректным JSON",
       "legacyTermiusUnsupported": "Старый формат дампа Termius больше не поддерживается; используйте автоэкспорт.",

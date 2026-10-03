@@ -5,7 +5,7 @@ import { connectionsFromCSV } from "./parsers/csv";
 import { connectionsFromMobaXterm, extractMobaXtermBundle } from "./parsers/mobaxterm";
 import { bundleFromTermius, extractTermiusBundle } from "./parsers/termius";
 import { bundleFromZoc } from "./parsers/zoc";
-import { bundleFromPutty } from "./parsers/putty";
+import { bundleFromPutty, extractPuttyBundle } from "./parsers/putty";
 
 export interface Importer {
   key: string;
@@ -81,6 +81,7 @@ export const IMPORTERS: Importer[] = [
     hintKey: "importExport.importers.putty.hint",
     placeholderKey: "importExport.importers.putty.placeholder",
     parse: bundleFromPutty,
+    autoExtract: extractPuttyBundle,
   },
 ];
 

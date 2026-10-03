@@ -51,7 +51,7 @@
       "importFrom": "İçe aktarma kaynağı",
       "importInto": "İçe aktarma hedefi",
       "autoExtractTitle": "{{label}} verilerini otomatik çıkar",
-      "autoExtractDescription": "Yerel {{label}} verilerinizi okur ve şifresini çözer — elle dışa aktarmaya gerek yok",
+      "autoExtractDescription": "Yerel {{label}} verilerinizi okur — elle dışa aktarmaya gerek yok",
       "extracting": "Çıkarılıyor…",
       "extractFrom": "{{label}} verilerini çıkar",
       "orImportFromFile": "veya dosyadan içe aktarın",
@@ -176,8 +176,8 @@
         "placeholder": "HostDirectory.zhd dosyasını buraya bırakın veya içeriğini yapıştırın…"
       },
       "putty": {
-        "sub": "Kayıt defteri dışa aktarımı · oturum dosyaları",
-        "hint": "Windows'ta reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg komutunu çalıştırıp dosyayı buraya bırakın. Linux veya macOS'ta tail -n +1 ~/.putty/sessions/* çıktısını yapıştırın. SSH ve seri oturumlar, proxy'ler ve tüneller içe aktarılır; anahtar dosyaları aktarılmaz.",
+        "sub": ".reg veya oturum",
+        "hint": "Kayıtlı oturumları Windows'ta kayıt defterinden, Linux ve macOS'ta ~/.putty/sessions konumundan okur. Bir .reg dışa aktarımını bırakabilir veya oturum dosyalarını yapıştırabilirsiniz. SSH ve seri oturumlar, proxy'ler ve tüneller içe aktarılır; anahtar dosyaları aktarılmaz.",
         "placeholder": "PuTTY .reg dışa aktarımını buraya bırakın veya oturum dosyalarını yapıştırın…"
       }
     },

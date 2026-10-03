@@ -1,3 +1,5 @@
+import i18n from "@/i18n";
+import { invoke } from "@/lib/invoke";
 import { decodeLegacyText } from "@/utils/decodeLegacyText";
 import { importedBundle } from "../formats";
 import type { ConnectionExport, ExportBundle, FolderExport, JumpHostExport, PortForwardingRuleExport } from "../formats";
@@ -247,4 +249,10 @@ export function bundleFromPutty(text: string): ExportBundle {
   });
   const portForwardingRules = imported.flatMap(({ s, c }) => (c.connection_type === "ssh" ? portForwards(s, c._eid) : []));
   return importedBundle({ folders, connections, portForwardingRules });
+}
+
+export async function extractPuttyBundle(): Promise<ExportBundle> {
+  const bundle = bundleFromPutty(await invoke<string>("putty_sessions"));
+  if (!bundle.connections.length) throw new Error(i18n.t("common.error.noPuttySessions"));
+  return bundle;
 }

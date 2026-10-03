@@ -185,6 +185,7 @@
       "unsupportedUserDataVersion": "Unsupported user data version: {{version}}",
       "failedToLoadLogs": "Failed to load logs",
       "couldNotDetectFormat": "Could not detect format. Supported: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions, ZOC HostDirectory.zhd, PuTTY .reg / session files, or live Termius extraction.",
+      "noPuttySessions": "No saved PuTTY or KiTTY sessions were found for this user.",
       "csvMissingColumns": "CSV must have a 'host' column",
       "termiusDumpInvalidJson": "Termius dump must be valid JSON",
       "legacyTermiusUnsupported": "Legacy Termius dump format is no longer supported; use Auto Extract.",
