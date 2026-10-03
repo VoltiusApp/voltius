@@ -432,11 +432,12 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
         meta: connectionMeta,
         rows: bundle.connections.map((c: ConnectionExport, i: number) => {
           const fp = getFolderPath(c._folder_eid, bundle.folders);
-          if (!matches([c.name, c.host, c.username, fp])) return null;
+          if (!matches([c.name, c.host, c.username, c.serial_port, fp])) return null;
+          const address = c.connection_type === "serial" ? c.serial_port ?? "" : `${c.host}:${c.port}`;
           return (
             <ItemRow key={i} icon="lucide:server"
-              title={c.name || `${c.host}:${c.port}`}
-              sub={`${c.host}:${c.port} · ${c.username}`}
+              title={c.name || address}
+              sub={c.connection_type === "serial" ? address : `${address} · ${c.username}`}
               folderPath={fp || undefined}
               isDupe={connectionMeta[i].isDupe}
               action={getAction(`connections:${i}`)}
@@ -508,7 +509,9 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
           return (
             <ItemRow key={i} icon="lucide:arrow-right-left"
               title={r.name}
-              sub={`${r.local_port} → ${r.remote_host}:${r.remote_port}`}
+              sub={r.tunnel_type === "dynamic"
+                ? t("portForwarding.activeTunnels.socksPortLabel", { port: r.local_port })
+                : `${r.local_port} → ${r.remote_host}:${r.remote_port}`}
               isDupe={pfRuleMeta[i].isDupe}
               action={getAction(`pfRules:${i}`)}
               onToggle={() => toggleItem(`pfRules:${i}`)}
