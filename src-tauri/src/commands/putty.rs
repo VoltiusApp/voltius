@@ -58,7 +58,10 @@ fn read_registry() -> Vec<RegSession> {
             continue;
         };
         for name in names {
-            let Ok(values) = root.open(&name).and_then(|k| k.values()) else {
+            let Ok(key) = root.open(&name) else {
+                continue;
+            };
+            let Ok(values) = key.values() else {
                 continue;
             };
             let values = values
