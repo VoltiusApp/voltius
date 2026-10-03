@@ -17,17 +17,41 @@ pub const ERR_ENCRYPTED: &str = "ENCRYPTED";
 pub const ERR_INVALID: &str = "INVALID";
 
 fn derive_public_key(private_key: &str, passphrase: Option<&str>) -> Result<String, String> {
-    let key = PrivateKey::from_openssh(private_key.trim()).map_err(|_| ERR_INVALID.to_string())?;
+    let private_key = private_key.trim();
+    let passphrase = passphrase.filter(|p| !p.is_empty());
+    if private_key.starts_with("PuTTY-User-Key-File-") {
+        return ppk_public_key(private_key, passphrase);
+    }
+    let key = PrivateKey::from_openssh(private_key).map_err(|_| ERR_INVALID.to_string())?;
     let key = if key.is_encrypted() {
-        let passphrase = passphrase
-            .filter(|p| !p.is_empty())
-            .ok_or_else(|| ERR_ENCRYPTED.to_string())?;
-        key.decrypt(passphrase)
+        key.decrypt(passphrase.ok_or_else(|| ERR_ENCRYPTED.to_string())?)
             .map_err(|_| ERR_ENCRYPTED.to_string())?
     } else {
         key
     };
     key.public_key()
+        .to_openssh()
+        .map_err(|_| ERR_INVALID.to_string())
+}
+
+// ssh-key 0.6 has no PPK reader; the one russh authenticates with does.
+fn ppk_public_key(ppk: &str, passphrase: Option<&str>) -> Result<String, String> {
+    let encrypted = ppk
+        .lines()
+        .any(|l| l.starts_with("Encryption:") && l.trim() != "Encryption: none");
+    let passphrase = match (encrypted, passphrase) {
+        (false, _) => None,
+        (true, Some(p)) => Some(p.to_string()),
+        (true, None) => return Err(ERR_ENCRYPTED.to_string()),
+    };
+    let failed = if encrypted {
+        ERR_ENCRYPTED
+    } else {
+        ERR_INVALID
+    };
+    russh::keys::PrivateKey::from_ppk(ppk, passphrase)
+        .map_err(|_| failed.to_string())?
+        .public_key()
         .to_openssh()
         .map_err(|_| ERR_INVALID.to_string())
 }
@@ -196,5 +220,36 @@ mod tests {
             derive_public_key(&public, None),
             Err(ERR_INVALID.to_string())
         );
+    }
+
+    // Fixtures written by puttygen 0.78; the expected halves are `puttygen -L` output.
+    const PPK_ED25519: &str = include_str!("fixtures/ed25519.ppk");
+    const PPK_RSA_ENCRYPTED: &str = include_str!("fixtures/rsa-encrypted.ppk");
+    const PPK_V2_ECDSA: &str = include_str!("fixtures/ecdsa-v2.ppk");
+
+    #[test]
+    fn derives_the_public_half_of_putty_keys() {
+        assert_eq!(
+            derive_public_key(PPK_ED25519, None).unwrap(),
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINJXK8C5YXiVc+Y53pqq4crA8oj9YcD0w4OJbHHvUICa plain"
+        );
+        assert_eq!(
+            derive_public_key(PPK_V2_ECDSA, None).unwrap(),
+            "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBChaQgDCcY0dKUKAj3RYO+c+t5qTqh2c9p7cZL5RCcG7t3iuprRKF6RPNhXSEi6N8EzRw6xD9YMQwY7QhYoAzdU= ecdsa-key-20261002"
+        );
+        assert_eq!(
+            derive_public_key(PPK_RSA_ENCRYPTED, Some("hunter2")).unwrap(),
+            "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0n614avZ+9DCjFPK5SklkR/+ri2s8MIG9dJyKyI2sH4IqYU6ln4VrQLxu55FG3/NoiEMRFQ920mnNN3SiAWWU0QUf5HDLPKxfoawRNsXGF7HYEsqi1J4L0BCrq6WR/bW9nFA0N9EBRBDlJPYf+yaQRCBPAvBbybHRzAxoxWg/8e6jNMUKEPLTlDWOM1NenI0/B4iJRyk6EW9nH2NRIrKyhUS2UmsQG0Ewr5T2pHU5jW6SNwqL5UCQXnvrsgesHMcOVgqZF7Xt6je4m8n+5bQXs+d8wDIE6ShdH1o+vbP0yqJjVnAv4RVB3h4CWN2XGCaLScpi9VdPkvq52T3pNtQx enc"
+        );
+    }
+
+    #[test]
+    fn reports_encrypted_for_a_putty_key_without_its_passphrase() {
+        for passphrase in [None, Some(""), Some("wrong")] {
+            assert_eq!(
+                derive_public_key(PPK_RSA_ENCRYPTED, passphrase),
+                Err(ERR_ENCRYPTED.to_string())
+            );
+        }
     }
 }

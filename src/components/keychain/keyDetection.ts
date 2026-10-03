@@ -30,10 +30,13 @@ export function detectKeyInfo(
     }
   }
 
+  const incomplete = { type: null, valid: false, errorKey: "keychain.keyForm.incompleteKey" };
+
+  const ppk = pk.match(/^PuTTY-User-Key-File-\d+: (\S+)/);
+  if (ppk) return /^Private-MAC: /m.test(pk) ? { type: PUB_TYPE_MAP[ppk[1]] ?? ppk[1], valid: true } : incomplete;
+
   if (pk.startsWith("-----BEGIN OPENSSH PRIVATE KEY-----")) {
-    if (!pk.includes("-----END OPENSSH PRIVATE KEY-----")) {
-      return { type: null, valid: false, errorKey: "keychain.keyForm.incompleteKey" };
-    }
+    if (!pk.includes("-----END OPENSSH PRIVATE KEY-----")) return incomplete;
 
     const pub = publicKey.trim();
     for (const [prefix, type] of Object.entries(PUB_TYPE_MAP)) {
