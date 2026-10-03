@@ -27,6 +27,8 @@ vi.mock("@tauri-apps/api/event", () => ({
   }),
 }));
 vi.mock("./serialAutoReconnect", () => ({ serialAutoReconnectEnabled: () => true }));
+// Reconnecting a persistent tab fires an unawaited import of sync; the real graph can finish loading after teardown.
+vi.mock("@/services/sync", () => ({ syncNow: vi.fn(async () => {}) }));
 
 function patch(id: string, fields: Partial<TerminalSession>) {
   h.sessions = h.sessions.map((s) => (s.id === id ? { ...s, ...fields } : s));
