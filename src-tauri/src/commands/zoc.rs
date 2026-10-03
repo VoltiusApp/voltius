@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
-const HOST_DIRECTORY: &str = "Options/HostDirectory.zhd";
+fn host_directory(data_folder: &Path) -> PathBuf {
+    data_folder.join("Options").join("HostDirectory.zhd")
+}
 
 fn data_root() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
@@ -26,7 +28,7 @@ fn newest_host_directory(root: &Path) -> Option<PathBuf> {
         .flatten()
         .filter_map(|e| {
             let version = zoc_version(&e.file_name().to_string_lossy())?;
-            let file = e.path().join(HOST_DIRECTORY);
+            let file = host_directory(&e.path());
             file.is_file().then_some((version, file))
         })
         .max_by_key(|(version, _)| *version)
@@ -39,9 +41,7 @@ pub fn zoc_host_directory() -> Result<Vec<u8>, String> {
     let file = newest_host_directory(&root).ok_or_else(|| {
         format!(
             "ZOC host directory not found in {}",
-            root.join("ZOC<version> Files")
-                .join(HOST_DIRECTORY)
-                .display()
+            host_directory(&root.join("ZOC<version> Files")).display()
         )
     })?;
     std::fs::read(&file).map_err(|e| format!("{}: {e}", file.display()))
