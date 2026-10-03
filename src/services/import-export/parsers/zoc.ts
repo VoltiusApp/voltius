@@ -1,5 +1,7 @@
 import { importedBundle } from "../formats";
 import type { ConnectionExport, ExportBundle, FolderExport } from "../formats";
+import { pruneUnusedFolders, serialConnection } from "./common";
+import type { SerialSettings } from "./common";
 
 const DEVICE_SERIAL = 1;
 const DEVICE_SSH = 9;
@@ -25,21 +27,22 @@ function splitHostPort(connectTo: string): { host: string; port?: number } {
   return m ? { host: m[1], port: Number(m[2]) } : { host: connectTo };
 }
 
-const PARITY: Record<string, string> = { N: "none", E: "even", O: "odd" };
+const PARITY: Record<string, SerialSettings["parity"]> = { N: "none", E: "even", O: "odd" };
 
 // deviceopts "[1]COM3:57600-8N1|<flag bits>|<break ms>"; bit 1 = RTS/CTS, bit 2 = XON/XOFF.
 // A leading "-" means the session profile overrides these, but they are the best values the file holds.
-function serialFields(deviceOpts: string): Partial<ConnectionExport> {
+function serialSettings(deviceOpts: string): SerialSettings | undefined {
   const m = deviceOpts.match(/^-?\[\d+\]([^:|]+):(\d+)-(\d)([NEOMS])(\d)(?:\|(\d+))?/);
-  if (!m) return {};
+  if (!m) return undefined;
   const flow = Number(m[6] ?? 0);
   return {
-    serial_port: m[1],
-    serial_baud: Number(m[2]),
-    serial_data_bits: Number(m[3]),
-    serial_parity: PARITY[m[4]] ?? "none",
-    serial_stop_bits: Number(m[5]),
-    serial_flow_control: flow & 1 ? "rts-cts" : flow & 2 ? "xon-xoff" : "none",
+    port: m[1],
+    baud: Number(m[2]),
+    dataBits: Number(m[3]),
+    parity: PARITY[m[4]] ?? "none",
+    stopBits: Number(m[5]),
+    rtsCts: (flow & 1) !== 0,
+    xonXoff: (flow & 2) !== 0,
   };
 }
 
@@ -104,9 +107,7 @@ function toConnection(e: Entry): ConnectionExport | undefined {
   const device = Number(e.get("deviceid") ?? 0);
   const name = e.get("name") || undefined;
   const notes = e.get("memo") || undefined;
-  if (device === DEVICE_SERIAL) {
-    return { name, tags: [], connection_type: "serial", ...serialFields(e.get("deviceopts") ?? ""), ...(notes && { notes }) };
-  }
+  if (device === DEVICE_SERIAL) return serialConnection(name, notes, serialSettings(e.get("deviceopts") ?? ""));
   // 0 and -1 both mean "connection type from the session profile", which defaults to SSH.
   if (device !== DEVICE_SSH && device > 0) return undefined;
   const { host, port } = splitHostPort(e.get("connectto") ?? "");
@@ -133,14 +134,5 @@ export function bundleFromZoc(text: string): ExportBundle {
   });
   const { folders, folderEidOf } = buildFolders(structure, imported.map(({ e }) => e));
   const connections = imported.map(({ e, c }) => ({ ...c, _folder_eid: folderEidOf(e) }));
-  return importedBundle({ folders: pruneUnused(folders, connections), connections });
-}
-
-function pruneUnused(folders: FolderExport[], connections: ConnectionExport[]): FolderExport[] {
-  const parentOf = new Map(folders.map((f) => [f._eid, f.parent_folder_eid]));
-  const keep = new Set<string>();
-  for (const c of connections) {
-    for (let eid = c._folder_eid; eid && !keep.has(eid); eid = parentOf.get(eid)) keep.add(eid);
-  }
-  return folders.filter((f) => keep.has(f._eid));
+  return importedBundle({ folders: pruneUnusedFolders(folders, connections), connections });
 }

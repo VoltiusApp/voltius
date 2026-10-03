@@ -52,10 +52,13 @@
       "autoExtractDescription": "读取您本地的 {{label}} 数据——无需手动导出",
       "extracting": "正在提取…",
       "extractFrom": "从 {{label}} 提取",
+      "chooseConfigFolder": "或选择 {{label}} Config 文件夹…",
       "orImportFromFile": "或从文件导入",
       "openFileLabel": "打开 {{sub}} 文件…",
       "encryptedBackupTitle": "加密备份——请输入密码解锁",
       "unlock": "解锁",
+      "configPassphraseTitle": "此 SecureCRT 配置设有配置密码短语——输入后即可导入已保存的密码",
+      "skipPasswords": "不导入已保存的密码",
       "reviewItems_one": "检查 {{count}} 个项目",
       "reviewItems_other": "检查 {{count}} 个项目",
       "back": "返回",
@@ -164,6 +167,11 @@
         "sub": ".reg 或会话",
         "hint": "在 Windows 上从注册表读取已保存的会话，在 Linux 和 macOS 上从 ~/.putty/sessions 读取。也可以拖入 .reg 导出文件或粘贴会话文件。将导入 SSH 和串口会话、代理和隧道，密钥文件不会导入。",
         "placeholder": "将 PuTTY .reg 导出文件拖到此处，或粘贴会话文件…"
+      },
+      "securecrt": {
+        "sub": "会话 .ini · XML 导出",
+        "hint": "自动提取会读取 SecureCRT 的本地配置。也可以拖入会话的 .ini 文件（Config/Sessions），或通过 File → Export Settings 导出的 XML 文件。SSH 和串口会话会连同已保存的密码一起导入；Telnet、RLogin、Raw 等其他协议会被跳过。",
+        "placeholder": "将 SecureCRT 会话 .ini 文件或 .xml 导出文件拖到此处，或粘贴其内容…"
       }
     },
     "menu": {

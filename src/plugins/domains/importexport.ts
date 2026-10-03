@@ -8,7 +8,7 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { HANDLERS, buildBundle, runImport, reloadAll } from "@/services/import-export/registry";
 import { canFromStoresAsync } from "@/services/permissionsFromStores";
-import { toJSON, encryptText, decryptText, detectFormat, secretBearingTypes } from "@/services/import-export/formats";
+import { toJSON, encryptText, isLocked, secretBearingTypes } from "@/services/import-export/formats";
 import { parseImport } from "@/services/import-export/importers";
 import { connectionsToCSV } from "@/services/import-export/parsers/csv";
 import type { ExportBundle } from "@/services/import-export/formats";
@@ -175,27 +175,30 @@ export async function exportObjects(opts: {
   }
 }
 
+const LOCKED_MESSAGE = {
+  backup: "this bundle is encrypted; pass the passphrase it was exported with",
+  securecrt: "this SecureCRT configuration has a config passphrase; pass it to import its saved passwords",
+};
+
 export async function importObjects(opts: {
   content: string;
   vaultId: string;
   passphrase?: string;
   dryRun: boolean;
 }): Promise<DomainResult<ImportResult>> {
-  let text = opts.content;
-  if (detectFormat(text) === "voltius-encrypted") {
-    if (!opts.passphrase) return failed("this bundle is encrypted; pass the passphrase it was exported with");
-    try {
-      text = await decryptText(text, opts.passphrase);
-    } catch {
-      return failed("could not decrypt this bundle; the passphrase does not match");
-    }
-  }
-
   let bundle: ExportBundle;
   try {
-    const parsed = parseImport(text);
-    if (parsed === "encrypted") return failed("this bundle is encrypted; pass the passphrase it was exported with");
-    bundle = parsed;
+    const parsed = await parseImport(opts.content);
+    if (isLocked(parsed)) {
+      if (!opts.passphrase) return failed(LOCKED_MESSAGE[parsed.kind]);
+      try {
+        bundle = await parsed.unlock(opts.passphrase);
+      } catch {
+        return failed("could not decrypt this content; the passphrase does not match");
+      }
+    } else {
+      bundle = parsed;
+    }
   } catch (e) {
     return failed(e instanceof Error ? e.message : String(e));
   }

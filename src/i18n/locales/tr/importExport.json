@@ -54,10 +54,13 @@
       "autoExtractDescription": "Yerel {{label}} verilerinizi okur — elle dışa aktarmaya gerek yok",
       "extracting": "Çıkarılıyor…",
       "extractFrom": "{{label}} verilerini çıkar",
+      "chooseConfigFolder": "Ya da bir {{label}} Config klasörü seçin…",
       "orImportFromFile": "veya dosyadan içe aktarın",
       "openFileLabel": "{{sub}} dosyası aç…",
       "encryptedBackupTitle": "Şifreli yedek — kilidi açmak için parolanızı girin",
       "unlock": "Kilidi aç",
+      "configPassphraseTitle": "Bu SecureCRT yapılandırması bir yapılandırma parolasıyla korunuyor — kayıtlı parolaları içe aktarmak için girin",
+      "skipPasswords": "Kayıtlı parolalar olmadan içe aktar",
       "reviewItems_one": "{{count}} öğeyi incele",
       "reviewItems_other": "{{count}} öğeyi incele",
       "back": "Geri",
@@ -179,6 +182,11 @@
         "sub": ".reg veya oturum",
         "hint": "Kayıtlı oturumları Windows'ta kayıt defterinden, Linux ve macOS'ta ~/.putty/sessions konumundan okur. Bir .reg dışa aktarımını bırakabilir veya oturum dosyalarını yapıştırabilirsiniz. SSH ve seri oturumlar, proxy'ler ve tüneller içe aktarılır; anahtar dosyaları aktarılmaz.",
         "placeholder": "PuTTY .reg dışa aktarımını buraya bırakın veya oturum dosyalarını yapıştırın…"
+      },
+      "securecrt": {
+        "sub": "Oturum .ini · XML dışa aktarımı",
+        "hint": "Otomatik ayıklama, SecureCRT'nin yerel yapılandırmasını okur. Bir oturumun .ini dosyasını (Config/Sessions) ya da File → Export Settings ile oluşturulan XML dosyasını da bırakabilirsiniz. SSH ve seri oturumlar kayıtlı parolalarıyla içe aktarılır; Telnet, RLogin, Raw ve diğer protokoller atlanır.",
+        "placeholder": "Bir SecureCRT oturum .ini dosyasını ya da .xml dışa aktarımını buraya bırakın veya içeriğini yapıştırın…"
       }
     },
     "menu": {

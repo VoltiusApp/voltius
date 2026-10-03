@@ -54,10 +54,13 @@
       "autoExtractDescription": "Reads your local {{label}} data — no manual export needed",
       "extracting": "Extracting…",
       "extractFrom": "Extract from {{label}}",
+      "chooseConfigFolder": "Or choose a {{label}} Config folder…",
       "orImportFromFile": "or import from file",
       "openFileLabel": "Open {{sub}} file…",
       "encryptedBackupTitle": "Encrypted backup — enter your password to unlock",
       "unlock": "Unlock",
+      "configPassphraseTitle": "This SecureCRT configuration has a config passphrase — enter it to import saved passwords",
+      "skipPasswords": "Import without saved passwords",
       "reviewItems_one": "Review {{count}} item",
       "reviewItems_other": "Review {{count}} items",
       "back": "Back",
@@ -167,6 +170,11 @@
         "sub": ".reg or session",
         "hint": "Reads saved sessions from the registry on Windows, or from ~/.putty/sessions on Linux and macOS. You can also drop a .reg export or paste session files. SSH and serial sessions, proxies and tunnels are imported; key files are not.",
         "placeholder": "Drop a PuTTY .reg export here, or paste session files…"
+      },
+      "securecrt": {
+        "sub": "Session .ini · XML export",
+        "hint": "Auto-extract reads SecureCRT's local configuration. You can also drop a session .ini from Config/Sessions, or the XML file from File → Export Settings. SSH and serial sessions are imported with their saved passwords; Telnet, RLogin, Raw and other protocols are skipped.",
+        "placeholder": "Drop a SecureCRT session .ini or an Export Settings .xml here, or paste its contents…"
       }
     },
     "menu": {

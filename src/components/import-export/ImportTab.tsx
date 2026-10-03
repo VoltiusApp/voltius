@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import LogoSvg from "/logo.svg?react";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
-import { decryptText, fromJSON } from "@/services/import-export/formats";
-import type { ConnectionExport, ExportBundle, FolderExport, IdentityExport, KeyExport, PortForwardingRuleExport, SnippetExport } from "@/services/import-export/formats";
+import { isLocked } from "@/services/import-export/formats";
+import type { ConnectionExport, ExportBundle, FolderExport, IdentityExport, ImportOutcome, KeyExport, LockedImport, PortForwardingRuleExport, SnippetExport } from "@/services/import-export/formats";
 import { runImport, reloadAll } from "@/services/import-export/registry";
 import { findDupes, newImportCtx } from "@/services/import-export/context";
 import type { Dupes } from "@/services/import-export/context";
@@ -24,7 +25,7 @@ type ImportStatus =
   | { type: "idle" }
   | { type: "parsing" }
   | { type: "error"; message: string }
-  | { type: "needs-password" }
+  | { type: "needs-password"; locked: LockedImport; unlocking?: boolean; error?: string }
   | { type: "ready";
       bundle: ExportBundle;
       connectionMeta: ItemMeta[];
@@ -144,6 +145,16 @@ function GroupHeader({ label, icon, included, total, allSkipped, collapsed, onTo
   );
 }
 
+// StrictMode re-runs mount effects; a reset there would drop an auto-extract already in flight.
+function useOnChange<T>(value: T, onChange: () => void) {
+  const prev = useRef(value);
+  useEffect(() => {
+    if (Object.is(prev.current, value)) return;
+    prev.current = value;
+    onChange();
+  });
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: string; autoTrigger?: boolean }) {
@@ -176,10 +187,8 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
     defaultSource && IMPORTERS.find(i => i.key === defaultSource) ? defaultSource : IMPORTERS[0].key
   );
   const didAutoTrigger = useRef(false);
-  // True once an auto-extract owns the current status. Prevents the empty-text
-  // parse effect (which fires whenever store slices reload) from wiping the
-  // extracted bundle back to "idle" — text stays "" during auto-extract.
-  const autoExtracted = useRef(false);
+  const parseSeq = useRef(0);
+  const [parsed, setParsed] = useState<ExportBundle | null>(null);
   const [targetVaultIds, setTargetVaultIds] = useState<string[]>([defaultVaultId]);
   const [text, setText] = useState("");
   const [addTag, setAddTag] = useState("");
@@ -229,31 +238,43 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingItems, targetVaultIds]);
 
-  const parse = useCallback((raw: string) => {
-    const trimmed = raw.trim();
-    if (!trimmed) { if (!autoExtracted.current) setStatus({ type: "idle" }); return; }
+  useEffect(() => { if (parsed) applyBundle(parsed); }, [parsed, applyBundle]);
+
+  const load = useCallback(async (outcome: () => ImportOutcome | Promise<ImportOutcome>) => {
+    const seq = ++parseSeq.current;
+    setParsed(null);
     setStatus({ type: "parsing" });
     try {
-      const result = parseImport(trimmed);
-      if (result === "encrypted") {
+      const result = await outcome();
+      if (seq !== parseSeq.current) return;
+      if (isLocked(result)) {
         setDecryptPassword("");
-        setStatus({ type: "needs-password" });
-        return;
+        setStatus({ type: "needs-password", locked: result });
+      } else {
+        setParsed(result);
       }
-      applyBundle(result);
     } catch (err) {
-      setStatus({ type: "error", message: String(err) });
+      if (seq === parseSeq.current) setStatus({ type: "error", message: String(err) });
     }
-  }, [applyBundle]);
+  }, []);
 
-  useEffect(() => { parse(text); }, [text, parse]);
-
-  useEffect(() => {
-    autoExtracted.current = false;
+  const reset = useCallback(() => {
+    parseSeq.current++;
+    setParsed(null);
     setStatus({ type: "idle" });
+  }, []);
+
+  useOnChange(text, () => {
+    const trimmed = text.trim();
+    if (trimmed) void load(() => parseImport(trimmed));
+    else reset();
+  });
+
+  useOnChange(selectedSource, () => {
+    reset();
     setText("");
     setImportResult(null);
-  }, [selectedSource]);
+  });
 
   useEffect(() => {
     if (autoTrigger && source.autoExtract && !didAutoTrigger.current) {
@@ -270,30 +291,35 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
     }
   }, [autoTrigger, status.type, step, writableVaults.length]);
 
-  const handleAutoExtract = useCallback(async () => {
-    if (!source.autoExtract) return;
-    autoExtracted.current = true;
+  const extract = useCallback(async (run: () => Promise<ImportOutcome>) => {
     setExtracting(true);
     setImportResult(null);
-    setStatus({ type: "parsing" });
-    try {
-      applyBundle(await source.autoExtract());
-    } catch (err) {
-      setStatus({ type: "error", message: String(err) });
-    } finally {
-      setExtracting(false);
-    }
-  }, [source, applyBundle]);
+    await load(run);
+    setExtracting(false);
+  }, [load]);
+
+  const handleAutoExtract = useCallback(async () => {
+    const auto = source.autoExtract;
+    if (auto) await extract(auto);
+  }, [source, extract]);
+
+  const handlePickFolder = useCallback(async () => {
+    const fromFolder = source.extractFromFolder;
+    if (!fromFolder) return;
+    const dir = await openDialog({ directory: true });
+    if (typeof dir === "string") await extract(() => fromFolder(dir));
+  }, [source, extract]);
 
   const handleDecrypt = useCallback(async () => {
-    if (!decryptPassword) return;
-    setStatus({ type: "parsing" });
+    if (!decryptPassword || status.type !== "needs-password") return;
+    const { locked } = status;
+    setStatus({ type: "needs-password", locked, unlocking: true });
     try {
-      applyBundle(fromJSON(await decryptText(text, decryptPassword)));
+      setParsed(await locked.unlock(decryptPassword));
     } catch (err) {
-      setStatus({ type: "error", message: String(err) });
+      setStatus({ type: "needs-password", locked, error: String(err) });
     }
-  }, [decryptPassword, text, applyBundle]);
+  }, [decryptPassword, status]);
 
   // ── Action helpers ──────────────────────────────────────────────────────────
 
@@ -734,6 +760,16 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
             <Icon icon={extracting ? "lucide:loader-circle" : "lucide:download"} width={14} className={extracting ? "animate-spin" : ""} />
             {extracting ? t("importExport.import.extracting") : t("importExport.import.extractFrom", { label: source.label })}
           </button>
+          {source.extractFromFolder && (
+            <button
+              onClick={handlePickFolder}
+              disabled={extracting}
+              className="self-center text-xs transition-opacity hover:opacity-70 disabled:opacity-50"
+              style={{ color: "var(--t-text-dim)" }}
+            >
+              {t("importExport.import.chooseConfigFolder", { label: source.label })}
+            </button>
+          )}
         </div>
       )}
 
@@ -768,7 +804,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
         <div className="flex flex-col gap-3 p-3 rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
           <div className="flex items-center gap-2 text-sm" style={{ color: "var(--t-text-primary)" }}>
             <Icon icon="lucide:lock" width={14} style={{ color: "var(--t-accent)" }} />
-            {t("importExport.import.encryptedBackupTitle")}
+            {t(status.locked.kind === "securecrt" ? "importExport.import.configPassphraseTitle" : "importExport.import.encryptedBackupTitle")}
           </div>
           <div className="flex gap-2">
             <input
@@ -780,8 +816,18 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
               autoFocus
               className="flex-1 px-2.5 py-1.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary)"
             />
-            <ActionBtn icon="lucide:lock-open" label={t("importExport.import.unlock")} onClick={handleDecrypt} primary disabled={!decryptPassword} />
+            <ActionBtn icon="lucide:lock-open" label={t("importExport.import.unlock")} onClick={handleDecrypt} primary disabled={!decryptPassword || status.unlocking} />
           </div>
+          {status.error && <p className="text-xs" style={{ color: "var(--t-status-error)" }}>{status.error}</p>}
+          {status.locked.withoutSecrets && (
+            <button
+              onClick={() => { const { locked } = status; if (locked.withoutSecrets) setParsed(locked.withoutSecrets()); }}
+              className="self-start text-xs transition-opacity hover:opacity-70"
+              style={{ color: "var(--t-text-dim)" }}
+            >
+              {t("importExport.import.skipPasswords")}
+            </button>
+          )}
         </div>
       )}
 

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VanDyke version="3.0">
+	<key name="Security">
+		<string name="Passphrase">03:2ec07f83619929d066a4dafe47929873313fa32fec78d14cf727ea7811407a1d7d5bdcc41401e6d929c29807616385b2ccef866ab6e6e4e121e60a7bc4d86c02</string>
+	</key>
+	<key name="Sessions">
+		<key name="Lab">
+			<key name="console">
+				<dword name="Is Session">1</dword>
+				<string name="Protocol Name">Serial</string>
+				<dword name="Linux Baud Rate">57600</dword>
+				<dword name="Linux Parity">2</dword>
+				<dword name="Linux Stop Bits">2</dword>
+				<dword name="Linux Data Bits">7</dword>
+				<dword name="Linux CTS Flow">1</dword>
+				<dword name="Linux XON Flow">0</dword>
+				<string name="Linux Com Port">/dev/ttyUSB0</string>
+				<dword name="Linux Printer Baud Rate">38400</dword>
+				<array name="Description" />
+			</key>
+			<key name="router-telnet">
+				<dword name="Is Session">1</dword>
+				<string name="Protocol Name">Telnet</string>
+				<dword name="Port">23</dword>
+				<string name="Hostname">192.168.1.1</string>
+				<string name="Firewall Name">None</string>
+				<string name="Username" />
+				<dword name="Linux Printer Baud Rate">38400</dword>
+				<array name="Description" />
+			</key>
+		</key>
+		<key name="Prod">
+			<key name="Bäckend">
+				<key name="api-ü">
+					<dword name="Is Session">1</dword>
+					<string name="Protocol Name">SSH2</string>
+					<dword name="Sftp Terminal Session">0</dword>
+					<string name="Hostname">api.example.com</string>
+					<string name="Firewall Name">None</string>
+					<string name="Username">deploy</string>
+					<dword name="[SSH2] Port">2222</dword>
+					<string name="Password V2" />
+					<dword name="Session Password Saved">0</dword>
+					<dword name="Use Global Public Key">0</dword>
+					<string name="Identity Filename V2">${VDS_SSH_DATA_PATH}/id_ed25519</string>
+					<dword name="Linux Printer Baud Rate">38400</dword>
+					<array name="Description">
+						<string>primary api</string>
+						<string>second line</string>
+					</array>
+				</key>
+			</key>
+			<key name="inner">
+				<dword name="Is Session">1</dword>
+				<string name="Protocol Name">SSH2</string>
+				<dword name="Sftp Terminal Session">0</dword>
+				<string name="Hostname">10.0.0.5</string>
+				<string name="Firewall Name">Session:jump</string>
+				<string name="Username">admin</string>
+				<dword name="[SSH2] Port">22</dword>
+				<string name="Password V2" />
+				<dword name="Session Password Saved">0</dword>
+				<dword name="Use Global Public Key">1</dword>
+				<string name="Identity Filename V2" />
+				<dword name="Linux Printer Baud Rate">38400</dword>
+				<array name="Description" />
+			</key>
+			<key name="web">
+				<dword name="Is Session">1</dword>
+				<string name="Protocol Name">SSH2</string>
+				<dword name="Sftp Terminal Session">0</dword>
+				<string name="Hostname">web.example.com</string>
+				<string name="Firewall Name">None</string>
+				<string name="Username">root</string>
+				<dword name="[SSH2] Port">22</dword>
+				<string name="Password V2">03:2ec07f83619929d066a4dafe4792987355f5805ca7fd0ffda2588d2e99830eb1dddf6b24e3f25310a1706f08fed317631a7c87d1ceecf2ed59684f7e4548a92dce0439fe23722d599c287c7a3ebf2f2f</string>
+				<dword name="Session Password Saved">1</dword>
+				<dword name="Use Global Public Key">1</dword>
+				<string name="Identity Filename V2" />
+				<dword name="Linux Printer Baud Rate">38400</dword>
+				<array name="Description" />
+			</key>
+		</key>
+		<key name="deep.example.com">
+			<dword name="Is Session">1</dword>
+			<string name="Protocol Name">SSH2</string>
+			<dword name="Sftp Terminal Session">0</dword>
+			<string name="Hostname">deep.example.com</string>
+			<string name="Firewall Name">Session:Prod/web</string>
+			<string name="Username">deepuser</string>
+			<dword name="[SSH2] Port">22</dword>
+			<string name="Password V2" />
+			<dword name="Session Password Saved">0</dword>
+			<dword name="Use Global Public Key">1</dword>
+			<string name="Identity Filename V2" />
+			<dword name="Linux Printer Baud Rate">38400</dword>
+			<array name="Description" />
+		</key>
+		<key name="Default">
+			<dword name="Is Session">1</dword>
+			<string name="Protocol Name">SSH2</string>
+			<dword name="Sftp Terminal Session">0</dword>
+			<string name="Hostname" />
+			<string name="Firewall Name">None</string>
+			<string name="Username" />
+			<dword name="[SSH2] Port">22</dword>
+			<string name="Password V2" />
+			<dword name="Session Password Saved">0</dword>
+			<dword name="Use Global Public Key">1</dword>
+			<string name="Identity Filename V2" />
+			<dword name="Linux Printer Baud Rate">38400</dword>
+			<array name="Description" />
+		</key>
+		<key name="hand-02">
+			<dword name="Is Session">1</dword>
+			<string name="Protocol Name">SSH2</string>
+			<dword name="Sftp Terminal Session">0</dword>
+			<string name="Hostname">ssh-host-1</string>
+			<string name="Firewall Name">None</string>
+			<string name="Username">voltius</string>
+			<dword name="[SSH2] Port">2222</dword>
+			<string name="Password V2">02:3cbfeadc5e36e1f715f4ddcb9ee903f50ca059f8801a54f17207b1f4cd579ae9b00777e2f168cbb39d7314856411c53db5fe5b117566800e8f30395b1c5d17a3</string>
+			<dword name="Session Password Saved">1</dword>
+			<dword name="Use Global Public Key">1</dword>
+			<string name="Identity Filename V2" />
+			<dword name="Linux Printer Baud Rate">38400</dword>
+			<array name="Description" />
+		</key>
+		<key name="jump">
+			<dword name="Is Session">1</dword>
+			<string name="Protocol Name">SSH2</string>
+			<dword name="Sftp Terminal Session">0</dword>
+			<string name="Hostname">bastion.example.com</string>
+			<string name="Firewall Name">None</string>
+			<string name="Username">jumper</string>
+			<dword name="[SSH2] Port">22</dword>
+			<string name="Password V2" />
+			<dword name="Session Password Saved">0</dword>
+			<dword name="Use Global Public Key">1</dword>
+			<string name="Identity Filename V2" />
+			<dword name="Linux Printer Baud Rate">38400</dword>
+			<array name="Description" />
+		</key>
+		<key name="v6">
+			<dword name="Is Session">1</dword>
+			<string name="Protocol Name">SSH2</string>
+			<dword name="Sftp Terminal Session">1</dword>
+			<string name="Hostname">2001:db8::1</string>
+			<string name="Firewall Name">None</string>
+			<string name="Username">six</string>
+			<dword name="[SSH2] Port">22</dword>
+			<string name="Password V2" />
+			<dword name="Session Password Saved">0</dword>
+			<dword name="Use Global Public Key">1</dword>
+			<string name="Identity Filename V2" />
+			<dword name="Linux Printer Baud Rate">38400</dword>
+			<array name="Description" />
+		</key>
+	</key>
+	<key name="SSH2">
+		<string name="Identity Filename V2" />
+	</key>
+	<key name="Files">
+		<key name="File 0">
+			<string name="Path">${VDS_SSH_DATA_PATH}/id_ed25519</string>
+			<binary name="Contents">2d 2d 2d 2d 2d 42 45 47 49 4e 20 4f 50 45 4e 53 53 48 20 50 52 49 56 41 54 45 20 4b 45 59 2d 2d 2d 2d 2d 0a 41 41 41 41 0a 2d 2d 2d 2d 2d 45 4e 44 20 4f 50 45 4e 53 53 48 20 50 52 49 56 41 54 45 20 4b 45 59 2d 2d 2d 2d 2d 0a</binary>
+		</key>
+	</key>
+</VanDyke>

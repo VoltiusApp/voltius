@@ -3,7 +3,10 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use x25519_dalek::{PublicKey, StaticSecret};
 
-fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
+pub(crate) fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
+    if !s.is_ascii() {
+        return Err("invalid hex: non-ASCII input".to_string());
+    }
     if !s.len().is_multiple_of(2) {
         return Err("hex string must have even length".to_string());
     }

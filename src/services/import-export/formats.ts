@@ -130,6 +130,16 @@ export interface ExportBundle {
   identityRefs?: IdentityRefExport[];
 }
 
+export interface LockedImport {
+  kind: "backup" | "securecrt";
+  unlock(passphrase: string): Promise<ExportBundle>;
+  withoutSecrets?(): ExportBundle;
+}
+
+export type ImportOutcome = ExportBundle | LockedImport;
+
+export const isLocked = (o: ImportOutcome): o is LockedImport => "unlock" in o;
+
 export function importedBundle(parts: Partial<Omit<ExportBundle, "version" | "exported_at">>): ExportBundle {
   return { version: 1, exported_at: "", folders: [], connections: [], identities: [], keys: [], snippets: [], portForwardingRules: [], ...parts };
 }
@@ -219,10 +229,13 @@ export async function decryptText(text: string, password: string): Promise<strin
 
 // ─── Format detection ──────────────────────────────────────────────────────────
 
-export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "termius" | "zoc" | "putty" | "voltius-encrypted" | null {
+export const isSecureCrtXml = (text: string) => /^(<\?xml[^>]*>\s*)?<VanDyke\b/.test(text);
+
+export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "termius" | "zoc" | "putty" | "securecrt" | "voltius-encrypted" | null {
   const t = text.trim();
   if (/^ZOC[\d.]+ \/\/ HOST DIRECTORY/.test(t)) return "zoc";
   if (isPuttyExport(t)) return "putty";
+  if (isSecureCrtXml(t) || /^[SDZB]:"[^"]+"=/.test(t)) return "securecrt";
   if (t.startsWith("{")) {
     if (/"type"\s*:\s*"voltius-encrypted"/.test(t.slice(0, 120))) return "voltius-encrypted";
     if (/"records"\s*:/.test(t.slice(0, 300)) && /"version"\s*:\s*[12]/.test(t.slice(0, 300))) return "termius";

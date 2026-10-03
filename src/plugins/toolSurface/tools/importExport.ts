@@ -65,9 +65,10 @@ export function buildImportExportTools(ports: ToolSurfacePorts): Tool[] {
     {
       name: "import_objects",
       description:
-        "Import a bundle produced by export_objects, or a Termius, MobaXterm, ZOC, PuTTY or CSV export, into "
-        + "one vault. Give it `content` or a `path` — a path must be under the user's home "
-        + "directory. An encrypted bundle needs the passphrase it was exported with. Importing "
+        "Import a bundle produced by export_objects, or a Termius, MobaXterm, ZOC, PuTTY, SecureCRT (session "
+        + ".ini or XML export) or CSV export, into one vault. Give it `content` or a `path` — a path "
+        + "must be under the user's home directory. An encrypted bundle needs the passphrase it was "
+        + "exported with, and a SecureCRT config protected by a config passphrase needs that. Importing "
         + "only ever adds: existing items are matched and skipped, never overwritten. With "
         + "dry_run: true, nothing is written and you get the per-type counts the bundle contains.",
       risk: "prompt",

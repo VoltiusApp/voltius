@@ -1,11 +1,12 @@
 import i18n from "@/i18n";
-import { fromJSON, detectFormat, importedBundle } from "./formats";
-import type { ExportBundle } from "./formats";
+import { decryptText, fromJSON, detectFormat, importedBundle } from "./formats";
+import type { ImportOutcome } from "./formats";
 import { connectionsFromCSV } from "./parsers/csv";
 import { connectionsFromMobaXterm, extractMobaXtermBundle } from "./parsers/mobaxterm";
 import { bundleFromTermius, extractTermiusBundle } from "./parsers/termius";
 import { bundleFromZoc } from "./parsers/zoc";
 import { bundleFromPutty, extractPuttyBundle } from "./parsers/putty";
+import { bundleFromSecureCrt, extractSecureCrtBundle } from "./parsers/securecrt";
 
 export interface Importer {
   key: string;
@@ -16,9 +17,10 @@ export interface Importer {
   fileAccept: string;
   hintKey?: string;
   placeholderKey: string;
-  parse(text: string): ExportBundle;
+  parse(text: string): ImportOutcome | Promise<ImportOutcome>;
   /** Optional: one-step extraction from a locally-installed source app. */
-  autoExtract?(): Promise<ExportBundle>;
+  autoExtract?(): Promise<ImportOutcome>;
+  extractFromFolder?(dir: string): Promise<ImportOutcome>;
 }
 
 export const IMPORTERS: Importer[] = [
@@ -83,12 +85,26 @@ export const IMPORTERS: Importer[] = [
     parse: bundleFromPutty,
     autoExtract: extractPuttyBundle,
   },
+  {
+    key: "securecrt",
+    label: "SecureCRT",
+    icon: "custom:securecrt",
+    subKey: "importExport.importers.securecrt.sub",
+    fileAccept: ".ini,.xml",
+    hintKey: "importExport.importers.securecrt.hint",
+    placeholderKey: "importExport.importers.securecrt.placeholder",
+    parse: bundleFromSecureCrt,
+    autoExtract: () => extractSecureCrtBundle(),
+    extractFromFolder: extractSecureCrtBundle,
+  },
 ];
 
-export function parseImport(text: string): ExportBundle | "encrypted" {
+export async function parseImport(text: string): Promise<ImportOutcome> {
   const detected = detectFormat(text.trim());
-  if (detected === "voltius-encrypted") return "encrypted";
-  const importer = detected && IMPORTERS.find((i) => i.key === (detected === "json" ? "voltius" : detected));
+  if (detected === "voltius-encrypted") {
+    return { kind: "backup", unlock: async (password) => fromJSON(await decryptText(text, password)) };
+  }
+  const importer = IMPORTERS.find((i) => i.key === (detected === "json" ? "voltius" : detected));
   if (!importer) throw new Error(i18n.t("common.error.couldNotDetectFormat"));
   return importer.parse(text);
 }

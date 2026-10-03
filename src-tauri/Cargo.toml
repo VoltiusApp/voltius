@@ -74,6 +74,8 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 serialport = { version = "4", default-features = false }
 aes = "0.9"
 cfb8 = "0.9"
+cbc = { version = "0.2", features = ["block-padding"] }
+blowfish = { version = "0.10", features = ["bcrypt"] }
 # `ring` to match russh's existing TLS backend (avoid pulling in aws-lc-rs too).
 suppaftp = { version = "9", default-features = false, features = ["tokio-rustls-ring"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }

@@ -27,6 +27,7 @@ pub mod port_forwarding_tunnels;
 pub mod processes;
 pub mod proxmox;
 pub mod putty;
+pub mod securecrt;
 pub mod sftp;
 pub mod snippets;
 pub mod ssh;

@@ -60,10 +60,13 @@
       "autoExtractDescription": "Lit vos données locales {{label}} — aucun export manuel requis",
       "extracting": "Extraction…",
       "extractFrom": "Extraire depuis {{label}}",
+      "chooseConfigFolder": "Ou choisir un dossier Config {{label}}…",
       "orImportFromFile": "ou importer depuis un fichier",
       "openFileLabel": "Ouvrir un fichier {{sub}}…",
       "encryptedBackupTitle": "Sauvegarde chiffrée — entrez votre mot de passe pour déverrouiller",
       "unlock": "Déverrouiller",
+      "configPassphraseTitle": "Cette configuration SecureCRT est protégée par une phrase secrète — saisissez-la pour importer les mots de passe enregistrés",
+      "skipPasswords": "Importer sans les mots de passe enregistrés",
       "reviewItems_one": "Vérifier {{count}} élément",
       "reviewItems_many": "Vérifier {{count}} éléments",
       "reviewItems_other": "Vérifier {{count}} éléments",
@@ -185,6 +188,11 @@
         "sub": ".reg ou de session",
         "hint": "Lit les sessions enregistrées dans le registre sous Windows, ou dans ~/.putty/sessions sous Linux et macOS. Vous pouvez aussi déposer un export .reg ou coller des fichiers de session. Les sessions SSH et série, les proxys et les tunnels sont importés ; les fichiers de clé ne le sont pas.",
         "placeholder": "Déposez un export .reg de PuTTY ici, ou collez des fichiers de session…"
+      },
+      "securecrt": {
+        "sub": ".ini de session · export XML",
+        "hint": "L'extraction automatique lit la configuration locale de SecureCRT. Vous pouvez aussi déposer le fichier .ini d'une session (Config/Sessions) ou le fichier XML créé par File → Export Settings. Les sessions SSH et série sont importées avec leurs mots de passe enregistrés ; Telnet, RLogin, Raw et les autres protocoles sont ignorés.",
+        "placeholder": "Déposez ici le fichier .ini d'une session SecureCRT ou un export .xml, ou collez son contenu…"
       }
     },
     "menu": {
