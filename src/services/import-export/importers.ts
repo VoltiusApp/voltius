@@ -88,11 +88,7 @@ export const IMPORTERS: Importer[] = [
 export function parseImport(text: string): ExportBundle | "encrypted" {
   const detected = detectFormat(text.trim());
   if (detected === "voltius-encrypted") return "encrypted";
-  if (detected === "json") return fromJSON(text);
-  if (detected === "csv") return importedBundle({ connections: connectionsFromCSV(text) });
-  if (detected === "mobaxterm") return importedBundle({ connections: connectionsFromMobaXterm(text) });
-  if (detected === "termius") return bundleFromTermius(text);
-  if (detected === "zoc") return bundleFromZoc(text);
-  if (detected === "putty") return bundleFromPutty(text);
-  throw new Error(i18n.t("common.error.couldNotDetectFormat"));
+  const importer = detected && IMPORTERS.find((i) => i.key === (detected === "json" ? "voltius" : detected));
+  if (!importer) throw new Error(i18n.t("common.error.couldNotDetectFormat"));
+  return importer.parse(text);
 }

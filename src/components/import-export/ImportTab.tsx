@@ -433,11 +433,12 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
         rows: bundle.connections.map((c: ConnectionExport, i: number) => {
           const fp = getFolderPath(c._folder_eid, bundle.folders);
           if (!matches([c.name, c.host, c.username, c.serial_port, fp])) return null;
-          const address = c.connection_type === "serial" ? c.serial_port ?? "" : `${c.host}:${c.port}`;
+          const serial = c.connection_type === "serial";
+          const address = serial ? c.serial_port ?? "" : `${c.host}:${c.port}`;
           return (
             <ItemRow key={i} icon="lucide:server"
               title={c.name || address}
-              sub={c.connection_type === "serial" ? address : `${address} · ${c.username}`}
+              sub={serial ? address : `${address} · ${c.username}`}
               folderPath={fp || undefined}
               isDupe={connectionMeta[i].isDupe}
               action={getAction(`connections:${i}`)}
