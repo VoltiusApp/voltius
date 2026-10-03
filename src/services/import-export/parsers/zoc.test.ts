@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { invoke } from "@/lib/invoke";
 import { detectFormat } from "../formats";
-import { bundleFromZoc } from "./zoc";
+import { bundleFromZoc, extractZocBundle } from "./zoc";
+
+vi.mock("@/lib/invoke", () => ({ invoke: vi.fn() }));
 
 const host = (fields: Record<string, string | number>) => [
   "[HOST]",
@@ -65,5 +68,10 @@ describe("bundleFromZoc", () => {
     const single = bundleFromZoc(zhd.replace(/section=1/g, "section=0"));
     expect(single.folders.map((f) => f.name)).toEqual(["Prod", "Bäckend"]);
     expect(single.connections.find((c) => c.name === "bare")?._folder_eid).toBeUndefined();
+  });
+
+  it("auto-extracts the host directory the backend reads, decoding ANSI folder names", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(Array.from(zhd, (ch) => ch.charCodeAt(0)));
+    expect((await extractZocBundle()).folders.map((f) => f.name)).toContain("Bäckend");
   });
 });

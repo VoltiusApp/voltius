@@ -4,7 +4,7 @@ import type { ImportOutcome } from "./formats";
 import { connectionsFromCSV } from "./parsers/csv";
 import { connectionsFromMobaXterm, extractMobaXtermBundle } from "./parsers/mobaxterm";
 import { bundleFromTermius, extractTermiusBundle } from "./parsers/termius";
-import { bundleFromZoc } from "./parsers/zoc";
+import { bundleFromZoc, extractZocBundle } from "./parsers/zoc";
 import { bundleFromPutty, extractPuttyBundle } from "./parsers/putty";
 import { bundleFromSecureCrt, extractSecureCrtBundle } from "./parsers/securecrt";
 
@@ -73,6 +73,7 @@ export const IMPORTERS: Importer[] = [
     hintKey: "importExport.importers.zoc.hint",
     placeholderKey: "importExport.importers.zoc.placeholder",
     parse: bundleFromZoc,
+    autoExtract: extractZocBundle,
   },
   {
     key: "putty",

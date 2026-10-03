@@ -39,6 +39,7 @@ pub mod vault;
 pub mod vault_object;
 pub mod win_proc;
 pub mod wsl;
+pub mod zoc;
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {

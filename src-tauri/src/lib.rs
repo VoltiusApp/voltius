@@ -375,6 +375,7 @@ pub fn run() {
             commands::putty::putty_sessions,
             commands::securecrt::securecrt_read_config,
             commands::securecrt::securecrt_decrypt,
+            commands::zoc::zoc_host_directory,
             commands::fs::fs_home_dir,
             commands::fs::fs_list_dir,
             commands::wsl::wsl_list_distros,

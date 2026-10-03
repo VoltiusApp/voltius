@@ -1,3 +1,5 @@
+import { invoke } from "@/lib/invoke";
+import { decodeLegacyText } from "@/utils/decodeLegacyText";
 import { importedBundle } from "../formats";
 import type { ConnectionExport, ExportBundle, FolderExport } from "../formats";
 import { pruneUnusedFolders, serialConnection } from "./common";
@@ -135,4 +137,8 @@ export function bundleFromZoc(text: string): ExportBundle {
   const { folders, folderEidOf } = buildFolders(structure, imported.map(({ e }) => e));
   const connections = imported.map(({ e, c }) => ({ ...c, _folder_eid: folderEidOf(e) }));
   return importedBundle({ folders: pruneUnusedFolders(folders, connections), connections });
+}
+
+export async function extractZocBundle(): Promise<ExportBundle> {
+  return bundleFromZoc(decodeLegacyText(new Uint8Array(await invoke<number[]>("zoc_host_directory"))));
 }
