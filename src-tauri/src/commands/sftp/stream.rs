@@ -430,10 +430,15 @@ pub async fn relay<HS: Handler, HD: Handler, E: TransferEvents>(
             return Err(fail_remote(&tx, job.token, End::Destination, dst.dir, &mut sink, e).await);
         }
     };
+    let source = remote_result(End::Source, src.dir, code, &err);
     if !dest_done {
+        if code.is_none() {
+            abort_remote(&tx, &sink).await;
+            return source;
+        }
         finish_remote(writer, &tx, job.token, End::Destination, dst.dir, sink).await?;
     }
-    remote_result(End::Source, src.dir, code, &err)?;
+    source?;
     job.finish();
     Ok(())
 }
@@ -612,7 +617,8 @@ mod tests {
         assert!(err.starts_with("tar failed on this device"), "{err}");
     }
 
-    fn archive_of(src: &tempfile::TempDir) -> Vec<u8> {
+    /// The tree's archive as a file, whole or cut in half.
+    fn archive_file(src: &tempfile::TempDir, cut: bool) -> PathBuf {
         let mut whole = Vec::new();
         local_tar::pack(
             &mut whole,
@@ -622,15 +628,17 @@ mod tests {
             Arc::default(),
         )
         .unwrap();
-        whole
+        let keep = if cut { whole.len() / 2 } else { whole.len() };
+        let path = src.path().join("archive.tgz");
+        fs::write(&path, &whole[..keep]).unwrap();
+        path
     }
 
     #[tokio::test]
     async fn download_reports_a_local_failure_over_an_unrelated_remote_one() {
         let (handle, _) = proc_server(ProcOptions::default()).await;
         let (src, dst) = (tree(), tempfile::tempdir().unwrap());
-        let archive = src.path().join("whole.tgz");
-        fs::write(&archive, archive_of(&src)).unwrap();
+        let archive = archive_file(&src, false);
         let not_a_dir = dst.path().join("file");
         fs::write(&not_a_dir, b"x").unwrap();
         let rec = Recorder::default();
@@ -652,9 +660,7 @@ mod tests {
     async fn a_cut_download_fails_even_with_exit_zero() {
         let (handle, _) = proc_server(ProcOptions::default()).await;
         let src = tree();
-        let whole = archive_of(&src);
-        let cut = src.path().join("cut.tgz");
-        fs::write(&cut, &whole[..whole.len() / 2]).unwrap();
+        let cut = archive_file(&src, true);
         let dst = tempfile::tempdir().unwrap();
         let rec = Recorder::default();
         let token = CancellationToken::new();
@@ -1029,5 +1035,35 @@ mod tests {
             fs::read(dst.path().join("top/sub/b.bin")).unwrap().len(),
             300_000
         );
+    }
+
+    #[tokio::test]
+    async fn a_source_that_vanishes_is_blamed_before_the_destination_it_starved() {
+        let (a, _) = proc_server(ProcOptions {
+            exit_status: false,
+            ..Default::default()
+        })
+        .await;
+        let (b, _) = proc_server(ProcOptions::default()).await;
+        let (src, dst) = (tree(), tempfile::tempdir().unwrap());
+        let cut = archive_file(&src, true);
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let job = Job::new(&rec, "t21", &token);
+        let dest = s(dst.path());
+        let from = RemoteEnd {
+            handle: &a,
+            cmd: format!("cat '{}'", cut.display()),
+            dir: "/src",
+        };
+        let to = RemoteEnd {
+            handle: &b,
+            cmd: SH.extract_from_stdin(&dest, false),
+            dir: &dest,
+        };
+        let r = tokio::time::timeout(Duration::from_secs(20), relay(from, to, &job))
+            .await
+            .expect("relay hung");
+        assert_eq!(r.unwrap_err(), "tar failed on the source host");
     }
 }
