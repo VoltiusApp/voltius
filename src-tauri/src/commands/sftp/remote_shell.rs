@@ -200,14 +200,21 @@ impl RemoteShell {
         }
     }
 
+    fn quote_all(&self, items: &[String]) -> String {
+        items
+            .iter()
+            .map(|i| self.quote(i))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
     fn tar_c(&self, archive: Option<&str>, parent: &str, items: &[String], deref: bool) -> String {
-        let quoted: Vec<String> = items.iter().map(|i| self.quote(i)).collect();
         format!(
             "tar -czf {arch} {deref}-C {parent} -- {items}",
             arch = archive.map_or_else(|| "-".to_string(), |a| self.quote_path(a)),
             deref = if deref { self.deref_flags() } else { "" },
             parent = self.quote_path(parent),
-            items = quoted.join(" "),
+            items = self.quote_all(items),
         )
     }
 
@@ -264,14 +271,11 @@ impl RemoteShell {
 
     pub fn size_probe(&self, parent: &str, items: &[String]) -> Option<String> {
         match self {
-            Self::Posix => {
-                let quoted: Vec<String> = items.iter().map(|i| self.quote(i)).collect();
-                Some(format!(
-                    "cd {} && du -sk -- {}",
-                    self.quote_path(parent),
-                    quoted.join(" ")
-                ))
-            }
+            Self::Posix => Some(format!(
+                "cd {} && du -sk -- {}",
+                self.quote_path(parent),
+                self.quote_all(items)
+            )),
             Self::Windows {
                 shell: WinShell::PowerShell,
                 ..
