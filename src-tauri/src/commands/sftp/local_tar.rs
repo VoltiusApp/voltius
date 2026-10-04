@@ -126,6 +126,26 @@ fn truncated(e: io::Error) -> io::Error {
     }
 }
 
+fn skip(skipped: &mut Vec<String>, raw: &str) {
+    skipped.push(raw.trim_end_matches('/').to_string());
+}
+
+/// True when every existing ancestor of `rel` under `root` is a real directory; missing ones are created if `create`.
+fn confined_parent(root: &Path, rel: &Path, create: bool) -> io::Result<bool> {
+    let mut cur = root.to_path_buf();
+    for part in rel.parent().into_iter().flat_map(|p| p.components()) {
+        cur.push(part);
+        match std::fs::symlink_metadata(&cur) {
+            Ok(m) if m.is_dir() => {}
+            Ok(_) => return Ok(false),
+            Err(e) if e.kind() == io::ErrorKind::NotFound && create => std::fs::create_dir(&cur)?,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(true)
+}
+
 pub fn unpack<R: Read>(
     input: R,
     sink: Sink<'_>,
@@ -144,6 +164,7 @@ pub fn unpack<R: Read>(
         Sink::Count => None,
     };
     let mut skipped: Vec<String> = Vec::new();
+    let mut dirs = Vec::new();
     for entry in archive.entries().map_err(truncated)? {
         let mut entry = entry.map_err(truncated)?;
         let Some(root) = &root else {
@@ -155,7 +176,7 @@ pub fn unpack<R: Read>(
             continue;
         }
         let Some(rel) = safe_relative(&raw, strip) else {
-            skipped.push(raw.trim_end_matches('/').to_string());
+            skip(&mut skipped, &raw);
             continue;
         };
         if rel.as_os_str().is_empty() {
@@ -163,33 +184,57 @@ pub fn unpack<R: Read>(
         }
         let kind = entry.header().entry_type();
         if kind.is_symlink() && cfg!(windows) {
-            skipped.push(raw);
+            skip(&mut skipped, &raw);
             continue;
         }
         let target = root.join(&rel);
-        let parent = target.parent().unwrap_or(root);
-        std::fs::create_dir_all(parent)?;
-        if !parent.canonicalize()?.starts_with(root) {
-            skipped.push(raw);
+        let is_dir = kind.is_dir();
+        if !confined_parent(root, &rel, true)? {
+            skip(&mut skipped, &raw);
+            continue;
+        }
+        if is_dir {
+            match std::fs::symlink_metadata(&target) {
+                Ok(m) if m.is_dir() => {}
+                Ok(_) => {
+                    skip(&mut skipped, &raw);
+                    continue;
+                }
+                Err(_) => std::fs::create_dir(&target)?,
+            }
+            dirs.push((target, entry));
             continue;
         }
         if kind.is_hard_link() {
-            let link = entry
+            let src = entry
                 .link_name_bytes()
-                .map(|b| String::from_utf8_lossy(&b).into_owned());
-            match link.as_deref().and_then(|l| safe_relative(l, strip)) {
-                Some(src) if !src.as_os_str().is_empty() => {
-                    let src = root.join(src);
+                .map(|b| String::from_utf8_lossy(&b).into_owned())
+                .and_then(|l| safe_relative(&l, strip))
+                .filter(|r| !r.as_os_str().is_empty())
+                .map(|r| (root.join(&r), r));
+            let linked = match src {
+                Some((src, r))
+                    if confined_parent(root, &r, false)?
+                        && std::fs::symlink_metadata(&src).is_ok_and(|m| m.is_file()) =>
+                {
                     let _ = std::fs::remove_file(&target);
-                    if std::fs::hard_link(&src, &target).is_err() {
-                        std::fs::copy(&src, &target)?;
-                    }
+                    std::fs::hard_link(&src, &target).is_ok()
+                        || std::fs::copy(&src, &target).is_ok()
                 }
-                _ => skipped.push(raw),
+                _ => false,
+            };
+            if !linked {
+                skip(&mut skipped, &raw);
             }
             continue;
         }
         entry.unpack(&target).map_err(truncated)?;
+    }
+    dirs.sort_by(|a, b| b.0.cmp(&a.0));
+    for (target, mut entry) in dirs {
+        if std::fs::symlink_metadata(&target).is_ok_and(|m| m.is_dir()) {
+            entry.unpack(&target).map_err(truncated)?;
+        }
     }
     io::copy(&mut archive.into_inner(), &mut io::sink()).map_err(truncated)?;
     Ok(skipped)
@@ -450,5 +495,95 @@ mod tests {
             fs::read(dst.path().join("probe.bin")).unwrap(),
             b"\n\r\n\x1a\x00\xff"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_planted_symlink_never_gets_directories_created_behind_it() {
+        let (dst, outside) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let entries: Vec<(&str, tar::EntryType, &str, &[u8])> = vec![
+            (
+                "evil",
+                tar::EntryType::Symlink,
+                outside.path().to_str().unwrap(),
+                b"",
+            ),
+            ("evil/sub/x", tar::EntryType::Regular, "", b"pwned"),
+        ];
+        let skipped = unpack(
+            &raw_archive(&entries)[..],
+            Sink::Dir(dst.path()),
+            false,
+            counter(),
+        )
+        .unwrap();
+        assert!(!outside.path().join("sub").exists());
+        assert_eq!(skipped, ["evil/sub/x"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn hard_links_round_trip() {
+        let dst = tempfile::tempdir().unwrap();
+        let entries: Vec<(&str, tar::EntryType, &str, &[u8])> = vec![
+            ("a", tar::EntryType::Regular, "", b"same"),
+            ("h", tar::EntryType::Link, "a", b""),
+        ];
+        let skipped = unpack(
+            &raw_archive(&entries)[..],
+            Sink::Dir(dst.path()),
+            false,
+            counter(),
+        )
+        .unwrap();
+        assert!(skipped.is_empty());
+        assert_eq!(fs::read(dst.path().join("h")).unwrap(), b"same");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn hard_links_through_a_planted_symlink_or_to_nothing_are_skipped() {
+        let (dst, outside) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        fs::write(outside.path().join("secret"), b"s").unwrap();
+        let entries: Vec<(&str, tar::EntryType, &str, &[u8])> = vec![
+            (
+                "evil",
+                tar::EntryType::Symlink,
+                outside.path().to_str().unwrap(),
+                b"",
+            ),
+            ("h", tar::EntryType::Link, "evil/secret", b""),
+            ("m", tar::EntryType::Link, "missing", b""),
+        ];
+        let skipped = unpack(
+            &raw_archive(&entries)[..],
+            Sink::Dir(dst.path()),
+            false,
+            counter(),
+        )
+        .unwrap();
+        assert!(!dst.path().join("h").exists());
+        assert!(!dst.path().join("m").exists());
+        assert_eq!(skipped, ["h", "m"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_only_directories_extract_and_keep_their_mode() {
+        use std::os::unix::fs::PermissionsExt;
+        let (src, dst) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let ro = src.path().join("ro");
+        fs::create_dir(&ro).unwrap();
+        fs::write(ro.join("f"), b"f").unwrap();
+        fs::set_permissions(&ro, fs::Permissions::from_mode(0o555)).unwrap();
+        let buf = archive(src.path(), &["ro"], false);
+        fs::set_permissions(&ro, fs::Permissions::from_mode(0o755)).unwrap();
+        let result = unpack(&buf[..], Sink::Dir(dst.path()), false, counter());
+        let out = dst.path().join("ro");
+        let mode = fs::metadata(&out).map(|m| m.permissions().mode() & 0o777);
+        let _ = fs::set_permissions(&out, fs::Permissions::from_mode(0o755));
+        result.unwrap();
+        assert_eq!(fs::read(out.join("f")).unwrap(), b"f");
+        assert_eq!(mode.unwrap(), 0o555);
     }
 }
