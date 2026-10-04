@@ -189,6 +189,7 @@
       "removeBulk": "移除 ×{{count}}"
     },
     "contextMenu": {
+      "viewDetails": "查看详情",
       "inviteToSession": "邀请到会话",
       "noActiveSessions": "没有活跃会话",
       "noInvitableSessions": "没有可接收此邀请的会话",

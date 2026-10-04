@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cardGridProps } from "@/components/shared/cardGrid";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Icon } from "@iconify/react";
@@ -611,8 +612,7 @@ export function PortForwardingPage() {
                   </button>
                 </div>
                 <div
-                  className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
-                  style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } : undefined}
+                  {...cardGridProps(layoutMode, "240px")}
                 >
                   {visibleFolders.map((folder) => {
                     const folderCanEdit = can("EDIT_FOLDERS", folder.vault_id ?? "personal", folder.id);

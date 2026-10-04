@@ -121,3 +121,16 @@ test("a failed save shows the error and restores the stored name", async () => {
   await screen.findByText("nope");
   expect(input.value).toBe("Jan");
 });
+
+test("typing saves on its own, without Enter or blur", async () => {
+  renderPanel({ canNameMembers: true, member: { ...member, member_name: "Jan" } });
+  fireEvent.change(screen.getByLabelText("members.detail.nameLabel"), { target: { value: "Jana" } });
+  await waitFor(() => expect(h.setMemberName).toHaveBeenCalledWith("t", "u2", "Jana"), { timeout: 2000 });
+});
+
+test("closing the panel mid-edit still saves the draft", () => {
+  const { unmount } = renderPanel({ canNameMembers: true, member: { ...member, member_name: "Jan" } });
+  fireEvent.change(screen.getByLabelText("members.detail.nameLabel"), { target: { value: "Jana" } });
+  unmount();
+  expect(h.setMemberName).toHaveBeenCalledWith("t", "u2", "Jana");
+});

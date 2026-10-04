@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cardGridProps } from "@/components/shared/cardGrid";
 import { useTranslation } from "react-i18next";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -983,8 +984,7 @@ export default function KeychainPage() {
                   </button>
                 </div>
                 <div
-                  className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
-                  style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } : undefined}
+                  {...cardGridProps(layoutMode, "240px")}
                 >
                   {visibleFolders.map((folder) => (
                     <FolderCard

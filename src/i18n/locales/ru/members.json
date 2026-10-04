@@ -193,6 +193,7 @@
       "removeBulk": "Удалить ×{{count}}"
     },
     "contextMenu": {
+      "viewDetails": "Подробнее",
       "inviteToSession": "Пригласить в сессию",
       "noActiveSessions": "Нет активных сессий",
       "noInvitableSessions": "Ни одна сессия не может принять это приглашение",

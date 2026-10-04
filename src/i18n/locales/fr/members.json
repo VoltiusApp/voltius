@@ -191,6 +191,7 @@
       "removeBulk": "Retirer ×{{count}}"
     },
     "contextMenu": {
+      "viewDetails": "Voir les détails",
       "inviteToSession": "Inviter à la session",
       "noActiveSessions": "Aucune session active",
       "noInvitableSessions": "Aucune session ne peut accueillir cette invitation",

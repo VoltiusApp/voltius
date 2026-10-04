@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cardGridProps } from "@/components/shared/cardGrid";
 import { useTranslation } from "react-i18next";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
@@ -45,7 +46,6 @@ import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { FolderCard } from "@/components/folders/FolderCard";
 
-const HOST_GRID_COLS = "repeat(auto-fill, minmax(18rem, 1fr))";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
 import HostCard from "./HostCard";
 import ConnectionForm, { type ConnectionFormHandle } from "@/components/connections/ConnectionForm";
@@ -1027,8 +1027,7 @@ export default function HostsPage() {
                   </div>
                   <div
                     data-drag-surface="true"
-                    className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
-                    style={layoutMode === "grid" ? { gridTemplateColumns: HOST_GRID_COLS } : undefined}
+                    {...cardGridProps(layoutMode, "18rem")}
                   >
                     {visibleFolders.map((folder) => {
                       const canEditFolder = can("EDIT_FOLDERS", folder.vault_id ?? "personal", folder.id);
@@ -1079,8 +1078,7 @@ export default function HostsPage() {
                 <div className="mb-6">
                   <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">{t("hosts.page.pinned")}</p>
                   <div
-                    className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
-                    style={layoutMode === "grid" ? { gridTemplateColumns: HOST_GRID_COLS } : undefined}
+                    {...cardGridProps(layoutMode, "18rem")}
                   >
                     {pinnedHosts.map((conn) => {
                       const connVaultId = conn.vault_id ?? "personal";
@@ -1150,8 +1148,7 @@ export default function HostsPage() {
                   </div>
                   <div
                     data-drag-surface="true"
-                    className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
-                    style={layoutMode === "grid" ? { gridTemplateColumns: HOST_GRID_COLS } : undefined}
+                    {...cardGridProps(layoutMode, "18rem")}
                   >
                     {(showForm || showSerialForm) && !editing && <DraftHostCard layout={layoutMode} serial={showSerialForm} />}
                     {filtered.map((conn) => {

@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { cardGridProps } from "@/components/shared/cardGrid";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -362,14 +363,10 @@ export function KeySection({
     );
   }
 
-  const gridClass = layoutMode === "grid"
-    ? "grid gap-4 mt-3"
-    : "flex flex-col gap-1 mt-3";
-
   return (
     <div>
       <SectionHeader label={label ?? t("keychain.cards.sshKeysLabel")} count={keys.length} />
-      <div className={gridClass} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } : undefined}>
+      <div {...cardGridProps(layoutMode, "240px", "mt-3")}>
         {showDraft && <DraftCard icon="lucide:key-round" label={t("keychain.toolbar.newKey")} />}
         {keys.map((k) => {
           const vaultId = k.vault_id ?? "personal";
@@ -663,14 +660,10 @@ export function IdentitySection({
     );
   }
 
-  const gridClass = layoutMode === "grid"
-    ? "grid gap-4 mt-3"
-    : "flex flex-col gap-1 mt-3";
-
   return (
     <div>
       <SectionHeader label={label ?? t("keychain.cards.identitiesLabel")} count={identities.length} />
-      <div className={gridClass} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } : undefined}>
+      <div {...cardGridProps(layoutMode, "240px", "mt-3")}>
         {showDraft && <DraftCard icon="lucide:id-card" label={t("keychain.toolbar.newIdentity")} />}
         {identities.map((i) => {
           const vaultId = i.vault_id ?? "personal";

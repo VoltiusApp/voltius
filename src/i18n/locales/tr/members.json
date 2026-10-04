@@ -193,6 +193,7 @@
       "removeBulk": "Kaldır ×{{count}}"
     },
     "contextMenu": {
+      "viewDetails": "Ayrıntıları görüntüle",
       "inviteToSession": "Oturuma davet et",
       "noActiveSessions": "Etkin oturum yok",
       "noInvitableSessions": "Bu daveti kabul edebilecek oturum yok",

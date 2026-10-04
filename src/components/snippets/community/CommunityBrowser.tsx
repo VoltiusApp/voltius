@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { cardGridProps } from "@/components/shared/cardGrid";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { fetchCatalog } from "@/services/snippetCatalogFetch";
@@ -82,8 +83,6 @@ export function CommunityBrowser({ search, layout, onInstalled }: {
 
   const packs = filtered.filter(e => e.kind === "pack");
   const singles = filtered.filter(e => e.kind === "snippet");
-  const gridClass = layout === "grid" ? "grid gap-4" : "flex flex-col gap-1";
-  const gridStyle = layout === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined;
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
@@ -102,12 +101,12 @@ export function CommunityBrowser({ search, layout, onInstalled }: {
         ) : (
           <>
             <Section label={t("snippets.community.packs")} count={packs.length}>
-              <div className={gridClass} style={gridStyle}>
+              <div {...cardGridProps(layout, "220px")}>
                 {packs.map(e => <EntryCard key={e.id} entry={e} layout={layout} onOpen={() => setOpenId(e.id)} />)}
               </div>
             </Section>
             <Section label={t("snippets.community.snippets")} count={singles.length}>
-              <div className={gridClass} style={gridStyle}>
+              <div {...cardGridProps(layout, "220px")}>
                 {singles.map(e => <EntryCard key={e.id} entry={e} layout={layout} onOpen={() => setOpenId(e.id)} />)}
               </div>
             </Section>

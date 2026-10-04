@@ -1,10 +1,12 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import type { LayoutMode } from "@/components/shared/ToolbarViewControls";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { BaseCard } from "@/components/shared/BaseCard";
+import { CardActionButton } from "@/components/shared/CardActionButton";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { memberAvatarLabel, memberLabel, secondaryHandle } from "@/services/memberLabel";
 
@@ -15,13 +17,21 @@ export interface MemberCardProps {
   isOwner: boolean;
   isSelected: boolean;
   isFocused: boolean;
+  isEditing: boolean;
   layoutMode: LayoutMode;
   canManage?: boolean;
+  editable: boolean;
   onAddRole?: () => void;
   onSelect: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
-  onDoubleClick: () => void;
+  onOpen: () => void;
   contextMenuItems: ContextMenuItem[];
   bulkContextMenuItems?: ContextMenuItem[];
+}
+
+export function memberOpenAction(t: TFunction, editable: boolean) {
+  return editable
+    ? { icon: "lucide:pencil", label: t("common.action.edit") }
+    : { icon: "lucide:panel-right-open", label: t("members.contextMenu.viewDetails") };
 }
 
 export function MemberAvatar({ member, size }: { member: TeamMember; size: number }) {
@@ -29,24 +39,36 @@ export function MemberAvatar({ member, size }: { member: TeamMember; size: numbe
 }
 
 export function MemberCard({
-  member, roles, isMe, isOwner, isSelected, isFocused, layoutMode,
-  canManage, onAddRole,
-  onSelect, onDoubleClick, contextMenuItems, bulkContextMenuItems,
+  member, roles, isMe, isOwner, isSelected, isFocused, isEditing, layoutMode,
+  canManage, editable, onAddRole,
+  onSelect, onOpen, contextMenuItems, bulkContextMenuItems,
 }: MemberCardProps) {
   const { t } = useTranslation();
+  const openAction = memberOpenAction(t, editable);
+  const openButton = (reveal: boolean) => (
+    <CardActionButton
+      icon={openAction.icon}
+      title={openAction.label}
+      reveal={reveal}
+      width={reveal ? 18 : 14}
+      onClick={onOpen}
+    />
+  );
   if (layoutMode === "grid") {
     return (
       <BaseCard
         data-selectable-id={member.user_id}
         isSelected={isSelected}
         isFocused={isFocused}
+        isEditing={isEditing}
         isList={false}
         onClick={(e) => onSelect(member.user_id, e)}
-        onDoubleClick={onDoubleClick}
+        onDoubleClick={onOpen}
         contextMenuItems={contextMenuItems}
         bulkContextMenuItems={bulkContextMenuItems}
         className="flex-col items-center text-center gap-2 py-4"
       >
+        <div className="absolute top-1.5 right-1.5">{openButton(false)}</div>
         <div className="relative">
           <MemberAvatar member={member} size={40} />
           {isOwner && (
@@ -76,9 +98,10 @@ export function MemberCard({
       data-selectable-id={member.user_id}
       isSelected={isSelected}
       isFocused={isFocused}
+      isEditing={isEditing}
       isList
       onClick={(e) => onSelect(member.user_id, e)}
-      onDoubleClick={onDoubleClick}
+      onDoubleClick={onOpen}
       contextMenuItems={contextMenuItems}
       bulkContextMenuItems={bulkContextMenuItems}
     >
@@ -96,6 +119,7 @@ export function MemberCard({
         )}
       </div>
       <RoleBadges member={member} roles={roles} canManage={canManage} onAddRole={onAddRole} />
+      {openButton(true)}
     </BaseCard>
   );
 }

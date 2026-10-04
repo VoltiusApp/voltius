@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cardGridProps } from "@/components/shared/cardGrid";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -461,7 +462,7 @@ export function SnippetsPage() {
     selectSingle,
     setSelection,
     itemAreaRef,
-    layoutMode: "list",
+    layoutMode,
     onEnter: (id) => {
       const folder = visibleFolders.find((f) => f.id === id);
       if (folder) { navigateInto(folder); return; }
@@ -1059,8 +1060,7 @@ export function SnippetsPage() {
                     </button>
                   </div>
                   <div
-                    className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
-                    style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}
+                    {...cardGridProps(layoutMode, "220px")}
                   >
                     {(showAllRecent ? scopedRecentEntries : scopedRecentEntries.slice(0, RECENT_PREVIEW_COUNT)).map((entry) => (
                       <RecentCard
@@ -1090,7 +1090,7 @@ export function SnippetsPage() {
               {favorites.length > 0 && (
                 <div>
                   <SectionHeader label={t("snippets.page.pinned")} count={favorites.length} />
-                  <div className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}>{favorites.map(renderCard)}</div>
+                  <div {...cardGridProps(layoutMode, "220px")}>{favorites.map(renderCard)}</div>
                 </div>
               )}
 
@@ -1098,13 +1098,13 @@ export function SnippetsPage() {
               {visibleFolders.length > 0 && (
                 <div>
                   <SectionHeader label={t("snippets.page.folders")} />
-                  <div className="flex flex-col gap-1.5">
+                  <div {...cardGridProps(layoutMode, "220px")}>
                     {visibleFolders.map((folder) => (
                       <FolderCard
                         key={folder.id}
                         folder={folder}
                         itemCount={folderCounts[folder.id] ?? 0}
-                        layout="list"
+                        layout={layoutMode}
                         isSelected={editingFolder?.id === folder.id || selectedIdSet.has(folder.id)}
                         isFocused={focusedId === folder.id}
                         isDragOver={dragOverFolderId === folder.id}
@@ -1150,7 +1150,7 @@ export function SnippetsPage() {
                       count={viewSnippets.length}
                     />
                   )}
-                  <div className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}>{viewSnippets.map(renderCard)}</div>
+                  <div {...cardGridProps(layoutMode, "220px")}>{viewSnippets.map(renderCard)}</div>
                 </div>
               ) : !hasSearch && filtered.length > 0 && activeFolderId ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">

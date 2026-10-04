@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useTeamStore } from "@/stores/teamStore";
@@ -9,6 +9,7 @@ import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/members/panels/RolesPanel";
 import { ROLE_META, RoleBlurb, permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
+import { useAutosave } from "@/hooks/useAutosave";
 import { BusinessLapseNotice, BusinessLockLine } from "@/components/shared/BusinessLockBanner";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
@@ -58,15 +59,11 @@ export function MemberDetailPanel({
   const setStoredName = useTeamStore((s) => s.setMemberName);
   const roster = useTeamStore((s) => s.membersByTeam[teamId]);
   const [draftName, setDraftName] = useState(member.member_name ?? "");
-  useEffect(() => setDraftName(member.member_name ?? ""), [member.member_name]);
+  // A save landing mid-typing must not eat the trailing space the user is still typing past.
+  useEffect(() => setDraftName((d) => (d.trim() === (member.member_name ?? "") ? d : member.member_name ?? "")), [member.member_name]);
   const [nameError, setNameError] = useState("");
-  const skipNameCommit = useRef(false);
 
   const commitName = async () => {
-    if (skipNameCommit.current) {
-      skipNameCommit.current = false;
-      return;
-    }
     const next = draftName.trim() || null;
     if (next === (member.member_name ?? null)) return;
     setNameError("");
@@ -78,6 +75,12 @@ export function MemberDetailPanel({
       setDraftName(member.member_name ?? "");
     }
   };
+
+  const { schedule, markDirty, flush, saveState } = useAutosave({ onSave: commitName });
+  // Must precede the schedule effect: unmount cleanups run in order, and schedule's cancels the timer.
+  useEffect(() => flush, [flush]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => schedule(), [draftName]);
 
   const [error, setError] = useState("");
   const [toggling, setToggling] = useState<string | null>(null);
@@ -277,6 +280,7 @@ export function MemberDetailPanel({
         icon="lucide:user"
         title={memberLabel(member)}
         subtitle={<>{secondaryHandle(member) && <span className="mr-2">{secondaryHandle(member)}</span>}<RoleBadges member={member} roles={teamRoles} /></>}
+        saveState={canNameMembers ? saveState : undefined}
         onClose={onClose}
       />
 
@@ -287,15 +291,11 @@ export function MemberDetailPanel({
               aria-label={t("members.detail.nameLabel")}
               value={draftName}
               placeholder={member.handle ? `@${member.handle}` : ""}
-              onChange={(e) => setDraftName(e.target.value)}
-              onBlur={() => void commitName()}
+              onChange={(e) => { markDirty(); setDraftName(e.target.value); }}
+              onBlur={flush}
               onKeyDown={(e) => {
-                if (e.key === "Enter") e.currentTarget.blur();
-                if (e.key === "Escape") {
-                  skipNameCommit.current = true;
-                  setDraftName(member.member_name ?? "");
-                  e.currentTarget.blur();
-                }
+                if (e.key === "Enter") flush();
+                if (e.key === "Escape") setDraftName(member.member_name ?? "");
               }}
             />
             {nameError && <p className="text-[11px] mt-1.5" style={{ color: "var(--t-status-error)" }}>{nameError}</p>}
