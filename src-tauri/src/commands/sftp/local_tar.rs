@@ -4,7 +4,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
 pub struct Counted<T> {
@@ -42,12 +42,133 @@ impl<R: Read> Read for Counted<R> {
     }
 }
 
-fn meta(path: &Path, deref: bool) -> io::Result<std::fs::Metadata> {
-    if deref {
+struct Poisonable<W> {
+    inner: W,
+    poisoned: Arc<AtomicBool>,
+}
+
+impl<W> Poisonable<W> {
+    fn check(&self) -> io::Result<()> {
+        if self.poisoned.load(Ordering::Relaxed) {
+            Err(io::Error::other("archive abandoned"))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl<W: Write> Write for Poisonable<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.check()?;
+        self.inner.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.check()?;
+        self.inner.flush()
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Kind {
+    Dir,
+    File(u64),
+    Link,
+}
+
+const BLOCK: u64 = 512;
+
+impl Kind {
+    fn stream_len(self) -> u64 {
+        match self {
+            Kind::File(len) => BLOCK + len.next_multiple_of(BLOCK),
+            Kind::Dir | Kind::Link => BLOCK,
+        }
+    }
+}
+
+/// `None` for what tar cannot carry here: sockets, FIFOs, devices, and under `deref`
+/// links that lead nowhere.
+fn kind_of(path: &Path, deref: bool) -> io::Result<Option<Kind>> {
+    let stat = if deref {
         std::fs::metadata(path)
     } else {
         std::fs::symlink_metadata(path)
+    };
+    let meta = match stat {
+        Ok(m) => m,
+        Err(_) if deref && std::fs::symlink_metadata(path).is_ok_and(|m| m.is_symlink()) => {
+            return Ok(None)
+        }
+        Err(e) => return Err(e),
+    };
+    let t = meta.file_type();
+    Ok(if t.is_dir() {
+        Some(Kind::Dir)
+    } else if t.is_file() {
+        Some(Kind::File(meta.len()))
+    } else if t.is_symlink() {
+        Some(Kind::Link)
+    } else {
+        None
+    })
+}
+
+struct Walk<'a> {
+    deref: bool,
+    ancestors: Vec<PathBuf>,
+    skipped: Vec<String>,
+    visit: &'a mut dyn FnMut(&Path, &Path, Kind) -> io::Result<()>,
+}
+
+impl Walk<'_> {
+    fn enter(&mut self, path: &Path, name: &Path) -> io::Result<()> {
+        let kind = kind_of(path, self.deref)?;
+        let real = match kind {
+            Some(Kind::Dir) if self.deref => Some(path.canonicalize()?),
+            _ => None,
+        };
+        let looped = real.as_ref().is_some_and(|r| self.ancestors.contains(r));
+        let Some(kind) = kind.filter(|_| !looped) else {
+            self.skipped.push(name.to_string_lossy().into_owned());
+            return Ok(());
+        };
+        if !name.as_os_str().is_empty() {
+            (self.visit)(path, name, kind)?;
+        }
+        if !matches!(kind, Kind::Dir) {
+            return Ok(());
+        }
+        let mut children = std::fs::read_dir(path)?
+            .map(|e| e.map(|e| e.file_name()))
+            .collect::<io::Result<Vec<_>>>()?;
+        children.sort();
+        let depth = self.ancestors.len();
+        self.ancestors.extend(real);
+        for child in children {
+            self.enter(&path.join(&child), &name.join(&child))?;
+        }
+        self.ancestors.truncate(depth);
+        Ok(())
     }
+}
+
+fn walk(
+    parent: &Path,
+    names: &[String],
+    deref: bool,
+    visit: &mut dyn FnMut(&Path, &Path, Kind) -> io::Result<()>,
+) -> io::Result<Vec<String>> {
+    let mut walk = Walk {
+        deref,
+        ancestors: Vec::new(),
+        skipped: Vec::new(),
+        visit,
+    };
+    for name in names {
+        walk.enter(&parent.join(name), Path::new(name))?;
+    }
+    Ok(walk.skipped)
 }
 
 pub fn pack<W: Write>(
@@ -56,22 +177,32 @@ pub fn pack<W: Write>(
     names: &[String],
     deref: bool,
     done: Arc<AtomicU64>,
-) -> io::Result<()> {
+) -> io::Result<Vec<String>> {
+    let poisoned = Arc::new(AtomicBool::new(false));
+    let out = Poisonable {
+        inner: out,
+        poisoned: poisoned.clone(),
+    };
     let mut tar = tar::Builder::new(Counted::new(
         GzEncoder::new(out, Compression::default()),
         done,
     ));
     tar.follow_symlinks(deref);
-    for name in names {
-        let path = parent.join(name);
-        if meta(&path, deref)?.is_dir() {
-            tar.append_dir_all(name, &path)?;
-        } else {
-            tar.append_path_with_name(&path, name)?;
+    let walked = walk(parent, names, deref, &mut |path, name, kind| match kind {
+        Kind::Dir => tar.append_dir(name, path),
+        Kind::File(_) | Kind::Link => tar.append_path_with_name(path, name),
+    });
+    let skipped = match walked {
+        Ok(skipped) => skipped,
+        Err(e) => {
+            // Builder and GzEncoder finish the archive when dropped; poison first.
+            poisoned.store(true, Ordering::Relaxed);
+            return Err(e);
         }
-    }
+    };
     let mut out = tar.into_inner()?.into_inner().finish()?;
-    out.flush()
+    out.flush()?;
+    Ok(skipped)
 }
 
 pub fn pack_bytes(name: &str, data: &[u8]) -> io::Result<Vec<u8>> {
@@ -84,17 +215,14 @@ pub fn pack_bytes(name: &str, data: &[u8]) -> io::Result<Vec<u8>> {
     tar.into_inner()?.finish()
 }
 
+/// The length of the tar stream `pack` writes for the same items, before compression.
 pub fn walk_size(parent: &Path, names: &[String], deref: bool) -> u64 {
-    fn size(path: &Path, deref: bool) -> u64 {
-        match meta(path, deref) {
-            Ok(m) if m.is_dir() => std::fs::read_dir(path)
-                .map(|rd| rd.flatten().map(|e| size(&e.path(), deref)).sum())
-                .unwrap_or(0),
-            Ok(m) if m.is_file() => m.len(),
-            _ => 0,
-        }
-    }
-    names.iter().map(|n| size(&parent.join(n), deref)).sum()
+    let mut total = 2 * BLOCK;
+    let _ = walk(parent, names, deref, &mut |_, _, kind| {
+        total += kind.stream_len();
+        Ok(())
+    });
+    total
 }
 
 pub enum Sink<'a> {
@@ -241,7 +369,7 @@ pub fn unpack<R: Read>(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use flate2::write::GzEncoder;
     use flate2::Compression;
@@ -249,6 +377,14 @@ mod tests {
 
     fn counter() -> Arc<AtomicU64> {
         Arc::new(AtomicU64::new(0))
+    }
+
+    /// False when this process can read it anyway, as root can.
+    #[cfg(unix)]
+    pub(crate) fn unreadable(path: &Path) -> bool {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o000)).unwrap();
+        fs::File::open(path).is_err()
     }
 
     fn archive(parent: &Path, names: &[&str], deref: bool) -> Vec<u8> {
@@ -474,16 +610,22 @@ mod tests {
     }
 
     #[test]
-    fn walk_size_sums_file_bytes() {
+    fn walk_size_matches_the_tar_stream_pack_writes() {
         let src = tempfile::tempdir().unwrap();
         fs::create_dir_all(src.path().join("top/sub")).unwrap();
+        fs::create_dir_all(src.path().join("top/empty")).unwrap();
         fs::write(src.path().join("top/a"), vec![0u8; 10]).unwrap();
-        fs::write(src.path().join("top/sub/b"), vec![0u8; 32]).unwrap();
-        fs::write(src.path().join("c"), vec![0u8; 5]).unwrap();
+        fs::write(src.path().join("top/sub/b"), vec![0u8; 1024]).unwrap();
+        fs::write(src.path().join("c"), vec![0u8; 513]).unwrap();
+        let names = ["top".to_string(), "c".to_string()];
+        let done = counter();
+        pack(&mut Vec::new(), src.path(), &names, false, done.clone()).unwrap();
+        let size = walk_size(src.path(), &names, false);
         assert_eq!(
-            walk_size(src.path(), &["top".into(), "c".into()], false),
-            47
+            size,
+            3 * 512 + (512 + 512) + (512 + 1024) + (512 + 1024) + 1024
         );
+        assert_eq!(size, done.load(Ordering::Relaxed));
     }
 
     #[test]
@@ -585,5 +727,45 @@ mod tests {
         result.unwrap();
         assert_eq!(fs::read(out.join("f")).unwrap(), b"f");
         assert_eq!(mode.unwrap(), 0o555);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_pack_never_leaves_a_complete_archive() {
+        let src = tempfile::tempdir().unwrap();
+        fs::create_dir(src.path().join("top")).unwrap();
+        fs::write(src.path().join("top/a"), b"alpha").unwrap();
+        fs::write(src.path().join("top/b"), b"secret").unwrap();
+        if !unreadable(&src.path().join("top/b")) {
+            return;
+        }
+        let mut buf = Vec::new();
+        let err = pack(&mut buf, src.path(), &["top".into()], false, counter()).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        let mut decoded = Vec::new();
+        assert!(
+            GzDecoder::new(&buf[..]).read_to_end(&mut decoded).is_err(),
+            "a failed pack wrote a whole gzip stream"
+        );
+        assert!(unpack(&buf[..], Sink::Count, false, counter()).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn sockets_and_fifos_are_left_out_and_reported() {
+        let src = tempfile::tempdir().unwrap();
+        let top = src.path().join("top");
+        fs::create_dir(&top).unwrap();
+        fs::write(top.join("a"), b"a").unwrap();
+        let _sock = std::os::unix::net::UnixListener::bind(top.join("sock")).unwrap();
+        let fifo = std::ffi::CString::new(top.join("fifo").to_str().unwrap()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o644) }, 0);
+        let mut buf = Vec::new();
+        let skipped = pack(&mut buf, src.path(), &["top".into()], false, counter()).unwrap();
+        assert_eq!(skipped, ["top/fifo", "top/sock"]);
+        let dst = tempfile::tempdir().unwrap();
+        unpack(&buf[..], Sink::Dir(dst.path()), false, counter()).unwrap();
+        assert_eq!(fs::read(dst.path().join("top/a")).unwrap(), b"a");
+        assert_eq!(fs::read_dir(dst.path().join("top")).unwrap().count(), 1);
     }
 }

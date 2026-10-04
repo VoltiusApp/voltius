@@ -78,11 +78,12 @@ impl<'a, E: TransferEvents> Job<'a, E> {
         self.progress.emit(self.events, self.transfer_id, true);
     }
 
-    fn report_skipped(&self, skipped: Vec<String>) {
+    fn succeed(&self, skipped: Vec<String>) {
         for path in skipped {
             self.events
                 .send(&format!("sftp-skipped-{}", self.transfer_id), path);
         }
+        self.finish();
     }
 }
 
@@ -239,15 +240,19 @@ pub async fn upload<H: Handler, E: TransferEvents>(
     )
     .await;
     drop(pipe_r);
+    let local_failure = |e: io::Error| explain(End::Local, &local_label, &e.to_string());
     let sent = match sent {
         Ok(sent) => sent,
         Err(ended) => {
-            let _ = packer.await;
-            let early = stop_early(&tx, End::Remote, to.dir, ended).await;
-            if early.is_ok() {
-                job.finish();
-            }
-            return early;
+            let packed = joined(packer.await);
+            stop_early(&tx, End::Remote, to.dir, ended).await?;
+            let skipped = match packed {
+                Ok(skipped) => skipped,
+                Err(e) if e.kind() == io::ErrorKind::BrokenPipe => Vec::new(),
+                Err(e) => return Err(local_failure(e)),
+            };
+            job.succeed(skipped);
+            return Ok(());
         }
     };
     let packed = joined(packer.await);
@@ -255,12 +260,15 @@ pub async fn upload<H: Handler, E: TransferEvents>(
     if let Err(e) = sent {
         return Err(fail_remote(&tx, job.token, End::Remote, to.dir, &mut remote, e).await);
     }
-    if let Err(e) = packed {
-        abort_remote(&tx, &remote).await;
-        return Err(explain(End::Local, &local_label, &e.to_string()));
-    }
+    let skipped = match packed {
+        Ok(skipped) => skipped,
+        Err(e) => {
+            abort_remote(&tx, &remote).await;
+            return Err(local_failure(e));
+        }
+    };
     finish_remote(writer, &tx, job.token, End::Remote, to.dir, remote).await?;
-    job.finish();
+    job.succeed(skipped);
     Ok(())
 }
 
@@ -311,8 +319,7 @@ pub async fn download<H: Handler, E: TransferEvents>(
     }
     let skipped = unpacked.map_err(|e| explain(End::Local, &local_label, &e.to_string()))?;
     drained?;
-    job.report_skipped(skipped);
-    job.finish();
+    job.succeed(skipped);
     Ok(())
 }
 
@@ -875,5 +882,118 @@ mod tests {
             .expect("relay hung");
         assert_eq!(r, Ok(()));
         assert!(job.progress.done.load(Ordering::Relaxed) >= 8_000_000);
+    }
+
+    /// `a` holds `first`, then `b` cannot be read; `None` when this process can read it anyway.
+    fn then_unreadable(first: Vec<u8>) -> Option<(tempfile::TempDir, LocalSide)> {
+        let src = tempfile::tempdir().unwrap();
+        fs::write(src.path().join("a"), first).unwrap();
+        let secret = src.path().join("b");
+        fs::write(&secret, b"secret").unwrap();
+        let local = LocalSide {
+            parent: src.path().into(),
+            names: vec!["a".into(), "b".into()],
+            deref: false,
+        };
+        local_tar::tests::unreadable(&secret).then_some((src, local))
+    }
+
+    #[tokio::test]
+    async fn an_unreadable_local_file_fails_the_upload() {
+        let Some((_src, local)) = then_unreadable(b"alpha".to_vec()) else {
+            return;
+        };
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let dst = tempfile::tempdir().unwrap();
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let job = Job::new(&rec, "t16", &token);
+        let dest = s(dst.path());
+        let to = RemoteEnd {
+            handle: &handle,
+            cmd: SH.extract_from_stdin(&dest, false),
+            dir: &dest,
+        };
+        let err = upload(to, local, &job).await.unwrap_err();
+        assert!(err.ends_with("on this device"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn an_early_clean_exit_does_not_hide_a_failed_pack() {
+        let Some((_src, local)) = then_unreadable(noise(300_000)) else {
+            return;
+        };
+        let (handle, _) = proc_server(ProcOptions {
+            window: Some(32 * 1024),
+            ..Default::default()
+        })
+        .await;
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let job = Job::new(&rec, "t17", &token);
+        let to = RemoteEnd {
+            handle: &handle,
+            cmd: "sleep 1; exit 0".into(),
+            dir: "/srv",
+        };
+        let r = tokio::time::timeout(Duration::from_secs(20), upload(to, local, &job))
+            .await
+            .expect("upload hung");
+        let err = r.unwrap_err();
+        assert!(err.ends_with("on this device"), "{err}");
+    }
+
+    async fn upload_skipping(
+        src: &tempfile::TempDir,
+        deref: bool,
+        transfer_id: &str,
+    ) -> (Result<(), String>, Vec<String>, tempfile::TempDir) {
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let dst = tempfile::tempdir().unwrap();
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let job = Job::new(&rec, transfer_id, &token);
+        let dest = s(dst.path());
+        let to = RemoteEnd {
+            handle: &handle,
+            cmd: SH.extract_from_stdin(&dest, false),
+            dir: &dest,
+        };
+        let local = LocalSide {
+            parent: src.path().into(),
+            names: vec!["top".into()],
+            deref,
+        };
+        let r = tokio::time::timeout(Duration::from_secs(20), upload(to, local, &job))
+            .await
+            .expect("upload hung");
+        (r, rec.skipped(transfer_id), dst)
+    }
+
+    #[tokio::test]
+    async fn a_socket_is_skipped_and_reported_not_fatal() {
+        let src = tree();
+        let _sock = std::os::unix::net::UnixListener::bind(src.path().join("top/sock")).unwrap();
+        let (r, skipped, dst) = upload_skipping(&src, false, "t18").await;
+        assert_eq!(r, Ok(()));
+        assert_eq!(skipped, ["top/sock"]);
+        assert_eq!(fs::read(dst.path().join("top/a.txt")).unwrap(), b"alpha");
+        assert!(!dst.path().join("top/sock").exists());
+    }
+
+    #[tokio::test]
+    async fn dereferencing_skips_dangling_links_and_loops() {
+        let src = tree();
+        std::os::unix::fs::symlink("missing", src.path().join("top/dangling")).unwrap();
+        std::os::unix::fs::symlink("..", src.path().join("top/sub/up")).unwrap();
+        let (r, mut skipped, dst) = upload_skipping(&src, true, "t19").await;
+        assert_eq!(r, Ok(()));
+        skipped.sort();
+        assert_eq!(skipped, ["top/dangling", "top/sub/up"]);
+        assert_eq!(fs::read(dst.path().join("top/a.txt")).unwrap(), b"alpha");
+        assert_eq!(
+            fs::read(dst.path().join("top/sub/b.bin")).unwrap().len(),
+            300_000
+        );
     }
 }

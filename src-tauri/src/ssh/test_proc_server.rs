@@ -15,6 +15,7 @@ use tokio::sync::Mutex;
 pub struct ProcOptions {
     pub crlf: bool,
     pub exit_status: bool,
+    pub window: Option<u32>,
 }
 
 impl Default for ProcOptions {
@@ -22,6 +23,7 @@ impl Default for ProcOptions {
         Self {
             crlf: false,
             exit_status: true,
+            window: None,
         }
     }
 }
@@ -169,7 +171,11 @@ pub async fn proc_server(
         log: log.clone(),
         stdins: Arc::default(),
     };
-    let port = serve_one(Default::default(), server).await;
+    let mut config = russh::server::Config::default();
+    if let Some(window) = opts.window {
+        config.window_size = window;
+    }
+    let port = serve_one(config, server).await;
     let mut handle = russh::client::connect(Default::default(), ("127.0.0.1", port), TestClient)
         .await
         .unwrap();
