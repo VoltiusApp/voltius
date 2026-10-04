@@ -452,15 +452,22 @@ mod tests {
     #[ignore = "writes to the login keychain"]
     fn real_macos_keychain_migrates_and_round_trips() {
         let svc = format!("voltius-bundle-test-{}", std::process::id());
-        let inner: Arc<CredentialStore> = apple_native_keyring_store::keychain::Store::new().unwrap();
+        let inner: Arc<CredentialStore> =
+            apple_native_keyring_store::keychain::Store::new().unwrap();
         let legacy = |user: &str| inner.build(&svc, user, None).unwrap();
         let store = Store::new(inner.clone(), |s| s.starts_with("voltius-bundle-test-"));
         let entry = |user: &str| store.build(&svc, user, None).unwrap();
 
         legacy("master_password").set_password("hunter2").unwrap();
         assert_eq!(entry("master_password").get_password().unwrap(), "hunter2");
-        assert!(matches!(legacy("master_password").get_secret(), Err(Error::NoEntry)));
-        assert!(matches!(entry("missing").get_password(), Err(Error::NoEntry)));
+        assert!(matches!(
+            legacy("master_password").get_secret(),
+            Err(Error::NoEntry)
+        ));
+        assert!(matches!(
+            entry("missing").get_password(),
+            Err(Error::NoEntry)
+        ));
         entry("jwt").set_password("token").unwrap();
         entry("jwt").set_password("token2").unwrap();
         let relaunched = Store::new(inner.clone(), |s| s.starts_with("voltius-bundle-test-"));
