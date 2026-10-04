@@ -61,9 +61,9 @@ async fn dialect<H: Handler>(handle: &Handle<H>, container: Option<&str>) -> Opt
         let Some(out) = output(handle, probe).await else {
             continue;
         };
-        if parse_temp(&out).is_some() {
+        if is_expanded_temp(&out) {
             let found = RemoteShell::Windows { shell };
-            let has_tar = reports_success(handle, &found.status("tar --version", None)).await;
+            let has_tar = reports_success(handle, &found.status("tar --version")).await;
             return has_tar.then_some(found);
         }
     }
@@ -95,14 +95,12 @@ pub async fn detect<H: Handler>(
     Some((shell, streams))
 }
 
-fn parse_temp(out: &str) -> Option<String> {
-    let temp = out
-        .lines()
-        .find_map(|l| l.trim().strip_prefix(TEMP_MARKER))?
-        .trim();
-    let b = temp.as_bytes();
-    let absolute = b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && b[2] == b'\\';
-    absolute.then(|| temp.trim_end_matches('\\').to_string())
+fn is_expanded_temp(out: &str) -> bool {
+    let Some(temp) = out.lines().find_map(|l| l.trim().strip_prefix(TEMP_MARKER)) else {
+        return false;
+    };
+    let b = temp.trim().as_bytes();
+    b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && b[2] == b'\\'
 }
 
 /// `/C:/Users/x` (the form Win32-OpenSSH's SFTP speaks) → `C:\Users\x`.
@@ -187,38 +185,18 @@ impl RemoteShell {
         }
     }
 
-    /// Run `cmd` with its output merged, then `cleanup`, and report `cmd`'s exit
-    /// code in the `__TF_EXIT__` marker `exec_command` looks for.
-    pub fn status(&self, cmd: &str, cleanup: Option<&str>) -> String {
-        match (self, cleanup) {
-            (Self::Posix, None) => format!("{cmd} 2>&1; echo __TF_EXIT__:$?"),
-            (Self::Posix, Some(c)) => {
-                format!("{cmd} 2>&1; RC=$?; {c}; echo __TF_EXIT__:$RC")
-            }
+    /// Run `cmd` with its output merged and report its exit code in the
+    /// `__TF_EXIT__` marker `exec_command` looks for.
+    pub fn status(&self, cmd: &str) -> String {
+        match self {
+            Self::Posix => format!("{cmd} 2>&1; echo __TF_EXIT__:$?"),
             // cmd.exe expands %errorlevel% before the line runs, so branch on success instead.
-            (
-                Self::Windows {
-                    shell: WinShell::Cmd,
-                    ..
-                },
-                c,
-            ) => {
-                let then = |code: u8| match c {
-                    Some(c) => format!("({c} & echo __TF_EXIT__:{code})"),
-                    None => format!("echo __TF_EXIT__:{code}"),
-                };
-                format!("{cmd} 2>&1 && {} || {}", then(0), then(1))
-            }
-            (
-                Self::Windows {
-                    shell: WinShell::PowerShell,
-                    ..
-                },
-                c,
-            ) => {
-                let c = c.map(|c| format!("{c}; ")).unwrap_or_default();
-                format!("{cmd} 2>&1; $rc = $LASTEXITCODE; {c}'__TF_EXIT__:' + $rc")
-            }
+            Self::Windows {
+                shell: WinShell::Cmd,
+            } => format!("{cmd} 2>&1 && echo __TF_EXIT__:0 || echo __TF_EXIT__:1"),
+            Self::Windows {
+                shell: WinShell::PowerShell,
+            } => format!("{cmd} 2>&1; $rc = $LASTEXITCODE; '__TF_EXIT__:' + $rc"),
         }
     }
 
@@ -260,11 +238,11 @@ impl RemoteShell {
         parent: &str,
         items: &[String],
     ) -> Result<String, String> {
-        self.checked(self.status(&self.tar_c(Some(archive), parent, items, false), None))
+        self.checked(self.status(&self.tar_c(Some(archive), parent, items, false)))
     }
 
     pub fn extract(&self, archive: &str, dest: &str) -> String {
-        self.status(&self.tar_x(Some(archive), dest, false), None)
+        self.status(&self.tar_x(Some(archive), dest, false))
     }
 
     pub fn create_to_stdout(
@@ -395,13 +373,10 @@ mod tests {
 
     #[test]
     fn temp_probe_accepts_only_an_expanded_windows_path() {
-        assert_eq!(
-            parse_temp("__TF_TEMP__:C:\\Users\\me\\Temp\r\n").as_deref(),
-            Some(r"C:\Users\me\Temp")
-        );
-        assert_eq!(parse_temp("__TF_TEMP__:%TEMP%\n"), None);
-        assert_eq!(parse_temp("__TF_TEMP__::TEMP\n"), None);
-        assert_eq!(parse_temp("sh: 1: __TF_TEMP__:: not found\n"), None);
+        assert!(is_expanded_temp("__TF_TEMP__:C:\\Users\\me\\Temp\r\n"));
+        assert!(!is_expanded_temp("__TF_TEMP__:%TEMP%\n"));
+        assert!(!is_expanded_temp("__TF_TEMP__::TEMP\n"));
+        assert!(!is_expanded_temp("sh: 1: __TF_TEMP__:: not found\n"));
     }
 
     #[test]
@@ -439,20 +414,16 @@ mod tests {
     #[test]
     fn cmd_status_branches_instead_of_reading_errorlevel() {
         assert_eq!(
-            win(WinShell::Cmd).status("tar x", Some("del y")),
-            "tar x 2>&1 && (del y & echo __TF_EXIT__:0) || (del y & echo __TF_EXIT__:1)"
-        );
-        assert_eq!(
-            win(WinShell::Cmd).status("tar x", None),
+            win(WinShell::Cmd).status("tar x"),
             "tar x 2>&1 && echo __TF_EXIT__:0 || echo __TF_EXIT__:1"
         );
     }
 
     #[test]
-    fn powershell_status_reports_the_exit_code_before_cleanup_changes_it() {
+    fn powershell_status_reports_the_exit_code() {
         assert_eq!(
-            win(WinShell::PowerShell).status("tar x", Some("rm y")),
-            "tar x 2>&1; $rc = $LASTEXITCODE; rm y; '__TF_EXIT__:' + $rc"
+            win(WinShell::PowerShell).status("tar x"),
+            "tar x 2>&1; $rc = $LASTEXITCODE; '__TF_EXIT__:' + $rc"
         );
     }
 

@@ -136,9 +136,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         Ok(())
     }
     /// Per-item fallback: walk the selection and transfer each entry on its own.
-    /// Backends with a bulk fast path (tar over `docker exec`) override it;
-    /// real SFTP takes the tar path through `as_sftp_session` and only lands
-    /// here as a safety net.
+    /// Tar streaming lives in the commands, which fall back here.
     async fn upload_batch(
         &self,
         app: &E,
@@ -198,7 +196,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         Ok(())
     }
 
-    /// Raw SFTP session, for server-to-server transfer and tar fast paths.
+    /// Raw SFTP session, for server-to-server transfer.
     /// None for transports that don't speak real SFTP.
     fn as_sftp_session(&self) -> Option<Arc<Mutex<SftpSession>>> {
         None

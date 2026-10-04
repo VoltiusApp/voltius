@@ -8,6 +8,7 @@ use super::{
 };
 use crate::sftp::backend::{skip_unsafe_name, TransferEvents};
 use crate::sftp::{FileBackend, SftpManager};
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, State};
@@ -15,10 +16,15 @@ use tokio_util::sync::CancellationToken;
 
 // ── Shared shell fragments ────────────────────────────────────────────────────
 
-/// Split a remote (always `/`-separated) path into parent and basename. A path
-/// with no separator has parent `.` and is its own basename.
+/// Split a remote (always `/`-separated) path into parent and basename, ignoring a
+/// trailing `/`. A path with no separator has parent `.`; an item at the root has parent `/`.
 fn remote_split(path: &str) -> (&str, &str) {
+    let path = match path.trim_end_matches('/') {
+        "" => path,
+        trimmed => trimmed,
+    };
     match path.rfind('/') {
+        Some(0) => ("/", &path[1..]),
         Some(i) => (&path[..i], &path[i + 1..]),
         None => (".", path),
     }
@@ -240,7 +246,7 @@ async fn relay_or_per_file(
         get_backend(manager, dst_id).await?,
     );
     let (parent, items) = remote_items(paths);
-    if let (Some(s), Some(d)) = (host_of(&src).await, host_of(&dst).await) {
+    if let (Some(s), Some(d)) = tokio::join!(host_of(&src), host_of(&dst)) {
         return relay_via(
             app,
             &s,
@@ -275,6 +281,29 @@ async fn relay_or_per_file(
     Ok(())
 }
 
+/// Run `stream` when the backend's host can stream tar, else `fallback` on the backend itself.
+async fn stream_or<S, SF, B, BF>(
+    manager: &SftpManager,
+    sftp_id: &str,
+    transfer_id: &str,
+    stream: S,
+    fallback: B,
+) -> Result<(), String>
+where
+    S: FnOnce(TarHost, CancellationToken) -> SF,
+    SF: Future<Output = Result<(), String>>,
+    B: FnOnce(Arc<dyn FileBackend>, CancellationToken) -> BF,
+    BF: Future<Output = Result<(), String>>,
+{
+    run_backend_transfer(manager, sftp_id, transfer_id, |backend, token| async move {
+        match host_of(&backend).await {
+            Some(host) => stream(host, token).await,
+            None => fallback(backend, token).await,
+        }
+    })
+    .await
+}
+
 /// Upload multiple local files/directories as a single tar stream.
 #[tauri::command]
 pub async fn sftp_upload_batch_tar(
@@ -288,28 +317,20 @@ pub async fn sftp_upload_batch_tar(
     if local_paths.is_empty() {
         return Ok(());
     }
-    let tid = transfer_id.clone();
-    run_backend_transfer(
+    let (app, tid, paths, dir) = (&app, &transfer_id, &local_paths, &remote_dir);
+    stream_or(
         &sftp_state,
         &sftp_id,
         &transfer_id,
-        |backend, token| async move {
-            match host_of(&backend).await {
-                Some(host) => {
-                    let (parent, _) = local_split(&local_paths[0]);
-                    let names = local_paths
-                        .iter()
-                        .filter_map(|p| Path::new(p).file_name()?.to_str().map(str::to_string))
-                        .collect();
-                    upload_via(&app, &host, parent, names, &remote_dir, false, &tid, &token).await
-                }
-                None => {
-                    backend
-                        .upload_batch(&app, &local_paths, &remote_dir, &tid, &token)
-                        .await
-                }
-            }
+        |host, token| async move {
+            let (parent, _) = local_split(&paths[0]);
+            let names = paths
+                .iter()
+                .filter_map(|p| Path::new(p).file_name()?.to_str().map(str::to_string))
+                .collect();
+            upload_via(app, &host, parent, names, dir, false, tid, &token).await
         },
+        |backend, token| async move { backend.upload_batch(app, paths, dir, tid, &token).await },
     )
     .await
 }
@@ -327,28 +348,20 @@ pub async fn sftp_download_batch_tar(
     if remote_paths.is_empty() {
         return Ok(());
     }
-    let tid = transfer_id.clone();
-    run_backend_transfer(
+    let (app, tid, paths, dir) = (&app, &transfer_id, &remote_paths, &local_dir);
+    stream_or(
         &sftp_state,
         &sftp_id,
         &transfer_id,
-        |backend, token| async move {
-            match host_of(&backend).await {
-                Some(host) => {
-                    let items = local_safe_items(&app, &tid, &remote_paths);
-                    if items.is_empty() {
-                        return Ok(());
-                    }
-                    let (parent, _) = remote_split(&remote_paths[0]);
-                    download_via(&app, &host, parent, &items, &local_dir, false, &tid, &token).await
-                }
-                None => {
-                    backend
-                        .download_batch(&app, &remote_paths, &local_dir, &tid, &token)
-                        .await
-                }
+        |host, token| async move {
+            let items = local_safe_items(app, tid, paths);
+            if items.is_empty() {
+                return Ok(());
             }
+            let (parent, _) = remote_split(&paths[0]);
+            download_via(app, &host, parent, &items, dir, false, tid, &token).await
         },
+        |backend, token| async move { backend.download_batch(app, paths, dir, tid, &token).await },
     )
     .await
 }
@@ -395,34 +408,16 @@ pub async fn sftp_upload_dir_tar(
     remote_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let tid = transfer_id.clone();
-    run_backend_transfer(
+    let (app, tid, local, remote) = (&app, &transfer_id, &local_path, &remote_path);
+    stream_or(
         &sftp_state,
         &sftp_id,
         &transfer_id,
-        |backend, token| async move {
-            match host_of(&backend).await {
-                Some(host) => {
-                    let (parent, base) = local_split(&local_path);
-                    upload_via(
-                        &app,
-                        &host,
-                        parent,
-                        vec![base],
-                        &remote_path,
-                        true,
-                        &tid,
-                        &token,
-                    )
-                    .await
-                }
-                None => {
-                    backend
-                        .upload_dir(&app, &local_path, &remote_path, &tid, &token)
-                        .await
-                }
-            }
+        |host, token| async move {
+            let (parent, base) = local_split(local);
+            upload_via(app, &host, parent, vec![base], remote, true, tid, &token).await
         },
+        |backend, token| async move { backend.upload_dir(app, local, remote, tid, &token).await },
     )
     .await
 }
@@ -437,34 +432,17 @@ pub async fn sftp_download_dir_tar(
     local_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let tid = transfer_id.clone();
-    run_backend_transfer(
+    let (app, tid, remote, local) = (&app, &transfer_id, &remote_path, &local_path);
+    stream_or(
         &sftp_state,
         &sftp_id,
         &transfer_id,
-        |backend, token| async move {
-            match host_of(&backend).await {
-                Some(host) => {
-                    let (parent, base) = remote_split(&remote_path);
-                    download_via(
-                        &app,
-                        &host,
-                        parent,
-                        &[base.to_string()],
-                        &local_path,
-                        true,
-                        &tid,
-                        &token,
-                    )
-                    .await
-                }
-                None => {
-                    backend
-                        .download_dir(&app, &remote_path, &local_path, &tid, &token)
-                        .await
-                }
-            }
+        |host, token| async move {
+            let (parent, base) = remote_split(remote);
+            let items = [base.to_string()];
+            download_via(app, &host, parent, &items, local, true, tid, &token).await
         },
+        |backend, token| async move { backend.download_dir(app, remote, local, tid, &token).await },
     )
     .await
 }
@@ -510,10 +488,25 @@ mod tests {
     }
 
     #[test]
+    fn root_level_items_archive_from_the_root() {
+        let (parent, items) = remote_items(&["/app".into(), "/etc/".into()]);
+        assert_eq!(
+            (parent.as_str(), items),
+            ("/", vec!["app".into(), "etc".into()])
+        );
+        let cmd = RemoteShell::Posix
+            .create_to_stdout(&parent, &["app".into()], false)
+            .unwrap();
+        assert!(cmd.contains("-C '/' -- 'app'"), "{cmd}");
+    }
+
+    #[test]
     fn remote_split_separates_parent_from_basename() {
         assert_eq!(remote_split("/srv/data/logs"), ("/srv/data", "logs"));
         assert_eq!(remote_split("logs"), (".", "logs"));
-        assert_eq!(remote_split("/logs"), ("", "logs"));
+        assert_eq!(remote_split("/logs"), ("/", "logs"));
+        assert_eq!(remote_split("/app"), ("/", "app"));
+        assert_eq!(remote_split("/srv/data/"), ("/srv", "data"));
     }
 
     #[test]
