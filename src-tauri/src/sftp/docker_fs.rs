@@ -10,9 +10,10 @@
 //! characters (acceptable for a file manager).
 
 use crate::commands::sftp::editor::read_limit;
+use crate::commands::sftp::TransferProgress;
 use crate::commands::sftp::{pump_chunks, sort_listing, RemoteFile};
 use crate::error::AppError;
-use crate::sftp::backend::FileBackend;
+use crate::sftp::backend::{FileBackend, TransferEvents};
 use crate::ssh::client::SshClient;
 use crate::ssh::exec::{
     drain_channel, exit_error, open_exec, run_captured, sh_c, shell_quote, Captured,
@@ -240,13 +241,19 @@ impl DockerFs {
         let mut channel = self.exec_channel(remote_cmd).await?;
 
         // Any failure, cancellation included, must reap the local tar first.
-        let drained = drain_channel(
-            &mut channel,
-            &mut tar_in,
-            Some((app, transfer_id, 0)),
-            Some(token),
-        )
-        .await;
+        let mut transferred = 0u64;
+        let mut on_data = |chunk: &[u8]| {
+            transferred += chunk.len() as u64;
+            app.send(
+                &format!("sftp-progress-{transfer_id}"),
+                TransferProgress {
+                    transferred,
+                    total: 0,
+                },
+            );
+        };
+        let drained =
+            drain_channel(&mut channel, &mut tar_in, Some(&mut on_data), Some(token)).await;
         let (code, err) = match drained {
             Ok(v) => v,
             Err(e) => {
@@ -474,13 +481,16 @@ impl FileBackend for DockerFs {
         let cmd = self.dexec("cat \"$1\"", &[remote_path]);
         let mut channel = self.exec_channel(&cmd).await?;
 
-        let (code, err) = drain_channel(
-            &mut channel,
-            &mut local,
-            Some((app, transfer_id, total)),
-            Some(token),
-        )
-        .await?;
+        let mut transferred = 0u64;
+        let mut on_data = |chunk: &[u8]| {
+            transferred += chunk.len() as u64;
+            app.send(
+                &format!("sftp-progress-{transfer_id}"),
+                TransferProgress { transferred, total },
+            );
+        };
+        let (code, err) =
+            drain_channel(&mut channel, &mut local, Some(&mut on_data), Some(token)).await?;
         local.flush().await.ok();
         exit_error("download failed", code, &String::from_utf8_lossy(&err))
     }

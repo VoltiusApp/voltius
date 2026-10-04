@@ -1,12 +1,15 @@
 //! Running one-shot commands over an SSH session: quoting, starting the
 //! command, and collecting its stdout, stderr and exit status.
 
-use crate::commands::sftp::TransferProgress;
 use russh::client::{Handle, Msg};
-use russh::{Channel, ChannelMsg};
-use tauri::{AppHandle, Emitter};
+use russh::{Channel, ChannelMsg, ChannelReadHalf};
+use std::future::Future;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::sync::CancellationToken;
+
+const STDERR_KEEP: usize = 16 * 1024;
+
+pub type OnData<'a> = dyn FnMut(&[u8]) + Send + 'a;
 
 /// Single-quote a string for a POSIX shell.
 pub fn shell_quote(s: &str) -> String {
@@ -58,7 +61,25 @@ pub async fn run_captured<H: russh::client::Handler>(
     handle: &Handle<H>,
     cmd: &str,
 ) -> Result<Captured, String> {
+    run_captured_with_stdin(handle, cmd, None).await
+}
+
+pub async fn run_captured_with_stdin<H: russh::client::Handler>(
+    handle: &Handle<H>,
+    cmd: &str,
+    stdin: Option<&[u8]>,
+) -> Result<Captured, String> {
     let mut channel = open_exec(handle, cmd).await?;
+    if let Some(input) = stdin {
+        channel
+            .data(input)
+            .await
+            .map_err(|e| format!("Write error: {e}"))?;
+        channel
+            .eof()
+            .await
+            .map_err(|e| format!("Write error: {e}"))?;
+    }
     let mut stdout = Vec::new();
     let (code, err) = drain_channel(&mut channel, &mut stdout, None, None).await?;
     Ok(Captured {
@@ -68,12 +89,27 @@ pub async fn run_captured<H: russh::client::Handler>(
     })
 }
 
+pub trait MsgSource: Send {
+    fn wait(&mut self) -> impl Future<Output = Option<ChannelMsg>> + Send;
+}
+
+impl MsgSource for Channel<Msg> {
+    fn wait(&mut self) -> impl Future<Output = Option<ChannelMsg>> + Send {
+        Channel::wait(self)
+    }
+}
+
+impl MsgSource for ChannelReadHalf {
+    fn wait(&mut self) -> impl Future<Output = Option<ChannelMsg>> + Send {
+        ChannelReadHalf::wait(self)
+    }
+}
+
 /// Drain a russh channel until it ends: stdout goes to `out`, stderr is
 /// collected, and the exit status is returned alongside it — turning that into
 /// an error message is the caller's business, because each caller words it
-/// differently. `progress` is `(app, transfer_id, total)` for the callers that
-/// stream a transfer; with `token` set, a cancellation between messages aborts
-/// the drain.
+/// differently. `on_data` sees every stdout chunk after it is written. With
+/// `token` set, a cancellation aborts the drain, even during a silent wait.
 ///
 /// The status is `None` when the channel ended without one, which every caller
 /// must treat as a failure: reporting a missing status as exit 0 is how a
@@ -82,33 +118,36 @@ pub async fn run_captured<H: russh::client::Handler>(
 /// `Eof` is never a stopping point — the exit status follows it — and `Close`
 /// only stops the drain once the status has actually arrived, because russh can
 /// deliver the two in either order.
-pub async fn drain_channel<W: AsyncWrite + Unpin>(
-    channel: &mut Channel<Msg>,
+pub async fn drain_channel<C: MsgSource, W: AsyncWrite + Unpin>(
+    channel: &mut C,
     out: &mut W,
-    progress: Option<(&AppHandle, &str, u64)>,
+    mut on_data: Option<&mut OnData<'_>>,
     token: Option<&CancellationToken>,
 ) -> Result<(Option<i32>, Vec<u8>), String> {
-    let mut transferred = 0u64;
     let mut err = Vec::new();
     let mut code = None;
     loop {
-        if token.is_some_and(|t| t.is_cancelled()) {
-            return Err("Transfer cancelled".into());
-        }
-        match channel.wait().await {
+        let msg = match token {
+            Some(t) => tokio::select! {
+                m = channel.wait() => m,
+                _ = t.cancelled() => return Err("Transfer cancelled".into()),
+            },
+            None => channel.wait().await,
+        };
+        match msg {
             Some(ChannelMsg::Data { data }) => {
                 out.write_all(&data)
                     .await
                     .map_err(|e| format!("Write error: {e}"))?;
-                transferred += data.len() as u64;
-                if let Some((app, transfer_id, total)) = progress {
-                    let _ = app.emit(
-                        &format!("sftp-progress-{transfer_id}"),
-                        TransferProgress { transferred, total },
-                    );
+                if let Some(f) = on_data.as_mut() {
+                    f(&data);
                 }
             }
-            Some(ChannelMsg::ExtendedData { data, .. }) => err.extend_from_slice(&data),
+            Some(ChannelMsg::ExtendedData { data, .. }) => {
+                err.extend_from_slice(&data);
+                let excess = err.len().saturating_sub(STDERR_KEEP);
+                err.drain(..excess);
+            }
             Some(ChannelMsg::ExitStatus { exit_status }) => code = Some(exit_status as i32),
             Some(ChannelMsg::Close) if code.is_some() => break,
             None => break,
