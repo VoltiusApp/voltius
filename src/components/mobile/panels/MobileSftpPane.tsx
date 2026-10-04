@@ -75,7 +75,7 @@ export default function MobileSftpPane({
 
   const download = async (f: FileEntry) => {
     if (!sftpId) return;
-    const mode = await tarMode([sftpId]);
+    const mode = f.isDir ? await tarMode([sftpId]) : "off";
     const fetchTo = (localPath: string, transferId: string) => transferItem({
       from: "remote", to: "local", srcSftpId: sftpId, srcPath: f.path, dstPath: localPath, isDir: f.isDir, useTar: mode === "tar", transferId,
     });
