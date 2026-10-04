@@ -52,7 +52,13 @@
         "secretViewed": "Gizli bilgi gösterildi",
         "sessionStarted": "Oturum başlatıldı",
         "sessionEnded": "Oturum sonlandı",
-        "sessionJoined": "Oturuma katılındı"
+        "sessionJoined": "Oturuma katılındı",
+        "memberRenamed": "Üye yeniden adlandırıldı",
+        "permissionGranted": "İzin verildi",
+        "permissionRevoked": "İzin kaldırıldı",
+        "sessionLeft": "Oturumdan ayrıldı",
+        "vaultCreated": "Kasa oluşturuldu",
+        "vaultDeleted": "Kasa silindi"
       }
     },
     "timeRange": {

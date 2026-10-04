@@ -37,8 +37,9 @@ import { HOST_PROXY_MODES, useGlobalKeepalivePreset, useGlobalProxy } from "@/st
 import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 import ProxyFields from "./ProxyFields";
 import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
-import { getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle, normalizeDistro } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, normalizeDistro } from "@/utils/icons";
 import { DistroIconPicker } from "./DistroIconPicker";
+import { IconTileButton } from "@/components/shared/IconTileButton";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 import {
@@ -455,16 +456,13 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
             <div>
               <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.labelField")}</label>
               <div ref={iconRowRef} className="relative flex gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setShowDistroPicker((v) => !v)}
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 transition-all hover:brightness-110"
-                  style={glossyTileStyle(visibleIcon ? getConnectionIconColor(visibleIcon) : "var(--t-bg-card-avatar)")}
+                <IconTileButton
+                  icon={visibleIcon ? getConnectionIcon(visibleIcon) : "lucide:server"}
+                  base={visibleIcon ? getConnectionIconColor(visibleIcon) : undefined}
                   title={visibleIcon ? t("connections.form.changeIconWithLabel", { label: getConnectionIconLabel(visibleIcon) }) : t("connections.form.changeIcon")}
-                  aria-label={t("connections.form.changeIconAriaLabel")}
-                >
-                  <Icon icon={visibleIcon ? getConnectionIcon(visibleIcon) : "lucide:server"} width={18} />
-                </button>
+                  ariaLabel={t("connections.form.changeIconAriaLabel")}
+                  onClick={() => setShowDistroPicker((v) => !v)}
+                />
                 <input
                   className={formInputClass}
                   style={formInputStyle}

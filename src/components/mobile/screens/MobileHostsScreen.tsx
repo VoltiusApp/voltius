@@ -18,7 +18,7 @@ import { useMobileFolderScope } from "@/components/mobile/folders/useMobileFolde
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
-import FolderFormSheet from "@/components/mobile/sheets/FolderFormSheet";
+import FolderFormSheet, { type FolderEdit } from "@/components/mobile/sheets/FolderFormSheet";
 import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
 import AddChoiceSheet from "@/components/mobile/sheets/AddChoiceSheet";
 import type { Connection, Folder } from "@/types";
@@ -147,8 +147,8 @@ export default function MobileHostsScreen() {
   const teamCredentialsUnavailable = useTeamCredentialsUnavailable();
 
   const canCreateHost = can("EDIT_CONNECTIONS", targetVaultId);
-  const createFolder = (name: string) =>
-    void saveFolder({ name, object_type: "connection", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
+  const createFolder = (edit: FolderEdit) =>
+    void saveFolder({ ...edit, object_type: "connection", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -175,7 +175,7 @@ export default function MobileHostsScreen() {
         {!search && subFolders.map((f) => (
           <MobileFolderRow
             key={f.id}
-            name={f.name}
+            folder={f}
             count={folderItemCount(inVault, f.id)}
             onOpen={() => nav.navigateInto(f)}
             onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined}
@@ -212,7 +212,7 @@ export default function MobileHostsScreen() {
       {folderSheet && (
         <FolderActionsSheet
           folder={folderSheet}
-          onRename={(name) => void updateFolder(folderSheet.id, { name, object_type: "connection", parent_folder_id: folderSheet.parent_folder_id, vault_id: folderSheet.vault_id })}
+          onSave={(edit) => void updateFolder(folderSheet.id, { ...edit, object_type: "connection" })}
           onDelete={() => { nav.onFolderDeleted(folderSheet.id); void deleteFolder(folderSheet.id); }}
           onClose={() => setFolderSheet(null)}
         />

@@ -23,6 +23,13 @@
       "general": "Genel",
       "nameLabel": "Ad",
       "parentLabel": "Üst klasör"
+    },
+    "appearance": {
+      "title": "Klasör görünümü",
+      "change": "Simgeyi ve rengi değiştir",
+      "color": "Renk",
+      "icon": "Simge",
+      "clear": "Temizle"
     }
   }
 }

@@ -6,6 +6,7 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
+import { cardGridProps } from "@/components/shared/cardGrid";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { vaultOverviewSections } from "./vaultOverviewSections";
 import type { Connection } from "@/types";
@@ -21,22 +22,23 @@ interface VaultCardProps {
   hosts: Connection[];
   totalHosts: number;
   onConnect: (conn: Connection) => void;
+  onOpen: () => void;
 }
 
-function VaultCard({ name, hosts, totalHosts, onConnect }: VaultCardProps) {
+function VaultCard({ name, hosts, totalHosts, onConnect, onOpen }: VaultCardProps) {
   const { t } = useTranslation();
   const hidden = totalHosts - hosts.length;
   return (
     <div className="surface-glass flex flex-col rounded-2xl p-4 gap-3">
-      <div className="flex items-center gap-2">
+      <button onClick={onOpen} className="group flex items-center gap-2 text-left">
         <Icon icon="lucide:vault" width={13} style={{ color: "var(--t-text-dim)" }} />
-        <span className="text-xs font-semibold" style={{ color: "var(--t-text-secondary)" }}>
+        <span className="text-xs font-semibold text-(--t-text-secondary) group-hover:text-(--t-text-primary) group-hover:underline">
           {name}
         </span>
         <span className="ml-auto text-[10px]" style={{ color: "var(--t-text-dim)" }}>
           {t("home.vaultCard.hostCount", { count: totalHosts })}
         </span>
-      </div>
+      </button>
 
       {hosts.length === 0 ? (
         <p className="text-xs py-4 text-center" style={{ color: "var(--t-text-dim)" }}>
@@ -68,9 +70,9 @@ function VaultCard({ name, hosts, totalHosts, onConnect }: VaultCardProps) {
             </button>
           ))}
           {hidden > 0 && (
-            <p className="text-[10px] px-2 pt-1" style={{ color: "var(--t-text-dim)" }}>
+            <button onClick={onOpen} className="self-start text-[10px] px-2 pt-1 text-(--t-text-dim) hover:text-(--t-accent) hover:underline">
               {t("home.vaultCard.more", { count: hidden })}
-            </p>
+            </button>
           )}
         </div>
       )}
@@ -82,6 +84,7 @@ export function VaultsOverview() {
   const { t } = useTranslation();
   const connections = useAllConnections();
   const vaults = useVaultStore((s) => s.vaults);
+  const selectVaultOnly = useVaultStore((s) => s.selectVaultOnly);
   const connect = useSessionStore((s) => s.connect);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const setHomeView = useUIStore((s) => s.setHomeView);
@@ -90,6 +93,12 @@ export function VaultsOverview() {
     connect(conn.id).catch(() => {});
     setHomeView(false);
     setActiveNav("terminal");
+  };
+
+  const openVault = (vaultId: string) => {
+    selectVaultOnly(vaultId);
+    setHomeView(false);
+    setActiveNav("hosts");
   };
 
   const isPinnedFn = useEffectivePinnedPredicate();
@@ -105,7 +114,7 @@ export function VaultsOverview() {
       >
         {t("common.entity.vaults")}
       </h2>
-      <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(14rem, 1fr))" }}>
+      <div {...cardGridProps("grid", "card")}>
         {sections.map(({ vault, hosts, totalHosts }) => (
           <VaultCard
             key={vault.id}
@@ -113,6 +122,7 @@ export function VaultsOverview() {
             hosts={hosts}
             totalHosts={totalHosts}
             onConnect={handleConnect}
+            onOpen={() => openVault(vault.id)}
           />
         ))}
       </div>

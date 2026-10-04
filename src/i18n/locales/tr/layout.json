@@ -141,7 +141,8 @@
       "vaultFound": "Kasa bulundu",
       "connectionsUnavailable": "Bağlantılar kullanılamıyor",
       "sshClient": "SSH istemcisi",
-      "vaultUnreadable": "Kasa okunamıyor"
+      "vaultUnreadable": "Kasa okunamıyor",
+      "keychainHint": "macOS anahtar zinciri parolanızı sorarsa Mac giriş parolanızı girip \"Her Zaman İzin Ver\"i seçin. macOS bunu her Voltius güncellemesinden sonra bir kez sorar."
     },
     "sync": {
       "title": "Eşitleme",

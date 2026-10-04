@@ -15,12 +15,16 @@ export function InlineNameEditor({
   onCancel,
   className,
   ariaLabel,
+  placeholder,
+  maxLength = TAB_TITLE_MAX,
 }: {
   value: string;
   onCommit: (name: string) => void;
   onCancel: () => void;
   className?: string;
   ariaLabel?: string;
+  placeholder?: string;
+  maxLength?: number;
 }) {
   const [draft, setDraft] = useState(value);
   const ref = useRef<HTMLInputElement>(null);
@@ -43,7 +47,8 @@ export function InlineNameEditor({
       ref={ref}
       value={draft}
       aria-label={ariaLabel}
-      maxLength={TAB_TITLE_MAX}
+      placeholder={placeholder}
+      maxLength={maxLength}
       spellCheck={false}
       className={className ?? "min-w-0 max-w-[140px] bg-transparent outline-none"}
       style={{ color: "inherit", font: "inherit" }}

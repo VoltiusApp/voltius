@@ -11,6 +11,8 @@ import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { sessionLabel } from "@/utils/sessionLabel";
 import { sessionUserAtHost } from "@/components/terminal/sessionOverlay";
 import { AvatarTile } from "@/components/shared/AvatarTile";
+import { cardGridProps } from "@/components/shared/cardGrid";
+import { SectionHeader, StatusPill } from "@/components/shared/SectionHeader";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { TunnelStatusDot } from "@/components/shared/TunnelStatusDot";
 import type { ActiveTunnel } from "@/types";
@@ -107,20 +109,13 @@ export function ActiveTunnelsSection() {
 
   return (
     <div className="mb-4">
-      <div className="flex items-center justify-between px-1 py-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-(--t-text-dim)">
-          {t("portForwarding.activeTunnels.sectionTitle")}
-        </span>
-        <div className="flex items-center gap-2 text-[10px] text-(--t-text-muted)">
-          <span className="px-1.5 py-0.5 rounded-full bg-(--t-bg-elevated) leading-none">{t("portForwarding.activeTunnels.hostCount", { count: sessionCards.length })}</span>
-          <span className="px-1.5 py-0.5 rounded-full bg-(--t-status-connected)/10 text-(--t-status-connected) leading-none">{t("portForwarding.activeTunnels.tunnelCount", { count: totalTunnelCount })}</span>
-        </div>
-      </div>
+      <SectionHeader
+        label={t("portForwarding.activeTunnels.sectionTitle")}
+        count={sessionCards.length}
+        aside={<StatusPill tone="connected">{t("portForwarding.activeTunnels.tunnelCount", { count: totalTunnelCount })}</StatusPill>}
+      />
 
-      <div className={layoutMode === "grid"
-        ? "grid grid-cols-[repeat(auto-fill,minmax(21rem,1fr))] gap-4"
-        : "flex flex-col gap-3"
-      }>
+      <div {...cardGridProps(layoutMode, "wide")}>
         {sessionCards.map(({ session, connection, tunnels, suppressedPorts, errorCount }) => {
           const displayIcon = connection ? (connection.icon || connection.distro) : null;
           const distroIcon = displayIcon ? getConnectionIcon(displayIcon) : null;

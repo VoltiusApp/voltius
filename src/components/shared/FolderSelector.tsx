@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Folder } from "@/types";
 import { PickerSurface } from "./PickerSurface";
 import { PickerDivider, PickerFooterAction, PickerOption, PickerTrigger } from "./pickerParts";
+import { folderIcon } from "@/components/folders/folderAppearance";
 
 interface Props {
   value: string | null;
@@ -48,7 +49,7 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
     <div>
       <PickerTrigger
         buttonRef={buttonRef}
-        icon={selected ? "lucide:folder-open" : "lucide:folder"}
+        icon={selected ? folderIcon(selected) : "lucide:folder"}
         label={selected ? selected.name : t("shared.folderSelector.noFolder")}
         filled={!!selected}
         open={open}
@@ -69,7 +70,7 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
         {folders.map((folder) => (
           <PickerOption
             key={folder.id}
-            icon="lucide:folder"
+            icon={folderIcon(folder)}
             label={folder.name}
             labelTone="primary"
             active={value === folder.id}

@@ -100,6 +100,10 @@ pub struct Folder {
     pub vault_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pinned: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     pub updated_at: String,
     pub deleted_at: Option<String>,
     /// Per-field LWW clocks: field_name → RFC3339 timestamp of last write.
@@ -118,6 +122,10 @@ pub struct FolderFormData {
     pub vault_id: Option<String>,
     #[serde(default)]
     pub pinned: Option<bool>,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(default)]
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1113,6 +1121,8 @@ mod tests {
             object_type: "connection".into(),
             vault_id: "team".into(),
             pinned: Some(true),
+            color: Some("#22c55e".into()),
+            icon: Some("lucide:house".into()),
             updated_at: "2026-01-02T00:00:00Z".into(),
             deleted_at: None,
             clocks: clocks(),

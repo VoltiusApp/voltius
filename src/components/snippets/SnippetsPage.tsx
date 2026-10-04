@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { SectionHeader } from "@/components/shared/SectionHeader";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -59,7 +61,8 @@ import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget } from "@/stores/snippetRecentStore";
 import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
+import { exceptItems, folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -223,21 +226,6 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
   );
 }
 
-// ─── Section header ────────────────────────────────────────────────────────────
-
-function SectionHeader({ label, count }: { label: string; count?: number }) {
-  return (
-    <div className="flex items-center justify-between mb-2">
-      <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-        {label}
-        {count !== undefined && (
-          <span className="ml-2 font-normal normal-case tracking-normal">{count}</span>
-        )}
-      </p>
-    </div>
-  );
-}
-
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
 function SkeletonList() {
@@ -255,41 +243,6 @@ function SkeletonList() {
     </div>
   );
 }
-
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-function EmptyState({ onAdd }: { onAdd: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-center py-16">
-      <div
-        className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-(--t-text-dim)"
-        style={{
-          background: "linear-gradient(135deg, var(--t-bg-elevated) 0%, var(--t-bg-card) 100%)",
-          border: "1px solid var(--t-border)",
-        }}
-      >
-        <Icon icon="lucide:braces" width={36} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <span className="text-base font-semibold text-(--t-text-primary)">{t("snippets.page.emptyState.title")}</span>
-        <span className="text-sm text-(--t-text-dim) max-w-[18rem]">
-          {t("snippets.page.emptyState.subtitle")}
-        </span>
-      </div>
-      <button
-        onClick={onAdd}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
-        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-      >
-        <Icon icon="lucide:plus" width={15} />
-        {t("snippets.page.emptyState.cta")}
-      </button>
-    </div>
-  );
-}
-
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -345,8 +298,9 @@ export function SnippetsPage() {
   const openSnippet = useCallback((item: Snippet | "new") => {
     snippetIsDirtyRef.current = false;
     formSessionKeyRef.current = item === "new" ? `new-${Date.now()}` : item.id;
+    folderEp.closeEdit();
     ep.openEdit(item);
-  }, [ep.openEdit]);
+  }, [ep.openEdit, folderEp.closeEdit]);
 
   useEffect(() => {
     if (snippetsPendingAction?.action === "create") {
@@ -415,15 +369,17 @@ export function SnippetsPage() {
     return filtered.filter((s) => !s.folder_id || !allFolderIds.has(s.folder_id));
   }, [filtered, hasSearch, activeFolderId, allFolderIds]);
 
-  const filteredIds = useMemo(
-    () => [...visibleFolders.map((f) => f.id), ...viewSnippets.map((s) => s.id)],
-    [visibleFolders, viewSnippets],
-  );
-
   const isPinnedFn = useEffectivePinnedPredicate();
   const favorites = useMemo(
     () => (!hasSearch && !activeFolderId) ? filtered.filter((s) => isPinnedFn(s, "snippet")) : [],
     [filtered, hasSearch, activeFolderId, isPinnedFn],
+  );
+  const mainSnippets = useMemo(() => exceptItems(viewSnippets, favorites), [viewSnippets, favorites]);
+  const shownSnippets = useMemo(() => [...favorites, ...mainSnippets], [favorites, mainSnippets]);
+
+  const filteredIds = useMemo(
+    () => [...favorites, ...visibleFolders, ...mainSnippets].map((x) => x.id),
+    [favorites, visibleFolders, mainSnippets],
   );
   const scopedRecentEntries = useMemo(
     () => selectRecentSnippetEntries(recentEntries, filtered),
@@ -456,6 +412,10 @@ export function SnippetsPage() {
     [visibleFolders, selectedIdSet],
   );
 
+  const editSnippet = (id: string) => { const s = shownSnippets.find((s) => s.id === id); if (s) openSnippet(s); };
+  const editFolder = (folder: Folder) => { ep.closeEdit(); folderEp.transitionToExisting(folder); };
+  const panelOpen = ep.panelOpen || folderEp.panelOpen;
+
   const { focusedId, setFocusedId } = useListKeyNav({
     orderedIds: filteredIds,
     selectedIdSet,
@@ -463,16 +423,7 @@ export function SnippetsPage() {
     setSelection,
     itemAreaRef,
     layoutMode,
-    onEnter: (id) => {
-      const folder = visibleFolders.find((f) => f.id === id);
-      if (folder) { navigateInto(folder); return; }
-      const s = viewSnippets.find((s) => s.id === id);
-      if (s) openSnippet(s);
-    },
-    onEdit: (id) => {
-      const s = viewSnippets.find((s) => s.id === id);
-      if (s) openSnippet(s);
-    },
+    ...folderAwareKeys(visibleFolders, { open: navigateInto, edit: editFolder }, { enter: editSnippet, edit: editSnippet }),
     onDuplicate: (id) => {
       const s = snippets.find((s) => s.id === id);
       if (s) void handleDuplicate(s);
@@ -577,7 +528,7 @@ export function SnippetsPage() {
   const bulkContextMenuItems = useMemo<ContextMenuItem[] | undefined>(() => {
     if (selectedIdSet.size <= 1) return undefined;
     const ids = [...selectedIdSet];
-    const selectedSnippets = viewSnippets.filter((s) => selectedIdSet.has(s.id));
+    const selectedSnippets = shownSnippets.filter((s) => selectedIdSet.has(s.id));
     const selectedSnippetFolderIds = selectedFolders.map((f) => f.id);
     const { isObjectSynced } = useSyncPrefsStore.getState();
     const allSynced = selectedSnippets.every((s) => isObjectSynced(s.id, "snippet"));
@@ -656,7 +607,7 @@ export function SnippetsPage() {
       },
     ];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIdSet, viewSnippets, selectedFolders, excludedIds, syncTypes, can, vaultOptions, snippets, folders, t]);
+  }, [selectedIdSet, shownSnippets, selectedFolders, excludedIds, syncTypes, can, vaultOptions, snippets, folders, t]);
 
   // ── Injection ────────────────────────────────────────────────────────────
 
@@ -894,12 +845,7 @@ export function SnippetsPage() {
 
   async function handleCreateFolder() {
     ep.closeEdit();
-    const folder = await saveFolder({
-      name: "New Folder" /* persisted English default; menu label is localized */,
-      object_type: "snippet",
-      parent_folder_id: activeFolderId ?? undefined,
-      vault_id: defaultVaultId,
-    });
+    const folder = await saveFolder(newFolderData("snippet", activeFolderId, defaultVaultId));
     folderEp.transitionToExisting(folder);
   }
 
@@ -929,15 +875,11 @@ export function SnippetsPage() {
         dimmed={!isContextuallyRelevant(s, activeConn) || cutIds.has(s.id)}
         layout={layoutMode}
         onEdit={() => openSnippet(s)}
-        onSelect={(id, e) => {
-          handleItemSelect(id, e);
-          if (!e.ctrlKey && !e.metaKey && !e.shiftKey) openSnippet(s);
-        }}
+        onSelect={selectFollowing(handleItemSelect, panelOpen, () => openSnippet(s))}
         onInsert={(sessionIds) => void handleTrigger(s, false, sessionIds)}
         onExecute={(sessionIds) => void handleTrigger(s, true, sessionIds)}
         onDuplicate={() => void handleDuplicate(s)}
         onDelete={() => void deleteSnippet(s.id)}
-        onToggleFavorite={() => void handleToggleFavorite(s)}
         bulkContextMenuItems={bulkContextMenuItems}
         vaults={otherVaults}
         canEdit={canEdit}
@@ -1026,8 +968,13 @@ export function SnippetsPage() {
         <div ref={itemAreaRef} data-drag-surface="true">
           {loading ? (
             <SkeletonList />
-          ) : snippets.length === 0 && scopedFolders.length === 0 ? (
-            <EmptyState onAdd={() => openSnippet("new")} />
+          ) : !hasSearch && filtered.length === 0 && scopedFolders.length === 0 ? (
+            <EmptyState
+              icon="lucide:braces"
+              title={t("snippets.page.emptyState.title")}
+              body={t("snippets.page.emptyState.subtitle")}
+              action={{ label: t("snippets.page.emptyState.cta"), onClick: () => openSnippet("new") }}
+            />
           ) : (
             <div className="space-y-6">
 
@@ -1060,7 +1007,7 @@ export function SnippetsPage() {
                     </button>
                   </div>
                   <div
-                    {...cardGridProps(layoutMode, "220px")}
+                    {...cardGridProps(layoutMode, "card")}
                   >
                     {(showAllRecent ? scopedRecentEntries : scopedRecentEntries.slice(0, RECENT_PREVIEW_COUNT)).map((entry) => (
                       <RecentCard
@@ -1090,15 +1037,15 @@ export function SnippetsPage() {
               {favorites.length > 0 && (
                 <div>
                   <SectionHeader label={t("snippets.page.pinned")} count={favorites.length} />
-                  <div {...cardGridProps(layoutMode, "220px")}>{favorites.map(renderCard)}</div>
+                  <div {...cardGridProps(layoutMode, "card")}>{favorites.map(renderCard)}</div>
                 </div>
               )}
 
               {/* ── Folders ── */}
               {visibleFolders.length > 0 && (
                 <div>
-                  <SectionHeader label={t("snippets.page.folders")} />
-                  <div {...cardGridProps(layoutMode, "220px")}>
+                  <SectionHeader label={t("snippets.page.folders")} count={visibleFolders.length} />
+                  <div {...cardGridProps(layoutMode, "card")}>
                     {visibleFolders.map((folder) => (
                       <FolderCard
                         key={folder.id}
@@ -1109,11 +1056,11 @@ export function SnippetsPage() {
                         isFocused={focusedId === folder.id}
                         isDragOver={dragOverFolderId === folder.id}
                         dimmed={cutIds.has(folder.id)}
-                        onClick={() => navigateInto(folder)}
+                        onOpen={() => navigateInto(folder)}
                         onRename={(f, newName) => void updateFolder(f.id, { name: newName, object_type: f.object_type, parent_folder_id: f.parent_folder_id })}
                         onDelete={(f) => setConfirmDeleteFolder(f)}
-                        onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
-                        onEdit={() => { ep.closeEdit(); folderEp.transitionToExisting(folder); }}
+                        onSelect={selectFollowing(handleItemSelect, panelOpen, () => editFolder(folder))}
+                        onEdit={() => editFolder(folder)}
                         canEdit={can("EDIT_FOLDERS", folder.vault_id ?? "personal", folder.id)}
                         onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                         {...folderDropProps(folder.id)}
@@ -1142,42 +1089,30 @@ export function SnippetsPage() {
               )}
 
               {/* ── Snippets in current view ── */}
-              {viewSnippets.length > 0 ? (
+              {mainSnippets.length > 0 ? (
                 <div>
                   {!hasSearch && (visibleFolders.length > 0 || favorites.length > 0 || activeFolderId) && (
                     <SectionHeader
                       label={activeFolderId ? t("snippets.page.snippetsSection") : t("snippets.page.other")}
-                      count={viewSnippets.length}
+                      count={mainSnippets.length}
                     />
                   )}
-                  <div {...cardGridProps(layoutMode, "220px")}>{viewSnippets.map(renderCard)}</div>
+                  <div {...cardGridProps(layoutMode, "card")}>{mainSnippets.map(renderCard)}</div>
                 </div>
               ) : !hasSearch && filtered.length > 0 && activeFolderId ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <Icon icon="lucide:folder-open" width={32} className="text-(--t-text-dim)" />
-                  <p className="text-sm text-(--t-text-dim)">{t("snippets.page.folderEmpty")}</p>
-                  <button
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
-                    onClick={() => openSnippet("new")}
-                  >
-                    <Icon icon="lucide:plus" width={12} />
-                    {t("snippets.page.addSnippet")}
-                  </button>
-                </div>
+                <EmptyState
+                  size="section"
+                  icon="lucide:folder-open"
+                  title={t("snippets.page.folderEmpty")}
+                  action={{ label: t("snippets.page.addSnippet"), onClick: () => openSnippet("new") }}
+                />
               ) : hasSearch && filtered.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-12">
-                  <Icon icon="lucide:search-x" width={28} className="text-(--t-text-dim)" />
-                  <p className="text-sm text-(--t-text-dim)">{t("snippets.page.noSearchResults", { search })}</p>
-                  <button
-                    onClick={() => setSearch("")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border-hover)"
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                  >
-                    <Icon icon="lucide:x" width={11} />
-                    {t("snippets.page.clearSearch")}
-                  </button>
-                </div>
+                <EmptyState
+                  size="section"
+                  icon="lucide:search-x"
+                  title={t("snippets.page.noSearchResults", { search })}
+                  action={{ label: t("snippets.page.clearSearch"), onClick: () => setSearch(""), icon: "lucide:x" }}
+                />
               ) : null}
 
             </div>

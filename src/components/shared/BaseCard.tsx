@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
+import { CardMenuContext } from "@/components/shared/CardActionButton";
 
 interface BaseCardProps {
   isSelected?: boolean;
@@ -52,8 +53,12 @@ export const BaseCard = memo(function BaseCard({
   "data-connection-id": dataConnectionId,
   "data-selectable-id": dataSelectableId,
 }: BaseCardProps) {
-  const { pos, open, close } = useContextMenu();
+  const { pos, open, openAt, close } = useContextMenu();
   const activeMenuItems = isSelected && bulkContextMenuItems?.length ? bulkContextMenuItems : contextMenuItems;
+  const openMenuFrom = (e: React.MouseEvent<HTMLElement>) => {
+    openAt(e.currentTarget.getBoundingClientRect());
+    if (!isSelected) onClick?.(e as React.MouseEvent<HTMLDivElement>);
+  };
 
   const activeBorderColor = isEditing || isSelected ? "var(--t-accent)" : "transparent";
   const focusBoxShadow = isFocused && !isSelected && !isEditing ? "inset 0 0 0 2px var(--t-accent)" : "none";
@@ -93,7 +98,9 @@ export const BaseCard = memo(function BaseCard({
           onMouseLeave?.();
         }}
       >
-        {children}
+        <CardMenuContext.Provider value={activeMenuItems?.length ? openMenuFrom : null}>
+          {children}
+        </CardMenuContext.Provider>
         {showOverlay && (
           <div
             className="absolute inset-[-2px] rounded-2xl border-2 pointer-events-none"

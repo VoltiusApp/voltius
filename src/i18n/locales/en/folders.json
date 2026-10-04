@@ -23,6 +23,13 @@
       "general": "General",
       "nameLabel": "Name",
       "parentLabel": "Parent folder"
+    },
+    "appearance": {
+      "title": "Folder appearance",
+      "change": "Change icon and color",
+      "color": "Color",
+      "icon": "Icon",
+      "clear": "Clear"
     }
   }
 }

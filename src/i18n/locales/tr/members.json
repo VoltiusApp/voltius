@@ -15,8 +15,6 @@
     "noRole": "Rol yok",
     "noRoleAddPrompt": "Rol yok · Ekle →",
     "ownerRoleLabel": "sahip",
-    "count_one": "{{count}} üye",
-    "count_other": "{{count}} üye",
     "loading": "Üyeler yükleniyor…",
     "noMatch": "\"{{search}}\" ile eşleşen üye yok",
     "revokeInvitationTitle": "Daveti iptal et",

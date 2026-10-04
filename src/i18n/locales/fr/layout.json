@@ -141,7 +141,8 @@
       "vaultFound": "Coffre trouvé",
       "connectionsUnavailable": "Connexions indisponibles",
       "sshClient": "Client SSH",
-      "vaultUnreadable": "Coffre illisible"
+      "vaultUnreadable": "Coffre illisible",
+      "keychainHint": "Si macOS demande le mot de passe de votre trousseau, saisissez le mot de passe de session de votre Mac et choisissez « Toujours autoriser ». macOS le redemande après chaque mise à jour de Voltius."
     },
     "sync": {
       "title": "Synchronisation",

@@ -22,11 +22,11 @@ function assertEqual(actual: unknown, expected: unknown, msg: string) {
   // 14 days after epoch — stays "Jan 15, 1970" in any realistic TZ offset
   assertEqual(formatModified(1209600), "Jan 15, 1970", "date past-year branch");
 
-  // current-year branch → "Mon D, HH:MM" shape (TZ/clock independent on shape)
-  const nowTs = Math.floor(Date.now() / 1000);
-  const s = formatModified(nowTs);
-  const shapeOk = /^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2}( [AP]M)?$/.test(s);
-  assertEqual(shapeOk, true, "date current-year shape");
+  const now = new Date(2026, 9, 4, 12, 0);
+  const at = (d: Date) => Math.floor(d.getTime() / 1000);
+  assertEqual(/^\d{2}:\d{2}( [AP]M)?$/.test(formatModified(at(new Date(2026, 9, 4, 3, 50)), now)), true, "date today shows time only");
+  assertEqual(formatModified(at(new Date(2026, 3, 8, 3, 50)), now), "Apr 8", "date this year drops the time");
+  assertEqual(formatModified(at(new Date(2024, 3, 8)), now), "Apr 8, 2024", "date past year");
 }
 
 if (fails > 0) { console.error(`${fails} failures`); throw new Error("test failures"); }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useAutosave } from "@/hooks/useAutosave";
@@ -12,6 +12,7 @@ import {
   formLabelStyle,
 } from "@/components/shared/Panel";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
+import { IconTileButton } from "@/components/shared/IconTileButton";
 import { PinButton } from "@/components/shared/PinButton";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import FolderSelector from "@/components/shared/FolderSelector";
@@ -19,6 +20,7 @@ import { PermissionsSection } from "@/components/permissions/PermissionsSection"
 import { revertIfMoveCancelled } from "@/services/teamObjectPersistence";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { buildFolderMenuItems } from "@/utils/folderMenuItems";
+import { FolderAppearancePicker, folderIcon, type FolderAppearance } from "./folderAppearance";
 import { useFolderPin } from "./useFolderPin";
 import { useFolderSync } from "./useFolderSync";
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
@@ -60,6 +62,9 @@ function FolderEditPanelEditor({
   const [name, setName]         = useState(folder.name);
   const [vaultId, setVaultId]   = useState(folder.vault_id ?? "personal");
   const [parentId, setParentId] = useState<string | null>(folder.parent_folder_id ?? null);
+  const [appearance, setAppearance] = useState<FolderAppearance>({ color: folder.color, icon: folder.icon });
+  const [showAppearance, setShowAppearance] = useState(false);
+  const nameRowRef = useRef<HTMLDivElement>(null);
   const sync = useFolderSync(folder);
   const pin = useFolderPin(folder, !readOnly);
 
@@ -67,13 +72,16 @@ function FolderEditPanelEditor({
     setName(folder.name);
     setVaultId(folder.vault_id ?? "personal");
     setParentId(folder.parent_folder_id ?? null);
-  }, [folder.id, folder.name, folder.vault_id, folder.parent_folder_id]);
+    setAppearance({ color: folder.color, icon: folder.icon });
+  }, [folder.id, folder.name, folder.vault_id, folder.parent_folder_id, folder.color, folder.icon]);
 
   const buildFormData = (overrides?: Partial<FolderFormData>): FolderFormData => ({
     name: name.trim() || folder.name,
     object_type: folder.object_type,
     parent_folder_id: parentId ?? undefined,
     vault_id: vaultId,
+    color: appearance.color,
+    icon: appearance.icon,
     ...overrides,
   });
 
@@ -84,7 +92,7 @@ function FolderEditPanelEditor({
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name]);
+  useEffect(() => schedule(), [name, appearance]);
 
   const handleClose = () => flushAndClose(onClose);
 
@@ -131,9 +139,25 @@ function FolderEditPanelEditor({
         <FormSection label={t("folders.editPanel.general")}>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("folders.editPanel.nameLabel")}</label>
-            <input className={formInputClass} style={formInputStyle} value={name}
-              onChange={(e) => { markDirty(); setName(e.target.value); }}
-              onKeyDown={(e) => e.key === "Escape" && setName(folder.name)} />
+            <div ref={nameRowRef} className="relative flex gap-2.5">
+              <IconTileButton
+                icon={folderIcon(appearance)}
+                base={appearance.color}
+                title={t("folders.appearance.change")}
+                ariaLabel={t("folders.appearance.change")}
+                onClick={() => setShowAppearance((v) => !v)}
+              />
+              <input className={formInputClass} style={formInputStyle} value={name}
+                onChange={(e) => { markDirty(); setName(e.target.value); }}
+                onKeyDown={(e) => e.key === "Escape" && setName(folder.name)} />
+              <FolderAppearancePicker
+                open={showAppearance}
+                onClose={() => setShowAppearance(false)}
+                anchorRef={nameRowRef}
+                value={appearance}
+                onChange={(next) => { markDirty(); setAppearance(next); }}
+              />
+            </div>
           </div>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("folders.editPanel.parentLabel")}</label>

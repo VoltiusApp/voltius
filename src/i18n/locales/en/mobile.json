@@ -190,7 +190,6 @@
         "confirmDeleteBody": "Permanently delete {{name}}? This can't be undone."
       },
       "folderActions": {
-        "renameTitle": "Rename folder",
         "deleteTitle": "Delete folder?",
         "deleteBody": "Delete {{name}} and everything inside it? This can't be undone."
       },

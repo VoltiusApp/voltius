@@ -76,7 +76,7 @@ describe("sheets using the shared row", () => {
       id: "f1", name: "Prod", object_type: "connection", vault_id: "personal",
       created_at: "", updated_at: "", clocks: {},
     } as Folder;
-    render(<FolderActionsSheet folder={folder} onRename={() => {}} onDelete={() => {}} onClose={() => {}} />);
+    render(<FolderActionsSheet folder={folder} onSave={() => {}} onDelete={() => {}} onClose={() => {}} />);
     expect(document.querySelector("[data-folder-action='rename']")).not.toBeNull();
     const del = document.querySelector<HTMLButtonElement>("[data-folder-action='delete']");
     expect(del).not.toBeNull();

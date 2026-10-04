@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
+import { SectionAddButton, SectionHeader } from "@/components/shared/SectionHeader";
 import { useTranslation } from "react-i18next";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -31,7 +32,6 @@ import { useAllKeys } from "@/hooks/useAllKeys";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
-import { Icon } from "@iconify/react";
 import { KeychainToolbar } from "./KeychainToolbar";
 import { KeySection, IdentitySection } from "./KeyCards";
 import { KeyForm } from "./KeyForm";
@@ -53,7 +53,8 @@ import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
+import { folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -175,8 +176,6 @@ export default function KeychainPage() {
   const showPanel = showKeyForm || showIdentityForm || exportingKey !== null;
 
   // Refs for stable onSelect callbacks (avoid re-creating per render)
-  const showPanelRef = useRef(showPanel);
-  showPanelRef.current = showPanel;
   const filteredKeysRef = useRef(filteredKeys);
   filteredKeysRef.current = filteredKeys;
   const filteredIdentitiesRef = useRef(filteredIdentities);
@@ -199,6 +198,13 @@ export default function KeychainPage() {
   const { selectedIdSet, selectionAreaRef, itemAreaRef, dragBox, handleItemSelect, handleSelectionAreaMouseDown, selectSingle, setSelection } =
     useDragSelection(orderedIds);
 
+  const editItem = (id: string) => {
+    const key = keys.find((k) => k.id === id);
+    if (key) { openKeyFormRef.current(key); return; }
+    const identity = identities.find((i) => i.id === id);
+    if (identity) openIdentityFormRef.current(identity);
+  };
+
   const { focusedId, setFocusedId } = useListKeyNav({
     orderedIds,
     selectedIdSet,
@@ -206,20 +212,7 @@ export default function KeychainPage() {
     setSelection,
     itemAreaRef,
     layoutMode,
-    onEnter: (id) => {
-      const folder = visibleFolders.find((f) => f.id === id);
-      if (folder) { navigateInto(folder); return; }
-      const key = keys.find((k) => k.id === id);
-      if (key) { keyFormSessionKeyRef.current = key.id; setEditingKeyId(key.id); setShowKeyForm(true); return; }
-      const identity = identities.find((i) => i.id === id);
-      if (identity) { identityFormSessionKeyRef.current = identity.id; setEditingIdentityId(identity.id); setShowIdentityForm(true); }
-    },
-    onEdit: (id) => {
-      const key = keys.find((k) => k.id === id);
-      if (key) { keyFormSessionKeyRef.current = key.id; setEditingKeyId(key.id); setShowKeyForm(true); return; }
-      const identity = identities.find((i) => i.id === id);
-      if (identity) { identityFormSessionKeyRef.current = identity.id; setEditingIdentityId(identity.id); setShowIdentityForm(true); }
-    },
+    ...folderAwareKeys(visibleFolders, { open: navigateInto, edit: (f) => editFolderRef.current(f) }, { enter: editItem, edit: editItem }),
     onEscape: () => {
       if (showPanel) { setShowKeyForm(false); setShowIdentityForm(false); setExportingKey(null); }
       else setSelection([]);
@@ -837,21 +830,27 @@ export default function KeychainPage() {
   const openIdentityFormRef = useRef(openIdentityForm);
   openIdentityFormRef.current = openIdentityForm;
 
-  const handleKeySelect = useCallback((id: string, e: React.MouseEvent<HTMLDivElement>) => {
-    handleItemSelect(id, e);
-    if (showPanelRef.current) {
+  const panelOpenRef = useRef(false);
+  panelOpenRef.current = showPanel || editingFolderId !== null;
+
+  const handleKeySelect = useCallback((id: string, e: React.MouseEvent<HTMLDivElement>) =>
+    selectFollowing(handleItemSelect, panelOpenRef.current, () => {
       const key = filteredKeysRef.current.find((k) => k.id === id);
       if (key) openKeyFormRef.current(key);
-    }
-  }, [handleItemSelect]);
+    })(id, e), [handleItemSelect]);
 
-  const handleIdentitySelect = useCallback((id: string, e: React.MouseEvent<HTMLDivElement>) => {
-    handleItemSelect(id, e);
-    if (showPanelRef.current) {
+  const handleIdentitySelect = useCallback((id: string, e: React.MouseEvent<HTMLDivElement>) =>
+    selectFollowing(handleItemSelect, panelOpenRef.current, () => {
       const identity = filteredIdentitiesRef.current.find((i) => i.id === id);
       if (identity) openIdentityFormRef.current(identity);
-    }
-  }, [handleItemSelect]);
+    })(id, e), [handleItemSelect]);
+
+  const editFolder = (folder: Folder) => { closePanel(); setEditingFolderId(folder.id); };
+  const editFolderRef = useRef(editFolder);
+  editFolderRef.current = editFolder;
+
+  const createFolder = () =>
+    void saveFolder(newFolderData("keychain", activeFolderId, defaultVaultId));
 
   return (
     <>
@@ -924,7 +923,7 @@ export default function KeychainPage() {
           onImportKey={canEditKeys ? () => openKeyForm(null) : undefined}
           onGenerateKey={canEditKeys ? openKeyGenForm : undefined}
           onNewIdentity={canEditIdentities ? () => openIdentityForm(null) : undefined}
-          onNewFolder={() => void saveFolder({ name: "New Folder" /* persisted English default; menu label is localized */, object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId })}
+          onNewFolder={createFolder}
           availableTags={availableTags}
           tagFilter={tagFilter}
           onTagFilterChange={setTagFilter}
@@ -963,28 +962,13 @@ export default function KeychainPage() {
             {/* ── Folders section ── */}
             {visibleFolders.length > 0 && (
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-                    {t("keychain.page.folders")}
-                  </p>
-                  <button
-                    className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = "var(--t-text-primary)";
-                      e.currentTarget.style.background = "var(--t-bg-elevated)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = "var(--t-text-dim)";
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                    onClick={() => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId })}
-                  >
-                    <Icon icon="lucide:plus" width={12} />
-                    {t("keychain.page.new")}
-                  </button>
-                </div>
+                <SectionHeader
+                  label={t("keychain.page.folders")}
+                  count={visibleFolders.length}
+                  aside={<SectionAddButton label={t("keychain.page.new")} onClick={createFolder} />}
+                />
                 <div
-                  {...cardGridProps(layoutMode, "240px")}
+                  {...cardGridProps(layoutMode, "card")}
                 >
                   {visibleFolders.map((folder) => (
                     <FolderCard
@@ -996,11 +980,11 @@ export default function KeychainPage() {
                       isFocused={focusedId === folder.id}
                       isDragOver={dragOverFolderId === folder.id}
                       dimmed={cutIds.has(folder.id)}
-                      onClick={() => navigateInto(folder)}
+                      onOpen={() => navigateInto(folder)}
                       onRename={(f, newName) => void updateFolder(f.id, { name: newName, object_type: f.object_type, parent_folder_id: f.parent_folder_id })}
                       onDelete={(f) => setConfirmDeleteFolderId(f.id)}
-                      onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
-                      onEdit={() => { closePanel(); setEditingFolderId(folder.id); }}
+                      onSelect={selectFollowing(handleItemSelect, panelOpenRef.current, () => editFolder(folder))}
+                      onEdit={() => editFolder(folder)}
                       onExport={() => useUIStore.getState().openImportExport("export", { bulk: { keys: keys.filter((k) => k.folder_id === folder.id).map((k) => k.id), identities: identities.filter((i) => i.folder_id === folder.id).map((i) => i.id) } })}
                       onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                       {...folderDropProps(folder.id)}
@@ -1129,7 +1113,7 @@ export default function KeychainPage() {
             ...(canEditIdentities ? [
               { label: t("keychain.toolbar.newIdentity"), icon: "lucide:user-plus", onClick: () => openIdentityForm(null) },
             ] : []),
-            { label: t("keychain.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }) },
+            { label: t("keychain.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder },
             ...(useVaultClipboardStore.getState().clipboard?.tab === "keychain"
               ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
               : []),

@@ -9,7 +9,7 @@ import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaul
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { useSnippetStore } from "@/stores/snippetStore";
-import { folderSubtreeIds } from "@/utils/folderTree";
+import { folderSubtreeIds, overStoredFolder } from "@/utils/folderTree";
 
 interface SnippetFolderStore {
   folders: Folder[];
@@ -52,6 +52,8 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
         object_type: data.object_type,
         parent_folder_id: data.parent_folder_id,
         vault_id: data.vault_id,
+        color: data.color,
+        icon: data.icon,
         created_at: now,
         updated_at: now,
         clocks: { created_at: now, updated_at: now },
@@ -69,8 +71,9 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
     return folder;
   },
 
-  updateFolder: async (id, data) => {
+  updateFolder: async (id, input) => {
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
+    const data = overStoredFolder(teamEntry?.item ?? get().folders.find((f) => f.id === id), input);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
       const now = new Date().toISOString();
@@ -80,6 +83,8 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
         object_type: data.object_type,
         parent_folder_id: data.parent_folder_id,
         vault_id: data.vault_id ?? prev.vault_id,
+        color: data.color,
+        icon: data.icon,
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };

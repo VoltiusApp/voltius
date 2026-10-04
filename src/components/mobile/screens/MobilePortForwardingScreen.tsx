@@ -13,7 +13,7 @@ import MobileFilterBar from "@/components/mobile/MobileFilterBar";
 import MobilePanelHeader from "@/components/mobile/panels/MobilePanelHeader";
 import RuleActionsSheet from "@/components/mobile/sheets/RuleActionsSheet";
 import AddChoiceSheet from "@/components/mobile/sheets/AddChoiceSheet";
-import FolderFormSheet from "@/components/mobile/sheets/FolderFormSheet";
+import FolderFormSheet, { type FolderEdit } from "@/components/mobile/sheets/FolderFormSheet";
 import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
@@ -60,8 +60,8 @@ export default function MobilePortForwardingScreen() {
   const closeForm = () => { setFormRule(undefined); dirtyRef.current = false; };
   const shownRuleId = formRule && formRule !== "new" ? formRule.id : null;
   useCloseWhenGone(shownRuleId, allRules.some((r) => r.id === shownRuleId), closeForm);
-  const createFolder = (name: string) =>
-    void saveFolder({ name, object_type: "port_forwarding", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
+  const createFolder = (edit: FolderEdit) =>
+    void saveFolder({ ...edit, object_type: "port_forwarding", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
@@ -80,7 +80,7 @@ export default function MobilePortForwardingScreen() {
 
       <div className="flex-1 overflow-y-auto pb-4">
         {!search && subfolders.map((f) => (
-          <MobileFolderRow key={f.id} name={f.name} count={folderItemCount(allRules, f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />
+          <MobileFolderRow key={f.id} folder={f} count={folderItemCount(allRules, f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />
         ))}
 
         {rules.map((rule) => {
@@ -137,7 +137,7 @@ export default function MobilePortForwardingScreen() {
       {folderSheet && (
         <FolderActionsSheet
           folder={folderSheet}
-          onRename={(name) => void updateFolder(folderSheet.id, { name, object_type: "port_forwarding", parent_folder_id: folderSheet.parent_folder_id, vault_id: folderSheet.vault_id })}
+          onSave={(edit) => void updateFolder(folderSheet.id, { ...edit, object_type: "port_forwarding" })}
           onDelete={() => { nav.onFolderDeleted(folderSheet.id); void deleteFolder(folderSheet.id); }}
           onClose={() => setFolderSheet(null)}
         />

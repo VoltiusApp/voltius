@@ -292,7 +292,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
               className="flex items-center gap-2 text-sm transition-colors"
               style={{ color: favorite ? "var(--t-accent)" : "var(--t-text-dim)" }}
             >
-              <Icon icon="lucide:star" width={15} />
+              <Icon icon="lucide:pin" width={15} />
               {favorite ? t("snippets.form.starred") : t("snippets.form.starThisSnippet")}
             </button>
           </div>
