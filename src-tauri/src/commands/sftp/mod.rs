@@ -13,6 +13,8 @@ use tokio_util::sync::CancellationToken;
 
 pub mod dir;
 pub mod editor;
+#[allow(dead_code)]
+mod local_tar;
 mod ops;
 mod remote_shell;
 mod tar;

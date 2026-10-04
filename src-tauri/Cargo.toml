@@ -35,7 +35,7 @@ dirs = "6"
 russh = { version = "0.63.2", features = ["des"] }
 russh-sftp = "2.3"
 tokio-socks = "0.5"
-tokio-util = { version = "0.7", default-features = false, features = ["io"] }
+tokio-util = { version = "0.7", default-features = false, features = ["io", "io-util", "rt"] }
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
 tower-service = "0.3"
@@ -60,6 +60,8 @@ crypto_secretbox = "0.1"
 rusty-leveldb = "4"
 rusqlite = { version = "0.40", features = ["bundled"] }
 ruzstd = "0.9"
+tar = "0.4"
+flate2 = "1"
 portable-pty = "0.9"
 ssh-key = { version = "0.6", features = ["ed25519", "p256", "p384", "p521", "rsa", "encryption"] }
 rsa = { version = "0.9", features = ["getrandom"] }

@@ -224,7 +224,7 @@ pub fn skip_unsafe_name(
 
 /// `windows` adds what Windows reads into a name: `\` separates, `C:` is a
 /// drive, and trailing dots and spaces are dropped, so `.. ` means `..`.
-fn is_plain_name(name: &str, windows: bool) -> bool {
+pub(crate) fn is_plain_name(name: &str, windows: bool) -> bool {
     let dots_only = if windows {
         name.trim_end_matches(['.', ' ']).is_empty()
     } else {
