@@ -52,7 +52,13 @@
         "secretViewed": "Secret révélé",
         "sessionStarted": "Session démarrée",
         "sessionEnded": "Session terminée",
-        "sessionJoined": "Session rejointe"
+        "sessionJoined": "Session rejointe",
+        "memberRenamed": "Membre renommé",
+        "permissionGranted": "Permission accordée",
+        "permissionRevoked": "Permission révoquée",
+        "sessionLeft": "Session quittée",
+        "vaultCreated": "Coffre créé",
+        "vaultDeleted": "Coffre supprimé"
       }
     },
     "timeRange": {

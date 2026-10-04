@@ -171,8 +171,7 @@ export function RuleCard({
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 <p className="text-sm font-bold truncate text-(--t-text-bright)">{rule.name}</p>
-                {typeBadge}
-                <span className="ml-auto text-xs font-medium text-(--t-text-dim) shrink-0">{effectiveStatusLabel}</span>
+                <span className="ml-auto shrink-0">{typeBadge}</span>
               </div>
               <p className="text-xs font-mono text-(--t-text-secondary) truncate">{portLabel}</p>
             </div>
@@ -190,6 +189,7 @@ export function RuleCard({
             </span>
           )}
           <div className="flex items-center gap-3">
+            <span className="flex-1 min-w-0 truncate text-xs font-medium text-(--t-text-dim)">{effectiveStatusLabel}</span>
             <button onClick={(e) => { e.stopPropagation(); handleToggle(); }} className="text-(--t-text-dim) hover:text-(--t-text-bright) transition-colors flex items-center" title={actionTitle}>
               <Icon icon={actionIcon} width={18} className={isBusy ? "animate-spin" : undefined} />
             </button>

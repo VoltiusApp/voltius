@@ -1026,7 +1026,7 @@ export function SnippetsPage() {
         <div ref={itemAreaRef} data-drag-surface="true">
           {loading ? (
             <SkeletonList />
-          ) : snippets.length === 0 && scopedFolders.length === 0 ? (
+          ) : !hasSearch && filtered.length === 0 && scopedFolders.length === 0 ? (
             <EmptyState onAdd={() => openSnippet("new")} />
           ) : (
             <div className="space-y-6">

@@ -52,7 +52,13 @@
         "secretViewed": "密钥已查看",
         "sessionStarted": "会话已开始",
         "sessionEnded": "会话已结束",
-        "sessionJoined": "会话已加入"
+        "sessionJoined": "会话已加入",
+        "memberRenamed": "成员已重命名",
+        "permissionGranted": "已授予权限",
+        "permissionRevoked": "已撤销权限",
+        "sessionLeft": "已离开会话",
+        "vaultCreated": "已创建保险库",
+        "vaultDeleted": "已删除保险库"
       }
     },
     "timeRange": {

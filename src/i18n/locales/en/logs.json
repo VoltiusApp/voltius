@@ -52,7 +52,13 @@
         "secretViewed": "Secret revealed",
         "sessionStarted": "Session started",
         "sessionEnded": "Session ended",
-        "sessionJoined": "Session joined"
+        "sessionJoined": "Session joined",
+        "memberRenamed": "Member renamed",
+        "permissionGranted": "Permission granted",
+        "permissionRevoked": "Permission revoked",
+        "sessionLeft": "Session left",
+        "vaultCreated": "Vault created",
+        "vaultDeleted": "Vault deleted"
       }
     },
     "timeRange": {

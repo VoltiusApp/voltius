@@ -979,7 +979,7 @@ export default function HostsPage() {
             openBgMenu(e);
           }}
         >
-          {connections.length === 0 && scopedFolders.length === 0 && !showForm && !showSerialForm ? (
+          {scopedConnections.length === 0 && scopedFolders.length === 0 && !showForm && !showSerialForm ? (
             <EmptyState onAdd={canCreate ? () => { setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } : undefined} />
           ) : (
             <div ref={itemAreaRef} data-drag-surface="true" className="space-y-6">

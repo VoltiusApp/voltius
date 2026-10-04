@@ -52,7 +52,13 @@
         "secretViewed": "Секрет раскрыт",
         "sessionStarted": "Сессия начата",
         "sessionEnded": "Сессия завершена",
-        "sessionJoined": "Присоединение к сессии"
+        "sessionJoined": "Присоединение к сессии",
+        "memberRenamed": "Участник переименован",
+        "permissionGranted": "Разрешение выдано",
+        "permissionRevoked": "Разрешение отозвано",
+        "sessionLeft": "Выход из сеанса",
+        "vaultCreated": "Хранилище создано",
+        "vaultDeleted": "Хранилище удалено"
       }
     },
     "timeRange": {

@@ -686,12 +686,7 @@ export function PortForwardingPage() {
                     </div>
                   </div>
                 )}
-                <div
-                  className={layoutMode === "grid"
-                    ? "grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4"
-                    : "flex flex-col gap-1"
-                  }
-                >
+                <div {...cardGridProps(layoutMode, "20rem")}>
                   {filtered.map((rule) => {
                     const { status, isActive, statusLabel, isBusy, webUrl } = statusFor(rule);
                     return (

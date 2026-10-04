@@ -6,7 +6,7 @@ import { avatarColor } from "@/components/shared/AvatarStack";
 import { LOCAL_ACTOR_ID } from "@/services/localAuditService";
 import { useIdentityStore } from "@/stores/identityStore";
 import { findIdentityIn } from "@/services/credentialScope";
-import { formatDate, formatTime, SHORT_DATE, HOUR_MINUTE } from "@/utils/localeFormat";
+import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 
 // ─── Action metadata ──────────────────────────────────────────────────────────
 
@@ -104,55 +104,78 @@ function AuditBadge({ accent, title, children }: { accent?: boolean; title?: str
   );
 }
 
-interface Props {
-  log: AuditLog;
-  showDate?: boolean;
+export function actionName(action: string): string {
+  const key = `logs.filters.actionOptions.${action.replace(/[._](\w)/g, (_, c: string) => c.toUpperCase())}`;
+  return i18n.exists(key) ? i18n.t(key) : action;
 }
 
-export function AuditEventRow({ log, showDate = false }: Props) {
-  const { t } = useTranslation();
-  const actionMeta = ACTION_META[log.action] ?? FALLBACK_META;
+export function ActorAvatar({ log, className = "" }: { log: AuditLog; className?: string }) {
+  return (
+    <div
+      className={`shrink-0 rounded-full flex items-center justify-center text-white font-bold select-none ${className}`}
+      style={{ background: avatarColor(log.actor_name) }}
+      title={actorTitle(log)}
+    >
+      {actorName(log)[0]?.toUpperCase() ?? "?"}
+    </div>
+  );
+}
+
+export function ActionDot({ log, className = "" }: { log: AuditLog; className?: string }) {
+  const { icon, color } = ACTION_META[log.action] ?? FALLBACK_META;
+  return (
+    <div className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${className}`} style={{ background: `${color}22`, color }}>
+      <Icon icon={icon} width={11} />
+    </div>
+  );
+}
+
+function connectIdentity(log: AuditLog) {
   const meta = log.metadata ?? {};
   const isConnect = log.action === "connection.started";
-  const source = isConnect ? (meta.identity_source as string | undefined) : undefined;
-  const fingerprint = isConnect && typeof meta.key_fingerprint === "string" ? meta.key_fingerprint : undefined;
+  return {
+    source: isConnect ? (meta.identity_source as string | undefined) : undefined,
+    identityId: String(meta.identity_id),
+    fingerprint: isConnect && typeof meta.key_fingerprint === "string" ? meta.key_fingerprint : undefined,
+  };
+}
+
+export function auditDetail(log: AuditLog): string {
+  return [log.ip_address, connectIdentity(log).fingerprint].filter(Boolean).join(" · ");
+}
+
+export function AuditBadges({ log }: { log: AuditLog }) {
+  const { t } = useTranslation();
+  const { source, identityId } = connectIdentity(log);
   const sharedName = useIdentityStore((s) =>
-    source === "team" ? findIdentityIn({ ownIdentities: s.identities, teamIdentities: s.teamIdentities }, String(meta.identity_id))?.name : undefined,
+    source === "team" ? findIdentityIn({ ownIdentities: s.identities, teamIdentities: s.teamIdentities }, identityId)?.name : undefined,
   );
-  const actor = actorName(log);
-  const time = new Date(log.created_at);
-  const timeStr = formatTime(time, HOUR_MINUTE);
-  const dateStr = formatDate(time, SHORT_DATE);
+  return (
+    <>
+      {source === "own" && <AuditBadge accent title={t("logs.badges.ownKeyTooltip")}>{t("logs.badges.ownKey")}</AuditBadge>}
+      {source === "team" && <AuditBadge>{sharedName ? t("logs.badges.shared", { name: sharedName }) : t("logs.badges.sharedUnknown")}</AuditBadge>}
+      {log.source === "client" && <AuditBadge title={t("logs.badges.clientTooltip")}>{t("logs.badges.client")}</AuditBadge>}
+    </>
+  );
+}
+
+export function AuditEventRow({ log }: { log: AuditLog }) {
+  const actionMeta = ACTION_META[log.action] ?? FALLBACK_META;
+  const { fingerprint } = connectIdentity(log);
 
   return (
     <div
       className="flex items-start gap-3 px-4 py-2.5 hover:bg-(--t-bg-elevated) rounded-lg transition-colors"
     >
-      {/* Actor avatar */}
-      <div
-        className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold select-none mt-0.5"
-        style={{ background: avatarColor(log.actor_name) }}
-        title={actorTitle(log)}
-      >
-        {actor[0]?.toUpperCase() ?? "?"}
-      </div>
-
-      {/* Action dot */}
-      <div
-        className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-1"
-        style={{ background: `${actionMeta.color}22`, color: actionMeta.color }}
-      >
-        <Icon icon={actionMeta.icon} width={11} />
-      </div>
+      <ActorAvatar log={log} className="w-7 h-7 text-xs mt-0.5" />
+      <ActionDot log={log} className="mt-1" />
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-sm font-medium text-(--t-text-primary)">{actor}</span>
+          <span className="text-sm font-medium text-(--t-text-primary)">{actorName(log)}</span>
           <span className="text-sm text-(--t-text-secondary)">{actionMeta.label(log)}</span>
-          {source === "own" && <AuditBadge accent title={t("logs.badges.ownKeyTooltip")}>{t("logs.badges.ownKey")}</AuditBadge>}
-          {source === "team" && <AuditBadge>{sharedName ? t("logs.badges.shared", { name: sharedName }) : t("logs.badges.sharedUnknown")}</AuditBadge>}
-          {log.source === "client" && <AuditBadge title={t("logs.badges.clientTooltip")}>{t("logs.badges.client")}</AuditBadge>}
+          <AuditBadges log={log} />
         </div>
         {(log.ip_address || fingerprint) && (
           <div className="text-xs text-(--t-text-dim) mt-0.5">
@@ -165,8 +188,7 @@ export function AuditEventRow({ log, showDate = false }: Props) {
 
       {/* Time */}
       <div className="shrink-0 text-right">
-        {showDate && <div className="text-xs text-(--t-text-dim)">{dateStr}</div>}
-        <div className="text-xs text-(--t-text-dim)">{timeStr}</div>
+        <div className="text-xs text-(--t-text-dim)">{formatTime(new Date(log.created_at), HOUR_MINUTE)}</div>
       </div>
     </div>
   );
