@@ -1,10 +1,9 @@
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { PortForwardingRule, VaultOption } from "@/types";
 import { formatRuleLabel } from "@/utils/tunnelFormat";
 import { BaseCard } from "@/components/shared/BaseCard";
-import { CardActionButton } from "@/components/shared/CardActionButton";
+import { CardActionButton, CardMenuButton } from "@/components/shared/CardActionButton";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { tunnelStatusTone } from "@/utils/statusTone";
 import { type ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -108,12 +107,11 @@ export function RuleCard({
   const statusDot = (
     <StatusDot tone={tunnelStatusTone(status)} halo="var(--t-bg-card)" corner label={effectiveStatusLabel} />
   );
-  const actionButtons = (
-    <div className="flex items-center gap-1 shrink-0">
-      <CardActionButton icon={actionIcon} title={actionTitle} onClick={handleToggle} />
-      {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(rule.id)} danger />}
-      {webUrl && onOpenWeb && <CardActionButton icon="lucide:globe" title={t("portForwarding.ruleCard.openUrl", { url: webUrl })} onClick={() => onOpenWeb(webUrl)} />}
-    </div>
+  const webButton = (reveal: boolean) => webUrl && onOpenWeb && (
+    <CardActionButton icon="lucide:globe" title={t("portForwarding.ruleCard.openUrl", { url: webUrl })} reveal={reveal} onClick={() => onOpenWeb(webUrl)} />
+  );
+  const toggleButton = (
+    <CardActionButton icon={actionIcon} title={actionTitle} reveal={false} iconClassName={isBusy ? "animate-spin" : undefined} onClick={handleToggle} />
   );
 
   return (
@@ -159,7 +157,12 @@ export function RuleCard({
             </p>
           )}
           <span className="text-xs text-(--t-text-dim) shrink-0 hidden md:inline">{effectiveStatusLabel}</span>
-          {actionButtons}
+          <div className="flex items-center gap-1 shrink-0">
+            {webButton(true)}
+            {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(rule.id)} danger />}
+            {toggleButton}
+            <CardMenuButton />
+          </div>
         </>
       ) : (
         <div className="flex-1 min-w-0 self-start flex flex-col gap-3">
@@ -188,21 +191,11 @@ export function RuleCard({
               {t("portForwarding.ruleCard.connectionsCount", { count: rule.connection_ids.length })}
             </span>
           )}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-0.5 -mb-1.5">
             <span className="flex-1 min-w-0 truncate text-xs font-medium text-(--t-text-dim)">{effectiveStatusLabel}</span>
-            <button onClick={(e) => { e.stopPropagation(); handleToggle(); }} className="text-(--t-text-dim) hover:text-(--t-text-bright) transition-colors flex items-center" title={actionTitle}>
-              <Icon icon={actionIcon} width={18} className={isBusy ? "animate-spin" : undefined} />
-            </button>
-            {canEdit && (
-              <button onClick={(e) => { e.stopPropagation(); onDelete(rule.id); }} className="text-(--t-text-dim) hover:text-(--t-status-error) transition-colors flex items-center" title={t("common.action.delete")}>
-                <Icon icon="lucide:trash-2" width={18} />
-              </button>
-            )}
-            {webUrl && onOpenWeb && (
-              <button onClick={(e) => { e.stopPropagation(); onOpenWeb(webUrl); }} className="text-(--t-text-dim) hover:text-(--t-text-bright) transition-colors flex items-center" title={t("portForwarding.ruleCard.openUrl", { url: webUrl })}>
-                <Icon icon="lucide:globe" width={18} />
-              </button>
-            )}
+            {webButton(false)}
+            {toggleButton}
+            <CardMenuButton />
           </div>
         </div>
       )}

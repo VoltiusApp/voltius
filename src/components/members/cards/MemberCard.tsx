@@ -6,7 +6,7 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import type { LayoutMode } from "@/components/shared/ToolbarViewControls";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { BaseCard } from "@/components/shared/BaseCard";
-import { CardActionButton } from "@/components/shared/CardActionButton";
+import { CardActionButton, CardMenuButton } from "@/components/shared/CardActionButton";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { memberAvatarLabel, memberLabel, secondaryHandle } from "@/services/memberLabel";
 
@@ -45,14 +45,11 @@ export function MemberCard({
 }: MemberCardProps) {
   const { t } = useTranslation();
   const openAction = memberOpenAction(t, editable);
-  const openButton = (reveal: boolean) => (
-    <CardActionButton
-      icon={openAction.icon}
-      title={openAction.label}
-      reveal={reveal}
-      width={reveal ? 18 : 14}
-      onClick={onOpen}
-    />
+  const actions = (width: number) => (
+    <div className="flex items-center gap-0.5">
+      <CardActionButton icon={openAction.icon} title={openAction.label} reveal={false} width={width} onClick={onOpen} />
+      <CardMenuButton width={width} />
+    </div>
   );
   if (layoutMode === "grid") {
     return (
@@ -68,7 +65,7 @@ export function MemberCard({
         bulkContextMenuItems={bulkContextMenuItems}
         className="flex-col items-center text-center gap-2 py-4"
       >
-        <div className="absolute top-1.5 right-1.5">{openButton(false)}</div>
+        <div className="absolute top-1.5 right-1.5">{actions(14)}</div>
         <div className="relative">
           <MemberAvatar member={member} size={40} />
           {isOwner && (
@@ -119,7 +116,7 @@ export function MemberCard({
         )}
       </div>
       <RoleBadges member={member} roles={roles} canManage={canManage} onAddRole={onAddRole} />
-      {openButton(true)}
+      {actions(18)}
     </BaseCard>
   );
 }

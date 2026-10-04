@@ -162,7 +162,7 @@ function SnippetRow({
               {snippet.name}
             </p>
             {snippet.favorite && (
-              <Icon icon="lucide:star" width={10} style={{ color: "var(--t-accent)", flexShrink: 0 }} />
+              <Icon icon="lucide:pin" width={10} style={{ color: "var(--t-accent)", flexShrink: 0 }} />
             )}
           </div>
           <p className="text-[11px] font-mono truncate mt-0.5 leading-tight" style={{ color: "var(--t-text-muted)" }}>
@@ -186,7 +186,7 @@ function SnippetRow({
             style={{ color: snippet.favorite ? "var(--t-accent)" : "var(--t-text-muted)" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = snippet.favorite ? "var(--t-accent)" : "var(--t-text-muted)")}>
-            <Icon icon={snippet.favorite ? "lucide:star" : "lucide:star"} width={12} />
+            <Icon icon="lucide:pin" width={12} />
           </button>
 
           <button onClick={onInsert} disabled={!canInject} title={canInject ? t("terminal.shared.insert") : t("terminal.shared.noActiveSession")}

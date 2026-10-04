@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
-import { CardActionButton } from "@/components/shared/CardActionButton";
+import { CardActionButton, CardMenuButton } from "@/components/shared/CardActionButton";
 import { TagBadge } from "@/components/shared/TagBadge";
 import type { LayoutMode } from "@/components/shared/ToolbarViewControls";
 import type { SshKey, Identity, VaultOption } from "@/types";
@@ -259,6 +259,7 @@ function KeyCard({
             )}
             {canEdit && <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} onClick={() => onEdit(sshKey)} />}
             {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(sshKey.id)} danger />}
+            <CardMenuButton />
           </div>
         </>
       ) : (
@@ -285,24 +286,20 @@ function KeyCard({
             </div>
           </div>
 
-          {(sshKey.tags.length > 0 || canEdit) && (
-            <div className="flex items-center justify-between gap-2 -mt-0.5">
-              <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-                {sshKey.tags.slice(0, 3).map((tag) => (
-                  <TagBadge key={tag} tag={tag} className="rounded-md shrink-0 py-0 text-[10px]" />
-                ))}
-                {sshKey.tags.length > 3 && (
-                  <span className="text-[10px] text-(--t-text-dim) shrink-0">+{sshKey.tags.length - 3}</span>
-                )}
-              </div>
-              {canEdit && (
-                <div className="flex items-center gap-0.5 shrink-0">
-                  <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(sshKey)} />
-                  <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} danger reveal={false} onClick={() => onDelete(sshKey.id)} />
-                </div>
+          <div className="flex items-center justify-between gap-2 -mt-0.5">
+            <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+              {sshKey.tags.slice(0, 3).map((tag) => (
+                <TagBadge key={tag} tag={tag} className="rounded-md shrink-0 py-0 text-[10px]" />
+              ))}
+              {sshKey.tags.length > 3 && (
+                <span className="text-[10px] text-(--t-text-dim) shrink-0">+{sshKey.tags.length - 3}</span>
               )}
             </div>
-          )}
+            <div className="flex items-center gap-0.5 shrink-0">
+              {canEdit && <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(sshKey)} />}
+              <CardMenuButton />
+            </div>
+          </div>
         </div>
       )}
     </BaseCard>
@@ -542,6 +539,7 @@ function IdentityCard({
             )}
             {canEdit && <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} onClick={() => onEdit(identity)} />}
             {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(identity.id)} danger />}
+            <CardMenuButton />
           </div>
         </>
       ) : (
@@ -577,24 +575,20 @@ function IdentityCard({
             </div>
           </div>
 
-          {(identity.tags.length > 0 || canEdit) && (
-            <div className="flex items-center justify-between gap-2 -mt-0.5">
-              <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-                {identity.tags.slice(0, 3).map((tag) => (
-                  <TagBadge key={tag} tag={tag} className="rounded-md shrink-0 py-0 text-[10px]" />
-                ))}
-                {identity.tags.length > 3 && (
-                  <span className="text-[10px] text-(--t-text-dim) shrink-0">+{identity.tags.length - 3}</span>
-                )}
-              </div>
-              {canEdit && (
-                <div className="flex items-center gap-0.5 shrink-0">
-                  <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(identity)} />
-                  <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} danger reveal={false} onClick={() => onDelete(identity.id)} />
-                </div>
+          <div className="flex items-center justify-between gap-2 -mt-0.5">
+            <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+              {identity.tags.slice(0, 3).map((tag) => (
+                <TagBadge key={tag} tag={tag} className="rounded-md shrink-0 py-0 text-[10px]" />
+              ))}
+              {identity.tags.length > 3 && (
+                <span className="text-[10px] text-(--t-text-dim) shrink-0">+{identity.tags.length - 3}</span>
               )}
             </div>
-          )}
+            <div className="flex items-center gap-0.5 shrink-0">
+              {canEdit && <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(identity)} />}
+              <CardMenuButton />
+            </div>
+          </div>
         </div>
       )}
     </BaseCard>

@@ -1,4 +1,3 @@
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
@@ -6,6 +5,7 @@ import { fingerprintLabel, isTlsPin } from "@/services/knownHosts";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import type { KnownHost, VaultOption } from "@/types";
+import { CardActionButton, CardMenuButton } from "@/components/shared/CardActionButton";
 
 interface KnownHostCardProps {
   host: KnownHost;
@@ -115,17 +115,10 @@ export function KnownHostCard({
         )}
       </div>
 
-      {/* Delete action (visible on hover) */}
-      {canEdit && onDelete && (
-        <button
-          className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-(--t-text-dim) opacity-0 group-hover:opacity-100 transition-opacity hover:text-status-error hover:bg-status-error/10"
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          title={t("common.action.delete")}
-          type="button"
-        >
-          <Icon icon="lucide:trash-2" width={14} />
-        </button>
-      )}
+      <div className="flex items-center gap-0.5 shrink-0">
+        {isList && canEdit && onDelete && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} danger width={14} onClick={onDelete} />}
+        <CardMenuButton width={14} />
+      </div>
     </BaseCard>
   );
 }

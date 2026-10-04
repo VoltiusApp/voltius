@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { GLASS_BG, GLASS_BG_HOVER, GLASS_SHADOW, GLASS_SHADOW_HOVER } from "@/components/shared/BaseCard";
-import { CardActionButton } from "@/components/shared/CardActionButton";
+import { CardActionButton, CardMenuButton, CardMenuContext, CardPinButton } from "@/components/shared/CardActionButton";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { buildFolderMenuItems } from "@/utils/folderMenuItems";
@@ -66,9 +66,9 @@ export function FolderCard({
   const iconSize = isList ? 14 : 22;
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
-  const { pos: ctxPos, open: openCtx, close: closeCtx } = useContextMenu();
+  const { pos: ctxPos, open: openCtx, openAt: openCtxAt, close: closeCtx } = useContextMenu();
   const sync = useFolderSync(folder);
-  const { effPinned, pinIcon, pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem } = useFolderPin(folder, canEdit);
+  const { pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem } = useFolderPin(folder, canEdit);
   const activeMenuItems = isSelected && bulkContextMenuItems?.length ? bulkContextMenuItems : undefined;
 
   const handleRenameCommit = () => {
@@ -198,21 +198,17 @@ export function FolderCard({
         )}
 
         <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={(e) => { e.stopPropagation(); togglePin(); }}
-            className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-(--t-text-bright)"}`}
-            style={{ color: pinColor }}
-            title={effPinned ? t("folders.card.unpin") : t("folders.card.pin")}
-          >
-            <Icon icon={pinIcon} width={16} />
-          </button>
+          {pinAlwaysVisible && <CardPinButton color={pinColor} title={t("folders.card.unpin")} onClick={togglePin} width={16} />}
           {!sync.isSynced && (
             <span title={t("folders.card.cloudSyncDisabled")} className="text-(--t-text-dim) flex items-center">
               <Icon icon="lucide:cloud-off" width={18} />
             </span>
           )}
-          {canEdit && <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} onClick={() => onEdit?.()} />}
-          {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(folder)} danger />}
+          {isList && canEdit && <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} onClick={() => onEdit?.()} />}
+          {isList && canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(folder)} danger />}
+          <CardMenuContext.Provider value={(e) => { onSelect?.(folder.id, e as React.MouseEvent<HTMLDivElement>); openCtxAt(e.currentTarget.getBoundingClientRect()); }}>
+            <CardMenuButton />
+          </CardMenuContext.Provider>
         </div>
       </div>
 

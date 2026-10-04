@@ -1,20 +1,26 @@
+import { createContext, useContext } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   icon: string;
   title: string;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   danger?: boolean;
-  /** When true (default) the button is hidden until the card is hovered. */
+  /** When true (default) the button stays invisible until the card is hovered or focused; its space is always reserved. */
   reveal?: boolean;
   width?: number;
+  iconClassName?: string;
 }
 
-export function CardActionButton({ icon, title, onClick, danger, reveal = true, width = 18 }: Props) {
+const REVEAL = "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100";
+
+export function CardActionButton({ icon, title, onClick, danger, reveal = true, width = 18, iconClassName }: Props) {
   return (
     <button
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className={`${reveal ? "hidden group-hover:flex" : "flex"} items-center justify-center p-1.5 rounded-lg transition-colors text-(--t-text-secondary)`}
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(e); }}
+      className={`flex ${reveal ? REVEAL : ""} items-center justify-center p-1.5 rounded-lg transition-colors text-(--t-text-secondary)`}
       onMouseEnter={(e) => {
         e.currentTarget.style.color = danger ? "var(--t-status-error)" : "var(--t-text-primary)";
         e.currentTarget.style.background = danger
@@ -26,8 +32,47 @@ export function CardActionButton({ icon, title, onClick, danger, reveal = true, 
         e.currentTarget.style.background = "transparent";
       }}
       title={title}
+      aria-label={title}
     >
-      <Icon icon={icon} width={width} />
+      <Icon icon={icon} width={width} className={iconClassName} />
+    </button>
+  );
+}
+
+/** Opens the card's own context menu; provided by the card that owns the menu. */
+export const CardMenuContext = createContext<((e: React.MouseEvent<HTMLElement>) => void) | null>(null);
+
+export function CardMenuButton({ width = 18 }: { width?: number }) {
+  const { t } = useTranslation();
+  const openMenu = useContext(CardMenuContext);
+  if (!openMenu) return null;
+  return (
+    <CardActionButton
+      icon="lucide:ellipsis"
+      title={t("common.action.moreOptions")}
+      reveal={false}
+      width={width}
+      onClick={openMenu}
+    />
+  );
+}
+
+export function CardPinButton({ color, title, onClick, width = 14 }: {
+  color: string;
+  title: string;
+  onClick: () => void;
+  width?: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className="shrink-0 flex items-center transition-colors"
+      style={{ color }}
+      title={title}
+      aria-label={title}
+    >
+      <Icon icon="lucide:pin" width={width} />
     </button>
   );
 }

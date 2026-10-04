@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import type { Connection, VaultOption } from "@/types";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
-import { CardActionButton } from "@/components/shared/CardActionButton";
+import { CardActionButton, CardMenuButton, CardPinButton } from "@/components/shared/CardActionButton";
 import { OverflowTagList } from "@/components/shared/OverflowTagList";
 import { type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
@@ -116,7 +116,6 @@ export default function HostCard({
         return t("hosts.card.hiddenPinnedByTeam", { name: pinnerName });
     }
   })();
-  const pinIcon = pinSource === "team-hidden" ? "lucide:pin-off" : "lucide:pin";
   const pinColor =
     pinSource === "personal" || pinSource === "team+personal"
       ? "var(--t-accent)"
@@ -293,6 +292,7 @@ export default function HostCard({
             >
               <Icon icon={fileOnly ? "lucide:folder-open" : "lucide:terminal"} width={18} />
             </button>
+            <CardMenuButton />
           </div>
         </>
       ) : (
@@ -308,14 +308,7 @@ export default function HostCard({
                   <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-(--t-bg-input) text-(--t-text-dim) border border-(--t-border)">
                     {protocol}
                   </span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handlePinClick(); }}
-                    className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-(--t-text-bright)"}`}
-                    style={{ color: pinColor }}
-                    title={pinTooltip}
-                  >
-                    <Icon icon={pinIcon} width={14} />
-                  </button>
+                  {pinAlwaysVisible && <CardPinButton color={pinColor} title={pinTooltip} onClick={handlePinClick} />}
                   {(showPingDot || syncIcon || presenceAvatar) && (
                     <div className="flex items-center gap-1.5 ml-auto shrink-0 mr-1">
                       {presenceAvatar}
@@ -346,14 +339,12 @@ export default function HostCard({
             <div className="flex items-end">
               <div className="flex items-center gap-1 flex-1 -mb-1.5">
                 {canEdit && (
-                  <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} danger reveal={false} onClick={() => onDelete(connection.id)} />
-                )}
-                {canEdit && (
                   <CardActionButton icon="lucide:square-pen" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(connection)} />
                 )}
                 {canConnect && !isSerial && !fileOnly && (
                   <CardActionButton icon="lucide:folder-open" title={t("hosts.card.openInSftp")} reveal={false} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />
                 )}
+                <CardMenuButton />
               </div>
 
               {/* Terminal connect button — bleeds into card's bottom-right corner */}

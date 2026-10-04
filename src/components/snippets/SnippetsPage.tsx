@@ -937,7 +937,6 @@ export function SnippetsPage() {
         onExecute={(sessionIds) => void handleTrigger(s, true, sessionIds)}
         onDuplicate={() => void handleDuplicate(s)}
         onDelete={() => void deleteSnippet(s.id)}
-        onToggleFavorite={() => void handleToggleFavorite(s)}
         bulkContextMenuItems={bulkContextMenuItems}
         vaults={otherVaults}
         canEdit={canEdit}

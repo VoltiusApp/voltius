@@ -36,7 +36,6 @@ export function useFolderPin(folder: Folder, canEdit?: boolean) {
       pinPersonal(nextPersonalPinValue(pinSource));
     }
   };
-  const pinIcon = pinSource === "team-hidden" ? "lucide:pin-off" : "lucide:pin";
   const pinColor =
     pinSource === "personal" || pinSource === "team+personal"
       ? "var(--t-accent)"
@@ -69,5 +68,5 @@ export function useFolderPin(folder: Folder, canEdit?: boolean) {
     }
     : null;
 
-  return { folderType, effPinned, pinIcon, pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem };
+  return { folderType, effPinned, pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem };
 }
