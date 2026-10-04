@@ -12,6 +12,7 @@
       "description": "Regroupé dans une seule archive et extrait de l'autre côté — bien moins d'allers-retours que fichier par fichier.",
       "howItWorks": "Comment ça marche"
     },
+    "perFileBadge": { "reason": "Fichier par fichier : cet hôte ne peut pas transmettre tar en flux" },
     "conflict": {
       "title": "Ce fichier existe déjà",
       "conflictOf": "Conflit {{number}} sur {{total}}",

@@ -226,11 +226,6 @@ export async function sftpTarAvailable(sftpId: string): Promise<boolean> {
   return invoke("sftp_tar_available", { sftpId });
 }
 
-/** True if `tar` is available on the local machine. */
-export async function fsTarAvailable(): Promise<boolean> {
-  return invoke("fs_tar_available");
-}
-
 /** Remote → Remote: transfer a single file between two SFTP sessions. */
 export async function sftpTransfer(params: {
   srcSftpId: string;

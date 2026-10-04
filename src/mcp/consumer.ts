@@ -308,7 +308,7 @@ function queueTransfer(
       // so the caller still gets the refusal back untouched below.
       const refusal = refusalMessage(out);
       if (refusal !== null) throw new Error(refusal);
-    }, undefined, false, owner)
+    }, undefined, undefined, owner)
     .then(() => {
       if (failed) throw thrown;
       return out;

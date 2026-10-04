@@ -11,6 +11,7 @@
       "description": "打包为一个归档文件并在另一端解压——比逐个文件传输少得多的往返次数。",
       "howItWorks": "工作原理"
     },
+    "perFileBadge": { "reason": "逐个文件：此主机无法以流方式传输 tar" },
     "conflict": {
       "title": "文件已存在",
       "conflictOf": "冲突 {{number}} / {{total}}",

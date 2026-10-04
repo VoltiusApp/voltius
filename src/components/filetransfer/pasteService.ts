@@ -3,7 +3,7 @@ import type { FileClipboard, FileEndpoint } from "@/stores/fileClipboardStore";
 import type { PendingTransferAction } from "@/stores/transferQueueStore";
 import { type TransferTarget, transferItem } from "@/services/sftpTransferCore";
 import { classifyPaste } from "./pasteClassify";
-import { tarUsableForPair } from "./tarSupport";
+import { accelFor, tarModeForPair, type Accel } from "./tarSupport";
 import { copyNameCandidate } from "./copyNameCandidate";
 import { sameHost } from "@/stores/fileClipboardStore";
 import { runIntraPaneMove } from "./moveService";
@@ -100,7 +100,7 @@ export async function executePaste(clip: NonNullable<FileClipboard>, dest: FileE
   await run(clip.items);
 }
 
-type RunTransfer = (label: string, dir: "→" | "←", fn: (tid: string) => Promise<void>, onDone?: () => void, accelerated?: boolean) => Promise<void>;
+type RunTransfer = (label: string, dir: "→" | "←", fn: (tid: string) => Promise<void>, onDone?: () => void, accel?: Accel) => Promise<void>;
 
 export function buildPasteDeps(
   clip: NonNullable<FileClipboard>,
@@ -116,7 +116,7 @@ export function buildPasteDeps(
     existsInDest: (name) => existsAt(dest, joinPath(dest.cwd, name)),
     copyTarget: async (target) => {
       let ok = false;
-      const useTar = await tarUsableForPair(src, dest);
+      const mode = await tarModeForPair(src, dest);
       await wiring.runTransfer(
         target.name, "→",
         (tid) => transferItem({
@@ -124,10 +124,10 @@ export function buildPasteDeps(
           srcSftpId: src.sftpId ?? undefined,
           dstSftpId: dest.sftpId ?? undefined,
           srcPath: target.srcPath, dstPath: target.dstPath,
-          isDir: target.isDir, useTar, transferId: tid,
+          isDir: target.isDir, useTar: mode === "tar", transferId: tid,
         }),
         () => { ok = true; },
-        target.isDir && useTar,
+        accelFor(mode, target.isDir),
       );
       if (!ok) throw new Error(`paste: copy failed for ${target.name}`);
     },

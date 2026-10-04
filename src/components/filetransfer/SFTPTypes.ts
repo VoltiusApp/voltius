@@ -2,6 +2,7 @@ import type { HostChoice } from "@/components/shared/HostPickerPanel";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
 import type { BackendErrorCode } from "@/services/backendErrors";
 import { formatDate, formatDateTime, MONTH_DAY_TIME, SHORT_DATE } from "@/utils/localeFormat";
+import type { Accel } from "./tarSupport";
 export type { HostChoice };
 
 export type FileEntry = {
@@ -53,7 +54,7 @@ export type Transfer = {
   eta?: number;     // seconds remaining
   status: "running" | "done" | "cancelled" | "error"; error?: string;
   skipped?: string[]; // remote paths refused as local file names
-  accelerated?: boolean; // ran via tar acceleration
+  accel?: Accel;
   /** Set when an MCP client started this transfer; absent for the user's own.
    *  Deliberately NOT mcpOwnershipStore: that store's keepOnly() reaper filters
    *  its records against live SESSION ids and would sweep every transfer, and

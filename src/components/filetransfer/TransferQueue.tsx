@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { type Transfer, formatSize, formatTransferProgress } from "./SFTPTypes";
 import { canRetryTransfer } from "@/stores/transferQueueStore";
 import { AcceleratedBadge } from "./AcceleratedBadge";
+import { PerFileBadge } from "./PerFileBadge";
 import { McpMark, mcpOwnerTitle, mcpTint } from "@/components/shared/McpMark";
 
 export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRetry, collapsible = false }: {
@@ -146,7 +147,8 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Icon icon={icon} width={12} className={`${spin ? "animate-spin" : ""} shrink-0`} style={{ color }} />
-                      {tr.accelerated && <AcceleratedBadge />}
+                      {tr.accel === "tar" && <AcceleratedBadge />}
+                      {tr.accel === "perFile" && <PerFileBadge />}
                       <span className="text-xs truncate text-(--t-text-primary)">{tr.direction} {tr.label}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">

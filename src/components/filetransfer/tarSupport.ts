@@ -1,38 +1,35 @@
-import { fsTarAvailable, sftpTarAvailable } from "@/services/sftp";
+import { sftpTarAvailable } from "@/services/sftp";
 import { getToggle } from "@/stores/toggleSettingsStore";
 
-// Cached per host ("local" or an sftpId); tar availability is stable per connection.
+export type TarMode = "tar" | "perFile" | "off";
+export type Accel = Exclude<TarMode, "off">;
+
 const probeCache = new Map<string, Promise<boolean>>();
 
-function probe(key: string, fn: () => Promise<boolean>): Promise<boolean> {
-  let p = probeCache.get(key);
+function probe(sftpId: string): Promise<boolean> {
+  let p = probeCache.get(sftpId);
   if (!p) {
-    p = fn().catch(() => false);
-    probeCache.set(key, p);
+    p = sftpTarAvailable(sftpId).catch(() => false);
+    probeCache.set(sftpId, p);
   }
   return p;
 }
 
-// True only if the toggle is on AND every involved host has `tar`; else callers
-// fall back to plain SFTP. `involvesLocal` covers the local archiving step.
-export async function tarUsable(
-  sftpIds: Array<string | null | undefined>,
-  involvesLocal: boolean,
-): Promise<boolean> {
-  if (!getToggle("sftp-tar")) return false;
-  const checks: Promise<boolean>[] = [];
-  if (involvesLocal) checks.push(probe("local", fsTarAvailable));
-  for (const id of sftpIds) {
-    if (id) checks.push(probe(id, () => sftpTarAvailable(id)));
-  }
-  return (await Promise.all(checks)).every(Boolean);
+export async function tarMode(sftpIds: Array<string | null | undefined>): Promise<TarMode> {
+  const ids = sftpIds.filter((id): id is string => !!id);
+  if (!getToggle("sftp-tar") || ids.length === 0) return "off";
+  const ok = await Promise.all(ids.map(probe));
+  return ok.every(Boolean) ? "tar" : "perFile";
 }
 
 export interface TarEndpoint { isLocal: boolean; sftpId?: string | null }
 
-// Tar usability for one src → dst pair. local↔local never tars: `fsCopy` already
-// does the whole copy in one native call.
-export function tarUsableForPair(src: TarEndpoint, dst: TarEndpoint): Promise<boolean> {
-  if (src.isLocal && dst.isLocal) return Promise.resolve(false);
-  return tarUsable([src.sftpId, dst.sftpId], src.isLocal || dst.isLocal);
+// local↔local never tars: `fsCopy` already does the whole copy in one native call.
+export function tarModeForPair(src: TarEndpoint, dst: TarEndpoint): Promise<TarMode> {
+  if (src.isLocal && dst.isLocal) return Promise.resolve("off");
+  return tarMode([src.sftpId, dst.sftpId]);
+}
+
+export function accelFor(mode: TarMode, isDir: boolean): Accel | undefined {
+  return isDir && mode !== "off" ? mode : undefined;
 }

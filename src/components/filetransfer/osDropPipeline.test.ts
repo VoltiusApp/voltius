@@ -17,7 +17,7 @@ vi.mock("@/services/sftp", () => ({
   fsExists: vi.fn(async () => false),
 }));
 vi.mock("@/services/sftpTransferCore", () => ({ transferItem: m.transferItem }));
-vi.mock("./tarSupport", () => ({ tarUsable: vi.fn(async () => m.tar) }));
+vi.mock("./tarSupport", async (orig) => ({ ...(await orig<typeof import("./tarSupport")>()), tarMode: vi.fn(async () => (m.tar ? "tar" : "off")) }));
 vi.mock("@/stores/transferQueueStore", () => ({
   useTransferQueueStore: {
     getState: () => ({

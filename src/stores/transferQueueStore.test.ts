@@ -26,7 +26,7 @@ describe("runTransfer owner", () => {
 
   it("stamps the owner it was given", async () => {
     const owner = { clientId: "c-1", clientName: "Claude Code", since: 1 };
-    await store().runTransfer("a.txt", "→", async () => {}, undefined, false, owner);
+    await store().runTransfer("a.txt", "→", async () => {}, undefined, undefined, owner);
     expect(store().transfers[0].owner).toEqual(owner);
   });
 });
@@ -69,13 +69,13 @@ describe("retryTransfer", () => {
     await vi.waitFor(() => expect(fn).toHaveBeenCalledTimes(2));
   });
 
-  it("carries the owner and accelerated flag onto the retry", async () => {
+  it("carries the owner and tar mode onto the retry", async () => {
     const owner = { clientId: "c-1", clientName: "Claude Code", since: 1 };
-    await store().runTransfer("a.txt", "→", vi.fn().mockRejectedValue(new Error("x")), undefined, true, owner);
+    await store().runTransfer("a.txt", "→", vi.fn().mockRejectedValue(new Error("x")), undefined, "tar", owner);
     store().retryTransfer(store().transfers[0].id);
     await vi.waitFor(() => expect(store().transfers).toHaveLength(2));
     expect(store().transfers[0].owner).toEqual(owner);
-    expect(store().transfers[0].accelerated).toBe(true);
+    expect(store().transfers[0].accel).toBe("tar");
   });
 
   it("retries a cancelled transfer", async () => {

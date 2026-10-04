@@ -11,6 +11,7 @@
       "description": "Tek bir arşivde paketlenip karşı tarafta açılır — dosyaları tek tek aktarmaya göre çok daha az gidiş dönüş gerekir.",
       "howItWorks": "Nasıl çalışır?"
     },
+    "perFileBadge": { "reason": "Dosya dosya: bu sunucu tar akışı yapamıyor" },
     "conflict": {
       "title": "Dosya zaten var",
       "conflictOf": "Çakışma {{number}} / {{total}}",

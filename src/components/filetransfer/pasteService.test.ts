@@ -3,11 +3,11 @@ import { executePaste, buildPasteDeps, type PasteDeps } from "./pasteService";
 import type { FileEntry } from "@/components/filetransfer/SFTPTypes";
 import type { FileClipboard, FileEndpoint } from "@/stores/fileClipboardStore";
 import { transferItem } from "@/services/sftpTransferCore";
-import { tarUsableForPair } from "./tarSupport";
+import { tarModeForPair } from "./tarSupport";
 import { useNotificationStore } from "@/stores/notificationStore";
 
 vi.mock("@/services/sftpTransferCore", () => ({ transferItem: vi.fn(async () => {}) }));
-vi.mock("./tarSupport", () => ({ tarUsableForPair: vi.fn(async () => false) }));
+vi.mock("./tarSupport", async (orig) => ({ ...(await orig<typeof import("./tarSupport")>()), tarModeForPair: vi.fn(async () => "off") }));
 vi.mock("@/services/sftp", () => ({
   fsExists: vi.fn(async () => false), sftpExists: vi.fn(async () => false),
   fsRename: vi.fn(async () => {}), sftpRename: vi.fn(async () => {}),
@@ -138,17 +138,17 @@ describe("buildPasteDeps", () => {
   };
 
   it("tars a directory paste when the endpoint pair supports it", async () => {
-    vi.mocked(tarUsableForPair).mockResolvedValue(true);
+    vi.mocked(tarModeForPair).mockResolvedValue("tar");
     const w = await copyOne(remote("s1", "/a"), local("/b"), dir("/a/saves"));
     expect(transferItem).toHaveBeenCalledWith(expect.objectContaining({ useTar: true }));
-    expect(w.runTransfer).toHaveBeenCalledWith("saves", "→", expect.any(Function), expect.any(Function), true);
+    expect(w.runTransfer).toHaveBeenCalledWith("saves", "→", expect.any(Function), expect.any(Function), "tar");
   });
 
   it("falls back to plain SFTP when the pair cannot tar", async () => {
-    vi.mocked(tarUsableForPair).mockResolvedValue(false);
+    vi.mocked(tarModeForPair).mockResolvedValue("off");
     const w = await copyOne(remote("s1", "/a"), local("/b"), dir("/a/saves"));
     expect(transferItem).toHaveBeenCalledWith(expect.objectContaining({ useTar: false }));
-    expect(w.runTransfer).toHaveBeenCalledWith("saves", "→", expect.any(Function), expect.any(Function), false);
+    expect(w.runTransfer).toHaveBeenCalledWith("saves", "→", expect.any(Function), expect.any(Function), undefined);
   });
 
   it("reports originals left behind by a move as an error toast", () => {
@@ -162,8 +162,8 @@ describe("buildPasteDeps", () => {
   });
 
   it("never flags a single file as accelerated", async () => {
-    vi.mocked(tarUsableForPair).mockResolvedValue(true);
+    vi.mocked(tarModeForPair).mockResolvedValue("tar");
     const w = await copyOne(remote("s1", "/a"), local("/b"), file("/a/x.txt"));
-    expect(w.runTransfer).toHaveBeenCalledWith("x.txt", "→", expect.any(Function), expect.any(Function), false);
+    expect(w.runTransfer).toHaveBeenCalledWith("x.txt", "→", expect.any(Function), expect.any(Function), undefined);
   });
 });

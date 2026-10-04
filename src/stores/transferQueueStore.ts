@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { sftpCancelTransfer, onTransferProgress, onTransferSkipped } from "@/services/sftp";
 import { type Transfer, type FileEntry, type ConflictResolution, genId } from "@/components/filetransfer/SFTPTypes";
+import type { Accel } from "@/components/filetransfer/tarSupport";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
 
 /** True for a settled transfer that ended in `cancelled` or `error` and kept
@@ -31,7 +32,7 @@ interface TransferQueueStore {
     direction: "→" | "←",
     fn: (transferId: string) => Promise<void>,
     onDone?: () => void,
-    accelerated?: boolean,
+    accel?: Accel,
     owner?: McpOwner,
   ) => Promise<void>;
   /** False when the id is unknown or the row is not currently running. */
@@ -75,11 +76,11 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
     if (resolution === "overwrite-all") { finish([...toTransfer, current, ...remaining]); return; }
   },
 
-  runTransfer: async (label, direction, fn, onDone, accelerated = false, owner) => {
+  runTransfer: async (label, direction, fn, onDone, accel, owner) => {
     const tid = genId();
     const entry: Transfer = {
       id: tid, label, direction, transferred: 0, total: 0, status: "running",
-      accelerated, owner, rerun: { fn, onDone },
+      accel, owner, rerun: { fn, onDone },
     };
     set((s) => ({ transfers: [entry, ...s.transfers.slice(0, MAX_TRANSFERS - 1)] }));
     const startTime = Date.now();
@@ -145,6 +146,6 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
       const rest = s.transfers.filter((t) => t.id !== id);
       return { transfers: [rest[0], tr, ...rest.slice(1)] };
     });
-    void get().runTransfer(tr.label, tr.direction, tr.rerun!.fn, tr.rerun!.onDone, tr.accelerated, tr.owner);
+    void get().runTransfer(tr.label, tr.direction, tr.rerun!.fn, tr.rerun!.onDone, tr.accel, tr.owner);
   },
 }));

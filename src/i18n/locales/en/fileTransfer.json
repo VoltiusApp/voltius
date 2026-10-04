@@ -11,6 +11,7 @@
       "description": "Bundled into one archive and extracted on the other side — far fewer round trips than file-by-file.",
       "howItWorks": "How it works"
     },
+    "perFileBadge": { "reason": "File by file: this host can't stream tar" },
     "conflict": {
       "title": "File already exists",
       "conflictOf": "Conflict {{number}} of {{total}}",

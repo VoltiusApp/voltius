@@ -6,7 +6,7 @@ import {
 } from "@/services/sftp";
 import { transferItem } from "@/services/sftpTransferCore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
-import { tarUsable } from "./tarSupport";
+import { accelFor, tarMode } from "./tarSupport";
 import { joinPath } from "./moveTargetCore";
 import { type FileEntry } from "./SFTPTypes";
 
@@ -39,15 +39,15 @@ export function batchLabel(files: FileEntry[]): string {
 async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<void> {
   const { runTransfer } = useTransferQueueStore.getState();
   if (!target.isLocal && !target.sftpId) return;
-  // Tar archives locally + extracts remotely, so both ends need tar; local targets use fsCopy.
-  const useTar = !target.isLocal && target.sftpId ? await tarUsable([target.sftpId], true) : false;
+  const mode = !target.isLocal && target.sftpId ? await tarMode([target.sftpId]) : "off";
+  const useTar = mode === "tar";
 
   if (useTar && target.sftpId && files.length > 1) {
     const sftpId = target.sftpId;
     await runTransfer(batchLabel(files), "→", (tid) =>
       sftpUploadBatchTar({ sftpId, localPaths: files.map((f) => f.path), remoteDir: target.cwd, transferId: tid }),
       target.onRefresh,
-      true,
+      "tar",
     );
     return;
   }
@@ -62,18 +62,18 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
       isDir: file.isDir,
       useTar,
       transferId: tid,
-    }), target.onRefresh, file.isDir && useTar);
+    }), target.onRefresh, accelFor(mode, file.isDir));
   }
 }
 
 export async function downloadToLocal(files: FileEntry[], sftpId: string, localDir: string): Promise<void> {
   const { runTransfer } = useTransferQueueStore.getState();
-  // Archives remotely + extracts locally, so both ends need tar.
-  const useTar = await tarUsable([sftpId], true);
+  const mode = await tarMode([sftpId]);
+  const useTar = mode === "tar";
 
   if (useTar && files.length > 1) {
     await runTransfer(batchLabel(files), "←", (tid) =>
-      sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir, transferId: tid }), undefined, true);
+      sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir, transferId: tid }), undefined, "tar");
     return;
   }
 
@@ -87,7 +87,7 @@ export async function downloadToLocal(files: FileEntry[], sftpId: string, localD
       isDir: file.isDir,
       useTar,
       transferId: tid,
-    }), undefined, file.isDir && useTar);
+    }), undefined, accelFor(mode, file.isDir));
   }
 }
 
