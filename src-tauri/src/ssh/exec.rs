@@ -129,8 +129,9 @@ pub async fn drain_channel<C: MsgSource, W: AsyncWrite + Unpin>(
     loop {
         let msg = match token {
             Some(t) => tokio::select! {
-                m = channel.wait() => m,
+                biased;
                 _ = t.cancelled() => return Err("Transfer cancelled".into()),
+                m = channel.wait() => m,
             },
             None => channel.wait().await,
         };

@@ -17,6 +17,8 @@ pub mod editor;
 mod local_tar;
 mod ops;
 mod remote_shell;
+#[allow(dead_code)]
+mod stream;
 mod tar;
 #[allow(dead_code)]
 mod tar_failure;
@@ -254,9 +256,38 @@ pub(super) async fn tar_backend(
     })
 }
 
-/// Copy `reader` into `writer` in `CHUNK_SIZE` chunks, emitting transfer
-/// progress after every chunk and honouring cancellation between them.
-/// Neither side is shut down — the caller owns the close, and its wording.
+/// Copy `reader` into `writer` in `CHUNK_SIZE` chunks, calling `on_chunk` after
+/// every chunk and honouring cancellation. Neither side is shut down — the
+/// caller owns the close, and its wording.
+pub(crate) async fn pump<R, W>(
+    reader: &mut R,
+    writer: &mut W,
+    token: &CancellationToken,
+    mut on_chunk: impl FnMut(usize),
+) -> Result<(), String>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    let mut buf = vec![0u8; CHUNK_SIZE];
+    loop {
+        let n = tokio::select! {
+            biased;
+            _ = token.cancelled() => return Err("Transfer cancelled".into()),
+            r = reader.read(&mut buf) => r.map_err(|e| format!("Read error: {e}"))?,
+        };
+        if n == 0 {
+            return Ok(());
+        }
+        tokio::select! {
+            biased;
+            _ = token.cancelled() => return Err("Transfer cancelled".into()),
+            r = writer.write_all(&buf[..n]) => r.map_err(|e| format!("Write error: {e}"))?,
+        }
+        on_chunk(n);
+    }
+}
+
 pub(crate) async fn pump_chunks<R, W>(
     app: &impl TransferEvents,
     reader: &mut R,
@@ -270,22 +301,7 @@ where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
-    let mut buf = vec![0u8; CHUNK_SIZE];
-    loop {
-        if token.is_cancelled() {
-            return Err("Transfer cancelled".into());
-        }
-        let n = reader
-            .read(&mut buf)
-            .await
-            .map_err(|e| format!("Read error: {e}"))?;
-        if n == 0 {
-            break;
-        }
-        writer
-            .write_all(&buf[..n])
-            .await
-            .map_err(|e| format!("Write error: {e}"))?;
+    pump(reader, writer, token, |n| {
         *transferred += n as u64;
         app.send(
             &format!("sftp-progress-{}", transfer_id),
@@ -294,8 +310,8 @@ where
                 total,
             },
         );
-    }
-    Ok(())
+    })
+    .await
 }
 
 #[cfg(test)]
