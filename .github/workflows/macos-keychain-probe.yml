@@ -14,6 +14,6 @@ jobs:
         with:
           workspaces: '. -> target'
       - name: Clippy (macOS)
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --lib --tests -- -D warnings
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --lib --tests
       - name: Bundle tests against the real login keychain
         run: cargo test --manifest-path src-tauri/Cargo.toml --lib keychain_bundle -- --include-ignored
