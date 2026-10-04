@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { sftpListDir, fsListDir, type LocalFile, type RemoteFile } from "@/services/sftp";
+import { sftpListDir, fsListDir, type RemoteFile } from "@/services/sftp";
 import type { FileEntry } from "./SFTPTypes";
 import { isPlainName } from "./remoteName";
 import { backendErrorCode, describeError, type BackendErrorCode } from "@/services/backendErrors";
 import i18n from "@/i18n";
 
-const mapLocal = (f: LocalFile): FileEntry => ({ name: f.name, path: f.path, size: f.size, isDir: f.is_dir, modified: f.modified ?? undefined });
-const mapRemote = (f: RemoteFile): FileEntry => ({ ...mapLocal(f), permissions: f.permissions ?? undefined, isSymlink: f.is_symlink });
+const toEntry = (f: RemoteFile): FileEntry => ({
+  name: f.name, path: f.path, size: f.size, isDir: f.is_dir, modified: f.modified ?? undefined,
+  permissions: f.permissions ?? undefined, isSymlink: f.is_symlink,
+});
 
 /** Listing of `cwd`, re-read whenever `reloadKey` changes; results for a location the pane has left are dropped. */
 export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: string, reloadKey: unknown) {
@@ -31,9 +33,9 @@ export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: stri
     const current = () => wantedLocation.current === location && seq > landed.current;
     const land = () => { landed.current = seq; shownLocation.current = location; setLoading(false); };
     const load = isLocal
-      ? fsListDir(cwd).then((files) => files.map(mapLocal))
+      ? fsListDir(cwd).then((files) => files.map(toEntry))
       // The download guard checks a path's last segment, so a name that is not exactly that segment must not be listed.
-      : sftpListDir(sftpId!, cwd).then((files) => files.filter((f) => isPlainName(f.name, false)).map(mapRemote));
+      : sftpListDir(sftpId!, cwd).then((files) => files.filter((f) => isPlainName(f.name, false)).map(toEntry));
     load
       .then((e) => {
         if (!current()) return;

@@ -6,7 +6,7 @@ import { Checkbox, CheckboxBox } from "@/components/shared/Checkbox";
 import { Pills } from "@/components/shared/Pills";
 import { statusSurface } from "@/components/shared/statusSurface";
 import { describeError } from "@/services/backendErrors";
-import { sftpOwners, sftpSetAttrs, type AttrChange, type OwnerInfo } from "@/services/sftp";
+import { fsOwners, fsSetAttrs, sftpOwners, sftpSetAttrs, type AttrChange, type OwnerInfo } from "@/services/sftp";
 import type { FileEntry } from "./SFTPTypes";
 import { parentDir } from "./moveTargetCore";
 import {
@@ -43,7 +43,8 @@ function NameInput({ label, value, onChange, placeholder, hint, disabled, inputC
 }
 
 export function PermissionsDialog({ sftpId, files, onClose, onApplied, touch = false }: {
-  sftpId: string;
+  /** null: files on this machine (or its WSL distros). */
+  sftpId: string | null;
   files: FileEntry[];
   onClose: () => void;
   onApplied: () => void;
@@ -72,7 +73,7 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied, touch = f
 
   useEffect(() => {
     let live = true;
-    sftpOwners(sftpId, paths)
+    (sftpId ? sftpOwners(sftpId, paths) : fsOwners(paths))
       .catch(() => null)
       .then((list) => {
         if (!live) return;
@@ -109,7 +110,7 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied, touch = f
     setBusy(true);
     setError(null);
     try {
-      await sftpSetAttrs(sftpId, change);
+      await (sftpId ? sftpSetAttrs(sftpId, change) : fsSetAttrs(change));
       onApplied();
     } catch (e) {
       setError(describeError(e, t));

@@ -4,9 +4,13 @@ import type { FileEntry } from "./SFTPTypes";
 
 const sftpOwners = vi.fn();
 const sftpSetAttrs = vi.fn();
+const fsOwners = vi.fn();
+const fsSetAttrs = vi.fn();
 vi.mock("@/services/sftp", () => ({
   sftpOwners: (...a: unknown[]) => sftpOwners(...a),
   sftpSetAttrs: (...a: unknown[]) => sftpSetAttrs(...a),
+  fsOwners: (...a: unknown[]) => fsOwners(...a),
+  fsSetAttrs: (...a: unknown[]) => fsSetAttrs(...a),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -29,6 +33,8 @@ afterEach(() => cleanup());
 beforeEach(() => {
   sftpOwners.mockReset();
   sftpSetAttrs.mockReset().mockResolvedValue(undefined);
+  fsOwners.mockReset();
+  fsSetAttrs.mockReset().mockResolvedValue(undefined);
 });
 
 const file = (name: string, permissions: number, isDir = false): FileEntry => ({
@@ -37,9 +43,9 @@ const file = (name: string, permissions: number, isDir = false): FileEntry => ({
 
 const voltius = { uid: 1000, gid: 100, user: "voltius", group: "users" };
 
-function open(files: FileEntry[]) {
+function open(files: FileEntry[], sftpId: string | null = "s1") {
   const onApplied = vi.fn();
-  render(<PermissionsDialog sftpId="s1" files={files} onClose={vi.fn()} onApplied={onApplied} />);
+  render(<PermissionsDialog sftpId={sftpId} files={files} onClose={vi.fn()} onApplied={onApplied} />);
   return { onApplied };
 }
 
@@ -109,5 +115,20 @@ describe("PermissionsDialog", () => {
 
     await screen.findByText(/Operation not permitted/);
     expect(onApplied).not.toHaveBeenCalled();
+  });
+
+  it("changes files on this machine through the local commands", async () => {
+    fsOwners.mockResolvedValue([voltius]);
+    const { onApplied } = open([file("deploy.sh", 0o644)], null);
+    await waitFor(() => expect(ownerInput().value).toBe("voltius"));
+    expect(fsOwners).toHaveBeenCalledWith(["/srv/deploy.sh"]);
+
+    fireEvent.change(screen.getByLabelText("fileTransfer.permissions.octal"), { target: { value: "755" } });
+    fireEvent.click(applyButton());
+
+    await waitFor(() => expect(onApplied).toHaveBeenCalled());
+    expect(fsSetAttrs.mock.lastCall![0]).toMatchObject({ paths: ["/srv/deploy.sh"], set: 0o755, clear: 0o022 });
+    expect(sftpOwners).not.toHaveBeenCalled();
+    expect(sftpSetAttrs).not.toHaveBeenCalled();
   });
 });

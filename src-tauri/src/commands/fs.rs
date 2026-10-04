@@ -1,8 +1,14 @@
-use crate::commands::sftp::TransferProgress;
+use crate::commands::sftp::{sort_listing, RemoteFile, TransferProgress};
+use crate::commands::wsl;
+use crate::error::AppError;
+use crate::sftp::attrs::{
+    apply_with, owners_with, parse_modes, split_mode, AttrChange, OwnerInfo, MODES_SCRIPT,
+};
 use crate::sftp::SftpManager;
-use serde::Serialize;
+use crate::ssh::exec::Captured;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::process::Stdio;
 use tauri::{AppHandle, Emitter, State};
 use tokio_util::sync::CancellationToken;
 
@@ -30,15 +36,6 @@ fn resolve_home_path(path: &str) -> Result<PathBuf, String> {
     Ok(canonical)
 }
 
-#[derive(Serialize)]
-pub struct LocalFile {
-    pub name: String,
-    pub path: String,
-    pub size: u64,
-    pub is_dir: bool,
-    pub modified: Option<u64>,
-}
-
 #[tauri::command]
 pub fn fs_home_dir() -> Result<String, String> {
     dirs::home_dir()
@@ -62,50 +59,167 @@ fn normalize_browse_path(path: &str) -> String {
     path.to_string()
 }
 
-#[tauri::command]
-pub fn fs_list_dir(path: String) -> Result<Vec<LocalFile>, String> {
-    let path = normalize_browse_path(&path);
-    // The bare WSL server root can't be read_dir'd; list distros as folders instead.
-    if let Some(prefix) = crate::commands::wsl::root_prefix(&path) {
-        return Ok(crate::commands::wsl::list_distros()
-            .into_iter()
-            .map(|distro| LocalFile {
-                path: format!("{prefix}\\{distro}"),
-                name: distro,
-                size: 0,
-                is_dir: true,
-                modified: None,
-            })
-            .collect());
-    }
+#[cfg(unix)]
+fn raw_mode(meta: &std::fs::Metadata) -> Option<u32> {
+    use std::os::unix::fs::MetadataExt;
+    Some(meta.mode())
+}
 
-    let p = PathBuf::from(&path);
-    let entries = std::fs::read_dir(&p).map_err(|e| format!("Cannot read directory: {e}"))?;
-    let mut files: Vec<LocalFile> = entries
+#[cfg(not(unix))]
+fn raw_mode(_meta: &std::fs::Metadata) -> Option<u32> {
+    None
+}
+
+fn set_raw_mode(f: &mut RemoteFile, raw: u32) {
+    let (bits, link) = split_mode(raw);
+    f.permissions = Some(bits);
+    f.is_symlink = link;
+}
+
+fn read_local_dir(path: &str) -> Result<Vec<RemoteFile>, String> {
+    let entries = std::fs::read_dir(path).map_err(|e| format!("Cannot read directory: {e}"))?;
+    Ok(entries
         .filter_map(|e| e.ok())
         .map(|e| {
             let meta = e.metadata().ok();
-            let name = e.file_name().to_string_lossy().into_owned();
-            let entry_path = e.path().to_string_lossy().into_owned();
-            LocalFile {
-                name,
-                path: entry_path,
+            let mut f = RemoteFile {
+                name: e.file_name().to_string_lossy().into_owned(),
+                path: e.path().to_string_lossy().into_owned(),
                 size: meta.as_ref().map(|m| m.len()).unwrap_or(0),
                 is_dir: meta.as_ref().map(|m| m.is_dir()).unwrap_or(false),
+                is_symlink: false,
                 modified: meta
                     .as_ref()
                     .and_then(|m| m.modified().ok())
                     .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                     .map(|d| d.as_secs()),
+                permissions: None,
+            };
+            if let Some(raw) = meta.as_ref().and_then(raw_mode) {
+                set_raw_mode(&mut f, raw);
             }
+            f
         })
-        .collect();
-    files.sort_by(|a, b| {
-        b.is_dir
-            .cmp(&a.is_dir)
-            .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-    });
+        .collect())
+}
+
+#[tauri::command]
+pub async fn fs_list_dir(path: String) -> Result<Vec<RemoteFile>, String> {
+    let path = normalize_browse_path(&path);
+    // The bare WSL server root can't be read_dir'd; list distros as folders instead.
+    if let Some(prefix) = wsl::root_prefix(&path) {
+        return Ok(wsl::list_distros()
+            .into_iter()
+            .map(|distro| RemoteFile {
+                path: format!("{prefix}\\{distro}"),
+                name: distro,
+                size: 0,
+                is_dir: true,
+                is_symlink: false,
+                modified: None,
+                permissions: None,
+            })
+            .collect());
+    }
+
+    let wsl_dir = wsl::distro_path(&path);
+    let mut files = tokio::task::spawn_blocking(move || read_local_dir(&path))
+        .await
+        .map_err(|e| e.to_string())??;
+    // Windows sees no POSIX mode on WSL files; the distro's own `stat` does.
+    if let Some((distro, dir)) = wsl_dir {
+        if let Ok(out) = run_sh(Some(&distro), MODES_SCRIPT, vec![dir]).await {
+            let modes = parse_modes(&out.stdout_text());
+            for f in &mut files {
+                if let Some(&raw) = modes.get(&f.name) {
+                    set_raw_mode(f, raw);
+                }
+            }
+        }
+    }
+    sort_listing(&mut files);
     Ok(files)
+}
+
+fn sh_command(distro: Option<&str>) -> Result<tokio::process::Command, String> {
+    match distro {
+        #[cfg(target_os = "windows")]
+        Some(d) => Ok(wsl::exec_command(d, "sh")),
+        #[cfg(unix)]
+        None => Ok(tokio::process::Command::new("sh")),
+        _ => Err("This machine has no POSIX shell".into()),
+    }
+}
+
+/// `script` with `args` as `$1…`, run by the shell of `distro` (None: this machine).
+// The script goes in on stdin: wsl.exe re-quotes its command line, but not stdin.
+async fn run_sh(distro: Option<&str>, script: &str, args: Vec<String>) -> Result<Captured, String> {
+    use tokio::io::AsyncWriteExt;
+    let mut child = sh_command(distro)?
+        .args(["-s", "--"])
+        .args(&args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .map_err(|e| format!("Cannot start sh: {e}"))?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(script.as_bytes())
+            .await
+            .map_err(|e| format!("Cannot start sh: {e}"))?;
+    }
+    let out = child
+        .wait_with_output()
+        .await
+        .map_err(|e| format!("sh failed: {e}"))?;
+    Ok(Captured {
+        stdout: out.stdout,
+        stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+        code: out.status.code(),
+    })
+}
+
+/// The WSL distro all `paths` live in (None: this machine) and each path as its shell sees it.
+fn shell_paths(paths: &[String]) -> Result<(Option<String>, Vec<String>), String> {
+    let mut distro = None;
+    let mut out = Vec::with_capacity(paths.len());
+    for (i, p) in paths.iter().enumerate() {
+        let (d, path) = match wsl::distro_path(p) {
+            Some((d, path)) => (Some(d), path),
+            None => (None, p.clone()),
+        };
+        if i > 0 && d != distro {
+            return Err("The selection spans more than one system".into());
+        }
+        distro = d;
+        out.push(path);
+    }
+    Ok((distro, out))
+}
+
+/// Owner and group of each path, or None when this machine has no POSIX shell to ask.
+#[tauri::command]
+pub async fn fs_owners(paths: Vec<String>) -> Option<Vec<OwnerInfo>> {
+    let (distro, paths) = shell_paths(&paths).ok()?;
+    owners_with(paths, |script, args| {
+        run_sh(distro.as_deref(), script, args)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn fs_set_attrs(mut change: AttrChange) -> Result<(), AppError> {
+    if change.paths.is_empty() {
+        return Ok(());
+    }
+    let (distro, paths) = shell_paths(&change.paths)?;
+    change.paths = paths;
+    apply_with(&change, |script, args| {
+        run_sh(distro.as_deref(), script, args)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -605,5 +719,41 @@ mod tests {
         assert_eq!(drive_root("C:\\Users"), None);
         assert_eq!(drive_root("/home"), None);
         assert_eq!(drive_root("::"), None);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn local_files_list_and_change_their_mode_and_owner() {
+        use super::{fs_list_dir, fs_owners, fs_set_attrs, AttrChange};
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let tmp = tempfile::tempdir().unwrap();
+        let file = tmp.path().join("a 'b");
+        fs::write(&file, "").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
+        std::os::unix::fs::symlink(&file, tmp.path().join("link")).unwrap();
+        let path = file.to_string_lossy().into_owned();
+        let meta = fs::metadata(&file).unwrap();
+
+        fs_set_attrs(AttrChange {
+            paths: vec![path.clone()],
+            set: 0o055,
+            group: Some(meta.gid().to_string()),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+
+        let listed = fs_list_dir(tmp.path().to_string_lossy().into_owned())
+            .await
+            .unwrap();
+        let mode_of = |name: &str| {
+            let f = listed.iter().find(|f| f.name == name).unwrap();
+            (f.permissions, f.is_symlink)
+        };
+        assert_eq!(mode_of("a 'b"), (Some(0o655), false));
+        assert!(mode_of("link").1);
+
+        let owners = fs_owners(vec![path]).await.unwrap();
+        assert_eq!((owners[0].uid, owners[0].gid), (meta.uid(), meta.gid()));
     }
 }

@@ -1,9 +1,11 @@
-//! Changing a remote file's permission bits and owner (`chmod` / `chown`).
+//! Changing a file's permission bits and owner (`chmod` / `chown`).
 
 use crate::error::AppError;
 use crate::sftp::backend::{FileBackend, TransferEvents};
-use crate::ssh::exec::exit_error;
+use crate::ssh::exec::{exit_error, Captured};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::future::Future;
 
 const MODE_BITS: u32 = 0o7777;
 
@@ -136,6 +138,28 @@ if [ -n "$m" ]; then cmd=chmod; arg=$m; each "$@" || exit; fi
 /// `uid:gid:user:group` per path, GNU/busybox `stat` first, then BSD's.
 pub const OWNERS_SCRIPT: &str = r#"for p; do stat -c '%u:%g:%U:%G' -- "$p" 2>/dev/null || stat -f '%u:%g:%Su:%Sg' -- "$p" || exit; done"#;
 
+/// `<hex st_mode> ./<name>` for each entry of the folder `$1` (GNU/busybox `stat`).
+pub const MODES_SCRIPT: &str =
+    r#"cd -- "$1" && find . -mindepth 1 -maxdepth 1 -exec stat -c '%f %n' {} +"#;
+
+const S_IFMT: u32 = 0o170000;
+const S_IFLNK: u32 = 0o120000;
+
+/// A raw `st_mode` as a listing's permission bits and symlink flag.
+pub fn split_mode(raw: u32) -> (u32, bool) {
+    (raw & MODE_BITS, raw & S_IFMT == S_IFLNK)
+}
+
+pub fn parse_modes(out: &str) -> HashMap<String, u32> {
+    out.lines()
+        .filter_map(|line| {
+            let (hex, path) = line.split_once(' ')?;
+            let name = path.strip_prefix("./")?;
+            Some((name.to_string(), u32::from_str_radix(hex, 16).ok()?))
+        })
+        .collect()
+}
+
 pub fn apply_args(change: &AttrChange) -> Result<Vec<String>, String> {
     let mode = if change.changes_mode() {
         symbolic_mode(change.set, change.clear)
@@ -174,14 +198,13 @@ fn as_strs(v: &[String]) -> Vec<&str> {
     v.iter().map(String::as_str).collect()
 }
 
-/// Apply `change` with `chown`/`chmod` on the files' host.
-pub async fn apply_via_shell<E, B>(backend: &B, change: &AttrChange) -> Result<(), AppError>
+/// Apply `change` with `chown`/`chmod`, `run` executing a script with its args on the files' host.
+pub async fn apply_with<F, Fut>(change: &AttrChange, run: F) -> Result<(), AppError>
 where
-    E: TransferEvents,
-    B: FileBackend<E> + ?Sized,
+    F: FnOnce(&'static str, Vec<String>) -> Fut,
+    Fut: Future<Output = Result<Captured, String>>,
 {
-    let args = apply_args(change)?;
-    let out = backend.run_sh(APPLY_SCRIPT, &as_strs(&args)).await?;
+    let out = run(APPLY_SCRIPT, apply_args(change)?).await?;
     Ok(exit_error(
         "Changing permissions failed",
         out.code,
@@ -190,16 +213,39 @@ where
 }
 
 /// Each path's owner and group, or None when the host can't tell (no POSIX shell).
+pub async fn owners_with<F, Fut>(paths: Vec<String>, run: F) -> Option<Vec<OwnerInfo>>
+where
+    F: FnOnce(&'static str, Vec<String>) -> Fut,
+    Fut: Future<Output = Result<Captured, String>>,
+{
+    let count = paths.len();
+    let out = run(OWNERS_SCRIPT, paths).await.ok()?;
+    if out.code != Some(0) {
+        return None;
+    }
+    parse_owners(&out.stdout_text(), count)
+}
+
+pub async fn apply_via_shell<E, B>(backend: &B, change: &AttrChange) -> Result<(), AppError>
+where
+    E: TransferEvents,
+    B: FileBackend<E> + ?Sized,
+{
+    apply_with(change, |script, args| async move {
+        backend.run_sh(script, &as_strs(&args)).await
+    })
+    .await
+}
+
 pub async fn owners<E, B>(backend: &B, paths: &[String]) -> Option<Vec<OwnerInfo>>
 where
     E: TransferEvents,
     B: FileBackend<E> + ?Sized,
 {
-    let out = backend.run_sh(OWNERS_SCRIPT, &as_strs(paths)).await.ok()?;
-    if out.code != Some(0) {
-        return None;
-    }
-    parse_owners(&out.stdout_text(), paths.len())
+    owners_with(paths.to_vec(), |script, args| async move {
+        backend.run_sh(script, &as_strs(&args)).await
+    })
+    .await
 }
 
 #[cfg(all(test, unix))]
@@ -382,6 +428,20 @@ mod tests {
         let out = run(APPLY_SCRIPT, &apply_args(&missing).unwrap());
         assert!(!out.status.success());
         assert!(!out.stderr.is_empty());
+    }
+
+    #[test]
+    fn modes_script_lists_each_entry_with_its_type() {
+        let (_tmp, top, sub, file) = tree();
+        std::os::unix::fs::symlink(&file, top.join("link")).unwrap();
+        std::fs::write(top.join("two words"), "").unwrap();
+        let out = run(MODES_SCRIPT, &[top.to_string_lossy().into_owned()]);
+        assert!(out.status.success(), "{out:?}");
+        let modes = parse_modes(&String::from_utf8_lossy(&out.stdout));
+        assert_eq!(modes.len(), 3, "{modes:?}");
+        assert_eq!(split_mode(modes["sub"]), (mode(&sub), false));
+        assert!(split_mode(modes["link"]).1);
+        assert!(!split_mode(modes["two words"]).1);
     }
 
     #[test]

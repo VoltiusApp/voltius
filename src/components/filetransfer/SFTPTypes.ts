@@ -24,8 +24,8 @@ export const COLUMN_MIN_WIDTHS: ColumnWidths = { name: 120, size: 56, modified: 
 /** Gap between columns, in px — must match the `gap-2` on the header and row grids. */
 const COLUMN_GAP = 8;
 
-export function visibleDataColumns(isLocal: boolean, visibleCols: VisibleCols): FileColumn[] {
-  return (["size", "modified", ...(!isLocal ? ["permissions"] : [])] as FileColumn[])
+export function visibleDataColumns(withPermissions: boolean, visibleCols: VisibleCols): FileColumn[] {
+  return (["size", "modified", ...(withPermissions ? ["permissions"] : [])] as FileColumn[])
     .filter((col) => visibleCols[col as keyof VisibleCols]);
 }
 
@@ -33,8 +33,8 @@ export function visibleDataColumns(isLocal: boolean, visibleCols: VisibleCols): 
  *  file row lay themselves out from this same grid template, so they cannot
  *  drift apart. `minWidth` is what makes the pane scroll horizontally instead of
  *  clipping the right-hand columns (and their resize handles) out of reach. */
-export function columnGrid(isLocal: boolean, visibleCols: VisibleCols, colWidths: ColumnWidths): { template: string; minWidth: number } {
-  const dataColumns = visibleDataColumns(isLocal, visibleCols);
+export function columnGrid(withPermissions: boolean, visibleCols: VisibleCols, colWidths: ColumnWidths): { template: string; minWidth: number } {
+  const dataColumns = visibleDataColumns(withPermissions, visibleCols);
   const template = [`minmax(${colWidths.name}px, 1fr)`, ...dataColumns.map((col) => `${colWidths[col]}px`)].join(" ");
   const minWidth = dataColumns.reduce((sum, col) => sum + colWidths[col] + COLUMN_GAP, colWidths.name);
   return { template, minWidth };

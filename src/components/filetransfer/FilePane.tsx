@@ -170,6 +170,7 @@ export function FilePane({
   const [newItemName, setNewItemName] = useState("");
   const [autoTick, setAutoTick] = useState(0);
   const { entries, loading, error, refreshError } = useDirListing(isLocal, sftpId, cwd, `${refreshTick}:${autoTick}`);
+  const withPermissions = !isLocal || entries.some((e) => e.permissions != null);
   const [canArchive, setCanArchive] = useState(isLocal);
   useEffect(() => {
     setCanArchive(isLocal);
@@ -420,7 +421,7 @@ export function FilePane({
     isLocal, sftpId, hostLabel: resolvedHostLabel, canTransferToTarget: canTransferToTarget ?? false,
     onTransferToTarget, onStartRename: startRename, onDelete: handleDelete,
     onCompress: handleCompress, onExtract: handleExtract, canArchive,
-    onPermissions: !isLocal && sftpId ? setPermissionsFor : undefined,
+    onPermissions: isLocal || sftpId ? setPermissionsFor : undefined,
     onOpenInTerminal, onPanelDownload, onEdit, setSelection, onRefresh,
   };
 
@@ -486,7 +487,7 @@ export function FilePane({
       )}
 
       <ColumnHeaders
-        sortCol={sortCol} sortDir={sortDir} isLocal={isLocal} colWidths={colWidths} visibleCols={visibleCols}
+        sortCol={sortCol} sortDir={sortDir} withPermissions={withPermissions} colWidths={colWidths} visibleCols={visibleCols}
         viewport={viewport}
         onSort={(col) => { if (col === sortCol) setSortDir((d) => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } }}
         onResize={(col, w) => setColWidths((prev) => ({ ...prev, [col]: w }))}
@@ -505,7 +506,7 @@ export function FilePane({
           selectedIdSet={selectedIdSet} dropFolderPath={dropFolderPath}
           focusIndex={focusIndex} itemAreaRef={itemAreaRef} scrollToIndexRef={scrollToIndexRef}
           cutPathSet={cutPathSet}
-          side={side} isLocal={isLocal} selectedEntries={selectedEntries}
+          side={side} withPermissions={withPermissions} selectedEntries={selectedEntries}
           colWidths={colWidths} visibleCols={visibleCols}
           onViewport={(v) => setViewport((prev) => prev.scrollLeft === v.scrollLeft && prev.gutter === v.gutter ? prev : v)}
           onCommitRename={commitRename} onCancelRename={() => setRenaming(null)}
@@ -554,7 +555,7 @@ export function FilePane({
         <ContextMenu
           pos={viewMenuPos}
           onClose={() => setViewMenuPos(null)}
-          items={buildViewMenuItems({ showHidden, setShowHidden, visibleCols, setVisibleCols, isLocal, t })}
+          items={buildViewMenuItems({ showHidden, setShowHidden, visibleCols, setVisibleCols, withPermissions, t })}
         />
       )}
       {confirmDialog && (
@@ -566,9 +567,9 @@ export function FilePane({
           onCancel={() => { const r = confirmDialog.resolve; setConfirmDialog(null); r(false); }}
         />
       )}
-      {permissionsFor && sftpId && (
+      {permissionsFor && (isLocal || sftpId) && (
         <PermissionsDialog
-          sftpId={sftpId}
+          sftpId={isLocal ? null : sftpId}
           files={permissionsFor}
           onClose={() => setPermissionsFor(null)}
           onApplied={() => { setPermissionsFor(null); onRefresh(); }}
@@ -683,15 +684,15 @@ export function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsC
 function buildViewMenuItems(ctx: {
   showHidden: boolean; setShowHidden: (v: boolean) => void;
   visibleCols: VisibleCols; setVisibleCols: React.Dispatch<React.SetStateAction<VisibleCols>>;
-  isLocal: boolean;
+  withPermissions: boolean;
   t: TFunction;
 }): ContextMenuItem[] {
-  const { showHidden, setShowHidden, visibleCols, setVisibleCols, isLocal, t } = ctx;
+  const { showHidden, setShowHidden, visibleCols, setVisibleCols, withPermissions, t } = ctx;
   const items: ContextMenuItem[] = [];
   items.push({ label: showHidden ? t("fileTransfer.pane.menu.hideHiddenFiles") : t("fileTransfer.pane.menu.showHiddenFiles"), icon: showHidden ? "lucide:eye" : "lucide:eye-off", onClick: () => setShowHidden(!showHidden) });
   items.push({ label: t("fileTransfer.pane.menu.sizeColumn"),        icon: visibleCols.size        ? "lucide:square-check-big" : "lucide:square", onClick: () => setVisibleCols((v) => ({ ...v, size:        !v.size        })) });
   items.push({ label: t("fileTransfer.pane.menu.dateColumn"),        icon: visibleCols.modified    ? "lucide:square-check-big" : "lucide:square", onClick: () => setVisibleCols((v) => ({ ...v, modified:    !v.modified    })) });
-  if (!isLocal) items.push({ label: t("fileTransfer.pane.menu.permissionsColumn"), icon: visibleCols.permissions ? "lucide:square-check-big" : "lucide:square", onClick: () => setVisibleCols((v) => ({ ...v, permissions: !v.permissions })) });
+  if (withPermissions) items.push({ label: t("fileTransfer.pane.menu.permissionsColumn"), icon: visibleCols.permissions ? "lucide:square-check-big" : "lucide:square", onClick: () => setVisibleCols((v) => ({ ...v, permissions: !v.permissions })) });
   return items;
 }
 
@@ -921,8 +922,8 @@ function ResizeHandle({ column, onWidth }: { column: FileColumn; onWidth: (w: nu
   );
 }
 
-function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, viewport, onSort, onResize }: {
-  sortCol: SortCol; sortDir: SortDir; isLocal: boolean;
+function ColumnHeaders({ sortCol, sortDir, withPermissions, colWidths, visibleCols, viewport, onSort, onResize }: {
+  sortCol: SortCol; sortDir: SortDir; withPermissions: boolean;
   colWidths: ColumnWidths; visibleCols: VisibleCols;
   viewport: Viewport;
   onSort: (col: SortCol) => void;
@@ -933,8 +934,8 @@ function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, view
     ? <Icon icon={sortDir === "asc" ? "lucide:chevron-up" : "lucide:chevron-down"} width={9} className="shrink-0" style={{ opacity: 0.7 }} />
     : null;
 
-  const dataColumns = visibleDataColumns(isLocal, visibleCols);
-  const { template, minWidth } = columnGrid(isLocal, visibleCols, colWidths);
+  const dataColumns = visibleDataColumns(withPermissions, visibleCols);
+  const { template, minWidth } = columnGrid(withPermissions, visibleCols, colWidths);
   const labelStyle: React.CSSProperties = { fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.055em", textTransform: "uppercase" };
 
   const headerCell = (col: FileColumn, label: string) => {
@@ -985,7 +986,7 @@ function VirtualFileList({
   selectedIdSet, dropFolderPath,
   focusIndex, itemAreaRef, scrollToIndexRef,
   cutPathSet,
-  side, isLocal, selectedEntries, colWidths, visibleCols, onViewport,
+  side, withPermissions, selectedEntries, colWidths, visibleCols, onViewport,
   onCommitRename, onCancelRename,
   onItemSelect, onNavigate, onSetSelection,
   onInternalDrop,
@@ -1001,7 +1002,7 @@ function VirtualFileList({
   focusIndex: React.MutableRefObject<number>; itemAreaRef: React.RefObject<HTMLDivElement | null>;
   scrollToIndexRef: React.MutableRefObject<((index: number) => void) | null>;
   cutPathSet: Set<string> | null;
-  side: "left" | "right" | "panel"; isLocal: boolean; selectedEntries: FileEntry[]; colWidths: ColumnWidths; visibleCols: VisibleCols;
+  side: "left" | "right" | "panel"; withPermissions: boolean; selectedEntries: FileEntry[]; colWidths: ColumnWidths; visibleCols: VisibleCols;
   onViewport: (v: Viewport) => void;
   onCommitRename: (f: FileEntry) => void; onCancelRename: () => void;
   onItemSelect: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
@@ -1120,7 +1121,7 @@ function VirtualFileList({
                 isSelected={isSelected}
                 isCut={cutPathSet?.has(file.path) ?? false}
                 isDragHover={isDragHover}
-                isLocal={isLocal}
+                withPermissions={withPermissions}
                 colWidths={colWidths}
                 visibleCols={visibleCols}
                 selectableId={file.path}
@@ -1155,8 +1156,8 @@ function VirtualFileList({
 
 // ── FileRow ───────────────────────────────────────────────────────────────────
 
-function FileRow({ file, isSelected, isCut, isDragHover, isLocal, colWidths, visibleCols, selectableId, onClick, onDoubleClick, contextActions, onPointerDown }: {
-  file: FileEntry; isSelected: boolean; isCut?: boolean; isDragHover?: boolean; isLocal: boolean; colWidths: ColumnWidths; visibleCols: VisibleCols; selectableId?: string;
+function FileRow({ file, isSelected, isCut, isDragHover, withPermissions, colWidths, visibleCols, selectableId, onClick, onDoubleClick, contextActions, onPointerDown }: {
+  file: FileEntry; isSelected: boolean; isCut?: boolean; isDragHover?: boolean; withPermissions: boolean; colWidths: ColumnWidths; visibleCols: VisibleCols; selectableId?: string;
   onClick: (e: React.MouseEvent) => void; onDoubleClick: () => void;
   contextActions?: ContextMenuItem[];
   onPointerDown?: (e: React.PointerEvent) => void;
@@ -1164,8 +1165,8 @@ function FileRow({ file, isSelected, isCut, isDragHover, isLocal, colWidths, vis
   const { pos, open, close } = useContextMenu();
   const [hovered, setHovered] = useState(false);
   const dimColor = isSelected ? "var(--t-text-secondary)" : "var(--t-text-dim)";
-  const dataColumns = visibleDataColumns(isLocal, visibleCols);
-  const { template, minWidth } = columnGrid(isLocal, visibleCols, colWidths);
+  const dataColumns = visibleDataColumns(withPermissions, visibleCols);
+  const { template, minWidth } = columnGrid(withPermissions, visibleCols, colWidths);
 
   let bg = "transparent";
   let border = "1px solid transparent";

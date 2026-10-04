@@ -394,6 +394,8 @@ pub fn run() {
             commands::fs::fs_copy,
             commands::fs::fs_compress,
             commands::fs::fs_extract,
+            commands::fs::fs_owners,
+            commands::fs::fs_set_attrs,
             commands::sftp::editor::sftp_read_file,
             commands::sftp::editor::sftp_write_file,
             commands::sftp::sftp_cancel_transfer,
