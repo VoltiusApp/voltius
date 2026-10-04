@@ -13,7 +13,9 @@
         "resending": "正在发送...",
         "verified": "我已验证",
         "checking": "正在检查...",
-        "dismissAriaLabel": "关闭邮箱验证横幅"
+        "dismissAriaLabel": "关闭邮箱验证横幅",
+        "undeliverable": "无法向 {{email}} 投递邮件。请检查该地址，如有错误请更改。",
+        "changeEmail": "更改邮箱"
       },
       "modal": {
         "title": "请先验证您的邮箱",
@@ -29,7 +31,8 @@
         "verifiedPending": "尚未验证。请打开邮件中的链接后重试。",
         "verifiedOther": "已验证 {{email}} 的邮箱。",
         "verifiedSwitch": "切换",
-        "verifiedUnknown": "邮箱已验证。请登录以继续。"
+        "verifiedUnknown": "邮箱已验证。请登录以继续。",
+        "undeliverable": "发往该地址的邮件被退回，无法发送链接。请在 设置 → 账户 中更改邮箱。"
       }
     },
     "progressToast": {

@@ -70,6 +70,7 @@ import {
   resendVerificationEmail,
 } from "./account";
 import { VaultUnreadableError } from "./vaultErrors";
+import { EmailUndeliverableError } from "@/utils/emailVerification";
 import { DEFAULT_SERVER_URL, lastServerUrl } from "@/utils/serverInstance";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
 
@@ -743,6 +744,15 @@ test("resendVerificationEmail maps a non-ok response to resendVerificationFailed
   h.store.server_url = S;
   h.http["/auth/resend-verification-email"] = err(500);
   await expect(resendVerificationEmail()).rejects.toThrow("common.error.resendVerificationFailed");
+});
+
+test("resendVerificationEmail surfaces an undeliverable address as its own error", async () => {
+  h.store.jwt = "JWT";
+  h.store.server_url = S;
+  h.http["/auth/resend-verification-email"] = err(422, { error: "EMAIL_UNDELIVERABLE" });
+  const rejection = resendVerificationEmail();
+  await expect(rejection).rejects.toBeInstanceOf(EmailUndeliverableError);
+  await expect(rejection).rejects.toThrow("notifications.emailVerification.toast.undeliverable");
 });
 
 // Adding a second account must prove it without disturbing the one signed in.

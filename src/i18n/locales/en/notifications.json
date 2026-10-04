@@ -13,7 +13,9 @@
         "resending": "Sending...",
         "verified": "I've verified",
         "checking": "Checking...",
-        "dismissAriaLabel": "Dismiss email verification banner"
+        "dismissAriaLabel": "Dismiss email verification banner",
+        "undeliverable": "We couldn't deliver mail to {{email}}. Check the address and change it if it's wrong.",
+        "changeEmail": "Change email"
       },
       "modal": {
         "title": "Verify your email first",
@@ -29,7 +31,8 @@
         "verifiedPending": "Not verified yet. Open the link in your email, then try again.",
         "verifiedOther": "Email verified for {{email}}.",
         "verifiedSwitch": "Switch",
-        "verifiedUnknown": "Email verified. Sign in to continue."
+        "verifiedUnknown": "Email verified. Sign in to continue.",
+        "undeliverable": "Mail to this address bounces, so we can't send the link. Change your email in Settings → Account."
       }
     },
     "progressToast": {

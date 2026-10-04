@@ -18,10 +18,18 @@ export function readJwtEmailVerified(token: string): boolean {
   return payload?.email_verified !== false;
 }
 
-export function checkoutRequiresEmailVerification(status: number, body: unknown): boolean {
-  if (status !== 403 || !body || typeof body !== "object") return false;
+function hasErrorCode(body: unknown, code: string): boolean {
+  if (!body || typeof body !== "object") return false;
   const data = body as Record<string, unknown>;
-  return data.code === "EMAIL_NOT_VERIFIED"
-    || data.error === "EMAIL_NOT_VERIFIED"
-    || data.message === "EMAIL_NOT_VERIFIED";
+  return data.code === code || data.error === code || data.message === code;
 }
+
+export function checkoutRequiresEmailVerification(status: number, body: unknown): boolean {
+  return status === 403 && hasErrorCode(body, "EMAIL_NOT_VERIFIED");
+}
+
+export function isEmailUndeliverable(status: number, body: unknown): boolean {
+  return status === 422 && hasErrorCode(body, "EMAIL_UNDELIVERABLE");
+}
+
+export class EmailUndeliverableError extends Error {}

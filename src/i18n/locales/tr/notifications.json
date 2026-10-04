@@ -13,7 +13,9 @@
         "resending": "Gönderiliyor...",
         "verified": "Doğruladım",
         "checking": "Denetleniyor...",
-        "dismissAriaLabel": "E-posta doğrulama bandını kapat"
+        "dismissAriaLabel": "E-posta doğrulama bandını kapat",
+        "undeliverable": "{{email}} adresine e-posta teslim edilemiyor. Adresi kontrol edin, yanlışsa değiştirin.",
+        "changeEmail": "E-postayı değiştir"
       },
       "modal": {
         "title": "Önce e-postanızı doğrulayın",
@@ -29,7 +31,8 @@
         "verifiedPending": "Henüz doğrulanmadı. E-postanızdaki bağlantıyı açın, ardından tekrar deneyin.",
         "verifiedOther": "E-posta doğrulandı: {{email}}.",
         "verifiedSwitch": "Geçiş yap",
-        "verifiedUnknown": "E-posta doğrulandı. Devam etmek için oturum açın."
+        "verifiedUnknown": "E-posta doğrulandı. Devam etmek için oturum açın.",
+        "undeliverable": "Bu adrese gönderilen e-postalar geri dönüyor, bu yüzden bağlantı gönderilemiyor. E-postanızı Ayarlar → Hesap bölümünden değiştirin."
       }
     },
     "progressToast": {

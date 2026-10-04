@@ -13,7 +13,9 @@
         "resending": "Envoi...",
         "verified": "J'ai vérifié",
         "checking": "Vérification...",
-        "dismissAriaLabel": "Fermer la bannière de vérification d'e-mail"
+        "dismissAriaLabel": "Fermer la bannière de vérification d'e-mail",
+        "undeliverable": "Impossible de distribuer le courrier à {{email}}. Vérifiez l'adresse et modifiez-la si elle est erronée.",
+        "changeEmail": "Modifier l'e-mail"
       },
       "modal": {
         "title": "Vérifiez d'abord votre e-mail",
@@ -29,7 +31,8 @@
         "verifiedPending": "Pas encore vérifié. Ouvrez le lien dans votre e-mail, puis réessayez.",
         "verifiedOther": "E-mail vérifié pour {{email}}.",
         "verifiedSwitch": "Basculer",
-        "verifiedUnknown": "E-mail vérifié. Connectez-vous pour continuer."
+        "verifiedUnknown": "E-mail vérifié. Connectez-vous pour continuer.",
+        "undeliverable": "Les e-mails envoyés à cette adresse sont rejetés : impossible d'envoyer le lien. Modifiez votre e-mail dans Paramètres → Compte."
       }
     },
     "progressToast": {

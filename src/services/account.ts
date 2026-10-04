@@ -9,6 +9,7 @@ import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { rememberServer } from "@/utils/serverInstance";
 import { base64ToBytes, hexToBytes } from "@/utils/base64";
+import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
 import type { SavedAccount } from "./savedAccounts";
 
 function reloadSubscription() {
@@ -491,8 +492,11 @@ export interface MeResponse {
   allow_stranger_invites?: boolean;
   tier?: string;
   email_verified?: boolean;
+  email_undeliverable?: boolean;
   handle_managed?: boolean;
 }
+
+export const EMAIL_CHANGED_EVENT = "voltius:email-changed";
 
 /** Fetches /v1/auth/me and caches the handle for offline use. Returns the
  *  full payload so callers that need the live tier/preference fields — the
@@ -574,7 +578,12 @@ export async function resendVerificationEmail(): Promise<void> {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
   });
-  if (!res.ok) throw new Error(i18n.t("common.error.resendVerificationFailed"));
+  if (res.ok) return;
+  const body = await res.json().catch(() => null);
+  if (isEmailUndeliverable(res.status, body)) {
+    throw new EmailUndeliverableError(i18n.t("notifications.emailVerification.toast.undeliverable"));
+  }
+  throw new Error(i18n.t("common.error.resendVerificationFailed"));
 }
 
 export async function isServerMode(): Promise<boolean> {
@@ -856,6 +865,7 @@ export async function changeEmail(newEmail: string, currentPassword: string): Pr
 
   await keychainSet("email", newEmail);
   await refreshSession();
+  window.dispatchEvent(new Event(EMAIL_CHANGED_EVENT));
 }
 
 async function migrateToWrappedUserSecrets(
