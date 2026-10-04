@@ -188,6 +188,8 @@ pub fn pack<W: Write>(
         done,
     ));
     tar.follow_symlinks(deref);
+    // busybox tar cannot read GNU sparse entries.
+    tar.sparse(false);
     let walked = walk(parent, names, deref, &mut |path, name, kind| match kind {
         Kind::Dir => tar.append_dir(name, path),
         Kind::File(_) | Kind::Link => tar.append_path_with_name(path, name),
@@ -1005,7 +1007,7 @@ pub(crate) mod tests {
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn old_gnu_sparse_entries_still_extract_whole() {
+    fn holed_files_pack_as_plain_entries_and_extract_whole() {
         use std::io::Seek;
         let src = tempfile::tempdir().unwrap();
         let mut f = fs::File::create(src.path().join("holey")).unwrap();
@@ -1025,9 +1027,6 @@ pub(crate) mod tests {
         let skipped = unpack(&buf[..], Sink::Dir(dst.path()), false, counter()).unwrap();
         assert!(skipped.is_empty());
         assert_eq!(fs::read(dst.path().join("holey")).unwrap(), data);
-        assert!(
-            sparse,
-            "this filesystem reported no holes, so nothing sparse was packed"
-        );
+        assert!(!sparse);
     }
 }
