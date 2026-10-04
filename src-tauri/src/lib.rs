@@ -14,6 +14,8 @@ mod error;
 mod ftp;
 #[cfg(target_os = "android")]
 mod keychain_android;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+mod keychain_bundle;
 mod known_hosts;
 #[cfg(target_os = "linux")]
 mod linux_gfx;
@@ -80,11 +82,12 @@ fn init_keychain_store() -> keyring_core::Result<()> {
         }
     }
     #[cfg(target_os = "macos")]
-    keyring_core::set_default_store(
+    keyring_core::set_default_store(keychain_bundle::Store::new(
         apple_native_keyring_store::keychain::Store::new_with_configuration(
             &std::collections::HashMap::<&str, &str>::new(),
         )?,
-    );
+        |service| service == commands::keychain::service(),
+    ));
     #[cfg(target_os = "windows")]
     keyring_core::set_default_store(windows_native_keyring_store::Store::new_with_configuration(
         &std::collections::HashMap::<&str, &str>::new(),

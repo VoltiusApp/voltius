@@ -1,6 +1,6 @@
+use crate::commands::keychain::read as keychain_read;
 use crate::error::{AppError, ErrorCode};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use keyring_core::Entry;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -16,28 +16,6 @@ const WRITE_PERMISSIONS: i64 = (1 << 3)   // EDIT_CONNECTIONS
     | (1 << 5)                            // EDIT_KEYS
     | (1 << 6)                            // EDIT_FOLDERS
     | (1 << 16); // EDIT_SNIPPETS
-
-fn service() -> String {
-    match std::env::var("VOLTIUS_KEYCHAIN_NS") {
-        Ok(ns) if !ns.is_empty() => format!("voltius-{ns}"),
-        _ => "voltius".to_string(),
-    }
-}
-
-fn keychain_read(key: &str) -> Option<String> {
-    Entry::new(&service(), key).ok()?.get_password().ok()
-}
-
-/// Tri-state keychain read so callers can fail closed.
-/// `Ok(None)` = no such entry, `Ok(Some)` = the value, `Err(())` = the store failed.
-fn keychain_try_read(key: &str) -> Result<Option<String>, ()> {
-    let entry = Entry::new(&service(), key).map_err(|_| ())?;
-    match entry.get_password() {
-        Ok(v) => Ok(Some(v)),
-        Err(keyring_core::Error::NoEntry) => Ok(None),
-        Err(_) => Err(()),
-    }
-}
 
 fn jwt_is_expired(jwt: &str) -> bool {
     let parts: Vec<&str> = jwt.split('.').collect();
@@ -193,10 +171,10 @@ pub fn check_vault_write(vault_ids: &[String]) -> Result<(), AppError> {
     // Load the cached {teamId -> role} map written by the frontend after loadTeams().
     // A keychain failure must fail closed: we can't prove a vault is personal if we
     // can't read the roles map. Only a genuinely-absent entry means "all personal".
-    let roles_json = match keychain_try_read("team_vault_roles") {
+    let roles_json = match keychain_read("team_vault_roles") {
         Ok(Some(s)) => s,
         Ok(None) => return Ok(()),
-        Err(()) => {
+        Err(_) => {
             return Err(AppError::coded(
                 ErrorCode::VaultPermissionsUnavailable,
                 "Unable to verify vault permissions (keychain unavailable). \
@@ -221,7 +199,7 @@ pub fn check_vault_write(vault_ids: &[String]) -> Result<(), AppError> {
         }
     };
 
-    let jwt = keychain_read("jwt").unwrap_or_default();
+    let jwt = keychain_read("jwt").ok().flatten().unwrap_or_default();
     let jwt_valid = !jwt.is_empty() && !jwt_is_expired(&jwt);
     check_roles(vault_ids, &roles, jwt_valid)
 }

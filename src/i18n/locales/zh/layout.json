@@ -141,7 +141,8 @@
       "vaultFound": "找到保险库",
       "connectionsUnavailable": "连接不可用",
       "sshClient": "SSH 客户端",
-      "vaultUnreadable": "保管库无法读取"
+      "vaultUnreadable": "保管库无法读取",
+      "keychainHint": "如果 macOS 要求输入钥匙串密码，请输入 Mac 登录密码并选择“始终允许”。每次 Voltius 更新后 macOS 会询问一次。"
     },
     "sync": {
       "title": "同步",

@@ -17,6 +17,7 @@ import { loadInstalledPlugins, loadPluginMeta, supersedeStaleFirstPartyShadows }
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { usePlatform } from "@/utils/platform";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
 
@@ -27,6 +28,7 @@ interface Step { id: string; label: string; status: StepStatus; }
 interface Props { onReady: () => void; }
 
 const STEP_IDS = ["init", "vault", "connections"] as const;
+const KEYCHAIN_HINT_DELAY_MS = 3000;
 
 /**
  * Keep the quick switcher's copy of this account current. Nothing on the splash
@@ -44,6 +46,7 @@ export default function SplashScreen({ onReady }: Props) {
   );
   const [phase, setPhase] = useState<Phase>("loading");
   const [exiting, setExiting] = useState(false);
+  const keychainHint = useKeychainPromptHint(steps.find((s) => s.id === "vault")?.status === "running");
 
   const setStep = (id: string, status: StepStatus, label?: string) =>
     setSteps((prev) => prev.map((s) => s.id === id ? { ...s, status, ...(label ? { label } : {}) } : s));
@@ -178,8 +181,26 @@ export default function SplashScreen({ onReady }: Props) {
       <div className="w-64 space-y-2.5">
         {steps.map((step) => <StepRow key={step.id} step={step} />)}
       </div>
+      {keychainHint && (
+        <p className="w-72 mt-6 text-xs text-center text-(--t-text-muted)">{t("layout.splash.keychainHint")}</p>
+      )}
     </div>
   );
+}
+
+/** macOS asks for the keychain password after each update while the vault check waits on it. */
+function useKeychainPromptHint(vaultRunning: boolean): boolean {
+  const isMac = usePlatform() === "macos";
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!vaultRunning) {
+      setSlow(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlow(true), KEYCHAIN_HINT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [vaultRunning]);
+  return isMac && slow;
 }
 
 function StepRow({ step }: { step: Step }) {

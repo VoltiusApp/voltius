@@ -141,7 +141,8 @@
       "vaultFound": "Vault found",
       "connectionsUnavailable": "Connections unavailable",
       "sshClient": "SSH Client",
-      "vaultUnreadable": "Vault unreadable"
+      "vaultUnreadable": "Vault unreadable",
+      "keychainHint": "If macOS asks for your keychain password, enter your Mac login password and choose \"Always Allow\". macOS asks once after each Voltius update."
     },
     "sync": {
       "title": "Sync",
