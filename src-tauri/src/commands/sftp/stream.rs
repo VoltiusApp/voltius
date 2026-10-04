@@ -142,13 +142,21 @@ async fn race_status<T>(
     }
 }
 
-fn ended_early(end: End, dir: &str, ended: Joined) -> String {
-    match status(ended) {
-        Ok((code, err)) => remote_result(end, dir, code, &err)
-            .err()
-            .unwrap_or_else(|| explain(end, dir, "exited before the transfer finished")),
-        Err(e) => e,
-    }
+/// A remote that exits 0 before we finish sending (bsdtar stops at the end-of-archive
+/// blocks) succeeded; any other early exit is the failure.
+fn early_exit(end: End, dir: &str, ended: Joined) -> Result<(), String> {
+    let (code, err) = status(ended)?;
+    remote_result(end, dir, code, &err)
+}
+
+async fn stop_early(
+    tx: &ChannelWriteHalf<Msg>,
+    end: End,
+    dir: &str,
+    ended: Joined,
+) -> Result<(), String> {
+    close_bounded(tx.close()).await;
+    early_exit(end, dir, ended)
 }
 
 /// A close request queues behind data the session loop may be unable to flush.
@@ -189,7 +197,12 @@ async fn finish_remote(
 ) -> Result<(), String> {
     let finish = async {
         let _ = writer.flush().await;
-        tx.eof().await.map_err(|e| format!("Write error: {e}"))?;
+        if let Err(e) = tx.eof().await {
+            let cause = format!("Write error: {e}");
+            return Err(remote_reason(end, dir, &mut status_task)
+                .await
+                .unwrap_or(cause));
+        }
         let (code, err) = status((&mut status_task).await)?;
         remote_result(end, dir, code, &err)
     };
@@ -229,8 +242,12 @@ pub async fn upload<H: Handler, E: TransferEvents>(
     let sent = match sent {
         Ok(sent) => sent,
         Err(ended) => {
-            close_bounded(tx.close()).await;
-            return Err(ended_early(End::Remote, to.dir, ended));
+            let _ = packer.await;
+            let early = stop_early(&tx, End::Remote, to.dir, ended).await;
+            if early.is_ok() {
+                job.finish();
+            }
+            return early;
         }
     };
     let packed = joined(packer.await);
@@ -326,7 +343,14 @@ pub async fn relay<HS: Handler, HD: Handler, E: TransferEvents>(
     job: &Job<'_, E>,
 ) -> Result<(), String> {
     let mut source = open_exec(src.handle, &src.cmd).await?;
-    let (rx, tx) = open_exec(dst.handle, &dst.cmd).await?.split();
+    let dest = match open_exec(dst.handle, &dst.cmd).await {
+        Ok(channel) => channel,
+        Err(e) => {
+            close_bounded(source.close()).await;
+            return Err(e);
+        }
+    };
+    let (rx, tx) = dest.split();
     let mut sink = watch_status(rx);
     let (tap, taps) = mpsc::channel::<Vec<u8>>();
     let done = job.progress.done.clone();
@@ -340,12 +364,12 @@ pub async fn relay<HS: Handler, HD: Handler, E: TransferEvents>(
     });
 
     let mut writer = tx.make_writer();
-    let drained = {
+    let outcome = {
         let mut on_data = |chunk: &[u8]| {
             let _ = tap.send(chunk.to_vec());
             job.emit();
         };
-        race_status(
+        let first = race_status(
             &mut sink,
             drain_channel(
                 &mut source,
@@ -354,24 +378,48 @@ pub async fn relay<HS: Handler, HD: Handler, E: TransferEvents>(
                 Some(job.token),
             ),
         )
-        .await
+        .await;
+        match first {
+            Ok(drained) => Ok((drained, false)),
+            Err(ended) => match stop_early(&tx, End::Destination, dst.dir, ended).await {
+                Err(message) => Err(message),
+                Ok(()) => {
+                    let mut discard = tokio::io::sink();
+                    let rest = drain_channel(
+                        &mut source,
+                        &mut discard,
+                        Some(&mut on_data),
+                        Some(job.token),
+                    )
+                    .await;
+                    Ok((rest, true))
+                }
+            },
+        }
     };
     drop(tap);
     let _ = counter.await;
 
-    let (code, err) = match drained {
-        Ok(Ok(v)) => v,
-        Ok(Err(e)) => {
+    let (drained, dest_done) = match outcome {
+        Ok(v) => v,
+        Err(message) => {
             close_bounded(source.close()).await;
-            return Err(fail_remote(&tx, job.token, End::Destination, dst.dir, &mut sink, e).await);
-        }
-        Err(ended) => {
-            close_bounded(source.close()).await;
-            close_bounded(tx.close()).await;
-            return Err(ended_early(End::Destination, dst.dir, ended));
+            return Err(message);
         }
     };
-    finish_remote(writer, &tx, job.token, End::Destination, dst.dir, sink).await?;
+    let (code, err) = match drained {
+        Ok(v) => v,
+        Err(e) => {
+            close_bounded(source.close()).await;
+            if dest_done {
+                return Err(e);
+            }
+            return Err(fail_remote(&tx, job.token, End::Destination, dst.dir, &mut sink, e).await);
+        }
+    };
+    if !dest_done {
+        finish_remote(writer, &tx, job.token, End::Destination, dst.dir, sink).await?;
+    }
     remote_result(End::Source, src.dir, code, &err)?;
     job.finish();
     Ok(())
@@ -386,6 +434,19 @@ mod tests {
     use std::fs;
 
     const SH: RemoteShell = RemoteShell::Posix;
+
+    fn noise(len: usize) -> Vec<u8> {
+        let mut x = 0x9E37_79B9_7F4A_7C15u64;
+        let mut out = Vec::with_capacity(len + 8);
+        while out.len() < len {
+            x ^= x >> 12;
+            x ^= x << 25;
+            x ^= x >> 27;
+            out.extend_from_slice(&x.wrapping_mul(0x2545_F491_4F6C_DD1D).to_le_bytes());
+        }
+        out.truncate(len);
+        out
+    }
 
     fn tree() -> tempfile::TempDir {
         let src = tempfile::tempdir().unwrap();
@@ -611,10 +672,7 @@ mod tests {
     async fn cancel_ends_the_remote_command_and_runs_nothing_after() {
         let (handle, log) = proc_server(ProcOptions::default()).await;
         let src = tempfile::tempdir().unwrap();
-        let noise: Vec<u8> = (0..8_000_000u32)
-            .map(|i| (i.wrapping_mul(2654435761) >> 13) as u8)
-            .collect();
-        fs::write(src.path().join("noise"), noise).unwrap();
+        fs::write(src.path().join("noise"), noise(8_000_000)).unwrap();
         let rec = Recorder::default();
         let token = CancellationToken::new();
         let job = Job::new(&rec, "t9", &token);
@@ -674,10 +732,7 @@ mod tests {
 
     fn noise_tree() -> tempfile::TempDir {
         let src = tempfile::tempdir().unwrap();
-        let noise: Vec<u8> = (0..8_000_000u32)
-            .map(|i| (i.wrapping_mul(2654435761) >> 13) as u8)
-            .collect();
-        fs::write(src.path().join("noise"), noise).unwrap();
+        fs::write(src.path().join("noise"), noise(8_000_000)).unwrap();
         src
     }
 
@@ -760,12 +815,65 @@ mod tests {
         };
         let t = token.clone();
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(200)).await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
             t.cancel();
         });
         let r = tokio::time::timeout(Duration::from_secs(10), relay(from, to, &job))
             .await
             .expect("cancel did not end the relay");
         assert_eq!(r.unwrap_err(), "Transfer cancelled");
+    }
+
+    const READS_A_LITTLE: &str = "head -c 1024 >/dev/null; exit 0";
+
+    #[tokio::test]
+    async fn a_remote_that_exits_cleanly_before_the_end_of_the_stream_succeeded() {
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let src = noise_tree();
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let job = Job::new(&rec, "t14", &token);
+        let to = RemoteEnd {
+            handle: &handle,
+            cmd: READS_A_LITTLE.into(),
+            dir: "/srv",
+        };
+        let local = LocalSide {
+            parent: src.path().into(),
+            names: vec!["noise".into()],
+            deref: false,
+        };
+        let r = tokio::time::timeout(Duration::from_secs(20), upload(to, local, &job))
+            .await
+            .expect("upload hung");
+        assert_eq!(r, Ok(()));
+    }
+
+    #[tokio::test]
+    async fn a_destination_that_exits_cleanly_early_does_not_fail_the_relay() {
+        let (a, _) = proc_server(ProcOptions::default()).await;
+        let (b, _) = proc_server(ProcOptions::default()).await;
+        let src = noise_tree();
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let job = Job::new(&rec, "t15", &token);
+        let parent = s(src.path());
+        let from = RemoteEnd {
+            handle: &a,
+            cmd: SH
+                .create_to_stdout(&parent, &["noise".into()], false)
+                .unwrap(),
+            dir: &parent,
+        };
+        let to = RemoteEnd {
+            handle: &b,
+            cmd: READS_A_LITTLE.into(),
+            dir: "/dest",
+        };
+        let r = tokio::time::timeout(Duration::from_secs(20), relay(from, to, &job))
+            .await
+            .expect("relay hung");
+        assert_eq!(r, Ok(()));
+        assert!(job.progress.done.load(Ordering::Relaxed) >= 8_000_000);
     }
 }
