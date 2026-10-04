@@ -924,23 +924,19 @@ mod tests {
         assert!(job.progress.done.load(Ordering::Relaxed) >= 8_000_000);
     }
 
-    /// `a` holds `first`, then `b` cannot be read; `None` when this process can read it anyway.
-    fn then_unreadable(first: Vec<u8>) -> Option<(tempfile::TempDir, LocalSide)> {
-        let src = tempfile::tempdir().unwrap();
-        fs::write(src.path().join("a"), first).unwrap();
-        let secret = src.path().join("b");
-        fs::write(&secret, b"secret").unwrap();
+    fn then_unreadable(first: &[u8]) -> Option<(tempfile::TempDir, LocalSide)> {
+        let src = local_tar::tests::then_unreadable(first)?;
         let local = LocalSide {
             parent: src.path().into(),
             names: vec!["a".into(), "b".into()],
             deref: false,
         };
-        local_tar::tests::unreadable(&secret).then_some((src, local))
+        Some((src, local))
     }
 
     #[tokio::test]
     async fn an_unreadable_local_file_fails_the_upload() {
-        let Some((_src, local)) = then_unreadable(b"alpha".to_vec()) else {
+        let Some((_src, local)) = then_unreadable(b"alpha") else {
             return;
         };
         let (handle, _) = proc_server(ProcOptions::default()).await;
@@ -960,7 +956,7 @@ mod tests {
 
     #[tokio::test]
     async fn an_early_clean_exit_does_not_hide_a_failed_pack() {
-        let Some((_src, local)) = then_unreadable(noise(300_000)) else {
+        let Some((_src, local)) = then_unreadable(&noise(300_000)) else {
             return;
         };
         let (handle, _) = proc_server(ProcOptions {

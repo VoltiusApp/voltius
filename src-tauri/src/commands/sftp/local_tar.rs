@@ -459,12 +459,16 @@ pub(crate) mod tests {
         Arc::new(AtomicU64::new(0))
     }
 
-    /// False when this process can read it anyway, as root can.
+    /// `a` holds `first`, then `b` cannot be read; `None` when this process can read it anyway, as root can.
     #[cfg(unix)]
-    pub(crate) fn unreadable(path: &Path) -> bool {
+    pub(crate) fn then_unreadable(first: &[u8]) -> Option<tempfile::TempDir> {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o000)).unwrap();
-        fs::File::open(path).is_err()
+        let src = tempfile::tempdir().unwrap();
+        fs::write(src.path().join("a"), first).unwrap();
+        let secret = src.path().join("b");
+        fs::write(&secret, b"secret").unwrap();
+        fs::set_permissions(&secret, fs::Permissions::from_mode(0o000)).unwrap();
+        fs::File::open(&secret).is_err().then_some(src)
     }
 
     fn archive(parent: &Path, names: &[&str], deref: bool) -> Vec<u8> {
@@ -832,15 +836,12 @@ pub(crate) mod tests {
     #[cfg(unix)]
     #[test]
     fn a_failed_pack_never_leaves_a_complete_archive() {
-        let src = tempfile::tempdir().unwrap();
-        fs::create_dir(src.path().join("top")).unwrap();
-        fs::write(src.path().join("top/a"), b"alpha").unwrap();
-        fs::write(src.path().join("top/b"), b"secret").unwrap();
-        if !unreadable(&src.path().join("top/b")) {
+        let Some(src) = then_unreadable(b"alpha") else {
             return;
-        }
+        };
         let mut buf = Vec::new();
-        let err = pack(&mut buf, src.path(), &["top".into()], false, counter()).unwrap_err();
+        let names = ["a".to_string(), "b".to_string()];
+        let err = pack(&mut buf, src.path(), &names, false, counter()).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
         let mut decoded = Vec::new();
         assert!(
