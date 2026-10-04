@@ -207,6 +207,124 @@ impl RemoteShell {
         }
     }
 
+    fn tar_c(&self, archive: Option<&str>, parent: &str, items: &[String], deref: bool) -> String {
+        let quoted: Vec<String> = items.iter().map(|i| self.quote(i)).collect();
+        format!(
+            "tar -czf {arch} {deref}-C {parent} -- {items}",
+            arch = archive.map_or_else(|| "-".to_string(), |a| self.quote_path(a)),
+            deref = if deref { self.deref_flags() } else { "" },
+            parent = self.quote_path(parent),
+            items = quoted.join(" "),
+        )
+    }
+
+    fn tar_x(&self, archive: Option<&str>, dest: &str, strip: bool) -> String {
+        let tar = format!(
+            "tar -xzf {arch} {strip}-C {dest}",
+            arch = archive.map_or_else(|| "-".to_string(), |a| self.quote_path(a)),
+            strip = if strip { "--strip-components=1 " } else { "" },
+            dest = self.quote_path(dest),
+        );
+        self.in_dir(dest, &tar)
+    }
+
+    /// PowerShell's own exit code says only whether the last command threw.
+    fn exits(&self, cmd: &str) -> String {
+        match self {
+            Self::Windows {
+                shell: WinShell::PowerShell,
+                ..
+            } => format!("{cmd}; exit $LASTEXITCODE"),
+            _ => cmd.to_string(),
+        }
+    }
+
+    pub fn compress(
+        &self,
+        archive: &str,
+        parent: &str,
+        items: &[String],
+    ) -> Result<String, String> {
+        self.checked(self.status(&self.tar_c(Some(archive), parent, items, false), None))
+    }
+
+    pub fn extract(&self, archive: &str, dest: &str) -> String {
+        self.status(&self.tar_x(Some(archive), dest, false), None)
+    }
+
+    #[allow(dead_code)]
+    pub fn create_to_stdout(
+        &self,
+        parent: &str,
+        items: &[String],
+        deref: bool,
+    ) -> Result<String, String> {
+        self.checked(self.exits(&self.tar_c(None, parent, items, deref)))
+    }
+
+    #[allow(dead_code)]
+    pub fn extract_from_stdin(&self, dest: &str, strip: bool) -> String {
+        self.exits(&self.tar_x(None, dest, strip))
+    }
+
+    #[allow(dead_code)]
+    pub fn stream_probe(&self) -> String {
+        self.exits("tar -xzf - -O")
+    }
+
+    #[allow(dead_code)]
+    pub fn size_probe(&self, parent: &str, items: &[String]) -> Option<String> {
+        match self {
+            Self::Posix => {
+                let quoted: Vec<String> = items.iter().map(|i| self.quote(i)).collect();
+                Some(format!(
+                    "cd {} && du -sk -- {}",
+                    self.quote_path(parent),
+                    quoted.join(" ")
+                ))
+            }
+            Self::Windows {
+                shell: WinShell::PowerShell,
+                ..
+            } => {
+                let base = parent.trim_end_matches('/');
+                let paths: Vec<String> = items
+                    .iter()
+                    .map(|i| self.quote_path(&format!("{base}/{i}")))
+                    .collect();
+                Some(format!(
+                    "(Get-ChildItem -LiteralPath {} -Recurse -File -Force | Measure-Object -Property Length -Sum).Sum",
+                    paths.join(",")
+                ))
+            }
+            Self::Windows {
+                shell: WinShell::Cmd,
+                ..
+            } => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn parse_size(&self, out: &str) -> Option<u64> {
+        match self {
+            Self::Posix => {
+                let kib: Vec<u64> = out
+                    .lines()
+                    .filter_map(|l| l.split_whitespace().next()?.parse().ok())
+                    .collect();
+                (!kib.is_empty()).then(|| kib.iter().sum::<u64>() * 1024)
+            }
+            Self::Windows {
+                shell: WinShell::PowerShell,
+                ..
+            } => out.trim().parse().ok(),
+            Self::Windows {
+                shell: WinShell::Cmd,
+                ..
+            } => None,
+        }
+    }
+
     /// `cmd` unless it overflows cmd.exe's command-line limit.
     pub fn checked(&self, cmd: String) -> Result<String, String> {
         match self {
@@ -314,5 +432,90 @@ mod tests {
         assert!(win(WinShell::Cmd).checked(long.clone()).is_err());
         assert!(win(WinShell::PowerShell).checked(long.clone()).is_ok());
         assert!(RemoteShell::Posix.checked(long).is_ok());
+    }
+
+    const SH: RemoteShell = RemoteShell::Posix;
+
+    #[test]
+    fn stream_commands_use_stdio_and_keep_stderr_apart() {
+        assert_eq!(
+            SH.create_to_stdout("/srv", &["x".into(), "y z".into()], false),
+            Ok("tar -czf - -C '/srv' -- 'x' 'y z'".into())
+        );
+        assert_eq!(
+            SH.create_to_stdout("/srv", &["x".into()], true),
+            Ok("tar -czf - -h --ignore-failed-read -C '/srv' -- 'x'".into())
+        );
+        assert_eq!(
+            SH.extract_from_stdin("/srv/it's", true),
+            r"mkdir -p '/srv/it'\''s' && tar -xzf - --strip-components=1 -C '/srv/it'\''s'"
+        );
+        assert_eq!(
+            win(WinShell::Cmd).extract_from_stdin("/C:/d d", false),
+            r#"(mkdir "C:\d d" 2>nul & tar -xzf - -C "C:\d d")"#
+        );
+        assert_eq!(
+            win(WinShell::PowerShell).extract_from_stdin("/C:/it's", false),
+            r"New-Item -ItemType Directory -Force -Path 'C:\it''s' | Out-Null; tar -xzf - -C 'C:\it''s'; exit $LASTEXITCODE"
+        );
+        assert_eq!(SH.stream_probe(), "tar -xzf - -O");
+        assert_eq!(
+            win(WinShell::PowerShell).stream_probe(),
+            "tar -xzf - -O; exit $LASTEXITCODE"
+        );
+    }
+
+    #[test]
+    fn stream_create_never_reads_an_item_as_an_option() {
+        let cmd = SH
+            .create_to_stdout("/srv", &["--version".into()], false)
+            .unwrap();
+        assert!(cmd.ends_with("-C '/srv' -- '--version'"), "{cmd}");
+    }
+
+    #[test]
+    fn compress_and_extract_still_report_through_the_marker() {
+        assert_eq!(
+            SH.compress("/tmp/a.tar.gz", "/srv", &["x".into(), "y z".into()]),
+            Ok("tar -czf '/tmp/a.tar.gz' -C '/srv' -- 'x' 'y z' 2>&1; echo __TF_EXIT__:$?".into())
+        );
+        assert_eq!(
+            SH.extract("/tmp/a.tar.gz", "/dest"),
+            "mkdir -p '/dest' && tar -xzf '/tmp/a.tar.gz' -C '/dest' 2>&1; echo __TF_EXIT__:$?"
+        );
+        let at_root = win(WinShell::Cmd)
+            .compress("/C:/Temp/a", "/C:", &["x".into()])
+            .unwrap();
+        assert!(at_root.contains(r#"-C "C:\." -- "x""#));
+    }
+
+    #[test]
+    fn size_probes_per_dialect() {
+        assert_eq!(
+            SH.size_probe("/srv", &["a".into(), "b c".into()])
+                .as_deref(),
+            Some("cd '/srv' && du -sk -- 'a' 'b c'")
+        );
+        assert_eq!(SH.parse_size("4\ta\n8\tb c\n"), Some(12 * 1024));
+        assert_eq!(
+            win(WinShell::PowerShell)
+                .size_probe("/C:/s", &["a".into()])
+                .as_deref(),
+            Some(
+                r"(Get-ChildItem -LiteralPath 'C:\s\a' -Recurse -File -Force | Measure-Object -Property Length -Sum).Sum"
+            )
+        );
+        assert_eq!(
+            win(WinShell::PowerShell).parse_size("12345\r\n"),
+            Some(12345)
+        );
+        assert_eq!(win(WinShell::Cmd).size_probe("/C:/s", &["a".into()]), None);
+    }
+
+    #[test]
+    fn size_probe_output_that_is_not_a_size_gives_none() {
+        assert_eq!(SH.parse_size("du: cannot access 'a': No such file\n"), None);
+        assert_eq!(SH.parse_size(""), None);
+        assert_eq!(win(WinShell::PowerShell).parse_size("\r\n"), None);
     }
 }

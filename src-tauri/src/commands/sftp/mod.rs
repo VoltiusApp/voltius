@@ -18,6 +18,8 @@ mod local_tar;
 mod ops;
 mod remote_shell;
 mod tar;
+#[allow(dead_code)]
+mod tar_failure;
 pub mod transfer;
 
 pub use dir::*;

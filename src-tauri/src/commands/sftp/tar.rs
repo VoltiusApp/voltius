@@ -288,13 +288,7 @@ pub async fn sftp_compress(
 ) -> Result<(), String> {
     let (parent, basename) = remote_split(&source_path);
     let shell = shell_of(&sftp_state, &sftp_id).await;
-    let cmd = tar_create_cmd(
-        &shell,
-        &archive_path,
-        false,
-        parent,
-        &[basename.to_string()],
-    )?;
+    let cmd = shell.compress(&archive_path, parent, &[basename.to_string()])?;
     sftp_state.exec_command(&sftp_id, &cmd, None, None).await
 }
 
@@ -307,7 +301,7 @@ pub async fn sftp_extract(
     dest_dir: String,
 ) -> Result<(), String> {
     let shell = shell_of(&sftp_state, &sftp_id).await;
-    let cmd = tar_extract_cmd(&shell, &dest_dir, &archive_path, false, false);
+    let cmd = shell.extract(&archive_path, &dest_dir);
     sftp_state.exec_command(&sftp_id, &cmd, None, None).await
 }
 
