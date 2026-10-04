@@ -317,6 +317,15 @@ pub(crate) mod test_tree {
                 .count()
         }
 
+        pub fn last(&self, event: &str) -> Option<serde_json::Value> {
+            let events = self.0.lock().unwrap();
+            events
+                .iter()
+                .rev()
+                .find(|(n, _)| n == event)
+                .map(|(_, p)| p.clone())
+        }
+
         pub fn skipped(&self, transfer_id: &str) -> Vec<String> {
             let event = format!("sftp-skipped-{transfer_id}");
             let events = self.0.lock().unwrap();

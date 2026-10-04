@@ -131,7 +131,7 @@ async fn host_of(backend: &Arc<dyn FileBackend>) -> Option<TarHost> {
 
 #[allow(clippy::too_many_arguments)]
 async fn upload_via(
-    app: &AppHandle,
+    events: &impl TransferEvents,
     host: &TarHost,
     parent: String,
     names: Vec<String>,
@@ -140,7 +140,7 @@ async fn upload_via(
     transfer_id: &str,
     token: &CancellationToken,
 ) -> Result<(), String> {
-    let job = Job::new(app, transfer_id, token);
+    let job = Job::new(events, transfer_id, token);
     let deref = host.shell.is_windows();
     let (walk_parent, walk_names, progress) =
         (PathBuf::from(&parent), names.clone(), job.progress.clone());
@@ -167,7 +167,7 @@ async fn upload_via(
 
 #[allow(clippy::too_many_arguments)]
 async fn download_via(
-    app: &AppHandle,
+    events: &impl TransferEvents,
     host: &TarHost,
     parent: &str,
     items: &[String],
@@ -176,7 +176,7 @@ async fn download_via(
     transfer_id: &str,
     token: &CancellationToken,
 ) -> Result<(), String> {
-    let job = Job::new(app, transfer_id, token);
+    let job = Job::new(events, transfer_id, token);
     let _sizing = host.spawn_size(parent, items, job.progress.clone());
     let ssh = host.ssh();
     let cmd = host.wrap(&host.shell.create_to_stdout(parent, items, cfg!(windows))?);
@@ -195,7 +195,7 @@ async fn download_via(
 
 #[allow(clippy::too_many_arguments)]
 async fn relay_via(
-    app: &AppHandle,
+    events: &impl TransferEvents,
     src: &TarHost,
     parent: &str,
     items: &[String],
@@ -205,7 +205,7 @@ async fn relay_via(
     transfer_id: &str,
     token: &CancellationToken,
 ) -> Result<(), String> {
-    let job = Job::new(app, transfer_id, token);
+    let job = Job::new(events, transfer_id, token);
     let _sizing = src.spawn_size(parent, items, job.progress.clone());
     let (src_ssh, dst_ssh) = (src.ssh(), dst.ssh());
     let src_cmd = src.wrap(
@@ -535,6 +535,243 @@ mod tests {
             ("/srv/data".to_string(), "logs".to_string())
         );
         assert_eq!(local_split("logs"), (String::new(), "logs".to_string()));
+    }
+
+    #[cfg(unix)]
+    mod live {
+        use super::*;
+        use crate::known_hosts::KnownHostsStore;
+        use crate::sftp::backend::test_tree::Recorder;
+        use crate::sftp::real::{RealSftp, SftpOpener};
+        use crate::ssh::client::connect_authenticated;
+        use crate::ssh::live_cells::own_cell;
+        use crate::ssh::test_docker::{docker, Container};
+        use std::io::Read;
+        use std::process::Command;
+        use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+        use std::time::{Duration, Instant};
+
+        const IMAGE: &str = "lscr.io/linuxserver/openssh-server:latest";
+        const TREE: &str = r#"cd "$1" && echo $(find . -type f | wc -l) $(find . -type f -exec cat {} + | wc -c) $(find . -type f -exec md5sum {} + | sort | md5sum | cut -c1-32)"#;
+        const BLOB: u64 = 50_000_000;
+
+        fn ssh_host(tag: &str, extra: &[&str]) -> Container {
+            let mut args = vec![
+                "-p",
+                "127.0.0.1::2222",
+                "-e",
+                "USER_NAME=t",
+                "-e",
+                "USER_PASSWORD=t",
+                "-e",
+                "PASSWORD_ACCESS=true",
+            ];
+            args.extend_from_slice(extra);
+            args.push(IMAGE);
+            Container::run(format!("tar468-{}-{tag}", std::process::id()), &args)
+        }
+
+        fn stdout(cmd: &mut Command) -> String {
+            let out = cmd.output().unwrap();
+            assert!(
+                out.status.success(),
+                "{cmd:?}: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        }
+
+        fn sh(container: &str, script: &str, args: &[&str]) -> String {
+            stdout(
+                Command::new("docker")
+                    .args(["exec", container, "sh", "-c", script, "x"])
+                    .args(args),
+            )
+        }
+
+        fn remote_tree(container: &str, dir: &str) -> String {
+            sh(container, TREE, &[dir])
+        }
+
+        fn local_tree(dir: &Path) -> String {
+            stdout(Command::new("sh").args(["-c", TREE, "x"]).arg(dir))
+        }
+
+        fn tmp_used_kb(container: &str) -> u64 {
+            sh(container, "df -k /tmp | awk 'NR==2{print $3}'", &[])
+                .parse()
+                .unwrap()
+        }
+
+        async fn peak_tmp_kb<T>(c: &Container, work: impl Future<Output = T>) -> (T, u64) {
+            let (stop, peak) = (
+                Arc::new(AtomicBool::new(false)),
+                Arc::new(AtomicU64::new(0)),
+            );
+            let name = c.0.clone();
+            let sampler = {
+                let (stop, peak) = (Arc::clone(&stop), Arc::clone(&peak));
+                std::thread::spawn(move || {
+                    while !stop.load(Ordering::Relaxed) {
+                        peak.fetch_max(tmp_used_kb(&name), Ordering::Relaxed);
+                    }
+                })
+            };
+            let out = work.await;
+            stop.store(true, Ordering::Relaxed);
+            sampler.join().unwrap();
+            (out, peak.load(Ordering::Relaxed))
+        }
+
+        async fn backend(c: &Container) -> Arc<dyn FileBackend> {
+            let mapped = String::from_utf8(docker(&["port", &c.0, "2222"]).stdout).unwrap();
+            let port: u16 = mapped.trim().rsplit(':').next().unwrap().parse().unwrap();
+            let deadline = Instant::now() + Duration::from_secs(60);
+            let handle = loop {
+                let known_hosts = Arc::new(KnownHostsStore::new());
+                let attempt = connect_authenticated(
+                    known_hosts,
+                    "127.0.0.1",
+                    port,
+                    "t",
+                    Some("t"),
+                    None,
+                    None,
+                    false,
+                    None,
+                );
+                match attempt.await {
+                    Ok(h) => break h,
+                    Err(e) => assert!(Instant::now() < deadline, "{}: {e}", c.0),
+                }
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            };
+            let sftp = RealSftp::open(own_cell(Arc::new(handle)), SftpOpener::Subsystem);
+            Arc::new(sftp.await.unwrap())
+        }
+
+        async fn streaming_host(backend: &Arc<dyn FileBackend>) -> TarHost {
+            let probe = backend.tar_probe().expect("SSH backends probe tar");
+            assert_eq!(probe.shell().await, Some(RemoteShell::Posix));
+            host_of(backend).await.expect("stream probe passes")
+        }
+
+        fn progress_seen(rec: &Recorder, transfer_id: &str) -> serde_json::Value {
+            let last = rec
+                .last(&format!("sftp-progress-{transfer_id}"))
+                .expect("progress reported");
+            assert!(last["total"].as_u64().unwrap() > 0, "{transfer_id}: {last}");
+            assert!(
+                last["transferred"].as_u64().unwrap() > 0,
+                "{transfer_id}: {last}"
+            );
+            last
+        }
+
+        #[tokio::test(flavor = "multi_thread")]
+        #[ignore = "needs docker"]
+        async fn a_tree_bigger_than_a_small_tmp_relays_downloads_and_uploads() {
+            let a = ssh_host("a", &["--tmpfs", "/tmp:size=16m"]);
+            let b = ssh_host("b", &[]);
+            let (sa, sb) = tokio::join!(backend(&a), backend(&b));
+            let (ha, hb) = (streaming_host(&sa).await, streaming_host(&sb).await);
+            sh(
+                &b.0,
+                &format!(
+                    "mkdir -p /config/big && head -c {BLOB} /dev/urandom > /config/big/blob && \
+                     i=1; while [ $i -le 2000 ]; do echo $i > /config/big/f$i; i=$((i+1)); done"
+                ),
+                &[],
+            );
+            let source = remote_tree(&b.0, "/config/big");
+            assert!(source.starts_with("2001 50008893 "), "{source}");
+            let (rec, token) = (Recorder::default(), CancellationToken::new());
+            let tmp_before = tmp_used_kb(&a.0);
+
+            let (parent, items) = remote_items(&["/config/big".into()]);
+            let relay = relay_via(
+                &rec,
+                &hb,
+                &parent,
+                &items,
+                &ha,
+                "/config/big",
+                true,
+                "relay",
+                &token,
+            );
+            let (relayed, peak) = peak_tmp_kb(&a, relay).await;
+            relayed.unwrap();
+            assert_eq!(remote_tree(&a.0, "/config/big"), source);
+            assert!(
+                peak < tmp_before + 1024,
+                "A's /tmp peaked at {peak} KB from {tmp_before} KB"
+            );
+
+            let local = tempfile::tempdir().unwrap();
+            let down = local.path().join("big");
+            let (parent, base) = remote_split("/config/big");
+            let (down_str, items) = (down.to_str().unwrap(), [base.to_string()]);
+            download_via(&rec, &ha, parent, &items, down_str, true, "down", &token)
+                .await
+                .unwrap();
+            assert_eq!(local_tree(&down), source);
+
+            let (parent, base) = local_split(down_str);
+            upload_via(
+                &rec,
+                &ha,
+                parent,
+                vec![base],
+                "/config/back",
+                true,
+                "up",
+                &token,
+            )
+            .await
+            .unwrap();
+            assert_eq!(remote_tree(&a.0, "/config/back"), source);
+            assert_eq!(tmp_used_kb(&a.0), tmp_before);
+
+            for id in ["relay", "down", "up"] {
+                eprintln!("{id}: {}", progress_seen(&rec, id));
+            }
+            eprintln!("tree {source}; A /tmp {tmp_before} KB before, peak {peak} KB during relay");
+        }
+
+        #[tokio::test(flavor = "multi_thread")]
+        #[ignore = "needs docker"]
+        async fn a_full_destination_is_named_in_the_error() {
+            let a = ssh_host("full", &["--tmpfs", "/small:size=1m,mode=1777"]);
+            let host = streaming_host(&backend(&a).await).await;
+            let local = tempfile::tempdir().unwrap();
+            let src = local.path().join("src");
+            std::fs::create_dir(&src).unwrap();
+            let mut random = std::fs::File::open("/dev/urandom").unwrap().take(BLOB);
+            std::io::copy(
+                &mut random,
+                &mut std::fs::File::create(src.join("blob")).unwrap(),
+            )
+            .unwrap();
+            let (rec, token) = (Recorder::default(), CancellationToken::new());
+
+            let (parent, base) = local_split(src.to_str().unwrap());
+            let upload = upload_via(
+                &rec,
+                &host,
+                parent,
+                vec![base],
+                "/small/x",
+                true,
+                "full",
+                &token,
+            );
+            let err = tokio::time::timeout(Duration::from_secs(120), upload)
+                .await
+                .expect("a full disk ends the upload")
+                .unwrap_err();
+            assert_eq!(err, "Not enough space in /small/x on the remote host");
+        }
     }
 
     #[cfg(windows)]

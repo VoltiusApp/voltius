@@ -1255,6 +1255,7 @@ mod tests {
 #[cfg(test)]
 mod docker_harness {
     use super::*;
+    use crate::ssh::test_docker::{docker, Container as Host};
     use std::io::{Read, Write};
     use std::process::{Command, Stdio};
     use std::sync::mpsc;
@@ -1267,13 +1268,6 @@ mod docker_harness {
         ("tmuxh:debian-trixie-slim", "debian:trixie-slim"),
         ("tmuxh:ubuntu-26-04", "ubuntu:26.04"),
     ];
-
-    fn docker(args: &[&str]) -> std::process::Output {
-        Command::new("docker")
-            .args(args)
-            .output()
-            .expect("docker runs")
-    }
 
     fn ensure_image(tag: &str, base: &str) {
         if docker(&["image", "inspect", tag]).status.success() {
@@ -1297,29 +1291,15 @@ mod docker_harness {
         assert!(child.wait().unwrap().success(), "build {tag}");
     }
 
-    struct Host(String);
-
-    impl Drop for Host {
-        fn drop(&mut self) {
-            docker(&["rm", "-f", &self.0]);
-        }
-    }
-
     fn start(image: &str, workload: &str) -> Host {
         let name = format!(
             "voltius-cc-{}-{}",
             std::process::id(),
             image.replace([':', '.'], "-")
         );
-        docker(&["rm", "-f", &name]);
         let env = format!("W={workload}");
         let boot = r#"tmux -L t -f /dev/null new-session -d -s s -x 80 -y 24 "$W"; sleep 600"#;
-        assert!(
-            docker(&["run", "-d", "--name", &name, "-e", &env, image, "sh", "-c", boot])
-                .status
-                .success()
-        );
-        let host = Host(name);
+        let host = Host::run(name, &["-e", &env, image, "sh", "-c", boot]);
         let deadline = Instant::now() + Duration::from_secs(10);
         while !docker(&["exec", &host.0, "tmux", "-L", "t", "has-session", "-t", "s"])
             .status
