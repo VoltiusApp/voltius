@@ -40,7 +40,7 @@ export interface Participant {
 
 export interface SessionCallbacks {
   onOutput: (data: Uint8Array) => void;
-  onInput: (data: Uint8Array) => void;
+  onInput: (data: Uint8Array, from: string) => void;
   onControlUpdate: (holderId: string, requesterId: string | null) => void;
   onParticipantJoined: (participant: Participant) => void;
   onParticipantLeft: (userId: string) => void;
@@ -498,7 +498,7 @@ export function openWebSocket(
         }
         case "input": {
           const decrypted = await decryptData(sessionKey, msg.data as string);
-          callbacks.onInput(decrypted);
+          callbacks.onInput(decrypted, msg.from as string);
           break;
         }
         case "control_update":

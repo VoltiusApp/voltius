@@ -117,6 +117,17 @@ test("joinSession wires callbacks that drive the participant/control state machi
   expect(get().connections[localId].ended).toBe(true);
 });
 
+async function shareAsHost(localId: string): Promise<any> {
+  let cb: any;
+  mp.openWebSocket.mockImplementation((...args: any[]) => {
+    cb = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
+    return connStub();
+  });
+  mp.createVaultSession.mockResolvedValueOnce({ sessionId: "m1", sessionKey: new Uint8Array([1]), sessionKeyBytes: new Uint8Array(32) });
+  await get().startSharing(localId, ["v1"], [], "conn", []);
+  return cb;
+}
+
 // Regression guard: a host's callbacks used to write a guest's keystrokes with
 // sshSendInput unconditionally, so control handed to a guest on a shared local
 // shell or serial session went nowhere.
@@ -126,16 +137,10 @@ test.each([
   ["ssh", "ssh-1"],
 ] as const)("a guest's input reaches a %s host session's own transport", async (type, localId) => {
   io.getSessionTransportType.mockReturnValue(type);
-  let cb: any;
-  mp.openWebSocket.mockImplementation((...args: any[]) => {
-    cb = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
-    return connStub();
-  });
-  mp.createVaultSession.mockResolvedValueOnce({ sessionId: "m1", sessionKey: new Uint8Array([1]), sessionKeyBytes: new Uint8Array(32) });
+  const cb = await shareAsHost(localId);
 
-  await get().startSharing(localId, ["v1"], [], "conn", []);
-
-  cb.onInput(new Uint8Array([0x6c, 0x73]));
+  cb.onControlUpdate("u2", null);
+  cb.onInput(new Uint8Array([0x6c, 0x73]), "u2");
 
   expect(io.sendSessionInput).toHaveBeenCalledWith(localId, type, expect.anything());
   expect(Array.from((io.sendSessionInput.mock.calls[0] as unknown[])[2] as Uint8Array)).toEqual([0x6c, 0x73]);
@@ -143,17 +148,30 @@ test.each([
 
 test("a guest's UTF-8 input reaches a GBK host session as GBK", async () => {
   io.encoding = "gbk";
-  let cb: any;
-  mp.openWebSocket.mockImplementation((...args: any[]) => {
-    cb = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
-    return connStub();
-  });
-  mp.createVaultSession.mockResolvedValueOnce({ sessionId: "m1", sessionKey: new Uint8Array([1]), sessionKeyBytes: new Uint8Array(32) });
+  const cb = await shareAsHost("gbk-1");
 
-  await get().startSharing("gbk-1", ["v1"], [], "conn", []);
-  cb.onInput(new TextEncoder().encode("中"));
+  cb.onControlUpdate("u2", null);
+  cb.onInput(new TextEncoder().encode("中"), "u2");
 
   expect(Array.from((io.sendSessionInput.mock.calls[0] as unknown[])[2] as Uint8Array)).toEqual([0xd6, 0xd0]);
+});
+
+test("the host drops relayed input from anyone but the control holder", async () => {
+  const cb = await shareAsHost("pty-1");
+  const ls = new Uint8Array([0x6c, 0x73]);
+
+  cb.onInput(ls, "u2");
+  expect(io.sendSessionInput).not.toHaveBeenCalled();
+
+  cb.onControlUpdate("u2", null);
+  cb.onInput(ls, "u3");
+  expect(io.sendSessionInput).not.toHaveBeenCalled();
+  cb.onInput(ls, "u2");
+  expect(io.sendSessionInput).toHaveBeenCalledOnce();
+
+  cb.onControlUpdate("u1", null);
+  cb.onInput(ls, "u2");
+  expect(io.sendSessionInput).toHaveBeenCalledOnce();
 });
 
 // Regression guard: attachAsHost (the host-side path shared by startSharing,

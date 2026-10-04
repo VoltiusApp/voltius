@@ -108,6 +108,16 @@ test("output messages are decrypted before reaching onOutput", async () => {
   expect(Array.from(cb.onOutput.mock.calls[0][0] as Uint8Array)).toEqual(Array.from(payload));
 });
 
+test("input messages reach onInput decrypted, with their sender", async () => {
+  const cb = noopCallbacks();
+  const k = await key();
+  openWebSocket("https://s", "sid", "jwt", k, cb);
+  const encrypted = await encryptData(k, new Uint8Array([0x6c, 0x73]));
+  await MockWS.last.onmessage!({ data: JSON.stringify({ type: "input", from: "u2", data: encrypted }) });
+  const [data, from] = cb.onInput.mock.calls[0] as [Uint8Array, string];
+  expect([Array.from(data), from]).toEqual([[0x6c, 0x73], "u2"]);
+});
+
 test("malformed message JSON is swallowed", async () => {
   const cb = noopCallbacks();
   openWebSocket("https://s", "sid", "jwt", await key(), cb);

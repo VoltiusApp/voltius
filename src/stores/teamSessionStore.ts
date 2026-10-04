@@ -109,12 +109,13 @@ export function attachGuestOutput(localSessionId: string, write: (data: Uint8Arr
 const relayDecoder = new TextDecoder();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function makeCallbacks(localSessionId: string, set: any, _get: any) {
+function makeCallbacks(localSessionId: string, set: any, get: any) {
   return {
     onOutput: () => {},
     // A guest with control types into whatever the host is running — a local
     // shell and a serial port as much as an SSH channel. The relay carries UTF-8.
-    onInput: (data: Uint8Array) => {
+    onInput: (data: Uint8Array, from: string) => {
+      if (from !== get().connections[localSessionId]?.controlHolder) return;
       const bytes = encodeSessionText(localSessionId, relayDecoder.decode(data));
       sendSessionInput(localSessionId, getSessionTransportType(localSessionId), bytes).catch(() => {});
     },
