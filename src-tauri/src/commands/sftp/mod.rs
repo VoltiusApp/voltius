@@ -257,8 +257,7 @@ pub(super) async fn tar_backend(
 }
 
 /// Copy `reader` into `writer` in `CHUNK_SIZE` chunks, calling `on_chunk` after
-/// every chunk and honouring cancellation. Neither side is shut down — the
-/// caller owns the close, and its wording.
+/// each and honouring cancellation. Neither side is shut down.
 pub(crate) async fn pump<R, W>(
     reader: &mut R,
     writer: &mut W,

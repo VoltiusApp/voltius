@@ -1,30 +1,35 @@
 use super::local_tar::{self, Sink};
 use super::tar_failure::{explain, End};
-use super::{pump, TransferProgress};
+use super::{pump, TransferProgress, CHUNK_SIZE};
 use crate::sftp::backend::TransferEvents;
 use crate::ssh::exec::{drain_channel, open_exec};
-use russh::client::{Handle, Handler};
+use russh::client::{Handle, Handler, Msg};
+use russh::{ChannelReadHalf, ChannelWriteHalf};
+use std::future::Future;
 use std::io::{self, Read};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::task::JoinHandle;
 use tokio_util::io::SyncIoBridge;
 use tokio_util::sync::CancellationToken;
 
 const PIPE: usize = 256 * 1024;
 const REMOTE_REASON_WAIT: Duration = Duration::from_secs(2);
+const CLOSE_WAIT: Duration = Duration::from_millis(500);
 const CANCELLED: &str = "Transfer cancelled";
 
 type Status = Result<(Option<i32>, Vec<u8>), String>;
+type Joined = Result<Status, tokio::task::JoinError>;
 
 #[derive(Clone, Default)]
 pub struct Progress {
     pub done: Arc<AtomicU64>,
     pub total: Arc<AtomicU64>,
+    last_emitted: Arc<AtomicU64>,
 }
 
 impl Progress {
@@ -32,9 +37,14 @@ impl Progress {
         self.total.store(n, Ordering::Relaxed);
     }
 
-    fn emit(&self, events: &impl TransferEvents, transfer_id: &str) {
+    fn emit(&self, events: &impl TransferEvents, transfer_id: &str, force: bool) {
         let total = self.total.load(Ordering::Relaxed);
         let done = self.done.load(Ordering::Relaxed);
+        let last = self.last_emitted.load(Ordering::Relaxed);
+        if !force && done.saturating_sub(last) < CHUNK_SIZE as u64 {
+            return;
+        }
+        self.last_emitted.store(done, Ordering::Relaxed);
         let transferred = if total > 0 { done.min(total) } else { done };
         events.send(
             &format!("sftp-progress-{transfer_id}"),
@@ -61,7 +71,11 @@ impl<'a, E: TransferEvents> Job<'a, E> {
     }
 
     fn emit(&self) {
-        self.progress.emit(self.events, self.transfer_id);
+        self.progress.emit(self.events, self.transfer_id, false);
+    }
+
+    fn finish(&self) {
+        self.progress.emit(self.events, self.transfer_id, true);
     }
 
     fn report_skipped(&self, skipped: Vec<String>) {
@@ -95,8 +109,12 @@ fn joined<T>(r: Result<io::Result<T>, tokio::task::JoinError>) -> io::Result<T> 
     r.unwrap_or_else(|e| Err(io::Error::other(e)))
 }
 
-fn status(r: Result<Status, tokio::task::JoinError>) -> Status {
+fn status(r: Joined) -> Status {
     r.unwrap_or_else(|e| Err(e.to_string()))
+}
+
+fn watch_status(mut rx: ChannelReadHalf) -> JoinHandle<Status> {
+    tokio::spawn(async move { drain_channel(&mut rx, &mut tokio::io::sink(), None, None).await })
 }
 
 /// Waits briefly for a remote command that broke our stream to say why.
@@ -111,16 +129,88 @@ async fn remote_reason(
     }
 }
 
+/// Runs `work`, but returns the remote's status instead if the remote ends first:
+/// a parked write to a closed channel never errors.
+async fn race_status<T>(
+    status_task: &mut JoinHandle<Status>,
+    work: impl Future<Output = T>,
+) -> Result<T, Joined> {
+    tokio::select! {
+        biased;
+        r = work => Ok(r),
+        s = status_task => Err(s),
+    }
+}
+
+fn ended_early(end: End, dir: &str, ended: Joined) -> String {
+    match status(ended) {
+        Ok((code, err)) => remote_result(end, dir, code, &err)
+            .err()
+            .unwrap_or_else(|| explain(end, dir, "exited before the transfer finished")),
+        Err(e) => e,
+    }
+}
+
+/// A close request queues behind data the session loop may be unable to flush.
+async fn close_bounded<E>(close: impl Future<Output = Result<(), E>>) {
+    let _ = tokio::time::timeout(CLOSE_WAIT, close).await;
+}
+
+async fn abort_remote(tx: &ChannelWriteHalf<Msg>, status_task: &JoinHandle<Status>) {
+    close_bounded(tx.close()).await;
+    status_task.abort();
+}
+
+async fn fail_remote(
+    tx: &ChannelWriteHalf<Msg>,
+    token: &CancellationToken,
+    end: End,
+    dir: &str,
+    status_task: &mut JoinHandle<Status>,
+    cause: String,
+) -> String {
+    close_bounded(tx.close()).await;
+    let message = if token.is_cancelled() {
+        CANCELLED.into()
+    } else {
+        remote_reason(end, dir, status_task).await.unwrap_or(cause)
+    };
+    status_task.abort();
+    message
+}
+
+async fn finish_remote(
+    mut writer: impl AsyncWrite + Unpin,
+    tx: &ChannelWriteHalf<Msg>,
+    token: &CancellationToken,
+    end: End,
+    dir: &str,
+    mut status_task: JoinHandle<Status>,
+) -> Result<(), String> {
+    let finish = async {
+        let _ = writer.flush().await;
+        tx.eof().await.map_err(|e| format!("Write error: {e}"))?;
+        let (code, err) = status((&mut status_task).await)?;
+        remote_result(end, dir, code, &err)
+    };
+    let result = tokio::select! {
+        biased;
+        _ = token.cancelled() => Err(CANCELLED.to_string()),
+        r = finish => r,
+    };
+    if result.is_err() {
+        abort_remote(tx, &status_task).await;
+    }
+    result
+}
+
 pub async fn upload<H: Handler, E: TransferEvents>(
     to: RemoteEnd<'_, H>,
     local: LocalSide,
     job: &Job<'_, E>,
 ) -> Result<(), String> {
-    let (mut rx, tx) = open_exec(to.handle, &to.cmd).await?.split();
-    let mut remote: JoinHandle<Status> =
-        tokio::spawn(
-            async move { drain_channel(&mut rx, &mut tokio::io::sink(), None, None).await },
-        );
+    let (rx, tx) = open_exec(to.handle, &to.cmd).await?.split();
+    let mut remote = watch_status(rx);
     let local_label = local.parent.display().to_string();
     let (pipe_w, mut pipe_r) = tokio::io::duplex(PIPE);
     let bridge = SyncIoBridge::new(pipe_w);
@@ -130,28 +220,31 @@ pub async fn upload<H: Handler, E: TransferEvents>(
     });
 
     let mut writer = tx.make_writer();
-    let sent = pump(&mut pipe_r, &mut writer, job.token, |_| job.emit()).await;
+    let sent = race_status(
+        &mut remote,
+        pump(&mut pipe_r, &mut writer, job.token, |_| job.emit()),
+    )
+    .await;
     drop(pipe_r);
+    let sent = match sent {
+        Ok(sent) => sent,
+        Err(ended) => {
+            close_bounded(tx.close()).await;
+            return Err(ended_early(End::Remote, to.dir, ended));
+        }
+    };
     let packed = joined(packer.await);
 
     if let Err(e) = sent {
-        let _ = tx.close().await;
-        if job.token.is_cancelled() {
-            return Err(CANCELLED.into());
-        }
-        return Err(remote_reason(End::Remote, to.dir, &mut remote)
-            .await
-            .unwrap_or(e));
+        return Err(fail_remote(&tx, job.token, End::Remote, to.dir, &mut remote, e).await);
     }
     if let Err(e) = packed {
-        let _ = tx.close().await;
+        abort_remote(&tx, &remote).await;
         return Err(explain(End::Local, &local_label, &e.to_string()));
     }
-    let _ = writer.flush().await;
-    drop(writer);
-    tx.eof().await.map_err(|e| format!("Write error: {e}"))?;
-    let (code, err) = status(remote.await)?;
-    remote_result(End::Remote, to.dir, code, &err)
+    finish_remote(writer, &tx, job.token, End::Remote, to.dir, remote).await?;
+    job.finish();
+    Ok(())
 }
 
 pub async fn download<H: Handler, E: TransferEvents>(
@@ -170,7 +263,7 @@ pub async fn download<H: Handler, E: TransferEvents>(
     });
 
     let mut on_data = |_: &[u8]| job.emit();
-    let drained = drain_channel(
+    let mut drained = drain_channel(
         &mut channel,
         &mut pipe_w,
         Some(&mut on_data),
@@ -179,8 +272,15 @@ pub async fn download<H: Handler, E: TransferEvents>(
     .await;
     let _ = pipe_w.shutdown().await;
     drop(pipe_w);
+    if drained.is_err() && !job.token.is_cancelled() {
+        let mut discard = tokio::io::sink();
+        let rest = drain_channel(&mut channel, &mut discard, None, Some(job.token));
+        if let Ok(Ok(status)) = tokio::time::timeout(REMOTE_REASON_WAIT, rest).await {
+            drained = Ok(status);
+        }
+    }
     if drained.is_err() {
-        let _ = channel.close().await;
+        close_bounded(channel.close()).await;
     }
     let unpacked = joined(unpacker.await);
 
@@ -195,6 +295,7 @@ pub async fn download<H: Handler, E: TransferEvents>(
     let skipped = unpacked.map_err(|e| explain(End::Local, &local_label, &e.to_string()))?;
     drained?;
     job.report_skipped(skipped);
+    job.finish();
     Ok(())
 }
 
@@ -225,14 +326,11 @@ pub async fn relay<HS: Handler, HD: Handler, E: TransferEvents>(
     job: &Job<'_, E>,
 ) -> Result<(), String> {
     let mut source = open_exec(src.handle, &src.cmd).await?;
-    let (mut rx, tx) = open_exec(dst.handle, &dst.cmd).await?.split();
-    let mut sink: JoinHandle<Status> =
-        tokio::spawn(
-            async move { drain_channel(&mut rx, &mut tokio::io::sink(), None, None).await },
-        );
+    let (rx, tx) = open_exec(dst.handle, &dst.cmd).await?.split();
+    let mut sink = watch_status(rx);
     let (tap, taps) = mpsc::channel::<Vec<u8>>();
     let done = job.progress.done.clone();
-    tokio::task::spawn_blocking(move || {
+    let counter = tokio::task::spawn_blocking(move || {
         let reader = ChunkReader {
             rx: taps,
             buf: Vec::new(),
@@ -247,35 +345,36 @@ pub async fn relay<HS: Handler, HD: Handler, E: TransferEvents>(
             let _ = tap.send(chunk.to_vec());
             job.emit();
         };
-        drain_channel(
-            &mut source,
-            &mut writer,
-            Some(&mut on_data),
-            Some(job.token),
+        race_status(
+            &mut sink,
+            drain_channel(
+                &mut source,
+                &mut writer,
+                Some(&mut on_data),
+                Some(job.token),
+            ),
         )
         .await
     };
     drop(tap);
+    let _ = counter.await;
 
     let (code, err) = match drained {
-        Ok(v) => v,
-        Err(e) => {
-            let _ = tx.close().await;
-            let _ = source.close().await;
-            if job.token.is_cancelled() {
-                return Err(CANCELLED.into());
-            }
-            return Err(remote_reason(End::Destination, dst.dir, &mut sink)
-                .await
-                .unwrap_or(e));
+        Ok(Ok(v)) => v,
+        Ok(Err(e)) => {
+            close_bounded(source.close()).await;
+            return Err(fail_remote(&tx, job.token, End::Destination, dst.dir, &mut sink, e).await);
+        }
+        Err(ended) => {
+            close_bounded(source.close()).await;
+            close_bounded(tx.close()).await;
+            return Err(ended_early(End::Destination, dst.dir, ended));
         }
     };
-    let _ = writer.flush().await;
-    drop(writer);
-    tx.eof().await.map_err(|e| format!("Write error: {e}"))?;
-    let (dst_code, dst_err) = status(sink.await)?;
-    remote_result(End::Destination, dst.dir, dst_code, &dst_err)?;
-    remote_result(End::Source, src.dir, code, &err)
+    finish_remote(writer, &tx, job.token, End::Destination, dst.dir, sink).await?;
+    remote_result(End::Source, src.dir, code, &err)?;
+    job.finish();
+    Ok(())
 }
 
 #[cfg(all(test, unix))]
@@ -463,9 +562,10 @@ mod tests {
             cmd: format!("cat '{}'", cut.display()),
             dir: "/srv",
         };
-        assert!(download(from, dst.path().into(), false, &job)
+        let err = download(from, dst.path().into(), false, &job)
             .await
-            .is_err());
+            .unwrap_err();
+        assert!(err.starts_with("tar failed on this device"), "{err}");
     }
 
     #[tokio::test]
@@ -568,5 +668,104 @@ mod tests {
             .await
             .unwrap();
         assert!(dst.path().join("top/a.txt").exists());
+    }
+
+    const DISK_FULL: &str = "echo 'tar: b: Cannot write: No space left on device' >&2; exit 2";
+
+    fn noise_tree() -> tempfile::TempDir {
+        let src = tempfile::tempdir().unwrap();
+        let noise: Vec<u8> = (0..8_000_000u32)
+            .map(|i| (i.wrapping_mul(2654435761) >> 13) as u8)
+            .collect();
+        fs::write(src.path().join("noise"), noise).unwrap();
+        src
+    }
+
+    #[tokio::test]
+    async fn an_early_remote_exit_cannot_hang_a_large_upload() {
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let src = noise_tree();
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let job = Job::new(&rec, "t11", &token);
+        let to = RemoteEnd {
+            handle: &handle,
+            cmd: DISK_FULL.into(),
+            dir: "/srv",
+        };
+        let local = LocalSide {
+            parent: src.path().into(),
+            names: vec!["noise".into()],
+            deref: false,
+        };
+        let r = tokio::time::timeout(Duration::from_secs(20), upload(to, local, &job))
+            .await
+            .expect("upload hung");
+        assert_eq!(
+            r.unwrap_err(),
+            "Not enough space in /srv on the remote host"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_early_destination_exit_cannot_hang_a_large_relay() {
+        let (a, _) = proc_server(ProcOptions::default()).await;
+        let (b, _) = proc_server(ProcOptions::default()).await;
+        let src = noise_tree();
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let job = Job::new(&rec, "t12", &token);
+        let parent = s(src.path());
+        let from = RemoteEnd {
+            handle: &a,
+            cmd: SH
+                .create_to_stdout(&parent, &["noise".into()], false)
+                .unwrap(),
+            dir: &parent,
+        };
+        let to = RemoteEnd {
+            handle: &b,
+            cmd: DISK_FULL.into(),
+            dir: "/dest",
+        };
+        let r = tokio::time::timeout(Duration::from_secs(20), relay(from, to, &job))
+            .await
+            .expect("relay hung");
+        assert_eq!(
+            r.unwrap_err(),
+            "Not enough space in /dest on the destination host"
+        );
+    }
+
+    #[tokio::test]
+    async fn cancel_ends_a_relay_whose_destination_never_reads() {
+        let (a, _) = proc_server(ProcOptions::default()).await;
+        let (b, _) = proc_server(ProcOptions::default()).await;
+        let src = noise_tree();
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let job = Job::new(&rec, "t13", &token);
+        let parent = s(src.path());
+        let from = RemoteEnd {
+            handle: &a,
+            cmd: SH
+                .create_to_stdout(&parent, &["noise".into()], false)
+                .unwrap(),
+            dir: &parent,
+        };
+        let to = RemoteEnd {
+            handle: &b,
+            cmd: "sleep 30".into(),
+            dir: "/dest",
+        };
+        let t = token.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            t.cancel();
+        });
+        let r = tokio::time::timeout(Duration::from_secs(10), relay(from, to, &job))
+            .await
+            .expect("cancel did not end the relay");
+        assert_eq!(r.unwrap_err(), "Transfer cancelled");
     }
 }

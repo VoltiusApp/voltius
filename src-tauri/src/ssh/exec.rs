@@ -137,9 +137,16 @@ pub async fn drain_channel<C: MsgSource, W: AsyncWrite + Unpin>(
         };
         match msg {
             Some(ChannelMsg::Data { data }) => {
-                out.write_all(&data)
-                    .await
-                    .map_err(|e| format!("Write error: {e}"))?;
+                let write = out.write_all(&data);
+                match token {
+                    Some(t) => tokio::select! {
+                        biased;
+                        _ = t.cancelled() => return Err("Transfer cancelled".into()),
+                        r = write => r,
+                    },
+                    None => write.await,
+                }
+                .map_err(|e| format!("Write error: {e}"))?;
                 if let Some(f) = on_data.as_mut() {
                     f(&data);
                 }
